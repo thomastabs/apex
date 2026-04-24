@@ -2,6 +2,8 @@
 
 bolt is a Streamlit app for turning an Epic into Taiga work while keeping the approved requirements in local markdown context.
 
+<img width="1850" height="967" alt="image" src="https://github.com/user-attachments/assets/56b21e8b-cbf7-4174-ac7e-742a6d793a78" />
+
 ## Simple Diagram
 
 ```mermaid
