@@ -18,8 +18,10 @@ Context Isolation Rule (enforced in fix_bolt_diagnose):
   Only pass: bug description + stack trace + isolated code snippet.
 """
 
+import json
 import os
 import re
+from collections.abc import Callable, Generator
 from typing import Literal
 
 from dotenv import load_dotenv
@@ -68,10 +70,156 @@ def _invoke(system: str, human: str, model: str, max_tokens: int = 2048) -> str:
     return response.content.strip()
 
 
-def _invoke_structured(system: str, human: str, model: str, schema, max_tokens: int = 2048):
+def _invoke_structured_with_progress(
+    system: str,
+    human: str,
+    model: str,
+    schema,
+    max_tokens: int = 2048,
+    *,
+    on_item: Callable[[int], None] | None = None,
+    item_field: str = "stories",
+):
+    """Structured output with live progress updates.
+
+    Three-tier fallback:
+      1. Streaming with with_structured_output (progress callbacks fire here).
+      2. Non-streaming chain.invoke (same chain, no progress).
+      3. Raw JSON prompt + manual Pydantic validation (bypasses LangChain parsing).
+
+    Tier 3 exists because langchain-anthropic 0.1.x passes the initial empty {}
+    from Anthropic's content_block_start streaming event into Pydantic validation,
+    which raises ValidationError in both streaming and invoke paths.
+    """
     llm = _get_llm(model, max_tokens)
-    structured_llm = llm.with_structured_output(schema)
-    return structured_llm.invoke([SystemMessage(content=system), HumanMessage(content=human)])
+    chain = llm.with_structured_output(schema)
+    messages = [SystemMessage(content=system), HumanMessage(content=human)]
+    last = None
+    seen = 0
+
+    # Tier 1 — streaming
+    try:
+        for chunk in chain.stream(messages):
+            last = chunk
+            if on_item is not None:
+                if isinstance(chunk, dict):
+                    items = chunk.get(item_field) or []
+                    n = sum(1 for item in items if isinstance(item, dict) and item)
+                else:
+                    items = getattr(chunk, item_field, None) or []
+                    n = sum(1 for item in items if item is not None)
+                if n > seen:
+                    seen = n
+                    on_item(n)
+    except Exception:
+        last = None
+
+    if isinstance(last, schema):
+        return last
+
+    # Tier 2 — non-streaming invoke
+    try:
+        result = chain.invoke(messages)
+        if isinstance(result, schema):
+            return result
+        if isinstance(result, dict):
+            return schema.model_validate(result)
+    except Exception:
+        pass
+
+    # Tier 3 — raw JSON fallback (bypasses with_structured_output entirely)
+    return _invoke_json_fallback(
+        system, human, model, schema, max_tokens,
+        on_item=on_item, item_field=item_field,
+    )
+
+
+def _repair_truncated_json(content: str) -> str:
+    """Close unclosed braces/brackets in a truncated JSON string."""
+    s = content.rstrip().rstrip(",")
+    # If we're mid-string, close the string first
+    # Count unescaped double-quotes to detect open strings
+    in_string = False
+    escape_next = False
+    for ch in s:
+        if escape_next:
+            escape_next = False
+            continue
+        if ch == "\\":
+            escape_next = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+    if in_string:
+        s += '"'
+    open_curly  = s.count("{") - s.count("}")
+    open_square = s.count("[") - s.count("]")
+    s += "]" * max(open_square, 0)
+    s += "}" * max(open_curly,  0)
+    return s
+
+
+def _invoke_json_fallback(
+    system: str,
+    human: str,
+    model: str,
+    schema,
+    max_tokens: int,
+    *,
+    on_item: Callable[[int], None] | None = None,
+    item_field: str = "stories",
+):
+    """Ask the model for raw JSON and validate it with Pydantic directly."""
+    schema_doc = json.dumps(schema.model_json_schema(), indent=2)
+    augmented = (
+        f"{system}\n\n"
+        f"RESPONSE FORMAT: output ONLY a single valid JSON object — "
+        f"no markdown, no code fences, no commentary.\n"
+        f"The JSON must match this schema exactly:\n{schema_doc}"
+    )
+    # Add headroom so long responses don't get truncated mid-JSON.
+    effective_tokens = max(max_tokens + 2048, 8192)
+    llm = _get_llm(model, effective_tokens)
+    response = llm.invoke([SystemMessage(content=augmented), HumanMessage(content=human)])
+    content = response.content
+    if isinstance(content, list):
+        content = "".join(
+            block.get("text", "") for block in content if isinstance(block, dict)
+        )
+    content = content.strip()
+    # Strip markdown code fences if the model added them
+    content = re.sub(r"^```(?:json)?\s*\n?", "", content)
+    content = re.sub(r"\n?```\s*$", "", content)
+    content = content.strip()
+    try:
+        result = schema.model_validate_json(content)
+    except Exception:
+        result = schema.model_validate_json(_repair_truncated_json(content))
+    if on_item is not None:
+        items = getattr(result, item_field, [])
+        on_item(len(items))
+    return result
+
+
+def stream_text(
+    system: str, human: str, model: str, max_tokens: int = 4096
+) -> Generator[str, None, None]:
+    """Yield text chunks from a streaming LLM call.
+
+    Compatible with st.write_stream() — yields plain strings.
+    Used by Phases 2-6 which produce raw text (not structured output).
+    """
+    llm = _get_llm(model, max_tokens)
+    for chunk in llm.stream(
+        [SystemMessage(content=system), HumanMessage(content=human)]
+    ):
+        content = chunk.content
+        if isinstance(content, str):
+            yield content
+        elif isinstance(content, list):
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "text":
+                    yield block.get("text", "")
 
 
 # ---------------------------------------------------------------------------
@@ -158,6 +306,7 @@ def generate_nl_stories(
     epic_description: str,
     hint: str = "",
     project_concept: str = "",
+    on_story: Callable[[int], None] | None = None,
 ) -> NLStoryList:
     human = ""
     if project_concept.strip():
@@ -166,7 +315,10 @@ def generate_nl_stories(
     if hint.strip():
         human += f"Team guidance / constraints:\n{hint.strip()}\n\n"
     human += "Decompose into fractional User Stories with Natural Language scenarios."
-    return _invoke_structured(_NL_GENERATION_SYSTEM, human, get_fast_model(), NLStoryList)
+    return _invoke_structured_with_progress(
+        _NL_GENERATION_SYSTEM, human, get_fast_model(), NLStoryList,
+        on_item=on_story,
+    )
 
 
 def format_nl_draft(story_list: NLStoryList) -> str:
@@ -203,13 +355,17 @@ Rules you MUST follow:
 """
 
 
-def compile_gherkin_stories(nl_draft: str) -> GherkinStoryList:
+def compile_gherkin_stories(
+    nl_draft: str,
+    on_story: Callable[[int], None] | None = None,
+) -> GherkinStoryList:
     human = (
         f"Natural Language Draft (human-reviewed):\n\n{nl_draft}\n\n"
         "Compile every story and scenario into formal Gherkin Language."
     )
-    return _invoke_structured(
-        _GL_COMPILATION_SYSTEM, human, get_fast_model(), GherkinStoryList, max_tokens=4096
+    return _invoke_structured_with_progress(
+        _GL_COMPILATION_SYSTEM, human, get_fast_model(), GherkinStoryList,
+        max_tokens=4096, on_item=on_story,
     )
 
 
@@ -234,19 +390,27 @@ def format_gherkin_story(story: GherkinStory) -> str:
     return "\n".join(lines).rstrip()
 
 
-_GHERKIN_KW_RE = re.compile(
-    r"^(\s*)(Feature|Scenario|Given|When|Then|And)(: | )",
+# Block-level keywords (always followed by colon, then optional whitespace/newline).
+# Scenario Outline must precede Scenario so the longer match wins.
+_GHERKIN_BLOCK_RE = re.compile(
+    r"^(\s*)(Feature|Background|Scenario Outline|Scenario|Examples):([ \t]*)",
+    re.MULTILINE,
+)
+# Step-level keywords (followed by a space, no colon).
+_GHERKIN_STEP_RE = re.compile(
+    r"^(\s*)(Given|When|Then|And|But)( )",
     re.MULTILINE,
 )
 
 
 def bold_gherkin_keywords(gherkin: str) -> str:
     """Wrap Gherkin keywords with Markdown bold markers for Taiga display."""
-    def _sub(m: re.Match) -> str:
-        indent, keyword, sep = m.group(1), m.group(2), m.group(3)
-        bold = f"**{keyword}:**" if sep.startswith(":") else f"**{keyword}**"
-        return f"{indent}{bold}{sep.lstrip(':')}"
-    return _GHERKIN_KW_RE.sub(_sub, gherkin)
+    result = _GHERKIN_BLOCK_RE.sub(
+        lambda m: f"{m.group(1)}**{m.group(2)}:**{m.group(3)}", gherkin
+    )
+    return _GHERKIN_STEP_RE.sub(
+        lambda m: f"{m.group(1)}**{m.group(2)}**{m.group(3)}", result
+    )
 
 
 # ---------------------------------------------------------------------------

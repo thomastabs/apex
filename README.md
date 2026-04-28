@@ -78,7 +78,6 @@ The main design choice is to keep the approved spec in files, not only in memory
 - `taiga_adapter.py` - Taiga API client
 - `components/` - shared UI and Phase 1 logic
 - `views/` - Streamlit pages
-- `assets/style.css` - custom styling
 - `openspec/` - persistent project context
 
 ## Run It

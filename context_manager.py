@@ -1,12 +1,15 @@
 """
 context_manager.py
-Manages read/write operations on three spec files in openspec/:
+Manages read/write operations on the openspec/ artefacts:
 
-  memory-bank.md       — architecture rules, tech stack, vaccine records
-  functional-spec.md   — per-story Gherkin Acceptance Criteria
+  memory-bank.md       — architecture rules, tech stack, enterprise policies (Tech Lead only)
+  functional-spec.md   — per-story Gherkin Acceptance Criteria (locked on push)
   technical-spec.md    — per-story technical contracts (OpenAPI / DB schema)
+  vaccines.md          — permanent vaccine records for diagnosed bugs (Fix-Bolt output only)
+  story-index.json     — machine-readable index of all stories and their phase status
 """
 
+import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,12 +18,20 @@ CONTEXT_DIR          = Path("openspec")
 MEMORY_BANK_FILE     = CONTEXT_DIR / "memory-bank.md"
 FUNCTIONAL_SPEC_FILE = CONTEXT_DIR / "functional-spec.md"
 TECHNICAL_SPEC_FILE  = CONTEXT_DIR / "technical-spec.md"
+VACCINES_FILE        = CONTEXT_DIR / "vaccines.md"
+STORY_INDEX_FILE     = CONTEXT_DIR / "story-index.json"
+DRAFT_FILE           = CONTEXT_DIR / ".bolt-draft.json"
+SESSION_FILE         = CONTEXT_DIR / ".bolt-session.json"
+
+# Module-level cache for the story index — avoids a file read on every sidebar render.
+# Invalidated by _save_story_index() so rebuild/upsert calls always keep it current.
+_story_index_cache: dict | None = None
 
 _MEMORY_BANK_TEMPLATE = """\
 # Memory Bank
 
-> Immutable architecture rules, tech stack decisions, enterprise policies, and
-> historical bug workarounds. Edited only by the Tech Lead.
+> Immutable architecture rules, tech stack decisions, and enterprise policies.
+> Edited only by the Tech Lead.
 
 ## Project Concept
 
@@ -33,13 +44,6 @@ _MEMORY_BANK_TEMPLATE = """\
 ## Architecture Principles
 
 <!-- Document the core architectural decisions and constraints for this project. -->
-
----
-
-# Vaccine Records
-
-> Permanent log of diagnosed bugs. Prevents the AI from hallucinating the same error twice.
-
 """
 
 _FUNCTIONAL_SPEC_TEMPLATE = """\
@@ -58,30 +62,138 @@ _TECHNICAL_SPEC_TEMPLATE = """\
 
 """
 
+_VACCINES_TEMPLATE = """\
+# Vaccine Records
+
+> Permanent log of diagnosed bugs. Prevents the AI from hallucinating the same error twice.
+> Appended automatically by bolt after a Fix-Bolt is resolved.
+
+"""
+
+# Phase status values — ordered by SDLC progression.
+PHASE_STATUSES = (
+    "gherkin_locked",  # Phase 1 complete: Gherkin approved and locked
+    "design_locked",   # Phase 2 complete: Technical Spec generated and locked
+    "implementation",  # Phase 3: Coding proposals / tasks generated
+    "qa",              # Phase 4: BDD tests generated
+    "deployed",        # Phase 5: Deployed to production
+)
+
+
+# ---------------------------------------------------------------------------
+# Initialisation & migrations
+# ---------------------------------------------------------------------------
 
 def init_context() -> None:
-    """Create the three spec files with standard templates if they do not exist."""
+    """Create spec files with standard templates if they do not exist, then run migrations."""
     CONTEXT_DIR.mkdir(parents=True, exist_ok=True)
     for path, template in [
         (MEMORY_BANK_FILE,     _MEMORY_BANK_TEMPLATE),
         (FUNCTIONAL_SPEC_FILE, _FUNCTIONAL_SPEC_TEMPLATE),
         (TECHNICAL_SPEC_FILE,  _TECHNICAL_SPEC_TEMPLATE),
+        (VACCINES_FILE,        _VACCINES_TEMPLATE),
     ]:
         if not path.exists():
             path.write_text(template, encoding="utf-8")
+    _migrate_vaccine_records()
+    if not STORY_INDEX_FILE.exists():
+        rebuild_story_index()
 
 
-def read_context() -> str:
-    """Return all spec files concatenated — used to build AI prompts."""
+def _migrate_vaccine_records() -> None:
+    """One-time migration: move the # Vaccine Records section out of memory-bank.md.
+
+    Older memory-bank.md files had a '# Vaccine Records' section appended at the bottom.
+    This function detects it, strips it from memory-bank.md, and moves any real records
+    (## Vaccine # entries) into vaccines.md.  Idempotent — safe to call on every init.
+    """
+    if not MEMORY_BANK_FILE.exists() or not VACCINES_FILE.exists():
+        return
+
+    content = MEMORY_BANK_FILE.read_text(encoding="utf-8")
+    heading_pos = content.find("\n# Vaccine Records")
+    if heading_pos == -1:
+        return  # already migrated or never had the section
+
+    vaccine_section = content[heading_pos:]
+
+    # Walk back to include the preceding --- separator if one is present.
+    prefix = content[:heading_pos].rstrip()
+    if prefix.endswith("---"):
+        prefix = prefix[:-3].rstrip()
+
+    MEMORY_BANK_FILE.write_text(prefix + "\n", encoding="utf-8")
+
+    records_match = re.search(r"## Vaccine #.*", vaccine_section, re.DOTALL)
+    if records_match:
+        vaccines_content = VACCINES_FILE.read_text(encoding="utf-8")
+        VACCINES_FILE.write_text(
+            vaccines_content.rstrip() + "\n" + records_match.group(0).rstrip() + "\n",
+            encoding="utf-8",
+        )
+
+
+# ---------------------------------------------------------------------------
+# Phase-scoped context builders — use these for AI prompt construction
+# ---------------------------------------------------------------------------
+
+def get_context_for_phase(phase: int, story_id: int | None = None) -> str:
+    """Return the context slice appropriate for a given SDLC phase.
+
+    Phase 1 — Requirements:   Memory Bank only (Project Concept + arch rules)
+    Phase 2 — Design:         Memory Bank + story Gherkin
+    Phase 3 — Implementation: Memory Bank + story Gherkin + story Technical Spec
+    Phase 4 — QA/Testing:     Story Gherkin only
+    Phase 5 — Deployment:     Memory Bank + story Technical Spec
+    Phase 6 — Maintenance:    Empty string — Context Isolation Rule enforced here
+
+    Feeding the entire project context to the AI is prohibited by the framework:
+    it causes architectural hallucinations.  Always call this function rather than
+    read_context() when building AI prompts.
+    """
     init_context()
-    return "\n\n---\n\n".join(
-        p.read_text(encoding="utf-8")
-        for p in (MEMORY_BANK_FILE, FUNCTIONAL_SPEC_FILE, TECHNICAL_SPEC_FILE)
-    )
+    mb      = get_memory_bank()
+    gherkin = get_story_gherkin(story_id)        if story_id is not None else ""
+    tech    = get_story_technical_spec(story_id) if story_id is not None else ""
+
+    if phase == 1:
+        return mb
+    if phase == 2:
+        return _join(mb, gherkin)
+    if phase == 3:
+        return _join(mb, gherkin, tech)
+    if phase == 4:
+        return gherkin
+    if phase == 5:
+        return _join(mb, tech)
+    if phase == 6:
+        # Context Isolation Rule — Fix-Bolt AI must never receive full project context.
+        return ""
+    return mb
+
+
+def _join(*parts: str) -> str:
+    return "\n\n---\n\n".join(p for p in parts if p.strip())
+
+
+# ---------------------------------------------------------------------------
+# Granular readers
+# ---------------------------------------------------------------------------
+
+def get_memory_bank() -> str:
+    """Return memory-bank.md content (architecture rules only, without Vaccine Records)."""
+    init_context()
+    return MEMORY_BANK_FILE.read_text(encoding="utf-8").strip()
+
+
+def get_vaccines() -> str:
+    """Return vaccines.md content."""
+    init_context()
+    return VACCINES_FILE.read_text(encoding="utf-8").strip()
 
 
 def get_project_concept() -> str:
-    """Return the Project Concept text from memory-bank.md, or '' if not set."""
+    """Return the Project Concept section from memory-bank.md, or '' if not set."""
     if not MEMORY_BANK_FILE.exists():
         return ""
     in_section = False
@@ -105,7 +217,7 @@ def get_story_gherkin(story_id: int) -> str:
     """Extract the Gherkin block for a specific story from functional-spec.md."""
     init_context()
     content = FUNCTIONAL_SPEC_FILE.read_text(encoding="utf-8")
-    # Try new format (nested ### under an Epic) first, then legacy flat ## format.
+    # Try nested (### under an Epic) format first, then legacy flat ## format.
     for pattern in (
         rf"### Story {story_id}:.*?(?=\n### |\n## |\Z)",
         rf"## Story {story_id}:.*?(?=\n## |\Z)",
@@ -117,13 +229,180 @@ def get_story_gherkin(story_id: int) -> str:
 
 
 def get_story_technical_spec(story_id: int) -> str:
-    """Extract the technical spec block for a specific story from technical-spec.md."""
+    """Extract the technical spec block for a specific story from technical-spec.md.
+
+    Handles both nested (### under ## Epic) and flat formats.
+    """
     init_context()
     content = TECHNICAL_SPEC_FILE.read_text(encoding="utf-8")
     pattern = rf"### Technical Spec — Story {story_id}.*?(?=\n## |\n### |\Z)"
     match = re.search(pattern, content, re.DOTALL)
     return match.group(0).strip() if match else ""
 
+
+def get_context_sizes() -> dict[str, int]:
+    """Return character counts for each context file (used for sidebar size indicator)."""
+    return {
+        name: (len(path.read_text(encoding="utf-8")) if path.exists() else 0)
+        for name, path in [
+            ("memory-bank.md",     MEMORY_BANK_FILE),
+            ("functional-spec.md", FUNCTIONAL_SPEC_FILE),
+            ("technical-spec.md",  TECHNICAL_SPEC_FILE),
+            ("vaccines.md",        VACCINES_FILE),
+        ]
+    }
+
+
+# ---------------------------------------------------------------------------
+# Story index — machine-readable map of story_id → phase status
+# ---------------------------------------------------------------------------
+
+def get_story_index() -> dict[str, dict]:
+    """Return the story index as {str(story_id): entry_dict}."""
+    global _story_index_cache
+    if _story_index_cache is None:
+        if not STORY_INDEX_FILE.exists():
+            return {}
+        _story_index_cache = json.loads(STORY_INDEX_FILE.read_text(encoding="utf-8"))
+    return _story_index_cache
+
+
+def _save_story_index(index: dict[str, dict]) -> None:
+    global _story_index_cache
+    _story_index_cache = index
+    STORY_INDEX_FILE.write_text(
+        json.dumps(index, indent=2, ensure_ascii=False, sort_keys=True),
+        encoding="utf-8",
+    )
+
+
+def upsert_story_index(story_id: int, **updates) -> None:
+    """Create or update the index entry for a story.
+
+    Only the fields passed as keyword arguments are modified; all other fields
+    retain their current values.  Missing entries are created with defaults.
+
+    Valid fields: epic_id, title, phase_status, has_gherkin, has_tech_spec,
+                  has_proposal, has_bdd.
+    """
+    index = get_story_index()
+    key   = str(story_id)
+    entry = index.get(key, {
+        "story_id":    story_id,
+        "epic_id":     None,
+        "title":       "",
+        "phase_status": "gherkin_locked",
+        "has_gherkin":  False,
+        "has_tech_spec": False,
+        "has_proposal":  False,
+        "has_bdd":       False,
+    })
+    entry.update(updates)
+    entry["story_id"] = story_id  # ensure the canonical field is always correct
+    index[key] = entry
+    _save_story_index(index)
+
+
+def rebuild_story_index() -> dict[str, dict]:
+    """Rebuild the story index from scratch by scanning all openspec/ files.
+
+    Parses functional-spec.md for stories (both flat ## Story and nested ### Story
+    under ## Epic), then cross-references technical-spec.md and bdd_story_*.feature
+    files to determine which phase each story has reached.
+
+    Safe to call at any time — replaces the existing index entirely.
+    """
+    CONTEXT_DIR.mkdir(parents=True, exist_ok=True)
+    index: dict[str, dict] = {}
+
+    # ── Parse functional-spec.md ────────────────────────────────────────────
+    if FUNCTIONAL_SPEC_FILE.exists():
+        content = FUNCTIONAL_SPEC_FILE.read_text(encoding="utf-8")
+        current_epic_id: int | None = None
+
+        for line in content.splitlines():
+            epic_m = re.match(r"^## Epic (\d+): (.+)$", line)
+            if epic_m:
+                current_epic_id = int(epic_m.group(1))
+                continue
+
+            nested_m = re.match(r"^### Story (\d+): (.+)$", line)
+            if nested_m:
+                sid = str(int(nested_m.group(1)))
+                index[sid] = {
+                    "story_id":    int(sid),
+                    "epic_id":     current_epic_id,
+                    "title":       nested_m.group(2).strip(),
+                    "phase_status": "gherkin_locked",
+                    "has_gherkin":  True,
+                    "has_tech_spec": False,
+                    "has_proposal":  False,
+                    "has_bdd":       False,
+                }
+                continue
+
+            flat_m = re.match(r"^## Story (\d+): (.+)$", line)
+            if flat_m:
+                sid = str(int(flat_m.group(1)))
+                if sid not in index:  # don't overwrite a nested entry
+                    index[sid] = {
+                        "story_id":    int(sid),
+                        "epic_id":     None,
+                        "title":       flat_m.group(2).strip(),
+                        "phase_status": "gherkin_locked",
+                        "has_gherkin":  True,
+                        "has_tech_spec": False,
+                        "has_proposal":  False,
+                        "has_bdd":       False,
+                    }
+
+    # ── Cross-reference technical-spec.md ───────────────────────────────────
+    if TECHNICAL_SPEC_FILE.exists():
+        tech = TECHNICAL_SPEC_FILE.read_text(encoding="utf-8")
+        for m in re.finditer(r"### Technical Spec.*?Story (\d+)", tech):
+            sid = str(int(m.group(1)))
+            if sid in index:
+                index[sid]["has_tech_spec"] = True
+                if index[sid]["phase_status"] == "gherkin_locked":
+                    index[sid]["phase_status"] = "design_locked"
+
+    # ── Cross-reference bdd_story_*.feature files ────────────────────────────
+    for path in CONTEXT_DIR.iterdir():
+        if path.name.startswith("bdd_story_") and path.suffix == ".feature":
+            try:
+                sid = str(int(path.stem.removeprefix("bdd_story_")))
+                if sid in index:
+                    index[sid]["has_bdd"] = True
+                    if index[sid]["phase_status"] in ("gherkin_locked", "design_locked"):
+                        index[sid]["phase_status"] = "qa"
+            except ValueError:
+                pass
+
+    _save_story_index(index)
+    return index
+
+
+# ---------------------------------------------------------------------------
+# Full context dump — for debugging and sidebar display ONLY
+# ---------------------------------------------------------------------------
+
+def read_context() -> str:
+    """Return all spec files concatenated.
+
+    WARNING: Do NOT use this for AI prompts — passing the full context violates the
+    framework's Context Isolation principle and causes hallucinations.
+    Use get_context_for_phase() instead.
+    """
+    init_context()
+    return "\n\n---\n\n".join(
+        p.read_text(encoding="utf-8")
+        for p in (MEMORY_BANK_FILE, FUNCTIONAL_SPEC_FILE, TECHNICAL_SPEC_FILE, VACCINES_FILE)
+    )
+
+
+# ---------------------------------------------------------------------------
+# Writers
+# ---------------------------------------------------------------------------
 
 def append_gherkin(
     story_id: int,
@@ -155,14 +434,11 @@ def append_gherkin(
         epic_pattern = rf"\n## Epic {epic_id}:.*?(?=\n## |\Z)"
         epic_match = re.search(epic_pattern, content, re.DOTALL)
         if epic_match:
-            # Insert story at the end of the existing epic section.
             end = epic_match.end()
             content = content[:end].rstrip() + "\n" + story_block + content[end:]
         else:
-            # No section for this epic yet — create one at the end.
             content = content.rstrip() + f"\n\n## Epic {epic_id}: {epic_title}\n" + story_block
     else:
-        # Legacy flat format (no epic context).
         block = (
             f"\n## Story {story_id}: {story_title}\n\n"
             f"**Status:** Gherkin Locked  \n"
@@ -172,12 +448,35 @@ def append_gherkin(
         content = content.rstrip() + "\n" + block
 
     FUNCTIONAL_SPEC_FILE.write_text(content, encoding="utf-8")
+    upsert_story_index(
+        story_id,
+        epic_id=epic_id,
+        title=story_title,
+        has_gherkin=True,
+        phase_status="gherkin_locked",
+    )
 
 
-def append_technical_spec(story_id: int, spec: str) -> None:
-    """Append a formal technical spec for a story to technical-spec.md."""
+def append_technical_spec(
+    story_id: int,
+    spec: str,
+    *,
+    epic_id: int | None = None,
+    epic_title: str = "",
+) -> None:
+    """Append a formal technical spec for a story to technical-spec.md.
+
+    When epic_id is provided the entry is nested under an ## Epic section,
+    mirroring the structure of functional-spec.md for consistent retrieval.
+    """
     init_context()
     content = TECHNICAL_SPEC_FILE.read_text(encoding="utf-8")
+
+    # Remove any previous entry for this story.
+    content = re.sub(
+        rf"\n### Technical Spec — Story {story_id}.*?(?=\n## |\n### |\Z)",
+        "", content, flags=re.DOTALL,
+    )
 
     tech_block = (
         f"\n### Technical Spec — Story {story_id}\n\n"
@@ -185,16 +484,25 @@ def append_technical_spec(story_id: int, spec: str) -> None:
         f"```yaml\n{spec.strip()}\n```\n"
     )
 
-    existing = rf"\n### Technical Spec — Story {story_id}.*?(?=\n## |\n### |\Z)"
-    content = re.sub(existing, "", content, flags=re.DOTALL)
-    content = content.rstrip() + "\n" + tech_block
+    if epic_id is not None:
+        epic_pattern = rf"\n## Epic {epic_id}:.*?(?=\n## |\Z)"
+        epic_match = re.search(epic_pattern, content, re.DOTALL)
+        if epic_match:
+            end = epic_match.end()
+            content = content[:end].rstrip() + "\n" + tech_block + content[end:]
+        else:
+            content = content.rstrip() + f"\n\n## Epic {epic_id}: {epic_title}\n" + tech_block
+    else:
+        content = content.rstrip() + "\n" + tech_block
+
     TECHNICAL_SPEC_FILE.write_text(content, encoding="utf-8")
+    upsert_story_index(story_id, has_tech_spec=True, phase_status="design_locked")
 
 
 def append_vaccine_record(issue_id: int, root_cause: str, resolution_summary: str) -> None:
-    """Append a permanent Vaccine Record for a resolved bug to memory-bank.md."""
+    """Append a permanent Vaccine Record for a resolved bug to vaccines.md."""
     init_context()
-    content = MEMORY_BANK_FILE.read_text(encoding="utf-8")
+    content = VACCINES_FILE.read_text(encoding="utf-8")
 
     record = (
         f"\n## Vaccine #{issue_id} — {_now()}\n\n"
@@ -203,7 +511,7 @@ def append_vaccine_record(issue_id: int, root_cause: str, resolution_summary: st
     )
 
     content = content.rstrip() + "\n" + record + "\n"
-    MEMORY_BANK_FILE.write_text(content, encoding="utf-8")
+    VACCINES_FILE.write_text(content, encoding="utf-8")
 
 
 def save_proposal(task_id: int, proposal: str) -> Path:
@@ -219,7 +527,63 @@ def save_bdd_tests(story_id: int, test_script: str) -> Path:
     CONTEXT_DIR.mkdir(parents=True, exist_ok=True)
     path = CONTEXT_DIR / f"bdd_story_{story_id}.feature"
     path.write_text(test_script, encoding="utf-8")
+    upsert_story_index(story_id, has_bdd=True, phase_status="qa")
     return path
+
+
+def load_session() -> dict:
+    """Return the persisted bolt session dict, or {} if missing or corrupt."""
+    if not SESSION_FILE.exists():
+        return {}
+    try:
+        return json.loads(SESSION_FILE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def save_session(updates: dict) -> None:
+    """Merge updates into the persisted session file."""
+    CONTEXT_DIR.mkdir(parents=True, exist_ok=True)
+    data = load_session()
+    data.update(updates)
+    SESSION_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def save_draft(data: dict) -> None:
+    """Persist the current Phase 1 elaboration state so it survives a page refresh."""
+    CONTEXT_DIR.mkdir(parents=True, exist_ok=True)
+    DRAFT_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def load_draft() -> dict | None:
+    """Return the persisted draft data, or None if no draft exists or it is corrupt."""
+    if not DRAFT_FILE.exists():
+        return None
+    try:
+        return json.loads(DRAFT_FILE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def clear_draft() -> None:
+    """Delete the draft file (called after a successful push or manual reset)."""
+    if DRAFT_FILE.exists():
+        DRAFT_FILE.unlink()
+
+
+def reset_context() -> None:
+    """Reset all context files to their initial templates and clear the story index.
+
+    Intended for test/demo purposes only — all locked Gherkin, technical specs,
+    vaccine records, and index entries are permanently erased.
+    """
+    CONTEXT_DIR.mkdir(parents=True, exist_ok=True)
+    MEMORY_BANK_FILE.write_text(_MEMORY_BANK_TEMPLATE,     encoding="utf-8")
+    FUNCTIONAL_SPEC_FILE.write_text(_FUNCTIONAL_SPEC_TEMPLATE, encoding="utf-8")
+    TECHNICAL_SPEC_FILE.write_text(_TECHNICAL_SPEC_TEMPLATE,  encoding="utf-8")
+    VACCINES_FILE.write_text(_VACCINES_TEMPLATE,           encoding="utf-8")
+    _save_story_index({})
+    clear_draft()
 
 
 def _now() -> str:

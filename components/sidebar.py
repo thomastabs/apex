@@ -9,6 +9,7 @@ from pathlib import Path
 import streamlit as st
 
 import ai_engine
+import context_manager
 import taiga_adapter
 
 _PHASES = [
@@ -25,22 +26,59 @@ _CONTENT_HEIGHT = 260  # px
 
 def render_sidebar() -> None:
     with st.sidebar:
+        bolt_color = "#7c3aed"
         st.markdown(
-            '<span style="font-size:1.35rem;font-weight:700;color:#ffffff;letter-spacing:-0.02em;">bolt</span>'
-            '<span style="font-size:11px;color:#555;font-weight:400;margin-left:6px;">· Spec-Anchored Continuity</span>',
+            f'<span style="font-size:1.55rem;font-weight:700;color:{bolt_color};letter-spacing:-0.02em;">bolt</span>'
+            '<span style="font-size:13px;color:#666;font-weight:500;margin-left:6px;">· Spec-Anchored Continuity</span>',
             unsafe_allow_html=True,
         )
+
         st.divider()
 
-        for path, label in _PHASES:
-            st.page_link(path, label=label)
+        _phase_nav()
 
         st.divider()
         _ai_status()
         _taiga_status()
+        _taiga_board()
         st.divider()
         _memory_bank()
 
+
+# ── Phase navigation with progress badges ────────────────────────────────────
+
+def _phase_nav() -> None:
+    index = context_manager.get_story_index()
+    total = len(index)
+    for i, (path, label) in enumerate(_PHASES, 1):
+        st.page_link(path, label=label)
+        badge = _phase_badge(index, total, i)
+        if badge:
+            st.caption(badge)
+
+
+def _phase_badge(index: dict, total: int, phase: int) -> str:
+    if not index:
+        return ""
+    stories = list(index.values())
+    if phase == 1:
+        return ""
+    if phase == 2:
+        n = sum(1 for s in stories if s.get("has_tech_spec"))
+        return f"{n} / {total} designed" if n else ""
+    if phase == 3:
+        n = sum(1 for s in stories if s.get("has_proposal"))
+        return f"{n} / {total} proposed" if n else ""
+    if phase == 4:
+        n = sum(1 for s in stories if s.get("has_bdd"))
+        return f"{n} / {total} tested" if n else ""
+    if phase == 5:
+        n = sum(1 for s in stories if s.get("phase_status") == "deployed")
+        return f"{n} / {total} deployed" if n else ""
+    return ""
+
+
+# ── Status indicators ─────────────────────────────────────────────────────────
 
 def _ai_status() -> None:
     try:
@@ -52,34 +90,178 @@ def _ai_status() -> None:
 
 
 def _taiga_status() -> None:
-    project_id = os.getenv("TAIGA_PROJECT_ID", "0")
-    if taiga_adapter.is_configured() and project_id != "0":
-        st.markdown(f"**Taiga** &nbsp; project `{project_id}`")
-    else:
-        st.caption("Taiga not configured — push will fail")
+    if not taiga_adapter.is_configured():
+        st.caption("Taiga not configured — set TAIGA_AUTH_TOKEN in .env")
+        with st.expander("Select project"):
+            _taiga_project_manager()
+        return
 
+    proj_id = taiga_adapter.TAIGA_PROJECT_ID
+    if proj_id:
+        err = taiga_adapter.validate_project()
+        if err:
+            st.warning(f"Taiga error: {err}")
+        else:
+            name = taiga_adapter.get_project().get("name", "")
+            st.markdown(f"**Taiga** &nbsp; `{proj_id}`" + (f" · {name}" if name else ""))
+    else:
+        st.caption("No Taiga project selected")
+
+    with st.expander("Change project"):
+        _taiga_project_manager()
+
+
+def _taiga_project_manager() -> None:
+    """Inline project picker and creator — lives inside a sidebar expander."""
+    if not taiga_adapter.is_configured():
+        st.caption("Configure TAIGA_AUTH_TOKEN in .env first.")
+        return
+
+    # ── Load projects list ────────────────────────────────────────────────
+    if "taiga_projects" not in st.session_state:
+        col_load, _ = st.columns([3, 1])
+        with col_load:
+            if st.button("Load projects", key="taiga_load_proj_btn", use_container_width=True):
+                try:
+                    with st.spinner("Loading…"):
+                        st.session_state["taiga_projects"] = taiga_adapter.get_projects()
+                    st.rerun()
+                except taiga_adapter.TaigaAPIError as exc:
+                    st.error(str(exc))
+        return
+
+    projects: list[dict] = st.session_state["taiga_projects"]
+
+    if not projects:
+        st.caption("No projects found.")
+    else:
+        current_id = taiga_adapter.TAIGA_PROJECT_ID
+        try:
+            current_idx = next(i for i, p in enumerate(projects) if p.get("id") == current_id)
+        except StopIteration:
+            current_idx = 0
+
+        sel = st.selectbox(
+            "Project",
+            options=range(len(projects)),
+            format_func=lambda i: f"#{projects[i]['id']} · {projects[i].get('name', '')}",
+            index=current_idx,
+            key="taiga_proj_sel",
+            label_visibility="collapsed",
+        )
+        col_use, col_ref = st.columns([3, 1])
+        with col_use:
+            if st.button("Use this project", key="taiga_use_proj_btn", use_container_width=True):
+                chosen = projects[sel]
+                if chosen["id"] != taiga_adapter.TAIGA_PROJECT_ID:
+                    taiga_adapter.set_active_project(chosen["id"])
+                    for k in list(st.session_state.keys()):
+                        if k.startswith(("epics_", "_taiga_", "taiga_proj")):
+                            del st.session_state[k]
+                    st.toast(f"Switched to \"{chosen['name']}\"", icon="✅")
+                    st.rerun()
+        with col_ref:
+            if st.button("↻", key="taiga_refresh_proj_btn", use_container_width=True,
+                         help="Refresh project list"):
+                del st.session_state["taiga_projects"]
+                st.rerun()
+
+    st.divider()
+    st.caption("Create new project")
+    new_name = st.text_input(
+        "Name", key="taiga_new_proj_name",
+        label_visibility="collapsed", placeholder="Project name"
+    )
+    new_desc = st.text_input(
+        "Description", key="taiga_new_proj_desc",
+        label_visibility="collapsed", placeholder="Description (required by Taiga)"
+    )
+    can_create = bool((new_name or "").strip() and (new_desc or "").strip())
+    if st.button(
+        "Create & select", key="taiga_create_proj_btn",
+        disabled=not can_create, use_container_width=True,
+    ):
+        try:
+            with st.spinner("Creating…"):
+                proj = taiga_adapter.create_project(new_name.strip(), new_desc.strip())
+            taiga_adapter.set_active_project(proj["id"])
+            for k in list(st.session_state.keys()):
+                if k.startswith(("epics_", "_taiga_", "taiga_")):
+                    del st.session_state[k]
+            st.toast(f"Project \"{proj['name']}\" created and selected", icon="✅")
+            st.rerun()
+        except taiga_adapter.TaigaAPIError as exc:
+            st.error(str(exc))
+
+
+# ── Context / Memory Bank ─────────────────────────────────────────────────────
 
 def _memory_bank() -> None:
     col_label, col_btn = st.columns([6, 1], vertical_alignment="center")
     with col_label:
         st.markdown("**Context**")
     with col_btn:
-        if st.button("↻", key="ctx_reload_btn", use_container_width=True):
+        if st.button("↻", key="ctx_reload_btn", width="stretch"):
             for key in list(st.session_state.keys()):
-                if key.startswith(("mem_bank", "func_spec", "tech_spec")):
+                if key.startswith(("mem_bank", "func_spec", "tech_spec", "vaccines")):
                     del st.session_state[key]
+            context_manager.rebuild_story_index()
+            st.toast("Context reloaded", icon="✅")
             st.rerun()
 
     any_exists = any(
         (Path("openspec") / f).exists()
-        for f in ("memory-bank.md", "functional-spec.md", "technical-spec.md")
+        for f in ("memory-bank.md", "functional-spec.md", "technical-spec.md", "vaccines.md")
     )
     if not any_exists:
         st.caption("No context files yet.")
         return
+    _context_size_indicator()
     _context_file_editor("memory-bank.md",    "mem_bank",  "Memory Bank")
     _context_file_editor("functional-spec.md", "func_spec", "Functional Specification")
     _context_file_editor("technical-spec.md",  "tech_spec", "Technical Specification")
+    _context_file_editor("vaccines.md",        "vaccines",  "Vaccine Records")
+    _reset_context_button()
+
+
+def _reset_context_button() -> None:
+    confirming = st.session_state.get("ctx_reset_confirming", False)
+    if not confirming:
+        if st.button("Reset context", key="ctx_reset_btn", width="stretch"):
+            st.session_state["ctx_reset_confirming"] = True
+            st.rerun()
+    else:
+        st.warning("Erase all context files and start fresh?")
+        col_yes, col_no = st.columns(2)
+        with col_yes:
+            if st.button("Reset", key="ctx_reset_confirm_btn", type="primary", width="stretch"):
+                context_manager.reset_context()
+                for key in list(st.session_state.keys()):
+                    if key.startswith(("mem_bank", "func_spec", "tech_spec", "vaccines")):
+                        del st.session_state[key]
+                st.session_state["ctx_reset_confirming"] = False
+                st.toast("Context reset to defaults", icon="✅")
+                st.rerun()
+        with col_no:
+            if st.button("Cancel", key="ctx_reset_cancel_btn", width="stretch"):
+                st.session_state["ctx_reset_confirming"] = False
+                st.rerun()
+
+
+def _context_size_indicator() -> None:
+    sizes = context_manager.get_context_sizes()
+    total = sum(sizes.values())
+    if total < 30_000:
+        color = "#4ade80"
+    elif total < 80_000:
+        color = "#facc15"
+    else:
+        color = "#f87171"
+    st.markdown(
+        f'<span style="font-size:11px;color:#555;">context · </span>'
+        f'<span style="font-size:11px;color:{color};">{total:,} chars</span>',
+        unsafe_allow_html=True,
+    )
 
 
 def _context_file_editor(filename: str, state_key: str, label: str) -> None:
@@ -89,11 +271,10 @@ def _context_file_editor(filename: str, state_key: str, label: str) -> None:
 
     disk_content = path.read_text(encoding="utf-8")
     disk_key  = f"{state_key}_disk"
-    buf_key   = f"{state_key}_buf"    # plain str — read mode source, never a widget key
-    write_key = f"{state_key}_write"  # ONLY ever used as a st.text_area widget key
+    buf_key   = f"{state_key}_buf"
+    write_key = f"{state_key}_write"
     mode_key  = f"{state_key}_read_mode"
 
-    # Sync buf from disk whenever the file changes externally.
     if st.session_state.get(disk_key) != disk_content:
         st.session_state[buf_key]  = disk_content
         st.session_state[disk_key] = disk_content
@@ -101,22 +282,19 @@ def _context_file_editor(filename: str, state_key: str, label: str) -> None:
         st.session_state[buf_key] = disk_content
 
     if mode_key not in st.session_state:
-        st.session_state[mode_key] = True  # default: read
+        st.session_state[mode_key] = True
 
     is_read = st.session_state[mode_key]
 
-    # Seed write_key BEFORE the expander/widget renders so Streamlit sees it
-    # as a pre-existing value when st.text_area(key=write_key) is first drawn.
     if not is_read and write_key not in st.session_state:
         st.session_state[write_key] = st.session_state[buf_key]
 
     with st.expander(label, expanded=False):
-        # Content and button share the same row so their tops are aligned.
-        col_content, col_btn = st.columns([8, 1])
+        col_content, col_btn = st.columns([5, 1])
 
         with col_btn:
             icon = "✏" if is_read else "👁"
-            if st.button(icon, key=f"{state_key}_mode_btn", use_container_width=True):
+            if st.button(icon, key=f"{state_key}_mode_btn", width="stretch"):
                 st.session_state[mode_key] = not is_read
                 st.rerun()
 
@@ -135,4 +313,183 @@ def _context_file_editor(filename: str, state_key: str, label: str) -> None:
                 if current != st.session_state[disk_key]:
                     path.write_text(current, encoding="utf-8")
                     st.session_state[disk_key] = current
-                    st.session_state[buf_key]  = current  # keep read mode in sync
+                    st.session_state[buf_key]  = current
+
+
+# ── Taiga Board ───────────────────────────────────────────────────────────────
+
+def _taiga_board() -> None:
+    if not taiga_adapter.is_configured() or not taiga_adapter.TAIGA_PROJECT_ID:
+        return
+
+    with st.expander("Epics & Stories"):
+        _board_content()
+
+
+def _board_content() -> None:
+    epics_key = "board_epics"
+    epics: list[dict] | None = st.session_state.get(epics_key)
+
+    col_info, col_btn = st.columns([4, 1])
+    with col_info:
+        st.caption(f"{len(epics)} epic(s)" if epics is not None else "Load to view")
+    with col_btn:
+        if st.button("Load" if epics is None else "↻", key="board_load_btn", use_container_width=True):
+            try:
+                st.session_state[epics_key] = taiga_adapter.get_epics()
+                for k in list(st.session_state):
+                    if k.startswith("board_stories_"):
+                        del st.session_state[k]
+            except taiga_adapter.TaigaAPIError as exc:
+                st.error(str(exc))
+            st.rerun()
+
+    if epics is None:
+        return
+
+    if not epics:
+        st.caption("No epics in this project.")
+    else:
+        for epic in epics:
+            _board_epic_row(epic, epics_key)
+
+    st.divider()
+    _board_create_epic(epics_key)
+
+
+def _board_epic_row(epic: dict, epics_key: str) -> None:
+    epic_id  = epic["id"]
+    ref      = epic.get("ref", epic_id)
+    subject  = epic.get("subject", "")
+    exp_key  = f"board_exp_{epic_id}"
+    stor_key = f"board_stories_{epic_id}"
+    del_key  = "_board_del_epic"
+
+    col_tog, col_name, col_del = st.columns([1, 6, 1])
+    with col_tog:
+        expanded = st.session_state.get(exp_key, False)
+        if st.button("▼" if expanded else "▶", key=f"board_ep_tog_{epic_id}", use_container_width=True):
+            new_exp = not expanded
+            st.session_state[exp_key] = new_exp
+            if new_exp and stor_key not in st.session_state:
+                try:
+                    st.session_state[stor_key] = taiga_adapter.get_stories_for_epic(epic_id)
+                except taiga_adapter.TaigaAPIError:
+                    st.session_state[stor_key] = []
+            st.rerun()
+    with col_name:
+        st.markdown(f"**#{ref}** {subject}")
+    with col_del:
+        if st.session_state.get(del_key) != epic_id:
+            if st.button("✕", key=f"board_ep_del_{epic_id}", use_container_width=True, help="Delete epic"):
+                st.session_state[del_key]            = epic_id
+                st.session_state["_board_del_epic_name"] = subject
+                st.rerun()
+
+    if st.session_state.get(del_key) == epic_id:
+        name = st.session_state.get("_board_del_epic_name", "")
+        st.warning(f'Delete **"{name}"** and all its stories from Taiga?')
+        col_y, col_n = st.columns(2)
+        with col_y:
+            if st.button("Delete", type="primary", key=f"board_ep_del_ok_{epic_id}", use_container_width=True):
+                try:
+                    taiga_adapter.delete_epic(epic_id)
+                    st.session_state[epics_key] = [
+                        e for e in st.session_state[epics_key] if e["id"] != epic_id
+                    ]
+                    for k in (del_key, "_board_del_epic_name", exp_key, stor_key):
+                        st.session_state.pop(k, None)
+                    st.toast("Epic deleted", icon="✅")
+                    st.rerun()
+                except taiga_adapter.TaigaAPIError as exc:
+                    st.error(str(exc))
+        with col_n:
+            if st.button("Cancel", key=f"board_ep_del_no_{epic_id}", use_container_width=True):
+                st.session_state.pop(del_key, None)
+                st.rerun()
+
+    if st.session_state.get(exp_key, False):
+        stories = st.session_state.get(stor_key, [])
+        if not stories:
+            st.caption("  No stories.")
+        else:
+            for story in stories:
+                _board_story_row(story, stor_key)
+        _board_create_story(epic_id, stor_key)
+
+
+def _board_story_row(story: dict, stories_key: str) -> None:
+    sid     = story.get("id")
+    ref     = story.get("ref", sid)
+    subject = story.get("subject", "")
+    del_key = "_board_del_story"
+
+    col_name, col_del = st.columns([7, 1])
+    with col_name:
+        st.caption(f"  #{ref} {subject}")
+    with col_del:
+        if st.session_state.get(del_key) != sid:
+            if st.button("✕", key=f"board_s_del_{sid}", use_container_width=True, help="Delete story"):
+                st.session_state[del_key]               = sid
+                st.session_state["_board_del_story_sub"] = subject
+                st.session_state["_board_del_story_sk"]  = stories_key
+                st.rerun()
+
+    if st.session_state.get(del_key) == sid:
+        name = st.session_state.get("_board_del_story_sub", "")
+        st.warning(f'Delete **"{name}"** from Taiga?')
+        col_y, col_n = st.columns(2)
+        with col_y:
+            if st.button("Delete", type="primary", key=f"board_s_del_ok_{sid}", use_container_width=True):
+                try:
+                    taiga_adapter.delete_story(sid)
+                    sk = st.session_state.get("_board_del_story_sk", stories_key)
+                    st.session_state[sk] = [s for s in st.session_state.get(sk, []) if s.get("id") != sid]
+                    for k in (del_key, "_board_del_story_sub", "_board_del_story_sk"):
+                        st.session_state.pop(k, None)
+                    st.toast("Story deleted", icon="✅")
+                    st.rerun()
+                except taiga_adapter.TaigaAPIError as exc:
+                    st.error(str(exc))
+        with col_n:
+            if st.button("Cancel", key=f"board_s_del_no_{sid}", use_container_width=True):
+                st.session_state.pop(del_key, None)
+                st.rerun()
+
+
+def _board_create_epic(epics_key: str) -> None:
+    st.caption("New epic")
+    name = st.text_input("Epic name", key="board_new_epic_name",
+                         label_visibility="collapsed", placeholder="Title")
+    desc = st.text_input("Epic description", key="board_new_epic_desc",
+                         label_visibility="collapsed", placeholder="Description")
+    if st.button("Create epic", key="board_create_epic_btn",
+                 disabled=not (name or "").strip(), use_container_width=True):
+        try:
+            with st.spinner("Creating…"):
+                epic = taiga_adapter.create_epic(name.strip(), (desc or "").strip())
+            st.session_state[epics_key] = st.session_state.get(epics_key, []) + [epic]
+            st.session_state.pop("board_new_epic_name", None)
+            st.session_state.pop("board_new_epic_desc", None)
+            st.toast(f'Epic "{epic["subject"]}" created', icon="✅")
+            st.rerun()
+        except taiga_adapter.TaigaAPIError as exc:
+            st.error(str(exc))
+
+
+def _board_create_story(epic_id: int, stories_key: str) -> None:
+    title_key = f"board_new_story_{epic_id}"
+    st.caption("  New story")
+    title = st.text_input("Story title", key=title_key,
+                          label_visibility="collapsed", placeholder="Title")
+    if st.button("Create story", key=f"board_create_story_{epic_id}",
+                 disabled=not (title or "").strip(), use_container_width=True):
+        try:
+            with st.spinner("Creating…"):
+                story = taiga_adapter.create_story(title.strip(), "", epic_id=epic_id)
+            st.session_state[stories_key] = st.session_state.get(stories_key, []) + [story]
+            st.session_state.pop(title_key, None)
+            st.toast(f'Story "{story["subject"]}" created', icon="✅")
+            st.rerun()
+        except taiga_adapter.TaigaAPIError as exc:
+            st.error(str(exc))

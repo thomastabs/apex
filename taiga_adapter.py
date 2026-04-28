@@ -11,11 +11,12 @@ All public methods raise TaigaAPIError on non-2xx responses.
 
 import os
 import re
+import time
 from pathlib import Path
 from typing import Any
 
 import requests
-from dotenv import load_dotenv
+from dotenv import load_dotenv, set_key
 
 load_dotenv()
 
@@ -26,6 +27,10 @@ TAIGA_PASSWORD   = os.getenv("TAIGA_PASSWORD", "")
 
 # Mutable so _refresh_token() can update it without a module reload.
 _token: dict[str, str] = {"value": os.getenv("TAIGA_AUTH_TOKEN", "")}
+
+# Session-scoped caches — valid for the lifetime of the Python process.
+_project_cache: dict      = {}
+_status_cache:  list[dict] = []
 
 
 class TaigaAPIError(Exception):
@@ -70,17 +75,29 @@ def is_configured() -> bool:
     return bool(_token["value"] or (TAIGA_USERNAME and TAIGA_PASSWORD))
 
 
+def validate_project() -> str | None:
+    """Check that TAIGA_PROJECT_ID is set and reachable.
+
+    Returns None on success, or a human-readable error string on failure.
+    get_project() is cached, so this is cheap after the first call.
+    """
+    if not is_configured():
+        return "set TAIGA_AUTH_TOKEN (or TAIGA_USERNAME + TAIGA_PASSWORD) in .env"
+    if TAIGA_PROJECT_ID == 0:
+        return "TAIGA_PROJECT_ID is not set in .env"
+    try:
+        get_project()
+        return None
+    except TaigaAPIError as exc:
+        return str(exc)
+
+
 def _persist_token(token: str) -> None:
     """Write the refreshed token back to .env so it survives a server restart."""
     env_path = Path(".env")
     if not env_path.exists():
         return
-    content = env_path.read_text(encoding="utf-8")
-    if "TAIGA_AUTH_TOKEN" in content:
-        content = re.sub(r"TAIGA_AUTH_TOKEN=\S*", f"TAIGA_AUTH_TOKEN={token}", content)
-    else:
-        content = content.rstrip() + f"\nTAIGA_AUTH_TOKEN={token}\n"
-    env_path.write_text(content, encoding="utf-8")
+    set_key(str(env_path), "TAIGA_AUTH_TOKEN", token)
 
 
 # ---------------------------------------------------------------------------
@@ -92,20 +109,50 @@ def _request(method: str, path: str, *, params: dict | None = None, payload: dic
     fn = getattr(requests, method)
 
     def _call() -> requests.Response:
-        kwargs: dict = {"headers": _headers(), "timeout": 15}
+        kwargs: dict = {"headers": _headers(), "timeout": 30}
         if params is not None:
             kwargs["params"] = params
         if payload is not None:
             kwargs["json"] = payload
         return fn(url, **kwargs)
 
-    resp = _call()
+    try:
+        resp = _call()
+    except requests.exceptions.Timeout as exc:
+        raise TaigaAPIError(method.upper(), url, 0, f"Request timed out: {exc}") from exc
+    except requests.exceptions.ConnectionError as exc:
+        raise TaigaAPIError(method.upper(), url, 0, f"Connection error: {exc}") from exc
+
     if resp.status_code == 401 and TAIGA_USERNAME and TAIGA_PASSWORD:
         _refresh_token()
-        resp = _call()
+        try:
+            resp = _call()
+        except requests.exceptions.Timeout as exc:
+            raise TaigaAPIError(method.upper(), url, 0, f"Request timed out: {exc}") from exc
+        except requests.exceptions.ConnectionError as exc:
+            raise TaigaAPIError(method.upper(), url, 0, f"Connection error: {exc}") from exc
     if not resp.ok:
         raise TaigaAPIError(method.upper(), url, resp.status_code, resp.text)
-    return resp.json()
+
+    if not resp.content or resp.status_code == 204:
+        return None
+    data = resp.json()
+    # Self-hosted Taiga may ignore x-disable-pagination and return a paginated envelope.
+    if isinstance(data, dict) and "results" in data and "count" in data:
+        results: list = list(data["results"])
+        next_url: str | None = data.get("next")
+        while next_url:
+            try:
+                page = requests.get(next_url, headers=_headers(), timeout=30)
+            except requests.exceptions.RequestException:
+                break
+            if not page.ok:
+                break  # return what we have; don't crash on a pagination error
+            data = page.json()
+            results.extend(data.get("results", []))
+            next_url = data.get("next")
+        return results
+    return data
 
 
 def _get(path: str, params: dict | None = None) -> Any:
@@ -118,6 +165,43 @@ def _post(path: str, payload: dict) -> Any:
 
 def _patch(path: str, payload: dict) -> Any:
     return _request("patch", path, payload=payload)
+
+
+# ---------------------------------------------------------------------------
+# Project helpers
+# ---------------------------------------------------------------------------
+
+def get_project() -> dict:
+    """Fetch and cache the current project's details (slug, name, etc.)."""
+    if not _project_cache:
+        _project_cache.update(_get(f"projects/{TAIGA_PROJECT_ID}"))
+    return _project_cache
+
+
+def _web_base_url() -> str:
+    """Derive the Taiga web base URL from TAIGA_API_URL.
+
+    Handles two common patterns:
+      https://api.taiga.io        → https://taiga.io   (Taiga Cloud)
+      https://taiga.example.com   → https://taiga.example.com (self-hosted)
+    """
+    url = TAIGA_API_URL.rstrip("/")
+    url = re.sub(r"(https?://)api\.", r"\1", url)   # strip leading api. subdomain
+    url = re.sub(r"/api(?:/v\d+)?$", "", url)        # strip /api or /api/v1 suffix
+    return url
+
+
+def get_story_url(story_ref: int | None) -> str | None:
+    """Return the Taiga web URL for a story by its ref number, or None if unavailable."""
+    if story_ref is None:
+        return None
+    try:
+        slug = get_project().get("slug")
+        if not slug:
+            return None
+        return f"{_web_base_url()}/project/{slug}/us/{story_ref}"
+    except Exception:
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -165,8 +249,19 @@ def get_stories_for_epic(epic_id: int) -> list[dict]:
     return _get("userstories", params={"epic": epic_id, "project": TAIGA_PROJECT_ID})
 
 
-def create_story(subject: str, description: str, epic_id: int | None = None) -> dict:
-    """Create a new User Story in the project, optionally linked to an Epic."""
+def create_story(
+    subject: str,
+    description: str,
+    epic_id: int | None = None,
+    *,
+    tags: list[str] | None = None,
+    backlog_order: int | None = None,
+) -> dict:
+    """Create a new User Story in the project, optionally linked to an Epic.
+
+    tags          — list of plain strings applied as Taiga labels (e.g. ["bolt", "XS"]).
+    backlog_order — explicit sort key; pass a sequence of values to preserve compilation order.
+    """
     payload: dict[str, Any] = {
         "project": TAIGA_PROJECT_ID,
         "subject": subject,
@@ -174,6 +269,10 @@ def create_story(subject: str, description: str, epic_id: int | None = None) -> 
     }
     if epic_id is not None:
         payload["epic"] = epic_id
+    if tags:
+        payload["tags"] = tags
+    if backlog_order is not None:
+        payload["backlog_order"] = backlog_order
     return _post("userstories", payload)
 
 
@@ -186,8 +285,11 @@ def update_story_status(story_id: int, status_id: int, version: int) -> dict:
 
 
 def get_story_statuses() -> list[dict]:
-    """Return all User Story statuses defined for the project."""
-    return _get("userstory-statuses", params={"project": TAIGA_PROJECT_ID})
+    """Return all User Story statuses defined for the project (cached per session)."""
+    global _status_cache
+    if not _status_cache:
+        _status_cache = _get("userstory-statuses", params={"project": TAIGA_PROJECT_ID})
+    return _status_cache
 
 
 def find_status_id(name_fragment: str) -> int | None:
@@ -241,3 +343,59 @@ def get_issue(issue_id: int) -> dict:
 def get_issue_comments(issue_id: int) -> list[dict]:
     """Return the comment/history timeline for an issue (includes stack traces)."""
     return _get(f"history/issue/{issue_id}")
+
+
+# ---------------------------------------------------------------------------
+# DELETE helpers
+# ---------------------------------------------------------------------------
+
+def _delete(path: str) -> None:
+    _request("delete", path)
+
+
+def delete_story(story_id: int) -> None:
+    _delete(f"userstories/{story_id}")
+
+
+def delete_epic(epic_id: int) -> None:
+    _delete(f"epics/{epic_id}")
+
+
+# ---------------------------------------------------------------------------
+# Project management
+# ---------------------------------------------------------------------------
+
+_me_cache: dict = {}
+
+
+def _get_me() -> dict:
+    if not _me_cache:
+        _me_cache.update(_get("users/me"))
+    return _me_cache
+
+
+def get_projects() -> list[dict]:
+    """Return all projects the authenticated user is a member of."""
+    me = _get_me()
+    user_id = me.get("id")
+    params: dict = {"order_by": "name"}
+    if user_id:
+        params["member"] = user_id
+    return _get("projects", params=params)
+
+
+def create_project(name: str, description: str) -> dict:
+    """Create a new Taiga project and return the response dict (includes 'id' and 'slug')."""
+    return _post("projects", {"name": name, "description": description})
+
+
+def set_active_project(project_id: int) -> None:
+    """Switch the active project for this session and persist the choice to .env."""
+    global TAIGA_PROJECT_ID, _status_cache
+    TAIGA_PROJECT_ID = project_id
+    _project_cache.clear()
+    _status_cache = []
+    os.environ["TAIGA_PROJECT_ID"] = str(project_id)
+    env_path = Path(".env")
+    if env_path.exists():
+        set_key(str(env_path), "TAIGA_PROJECT_ID", str(project_id))
