@@ -12,6 +12,26 @@ import ai_engine
 import context_manager
 import taiga_adapter
 
+_PREF_FILE = Path(".streamlit/.theme_pref")
+
+
+def _theme_button() -> None:
+    """Small header button that flips dark/light mode.
+
+    theme_is_dark lives purely in session_state — no widget key attached —
+    so no Streamlit widget lifecycle can ever revert it between reruns.
+    app.py reads it and re-injects the CSS on every rerun.
+    """
+    is_dark = st.session_state.get("theme_is_dark", True)
+    label = "☀" if is_dark else "☾"
+    if st.button(label, key="theme_btn", use_container_width=True):
+        new_val = not is_dark
+        st.session_state["theme_is_dark"] = new_val
+        _PREF_FILE.parent.mkdir(exist_ok=True)
+        _PREF_FILE.write_text("dark" if new_val else "light")
+        st.rerun()
+
+
 _PHASES = [
     ("views/phase1.py", "Phase 1 · Requirements"),
     ("views/phase2.py", "Phase 2 · Design"),
@@ -27,11 +47,15 @@ _CONTENT_HEIGHT = 260  # px
 def render_sidebar() -> None:
     with st.sidebar:
         bolt_color = "#7c3aed"
-        st.markdown(
-            f'<span style="font-size:1.55rem;font-weight:700;color:{bolt_color};letter-spacing:-0.02em;">bolt</span>'
-            '<span style="font-size:13px;color:#666;font-weight:500;margin-left:6px;">· Spec-Anchored Continuity</span>',
-            unsafe_allow_html=True,
-        )
+        col_logo, col_theme = st.columns([5, 1], vertical_alignment="center")
+        with col_logo:
+            st.markdown(
+                f'<span style="font-size:1.55rem;font-weight:700;color:{bolt_color};letter-spacing:-0.02em;">bolt</span>'
+                '<span style="font-size:13px;color:#888;font-weight:500;margin-left:6px;">· Spec-Anchored Continuity</span>',
+                unsafe_allow_html=True,
+            )
+        with col_theme:
+            _theme_button()
 
         st.divider()
 

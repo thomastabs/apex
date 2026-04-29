@@ -2,6 +2,8 @@
 app.py — bolt entry point and central router
 """
 
+from pathlib import Path
+
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -9,11 +11,187 @@ from components.sidebar import render_sidebar
 
 load_dotenv()
 
+_PREF_FILE = Path(".streamlit/.theme_pref")
+
+_THEMES = {
+    True:  {"bg": "#1a1a1a", "sbg": "#242424", "text": "#d4d4d4"},
+    False: {"bg": "#f5f5f5", "sbg": "#dde2ea",  "text": "#111111"},
+}
+
+
+def _load_pref() -> bool:
+    """Return True = dark (default), False = light."""
+    try:
+        return _PREF_FILE.read_text().strip() != "light"
+    except FileNotFoundError:
+        return True
+
+
+_LIGHT_CSS = """
+    /* ── Buttons ───────────────────────────────────────────────────────── */
+    .stButton > button, [data-testid^="stBaseButton"] {
+        background-color: #ffffff !important;
+        color: #111111 !important;
+        border: 1px solid #c8ccd4 !important;
+        transition: background-color 0.15s, border-color 0.15s, color 0.15s !important;
+    }
+    [data-testid="stBaseButton-primary"] {
+        background-color: #7c3aed !important;
+        color: #ffffff !important;
+        border: 1px solid #7c3aed !important;
+    }
+    .stButton > button:hover,
+    [data-testid="stBaseButton-secondary"]:hover,
+    [data-testid="stBaseButton-tertiary"]:hover {
+        background-color: #ede9fe !important;
+        border-color: #7c3aed !important;
+        color: #6d28d9 !important;
+    }
+    [data-testid="stBaseButton-primary"]:hover {
+        background-color: #6d28d9 !important;
+        border-color: #6d28d9 !important;
+        color: #ffffff !important;
+    }
+    /* ── Inputs and text areas ─────────────────────────────────────────── */
+    [data-baseweb="input"],
+    [data-baseweb="base-input"],
+    [data-baseweb="textarea"] {
+        background-color: #ffffff !important;
+        border-color: #c8ccd4 !important;
+    }
+    [data-baseweb="input"] input,
+    [data-baseweb="base-input"] input,
+    [data-testid="stTextInput"] input,
+    [data-testid="stNumberInput"] input,
+    [data-baseweb="textarea"] textarea,
+    [data-testid="stTextArea"] textarea,
+    input[type="text"],
+    input[type="number"],
+    textarea {
+        background-color: #ffffff !important;
+        color: #111111 !important;
+    }
+    input::placeholder, textarea::placeholder {
+        color: #9ca3af !important;
+        opacity: 1 !important;
+    }
+    /* ── Selectboxes ───────────────────────────────────────────────────── */
+    [data-baseweb="select"] > div:first-child,
+    [data-baseweb="select"] [role="combobox"] {
+        background-color: #ffffff !important;
+        border-color: #c8ccd4 !important;
+        color: #111111 !important;
+    }
+    /* ── Expanders ─────────────────────────────────────────────────────── */
+    /* In Streamlit 1.x, data-testid="stExpander" is on a wrapper <div>;
+       the actual <details> element is a child. */
+    [data-testid="stExpander"] {
+        border: 1.5px solid #111111 !important;
+        border-radius: 6px !important;
+        overflow: hidden !important;
+        margin-bottom: 6px !important;
+    }
+    [data-testid="stExpander"] details {
+        border: none !important;
+    }
+    [data-testid="stExpander"] summary {
+        background-color: #d2d8e0 !important;
+        color: #111111 !important;
+    }
+    [data-testid="stExpander"] details > div {
+        background-color: #f5f5f5 !important;
+    }
+    /* ── Sidebar dividers ──────────────────────────────────────────────── */
+    [data-testid="stSidebar"] hr {
+        border-color: #b8bec8 !important;
+    }
+    /* ── Page link hover ───────────────────────────────────────────────── */
+    [data-testid="stPageLink"] a:hover {
+        background-color: #ede9fe !important;
+        color: #6d28d9 !important;
+        border-radius: 6px !important;
+    }
+"""
+
+
+def _inject_theme(is_dark: bool) -> None:
+    """Inject CSS overrides on every rerun to switch light/dark.
+
+    Streamlit 1.56 uses emotion CSS-in-JS — theme colours are baked into
+    hashed class names at WebSocket connection time and cannot be changed
+    via CSS custom properties mid-session. Targeting the actual DOM elements
+    with !important is the only approach that works.
+
+    Bolt logo: Streamlit strips !important from inline styles in st.markdown(),
+    so we use a high-specificity attribute selector here to keep it purple.
+    """
+    t = _THEMES[is_dark]
+    extra = "" if is_dark else _LIGHT_CSS
+    st.markdown(f"""<style>
+    .stApp, [data-testid="stAppViewContainer"] {{
+        background-color: {t['bg']} !important;
+        color: {t['text']} !important;
+    }}
+    [data-testid="stMain"], [data-testid="stMainBlockContainer"],
+    .block-container, section.main {{
+        background-color: {t['bg']} !important;
+    }}
+    [data-testid="stHeader"] {{
+        background-color: {t['bg']} !important;
+    }}
+    [data-testid="stSidebar"], [data-testid="stSidebarContent"],
+    [data-testid="stSidebar"] > div:first-child {{
+        background-color: {t['sbg']} !important;
+    }}
+    body, p, span, label, div.stMarkdown,
+    [data-testid="stMarkdownContainer"] {{
+        color: {t['text']} !important;
+    }}
+    /* Bolt logo — high-specificity selector beats the broad span rule above.
+       Streamlit strips !important from inline styles so this is the only fix. */
+    [data-testid="stSidebar"] span[style*="1.55rem"] {{
+        color: #7c3aed !important;
+    }}
+    /* Reduce vertical bulk of st.divider() — the wrapper divs carry default
+       padding that dwarfs the <hr> itself. */
+    div:has(> [data-testid="stMarkdownContainer"] > hr) {{
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+    }}
+    [data-testid="stMarkdownContainer"]:has(hr) {{
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+    }}
+    [data-testid="stMarkdownContainer"] hr {{
+        margin: 0.25rem 0 !important;
+    }}
+    {extra}
+    </style>""", unsafe_allow_html=True)
+
+
+# ── Page config (must be first Streamlit call) ────────────────────────────────
+
 st.set_page_config(
     page_title="bolt",
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# ── Theme ─────────────────────────────────────────────────────────────────────
+# Initialise from persisted file once per browser session.
+# The button in the sidebar writes to session_state and calls st.rerun();
+# on that rerun app.py picks up the new value here and re-injects the CSS.
+
+if "theme_is_dark" not in st.session_state:
+    st.session_state["theme_is_dark"] = _load_pref()
+
+_inject_theme(st.session_state["theme_is_dark"])
+
+# ── Navigation ────────────────────────────────────────────────────────────────
 
 _pages = [
     st.Page("views/phase1.py", title="Phase 1 · Requirements", default=True),
