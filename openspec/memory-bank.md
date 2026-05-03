@@ -5,7 +5,7 @@
 
 ## Project Concept
 
-<!-- Describe the project's purpose, target users, and core value proposition. -->
+LinerNotes is a social cataloging app that brings the community-driven, review-centric experience of Letterboxd to music streaming. Designed for active audiophiles, playlist curators, and hobbyist critics, the platform allows users to log albums, write detailed reviews, assign star ratings, and create highly thematic lists. Its core value proposition focuses on human curation over algorithmic generation; rather than relying on a black-box AI to suggest the next track, users build a permanent, interactive musical diary and discover new music entirely through the trusted recommendations, shared tastes, and engaging debates of a passionate community.
 
 ## Tech Stack
 

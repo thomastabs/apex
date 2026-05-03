@@ -244,9 +244,20 @@ def get_story(story_id: int) -> dict:
     return _get(f"userstories/{story_id}")
 
 
+def get_stories(epic_id: int | None = None) -> list[dict]:
+    """Return all User Stories for the project, ordered by ref.
+
+    Pass epic_id to filter by a specific Epic.
+    """
+    params: dict = {"project": TAIGA_PROJECT_ID, "order_by": "ref"}
+    if epic_id is not None:
+        params["epic"] = epic_id
+    return _get("userstories", params=params)
+
+
 def get_stories_for_epic(epic_id: int) -> list[dict]:
     """Return all User Stories linked to an Epic."""
-    return _get("userstories", params={"epic": epic_id, "project": TAIGA_PROJECT_ID})
+    return get_stories(epic_id=epic_id)
 
 
 def create_story(

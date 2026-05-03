@@ -49,7 +49,7 @@ def render_phase1() -> None:
     st.header("Phase 1 · Requirements")
     st.caption("Mob Elaboration — transform an Epic into formal Gherkin Acceptance Criteria")
     try:
-        st.image("requirements.svg", width='stretch')
+        st.image("requirements.svg", use_container_width=True)
     except Exception:
         pass
     st.divider()
@@ -146,10 +146,11 @@ def _apply_pending_epic() -> None:
 
 
 def _section_epic() -> None:
+    if msg := st.session_state.pop("_notify_phase1", None):
+        st.toast(msg)
     _apply_pending_epic()
     st.markdown("##### EPIC")
     _epic_browser()
-    _manage_taiga_stories()
 
     col_title, col_id = st.columns([3, 1])
     with col_title:
@@ -188,18 +189,17 @@ def _epic_browser() -> None:
     is_open: bool = st.session_state.get("epics_visible", False)
 
     if st.button("Browse Epics", key="browse_epics_btn"):
-        if not is_open:
-            if st.session_state.get("epics_list") is None:
-                try:
-                    with st.spinner("Loading Epics..."):
-                        epics = taiga_adapter.get_epics()
-                    st.session_state["epics_list"] = epics
-                    st.session_state.pop("epics_load_error", None)
-                except TaigaAPIError as exc:
-                    st.session_state["epics_load_error"] = str(exc)
+        if st.session_state.get("epics_list") is None:
+            try:
+                with st.spinner("Loading Epics..."):
+                    epics = taiga_adapter.get_epics()
+                st.session_state["epics_list"] = epics
+                st.session_state.pop("epics_load_error", None)
+            except TaigaAPIError as exc:
+                st.session_state["epics_load_error"] = str(exc)
+            st.session_state["epics_visible"] = True
         else:
-            st.session_state["_pending_epic_data"] = {"subject": "", "description": "", "id": ""}
-        st.session_state["epics_visible"] = not is_open
+            st.session_state["epics_visible"] = not is_open
         st.rerun()
 
     if not st.session_state.get("epics_visible"):
@@ -228,16 +228,6 @@ def _epic_browser() -> None:
         label_visibility="collapsed",
     )
 
-    # Description preview + delete action for the selected epic.
-    sel_idx = st.session_state.get("epic_selectbox_idx", 0)
-    if sel_idx and sel_idx > 0:
-        sel_epic = epics[sel_idx - 1]
-        desc = st.session_state.get("epic_desc_input", "").strip()
-        if desc:
-            preview = desc if len(desc) <= 220 else desc[:220] + "…"
-            st.caption(preview)
-        _delete_epic_action(sel_epic)
-
 
 def _delete_epic_action(epic: dict) -> None:
     """Delete-with-confirm control for a single epic."""
@@ -256,7 +246,9 @@ def _delete_epic_action(epic: dict) -> None:
                     st.session_state["epic_selectbox_idx"] = 0
                     st.session_state["_pending_epic_data"] = {"subject": "", "description": "", "id": ""}
                     st.session_state.pop("_taiga_stories", None)
-                    st.toast("Epic deleted from Taiga", icon="✅")
+                    st.session_state.pop("epics_visible", None)
+                    st.session_state.pop("epics_load_error", None)
+                    st.session_state["_notify_phase1"] = "Epic deleted from Taiga."
                     st.rerun()
                 except TaigaAPIError as exc:
                     st.error(str(exc))
@@ -268,84 +260,6 @@ def _delete_epic_action(epic: dict) -> None:
         if st.button("Delete epic from Taiga", key="del_epic_btn"):
             st.session_state[pending_key] = epic_id
             st.rerun()
-
-
-# ── Manage existing Taiga stories for the selected epic ───────────────────────
-
-def _manage_taiga_stories() -> None:
-    """Show existing Taiga stories for the selected epic with delete capability."""
-    epic_id_str = st.session_state.get("epic_id_input", "").strip()
-    try:
-        epic_id = int(epic_id_str) if epic_id_str else None
-    except ValueError:
-        epic_id = None
-    if not epic_id:
-        return
-
-    st.markdown("##### EXISTING TAIGA STORIES")
-
-    stories_key = f"_taiga_stories_{epic_id}"
-    stories: list[dict] | None = st.session_state.get(stories_key)
-
-    col_label, col_load = st.columns([4, 1])
-    with col_label:
-        if stories is not None:
-            st.caption(f"{len(stories)} stories in Taiga for this epic")
-        else:
-            st.caption("Load to see and manage existing stories")
-    with col_load:
-        if st.button("Load" if stories is None else "↻", key="load_taiga_stories_btn",
-                     use_container_width=True):
-            try:
-                st.session_state[stories_key] = taiga_adapter.get_stories_for_epic(epic_id)
-            except TaigaAPIError as exc:
-                st.error(str(exc))
-            st.rerun()
-
-    if stories is None:
-        return
-    if not stories:
-        st.caption("No stories found.")
-        return
-
-    del_pending_key = "_del_story_pending"
-    del_pending_id  = st.session_state.get(del_pending_key)
-
-    for s in stories:
-        sid     = s.get("id")
-        ref     = s.get("ref", sid)
-        subject = s.get("subject", "")
-        col_name, col_del = st.columns([6, 1])
-        with col_name:
-            st.caption(f"#{ref} {subject}")
-        with col_del:
-            if st.button("✕", key=f"del_story_btn_{sid}", use_container_width=True, help="Delete"):
-                st.session_state[del_pending_key]       = sid
-                st.session_state["_del_story_subject"]  = subject
-                st.rerun()
-
-    if del_pending_id:
-        subject = st.session_state.get("_del_story_subject", "")
-        st.warning(f"Permanently delete **\"{subject}\"** from Taiga?")
-        col_yes, col_no = st.columns(2)
-        with col_yes:
-            if st.button("Delete", type="primary", key="del_story_confirm_btn", use_container_width=True):
-                try:
-                    taiga_adapter.delete_story(del_pending_id)
-                    st.session_state[stories_key] = [
-                        s for s in st.session_state[stories_key] if s.get("id") != del_pending_id
-                    ]
-                    st.session_state.pop(del_pending_key, None)
-                    st.session_state.pop("_del_story_subject", None)
-                    st.toast("Story deleted from Taiga", icon="✅")
-                    st.rerun()
-                except TaigaAPIError as exc:
-                    st.error(str(exc))
-        with col_no:
-            if st.button("Cancel", key="del_story_cancel_btn", use_container_width=True):
-                st.session_state.pop(del_pending_key, None)
-                st.session_state.pop("_del_story_subject", None)
-                st.rerun()
 
 
 # ── Section: Generate ─────────────────────────────────────────────────────────
@@ -429,7 +343,7 @@ def _classify_ai_error(exc: Exception) -> str:
 # ── Section: Review & Edit (Interactive Bridge) ───────────────────────────────
 
 def _section_review() -> None:
-    st.markdown("#### REVIEW AND EDIT")
+    st.markdown("##### REVIEW AND EDIT")
     st.caption(
         "Review the Natural Language draft. Edit freely — "
         "this will be compiled to formal Gherkin on approval."
@@ -448,7 +362,7 @@ def _section_review() -> None:
 # ── Section: Compile ──────────────────────────────────────────────────────────
 
 def _section_compile() -> None:
-    st.markdown("#### APPROVE AND COMPILE")
+    st.markdown("##### APPROVE AND COMPILE")
     st.caption("Approve the NL draft to compile it into formal Gherkin for review.")
 
     col_compile, col_reset = st.columns([2, 1])
@@ -554,7 +468,7 @@ def _add_story() -> None:
 
 
 def _section_gherkin_review() -> None:
-    st.markdown("#### COMPILED GHERKIN")
+    st.markdown("##### COMPILED GHERKIN")
     st.caption(
         "Review the formal Gherkin below. "
         "Each story will be created as a separate entity in Taiga."
@@ -615,7 +529,7 @@ def _section_gherkin_review() -> None:
             st.rerun()
 
     st.divider()
-    st.markdown("#### CONFIRM PUSH")
+    st.markdown("##### CONFIRM PUSH")
 
     validation_errors = _validate_compiled_stories(compiled) if not push_done else []
     if validation_errors:
@@ -725,17 +639,16 @@ def _run_push() -> None:
                 taiga_story = taiga_adapter.create_story(
                     item["title"],
                     ai_engine.bold_gherkin_keywords(gherkin_text),
-                    epic_id=epic_id_val,
                     tags=["bolt", size],
                     backlog_order=_order_base + len(created),
                 )
                 story_id = taiga_story["id"]
 
-                if epic_id_val is not None:
-                    try:
-                        taiga_adapter.link_story_to_epic(epic_id_val, story_id)
-                    except TaigaAPIError:
-                        pass  # non-critical; story is created even if link fails
+                # Taiga ignores the `epic` field on story creation; explicit link required.
+                try:
+                    taiga_adapter.link_story_to_epic(epic_id_val, story_id)
+                except TaigaAPIError:
+                    pass
 
                 if ready_status_id is not None and taiga_story.get("version") is not None:
                     try:

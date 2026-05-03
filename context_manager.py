@@ -25,7 +25,12 @@ SESSION_FILE         = CONTEXT_DIR / ".bolt-session.json"
 
 # Module-level cache for the story index — avoids a file read on every sidebar render.
 # Invalidated by _save_story_index() so rebuild/upsert calls always keep it current.
+# WARNING: module-level state is shared across all Streamlit sessions in the same
+# Python process. Fine for single-user use; multi-user deployments need per-session storage.
 _story_index_cache: dict | None = None
+
+# Guards init_context() so filesystem checks run once per process, not on every AI call.
+_context_initialized: bool = False
 
 _MEMORY_BANK_TEMPLATE = """\
 # Memory Bank
@@ -86,6 +91,9 @@ PHASE_STATUSES = (
 
 def init_context() -> None:
     """Create spec files with standard templates if they do not exist, then run migrations."""
+    global _context_initialized
+    if _context_initialized:
+        return
     CONTEXT_DIR.mkdir(parents=True, exist_ok=True)
     for path, template in [
         (MEMORY_BANK_FILE,     _MEMORY_BANK_TEMPLATE),
@@ -98,6 +106,7 @@ def init_context() -> None:
     _migrate_vaccine_records()
     if not STORY_INDEX_FILE.exists():
         rebuild_story_index()
+    _context_initialized = True
 
 
 def _migrate_vaccine_records() -> None:
@@ -366,6 +375,21 @@ def rebuild_story_index() -> dict[str, dict]:
                 if index[sid]["phase_status"] == "gherkin_locked":
                     index[sid]["phase_status"] = "design_locked"
 
+    # ── Cross-reference proposal_story_*_task_*.md files ────────────────────
+    for path in CONTEXT_DIR.iterdir():
+        if path.name.startswith("proposal_story_") and path.suffix == ".md":
+            try:
+                # Format: proposal_story_{story_id}_task_{task_id}.md
+                stem_parts = path.stem.split("_")
+                story_part_idx = stem_parts.index("story")
+                sid = str(int(stem_parts[story_part_idx + 1]))
+                if sid in index:
+                    index[sid]["has_proposal"] = True
+                    if index[sid]["phase_status"] in ("gherkin_locked", "design_locked"):
+                        index[sid]["phase_status"] = "implementation"
+            except (ValueError, IndexError):
+                pass
+
     # ── Cross-reference bdd_story_*.feature files ────────────────────────────
     for path in CONTEXT_DIR.iterdir():
         if path.name.startswith("bdd_story_") and path.suffix == ".feature":
@@ -373,7 +397,7 @@ def rebuild_story_index() -> dict[str, dict]:
                 sid = str(int(path.stem.removeprefix("bdd_story_")))
                 if sid in index:
                     index[sid]["has_bdd"] = True
-                    if index[sid]["phase_status"] in ("gherkin_locked", "design_locked"):
+                    if index[sid]["phase_status"] in ("gherkin_locked", "design_locked", "implementation"):
                         index[sid]["phase_status"] = "qa"
             except ValueError:
                 pass
@@ -514,11 +538,16 @@ def append_vaccine_record(issue_id: int, root_cause: str, resolution_summary: st
     VACCINES_FILE.write_text(content, encoding="utf-8")
 
 
-def save_proposal(task_id: int, proposal: str) -> Path:
-    """Save a coding proposal to openspec/proposal_task_<id>.md and return the path."""
+def save_proposal(story_id: int, task_id: int, proposal: str) -> Path:
+    """Save a coding proposal to openspec/proposal_story_<story_id>_task_<task_id>.md.
+
+    Encoding story_id in the filename lets rebuild_story_index() recover has_proposal
+    state without requiring a separate metadata file.
+    """
     CONTEXT_DIR.mkdir(parents=True, exist_ok=True)
-    path = CONTEXT_DIR / f"proposal_task_{task_id}.md"
+    path = CONTEXT_DIR / f"proposal_story_{story_id}_task_{task_id}.md"
     path.write_text(proposal, encoding="utf-8")
+    upsert_story_index(story_id, has_proposal=True)
     return path
 
 
@@ -577,6 +606,7 @@ def reset_context() -> None:
     Intended for test/demo purposes only — all locked Gherkin, technical specs,
     vaccine records, and index entries are permanently erased.
     """
+    global _context_initialized
     CONTEXT_DIR.mkdir(parents=True, exist_ok=True)
     MEMORY_BANK_FILE.write_text(_MEMORY_BANK_TEMPLATE,     encoding="utf-8")
     FUNCTIONAL_SPEC_FILE.write_text(_FUNCTIONAL_SPEC_TEMPLATE, encoding="utf-8")
@@ -584,6 +614,7 @@ def reset_context() -> None:
     VACCINES_FILE.write_text(_VACCINES_TEMPLATE,           encoding="utf-8")
     _save_story_index({})
     clear_draft()
+    _context_initialized = False
 
 
 def _now() -> str:

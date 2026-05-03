@@ -1,1 +1,162 @@
-{}
+{
+  "9211005": {
+    "epic_id": 354095,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9211005,
+    "title": "Create New Empty Playlist"
+  },
+  "9211006": {
+    "epic_id": 354095,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9211006,
+    "title": "Add Songs From Library To Playlist"
+  },
+  "9211007": {
+    "epic_id": 354095,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9211007,
+    "title": "View Songs In Playlist Order"
+  },
+  "9211008": {
+    "epic_id": 354095,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9211008,
+    "title": "Remove Songs From Playlist"
+  },
+  "9211009": {
+    "epic_id": 354095,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9211009,
+    "title": "Reorder Songs In Playlist"
+  },
+  "9211010": {
+    "epic_id": 354095,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9211010,
+    "title": "Add Description Or Metadata To Playlist"
+  },
+  "9211011": {
+    "epic_id": 354095,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9211011,
+    "title": "View Song Count In Playlists"
+  },
+  "9211012": {
+    "epic_id": 354095,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9211012,
+    "title": "Delete Entire Playlist"
+  },
+  "9211016": {
+    "epic_id": 354095,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9211016,
+    "title": "Create New Empty Playlist"
+  },
+  "9211017": {
+    "epic_id": 354095,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9211017,
+    "title": "Add Songs From Library To Playlist"
+  },
+  "9211018": {
+    "epic_id": 354095,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9211018,
+    "title": "Remove Songs From Playlist"
+  },
+  "9211019": {
+    "epic_id": 354095,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9211019,
+    "title": "Reorder Songs Within Playlist"
+  },
+  "9211020": {
+    "epic_id": 354095,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9211020,
+    "title": "Add Description Or Notes To Playlist"
+  },
+  "9211021": {
+    "epic_id": 354095,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9211021,
+    "title": "View All Playlists In One Place"
+  },
+  "9211022": {
+    "epic_id": 354095,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9211022,
+    "title": "Delete Playlist"
+  },
+  "9211023": {
+    "epic_id": 354095,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9211023,
+    "title": "Rename Playlist"
+  }
+}
