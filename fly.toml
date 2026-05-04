@@ -1,4 +1,4 @@
-app = "bolt-cli"
+app = "bolt-cli "
 primary_region = "mad"
 
 [build]

@@ -1,4 +1,5 @@
 import streamlit as st
+st.session_state["_active_phase"] = 5
 
 st.header("Phase 5 · Deployment")
 st.caption("Infrastructure Delta — determine required IaC changes before each deployment")

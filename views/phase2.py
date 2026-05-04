@@ -1,4 +1,5 @@
 import streamlit as st
+st.session_state["_active_phase"] = 2
 
 st.header("Phase 2 · Design")
 st.caption("System Design — generate OpenAPI specs and database schemas anchored to approved Gherkin")

@@ -118,6 +118,38 @@ _LIGHT_CSS = """
         color: #6d28d9 !important;
         border-radius: 6px !important;
     }
+    /* ── Toast notifications ───────────────────────────────────────────── */
+    [data-testid="stToast"] {
+        background-color: #ffffff !important;
+        border: 1px solid #c8ccd4 !important;
+    }
+    [data-testid="stToast"] p,
+    [data-testid="stToast"] span,
+    [data-testid="stToast"] div {
+        color: #111111 !important;
+    }
+    /* ── Alert boxes (success / error / warning / info) ───────────────── */
+    [data-testid="stAlert"] [data-testid="stMarkdownContainer"] p,
+    [data-testid="stAlert"] [data-testid="stMarkdownContainer"] span,
+    [data-testid="stAlert"] [data-testid="stMarkdownContainer"] li,
+    [data-testid="stAlert"] [data-testid="stMarkdownContainer"] a {
+        color: #111111 !important;
+    }
+    /* ── Code blocks and inline code inside markdown ───────────────────── */
+    [data-testid="stMarkdownContainer"] code,
+    [data-testid="stMarkdownContainer"] pre,
+    .stMarkdown code,
+    .stMarkdown pre,
+    code, pre {
+        background-color: #e8eaed !important;
+        color: #1a1a1a !important;
+    }
+    /* ── st.status() container text ────────────────────────────────────── */
+    [data-testid="stStatusWidget"] p,
+    [data-testid="stStatusWidget"] span,
+    [data-testid="stStatusWidget"] label {
+        color: #111111 !important;
+    }
 """
 
 

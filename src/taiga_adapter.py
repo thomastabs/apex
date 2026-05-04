@@ -404,6 +404,19 @@ def delete_epic(epic_id: int) -> None:
     _logger.info("taiga.delete_epic id=%s", epic_id)
 
 
+def delete_epic_with_stories(epic_id: int) -> int:
+    """Delete all stories linked to epic_id, then delete the epic itself.
+
+    Returns the number of stories deleted.
+    """
+    stories = get_stories_for_epic(epic_id)
+    for s in stories:
+        delete_story(s["id"])
+    delete_epic(epic_id)
+    _logger.info("taiga.delete_epic_with_stories epic_id=%s stories_deleted=%s", epic_id, len(stories))
+    return len(stories)
+
+
 # ---------------------------------------------------------------------------
 # Project management
 # ---------------------------------------------------------------------------
@@ -474,6 +487,7 @@ def normalize_story(raw: dict) -> dict:
         "id":           raw["id"],
         "ref":          raw.get("ref", raw["id"]),
         "subject":      raw.get("subject", ""),
+        "description":  raw.get("description", "") or "",
         "version":      raw.get("version"),
         "status":       raw.get("status"),
         "epic_subject": epic_subject,

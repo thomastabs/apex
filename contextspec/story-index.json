@@ -168,5 +168,85 @@
     "phase_status": "gherkin_locked",
     "story_id": 9214452,
     "title": "See Song Count In Playlists"
+  },
+  "9218128": {
+    "epic_id": 354312,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9218128,
+    "title": "Create New Empty Playlist"
+  },
+  "9218129": {
+    "epic_id": 354312,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9218129,
+    "title": "Add Albums to Playlist"
+  },
+  "9218130": {
+    "epic_id": 354312,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9218130,
+    "title": "Arrange Albums in Playlist"
+  },
+  "9218131": {
+    "epic_id": 354312,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9218131,
+    "title": "Remove Albums from Playlist"
+  },
+  "9218132": {
+    "epic_id": 354312,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9218132,
+    "title": "Edit Playlist Name and Description"
+  },
+  "9218133": {
+    "epic_id": 354312,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9218133,
+    "title": "View Playlists in List"
+  },
+  "9218134": {
+    "epic_id": 354312,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9218134,
+    "title": "Delete Playlist"
+  },
+  "9218135": {
+    "epic_id": 354312,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9218135,
+    "title": "View Album Count in Playlists"
   }
 }
