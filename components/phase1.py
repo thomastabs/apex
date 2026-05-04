@@ -49,7 +49,7 @@ def render_phase1() -> None:
     st.header("Phase 1 · Requirements")
     st.caption("Mob Elaboration — transform an Epic into formal Gherkin Acceptance Criteria")
     try:
-        st.image("requirements.svg", use_container_width=True)
+        st.image("images/requirements.svg", use_container_width=True)
     except Exception:
         pass
     st.divider()
