@@ -3,7 +3,9 @@ components/sidebar.py
 Shared sidebar — rendered by app.py on every page load.
 """
 
+import html as _html
 import os
+import re
 from pathlib import Path
 
 import streamlit as st
@@ -11,6 +13,66 @@ import streamlit as st
 from src import ai_engine
 from src import context_manager
 from src import taiga_adapter
+
+# Gherkin keyword regex (mirrors ai_engine._GHERKIN_BLOCK_RE / _GHERKIN_STEP_RE)
+_GH_BLOCK_RE = re.compile(
+    r"^(\s*)(Feature|Background|Scenario Outline|Scenario|Examples):([ \t]*)",
+    re.MULTILINE,
+)
+_GH_STEP_RE = re.compile(
+    r"^(\s*)(Given|When|Then|And|But)( )",
+    re.MULTILINE,
+)
+_GH_BOLD_RE = re.compile(r"\*\*([^*]+)\*\*")
+
+
+def _render_description(text: str) -> None:
+    """Render a story/epic description with Gherkin keyword highlighting and scrolling."""
+    # Strip **bold** markers added by bold_gherkin_keywords() before pushing to Taiga.
+    clean = _GH_BOLD_RE.sub(r"\1", text)
+
+    is_gherkin = bool(_GH_BLOCK_RE.search(clean))
+
+    if not is_gherkin:
+        st.markdown(
+            f'<div style="max-height:460px;overflow-y:auto;">{_html.escape(clean)}</div>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    out_lines: list[str] = []
+    for line in clean.split("\n"):
+        esc = _html.escape(line)
+        bm = re.match(
+            r"^(\s*)(Feature|Background|Scenario Outline|Scenario|Examples):([ \t]*)(.*)", esc
+        )
+        if bm:
+            ind, kw, sp, rest = bm.group(1), bm.group(2), bm.group(3), bm.group(4)
+            out_lines.append(
+                f'{ind}<span style="color:#7c3aed;font-weight:700;">{kw}:</span>'
+                f'<span style="font-weight:600;">{sp}{rest}</span>'
+            )
+            continue
+        sm = re.match(r"^(\s*)(Given|When|Then|And|But)( )(.*)", esc)
+        if sm:
+            ind, kw, sp, rest = sm.group(1), sm.group(2), sm.group(3), sm.group(4)
+            out_lines.append(
+                f'{ind}<span style="color:#1d9bf0;font-weight:600;">{kw}</span>{sp}{rest}'
+            )
+            continue
+        out_lines.append(esc)
+
+    body = "\n".join(out_lines)
+    st.markdown(
+        f'<div style="'
+        f"font-family:ui-monospace,'SFMono-Regular',Menlo,monospace;"
+        f"font-size:13px;line-height:1.65;"
+        f"white-space:pre-wrap;"
+        f"max-height:500px;overflow-y:auto;"
+        f'padding:12px 16px;border-radius:6px;'
+        f'">{body}</div>',
+        unsafe_allow_html=True,
+    )
 
 _PREF_FILE = Path(".streamlit/.theme_pref")
 
@@ -38,15 +100,138 @@ _PHASES = [
 _CONTENT_HEIGHT = 260  # px
 
 
+_SIZE_TAGS = frozenset({"xs", "s", "m", "l", "xl"})
+
+
+def _render_tags(tags: list[str]) -> None:
+    badges = []
+    for tag in tags:
+        tl = tag.lower()
+        if tl in _SIZE_TAGS:
+            style = (
+                "background:rgba(124,58,237,0.15);color:#7c3aed;"
+                "border:1px solid rgba(124,58,237,0.4);"
+            )
+            label = tag.upper()
+        else:
+            style = (
+                "background:rgba(100,116,139,0.12);color:#64748b;"
+                "border:1px solid rgba(100,116,139,0.3);"
+            )
+            label = tag
+        badges.append(
+            f'<span style="display:inline-block;padding:2px 9px;margin:2px 3px 2px 0;'
+            f'border-radius:999px;font-size:11px;font-weight:600;{style}">'
+            f'{_html.escape(label)}</span>'
+        )
+    if badges:
+        st.markdown(" ".join(badges), unsafe_allow_html=True)
+
+
 @st.dialog("Story Details", width="large")
-def _story_details_dialog(story: dict) -> None:
+def _story_details_dialog(story: dict, stories_key: str | None = None) -> None:
+    sid     = story.get("id")
     ref     = story.get("ref", "")
     subject = story.get("subject", "")
+    version = story.get("version")
+    status  = story.get("status")
+    tags    = list(story.get("tags") or [])
     desc    = story.get("description", "")
-    st.markdown(f"**#{ref} · {subject}**")
+
+    # Lazy-fetch full story — list endpoint omits description and may omit version/tags.
+    if sid and (not desc or version is None):
+        with st.spinner("Loading…"):
+            try:
+                full    = taiga_adapter.get_story(sid)
+                desc    = full.get("description", "")
+                version = full.get("version", version)
+                status  = full.get("status", status)
+                tags    = list(full.get("tags") or tags)
+                subject = full.get("subject", subject)
+            except Exception:
+                pass
+
+    st.markdown(f"**#{ref}** &nbsp; {subject}")
+    _render_tags(tags)
+
+    st.divider()
+    st.markdown("**Edit**")
+
+    new_subject = st.text_input("Title", value=subject, key=f"dlg_subj_{sid}")
+    new_tags_str = st.text_input(
+        "Tags",
+        value=", ".join(tags),
+        key=f"dlg_tags_{sid}",
+    )
+
+    # Status selectbox
+    selected_status_id = status
+    try:
+        statuses = taiga_adapter.get_story_statuses()
+    except Exception:
+        statuses = []
+    if statuses and status is not None:
+        s_ids   = [s["id"]   for s in statuses]
+        s_names = [s["name"] for s in statuses]
+        try:
+            cur_idx = s_ids.index(status)
+        except ValueError:
+            cur_idx = 0
+        sel = st.selectbox(
+            "Status",
+            options=range(len(statuses)),
+            format_func=lambda i: s_names[i],
+            index=cur_idx,
+            key=f"dlg_status_{sid}",
+        )
+        selected_status_id = s_ids[sel]
+
+    if st.button("Save changes", type="primary", key=f"dlg_save_{sid}", use_container_width=True):
+        if version is None:
+            st.error("Cannot save: story version unavailable — reload the board and retry.")
+        else:
+            new_tags = [t.strip() for t in new_tags_str.split(",") if t.strip()]
+            try:
+                updated = taiga_adapter.update_story(
+                    sid, version,
+                    subject=new_subject.strip() or subject,
+                    tags=new_tags,
+                    status_id=selected_status_id,
+                )
+                if stories_key and stories_key in st.session_state:
+                    lst = st.session_state[stories_key]
+                    for i, s in enumerate(lst):
+                        if s.get("id") == sid:
+                            lst[i] = updated
+                            break
+                st.success("Story updated.")
+            except taiga_adapter.TaigaAPIError as exc:
+                st.error(str(exc))
+
     st.divider()
     if desc:
-        st.markdown(desc)
+        _render_description(desc)
+    else:
+        st.caption("No description available.")
+
+
+@st.dialog("Epic Details", width="large")
+def _epic_details_dialog(epic: dict) -> None:
+    ref     = epic.get("ref", "")
+    subject = epic.get("subject", "")
+    eid     = epic.get("id")
+    desc    = epic.get("description", "")
+    st.markdown(f"**#{ref} · {subject}**")
+    st.divider()
+    if not desc and eid:
+        with st.spinner("Loading…"):
+            try:
+                full = taiga_adapter.get_epic(eid)
+                desc = full.get("description", "")
+            except Exception:
+                pass
+    if desc:
+        _render_description(desc)
     else:
         st.caption("No description available.")
 
@@ -407,7 +592,7 @@ def _board_epic_row(epic: dict, epics_key: str) -> None:
     stor_key = f"board_stories_{epic_id}"
     del_key  = "_board_del_epic"
 
-    col_tog, col_name, col_del = st.columns([1, 6, 1])
+    col_tog, col_name, col_info, col_del = st.columns([1, 6, 1, 1])
     with col_tog:
         expanded = st.session_state.get(exp_key, False)
         if st.button("▼" if expanded else "▶", key=f"board_ep_tog_{epic_id}", use_container_width=True):
@@ -421,9 +606,12 @@ def _board_epic_row(epic: dict, epics_key: str) -> None:
             st.rerun()
     with col_name:
         st.markdown(f"**#{ref}** {subject}")
+    with col_info:
+        if st.button("ℹ", key=f"epic_info_{epic_id}", use_container_width=True):
+            _epic_details_dialog(epic)
     with col_del:
         if st.session_state.get(del_key) != epic_id:
-            if st.button("✕", key=f"board_ep_del_{epic_id}", use_container_width=True, help="Delete epic"):
+            if st.button("✕", key=f"board_ep_del_{epic_id}", use_container_width=True):
                 st.session_state[del_key]                = epic_id
                 st.session_state["_board_del_epic_name"] = subject
                 st.rerun()
@@ -478,8 +666,8 @@ def _board_story_row(story: dict, stories_key: str) -> None:
 
     col_info, col_name, col_del = st.columns([1, 7, 1])
     with col_info:
-        if st.button("ℹ", key=f"story_info_{sid}", use_container_width=True, help="View description"):
-            _story_details_dialog(story)
+        if st.button("ℹ", key=f"story_info_{sid}", use_container_width=True):
+            _story_details_dialog(story, stories_key=stories_key)
     with col_name:
         st.markdown(
             f'<span style="color:#7c3aed;font-weight:700;font-size:12px;">▸</span>'
@@ -488,7 +676,7 @@ def _board_story_row(story: dict, stories_key: str) -> None:
         )
     with col_del:
         if st.session_state.get(del_key) != sid:
-            if st.button("✕", key=f"board_s_del_{sid}", use_container_width=True, help="Delete story"):
+            if st.button("✕", key=f"board_s_del_{sid}", use_container_width=True):
                 st.session_state[del_key]                = sid
                 st.session_state["_board_del_story_sub"] = subject
                 st.session_state["_board_del_story_sk"]  = stories_key

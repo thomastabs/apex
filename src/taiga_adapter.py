@@ -478,6 +478,24 @@ def normalize_epic(raw: dict) -> dict:
     }
 
 
+def _parse_tags(raw_tags: list | None) -> list[str]:
+    """Normalise Taiga tag shapes into a plain list of strings.
+
+    Taiga returns tags as [[name, colour], ...] from the API, but callers that
+    build tags locally may pass plain strings.  Both forms are handled.
+    """
+    if not raw_tags:
+        return []
+    result: list[str] = []
+    for tag in raw_tags:
+        if isinstance(tag, (list, tuple)):
+            if tag:
+                result.append(str(tag[0]))
+        elif isinstance(tag, str):
+            result.append(tag)
+    return [t for t in result if t]
+
+
 def normalize_story(raw: dict) -> dict:
     """Return a normalized Story dict with guaranteed safe keys.
 
@@ -494,5 +512,30 @@ def normalize_story(raw: dict) -> dict:
         "description":  raw.get("description", "") or "",
         "version":      raw.get("version"),
         "status":       raw.get("status"),
+        "tags":         _parse_tags(raw.get("tags")),
         "epic_subject": epic_subject,
     }
+
+
+def update_story(
+    story_id: int,
+    version: int,
+    *,
+    subject: str | None = None,
+    description: str | None = None,
+    tags: list[str] | None = None,
+    status_id: int | None = None,
+) -> dict:
+    """Update a User Story's fields (version required for optimistic locking)."""
+    payload: dict[str, Any] = {"version": version}
+    if subject is not None:
+        payload["subject"] = subject
+    if description is not None:
+        payload["description"] = description
+    if tags is not None:
+        payload["tags"] = tags
+    if status_id is not None:
+        payload["status"] = status_id
+    raw = _patch(f"userstories/{story_id}", payload)
+    _logger.info("taiga.update_story id=%s", story_id)
+    return normalize_story(raw)

@@ -52,12 +52,10 @@ _LIGHT_CSS = """
     [data-testid="stBaseButton-tertiary"]:hover {
         background-color: #ede9fe !important;
         border-color: #7c3aed !important;
-        color: #6d28d9 !important;
     }
     [data-testid="stBaseButton-primary"]:hover {
         background-color: #6d28d9 !important;
         border-color: #6d28d9 !important;
-        color: #ffffff !important;
     }
     /* ── Inputs and text areas ─────────────────────────────────────────── */
     [data-baseweb="input"],
@@ -114,8 +112,8 @@ _LIGHT_CSS = """
     }
     /* ── Page link hover ───────────────────────────────────────────────── */
     [data-testid="stPageLink"] a:hover {
-        background-color: #ede9fe !important;
-        color: #6d28d9 !important;
+        background-color: #7c3aed !important;
+        color: #ffffff !important;
         border-radius: 6px !important;
     }
     /* ── Toast notifications ───────────────────────────────────────────── */
@@ -149,6 +147,53 @@ _LIGHT_CSS = """
     [data-testid="stStatusWidget"] span,
     [data-testid="stStatusWidget"] label {
         color: #111111 !important;
+    }
+    /* ── Dialog / Modal popup ───────────────────────────────────────────── */
+    /* Backdrop overlay */
+    [data-testid="stDialog"] {
+        background: rgba(0,0,0,0.5) !important;
+    }
+    /* Dialog box — white card with border and shadow so edges are clear */
+    [data-testid="stDialog"] > div > div,
+    [data-testid="stDialog"] [role="dialog"],
+    div[data-baseweb="modal"] > div,
+    div[data-baseweb="modal"] [role="dialog"] {
+        background-color: #ffffff !important;
+        border: 1.5px solid #c0c6d0 !important;
+        border-radius: 10px !important;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.10) !important;
+    }
+    /* All text inside dialogs */
+    [data-testid="stDialog"] p,
+    [data-testid="stDialog"] span,
+    [data-testid="stDialog"] label,
+    [data-testid="stDialog"] h1,
+    [data-testid="stDialog"] h2,
+    [data-testid="stDialog"] h3,
+    [data-testid="stDialog"] [data-testid="stMarkdownContainer"],
+    [data-testid="stDialog"] [data-testid="stMarkdownContainer"] p,
+    [data-testid="stDialog"] [data-testid="stMarkdownContainer"] span,
+    div[data-baseweb="modal"] p,
+    div[data-baseweb="modal"] span,
+    div[data-baseweb="modal"] label {
+        color: #111111 !important;
+    }
+    /* Inputs and textareas inside dialogs */
+    [data-testid="stDialog"] input,
+    [data-testid="stDialog"] textarea {
+        background-color: #ffffff !important;
+        color: #111111 !important;
+    }
+    /* Selectbox inside dialogs */
+    [data-testid="stDialog"] [data-baseweb="select"] > div:first-child {
+        background-color: #ffffff !important;
+        color: #111111 !important;
+    }
+    /* Close button */
+    [data-testid="stDialog"] [data-testid="stBaseButton-headerNoPadding"],
+    [data-testid="stDialog"] button[kind="header"] {
+        color: #111111 !important;
+        background-color: transparent !important;
     }
 """
 

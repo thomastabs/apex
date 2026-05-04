@@ -326,7 +326,7 @@ class TestGetStoriesNormalized:
         with patch.object(taiga_adapter, "_get", return_value=[{"id": 5}]):
             result = taiga_adapter.get_stories()
         assert result[0] == {"id": 5, "ref": 5, "subject": "", "description": "",
-                              "version": None, "status": None, "epic_subject": ""}
+                              "version": None, "status": None, "tags": [], "epic_subject": ""}
 
 
 # ---------------------------------------------------------------------------
