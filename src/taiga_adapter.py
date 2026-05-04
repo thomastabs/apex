@@ -100,11 +100,21 @@ def validate_project() -> str | None:
 
 
 def _persist_token(token: str) -> None:
-    """Write the refreshed token back to .env so it survives a server restart."""
+    """Write the refreshed token back to .env (creates the file if absent)."""
     env_path = Path(".env")
-    if not env_path.exists():
-        return
+    env_path.touch()
     set_key(str(env_path), "TAIGA_AUTH_TOKEN", token)
+
+
+def set_api_url(url: str) -> None:
+    """Override the Taiga API URL for this session and persist to .env."""
+    global TAIGA_API_URL
+    TAIGA_API_URL = url.rstrip("/")
+    os.environ["TAIGA_API_URL"] = TAIGA_API_URL
+    env_path = Path(".env")
+    env_path.touch()
+    set_key(str(env_path), "TAIGA_API_URL", TAIGA_API_URL)
+    _logger.info("taiga.set_api_url url=%r", TAIGA_API_URL)
 
 
 # ---------------------------------------------------------------------------
