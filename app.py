@@ -2,6 +2,7 @@
 app.py — bolt entry point and central router
 """
 
+import logging
 from pathlib import Path
 
 import streamlit as st
@@ -10,6 +11,12 @@ from dotenv import load_dotenv
 from components.sidebar import render_sidebar
 
 load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(name)s %(levelname)s %(message)s",
+    datefmt="%H:%M:%S",
+)
 
 _PREF_FILE = Path(".streamlit/.theme_pref")
 

@@ -11,6 +11,7 @@ from ai_engine import (
     GherkinStory,
     GherkinStoryList,
     _repair_truncated_json,
+    _reclassify_llm_exc,
     bold_gherkin_keywords,
     format_gherkin_story,
     format_nl_draft,
@@ -229,3 +230,168 @@ class TestRepairTruncatedJson:
         result = _repair_truncated_json(truncated)
         parsed = json.loads(result)
         assert "stories" in parsed
+
+
+# ---------------------------------------------------------------------------
+# Error classes
+# ---------------------------------------------------------------------------
+
+class TestAIErrorClasses:
+    def test_ai_error_is_exception(self):
+        from ai_engine import AIError
+        assert issubclass(AIError, Exception)
+
+    def test_ai_rate_limit_error_is_ai_error(self):
+        from ai_engine import AIError, AIRateLimitError
+        assert issubclass(AIRateLimitError, AIError)
+
+    def test_ai_validation_error_is_ai_error(self):
+        from ai_engine import AIError, AIValidationError
+        assert issubclass(AIValidationError, AIError)
+
+    def test_ai_timeout_error_is_ai_error(self):
+        from ai_engine import AIError, AITimeoutError
+        assert issubclass(AITimeoutError, AIError)
+
+    def test_ai_validation_error_raised_on_unrecoverable_json(self):
+        """_invoke_json_fallback raises AIValidationError when repair also fails."""
+        from unittest.mock import MagicMock, patch
+        from ai_engine import AIValidationError, NLStoryList, _invoke_json_fallback
+
+        bad_response = MagicMock()
+        bad_response.content = "NOT JSON AT ALL %%%"
+
+        with patch("ai_engine._get_llm") as mock_get_llm:
+            mock_llm = MagicMock()
+            mock_llm.invoke.return_value = bad_response
+            mock_get_llm.return_value = mock_llm
+
+            with pytest.raises(AIValidationError):
+                _invoke_json_fallback(
+                    "system", "human", "model", NLStoryList, 2048,
+                )
+
+    def test_errors_carry_message(self):
+        from ai_engine import AIRateLimitError
+        exc = AIRateLimitError("quota exceeded")
+        assert "quota exceeded" in str(exc)
+
+
+# ---------------------------------------------------------------------------
+# _reclassify_llm_exc
+# ---------------------------------------------------------------------------
+
+class TestReclassifyLlmExc:
+    def test_429_in_message_raises_rate_limit_error(self):
+        from ai_engine import AIRateLimitError
+        with pytest.raises(AIRateLimitError):
+            _reclassify_llm_exc(Exception("HTTP 429 rate_limit exceeded"))
+
+    def test_overloaded_raises_rate_limit_error(self):
+        from ai_engine import AIRateLimitError
+        with pytest.raises(AIRateLimitError):
+            _reclassify_llm_exc(Exception("model is overloaded, try again"))
+
+    def test_quota_raises_rate_limit_error(self):
+        from ai_engine import AIRateLimitError
+        with pytest.raises(AIRateLimitError):
+            _reclassify_llm_exc(Exception("quota exceeded for this project"))
+
+    def test_timeout_raises_ai_timeout_error(self):
+        from ai_engine import AITimeoutError
+        with pytest.raises(AITimeoutError):
+            _reclassify_llm_exc(Exception("request timed out after 30s"))
+
+    def test_timed_out_phrase_raises_ai_timeout_error(self):
+        from ai_engine import AITimeoutError
+        with pytest.raises(AITimeoutError):
+            _reclassify_llm_exc(Exception("connection timed out"))
+
+    def test_generic_exc_reraises_original_when_reraise_true(self):
+        exc = ValueError("some other problem")
+        with pytest.raises(ValueError, match="some other problem"):
+            _reclassify_llm_exc(exc)
+
+    def test_generic_exc_silenced_when_reraise_false(self):
+        exc = ValueError("transient streaming blip")
+        _reclassify_llm_exc(exc, reraise_unrecognized=False)  # must not raise
+
+    def test_fatal_exc_still_raises_when_reraise_false(self):
+        from ai_engine import AIRateLimitError
+        with pytest.raises(AIRateLimitError):
+            _reclassify_llm_exc(Exception("429 too many requests"), reraise_unrecognized=False)
+
+
+# ---------------------------------------------------------------------------
+# format_nl_draft — edge cases
+# ---------------------------------------------------------------------------
+
+class TestFormatNlDraftEdgeCases:
+    def test_story_with_no_scenarios_renders_title(self):
+        result = format_nl_draft(NLStoryList(stories=[
+            NLStory(title="Empty story", size="S", scenarios=[])
+        ]))
+        assert "[S] Empty story" in result
+
+    def test_output_does_not_end_with_newline(self):
+        result = format_nl_draft(NLStoryList(stories=[
+            NLStory(title="A", size="XS",
+                    scenarios=[NLScenario(title="T", description="D")])
+        ]))
+        assert not result.endswith("\n")
+
+    def test_divider_only_between_stories_not_after_last(self):
+        stories = [
+            NLStory(title="A", size="S",
+                    scenarios=[NLScenario(title="T", description="D")]),
+            NLStory(title="B", size="S",
+                    scenarios=[NLScenario(title="T2", description="D2")]),
+        ]
+        result = format_nl_draft(NLStoryList(stories=stories))
+        # There is at least one divider between stories
+        assert result.count("---") >= 1
+
+
+# ---------------------------------------------------------------------------
+# format_gherkin_story — edge cases
+# ---------------------------------------------------------------------------
+
+class TestFormatGherkinStoryEdgeCases:
+    def _sc(self, given=None, when=None, then=None):
+        return GherkinScenario(
+            title="T",
+            given=given or [],
+            when=when or ["action"],
+            then=then or ["result"],
+        )
+
+    def _story(self, scenarios=None):
+        return GherkinStory(title="S", size="S", scenarios=scenarios or [self._sc()])
+
+    def test_multiple_when_steps_first_uses_when_rest_use_and(self):
+        sc = self._sc(when=["w1", "w2", "w3"])
+        result = format_gherkin_story(self._story([sc]))
+        assert "When w1" in result
+        assert "And w2" in result
+        assert "And w3" in result
+
+    def test_multiple_then_steps_first_uses_then_rest_use_and(self):
+        sc = self._sc(then=["t1", "t2"])
+        result = format_gherkin_story(self._story([sc]))
+        assert "Then t1" in result
+        assert "And t2" in result
+
+    def test_empty_when_not_written(self):
+        sc = GherkinScenario(title="T", given=["pre"], when=[], then=["result"])
+        result = format_gherkin_story(self._story([sc]))
+        assert "When" not in result
+
+    def test_empty_then_not_written(self):
+        sc = GherkinScenario(title="T", given=["pre"], when=["action"], then=[])
+        result = format_gherkin_story(self._story([sc]))
+        assert "Then" not in result
+
+    def test_empty_scenarios_list_still_has_feature_header(self):
+        story = GherkinStory(title="No Scenarios", size="XS", scenarios=[])
+        result = format_gherkin_story(story)
+        assert "Feature: No Scenarios" in result

@@ -8,7 +8,7 @@ Three-step pipeline:
   CONFIRM PUSH → taiga_adapter.create_story() × N     → Taiga + context lock
 
 Changes vs initial version:
-  - Single create_story() call (epic_id inline, no separate link_story_to_epic)
+  - Epic linking handled inside taiga_adapter.create_story() — no separate call needed
   - Stories tagged with ["bolt", size] and moved to "Ready for Discovery" status on push
   - Duplicate detection: existing stories in the epic are skipped (not re-created)
   - Gherkin validation gates the push button (each story needs ≥1 Scenario block)
@@ -242,12 +242,16 @@ def _delete_epic_action(epic: dict) -> None:
                 try:
                     taiga_adapter.delete_epic(epic_id)
                     st.session_state.pop(pending_key, None)
-                    st.session_state["epics_list"] = None
-                    st.session_state["epic_selectbox_idx"] = 0
-                    st.session_state["_pending_epic_data"] = {"subject": "", "description": "", "id": ""}
-                    st.session_state.pop("_taiga_stories", None)
-                    st.session_state.pop("epics_visible", None)
-                    st.session_state.pop("epics_load_error", None)
+                    # Phase-1 epic picker caches
+                    for k in ("epics_list", "epic_selectbox_idx", "_pending_epic_data",
+                              "_taiga_stories", "epics_visible", "epics_load_error",
+                              "epics_detail_cache"):
+                        st.session_state.pop(k, None)
+                    # Sidebar board caches — keep the sidebar consistent
+                    st.session_state.pop("board_epics", None)
+                    st.session_state.pop(f"board_stories_{epic_id}", None)
+                    st.session_state.pop(f"board_exp_{epic_id}", None)
+                    st.session_state.pop("all_stories", None)
                     st.session_state["_notify_phase1"] = "Epic deleted from Taiga."
                     st.rerun()
                 except TaigaAPIError as exc:
@@ -330,6 +334,14 @@ def _run_generation(subject: str, description: str, hint: str, project_concept: 
 
 
 def _classify_ai_error(exc: Exception) -> str:
+    if isinstance(exc, ai_engine.AIRateLimitError):
+        return (
+            "Rate limit or quota exceeded (HTTP 429). "
+            "Check your Anthropic usage at console.anthropic.com, "
+            "or verify ANTHROPIC_API_KEY is correct in .env."
+        )
+    if isinstance(exc, ai_engine.AITimeoutError):
+        return "AI request timed out. Please retry."
     msg = str(exc)
     if "429" in msg or "rate_limit" in msg.lower() or "quota" in msg.lower():
         return (
@@ -639,16 +651,11 @@ def _run_push() -> None:
                 taiga_story = taiga_adapter.create_story(
                     item["title"],
                     ai_engine.bold_gherkin_keywords(gherkin_text),
+                    epic_id=epic_id_val,
                     tags=["bolt", size],
                     backlog_order=_order_base + len(created),
                 )
                 story_id = taiga_story["id"]
-
-                # Taiga ignores the `epic` field on story creation; explicit link required.
-                try:
-                    taiga_adapter.link_story_to_epic(epic_id_val, story_id)
-                except TaigaAPIError:
-                    pass
 
                 if ready_status_id is not None and taiga_story.get("version") is not None:
                     try:

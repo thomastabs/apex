@@ -19,8 +19,10 @@ Context Isolation Rule (enforced in fix_bolt_diagnose):
 """
 
 import json
+import logging
 import os
 import re
+import time
 from collections.abc import Callable, Generator
 from typing import Literal
 
@@ -34,7 +36,48 @@ load_dotenv()
 _DEFAULT_FAST  = "claude-haiku-4-5-20251001"
 _DEFAULT_CODER = "claude-sonnet-4-6"
 
+
+# ---------------------------------------------------------------------------
+# Typed error classes
+# ---------------------------------------------------------------------------
+
+class AIError(Exception):
+    """Base class for AI engine errors."""
+
+class AIRateLimitError(AIError):
+    """Rate-limit or quota error from the AI API (HTTP 429 / overloaded)."""
+
+class AIValidationError(AIError):
+    """Structured output failed schema validation after all repair attempts."""
+
+class AITimeoutError(AIError):
+    """AI API call timed out."""
+
+
+_logger = logging.getLogger("bolt.ai_engine")
 _llm_cache: dict = {}
+
+
+def _reclassify_llm_exc(exc: Exception, *, reraise_unrecognized: bool = True) -> None:
+    """Re-raise a LangChain/requests exception as a typed AIError subclass.
+
+    Checks exception class names first (reliable), then falls back to
+    message pattern matching (broad but catches vendored/wrapped errors).
+    When reraise_unrecognized=False, non-fatal streaming errors are silently
+    swallowed so the caller can fall through to the next invocation tier.
+    """
+    exc_type = type(exc).__name__
+    if exc_type in ("RateLimitError", "OverloadedError"):
+        raise AIRateLimitError(str(exc)) from exc
+    if exc_type in ("APITimeoutError", "Timeout", "ReadTimeout", "ConnectTimeout"):
+        raise AITimeoutError(str(exc)) from exc
+    msg = str(exc).lower()
+    if any(k in msg for k in ("429", "rate_limit", "rate limit", "overloaded", "quota")):
+        raise AIRateLimitError(str(exc)) from exc
+    if "timeout" in msg or "timed out" in msg:
+        raise AITimeoutError(str(exc)) from exc
+    if reraise_unrecognized:
+        raise exc
 
 
 def check_api_key() -> None:
@@ -66,8 +109,18 @@ def _get_llm(model: str, max_tokens: int) -> ChatAnthropic:
 
 def _invoke(system: str, human: str, model: str, max_tokens: int = 2048) -> str:
     llm = _get_llm(model, max_tokens)
-    response = llm.invoke([SystemMessage(content=system), HumanMessage(content=human)])
-    return response.content.strip()
+    t0 = time.monotonic()
+    try:
+        response = llm.invoke([SystemMessage(content=system), HumanMessage(content=human)])
+        _logger.info("ai_call model=%s tokens=%s duration_s=%.2f status=ok",
+                     model, max_tokens, time.monotonic() - t0)
+        return response.content.strip()
+    except AIError:
+        raise
+    except Exception as exc:
+        _logger.warning("ai_call model=%s tokens=%s duration_s=%.2f status=error error=%s",
+                        model, max_tokens, time.monotonic() - t0, type(exc).__name__)
+        _reclassify_llm_exc(exc)
 
 
 def _invoke_structured_with_progress(
@@ -111,7 +164,10 @@ def _invoke_structured_with_progress(
                 if n > seen:
                     seen = n
                     on_item(n)
-    except Exception:
+    except AIError:
+        raise
+    except Exception as exc:
+        _reclassify_llm_exc(exc, reraise_unrecognized=False)
         last = None
 
     if isinstance(last, schema):
@@ -124,8 +180,10 @@ def _invoke_structured_with_progress(
             return result
         if isinstance(result, dict):
             return schema.model_validate(result)
-    except Exception:
-        pass
+    except AIError:
+        raise
+    except Exception as exc:
+        _reclassify_llm_exc(exc, reraise_unrecognized=False)
 
     # Tier 3 — raw JSON fallback (bypasses with_structured_output entirely)
     return _invoke_json_fallback(
@@ -180,7 +238,22 @@ def _invoke_json_fallback(
     # Add headroom so long responses don't get truncated mid-JSON.
     effective_tokens = max(max_tokens + 2048, 8192)
     llm = _get_llm(model, effective_tokens)
-    response = llm.invoke([SystemMessage(content=augmented), HumanMessage(content=human)])
+    _logger.warning(
+        "ai_json_fallback model=%s tokens=%s — structured output failed, falling back to raw JSON",
+        model, effective_tokens,
+    )
+    t0 = time.monotonic()
+    try:
+        response = llm.invoke([SystemMessage(content=augmented), HumanMessage(content=human)])
+        _logger.info("ai_json_fallback model=%s duration_s=%.2f status=ok", model, time.monotonic() - t0)
+    except AIError:
+        raise
+    except Exception as exc:
+        _logger.warning(
+            "ai_json_fallback model=%s duration_s=%.2f status=error error=%s",
+            model, time.monotonic() - t0, type(exc).__name__,
+        )
+        _reclassify_llm_exc(exc)
     content = response.content
     if isinstance(content, list):
         content = "".join(
@@ -194,7 +267,12 @@ def _invoke_json_fallback(
     try:
         result = schema.model_validate_json(content)
     except Exception:
-        result = schema.model_validate_json(_repair_truncated_json(content))
+        try:
+            result = schema.model_validate_json(_repair_truncated_json(content))
+        except Exception as exc:
+            raise AIValidationError(
+                f"Structured output failed validation after repair attempt: {exc}"
+            ) from exc
     if on_item is not None:
         items = getattr(result, item_field, [])
         on_item(len(items))
@@ -210,16 +288,22 @@ def stream_text(
     Used by Phases 2-6 which produce raw text (not structured output).
     """
     llm = _get_llm(model, max_tokens)
-    for chunk in llm.stream(
-        [SystemMessage(content=system), HumanMessage(content=human)]
-    ):
-        content = chunk.content
-        if isinstance(content, str):
-            yield content
-        elif isinstance(content, list):
-            for block in content:
-                if isinstance(block, dict) and block.get("type") == "text":
-                    yield block.get("text", "")
+    try:
+        for chunk in llm.stream(
+            [SystemMessage(content=system), HumanMessage(content=human)]
+        ):
+            content = chunk.content
+            if isinstance(content, str):
+                yield content
+            elif isinstance(content, list):
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") == "text":
+                        yield block.get("text", "")
+    except AIError:
+        raise
+    except Exception as exc:
+        _logger.warning("ai_stream model=%s status=error error=%s", model, type(exc).__name__)
+        _reclassify_llm_exc(exc)
 
 
 # ---------------------------------------------------------------------------
@@ -288,6 +372,7 @@ class GherkinStoryList(BaseModel):
 # Phase 1 · Step 1 — NL Story Generation (Product Owner persona)
 # ---------------------------------------------------------------------------
 
+_NL_GENERATION_VERSION = "1.0"
 _NL_GENERATION_SYSTEM = """\
 You are a strict Product Owner operating within the Bolt Framework.
 Your job is to decompose a high-level Epic into fractional User Stories of XS or S size.
@@ -315,6 +400,7 @@ def generate_nl_stories(
     if hint.strip():
         human += f"Team guidance / constraints:\n{hint.strip()}\n\n"
     human += "Decompose into fractional User Stories with Natural Language scenarios."
+    _logger.debug("generate_nl_stories prompt_version=%s", _NL_GENERATION_VERSION)
     return _invoke_structured_with_progress(
         _NL_GENERATION_SYSTEM, human, get_fast_model(), NLStoryList,
         on_item=on_story,
@@ -340,6 +426,7 @@ def format_nl_draft(story_list: NLStoryList) -> str:
 # Phase 1 · Step 2 — Gherkin Compilation (GL Compiler persona)
 # ---------------------------------------------------------------------------
 
+_GL_COMPILATION_VERSION = "1.0"
 _GL_COMPILATION_SYSTEM = """\
 You are a strict Gherkin Language (GL) compiler operating within the Bolt Framework.
 Your ONLY job is to take a human-reviewed Natural Language story draft and compile it
@@ -363,6 +450,7 @@ def compile_gherkin_stories(
         f"Natural Language Draft (human-reviewed):\n\n{nl_draft}\n\n"
         "Compile every story and scenario into formal Gherkin Language."
     )
+    _logger.debug("compile_gherkin_stories prompt_version=%s", _GL_COMPILATION_VERSION)
     return _invoke_structured_with_progress(
         _GL_COMPILATION_SYSTEM, human, get_fast_model(), GherkinStoryList,
         max_tokens=4096, on_item=on_story,

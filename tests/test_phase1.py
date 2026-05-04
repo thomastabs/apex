@@ -218,3 +218,36 @@ class TestAddAndDeleteStory:
         second_title = compiled[1]["title"]
         self._call_delete(compiled, 0)
         assert compiled[0]["title"] == second_title
+
+
+# ---------------------------------------------------------------------------
+# _classify_ai_error
+# ---------------------------------------------------------------------------
+
+class TestClassifyAiError:
+    def _classify(self, exc: Exception) -> str:
+        from components.phase1 import _classify_ai_error
+        return _classify_ai_error(exc)
+
+    def test_ai_rate_limit_error_returns_friendly_message(self):
+        from ai_engine import AIRateLimitError
+        result = self._classify(AIRateLimitError("quota exceeded"))
+        assert "Rate limit" in result
+        assert "429" in result
+
+    def test_ai_timeout_error_returns_friendly_message(self):
+        from ai_engine import AITimeoutError
+        result = self._classify(AITimeoutError("connection timed out"))
+        assert "timed out" in result.lower() or "timeout" in result.lower()
+
+    def test_429_string_falls_through_to_pattern_match(self):
+        result = self._classify(Exception("HTTP 429 too many requests"))
+        assert "Rate limit" in result
+
+    def test_rate_limit_keyword_in_message(self):
+        result = self._classify(Exception("rate_limit exceeded for model"))
+        assert "Rate limit" in result
+
+    def test_generic_exception_returns_raw_message(self):
+        result = self._classify(ValueError("something completely unexpected"))
+        assert "something completely unexpected" in result

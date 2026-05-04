@@ -1,162 +1,172 @@
 {
-  "9211005": {
-    "epic_id": 354095,
+  "9214409": {
+    "epic_id": 354212,
     "has_bdd": false,
     "has_gherkin": true,
     "has_proposal": false,
     "has_tech_spec": false,
     "phase_status": "gherkin_locked",
-    "story_id": 9211005,
-    "title": "Create New Empty Playlist"
+    "story_id": 9214409,
+    "title": "Create New Playlist With Title And Description"
   },
-  "9211006": {
-    "epic_id": 354095,
+  "9214410": {
+    "epic_id": 354212,
     "has_bdd": false,
     "has_gherkin": true,
     "has_proposal": false,
     "has_tech_spec": false,
     "phase_status": "gherkin_locked",
-    "story_id": 9211006,
-    "title": "Add Songs From Library To Playlist"
+    "story_id": 9214410,
+    "title": "Add Albums Or Tracks To Playlist"
   },
-  "9211007": {
-    "epic_id": 354095,
+  "9214411": {
+    "epic_id": 354212,
     "has_bdd": false,
     "has_gherkin": true,
     "has_proposal": false,
     "has_tech_spec": false,
     "phase_status": "gherkin_locked",
-    "story_id": 9211007,
-    "title": "View Songs In Playlist Order"
+    "story_id": 9214411,
+    "title": "Remove Albums Or Tracks From Playlist"
   },
-  "9211008": {
-    "epic_id": 354095,
+  "9214412": {
+    "epic_id": 354212,
     "has_bdd": false,
     "has_gherkin": true,
     "has_proposal": false,
     "has_tech_spec": false,
     "phase_status": "gherkin_locked",
-    "story_id": 9211008,
-    "title": "Remove Songs From Playlist"
+    "story_id": 9214412,
+    "title": "Reorder Tracks In Playlist"
   },
-  "9211009": {
-    "epic_id": 354095,
+  "9214413": {
+    "epic_id": 354212,
     "has_bdd": false,
     "has_gherkin": true,
     "has_proposal": false,
     "has_tech_spec": false,
     "phase_status": "gherkin_locked",
-    "story_id": 9211009,
-    "title": "Reorder Songs In Playlist"
-  },
-  "9211010": {
-    "epic_id": 354095,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9211010,
-    "title": "Add Description Or Metadata To Playlist"
-  },
-  "9211011": {
-    "epic_id": 354095,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9211011,
-    "title": "View Song Count In Playlists"
-  },
-  "9211012": {
-    "epic_id": 354095,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9211012,
+    "story_id": 9214413,
     "title": "Delete Entire Playlist"
   },
-  "9211016": {
-    "epic_id": 354095,
+  "9214415": {
+    "epic_id": 354212,
     "has_bdd": false,
     "has_gherkin": true,
     "has_proposal": false,
     "has_tech_spec": false,
     "phase_status": "gherkin_locked",
-    "story_id": 9211016,
-    "title": "Create New Empty Playlist"
-  },
-  "9211017": {
-    "epic_id": 354095,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9211017,
-    "title": "Add Songs From Library To Playlist"
-  },
-  "9211018": {
-    "epic_id": 354095,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9211018,
-    "title": "Remove Songs From Playlist"
-  },
-  "9211019": {
-    "epic_id": 354095,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9211019,
-    "title": "Reorder Songs Within Playlist"
-  },
-  "9211020": {
-    "epic_id": 354095,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9211020,
-    "title": "Add Description Or Notes To Playlist"
-  },
-  "9211021": {
-    "epic_id": 354095,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9211021,
+    "story_id": 9214415,
     "title": "View All Playlists In One Place"
   },
-  "9211022": {
-    "epic_id": 354095,
+  "9214416": {
+    "epic_id": 354212,
     "has_bdd": false,
     "has_gherkin": true,
     "has_proposal": false,
     "has_tech_spec": false,
     "phase_status": "gherkin_locked",
-    "story_id": 9211022,
-    "title": "Delete Playlist"
+    "story_id": 9214416,
+    "title": "Edit Playlist Title And Description"
   },
-  "9211023": {
-    "epic_id": 354095,
+  "9214443": {
+    "epic_id": 354214,
     "has_bdd": false,
     "has_gherkin": true,
     "has_proposal": false,
     "has_tech_spec": false,
     "phase_status": "gherkin_locked",
-    "story_id": 9211023,
+    "story_id": 9214443,
+    "title": "Create New Empty Playlist"
+  },
+  "9214444": {
+    "epic_id": 354214,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9214444,
+    "title": "Add Songs To Playlist"
+  },
+  "9214445": {
+    "epic_id": 354214,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9214445,
+    "title": "Remove Songs From Playlist"
+  },
+  "9214446": {
+    "epic_id": 354214,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9214446,
+    "title": "Reorder Songs In Playlist"
+  },
+  "9214447": {
+    "epic_id": 354214,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9214447,
     "title": "Rename Playlist"
+  },
+  "9214448": {
+    "epic_id": 354214,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9214448,
+    "title": "Add Description To Playlist"
+  },
+  "9214449": {
+    "epic_id": 354214,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9214449,
+    "title": "Delete Entire Playlist"
+  },
+  "9214450": {
+    "epic_id": 354214,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9214450,
+    "title": "View All Playlists In One Place"
+  },
+  "9214451": {
+    "epic_id": 354214,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9214451,
+    "title": "View Songs In Playlist With Details"
+  },
+  "9214452": {
+    "epic_id": 354214,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9214452,
+    "title": "See Song Count In Playlists"
   }
 }

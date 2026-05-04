@@ -9,6 +9,7 @@ in-memory token, and writes the new token back to .env so it survives restarts.
 All public methods raise TaigaAPIError on non-2xx responses.
 """
 
+import logging
 import os
 import re
 import time
@@ -17,6 +18,10 @@ from typing import Any
 
 import requests
 from dotenv import load_dotenv, set_key
+
+# Status codes that are safe to retry with exponential back-off.
+# 501 (Not Implemented) is excluded — retrying won't help.
+_RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
 
 load_dotenv()
 
@@ -31,6 +36,8 @@ _token: dict[str, str] = {"value": os.getenv("TAIGA_AUTH_TOKEN", "")}
 # Session-scoped caches — valid for the lifetime of the Python process.
 _project_cache: dict      = {}
 _status_cache:  list[dict] = []
+
+_logger = logging.getLogger("bolt.taiga")
 
 
 class TaigaAPIError(Exception):
@@ -116,21 +123,29 @@ def _request(method: str, path: str, *, params: dict | None = None, payload: dic
             kwargs["json"] = payload
         return fn(url, **kwargs)
 
-    try:
-        resp = _call()
-    except requests.exceptions.Timeout as exc:
-        raise TaigaAPIError(method.upper(), url, 0, f"Request timed out: {exc}") from exc
-    except requests.exceptions.ConnectionError as exc:
-        raise TaigaAPIError(method.upper(), url, 0, f"Connection error: {exc}") from exc
-
-    if resp.status_code == 401 and TAIGA_USERNAME and TAIGA_PASSWORD:
-        _refresh_token()
+    def _safe_call() -> requests.Response:
         try:
-            resp = _call()
+            return _call()
         except requests.exceptions.Timeout as exc:
             raise TaigaAPIError(method.upper(), url, 0, f"Request timed out: {exc}") from exc
         except requests.exceptions.ConnectionError as exc:
             raise TaigaAPIError(method.upper(), url, 0, f"Connection error: {exc}") from exc
+
+    resp = _safe_call()
+
+    if resp.status_code == 401 and TAIGA_USERNAME and TAIGA_PASSWORD:
+        _refresh_token()
+        resp = _safe_call()
+
+    # Retry for 429 (rate-limited) and transient 5xx with exponential back-off.
+    delay = 1.0
+    for _ in range(2):
+        if resp.status_code not in _RETRYABLE_STATUS:
+            break
+        time.sleep(delay)
+        delay *= 2
+        resp = _safe_call()
+
     if not resp.ok:
         raise TaigaAPIError(method.upper(), url, resp.status_code, resp.text)
 
@@ -209,22 +224,25 @@ def get_story_url(story_ref: int | None) -> str | None:
 # ---------------------------------------------------------------------------
 
 def get_epics() -> list[dict]:
-    """Return all Epics for the project, ordered by ref."""
-    return _get("epics", params={"project": TAIGA_PROJECT_ID, "order_by": "ref"})
+    """Return all Epics for the project, ordered by ref, normalized."""
+    raw = _get("epics", params={"project": TAIGA_PROJECT_ID, "order_by": "ref"})
+    return [normalize_epic(e) for e in (raw or [])]
 
 
 def get_epic(epic_id: int) -> dict:
-    """Fetch a single Epic by ID."""
-    return _get(f"epics/{epic_id}")
+    """Fetch a single Epic by ID, normalized."""
+    return normalize_epic(_get(f"epics/{epic_id}"))
 
 
 def create_epic(subject: str, description: str) -> dict:
-    """Create a new Epic in the project and return the response dict (includes 'id')."""
-    return _post("epics", {
+    """Create a new Epic in the project and return a normalized dict (includes 'id')."""
+    raw = _post("epics", {
         "project": TAIGA_PROJECT_ID,
         "subject": subject,
         "description": description,
     })
+    _logger.info("taiga.create_epic subject=%r id=%s", subject, raw.get("id"))
+    return normalize_epic(raw)
 
 
 def link_story_to_epic(epic_id: int, story_id: int) -> dict:
@@ -240,19 +258,20 @@ def link_story_to_epic(epic_id: int, story_id: int) -> dict:
 # ---------------------------------------------------------------------------
 
 def get_story(story_id: int) -> dict:
-    """Fetch a single User Story by ID."""
-    return _get(f"userstories/{story_id}")
+    """Fetch a single User Story by ID, normalized."""
+    return normalize_story(_get(f"userstories/{story_id}"))
 
 
 def get_stories(epic_id: int | None = None) -> list[dict]:
-    """Return all User Stories for the project, ordered by ref.
+    """Return all User Stories for the project, ordered by ref, normalized.
 
     Pass epic_id to filter by a specific Epic.
     """
     params: dict = {"project": TAIGA_PROJECT_ID, "order_by": "ref"}
     if epic_id is not None:
         params["epic"] = epic_id
-    return _get("userstories", params=params)
+    raw = _get("userstories", params=params)
+    return [normalize_story(s) for s in (raw or [])]
 
 
 def get_stories_for_epic(epic_id: int) -> list[dict]:
@@ -270,6 +289,10 @@ def create_story(
 ) -> dict:
     """Create a new User Story in the project, optionally linked to an Epic.
 
+    When epic_id is provided the story is explicitly linked via the
+    related_userstories sub-resource (Taiga silently ignores the payload
+    `epic` field on story creation).
+
     tags          — list of plain strings applied as Taiga labels (e.g. ["bolt", "XS"]).
     backlog_order — explicit sort key; pass a sequence of values to preserve compilation order.
     """
@@ -278,21 +301,28 @@ def create_story(
         "subject": subject,
         "description": description,
     }
-    if epic_id is not None:
-        payload["epic"] = epic_id
     if tags:
         payload["tags"] = tags
     if backlog_order is not None:
         payload["backlog_order"] = backlog_order
-    return _post("userstories", payload)
+    raw = _post("userstories", payload)
+    _logger.info("taiga.create_story subject=%r id=%s", subject, raw.get("id"))
+    story = normalize_story(raw)
+    if epic_id is not None:
+        try:
+            link_story_to_epic(epic_id, story["id"])
+        except TaigaAPIError:
+            _logger.warning(
+                "taiga.create_story link failed story_id=%s epic_id=%s",
+                story["id"], epic_id,
+            )
+    return story
 
 
 def update_story_status(story_id: int, status_id: int, version: int) -> dict:
     """Move a User Story to a new status (requires the current version for optimistic locking)."""
-    return _patch(
-        f"userstories/{story_id}",
-        {"status": status_id, "version": version},
-    )
+    raw = _patch(f"userstories/{story_id}", {"status": status_id, "version": version})
+    return normalize_story(raw)
 
 
 def get_story_statuses() -> list[dict]:
@@ -366,10 +396,12 @@ def _delete(path: str) -> None:
 
 def delete_story(story_id: int) -> None:
     _delete(f"userstories/{story_id}")
+    _logger.info("taiga.delete_story id=%s", story_id)
 
 
 def delete_epic(epic_id: int) -> None:
     _delete(f"epics/{epic_id}")
+    _logger.info("taiga.delete_epic id=%s", epic_id)
 
 
 # ---------------------------------------------------------------------------
@@ -410,3 +442,39 @@ def set_active_project(project_id: int) -> None:
     env_path = Path(".env")
     if env_path.exists():
         set_key(str(env_path), "TAIGA_PROJECT_ID", str(project_id))
+
+
+# ---------------------------------------------------------------------------
+# Normalization helpers — safe dict shapes with guaranteed keys
+# ---------------------------------------------------------------------------
+
+def normalize_epic(raw: dict) -> dict:
+    """Return a normalized Epic dict with guaranteed safe keys.
+
+    Callers can rely on all returned keys existing without .get() fallbacks.
+    """
+    return {
+        "id":          raw["id"],
+        "ref":         raw.get("ref", raw["id"]),
+        "subject":     raw.get("subject", ""),
+        "description": raw.get("description", "") or "",
+    }
+
+
+def normalize_story(raw: dict) -> dict:
+    """Return a normalized Story dict with guaranteed safe keys.
+
+    Handles both epic_extra_info (dict) and epics (list) shapes from Taiga.
+    """
+    epic_info = raw.get("epic_extra_info") or raw.get("epics")
+    if isinstance(epic_info, list):
+        epic_info = epic_info[0] if epic_info else {}
+    epic_subject = epic_info.get("subject", "") if isinstance(epic_info, dict) else ""
+    return {
+        "id":           raw["id"],
+        "ref":          raw.get("ref", raw["id"]),
+        "subject":      raw.get("subject", ""),
+        "version":      raw.get("version"),
+        "status":       raw.get("status"),
+        "epic_subject": epic_subject,
+    }
