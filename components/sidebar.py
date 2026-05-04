@@ -216,20 +216,61 @@ def _story_details_dialog(story: dict, stories_key: str | None = None) -> None:
 
 
 @st.dialog("Epic Details", width="large")
-def _epic_details_dialog(epic: dict) -> None:
+def _epic_details_dialog(epic: dict, epics_key: str | None = None) -> None:
+    eid     = epic.get("id")
     ref     = epic.get("ref", "")
     subject = epic.get("subject", "")
-    eid     = epic.get("id")
+    version = epic.get("version")
+    tags    = list(epic.get("tags") or [])
     desc    = epic.get("description", "")
-    st.markdown(f"**#{ref} · {subject}**")
-    st.divider()
-    if not desc and eid:
+
+    # Lazy-fetch full epic — list endpoint may omit description/version/tags.
+    if eid and (not desc or version is None):
         with st.spinner("Loading…"):
             try:
-                full = taiga_adapter.get_epic(eid)
-                desc = full.get("description", "")
+                full    = taiga_adapter.get_epic(eid)
+                desc    = full.get("description", "")
+                version = full.get("version", version)
+                tags    = list(full.get("tags") or tags)
+                subject = full.get("subject", subject)
             except Exception:
                 pass
+
+    st.markdown(f"**#{ref}** &nbsp; {subject}")
+    _render_tags(tags)
+
+    st.divider()
+    st.markdown("**Edit**")
+
+    new_subject = st.text_input("Title", value=subject, key=f"dlg_ep_subj_{eid}")
+    new_tags_str = st.text_input(
+        "Tags",
+        value=", ".join(tags),
+        key=f"dlg_ep_tags_{eid}",
+    )
+
+    if st.button("Save changes", type="primary", key=f"dlg_ep_save_{eid}", use_container_width=True):
+        if version is None:
+            st.error("Cannot save: epic version unavailable — reload the board and retry.")
+        else:
+            new_tags = [t.strip() for t in new_tags_str.split(",") if t.strip()]
+            try:
+                updated = taiga_adapter.update_epic(
+                    eid, version,
+                    subject=new_subject.strip() or subject,
+                    tags=new_tags,
+                )
+                if epics_key and epics_key in st.session_state:
+                    lst = st.session_state[epics_key]
+                    for i, e in enumerate(lst):
+                        if e.get("id") == eid:
+                            lst[i] = updated
+                            break
+                st.success("Epic updated.")
+            except taiga_adapter.TaigaAPIError as exc:
+                st.error(str(exc))
+
+    st.divider()
     if desc:
         _render_description(desc)
     else:
@@ -608,7 +649,7 @@ def _board_epic_row(epic: dict, epics_key: str) -> None:
         st.markdown(f"**#{ref}** {subject}")
     with col_info:
         if st.button("ℹ", key=f"epic_info_{epic_id}", use_container_width=True):
-            _epic_details_dialog(epic)
+            _epic_details_dialog(epic, epics_key=epics_key)
     with col_del:
         if st.session_state.get(del_key) != epic_id:
             if st.button("✕", key=f"board_ep_del_{epic_id}", use_container_width=True):

@@ -221,6 +221,7 @@ class TestNormalizeEpic:
         raw = {"id": 1, "ref": 42, "subject": "My Epic", "description": "A desc"}
         assert taiga_adapter.normalize_epic(raw) == {
             "id": 1, "ref": 42, "subject": "My Epic", "description": "A desc",
+            "version": None, "tags": [],
         }
 
     def test_missing_ref_falls_back_to_id(self):
@@ -295,13 +296,15 @@ class TestGetEpicsNormalized:
         raw = [{"id": 1, "ref": 5, "subject": "Auth", "description": "Desc"}]
         with patch.object(taiga_adapter, "_get", return_value=raw):
             result = taiga_adapter.get_epics()
-        assert result == [{"id": 1, "ref": 5, "subject": "Auth", "description": "Desc"}]
+        assert result == [{"id": 1, "ref": 5, "subject": "Auth", "description": "Desc",
+                           "version": None, "tags": []}]
 
     def test_missing_fields_filled_in(self):
         from src import taiga_adapter
         with patch.object(taiga_adapter, "_get", return_value=[{"id": 2}]):
             result = taiga_adapter.get_epics()
-        assert result[0] == {"id": 2, "ref": 2, "subject": "", "description": ""}
+        assert result[0] == {"id": 2, "ref": 2, "subject": "", "description": "",
+                              "version": None, "tags": []}
 
     def test_none_description_coerced_to_empty(self):
         from src import taiga_adapter
@@ -339,7 +342,8 @@ class TestCreateEpicNormalized:
         raw = {"id": 10, "ref": 3, "subject": "My Epic", "description": "Desc"}
         with patch.object(taiga_adapter, "_post", return_value=raw):
             result = taiga_adapter.create_epic("My Epic", "Desc")
-        assert result == {"id": 10, "ref": 3, "subject": "My Epic", "description": "Desc"}
+        assert result == {"id": 10, "ref": 3, "subject": "My Epic", "description": "Desc",
+                          "version": None, "tags": []}
 
     def test_missing_ref_falls_back_to_id(self):
         from src import taiga_adapter

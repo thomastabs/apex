@@ -475,7 +475,30 @@ def normalize_epic(raw: dict) -> dict:
         "ref":         raw.get("ref", raw["id"]),
         "subject":     raw.get("subject", ""),
         "description": raw.get("description", "") or "",
+        "version":     raw.get("version"),
+        "tags":        _parse_tags(raw.get("tags")),
     }
+
+
+def update_epic(
+    epic_id: int,
+    version: int,
+    *,
+    subject: str | None = None,
+    description: str | None = None,
+    tags: list[str] | None = None,
+) -> dict:
+    """Update an Epic's fields (version required for optimistic locking)."""
+    payload: dict[str, Any] = {"version": version}
+    if subject is not None:
+        payload["subject"] = subject
+    if description is not None:
+        payload["description"] = description
+    if tags is not None:
+        payload["tags"] = tags
+    raw = _patch(f"epics/{epic_id}", payload)
+    _logger.info("taiga.update_epic id=%s", epic_id)
+    return normalize_epic(raw)
 
 
 def _parse_tags(raw_tags: list | None) -> list[str]:
