@@ -242,5 +242,5 @@ _pages = [
 ]
 
 pg = st.navigation(_pages, position="hidden")
-render_sidebar()
 pg.run()
+render_sidebar()
