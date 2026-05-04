@@ -1,4 +1,5 @@
 import streamlit as st
+st.session_state["_active_phase"] = 3
 
 st.header("Phase 3 · Implementation")
 st.caption("Task Breakdown & Coding Proposals — decompose stories into Bolt tasks with Consistency Factors")

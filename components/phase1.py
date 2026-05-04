@@ -240,7 +240,8 @@ def _delete_epic_action(epic: dict) -> None:
         with col_yes:
             if st.button("Delete", type="primary", key="del_epic_confirm_btn", use_container_width=True):
                 try:
-                    taiga_adapter.delete_epic(epic_id)
+                    with st.spinner("Deleting stories…"):
+                        taiga_adapter.delete_epic_with_stories(epic_id)
                     st.session_state.pop(pending_key, None)
                     # Phase-1 epic picker caches
                     for k in ("epics_list", "epic_selectbox_idx", "_pending_epic_data",

@@ -1,4 +1,5 @@
 import streamlit as st
+st.session_state["_active_phase"] = 4
 
 st.header("Phase 4 · Testing")
 st.caption("BDD Test Generation — generate test suites strictly from locked Gherkin")

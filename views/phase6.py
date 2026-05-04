@@ -1,4 +1,5 @@
 import streamlit as st
+st.session_state["_active_phase"] = 6
 
 st.header("Phase 6 · Maintenance")
 st.caption("Fix-Bolt & Vaccine Records — context-isolated bug diagnosis with permanent fix history")
