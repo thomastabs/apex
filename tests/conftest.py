@@ -12,7 +12,7 @@ def ctx(tmp_path, monkeypatch):
     """
     import context_manager as cm
 
-    ctx_dir = tmp_path / "openspec"
+    ctx_dir = tmp_path / "contextspec"
     ctx_dir.mkdir()
 
     monkeypatch.setattr(cm, "CONTEXT_DIR",          ctx_dir)

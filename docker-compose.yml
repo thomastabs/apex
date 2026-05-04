@@ -6,6 +6,6 @@ services:
     env_file:
       - .env
     volumes:
-      # Persist the openspec/ context files across container restarts
-      - ./openspec:/app/openspec
+      # Persist the contextspec/ context files across container restarts
+      - ./contextspec:/app/contextspec
     restart: unless-stopped

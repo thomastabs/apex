@@ -11,8 +11,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Ensure runtime directories exist (openspec/ is written to at runtime)
-RUN mkdir -p openspec .streamlit
+# Ensure runtime directories exist (contextspec/ is written to at runtime)
+RUN mkdir -p contextspec .streamlit
 
 EXPOSE 8501
 

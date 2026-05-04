@@ -7,5 +7,5 @@ st.info(
     "Coming in the next iteration.  \n"
     "**Breakdown** — Tech Lead AI decomposes a story into atomic Bolt tasks and pushes them to Taiga.  \n"
     "**Propose** — Senior Developer AI generates a step-by-step coding plan anchored to the Technical Spec, "
-    "saved to `openspec/proposal_task_<id>.md`."
+    "saved to `contextspec/proposal_task_<id>.md`."
 )

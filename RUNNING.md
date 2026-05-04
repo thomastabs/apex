@@ -54,7 +54,7 @@ streamlit run app.py
 
 Open [http://localhost:8501](http://localhost:8501).
 
-The `openspec/` directory is created automatically on first use.
+The `contextspec/` directory is created automatically on first use.
 
 ---
 
@@ -73,13 +73,13 @@ Pass your `.env` file directly:
 ```bash
 docker run --env-file .env \
   -p 8501:8501 \
-  -v "$(pwd)/openspec:/app/openspec" \
+  -v "$(pwd)/contextspec:/app/contextspec" \
   bolt-cli:local
 ```
 
 Open [http://localhost:8501](http://localhost:8501).
 
-The `-v` flag mounts your local `openspec/` folder into the container so
+The `-v` flag mounts your local `contextspec/` folder into the container so
 context files (`functional-spec.md`, `memory-bank.md`, etc.) survive
 container restarts.
 
@@ -100,7 +100,7 @@ docker compose up --build
 
 Open [http://localhost:8501](http://localhost:8501).
 
-Compose reads `.env` automatically and mounts `openspec/` as a named volume.
+Compose reads `.env` automatically and mounts `contextspec/` as a named volume.
 
 **Rebuild after code changes:**
 
@@ -126,7 +126,7 @@ docker pull ghcr.io/thomastabs/bolt-cli:latest
 
 docker run --env-file .env \
   -p 8501:8501 \
-  -v "$(pwd)/openspec:/app/openspec" \
+  -v "$(pwd)/contextspec:/app/contextspec" \
   ghcr.io/thomastabs/bolt-cli:latest
 ```
 
@@ -136,7 +136,7 @@ updates:
 ```bash
 docker run --env-file .env \
   -p 8501:8501 \
-  -v "$(pwd)/openspec:/app/openspec" \
+  -v "$(pwd)/contextspec:/app/contextspec" \
   ghcr.io/thomastabs/bolt-cli:sha-86e96ee
 ```
 

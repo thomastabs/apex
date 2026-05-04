@@ -1,6 +1,6 @@
 """
 context_manager.py
-Manages read/write operations on the openspec/ artefacts:
+Manages read/write operations on the contextspec/ artefacts:
 
   memory-bank.md       — architecture rules, tech stack, enterprise policies (Tech Lead only)
   functional-spec.md   — per-story Gherkin Acceptance Criteria (locked on push)
@@ -14,7 +14,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-CONTEXT_DIR          = Path("openspec")
+CONTEXT_DIR          = Path("contextspec")
 MEMORY_BANK_FILE     = CONTEXT_DIR / "memory-bank.md"
 FUNCTIONAL_SPEC_FILE = CONTEXT_DIR / "functional-spec.md"
 TECHNICAL_SPEC_FILE  = CONTEXT_DIR / "technical-spec.md"
@@ -313,7 +313,7 @@ def upsert_story_index(story_id: int, **updates) -> None:
 
 
 def rebuild_story_index() -> dict[str, dict]:
-    """Rebuild the story index from scratch by scanning all openspec/ files.
+    """Rebuild the story index from scratch by scanning all contextspec/ files.
 
     Parses functional-spec.md for stories (both flat ## Story and nested ### Story
     under ## Epic), then cross-references technical-spec.md and bdd_story_*.feature
@@ -539,7 +539,7 @@ def append_vaccine_record(issue_id: int, root_cause: str, resolution_summary: st
 
 
 def save_proposal(story_id: int, task_id: int, proposal: str) -> Path:
-    """Save a coding proposal to openspec/proposal_story_<story_id>_task_<task_id>.md.
+    """Save a coding proposal to contextspec/proposal_story_<story_id>_task_<task_id>.md.
 
     Encoding story_id in the filename lets rebuild_story_index() recover has_proposal
     state without requiring a separate metadata file.
@@ -552,7 +552,7 @@ def save_proposal(story_id: int, task_id: int, proposal: str) -> Path:
 
 
 def save_bdd_tests(story_id: int, test_script: str) -> Path:
-    """Save BDD test scripts to openspec/bdd_story_<id>.feature and return the path."""
+    """Save BDD test scripts to contextspec/bdd_story_<id>.feature and return the path."""
     CONTEXT_DIR.mkdir(parents=True, exist_ok=True)
     path = CONTEXT_DIR / f"bdd_story_{story_id}.feature"
     path.write_text(test_script, encoding="utf-8")

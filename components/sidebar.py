@@ -241,7 +241,7 @@ def _memory_bank() -> None:
             st.rerun()
 
     any_exists = any(
-        (Path("openspec") / f).exists()
+        (Path("contextspec") / f).exists()
         for f in ("memory-bank.md", "functional-spec.md", "technical-spec.md", "vaccines.md")
     )
     if not any_exists:
@@ -296,7 +296,7 @@ def _context_size_indicator() -> None:
 
 
 def _context_file_editor(filename: str, state_key: str, label: str) -> None:
-    path = Path("openspec") / filename
+    path = Path("contextspec") / filename
     if not path.exists():
         return
 

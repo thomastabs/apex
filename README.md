@@ -12,7 +12,7 @@ flowchart LR
   B --> C[Human review]
   C --> D[Gherkin compile]
   D --> E[Taiga push]
-  D --> F[openspec context]
+  D --> F[contextspec context]
   F --> G[Later phases]
 ```
 
@@ -37,7 +37,7 @@ This is the implemented workflow.
 - compile the draft into formal Gherkin
 - edit story titles and Gherkin per story
 - push stories to Taiga
-- save the approved Gherkin into `openspec/functional-spec.md`
+- save the approved Gherkin into `contextspec/functional-spec.md`
 
 ### Phases 2 to 6
 
@@ -57,7 +57,7 @@ The app is split into a few focused modules:
 - `components/sidebar.py` renders navigation, status, and the live context editor
 - `components/phase1.py` contains the full Phase 1 workflow
 - `ai_engine.py` wraps Claude prompts and structured outputs
-- `context_manager.py` manages the `openspec/` markdown files
+- `context_manager.py` manages the `contextspec/` markdown files
 - `taiga_adapter.py` handles Taiga API reads and writes
 - `views/` contains thin Streamlit page wrappers
 
@@ -70,7 +70,7 @@ The main design choice is to keep the approved spec in files, not only in memory
 3. The user edits the draft in the UI.
 4. The app compiles the draft into strict Gherkin.
 5. The user edits the compiled stories and confirms the push.
-6. The app creates or links the Epic in Taiga, creates the stories, and writes the approved Gherkin into `openspec/`.
+6. The app creates or links the Epic in Taiga, creates the stories, and writes the approved Gherkin into `contextspec/`.
 
 ## Project Files
 
@@ -80,7 +80,7 @@ The main design choice is to keep the approved spec in files, not only in memory
 - `taiga_adapter.py` - Taiga API client
 - `components/` - shared UI and Phase 1 logic
 - `views/` - Streamlit pages
-- `openspec/` - persistent project context
+- `contextspec/` - persistent project context
 
 ## Run It
 

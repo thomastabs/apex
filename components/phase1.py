@@ -14,7 +14,7 @@ Changes vs initial version:
   - Gherkin validation gates the push button (each story needs ≥1 Scenario block)
   - Success message shows clickable Taiga links (story ref → web URL)
   - st.status() replaces spinners for generation and compilation steps
-  - Draft state (NL + compiled) is persisted to openspec/.bolt-draft.json so it
+  - Draft state (NL + compiled) is persisted to contextspec/.bolt-draft.json so it
     survives a page refresh or Streamlit server restart
 
 Session state keys are documented in _STATE_DEFAULTS.
@@ -740,7 +740,7 @@ def _render_push_result() -> None:
         body = (
             f"{epic_line}"
             f"{count} {noun} created in Taiga · "
-            f"Gherkin locked to `openspec/functional-spec.md`.\n\n"
+            f"Gherkin locked to `contextspec/functional-spec.md`.\n\n"
             f"{story_lines}"
         )
         if skipped_lines:
