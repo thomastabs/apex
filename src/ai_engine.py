@@ -128,7 +128,7 @@ def _invoke_structured_with_progress(
     human: str,
     model: str,
     schema,
-    max_tokens: int = 2048,
+    max_tokens: int = 4096,
     *,
     on_item: Callable[[int], None] | None = None,
     item_field: str = "stories",
@@ -403,7 +403,7 @@ def generate_nl_stories(
     _logger.debug("generate_nl_stories prompt_version=%s", _NL_GENERATION_VERSION)
     return _invoke_structured_with_progress(
         _NL_GENERATION_SYSTEM, human, get_fast_model(), NLStoryList,
-        on_item=on_story,
+        max_tokens=4096, on_item=on_story,
     )
 
 
