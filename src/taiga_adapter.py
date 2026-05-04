@@ -434,6 +434,61 @@ def _get_me() -> dict:
     return _me_cache
 
 
+def get_me() -> dict:
+    """Return the authenticated user's profile (cached per session)."""
+    return _get_me()
+
+
+def login(username: str, password: str) -> None:
+    """Authenticate as a different user; updates in-memory token and .env."""
+    global _status_cache
+    url = f"{TAIGA_API_URL}/api/v1/auth"
+    resp = requests.post(
+        url,
+        json={"username": username, "password": password, "type": "normal"},
+        timeout=15,
+    )
+    if not resp.ok:
+        raise TaigaAPIError("POST", url, resp.status_code, resp.text)
+    new_token = resp.json()["auth_token"]
+    _token["value"] = new_token
+    _me_cache.clear()
+    _project_cache.clear()
+    _status_cache = []
+    _persist_token(new_token)
+    _logger.info("taiga.login username=%r", username)
+
+
+def get_memberships() -> list[dict]:
+    """Return all memberships for the current project."""
+    return _get("memberships", params={"project": TAIGA_PROJECT_ID}) or []
+
+
+def get_roles() -> list[dict]:
+    """Return all roles defined for the current project."""
+    return _get("roles", params={"project": TAIGA_PROJECT_ID}) or []
+
+
+def invite_member(username_or_email: str, role_id: int) -> dict:
+    """Invite a user to the current project with the given role."""
+    return _post("memberships", {
+        "project": TAIGA_PROJECT_ID,
+        "role":    role_id,
+        "username": username_or_email,
+    })
+
+
+def update_membership_role(membership_id: int, role_id: int) -> dict:
+    """Change an existing member's role."""
+    return _patch(f"memberships/{membership_id}", {"role": role_id})
+
+
+def delete_membership(membership_id: int) -> None:
+    """Remove a member from the project."""
+    _delete(f"memberships/{membership_id}")
+    _logger.info("taiga.delete_membership id=%s", membership_id)
+
+
 def get_projects() -> list[dict]:
     """Return all projects the authenticated user is a member of."""
     me = _get_me()

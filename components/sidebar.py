@@ -298,6 +298,7 @@ def render_sidebar() -> None:
         _ai_status()
         _taiga_status()
         _taiga_board()
+        _user_management()
 
 
 # ── Phase navigation ──────────────────────────────────────────────────────────
@@ -790,6 +791,232 @@ def _board_create_story(epic_id: int, stories_key: str) -> None:
             st.session_state.pop(title_key, None)
             st.session_state.pop(desc_key, None)
             st.session_state["_notify_epics"] = f'Story "{story["subject"]}" created.'
+            st.rerun()
+        except taiga_adapter.TaigaAPIError as exc:
+            st.error(str(exc))
+
+
+# ── User Management ───────────────────────────────────────────────────────────
+
+def _user_management() -> None:
+    if not taiga_adapter.is_configured():
+        return
+
+    with st.expander("Users & Roles", key="user_mgmt_exp"):
+        _user_mgmt_content()
+
+
+def _user_mgmt_content() -> None:
+    if msg := st.session_state.pop("_notify_users", None):
+        st.toast(msg)
+
+    # ── Current account ───────────────────────────────────────────────────
+    try:
+        me        = taiga_adapter.get_me()
+        full_name = (me.get("full_name") or me.get("username", "")).strip()
+        username  = me.get("username", "")
+        st.markdown(
+            f'<span style="font-size:12px;">Logged in as &nbsp;'
+            f'<strong>{_html.escape(full_name)}</strong>'
+            + (f' <span style="color:#888;">@{_html.escape(username)}</span>' if username and full_name else "")
+            + "</span>",
+            unsafe_allow_html=True,
+        )
+    except Exception:
+        st.caption("Could not load current user.")
+
+    # ── Switch account ────────────────────────────────────────────────────
+    with st.expander("Switch account", key="user_switch_exp"):
+        _switch_account_form()
+
+    if not taiga_adapter.TAIGA_PROJECT_ID:
+        return
+
+    st.divider()
+
+    # ── Project members ───────────────────────────────────────────────────
+    _project_members_section()
+
+
+def _switch_account_form() -> None:
+    uname = st.text_input(
+        "Username", key="sw_uname",
+        label_visibility="collapsed", placeholder="Username",
+    )
+    pw = st.text_input(
+        "Password", key="sw_pw",
+        label_visibility="collapsed", placeholder="Password", type="password",
+    )
+    if st.button(
+        "Login", key="sw_login_btn",
+        disabled=not (uname.strip() and pw.strip()),
+        use_container_width=True,
+        type="primary",
+    ):
+        try:
+            with st.spinner("Authenticating…"):
+                taiga_adapter.login(uname.strip(), pw.strip())
+            for k in list(st.session_state.keys()):
+                if k.startswith(("board_", "epics_", "taiga_", "_taiga_", "user_mgmt")):
+                    del st.session_state[k]
+            st.session_state.pop("taiga_projects", None)
+            st.session_state["_notify_users"] = f"Logged in as {uname.strip()}."
+            st.rerun()
+        except taiga_adapter.TaigaAPIError as exc:
+            st.error(str(exc))
+
+
+def _project_members_section() -> None:
+    members_key = "umgr_members"
+    roles_key   = "umgr_roles"
+
+    col_lbl, col_btn = st.columns([5, 1])
+    with col_lbl:
+        members: list[dict] | None = st.session_state.get(members_key)
+        st.markdown(
+            f"**Members** &nbsp; `{len(members)}`" if members is not None else "**Members**"
+        )
+    with col_btn:
+        label = "Load" if st.session_state.get(members_key) is None else "↻"
+        if st.button(label, key="umgr_load_btn", use_container_width=True):
+            try:
+                with st.spinner("Loading…"):
+                    st.session_state[members_key] = taiga_adapter.get_memberships()
+                    st.session_state[roles_key]   = taiga_adapter.get_roles()
+            except taiga_adapter.TaigaAPIError as exc:
+                st.error(str(exc))
+            st.rerun()
+
+    members = st.session_state.get(members_key)
+    if members is None:
+        return
+
+    roles    = st.session_state.get(roles_key, [])
+    role_map = {r["id"]: r["name"] for r in roles}
+
+    for m in members:
+        _member_row(m, roles, role_map, members_key)
+
+    st.divider()
+    _invite_member_form(roles)
+
+
+def _member_row(m: dict, roles: list, role_map: dict, members_key: str) -> None:
+    mid       = m.get("id")
+    user_info = m.get("user_extra_info") or {}
+    full_name = (user_info.get("full_name_display") or m.get("full_name", "")).strip()
+    username  = (user_info.get("username") or m.get("user_email", "")).strip()
+    role_id   = m.get("role")
+    is_owner  = m.get("is_owner", False)
+    display   = full_name or username or "Unknown"
+    del_key   = f"_umgr_del_{mid}"
+
+    col_name, col_del = st.columns([7, 1])
+    with col_name:
+        st.markdown(
+            f'<span style="font-size:12px;font-weight:600;">{_html.escape(display)}</span>'
+            + (
+                f' <span style="font-size:11px;color:#888;">@{_html.escape(username)}</span>'
+                if username and full_name else ""
+            ),
+            unsafe_allow_html=True,
+        )
+    with col_del:
+        if not is_owner:
+            if st.button("✕", key=f"umgr_del_{mid}", use_container_width=True):
+                st.session_state[del_key] = True
+                st.rerun()
+
+    # Role row
+    if is_owner:
+        st.caption(f"  👑 {role_map.get(role_id, 'Owner')}")
+    elif roles:
+        role_ids = [r["id"]   for r in roles]
+        role_nms = [r["name"] for r in roles]
+        try:
+            cur = role_ids.index(role_id)
+        except ValueError:
+            cur = 0
+        col_role, col_save = st.columns([4, 1])
+        with col_role:
+            sel = st.selectbox(
+                "role", options=range(len(roles)),
+                format_func=lambda i: role_nms[i],
+                index=cur, key=f"umgr_role_{mid}",
+                label_visibility="collapsed",
+            )
+        with col_save:
+            if st.button("✓", key=f"umgr_role_ok_{mid}", use_container_width=True):
+                new_rid = role_ids[sel]
+                if new_rid != role_id:
+                    try:
+                        taiga_adapter.update_membership_role(mid, new_rid)
+                        lst = st.session_state.get(members_key, [])
+                        for i, mem in enumerate(lst):
+                            if mem.get("id") == mid:
+                                lst[i] = {**mem, "role": new_rid}
+                                break
+                        st.session_state["_notify_users"] = "Role updated."
+                        st.rerun()
+                    except taiga_adapter.TaigaAPIError as exc:
+                        st.error(str(exc))
+    else:
+        st.caption(f"  {role_map.get(role_id, '')}")
+
+    # Delete confirm
+    if st.session_state.get(del_key):
+        st.warning(f'Remove **{_html.escape(display)}** from project?')
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("Remove", key=f"umgr_del_ok_{mid}", type="primary", use_container_width=True):
+                try:
+                    taiga_adapter.delete_membership(mid)
+                    st.session_state[members_key] = [
+                        mem for mem in st.session_state.get(members_key, [])
+                        if mem.get("id") != mid
+                    ]
+                    st.session_state.pop(del_key, None)
+                    st.session_state["_notify_users"] = f"{display} removed from project."
+                    st.rerun()
+                except taiga_adapter.TaigaAPIError as exc:
+                    st.error(str(exc))
+        with c2:
+            if st.button("Cancel", key=f"umgr_del_no_{mid}", use_container_width=True):
+                st.session_state.pop(del_key, None)
+                st.rerun()
+
+    st.markdown('<hr style="margin:4px 0;opacity:0.15;">', unsafe_allow_html=True)
+
+
+def _invite_member_form(roles: list) -> None:
+    st.caption("Invite member")
+    email = st.text_input(
+        "invite_email", key="umgr_invite_email",
+        label_visibility="collapsed", placeholder="Username or email",
+    )
+    if not roles:
+        st.caption("Load members first to see available roles.")
+        return
+
+    role_ids = [r["id"]   for r in roles]
+    role_nms = [r["name"] for r in roles]
+    sel = st.selectbox(
+        "Role", options=range(len(roles)),
+        format_func=lambda i: role_nms[i],
+        key="umgr_invite_role",
+        label_visibility="collapsed",
+    )
+    if st.button(
+        "Send invite", key="umgr_invite_btn",
+        disabled=not (email or "").strip(),
+        use_container_width=True,
+    ):
+        try:
+            with st.spinner("Sending…"):
+                taiga_adapter.invite_member(email.strip(), role_ids[sel])
+            st.session_state.pop("umgr_members", None)
+            st.session_state.pop("umgr_invite_email", None)
+            st.session_state["_notify_users"] = f"Invite sent to {email.strip()}."
             st.rerun()
         except taiga_adapter.TaigaAPIError as exc:
             st.error(str(exc))
