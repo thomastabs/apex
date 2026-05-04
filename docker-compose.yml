@@ -1,0 +1,11 @@
+services:
+  bolt:
+    build: .
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    volumes:
+      # Persist the openspec/ context files across container restarts
+      - ./openspec:/app/openspec
+    restart: unless-stopped
