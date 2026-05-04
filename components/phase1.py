@@ -25,10 +25,10 @@ import time
 
 import streamlit as st
 
-import ai_engine
-import context_manager
-import taiga_adapter
-from taiga_adapter import TaigaAPIError
+from src import ai_engine
+from src import context_manager
+from src import taiga_adapter
+from src.taiga_adapter import TaigaAPIError
 
 _STATE_DEFAULTS: dict = {
     "nl_draft":         "",

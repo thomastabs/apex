@@ -8,9 +8,9 @@ from pathlib import Path
 
 import streamlit as st
 
-import ai_engine
-import context_manager
-import taiga_adapter
+from src import ai_engine
+from src import context_manager
+from src import taiga_adapter
 
 _PREF_FILE = Path(".streamlit/.theme_pref")
 

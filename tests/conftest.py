@@ -10,7 +10,7 @@ def ctx(tmp_path, monkeypatch):
     Resets module-level caches (_story_index_cache, _context_initialized) so
     tests never bleed state into each other.
     """
-    import context_manager as cm
+    from src import context_manager as cm
 
     ctx_dir = tmp_path / "contextspec"
     ctx_dir.mkdir()

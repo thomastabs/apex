@@ -3,7 +3,7 @@
 
 import pytest
 
-from ai_engine import (
+from src.ai_engine import (
     NLScenario,
     NLStory,
     NLStoryList,
@@ -238,30 +238,30 @@ class TestRepairTruncatedJson:
 
 class TestAIErrorClasses:
     def test_ai_error_is_exception(self):
-        from ai_engine import AIError
+        from src.ai_engine import AIError
         assert issubclass(AIError, Exception)
 
     def test_ai_rate_limit_error_is_ai_error(self):
-        from ai_engine import AIError, AIRateLimitError
+        from src.ai_engine import AIError, AIRateLimitError
         assert issubclass(AIRateLimitError, AIError)
 
     def test_ai_validation_error_is_ai_error(self):
-        from ai_engine import AIError, AIValidationError
+        from src.ai_engine import AIError, AIValidationError
         assert issubclass(AIValidationError, AIError)
 
     def test_ai_timeout_error_is_ai_error(self):
-        from ai_engine import AIError, AITimeoutError
+        from src.ai_engine import AIError, AITimeoutError
         assert issubclass(AITimeoutError, AIError)
 
     def test_ai_validation_error_raised_on_unrecoverable_json(self):
         """_invoke_json_fallback raises AIValidationError when repair also fails."""
         from unittest.mock import MagicMock, patch
-        from ai_engine import AIValidationError, NLStoryList, _invoke_json_fallback
+        from src.ai_engine import AIValidationError, NLStoryList, _invoke_json_fallback
 
         bad_response = MagicMock()
         bad_response.content = "NOT JSON AT ALL %%%"
 
-        with patch("ai_engine._get_llm") as mock_get_llm:
+        with patch("src.ai_engine._get_llm") as mock_get_llm:
             mock_llm = MagicMock()
             mock_llm.invoke.return_value = bad_response
             mock_get_llm.return_value = mock_llm
@@ -272,7 +272,7 @@ class TestAIErrorClasses:
                 )
 
     def test_errors_carry_message(self):
-        from ai_engine import AIRateLimitError
+        from src.ai_engine import AIRateLimitError
         exc = AIRateLimitError("quota exceeded")
         assert "quota exceeded" in str(exc)
 
@@ -283,27 +283,27 @@ class TestAIErrorClasses:
 
 class TestReclassifyLlmExc:
     def test_429_in_message_raises_rate_limit_error(self):
-        from ai_engine import AIRateLimitError
+        from src.ai_engine import AIRateLimitError
         with pytest.raises(AIRateLimitError):
             _reclassify_llm_exc(Exception("HTTP 429 rate_limit exceeded"))
 
     def test_overloaded_raises_rate_limit_error(self):
-        from ai_engine import AIRateLimitError
+        from src.ai_engine import AIRateLimitError
         with pytest.raises(AIRateLimitError):
             _reclassify_llm_exc(Exception("model is overloaded, try again"))
 
     def test_quota_raises_rate_limit_error(self):
-        from ai_engine import AIRateLimitError
+        from src.ai_engine import AIRateLimitError
         with pytest.raises(AIRateLimitError):
             _reclassify_llm_exc(Exception("quota exceeded for this project"))
 
     def test_timeout_raises_ai_timeout_error(self):
-        from ai_engine import AITimeoutError
+        from src.ai_engine import AITimeoutError
         with pytest.raises(AITimeoutError):
             _reclassify_llm_exc(Exception("request timed out after 30s"))
 
     def test_timed_out_phrase_raises_ai_timeout_error(self):
-        from ai_engine import AITimeoutError
+        from src.ai_engine import AITimeoutError
         with pytest.raises(AITimeoutError):
             _reclassify_llm_exc(Exception("connection timed out"))
 
@@ -317,7 +317,7 @@ class TestReclassifyLlmExc:
         _reclassify_llm_exc(exc, reraise_unrecognized=False)  # must not raise
 
     def test_fatal_exc_still_raises_when_reraise_false(self):
-        from ai_engine import AIRateLimitError
+        from src.ai_engine import AIRateLimitError
         with pytest.raises(AIRateLimitError):
             _reclassify_llm_exc(Exception("429 too many requests"), reraise_unrecognized=False)
 

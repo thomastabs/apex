@@ -230,13 +230,13 @@ class TestClassifyAiError:
         return _classify_ai_error(exc)
 
     def test_ai_rate_limit_error_returns_friendly_message(self):
-        from ai_engine import AIRateLimitError
+        from src.ai_engine import AIRateLimitError
         result = self._classify(AIRateLimitError("quota exceeded"))
         assert "Rate limit" in result
         assert "429" in result
 
     def test_ai_timeout_error_returns_friendly_message(self):
-        from ai_engine import AITimeoutError
+        from src.ai_engine import AITimeoutError
         result = self._classify(AITimeoutError("connection timed out"))
         assert "timed out" in result.lower() or "timeout" in result.lower()
 
