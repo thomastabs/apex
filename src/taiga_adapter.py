@@ -439,6 +439,17 @@ def get_me() -> dict:
     return _get_me()
 
 
+def set_token(token: str) -> None:
+    """Override the auth token directly (for Taiga Cloud where API auth may be blocked)."""
+    global _status_cache
+    _token["value"] = token
+    _me_cache.clear()
+    _project_cache.clear()
+    _status_cache = []
+    _persist_token(token)
+    _logger.info("taiga.set_token (manual override)")
+
+
 def login(username: str, password: str) -> None:
     """Authenticate as a different user; updates in-memory token and .env."""
     global _status_cache
