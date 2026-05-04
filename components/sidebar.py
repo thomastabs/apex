@@ -26,16 +26,19 @@ _GH_STEP_RE = re.compile(
 _GH_BOLD_RE = re.compile(r"\*\*([^*]+)\*\*")
 
 
-def _render_description(text: str) -> None:
+def _render_description(text: str, min_height: int = 200) -> None:
     """Render a story/epic description with Gherkin keyword highlighting and scrolling."""
-    # Strip **bold** markers added by bold_gherkin_keywords() before pushing to Taiga.
     clean = _GH_BOLD_RE.sub(r"\1", text)
-
     is_gherkin = bool(_GH_BLOCK_RE.search(clean))
+
+    base = (
+        f"min-height:{min_height}px;max-height:500px;overflow-y:auto;"
+        f"padding:12px 16px;border-radius:6px;"
+    )
 
     if not is_gherkin:
         st.markdown(
-            f'<div style="max-height:460px;overflow-y:auto;">{_html.escape(clean)}</div>',
+            f'<div style="{base}">{_html.escape(clean)}</div>',
             unsafe_allow_html=True,
         )
         return
@@ -66,11 +69,8 @@ def _render_description(text: str) -> None:
     st.markdown(
         f'<div style="'
         f"font-family:ui-monospace,'SFMono-Regular',Menlo,monospace;"
-        f"font-size:13px;line-height:1.65;"
-        f"white-space:pre-wrap;"
-        f"max-height:500px;overflow-y:auto;"
-        f'padding:12px 16px;border-radius:6px;'
-        f'">{body}</div>',
+        f"font-size:13px;line-height:1.65;white-space:pre-wrap;"
+        f'{base}">{body}</div>',
         unsafe_allow_html=True,
     )
 
