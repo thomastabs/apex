@@ -9,7 +9,6 @@ import streamlit as st
 from dotenv import load_dotenv
 
 from components.sidebar import render_sidebar
-from src import taiga_adapter
 
 load_dotenv()
 
@@ -103,6 +102,10 @@ _LIGHT_CSS = """
     [data-testid="stExpander"] summary {
         background-color: #d2d8e0 !important;
         color: #111111 !important;
+        transition: background-color 0.15s !important;
+    }
+    [data-testid="stExpander"] summary:hover {
+        background-color: #b8c0cc !important;
     }
     [data-testid="stExpander"] details > div {
         background-color: #f5f5f5 !important;
@@ -113,8 +116,7 @@ _LIGHT_CSS = """
     }
     /* ── Page link hover ───────────────────────────────────────────────── */
     [data-testid="stPageLink"] a:hover {
-        background-color: #7c3aed !important;
-        color: #ffffff !important;
+        background-color: #b8c0cc !important;
         border-radius: 6px !important;
     }
     /* ── Toast notifications ───────────────────────────────────────────── */
@@ -258,83 +260,6 @@ def _inject_theme(is_dark: bool) -> None:
     </style>""", unsafe_allow_html=True)
 
 
-# ── Login gate ────────────────────────────────────────────────────────────────
-
-def _render_login_gate() -> None:
-    _, col, _ = st.columns([1, 2, 1])
-    with col:
-        st.markdown(
-            '<div style="text-align:center;padding:4rem 0 1.5rem;">'
-            '<span style="font-size:3rem;font-weight:700;color:#7c3aed;'
-            'letter-spacing:-0.03em;">bolt</span><br>'
-            '<span style="font-size:13px;color:#888;">Spec-Anchored Continuity</span>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown("#### Connect to Taiga")
-        st.caption(
-            "bolt needs a Taiga account to manage your project backlog. "
-            "Your token will be saved for future sessions."
-        )
-        st.text_input(
-            "Taiga API URL",
-            value="https://api.taiga.io",
-            key="gate_api_url",
-        )
-        tab_cred, tab_tok = st.tabs(["Username & Password", "Auth Token"])
-        with tab_cred:
-            st.text_input("Username or email", key="gate_uname",
-                          label_visibility="collapsed", placeholder="Username or email")
-            st.text_input("Password", type="password", key="gate_pw",
-                          label_visibility="collapsed", placeholder="Password")
-            if st.button(
-                "Sign in", type="primary", key="gate_signin_btn",
-                use_container_width=True,
-                disabled=not (
-                    st.session_state.get("gate_uname", "").strip()
-                    and st.session_state.get("gate_pw", "").strip()
-                ),
-            ):
-                _gate_do_cred_login()
-        with tab_tok:
-            st.text_area("Auth token", key="gate_token", height=90,
-                         label_visibility="collapsed", placeholder="Paste your Taiga auth token")
-            st.caption("Find it at: Taiga → Profile → Edit profile → API token")
-            if st.button(
-                "Connect", type="primary", key="gate_token_btn",
-                use_container_width=True,
-                disabled=not (st.session_state.get("gate_token", "") or "").strip(),
-            ):
-                _gate_do_token_login()
-
-
-def _gate_do_cred_login() -> None:
-    api_url  = st.session_state.get("gate_api_url", "https://api.taiga.io").strip()
-    username = st.session_state.get("gate_uname", "").strip()
-    password = st.session_state.get("gate_pw", "").strip()
-    try:
-        if api_url:
-            taiga_adapter.set_api_url(api_url)
-        with st.spinner("Authenticating…"):
-            taiga_adapter.login(username, password)
-        st.rerun()
-    except taiga_adapter.TaigaAPIError as exc:
-        st.error(str(exc))
-        st.caption(
-            "If you get a 401, Taiga Cloud may block API logins — "
-            "use the Auth Token tab instead."
-        )
-
-
-def _gate_do_token_login() -> None:
-    api_url = st.session_state.get("gate_api_url", "https://api.taiga.io").strip()
-    token   = (st.session_state.get("gate_token") or "").strip()
-    if api_url:
-        taiga_adapter.set_api_url(api_url)
-    taiga_adapter.set_token(token)
-    st.rerun()
-
-
 # ── Page config (must be first Streamlit call) ────────────────────────────────
 
 st.set_page_config(
@@ -352,13 +277,6 @@ if "theme_is_dark" not in st.session_state:
     st.session_state["theme_is_dark"] = _load_pref()
 
 _inject_theme(st.session_state["theme_is_dark"])
-
-# ── Taiga login gate ──────────────────────────────────────────────────────────
-# If no credentials are available, show the login screen and halt further rendering.
-
-if not taiga_adapter.is_configured():
-    _render_login_gate()
-    st.stop()
 
 # ── Navigation ────────────────────────────────────────────────────────────────
 

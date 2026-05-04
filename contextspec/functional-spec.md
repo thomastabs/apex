@@ -483,3 +483,278 @@ Feature: View Song Analytics and Engagement
     And the user can view a sample of those lists
     And the user understands how their music is being categorized
 ```
+
+## Epic 354435: Create Playlists
+
+### Story 9220322: Create New Empty Playlist With Metadata
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 23:12 UTC
+
+```gherkin
+Feature: Create New Empty Playlist With Metadata
+
+  Scenario: Successfully create a playlist with title and description
+    Given the user is on the playlist creation interface
+    When the user enters a title 'Late Night Jazz Sessions'
+    And the user enters a description 'Smooth jazz for unwinding after midnight'
+    And the user taps Create
+    Then the system confirms the playlist was created
+    And the playlist appears in the user's playlist library
+    And the title is visible in the playlist library
+    And the description is visible in the playlist library
+
+  Scenario: Create a playlist with only a title
+    Given the user is on the playlist creation interface
+    When the user enters a title
+    And the user leaves the description field empty
+    And the user taps Create
+    Then the system creates the playlist successfully
+    And the playlist is displayed with the title
+    And the playlist displays with no description text
+
+  Scenario: Attempt to create a playlist without a title
+    Given the user is on the playlist creation interface
+    When the user leaves the title field empty
+    And the user attempts to submit the playlist creation form
+    Then the system shows an error message indicating a title is required
+    And the playlist creation is prevented
+    And the form remains open for the user to enter a title
+```
+
+### Story 9220323: Add Albums or Tracks to Playlist
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 23:12 UTC
+
+```gherkin
+Feature: Add Albums or Tracks to Playlist
+
+  Scenario: Successfully add an album to a playlist
+    Given the user has logged an album in LinerNotes
+    And the user has at least one existing playlist
+    When the user navigates to the album
+    And the user taps the 'Add to Playlist' button
+    And the user selects a playlist from the dropdown
+    And the user confirms the action
+    Then the album appears in the selected playlist
+    And all tracks from the album are included in the playlist
+
+  Scenario: Successfully add individual tracks to a playlist
+    Given the user has logged albums in their library
+    And the user has at least one existing playlist
+    When the user browses their logged albums
+    And the user finds a specific track
+    And the user taps 'Add to Playlist'
+    And the user selects a destination playlist
+    And the user confirms the action
+    Then the single track is added to the playlist
+    And the entire album is not added to the playlist
+
+  Scenario: Add the same album to multiple playlists
+    Given the user has an album logged in LinerNotes
+    And the user has created multiple playlists
+    When the user adds the album to the first playlist
+    And the user later adds the same album to a different playlist
+    Then the album appears in the first playlist
+    And the album appears in the second playlist
+    And the user can see the album listed in each playlist
+
+  Scenario: Attempt to add a track that is already in the playlist
+    Given the user has a playlist with an existing track
+    When the user attempts to add the same track to the playlist
+    Then the system either prevents the duplicate addition with a message or allows it and the track appears twice in the playlist
+```
+
+### Story 9220324: Reorder Tracks or Albums Within Playlist
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 23:12 UTC
+
+```gherkin
+Feature: Reorder Tracks or Albums Within Playlist
+
+  Scenario: Successfully reorder tracks by dragging
+    Given the user has a playlist with multiple tracks
+    When the user opens the playlist
+    And the user long-presses or drags a track to a new position
+    And the user releases the track
+    Then the track moves to the new position
+    And the playlist order is updated and saved
+
+  Scenario: Move a track to the top of the playlist
+    Given the user has a playlist with multiple tracks
+    When the user drags a track from the middle or bottom to the first position
+    Then the track appears at the top of the playlist
+    And all other tracks shift down accordingly
+
+  Scenario: Attempt to reorder when playlist has only one track
+    Given the user has a playlist with a single track
+    When the user opens the playlist
+    Then the reordering controls are either disabled or the user cannot meaningfully change the order
+    And the track remains in its only position
+```
+
+### Story 9220325: Remove Tracks or Albums From Playlist
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 23:12 UTC
+
+```gherkin
+Feature: Remove Tracks or Albums From Playlist
+
+  Scenario: Successfully remove a track from a playlist
+    Given the user has a playlist with multiple tracks
+    When the user opens the playlist
+    And the user swipes or taps a delete icon next to a track
+    And the user confirms the removal
+    Then the track disappears from the playlist
+    And the remaining tracks stay in order
+
+  Scenario: Successfully remove an entire album from a playlist
+    Given the user has a playlist containing an album they previously added
+    When the user removes the album
+    Then all tracks from that album are removed from the playlist in one action
+
+  Scenario: Attempt to remove a track and then undo
+    Given the user has a playlist with multiple tracks
+    When the user removes a track
+    And the user immediately taps the undo option
+    Then the track is restored to its previous position in the playlist
+
+  Scenario: Remove all tracks from a playlist
+    Given the user has a playlist with multiple tracks
+    When the user removes tracks one by one until the playlist is empty
+    Then the playlist still exists
+    And the playlist displays as empty with a message like 'No tracks yet'
+```
+
+### Story 9220326: Edit Playlist Title and Description
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 23:12 UTC
+
+```gherkin
+Feature: Edit Playlist Title and Description
+
+  Scenario: Successfully update playlist title
+    Given the user owns a playlist with the title 'Late Night Jazz'
+    When the user opens the playlist
+    And the user taps an edit button
+    And the user changes the title to 'Midnight Jazz Vibes'
+    And the user saves the changes
+    Then the new title appears throughout the app
+
+  Scenario: Successfully update playlist description
+    Given the user owns a playlist
+    When the user edits the playlist
+    And the user updates the description to add more context or change the theme explanation
+    And the user saves the changes
+    Then the updated description is saved
+    And the updated description is displayed
+
+  Scenario: Clear the playlist description
+    Given the user owns a playlist with a description
+    When the user edits the playlist
+    And the user removes all text from the description field
+    And the user saves the changes
+    Then the playlist now has no description
+    And the description area appears empty or shows a placeholder
+
+  Scenario: Attempt to change title to empty string
+    Given the user is editing a playlist
+    When the user clears the title field
+    And the user attempts to save the playlist
+    Then the system shows an error
+    And the save is prevented until a title is provided
+```
+
+### Story 9220327: View All Playlists in One Place
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 23:12 UTC
+
+```gherkin
+Feature: View All Playlists in One Place
+
+  Scenario: View a list of all created playlists
+    Given the user has created multiple playlists
+    When the user navigates to their Playlists section
+    Then the user sees a list of all playlists they have created
+    And each playlist shows the title
+    And each playlist shows the description
+    And each playlist shows the track count
+
+  Scenario: View playlists when none have been created yet
+    Given the user is new and has not created any playlists
+    When the user navigates to the Playlists section
+    Then the app displays an empty state message like 'No playlists yet'
+    And a button to create a playlist is displayed
+
+  Scenario: View playlists sorted by creation date
+    Given the user has created multiple playlists at different times
+    When the user navigates to the Playlists section
+    Then the playlists are displayed in a default order such as most recently created first
+    And the order is consistent and predictable
+```
+
+### Story 9220328: Delete a Playlist
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 23:12 UTC
+
+```gherkin
+Feature: Delete a Playlist
+
+  Scenario: Successfully delete a playlist
+    Given the user has a playlist
+    When the user opens the playlist
+    And the user taps a delete or remove option
+    And the user confirms the action in a confirmation dialog
+    Then the playlist is permanently removed from the user's library
+
+  Scenario: Attempt to delete a playlist and cancel
+    Given the user has a playlist
+    When the user initiates deletion
+    And the user sees a confirmation prompt asking 'Are you sure?'
+    And the user taps Cancel
+    Then the playlist remains intact
+
+  Scenario: Delete a playlist with many tracks
+    Given the user has a playlist containing dozens of tracks
+    When the user deletes the playlist
+    Then the entire playlist and all its contents are removed in one action
+    And the original albums or tracks in the user's library are not affected
+```
+
+### Story 9220329: View Details of Specific Playlist
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 23:12 UTC
+
+```gherkin
+Feature: View Details of Specific Playlist
+
+  Scenario: Open a playlist and view all its contents
+    Given the user has a playlist with tracks or albums
+    When the user taps on the playlist from their library
+    Then the app displays the playlist title
+    And the app displays the playlist description
+    And the app displays a complete list of all tracks or albums in order
+    And the app displays metadata like track count
+    And the app displays metadata like total duration
+
+  Scenario: View an empty playlist
+    Given the user has created a playlist but has not added tracks to it
+    When the user opens the playlist
+    Then the app shows the title and description
+    And an empty state message is displayed
+    And a button to add tracks is displayed
+
+  Scenario: View a playlist with mixed albums and individual tracks
+    Given the user has a playlist containing both full albums and individual tracks added separately
+    When the user opens the playlist
+    Then the app clearly displays the structure
+    And the app shows which tracks belong to which albums
+    And the app shows which tracks are standalone additions
+```

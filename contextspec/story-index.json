@@ -148,5 +148,85 @@
     "phase_status": "gherkin_locked",
     "story_id": 9218684,
     "title": "View Song Analytics and Engagement"
+  },
+  "9220322": {
+    "epic_id": 354435,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9220322,
+    "title": "Create New Empty Playlist With Metadata"
+  },
+  "9220323": {
+    "epic_id": 354435,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9220323,
+    "title": "Add Albums or Tracks to Playlist"
+  },
+  "9220324": {
+    "epic_id": 354435,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9220324,
+    "title": "Reorder Tracks or Albums Within Playlist"
+  },
+  "9220325": {
+    "epic_id": 354435,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9220325,
+    "title": "Remove Tracks or Albums From Playlist"
+  },
+  "9220326": {
+    "epic_id": 354435,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9220326,
+    "title": "Edit Playlist Title and Description"
+  },
+  "9220327": {
+    "epic_id": 354435,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9220327,
+    "title": "View All Playlists in One Place"
+  },
+  "9220328": {
+    "epic_id": 354435,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9220328,
+    "title": "Delete a Playlist"
+  },
+  "9220329": {
+    "epic_id": 354435,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9220329,
+    "title": "View Details of Specific Playlist"
   }
 }

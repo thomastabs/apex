@@ -292,10 +292,14 @@ def _switch_account_dialog() -> None:
                 with st.spinner("Authenticating…"):
                     taiga_adapter.login(uname.strip(), pw.strip())
                 _clear_taiga_caches()
-                st.success("Signed in. Close this dialog to continue.")
+                st.rerun()
             except taiga_adapter.TaigaAPIError as exc:
-                st.error(str(exc))
-                st.caption("If this fails, try the Auth token option — Taiga Cloud may block API logins.")
+                msg = str(exc)
+                if "401" in msg:
+                    st.error("Wrong username or password. Please try again.")
+                    st.caption("If your credentials are correct, Taiga Cloud may block API logins — try the Auth token option instead.")
+                else:
+                    st.error(msg)
     else:
         token = st.text_input("Auth token", key="sw_dlg_token",
                               label_visibility="collapsed", placeholder="Paste your Taiga auth token")
@@ -304,7 +308,7 @@ def _switch_account_dialog() -> None:
                      disabled=not (token or "").strip(), use_container_width=True):
             taiga_adapter.set_token(token.strip())
             _clear_taiga_caches()
-            st.success("Token updated. Close this dialog to continue.")
+            st.rerun()
 
 
 def _clear_taiga_caches() -> None:
@@ -384,7 +388,13 @@ def _ai_status() -> None:
 
 
 def _taiga_user_info() -> None:
+    col_info, col_btn = st.columns([6, 1], vertical_alignment="center")
     if not taiga_adapter.is_configured():
+        with col_info:
+            st.markdown("**Sign in to Taiga** to get started &nbsp;➜")
+        with col_btn:
+            if st.button("⇄", key="sw_acct_btn", use_container_width=True):
+                _switch_account_dialog()
         return
     try:
         me        = taiga_adapter.get_me()
@@ -392,25 +402,24 @@ def _taiga_user_info() -> None:
         username  = me.get("username", "").strip()
         email     = me.get("email", "").strip()
         display   = full_name or username
-        col_info, col_btn = st.columns([6, 1], vertical_alignment="center")
         with col_info:
-            parts = [f'<strong>{_html.escape(display)}</strong>'] if display else []
-            if email:
-                parts.append(f'<span style="color:#888;">{_html.escape(email)}</span>')
             st.markdown(
-                f'<span style="font-size:12px;">' + " &nbsp;·&nbsp; ".join(parts) + "</span>",
-                unsafe_allow_html=True,
+                f"**{display}**" + (f" &nbsp; `{email}`" if email else "")
             )
         with col_btn:
             if st.button("⇄", key="sw_acct_btn", use_container_width=True):
                 _switch_account_dialog()
     except Exception:
-        pass
+        with col_info:
+            st.markdown("**Sign in to Taiga** to get started &nbsp;➜")
+        with col_btn:
+            if st.button("⇄", key="sw_acct_btn", use_container_width=True):
+                _switch_account_dialog()
 
 
 def _taiga_status() -> None:
     if not taiga_adapter.is_configured():
-        st.caption("Taiga not configured — set TAIGA_AUTH_TOKEN in .env")
+        st.caption("No Taiga account connected — use the ⇄ button above to sign in.")
         with st.expander("Select project", key="taiga_sel_proj_exp"):
             _taiga_project_manager()
         return
@@ -435,7 +444,7 @@ def _taiga_project_manager() -> None:
         st.toast(msg)
 
     if not taiga_adapter.is_configured():
-        st.caption("Configure TAIGA_AUTH_TOKEN in .env first.")
+        st.caption("Sign in to a Taiga account first.")
         return
 
     if "taiga_projects" not in st.session_state:
@@ -931,20 +940,14 @@ def _member_row(m: dict, roles: list, role_map: dict, members_key: str) -> None:
     # ── Info row: name | email | role | delete ────────────────────────────
     col_name, col_email, col_role_lbl, col_del = st.columns([3, 3, 2, 1])
     with col_name:
-        st.markdown(
-            f'<span style="font-size:11px;font-weight:600;">{_html.escape(display)}</span>',
-            unsafe_allow_html=True,
-        )
+        st.markdown(f"**{_html.escape(display)}**", unsafe_allow_html=True)
     with col_email:
         st.markdown(
-            f'<span style="font-size:11px;color:#888;">{_html.escape(contact)}</span>',
+            f'<span style="color:#888;">{_html.escape(contact)}</span>',
             unsafe_allow_html=True,
         )
     with col_role_lbl:
-        st.markdown(
-            f'<span style="font-size:11px;">{_html.escape(role_name)}</span>',
-            unsafe_allow_html=True,
-        )
+        st.markdown(_html.escape(role_name), unsafe_allow_html=True)
     with col_del:
         if not is_owner:
             if st.button("✕", key=f"umgr_del_{mid}", use_container_width=True):

@@ -26,7 +26,7 @@ _RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
 load_dotenv()
 
 TAIGA_API_URL    = os.getenv("TAIGA_API_URL", "https://api.taiga.io").rstrip("/")
-TAIGA_PROJECT_ID = int(os.getenv("TAIGA_PROJECT_ID", "0"))
+TAIGA_PROJECT_ID = int(os.getenv("TAIGA_PROJECT_ID") or "0")
 TAIGA_USERNAME   = os.getenv("TAIGA_USERNAME", "")
 TAIGA_PASSWORD   = os.getenv("TAIGA_PASSWORD", "")
 
@@ -207,12 +207,12 @@ def _web_base_url() -> str:
     """Derive the Taiga web base URL from TAIGA_API_URL.
 
     Handles two common patterns:
-      https://api.taiga.io        → https://app.taiga.io  (Taiga Cloud)
+      https://api.taiga.io        → https://tree.taiga.io  (Taiga Cloud)
       https://taiga.example.com   → https://taiga.example.com (self-hosted)
     """
     url = TAIGA_API_URL.rstrip("/")
-    # Taiga Cloud: api.taiga.io → app.taiga.io (not just taiga.io)
-    url = re.sub(r"(https?://)api\.(taiga\.io)", r"\1app.\2", url)
+    # Taiga Cloud: api.taiga.io → tree.taiga.io
+    url = re.sub(r"(https?://)api\.(taiga\.io)", r"\1tree.\2", url)
     # Self-hosted instances that use an api. subdomain
     url = re.sub(r"(https?://)api\.", r"\1", url)
     # Self-hosted instances that append /api or /api/v1 to the base URL
