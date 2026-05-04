@@ -197,12 +197,16 @@ def _web_base_url() -> str:
     """Derive the Taiga web base URL from TAIGA_API_URL.
 
     Handles two common patterns:
-      https://api.taiga.io        → https://taiga.io   (Taiga Cloud)
+      https://api.taiga.io        → https://app.taiga.io  (Taiga Cloud)
       https://taiga.example.com   → https://taiga.example.com (self-hosted)
     """
     url = TAIGA_API_URL.rstrip("/")
-    url = re.sub(r"(https?://)api\.", r"\1", url)   # strip leading api. subdomain
-    url = re.sub(r"/api(?:/v\d+)?$", "", url)        # strip /api or /api/v1 suffix
+    # Taiga Cloud: api.taiga.io → app.taiga.io (not just taiga.io)
+    url = re.sub(r"(https?://)api\.(taiga\.io)", r"\1app.\2", url)
+    # Self-hosted instances that use an api. subdomain
+    url = re.sub(r"(https?://)api\.", r"\1", url)
+    # Self-hosted instances that append /api or /api/v1 to the base URL
+    url = re.sub(r"/api(?:/v\d+)?$", "", url)
     return url
 
 

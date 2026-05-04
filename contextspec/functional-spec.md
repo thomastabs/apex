@@ -275,3 +275,211 @@ Feature: View Album Count in Playlists
     And the user returns to the list
     Then the count now shows '2 albums'
 ```
+
+## Epic 354335: Create Songs
+
+### Story 9218674: Upload Audio File for Song
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 14:49 UTC
+
+```gherkin
+Feature: Upload Audio File for Song
+
+  Scenario: Successfully upload a supported audio file
+    Given a user has selected an MP3 file from their device
+    When the user uploads the file
+    Then the system accepts the file
+    And the system stores the file
+    And the system confirms the upload is complete
+    And the user sees a success message
+    And the audio file is associated with the user's account
+
+  Scenario: Attempt to upload an unsupported file format
+    Given a user has selected a text file or image file
+    When the user attempts to upload the file
+    Then the system rejects the upload
+    And the system displays a clear error message
+    And the error message explains which audio formats are supported (MP3, WAV, FLAC)
+
+  Scenario: Upload a file that exceeds the size limit
+    Given a user has selected an audio file larger than the platform's maximum allowed size
+    When the user attempts to upload the file
+    Then the system rejects the upload
+    And the system informs the user of the size limit
+    And the system suggests ways to compress or re-encode the file
+```
+
+### Story 9218676: Enter Basic Song Metadata
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 14:49 UTC
+
+```gherkin
+Feature: Enter Basic Song Metadata
+
+  Scenario: Successfully add song title and artist name
+    Given a user has access to dedicated metadata entry fields
+    When the user enters a song title and artist name
+    Then the system saves this information
+    And the information is displayed on the song's profile page
+
+  Scenario: Submit a song with missing required metadata
+    Given a user has left the title field empty
+    When the user attempts to save the song
+    Then the system prevents submission
+    And the system highlights the missing required field
+    And the system displays a clear message indicating the field is required
+
+  Scenario: Add optional metadata like genre and release date
+    Given a user has access to optional metadata fields
+    When the user fills in optional fields such as genre, release date, and album name
+    Then the system saves all provided information
+    And the system uses the information to enhance discoverability
+```
+
+### Story 9218680: Set Cover Image for Song
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 14:49 UTC
+
+```gherkin
+Feature: Set Cover Image for Song
+
+  Scenario: Successfully upload a cover image
+    Given a user has selected a JPG or PNG image from their device
+    When the user uploads the image as the song's cover art
+    Then the system displays the image on the song's profile
+    And the system displays the image in search results
+
+  Scenario: Attempt to upload an invalid image file
+    Given a user has selected a non-image file
+    When the user attempts to upload it as cover art
+    Then the system rejects the upload
+    And the system prompts the user to upload a valid image format
+
+  Scenario: Skip cover image upload
+    Given a user has chosen not to upload a cover image
+    When the user proceeds to publish the song
+    Then the system assigns a default placeholder image
+    And the song is published without cover art
+```
+
+### Story 9218681: Publish Song to Community
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 14:49 UTC
+
+```gherkin
+Feature: Publish Song to Community
+
+  Scenario: Successfully publish a song with all required information
+    Given a user has completed all required fields (title, artist, audio file)
+    When the user clicks publish
+    Then the system validates the submission
+    And the system makes the song visible on the platform
+    And the system shows a confirmation message
+
+  Scenario: Attempt to publish a song with incomplete information
+    Given a user has not completed all required fields
+    When the user clicks publish
+    Then the system displays validation errors
+    And the system highlights which fields are missing
+    And the system prevents publication
+
+  Scenario: Publish a song and receive a shareable link
+    Given a user has successfully published a song
+    When the publication is complete
+    Then the user receives a unique URL
+    And the user can share the URL with others to view and listen to the song
+```
+
+### Story 9218682: Edit Published Song Details
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 14:49 UTC
+
+```gherkin
+Feature: Edit Published Song Details
+
+  Scenario: Successfully update song title and metadata
+    Given a user has navigated to their published song
+    And the user has clicked edit
+    When the user changes the title and genre
+    And the user saves the changes
+    Then the changes appear immediately on the song's profile
+    And the changes appear in search results
+
+  Scenario: Attempt to remove required metadata during editing
+    Given a user is editing a published song
+    When the user tries to clear the song title field
+    And the user attempts to save
+    Then the system prevents the save
+    And the system displays a validation error
+    And the system requires the title field to remain populated
+
+  Scenario: Replace the cover image
+    Given a user is editing a published song with an existing cover image
+    When the user uploads a new cover image
+    Then the system updates the image
+    And the new image appears across all pages where the song appears
+```
+
+### Story 9218683: Delete Song from Platform
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 14:49 UTC
+
+```gherkin
+Feature: Delete Song from Platform
+
+  Scenario: Successfully delete a song after confirmation
+    Given a user has navigated to their song
+    When the user clicks delete
+    And the user sees a confirmation dialog warning that the action is permanent
+    And the user confirms the deletion
+    Then the song is removed from the platform
+    And the user is redirected to their profile
+
+  Scenario: Cancel song deletion
+    Given a user has initiated song deletion
+    And the user sees the confirmation dialog
+    When the user clicks cancel
+    Then the song remains on the platform unchanged
+
+  Scenario: Delete a song that appears in community lists
+    Given a user has a song that other users have added to their lists
+    When the user deletes the song
+    Then the system removes the song from the platform
+    And the system notifies affected users that a song in their list is no longer available
+```
+
+### Story 9218684: View Song Analytics and Engagement
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 14:49 UTC
+
+```gherkin
+Feature: View Song Analytics and Engagement
+
+  Scenario: View play count and listener statistics
+    Given a user has navigated to their song's analytics dashboard
+    When the dashboard loads
+    Then the user sees the total number of plays
+    And the user sees the number of unique listeners
+    And the user sees a graph showing plays over time
+
+  Scenario: View review and rating summary
+    Given a user is viewing their song's analytics
+    When the user accesses the review and rating section
+    Then the user sees the average star rating
+    And the user sees the total number of reviews
+    And the user sees a breakdown of rating distribution (e.g., 5-star vs 1-star reviews)
+
+  Scenario: Check list inclusion data
+    Given a user is viewing their song's analytics
+    When the user accesses the list inclusion section
+    Then the user sees how many community lists their song appears in
+    And the user can view a sample of those lists
+    And the user understands how their music is being categorized
+```

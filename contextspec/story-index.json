@@ -1,174 +1,4 @@
 {
-  "9214409": {
-    "epic_id": 354212,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9214409,
-    "title": "Create New Playlist With Title And Description"
-  },
-  "9214410": {
-    "epic_id": 354212,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9214410,
-    "title": "Add Albums Or Tracks To Playlist"
-  },
-  "9214411": {
-    "epic_id": 354212,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9214411,
-    "title": "Remove Albums Or Tracks From Playlist"
-  },
-  "9214412": {
-    "epic_id": 354212,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9214412,
-    "title": "Reorder Tracks In Playlist"
-  },
-  "9214413": {
-    "epic_id": 354212,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9214413,
-    "title": "Delete Entire Playlist"
-  },
-  "9214415": {
-    "epic_id": 354212,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9214415,
-    "title": "View All Playlists In One Place"
-  },
-  "9214416": {
-    "epic_id": 354212,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9214416,
-    "title": "Edit Playlist Title And Description"
-  },
-  "9214443": {
-    "epic_id": 354214,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9214443,
-    "title": "Create New Empty Playlist"
-  },
-  "9214444": {
-    "epic_id": 354214,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9214444,
-    "title": "Add Songs To Playlist"
-  },
-  "9214445": {
-    "epic_id": 354214,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9214445,
-    "title": "Remove Songs From Playlist"
-  },
-  "9214446": {
-    "epic_id": 354214,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9214446,
-    "title": "Reorder Songs In Playlist"
-  },
-  "9214447": {
-    "epic_id": 354214,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9214447,
-    "title": "Rename Playlist"
-  },
-  "9214448": {
-    "epic_id": 354214,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9214448,
-    "title": "Add Description To Playlist"
-  },
-  "9214449": {
-    "epic_id": 354214,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9214449,
-    "title": "Delete Entire Playlist"
-  },
-  "9214450": {
-    "epic_id": 354214,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9214450,
-    "title": "View All Playlists In One Place"
-  },
-  "9214451": {
-    "epic_id": 354214,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9214451,
-    "title": "View Songs In Playlist With Details"
-  },
-  "9214452": {
-    "epic_id": 354214,
-    "has_bdd": false,
-    "has_gherkin": true,
-    "has_proposal": false,
-    "has_tech_spec": false,
-    "phase_status": "gherkin_locked",
-    "story_id": 9214452,
-    "title": "See Song Count In Playlists"
-  },
   "9218128": {
     "epic_id": 354312,
     "has_bdd": false,
@@ -248,5 +78,75 @@
     "phase_status": "gherkin_locked",
     "story_id": 9218135,
     "title": "View Album Count in Playlists"
+  },
+  "9218674": {
+    "epic_id": 354335,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9218674,
+    "title": "Upload Audio File for Song"
+  },
+  "9218676": {
+    "epic_id": 354335,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9218676,
+    "title": "Enter Basic Song Metadata"
+  },
+  "9218680": {
+    "epic_id": 354335,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9218680,
+    "title": "Set Cover Image for Song"
+  },
+  "9218681": {
+    "epic_id": 354335,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9218681,
+    "title": "Publish Song to Community"
+  },
+  "9218682": {
+    "epic_id": 354335,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9218682,
+    "title": "Edit Published Song Details"
+  },
+  "9218683": {
+    "epic_id": 354335,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9218683,
+    "title": "Delete Song from Platform"
+  },
+  "9218684": {
+    "epic_id": 354335,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9218684,
+    "title": "View Song Analytics and Engagement"
   }
 }

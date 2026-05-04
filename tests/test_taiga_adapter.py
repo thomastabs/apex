@@ -15,7 +15,7 @@ class TestWebBaseUrl:
             return taiga_adapter._web_base_url()
 
     def test_taiga_cloud_strips_api_subdomain(self):
-        assert self._url("https://api.taiga.io") == "https://taiga.io"
+        assert self._url("https://api.taiga.io") == "https://app.taiga.io"
 
     def test_self_hosted_no_api_subdomain_unchanged(self):
         assert self._url("https://taiga.example.com") == "https://taiga.example.com"
@@ -53,7 +53,7 @@ class TestGetStoryUrl:
             patch.object(taiga_adapter, "TAIGA_API_URL", "https://api.taiga.io"),
         ):
             result = taiga_adapter.get_story_url(42)
-        assert result == "https://taiga.io/project/my-project/us/42"
+        assert result == "https://app.taiga.io/project/my-project/us/42"
 
     def test_self_hosted_url(self):
         from src import taiga_adapter

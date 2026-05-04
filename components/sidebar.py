@@ -38,6 +38,19 @@ _PHASES = [
 _CONTENT_HEIGHT = 260  # px
 
 
+@st.dialog("Story Details", width="large")
+def _story_details_dialog(story: dict) -> None:
+    ref     = story.get("ref", "")
+    subject = story.get("subject", "")
+    desc    = story.get("description", "")
+    st.markdown(f"**#{ref} · {subject}**")
+    st.divider()
+    if desc:
+        st.markdown(desc)
+    else:
+        st.caption("No description available.")
+
+
 def render_sidebar() -> None:
     with st.sidebar:
         bolt_color = "#7c3aed"
@@ -444,6 +457,11 @@ def _board_epic_row(epic: dict, epics_key: str) -> None:
 
     if st.session_state.get(exp_key, False):
         stories = st.session_state.get(stor_key, [])
+        st.markdown(
+            '<div style="height:1px;background:rgba(124,58,237,0.35);'
+            'margin:4px 0 6px 0;border-radius:1px;"></div>',
+            unsafe_allow_html=True,
+        )
         if not stories:
             st.caption("  No stories.")
         else:
@@ -453,21 +471,21 @@ def _board_epic_row(epic: dict, epics_key: str) -> None:
 
 
 def _board_story_row(story: dict, stories_key: str) -> None:
-    sid         = story.get("id")
-    ref         = story.get("ref", sid)
-    subject     = story.get("subject", "")
-    description = story.get("description", "")
-    del_key     = "_board_del_story"
-    desc_key    = f"_story_desc_open_{sid}"
+    sid     = story.get("id")
+    ref     = story.get("ref", sid)
+    subject = story.get("subject", "")
+    del_key = "_board_del_story"
 
-    col_tog, col_name, col_del = st.columns([1, 6, 1])
-    with col_tog:
-        is_open = st.session_state.get(desc_key, False)
-        if st.button("▼" if is_open else "▶", key=f"story_tog_{sid}", use_container_width=True):
-            st.session_state[desc_key] = not is_open
-            st.rerun()
+    col_info, col_name, col_del = st.columns([1, 7, 1])
+    with col_info:
+        if st.button("ℹ", key=f"story_info_{sid}", use_container_width=True, help="View description"):
+            _story_details_dialog(story)
     with col_name:
-        st.caption(f"#{ref} {subject}")
+        st.markdown(
+            f'<span style="color:#7c3aed;font-weight:700;font-size:12px;">▸</span>'
+            f'&nbsp;<span style="font-size:12px;">#{ref}&nbsp;{subject}</span>',
+            unsafe_allow_html=True,
+        )
     with col_del:
         if st.session_state.get(del_key) != sid:
             if st.button("✕", key=f"board_s_del_{sid}", use_container_width=True, help="Delete story"):
@@ -475,12 +493,6 @@ def _board_story_row(story: dict, stories_key: str) -> None:
                 st.session_state["_board_del_story_sub"] = subject
                 st.session_state["_board_del_story_sk"]  = stories_key
                 st.rerun()
-
-    if st.session_state.get(desc_key, False):
-        if description:
-            st.caption(description)
-        else:
-            st.caption("_(no description)_")
 
     if st.session_state.get(del_key) == sid:
         name = st.session_state.get("_board_del_story_sub", "")
@@ -531,16 +543,23 @@ def _board_create_epic(epics_key: str) -> None:
 
 def _board_create_story(epic_id: int, stories_key: str) -> None:
     title_key = f"board_new_story_{epic_id}"
+    desc_key  = f"board_new_story_desc_{epic_id}"
     st.caption("  New story")
     title = st.text_input("Story title", key=title_key,
                           label_visibility="collapsed", placeholder="Title")
+    desc  = st.text_area("Story description", key=desc_key,
+                         label_visibility="collapsed", placeholder="Description (optional)",
+                         height=80)
     if st.button("Create story", key=f"board_create_story_{epic_id}",
                  disabled=not (title or "").strip(), use_container_width=True):
         try:
             with st.spinner("Creating…"):
-                story = taiga_adapter.create_story(title.strip(), "", epic_id=epic_id)
+                story = taiga_adapter.create_story(
+                    title.strip(), (desc or "").strip(), epic_id=epic_id,
+                )
             st.session_state[stories_key] = st.session_state.get(stories_key, []) + [story]
             st.session_state.pop(title_key, None)
+            st.session_state.pop(desc_key, None)
             st.session_state["_notify_epics"] = f'Story "{story["subject"]}" created.'
             st.rerun()
         except taiga_adapter.TaigaAPIError as exc:
