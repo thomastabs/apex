@@ -80,7 +80,7 @@ _PREF_FILE = Path(".streamlit/.theme_pref")
 def _theme_button() -> None:
     is_dark = st.session_state.get("theme_is_dark", True)
     label = "☀" if is_dark else "☾"
-    if st.button(label, key="theme_btn", use_container_width=True):
+    if st.button(label, key="theme_btn", width='stretch'):
         new_val = not is_dark
         st.session_state["theme_is_dark"] = new_val
         _PREF_FILE.parent.mkdir(exist_ok=True)
@@ -186,7 +186,7 @@ def _story_details_dialog(story: dict, stories_key: str | None = None) -> None:
         )
         selected_status_id = s_ids[sel]
 
-    if st.button("Save changes", type="primary", key=f"dlg_save_{sid}", use_container_width=True):
+    if st.button("Save changes", type="primary", key=f"dlg_save_{sid}", width='stretch'):
         if version is None:
             st.error("Cannot save: story version unavailable — reload the board and retry.")
         else:
@@ -249,7 +249,7 @@ def _epic_details_dialog(epic: dict, epics_key: str | None = None) -> None:
         key=f"dlg_ep_tags_{eid}",
     )
 
-    if st.button("Save changes", type="primary", key=f"dlg_ep_save_{eid}", use_container_width=True):
+    if st.button("Save changes", type="primary", key=f"dlg_ep_save_{eid}", width='stretch'):
         if version is None:
             st.error("Cannot save: epic version unavailable — reload the board and retry.")
         else:
@@ -287,7 +287,7 @@ def _switch_account_dialog() -> None:
         pw    = st.text_input("Password", key="sw_dlg_pw",
                               label_visibility="collapsed", placeholder="Password", type="password")
         if st.button("Sign in", type="primary", key="sw_dlg_cred_btn",
-                     disabled=not (uname.strip() and pw.strip()), use_container_width=True):
+                     disabled=not (uname.strip() and pw.strip()), width='stretch'):
             try:
                 with st.spinner("Authenticating…"):
                     taiga_adapter.login(uname.strip(), pw.strip())
@@ -305,7 +305,7 @@ def _switch_account_dialog() -> None:
                               label_visibility="collapsed", placeholder="Paste your Taiga auth token")
         st.caption("Find it at Taiga → Profile → Edit profile → API token")
         if st.button("Use token", type="primary", key="sw_dlg_token_btn",
-                     disabled=not (token or "").strip(), use_container_width=True):
+                     disabled=not (token or "").strip(), width='stretch'):
             taiga_adapter.set_token(token.strip())
             _clear_taiga_caches()
             st.rerun()
@@ -393,7 +393,7 @@ def _taiga_user_info() -> None:
         with col_info:
             st.markdown("**Sign in to Taiga** to get started &nbsp;➜")
         with col_btn:
-            if st.button("⇄", key="sw_acct_btn", use_container_width=True):
+            if st.button("⇄", key="sw_acct_btn", width='stretch'):
                 _switch_account_dialog()
         return
     try:
@@ -407,13 +407,13 @@ def _taiga_user_info() -> None:
                 f"**{display}**" + (f" &nbsp; `{email}`" if email else "")
             )
         with col_btn:
-            if st.button("⇄", key="sw_acct_btn", use_container_width=True):
+            if st.button("⇄", key="sw_acct_btn", width='stretch'):
                 _switch_account_dialog()
     except Exception:
         with col_info:
             st.markdown("**Sign in to Taiga** to get started &nbsp;➜")
         with col_btn:
-            if st.button("⇄", key="sw_acct_btn", use_container_width=True):
+            if st.button("⇄", key="sw_acct_btn", width='stretch'):
                 _switch_account_dialog()
 
 
@@ -450,7 +450,7 @@ def _taiga_project_manager() -> None:
     if "taiga_projects" not in st.session_state:
         col_load, _ = st.columns([3, 1])
         with col_load:
-            if st.button("Load projects", key="taiga_load_proj_btn", use_container_width=True):
+            if st.button("Load projects", key="taiga_load_proj_btn", width='stretch'):
                 try:
                     with st.spinner("Loading…"):
                         st.session_state["taiga_projects"] = taiga_adapter.get_projects()
@@ -480,7 +480,7 @@ def _taiga_project_manager() -> None:
         )
         col_use, col_ref = st.columns([3, 1])
         with col_use:
-            if st.button("Use this project", key="taiga_use_proj_btn", use_container_width=True):
+            if st.button("Use this project", key="taiga_use_proj_btn", width='stretch'):
                 chosen = projects[sel]
                 if chosen["id"] != taiga_adapter.TAIGA_PROJECT_ID:
                     taiga_adapter.set_active_project(chosen["id"])
@@ -490,7 +490,7 @@ def _taiga_project_manager() -> None:
                     st.session_state["_notify_project"] = f"Switched to \"{chosen['name']}\"."
                     st.rerun()
         with col_ref:
-            if st.button("↻", key="taiga_refresh_proj_btn", use_container_width=True,
+            if st.button("↻", key="taiga_refresh_proj_btn", width='stretch',
                          help="Refresh project list"):
                 del st.session_state["taiga_projects"]
                 st.rerun()
@@ -508,7 +508,7 @@ def _taiga_project_manager() -> None:
     can_create = bool((new_name or "").strip() and (new_desc or "").strip())
     if st.button(
         "Create & select", key="taiga_create_proj_btn",
-        disabled=not can_create, use_container_width=True,
+        disabled=not can_create, width='stretch',
     ):
         try:
             with st.spinner("Creating…"):
@@ -675,7 +675,7 @@ def _board_content() -> None:
     with col_info:
         st.caption(f"{len(epics)} epic(s)" if epics is not None else "Load to view")
     with col_btn:
-        if st.button("Load" if epics is None else "↻", key="board_load_btn", use_container_width=True):
+        if st.button("Load" if epics is None else "↻", key="board_load_btn", width='stretch'):
             try:
                 st.session_state[epics_key] = taiga_adapter.get_epics()
                 for k in list(st.session_state):
@@ -709,7 +709,7 @@ def _board_epic_row(epic: dict, epics_key: str) -> None:
     col_tog, col_name, col_info, col_del = st.columns([1, 6, 1, 1])
     with col_tog:
         expanded = st.session_state.get(exp_key, False)
-        if st.button("▼" if expanded else "▶", key=f"board_ep_tog_{epic_id}", use_container_width=True):
+        if st.button("▼" if expanded else "▶", key=f"board_ep_tog_{epic_id}", width='stretch'):
             new_exp = not expanded
             st.session_state[exp_key] = new_exp
             if new_exp and stor_key not in st.session_state:
@@ -721,11 +721,11 @@ def _board_epic_row(epic: dict, epics_key: str) -> None:
     with col_name:
         st.markdown(f"**#{ref}** {subject}")
     with col_info:
-        if st.button("ℹ", key=f"epic_info_{epic_id}", use_container_width=True):
+        if st.button("ℹ", key=f"epic_info_{epic_id}", width='stretch'):
             _epic_details_dialog(epic, epics_key=epics_key)
     with col_del:
         if st.session_state.get(del_key) != epic_id:
-            if st.button("✕", key=f"board_ep_del_{epic_id}", use_container_width=True):
+            if st.button("✕", key=f"board_ep_del_{epic_id}", width='stretch'):
                 st.session_state[del_key]                = epic_id
                 st.session_state["_board_del_epic_name"] = subject
                 st.rerun()
@@ -735,7 +735,7 @@ def _board_epic_row(epic: dict, epics_key: str) -> None:
         st.warning(f'Delete **"{name}"** and all its stories from Taiga?')
         col_y, col_n = st.columns(2)
         with col_y:
-            if st.button("Delete", type="primary", key=f"board_ep_del_ok_{epic_id}", use_container_width=True):
+            if st.button("Delete", type="primary", key=f"board_ep_del_ok_{epic_id}", width='stretch'):
                 try:
                     with st.spinner("Deleting stories…"):
                         taiga_adapter.delete_epic_with_stories(epic_id)
@@ -753,7 +753,7 @@ def _board_epic_row(epic: dict, epics_key: str) -> None:
                 except taiga_adapter.TaigaAPIError as exc:
                     st.error(str(exc))
         with col_n:
-            if st.button("Cancel", key=f"board_ep_del_no_{epic_id}", use_container_width=True):
+            if st.button("Cancel", key=f"board_ep_del_no_{epic_id}", width='stretch'):
                 st.session_state.pop(del_key, None)
                 st.rerun()
 
@@ -780,7 +780,7 @@ def _board_story_row(story: dict, stories_key: str) -> None:
 
     col_info, col_name, col_del = st.columns([1, 7, 1])
     with col_info:
-        if st.button("ℹ", key=f"story_info_{sid}", use_container_width=True):
+        if st.button("ℹ", key=f"story_info_{sid}", width='stretch'):
             _story_details_dialog(story, stories_key=stories_key)
     with col_name:
         st.markdown(
@@ -790,7 +790,7 @@ def _board_story_row(story: dict, stories_key: str) -> None:
         )
     with col_del:
         if st.session_state.get(del_key) != sid:
-            if st.button("✕", key=f"board_s_del_{sid}", use_container_width=True):
+            if st.button("✕", key=f"board_s_del_{sid}", width='stretch'):
                 st.session_state[del_key]                = sid
                 st.session_state["_board_del_story_sub"] = subject
                 st.session_state["_board_del_story_sk"]  = stories_key
@@ -801,7 +801,7 @@ def _board_story_row(story: dict, stories_key: str) -> None:
         st.warning(f'Delete **"{name}"** from Taiga?')
         col_y, col_n = st.columns(2)
         with col_y:
-            if st.button("Delete", type="primary", key=f"board_s_del_ok_{sid}", use_container_width=True):
+            if st.button("Delete", type="primary", key=f"board_s_del_ok_{sid}", width='stretch'):
                 try:
                     taiga_adapter.delete_story(sid)
                     sk = st.session_state.get("_board_del_story_sk", stories_key)
@@ -813,7 +813,7 @@ def _board_story_row(story: dict, stories_key: str) -> None:
                 except taiga_adapter.TaigaAPIError as exc:
                     st.error(str(exc))
         with col_n:
-            if st.button("Cancel", key=f"board_s_del_no_{sid}", use_container_width=True):
+            if st.button("Cancel", key=f"board_s_del_no_{sid}", width='stretch'):
                 st.session_state.pop(del_key, None)
                 st.rerun()
 
@@ -825,7 +825,7 @@ def _board_create_epic(epics_key: str) -> None:
     desc = st.text_input("Epic description", key="board_new_epic_desc",
                          label_visibility="collapsed", placeholder="Description")
     if st.button("Create epic", key="board_create_epic_btn",
-                 disabled=not (name or "").strip(), use_container_width=True):
+                 disabled=not (name or "").strip(), width='stretch'):
         try:
             with st.spinner("Creating…"):
                 epic = taiga_adapter.create_epic(name.strip(), (desc or "").strip())
@@ -853,7 +853,7 @@ def _board_create_story(epic_id: int, stories_key: str) -> None:
                          label_visibility="collapsed", placeholder="Description (optional)",
                          height=80)
     if st.button("Create story", key=f"board_create_story_{epic_id}",
-                 disabled=not (title or "").strip(), use_container_width=True):
+                 disabled=not (title or "").strip(), width='stretch'):
         try:
             with st.spinner("Creating…"):
                 story = taiga_adapter.create_story(
@@ -901,7 +901,7 @@ def _project_members_section() -> None:
         )
     with col_btn:
         label = "Load" if st.session_state.get(members_key) is None else "↻"
-        if st.button(label, key="umgr_load_btn", use_container_width=True):
+        if st.button(label, key="umgr_load_btn", width='stretch'):
             try:
                 with st.spinner("Loading…"):
                     st.session_state[members_key] = taiga_adapter.get_memberships()
@@ -950,7 +950,7 @@ def _member_row(m: dict, roles: list, role_map: dict, members_key: str) -> None:
         st.markdown(_html.escape(role_name), unsafe_allow_html=True)
     with col_del:
         if not is_owner:
-            if st.button("✕", key=f"umgr_del_{mid}", use_container_width=True):
+            if st.button("✕", key=f"umgr_del_{mid}", width='stretch'):
                 st.session_state[del_key] = True
                 st.rerun()
 
@@ -971,7 +971,7 @@ def _member_row(m: dict, roles: list, role_map: dict, members_key: str) -> None:
                 label_visibility="collapsed",
             )
         with col_save:
-            if st.button("✓", key=f"umgr_role_ok_{mid}", use_container_width=True):
+            if st.button("✓", key=f"umgr_role_ok_{mid}", width='stretch'):
                 new_rid = role_ids[sel]
                 if new_rid != role_id:
                     try:
@@ -991,7 +991,7 @@ def _member_row(m: dict, roles: list, role_map: dict, members_key: str) -> None:
         st.warning(f'Remove **{_html.escape(display)}** from project?')
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("Remove", key=f"umgr_del_ok_{mid}", type="primary", use_container_width=True):
+            if st.button("Remove", key=f"umgr_del_ok_{mid}", type="primary", width='stretch'):
                 try:
                     taiga_adapter.delete_membership(mid)
                     st.session_state[members_key] = [
@@ -1004,7 +1004,7 @@ def _member_row(m: dict, roles: list, role_map: dict, members_key: str) -> None:
                 except taiga_adapter.TaigaAPIError as exc:
                     st.error(str(exc))
         with c2:
-            if st.button("Cancel", key=f"umgr_del_no_{mid}", use_container_width=True):
+            if st.button("Cancel", key=f"umgr_del_no_{mid}", width='stretch'):
                 st.session_state.pop(del_key, None)
                 st.rerun()
 
@@ -1032,7 +1032,7 @@ def _invite_member_form(roles: list) -> None:
     if st.button(
         "Send invite", key="umgr_invite_btn",
         disabled=not (email or "").strip(),
-        use_container_width=True,
+        width='stretch',
     ):
         try:
             with st.spinner("Sending…"):

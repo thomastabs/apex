@@ -110,9 +110,19 @@ _LIGHT_CSS = """
     [data-testid="stExpander"] details > div {
         background-color: #f5f5f5 !important;
     }
-    /* ── Sidebar dividers ──────────────────────────────────────────────── */
-    [data-testid="stSidebar"] hr {
-        border-color: #b8bec8 !important;
+    /* ── Dividers (sidebar + main content) ────────────────────────────── */
+    hr {
+        border-color: #9ca3af !important;
+    }
+    /* ── Tabs ──────────────────────────────────────────────────────────── */
+    [data-testid="stTab"] {
+        color: #444444 !important;
+    }
+    [data-testid="stTab"][aria-selected="true"] {
+        color: #111111 !important;
+    }
+    [data-testid="stTabsList"] {
+        border-bottom: 2px solid #9ca3af !important;
     }
     /* ── Page link hover ───────────────────────────────────────────────── */
     [data-testid="stPageLink"] a:hover {
@@ -150,6 +160,18 @@ _LIGHT_CSS = """
     [data-testid="stStatusWidget"] span,
     [data-testid="stStatusWidget"] label {
         color: #111111 !important;
+    }
+    /* ── Loading spinner (st.spinner + st.status running state) ────────── */
+    [data-testid="stSpinner"] p,
+    [data-testid="stSpinner"] span,
+    [data-testid="stSpinner"] label {
+        color: #111111 !important;
+    }
+    /* The circle itself — faint track + bold purple leading edge */
+    [data-testid="stSpinner"] > div > div:first-child,
+    [data-testid="stStatusWidget"] > div > div:first-child {
+        border-color: #c8ccd4 !important;
+        border-top-color: #7c3aed !important;
     }
     /* ── Dialog / Modal popup ───────────────────────────────────────────── */
     /* Backdrop overlay */

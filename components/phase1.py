@@ -24,6 +24,7 @@ import re
 import time
 
 import streamlit as st
+import streamlit.components.v1 as _components
 
 from src import ai_engine
 from src import context_manager
@@ -31,15 +32,17 @@ from src import taiga_adapter
 from src.taiga_adapter import TaigaAPIError
 
 _STATE_DEFAULTS: dict = {
-    "nl_draft":         "",
-    "nl_editor":        "",
-    "story_subject":    "",
-    "compiled_stories": None,
-    "push_done":        False,
-    "push_result":      None,
-    "ai_error":         None,
-    "compile_error":    None,
-    "_draft_loaded":    False,  # guards draft restoration to once per session
+    "nl_draft":           "",
+    "nl_editor":          "",
+    "story_subject":      "",
+    "compiled_stories":   None,
+    "push_done":          False,
+    "push_result":        None,
+    "ai_error":           None,
+    "compile_error":      None,
+    "_draft_loaded":      False,  # guards draft restoration to once per session
+    "epics_suggested":    None,
+    "suggest_epics_error": None,
 }
 
 
@@ -54,18 +57,39 @@ def render_phase1() -> None:
         pass
     st.divider()
 
-    _section_epic()
-    st.divider()
-    _section_generate()
-    st.divider()
+    switch_to_req = st.session_state.pop("_switch_to_req_tab", False)
+    tab_req, tab_suggest = st.tabs(["Requirements", "Suggest Epics"])
 
-    if st.session_state.nl_draft:
-        _section_review()
+    if switch_to_req:
+        _components.html("""
+        <script>
+        (function() {
+            function click() {
+                var tabs = window.parent.document.querySelectorAll('button[data-testid="stTab"]');
+                if (tabs && tabs.length > 0) { tabs[0].click(); return true; }
+                return false;
+            }
+            if (!click()) setTimeout(click, 150);
+        })();
+        </script>
+        """, height=0)
+
+    with tab_req:
+        _section_epic()
         st.divider()
-        if not st.session_state.compiled_stories:
-            _section_compile()
-        else:
-            _section_gherkin_review()
+        _section_generate()
+        st.divider()
+
+        if st.session_state.nl_draft:
+            _section_review()
+            st.divider()
+            if not st.session_state.compiled_stories:
+                _section_compile()
+            else:
+                _section_gherkin_review()
+
+    with tab_suggest:
+        _section_suggest_epics()
 
 
 # ── Session state ─────────────────────────────────────────────────────────────
@@ -238,7 +262,7 @@ def _delete_epic_action(epic: dict) -> None:
         st.warning(f"Permanently delete **\"{epic['subject']}\"** and all its stories from Taiga?")
         col_yes, col_no = st.columns(2)
         with col_yes:
-            if st.button("Delete", type="primary", key="del_epic_confirm_btn", use_container_width=True):
+            if st.button("Delete", type="primary", key="del_epic_confirm_btn", width='stretch'):
                 try:
                     with st.spinner("Deleting stories…"):
                         taiga_adapter.delete_epic_with_stories(epic_id)
@@ -258,7 +282,7 @@ def _delete_epic_action(epic: dict) -> None:
                 except TaigaAPIError as exc:
                     st.error(str(exc))
         with col_no:
-            if st.button("Cancel", key="del_epic_cancel_btn", use_container_width=True):
+            if st.button("Cancel", key="del_epic_cancel_btn", width='stretch'):
                 st.session_state.pop(pending_key, None)
                 st.rerun()
     else:
@@ -276,14 +300,25 @@ def _section_generate() -> None:
     description = st.session_state.get("epic_desc_input", "").strip()
     hint        = st.session_state.get("ai_hint_input", "").strip()
 
+    signed_in       = taiga_adapter.is_configured()
+    project_chosen  = bool(taiga_adapter.TAIGA_PROJECT_ID)
     project_concept = context_manager.get_project_concept()
-    can_generate = bool(subject and description and project_concept)
 
+    blockers: list[str] = []
+    if not signed_in:
+        blockers.append("signed_in")
+        st.warning("Not signed in to Taiga — use the **⇄** button in the sidebar to connect.")
+    if not project_chosen:
+        blockers.append("project")
+        st.warning("No Taiga project selected — choose one in the sidebar under **Project**.")
     if not project_concept:
+        blockers.append("concept")
         st.warning(
             "No Project Concept found in the Memory Bank — "
             "add one under **## Project Concept** in the sidebar before generating."
         )
+
+    can_generate = bool(subject and description and not blockers)
 
     if st.button(
         "Generate stories",
@@ -293,11 +328,8 @@ def _section_generate() -> None:
     ):
         _run_generation(subject, description, hint, project_concept)
 
-    if not can_generate:
-        if project_concept:
-            st.caption("Epic title and description are required.")
-        elif subject and description:
-            st.caption("Project Concept is required (see warning above).")
+    if not can_generate and not blockers:
+        st.caption("Epic title and description are required.")
 
     if st.session_state.ai_error:
         st.error(st.session_state.ai_error)
@@ -763,6 +795,83 @@ def _render_push_result() -> None:
     if result["ok"] and st.button("New Epic", key="new_epic_btn"):
         _reset_state()
         st.rerun()
+
+
+# ── Section: Suggest Epics ────────────────────────────────────────────────────
+
+def _section_suggest_epics() -> None:
+    st.markdown("##### SUGGEST EPICS")
+    st.caption(
+        "Generate a list of possible Epics based on the Project Concept in your Memory Bank. "
+        "Click **Use this Epic** on any suggestion to load it into the Requirements tab."
+    )
+
+    project_concept = context_manager.get_project_concept()
+    if not project_concept:
+        st.warning(
+            "No Project Concept found in the Memory Bank — "
+            "add one under **## Project Concept** in the sidebar before generating."
+        )
+        return
+
+    hint = st.text_area(
+        "Focus / constraints (optional)",
+        placeholder=(
+            "e.g. 'Focus on MVP features only', "
+            "'Exclude admin panel', 'B2C mobile-first'..."
+        ),
+        height=70,
+        key="suggest_epics_hint",
+    )
+
+    col_btn, col_clear = st.columns([2, 1])
+    with col_btn:
+        if st.button("Suggest Epics", type="primary", key="suggest_epics_btn"):
+            _run_suggest_epics(project_concept, hint)
+    with col_clear:
+        if st.session_state.get("epics_suggested") and st.button("Clear", key="suggest_epics_clear"):
+            st.session_state["epics_suggested"] = None
+            st.session_state["suggest_epics_error"] = None
+            st.rerun()
+
+    if st.session_state.get("suggest_epics_error"):
+        st.error(st.session_state["suggest_epics_error"])
+
+    suggestions: list[dict] | None = st.session_state.get("epics_suggested")
+    if not suggestions:
+        return
+
+    st.divider()
+    st.caption(f"{len(suggestions)} epic suggestions — click one to load it into the Requirements tab.")
+    for i, epic in enumerate(suggestions):
+        with st.expander(epic["title"], expanded=False):
+            st.write(epic["description"])
+            if st.button("Use this Epic →", key=f"use_epic_{i}", type="primary"):
+                st.session_state["_pending_epic_data"] = {
+                    "subject":     epic["title"],
+                    "description": epic["description"],
+                }
+                st.session_state["_switch_to_req_tab"] = True
+                st.rerun()
+
+
+def _run_suggest_epics(project_concept: str, hint: str) -> None:
+    with st.status("Generating Epic suggestions...", expanded=True) as status:
+        try:
+            status.write("Connecting to AI...")
+            result = ai_engine.suggest_epics(project_concept, hint=hint)
+            st.session_state["epics_suggested"] = [
+                {"title": e.title, "description": e.description}
+                for e in result.epics
+            ]
+            st.session_state["suggest_epics_error"] = None
+            status.update(
+                label=f"{len(result.epics)} Epics suggested",
+                state="complete",
+            )
+        except Exception as exc:
+            st.session_state["suggest_epics_error"] = _classify_ai_error(exc)
+            status.update(label="Suggestion failed", state="error")
 
 
 def _parse_epic_id() -> int | None:

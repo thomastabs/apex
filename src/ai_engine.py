@@ -403,7 +403,7 @@ def generate_nl_stories(
     _logger.debug("generate_nl_stories prompt_version=%s", _NL_GENERATION_VERSION)
     return _invoke_structured_with_progress(
         _NL_GENERATION_SYSTEM, human, get_fast_model(), NLStoryList,
-        max_tokens=4096, on_item=on_story,
+        max_tokens=8192, on_item=on_story,
     )
 
 
@@ -453,7 +453,7 @@ def compile_gherkin_stories(
     _logger.debug("compile_gherkin_stories prompt_version=%s", _GL_COMPILATION_VERSION)
     return _invoke_structured_with_progress(
         _GL_COMPILATION_SYSTEM, human, get_fast_model(), GherkinStoryList,
-        max_tokens=4096, on_item=on_story,
+        max_tokens=8192, on_item=on_story,
     )
 
 
@@ -498,6 +498,49 @@ def bold_gherkin_keywords(gherkin: str) -> str:
     )
     return _GHERKIN_STEP_RE.sub(
         lambda m: f"{m.group(1)}**{m.group(2)}**{m.group(3)}", result
+    )
+
+
+# ---------------------------------------------------------------------------
+# Phase 1 · Epic Suggestions — Product Owner persona
+# ---------------------------------------------------------------------------
+
+class EpicSuggestion(BaseModel):
+    title: str = Field(description="Epic title — concise, 4-8 words, noun-phrase, title case")
+    description: str = Field(
+        description="2-3 sentence description of the epic's scope, user value, and key constraints"
+    )
+
+
+class EpicSuggestionList(BaseModel):
+    epics: list[EpicSuggestion] = Field(description="Suggested epics for this project")
+
+
+_EPIC_SUGGESTION_SYSTEM = """\
+You are an experienced Product Owner operating within the Bolt Framework.
+Given a project concept, generate a list of well-scoped, high-level Epics that cover
+the full product scope implied by the concept.
+
+Rules you MUST follow:
+- Each Epic represents a distinct feature area or user-facing capability.
+- Epic titles must be concise (4-8 words), noun-phrase style, title case.
+- Epic descriptions must be 2-3 sentences covering scope, user value, and any key constraints.
+- Do NOT hallucinate capabilities beyond what the project concept implies.
+- Suggest between 5 and 10 epics — enough to cover the product without being exhaustive.
+"""
+
+
+def suggest_epics(
+    project_concept: str,
+    hint: str = "",
+) -> EpicSuggestionList:
+    human = f"Project Concept:\n{project_concept.strip()}\n\n"
+    if hint.strip():
+        human += f"Focus / constraints:\n{hint.strip()}\n\n"
+    human += "Suggest a complete set of high-level Epics for this project."
+    return _invoke_structured_with_progress(
+        _EPIC_SUGGESTION_SYSTEM, human, get_fast_model(), EpicSuggestionList,
+        max_tokens=2048, item_field="epics",
     )
 
 
