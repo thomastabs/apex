@@ -277,6 +277,43 @@ def _epic_details_dialog(epic: dict, epics_key: str | None = None) -> None:
         st.caption("No description available.")
 
 
+@st.dialog("Switch Account")
+def _switch_account_dialog() -> None:
+    mode = st.radio("Sign in with", ["Credentials", "Auth token"],
+                    horizontal=True, key="sw_dlg_mode")
+    if mode == "Credentials":
+        uname = st.text_input("Username or email", key="sw_dlg_uname",
+                              label_visibility="collapsed", placeholder="Username or email")
+        pw    = st.text_input("Password", key="sw_dlg_pw",
+                              label_visibility="collapsed", placeholder="Password", type="password")
+        if st.button("Sign in", type="primary", key="sw_dlg_cred_btn",
+                     disabled=not (uname.strip() and pw.strip()), use_container_width=True):
+            try:
+                with st.spinner("Authenticating…"):
+                    taiga_adapter.login(uname.strip(), pw.strip())
+                _clear_taiga_caches()
+                st.success("Signed in. Close this dialog to continue.")
+            except taiga_adapter.TaigaAPIError as exc:
+                st.error(str(exc))
+                st.caption("If this fails, try the Auth token option — Taiga Cloud may block API logins.")
+    else:
+        token = st.text_input("Auth token", key="sw_dlg_token",
+                              label_visibility="collapsed", placeholder="Paste your Taiga auth token")
+        st.caption("Find it at Taiga → Profile → Edit profile → API token")
+        if st.button("Use token", type="primary", key="sw_dlg_token_btn",
+                     disabled=not (token or "").strip(), use_container_width=True):
+            taiga_adapter.set_token(token.strip())
+            _clear_taiga_caches()
+            st.success("Token updated. Close this dialog to continue.")
+
+
+def _clear_taiga_caches() -> None:
+    for k in list(st.session_state.keys()):
+        if k.startswith(("board_", "epics_", "taiga_", "_taiga_", "umgr_")):
+            del st.session_state[k]
+    st.session_state.pop("taiga_projects", None)
+
+
 def render_sidebar() -> None:
     with st.sidebar:
         bolt_color = "#7c3aed"
@@ -296,6 +333,7 @@ def render_sidebar() -> None:
         _memory_bank()
         st.divider()
         _ai_status()
+        _taiga_user_info()
         _taiga_status()
         _taiga_board()
         _user_management()
@@ -343,6 +381,31 @@ def _ai_status() -> None:
     except EnvironmentError as exc:
         st.error(str(exc))
         st.stop()
+
+
+def _taiga_user_info() -> None:
+    if not taiga_adapter.is_configured():
+        return
+    try:
+        me        = taiga_adapter.get_me()
+        full_name = (me.get("full_name") or "").strip()
+        username  = me.get("username", "").strip()
+        email     = me.get("email", "").strip()
+        display   = full_name or username
+        col_info, col_btn = st.columns([6, 1], vertical_alignment="center")
+        with col_info:
+            parts = [f'<strong>{_html.escape(display)}</strong>'] if display else []
+            if email:
+                parts.append(f'<span style="color:#888;">{_html.escape(email)}</span>')
+            st.markdown(
+                f'<span style="font-size:12px;">' + " &nbsp;·&nbsp; ".join(parts) + "</span>",
+                unsafe_allow_html=True,
+            )
+        with col_btn:
+            if st.button("⇄", key="sw_acct_btn", use_container_width=True):
+                _switch_account_dialog()
+    except Exception:
+        pass
 
 
 def _taiga_status() -> None:
@@ -810,60 +873,11 @@ def _user_mgmt_content() -> None:
     if msg := st.session_state.pop("_notify_users", None):
         st.toast(msg)
 
-    # ── Current account ───────────────────────────────────────────────────
-    try:
-        me        = taiga_adapter.get_me()
-        full_name = (me.get("full_name") or me.get("username", "")).strip()
-        username  = me.get("username", "")
-        st.markdown(
-            f'<span style="font-size:12px;">Logged in as &nbsp;'
-            f'<strong>{_html.escape(full_name)}</strong>'
-            + (f' <span style="color:#888;">@{_html.escape(username)}</span>' if username and full_name else "")
-            + "</span>",
-            unsafe_allow_html=True,
-        )
-    except Exception:
-        st.caption("Could not load current user.")
-
-    # ── Switch account ────────────────────────────────────────────────────
-    with st.expander("Switch account", key="user_switch_exp"):
-        _switch_account_form()
-
     if not taiga_adapter.TAIGA_PROJECT_ID:
+        st.caption("No project selected.")
         return
 
-    st.divider()
-
-    # ── Project members ───────────────────────────────────────────────────
     _project_members_section()
-
-
-def _switch_account_form() -> None:
-    uname = st.text_input(
-        "Username", key="sw_uname",
-        label_visibility="collapsed", placeholder="Username",
-    )
-    pw = st.text_input(
-        "Password", key="sw_pw",
-        label_visibility="collapsed", placeholder="Password", type="password",
-    )
-    if st.button(
-        "Login", key="sw_login_btn",
-        disabled=not (uname.strip() and pw.strip()),
-        use_container_width=True,
-        type="primary",
-    ):
-        try:
-            with st.spinner("Authenticating…"):
-                taiga_adapter.login(uname.strip(), pw.strip())
-            for k in list(st.session_state.keys()):
-                if k.startswith(("board_", "epics_", "taiga_", "_taiga_", "user_mgmt")):
-                    del st.session_state[k]
-            st.session_state.pop("taiga_projects", None)
-            st.session_state["_notify_users"] = f"Logged in as {uname.strip()}."
-            st.rerun()
-        except taiga_adapter.TaigaAPIError as exc:
-            st.error(str(exc))
 
 
 def _project_members_section() -> None:
@@ -905,20 +919,30 @@ def _member_row(m: dict, roles: list, role_map: dict, members_key: str) -> None:
     mid       = m.get("id")
     user_info = m.get("user_extra_info") or {}
     full_name = (user_info.get("full_name_display") or m.get("full_name", "")).strip()
-    username  = (user_info.get("username") or m.get("user_email", "")).strip()
+    username  = (user_info.get("username") or "").strip()
+    email     = m.get("email", "").strip()
     role_id   = m.get("role")
     is_owner  = m.get("is_owner", False)
+    role_name = role_map.get(role_id, "")
     display   = full_name or username or "Unknown"
+    contact   = email or username
     del_key   = f"_umgr_del_{mid}"
 
-    col_name, col_del = st.columns([7, 1])
+    # ── Info row: name | email | role | delete ────────────────────────────
+    col_name, col_email, col_role_lbl, col_del = st.columns([3, 3, 2, 1])
     with col_name:
         st.markdown(
-            f'<span style="font-size:12px;font-weight:600;">{_html.escape(display)}</span>'
-            + (
-                f' <span style="font-size:11px;color:#888;">@{_html.escape(username)}</span>'
-                if username and full_name else ""
-            ),
+            f'<span style="font-size:11px;font-weight:600;">{_html.escape(display)}</span>',
+            unsafe_allow_html=True,
+        )
+    with col_email:
+        st.markdown(
+            f'<span style="font-size:11px;color:#888;">{_html.escape(contact)}</span>',
+            unsafe_allow_html=True,
+        )
+    with col_role_lbl:
+        st.markdown(
+            f'<span style="font-size:11px;">{_html.escape(role_name)}</span>',
             unsafe_allow_html=True,
         )
     with col_del:
@@ -927,18 +951,16 @@ def _member_row(m: dict, roles: list, role_map: dict, members_key: str) -> None:
                 st.session_state[del_key] = True
                 st.rerun()
 
-    # Role row
-    if is_owner:
-        st.caption(f"  👑 {role_map.get(role_id, 'Owner')}")
-    elif roles:
+    # ── Role edit row (non-owners only) ───────────────────────────────────
+    if not is_owner and roles:
         role_ids = [r["id"]   for r in roles]
         role_nms = [r["name"] for r in roles]
         try:
             cur = role_ids.index(role_id)
         except ValueError:
             cur = 0
-        col_role, col_save = st.columns([4, 1])
-        with col_role:
+        col_sel, col_save = st.columns([5, 1])
+        with col_sel:
             sel = st.selectbox(
                 "role", options=range(len(roles)),
                 format_func=lambda i: role_nms[i],
@@ -960,10 +982,8 @@ def _member_row(m: dict, roles: list, role_map: dict, members_key: str) -> None:
                         st.rerun()
                     except taiga_adapter.TaigaAPIError as exc:
                         st.error(str(exc))
-    else:
-        st.caption(f"  {role_map.get(role_id, '')}")
 
-    # Delete confirm
+    # ── Delete confirm ────────────────────────────────────────────────────
     if st.session_state.get(del_key):
         st.warning(f'Remove **{_html.escape(display)}** from project?')
         c1, c2 = st.columns(2)
@@ -976,7 +996,7 @@ def _member_row(m: dict, roles: list, role_map: dict, members_key: str) -> None:
                         if mem.get("id") != mid
                     ]
                     st.session_state.pop(del_key, None)
-                    st.session_state["_notify_users"] = f"{display} removed from project."
+                    st.session_state["_notify_users"] = f"{display} removed."
                     st.rerun()
                 except taiga_adapter.TaigaAPIError as exc:
                     st.error(str(exc))
