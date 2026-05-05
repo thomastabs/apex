@@ -251,3 +251,119 @@ class TestClassifyAiError:
     def test_generic_exception_returns_raw_message(self):
         result = self._classify(ValueError("something completely unexpected"))
         assert "something completely unexpected" in result
+
+
+# ---------------------------------------------------------------------------
+# _run_suggest_epics
+# ---------------------------------------------------------------------------
+
+class TestRunSuggestEpics:
+    """Tests for _run_suggest_epics — patches ai_engine and st to avoid I/O."""
+
+    def _make_status_mock(self):
+        m = MagicMock()
+        m.__enter__ = MagicMock(return_value=m)
+        m.__exit__ = MagicMock(return_value=False)
+        return m
+
+    def _run(self, concept="Project X", hint="", ai_result=None, ai_exc=None):
+        import streamlit as st
+        from src.ai_engine import EpicSuggestion, EpicSuggestionList
+        from components.phase1 import _run_suggest_epics
+
+        if ai_result is None and ai_exc is None:
+            ai_result = EpicSuggestionList(epics=[
+                EpicSuggestion(title="Epic A", description="Desc A"),
+                EpicSuggestion(title="Epic B", description="Desc B"),
+            ])
+
+        ss_data = {}
+        mock_ss = MagicMock()
+        mock_ss.get = lambda key, default=None: ss_data.get(key, default)
+        mock_ss.__setitem__ = lambda self, key, val: ss_data.update({key: val})
+        mock_ss.__getitem__ = lambda self, key: ss_data[key]
+
+        status_mock = self._make_status_mock()
+
+        def fake_suggest(concept, hint=""):
+            if ai_exc:
+                raise ai_exc
+            return ai_result
+
+        with patch.object(st, "session_state", mock_ss), \
+             patch.object(st, "status", return_value=status_mock), \
+             patch("components.phase1.ai_engine.suggest_epics", side_effect=fake_suggest):
+            _run_suggest_epics(concept, hint)
+
+        return ss_data
+
+    def test_success_populates_epics_suggested(self):
+        result = self._run()
+        assert "epics_suggested" in result
+        assert len(result["epics_suggested"]) == 2
+
+    def test_success_stores_dicts_with_title_and_description(self):
+        result = self._run()
+        epic = result["epics_suggested"][0]
+        assert isinstance(epic, dict)
+        assert "title" in epic
+        assert "description" in epic
+
+    def test_success_preserves_title_values(self):
+        result = self._run()
+        titles = [e["title"] for e in result["epics_suggested"]]
+        assert "Epic A" in titles
+        assert "Epic B" in titles
+
+    def test_success_clears_previous_error(self):
+        result = self._run()
+        assert result.get("suggest_epics_error") is None
+
+    def test_error_sets_suggest_epics_error(self):
+        result = self._run(ai_exc=Exception("AI unavailable"))
+        assert "suggest_epics_error" in result
+        assert result["suggest_epics_error"]
+
+    def test_error_does_not_populate_epics_suggested(self):
+        result = self._run(ai_exc=Exception("boom"))
+        assert "epics_suggested" not in result
+
+    def test_rate_limit_error_gives_friendly_message(self):
+        from src.ai_engine import AIRateLimitError
+        result = self._run(ai_exc=AIRateLimitError("429 quota exceeded"))
+        assert "Rate limit" in result.get("suggest_epics_error", "")
+
+    def test_timeout_error_gives_friendly_message(self):
+        from src.ai_engine import AITimeoutError
+        result = self._run(ai_exc=AITimeoutError("timed out"))
+        assert "timed out" in result.get("suggest_epics_error", "").lower()
+
+    def test_hint_forwarded_to_ai(self):
+        import streamlit as st
+        from src.ai_engine import EpicSuggestionList
+        from components.phase1 import _run_suggest_epics
+
+        captured = {}
+        ss_data = {}
+        mock_ss = MagicMock()
+        mock_ss.get = lambda key, default=None: ss_data.get(key, default)
+        mock_ss.__setitem__ = lambda self, key, val: ss_data.update({key: val})
+        mock_ss.__getitem__ = lambda self, key: ss_data[key]
+        status_mock = self._make_status_mock()
+
+        def fake_suggest(concept, hint=""):
+            captured["hint"] = hint
+            return EpicSuggestionList(epics=[])
+
+        with patch.object(st, "session_state", mock_ss), \
+             patch.object(st, "status", return_value=status_mock), \
+             patch("components.phase1.ai_engine.suggest_epics", side_effect=fake_suggest):
+            _run_suggest_epics("any concept", "MVP only")
+
+        assert captured["hint"] == "MVP only"
+
+    def test_empty_epic_list_still_succeeds(self):
+        from src.ai_engine import EpicSuggestionList
+        result = self._run(ai_result=EpicSuggestionList(epics=[]))
+        assert result["epics_suggested"] == []
+        assert result.get("suggest_epics_error") is None

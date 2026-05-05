@@ -100,15 +100,15 @@ _LIGHT_CSS = """
         border: none !important;
     }
     [data-testid="stExpander"] summary {
-        background-color: #d2d8e0 !important;
+        background-color: #b8c4d2 !important;
         color: #111111 !important;
         transition: background-color 0.15s !important;
     }
     [data-testid="stExpander"] summary:hover {
-        background-color: #b8c0cc !important;
+        background-color: #a4b0c0 !important;
     }
     [data-testid="stExpander"] details > div {
-        background-color: #f5f5f5 !important;
+        background-color: #eef0f4 !important;
     }
     /* ── Dividers (sidebar + main content) ────────────────────────────── */
     hr {
@@ -160,18 +160,6 @@ _LIGHT_CSS = """
     [data-testid="stStatusWidget"] span,
     [data-testid="stStatusWidget"] label {
         color: #111111 !important;
-    }
-    /* ── Loading spinner (st.spinner + st.status running state) ────────── */
-    [data-testid="stSpinner"] p,
-    [data-testid="stSpinner"] span,
-    [data-testid="stSpinner"] label {
-        color: #111111 !important;
-    }
-    /* The circle itself — faint track + bold purple leading edge */
-    [data-testid="stSpinner"] > div > div:first-child,
-    [data-testid="stStatusWidget"] > div > div:first-child {
-        border-color: #c8ccd4 !important;
-        border-top-color: #7c3aed !important;
     }
     /* ── Dialog / Modal popup ───────────────────────────────────────────── */
     /* Backdrop overlay */

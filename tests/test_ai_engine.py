@@ -10,6 +10,8 @@ from src.ai_engine import (
     GherkinScenario,
     GherkinStory,
     GherkinStoryList,
+    EpicSuggestion,
+    EpicSuggestionList,
     _repair_truncated_json,
     _reclassify_llm_exc,
     bold_gherkin_keywords,
@@ -395,3 +397,55 @@ class TestFormatGherkinStoryEdgeCases:
         story = GherkinStory(title="No Scenarios", size="XS", scenarios=[])
         result = format_gherkin_story(story)
         assert "Feature: No Scenarios" in result
+
+
+# ---------------------------------------------------------------------------
+# EpicSuggestion / EpicSuggestionList schemas
+# ---------------------------------------------------------------------------
+
+class TestEpicSuggestionSchema:
+    def test_valid_suggestion_stores_fields(self):
+        s = EpicSuggestion(title="User Authentication", description="Handles login flows.")
+        assert s.title == "User Authentication"
+        assert s.description == "Handles login flows."
+
+    def test_suggestion_list_empty_is_valid(self):
+        sl = EpicSuggestionList(epics=[])
+        assert sl.epics == []
+
+    def test_suggestion_list_multiple_epics(self):
+        sl = EpicSuggestionList(epics=[
+            EpicSuggestion(title="Auth",      description="Login and registration."),
+            EpicSuggestion(title="Dashboard", description="User dashboard views."),
+        ])
+        assert len(sl.epics) == 2
+        assert sl.epics[0].title == "Auth"
+        assert sl.epics[1].title == "Dashboard"
+
+    def test_suggestion_missing_title_raises(self):
+        import pydantic
+        with pytest.raises(pydantic.ValidationError):
+            EpicSuggestion(description="No title here.")
+
+    def test_suggestion_missing_description_raises(self):
+        import pydantic
+        with pytest.raises(pydantic.ValidationError):
+            EpicSuggestion(title="No description here")
+
+    def test_suggestion_list_missing_epics_raises(self):
+        import pydantic
+        with pytest.raises(pydantic.ValidationError):
+            EpicSuggestionList()
+
+    def test_suggestion_list_preserves_order(self):
+        titles = ["Epic A", "Epic B", "Epic C"]
+        sl = EpicSuggestionList(epics=[
+            EpicSuggestion(title=t, description=f"Desc for {t}") for t in titles
+        ])
+        assert [e.title for e in sl.epics] == titles
+
+    def test_suggestion_json_round_trip(self):
+        original = EpicSuggestion(title="Payments", description="Checkout and billing.")
+        restored = EpicSuggestion.model_validate_json(original.model_dump_json())
+        assert restored.title == original.title
+        assert restored.description == original.description

@@ -52,7 +52,7 @@ def render_phase1() -> None:
     st.header("Phase 1 · Requirements")
     st.caption("Mob Elaboration — transform an Epic into formal Gherkin Acceptance Criteria")
     try:
-        st.image("images/requirements.svg", use_container_width=True)
+        st.image("images/requirements.svg", width="stretch")
     except Exception:
         pass
     st.divider()
@@ -824,12 +824,17 @@ def _section_suggest_epics() -> None:
         key="suggest_epics_hint",
     )
 
-    col_btn, col_clear = st.columns([2, 1])
+    has_suggestions = bool(st.session_state.get("epics_suggested"))
+    col_btn, col_re, col_clear = st.columns([2, 2, 1])
     with col_btn:
-        if st.button("Suggest Epics", type="primary", key="suggest_epics_btn"):
+        if st.button("Suggest Epics", type="primary", key="suggest_epics_btn",
+                     disabled=has_suggestions):
+            _run_suggest_epics(project_concept, hint)
+    with col_re:
+        if has_suggestions and st.button("↻ Regenerate", key="suggest_epics_regen"):
             _run_suggest_epics(project_concept, hint)
     with col_clear:
-        if st.session_state.get("epics_suggested") and st.button("Clear", key="suggest_epics_clear"):
+        if has_suggestions and st.button("Clear", key="suggest_epics_clear"):
             st.session_state["epics_suggested"] = None
             st.session_state["suggest_epics_error"] = None
             st.rerun()
