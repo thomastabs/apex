@@ -150,6 +150,11 @@ def _apply_pending_epic() -> None:
         st.session_state["epic_desc_input"] = pending["description"]
     if "id" in pending:
         st.session_state["epic_id_input"] = pending["id"]
+        # Keep a non-widget copy so _run_push can fall back even if the text field is cleared
+        st.session_state["_source_epic_id"] = int(pending["id"])
+    else:
+        # Loaded from Suggest Epics (no existing ID) — clear any stale source
+        st.session_state.pop("_source_epic_id", None)
 
 
 def _section_epic() -> None:
@@ -170,6 +175,13 @@ def _section_epic() -> None:
             "Taiga Epic ID (optional)",
             placeholder="e.g. 42",
             key="epic_id_input",
+        )
+
+    existing_id = st.session_state.get("_source_epic_id") or _parse_epic_id()
+    if existing_id:
+        st.info(
+            f"Stories will be added to existing Taiga Epic **#{existing_id}** — no new epic will be created.",
+            icon="ℹ️",
         )
 
     st.text_area(
@@ -246,7 +258,7 @@ def _section_generate() -> None:
     blockers: list[str] = []
     if not signed_in:
         blockers.append("signed_in")
-        st.warning("Not signed in to Taiga — use the **⇄** button in the sidebar to connect.")
+        st.warning("Not signed in to Taiga — use the **⇄** button in the sidebar to sign in.")
     if not project_chosen:
         blockers.append("project")
         st.warning("No Taiga project selected — choose one in the sidebar under **Project**.")
@@ -545,6 +557,10 @@ def _run_push() -> None:
     compiled:    list[dict] = st.session_state.compiled_stories
     epic_id_val: int | None = _parse_epic_id()
 
+    # If the text field was cleared, fall back to the ID stored when loading from Browse Epics
+    if epic_id_val is None:
+        epic_id_val = st.session_state.get("_source_epic_id")
+
     # Guard: if no existing Epic ID, require a title to create one.
     if epic_id_val is None and not st.session_state.get("epic_subject_input", "").strip():
         st.session_state.push_result = {
@@ -809,7 +825,7 @@ def _section_browse_epics() -> None:
     project_chosen = bool(taiga_adapter.TAIGA_PROJECT_ID)
 
     if not signed_in:
-        st.warning("Not signed in to Taiga — use the **⇄** button in the sidebar to connect.")
+        st.warning("Not signed in to Taiga — use the **⇄** button in the sidebar to sign in.")
         return
     if not project_chosen:
         st.warning("No Taiga project selected — choose one in the sidebar under **Project**.")
@@ -905,5 +921,6 @@ def _reset_state() -> None:
         "compiled_stories", "push_done", "push_result",
         "ai_error", "compile_error",
         "epic_subject_input", "epic_desc_input", "epic_id_input",
+        "_source_epic_id",
     ):
         st.session_state.pop(key, None)

@@ -120,9 +120,19 @@ _LIGHT_CSS = """
     }
     [data-testid="stTab"][aria-selected="true"] {
         color: #111111 !important;
+        font-weight: 600 !important;
     }
     [data-testid="stTabsList"] {
         border-bottom: 2px solid #9ca3af !important;
+    }
+    /* BaseUI active-tab sliding indicator bar */
+    [data-baseweb="tab-highlight"] {
+        background-color: #7c3aed !important;
+        height: 3px !important;
+    }
+    /* BaseUI full-width bottom border behind the indicator */
+    [data-baseweb="tab-border"] {
+        background-color: #9ca3af !important;
     }
     /* ── Page link hover ───────────────────────────────────────────────── */
     [data-testid="stPageLink"] a:hover {

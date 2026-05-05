@@ -391,9 +391,10 @@ def _taiga_user_info() -> None:
     col_info, col_btn = st.columns([6, 1], vertical_alignment="center")
     if not taiga_adapter.is_configured():
         with col_info:
-            st.markdown("**Sign in to Taiga** to get started &nbsp;➜")
+            st.markdown("**Sign in to Taiga** using the ⇄ button to sign in")
         with col_btn:
-            if st.button("⇄", key="sw_acct_btn", width='stretch'):
+            if st.button("⇄", key="sw_acct_btn", width='stretch',
+                         help="Sign in or switch Taiga account"):
                 _switch_account_dialog()
         return
     try:
@@ -407,19 +408,21 @@ def _taiga_user_info() -> None:
                 f"**{display}**" + (f" &nbsp; `{email}`" if email else "")
             )
         with col_btn:
-            if st.button("⇄", key="sw_acct_btn", width='stretch'):
+            if st.button("⇄", key="sw_acct_btn", width='stretch',
+                         help="Sign in or switch Taiga account"):
                 _switch_account_dialog()
     except Exception:
         with col_info:
-            st.markdown("**Sign in to Taiga** to get started &nbsp;➜")
+            st.markdown("**Sign in to Taiga** using the ⇄ button to sign in")
         with col_btn:
-            if st.button("⇄", key="sw_acct_btn", width='stretch'):
+            if st.button("⇄", key="sw_acct_btn", width='stretch',
+                         help="Sign in or switch Taiga account"):
                 _switch_account_dialog()
 
 
 def _taiga_status() -> None:
     if not taiga_adapter.is_configured():
-        st.caption("No Taiga account connected — use the ⇄ button above to sign in.")
+        st.caption("No Taiga account connected — use the ⇄ button above to sign in to Taiga.")
         with st.expander("Select project", key="taiga_sel_proj_exp"):
             _taiga_project_manager()
         return
