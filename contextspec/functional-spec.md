@@ -758,3 +758,327 @@ Feature: View Details of Specific Playlist
     And the app shows which tracks belong to which albums
     And the app shows which tracks are standalone additions
 ```
+
+## Epic 354437: Album Logging and Cataloging
+
+### Story 9220359: Search Albums by Title or Artist
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 23:36 UTC
+
+```gherkin
+Feature: Search Albums by Title or Artist
+
+  Scenario: Successful album search by title
+    Given the user has opened the search interface
+    When the user types 'Rumours' in the search field
+    Then a list of albums matching that title is displayed
+    And each result shows album artwork, artist name, and release year
+    And the user can click on the correct album (Fleetwood Mac, 1977) to view its details
+
+  Scenario: Successful album search by artist name
+    Given the user has opened the search interface
+    When the user types 'The Beatles' in the search field
+    Then a list of all albums by that artist is displayed
+    And results are sorted by release date
+    And the user can select a specific album like 'Abbey Road'
+
+  Scenario: Search returns no results
+    Given the user has opened the search interface
+    When the user searches for a very obscure or misspelled album name
+    Then a message is displayed indicating no albums were found
+    And suggestions appear to try different search terms or check the spelling
+
+  Scenario: Search with partial or fuzzy matching
+    Given the user has opened the search interface
+    When the user types 'Rumor' (missing the 's')
+    Then 'Rumours' by Fleetwood Mac is returned as a top result
+    And intelligent fuzzy matching is demonstrated
+```
+
+### Story 9220360: Add Album to Library from Search
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 23:36 UTC
+
+```gherkin
+Feature: Add Album to Library from Search
+
+  Scenario: Successful album addition to library
+    Given the user has found 'Rumours' by Fleetwood Mac in search results
+    When the user clicks 'Add to Library'
+    Then the album is immediately added to their collection
+    And a confirmation message appears
+    And the album now appears in their library view
+
+  Scenario: Album already in library
+    Given the user has already cataloged an album
+    When the user attempts to add that album again
+    Then the system recognizes the duplicate
+    And a message is displayed indicating the album is already in their library
+    And an option is offered to take them to the existing entry
+
+  Scenario: Add album with incomplete metadata
+    Given an album has minimal metadata available (e.g., missing release year or artwork)
+    When the user adds that album
+    Then the system allows the addition
+    And whatever metadata is available is displayed
+    And placeholder text appears for missing fields
+```
+
+### Story 9220361: Mark Album as Owned or Wishlist
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 23:36 UTC
+
+```gherkin
+Feature: Mark Album as Owned or Wishlist
+
+  Scenario: Mark album as owned
+    Given the user is viewing an album in their library
+    When the user clicks a toggle or button to mark it as 'Owned'
+    Then the album's status updates immediately
+    And a visual indicator (e.g., a checkmark or label) appears to show ownership status
+
+  Scenario: Move album to wishlist
+    Given the user is viewing an album in their library
+    When the user marks an album as 'Wishlist'
+    Then the album remains in their library
+    And the album is visually distinguished or can be filtered separately
+    And wishlist items can be shown in a filtered view
+
+  Scenario: Change ownership status
+    Given the user has marked an album as 'Wishlist'
+    When the user later changes it to 'Owned' after purchasing it
+    Then the status updates without requiring the album to be re-added
+
+  Scenario: Default status on album addition
+    Given the user is adding an album to their library
+    When the album addition process completes
+    Then the user is prompted or the system defaults to a status (e.g., 'Owned' or 'Wishlist')
+    And the user can confirm or change this status before finalizing the addition
+```
+
+### Story 9220362: View Music Library with Filtering and Sorting
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 23:36 UTC
+
+```gherkin
+Feature: View Music Library with Filtering and Sorting
+
+  Scenario: View all albums in library
+    Given the user has added albums to their library
+    When the user navigates to their library
+    Then all albums are displayed in a grid or list view
+    And each album shows artwork, title, artist, and ownership status
+    And the view loads smoothly even with a large collection
+
+  Scenario: Filter library by ownership status
+    Given the user is viewing their library
+    When the user applies a filter to show only 'Owned' albums or only 'Wishlist' items
+    Then the library updates to display only albums matching the selected filter
+
+  Scenario: Sort library by different criteria
+    Given the user is viewing their library
+    When the user selects a sort option (album title A-Z, artist name, date added, or release year)
+    Then the library re-orders accordingly
+
+  Scenario: Search within library
+    Given the user is viewing their library
+    When the user types in a search box within the library view
+    Then results update in real-time as they type
+    And the user can quickly find a specific album without leaving the library interface
+
+  Scenario: Empty library state
+    Given a new user has no albums in their library
+    When the user navigates to their library
+    Then a friendly message appears encouraging them to start adding albums
+    And a link to the search interface is provided
+```
+
+### Story 9220363: View Detailed Album Metadata
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 23:36 UTC
+
+```gherkin
+Feature: View Detailed Album Metadata
+
+  Scenario: View album details page
+    Given the user is viewing their library
+    When the user clicks on an album
+    Then a detailed view is displayed including album artwork, title, artist, release year, genre, record label, and track listing
+    And all available metadata is clearly displayed
+
+  Scenario: View album with missing metadata
+    Given an album has some metadata fields unavailable (e.g., no genre or label information)
+    When the user views that album's details page
+    Then the system gracefully handles missing data by showing placeholder text or omitting empty fields
+    And the layout does not break
+
+  Scenario: View track listing
+    Given the user is viewing an album's details page
+    When the user scrolls through the page
+    Then a complete track listing is displayed with song titles and durations
+    And the track list is clearly formatted and easy to read
+```
+
+### Story 9220364: Log Album Listening History
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 23:36 UTC
+
+```gherkin
+Feature: Log Album Listening History
+
+  Scenario: Log a listen with current date
+    Given the user has just finished listening to an album
+    When the user clicks 'Log Listen'
+    Then the system records the current date and time
+    And the listen is added to their listening history
+    And a confirmation message appears
+
+  Scenario: Log a listen with custom date
+    Given the user wants to log a listen for an album they heard in the past
+    When the user clicks 'Log Listen' and selects a custom date from a date picker
+    Then the system records the listen for that date
+
+  Scenario: View listening history for an album
+    Given the user is viewing an album's details page
+    When the user looks at the listening history section
+    Then a timeline or list of all logged listens for that album is displayed
+    And the frequency of listening is shown
+
+  Scenario: Log multiple listens on same day
+    Given the user has listened to the same album multiple times on the same day
+    When the user logs multiple listens for that album on that day
+    Then the system allows this
+    And both entries are displayed in the listening history
+
+  Scenario: View overall listening history
+    Given the user has logged listens for multiple albums
+    When the user navigates to a 'Listening History' or 'Timeline' view
+    Then all logged listens across all albums are displayed in chronological order
+    And the user can see their listening patterns over time
+```
+
+### Story 9220365: Remove Album from Library
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 23:36 UTC
+
+```gherkin
+Feature: Remove Album from Library
+
+  Scenario: Successfully remove album from library
+    Given the user is viewing an album's details page
+    When the user clicks a 'Remove from Library' button and confirms the action in a confirmation dialog
+    Then the album is immediately removed from their library
+    And the album no longer appears in their collection
+
+  Scenario: Confirmation before deletion
+    Given the user is viewing an album's details page
+    When the user clicks 'Remove from Library'
+    Then a confirmation dialog appears asking 'Are you sure?'
+    And the user can cancel or confirm the action
+
+  Scenario: Remove album with associated data
+    Given the user is removing an album that has reviews, ratings, or listen logs associated with it
+    When the user confirms the removal
+    Then the system handles this gracefully by either preserving the review/rating data separately or clearly communicating what will be deleted
+```
+
+### Story 9220366: Track Album Addition Date
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 23:36 UTC
+
+```gherkin
+Feature: Track Album Addition Date
+
+  Scenario: View date added on album details
+    Given the user is viewing an album's details page
+    When the user looks at the album information
+    Then a 'Date Added' field is visible showing when they added the album to their library (e.g., 'Added on March 15, 2024')
+
+  Scenario: View date added in library list
+    Given the user is viewing their library in list view
+    When the user looks at the library entries
+    Then the date each album was added is visible, either as a column or visible metadata for each entry
+
+  Scenario: Sort by date added
+    Given the user is viewing their library
+    When the user sorts their library by 'Date Added'
+    Then the most recent additions appear first or oldest additions appear first
+    And the user can track collection growth
+```
+
+### Story 9220367: Assign Star Rating to Album
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 23:37 UTC
+
+```gherkin
+Feature: Assign Star Rating to Album
+
+  Scenario: Assign star rating to album
+    Given the user is viewing an album
+    When the user clicks on a star rating widget (e.g., 1-5 stars) and selects their desired rating (e.g., 4 stars)
+    Then the rating is immediately saved
+    And the rating is displayed on the album
+
+  Scenario: Update existing rating
+    Given the user has previously rated an album 3 stars
+    When the user clicks the rating widget again and selects a new rating (e.g., 5 stars)
+    Then the new rating overwrites the previous one
+
+  Scenario: Remove rating
+    Given the user has assigned a star rating to an album
+    When the user clicks on their existing star rating to deselect it
+    Then the rating is removed entirely
+    And the album no longer shows a rating until they assign one again
+
+  Scenario: View rating on album card
+    Given the user is viewing their library
+    When the user looks at the album cards
+    Then each album displays its star rating prominently (e.g., as filled stars)
+    And the user can quickly see their rated albums at a glance
+```
+
+### Story 9220368: Add Custom Notes and Tags to Album
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-04 23:37 UTC
+
+```gherkin
+Feature: Add Custom Notes and Tags to Album
+
+  Scenario: Add personal notes to album
+    Given the user is viewing an album's details page
+    When the user clicks an 'Add Notes' field and types a personal note (e.g., 'Listened to this on my road trip to Colorado')
+    Then the note is saved
+    And the note is displayed on the album's page
+
+  Scenario: Edit existing notes
+    Given the user has added notes to an album
+    When the user clicks on their existing notes and edits them
+    Then the changes are saved immediately
+
+  Scenario: Add tags to album
+    Given the user is viewing an album's details page
+    When the user adds tags to an album (e.g., 'road-trip', 'summer-2024', 'favorites')
+    Then tags appear as clickable labels on the album
+    And tags can be used for filtering or discovery
+
+  Scenario: Filter library by tags
+    Given the user is viewing their library
+    When the user clicks on a tag (e.g., 'summer-2024')
+    Then the library filters to show only albums with that tag
+    And the user can rediscover music from specific periods or contexts
+
+  Scenario: View notes with character limit
+    Given the notes field has a reasonable character limit (e.g., 500 characters)
+    When the user tries to exceed the character limit
+    Then the system prevents further input or warns them they're at the limit
+```

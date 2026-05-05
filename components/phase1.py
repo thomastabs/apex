@@ -58,7 +58,7 @@ def render_phase1() -> None:
     st.divider()
 
     switch_to_req = st.session_state.pop("_switch_to_req_tab", False)
-    tab_req, tab_suggest = st.tabs(["Requirements", "Suggest Epics"])
+    tab_req, tab_suggest, tab_browse = st.tabs(["Requirements", "Suggest Epics", "Browse Epics"])
 
     if switch_to_req:
         _components.html("""
@@ -90,6 +90,9 @@ def render_phase1() -> None:
 
     with tab_suggest:
         _section_suggest_epics()
+
+    with tab_browse:
+        _section_browse_epics()
 
 
 # ── Session state ─────────────────────────────────────────────────────────────
@@ -135,26 +138,6 @@ def _save_current_draft() -> None:
 
 # ── Section: Epic input ───────────────────────────────────────────────────────
 
-def _apply_epic_selection() -> None:
-    """on_change callback — stages the selected epic for application on next render."""
-    idx: int = st.session_state.get("epic_selectbox_idx", 0)
-    epics: list[dict] = st.session_state.get("epics_list") or []
-    if idx > 0 and epics:
-        chosen  = epics[idx - 1]
-        epic_id = chosen["id"]
-        cache: dict = st.session_state.setdefault("epics_detail_cache", {})
-        if epic_id not in cache:
-            try:
-                cache[epic_id] = taiga_adapter.get_epic(epic_id)
-            except TaigaAPIError:
-                cache[epic_id] = chosen
-        full = cache[epic_id]
-        st.session_state["_pending_epic_data"] = {
-            "subject":     full.get("subject", chosen.get("subject", "")),
-            "description": full.get("description", "") or "",
-            "id":          str(epic_id),
-        }
-
 
 def _apply_pending_epic() -> None:
     """Apply staged epic data BEFORE any widget with those keys is rendered."""
@@ -174,7 +157,6 @@ def _section_epic() -> None:
         st.toast(msg)
     _apply_pending_epic()
     st.markdown("##### EPIC")
-    _epic_browser()
 
     col_title, col_id = st.columns([3, 1])
     with col_title:
@@ -209,49 +191,6 @@ def _section_epic() -> None:
     )
 
 
-def _epic_browser() -> None:
-    is_open: bool = st.session_state.get("epics_visible", False)
-
-    if st.button("Browse Epics", key="browse_epics_btn"):
-        if st.session_state.get("epics_list") is None:
-            try:
-                with st.spinner("Loading Epics..."):
-                    epics = taiga_adapter.get_epics()
-                st.session_state["epics_list"] = epics
-                st.session_state.pop("epics_load_error", None)
-            except TaigaAPIError as exc:
-                st.session_state["epics_load_error"] = str(exc)
-            st.session_state["epics_visible"] = True
-        else:
-            st.session_state["epics_visible"] = not is_open
-        st.rerun()
-
-    if not st.session_state.get("epics_visible"):
-        return
-
-    if st.session_state.get("epics_load_error"):
-        st.error(st.session_state["epics_load_error"])
-        return
-
-    epics: list[dict] | None = st.session_state.get("epics_list")
-    if epics is None:
-        return
-    if not epics:
-        st.caption("No Epics found in this project.")
-        return
-
-    labels = ["— select an existing Epic —"] + [
-        f"#{e.get('ref', e['id'])} · {e['subject']}" for e in epics
-    ]
-    st.selectbox(
-        "Existing Epics",
-        options=range(len(labels)),
-        format_func=lambda i: labels[i],
-        key="epic_selectbox_idx",
-        on_change=_apply_epic_selection,
-        label_visibility="collapsed",
-    )
-
 
 def _delete_epic_action(epic: dict) -> None:
     """Delete-with-confirm control for a single epic."""
@@ -268,8 +207,8 @@ def _delete_epic_action(epic: dict) -> None:
                         taiga_adapter.delete_epic_with_stories(epic_id)
                     st.session_state.pop(pending_key, None)
                     # Phase-1 epic picker caches
-                    for k in ("epics_list", "epic_selectbox_idx", "_pending_epic_data",
-                              "_taiga_stories", "epics_visible", "epics_load_error",
+                    for k in ("epics_list", "_pending_epic_data",
+                              "_taiga_stories", "epics_load_error",
                               "epics_detail_cache"):
                         st.session_state.pop(k, None)
                     # Sidebar board caches — keep the sidebar consistent
@@ -860,6 +799,70 @@ def _section_suggest_epics() -> None:
                 st.rerun()
 
 
+def _section_browse_epics() -> None:
+    st.markdown("##### BROWSE EPICS")
+    st.caption(
+        "Load Epics from the active Taiga project and load one into the Requirements tab."
+    )
+
+    signed_in      = taiga_adapter.is_configured()
+    project_chosen = bool(taiga_adapter.TAIGA_PROJECT_ID)
+
+    if not signed_in:
+        st.warning("Not signed in to Taiga — use the **⇄** button in the sidebar to connect.")
+        return
+    if not project_chosen:
+        st.warning("No Taiga project selected — choose one in the sidebar under **Project**.")
+        return
+
+    epics: list[dict] | None = st.session_state.get("epics_list")
+
+    btn_label = "Load Epics" if epics is None else "↻ Refresh"
+    if st.button(btn_label, type="primary" if epics is None else "secondary",
+                 key="browse_load_btn"):
+        try:
+            with st.spinner("Loading Epics..."):
+                st.session_state["epics_list"] = taiga_adapter.get_epics()
+            st.session_state.pop("epics_load_error", None)
+        except TaigaAPIError as exc:
+            st.session_state["epics_load_error"] = str(exc)
+        st.rerun()
+
+    if st.session_state.get("epics_load_error"):
+        st.error(st.session_state["epics_load_error"])
+        return
+
+    if epics is None:
+        return
+    if not epics:
+        st.caption("No Epics found in this project.")
+        return
+
+    st.divider()
+    st.caption(f"{len(epics)} epic(s) — click **Use this Epic →** to load one into the Requirements tab.")
+    for i, epic in enumerate(epics):
+        with st.expander(f"#{epic.get('ref', epic['id'])} · {epic['subject']}", expanded=False):
+            desc = epic.get("description") or ""
+            if desc:
+                st.write(desc)
+            if st.button("Use this Epic →", key=f"browse_use_{i}", type="primary"):
+                epic_id = epic["id"]
+                cache: dict = st.session_state.setdefault("epics_detail_cache", {})
+                if epic_id not in cache:
+                    try:
+                        cache[epic_id] = taiga_adapter.get_epic(epic_id)
+                    except TaigaAPIError:
+                        cache[epic_id] = epic
+                full = cache[epic_id]
+                st.session_state["_pending_epic_data"] = {
+                    "subject":     full.get("subject", epic["subject"]),
+                    "description": full.get("description", "") or "",
+                    "id":          str(epic_id),
+                }
+                st.session_state["_switch_to_req_tab"] = True
+                st.rerun()
+
+
 def _run_suggest_epics(project_concept: str, hint: str) -> None:
     with st.status("Generating Epic suggestions...", expanded=True) as status:
         try:
@@ -901,7 +904,6 @@ def _reset_state() -> None:
         "nl_draft", "nl_editor", "story_subject",
         "compiled_stories", "push_done", "push_result",
         "ai_error", "compile_error",
-        "epic_selectbox_idx",
         "epic_subject_input", "epic_desc_input", "epic_id_input",
     ):
         st.session_state.pop(key, None)

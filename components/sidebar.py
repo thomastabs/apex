@@ -744,8 +744,8 @@ def _board_epic_row(epic: dict, epics_key: str) -> None:
                     ]
                     for k in (
                         del_key, "_board_del_epic_name", exp_key, stor_key,
-                        "epics_list", "epic_selectbox_idx", "_pending_epic_data",
-                        "epics_visible", "epics_load_error", "_taiga_stories",
+                        "epics_list", "_pending_epic_data",
+                        "epics_load_error", "_taiga_stories",
                     ):
                         st.session_state.pop(k, None)
                     st.session_state["_notify_epics"] = "Epic and its stories deleted."
@@ -831,9 +831,7 @@ def _board_create_epic(epics_key: str) -> None:
                 epic = taiga_adapter.create_epic(name.strip(), (desc or "").strip())
             st.session_state[epics_key] = st.session_state.get(epics_key, []) + [epic]
             st.session_state["epics_list"] = None
-            st.session_state.pop("epics_visible", None)
             st.session_state.pop("epics_load_error", None)
-            st.session_state["epic_selectbox_idx"] = 0
             st.session_state.pop("_pending_epic_data", None)
             st.session_state.pop("board_new_epic_name", None)
             st.session_state.pop("board_new_epic_desc", None)

@@ -228,5 +228,105 @@
     "phase_status": "gherkin_locked",
     "story_id": 9220329,
     "title": "View Details of Specific Playlist"
+  },
+  "9220359": {
+    "epic_id": 354437,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9220359,
+    "title": "Search Albums by Title or Artist"
+  },
+  "9220360": {
+    "epic_id": 354437,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9220360,
+    "title": "Add Album to Library from Search"
+  },
+  "9220361": {
+    "epic_id": 354437,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9220361,
+    "title": "Mark Album as Owned or Wishlist"
+  },
+  "9220362": {
+    "epic_id": 354437,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9220362,
+    "title": "View Music Library with Filtering and Sorting"
+  },
+  "9220363": {
+    "epic_id": 354437,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9220363,
+    "title": "View Detailed Album Metadata"
+  },
+  "9220364": {
+    "epic_id": 354437,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9220364,
+    "title": "Log Album Listening History"
+  },
+  "9220365": {
+    "epic_id": 354437,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9220365,
+    "title": "Remove Album from Library"
+  },
+  "9220366": {
+    "epic_id": 354437,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9220366,
+    "title": "Track Album Addition Date"
+  },
+  "9220367": {
+    "epic_id": 354437,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9220367,
+    "title": "Assign Star Rating to Album"
+  },
+  "9220368": {
+    "epic_id": 354437,
+    "has_bdd": false,
+    "has_gherkin": true,
+    "has_proposal": false,
+    "has_tech_spec": false,
+    "phase_status": "gherkin_locked",
+    "story_id": 9220368,
+    "title": "Add Custom Notes and Tags to Album"
   }
 }
