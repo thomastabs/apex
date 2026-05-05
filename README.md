@@ -16,7 +16,7 @@ flowchart LR
   F --> G[Later phases]
 ```
 
-1. Open Phase 1 and enter or select a Taiga Epic.
+1. Open Phase 1 and enter or select a Taiga Epic (or use **Suggest Epics** to generate candidates from your Project Concept).
 2. Claude generates a Natural Language story draft.
 3. Review and edit the draft in the UI.
 4. The app compiles the draft into strict Gherkin acceptance criteria.
@@ -27,9 +27,10 @@ flowchart LR
 
 ### Phase 1 · Requirements (full)
 
-- Taiga login gate on first launch — no pre-configured credentials needed
+**Requirements tab**
 - Load or create a Taiga Epic; browse and select from existing epics
 - Generate Natural Language user stories via Claude (with AI guidance field)
+- Gate on Taiga sign-in, active project, and Project Concept — each missing prerequisite shows a targeted warning
 - Edit the NL draft interactively before locking it in
 - Compile the draft into formal Gherkin acceptance criteria
 - Edit story titles, sizes, and Gherkin per story before pushing
@@ -37,12 +38,18 @@ flowchart LR
 - Save the approved Gherkin to `contextspec/functional-spec.md`
 - Draft survives page refresh via `.bolt-draft.json`
 
+**Suggest Epics tab**
+- Generate a list of 5–10 scoped Epics from the Project Concept in the Memory Bank
+- Optional focus/constraints hint field
+- Regenerate for a fresh set without clearing the current list
+- "Use this Epic →" loads the selected Epic into the Requirements tab automatically
+
 ### Sidebar
 
 - **Context** — live editor for Memory Bank, Functional Spec, Technical Spec, Vaccine Records (spec files shown conditionally by active phase)
 - **Epics & Stories board** — load, expand, and manage epics and their stories; story/epic detail popups with Gherkin keyword highlighting and inline title/tag/status editing
 - **Users & Roles** — project member list (name · email · role side by side), inline role change, invite by username/email
-- **Switch account** — dialog with credentials or auth-token paste; current user shown as name · email strip
+- **Account** — current user shown as name · email; ⇄ button opens a Switch Account dialog (username/password or auth-token paste); shows "Sign in to Taiga →" when not connected
 - **Project switcher** — change or create Taiga projects without leaving the app
 - **Theme toggle** — light/dark mode persisted across sessions
 
@@ -54,9 +61,9 @@ Present in the UI as navigation stubs: Design, Implementation, Testing, Deployme
 
 | File / folder | Role |
 |---|---|
-| `app.py` | Entry point — page config, theme injection, Taiga login gate, routing |
+| `app.py` | Entry point — page config, theme injection, routing |
 | `components/sidebar.py` | Sidebar: nav, context editor, AI/Taiga status, board, user management |
-| `components/phase1.py` | Full Phase 1 workflow component |
+| `components/phase1.py` | Full Phase 1 workflow component (Requirements + Suggest Epics tabs) |
 | `src/ai_engine.py` | LangChain + Claude prompts and structured outputs |
 | `src/context_manager.py` | Reads/writes `contextspec/` markdown files |
 | `src/taiga_adapter.py` | Taiga REST API client (GET/POST/PATCH/DELETE) |
@@ -79,11 +86,11 @@ Python 3.12 · Streamlit · LangChain · Anthropic Claude · Pydantic · Request
 | Python 3.12+ | Local dev only |
 | Docker 24+ | Container run |
 | Anthropic API key | Required — set in `.env` |
-| Taiga account | Required — entered via login screen on first launch |
+| Taiga account | Optional upfront — sign in via the sidebar ⇄ button on first launch |
 
 ### 1 · Environment setup
 
-Only the Anthropic key is needed upfront. Taiga credentials are entered via the in-app login screen and saved automatically.
+Only the Anthropic key is needed upfront. Taiga credentials are entered via the sidebar on first use and saved automatically.
 
 ```bash
 cp .env.example .env
@@ -94,7 +101,7 @@ Edit `.env`:
 ```env
 ANTHROPIC_API_KEY=sk-ant-...
 
-# Taiga — filled automatically by the app on first login:
+# Taiga — filled automatically by the app when you sign in via the sidebar:
 # TAIGA_API_URL=https://api.taiga.io
 # TAIGA_PROJECT_ID=
 # TAIGA_AUTH_TOKEN=
@@ -113,7 +120,7 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Open [http://localhost:8501](http://localhost:8501). On first visit with no Taiga token, a login screen appears — sign in with username/password or paste an auth token (find it at Taiga → Profile → Edit profile → API token). The token is saved to `.env` automatically.
+Open [http://localhost:8501](http://localhost:8501). On first visit with no Taiga token, click the **⇄** button in the sidebar to sign in with username/password or paste an auth token (find it at Taiga → Profile → Edit profile → API token). The token is saved to `.env` automatically.
 
 ### 3 · Docker
 
@@ -126,7 +133,7 @@ docker run -e ANTHROPIC_API_KEY=sk-ant-... \
   bolt-cli:local
 ```
 
-No Taiga credentials needed in advance — sign in through the app. The `-v` flag mounts `contextspec/` so context files survive container restarts.
+No Taiga credentials needed in advance — sign in through the sidebar. The `-v` flag mounts `contextspec/` so context files survive container restarts.
 
 ### 4 · Docker Compose (recommended)
 
