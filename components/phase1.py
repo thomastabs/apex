@@ -2,20 +2,11 @@
 components/phase1.py
 Phase 1 — Mob Elaboration: Discovery & Requirements.
 
-Three-step pipeline:
-  GENERATE     → ai_engine.generate_nl_stories()     → NL draft for human cross-examination
-  COMPILE      → ai_engine.compile_gherkin_stories()  → formal Gherkin per story, human review
-  CONFIRM PUSH → taiga_adapter.create_story() × N     → Taiga + context lock
-
-Changes vs initial version:
-  - Epic linking handled inside taiga_adapter.create_story() — no separate call needed
-  - Stories tagged with ["bolt", size] and moved to "Ready for Discovery" status on push
-  - Duplicate detection: existing stories in the epic are skipped (not re-created)
-  - Gherkin validation gates the push button (each story needs ≥1 Scenario block)
-  - Success message shows clickable Taiga links (story ref → web URL)
-  - st.status() replaces spinners for generation and compilation steps
-  - Draft state (NL + compiled) is persisted to contextspec/.bolt-draft.json so it
-    survives a page refresh or Streamlit server restart
+Wizard-like pipeline:
+  STEP 1  → define epic (new / load from Taiga / AI-suggested)
+  STEP 2  → ai_engine.generate_nl_stories()     → NL draft for human cross-examination
+  STEP 3  → human review + ai_engine.compile_gherkin_stories() → formal Gherkin per story
+  STEP 4  → Gherkin review + taiga_adapter.create_story() × N  → Taiga + context lock
 
 Session state keys are documented in _STATE_DEFAULTS.
 """
@@ -24,7 +15,6 @@ import re
 import time
 
 import streamlit as st
-import streamlit.components.v1 as _components
 
 from src import ai_engine
 from src import context_manager
@@ -32,17 +22,19 @@ from src import taiga_adapter
 from src.taiga_adapter import TaigaAPIError
 
 _STATE_DEFAULTS: dict = {
-    "nl_draft":           "",
-    "nl_editor":          "",
-    "story_subject":      "",
-    "compiled_stories":   None,
-    "push_done":          False,
-    "push_result":        None,
-    "ai_error":           None,
-    "compile_error":      None,
-    "_draft_loaded":      False,  # guards draft restoration to once per session
-    "epics_suggested":    None,
+    "nl_draft":            "",
+    "nl_editor":           "",
+    "story_subject":       "",
+    "compiled_stories":    None,
+    "push_done":           False,
+    "push_result":         None,
+    "ai_error":            None,
+    "compile_error":       None,
+    "_draft_loaded":       False,   # guards draft restoration to once per session
+    "epics_suggested":     None,
     "suggest_epics_error": None,
+    "start_mode":      "new",   # current mode: "new" | "load" | "suggest"
+    "_epic_loaded_by": None,    # "load" | "suggest" | None — tracks which panel loaded an epic
 }
 
 
@@ -51,48 +43,27 @@ def render_phase1() -> None:
 
     st.header("Phase 1 · Requirements")
     st.caption("Mob Elaboration — transform an Epic into formal Gherkin Acceptance Criteria")
-    try:
-        st.image("images/requirements.svg", width="stretch")
-    except Exception:
-        pass
+
+    with st.expander("View Process Diagram (How this works)", expanded=False):
+        try:
+            st.image("images/requirements.svg", width="stretch")
+        except Exception:
+            pass
+
     st.divider()
+    _section_step1()
 
-    switch_to_req = st.session_state.pop("_switch_to_req_tab", False)
-    tab_req, tab_suggest, tab_browse = st.tabs(["Requirements", "Suggest Epics", "Browse Epics"])
+    st.divider()
+    _section_generate()
 
-    if switch_to_req:
-        _components.html("""
-        <script>
-        (function() {
-            function click() {
-                var tabs = window.parent.document.querySelectorAll('button[data-testid="stTab"]');
-                if (tabs && tabs.length > 0) { tabs[0].click(); return true; }
-                return false;
-            }
-            if (!click()) setTimeout(click, 150);
-        })();
-        </script>
-        """, height=0)
-
-    with tab_req:
-        _section_epic()
+    if st.session_state.nl_draft:
         st.divider()
-        _section_generate()
-        st.divider()
-
-        if st.session_state.nl_draft:
-            _section_review()
+        _section_review()
+        if not st.session_state.compiled_stories:
+            _section_compile()
+        else:
             st.divider()
-            if not st.session_state.compiled_stories:
-                _section_compile()
-            else:
-                _section_gherkin_review()
-
-    with tab_suggest:
-        _section_suggest_epics()
-
-    with tab_browse:
-        _section_browse_epics()
+            _section_gherkin_review()
 
 
 # ── Session state ─────────────────────────────────────────────────────────────
@@ -116,6 +87,10 @@ def _restore_draft() -> None:
         st.session_state["epic_subject_input"] = draft["epic_subject"]
     if draft.get("epic_id"):
         st.session_state["epic_id_input"] = draft["epic_id"]
+        try:
+            st.session_state["_source_epic_id"] = int(draft["epic_id"])
+        except (ValueError, TypeError):
+            pass
     nl = draft.get("nl_draft", "")
     if nl:
         st.session_state["nl_draft"]  = nl
@@ -136,8 +111,17 @@ def _save_current_draft() -> None:
     })
 
 
-# ── Section: Epic input ───────────────────────────────────────────────────────
+def _clear_story_progress() -> None:
+    """Clear NL/Gherkin progress while preserving epic selection and panel caches."""
+    _clear_gherkin_editors()
+    context_manager.clear_draft()
+    for key in ("nl_draft", "nl_editor", "story_subject",
+                "compiled_stories", "push_done", "push_result",
+                "ai_error", "compile_error"):
+        st.session_state.pop(key, None)
 
+
+# ── Step 1: Define Your Epic ──────────────────────────────────────────────────
 
 def _apply_pending_epic() -> None:
     """Apply staged epic data BEFORE any widget with those keys is rendered."""
@@ -157,12 +141,108 @@ def _apply_pending_epic() -> None:
         st.session_state.pop("_source_epic_id", None)
 
 
-def _section_epic() -> None:
+_MODE_LABELS = {
+    "new":     "Create New Epic",
+    "load":    "Load from Taiga",
+    "suggest": "AI Suggests",
+}
+
+
+def _request_mode_change(mode: str) -> None:
+    """on_click callback — runs before the script renders, so start_mode is
+    correct by the time buttons are drawn on the same rerun."""
+    st.session_state["_requested_mode"] = mode
+
+
+
+@st.dialog("Switch Epic Source?")
+def _mode_switch_dialog(desired: str) -> None:
+    st.warning(
+        f"Switching to **{_MODE_LABELS[desired]}** will clear all current progress — "
+        "including any loaded epic and generated stories."
+    )
+    col_yes, col_no = st.columns(2)
+    with col_yes:
+        if st.button("Switch and reset", type="primary", key="_dlg_confirm"):
+            _reset_state()
+            st.session_state["start_mode"] = desired
+            st.rerun()
+    with col_no:
+        if st.button("Keep progress", key="_dlg_cancel"):
+            st.rerun()
+
+
+def _section_step1() -> None:
     if msg := st.session_state.pop("_notify_phase1", None):
         st.toast(msg)
     _apply_pending_epic()
-    st.markdown("##### EPIC")
 
+    st.markdown("### Step 1 · Define Your Epic")
+
+    has_progress = bool(
+        st.session_state.get("_epic_loaded_by")
+        or st.session_state.get("nl_draft")
+        or st.session_state.get("compiled_stories")
+        or st.session_state.get("epic_subject_input", "").strip()
+        or st.session_state.get("epic_desc_input", "").strip()
+    )
+    has_gherkin  = bool(st.session_state.get("compiled_stories"))
+    current_mode = st.session_state.get("start_mode", "new")
+
+    # ── Consume on_click request BEFORE buttons render so colours are right ─
+    # on_click callbacks run before the script, so _requested_mode is already
+    # set in session state when we reach this line.
+    requested: str | None = st.session_state.pop("_requested_mode", None)
+    if requested and requested != current_mode and not has_gherkin:
+        if has_progress:
+            pass  # open dialog after buttons are drawn
+        else:
+            st.session_state["start_mode"] = requested
+            current_mode = requested
+
+    # ── Mode selector buttons ─────────────────────────────────────────────
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.button(
+            _MODE_LABELS["new"],
+            type="primary" if current_mode == "new" else "secondary",
+            key="mode_btn_new", width="stretch", disabled=has_gherkin,
+            on_click=_request_mode_change, args=("new",),
+        )
+    with col2:
+        st.button(
+            _MODE_LABELS["load"],
+            type="primary" if current_mode == "load" else "secondary",
+            key="mode_btn_load", width="stretch", disabled=has_gherkin,
+            on_click=_request_mode_change, args=("load",),
+        )
+    with col3:
+        st.button(
+            _MODE_LABELS["suggest"],
+            type="primary" if current_mode == "suggest" else "secondary",
+            key="mode_btn_suggest", width="stretch", disabled=has_gherkin,
+            on_click=_request_mode_change, args=("suggest",),
+        )
+
+    if has_gherkin:
+        st.caption("Epic source is locked once Gherkin is compiled. Use **Start Over** to restart.")
+        return
+
+    # ── Open dialog if a mode change was blocked by active progress ───────
+    if requested and requested != current_mode and has_progress:
+        _mode_switch_dialog(requested)
+        return  # suppress panel until user responds
+
+    # ── Render panel for current mode ─────────────────────────────────────
+    if current_mode == "new":
+        _panel_new_epic()
+    elif current_mode == "load":
+        _panel_load_epic()
+    else:
+        _panel_suggest_epics()
+
+
+def _panel_new_epic() -> None:
     col_title, col_id = st.columns([3, 1])
     with col_title:
         st.text_input(
@@ -181,7 +261,6 @@ def _section_epic() -> None:
     if existing_id:
         st.info(
             f"Stories will be added to existing Taiga Epic **#{existing_id}** — no new epic will be created.",
-            icon="ℹ️",
         )
 
     st.text_area(
@@ -203,7 +282,6 @@ def _section_epic() -> None:
     )
 
 
-
 def _delete_epic_action(epic: dict) -> None:
     """Delete-with-confirm control for a single epic."""
     epic_id = epic["id"]
@@ -218,12 +296,10 @@ def _delete_epic_action(epic: dict) -> None:
                     with st.spinner("Deleting stories…"):
                         taiga_adapter.delete_epic_with_stories(epic_id)
                     st.session_state.pop(pending_key, None)
-                    # Phase-1 epic picker caches
                     for k in ("epics_list", "_pending_epic_data",
                               "_taiga_stories", "epics_load_error",
                               "epics_detail_cache"):
                         st.session_state.pop(k, None)
-                    # Sidebar board caches — keep the sidebar consistent
                     st.session_state.pop("board_epics", None)
                     st.session_state.pop(f"board_stories_{epic_id}", None)
                     st.session_state.pop(f"board_exp_{epic_id}", None)
@@ -242,10 +318,10 @@ def _delete_epic_action(epic: dict) -> None:
             st.rerun()
 
 
-# ── Section: Generate ─────────────────────────────────────────────────────────
+# ── Step 2: Generate ──────────────────────────────────────────────────────────
 
 def _section_generate() -> None:
-    st.markdown("##### GENERATE")
+    st.markdown("### Step 2 · Generate User Stories")
 
     subject     = st.session_state.get("epic_subject_input", "").strip()
     description = st.session_state.get("epic_desc_input", "").strip()
@@ -271,8 +347,11 @@ def _section_generate() -> None:
 
     can_generate = bool(subject and description and not blockers)
 
+    if not blockers:
+        st.info("Fill in your Epic above, then click **Generate** to create Natural Language user stories.")
+
     if st.button(
-        "Generate stories",
+        "Generate User Stories",
         type="primary",
         disabled=not can_generate,
         key="generate_btn",
@@ -336,14 +415,11 @@ def _classify_ai_error(exc: Exception) -> str:
     return msg
 
 
-# ── Section: Review & Edit (Interactive Bridge) ───────────────────────────────
+# ── Step 3: Review & Edit (Interactive Bridge) ────────────────────────────────
 
 def _section_review() -> None:
-    st.markdown("##### REVIEW AND EDIT")
-    st.caption(
-        "Review the Natural Language draft. Edit freely — "
-        "this will be compiled to formal Gherkin on approval."
-    )
+    st.markdown("### Step 3 · Review & Edit")
+    st.info("Review the AI-generated draft below. Edit freely — this will be compiled to formal Gherkin next.")
 
     if "nl_editor" not in st.session_state:
         st.session_state.nl_editor = st.session_state.nl_draft
@@ -358,14 +434,11 @@ def _section_review() -> None:
 # ── Section: Compile ──────────────────────────────────────────────────────────
 
 def _section_compile() -> None:
-    st.markdown("##### APPROVE AND COMPILE")
-    st.caption("Approve the NL draft to compile it into formal Gherkin for review.")
-
     col_compile, col_reset = st.columns([2, 1])
     with col_compile:
-        compile_clicked = st.button("Compile Gherkin", type="primary", key="compile_btn")
+        compile_clicked = st.button("Compile to Gherkin", type="primary", key="compile_btn")
     with col_reset:
-        if st.button("Reset", key="reset_btn"):
+        if st.button("Start Over", key="reset_btn"):
             _reset_state()
             st.rerun()
 
@@ -410,7 +483,7 @@ def _run_compile() -> None:
     st.rerun()
 
 
-# ── Section: Gherkin Review + Confirm Push ────────────────────────────────────
+# ── Step 4: Review Gherkin + Confirm Push ─────────────────────────────────────
 
 def _validate_compiled_stories(compiled: list[dict]) -> list[str]:
     """Return validation error strings — push is blocked until the list is empty."""
@@ -464,11 +537,8 @@ def _add_story() -> None:
 
 
 def _section_gherkin_review() -> None:
-    st.markdown("##### COMPILED GHERKIN")
-    st.caption(
-        "Review the formal Gherkin below. "
-        "Each story will be created as a separate entity in Taiga."
-    )
+    st.markdown("### Step 4 · Review Gherkin & Push to Taiga")
+    st.info("Review the formal Gherkin below. Edit directly in the text boxes, then push to Taiga.")
 
     compiled: list[dict] = st.session_state.compiled_stories
     push_done = st.session_state.push_done
@@ -525,7 +595,6 @@ def _section_gherkin_review() -> None:
             st.rerun()
 
     st.divider()
-    st.markdown("##### CONFIRM PUSH")
 
     validation_errors = _validate_compiled_stories(compiled) if not push_done else []
     if validation_errors:
@@ -557,7 +626,7 @@ def _run_push() -> None:
     compiled:    list[dict] = st.session_state.compiled_stories
     epic_id_val: int | None = _parse_epic_id()
 
-    # If the text field was cleared, fall back to the ID stored when loading from Browse Epics
+    # If the text field was cleared, fall back to the ID stored when loading from Load from Taiga
     if epic_id_val is None:
         epic_id_val = st.session_state.get("_source_epic_id")
 
@@ -710,7 +779,7 @@ def _render_push_result() -> None:
             return f"- [#{s['ref']} {s['title']}]({s['url']})"
         return f"- Story #{s['story_id']}: **{s['title']}**"
 
-    story_lines  = "\n".join(_story_line(s) for s in stories)
+    story_lines   = "\n".join(_story_line(s) for s in stories)
     skipped_lines = "\n".join(f"- {t} _(already exists — skipped)_" for t in skipped)
 
     if result["ok"] and not result.get("partial"):
@@ -752,15 +821,99 @@ def _render_push_result() -> None:
         st.rerun()
 
 
-# ── Section: Suggest Epics ────────────────────────────────────────────────────
+# ── Panel: Load from Taiga ────────────────────────────────────────────────────
 
-def _section_suggest_epics() -> None:
-    st.markdown("##### SUGGEST EPICS")
-    st.caption(
-        "Generate a list of possible Epics based on the Project Concept in your Memory Bank. "
-        "Click **Use this Epic** on any suggestion to load it into the Requirements tab."
-    )
+def _panel_load_epic() -> None:
+    signed_in      = taiga_adapter.is_configured()
+    project_chosen = bool(taiga_adapter.TAIGA_PROJECT_ID)
 
+    if not signed_in:
+        st.warning("Not signed in to Taiga — use the **⇄** button in the sidebar to sign in.")
+        return
+    if not project_chosen:
+        st.warning("No Taiga project selected — choose one in the sidebar under **Project**.")
+        return
+
+    epics: list[dict] | None = st.session_state.get("epics_list")
+
+    btn_label = "Load Epics" if epics is None else "↻ Refresh"
+    if st.button(btn_label, type="primary" if epics is None else "secondary",
+                 key="browse_load_btn"):
+        try:
+            with st.spinner("Loading Epics..."):
+                fetched = taiga_adapter.get_epics()
+                cache: dict = {}
+                for epic in fetched:
+                    try:
+                        cache[epic["id"]] = taiga_adapter.get_epic(epic["id"])
+                    except TaigaAPIError:
+                        cache[epic["id"]] = epic
+                st.session_state["epics_list"]         = fetched
+                st.session_state["epics_detail_cache"] = cache
+            st.session_state.pop("epics_load_error", None)
+        except TaigaAPIError as exc:
+            st.session_state["epics_load_error"] = str(exc)
+        st.rerun()
+
+    if st.session_state.get("epics_load_error"):
+        st.error(st.session_state["epics_load_error"])
+        return
+
+    if epics is None:
+        return
+    if not epics:
+        st.caption("No Epics found in this project.")
+        return
+
+    st.divider()
+    st.caption(f"{len(epics)} epic(s) found.")
+    loaded_id    = st.session_state.get("_source_epic_id")
+    detail_cache = st.session_state.get("epics_detail_cache", {})
+    for i, epic in enumerate(epics):
+        ref       = epic.get("ref", epic["id"])
+        full      = detail_cache.get(epic["id"], epic)
+        desc      = (full.get("description") or "").strip()
+        is_loaded = (loaded_id == epic["id"])
+        label     = f"#{ref} · {epic['subject']}" + (" — selected" if is_loaded else "")
+
+        with st.expander(label, expanded=is_loaded):
+            if is_loaded:
+                st.success("This epic is currently selected. Proceed to Step 2 below.")
+            if desc:
+                st.markdown(desc)
+            else:
+                st.caption("No description.")
+            if is_loaded:
+                st.button("Use this Epic", key=f"browse_use_{i}", disabled=True, width="stretch")
+            else:
+                if st.button("Use this Epic", key=f"browse_use_{i}", type="primary", width="stretch"):
+                    had_stories = bool(
+                        st.session_state.get("nl_draft") or st.session_state.get("compiled_stories")
+                    )
+                    if had_stories:
+                        _clear_story_progress()
+                    epic_id = epic["id"]
+                    cache: dict = st.session_state.setdefault("epics_detail_cache", {})
+                    if epic_id not in cache:
+                        try:
+                            cache[epic_id] = taiga_adapter.get_epic(epic_id)
+                        except TaigaAPIError:
+                            cache[epic_id] = epic
+                    full = cache[epic_id]
+                    st.session_state["_pending_epic_data"] = {
+                        "subject":     full.get("subject", epic["subject"]),
+                        "description": full.get("description", "") or "",
+                        "id":          str(epic_id),
+                    }
+                    st.session_state["_epic_loaded_by"] = "load"
+                    if had_stories:
+                        st.session_state["_notify_phase1"] = "Epic changed — previous stories cleared."
+                    st.rerun()
+
+
+# ── Panel: AI Suggests ────────────────────────────────────────────────────────
+
+def _panel_suggest_epics() -> None:
     project_concept = context_manager.get_project_concept()
     if not project_concept:
         st.warning(
@@ -780,18 +933,26 @@ def _section_suggest_epics() -> None:
     )
 
     has_suggestions = bool(st.session_state.get("epics_suggested"))
-    col_btn, col_re, col_clear = st.columns([2, 2, 1])
+    col_btn, col_clear = st.columns([3, 1])
     with col_btn:
-        if st.button("Suggest Epics", type="primary", key="suggest_epics_btn",
-                     disabled=has_suggestions):
-            _run_suggest_epics(project_concept, hint)
-    with col_re:
-        if has_suggestions and st.button("↻ Regenerate", key="suggest_epics_regen"):
+        if st.button("Suggest Epics", type="primary", key="suggest_epics_btn"):
+            # Unload any previously selected suggestion before generating a new list
+            if st.session_state.get("_epic_loaded_by") == "suggest":
+                for k in ("_epic_loaded_by", "epic_subject_input",
+                          "epic_desc_input", "_source_epic_id"):
+                    st.session_state.pop(k, None)
+                _clear_story_progress()
             _run_suggest_epics(project_concept, hint)
     with col_clear:
         if has_suggestions and st.button("Clear", key="suggest_epics_clear"):
-            st.session_state["epics_suggested"] = None
+            st.session_state["epics_suggested"]     = None
             st.session_state["suggest_epics_error"] = None
+            if st.session_state.get("_epic_loaded_by") == "suggest":
+                for k in ("_epic_loaded_by", "epic_subject_input",
+                          "epic_desc_input", "_source_epic_id"):
+                    st.session_state.pop(k, None)
+                _clear_story_progress()
+                st.session_state["_notify_phase1"] = "Suggestions cleared — epic and progress reset."
             st.rerun()
 
     if st.session_state.get("suggest_epics_error"):
@@ -802,81 +963,38 @@ def _section_suggest_epics() -> None:
         return
 
     st.divider()
-    st.caption(f"{len(suggestions)} epic suggestions — click one to load it into the Requirements tab.")
-    for i, epic in enumerate(suggestions):
-        with st.expander(epic["title"], expanded=False):
-            st.write(epic["description"])
-            if st.button("Use this Epic →", key=f"use_epic_{i}", type="primary"):
-                st.session_state["_pending_epic_data"] = {
-                    "subject":     epic["title"],
-                    "description": epic["description"],
-                }
-                st.session_state["_switch_to_req_tab"] = True
-                st.rerun()
-
-
-def _section_browse_epics() -> None:
-    st.markdown("##### BROWSE EPICS")
-    st.caption(
-        "Load Epics from the active Taiga project and load one into the Requirements tab."
+    st.caption(f"{len(suggestions)} epic suggestions.")
+    loaded_title = (
+        st.session_state.get("epic_subject_input", "")
+        if st.session_state.get("_epic_loaded_by") == "suggest"
+        else None
     )
+    for i, epic in enumerate(suggestions):
+        is_selected = (epic["title"] == loaded_title)
+        label       = epic["title"] + (" — selected" if is_selected else "")
 
-    signed_in      = taiga_adapter.is_configured()
-    project_chosen = bool(taiga_adapter.TAIGA_PROJECT_ID)
-
-    if not signed_in:
-        st.warning("Not signed in to Taiga — use the **⇄** button in the sidebar to sign in.")
-        return
-    if not project_chosen:
-        st.warning("No Taiga project selected — choose one in the sidebar under **Project**.")
-        return
-
-    epics: list[dict] | None = st.session_state.get("epics_list")
-
-    btn_label = "Load Epics" if epics is None else "↻ Refresh"
-    if st.button(btn_label, type="primary" if epics is None else "secondary",
-                 key="browse_load_btn"):
-        try:
-            with st.spinner("Loading Epics..."):
-                st.session_state["epics_list"] = taiga_adapter.get_epics()
-            st.session_state.pop("epics_load_error", None)
-        except TaigaAPIError as exc:
-            st.session_state["epics_load_error"] = str(exc)
-        st.rerun()
-
-    if st.session_state.get("epics_load_error"):
-        st.error(st.session_state["epics_load_error"])
-        return
-
-    if epics is None:
-        return
-    if not epics:
-        st.caption("No Epics found in this project.")
-        return
-
-    st.divider()
-    st.caption(f"{len(epics)} epic(s) — click **Use this Epic →** to load one into the Requirements tab.")
-    for i, epic in enumerate(epics):
-        with st.expander(f"#{epic.get('ref', epic['id'])} · {epic['subject']}", expanded=False):
-            desc = epic.get("description") or ""
-            if desc:
-                st.write(desc)
-            if st.button("Use this Epic →", key=f"browse_use_{i}", type="primary"):
-                epic_id = epic["id"]
-                cache: dict = st.session_state.setdefault("epics_detail_cache", {})
-                if epic_id not in cache:
-                    try:
-                        cache[epic_id] = taiga_adapter.get_epic(epic_id)
-                    except TaigaAPIError:
-                        cache[epic_id] = epic
-                full = cache[epic_id]
-                st.session_state["_pending_epic_data"] = {
-                    "subject":     full.get("subject", epic["subject"]),
-                    "description": full.get("description", "") or "",
-                    "id":          str(epic_id),
-                }
-                st.session_state["_switch_to_req_tab"] = True
-                st.rerun()
+        with st.expander(label, expanded=is_selected):
+            if is_selected:
+                st.success("This epic is currently selected. Proceed to Step 2 below.")
+            if epic.get("description"):
+                st.write(epic["description"])
+            if is_selected:
+                st.button("Use this Epic", key=f"use_epic_{i}", disabled=True, width="stretch")
+            else:
+                if st.button("Use this Epic", key=f"use_epic_{i}", type="primary", width="stretch"):
+                    had_stories = bool(
+                        st.session_state.get("nl_draft") or st.session_state.get("compiled_stories")
+                    )
+                    if had_stories:
+                        _clear_story_progress()
+                    st.session_state["_pending_epic_data"] = {
+                        "subject":     epic["title"],
+                        "description": epic["description"],
+                    }
+                    st.session_state["_epic_loaded_by"] = "suggest"
+                    if had_stories:
+                        st.session_state["_notify_phase1"] = "Epic changed — previous stories cleared."
+                    st.rerun()
 
 
 def _run_suggest_epics(project_concept: str, hint: str) -> None:
@@ -921,6 +1039,7 @@ def _reset_state() -> None:
         "compiled_stories", "push_done", "push_result",
         "ai_error", "compile_error",
         "epic_subject_input", "epic_desc_input", "epic_id_input",
-        "_source_epic_id",
+        "_source_epic_id", "_epic_loaded_by", "start_mode",
+        "_committed_mode", "_mode_change_pending", "_desired_mode",
     ):
         st.session_state.pop(key, None)
