@@ -3,1082 +3,886 @@
 > Per-story Gherkin Acceptance Criteria.
 > Appended automatically by bolt after human approval.
 
-## Epic 354312: Teste
+## Epic 354725: Create Playlists functionality
 
-### Story 9218128: Create New Empty Playlist
+### Story 9227677: Initiate New Playlist Creation
 
 **Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 13:10 UTC
+**Locked at:** 2026-05-06 14:13 UTC
 
 ```gherkin
-Feature: Create New Empty Playlist
+Feature: Initiate New Playlist Creation
 
-  Scenario: User successfully creates a new playlist
+  Scenario: User opens playlist creation interface
     Given the user is in the playlists section
     When the user clicks the 'Create Playlist' button
-    And a form appears asking for a playlist name and optional description
-    And the user enters 'Summer Road Trip' as the name
-    And the user enters 'Feel-good tracks for long drives' as the description
-    And the user clicks 'Create'
-    Then the playlist is created
-    And the user is taken to the empty playlist view
-    And the user can begin adding albums or tracks
+    Then a form is displayed where the user can enter a playlist name
+    And an optional description field is available
+    And the form is ready for input
 
-  Scenario: User attempts to create a playlist with no name
-    Given the user is on the create playlist form
-    When the user leaves the name field empty
-    And the user fills in a description
-    And the user clicks 'Create'
-    Then an error message appears indicating that a playlist name is required
-    And the form remains open
-    And the user can enter a name and try again
+  Scenario: User cancels playlist creation
+    Given the playlist creation form is open
+    When the user clicks the 'Cancel' button
+    Then the user is returned to the playlists list
+    And no new playlist is created
+```
+
+### Story 9227678: Name Playlist and Add Description
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-06 14:13 UTC
+
+```gherkin
+Feature: Name Playlist and Add Description
+
+  Scenario: User successfully names and describes a playlist
+    Given the playlist creation form is open
+    When the user enters a playlist name
+    And the user enters an optional description
+    Then the form accepts the input
+    And the entered name and description are displayed back to the user for confirmation
+
+  Scenario: User attempts to create a playlist without a name
+    Given the playlist creation form is open
+    When the user leaves the playlist name field empty
+    And the user attempts to save
+    Then an error message is displayed indicating that a playlist name is required
+    And the playlist is not created
+
+  Scenario: User enters a very long playlist name
+    Given the playlist creation form is open
+    When the user enters a playlist name that exceeds the character limit
+    Then the app either truncates the name at the limit or displays a validation message
+    And submission is prevented until the name is shortened
+```
+
+### Story 9227679: Add Songs to Playlist
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-06 14:13 UTC
+
+```gherkin
+Feature: Add Songs to Playlist
+
+  Scenario: User searches for and adds a song to the playlist
+    Given the user has a newly created playlist open
+    When the user clicks the 'Add Song' button
+    And a search interface appears
+    And the user types a song title or artist name
+    And search results are displayed
+    And the user clicks on a song
+    Then the song is added to the playlist
+    And the song appears with its title, artist, and album information
+
+  Scenario: User adds multiple songs in succession
+    Given the user has a playlist open with the search interface active
+    When the user adds one song
+    And the user immediately adds another song without closing the search interface
+    Then both songs appear in the playlist
+    And the songs are in the order they were added
+
+  Scenario: User searches for a song that does not exist in the catalog
+    Given the user has the search interface open
+    When the user searches for a song that is not available in the music catalog
+    Then a message is displayed indicating no results were found
+    And the app suggests the user try a different search term
+
+  Scenario: User attempts to add a duplicate song
+    Given the user has a playlist with at least one song
+    When the user searches for and attempts to add a song that is already in the playlist
+    Then the app either prevents the duplicate from being added with a notification, or allows it and displays both instances in the playlist
+```
+
+### Story 9227680: Arrange Songs in Playlist
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-06 14:13 UTC
+
+```gherkin
+Feature: Arrange Songs in Playlist
+
+  Scenario: User reorders songs by dragging and dropping
+    Given the user has a playlist open with multiple songs
+    When the user clicks and drags a song to a new position in the list
+    Then the song moves to the new position
+    And all other songs shift accordingly
+    And the new order is immediately visible
+
+  Scenario: User moves a song to the top of the playlist
+    Given the user has a playlist with multiple songs
+    When the user drags a song from the middle or bottom to the first position
+    Then the song appears at the top
+    And the previous first song moves down
+
+  Scenario: User attempts to reorder an empty playlist
+    Given the user has an empty playlist open
+    When the user attempts to reorder songs
+    Then no drag-and-drop functionality is available
+    And a message is displayed like 'Add songs to reorder them.'
+```
+
+### Story 9227681: Remove Songs from Playlist
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-06 14:13 UTC
+
+```gherkin
+Feature: Remove Songs from Playlist
+
+  Scenario: User removes a song from the playlist
+    Given the user has a playlist open with at least one song
+    When the user hovers over or clicks on a song
+    And a delete or remove icon appears
+    And the user clicks the delete or remove icon
+    Then the song is immediately removed from the playlist
+    And the remaining songs shift up to fill the gap
+
+  Scenario: User removes all songs from a playlist
+    Given the user has a playlist with songs
+    When the user removes songs one by one until the playlist is empty
+    Then an empty state message is displayed
+    And the playlist remains in the system with no songs
+
+  Scenario: User accidentally removes a song and wants to undo
+    Given the user has just removed a song from the playlist
+    When an undo option is briefly available
+    And the user clicks the 'Undo' button
+    Then the song is restored to its previous position
+```
+
+### Story 9227682: Save Playlist
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-06 14:13 UTC
+
+```gherkin
+Feature: Save Playlist
+
+  Scenario: User saves a newly created playlist
+    Given the user has finished adding songs and metadata to their playlist
+    When the user clicks the 'Save' or 'Done' button
+    Then the app confirms the playlist has been saved
+    And the user is returned to their playlists list
+    And the new playlist is now visible in the playlists list
+
+  Scenario: User saves a playlist with no songs
+    Given the user has created a playlist with a name and description but no songs
+    When the user saves the playlist
+    Then the app allows the empty playlist to be saved
+    And the empty playlist appears in the user's playlists list
+
+  Scenario: User loses connection while saving
+    Given the user clicks save
+    When the internet connection drops
+    Then an error message is displayed
+    And the app either retries automatically or offers a retry button
+    And once connection is restored, the playlist is saved
+```
+
+### Story 9227683: View Created Playlists
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-06 14:13 UTC
+
+```gherkin
+Feature: View Created Playlists
+
+  Scenario: User views their playlists list
+    Given the user has created playlists
+    When the user navigates to the playlists section
+    Then all created playlists are displayed in a list or grid
+    And each playlist shows the playlist name, description, number of songs, and creation date
+    And the user can click on any playlist to open it
+
+  Scenario: User views playlists when they have none
+    Given the user has not created any playlists
+    When the user navigates to the playlists section
+    Then an empty state is displayed with a message like 'No playlists yet'
+    And a prominent 'Create Playlist' button is shown
+
+  Scenario: User sorts or filters their playlists
+    Given the user is viewing their playlists list
+    When the user sees options to sort playlists by creation date, name, or number of songs
+    And the user selects a sort option
+    Then the playlists are reordered accordingly
+```
+
+### Story 9227695: Name and Describe Playlist
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-06 14:17 UTC
+
+```gherkin
+Feature: Name and Describe Playlist
+
+  Scenario: User successfully creates a playlist with name and description
+    Given the user has opened the playlist creation form
+    When the user enters a playlist name
+    And the user enters an optional description
+    And the user submits the form
+    Then the playlist is created with the name saved
+    And the playlist is created with the description saved
 
   Scenario: User creates a playlist with only a name
-    Given the user is on the create playlist form
-    When the user enters 'Late Night Jazz' as the name
-    And the user leaves the description blank
-    And the user clicks 'Create'
-    Then the playlist is successfully created with just the name
-    And the user can add content immediately
+    Given the user has opened the playlist creation form
+    When the user enters a playlist name
+    And the user leaves the description field blank
+    And the user submits the form
+    Then the playlist is created successfully
+    And the playlist has an empty description field
+
+  Scenario: User enters a playlist name that exceeds character limit
+    Given the user has opened the playlist creation form
+    When the user types a playlist name that exceeds the system's character limit
+    Then the app either truncates the input or displays a warning that the name is too long
+    And the app prevents form submission until the name is shortened
 ```
 
-### Story 9218129: Add Albums to Playlist
+### Story 9227696: Add Songs to Newly Created Playlist
 
 **Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 13:10 UTC
+**Locked at:** 2026-05-06 14:17 UTC
 
 ```gherkin
-Feature: Add Albums to Playlist
+Feature: Add Songs to Newly Created Playlist
 
-  Scenario: User adds an album they have logged to their playlist
-    Given the user has an existing playlist open
-    And the user has previously logged 'Rumours' by Fleetwood Mac on LinerNotes
-    When the user clicks 'Add Album'
-    And a search interface appears
-    And the user searches for 'Rumours' by Fleetwood Mac
-    And the user clicks the album in the search results
-    Then the album is added to the playlist
-    And the album appears in the playlist with its cover art and title
+  Scenario: User adds a song from their library to the playlist
+    Given the user has created a playlist
+    And the user is browsing or searching songs in their library
+    When the user finds a song they want to add
+    And the user clicks the 'Add to Playlist' option
+    And the user selects the newly created playlist
+    Then the song is added to the playlist
+    And the song appears in the playlist's song list
 
-  Scenario: User adds multiple albums to a playlist in sequence
-    Given the user is building a 'Breakup Anthems' playlist
-    When the user adds 'Rumours'
-    And the user clicks 'Add Album' again and adds 'Blue' by Joni Mitchell
-    And the user clicks 'Add Album' again and adds 'Jagged Little Pill' by Alanis Morissette
-    Then all three albums appear in the playlist
-    And the albums are in the order they were added
+  Scenario: User adds multiple songs in sequence
+    Given the user has created a playlist
+    When the user adds several songs one after another to the same playlist
+    Then each song is successfully added to the playlist
+    And each song appears in the playlist in the order it was added
+    And the user can see a running count of songs in the playlist
 
-  Scenario: User searches for an album that does not exist in the catalog
-    Given the user has opened their playlist
-    And the user clicks 'Add Album'
-    When the user searches for an obscure bootleg album not in the LinerNotes catalog
-    Then the search returns no results
-    And a message appears saying 'No albums found. Try a different search.'
-    And the user can modify their search or cancel
+  Scenario: User attempts to add a song that is already in the playlist
+    Given the user has a playlist with at least one song
+    When the user tries to add a song that already exists in the playlist
+    Then the app displays a message indicating the song is already in the playlist
+    And the duplicate addition is prevented
 
-  Scenario: User attempts to add the same album twice to a playlist
-    Given the user's playlist already contains 'Rumours'
-    When the user searches for 'Rumours' again
-    And the user clicks to add it
-    Then a message appears indicating 'This album is already in your playlist'
-    And the album is not duplicated
-    And the user can dismiss the message and continue
+  Scenario: User adds a song but the operation fails due to network error
+    Given the user has created a playlist
+    When the user clicks to add a song to the playlist
+    And the network connection is lost or the server is unavailable
+    Then the app displays an error message
+    And the song is not added to the playlist
+    And the user can retry the action once connectivity is restored
 ```
 
-### Story 9218130: Arrange Albums in Playlist
+### Story 9227698: View Songs in Playlist
 
 **Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 13:10 UTC
+**Locked at:** 2026-05-06 14:17 UTC
 
 ```gherkin
-Feature: Arrange Albums in Playlist
+Feature: View Songs in Playlist
 
-  Scenario: User reorders albums by dragging and dropping
-    Given the user has a playlist with three albums: 'Rumours', 'Blue', and 'Jagged Little Pill' in that order
-    When the user clicks and drags 'Blue' to the top of the list
-    Then the order updates to 'Blue', 'Rumours', 'Jagged Little Pill'
+  Scenario: User opens a playlist and sees all songs listed
+    Given the user has a playlist with songs
+    When the user navigates to the playlist
+    Then the app displays all songs in the playlist in a scrollable list
+    And each song shows its title, artist, and album information
 
-  Scenario: User moves an album to the bottom of the playlist
-    Given the user has a five-album playlist with 'Rumours' in the middle
-    When the user drags 'Rumours' to the bottom
-    Then the other albums shift up
-    And 'Rumours' now appears last in the list
+  Scenario: User views an empty playlist
+    Given the user has created a playlist with no songs
+    When the user opens the playlist
+    Then the app displays an empty state message
+    And a clear call-to-action to add songs is provided
 
-  Scenario: User attempts to reorder on a single-album playlist
-    Given the user has a playlist with only one album
-    When the user views the playlist
-    Then there is no drag-and-drop interface available
-    And the album is displayed without reordering controls
+  Scenario: User views a playlist with many songs
+    Given the user has a playlist containing dozens of songs
+    When the user opens the playlist
+    Then the app displays all songs in a scrollable list
+    And the user can scroll through the entire list smoothly without performance issues
 ```
 
-### Story 9218131: Remove Albums from Playlist
+### Story 9227699: Reorder Songs in Playlist
 
 **Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 13:10 UTC
+**Locked at:** 2026-05-06 14:17 UTC
 
 ```gherkin
-Feature: Remove Albums from Playlist
+Feature: Reorder Songs in Playlist
 
-  Scenario: User removes an album from their playlist
-    Given the user's playlist contains four albums
-    When the user hovers over 'Jagged Little Pill'
-    And a delete icon appears
-    And the user clicks it
-    And a confirmation dialog asks 'Remove this album from the playlist?'
-    And the user clicks 'Yes'
-    Then the album is removed
-    And the playlist now shows three albums
+  Scenario: User reorders songs by dragging and dropping
+    Given the user has a playlist with multiple songs
+    When the user opens the playlist
+    And the user drags a song to a new position in the list
+    Then the song moves to the new location
+    And all other songs shift accordingly
+    And the new order is saved automatically
 
-  Scenario: User cancels the removal of an album
-    Given the user is viewing a playlist with albums
-    When the user clicks the delete icon on an album
-    And the confirmation dialog appears
-    And the user clicks 'Cancel'
-    Then the album remains in the playlist unchanged
+  Scenario: User moves a song to the top of the playlist
+    Given the user has a playlist with multiple songs
+    When the user selects a song in the middle of the playlist
+    And the user moves it to the first position
+    Then the song now appears at the top of the playlist
+    And the rest of the songs shift down
 
-  Scenario: User removes all albums from a playlist
-    Given the user has a playlist with albums
-    When the user removes each album from their playlist one by one until no albums remain
-    Then the playlist still exists
-    And the playlist displays an empty state message like 'No albums yet. Add one to get started.'
+  Scenario: User attempts to reorder songs but the operation fails
+    Given the user has a playlist with multiple songs
+    When the user tries to reorder songs in the playlist
+    And the operation fails due to a network error
+    Then the app displays an error message
+    And the songs remain in their original order
+    And the user can retry the reordering
+
+  Scenario: User reorders songs on a mobile device
+    Given the user is on a mobile device
+    And the user has a playlist with multiple songs
+    When the user uses a touch-friendly reordering interface to move songs around
+    Then the reordering works smoothly on the smaller screen
 ```
 
-### Story 9218132: Edit Playlist Name and Description
+### Story 9227704: View List of Created Playlists
 
 **Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 13:10 UTC
+**Locked at:** 2026-05-06 14:17 UTC
+
+```gherkin
+Feature: View List of Created Playlists
+
+  Scenario: User views their playlists library
+    Given the user has created at least one playlist
+    When the user navigates to their playlists section
+    Then the app displays a list of all playlists the user has created
+    And each playlist shows its name, description, and song count
+
+  Scenario: User has no playlists yet
+    Given the user has not created any playlists
+    When the user navigates to their playlists section
+    Then the app displays an empty state message
+    And a button to create the first playlist is provided
+
+  Scenario: User views playlists with many items
+    Given the user has created many playlists
+    When the user navigates to their playlists section
+    Then the app displays the playlists in a scrollable or paginated list
+    And the user can browse through all their playlists without performance issues
+```
+
+### Story 9227705: Edit Playlist Name and Description
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-06 14:17 UTC
 
 ```gherkin
 Feature: Edit Playlist Name and Description
 
-  Scenario: User edits the playlist name
-    Given the user has a playlist titled 'Summer Road Trip'
-    When the user opens their playlist
+  Scenario: User edits playlist name and description
+    Given the user has a playlist
+    When the user opens the playlist's settings or details page
     And the user clicks an edit button
-    And the name field becomes editable
-    And the user changes it to 'Summer 2024 Road Trip'
-    And the user clicks 'Save'
-    Then the playlist title updates immediately
-
-  Scenario: User edits the playlist description
-    Given the user has a playlist with a description
-    When the user opens their playlist
-    And the user clicks edit
-    And the description field is now editable
-    And the user updates it from 'Feel-good tracks for long drives' to 'Upbeat, energetic tracks perfect for long summer drives with friends'
-    And the user clicks 'Save'
-    Then the description updates
+    And the user modifies the playlist name and/or description
+    And the user saves the changes
+    Then the playlist is updated with the new information
 
   Scenario: User clears the playlist description
-    Given the user is editing their playlist
-    When the user deletes the description text, leaving it blank
-    And the user clicks 'Save'
-    Then the playlist now has no description
+    Given the user has a playlist with a description
+    When the user edits the playlist
+    And the user deletes all the text in the description field
+    And the user saves the changes
+    Then the description is now blank
 
-  Scenario: User attempts to save a playlist with an empty name
-    Given the user is editing their playlist
-    When the user accidentally clears the name field
-    And the user clicks 'Save'
-    Then an error message appears stating 'Playlist name is required'
-    And the form remains open
-    And the user can enter a name
+  Scenario: User attempts to edit but the save fails
+    Given the user has a playlist
+    When the user edits the playlist name or description
+    And the user tries to save
+    And the operation fails due to a network error
+    Then the app displays an error message
+    And the changes are not saved
+    And the user can retry the save
 ```
 
-### Story 9218133: View Playlists in List
+### Story 9227706: Delete Playlist
 
 **Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 13:10 UTC
-
-```gherkin
-Feature: View Playlists in List
-
-  Scenario: User views their playlists library
-    Given the user has created multiple playlists
-    When the user navigates to their profile
-    And the user clicks on 'My Playlists'
-    Then a list appears showing all playlists they have created
-    And each playlist displays a thumbnail, title, and number of albums
-    And the user can see 'Summer Road Trip' (4 albums), 'Breakup Anthems' (3 albums), and 'Late Night Jazz' (6 albums)
-
-  Scenario: User with no playlists views the playlists section
-    Given the user is a new user with no playlists
-    When the user navigates to their playlists section
-    Then an empty state message appears saying 'You haven't created any playlists yet. Create one to get started!'
-    And a button to create a new playlist is displayed
-
-  Scenario: User clicks on a playlist from the list
-    Given the user is viewing their playlists list
-    When the user clicks on 'Breakup Anthems'
-    Then the user is taken to that playlist's detail view
-    And the user can see all the albums
-    And the user can see the description
-    And the user can see options to edit or add more albums
-```
-
-### Story 9218134: Delete Playlist
-
-**Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 13:10 UTC
+**Locked at:** 2026-05-06 14:17 UTC
 
 ```gherkin
 Feature: Delete Playlist
 
-  Scenario: User deletes a playlist
-    Given the user is viewing their playlists list
-    When the user clicks a delete icon on the 'Old Playlist' entry
-    And a confirmation dialog appears asking 'Are you sure you want to delete this playlist? This action cannot be undone.'
-    And the user clicks 'Delete'
-    Then the playlist is removed from their list
+  Scenario: User deletes a playlist successfully
+    Given the user has a playlist
+    When the user opens the playlist
+    And the user clicks a delete or remove playlist button
+    And the app asks for confirmation
+    And the user confirms the deletion
+    Then the playlist is permanently deleted
+    And the playlist no longer appears in the user's playlists list
 
   Scenario: User cancels playlist deletion
-    Given the user is viewing their playlists list
-    When the user clicks the delete icon on a playlist
-    And the confirmation dialog appears
-    And the user clicks 'Cancel'
-    Then the playlist remains in their library unchanged
-
-  Scenario: User deletes a playlist from within the playlist view
-    Given the user is viewing the contents of a playlist
-    When the user clicks a menu or settings option
-    And a 'Delete Playlist' option appears
-    And the user clicks it
-    And the user confirms the deletion
-    Then the user is returned to their playlists list
-    And the deleted playlist no longer appears
-```
-
-### Story 9218135: View Album Count in Playlists
-
-**Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 13:10 UTC
-
-```gherkin
-Feature: View Album Count in Playlists
-
-  Scenario: User views album count on playlists list
-    Given the user is viewing their playlists library
-    When the user looks at the playlist cards
-    Then each playlist card displays the title and a count like '4 albums', '3 albums', or '6 albums'
-    And the count is displayed below or next to the title
-
-  Scenario: User sees album count update after adding an album
-    Given the user is viewing their playlists list which shows 'Summer Road Trip (4 albums)'
-    When the user opens that playlist
-    And the user adds a new album
-    And the user returns to the list
-    Then the count now shows '5 albums'
-
-  Scenario: User sees album count update after removing an album
-    Given the user is viewing their playlists list which shows 'Breakup Anthems (3 albums)'
-    When the user opens that playlist
-    And the user removes one album
-    And the user returns to the list
-    Then the count now shows '2 albums'
-```
-
-## Epic 354335: Create Songs
-
-### Story 9218674: Upload Audio File for Song
-
-**Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 14:49 UTC
-
-```gherkin
-Feature: Upload Audio File for Song
-
-  Scenario: Successfully upload a supported audio file
-    Given a user has selected an MP3 file from their device
-    When the user uploads the file
-    Then the system accepts the file
-    And the system stores the file
-    And the system confirms the upload is complete
-    And the user sees a success message
-    And the audio file is associated with the user's account
-
-  Scenario: Attempt to upload an unsupported file format
-    Given a user has selected a text file or image file
-    When the user attempts to upload the file
-    Then the system rejects the upload
-    And the system displays a clear error message
-    And the error message explains which audio formats are supported (MP3, WAV, FLAC)
-
-  Scenario: Upload a file that exceeds the size limit
-    Given a user has selected an audio file larger than the platform's maximum allowed size
-    When the user attempts to upload the file
-    Then the system rejects the upload
-    And the system informs the user of the size limit
-    And the system suggests ways to compress or re-encode the file
-```
-
-### Story 9218676: Enter Basic Song Metadata
-
-**Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 14:49 UTC
-
-```gherkin
-Feature: Enter Basic Song Metadata
-
-  Scenario: Successfully add song title and artist name
-    Given a user has access to dedicated metadata entry fields
-    When the user enters a song title and artist name
-    Then the system saves this information
-    And the information is displayed on the song's profile page
-
-  Scenario: Submit a song with missing required metadata
-    Given a user has left the title field empty
-    When the user attempts to save the song
-    Then the system prevents submission
-    And the system highlights the missing required field
-    And the system displays a clear message indicating the field is required
-
-  Scenario: Add optional metadata like genre and release date
-    Given a user has access to optional metadata fields
-    When the user fills in optional fields such as genre, release date, and album name
-    Then the system saves all provided information
-    And the system uses the information to enhance discoverability
-```
-
-### Story 9218680: Set Cover Image for Song
-
-**Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 14:49 UTC
-
-```gherkin
-Feature: Set Cover Image for Song
-
-  Scenario: Successfully upload a cover image
-    Given a user has selected a JPG or PNG image from their device
-    When the user uploads the image as the song's cover art
-    Then the system displays the image on the song's profile
-    And the system displays the image in search results
-
-  Scenario: Attempt to upload an invalid image file
-    Given a user has selected a non-image file
-    When the user attempts to upload it as cover art
-    Then the system rejects the upload
-    And the system prompts the user to upload a valid image format
-
-  Scenario: Skip cover image upload
-    Given a user has chosen not to upload a cover image
-    When the user proceeds to publish the song
-    Then the system assigns a default placeholder image
-    And the song is published without cover art
-```
-
-### Story 9218681: Publish Song to Community
-
-**Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 14:49 UTC
-
-```gherkin
-Feature: Publish Song to Community
-
-  Scenario: Successfully publish a song with all required information
-    Given a user has completed all required fields (title, artist, audio file)
-    When the user clicks publish
-    Then the system validates the submission
-    And the system makes the song visible on the platform
-    And the system shows a confirmation message
-
-  Scenario: Attempt to publish a song with incomplete information
-    Given a user has not completed all required fields
-    When the user clicks publish
-    Then the system displays validation errors
-    And the system highlights which fields are missing
-    And the system prevents publication
-
-  Scenario: Publish a song and receive a shareable link
-    Given a user has successfully published a song
-    When the publication is complete
-    Then the user receives a unique URL
-    And the user can share the URL with others to view and listen to the song
-```
-
-### Story 9218682: Edit Published Song Details
-
-**Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 14:49 UTC
-
-```gherkin
-Feature: Edit Published Song Details
-
-  Scenario: Successfully update song title and metadata
-    Given a user has navigated to their published song
-    And the user has clicked edit
-    When the user changes the title and genre
-    And the user saves the changes
-    Then the changes appear immediately on the song's profile
-    And the changes appear in search results
-
-  Scenario: Attempt to remove required metadata during editing
-    Given a user is editing a published song
-    When the user tries to clear the song title field
-    And the user attempts to save
-    Then the system prevents the save
-    And the system displays a validation error
-    And the system requires the title field to remain populated
-
-  Scenario: Replace the cover image
-    Given a user is editing a published song with an existing cover image
-    When the user uploads a new cover image
-    Then the system updates the image
-    And the new image appears across all pages where the song appears
-```
-
-### Story 9218683: Delete Song from Platform
-
-**Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 14:49 UTC
-
-```gherkin
-Feature: Delete Song from Platform
-
-  Scenario: Successfully delete a song after confirmation
-    Given a user has navigated to their song
-    When the user clicks delete
-    And the user sees a confirmation dialog warning that the action is permanent
-    And the user confirms the deletion
-    Then the song is removed from the platform
-    And the user is redirected to their profile
-
-  Scenario: Cancel song deletion
-    Given a user has initiated song deletion
-    And the user sees the confirmation dialog
-    When the user clicks cancel
-    Then the song remains on the platform unchanged
-
-  Scenario: Delete a song that appears in community lists
-    Given a user has a song that other users have added to their lists
-    When the user deletes the song
-    Then the system removes the song from the platform
-    And the system notifies affected users that a song in their list is no longer available
-```
-
-### Story 9218684: View Song Analytics and Engagement
-
-**Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 14:49 UTC
-
-```gherkin
-Feature: View Song Analytics and Engagement
-
-  Scenario: View play count and listener statistics
-    Given a user has navigated to their song's analytics dashboard
-    When the dashboard loads
-    Then the user sees the total number of plays
-    And the user sees the number of unique listeners
-    And the user sees a graph showing plays over time
-
-  Scenario: View review and rating summary
-    Given a user is viewing their song's analytics
-    When the user accesses the review and rating section
-    Then the user sees the average star rating
-    And the user sees the total number of reviews
-    And the user sees a breakdown of rating distribution (e.g., 5-star vs 1-star reviews)
-
-  Scenario: Check list inclusion data
-    Given a user is viewing their song's analytics
-    When the user accesses the list inclusion section
-    Then the user sees how many community lists their song appears in
-    And the user can view a sample of those lists
-    And the user understands how their music is being categorized
-```
-
-## Epic 354435: Create Playlists
-
-### Story 9220322: Create New Empty Playlist With Metadata
-
-**Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 23:12 UTC
-
-```gherkin
-Feature: Create New Empty Playlist With Metadata
-
-  Scenario: Successfully create a playlist with title and description
-    Given the user is on the playlist creation interface
-    When the user enters a title 'Late Night Jazz Sessions'
-    And the user enters a description 'Smooth jazz for unwinding after midnight'
-    And the user taps Create
-    Then the system confirms the playlist was created
-    And the playlist appears in the user's playlist library
-    And the title is visible in the playlist library
-    And the description is visible in the playlist library
-
-  Scenario: Create a playlist with only a title
-    Given the user is on the playlist creation interface
-    When the user enters a title
-    And the user leaves the description field empty
-    And the user taps Create
-    Then the system creates the playlist successfully
-    And the playlist is displayed with the title
-    And the playlist displays with no description text
-
-  Scenario: Attempt to create a playlist without a title
-    Given the user is on the playlist creation interface
-    When the user leaves the title field empty
-    And the user attempts to submit the playlist creation form
-    Then the system shows an error message indicating a title is required
-    And the playlist creation is prevented
-    And the form remains open for the user to enter a title
-```
-
-### Story 9220323: Add Albums or Tracks to Playlist
-
-**Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 23:12 UTC
-
-```gherkin
-Feature: Add Albums or Tracks to Playlist
-
-  Scenario: Successfully add an album to a playlist
-    Given the user has logged an album in LinerNotes
-    And the user has at least one existing playlist
-    When the user navigates to the album
-    And the user taps the 'Add to Playlist' button
-    And the user selects a playlist from the dropdown
-    And the user confirms the action
-    Then the album appears in the selected playlist
-    And all tracks from the album are included in the playlist
-
-  Scenario: Successfully add individual tracks to a playlist
-    Given the user has logged albums in their library
-    And the user has at least one existing playlist
-    When the user browses their logged albums
-    And the user finds a specific track
-    And the user taps 'Add to Playlist'
-    And the user selects a destination playlist
-    And the user confirms the action
-    Then the single track is added to the playlist
-    And the entire album is not added to the playlist
-
-  Scenario: Add the same album to multiple playlists
-    Given the user has an album logged in LinerNotes
-    And the user has created multiple playlists
-    When the user adds the album to the first playlist
-    And the user later adds the same album to a different playlist
-    Then the album appears in the first playlist
-    And the album appears in the second playlist
-    And the user can see the album listed in each playlist
-
-  Scenario: Attempt to add a track that is already in the playlist
-    Given the user has a playlist with an existing track
-    When the user attempts to add the same track to the playlist
-    Then the system either prevents the duplicate addition with a message or allows it and the track appears twice in the playlist
-```
-
-### Story 9220324: Reorder Tracks or Albums Within Playlist
-
-**Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 23:12 UTC
-
-```gherkin
-Feature: Reorder Tracks or Albums Within Playlist
-
-  Scenario: Successfully reorder tracks by dragging
-    Given the user has a playlist with multiple tracks
-    When the user opens the playlist
-    And the user long-presses or drags a track to a new position
-    And the user releases the track
-    Then the track moves to the new position
-    And the playlist order is updated and saved
-
-  Scenario: Move a track to the top of the playlist
-    Given the user has a playlist with multiple tracks
-    When the user drags a track from the middle or bottom to the first position
-    Then the track appears at the top of the playlist
-    And all other tracks shift down accordingly
-
-  Scenario: Attempt to reorder when playlist has only one track
-    Given the user has a playlist with a single track
-    When the user opens the playlist
-    Then the reordering controls are either disabled or the user cannot meaningfully change the order
-    And the track remains in its only position
-```
-
-### Story 9220325: Remove Tracks or Albums From Playlist
-
-**Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 23:12 UTC
-
-```gherkin
-Feature: Remove Tracks or Albums From Playlist
-
-  Scenario: Successfully remove a track from a playlist
-    Given the user has a playlist with multiple tracks
-    When the user opens the playlist
-    And the user swipes or taps a delete icon next to a track
-    And the user confirms the removal
-    Then the track disappears from the playlist
-    And the remaining tracks stay in order
-
-  Scenario: Successfully remove an entire album from a playlist
-    Given the user has a playlist containing an album they previously added
-    When the user removes the album
-    Then all tracks from that album are removed from the playlist in one action
-
-  Scenario: Attempt to remove a track and then undo
-    Given the user has a playlist with multiple tracks
-    When the user removes a track
-    And the user immediately taps the undo option
-    Then the track is restored to its previous position in the playlist
-
-  Scenario: Remove all tracks from a playlist
-    Given the user has a playlist with multiple tracks
-    When the user removes tracks one by one until the playlist is empty
-    Then the playlist still exists
-    And the playlist displays as empty with a message like 'No tracks yet'
-```
-
-### Story 9220326: Edit Playlist Title and Description
-
-**Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 23:12 UTC
-
-```gherkin
-Feature: Edit Playlist Title and Description
-
-  Scenario: Successfully update playlist title
-    Given the user owns a playlist with the title 'Late Night Jazz'
-    When the user opens the playlist
-    And the user taps an edit button
-    And the user changes the title to 'Midnight Jazz Vibes'
-    And the user saves the changes
-    Then the new title appears throughout the app
-
-  Scenario: Successfully update playlist description
-    Given the user owns a playlist
-    When the user edits the playlist
-    And the user updates the description to add more context or change the theme explanation
-    And the user saves the changes
-    Then the updated description is saved
-    And the updated description is displayed
-
-  Scenario: Clear the playlist description
-    Given the user owns a playlist with a description
-    When the user edits the playlist
-    And the user removes all text from the description field
-    And the user saves the changes
-    Then the playlist now has no description
-    And the description area appears empty or shows a placeholder
-
-  Scenario: Attempt to change title to empty string
-    Given the user is editing a playlist
-    When the user clears the title field
-    And the user attempts to save the playlist
-    Then the system shows an error
-    And the save is prevented until a title is provided
-```
-
-### Story 9220327: View All Playlists in One Place
-
-**Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 23:12 UTC
-
-```gherkin
-Feature: View All Playlists in One Place
-
-  Scenario: View a list of all created playlists
-    Given the user has created multiple playlists
-    When the user navigates to their Playlists section
-    Then the user sees a list of all playlists they have created
-    And each playlist shows the title
-    And each playlist shows the description
-    And each playlist shows the track count
-
-  Scenario: View playlists when none have been created yet
-    Given the user is new and has not created any playlists
-    When the user navigates to the Playlists section
-    Then the app displays an empty state message like 'No playlists yet'
-    And a button to create a playlist is displayed
-
-  Scenario: View playlists sorted by creation date
-    Given the user has created multiple playlists at different times
-    When the user navigates to the Playlists section
-    Then the playlists are displayed in a default order such as most recently created first
-    And the order is consistent and predictable
-```
-
-### Story 9220328: Delete a Playlist
-
-**Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 23:12 UTC
-
-```gherkin
-Feature: Delete a Playlist
-
-  Scenario: Successfully delete a playlist
     Given the user has a playlist
-    When the user opens the playlist
-    And the user taps a delete or remove option
-    And the user confirms the action in a confirmation dialog
-    Then the playlist is permanently removed from the user's library
-
-  Scenario: Attempt to delete a playlist and cancel
-    Given the user has a playlist
-    When the user initiates deletion
-    And the user sees a confirmation prompt asking 'Are you sure?'
-    And the user taps Cancel
+    When the user initiates deletion of the playlist
+    And a confirmation dialog appears
+    And the user clicks cancel or no
     Then the playlist remains intact
 
-  Scenario: Delete a playlist with many tracks
-    Given the user has a playlist containing dozens of tracks
+  Scenario: User deletes a playlist with many songs
+    Given the user has a playlist containing dozens of songs
     When the user deletes the playlist
-    Then the entire playlist and all its contents are removed in one action
-    And the original albums or tracks in the user's library are not affected
+    Then all songs in the playlist are removed along with the playlist
+    And the songs remain in the user's library
+    And the songs are no longer in the deleted playlist
+
+  Scenario: User attempts to delete a playlist but the operation fails
+    Given the user has a playlist
+    When the user tries to delete the playlist
+    And the operation fails due to a server error
+    Then the app displays an error message
+    And the playlist is not deleted
+    And the user can retry the deletion
 ```
 
-### Story 9220329: View Details of Specific Playlist
+### Story 9227775: Name Playlist and Add Optional Description
 
 **Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 23:12 UTC
+**Locked at:** 2026-05-06 14:32 UTC
 
 ```gherkin
-Feature: View Details of Specific Playlist
+Feature: Name Playlist and Add Optional Description
 
-  Scenario: Open a playlist and view all its contents
-    Given the user has a playlist with tracks or albums
-    When the user taps on the playlist from their library
-    Then the app displays the playlist title
-    And the app displays the playlist description
-    And the app displays a complete list of all tracks or albums in order
-    And the app displays metadata like track count
-    And the app displays metadata like total duration
+  Scenario: User successfully creates a playlist with name and description
+    Given the user is on the playlist creation form
+    When the user enters a playlist name like 'Rainy Day Jazz'
+    And the user enters a description like 'Smooth jazz for introspective evenings'
+    And the user confirms the form
+    Then the playlist is created with both name and description saved
 
-  Scenario: View an empty playlist
-    Given the user has created a playlist but has not added tracks to it
-    When the user opens the playlist
-    Then the app shows the title and description
-    And an empty state message is displayed
-    And a button to add tracks is displayed
+  Scenario: User creates a playlist with only a name
+    Given the user is on the playlist creation form
+    When the user enters a playlist name
+    And the user leaves the description blank
+    And the user confirms the form
+    Then the playlist is created with an empty description field
 
-  Scenario: View a playlist with mixed albums and individual tracks
-    Given the user has a playlist containing both full albums and individual tracks added separately
-    When the user opens the playlist
-    Then the app clearly displays the structure
-    And the app shows which tracks belong to which albums
-    And the app shows which tracks are standalone additions
+  Scenario: User attempts to create a playlist with a blank name
+    Given the user is on the playlist creation form
+    When the user tries to submit the form without entering a playlist name
+    Then an error message is displayed indicating that a name is required
+    And playlist creation is prevented until a name is provided
+
+  Scenario: User enters a very long playlist name
+    Given the user is on the playlist creation form
+    When the user types a playlist name that exceeds the character limit
+    Then the system either truncates the input or shows a validation message
+    And submission of an oversized name is prevented
 ```
 
-## Epic 354437: Album Logging and Cataloging
-
-### Story 9220359: Search Albums by Title or Artist
+### Story 9227776: Add Songs to Playlist During or After Creation
 
 **Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 23:36 UTC
+**Locked at:** 2026-05-06 14:32 UTC
+
+```gherkin
+Feature: Add Songs to Playlist During or After Creation
+
+  Scenario: User adds songs to a newly created playlist
+    Given a playlist has been created
+    When the user is presented with a search or browse interface
+    And the user searches for or selects songs
+    And the user adds songs one by one to the playlist
+    Then each song is confirmed as added
+    And the playlist grows with each addition
+
+  Scenario: User adds multiple songs in quick succession
+    Given a playlist has been created
+    And the user is on the song selection interface
+    When the user rapidly selects and adds several songs to the playlist without waiting for confirmation between each action
+    Then all songs are successfully added to the playlist
+
+  Scenario: User attempts to add a song that is already in the playlist
+    Given a playlist exists with at least one song
+    And the user is on the song selection interface
+    When the user tries to add a song that already exists in the playlist
+    Then the system either prevents the duplicate addition with a message or allows it and the song appears twice in the playlist
+
+  Scenario: User adds a song but the operation fails
+    Given a playlist has been created
+    And the user is on the song selection interface
+    When the user selects a song to add
+    And a network error or backend issue occurs
+    Then an error message is displayed
+    And the song is not added
+    And the user can retry
+
+  Scenario: User creates a playlist without adding any songs
+    Given the user is on the playlist creation form
+    When the user completes the playlist creation form and confirms without adding any songs
+    Then the empty playlist is created successfully
+    And the playlist can be populated later
+```
+
+### Story 9227777: View Newly Created Playlist in Library
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-06 14:32 UTC
+
+```gherkin
+Feature: View Newly Created Playlist in Library
+
+  Scenario: User views their playlists list after creation
+    Given a playlist has been created
+    When the user navigates to their playlists section
+    Then the newly created playlist appears in the list
+    And the playlist name is visible
+    And the playlist description is visible
+    And the song count is visible
+
+  Scenario: User sees the playlist in the correct sort order
+    Given a playlist has been created
+    When the user views their playlists list
+    Then the newly created playlist appears at the top of the list or in the position determined by the app's default sorting
+    And the list is properly ordered
+
+  Scenario: User's playlists list is empty before creation
+    Given a new user with no playlists exists
+    When the user creates their first playlist
+    Then the empty state message disappears
+    And the newly created playlist is displayed as the only item in the list
+```
+
+### Story 9227778: Set Visibility or Sharing Options for Playlist
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-06 14:32 UTC
+
+```gherkin
+Feature: Set Visibility or Sharing Options for Playlist
+
+  Scenario: User creates a private playlist
+    Given the user is creating or has created a playlist
+    When the user sets the playlist to private
+    Then only the user can view and edit the playlist
+    And the privacy setting is saved
+    And the privacy setting is reflected in the playlist details
+
+  Scenario: User creates a public playlist
+    Given the user is creating or has created a playlist
+    When the user sets the playlist to public
+    Then other users can discover and view the playlist in the community
+    And the playlist appears in search results
+    And the playlist appears in community browsing
+
+  Scenario: User changes playlist visibility after creation
+    Given a playlist exists with a visibility setting
+    When the user changes the playlist visibility from private to public or vice versa
+    Then the visibility setting updates immediately
+    And the playlist's discoverability changes accordingly
+
+  Scenario: User attempts to change visibility but lacks permission
+    Given a playlist exists
+    And the user is not the playlist owner
+    When the user tries to change the visibility setting
+    Then the system prevents the action
+    And a message is displayed indicating they lack permission
+
+  Scenario: User creates a playlist with default visibility
+    Given the user is creating a playlist
+    When the user creates a playlist without explicitly setting visibility
+    Then the system applies a default setting
+    And the user can see what the default visibility is
+```
+
+## Epic 354881: Album Logging and Cataloging
+
+### Story 9232643: Search Albums by Title or Artist
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-07 20:33 UTC
 
 ```gherkin
 Feature: Search Albums by Title or Artist
 
   Scenario: Successful album search by title
-    Given the user has opened the search interface
-    When the user types 'Rumours' in the search field
-    Then a list of albums matching that title is displayed
-    And each result shows album artwork, artist name, and release year
-    And the user can click on the correct album (Fleetwood Mac, 1977) to view its details
+    Given the user is on the search page
+    And a database of albums exists with cover art, artist names, and release years
+    When the user enters an album title in the search box
+    And the user submits the search
+    Then a list of matching albums is displayed
+    And each album shows cover art, artist name, and release year
+    And the user can click on an album to view more details
 
   Scenario: Successful album search by artist name
-    Given the user has opened the search interface
-    When the user types 'The Beatles' in the search field
-    Then a list of all albums by that artist is displayed
-    And results are sorted by release date
-    And the user can select a specific album like 'Abbey Road'
+    Given the user is on the search page
+    And a database of albums by multiple artists exists
+    When the user enters an artist name in the search box
+    And the user submits the search
+    Then all albums by that artist are listed
+    And albums are displayed in chronological order
+    And the user can distinguish between different artists with similar names
 
   Scenario: Search returns no results
-    Given the user has opened the search interface
+    Given the user is on the search page
+    And the search database does not contain the requested album
     When the user searches for a very obscure or misspelled album name
-    Then a message is displayed indicating no albums were found
-    And suggestions appear to try different search terms or check the spelling
+    And the user submits the search
+    Then a message is displayed indicating no results were found
+    And a suggestion to try different search terms is provided
 
   Scenario: Search with partial or fuzzy matching
-    Given the user has opened the search interface
-    When the user types 'Rumor' (missing the 's')
-    Then 'Rumours' by Fleetwood Mac is returned as a top result
-    And intelligent fuzzy matching is demonstrated
+    Given the user is on the search page
+    And fuzzy matching logic is enabled in the search system
+    When the user types an incomplete or slightly misspelled album title
+    And the user submits the search
+    Then relevant results are returned despite the incomplete or misspelled input
 ```
 
-### Story 9220360: Add Album to Library from Search
+### Story 9232644: Add Album to Library
 
 **Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 23:36 UTC
+**Locked at:** 2026-05-07 20:33 UTC
 
 ```gherkin
-Feature: Add Album to Library from Search
+Feature: Add Album to Library
 
-  Scenario: Successful album addition to library
-    Given the user has found 'Rumours' by Fleetwood Mac in search results
-    When the user clicks 'Add to Library'
-    Then the album is immediately added to their collection
-    And a confirmation message appears
-    And the album now appears in their library view
+  Scenario: Successful album addition
+    Given the user has search results displayed
+    And an album is shown in the search results
+    When the user clicks 'Add to Library' on an album
+    Then the album appears in the user's library immediately
+    And a confirmation message is displayed
 
-  Scenario: Album already in library
-    Given the user has already cataloged an album
-    When the user attempts to add that album again
-    Then the system recognizes the duplicate
-    And a message is displayed indicating the album is already in their library
-    And an option is offered to take them to the existing entry
-
-  Scenario: Add album with incomplete metadata
-    Given an album has minimal metadata available (e.g., missing release year or artwork)
-    When the user adds that album
-    Then the system allows the addition
-    And whatever metadata is available is displayed
-    And placeholder text appears for missing fields
+  Scenario: Attempt to add duplicate album
+    Given the user has already added an album to their library
+    And the user is viewing search results
+    When the user tries to add the same album to their library again
+    Then a message is displayed indicating the album is already in the library
+    And an option to navigate to the album in the library is offered
 ```
 
-### Story 9220361: Mark Album as Owned or Wishlist
+### Story 9232645: Mark Album Ownership or Wishlist Status
 
 **Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 23:36 UTC
+**Locked at:** 2026-05-07 20:34 UTC
 
 ```gherkin
-Feature: Mark Album as Owned or Wishlist
+Feature: Mark Album Ownership or Wishlist Status
 
   Scenario: Mark album as owned
     Given the user is viewing an album in their library
-    When the user clicks a toggle or button to mark it as 'Owned'
-    Then the album's status updates immediately
-    And a visual indicator (e.g., a checkmark or label) appears to show ownership status
+    When the user clicks a button to mark the album as 'Owned'
+    Then the album is visually tagged with an ownership indicator in the library view
 
-  Scenario: Move album to wishlist
+  Scenario: Mark album as wishlist
     Given the user is viewing an album in their library
-    When the user marks an album as 'Wishlist'
-    Then the album remains in their library
-    And the album is visually distinguished or can be filtered separately
-    And wishlist items can be shown in a filtered view
+    When the user clicks a button to mark the album as 'Wishlist'
+    Then the album is visually tagged with a wishlist indicator
+    And the album can be filtered separately
 
   Scenario: Change ownership status
-    Given the user has marked an album as 'Wishlist'
-    When the user later changes it to 'Owned' after purchasing it
-    Then the status updates without requiring the album to be re-added
-
-  Scenario: Default status on album addition
-    Given the user is adding an album to their library
-    When the album addition process completes
-    Then the user is prompted or the system defaults to a status (e.g., 'Owned' or 'Wishlist')
-    And the user can confirm or change this status before finalizing the addition
+    Given the user is viewing an album with an existing ownership status
+    When the user changes the album from 'Wishlist' to 'Owned' or vice versa
+    Then the status updates immediately
+    And the visual indicator changes to reflect the new status
 ```
 
-### Story 9220362: View Music Library with Filtering and Sorting
+### Story 9232646: View Library with Filtering and Sorting
 
 **Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 23:36 UTC
+**Locked at:** 2026-05-07 20:34 UTC
 
 ```gherkin
-Feature: View Music Library with Filtering and Sorting
+Feature: View Library with Filtering and Sorting
 
-  Scenario: View all albums in library
-    Given the user has added albums to their library
+  Scenario: View library with default sorting
+    Given the user has albums in their library
     When the user navigates to their library
-    Then all albums are displayed in a grid or list view
-    And each album shows artwork, title, artist, and ownership status
-    And the view loads smoothly even with a large collection
+    Then all albums are displayed in a grid or list format
+    And albums are sorted by date added
+    And each album shows cover art, title, and artist name
 
   Scenario: Filter library by ownership status
     Given the user is viewing their library
-    When the user applies a filter to show only 'Owned' albums or only 'Wishlist' items
-    Then the library updates to display only albums matching the selected filter
+    And the library contains both 'Owned' and 'Wishlist' albums
+    When the user applies a filter to show only 'Owned' albums or only 'Wishlist' albums
+    Then the library updates to display only albums matching the selected status
 
   Scenario: Sort library by different criteria
     Given the user is viewing their library
-    When the user selects a sort option (album title A-Z, artist name, date added, or release year)
-    Then the library re-orders accordingly
+    When the user selects a sort option such as 'Artist Name', 'Release Year', or 'Title'
+    Then the library reorganizes according to the selected sort criteria
 
   Scenario: Search within library
     Given the user is viewing their library
-    When the user types in a search box within the library view
-    Then results update in real-time as they type
-    And the user can quickly find a specific album without leaving the library interface
-
-  Scenario: Empty library state
-    Given a new user has no albums in their library
-    When the user navigates to their library
-    Then a friendly message appears encouraging them to start adding albums
-    And a link to the search interface is provided
+    And filters or sort orders may be active
+    When the user enters a search term while viewing their library
+    Then only albums matching the search term are displayed
+    And any active filters or sort order are maintained
 ```
 
-### Story 9220363: View Detailed Album Metadata
+### Story 9232647: Log Listening History for Albums
 
 **Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 23:36 UTC
+**Locked at:** 2026-05-07 20:34 UTC
 
 ```gherkin
-Feature: View Detailed Album Metadata
+Feature: Log Listening History for Albums
 
-  Scenario: View album details page
-    Given the user is viewing their library
-    When the user clicks on an album
-    Then a detailed view is displayed including album artwork, title, artist, release year, genre, record label, and track listing
-    And all available metadata is clearly displayed
-
-  Scenario: View album with missing metadata
-    Given an album has some metadata fields unavailable (e.g., no genre or label information)
-    When the user views that album's details page
-    Then the system gracefully handles missing data by showing placeholder text or omitting empty fields
-    And the layout does not break
-
-  Scenario: View track listing
-    Given the user is viewing an album's details page
-    When the user scrolls through the page
-    Then a complete track listing is displayed with song titles and durations
-    And the track list is clearly formatted and easy to read
-```
-
-### Story 9220364: Log Album Listening History
-
-**Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 23:36 UTC
-
-```gherkin
-Feature: Log Album Listening History
-
-  Scenario: Log a listen with current date
-    Given the user has just finished listening to an album
+  Scenario: Log a listen with current date and time
+    Given the user is viewing an album in their library
     When the user clicks 'Log Listen'
-    Then the system records the current date and time
-    And the listen is added to their listening history
-    And a confirmation message appears
+    Then the system records the current date and time as a listening event
+    And a confirmation message is displayed
 
   Scenario: Log a listen with custom date
-    Given the user wants to log a listen for an album they heard in the past
-    When the user clicks 'Log Listen' and selects a custom date from a date picker
-    Then the system records the listen for that date
+    Given the user is viewing an album in their library
+    When the user clicks 'Log Listen'
+    And a date picker is presented to the user
+    And the user selects a past date
+    Then the listen is recorded with the selected date
 
   Scenario: View listening history for an album
-    Given the user is viewing an album's details page
-    When the user looks at the listening history section
-    Then a timeline or list of all logged listens for that album is displayed
-    And the frequency of listening is shown
+    Given the user is viewing an album
+    And the user has logged listens for this album
+    When the user views the listening history section
+    Then a list of all logged listens is displayed
+    And listens are shown in reverse chronological order with dates and times
 
-  Scenario: Log multiple listens on same day
-    Given the user has listened to the same album multiple times on the same day
-    When the user logs multiple listens for that album on that day
-    Then the system allows this
-    And both entries are displayed in the listening history
-
-  Scenario: View overall listening history
-    Given the user has logged listens for multiple albums
-    When the user navigates to a 'Listening History' or 'Timeline' view
-    Then all logged listens across all albums are displayed in chronological order
-    And the user can see their listening patterns over time
+  Scenario: Attempt to log duplicate listen on same day
+    Given the user is viewing an album in their library
+    And the user has already logged a listen to this album today
+    When the user logs another listen to the same album on the same day
+    Then the system allows the duplicate listen to be recorded
+    And both listens are recorded as separate events
 ```
 
-### Story 9220365: Remove Album from Library
+### Story 9232648: View Album Metadata and Details
 
 **Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 23:36 UTC
+**Locked at:** 2026-05-07 20:34 UTC
+
+```gherkin
+Feature: View Album Metadata and Details
+
+  Scenario: View complete album details
+    Given the user is viewing an album in their library
+    When the user clicks on the album to view details
+    Then a detailed view is displayed showing title, artist, release year, and genre tags
+    And a complete track listing is shown with song titles and durations
+
+  Scenario: View album with missing metadata
+    Given the user is viewing an album with incomplete or unavailable metadata
+    When the user views the album details
+    Then available information is displayed clearly
+    And missing data fields are indicated
+
+  Scenario: View album with multiple artists or collaborations
+    Given the user is viewing an album with featured artists or collaborations
+    When the user views the album details
+    Then all contributing artists are clearly listed
+    And contributing artists are linked to their profiles
+
+  Scenario: View album cover art
+    Given the user is viewing an album
+    When the album details are displayed
+    Then the cover art is displayed prominently
+    And the image loads quickly
+    And the image is displayed at appropriate resolution
+```
+
+### Story 9232649: Remove Album from Library
+
+**Status:** Gherkin Locked  
+**Locked at:** 2026-05-07 20:34 UTC
 
 ```gherkin
 Feature: Remove Album from Library
 
   Scenario: Successfully remove album from library
-    Given the user is viewing an album's details page
-    When the user clicks a 'Remove from Library' button and confirms the action in a confirmation dialog
-    Then the album is immediately removed from their library
-    And the album no longer appears in their collection
-
-  Scenario: Confirmation before deletion
-    Given the user is viewing an album's details page
+    Given the user is viewing an album in their library
     When the user clicks 'Remove from Library'
-    Then a confirmation dialog appears asking 'Are you sure?'
-    And the user can cancel or confirm the action
+    And a confirmation dialog appears
+    And the user confirms the removal
+    Then the album is removed from the user's library
 
-  Scenario: Remove album with associated data
-    Given the user is removing an album that has reviews, ratings, or listen logs associated with it
-    When the user confirms the removal
-    Then the system handles this gracefully by either preserving the review/rating data separately or clearly communicating what will be deleted
+  Scenario: Removal confirmation prevents accidental deletion
+    Given the user is viewing an album in their library
+    When the user clicks 'Remove from Library'
+    And a confirmation dialog appears
+    And the user cancels the confirmation dialog
+    Then the album remains in the user's library unchanged
 ```
 
-### Story 9220366: Track Album Addition Date
+### Story 9232650: View Listening Habits Statistics
 
 **Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 23:36 UTC
+**Locked at:** 2026-05-07 20:34 UTC
 
 ```gherkin
-Feature: Track Album Addition Date
+Feature: View Listening Habits Statistics
 
-  Scenario: View date added on album details
-    Given the user is viewing an album's details page
-    When the user looks at the album information
-    Then a 'Date Added' field is visible showing when they added the album to their library (e.g., 'Added on March 15, 2024')
+  Scenario: View library statistics dashboard
+    Given the user has albums and listening history in their library
+    When the user navigates to a statistics or dashboard view
+    Then summary metrics are displayed such as total albums in library, total listens logged, most-listened album, and favorite genres
 
-  Scenario: View date added in library list
-    Given the user is viewing their library in list view
-    When the user looks at the library entries
-    Then the date each album was added is visible, either as a column or visible metadata for each entry
+  Scenario: View listening timeline
+    Given the user is viewing the statistics dashboard
+    And the user has listening history data
+    When the user views the timeline or chart section
+    Then listening activity over time is displayed such as listens per month or per week
+    And trends in music consumption are visible
 
-  Scenario: Sort by date added
-    Given the user is viewing their library
-    When the user sorts their library by 'Date Added'
-    Then the most recent additions appear first or oldest additions appear first
-    And the user can track collection growth
+  Scenario: View genre breakdown
+    Given the user is viewing the statistics dashboard
+    And the user has albums with genre information
+    When the user views the genre breakdown section
+    Then a breakdown of the library by genre is displayed
+    And the number of albums in each genre category is shown
+    And the percentage of the library each genre represents is shown
+
+  Scenario: View statistics with limited data
+    Given the user is new with very few albums or listens
+    And the user is viewing the statistics dashboard
+    When the statistics dashboard is displayed
+    Then available data is displayed gracefully without errors
+    And the user is encouraged to add more albums
 ```
 
-### Story 9220367: Assign Star Rating to Album
+### Story 9232651: Access Library Across Multiple Devices
 
 **Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 23:37 UTC
+**Locked at:** 2026-05-07 20:34 UTC
 
 ```gherkin
-Feature: Assign Star Rating to Album
+Feature: Access Library Across Multiple Devices
 
-  Scenario: Assign star rating to album
-    Given the user is viewing an album
-    When the user clicks on a star rating widget (e.g., 1-5 stars) and selects their desired rating (e.g., 4 stars)
-    Then the rating is immediately saved
-    And the rating is displayed on the album
+  Scenario: Library syncs across devices
+    Given the user has the app installed on multiple devices
+    And the user is logged into the same account on both devices
+    When the user adds an album to their library on their phone
+    And the user opens the app on their tablet
+    Then the newly added album appears in the library on the tablet
+    And no manual refresh is required
 
-  Scenario: Update existing rating
-    Given the user has previously rated an album 3 stars
-    When the user clicks the rating widget again and selects a new rating (e.g., 5 stars)
-    Then the new rating overwrites the previous one
+  Scenario: Listening history syncs across devices
+    Given the user has the app installed on multiple devices
+    And the user is logged into the same account on both devices
+    When the user logs a listen on their phone
+    And the user views the album on their desktop
+    Then the updated listening history is displayed on the desktop
+    And the listen logged on the phone is included in the history
 
-  Scenario: Remove rating
-    Given the user has assigned a star rating to an album
-    When the user clicks on their existing star rating to deselect it
-    Then the rating is removed entirely
-    And the album no longer shows a rating until they assign one again
+  Scenario: Offline access to library
+    Given the user is offline on their phone
+    And the user has previously loaded albums in their library
+    When the user views their library while offline
+    Then previously loaded albums and basic information are visible
+    And new searches and updates are not available
 
-  Scenario: View rating on album card
-    Given the user is viewing their library
-    When the user looks at the album cards
-    Then each album displays its star rating prominently (e.g., as filled stars)
-    And the user can quickly see their rated albums at a glance
-```
-
-### Story 9220368: Add Custom Notes and Tags to Album
-
-**Status:** Gherkin Locked  
-**Locked at:** 2026-05-04 23:37 UTC
-
-```gherkin
-Feature: Add Custom Notes and Tags to Album
-
-  Scenario: Add personal notes to album
-    Given the user is viewing an album's details page
-    When the user clicks an 'Add Notes' field and types a personal note (e.g., 'Listened to this on my road trip to Colorado')
-    Then the note is saved
-    And the note is displayed on the album's page
-
-  Scenario: Edit existing notes
-    Given the user has added notes to an album
-    When the user clicks on their existing notes and edits them
-    Then the changes are saved immediately
-
-  Scenario: Add tags to album
-    Given the user is viewing an album's details page
-    When the user adds tags to an album (e.g., 'road-trip', 'summer-2024', 'favorites')
-    Then tags appear as clickable labels on the album
-    And tags can be used for filtering or discovery
-
-  Scenario: Filter library by tags
-    Given the user is viewing their library
-    When the user clicks on a tag (e.g., 'summer-2024')
-    Then the library filters to show only albums with that tag
-    And the user can rediscover music from specific periods or contexts
-
-  Scenario: View notes with character limit
-    Given the notes field has a reasonable character limit (e.g., 500 characters)
-    When the user tries to exceed the character limit
-    Then the system prevents further input or warns them they're at the limit
+  Scenario: Sync conflict resolution
+    Given the user has the app installed on two devices
+    And the user is logged into the same account on both devices
+    When the user makes changes to their library on two devices simultaneously before they sync
+    Then the system resolves conflicts gracefully
+    And all changes are preserved without data loss
 ```
