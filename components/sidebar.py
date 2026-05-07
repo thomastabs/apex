@@ -331,18 +331,25 @@ def render_sidebar() -> None:
         with col_theme:
             _theme_button()
 
+        _section_header = (
+            lambda t: st.markdown(
+                f'<p class="bolt-zone-header">{t}</p>',
+                unsafe_allow_html=True,
+            )
+        )
+
         st.divider()
-        st.header("⚙️ Settings & Connections", divider=False)
+        _section_header("Settings & Connections")
         _ai_status()
         _taiga_user_info()
         _taiga_status()
         _taiga_board()
         _user_management()
         st.divider()
-        st.header("📋 Active Context", divider=False)
+        _section_header("Active Context")
         _memory_bank()
         st.divider()
-        st.header("🗺️ SDLC Phases", divider=False)
+        _section_header("SDLC Phases")
         _phase_nav()
 
 
@@ -454,16 +461,12 @@ def _taiga_project_manager() -> None:
         return
 
     if "taiga_projects" not in st.session_state:
-        col_load, _ = st.columns([3, 1])
-        with col_load:
-            if st.button("Load projects", key="taiga_load_proj_btn", width='stretch'):
-                try:
-                    with st.spinner("Loading…"):
-                        st.session_state["taiga_projects"] = taiga_adapter.get_projects()
-                    st.rerun()
-                except taiga_adapter.TaigaAPIError as exc:
-                    st.error(str(exc))
-        return
+        try:
+            st.session_state["taiga_projects"] = taiga_adapter.get_projects()
+        except taiga_adapter.TaigaAPIError as exc:
+            st.error(str(exc))
+            return
+        st.rerun()
 
     projects: list[dict] = st.session_state["taiga_projects"]
 
@@ -535,18 +538,6 @@ def _memory_bank() -> None:
     if msg := st.session_state.pop("_notify_context", None):
         st.toast(msg)
 
-    col_label, col_btn = st.columns([6, 1], vertical_alignment="center")
-    with col_label:
-        st.markdown("**Context**")
-    with col_btn:
-        if st.button("↻", key="ctx_reload_btn", width="stretch"):
-            for key in list(st.session_state.keys()):
-                if key.startswith(("mem_bank", "func_spec", "tech_spec", "vaccines")):
-                    del st.session_state[key]
-            context_manager.rebuild_story_index()
-            st.session_state["_notify_context"] = "Context reloaded."
-            st.rerun()
-
     any_exists = any(
         (Path("contextspec") / f).exists()
         for f in ("memory-bank.md", "functional-spec.md", "technical-spec.md", "vaccines.md")
@@ -571,9 +562,19 @@ def _memory_bank() -> None:
 def _reset_context_button() -> None:
     confirming = st.session_state.get("ctx_reset_confirming", False)
     if not confirming:
-        if st.button("Reset context", key="ctx_reset_btn", width="stretch"):
-            st.session_state["ctx_reset_confirming"] = True
-            st.rerun()
+        col_reload, col_reset = st.columns(2)
+        with col_reload:
+            if st.button("↻ Reload", key="ctx_reload_btn", width="stretch"):
+                for key in list(st.session_state.keys()):
+                    if key.startswith(("mem_bank", "func_spec", "tech_spec", "vaccines")):
+                        del st.session_state[key]
+                context_manager.rebuild_story_index()
+                st.session_state["_notify_context"] = "Context reloaded."
+                st.rerun()
+        with col_reset:
+            if st.button("Reset", key="ctx_reset_btn", width="stretch"):
+                st.session_state["ctx_reset_confirming"] = True
+                st.rerun()
     else:
         st.warning("Erase all context files and start fresh?")
         col_yes, col_no = st.columns(2)
@@ -602,8 +603,8 @@ def _context_size_indicator() -> None:
     else:
         color = "#f87171"
     st.markdown(
-        f'<span style="font-size:11px;color:#555;">context · </span>'
-        f'<span style="font-size:11px;color:{color};">{total:,} chars</span>',
+        f'<span style="font-size:13px;color:#888;">context · </span>'
+        f'<span style="font-size:13px;font-weight:600;color:{color};">{total:,} chars</span>',
         unsafe_allow_html=True,
     )
 
@@ -677,22 +678,27 @@ def _board_content() -> None:
     epics_key = "board_epics"
     epics: list[dict] | None = st.session_state.get(epics_key)
 
+    if epics is None:
+        try:
+            st.session_state[epics_key] = taiga_adapter.get_epics()
+            for k in list(st.session_state):
+                if k.startswith("board_stories_"):
+                    del st.session_state[k]
+        except taiga_adapter.TaigaAPIError as exc:
+            st.error(str(exc))
+            return
+        st.rerun()
+
     col_info, col_btn = st.columns([4, 1])
     with col_info:
-        st.caption(f"{len(epics)} epic(s)" if epics is not None else "Load to view")
+        st.caption(f"{len(epics)} epic(s)")
     with col_btn:
-        if st.button("Load" if epics is None else "↻", key="board_load_btn", width='stretch'):
-            try:
-                st.session_state[epics_key] = taiga_adapter.get_epics()
-                for k in list(st.session_state):
-                    if k.startswith("board_stories_"):
-                        del st.session_state[k]
-            except taiga_adapter.TaigaAPIError as exc:
-                st.error(str(exc))
+        if st.button("↻", key="board_load_btn", width='stretch'):
+            del st.session_state[epics_key]
+            for k in list(st.session_state):
+                if k.startswith("board_stories_"):
+                    del st.session_state[k]
             st.rerun()
-
-    if epics is None:
-        return
 
     if not epics:
         st.caption("No epics in this project.")
@@ -897,29 +903,29 @@ def _project_members_section() -> None:
     members_key = "umgr_members"
     roles_key   = "umgr_roles"
 
-    col_lbl, col_btn = st.columns([5, 1])
-    with col_lbl:
-        members: list[dict] | None = st.session_state.get(members_key)
-        st.markdown(
-            f"**Members** &nbsp; `{len(members)}`" if members is not None else "**Members**"
-        )
-    with col_btn:
-        label = "Load" if st.session_state.get(members_key) is None else "↻"
-        if st.button(label, key="umgr_load_btn", width='stretch'):
-            try:
-                with st.spinner("Loading…"):
-                    st.session_state[members_key] = taiga_adapter.get_memberships()
-                    st.session_state[roles_key]   = taiga_adapter.get_roles()
-            except taiga_adapter.TaigaAPIError as exc:
-                st.error(str(exc))
-            st.rerun()
+    members: list[dict] | None = st.session_state.get(members_key)
 
-    members = st.session_state.get(members_key)
     if members is None:
-        return
+        try:
+            st.session_state[members_key] = taiga_adapter.get_memberships()
+            st.session_state[roles_key]   = taiga_adapter.get_roles()
+        except taiga_adapter.TaigaAPIError as exc:
+            st.error(str(exc))
+            return
+        st.rerun()
 
+    members  = st.session_state[members_key]
     roles    = st.session_state.get(roles_key, [])
     role_map = {r["id"]: r["name"] for r in roles}
+
+    col_lbl, col_btn = st.columns([5, 1])
+    with col_lbl:
+        st.markdown(f"**Members** &nbsp; `{len(members)}`")
+    with col_btn:
+        if st.button("↻", key="umgr_load_btn", width='stretch'):
+            st.session_state.pop(members_key, None)
+            st.session_state.pop(roles_key, None)
+            st.rerun()
 
     for m in members:
         _member_row(m, roles, role_map, members_key)
