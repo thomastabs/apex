@@ -538,13 +538,7 @@ def _memory_bank() -> None:
     if msg := st.session_state.pop("_notify_context", None):
         st.toast(msg)
 
-    any_exists = any(
-        (Path("contextspec") / f).exists()
-        for f in ("memory-bank.md", "functional-spec.md", "technical-spec.md", "vaccines.md")
-    )
-    if not any_exists:
-        st.caption("No context files yet.")
-        return
+    context_manager.init_context()
 
     _context_size_indicator()
     _context_file_editor("memory-bank.md",    "mem_bank",  "Memory Bank")
