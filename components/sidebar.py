@@ -332,15 +332,18 @@ def render_sidebar() -> None:
             _theme_button()
 
         st.divider()
-        _phase_nav()
-        st.divider()
-        _memory_bank()
-        st.divider()
+        st.header("⚙️ Settings & Connections", divider=False)
         _ai_status()
         _taiga_user_info()
         _taiga_status()
         _taiga_board()
         _user_management()
+        st.divider()
+        st.header("📋 Active Context", divider=False)
+        _memory_bank()
+        st.divider()
+        st.header("🗺️ SDLC Phases", divider=False)
+        _phase_nav()
 
 
 # ── Phase navigation ──────────────────────────────────────────────────────────
