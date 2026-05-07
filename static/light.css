@@ -1,0 +1,194 @@
+/* ── Buttons ───────────────────────────────────────────────────────── */
+.stButton > button, [data-testid^="stBaseButton"] {
+    background-color: #ffffff !important;
+    color: #111111 !important;
+    border: 1px solid #c8ccd4 !important;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s !important;
+}
+[data-testid="stBaseButton-primary"] {
+    background-color: #7c3aed !important;
+    color: #ffffff !important;
+    border: 1px solid #7c3aed !important;
+}
+.stButton > button:hover,
+[data-testid="stBaseButton-secondary"]:hover,
+[data-testid="stBaseButton-tertiary"]:hover {
+    background-color: #ede9fe !important;
+    border-color: #7c3aed !important;
+}
+[data-testid="stBaseButton-primary"]:hover {
+    background-color: #6d28d9 !important;
+    border-color: #6d28d9 !important;
+}
+
+/* ── Inputs and text areas ─────────────────────────────────────────── */
+[data-baseweb="input"],
+[data-baseweb="base-input"],
+[data-baseweb="textarea"] {
+    background-color: #ffffff !important;
+    border-color: #c8ccd4 !important;
+}
+[data-baseweb="input"] input,
+[data-baseweb="base-input"] input,
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input,
+[data-baseweb="textarea"] textarea,
+[data-testid="stTextArea"] textarea,
+input[type="text"],
+input[type="number"],
+textarea {
+    background-color: #ffffff !important;
+    color: #111111 !important;
+}
+input::placeholder, textarea::placeholder {
+    color: #9ca3af !important;
+    opacity: 1 !important;
+}
+
+/* ── Selectboxes ───────────────────────────────────────────────────── */
+[data-baseweb="select"] > div:first-child,
+[data-baseweb="select"] [role="combobox"] {
+    background-color: #ffffff !important;
+    border-color: #c8ccd4 !important;
+    color: #111111 !important;
+}
+
+/* ── Expanders ─────────────────────────────────────────────────────── */
+/* In Streamlit 1.x, data-testid="stExpander" is on a wrapper <div>;
+   the actual <details> element is a child. */
+[data-testid="stExpander"] {
+    border: 1.5px solid #111111 !important;
+    border-radius: 6px !important;
+    overflow: hidden !important;
+    margin-bottom: 6px !important;
+}
+[data-testid="stExpander"] details {
+    border: none !important;
+}
+[data-testid="stExpander"] summary {
+    background-color: #b8c4d2 !important;
+    color: #111111 !important;
+    transition: background-color 0.15s !important;
+}
+[data-testid="stExpander"] summary:hover {
+    background-color: #a4b0c0 !important;
+}
+[data-testid="stExpander"] details > div {
+    background-color: #eef0f4 !important;
+}
+
+/* ── Dividers (sidebar + main content) ────────────────────────────── */
+hr {
+    border-color: #9ca3af !important;
+}
+
+/* ── Tabs ──────────────────────────────────────────────────────────── */
+[data-testid="stTab"] {
+    color: #444444 !important;
+}
+[data-testid="stTab"][aria-selected="true"] {
+    color: #111111 !important;
+    font-weight: 600 !important;
+}
+[data-testid="stTabsList"] {
+    border-bottom: 2px solid #9ca3af !important;
+}
+/* BaseUI active-tab sliding indicator bar */
+[data-baseweb="tab-highlight"] {
+    background-color: #7c3aed !important;
+    height: 3px !important;
+}
+/* BaseUI full-width bottom border behind the indicator */
+[data-baseweb="tab-border"] {
+    background-color: #9ca3af !important;
+}
+
+/* ── Page link hover ───────────────────────────────────────────────── */
+[data-testid="stPageLink"] a:hover {
+    background-color: #b8c0cc !important;
+    border-radius: 6px !important;
+}
+
+/* ── Toast notifications ───────────────────────────────────────────── */
+[data-testid="stToast"] {
+    background-color: #ffffff !important;
+    border: 1px solid #c8ccd4 !important;
+}
+[data-testid="stToast"] p,
+[data-testid="stToast"] span,
+[data-testid="stToast"] div {
+    color: #111111 !important;
+}
+
+/* ── Alert boxes (success / error / warning / info) ───────────────── */
+[data-testid="stAlert"] [data-testid="stMarkdownContainer"] p,
+[data-testid="stAlert"] [data-testid="stMarkdownContainer"] span,
+[data-testid="stAlert"] [data-testid="stMarkdownContainer"] li,
+[data-testid="stAlert"] [data-testid="stMarkdownContainer"] a {
+    color: #111111 !important;
+}
+
+/* ── Code blocks and inline code inside markdown ───────────────────── */
+[data-testid="stMarkdownContainer"] code,
+[data-testid="stMarkdownContainer"] pre,
+.stMarkdown code,
+.stMarkdown pre,
+code, pre {
+    background-color: #e8eaed !important;
+    color: #1a1a1a !important;
+}
+
+/* ── st.status() container text ────────────────────────────────────── */
+[data-testid="stStatusWidget"] p,
+[data-testid="stStatusWidget"] span,
+[data-testid="stStatusWidget"] label {
+    color: #111111 !important;
+}
+
+/* ── Dialog / Modal popup ───────────────────────────────────────────── */
+/* Backdrop overlay */
+[data-testid="stDialog"] {
+    background: rgba(0,0,0,0.5) !important;
+}
+/* Dialog box — white card with border and shadow so edges are clear */
+[data-testid="stDialog"] > div > div,
+[data-testid="stDialog"] [role="dialog"],
+div[data-baseweb="modal"] > div,
+div[data-baseweb="modal"] [role="dialog"] {
+    background-color: #ffffff !important;
+    border: 1.5px solid #c0c6d0 !important;
+    border-radius: 10px !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.10) !important;
+}
+/* All text inside dialogs */
+[data-testid="stDialog"] p,
+[data-testid="stDialog"] span,
+[data-testid="stDialog"] label,
+[data-testid="stDialog"] h1,
+[data-testid="stDialog"] h2,
+[data-testid="stDialog"] h3,
+[data-testid="stDialog"] [data-testid="stMarkdownContainer"],
+[data-testid="stDialog"] [data-testid="stMarkdownContainer"] p,
+[data-testid="stDialog"] [data-testid="stMarkdownContainer"] span,
+div[data-baseweb="modal"] p,
+div[data-baseweb="modal"] span,
+div[data-baseweb="modal"] label {
+    color: #111111 !important;
+}
+/* Inputs and textareas inside dialogs */
+[data-testid="stDialog"] input,
+[data-testid="stDialog"] textarea {
+    background-color: #ffffff !important;
+    color: #111111 !important;
+}
+/* Selectbox inside dialogs */
+[data-testid="stDialog"] [data-baseweb="select"] > div:first-child {
+    background-color: #ffffff !important;
+    color: #111111 !important;
+}
+/* Close button */
+[data-testid="stDialog"] [data-testid="stBaseButton-headerNoPadding"],
+[data-testid="stDialog"] button[kind="header"] {
+    color: #111111 !important;
+    background-color: transparent !important;
+}
