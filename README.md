@@ -2,7 +2,9 @@
 
 Apex is a Streamlit web app that guides a software team through the SDLC using Claude AI and Taiga. It turns an Epic into formal Gherkin acceptance criteria, pushes stories to Taiga, and keeps the approved requirements in a persistent context that feeds every subsequent phase.
 
-<img width="1850" height="967" alt="image" src="https://github.com/user-attachments/assets/56b21e8b-cbf7-4174-ac7e-742a6d793a78" />
+<img width="1790" height="946" alt="image" src="https://github.com/user-attachments/assets/8d9858b7-0bf6-49a0-8d24-652785309540" />
+<img width="1790" height="946" alt="image" src="https://github.com/user-attachments/assets/3e8720a3-e048-406b-bea8-141f83221502" />
+
 
 ## How it works
 
