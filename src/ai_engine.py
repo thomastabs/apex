@@ -5,7 +5,7 @@ LangChain AI engine backed exclusively by Anthropic (Claude).
 Two-model split (configured via .env):
   AI_MODEL_FAST   — discovery, breakdown          (structured output)
   AI_MODEL_CODER  — architecture, propose, qa,    (code generation & debugging)
-                    infra-delta, fix-bolt
+                    infra-delta, fix-apex
 
 Both fall back to the defaults below when the vars are not set.
 
@@ -14,7 +14,7 @@ Phase 1 pipeline (two-step):
   Step 2 — compile_gherkin_stories(): NL draft → GherkinStoryList (formal GL, on approval)
 
 Context Isolation Rule (enforced in fix_bolt_diagnose):
-  NEVER pass the full .ai-context.md to the fix-bolt AI call.
+  NEVER pass the full .ai-context.md to the fix-apex AI call.
   Only pass: bug description + stack trace + isolated code snippet.
 """
 
@@ -54,7 +54,7 @@ class AITimeoutError(AIError):
     """AI API call timed out."""
 
 
-_logger = logging.getLogger("bolt.ai_engine")
+_logger = logging.getLogger("apex.ai_engine")
 _llm_cache: dict = {}
 
 
@@ -322,7 +322,7 @@ class NLStory(BaseModel):
         description="User Story title in 'As a <role>, I want <goal>, so that <benefit>' format"
     )
     size: Literal["XS", "S"] = Field(
-        description="Bolt size estimate — XS: under 2 hours, S: under 1 day"
+        description="Apex size estimate — XS: under 2 hours, S: under 1 day"
     )
     scenarios: list[NLScenario] = Field(
         description="Natural-language scenarios covering happy path, edge cases, and failure paths"
@@ -356,7 +356,7 @@ class GherkinStory(BaseModel):
             "Example: 'Bait Consumption on Successful Cast Only'"
         )
     )
-    size: Literal["XS", "S"] = Field(description="Bolt size: XS or S")
+    size: Literal["XS", "S"] = Field(description="Apex size: XS or S")
     scenarios: list[GherkinScenario] = Field(
         description="Formally compiled Gherkin scenarios for this story"
     )
@@ -374,7 +374,7 @@ class GherkinStoryList(BaseModel):
 
 _NL_GENERATION_VERSION = "1.0"
 _NL_GENERATION_SYSTEM = """\
-You are a strict Product Owner operating within the Bolt Framework.
+You are a strict Product Owner operating within the Apex Framework.
 Your job is to decompose a high-level Epic into fractional User Stories of XS or S size.
 
 Rules you MUST follow:
@@ -428,7 +428,7 @@ def format_nl_draft(story_list: NLStoryList) -> str:
 
 _GL_COMPILATION_VERSION = "1.0"
 _GL_COMPILATION_SYSTEM = """\
-You are a strict Gherkin Language (GL) compiler operating within the Bolt Framework.
+You are a strict Gherkin Language (GL) compiler operating within the Apex Framework.
 Your ONLY job is to take a human-reviewed Natural Language story draft and compile it
 into formal, machine-parseable Gherkin acceptance criteria.
 
@@ -517,7 +517,7 @@ class EpicSuggestionList(BaseModel):
 
 
 _EPIC_SUGGESTION_SYSTEM = """\
-You are an experienced Product Owner operating within the Bolt Framework.
+You are an experienced Product Owner operating within the Apex Framework.
 Given a project concept, generate a list of well-scoped, high-level Epics that cover
 the full product scope implied by the concept.
 
@@ -549,7 +549,7 @@ def suggest_epics(
 # ---------------------------------------------------------------------------
 
 _ARCHITECTURE_SYSTEM = """\
-You are a Senior Systems Architect operating within the Bolt Framework.
+You are a Senior Systems Architect operating within the Apex Framework.
 Your job is to generate a formal technical contract that strictly satisfies the
 provided Gherkin Acceptance Criteria — nothing more, nothing less.
 
@@ -575,12 +575,12 @@ def generate_architecture(story_subject: str, gherkin: str) -> str:
 # ---------------------------------------------------------------------------
 
 _BREAKDOWN_SYSTEM = """\
-You are a Tech Lead operating within the Bolt Framework.
+You are a Tech Lead operating within the Apex Framework.
 Your job is to decompose a User Story into a sequential list of granular, executable
 technical tasks for developers to execute during Bolts.
 
 Rules you MUST follow:
-- Each task must be atomic: one developer, one Bolt, one clear outcome.
+- Each task must be atomic: one developer, one Apex, one clear outcome.
 - Tasks MUST be ordered by execution dependency (no circular dependencies).
 - Reference the OpenAPI spec or DB schema where relevant.
 - Flag any task as [HIGH RISK] if it touches auth, data migrations, or external APIs.
@@ -594,7 +594,7 @@ def generate_tasks(story_subject: str, gherkin: str, technical_spec: str) -> str
         f"User Story: {story_subject}\n\n"
         f"Gherkin Acceptance Criteria:\n{gherkin}\n\n"
         f"Technical Spec (OpenAPI/DB Schema):\n{technical_spec}\n\n"
-        "Generate the sequential task breakdown for the Bolt Backlog."
+        "Generate the sequential task breakdown for the Apex Backlog."
     )
     return _invoke(_BREAKDOWN_SYSTEM, human, get_fast_model(), max_tokens=2048)
 
@@ -604,10 +604,10 @@ def generate_tasks(story_subject: str, gherkin: str, technical_spec: str) -> str
 # ---------------------------------------------------------------------------
 
 _PROPOSAL_SYSTEM = """\
-You are a Senior Developer operating within the Bolt Framework.
+You are a Senior Developer operating within the Apex Framework.
 Your job is to produce a precise, step-by-step coding implementation plan for a
 specific technical task. This plan will guide a developer and constrain AI code
-generation during the Bolt execution.
+generation during the Apex execution.
 
 Rules you MUST follow:
 - The plan must be anchored to the provided Gherkin and Technical Spec — no scope creep.
@@ -640,7 +640,7 @@ def generate_coding_proposal(
 # ---------------------------------------------------------------------------
 
 _QA_SYSTEM = """\
-You are a strict QA Engineer operating within the Bolt Framework.
+You are a strict QA Engineer operating within the Apex Framework.
 Your job is to generate end-to-end BDD test scripts based EXCLUSIVELY on the
 provided Gherkin Acceptance Criteria.
 
@@ -667,7 +667,7 @@ def generate_bdd_tests(story_subject: str, gherkin: str) -> str:
 # ---------------------------------------------------------------------------
 
 _INFRA_SYSTEM = """\
-You are a Senior DevOps Engineer operating within the Bolt Framework.
+You are a Senior DevOps Engineer operating within the Apex Framework.
 Your job is to analyze a completed User Story's technical specification and determine
 whether any infrastructure changes are required for deployment.
 
@@ -694,7 +694,7 @@ def generate_infra_delta(story_subject: str, technical_spec: str) -> str:
 # 6. Maintenance Phase — Context Isolation Rule
 # ---------------------------------------------------------------------------
 
-_FIX_BOLT_SYSTEM = """\
+_FIX_APEX_SYSTEM = """\
 You are a Senior Debugging Engineer operating under strict context isolation.
 
 CONTEXT ISOLATION RULE: You have been given ONLY the bug report and the isolated code snippet.
@@ -725,4 +725,4 @@ def fix_bolt_diagnose(
         f"Isolated Code Snippet:\n{code_snippet if code_snippet else '(no snippet provided)'}\n\n"
         "Diagnose the root cause and provide the minimal patch."
     )
-    return _invoke(_FIX_BOLT_SYSTEM, human, get_coder_model(), max_tokens=4096)
+    return _invoke(_FIX_APEX_SYSTEM, human, get_coder_model(), max_tokens=4096)

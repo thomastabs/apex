@@ -37,7 +37,7 @@ _token: dict[str, str] = {"value": os.getenv("TAIGA_AUTH_TOKEN", "")}
 _project_cache: dict      = {}
 _status_cache:  list[dict] = []
 
-_logger = logging.getLogger("bolt.taiga")
+_logger = logging.getLogger("apex.taiga")
 
 
 class TaigaAPIError(Exception):
@@ -313,7 +313,7 @@ def create_story(
     related_userstories sub-resource (Taiga silently ignores the payload
     `epic` field on story creation).
 
-    tags          — list of plain strings applied as Taiga labels (e.g. ["bolt", "XS"]).
+    tags          — list of plain strings applied as Taiga labels (e.g. ["apex", "XS"]).
     backlog_order — explicit sort key; pass a sequence of values to preserve compilation order.
     """
     payload: dict[str, Any] = {
@@ -393,7 +393,7 @@ def create_task(subject: str, description: str, story_id: int) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Issues (for fix-bolt)
+# Issues (for fix-apex)
 # ---------------------------------------------------------------------------
 
 def get_issue(issue_id: int) -> dict:

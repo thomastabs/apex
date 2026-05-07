@@ -1,5 +1,5 @@
 """
-app.py — bolt entry point and central router
+app.py — apex entry point and central router
 """
 
 import logging
@@ -65,7 +65,7 @@ def _inject_theme(is_dark: bool) -> None:
 # ── Page config (must be first Streamlit call) ────────────────────────────────
 
 st.set_page_config(
-    page_title="bolt",
+    page_title="Apex",
     layout="wide",
     initial_sidebar_state="expanded",
 )

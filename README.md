@@ -1,6 +1,6 @@
-# bolt
+# Apex
 
-bolt is a Streamlit web app that guides a software team through the SDLC using Claude AI and Taiga. It turns an Epic into formal Gherkin acceptance criteria, pushes stories to Taiga, and keeps the approved requirements in local markdown context that feeds every subsequent phase.
+Apex is a Streamlit web app that guides a software team through the SDLC using Claude AI and Taiga. It turns an Epic into formal Gherkin acceptance criteria, pushes stories to Taiga, and keeps the approved requirements in local markdown context that feeds every subsequent phase.
 
 <img width="1850" height="967" alt="image" src="https://github.com/user-attachments/assets/56b21e8b-cbf7-4174-ac7e-742a6d793a78" />
 
@@ -36,7 +36,7 @@ flowchart LR
 - Edit story titles, sizes, and Gherkin per story before pushing
 - Push stories to Taiga with tags and board status
 - Save the approved Gherkin to `contextspec/functional-spec.md`
-- Draft survives page refresh via `.bolt-draft.json`
+- Draft survives page refresh via `.apex-draft.json`
 
 **Suggest Epics tab**
 - Generate a list of 5–10 scoped Epics from the Project Concept in the Memory Bank
@@ -125,12 +125,12 @@ Open [http://localhost:8501](http://localhost:8501). On first visit with no Taig
 ### 3 · Docker
 
 ```bash
-docker build -t bolt-cli:local .
+docker build -t apex:local .
 
 docker run -e ANTHROPIC_API_KEY=sk-ant-... \
   -p 8501:8501 \
   -v "$(pwd)/contextspec:/app/contextspec" \
-  bolt-cli:local
+  apex:local
 ```
 
 No Taiga credentials needed in advance — sign in through the sidebar. The `-v` flag mounts `contextspec/` so context files survive container restarts.
@@ -155,13 +155,13 @@ After each push to `main`, GitHub Actions publishes a fresh image:
 docker run -e ANTHROPIC_API_KEY=sk-ant-... \
   -p 8501:8501 \
   -v "$(pwd)/contextspec:/app/contextspec" \
-  ghcr.io/thomastabs/bolt-cli:latest
+  ghcr.io/thomastabs/apex:latest
 ```
 
 Pin to a specific commit to avoid surprise updates:
 
 ```bash
-ghcr.io/thomastabs/bolt-cli:sha-<commit>
+ghcr.io/thomastabs/apex:sha-<commit>
 ```
 
 ---

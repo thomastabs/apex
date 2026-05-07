@@ -5,7 +5,7 @@ Manages read/write operations on the contextspec/ artefacts:
   memory-bank.md       — architecture rules, tech stack, enterprise policies (Tech Lead only)
   functional-spec.md   — per-story Gherkin Acceptance Criteria (locked on push)
   technical-spec.md    — per-story technical contracts (OpenAPI / DB schema)
-  vaccines.md          — permanent vaccine records for diagnosed bugs (Fix-Bolt output only)
+  vaccines.md          — permanent vaccine records for diagnosed bugs (Fix-Apex output only)
   story-index.json     — machine-readable index of all stories and their phase status
 """
 
@@ -20,8 +20,8 @@ FUNCTIONAL_SPEC_FILE = CONTEXT_DIR / "functional-spec.md"
 TECHNICAL_SPEC_FILE  = CONTEXT_DIR / "technical-spec.md"
 VACCINES_FILE        = CONTEXT_DIR / "vaccines.md"
 STORY_INDEX_FILE     = CONTEXT_DIR / "story-index.json"
-DRAFT_FILE           = CONTEXT_DIR / ".bolt-draft.json"
-SESSION_FILE         = CONTEXT_DIR / ".bolt-session.json"
+DRAFT_FILE           = CONTEXT_DIR / ".apex-draft.json"
+SESSION_FILE         = CONTEXT_DIR / ".apex-session.json"
 
 # Module-level cache for the story index — avoids a file read on every sidebar render.
 # Invalidated by _save_story_index() so rebuild/upsert calls always keep it current.
@@ -55,7 +55,7 @@ _FUNCTIONAL_SPEC_TEMPLATE = """\
 # Functional Specification
 
 > Per-story Gherkin Acceptance Criteria.
-> Appended automatically by bolt after human approval.
+> Appended automatically by apex after human approval.
 
 """
 
@@ -63,7 +63,7 @@ _TECHNICAL_SPEC_TEMPLATE = """\
 # Technical Specification
 
 > Per-story technical contracts (OpenAPI / DB schema).
-> Appended automatically by bolt after human approval.
+> Appended automatically by apex after human approval.
 
 """
 
@@ -71,7 +71,7 @@ _VACCINES_TEMPLATE = """\
 # Vaccine Records
 
 > Permanent log of diagnosed bugs. Prevents the AI from hallucinating the same error twice.
-> Appended automatically by bolt after a Fix-Bolt is resolved.
+> Appended automatically by apex after a Fix-Apex is resolved.
 
 """
 
@@ -176,7 +176,7 @@ def get_context_for_phase(phase: int, story_id: int | None = None) -> str:
     if phase == 5:
         return _join(mb, tech)
     if phase == 6:
-        # Context Isolation Rule — Fix-Bolt AI must never receive full project context.
+        # Context Isolation Rule — Fix-Apex AI must never receive full project context.
         return ""
     return mb
 
@@ -561,7 +561,7 @@ def save_bdd_tests(story_id: int, test_script: str) -> Path:
 
 
 def load_session() -> dict:
-    """Return the persisted bolt session dict, or {} if missing or corrupt."""
+    """Return the persisted apex session dict, or {} if missing or corrupt."""
     if not SESSION_FILE.exists():
         return {}
     try:
