@@ -1,5 +1,5 @@
 services:
-  bolt:
+  apex:
     build: .
     ports:
       - "8501:8501"
