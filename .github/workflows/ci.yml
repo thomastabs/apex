@@ -11,6 +11,7 @@ env:
   IMAGE_NAME: ${{ github.repository }}
   AZURE_RESOURCE_GROUP: apex-rg
   AZURE_APP_NAME: apex
+  AZURE_LOCATION: francecentral
 
 jobs:
   test:
