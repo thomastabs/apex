@@ -33,8 +33,9 @@ _STATE_DEFAULTS: dict = {
     "_draft_loaded":       False,   # guards draft restoration to once per session
     "epics_suggested":     None,
     "suggest_epics_error": None,
-    "start_mode":      "new",   # current mode: "new" | "load" | "suggest"
-    "_epic_loaded_by": None,    # "load" | "suggest" | None — tracks which panel loaded an epic
+    "start_mode":               "new",   # current mode: "new" | "load" | "suggest"
+    "_epic_loaded_by":          None,    # "load" | "suggest" | None — tracks which panel loaded an epic
+    "_selected_suggest_title":  None,    # title of the currently selected suggested epic
 }
 
 
@@ -130,8 +131,11 @@ def _apply_pending_epic() -> None:
         return
     if "subject" in pending:
         st.session_state["epic_subject_input"] = pending["subject"]
+        # Non-widget backup: survives Streamlit GC when the panel isn't rendered
+        st.session_state["_epic_subject_bak"] = pending["subject"]
     if "description" in pending:
         st.session_state["epic_desc_input"] = pending["description"]
+        st.session_state["_epic_desc_bak"] = pending["description"]
     if "id" in pending:
         st.session_state["epic_id_input"] = pending["id"]
         # Keep a non-widget copy so _run_push can fall back even if the text field is cleared
@@ -154,21 +158,54 @@ def _request_mode_change(mode: str) -> None:
     st.session_state["_requested_mode"] = mode
 
 
+def _has_progress(mode: str) -> bool:
+    """True if the active tab or any downstream step has work that would be lost on a tab switch.
 
-@st.dialog("Switch Epic Source?")
+    Progress is tab-specific so the guard only fires when the user has actually
+    done something meaningful in the current panel:
+      "new"     — typed anything into Title or Description
+      "load"    — an epic was explicitly selected (list auto-loads; mere presence is not progress)
+      "suggest" — AI has returned suggestions
+    Plus a global downstream check: Step 2 NL draft or Step 3 Gherkin exist.
+    """
+    if mode == "new":
+        tab_progress = bool(
+            st.session_state.get("epic_subject_input", "").strip()
+            or st.session_state.get("epic_desc_input", "").strip()
+        )
+    elif mode == "load":
+        tab_progress = st.session_state.get("_epic_loaded_by") == "load"
+    else:  # "suggest"
+        tab_progress = bool(st.session_state.get("epics_suggested"))
+
+    downstream = bool(
+        st.session_state.get("nl_draft")
+        or st.session_state.get("compiled_stories")
+    )
+    return tab_progress or downstream
+
+
+@st.dialog("Discard Unsaved Progress?")
 def _mode_switch_dialog(desired: str) -> None:
+    # _dlg_open sentinel: cleared by every explicit exit path (Yes / Cancel).
+    # If the dialog is dismissed via X or a click-away, neither button runs and
+    # the sentinel is left set.  _section_step1() detects this on the next rerun
+    # and treats it as Cancel — no mode change occurs.
     st.warning(
-        f"Switching to **{_MODE_LABELS[desired]}** will clear all current progress — "
-        "including any loaded epic and generated stories."
+        "You have unsaved progress in the current Epic setup. "
+        "Switching sources will reset your inputs and any generated User Stories in Step 2. "
+        "Do you want to proceed?"
     )
     col_yes, col_no = st.columns(2)
     with col_yes:
-        if st.button("Switch and reset", type="primary", key="_dlg_confirm"):
+        if st.button("Yes, switch", type="primary", key="_dlg_confirm", width="stretch"):
+            st.session_state.pop("_dlg_open", None)
             _reset_state()
             st.session_state["start_mode"] = desired
             st.rerun()
     with col_no:
-        if st.button("Keep progress", key="_dlg_cancel"):
+        if st.button("Cancel", key="_dlg_cancel", width="stretch"):
+            st.session_state.pop("_dlg_open", None)
             st.rerun()
 
 
@@ -179,26 +216,40 @@ def _section_step1() -> None:
 
     st.markdown("### Step 1 · Define Your Epic")
 
-    has_progress = bool(
-        st.session_state.get("_epic_loaded_by")
-        or st.session_state.get("nl_draft")
-        or st.session_state.get("compiled_stories")
-        or st.session_state.get("epic_subject_input", "").strip()
-        or st.session_state.get("epic_desc_input", "").strip()
-    )
     has_gherkin  = bool(st.session_state.get("compiled_stories"))
     current_mode = st.session_state.get("start_mode", "new")
 
-    # ── Consume on_click request BEFORE buttons render so colours are right ─
-    # on_click callbacks run before the script, so _requested_mode is already
-    # set in session state when we reach this line.
+    # Detect X-button / click-away dismiss of the progress-guard dialog.
+    # _dlg_open is set just before the dialog call; Yes/Cancel handlers clear it.
+    # If it's still set but no new mode request was queued, the user dismissed the
+    # dialog without choosing — treat it the same as Cancel (no mode change).
+    if st.session_state.get("_dlg_open") and not st.session_state.get("_requested_mode"):
+        st.session_state.pop("_dlg_open", None)
+
+    # In load/suggest modes, epic_subject_input and epic_desc_input are set
+    # programmatically by _apply_pending_epic().  Streamlit may GC a widget-keyed
+    # entry when no widget claims it in a given run (e.g. the dialog-showing run
+    # where _panel_new_epic() didn't render).  The non-widget backup keys survive
+    # that GC and allow us to restore the values here on the next rerun.
+    if current_mode != "new":
+        for w_key, bak_key in (
+            ("epic_subject_input", "_epic_subject_bak"),
+            ("epic_desc_input",    "_epic_desc_bak"),
+        ):
+            if not st.session_state.get(w_key) and st.session_state.get(bak_key):
+                st.session_state[w_key] = st.session_state[bak_key]
+
+    # ── Consume the on_click request BEFORE buttons render so highlight is right ─
+    # _request_mode_change sets _requested_mode in the on_click phase (before rerun),
+    # so it is already present when this line executes.
     requested: str | None = st.session_state.pop("_requested_mode", None)
+    _show_dialog = False
     if requested and requested != current_mode and not has_gherkin:
-        if has_progress:
-            pass  # open dialog after buttons are drawn
+        if _has_progress(current_mode):
+            _show_dialog = True          # dialog shown after buttons; panel suppressed
         else:
             st.session_state["start_mode"] = requested
-            current_mode = requested
+            current_mode = requested     # immediate switch — nothing to lose
 
     # ── Mode selector buttons ─────────────────────────────────────────────
     col1, col2, col3 = st.columns(3)
@@ -229,9 +280,12 @@ def _section_step1() -> None:
         return
 
     # ── Open dialog if a mode change was blocked by active progress ───────
-    if requested and requested != current_mode and has_progress:
+    # No early return: the panel renders behind the modal overlay.  This keeps
+    # every widget in the DOM so Streamlit does not GC their session-state values
+    # between the dialog-showing run and the Cancel rerun.
+    if _show_dialog:
+        st.session_state["_dlg_open"] = True   # cleared by Yes/Cancel; X-dismiss leaves it set
         _mode_switch_dialog(requested)
-        return  # suppress panel until user responds
 
     # ── Render panel for current mode ─────────────────────────────────────
     if current_mode == "new":
@@ -313,7 +367,7 @@ def _delete_epic_action(epic: dict) -> None:
                 st.session_state.pop(pending_key, None)
                 st.rerun()
     else:
-        if st.button("Delete epic from Taiga", key="del_epic_btn"):
+        if st.button("Delete epic from Taiga", key="del_epic_btn", width="stretch"):
             st.session_state[pending_key] = epic_id
             st.rerun()
 
@@ -355,6 +409,7 @@ def _section_generate() -> None:
         type="primary",
         disabled=not can_generate,
         key="generate_btn",
+        width="stretch",
     ):
         _run_generation(subject, description, hint, project_concept)
 
@@ -418,8 +473,12 @@ def _classify_ai_error(exc: Exception) -> str:
 # ── Step 3: Review & Edit (Interactive Bridge) ────────────────────────────────
 
 def _section_review() -> None:
-    st.markdown("### Step 3 · Review & Edit")
-    st.info("Review the AI-generated draft below. Edit freely — this will be compiled to formal Gherkin next.")
+    st.markdown("### Step 3 · Review & Edit Natural Language Draft")
+    st.info(
+        "Review the AI-generated Natural Language draft below. "
+        "Edit freely — add, remove, or rewrite stories in plain language. "
+        "When satisfied, click **Compile to Gherkin** below to convert the draft into formal acceptance criteria."
+    )
 
     if "nl_editor" not in st.session_state:
         st.session_state.nl_editor = st.session_state.nl_draft
@@ -436,11 +495,15 @@ def _section_review() -> None:
 def _section_compile() -> None:
     col_compile, col_reset = st.columns([2, 1])
     with col_compile:
-        compile_clicked = st.button("Compile to Gherkin", type="primary", key="compile_btn")
+        compile_clicked = st.button(
+            "Compile to Gherkin", type="primary", key="compile_btn", width="stretch",
+        )
+        st.caption("Convert the NL draft into formal Gherkin acceptance criteria")
     with col_reset:
-        if st.button("Start Over", key="reset_btn"):
+        if st.button("↺ Start Over", key="reset_btn", width="stretch"):
             _reset_state()
             st.rerun()
+        st.caption("Discard all progress and restart from Step 1")
 
     if compile_clicked:
         _run_compile()
@@ -590,7 +653,7 @@ def _section_gherkin_review() -> None:
             )
 
     if not push_done:
-        if st.button("+ Add Story", key="add_story_btn"):
+        if st.button("+ Add Story", key="add_story_btn", width="stretch"):
             _add_story()
             st.rerun()
 
@@ -601,20 +664,39 @@ def _section_gherkin_review() -> None:
         for err in validation_errors:
             st.caption(f"· {err}")
 
-    col_push, col_back = st.columns([2, 1])
+    col_push, col_back, col_reset = st.columns([3, 2, 2])
     with col_push:
         push_clicked = st.button(
             "Confirm Push to Taiga",
             type="primary",
             disabled=st.session_state.push_done or bool(validation_errors),
             key="push_btn",
+            width="stretch",
         )
     with col_back:
-        if st.button("Edit Draft", key="edit_btn", disabled=st.session_state.push_done):
+        if st.button(
+            "← Edit NL Draft",
+            key="edit_btn",
+            disabled=st.session_state.push_done,
+            width="stretch",
+        ):
             _clear_gherkin_editors()
             st.session_state.compiled_stories = None
             st.session_state.compile_error    = None
             st.rerun()
+        if not push_done:
+            st.caption("Return to Step 3 to revise the NL draft")
+    with col_reset:
+        if st.button(
+            "↺ Start Over",
+            key="reset_btn_gherkin",
+            disabled=st.session_state.push_done,
+            width="stretch",
+        ):
+            _reset_state()
+            st.rerun()
+        if not push_done:
+            st.caption("Discard all progress, restart from Step 1")
 
     if push_clicked:
         _run_push()
@@ -816,12 +898,27 @@ def _render_push_result() -> None:
     else:
         st.error(f"Push failed: {result['error']}")
 
-    if result["ok"] and st.button("New Epic", key="new_epic_btn"):
+    if result["ok"] and st.button("New Epic", key="new_epic_btn", width="stretch"):
         _reset_state()
         st.rerun()
 
 
 # ── Panel: Load from Taiga ────────────────────────────────────────────────────
+
+def _fetch_epics_into_cache() -> list[dict]:
+    """Fetch all project epics plus their detail, update session state, return the list."""
+    fetched = taiga_adapter.get_epics()
+    cache: dict = {}
+    for epic in fetched:
+        try:
+            cache[epic["id"]] = taiga_adapter.get_epic(epic["id"])
+        except TaigaAPIError:
+            cache[epic["id"]] = epic
+    st.session_state["epics_list"]         = fetched
+    st.session_state["epics_detail_cache"] = cache
+    st.session_state.pop("epics_load_error", None)
+    return fetched
+
 
 def _panel_load_epic() -> None:
     signed_in      = taiga_adapter.is_configured()
@@ -836,79 +933,78 @@ def _panel_load_epic() -> None:
 
     epics: list[dict] | None = st.session_state.get("epics_list")
 
-    btn_label = "Load Epics" if epics is None else "↻ Refresh"
-    if st.button(btn_label, type="primary" if epics is None else "secondary",
-                 key="browse_load_btn"):
-        try:
-            with st.spinner("Loading Epics..."):
-                fetched = taiga_adapter.get_epics()
-                cache: dict = {}
-                for epic in fetched:
-                    try:
-                        cache[epic["id"]] = taiga_adapter.get_epic(epic["id"])
-                    except TaigaAPIError:
-                        cache[epic["id"]] = epic
-                st.session_state["epics_list"]         = fetched
-                st.session_state["epics_detail_cache"] = cache
-            st.session_state.pop("epics_load_error", None)
-        except TaigaAPIError as exc:
-            st.session_state["epics_load_error"] = str(exc)
-        st.rerun()
-
-    if st.session_state.get("epics_load_error"):
-        st.error(st.session_state["epics_load_error"])
-        return
-
     if epics is None:
-        return
+        # Auto-fetch on tab switch — no button click required
+        if not st.session_state.get("epics_load_error"):
+            try:
+                with st.spinner("Loading Epics…"):
+                    epics = _fetch_epics_into_cache()
+            except TaigaAPIError as exc:
+                st.session_state["epics_load_error"] = str(exc)
+        if st.session_state.get("epics_load_error"):
+            st.error(st.session_state["epics_load_error"])
+            if st.button("↻ Retry", key="browse_load_btn", width="stretch"):
+                st.session_state.pop("epics_load_error", None)
+                st.rerun()
+            return
+
     if not epics:
         st.caption("No Epics found in this project.")
-        return
+    else:
+        st.divider()
+        st.caption(f"{len(epics)} epic(s) found.")
+        loaded_id    = st.session_state.get("_source_epic_id")
+        detail_cache = st.session_state.get("epics_detail_cache", {})
+        for i, epic in enumerate(epics):
+            ref       = epic.get("ref", epic["id"])
+            full      = detail_cache.get(epic["id"], epic)
+            desc      = (full.get("description") or "").strip()
+            is_loaded = (loaded_id == epic["id"])
+            label     = f"#{ref} · {epic['subject']}" + (" — selected" if is_loaded else "")
 
-    st.divider()
-    st.caption(f"{len(epics)} epic(s) found.")
-    loaded_id    = st.session_state.get("_source_epic_id")
-    detail_cache = st.session_state.get("epics_detail_cache", {})
-    for i, epic in enumerate(epics):
-        ref       = epic.get("ref", epic["id"])
-        full      = detail_cache.get(epic["id"], epic)
-        desc      = (full.get("description") or "").strip()
-        is_loaded = (loaded_id == epic["id"])
-        label     = f"#{ref} · {epic['subject']}" + (" — selected" if is_loaded else "")
+            with st.expander(label, expanded=is_loaded):
+                if is_loaded:
+                    st.success("This epic is currently selected. Proceed to Step 2 below.")
+                if desc:
+                    st.markdown(desc)
+                else:
+                    st.caption("No description.")
+                if is_loaded:
+                    st.button("Use this Epic", key=f"browse_use_{i}", disabled=True, width="stretch")
+                else:
+                    if st.button("Use this Epic", key=f"browse_use_{i}", type="primary", width="stretch"):
+                        had_stories = bool(
+                            st.session_state.get("nl_draft") or st.session_state.get("compiled_stories")
+                        )
+                        if had_stories:
+                            _clear_story_progress()
+                        epic_id = epic["id"]
+                        cache: dict = st.session_state.setdefault("epics_detail_cache", {})
+                        if epic_id not in cache:
+                            try:
+                                cache[epic_id] = taiga_adapter.get_epic(epic_id)
+                            except TaigaAPIError:
+                                cache[epic_id] = epic
+                        full = cache[epic_id]
+                        st.session_state["_pending_epic_data"] = {
+                            "subject":     full.get("subject", epic["subject"]),
+                            "description": full.get("description", "") or "",
+                            "id":          str(epic_id),
+                        }
+                        st.session_state["_epic_loaded_by"] = "load"
+                        if had_stories:
+                            st.session_state["_notify_phase1"] = "Epic changed — previous stories cleared."
+                        st.rerun()
 
-        with st.expander(label, expanded=is_loaded):
-            if is_loaded:
-                st.success("This epic is currently selected. Proceed to Step 2 below.")
-            if desc:
-                st.markdown(desc)
-            else:
-                st.caption("No description.")
-            if is_loaded:
-                st.button("Use this Epic", key=f"browse_use_{i}", disabled=True, width="stretch")
-            else:
-                if st.button("Use this Epic", key=f"browse_use_{i}", type="primary", width="stretch"):
-                    had_stories = bool(
-                        st.session_state.get("nl_draft") or st.session_state.get("compiled_stories")
-                    )
-                    if had_stories:
-                        _clear_story_progress()
-                    epic_id = epic["id"]
-                    cache: dict = st.session_state.setdefault("epics_detail_cache", {})
-                    if epic_id not in cache:
-                        try:
-                            cache[epic_id] = taiga_adapter.get_epic(epic_id)
-                        except TaigaAPIError:
-                            cache[epic_id] = epic
-                    full = cache[epic_id]
-                    st.session_state["_pending_epic_data"] = {
-                        "subject":     full.get("subject", epic["subject"]),
-                        "description": full.get("description", "") or "",
-                        "id":          str(epic_id),
-                    }
-                    st.session_state["_epic_loaded_by"] = "load"
-                    if had_stories:
-                        st.session_state["_notify_phase1"] = "Epic changed — previous stories cleared."
-                    st.rerun()
+    col_refresh, _ = st.columns([1, 3])
+    with col_refresh:
+        if st.button("↻ Refresh", key="browse_load_btn", width="stretch"):
+            try:
+                with st.spinner("Refreshing Epics…"):
+                    _fetch_epics_into_cache()
+            except TaigaAPIError as exc:
+                st.session_state["epics_load_error"] = str(exc)
+            st.rerun()
 
 
 # ── Panel: AI Suggests ────────────────────────────────────────────────────────
@@ -933,27 +1029,32 @@ def _panel_suggest_epics() -> None:
     )
 
     has_suggestions = bool(st.session_state.get("epics_suggested"))
-    col_btn, col_clear = st.columns([3, 1])
+    _trigger_suggest = False
+    col_btn, col_clear = st.columns([2, 1])
     with col_btn:
-        if st.button("Suggest Epics", type="primary", key="suggest_epics_btn"):
+        if st.button("Suggest Epics", type="primary", key="suggest_epics_btn", width="stretch"):
             # Unload any previously selected suggestion before generating a new list
             if st.session_state.get("_epic_loaded_by") == "suggest":
                 for k in ("_epic_loaded_by", "epic_subject_input",
-                          "epic_desc_input", "_source_epic_id"):
+                          "epic_desc_input", "_source_epic_id", "_selected_suggest_title"):
                     st.session_state.pop(k, None)
                 _clear_story_progress()
-            _run_suggest_epics(project_concept, hint)
+            _trigger_suggest = True
     with col_clear:
-        if has_suggestions and st.button("Clear", key="suggest_epics_clear"):
+        if st.button("Clear", key="suggest_epics_clear", disabled=not has_suggestions, width="stretch"):
             st.session_state["epics_suggested"]     = None
             st.session_state["suggest_epics_error"] = None
             if st.session_state.get("_epic_loaded_by") == "suggest":
                 for k in ("_epic_loaded_by", "epic_subject_input",
-                          "epic_desc_input", "_source_epic_id"):
+                          "epic_desc_input", "_source_epic_id", "_selected_suggest_title"):
                     st.session_state.pop(k, None)
                 _clear_story_progress()
                 st.session_state["_notify_phase1"] = "Suggestions cleared — epic and progress reset."
             st.rerun()
+
+    # Called outside the column block so st.status renders full-width
+    if _trigger_suggest:
+        _run_suggest_epics(project_concept, hint)
 
     if st.session_state.get("suggest_epics_error"):
         st.error(st.session_state["suggest_epics_error"])
@@ -965,7 +1066,7 @@ def _panel_suggest_epics() -> None:
     st.divider()
     st.caption(f"{len(suggestions)} epic suggestions.")
     loaded_title = (
-        st.session_state.get("epic_subject_input", "")
+        st.session_state.get("_selected_suggest_title")
         if st.session_state.get("_epic_loaded_by") == "suggest"
         else None
     )
@@ -992,6 +1093,7 @@ def _panel_suggest_epics() -> None:
                         "description": epic["description"],
                     }
                     st.session_state["_epic_loaded_by"] = "suggest"
+                    st.session_state["_selected_suggest_title"] = epic["title"]
                     if had_stories:
                         st.session_state["_notify_phase1"] = "Epic changed — previous stories cleared."
                     st.rerun()
@@ -1035,11 +1137,19 @@ def _reset_state() -> None:
     _clear_gherkin_editors()
     context_manager.clear_draft()
     for key in (
+        # Epic inputs + non-widget backups
+        "epic_subject_input", "epic_desc_input", "epic_id_input",
+        "_epic_subject_bak", "_epic_desc_bak",
+        "_source_epic_id", "_epic_loaded_by", "_selected_suggest_title",
+        # Load-panel cache
+        "epics_list", "epics_detail_cache", "epics_load_error",
+        # Suggest-panel cache
+        "epics_suggested", "suggest_epics_error",
+        # Downstream — Steps 2 & 3
         "nl_draft", "nl_editor", "story_subject",
         "compiled_stories", "push_done", "push_result",
         "ai_error", "compile_error",
-        "epic_subject_input", "epic_desc_input", "epic_id_input",
-        "_source_epic_id", "_epic_loaded_by", "start_mode",
-        "_committed_mode", "_mode_change_pending", "_desired_mode",
+        # Navigation / legacy keys
+        "start_mode", "_committed_mode", "_mode_change_pending", "_desired_mode",
     ):
         st.session_state.pop(key, None)

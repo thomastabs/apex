@@ -787,8 +787,8 @@ def _board_story_row(story: dict, stories_key: str) -> None:
             _story_details_dialog(story, stories_key=stories_key)
     with col_name:
         st.markdown(
-            f'<span style="color:#7c3aed;font-weight:700;font-size:12px;">▸</span>'
-            f'&nbsp;<span style="font-size:12px;">#{ref}&nbsp;{subject}</span>',
+            f'<span style="color:#7c3aed;font-weight:700;font-size:14px;">▸</span>'
+            f'&nbsp;<span style="font-size:14px;font-weight:500;">#{ref}&nbsp;{subject}</span>',
             unsafe_allow_html=True,
         )
     with col_del:

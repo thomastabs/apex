@@ -143,9 +143,15 @@ def _request(method: str, path: str, *, params: dict | None = None, payload: dic
 
     resp = _safe_call()
 
-    if resp.status_code == 401 and TAIGA_USERNAME and TAIGA_PASSWORD:
-        _refresh_token()
-        resp = _safe_call()
+    if resp.status_code == 401:
+        if TAIGA_USERNAME and TAIGA_PASSWORD:
+            _refresh_token()
+            resp = _safe_call()
+        else:
+            raise TaigaAPIError(
+                method.upper(), url, 401,
+                "Session expired — use the ⇄ button in the sidebar to sign in again.",
+            )
 
     # Retry for 429 (rate-limited) and transient 5xx with exponential back-off.
     delay = 1.0
