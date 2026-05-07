@@ -320,11 +320,11 @@ def _clear_taiga_caches() -> None:
 
 def render_sidebar() -> None:
     with st.sidebar:
-        bolt_color = "#7c3aed"
+        apex_color = "#7c3aed"
         col_logo, col_theme = st.columns([5, 1], vertical_alignment="center")
         with col_logo:
             st.markdown(
-                f'<span style="font-size:1.55rem;font-weight:700;color:{bolt_color};letter-spacing:-0.02em;">bolt</span>'
+                f'<span style="font-size:1.55rem;font-weight:700;color:{apex_color};letter-spacing:-0.02em;">Apex</span>'
                 '<span style="font-size:13px;color:#888;font-weight:500;margin-left:6px;">· Spec-Anchored Continuity</span>',
                 unsafe_allow_html=True,
             )
@@ -333,7 +333,7 @@ def render_sidebar() -> None:
 
         _section_header = (
             lambda t: st.markdown(
-                f'<p class="bolt-zone-header">{t}</p>',
+                f'<p class="apex-zone-header">{t}</p>',
                 unsafe_allow_html=True,
             )
         )

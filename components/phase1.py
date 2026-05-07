@@ -791,7 +791,7 @@ def _run_push() -> None:
                     item["title"],
                     ai_engine.bold_gherkin_keywords(gherkin_text),
                     epic_id=epic_id_val,
-                    tags=["bolt", size],
+                    tags=["apex", size],
                     backlog_order=_order_base + len(created),
                 )
                 story_id = taiga_story["id"]

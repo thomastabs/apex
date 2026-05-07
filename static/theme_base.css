@@ -1,11 +1,11 @@
-/* Bolt logo — high-specificity selector beats the broad span/p rule.
+/* Apex logo — high-specificity selector beats the broad span/p rule.
    Streamlit strips !important from inline styles so this is the only fix. */
 [data-testid="stSidebar"] span[style*="1.55rem"] {
     color: #7c3aed !important;
 }
 
 /* Sidebar zone section headers */
-[data-testid="stSidebar"] p.bolt-zone-header {
+[data-testid="stSidebar"] p.apex-zone-header {
     color: #7c3aed !important;
     font-size: 1rem !important;
     font-weight: 700 !important;
