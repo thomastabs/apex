@@ -5,7 +5,6 @@ Apex is a Streamlit web app that guides a software team through the SDLC using C
 <img width="1790" height="946" alt="image" src="https://github.com/user-attachments/assets/8d9858b7-0bf6-49a0-8d24-652785309540" />
 <img width="1790" height="946" alt="image" src="https://github.com/user-attachments/assets/3e8720a3-e048-406b-bea8-141f83221502" />
 
-
 ## How it works
 
 ```mermaid
@@ -17,7 +16,7 @@ flowchart TD
     D --> E{Human Review}
     E -->|edit| D
     E -->|approve| F[Push to Taiga]
-    F --> G[(contextspec/)]
+    F --> G[(contextspec/project_id/)]
     G --> H[Phase 2–6 AI calls]
 
     style A fill:#7c3aed,color:#fff,stroke:none
@@ -30,7 +29,7 @@ flowchart TD
 3. Review and edit the draft in the UI.
 4. The app compiles the draft into strict Gherkin acceptance criteria.
 5. Edit story titles and Gherkin per story, then confirm the push.
-6. Stories are created in Taiga and the approved Gherkin is written to `contextspec/`.
+6. Stories are created in Taiga and the approved Gherkin is written to `contextspec/<project_id>/`.
 
 ## What's implemented
 
@@ -43,14 +42,14 @@ flowchart TD
 - Compile the draft into formal Gherkin acceptance criteria
 - Edit story titles, sizes, and Gherkin per story before pushing
 - Push stories to Taiga with tags and board status
-- Save the approved Gherkin to `contextspec/functional-spec.md`
+- Save the approved Gherkin to `contextspec/<project_id>/functional-spec.md`
 - Draft survives page refresh via `.apex-draft.json`
 - **AI Suggests** — generate 5–10 scoped Epic candidates from the Project Concept
 
 ### Sidebar
 
 - **Settings & Connections** — AI model status, Taiga account (⇄ switch), project selector, Epics & Stories board, Users & Roles
-- **Active Context** — live editor for Memory Bank, Functional Spec, Technical Spec, Vaccine Records
+- **Active Context** — live editor for Memory Bank, Functional Spec, Technical Spec, Vaccine Records (scoped to the active project)
 - **SDLC Phases** — phase navigation with progress badges
 
 ### Phases 2–6
@@ -61,20 +60,20 @@ Present in the UI as navigation stubs: Design, Implementation, Testing, Deployme
 
 | File / folder | Role |
 |---|---|
-| `app.py` | Entry point — page config, theme injection, routing |
+| `app.py` | Entry point — page config, theme injection, routing, session restore |
 | `components/sidebar.py` | Sidebar: zones, context editor, AI/Taiga status, board, user management |
 | `components/phase1.py` | Full Phase 1 workflow (Requirements + AI Suggests) |
 | `src/ai_engine.py` | LangChain + Claude prompts and structured outputs |
-| `src/context_manager.py` | Reads/writes `contextspec/` markdown files |
+| `src/context_manager.py` | Reads/writes `contextspec/<project_id>/` markdown files |
 | `src/taiga_adapter.py` | Taiga REST API client (GET/POST/PATCH/DELETE) |
 | `views/phase1.py … phase6.py` | Thin Streamlit page wrappers |
-| `contextspec/` | Persistent project context (Gherkin, memory bank, etc.) |
+| `contextspec/` | Persistent project context — one subdirectory per Taiga project ID |
 | `static/` | CSS files for light/dark theming |
-| `tests/` | Pytest test suite (all APIs mocked) |
+| `tests/` | Pytest test suite — 232 tests, all external APIs mocked |
 
 ## Tech stack
 
-Python 3.12 · Streamlit · LangChain · Anthropic Claude · Pydantic · Requests · python-dotenv
+Python 3.12 · Streamlit · LangChain · Anthropic Claude · Pydantic · Requests · python-dotenv · azure-monitor-opentelemetry
 
 ---
 
@@ -91,7 +90,7 @@ Python 3.12 · Streamlit · LangChain · Anthropic Claude · Pydantic · Request
 
 ### 1 · Environment setup
 
-Only the Anthropic key is needed upfront. Taiga credentials are entered via the sidebar on first use and saved automatically.
+Only the Anthropic key is needed upfront. Taiga credentials are entered via the sidebar on first use and persisted automatically.
 
 ```bash
 cp .env.example .env
@@ -110,6 +109,9 @@ ANTHROPIC_API_KEY=sk-ant-...
 # Optional model overrides
 # AI_MODEL_FAST=claude-haiku-4-5-20251001
 # AI_MODEL_CODER=claude-sonnet-4-6
+
+# Optional — enables Application Insights telemetry (Azure deployment only):
+# APPLICATIONINSIGHTS_CONNECTION_STRING=InstrumentationKey=...
 ```
 
 > **Never commit `.env`.** It is listed in `.gitignore`.
@@ -150,7 +152,26 @@ docker run -e ANTHROPIC_API_KEY=sk-ant-... \
 
 ## Deployment (Azure Container Apps)
 
-The app is deployed on Azure Container Apps (France Central) with `contextspec/` persisted on Azure Files.
+The app is deployed on Azure Container Apps (France Central).
+
+### Infrastructure
+
+| Resource | Name | Purpose |
+|---|---|---|
+| Container App | `apex` | Runs the Streamlit application |
+| Container App Environment | `apex-env` | Networking and shared config |
+| Storage Account | `apexctxstore` | Azure File Share for `contextspec/` |
+| File Share | `contextspec` | Mounted at `/app/contextspec` in the container |
+| Log Analytics Workspace | `apex-logs` | Log aggregation backend |
+| Application Insights | `apex-insights` | Monitoring, error tracking, live metrics |
+| Recovery Services Vault | `apex-backup-vault` | Daily backup of the file share (30-day retention) |
+| Resource Group | `apex-rg` | All resources, France Central region |
+
+### Context persistence
+
+Context files are stored in `contextspec/<taiga_project_id>/` on the Azure File Share, mounted as a persistent volume. Each Taiga project gets its own subdirectory so context never bleeds between projects. The active project ID and current Taiga auth token are also saved to `contextspec/.apex-config.json` and restored on startup, so container restarts (e.g. after a new deploy) do not require re-authentication or project re-selection.
+
+### CI/CD
 
 Every push to `main` automatically:
 1. Runs the test suite
@@ -158,6 +179,36 @@ Every push to `main` automatically:
 3. Deploys the new revision to Azure
 
 **Required GitHub secret:** `AZURE_CREDENTIALS` — a service principal JSON with Contributor access to the `apex-rg` resource group.
+
+### Secrets
+
+| Secret / env var | Where stored | Notes |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | Container App secret | Encrypted, not visible in portal |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Container App env var | Not sensitive — instrumentation key only |
+| `TAIGA_AUTH_TOKEN` | `contextspec/.apex-config.json` (file share) | Session token; auto-refreshed on expiry |
+
+### Monitoring (Application Insights)
+
+Once deployed, telemetry is captured automatically. Key views in the Azure portal under `apex-insights`:
+
+- **Failures** — unhandled exceptions with full stack traces
+- **Live Metrics** — real-time requests and errors
+- **Logs** — query with Kusto:
+
+```kusto
+// Errors in the last 24 h
+exceptions
+| where timestamp > ago(24h)
+| project timestamp, type, outerMessage
+| order by timestamp desc
+
+// App log messages
+traces
+| where timestamp > ago(24h)
+| project timestamp, message, severityLevel
+| order by timestamp desc
+```
 
 ---
 
@@ -170,7 +221,9 @@ pip install -r requirements.txt pytest
 python3 -m pytest tests/ -v
 ```
 
-## CI/CD
+232 tests across `test_ai_engine.py`, `test_context_manager.py`, `test_phase1.py`, and `test_taiga_adapter.py`.
+
+## CI/CD pipeline
 
 `.github/workflows/ci.yml` runs on every push and pull request to `main`:
 
