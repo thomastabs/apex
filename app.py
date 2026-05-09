@@ -60,6 +60,8 @@ def _load_pref() -> bool:
 
 
 _STATIC_DIR = Path(__file__).parent / "static"
+_CSS_BASE  = (_STATIC_DIR / "theme_base.css").read_text()
+_CSS_LIGHT = (_STATIC_DIR / "light.css").read_text()
 
 
 def _inject_theme(is_dark: bool) -> None:
@@ -82,9 +84,8 @@ def _inject_theme(is_dark: bool) -> None:
         f'body, p, span, label, div.stMarkdown,'
         f' [data-testid="stMarkdownContainer"] {{ color: {t["text"]} !important; }}\n'
     )
-    base = (_STATIC_DIR / "theme_base.css").read_text()
-    light = (_STATIC_DIR / "light.css").read_text() if not is_dark else ""
-    st.markdown("<style>" + dynamic + base + light + "</style>", unsafe_allow_html=True)
+    light = _CSS_LIGHT if not is_dark else ""
+    st.markdown("<style>" + dynamic + _CSS_BASE + light + "</style>", unsafe_allow_html=True)
 
 
 # ── Page config (must be first Streamlit call) ────────────────────────────────
