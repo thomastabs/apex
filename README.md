@@ -222,15 +222,3 @@ python3 -m pytest tests/ -v
 ```
 
 232 tests across `test_ai_engine.py`, `test_context_manager.py`, `test_phase1.py`, and `test_taiga_adapter.py`.
-
-## CI/CD pipeline
-
-`.github/workflows/ci.yml` runs on every push and pull request to `main`:
-
-| Job | When | What |
-|---|---|---|
-| `test` | every push / PR | Runs all pytest tests with stub env vars |
-| `build` | after `test` on `main` | Builds and pushes Docker image to `ghcr.io` |
-| `deploy` | after `build` on `main` | Deploys new revision to Azure Container Apps |
-
-Registry auth uses the built-in `GITHUB_TOKEN` — no manual secrets needed for the build step.
