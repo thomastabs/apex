@@ -100,10 +100,31 @@ def validate_project() -> str | None:
 
 
 def _persist_token(token: str) -> None:
-    """Write the refreshed token back to .env (creates the file if absent)."""
+    """Persist a refreshed token to the file share config and .env.
+
+    File share takes priority so the token survives container restarts.
+    .env write is kept for local-dev compatibility.
+    """
+    # File share — survives container restarts; lazy import avoids circular dep.
+    try:
+        from src import context_manager as _ctx_mgr  # noqa: PLC0415
+        _ctx_mgr.save_config(TAIGA_PROJECT_ID, auth_token=token)
+    except Exception:  # noqa: BLE001
+        pass
+    # Local .env — useful on developer machines.
     env_path = Path(".env")
     env_path.touch()
     set_key(str(env_path), "TAIGA_AUTH_TOKEN", token)
+
+
+def restore_token(token: str) -> None:
+    """Restore a previously persisted token into memory without re-persisting it.
+
+    Called on app startup after reading the token from the file share config.
+    Only sets the in-memory value — does not call _persist_token to avoid
+    an unnecessary file write on every container start.
+    """
+    _token["value"] = token
 
 
 def set_api_url(url: str) -> None:

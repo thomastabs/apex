@@ -105,16 +105,30 @@ if "theme_is_dark" not in st.session_state:
 
 _inject_theme(st.session_state["theme_is_dark"])
 
-# ── Restore persisted project selection ───────────────────────────────────────
-# Runs once per browser session. Reads the project ID saved to the file share
-# so container restarts don't reset the active project back to 0.
+# ── Restore persisted project + token (once per browser session) ─────────────
+# Reads the file share config so container restarts don't drop the active
+# project or require the user to log in again after every deploy.
 
 if "_config_loaded" not in st.session_state:
     from src import context_manager as _ctx_mgr, taiga_adapter as _ta
-    _saved = _ctx_mgr.load_config().get("project_id", 0)
-    if _saved and _saved != _ta.TAIGA_PROJECT_ID:
-        _ta.set_active_project(_saved)
-    st.session_state["_config_loaded"] = True
+    _cfg = _ctx_mgr.load_config()
+    _saved_pid = _cfg.get("project_id", 0)
+    _saved_tok = _cfg.get("auth_token", "")
+    if _saved_pid and _saved_pid != _ta.TAIGA_PROJECT_ID:
+        _ta.set_active_project(_saved_pid)
+    if _saved_tok and not _ta._token["value"]:
+        _ta.restore_token(_saved_tok)
+    st.session_state["_config_loaded"]    = True
+    st.session_state["active_project_id"] = _ta.TAIGA_PROJECT_ID
+else:
+    # ── Per-session project isolation ─────────────────────────────────────────
+    # TAIGA_PROJECT_ID is a process-level global shared across all browser tabs.
+    # Storing the selection in session_state keeps each tab independent: if Tab B
+    # switches projects, Tab A's next render restores its own selection here.
+    from src import taiga_adapter as _ta
+    _session_pid = st.session_state.get("active_project_id", 0)
+    if _session_pid and _session_pid != _ta.TAIGA_PROJECT_ID:
+        _ta.set_active_project(_session_pid)
 
 # ── Navigation ────────────────────────────────────────────────────────────────
 
