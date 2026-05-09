@@ -6,6 +6,7 @@ Shared sidebar — rendered by app.py on every page load.
 import html as _html
 import os
 import re
+import time
 from pathlib import Path
 
 import streamlit as st
@@ -98,6 +99,7 @@ _PHASES = [
 ]
 
 _CONTENT_HEIGHT = 260  # px
+_FILE_READ_TTL  = 3.0  # seconds between Azure File Share reads per context file
 
 
 _SIZE_TAGS = frozenset({"xs", "s", "m", "l", "xl"})
@@ -614,18 +616,22 @@ def _context_file_editor(filename: str, state_key: str, label: str) -> None:
     if not path.exists():
         return
 
-    disk_content = path.read_text(encoding="utf-8")
-    disk_key      = f"{state_key}_disk"
-    buf_key       = f"{state_key}_buf"
-    write_key     = f"{state_key}_write"
-    mode_key      = f"{state_key}_read_mode"
+    disk_key       = f"{state_key}_disk"
+    buf_key        = f"{state_key}_buf"
+    write_key      = f"{state_key}_write"
+    mode_key       = f"{state_key}_read_mode"
     file_reset_key = f"{state_key}_reset_confirming"
+    ts_key         = f"{state_key}_read_ts"
 
-    if st.session_state.get(disk_key) != disk_content:
-        st.session_state[buf_key]  = disk_content
-        st.session_state[disk_key] = disk_content
-    elif buf_key not in st.session_state:
-        st.session_state[buf_key] = disk_content
+    now = time.monotonic()
+    if buf_key not in st.session_state or now - st.session_state.get(ts_key, 0.0) > _FILE_READ_TTL:
+        disk_content = path.read_text(encoding="utf-8")
+        st.session_state[ts_key] = now
+        if st.session_state.get(disk_key) != disk_content:
+            st.session_state[buf_key]  = disk_content
+            st.session_state[disk_key] = disk_content
+        elif buf_key not in st.session_state:
+            st.session_state[buf_key] = disk_content
 
     if mode_key not in st.session_state:
         st.session_state[mode_key] = True
