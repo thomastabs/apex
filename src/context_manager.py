@@ -686,6 +686,25 @@ def clear_draft() -> None:
         DRAFT_FILE.unlink()
 
 
+_TEMPLATES: dict[str, str] = {
+    "memory-bank.md":     _MEMORY_BANK_TEMPLATE,
+    "functional-spec.md": _FUNCTIONAL_SPEC_TEMPLATE,
+    "technical-spec.md":  _TECHNICAL_SPEC_TEMPLATE,
+    "vaccines.md":        _VACCINES_TEMPLATE,
+}
+
+
+def reset_context_file(filename: str) -> None:
+    """Reset a single context file to its blank template."""
+    template = _TEMPLATES.get(filename)
+    if template is None:
+        return
+    path = CONTEXT_DIR / filename
+    if path.exists():
+        path.write_text(template, encoding="utf-8")
+    reset_cache()
+
+
 def reset_context() -> None:
     """Reset all context files to their initial templates and clear the story index.
 

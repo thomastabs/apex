@@ -547,14 +547,10 @@ def _memory_bank() -> None:
     context_manager.init_context()
 
     _context_size_indicator()
-    _context_file_editor("memory-bank.md",    "mem_bank",  "Memory Bank")
+    _context_file_editor("memory-bank.md",     "mem_bank",  "Memory Bank")
     _context_file_editor("functional-spec.md", "func_spec", "Functional Specification")
-
-    # Technical Spec and Vaccine Records are only relevant from Phase 2 onward.
-    active_phase = st.session_state.get("_active_phase", 1)
-    if active_phase != 1:
-        _context_file_editor("technical-spec.md", "tech_spec", "Technical Specification")
-        _context_file_editor("vaccines.md",        "vaccines",  "Vaccine Records")
+    _context_file_editor("technical-spec.md",  "tech_spec", "Technical Specification")
+    _context_file_editor("vaccines.md",        "vaccines",  "Vaccine Records")
 
     _reset_context_button()
 
@@ -616,10 +612,11 @@ def _context_file_editor(filename: str, state_key: str, label: str) -> None:
         return
 
     disk_content = path.read_text(encoding="utf-8")
-    disk_key  = f"{state_key}_disk"
-    buf_key   = f"{state_key}_buf"
-    write_key = f"{state_key}_write"
-    mode_key  = f"{state_key}_read_mode"
+    disk_key      = f"{state_key}_disk"
+    buf_key       = f"{state_key}_buf"
+    write_key     = f"{state_key}_write"
+    mode_key      = f"{state_key}_read_mode"
+    file_reset_key = f"{state_key}_reset_confirming"
 
     if st.session_state.get(disk_key) != disk_content:
         st.session_state[buf_key]  = disk_content
@@ -660,6 +657,37 @@ def _context_file_editor(filename: str, state_key: str, label: str) -> None:
                     path.write_text(current, encoding="utf-8")
                     st.session_state[disk_key] = current
                     st.session_state[buf_key]  = current
+
+        if st.session_state.get(file_reset_key, False):
+            st.warning(f"Reset **{label}** to the blank template?")
+            col_yes, col_no = st.columns(2)
+            with col_yes:
+                if st.button("Reset", key=f"{state_key}_reset_ok", type="primary", width="stretch"):
+                    context_manager.reset_context_file(filename)
+                    for k in (buf_key, disk_key, write_key):
+                        st.session_state.pop(k, None)
+                    st.session_state[file_reset_key] = False
+                    st.session_state["_notify_context"] = f"{label} reset to template."
+                    st.rerun()
+            with col_no:
+                if st.button("Cancel", key=f"{state_key}_reset_cancel", width="stretch"):
+                    st.session_state[file_reset_key] = False
+                    st.rerun()
+        else:
+            col_dl, col_rst = st.columns(2)
+            with col_dl:
+                st.download_button(
+                    "↓ Export",
+                    data=st.session_state[buf_key],
+                    file_name=filename,
+                    mime="text/markdown",
+                    key=f"{state_key}_dl_btn",
+                    width="stretch",
+                )
+            with col_rst:
+                if st.button("↺ Reset file", key=f"{state_key}_reset_btn", width="stretch"):
+                    st.session_state[file_reset_key] = True
+                    st.rerun()
 
 
 # ── Taiga Board ───────────────────────────────────────────────────────────────
