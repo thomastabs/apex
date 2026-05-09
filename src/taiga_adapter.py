@@ -225,8 +225,16 @@ def _patch(path: str, payload: dict) -> Any:
 
 def get_project() -> dict:
     """Fetch and cache the current project's details (slug, name, etc.)."""
+    global _project_cache_failed
+    if _project_cache_failed:
+        raise TaigaAPIError("GET", f"projects/{TAIGA_PROJECT_ID}", 401,
+                            "Session expired — use the ⇄ button to sign in again.")
     if not _project_cache:
-        _project_cache.update(_get(f"projects/{TAIGA_PROJECT_ID}"))
+        try:
+            _project_cache.update(_get(f"projects/{TAIGA_PROJECT_ID}"))
+        except TaigaAPIError:
+            _project_cache_failed = True
+            raise
     return _project_cache
 
 
@@ -463,11 +471,21 @@ def delete_epic_with_stories(epic_id: int) -> int:
 # ---------------------------------------------------------------------------
 
 _me_cache: dict = {}
+_me_cache_failed: bool = False
+_project_cache_failed: bool = False
 
 
 def _get_me() -> dict:
+    global _me_cache_failed
+    if _me_cache_failed:
+        raise TaigaAPIError("GET", "users/me", 401,
+                            "Session expired — use the ⇄ button to sign in again.")
     if not _me_cache:
-        _me_cache.update(_get("users/me"))
+        try:
+            _me_cache.update(_get("users/me"))
+        except TaigaAPIError:
+            _me_cache_failed = True
+            raise
     return _me_cache
 
 
@@ -476,20 +494,25 @@ def get_me() -> dict:
     return _get_me()
 
 
-def set_token(token: str) -> None:
-    """Override the auth token directly (for Taiga Cloud where API auth may be blocked)."""
-    global _status_cache
-    _token["value"] = token
+def _clear_auth_caches() -> None:
+    global _status_cache, _me_cache_failed, _project_cache_failed
     _me_cache.clear()
     _project_cache.clear()
     _status_cache = []
+    _me_cache_failed = False
+    _project_cache_failed = False
+
+
+def set_token(token: str) -> None:
+    """Override the auth token directly (for Taiga Cloud where API auth may be blocked)."""
+    _token["value"] = token
+    _clear_auth_caches()
     _persist_token(token)
     _logger.info("taiga.set_token (manual override)")
 
 
 def login(username: str, password: str) -> None:
     """Authenticate as a different user; updates in-memory token and .env."""
-    global _status_cache
     url = f"{TAIGA_API_URL}/api/v1/auth"
     resp = requests.post(
         url,
@@ -500,9 +523,7 @@ def login(username: str, password: str) -> None:
         raise TaigaAPIError("POST", url, resp.status_code, resp.text)
     new_token = resp.json()["auth_token"]
     _token["value"] = new_token
-    _me_cache.clear()
-    _project_cache.clear()
-    _status_cache = []
+    _clear_auth_caches()
     _persist_token(new_token)
     _logger.info("taiga.login username=%r", username)
 
@@ -554,9 +575,10 @@ def create_project(name: str, description: str) -> dict:
 
 def set_active_project(project_id: int) -> None:
     """Switch the active project for this session and persist the choice to .env."""
-    global TAIGA_PROJECT_ID, _status_cache
+    global TAIGA_PROJECT_ID, _status_cache, _project_cache_failed
     TAIGA_PROJECT_ID = project_id
     _project_cache.clear()
+    _project_cache_failed = False
     _status_cache = []
     os.environ["TAIGA_PROJECT_ID"] = str(project_id)
 
