@@ -549,8 +549,11 @@ def _memory_bank() -> None:
     _context_size_indicator()
     _context_file_editor("memory-bank.md",     "mem_bank",  "Memory Bank")
     _context_file_editor("functional-spec.md", "func_spec", "Functional Specification")
-    _context_file_editor("technical-spec.md",  "tech_spec", "Technical Specification")
-    _context_file_editor("vaccines.md",        "vaccines",  "Vaccine Records")
+
+    active_phase = st.session_state.get("_active_phase", 1)
+    if active_phase != 1:
+        _context_file_editor("technical-spec.md", "tech_spec", "Technical Specification")
+        _context_file_editor("vaccines.md",       "vaccines",  "Vaccine Records")
 
     _reset_context_button()
 
