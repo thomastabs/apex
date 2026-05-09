@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 _BASE_CONTEXTSPEC = Path("contextspec")
+_CONFIG_FILE      = _BASE_CONTEXTSPEC / ".apex-config.json"
 
 
 def _build_context_dir(project_id: int) -> Path:
@@ -116,6 +117,34 @@ def set_active_project(project_id: int) -> None:
     files never bleed across projects.
     """
     _init_paths(project_id)
+    save_config(project_id)
+
+
+def is_project_selected() -> bool:
+    """Return True when a real Taiga project is active (not the fallback default dir)."""
+    return CONTEXT_DIR.name != "default"
+
+
+def save_config(project_id: int) -> None:
+    """Persist the active project ID to the file share root so it survives container restarts."""
+    try:
+        _BASE_CONTEXTSPEC.mkdir(parents=True, exist_ok=True)
+        _CONFIG_FILE.write_text(
+            json.dumps({"project_id": project_id}, indent=2),
+            encoding="utf-8",
+        )
+    except OSError:
+        pass  # non-fatal — in-memory state is still correct
+
+
+def load_config() -> dict:
+    """Return the persisted config dict, or {} if the file is missing or corrupt."""
+    if not _CONFIG_FILE.exists():
+        return {}
+    try:
+        return json.loads(_CONFIG_FILE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
 
 
 def reset_cache() -> None:
@@ -137,6 +166,8 @@ def init_context() -> None:
     global _context_initialized
     if _context_initialized:
         return
+    if not is_project_selected():
+        return  # no project chosen yet — do not create contextspec/default/ files
     CONTEXT_DIR.mkdir(parents=True, exist_ok=True)
     for path, template in [
         (MEMORY_BANK_FILE,     _MEMORY_BANK_TEMPLATE),
@@ -235,13 +266,13 @@ def _join(*parts: str) -> str:
 def get_memory_bank() -> str:
     """Return memory-bank.md content (architecture rules only, without Vaccine Records)."""
     init_context()
-    return MEMORY_BANK_FILE.read_text(encoding="utf-8").strip()
+    return MEMORY_BANK_FILE.read_text(encoding="utf-8").strip() if MEMORY_BANK_FILE.exists() else ""
 
 
 def get_vaccines() -> str:
     """Return vaccines.md content."""
     init_context()
-    return VACCINES_FILE.read_text(encoding="utf-8").strip()
+    return VACCINES_FILE.read_text(encoding="utf-8").strip() if VACCINES_FILE.exists() else ""
 
 
 def get_project_concept() -> str:
@@ -268,6 +299,8 @@ def get_project_concept() -> str:
 def get_story_gherkin(story_id: int) -> str:
     """Extract the Gherkin block for a specific story from functional-spec.md."""
     init_context()
+    if not FUNCTIONAL_SPEC_FILE.exists():
+        return ""
     content = FUNCTIONAL_SPEC_FILE.read_text(encoding="utf-8")
     # Try nested (### under an Epic) format first, then legacy flat ## format.
     for pattern in (
@@ -286,6 +319,8 @@ def get_story_technical_spec(story_id: int) -> str:
     Handles both nested (### under ## Epic) and flat formats.
     """
     init_context()
+    if not TECHNICAL_SPEC_FILE.exists():
+        return ""
     content = TECHNICAL_SPEC_FILE.read_text(encoding="utf-8")
     pattern = rf"### Technical Spec — Story {story_id}.*?(?=\n## |\n### |\Z)"
     match = re.search(pattern, content, re.DOTALL)
@@ -464,6 +499,7 @@ def read_context() -> str:
     return "\n\n---\n\n".join(
         p.read_text(encoding="utf-8")
         for p in (MEMORY_BANK_FILE, FUNCTIONAL_SPEC_FILE, TECHNICAL_SPEC_FILE, VACCINES_FILE)
+        if p.exists()
     )
 
 

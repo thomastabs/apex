@@ -80,6 +80,17 @@ if "theme_is_dark" not in st.session_state:
 
 _inject_theme(st.session_state["theme_is_dark"])
 
+# ── Restore persisted project selection ───────────────────────────────────────
+# Runs once per browser session. Reads the project ID saved to the file share
+# so container restarts don't reset the active project back to 0.
+
+if "_config_loaded" not in st.session_state:
+    from src import context_manager as _ctx_mgr, taiga_adapter as _ta
+    _saved = _ctx_mgr.load_config().get("project_id", 0)
+    if _saved and _saved != _ta.TAIGA_PROJECT_ID:
+        _ta.set_active_project(_saved)
+    st.session_state["_config_loaded"] = True
+
 # ── Navigation ────────────────────────────────────────────────────────────────
 
 _pages = [

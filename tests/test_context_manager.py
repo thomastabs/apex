@@ -634,3 +634,79 @@ class TestProjectIsolation:
         cm.set_active_project(2)
         cm.init_context()
         assert "Project One" not in cm.MEMORY_BANK_FILE.read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# is_project_selected
+# ---------------------------------------------------------------------------
+
+class TestIsProjectSelected:
+    def test_false_when_context_dir_is_default(self, monkeypatch):
+        from src import context_manager as cm
+        from pathlib import Path
+        monkeypatch.setattr(cm, "CONTEXT_DIR", Path("contextspec/default"))
+        assert cm.is_project_selected() is False
+
+    def test_true_when_context_dir_has_project_id(self, monkeypatch):
+        from src import context_manager as cm
+        from pathlib import Path
+        monkeypatch.setattr(cm, "CONTEXT_DIR", Path("contextspec/1786966"))
+        assert cm.is_project_selected() is True
+
+
+# ---------------------------------------------------------------------------
+# save_config / load_config
+# ---------------------------------------------------------------------------
+
+class TestConfig:
+    def test_save_and_load_round_trip(self, tmp_path, monkeypatch):
+        from src import context_manager as cm
+        monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
+        monkeypatch.setattr(cm, "_CONFIG_FILE", tmp_path / ".apex-config.json")
+        cm.save_config(1786966)
+        assert cm.load_config() == {"project_id": 1786966}
+
+    def test_load_returns_empty_when_file_missing(self, tmp_path, monkeypatch):
+        from src import context_manager as cm
+        monkeypatch.setattr(cm, "_CONFIG_FILE", tmp_path / ".apex-config.json")
+        assert cm.load_config() == {}
+
+    def test_load_returns_empty_on_corrupt_file(self, tmp_path, monkeypatch):
+        from src import context_manager as cm
+        f = tmp_path / ".apex-config.json"
+        f.write_text("{broken json", encoding="utf-8")
+        monkeypatch.setattr(cm, "_CONFIG_FILE", f)
+        assert cm.load_config() == {}
+
+    def test_set_active_project_saves_config(self, tmp_path, monkeypatch):
+        from src import context_manager as cm
+        monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
+        monkeypatch.setattr(cm, "_CONFIG_FILE", tmp_path / ".apex-config.json")
+        _snapshot(monkeypatch, cm)
+        cm.set_active_project(42)
+        assert cm.load_config().get("project_id") == 42
+
+
+# ---------------------------------------------------------------------------
+# init_context no-op when no project selected
+# ---------------------------------------------------------------------------
+
+class TestInitContextNoProject:
+    def test_does_not_create_files_when_no_project(self, tmp_path, monkeypatch):
+        from src import context_manager as cm
+        monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
+        _snapshot(monkeypatch, cm)
+        cm.set_active_project(0)  # puts CONTEXT_DIR at tmp_path/default
+        cm.init_context()
+        assert not (tmp_path / "default").exists()
+
+    def test_readers_return_empty_when_no_project(self, tmp_path, monkeypatch):
+        from src import context_manager as cm
+        monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
+        _snapshot(monkeypatch, cm)
+        cm.set_active_project(0)
+        assert cm.get_memory_bank() == ""
+        assert cm.get_vaccines() == ""
+        assert cm.get_story_gherkin(1) == ""
+        assert cm.get_story_technical_spec(1) == ""
+        assert cm.get_story_index() == {}

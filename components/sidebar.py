@@ -538,6 +538,10 @@ def _memory_bank() -> None:
     if msg := st.session_state.pop("_notify_context", None):
         st.toast(msg)
 
+    if not context_manager.is_project_selected():
+        st.caption("Select a project to view context files.")
+        return
+
     context_manager.init_context()
 
     _context_size_indicator()
@@ -604,7 +608,7 @@ def _context_size_indicator() -> None:
 
 
 def _context_file_editor(filename: str, state_key: str, label: str) -> None:
-    path = Path("contextspec") / filename
+    path = context_manager.CONTEXT_DIR / filename
     if not path.exists():
         return
 
