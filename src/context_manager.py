@@ -10,18 +10,34 @@ Manages read/write operations on the contextspec/ artefacts:
 """
 
 import json
+import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-CONTEXT_DIR          = Path("contextspec")
-MEMORY_BANK_FILE     = CONTEXT_DIR / "memory-bank.md"
-FUNCTIONAL_SPEC_FILE = CONTEXT_DIR / "functional-spec.md"
-TECHNICAL_SPEC_FILE  = CONTEXT_DIR / "technical-spec.md"
-VACCINES_FILE        = CONTEXT_DIR / "vaccines.md"
-STORY_INDEX_FILE     = CONTEXT_DIR / "story-index.json"
-DRAFT_FILE           = CONTEXT_DIR / ".apex-draft.json"
-SESSION_FILE         = CONTEXT_DIR / ".apex-session.json"
+_BASE_CONTEXTSPEC = Path("contextspec")
+
+
+def _build_context_dir(project_id: int) -> Path:
+    return _BASE_CONTEXTSPEC / str(project_id) if project_id else _BASE_CONTEXTSPEC / "default"
+
+
+def _init_paths(project_id: int) -> None:
+    """Update all module-level path constants for the given project and reset caches."""
+    global CONTEXT_DIR, MEMORY_BANK_FILE, FUNCTIONAL_SPEC_FILE, TECHNICAL_SPEC_FILE
+    global VACCINES_FILE, STORY_INDEX_FILE, DRAFT_FILE, SESSION_FILE
+    global _story_index_cache, _context_initialized
+    CONTEXT_DIR          = _build_context_dir(project_id)
+    MEMORY_BANK_FILE     = CONTEXT_DIR / "memory-bank.md"
+    FUNCTIONAL_SPEC_FILE = CONTEXT_DIR / "functional-spec.md"
+    TECHNICAL_SPEC_FILE  = CONTEXT_DIR / "technical-spec.md"
+    VACCINES_FILE        = CONTEXT_DIR / "vaccines.md"
+    STORY_INDEX_FILE     = CONTEXT_DIR / "story-index.json"
+    DRAFT_FILE           = CONTEXT_DIR / ".apex-draft.json"
+    SESSION_FILE         = CONTEXT_DIR / ".apex-session.json"
+    _story_index_cache   = None
+    _context_initialized = False
+
 
 # Module-level cache for the story index — avoids a file read on every sidebar render.
 # Invalidated by _save_story_index() so rebuild/upsert calls always keep it current.
@@ -31,6 +47,9 @@ _story_index_cache: dict | None = None
 
 # Guards init_context() so filesystem checks run once per process, not on every AI call.
 _context_initialized: bool = False
+
+# Initialise all path globals from env so the correct project dir is used from first import.
+_init_paths(int(os.getenv("TAIGA_PROJECT_ID") or "0"))
 
 _MEMORY_BANK_TEMPLATE = """\
 # Memory Bank
@@ -83,6 +102,30 @@ PHASE_STATUSES = (
     "qa",              # Phase 4: BDD tests generated
     "deployed",        # Phase 5: Deployed to production
 )
+
+
+# ---------------------------------------------------------------------------
+# Project switching
+# ---------------------------------------------------------------------------
+
+def set_active_project(project_id: int) -> None:
+    """Switch all context paths to the given Taiga project's subdirectory and reset caches.
+
+    Called by taiga_adapter.set_active_project() whenever the user changes project.
+    Each project gets its own contextspec/<project_id>/ subdirectory so context
+    files never bleed across projects.
+    """
+    _init_paths(project_id)
+
+
+def reset_cache() -> None:
+    """Reset module-level read caches without changing the active project paths.
+
+    Useful when the underlying files may have changed externally (e.g. in tests).
+    """
+    global _context_initialized, _story_index_cache
+    _context_initialized = False
+    _story_index_cache   = None
 
 
 # ---------------------------------------------------------------------------

@@ -477,3 +477,52 @@ class TestDeleteHelpers:
         with patch.object(taiga_adapter, "_delete") as mock_delete:
             taiga_adapter.delete_epic(7)
         mock_delete.assert_called_once_with("epics/7")
+
+
+# ---------------------------------------------------------------------------
+# set_active_project — project switching and context_manager coordination
+# ---------------------------------------------------------------------------
+
+class TestSetActiveProject:
+    def _call(self, monkeypatch, project_id: int, ctx_calls: list | None = None) -> None:
+        """Call set_active_project with .env writing and context_manager patched out."""
+        from src import taiga_adapter, context_manager
+        if ctx_calls is None:
+            ctx_calls = []
+        monkeypatch.setattr(context_manager, "set_active_project", lambda pid: ctx_calls.append(pid))
+        monkeypatch.setattr(taiga_adapter, "TAIGA_PROJECT_ID", taiga_adapter.TAIGA_PROJECT_ID)
+        with patch("src.taiga_adapter.set_key"):
+            taiga_adapter.set_active_project(project_id)
+
+    def test_updates_taiga_project_id(self, monkeypatch):
+        from src import taiga_adapter
+        self._call(monkeypatch, 42)
+        assert taiga_adapter.TAIGA_PROJECT_ID == 42
+
+    def test_calls_context_manager_set_active_project(self, monkeypatch):
+        calls: list[int] = []
+        self._call(monkeypatch, 77, ctx_calls=calls)
+        assert calls == [77]
+
+    def test_clears_project_cache(self, monkeypatch):
+        from src import taiga_adapter
+        taiga_adapter._project_cache["slug"] = "old-project"
+        self._call(monkeypatch, 5)
+        assert taiga_adapter._project_cache == {}
+
+    def test_clears_status_cache(self, monkeypatch):
+        from src import taiga_adapter
+        taiga_adapter._status_cache.append({"id": 1, "name": "New"})
+        self._call(monkeypatch, 5)
+        assert taiga_adapter._status_cache == []
+
+    def test_persists_to_env(self, monkeypatch):
+        from src import taiga_adapter, context_manager
+        monkeypatch.setattr(context_manager, "set_active_project", lambda pid: None)
+        monkeypatch.setattr(taiga_adapter, "TAIGA_PROJECT_ID", taiga_adapter.TAIGA_PROJECT_ID)
+        with (
+            patch("src.taiga_adapter.Path.exists", return_value=True),
+            patch("src.taiga_adapter.set_key") as mock_set_key,
+        ):
+            taiga_adapter.set_active_project(88)
+        mock_set_key.assert_called_once_with(".env", "TAIGA_PROJECT_ID", "88")

@@ -538,6 +538,12 @@ def set_active_project(project_id: int) -> None:
     _project_cache.clear()
     _status_cache = []
     os.environ["TAIGA_PROJECT_ID"] = str(project_id)
+
+    # Switch context_manager paths to this project's subdirectory.
+    # Lazy import avoids a circular dependency at module level.
+    from src import context_manager as _ctx_mgr  # noqa: PLC0415
+    _ctx_mgr.set_active_project(project_id)
+
     env_path = Path(".env")
     if env_path.exists():
         set_key(str(env_path), "TAIGA_PROJECT_ID", str(project_id))
