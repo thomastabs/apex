@@ -125,14 +125,21 @@ def is_project_selected() -> bool:
     return CONTEXT_DIR.name != "default"
 
 
-def save_config(project_id: int) -> None:
-    """Persist the active project ID to the file share root so it survives container restarts."""
+def save_config(project_id: int, auth_token: str = "") -> None:
+    """Persist non-sensitive state to the file share root so it survives container restarts.
+
+    Merges into the existing config file so callers that only supply project_id
+    don't accidentally erase a previously saved auth_token, and vice versa.
+    The auth_token is a short-lived session token, not a password — safe to store
+    on the file share alongside the context files.
+    """
     try:
         _BASE_CONTEXTSPEC.mkdir(parents=True, exist_ok=True)
-        _CONFIG_FILE.write_text(
-            json.dumps({"project_id": project_id}, indent=2),
-            encoding="utf-8",
-        )
+        data = load_config()          # preserve any fields we're not updating
+        data["project_id"] = project_id
+        if auth_token:
+            data["auth_token"] = auth_token
+        _CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
     except OSError:
         pass  # non-fatal — in-memory state is still correct
 

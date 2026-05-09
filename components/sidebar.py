@@ -493,6 +493,7 @@ def _taiga_project_manager() -> None:
                 chosen = projects[sel]
                 if chosen["id"] != taiga_adapter.TAIGA_PROJECT_ID:
                     taiga_adapter.set_active_project(chosen["id"])
+                    st.session_state["active_project_id"] = chosen["id"]
                     for k in list(st.session_state.keys()):
                         if k.startswith(("epics_", "_taiga_", "taiga_proj")):
                             del st.session_state[k]
@@ -523,6 +524,7 @@ def _taiga_project_manager() -> None:
             with st.spinner("Creating…"):
                 proj = taiga_adapter.create_project(new_name.strip(), new_desc.strip())
             taiga_adapter.set_active_project(proj["id"])
+            st.session_state["active_project_id"] = proj["id"]
             for k in list(st.session_state.keys()):
                 if k.startswith(("epics_", "_taiga_", "taiga_")):
                     del st.session_state[k]

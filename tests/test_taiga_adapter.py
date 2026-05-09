@@ -526,3 +526,44 @@ class TestSetActiveProject:
         ):
             taiga_adapter.set_active_project(88)
         mock_set_key.assert_called_once_with(".env", "TAIGA_PROJECT_ID", "88")
+
+
+# ---------------------------------------------------------------------------
+# restore_token
+# ---------------------------------------------------------------------------
+
+class TestRestoreToken:
+    def test_sets_token_value(self, monkeypatch):
+        from src import taiga_adapter
+        monkeypatch.setitem(taiga_adapter._token, "value", "")
+        taiga_adapter.restore_token("tok-xyz")
+        assert taiga_adapter._token["value"] == "tok-xyz"
+
+    def test_does_not_persist(self, monkeypatch):
+        from src import taiga_adapter
+        monkeypatch.setitem(taiga_adapter._token, "value", "")
+        with patch("src.taiga_adapter._persist_token") as mock_persist:
+            taiga_adapter.restore_token("tok-xyz")
+        mock_persist.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# _persist_token saves to file share config
+# ---------------------------------------------------------------------------
+
+class TestPersistToken:
+    def test_saves_token_to_file_share_config(self, tmp_path, monkeypatch):
+        from src import taiga_adapter, context_manager
+        monkeypatch.setattr(context_manager, "_BASE_CONTEXTSPEC", tmp_path)
+        monkeypatch.setattr(context_manager, "_CONFIG_FILE", tmp_path / ".apex-config.json")
+        with patch("src.taiga_adapter.set_key"):
+            taiga_adapter._persist_token("tok-saved")
+        assert context_manager.load_config().get("auth_token") == "tok-saved"
+
+    def test_still_writes_to_dotenv(self, tmp_path, monkeypatch):
+        from src import taiga_adapter, context_manager
+        monkeypatch.setattr(context_manager, "_BASE_CONTEXTSPEC", tmp_path)
+        monkeypatch.setattr(context_manager, "_CONFIG_FILE", tmp_path / ".apex-config.json")
+        with patch("src.taiga_adapter.set_key") as mock_set_key:
+            taiga_adapter._persist_token("tok-dotenv")
+        mock_set_key.assert_called_once_with(".env", "TAIGA_AUTH_TOKEN", "tok-dotenv")
