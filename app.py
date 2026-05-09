@@ -3,6 +3,7 @@ app.py — apex entry point and central router
 """
 
 import logging
+import os
 from pathlib import Path
 
 import streamlit as st
@@ -17,6 +18,30 @@ logging.basicConfig(
     format="%(asctime)s %(name)s %(levelname)s %(message)s",
     datefmt="%H:%M:%S",
 )
+
+# ── Application Insights telemetry ────────────────────────────────────────────
+# Initialised once per process (guarded by module-level flag so Streamlit
+# reruns don't re-configure the OpenTelemetry SDK on every user interaction).
+
+_TELEMETRY_CONFIGURED = False
+
+
+def _configure_telemetry() -> None:
+    global _TELEMETRY_CONFIGURED
+    if _TELEMETRY_CONFIGURED:
+        return
+    conn = os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING")
+    if conn:
+        try:
+            from azure.monitor.opentelemetry import configure_azure_monitor
+            configure_azure_monitor(connection_string=conn)
+            logging.getLogger("apex").info("Application Insights telemetry active")
+        except Exception as exc:  # noqa: BLE001
+            logging.getLogger("apex").warning("App Insights init failed: %s", exc)
+    _TELEMETRY_CONFIGURED = True
+
+
+_configure_telemetry()
 
 _PREF_FILE = Path(".streamlit/.theme_pref")
 

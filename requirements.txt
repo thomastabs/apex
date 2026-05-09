@@ -6,3 +6,4 @@ anthropic>=0.34.0
 requests>=2.32.3
 python-dotenv>=1.0.1
 pydantic>=2.0.0
+azure-monitor-opentelemetry>=1.6.0

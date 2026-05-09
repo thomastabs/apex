@@ -1,7 +1,8 @@
 .env
-.env.example
+.env.*
 env
 env.example
+contextspec/
 __pycache__/
 *.py[cod]
 .pytest_cache/

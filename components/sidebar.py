@@ -574,7 +574,8 @@ def _reset_context_button() -> None:
                 st.session_state["ctx_reset_confirming"] = True
                 st.rerun()
     else:
-        st.warning("Erase all context files and start fresh?")
+        project_id = taiga_adapter.TAIGA_PROJECT_ID
+        st.warning(f"Reset all context files for project {project_id} to blank templates?")
         col_yes, col_no = st.columns(2)
         with col_yes:
             if st.button("Reset", key="ctx_reset_confirm_btn", type="primary", width="stretch"):
