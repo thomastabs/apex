@@ -152,7 +152,7 @@ docker run -e ANTHROPIC_API_KEY=sk-ant-... \
 
 ## Deployment (Azure Container Apps)
 
-The app is deployed on Azure Container Apps (France Central).
+The app is live at **[https://apex-bolt.com](https://apex-bolt.com)** (also reachable at `www.apex-bolt.com`), deployed on Azure Container Apps in France Central.
 
 ### Infrastructure
 
@@ -167,9 +167,13 @@ The app is deployed on Azure Container Apps (France Central).
 | Recovery Services Vault | `apex-backup-vault` | Daily backup of the file share (30-day retention) |
 | Resource Group | `apex-rg` | All resources, France Central region |
 
+### Custom domain
+
+`apex-bolt.com` and `www.apex-bolt.com` are bound to the Container App with Azure-managed TLS certificates (auto-renewed). DNS is managed via GoDaddy with a CNAME for `www` and an A record for the root pointing to the Container App Environment's static IP.
+
 ### Context persistence
 
-Context files are stored in `contextspec/<taiga_project_id>/` on the Azure File Share, mounted as a persistent volume. Each Taiga project gets its own subdirectory so context never bleeds between projects. The active project ID and current Taiga auth token are also saved to `contextspec/.apex-config.json` and restored on startup, so container restarts (e.g. after a new deploy) do not require re-authentication or project re-selection.
+Context files are stored in `contextspec/<taiga_project_id>/` on the Azure File Share, mounted as a persistent volume. Each Taiga project gets its own subdirectory so context never bleeds between projects. The active project ID and session token are saved to `contextspec/.apex-config.json` and restored on startup, so container restarts after a deploy do not require re-authentication or project re-selection.
 
 ### CI/CD
 
@@ -178,19 +182,9 @@ Every push to `main` automatically:
 2. Builds and pushes the Docker image to `ghcr.io`
 3. Deploys the new revision to Azure
 
-**Required GitHub secret:** `AZURE_CREDENTIALS` — a service principal JSON with Contributor access to the `apex-rg` resource group.
-
-### Secrets
-
-| Secret / env var | Where stored | Notes |
-|---|---|---|
-| `ANTHROPIC_API_KEY` | Container App secret | Encrypted, not visible in portal |
-| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Container App env var | Not sensitive — instrumentation key only |
-| `TAIGA_AUTH_TOKEN` | `contextspec/.apex-config.json` (file share) | Session token; auto-refreshed on expiry |
-
 ### Monitoring (Application Insights)
 
-Once deployed, telemetry is captured automatically. Key views in the Azure portal under `apex-insights`:
+Telemetry is captured automatically. Key views in the Azure portal under `apex-insights`:
 
 - **Failures** — unhandled exceptions with full stack traces
 - **Live Metrics** — real-time requests and errors
