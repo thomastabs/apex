@@ -61,7 +61,7 @@ def _headers() -> dict[str, str]:
 
 
 def _refresh_token() -> None:
-    """Re-authenticate with username/password, update in-memory token and .env."""
+    """Re-authenticate with username/password and update the in-memory token."""
     if not TAIGA_USERNAME or not TAIGA_PASSWORD:
         return  # no credentials available — let the caller surface the original 401
     url = f"{TAIGA_API_URL}/api/v1/auth"
@@ -72,9 +72,7 @@ def _refresh_token() -> None:
     )
     if not resp.ok:
         raise TaigaAPIError("POST", url, resp.status_code, resp.text)
-    new_token = resp.json()["auth_token"]
-    _token["value"] = new_token
-    _persist_token(new_token)
+    _token["value"] = resp.json()["auth_token"]
 
 
 def is_configured() -> bool:
@@ -99,32 +97,15 @@ def validate_project() -> str | None:
         return str(exc)
 
 
-def _persist_token(token: str) -> None:
-    """Persist a refreshed token to the file share config and .env.
-
-    File share takes priority so the token survives container restarts.
-    .env write is kept for local-dev compatibility.
-    """
-    # File share — survives container restarts; lazy import avoids circular dep.
-    try:
-        from src import context_manager as _ctx_mgr  # noqa: PLC0415
-        _ctx_mgr.save_config(TAIGA_PROJECT_ID, auth_token=token)
-    except Exception:  # noqa: BLE001
-        pass
-    # Local .env — useful on developer machines.
-    env_path = Path(".env")
-    env_path.touch()
-    set_key(str(env_path), "TAIGA_AUTH_TOKEN", token)
-
-
 def restore_token(token: str) -> None:
-    """Restore a previously persisted token into memory without re-persisting it.
-
-    Called on app startup after reading the token from the file share config.
-    Only sets the in-memory value — does not call _persist_token to avoid
-    an unnecessary file write on every container start.
-    """
+    """Set the in-memory auth token (used by the login dialog)."""
     _token["value"] = token
+
+
+def clear_token() -> None:
+    """Clear the in-memory token and all API caches, forcing re-authentication."""
+    _token["value"] = ""
+    _clear_auth_caches()
 
 
 def set_api_url(url: str) -> None:
@@ -507,12 +488,11 @@ def set_token(token: str) -> None:
     """Override the auth token directly (for Taiga Cloud where API auth may be blocked)."""
     _token["value"] = token
     _clear_auth_caches()
-    _persist_token(token)
     _logger.info("taiga.set_token (manual override)")
 
 
 def login(username: str, password: str) -> None:
-    """Authenticate as a different user; updates in-memory token and .env."""
+    """Authenticate as a different user; updates the in-memory token."""
     url = f"{TAIGA_API_URL}/api/v1/auth"
     resp = requests.post(
         url,
@@ -521,10 +501,8 @@ def login(username: str, password: str) -> None:
     )
     if not resp.ok:
         raise TaigaAPIError("POST", url, resp.status_code, resp.text)
-    new_token = resp.json()["auth_token"]
-    _token["value"] = new_token
+    _token["value"] = resp.json()["auth_token"]
     _clear_auth_caches()
-    _persist_token(new_token)
     _logger.info("taiga.login username=%r", username)
 
 

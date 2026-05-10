@@ -401,13 +401,17 @@ def _ai_status() -> None:
 
 def _taiga_user_info() -> None:
     col_info, col_btn = st.columns([6, 1], vertical_alignment="center")
-    if not taiga_adapter.is_configured():
+
+    def _signin_prompt() -> None:
         with col_info:
-            st.markdown("**Sign in to Taiga** using the ⇄ button to sign in")
+            st.markdown("**Sign in to Taiga** using the ⇄ button")
         with col_btn:
             if st.button("⇄", key="sw_acct_btn", width='stretch',
                          help="Sign in or switch Taiga account"):
                 _switch_account_dialog()
+
+    if not taiga_adapter.is_configured():
+        _signin_prompt()
         return
     try:
         me        = taiga_adapter.get_me()
@@ -423,13 +427,13 @@ def _taiga_user_info() -> None:
             if st.button("⇄", key="sw_acct_btn", width='stretch',
                          help="Sign in or switch Taiga account"):
                 _switch_account_dialog()
+    except taiga_adapter.TaigaAPIError as exc:
+        if exc.status == 401:
+            taiga_adapter.clear_token()
+            st.rerun()
+        _signin_prompt()
     except Exception:
-        with col_info:
-            st.markdown("**Sign in to Taiga** using the ⇄ button to sign in")
-        with col_btn:
-            if st.button("⇄", key="sw_acct_btn", width='stretch',
-                         help="Sign in or switch Taiga account"):
-                _switch_account_dialog()
+        _signin_prompt()
 
 
 def _taiga_status() -> None:
@@ -441,12 +445,14 @@ def _taiga_status() -> None:
 
     proj_id = taiga_adapter.TAIGA_PROJECT_ID
     if proj_id:
-        err = taiga_adapter.validate_project()
-        if err:
-            st.warning(f"Taiga error: {err}")
-        else:
+        try:
             name = taiga_adapter.get_project().get("name", "")
             st.markdown(f"**Taiga** &nbsp; `{proj_id}`" + (f" · {name}" if name else ""))
+        except taiga_adapter.TaigaAPIError as exc:
+            if exc.status == 401:
+                taiga_adapter.clear_token()
+                st.rerun()
+            st.warning(f"Taiga error: {exc}")
     else:
         st.caption("No Taiga project selected")
 

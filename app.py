@@ -106,19 +106,17 @@ if "theme_is_dark" not in st.session_state:
 
 _inject_theme(st.session_state["theme_is_dark"])
 
-# ── Restore persisted project + token (once per browser session) ─────────────
-# Reads the file share config so container restarts don't drop the active
-# project or require the user to log in again after every deploy.
+# ── Restore persisted project (once per browser session) ─────────────────────
+# Auth tokens are intentionally NOT persisted — an expired token would cause
+# cascading 401 errors on every sidebar render.  The user signs in fresh each
+# session via the ⇄ button; the active project is still remembered.
 
 if "_config_loaded" not in st.session_state:
     from src import context_manager as _ctx_mgr, taiga_adapter as _ta
     _cfg = _ctx_mgr.load_config()
     _saved_pid = _cfg.get("project_id", 0)
-    _saved_tok = _cfg.get("auth_token", "")
     if _saved_pid and _saved_pid != _ta.TAIGA_PROJECT_ID:
         _ta.set_active_project(_saved_pid)
-    if _saved_tok and not _ta._token["value"]:
-        _ta.restore_token(_saved_tok)
     st.session_state["_config_loaded"]    = True
     st.session_state["active_project_id"] = _ta.TAIGA_PROJECT_ID
 else:
