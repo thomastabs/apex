@@ -312,6 +312,13 @@ def _switch_account_dialog() -> None:
             _clear_taiga_caches()
             st.rerun()
 
+    if taiga_adapter.is_configured():
+        st.divider()
+        if st.button("Sign out", key="sw_dlg_signout_btn", width='stretch'):
+            taiga_adapter.clear_token()
+            _clear_taiga_caches()
+            st.rerun()
+
 
 def _clear_taiga_caches() -> None:
     for k in list(st.session_state.keys()):
