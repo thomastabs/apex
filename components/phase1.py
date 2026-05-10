@@ -36,6 +36,7 @@ _STATE_DEFAULTS: dict = {
     "start_mode":               "new",   # current mode: "new" | "load" | "suggest"
     "_epic_loaded_by":          None,    # "load" | "suggest" | None — tracks which panel loaded an epic
     "_selected_suggest_title":  None,    # title of the currently selected suggested epic
+    "_selected_suggest_idx":    None,    # index of the currently selected suggested epic
 }
 
 
@@ -374,6 +375,19 @@ def _delete_epic_action(epic: dict) -> None:
 
 # ── Step 2: Generate ──────────────────────────────────────────────────────────
 
+def _generation_overlay() -> None:
+    """Inject a fixed transparent overlay that blocks all pointer events during AI generation.
+
+    The overlay is flushed to the browser when st.status() first writes, then removed on
+    the next rerun (it only renders inside the if-button block that triggered generation).
+    """
+    st.markdown(
+        '<div style="position:fixed;top:0;left:0;right:0;bottom:0;'
+        'z-index:999999;cursor:wait;"></div>',
+        unsafe_allow_html=True,
+    )
+
+
 def _section_generate() -> None:
     st.markdown("### Step 2 · Generate User Stories")
 
@@ -411,6 +425,7 @@ def _section_generate() -> None:
         key="generate_btn",
         width="stretch",
     ):
+        _generation_overlay()
         _run_generation(subject, description, hint, project_concept)
 
     if not can_generate and not blockers:
@@ -449,6 +464,7 @@ def _run_generation(subject: str, description: str, hint: str, project_concept: 
         except Exception as exc:
             st.session_state.ai_error = _classify_ai_error(exc)
             status.update(label="Generation failed", state="error")
+    st.rerun()
 
 
 def _classify_ai_error(exc: Exception) -> str:
@@ -1033,28 +1049,34 @@ def _panel_suggest_epics() -> None:
     col_btn, col_clear = st.columns([2, 1])
     with col_btn:
         if st.button("Suggest Epics", type="primary", key="suggest_epics_btn", width="stretch"):
-            # Unload any previously selected suggestion before generating a new list
             if st.session_state.get("_epic_loaded_by") == "suggest":
-                for k in ("_epic_loaded_by", "epic_subject_input",
-                          "epic_desc_input", "_source_epic_id", "_selected_suggest_title"):
+                for k in ("_epic_loaded_by", "epic_subject_input", "epic_desc_input",
+                          "_source_epic_id", "_selected_suggest_title", "_selected_suggest_idx"):
                     st.session_state.pop(k, None)
                 _clear_story_progress()
+            for k in list(st.session_state.keys()):
+                if k.startswith(("suggest_title_", "suggest_desc_")):
+                    del st.session_state[k]
             _trigger_suggest = True
     with col_clear:
         if st.button("Clear", key="suggest_epics_clear", disabled=not has_suggestions, width="stretch"):
+            for k in list(st.session_state.keys()):
+                if k.startswith(("suggest_title_", "suggest_desc_")):
+                    del st.session_state[k]
             st.session_state["epics_suggested"]     = None
             st.session_state["suggest_epics_error"] = None
             if st.session_state.get("_epic_loaded_by") == "suggest":
-                for k in ("_epic_loaded_by", "epic_subject_input",
-                          "epic_desc_input", "_source_epic_id", "_selected_suggest_title"):
+                for k in ("_epic_loaded_by", "epic_subject_input", "epic_desc_input",
+                          "_source_epic_id", "_selected_suggest_title", "_selected_suggest_idx"):
                     st.session_state.pop(k, None)
                 _clear_story_progress()
                 st.session_state["_notify_phase1"] = "Suggestions cleared — epic and progress reset."
             st.rerun()
 
-    # Called outside the column block so st.status renders full-width
     if _trigger_suggest:
+        _generation_overlay()
         _run_suggest_epics(project_concept, hint)
+        st.rerun()
 
     if st.session_state.get("suggest_epics_error"):
         st.error(st.session_state["suggest_epics_error"])
@@ -1065,35 +1087,50 @@ def _panel_suggest_epics() -> None:
 
     st.divider()
     st.caption(f"{len(suggestions)} epic suggestions.")
-    loaded_title = (
-        st.session_state.get("_selected_suggest_title")
+
+    selected_idx = (
+        st.session_state.get("_selected_suggest_idx")
         if st.session_state.get("_epic_loaded_by") == "suggest"
         else None
     )
+
     for i, epic in enumerate(suggestions):
-        is_selected = (epic["title"] == loaded_title)
-        label       = epic["title"] + (" — selected" if is_selected else "")
+        is_selected = (selected_idx == i)
+        if is_selected:
+            label = st.session_state.get("_selected_suggest_title", epic["title"]) + " — selected"
+        else:
+            label = st.session_state.get(f"suggest_title_{i}", epic["title"])
 
         with st.expander(label, expanded=is_selected):
             if is_selected:
                 st.success("This epic is currently selected. Proceed to Step 2 below.")
-            if epic.get("description"):
-                st.write(epic["description"])
-            if is_selected:
+                if epic.get("description"):
+                    st.write(epic["description"])
                 st.button("Use this Epic", key=f"use_epic_{i}", disabled=True, width="stretch")
             else:
+                st.text_input(
+                    "Title", value=epic["title"], key=f"suggest_title_{i}",
+                    label_visibility="collapsed",
+                )
+                st.text_area(
+                    "Description", value=epic.get("description", ""),
+                    key=f"suggest_desc_{i}", height=100, label_visibility="collapsed",
+                )
                 if st.button("Use this Epic", key=f"use_epic_{i}", type="primary", width="stretch"):
                     had_stories = bool(
                         st.session_state.get("nl_draft") or st.session_state.get("compiled_stories")
                     )
                     if had_stories:
                         _clear_story_progress()
+                    title_val = (st.session_state.get(f"suggest_title_{i}") or epic["title"]).strip()
+                    desc_val  = (st.session_state.get(f"suggest_desc_{i}")  or "").strip()
                     st.session_state["_pending_epic_data"] = {
-                        "subject":     epic["title"],
-                        "description": epic["description"],
+                        "subject":     title_val,
+                        "description": desc_val,
                     }
-                    st.session_state["_epic_loaded_by"] = "suggest"
-                    st.session_state["_selected_suggest_title"] = epic["title"]
+                    st.session_state["_epic_loaded_by"]        = "suggest"
+                    st.session_state["_selected_suggest_idx"]  = i
+                    st.session_state["_selected_suggest_title"] = title_val
                     if had_stories:
                         st.session_state["_notify_phase1"] = "Epic changed — previous stories cleared."
                     st.rerun()
@@ -1136,11 +1173,15 @@ def _clear_gherkin_editors() -> None:
 def _reset_state() -> None:
     _clear_gherkin_editors()
     context_manager.clear_draft()
+    for k in list(st.session_state.keys()):
+        if k.startswith(("suggest_title_", "suggest_desc_")):
+            del st.session_state[k]
     for key in (
         # Epic inputs + non-widget backups
         "epic_subject_input", "epic_desc_input", "epic_id_input",
         "_epic_subject_bak", "_epic_desc_bak",
         "_source_epic_id", "_epic_loaded_by", "_selected_suggest_title",
+        "_selected_suggest_idx",
         # Load-panel cache
         "epics_list", "epics_detail_cache", "epics_load_error",
         # Suggest-panel cache
@@ -1149,7 +1190,7 @@ def _reset_state() -> None:
         "nl_draft", "nl_editor", "story_subject",
         "compiled_stories", "push_done", "push_result",
         "ai_error", "compile_error",
-        # Navigation / legacy keys
-        "start_mode", "_committed_mode", "_mode_change_pending", "_desired_mode",
+        # Navigation / legacy keys (start_mode intentionally preserved — keeps active tab)
+        "_committed_mode", "_mode_change_pending", "_desired_mode",
     ):
         st.session_state.pop(key, None)

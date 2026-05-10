@@ -3,7 +3,6 @@
     background-color: #ffffff !important;
     color: #111111 !important;
     border: 1px solid #c8ccd4 !important;
-    transition: background-color 0.15s, border-color 0.15s, color 0.15s !important;
 }
 [data-testid="stBaseButton-primary"] {
     background-color: #7c3aed !important;
@@ -68,7 +67,6 @@ input::placeholder, textarea::placeholder {
 [data-testid="stExpander"] summary {
     background-color: #b8c4d2 !important;
     color: #111111 !important;
-    transition: background-color 0.15s !important;
 }
 [data-testid="stExpander"] summary:hover {
     background-color: #a4b0c0 !important;
