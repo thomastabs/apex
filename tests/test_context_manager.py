@@ -666,34 +666,19 @@ class TestConfig:
         cm.save_config(1786966)
         assert cm.load_config()["project_id"] == 1786966
 
-    def test_save_config_with_auth_token(self, tmp_path, monkeypatch):
+    def test_save_config_strips_stale_auth_token(self, tmp_path, monkeypatch):
+        """save_config() removes any previously persisted auth_token."""
+        import json
         from src import context_manager as cm
         monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
-        monkeypatch.setattr(cm, "_CONFIG_FILE", tmp_path / ".apex-config.json")
-        cm.save_config(42, auth_token="tok-abc")
+        cfg_file = tmp_path / ".apex-config.json"
+        monkeypatch.setattr(cm, "_CONFIG_FILE", cfg_file)
+        # Simulate a stale file that has an auth_token from an older version.
+        cfg_file.write_text(json.dumps({"project_id": 1, "auth_token": "stale-tok"}))
+        cm.save_config(42)
         cfg = cm.load_config()
         assert cfg["project_id"] == 42
-        assert cfg["auth_token"] == "tok-abc"
-
-    def test_save_config_preserves_existing_auth_token(self, tmp_path, monkeypatch):
-        from src import context_manager as cm
-        monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
-        monkeypatch.setattr(cm, "_CONFIG_FILE", tmp_path / ".apex-config.json")
-        cm.save_config(42, auth_token="tok-abc")
-        cm.save_config(99)  # update project only
-        cfg = cm.load_config()
-        assert cfg["project_id"] == 99
-        assert cfg["auth_token"] == "tok-abc"
-
-    def test_save_config_preserves_existing_project_when_saving_token(self, tmp_path, monkeypatch):
-        from src import context_manager as cm
-        monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
-        monkeypatch.setattr(cm, "_CONFIG_FILE", tmp_path / ".apex-config.json")
-        cm.save_config(77)
-        cm.save_config(77, auth_token="new-tok")
-        cfg = cm.load_config()
-        assert cfg["project_id"] == 77
-        assert cfg["auth_token"] == "new-tok"
+        assert "auth_token" not in cfg
 
     def test_load_returns_empty_when_file_missing(self, tmp_path, monkeypatch):
         from src import context_manager as cm
