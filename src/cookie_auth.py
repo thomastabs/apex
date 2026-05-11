@@ -8,19 +8,24 @@ from datetime import datetime, timedelta
 
 import streamlit as st
 
-_COOKIE  = "apex_session"
+_COOKIE   = "apex_session"
 _TTL_DAYS = 7
-
-
-@st.cache_resource
-def _mgr():
-    import extra_streamlit_components as stx  # noqa: PLC0415
-    return stx.CookieManager(key="apex_cookies")
+_MGR_KEY  = "_apex_cookie_mgr"
 
 
 def init() -> None:
-    """Render the invisible cookie component. Must be called on every page run."""
-    _mgr()
+    """Instantiate (and render) the CookieManager. Must be called on every page run.
+
+    CookieManager renders a custom component on each run to read browser cookies —
+    it cannot be wrapped in @st.cache_resource because that defers the render.
+    We store the instance in session_state so other helpers can reach it.
+    """
+    import extra_streamlit_components as stx  # noqa: PLC0415
+    st.session_state[_MGR_KEY] = stx.CookieManager(key="apex_cookies")
+
+
+def _mgr():
+    return st.session_state.get(_MGR_KEY)
 
 
 def get_token() -> str:
