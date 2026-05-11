@@ -129,60 +129,6 @@ else:
     if _session_pid and _session_pid != _ta.TAIGA_PROJECT_ID:
         _ta.set_active_project(_session_pid)
 
-# ── Session-level auth gate ───────────────────────────────────────────────────
-# The Taiga token lives in a module-level global shared across all browser
-# sessions in the same process.  Without a per-session gate any visitor who
-# arrives while the container is warm would bypass sign-in entirely.
-# _session_auth must be set explicitly for every new browser session.
-
-def _render_login_gate() -> None:
-    from src import taiga_adapter as _ta
-
-    _, col, _ = st.columns([1, 2, 1])
-    with col:
-        st.markdown(
-            f'<p style="font-size:1.6rem;font-weight:700;color:#7c3aed;'
-            f'letter-spacing:-0.02em;margin-bottom:4px;">Apex</p>'
-            f'<p style="color:#888;font-size:14px;margin-top:0;">Sign in to continue</p>',
-            unsafe_allow_html=True,
-        )
-        mode = st.radio("Sign in with", ["Credentials", "Auth token"],
-                        horizontal=True, key="gate_mode")
-        if mode == "Credentials":
-            uname = st.text_input("Username or email", key="gate_uname",
-                                  label_visibility="collapsed",
-                                  placeholder="Username or email")
-            pw    = st.text_input("Password", key="gate_pw",
-                                  label_visibility="collapsed",
-                                  placeholder="Password", type="password")
-            if st.button("Sign in", type="primary", key="gate_sign_in",
-                         disabled=not (uname.strip() and pw.strip()),
-                         width="stretch"):
-                try:
-                    with st.spinner("Authenticating…"):
-                        _ta.login(uname.strip(), pw.strip())
-                    st.session_state["_session_auth"] = True
-                    st.rerun()
-                except _ta.TaigaAPIError as exc:
-                    msg = str(exc)
-                    if "401" in msg:
-                        st.error("Wrong username or password.")
-                        st.caption("If your credentials are correct, try the Auth token option instead.")
-                    else:
-                        st.error(msg)
-        else:
-            token = st.text_input("Auth token", key="gate_token",
-                                  label_visibility="collapsed",
-                                  placeholder="Paste your Taiga auth token")
-            st.caption("Find it at Taiga → Profile → Edit profile → API token")
-            if st.button("Use token", type="primary", key="gate_use_token",
-                         disabled=not (token or "").strip(),
-                         width="stretch"):
-                _ta.set_token(token.strip())
-                st.session_state["_session_auth"] = True
-                st.rerun()
-
-
 # ── Navigation ────────────────────────────────────────────────────────────────
 
 _pages = [
@@ -195,10 +141,5 @@ _pages = [
 ]
 
 pg = st.navigation(_pages, position="hidden")
-
-if not st.session_state.get("_session_auth"):
-    _render_login_gate()
-    st.stop()
-
 pg.run()
 render_sidebar()
