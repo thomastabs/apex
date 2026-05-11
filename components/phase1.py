@@ -96,25 +96,20 @@ def _restore_draft() -> None:
     nl = draft.get("nl_draft", "")
     if nl:
         st.session_state["nl_draft"]  = nl
-        st.session_state["nl_editor"] = draft.get("nl_editor", nl)
+        st.session_state["nl_editor"] = nl
     compiled = draft.get("compiled_stories")
     if compiled:
         st.session_state["compiled_stories"] = compiled
-        saved_edits = draft.get("gherkin_edits", [])
         for i, item in enumerate(compiled):
-            saved = saved_edits[i] if i < len(saved_edits) else ""
-            st.session_state[f"gherkin_edit_{i}"] = saved or item["gherkin"]
+            st.session_state[f"gherkin_edit_{i}"] = item["gherkin"]
 
 
 def _save_current_draft() -> None:
-    n = len(st.session_state.get("compiled_stories") or [])
     context_manager.save_draft({
         "epic_subject":     st.session_state.get("epic_subject_input", ""),
         "epic_id":          st.session_state.get("epic_id_input", ""),
         "nl_draft":         st.session_state.get("nl_draft", ""),
-        "nl_editor":        st.session_state.get("nl_editor", ""),
         "compiled_stories": st.session_state.get("compiled_stories"),
-        "gherkin_edits":    [st.session_state.get(f"gherkin_edit_{i}", "") for i in range(n)],
     })
 
 
@@ -512,7 +507,6 @@ def _section_review() -> None:
         "Natural Language Story Draft",
         key="nl_editor",
         height=400,
-        on_change=_save_current_draft,
     )
 
 
@@ -676,7 +670,6 @@ def _section_gherkin_review() -> None:
                 height=250,
                 label_visibility="collapsed",
                 disabled=push_done,
-                on_change=_save_current_draft,
             )
 
     if not push_done:
