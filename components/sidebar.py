@@ -13,6 +13,7 @@ import streamlit as st
 
 from src import ai_engine
 from src import context_manager
+from src import cookie_auth
 from src import taiga_adapter
 
 # Gherkin keyword regex (mirrors ai_engine._GHERKIN_BLOCK_RE / _GHERKIN_STEP_RE)
@@ -289,6 +290,8 @@ def _switch_account_dialog() -> None:
             try:
                 with st.spinner("Authenticating…"):
                     taiga_adapter.login(uname.strip(), pw.strip())
+                cookie_auth.save_token(taiga_adapter.get_current_token())
+                st.session_state["_session_auth"] = True
                 _clear_taiga_caches()
                 st.rerun()
             except taiga_adapter.TaigaAPIError as exc:
@@ -305,6 +308,8 @@ def _switch_account_dialog() -> None:
         if st.button("Use token", type="primary", key="sw_dlg_token_btn",
                      disabled=not (token or "").strip(), width='stretch'):
             taiga_adapter.set_token(token.strip())
+            cookie_auth.save_token(token.strip())
+            st.session_state["_session_auth"] = True
             _clear_taiga_caches()
             st.rerun()
 
@@ -312,6 +317,8 @@ def _switch_account_dialog() -> None:
         st.divider()
         if st.button("Sign out", key="sw_dlg_signout_btn", width='stretch'):
             taiga_adapter.clear_token()
+            cookie_auth.clear()
+            st.session_state.pop("_session_auth", None)
             _clear_taiga_caches()
             st.rerun()
 

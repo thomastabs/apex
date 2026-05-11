@@ -97,6 +97,11 @@ def validate_project() -> str | None:
         return str(exc)
 
 
+def get_current_token() -> str:
+    """Return the current in-memory auth token."""
+    return _token["value"]
+
+
 def restore_token(token: str) -> None:
     """Set the in-memory auth token (used by the login dialog)."""
     _token["value"] = token

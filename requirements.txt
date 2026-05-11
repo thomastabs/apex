@@ -7,3 +7,4 @@ requests>=2.32.3
 python-dotenv>=1.0.1
 pydantic>=2.0.0
 azure-monitor-opentelemetry>=1.6.0
+extra-streamlit-components>=0.1.6
