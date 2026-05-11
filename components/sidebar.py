@@ -354,12 +354,13 @@ def render_sidebar() -> None:
         _taiga_status()
         _taiga_board()
         _user_management()
-        st.divider()
-        _section_header("Active Context")
-        _memory_bank()
-        st.divider()
-        _section_header("SDLC Phases")
-        _phase_nav()
+        if taiga_adapter.is_configured():
+            st.divider()
+            _section_header("Active Context")
+            _memory_bank()
+            st.divider()
+            _section_header("SDLC Phases")
+            _phase_nav()
 
 
 # ── Phase navigation ──────────────────────────────────────────────────────────
