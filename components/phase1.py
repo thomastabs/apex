@@ -1030,6 +1030,13 @@ def _panel_load_epic() -> None:
 # ── Panel: AI Suggests ────────────────────────────────────────────────────────
 
 def _panel_suggest_epics() -> None:
+    if not taiga_adapter.is_configured():
+        st.info("Sign in to Taiga using the ⇄ button in the sidebar to use AI Epic suggestions.")
+        return
+    if not taiga_adapter.TAIGA_PROJECT_ID:
+        st.info("Select a Taiga project in the sidebar before generating Epic suggestions.")
+        return
+
     project_concept = context_manager.get_project_concept()
     if not project_concept:
         st.warning(

@@ -454,9 +454,6 @@ def _taiga_user_info() -> None:
 
 def _taiga_status() -> None:
     if not taiga_adapter.is_configured():
-        st.caption("No Taiga account connected — use the ⇄ button above to sign in to Taiga.")
-        with st.expander("Select project", key="taiga_sel_proj_exp"):
-            _taiga_project_manager()
         return
 
     proj_id = taiga_adapter.TAIGA_PROJECT_ID
