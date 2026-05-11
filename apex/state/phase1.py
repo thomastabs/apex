@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import re
 
 import reflex as rx
 
@@ -9,6 +10,22 @@ from src import ai_engine, context_manager, taiga_adapter
 from apex.state.project import ProjectState
 
 _logger = logging.getLogger("apex.state.phase1")
+
+
+def validate_stories(compiled: list[dict], gherkin_edits: list[str]) -> list[str]:
+    """Return validation error strings; push is blocked until the list is empty."""
+    errors: list[str] = []
+    for i, item in enumerate(compiled):
+        title = item.get("title", "").strip()
+        gherkin = (gherkin_edits[i] if i < len(gherkin_edits) else "") or item.get("gherkin", "")
+        label = f'"{title}"' if title else f"Story {i + 1}"
+        if not title:
+            errors.append(f"Story {i + 1} has no title.")
+        if not re.search(r"^\s*Feature:", gherkin, re.MULTILINE):
+            errors.append(f"{label} is missing a Feature: header.")
+        if not re.search(r"^\s*Scenario", gherkin, re.MULTILINE):
+            errors.append(f"{label} is missing a Scenario block.")
+    return errors
 
 
 class Phase1State(ProjectState):
@@ -385,7 +402,7 @@ class Phase1State(ProjectState):
 
             for i, item in enumerate(compiled):
                 title = item.get("title", "").strip()
-                gherkin = gherkin_edits[i] if i < len(gherkin_edits) else item.get("gherkin", "")
+                gherkin = (gherkin_edits[i] if i < len(gherkin_edits) else "") or item.get("gherkin", "")
                 bold_gherkin = ai_engine.bold_gherkin_keywords(gherkin)
 
                 story = taiga_adapter.create_story(
@@ -449,5 +466,5 @@ class Phase1State(ProjectState):
         return (
             self.has_compiled
             and not self.push_done
-            and all(s.get("title", "").strip() for s in self.compiled_stories)
+            and len(validate_stories(self.compiled_stories, self.gherkin_edits)) == 0
         )
