@@ -10,47 +10,73 @@ _FILES = ("memory-bank.md", "functional-spec.md", "technical-spec.md", "vaccines
 
 class ContextState(ProjectState):
     mem_bank_content: str = ""
-    mem_bank_edit: bool = False
     func_spec_content: str = ""
-    func_spec_edit: bool = False
     tech_spec_content: str = ""
-    tech_spec_edit: bool = False
     vaccines_content: str = ""
-    vaccines_edit: bool = False
     context_sizes: dict = {}
     context_error: str = ""
 
-    @rx.event
-    def toggle_mem_bank_edit(self):
-        self.mem_bank_edit = not self.mem_bank_edit
+    # ── Computed vars ─────────────────────────────────────────────────────────
 
-    @rx.event
-    def set_mem_bank_content(self, value: str):
-        self.mem_bank_content = value
+    @rx.var
+    def context_total_chars(self) -> int:
+        return (
+            len(self.mem_bank_content)
+            + len(self.func_spec_content)
+            + len(self.tech_spec_content)
+            + len(self.vaccines_content)
+        )
 
-    @rx.event
-    def toggle_func_spec_edit(self):
-        self.func_spec_edit = not self.func_spec_edit
+    @rx.var
+    def context_size_color(self) -> str:
+        total = self.context_total_chars
+        if total < 30_000:
+            return "#4ade80"
+        elif total < 80_000:
+            return "#facc15"
+        return "#f87171"
 
-    @rx.event
-    def set_func_spec_content(self, value: str):
-        self.func_spec_content = value
+    # Phase progress badges (derived from story index on disk)
+    @rx.var
+    def phase2_badge(self) -> str:
+        return self._phase_badge(2)
 
-    @rx.event
-    def toggle_tech_spec_edit(self):
-        self.tech_spec_edit = not self.tech_spec_edit
+    @rx.var
+    def phase3_badge(self) -> str:
+        return self._phase_badge(3)
 
-    @rx.event
-    def set_tech_spec_content(self, value: str):
-        self.tech_spec_content = value
+    @rx.var
+    def phase4_badge(self) -> str:
+        return self._phase_badge(4)
 
-    @rx.event
-    def toggle_vaccines_edit(self):
-        self.vaccines_edit = not self.vaccines_edit
+    @rx.var
+    def phase5_badge(self) -> str:
+        return self._phase_badge(5)
 
-    @rx.event
-    def set_vaccines_content(self, value: str):
-        self.vaccines_content = value
+    def _phase_badge(self, phase: int) -> str:
+        try:
+            index = context_manager.get_story_index()
+            if not index:
+                return ""
+            total = len(index)
+            stories = list(index.values())
+            if phase == 2:
+                n = sum(1 for s in stories if s.get("has_tech_spec"))
+                return f"{n}/{total} designed" if n else ""
+            if phase == 3:
+                n = sum(1 for s in stories if s.get("has_proposal"))
+                return f"{n}/{total} proposed" if n else ""
+            if phase == 4:
+                n = sum(1 for s in stories if s.get("has_bdd"))
+                return f"{n}/{total} tested" if n else ""
+            if phase == 5:
+                n = sum(1 for s in stories if s.get("phase_status") == "deployed")
+                return f"{n}/{total} deployed" if n else ""
+        except Exception:
+            pass
+        return ""
+
+    # ── Load / reload ─────────────────────────────────────────────────────────
 
     @rx.event
     def load_context(self):
@@ -63,29 +89,47 @@ class ContextState(ProjectState):
         except Exception as exc:
             self.context_error = str(exc)
 
+    # ── Autosave handlers (called on every textarea change) ───────────────────
+
     @rx.event
     def save_mem_bank(self, content: str):
         context_manager.write_context_file("memory-bank.md", content)
         self.mem_bank_content = content
-        self.mem_bank_edit = False
 
     @rx.event
     def save_func_spec(self, content: str):
         context_manager.write_context_file("functional-spec.md", content)
         self.func_spec_content = content
-        self.func_spec_edit = False
 
     @rx.event
     def save_tech_spec(self, content: str):
         context_manager.write_context_file("technical-spec.md", content)
         self.tech_spec_content = content
-        self.tech_spec_edit = False
 
     @rx.event
     def save_vaccines(self, content: str):
         context_manager.write_context_file("vaccines.md", content)
         self.vaccines_content = content
-        self.vaccines_edit = False
+
+    # ── Download ──────────────────────────────────────────────────────────────
+
+    @rx.event
+    def download_mem_bank(self):
+        return rx.download(data=self.mem_bank_content.encode("utf-8"), filename="memory-bank.md")
+
+    @rx.event
+    def download_func_spec(self):
+        return rx.download(data=self.func_spec_content.encode("utf-8"), filename="functional-spec.md")
+
+    @rx.event
+    def download_tech_spec(self):
+        return rx.download(data=self.tech_spec_content.encode("utf-8"), filename="technical-spec.md")
+
+    @rx.event
+    def download_vaccines(self):
+        return rx.download(data=self.vaccines_content.encode("utf-8"), filename="vaccines.md")
+
+    # ── Reset ─────────────────────────────────────────────────────────────────
 
     @rx.event
     def reset_context_file(self, filename: str):

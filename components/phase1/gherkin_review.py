@@ -22,7 +22,16 @@ def _story_card(story: dict) -> rx.Component:
                     flex="1",
                     disabled=Phase1State.push_done,
                 ),
-                rx.badge(story.get("size", "M"), variant="soft", color_scheme="gray"),
+                rx.button(
+                    story["size"],
+                    size="1",
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=Phase1State.cycle_story_size(idx),
+                    disabled=Phase1State.push_done,
+                    title="Click to cycle size",
+                    min_width="36px",
+                ),
                 rx.button(
                     "✕",
                     size="1",
@@ -54,14 +63,30 @@ def _story_card(story: dict) -> rx.Component:
     )
 
 
+def _validation_errors() -> rx.Component:
+    return rx.cond(
+        Phase1State.validation_errors.length() > 0,
+        rx.vstack(
+            rx.foreach(
+                Phase1State.validation_errors,
+                lambda e: rx.text("· " + e, size="1", color_scheme="red"),
+            ),
+            spacing="1",
+            width="100%",
+        ),
+        rx.fragment(),
+    )
+
+
 def gherkin_review_section() -> rx.Component:
     return rx.cond(
         Phase1State.has_compiled,
         rx.vstack(
             rx.heading("Step 5 · Review Gherkin Stories", size="4"),
             rx.text(
-                "Edit story titles and Gherkin acceptance criteria. "
-                "Each story must have a title and a valid Feature block before pushing.",
+                "Edit story titles, sizes, and Gherkin acceptance criteria. "
+                "Click the size badge to cycle it. Each story must have a title "
+                "and a valid Feature block before pushing.",
                 size="2",
                 color_scheme="gray",
             ),
@@ -77,12 +102,15 @@ def gherkin_review_section() -> rx.Component:
                 rx.fragment(),
             ),
             rx.separator(width="100%"),
-            # ── Push controls ─────────────────────────────────────────────
+            # ── Validation errors ──────────────────────────────────────────
+            _validation_errors(),
+            # ── Push controls ──────────────────────────────────────────────
             rx.cond(
                 Phase1State.push_done,
                 rx.vstack(
                     rx.callout(
-                        f"{Phase1State.push_result.get('count', 0)} stories pushed to Taiga successfully.",
+                        Phase1State.push_result.get("count", 0).to_string()
+                        + " stories pushed to Taiga successfully.",
                         color="green",
                         size="2",
                     ),

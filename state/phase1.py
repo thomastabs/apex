@@ -358,6 +358,16 @@ class Phase1State(ProjectState):
         self.compiled_stories = stories
 
     @rx.event
+    def cycle_story_size(self, index: int):
+        _sizes = ["XS", "S", "M", "L", "XL"]
+        stories = list(self.compiled_stories)
+        if index < len(stories):
+            cur = stories[index].get("size", "M")
+            nxt = _sizes[(_sizes.index(cur) + 1) % len(_sizes)] if cur in _sizes else "M"
+            stories[index] = {**stories[index], "size": nxt}
+        self.compiled_stories = stories
+
+    @rx.event
     def delete_story(self, index: int):
         self.compiled_stories = [s for i, s in enumerate(self.compiled_stories) if i != index]
         self.gherkin_edits = [g for i, g in enumerate(self.gherkin_edits) if i != index]
@@ -467,6 +477,10 @@ class Phase1State(ProjectState):
         return result
 
     @rx.var
+    def validation_errors(self) -> list[str]:
+        return validate_stories(self.compiled_stories, self.gherkin_edits)
+
+    @rx.var
     def has_nl_draft(self) -> bool:
         return bool(self.nl_draft)
 
@@ -480,8 +494,4 @@ class Phase1State(ProjectState):
 
     @rx.var
     def can_push(self) -> bool:
-        return (
-            self.has_compiled
-            and not self.push_done
-            and len(validate_stories(self.compiled_stories, self.gherkin_edits)) == 0
-        )
+        return self.has_compiled and not self.push_done and len(self.validation_errors) == 0

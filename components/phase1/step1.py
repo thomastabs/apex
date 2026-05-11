@@ -71,7 +71,17 @@ def _load_panel() -> rx.Component:
                         Phase1State.epics_list,
                         lambda epic: rx.hstack(
                             rx.vstack(
-                                rx.text(epic["subject"], size="2", weight="bold"),
+                                rx.hstack(
+                                    rx.text(
+                                        "#" + epic["ref"].to_string(),
+                                        size="1",
+                                        color_scheme="violet",
+                                        weight="bold",
+                                    ),
+                                    rx.text(epic["subject"], size="2", weight="bold"),
+                                    spacing="2",
+                                    align="center",
+                                ),
                                 rx.text(epic.get("description", ""), size="1", color_scheme="gray",
                                         no_of_lines=2),
                                 spacing="0",
