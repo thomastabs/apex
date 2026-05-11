@@ -165,6 +165,7 @@ def _story_details_dialog(story: dict, stories_key: str | None = None) -> None:
         value=", ".join(tags),
         key=f"dlg_tags_{sid}",
     )
+    new_desc = st.text_area("Description", value=desc, key=f"dlg_desc_{sid}", height=180)
 
     # Status selectbox
     selected_status_id = status
@@ -199,6 +200,7 @@ def _story_details_dialog(story: dict, stories_key: str | None = None) -> None:
                 updated = taiga_adapter.update_story(
                     sid, version,
                     subject=new_subject.strip(),
+                    description=new_desc.strip(),
                     tags=new_tags,
                     status_id=selected_status_id,
                 )
@@ -211,12 +213,6 @@ def _story_details_dialog(story: dict, stories_key: str | None = None) -> None:
                 st.success("Story updated.")
             except taiga_adapter.TaigaAPIError as exc:
                 st.error(str(exc))
-
-    st.divider()
-    if desc:
-        _render_description(desc)
-    else:
-        st.caption("No description available.")
 
 
 @st.dialog("Epic Details", width="large")
@@ -252,6 +248,7 @@ def _epic_details_dialog(epic: dict, epics_key: str | None = None) -> None:
         value=", ".join(tags),
         key=f"dlg_ep_tags_{eid}",
     )
+    new_desc = st.text_area("Description", value=desc, key=f"dlg_ep_desc_{eid}", height=180)
 
     if st.button("Save changes", type="primary", key=f"dlg_ep_save_{eid}", width='stretch'):
         if not new_subject.strip():
@@ -264,6 +261,7 @@ def _epic_details_dialog(epic: dict, epics_key: str | None = None) -> None:
                 updated = taiga_adapter.update_epic(
                     eid, version,
                     subject=new_subject.strip(),
+                    description=new_desc.strip(),
                     tags=new_tags,
                 )
                 if epics_key and epics_key in st.session_state:
@@ -275,12 +273,6 @@ def _epic_details_dialog(epic: dict, epics_key: str | None = None) -> None:
                 st.success("Epic updated.")
             except taiga_adapter.TaigaAPIError as exc:
                 st.error(str(exc))
-
-    st.divider()
-    if desc:
-        _render_description(desc)
-    else:
-        st.caption("No description available.")
 
 
 @st.dialog("Switch Account")
@@ -322,6 +314,44 @@ def _switch_account_dialog() -> None:
             taiga_adapter.clear_token()
             _clear_taiga_caches()
             st.rerun()
+
+
+@st.dialog("New Epic", width="large")
+def _create_epic_dialog(epics_key: str) -> None:
+    name = st.text_input("Title", key="dlg_new_epic_name", placeholder="Epic title")
+    desc = st.text_area("Description", key="dlg_new_epic_desc", placeholder="Description (optional)", height=120)
+    if st.button("Create epic", type="primary", key="dlg_create_epic_btn",
+                 disabled=not (name or "").strip(), width='stretch'):
+        try:
+            with st.spinner("Creating…"):
+                epic = taiga_adapter.create_epic(name.strip(), (desc or "").strip())
+            st.session_state[epics_key] = st.session_state.get(epics_key, []) + [epic]
+            st.session_state["epics_list"] = None
+            st.session_state.pop("epics_load_error", None)
+            st.session_state.pop("_pending_epic_data", None)
+            st.session_state["_notify_epics"] = f'Epic "{epic["subject"]}" created.'
+            st.rerun()
+        except taiga_adapter.TaigaAPIError as exc:
+            st.error(str(exc))
+
+
+@st.dialog("New Story", width="large")
+def _create_story_dialog(epic_id: int, stories_key: str) -> None:
+    title = st.text_input("Title", key=f"dlg_new_story_title_{epic_id}", placeholder="Story title")
+    desc  = st.text_area("Description", key=f"dlg_new_story_desc_{epic_id}",
+                         placeholder="Description (optional)", height=120)
+    if st.button("Create story", type="primary", key=f"dlg_create_story_{epic_id}",
+                 disabled=not (title or "").strip(), width='stretch'):
+        try:
+            with st.spinner("Creating…"):
+                story = taiga_adapter.create_story(
+                    title.strip(), (desc or "").strip(), epic_id=epic_id,
+                )
+            st.session_state[stories_key] = st.session_state.get(stories_key, []) + [story]
+            st.session_state["_notify_epics"] = f'Story "{story["subject"]}" created.'
+            st.rerun()
+        except taiga_adapter.TaigaAPIError as exc:
+            st.error(str(exc))
 
 
 def _clear_taiga_caches() -> None:
@@ -748,11 +778,14 @@ def _board_content() -> None:
             return
         st.rerun()
 
-    col_info, col_btn = st.columns([4, 1])
+    col_info, col_new, col_reload = st.columns([4, 1, 1])
     with col_info:
         st.caption(f"{len(epics)} epic(s)")
-    with col_btn:
-        if st.button("↻", key="board_load_btn", width='stretch'):
+    with col_new:
+        if st.button("＋", key="board_new_epic_btn", width='stretch', help="New epic"):
+            _create_epic_dialog(epics_key)
+    with col_reload:
+        if st.button("↻", key="board_load_btn", width='stretch', help="Reload epics"):
             del st.session_state[epics_key]
             for k in list(st.session_state):
                 if k.startswith("board_stories_"):
@@ -764,9 +797,6 @@ def _board_content() -> None:
     else:
         for epic in epics:
             _board_epic_row(epic, epics_key)
-
-    st.divider()
-    _board_create_epic(epics_key)
 
 
 def _board_epic_row(epic: dict, epics_key: str) -> None:
@@ -840,7 +870,8 @@ def _board_epic_row(epic: dict, epics_key: str) -> None:
         else:
             for story in stories:
                 _board_story_row(story, stor_key)
-        _board_create_story(epic_id, stor_key)
+        if st.button("＋ New story", key=f"board_new_story_btn_{epic_id}", width='stretch'):
+            _create_story_dialog(epic_id, stor_key)
 
 
 def _board_story_row(story: dict, stories_key: str) -> None:
@@ -888,53 +919,6 @@ def _board_story_row(story: dict, stories_key: str) -> None:
                 st.session_state.pop(del_key, None)
                 st.rerun()
 
-
-def _board_create_epic(epics_key: str) -> None:
-    st.caption("New epic")
-    name = st.text_input("Epic name", key="board_new_epic_name",
-                         label_visibility="collapsed", placeholder="Title")
-    desc = st.text_input("Epic description", key="board_new_epic_desc",
-                         label_visibility="collapsed", placeholder="Description")
-    if st.button("Create epic", key="board_create_epic_btn",
-                 disabled=not (name or "").strip(), width='stretch'):
-        try:
-            with st.spinner("Creating…"):
-                epic = taiga_adapter.create_epic(name.strip(), (desc or "").strip())
-            st.session_state[epics_key] = st.session_state.get(epics_key, []) + [epic]
-            st.session_state["epics_list"] = None
-            st.session_state.pop("epics_load_error", None)
-            st.session_state.pop("_pending_epic_data", None)
-            st.session_state.pop("board_new_epic_name", None)
-            st.session_state.pop("board_new_epic_desc", None)
-            st.session_state["_notify_epics"] = f'Epic "{epic["subject"]}" created.'
-            st.rerun()
-        except taiga_adapter.TaigaAPIError as exc:
-            st.error(str(exc))
-
-
-def _board_create_story(epic_id: int, stories_key: str) -> None:
-    title_key = f"board_new_story_{epic_id}"
-    desc_key  = f"board_new_story_desc_{epic_id}"
-    st.caption("  New story")
-    title = st.text_input("Story title", key=title_key,
-                          label_visibility="collapsed", placeholder="Title")
-    desc  = st.text_area("Story description", key=desc_key,
-                         label_visibility="collapsed", placeholder="Description (optional)",
-                         height=80)
-    if st.button("Create story", key=f"board_create_story_{epic_id}",
-                 disabled=not (title or "").strip(), width='stretch'):
-        try:
-            with st.spinner("Creating…"):
-                story = taiga_adapter.create_story(
-                    title.strip(), (desc or "").strip(), epic_id=epic_id,
-                )
-            st.session_state[stories_key] = st.session_state.get(stories_key, []) + [story]
-            st.session_state.pop(title_key, None)
-            st.session_state.pop(desc_key, None)
-            st.session_state["_notify_epics"] = f'Story "{story["subject"]}" created.'
-            st.rerun()
-        except taiga_adapter.TaigaAPIError as exc:
-            st.error(str(exc))
 
 
 # ── User Management ───────────────────────────────────────────────────────────
