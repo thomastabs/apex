@@ -687,6 +687,19 @@ _TEMPLATES: dict[str, str] = {
 }
 
 
+def read_context_file(filename: str) -> str:
+    """Return the content of a named context file, or '' if missing."""
+    init_context()
+    path = CONTEXT_DIR / filename
+    return path.read_text(encoding="utf-8").strip() if path.exists() else ""
+
+
+def write_context_file(filename: str, content: str) -> None:
+    """Overwrite a named context file with new content."""
+    init_context()
+    (CONTEXT_DIR / filename).write_text(content, encoding="utf-8")
+
+
 def reset_context_file(filename: str) -> None:
     """Reset a single context file to its blank template."""
     template = _TEMPLATES.get(filename)
