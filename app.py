@@ -43,7 +43,7 @@ def _configure_telemetry() -> None:
 
 _configure_telemetry()
 
-_PREF_FILE = Path(".streamlit/.theme_pref")
+_PREF_FILE = Path("contextspec/.apex-theme")
 
 _THEMES = {
     True:  {"bg": "#1a1a1a", "sbg": "#242424", "text": "#d4d4d4"},

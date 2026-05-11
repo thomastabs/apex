@@ -75,7 +75,7 @@ def _render_description(text: str, min_height: int = 200) -> None:
         unsafe_allow_html=True,
     )
 
-_PREF_FILE = Path(".streamlit/.theme_pref")
+_PREF_FILE = Path("contextspec/.apex-theme")
 
 
 def _theme_button() -> None:
@@ -84,7 +84,7 @@ def _theme_button() -> None:
     if st.button(label, key="theme_btn", width='stretch'):
         new_val = not is_dark
         st.session_state["theme_is_dark"] = new_val
-        _PREF_FILE.parent.mkdir(exist_ok=True)
+        _PREF_FILE.parent.mkdir(parents=True, exist_ok=True)
         _PREF_FILE.write_text("dark" if new_val else "light")
         st.rerun()
 
@@ -189,14 +189,16 @@ def _story_details_dialog(story: dict, stories_key: str | None = None) -> None:
         selected_status_id = s_ids[sel]
 
     if st.button("Save changes", type="primary", key=f"dlg_save_{sid}", width='stretch'):
-        if version is None:
+        if not new_subject.strip():
+            st.error("Title cannot be empty.")
+        elif version is None:
             st.error("Cannot save: story version unavailable — reload the board and retry.")
         else:
             new_tags = [t.strip() for t in new_tags_str.split(",") if t.strip()]
             try:
                 updated = taiga_adapter.update_story(
                     sid, version,
-                    subject=new_subject.strip() or subject,
+                    subject=new_subject.strip(),
                     tags=new_tags,
                     status_id=selected_status_id,
                 )
@@ -252,14 +254,16 @@ def _epic_details_dialog(epic: dict, epics_key: str | None = None) -> None:
     )
 
     if st.button("Save changes", type="primary", key=f"dlg_ep_save_{eid}", width='stretch'):
-        if version is None:
+        if not new_subject.strip():
+            st.error("Title cannot be empty.")
+        elif version is None:
             st.error("Cannot save: epic version unavailable — reload the board and retry.")
         else:
             new_tags = [t.strip() for t in new_tags_str.split(",") if t.strip()]
             try:
                 updated = taiga_adapter.update_epic(
                     eid, version,
-                    subject=new_subject.strip() or subject,
+                    subject=new_subject.strip(),
                     tags=new_tags,
                 )
                 if epics_key and epics_key in st.session_state:
