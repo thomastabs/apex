@@ -376,14 +376,18 @@ def _delete_epic_action(epic: dict) -> None:
 # ── Step 2: Generate ──────────────────────────────────────────────────────────
 
 def _generation_overlay() -> None:
-    """Inject a fixed transparent overlay that blocks all pointer events during AI generation.
+    """Block interactive elements and show a wait cursor during AI generation.
 
-    The overlay is flushed to the browser when st.status() first writes, then removed on
-    the next rerun (it only renders inside the if-button block that triggered generation).
+    Uses a <style> injection instead of a fixed overlay so scroll events pass through
+    normally. Removed on the next rerun (only rendered inside the generation block).
     """
     st.markdown(
-        '<div style="position:fixed;top:0;left:0;right:0;bottom:0;'
-        'z-index:999999;cursor:wait;"></div>',
+        "<style>"
+        "* { cursor: wait !important; }"
+        "button, a, input, textarea, select, [role='button'],"
+        " [data-testid^='stBaseButton'], [data-testid='stTab'] {"
+        " pointer-events: none !important; }"
+        "</style>",
         unsafe_allow_html=True,
     )
 
