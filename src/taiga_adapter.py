@@ -2,7 +2,8 @@
 taiga_adapter.py
 All Taiga REST API GET/POST/PATCH logic.
 
-Authentication: Bearer token stored per browser session in st.session_state.
+Authentication: Bearer token stored in a module-level dict. Callers (Reflex event
+handlers) call set_token(token) before making API requests to keep it current.
 Auto-refresh: when a request returns 401 and TAIGA_USERNAME + TAIGA_PASSWORD are
 present in .env, the adapter re-authenticates automatically and updates the token.
 All public methods raise TaigaAPIError on non-2xx responses.
@@ -52,33 +53,10 @@ class TaigaAPIError(Exception):
 # ---------------------------------------------------------------------------
 
 def _get_token() -> str:
-    """Return the auth token for the current execution context.
-
-    Inside a Streamlit session: reads from st.session_state so each browser
-    session is fully isolated — no cross-session token leakage.
-    Outside Streamlit (tests, CLI): reads from the module-level _token dict so
-    existing test patches (patch.dict(taiga_adapter._token, ...)) still work.
-    """
-    try:
-        from streamlit.runtime.scriptrunner import get_script_run_ctx  # noqa: PLC0415
-        if get_script_run_ctx() is not None:
-            import streamlit as st  # noqa: PLC0415
-            return st.session_state.get("_apex_auth_token", "") or ""
-    except Exception:
-        pass
     return _token["value"]
 
 
 def _set_token(value: str) -> None:
-    """Persist the auth token for the current execution context."""
-    try:
-        from streamlit.runtime.scriptrunner import get_script_run_ctx  # noqa: PLC0415
-        if get_script_run_ctx() is not None:
-            import streamlit as st  # noqa: PLC0415
-            st.session_state["_apex_auth_token"] = value
-            return
-    except Exception:
-        pass
     _token["value"] = value
 
 
