@@ -406,7 +406,7 @@ def _section_generate() -> None:
     blockers: list[str] = []
     if not signed_in:
         blockers.append("signed_in")
-        st.info("Sign in to Taiga using the ⇄ button in the sidebar to load Epics.")
+        st.info("Sign in to Taiga using the ⇄ button in the sidebar to generate and push stories.")
     if not project_chosen:
         blockers.append("project")
         st.warning("No Taiga project selected — choose one in the sidebar under **Project**.")

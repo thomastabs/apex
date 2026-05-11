@@ -393,12 +393,12 @@ def render_sidebar() -> None:
         if taiga_adapter.is_configured():
             _memory_bank()
         else:
-            st.caption("Sign in and select a project to view and edit the Memory Bank, Functional Spec, and other context files that anchor AI across the SDLC.")
+            st.markdown("Sign in and select a project to view and edit the Memory Bank, Functional Spec, and other context files that anchor AI across the SDLC.")
         st.divider()
         _section_header("SDLC Phases")
         _phase_nav()
         if not taiga_adapter.is_configured():
-            st.caption("Sign in and select a Taiga project to get started.")
+            st.markdown("Sign in and select a Taiga project to get started.")
 
 
 # ── Phase navigation ──────────────────────────────────────────────────────────
