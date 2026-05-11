@@ -107,9 +107,8 @@ if "theme_is_dark" not in st.session_state:
 _inject_theme(st.session_state["theme_is_dark"])
 
 # ── Restore persisted project (once per browser session) ─────────────────────
-# Auth tokens are intentionally NOT persisted — an expired token would cause
-# cascading 401 errors on every sidebar render.  The user signs in fresh each
-# session via the ⇄ button; the active project is still remembered.
+# The active project ID is restored from config; the auth token is restored
+# separately from the browser cookie further below.
 
 if "_config_loaded" not in st.session_state:
     from src import context_manager as _ctx_mgr, taiga_adapter as _ta
@@ -137,12 +136,11 @@ from src import cookie_auth as _cookie_auth
 
 _cookie_auth.init()
 
-if not st.session_state.get("_session_auth"):
+from src import taiga_adapter as _ta_restore
+if not _ta_restore.is_configured():
     _saved = _cookie_auth.get_token()
     if _saved:
-        from src import taiga_adapter as _ta_restore
         _ta_restore.set_token(_saved)
-        st.session_state["_session_auth"] = True
 
 # ── Navigation ────────────────────────────────────────────────────────────────
 
