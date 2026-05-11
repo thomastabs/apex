@@ -156,24 +156,3 @@ _pages = [
 pg = st.navigation(_pages, position="hidden")
 pg.run()
 render_sidebar()
-
-# ── Unload guard ──────────────────────────────────────────────────────────────
-# Show the browser's native "Leave site?" dialog on refresh or tab-close when
-# the user has an active draft so they don't accidentally lose in-progress work.
-
-if st.session_state.get("nl_draft") or st.session_state.get("nl_editor"):
-    st.markdown(
-        """
-        <script>
-        (function () {
-            if (window._apexUnloadGuard) return;
-            window._apexUnloadGuard = true;
-            window.addEventListener('beforeunload', function (e) {
-                e.preventDefault();
-                e.returnValue = '';
-            });
-        })();
-        </script>
-        """,
-        unsafe_allow_html=True,
-    )
