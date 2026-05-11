@@ -354,13 +354,18 @@ def render_sidebar() -> None:
         _taiga_status()
         _taiga_board()
         _user_management()
+        st.divider()
+        _section_header("Active Context")
         if taiga_adapter.is_configured():
-            st.divider()
-            _section_header("Active Context")
             _memory_bank()
-            st.divider()
-            _section_header("SDLC Phases")
+        else:
+            st.caption("Sign in and choose a project to see context.")
+        st.divider()
+        _section_header("SDLC Phases")
+        if taiga_adapter.is_configured():
             _phase_nav()
+        else:
+            st.caption("Sign in and choose a project to see context.")
 
 
 # ── Phase navigation ──────────────────────────────────────────────────────────
