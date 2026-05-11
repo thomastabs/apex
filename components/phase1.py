@@ -406,7 +406,7 @@ def _section_generate() -> None:
     blockers: list[str] = []
     if not signed_in:
         blockers.append("signed_in")
-        st.warning("Not signed in to Taiga — use the **⇄** button in the sidebar to sign in.")
+        st.info("Sign in to Taiga using the ⇄ button in the sidebar to load Epics.")
     if not project_chosen:
         blockers.append("project")
         st.warning("No Taiga project selected — choose one in the sidebar under **Project**.")
@@ -945,7 +945,7 @@ def _panel_load_epic() -> None:
     project_chosen = bool(taiga_adapter.TAIGA_PROJECT_ID)
 
     if not signed_in:
-        st.warning("Not signed in to Taiga — use the **⇄** button in the sidebar to sign in.")
+        st.info("Sign in to Taiga using the ⇄ button in the sidebar to load Epics.")
         return
     if not project_chosen:
         st.warning("No Taiga project selected — choose one in the sidebar under **Project**.")
