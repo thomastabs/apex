@@ -145,6 +145,7 @@ def _context_file_editor(
     toggle_event,
     save_event,
     reset_filename: str,
+    set_content_event=None,
 ) -> rx.Component:
     return rx.accordion.item(
         header=rx.text(label, size="2"),
@@ -154,7 +155,7 @@ def _context_file_editor(
                 rx.vstack(
                     rx.text_area(
                         value=content_var,
-                        on_change=lambda v: save_event(v),
+                        on_change=set_content_event if set_content_event else (lambda v: save_event(v)),
                         rows="8",
                         width="100%",
                         font_family="monospace",
@@ -223,6 +224,7 @@ def _active_context() -> rx.Component:
                     ContextState.toggle_mem_bank_edit,
                     ContextState.save_mem_bank,
                     "memory-bank.md",
+                    ContextState.set_mem_bank_content,
                 ),
                 _context_file_editor(
                     "Functional Spec",
@@ -231,6 +233,7 @@ def _active_context() -> rx.Component:
                     ContextState.toggle_func_spec_edit,
                     ContextState.save_func_spec,
                     "functional-spec.md",
+                    ContextState.set_func_spec_content,
                 ),
                 _context_file_editor(
                     "Technical Spec",
@@ -239,6 +242,7 @@ def _active_context() -> rx.Component:
                     ContextState.toggle_tech_spec_edit,
                     ContextState.save_tech_spec,
                     "technical-spec.md",
+                    ContextState.set_tech_spec_content,
                 ),
                 _context_file_editor(
                     "Vaccine Records",
@@ -247,6 +251,7 @@ def _active_context() -> rx.Component:
                     ContextState.toggle_vaccines_edit,
                     ContextState.save_vaccines,
                     "vaccines.md",
+                    ContextState.set_vaccines_content,
                 ),
                 collapsible=True,
                 type="multiple",

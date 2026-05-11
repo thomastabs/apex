@@ -25,16 +25,32 @@ class ContextState(ProjectState):
         self.mem_bank_edit = not self.mem_bank_edit
 
     @rx.event
+    def set_mem_bank_content(self, value: str):
+        self.mem_bank_content = value
+
+    @rx.event
     def toggle_func_spec_edit(self):
         self.func_spec_edit = not self.func_spec_edit
+
+    @rx.event
+    def set_func_spec_content(self, value: str):
+        self.func_spec_content = value
 
     @rx.event
     def toggle_tech_spec_edit(self):
         self.tech_spec_edit = not self.tech_spec_edit
 
     @rx.event
+    def set_tech_spec_content(self, value: str):
+        self.tech_spec_content = value
+
+    @rx.event
     def toggle_vaccines_edit(self):
         self.vaccines_edit = not self.vaccines_edit
+
+    @rx.event
+    def set_vaccines_content(self, value: str):
+        self.vaccines_content = value
 
     @rx.event
     def load_context(self):
