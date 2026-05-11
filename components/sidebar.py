@@ -313,7 +313,7 @@ def _switch_account_dialog() -> None:
             _clear_taiga_caches()
             st.rerun()
 
-    if taiga_adapter.is_configured():
+    if _is_auth():
         st.divider()
         if st.button("Sign out", key="sw_dlg_signout_btn", width='stretch'):
             taiga_adapter.clear_token()
@@ -361,6 +361,15 @@ def _create_story_dialog(epic_id: int, stories_key: str) -> None:
             st.error(str(exc))
 
 
+def _is_auth() -> bool:
+    """True only when this browser session has authenticated.
+
+    Prevents the module-level Taiga token (shared across all sessions in the
+    same process) from leaking into browser sessions that haven't signed in.
+    """
+    return bool(st.session_state.get("_session_auth") and _is_auth())
+
+
 def _clear_taiga_caches() -> None:
     for k in list(st.session_state.keys()):
         if k.startswith(("board_", "epics_", "taiga_", "_taiga_", "umgr_")):
@@ -397,14 +406,14 @@ def render_sidebar() -> None:
         _user_management()
         st.divider()
         _section_header("Active Context")
-        if taiga_adapter.is_configured():
+        if _is_auth():
             _memory_bank()
         else:
             st.markdown("Sign in and select a project to view and edit the Memory Bank, Functional Spec, and other context files that anchor AI across the SDLC.")
         st.divider()
         _section_header("SDLC Phases")
         _phase_nav()
-        if not taiga_adapter.is_configured():
+        if not _is_auth():
             st.markdown("Sign in and select a Taiga project to get started.")
 
 
@@ -463,7 +472,7 @@ def _taiga_user_info() -> None:
                          help="Sign in or switch Taiga account"):
                 _switch_account_dialog()
 
-    if not taiga_adapter.is_configured():
+    if not _is_auth():
         _signin_prompt()
         return
     try:
@@ -490,7 +499,7 @@ def _taiga_user_info() -> None:
 
 
 def _taiga_status() -> None:
-    if not taiga_adapter.is_configured():
+    if not _is_auth():
         return
 
     proj_id = taiga_adapter.TAIGA_PROJECT_ID
@@ -514,7 +523,7 @@ def _taiga_project_manager() -> None:
     if msg := st.session_state.pop("_notify_project", None):
         st.toast(msg)
 
-    if not taiga_adapter.is_configured():
+    if not _is_auth():
         st.caption("Sign in to a Taiga account first.")
         return
 
@@ -760,7 +769,7 @@ def _context_file_editor(filename: str, state_key: str, label: str) -> None:
 # ── Taiga Board ───────────────────────────────────────────────────────────────
 
 def _taiga_board() -> None:
-    if not taiga_adapter.is_configured() or not taiga_adapter.TAIGA_PROJECT_ID:
+    if not _is_auth() or not taiga_adapter.TAIGA_PROJECT_ID:
         return
 
     with st.expander("Epics & Stories", key="taiga_board_epics_exp"):
@@ -931,7 +940,7 @@ def _board_story_row(story: dict, stories_key: str) -> None:
 # ── User Management ───────────────────────────────────────────────────────────
 
 def _user_management() -> None:
-    if not taiga_adapter.is_configured():
+    if not _is_auth():
         return
 
     with st.expander("Users & Roles", key="user_mgmt_exp"):
