@@ -113,14 +113,18 @@ def _project_selector() -> rx.Component:
             ),
             rx.cond(
                 ProjectState.projects_list.length() > 0,
-                rx.select(
-                    ProjectState.projects_list.map(
-                        lambda p: rx.select.item(p["name"], value=p["id"].to_string())
+                rx.select.root(
+                    rx.select.trigger(placeholder="Select a project…", width="100%"),
+                    rx.select.content(
+                        rx.foreach(
+                            ProjectState.projects_list,
+                            lambda p: rx.select.item(p["name"], value=p["id"].to_string()),
+                        ),
                     ),
-                    placeholder="Select a project…",
+                    value=ProjectState.active_project_id.to_string(),
                     on_change=lambda v: ProjectState.select_project(v.to(int)),
-                    width="100%",
                     size="1",
+                    width="100%",
                 ),
                 rx.fragment(),
             ),
@@ -216,7 +220,7 @@ def _active_context() -> rx.Component:
                     "Memory Bank",
                     ContextState.mem_bank_content,
                     ContextState.mem_bank_edit,
-                    ContextState.set_mem_bank_edit(~ContextState.mem_bank_edit),
+                    ContextState.toggle_mem_bank_edit,
                     ContextState.save_mem_bank,
                     "memory-bank.md",
                 ),
@@ -224,7 +228,7 @@ def _active_context() -> rx.Component:
                     "Functional Spec",
                     ContextState.func_spec_content,
                     ContextState.func_spec_edit,
-                    ContextState.set_func_spec_edit(~ContextState.func_spec_edit),
+                    ContextState.toggle_func_spec_edit,
                     ContextState.save_func_spec,
                     "functional-spec.md",
                 ),
@@ -232,7 +236,7 @@ def _active_context() -> rx.Component:
                     "Technical Spec",
                     ContextState.tech_spec_content,
                     ContextState.tech_spec_edit,
-                    ContextState.set_tech_spec_edit(~ContextState.tech_spec_edit),
+                    ContextState.toggle_tech_spec_edit,
                     ContextState.save_tech_spec,
                     "technical-spec.md",
                 ),
@@ -240,7 +244,7 @@ def _active_context() -> rx.Component:
                     "Vaccine Records",
                     ContextState.vaccines_content,
                     ContextState.vaccines_edit,
-                    ContextState.set_vaccines_edit(~ContextState.vaccines_edit),
+                    ContextState.toggle_vaccines_edit,
                     ContextState.save_vaccines,
                     "vaccines.md",
                 ),
@@ -289,9 +293,7 @@ def _story_row(story: dict) -> rx.Component:
 
 def _epic_row(epic: dict) -> rx.Component:
     epic_id = epic["id"]
-    stories_key = epic_id.to_string()
-    is_expanded = BoardState.expanded_epics.contains(epic_id)
-    stories = BoardState.board_stories.get(stories_key, [])
+    is_expanded = BoardState.expanded_epic_id == epic_id
 
     return rx.vstack(
         rx.hstack(
@@ -299,14 +301,7 @@ def _epic_row(epic: dict) -> rx.Component:
                 rx.cond(is_expanded, "▼", "▶"),
                 size="1",
                 variant="ghost",
-                on_click=[
-                    BoardState.toggle_epic(epic_id),
-                    rx.cond(
-                        ~is_expanded,
-                        BoardState.load_stories_for_epic(epic_id),
-                        rx.fragment(),
-                    ),
-                ],
+                on_click=BoardState.toggle_epic(epic_id),
             ),
             rx.text(epic["subject"], size="2", flex="1"),
             rx.button(
@@ -334,7 +329,7 @@ def _epic_row(epic: dict) -> rx.Component:
         rx.cond(
             is_expanded,
             rx.vstack(
-                rx.foreach(stories, _story_row),
+                rx.foreach(BoardState.expanded_stories, _story_row),
                 width="100%",
                 spacing="1",
             ),
@@ -441,13 +436,15 @@ def _users_section() -> rx.Component:
                                 size="1",
                                 width="100%",
                             ),
-                            rx.select(
-                                rx.foreach(
-                                    UserMgmtState.roles,
-                                    lambda r: rx.select.item(r["name"], value=r["id"].to_string()),
+                            rx.select.root(
+                                rx.select.trigger(placeholder="Role", width="100%"),
+                                rx.select.content(
+                                    rx.foreach(
+                                        UserMgmtState.roles,
+                                        lambda r: rx.select.item(r["name"], value=r["id"].to_string()),
+                                    ),
                                 ),
                                 name="role_id",
-                                placeholder="Role",
                                 size="1",
                                 width="100%",
                             ),

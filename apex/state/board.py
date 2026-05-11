@@ -8,10 +8,10 @@ from apex.state.project import ProjectState
 
 class BoardState(ProjectState):
     board_epics: list[dict] = []
-    board_stories: dict = {}  # str(epic_id) → list[dict]
+    expanded_stories: list[dict] = []  # stories for the currently expanded epic
+    expanded_epic_id: int = 0          # 0 = none expanded
     board_loading: bool = False
     board_error: str = ""
-    expanded_epics: list[int] = []
 
     # Dialog open flags
     epic_details_open: bool = False
@@ -37,21 +37,23 @@ class BoardState(ProjectState):
             self.board_loading = False
 
     @rx.event
-    async def load_stories_for_epic(self, epic_id: int):
+    async def toggle_epic(self, epic_id: int):
+        if self.expanded_epic_id == epic_id:
+            self.expanded_epic_id = 0
+            self.expanded_stories = []
+        else:
+            self.expanded_epic_id = epic_id
+            self.expanded_stories = []
+            yield BoardState.load_expanded_stories(epic_id)
+
+    @rx.event
+    async def load_expanded_stories(self, epic_id: int):
         self._sync_token()
         yield
         try:
-            stories = taiga_adapter.get_stories_for_epic(epic_id)
-            self.board_stories[str(epic_id)] = stories
+            self.expanded_stories = taiga_adapter.get_stories_for_epic(epic_id)
         except taiga_adapter.TaigaAPIError:
-            self.board_stories[str(epic_id)] = []
-
-    @rx.event
-    def toggle_epic(self, epic_id: int):
-        if epic_id in self.expanded_epics:
-            self.expanded_epics = [e for e in self.expanded_epics if e != epic_id]
-        else:
-            self.expanded_epics = self.expanded_epics + [epic_id]
+            self.expanded_stories = []
 
     @rx.event
     def open_epic_details(self, epic_id: int):
@@ -78,12 +80,28 @@ class BoardState(ProjectState):
         self.epic_details_open = False
 
     @rx.event
+    def set_epic_details_open(self, value: bool):
+        self.epic_details_open = value
+
+    @rx.event
     def close_story_details(self):
         self.story_details_open = False
 
     @rx.event
+    def set_story_details_open(self, value: bool):
+        self.story_details_open = value
+
+    @rx.event
     def open_create_epic(self):
         self.create_epic_open = True
+
+    @rx.event
+    def set_create_epic_open(self, value: bool):
+        self.create_epic_open = value
+
+    @rx.event
+    def set_create_story_open(self, value: bool):
+        self.create_story_open = value
 
     @rx.event
     def open_create_story(self, epic_id: int):
@@ -114,7 +132,7 @@ class BoardState(ProjectState):
         try:
             taiga_adapter.create_story(subject, description, epic_id=self.selected_epic_id)
             self.create_story_open = False
-            yield BoardState.load_stories_for_epic(self.selected_epic_id)
+            yield BoardState.load_expanded_stories(self.selected_epic_id)
         except taiga_adapter.TaigaAPIError:
             pass
 
@@ -123,6 +141,9 @@ class BoardState(ProjectState):
         self._sync_token()
         try:
             taiga_adapter.delete_epic_with_stories(epic_id)
+            if self.expanded_epic_id == epic_id:
+                self.expanded_epic_id = 0
+                self.expanded_stories = []
             yield BoardState.load_epics
         except taiga_adapter.TaigaAPIError:
             pass
@@ -132,6 +153,6 @@ class BoardState(ProjectState):
         self._sync_token()
         try:
             taiga_adapter.delete_story(story_id)
-            yield BoardState.load_stories_for_epic(epic_id)
+            yield BoardState.load_expanded_stories(epic_id)
         except taiga_adapter.TaigaAPIError:
             pass

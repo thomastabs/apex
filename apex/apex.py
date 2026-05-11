@@ -20,13 +20,7 @@ _SHARED_ON_LOAD = [
     ContextState.load_context,
 ]
 
-app = rx.App(
-    theme=rx.theme(
-        accent_color="violet",
-        radius="medium",
-        scaling="95%",
-    ),
-)
+app = rx.App()
 
 app.add_page(
     phase1_page,

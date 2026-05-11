@@ -4,8 +4,13 @@ import reflex as rx
 from apex.state.phase1 import Phase1State
 
 
-def _story_card(story_and_index: tuple) -> rx.Component:
-    story, idx = story_and_index
+def _story_card(story: dict) -> rx.Component:
+    """Render one editable story card.
+
+    story dict includes "index" and "gherkin_edit" injected by stories_with_edits
+    computed var so we don't need enumerate() (which Reflex list vars don't support).
+    """
+    idx = story["index"]
     return rx.box(
         rx.vstack(
             rx.hstack(
@@ -31,7 +36,7 @@ def _story_card(story_and_index: tuple) -> rx.Component:
                 width="100%",
             ),
             rx.text_area(
-                value=Phase1State.gherkin_edits[idx],
+                value=story["gherkin_edit"],
                 on_change=lambda v: Phase1State.set_gherkin_edit(idx, v),
                 rows="8",
                 width="100%",
@@ -60,10 +65,7 @@ def gherkin_review_section() -> rx.Component:
                 size="2",
                 color_scheme="gray",
             ),
-            rx.foreach(
-                Phase1State.compiled_stories.enumerate(),
-                _story_card,
-            ),
+            rx.foreach(Phase1State.stories_with_edits, _story_card),
             rx.cond(
                 ~Phase1State.push_done,
                 rx.button(

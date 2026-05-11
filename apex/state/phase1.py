@@ -143,6 +143,10 @@ class Phase1State(ProjectState):
             self.start_mode = mode
 
     @rx.event
+    def set_discard_dialog_open(self, value: bool):
+        self.discard_dialog_open = value
+
+    @rx.event
     def confirm_mode_switch(self):
         self.start_mode = self.pending_mode_switch
         self.pending_mode_switch = ""
@@ -448,6 +452,19 @@ class Phase1State(ProjectState):
     # ─────────────────────────────────────────────────────────────────────────
     # Computed vars
     # ─────────────────────────────────────────────────────────────────────────
+
+    @rx.var
+    def stories_with_edits(self) -> list[dict]:
+        """compiled_stories merged with their gherkin edits and list index.
+
+        rx.foreach only passes one argument, so we embed index and the live
+        gherkin edit into each story dict so the render function can access them.
+        """
+        result = []
+        for i, story in enumerate(self.compiled_stories):
+            edit = (self.gherkin_edits[i] if i < len(self.gherkin_edits) else "") or story.get("gherkin", "")
+            result.append({**story, "gherkin_edit": edit, "index": i})
+        return result
 
     @rx.var
     def has_nl_draft(self) -> bool:
