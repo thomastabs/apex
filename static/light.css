@@ -11,6 +11,14 @@
     color: #ffffff !important;
     border: 1px solid #7c3aed !important;
 }
+/* Explicit child rules needed: Streamlit sets color on <p>/<span> inside buttons,
+   and an explicit child rule beats an inherited !important from the parent. */
+.stButton > button[data-testid="stBaseButton-primary"] p,
+.stButton > button[data-testid="stBaseButton-primary"] span,
+[data-testid="stBaseButton-primary"] p,
+[data-testid="stBaseButton-primary"] span {
+    color: #ffffff !important;
+}
 .stButton > button:hover,
 [data-testid="stBaseButton-secondary"]:hover,
 [data-testid="stBaseButton-tertiary"]:hover {
