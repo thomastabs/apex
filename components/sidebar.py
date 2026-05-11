@@ -516,7 +516,8 @@ def _taiga_project_manager() -> None:
                     taiga_adapter.set_active_project(chosen["id"])
                     st.session_state["active_project_id"] = chosen["id"]
                     for k in list(st.session_state.keys()):
-                        if k.startswith(("epics_", "_taiga_", "taiga_proj")):
+                        if k.startswith(("epics_", "_taiga_", "taiga_proj",
+                                         "mem_bank", "func_spec", "tech_spec", "vaccines")):
                             del st.session_state[k]
                     st.session_state["_notify_project"] = f"Switched to \"{chosen['name']}\"."
                     st.rerun()
@@ -547,7 +548,8 @@ def _taiga_project_manager() -> None:
             taiga_adapter.set_active_project(proj["id"])
             st.session_state["active_project_id"] = proj["id"]
             for k in list(st.session_state.keys()):
-                if k.startswith(("epics_", "_taiga_", "taiga_")):
+                if k.startswith(("epics_", "_taiga_", "taiga_",
+                                 "mem_bank", "func_spec", "tech_spec", "vaccines")):
                     del st.session_state[k]
             st.session_state["_notify_project"] = f"Project \"{proj['name']}\" created and selected."
             st.rerun()
