@@ -2,17 +2,17 @@
 
 import reflex as rx
 
-from apex.state.auth import AuthState
-from apex.state.board import BoardState
-from apex.state.context import ContextState
-from apex.state.project import ProjectState
-from apex.state.user_mgmt import UserMgmtState
-from apex.components.nav import phase_nav
-from apex.components.dialogs.switch_account import switch_account_dialog
-from apex.components.dialogs.create_epic import create_epic_dialog
-from apex.components.dialogs.create_story import create_story_dialog
-from apex.components.dialogs.epic_details import epic_details_dialog
-from apex.components.dialogs.story_details import story_details_dialog
+from state.auth import AuthState
+from state.board import BoardState
+from state.context import ContextState
+from state.project import ProjectState
+from state.user_mgmt import UserMgmtState
+from components.nav import phase_nav
+from components.dialogs.switch_account import switch_account_dialog
+from components.dialogs.create_epic import create_epic_dialog
+from components.dialogs.create_story import create_story_dialog
+from components.dialogs.epic_details import epic_details_dialog
+from components.dialogs.story_details import story_details_dialog
 
 _PURPLE = "#7c3aed"
 

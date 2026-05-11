@@ -2,17 +2,17 @@
 
 import reflex as rx
 
-from apex.state.auth import AuthState
-from apex.state.context import ContextState
-from apex.state.phase1 import Phase1State
-from apex.state.project import ProjectState
+from state.auth import AuthState
+from state.context import ContextState
+from state.phase1 import Phase1State
+from state.project import ProjectState
 
-from apex.pages.phase1 import phase1_page
-from apex.pages.phase2 import phase2_page
-from apex.pages.phase3 import phase3_page
-from apex.pages.phase4 import phase4_page
-from apex.pages.phase5 import phase5_page
-from apex.pages.phase6 import phase6_page
+from pages.phase1 import phase1_page
+from pages.phase2 import phase2_page
+from pages.phase3 import phase3_page
+from pages.phase4 import phase4_page
+from pages.phase5 import phase5_page
+from pages.phase6 import phase6_page
 
 _SHARED_ON_LOAD = [
     AuthState.restore_session,

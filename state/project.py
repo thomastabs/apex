@@ -3,7 +3,7 @@
 import reflex as rx
 
 from src import context_manager, taiga_adapter
-from apex.state.auth import AuthState
+from state.auth import AuthState
 
 
 class ProjectState(AuthState):

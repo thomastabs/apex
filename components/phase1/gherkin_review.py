@@ -1,7 +1,7 @@
 """gherkin_review.py — Step 5 & 6: Review Gherkin stories and push to Taiga."""
 
 import reflex as rx
-from apex.state.phase1 import Phase1State
+from state.phase1 import Phase1State
 
 
 def _story_card(story: dict) -> rx.Component:

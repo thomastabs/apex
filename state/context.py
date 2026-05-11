@@ -3,7 +3,7 @@
 import reflex as rx
 
 from src import context_manager
-from apex.state.project import ProjectState
+from state.project import ProjectState
 
 _FILES = ("memory-bank.md", "functional-spec.md", "technical-spec.md", "vaccines.md")
 

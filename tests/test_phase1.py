@@ -47,7 +47,7 @@ def _bare_state(cls, **attrs):
 
 class TestValidateStories:
     def _validate(self, compiled, edits=None):
-        from apex.state.phase1 import validate_stories
+        from state.phase1 import validate_stories
         if edits is None:
             edits = _gherkin_edits(compiled)
         return validate_stories(compiled, edits)
@@ -119,7 +119,7 @@ class TestValidateStories:
 
 class TestAddAndDeleteStory:
     def _make_state(self, compiled: list[dict]):
-        from apex.state.phase1 import Phase1State
+        from state.phase1 import Phase1State
         return _bare_state(
             Phase1State,
             compiled_stories=list(compiled),
@@ -131,51 +131,51 @@ class TestAddAndDeleteStory:
         )
 
     def test_add_story_increases_list_length(self):
-        from apex.state.phase1 import Phase1State
+        from state.phase1 import Phase1State
         state = self._make_state(_make_valid_compiled(2))
         Phase1State.add_story.fn(state)
         assert len(state.compiled_stories) == 3
 
     def test_add_story_has_default_title(self):
-        from apex.state.phase1 import Phase1State
+        from state.phase1 import Phase1State
         state = self._make_state(_make_valid_compiled(1))
         Phase1State.add_story.fn(state)
         assert state.compiled_stories[-1]["title"] == "New Story"
 
     def test_add_story_has_feature_header(self):
-        from apex.state.phase1 import Phase1State
+        from state.phase1 import Phase1State
         state = self._make_state(_make_valid_compiled(1))
         Phase1State.add_story.fn(state)
         assert "Feature:" in state.compiled_stories[-1]["gherkin"]
 
     def test_delete_story_decreases_list_length(self):
-        from apex.state.phase1 import Phase1State
+        from state.phase1 import Phase1State
         state = self._make_state(_make_valid_compiled(3))
-        with patch("apex.state.phase1.context_manager"):
+        with patch("state.phase1.context_manager"):
             Phase1State.delete_story.fn(state, 1)
         assert len(state.compiled_stories) == 2
 
     def test_delete_correct_story(self):
-        from apex.state.phase1 import Phase1State
+        from state.phase1 import Phase1State
         state = self._make_state(_make_valid_compiled(3))
         title_to_delete = state.compiled_stories[1]["title"]
-        with patch("apex.state.phase1.context_manager"):
+        with patch("state.phase1.context_manager"):
             Phase1State.delete_story.fn(state, 1)
         titles = [s["title"] for s in state.compiled_stories]
         assert title_to_delete not in titles
 
     def test_delete_first_story(self):
-        from apex.state.phase1 import Phase1State
+        from state.phase1 import Phase1State
         state = self._make_state(_make_valid_compiled(2))
         second_title = state.compiled_stories[1]["title"]
-        with patch("apex.state.phase1.context_manager"):
+        with patch("state.phase1.context_manager"):
             Phase1State.delete_story.fn(state, 0)
         assert state.compiled_stories[0]["title"] == second_title
 
     def test_gherkin_edits_kept_in_sync_after_delete(self):
-        from apex.state.phase1 import Phase1State
+        from state.phase1 import Phase1State
         state = self._make_state(_make_valid_compiled(3))
-        with patch("apex.state.phase1.context_manager"):
+        with patch("state.phase1.context_manager"):
             Phase1State.delete_story.fn(state, 0)
         assert len(state.gherkin_edits) == len(state.compiled_stories)
 
@@ -186,7 +186,7 @@ class TestAddAndDeleteStory:
 
 class TestSetNlEditor:
     def _make_state(self):
-        from apex.state.phase1 import Phase1State
+        from state.phase1 import Phase1State
         return _bare_state(
             Phase1State,
             nl_editor="",
@@ -198,16 +198,16 @@ class TestSetNlEditor:
         )
 
     def test_set_nl_editor_updates_var(self):
-        from apex.state.phase1 import Phase1State
+        from state.phase1 import Phase1State
         state = self._make_state()
-        with patch("apex.state.phase1.context_manager"):
+        with patch("state.phase1.context_manager"):
             Phase1State.set_nl_editor.fn(state, "new content")
         assert state.nl_editor == "new content"
 
     def test_set_nl_editor_calls_save_draft(self):
-        from apex.state.phase1 import Phase1State
+        from state.phase1 import Phase1State
         state = self._make_state()
-        with patch("apex.state.phase1.context_manager") as mock_cm:
+        with patch("state.phase1.context_manager") as mock_cm:
             mock_cm.save_draft = MagicMock()
             Phase1State.set_nl_editor.fn(state, "hello")
             mock_cm.save_draft.assert_called_once()
@@ -219,7 +219,7 @@ class TestSetNlEditor:
 
 class TestRestoreDraft:
     def _make_state(self):
-        from apex.state.phase1 import Phase1State
+        from state.phase1 import Phase1State
         return _bare_state(
             Phase1State,
             draft_restored=False,
@@ -232,60 +232,60 @@ class TestRestoreDraft:
         )
 
     def test_restores_nl_draft_from_file(self):
-        from apex.state.phase1 import Phase1State
+        from state.phase1 import Phase1State
         state = self._make_state()
         draft = {"epic_subject": "S", "epic_id": "1", "nl_draft": "Draft text",
                  "nl_editor": "Draft text", "compiled_stories": None, "gherkin_edits": []}
-        with patch("apex.state.phase1.context_manager") as mock_cm:
+        with patch("state.phase1.context_manager") as mock_cm:
             mock_cm.load_draft.return_value = draft
             Phase1State.restore_draft.fn(state)
         assert state.nl_draft == "Draft text"
 
     def test_restores_nl_editor_separately(self):
-        from apex.state.phase1 import Phase1State
+        from state.phase1 import Phase1State
         state = self._make_state()
         draft = {"nl_draft": "Base", "nl_editor": "Edited",
                  "compiled_stories": None, "gherkin_edits": []}
-        with patch("apex.state.phase1.context_manager") as mock_cm:
+        with patch("state.phase1.context_manager") as mock_cm:
             mock_cm.load_draft.return_value = draft
             Phase1State.restore_draft.fn(state)
         assert state.nl_editor == "Edited"
 
     def test_falls_back_nl_editor_to_nl_draft(self):
-        from apex.state.phase1 import Phase1State
+        from state.phase1 import Phase1State
         state = self._make_state()
         draft = {"nl_draft": "Base", "compiled_stories": None, "gherkin_edits": []}
-        with patch("apex.state.phase1.context_manager") as mock_cm:
+        with patch("state.phase1.context_manager") as mock_cm:
             mock_cm.load_draft.return_value = draft
             Phase1State.restore_draft.fn(state)
         assert state.nl_editor == "Base"
 
     def test_restores_gherkin_edits_from_draft(self):
-        from apex.state.phase1 import Phase1State
+        from state.phase1 import Phase1State
         state = self._make_state()
         compiled = _make_valid_compiled(2)
         saved_edits = ["edited gherkin 0", "edited gherkin 1"]
         draft = {"nl_draft": "d", "nl_editor": "d",
                  "compiled_stories": compiled, "gherkin_edits": saved_edits}
-        with patch("apex.state.phase1.context_manager") as mock_cm:
+        with patch("state.phase1.context_manager") as mock_cm:
             mock_cm.load_draft.return_value = draft
             Phase1State.restore_draft.fn(state)
         assert state.gherkin_edits[0] == "edited gherkin 0"
         assert state.gherkin_edits[1] == "edited gherkin 1"
 
     def test_guard_prevents_double_restore(self):
-        from apex.state.phase1 import Phase1State
+        from state.phase1 import Phase1State
         state = self._make_state()
         state.draft_restored = True
-        with patch("apex.state.phase1.context_manager") as mock_cm:
+        with patch("state.phase1.context_manager") as mock_cm:
             mock_cm.load_draft.return_value = {"nl_draft": "x"}
             Phase1State.restore_draft.fn(state)
         assert state.nl_draft == ""
 
     def test_no_draft_leaves_state_empty(self):
-        from apex.state.phase1 import Phase1State
+        from state.phase1 import Phase1State
         state = self._make_state()
-        with patch("apex.state.phase1.context_manager") as mock_cm:
+        with patch("state.phase1.context_manager") as mock_cm:
             mock_cm.load_draft.return_value = None
             Phase1State.restore_draft.fn(state)
         assert state.nl_draft == ""
@@ -297,7 +297,7 @@ class TestRestoreDraft:
 
 class TestModeSwitch:
     def _make_state(self, nl_draft="", compiled=None):
-        from apex.state.phase1 import Phase1State
+        from state.phase1 import Phase1State
         return _bare_state(
             Phase1State,
             start_mode="new",
@@ -317,31 +317,31 @@ class TestModeSwitch:
         )
 
     def test_switch_without_progress_changes_mode_immediately(self):
-        from apex.state.phase1 import Phase1State
+        from state.phase1 import Phase1State
         state = self._make_state()
         Phase1State.request_mode_switch.fn(state, "load")
         assert state.start_mode == "load"
         assert not state.discard_dialog_open
 
     def test_switch_with_progress_opens_dialog(self):
-        from apex.state.phase1 import Phase1State
+        from state.phase1 import Phase1State
         state = self._make_state(nl_draft="some draft")
         Phase1State.request_mode_switch.fn(state, "load")
         assert state.discard_dialog_open
         assert state.pending_mode_switch == "load"
 
     def test_confirm_applies_switch(self):
-        from apex.state.phase1 import Phase1State
+        from state.phase1 import Phase1State
         state = self._make_state(nl_draft="some draft")
         state.pending_mode_switch = "suggest"
         state.discard_dialog_open = True
-        with patch("apex.state.phase1.context_manager"):
+        with patch("state.phase1.context_manager"):
             Phase1State.confirm_mode_switch.fn(state)
         assert state.start_mode == "suggest"
         assert not state.discard_dialog_open
 
     def test_cancel_leaves_mode_unchanged(self):
-        from apex.state.phase1 import Phase1State
+        from state.phase1 import Phase1State
         state = self._make_state(nl_draft="some draft")
         state.pending_mode_switch = "load"
         state.discard_dialog_open = True
