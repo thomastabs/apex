@@ -291,7 +291,6 @@ def _switch_account_dialog() -> None:
                 with st.spinner("Authenticating…"):
                     taiga_adapter.login(uname.strip(), pw.strip())
                 cookie_auth.save_token(taiga_adapter.get_current_token())
-                st.session_state["_session_auth"] = True
                 _clear_taiga_caches()
                 st.rerun()
             except taiga_adapter.TaigaAPIError as exc:
@@ -309,7 +308,6 @@ def _switch_account_dialog() -> None:
                      disabled=not (token or "").strip(), width='stretch'):
             taiga_adapter.set_token(token.strip())
             cookie_auth.save_token(token.strip())
-            st.session_state["_session_auth"] = True
             _clear_taiga_caches()
             st.rerun()
 
@@ -318,7 +316,6 @@ def _switch_account_dialog() -> None:
         if st.button("Sign out", key="sw_dlg_signout_btn", width='stretch'):
             taiga_adapter.clear_token()
             cookie_auth.clear()
-            st.session_state.pop("_session_auth", None)
             _clear_taiga_caches()
             st.rerun()
 
@@ -362,12 +359,12 @@ def _create_story_dialog(epic_id: int, stories_key: str) -> None:
 
 
 def _is_auth() -> bool:
-    """True only when this browser session has authenticated.
+    """True when this browser session has a valid Taiga token.
 
-    Prevents the module-level Taiga token (shared across all sessions in the
-    same process) from leaking into browser sessions that haven't signed in.
+    taiga_adapter.is_configured() now reads from st.session_state per session,
+    so this is naturally isolated — no cross-session token leakage possible.
     """
-    return bool(st.session_state.get("_session_auth") and _is_auth())
+    return taiga_adapter.is_configured()
 
 
 def _clear_taiga_caches() -> None:

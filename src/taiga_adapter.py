@@ -2,10 +2,9 @@
 taiga_adapter.py
 All Taiga REST API GET/POST/PATCH logic.
 
-Authentication: Bearer token from TAIGA_AUTH_TOKEN.
+Authentication: Bearer token stored per browser session in st.session_state.
 Auto-refresh: when a request returns 401 and TAIGA_USERNAME + TAIGA_PASSWORD are
-present in .env, the adapter re-authenticates automatically, updates the
-in-memory token, and writes the new token back to .env so it survives restarts.
+present in .env, the adapter re-authenticates automatically and updates the token.
 All public methods raise TaigaAPIError on non-2xx responses.
 """
 
@@ -52,16 +51,47 @@ class TaigaAPIError(Exception):
 # Auth helpers
 # ---------------------------------------------------------------------------
 
+def _get_token() -> str:
+    """Return the auth token for the current execution context.
+
+    Inside a Streamlit session: reads from st.session_state so each browser
+    session is fully isolated — no cross-session token leakage.
+    Outside Streamlit (tests, CLI): reads from the module-level _token dict so
+    existing test patches (patch.dict(taiga_adapter._token, ...)) still work.
+    """
+    try:
+        from streamlit.runtime.scriptrunner import get_script_run_ctx  # noqa: PLC0415
+        if get_script_run_ctx() is not None:
+            import streamlit as st  # noqa: PLC0415
+            return st.session_state.get("_apex_auth_token", "") or ""
+    except Exception:
+        pass
+    return _token["value"]
+
+
+def _set_token(value: str) -> None:
+    """Persist the auth token for the current execution context."""
+    try:
+        from streamlit.runtime.scriptrunner import get_script_run_ctx  # noqa: PLC0415
+        if get_script_run_ctx() is not None:
+            import streamlit as st  # noqa: PLC0415
+            st.session_state["_apex_auth_token"] = value
+            return
+    except Exception:
+        pass
+    _token["value"] = value
+
+
 def _headers() -> dict[str, str]:
     return {
-        "Authorization": f"Bearer {_token['value']}",
+        "Authorization": f"Bearer {_get_token()}",
         "Content-Type": "application/json",
         "x-disable-pagination": "True",
     }
 
 
 def _refresh_token() -> None:
-    """Re-authenticate with username/password and update the in-memory token."""
+    """Re-authenticate with username/password and update the token."""
     if not TAIGA_USERNAME or not TAIGA_PASSWORD:
         return  # no credentials available — let the caller surface the original 401
     url = f"{TAIGA_API_URL}/api/v1/auth"
@@ -72,12 +102,12 @@ def _refresh_token() -> None:
     )
     if not resp.ok:
         raise TaigaAPIError("POST", url, resp.status_code, resp.text)
-    _token["value"] = resp.json()["auth_token"]
+    _set_token(resp.json()["auth_token"])
 
 
 def is_configured() -> bool:
-    """Return True if auth is available — either a live token or credentials for auto-refresh."""
-    return bool(_token["value"] or (TAIGA_USERNAME and TAIGA_PASSWORD))
+    """Return True if auth is available for the current session."""
+    return bool(_get_token() or (TAIGA_USERNAME and TAIGA_PASSWORD))
 
 
 def validate_project() -> str | None:
@@ -98,18 +128,18 @@ def validate_project() -> str | None:
 
 
 def get_current_token() -> str:
-    """Return the current in-memory auth token."""
-    return _token["value"]
+    """Return the current auth token for this session."""
+    return _get_token()
 
 
 def restore_token(token: str) -> None:
-    """Set the in-memory auth token (used by the login dialog)."""
-    _token["value"] = token
+    """Set the auth token for this session."""
+    _set_token(token)
 
 
 def clear_token() -> None:
-    """Clear the in-memory token and all API caches, forcing re-authentication."""
-    _token["value"] = ""
+    """Clear the session token and all API caches, forcing re-authentication."""
+    _set_token("")
     _clear_auth_caches()
 
 
@@ -490,8 +520,8 @@ def _clear_auth_caches() -> None:
 
 
 def set_token(token: str) -> None:
-    """Override the auth token directly (for Taiga Cloud where API auth may be blocked)."""
-    _token["value"] = token
+    """Override the auth token for this session."""
+    _set_token(token)
     _clear_auth_caches()
     _logger.info("taiga.set_token (manual override)")
 
@@ -515,7 +545,7 @@ def login(username: str, password: str) -> None:
             raise TaigaAPIError("POST", url, 0, "Cannot reach Taiga — check network connectivity.") from exc
         if not resp.ok:
             raise TaigaAPIError("POST", url, resp.status_code, resp.text)
-        _token["value"] = resp.json()["auth_token"]
+        _set_token(resp.json()["auth_token"])
         _clear_auth_caches()
         _logger.info("taiga.login username=%r", username)
         return
