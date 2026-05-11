@@ -366,18 +366,9 @@ def render_sidebar() -> None:
             st.caption("Sign in and select a project to view and edit the Memory Bank, Functional Spec, and other context files that anchor AI across the SDLC.")
         st.divider()
         _section_header("SDLC Phases")
-        if taiga_adapter.is_configured():
-            _phase_nav()
-        else:
-            st.markdown(
-                "**Phase 1 · Requirements** — Mob Elaboration: translate epic ideas into NL user stories and formal Gherkin acceptance criteria, then push them to Taiga.\n\n"
-                "**Phase 2 · Design** — Generate OpenAPI specs and DB schemas from locked Gherkin; update the Technical Specification.\n\n"
-                "**Phase 3 · Implementation** — AI-assisted code proposals aligned to the spec and acceptance criteria.\n\n"
-                "**Phase 4 · Testing** — BDD test generation and QA validation against the Gherkin scenarios.\n\n"
-                "**Phase 5 · Deployment** — Release coordination and deployment tracking.\n\n"
-                "**Phase 6 · Maintenance** — Regression monitoring and Fix-Apex remediation cycles.\n\n"
-                "*Sign in and select a Taiga project to get started.*"
-            )
+        _phase_nav()
+        if not taiga_adapter.is_configured():
+            st.caption("Sign in and select a Taiga project to get started.")
 
 
 # ── Phase navigation ──────────────────────────────────────────────────────────
