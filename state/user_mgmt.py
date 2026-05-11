@@ -3,7 +3,7 @@
 import reflex as rx
 
 from src import taiga_adapter
-from apex.state.project import ProjectState
+from state.project import ProjectState
 
 
 class UserMgmtState(ProjectState):

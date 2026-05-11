@@ -1,7 +1,7 @@
 """switch_account.py — Sign-in / sign-out dialog."""
 
 import reflex as rx
-from apex.state.auth import AuthState
+from state.auth import AuthState
 
 
 def switch_account_dialog() -> rx.Component:

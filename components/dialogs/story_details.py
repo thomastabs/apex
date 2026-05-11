@@ -1,20 +1,20 @@
-"""epic_details.py — Epic detail/edit dialog."""
+"""story_details.py — Story detail dialog."""
 
 import reflex as rx
-from apex.state.board import BoardState
+from state.board import BoardState
 
 
-def epic_details_dialog() -> rx.Component:
+def story_details_dialog() -> rx.Component:
     return rx.dialog.root(
         rx.dialog.content(
             rx.dialog.title(
-                BoardState.selected_epic_data.get("subject", "Epic Details"),
+                BoardState.selected_story_data.get("subject", "Story Details"),
             ),
             rx.vstack(
                 rx.text(
                     rx.cond(
-                        BoardState.selected_epic_data.get("description", "") != "",
-                        BoardState.selected_epic_data.get("description", ""),
+                        BoardState.selected_story_data.get("description", "") != "",
+                        BoardState.selected_story_data.get("description", ""),
                         rx.text("No description.", color_scheme="gray", size="2"),
                     ),
                     size="2",
@@ -30,6 +30,6 @@ def epic_details_dialog() -> rx.Component:
             max_width="640px",
             width="90vw",
         ),
-        open=BoardState.epic_details_open,
-        on_open_change=BoardState.set_epic_details_open,
+        open=BoardState.story_details_open,
+        on_open_change=BoardState.set_story_details_open,
     )

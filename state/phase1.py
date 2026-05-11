@@ -7,7 +7,7 @@ import re
 import reflex as rx
 
 from src import ai_engine, context_manager, taiga_adapter
-from apex.state.project import ProjectState
+from state.project import ProjectState
 
 _logger = logging.getLogger("apex.state.phase1")
 

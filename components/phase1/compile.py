@@ -1,7 +1,7 @@
 """compile.py — Step 4: Compile NL draft to Gherkin."""
 
 import reflex as rx
-from apex.state.phase1 import Phase1State
+from state.phase1 import Phase1State
 
 
 def compile_section() -> rx.Component:

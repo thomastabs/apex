@@ -2,16 +2,16 @@
 
 import reflex as rx
 
-from apex.state.auth import AuthState
-from apex.state.context import ContextState
-from apex.state.phase1 import Phase1State
-from apex.state.project import ProjectState
-from apex.components.sidebar import sidebar
-from apex.components.phase1.step1 import step1
-from apex.components.phase1.generate import generate_section
-from apex.components.phase1.review import review_section
-from apex.components.phase1.compile import compile_section
-from apex.components.phase1.gherkin_review import gherkin_review_section
+from state.auth import AuthState
+from state.context import ContextState
+from state.phase1 import Phase1State
+from state.project import ProjectState
+from components.sidebar import sidebar
+from components.phase1.step1 import step1
+from components.phase1.generate import generate_section
+from components.phase1.review import review_section
+from components.phase1.compile import compile_section
+from components.phase1.gherkin_review import gherkin_review_section
 
 
 def phase1_content() -> rx.Component:

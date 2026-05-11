@@ -1,7 +1,7 @@
 """nav.py — Phase navigation links with active-state highlighting."""
 
 import reflex as rx
-from apex.state.auth import AuthState
+from state.auth import AuthState
 
 _PHASES = [
     ("/",       "Phase 1 · Requirements"),

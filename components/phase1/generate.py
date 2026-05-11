@@ -1,7 +1,7 @@
 """generate.py — Step 2: Generate Natural Language Stories."""
 
 import reflex as rx
-from apex.state.phase1 import Phase1State
+from state.phase1 import Phase1State
 
 
 def generate_section() -> rx.Component:

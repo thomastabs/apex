@@ -1,18 +1,18 @@
-"""create_story.py — New Story dialog."""
+"""create_epic.py — New Epic dialog."""
 
 import reflex as rx
-from apex.state.board import BoardState
+from state.board import BoardState
 
 
-def create_story_dialog() -> rx.Component:
+def create_epic_dialog() -> rx.Component:
     return rx.dialog.root(
         rx.dialog.content(
-            rx.dialog.title("New Story"),
+            rx.dialog.title("New Epic"),
             rx.form(
                 rx.vstack(
                     rx.input(
                         name="subject",
-                        placeholder="Story title",
+                        placeholder="Epic title",
                         required=True,
                         width="100%",
                         auto_focus=True,
@@ -33,10 +33,10 @@ def create_story_dialog() -> rx.Component:
                     ),
                     spacing="3",
                 ),
-                on_submit=BoardState.create_story,
+                on_submit=BoardState.create_epic,
             ),
             max_width="480px",
         ),
-        open=BoardState.create_story_open,
-        on_open_change=BoardState.set_create_story_open,
+        open=BoardState.create_epic_open,
+        on_open_change=BoardState.set_create_epic_open,
     )
