@@ -66,14 +66,15 @@ Present in the UI as navigation stubs: Design, Implementation, Testing, Deployme
 | `src/ai_engine.py` | LangChain + Claude prompts and structured outputs |
 | `src/context_manager.py` | Reads/writes `contextspec/<project_id>/` markdown files |
 | `src/taiga_adapter.py` | Taiga REST API client (GET/POST/PATCH/DELETE) |
+| `src/cookie_auth.py` | Browser-side session persistence via `extra-streamlit-components` CookieManager |
 | `views/phase1.py … phase6.py` | Thin Streamlit page wrappers |
 | `contextspec/` | Persistent project context — one subdirectory per Taiga project ID |
 | `static/` | CSS files for light/dark theming |
-| `tests/` | Pytest test suite — 232 tests, all external APIs mocked |
+| `tests/` | Pytest test suite — 229 tests, all external APIs mocked |
 
 ## Tech stack
 
-Python 3.12 · Streamlit · LangChain · Anthropic Claude · Pydantic · Requests · python-dotenv · azure-monitor-opentelemetry
+Python 3.12 · Streamlit · LangChain · Anthropic Claude · Pydantic · Requests · python-dotenv · extra-streamlit-components · azure-monitor-opentelemetry
 
 ---
 
@@ -173,7 +174,9 @@ The app is live at **[https://apex-bolt.com](https://apex-bolt.com)** (also reac
 
 ### Context persistence
 
-Context files are stored in `contextspec/<taiga_project_id>/` on the Azure File Share, mounted as a persistent volume. Each Taiga project gets its own subdirectory so context never bleeds between projects. The active project ID and session token are saved to `contextspec/.apex-config.json` and restored on startup, so container restarts after a deploy do not require re-authentication or project re-selection.
+Context files are stored in `contextspec/<taiga_project_id>/` on the Azure File Share, mounted as a persistent volume. Each Taiga project gets its own subdirectory so context never bleeds between projects. The active project ID is saved to `contextspec/.apex-config.json` and restored on startup.
+
+Taiga auth tokens are **not** written to disk — they live in memory for the process lifetime. Instead, `src/cookie_auth.py` uses the `extra-streamlit-components` CookieManager to store the token in a per-browser cookie (`apex_session`, 7-day TTL). On every page load the cookie is read and the token silently restored, so page refreshes do not require re-authentication. Tokens are never shared across browsers — a visitor on a different device sees only the unauthenticated sidebar prompts.
 
 ### CI/CD
 
@@ -215,4 +218,4 @@ pip install -r requirements.txt pytest
 python3 -m pytest tests/ -v
 ```
 
-232 tests across `test_ai_engine.py`, `test_context_manager.py`, `test_phase1.py`, and `test_taiga_adapter.py`.
+229 tests across `test_ai_engine.py`, `test_context_manager.py`, `test_phase1.py`, and `test_taiga_adapter.py`.
