@@ -20,7 +20,7 @@ _SHARED_ON_LOAD = [
     ContextState.load_context,
 ]
 
-app = rx.App()
+app = rx.App(stylesheets=["/custom.css"])
 
 app.add_page(
     phase1_page,

@@ -23,6 +23,16 @@ class BoardState(ProjectState):
     selected_epic_data: dict = {}
     selected_story_data: dict = {}
 
+    # Editable fields for detail dialogs
+    edit_epic_subject: str = ""
+    edit_epic_description: str = ""
+    edit_epic_tags: str = ""       # comma-separated for simplicity
+    edit_story_subject: str = ""
+    edit_story_description: str = ""
+    edit_story_tags: str = ""
+    detail_save_error: str = ""
+    detail_save_success: str = ""
+
     @rx.event
     async def load_epics(self):
         self._sync_token()
@@ -59,8 +69,14 @@ class BoardState(ProjectState):
     def open_epic_details(self, epic_id: int):
         self._sync_token()
         self.selected_epic_id = epic_id
+        self.detail_save_error = ""
+        self.detail_save_success = ""
         try:
-            self.selected_epic_data = taiga_adapter.get_epic(epic_id)
+            data = taiga_adapter.get_epic(epic_id)
+            self.selected_epic_data = data
+            self.edit_epic_subject = data.get("subject", "")
+            self.edit_epic_description = data.get("description", "")
+            self.edit_epic_tags = ", ".join(data.get("tags", []))
         except Exception:
             self.selected_epic_data = {}
         self.epic_details_open = True
@@ -69,11 +85,87 @@ class BoardState(ProjectState):
     def open_story_details(self, story_id: int):
         self._sync_token()
         self.selected_story_id = story_id
+        self.detail_save_error = ""
+        self.detail_save_success = ""
         try:
-            self.selected_story_data = taiga_adapter.get_story(story_id)
+            data = taiga_adapter.get_story(story_id)
+            self.selected_story_data = data
+            self.edit_story_subject = data.get("subject", "")
+            self.edit_story_description = data.get("description", "")
+            self.edit_story_tags = ", ".join(data.get("tags", []))
         except Exception:
             self.selected_story_data = {}
         self.story_details_open = True
+
+    @rx.event
+    def set_edit_epic_subject(self, v: str):
+        self.edit_epic_subject = v
+
+    @rx.event
+    def set_edit_epic_description(self, v: str):
+        self.edit_epic_description = v
+
+    @rx.event
+    def set_edit_epic_tags(self, v: str):
+        self.edit_epic_tags = v
+
+    @rx.event
+    def set_edit_story_subject(self, v: str):
+        self.edit_story_subject = v
+
+    @rx.event
+    def set_edit_story_description(self, v: str):
+        self.edit_story_description = v
+
+    @rx.event
+    def set_edit_story_tags(self, v: str):
+        self.edit_story_tags = v
+
+    @rx.event
+    def save_epic_edits(self):
+        self._sync_token()
+        self.detail_save_error = ""
+        self.detail_save_success = ""
+        version = self.selected_epic_data.get("version")
+        if not version:
+            self.detail_save_error = "Missing version — reload and try again."
+            return
+        tags = [t.strip() for t in self.edit_epic_tags.split(",") if t.strip()]
+        try:
+            updated = taiga_adapter.update_epic(
+                self.selected_epic_id,
+                version,
+                subject=self.edit_epic_subject.strip() or None,
+                description=self.edit_epic_description,
+                tags=tags,
+            )
+            self.selected_epic_data = updated
+            self.detail_save_success = "Saved."
+        except Exception as exc:
+            self.detail_save_error = str(exc)
+
+    @rx.event
+    def save_story_edits(self):
+        self._sync_token()
+        self.detail_save_error = ""
+        self.detail_save_success = ""
+        version = self.selected_story_data.get("version")
+        if not version:
+            self.detail_save_error = "Missing version — reload and try again."
+            return
+        tags = [t.strip() for t in self.edit_story_tags.split(",") if t.strip()]
+        try:
+            updated = taiga_adapter.update_story(
+                self.selected_story_id,
+                version,
+                subject=self.edit_story_subject.strip() or None,
+                description=self.edit_story_description,
+                tags=tags,
+            )
+            self.selected_story_data = updated
+            self.detail_save_success = "Saved."
+        except Exception as exc:
+            self.detail_save_error = str(exc)
 
     @rx.event
     def close_epic_details(self):

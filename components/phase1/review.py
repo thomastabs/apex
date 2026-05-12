@@ -8,20 +8,30 @@ def review_section() -> rx.Component:
     return rx.cond(
         Phase1State.has_nl_draft,
         rx.vstack(
-            rx.heading("Step 3 · Review NL Draft", size="4"),
+            rx.hstack(
+                rx.heading("Step 3 · Review NL Draft", size="5", class_name="apex-step-heading"),
+                rx.spacer(),
+                rx.badge(
+                    "Draft ready",
+                    color_scheme="green",
+                    variant="surface",
+                    size="1",
+                ),
+                align="center",
+                width="100%",
+            ),
             rx.text(
-                "Review and edit the AI-generated Natural Language draft below. "
-                "Edit freely — add, remove, or rewrite stories in plain language. "
-                "When satisfied, click Compile to Gherkin below.",
+                "Edit the AI-generated Natural Language draft — add, remove, or rewrite stories "
+                "in plain language. When satisfied, click Compile to Gherkin below.",
                 size="2",
-                color_scheme="gray",
+                color=rx.color("gray", 10),
             ),
             rx.text_area(
                 value=Phase1State.nl_editor,
                 on_change=Phase1State.set_nl_editor,
                 rows="16",
                 width="100%",
-                font_family="monospace",
+                font_family="'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
                 font_size="13px",
             ),
             spacing="3",
