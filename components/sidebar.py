@@ -157,7 +157,8 @@ def _project_expander() -> rx.Component:
             rx.cond(
                 ProjectState.projects_loading,
                 rx.hstack(rx.spinner(size="2"), rx.text("Loading…", size="1"), spacing="2"),
-                rx.vstack(
+                rx.cond(
+                    ProjectState.projects_list.length() > 0,
                     rx.select.root(
                         rx.select.trigger(placeholder="Select project…", width="100%"),
                         rx.select.content(
@@ -171,15 +172,14 @@ def _project_expander() -> rx.Component:
                         size="1",
                         width="100%",
                     ),
-                    rx.button(
-                        rx.hstack(rx.icon("refresh-cw", size=12), rx.text("Refresh"), spacing="1"),
-                        size="1",
-                        variant="ghost",
-                        on_click=ProjectState.load_projects,
-                    ),
-                    spacing="2",
-                    width="100%",
+                    rx.text("No project selected", size="1", color=rx.color("gray", 9)),
                 ),
+            ),
+            rx.button(
+                rx.hstack(rx.icon("refresh-cw", size=12), rx.text("Load projects"), spacing="1"),
+                size="1",
+                variant="ghost",
+                on_click=ProjectState.load_projects,
             ),
             rx.cond(
                 ProjectState.projects_error != "",

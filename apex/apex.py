@@ -19,7 +19,6 @@ from pages.phase6 import phase6_page
 _SHARED_ON_LOAD = [
     AuthState.restore_session,
     ProjectState.load_project_config,
-    ProjectState.load_projects,
     ContextState.load_context,
     BoardState.load_epics,
 ]
