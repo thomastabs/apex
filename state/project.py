@@ -12,6 +12,8 @@ class ProjectState(AuthState):
     projects_loading: bool = False
     projects_error: str = ""
     project_name: str = ""
+    _projects_loaded: bool = False
+
     @rx.event
     def load_project_config(self):
         """Restore active project from persisted config (called on_load)."""
@@ -29,12 +31,17 @@ class ProjectState(AuthState):
 
     @rx.event
     async def load_projects(self):
+        if not self.is_authenticated:
+            return
         self._sync_token()
-        self.projects_loading = True
+        if not self._projects_loaded:
+            self.projects_loading = True
+            self.projects_list = []
         self.projects_error = ""
         yield
         try:
             self.projects_list = taiga_adapter.get_projects()
+            self._projects_loaded = True
         except taiga_adapter.TaigaAPIError as exc:
             self.projects_error = str(exc)
         finally:
