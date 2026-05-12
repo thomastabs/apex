@@ -339,6 +339,21 @@ html.dark .apex-phase-tabs-bar,
   background: var(--gray-2) !important;
 }
 
+/* Tab items — active state driven by JS data-tab-active attr (no server RTT) */
+.apex-tab-num   { color: var(--gray-9); transition: color 0.1s; }
+.apex-tab-label { color: var(--gray-11); font-weight: 400; transition: color 0.1s; }
+.apex-tab-bar   { background: transparent; transition: background 0.1s; }
+.apex-tab-inner { background: transparent; transition: background 0.1s; cursor: pointer; }
+.apex-tab-inner:hover { background: var(--gray-3); }
+.apex-tab-home-inner { transition: background 0.1s; cursor: pointer; }
+.apex-tab-home-inner:hover { background: var(--gray-3); }
+
+.apex-tab[data-tab-active="1"] .apex-tab-num   { color: var(--accent-10); }
+.apex-tab[data-tab-active="1"] .apex-tab-label { color: var(--accent-12); font-weight: 700; }
+.apex-tab[data-tab-active="1"] .apex-tab-bar   { background: var(--accent-9); }
+.apex-tab[data-tab-active="1"] .apex-tab-inner { background: var(--accent-2); }
+.apex-tab[data-tab-active="1"] .apex-tab-inner:hover { background: var(--accent-2); }
+
 /* ── Selected epic/suggestion expanders turn green ───────────────────────── */
 details.apex-expander[style*="green"] > summary:hover {
   background: var(--green-3) !important;

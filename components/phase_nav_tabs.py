@@ -11,57 +11,65 @@ _PHASES = [
     ("/phase6", "6", "Maintenance"),
 ]
 
+# Active state driven entirely client-side — no server round-trip.
+# On each mount updateActiveTabs() reads window.location.pathname and sets
+# data-tab-active="1" on the matching tab; CSS drives all visual state.
+_TABS_SCRIPT = """
+(function() {
+  function updateActiveTabs() {
+    var path = window.location.pathname;
+    document.querySelectorAll('a[data-tab]').forEach(function(el) {
+      el.dataset.tabActive = el.getAttribute('data-tab') === path ? '1' : '0';
+    });
+  }
+  updateActiveTabs();
+  if (window._apexTabs) return;
+  window._apexTabs = true;
+  document.addEventListener('click', function(e) {
+    var tab = e.target.closest('a[data-tab]');
+    if (!tab) return;
+    document.querySelectorAll('a[data-tab]').forEach(function(el) {
+      el.dataset.tabActive = '0';
+    });
+    tab.dataset.tabActive = '1';
+  });
+  window.addEventListener('popstate', updateActiveTabs);
+})();
+"""
+
 
 def _tab(route: str, num: str, label: str) -> rx.Component:
-    is_active = rx.State.router.page.path == route
     return rx.link(
         rx.vstack(
-            rx.text(
-                "Phase " + num,
-                size="1",
-                weight="medium",
-                color=rx.cond(is_active, rx.color("accent", 10), rx.color("gray", 9)),
-            ),
-            rx.text(
-                label,
-                size="2",
-                weight=rx.cond(is_active, "bold", "regular"),
-                color=rx.cond(is_active, rx.color("accent", 12), rx.color("gray", 11)),
-            ),
-            # Bottom indicator bar
-            rx.box(
-                height="2px",
-                width="100%",
-                background=rx.cond(is_active, rx.color("accent", 9), "transparent"),
-                border_radius="1px 1px 0 0",
-            ),
+            rx.text("Phase " + num, size="1", weight="medium", class_name="apex-tab-num"),
+            rx.text(label, size="2", class_name="apex-tab-label"),
+            rx.box(height="2px", width="100%", border_radius="1px 1px 0 0", class_name="apex-tab-bar"),
             spacing="0",
             align="center",
             padding_x="14px",
             padding_top="8px",
             padding_bottom="0",
             min_width="80px",
-            background=rx.cond(is_active, rx.color("accent", 2), "transparent"),
-            _hover={"background": rx.cond(is_active, rx.color("accent", 2), rx.color("gray", 3))},
-            transition="background 0.1s",
-            cursor="pointer",
+            class_name="apex-tab-inner",
         ),
         href=route,
         text_decoration="none",
         height="100%",
+        data_tab=route,
+        class_name="apex-tab",
     )
 
 
 def phase_nav_tabs() -> rx.Component:
     return rx.hstack(
+        rx.script(_TABS_SCRIPT),
         rx.link(
             rx.hstack(
                 rx.icon("house", size=15, color=rx.color("gray", 9)),
                 align="center",
                 padding_x="14px",
                 height="100%",
-                _hover={"background": rx.color("gray", 3)},
-                transition="background 0.1s",
+                class_name="apex-tab-home-inner",
             ),
             href="/",
             text_decoration="none",
@@ -81,4 +89,5 @@ def phase_nav_tabs() -> rx.Component:
         position="sticky",
         top="0",
         z_index="100",
+        class_name="apex-phase-tabs-bar",
     )
