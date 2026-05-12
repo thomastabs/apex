@@ -239,7 +239,18 @@ class Phase1State(ProjectState):
         self.epics_load_error = ""
         yield
         try:
-            self.epics_list = taiga_adapter.get_epics()
+            epics = taiga_adapter.get_epics()
+            # Taiga's list endpoint omits description; fetch detail for each epic missing one.
+            full_epics = []
+            for epic in epics:
+                if not epic.get("description"):
+                    try:
+                        full_epics.append(taiga_adapter.get_epic(epic["id"]))
+                    except taiga_adapter.TaigaAPIError:
+                        full_epics.append(epic)
+                else:
+                    full_epics.append(epic)
+            self.epics_list = full_epics
         except taiga_adapter.TaigaAPIError as exc:
             self.epics_load_error = str(exc)
         finally:

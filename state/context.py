@@ -89,6 +89,29 @@ class ContextState(ProjectState):
             pass
         return ""
 
+    def _to_html(self, text: str) -> str:
+        try:
+            import markdown as _md
+            return _md.markdown(text or "", extensions=["tables", "fenced_code", "nl2br"])
+        except Exception:
+            return f"<pre>{text}</pre>"
+
+    @rx.var
+    def mem_bank_html(self) -> str:
+        return self._to_html(self.mem_bank_content)
+
+    @rx.var
+    def func_spec_html(self) -> str:
+        return self._to_html(self.func_spec_content)
+
+    @rx.var
+    def tech_spec_html(self) -> str:
+        return self._to_html(self.tech_spec_content)
+
+    @rx.var
+    def vaccines_html(self) -> str:
+        return self._to_html(self.vaccines_content)
+
     @rx.event
     def toggle_mem_bank_md(self):
         self.mem_bank_md = not self.mem_bank_md

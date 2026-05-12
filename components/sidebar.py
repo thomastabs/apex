@@ -476,45 +476,55 @@ def _context_file_editor(
     reset_filename: str,
     md_var=None,
     toggle_md_event=None,
+    html_var=None,
 ) -> rx.Component:
     """Expander for one context file. md_var=True → Preview mode, False → Edit mode."""
-    char_count = rx.text(
-        content_var.length().to_string() + " ch",
-        size="1",
-        color=rx.color("gray", 9),
+    # Header lives inside <summary> — keep it simple (no buttons) so clicking the
+    # header only toggles the expander and doesn't fire competing on_click handlers.
+    header = rx.hstack(
+        rx.icon("file-text", size=13, color=rx.color("accent", 9)),
+        rx.text(label, size="2"),
+        rx.spacer(),
+        rx.text(
+            content_var.length().to_string() + " ch",
+            size="1",
+            color=rx.color("gray", 9),
+        ),
+        align="center",
+        width="100%",
     )
 
-    if md_var is not None:
-        mode_btn = rx.button(
-            rx.cond(
-                md_var,
-                rx.hstack(rx.icon("pencil", size=11), rx.text("Edit"), spacing="1"),
-                rx.hstack(rx.icon("eye", size=11), rx.text("Preview"), spacing="1"),
-            ),
+    action_bar = rx.hstack(
+        rx.button(
+            rx.hstack(rx.icon("download", size=12), rx.text("Export"), spacing="1"),
             size="1",
             variant="ghost",
-            color_scheme="gray",
-            on_click=toggle_md_event,
-        )
-        header = rx.hstack(
-            rx.icon("file-text", size=13, color=rx.color("accent", 9)),
-            rx.text(label, size="2"),
-            rx.spacer(),
-            mode_btn,
-            char_count,
-            align="center",
-            spacing="2",
-            width="100%",
-        )
+            on_click=download_event,
+        ),
+        rx.spacer(),
+        rx.button(
+            rx.hstack(rx.icon("rotate-ccw", size=12), rx.text("Reset"), spacing="1"),
+            size="1",
+            variant="ghost",
+            color_scheme="red",
+            on_click=lambda: ContextState.reset_context_file(reset_filename),
+        ),
+        width="100%",
+    )
+
+    if md_var is not None and html_var is not None:
         content_area = rx.cond(
             md_var,
-            # ── Preview: render markdown ───────────────────────────────────
+            # ── Preview: server-rendered HTML from Python markdown library ──
             rx.scroll_area(
-                rx.markdown(content_var, component_map={"p": lambda text: rx.text(text, size="1")}),
+                rx.box(
+                    rx.html(html_var),
+                    class_name="apex-md-preview",
+                    width="100%",
+                ),
                 type="auto",
                 max_height="280px",
                 width="100%",
-                padding_x="4px",
             ),
             # ── Edit: source code textarea ─────────────────────────────────
             rx.text_area(
@@ -526,48 +536,47 @@ def _context_file_editor(
                 font_size="12px",
             ),
         )
-    else:
-        header = rx.hstack(
-            rx.icon("file-text", size=13, color=rx.color("accent", 9)),
-            rx.text(label, size="2"),
-            rx.spacer(),
-            char_count,
-            align="center",
+        body = rx.vstack(
+            # Mode toggle at top of body — outside <summary> to avoid the
+            # native details-toggle side effect on click.
+            rx.hstack(
+                rx.button(
+                    rx.cond(
+                        md_var,
+                        rx.hstack(rx.icon("pencil", size=11), rx.text("Edit"), spacing="1"),
+                        rx.hstack(rx.icon("eye", size=11), rx.text("Preview"), spacing="1"),
+                    ),
+                    size="1",
+                    variant="soft",
+                    color_scheme="violet",
+                    on_click=toggle_md_event,
+                ),
+                justify="end",
+                width="100%",
+            ),
+            content_area,
+            action_bar,
+            spacing="2",
             width="100%",
         )
-        content_area = rx.text_area(
-            value=content_var,
-            on_change=save_event,
-            rows="10",
+    else:
+        body = rx.vstack(
+            rx.text_area(
+                value=content_var,
+                on_change=save_event,
+                rows="10",
+                width="100%",
+                font_family="monospace",
+                font_size="12px",
+            ),
+            action_bar,
+            spacing="2",
             width="100%",
-            font_family="monospace",
-            font_size="12px",
         )
 
     return expander(
         header,
-        rx.vstack(
-            content_area,
-            rx.hstack(
-                rx.button(
-                    rx.hstack(rx.icon("download", size=12), rx.text("Export"), spacing="1"),
-                    size="1",
-                    variant="ghost",
-                    on_click=download_event,
-                ),
-                rx.spacer(),
-                rx.button(
-                    rx.hstack(rx.icon("rotate-ccw", size=12), rx.text("Reset"), spacing="1"),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="red",
-                    on_click=lambda: ContextState.reset_context_file(reset_filename),
-                ),
-                width="100%",
-            ),
-            spacing="2",
-            width="100%",
-        ),
+        body,
         body_padding="10px 12px 12px",
     )
 
@@ -598,6 +607,7 @@ def _context_zone() -> rx.Component:
                     "memory-bank.md",
                     ContextState.mem_bank_md,
                     ContextState.toggle_mem_bank_md,
+                    ContextState.mem_bank_html,
                 ),
                 _context_file_editor(
                     "Functional Spec",
@@ -607,6 +617,7 @@ def _context_zone() -> rx.Component:
                     "functional-spec.md",
                     ContextState.func_spec_md,
                     ContextState.toggle_func_spec_md,
+                    ContextState.func_spec_html,
                 ),
                 _context_file_editor(
                     "Technical Spec",
@@ -616,6 +627,7 @@ def _context_zone() -> rx.Component:
                     "technical-spec.md",
                     ContextState.tech_spec_md,
                     ContextState.toggle_tech_spec_md,
+                    ContextState.tech_spec_html,
                 ),
                 _context_file_editor(
                     "Vaccine Records",
@@ -625,6 +637,7 @@ def _context_zone() -> rx.Component:
                     "vaccines.md",
                     ContextState.vaccines_md,
                     ContextState.toggle_vaccines_md,
+                    ContextState.vaccines_html,
                 ),
                 spacing="1",
                 width="100%",

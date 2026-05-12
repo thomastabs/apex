@@ -90,14 +90,9 @@ def _load_epic_item(epic: dict) -> rx.Component:
         ),
         rx.vstack(
             rx.cond(
-                epic.get("description", "") != "",
-                rx.text(epic.get("description", ""), size="2", color=rx.color("gray", 11)),
-                rx.text(
-                    "No description provided.",
-                    size="2",
-                    color=rx.color("gray", 9),
-                    font_style="italic",
-                ),
+                epic["description"] != "",
+                rx.text(epic["description"], size="2", color=rx.color("gray", 11)),
+                rx.text("No description provided.", size="2", color=rx.color("gray", 9), font_style="italic"),
             ),
             rx.cond(
                 is_selected,

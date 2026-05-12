@@ -63,18 +63,77 @@
   opacity: 0.55 !important;
 }
 
-/* ── Raw text view in context editors ───────────────────────────────────────
-   Uses <pre> so whitespace/newlines are preserved exactly as typed.         */
-pre.apex-md-preview {
-  margin: 0;
-  padding: 6px 2px;
-  white-space: pre-wrap;
+/* ── Markdown HTML preview in context file editors ───────────────────────── */
+.apex-md-preview {
+  color: var(--gray-12);
+  font-size: 12px;
+  line-height: 1.65;
+  padding: 4px 2px;
   word-break: break-word;
-  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
-  font-size: 11px;
-  line-height: 1.55;
-  color: var(--gray-11);
+  overflow-wrap: break-word;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
+.apex-md-preview h1,
+.apex-md-preview h2,
+.apex-md-preview h3,
+.apex-md-preview h4 {
+  color: var(--gray-12);
+  margin: 0.75em 0 0.3em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.apex-md-preview h1 { font-size: 15px; }
+.apex-md-preview h2 { font-size: 13px; }
+.apex-md-preview h3 { font-size: 12px; }
+.apex-md-preview p  { margin: 0.4em 0; }
+.apex-md-preview ul,
+.apex-md-preview ol { margin: 0.4em 0; padding-left: 1.4em; }
+.apex-md-preview li { margin: 0.2em 0; }
+.apex-md-preview code {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  background: var(--gray-a3);
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+.apex-md-preview pre {
+  background: var(--gray-a3);
+  border-radius: var(--radius-2);
+  padding: 8px 10px;
+  overflow-x: auto;
+  max-width: 100%;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0.5em 0;
+}
+.apex-md-preview pre code {
+  background: none;
+  padding: 0;
+}
+.apex-md-preview a  { color: var(--accent-9); }
+.apex-md-preview hr {
+  border: none;
+  border-top: 1px solid var(--gray-5);
+  margin: 0.75em 0;
+}
+.apex-md-preview table {
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 100%;
+  font-size: 11px;
+  margin: 0.5em 0;
+  display: block;
+  overflow-x: auto;
+}
+.apex-md-preview th,
+.apex-md-preview td {
+  border: 1px solid var(--gray-5);
+  padding: 4px 8px;
+  text-align: left;
+}
+.apex-md-preview th { background: var(--gray-a3); font-weight: 600; }
 
 /* ── Dark mode: match Streamlit backgroundColor="#1a1a1a" ───────────────────
    Radix dark uses ~#111 which feels colder. #1a1a1a adds warmth.           */
