@@ -2,6 +2,7 @@
 
 import reflex as rx
 from state.auth import AuthState
+from state.project import ProjectState
 
 
 def switch_account_dialog() -> rx.Component:
@@ -71,7 +72,7 @@ def switch_account_dialog() -> rx.Component:
                                     ),
                                     spacing="3",
                                 ),
-                                on_submit=AuthState.login,
+                                on_submit=ProjectState.login_and_load,
                             ),
                             value="credentials",
                             padding_top="12px",
@@ -97,7 +98,7 @@ def switch_account_dialog() -> rx.Component:
                                     ),
                                     spacing="3",
                                 ),
-                                on_submit=AuthState.login,
+                                on_submit=ProjectState.login_and_load,
                             ),
                             value="token",
                             padding_top="12px",

@@ -131,6 +131,15 @@ class ContextState(ProjectState):
     # ── Load / reload ─────────────────────────────────────────────────────────
 
     @rx.event
+    def confirm_project_selection(self):
+        """Commit pending_project_id as the active project and reload context."""
+        if self.pending_project_id <= 0:
+            return
+        pid = self.pending_project_id
+        self.pending_project_id = 0
+        ContextState.select_project.fn(self, pid)
+
+    @rx.event
     def select_project(self, project_id: int):
         """Override ProjectState.select_project to also reload context files immediately."""
         self._sync_token()
