@@ -2,7 +2,7 @@ name: CI/CD
 
 on:
   push:
-    branches: [main]
+    branches: [main, reflex-migration]
   pull_request:
     branches: [main]
 
@@ -100,4 +100,16 @@ jobs:
             --name ${{ env.AZURE_APP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-$(echo ${{ github.sha }} | cut -c1-7)
+
+      - name: Enforce ingress settings (idempotent)
+        run: |
+          az containerapp ingress update \
+            --name ${{ env.AZURE_APP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --target-port 8000 \
+            --transport http
+          az containerapp ingress sticky-sessions set \
+            --name ${{ env.AZURE_APP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --affinity sticky
 

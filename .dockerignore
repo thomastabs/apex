@@ -8,8 +8,8 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.states/
 contextspec/
 tests/
 *.md
 !README.md
-.streamlit/.theme_pref

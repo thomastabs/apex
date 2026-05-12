@@ -1,7 +1,19 @@
-"""Unit tests for components/phase1.py — validation logic and pure utilities."""
+"""Unit tests for Phase 1 state logic — pure functions and state mutations."""
 
-import pytest
-from unittest.mock import patch, MagicMock
+import asyncio
+from unittest.mock import MagicMock, patch
+
+
+def _run_async_event(coro_or_gen):
+    """Drain a coroutine or async generator produced by an @rx.event async def handler."""
+    async def _drain():
+        result = coro_or_gen
+        if hasattr(result, "__aiter__"):
+            async for _ in result:
+                pass
+        else:
+            await result
+    asyncio.run(_drain())
 
 
 # ---------------------------------------------------------------------------
@@ -9,7 +21,6 @@ from unittest.mock import patch, MagicMock
 # ---------------------------------------------------------------------------
 
 def _make_valid_compiled(n: int = 1) -> list[dict]:
-    """Return n valid compiled-story dicts."""
     return [
         {
             "title":   f"Story {i + 1}",
@@ -26,26 +37,33 @@ def _make_valid_compiled(n: int = 1) -> list[dict]:
     ]
 
 
-def _mock_ss(data: dict):
-    """Return a MagicMock that behaves like st.session_state for get() calls."""
-    mock = MagicMock()
-    mock.get = lambda key, default=None: data.get(key, default)
-    return mock
+def _gherkin_edits(compiled: list[dict]) -> list[str]:
+    return [item["gherkin"] for item in compiled]
+
+
+def _bare_state(cls, **attrs):
+    """Create a bare Reflex state instance for unit testing without the Reflex runtime.
+
+    Reflex's __setattr__ requires dirty_vars to be a set; __new__ alone leaves it None.
+    Seeding it here lets event-handler attribute assignments work without a running app.
+    """
+    state = object.__new__(cls)
+    object.__setattr__(state, "dirty_vars", set())
+    for k, v in attrs.items():
+        object.__setattr__(state, k, v)
+    return state
 
 
 # ---------------------------------------------------------------------------
-# _validate_compiled_stories
+# validate_stories (pure function — no Reflex state needed)
 # ---------------------------------------------------------------------------
 
-class TestValidateCompiledStories:
-    def _validate(self, compiled, ss_override=None):
-        import streamlit as st
-        from components.phase1 import _validate_compiled_stories
-        ss_data = ss_override or {
-            f"gherkin_edit_{i}": item["gherkin"] for i, item in enumerate(compiled)
-        }
-        with patch.object(st, "session_state", _mock_ss(ss_data)):
-            return _validate_compiled_stories(compiled)
+class TestValidateStories:
+    def _validate(self, compiled, edits=None):
+        from state.phase1 import validate_stories
+        if edits is None:
+            edits = _gherkin_edits(compiled)
+        return validate_stories(compiled, edits)
 
     def test_valid_single_story_returns_no_errors(self):
         assert self._validate(_make_valid_compiled(1)) == []
@@ -61,309 +79,285 @@ class TestValidateCompiledStories:
 
     def test_missing_feature_header_reports_error(self):
         compiled = _make_valid_compiled(1)
-        compiled[0]["gherkin"] = "  Scenario: s\n    Given x\n    When y\n    Then z\n"
-        errors = self._validate(compiled, ss_override={
-            "gherkin_edit_0": compiled[0]["gherkin"]
-        })
+        bad_gherkin = "  Scenario: s\n    Given x\n    When y\n    Then z\n"
+        errors = self._validate(compiled, [bad_gherkin])
         assert any("Feature" in e for e in errors)
 
     def test_missing_scenario_block_reports_error(self):
         compiled = _make_valid_compiled(1)
-        compiled[0]["gherkin"] = "Feature: X\n"
-        errors = self._validate(compiled, ss_override={"gherkin_edit_0": "Feature: X\n"})
+        errors = self._validate(compiled, ["Feature: X\n"])
         assert any("Scenario" in e for e in errors)
 
-    def test_session_state_gherkin_takes_precedence_over_item_gherkin(self):
+    def test_edits_override_item_gherkin(self):
         compiled = _make_valid_compiled(1)
-        compiled[0]["gherkin"] = "Feature: X\n"  # invalid in item
-        valid_gherkin = (
-            "Feature: Valid\n\n"
-            "  Scenario: s\n    Given x\n    When y\n    Then z\n"
-        )
-        errors = self._validate(compiled, ss_override={"gherkin_edit_0": valid_gherkin})
-        assert errors == []
-
-    def test_falls_back_to_item_gherkin_when_session_state_empty(self):
-        compiled = _make_valid_compiled(1)
-        errors = self._validate(compiled, ss_override={"gherkin_edit_0": ""})
-        assert errors == []
-
-    def test_error_label_uses_title_when_present(self):
-        compiled = _make_valid_compiled(1)
-        compiled[0]["gherkin"] = "Feature: X\n"  # no Scenario
-        errors = self._validate(compiled, ss_override={"gherkin_edit_0": "Feature: X\n"})
-        assert any("Story 1" in e for e in errors)
-
-    def test_error_label_uses_positional_when_no_title(self):
-        compiled = _make_valid_compiled(1)
-        compiled[0]["title"] = ""
         compiled[0]["gherkin"] = "Feature: X\n"
-        errors = self._validate(compiled, ss_override={"gherkin_edit_0": "Feature: X\n"})
-        assert any("Story 1" in e for e in errors)
+        valid = "Feature: Valid\n\n  Scenario: s\n    Given x\n    When y\n    Then z\n"
+        assert self._validate(compiled, [valid]) == []
 
-    def test_scenario_outline_counts_as_valid_scenario(self):
+    def test_falls_back_to_item_gherkin_when_edit_empty(self):
+        # Empty string edit → fall back to the item's compiled gherkin.
         compiled = _make_valid_compiled(1)
-        compiled[0]["gherkin"] = (
+        assert self._validate(compiled, [""]) == []
+
+    def test_scenario_outline_counts_as_valid(self):
+        compiled = _make_valid_compiled(1)
+        outline = (
             "Feature: X\n\n"
             "  Scenario Outline: parameterised\n"
             "    Given <input>\n    When action\n    Then <output>\n"
         )
-        errors = self._validate(compiled, ss_override={
-            "gherkin_edit_0": compiled[0]["gherkin"]
-        })
-        assert errors == []
+        assert self._validate(compiled, [outline]) == []
 
     def test_two_stories_first_invalid_second_valid(self):
         compiled = _make_valid_compiled(2)
-        compiled[0]["gherkin"] = "Feature: X\n"
-        ss = {
-            "gherkin_edit_0": "Feature: X\n",
-            "gherkin_edit_1": compiled[1]["gherkin"],
-        }
-        errors = self._validate(compiled, ss_override=ss)
+        edits = ["Feature: X\n", compiled[1]["gherkin"]]
+        errors = self._validate(compiled, edits)
         assert len(errors) == 1
 
+    def test_error_label_uses_title(self):
+        compiled = _make_valid_compiled(1)
+        errors = self._validate(compiled, ["Feature: X\n"])
+        assert any("Story 1" in e for e in errors)
 
-# ---------------------------------------------------------------------------
-# _parse_epic_id
-# ---------------------------------------------------------------------------
-
-class TestParseEpicId:
-    def _parse(self, raw_value: str):
-        import streamlit as st
-        from components.phase1 import _parse_epic_id
-        with patch.object(st, "session_state", _mock_ss({"epic_id_input": raw_value})):
-            return _parse_epic_id()
-
-    def test_valid_integer_string(self):
-        assert self._parse("42") == 42
-
-    def test_empty_string_returns_none(self):
-        assert self._parse("") is None
-
-    def test_whitespace_only_returns_none(self):
-        assert self._parse("   ") is None
-
-    def test_non_numeric_returns_none(self):
-        assert self._parse("abc") is None
-
-    def test_float_string_returns_none(self):
-        assert self._parse("3.14") is None
-
-    def test_zero_is_valid_integer(self):
-        assert self._parse("0") == 0
+    def test_error_label_positional_when_no_title(self):
+        compiled = _make_valid_compiled(1)
+        compiled[0]["title"] = ""
+        errors = self._validate(compiled, ["Feature: X\n"])
+        assert any("Story 1" in e for e in errors)
 
 
 # ---------------------------------------------------------------------------
-# _add_story / _delete_story
+# Phase1State — add_story / delete_story
 # ---------------------------------------------------------------------------
 
 class TestAddAndDeleteStory:
-    def _call_add(self, compiled: list[dict]):
-        import streamlit as st
-        from components.phase1 import _add_story
-        ss_data = {f"gherkin_edit_{i}": item["gherkin"] for i, item in enumerate(compiled)}
-        mock_ss = MagicMock()
-        mock_ss.get = lambda key, default=None: ss_data.get(key, default)
-        mock_ss.__getitem__ = lambda self, key: ss_data[key]
-        mock_ss.__setitem__ = lambda self, key, val: ss_data.update({key: val})
-        mock_ss.compiled_stories = compiled
-        with patch.object(st, "session_state", mock_ss):
-            _add_story()
-        return compiled
-
-    def _call_delete(self, compiled: list[dict], index: int):
-        import streamlit as st
-        from components.phase1 import _delete_story
-        ss_data = {f"gherkin_edit_{i}": item["gherkin"] for i, item in enumerate(compiled)}
-        mock_ss = MagicMock()
-        mock_ss.get = lambda key, default=None: ss_data.get(key, default)
-        mock_ss.__getitem__ = lambda self, key: ss_data[key]
-        mock_ss.__setitem__ = lambda self, key, val: ss_data.update({key: val})
-        mock_ss.__contains__ = lambda self, key: key in ss_data
-        mock_ss.compiled_stories = compiled
-        with patch.object(st, "session_state", mock_ss):
-            _delete_story(index)
-        return compiled
+    def _make_state(self, compiled: list[dict]):
+        from state.phase1 import Phase1State
+        return _bare_state(
+            Phase1State,
+            compiled_stories=list(compiled),
+            gherkin_edits=_gherkin_edits(compiled),
+            epic_subject_input="",
+            epic_id_input="",
+            nl_draft="",
+            nl_editor="",
+        )
 
     def test_add_story_increases_list_length(self):
-        compiled = _make_valid_compiled(2)
-        result = self._call_add(compiled)
-        assert len(result) == 3
+        from state.phase1 import Phase1State
+        state = self._make_state(_make_valid_compiled(2))
+        Phase1State.add_story.fn(state)
+        assert len(state.compiled_stories) == 3
 
     def test_add_story_has_default_title(self):
-        compiled = _make_valid_compiled(1)
-        self._call_add(compiled)
-        assert compiled[-1]["title"] == "New Story"
+        from state.phase1 import Phase1State
+        state = self._make_state(_make_valid_compiled(1))
+        Phase1State.add_story.fn(state)
+        assert state.compiled_stories[-1]["title"] == "New Story"
 
     def test_add_story_has_feature_header(self):
-        compiled = _make_valid_compiled(1)
-        self._call_add(compiled)
-        assert "Feature:" in compiled[-1]["gherkin"]
+        from state.phase1 import Phase1State
+        state = self._make_state(_make_valid_compiled(1))
+        Phase1State.add_story.fn(state)
+        assert "Feature:" in state.compiled_stories[-1]["gherkin"]
 
     def test_delete_story_decreases_list_length(self):
-        compiled = _make_valid_compiled(3)
-        self._call_delete(compiled, 1)
-        assert len(compiled) == 2
+        from state.phase1 import Phase1State
+        state = self._make_state(_make_valid_compiled(3))
+        with patch("state.phase1.context_manager"):
+            Phase1State.delete_story.fn(state, 1)
+        assert len(state.compiled_stories) == 2
 
     def test_delete_correct_story(self):
-        compiled = _make_valid_compiled(3)
-        title_to_delete = compiled[1]["title"]
-        self._call_delete(compiled, 1)
-        titles = [s["title"] for s in compiled]
+        from state.phase1 import Phase1State
+        state = self._make_state(_make_valid_compiled(3))
+        title_to_delete = state.compiled_stories[1]["title"]
+        with patch("state.phase1.context_manager"):
+            Phase1State.delete_story.fn(state, 1)
+        titles = [s["title"] for s in state.compiled_stories]
         assert title_to_delete not in titles
 
     def test_delete_first_story(self):
+        from state.phase1 import Phase1State
+        state = self._make_state(_make_valid_compiled(2))
+        second_title = state.compiled_stories[1]["title"]
+        with patch("state.phase1.context_manager"):
+            Phase1State.delete_story.fn(state, 0)
+        assert state.compiled_stories[0]["title"] == second_title
+
+    def test_gherkin_edits_kept_in_sync_after_delete(self):
+        from state.phase1 import Phase1State
+        state = self._make_state(_make_valid_compiled(3))
+        with patch("state.phase1.context_manager"):
+            Phase1State.delete_story.fn(state, 0)
+        assert len(state.gherkin_edits) == len(state.compiled_stories)
+
+
+# ---------------------------------------------------------------------------
+# Phase1State — set_nl_editor saves draft
+# ---------------------------------------------------------------------------
+
+class TestSetNlEditor:
+    def _make_state(self):
+        from state.phase1 import Phase1State
+        return _bare_state(
+            Phase1State,
+            nl_editor="",
+            nl_draft="",
+            compiled_stories=[],
+            gherkin_edits=[],
+            epic_subject_input="",
+            epic_id_input="",
+        )
+
+    def test_set_nl_editor_updates_var(self):
+        from state.phase1 import Phase1State
+        state = self._make_state()
+        with patch("state.phase1.context_manager"):
+            Phase1State.set_nl_editor.fn(state, "new content")
+        assert state.nl_editor == "new content"
+
+    def test_set_nl_editor_calls_save_draft(self):
+        from state.phase1 import Phase1State
+        state = self._make_state()
+        with patch("state.phase1.context_manager") as mock_cm:
+            mock_cm.save_draft = MagicMock()
+            Phase1State.set_nl_editor.fn(state, "hello")
+            mock_cm.save_draft.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Phase1State — restore_draft
+# ---------------------------------------------------------------------------
+
+class TestRestoreDraft:
+    def _make_state(self):
+        from state.phase1 import Phase1State
+        return _bare_state(
+            Phase1State,
+            draft_restored=False,
+            nl_draft="",
+            nl_editor="",
+            epic_subject_input="",
+            epic_id_input="",
+            compiled_stories=[],
+            gherkin_edits=[],
+        )
+
+    def test_restores_nl_draft_from_file(self):
+        from state.phase1 import Phase1State
+        state = self._make_state()
+        draft = {"epic_subject": "S", "epic_id": "1", "nl_draft": "Draft text",
+                 "nl_editor": "Draft text", "compiled_stories": None, "gherkin_edits": []}
+        with patch("state.phase1.context_manager") as mock_cm:
+            mock_cm.load_draft.return_value = draft
+            Phase1State.restore_draft.fn(state)
+        assert state.nl_draft == "Draft text"
+
+    def test_restores_nl_editor_separately(self):
+        from state.phase1 import Phase1State
+        state = self._make_state()
+        draft = {"nl_draft": "Base", "nl_editor": "Edited",
+                 "compiled_stories": None, "gherkin_edits": []}
+        with patch("state.phase1.context_manager") as mock_cm:
+            mock_cm.load_draft.return_value = draft
+            Phase1State.restore_draft.fn(state)
+        assert state.nl_editor == "Edited"
+
+    def test_falls_back_nl_editor_to_nl_draft(self):
+        from state.phase1 import Phase1State
+        state = self._make_state()
+        draft = {"nl_draft": "Base", "compiled_stories": None, "gherkin_edits": []}
+        with patch("state.phase1.context_manager") as mock_cm:
+            mock_cm.load_draft.return_value = draft
+            Phase1State.restore_draft.fn(state)
+        assert state.nl_editor == "Base"
+
+    def test_restores_gherkin_edits_from_draft(self):
+        from state.phase1 import Phase1State
+        state = self._make_state()
         compiled = _make_valid_compiled(2)
-        second_title = compiled[1]["title"]
-        self._call_delete(compiled, 0)
-        assert compiled[0]["title"] == second_title
+        saved_edits = ["edited gherkin 0", "edited gherkin 1"]
+        draft = {"nl_draft": "d", "nl_editor": "d",
+                 "compiled_stories": compiled, "gherkin_edits": saved_edits}
+        with patch("state.phase1.context_manager") as mock_cm:
+            mock_cm.load_draft.return_value = draft
+            Phase1State.restore_draft.fn(state)
+        assert state.gherkin_edits[0] == "edited gherkin 0"
+        assert state.gherkin_edits[1] == "edited gherkin 1"
+
+    def test_guard_prevents_double_restore(self):
+        from state.phase1 import Phase1State
+        state = self._make_state()
+        state.draft_restored = True
+        with patch("state.phase1.context_manager") as mock_cm:
+            mock_cm.load_draft.return_value = {"nl_draft": "x"}
+            Phase1State.restore_draft.fn(state)
+        assert state.nl_draft == ""
+
+    def test_no_draft_leaves_state_empty(self):
+        from state.phase1 import Phase1State
+        state = self._make_state()
+        with patch("state.phase1.context_manager") as mock_cm:
+            mock_cm.load_draft.return_value = None
+            Phase1State.restore_draft.fn(state)
+        assert state.nl_draft == ""
 
 
 # ---------------------------------------------------------------------------
-# _classify_ai_error
+# Phase1State — request_mode_switch / confirm / cancel
 # ---------------------------------------------------------------------------
 
-class TestClassifyAiError:
-    def _classify(self, exc: Exception) -> str:
-        from components.phase1 import _classify_ai_error
-        return _classify_ai_error(exc)
+class TestModeSwitch:
+    def _make_state(self, nl_draft="", compiled=None):
+        from state.phase1 import Phase1State
+        return _bare_state(
+            Phase1State,
+            start_mode="new",
+            nl_draft=nl_draft,
+            compiled_stories=compiled or [],
+            gherkin_edits=[],
+            epic_subject_input="",
+            discard_dialog_open=False,
+            pending_mode_switch="",
+            nl_editor="",
+            story_subject="",
+            push_done=False,
+            push_result={},
+            ai_error="",
+            compile_error="",
+            push_error="",
+        )
 
-    def test_ai_rate_limit_error_returns_friendly_message(self):
-        from src.ai_engine import AIRateLimitError
-        result = self._classify(AIRateLimitError("quota exceeded"))
-        assert "Rate limit" in result
-        assert "429" in result
+    def test_switch_without_progress_changes_mode_immediately(self):
+        from state.phase1 import Phase1State
+        state = self._make_state()
+        _run_async_event(Phase1State.request_mode_switch.fn(state, "load"))
+        assert state.start_mode == "load"
+        assert not state.discard_dialog_open
 
-    def test_ai_timeout_error_returns_friendly_message(self):
-        from src.ai_engine import AITimeoutError
-        result = self._classify(AITimeoutError("connection timed out"))
-        assert "timed out" in result.lower() or "timeout" in result.lower()
+    def test_switch_with_progress_opens_dialog(self):
+        from state.phase1 import Phase1State
+        state = self._make_state(nl_draft="some draft")
+        _run_async_event(Phase1State.request_mode_switch.fn(state, "load"))
+        assert state.discard_dialog_open
+        assert state.pending_mode_switch == "load"
 
-    def test_429_string_falls_through_to_pattern_match(self):
-        result = self._classify(Exception("HTTP 429 too many requests"))
-        assert "Rate limit" in result
+    def test_confirm_applies_switch(self):
+        from state.phase1 import Phase1State
+        state = self._make_state(nl_draft="some draft")
+        state.pending_mode_switch = "suggest"
+        state.discard_dialog_open = True
+        with patch("state.phase1.context_manager"):
+            _run_async_event(Phase1State.confirm_mode_switch.fn(state))
+        assert state.start_mode == "suggest"
+        assert not state.discard_dialog_open
 
-    def test_rate_limit_keyword_in_message(self):
-        result = self._classify(Exception("rate_limit exceeded for model"))
-        assert "Rate limit" in result
-
-    def test_generic_exception_returns_raw_message(self):
-        result = self._classify(ValueError("something completely unexpected"))
-        assert "something completely unexpected" in result
-
-
-# ---------------------------------------------------------------------------
-# _run_suggest_epics
-# ---------------------------------------------------------------------------
-
-class TestRunSuggestEpics:
-    """Tests for _run_suggest_epics — patches ai_engine and st to avoid I/O."""
-
-    def _make_status_mock(self):
-        m = MagicMock()
-        m.__enter__ = MagicMock(return_value=m)
-        m.__exit__ = MagicMock(return_value=False)
-        return m
-
-    def _run(self, concept="Project X", hint="", ai_result=None, ai_exc=None):
-        import streamlit as st
-        from src.ai_engine import EpicSuggestion, EpicSuggestionList
-        from components.phase1 import _run_suggest_epics
-
-        if ai_result is None and ai_exc is None:
-            ai_result = EpicSuggestionList(epics=[
-                EpicSuggestion(title="Epic A", description="Desc A"),
-                EpicSuggestion(title="Epic B", description="Desc B"),
-            ])
-
-        ss_data = {}
-        mock_ss = MagicMock()
-        mock_ss.get = lambda key, default=None: ss_data.get(key, default)
-        mock_ss.__setitem__ = lambda self, key, val: ss_data.update({key: val})
-        mock_ss.__getitem__ = lambda self, key: ss_data[key]
-
-        status_mock = self._make_status_mock()
-
-        def fake_suggest(concept, hint=""):
-            if ai_exc:
-                raise ai_exc
-            return ai_result
-
-        with patch.object(st, "session_state", mock_ss), \
-             patch.object(st, "status", return_value=status_mock), \
-             patch("components.phase1.ai_engine.suggest_epics", side_effect=fake_suggest):
-            _run_suggest_epics(concept, hint)
-
-        return ss_data
-
-    def test_success_populates_epics_suggested(self):
-        result = self._run()
-        assert "epics_suggested" in result
-        assert len(result["epics_suggested"]) == 2
-
-    def test_success_stores_dicts_with_title_and_description(self):
-        result = self._run()
-        epic = result["epics_suggested"][0]
-        assert isinstance(epic, dict)
-        assert "title" in epic
-        assert "description" in epic
-
-    def test_success_preserves_title_values(self):
-        result = self._run()
-        titles = [e["title"] for e in result["epics_suggested"]]
-        assert "Epic A" in titles
-        assert "Epic B" in titles
-
-    def test_success_clears_previous_error(self):
-        result = self._run()
-        assert result.get("suggest_epics_error") is None
-
-    def test_error_sets_suggest_epics_error(self):
-        result = self._run(ai_exc=Exception("AI unavailable"))
-        assert "suggest_epics_error" in result
-        assert result["suggest_epics_error"]
-
-    def test_error_does_not_populate_epics_suggested(self):
-        result = self._run(ai_exc=Exception("boom"))
-        assert "epics_suggested" not in result
-
-    def test_rate_limit_error_gives_friendly_message(self):
-        from src.ai_engine import AIRateLimitError
-        result = self._run(ai_exc=AIRateLimitError("429 quota exceeded"))
-        assert "Rate limit" in result.get("suggest_epics_error", "")
-
-    def test_timeout_error_gives_friendly_message(self):
-        from src.ai_engine import AITimeoutError
-        result = self._run(ai_exc=AITimeoutError("timed out"))
-        assert "timed out" in result.get("suggest_epics_error", "").lower()
-
-    def test_hint_forwarded_to_ai(self):
-        import streamlit as st
-        from src.ai_engine import EpicSuggestionList
-        from components.phase1 import _run_suggest_epics
-
-        captured = {}
-        ss_data = {}
-        mock_ss = MagicMock()
-        mock_ss.get = lambda key, default=None: ss_data.get(key, default)
-        mock_ss.__setitem__ = lambda self, key, val: ss_data.update({key: val})
-        mock_ss.__getitem__ = lambda self, key: ss_data[key]
-        status_mock = self._make_status_mock()
-
-        def fake_suggest(concept, hint=""):
-            captured["hint"] = hint
-            return EpicSuggestionList(epics=[])
-
-        with patch.object(st, "session_state", mock_ss), \
-             patch.object(st, "status", return_value=status_mock), \
-             patch("components.phase1.ai_engine.suggest_epics", side_effect=fake_suggest):
-            _run_suggest_epics("any concept", "MVP only")
-
-        assert captured["hint"] == "MVP only"
-
-    def test_empty_epic_list_still_succeeds(self):
-        from src.ai_engine import EpicSuggestionList
-        result = self._run(ai_result=EpicSuggestionList(epics=[]))
-        assert result["epics_suggested"] == []
-        assert result.get("suggest_epics_error") is None
+    def test_cancel_leaves_mode_unchanged(self):
+        from state.phase1 import Phase1State
+        state = self._make_state(nl_draft="some draft")
+        state.pending_mode_switch = "load"
+        state.discard_dialog_open = True
+        Phase1State.cancel_mode_switch.fn(state)
+        assert state.start_mode == "new"
+        assert not state.discard_dialog_open
