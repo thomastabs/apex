@@ -24,7 +24,7 @@ def _process_diagram() -> rx.Component:
             rx.image(
                 src="/images/requirements.svg",
                 width="100%",
-                max_width="680px",
+                max_width="700px",
                 border_radius="8px",
             ),
             rx.text(
