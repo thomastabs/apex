@@ -1,9 +1,6 @@
 # Apex
 
-Apex is a Streamlit web app that guides a software team through the SDLC using Claude AI and Taiga. It turns an Epic into formal Gherkin acceptance criteria, pushes stories to Taiga, and keeps the approved requirements in a persistent context that feeds every subsequent phase.
-
-<img width="1790" height="946" alt="image" src="https://github.com/user-attachments/assets/8d9858b7-0bf6-49a0-8d24-652785309540" />
-<img width="1790" height="946" alt="image" src="https://github.com/user-attachments/assets/3e8720a3-e048-406b-bea8-141f83221502" />
+Apex is a Reflex web application that guides a software team through the SDLC using Claude AI and Taiga. It turns an Epic into formal Gherkin acceptance criteria, pushes stories to Taiga, and keeps the approved requirements in a persistent context that feeds every subsequent phase.
 
 ## How it works
 
@@ -43,14 +40,14 @@ flowchart TD
 - Edit story titles, sizes, and Gherkin per story before pushing
 - Push stories to Taiga with tags and board status
 - Save the approved Gherkin to `contextspec/<project_id>/functional-spec.md`
-- Draft survives page refresh via `.apex-draft.json`
+- Draft survives page refresh via `.apex-draft.json` (restored from browser cookie)
 - **AI Suggests** — generate 5–10 scoped Epic candidates from the Project Concept
 
 ### Sidebar
 
 - **Settings & Connections** — AI model status, Taiga account (⇄ switch), project selector, Epics & Stories board, Users & Roles
 - **Active Context** — live editor for Memory Bank, Functional Spec, Technical Spec, Vaccine Records (scoped to the active project)
-- **SDLC Phases** — phase navigation with progress badges
+- **SDLC Phases** — phase navigation
 
 ### Phases 2–6
 
@@ -60,21 +57,25 @@ Present in the UI as navigation stubs: Design, Implementation, Testing, Deployme
 
 | File / folder | Role |
 |---|---|
-| `app.py` | Entry point — page config, theme injection, routing, session restore |
-| `components/sidebar.py` | Sidebar: zones, context editor, AI/Taiga status, board, user management |
-| `components/phase1.py` | Full Phase 1 workflow (Requirements + AI Suggests) |
+| `apex/apex.py` | App entry point — `rx.App`, route registration, on_load handlers |
+| `apex/state/auth.py` | `AuthState` — Taiga token in `rx.Cookie`, login/logout, theme pref in `rx.LocalStorage` |
+| `apex/state/project.py` | `ProjectState` — active project ID, project list, config persistence |
+| `apex/state/phase1.py` | `Phase1State` — full Phase 1 workflow vars and event handlers |
+| `apex/state/board.py` | `BoardState` — Epics & Stories board, CRUD, dialog state |
+| `apex/state/context.py` | `ContextState` — context file editors (Memory Bank, Functional Spec, etc.) |
+| `apex/state/user_mgmt.py` | `UserMgmtState` — member list, roles, invite |
+| `apex/pages/` | One page function per phase, referenced by `apex.py` |
+| `apex/components/` | Sidebar, nav, phase 1 step components, dialogs |
 | `src/ai_engine.py` | LangChain + Claude prompts and structured outputs |
 | `src/context_manager.py` | Reads/writes `contextspec/<project_id>/` markdown files |
 | `src/taiga_adapter.py` | Taiga REST API client (GET/POST/PATCH/DELETE) |
-| `src/cookie_auth.py` | Browser-side session persistence via `extra-streamlit-components` CookieManager |
-| `views/phase1.py … phase6.py` | Thin Streamlit page wrappers |
+| `rxconfig.py` | Reflex config — ports, theme plugin |
 | `contextspec/` | Persistent project context — one subdirectory per Taiga project ID |
-| `static/` | CSS files for light/dark theming |
-| `tests/` | Pytest test suite — 229 tests, all external APIs mocked |
+| `tests/` | Pytest test suite — 221 tests, all external APIs mocked |
 
 ## Tech stack
 
-Python 3.12 · Streamlit · LangChain · Anthropic Claude · Pydantic · Requests · python-dotenv · extra-streamlit-components · azure-monitor-opentelemetry
+Python 3.12 · Reflex 0.9 · LangChain · Anthropic Claude · Pydantic · Requests · python-dotenv · azure-monitor-opentelemetry
 
 ---
 
@@ -84,14 +85,15 @@ Python 3.12 · Streamlit · LangChain · Anthropic Claude · Pydantic · Request
 
 | Requirement | Notes |
 |---|---|
-| Python 3.12+ | Local dev only |
-| Docker 24+ | Container run |
+| Python 3.11+ | 3.10 works but is deprecated by Reflex |
+| Node.js 20+ | Required by Reflex for the React frontend build |
+| Docker 24+ | For container run |
 | Anthropic API key | Required — set in `.env` |
 | Taiga account | Optional upfront — sign in via the sidebar ⇄ button on first launch |
 
 ### 1 · Environment setup
 
-Only the Anthropic key is needed upfront. Taiga credentials are entered via the sidebar on first use and persisted automatically.
+Only the Anthropic key is needed upfront. Taiga credentials are entered via the sidebar on first use.
 
 ```bash
 cp .env.example .env
@@ -117,22 +119,22 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 > **Never commit `.env`.** It is listed in `.gitignore`.
 
-### 2 · Local Python
+### 2 · Local dev server
 
 ```bash
 pip install -r requirements.txt
-streamlit run app.py
+reflex run
 ```
 
-Open [http://localhost:8501](http://localhost:8501).
+Open [http://localhost:3000](http://localhost:3000). The backend API runs on [http://localhost:8000](http://localhost:8000).
 
-### 3 · Docker Compose (recommended)
+### 3 · Docker Compose (recommended for production-like testing)
 
 ```bash
 docker compose up --build
 ```
 
-Compose reads `.env` automatically and mounts `contextspec/` as a volume. Open [http://localhost:8501](http://localhost:8501).
+Compose reads `.env` automatically and mounts `contextspec/` as a volume. Open [http://localhost:3000](http://localhost:3000).
 
 ```bash
 docker compose down   # stop
@@ -144,7 +146,7 @@ docker compose down   # stop
 docker build -t apex:local .
 
 docker run -e ANTHROPIC_API_KEY=sk-ant-... \
-  -p 8501:8501 \
+  -p 3000:3000 -p 8000:8000 \
   -v "$(pwd)/contextspec:/app/contextspec" \
   apex:local
 ```
@@ -153,13 +155,13 @@ docker run -e ANTHROPIC_API_KEY=sk-ant-... \
 
 ## Deployment (Azure Container Apps)
 
-The app is live at **[https://apex-bolt.com](https://apex-bolt.com)** (also reachable at `www.apex-bolt.com`), deployed on Azure Container Apps in France Central.
+The app is live at **[https://apex-bolt.com](https://apex-bolt.com)**, deployed on Azure Container Apps in France Central.
 
 ### Infrastructure
 
 | Resource | Name | Purpose |
 |---|---|---|
-| Container App | `apex` | Runs the Streamlit application |
+| Container App | `apex` | Runs the Reflex application |
 | Container App Environment | `apex-env` | Networking and shared config |
 | Storage Account | `apexctxstore` | Azure File Share for `contextspec/` |
 | File Share | `contextspec` | Mounted at `/app/contextspec` in the container |
@@ -168,15 +170,19 @@ The app is live at **[https://apex-bolt.com](https://apex-bolt.com)** (also reac
 | Recovery Services Vault | `apex-backup-vault` | Daily backup of the file share (30-day retention) |
 | Resource Group | `apex-rg` | All resources, France Central region |
 
+### Ports
+
+In production mode (`reflex run --env prod`) the Python backend at port **8000** also serves the pre-compiled React frontend as static files. Only port 8000 needs to be exposed externally. Azure Container App ingress is set to `--target-port 8000`.
+
 ### Custom domain
 
-`apex-bolt.com` and `www.apex-bolt.com` are bound to the Container App with Azure-managed TLS certificates (auto-renewed). DNS is managed via GoDaddy with a CNAME for `www` and an A record for the root pointing to the Container App Environment's static IP.
+`apex-bolt.com` and `www.apex-bolt.com` are bound to the Container App with Azure-managed TLS certificates (auto-renewed).
 
 ### Context persistence
 
-Context files are stored in `contextspec/<taiga_project_id>/` on the Azure File Share, mounted as a persistent volume. Each Taiga project gets its own subdirectory so context never bleeds between projects. The active project ID is saved to `contextspec/.apex-config.json` and restored on startup.
+Context files are stored in `contextspec/<taiga_project_id>/` on the Azure File Share, mounted as a persistent volume. Each Taiga project gets its own subdirectory so context never bleeds between projects.
 
-Taiga auth tokens are **not** written to disk — they live in memory for the process lifetime. Instead, `src/cookie_auth.py` uses the `extra-streamlit-components` CookieManager to store the token in a per-browser cookie (`apex_session`, 7-day TTL). On every page load the cookie is read and the token silently restored, so page refreshes do not require re-authentication. Tokens are never shared across browsers — a visitor on a different device sees only the unauthenticated sidebar prompts.
+Taiga auth tokens are stored as an `rx.Cookie` (`apex_session`, 7-day TTL) — they live in the browser and are sent with every WebSocket connection. Page refreshes and new tabs restore auth instantly without a round-trip to any server-side session store.
 
 ### CI/CD
 
@@ -186,12 +192,6 @@ Every push to `main` automatically:
 3. Deploys the new revision to Azure
 
 ### Monitoring (Application Insights)
-
-Telemetry is captured automatically. Key views in the Azure portal under `apex-insights`:
-
-- **Failures** — unhandled exceptions with full stack traces
-- **Live Metrics** — real-time requests and errors
-- **Logs** — query with Kusto:
 
 ```kusto
 // Errors in the last 24 h
@@ -214,8 +214,8 @@ traces
 All external APIs are mocked — no real credentials needed:
 
 ```bash
-pip install -r requirements.txt pytest
+pip install -r requirements.txt
 python3 -m pytest tests/ -v
 ```
 
-229 tests across `test_ai_engine.py`, `test_context_manager.py`, `test_phase1.py`, and `test_taiga_adapter.py`.
+221 tests across `test_ai_engine.py`, `test_context_manager.py`, `test_phase1.py`, and `test_taiga_adapter.py`.
