@@ -5,6 +5,7 @@ from components.phase_nav_tabs import phase_nav_tabs
 
 def phase5_content() -> rx.Component:
     return rx.box(
+        phase_nav_tabs(),
         rx.container(
             rx.vstack(
                 rx.vstack(
@@ -33,24 +34,15 @@ def phase5_content() -> rx.Component:
         ),
         flex="1",
         overflow_y="auto",
+        min_height="100vh",
     )
 
 
 def phase5_page() -> rx.Component:
     return rx.hstack(
         sidebar(),
-        rx.vstack(
-            phase_nav_tabs(),
-            phase5_content(),
-            spacing="0",
-            flex="1",
-            height="100vh",
-            overflow="hidden",
-            align="start",
-        ),
+        phase5_content(),
         spacing="0",
         width="100%",
-        height="100vh",
-        overflow="hidden",
         align="start",
     )

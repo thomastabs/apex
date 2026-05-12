@@ -693,6 +693,10 @@ _RESIZE_SCRIPT = """
 (function() {
   var KEY = 'apex-sidebar-width', DEF = 280, MIN = 180, MAX = 520;
   var COLLAPSE_KEY = 'apex-sidebar-collapsed';
+  var isCollapsed = localStorage.getItem(COLLAPSE_KEY) === '1';
+
+  // Set html attr immediately — applies CSS before any React paint
+  document.documentElement.dataset.sc = isCollapsed ? '1' : '0';
 
   function setW(w) {
     document.documentElement.style.setProperty('--apex-sidebar-width', w + 'px');
@@ -700,50 +704,63 @@ _RESIZE_SCRIPT = """
   var saved = parseInt(localStorage.getItem(KEY) || '', 10);
   setW(isNaN(saved) ? DEF : Math.min(MAX, Math.max(MIN, saved)));
 
-  // ── Collapse ───────────────────────────────────────────────────────────────
   function setCollapsed(c) {
+    isCollapsed = !!c;
+    document.documentElement.dataset.sc = c ? '1' : '0';
+    localStorage.setItem(COLLAPSE_KEY, c ? '1' : '0');
     var sidebar = document.getElementById('app-sidebar');
     if (sidebar) sidebar.dataset.collapsed = c ? '1' : '0';
-    localStorage.setItem(COLLAPSE_KEY, c ? '1' : '0');
   }
-  setCollapsed(localStorage.getItem(COLLAPSE_KEY) === '1');
 
-  function attachCollapseBtn() {
-    var btn = document.getElementById('sidebar-collapse-btn');
-    if (!btn || btn._apexC) return;
-    btn._apexC = true;
-    btn.addEventListener('click', function() {
-      var sidebar = document.getElementById('app-sidebar');
-      setCollapsed(sidebar && sidebar.dataset.collapsed !== '1');
+  function initSidebar(s) {
+    // Disable transition, apply state, then re-enable after 2 frames
+    s.style.transition = 'none';
+    s.dataset.collapsed = isCollapsed ? '1' : '0';
+    s.dataset.apexInit = '1';
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        s.style.transition = '';
+      });
     });
   }
-  [80, 250, 600, 1500].forEach(function(t) { setTimeout(attachCollapseBtn, t); });
 
-  function attachExpandBtn() {
-    var btn = document.getElementById('sidebar-expand-btn');
-    if (!btn || btn._apexE) return;
-    btn._apexE = true;
-    btn.addEventListener('click', function() { setCollapsed(false); });
+  function restoreCollapsed() {
+    var s = document.getElementById('app-sidebar');
+    if (s) {
+      initSidebar(s);
+    } else {
+      setTimeout(restoreCollapsed, 60);
+    }
   }
-  [80, 250, 600, 1500].forEach(function(t) { setTimeout(attachExpandBtn, t); });
+  restoreCollapsed();
 
-  // ── Drag resize ────────────────────────────────────────────────────────────
+  if (window._apexSidebar) return;
+  window._apexSidebar = true;
+
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('#sidebar-collapse-btn')) {
+      var s = document.getElementById('app-sidebar');
+      setCollapsed(!s || s.dataset.collapsed !== '1');
+    }
+    if (e.target.closest('#sidebar-expand-btn')) {
+      setCollapsed(false);
+    }
+  });
+
   var dragging = false, startX = 0, startW = DEF;
-  function handle() { return document.getElementById('sidebar-resize-handle'); }
-
-  function onDown(e) {
-    var sidebar = document.getElementById('app-sidebar');
-    if (sidebar && sidebar.dataset.collapsed === '1') return;
+  document.addEventListener('mousedown', function(e) {
+    if (!e.target.closest('#sidebar-resize-handle')) return;
+    var s = document.getElementById('app-sidebar');
+    if (s && s.dataset.collapsed === '1') return;
     e.preventDefault();
     dragging = true;
     startX = e.clientX;
-    startW = parseInt(
-      getComputedStyle(document.documentElement).getPropertyValue('--apex-sidebar-width'), 10
-    ) || DEF;
+    startW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--apex-sidebar-width'), 10) || DEF;
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
-    var h = handle(); if (h) h.style.background = 'rgba(139,92,246,0.45)';
-  }
+    var h = document.getElementById('sidebar-resize-handle');
+    if (h) h.style.background = 'rgba(139,92,246,0.45)';
+  });
   document.addEventListener('mousemove', function(e) {
     if (!dragging) return;
     setW(Math.min(MAX, Math.max(MIN, startW + e.clientX - startX)));
@@ -753,26 +770,23 @@ _RESIZE_SCRIPT = """
     dragging = false;
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
-    var h = handle(); if (h) h.style.background = '';
-    var w = parseInt(
-      getComputedStyle(document.documentElement).getPropertyValue('--apex-sidebar-width'), 10
-    ) || DEF;
-    localStorage.setItem(KEY, w);
+    var h = document.getElementById('sidebar-resize-handle');
+    if (h) h.style.background = '';
+    localStorage.setItem(KEY, parseInt(getComputedStyle(document.documentElement).getPropertyValue('--apex-sidebar-width'), 10) || DEF);
+  });
+  document.addEventListener('dblclick', function(e) {
+    if (!e.target.closest('#sidebar-resize-handle')) return;
+    e.preventDefault();
+    setW(DEF);
+    localStorage.setItem(KEY, DEF);
   });
 
-  function attach() {
-    var h = handle();
-    if (!h || h._apexR) return;
-    h._apexR = true;
-    h.addEventListener('mousedown', onDown);
-    h.addEventListener('dblclick', function(e) {
-      e.preventDefault();
-      setW(DEF);
-      localStorage.setItem(KEY, DEF);
-    });
-  }
-  attach();
-  [80, 250, 600, 1500].forEach(function(t) { setTimeout(attach, t); });
+  new MutationObserver(function() {
+    var s = document.getElementById('app-sidebar');
+    if (s && !s.dataset.apexInit) {
+      initSidebar(s);
+    }
+  }).observe(document.body, { childList: true, subtree: true });
 })();
 """
 

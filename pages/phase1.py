@@ -25,7 +25,6 @@ def _process_diagram() -> rx.Component:
             rx.image(
                 src="/images/requirements.svg",
                 width="100%",
-                max_width="700px",
                 border_radius="8px",
             ),
             rx.text(
@@ -44,6 +43,7 @@ def _process_diagram() -> rx.Component:
 
 def phase1_content() -> rx.Component:
     return rx.box(
+        phase_nav_tabs(),
         rx.container(
             rx.vstack(
                 rx.vstack(
@@ -74,6 +74,7 @@ def phase1_content() -> rx.Component:
         ),
         flex="1",
         overflow_y="auto",
+        min_height="100vh",
         class_name=rx.cond(
             Phase1State.generating | Phase1State.compiling | Phase1State.suggest_loading | Phase1State.pushing,
             "apex-busy",
@@ -85,18 +86,8 @@ def phase1_content() -> rx.Component:
 def phase1_page() -> rx.Component:
     return rx.hstack(
         sidebar(),
-        rx.vstack(
-            phase_nav_tabs(),
-            phase1_content(),
-            spacing="0",
-            flex="1",
-            height="100vh",
-            overflow="hidden",
-            align="start",
-        ),
+        phase1_content(),
         spacing="0",
         width="100%",
-        height="100vh",
-        overflow="hidden",
         align="start",
     )

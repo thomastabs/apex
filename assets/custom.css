@@ -3,46 +3,51 @@
    ============================================================ */
 
 /* ── Sidebar collapse animation ─────────────────────────────────────────────
-   Toggled via data-collapsed="1" set by the inline script.                  */
-#app-sidebar {
-  transition: width 0.2s ease, min-width 0.2s ease;
-}
+   Collapsed state driven by both data-collapsed on sidebar AND
+   html[data-sc="1"] (set immediately by script, before any React paint).    */
+
+/* Instant collapsed state via html attr — set before first paint on SPA nav */
+html[data-sc="1"] #app-sidebar,
 #app-sidebar[data-collapsed="1"] {
   width: 48px !important;
   min-width: 48px !important;
 }
+html[data-sc="1"] #app-sidebar .sidebar-main-content,
 #app-sidebar[data-collapsed="1"] .sidebar-main-content {
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.15s;
 }
-.sidebar-main-content {
-  transition: opacity 0.15s;
+html[data-sc="1"] #app-sidebar .apex-expand-btn,
+#app-sidebar[data-collapsed="1"] .apex-expand-btn {
+  display: flex;
 }
-
-/* Collapse icon flips when sidebar is collapsed */
-.apex-collapse-icon {
-  transition: transform 0.2s ease;
+html[data-sc="1"] #app-sidebar .sidebar-header-title,
+#app-sidebar[data-collapsed="1"] .sidebar-header-title {
+  display: none !important;
 }
+html[data-sc="1"] #app-sidebar .apex-collapse-icon,
 #app-sidebar[data-collapsed="1"] .apex-collapse-icon {
   transform: rotate(180deg);
 }
 
-/* ── Expand button: only visible when the sidebar is collapsed ───────────── */
+/* Transitions — only after init (apex-init attr set by JS after state applied) */
+#app-sidebar[data-apex-init] {
+  transition: width 0.2s ease, min-width 0.2s ease;
+}
+.sidebar-main-content {
+  transition: opacity 0.15s;
+}
+.apex-collapse-icon {
+  transition: transform 0.2s ease;
+}
+
+/* ── Expand button: hidden by default, shown only when collapsed ─────────── */
 .apex-expand-btn {
   display: none;
   align-items: center;
   justify-content: center;
   padding: 10px 0 8px;
   width: 100%;
-}
-#app-sidebar[data-collapsed="1"] .apex-expand-btn {
-  display: flex;
-}
-
-/* Hide title + theme button when collapsed — only toggle button is visible */
-#app-sidebar[data-collapsed="1"] .sidebar-header-title {
-  display: none !important;
 }
 
 /* ── Busy overlay — block inputs during AI generation, allow scrolling ───────

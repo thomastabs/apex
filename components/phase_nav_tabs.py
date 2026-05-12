@@ -78,4 +78,7 @@ def phase_nav_tabs() -> rx.Component:
         background="var(--gray-1)",
         overflow_x="auto",
         flex_shrink="0",
+        position="sticky",
+        top="0",
+        z_index="100",
     )
