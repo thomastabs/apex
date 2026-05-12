@@ -10,8 +10,8 @@ from state.project import ProjectState
 _PHASES = [
     ("/phase1", "Phase 1", "Requirements",    "Mob Elaboration — transform epics into formal Gherkin acceptance criteria", "file-text"),
     ("/phase2", "Phase 2", "Design",           "Technical architecture & specifications for each user story",               "compass"),
-    ("/phase3", "Phase 3", "Implementation",   "AI-assisted development aligned to Gherkin specs and context",             "code-2"),
-    ("/phase4", "Phase 4", "Testing",          "BDD validation, QA coverage tracking and Fix-Apex cycles",                 "check-circle"),
+    ("/phase3", "Phase 3", "Implementation",   "AI-assisted development aligned to Gherkin specs and context",             "code"),
+    ("/phase4", "Phase 4", "Testing",          "BDD validation, QA coverage tracking and Fix-Apex cycles",                 "circle-check"),
     ("/phase5", "Phase 5", "Deployment",       "Release management, Apex board review and staging sign-off",               "rocket"),
     ("/phase6", "Phase 6", "Maintenance",      "Continuous evolution, bug remediation and knowledge capture",              "wrench"),
 ]
