@@ -1,5 +1,7 @@
 """context.py — Active Context file editor state."""
 
+import re
+
 import reflex as rx
 
 from src import context_manager
@@ -26,10 +28,18 @@ class ContextState(ProjectState):
 
     @rx.var
     def has_project_concept(self) -> bool:
-        try:
-            return bool(context_manager.get_project_concept().strip())
-        except Exception:
+        content = self.mem_bank_content
+        if not content:
             return False
+        match = re.search(
+            r"^##\s+Project\s+Concept[^\n]*\n(.*?)(?=^##\s|\Z)",
+            content,
+            re.IGNORECASE | re.MULTILINE | re.DOTALL,
+        )
+        if not match:
+            return False
+        text = match.group(1).strip()
+        return bool(text) and not text.startswith("<!--")
 
     @rx.var
     def context_total_chars(self) -> int:
