@@ -131,6 +131,14 @@ class ContextState(ProjectState):
     # ── Load / reload ─────────────────────────────────────────────────────────
 
     @rx.event
+    async def login_and_load(self, form_data: dict):
+        """Override: chain parent login+project restore, then load context files."""
+        async for _ in ProjectState.login_and_load.fn(self, form_data):
+            yield
+        if self.active_project_id > 0:
+            ContextState.load_context.fn(self)
+
+    @rx.event
     def confirm_project_selection(self):
         """Commit pending_project_id as the active project and reload context."""
         if self.pending_project_id <= 0:
