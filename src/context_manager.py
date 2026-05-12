@@ -279,18 +279,15 @@ def get_project_concept() -> str:
     """Return the Project Concept section from memory-bank.md, or '' if not set."""
     if not MEMORY_BANK_FILE.exists():
         return ""
-    in_section = False
-    section_lines: list[str] = []
-    for line in MEMORY_BANK_FILE.read_text(encoding="utf-8").splitlines():
-        if line.startswith("## Project Concept"):
-            in_section = True
-            continue
-        if in_section:
-            if line.startswith("#") or line.startswith("---"):
-                break
-            section_lines.append(line)
-    text = "\n".join(section_lines).strip()
-    # Empty section or unfilled placeholder both count as "not set".
+    content = MEMORY_BANK_FILE.read_text(encoding="utf-8")
+    match = re.search(
+        r"^##\s+Project\s+Concept[^\n]*\n(.*?)(?=^##\s|\Z)",
+        content,
+        re.IGNORECASE | re.MULTILINE | re.DOTALL,
+    )
+    if not match:
+        return ""
+    text = match.group(1).strip()
     if not text or text.startswith("<!--"):
         return ""
     return text

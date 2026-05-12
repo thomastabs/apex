@@ -272,16 +272,38 @@ def _suggest_panel() -> rx.Component:
             width="100%",
         ),
         rx.button(
-            rx.cond(
-                Phase1State.suggest_loading,
-                rx.hstack(rx.spinner(size="2"), rx.text("Generating suggestions…"), spacing="2"),
-                rx.hstack(rx.icon("sparkles", size=16), rx.text("AI Suggests"), spacing="2"),
-            ),
+            rx.hstack(rx.icon("sparkles", size=16), rx.text("AI Suggests"), spacing="2"),
             size="3",
             color_scheme="violet",
             width="100%",
             on_click=Phase1State.run_suggest_epics,
             disabled=Phase1State.suggest_loading,
+        ),
+        rx.cond(
+            Phase1State.suggest_loading,
+            expander(
+                rx.hstack(
+                    rx.spinner(size="2"),
+                    rx.text("Generating epic suggestions…", size="2", weight="medium"),
+                    spacing="2",
+                    align="center",
+                ),
+                rx.vstack(
+                    rx.foreach(
+                        Phase1State.generation_log,
+                        lambda msg: rx.hstack(
+                            rx.icon("chevron-right", size=13, color=rx.color("accent", 9)),
+                            rx.text(msg, size="2", color=rx.color("gray", 11)),
+                            spacing="1",
+                            align="center",
+                        ),
+                    ),
+                    spacing="2",
+                    width="100%",
+                ),
+                initially_open=True,
+            ),
+            rx.fragment(),
         ),
         rx.cond(
             Phase1State.suggest_error != "",

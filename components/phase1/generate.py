@@ -9,15 +9,11 @@ from state.phase1 import Phase1State
 def _generation_loader() -> rx.Component:
     """Streamlit-style status expander shown while stories are being generated."""
     return rx.cond(
-        Phase1State.generating | Phase1State.suggest_loading,
+        Phase1State.generating,
         expander(
             rx.hstack(
                 rx.spinner(size="2"),
-                rx.cond(
-                    Phase1State.suggest_loading,
-                    rx.text("Generating epic suggestions…", size="2", weight="medium"),
-                    rx.text("Generating user stories…", size="2", weight="medium"),
-                ),
+                rx.text("Generating user stories…", size="2", weight="medium"),
                 spacing="2",
                 align="center",
             ),
