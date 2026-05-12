@@ -7,7 +7,7 @@ config = rx.Config(
     backend_port=8000,
     plugins=[
         rx.plugins.RadixThemesPlugin(
-            theme=rx.theme(accent_color="violet", radius="medium", scaling="95%"),
+            theme=rx.theme(accent_color="violet", radius="medium", scaling="100%", appearance="dark"),
         ),
     ],
     disable_plugins=[SitemapPlugin],

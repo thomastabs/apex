@@ -58,11 +58,18 @@ class Phase1State(ProjectState):
     epics_list: list[dict] = []
     epics_loading: bool = False
     epics_load_error: str = ""
+    loaded_epic_id: str = ""   # ID of epic selected in "Load from Taiga" tab
 
     # ── Suggest panel ─────────────────────────────────────────────────────────
     epics_suggested: list[dict] = []
+    suggestion_desc_edits: list[str] = []  # parallel editable descriptions
     suggest_loading: bool = False
     suggest_error: str = ""
+
+    # ── Generation log (shown during background tasks) ────────────────────────
+    generation_log: list[str] = []
+    compile_log: list[str] = []
+    push_log: list[str] = []
 
     # ── Dialogs ───────────────────────────────────────────────────────────────
     discard_dialog_open: bool = False
@@ -77,6 +84,9 @@ class Phase1State(ProjectState):
 
     # ── Push result ───────────────────────────────────────────────────────────
     push_story_urls: list[str] = []
+
+    # ── Suggest selection tracking ────────────────────────────────────────────
+    selected_suggestion_index: int = -1
 
     # ─────────────────────────────────────────────────────────────────────────
     # Draft helpers
@@ -134,24 +144,37 @@ class Phase1State(ProjectState):
     # ─────────────────────────────────────────────────────────────────────────
 
     @rx.event
-    def request_mode_switch(self, mode: str):
+    async def request_mode_switch(self, mode: str):
         has_progress = bool(self.nl_draft or self.compiled_stories or self.epic_subject_input)
         if has_progress and mode != self.start_mode:
             self.pending_mode_switch = mode
             self.discard_dialog_open = True
         else:
+            # No progress — silently deselect any previous epic/suggestion selection
+            self.loaded_epic_id = ""
+            self.selected_suggestion_index = -1
             self.start_mode = mode
+            if mode == "load":
+                yield Phase1State.load_epics
 
     @rx.event
     def set_discard_dialog_open(self, value: bool):
         self.discard_dialog_open = value
 
     @rx.event
-    def confirm_mode_switch(self):
-        self.start_mode = self.pending_mode_switch
+    async def confirm_mode_switch(self):
+        mode = self.pending_mode_switch
+        self.start_mode = mode
         self.pending_mode_switch = ""
         self.discard_dialog_open = False
         self._reset_story_progress()
+        # Also clear the "Create New" input fields on confirmed discard
+        self.epic_subject_input = ""
+        self.epic_id_input = ""
+        self.epic_desc_input = ""
+        self.ai_hint_input = ""
+        if mode == "load":
+            yield Phase1State.load_epics
 
     @rx.event
     def cancel_mode_switch(self):
@@ -169,15 +192,21 @@ class Phase1State(ProjectState):
         self.ai_error = ""
         self.compile_error = ""
         self.push_error = ""
+        self.compile_log = []
+        self.push_log = []
+        self.loaded_epic_id = ""
+        self.selected_suggestion_index = -1
         context_manager.clear_draft()
 
     @rx.event
     def reset_all(self):
+        mode = self.start_mode
         self._reset_story_progress()
         self.epic_subject_input = ""
         self.epic_id_input = ""
         self.epic_desc_input = ""
         self.ai_hint_input = ""
+        self.start_mode = mode
 
     # ─────────────────────────────────────────────────────────────────────────
     # Step 1 inputs
@@ -218,9 +247,8 @@ class Phase1State(ProjectState):
 
     @rx.event
     def select_epic(self, epic: dict):
-        self.epic_subject_input = epic.get("subject", "")
-        self.epic_id_input = str(epic.get("id", ""))
-        self.epic_desc_input = epic.get("description", "")
+        """Mark a Taiga epic as selected for the Load tab. Does NOT touch Create New inputs."""
+        self.loaded_epic_id = str(epic.get("id", ""))
 
     @rx.event
     async def delete_epic_from_load(self, epic_id: int):
@@ -244,17 +272,46 @@ class Phase1State(ProjectState):
             hint = self.ai_hint_input
             concept = context_manager.get_project_concept()
             result = await asyncio.to_thread(ai_engine.suggest_epics, concept, hint)
+            epics = [
+                {"title": e.title, "description": e.description}
+                for e in result.epics
+            ]
             async with self:
-                self.epics_suggested = [
-                    {"title": e.title, "description": e.description}
-                    for e in result.epics
-                ]
+                self.epics_suggested = epics
+                self.suggestion_desc_edits = [e["description"] for e in epics]
         except Exception as exc:
             async with self:
                 self.suggest_error = str(exc)
         finally:
             async with self:
                 self.suggest_loading = False
+
+    @rx.event
+    def set_suggestion_desc_edit(self, index: int, value: str):
+        edits = list(self.suggestion_desc_edits)
+        if index < len(edits):
+            edits[index] = value
+        self.suggestion_desc_edits = edits
+
+    @rx.event
+    def clear_suggestions(self):
+        self.epics_suggested = []
+        self.suggestion_desc_edits = []
+        self.selected_suggestion_index = -1
+        self.suggest_error = ""
+
+    @rx.event
+    def select_suggested_epic_by_index(self, idx: int):
+        if idx < len(self.epics_suggested):
+            self.epic_subject_input = self.epics_suggested[idx].get("title", "")
+            desc = (
+                self.suggestion_desc_edits[idx]
+                if idx < len(self.suggestion_desc_edits)
+                else self.epics_suggested[idx].get("description", "")
+            )
+            self.epic_desc_input = desc
+            self.epic_id_input = ""
+            self.selected_suggestion_index = idx
 
     @rx.event
     def select_suggested_epic(self, epic: dict):
@@ -272,10 +329,33 @@ class Phase1State(ProjectState):
             self.generating = True
             self.ai_error = ""
             self.story_count_progress = 0
+            self.generation_log = ["Analyzing epic and description…"]
 
         try:
-            subject = self.epic_subject_input.strip()
-            description = self.epic_desc_input.strip()
+            # Resolve subject/description from whichever tab is active
+            if self.start_mode == "load":
+                loaded = next(
+                    (e for e in self.epics_list if str(e.get("id", "")) == self.loaded_epic_id),
+                    {},
+                )
+                subject = loaded.get("subject", "")
+                description = loaded.get("description", "")
+            elif self.start_mode == "suggest":
+                idx = self.selected_suggestion_index
+                if 0 <= idx < len(self.epics_suggested):
+                    subject = self.epics_suggested[idx].get("title", "")
+                    desc_edit = (
+                        self.suggestion_desc_edits[idx]
+                        if idx < len(self.suggestion_desc_edits)
+                        else ""
+                    )
+                    description = desc_edit or self.epics_suggested[idx].get("description", "")
+                else:
+                    subject, description = "", ""
+            else:
+                subject = self.epic_subject_input.strip()
+                description = self.epic_desc_input.strip()
+
             hint = self.ai_hint_input.strip()
             concept = context_manager.get_project_concept()
 
@@ -283,6 +363,9 @@ class Phase1State(ProjectState):
 
             def _on_story(n: int) -> None:
                 count_holder[0] = n
+
+            async with self:
+                self.generation_log = self.generation_log + ["Calling AI to generate user stories…"]
 
             story_list = await asyncio.to_thread(
                 ai_engine.generate_nl_stories,
@@ -294,6 +377,8 @@ class Phase1State(ProjectState):
             nl_text = ai_engine.format_nl_draft(story_list)
 
             async with self:
+                n = count_holder[0] or len(story_list)
+                self.generation_log = self.generation_log + [f"Generated {n} user stor{'y' if n == 1 else 'ies'}. Formatting draft…"]
                 self.nl_draft = nl_text
                 self.nl_editor = nl_text
                 self.story_subject = subject
@@ -317,9 +402,13 @@ class Phase1State(ProjectState):
         async with self:
             self.compiling = True
             self.compile_error = ""
+            self.compile_log = ["Analyzing NL draft…"]
 
         try:
             nl_text = self.nl_editor
+
+            async with self:
+                self.compile_log = self.compile_log + ["Calling AI to structure Gherkin scenarios…"]
 
             gherkin_list = await asyncio.to_thread(
                 ai_engine.compile_gherkin_stories, nl_text
@@ -333,8 +422,12 @@ class Phase1State(ProjectState):
                 for story in gherkin_list.stories
             ]
             edits = [item["gherkin"] for item in compiled]
+            n = len(compiled)
 
             async with self:
+                self.compile_log = self.compile_log + [
+                    f"Compiled {n} stor{'y' if n == 1 else 'ies'} — ready to review."
+                ]
                 self.compiled_stories = compiled
                 self.gherkin_edits = edits
                 self._save_draft()
@@ -393,22 +486,47 @@ class Phase1State(ProjectState):
         async with self:
             self.pushing = True
             self.push_error = ""
+            self.push_log = ["Preparing to push stories to Taiga…"]
 
         try:
             self._sync_token()
-            subject = self.epic_subject_input.strip()
-            description = self.epic_desc_input.strip()
-            epic_id_str = self.epic_id_input.strip()
             compiled = self.compiled_stories
             gherkin_edits = self.gherkin_edits
+            total = len(compiled)
 
-            # Resolve or create epic
-            if epic_id_str:
-                epic_id = int(epic_id_str)
+            # Resolve or create epic based on active tab mode
+            if self.start_mode == "load":
+                epic_id = int(self.loaded_epic_id)
+                async with self:
+                    self.push_log = self.push_log + [f"Connecting to existing Taiga epic #{epic_id}…"]
                 epic = taiga_adapter.get_epic(epic_id)
-            else:
+            elif self.start_mode == "suggest":
+                idx = self.selected_suggestion_index
+                sug = self.epics_suggested[idx] if 0 <= idx < len(self.epics_suggested) else {}
+                subject = sug.get("title", "")
+                desc_edit = (
+                    self.suggestion_desc_edits[idx]
+                    if idx < len(self.suggestion_desc_edits) else ""
+                )
+                description = desc_edit or sug.get("description", "")
+                async with self:
+                    self.push_log = self.push_log + [f"Creating new epic: {subject}…"]
                 epic = taiga_adapter.create_epic(subject, description)
                 epic_id = epic["id"]
+            else:
+                subject = self.epic_subject_input.strip()
+                description = self.epic_desc_input.strip()
+                epic_id_str = self.epic_id_input.strip()
+                if epic_id_str:
+                    async with self:
+                        self.push_log = self.push_log + [f"Connecting to existing Taiga epic #{epic_id_str}…"]
+                    epic_id = int(epic_id_str)
+                    epic = taiga_adapter.get_epic(epic_id)
+                else:
+                    async with self:
+                        self.push_log = self.push_log + [f"Creating new epic: {subject}…"]
+                    epic = taiga_adapter.create_epic(subject, description)
+                    epic_id = epic["id"]
 
             context_manager.init_context()
             status_id = taiga_adapter.find_status_id("Ready for Discovery")
@@ -418,6 +536,11 @@ class Phase1State(ProjectState):
                 title = item.get("title", "").strip()
                 gherkin = (gherkin_edits[i] if i < len(gherkin_edits) else "") or item.get("gherkin", "")
                 bold_gherkin = ai_engine.bold_gherkin_keywords(gherkin)
+
+                async with self:
+                    self.push_log = self.push_log + [
+                        f"Pushing story {i + 1}/{total}: {title[:50]}{'…' if len(title) > 50 else ''}"
+                    ]
 
                 story = taiga_adapter.create_story(
                     title,
@@ -439,9 +562,12 @@ class Phase1State(ProjectState):
                     urls.append(url)
 
             async with self:
+                self.push_log = self.push_log + [
+                    f"Done! {total} stor{'y' if total == 1 else 'ies'} pushed successfully."
+                ]
                 self.push_done = True
                 self.push_story_urls = urls
-                self.push_result = {"ok": True, "count": len(compiled)}
+                self.push_result = {"ok": True, "count": total}
                 context_manager.clear_draft()
 
         except Exception as exc:
@@ -453,15 +579,30 @@ class Phase1State(ProjectState):
 
     @rx.event
     def start_new_epic(self):
+        mode = self.start_mode
         self._reset_story_progress()
         self.epic_subject_input = ""
         self.epic_id_input = ""
         self.epic_desc_input = ""
         self.ai_hint_input = ""
+        self.start_mode = mode
 
     # ─────────────────────────────────────────────────────────────────────────
     # Computed vars
     # ─────────────────────────────────────────────────────────────────────────
+
+    @rx.var
+    def suggestions_with_edits(self) -> list[dict]:
+        """Merge suggested epics with their editable descriptions and index."""
+        result = []
+        for i, s in enumerate(self.epics_suggested):
+            desc_edit = (
+                self.suggestion_desc_edits[i]
+                if i < len(self.suggestion_desc_edits)
+                else s.get("description", "")
+            )
+            result.append({"index": i, "title": s.get("title", ""), "desc_edit": desc_edit})
+        return result
 
     @rx.var
     def stories_with_edits(self) -> list[dict]:
@@ -490,7 +631,12 @@ class Phase1State(ProjectState):
 
     @rx.var
     def can_generate(self) -> bool:
-        return bool(self.epic_subject_input.strip()) and self.is_authenticated and self.has_project
+        base = self.is_authenticated and self.has_project
+        if self.start_mode == "load":
+            return base and bool(self.loaded_epic_id)
+        if self.start_mode == "suggest":
+            return base and self.selected_suggestion_index >= 0
+        return base and bool(self.epic_subject_input.strip())
 
     @rx.var
     def can_push(self) -> bool:

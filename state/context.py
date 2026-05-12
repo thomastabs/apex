@@ -16,7 +16,20 @@ class ContextState(ProjectState):
     context_sizes: dict = {}
     context_error: str = ""
 
+    # Markdown preview toggle per file
+    mem_bank_md: bool = False
+    func_spec_md: bool = False
+    tech_spec_md: bool = False
+    vaccines_md: bool = False
+
     # ── Computed vars ─────────────────────────────────────────────────────────
+
+    @rx.var
+    def has_project_concept(self) -> bool:
+        try:
+            return bool(context_manager.get_project_concept().strip())
+        except Exception:
+            return False
 
     @rx.var
     def context_total_chars(self) -> int:
@@ -76,7 +89,45 @@ class ContextState(ProjectState):
             pass
         return ""
 
+    @rx.event
+    def toggle_mem_bank_md(self):
+        self.mem_bank_md = not self.mem_bank_md
+
+    @rx.event
+    def toggle_func_spec_md(self):
+        self.func_spec_md = not self.func_spec_md
+
+    @rx.event
+    def toggle_tech_spec_md(self):
+        self.tech_spec_md = not self.tech_spec_md
+
+    @rx.event
+    def toggle_vaccines_md(self):
+        self.vaccines_md = not self.vaccines_md
+
     # ── Load / reload ─────────────────────────────────────────────────────────
+
+    @rx.event
+    def select_project(self, project_id: int):
+        """Override ProjectState.select_project to also reload context files immediately."""
+        self._sync_token()
+        self.active_project_id = project_id
+        from src import taiga_adapter as _ta
+        _ta.set_active_project(project_id)
+        try:
+            p = _ta.get_project()
+            self.project_name = p.get("name", "")
+        except Exception:
+            self.project_name = ""
+        # Reload context synchronously for the new project
+        try:
+            self.mem_bank_content = context_manager.get_memory_bank()
+            self.func_spec_content = context_manager.read_context_file("functional-spec.md")
+            self.tech_spec_content = context_manager.read_context_file("technical-spec.md")
+            self.vaccines_content = context_manager.get_vaccines()
+            self.context_sizes = context_manager.get_context_sizes()
+        except Exception:
+            pass
 
     @rx.event
     def load_context(self):

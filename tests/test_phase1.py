@@ -1,6 +1,19 @@
 """Unit tests for Phase 1 state logic — pure functions and state mutations."""
 
+import asyncio
 from unittest.mock import MagicMock, patch
+
+
+def _run_async_event(coro_or_gen):
+    """Drain a coroutine or async generator produced by an @rx.event async def handler."""
+    async def _drain():
+        result = coro_or_gen
+        if hasattr(result, "__aiter__"):
+            async for _ in result:
+                pass
+        else:
+            await result
+    asyncio.run(_drain())
 
 
 # ---------------------------------------------------------------------------
@@ -319,14 +332,14 @@ class TestModeSwitch:
     def test_switch_without_progress_changes_mode_immediately(self):
         from state.phase1 import Phase1State
         state = self._make_state()
-        Phase1State.request_mode_switch.fn(state, "load")
+        _run_async_event(Phase1State.request_mode_switch.fn(state, "load"))
         assert state.start_mode == "load"
         assert not state.discard_dialog_open
 
     def test_switch_with_progress_opens_dialog(self):
         from state.phase1 import Phase1State
         state = self._make_state(nl_draft="some draft")
-        Phase1State.request_mode_switch.fn(state, "load")
+        _run_async_event(Phase1State.request_mode_switch.fn(state, "load"))
         assert state.discard_dialog_open
         assert state.pending_mode_switch == "load"
 
@@ -336,7 +349,7 @@ class TestModeSwitch:
         state.pending_mode_switch = "suggest"
         state.discard_dialog_open = True
         with patch("state.phase1.context_manager"):
-            Phase1State.confirm_mode_switch.fn(state)
+            _run_async_event(Phase1State.confirm_mode_switch.fn(state))
         assert state.start_mode == "suggest"
         assert not state.discard_dialog_open
 

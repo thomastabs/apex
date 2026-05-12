@@ -1,10 +1,46 @@
 import reflex as rx
+from components.sidebar import sidebar
 
 
-def phase3_page() -> rx.Component:
+def phase3_content() -> rx.Component:
     return rx.box(
-        rx.heading("Phase 3 · Implementation", size="6"),
-        rx.text("Coming in the next iteration.", color_scheme="gray"),
+        rx.container(
+            rx.vstack(
+                rx.vstack(
+                    rx.heading("Phase 3 · Implementation", size="8", weight="bold"),
+                    rx.text(
+                        "AI-assisted code generation guided by Gherkin acceptance criteria.",
+                        size="3",
+                        color=rx.color("gray", 10),
+                    ),
+                    spacing="1",
+                    width="100%",
+                ),
+                rx.separator(size="4"),
+                rx.callout(
+                    "Phase 3 is coming in the next iteration. Complete Phases 1 and 2 first.",
+                    color="blue",
+                    size="2",
+                ),
+                spacing="5",
+                width="100%",
+                padding_bottom="48px",
+            ),
+            max_width="860px",
+            padding_x="32px",
+            padding_y="28px",
+        ),
+        flex="1",
+        overflow_y="auto",
+        min_height="100vh",
     )
 
 
+def phase3_page() -> rx.Component:
+    return rx.hstack(
+        sidebar(),
+        phase3_content(),
+        spacing="0",
+        width="100%",
+        align="start",
+    )
