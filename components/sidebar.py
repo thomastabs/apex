@@ -8,7 +8,6 @@ from state.context import ContextState
 from state.project import ProjectState
 from state.user_mgmt import UserMgmtState
 from components.expander import expander
-from components.nav import phase_nav
 from components.dialogs.switch_account import switch_account_dialog
 from components.dialogs.create_epic import create_epic_dialog
 from components.dialogs.create_story import create_story_dialog
@@ -832,19 +831,6 @@ def sidebar() -> rx.Component:
                 # ── Zone 2: Active Context ────────────────────────────────────
                 _context_zone(),
                 _zone_separator(),
-                # ── Zone 3: SDLC Phases ───────────────────────────────────────
-                _zone_label("SDLC Phases"),
-                phase_nav(),
-                rx.cond(
-                    ~AuthState.is_authenticated,
-                    rx.text(
-                        "Sign in and select a Taiga project to get started.",
-                        size="1",
-                        color=rx.color("gray", 9),
-                        padding="4px 16px 12px",
-                    ),
-                    rx.fragment(),
-                ),
                 # Dialogs (mounted once, controlled by state)
                 create_epic_dialog(),
                 create_story_dialog(),

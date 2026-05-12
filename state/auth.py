@@ -78,7 +78,7 @@ class AuthState(rx.State):
 
     @rx.event
     def restore_session(self):
-        """Called on_load — sync persisted cookie token to adapter."""
+        """Called on_load — sync persisted cookie token to adapter. Clear if invalid."""
         if self.auth_token:
             taiga_adapter.set_token(self.auth_token)
             try:
@@ -86,4 +86,8 @@ class AuthState(rx.State):
                 self.taiga_username = me.get("full_name") or me.get("username", "")
                 self.taiga_email = me.get("email", "")
             except Exception:
-                pass
+                # Token expired or invalid — force sign-out so UI shows sign-in prompt
+                self.auth_token = ""
+                self.taiga_username = ""
+                self.taiga_email = ""
+                taiga_adapter.clear_token()

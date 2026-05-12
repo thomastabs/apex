@@ -4,6 +4,7 @@ import reflex as rx
 
 from components.expander import expander
 from components.sidebar import sidebar
+from components.phase_nav_tabs import phase_nav_tabs
 from components.phase1.step1 import step1
 from components.phase1.generate import generate_section
 from components.phase1.review import review_section
@@ -45,7 +46,6 @@ def phase1_content() -> rx.Component:
     return rx.box(
         rx.container(
             rx.vstack(
-                # Page header
                 rx.vstack(
                     rx.heading("Phase 1 · Requirements", size="8", weight="bold"),
                     rx.text(
@@ -74,7 +74,6 @@ def phase1_content() -> rx.Component:
         ),
         flex="1",
         overflow_y="auto",
-        min_height="100vh",
         class_name=rx.cond(
             Phase1State.generating | Phase1State.compiling | Phase1State.suggest_loading | Phase1State.pushing,
             "apex-busy",
@@ -86,8 +85,18 @@ def phase1_content() -> rx.Component:
 def phase1_page() -> rx.Component:
     return rx.hstack(
         sidebar(),
-        phase1_content(),
+        rx.vstack(
+            phase_nav_tabs(),
+            phase1_content(),
+            spacing="0",
+            flex="1",
+            height="100vh",
+            overflow="hidden",
+            align="start",
+        ),
         spacing="0",
         width="100%",
+        height="100vh",
+        overflow="hidden",
         align="start",
     )

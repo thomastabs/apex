@@ -327,7 +327,38 @@ html.dark .rt-CalloutRoot[data-accent-color="violet"],
   font-size: var(--font-size-2);
 }
 
+/* ── Phase nav tabs bar ──────────────────────────────────────────────────── */
+html.dark .apex-phase-tabs-bar,
+.dark .apex-phase-tabs-bar {
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+  background: var(--gray-2) !important;
+}
+
 /* ── Selected epic/suggestion expanders turn green ───────────────────────── */
 details.apex-expander[style*="green"] > summary:hover {
   background: var(--green-3) !important;
+}
+
+/* ── Dialogs: explicit surface + overlay for dark mode ───────────────────── */
+.rt-DialogOverlay {
+  background: rgba(0, 0, 0, 0.6) !important;
+}
+html.dark .rt-DialogContent,
+.dark .rt-DialogContent {
+  background: var(--gray-2) !important;
+  border: 1px solid var(--gray-5);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
+  color: var(--gray-12);
+}
+html.light .rt-DialogContent,
+.light .rt-DialogContent {
+  background: white !important;
+  border: 1px solid var(--gray-4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+.rt-DialogTitle {
+  color: var(--gray-12);
+}
+.rt-DialogDescription {
+  color: var(--gray-11);
 }

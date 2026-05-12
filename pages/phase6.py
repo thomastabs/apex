@@ -1,5 +1,6 @@
 import reflex as rx
 from components.sidebar import sidebar
+from components.phase_nav_tabs import phase_nav_tabs
 
 
 def phase6_content() -> rx.Component:
@@ -32,15 +33,24 @@ def phase6_content() -> rx.Component:
         ),
         flex="1",
         overflow_y="auto",
-        min_height="100vh",
     )
 
 
 def phase6_page() -> rx.Component:
     return rx.hstack(
         sidebar(),
-        phase6_content(),
+        rx.vstack(
+            phase_nav_tabs(),
+            phase6_content(),
+            spacing="0",
+            flex="1",
+            height="100vh",
+            overflow="hidden",
+            align="start",
+        ),
         spacing="0",
         width="100%",
+        height="100vh",
+        overflow="hidden",
         align="start",
     )

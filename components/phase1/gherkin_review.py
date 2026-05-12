@@ -172,11 +172,29 @@ def _push_success() -> rx.Component:
             ),
             rx.fragment(),
         ),
-        rx.button(
-            rx.hstack(rx.icon("circle-plus", size=16), rx.text("Start New Epic"), spacing="2"),
-            color_scheme="violet",
-            size="3",
-            on_click=Phase1State.start_new_epic,
+        rx.hstack(
+            rx.button(
+                rx.hstack(rx.icon("circle-plus", size=16), rx.text("Start New Epic"), spacing="2"),
+                color_scheme="violet",
+                variant="soft",
+                size="3",
+                on_click=Phase1State.start_new_epic,
+            ),
+            rx.link(
+                rx.button(
+                    rx.hstack(
+                        rx.text("Move to Phase 2 · Design"),
+                        rx.icon("arrow-right", size=16),
+                        spacing="2",
+                    ),
+                    color_scheme="green",
+                    size="3",
+                ),
+                href="/phase2",
+                text_decoration="none",
+            ),
+            spacing="3",
+            flex_wrap="wrap",
         ),
         spacing="4",
         width="100%",
