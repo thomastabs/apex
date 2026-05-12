@@ -15,7 +15,8 @@ def story_details_dialog() -> rx.Component:
                     rx.hstack(
                         rx.icon("layers", size=13, color=rx.color("violet", 9)),
                         rx.text(
-                            "Epic: " + BoardState.selected_story_data.get("epic_subject", ""),
+                            "Epic: ",
+                            BoardState.selected_story_data.get("epic_subject", ""),
                             size="1",
                             color=rx.color("gray", 10),
                         ),
