@@ -188,7 +188,6 @@ def _project_expander() -> rx.Component:
             ),
             spacing="2",
             width="100%",
-            on_mount=ProjectState.load_projects,
         ),
         body_padding="10px 12px 12px",
     )
