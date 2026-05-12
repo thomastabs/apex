@@ -12,6 +12,8 @@ class BoardState(ProjectState):
     expanded_epic_id: int = 0          # 0 = none expanded
     board_loading: bool = False
     board_error: str = ""
+    _board_loaded: bool = False        # True after first successful fetch
+    _board_project_id: int = 0         # Project ID of last successful fetch
 
     # Dialog open flags
     epic_details_open: bool = False
@@ -36,15 +38,36 @@ class BoardState(ProjectState):
     @rx.event
     async def load_epics(self):
         self._sync_token()
-        self.board_loading = True
+        if not self.is_authenticated or not self.has_project:
+            return
+        # Invalidate if project changed since last fetch
+        if self.active_project_id != self._board_project_id:
+            self._board_loaded = False
+            self.expanded_epic_id = 0
+            self.expanded_stories = []
+        # First load: show spinner and clear list.
+        # Subsequent loads (SPA nav): refresh silently — keep existing list visible.
+        if not self._board_loaded:
+            self.board_loading = True
+            self.board_epics = []
         self.board_error = ""
         yield
         try:
             self.board_epics = taiga_adapter.get_epics()
+            self._board_loaded = True
+            self._board_project_id = self.active_project_id
         except taiga_adapter.TaigaAPIError as exc:
             self.board_error = str(exc)
         finally:
             self.board_loading = False
+
+    @rx.event
+    def invalidate_board(self):
+        """Call when project changes to force a full reload next time."""
+        self._board_loaded = False
+        self.board_epics = []
+        self.expanded_epic_id = 0
+        self.expanded_stories = []
 
     @rx.event
     async def toggle_epic(self, epic_id: int):

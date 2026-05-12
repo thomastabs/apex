@@ -3,6 +3,7 @@
 import reflex as rx
 
 from state.auth import AuthState
+from state.board import BoardState
 from state.context import ContextState
 from state.phase1 import Phase1State
 from state.project import ProjectState
@@ -19,6 +20,7 @@ _SHARED_ON_LOAD = [
     AuthState.restore_session,
     ProjectState.load_project_config,
     ContextState.load_context,
+    BoardState.load_epics,
 ]
 
 app = rx.App(stylesheets=["/custom.css"])

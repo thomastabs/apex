@@ -350,7 +350,6 @@ def _board_expander() -> rx.Component:
             ),
             spacing="2",
             width="100%",
-            on_mount=BoardState.load_epics,
         ),
         body_padding="10px 12px 12px",
     )
