@@ -33,7 +33,10 @@ _TABS_SCRIPT = """
     });
     tab.dataset.tabActive = '1';
   });
-  window.addEventListener('popstate', updateActiveTabs);
+  window.addEventListener('popstate', function() { updateActiveTabs(); });
+  // Re-run whenever React replaces tab DOM nodes after SPA navigation
+  new MutationObserver(function() { updateActiveTabs(); })
+    .observe(document.body, { childList: true, subtree: true });
 })();
 """
 
