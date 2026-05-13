@@ -6,6 +6,7 @@ from state.auth import AuthState
 from state.board import BoardState
 from state.context import ContextState
 from state.phase1 import Phase1State
+from state.phase2 import Phase2State
 from state.project import ProjectState
 
 from pages.index import index_page
@@ -28,7 +29,7 @@ app = rx.App(stylesheets=["/custom.css"])
 
 app.add_page(index_page,  route="/",       title="Apex · Home",                  on_load=_SHARED_ON_LOAD)
 app.add_page(phase1_page, route="/phase1", title="Phase 1 · Requirements",       on_load=_SHARED_ON_LOAD + [Phase1State.restore_draft])
-app.add_page(phase2_page, route="/phase2", title="Phase 2 · Design",             on_load=_SHARED_ON_LOAD)
+app.add_page(phase2_page, route="/phase2", title="Phase 2 · Design",             on_load=_SHARED_ON_LOAD + [Phase2State.load_page_data, Phase2State.restore_draft])
 app.add_page(phase3_page, route="/phase3", title="Phase 3 · Implementation",     on_load=_SHARED_ON_LOAD)
 app.add_page(phase4_page, route="/phase4", title="Phase 4 · Testing",            on_load=_SHARED_ON_LOAD)
 app.add_page(phase5_page, route="/phase5", title="Phase 5 · Deployment",         on_load=_SHARED_ON_LOAD)

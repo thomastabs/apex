@@ -59,7 +59,7 @@ def compile_section() -> rx.Component:
                     ),
                     rx.button(
                         rx.hstack(rx.icon("rotate-ccw", size=14), rx.text("Start Over"), spacing="1"),
-                        variant="ghost",
+                        variant="soft",
                         color_scheme="gray",
                         size="2",
                         on_click=Phase1State.reset_all,

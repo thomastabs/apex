@@ -26,7 +26,7 @@ def _build_context_dir(project_id: int) -> Path:
 def _init_paths(project_id: int) -> None:
     """Update all module-level path constants for the given project and reset caches."""
     global CONTEXT_DIR, MEMORY_BANK_FILE, FUNCTIONAL_SPEC_FILE, TECHNICAL_SPEC_FILE
-    global VACCINES_FILE, STORY_INDEX_FILE, DRAFT_FILE, SESSION_FILE
+    global VACCINES_FILE, STORY_INDEX_FILE, DRAFT_FILE, DESIGN_DRAFT_FILE, SESSION_FILE
     global _story_index_cache, _context_initialized
     CONTEXT_DIR          = _build_context_dir(project_id)
     MEMORY_BANK_FILE     = CONTEXT_DIR / "memory-bank.md"
@@ -35,6 +35,7 @@ def _init_paths(project_id: int) -> None:
     VACCINES_FILE        = CONTEXT_DIR / "vaccines.md"
     STORY_INDEX_FILE     = CONTEXT_DIR / "story-index.json"
     DRAFT_FILE           = CONTEXT_DIR / ".apex-draft.json"
+    DESIGN_DRAFT_FILE    = CONTEXT_DIR / ".apex-design-draft.json"
     SESSION_FILE         = CONTEXT_DIR / ".apex-session.json"
     _story_index_cache   = None
     _context_initialized = False
@@ -674,6 +675,107 @@ def clear_draft() -> None:
     """Delete the draft file (called after a successful push or manual reset)."""
     if DRAFT_FILE.exists():
         DRAFT_FILE.unlink()
+
+
+def save_design_draft(data: dict) -> None:
+    """Persist the current Phase 2 design state so it survives a page refresh."""
+    CONTEXT_DIR.mkdir(parents=True, exist_ok=True)
+    DESIGN_DRAFT_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def load_design_draft() -> dict | None:
+    """Return the persisted Phase 2 design draft, or None if absent or corrupt."""
+    if not DESIGN_DRAFT_FILE.exists():
+        return None
+    try:
+        return json.loads(DESIGN_DRAFT_FILE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def clear_design_draft() -> None:
+    """Delete the Phase 2 design draft file."""
+    if DESIGN_DRAFT_FILE.exists():
+        DESIGN_DRAFT_FILE.unlink()
+
+
+def write_tech_stack(tech_stack: str) -> None:
+    """Replace the ## Tech Stack section in memory-bank.md with tech_stack.
+
+    Uses regex to find and replace content between ## Tech Stack and the next ## section.
+    Appends the section if absent. Never touches other sections.
+    """
+    content = read_context_file("memory-bank.md")
+    new_section = f"## Tech Stack\n\n{tech_stack.strip()}\n"
+    replaced, count = re.subn(
+        r"^## Tech Stack[^\n]*\n.*?(?=^## |\Z)",
+        new_section,
+        content,
+        count=1,
+        flags=re.MULTILINE | re.DOTALL,
+    )
+    if count == 0:
+        replaced = content.rstrip() + f"\n\n{new_section}"
+    write_context_file("memory-bank.md", replaced)
+
+
+def append_epic_technical_spec(
+    epic_id: int,
+    epic_title: str,
+    story_ids: list[int],
+    spec: str,
+) -> None:
+    """Write a unified technical spec block for an entire epic to technical-spec.md.
+
+    Replaces any existing ## Epic {epic_id}: block, then appends the new one.
+    Transitions all story_ids to design_locked in the story index.
+    """
+    init_context()
+    content = TECHNICAL_SPEC_FILE.read_text(encoding="utf-8")
+
+    # Remove existing block for this epic (header through next ## or EOF).
+    content = re.sub(
+        rf"\n## Epic {epic_id}:.*?(?=\n## |\Z)",
+        "",
+        content,
+        flags=re.DOTALL,
+    )
+
+    block = (
+        f"\n## Epic {epic_id}: {epic_title}\n\n"
+        f"### Unified Technical Spec\n\n"
+        f"**Locked at:** {_now()}\n\n"
+        f"```yaml\n{spec.strip()}\n```\n"
+    )
+    TECHNICAL_SPEC_FILE.write_text(content.rstrip() + "\n" + block, encoding="utf-8")
+
+    for story_id in story_ids:
+        upsert_story_index(story_id, phase_status="design_locked", has_tech_spec=True)
+
+
+def append_memory_bank_design(
+    epic_id: int,
+    epic_title: str,
+    prototype_summary: str,
+    tech_spec_summary: str,
+) -> None:
+    """Append a design decision entry under ## Design Decisions in memory-bank.md.
+
+    Creates the section if absent. Never touches ## Tech Stack, ## Architecture
+    Principles, or ## Project Concept.
+    """
+    content = read_context_file("memory-bank.md")
+    entry = (
+        f"\n### Epic {epic_id}: {epic_title}\n"
+        f"**Locked at:** {_now()}\n"
+        f"**Visual Design:** {prototype_summary[:200]}\n"
+        f"**Architecture:** {tech_spec_summary[:200]}\n"
+    )
+    if "## Design Decisions" in content:
+        content = content.rstrip() + "\n" + entry
+    else:
+        content = content.rstrip() + "\n\n## Design Decisions\n" + entry
+    write_context_file("memory-bank.md", content)
 
 
 _TEMPLATES: dict[str, str] = {

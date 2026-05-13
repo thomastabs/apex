@@ -75,6 +75,10 @@ class Phase1State(ProjectState):
     discard_dialog_open: bool = False
     pending_mode_switch: str = ""
 
+    # ── Project switch / logout guard ─────────────────────────────────────────
+    phase1_discard_dialog_open: bool = False
+    _phase1_pending_action: str = ""
+
     # ── Draft guard ───────────────────────────────────────────────────────────
     draft_restored: bool = False
 
@@ -652,3 +656,51 @@ class Phase1State(ProjectState):
     @rx.var
     def can_push(self) -> bool:
         return self.has_compiled and not self.push_done and len(self.validation_errors) == 0
+
+    @rx.var
+    def phase1_has_unsaved(self) -> bool:
+        return bool(self.nl_draft or self.compiled_stories or self.epic_subject_input)
+
+    # ── Project switch / logout guard events ──────────────────────────────────
+
+    @rx.event
+    def request_project_switch(self):
+        from state.phase2 import Phase2State
+        if self.phase1_has_unsaved:
+            self.phase1_discard_dialog_open = True
+            self._phase1_pending_action = "project_switch"
+        else:
+            self._reset_story_progress()
+            yield Phase2State.request_project_switch
+
+    @rx.event
+    def request_logout(self):
+        from state.phase2 import Phase2State
+        if self.phase1_has_unsaved:
+            self.phase1_discard_dialog_open = True
+            self._phase1_pending_action = "logout"
+        else:
+            self._reset_story_progress()
+            yield Phase2State.request_logout
+
+    @rx.event
+    def confirm_phase1_discard(self):
+        from state.phase2 import Phase2State
+        action = self._phase1_pending_action
+        self._phase1_pending_action = ""
+        self.phase1_discard_dialog_open = False
+        self.epic_subject_input = ""
+        self.epic_id_input = ""
+        self.epic_desc_input = ""
+        self.ai_hint_input = ""
+        self._reset_story_progress()
+        if action == "project_switch":
+            yield Phase2State.request_project_switch
+        elif action == "logout":
+            yield Phase2State.request_logout
+
+    @rx.event
+    def set_phase1_discard_dialog_open(self, value: bool):
+        self.phase1_discard_dialog_open = value
+        if not value:
+            self._phase1_pending_action = ""

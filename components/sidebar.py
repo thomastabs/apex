@@ -5,6 +5,8 @@ import reflex as rx
 from state.auth import AuthState
 from state.board import BoardState
 from state.context import ContextState
+from state.phase1 import Phase1State
+from state.phase2 import Phase2State
 from state.project import ProjectState
 from state.user_mgmt import UserMgmtState
 from components.expander import expander
@@ -178,17 +180,26 @@ def _project_expander() -> rx.Component:
                     rx.hstack(
                         rx.button(
                             rx.hstack(rx.icon("check", size=12), rx.text("Select Project"), spacing="1"),
-                            size="1",
-                            variant="solid",
-                            on_click=ContextState.confirm_project_selection,
+                            size="2",
+                            variant="soft",
+                            color_scheme="violet",
+                            on_click=Phase1State.request_project_switch,
                             disabled=ProjectState.pending_project_id == 0,
                         ),
                         rx.spacer(),
                         rx.button(
                             rx.hstack(rx.icon("refresh-cw", size=12), rx.text("Refresh"), spacing="1"),
-                            size="1",
-                            variant="ghost",
+                            size="2",
+                            variant="soft",
+                            color_scheme="gray",
                             on_click=ProjectState.load_projects,
+                        ),
+                        rx.button(
+                            rx.hstack(rx.icon("plus", size=12), rx.text("Create New"), spacing="1"),
+                            size="2",
+                            variant="soft",
+                            color_scheme="violet",
+                            on_click=ProjectState.open_create_project_dialog,
                         ),
                         width="100%",
                     ),
@@ -230,7 +241,7 @@ def _story_row(story: dict) -> rx.Component:
                 size="2",
                 variant="ghost",
                 color_scheme="red",
-                on_click=BoardState.delete_story(story["id"], story["epic_id"]),
+                on_click=BoardState.open_delete_story_confirm(story["id"], story["epic_id"]),
                 title="Delete story",
             ),
             spacing="2",
@@ -285,7 +296,7 @@ def _epic_row(epic: dict) -> rx.Component:
                     size="2",
                     variant="ghost",
                     color_scheme="red",
-                    on_click=BoardState.delete_epic(epic_id),
+                    on_click=BoardState.open_delete_epic_confirm(epic_id),
                     title="Delete epic",
                 ),
                 spacing="2",
@@ -328,17 +339,17 @@ def _board_expander() -> rx.Component:
                 ),
                 rx.spacer(),
                 rx.button(
-                    rx.icon("plus", size=12),
-                    "Epic",
-                    size="1",
-                    variant="ghost",
+                    rx.hstack(rx.icon("plus", size=12), rx.text("Create New Epic"), spacing="1"),
+                    size="2",
+                    variant="soft",
+                    color_scheme="violet",
                     on_click=BoardState.open_create_epic,
-                    spacing="1",
                 ),
-                rx.icon_button(
-                    rx.icon("refresh-cw", size=12),
-                    size="1",
-                    variant="ghost",
+                rx.button(
+                    rx.hstack(rx.icon("refresh-cw", size=12), rx.text("Refresh"), spacing="1"),
+                    size="2",
+                    variant="soft",
+                    color_scheme="gray",
                     on_click=BoardState.load_epics,
                 ),
                 align="center",
@@ -509,17 +520,18 @@ def _context_file_editor(
     action_bar = rx.hstack(
         rx.button(
             rx.hstack(rx.icon("download", size=12), rx.text("Export"), spacing="1"),
-            size="1",
-            variant="ghost",
+            size="2",
+            variant="soft",
+            color_scheme="gray",
             on_click=download_event,
         ),
         rx.spacer(),
         rx.button(
             rx.hstack(rx.icon("rotate-ccw", size=12), rx.text("Reset"), spacing="1"),
-            size="1",
-            variant="ghost",
+            size="2",
+            variant="soft",
             color_scheme="red",
-            on_click=lambda: ContextState.reset_context_file(reset_filename),
+            on_click=lambda: ContextState.open_reset_file_confirm(reset_filename),
         ),
         width="100%",
     )
@@ -558,7 +570,7 @@ def _context_file_editor(
                         rx.hstack(rx.icon("pencil", size=11), rx.text("Edit"), spacing="1"),
                         rx.hstack(rx.icon("eye", size=11), rx.text("Preview"), spacing="1"),
                     ),
-                    size="1",
+                    size="2",
                     variant="soft",
                     color_scheme="violet",
                     on_click=toggle_md_event,
@@ -670,7 +682,7 @@ def _context_zone() -> rx.Component:
                     size="2",
                     variant="soft",
                     color_scheme="red",
-                    on_click=ContextState.reset_context,
+                    on_click=ContextState.open_reset_all_confirm,
                     flex="1",
                 ),
                 spacing="2",
@@ -804,6 +816,225 @@ _RESIZE_SCRIPT = """
 """
 
 
+def _reset_confirm_dialog() -> rx.Component:
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title("Reset Context File?"),
+            rx.callout(
+                "This will overwrite the file with its default template. Any custom content will be lost.",
+                color="red",
+                size="2",
+            ),
+            rx.hstack(
+                rx.button(
+                    "Yes, reset",
+                    color_scheme="red",
+                    size="2",
+                    on_click=ContextState.confirm_reset,
+                ),
+                rx.dialog.close(
+                    rx.button(
+                        "Cancel",
+                        variant="soft",
+                        color_scheme="gray",
+                        size="2",
+                        on_click=lambda: ContextState.set_reset_confirm_open(False),
+                    ),
+                ),
+                spacing="2",
+                justify="end",
+                margin_top="16px",
+            ),
+            max_width="420px",
+        ),
+        open=ContextState.reset_confirm_open,
+        on_open_change=ContextState.set_reset_confirm_open,
+    )
+
+
+def _delete_confirm_dialog() -> rx.Component:
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title("Delete Permanently?"),
+            rx.callout(
+                "This action cannot be undone. The epic and all its stories will be permanently deleted from Taiga.",
+                color="red",
+                size="2",
+            ),
+            rx.hstack(
+                rx.button(
+                    "Yes, delete",
+                    color_scheme="red",
+                    size="2",
+                    on_click=BoardState.confirm_delete,
+                ),
+                rx.dialog.close(
+                    rx.button(
+                        "Cancel",
+                        variant="soft",
+                        color_scheme="gray",
+                        size="2",
+                        on_click=lambda: BoardState.set_delete_confirm_open(False),
+                    ),
+                ),
+                spacing="2",
+                justify="end",
+                margin_top="16px",
+            ),
+            max_width="420px",
+        ),
+        open=BoardState.delete_confirm_open,
+        on_open_change=BoardState.set_delete_confirm_open,
+    )
+
+
+def _create_project_dialog() -> rx.Component:
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title("Create New Project"),
+            rx.vstack(
+                rx.vstack(
+                    rx.hstack(
+                        rx.text("Title", size="2", weight="medium"),
+                        rx.text("*", size="2", color=rx.color("red", 9)),
+                        spacing="1",
+                    ),
+                    rx.input(
+                        value=ProjectState.new_project_title,
+                        placeholder="Project title",
+                        on_change=ProjectState.set_new_project_title,
+                        size="2",
+                        width="100%",
+                    ),
+                    spacing="1",
+                    width="100%",
+                ),
+                rx.vstack(
+                    rx.text("Description", size="2", weight="medium"),
+                    rx.text_area(
+                        value=ProjectState.new_project_desc,
+                        placeholder="Brief project description…",
+                        on_change=ProjectState.set_new_project_desc,
+                        rows="4",
+                        size="2",
+                        width="100%",
+                    ),
+                    spacing="1",
+                    width="100%",
+                ),
+                rx.cond(
+                    ProjectState.create_project_error != "",
+                    rx.callout(ProjectState.create_project_error, color="red", size="1"),
+                    rx.fragment(),
+                ),
+                rx.hstack(
+                    rx.button(
+                        rx.cond(
+                            ProjectState.creating_project,
+                            rx.hstack(rx.spinner(size="2"), rx.text("Creating…"), spacing="2"),
+                            rx.hstack(rx.icon("plus", size=14), rx.text("Create Project"), spacing="2"),
+                        ),
+                        on_click=ProjectState.create_project,
+                        disabled=ProjectState.creating_project | (ProjectState.new_project_title == ""),
+                        color_scheme="violet",
+                        size="2",
+                    ),
+                    rx.dialog.close(
+                        rx.button(
+                            "Cancel",
+                            variant="soft",
+                            color_scheme="gray",
+                            size="2",
+                            on_click=lambda: ProjectState.set_create_project_dialog_open(False),
+                        ),
+                    ),
+                    spacing="2",
+                    justify="end",
+                    margin_top="8px",
+                    width="100%",
+                ),
+                spacing="3",
+                width="100%",
+            ),
+            max_width="440px",
+        ),
+        open=ProjectState.create_project_dialog_open,
+        on_open_change=ProjectState.set_create_project_dialog_open,
+    )
+
+
+def _phase1_discard_dialog() -> rx.Component:
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title("Discard Phase 1 Progress?"),
+            rx.callout(
+                "You have unsaved Phase 1 work (NL draft or compiled stories). Switching project or signing out will permanently discard it.",
+                color="orange",
+                size="2",
+            ),
+            rx.hstack(
+                rx.button(
+                    "Yes, discard",
+                    color_scheme="red",
+                    size="2",
+                    on_click=Phase1State.confirm_phase1_discard,
+                ),
+                rx.dialog.close(
+                    rx.button(
+                        "Cancel",
+                        variant="soft",
+                        color_scheme="gray",
+                        size="2",
+                        on_click=lambda: Phase1State.set_phase1_discard_dialog_open(False),
+                    ),
+                ),
+                spacing="2",
+                justify="end",
+                margin_top="16px",
+            ),
+            max_width="440px",
+        ),
+        open=Phase1State.phase1_discard_dialog_open,
+        on_open_change=Phase1State.set_phase1_discard_dialog_open,
+    )
+
+
+def _stage_a_discard_dialog() -> rx.Component:
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title("Discard Stage A Progress?"),
+            rx.callout(
+                "You have unsaved Tech Stack suggestions. Switching project or signing out will permanently discard them.",
+                color="orange",
+                size="2",
+            ),
+            rx.hstack(
+                rx.button(
+                    "Yes, discard",
+                    color_scheme="red",
+                    size="2",
+                    on_click=Phase2State.confirm_stage_a_discard,
+                ),
+                rx.dialog.close(
+                    rx.button(
+                        "Cancel",
+                        variant="soft",
+                        color_scheme="gray",
+                        size="2",
+                        on_click=lambda: Phase2State.set_stage_a_discard_dialog_open(False),
+                    ),
+                ),
+                spacing="2",
+                justify="end",
+                margin_top="16px",
+            ),
+            max_width="440px",
+        ),
+        open=Phase2State.stage_a_discard_dialog_open,
+        on_open_change=Phase2State.set_stage_a_discard_dialog_open,
+    )
+
+
 # ── Root sidebar ──────────────────────────────────────────────────────────────
 
 def sidebar() -> rx.Component:
@@ -863,6 +1094,11 @@ def sidebar() -> rx.Component:
                 create_story_dialog(),
                 epic_details_dialog(),
                 story_details_dialog(),
+                _reset_confirm_dialog(),
+                _delete_confirm_dialog(),
+                _create_project_dialog(),
+                _phase1_discard_dialog(),
+                _stage_a_discard_dialog(),
                 spacing="0",
                 align="start",
                 width="100%",

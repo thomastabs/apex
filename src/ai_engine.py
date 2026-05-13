@@ -545,184 +545,175 @@ def suggest_epics(
 
 
 # ---------------------------------------------------------------------------
-# 2. Design Phase — Systems Architect persona
+# Phase 2 Pydantic schemas
 # ---------------------------------------------------------------------------
 
-_ARCHITECTURE_SYSTEM = """\
-You are a Senior Systems Architect operating within the Apex Framework.
-Your job is to generate a formal technical contract that strictly satisfies the
-provided Gherkin Acceptance Criteria — nothing more, nothing less.
+class ArchAlternative(BaseModel):
+    name: str = Field(description="Short stack name, e.g. 'FastAPI + React + PostgreSQL'")
+    description: str = Field(description="2-3 sentence rationale for this choice")
+    trade_offs: str = Field(description="Pros and cons as markdown bullet points")
+
+
+class ArchAlternativeList(BaseModel):
+    alternatives: list[ArchAlternative] = Field(
+        description="Exactly 5 ranked architectural alternatives, simplest to most scalable"
+    )
+
+
+class Phase2DesignResult(BaseModel):
+    wireframes: str = Field(
+        description="ASCII screen mockups for each screen/view required by the epic stories"
+    )
+    user_flow: str = Field(
+        description="Valid Mermaid flowchart TD diagram showing the complete user flow across all stories"
+    )
+    component_tree: str = Field(
+        description="Indented text-based component/module hierarchy for the epic"
+    )
+    tech_spec: str = Field(
+        description="OpenAPI 3.0 YAML specification and/or DB schema DDL for all stories in the epic"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 · Stage A — Tech Stack Alternatives (Solutions Architect persona)
+# ---------------------------------------------------------------------------
+
+_TECH_STACK_SYSTEM = """\
+You are a Senior Solutions Architect operating within the Apex Framework.
+Based on the FULL scope of ALL project stories below and the project context,
+produce EXACTLY 5 ranked architectural alternatives.
 
 Rules you MUST follow:
-- Produce a formal OpenAPI 3.0 YAML specification OR a DB schema (or both if required).
-- Every endpoint or schema field MUST be directly traceable to a Gherkin scenario.
-- Do NOT add endpoints or fields not implied by the Gherkin.
-- Output ONLY the raw YAML/schema. No preamble, no explanations outside of YAML comments.
+- Each alternative must be internally self-consistent (no incompatible layer combinations).
+- Rank from Option 1 (simplest/fastest to build) to Option 3 (most scalable/enterprise-grade).
+- Each option must include: the tech stack name, a 2-3 sentence rationale, and honest trade-offs.
+- This suggestion will be locked for the ENTIRE project — do not over-engineer.
+- Consider ALL stories together, not just one feature area.
+- Keep your response professional and formal — no emojis, no casual language.
 """
 
 
-def generate_architecture(story_subject: str, gherkin: str) -> str:
-    human = (
-        f"User Story: {story_subject}\n\n"
-        f"Locked Gherkin Acceptance Criteria:\n{gherkin}\n\n"
-        "Generate the formal OpenAPI 3.0 YAML specification and/or database schema."
+def suggest_tech_stack(
+    all_stories: list[dict],
+    context: str,
+    hint: str = "",
+) -> list[dict]:
+    """Return 5 ranked architectural alternatives for the full project scope.
+
+    all_stories: [{"epic_title": str, "title": str, "gherkin": str}, ...]
+    context: full Memory Bank content (Project Concept + Architecture Principles)
+    hint: optional free-text guidance from the Tech Lead
+    Returns: [{"name": str, "description": str, "trade_offs": str}, ...]
+    """
+    grouped: dict[str, list[str]] = {}
+    for s in all_stories:
+        epic = s.get("epic_title", "General")
+        grouped.setdefault(epic, []).append(f"- {s.get('title', '')}")
+    human_parts = [f"Project Context:\n{context.strip()}\n\nAll Project Stories:"]
+    for epic, stories in grouped.items():
+        human_parts.append(f"\n### {epic}")
+        human_parts.extend(stories)
+    if hint and hint.strip():
+        human_parts.append(f"\nTech Lead Guidance:\n{hint.strip()}")
+    human = "\n".join(human_parts)
+    result = _invoke_structured_with_progress(
+        _TECH_STACK_SYSTEM, human, get_coder_model(), ArchAlternativeList,
+        max_tokens=4096, item_field="alternatives",
     )
-    return _invoke(_ARCHITECTURE_SYSTEM, human, get_coder_model(), max_tokens=4096)
+    return [alt.model_dump() for alt in result.alternatives]
 
 
 # ---------------------------------------------------------------------------
-# 3a. Implementation Phase — Task Breakdown (Tech Lead persona)
+# Phase 2 · Stage B — Epic Design Bundle (Architect + UX Lead persona)
 # ---------------------------------------------------------------------------
 
-_BREAKDOWN_SYSTEM = """\
-You are a Tech Lead operating within the Apex Framework.
-Your job is to decompose a User Story into a sequential list of granular, executable
-technical tasks for developers to execute during Bolts.
+_PHASE2_DESIGN_SYSTEM = """\
+You are a Senior Full-Stack Architect and UX Lead operating within the Apex Framework.
+Generate a complete design bundle for the epic described below.
+
+**Memory Bank (binding constraints — DO NOT violate):**
+{context}
 
 Rules you MUST follow:
-- Each task must be atomic: one developer, one Apex, one clear outcome.
-- Tasks MUST be ordered by execution dependency (no circular dependencies).
-- Reference the OpenAPI spec or DB schema where relevant.
-- Flag any task as [HIGH RISK] if it touches auth, data migrations, or external APIs.
-- Output a numbered list. Each item: Task title | Short description | Risk level.
-- No preamble, no markdown beyond the list.
+- wireframes: ASCII art mockups for every distinct screen or view required by the stories.
+  Label each screen clearly. Show key UI elements (inputs, buttons, labels, navigation).
+- user_flow: A valid Mermaid `flowchart TD` diagram (no other Mermaid type) showing the
+  complete user journey across all stories in this epic. Every story must appear as a node.
+- component_tree: An indented plain-text hierarchy of all frontend components and/or
+  backend modules needed. Use 2-space indentation. No code, just names and brief labels.
+- tech_spec: A full OpenAPI 3.0 YAML specification covering all API endpoints required by
+  the stories, PLUS a DB schema DDL block. ONLY use technologies from ## Tech Stack.
+  Every endpoint must be traceable to at least one Gherkin scenario.
 """
 
 
-def generate_tasks(story_subject: str, gherkin: str, technical_spec: str) -> str:
-    human = (
-        f"User Story: {story_subject}\n\n"
-        f"Gherkin Acceptance Criteria:\n{gherkin}\n\n"
-        f"Technical Spec (OpenAPI/DB Schema):\n{technical_spec}\n\n"
-        "Generate the sequential task breakdown for the Apex Backlog."
+def generate_phase2_design(
+    epic_title: str,
+    stories: list[dict],
+    context: str,
+) -> dict:
+    """Generate wireframes, user flow, component tree, and OpenAPI spec for an epic.
+
+    stories: [{"story_id": int, "title": str, "gherkin": str}, ...]
+    context: full Memory Bank including confirmed ## Tech Stack
+    Returns: {"wireframes": str, "user_flow": str, "component_tree": str, "tech_spec": str}
+    """
+    system = _PHASE2_DESIGN_SYSTEM.format(context=context.strip())
+    story_parts = [f"Epic: {epic_title}\n\nStories:"]
+    for s in stories:
+        story_parts.append(
+            f"\n### Story {s.get('story_id', '')}: {s.get('title', '')}\n"
+            f"{s.get('gherkin', '').strip()}"
+        )
+    human = "\n".join(story_parts)
+    result = _invoke_structured_with_progress(
+        system, human, get_coder_model(), Phase2DesignResult,
+        max_tokens=8000, item_field="wireframes",
     )
-    return _invoke(_BREAKDOWN_SYSTEM, human, get_fast_model(), max_tokens=2048)
+    return result.model_dump()
 
 
 # ---------------------------------------------------------------------------
-# 3b. Implementation Phase — Coding Proposal (Senior Developer persona)
+# 3. Implementation Phase — Phase 3 (not yet implemented)
 # ---------------------------------------------------------------------------
 
-_PROPOSAL_SYSTEM = """\
-You are a Senior Developer operating within the Apex Framework.
-Your job is to produce a precise, step-by-step coding implementation plan for a
-specific technical task. This plan will guide a developer and constrain AI code
-generation during the Apex execution.
+# TODO: generate_tasks(story_subject, gherkin, technical_spec) -> str
+#   Tech Lead persona. Decompose story into sequential atomic tasks for the Apex Backlog.
+#   Output: numbered list — Task title | Short description | [HIGH RISK] flag.
+#   Use get_fast_model().
 
-Rules you MUST follow:
-- The plan must be anchored to the provided Gherkin and Technical Spec — no scope creep.
-- List exact files to create or modify, function signatures, and data flow.
-- Include the Consistency Factor: a set of unit test cases (inputs/outputs) that will
-  mathematically constrain the AI code generation. Do NOT write test code — just define
-  the test cases as assertions in plain English.
-- Output in structured Markdown: ## Task, ## Context, ## Implementation Steps, ## Consistency Factor.
-"""
-
-
-def generate_coding_proposal(
-    task_subject: str,
-    task_description: str,
-    gherkin: str,
-    technical_spec: str,
-) -> str:
-    human = (
-        f"Task: {task_subject}\n\n"
-        f"Task Description: {task_description}\n\n"
-        f"Gherkin Acceptance Criteria:\n{gherkin}\n\n"
-        f"Technical Spec:\n{technical_spec}\n\n"
-        "Generate the detailed coding proposal with Consistency Factor."
-    )
-    return _invoke(_PROPOSAL_SYSTEM, human, get_coder_model(), max_tokens=4096)
+# TODO: generate_coding_proposal(task_subject, task_description, gherkin, technical_spec) -> str
+#   Senior Developer persona. Step-by-step coding plan + Consistency Factor (test assertions).
+#   Output: structured Markdown — ## Task, ## Context, ## Implementation Steps, ## Consistency Factor.
+#   Use get_coder_model().
 
 
 # ---------------------------------------------------------------------------
-# 4. Testing Phase — QA persona
+# 4. Testing Phase — Phase 4 (not yet implemented)
 # ---------------------------------------------------------------------------
 
-_QA_SYSTEM = """\
-You are a strict QA Engineer operating within the Apex Framework.
-Your job is to generate end-to-end BDD test scripts based EXCLUSIVELY on the
-provided Gherkin Acceptance Criteria.
-
-Rules you MUST follow:
-- Generate tests ONLY for the provided Gherkin scenarios. No hallucinated happy paths.
-- Use Cypress (JavaScript) syntax for frontend interactions or Pytest + BDD for APIs.
-- Cover ALL Given/When/Then branches in the Gherkin, including edge cases and failure paths.
-- Do NOT add test cases for scenarios not present in the Gherkin.
-- Output ONLY the raw test code. No preamble.
-"""
-
-
-def generate_bdd_tests(story_subject: str, gherkin: str) -> str:
-    human = (
-        f"User Story: {story_subject}\n\n"
-        f"Locked Gherkin Acceptance Criteria:\n{gherkin}\n\n"
-        "Generate the complete BDD test suite. No hallucinated scenarios."
-    )
-    return _invoke(_QA_SYSTEM, human, get_coder_model(), max_tokens=4096)
+# TODO: generate_bdd_tests(story_subject, gherkin) -> str
+#   QA Engineer persona. End-to-end BDD test scripts from Gherkin only — no hallucinated scenarios.
+#   Cypress (JS) for frontend, Pytest+BDD for APIs.
+#   Use get_coder_model().
 
 
 # ---------------------------------------------------------------------------
-# 5. Deployment Phase — DevOps persona
+# 5. Deployment Phase — Phase 5 (not yet implemented)
 # ---------------------------------------------------------------------------
 
-_INFRA_SYSTEM = """\
-You are a Senior DevOps Engineer operating within the Apex Framework.
-Your job is to analyze a completed User Story's technical specification and determine
-whether any infrastructure changes are required for deployment.
-
-Rules you MUST follow:
-- Answer the single question: does this feature require new infrastructure, updated
-  environment variables, or modified deployment scripts?
-- If NO: output exactly "INFRA_DELTA: NONE" followed by a one-sentence justification.
-- If YES: output "INFRA_DELTA: REQUIRED" followed by a complete Terraform HCL or
-  CloudFormation YAML draft covering only the required changes.
-- Do NOT generate infrastructure for things already covered by existing config.
-"""
-
-
-def generate_infra_delta(story_subject: str, technical_spec: str) -> str:
-    human = (
-        f"User Story: {story_subject}\n\n"
-        f"Technical Spec:\n{technical_spec}\n\n"
-        "Analyze infrastructure requirements for this deployment."
-    )
-    return _invoke(_INFRA_SYSTEM, human, get_coder_model(), max_tokens=4096)
+# TODO: generate_infra_delta(story_subject, technical_spec) -> str
+#   DevOps persona. Determine if feature needs new infra, env vars, or deploy script changes.
+#   Output: "INFRA_DELTA: NONE <justification>" or "INFRA_DELTA: REQUIRED <Terraform HCL / CF YAML>".
+#   Use get_coder_model().
 
 
 # ---------------------------------------------------------------------------
-# 6. Maintenance Phase — Context Isolation Rule
+# 6. Maintenance Phase — Phase 6 (not yet implemented)
 # ---------------------------------------------------------------------------
 
-_FIX_APEX_SYSTEM = """\
-You are a Senior Debugging Engineer operating under strict context isolation.
-
-CONTEXT ISOLATION RULE: You have been given ONLY the bug report and the isolated code snippet.
-You do NOT have access to the full codebase or the full .ai-context.md file.
-This is intentional — loading full context causes architectural hallucinations.
-
-Rules you MUST follow:
-- Diagnose the root cause using ONLY the provided bug description, stack trace, and code snippet.
-- Propose a minimal, surgical patch that resolves ONLY this specific bug.
-- Do NOT refactor unrelated code. Do NOT expand scope.
-- Output in structured Markdown:
-  ## Root Cause (2-3 sentences max)
-  ## Patch (code block with the minimal fix)
-  ## Vaccine Summary (one-line description for the permanent vaccine record)
-"""
-
-
-def fix_bolt_diagnose(
-    issue_subject: str,
-    issue_description: str,
-    stack_trace: str,
-    code_snippet: str,
-) -> str:
-    human = (
-        f"Bug Report: {issue_subject}\n\n"
-        f"Issue Description:\n{issue_description}\n\n"
-        f"Stack Trace / Error:\n{stack_trace if stack_trace else '(no stack trace provided)'}\n\n"
-        f"Isolated Code Snippet:\n{code_snippet if code_snippet else '(no snippet provided)'}\n\n"
-        "Diagnose the root cause and provide the minimal patch."
-    )
-    return _invoke(_FIX_APEX_SYSTEM, human, get_coder_model(), max_tokens=4096)
+# TODO: fix_bolt_diagnose(issue_subject, issue_description, stack_trace, code_snippet) -> str
+#   Senior Debugging Engineer under Context Isolation Rule — ONLY bug + stack trace + snippet.
+#   Output: ## Root Cause, ## Patch, ## Vaccine Summary.
+#   Use get_coder_model().
