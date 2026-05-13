@@ -2,6 +2,7 @@
 
 import reflex as rx
 from components.expander import expander
+from state.context import ContextState
 from state.phase1 import Phase1State
 
 
@@ -254,6 +255,33 @@ def _suggest_item(s: dict) -> rx.Component:
 
 def _suggest_panel() -> rx.Component:
     return rx.vstack(
+        rx.cond(
+            ~Phase1State.is_authenticated,
+            rx.callout(
+                "Sign in to Taiga using the ⇄ button in the sidebar to use AI Suggests.",
+                color="blue",
+                size="1",
+            ),
+            rx.fragment(),
+        ),
+        rx.cond(
+            Phase1State.is_authenticated & ~Phase1State.has_project,
+            rx.callout(
+                "Select a Taiga project in the sidebar before using AI Suggests.",
+                color="orange",
+                size="1",
+            ),
+            rx.fragment(),
+        ),
+        rx.cond(
+            Phase1State.is_authenticated & Phase1State.has_project & ~ContextState.has_project_concept,
+            rx.callout(
+                "Add a Project Concept to the Memory Bank (sidebar) before using AI Suggests.",
+                color="amber",
+                size="1",
+            ),
+            rx.fragment(),
+        ),
         rx.vstack(
             rx.text("AI Guidance", size="3", weight="medium"),
             rx.text(
@@ -277,7 +305,7 @@ def _suggest_panel() -> rx.Component:
             color_scheme="violet",
             width="100%",
             on_click=Phase1State.run_suggest_epics,
-            disabled=Phase1State.suggest_loading,
+            disabled=Phase1State.suggest_loading | ~Phase1State.is_authenticated | ~Phase1State.has_project | ~ContextState.has_project_concept,
         ),
         rx.cond(
             Phase1State.suggest_loading,
@@ -322,8 +350,8 @@ def _suggest_panel() -> rx.Component:
                     rx.spacer(),
                     rx.button(
                         rx.hstack(rx.icon("x", size=13), rx.text("Clear"), spacing="1"),
-                        size="1",
-                        variant="ghost",
+                        size="2",
+                        variant="soft",
                         color_scheme="gray",
                         on_click=Phase1State.clear_suggestions,
                     ),

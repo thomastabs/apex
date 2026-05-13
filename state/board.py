@@ -251,6 +251,56 @@ class BoardState(ProjectState):
         except taiga_adapter.TaigaAPIError:
             pass
 
+    # ── Delete confirmation ───────────────────────────────────────────────────
+
+    delete_confirm_open: bool = False
+    _delete_confirm_type: str = ""   # "epic" or "story"
+    _delete_confirm_epic_id: int = 0
+    _delete_confirm_story_id: int = 0
+    _delete_confirm_story_epic_id: int = 0
+
+    @rx.event
+    def open_delete_epic_confirm(self, epic_id: int):
+        self._delete_confirm_type = "epic"
+        self._delete_confirm_epic_id = epic_id
+        self.delete_confirm_open = True
+
+    @rx.event
+    def open_delete_story_confirm(self, story_id: int, epic_id: int):
+        self._delete_confirm_type = "story"
+        self._delete_confirm_story_id = story_id
+        self._delete_confirm_story_epic_id = epic_id
+        self.delete_confirm_open = True
+
+    @rx.event
+    def set_delete_confirm_open(self, value: bool):
+        self.delete_confirm_open = value
+
+    @rx.event
+    async def confirm_delete(self):
+        self.delete_confirm_open = False
+        dtype = self._delete_confirm_type
+        self._delete_confirm_type = ""
+        self._sync_token()
+        try:
+            if dtype == "epic":
+                epic_id = self._delete_confirm_epic_id
+                self._delete_confirm_epic_id = 0
+                taiga_adapter.delete_epic_with_stories(epic_id)
+                if self.expanded_epic_id == epic_id:
+                    self.expanded_epic_id = 0
+                    self.expanded_stories = []
+                yield BoardState.load_epics
+            elif dtype == "story":
+                story_id = self._delete_confirm_story_id
+                epic_id = self._delete_confirm_story_epic_id
+                self._delete_confirm_story_id = 0
+                self._delete_confirm_story_epic_id = 0
+                taiga_adapter.delete_story(story_id)
+                yield BoardState.load_expanded_stories(epic_id)
+        except taiga_adapter.TaigaAPIError:
+            pass
+
     @rx.event
     async def delete_epic(self, epic_id: int):
         self._sync_token()

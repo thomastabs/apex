@@ -15,6 +15,14 @@ class ProjectState(AuthState):
     project_name: str = ""
     _projects_loaded: bool = False
 
+    # Create project dialog
+    create_project_dialog_open: bool = False
+    new_project_title: str = ""
+    new_project_desc: str = ""
+    creating_project: bool = False
+    create_project_error: str = ""
+    create_project_success: str = ""
+
     @rx.event
     def load_project_config(self):
         """Restore active project from persisted config (called on_load)."""
@@ -85,6 +93,52 @@ class ProjectState(AuthState):
             self.project_name = p.get("name", "")
         except Exception:
             self.project_name = ""
+
+    @rx.event
+    def open_create_project_dialog(self):
+        self.new_project_title = ""
+        self.new_project_desc = ""
+        self.create_project_error = ""
+        self.create_project_success = ""
+        self.create_project_dialog_open = True
+
+    @rx.event
+    def set_create_project_dialog_open(self, value: bool):
+        self.create_project_dialog_open = value
+
+    @rx.event
+    def set_new_project_title(self, value: str):
+        self.new_project_title = value
+        self.create_project_error = ""
+        self.create_project_success = ""
+
+    @rx.event
+    def set_new_project_desc(self, value: str):
+        self.new_project_desc = value
+
+    @rx.event
+    async def create_project(self):
+        title = self.new_project_title.strip()
+        desc = self.new_project_desc.strip()
+        if not title:
+            self.create_project_error = "Project title is required."
+            return
+        self.creating_project = True
+        self.create_project_error = ""
+        self.create_project_success = ""
+        yield
+        try:
+            self._sync_token()
+            project = taiga_adapter.create_project(title, desc)
+            self.create_project_success = f"Project \"{project.get('name', title)}\" created."
+            self.new_project_title = ""
+            self.new_project_desc = ""
+            self.create_project_dialog_open = False
+            yield ProjectState.load_projects
+        except Exception as exc:
+            self.create_project_error = str(exc)
+        finally:
+            self.creating_project = False
 
     @rx.var
     def has_project(self) -> bool:

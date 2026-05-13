@@ -3,15 +3,17 @@
 import reflex as rx
 from state.auth import AuthState
 from state.context import ContextState
+from state.phase1 import Phase1State
 
 
 def switch_account_dialog() -> rx.Component:
     return rx.dialog.root(
         rx.dialog.trigger(
             rx.button(
-                "⇄",
-                variant="ghost",
-                size="1",
+                rx.hstack(rx.text("⇄"), rx.text("Switch Account"), spacing="1"),
+                variant="soft",
+                color_scheme="gray",
+                size="2",
                 title="Switch account",
             ),
         ),
@@ -31,7 +33,7 @@ def switch_account_dialog() -> rx.Component:
                         "Sign out",
                         color_scheme="red",
                         variant="soft",
-                        on_click=AuthState.logout,
+                        on_click=Phase1State.request_logout,
                         width="100%",
                     ),
                     spacing="3",
@@ -63,10 +65,13 @@ def switch_account_dialog() -> rx.Component:
                                     rx.button(
                                         rx.cond(
                                             AuthState.signing_in,
-                                            rx.spinner(size="2"),
-                                            rx.text("Sign in"),
+                                            rx.hstack(rx.spinner(size="2"), rx.text("Signing in…"), spacing="2"),
+                                            rx.hstack(rx.icon("log-in", size=15), rx.text("Sign in"), spacing="2"),
                                         ),
                                         type="submit",
+                                        size="2",
+                                        variant="soft",
+                                        color_scheme="violet",
                                         width="100%",
                                         disabled=AuthState.signing_in,
                                     ),
@@ -89,10 +94,13 @@ def switch_account_dialog() -> rx.Component:
                                     rx.button(
                                         rx.cond(
                                             AuthState.signing_in,
-                                            rx.spinner(size="2"),
-                                            rx.text("Use token"),
+                                            rx.hstack(rx.spinner(size="2"), rx.text("Signing in…"), spacing="2"),
+                                            rx.hstack(rx.icon("key-round", size=15), rx.text("Use token"), spacing="2"),
                                         ),
                                         type="submit",
+                                        size="2",
+                                        variant="soft",
+                                        color_scheme="violet",
                                         width="100%",
                                         disabled=AuthState.signing_in,
                                     ),

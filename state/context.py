@@ -230,6 +230,36 @@ class ContextState(ProjectState):
     def download_vaccines(self):
         return rx.download(data=self.vaccines_content.encode("utf-8"), filename="vaccines.md")
 
+    # ── Reset confirmation ────────────────────────────────────────────────────
+
+    reset_confirm_open: bool = False
+    _reset_confirm_filename: str = ""  # empty = reset all
+
+    @rx.event
+    def open_reset_file_confirm(self, filename: str):
+        self._reset_confirm_filename = filename
+        self.reset_confirm_open = True
+
+    @rx.event
+    def open_reset_all_confirm(self):
+        self._reset_confirm_filename = ""
+        self.reset_confirm_open = True
+
+    @rx.event
+    def set_reset_confirm_open(self, value: bool):
+        self.reset_confirm_open = value
+
+    @rx.event
+    def confirm_reset(self):
+        self.reset_confirm_open = False
+        filename = self._reset_confirm_filename
+        self._reset_confirm_filename = ""
+        if filename:
+            context_manager.reset_context_file(filename)
+        else:
+            context_manager.reset_context()
+        yield ContextState.load_context
+
     # ── Reset ─────────────────────────────────────────────────────────────────
 
     @rx.event
