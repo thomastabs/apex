@@ -60,7 +60,7 @@ def _phase_card(route: str, num: str, name: str, desc: str, icon_name: str) -> r
 def index_content() -> rx.Component:
     return rx.box(
         phase_nav_tabs(),
-        rx.container(
+        rx.box(
             rx.vstack(
                 rx.vstack(
                     rx.heading("Apex", size="9", weight="bold", color=rx.color("accent", 11)),
@@ -120,7 +120,7 @@ def index_content() -> rx.Component:
                 width="100%",
                 padding_bottom="48px",
             ),
-            max_width="860px",
+            width="100%",
             padding_x="32px",
             padding_y="32px",
         ),

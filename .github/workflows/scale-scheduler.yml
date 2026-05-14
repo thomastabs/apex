@@ -1,0 +1,66 @@
+name: Apex · Scale scheduler
+
+# Keeps costs low: 0 replicas overnight, 1 replica during Portugal daytime.
+#
+# Portugal timezone:
+#   WET (UTC+0): Oct–Mar  →  scale-up = 08:00 UTC, scale-down = 22:00 UTC
+#   WEST (UTC+1): Mar–Oct →  scale-up = 09:00 Lisbon, scale-down = 23:00 Lisbon
+# Acceptable drift of ±1h around DST transitions for an academic project.
+
+on:
+  schedule:
+    - cron: '0 8 * * *'   # 08:00 UTC daily → scale UP
+    - cron: '0 22 * * *'  # 22:00 UTC daily → scale DOWN
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'up → min=1 (day mode)  |  down → min=0 (night mode)'
+        required: true
+        type: choice
+        options: [up, down]
+
+env:
+  AZURE_RESOURCE_GROUP: apex-rg
+  AZURE_APP_NAME: apex
+
+jobs:
+  scale:
+    name: ${{ github.event_name == 'workflow_dispatch' && inputs.action == 'up' && 'Scale UP (manual)' || github.event_name == 'workflow_dispatch' && 'Scale DOWN (manual)' || github.event.schedule == '0 8 * * *' && 'Scale UP (scheduled)' || 'Scale DOWN (scheduled)' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Determine action
+        id: action
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "mode=${{ inputs.action }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event.schedule }}" == "0 8 * * *" ]]; then
+            echo "mode=up" >> $GITHUB_OUTPUT
+          else
+            echo "mode=down" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Scale UP — min 1 replica (day mode)
+        if: steps.action.outputs.mode == 'up'
+        run: |
+          az containerapp update \
+            --name ${{ env.AZURE_APP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --min-replicas 1 \
+            --max-replicas 10
+          echo "Scaled UP: min=1, max=10"
+
+      - name: Scale DOWN — min 0 replicas (night mode)
+        if: steps.action.outputs.mode == 'down'
+        run: |
+          az containerapp update \
+            --name ${{ env.AZURE_APP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --min-replicas 0 \
+            --max-replicas 1
+          echo "Scaled DOWN: min=0, max=1"

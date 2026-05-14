@@ -127,9 +127,9 @@ def _phase2_body() -> rx.Component:
 def phase2_content() -> rx.Component:
     return rx.box(
         phase_nav_tabs(),
-        rx.container(
+        rx.box(
             _phase2_body(),
-            max_width="860px",
+            width="100%",
             padding_x="32px",
             padding_y="28px",
         ),

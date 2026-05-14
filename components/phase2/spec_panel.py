@@ -36,7 +36,7 @@ def spec_panel() -> rx.Component:
                     value=Phase2State.tech_spec_edit,
                     on_change=Phase2State.set_tech_spec_edit,
                     placeholder="OpenAPI 3.0 YAML and DB schema DDL will appear here...",
-                    rows="14",
+                    rows="20",
                     width="100%",
                     disabled=Phase2State.gate2_approved,
                     font_family="'JetBrains Mono', 'Fira Code', monospace",

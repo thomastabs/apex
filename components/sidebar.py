@@ -230,21 +230,21 @@ def _story_row(story: dict) -> rx.Component:
         ),
         rx.hstack(
             rx.icon_button(
-                rx.icon("info", size=14),
-                size="2",
+                rx.icon("info", size=13),
+                size="1",
                 variant="ghost",
                 on_click=BoardState.open_story_details(story["id"]),
                 title="View / edit story",
             ),
             rx.icon_button(
-                rx.icon("trash-2", size=14),
-                size="2",
+                rx.icon("trash-2", size=13),
+                size="1",
                 variant="ghost",
                 color_scheme="red",
                 on_click=BoardState.open_delete_story_confirm(story["id"], story["epic_id"]),
                 title="Delete story",
             ),
-            spacing="2",
+            spacing="3",
         ),
         align="center",
         width="100%",
@@ -278,28 +278,28 @@ def _epic_row(epic: dict) -> rx.Component:
             ),
             rx.hstack(
                 rx.icon_button(
-                    rx.icon("info", size=14),
-                    size="2",
+                    rx.icon("info", size=13),
+                    size="1",
                     variant="ghost",
                     on_click=BoardState.open_epic_details(epic_id),
                     title="View / edit epic",
                 ),
                 rx.icon_button(
-                    rx.icon("plus", size=14),
-                    size="2",
+                    rx.icon("plus", size=13),
+                    size="1",
                     variant="ghost",
                     on_click=BoardState.open_create_story(epic_id),
                     title="Add story",
                 ),
                 rx.icon_button(
-                    rx.icon("trash-2", size=14),
-                    size="2",
+                    rx.icon("trash-2", size=13),
+                    size="1",
                     variant="ghost",
                     color_scheme="red",
                     on_click=BoardState.open_delete_epic_confirm(epic_id),
                     title="Delete epic",
                 ),
-                spacing="2",
+                spacing="3",
             ),
             align="center",
             width="100%",
@@ -716,7 +716,7 @@ def _context_zone() -> rx.Component:
 
 _RESIZE_SCRIPT = """
 (function() {
-  var KEY = 'apex-sidebar-width', DEF = 280, MIN = 180, MAX = 520;
+  var KEY = 'apex-sidebar-width', DEF = 450, MIN = 450;
   var COLLAPSE_KEY = 'apex-sidebar-collapsed';
   var isCollapsed = localStorage.getItem(COLLAPSE_KEY) === '1';
 
@@ -727,7 +727,7 @@ _RESIZE_SCRIPT = """
     document.documentElement.style.setProperty('--apex-sidebar-width', w + 'px');
   }
   var saved = parseInt(localStorage.getItem(KEY) || '', 10);
-  setW(isNaN(saved) ? DEF : Math.min(MAX, Math.max(MIN, saved)));
+  setW(isNaN(saved) ? DEF : Math.max(MIN, saved));
 
   function setCollapsed(c) {
     isCollapsed = !!c;
@@ -788,7 +788,7 @@ _RESIZE_SCRIPT = """
   });
   document.addEventListener('mousemove', function(e) {
     if (!dragging) return;
-    setW(Math.min(MAX, Math.max(MIN, startW + e.clientX - startX)));
+    setW(Math.max(MIN, startW + e.clientX - startX));
   });
   document.addEventListener('mouseup', function() {
     if (!dragging) return;
@@ -1112,7 +1112,7 @@ def sidebar() -> rx.Component:
         rx.box(
             id="sidebar-resize-handle",
             position="fixed",
-            left="calc(var(--apex-sidebar-width, 280px) - 2px)",
+            left="calc(var(--apex-sidebar-width, 450px) - 2px)",
             top="0",
             width="5px",
             height="100vh",
@@ -1123,8 +1123,8 @@ def sidebar() -> rx.Component:
             _hover={"background": rx.color("accent", 4)},
         ),
         id="app-sidebar",
-        width="var(--apex-sidebar-width, 280px)",
-        min_width="180px",
+        width="var(--apex-sidebar-width, 450px)",
+        min_width="450px",
         height="100vh",
         background=rx.color("gray", 1),
         border_right=f"1px solid {rx.color('gray', 4)}",

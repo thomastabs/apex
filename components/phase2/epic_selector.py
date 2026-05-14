@@ -56,13 +56,23 @@ def epic_selector_section() -> rx.Component:
                                 rx.cond(
                                     e["all_locked"],
                                     rx.icon("lock", size=12),
-                                    rx.fragment(),
+                                    rx.cond(
+                                        e["story_count"] == 0,
+                                        rx.icon("clock", size=12, color=rx.color("gray", 8)),
+                                        rx.fragment(),
+                                    ),
                                 ),
                                 rx.text(e["epic_title"]),
+                                rx.cond(
+                                    e["story_count"] == 0,
+                                    rx.text("· Phase 1 pending", size="1", color=rx.color("gray", 8)),
+                                    rx.fragment(),
+                                ),
                                 spacing="1",
                                 align="center",
                             ),
                             value=e["epic_id"].to_string(),
+                            disabled=e["story_count"] == 0,
                         ),
                     )
                 ),

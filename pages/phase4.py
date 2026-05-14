@@ -6,7 +6,7 @@ from components.phase_nav_tabs import phase_nav_tabs
 def phase4_content() -> rx.Component:
     return rx.box(
         phase_nav_tabs(),
-        rx.container(
+        rx.box(
             rx.vstack(
                 rx.vstack(
                     rx.heading("Phase 4 · Testing", size="8", weight="bold"),
@@ -28,7 +28,7 @@ def phase4_content() -> rx.Component:
                 width="100%",
                 padding_bottom="48px",
             ),
-            max_width="860px",
+            width="100%",
             padding_x="32px",
             padding_y="28px",
         ),

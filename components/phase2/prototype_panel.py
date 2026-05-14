@@ -5,6 +5,32 @@ from components.expander import expander
 from state.phase2 import Phase2State
 
 
+_MERMAID_SCRIPT = """
+(function() {
+    if (window._apexMermaid) return;
+    window._apexMermaid = true;
+
+    function renderAll() {
+        if (!window._mermaidReady) return;
+        var els = document.querySelectorAll('.apex-mermaid:not([data-mr])');
+        if (!els.length) return;
+        var dark = document.documentElement.classList.contains('dark');
+        try { mermaid.initialize({ startOnLoad: false, theme: dark ? 'dark' : 'default' }); } catch(e) {}
+        els.forEach(function(el) { el.setAttribute('data-mr', '1'); });
+        try { mermaid.run({ querySelector: '.apex-mermaid[data-mr]' }); } catch(e) {}
+    }
+
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js';
+    s.onload = function() { window._mermaidReady = true; renderAll(); };
+    document.head.appendChild(s);
+
+    new MutationObserver(function() { renderAll(); })
+        .observe(document.body, { childList: true, subtree: true });
+})();
+"""
+
+
 def _generation_loader() -> rx.Component:
     return rx.cond(
         Phase2State.generating,
@@ -34,28 +60,101 @@ def _generation_loader() -> rx.Component:
     )
 
 
-def _section_textarea(
-    label: str,
-    value_var,
-    on_change_handler,
-    placeholder: str = "",
-    rows: str = "8",
-    monospace: bool = True,
-) -> rx.Component:
-    extra: dict = {}
-    if monospace:
-        extra["font_family"] = "'JetBrains Mono', 'Fira Code', monospace"
-        extra["font_size"] = "12px"
+def _wireframes_section() -> rx.Component:
     return expander(
-        rx.text(label, size="2", weight="medium"),
-        rx.text_area(
-            value=value_var,
-            on_change=on_change_handler,
-            placeholder=placeholder,
-            rows=rows,
-            width="100%",
-            disabled=Phase2State.gate1_approved,
-            **extra,
+        rx.text("Wireframes · Screen Mockups", size="2", weight="medium"),
+        rx.cond(
+            Phase2State.gate1_approved,
+            rx.box(
+                rx.text(
+                    Phase2State.wireframes_edit,
+                    white_space="pre",
+                    font_family="'JetBrains Mono', 'Fira Code', monospace",
+                    font_size="12px",
+                    line_height="1.6",
+                    color=rx.color("gray", 12),
+                ),
+                width="100%",
+                overflow_x="auto",
+                overflow_y="auto",
+                max_height="440px",
+                padding="14px",
+                background=rx.color("gray", 2),
+                border_radius="6px",
+                border=f"1px solid {rx.color('gray', 4)}",
+            ),
+            rx.text_area(
+                value=Phase2State.wireframes_edit,
+                on_change=Phase2State.set_wireframes_edit,
+                placeholder="ASCII wireframes will appear here...",
+                rows="16",
+                width="100%",
+                font_family="'JetBrains Mono', 'Fira Code', monospace",
+                font_size="12px",
+            ),
+        ),
+        initially_open=True,
+    )
+
+
+def _user_flow_section() -> rx.Component:
+    return expander(
+        rx.text("User Flow · Mermaid Diagram", size="2", weight="medium"),
+        rx.cond(
+            Phase2State.gate1_approved,
+            rx.box(
+                rx.html(Phase2State.user_flow_mermaid_html),
+                width="100%",
+                overflow_x="auto",
+                padding="14px",
+                background=rx.color("gray", 1),
+                border_radius="6px",
+                border=f"1px solid {rx.color('gray', 4)}",
+                min_height="80px",
+            ),
+            rx.text_area(
+                value=Phase2State.user_flow_edit,
+                on_change=Phase2State.set_user_flow_edit,
+                placeholder="flowchart TD\n    A[Start] --> B[...]",
+                rows="12",
+                width="100%",
+                font_family="'JetBrains Mono', 'Fira Code', monospace",
+                font_size="12px",
+            ),
+        ),
+        initially_open=True,
+    )
+
+
+def _component_tree_section() -> rx.Component:
+    return expander(
+        rx.text("Component Tree", size="2", weight="medium"),
+        rx.cond(
+            Phase2State.gate1_approved,
+            rx.box(
+                rx.text(
+                    Phase2State.component_tree_edit,
+                    white_space="pre-wrap",
+                    font_family="'JetBrains Mono', 'Fira Code', monospace",
+                    font_size="12px",
+                    line_height="1.6",
+                    color=rx.color("gray", 12),
+                ),
+                width="100%",
+                overflow_y="auto",
+                max_height="360px",
+                padding="14px",
+                background=rx.color("gray", 2),
+                border_radius="6px",
+                border=f"1px solid {rx.color('gray', 4)}",
+            ),
+            rx.text_area(
+                value=Phase2State.component_tree_edit,
+                on_change=Phase2State.set_component_tree_edit,
+                placeholder="Component hierarchy will appear here...",
+                rows="10",
+                width="100%",
+            ),
         ),
         initially_open=True,
     )
@@ -63,6 +162,7 @@ def _section_textarea(
 
 def prototype_panel() -> rx.Component:
     return rx.vstack(
+        rx.script(_MERMAID_SCRIPT),
         rx.hstack(
             rx.heading("Gate 1 · Visual Design", size="5", weight="bold"),
             rx.badge("Design Lead", color_scheme="violet", size="2"),
@@ -100,28 +200,9 @@ def prototype_panel() -> rx.Component:
         rx.cond(
             Phase2State.wireframes_edit != "",
             rx.vstack(
-                _section_textarea(
-                    "Wireframes (ASCII screen mockups)",
-                    Phase2State.wireframes_edit,
-                    Phase2State.set_wireframes_edit,
-                    placeholder="ASCII wireframes will appear here...",
-                    rows="10",
-                ),
-                _section_textarea(
-                    "User Flow (Mermaid flowchart TD syntax)",
-                    Phase2State.user_flow_edit,
-                    Phase2State.set_user_flow_edit,
-                    placeholder="flowchart TD\n    A[Start] --> B[...]",
-                    rows="8",
-                ),
-                _section_textarea(
-                    "Component Tree",
-                    Phase2State.component_tree_edit,
-                    Phase2State.set_component_tree_edit,
-                    placeholder="Component hierarchy will appear here...",
-                    rows="6",
-                    monospace=False,
-                ),
+                _wireframes_section(),
+                _user_flow_section(),
+                _component_tree_section(),
                 rx.cond(
                     ~Phase2State.gate1_approved,
                     rx.button(
