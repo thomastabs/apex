@@ -532,7 +532,7 @@ def test_restore_draft_hydrates_all_fields():
     }
     with patch("state.phase2.context_manager") as mock_cm:
         mock_cm.load_design_draft.return_value = draft
-        Phase2State.restore_draft.fn(state)
+        list(Phase2State.restore_draft.fn(state))
 
     assert state.existing_tech_stack == "FastAPI"
     assert state.gate0_approved is True
@@ -551,7 +551,7 @@ def test_restore_draft_guard():
     )
     with patch("state.phase2.context_manager") as mock_cm:
         mock_cm.load_design_draft = MagicMock()
-        Phase2State.restore_draft.fn(state)
+        list(Phase2State.restore_draft.fn(state))
 
     mock_cm.load_design_draft.assert_not_called()
 
