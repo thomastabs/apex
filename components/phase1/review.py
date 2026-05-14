@@ -9,7 +9,7 @@ def review_section() -> rx.Component:
         Phase1State.has_nl_draft,
         rx.vstack(
             rx.hstack(
-                rx.heading("Step 3 · Review NL Draft", size="5", class_name="apex-step-heading"),
+                rx.heading("Step 3 · Review NL Draft", size="6", class_name="apex-step-heading"),
                 rx.spacer(),
                 rx.badge(
                     "Draft ready",
