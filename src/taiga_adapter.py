@@ -9,6 +9,7 @@ present in .env, the adapter re-authenticates automatically and updates the toke
 All public methods raise TaigaAPIError on non-2xx responses.
 """
 
+import json
 import logging
 import os
 import re
@@ -44,7 +45,12 @@ class TaigaAPIError(Exception):
     """Raised when a Taiga API call returns a non-2xx status."""
 
     def __init__(self, method: str, url: str, status: int, body: str) -> None:
-        super().__init__(f"[{method} {url}] HTTP {status}: {body[:300]}")
+        try:
+            parsed = json.loads(body)
+            self.user_message = parsed.get("_error_message") or body[:300]
+        except Exception:
+            self.user_message = body[:300]
+        super().__init__(f"[{method} {url}] HTTP {status}: {self.user_message}")
         self.status = status
 
 

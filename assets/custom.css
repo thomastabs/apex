@@ -382,3 +382,15 @@ html.light .rt-DialogContent,
 .rt-DialogDescription {
   color: var(--gray-11);
 }
+
+/* ── Phase 2: Mermaid diagram ───────────────────────────────────────────────*/
+.apex-mermaid {
+  width: 100%;
+  overflow-x: auto;
+}
+.apex-mermaid svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}

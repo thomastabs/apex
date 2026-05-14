@@ -74,7 +74,11 @@ class Phase2State(ProjectState):
 
     @rx.var
     def selectable_epics(self) -> list[dict]:
-        return [e for e in self.epic_list if e.get("story_count", 0) > 0]
+        return self.epic_list
+
+    @rx.var
+    def user_flow_mermaid_html(self) -> str:
+        return f'<div class="apex-mermaid">{self.user_flow_edit}</div>'
 
     @rx.var
     def can_suggest_stack(self) -> bool:
@@ -160,9 +164,9 @@ class Phase2State(ProjectState):
                     if e.get("epic_id") == eid
                     and e.get("phase_status") in ("gherkin_locked", "design_locked")
                 ]
-                if not epic_stories:
-                    continue
-                all_locked = all(s.get("phase_status") == "design_locked" for s in epic_stories)
+                all_locked = bool(epic_stories) and all(
+                    s.get("phase_status") == "design_locked" for s in epic_stories
+                )
                 result.append({
                     "epic_id": eid,
                     "epic_title": epic.get("subject", f"Epic {eid}"),
@@ -393,6 +397,10 @@ class Phase2State(ProjectState):
                 tech_spec_summary=self.tech_spec_edit,
             )
             context_manager.clear_design_draft()
+            self.stories_in_epic = [
+                {**s, "phase_status": "design_locked"}
+                for s in self.stories_in_epic
+            ]
             yield Phase2State.load_epics
         except Exception as exc:
             _logger.warning("save_design error: %s", exc)
@@ -441,6 +449,8 @@ class Phase2State(ProjectState):
         self.tech_spec_edit = draft.get("tech_spec_edit", "")
         self.gate1_approved = draft.get("gate1_approved", False)
         self.gate2_approved = draft.get("gate2_approved", False)
+        if self.selected_epic_id > 0:
+            yield Phase2State.load_epics
 
     @rx.event
     def request_project_switch(self):

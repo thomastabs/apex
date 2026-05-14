@@ -556,7 +556,9 @@ class ArchAlternative(BaseModel):
 
 class ArchAlternativeList(BaseModel):
     alternatives: list[ArchAlternative] = Field(
-        description="Exactly 5 ranked architectural alternatives, simplest to most scalable"
+        description="Exactly 5 ranked architectural alternatives, simplest to most scalable",
+        min_length=3,
+        max_length=5,
     )
 
 
@@ -568,10 +570,12 @@ class Phase2DesignResult(BaseModel):
         description="Valid Mermaid flowchart TD diagram showing the complete user flow across all stories"
     )
     component_tree: str = Field(
-        description="Indented text-based component/module hierarchy for the epic"
+        default="",
+        description="Indented text-based component/module hierarchy for the epic",
     )
     tech_spec: str = Field(
-        description="OpenAPI 3.0 YAML specification and/or DB schema DDL for all stories in the epic"
+        default="",
+        description="OpenAPI 3.0 YAML specification and/or DB schema DDL for all stories in the epic",
     )
 
 
@@ -669,7 +673,7 @@ def generate_phase2_design(
     human = "\n".join(story_parts)
     result = _invoke_structured_with_progress(
         system, human, get_coder_model(), Phase2DesignResult,
-        max_tokens=8000, item_field="wireframes",
+        max_tokens=20000, item_field="wireframes",
     )
     return result.model_dump()
 

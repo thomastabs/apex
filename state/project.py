@@ -135,6 +135,8 @@ class ProjectState(AuthState):
             self.new_project_desc = ""
             self.create_project_dialog_open = False
             yield ProjectState.load_projects
+        except taiga_adapter.TaigaAPIError as exc:
+            self.create_project_error = exc.user_message
         except Exception as exc:
             self.create_project_error = str(exc)
         finally:

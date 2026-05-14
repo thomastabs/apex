@@ -7,7 +7,7 @@ from state.phase1 import Phase1State
 
 def compile_section() -> rx.Component:
     return rx.cond(
-        Phase1State.has_nl_draft & ~Phase1State.has_compiled,
+        Phase1State.has_nl_draft,
         rx.vstack(
             rx.heading("Step 4 · Compile to Gherkin", size="6", class_name="apex-step-heading"),
             rx.text(
@@ -47,10 +47,18 @@ def compile_section() -> rx.Component:
                 ),
                 rx.hstack(
                     rx.button(
-                        rx.hstack(
-                            rx.icon("file-code", size=16),
-                            rx.text("Compile to Gherkin"),
-                            spacing="2",
+                        rx.cond(
+                            Phase1State.has_compiled,
+                            rx.hstack(
+                                rx.icon("refresh-cw", size=16),
+                                rx.text("Recompile to Gherkin"),
+                                spacing="2",
+                            ),
+                            rx.hstack(
+                                rx.icon("file-code", size=16),
+                                rx.text("Compile to Gherkin"),
+                                spacing="2",
+                            ),
                         ),
                         on_click=Phase1State.run_compile,
                         disabled=Phase1State.compiling,
