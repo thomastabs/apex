@@ -79,11 +79,18 @@ def _refresh_token() -> None:
     if not TAIGA_USERNAME or not TAIGA_PASSWORD:
         return  # no credentials available — let the caller surface the original 401
     url = f"{TAIGA_API_URL}/api/v1/auth"
-    resp = requests.post(
-        url,
-        json={"username": TAIGA_USERNAME, "password": TAIGA_PASSWORD, "type": "normal"},
-        timeout=15,
-    )
+    payload = {"username": TAIGA_USERNAME, "password": TAIGA_PASSWORD, "type": "normal"}
+    delay = 1.0
+    for attempt in range(3):
+        try:
+            resp = requests.post(url, json=payload, timeout=15)
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
+            return  # can't refresh — let caller surface original 401
+        if resp.status_code not in _RETRYABLE_STATUS:
+            break
+        if attempt < 2:
+            time.sleep(delay)
+            delay *= 2
     if not resp.ok:
         raise TaigaAPIError("POST", url, resp.status_code, resp.text)
     _set_token(resp.json()["auth_token"])
@@ -513,16 +520,20 @@ def set_token(token: str) -> None:
 def login(username: str, password: str) -> None:
     """Authenticate as a different user; updates the in-memory token."""
     url = f"{TAIGA_API_URL}/api/v1/auth"
-    try:
-        resp = requests.post(
-            url,
-            json={"username": username, "password": password, "type": "normal"},
-            timeout=15,
-        )
-    except requests.exceptions.Timeout as exc:
-        raise TaigaAPIError("POST", url, 0, "Request timed out — Taiga may be unreachable.") from exc
-    except requests.exceptions.ConnectionError as exc:
-        raise TaigaAPIError("POST", url, 0, "Cannot reach Taiga — check network connectivity.") from exc
+    payload = {"username": username, "password": password, "type": "normal"}
+    delay = 1.0
+    for attempt in range(3):
+        try:
+            resp = requests.post(url, json=payload, timeout=15)
+        except requests.exceptions.Timeout as exc:
+            raise TaigaAPIError("POST", url, 0, "Request timed out — Taiga may be unreachable.") from exc
+        except requests.exceptions.ConnectionError as exc:
+            raise TaigaAPIError("POST", url, 0, "Cannot reach Taiga — check network connectivity.") from exc
+        if resp.status_code not in _RETRYABLE_STATUS:
+            break
+        if attempt < 2:
+            time.sleep(delay)
+            delay *= 2
     if not resp.ok:
         raise TaigaAPIError("POST", url, resp.status_code, resp.text)
     _set_token(resp.json()["auth_token"])

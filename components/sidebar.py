@@ -628,10 +628,10 @@ def _context_zone() -> rx.Component:
         rx.vstack(
             _zone_label("Active Context"),
             rx.hstack(
-                rx.text("context · ", size="1", color=rx.color("gray", 9)),
+                rx.text("context · ", size="2", color=rx.color("gray", 9)),
                 rx.text(
                     ContextState.context_total_chars.to_string() + " chars",
-                    size="1",
+                    size="2",
                     weight="bold",
                     color=ContextState.context_size_color,
                 ),
