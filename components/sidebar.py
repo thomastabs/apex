@@ -635,10 +635,23 @@ def _context_zone() -> rx.Component:
                     weight="bold",
                     color=ContextState.context_size_color,
                 ),
+                rx.spacer(),
+                rx.tooltip(
+                    rx.icon_button(
+                        rx.icon("refresh-cw", size=12),
+                        size="1",
+                        variant="ghost",
+                        color_scheme="gray",
+                        on_click=ContextState.rebuild_index,
+                    ),
+                    content="Rebuild story index from spec files",
+                ),
                 spacing="0",
+                align="center",
                 padding_x="16px",
                 padding_top="2px",
                 padding_bottom="8px",
+                width="100%",
             ),
             rx.vstack(
                 _context_file_editor(

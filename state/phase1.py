@@ -277,6 +277,7 @@ class Phase1State(ProjectState):
         self._sync_token()
         try:
             taiga_adapter.delete_epic_with_stories(epic_id)
+            context_manager.remove_epic_from_story_index(epic_id)
             yield Phase1State.load_epics
         except taiga_adapter.TaigaAPIError as exc:
             self.epics_load_error = str(exc)

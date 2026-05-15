@@ -388,6 +388,70 @@ def upsert_story_index(story_id: int, **updates) -> None:
     _save_story_index(index)
 
 
+def remove_story_from_specs(story_id: int) -> None:
+    """Remove a story's blocks from functional-spec.md, technical-spec.md,
+    and delete its proposal and BDD files."""
+    if FUNCTIONAL_SPEC_FILE.exists():
+        content = FUNCTIONAL_SPEC_FILE.read_text(encoding="utf-8")
+        content = re.sub(
+            rf"\n### Story {story_id}:.*?(?=\n### |\n## |\Z)", "", content, flags=re.DOTALL,
+        )
+        content = re.sub(
+            rf"\n## Story {story_id}:.*?(?=\n## |\Z)", "", content, flags=re.DOTALL,
+        )
+        FUNCTIONAL_SPEC_FILE.write_text(content, encoding="utf-8")
+    if TECHNICAL_SPEC_FILE.exists():
+        content = TECHNICAL_SPEC_FILE.read_text(encoding="utf-8")
+        content = re.sub(
+            rf"\n### Technical Spec — Story {story_id}.*?(?=\n## |\n### |\Z)",
+            "", content, flags=re.DOTALL,
+        )
+        TECHNICAL_SPEC_FILE.write_text(content, encoding="utf-8")
+    if CONTEXT_DIR.exists():
+        for path in CONTEXT_DIR.iterdir():
+            if path.name.startswith(f"proposal_story_{story_id}_"):
+                path.unlink(missing_ok=True)
+        (CONTEXT_DIR / f"bdd_story_{story_id}.feature").unlink(missing_ok=True)
+
+
+def remove_story_index_entries(story_ids: list[int]) -> None:
+    """Remove entries for the given story IDs from the story index and spec files."""
+    if not story_ids:
+        return
+    index = get_story_index()
+    for sid in story_ids:
+        index.pop(str(sid), None)
+    _save_story_index(index)
+    for story_id in story_ids:
+        remove_story_from_specs(story_id)
+
+
+def remove_epic_from_story_index(epic_id: int) -> None:
+    """Remove all story index entries for epic_id, the epic sections from both
+    spec files, and all associated proposal and BDD files."""
+    index = get_story_index()
+    keys = [k for k, e in index.items() if e.get("epic_id") == epic_id]
+    story_ids = [int(k) for k in keys]
+    for k in keys:
+        del index[k]
+    _save_story_index(index)
+    # Remove ## Epic N: section (contains all nested stories) from both spec files
+    for spec_file in (FUNCTIONAL_SPEC_FILE, TECHNICAL_SPEC_FILE):
+        if spec_file.exists():
+            content = spec_file.read_text(encoding="utf-8")
+            content = re.sub(
+                rf"\n## Epic {epic_id}:.*?(?=\n## |\Z)", "", content, flags=re.DOTALL,
+            )
+            spec_file.write_text(content, encoding="utf-8")
+    # Delete loose files for each story
+    if CONTEXT_DIR.exists():
+        for story_id in story_ids:
+            for path in CONTEXT_DIR.iterdir():
+                if path.name.startswith(f"proposal_story_{story_id}_"):
+                    path.unlink(missing_ok=True)
+            (CONTEXT_DIR / f"bdd_story_{story_id}.feature").unlink(missing_ok=True)
+
+
 def rebuild_story_index() -> dict[str, dict]:
     """Rebuild the story index from scratch by scanning all contextspec/ files.
 
