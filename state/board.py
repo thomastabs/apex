@@ -2,7 +2,7 @@
 
 import reflex as rx
 
-from src import taiga_adapter
+from src import context_manager, taiga_adapter
 from state.project import ProjectState
 
 
@@ -308,6 +308,7 @@ class BoardState(ProjectState):
                 epic_id = self._delete_confirm_epic_id
                 self._delete_confirm_epic_id = 0
                 taiga_adapter.delete_epic_with_stories(epic_id)
+                context_manager.remove_epic_from_story_index(epic_id)
                 if self.expanded_epic_id == epic_id:
                     self.expanded_epic_id = 0
                     self.expanded_stories = []
@@ -319,6 +320,7 @@ class BoardState(ProjectState):
                 self._delete_confirm_story_id = 0
                 self._delete_confirm_story_epic_id = 0
                 taiga_adapter.delete_story(story_id)
+                context_manager.remove_story_index_entries([story_id])
                 yield BoardState.load_expanded_stories(epic_id)
                 yield rx.toast.success("Story deleted")
         except taiga_adapter.TaigaAPIError:
@@ -329,6 +331,7 @@ class BoardState(ProjectState):
         self._sync_token()
         try:
             taiga_adapter.delete_epic_with_stories(epic_id)
+            context_manager.remove_epic_from_story_index(epic_id)
             if self.expanded_epic_id == epic_id:
                 self.expanded_epic_id = 0
                 self.expanded_stories = []
@@ -341,6 +344,7 @@ class BoardState(ProjectState):
         self._sync_token()
         try:
             taiga_adapter.delete_story(story_id)
+            context_manager.remove_story_index_entries([story_id])
             yield BoardState.load_expanded_stories(epic_id)
         except taiga_adapter.TaigaAPIError:
             pass

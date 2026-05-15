@@ -171,6 +171,8 @@ class ContextState(ProjectState):
             self.project_name = ""
         # Reload context synchronously for the new project
         try:
+            context_manager.init_context()
+            context_manager.rebuild_story_index()
             self.mem_bank_content = context_manager.get_memory_bank()
             self.func_spec_content = context_manager.read_context_file("functional-spec.md")
             self.tech_spec_content = context_manager.read_context_file("technical-spec.md")
@@ -179,6 +181,17 @@ class ContextState(ProjectState):
         except Exception:
             pass
         yield rx.toast.success(f"Switched to {self.project_name or 'project'}")
+
+    @rx.event
+    def rebuild_index(self):
+        """Rebuild story-index.json from spec files — fixes stale or missing entries."""
+        if not self.has_project:
+            return
+        try:
+            context_manager.rebuild_story_index()
+            yield rx.toast.success("Story index rebuilt")
+        except Exception as exc:
+            yield rx.toast.error(f"Rebuild failed: {exc}")
 
     @rx.event
     def load_context(self):
