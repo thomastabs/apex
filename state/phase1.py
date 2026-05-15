@@ -240,6 +240,12 @@ class Phase1State(ProjectState):
     @rx.event
     async def load_epics(self):
         self._sync_token()
+        if not self.is_authenticated:
+            self.epics_load_error = "Sign in first."
+            return
+        if not self.has_project:
+            self.epics_load_error = "Select a project first."
+            return
         self.epics_loading = True
         self.epics_load_error = ""
         yield
