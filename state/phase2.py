@@ -95,7 +95,6 @@ class Phase2State(ProjectState):
             and self.is_authenticated
             and self.has_project
             and self.selected_epic_id > 0
-            and bool(self.stories_in_epic)
         )
 
     @rx.var
@@ -159,11 +158,7 @@ class Phase2State(ProjectState):
             result = []
             for epic in taiga_epics:
                 eid = epic.get("id", 0)
-                epic_stories = [
-                    e for e in index.values()
-                    if e.get("epic_id") == eid
-                    and e.get("phase_status") in ("gherkin_locked", "design_locked")
-                ]
+                epic_stories = [e for e in index.values() if e.get("epic_id") == eid]
                 all_locked = bool(epic_stories) and all(
                     s.get("phase_status") == "design_locked" for s in epic_stories
                 )
@@ -277,8 +272,6 @@ class Phase2State(ProjectState):
         stories = []
         for entry in index.values():
             if entry.get("epic_id") != epic_id:
-                continue
-            if entry.get("phase_status") not in ("gherkin_locked", "design_locked"):
                 continue
             story_id = entry.get("story_id")
             gherkin = context_manager.get_story_gherkin(story_id) if story_id else ""
