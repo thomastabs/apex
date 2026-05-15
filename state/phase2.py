@@ -6,6 +6,7 @@ Stage B: Per-epic design bundle — wireframes, user flow, component tree, OpenA
 """
 
 import asyncio
+import html as _html
 import logging
 
 import reflex as rx
@@ -79,6 +80,35 @@ class Phase2State(ProjectState):
     @rx.var
     def user_flow_mermaid_html(self) -> str:
         return f'<div class="apex-mermaid">{self.user_flow_edit}</div>'
+
+    @rx.var
+    def component_tree_html(self) -> str:
+        colors = ["#a78bfa", "#60a5fa", "#34d399", "#fbbf24", "#f87171", "#fb923c"]
+        lines = self.component_tree_edit.split("\n") if self.component_tree_edit else []
+        rows = []
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            spaces = len(line) - len(line.lstrip(" "))
+            depth = spaces // 2
+            color = colors[depth % len(colors)]
+            indent_px = depth * 20
+            icon = "◆" if depth == 0 else "└─"
+            safe = _html.escape(stripped)
+            rows.append(
+                f'<div style="padding:2px 8px;line-height:1.65;display:flex;align-items:baseline">'
+                f'<span style="display:inline-block;min-width:{indent_px}px;flex-shrink:0"></span>'
+                f'<span style="color:{color};margin-right:5px;font-size:10px;flex-shrink:0">{icon}</span>'
+                f'<span style="color:var(--gray-12);font-family:\'JetBrains Mono\',monospace;font-size:12px">{safe}</span>'
+                f'</div>'
+            )
+        return (
+            '<div style="padding:10px 6px;background:var(--gray-2);border-radius:6px;overflow-y:auto">'
+            + "".join(rows)
+            + "</div>"
+            if rows else ""
+        )
 
     @rx.var
     def can_suggest_stack(self) -> bool:

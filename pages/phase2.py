@@ -137,6 +137,11 @@ def phase2_content() -> rx.Component:
         flex="1",
         overflow_y="auto",
         min_height="100vh",
+        class_name=rx.cond(
+            Phase2State.generating | Phase2State.stack_suggesting | Phase2State.saving,
+            "apex-busy",
+            "",
+        ),
     )
 
 

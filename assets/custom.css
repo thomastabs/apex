@@ -236,7 +236,7 @@ details.apex-expander {
   background: var(--gray-2);
   border: 1px solid var(--gray-4);
   border-radius: var(--radius-3);
-  overflow: hidden;
+  overflow: clip;
 }
 
 /* Stack multiple expanders with a small gap */
@@ -287,6 +287,9 @@ details.apex-expander[open] > summary .apex-chevron {
 /* Content separator */
 details.apex-expander > .apex-expander-body {
   border-top: 1px solid var(--gray-4);
+  resize: vertical;
+  overflow: auto;
+  min-height: 48px;
 }
 
 /* Light mode: lifted white card like Streamlit light theme */

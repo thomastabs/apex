@@ -40,13 +40,13 @@ def _header_row() -> rx.Component:
         rx.hstack(
             rx.text(
                 "Apex",
-                size="5",
+                size="6",
                 weight="bold",
                 color=rx.color("accent", 11),
             ),
             rx.text(
                 "· Spec-Anchored",
-                size="2",
+                size="3",
                 color=rx.color("gray", 9),
             ),
             spacing="1",

@@ -97,29 +97,52 @@ def _wireframes_section() -> rx.Component:
     )
 
 
+def _mermaid_preview_box() -> rx.Component:
+    return rx.box(
+        rx.html(Phase2State.user_flow_mermaid_html),
+        width="100%",
+        overflow_x="auto",
+        overflow_y="auto",
+        padding="14px",
+        background=rx.color("gray", 1),
+        border_radius="6px",
+        border=f"1px solid {rx.color('gray', 4)}",
+        min_height="160px",
+    )
+
+
 def _user_flow_section() -> rx.Component:
     return expander(
         rx.text("User Flow · Mermaid Diagram", size="2", weight="medium"),
         rx.cond(
             Phase2State.gate1_approved,
-            rx.box(
-                rx.html(Phase2State.user_flow_mermaid_html),
+            _mermaid_preview_box(),
+            rx.tabs.root(
+                rx.tabs.list(
+                    rx.tabs.trigger("Code", value="code"),
+                    rx.tabs.trigger("Preview", value="preview"),
+                    size="1",
+                ),
+                rx.tabs.content(
+                    rx.text_area(
+                        value=Phase2State.user_flow_edit,
+                        on_change=Phase2State.set_user_flow_edit,
+                        placeholder="flowchart TD\n    A[Start] --> B[...]",
+                        rows="14",
+                        width="100%",
+                        font_family="'JetBrains Mono', 'Fira Code', monospace",
+                        font_size="12px",
+                    ),
+                    value="code",
+                    padding_top="8px",
+                ),
+                rx.tabs.content(
+                    _mermaid_preview_box(),
+                    value="preview",
+                    padding_top="8px",
+                ),
+                default_value="code",
                 width="100%",
-                overflow_x="auto",
-                padding="14px",
-                background=rx.color("gray", 1),
-                border_radius="6px",
-                border=f"1px solid {rx.color('gray', 4)}",
-                min_height="80px",
-            ),
-            rx.text_area(
-                value=Phase2State.user_flow_edit,
-                on_change=Phase2State.set_user_flow_edit,
-                placeholder="flowchart TD\n    A[Start] --> B[...]",
-                rows="12",
-                width="100%",
-                font_family="'JetBrains Mono', 'Fira Code', monospace",
-                font_size="12px",
             ),
         ),
         initially_open=True,
@@ -131,28 +154,40 @@ def _component_tree_section() -> rx.Component:
         rx.text("Component Tree", size="2", weight="medium"),
         rx.cond(
             Phase2State.gate1_approved,
-            rx.box(
-                rx.text(
-                    Phase2State.component_tree_edit,
-                    white_space="pre-wrap",
-                    font_family="'JetBrains Mono', 'Fira Code', monospace",
-                    font_size="12px",
-                    line_height="1.6",
-                    color=rx.color("gray", 12),
-                ),
-                width="100%",
-                overflow_y="auto",
-                max_height="360px",
-                padding="14px",
-                background=rx.color("gray", 2),
-                border_radius="6px",
-                border=f"1px solid {rx.color('gray', 4)}",
+            rx.cond(
+                Phase2State.component_tree_html != "",
+                rx.html(Phase2State.component_tree_html),
+                rx.text("No component tree.", size="2", color=rx.color("gray", 9)),
             ),
-            rx.text_area(
-                value=Phase2State.component_tree_edit,
-                on_change=Phase2State.set_component_tree_edit,
-                placeholder="Component hierarchy will appear here...",
-                rows="10",
+            rx.tabs.root(
+                rx.tabs.list(
+                    rx.tabs.trigger("Code", value="code"),
+                    rx.tabs.trigger("Preview", value="preview"),
+                    size="1",
+                ),
+                rx.tabs.content(
+                    rx.text_area(
+                        value=Phase2State.component_tree_edit,
+                        on_change=Phase2State.set_component_tree_edit,
+                        placeholder="Component hierarchy will appear here...",
+                        rows="12",
+                        width="100%",
+                        font_family="'JetBrains Mono', 'Fira Code', monospace",
+                        font_size="12px",
+                    ),
+                    value="code",
+                    padding_top="8px",
+                ),
+                rx.tabs.content(
+                    rx.cond(
+                        Phase2State.component_tree_html != "",
+                        rx.html(Phase2State.component_tree_html),
+                        rx.text("Start typing to see preview.", size="2", color=rx.color("gray", 9), padding="8px"),
+                    ),
+                    value="preview",
+                    padding_top="8px",
+                ),
+                default_value="code",
                 width="100%",
             ),
         ),
