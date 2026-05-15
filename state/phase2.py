@@ -268,18 +268,27 @@ class Phase2State(ProjectState):
                 self.selected_epic_title = e.get("epic_title", "")
                 break
 
+        self._sync_token()
         index = context_manager.get_story_index()
+        index_by_id = {
+            str(e.get("story_id")): e
+            for e in index.values()
+            if e.get("epic_id") == epic_id
+        }
+        try:
+            taiga_stories = taiga_adapter.get_stories_for_epic(epic_id)
+        except Exception:
+            taiga_stories = []
         stories = []
-        for entry in index.values():
-            if entry.get("epic_id") != epic_id:
-                continue
-            story_id = entry.get("story_id")
-            gherkin = context_manager.get_story_gherkin(story_id) if story_id else ""
+        for ts in taiga_stories:
+            sid = ts.get("id")
+            entry = index_by_id.get(str(sid), {})
+            gherkin = context_manager.get_story_gherkin(sid) if sid and entry else ""
             stories.append({
-                "story_id": story_id,
-                "title": entry.get("title", ""),
+                "story_id": sid,
+                "title": ts.get("subject", entry.get("title", "")),
                 "gherkin": gherkin,
-                "phase_status": entry.get("phase_status", ""),
+                "phase_status": entry.get("phase_status", "pending"),
             })
         self.stories_in_epic = stories
 

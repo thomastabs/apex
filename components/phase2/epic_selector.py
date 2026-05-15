@@ -6,30 +6,44 @@ from state.phase2 import Phase2State
 
 
 def _story_gherkin_card(story: dict) -> rx.Component:
-    is_locked = story["phase_status"] == "design_locked"
+    is_design_locked = story["phase_status"] == "design_locked"
+    is_gherkin_locked = story["phase_status"] == "gherkin_locked"
+    has_gherkin = is_design_locked | is_gherkin_locked
     return expander(
         rx.hstack(
             rx.icon(
-                rx.cond(is_locked, "lock", "file-text"),
+                rx.cond(is_design_locked, "lock", rx.cond(is_gherkin_locked, "file-text", "circle")),
                 size=14,
-                color=rx.cond(is_locked, rx.color("green", 9), rx.color("gray", 9)),
+                color=rx.cond(
+                    is_design_locked, rx.color("green", 9),
+                    rx.cond(is_gherkin_locked, rx.color("violet", 9), rx.color("gray", 7)),
+                ),
             ),
             rx.text(story["title"], size="2", weight="medium"),
             rx.cond(
-                is_locked,
+                is_design_locked,
                 rx.badge("design locked", color_scheme="green", size="1"),
-                rx.badge("gherkin locked", color_scheme="violet", size="1"),
+                rx.cond(
+                    is_gherkin_locked,
+                    rx.badge("gherkin locked", color_scheme="violet", size="1"),
+                    rx.badge("phase 1 pending", color_scheme="gray", size="1"),
+                ),
             ),
             spacing="2",
             align="center",
         ),
-        rx.box(
-            rx.text(story["gherkin"], size="1", white_space="pre-wrap",
-                    font_family="'JetBrains Mono', 'Fira Code', monospace"),
-            padding="10px",
-            background=rx.color("gray", 2),
-            border_radius="6px",
-            width="100%",
+        rx.cond(
+            has_gherkin,
+            rx.box(
+                rx.text(story["gherkin"], size="1", white_space="pre-wrap",
+                        font_family="'JetBrains Mono', 'Fira Code', monospace"),
+                padding="10px",
+                background=rx.color("gray", 2),
+                border_radius="6px",
+                width="100%",
+            ),
+            rx.text("No Gherkin yet — complete Phase 1 for this story first.",
+                    size="1", color=rx.color("gray", 8), padding="8px 10px"),
         ),
         body_padding="8px 10px 10px",
     )
