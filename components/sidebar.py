@@ -21,11 +21,11 @@ from components.dialogs.story_details import story_details_dialog
 def _zone_label(text: str) -> rx.Component:
     return rx.text(
         text.upper(),
-        size="1",
+        size="2",
         weight="bold",
         color=rx.color("accent", 11),
         letter_spacing="0.08em",
-        padding="14px 16px 6px",
+        padding="18px 16px 12px",
     )
 
 
@@ -93,7 +93,7 @@ def _ai_status_row() -> rx.Component:
         ),
         align="center",
         spacing="2",
-        padding="4px 16px 12px",
+        padding="2px 16px 12px",
     )
 
 
@@ -637,7 +637,8 @@ def _context_zone() -> rx.Component:
                 ),
                 spacing="0",
                 padding_x="16px",
-                padding_bottom="6px",
+                padding_top="2px",
+                padding_bottom="8px",
             ),
             rx.vstack(
                 _context_file_editor(
