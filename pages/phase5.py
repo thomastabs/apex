@@ -30,6 +30,7 @@ def phase5_content() -> rx.Component:
             ),
             width="100%",
             padding_x="32px",
+            class_name="apex-content-body",
             padding_y="28px",
         ),
         flex="1",

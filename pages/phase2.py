@@ -131,6 +131,7 @@ def phase2_content() -> rx.Component:
             _phase2_body(),
             width="100%",
             padding_x="32px",
+            class_name="apex-content-body",
             padding_y="28px",
         ),
         flex="1",

@@ -122,6 +122,7 @@ def index_content() -> rx.Component:
             ),
             width="100%",
             padding_x="32px",
+            class_name="apex-content-body",
             padding_y="32px",
         ),
         flex="1",

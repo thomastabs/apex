@@ -383,6 +383,121 @@ html.light .rt-DialogContent,
   color: var(--gray-11);
 }
 
+/* ── Mobile responsive ≤ 768px ─────────────────────────────────────────────
+   Strategy:
+   - Sidebar: always shows as 48px strip; when user taps expand it becomes a
+     fixed overlay (position:fixed, 85vw) so it doesn't push content.
+   - Phase tab bar: shorter, tabs still fill width.
+   - Content: tighter padding via .apex-content-body class.
+   - Dialogs: near full-width.
+   - Touch targets: min-height 44px on interactive elements.              */
+
+@media (max-width: 768px) {
+
+  /* ── Sidebar: force collapsed (narrow strip) ── */
+  #app-sidebar {
+    width: 48px !important;
+    min-width: 48px !important;
+  }
+  #app-sidebar .sidebar-main-content {
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+  #app-sidebar .apex-expand-btn {
+    display: flex !important;
+  }
+  #app-sidebar .sidebar-header-title {
+    display: none !important;
+  }
+
+  /* ── Sidebar: expanded → fixed overlay ── */
+  #app-sidebar[data-collapsed="0"] {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    height: 100dvh !important;
+    z-index: 500;
+    width: min(85vw, 380px) !important;
+    min-width: 0 !important;
+    box-shadow: 4px 0 32px rgba(0, 0, 0, 0.35);
+  }
+  #app-sidebar[data-collapsed="0"] .sidebar-main-content {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+  #app-sidebar[data-collapsed="0"] .apex-expand-btn {
+    display: none !important;
+  }
+  #app-sidebar[data-collapsed="0"] .sidebar-header-title {
+    display: flex !important;
+  }
+
+  /* ── Resize handle: hidden on mobile ── */
+  #sidebar-resize-handle {
+    display: none !important;
+  }
+
+  /* ── Phase nav tabs: shorter, tighter padding ── */
+  .apex-phase-tabs-bar {
+    height: 44px !important;
+  }
+  .apex-tab-inner {
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+    padding-top: 6px !important;
+  }
+
+  /* ── Content body: tighter padding ── */
+  .apex-content-body {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    padding-top: 16px !important;
+    padding-bottom: 16px !important;
+  }
+
+  /* ── Dialogs: near full-width ── */
+  .rt-DialogContent {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    padding: 16px !important;
+    margin: 8px auto !important;
+  }
+
+  /* ── Touch-friendly tap targets ── */
+  .rt-Button {
+    min-height: 40px;
+  }
+  .rt-SelectTrigger {
+    min-height: 40px;
+  }
+  .rt-TextFieldInput,
+  .rt-TextAreaInput {
+    font-size: 16px; /* prevents iOS auto-zoom on focus */
+  }
+
+  /* ── Phase grid: single column on mobile ── */
+  .rt-Grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── Extra-small: ≤ 480px ───────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .apex-content-body {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  /* Phase tabs: hide "Phase N" label, keep only the name */
+  .apex-tab-num {
+    display: none !important;
+  }
+
+  /* Headings: slightly smaller */
+  h1.rt-Heading { font-size: 1.6rem !important; }
+  h2.rt-Heading { font-size: 1.3rem !important; }
+}
+
 /* ── Phase 2: Mermaid diagram ───────────────────────────────────────────────*/
 .apex-mermaid {
   width: 100%;
