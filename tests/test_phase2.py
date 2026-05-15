@@ -228,10 +228,16 @@ def test_select_epic_loads_all_gherkin():
         "10": {"story_id": 10, "epic_id": 7, "title": "Login", "phase_status": "gherkin_locked"},
         "11": {"story_id": 11, "epic_id": 7, "title": "Logout", "phase_status": "gherkin_locked"},
     }
-    with patch("state.phase2.context_manager") as mock_cm:
+    taiga_stories = [
+        {"id": 10, "subject": "Login"},
+        {"id": 11, "subject": "Logout"},
+    ]
+    with patch("state.phase2.context_manager") as mock_cm, \
+         patch("state.phase2.taiga_adapter") as mock_ta:
         mock_cm.get_story_index.return_value = index
         mock_cm.get_story_gherkin.side_effect = lambda sid: f"Feature: Story {sid}\n"
         mock_cm.save_design_draft = MagicMock()
+        mock_ta.get_stories_for_epic.return_value = taiga_stories
         list(Phase2State.select_epic.fn(state, "7"))
 
     assert state.selected_epic_id == 7
@@ -258,10 +264,12 @@ def test_select_epic_resets_gate1_gate2():
         generate_error="", save_error="", generation_log=[],
     )
     index = {"99": {"story_id": 99, "epic_id": 5, "title": "S", "phase_status": "gherkin_locked"}}
-    with patch("state.phase2.context_manager") as mock_cm:
+    with patch("state.phase2.context_manager") as mock_cm, \
+         patch("state.phase2.taiga_adapter") as mock_ta:
         mock_cm.get_story_index.return_value = index
         mock_cm.get_story_gherkin.return_value = "Feature: S\n"
         mock_cm.save_design_draft = MagicMock()
+        mock_ta.get_stories_for_epic.return_value = [{"id": 99, "subject": "S"}]
         list(Phase2State.select_epic.fn(state, "5"))
 
     assert state.gate1_approved is False
@@ -286,10 +294,12 @@ def test_select_epic_does_not_reset_gate0():
         generate_error="", save_error="", generation_log=[],
     )
     index = {"5": {"story_id": 5, "epic_id": 3, "title": "S", "phase_status": "gherkin_locked"}}
-    with patch("state.phase2.context_manager") as mock_cm:
+    with patch("state.phase2.context_manager") as mock_cm, \
+         patch("state.phase2.taiga_adapter") as mock_ta:
         mock_cm.get_story_index.return_value = index
         mock_cm.get_story_gherkin.return_value = ""
         mock_cm.save_design_draft = MagicMock()
+        mock_ta.get_stories_for_epic.return_value = [{"id": 5, "subject": "S"}]
         list(Phase2State.select_epic.fn(state, "3"))
 
     assert state.gate0_approved is True
