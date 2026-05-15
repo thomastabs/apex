@@ -30,7 +30,7 @@ def _zone_label(text: str) -> rx.Component:
 
 
 def _zone_separator() -> rx.Component:
-    return rx.separator(size="4", margin_y="4px")
+    return rx.separator(size="4", margin_y="10px")
 
 
 # ── Header ────────────────────────────────────────────────────────────────────
@@ -93,7 +93,7 @@ def _ai_status_row() -> rx.Component:
         ),
         align="center",
         spacing="2",
-        padding="4px 16px 8px",
+        padding="4px 16px 12px",
     )
 
 
@@ -134,7 +134,7 @@ def _taiga_user_row() -> rx.Component:
         switch_account_dialog(),
         align="center",
         width="100%",
-        padding="2px 16px 10px",
+        padding="2px 16px 14px",
     )
 
 
@@ -680,7 +680,7 @@ def _context_zone() -> rx.Component:
                     ContextState.toggle_vaccines_md,
                     ContextState.vaccines_html,
                 ),
-                spacing="1",
+                spacing="2",
                 width="100%",
                 padding_x="16px",
             ),
@@ -1154,10 +1154,10 @@ def sidebar() -> rx.Component:
                         _project_expander(),
                         _board_expander(),
                         _users_expander(),
-                        spacing="1",
+                        spacing="3",
                         width="100%",
                         padding_x="16px",
-                        padding_bottom="4px",
+                        padding_bottom="10px",
                     ),
                     rx.fragment(),
                 ),
