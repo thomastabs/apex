@@ -513,26 +513,21 @@ def set_token(token: str) -> None:
 def login(username: str, password: str) -> None:
     """Authenticate as a different user; updates the in-memory token."""
     url = f"{TAIGA_API_URL}/api/v1/auth"
-    for attempt in range(5):
-        try:
-            resp = requests.post(
-                url,
-                json={"username": username, "password": password, "type": "normal"},
-                timeout=15,
-            )
-        except requests.exceptions.Timeout as exc:
-            raise TaigaAPIError("POST", url, 0, "Request timed out — Taiga may be unreachable.") from exc
-        except requests.exceptions.ConnectionError as exc:
-            if attempt < 4:
-                time.sleep(2 ** attempt)  # 1 s, 2 s, 4 s, 8 s — covers cold-start NAT settling
-                continue
-            raise TaigaAPIError("POST", url, 0, "Cannot reach Taiga — check network connectivity.") from exc
-        if not resp.ok:
-            raise TaigaAPIError("POST", url, resp.status_code, resp.text)
-        _set_token(resp.json()["auth_token"])
-        _clear_auth_caches()
-        _logger.info("taiga.login username=%r", username)
-        return
+    try:
+        resp = requests.post(
+            url,
+            json={"username": username, "password": password, "type": "normal"},
+            timeout=15,
+        )
+    except requests.exceptions.Timeout as exc:
+        raise TaigaAPIError("POST", url, 0, "Request timed out — Taiga may be unreachable.") from exc
+    except requests.exceptions.ConnectionError as exc:
+        raise TaigaAPIError("POST", url, 0, "Cannot reach Taiga — check network connectivity.") from exc
+    if not resp.ok:
+        raise TaigaAPIError("POST", url, resp.status_code, resp.text)
+    _set_token(resp.json()["auth_token"])
+    _clear_auth_caches()
+    _logger.info("taiga.login username=%r", username)
 
 
 def get_memberships() -> list[dict]:
