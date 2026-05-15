@@ -6,6 +6,8 @@ config = rx.Config(
     frontend_port=3000,
     backend_port=8000,
     show_built_with_reflex=False,
+    ping_interval=20,  # send WebSocket ping every 20s to keep connection alive through proxies
+    ping_timeout=120,  # wait 120s for pong before declaring the connection dead
     plugins=[
         rx.plugins.RadixThemesPlugin(
             theme=rx.theme(accent_color="violet", radius="medium", scaling="100%", appearance="dark"),
