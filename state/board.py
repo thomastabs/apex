@@ -45,7 +45,6 @@ class BoardState(ProjectState):
             self._board_loaded = False
             self.expanded_epic_id = 0
             self.expanded_stories = []
-        _was_loaded = self._board_loaded
         # First load: show spinner and clear list.
         # Subsequent loads (SPA nav): refresh silently — keep existing list visible.
         if not self._board_loaded:
@@ -57,8 +56,6 @@ class BoardState(ProjectState):
             self.board_epics = taiga_adapter.get_epics()
             self._board_loaded = True
             self._board_project_id = self.active_project_id
-            if _was_loaded:
-                yield rx.toast.info("Board refreshed")
         except taiga_adapter.TaigaAPIError as exc:
             self.board_error = str(exc)
         finally:
