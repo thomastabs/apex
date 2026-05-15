@@ -1129,6 +1129,7 @@ def _stage_a_discard_dialog() -> rx.Component:
 
 def sidebar() -> rx.Component:
     return rx.box(
+        rx.connection_banner(),
         rx.script(_RESIZE_SCRIPT),
         # Expand button — lives outside sidebar-main-content so it's reachable when collapsed
         rx.box(
