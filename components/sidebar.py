@@ -362,7 +362,7 @@ def _board_expander() -> rx.Component:
                     size="2",
                     variant="soft",
                     color_scheme="gray",
-                    on_click=BoardState.load_epics,
+                    on_click=BoardState.reload_board_manual,
                 ),
                 align="center",
                 width="100%",
