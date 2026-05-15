@@ -155,7 +155,7 @@ class ContextState(ProjectState):
             return
         pid = self.pending_project_id
         self.pending_project_id = 0
-        ContextState.select_project.fn(self, pid)
+        yield ContextState.select_project(pid)
 
     @rx.event
     def select_project(self, project_id: int):
