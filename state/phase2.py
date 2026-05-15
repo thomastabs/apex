@@ -188,6 +188,7 @@ class Phase2State(ProjectState):
             self.stack_error = ""
             self.stack_alternatives = []
 
+        _success = False
         try:
             index = context_manager.get_story_index()
             all_stories = []
@@ -210,6 +211,7 @@ class Phase2State(ProjectState):
             async with self:
                 self.stack_alternatives = alternatives
                 self._save_draft()
+            _success = True
         except Exception as exc:
             _logger.warning("run_suggest_stack error: %s", exc)
             async with self:
@@ -217,6 +219,8 @@ class Phase2State(ProjectState):
         finally:
             async with self:
                 self.stack_suggesting = False
+        if _success:
+            yield rx.toast.success("Tech stack alternatives ready — select one below")
 
     @rx.event
     def select_alternative(self, index: int):
@@ -301,6 +305,7 @@ class Phase2State(ProjectState):
         self.save_error = ""
         self.generation_log = []
         self._save_draft()
+        yield rx.toast.info(f"Epic selected: {self.selected_epic_title}")
 
     @rx.event(background=True)
     async def run_generate(self):
@@ -313,6 +318,7 @@ class Phase2State(ProjectState):
                 f"Preparing {len(self.stories_in_epic)} stories for epic '{self.selected_epic_title}'...",
             ]
 
+        _success = False
         try:
             mb_context = context_manager.read_context_file("memory-bank.md")
             stories = list(self.stories_in_epic)
@@ -336,6 +342,7 @@ class Phase2State(ProjectState):
                 self.tech_spec_edit = result.get("tech_spec", "")
                 self.generation_log = self.generation_log + ["Design bundle generated. Review and approve each section."]
                 self._save_draft()
+            _success = True
         except Exception as exc:
             _logger.warning("run_generate error: %s", exc)
             async with self:
@@ -343,6 +350,8 @@ class Phase2State(ProjectState):
         finally:
             async with self:
                 self.generating = False
+        if _success:
+            yield rx.toast.success("Design bundle generated — review and approve each section")
 
     @rx.event
     def set_wireframes_edit(self, value: str):
@@ -402,6 +411,7 @@ class Phase2State(ProjectState):
                 for s in self.stories_in_epic
             ]
             yield Phase2State.load_epics
+            yield rx.toast.success("Design saved to context files")
         except Exception as exc:
             _logger.warning("save_design error: %s", exc)
             self.save_error = str(exc)
@@ -425,6 +435,7 @@ class Phase2State(ProjectState):
         self.save_error = ""
         self.generation_log = []
         context_manager.clear_design_draft()
+        yield rx.toast.info("Design draft reset")
 
     @rx.event
     def restore_draft(self):

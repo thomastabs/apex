@@ -23,6 +23,11 @@ class ProjectState(AuthState):
     create_project_error: str = ""
     create_project_success: str = ""
 
+    # Delete project dialog
+    delete_project_dialog_open: bool = False
+    deleting_project: bool = False
+    delete_project_error: str = ""
+
     @rx.event
     def load_project_config(self):
         """Restore active project from persisted config (called on_load)."""
@@ -115,6 +120,37 @@ class ProjectState(AuthState):
     @rx.event
     def set_new_project_desc(self, value: str):
         self.new_project_desc = value
+
+    @rx.event
+    def open_delete_project_dialog(self):
+        self.delete_project_error = ""
+        self.delete_project_dialog_open = True
+
+    @rx.event
+    def set_delete_project_dialog_open(self, value: bool):
+        self.delete_project_dialog_open = value
+
+    @rx.event
+    async def delete_project(self):
+        pid = self.active_project_id
+        if not pid:
+            return
+        self.deleting_project = True
+        self.delete_project_error = ""
+        self.delete_project_dialog_open = False
+        yield
+        try:
+            self._sync_token()
+            taiga_adapter.delete_project(pid)
+            self.active_project_id = 0
+            self.project_name = ""
+            taiga_adapter.set_active_project(0)
+            self.projects_list = [p for p in self.projects_list if p.get("id") != pid]
+            yield rx.toast.success("Project deleted")
+        except taiga_adapter.TaigaAPIError as exc:
+            self.delete_project_error = exc.user_message
+        finally:
+            self.deleting_project = False
 
     @rx.event
     async def create_project(self):

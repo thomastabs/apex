@@ -537,7 +537,11 @@ def login(username: str, password: str) -> None:
 
 def get_memberships() -> list[dict]:
     """Return all memberships for the current project."""
-    return _get("memberships", params={"project": TAIGA_PROJECT_ID}) or []
+    members = _get("memberships", params={"project": TAIGA_PROJECT_ID}) or []
+    for m in members:
+        if "is_owner" not in m:
+            m["is_owner"] = m.get("role_name", "").lower() == "owner"
+    return members
 
 
 def get_roles() -> list[dict]:
@@ -578,6 +582,12 @@ def get_projects() -> list[dict]:
 def create_project(name: str, description: str) -> dict:
     """Create a new Taiga project and return the response dict (includes 'id' and 'slug')."""
     return _post("projects", {"name": name, "description": description})
+
+
+def delete_project(project_id: int) -> None:
+    """Permanently delete a Taiga project."""
+    _delete(f"projects/{project_id}")
+    _logger.info("taiga.delete_project id=%s", project_id)
 
 
 def set_active_project(project_id: int) -> None:

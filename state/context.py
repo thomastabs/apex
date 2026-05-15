@@ -178,6 +178,7 @@ class ContextState(ProjectState):
             self.context_sizes = context_manager.get_context_sizes()
         except Exception:
             pass
+        yield rx.toast.success(f"Switched to {self.project_name or 'project'}")
 
     @rx.event
     def load_context(self):
@@ -216,19 +217,23 @@ class ContextState(ProjectState):
 
     @rx.event
     def download_mem_bank(self):
-        return rx.download(data=self.mem_bank_content.encode("utf-8"), filename="memory-bank.md")
+        yield rx.download(data=self.mem_bank_content.encode("utf-8"), filename="memory-bank.md")
+        yield rx.toast.success("memory-bank.md exported")
 
     @rx.event
     def download_func_spec(self):
-        return rx.download(data=self.func_spec_content.encode("utf-8"), filename="functional-spec.md")
+        yield rx.download(data=self.func_spec_content.encode("utf-8"), filename="functional-spec.md")
+        yield rx.toast.success("functional-spec.md exported")
 
     @rx.event
     def download_tech_spec(self):
-        return rx.download(data=self.tech_spec_content.encode("utf-8"), filename="technical-spec.md")
+        yield rx.download(data=self.tech_spec_content.encode("utf-8"), filename="technical-spec.md")
+        yield rx.toast.success("technical-spec.md exported")
 
     @rx.event
     def download_vaccines(self):
-        return rx.download(data=self.vaccines_content.encode("utf-8"), filename="vaccines.md")
+        yield rx.download(data=self.vaccines_content.encode("utf-8"), filename="vaccines.md")
+        yield rx.toast.success("vaccines.md exported")
 
     # ── Reset confirmation ────────────────────────────────────────────────────
 
@@ -256,9 +261,17 @@ class ContextState(ProjectState):
         self._reset_confirm_filename = ""
         if filename:
             context_manager.reset_context_file(filename)
+            yield rx.toast.info(f"{filename} reset to default")
         else:
             context_manager.reset_context()
+            yield rx.toast.info("All context files reset to defaults")
         yield ContextState.load_context
+
+    @rx.event
+    def reload_context_manual(self):
+        """Sidebar Reload button — reloads context files and shows toast."""
+        ContextState.load_context.fn(self)
+        yield rx.toast.info("Context reloaded")
 
     # ── Reset ─────────────────────────────────────────────────────────────────
 

@@ -211,6 +211,7 @@ class Phase1State(ProjectState):
         self.epic_desc_input = ""
         self.ai_hint_input = ""
         self.start_mode = mode
+        yield rx.toast.info("Phase 1 cleared")
 
     # ─────────────────────────────────────────────────────────────────────────
     # Step 1 inputs
@@ -346,6 +347,8 @@ class Phase1State(ProjectState):
             self.story_count_progress = 0
             self.generation_log = ["Analyzing epic and description…"]
 
+        _gen_count = 0
+        _success = False
         try:
             # Resolve subject/description from whichever tab is active
             if self.start_mode == "load":
@@ -393,6 +396,7 @@ class Phase1State(ProjectState):
 
             async with self:
                 n = count_holder[0] or len(story_list)
+                _gen_count = n
                 self.generation_log = self.generation_log + [f"Generated {n} user stor{'y' if n == 1 else 'ies'}. Formatting draft…"]
                 self.nl_draft = nl_text
                 self.nl_editor = nl_text
@@ -400,6 +404,7 @@ class Phase1State(ProjectState):
                 self.push_done = False
                 self.push_result = {}
                 self._save_draft()
+            _success = True
 
         except Exception as exc:
             async with self:
@@ -407,6 +412,8 @@ class Phase1State(ProjectState):
         finally:
             async with self:
                 self.generating = False
+        if _success:
+            yield rx.toast.success(f"Generated {_gen_count} user stor{'y' if _gen_count == 1 else 'ies'}")
 
     # ─────────────────────────────────────────────────────────────────────────
     # Step 4: Compile to Gherkin
@@ -419,6 +426,8 @@ class Phase1State(ProjectState):
             self.compile_error = ""
             self.compile_log = ["Analyzing NL draft…"]
 
+        _compiled_count = 0
+        _success = False
         try:
             nl_text = self.nl_editor
 
@@ -438,6 +447,7 @@ class Phase1State(ProjectState):
             ]
             edits = [item["gherkin"] for item in compiled]
             n = len(compiled)
+            _compiled_count = n
 
             async with self:
                 self.compile_log = self.compile_log + [
@@ -446,6 +456,7 @@ class Phase1State(ProjectState):
                 self.compiled_stories = compiled
                 self.gherkin_edits = edits
                 self._save_draft()
+            _success = True
 
         except Exception as exc:
             async with self:
@@ -453,6 +464,8 @@ class Phase1State(ProjectState):
         finally:
             async with self:
                 self.compiling = False
+        if _success:
+            yield rx.toast.success(f"Compiled {_compiled_count} stor{'y' if _compiled_count == 1 else 'ies'} to Gherkin")
 
     # ─────────────────────────────────────────────────────────────────────────
     # Step 5: Gherkin story management
@@ -503,6 +516,8 @@ class Phase1State(ProjectState):
             self.push_error = ""
             self.push_log = ["Preparing to push stories to Taiga…"]
 
+        _push_count = 0
+        _success = False
         try:
             self._sync_token()
             compiled = self.compiled_stories
@@ -584,6 +599,8 @@ class Phase1State(ProjectState):
                 self.push_story_urls = urls
                 self.push_result = {"ok": True, "count": total}
                 context_manager.clear_draft()
+            _push_count = total
+            _success = True
 
         except Exception as exc:
             async with self:
@@ -591,6 +608,8 @@ class Phase1State(ProjectState):
         finally:
             async with self:
                 self.pushing = False
+        if _success:
+            yield rx.toast.success(f"{_push_count} stor{'y' if _push_count == 1 else 'ies'} pushed to Taiga")
 
     @rx.event
     def start_new_epic(self):
@@ -601,6 +620,7 @@ class Phase1State(ProjectState):
         self.epic_desc_input = ""
         self.ai_hint_input = ""
         self.start_mode = mode
+        yield rx.toast.info("Ready for new epic")
 
     # ─────────────────────────────────────────────────────────────────────────
     # Computed vars

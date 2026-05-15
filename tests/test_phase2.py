@@ -232,7 +232,7 @@ def test_select_epic_loads_all_gherkin():
         mock_cm.get_story_index.return_value = index
         mock_cm.get_story_gherkin.side_effect = lambda sid: f"Feature: Story {sid}\n"
         mock_cm.save_design_draft = MagicMock()
-        Phase2State.select_epic.fn(state, "7")
+        list(Phase2State.select_epic.fn(state, "7"))
 
     assert state.selected_epic_id == 7
     assert state.selected_epic_title == "Epic Seven"
@@ -262,7 +262,7 @@ def test_select_epic_resets_gate1_gate2():
         mock_cm.get_story_index.return_value = index
         mock_cm.get_story_gherkin.return_value = "Feature: S\n"
         mock_cm.save_design_draft = MagicMock()
-        Phase2State.select_epic.fn(state, "5")
+        list(Phase2State.select_epic.fn(state, "5"))
 
     assert state.gate1_approved is False
     assert state.gate2_approved is False
@@ -290,7 +290,7 @@ def test_select_epic_does_not_reset_gate0():
         mock_cm.get_story_index.return_value = index
         mock_cm.get_story_gherkin.return_value = ""
         mock_cm.save_design_draft = MagicMock()
-        Phase2State.select_epic.fn(state, "3")
+        list(Phase2State.select_epic.fn(state, "3"))
 
     assert state.gate0_approved is True
     assert state.existing_tech_stack == "FastAPI"
@@ -480,7 +480,7 @@ def test_reset_preserves_gate0_and_selection():
     )
     with patch("state.phase2.context_manager") as mock_cm:
         mock_cm.clear_design_draft = MagicMock()
-        Phase2State.reset_story.fn(state)
+        list(Phase2State.reset_story.fn(state))
 
     assert state.gate0_approved is True
     assert state.existing_tech_stack == "FastAPI"

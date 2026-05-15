@@ -203,6 +203,18 @@ def _project_expander() -> rx.Component:
                         ),
                         width="100%",
                     ),
+                    rx.cond(
+                        ProjectState.has_project,
+                        rx.button(
+                            rx.hstack(rx.icon("trash-2", size=12), rx.text("Delete Project"), spacing="1"),
+                            size="2",
+                            variant="soft",
+                            color_scheme="red",
+                            on_click=ProjectState.open_delete_project_dialog,
+                            width="100%",
+                        ),
+                        rx.fragment(),
+                    ),
                     spacing="2",
                     width="100%",
                 ),
@@ -383,13 +395,13 @@ def _board_expander() -> rx.Component:
 def _member_row(member: dict) -> rx.Component:
     return rx.hstack(
         rx.vstack(
-            rx.text(member.get("full_name", ""), size="2", weight="medium"),
+            rx.text(member["full_name"], size="2", weight="medium"),
             rx.hstack(
-                rx.text(member.get("email", ""), size="1", color=rx.color("gray", 9)),
+                rx.text(member["email"], size="1", color=rx.color("gray", 9)),
                 rx.cond(
-                    member.get("role_name", "") != "",
+                    member["role_name"] != "",
                     rx.badge(
-                        member.get("role_name", ""),
+                        member["role_name"],
                         color_scheme="violet",
                         variant="surface",
                         size="1",
@@ -403,12 +415,17 @@ def _member_row(member: dict) -> rx.Component:
             align="start",
             flex="1",
         ),
-        rx.icon_button(
-            rx.icon("user-minus", size=13),
-            size="1",
-            variant="ghost",
-            color_scheme="red",
-            on_click=UserMgmtState.remove_member(member["id"]),
+        rx.cond(
+            member["is_owner"],
+            rx.fragment(),
+            rx.icon_button(
+                rx.icon("user-minus", size=13),
+                size="1",
+                variant="ghost",
+                color_scheme="red",
+                on_click=UserMgmtState.remove_member(member["id"]),
+                title="Remove member",
+            ),
         ),
         align="center",
         width="100%",
@@ -674,7 +691,7 @@ def _context_zone() -> rx.Component:
                     size="2",
                     variant="soft",
                     color_scheme="gray",
-                    on_click=ContextState.load_context,
+                    on_click=ContextState.reload_context_manual,
                     flex="1",
                 ),
                 rx.button(
@@ -963,6 +980,65 @@ def _create_project_dialog() -> rx.Component:
     )
 
 
+def _delete_project_dialog() -> rx.Component:
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title("Delete Project Permanently?"),
+            rx.callout(
+                rx.vstack(
+                    rx.text(
+                        "This will permanently delete ",
+                        rx.text.strong(ProjectState.project_name),
+                        " and ALL its data from Taiga. This action cannot be undone.",
+                    ),
+                    rx.text(
+                        "Your local context files will not be deleted but will become stale.",
+                        size="1",
+                        color=rx.color("gray", 10),
+                    ),
+                    spacing="1",
+                    align="start",
+                ),
+                color="red",
+                size="2",
+            ),
+            rx.cond(
+                ProjectState.delete_project_error != "",
+                rx.callout(ProjectState.delete_project_error, color="red", size="1", margin_top="8px"),
+                rx.fragment(),
+            ),
+            rx.hstack(
+                rx.button(
+                    rx.cond(
+                        ProjectState.deleting_project,
+                        rx.hstack(rx.spinner(size="2"), rx.text("Deleting…"), spacing="2"),
+                        rx.hstack(rx.icon("trash-2", size=14), rx.text("Yes, delete permanently"), spacing="2"),
+                    ),
+                    color_scheme="red",
+                    size="2",
+                    on_click=ProjectState.delete_project,
+                    disabled=ProjectState.deleting_project,
+                ),
+                rx.dialog.close(
+                    rx.button(
+                        "Cancel",
+                        variant="soft",
+                        color_scheme="gray",
+                        size="2",
+                        on_click=lambda: ProjectState.set_delete_project_dialog_open(False),
+                    ),
+                ),
+                spacing="2",
+                justify="end",
+                margin_top="16px",
+            ),
+            max_width="460px",
+        ),
+        open=ProjectState.delete_project_dialog_open,
+        on_open_change=ProjectState.set_delete_project_dialog_open,
+    )
+
+
 def _phase1_discard_dialog() -> rx.Component:
     return rx.dialog.root(
         rx.dialog.content(
@@ -1097,8 +1173,10 @@ def sidebar() -> rx.Component:
                 _reset_confirm_dialog(),
                 _delete_confirm_dialog(),
                 _create_project_dialog(),
+                _delete_project_dialog(),
                 _phase1_discard_dialog(),
                 _stage_a_discard_dialog(),
+                rx.toast.provider(),
                 spacing="0",
                 align="start",
                 width="100%",

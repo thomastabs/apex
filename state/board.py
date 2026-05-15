@@ -45,6 +45,7 @@ class BoardState(ProjectState):
             self._board_loaded = False
             self.expanded_epic_id = 0
             self.expanded_stories = []
+        _was_loaded = self._board_loaded
         # First load: show spinner and clear list.
         # Subsequent loads (SPA nav): refresh silently — keep existing list visible.
         if not self._board_loaded:
@@ -56,6 +57,8 @@ class BoardState(ProjectState):
             self.board_epics = taiga_adapter.get_epics()
             self._board_loaded = True
             self._board_project_id = self.active_project_id
+            if _was_loaded:
+                yield rx.toast.info("Board refreshed")
         except taiga_adapter.TaigaAPIError as exc:
             self.board_error = str(exc)
         finally:
@@ -234,6 +237,7 @@ class BoardState(ProjectState):
             taiga_adapter.create_epic(subject, description)
             self.create_epic_open = False
             yield BoardState.load_epics
+            yield rx.toast.success(f'Epic "{subject}" created')
         except taiga_adapter.TaigaAPIError:
             pass
 
@@ -248,6 +252,7 @@ class BoardState(ProjectState):
             taiga_adapter.create_story(subject, description, epic_id=self.selected_epic_id)
             self.create_story_open = False
             yield BoardState.load_expanded_stories(self.selected_epic_id)
+            yield rx.toast.success(f'Story "{subject}" created')
         except taiga_adapter.TaigaAPIError:
             pass
 
@@ -291,6 +296,7 @@ class BoardState(ProjectState):
                     self.expanded_epic_id = 0
                     self.expanded_stories = []
                 yield BoardState.load_epics
+                yield rx.toast.success("Epic deleted")
             elif dtype == "story":
                 story_id = self._delete_confirm_story_id
                 epic_id = self._delete_confirm_story_epic_id
@@ -298,6 +304,7 @@ class BoardState(ProjectState):
                 self._delete_confirm_story_epic_id = 0
                 taiga_adapter.delete_story(story_id)
                 yield BoardState.load_expanded_stories(epic_id)
+                yield rx.toast.success("Story deleted")
         except taiga_adapter.TaigaAPIError:
             pass
 
