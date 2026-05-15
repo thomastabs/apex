@@ -85,9 +85,13 @@ class AuthState(rx.State):
                 me = taiga_adapter.get_me()
                 self.taiga_username = me.get("full_name") or me.get("username", "")
                 self.taiga_email = me.get("email", "")
+            except taiga_adapter.TaigaAPIError as exc:
+                if exc.status == 401:
+                    # Token genuinely expired/revoked — force sign-out
+                    self.auth_token = ""
+                    self.taiga_username = ""
+                    self.taiga_email = ""
+                    taiga_adapter.clear_token()
+                # else: network/transient error — keep session, Taiga temporarily unreachable
             except Exception:
-                # Token expired or invalid — force sign-out so UI shows sign-in prompt
-                self.auth_token = ""
-                self.taiga_username = ""
-                self.taiga_email = ""
-                taiga_adapter.clear_token()
+                pass  # unexpected error — keep session rather than silently sign out
