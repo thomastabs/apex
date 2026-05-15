@@ -56,23 +56,13 @@ def epic_selector_section() -> rx.Component:
                                 rx.cond(
                                     e["all_locked"],
                                     rx.icon("lock", size=12),
-                                    rx.cond(
-                                        e["story_count"] == 0,
-                                        rx.icon("clock", size=12, color=rx.color("gray", 8)),
-                                        rx.fragment(),
-                                    ),
-                                ),
-                                rx.text(e["epic_title"]),
-                                rx.cond(
-                                    e["story_count"] == 0,
-                                    rx.text("· Phase 1 pending", size="1", color=rx.color("gray", 8)),
                                     rx.fragment(),
                                 ),
+                                rx.text(e["epic_title"]),
                                 spacing="1",
                                 align="center",
                             ),
                             value=e["epic_id"].to_string(),
-                            disabled=e["story_count"] == 0,
                         ),
                     )
                 ),
@@ -95,7 +85,7 @@ def epic_selector_section() -> rx.Component:
         rx.cond(
             Phase2State.selected_epic_id > 0,
             rx.vstack(
-                rx.text("Locked Stories in this Epic", size="2", weight="medium",
+                rx.text("Stories in this Epic", size="2", weight="medium",
                         color=rx.color("gray", 10)),
                 rx.foreach(Phase2State.stories_in_epic, _story_gherkin_card),
                 spacing="2",
