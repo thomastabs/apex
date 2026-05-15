@@ -65,6 +65,25 @@ class BoardState(ProjectState):
             self.board_loading = False
 
     @rx.event
+    async def reload_board_manual(self):
+        self._sync_token()
+        if not self.is_authenticated or not self.has_project:
+            return
+        self.board_loading = True
+        self.board_epics = []
+        self.board_error = ""
+        yield
+        try:
+            self.board_epics = taiga_adapter.get_epics()
+            self._board_loaded = True
+            self._board_project_id = self.active_project_id
+            yield rx.toast.info("Board refreshed")
+        except taiga_adapter.TaigaAPIError as exc:
+            self.board_error = str(exc)
+        finally:
+            self.board_loading = False
+
+    @rx.event
     def invalidate_board(self):
         """Call when project changes to force a full reload next time."""
         self._board_loaded = False
