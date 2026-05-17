@@ -98,6 +98,14 @@ _VACCINES_TEMPLATE = """\
 
 """
 
+_DESIGN_BUNDLE_TEMPLATE = """\
+# Design Bundles
+
+> Per-epic design artifacts (wireframes, user flow, component tree, technical spec).
+> Written automatically by apex when a Phase 2 design is saved.
+
+"""
+
 # Phase status values — ordered by SDLC progression.
 PHASE_STATUSES = (
     "gherkin_locked",  # Phase 1 complete: Gherkin approved and locked
@@ -177,6 +185,7 @@ def init_context() -> None:
         (FUNCTIONAL_SPEC_FILE, _FUNCTIONAL_SPEC_TEMPLATE),
         (TECHNICAL_SPEC_FILE,  _TECHNICAL_SPEC_TEMPLATE),
         (VACCINES_FILE,        _VACCINES_TEMPLATE),
+        (DESIGN_BUNDLE_FILE,   _DESIGN_BUNDLE_TEMPLATE),
     ]:
         if not path.exists():
             path.write_text(template, encoding="utf-8")
@@ -989,6 +998,7 @@ _TEMPLATES: dict[str, str] = {
     "functional-spec.md": _FUNCTIONAL_SPEC_TEMPLATE,
     "technical-spec.md":  _TECHNICAL_SPEC_TEMPLATE,
     "vaccines.md":        _VACCINES_TEMPLATE,
+    "design-bundle.md":   _DESIGN_BUNDLE_TEMPLATE,
 }
 
 
@@ -1024,14 +1034,13 @@ def reset_context() -> None:
     """
     global _context_initialized
     CONTEXT_DIR.mkdir(parents=True, exist_ok=True)
-    MEMORY_BANK_FILE.write_text(_MEMORY_BANK_TEMPLATE,     encoding="utf-8")
+    MEMORY_BANK_FILE.write_text(_MEMORY_BANK_TEMPLATE,       encoding="utf-8")
     FUNCTIONAL_SPEC_FILE.write_text(_FUNCTIONAL_SPEC_TEMPLATE, encoding="utf-8")
     TECHNICAL_SPEC_FILE.write_text(_TECHNICAL_SPEC_TEMPLATE,  encoding="utf-8")
-    VACCINES_FILE.write_text(_VACCINES_TEMPLATE,           encoding="utf-8")
+    VACCINES_FILE.write_text(_VACCINES_TEMPLATE,             encoding="utf-8")
+    DESIGN_BUNDLE_FILE.write_text(_DESIGN_BUNDLE_TEMPLATE,   encoding="utf-8")
     _save_story_index({})
     clear_draft()
-    if DESIGN_BUNDLE_FILE.exists():
-        DESIGN_BUNDLE_FILE.unlink()
     _context_initialized = False
 
 

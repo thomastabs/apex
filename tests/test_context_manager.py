@@ -15,6 +15,7 @@ class TestInitContext:
         assert ctx.FUNCTIONAL_SPEC_FILE.exists()
         assert ctx.TECHNICAL_SPEC_FILE.exists()
         assert ctx.VACCINES_FILE.exists()
+        assert ctx.DESIGN_BUNDLE_FILE.exists()
 
     def test_creates_story_index(self, ctx):
         ctx.init_context()
@@ -505,11 +506,14 @@ class TestDesignBundle:
         ctx.remove_epic_from_story_index(3)
         assert ctx.get_epic_design_bundle(3) is None
 
-    def test_cleared_on_reset_context(self, ctx):
+    def test_reset_on_reset_context(self, ctx):
         ctx.init_context()
         ctx.append_epic_design_bundle(7, "E7", "wf", "uf", "ct", "ts")
         ctx.reset_context()
-        assert not ctx.DESIGN_BUNDLE_FILE.exists()
+        assert ctx.DESIGN_BUNDLE_FILE.exists()
+        content = ctx.DESIGN_BUNDLE_FILE.read_text(encoding="utf-8")
+        assert "# Design Bundles" in content
+        assert "Epic 7" not in content
 
 
 # ---------------------------------------------------------------------------
