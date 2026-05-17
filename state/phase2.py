@@ -111,6 +111,20 @@ class Phase2State(ProjectState):
         )
 
     @rx.var
+    def epic_list_empty(self) -> bool:
+        return not self.epics_loading and len(self.epic_list) == 0
+
+    @rx.var
+    def selected_epic_no_locked_stories(self) -> bool:
+        """True when an epic is selected but none of its stories are gherkin_locked or design_locked."""
+        if not self.stories_in_epic:
+            return False
+        return not any(
+            s.get("phase_status") in ("gherkin_locked", "design_locked")
+            for s in self.stories_in_epic
+        )
+
+    @rx.var
     def can_suggest_stack(self) -> bool:
         return self.is_authenticated and self.has_project and not self.gate0_approved
 
@@ -336,6 +350,25 @@ class Phase2State(ProjectState):
         self.generate_error = ""
         self.save_error = ""
         self.generation_log = []
+
+        # Restore previously saved design bundle if one exists for this epic
+        bundle = context_manager.get_epic_design_bundle(epic_id)
+        if bundle:
+            self.wireframes_draft = bundle.get("wireframes", "")
+            self.wireframes_edit = bundle.get("wireframes", "")
+            self.user_flow_draft = bundle.get("user_flow", "")
+            self.user_flow_edit = bundle.get("user_flow", "")
+            self.component_tree_draft = bundle.get("component_tree", "")
+            self.component_tree_edit = bundle.get("component_tree", "")
+            self.tech_spec_draft = bundle.get("tech_spec", "")
+            self.tech_spec_edit = bundle.get("tech_spec", "")
+            all_design_locked = bool(stories) and all(
+                s.get("phase_status") == "design_locked" for s in stories
+            )
+            if all_design_locked:
+                self.gate1_approved = True
+                self.gate2_approved = True
+
         self._save_draft()
         yield rx.toast.info(f"Epic selected: {self.selected_epic_title}")
 
@@ -353,14 +386,21 @@ class Phase2State(ProjectState):
         _success = False
         try:
             mb_context = context_manager.read_context_file("memory-bank.md")
+            cross_epic_context = context_manager.get_other_epics_design_context(
+                self.selected_epic_id
+            )
             stories = list(self.stories_in_epic)
             epic_title = self.selected_epic_title
 
+            log_msg = "Calling AI (this may take a minute)..."
+            if cross_epic_context:
+                log_msg = "Calling AI — injecting cross-epic context for consistency..."
             async with self:
-                self.generation_log = self.generation_log + ["Calling AI (this may take a minute)..."]
+                self.generation_log = self.generation_log + [log_msg]
 
             result = await asyncio.to_thread(
-                ai_engine.generate_phase2_design, epic_title, stories, mb_context
+                ai_engine.generate_phase2_design,
+                epic_title, stories, mb_context, cross_epic_context,
             )
 
             async with self:
@@ -437,11 +477,19 @@ class Phase2State(ProjectState):
                 prototype_summary=self.wireframes_edit,
                 tech_spec_summary=self.tech_spec_edit,
             )
-            context_manager.clear_design_draft()
+            context_manager.append_epic_design_bundle(
+                self.selected_epic_id,
+                self.selected_epic_title,
+                self.wireframes_edit,
+                self.user_flow_edit,
+                self.component_tree_edit,
+                self.tech_spec_edit,
+            )
             self.stories_in_epic = [
                 {**s, "phase_status": "design_locked"}
                 for s in self.stories_in_epic
             ]
+            self._save_draft()
             yield Phase2State.load_epics
             yield rx.toast.success("Design saved to context files")
         except Exception as exc:

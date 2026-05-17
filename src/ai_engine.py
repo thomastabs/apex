@@ -557,7 +557,7 @@ class ArchAlternative(BaseModel):
 class ArchAlternativeList(BaseModel):
     alternatives: list[ArchAlternative] = Field(
         description="Exactly 5 ranked architectural alternatives, simplest to most scalable",
-        min_length=3,
+        min_length=5,
         max_length=5,
     )
 
@@ -638,14 +638,18 @@ Generate a complete design bundle for the epic described below.
 
 **Memory Bank (binding constraints — DO NOT violate):**
 {context}
-
+{cross_epic_section}
 Rules you MUST follow:
 - wireframes: ASCII art mockups for every distinct screen or view required by the stories.
   Label each screen clearly. Show key UI elements (inputs, buttons, labels, navigation).
+  Match the visual style and layout conventions of any existing wireframes shown above.
 - user_flow: A valid Mermaid `flowchart TD` diagram (no other Mermaid type) showing the
   complete user journey across all stories in this epic. Every story must appear as a node.
+  Where this epic's flows connect to screens from other epics, reference those node names.
 - component_tree: An indented plain-text hierarchy of all frontend components and/or
   backend modules needed. Use 2-space indentation. No code, just names and brief labels.
+  Do NOT re-declare components that already exist in the existing architecture above —
+  reference them by name instead and add only genuinely new components.
 - tech_spec: A full OpenAPI 3.0 YAML specification covering all API endpoints required by
   the stories, PLUS a DB schema DDL block. ONLY use technologies from ## Tech Stack.
   Every endpoint must be traceable to at least one Gherkin scenario.
@@ -656,14 +660,25 @@ def generate_phase2_design(
     epic_title: str,
     stories: list[dict],
     context: str,
+    cross_epic_context: str = "",
 ) -> dict:
     """Generate wireframes, user flow, component tree, and OpenAPI spec for an epic.
 
     stories: [{"story_id": int, "title": str, "gherkin": str}, ...]
     context: full Memory Bank including confirmed ## Tech Stack
+    cross_epic_context: formatted block from get_other_epics_design_context() — empty for
+        the first epic, populated for subsequent ones to enforce cross-epic consistency
     Returns: {"wireframes": str, "user_flow": str, "component_tree": str, "tech_spec": str}
     """
-    system = _PHASE2_DESIGN_SYSTEM.format(context=context.strip())
+    cross_epic_section = (
+        f"\n{cross_epic_context.strip()}\n"
+        if cross_epic_context.strip()
+        else ""
+    )
+    system = _PHASE2_DESIGN_SYSTEM.format(
+        context=context.strip(),
+        cross_epic_section=cross_epic_section,
+    )
     story_parts = [f"Epic: {epic_title}\n\nStories:"]
     for s in stories:
         story_parts.append(

@@ -443,7 +443,8 @@ class TestGetContextSizes:
         ctx.init_context()
         sizes = ctx.get_context_sizes()
         assert set(sizes.keys()) == {
-            "memory-bank.md", "functional-spec.md", "technical-spec.md", "vaccines.md"
+            "memory-bank.md", "functional-spec.md", "technical-spec.md", "vaccines.md",
+            "design-bundle.md",
         }
 
     def test_sizes_are_non_negative_ints(self, ctx):
@@ -451,6 +452,109 @@ class TestGetContextSizes:
         for size in ctx.get_context_sizes().values():
             assert isinstance(size, int)
             assert size >= 0
+
+
+# ---------------------------------------------------------------------------
+# append_epic_design_bundle / get_epic_design_bundle
+# ---------------------------------------------------------------------------
+
+class TestDesignBundle:
+    def test_round_trip(self, ctx):
+        ctx.init_context()
+        ctx.append_epic_design_bundle(
+            epic_id=42,
+            epic_title="Payments",
+            wireframes="+-+\n|X|\n+-+",
+            user_flow="flowchart TD\n  A-->B",
+            component_tree="App\n  Form",
+            tech_spec="openapi: '3.0'\npaths: {}",
+        )
+        bundle = ctx.get_epic_design_bundle(42)
+        assert bundle is not None
+        assert bundle["wireframes"] == "+-+\n|X|\n+-+"
+        assert bundle["user_flow"] == "flowchart TD\n  A-->B"
+        assert bundle["component_tree"] == "App\n  Form"
+        assert bundle["tech_spec"] == "openapi: '3.0'\npaths: {}"
+
+    def test_returns_none_when_no_bundle(self, ctx):
+        ctx.init_context()
+        assert ctx.get_epic_design_bundle(999) is None
+
+    def test_replaces_existing_bundle(self, ctx):
+        ctx.init_context()
+        ctx.append_epic_design_bundle(5, "E", "old wf", "old uf", "old ct", "old ts")
+        ctx.append_epic_design_bundle(5, "E", "new wf", "new uf", "new ct", "new ts")
+        bundle = ctx.get_epic_design_bundle(5)
+        assert bundle["wireframes"] == "new wf"
+        assert "old wf" not in ctx.DESIGN_BUNDLE_FILE.read_text(encoding="utf-8")
+
+    def test_multiple_epics_isolated(self, ctx):
+        ctx.init_context()
+        ctx.append_epic_design_bundle(1, "E1", "wf1", "uf1", "ct1", "ts1")
+        ctx.append_epic_design_bundle(2, "E2", "wf2", "uf2", "ct2", "ts2")
+        b1 = ctx.get_epic_design_bundle(1)
+        b2 = ctx.get_epic_design_bundle(2)
+        assert b1["wireframes"] == "wf1"
+        assert b2["wireframes"] == "wf2"
+
+    def test_removed_on_epic_delete(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(10, epic_id=3, title="S", phase_status="gherkin_locked")
+        ctx.append_gherkin(10, "S", "Feature: S\n", epic_id=3, epic_title="E3")
+        ctx.append_epic_design_bundle(3, "E3", "wf", "uf", "ct", "ts")
+        ctx.remove_epic_from_story_index(3)
+        assert ctx.get_epic_design_bundle(3) is None
+
+    def test_cleared_on_reset_context(self, ctx):
+        ctx.init_context()
+        ctx.append_epic_design_bundle(7, "E7", "wf", "uf", "ct", "ts")
+        ctx.reset_context()
+        assert not ctx.DESIGN_BUNDLE_FILE.exists()
+
+
+# ---------------------------------------------------------------------------
+# get_other_epics_design_context
+# ---------------------------------------------------------------------------
+
+class TestGetOtherEpicsDesignContext:
+    def test_returns_empty_when_no_bundle_file(self, ctx):
+        ctx.init_context()
+        assert ctx.get_other_epics_design_context(1) == ""
+
+    def test_returns_empty_when_only_current_epic(self, ctx):
+        ctx.init_context()
+        ctx.append_epic_design_bundle(5, "E5", "wf", "uf", "ct", "ts")
+        assert ctx.get_other_epics_design_context(5) == ""
+
+    def test_excludes_current_epic(self, ctx):
+        ctx.init_context()
+        ctx.append_epic_design_bundle(1, "Auth", "wf1", "uf1", "ct1", "ts1")
+        ctx.append_epic_design_bundle(2, "Orders", "wf2", "uf2", "ct2", "ts2")
+        result = ctx.get_other_epics_design_context(exclude_epic_id=2)
+        assert "Auth" in result
+        assert "ct1" in result
+        assert "wf1" in result
+        assert "uf1" in result
+        assert "Orders" not in result
+        assert "ct2" not in result
+
+    def test_contains_all_three_sections(self, ctx):
+        ctx.init_context()
+        ctx.append_epic_design_bundle(10, "Dashboard", "wf10", "uf10", "ct10", "ts10")
+        result = ctx.get_other_epics_design_context(exclude_epic_id=99)
+        assert "Existing Component Architecture" in result
+        assert "Existing Wireframe Patterns" in result
+        assert "Existing User Flows" in result
+
+    def test_multiple_epics_all_appear(self, ctx):
+        ctx.init_context()
+        ctx.append_epic_design_bundle(1, "A", "wfA", "ufA", "ctA", "tsA")
+        ctx.append_epic_design_bundle(2, "B", "wfB", "ufB", "ctB", "tsB")
+        ctx.append_epic_design_bundle(3, "C", "wfC", "ufC", "ctC", "tsC")
+        result = ctx.get_other_epics_design_context(exclude_epic_id=3)
+        assert "ctA" in result
+        assert "ctB" in result
+        assert "ctC" not in result
 
 
 # ---------------------------------------------------------------------------
@@ -478,7 +582,8 @@ class TestBuildContextDir:
 _PATH_GLOBALS = (
     "CONTEXT_DIR", "MEMORY_BANK_FILE", "FUNCTIONAL_SPEC_FILE",
     "TECHNICAL_SPEC_FILE", "VACCINES_FILE", "STORY_INDEX_FILE",
-    "DRAFT_FILE", "SESSION_FILE", "_context_initialized", "_story_index_cache",
+    "DRAFT_FILE", "DESIGN_DRAFT_FILE", "SESSION_FILE", "DESIGN_BUNDLE_FILE",
+    "_context_initialized", "_story_index_cache",
 )
 
 
@@ -508,7 +613,9 @@ class TestSetActiveProject:
         assert cm.VACCINES_FILE        == expected / "vaccines.md"
         assert cm.STORY_INDEX_FILE     == expected / "story-index.json"
         assert cm.DRAFT_FILE           == expected / ".apex-draft.json"
+        assert cm.DESIGN_DRAFT_FILE    == expected / ".apex-design-draft.json"
         assert cm.SESSION_FILE         == expected / ".apex-session.json"
+        assert cm.DESIGN_BUNDLE_FILE   == expected / "design-bundle.md"
 
     def test_resets_context_initialized(self, monkeypatch):
         from src import context_manager as cm

@@ -97,11 +97,59 @@ def epic_selector_section() -> rx.Component:
             rx.fragment(),
         ),
         rx.cond(
+            Phase2State.epic_list_empty,
+            rx.callout(
+                rx.hstack(
+                    rx.icon("info", size=14),
+                    rx.vstack(
+                        rx.text("No epics found in this project.", size="2", weight="medium"),
+                        rx.text(
+                            "Create epics and lock at least one story in Phase 1 before using Stage B.",
+                            size="2",
+                            color=rx.color("gray", 10),
+                        ),
+                        spacing="1",
+                        align="start",
+                    ),
+                    spacing="2",
+                    align="start",
+                ),
+                color="blue",
+                size="1",
+                width="100%",
+            ),
+            rx.fragment(),
+        ),
+        rx.cond(
             Phase2State.selected_epic_id > 0,
             rx.vstack(
                 rx.text("Stories in this Epic", size="2", weight="medium",
                         color=rx.color("gray", 10)),
                 rx.foreach(Phase2State.stories_in_epic, _story_gherkin_card),
+                rx.cond(
+                    Phase2State.selected_epic_no_locked_stories,
+                    rx.callout(
+                        rx.hstack(
+                            rx.icon("info", size=14),
+                            rx.vstack(
+                                rx.text("No stories ready for design yet.", size="2", weight="medium"),
+                                rx.text(
+                                    "Complete Phase 1 for at least one story in this epic first.",
+                                    size="2",
+                                    color=rx.color("gray", 10),
+                                ),
+                                spacing="1",
+                                align="start",
+                            ),
+                            spacing="2",
+                            align="start",
+                        ),
+                        color="orange",
+                        size="1",
+                        width="100%",
+                    ),
+                    rx.fragment(),
+                ),
                 spacing="2",
                 width="100%",
             ),

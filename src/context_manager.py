@@ -27,6 +27,7 @@ def _init_paths(project_id: int) -> None:
     """Update all module-level path constants for the given project and reset caches."""
     global CONTEXT_DIR, MEMORY_BANK_FILE, FUNCTIONAL_SPEC_FILE, TECHNICAL_SPEC_FILE
     global VACCINES_FILE, STORY_INDEX_FILE, DRAFT_FILE, DESIGN_DRAFT_FILE, SESSION_FILE
+    global DESIGN_BUNDLE_FILE
     global _story_index_cache, _context_initialized
     CONTEXT_DIR          = _build_context_dir(project_id)
     MEMORY_BANK_FILE     = CONTEXT_DIR / "memory-bank.md"
@@ -37,6 +38,7 @@ def _init_paths(project_id: int) -> None:
     DRAFT_FILE           = CONTEXT_DIR / ".apex-draft.json"
     DESIGN_DRAFT_FILE    = CONTEXT_DIR / ".apex-design-draft.json"
     SESSION_FILE         = CONTEXT_DIR / ".apex-session.json"
+    DESIGN_BUNDLE_FILE   = CONTEXT_DIR / "design-bundle.md"
     _story_index_cache   = None
     _context_initialized = False
 
@@ -334,6 +336,7 @@ def get_context_sizes() -> dict[str, int]:
             ("functional-spec.md", FUNCTIONAL_SPEC_FILE),
             ("technical-spec.md",  TECHNICAL_SPEC_FILE),
             ("vaccines.md",        VACCINES_FILE),
+            ("design-bundle.md",   DESIGN_BUNDLE_FILE),
         ]
     }
 
@@ -443,6 +446,13 @@ def remove_epic_from_story_index(epic_id: int) -> None:
                 rf"\n## Epic {epic_id}:.*?(?=\n## |\Z)", "", content, flags=re.DOTALL,
             )
             spec_file.write_text(content, encoding="utf-8")
+    # Remove this epic's section from design-bundle.md
+    if DESIGN_BUNDLE_FILE.exists():
+        bundle_content = DESIGN_BUNDLE_FILE.read_text(encoding="utf-8")
+        bundle_content = re.sub(
+            rf"\n## Epic {epic_id}:.*?(?=\n## |\Z)", "", bundle_content, flags=re.DOTALL,
+        )
+        DESIGN_BUNDLE_FILE.write_text(bundle_content, encoding="utf-8")
     # Delete loose files for each story
     if CONTEXT_DIR.exists():
         for story_id in story_ids:
@@ -763,6 +773,138 @@ def clear_design_draft() -> None:
         DESIGN_DRAFT_FILE.unlink()
 
 
+def append_epic_design_bundle(
+    epic_id: int,
+    epic_title: str,
+    wireframes: str,
+    user_flow: str,
+    component_tree: str,
+    tech_spec: str,
+) -> None:
+    """Write the full design bundle for an epic to design-bundle.md.
+
+    Replaces any existing block for this epic. Persists all four Phase 2 artifacts
+    so they survive navigate-away and container restarts.
+    """
+    init_context()
+    content = (
+        DESIGN_BUNDLE_FILE.read_text(encoding="utf-8")
+        if DESIGN_BUNDLE_FILE.exists()
+        else "# Design Bundles\n\n"
+    )
+    content = re.sub(
+        rf"\n## Epic {epic_id}:.*?(?=\n## |\Z)", "", content, flags=re.DOTALL,
+    )
+    block = (
+        f"\n## Epic {epic_id}: {epic_title}\n\n"
+        f"**Locked at:** {_now()}\n\n"
+        f"### Wireframes\n\n"
+        f"```\n{wireframes.strip()}\n```\n\n"
+        f"### User Flow\n\n"
+        f"```\n{user_flow.strip()}\n```\n\n"
+        f"### Component Tree\n\n"
+        f"```\n{component_tree.strip()}\n```\n\n"
+        f"### Technical Spec\n\n"
+        f"```yaml\n{tech_spec.strip()}\n```\n"
+    )
+    DESIGN_BUNDLE_FILE.write_text(content.rstrip() + "\n" + block, encoding="utf-8")
+
+
+def get_epic_design_bundle(epic_id: int) -> dict | None:
+    """Return the saved design bundle for an epic, or None if not yet saved."""
+    init_context()
+    if not DESIGN_BUNDLE_FILE.exists():
+        return None
+    content = DESIGN_BUNDLE_FILE.read_text(encoding="utf-8")
+    match = re.search(
+        rf"\n## Epic {epic_id}:.*?(?=\n## |\Z)", content, flags=re.DOTALL,
+    )
+    if not match:
+        return None
+    block = match.group(0)
+
+    def _extract(label: str, lang: str = "") -> str:
+        m = re.search(rf"### {label}\n\n```{lang}\n(.*?)\n```", block, re.DOTALL)
+        return m.group(1).strip() if m else ""
+
+    return {
+        "wireframes":      _extract("Wireframes"),
+        "user_flow":       _extract("User Flow"),
+        "component_tree":  _extract("Component Tree"),
+        "tech_spec":       _extract("Technical Spec", "yaml"),
+    }
+
+
+def get_other_epics_design_context(exclude_epic_id: int) -> str:
+    """Return a prompt-ready block of all saved design bundles except exclude_epic_id.
+
+    Used by the AI to maintain cross-epic consistency — components, wireframe patterns,
+    and user flows from already-locked epics are injected as binding constraints.
+    Returns empty string when no other epics have saved designs.
+    """
+    init_context()
+    if not DESIGN_BUNDLE_FILE.exists():
+        return ""
+    content = DESIGN_BUNDLE_FILE.read_text(encoding="utf-8")
+
+    # Find all epic block boundaries (start positions + ids + titles)
+    headers = list(re.finditer(r"\n## Epic (\d+): (.+?)\n", content))
+    if not headers:
+        return ""
+
+    component_sections: list[str] = []
+    wireframe_sections: list[str] = []
+    flow_sections: list[str] = []
+
+    for i, header in enumerate(headers):
+        epic_id = int(header.group(1))
+        if epic_id == exclude_epic_id:
+            continue
+        epic_title = header.group(2).strip()
+        start = header.start()
+        end = headers[i + 1].start() if i + 1 < len(headers) else len(content)
+        block = content[start:end]
+
+        def _extract(label: str, lang: str = "", _block: str = block) -> str:
+            m = re.search(rf"### {label}\n\n```{lang}\n(.*?)\n```", _block, re.DOTALL)
+            return m.group(1).strip() if m else ""
+
+        ct = _extract("Component Tree")
+        wf = _extract("Wireframes")
+        uf = _extract("User Flow")
+
+        if ct:
+            component_sections.append(f"### Epic {epic_id}: {epic_title}\n{ct}")
+        if wf:
+            wireframe_sections.append(f"### Epic {epic_id}: {epic_title}\n{wf}")
+        if uf:
+            flow_sections.append(f"### Epic {epic_id}: {epic_title}\n{uf}")
+
+    if not component_sections and not wireframe_sections and not flow_sections:
+        return ""
+
+    parts: list[str] = []
+    if component_sections:
+        parts.append(
+            "**Existing Component Architecture"
+            " (DO NOT DUPLICATE — reuse and reference these):**\n"
+            + "\n\n".join(component_sections)
+        )
+    if wireframe_sections:
+        parts.append(
+            "**Existing Wireframe Patterns"
+            " (maintain visual and layout consistency with these):**\n"
+            + "\n\n".join(wireframe_sections)
+        )
+    if flow_sections:
+        parts.append(
+            "**Existing User Flows"
+            " (new flows must connect coherently — reuse shared states/nodes):**\n"
+            + "\n\n".join(flow_sections)
+        )
+    return "\n\n".join(parts)
+
+
 def write_tech_stack(tech_stack: str) -> None:
     """Replace the ## Tech Stack section in memory-bank.md with tech_stack.
 
@@ -888,6 +1030,8 @@ def reset_context() -> None:
     VACCINES_FILE.write_text(_VACCINES_TEMPLATE,           encoding="utf-8")
     _save_story_index({})
     clear_draft()
+    if DESIGN_BUNDLE_FILE.exists():
+        DESIGN_BUNDLE_FILE.unlink()
     _context_initialized = False
 
 
