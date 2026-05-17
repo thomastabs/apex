@@ -22,7 +22,9 @@ def ctx(tmp_path, monkeypatch):
     monkeypatch.setattr(cm, "VACCINES_FILE",        ctx_dir / "vaccines.md")
     monkeypatch.setattr(cm, "STORY_INDEX_FILE",     ctx_dir / "story-index.json")
     monkeypatch.setattr(cm, "DRAFT_FILE",           ctx_dir / ".apex-draft.json")
+    monkeypatch.setattr(cm, "DESIGN_DRAFT_FILE",   ctx_dir / ".apex-design-draft.json")
     monkeypatch.setattr(cm, "SESSION_FILE",         ctx_dir / ".apex-session.json")
+    monkeypatch.setattr(cm, "DESIGN_BUNDLE_FILE",  ctx_dir / "design-bundle.md")
     monkeypatch.setattr(cm, "_story_index_cache",   None)
     monkeypatch.setattr(cm, "_context_initialized", False)
 
