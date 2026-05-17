@@ -236,6 +236,7 @@ def test_select_epic_loads_all_gherkin():
          patch("state.phase2.taiga_adapter") as mock_ta:
         mock_cm.get_story_index.return_value = index
         mock_cm.get_story_gherkin.side_effect = lambda sid: f"Feature: Story {sid}\n"
+        mock_cm.get_epic_design_bundle.return_value = None
         mock_cm.save_design_draft = MagicMock()
         mock_ta.get_stories_for_epic.return_value = taiga_stories
         list(Phase2State.select_epic.fn(state, "7"))
@@ -268,6 +269,7 @@ def test_select_epic_resets_gate1_gate2():
          patch("state.phase2.taiga_adapter") as mock_ta:
         mock_cm.get_story_index.return_value = index
         mock_cm.get_story_gherkin.return_value = "Feature: S\n"
+        mock_cm.get_epic_design_bundle.return_value = None
         mock_cm.save_design_draft = MagicMock()
         mock_ta.get_stories_for_epic.return_value = [{"id": 99, "subject": "S"}]
         list(Phase2State.select_epic.fn(state, "5"))
@@ -276,6 +278,85 @@ def test_select_epic_resets_gate1_gate2():
     assert state.gate2_approved is False
     assert state.wireframes_edit == ""
     assert state.tech_spec_edit == ""
+
+
+def test_select_epic_restores_bundle_when_all_design_locked():
+    state = _bare_state(
+        Phase2State,
+        epic_list=[{"epic_id": 8, "epic_title": "E8", "story_count": 1, "all_locked": True}],
+        selected_epic_id=0,
+        selected_epic_title="",
+        stories_in_epic=[],
+        gate0_approved=True,
+        existing_tech_stack="FastAPI",
+        gate1_approved=False,
+        gate2_approved=False,
+        wireframes_draft="", wireframes_edit="",
+        user_flow_draft="", user_flow_edit="",
+        component_tree_draft="", component_tree_edit="",
+        tech_spec_draft="", tech_spec_edit="",
+        generate_error="", save_error="", generation_log=[],
+    )
+    saved_bundle = {
+        "wireframes": "+-+\n|X|\n+-+",
+        "user_flow": "flowchart TD\n  A-->B",
+        "component_tree": "App\n  Form",
+        "tech_spec": "openapi: '3.0'",
+    }
+    index = {"20": {"story_id": 20, "epic_id": 8, "title": "Pay", "phase_status": "design_locked"}}
+    with patch("state.phase2.context_manager") as mock_cm, \
+         patch("state.phase2.taiga_adapter") as mock_ta:
+        mock_cm.get_story_index.return_value = index
+        mock_cm.get_story_gherkin.return_value = "Feature: Pay\n"
+        mock_cm.get_epic_design_bundle.return_value = saved_bundle
+        mock_cm.save_design_draft = MagicMock()
+        mock_ta.get_stories_for_epic.return_value = [{"id": 20, "subject": "Pay"}]
+        list(Phase2State.select_epic.fn(state, "8"))
+
+    assert state.wireframes_edit == "+-+\n|X|\n+-+"
+    assert state.user_flow_edit == "flowchart TD\n  A-->B"
+    assert state.component_tree_edit == "App\n  Form"
+    assert state.tech_spec_edit == "openapi: '3.0'"
+    assert state.gate1_approved is True
+    assert state.gate2_approved is True
+
+
+def test_select_epic_does_not_restore_gates_when_not_all_locked():
+    state = _bare_state(
+        Phase2State,
+        epic_list=[{"epic_id": 9, "epic_title": "E9", "story_count": 2, "all_locked": False}],
+        selected_epic_id=0,
+        selected_epic_title="",
+        stories_in_epic=[],
+        gate0_approved=True,
+        existing_tech_stack="FastAPI",
+        gate1_approved=False,
+        gate2_approved=False,
+        wireframes_draft="", wireframes_edit="",
+        user_flow_draft="", user_flow_edit="",
+        component_tree_draft="", component_tree_edit="",
+        tech_spec_draft="", tech_spec_edit="",
+        generate_error="", save_error="", generation_log=[],
+    )
+    saved_bundle = {"wireframes": "wf", "user_flow": "uf", "component_tree": "ct", "tech_spec": "ts"}
+    index = {
+        "30": {"story_id": 30, "epic_id": 9, "title": "A", "phase_status": "design_locked"},
+        "31": {"story_id": 31, "epic_id": 9, "title": "B", "phase_status": "gherkin_locked"},
+    }
+    with patch("state.phase2.context_manager") as mock_cm, \
+         patch("state.phase2.taiga_adapter") as mock_ta:
+        mock_cm.get_story_index.return_value = index
+        mock_cm.get_story_gherkin.return_value = "Feature: X\n"
+        mock_cm.get_epic_design_bundle.return_value = saved_bundle
+        mock_cm.save_design_draft = MagicMock()
+        mock_ta.get_stories_for_epic.return_value = [
+            {"id": 30, "subject": "A"}, {"id": 31, "subject": "B"},
+        ]
+        list(Phase2State.select_epic.fn(state, "9"))
+
+    assert state.wireframes_edit == "wf"
+    assert state.gate1_approved is False
+    assert state.gate2_approved is False
 
 
 def test_select_epic_does_not_reset_gate0():
@@ -298,6 +379,7 @@ def test_select_epic_does_not_reset_gate0():
          patch("state.phase2.taiga_adapter") as mock_ta:
         mock_cm.get_story_index.return_value = index
         mock_cm.get_story_gherkin.return_value = ""
+        mock_cm.get_epic_design_bundle.return_value = None
         mock_cm.save_design_draft = MagicMock()
         mock_ta.get_stories_for_epic.return_value = [{"id": 5, "subject": "S"}]
         list(Phase2State.select_epic.fn(state, "3"))
@@ -351,6 +433,7 @@ def test_run_generate_sets_all_four_outputs():
     with patch("state.phase2.context_manager") as mock_cm, \
          patch("state.phase2.ai_engine") as mock_ai:
         mock_cm.read_context_file.return_value = "Memory Bank"
+        mock_cm.get_other_epics_design_context.return_value = ""
         mock_cm.save_design_draft = MagicMock()
         mock_ai.generate_phase2_design.return_value = design_result
 
@@ -362,6 +445,43 @@ def test_run_generate_sets_all_four_outputs():
     assert state.component_tree_edit == design_result["component_tree"]
     assert state.tech_spec_edit == design_result["tech_spec"]
     assert state.generating is False
+
+
+def test_run_generate_passes_cross_epic_context():
+    state = _bare_state(
+        Phase2State,
+        generating=False,
+        generate_error="",
+        generation_log=[],
+        selected_epic_id=99,
+        selected_epic_title="Orders",
+        stories_in_epic=[{"story_id": 5, "title": "Place Order", "gherkin": "Feature: Order\n"}],
+        wireframes_draft="", wireframes_edit="",
+        user_flow_draft="", user_flow_edit="",
+        component_tree_draft="", component_tree_edit="",
+        tech_spec_draft="", tech_spec_edit="",
+    )
+    cross_ctx = "**Existing Component Architecture ...**\n### Epic 1: Auth\nAuthPage\n  LoginForm"
+    design_result = {
+        "wireframes": "wf", "user_flow": "uf", "component_tree": "ct", "tech_spec": "ts",
+    }
+    with patch("state.phase2.context_manager") as mock_cm, \
+         patch("state.phase2.ai_engine") as mock_ai:
+        mock_cm.read_context_file.return_value = "Memory Bank"
+        mock_cm.get_other_epics_design_context.return_value = cross_ctx
+        mock_cm.save_design_draft = MagicMock()
+        mock_ai.generate_phase2_design.return_value = design_result
+
+        coro = Phase2State.run_generate.fn(state)
+        _run_async_event(coro)
+
+    mock_cm.get_other_epics_design_context.assert_called_once_with(99)
+    mock_ai.generate_phase2_design.assert_called_once_with(
+        "Orders",
+        [{"story_id": 5, "title": "Place Order", "gherkin": "Feature: Order\n"}],
+        "Memory Bank",
+        cross_ctx,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -407,13 +527,23 @@ def test_save_design_calls_append_epic_spec():
         ],
         tech_spec_edit="openapi: '3.0'",
         wireframes_edit="wireframe text",
+        user_flow_edit="flowchart TD\n  A-->B",
+        component_tree_edit="App\n  Form",
         saving=False,
         save_error="",
+        gate1_approved=True,
+        gate2_approved=True,
+        existing_tech_stack="FastAPI",
+        gate0_approved=True,
+        selected_alternative_index=-1,
+        stack_alternatives=[],
+        tech_stack_edit="",
     )
     with patch("state.phase2.context_manager") as mock_cm:
         mock_cm.append_epic_technical_spec = MagicMock()
         mock_cm.append_memory_bank_design = MagicMock()
-        mock_cm.clear_design_draft = MagicMock()
+        mock_cm.append_epic_design_bundle = MagicMock()
+        mock_cm.save_design_draft = MagicMock()
         gen = Phase2State.save_design.fn(state)
         _run_async_event(gen)
 
@@ -430,13 +560,23 @@ def test_save_design_writes_memory_bank():
         stories_in_epic=[{"story_id": 5, "title": "Login", "gherkin": "", "phase_status": "gherkin_locked"}],
         tech_spec_edit="spec",
         wireframes_edit="wireframes",
+        user_flow_edit="flowchart TD\n  A-->B",
+        component_tree_edit="App\n  Form",
         saving=False,
         save_error="",
+        gate1_approved=True,
+        gate2_approved=True,
+        existing_tech_stack="FastAPI",
+        gate0_approved=True,
+        selected_alternative_index=-1,
+        stack_alternatives=[],
+        tech_stack_edit="",
     )
     with patch("state.phase2.context_manager") as mock_cm:
         mock_cm.append_epic_technical_spec = MagicMock()
         mock_cm.append_memory_bank_design = MagicMock()
-        mock_cm.clear_design_draft = MagicMock()
+        mock_cm.append_epic_design_bundle = MagicMock()
+        mock_cm.save_design_draft = MagicMock()
         gen = Phase2State.save_design.fn(state)
         _run_async_event(gen)
 
@@ -445,25 +585,42 @@ def test_save_design_writes_memory_bank():
     )
 
 
-def test_save_design_clears_draft():
+def test_save_design_writes_bundle():
     state = _bare_state(
         Phase2State,
         selected_epic_id=1,
-        selected_epic_title="E",
+        selected_epic_title="Epic One",
         stories_in_epic=[{"story_id": 2, "title": "S", "gherkin": "", "phase_status": "gherkin_locked"}],
-        tech_spec_edit="spec",
-        wireframes_edit="w",
+        tech_spec_edit="openapi: '3.0'",
+        wireframes_edit="+-+\n|X|\n+-+",
+        user_flow_edit="flowchart TD\n  A-->B",
+        component_tree_edit="App\n  Form",
         saving=False,
         save_error="",
+        gate1_approved=True,
+        gate2_approved=True,
+        existing_tech_stack="FastAPI",
+        gate0_approved=True,
+        selected_alternative_index=-1,
+        stack_alternatives=[],
+        tech_stack_edit="",
     )
     with patch("state.phase2.context_manager") as mock_cm:
         mock_cm.append_epic_technical_spec = MagicMock()
         mock_cm.append_memory_bank_design = MagicMock()
-        mock_cm.clear_design_draft = MagicMock()
+        mock_cm.append_epic_design_bundle = MagicMock()
+        mock_cm.save_design_draft = MagicMock()
         gen = Phase2State.save_design.fn(state)
         _run_async_event(gen)
 
-    mock_cm.clear_design_draft.assert_called_once()
+    mock_cm.append_epic_design_bundle.assert_called_once_with(
+        1, "Epic One",
+        "+-+\n|X|\n+-+",
+        "flowchart TD\n  A-->B",
+        "App\n  Form",
+        "openapi: '3.0'",
+    )
+    mock_cm.clear_design_draft.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
