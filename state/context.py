@@ -15,6 +15,7 @@ class ContextState(ProjectState):
     func_spec_content: str = ""
     tech_spec_content: str = ""
     vaccines_content: str = ""
+    design_bundle_content: str = ""
     context_sizes: dict = {}
     context_error: str = ""
 
@@ -23,6 +24,7 @@ class ContextState(ProjectState):
     func_spec_md: bool = False
     tech_spec_md: bool = False
     vaccines_md: bool = False
+    design_bundle_md: bool = False
 
     # ── Computed vars ─────────────────────────────────────────────────────────
 
@@ -48,6 +50,7 @@ class ContextState(ProjectState):
             + len(self.func_spec_content)
             + len(self.tech_spec_content)
             + len(self.vaccines_content)
+            + len(self.design_bundle_content)
         )
 
     @rx.var
@@ -122,6 +125,10 @@ class ContextState(ProjectState):
     def vaccines_html(self) -> str:
         return self._to_html(self.vaccines_content)
 
+    @rx.var
+    def design_bundle_html(self) -> str:
+        return self._to_html(self.design_bundle_content)
+
     @rx.event
     def toggle_mem_bank_md(self):
         self.mem_bank_md = not self.mem_bank_md
@@ -137,6 +144,10 @@ class ContextState(ProjectState):
     @rx.event
     def toggle_vaccines_md(self):
         self.vaccines_md = not self.vaccines_md
+
+    @rx.event
+    def toggle_design_bundle_md(self):
+        self.design_bundle_md = not self.design_bundle_md
 
     # ── Load / reload ─────────────────────────────────────────────────────────
 
@@ -177,6 +188,7 @@ class ContextState(ProjectState):
             self.func_spec_content = context_manager.read_context_file("functional-spec.md")
             self.tech_spec_content = context_manager.read_context_file("technical-spec.md")
             self.vaccines_content = context_manager.get_vaccines()
+            self.design_bundle_content = context_manager.read_context_file("design-bundle.md")
             self.context_sizes = context_manager.get_context_sizes()
         except Exception:
             pass
@@ -200,6 +212,7 @@ class ContextState(ProjectState):
             self.func_spec_content = context_manager.read_context_file("functional-spec.md")
             self.tech_spec_content = context_manager.read_context_file("technical-spec.md")
             self.vaccines_content = context_manager.get_vaccines()
+            self.design_bundle_content = context_manager.read_context_file("design-bundle.md")
             self.context_sizes = context_manager.get_context_sizes()
         except Exception as exc:
             self.context_error = str(exc)
@@ -226,6 +239,11 @@ class ContextState(ProjectState):
         context_manager.write_context_file("vaccines.md", content)
         self.vaccines_content = content
 
+    @rx.event
+    def save_design_bundle(self, content: str):
+        context_manager.write_context_file("design-bundle.md", content)
+        self.design_bundle_content = content
+
     # ── Download ──────────────────────────────────────────────────────────────
 
     @rx.event
@@ -247,6 +265,11 @@ class ContextState(ProjectState):
     def download_vaccines(self):
         yield rx.download(data=self.vaccines_content.encode("utf-8"), filename="vaccines.md")
         yield rx.toast.success("vaccines.md exported")
+
+    @rx.event
+    def download_design_bundle(self):
+        yield rx.download(data=self.design_bundle_content.encode("utf-8"), filename="design-bundle.md")
+        yield rx.toast.success("design-bundle.md exported")
 
     # ── Reset confirmation ────────────────────────────────────────────────────
 
