@@ -43,7 +43,8 @@ class ProjectState(AuthState):
                 p = taiga_adapter.get_project()
                 self.project_name = p.get("name", "")
             except Exception:
-                self.active_project_id = 0
+                # Keep project active — transient Taiga error must not eject user from project
+                self.project_name = f"Project {saved_pid}"
 
     @rx.event
     def set_pending_project(self, project_id: int):

@@ -76,6 +76,7 @@ class AuthState(rx.State):
         self.taiga_username = ""
         self.taiga_email = ""
         taiga_adapter.clear_token()
+        return rx.redirect("/")
 
     @rx.event
     def toggle_theme(self):

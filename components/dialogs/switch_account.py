@@ -29,12 +29,14 @@ def switch_account_dialog() -> rx.Component:
                     ),
                     rx.text(AuthState.taiga_email, size="2", color_scheme="gray"),
                     rx.separator(width="100%"),
-                    rx.button(
-                        "Sign out",
-                        color_scheme="red",
-                        variant="soft",
-                        on_click=Phase1State.request_logout,
-                        width="100%",
+                    rx.dialog.close(
+                        rx.button(
+                            "Sign out",
+                            color_scheme="red",
+                            variant="soft",
+                            on_click=Phase1State.request_logout,
+                            width="100%",
+                        ),
                     ),
                     spacing="3",
                     width="100%",
