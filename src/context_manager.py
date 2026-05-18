@@ -13,7 +13,8 @@ import json
 import os
 import re
 from datetime import datetime, timezone
-from pathlib import Path
+
+from src.storage import StoragePath as Path
 
 _BASE_CONTEXTSPEC = Path("contextspec")
 _CONFIG_FILE      = _BASE_CONTEXTSPEC / ".apex-config.json"
