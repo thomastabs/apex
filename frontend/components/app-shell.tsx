@@ -11,7 +11,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className={theme === "dark" ? "min-h-screen bg-[#1b1b1c] text-neutral-100" : "min-h-screen bg-white text-slate-950"}>
       <div className="flex min-h-screen">
         <Sidebar />
-        <main className="min-w-0 flex-1">
+        <main className={theme === "dark" ? "min-w-0 flex-1" : "apex-main-light min-w-0 flex-1"}>
           <PhaseNav />
           {children}
         </main>

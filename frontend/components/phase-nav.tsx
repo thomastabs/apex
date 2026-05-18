@@ -33,7 +33,7 @@ export function PhaseNav() {
   const { data: stats } = useStoryIndexStats();
 
   return (
-    <nav className={cn("sticky top-0 z-40 flex h-[48px] border-b", dark ? "border-neutral-800 bg-[#1b1b1c]" : "border-slate-200 bg-[#fbfbfd]")}>
+    <nav className={cn("sticky top-0 z-40 flex h-[58px] border-b", dark ? "border-neutral-800 bg-[#1b1b1c]" : "border-[#d9dce6] bg-[#fbfbfd]")}>
       <Link
         href="/"
         className={cn(

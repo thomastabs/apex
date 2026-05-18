@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   ChevronDown,
@@ -257,15 +257,35 @@ function ContextEditor({
 }) {
   const [value, setValue] = useState(file.content);
   const [mdPreview, setMdPreview] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const update = useUpdateContextFile();
   const reset = useResetContextFile();
 
-  useEffect(() => { setValue(file.content); }, [file.content]);
+  useEffect(() => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    setValue(file.content);
+  }, [file.content]);
+
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
+  function handleChange(newValue: string) {
+    setValue(newValue);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null;
+      update.mutate({ filename: file.filename, content: newValue });
+    }, 700);
+  }
+
+  const statusLabel = update.isPending ? "Saving…" : update.isError ? "Error" : update.isSuccess ? "Saved" : "";
+  const statusColor = update.isError ? "text-red-400" : "text-neutral-500";
 
   return (
     <div className="border-t border-neutral-800">
-      <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-1">
-        <span className="text-xs text-neutral-500">{value.length} chars</span>
+      <div className="flex items-center gap-2 border-b border-neutral-800 px-3 py-1">
+        <span className="text-xs text-neutral-500">{value.length} ch</span>
+        {statusLabel ? <span className={cn("text-xs", statusColor)}>{statusLabel}</span> : null}
+        <div className="flex-1" />
         <button
           className={cn(
             "rounded px-2 py-0.5 text-xs",
@@ -282,22 +302,15 @@ function ContextEditor({
         <textarea
           className="h-56 w-full resize-y bg-neutral-950 p-3 font-mono text-xs leading-5 text-neutral-200 outline-none"
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => handleChange(e.target.value)}
         />
       )}
-      <div className="grid grid-cols-3 gap-2 p-2">
+      <div className="grid grid-cols-2 gap-2 p-2">
         <button
-          className="h-8 rounded bg-violet-700 text-xs font-semibold text-white disabled:opacity-50"
-          disabled={update.isPending}
-          onClick={() => update.mutate({ filename: file.filename, content: value })}
-        >
-          Save
-        </button>
-        <button
-          className="h-8 rounded bg-neutral-700 text-xs text-neutral-200 hover:bg-neutral-600"
+          className="flex h-8 items-center justify-center gap-1 rounded bg-neutral-700 text-xs text-neutral-200 hover:bg-neutral-600"
           onClick={() => downloadFile(file.filename, value)}
         >
-          <Download className="mr-1 inline size-3" />
+          <Download className="size-3" />
           Download
         </button>
         <button
@@ -307,7 +320,7 @@ function ContextEditor({
             onConfirm(`Reset ${file.label} to default?`, () => reset.mutate(file.filename))
           }
         >
-          Reset
+          Reset to default
         </button>
       </div>
     </div>
@@ -908,32 +921,7 @@ export function Sidebar() {
 
           {/* ── Context Files ── */}
           <section className="px-4 py-7">
-            <div className="mb-4 flex items-center justify-between">
-              <SectionTitle>Active Context</SectionTitle>
-              <div className="flex gap-2">
-                <button
-                  title="Reset all context files to defaults"
-                  className="rounded p-1 text-red-400 hover:bg-red-950/40 disabled:opacity-40"
-                  disabled={resetAll.isPending}
-                  onClick={() =>
-                    confirm("Reset ALL context files to defaults? This cannot be undone.", () => resetAll.mutate())
-                  }
-                >
-                  <Trash2 className="size-4" />
-                </button>
-                <button
-                  title="Rebuild story index"
-                  className="rounded p-1 text-neutral-400 hover:bg-neutral-800 disabled:opacity-40"
-                  disabled={rebuildIndex.isPending}
-                  onClick={() => rebuildIndex.mutate()}
-                >
-                  <RefreshCw className="size-4" />
-                </button>
-                <button onClick={() => contextFiles.refetch()} className="rounded p-1 text-neutral-400 hover:bg-neutral-800">
-                  <RefreshCw className="size-4 text-violet-400" />
-                </button>
-              </div>
-            </div>
+            <SectionTitle>Active Context</SectionTitle>
             <div className="mb-3 text-sm text-neutral-500">
               context:{" "}
               <span className="font-bold" style={{ color: sizeColor }}>
@@ -941,11 +929,11 @@ export function Sidebar() {
               </span>
             </div>
             {!hasProjectConcept && contextFiles.data ? (
-              <div className="mb-3 rounded border border-amber-700 bg-amber-950/30 px-2 py-1.5 text-xs text-amber-300">
-                Memory Bank lacks <code>## Project Concept</code>
+              <div className="mb-3 rounded border border-amber-700 bg-amber-950/30 px-3 py-2 text-sm text-amber-300">
+                Memory Bank lacks <code>## Project Concept</code>. Add one for best AI results.
               </div>
             ) : null}
-            <div className="space-y-3">
+            <div className="mb-4 space-y-3">
               {visibleFiles.map((file) => (
                 <div key={file.filename} className="rounded-md border border-neutral-800 bg-[#181719]">
                   <button
@@ -962,6 +950,33 @@ export function Sidebar() {
                   ) : null}
                 </div>
               ))}
+            </div>
+            <div className="space-y-2">
+              <button
+                className="flex h-9 w-full items-center justify-between rounded border border-neutral-800 px-3 text-sm text-neutral-300 hover:bg-neutral-800"
+                onClick={() => contextFiles.refetch()}
+              >
+                <span>Reload context</span>
+                <RefreshCw className="size-4 text-violet-400" />
+              </button>
+              <button
+                className="flex h-9 w-full items-center justify-between rounded border border-neutral-800 px-3 text-sm text-neutral-300 hover:bg-neutral-800 disabled:opacity-40"
+                disabled={rebuildIndex.isPending}
+                onClick={() => rebuildIndex.mutate()}
+              >
+                <span>Rebuild story index</span>
+                <RefreshCw className="size-4 text-neutral-400" />
+              </button>
+              <button
+                className="flex h-9 w-full items-center justify-between rounded border border-red-800/50 px-3 text-sm text-red-400 hover:bg-red-950/20 disabled:opacity-40"
+                disabled={resetAll.isPending}
+                onClick={() =>
+                  confirm("Reset ALL context files to defaults? This cannot be undone.", () => resetAll.mutate())
+                }
+              >
+                <span>Reset all context files</span>
+                <Trash2 className="size-4" />
+              </button>
             </div>
           </section>
         </>

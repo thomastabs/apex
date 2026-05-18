@@ -75,3 +75,161 @@ body {
   color: #111827 !important;
   border-color: #d1d5db !important;
 }
+
+/* Amber warning in sidebar */
+.apex-sidebar-light .bg-amber-950\/30 {
+  background-color: #fffbeb !important;
+}
+
+.apex-sidebar-light .text-amber-300 {
+  color: #b45309 !important;
+}
+
+.apex-sidebar-light .border-amber-700 {
+  border-color: #d97706 !important;
+}
+
+/* claude-sonnet-4-6 badge */
+.apex-sidebar-light .bg-indigo-950 {
+  background-color: #e0e7ff !important;
+}
+
+.apex-sidebar-light .text-indigo-200 {
+  color: #3730a3 !important;
+}
+
+/* Context editor buttons */
+.apex-sidebar-light .bg-neutral-700 {
+  background-color: #d1d5db !important;
+}
+
+.apex-sidebar-light .hover\:bg-neutral-600:hover,
+.apex-sidebar-light .hover\:bg-neutral-700:hover {
+  background-color: #9ca3af !important;
+}
+
+.apex-sidebar-light .bg-red-950\/70 {
+  background-color: #fecaca !important;
+}
+
+.apex-sidebar-light .text-red-300 {
+  color: #dc2626 !important;
+}
+
+.apex-sidebar-light .hover\:bg-red-950\/40:hover {
+  background-color: #fee2e2 !important;
+}
+
+/* ── Main content light mode ──────────────────────────────────────────────── */
+
+.apex-main-light .text-white:not([class*="bg-violet-6"]):not([class*="bg-violet-7"]):not([class*="bg-violet-8"]):not([class*="bg-indigo"]):not([class*="bg-red-7"]):not([class*="bg-emerald"]) {
+  color: #111827 !important;
+}
+
+.apex-main-light .text-neutral-100,
+.apex-main-light .text-neutral-200 {
+  color: #111827 !important;
+}
+
+.apex-main-light .text-neutral-300,
+.apex-main-light .text-neutral-400,
+.apex-main-light .text-neutral-500 {
+  color: #7c8194 !important;
+}
+
+.apex-main-light .text-violet-100,
+.apex-main-light .text-violet-200,
+.apex-main-light .text-violet-300,
+.apex-main-light .text-violet-400 {
+  color: #6f54d9 !important;
+}
+
+.apex-main-light .text-amber-200,
+.apex-main-light .text-amber-300 {
+  color: #b45309 !important;
+}
+
+.apex-main-light .text-red-300,
+.apex-main-light .text-red-400 {
+  color: #dc2626 !important;
+}
+
+.apex-main-light .bg-neutral-800 {
+  background-color: #f1f3f8 !important;
+}
+
+.apex-main-light .bg-neutral-900 {
+  background-color: #f8f9fc !important;
+}
+
+.apex-main-light .bg-neutral-950,
+.apex-main-light .bg-\[\#1f1f21\],
+.apex-main-light .bg-\[\#1b1b1c\] {
+  background-color: #ffffff !important;
+}
+
+.apex-main-light .border-neutral-700,
+.apex-main-light .border-neutral-800 {
+  border-color: #d9dce6 !important;
+}
+
+.apex-main-light .bg-violet-950\/60 {
+  background-color: #ede9fe !important;
+}
+
+.apex-main-light .bg-violet-950\/40 {
+  background-color: #f0ebff !important;
+}
+
+.apex-main-light .bg-violet-950 {
+  background-color: #ede9fe !important;
+}
+
+.apex-main-light .bg-violet-900\/60 {
+  background-color: #ddd6fe !important;
+}
+
+.apex-main-light .bg-amber-950\/40,
+.apex-main-light .bg-amber-950\/30 {
+  background-color: #fffbeb !important;
+}
+
+.apex-main-light .border-amber-700 {
+  border-color: #d97706 !important;
+}
+
+.apex-main-light .bg-red-950\/30 {
+  background-color: #fee2e2 !important;
+}
+
+.apex-main-light .border-red-800 {
+  border-color: #dc2626 !important;
+}
+
+.apex-main-light .bg-neutral-700 {
+  background-color: #e5e7f0 !important;
+}
+
+.apex-main-light .hover\:bg-neutral-800:hover {
+  background-color: #e5e7f0 !important;
+}
+
+.apex-main-light .hover\:bg-neutral-700:hover {
+  background-color: #d9dce6 !important;
+}
+
+.apex-main-light .hover\:bg-red-950:hover {
+  background-color: #fee2e2 !important;
+}
+
+.apex-main-light .hover\:bg-violet-900:hover {
+  background-color: #ddd6fe !important;
+}
+
+.apex-main-light textarea,
+.apex-main-light input,
+.apex-main-light select {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-color: #d1d5db !important;
+}

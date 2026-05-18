@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Download, ExternalLink, FilePlus2, Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { ChevronRight, Download, ExternalLink, FilePlus2, Info, Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import { Button, Callout, Input, SectionHeading, Textarea } from "@/components/ui/primitives";
 import {
   useCompileGherkin,
@@ -67,6 +67,7 @@ export function Phase1Workflow() {
   const [editedDescriptions, setEditedDescriptions] = useState<Record<number, string>>({});
   const [pushSuccess, setPushSuccess] = useState(false);
   const [showGherkin, setShowGherkin] = useState(false);
+  const [diagramOpen, setDiagramOpen] = useState(false);
   const draftRestored = useRef(false);
 
   const epics = usePhase1Epics();
@@ -162,6 +163,23 @@ export function Phase1Workflow() {
         <p className="mt-2 text-neutral-500">
           Mob Elaboration — transform an Epic into formal Gherkin Acceptance Criteria
         </p>
+      </div>
+
+      <div className="mb-6 rounded-md border border-neutral-800">
+        <button
+          className="flex w-full items-center gap-2 px-4 py-3 text-sm text-neutral-400 hover:text-neutral-300"
+          onClick={() => setDiagramOpen(!diagramOpen)}
+        >
+          <ChevronRight className={cn("size-4 transition-transform", diagramOpen && "rotate-90")} />
+          <Info className="size-4" />
+          <span>View Process Diagram (How this works)</span>
+        </button>
+        {diagramOpen ? (
+          <div className="border-t border-neutral-800 p-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/images/requirements.svg" alt="Phase 1 requirements process diagram" className="mx-auto max-w-full" />
+          </div>
+        ) : null}
       </div>
 
       {!hasProjectConcept && contextFiles.data ? (

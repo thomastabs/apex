@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, Code2, Compass, RefreshCw, RotateCcw, Save, Sparkles, Unlock } from "lucide-react";
+import { CheckCircle2, ChevronRight, Code2, Compass, Info, RefreshCw, RotateCcw, Save, Sparkles, Unlock } from "lucide-react";
 import { Button, Callout, Input, SectionHeading, Textarea } from "@/components/ui/primitives";
 import {
   useEligiblePhase2Epics,
@@ -78,6 +78,7 @@ export function Phase2Workflow() {
   const [stackHint, setStackHint] = useState("");
   const [bundleTab, setBundleTab] = useState<BundleTab>("ux");
   const [stackReopened, setStackReopened] = useState(false);
+  const [diagramOpen, setDiagramOpen] = useState(false);
   const techStack = useTechStackStatus();
   const eligibleEpics = useEligiblePhase2Epics();
   const proposeStack = useProposeTechStack();
@@ -146,6 +147,23 @@ export function Phase2Workflow() {
         <p className="mt-2 text-neutral-500">
           Design Lead + Tech Lead gate: visual prototype and OpenAPI spec per epic.
         </p>
+      </div>
+
+      <div className="mb-6 rounded-md border border-neutral-800">
+        <button
+          className="flex w-full items-center gap-2 px-4 py-3 text-sm text-neutral-400 hover:text-neutral-300"
+          onClick={() => setDiagramOpen(!diagramOpen)}
+        >
+          <ChevronRight className={cn("size-4 transition-transform", diagramOpen && "rotate-90")} />
+          <Info className="size-4" />
+          <span>View Process Diagram (How this works)</span>
+        </button>
+        {diagramOpen ? (
+          <div className="border-t border-neutral-800 p-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/images/design.svg" alt="Phase 2 design process diagram" className="mx-auto max-w-full" />
+          </div>
+        ) : null}
       </div>
 
       <div className="space-y-8 border-t border-neutral-700 pt-6">

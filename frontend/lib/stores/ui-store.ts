@@ -23,7 +23,7 @@ export const useUiStore = create<UiState>()(
       sidebarCollapsed: false,
       setTheme: (theme) => set({ theme }),
       toggleTheme: () => set({ theme: get().theme === "dark" ? "light" : "dark" }),
-      setSidebarWidth: (width) => set({ sidebarWidth: Math.min(640, Math.max(320, width)) }),
+      setSidebarWidth: (width) => set({ sidebarWidth: Math.min(900, Math.max(280, width)) }),
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
     }),
     { name: "apex-ui" },
