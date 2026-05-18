@@ -8,6 +8,7 @@ import {
   lockEpicDesign,
   lockTechStack,
   proposeTechStack,
+  refreshStoryIndex,
 } from "@/lib/api/phase2";
 import type {
   GenerateDesignBundleRequest,
@@ -74,6 +75,18 @@ export function useLockEpicDesign() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["phase2", "eligible-epics"] });
       void queryClient.invalidateQueries({ queryKey: ["phase2", "tech-stack-status"] });
+    },
+  });
+}
+
+export function useRefreshStoryIndex() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => refreshStoryIndex(context!),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["phase2", "eligible-epics"] });
     },
   });
 }

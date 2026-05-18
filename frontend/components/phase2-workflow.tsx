@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, Code2, Compass, Save, Sparkles } from "lucide-react";
+import { CheckCircle2, Code2, Compass, RefreshCw, RotateCcw, Save, Sparkles } from "lucide-react";
 import { Button, Callout, Input, SectionHeading, Textarea } from "@/components/ui/primitives";
 import {
   useEligiblePhase2Epics,
@@ -9,14 +9,41 @@ import {
   useLockEpicDesign,
   useLockTechStack,
   useProposeTechStack,
+  useRefreshStoryIndex,
   useTechStackStatus,
 } from "@/lib/hooks/use-phase2";
 import { usePhase2Store } from "@/lib/stores/phase2-store";
+import { useApiContext } from "@/lib/stores/session-store";
+import { MermaidBlock } from "@/components/mermaid-block";
 import { cn } from "@/lib/utils";
 
 type BundleTab = "ux" | "architecture";
 
+function draftKey(projectId: number | null, epicId: number | null) {
+  return `apex-phase2-draft-${projectId ?? "none"}-${epicId ?? "none"}`;
+}
+
+function saveBundleDraft(projectId: number | null, epicId: number | null, bundle: object | null) {
+  if (typeof window === "undefined") return;
+  if (!bundle || !epicId) {
+    localStorage.removeItem(draftKey(projectId, epicId));
+  } else {
+    localStorage.setItem(draftKey(projectId, epicId), JSON.stringify(bundle));
+  }
+}
+
+function loadBundleDraft(projectId: number | null, epicId: number | null): object | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(draftKey(projectId, epicId));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function Phase2Workflow() {
+  const context = useApiContext();
   const [stackHint, setStackHint] = useState("");
   const [bundleTab, setBundleTab] = useState<BundleTab>("ux");
   const techStack = useTechStackStatus();
@@ -25,6 +52,7 @@ export function Phase2Workflow() {
   const lockStack = useLockTechStack();
   const generateBundle = useGenerateDesignBundle();
   const lockDesign = useLockEpicDesign();
+  const refreshIndex = useRefreshStoryIndex();
 
   const {
     alternatives,
@@ -49,9 +77,30 @@ export function Phase2Workflow() {
     }
   }, [setTechStackDraft, techStack.data?.tech_stack, techStackDraft]);
 
+  // Restore bundle draft when epic changes
+  useEffect(() => {
+    if (!selectedEpic) return;
+    const saved = loadBundleDraft(context?.projectId ?? null, selectedEpic.epic_id);
+    if (saved && !designBundle) {
+      setDesignBundle(saved as Parameters<typeof setDesignBundle>[0]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEpic?.epic_id]);
+
+  // Persist bundle draft when it changes
+  useEffect(() => {
+    saveBundleDraft(context?.projectId ?? null, selectedEpic?.epic_id ?? null, designBundle);
+  }, [context?.projectId, selectedEpic?.epic_id, designBundle]);
+
   const stackDefined = Boolean(techStack.data?.defined);
-  const busy = proposeStack.isPending || lockStack.isPending || generateBundle.isPending || lockDesign.isPending;
+  const busy = proposeStack.isPending || lockStack.isPending || generateBundle.isPending || lockDesign.isPending || refreshIndex.isPending;
   const canSave = Boolean(selectedEpic && designBundle && designLeadApproved && techLeadApproved);
+
+  function clearDesign() {
+    setDesignBundle(null);
+    setDesignLeadApproved(false);
+    setTechLeadApproved(false);
+  }
 
   return (
     <section className="px-8 py-8">
@@ -60,10 +109,6 @@ export function Phase2Workflow() {
         <p className="mt-2 text-neutral-500">
           Design Lead + Tech Lead gate: visual prototype and OpenAPI spec per epic.
         </p>
-      </div>
-
-      <div className="mb-6 rounded-md border border-neutral-800 bg-[#1f1f21] px-4 py-3 text-sm text-neutral-500">
-        › ⓘ View Process Diagram (How this works)
       </div>
 
       <div className="space-y-8 border-t border-neutral-700 pt-6">
@@ -152,30 +197,62 @@ export function Phase2Workflow() {
                     {eligibleEpics.data?.map((epic) => (
                       <option key={epic.epic_id} value={epic.epic_id}>
                         {epic.epic_title} ({epic.story_count} stories)
+                        {epic.phase_status === "design_locked" ? " ✓" : ""}
                       </option>
                     ))}
                   </select>
                 </label>
-                <Button
-                  className="w-full"
-                  disabled={busy || !selectedEpic}
-                  onClick={() =>
-                    selectedEpic &&
-                    generateBundle.mutate(
-                      { epic_id: selectedEpic.epic_id },
-                      { onSuccess: (bundle) => setDesignBundle(bundle) },
-                    )
-                  }
-                >
-                  <Sparkles className="size-4" />
-                  Generate Design Bundle
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    className="flex-1"
+                    disabled={busy || !selectedEpic}
+                    onClick={() =>
+                      selectedEpic &&
+                      generateBundle.mutate(
+                        { epic_id: selectedEpic.epic_id },
+                        { onSuccess: (bundle) => setDesignBundle(bundle) },
+                      )
+                    }
+                  >
+                    <Sparkles className="size-4" />
+                    Generate
+                  </Button>
+                  <button
+                    className="flex items-center gap-1 rounded border border-neutral-700 px-3 py-2 text-sm text-neutral-300 hover:bg-neutral-800 disabled:opacity-40"
+                    disabled={busy}
+                    title="Refresh story index from Taiga"
+                    onClick={() =>
+                      refreshIndex.mutate(undefined, {
+                        onSuccess: () => eligibleEpics.refetch(),
+                      })
+                    }
+                  >
+                    <RefreshCw className="size-3" />
+                    Refresh
+                  </button>
+                  {designBundle ? (
+                    <button
+                      className="flex items-center gap-1 rounded border border-neutral-700 px-3 py-2 text-sm text-neutral-400 hover:bg-neutral-800"
+                      title="Clear current design"
+                      onClick={clearDesign}
+                    >
+                      <RotateCcw className="size-3" />
+                      Clear
+                    </button>
+                  ) : null}
+                </div>
               </div>
               <div className="rounded-md border border-neutral-800 bg-[#1f1f21] p-4 text-sm text-neutral-400">
                 {selectedEpic ? (
                   <>
                     <div className="font-semibold text-white">{selectedEpic.epic_title}</div>
                     <div>{selectedEpic.story_count} locked story/stories available for design.</div>
+                    <div className="mt-1 text-xs">
+                      Status:{" "}
+                      <span className={selectedEpic.phase_status === "design_locked" ? "text-emerald-400" : "text-violet-300"}>
+                        {selectedEpic.phase_status === "design_locked" ? "Design locked" : "Gherkin locked"}
+                      </span>
+                    </div>
                   </>
                 ) : (
                   "Select an epic with Phase 1 locked Gherkin stories."
@@ -210,21 +287,25 @@ export function Phase2Workflow() {
 
                 {bundleTab === "ux" ? (
                   <div className="grid gap-4 xl:grid-cols-2">
-                    <pre className="min-h-96 overflow-auto rounded-md border border-neutral-800 bg-neutral-950 p-4 text-xs leading-5 text-neutral-200">
-                      {designBundle.wireframes}
-                    </pre>
-                    <pre className="min-h-96 overflow-auto rounded-md border border-neutral-800 bg-neutral-950 p-4 text-xs leading-5 text-violet-100">
-                      {designBundle.user_flow}
-                    </pre>
+                    <div className="min-h-96 overflow-auto rounded-md border border-neutral-800 bg-neutral-950">
+                      <div className="border-b border-neutral-800 px-3 py-1.5 text-xs font-semibold text-neutral-400">Wireframes</div>
+                      <MermaidBlock content={designBundle.wireframes} className="p-4 text-xs leading-5 text-neutral-200" />
+                    </div>
+                    <div className="min-h-96 overflow-auto rounded-md border border-neutral-800 bg-neutral-950">
+                      <div className="border-b border-neutral-800 px-3 py-1.5 text-xs font-semibold text-neutral-400">User Flow</div>
+                      <MermaidBlock content={designBundle.user_flow} className="p-4 text-xs leading-5 text-violet-100" />
+                    </div>
                   </div>
                 ) : (
                   <div className="grid gap-4 xl:grid-cols-2">
-                    <pre className="min-h-96 overflow-auto rounded-md border border-neutral-800 bg-neutral-950 p-4 text-xs leading-5 text-neutral-200">
-                      {designBundle.component_tree}
-                    </pre>
-                    <pre className="min-h-96 overflow-auto rounded-md border border-neutral-800 bg-neutral-950 p-4 text-xs leading-5 text-neutral-200">
-                      {designBundle.tech_spec}
-                    </pre>
+                    <div className="min-h-96 overflow-auto rounded-md border border-neutral-800 bg-neutral-950">
+                      <div className="border-b border-neutral-800 px-3 py-1.5 text-xs font-semibold text-neutral-400">Component Tree</div>
+                      <MermaidBlock content={designBundle.component_tree} className="p-4 text-xs leading-5 text-neutral-200" />
+                    </div>
+                    <div className="min-h-96 overflow-auto rounded-md border border-neutral-800 bg-neutral-950">
+                      <div className="border-b border-neutral-800 px-3 py-1.5 text-xs font-semibold text-neutral-400">Tech Spec (OpenAPI)</div>
+                      <pre className="overflow-auto p-4 text-xs leading-5 text-neutral-200">{designBundle.tech_spec}</pre>
+                    </div>
                   </div>
                 )}
 
@@ -260,7 +341,7 @@ export function Phase2Workflow() {
                 {lockDesign.data ? (
                   <Callout>
                     Design locked for {lockDesign.data.story_ids.length} story/stories.
-                    {lockDesign.data.taiga_failures?.length ? ` ${lockDesign.data.taiga_failures.length} Taiga transition failed.` : ""}
+                    {lockDesign.data.taiga_failures?.length ? ` ${lockDesign.data.taiga_failures.length} Taiga transition(s) failed.` : ""}
                   </Callout>
                 ) : null}
               </div>

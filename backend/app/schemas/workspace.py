@@ -104,3 +104,21 @@ class UsersResponse(BaseModel):
 class InviteMemberRequest(BaseModel):
     username_or_email: str
     role_id: int
+
+
+class UpdateEpicRequest(BaseModel):
+    version: int
+    subject: str | None = None
+    description: str | None = None
+    tags: list[str] | None = None
+
+
+class UpdateStoryRequest(BaseModel):
+    version: int
+    subject: str | None = None
+    description: str | None = None
+    tags: list[str] | None = None
+
+
+class UpdateMemberRoleRequest(BaseModel):
+    role_id: int

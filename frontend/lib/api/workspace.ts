@@ -2,10 +2,12 @@ import { apiRequest } from "./client";
 import type {
   AuthContext,
   ContextFilesResponse,
+  Epic,
   EpicWithStories,
   Me,
   Project,
   RequestContext,
+  Story,
   UsersResponse,
 } from "./types";
 
@@ -100,6 +102,54 @@ export function createStory(context: RequestContext, epicId: number, subject: st
 export function deleteStory(context: RequestContext, storyId: number) {
   return apiRequest<unknown>(`/api/workspace/stories/${storyId}`, {
     method: "DELETE",
+    context,
+  });
+}
+
+export function updateEpic(
+  context: RequestContext,
+  epicId: number,
+  version: number,
+  fields: { subject?: string; description?: string; tags?: string[] },
+) {
+  return apiRequest<Epic>(`/api/workspace/epics/${epicId}`, {
+    method: "PUT",
+    context,
+    body: { version, ...fields },
+  });
+}
+
+export function updateStory(
+  context: RequestContext,
+  storyId: number,
+  version: number,
+  fields: { subject?: string; description?: string; tags?: string[] },
+) {
+  return apiRequest<Story>(`/api/workspace/stories/${storyId}`, {
+    method: "PUT",
+    context,
+    body: { version, ...fields },
+  });
+}
+
+export function removeMember(context: RequestContext, membershipId: number) {
+  return apiRequest<{ ok: boolean }>(`/api/workspace/users/members/${membershipId}`, {
+    method: "DELETE",
+    context,
+  });
+}
+
+export function updateMemberRole(context: RequestContext, membershipId: number, roleId: number) {
+  return apiRequest<unknown>(`/api/workspace/users/members/${membershipId}/role`, {
+    method: "PUT",
+    context,
+    body: { role_id: roleId },
+  });
+}
+
+export function rebuildStoryIndex(context: RequestContext) {
+  return apiRequest<{ ok: boolean }>("/api/workspace/context-files/rebuild-index", {
+    method: "POST",
     context,
   });
 }

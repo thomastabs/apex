@@ -104,3 +104,31 @@ class TaigaService:
 
     def get_story_url(self, story_ref: int | None) -> str | None:
         return taiga_adapter.get_story_url(story_ref)
+
+    def update_epic_fields(
+        self,
+        epic_id: int,
+        version: int,
+        *,
+        subject: str | None = None,
+        description: str | None = None,
+        tags: list[str] | None = None,
+    ) -> dict:
+        return taiga_adapter.update_epic(epic_id, version, subject=subject, description=description, tags=tags)
+
+    def update_story_subject(
+        self,
+        story_id: int,
+        version: int,
+        *,
+        subject: str | None = None,
+        description: str | None = None,
+        tags: list[str] | None = None,
+    ) -> dict:
+        return taiga_adapter.update_story(story_id, version, subject=subject, description=description, tags=tags)
+
+    def remove_member(self, membership_id: int) -> None:
+        taiga_adapter.delete_membership(membership_id)
+
+    def update_membership_role(self, membership_id: int, role_id: int) -> dict:
+        return taiga_adapter.update_membership_role(membership_id, role_id)

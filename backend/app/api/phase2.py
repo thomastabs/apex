@@ -112,3 +112,11 @@ def lock_epic_design(
         )
     except Exception as exc:
         _handle_error(exc)
+
+
+@router.post("/refresh-story-index")
+def refresh_story_index(ctx: RequestContext = Depends(get_request_context)):
+    from src import context_manager
+    context_manager.set_active_project(ctx.project_id)
+    context_manager.reset_cache()
+    return {"ok": True}

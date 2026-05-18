@@ -59,3 +59,10 @@ export function lockEpicDesign(context: RequestContext, body: LockEpicDesignRequ
     timeoutMs: 120_000,
   });
 }
+
+export function refreshStoryIndex(context: RequestContext) {
+  return apiRequest<{ ok: boolean }>("/api/phase2/refresh-story-index", {
+    method: "POST",
+    context,
+  });
+}

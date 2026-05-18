@@ -15,8 +15,13 @@ import {
   inviteUser,
   listProjects,
   login,
+  rebuildStoryIndex,
+  removeMember,
   resetContextFile,
   updateContextFile,
+  updateEpic,
+  updateMemberRole,
+  updateStory,
 } from "@/lib/api/workspace";
 import { useApiContext, useAuthContext } from "@/lib/stores/session-store";
 
@@ -174,6 +179,79 @@ export function useInviteUser() {
       inviteUser(context!, usernameOrEmail, roleId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "users"] });
+    },
+  });
+}
+
+export function useRemoveMember() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (membershipId: number) => removeMember(context!, membershipId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "users"] });
+    },
+  });
+}
+
+export function useUpdateMemberRole() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ membershipId, roleId }: { membershipId: number; roleId: number }) =>
+      updateMemberRole(context!, membershipId, roleId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "users"] });
+    },
+  });
+}
+
+export function useUpdateEpic() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      epicId,
+      version,
+      fields,
+    }: {
+      epicId: number;
+      version: number;
+      fields: { subject?: string; description?: string; tags?: string[] };
+    }) => updateEpic(context!, epicId, version, fields),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "board"] });
+      void queryClient.invalidateQueries({ queryKey: ["phase1", "epics"] });
+    },
+  });
+}
+
+export function useUpdateStory() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      storyId,
+      version,
+      fields,
+    }: {
+      storyId: number;
+      version: number;
+      fields: { subject?: string; description?: string; tags?: string[] };
+    }) => updateStory(context!, storyId, version, fields),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "board"] });
+    },
+  });
+}
+
+export function useRebuildStoryIndex() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => rebuildStoryIndex(context!),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["phase2", "eligible-epics"] });
     },
   });
 }

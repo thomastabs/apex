@@ -15,6 +15,9 @@ from backend.app.schemas.workspace import (
     MeResponse,
     ProjectSchema,
     UpdateContextFileRequest,
+    UpdateEpicRequest,
+    UpdateMemberRoleRequest,
+    UpdateStoryRequest,
     UsersResponse,
 )
 from backend.app.services.context_service import ContextService
@@ -163,6 +166,22 @@ def create_epic(payload: CreateEpicRequest, ctx: RequestContext = Depends(get_re
         raise _taiga_error(exc) from exc
 
 
+@router.put("/epics/{epic_id}")
+def update_epic(epic_id: int, payload: UpdateEpicRequest, ctx: RequestContext = Depends(get_request_context)):
+    taiga = TaigaService()
+    taiga.set_context(ctx.taiga_token, ctx.project_id)
+    try:
+        return taiga.update_epic_fields(
+            epic_id,
+            payload.version,
+            subject=payload.subject,
+            description=payload.description,
+            tags=payload.tags,
+        )
+    except TaigaAPIError as exc:
+        raise _taiga_error(exc) from exc
+
+
 @router.delete("/epics/{epic_id}")
 def delete_epic(epic_id: int, ctx: RequestContext = Depends(get_request_context)):
     taiga = TaigaService()
@@ -180,6 +199,22 @@ def create_story(payload: CreateStoryRequest, ctx: RequestContext = Depends(get_
     taiga.set_context(ctx.taiga_token, ctx.project_id)
     try:
         return taiga.create_story(payload.subject, payload.description, epic_id=payload.epic_id, tags=[], backlog_order=0)
+    except TaigaAPIError as exc:
+        raise _taiga_error(exc) from exc
+
+
+@router.put("/stories/{story_id}")
+def update_story(story_id: int, payload: UpdateStoryRequest, ctx: RequestContext = Depends(get_request_context)):
+    taiga = TaigaService()
+    taiga.set_context(ctx.taiga_token, ctx.project_id)
+    try:
+        return taiga.update_story_subject(
+            story_id,
+            payload.version,
+            subject=payload.subject,
+            description=payload.description,
+            tags=payload.tags,
+        )
     except TaigaAPIError as exc:
         raise _taiga_error(exc) from exc
 
@@ -213,3 +248,36 @@ def invite_user(payload: InviteMemberRequest, ctx: RequestContext = Depends(get_
         return taiga.invite_member(payload.username_or_email, payload.role_id)
     except TaigaAPIError as exc:
         raise _taiga_error(exc) from exc
+
+
+@router.delete("/users/members/{membership_id}")
+def remove_member(membership_id: int, ctx: RequestContext = Depends(get_request_context)):
+    taiga = TaigaService()
+    taiga.set_context(ctx.taiga_token, ctx.project_id)
+    try:
+        taiga.remove_member(membership_id)
+        return {"ok": True}
+    except TaigaAPIError as exc:
+        raise _taiga_error(exc) from exc
+
+
+@router.put("/users/members/{membership_id}/role")
+def update_member_role(
+    membership_id: int,
+    payload: UpdateMemberRoleRequest,
+    ctx: RequestContext = Depends(get_request_context),
+):
+    taiga = TaigaService()
+    taiga.set_context(ctx.taiga_token, ctx.project_id)
+    try:
+        return taiga.update_membership_role(membership_id, payload.role_id)
+    except TaigaAPIError as exc:
+        raise _taiga_error(exc) from exc
+
+
+@router.post("/context-files/rebuild-index")
+def rebuild_story_index(ctx: RequestContext = Depends(get_request_context)):
+    from src import context_manager
+    context_manager.set_active_project(ctx.project_id)
+    context_manager.rebuild_story_index()
+    return {"ok": True}

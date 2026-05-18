@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Download, FilePlus2, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Download, FilePlus2, Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import { Button, Callout, Input, SectionHeading, Textarea } from "@/components/ui/primitives";
 import {
   useCompileGherkin,
@@ -10,12 +10,39 @@ import {
   usePushPhase1Stories,
   useSuggestPhase1Epics,
 } from "@/lib/hooks/use-phase1";
+import { useApiContext } from "@/lib/stores/session-store";
 import type { CompiledStory, EpicSuggestion } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
 type Mode = "create" | "load" | "suggest";
 
+const SIZES = ["S", "M", "L", "XL"] as const;
+
+function draftKey(projectId: number | null) {
+  return `apex-phase1-draft-${projectId ?? "none"}`;
+}
+
+function loadDraft(projectId: number | null): { nlDraft: string; compiledStories: CompiledStory[] } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(draftKey(projectId));
+    return raw ? (JSON.parse(raw) as { nlDraft: string; compiledStories: CompiledStory[] }) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveDraft(projectId: number | null, nlDraft: string, compiledStories: CompiledStory[]) {
+  if (typeof window === "undefined") return;
+  if (!nlDraft && !compiledStories.length) {
+    localStorage.removeItem(draftKey(projectId));
+  } else {
+    localStorage.setItem(draftKey(projectId), JSON.stringify({ nlDraft, compiledStories }));
+  }
+}
+
 export function Phase1Workflow() {
+  const context = useApiContext();
   const [mode, setMode] = useState<Mode>("create");
   const [epicTitle, setEpicTitle] = useState("");
   const [epicDescription, setEpicDescription] = useState("");
@@ -24,12 +51,30 @@ export function Phase1Workflow() {
   const [nlDraft, setNlDraft] = useState("");
   const [compiledStories, setCompiledStories] = useState<CompiledStory[]>([]);
   const [selectedSuggestion, setSelectedSuggestion] = useState<number | null>(null);
+  const [pushSuccess, setPushSuccess] = useState(false);
+  const draftRestored = useRef(false);
 
   const epics = usePhase1Epics();
   const suggestEpics = useSuggestPhase1Epics();
   const generate = useGenerateNlStories();
   const compile = useCompileGherkin();
   const push = usePushPhase1Stories();
+
+  // Restore draft on mount / project change
+  useEffect(() => {
+    if (draftRestored.current) return;
+    const saved = loadDraft(context?.projectId ?? null);
+    if (saved) {
+      setNlDraft(saved.nlDraft);
+      setCompiledStories(saved.compiledStories);
+    }
+    draftRestored.current = true;
+  }, [context?.projectId]);
+
+  // Persist draft whenever it changes
+  useEffect(() => {
+    saveDraft(context?.projectId ?? null, nlDraft, compiledStories);
+  }, [context?.projectId, nlDraft, compiledStories]);
 
   const suggestions = suggestEpics.data?.epics ?? [];
   const activeEpic = useMemo(
@@ -38,12 +83,43 @@ export function Phase1Workflow() {
   );
   const canGenerate = mode === "load" ? Boolean(activeEpic) : Boolean(epicTitle.trim());
   const busy = generate.isPending || compile.isPending || push.isPending || suggestEpics.isPending;
+  const hasUnsaved = Boolean(nlDraft || compiledStories.length);
+
+  function requestModeSwitch(next: Mode) {
+    if (hasUnsaved && mode !== next) {
+      if (!window.confirm("Switch mode? Unsaved draft will be cleared.")) return;
+      setNlDraft("");
+      setCompiledStories([]);
+    }
+    setMode(next);
+  }
 
   function useSuggestion(suggestion: EpicSuggestion, index: number) {
     setSelectedSuggestion(index);
     setEpicTitle(suggestion.title);
     setEpicDescription(suggestion.description);
     setEpicId(null);
+  }
+
+  function cycleSize(index: number) {
+    setCompiledStories((stories) =>
+      stories.map((s, i) => {
+        if (i !== index) return s;
+        const next = SIZES[(SIZES.indexOf(s.size as (typeof SIZES)[number]) + 1) % SIZES.length];
+        return { ...s, size: next };
+      }),
+    );
+  }
+
+  function startNewEpic() {
+    setEpicTitle("");
+    setEpicDescription("");
+    setEpicId(null);
+    setHint("");
+    setNlDraft("");
+    setCompiledStories([]);
+    setPushSuccess(false);
+    setMode("create");
   }
 
   return (
@@ -55,9 +131,11 @@ export function Phase1Workflow() {
         </p>
       </div>
 
-      <div className="mb-6 rounded-md border border-neutral-800 bg-[#1f1f21] px-4 py-3 text-sm text-neutral-500">
-        › ⓘ View Process Diagram (How this works)
-      </div>
+      {hasUnsaved && (
+        <div className="mb-4 rounded-md border border-amber-700 bg-amber-950/40 px-4 py-2 text-sm text-amber-300">
+          Draft saved locally — work restored on refresh.
+        </div>
+      )}
 
       <div className="space-y-8 border-t border-neutral-700 pt-6">
         <section className="space-y-4">
@@ -70,7 +148,7 @@ export function Phase1Workflow() {
             ].map(({ value, Icon, label }) => (
               <button
                 key={String(value)}
-                onClick={() => setMode(value as Mode)}
+                onClick={() => requestModeSwitch(value as Mode)}
                 className={cn(
                   "inline-flex h-11 items-center justify-center gap-2 rounded text-sm text-neutral-400",
                   mode === value && "bg-violet-600 font-semibold text-white",
@@ -205,42 +283,76 @@ export function Phase1Workflow() {
         {compiledStories.length ? (
           <section className="space-y-4 border-t border-neutral-700 pt-6">
             <SectionHeading>Step 4 · Review Gherkin & Push to Taiga</SectionHeading>
-            {compiledStories.map((story, index) => (
-              <div key={`${story.title}-${index}`} className="rounded-md border border-neutral-800 bg-[#1f1f21] p-4">
-                <Input
-                  className="mb-3 font-semibold"
-                  value={story.title}
-                  onChange={(event) =>
-                    setCompiledStories((stories) =>
-                      stories.map((item, i) => (i === index ? { ...item, title: event.target.value } : item)),
-                    )
-                  }
-                />
-                <Textarea
-                  rows={10}
-                  value={story.gherkin}
-                  onChange={(event) =>
-                    setCompiledStories((stories) =>
-                      stories.map((item, i) => (i === index ? { ...item, gherkin: event.target.value } : item)),
-                    )
-                  }
-                />
-              </div>
-            ))}
-            <Button
-              disabled={busy}
-              onClick={() =>
-                push.mutate({
-                  epic_subject: epicTitle,
-                  epic_description: epicDescription,
-                  epic_id: epicId,
-                  stories: compiledStories,
-                })
-              }
+            <div className="space-y-4">
+              {compiledStories.map((story, index) => (
+                <div key={`${story.title}-${index}`} className="rounded-md border border-neutral-800 bg-[#1f1f21] p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Input
+                      className="flex-1 font-semibold"
+                      value={story.title}
+                      onChange={(event) =>
+                        setCompiledStories((stories) =>
+                          stories.map((item, i) => (i === index ? { ...item, title: event.target.value } : item)),
+                        )
+                      }
+                    />
+                    <button
+                      className="shrink-0 rounded border border-violet-700 bg-violet-950 px-3 py-1.5 text-xs font-bold text-violet-200 hover:bg-violet-900"
+                      title="Click to cycle size: S → M → L → XL"
+                      onClick={() => cycleSize(index)}
+                    >
+                      {story.size || "M"}
+                    </button>
+                    <button
+                      className="grid shrink-0 size-8 place-items-center rounded text-red-400 hover:bg-red-950"
+                      onClick={() => setCompiledStories((s) => s.filter((_, i) => i !== index))}
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                  <Textarea
+                    rows={10}
+                    value={story.gherkin}
+                    onChange={(event) =>
+                      setCompiledStories((stories) =>
+                        stories.map((item, i) => (i === index ? { ...item, gherkin: event.target.value } : item)),
+                      )
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+            <button
+              className="flex items-center gap-2 rounded border border-neutral-700 px-3 py-2 text-sm text-neutral-300 hover:bg-neutral-800"
+              onClick={() => setCompiledStories((s) => [...s, { title: "New Story", size: "M", gherkin: "Feature: \n\nScenario: \n  Given \n  When \n  Then " }])}
             >
-              Push Stories to Taiga
-            </Button>
-            {push.data ? <Callout>{push.data.count} stories pushed and locked in the functional spec.</Callout> : null}
+              <Plus className="size-4" /> Add Story
+            </button>
+            {pushSuccess ? (
+              <div className="space-y-4">
+                <Callout>{push.data?.count ?? 0} stories pushed and locked in the functional spec.</Callout>
+                <Button variant="secondary" onClick={startNewEpic}>
+                  <RefreshCw className="size-4" /> Start New Epic
+                </Button>
+              </div>
+            ) : (
+              <Button
+                disabled={busy}
+                onClick={() =>
+                  push.mutate(
+                    {
+                      epic_subject: epicTitle,
+                      epic_description: epicDescription,
+                      epic_id: epicId,
+                      stories: compiledStories,
+                    },
+                    { onSuccess: () => setPushSuccess(true) },
+                  )
+                }
+              >
+                Push Stories to Taiga
+              </Button>
+            )}
           </section>
         ) : null}
       </div>
