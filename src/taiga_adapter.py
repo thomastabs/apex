@@ -303,13 +303,16 @@ def get_epic(epic_id: int) -> dict:
     return normalize_epic(_get(f"epics/{epic_id}"))
 
 
-def create_epic(subject: str, description: str) -> dict:
+def create_epic(subject: str, description: str, *, tags: list[str] | None = None) -> dict:
     """Create a new Epic in the project and return a normalized dict (includes 'id')."""
-    raw = _post("epics", {
+    payload: dict = {
         "project": TAIGA_PROJECT_ID,
         "subject": subject,
         "description": description,
-    })
+    }
+    if tags:
+        payload["tags"] = tags
+    raw = _post("epics", payload)
     _logger.info("taiga.create_epic subject=%r id=%s", subject, raw.get("id"))
     return normalize_epic(raw)
 

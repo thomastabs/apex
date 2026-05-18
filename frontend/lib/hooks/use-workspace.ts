@@ -16,6 +16,7 @@ import {
   getUsers,
   inviteUser,
   listProjects,
+  listStoryStatuses,
   login,
   rebuildStoryIndex,
   removeMember,
@@ -135,12 +136,22 @@ export function useBoard() {
   });
 }
 
+export function useStoryStatuses() {
+  const context = useApiContext();
+  return useQuery({
+    queryKey: ["workspace", "story-statuses", context?.projectId],
+    queryFn: () => listStoryStatuses(context!),
+    enabled: Boolean(context),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export function useCreateEpic() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ subject, description }: { subject: string; description: string }) =>
-      createEpic(context!, subject, description),
+    mutationFn: ({ subject, description, tags }: { subject: string; description: string; tags?: string[] }) =>
+      createEpic(context!, subject, description, tags ?? []),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "board"] });
       void queryClient.invalidateQueries({ queryKey: ["phase1", "epics"] });
@@ -164,8 +175,10 @@ export function useCreateStory() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ epicId, subject, description }: { epicId: number; subject: string; description: string }) =>
-      createStory(context!, epicId, subject, description),
+    mutationFn: ({
+      epicId, subject, description, tags, statusId,
+    }: { epicId: number; subject: string; description: string; tags?: string[]; statusId?: number }) =>
+      createStory(context!, epicId, subject, description, tags ?? [], statusId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "board"] });
     },

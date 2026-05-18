@@ -33,8 +33,11 @@ class TaigaService:
     def get_epic(self, epic_id: int) -> dict:
         return taiga_adapter.get_epic(epic_id)
 
-    def create_epic(self, subject: str, description: str) -> dict:
-        return taiga_adapter.create_epic(subject, description)
+    def create_epic(self, subject: str, description: str, *, tags: list[str] | None = None) -> dict:
+        return taiga_adapter.create_epic(subject, description, tags=tags or [])
+
+    def get_story_statuses(self) -> list[dict]:
+        return taiga_adapter.get_story_statuses()
 
     def delete_epic_with_stories(self, epic_id: int) -> int:
         return taiga_adapter.delete_epic_with_stories(epic_id)

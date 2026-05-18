@@ -41,6 +41,7 @@ import {
   useResetContextFile,
   useSaveServerConfig,
   useServerConfig,
+  useStoryStatuses,
   useUpdateContextFile,
   useUpdateEpic,
   useUpdateMemberRole,
@@ -280,6 +281,175 @@ function StoryDialog({ story, onClose }: { story: Story; onClose: () => void }) 
             onClick={save}
           >
             {update.isPending ? "Saving…" : "Save"}
+          </button>
+          <button
+            className="flex-1 rounded bg-neutral-800 py-2 text-sm text-neutral-300 transition-colors hover:bg-neutral-700"
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CreateEpicDialog({ onClose }: { onClose: () => void }) {
+  const [subject, setSubject] = useState("");
+  const [description, setDescription] = useState("");
+  const [tagsInput, setTagsInput] = useState("");
+  const create = useCreateEpic();
+
+  function submit() {
+    if (!subject.trim()) return;
+    const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
+    create.mutate(
+      { subject: subject.trim(), description, tags },
+      { onSuccess: onClose },
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-md rounded-xl border border-neutral-700 bg-neutral-900 p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="mb-4 text-base font-bold text-white">Create New Epic</h3>
+        <div className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-400">
+              Title <span className="text-red-400">*</span>
+            </label>
+            <input
+              className="h-9 w-full rounded border border-violet-700 bg-neutral-950 px-3 text-sm text-white outline-none focus:border-violet-500"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Epic title"
+              autoFocus
+              onKeyDown={(e) => e.key === "Enter" && submit()}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-400">Description</label>
+            <textarea
+              className="h-28 w-full resize-none rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-200 outline-none focus:border-violet-500"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe this epic…"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-400">
+              Tags <span className="text-neutral-600">(comma-separated)</span>
+            </label>
+            <input
+              className="h-8 w-full rounded border border-neutral-700 bg-neutral-950 px-3 text-xs text-neutral-200 outline-none focus:border-violet-500"
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              placeholder="e.g. backend, auth, v2"
+            />
+          </div>
+        </div>
+        <div className="mt-5 flex gap-3">
+          <button
+            className="flex-1 rounded bg-violet-700 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-600 disabled:opacity-50"
+            disabled={create.isPending || !subject.trim()}
+            onClick={submit}
+          >
+            {create.isPending ? "Creating…" : "Create Epic"}
+          </button>
+          <button
+            className="flex-1 rounded bg-neutral-800 py-2 text-sm text-neutral-300 transition-colors hover:bg-neutral-700"
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CreateStoryDialog({ epicId, onClose }: { epicId: number; onClose: () => void }) {
+  const [subject, setSubject] = useState("");
+  const [description, setDescription] = useState("");
+  const [tagsInput, setTagsInput] = useState("");
+  const [statusId, setStatusId] = useState<number | undefined>(undefined);
+  const create = useCreateStory();
+  const statuses = useStoryStatuses();
+
+  function submit() {
+    if (!subject.trim()) return;
+    const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
+    create.mutate(
+      { epicId, subject: subject.trim(), description, tags, statusId },
+      { onSuccess: onClose },
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-md rounded-xl border border-neutral-700 bg-neutral-900 p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="mb-4 text-base font-bold text-white">Create New Story</h3>
+        <div className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-400">
+              Title <span className="text-red-400">*</span>
+            </label>
+            <input
+              className="h-9 w-full rounded border border-violet-700 bg-neutral-950 px-3 text-sm text-white outline-none focus:border-violet-500"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Story title"
+              autoFocus
+              onKeyDown={(e) => e.key === "Enter" && submit()}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-400">Description</label>
+            <textarea
+              className="h-24 w-full resize-none rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-200 outline-none focus:border-violet-500"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe this story…"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-400">
+              Tags <span className="text-neutral-600">(comma-separated)</span>
+            </label>
+            <input
+              className="h-8 w-full rounded border border-neutral-700 bg-neutral-950 px-3 text-xs text-neutral-200 outline-none focus:border-violet-500"
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              placeholder="e.g. frontend, sprint-1"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-400">Status</label>
+            <select
+              className="h-8 w-full rounded border border-neutral-700 bg-neutral-950 px-2 text-xs text-neutral-200 outline-none focus:border-violet-500"
+              value={statusId ?? ""}
+              onChange={(e) => setStatusId(e.target.value ? Number(e.target.value) : undefined)}
+            >
+              <option value="">Default</option>
+              {statuses.data?.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="mt-5 flex gap-3">
+          <button
+            className="flex-1 rounded bg-violet-700 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-600 disabled:opacity-50"
+            disabled={create.isPending || !subject.trim()}
+            onClick={submit}
+          >
+            {create.isPending ? "Creating…" : "Create Story"}
           </button>
           <button
             className="flex-1 rounded bg-neutral-800 py-2 text-sm text-neutral-300 transition-colors hover:bg-neutral-700"
@@ -678,6 +848,8 @@ export function Sidebar() {
   const [boardOpen, setBoardOpen] = useState(false);
   const [usersOpen, setUsersOpen] = useState(false);
   const [contextOpen, setContextOpen] = useState(true);
+  const [createEpicOpen, setCreateEpicOpen] = useState(false);
+  const [createStoryEpicId, setCreateStoryEpicId] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
   const dragSourceRef = useRef<string | null>(null);
   const [expandedEpic, setExpandedEpic] = useState<number | null>(null);
@@ -823,6 +995,10 @@ export function Sidebar() {
           />
           {dialogEpic ? <EpicDialog epic={dialogEpic} onClose={() => setDialogEpic(null)} /> : null}
           {dialogStory ? <StoryDialog story={dialogStory} onClose={() => setDialogStory(null)} /> : null}
+          {createEpicOpen ? <CreateEpicDialog onClose={() => setCreateEpicOpen(false)} /> : null}
+          {createStoryEpicId !== null ? (
+            <CreateStoryDialog epicId={createStoryEpicId} onClose={() => setCreateStoryEpicId(null)} />
+          ) : null}
         </>,
         document.body,
       ) : null}
@@ -950,10 +1126,7 @@ export function Sidebar() {
                         <div className="flex gap-2">
                           <button
                             className="flex items-center gap-1 rounded border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-400 transition-colors hover:bg-violet-500/20"
-                            onClick={() => {
-                              const subject = window.prompt("Epic title");
-                              if (subject?.trim()) createEpic.mutate({ subject: subject.trim(), description: "" });
-                            }}
+                            onClick={() => setCreateEpicOpen(true)}
                           >
                             <Plus className="size-3" /> Create New Epic
                           </button>
@@ -996,10 +1169,7 @@ export function Sidebar() {
                             <div className="mt-2 space-y-2 pl-4 text-neutral-300">
                               <button
                                 className="flex items-center gap-1 rounded border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-xs font-semibold text-violet-400 transition-colors hover:bg-violet-500/20"
-                                onClick={() => {
-                                  const subject = window.prompt("Story title");
-                                  if (subject?.trim()) createStory.mutate({ epicId: epic.id, subject: subject.trim(), description: "" });
-                                }}
+                                onClick={() => setCreateStoryEpicId(epic.id)}
                               >
                                 <Plus className="size-3" /> Story
                               </button>

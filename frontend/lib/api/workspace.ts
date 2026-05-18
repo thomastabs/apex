@@ -88,11 +88,15 @@ export function inviteUser(context: RequestContext, usernameOrEmail: string, rol
   });
 }
 
-export function createEpic(context: RequestContext, subject: string, description: string) {
+export function listStoryStatuses(context: RequestContext) {
+  return apiRequest<Array<{ id: number; name: string; color: string; is_closed: boolean }>>("/api/workspace/story-statuses", { context });
+}
+
+export function createEpic(context: RequestContext, subject: string, description: string, tags: string[] = []) {
   return apiRequest<unknown>("/api/workspace/epics", {
     method: "POST",
     context,
-    body: { subject, description },
+    body: { subject, description, tags },
   });
 }
 
@@ -103,11 +107,18 @@ export function deleteEpic(context: RequestContext, epicId: number) {
   });
 }
 
-export function createStory(context: RequestContext, epicId: number, subject: string, description: string) {
+export function createStory(
+  context: RequestContext,
+  epicId: number,
+  subject: string,
+  description: string,
+  tags: string[] = [],
+  statusId?: number,
+) {
   return apiRequest<unknown>("/api/workspace/stories", {
     method: "POST",
     context,
-    body: { epic_id: epicId, subject, description },
+    body: { epic_id: epicId, subject, description, tags, status_id: statusId ?? null },
   });
 }
 

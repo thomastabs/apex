@@ -56,12 +56,15 @@ class EpicWithStoriesSchema(BaseModel):
 class CreateEpicRequest(BaseModel):
     subject: str
     description: str = ""
+    tags: list[str] = Field(default_factory=list)
 
 
 class CreateStoryRequest(BaseModel):
     subject: str
     description: str = ""
     epic_id: int
+    tags: list[str] = Field(default_factory=list)
+    status_id: int | None = None
 
 
 class ContextFileSchema(BaseModel):

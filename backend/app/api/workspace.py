@@ -22,6 +22,7 @@ from backend.app.schemas.workspace import (
 )
 from backend.app.services.context_service import ContextService
 from backend.app.services.taiga_service import TaigaService
+from src import taiga_adapter
 from src.taiga_adapter import TaigaAPIError
 
 router = APIRouter()
@@ -172,12 +173,22 @@ def get_board(ctx: RequestContext = Depends(get_request_context)):
         raise _taiga_error(exc) from exc
 
 
+@router.get("/story-statuses")
+def list_story_statuses(ctx: RequestContext = Depends(get_request_context)):
+    taiga = TaigaService()
+    taiga.set_context(ctx.taiga_token, ctx.project_id)
+    try:
+        return taiga.get_story_statuses()
+    except TaigaAPIError as exc:
+        raise _taiga_error(exc) from exc
+
+
 @router.post("/epics")
 def create_epic(payload: CreateEpicRequest, ctx: RequestContext = Depends(get_request_context)):
     taiga = TaigaService()
     taiga.set_context(ctx.taiga_token, ctx.project_id)
     try:
-        return taiga.create_epic(payload.subject, payload.description)
+        return taiga.create_epic(payload.subject, payload.description, tags=payload.tags)
     except TaigaAPIError as exc:
         raise _taiga_error(exc) from exc
 
@@ -217,7 +228,19 @@ def create_story(payload: CreateStoryRequest, ctx: RequestContext = Depends(get_
     taiga = TaigaService()
     taiga.set_context(ctx.taiga_token, ctx.project_id)
     try:
-        return taiga.create_story(payload.subject, payload.description, epic_id=payload.epic_id, tags=[], backlog_order=0)
+        story = taiga.create_story(
+            payload.subject,
+            payload.description,
+            epic_id=payload.epic_id,
+            tags=payload.tags,
+            backlog_order=0,
+        )
+        if payload.status_id:
+            try:
+                story = taiga_adapter.update_story_status(story["id"], payload.status_id, story["version"])
+            except Exception:
+                pass
+        return story
     except TaigaAPIError as exc:
         raise _taiga_error(exc) from exc
 
