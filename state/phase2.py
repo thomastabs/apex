@@ -398,9 +398,12 @@ class Phase2State(ProjectState):
             async with self:
                 self.generation_log = self.generation_log + [log_msg]
 
-            result = await asyncio.to_thread(
-                ai_engine.generate_phase2_design,
-                epic_title, stories, mb_context, cross_epic_context,
+            result = await asyncio.wait_for(
+                asyncio.to_thread(
+                    ai_engine.generate_phase2_design,
+                    epic_title, stories, mb_context, cross_epic_context,
+                ),
+                timeout=480,  # 8 min — well under Azure's 1800s ingress limit
             )
 
             async with self:
@@ -415,6 +418,10 @@ class Phase2State(ProjectState):
                 self.generation_log = self.generation_log + ["Design bundle generated. Review and approve each section."]
                 self._save_draft()
             _success = True
+        except asyncio.TimeoutError:
+            _logger.warning("run_generate timed out after 480s")
+            async with self:
+                self.generate_error = "Generation timed out (>8 min). Try a smaller epic or fewer stories."
         except Exception as exc:
             _logger.warning("run_generate error: %s", exc)
             async with self:
@@ -516,6 +523,14 @@ class Phase2State(ProjectState):
         self.generation_log = []
         context_manager.clear_design_draft()
         yield rx.toast.info("Design draft reset")
+
+    @rx.event
+    def refresh_epic_stories(self):
+        """Invalidate story index cache and re-sync current epic from storage + Taiga."""
+        if self.selected_epic_id <= 0:
+            return
+        context_manager.reset_cache()
+        yield Phase2State.select_epic(str(self.selected_epic_id))
 
     @rx.event
     def restore_draft(self):

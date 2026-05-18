@@ -966,10 +966,18 @@ def _delete_confirm_dialog() -> rx.Component:
     return rx.dialog.root(
         rx.dialog.content(
             rx.dialog.title("Delete Permanently?"),
-            rx.callout(
-                "This action cannot be undone. The epic and all its stories will be permanently deleted from Taiga.",
-                color="red",
-                size="2",
+            rx.cond(
+                BoardState.delete_confirm_is_story,
+                rx.callout(
+                    "This action cannot be undone. The story will be permanently deleted from Taiga.",
+                    color="red",
+                    size="2",
+                ),
+                rx.callout(
+                    "This action cannot be undone. The epic and all its stories will be permanently deleted from Taiga.",
+                    color="red",
+                    size="2",
+                ),
             ),
             rx.hstack(
                 rx.button(

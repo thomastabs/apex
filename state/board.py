@@ -275,6 +275,7 @@ class BoardState(ProjectState):
     # ── Delete confirmation ───────────────────────────────────────────────────
 
     delete_confirm_open: bool = False
+    delete_confirm_is_story: bool = False
     _delete_confirm_type: str = ""   # "epic" or "story"
     _delete_confirm_epic_id: int = 0
     _delete_confirm_story_id: int = 0
@@ -283,12 +284,14 @@ class BoardState(ProjectState):
     @rx.event
     def open_delete_epic_confirm(self, epic_id: int):
         self._delete_confirm_type = "epic"
+        self.delete_confirm_is_story = False
         self._delete_confirm_epic_id = epic_id
         self.delete_confirm_open = True
 
     @rx.event
     def open_delete_story_confirm(self, story_id: int, epic_id: int):
         self._delete_confirm_type = "story"
+        self.delete_confirm_is_story = True
         self._delete_confirm_story_id = story_id
         self._delete_confirm_story_epic_id = epic_id
         self.delete_confirm_open = True

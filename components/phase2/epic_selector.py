@@ -123,8 +123,29 @@ def epic_selector_section() -> rx.Component:
         rx.cond(
             Phase2State.selected_epic_id > 0,
             rx.vstack(
-                rx.text("Stories in this Epic", size="2", weight="medium",
-                        color=rx.color("gray", 10)),
+                rx.hstack(
+                    rx.text("Stories in this Epic", size="2", weight="medium",
+                            color=rx.color("gray", 10)),
+                    rx.spacer(),
+                    rx.button(
+                        rx.icon("refresh-cw", size=13),
+                        "Refresh",
+                        size="1",
+                        variant="soft",
+                        color_scheme="gray",
+                        on_click=Phase2State.refresh_epic_stories,
+                    ),
+                    rx.button(
+                        rx.icon("trash-2", size=13),
+                        "Clear Design",
+                        size="1",
+                        variant="soft",
+                        color_scheme="red",
+                        on_click=Phase2State.reset_story,
+                    ),
+                    align="center",
+                    width="100%",
+                ),
                 rx.foreach(Phase2State.stories_in_epic, _story_gherkin_card),
                 rx.cond(
                     Phase2State.selected_epic_no_locked_stories,
