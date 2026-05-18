@@ -8,6 +8,7 @@ import {
   deleteEpic,
   deleteProject,
   deleteStory,
+  getAiConfig,
   getBoard,
   getContextFiles,
   getMe,
@@ -22,6 +23,7 @@ import {
   removeMember,
   resetAllContextFiles,
   resetContextFile,
+  saveAiConfig,
   saveServerConfig,
   updateContextFile,
   updateEpic,
@@ -307,6 +309,28 @@ export function useResetAllContextFiles() {
     mutationFn: () => resetAllContextFiles(context!),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "context-files"] });
+    },
+  });
+}
+
+export function useAiConfig() {
+  const auth = useAuthContext();
+  return useQuery({
+    queryKey: ["workspace", "ai-config"],
+    queryFn: () => getAiConfig(auth!),
+    enabled: Boolean(auth),
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useSaveAiConfig() {
+  const auth = useAuthContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ fast_model, coder_model }: { fast_model: string; coder_model: string }) =>
+      saveAiConfig(auth!, fast_model, coder_model),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "ai-config"] });
     },
   });
 }

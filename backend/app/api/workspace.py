@@ -52,9 +52,35 @@ def _me_payload(me: dict) -> dict:
 
 @router.get("/config")
 def get_config(auth: AuthContext = Depends(get_auth_context)):
-    from src import context_manager
+    from src import context_manager, taiga_adapter
     config = context_manager.load_config()
-    return {"project_id": config.get("project_id")}
+    return {
+        "project_id": config.get("project_id"),
+        "taiga_web_url": taiga_adapter._web_base_url(),
+    }
+
+
+@router.get("/ai-config")
+def get_ai_config(auth: AuthContext = Depends(get_auth_context)):
+    from src.ai_engine import AVAILABLE_MODELS, get_coder_model, get_fast_model
+    return {
+        "fast_model": get_fast_model(),
+        "coder_model": get_coder_model(),
+        "available_models": AVAILABLE_MODELS,
+    }
+
+
+@router.post("/ai-config")
+def save_ai_config_endpoint(payload: dict, auth: AuthContext = Depends(get_auth_context)):
+    from src import context_manager
+    from src.ai_engine import AVAILABLE_MODELS, get_coder_model, get_fast_model
+    valid_ids = {m["id"] for m in AVAILABLE_MODELS}
+    fast = payload.get("fast_model") or get_fast_model()
+    coder = payload.get("coder_model") or get_coder_model()
+    if fast not in valid_ids or coder not in valid_ids:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid model ID.")
+    context_manager.save_ai_config(fast, coder)
+    return {"fast_model": fast, "coder_model": coder}
 
 
 @router.post("/config")

@@ -86,11 +86,31 @@ def check_api_key() -> None:
         raise EnvironmentError("ANTHROPIC_API_KEY is not set. Add it to your .env file.")
 
 
+AVAILABLE_MODELS: list[dict] = [
+    {"id": "claude-haiku-4-5-20251001", "label": "Claude Haiku 4.5", "role": "Fast"},
+    {"id": "claude-sonnet-4-6",         "label": "Claude Sonnet 4.6", "role": "Smart"},
+]
+
+
 def get_fast_model() -> str:
+    try:
+        from src.context_manager import load_config  # lazy to avoid circular at module level
+        cfg = load_config()
+        if cfg.get("ai_model_fast"):
+            return cfg["ai_model_fast"]
+    except Exception:
+        pass
     return os.getenv("AI_MODEL_FAST", _DEFAULT_FAST)
 
 
 def get_coder_model() -> str:
+    try:
+        from src.context_manager import load_config
+        cfg = load_config()
+        if cfg.get("ai_model_coder"):
+            return cfg["ai_model_coder"]
+    except Exception:
+        pass
     return os.getenv("AI_MODEL_CODER", _DEFAULT_CODER)
 
 

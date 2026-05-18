@@ -12,7 +12,25 @@ import type {
 } from "./types";
 
 export function getServerConfig(context: AuthContext) {
-  return apiRequest<{ project_id: number | null }>("/api/workspace/config", { context });
+  return apiRequest<{ project_id: number | null; taiga_web_url: string }>("/api/workspace/config", { context });
+}
+
+export type AiConfigResponse = {
+  fast_model: string;
+  coder_model: string;
+  available_models: Array<{ id: string; label: string; role: string }>;
+};
+
+export function getAiConfig(context: AuthContext) {
+  return apiRequest<AiConfigResponse>("/api/workspace/ai-config", { context });
+}
+
+export function saveAiConfig(context: AuthContext, fast_model: string, coder_model: string) {
+  return apiRequest<{ fast_model: string; coder_model: string }>("/api/workspace/ai-config", {
+    method: "POST",
+    context,
+    body: { fast_model, coder_model },
+  });
 }
 
 export function saveServerConfig(context: AuthContext, projectId: number) {

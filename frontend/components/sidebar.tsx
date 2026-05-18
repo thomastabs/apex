@@ -4,9 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import {
+  Bot,
+  BookOpen,
   ChevronDown,
   ChevronRight,
   Download,
+  ExternalLink,
   FileText,
   FolderOpen,
   GripVertical,
@@ -19,10 +22,12 @@ import {
   Send,
   Sun,
   Trash2,
+  UserPlus,
   Users,
   Zap,
 } from "lucide-react";
 import {
+  useAiConfig,
   useBoard,
   useContextFiles,
   useCreateEpic,
@@ -39,6 +44,7 @@ import {
   useRemoveMember,
   useResetAllContextFiles,
   useResetContextFile,
+  useSaveAiConfig,
   useSaveServerConfig,
   useServerConfig,
   useStoryStatuses,
@@ -53,6 +59,13 @@ import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
 import type { Epic, Story } from "@/lib/api/types";
 import { ApiError } from "@/lib/api/client";
+
+// ── constants ─────────────────────────────────────────────────────────────────
+
+const FALLBACK_MODELS = [
+  { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", role: "Fast" },
+  { id: "claude-sonnet-4-6",         label: "Claude Sonnet 4.6", role: "Smart" },
+];
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -677,7 +690,7 @@ function useVisibleContextFiles(
 
 // ── Login section ────────────────────────────────────────────────────────────
 
-function LoginSection() {
+function LoginSection({ taigaWebUrl }: { taigaWebUrl: string }) {
   const setAuth = useSessionStore((state) => state.setAuth);
   const clearSession = useSessionStore((state) => state.clearSession);
   const taigaToken = useSessionStore((state) => state.taigaToken);
@@ -787,6 +800,15 @@ function LoginSection() {
         <Send className="size-4" />
         {login.isPending ? "Signing in..." : "Sign in"}
       </button>
+      <a
+        href={taigaWebUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center justify-center gap-1.5 text-xs text-neutral-400 transition-colors hover:text-violet-300"
+      >
+        <UserPlus className="size-3" />
+        Create a Taiga account
+      </a>
     </div>
   );
 }
@@ -848,6 +870,10 @@ export function Sidebar() {
   const [boardOpen, setBoardOpen] = useState(false);
   const [usersOpen, setUsersOpen] = useState(false);
   const [contextOpen, setContextOpen] = useState(true);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [resourcesOpen, setResourcesOpen] = useState(false);
+  const [localFastModel, setLocalFastModel] = useState("");
+  const [localCoderModel, setLocalCoderModel] = useState("");
   const [createEpicOpen, setCreateEpicOpen] = useState(false);
   const [createStoryEpicId, setCreateStoryEpicId] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
@@ -880,6 +906,27 @@ export function Sidebar() {
   const rebuildIndex = useRebuildStoryIndex();
   const resetAll = useResetAllContextFiles();
   const saveServerConfig = useSaveServerConfig();
+  const aiConfig = useAiConfig();
+  const saveAiConfigMutation = useSaveAiConfig();
+
+  const serverConfig = useServerConfig();
+  const taigaWebUrl = serverConfig.data?.taiga_web_url ?? "https://tree.taiga.io";
+  const availableModels = aiConfig.data?.available_models ?? FALLBACK_MODELS;
+
+  // Migrate stored section order when new section IDs are added
+  useEffect(() => {
+    const known = ["project", "board", "users", "context", "ai", "resources"];
+    const missing = known.filter((id) => !sectionOrder.includes(id));
+    if (missing.length) setSectionOrder([...sectionOrder, ...missing]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (aiConfig.data) {
+      setLocalFastModel(aiConfig.data.fast_model);
+      setLocalCoderModel(aiConfig.data.coder_model);
+    }
+  }, [aiConfig.data]);
 
   const projectOptions = useMemo(() => projects.data ?? [], [projects.data]);
   const activeProjectName = projectName || (projectId ? `Project ${projectId}` : "No project selected");
@@ -1018,29 +1065,30 @@ export function Sidebar() {
 
       {/* ── Account ── */}
       <section className="border-b border-neutral-800 px-4 py-5">
-        <div className="mb-4 flex gap-2">
+        <div className="mb-4 flex flex-wrap gap-2">
           <span className="inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/15 px-2 py-1 text-xs font-medium text-emerald-500">
             <Zap className="size-3" />
             Anthropic
           </span>
           <span className="rounded border border-violet-400/40 bg-violet-500/10 px-2 py-1 font-mono text-xs text-violet-400">
-            claude-sonnet-4-6
+            {aiConfig.data?.coder_model ?? "claude-sonnet-4-6"}
           </span>
+          {aiConfig.data && aiConfig.data.fast_model !== aiConfig.data.coder_model ? (
+            <span className="rounded border border-neutral-700 bg-neutral-800/50 px-2 py-1 font-mono text-xs text-neutral-400">
+              {aiConfig.data.fast_model} (fast)
+            </span>
+          ) : null}
         </div>
-        <LoginSection />
+        <LoginSection taigaWebUrl={taigaWebUrl} />
       </section>
 
       {/* ── Draggable sections ── */}
-      {!taigaToken ? (
-        <section className="px-4 py-7">
-          <p className="text-sm leading-6 text-neutral-500">
-            Sign in and select a project to view the board, users, and context files.
-          </p>
-        </section>
-      ) : (
-        sectionOrder.map((id) => {
+      {sectionOrder.map((id) => {
           const isOver = dragOver === id;
           const dragHandlers = makeDragSectionProps(id);
+
+          // ai / resources are auth-free; everything below requires a session
+          if (id !== "ai" && id !== "resources" && !taigaToken) return null;
 
           if (id === "project") {
             return (
@@ -1392,9 +1440,134 @@ export function Sidebar() {
             );
           }
 
+          // ── AI Models ─────────────────────────────────────────────────────
+          if (id === "ai") {
+            return (
+              <div key="ai" {...dragHandlers} className={cn("transition-all", isOver && "outline outline-2 outline-violet-500 outline-offset-[-2px]")}>
+                <section className="border-b border-neutral-800">
+                  <PanelHeader
+                    icon={<Bot className="size-4" />}
+                    title="AI Models"
+                    open={aiOpen}
+                    onClick={() => setAiOpen(!aiOpen)}
+                    onDragStart={makeDragStartHandler("ai")}
+                  />
+                  {aiOpen ? (
+                    <div className="space-y-4 bg-[#181719] px-4 py-4 text-sm">
+                      <div>
+                        <label className="mb-1.5 block text-xs font-semibold text-neutral-400">
+                          Discovery & Breakdown
+                        </label>
+                        <select
+                          className="h-9 w-full rounded border border-neutral-600 bg-neutral-950 px-2 text-sm text-white"
+                          value={localFastModel || (aiConfig.data?.fast_model ?? FALLBACK_MODELS[0].id)}
+                          onChange={(e) => setLocalFastModel(e.target.value)}
+                        >
+                          {availableModels.map((m) => (
+                            <option key={m.id} value={m.id}>{m.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-xs font-semibold text-neutral-400">
+                          Architecture & Design
+                        </label>
+                        <select
+                          className="h-9 w-full rounded border border-neutral-600 bg-neutral-950 px-2 text-sm text-white"
+                          value={localCoderModel || (aiConfig.data?.coder_model ?? FALLBACK_MODELS[1].id)}
+                          onChange={(e) => setLocalCoderModel(e.target.value)}
+                        >
+                          {availableModels.map((m) => (
+                            <option key={m.id} value={m.id}>{m.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <button
+                        className="h-8 w-full rounded bg-violet-700 text-sm font-semibold text-white transition-colors hover:bg-violet-600 disabled:opacity-50"
+                        disabled={saveAiConfigMutation.isPending || !taigaToken}
+                        onClick={() =>
+                          saveAiConfigMutation.mutate({
+                            fast_model: localFastModel || FALLBACK_MODELS[0].id,
+                            coder_model: localCoderModel || FALLBACK_MODELS[1].id,
+                          })
+                        }
+                      >
+                        {!taigaToken ? "Sign in to save" : saveAiConfigMutation.isPending ? "Saving…" : "Save"}
+                      </button>
+                      {saveAiConfigMutation.isSuccess ? (
+                        <p className="text-center text-xs text-emerald-400">Model config saved.</p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </section>
+              </div>
+            );
+          }
+
+          // ── Resources ──────────────────────────────────────────────────────
+          if (id === "resources") {
+            return (
+              <div key="resources" {...dragHandlers} className={cn("transition-all", isOver && "outline outline-2 outline-violet-500 outline-offset-[-2px]")}>
+                <section className="border-b border-neutral-800">
+                  <PanelHeader
+                    icon={<BookOpen className="size-4" />}
+                    title="Resources"
+                    open={resourcesOpen}
+                    onClick={() => setResourcesOpen(!resourcesOpen)}
+                    onDragStart={makeDragStartHandler("resources")}
+                  />
+                  {resourcesOpen ? (
+                    <div className="bg-[#181719] px-4 py-3">
+                      <p className="mb-2 text-xs font-semibold text-neutral-500">Taiga Documentation</p>
+                      <div className="space-y-0.5">
+                        {[
+                          { href: "https://docs.taiga.io/", label: "User Guide" },
+                          { href: "https://docs.taiga.io/api.html", label: "API Reference" },
+                          { href: "https://community.taiga.io/", label: "Community Forum" },
+                          { href: "https://github.com/taigaio", label: "GitHub" },
+                        ].map(({ href, label }) => (
+                          <a
+                            key={href}
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 rounded px-2 py-1.5 text-sm text-violet-300 transition-colors hover:bg-violet-500/10 hover:text-violet-200"
+                          >
+                            <ExternalLink className="size-3 shrink-0" />
+                            {label}
+                          </a>
+                        ))}
+                      </div>
+                      {taigaWebUrl ? (
+                        <>
+                          <p className="mb-2 mt-4 text-xs font-semibold text-neutral-500">Taiga Instance</p>
+                          <a
+                            href={taigaWebUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 rounded px-2 py-1.5 text-sm text-violet-300 transition-colors hover:bg-violet-500/10 hover:text-violet-200"
+                          >
+                            <ExternalLink className="size-3 shrink-0" />
+                            Open Taiga
+                          </a>
+                        </>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </section>
+              </div>
+            );
+          }
+
           return null;
-        })
-      )}
+        })}
+      {!taigaToken ? (
+        <section className="px-4 py-5">
+          <p className="text-sm leading-6 text-neutral-500">
+            Sign in and select a project to view board, users, and context files.
+          </p>
+        </section>
+      ) : null}
     </aside>
   );
 }

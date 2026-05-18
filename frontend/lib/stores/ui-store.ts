@@ -5,7 +5,7 @@ import { persist } from "zustand/middleware";
 
 type UiTheme = "dark" | "light";
 
-const DEFAULT_SECTION_ORDER = ["project", "board", "users", "context"];
+const DEFAULT_SECTION_ORDER = ["project", "board", "users", "context", "ai", "resources"];
 
 type UiState = {
   theme: UiTheme;
