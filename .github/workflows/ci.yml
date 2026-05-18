@@ -2,7 +2,7 @@ name: CI/CD
 
 on:
   push:
-    branches: [main, reflex-migration]
+    branches: [main, migration/phase1-backend]
   pull_request:
     branches: [main]
 
@@ -10,12 +10,11 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
   AZURE_RESOURCE_GROUP: apex-rg
-  AZURE_APP_NAME: apex
   AZURE_LOCATION: francecentral
 
 jobs:
-  test:
-    name: Run tests
+  test-backend:
+    name: Backend tests
     runs-on: ubuntu-latest
 
     steps:
@@ -32,18 +31,42 @@ jobs:
       - name: Run pytest
         run: python -m pytest tests/ -v --tb=short
         env:
-          # Stub values so modules that call load_dotenv() at import time
-          # don't fail with missing-key errors. Tests mock all API calls.
           ANTHROPIC_API_KEY: sk-ant-stub
           TAIGA_API_URL: https://api.taiga.io
           TAIGA_PROJECT_ID: "0"
           TAIGA_AUTH_TOKEN: stub
 
-  build:
-    name: Build & push Docker image
+  test-frontend:
+    name: Frontend typecheck & build
     runs-on: ubuntu-latest
-    needs: test
-    # Only push on commits to main; PRs only build (no push).
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: frontend
+
+      - name: Typecheck
+        run: npm run typecheck
+        working-directory: frontend
+
+      - name: Build
+        run: npm run build
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+
+  build-backend:
+    name: Build & push backend image
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend]
     permissions:
       contents: read
       packages: write
@@ -62,30 +85,74 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract Docker metadata
+      - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend
           tags: |
             type=sha,prefix=sha-
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
-      - name: Build image
+      - name: Build & push
         uses: docker/build-push-action@v6
         with:
           context: .
-          # Push only on main; PRs just validate the build.
+          dockerfile: backend/Dockerfile
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  build-frontend:
+    name: Build & push frontend image
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend]
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          dockerfile: frontend/Dockerfile
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   deploy:
     name: Deploy to Azure Container Apps
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build-backend, build-frontend]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
@@ -94,22 +161,16 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy new image
+      - name: Deploy backend
         run: |
           az containerapp update \
-            --name ${{ env.AZURE_APP_NAME }} \
+            --name apex-backend \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-$(echo ${{ github.sha }} | cut -c1-7)
+            --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:sha-$(echo ${{ github.sha }} | cut -c1-7)
 
-      - name: Enforce ingress settings (idempotent)
+      - name: Deploy frontend
         run: |
-          az containerapp ingress update \
-            --name ${{ env.AZURE_APP_NAME }} \
+          az containerapp update \
+            --name apex-frontend \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --target-port 8000 \
-            --transport http
-          az containerapp ingress sticky-sessions set \
-            --name ${{ env.AZURE_APP_NAME }} \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --affinity sticky
-
+            --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:sha-$(echo ${{ github.sha }} | cut -c1-7)

@@ -10,8 +10,6 @@ contextspec
 frontend/node_modules
 frontend/.next
 frontend/tsconfig.tsbuildinfo
-.web
-.states
 venv
 venv*/
 env

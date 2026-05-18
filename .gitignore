@@ -1,7 +1,4 @@
 *.db
-assets/external/
-.states
-.web
 .env
 .env.*
 env
