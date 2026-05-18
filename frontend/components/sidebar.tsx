@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import {
   ChevronDown,
@@ -97,14 +98,14 @@ function PanelHeader({
           draggable
           onDragStart={onDragStart}
           onClickCapture={(e) => e.stopPropagation()}
-          className="flex h-10 w-8 shrink-0 cursor-grab items-center justify-center pl-2 text-neutral-600 transition-colors hover:text-neutral-400 active:cursor-grabbing"
+          className="flex h-14 w-8 shrink-0 cursor-grab items-center justify-center pl-2 text-neutral-600 transition-colors hover:text-neutral-400 active:cursor-grabbing"
           title="Drag to reorder"
         >
           <GripVertical className="size-3.5" />
         </div>
       ) : null}
       <button
-        className="flex h-10 flex-1 items-center gap-2 px-4 text-left"
+        className="flex h-14 flex-1 items-center gap-2 px-4 text-left"
         onClick={onClick}
       >
         {open ? <ChevronDown className="size-3 text-neutral-500" /> : <ChevronRight className="size-3 text-neutral-500" />}
@@ -812,14 +813,19 @@ export function Sidebar() {
     >
       <div id="apex-sidebar-resizer" className="absolute right-0 top-0 z-40 h-full w-1 cursor-col-resize" />
 
-      <ConfirmDialog
-        open={Boolean(confirmState)}
-        message={confirmState?.message ?? ""}
-        onConfirm={() => { confirmState?.onConfirm(); setConfirmState(null); }}
-        onCancel={() => setConfirmState(null)}
-      />
-      {dialogEpic ? <EpicDialog epic={dialogEpic} onClose={() => setDialogEpic(null)} /> : null}
-      {dialogStory ? <StoryDialog story={dialogStory} onClose={() => setDialogStory(null)} /> : null}
+      {typeof document !== "undefined" ? createPortal(
+        <>
+          <ConfirmDialog
+            open={Boolean(confirmState)}
+            message={confirmState?.message ?? ""}
+            onConfirm={() => { confirmState?.onConfirm(); setConfirmState(null); }}
+            onCancel={() => setConfirmState(null)}
+          />
+          {dialogEpic ? <EpicDialog epic={dialogEpic} onClose={() => setDialogEpic(null)} /> : null}
+          {dialogStory ? <StoryDialog story={dialogStory} onClose={() => setDialogStory(null)} /> : null}
+        </>,
+        document.body,
+      ) : null}
 
       <header className="flex h-[58px] items-center border-b border-neutral-800 px-4">
         <div className="flex min-w-0 flex-1 items-baseline gap-1">
@@ -836,7 +842,6 @@ export function Sidebar() {
 
       {/* ── Account ── */}
       <section className="border-b border-neutral-800 px-4 py-5">
-        <SectionTitle>Account</SectionTitle>
         <div className="mb-4 flex gap-2">
           <span className="inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/15 px-2 py-1 text-xs font-medium text-emerald-500">
             <Zap className="size-3" />
@@ -1099,7 +1104,7 @@ export function Sidebar() {
                             </div>
                           ) : (
                             <button
-                              className="mt-1 inline-block rounded border border-violet-600 px-2 py-0.5 text-xs text-violet-200 hover:border-violet-400"
+                              className="mt-1 inline-block rounded border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-xs text-violet-400 transition-colors hover:border-violet-500/60 hover:bg-violet-500/20"
                               onClick={() => { setEditingMemberRole(member.id); setMemberRoleValue(member.role ?? 0); }}
                             >
                               {member.role_name || "Member"}
@@ -1126,7 +1131,7 @@ export function Sidebar() {
                           ))}
                         </select>
                         <button
-                          className="h-8 w-full rounded bg-violet-600 text-sm font-semibold text-white disabled:opacity-50"
+                          className="h-8 w-full rounded bg-violet-600 text-sm font-semibold text-white transition-colors hover:bg-violet-500 disabled:opacity-50"
                           disabled={!inviteValue.trim() || !defaultRoleId || invite.isPending}
                           onClick={() => invite.mutate({ usernameOrEmail: inviteValue, roleId: defaultRoleId })}
                         >

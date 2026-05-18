@@ -37,7 +37,7 @@ body {
   border-color: #d9dce6 !important;
 }
 
-.apex-sidebar-light .text-white,
+.apex-sidebar-light .text-white:not([class*="bg-violet-5"]):not([class*="bg-violet-6"]):not([class*="bg-violet-7"]):not([class*="bg-red-7"]):not([class*="bg-emerald"]),
 .apex-sidebar-light .text-neutral-100,
 .apex-sidebar-light .text-neutral-200 {
   color: #111827 !important;
@@ -73,7 +73,7 @@ body {
 .apex-sidebar-light select {
   background-color: #ffffff !important;
   color: #111827 !important;
-  border-color: #d1d5db !important;
+  border-color: #9ca3af !important;
 }
 
 /* Amber warning in sidebar */
