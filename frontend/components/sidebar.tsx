@@ -6,7 +6,6 @@ import {
   ChevronDown,
   ChevronRight,
   Download,
-  Edit2,
   FileText,
   FolderOpen,
   Info,
@@ -125,6 +124,150 @@ function ConfirmDialog({
           <button
             className="flex-1 rounded bg-neutral-800 py-2 text-sm text-neutral-300 hover:bg-neutral-700"
             onClick={onCancel}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EpicDialog({ epic, onClose }: { epic: Epic; onClose: () => void }) {
+  const [subject, setSubject] = useState(epic.subject);
+  const [description, setDescription] = useState(epic.description);
+  const [tagsInput, setTagsInput] = useState((epic.tags ?? []).join(", "));
+  const update = useUpdateEpic();
+
+  function save() {
+    if (!epic.version) return;
+    const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
+    update.mutate(
+      { epicId: epic.id, version: epic.version, fields: { subject, description, tags } },
+      { onSuccess: onClose },
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-md rounded-xl border border-neutral-700 bg-neutral-900 p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="mb-4 text-base font-bold text-white">Epic #{epic.ref}</h3>
+        <div className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-400">Title</label>
+            <input
+              className="h-9 w-full rounded border border-violet-700 bg-neutral-950 px-3 text-sm text-white outline-none focus:border-violet-500"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Epic title"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-400">Description</label>
+            <textarea
+              className="h-32 w-full resize-none rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-200 outline-none focus:border-violet-500"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe the epic…"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-400">Tags <span className="text-neutral-600">(comma-separated)</span></label>
+            <input
+              className="h-8 w-full rounded border border-neutral-700 bg-neutral-950 px-3 text-xs text-neutral-200 outline-none focus:border-violet-500"
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              placeholder="e.g. backend, auth, v2"
+            />
+          </div>
+        </div>
+        <div className="mt-5 flex gap-3">
+          <button
+            className="flex-1 rounded bg-violet-700 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-600 disabled:opacity-50"
+            disabled={update.isPending || !subject.trim()}
+            onClick={save}
+          >
+            {update.isPending ? "Saving…" : "Save"}
+          </button>
+          <button
+            className="flex-1 rounded bg-neutral-800 py-2 text-sm text-neutral-300 transition-colors hover:bg-neutral-700"
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StoryDialog({ story, onClose }: { story: Story; onClose: () => void }) {
+  const [subject, setSubject] = useState(story.subject);
+  const [description, setDescription] = useState(story.description ?? "");
+  const [tagsInput, setTagsInput] = useState((story.tags ?? []).join(", "));
+  const update = useUpdateStory();
+
+  function save() {
+    if (!story.version) return;
+    const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
+    update.mutate(
+      { storyId: story.id, version: story.version, fields: { subject, description, tags } },
+      { onSuccess: onClose },
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-md rounded-xl border border-neutral-700 bg-neutral-900 p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="mb-4 text-base font-bold text-white">Story #{story.ref}</h3>
+        <div className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-400">Title</label>
+            <input
+              className="h-9 w-full rounded border border-violet-700 bg-neutral-950 px-3 text-sm text-white outline-none focus:border-violet-500"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Story title"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-400">Description</label>
+            <textarea
+              className="h-28 w-full resize-none rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-200 outline-none focus:border-violet-500"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe the story…"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-400">Tags <span className="text-neutral-600">(comma-separated)</span></label>
+            <input
+              className="h-8 w-full rounded border border-neutral-700 bg-neutral-950 px-3 text-xs text-neutral-200 outline-none focus:border-violet-500"
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              placeholder="e.g. frontend, ui, sprint-1"
+            />
+          </div>
+        </div>
+        <div className="mt-5 flex gap-3">
+          <button
+            className="flex-1 rounded bg-violet-700 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-600 disabled:opacity-50"
+            disabled={update.isPending || !subject.trim()}
+            onClick={save}
+          >
+            {update.isPending ? "Saving…" : "Save"}
+          </button>
+          <button
+            className="flex-1 rounded bg-neutral-800 py-2 text-sm text-neutral-300 transition-colors hover:bg-neutral-700"
+            onClick={onClose}
           >
             Cancel
           </button>
@@ -517,15 +660,13 @@ export function Sidebar() {
   const [boardOpen, setBoardOpen] = useState(false);
   const [usersOpen, setUsersOpen] = useState(false);
   const [expandedEpic, setExpandedEpic] = useState<number | null>(null);
-  const [editingEpic, setEditingEpic] = useState<number | null>(null);
-  const [editingStory, setEditingStory] = useState<number | null>(null);
+  const [dialogEpic, setDialogEpic] = useState<import("@/lib/api/types").Epic | null>(null);
+  const [dialogStory, setDialogStory] = useState<import("@/lib/api/types").Story | null>(null);
   const [expandedContext, setExpandedContext] = useState<string | null>(null);
   const [inviteValue, setInviteValue] = useState("");
   const [roleId, setRoleId] = useState<number | null>(null);
   const [editingMemberRole, setEditingMemberRole] = useState<number | null>(null);
   const [memberRoleValue, setMemberRoleValue] = useState<number>(0);
-  const [expandedEpicDesc, setExpandedEpicDesc] = useState<number | null>(null);
-  const [expandedStoryDesc, setExpandedStoryDesc] = useState<number | null>(null);
 
   const [confirmState, setConfirmState] = useState<{ message: string; onConfirm: () => void } | null>(null);
 
@@ -624,6 +765,8 @@ export function Sidebar() {
         onConfirm={() => { confirmState?.onConfirm(); setConfirmState(null); }}
         onCancel={() => setConfirmState(null)}
       />
+      {dialogEpic ? <EpicDialog epic={dialogEpic} onClose={() => setDialogEpic(null)} /> : null}
+      {dialogStory ? <StoryDialog story={dialogStory} onClose={() => setDialogStory(null)} /> : null}
 
       <header className="flex h-[58px] items-center border-b border-neutral-800 px-4">
         <div className="flex min-w-0 flex-1 items-baseline gap-1">
@@ -752,24 +895,17 @@ export function Sidebar() {
                     <div className="flex w-full items-center gap-1">
                       <button
                         className="flex flex-1 items-center gap-1 text-left font-semibold text-white transition-colors hover:text-violet-300"
-                        onClick={() => { setExpandedEpic(expandedEpic === epic.id ? null : epic.id); setEditingEpic(null); setExpandedEpicDesc(null); }}
+                        onClick={() => setExpandedEpic(expandedEpic === epic.id ? null : epic.id)}
                       >
                         {expandedEpic === epic.id ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
                         #{epic.ref} {epic.subject}
                       </button>
                       <button
-                        className="grid size-6 place-items-center rounded text-neutral-400 transition-colors hover:bg-neutral-700/50 hover:text-neutral-200"
-                        onClick={() => setExpandedEpicDesc(expandedEpicDesc === epic.id ? null : epic.id)}
-                        title="View description"
-                      >
-                        <Info className="size-3" />
-                      </button>
-                      <button
-                        className="grid size-6 place-items-center rounded text-violet-400 transition-colors hover:bg-violet-500/20"
-                        onClick={() => setEditingEpic(editingEpic === epic.id ? null : epic.id)}
+                        className="grid size-6 place-items-center rounded text-neutral-400 transition-colors hover:bg-violet-500/20 hover:text-violet-300"
+                        onClick={() => setDialogEpic(epic)}
                         title="Edit epic"
                       >
-                        <Edit2 className="size-3" />
+                        <Info className="size-3" />
                       </button>
                       <button
                         className="grid size-6 place-items-center rounded text-red-400 transition-colors hover:bg-red-500/20"
@@ -782,15 +918,7 @@ export function Sidebar() {
                       </button>
                     </div>
 
-                    {expandedEpicDesc === epic.id && epic.description ? (
-                      <p className="mt-1 rounded bg-neutral-800/50 px-2 py-1.5 text-xs leading-5 text-neutral-400">{epic.description}</p>
-                    ) : null}
-
-                    {editingEpic === epic.id ? (
-                      <EpicEditRow epic={epic} onDone={() => setEditingEpic(null)} />
-                    ) : null}
-
-                    {expandedEpic === epic.id && editingEpic !== epic.id ? (
+                    {expandedEpic === epic.id ? (
                       <div className="mt-2 space-y-2 pl-4 text-neutral-300">
                         <button
                           className="flex items-center gap-1 rounded border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-xs font-semibold text-violet-400 transition-colors hover:bg-violet-500/20"
@@ -802,22 +930,15 @@ export function Sidebar() {
                           <Plus className="size-3" /> Story
                         </button>
                         {epic.stories.map((story) => (
-                          <div key={story.id} className="space-y-1">
+                          <div key={story.id}>
                             <div className="flex items-center gap-1">
                               <span className="min-w-0 flex-1 truncate text-xs">#{story.ref} {story.subject}</span>
                               <button
-                                className="grid size-5 place-items-center rounded text-neutral-400 transition-colors hover:bg-neutral-700/50 hover:text-neutral-200"
-                                onClick={() => setExpandedStoryDesc(expandedStoryDesc === story.id ? null : story.id)}
-                                title="View description"
-                              >
-                                <Info className="size-3" />
-                              </button>
-                              <button
-                                className="grid size-5 place-items-center rounded text-violet-400 transition-colors hover:bg-violet-500/20"
-                                onClick={() => setEditingStory(editingStory === story.id ? null : story.id)}
+                                className="grid size-5 place-items-center rounded text-neutral-400 transition-colors hover:bg-violet-500/20 hover:text-violet-300"
+                                onClick={() => setDialogStory(story)}
                                 title="Edit story"
                               >
-                                <Edit2 className="size-3" />
+                                <Info className="size-3" />
                               </button>
                               <button
                                 className="grid size-5 place-items-center rounded text-red-400 transition-colors hover:bg-red-500/20"
@@ -829,12 +950,6 @@ export function Sidebar() {
                                 <Trash2 className="size-3" />
                               </button>
                             </div>
-                            {expandedStoryDesc === story.id && story.description ? (
-                              <p className="rounded bg-neutral-800/50 px-2 py-1.5 text-xs leading-5 text-neutral-500">{story.description}</p>
-                            ) : null}
-                            {editingStory === story.id ? (
-                              <StoryEditRow story={story} onDone={() => setEditingStory(null)} />
-                            ) : null}
                           </div>
                         ))}
                       </div>
