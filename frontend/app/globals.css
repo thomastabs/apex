@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --apex-violet: #7c3aed;
+  --apex-sidebar-width: 450px;
+  --apex-phase-nav-height: 58px;
+}
+
+body {
+  margin: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.apex-sidebar-light {
+  color: #111827;
+}
+
+.apex-sidebar-light .bg-\[\#181719\],
+.apex-sidebar-light .bg-\[\#121113\],
+.apex-sidebar-light .bg-neutral-900,
+.apex-sidebar-light .bg-neutral-950 {
+  background-color: #ffffff !important;
+}
+
+.apex-sidebar-light .bg-neutral-800 {
+  background-color: #e5e7f0 !important;
+}
+
+.apex-sidebar-light .border-neutral-800,
+.apex-sidebar-light .border-neutral-700,
+.apex-sidebar-light .border-neutral-600 {
+  border-color: #d9dce6 !important;
+}
+
+.apex-sidebar-light .text-white,
+.apex-sidebar-light .text-neutral-100,
+.apex-sidebar-light .text-neutral-200 {
+  color: #111827 !important;
+}
+
+.apex-sidebar-light .text-neutral-300,
+.apex-sidebar-light .text-neutral-400,
+.apex-sidebar-light .text-neutral-500 {
+  color: #7c8194 !important;
+}
+
+.apex-sidebar-light .text-violet-300,
+.apex-sidebar-light .text-violet-400 {
+  color: #6f54d9 !important;
+}
+
+.apex-sidebar-light .bg-violet-950,
+.apex-sidebar-light .bg-violet-950\/40,
+.apex-sidebar-light .bg-violet-950\/60 {
+  background-color: #ede9fe !important;
+}
+
+.apex-sidebar-light .bg-emerald-950 {
+  background-color: #d1fae5 !important;
+}
+
+.apex-sidebar-light .text-emerald-300 {
+  color: #047857 !important;
+}
+
+.apex-sidebar-light textarea,
+.apex-sidebar-light input,
+.apex-sidebar-light select {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-color: #d1d5db !important;
+}
