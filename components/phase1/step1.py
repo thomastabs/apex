@@ -373,6 +373,7 @@ def _discard_dialog() -> rx.Component:
     return rx.dialog.root(
         rx.dialog.content(
             rx.dialog.title("Discard Unsaved Progress?"),
+            rx.dialog.description("Confirm discarding unsaved inputs and generated user stories.", class_name="sr-only"),
             rx.callout(
                 "Switching sources will reset your inputs and any generated User Stories.",
                 color="orange",

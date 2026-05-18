@@ -8,6 +8,7 @@ def create_story_dialog() -> rx.Component:
     return rx.dialog.root(
         rx.dialog.content(
             rx.dialog.title("New Story"),
+            rx.dialog.description("Create a new user story under the selected epic.", class_name="sr-only"),
             rx.form(
                 rx.vstack(
                     rx.input(

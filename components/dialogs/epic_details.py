@@ -8,6 +8,7 @@ def epic_details_dialog() -> rx.Component:
     return rx.dialog.root(
         rx.dialog.content(
             rx.dialog.title("Epic Details"),
+            rx.dialog.description("View and edit epic title and description.", class_name="sr-only"),
             rx.vstack(
                 # ── Title ────────────────────────────────────────────────────
                 rx.vstack(

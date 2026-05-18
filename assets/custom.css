@@ -512,3 +512,22 @@ html.light .rt-DialogContent,
   display: block;
   margin: 0 auto;
 }
+
+/* Firefox scroll-linked effect mitigation for sticky elements */
+#app-sidebar,
+.apex-phase-tabs-bar {
+  will-change: transform;
+}
+
+/* Screen-reader-only — used for aria-accessible dialog descriptions */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}

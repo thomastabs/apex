@@ -8,6 +8,7 @@ def create_epic_dialog() -> rx.Component:
     return rx.dialog.root(
         rx.dialog.content(
             rx.dialog.title("New Epic"),
+            rx.dialog.description("Create a new epic in the Taiga project.", class_name="sr-only"),
             rx.form(
                 rx.vstack(
                     rx.input(

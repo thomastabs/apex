@@ -19,6 +19,7 @@ def switch_account_dialog() -> rx.Component:
         ),
         rx.dialog.content(
             rx.dialog.title("Switch Account"),
+            rx.dialog.description("Sign in or out of your Taiga account.", class_name="sr-only"),
             rx.cond(
                 AuthState.is_authenticated,
                 # ── Signed-in view ─────────────────────────────────────────

@@ -8,6 +8,7 @@ def story_details_dialog() -> rx.Component:
     return rx.dialog.root(
         rx.dialog.content(
             rx.dialog.title("Story Details"),
+            rx.dialog.description("View and edit story title, description, and status.", class_name="sr-only"),
             rx.vstack(
                 # ── Epic reference ────────────────────────────────────────────
                 rx.cond(

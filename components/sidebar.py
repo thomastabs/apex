@@ -822,6 +822,20 @@ def _context_zone() -> rx.Component:
     )
 
 
+# ── Firefox bfcache fix ───────────────────────────────────────────────────────
+# When Firefox restores a page from back-forward cache, the WebSocket is dead.
+# Reload so Reflex reconnects cleanly instead of hanging on stale WS state.
+
+_BFCACHE_FIX_SCRIPT = """
+(function() {
+  if (window._apexBfcacheFixed) return;
+  window._apexBfcacheFixed = true;
+  window.addEventListener('pageshow', function(e) {
+    if (e.persisted) { window.location.reload(); }
+  });
+})();
+"""
+
 # ── Sidebar resize + collapse script ─────────────────────────────────────────
 
 _RESIZE_SCRIPT = """
@@ -930,6 +944,7 @@ def _reset_confirm_dialog() -> rx.Component:
     return rx.dialog.root(
         rx.dialog.content(
             rx.dialog.title("Reset Context File?"),
+            rx.dialog.description("Overwrite a context file with its default template.", class_name="sr-only"),
             rx.callout(
                 "This will overwrite the file with its default template. Any custom content will be lost.",
                 color="red",
@@ -966,6 +981,7 @@ def _delete_confirm_dialog() -> rx.Component:
     return rx.dialog.root(
         rx.dialog.content(
             rx.dialog.title("Delete Permanently?"),
+            rx.dialog.description("Permanently delete this item from Taiga.", class_name="sr-only"),
             rx.cond(
                 BoardState.delete_confirm_is_story,
                 rx.callout(
@@ -1010,6 +1026,7 @@ def _create_project_dialog() -> rx.Component:
     return rx.dialog.root(
         rx.dialog.content(
             rx.dialog.title("Create New Project"),
+            rx.dialog.description("Set up a new Apex project context folder.", class_name="sr-only"),
             rx.vstack(
                 rx.vstack(
                     rx.hstack(
@@ -1085,6 +1102,7 @@ def _delete_project_dialog() -> rx.Component:
     return rx.dialog.root(
         rx.dialog.content(
             rx.dialog.title("Delete Project Permanently?"),
+            rx.dialog.description("Permanently delete this project's context files from storage.", class_name="sr-only"),
             rx.callout(
                 rx.vstack(
                     rx.text(
@@ -1144,6 +1162,7 @@ def _phase1_discard_dialog() -> rx.Component:
     return rx.dialog.root(
         rx.dialog.content(
             rx.dialog.title("Discard Phase 1 Progress?"),
+            rx.dialog.description("Confirm discarding unsaved Phase 1 work.", class_name="sr-only"),
             rx.callout(
                 "You have unsaved Phase 1 work (NL draft or compiled stories). Switching project or signing out will permanently discard it.",
                 color="orange",
@@ -1180,6 +1199,7 @@ def _stage_a_discard_dialog() -> rx.Component:
     return rx.dialog.root(
         rx.dialog.content(
             rx.dialog.title("Discard Stage A Progress?"),
+            rx.dialog.description("Confirm discarding unsaved Stage A Tech Stack suggestions.", class_name="sr-only"),
             rx.callout(
                 "You have unsaved Tech Stack suggestions. Switching project or signing out will permanently discard them.",
                 color="orange",
@@ -1217,6 +1237,7 @@ def _stage_a_discard_dialog() -> rx.Component:
 def sidebar() -> rx.Component:
     return rx.box(
         rx.connection_banner(),
+        rx.script(_BFCACHE_FIX_SCRIPT),
         rx.script(_RESIZE_SCRIPT),
         # Expand button — lives outside sidebar-main-content so it's reachable when collapsed
         rx.box(
