@@ -143,7 +143,8 @@ export function Phase2Workflow() {
   return (
     <section className="px-8 py-8">
       <div className="mb-7">
-        <h1 className="text-4xl font-bold text-white">Phase 2 · Design</h1>
+        <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Phase 2</p>
+        <h1 className="text-5xl font-black tracking-tight text-white">Design</h1>
         <p className="mt-2 text-neutral-500">
           Design Lead + Tech Lead gate: visual prototype and OpenAPI spec per epic.
         </p>

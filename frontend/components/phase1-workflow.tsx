@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronRight, Download, ExternalLink, FilePlus2, Info, Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { CheckCircle2, ChevronRight, Download, ExternalLink, FilePlus2, Info, Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import { Button, Callout, Input, SectionHeading, Textarea } from "@/components/ui/primitives";
 import {
   useCompileGherkin,
@@ -54,6 +54,78 @@ function validateStories(stories: CompiledStory[]): string[] {
   return errors;
 }
 
+// ── AI Progress Indicator ─────────────────────────────────────────────────────
+
+function AIProgressIndicator({ steps, isPending }: { steps: string[]; isPending: boolean }) {
+  const [stepIdx, setStepIdx] = useState(0);
+  const [dots, setDots] = useState("");
+
+  useEffect(() => {
+    if (!isPending) { setStepIdx(0); setDots(""); return; }
+    const stepTimer = setInterval(() => setStepIdx((i) => (i + 1) % steps.length), 2200);
+    const dotsTimer = setInterval(() => setDots((d) => (d.length >= 3 ? "" : d + ".")), 400);
+    return () => { clearInterval(stepTimer); clearInterval(dotsTimer); };
+  }, [isPending, steps.length]);
+
+  if (!isPending) return null;
+
+  return (
+    <div className="space-y-3 rounded-md border border-violet-500/20 bg-violet-950/20 p-4">
+      <div className="flex items-center gap-2">
+        <div className="size-4 animate-spin rounded-full border-2 border-violet-500 border-t-transparent" />
+        <span className="text-sm font-medium text-violet-300">AI Working{dots}</span>
+      </div>
+      <div className="space-y-1.5">
+        {steps.map((step, i) => (
+          <div
+            key={step}
+            className={cn(
+              "flex items-center gap-2 text-xs transition-all duration-500",
+              i < stepIdx ? "text-emerald-400" : i === stepIdx ? "text-violet-300" : "text-neutral-600",
+            )}
+          >
+            {i < stepIdx ? (
+              <CheckCircle2 className="size-3 shrink-0 text-emerald-400" />
+            ) : i === stepIdx ? (
+              <span className="shrink-0 animate-pulse text-violet-400">›</span>
+            ) : (
+              <span className="shrink-0 text-neutral-700">○</span>
+            )}
+            {step}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const SUGGEST_STEPS = [
+  "Reading project memory bank…",
+  "Analyzing functional requirements…",
+  "Generating epic candidates…",
+  "Ranking by project fit…",
+];
+const GENERATE_STEPS = [
+  "Parsing epic description…",
+  "Expanding user scenarios…",
+  "Writing natural language stories…",
+  "Formatting output…",
+];
+const COMPILE_STEPS = [
+  "Parsing natural language draft…",
+  "Structuring Gherkin scenarios…",
+  "Validating Feature blocks…",
+  "Finalizing acceptance criteria…",
+];
+const PUSH_STEPS = [
+  "Validating Gherkin stories…",
+  "Creating Taiga user stories…",
+  "Locking functional spec…",
+  "Syncing context files…",
+];
+
+// ── Main Component ────────────────────────────────────────────────────────────
+
 export function Phase1Workflow() {
   const context = useApiContext();
   const [mode, setMode] = useState<Mode>("create");
@@ -64,7 +136,10 @@ export function Phase1Workflow() {
   const [nlDraft, setNlDraft] = useState("");
   const [compiledStories, setCompiledStories] = useState<CompiledStory[]>([]);
   const [selectedSuggestion, setSelectedSuggestion] = useState<number | null>(null);
+  const [appliedSuggestionIndex, setAppliedSuggestionIndex] = useState<number | null>(null);
   const [editedDescriptions, setEditedDescriptions] = useState<Record<number, string>>({});
+  const [expandedLoadEpic, setExpandedLoadEpic] = useState<number | null>(null);
+  const [selectedLoadEpicId, setSelectedLoadEpicId] = useState<number | null>(null);
   const [pushSuccess, setPushSuccess] = useState(false);
   const [showGherkin, setShowGherkin] = useState(false);
   const [diagramOpen, setDiagramOpen] = useState(false);
@@ -120,10 +195,14 @@ export function Phase1Workflow() {
       setCompiledStories([]);
     }
     setMode(next);
+    setSelectedLoadEpicId(null);
+    setExpandedLoadEpic(null);
+    setAppliedSuggestionIndex(null);
+    setSelectedSuggestion(null);
   }
 
   function useSuggestion(suggestion: EpicSuggestion, index: number) {
-    setSelectedSuggestion(index);
+    setAppliedSuggestionIndex(index);
     setEpicTitle(suggestion.title);
     setEpicDescription(editedDescriptions[index] ?? suggestion.description);
     setEpicId(null);
@@ -149,6 +228,10 @@ export function Phase1Workflow() {
     setPushSuccess(false);
     setShowGherkin(false);
     setMode("create");
+    setSelectedLoadEpicId(null);
+    setExpandedLoadEpic(null);
+    setAppliedSuggestionIndex(null);
+    setSelectedSuggestion(null);
   }
 
   function backToNlEdit() {
@@ -157,9 +240,14 @@ export function Phase1Workflow() {
   }
 
   return (
-    <section className="px-8 py-8">
+    <section
+      className="relative px-8 py-8"
+      style={{ cursor: busy ? "wait" : undefined }}
+      onClickCapture={(e) => { if (busy) { e.stopPropagation(); e.preventDefault(); } }}
+    >
       <div className="mb-7">
-        <h1 className="text-4xl font-bold text-white">Phase 1 · Requirements</h1>
+        <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Phase 1</p>
+        <h1 className="text-5xl font-black tracking-tight text-white">Requirements</h1>
         <p className="mt-2 text-neutral-500">
           Mob Elaboration — transform an Epic into formal Gherkin Acceptance Criteria
         </p>
@@ -167,7 +255,7 @@ export function Phase1Workflow() {
 
       <div className="mb-6 rounded-md border border-neutral-800">
         <button
-          className="flex w-full items-center gap-2 px-4 py-3 text-sm text-neutral-400 hover:text-neutral-300"
+          className="flex w-full items-center gap-2 px-4 py-3 text-sm text-neutral-400 transition-colors hover:text-neutral-300"
           onClick={() => setDiagramOpen(!diagramOpen)}
         >
           <ChevronRight className={cn("size-4 transition-transform", diagramOpen && "rotate-90")} />
@@ -207,8 +295,8 @@ export function Phase1Workflow() {
                 key={String(value)}
                 onClick={() => requestModeSwitch(value as Mode)}
                 className={cn(
-                  "inline-flex h-11 items-center justify-center gap-2 rounded text-sm text-neutral-400",
-                  mode === value && "bg-violet-600 font-semibold text-white",
+                  "inline-flex h-11 items-center justify-center gap-2 rounded text-sm text-neutral-400 transition-colors hover:bg-neutral-700/60 hover:text-neutral-200",
+                  mode === value && "bg-violet-600 font-semibold text-white hover:bg-violet-600",
                 )}
               >
                 <Icon className="size-4" />
@@ -237,30 +325,106 @@ export function Phase1Workflow() {
           ) : null}
 
           {mode === "load" ? (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex items-center justify-between text-sm text-neutral-500">
                 <span>{epics.data?.length ?? 0} epic(s) in this project</span>
-                <button className="text-violet-300" onClick={() => epics.refetch()}>↻ Refresh</button>
+                <button
+                  className="text-violet-300 transition-colors hover:text-violet-200"
+                  onClick={() => epics.refetch()}
+                >
+                  <RefreshCw className="mr-1 inline size-3" />
+                  Refresh
+                </button>
               </div>
-              {epics.data?.map((epic) => (
-                <div key={epic.id} className="rounded-md border border-neutral-800 bg-[#1f1f21] p-4">
-                  <div className="mb-3 flex items-center gap-3">
-                    <span className="rounded border border-violet-700 px-2 py-1 text-xs text-violet-200">#{epic.ref}</span>
-                    <h3 className="font-semibold text-white">{epic.subject}</h3>
-                  </div>
-                  <p className="mb-4 text-sm leading-6 text-neutral-400">{epic.description || "No description."}</p>
-                  <Button
-                    onClick={() => {
-                      setEpicId(epic.id);
-                      setEpicTitle(epic.subject);
-                      setEpicDescription(epic.description);
-                    }}
-                    variant="secondary"
+              {epics.isLoading ? (
+                <div className="py-4 text-center text-sm text-neutral-500">Loading epics…</div>
+              ) : null}
+              {epics.data?.map((epic) => {
+                const isSelected = selectedLoadEpicId === epic.id;
+                const isExpanded = expandedLoadEpic === epic.id;
+                return (
+                  <div
+                    key={epic.id}
+                    className={cn(
+                      "rounded-md border transition-all duration-200",
+                      isSelected
+                        ? "border-emerald-500/50 bg-emerald-500/10"
+                        : "border-neutral-800 bg-[#1f1f21] hover:border-neutral-700",
+                    )}
                   >
-                    ✓ Use Epic
-                  </Button>
-                </div>
-              ))}
+                    <button
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left"
+                      onClick={() => setExpandedLoadEpic(isExpanded ? null : epic.id)}
+                    >
+                      <ChevronRight
+                        className={cn(
+                          "size-4 shrink-0 text-neutral-500 transition-transform duration-200",
+                          isExpanded && "rotate-90",
+                        )}
+                      />
+                      <span
+                        className={cn(
+                          "rounded border px-2 py-0.5 text-xs",
+                          isSelected
+                            ? "border-emerald-500/40 text-emerald-400"
+                            : "border-violet-700 text-violet-200",
+                        )}
+                      >
+                        #{epic.ref}
+                      </span>
+                      <span className={cn("flex-1 font-semibold", isSelected ? "text-emerald-300" : "text-white")}>
+                        {epic.subject}
+                      </span>
+                      {isSelected ? (
+                        <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-emerald-400">
+                          <CheckCircle2 className="size-3.5" /> Selected
+                        </span>
+                      ) : null}
+                    </button>
+                    {isExpanded ? (
+                      <div className="space-y-3 border-t border-neutral-800 px-4 pb-4 pt-3">
+                        {epic.description ? (
+                          <p className="text-sm leading-6 text-neutral-400">{epic.description}</p>
+                        ) : (
+                          <p className="text-sm italic text-neutral-600">No description provided.</p>
+                        )}
+                        {epic.tags?.length ? (
+                          <div className="flex flex-wrap gap-1">
+                            {epic.tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="rounded border border-neutral-700 bg-neutral-800 px-2 py-0.5 text-xs text-neutral-400"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                        <button
+                          className={cn(
+                            "flex w-full items-center justify-center gap-2 rounded border py-2 text-sm font-semibold transition-all duration-200",
+                            isSelected
+                              ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
+                              : "border-neutral-600 bg-neutral-800 text-neutral-200 hover:border-violet-500/50 hover:bg-violet-500/10 hover:text-violet-300",
+                          )}
+                          onClick={() => {
+                            setSelectedLoadEpicId(epic.id);
+                            setEpicId(epic.id);
+                            setEpicTitle(epic.subject);
+                            setEpicDescription(epic.description);
+                          }}
+                        >
+                          <CheckCircle2 className="size-4" />
+                          {isSelected ? "Selected" : "Use Epic"}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+              {!epics.isLoading && !epics.data?.length ? (
+                <div className="py-4 text-center text-sm text-neutral-500">No epics found in this project.</div>
+              ) : null}
             </div>
           ) : null}
 
@@ -274,37 +438,77 @@ export function Phase1Workflow() {
                 className="w-full"
                 onClick={() => {
                   setEditedDescriptions({});
+                  setAppliedSuggestionIndex(null);
                   suggestEpics.mutate(hint);
                 }}
                 disabled={suggestEpics.isPending}
               >
                 <Sparkles className="size-4" />
-                AI Suggests
+                {suggestEpics.isPending ? "Generating…" : "AI Suggests"}
               </Button>
-              {suggestions.length ? (
+              <AIProgressIndicator steps={SUGGEST_STEPS} isPending={suggestEpics.isPending} />
+              {suggestions.length && !suggestEpics.isPending ? (
                 <div className="space-y-3">
-                  <div className="text-sm text-neutral-500">{suggestions.length} suggestions</div>
-                  {suggestions.map((suggestion, index) => (
-                    <div key={suggestion.title} className="rounded-md border border-neutral-800 bg-[#1f1f21] p-4">
-                      <button className="mb-3 flex w-full items-center gap-2 text-left font-semibold text-white" onClick={() => setSelectedSuggestion(selectedSuggestion === index ? null : index)}>
-                        › <Sparkles className="size-4 text-violet-400" /> {suggestion.title}
-                      </button>
-                      {selectedSuggestion === index ? (
-                        <div className="space-y-3">
-                          <Textarea
-                            rows={3}
-                            value={editedDescriptions[index] ?? suggestion.description}
-                            onChange={(event) =>
-                              setEditedDescriptions((prev) => ({ ...prev, [index]: event.target.value }))
-                            }
+                  <div className="text-sm text-neutral-500">{suggestions.length} suggestions — click to expand, then select one</div>
+                  {suggestions.map((suggestion, index) => {
+                    const isApplied = appliedSuggestionIndex === index;
+                    const isExpanded = selectedSuggestion === index;
+                    return (
+                      <div
+                        key={suggestion.title}
+                        className={cn(
+                          "rounded-md border transition-all duration-200",
+                          isApplied
+                            ? "border-emerald-500/50 bg-emerald-500/10"
+                            : "border-neutral-800 bg-[#1f1f21] hover:border-neutral-700",
+                        )}
+                      >
+                        <button
+                          className="flex w-full items-center gap-2 px-4 py-3 text-left"
+                          onClick={() => setSelectedSuggestion(isExpanded ? null : index)}
+                        >
+                          <ChevronRight
+                            className={cn(
+                              "size-4 shrink-0 text-neutral-500 transition-transform duration-200",
+                              isExpanded && "rotate-90",
+                            )}
                           />
-                          <Button variant="secondary" onClick={() => useSuggestion(suggestion, index)}>
-                            Use Suggestion
-                          </Button>
-                        </div>
-                      ) : null}
-                    </div>
-                  ))}
+                          <Sparkles className={cn("size-4 shrink-0", isApplied ? "text-emerald-400" : "text-violet-400")} />
+                          <span className={cn("flex-1 font-semibold", isApplied ? "text-emerald-300" : "text-white")}>
+                            {suggestion.title}
+                          </span>
+                          {isApplied ? (
+                            <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-emerald-400">
+                              <CheckCircle2 className="size-3.5" /> Selected
+                            </span>
+                          ) : null}
+                        </button>
+                        {isExpanded ? (
+                          <div className="space-y-3 border-t border-neutral-800 px-4 pb-4 pt-3">
+                            <Textarea
+                              rows={3}
+                              value={editedDescriptions[index] ?? suggestion.description}
+                              onChange={(event) =>
+                                setEditedDescriptions((prev) => ({ ...prev, [index]: event.target.value }))
+                              }
+                            />
+                            <button
+                              className={cn(
+                                "flex w-full items-center justify-center gap-2 rounded border py-2 text-sm font-semibold transition-all duration-200",
+                                isApplied
+                                  ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
+                                  : "border-neutral-600 bg-neutral-800 text-neutral-200 hover:border-violet-500/50 hover:bg-violet-500/10 hover:text-violet-300",
+                              )}
+                              onClick={() => useSuggestion(suggestion, index)}
+                            >
+                              <CheckCircle2 className="size-4" />
+                              {isApplied ? "Selected" : "Use Suggestion"}
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : null}
             </div>
@@ -335,14 +539,9 @@ export function Phase1Workflow() {
             }
           >
             <Sparkles className="size-4" />
-            Generate Stories
+            {generate.isPending ? "Generating…" : "Generate Stories"}
           </Button>
-          {generate.isPending ? (
-            <div className="space-y-1 rounded-md border border-neutral-800 bg-[#1f1f21] p-3 text-xs text-neutral-400">
-              <div>Analyzing epic and description…</div>
-              <div>Calling AI to generate user stories…</div>
-            </div>
-          ) : null}
+          <AIProgressIndicator steps={GENERATE_STEPS} isPending={generate.isPending} />
           {generate.isError ? (
             <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
               Generation failed: {String(generate.error)}
@@ -365,8 +564,9 @@ export function Phase1Workflow() {
                 })
               }
             >
-              Compile to Gherkin
+              {compile.isPending ? "Compiling…" : "Compile to Gherkin"}
             </Button>
+            <AIProgressIndicator steps={COMPILE_STEPS} isPending={compile.isPending} />
             {compile.isError ? (
               <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
                 Compile failed: {String(compile.error)}
@@ -380,7 +580,7 @@ export function Phase1Workflow() {
             <div className="flex items-center justify-between">
               <SectionHeading>Step 4 · Review Gherkin & Push to Taiga</SectionHeading>
               <button
-                className="text-sm text-neutral-400 hover:text-neutral-200"
+                className="text-sm text-neutral-400 transition-colors hover:text-neutral-200"
                 onClick={backToNlEdit}
               >
                 ← Back to NL Draft
@@ -410,14 +610,14 @@ export function Phase1Workflow() {
                       }
                     />
                     <button
-                      className="shrink-0 rounded border border-violet-700 bg-violet-950 px-3 py-1.5 text-xs font-bold text-violet-200 hover:bg-violet-900"
+                      className="shrink-0 rounded border border-violet-700 bg-violet-950 px-3 py-1.5 text-xs font-bold text-violet-200 transition-colors hover:bg-violet-900"
                       title="Click to cycle size: S → M → L → XL"
                       onClick={() => cycleSize(index)}
                     >
                       {story.size || "M"}
                     </button>
                     <button
-                      className="grid shrink-0 size-8 place-items-center rounded text-red-400 hover:bg-red-950"
+                      className="grid size-8 shrink-0 place-items-center rounded text-red-400 transition-colors hover:bg-red-950"
                       onClick={() => setCompiledStories((s) => s.filter((_, i) => i !== index))}
                     >
                       <Trash2 className="size-4" />
@@ -436,7 +636,7 @@ export function Phase1Workflow() {
               ))}
             </div>
             <button
-              className="flex items-center gap-2 rounded border border-neutral-700 px-3 py-2 text-sm text-neutral-300 hover:bg-neutral-800"
+              className="flex items-center gap-2 rounded border border-neutral-700 px-3 py-2 text-sm text-neutral-300 transition-colors hover:border-violet-500/50 hover:bg-violet-500/10 hover:text-violet-300"
               onClick={() => setCompiledStories((s) => [...s, { title: "New Story", size: "M", gherkin: "Feature: \n\nScenario: \n  Given \n  When \n  Then " }])}
             >
               <Plus className="size-4" /> Add Story
@@ -454,7 +654,7 @@ export function Phase1Workflow() {
                         href={url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-sm text-violet-400 hover:text-violet-300"
+                        className="flex items-center gap-1 text-sm text-violet-400 transition-colors hover:text-violet-300"
                       >
                         <ExternalLink className="size-3" />
                         {url}
@@ -482,8 +682,9 @@ export function Phase1Workflow() {
                     )
                   }
                 >
-                  Push Stories to Taiga
+                  {push.isPending ? "Pushing…" : "Push Stories to Taiga"}
                 </Button>
+                <AIProgressIndicator steps={PUSH_STEPS} isPending={push.isPending} />
                 {push.isError ? (
                   <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
                     Push failed: {String(push.error)}

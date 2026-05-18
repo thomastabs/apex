@@ -8,6 +8,7 @@ import {
   Download,
   FileText,
   FolderOpen,
+  GripVertical,
   Info,
   Layers3,
   Moon,
@@ -84,20 +85,34 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 }
 
 function PanelHeader({
-  icon, title, badge, open, onClick,
+  icon, title, badge, open, onClick, onDragStart,
 }: {
   icon: React.ReactNode; title: string; badge?: string; open: boolean; onClick: () => void;
+  onDragStart?: (e: React.DragEvent) => void;
 }) {
   return (
-    <button
-      className="flex h-10 w-full items-center gap-2 border-b border-neutral-800 px-4 text-left transition-colors hover:bg-violet-500/5"
-      onClick={onClick}
-    >
-      {open ? <ChevronDown className="size-3 text-neutral-500" /> : <ChevronRight className="size-3 text-neutral-500" />}
-      <span className="text-violet-400">{icon}</span>
-      <span className="flex-1 text-sm font-semibold text-neutral-100">{title}</span>
-      {badge ? <span className="rounded border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-xs text-violet-400">{badge}</span> : null}
-    </button>
+    <div className="flex items-center border-b border-neutral-800 transition-colors hover:bg-violet-500/5">
+      {onDragStart ? (
+        <div
+          draggable
+          onDragStart={onDragStart}
+          onClickCapture={(e) => e.stopPropagation()}
+          className="flex h-10 w-8 shrink-0 cursor-grab items-center justify-center pl-2 text-neutral-600 transition-colors hover:text-neutral-400 active:cursor-grabbing"
+          title="Drag to reorder"
+        >
+          <GripVertical className="size-3.5" />
+        </div>
+      ) : null}
+      <button
+        className="flex h-10 flex-1 items-center gap-2 px-4 text-left"
+        onClick={onClick}
+      >
+        {open ? <ChevronDown className="size-3 text-neutral-500" /> : <ChevronRight className="size-3 text-neutral-500" />}
+        <span className="text-violet-400">{icon}</span>
+        <span className="flex-1 text-sm font-semibold text-neutral-100">{title}</span>
+        {badge ? <span className="rounded border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-xs text-violet-400">{badge}</span> : null}
+      </button>
+    </div>
   );
 }
 
@@ -647,6 +662,8 @@ export function Sidebar() {
   const setSidebarWidth = useUiStore((state) => state.setSidebarWidth);
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const setSidebarCollapsed = useUiStore((state) => state.setSidebarCollapsed);
+  const sectionOrder = useUiStore((state) => state.sidebarSectionOrder);
+  const setSectionOrder = useUiStore((state) => state.setSidebarSectionOrder);
 
   const taigaToken = useSessionStore((state) => state.taigaToken);
   const projectId = useSessionStore((state) => state.projectId);
@@ -659,6 +676,9 @@ export function Sidebar() {
   const [projectOpen, setProjectOpen] = useState(true);
   const [boardOpen, setBoardOpen] = useState(false);
   const [usersOpen, setUsersOpen] = useState(false);
+  const [contextOpen, setContextOpen] = useState(true);
+  const [dragOver, setDragOver] = useState<string | null>(null);
+  const dragSourceRef = useRef<string | null>(null);
   const [expandedEpic, setExpandedEpic] = useState<number | null>(null);
   const [dialogEpic, setDialogEpic] = useState<import("@/lib/api/types").Epic | null>(null);
   const [dialogStory, setDialogStory] = useState<import("@/lib/api/types").Story | null>(null);
@@ -710,6 +730,39 @@ export function Sidebar() {
 
   function confirm(message: string, onConfirm: () => void) {
     setConfirmState({ message, onConfirm });
+  }
+
+  function reorderSections(source: string, target: string) {
+    if (source === target) return;
+    const next = [...sectionOrder];
+    const from = next.indexOf(source);
+    const to = next.indexOf(target);
+    if (from < 0 || to < 0) return;
+    next.splice(from, 1);
+    next.splice(to, 0, source);
+    setSectionOrder(next);
+  }
+
+  function makeDragSectionProps(id: string) {
+    return {
+      onDragOver: (e: React.DragEvent) => { e.preventDefault(); setDragOver(id); },
+      onDragLeave: (e: React.DragEvent) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(null);
+      },
+      onDrop: (e: React.DragEvent) => {
+        e.preventDefault();
+        if (dragSourceRef.current) reorderSections(dragSourceRef.current, id);
+        setDragOver(null);
+        dragSourceRef.current = null;
+      },
+    };
+  }
+
+  function makeDragStartHandler(id: string) {
+    return (e: React.DragEvent) => {
+      dragSourceRef.current = id;
+      e.dataTransfer.effectAllowed = "move";
+    };
   }
 
   useEffect(() => {
@@ -796,339 +849,376 @@ export function Sidebar() {
         <LoginSection />
       </section>
 
-      {/* ── Project (only when logged in) ── */}
-      {taigaToken ? (
-        <section className="border-b border-neutral-800">
-          <PanelHeader
-            icon={<FolderOpen className="size-4" />}
-            title={activeProjectName}
-            open={projectOpen}
-            onClick={() => setProjectOpen(!projectOpen)}
-          />
-          {projectOpen ? (
-            <div className="space-y-2 bg-[#181719] p-3">
-              <select
-                className="h-9 w-full rounded border border-neutral-600 bg-neutral-950 px-2 text-sm text-white"
-                value={projectId ?? ""}
-                onChange={(e) => {
-                  const selected = projectOptions.find((p) => p.id === Number(e.target.value));
-                  if (selected) {
-                    setProject({ projectId: selected.id, projectName: selected.name });
-                    saveServerConfig.mutate(selected.id);
-                  }
-                }}
-              >
-                <option value="">{projects.isLoading ? "Loading..." : "Select project"}</option>
-                {projectOptions.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  className="flex h-8 items-center justify-center gap-1 rounded border border-neutral-600 text-sm text-neutral-300 transition-colors hover:border-violet-500/50 hover:text-violet-300"
-                  onClick={() => projects.refetch()}
-                >
-                  <RefreshCw className="size-3" /> Refresh
-                </button>
-                <button
-                  className="flex h-8 items-center justify-center gap-1 rounded border border-violet-500/40 bg-violet-500/10 text-sm font-semibold text-violet-400 transition-colors hover:bg-violet-500/20"
-                  onClick={() => {
-                    const name = window.prompt("Project name");
-                    if (name?.trim()) createProject.mutate({ name: name.trim(), description: "" });
-                  }}
-                >
-                  <Plus className="size-3" /> Create New
-                </button>
-              </div>
-              {projectId ? (
-                <button
-                  className="flex h-8 w-full items-center justify-center gap-2 rounded border border-red-500/40 bg-red-500/10 text-sm font-semibold text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50"
-                  disabled={deleteProject.isPending}
-                  onClick={() =>
-                    confirm("Delete this Taiga project and all its data?", () => deleteProject.mutate(projectId))
-                  }
-                >
-                  <Trash2 className="size-3" />
-                  Delete Project
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-        </section>
-      ) : null}
-
-      {/* ── Board (only when project selected) ── */}
-      {taigaToken && projectId ? (
-        <>
-          <section className="border-b border-neutral-800">
-            <PanelHeader
-              icon={<Layers3 className="size-4" />}
-              title="Epics & Stories"
-              badge={`${epicCount}`}
-              open={boardOpen}
-              onClick={() => setBoardOpen(!boardOpen)}
-            />
-            {boardOpen ? (
-              <div className="space-y-3 bg-[#181719] p-3 text-sm">
-                <div className="flex items-center justify-between text-neutral-500">
-                  <span>{epicCount} epic(s)</span>
-                  <div className="flex gap-2">
-                    <button
-                      className="flex items-center gap-1 rounded border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-400 transition-colors hover:bg-violet-500/20"
-                      onClick={() => {
-                        const subject = window.prompt("Epic title");
-                        if (subject?.trim()) createEpic.mutate({ subject: subject.trim(), description: "" });
-                      }}
-                    >
-                      <Plus className="size-3" /> Create New Epic
-                    </button>
-                    <button
-                      className="flex items-center gap-1 rounded border border-neutral-600 px-2 py-1.5 text-neutral-300 transition-colors hover:border-violet-500/50 hover:text-violet-300"
-                      onClick={() => board.refetch()}
-                    >
-                      <RefreshCw className="size-3" />
-                    </button>
-                  </div>
-                </div>
-                {board.data?.map((epic) => (
-                  <div key={epic.id}>
-                    <div className="flex w-full items-center gap-1">
-                      <button
-                        className="flex flex-1 items-center gap-1 text-left font-semibold text-white transition-colors hover:text-violet-300"
-                        onClick={() => setExpandedEpic(expandedEpic === epic.id ? null : epic.id)}
-                      >
-                        {expandedEpic === epic.id ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
-                        #{epic.ref} {epic.subject}
-                      </button>
-                      <button
-                        className="grid size-6 place-items-center rounded text-neutral-400 transition-colors hover:bg-violet-500/20 hover:text-violet-300"
-                        onClick={() => setDialogEpic(epic)}
-                        title="Edit epic"
-                      >
-                        <Info className="size-3" />
-                      </button>
-                      <button
-                        className="grid size-6 place-items-center rounded text-red-400 transition-colors hover:bg-red-500/20"
-                        onClick={() =>
-                          confirm(`Delete epic "${epic.subject}" and all its stories?`, () => deleteEpic.mutate(epic.id))
-                        }
-                        title="Delete epic"
-                      >
-                        <Trash2 className="size-3" />
-                      </button>
-                    </div>
-
-                    {expandedEpic === epic.id ? (
-                      <div className="mt-2 space-y-2 pl-4 text-neutral-300">
-                        <button
-                          className="flex items-center gap-1 rounded border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-xs font-semibold text-violet-400 transition-colors hover:bg-violet-500/20"
-                          onClick={() => {
-                            const subject = window.prompt("Story title");
-                            if (subject?.trim()) createStory.mutate({ epicId: epic.id, subject: subject.trim(), description: "" });
-                          }}
-                        >
-                          <Plus className="size-3" /> Story
-                        </button>
-                        {epic.stories.map((story) => (
-                          <div key={story.id}>
-                            <div className="flex items-center gap-1">
-                              <span className="min-w-0 flex-1 truncate text-xs">#{story.ref} {story.subject}</span>
-                              <button
-                                className="grid size-5 place-items-center rounded text-neutral-400 transition-colors hover:bg-violet-500/20 hover:text-violet-300"
-                                onClick={() => setDialogStory(story)}
-                                title="Edit story"
-                              >
-                                <Info className="size-3" />
-                              </button>
-                              <button
-                                className="grid size-5 place-items-center rounded text-red-400 transition-colors hover:bg-red-500/20"
-                                onClick={() =>
-                                  confirm(`Delete story "${story.subject}"?`, () => deleteStory.mutate(story.id))
-                                }
-                                title="Delete story"
-                              >
-                                <Trash2 className="size-3" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
-                {!board.data?.length ? <div className="text-neutral-500">No epics yet.</div> : null}
-              </div>
-            ) : null}
-          </section>
-
-          {/* ── Users ── */}
-          <section className="border-b border-neutral-800">
-            <PanelHeader
-              icon={<Users className="size-4" />}
-              title="Users & Roles"
-              badge={`${memberCount}`}
-              open={usersOpen}
-              onClick={() => setUsersOpen(!usersOpen)}
-            />
-            {usersOpen ? (
-              <div className="space-y-3 bg-[#181719] p-3 text-sm">
-                {users.data?.memberships.map((member) => (
-                  <div key={member.id} className="border-b border-neutral-700 pb-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="font-semibold text-white">{member.full_name || member.username || member.email}</div>
-                        <div className="text-xs text-neutral-500">{member.email}</div>
-                      </div>
-                      {!member.is_owner ? (
-                        <button
-                          className="shrink-0 rounded text-red-400 hover:text-red-300"
-                          title="Remove member"
-                          onClick={() =>
-                            confirm(`Remove ${member.full_name || member.username} from project?`, () =>
-                              removeMember.mutate(member.id),
-                            )
-                          }
-                        >
-                          <Trash2 className="size-3" />
-                        </button>
-                      ) : null}
-                    </div>
-                    {editingMemberRole === member.id ? (
-                      <div className="mt-2 flex gap-2">
-                        <select
-                          className="h-7 flex-1 rounded border border-neutral-600 bg-neutral-950 px-2 text-xs text-white"
-                          value={memberRoleValue || member.role || 0}
-                          onChange={(e) => setMemberRoleValue(Number(e.target.value))}
-                        >
-                          {users.data?.roles.map((r) => (
-                            <option key={r.id} value={r.id}>{r.name}</option>
-                          ))}
-                        </select>
-                        <button
-                          className="rounded bg-violet-700 px-2 py-1 text-xs font-semibold text-white"
-                          onClick={() => {
-                            updateMemberRole.mutate(
-                              { membershipId: member.id, roleId: memberRoleValue || member.role || 0 },
-                              { onSuccess: () => setEditingMemberRole(null) },
-                            );
-                          }}
-                        >
-                          Save
-                        </button>
-                        <button
-                          className="rounded bg-neutral-700 px-2 py-1 text-xs text-neutral-300"
-                          onClick={() => setEditingMemberRole(null)}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        className="mt-1 inline-block rounded border border-violet-600 px-2 py-0.5 text-xs text-violet-200 hover:border-violet-400"
-                        onClick={() => { setEditingMemberRole(member.id); setMemberRoleValue(member.role ?? 0); }}
-                      >
-                        {member.role_name || "Member"}
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <div className="space-y-2">
-                  <div className="font-semibold text-white">Invite member</div>
-                  <input
-                    value={inviteValue}
-                    onChange={(e) => setInviteValue(e.target.value)}
-                    className="h-8 w-full rounded border border-violet-700 bg-neutral-950 px-2 text-sm text-white"
-                    placeholder="Username or email"
-                  />
-                  <select
-                    value={defaultRoleId}
-                    onChange={(e) => setRoleId(Number(e.target.value))}
-                    className="h-8 w-full rounded border border-neutral-600 bg-neutral-950 px-2 text-sm text-white"
-                  >
-                    <option value={0}>Role</option>
-                    {users.data?.roles.map((r) => (
-                      <option key={r.id} value={r.id}>{r.name}</option>
-                    ))}
-                  </select>
-                  <button
-                    className="h-8 w-full rounded bg-violet-600 text-sm font-semibold text-white disabled:opacity-50"
-                    disabled={!inviteValue.trim() || !defaultRoleId || invite.isPending}
-                    onClick={() => invite.mutate({ usernameOrEmail: inviteValue, roleId: defaultRoleId })}
-                  >
-                    Send invite
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </section>
-
-          {/* ── Context Files ── */}
-          <section className="px-4 py-7">
-            <SectionTitle>Active Context</SectionTitle>
-            <div className="mb-3 text-sm text-neutral-500">
-              context:{" "}
-              <span className="font-bold" style={{ color: sizeColor }}>
-                {totalChars} chars
-              </span>
-            </div>
-            {!hasProjectConcept && contextFiles.data ? (
-              <div className="mb-3 rounded border border-amber-700 bg-amber-950/30 px-3 py-2 text-sm text-amber-300">
-                Memory Bank lacks <code>## Project Concept</code>. Add one for best AI results.
-              </div>
-            ) : null}
-            <div className="mb-4 space-y-3">
-              {visibleFiles.map((file) => (
-                <div key={file.filename} className="rounded-md border border-neutral-800 bg-[#181719]">
-                  <button
-                    className="flex h-10 w-full items-center gap-3 px-4 text-left"
-                    onClick={() => setExpandedContext(expandedContext === file.filename ? null : file.filename)}
-                  >
-                    <ChevronRight className={cn("size-3 text-neutral-500", expandedContext === file.filename && "rotate-90")} />
-                    <FileText className="size-4 text-violet-400" />
-                    <span className="flex-1 text-sm font-medium text-white">{file.label}</span>
-                    <span className="text-xs text-neutral-500">{file.chars} ch</span>
-                  </button>
-                  {expandedContext === file.filename ? (
-                    <ContextEditor file={file} onConfirm={confirm} />
-                  ) : null}
-                </div>
-              ))}
-            </div>
-            <div className="space-y-2">
-              <button
-                className="flex h-9 w-full items-center justify-between rounded border border-neutral-800 px-3 text-sm text-neutral-300 hover:bg-neutral-800"
-                onClick={() => contextFiles.refetch()}
-              >
-                <span>Reload context</span>
-                <RefreshCw className="size-4 text-violet-400" />
-              </button>
-              <button
-                className="flex h-9 w-full items-center justify-between rounded border border-neutral-800 px-3 text-sm text-neutral-300 hover:bg-neutral-800 disabled:opacity-40"
-                disabled={rebuildIndex.isPending}
-                onClick={() => rebuildIndex.mutate()}
-              >
-                <span>Rebuild story index</span>
-                <RefreshCw className="size-4 text-neutral-400" />
-              </button>
-              <button
-                className="flex h-9 w-full items-center justify-between rounded border border-red-800/50 px-3 text-sm text-red-400 hover:bg-red-950/20 disabled:opacity-40"
-                disabled={resetAll.isPending}
-                onClick={() =>
-                  confirm("Reset ALL context files to defaults? This cannot be undone.", () => resetAll.mutate())
-                }
-              >
-                <span>Reset all context files</span>
-                <Trash2 className="size-4" />
-              </button>
-            </div>
-          </section>
-        </>
-      ) : (
+      {/* ── Draggable sections ── */}
+      {!taigaToken ? (
         <section className="px-4 py-7">
           <p className="text-sm leading-6 text-neutral-500">
             Sign in and select a project to view the board, users, and context files.
           </p>
         </section>
+      ) : (
+        sectionOrder.map((id) => {
+          const isOver = dragOver === id;
+          const dragHandlers = makeDragSectionProps(id);
+
+          if (id === "project") {
+            return (
+              <div key="project" {...dragHandlers} className={cn("transition-all", isOver && "outline outline-2 outline-violet-500 outline-offset-[-2px]")}>
+                <section className="border-b border-neutral-800">
+                  <PanelHeader
+                    icon={<FolderOpen className="size-4" />}
+                    title={activeProjectName}
+                    open={projectOpen}
+                    onClick={() => setProjectOpen(!projectOpen)}
+                    onDragStart={makeDragStartHandler("project")}
+                  />
+                  {projectOpen ? (
+                    <div className="space-y-2 bg-[#181719] p-3">
+                      <select
+                        className="h-9 w-full rounded border border-neutral-600 bg-neutral-950 px-2 text-sm text-white"
+                        value={projectId ?? ""}
+                        onChange={(e) => {
+                          const selected = projectOptions.find((p) => p.id === Number(e.target.value));
+                          if (selected) {
+                            setProject({ projectId: selected.id, projectName: selected.name });
+                            saveServerConfig.mutate(selected.id);
+                          }
+                        }}
+                      >
+                        <option value="">{projects.isLoading ? "Loading..." : "Select project"}</option>
+                        {projectOptions.map((p) => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          className="flex h-8 items-center justify-center gap-1 rounded border border-neutral-600 text-sm text-neutral-300 transition-colors hover:border-violet-500/50 hover:text-violet-300"
+                          onClick={() => projects.refetch()}
+                        >
+                          <RefreshCw className="size-3" /> Refresh
+                        </button>
+                        <button
+                          className="flex h-8 items-center justify-center gap-1 rounded border border-violet-500/40 bg-violet-500/10 text-sm font-semibold text-violet-400 transition-colors hover:bg-violet-500/20"
+                          onClick={() => {
+                            const name = window.prompt("Project name");
+                            if (name?.trim()) createProject.mutate({ name: name.trim(), description: "" });
+                          }}
+                        >
+                          <Plus className="size-3" /> Create New
+                        </button>
+                      </div>
+                      {projectId ? (
+                        <button
+                          className="flex h-8 w-full items-center justify-center gap-2 rounded border border-red-500/40 bg-red-500/10 text-sm font-semibold text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50"
+                          disabled={deleteProject.isPending}
+                          onClick={() =>
+                            confirm("Delete this Taiga project and all its data?", () => deleteProject.mutate(projectId))
+                          }
+                        >
+                          <Trash2 className="size-3" />
+                          Delete Project
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </section>
+              </div>
+            );
+          }
+
+          if (id === "board" && projectId) {
+            return (
+              <div key="board" {...dragHandlers} className={cn("transition-all", isOver && "outline outline-2 outline-violet-500 outline-offset-[-2px]")}>
+                <section className="border-b border-neutral-800">
+                  <PanelHeader
+                    icon={<Layers3 className="size-4" />}
+                    title="Epics & Stories"
+                    badge={`${epicCount}`}
+                    open={boardOpen}
+                    onClick={() => setBoardOpen(!boardOpen)}
+                    onDragStart={makeDragStartHandler("board")}
+                  />
+                  {boardOpen ? (
+                    <div className="space-y-3 bg-[#181719] p-3 text-sm">
+                      <div className="flex items-center justify-between text-neutral-500">
+                        <span>{epicCount} epic(s)</span>
+                        <div className="flex gap-2">
+                          <button
+                            className="flex items-center gap-1 rounded border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-400 transition-colors hover:bg-violet-500/20"
+                            onClick={() => {
+                              const subject = window.prompt("Epic title");
+                              if (subject?.trim()) createEpic.mutate({ subject: subject.trim(), description: "" });
+                            }}
+                          >
+                            <Plus className="size-3" /> Create New Epic
+                          </button>
+                          <button
+                            className="flex items-center gap-1 rounded border border-neutral-600 px-2 py-1.5 text-neutral-300 transition-colors hover:border-violet-500/50 hover:text-violet-300"
+                            onClick={() => board.refetch()}
+                          >
+                            <RefreshCw className="size-3" />
+                          </button>
+                        </div>
+                      </div>
+                      {board.data?.map((epic) => (
+                        <div key={epic.id}>
+                          <div className="flex w-full items-center gap-1">
+                            <button
+                              className="flex flex-1 items-center gap-1 text-left font-semibold text-white transition-colors hover:text-violet-300"
+                              onClick={() => setExpandedEpic(expandedEpic === epic.id ? null : epic.id)}
+                            >
+                              {expandedEpic === epic.id ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
+                              #{epic.ref} {epic.subject}
+                            </button>
+                            <button
+                              className="grid size-6 place-items-center rounded text-neutral-400 transition-colors hover:bg-violet-500/20 hover:text-violet-300"
+                              onClick={() => setDialogEpic(epic)}
+                              title="Edit epic"
+                            >
+                              <Info className="size-3" />
+                            </button>
+                            <button
+                              className="grid size-6 place-items-center rounded text-red-400 transition-colors hover:bg-red-500/20"
+                              onClick={() =>
+                                confirm(`Delete epic "${epic.subject}" and all its stories?`, () => deleteEpic.mutate(epic.id))
+                              }
+                              title="Delete epic"
+                            >
+                              <Trash2 className="size-3" />
+                            </button>
+                          </div>
+                          {expandedEpic === epic.id ? (
+                            <div className="mt-2 space-y-2 pl-4 text-neutral-300">
+                              <button
+                                className="flex items-center gap-1 rounded border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-xs font-semibold text-violet-400 transition-colors hover:bg-violet-500/20"
+                                onClick={() => {
+                                  const subject = window.prompt("Story title");
+                                  if (subject?.trim()) createStory.mutate({ epicId: epic.id, subject: subject.trim(), description: "" });
+                                }}
+                              >
+                                <Plus className="size-3" /> Story
+                              </button>
+                              {epic.stories.map((story) => (
+                                <div key={story.id}>
+                                  <div className="flex items-center gap-1">
+                                    <span className="min-w-0 flex-1 truncate text-xs">#{story.ref} {story.subject}</span>
+                                    <button
+                                      className="grid size-5 place-items-center rounded text-neutral-400 transition-colors hover:bg-violet-500/20 hover:text-violet-300"
+                                      onClick={() => setDialogStory(story)}
+                                      title="Edit story"
+                                    >
+                                      <Info className="size-3" />
+                                    </button>
+                                    <button
+                                      className="grid size-5 place-items-center rounded text-red-400 transition-colors hover:bg-red-500/20"
+                                      onClick={() =>
+                                        confirm(`Delete story "${story.subject}"?`, () => deleteStory.mutate(story.id))
+                                      }
+                                      title="Delete story"
+                                    >
+                                      <Trash2 className="size-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
+                      {!board.data?.length ? <div className="text-neutral-500">No epics yet.</div> : null}
+                    </div>
+                  ) : null}
+                </section>
+              </div>
+            );
+          }
+
+          if (id === "users" && projectId) {
+            return (
+              <div key="users" {...dragHandlers} className={cn("transition-all", isOver && "outline outline-2 outline-violet-500 outline-offset-[-2px]")}>
+                <section className="border-b border-neutral-800">
+                  <PanelHeader
+                    icon={<Users className="size-4" />}
+                    title="Users & Roles"
+                    badge={`${memberCount}`}
+                    open={usersOpen}
+                    onClick={() => setUsersOpen(!usersOpen)}
+                    onDragStart={makeDragStartHandler("users")}
+                  />
+                  {usersOpen ? (
+                    <div className="space-y-3 bg-[#181719] p-3 text-sm">
+                      {users.data?.memberships.map((member) => (
+                        <div key={member.id} className="border-b border-neutral-700 pb-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="font-semibold text-white">{member.full_name || member.username || member.email}</div>
+                              <div className="text-xs text-neutral-500">{member.email}</div>
+                            </div>
+                            {!member.is_owner ? (
+                              <button
+                                className="shrink-0 rounded text-red-400 hover:text-red-300"
+                                title="Remove member"
+                                onClick={() =>
+                                  confirm(`Remove ${member.full_name || member.username} from project?`, () =>
+                                    removeMember.mutate(member.id),
+                                  )
+                                }
+                              >
+                                <Trash2 className="size-3" />
+                              </button>
+                            ) : null}
+                          </div>
+                          {editingMemberRole === member.id ? (
+                            <div className="mt-2 flex gap-2">
+                              <select
+                                className="h-7 flex-1 rounded border border-neutral-600 bg-neutral-950 px-2 text-xs text-white"
+                                value={memberRoleValue || member.role || 0}
+                                onChange={(e) => setMemberRoleValue(Number(e.target.value))}
+                              >
+                                {users.data?.roles.map((r) => (
+                                  <option key={r.id} value={r.id}>{r.name}</option>
+                                ))}
+                              </select>
+                              <button
+                                className="rounded bg-violet-700 px-2 py-1 text-xs font-semibold text-white"
+                                onClick={() => {
+                                  updateMemberRole.mutate(
+                                    { membershipId: member.id, roleId: memberRoleValue || member.role || 0 },
+                                    { onSuccess: () => setEditingMemberRole(null) },
+                                  );
+                                }}
+                              >
+                                Save
+                              </button>
+                              <button
+                                className="rounded bg-neutral-700 px-2 py-1 text-xs text-neutral-300"
+                                onClick={() => setEditingMemberRole(null)}
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              className="mt-1 inline-block rounded border border-violet-600 px-2 py-0.5 text-xs text-violet-200 hover:border-violet-400"
+                              onClick={() => { setEditingMemberRole(member.id); setMemberRoleValue(member.role ?? 0); }}
+                            >
+                              {member.role_name || "Member"}
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <div className="space-y-2">
+                        <div className="font-semibold text-white">Invite member</div>
+                        <input
+                          value={inviteValue}
+                          onChange={(e) => setInviteValue(e.target.value)}
+                          className="h-8 w-full rounded border border-violet-700 bg-neutral-950 px-2 text-sm text-white"
+                          placeholder="Username or email"
+                        />
+                        <select
+                          value={defaultRoleId}
+                          onChange={(e) => setRoleId(Number(e.target.value))}
+                          className="h-8 w-full rounded border border-neutral-600 bg-neutral-950 px-2 text-sm text-white"
+                        >
+                          <option value={0}>Role</option>
+                          {users.data?.roles.map((r) => (
+                            <option key={r.id} value={r.id}>{r.name}</option>
+                          ))}
+                        </select>
+                        <button
+                          className="h-8 w-full rounded bg-violet-600 text-sm font-semibold text-white disabled:opacity-50"
+                          disabled={!inviteValue.trim() || !defaultRoleId || invite.isPending}
+                          onClick={() => invite.mutate({ usernameOrEmail: inviteValue, roleId: defaultRoleId })}
+                        >
+                          Send invite
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </section>
+              </div>
+            );
+          }
+
+          if (id === "context" && projectId) {
+            return (
+              <div key="context" {...dragHandlers} className={cn("transition-all", isOver && "outline outline-2 outline-violet-500 outline-offset-[-2px]")}>
+                <section className="border-b border-neutral-800">
+                  <PanelHeader
+                    icon={<FileText className="size-4" />}
+                    title="Active Context"
+                    badge={`${totalChars} ch`}
+                    open={contextOpen}
+                    onClick={() => setContextOpen(!contextOpen)}
+                    onDragStart={makeDragStartHandler("context")}
+                  />
+                  {contextOpen ? (
+                    <div className="px-4 py-4">
+                      <div className="mb-3 text-sm text-neutral-500">
+                        context:{" "}
+                        <span className="font-bold" style={{ color: sizeColor }}>
+                          {totalChars} chars
+                        </span>
+                      </div>
+                      {!hasProjectConcept && contextFiles.data ? (
+                        <div className="mb-3 rounded border border-amber-700 bg-amber-950/30 px-3 py-2 text-sm text-amber-300">
+                          Memory Bank lacks <code>## Project Concept</code>. Add one for best AI results.
+                        </div>
+                      ) : null}
+                      <div className="mb-4 space-y-3">
+                        {visibleFiles.map((file) => (
+                          <div key={file.filename} className="rounded-md border border-neutral-800 bg-[#181719]">
+                            <button
+                              className="flex h-10 w-full items-center gap-3 px-4 text-left"
+                              onClick={() => setExpandedContext(expandedContext === file.filename ? null : file.filename)}
+                            >
+                              <ChevronRight className={cn("size-3 text-neutral-500", expandedContext === file.filename && "rotate-90")} />
+                              <FileText className="size-4 text-violet-400" />
+                              <span className="flex-1 text-sm font-medium text-white">{file.label}</span>
+                              <span className="text-xs text-neutral-500">{file.chars} ch</span>
+                            </button>
+                            {expandedContext === file.filename ? (
+                              <ContextEditor file={file} onConfirm={confirm} />
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="space-y-2">
+                        <button
+                          className="flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm text-violet-300 transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 hover:text-violet-200"
+                          onClick={() => contextFiles.refetch()}
+                        >
+                          <span>Reload context</span>
+                          <RefreshCw className="size-4 text-violet-400" />
+                        </button>
+                        <button
+                          className="flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm text-violet-300 transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 hover:text-violet-200 disabled:opacity-40"
+                          disabled={rebuildIndex.isPending}
+                          onClick={() => rebuildIndex.mutate()}
+                        >
+                          <span>Rebuild story index</span>
+                          <RefreshCw className="size-4 text-violet-400" />
+                        </button>
+                        <button
+                          className="flex h-9 w-full items-center justify-between rounded border border-red-500/30 px-3 text-sm text-red-400 transition-colors hover:border-red-500/60 hover:bg-red-500/15 hover:text-red-300 disabled:opacity-40"
+                          disabled={resetAll.isPending}
+                          onClick={() =>
+                            confirm("Reset ALL context files to defaults? This cannot be undone.", () => resetAll.mutate())
+                          }
+                        >
+                          <span>Reset all context files</span>
+                          <Trash2 className="size-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </section>
+              </div>
+            );
+          }
+
+          return null;
+        })
       )}
     </aside>
   );
