@@ -280,9 +280,22 @@ def get_story_url(story_ref: int | None) -> str | None:
 # ---------------------------------------------------------------------------
 
 def get_epics() -> list[dict]:
-    """Return all Epics for the project, ordered by ref, normalized."""
-    raw = _get("epics", params={"project": TAIGA_PROJECT_ID, "order_by": "ref"})
-    return [normalize_epic(e) for e in (raw or [])]
+    """Return all Epics for the project, ordered by ref, normalized.
+
+    Taiga's list endpoint omits description; fetch individual detail when missing.
+    """
+    raw_list = _get("epics", params={"project": TAIGA_PROJECT_ID, "order_by": "ref"}) or []
+    result = []
+    for e in raw_list:
+        if not e.get("description"):
+            try:
+                detail = _get(f"epics/{e['id']}")
+                if detail:
+                    e = detail
+            except Exception:
+                pass
+        result.append(normalize_epic(e))
+    return result
 
 
 def get_epic(epic_id: int) -> dict:
