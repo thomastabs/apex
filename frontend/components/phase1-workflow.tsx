@@ -64,6 +64,7 @@ export function Phase1Workflow() {
   const [nlDraft, setNlDraft] = useState("");
   const [compiledStories, setCompiledStories] = useState<CompiledStory[]>([]);
   const [selectedSuggestion, setSelectedSuggestion] = useState<number | null>(null);
+  const [editedDescriptions, setEditedDescriptions] = useState<Record<number, string>>({});
   const [pushSuccess, setPushSuccess] = useState(false);
   const [showGherkin, setShowGherkin] = useState(false);
   const draftRestored = useRef(false);
@@ -123,7 +124,7 @@ export function Phase1Workflow() {
   function useSuggestion(suggestion: EpicSuggestion, index: number) {
     setSelectedSuggestion(index);
     setEpicTitle(suggestion.title);
-    setEpicDescription(suggestion.description);
+    setEpicDescription(editedDescriptions[index] ?? suggestion.description);
     setEpicId(null);
   }
 
@@ -251,7 +252,14 @@ export function Phase1Workflow() {
                 AI Guidance <span className="text-neutral-500">Optional — focus or constrain the epic suggestions.</span>
                 <Input value={hint} onChange={(event) => setHint(event.target.value)} placeholder="e.g. focus on mobile-first flows, B2B enterprise context..." />
               </label>
-              <Button className="w-full" onClick={() => suggestEpics.mutate(hint)} disabled={suggestEpics.isPending}>
+              <Button
+                className="w-full"
+                onClick={() => {
+                  setEditedDescriptions({});
+                  suggestEpics.mutate(hint);
+                }}
+                disabled={suggestEpics.isPending}
+              >
                 <Sparkles className="size-4" />
                 AI Suggests
               </Button>
@@ -265,7 +273,13 @@ export function Phase1Workflow() {
                       </button>
                       {selectedSuggestion === index ? (
                         <div className="space-y-3">
-                          <Textarea rows={3} value={suggestion.description} readOnly />
+                          <Textarea
+                            rows={3}
+                            value={editedDescriptions[index] ?? suggestion.description}
+                            onChange={(event) =>
+                              setEditedDescriptions((prev) => ({ ...prev, [index]: event.target.value }))
+                            }
+                          />
                           <Button variant="secondary" onClick={() => useSuggestion(suggestion, index)}>
                             Use Suggestion
                           </Button>

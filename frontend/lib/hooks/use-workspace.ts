@@ -11,6 +11,7 @@ import {
   getBoard,
   getContextFiles,
   getMe,
+  getServerConfig,
   getStoryIndexStats,
   getUsers,
   inviteUser,
@@ -20,6 +21,7 @@ import {
   removeMember,
   resetAllContextFiles,
   resetContextFile,
+  saveServerConfig,
   updateContextFile,
   updateEpic,
   updateMemberRole,
@@ -33,6 +35,23 @@ export function useMe() {
     queryKey: ["workspace", "me"],
     queryFn: () => getMe(auth!),
     enabled: Boolean(auth),
+  });
+}
+
+export function useServerConfig() {
+  const auth = useAuthContext();
+  return useQuery({
+    queryKey: ["workspace", "server-config"],
+    queryFn: () => getServerConfig(auth!),
+    enabled: Boolean(auth),
+    staleTime: Infinity,
+  });
+}
+
+export function useSaveServerConfig() {
+  const auth = useAuthContext();
+  return useMutation({
+    mutationFn: (projectId: number) => saveServerConfig(auth!, projectId),
   });
 }
 

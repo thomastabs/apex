@@ -49,6 +49,22 @@ def _me_payload(me: dict) -> dict:
     }
 
 
+@router.get("/config")
+def get_config(auth: AuthContext = Depends(get_auth_context)):
+    from src import context_manager
+    config = context_manager.load_config()
+    return {"project_id": config.get("project_id")}
+
+
+@router.post("/config")
+def save_config(payload: dict, auth: AuthContext = Depends(get_auth_context)):
+    from src import context_manager
+    project_id = payload.get("project_id")
+    if project_id:
+        context_manager.save_config(int(project_id))
+    return {"ok": True}
+
+
 @router.post("/login", response_model=LoginResponse)
 def login(payload: LoginRequest):
     taiga = TaigaService()

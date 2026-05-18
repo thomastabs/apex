@@ -36,6 +36,8 @@ import {
   useRemoveMember,
   useResetAllContextFiles,
   useResetContextFile,
+  useSaveServerConfig,
+  useServerConfig,
   useUpdateContextFile,
   useUpdateEpic,
   useUpdateMemberRole,
@@ -133,12 +135,14 @@ function ConfirmDialog({
 function EpicEditRow({ epic, onDone }: { epic: Epic; onDone: () => void }) {
   const [subject, setSubject] = useState(epic.subject);
   const [description, setDescription] = useState(epic.description);
+  const [tagsInput, setTagsInput] = useState((epic.tags ?? []).join(", "));
   const update = useUpdateEpic();
 
   function save() {
     if (!epic.version) return;
+    const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
     update.mutate(
-      { epicId: epic.id, version: epic.version, fields: { subject, description } },
+      { epicId: epic.id, version: epic.version, fields: { subject, description, tags } },
       { onSuccess: onDone },
     );
   }
@@ -156,6 +160,12 @@ function EpicEditRow({ epic, onDone }: { epic: Epic; onDone: () => void }) {
         value={description}
         onChange={(e) => setDescription(e.target.value)}
         placeholder="Description"
+      />
+      <input
+        className="h-7 w-full rounded border border-neutral-600 bg-neutral-950 px-2 text-xs text-neutral-200"
+        value={tagsInput}
+        onChange={(e) => setTagsInput(e.target.value)}
+        placeholder="Tags (comma-separated)"
       />
       <div className="flex gap-2">
         <button
@@ -175,33 +185,44 @@ function EpicEditRow({ epic, onDone }: { epic: Epic; onDone: () => void }) {
 
 function StoryEditRow({ story, onDone }: { story: Story; onDone: () => void }) {
   const [subject, setSubject] = useState(story.subject);
+  const [tagsInput, setTagsInput] = useState((story.tags ?? []).join(", "));
   const update = useUpdateStory();
 
   function save() {
     if (!story.version) return;
+    const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
     update.mutate(
-      { storyId: story.id, version: story.version, fields: { subject } },
+      { storyId: story.id, version: story.version, fields: { subject, tags } },
       { onSuccess: onDone },
     );
   }
 
   return (
-    <div className="mt-1 flex gap-1">
+    <div className="mt-1 space-y-1">
+      <div className="flex gap-1">
+        <input
+          className="h-7 flex-1 rounded border border-violet-700 bg-neutral-950 px-2 text-xs text-white"
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+          placeholder="Story title"
+        />
+        <button
+          className="rounded bg-violet-700 px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
+          disabled={update.isPending || !subject.trim()}
+          onClick={save}
+        >
+          ✓
+        </button>
+        <button className="rounded bg-neutral-700 px-2 py-1 text-xs text-neutral-300" onClick={onDone}>
+          ✕
+        </button>
+      </div>
       <input
-        className="h-7 flex-1 rounded border border-violet-700 bg-neutral-950 px-2 text-xs text-white"
-        value={subject}
-        onChange={(e) => setSubject(e.target.value)}
+        className="h-6 w-full rounded border border-neutral-700 bg-neutral-950 px-2 text-xs text-neutral-300"
+        value={tagsInput}
+        onChange={(e) => setTagsInput(e.target.value)}
+        placeholder="Tags (comma-separated)"
       />
-      <button
-        className="rounded bg-violet-700 px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
-        disabled={update.isPending || !subject.trim()}
-        onClick={save}
-      >
-        ✓
-      </button>
-      <button className="rounded bg-neutral-700 px-2 py-1 text-xs text-neutral-300" onClick={onDone}>
-        ✕
-      </button>
     </div>
   );
 }
@@ -441,6 +462,24 @@ function useRestoreSession() {
   }, [taigaToken, me.isError, me.error, clearSession]);
 }
 
+// ── Server-side project config restore ───────────────────────────────────────
+
+function useRestoreProjectConfig() {
+  const projectId = useSessionStore((s) => s.projectId);
+  const setProject = useSessionStore((s) => s.setProject);
+  const projects = useProjects();
+  const serverConfig = useServerConfig();
+
+  useEffect(() => {
+    if (projectId) return; // already have project in localStorage
+    const serverId = serverConfig.data?.project_id;
+    if (!serverId) return;
+    // find project name from list if available
+    const match = projects.data?.find((p) => p.id === serverId);
+    setProject({ projectId: serverId, projectName: match?.name ?? "" });
+  }, [projectId, serverConfig.data?.project_id, projects.data, setProject]);
+}
+
 // ── main Sidebar ──────────────────────────────────────────────────────────────
 
 export function Sidebar() {
@@ -457,6 +496,7 @@ export function Sidebar() {
   const setProject = useSessionStore((state) => state.setProject);
 
   useRestoreSession();
+  useRestoreProjectConfig();
 
   const [projectOpen, setProjectOpen] = useState(true);
   const [boardOpen, setBoardOpen] = useState(false);
@@ -488,6 +528,7 @@ export function Sidebar() {
   const deleteStory = useDeleteStory();
   const rebuildIndex = useRebuildStoryIndex();
   const resetAll = useResetAllContextFiles();
+  const saveServerConfig = useSaveServerConfig();
 
   const projectOptions = useMemo(() => projects.data ?? [], [projects.data]);
   const activeProjectName = projectName || (projectId ? `Project ${projectId}` : "No project selected");
@@ -611,7 +652,10 @@ export function Sidebar() {
                 value={projectId ?? ""}
                 onChange={(e) => {
                   const selected = projectOptions.find((p) => p.id === Number(e.target.value));
-                  if (selected) setProject({ projectId: selected.id, projectName: selected.name });
+                  if (selected) {
+                    setProject({ projectId: selected.id, projectName: selected.name });
+                    saveServerConfig.mutate(selected.id);
+                  }
                 }}
               >
                 <option value="">{projects.isLoading ? "Loading..." : "Select project"}</option>

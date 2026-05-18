@@ -11,6 +11,18 @@ import type {
   UsersResponse,
 } from "./types";
 
+export function getServerConfig(context: AuthContext) {
+  return apiRequest<{ project_id: number | null }>("/api/workspace/config", { context });
+}
+
+export function saveServerConfig(context: AuthContext, projectId: number) {
+  return apiRequest<{ ok: boolean }>("/api/workspace/config", {
+    method: "POST",
+    context,
+    body: { project_id: projectId },
+  });
+}
+
 export function login(username: string, password: string) {
   return apiRequest<{ auth_token: string; me: Me }>("/api/workspace/login", {
     method: "POST",
