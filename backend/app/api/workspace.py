@@ -184,10 +184,13 @@ def update_epic(epic_id: int, payload: UpdateEpicRequest, ctx: RequestContext = 
 
 @router.delete("/epics/{epic_id}")
 def delete_epic(epic_id: int, ctx: RequestContext = Depends(get_request_context)):
+    from src import context_manager
     taiga = TaigaService()
     taiga.set_context(ctx.taiga_token, ctx.project_id)
     try:
         count = taiga.delete_epic_with_stories(epic_id)
+        context_manager.set_active_project(ctx.project_id)
+        context_manager.remove_epic_from_story_index(epic_id)
         return {"ok": True, "stories_deleted": count}
     except TaigaAPIError as exc:
         raise _taiga_error(exc) from exc
@@ -221,10 +224,13 @@ def update_story(story_id: int, payload: UpdateStoryRequest, ctx: RequestContext
 
 @router.delete("/stories/{story_id}")
 def delete_story(story_id: int, ctx: RequestContext = Depends(get_request_context)):
+    from src import context_manager
     taiga = TaigaService()
     taiga.set_context(ctx.taiga_token, ctx.project_id)
     try:
         taiga.delete_story(story_id)
+        context_manager.set_active_project(ctx.project_id)
+        context_manager.remove_story_index_entries([story_id])
         return {"ok": True}
     except TaigaAPIError as exc:
         raise _taiga_error(exc) from exc
@@ -281,3 +287,31 @@ def rebuild_story_index(ctx: RequestContext = Depends(get_request_context)):
     context_manager.set_active_project(ctx.project_id)
     context_manager.rebuild_story_index()
     return {"ok": True}
+
+
+@router.get("/context-files/story-index-stats")
+def story_index_stats(ctx: RequestContext = Depends(get_request_context)):
+    from src import context_manager
+    context_manager.set_active_project(ctx.project_id)
+    try:
+        index = context_manager.get_story_index()
+    except Exception:
+        index = {}
+    stories = list(index.values())
+    total = len(stories)
+    return {
+        "total": total,
+        "phase2_designed": sum(1 for s in stories if s.get("has_tech_spec")),
+        "phase3_proposed": sum(1 for s in stories if s.get("has_proposal")),
+        "phase4_tested": sum(1 for s in stories if s.get("has_bdd")),
+        "phase5_deployed": sum(1 for s in stories if s.get("phase_status") == "deployed"),
+    }
+
+
+@router.post("/context-files/reset-all", response_model=ContextFilesResponse)
+def reset_all_context_files(ctx: RequestContext = Depends(get_request_context)):
+    context = ContextService()
+    context.set_project(ctx.project_id)
+    for filename, _ in _CONTEXT_FILES:
+        context.reset_context_file(filename)
+    return get_context_files(ctx)

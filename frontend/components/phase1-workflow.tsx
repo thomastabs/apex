@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Download, FilePlus2, Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { Download, ExternalLink, FilePlus2, Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import { Button, Callout, Input, SectionHeading, Textarea } from "@/components/ui/primitives";
 import {
   useCompileGherkin,
@@ -10,6 +10,7 @@ import {
   usePushPhase1Stories,
   useSuggestPhase1Epics,
 } from "@/lib/hooks/use-phase1";
+import { useContextFiles } from "@/lib/hooks/use-workspace";
 import { useApiContext } from "@/lib/stores/session-store";
 import type { CompiledStory, EpicSuggestion } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,18 @@ function saveDraft(projectId: number | null, nlDraft: string, compiledStories: C
   }
 }
 
+function validateStories(stories: CompiledStory[]): string[] {
+  const errors: string[] = [];
+  for (let i = 0; i < stories.length; i++) {
+    const { title, gherkin } = stories[i];
+    const label = title.trim() ? `"${title.trim()}"` : `Story ${i + 1}`;
+    if (!title.trim()) errors.push(`Story ${i + 1} has no title.`);
+    if (!/^\s*Feature:/m.test(gherkin)) errors.push(`${label} is missing a Feature: header.`);
+    if (!/^\s*Scenario/m.test(gherkin)) errors.push(`${label} is missing a Scenario block.`);
+  }
+  return errors;
+}
+
 export function Phase1Workflow() {
   const context = useApiContext();
   const [mode, setMode] = useState<Mode>("create");
@@ -52,9 +65,11 @@ export function Phase1Workflow() {
   const [compiledStories, setCompiledStories] = useState<CompiledStory[]>([]);
   const [selectedSuggestion, setSelectedSuggestion] = useState<number | null>(null);
   const [pushSuccess, setPushSuccess] = useState(false);
+  const [showGherkin, setShowGherkin] = useState(false);
   const draftRestored = useRef(false);
 
   const epics = usePhase1Epics();
+  const contextFiles = useContextFiles();
   const suggestEpics = useSuggestPhase1Epics();
   const generate = useGenerateNlStories();
   const compile = useCompileGherkin();
@@ -76,6 +91,15 @@ export function Phase1Workflow() {
     saveDraft(context?.projectId ?? null, nlDraft, compiledStories);
   }, [context?.projectId, nlDraft, compiledStories]);
 
+  const memoryBank = contextFiles.data?.files.find((f) => f.filename === "memory-bank.md")?.content ?? "";
+  const hasProjectConcept = useMemo(() => {
+    if (!memoryBank) return false;
+    const match = /^##\s+Project\s+Concept[^\n]*\n([\s\S]*?)(?=^##\s|\Z)/im.exec(memoryBank);
+    if (!match) return false;
+    const text = match[1].trim();
+    return Boolean(text) && !text.startsWith("<!--");
+  }, [memoryBank]);
+
   const suggestions = suggestEpics.data?.epics ?? [];
   const activeEpic = useMemo(
     () => epics.data?.find((epic) => epic.id === epicId),
@@ -84,6 +108,8 @@ export function Phase1Workflow() {
   const canGenerate = mode === "load" ? Boolean(activeEpic) : Boolean(epicTitle.trim());
   const busy = generate.isPending || compile.isPending || push.isPending || suggestEpics.isPending;
   const hasUnsaved = Boolean(nlDraft || compiledStories.length);
+  const validationErrors = compiledStories.length ? validateStories(compiledStories) : [];
+  const canPush = !busy && compiledStories.length > 0 && validationErrors.length === 0;
 
   function requestModeSwitch(next: Mode) {
     if (hasUnsaved && mode !== next) {
@@ -119,7 +145,13 @@ export function Phase1Workflow() {
     setNlDraft("");
     setCompiledStories([]);
     setPushSuccess(false);
+    setShowGherkin(false);
     setMode("create");
+  }
+
+  function backToNlEdit() {
+    setCompiledStories([]);
+    setShowGherkin(false);
   }
 
   return (
@@ -130,6 +162,12 @@ export function Phase1Workflow() {
           Mob Elaboration — transform an Epic into formal Gherkin Acceptance Criteria
         </p>
       </div>
+
+      {!hasProjectConcept && contextFiles.data ? (
+        <div className="mb-4 rounded-md border border-amber-700 bg-amber-950/40 px-4 py-2 text-sm text-amber-300">
+          Memory Bank has no <code className="text-amber-200">## Project Concept</code> section. Add one before generating stories for best results.
+        </div>
+      ) : null}
 
       {hasUnsaved && (
         <div className="mb-4 rounded-md border border-amber-700 bg-amber-950/40 px-4 py-2 text-sm text-amber-300">
@@ -254,13 +292,30 @@ export function Phase1Workflow() {
             onClick={() =>
               generate.mutate(
                 { epic_subject: epicTitle, epic_description: epicDescription, hint },
-                { onSuccess: (data) => setNlDraft(data.nl_draft) },
+                {
+                  onSuccess: (data) => {
+                    setNlDraft(data.nl_draft);
+                    setCompiledStories([]);
+                    setShowGherkin(false);
+                  },
+                },
               )
             }
           >
             <Sparkles className="size-4" />
             Generate Stories
           </Button>
+          {generate.isPending ? (
+            <div className="space-y-1 rounded-md border border-neutral-800 bg-[#1f1f21] p-3 text-xs text-neutral-400">
+              <div>Analyzing epic and description…</div>
+              <div>Calling AI to generate user stories…</div>
+            </div>
+          ) : null}
+          {generate.isError ? (
+            <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
+              Generation failed: {String(generate.error)}
+            </div>
+          ) : null}
         </section>
 
         {nlDraft ? (
@@ -271,18 +326,44 @@ export function Phase1Workflow() {
               disabled={busy}
               onClick={() =>
                 compile.mutate(nlDraft, {
-                  onSuccess: (data) => setCompiledStories(data.stories),
+                  onSuccess: (data) => {
+                    setCompiledStories(data.stories);
+                    setShowGherkin(true);
+                  },
                 })
               }
             >
               Compile to Gherkin
             </Button>
+            {compile.isError ? (
+              <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
+                Compile failed: {String(compile.error)}
+              </div>
+            ) : null}
           </section>
         ) : null}
 
-        {compiledStories.length ? (
+        {compiledStories.length && showGherkin ? (
           <section className="space-y-4 border-t border-neutral-700 pt-6">
-            <SectionHeading>Step 4 · Review Gherkin & Push to Taiga</SectionHeading>
+            <div className="flex items-center justify-between">
+              <SectionHeading>Step 4 · Review Gherkin & Push to Taiga</SectionHeading>
+              <button
+                className="text-sm text-neutral-400 hover:text-neutral-200"
+                onClick={backToNlEdit}
+              >
+                ← Back to NL Draft
+              </button>
+            </div>
+
+            {validationErrors.length > 0 ? (
+              <div className="rounded-md border border-red-800 bg-red-950/30 p-3 text-sm text-red-300">
+                <div className="mb-1 font-semibold">Fix before pushing:</div>
+                <ul className="list-disc pl-4">
+                  {validationErrors.map((err) => <li key={err}>{err}</li>)}
+                </ul>
+              </div>
+            ) : null}
+
             <div className="space-y-4">
               {compiledStories.map((story, index) => (
                 <div key={`${story.title}-${index}`} className="rounded-md border border-neutral-800 bg-[#1f1f21] p-4">
@@ -328,30 +409,55 @@ export function Phase1Workflow() {
             >
               <Plus className="size-4" /> Add Story
             </button>
+
             {pushSuccess ? (
               <div className="space-y-4">
                 <Callout>{push.data?.count ?? 0} stories pushed and locked in the functional spec.</Callout>
+                {push.data?.story_urls?.length ? (
+                  <div className="space-y-1">
+                    <div className="text-xs font-medium text-neutral-400">Created stories in Taiga:</div>
+                    {push.data.story_urls.map((url) => (
+                      <a
+                        key={url}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-sm text-violet-400 hover:text-violet-300"
+                      >
+                        <ExternalLink className="size-3" />
+                        {url}
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
                 <Button variant="secondary" onClick={startNewEpic}>
                   <RefreshCw className="size-4" /> Start New Epic
                 </Button>
               </div>
             ) : (
-              <Button
-                disabled={busy}
-                onClick={() =>
-                  push.mutate(
-                    {
-                      epic_subject: epicTitle,
-                      epic_description: epicDescription,
-                      epic_id: epicId,
-                      stories: compiledStories,
-                    },
-                    { onSuccess: () => setPushSuccess(true) },
-                  )
-                }
-              >
-                Push Stories to Taiga
-              </Button>
+              <>
+                <Button
+                  disabled={!canPush}
+                  onClick={() =>
+                    push.mutate(
+                      {
+                        epic_subject: epicTitle,
+                        epic_description: epicDescription,
+                        epic_id: epicId,
+                        stories: compiledStories,
+                      },
+                      { onSuccess: () => setPushSuccess(true) },
+                    )
+                  }
+                >
+                  Push Stories to Taiga
+                </Button>
+                {push.isError ? (
+                  <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
+                    Push failed: {String(push.error)}
+                  </div>
+                ) : null}
+              </>
             )}
           </section>
         ) : null}

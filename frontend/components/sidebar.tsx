@@ -34,6 +34,7 @@ import {
   useProjects,
   useRebuildStoryIndex,
   useRemoveMember,
+  useResetAllContextFiles,
   useResetContextFile,
   useUpdateContextFile,
   useUpdateEpic,
@@ -45,6 +46,7 @@ import { useSessionStore } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
 import type { Epic, Story } from "@/lib/api/types";
+import { ApiError } from "@/lib/api/client";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -62,6 +64,12 @@ function downloadFile(filename: string, content: string) {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function contextSizeColor(totalChars: number): string {
+  if (totalChars < 30_000) return "#4ade80";
+  if (totalChars < 80_000) return "#facc15";
+  return "#f87171";
 }
 
 // ── sub-components ────────────────────────────────────────────────────────────
@@ -90,7 +98,6 @@ function PanelHeader({
   );
 }
 
-// Proper confirm dialog instead of window.confirm
 function ConfirmDialog({
   open, message, onConfirm, onCancel,
 }: {
@@ -123,7 +130,6 @@ function ConfirmDialog({
   );
 }
 
-// Inline editor for epics
 function EpicEditRow({ epic, onDone }: { epic: Epic; onDone: () => void }) {
   const [subject, setSubject] = useState(epic.subject);
   const [description, setDescription] = useState(epic.description);
@@ -167,7 +173,6 @@ function EpicEditRow({ epic, onDone }: { epic: Epic; onDone: () => void }) {
   );
 }
 
-// Inline editor for stories
 function StoryEditRow({ story, onDone }: { story: Story; onDone: () => void }) {
   const [subject, setSubject] = useState(story.subject);
   const update = useUpdateStory();
@@ -201,8 +206,36 @@ function StoryEditRow({ story, onDone }: { story: Story; onDone: () => void }) {
   );
 }
 
-function ContextEditor({ file }: { file: { filename: string; label: string; content: string } }) {
+function MarkdownPreview({ content }: { content: string }) {
+  const [html, setHtml] = useState("");
+
+  useEffect(() => {
+    async function render() {
+      const { marked } = await import("marked");
+      const result = await marked.parse(content || "");
+      setHtml(result);
+    }
+    void render();
+  }, [content]);
+
+  return (
+    <div
+      className="prose prose-invert prose-sm max-w-none overflow-auto p-3 text-xs leading-5"
+      // eslint-disable-next-line react/no-danger
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
+
+function ContextEditor({
+  file,
+  onConfirm,
+}: {
+  file: { filename: string; label: string; content: string };
+  onConfirm: (msg: string, cb: () => void) => void;
+}) {
   const [value, setValue] = useState(file.content);
+  const [mdPreview, setMdPreview] = useState(false);
   const update = useUpdateContextFile();
   const reset = useResetContextFile();
 
@@ -210,11 +243,27 @@ function ContextEditor({ file }: { file: { filename: string; label: string; cont
 
   return (
     <div className="border-t border-neutral-800">
-      <textarea
-        className="h-56 w-full resize-y bg-neutral-950 p-3 font-mono text-xs leading-5 text-neutral-200 outline-none"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-      />
+      <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-1">
+        <span className="text-xs text-neutral-500">{value.length} chars</span>
+        <button
+          className={cn(
+            "rounded px-2 py-0.5 text-xs",
+            mdPreview ? "bg-violet-800 text-violet-100" : "text-neutral-400 hover:bg-neutral-800",
+          )}
+          onClick={() => setMdPreview(!mdPreview)}
+        >
+          {mdPreview ? "Raw" : "Preview"}
+        </button>
+      </div>
+      {mdPreview ? (
+        <MarkdownPreview content={value} />
+      ) : (
+        <textarea
+          className="h-56 w-full resize-y bg-neutral-950 p-3 font-mono text-xs leading-5 text-neutral-200 outline-none"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+        />
+      )}
       <div className="grid grid-cols-3 gap-2 p-2">
         <button
           className="h-8 rounded bg-violet-700 text-xs font-semibold text-white disabled:opacity-50"
@@ -233,7 +282,9 @@ function ContextEditor({ file }: { file: { filename: string; label: string; cont
         <button
           className="h-8 rounded bg-red-950/70 text-xs font-semibold text-red-300 disabled:opacity-50"
           disabled={reset.isPending}
-          onClick={() => reset.mutate(file.filename)}
+          onClick={() =>
+            onConfirm(`Reset ${file.label} to default?`, () => reset.mutate(file.filename))
+          }
         >
           Reset
         </button>
@@ -242,7 +293,6 @@ function ContextEditor({ file }: { file: { filename: string; label: string; cont
   );
 }
 
-// Phase-aware context file filter
 const CONTEXT_FILE_PHASES: Record<string, string[]> = {
   "/phase1": ["memory-bank.md", "functional-spec.md"],
   "/phase2": ["memory-bank.md", "functional-spec.md", "technical-spec.md", "design-bundle.md"],
@@ -260,7 +310,7 @@ function useVisibleContextFiles(
   }, [files, pathname]);
 }
 
-// ── Login section (auth only, no project) ────────────────────────────────────
+// ── Login section ────────────────────────────────────────────────────────────
 
 function LoginSection() {
   const setAuth = useSessionStore((state) => state.setAuth);
@@ -376,6 +426,21 @@ function LoginSection() {
   );
 }
 
+// ── Token revalidation on mount ───────────────────────────────────────────────
+
+function useRestoreSession() {
+  const taigaToken = useSessionStore((s) => s.taigaToken);
+  const clearSession = useSessionStore((s) => s.clearSession);
+  const me = useMe();
+
+  useEffect(() => {
+    if (!taigaToken) return;
+    if (me.isError && me.error instanceof ApiError && me.error.status === 401) {
+      clearSession();
+    }
+  }, [taigaToken, me.isError, me.error, clearSession]);
+}
+
 // ── main Sidebar ──────────────────────────────────────────────────────────────
 
 export function Sidebar() {
@@ -391,6 +456,8 @@ export function Sidebar() {
   const projectName = useSessionStore((state) => state.projectName);
   const setProject = useSessionStore((state) => state.setProject);
 
+  useRestoreSession();
+
   const [projectOpen, setProjectOpen] = useState(true);
   const [boardOpen, setBoardOpen] = useState(false);
   const [usersOpen, setUsersOpen] = useState(false);
@@ -403,7 +470,6 @@ export function Sidebar() {
   const [editingMemberRole, setEditingMemberRole] = useState<number | null>(null);
   const [memberRoleValue, setMemberRoleValue] = useState<number>(0);
 
-  // confirm dialog state
   const [confirmState, setConfirmState] = useState<{ message: string; onConfirm: () => void } | null>(null);
 
   const me = useMe();
@@ -421,6 +487,7 @@ export function Sidebar() {
   const createStory = useCreateStory();
   const deleteStory = useDeleteStory();
   const rebuildIndex = useRebuildStoryIndex();
+  const resetAll = useResetAllContextFiles();
 
   const projectOptions = useMemo(() => projects.data ?? [], [projects.data]);
   const activeProjectName = projectName || (projectId ? `Project ${projectId}` : "No project selected");
@@ -429,14 +496,23 @@ export function Sidebar() {
   const epicCount = board.data?.length ?? 0;
   const defaultRoleId = roleId ?? users.data?.roles[0]?.id ?? 0;
   const dark = theme === "dark";
+  const sizeColor = contextSizeColor(totalChars);
 
   const visibleFiles = useVisibleContextFiles(contextFiles.data?.files);
+
+  const memoryBank = contextFiles.data?.files.find((f) => f.filename === "memory-bank.md")?.content ?? "";
+  const hasProjectConcept = useMemo(() => {
+    if (!memoryBank) return false;
+    const match = /^##\s+Project\s+Concept[^\n]*\n([\s\S]*?)(?=^##\s|\Z)/im.exec(memoryBank);
+    if (!match) return false;
+    const text = match[1].trim();
+    return Boolean(text) && !text.startsWith("<!--");
+  }, [memoryBank]);
 
   function confirm(message: string, onConfirm: () => void) {
     setConfirmState({ message, onConfirm });
   }
 
-  // Sidebar resize
   useEffect(() => {
     function onMove(e: MouseEvent) {
       if (e.buttons !== 1) return;
@@ -792,6 +868,16 @@ export function Sidebar() {
               <SectionTitle>Active Context</SectionTitle>
               <div className="flex gap-2">
                 <button
+                  title="Reset all context files to defaults"
+                  className="rounded p-1 text-red-400 hover:bg-red-950/40 disabled:opacity-40"
+                  disabled={resetAll.isPending}
+                  onClick={() =>
+                    confirm("Reset ALL context files to defaults? This cannot be undone.", () => resetAll.mutate())
+                  }
+                >
+                  <Trash2 className="size-4" />
+                </button>
+                <button
                   title="Rebuild story index"
                   className="rounded p-1 text-neutral-400 hover:bg-neutral-800 disabled:opacity-40"
                   disabled={rebuildIndex.isPending}
@@ -805,8 +891,16 @@ export function Sidebar() {
               </div>
             </div>
             <div className="mb-3 text-sm text-neutral-500">
-              context: <span className="font-bold text-red-400">{totalChars} chars</span>
+              context:{" "}
+              <span className="font-bold" style={{ color: sizeColor }}>
+                {totalChars} chars
+              </span>
             </div>
+            {!hasProjectConcept && contextFiles.data ? (
+              <div className="mb-3 rounded border border-amber-700 bg-amber-950/30 px-2 py-1.5 text-xs text-amber-300">
+                Memory Bank lacks <code>## Project Concept</code>
+              </div>
+            ) : null}
             <div className="space-y-3">
               {visibleFiles.map((file) => (
                 <div key={file.filename} className="rounded-md border border-neutral-800 bg-[#181719]">
@@ -819,7 +913,9 @@ export function Sidebar() {
                     <span className="flex-1 text-sm font-medium text-white">{file.label}</span>
                     <span className="text-xs text-neutral-500">{file.chars} ch</span>
                   </button>
-                  {expandedContext === file.filename ? <ContextEditor file={file} /> : null}
+                  {expandedContext === file.filename ? (
+                    <ContextEditor file={file} onConfirm={confirm} />
+                  ) : null}
                 </div>
               ))}
             </div>

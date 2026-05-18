@@ -153,3 +153,22 @@ export function rebuildStoryIndex(context: RequestContext) {
     context,
   });
 }
+
+export type StoryIndexStats = {
+  total: number;
+  phase2_designed: number;
+  phase3_proposed: number;
+  phase4_tested: number;
+  phase5_deployed: number;
+};
+
+export function getStoryIndexStats(context: RequestContext) {
+  return apiRequest<StoryIndexStats>("/api/workspace/context-files/story-index-stats", { context });
+}
+
+export function resetAllContextFiles(context: RequestContext) {
+  return apiRequest<ContextFilesResponse>("/api/workspace/context-files/reset-all", {
+    method: "POST",
+    context,
+  });
+}

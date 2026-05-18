@@ -1,5 +1,9 @@
+"use client";
+
+import Link from "next/link";
 import { CheckCircle2, Code2, Compass, FileText, Rocket, Wrench } from "lucide-react";
 import { PhaseCard } from "@/components/phase-card";
+import { useSessionStore } from "@/lib/stores/session-store";
 
 const phases = [
   {
@@ -47,22 +51,53 @@ const phases = [
 ];
 
 export default function HomePage() {
+  const taigaToken = useSessionStore((s) => s.taigaToken);
+  const projectId = useSessionStore((s) => s.projectId);
+  const projectName = useSessionStore((s) => s.projectName);
+  const isAuthenticated = Boolean(taigaToken);
+  const hasProject = Boolean(taigaToken && projectId);
+
   return (
     <section className="px-8 py-8">
-      <div className="mb-8 border-b border-slate-200 pb-8">
+      <div className="mb-8 border-b border-neutral-800 pb-8">
         <h1 className="text-6xl font-bold tracking-normal text-violet-400">Apex</h1>
         <p className="mt-3 text-lg text-neutral-500">
           Spec-Anchored Human-AI Collaboration Framework for the SDLC
         </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <span className="rounded bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-700">
-            ✓ Session state ready
-          </span>
-          <span className="rounded bg-violet-100 px-2 py-1 text-xs font-medium text-apex-violet">
-            API data layer ready
-          </span>
-        </div>
+
+        {isAuthenticated ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            <span className="rounded bg-emerald-900/40 px-2 py-1 text-xs font-medium text-emerald-400">
+              Signed in
+            </span>
+            {hasProject ? (
+              <span className="rounded bg-violet-900/40 px-2 py-1 text-xs font-medium text-violet-300">
+                {projectName || `Project #${projectId}`}
+              </span>
+            ) : (
+              <span className="rounded border border-amber-700/50 bg-amber-950/30 px-2 py-1 text-xs text-amber-400">
+                No project selected — open sidebar to choose one
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="mt-4 rounded-md border border-neutral-700 bg-neutral-900 px-4 py-3 text-sm text-neutral-400">
+            Sign in via the sidebar to start a session and select a Taiga project.
+          </div>
+        )}
       </div>
+
+      {hasProject ? null : (
+        <div className="mb-6 rounded-md border border-neutral-800 bg-neutral-900/60 px-4 py-3 text-sm text-neutral-500">
+          Phase workflows are available after signing in and selecting a project.
+          {!isAuthenticated ? (
+            <> <span className="text-violet-400">Sign in via the sidebar.</span></>
+          ) : (
+            <> <span className="text-violet-400">Select a project in the sidebar.</span></>
+          )}
+        </div>
+      )}
+
       <div>
         <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.1em] text-neutral-500">
           SDLC Phases

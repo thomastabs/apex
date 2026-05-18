@@ -11,12 +11,14 @@ import {
   getBoard,
   getContextFiles,
   getMe,
+  getStoryIndexStats,
   getUsers,
   inviteUser,
   listProjects,
   login,
   rebuildStoryIndex,
   removeMember,
+  resetAllContextFiles,
   resetContextFile,
   updateContextFile,
   updateEpic,
@@ -252,6 +254,27 @@ export function useRebuildStoryIndex() {
     mutationFn: () => rebuildStoryIndex(context!),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["phase2", "eligible-epics"] });
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
+    },
+  });
+}
+
+export function useStoryIndexStats() {
+  const context = useApiContext();
+  return useQuery({
+    queryKey: ["workspace", "story-index-stats", context?.projectId],
+    queryFn: () => getStoryIndexStats(context!),
+    enabled: Boolean(context),
+  });
+}
+
+export function useResetAllContextFiles() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => resetAllContextFiles(context!),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "context-files"] });
     },
   });
 }
