@@ -67,21 +67,21 @@ export default function HomePage() {
 
         {isAuthenticated ? (
           <div className="mt-4 flex flex-wrap gap-2">
-            <span className="rounded bg-emerald-900/40 px-2 py-1 text-xs font-medium text-emerald-400">
-              Signed in
+            <span className="inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/15 px-2 py-1 text-xs font-medium text-emerald-500">
+              ✓ Signed in
             </span>
             {hasProject ? (
-              <span className="rounded bg-violet-900/40 px-2 py-1 text-xs font-medium text-violet-300">
+              <span className="rounded border border-violet-400/40 bg-violet-500/10 px-2 py-1 text-xs font-medium text-violet-400">
                 {projectName || `Project #${projectId}`}
               </span>
             ) : (
-              <span className="rounded border border-amber-700/50 bg-amber-950/30 px-2 py-1 text-xs text-amber-400">
+              <span className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-500">
                 No project selected — open sidebar to choose one
               </span>
             )}
           </div>
         ) : (
-          <div className="mt-4 rounded-md border border-neutral-700 bg-neutral-900 px-4 py-3 text-sm text-neutral-400">
+          <div className="mt-4 rounded-md border border-neutral-700/60 bg-neutral-500/5 px-4 py-3 text-sm text-neutral-400">
             Sign in via the sidebar to start a session and select a Taiga project.
           </div>
         )}

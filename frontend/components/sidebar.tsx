@@ -9,9 +9,11 @@ import {
   Edit2,
   FileText,
   FolderOpen,
+  Info,
   Layers3,
   Moon,
   PanelLeftOpen,
+  Plus,
   RefreshCw,
   Send,
   Sun,
@@ -89,13 +91,13 @@ function PanelHeader({
 }) {
   return (
     <button
-      className="flex h-10 w-full items-center gap-2 border-b border-neutral-800 px-4 text-left"
+      className="flex h-10 w-full items-center gap-2 border-b border-neutral-800 px-4 text-left transition-colors hover:bg-violet-500/5"
       onClick={onClick}
     >
       {open ? <ChevronDown className="size-3 text-neutral-500" /> : <ChevronRight className="size-3 text-neutral-500" />}
       <span className="text-violet-400">{icon}</span>
       <span className="flex-1 text-sm font-semibold text-neutral-100">{title}</span>
-      {badge ? <span className="rounded border border-neutral-600 px-1.5 py-0.5 text-xs text-neutral-300">{badge}</span> : null}
+      {badge ? <span className="rounded border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-xs text-violet-400">{badge}</span> : null}
     </button>
   );
 }
@@ -373,7 +375,7 @@ function LoginSection() {
           <div className="truncate text-xs text-neutral-500">{email || "Authenticated"}</div>
         </div>
         <button
-          className="shrink-0 rounded bg-neutral-800 px-2 py-1 text-xs text-neutral-300 hover:bg-neutral-700"
+          className="shrink-0 rounded border border-neutral-600 px-2 py-1 text-xs text-neutral-300 transition-colors hover:border-neutral-400 hover:text-neutral-100"
           onClick={() => clearSession()}
         >
           Sign out
@@ -522,6 +524,8 @@ export function Sidebar() {
   const [roleId, setRoleId] = useState<number | null>(null);
   const [editingMemberRole, setEditingMemberRole] = useState<number | null>(null);
   const [memberRoleValue, setMemberRoleValue] = useState<number>(0);
+  const [expandedEpicDesc, setExpandedEpicDesc] = useState<number | null>(null);
+  const [expandedStoryDesc, setExpandedStoryDesc] = useState<number | null>(null);
 
   const [confirmState, setConfirmState] = useState<{ message: string; onConfirm: () => void } | null>(null);
 
@@ -638,11 +642,11 @@ export function Sidebar() {
       <section className="border-b border-neutral-800 px-4 py-5">
         <SectionTitle>Account</SectionTitle>
         <div className="mb-4 flex gap-2">
-          <span className="inline-flex items-center gap-1 rounded bg-emerald-950 px-2 py-1 text-xs font-medium text-emerald-300">
+          <span className="inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/15 px-2 py-1 text-xs font-medium text-emerald-500">
             <Zap className="size-3" />
             Anthropic
           </span>
-          <span className="rounded bg-indigo-950 px-2 py-1 font-mono text-xs text-indigo-200">
+          <span className="rounded border border-violet-400/40 bg-violet-500/10 px-2 py-1 font-mono text-xs text-violet-400">
             claude-sonnet-4-6
           </span>
         </div>
@@ -659,7 +663,7 @@ export function Sidebar() {
             onClick={() => setProjectOpen(!projectOpen)}
           />
           {projectOpen ? (
-            <div className="space-y-2 p-3">
+            <div className="space-y-2 bg-[#181719] p-3">
               <select
                 className="h-9 w-full rounded border border-neutral-600 bg-neutral-950 px-2 text-sm text-white"
                 value={projectId ?? ""}
@@ -678,30 +682,30 @@ export function Sidebar() {
               </select>
               <div className="grid grid-cols-2 gap-2">
                 <button
-                  className="h-8 rounded bg-neutral-800 text-sm text-neutral-300 hover:bg-neutral-700"
+                  className="flex h-8 items-center justify-center gap-1 rounded border border-neutral-600 text-sm text-neutral-300 transition-colors hover:border-violet-500/50 hover:text-violet-300"
                   onClick={() => projects.refetch()}
                 >
-                  ↻ Refresh
+                  <RefreshCw className="size-3" /> Refresh
                 </button>
                 <button
-                  className="h-8 rounded bg-violet-800 text-sm font-semibold text-violet-100"
+                  className="flex h-8 items-center justify-center gap-1 rounded border border-violet-500/40 bg-violet-500/10 text-sm font-semibold text-violet-400 transition-colors hover:bg-violet-500/20"
                   onClick={() => {
                     const name = window.prompt("Project name");
                     if (name?.trim()) createProject.mutate({ name: name.trim(), description: "" });
                   }}
                 >
-                  + Create New
+                  <Plus className="size-3" /> Create New
                 </button>
               </div>
               {projectId ? (
                 <button
-                  className="h-8 w-full rounded bg-red-950/70 text-sm font-semibold text-red-300 disabled:opacity-50"
+                  className="flex h-8 w-full items-center justify-center gap-2 rounded border border-red-500/40 bg-red-500/10 text-sm font-semibold text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50"
                   disabled={deleteProject.isPending}
                   onClick={() =>
                     confirm("Delete this Taiga project and all its data?", () => deleteProject.mutate(projectId))
                   }
                 >
-                  <Trash2 className="mr-1 inline size-3" />
+                  <Trash2 className="size-3" />
                   Delete Project
                 </button>
               ) : null}
@@ -722,21 +726,24 @@ export function Sidebar() {
               onClick={() => setBoardOpen(!boardOpen)}
             />
             {boardOpen ? (
-              <div className="space-y-3 p-3 text-sm">
+              <div className="space-y-3 bg-[#181719] p-3 text-sm">
                 <div className="flex items-center justify-between text-neutral-500">
                   <span>{epicCount} epic(s)</span>
                   <div className="flex gap-2">
                     <button
-                      className="rounded bg-violet-800 px-3 py-1.5 text-xs font-semibold text-violet-100"
+                      className="flex items-center gap-1 rounded border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-400 transition-colors hover:bg-violet-500/20"
                       onClick={() => {
                         const subject = window.prompt("Epic title");
                         if (subject?.trim()) createEpic.mutate({ subject: subject.trim(), description: "" });
                       }}
                     >
-                      + Epic
+                      <Plus className="size-3" /> Create New Epic
                     </button>
-                    <button className="rounded bg-neutral-800 px-2 py-1.5 text-neutral-300" onClick={() => board.refetch()}>
-                      ↻
+                    <button
+                      className="flex items-center gap-1 rounded border border-neutral-600 px-2 py-1.5 text-neutral-300 transition-colors hover:border-violet-500/50 hover:text-violet-300"
+                      onClick={() => board.refetch()}
+                    >
+                      <RefreshCw className="size-3" />
                     </button>
                   </div>
                 </div>
@@ -744,21 +751,28 @@ export function Sidebar() {
                   <div key={epic.id}>
                     <div className="flex w-full items-center gap-1">
                       <button
-                        className="flex flex-1 items-center gap-1 text-left font-semibold text-white"
-                        onClick={() => { setExpandedEpic(expandedEpic === epic.id ? null : epic.id); setEditingEpic(null); }}
+                        className="flex flex-1 items-center gap-1 text-left font-semibold text-white transition-colors hover:text-violet-300"
+                        onClick={() => { setExpandedEpic(expandedEpic === epic.id ? null : epic.id); setEditingEpic(null); setExpandedEpicDesc(null); }}
                       >
                         {expandedEpic === epic.id ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
                         #{epic.ref} {epic.subject}
                       </button>
                       <button
-                        className="grid size-6 place-items-center rounded text-violet-400 hover:bg-violet-950"
+                        className="grid size-6 place-items-center rounded text-neutral-400 transition-colors hover:bg-neutral-700/50 hover:text-neutral-200"
+                        onClick={() => setExpandedEpicDesc(expandedEpicDesc === epic.id ? null : epic.id)}
+                        title="View description"
+                      >
+                        <Info className="size-3" />
+                      </button>
+                      <button
+                        className="grid size-6 place-items-center rounded text-violet-400 transition-colors hover:bg-violet-500/20"
                         onClick={() => setEditingEpic(editingEpic === epic.id ? null : epic.id)}
                         title="Edit epic"
                       >
                         <Edit2 className="size-3" />
                       </button>
                       <button
-                        className="grid size-6 place-items-center rounded text-red-400 hover:bg-red-950"
+                        className="grid size-6 place-items-center rounded text-red-400 transition-colors hover:bg-red-500/20"
                         onClick={() =>
                           confirm(`Delete epic "${epic.subject}" and all its stories?`, () => deleteEpic.mutate(epic.id))
                         }
@@ -768,34 +782,45 @@ export function Sidebar() {
                       </button>
                     </div>
 
+                    {expandedEpicDesc === epic.id && epic.description ? (
+                      <p className="mt-1 rounded bg-neutral-800/50 px-2 py-1.5 text-xs leading-5 text-neutral-400">{epic.description}</p>
+                    ) : null}
+
                     {editingEpic === epic.id ? (
                       <EpicEditRow epic={epic} onDone={() => setEditingEpic(null)} />
                     ) : null}
 
                     {expandedEpic === epic.id && editingEpic !== epic.id ? (
-                      <div className="mt-2 space-y-2 pl-5 text-neutral-300">
+                      <div className="mt-2 space-y-2 pl-4 text-neutral-300">
                         <button
-                          className="rounded bg-violet-900 px-2 py-1 text-xs font-semibold text-violet-100"
+                          className="flex items-center gap-1 rounded border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-xs font-semibold text-violet-400 transition-colors hover:bg-violet-500/20"
                           onClick={() => {
                             const subject = window.prompt("Story title");
                             if (subject?.trim()) createStory.mutate({ epicId: epic.id, subject: subject.trim(), description: "" });
                           }}
                         >
-                          + Story
+                          <Plus className="size-3" /> Story
                         </button>
                         {epic.stories.map((story) => (
                           <div key={story.id} className="space-y-1">
                             <div className="flex items-center gap-1">
                               <span className="min-w-0 flex-1 truncate text-xs">#{story.ref} {story.subject}</span>
                               <button
-                                className="grid size-5 place-items-center rounded text-violet-400 hover:bg-violet-950"
+                                className="grid size-5 place-items-center rounded text-neutral-400 transition-colors hover:bg-neutral-700/50 hover:text-neutral-200"
+                                onClick={() => setExpandedStoryDesc(expandedStoryDesc === story.id ? null : story.id)}
+                                title="View description"
+                              >
+                                <Info className="size-3" />
+                              </button>
+                              <button
+                                className="grid size-5 place-items-center rounded text-violet-400 transition-colors hover:bg-violet-500/20"
                                 onClick={() => setEditingStory(editingStory === story.id ? null : story.id)}
                                 title="Edit story"
                               >
                                 <Edit2 className="size-3" />
                               </button>
                               <button
-                                className="grid size-5 place-items-center rounded text-red-400 hover:bg-red-950"
+                                className="grid size-5 place-items-center rounded text-red-400 transition-colors hover:bg-red-500/20"
                                 onClick={() =>
                                   confirm(`Delete story "${story.subject}"?`, () => deleteStory.mutate(story.id))
                                 }
@@ -804,6 +829,9 @@ export function Sidebar() {
                                 <Trash2 className="size-3" />
                               </button>
                             </div>
+                            {expandedStoryDesc === story.id && story.description ? (
+                              <p className="rounded bg-neutral-800/50 px-2 py-1.5 text-xs leading-5 text-neutral-500">{story.description}</p>
+                            ) : null}
                             {editingStory === story.id ? (
                               <StoryEditRow story={story} onDone={() => setEditingStory(null)} />
                             ) : null}
@@ -828,7 +856,7 @@ export function Sidebar() {
               onClick={() => setUsersOpen(!usersOpen)}
             />
             {usersOpen ? (
-              <div className="space-y-3 p-3 text-sm">
+              <div className="space-y-3 bg-[#181719] p-3 text-sm">
                 {users.data?.memberships.map((member) => (
                   <div key={member.id} className="border-b border-neutral-700 pb-3">
                     <div className="flex items-start justify-between gap-2">

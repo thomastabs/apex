@@ -89,14 +89,7 @@ body {
   border-color: #d97706 !important;
 }
 
-/* claude-sonnet-4-6 badge */
-.apex-sidebar-light .bg-indigo-950 {
-  background-color: #e0e7ff !important;
-}
-
-.apex-sidebar-light .text-indigo-200 {
-  color: #3730a3 !important;
-}
+/* badges use opacity-based classes — no sidebar override needed */
 
 /* Context editor buttons */
 .apex-sidebar-light .bg-neutral-700 {

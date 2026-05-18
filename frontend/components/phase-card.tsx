@@ -17,7 +17,7 @@ export function PhaseCard({
   return (
     <Link
       href={href}
-      className="block h-full rounded-md border border-neutral-800 bg-[#1f1f21] p-5 transition hover:border-violet-800 hover:bg-violet-950/20"
+      className="group block h-full rounded-md border border-neutral-800 bg-[#1f1f21] p-5 transition-all duration-200 hover:border-violet-500/60 hover:bg-violet-500/10 hover:shadow-[0_0_0_1px_rgba(139,92,246,0.15)]"
     >
       <div className="mb-6 flex items-start gap-4">
         <Icon className="mt-1 size-5 shrink-0 text-violet-400" />
@@ -27,7 +27,7 @@ export function PhaseCard({
         </div>
       </div>
       <p className="mb-5 text-sm leading-6 text-neutral-500">{description}</p>
-      <span className="text-sm font-medium text-violet-400">Open →</span>
+      <span className="inline-block text-sm font-medium text-violet-400 transition-transform duration-200 group-hover:translate-x-1">Open →</span>
     </Link>
   );
 }
