@@ -528,12 +528,21 @@ def rebuild_story_index() -> dict[str, dict]:
     # ── Cross-reference technical-spec.md ───────────────────────────────────
     if TECHNICAL_SPEC_FILE.exists():
         tech = TECHNICAL_SPEC_FILE.read_text(encoding="utf-8")
+        # Legacy per-story format: ### Technical Spec ... Story {id}
         for m in re.finditer(r"### Technical Spec.*?Story (\d+)", tech):
             sid = str(int(m.group(1)))
             if sid in index:
                 index[sid]["has_tech_spec"] = True
                 if index[sid]["phase_status"] == "gherkin_locked":
                     index[sid]["phase_status"] = "design_locked"
+        # Current per-epic format written by append_epic_technical_spec: ## Epic {id}: ...
+        for m in re.finditer(r"^## Epic (\d+):", tech, re.MULTILINE):
+            locked_epic_id = int(m.group(1))
+            for sid, entry in index.items():
+                if entry.get("epic_id") == locked_epic_id:
+                    entry["has_tech_spec"] = True
+                    if entry["phase_status"] == "gherkin_locked":
+                        entry["phase_status"] = "design_locked"
 
     # ── Cross-reference proposal_story_*_task_*.md files ────────────────────
     for path in CONTEXT_DIR.iterdir():

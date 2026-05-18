@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, ChevronRight, Download, ExternalLink, FilePlus2, Info, Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronRight, Download, ExternalLink, FilePlus2, Info, Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import { Button, Callout, Input, SectionHeading, Textarea } from "@/components/ui/primitives";
 import {
   useCompileGherkin,
@@ -184,9 +184,10 @@ export function Phase1Workflow() {
   );
   const canGenerate = mode === "load" ? Boolean(activeEpic) : Boolean(epicTitle.trim());
   const busy = generate.isPending || compile.isPending || push.isPending || suggestEpics.isPending;
+  const noContext = !context;
   const hasUnsaved = Boolean(nlDraft || compiledStories.length);
   const validationErrors = compiledStories.length ? validateStories(compiledStories) : [];
-  const canPush = !busy && compiledStories.length > 0 && validationErrors.length === 0;
+  const canPush = !busy && !noContext && compiledStories.length > 0 && validationErrors.length === 0;
 
   function requestModeSwitch(next: Mode) {
     if (hasUnsaved && mode !== next) {
@@ -269,6 +270,16 @@ export function Phase1Workflow() {
           </div>
         ) : null}
       </div>
+
+      {!context ? (
+        <div className="mb-6 flex items-start gap-3 rounded-md border border-amber-600/50 bg-amber-500/10 px-4 py-4">
+          <AlertCircle className="mt-0.5 size-4 shrink-0 text-amber-400" />
+          <div>
+            <p className="text-sm font-semibold text-amber-300">Sign in required</p>
+            <p className="mt-0.5 text-xs text-amber-400/80">Sign in and select a Taiga project in the sidebar to unlock AI generation features.</p>
+          </div>
+        </div>
+      ) : null}
 
       {!hasProjectConcept && contextFiles.data ? (
         <div className="mb-4 rounded-md border border-amber-700 bg-amber-950/40 px-4 py-2 text-sm text-amber-300">
@@ -441,7 +452,7 @@ export function Phase1Workflow() {
                   setAppliedSuggestionIndex(null);
                   suggestEpics.mutate(hint);
                 }}
-                disabled={suggestEpics.isPending}
+                disabled={suggestEpics.isPending || noContext}
               >
                 <Sparkles className="size-4" />
                 {suggestEpics.isPending ? "Generating…" : "AI Suggests"}
@@ -524,7 +535,7 @@ export function Phase1Workflow() {
           </label>
           <Button
             className="w-full"
-            disabled={!canGenerate || busy}
+            disabled={!canGenerate || busy || noContext}
             onClick={() =>
               generate.mutate(
                 { epic_subject: epicTitle, epic_description: epicDescription, hint },
@@ -554,7 +565,7 @@ export function Phase1Workflow() {
             <SectionHeading>Step 3 · Review Natural Language Draft</SectionHeading>
             <Textarea rows={14} value={nlDraft} onChange={(event) => setNlDraft(event.target.value)} />
             <Button
-              disabled={busy}
+              disabled={busy || noContext}
               onClick={() =>
                 compile.mutate(nlDraft, {
                   onSuccess: (data) => {

@@ -704,7 +704,7 @@ function LoginSection() {
           <div className="truncate text-xs text-neutral-500">{email || "Authenticated"}</div>
         </div>
         <button
-          className="shrink-0 rounded border border-neutral-600 px-2 py-1 text-xs text-neutral-300 transition-colors hover:border-neutral-400 hover:text-neutral-100"
+          className="shrink-0 rounded border border-violet-500/30 px-2 py-1 text-xs text-violet-400 transition-colors hover:border-violet-500/60 hover:text-violet-300"
           onClick={() => clearSession()}
         >
           Sign out
@@ -717,13 +717,13 @@ function LoginSection() {
     <div className="space-y-3">
       <div className="grid grid-cols-2 rounded-md bg-neutral-800 p-1">
         <button
-          className={cn("h-9 rounded text-xs text-neutral-300", mode === "password" && "bg-violet-600 text-white")}
+          className={cn("h-9 rounded text-xs text-neutral-200", mode === "password" && "bg-violet-600 text-white")}
           onClick={() => setMode("password")}
         >
           Username / Password
         </button>
         <button
-          className={cn("h-9 rounded text-xs text-neutral-300", mode === "token" && "bg-violet-600 text-white")}
+          className={cn("h-9 rounded text-xs text-neutral-200", mode === "token" && "bg-violet-600 text-white")}
           onClick={() => setMode("token")}
         >
           Auth Token

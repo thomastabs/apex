@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, ChevronRight, Code2, Compass, Info, RefreshCw, RotateCcw, Save, Sparkles, Unlock } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronRight, Code2, Compass, Info, RefreshCw, RotateCcw, Save, Sparkles, Unlock } from "lucide-react";
 import { Button, Callout, Input, SectionHeading, Textarea } from "@/components/ui/primitives";
 import {
   useEligiblePhase2Epics,
@@ -126,6 +126,7 @@ export function Phase2Workflow() {
   }, [context?.projectId, selectedEpic?.epic_id, designBundle]);
 
   const stackDefined = Boolean(techStack.data?.defined) && !stackReopened;
+  const noContext = !context;
   const busy = proposeStack.isPending || lockStack.isPending || generateBundle.isPending || lockDesign.isPending || refreshIndex.isPending;
   const canSave = Boolean(selectedEpic && designBundle && designLeadApproved && techLeadApproved);
 
@@ -167,6 +168,16 @@ export function Phase2Workflow() {
         ) : null}
       </div>
 
+      {noContext ? (
+        <div className="mb-6 flex items-start gap-3 rounded-md border border-amber-600/50 bg-amber-500/10 px-4 py-4">
+          <AlertCircle className="mt-0.5 size-4 shrink-0 text-amber-400" />
+          <div>
+            <p className="text-sm font-semibold text-amber-300">Sign in required</p>
+            <p className="mt-0.5 text-xs text-amber-400/80">Sign in and select a Taiga project in the sidebar to unlock Phase 2 design tools.</p>
+          </div>
+        </div>
+      ) : null}
+
       <div className="space-y-8 border-t border-neutral-700 pt-6">
         <section className="space-y-4">
           <SectionHeading>Stage A · Tech Stack Definition</SectionHeading>
@@ -191,7 +202,7 @@ export function Phase2Workflow() {
           </label>
           {!stackDefined ? (
             <Button
-              disabled={busy}
+              disabled={busy || noContext}
               onClick={() =>
                 proposeStack.mutate(
                   { hint: stackHint },
@@ -241,7 +252,7 @@ export function Phase2Workflow() {
             <Textarea rows={8} value={techStackDraft} onChange={(event) => setTechStackDraft(event.target.value)} />
           </label>
           <Button
-            disabled={busy || !techStackDraft.trim()}
+            disabled={busy || noContext || !techStackDraft.trim()}
             onClick={() => {
               lockStack.mutate(
                 { tech_stack: techStackDraft },

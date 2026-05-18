@@ -81,20 +81,27 @@ export default function HomePage() {
             )}
           </div>
         ) : (
-          <div className="mt-4 rounded-md border border-neutral-700/60 bg-neutral-500/5 px-4 py-3 text-sm text-neutral-400">
-            Sign in via the sidebar to start a session and select a Taiga project.
+          <div className="mt-4 flex items-start gap-3 rounded-md border border-amber-600/50 bg-amber-500/10 px-4 py-3 text-sm">
+            <span className="mt-0.5 text-lg leading-none text-amber-500">⚠</span>
+            <div>
+              <p className="font-semibold text-amber-400">Not signed in</p>
+              <p className="mt-0.5 text-amber-500/80">Sign in via the sidebar to start a session and select a Taiga project.</p>
+            </div>
           </div>
         )}
       </div>
 
       {hasProject ? null : (
-        <div className="mb-6 rounded-md border border-neutral-800 bg-neutral-900/60 px-4 py-3 text-sm text-neutral-500">
-          Phase workflows are available after signing in and selecting a project.
-          {!isAuthenticated ? (
-            <> <span className="text-violet-400">Sign in via the sidebar.</span></>
-          ) : (
-            <> <span className="text-violet-400">Select a project in the sidebar.</span></>
-          )}
+        <div className="mb-6 flex items-start gap-3 rounded-md border border-amber-600/40 bg-amber-500/8 px-4 py-3 text-sm">
+          <span className="mt-0.5 shrink-0 text-amber-500">⚠</span>
+          <p className="text-amber-500/90">
+            Phase workflows are available after signing in and selecting a project.{" "}
+            {!isAuthenticated ? (
+              <span className="font-medium text-amber-400">Sign in via the sidebar.</span>
+            ) : (
+              <span className="font-medium text-amber-400">Select a project in the sidebar.</span>
+            )}
+          </p>
         </div>
       )}
 
