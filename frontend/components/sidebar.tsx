@@ -1074,7 +1074,12 @@ export function Sidebar() {
             {aiConfig.data?.coder_model ?? "claude-sonnet-4-6"}
           </span>
           {aiConfig.data && aiConfig.data.fast_model !== aiConfig.data.coder_model ? (
-            <span className="rounded border border-neutral-700 bg-neutral-800/50 px-2 py-1 font-mono text-xs text-neutral-400">
+            <span className={cn(
+              "rounded border px-2 py-1 font-mono text-xs",
+              dark
+                ? "border-neutral-700 bg-neutral-800/50 text-neutral-400"
+                : "border-slate-400 bg-slate-200 text-slate-600",
+            )}>
               {aiConfig.data.fast_model} (fast)
             </span>
           ) : null}

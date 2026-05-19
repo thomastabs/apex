@@ -32,6 +32,18 @@ export const useUiStore = create<UiState>()(
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
       setSidebarSectionOrder: (order) => set({ sidebarSectionOrder: order }),
     }),
-    { name: "apex-ui" },
+    {
+      name: "apex-ui",
+      merge: (persisted, current) => {
+        const stored = (persisted as Partial<UiState>)?.sidebarSectionOrder;
+        const base = stored ?? DEFAULT_SECTION_ORDER;
+        const missing = DEFAULT_SECTION_ORDER.filter((id) => !base.includes(id));
+        return {
+          ...(current as UiState),
+          ...(persisted as Partial<UiState>),
+          sidebarSectionOrder: missing.length ? [...base, ...missing] : base,
+        };
+      },
+    },
   ),
 );
