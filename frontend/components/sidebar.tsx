@@ -1045,6 +1045,8 @@ export function Sidebar() {
   const [draggingSection, setDraggingSection] = useState<string | null>(null);
   const dragSourceRef = useRef<string | null>(null);
   const dragPreviewRef = useRef<HTMLElement | null>(null);
+  const resizeStartXRef = useRef(0);
+  const resizeStartWidthRef = useRef(0);
   const [expandedEpic, setExpandedEpic] = useState<number | null>(null);
   const [dialogEpic, setDialogEpic] = useState<import("@/lib/api/types").Epic | null>(null);
   const [dialogStory, setDialogStory] = useState<import("@/lib/api/types").Story | null>(null);
@@ -1202,32 +1204,31 @@ export function Sidebar() {
     );
   }
 
-  useEffect(() => {
-    function onMove(e: MouseEvent) {
-      if (e.buttons !== 1) { onUp(); return; }
-      setSidebarWidth(e.clientX);
+  function startSidebarResize(e: React.PointerEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeStartXRef.current = e.clientX;
+    resizeStartWidthRef.current = sidebarWidth;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    function onMove(event: PointerEvent) {
+      const delta = event.clientX - resizeStartXRef.current;
+      setSidebarWidth(resizeStartWidthRef.current + delta);
     }
+
     function onUp() {
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
     }
-    function onDown(e: MouseEvent) {
-      e.preventDefault();
-      document.body.style.cursor = "col-resize";
-      document.body.style.userSelect = "none";
-      window.addEventListener("mousemove", onMove);
-      window.addEventListener("mouseup", onUp);
-    }
-    const handle = document.getElementById("apex-sidebar-resizer");
-    handle?.addEventListener("mousedown", onDown);
-    return () => {
-      handle?.removeEventListener("mousedown", onDown);
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-  }, [setSidebarWidth]);
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+  }
 
   useEffect(() => () => clearDragPreview(), []);
 
@@ -1244,12 +1245,18 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "apex-sidebar relative sticky top-0 h-screen shrink-0 overflow-y-auto border-r text-neutral-100",
+        "apex-sidebar relative z-20 sticky top-0 h-screen shrink-0 overflow-visible border-r text-neutral-100",
         dark ? "border-neutral-700 bg-[#121113]" : "apex-sidebar-light border-slate-300 bg-[#e8edf8]",
       )}
       style={{ width: sidebarWidth }}
     >
-      <div id="apex-sidebar-resizer" className="group absolute right-0 top-0 z-40 flex h-full w-2 cursor-col-resize items-center justify-center">
+      <div
+        className="group absolute right-0 top-0 z-50 flex h-full w-4 translate-x-1/2 cursor-col-resize touch-none items-center justify-center"
+        onPointerDown={startSidebarResize}
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize sidebar"
+      >
         <div className="h-full w-px bg-transparent transition-colors duration-150 group-hover:bg-violet-500/60" />
       </div>
 
@@ -1271,6 +1278,7 @@ export function Sidebar() {
         document.body,
       ) : null}
 
+      <div className="h-full overflow-y-auto">
       <header className="flex h-[58px] items-center border-b border-neutral-800 px-4">
         <div className="flex min-w-0 flex-1 items-baseline gap-1">
           <span className="text-2xl font-bold text-violet-400">Apex</span>
@@ -1866,6 +1874,7 @@ export function Sidebar() {
           </p>
         </section>
       ) : null}
+      </div>
     </aside>
   );
 }
