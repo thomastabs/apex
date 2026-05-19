@@ -12,6 +12,7 @@ import {
 } from "@/lib/hooks/use-phase1";
 import { useContextFiles } from "@/lib/hooks/use-workspace";
 import { useApiContext } from "@/lib/stores/session-store";
+import { useUiStore } from "@/lib/stores/ui-store";
 import type { CompiledStory, EpicSuggestion } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
@@ -127,6 +128,7 @@ const PUSH_STEPS = [
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export function Phase1Workflow() {
+  const dark = useUiStore((state) => state.theme) === "dark";
   const context = useApiContext();
   const [mode, setMode] = useState<Mode>("create");
   const [epicTitle, setEpicTitle] = useState("");
@@ -296,7 +298,7 @@ export function Phase1Workflow() {
       <div className="space-y-8 border-t border-neutral-700 pt-6">
         <section className="space-y-4">
           <SectionHeading>Step 1 · Define Your Epic</SectionHeading>
-          <div className="grid grid-cols-3 rounded-md bg-neutral-800 p-1">
+          <div className={cn("grid grid-cols-3 rounded-md p-1", dark ? "bg-neutral-800" : "bg-slate-200")}>
             {[
               { value: "create", Icon: FilePlus2, label: "Create New" },
               { value: "load", Icon: Download, label: "Load from Taiga" },
@@ -306,7 +308,10 @@ export function Phase1Workflow() {
                 key={String(value)}
                 onClick={() => requestModeSwitch(value as Mode)}
                 className={cn(
-                  "inline-flex h-11 items-center justify-center gap-2 rounded text-sm text-neutral-400 transition-colors hover:bg-neutral-700/60 hover:text-neutral-200",
+                  "inline-flex h-11 items-center justify-center gap-2 rounded text-sm transition-colors",
+                  dark
+                    ? "text-neutral-400 hover:bg-neutral-700/60 hover:text-neutral-200"
+                    : "text-slate-500 hover:bg-slate-300 hover:text-slate-800",
                   mode === value && "bg-violet-600 font-semibold text-white hover:bg-violet-600",
                 )}
               >

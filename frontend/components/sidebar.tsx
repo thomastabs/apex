@@ -717,7 +717,7 @@ function LoginSection({ taigaWebUrl }: { taigaWebUrl: string }) {
           <div className="truncate text-xs text-neutral-500">{email || "Authenticated"}</div>
         </div>
         <button
-          className="shrink-0 rounded border border-violet-500/30 px-2 py-1 text-xs text-violet-400 transition-colors hover:border-violet-500/60 hover:text-violet-300"
+          className="shrink-0 rounded border border-violet-500/30 px-2 py-1 text-xs text-violet-400 transition-colors hover:border-violet-500/60 hover:bg-violet-500/10 hover:text-violet-300"
           onClick={() => clearSession()}
         >
           Sign out
