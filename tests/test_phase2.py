@@ -1,31 +1,144 @@
-"""Unit tests for Phase 2 state logic."""
+"""Unit tests for the FastAPI Phase 2 service and API routes.
 
-import asyncio
-from unittest.mock import MagicMock, patch
+Replaces the old Reflex-era test_phase2.py which imported the deleted
+state.phase2 module. Coverage targets:
+  - Phase2Service: all public methods, edge cases, and validation guards
+  - Phase2 API routes: error mapping (validation → 409, Taiga/AI → 502)
+  - _extract_tech_stack: all memory-bank formats
+"""
 
-from state.phase2 import Phase2State
+import pytest
+from fastapi import HTTPException
+
+from backend.app.api.deps import get_request_context
+from backend.app.api.phase2 import (
+    eligible_epics,
+    generate_design_bundle,
+    lock_epic_design,
+    lock_tech_stack,
+    propose_tech_stack,
+    tech_stack_status,
+)
+from backend.app.schemas.phase2 import (
+    GenerateDesignBundleRequest,
+    LockEpicDesignRequest,
+    LockTechStackRequest,
+    ProposeTechStackRequest,
+)
+from backend.app.services.phase2_service import Phase2Service, Phase2ValidationError
+from backend.app.services.request_context import RequestContext
+from src.ai_engine import AIError, AIRateLimitError
+from src.taiga_adapter import TaigaAPIError
 
 
-def _bare_state(cls, **attrs):
-    state = object.__new__(cls)
-    object.__setattr__(state, "dirty_vars", set())
-    for k, v in attrs.items():
-        object.__setattr__(state, k, v)
-    return state
+# ---------------------------------------------------------------------------
+# Shared fakes
+# ---------------------------------------------------------------------------
+
+class FakeAiService:
+    def __init__(self, *, design_result=None, stack_result=None):
+        self.tech_stack_args = None
+        self.design_args = None
+        self._design_result = design_result or {
+            "wireframes": "SCREEN",
+            "user_flow": "flowchart TD\nA-->B",
+            "component_tree": "App\n  Page",
+            "tech_spec": "openapi: 3.0.0",
+        }
+        self._stack_result = stack_result or [
+            {"name": "FastAPI + Next.js", "description": "Good fit.", "trade_offs": "+ simple"}
+        ]
+
+    def suggest_tech_stack(self, all_stories, context, hint):
+        self.tech_stack_args = (all_stories, context, hint)
+        return self._stack_result
+
+    def generate_phase2_design(self, epic_title, stories, context, cross_epic_context):
+        self.design_args = (epic_title, stories, context, cross_epic_context)
+        return self._design_result
 
 
-def _run_async_event(coro_or_gen):
-    async def _drain():
-        result = coro_or_gen
-        if hasattr(result, "__aiter__"):
-            async for _ in result:
-                pass
-        else:
-            await result
-    asyncio.run(_drain())
+class FakeContextService:
+    def __init__(self, *, memory_bank=None, index=None):
+        self.project_id = 0
+        self.memory_bank = memory_bank if memory_bank is not None else _memory_bank_with_stack()
+        self.index = index if index is not None else _story_index()
+        self.written_stack = None
+        self.appended_tech = None
+        self.appended_bundle = None
+        self.appended_design = None
+
+    def set_project(self, project_id):
+        self.project_id = project_id
+
+    def read_memory_bank(self):
+        return self.memory_bank
+
+    def write_tech_stack(self, tech_stack):
+        self.written_stack = tech_stack
+
+    def story_index(self):
+        return self.index
+
+    def story_gherkin(self, story_id):
+        return f"Feature: Story {story_id}\n\n  Scenario: Happy path\n    Given state\n    When act\n    Then result"
+
+    def other_epics_design_context(self, exclude_epic_id):
+        return f"cross-epic context excluding {exclude_epic_id}"
+
+    def append_epic_technical_spec(self, epic_id, epic_title, story_ids, spec):
+        self.appended_tech = (epic_id, epic_title, story_ids, spec)
+
+    def append_epic_design_bundle(self, epic_id, epic_title, wireframes, user_flow, component_tree, tech_spec):
+        self.appended_bundle = (epic_id, epic_title, wireframes, user_flow, component_tree, tech_spec)
+
+    def append_memory_bank_design(self, epic_id, epic_title, *, prototype_summary, tech_spec_summary):
+        self.appended_design = (epic_id, epic_title, prototype_summary, tech_spec_summary)
 
 
-_MEMORY_BANK_WITH_STACK = """\
+class FakeTaigaService:
+    def __init__(self, *, fail_story_id=None, epics=None):
+        self.token = ""
+        self.project_id = 0
+        self.fail_story_id = fail_story_id
+        self.updated_stories: list = []
+        self._epics = epics or [
+            {"id": 7, "subject": "Authentication"},
+            {"id": 9, "subject": "Billing"},
+        ]
+
+    def set_context(self, token, project_id):
+        self.token = token
+        self.project_id = project_id
+
+    def get_epics(self):
+        return self._epics
+
+    def get_epic(self, epic_id):
+        for e in self._epics:
+            if e["id"] == epic_id:
+                return e
+        return {"id": epic_id, "subject": f"Epic {epic_id}"}
+
+    def find_design_locked_status_id(self):
+        return 12
+
+    def get_story(self, story_id):
+        if story_id == self.fail_story_id:
+            raise RuntimeError("Taiga unavailable")
+        return {"id": story_id, "version": 2, "tags": ["gherkin"]}
+
+    def update_story_fields(self, story_id, version, *, tags=None, status_id=None):
+        self.updated_stories.append((story_id, version, tags, status_id))
+        return {"id": story_id, "version": version + 1}
+
+
+# ---------------------------------------------------------------------------
+# Test data helpers
+# ---------------------------------------------------------------------------
+
+def _memory_bank_with_stack():
+    return """\
 # Memory Bank
 
 ## Project Concept
@@ -34,19 +147,21 @@ Test project.
 
 ## Tech Stack
 
-FastAPI + React + PostgreSQL
+FastAPI + Next.js + PostgreSQL
 
 ## Architecture Principles
 
 Keep it simple.
 """
 
-_MEMORY_BANK_EMPTY_STACK = """\
+
+def _memory_bank_without_stack():
+    return """\
 # Memory Bank
 
 ## Tech Stack
 
-<!-- Fill in tech stack here -->
+<!-- Fill in stack -->
 
 ## Architecture Principles
 
@@ -54,697 +169,500 @@ Keep it simple.
 """
 
 
-# ---------------------------------------------------------------------------
-# Stage A — Tech Stack
-# ---------------------------------------------------------------------------
+def _memory_bank_empty_tech_section():
+    return """\
+# Memory Bank
 
-def test_load_page_sets_gate0_if_stack_exists():
-    state = _bare_state(
-        Phase2State,
-        existing_tech_stack="",
-        gate0_approved=False,
-        epic_list=[],
-        epics_loading=False,
-        epics_load_error="",
-        active_project_id=1,
-        auth_token="tok",
-    )
-    with patch("state.phase2.context_manager") as mock_cm, \
-         patch("state.phase2.taiga_adapter") as mock_ta:
-        mock_cm.read_context_file.return_value = _MEMORY_BANK_WITH_STACK
-        mock_cm.get_story_index.return_value = {}
-        mock_ta.get_epics.return_value = []
-        Phase2State.load_page_data.fn(state)
+## Tech Stack
 
-    assert state.gate0_approved is True
-    assert "FastAPI" in state.existing_tech_stack
+## Architecture Principles
+
+Keep it simple.
+"""
 
 
-def test_load_page_leaves_gate0_false_if_stack_empty():
-    state = _bare_state(
-        Phase2State,
-        existing_tech_stack="",
-        gate0_approved=False,
-        epic_list=[],
-        epics_loading=False,
-        epics_load_error="",
-        active_project_id=1,
-        auth_token="tok",
-    )
-    with patch("state.phase2.context_manager") as mock_cm, \
-         patch("state.phase2.taiga_adapter") as mock_ta:
-        mock_cm.read_context_file.return_value = _MEMORY_BANK_EMPTY_STACK
-        mock_cm.get_story_index.return_value = {}
-        mock_ta.get_epics.return_value = []
-        Phase2State.load_page_data.fn(state)
+def _memory_bank_no_tech_section():
+    return """\
+# Memory Bank
 
-    assert state.gate0_approved is False
-    assert state.existing_tech_stack == ""
+## Project Concept
+
+No tech section at all.
+"""
 
 
-def test_load_epics_groups_by_epic():
-    state = _bare_state(
-        Phase2State,
-        epic_list=[],
-        epics_loading=False,
-        epics_load_error="",
-        active_project_id=42,
-        auth_token="tok",
-    )
-    index = {
-        "1": {"story_id": 1, "epic_id": 10, "title": "S1", "phase_status": "gherkin_locked"},
-        "2": {"story_id": 2, "epic_id": 10, "title": "S2", "phase_status": "gherkin_locked"},
-        "3": {"story_id": 3, "epic_id": 20, "title": "S3", "phase_status": "design_locked"},
+def _story_index():
+    return {
+        "10": {
+            "story_id": 10,
+            "epic_id": 7,
+            "title": "Login",
+            "phase_status": "gherkin_locked",
+            "has_gherkin": True,
+        },
+        "11": {
+            "story_id": 11,
+            "epic_id": 7,
+            "title": "Logout",
+            "phase_status": "design_locked",
+            "has_gherkin": True,
+        },
+        "20": {
+            "story_id": 20,
+            "epic_id": 9,
+            "title": "Pay",
+            "phase_status": "gherkin_locked",
+            "has_gherkin": True,
+        },
+        "99": {
+            "story_id": 99,
+            "epic_id": 9,
+            "title": "Pending Billing",
+            "phase_status": "pending",
+            "has_gherkin": False,
+        },
     }
-    with patch("state.phase2.context_manager") as mock_cm, \
-         patch("state.phase2.taiga_adapter") as mock_ta:
-        mock_ta.get_epics.return_value = [
-            {"id": 10, "subject": "Epic Alpha"},
-            {"id": 20, "subject": "Epic Beta"},
-        ]
-        mock_cm.get_story_index.return_value = index
-        Phase2State.load_epics.fn(state)
-
-    assert len(state.epic_list) == 2
-    epic_alpha = next(e for e in state.epic_list if e["epic_id"] == 10)
-    assert epic_alpha["story_count"] == 2
-    assert epic_alpha["all_locked"] is False
-
-    epic_beta = next(e for e in state.epic_list if e["epic_id"] == 20)
-    assert epic_beta["all_locked"] is True
 
 
-def test_suggest_stack_returns_five_alternatives():
-    state = _bare_state(
-        Phase2State,
-        stack_suggesting=False,
-        stack_error="",
-        stack_alternatives=[],
-        auth_token="tok",
-        active_project_id=1,
-    )
-    mock_alternatives = [
-        {"name": "Option A", "description": "Simple.", "trade_offs": "+ fast"},
-        {"name": "Option B", "description": "Mid.", "trade_offs": "+ balanced"},
-        {"name": "Option C", "description": "Scale.", "trade_offs": "+ scalable"},
-        {"name": "Option D", "description": "Enterprise.", "trade_offs": "+ robust"},
-        {"name": "Option E", "description": "Serverless.", "trade_offs": "+ elastic"},
-    ]
-    with patch("state.phase2.context_manager") as mock_cm, \
-         patch("state.phase2.ai_engine") as mock_ai:
-        mock_cm.get_story_index.return_value = {
-            "1": {"story_id": 1, "epic_id": 5, "title": "S1",
-                  "phase_status": "gherkin_locked", "epic_title": "Ep1"},
+def _ctx():
+    return RequestContext(taiga_token="tok", project_id=42)
+
+
+def _service(*, context=None, taiga=None, ai=None):
+    ai_svc = ai or FakeAiService()
+    ctx_svc = context or FakeContextService()
+    taiga_svc = taiga or FakeTaigaService()
+    svc = Phase2Service(ai=ai_svc, context=ctx_svc, taiga=taiga_svc)
+    return svc, ai_svc, ctx_svc, taiga_svc
+
+
+# ---------------------------------------------------------------------------
+# tech_stack_status
+# ---------------------------------------------------------------------------
+
+class TestTechStackStatus:
+    def test_detects_locked_stack(self):
+        svc, _, _, _ = _service()
+        result = svc.tech_stack_status(_ctx())
+        assert result == {"defined": True, "tech_stack": "FastAPI + Next.js + PostgreSQL"}
+
+    def test_wires_project_and_token(self):
+        svc, _, ctx_svc, taiga_svc = _service()
+        svc.tech_stack_status(_ctx())
+        assert ctx_svc.project_id == 42
+        assert taiga_svc.token == "tok"
+
+    def test_placeholder_comment_returns_undefined(self):
+        svc, _, _, _ = _service(context=FakeContextService(memory_bank=_memory_bank_without_stack()))
+        assert svc.tech_stack_status(_ctx()) == {"defined": False, "tech_stack": None}
+
+    def test_empty_tech_section_returns_undefined(self):
+        svc, _, _, _ = _service(context=FakeContextService(memory_bank=_memory_bank_empty_tech_section()))
+        assert svc.tech_stack_status(_ctx()) == {"defined": False, "tech_stack": None}
+
+    def test_missing_tech_section_returns_undefined(self):
+        svc, _, _, _ = _service(context=FakeContextService(memory_bank=_memory_bank_no_tech_section()))
+        assert svc.tech_stack_status(_ctx()) == {"defined": False, "tech_stack": None}
+
+
+# ---------------------------------------------------------------------------
+# eligible_epics
+# ---------------------------------------------------------------------------
+
+class TestEligibleEpics:
+    def test_includes_gherkin_locked_epic(self):
+        svc, _, _, _ = _service()
+        epics = svc.eligible_epics(_ctx())
+        epic_ids = [e["epic_id"] for e in epics]
+        assert 7 in epic_ids
+        assert 9 in epic_ids
+
+    def test_excludes_stories_without_gherkin(self):
+        # story 99 has has_gherkin=False — should not contribute to count
+        svc, _, _, _ = _service()
+        epics = svc.eligible_epics(_ctx())
+        epic_9 = next(e for e in epics if e["epic_id"] == 9)
+        assert epic_9["story_count"] == 1  # only story 20
+
+    def test_status_gherkin_locked_when_mixed(self):
+        # epic 7: story 10 is gherkin_locked, story 11 is design_locked → overall gherkin_locked
+        svc, _, _, _ = _service()
+        epics = svc.eligible_epics(_ctx())
+        epic_7 = next(e for e in epics if e["epic_id"] == 7)
+        assert epic_7["phase_status"] == "gherkin_locked"
+
+    def test_status_design_locked_when_all_locked(self):
+        index = {
+            "10": {"story_id": 10, "epic_id": 7, "title": "A", "phase_status": "design_locked", "has_gherkin": True},
+            "11": {"story_id": 11, "epic_id": 7, "title": "B", "phase_status": "design_locked", "has_gherkin": True},
         }
-        mock_cm.get_story_gherkin.return_value = "Feature: S1\n  Scenario: x\n"
-        mock_cm.read_context_file.return_value = "Memory bank content"
-        mock_ai.suggest_tech_stack.return_value = mock_alternatives
+        svc, _, _, _ = _service(context=FakeContextService(index=index))
+        epics = svc.eligible_epics(_ctx())
+        assert epics[0]["phase_status"] == "design_locked"
 
-        coro = Phase2State.run_suggest_stack.fn(state)
-        _run_async_event(coro)
+    def test_uses_taiga_subject_as_epic_title(self):
+        svc, _, _, _ = _service()
+        epics = svc.eligible_epics(_ctx())
+        epic_7 = next(e for e in epics if e["epic_id"] == 7)
+        assert epic_7["epic_title"] == "Authentication"
 
-    assert len(state.stack_alternatives) == 5
-    assert state.stack_alternatives[0]["name"] == "Option A"
-    assert state.stack_suggesting is False
+    def test_falls_back_to_epic_id_when_not_in_taiga(self):
+        index = {
+            "30": {"story_id": 30, "epic_id": 999, "title": "X", "phase_status": "gherkin_locked", "has_gherkin": True},
+        }
+        svc, _, _, _ = _service(context=FakeContextService(index=index))
+        epics = svc.eligible_epics(_ctx())
+        assert epics[0]["epic_title"] == "Epic 999"
 
+    def test_excludes_stories_without_epic_id(self):
+        index = {
+            "10": {"story_id": 10, "epic_id": None, "title": "A", "phase_status": "gherkin_locked", "has_gherkin": True},
+        }
+        svc, _, _, _ = _service(context=FakeContextService(index=index))
+        assert svc.eligible_epics(_ctx()) == []
 
-def test_select_alternative_prefills_edit():
-    alternatives = [
-        {"name": "FastAPI", "description": "Great for APIs.", "trade_offs": "+ simple"},
-        {"name": "Django", "description": "Full stack.", "trade_offs": "+ batteries"},
-        {"name": "Rails", "description": "Fast dev.", "trade_offs": "+ convention"},
-    ]
-    state = _bare_state(
-        Phase2State,
-        stack_alternatives=alternatives,
-        selected_alternative_index=-1,
-        tech_stack_edit="",
-    )
-    with patch("state.phase2.context_manager"):
-        Phase2State.select_alternative.fn(state, 1)
-
-    assert state.selected_alternative_index == 1
-    assert "Django" in state.tech_stack_edit
-    assert "Full stack." in state.tech_stack_edit
-
-
-def test_approve_gate0_writes_tech_stack():
-    state = _bare_state(
-        Phase2State,
-        tech_stack_edit="FastAPI + React",
-        existing_tech_stack="",
-        gate0_approved=False,
-    )
-    with patch("state.phase2.context_manager") as mock_cm:
-        mock_cm.write_tech_stack = MagicMock()
-        mock_cm.save_design_draft = MagicMock()
-        Phase2State.approve_gate0.fn(state)
-
-    mock_cm.write_tech_stack.assert_called_once_with("FastAPI + React")
-    assert state.gate0_approved is True
-    assert state.existing_tech_stack == "FastAPI + React"
+    def test_empty_index_returns_empty_list(self):
+        svc, _, _, _ = _service(context=FakeContextService(index={}))
+        assert svc.eligible_epics(_ctx()) == []
 
 
 # ---------------------------------------------------------------------------
-# Stage B — Epic selection
+# propose_tech_stack
 # ---------------------------------------------------------------------------
 
-def test_select_epic_loads_all_gherkin():
-    state = _bare_state(
-        Phase2State,
-        epic_list=[{"epic_id": 7, "epic_title": "Epic Seven", "story_count": 2, "all_locked": False}],
-        selected_epic_id=0,
-        selected_epic_title="",
-        stories_in_epic=[],
-        gate1_approved=False,
-        gate2_approved=False,
-        wireframes_draft="", wireframes_edit="",
-        user_flow_draft="", user_flow_edit="",
-        component_tree_draft="", component_tree_edit="",
-        tech_spec_draft="", tech_spec_edit="",
-        generate_error="", save_error="", generation_log=[],
-    )
-    index = {
-        "10": {"story_id": 10, "epic_id": 7, "title": "Login", "phase_status": "gherkin_locked"},
-        "11": {"story_id": 11, "epic_id": 7, "title": "Logout", "phase_status": "gherkin_locked"},
-    }
-    taiga_stories = [
-        {"id": 10, "subject": "Login"},
-        {"id": 11, "subject": "Logout"},
-    ]
-    with patch("state.phase2.context_manager") as mock_cm, \
-         patch("state.phase2.taiga_adapter") as mock_ta:
-        mock_cm.get_story_index.return_value = index
-        mock_cm.get_story_gherkin.side_effect = lambda sid: f"Feature: Story {sid}\n"
-        mock_cm.get_epic_design_bundle.return_value = None
-        mock_cm.save_design_draft = MagicMock()
-        mock_ta.get_stories_for_epic.return_value = taiga_stories
-        list(Phase2State.select_epic.fn(state, "7"))
+class TestProposeTechStack:
+    def test_raises_when_no_locked_stories(self):
+        empty = {"1": {"story_id": 1, "epic_id": 7, "phase_status": "pending", "has_gherkin": False}}
+        svc, _, _, _ = _service(context=FakeContextService(index=empty))
+        with pytest.raises(Phase2ValidationError, match="No Phase 1 locked"):
+            svc.propose_tech_stack(_ctx())
 
-    assert state.selected_epic_id == 7
-    assert state.selected_epic_title == "Epic Seven"
-    assert len(state.stories_in_epic) == 2
-    assert mock_cm.get_story_gherkin.call_count == 2
+    def test_passes_all_locked_stories_to_ai(self):
+        svc, ai, _, _ = _service()
+        svc.propose_tech_stack(_ctx(), hint="Prefer Python")
+        stories, memory_bank, hint = ai.tech_stack_args
+        # stories 10, 11, 20 qualify (gherkin_locked or design_locked + has_gherkin)
+        assert len(stories) == 3
+        assert hint == "Prefer Python"
 
+    def test_memory_bank_passed_to_ai(self):
+        svc, ai, _, _ = _service()
+        svc.propose_tech_stack(_ctx())
+        _, memory_bank, _ = ai.tech_stack_args
+        assert "FastAPI + Next.js + PostgreSQL" in memory_bank
 
-def test_select_epic_resets_gate1_gate2():
-    state = _bare_state(
-        Phase2State,
-        epic_list=[{"epic_id": 5, "epic_title": "E5", "story_count": 1, "all_locked": False}],
-        selected_epic_id=5,
-        selected_epic_title="E5",
-        stories_in_epic=[],
-        gate1_approved=True,
-        gate2_approved=True,
-        wireframes_edit="old wireframes",
-        user_flow_edit="old flow",
-        component_tree_edit="old tree",
-        tech_spec_edit="old spec",
-        wireframes_draft="", user_flow_draft="",
-        component_tree_draft="", tech_spec_draft="",
-        generate_error="", save_error="", generation_log=[],
-    )
-    index = {"99": {"story_id": 99, "epic_id": 5, "title": "S", "phase_status": "gherkin_locked"}}
-    with patch("state.phase2.context_manager") as mock_cm, \
-         patch("state.phase2.taiga_adapter") as mock_ta:
-        mock_cm.get_story_index.return_value = index
-        mock_cm.get_story_gherkin.return_value = "Feature: S\n"
-        mock_cm.get_epic_design_bundle.return_value = None
-        mock_cm.save_design_draft = MagicMock()
-        mock_ta.get_stories_for_epic.return_value = [{"id": 99, "subject": "S"}]
-        list(Phase2State.select_epic.fn(state, "5"))
-
-    assert state.gate1_approved is False
-    assert state.gate2_approved is False
-    assert state.wireframes_edit == ""
-    assert state.tech_spec_edit == ""
-
-
-def test_select_epic_restores_bundle_when_all_design_locked():
-    state = _bare_state(
-        Phase2State,
-        epic_list=[{"epic_id": 8, "epic_title": "E8", "story_count": 1, "all_locked": True}],
-        selected_epic_id=0,
-        selected_epic_title="",
-        stories_in_epic=[],
-        gate0_approved=True,
-        existing_tech_stack="FastAPI",
-        gate1_approved=False,
-        gate2_approved=False,
-        wireframes_draft="", wireframes_edit="",
-        user_flow_draft="", user_flow_edit="",
-        component_tree_draft="", component_tree_edit="",
-        tech_spec_draft="", tech_spec_edit="",
-        generate_error="", save_error="", generation_log=[],
-    )
-    saved_bundle = {
-        "wireframes": "+-+\n|X|\n+-+",
-        "user_flow": "flowchart TD\n  A-->B",
-        "component_tree": "App\n  Form",
-        "tech_spec": "openapi: '3.0'",
-    }
-    index = {"20": {"story_id": 20, "epic_id": 8, "title": "Pay", "phase_status": "design_locked"}}
-    with patch("state.phase2.context_manager") as mock_cm, \
-         patch("state.phase2.taiga_adapter") as mock_ta:
-        mock_cm.get_story_index.return_value = index
-        mock_cm.get_story_gherkin.return_value = "Feature: Pay\n"
-        mock_cm.get_epic_design_bundle.return_value = saved_bundle
-        mock_cm.save_design_draft = MagicMock()
-        mock_ta.get_stories_for_epic.return_value = [{"id": 20, "subject": "Pay"}]
-        list(Phase2State.select_epic.fn(state, "8"))
-
-    assert state.wireframes_edit == "+-+\n|X|\n+-+"
-    assert state.user_flow_edit == "flowchart TD\n  A-->B"
-    assert state.component_tree_edit == "App\n  Form"
-    assert state.tech_spec_edit == "openapi: '3.0'"
-    assert state.gate1_approved is True
-    assert state.gate2_approved is True
-
-
-def test_select_epic_does_not_restore_gates_when_not_all_locked():
-    state = _bare_state(
-        Phase2State,
-        epic_list=[{"epic_id": 9, "epic_title": "E9", "story_count": 2, "all_locked": False}],
-        selected_epic_id=0,
-        selected_epic_title="",
-        stories_in_epic=[],
-        gate0_approved=True,
-        existing_tech_stack="FastAPI",
-        gate1_approved=False,
-        gate2_approved=False,
-        wireframes_draft="", wireframes_edit="",
-        user_flow_draft="", user_flow_edit="",
-        component_tree_draft="", component_tree_edit="",
-        tech_spec_draft="", tech_spec_edit="",
-        generate_error="", save_error="", generation_log=[],
-    )
-    saved_bundle = {"wireframes": "wf", "user_flow": "uf", "component_tree": "ct", "tech_spec": "ts"}
-    index = {
-        "30": {"story_id": 30, "epic_id": 9, "title": "A", "phase_status": "design_locked"},
-        "31": {"story_id": 31, "epic_id": 9, "title": "B", "phase_status": "gherkin_locked"},
-    }
-    with patch("state.phase2.context_manager") as mock_cm, \
-         patch("state.phase2.taiga_adapter") as mock_ta:
-        mock_cm.get_story_index.return_value = index
-        mock_cm.get_story_gherkin.return_value = "Feature: X\n"
-        mock_cm.get_epic_design_bundle.return_value = saved_bundle
-        mock_cm.save_design_draft = MagicMock()
-        mock_ta.get_stories_for_epic.return_value = [
-            {"id": 30, "subject": "A"}, {"id": 31, "subject": "B"},
-        ]
-        list(Phase2State.select_epic.fn(state, "9"))
-
-    assert state.wireframes_edit == "wf"
-    assert state.gate1_approved is False
-    assert state.gate2_approved is False
-
-
-def test_select_epic_does_not_reset_gate0():
-    state = _bare_state(
-        Phase2State,
-        epic_list=[{"epic_id": 3, "epic_title": "E3", "story_count": 1, "all_locked": False}],
-        selected_epic_id=0, selected_epic_title="",
-        stories_in_epic=[],
-        gate0_approved=True,
-        existing_tech_stack="FastAPI",
-        gate1_approved=True, gate2_approved=True,
-        wireframes_draft="", wireframes_edit="",
-        user_flow_draft="", user_flow_edit="",
-        component_tree_draft="", component_tree_edit="",
-        tech_spec_draft="", tech_spec_edit="",
-        generate_error="", save_error="", generation_log=[],
-    )
-    index = {"5": {"story_id": 5, "epic_id": 3, "title": "S", "phase_status": "gherkin_locked"}}
-    with patch("state.phase2.context_manager") as mock_cm, \
-         patch("state.phase2.taiga_adapter") as mock_ta:
-        mock_cm.get_story_index.return_value = index
-        mock_cm.get_story_gherkin.return_value = ""
-        mock_cm.get_epic_design_bundle.return_value = None
-        mock_cm.save_design_draft = MagicMock()
-        mock_ta.get_stories_for_epic.return_value = [{"id": 5, "subject": "S"}]
-        list(Phase2State.select_epic.fn(state, "3"))
-
-    assert state.gate0_approved is True
-    assert state.existing_tech_stack == "FastAPI"
+    def test_excludes_pending_stories(self):
+        svc, ai, _, _ = _service()
+        svc.propose_tech_stack(_ctx())
+        stories, _, _ = ai.tech_stack_args
+        titles = [s["title"] for s in stories]
+        assert "Pending Billing" not in titles
 
 
 # ---------------------------------------------------------------------------
-# can_generate computed var
+# lock_tech_stack
 # ---------------------------------------------------------------------------
 
-def test_can_generate_blocked_without_tech_stack():
-    state = _bare_state(
-        Phase2State,
-        existing_tech_stack="",
-        gate0_approved=False,
-        is_authenticated=True,
-        has_project=True,
-        selected_epic_id=5,
-        stories_in_epic=[{"story_id": 1, "title": "S", "gherkin": "Feature: S", "phase_status": "gherkin_locked"}],
-        generating=False,
-    )
-    assert Phase2State.tech_stack_confirmed.fget(state) is False
-    assert Phase2State.can_generate.fget(state) is False
+class TestLockTechStack:
+    def test_writes_and_returns_stack(self):
+        svc, _, ctx_svc, _ = _service()
+        result = svc.lock_tech_stack(_ctx(), tech_stack=" Django + React ")
+        assert result == {"defined": True, "tech_stack": "Django + React"}
+        assert ctx_svc.written_stack == "Django + React"
+
+    def test_empty_tech_stack_raises(self):
+        svc, _, _, _ = _service()
+        with pytest.raises(Phase2ValidationError, match="tech_stack is required"):
+            svc.lock_tech_stack(_ctx(), tech_stack="   ")
 
 
 # ---------------------------------------------------------------------------
-# Stage B — Generation
+# generate_design_bundle
 # ---------------------------------------------------------------------------
 
-def test_run_generate_sets_all_four_outputs():
-    state = _bare_state(
-        Phase2State,
-        generating=False,
-        generate_error="",
-        generation_log=[],
-        selected_epic_title="Payments",
-        stories_in_epic=[{"story_id": 1, "title": "Pay", "gherkin": "Feature: Pay\n"}],
-        wireframes_draft="", wireframes_edit="",
-        user_flow_draft="", user_flow_edit="",
-        component_tree_draft="", component_tree_edit="",
-        tech_spec_draft="", tech_spec_edit="",
-    )
-    design_result = {
-        "wireframes": "+---------+\n| Screen  |\n+---------+",
-        "user_flow": "flowchart TD\n    A[Start] --> B[Pay]",
-        "component_tree": "App\n  PaymentForm\n    Submit",
-        "tech_spec": "openapi: '3.0'\npaths:\n  /pay: {}",
-    }
-    with patch("state.phase2.context_manager") as mock_cm, \
-         patch("state.phase2.ai_engine") as mock_ai:
-        mock_cm.read_context_file.return_value = "Memory Bank"
-        mock_cm.get_other_epics_design_context.return_value = ""
-        mock_cm.save_design_draft = MagicMock()
-        mock_ai.generate_phase2_design.return_value = design_result
+class TestGenerateDesignBundle:
+    def test_raises_when_no_tech_stack(self):
+        svc, _, _, _ = _service(context=FakeContextService(memory_bank=_memory_bank_without_stack()))
+        with pytest.raises(Phase2ValidationError, match="Tech Stack"):
+            svc.generate_design_bundle(_ctx(), epic_id=7)
 
-        coro = Phase2State.run_generate.fn(state)
-        _run_async_event(coro)
+    def test_raises_when_epic_id_zero(self):
+        svc, _, _, _ = _service()
+        with pytest.raises(Phase2ValidationError, match="epic_id"):
+            svc.generate_design_bundle(_ctx(), epic_id=0)
 
-    assert state.wireframes_edit == design_result["wireframes"]
-    assert state.user_flow_edit == design_result["user_flow"]
-    assert state.component_tree_edit == design_result["component_tree"]
-    assert state.tech_spec_edit == design_result["tech_spec"]
-    assert state.generating is False
+    def test_raises_when_epic_id_negative(self):
+        svc, _, _, _ = _service()
+        with pytest.raises(Phase2ValidationError, match="epic_id"):
+            svc.generate_design_bundle(_ctx(), epic_id=-1)
 
+    def test_raises_when_no_stories_for_epic(self):
+        svc, _, _, _ = _service()
+        with pytest.raises(Phase2ValidationError, match="No Phase 1 locked Gherkin"):
+            svc.generate_design_bundle(_ctx(), epic_id=999)
 
-def test_run_generate_passes_cross_epic_context():
-    state = _bare_state(
-        Phase2State,
-        generating=False,
-        generate_error="",
-        generation_log=[],
-        selected_epic_id=99,
-        selected_epic_title="Orders",
-        stories_in_epic=[{"story_id": 5, "title": "Place Order", "gherkin": "Feature: Order\n"}],
-        wireframes_draft="", wireframes_edit="",
-        user_flow_draft="", user_flow_edit="",
-        component_tree_draft="", component_tree_edit="",
-        tech_spec_draft="", tech_spec_edit="",
-    )
-    cross_ctx = "**Existing Component Architecture ...**\n### Epic 1: Auth\nAuthPage\n  LoginForm"
-    design_result = {
-        "wireframes": "wf", "user_flow": "uf", "component_tree": "ct", "tech_spec": "ts",
-    }
-    with patch("state.phase2.context_manager") as mock_cm, \
-         patch("state.phase2.ai_engine") as mock_ai:
-        mock_cm.read_context_file.return_value = "Memory Bank"
-        mock_cm.get_other_epics_design_context.return_value = cross_ctx
-        mock_cm.save_design_draft = MagicMock()
-        mock_ai.generate_phase2_design.return_value = design_result
+    def test_returns_bundle_with_story_ids(self):
+        svc, _, _, _ = _service()
+        result = svc.generate_design_bundle(_ctx(), epic_id=7)
+        assert result["wireframes"] == "SCREEN"
+        assert result["story_ids"] == [10, 11]
 
-        coro = Phase2State.run_generate.fn(state)
-        _run_async_event(coro)
+    def test_injects_binding_tech_stack_constraint(self):
+        svc, ai, _, _ = _service()
+        svc.generate_design_bundle(_ctx(), epic_id=7)
+        _, _, context, _ = ai.design_args
+        assert "locked and binding" in context
+        assert "FastAPI + Next.js + PostgreSQL" in context
 
-    mock_cm.get_other_epics_design_context.assert_called_once_with(99)
-    mock_ai.generate_phase2_design.assert_called_once_with(
-        "Orders",
-        [{"story_id": 5, "title": "Place Order", "gherkin": "Feature: Order\n"}],
-        "Memory Bank",
-        cross_ctx,
-    )
+    def test_passes_epic_title_from_taiga(self):
+        svc, ai, _, _ = _service()
+        svc.generate_design_bundle(_ctx(), epic_id=7)
+        epic_title, _, _, _ = ai.design_args
+        assert epic_title == "Authentication"
+
+    def test_passes_cross_epic_context(self):
+        svc, ai, _, _ = _service()
+        svc.generate_design_bundle(_ctx(), epic_id=7)
+        _, _, _, cross_epic = ai.design_args
+        assert "excluding 7" in cross_epic
+
+    def test_stories_sorted_by_id(self):
+        svc, ai, _, _ = _service()
+        svc.generate_design_bundle(_ctx(), epic_id=7)
+        _, stories, _, _ = ai.design_args
+        ids = [s["story_id"] for s in stories]
+        assert ids == sorted(ids)
 
 
 # ---------------------------------------------------------------------------
-# Gate approvals
+# lock_epic_design
 # ---------------------------------------------------------------------------
 
-def test_approve_gate1():
-    state = _bare_state(Phase2State, gate1_approved=False, wireframes_edit="Some wireframes")
-    with patch("state.phase2.context_manager"):
-        Phase2State.approve_gate1.fn(state)
-    assert state.gate1_approved is True
+class TestLockEpicDesign:
+    def _lock(self, svc, **overrides):
+        defaults = dict(
+            epic_id=7,
+            epic_title="Authentication",
+            story_ids=[10, 11],
+            wireframes="SCREEN",
+            user_flow="flowchart TD",
+            component_tree="App",
+            tech_spec="openapi: 3.0.0",
+        )
+        return svc.lock_epic_design(_ctx(), **{**defaults, **overrides})
 
+    def test_success_persists_all_artifacts(self):
+        svc, _, ctx_svc, _ = _service()
+        result = self._lock(svc)
+        assert result["ok"] is True
+        assert result["taiga_failures"] == []
+        assert ctx_svc.appended_tech == (7, "Authentication", [10, 11], "openapi: 3.0.0")
+        assert ctx_svc.appended_design[:2] == (7, "Authentication")
+        assert ctx_svc.appended_bundle[:2] == (7, "Authentication")
 
-def test_approve_gate2_blocked_without_gate1():
-    state = _bare_state(Phase2State, gate1_approved=False, gate2_approved=False,
-                        tech_spec_edit="spec content")
-    with patch("state.phase2.context_manager"):
-        Phase2State.approve_gate2.fn(state)
-    assert state.gate2_approved is False
+    def test_transitions_taiga_stories(self):
+        svc, _, _, taiga_svc = _service()
+        self._lock(svc)
+        updated_ids = [row[0] for row in taiga_svc.updated_stories]
+        assert 10 in updated_ids
+        assert 11 in updated_ids
 
+    def test_transition_adds_design_locked_tag(self):
+        svc, _, _, taiga_svc = _service()
+        self._lock(svc)
+        tags_10 = taiga_svc.updated_stories[0][2]
+        assert "design_locked" in tags_10
+        assert "apex" in tags_10
 
-def test_approve_gate2_after_gate1():
-    state = _bare_state(Phase2State, gate1_approved=True, gate2_approved=False,
-                        tech_spec_edit="spec content", saving=False)
-    with patch("state.phase2.context_manager"):
-        Phase2State.approve_gate2.fn(state)
-    assert state.gate2_approved is True
-    assert Phase2State.can_save.fget(state) is True
+    def test_taiga_failure_recorded_without_aborting(self):
+        svc, _, ctx_svc, _ = _service(taiga=FakeTaigaService(fail_story_id=11))
+        result = self._lock(svc)
+        assert result["ok"] is False
+        assert result["taiga_failures"] == [{"story_id": 11, "error": "Taiga unavailable"}]
+        # artifacts still persisted despite Taiga failure
+        assert ctx_svc.appended_tech is not None
 
+    def test_raises_when_epic_id_zero(self):
+        svc, _, _, _ = _service()
+        with pytest.raises(Phase2ValidationError, match="epic_id"):
+            self._lock(svc, epic_id=0)
 
-# ---------------------------------------------------------------------------
-# save_design
-# ---------------------------------------------------------------------------
+    def test_raises_when_tech_spec_empty(self):
+        svc, _, _, _ = _service()
+        with pytest.raises(Phase2ValidationError, match="tech_spec"):
+            self._lock(svc, tech_spec="  ")
 
-def test_save_design_calls_append_epic_spec():
-    state = _bare_state(
-        Phase2State,
-        selected_epic_id=7,
-        selected_epic_title="My Epic",
-        stories_in_epic=[
-            {"story_id": 10, "title": "S1", "gherkin": "", "phase_status": "gherkin_locked"},
-            {"story_id": 11, "title": "S2", "gherkin": "", "phase_status": "gherkin_locked"},
-        ],
-        tech_spec_edit="openapi: '3.0'",
-        wireframes_edit="wireframe text",
-        user_flow_edit="flowchart TD\n  A-->B",
-        component_tree_edit="App\n  Form",
-        saving=False,
-        save_error="",
-        gate1_approved=True,
-        gate2_approved=True,
-        existing_tech_stack="FastAPI",
-        gate0_approved=True,
-        selected_alternative_index=-1,
-        stack_alternatives=[],
-        tech_stack_edit="",
-    )
-    with patch("state.phase2.context_manager") as mock_cm:
-        mock_cm.append_epic_technical_spec = MagicMock()
-        mock_cm.append_memory_bank_design = MagicMock()
-        mock_cm.append_epic_design_bundle = MagicMock()
-        mock_cm.save_design_draft = MagicMock()
-        gen = Phase2State.save_design.fn(state)
-        _run_async_event(gen)
+    def test_resolves_title_from_taiga_when_not_provided(self):
+        svc, _, ctx_svc, _ = _service()
+        self._lock(svc, epic_title="")
+        assert ctx_svc.appended_tech[1] == "Authentication"
 
-    mock_cm.append_epic_technical_spec.assert_called_once_with(
-        7, "My Epic", [10, 11], "openapi: '3.0'"
-    )
+    def test_falls_back_to_index_stories_when_story_ids_empty(self):
+        svc, _, ctx_svc, _ = _service()
+        self._lock(svc, story_ids=[])
+        # _stories_for_epic(7) returns stories 10 and 11
+        assert sorted(ctx_svc.appended_tech[2]) == [10, 11]
 
-
-def test_save_design_writes_memory_bank():
-    state = _bare_state(
-        Phase2State,
-        selected_epic_id=3,
-        selected_epic_title="Auth Epic",
-        stories_in_epic=[{"story_id": 5, "title": "Login", "gherkin": "", "phase_status": "gherkin_locked"}],
-        tech_spec_edit="spec",
-        wireframes_edit="wireframes",
-        user_flow_edit="flowchart TD\n  A-->B",
-        component_tree_edit="App\n  Form",
-        saving=False,
-        save_error="",
-        gate1_approved=True,
-        gate2_approved=True,
-        existing_tech_stack="FastAPI",
-        gate0_approved=True,
-        selected_alternative_index=-1,
-        stack_alternatives=[],
-        tech_stack_edit="",
-    )
-    with patch("state.phase2.context_manager") as mock_cm:
-        mock_cm.append_epic_technical_spec = MagicMock()
-        mock_cm.append_memory_bank_design = MagicMock()
-        mock_cm.append_epic_design_bundle = MagicMock()
-        mock_cm.save_design_draft = MagicMock()
-        gen = Phase2State.save_design.fn(state)
-        _run_async_event(gen)
-
-    mock_cm.append_memory_bank_design.assert_called_once_with(
-        3, "Auth Epic", prototype_summary="wireframes", tech_spec_summary="spec"
-    )
-
-
-def test_save_design_writes_bundle():
-    state = _bare_state(
-        Phase2State,
-        selected_epic_id=1,
-        selected_epic_title="Epic One",
-        stories_in_epic=[{"story_id": 2, "title": "S", "gherkin": "", "phase_status": "gherkin_locked"}],
-        tech_spec_edit="openapi: '3.0'",
-        wireframes_edit="+-+\n|X|\n+-+",
-        user_flow_edit="flowchart TD\n  A-->B",
-        component_tree_edit="App\n  Form",
-        saving=False,
-        save_error="",
-        gate1_approved=True,
-        gate2_approved=True,
-        existing_tech_stack="FastAPI",
-        gate0_approved=True,
-        selected_alternative_index=-1,
-        stack_alternatives=[],
-        tech_stack_edit="",
-    )
-    with patch("state.phase2.context_manager") as mock_cm:
-        mock_cm.append_epic_technical_spec = MagicMock()
-        mock_cm.append_memory_bank_design = MagicMock()
-        mock_cm.append_epic_design_bundle = MagicMock()
-        mock_cm.save_design_draft = MagicMock()
-        gen = Phase2State.save_design.fn(state)
-        _run_async_event(gen)
-
-    mock_cm.append_epic_design_bundle.assert_called_once_with(
-        1, "Epic One",
-        "+-+\n|X|\n+-+",
-        "flowchart TD\n  A-->B",
-        "App\n  Form",
-        "openapi: '3.0'",
-    )
-    mock_cm.clear_design_draft.assert_not_called()
+    def test_raises_when_no_story_ids_and_none_in_index(self):
+        svc, _, _, _ = _service(context=FakeContextService(index={}))
+        with pytest.raises(Phase2ValidationError, match="At least one story_id"):
+            self._lock(svc, story_ids=[])
 
 
 # ---------------------------------------------------------------------------
-# reset_story
+# _extract_tech_stack (tested via tech_stack_status)
 # ---------------------------------------------------------------------------
 
-def test_reset_preserves_gate0_and_selection():
-    state = _bare_state(
-        Phase2State,
-        gate0_approved=True,
-        existing_tech_stack="FastAPI",
-        selected_epic_id=9,
-        epic_list=[{"epic_id": 9}],
-        stories_in_epic=[{"story_id": 1, "title": "S", "gherkin": "", "phase_status": "gherkin_locked"}],
-        gate1_approved=True,
-        gate2_approved=True,
-        wireframes_edit="wf",
-        tech_spec_edit="spec",
-        user_flow_edit="flow",
-        component_tree_edit="tree",
-        wireframes_draft="", user_flow_draft="",
-        component_tree_draft="", tech_spec_draft="",
-        generate_error="err", save_error="err2", generation_log=["x"],
-    )
-    with patch("state.phase2.context_manager") as mock_cm:
-        mock_cm.clear_design_draft = MagicMock()
-        list(Phase2State.reset_story.fn(state))
+class TestExtractTechStack:
+    def _status(self, memory_bank):
+        svc, _, _, _ = _service(context=FakeContextService(memory_bank=memory_bank))
+        return svc.tech_stack_status(_ctx())
 
-    assert state.gate0_approved is True
-    assert state.existing_tech_stack == "FastAPI"
-    assert state.selected_epic_id == 9
-    assert state.gate1_approved is False
-    assert state.gate2_approved is False
-    assert state.wireframes_edit == ""
-    assert state.tech_spec_edit == ""
+    def test_extracts_single_line_stack(self):
+        result = self._status("## Tech Stack\n\nReact + FastAPI\n\n## Other\n\n")
+        assert result["tech_stack"] == "React + FastAPI"
+
+    def test_extracts_multiline_stack(self):
+        mb = "## Tech Stack\n\n- Next.js\n- FastAPI\n- PostgreSQL\n\n## Other\n"
+        result = self._status(mb)
+        assert "Next.js" in result["tech_stack"]
+        assert "PostgreSQL" in result["tech_stack"]
+
+    def test_placeholder_comment_returns_none(self):
+        result = self._status("## Tech Stack\n\n<!-- placeholder -->\n\n## Other\n")
+        assert result["tech_stack"] is None
+
+    def test_missing_section_returns_none(self):
+        result = self._status("## Project Concept\n\nNo tech here.\n")
+        assert result["tech_stack"] is None
+
+    def test_stops_at_next_section(self):
+        mb = "## Tech Stack\n\nFastAPI\n\n## Architecture Principles\n\nKeep it simple.\n"
+        result = self._status(mb)
+        assert "Architecture" not in result["tech_stack"]
 
 
 # ---------------------------------------------------------------------------
-# restore_draft
+# API route layer — happy path
 # ---------------------------------------------------------------------------
 
-def test_restore_draft_hydrates_all_fields():
-    state = _bare_state(
-        Phase2State,
-        draft_restored=False,
-        existing_tech_stack="",
-        stack_alternatives=[],
-        selected_alternative_index=-1,
-        tech_stack_edit="",
-        gate0_approved=False,
-        selected_epic_id=0,
-        selected_epic_title="",
-        stories_in_epic=[],
-        wireframes_edit="",
-        user_flow_edit="",
-        component_tree_edit="",
-        tech_spec_edit="",
-        gate1_approved=False,
-        gate2_approved=False,
-    )
-    draft = {
-        "existing_tech_stack": "FastAPI",
-        "stack_alternatives": [{"name": "A"}],
-        "selected_alternative_index": 0,
-        "tech_stack_edit": "FastAPI stack",
-        "gate0_approved": True,
-        "selected_epic_id": 7,
-        "selected_epic_title": "Payments",
-        "stories_in_epic": [{"story_id": 1, "title": "Pay", "gherkin": "", "phase_status": "gherkin_locked"}],
-        "wireframes_edit": "wf content",
-        "user_flow_edit": "flowchart TD\n  A-->B",
-        "component_tree_edit": "App\n  Form",
-        "tech_spec_edit": "openapi: '3.0'",
-        "gate1_approved": True,
-        "gate2_approved": False,
-    }
-    with patch("state.phase2.context_manager") as mock_cm:
-        mock_cm.load_design_draft.return_value = draft
-        list(Phase2State.restore_draft.fn(state))
+class StubPhase2Service:
+    def tech_stack_status(self, ctx):
+        return {"defined": True, "tech_stack": "FastAPI"}
 
-    assert state.existing_tech_stack == "FastAPI"
-    assert state.gate0_approved is True
-    assert state.selected_epic_id == 7
-    assert state.wireframes_edit == "wf content"
-    assert state.gate1_approved is True
-    assert state.gate2_approved is False
-    assert state.draft_restored is True
+    def eligible_epics(self, ctx):
+        return [{"epic_id": 7, "epic_title": "Auth", "story_count": 2, "phase_status": "gherkin_locked"}]
+
+    def propose_tech_stack(self, ctx, *, hint=""):
+        return [{"name": "FastAPI", "description": hint or "Good", "trade_offs": "+ simple"}]
+
+    def lock_tech_stack(self, ctx, *, tech_stack):
+        return {"defined": True, "tech_stack": tech_stack}
+
+    def generate_design_bundle(self, ctx, *, epic_id):
+        return {
+            "wireframes": "SCREEN",
+            "user_flow": "flowchart TD",
+            "component_tree": "App",
+            "tech_spec": "openapi: 3.0.0",
+            "story_ids": [10],
+        }
+
+    def lock_epic_design(self, ctx, *, epic_id, epic_title, story_ids, wireframes, user_flow, component_tree, tech_spec):
+        return {"ok": True, "epic_id": epic_id, "story_ids": story_ids, "taiga_failures": []}
 
 
-def test_restore_draft_guard():
-    state = _bare_state(
-        Phase2State,
-        draft_restored=True,
-        existing_tech_stack="",
-    )
-    with patch("state.phase2.context_manager") as mock_cm:
-        mock_cm.load_design_draft = MagicMock()
-        list(Phase2State.restore_draft.fn(state))
+def _rctx():
+    return get_request_context("Bearer tok", 42)
 
-    mock_cm.load_design_draft.assert_not_called()
+
+class TestApiRoutes:
+    def test_tech_stack_status_route(self):
+        result = tech_stack_status(ctx=_rctx(), service=StubPhase2Service())
+        assert result == {"defined": True, "tech_stack": "FastAPI"}
+
+    def test_eligible_epics_route(self):
+        result = eligible_epics(ctx=_rctx(), service=StubPhase2Service())
+        assert result[0]["epic_id"] == 7
+
+    def test_propose_tech_stack_hint_forwarded(self):
+        result = propose_tech_stack(
+            ProposeTechStackRequest(hint="Python please"),
+            ctx=_rctx(),
+            service=StubPhase2Service(),
+        )
+        assert result["alternatives"][0]["description"] == "Python please"
+
+    def test_lock_tech_stack_route(self):
+        result = lock_tech_stack(LockTechStackRequest(tech_stack="FastAPI"), ctx=_rctx(), service=StubPhase2Service())
+        assert result == {"defined": True, "tech_stack": "FastAPI"}
+
+    def test_generate_design_bundle_route(self):
+        result = generate_design_bundle(GenerateDesignBundleRequest(epic_id=7), ctx=_rctx(), service=StubPhase2Service())
+        assert result["story_ids"] == [10]
+
+    def test_lock_epic_design_route(self):
+        result = lock_epic_design(
+            LockEpicDesignRequest(
+                epic_id=7,
+                epic_title="Auth",
+                story_ids=[10],
+                wireframes="SCREEN",
+                user_flow="flowchart TD",
+                component_tree="App",
+                tech_spec="openapi: 3.0.0",
+            ),
+            ctx=_rctx(),
+            service=StubPhase2Service(),
+        )
+        assert result == {"ok": True, "epic_id": 7, "story_ids": [10], "taiga_failures": []}
 
 
 # ---------------------------------------------------------------------------
-# design_complete computed var
+# API route layer — error mapping
 # ---------------------------------------------------------------------------
 
-def test_design_complete_var():
-    state_complete = _bare_state(
-        Phase2State,
-        stories_in_epic=[
-            {"story_id": 1, "phase_status": "design_locked"},
-            {"story_id": 2, "phase_status": "design_locked"},
-        ],
-    )
-    assert Phase2State.design_complete.fget(state_complete) is True
+class TestApiErrorMapping:
+    def test_validation_error_maps_to_409(self):
+        class FailSvc(StubPhase2Service):
+            def tech_stack_status(self, ctx):
+                raise Phase2ValidationError("Missing stack")
 
-    state_partial = _bare_state(
-        Phase2State,
-        stories_in_epic=[
-            {"story_id": 1, "phase_status": "design_locked"},
-            {"story_id": 2, "phase_status": "gherkin_locked"},
-        ],
-    )
-    assert Phase2State.design_complete.fget(state_partial) is False
+        with pytest.raises(HTTPException) as exc:
+            tech_stack_status(ctx=_rctx(), service=FailSvc())
+        assert exc.value.status_code == 409
 
-    state_empty = _bare_state(Phase2State, stories_in_epic=[])
-    assert Phase2State.design_complete.fget(state_empty) is False
+    def test_taiga_error_maps_to_502(self):
+        class FailSvc(StubPhase2Service):
+            def eligible_epics(self, ctx):
+                raise TaigaAPIError("GET", "https://api.taiga.io/epics", 503, "service unavailable")
+
+        with pytest.raises(HTTPException) as exc:
+            eligible_epics(ctx=_rctx(), service=FailSvc())
+        assert exc.value.status_code == 502
+
+    def test_ai_error_maps_to_502(self):
+        class FailSvc(StubPhase2Service):
+            def propose_tech_stack(self, ctx, *, hint=""):
+                raise AIError("Model overloaded")
+
+        with pytest.raises(HTTPException) as exc:
+            propose_tech_stack(ProposeTechStackRequest(), ctx=_rctx(), service=FailSvc())
+        assert exc.value.status_code == 502
+
+    def test_ai_rate_limit_error_maps_to_502(self):
+        class FailSvc(StubPhase2Service):
+            def generate_design_bundle(self, ctx, *, epic_id):
+                raise AIRateLimitError("Rate limited")
+
+        with pytest.raises(HTTPException) as exc:
+            generate_design_bundle(GenerateDesignBundleRequest(epic_id=7), ctx=_rctx(), service=FailSvc())
+        assert exc.value.status_code == 502
+
+    def test_unknown_errors_bubble_up(self):
+        class FailSvc(StubPhase2Service):
+            def lock_tech_stack(self, ctx, *, tech_stack):
+                raise RuntimeError("unexpected crash")
+
+        with pytest.raises(RuntimeError, match="unexpected crash"):
+            lock_tech_stack(LockTechStackRequest(tech_stack="X"), ctx=_rctx(), service=FailSvc())
