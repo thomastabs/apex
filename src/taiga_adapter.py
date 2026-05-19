@@ -9,6 +9,7 @@ present in .env, the adapter re-authenticates automatically and updates the toke
 All public methods raise TaigaAPIError on non-2xx responses.
 """
 
+import contextvars
 import json
 import logging
 import os
@@ -31,8 +32,11 @@ TAIGA_PROJECT_ID = int(os.getenv("TAIGA_PROJECT_ID") or "0")
 TAIGA_USERNAME   = os.getenv("TAIGA_USERNAME", "")
 TAIGA_PASSWORD   = os.getenv("TAIGA_PASSWORD", "")
 
-# Mutable so _refresh_token() can update it without a module reload.
-_token: dict[str, str] = {"value": os.getenv("TAIGA_AUTH_TOKEN", "")}
+# Per-request token — ContextVar is safe across concurrent asyncio tasks and
+# FastAPI threadpool workers (anyio copies the context into each thread).
+_token_var: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "taiga_token", default=os.getenv("TAIGA_AUTH_TOKEN", "")
+)
 
 # Session-scoped caches — valid for the lifetime of the Python process.
 _project_cache: dict      = {}
@@ -59,11 +63,11 @@ class TaigaAPIError(Exception):
 # ---------------------------------------------------------------------------
 
 def _get_token() -> str:
-    return _token["value"]
+    return _token_var.get()
 
 
 def _set_token(value: str) -> None:
-    _token["value"] = value
+    _token_var.set(value)
 
 
 def _headers() -> dict[str, str]:

@@ -1,5 +1,7 @@
 """Phase 2 architectural and UX design API routes."""
 
+from typing import NoReturn
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from backend.app.api.deps import RequestContext, get_request_context
@@ -25,7 +27,7 @@ def get_phase2_service() -> Phase2Service:
     return Phase2Service()
 
 
-def _handle_error(exc: Exception) -> None:
+def _handle_error(exc: Exception) -> NoReturn:
     if isinstance(exc, Phase2ValidationError):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     if isinstance(exc, TaigaAPIError):

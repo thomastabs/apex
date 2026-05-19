@@ -125,7 +125,7 @@ def _get_llm(model: str, max_tokens: int) -> ChatAnthropic:
             model=model,
             temperature=0.2,
             max_tokens=max_tokens,
-            max_retries=3,
+            max_retries=5,
         )
     return _llm_cache[key]
 

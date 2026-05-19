@@ -1,5 +1,7 @@
 """Phase 1 requirements API routes."""
 
+from typing import NoReturn
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from backend.app.api.deps import AuthContext, RequestContext, get_auth_context, get_request_context
@@ -25,7 +27,7 @@ def get_phase1_service() -> Phase1Service:
     return Phase1Service()
 
 
-def _handle_error(exc: Exception) -> None:
+def _handle_error(exc: Exception) -> NoReturn:
     if isinstance(exc, Phase1ValidationError):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     if isinstance(exc, TaigaAPIError):

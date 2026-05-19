@@ -92,6 +92,24 @@ function contextSizeColor(totalChars: number): string {
   return "#f87171";
 }
 
+function ContextSizeWarning({ totalChars }: { totalChars: number }) {
+  if (totalChars >= 200_000) {
+    return (
+      <div className="mb-3 rounded border border-red-600 bg-red-950/50 px-3 py-2 text-xs text-red-300">
+        <strong>Context at {Math.round(totalChars / 1000)}k chars</strong> — exceeds Claude's limit. AI calls will fail. Delete or reset context files.
+      </div>
+    );
+  }
+  if (totalChars >= 150_000) {
+    return (
+      <div className="mb-3 rounded border border-orange-700 bg-orange-950/30 px-3 py-2 text-xs text-orange-300">
+        <strong>Context at {Math.round(totalChars / 1000)}k chars</strong> — approaching Claude's limit. Consider trimming context files.
+      </div>
+    );
+  }
+  return null;
+}
+
 // ── sub-components ────────────────────────────────────────────────────────────
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -824,6 +842,7 @@ function useRestoreSession() {
   useEffect(() => {
     if (!taigaToken) return;
     if (me.isError && me.error instanceof ApiError && me.error.status === 401) {
+      toast.error("Session expired — please sign in again.");
       clearSession();
     }
   }, [taigaToken, me.isError, me.error, clearSession]);
@@ -1391,6 +1410,7 @@ export function Sidebar() {
                           {totalChars} chars
                         </span>
                       </div>
+                      <ContextSizeWarning totalChars={totalChars} />
                       {!hasProjectConcept && contextFiles.data ? (
                         <div className="mb-3 rounded border border-amber-700 bg-amber-950/30 px-3 py-2 text-sm text-amber-300">
                           Memory Bank lacks <code>## Project Concept</code>. Add one for best AI results.

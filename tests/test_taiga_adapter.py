@@ -1,7 +1,19 @@
 """Unit tests for taiga_adapter.py — pure helper functions and retry logic (no real network calls)."""
 
 import pytest
+from contextlib import contextmanager
 from unittest.mock import patch, MagicMock, call
+
+
+@contextmanager
+def _patch_token(value: str):
+    """Set taiga_adapter._token_var for the duration of the block, then restore."""
+    from src import taiga_adapter
+    tok = taiga_adapter._token_var.set(value)
+    try:
+        yield
+    finally:
+        taiga_adapter._token_var.reset(tok)
 
 
 # ---------------------------------------------------------------------------
@@ -78,13 +90,13 @@ class TestGetStoryUrl:
 class TestIsConfigured:
     def test_true_when_token_present(self):
         from src import taiga_adapter
-        with patch.dict(taiga_adapter._token, {"value": "mytoken"}):
+        with _patch_token("mytoken"):
             assert taiga_adapter.is_configured() is True
 
     def test_true_when_username_and_password_present(self):
         from src import taiga_adapter
         with (
-            patch.dict(taiga_adapter._token, {"value": ""}),
+            _patch_token(""),
             patch.object(taiga_adapter, "TAIGA_USERNAME", "user"),
             patch.object(taiga_adapter, "TAIGA_PASSWORD", "pass"),
         ):
@@ -93,7 +105,7 @@ class TestIsConfigured:
     def test_false_when_nothing_configured(self):
         from src import taiga_adapter
         with (
-            patch.dict(taiga_adapter._token, {"value": ""}),
+            _patch_token(""),
             patch.object(taiga_adapter, "TAIGA_USERNAME", ""),
             patch.object(taiga_adapter, "TAIGA_PASSWORD", ""),
         ):
@@ -119,7 +131,7 @@ class TestRequestRetry:
     def _get(self, responses, *, token="tok", api_url="https://taiga.example.com"):
         from src import taiga_adapter
         with (
-            patch.dict(taiga_adapter._token, {"value": token}),
+            _patch_token(token),
             patch.object(taiga_adapter, "TAIGA_API_URL", api_url),
             patch.object(taiga_adapter, "TAIGA_USERNAME", ""),
             patch.object(taiga_adapter, "TAIGA_PASSWORD", ""),
@@ -161,7 +173,7 @@ class TestRequestRetry:
     def test_exhausts_retries_and_raises(self):
         from src import taiga_adapter
         with (
-            patch.dict(taiga_adapter._token, {"value": "tok"}),
+            _patch_token("tok"),
             patch.object(taiga_adapter, "TAIGA_API_URL", "https://taiga.example.com"),
             patch.object(taiga_adapter, "TAIGA_USERNAME", ""),
             patch.object(taiga_adapter, "TAIGA_PASSWORD", ""),
@@ -175,7 +187,7 @@ class TestRequestRetry:
     def test_does_not_retry_404(self):
         from src import taiga_adapter
         with (
-            patch.dict(taiga_adapter._token, {"value": "tok"}),
+            _patch_token("tok"),
             patch.object(taiga_adapter, "TAIGA_API_URL", "https://taiga.example.com"),
             patch.object(taiga_adapter, "TAIGA_USERNAME", ""),
             patch.object(taiga_adapter, "TAIGA_PASSWORD", ""),
@@ -192,7 +204,7 @@ class TestRequestRetry:
         """501 Not Implemented is excluded from _RETRYABLE_STATUS."""
         from src import taiga_adapter
         with (
-            patch.dict(taiga_adapter._token, {"value": "tok"}),
+            _patch_token("tok"),
             patch.object(taiga_adapter, "TAIGA_API_URL", "https://taiga.example.com"),
             patch.object(taiga_adapter, "TAIGA_USERNAME", ""),
             patch.object(taiga_adapter, "TAIGA_PASSWORD", ""),
@@ -394,7 +406,7 @@ class TestTokenRefresh:
     def test_refreshes_token_on_401_with_credentials(self):
         from src import taiga_adapter
         with (
-            patch.dict(taiga_adapter._token, {"value": "old_token"}),
+            _patch_token("old_token"),
             patch.object(taiga_adapter, "TAIGA_API_URL", "https://taiga.example.com"),
             patch.object(taiga_adapter, "TAIGA_USERNAME", "user"),
             patch.object(taiga_adapter, "TAIGA_PASSWORD", "pass"),
@@ -409,7 +421,7 @@ class TestTokenRefresh:
     def test_no_refresh_without_credentials_raises_401(self):
         from src import taiga_adapter
         with (
-            patch.dict(taiga_adapter._token, {"value": "token"}),
+            _patch_token("token"),
             patch.object(taiga_adapter, "TAIGA_API_URL", "https://taiga.example.com"),
             patch.object(taiga_adapter, "TAIGA_USERNAME", ""),
             patch.object(taiga_adapter, "TAIGA_PASSWORD", ""),
@@ -440,7 +452,7 @@ class TestPagination:
         page2 = self._paged([{"id": 2}], next_url=None)
 
         with (
-            patch.dict(taiga_adapter._token, {"value": "tok"}),
+            _patch_token("tok"),
             patch.object(taiga_adapter, "TAIGA_API_URL", "https://taiga.example.com"),
             patch.object(taiga_adapter, "TAIGA_USERNAME", ""),
             patch.object(taiga_adapter, "TAIGA_PASSWORD", ""),
@@ -455,7 +467,7 @@ class TestPagination:
         page = self._paged([{"id": 3}], next_url=None)
 
         with (
-            patch.dict(taiga_adapter._token, {"value": "tok"}),
+            _patch_token("tok"),
             patch.object(taiga_adapter, "TAIGA_API_URL", "https://taiga.example.com"),
             patch.object(taiga_adapter, "TAIGA_USERNAME", ""),
             patch.object(taiga_adapter, "TAIGA_PASSWORD", ""),
@@ -538,11 +550,11 @@ class TestSetActiveProject:
 # ---------------------------------------------------------------------------
 
 class TestRestoreToken:
-    def test_sets_token_value(self, monkeypatch):
+    def test_sets_token_value(self):
         from src import taiga_adapter
-        monkeypatch.setitem(taiga_adapter._token, "value", "")
-        taiga_adapter.restore_token("tok-xyz")
-        assert taiga_adapter._token["value"] == "tok-xyz"
+        with _patch_token(""):
+            taiga_adapter.restore_token("tok-xyz")
+            assert taiga_adapter._token_var.get() == "tok-xyz"
 
 
 # ---------------------------------------------------------------------------
@@ -550,11 +562,11 @@ class TestRestoreToken:
 # ---------------------------------------------------------------------------
 
 class TestClearToken:
-    def test_clears_token_value(self, monkeypatch):
+    def test_clears_token_value(self):
         from src import taiga_adapter
-        monkeypatch.setitem(taiga_adapter._token, "value", "tok-alive")
-        taiga_adapter.clear_token()
-        assert taiga_adapter._token["value"] == ""
+        with _patch_token("tok-alive"):
+            taiga_adapter.clear_token()
+            assert taiga_adapter._token_var.get() == ""
 
     def test_resets_failure_flags(self, monkeypatch):
         from src import taiga_adapter

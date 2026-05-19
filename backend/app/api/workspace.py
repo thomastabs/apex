@@ -1,6 +1,10 @@
 """Workspace APIs used by the Next.js app shell/sidebar."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
+
+_logger = logging.getLogger("apex.workspace")
 
 from backend.app.api.deps import AuthContext, RequestContext, get_auth_context, get_request_context
 from backend.app.schemas.workspace import (
@@ -264,8 +268,8 @@ def create_story(payload: CreateStoryRequest, ctx: RequestContext = Depends(get_
         if payload.status_id:
             try:
                 story = taiga_adapter.update_story_status(story["id"], payload.status_id, story["version"])
-            except Exception:
-                pass
+            except TaigaAPIError as _status_exc:
+                _logger.warning("story status update failed story_id=%s: %s", story["id"], _status_exc)
         return story
     except TaigaAPIError as exc:
         raise _taiga_error(exc) from exc
@@ -360,7 +364,8 @@ def story_index_stats(ctx: RequestContext = Depends(get_request_context)):
     context_manager.set_active_project(ctx.project_id)
     try:
         index = context_manager.get_story_index()
-    except Exception:
+    except Exception as _idx_exc:
+        _logger.warning("story_index_stats: failed to load index: %s", _idx_exc)
         index = {}
     stories = list(index.values())
     total = len(stories)
