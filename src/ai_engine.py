@@ -406,7 +406,7 @@ class GherkinStoryList(BaseModel):
 # Phase 1 · Step 1 — NL Story Generation (Product Owner persona)
 # ---------------------------------------------------------------------------
 
-_NL_GENERATION_VERSION = "1.0"
+_NL_GENERATION_VERSION = "1.1"
 _NL_GENERATION_SYSTEM = """\
 You are a strict Product Owner operating within the Apex Framework.
 Your job is to decompose a high-level Epic into fractional User Stories of XS or S size.
@@ -417,7 +417,61 @@ Rules you MUST follow:
 - Write from the end-user perspective. Business behaviour only; never implementation details.
 - Do NOT hallucinate requirements beyond what the Epic description implies.
 - Cover the happy path AND the most significant failure/edge-case paths per story.
+- Each story must cover exactly ONE coherent goal — no mixing of concerns.
+- Aim for 2–4 scenarios per story: happy path + the most important failure/edge cases.
+
+--- FEW-SHOT EXAMPLE ---
+
+INPUT:
+  Epic Title: Task Assignment
+  Epic Description: Allow project members to assign tasks to specific teammates and reassign them when priorities shift.
+
+CORRECT OUTPUT (3 stories):
+
+  [XS] As a project member, I want to assign a task to a teammate, so that ownership is clear.
+    Scenario: Assign to an active member
+      The member opens a task, picks a teammate from the assignee list, and the task now shows that teammate's name as owner.
+    Scenario: Assign to someone not on the project
+      The member searches for a person who is not part of the project and cannot select them — only project members appear.
+    ---
+
+  [XS] As a project member, I want to reassign a task to a different teammate, so that workload can be balanced.
+    Scenario: Successful reassignment
+      The member changes the assignee on a task from one teammate to another and the task reflects the new owner immediately.
+    Scenario: Reassign a task that has no current assignee
+      The member opens an unassigned task and picks a teammate — the task gains an owner for the first time.
+    ---
+
+  [XS] As a project member, I want to unassign a task, so that it returns to the pool of unowned work.
+    Scenario: Remove assignee from an assigned task
+      The member removes the assignee from a task and the task shows as unassigned.
+    Scenario: Attempt to unassign an already-unassigned task
+      The member opens a task with no assignee and the unassign action is not available.
+    ---
+
+KEY RULES ILLUSTRATED:
+- Each story covers exactly ONE action (assign / reassign / unassign) — not all three at once.
+- Scenario descriptions are plain sentences — no Given/When/Then, no bullet points, no Gherkin keywords.
+- All three stories are XS (well under 2 hours each).
+- Each story has 2 scenarios: happy path + one significant failure/edge case.
+--- END EXAMPLE ---
 """
+
+
+def _build_nl_human(
+    epic_subject: str,
+    epic_description: str,
+    hint: str = "",
+    project_concept: str = "",
+) -> str:
+    parts: list[str] = []
+    if project_concept.strip():
+        parts.append(f"Project Concept:\n{project_concept.strip()}")
+    parts.append(f"Epic Title: {epic_subject}\n\nEpic Description:\n{epic_description}")
+    if hint.strip():
+        parts.append(f"Team guidance / constraints:\n{hint.strip()}")
+    parts.append("Decompose into fractional User Stories with Natural Language scenarios.")
+    return "\n\n".join(parts)
 
 
 def generate_nl_stories(
@@ -427,13 +481,7 @@ def generate_nl_stories(
     project_concept: str = "",
     on_story: Callable[[int], None] | None = None,
 ) -> NLStoryList:
-    human = ""
-    if project_concept.strip():
-        human += f"Project Concept:\n{project_concept.strip()}\n\n"
-    human += f"Epic Title: {epic_subject}\n\nEpic Description:\n{epic_description}\n\n"
-    if hint.strip():
-        human += f"Team guidance / constraints:\n{hint.strip()}\n\n"
-    human += "Decompose into fractional User Stories with Natural Language scenarios."
+    human = _build_nl_human(epic_subject, epic_description, hint, project_concept)
     _logger.debug("generate_nl_stories prompt_version=%s", _NL_GENERATION_VERSION)
     return _invoke_structured_with_progress(
         _NL_GENERATION_SYSTEM, human, get_fast_model(), NLStoryList,
@@ -460,7 +508,7 @@ def format_nl_draft(story_list: NLStoryList) -> str:
 # Phase 1 · Step 2 — Gherkin Compilation (GL Compiler persona)
 # ---------------------------------------------------------------------------
 
-_GL_COMPILATION_VERSION = "1.0"
+_GL_COMPILATION_VERSION = "1.1"
 _GL_COMPILATION_SYSTEM = """\
 You are a strict Gherkin Language (GL) compiler operating within the Apex Framework.
 Your ONLY job is to take a human-reviewed Natural Language story draft and compile it
@@ -473,17 +521,69 @@ Rules you MUST follow:
 - Business logic only. No implementation details in the steps.
 - The output must be 100% structurally consistent and parseable — no free-text additions.
 - Story titles MUST be short (4–7 words), noun-phrase, title case. NEVER use "As a ..." format.
+- Given steps: preconditions only (who the user is, what state the system is in).
+- When steps: user's action in business terms — never UI mechanics ("submits the form" not "clicks the blue Submit button").
+- Then steps: observable business outcomes only — never server internals ("the task shows the new owner" not "the database record is updated").
+
+--- FEW-SHOT EXAMPLE ---
+
+INPUT (Natural Language draft):
+
+  [XS] As a project member, I want to assign a task to a teammate, so that ownership is clear.
+    Scenario: Assign to an active member
+      The member opens a task, picks a teammate from the assignee list, and the task now shows that teammate's name as owner.
+    Scenario: Assign to someone not on the project
+      The member searches for a person who is not part of the project and cannot select them — only project members appear.
+    ---
+
+CORRECT OUTPUT:
+
+  title: "Task Assignment to Teammate"
+  size: XS
+  scenarios:
+    - title: "Assign to an active member"
+      given:
+        - "the member is viewing an unassigned task"
+        - "the task belongs to a project the member is part of"
+      when:
+        - "the member selects a teammate from the assignee list"
+        - "the member confirms the assignment"
+      then:
+        - "the task displays the selected teammate as its owner"
+        - "the assignment change is visible to all project members"
+
+    - title: "Assign to someone not on the project"
+      given:
+        - "the member is viewing a task"
+        - "there are people in the system who are not members of this project"
+      when:
+        - "the member searches for a person who is not part of the project"
+      then:
+        - "only current project members appear in the assignee list"
+        - "the non-member cannot be selected"
+
+KEY RULES ILLUSTRATED:
+- Title "Task Assignment to Teammate" is noun-phrase, title case, 4 words. NOT "As a project member...".
+- Given: who is where, in what state — no UI mechanics.
+- When: business action ("selects a teammate", "confirms the assignment") — not "clicks button".
+- Then: observable outcome ("task displays the selected teammate") — not "record saved to DB".
+- Each step is a single atomic statement — one concept per list item.
+--- END EXAMPLE ---
 """
+
+
+def _build_gherkin_human(nl_draft: str) -> str:
+    return (
+        f"Natural Language Draft (human-reviewed):\n\n{nl_draft}\n\n"
+        "Compile every story and scenario into formal Gherkin Language."
+    )
 
 
 def compile_gherkin_stories(
     nl_draft: str,
     on_story: Callable[[int], None] | None = None,
 ) -> GherkinStoryList:
-    human = (
-        f"Natural Language Draft (human-reviewed):\n\n{nl_draft}\n\n"
-        "Compile every story and scenario into formal Gherkin Language."
-    )
+    human = _build_gherkin_human(nl_draft)
     _logger.debug("compile_gherkin_stories prompt_version=%s", _GL_COMPILATION_VERSION)
     return _invoke_structured_with_progress(
         _GL_COMPILATION_SYSTEM, human, get_fast_model(), GherkinStoryList,
