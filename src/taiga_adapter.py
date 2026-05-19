@@ -280,9 +280,22 @@ def get_story_url(story_ref: int | None) -> str | None:
 # ---------------------------------------------------------------------------
 
 def get_epics() -> list[dict]:
-    """Return all Epics for the project, ordered by ref, normalized."""
-    raw = _get("epics", params={"project": TAIGA_PROJECT_ID, "order_by": "ref"})
-    return [normalize_epic(e) for e in (raw or [])]
+    """Return all Epics for the project, ordered by ref, normalized.
+
+    Taiga's list endpoint omits description; fetch individual detail when missing.
+    """
+    raw_list = _get("epics", params={"project": TAIGA_PROJECT_ID, "order_by": "ref"}) or []
+    result = []
+    for e in raw_list:
+        if not e.get("description"):
+            try:
+                detail = _get(f"epics/{e['id']}")
+                if detail:
+                    e = detail
+            except Exception:
+                pass
+        result.append(normalize_epic(e))
+    return result
 
 
 def get_epic(epic_id: int) -> dict:
@@ -290,13 +303,16 @@ def get_epic(epic_id: int) -> dict:
     return normalize_epic(_get(f"epics/{epic_id}"))
 
 
-def create_epic(subject: str, description: str) -> dict:
+def create_epic(subject: str, description: str, *, tags: list[str] | None = None) -> dict:
     """Create a new Epic in the project and return a normalized dict (includes 'id')."""
-    raw = _post("epics", {
+    payload: dict = {
         "project": TAIGA_PROJECT_ID,
         "subject": subject,
         "description": description,
-    })
+    }
+    if tags:
+        payload["tags"] = tags
+    raw = _post("epics", payload)
     _logger.info("taiga.create_epic subject=%r id=%s", subject, raw.get("id"))
     return normalize_epic(raw)
 

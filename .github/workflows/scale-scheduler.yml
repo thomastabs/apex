@@ -1,6 +1,7 @@
 name: Apex · Scale scheduler
 
 # Keeps costs low: 0 replicas overnight, 1 replica during Portugal daytime.
+# Scales BOTH apex-backend and apex-frontend Container Apps together.
 #
 # Portugal timezone:
 #   WET (UTC+0): Oct–Mar  →  scale-up = 08:00 UTC, scale-down = 22:00 UTC
@@ -21,7 +22,6 @@ on:
 
 env:
   AZURE_RESOURCE_GROUP: apex-rg
-  AZURE_APP_NAME: apex
 
 jobs:
   scale:
@@ -49,18 +49,28 @@ jobs:
         if: steps.action.outputs.mode == 'up'
         run: |
           az containerapp update \
-            --name ${{ env.AZURE_APP_NAME }} \
+            --name apex-backend \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --min-replicas 1 \
             --max-replicas 10
-          echo "Scaled UP: min=1, max=10"
+          az containerapp update \
+            --name apex-frontend \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --min-replicas 1 \
+            --max-replicas 10
+          echo "Scaled UP: apex-backend + apex-frontend → min=1, max=10"
 
       - name: Scale DOWN — min 0 replicas (night mode)
         if: steps.action.outputs.mode == 'down'
         run: |
           az containerapp update \
-            --name ${{ env.AZURE_APP_NAME }} \
+            --name apex-backend \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --min-replicas 0 \
             --max-replicas 1
-          echo "Scaled DOWN: min=0, max=1"
+          az containerapp update \
+            --name apex-frontend \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --min-replicas 0 \
+            --max-replicas 1
+          echo "Scaled DOWN: apex-backend + apex-frontend → min=0, max=1"

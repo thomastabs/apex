@@ -1,7 +1,4 @@
 *.db
-assets/external/
-.states
-.web
 .env
 .env.*
 env
@@ -17,6 +14,11 @@ venv/
 venv*/
 dist/
 build/
+node_modules/
+.next/
+frontend/node_modules/
+frontend/.next/
+*.tsbuildinfo
 *.egg-info/
 .claude/
 CLAUDE.md

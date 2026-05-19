@@ -1,6 +1,8 @@
 # Apex
 
-Apex is a Reflex web application that guides a software team through the full SDLC using Claude AI and Taiga. It enforces a **Spec-Anchored** workflow: every phase is gated on human-approved artefacts from the previous one, and a shared context file store feeds every AI call.
+Apex guides a software team through the SDLC using Claude AI and Taiga. It enforces a **Spec-Anchored** workflow: every phase is gated on human-approved artefacts from the previous one, and a shared context file store feeds every AI call.
+
+**Stack:** FastAPI · Next.js · TypeScript · React Query · Zustand · Tailwind CSS · LangChain · Anthropic Claude · Pydantic · azure-storage-file-share
 
 <img width="1849" height="958" alt="image" src="https://github.com/user-attachments/assets/28badf7c-1e68-4132-bfed-0eae8c25da64" />
 <img width="1849" height="958" alt="image" src="https://github.com/user-attachments/assets/be3c6cd1-4360-4ae9-8260-7176ed7c0fc0" />
@@ -42,49 +44,45 @@ flowchart TD
 
 ## What's implemented
 
-### Phase 1 · Requirements (complete)
+### Phase 1 · Requirements
 
-- Load or create a Taiga Epic; browse and select from existing epics
-- Generate Natural Language user stories via Claude (with AI guidance field)
-- Gated on Taiga sign-in, active project, and Project Concept — each missing prerequisite shows a targeted warning
-- Edit the NL draft interactively before locking
-- Compile into formal Gherkin acceptance criteria; edit per story before pushing
-- Push stories to Taiga with tags and board status
-- Save approved Gherkin to `functional-spec.md`
-- Draft survives page refresh (`.apex-draft.json`, restored on load)
-- **AI Suggests** — generate 5–10 scoped Epic candidates from the Project Concept
+- FastAPI endpoints for loading epics, suggesting epics, generating Natural Language drafts, compiling Gherkin, and pushing locked stories to Taiga
+- Next.js workflow: Create New, Load from Taiga, and AI Suggests modes
+- NL draft review/edit flow
+- Gherkin compile/review flow
+- Push to Taiga; approved Gherkin saved to `functional-spec.md`
+- Story index entries compatible with Phase 2 (`gherkin_locked`)
 
-### Phase 2 · Design (complete)
+### Phase 2 · Design
 
 **Stage A · Tech Stack (Gate 0 — Tech Lead)**
-- AI suggests 5 architectural alternatives based on all locked Gherkin stories
-- Tech Lead selects, edits, and confirms the tech stack — written to `memory-bank.md`
-- One-time per project; re-openable by Tech Lead
+- FastAPI endpoint proposes ranked architectural alternatives from all locked Gherkin stories
+- Tech Lead selects/edits/locks the chosen stack into `memory-bank.md`
 
 **Stage B · Epic Design Bundle (Gate 1 + Gate 2)**
 - Select any epic with at least one `gherkin_locked` story
-- Claude generates a full design bundle: ASCII wireframes, Mermaid user flow diagram, component tree, and unified OpenAPI/DB schema spec
-- Cross-epic consistency: design bundles from already-locked epics are injected into the AI prompt as binding constraints (no duplicate components or flows)
-- Live Mermaid preview tab for user flow diagrams
-- Visual colour-coded component tree renderer
+- Claude generates a full design bundle: ASCII wireframes, Mermaid user flow diagram, component tree, unified OpenAPI/DB schema spec
+- Locked Tech Stack injected as a binding constraint
+- Cross-epic consistency: prior locked bundles injected into the AI prompt
+- UX / System Architecture tabs render the generated bundle
 - Gate 1 (Design Lead): approve wireframes + flow + component tree
 - Gate 2 (Tech Lead): approve OpenAPI/DB spec
-- Design bundle persisted to `design-bundle.md` on save; restored automatically on epic re-selection
-- **Refresh** button: invalidates in-memory cache and re-syncs stories from Taiga + Azure storage
-- **Clear Design** button: resets the draft for the current epic
+- Locking writes `technical-spec.md`, `design-bundle.md`, Memory Bank design decisions, and updates Taiga/story index status
 
 ### Sidebar
 
-- **Settings & Connections** — AI model badges, Taiga account (⇄ switch/sign-out), project selector, Epics & Stories board, Users & Roles
-- **Active Context** — live editors for context files, scoped per page:
-  - Phase 1 → Memory Bank + Functional Spec
-  - Phase 2 → Memory Bank + Functional Spec + Technical Spec + Design Bundle
-  - Other pages → Memory Bank + Functional Spec + Technical Spec + Vaccine Records
-- Char counts, download, and per-file reset
+- Resizable, collapsible sidebar with light/dark modes
+- Taiga token and username/password login; "Create a Taiga account" link
+- Project selector; project create/delete
+- Epics & Stories board; epic/story create/delete/edit
+- Users & Roles with invite, remove, and role change
+- Active Context file editing (memory-bank, functional-spec, technical-spec, vaccines, design-bundle)
+- AI model selector (fast model + coder model, persisted in `.apex-config.json`)
+- Resources section with Taiga documentation links and a direct link to your Taiga instance
 
 ### Phases 3–6
 
-Navigation stubs (Implementation, Testing, Deployment, Maintenance) — present in the UI, not yet implemented.
+Navigation stubs (Implementation, Testing, Deployment, Maintenance) present; workflows not yet implemented.
 
 ---
 
@@ -92,28 +90,22 @@ Navigation stubs (Implementation, Testing, Deployment, Maintenance) — present 
 
 | File / folder | Role |
 |---|---|
-| `apex/apex.py` | App entry point — `rx.App`, route registration, `on_load` handlers |
-| `apex/state/auth.py` | `AuthState` — Taiga token in `rx.Cookie`, login/logout, theme pref in `rx.LocalStorage` |
-| `apex/state/project.py` | `ProjectState` — active project ID, project list, config persistence |
-| `apex/state/phase1.py` | `Phase1State` — full Phase 1 workflow vars and event handlers |
-| `apex/state/phase2.py` | `Phase2State` — Stage A tech stack + Stage B epic design bundle, gates, draft restore |
-| `apex/state/board.py` | `BoardState` — Epics & Stories board, CRUD, delete dialogs |
-| `apex/state/context.py` | `ContextState` — context file editors (Memory Bank, Functional Spec, etc.) |
-| `apex/state/user_mgmt.py` | `UserMgmtState` — member list, roles, invite |
-| `apex/pages/` | One page function per phase, referenced by `apex.py` |
-| `apex/components/` | Sidebar, nav, Phase 1 and Phase 2 step components, dialogs |
+| `backend/app/main.py` | FastAPI entry point, CORS, router registration |
+| `backend/app/api/phase1.py` | Phase 1 Requirements REST API |
+| `backend/app/api/phase2.py` | Phase 2 Design REST API |
+| `backend/app/api/workspace.py` | Sidebar/workspace APIs: auth, projects, board, users, context files, AI config |
+| `backend/app/services/` | Service layer wrapping AI, Taiga, context, and phase workflows |
+| `backend/app/schemas/` | Pydantic request/response contracts |
+| `frontend/app/` | Next.js App Router routes and global providers |
+| `frontend/components/` | App shell, sidebar, phase navigation, Phase 1 and Phase 2 workflow screens |
+| `frontend/lib/api/` | Typed frontend API clients |
+| `frontend/lib/hooks/` | React Query hooks |
+| `frontend/lib/stores/` | Zustand session, UI, and Phase 2 draft state |
 | `src/ai_engine.py` | LangChain + Claude prompts and structured outputs |
 | `src/context_manager.py` | Reads/writes context files via `StoragePath` (Azure or local) |
-| `src/storage.py` | `StoragePath` — pathlib-compatible wrapper; delegates to Azure File Share SDK when `AZURE_STORAGE_CONNECTION_STRING` is set, falls back to local disk otherwise |
-| `src/taiga_adapter.py` | Taiga REST API client (GET/POST/PATCH/DELETE) |
-| `rxconfig.py` | Reflex config — ports, theme plugin |
-| `tests/` | Pytest test suite — 256 tests, all external APIs mocked |
-
----
-
-## Tech stack
-
-Python 3.12 · Reflex 0.9 · LangChain · Anthropic Claude · Pydantic · azure-storage-file-share · azure-monitor-opentelemetry · Requests · python-dotenv
+| `src/storage.py` | `StoragePath` — pathlib-compatible wrapper; delegates to Azure File Share SDK or local disk |
+| `src/taiga_adapter.py` | Taiga REST API client |
+| `tests/` | Pytest suite — all external APIs mocked |
 
 ---
 
@@ -123,10 +115,10 @@ Python 3.12 · Reflex 0.9 · LangChain · Anthropic Claude · Pydantic · azure-
 
 | Requirement | Notes |
 |---|---|
-| Python 3.11+ | 3.10 works but is not recommended by Reflex |
-| Node.js 20+ | Required by Reflex for the React frontend build |
+| Python 3.12 | |
+| Node.js 20+ | |
 | Anthropic API key | Required — set in `.env` |
-| Taiga account | Optional upfront — sign in via the sidebar ⇄ button |
+| Taiga account | Optional upfront — sign in via the sidebar |
 
 ### 1 · Environment setup
 
@@ -144,32 +136,37 @@ ANTHROPIC_API_KEY=sk-ant-...
 AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=...
 AZURE_FILE_SHARE_NAME=contextspec
 
-# Taiga — filled automatically when you sign in via the sidebar:
 TAIGA_API_URL=https://api.taiga.io
-TAIGA_PROJECT_ID=
-TAIGA_AUTH_TOKEN=
 
-# Optional model overrides:
+# Optional model overrides (also configurable in the sidebar):
 # AI_MODEL_FAST=claude-haiku-4-5-20251001
 # AI_MODEL_CODER=claude-sonnet-4-6
+
+# Next.js frontend:
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ```
 
 > **Never commit `.env`.** It is listed in `.gitignore`.
 
-#### Azure File Share (optional, recommended)
+#### Azure File Share (optional)
 
-When `AZURE_STORAGE_CONNECTION_STRING` is set, all context reads and writes go through the Azure File Share SDK — the same share the deployed Container App mounts at `/app/contextspec`. Local dev and the deployed instance share the same context files, eliminating sync conflicts between environments.
+When `AZURE_STORAGE_CONNECTION_STRING` is set, context reads/writes go through the Azure File Share SDK — the same share the deployed Container App mounts. Local dev and the deployed instance share the same context files. Without it the app uses a local `contextspec/` folder.
 
-Without the variable the app falls back to a local `contextspec/` folder. CI always uses this mode (no Azure credentials in the test runner).
-
-### 2 · Local dev server
+### 2 · Split-stack dev
 
 ```bash
 pip install -r requirements.txt
-reflex run
+
+# terminal 1
+uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
+
+# terminal 2
+cd frontend
+npm ci
+npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Backend API at [http://localhost:8000](http://localhost:8000).
+Open [http://localhost:3000](http://localhost:3000). Backend health check at `/api/health`.
 
 ### 3 · Docker Compose
 
@@ -177,7 +174,7 @@ Open [http://localhost:3000](http://localhost:3000). Backend API at [http://loca
 docker compose up --build
 ```
 
-Reads `.env` automatically. If `AZURE_STORAGE_CONNECTION_STRING` is not set, mounts `./contextspec/` as a local volume.
+Backend on port 8000, frontend on port 3000.
 
 ```bash
 docker compose down
@@ -189,37 +186,45 @@ docker compose down
 
 The app is live at **[https://apex-bolt.com](https://apex-bolt.com)**, deployed on Azure Container Apps in France Central.
 
+Two separate Container Apps:
+
+- `apex-backend` — FastAPI, port 8000
+- `apex-frontend` — Next.js, port 3000
+
+Set frontend `NEXT_PUBLIC_API_BASE_URL` to the backend ingress URL. Mount the Azure File Share only into the backend at `/app/contextspec`.
+
 ### Infrastructure
 
 | Resource | Name | Purpose |
 |---|---|---|
-| Container App | `apex` | Runs the Reflex application |
+| Container App | `apex-backend` | FastAPI backend |
+| Container App | `apex-frontend` | Next.js frontend |
 | Container App Environment | `apex-env` | Networking and shared config |
 | Storage Account | `apexctxstore` | Azure File Share for context files |
-| File Share | `contextspec` | Mounted at `/app/contextspec` in the container |
-| Log Analytics Workspace | `apex-logs` | Log aggregation backend |
+| File Share | `contextspec` | Mounted at `/app/contextspec` in the backend |
+| Log Analytics Workspace | `apex-logs` | Log aggregation |
 | Application Insights | `apex-insights` | Monitoring, error tracking, live metrics |
 | Recovery Services Vault | `apex-backup-vault` | Daily backup of the file share (30-day retention) |
 | Resource Group | `apex-rg` | All resources, France Central region |
 
-### Ports
-
-In production mode Reflex serves the compiled React frontend from the same port as the API (**8000**). Only port 8000 is exposed. Azure Container App ingress is set to `--target-port 8000 --transport http` with sticky sessions.
-
 ### Context persistence
 
-Context files are stored in the Azure File Share under `<taiga_project_id>/` (e.g. `1786966/memory-bank.md`). The Container App mounts the share at `/app/contextspec`; local dev accesses the same files via the Azure File Share SDK when `AZURE_STORAGE_CONNECTION_STRING` is set. Each Taiga project gets its own subdirectory — context never bleeds between projects.
+Context files live in the Azure File Share under `<taiga_project_id>/` (e.g. `1786966/memory-bank.md`). Each Taiga project gets its own subdirectory — context never bleeds between projects.
 
-Taiga auth tokens are stored as an `rx.Cookie` (`apex_session`, 7-day TTL) — restored automatically on every page load without a server-side session store.
+The frontend stores the Taiga token and active project in Zustand local storage and sends them to FastAPI as:
+
+- `Authorization: Bearer <taiga_token>`
+- `X-Taiga-Project-Id: <project_id>`
 
 ### CI/CD
 
 Every push to `main` automatically:
-1. Runs the full test suite (256 tests, no real credentials needed)
-2. Builds and pushes the Docker image to `ghcr.io`
-3. Deploys the new revision to Azure Container Apps
+1. Runs the full Python test suite
+2. Typechecks and builds the Next.js frontend
+3. Builds and pushes backend and frontend Docker images to `ghcr.io`
+4. Deploys both Container Apps
 
-### Monitoring (Application Insights)
+### Monitoring
 
 ```kusto
 // Errors in the last 24 h
@@ -239,11 +244,15 @@ traces
 
 ## Tests
 
-All external APIs (Taiga, Anthropic) are mocked — no real credentials needed:
-
 ```bash
-pip install -r requirements.txt
-python3 -m pytest tests/ -v
+python3 -m pytest tests/ -v --tb=short
 ```
 
-256 tests across `test_ai_engine.py`, `test_context_manager.py`, `test_phase1.py`, `test_phase2.py`, and `test_taiga_adapter.py`.
+Frontend checks:
+
+```bash
+cd frontend
+npm ci
+npm run typecheck
+npm run build
+```
