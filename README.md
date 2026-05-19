@@ -1,180 +1,229 @@
 # Apex
 
-Apex guides a software team through the SDLC using Claude AI and Taiga. It enforces a **Spec-Anchored** workflow: every phase is gated on human-approved artefacts from the previous one, and a shared context file store feeds every AI call.
+Apex is an academic AI-guided SDLC tool that combines a **Spec-Anchored workflow**, **Claude AI**, and **Taiga**. The app helps a team move from product requirements into design artefacts while keeping the important project context in persistent, human-readable files.
 
-**Stack:** Python · FastAPI · Next.js · TypeScript · React Query · Zustand · Tailwind CSS · LangChain · Anthropic Claude · Pydantic · azure-storage-file-share
+The current migrated version is a split full-stack web app:
 
-<img width="1849" height="958" alt="image" src="https://github.com/user-attachments/assets/28badf7c-1e68-4132-bfed-0eae8c25da64" />
-<img width="1849" height="958" alt="image" src="https://github.com/user-attachments/assets/be3c6cd1-4360-4ae9-8260-7176ed7c0fc0" />
+- **Backend:** Python, FastAPI, Pydantic, LangChain, Anthropic Claude, Taiga REST API
+- **Frontend:** Next.js App Router, TypeScript, React Query, Zustand, Tailwind CSS
+- **Storage:** local `contextspec/` folder in development, or Azure File Share in deployment
+- **Deployment:** GitHub Actions builds Docker images and deploys to Azure Container Apps
 
-## How it works
+Phases 1 and 2 are implemented. Phases 3 to 6 currently exist as navigation placeholders.
+
+---
+
+## Implemented Workflow
 
 ```mermaid
 flowchart TD
-    A([Epic]) --> B[Claude NL Draft]
-    B --> C{Human Review}
-    C -->|edit| B
-    C -->|approve| D[Gherkin Compile]
-    D --> E{Human Review}
-    E -->|edit| D
-    E -->|approve| F[Push to Taiga]
-    F --> G[(Azure File Share\ncontextspec/project_id/)]
-    G --> P2
+    A[Taiga Epic] --> B[Phase 1: Generate Natural Language Stories]
+    B --> C[Human Review]
+    C --> D[Compile Gherkin]
+    D --> E[Human Review]
+    E --> F[Push Stories to Taiga]
+    F --> G[(contextspec/<project_id>)]
 
-    subgraph P2[Phase 2 · Design]
-        H[Gate 0 — Tech Lead\nConfirm tech stack]
-        H --> I[Claude generates\nwireframes · user flow\ncomponent tree · OpenAPI]
-        I --> J{Gate 1 — Design Lead\nApprove prototype}
-        J -->|edit| I
-        J -->|approve| K{Gate 2 — Tech Lead\nApprove spec}
-        K -->|edit| I
-        K -->|approve| L[Save design bundle]
-    end
-
+    G --> H[Phase 2 Gate 0: Lock Tech Stack]
+    H --> I[Generate Design Bundle]
+    I --> J[Gate 1: Design Lead Approval]
+    J --> K[Gate 2: Tech Lead Approval]
+    K --> L[Lock Design Artefacts]
     L --> G
-    G --> M[Phase 3–6 AI calls]
 
-    style A fill:#7c3aed,color:#fff,stroke:none
-    style F fill:#7c3aed,color:#fff,stroke:none
-    style L fill:#7c3aed,color:#fff,stroke:none
-    style G fill:#3b82f6,color:#fff,stroke:none
+    G --> M[Future Phases 3-6]
 ```
-
----
-
-## What's implemented
 
 ### Phase 1 · Requirements
 
-- FastAPI endpoints for loading epics, suggesting epics, generating Natural Language drafts, compiling Gherkin, and pushing locked stories to Taiga
-- Next.js workflow: Create New, Load from Taiga, and AI Suggests modes
-- NL draft review/edit flow
-- Gherkin compile/review flow
-- Push to Taiga; approved Gherkin saved to `functional-spec.md`
-- Story index entries compatible with Phase 2 (`gherkin_locked`)
+Phase 1 turns Taiga epics into approved user stories and Gherkin acceptance criteria.
+
+Implemented:
+
+- Load existing Taiga epics
+- Create a new epic or use an existing one
+- Ask Claude to suggest epics from the project concept
+- Generate Natural Language story drafts
+- Review and edit drafts before formalization
+- Compile reviewed drafts into Gherkin
+- Review and edit compiled Gherkin
+- Push approved stories to Taiga
+- Persist approved Gherkin into `functional-spec.md`
+- Update `story-index.json` with `gherkin_locked` state
 
 ### Phase 2 · Design
 
-**Stage A · Tech Stack (Gate 0 — Tech Lead)**
-- FastAPI endpoint proposes ranked architectural alternatives from all locked Gherkin stories
-- Tech Lead selects/edits/locks the chosen stack into `memory-bank.md`
+Phase 2 creates design artefacts from locked Phase 1 stories.
 
-**Stage B · Epic Design Bundle (Gate 1 + Gate 2)**
-- Select any epic with at least one `gherkin_locked` story
-- Claude generates a full design bundle: ASCII wireframes, Mermaid user flow diagram, component tree, unified OpenAPI/DB schema spec
-- Locked Tech Stack injected as a binding constraint
-- Cross-epic consistency: prior locked bundles injected into the AI prompt
-- UX / System Architecture tabs render the generated bundle
-- Gate 1 (Design Lead): approve wireframes + flow + component tree
-- Gate 2 (Tech Lead): approve OpenAPI/DB spec
-- Locking writes `technical-spec.md`, `design-bundle.md`, Memory Bank design decisions, and updates Taiga/story index status
+Implemented:
 
-### Sidebar
+- Gate 0: propose and lock a project-wide tech stack into `memory-bank.md`
+- Select eligible epics with locked Gherkin stories
+- Generate a design bundle with:
+  - ASCII wireframes
+  - Mermaid user flow
+  - component/module tree
+  - OpenAPI/DB technical specification
+- Reuse prior locked design bundles as cross-epic context
+- Gate 1: Design Lead approval
+- Gate 2: Tech Lead approval
+- Persist locked artefacts into:
+  - `technical-spec.md`
+  - `design-bundle.md`
+  - `memory-bank.md`
+  - `story-index.json`
+- Transition Taiga stories toward the design-ready status when available
 
-- Resizable, collapsible sidebar with light/dark modes
-- Taiga token and username/password login; "Create a Taiga account" link
-- Project selector; project create/delete
-- Epics & Stories board; epic/story create/delete/edit
-- Users & Roles with invite, remove, and role change
-- Active Context file editing (memory-bank, functional-spec, technical-spec, vaccines, design-bundle)
-- AI model selector (fast model + coder model, persisted in `.apex-config.json`)
-- Resources section with Taiga documentation links and a direct link to your Taiga instance
+### Sidebar Workspace
 
-### Phases 3–6
+The sidebar is the operational shell for the app.
 
-Navigation stubs (Implementation, Testing, Deployment, Maintenance) present; workflows not yet implemented.
+Implemented:
+
+- Taiga login using username/password or bearer token
+- Project selector
+- Project create/delete
+- Epics and stories board
+- Epic/story create, edit, delete
+- Users and roles management
+- Active context file viewer/editor
+- Individual context file download
+- ZIP download of all context files
+- Story index rebuild
+- Context reset
+- AI model selector
+- Light/dark mode
 
 ---
 
-## Architecture
+## Repository Structure
 
-| File / folder | Role |
+| Path | Purpose |
 |---|---|
-| `backend/app/main.py` | FastAPI entry point, CORS, router registration |
-| `backend/app/api/phase1.py` | Phase 1 Requirements REST API |
-| `backend/app/api/phase2.py` | Phase 2 Design REST API |
-| `backend/app/api/workspace.py` | Sidebar/workspace APIs: auth, projects, board, users, context files, AI config |
-| `backend/app/services/` | Service layer wrapping AI, Taiga, context, and phase workflows |
-| `backend/app/schemas/` | Pydantic request/response contracts |
-| `frontend/app/` | Next.js App Router routes and global providers |
-| `frontend/components/` | App shell, sidebar, phase navigation, Phase 1 and Phase 2 workflow screens |
+| `backend/app/main.py` | FastAPI entrypoint, CORS, body limit middleware, router registration |
+| `backend/app/api/phase1.py` | Phase 1 HTTP routes |
+| `backend/app/api/phase2.py` | Phase 2 HTTP routes |
+| `backend/app/api/workspace.py` | Sidebar/workspace routes: auth, projects, board, users, context files, AI config |
+| `backend/app/api/deps.py` | FastAPI request/auth dependencies |
+| `backend/app/services/` | Service layer for phase workflows, AI, Taiga, and context operations |
+| `backend/app/schemas/` | Pydantic request/response models |
+| `src/ai_engine.py` | Claude prompts, structured outputs, model selection, AI error handling |
+| `src/context_manager.py` | Context file templates, readers/writers, story index, phase context selection |
+| `src/storage.py` | Storage abstraction over local disk or Azure File Share SDK |
+| `src/taiga_adapter.py` | Taiga REST API client |
+| `frontend/app/` | Next.js routes |
+| `frontend/components/` | App shell, sidebar, Phase 1 workflow, Phase 2 workflow, UI components |
 | `frontend/lib/api/` | Typed frontend API clients |
 | `frontend/lib/hooks/` | React Query hooks |
-| `frontend/lib/stores/` | Zustand session, UI, and Phase 2 draft state |
-| `src/ai_engine.py` | LangChain + Claude prompts and structured outputs |
-| `src/context_manager.py` | Reads/writes context files via `StoragePath` (Azure or local) |
-| `src/storage.py` | `StoragePath` — pathlib-compatible wrapper; delegates to Azure File Share SDK or local disk |
-| `src/taiga_adapter.py` | Taiga REST API client |
-| `tests/` | Pytest suite — all external APIs mocked |
+| `frontend/lib/stores/` | Zustand stores for session, UI, and Phase 2 draft state |
+| `.github/workflows/ci.yml` | Test, build, push, and deploy workflow |
+| `.github/workflows/scale-scheduler.yml` | Azure Container Apps scale up/down scheduler |
 
 ---
 
-## Running locally
+## Context Files
 
-### Prerequisites
+Apex stores workflow state in context files under `contextspec/<taiga_project_id>/`.
 
-| Requirement | Notes |
+| File | Purpose |
 |---|---|
-| Python 3.12 | |
-| Node.js 20+ | |
-| Anthropic API key | Required — set in `.env` |
-| Taiga account | Optional upfront — sign in via the sidebar |
+| `memory-bank.md` | Project concept, tech stack, architecture principles, design decisions |
+| `functional-spec.md` | Locked Gherkin acceptance criteria from Phase 1 |
+| `technical-spec.md` | Locked technical specs from Phase 2 |
+| `design-bundle.md` | Locked wireframes, user flows, component trees, and technical bundles |
+| `vaccines.md` | Future bug-resolution memory for Phase 6 |
+| `story-index.json` | Machine-readable story phase state |
 
-### 1 · Environment setup
+Each Taiga project gets its own context directory. The backend reads `X-Taiga-Project-Id` on each request and uses that project ID to select the correct context folder.
 
-```bash
-cp .env.example .env
-```
+Storage behavior:
 
-Edit `.env`:
+- Without Azure env vars, files are stored locally in `contextspec/`.
+- With `AZURE_STORAGE_CONNECTION_STRING`, `src/storage.py` uses the Azure File Share SDK.
+- In Azure Container Apps, the intended deployment model is to mount the Azure File Share at `/app/contextspec` for the backend.
+
+For normal local development, leave Azure storage blank unless you deliberately want to share context with the deployed app.
+
+---
+
+## Local Development
+
+### Requirements
+
+- Python 3.12
+- Node.js 20+
+- npm
+- Docker, optional
+- Anthropic API key
+- Taiga account
+
+### Environment
+
+Create `.env` in the repository root:
 
 ```env
 ANTHROPIC_API_KEY=sk-ant-...
 
-# Azure File Share — syncs context files between local dev and the deployed app.
-# Leave blank to use a local contextspec/ folder instead.
-AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=...
-AZURE_FILE_SHARE_NAME=contextspec
-
 TAIGA_API_URL=https://api.taiga.io
 
-# Optional model overrides (also configurable in the sidebar):
-# AI_MODEL_FAST=claude-haiku-4-5-20251001
-# AI_MODEL_CODER=claude-sonnet-4-6
+# Optional. Leave blank for local contextspec/ storage.
+AZURE_STORAGE_CONNECTION_STRING=
+AZURE_FILE_SHARE_NAME=contextspec
 
-# Next.js frontend:
+# Optional. Comma-separated frontend origins allowed by FastAPI CORS.
+ALLOWED_ORIGINS=http://localhost:3000
+
+# Optional LangSmith tracing.
+LANGCHAIN_TRACING_V2=
+LANGCHAIN_API_KEY=
+LANGCHAIN_PROJECT=apex
+
+# Used by Docker/Next build.
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ```
 
-> **Never commit `.env`.** It is listed in `.gitignore`.
+Do not commit `.env`.
 
-#### Azure File Share (optional)
-
-When `AZURE_STORAGE_CONNECTION_STRING` is set, context reads/writes go through the Azure File Share SDK — the same share the deployed Container App mounts. Local dev and the deployed instance share the same context files. Without it the app uses a local `contextspec/` folder.
-
-### 2 · Split-stack dev
+### Run Backend
 
 ```bash
 pip install -r requirements.txt
-
-# terminal 1
 uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
+```
 
-# terminal 2
+Health check:
+
+```bash
+curl http://localhost:8000/api/health
+```
+
+### Run Frontend
+
+```bash
 cd frontend
 npm ci
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Backend health check at `/api/health`.
+Open:
 
-### 3 · Docker Compose
+- Frontend: `http://localhost:3000`
+- Backend: `http://localhost:8000`
+
+### Run With Docker Compose
 
 ```bash
 docker compose up --build
 ```
 
-Backend on port 8000, frontend on port 3000.
+Docker Compose starts:
+
+- backend on `http://localhost:8000`
+- frontend on `http://localhost:3000`
+
+The compose file mounts local `./contextspec` into the backend container at `/app/contextspec`.
+
+Stop:
 
 ```bash
 docker compose down
@@ -182,77 +231,202 @@ docker compose down
 
 ---
 
-## Deployment (Azure Container Apps)
-
-The app is live at **[https://apex-bolt.com](https://apex-bolt.com)**, deployed on Azure Container Apps in France Central.
-
-Two separate Container Apps:
-
-- `apex-backend` — FastAPI, port 8000
-- `apex-frontend` — Next.js, port 3000
-
-Set frontend `NEXT_PUBLIC_API_BASE_URL` to the backend ingress URL. Mount the Azure File Share only into the backend at `/app/contextspec`.
-
-### Infrastructure
-
-| Resource | Name | Purpose |
-|---|---|---|
-| Container App | `apex-backend` | FastAPI backend |
-| Container App | `apex-frontend` | Next.js frontend |
-| Container App Environment | `apex-env` | Networking and shared config |
-| Storage Account | `apexctxstore` | Azure File Share for context files |
-| File Share | `contextspec` | Mounted at `/app/contextspec` in the backend |
-| Log Analytics Workspace | `apex-logs` | Log aggregation |
-| Application Insights | `apex-insights` | Monitoring, error tracking, live metrics |
-| Recovery Services Vault | `apex-backup-vault` | Daily backup of the file share (30-day retention) |
-| Resource Group | `apex-rg` | All resources, France Central region |
-
-### Context persistence
-
-Context files live in the Azure File Share under `<taiga_project_id>/` (e.g. `1786966/memory-bank.md`). Each Taiga project gets its own subdirectory — context never bleeds between projects.
-
-The frontend stores the Taiga token and active project in Zustand local storage and sends them to FastAPI as:
-
-- `Authorization: Bearer <taiga_token>`
-- `X-Taiga-Project-Id: <project_id>`
-
-### CI/CD
-
-Every push to `main` automatically:
-1. Runs the full Python test suite
-2. Typechecks and builds the Next.js frontend
-3. Builds and pushes backend and frontend Docker images to `ghcr.io`
-4. Deploys both Container Apps
-
-### Monitoring
-
-```kusto
-// Errors in the last 24 h
-exceptions
-| where timestamp > ago(24h)
-| project timestamp, type, outerMessage
-| order by timestamp desc
-
-// App log messages
-traces
-| where timestamp > ago(24h)
-| project timestamp, message, severityLevel
-| order by timestamp desc
-```
-
----
-
 ## Tests
+
+Backend:
 
 ```bash
 python3 -m pytest tests/ -v --tb=short
 ```
 
-Frontend checks:
+Frontend:
 
 ```bash
 cd frontend
 npm ci
 npm run typecheck
+npm test
 npm run build
 ```
+
+CI runs:
+
+- backend pytest
+- frontend typecheck
+- frontend Vitest
+- frontend production build
+- backend/frontend Docker builds
+
+---
+
+## Deployment
+
+Deployment is handled by GitHub Actions in `.github/workflows/ci.yml`.
+
+The workflow runs on:
+
+- push to `main`
+- pull request to `main`
+
+On pull requests, it runs tests and builds images without pushing or deploying.
+
+On push to `main`, it:
+
+1. Runs backend tests.
+2. Runs frontend typecheck, unit tests, and build.
+3. Builds the backend image from `backend/Dockerfile`.
+4. Builds the frontend image from `frontend/Dockerfile`.
+5. Pushes both images to GitHub Container Registry.
+6. Updates Azure Container Apps to the new image tags.
+
+### Container Apps
+
+The current workflow expects these Azure Container Apps:
+
+| Container App | Purpose | Port |
+|---|---|---|
+| `apex-backend` | FastAPI API | `8000` |
+| `apex-frontend` | Next.js app | `3000` |
+
+The workflow uses:
+
+```env
+AZURE_RESOURCE_GROUP=apex-rg
+AZURE_LOCATION=francecentral
+REGISTRY=ghcr.io
+IMAGE_NAME=${{ github.repository }}
+```
+
+The deployed image tags use the short Git SHA:
+
+- `ghcr.io/<owner>/<repo>-backend:sha-xxxxxxx`
+- `ghcr.io/<owner>/<repo>-frontend:sha-xxxxxxx`
+
+### GitHub Secrets
+
+Required:
+
+| Secret | Used by | Purpose |
+|---|---|---|
+| `AZURE_CREDENTIALS` | CI/CD and scheduler | Azure service principal JSON for `azure/login` |
+| `NEXT_PUBLIC_API_BASE_URL` | frontend image build | Public backend API URL compiled into the Next.js frontend |
+
+The Container Apps themselves should have runtime environment variables configured in Azure.
+
+Backend runtime env:
+
+```env
+ANTHROPIC_API_KEY=...
+TAIGA_API_URL=https://api.taiga.io
+ALLOWED_ORIGINS=https://<frontend-domain>
+AZURE_STORAGE_CONNECTION_STRING=...
+AZURE_FILE_SHARE_NAME=contextspec
+LANGCHAIN_TRACING_V2=
+LANGCHAIN_API_KEY=
+LANGCHAIN_PROJECT=apex
+```
+
+Frontend runtime/build env:
+
+```env
+NEXT_PUBLIC_API_BASE_URL=https://<backend-domain>
+```
+
+Important: `NEXT_PUBLIC_API_BASE_URL` is a build-time public variable for Next.js. If the backend URL changes, rebuild/redeploy the frontend image.
+
+### Azure File Share Mount
+
+The backend Docker image creates `/app/contextspec`.
+
+In Azure, mount the `contextspec` Azure File Share into:
+
+```text
+/app/contextspec
+```
+
+Only the backend needs the mount. The frontend does not read or write context files directly.
+
+If both the Azure SDK env vars and the file-share mount are present, the code path uses the Azure SDK because `AZURE_STORAGE_CONNECTION_STRING` is set. For the cleanest Container Apps setup, prefer one model:
+
+- **Mounted share model:** mount the share and leave `AZURE_STORAGE_CONNECTION_STRING` empty.
+- **SDK model:** set `AZURE_STORAGE_CONNECTION_STRING` and do not depend on the volume mount.
+
+The current code supports both local disk and SDK mode. The mount model is simpler for Container Apps because it behaves like normal filesystem access.
+
+---
+
+## Scale Scheduler
+
+The scheduler is defined in `.github/workflows/scale-scheduler.yml`.
+
+Purpose: reduce Azure cost for an academic/demo deployment by scaling both Container Apps down when not in use and scaling them back up during the day.
+
+It controls:
+
+- `apex-backend`
+- `apex-frontend`
+
+Schedules are UTC-based because GitHub Actions cron uses UTC:
+
+| Cron | Action | Result |
+|---|---|---|
+| `0 8 * * *` | Scale up | backend/frontend `min=1`, `max=10` |
+| `0 22 * * *` | Scale down | backend/frontend `min=0`, `max=1` |
+
+Manual dispatch is also supported:
+
+- `up`: sets both apps to `min=1`, `max=10`
+- `down`: sets both apps to `min=0`, `max=1`
+
+Portugal time note:
+
+- During WET, `08:00 UTC` is `08:00` in Lisbon and `22:00 UTC` is `22:00`.
+- During WEST, `08:00 UTC` is `09:00` in Lisbon and `22:00 UTC` is `23:00`.
+
+This one-hour seasonal drift is acceptable for the project. If exact Lisbon local time is required, split the scheduler into separate DST-aware cron periods or trigger scaling from Azure Automation/Logic Apps with timezone support.
+
+### Cold Starts
+
+When scaled down to `min=0`, both frontend and backend can cold start. The first request after scale-up/down may be slower. This is expected.
+
+### Scheduler Requirements
+
+The scheduler requires the same GitHub secret as deployment:
+
+```text
+AZURE_CREDENTIALS
+```
+
+The service principal must be allowed to update Container Apps in `apex-rg`.
+
+---
+
+## Current Phase Status
+
+| Phase | Status |
+|---|---|
+| Phase 1 · Requirements | Implemented |
+| Phase 2 · Design | Implemented |
+| Phase 3 · Implementation | Placeholder |
+| Phase 4 · Testing | Placeholder |
+| Phase 5 · Deployment | Placeholder |
+| Phase 6 · Maintenance | Placeholder |
+
+Phase 3 is expected to be an academic implementation-planning workflow, not a real code-writing agent. A likely shape is:
+
+- select stories with locked technical specs
+- generate implementation task breakdowns
+- generate developer handoff/proposal documents
+- optionally create Taiga tasks
+- persist proposals into context files
+- update `story-index.json` with implementation readiness state
+
+---
+
+## Notes For Future Maintainers
+
+- Keep routers thin and put workflow logic in `backend/app/services/`.
+- Keep Claude prompt logic in `src/ai_engine.py`.
+- Keep Taiga-specific REST behavior in `src/taiga_adapter.py` / `TaigaService`.
+- Treat Markdown context files as human-readable artefacts, and `story-index.json` as the machine-readable workflow index.
+- Do not commit local `contextspec/`, `.env`, `.next`, `node_modules`, or Python cache files.
