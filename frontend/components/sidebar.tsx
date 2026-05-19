@@ -988,7 +988,7 @@ export function Sidebar() {
 
   useEffect(() => {
     function onMove(e: MouseEvent) {
-      if (e.buttons !== 1) return;
+      if (e.buttons !== 1) { onUp(); return; }
       setSidebarWidth(e.clientX);
     }
     function onUp() {
@@ -1031,7 +1031,13 @@ export function Sidebar() {
       )}
       style={{ width: sidebarWidth }}
     >
-      <div id="apex-sidebar-resizer" className="absolute right-0 top-0 z-40 h-full w-1 cursor-col-resize" />
+      <div id="apex-sidebar-resizer" className="group absolute right-0 top-0 z-40 flex h-full w-3 cursor-col-resize items-center justify-center">
+        <div className="flex flex-col gap-[3px] transition-opacity duration-150 opacity-30 group-hover:opacity-100">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-1 w-1 rounded-full bg-violet-400 group-hover:bg-violet-300" />
+          ))}
+        </div>
+      </div>
 
       {typeof document !== "undefined" ? createPortal(
         <>

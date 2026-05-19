@@ -10,6 +10,7 @@ import {
 } from "@/lib/api/phase1";
 import type { Phase1GenerateNlStoriesRequest, Phase1PushStoriesRequest } from "@/lib/api/types";
 import { useApiContext } from "@/lib/stores/session-store";
+import { toast } from "sonner";
 
 export function usePhase1Epics() {
   const context = useApiContext();
@@ -26,6 +27,7 @@ export function useSuggestPhase1Epics() {
 
   return useMutation({
     mutationFn: (hint: string) => suggestPhase1Epics(context!, hint),
+    onError: () => toast.error("Failed to suggest epics. Check your connection and try again."),
   });
 }
 
@@ -34,6 +36,7 @@ export function useGenerateNlStories() {
 
   return useMutation({
     mutationFn: (body: Phase1GenerateNlStoriesRequest) => generateNlStories(context!, body),
+    onError: () => toast.error("Story generation failed. The AI may be busy — try again shortly."),
   });
 }
 
@@ -42,6 +45,7 @@ export function useCompileGherkin() {
 
   return useMutation({
     mutationFn: (nlDraft: string) => compileGherkin(context!, nlDraft),
+    onError: () => toast.error("Gherkin compilation failed. The AI may be busy — try again shortly."),
   });
 }
 
@@ -51,6 +55,7 @@ export function usePushPhase1Stories() {
 
   return useMutation({
     mutationFn: (body: Phase1PushStoriesRequest) => pushPhase1Stories(context!, body),
+    onError: () => toast.error("Failed to push stories to Taiga. Check your connection and try again."),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["phase1", "epics"] });
       void queryClient.invalidateQueries({ queryKey: ["phase2", "eligible-epics"] });

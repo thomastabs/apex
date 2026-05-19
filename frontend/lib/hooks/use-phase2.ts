@@ -17,6 +17,7 @@ import type {
   ProposeTechStackRequest,
 } from "@/lib/api/types";
 import { useApiContext } from "@/lib/stores/session-store";
+import { toast } from "sonner";
 
 export function useTechStackStatus() {
   const context = useApiContext();
@@ -43,6 +44,7 @@ export function useProposeTechStack() {
 
   return useMutation({
     mutationFn: (body: ProposeTechStackRequest) => proposeTechStack(context!, body),
+    onError: () => toast.error("Tech stack proposal failed. The AI may be busy — try again shortly."),
   });
 }
 
@@ -52,6 +54,7 @@ export function useLockTechStack() {
 
   return useMutation({
     mutationFn: (body: LockTechStackRequest) => lockTechStack(context!, body),
+    onError: () => toast.error("Failed to lock tech stack."),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["phase2", "tech-stack-status"] });
     },
@@ -63,6 +66,7 @@ export function useGenerateDesignBundle() {
 
   return useMutation({
     mutationFn: (body: GenerateDesignBundleRequest) => generateDesignBundle(context!, body),
+    onError: () => toast.error("Design bundle generation failed. The AI may be busy — try again shortly."),
   });
 }
 
@@ -72,6 +76,7 @@ export function useLockEpicDesign() {
 
   return useMutation({
     mutationFn: (body: LockEpicDesignRequest) => lockEpicDesign(context!, body),
+    onError: () => toast.error("Failed to lock epic design."),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["phase2", "eligible-epics"] });
       void queryClient.invalidateQueries({ queryKey: ["phase2", "tech-stack-status"] });
