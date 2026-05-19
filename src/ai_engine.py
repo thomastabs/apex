@@ -31,6 +31,9 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
+# LangSmith tracing is enabled automatically when LANGCHAIN_TRACING_V2=true
+# and LANGCHAIN_API_KEY are set in the environment — no code changes needed.
+
 load_dotenv()
 
 _DEFAULT_FAST  = "claude-haiku-4-5-20251001"
@@ -127,11 +130,24 @@ def _get_llm(model: str, max_tokens: int) -> ChatAnthropic:
     return _llm_cache[key]
 
 
+def _make_messages(system: str, human: str) -> list:
+    """Build [SystemMessage, HumanMessage] with Anthropic prompt caching on the system turn.
+
+    cache_control ephemeral caches everything up to this breakpoint for 5 min.
+    Anthropic only bills cache write on first call; cache hits cost ~10% of normal.
+    Short system prompts (<1024 tokens) are silently skipped by the API — no harm.
+    """
+    return [
+        SystemMessage(content=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]),
+        HumanMessage(content=human),
+    ]
+
+
 def _invoke(system: str, human: str, model: str, max_tokens: int = 2048) -> str:
     llm = _get_llm(model, max_tokens)
     t0 = time.monotonic()
     try:
-        response = llm.invoke([SystemMessage(content=system), HumanMessage(content=human)])
+        response = llm.invoke(_make_messages(system, human))
         _logger.info("ai_call model=%s tokens=%s duration_s=%.2f status=ok",
                      model, max_tokens, time.monotonic() - t0)
         return response.content.strip()
@@ -166,7 +182,7 @@ def _invoke_structured_with_progress(
     """
     llm = _get_llm(model, max_tokens)
     chain = llm.with_structured_output(schema)
-    messages = [SystemMessage(content=system), HumanMessage(content=human)]
+    messages = _make_messages(system, human)
     last = None
     seen = 0
 
@@ -264,7 +280,7 @@ def _invoke_json_fallback(
     )
     t0 = time.monotonic()
     try:
-        response = llm.invoke([SystemMessage(content=augmented), HumanMessage(content=human)])
+        response = llm.invoke(_make_messages(augmented, human))
         _logger.info("ai_json_fallback model=%s duration_s=%.2f status=ok", model, time.monotonic() - t0)
     except AIError:
         raise
@@ -309,9 +325,7 @@ def stream_text(
     """
     llm = _get_llm(model, max_tokens)
     try:
-        for chunk in llm.stream(
-            [SystemMessage(content=system), HumanMessage(content=human)]
-        ):
+        for chunk in llm.stream(_make_messages(system, human)):
             content = chunk.content
             if isinstance(content, str):
                 yield content
