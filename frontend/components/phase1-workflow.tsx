@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 
 type Mode = "create" | "load" | "suggest";
 
-const SIZES = ["S", "M", "L", "XL"] as const;
+const SIZES = ["XS", "S"] as const;
 
 function draftKey(projectId: number | null) {
   return `apex-phase1-draft-${projectId ?? "none"}`;
@@ -725,10 +725,10 @@ export function Phase1Workflow() {
                     />
                     <button
                       className="shrink-0 rounded border border-violet-700 bg-violet-950 px-3 py-1.5 text-xs font-bold text-violet-200 transition-colors hover:bg-violet-900"
-                      title="Click to cycle size: S → M → L → XL"
+                      title="Click to cycle size: XS → S"
                       onClick={() => cycleSize(index)}
                     >
-                      {story.size || "M"}
+                      {story.size || "XS"}
                     </button>
                     <button
                       className="grid size-8 shrink-0 place-items-center rounded text-red-400 transition-colors hover:bg-red-950"
@@ -756,7 +756,7 @@ export function Phase1Workflow() {
                   ? "border-neutral-700 text-neutral-300 hover:border-violet-500/50 hover:bg-violet-500/10 hover:text-violet-300"
                   : "border-slate-300 text-slate-600 hover:border-violet-400 hover:bg-violet-50 hover:text-violet-700",
               )}
-              onClick={() => setCompiledStories((s) => [...s, { title: "New Story", size: "M", gherkin: "Feature: \n\nScenario: \n  Given \n  When \n  Then " }])}
+              onClick={() => setCompiledStories((s) => [...s, { title: "New Story", size: "XS", gherkin: "Feature: \n\nScenario: \n  Given \n  When \n  Then " }])}
             >
               <Plus className="size-4" /> Add Story
             </button>

@@ -300,15 +300,20 @@ class TestGetEpicsNormalized:
                            "version": None, "tags": []}]
 
     def test_missing_fields_filled_in(self):
+        # get_epics makes a second _get call to fetch the detail when description is missing.
+        # side_effect: first call returns the list, second returns the individual dict.
         from src import taiga_adapter
-        with patch.object(taiga_adapter, "_get", return_value=[{"id": 2}]):
+        with patch.object(taiga_adapter, "_get", side_effect=[[{"id": 2}], {"id": 2}]):
             result = taiga_adapter.get_epics()
         assert result[0] == {"id": 2, "ref": 2, "subject": "", "description": "",
                               "version": None, "tags": []}
 
     def test_none_description_coerced_to_empty(self):
         from src import taiga_adapter
-        with patch.object(taiga_adapter, "_get", return_value=[{"id": 3, "description": None}]):
+        with patch.object(
+            taiga_adapter, "_get",
+            side_effect=[[{"id": 3, "description": None}], {"id": 3, "description": None}],
+        ):
             result = taiga_adapter.get_epics()
         assert result[0]["description"] == ""
 

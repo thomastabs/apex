@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from backend.app.api.deps import RequestContext, get_request_context
+from backend.app.api.deps import AuthContext, RequestContext, get_auth_context, get_request_context
 from backend.app.schemas.phase1 import (
     CompileGherkinRequest,
     CompileGherkinResponse,
@@ -79,6 +79,7 @@ def generate_nl_stories(
 @router.post("/compile-gherkin", response_model=CompileGherkinResponse)
 def compile_gherkin(
     payload: CompileGherkinRequest,
+    _auth: AuthContext = Depends(get_auth_context),
     service: Phase1Service = Depends(get_phase1_service),
 ):
     try:
