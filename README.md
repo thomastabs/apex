@@ -2,7 +2,7 @@
 
 Apex guides a software team through the SDLC using Claude AI and Taiga. It enforces a **Spec-Anchored** workflow: every phase is gated on human-approved artefacts from the previous one, and a shared context file store feeds every AI call.
 
-**Stack:** FastAPI · Next.js · TypeScript · React Query · Zustand · Tailwind CSS · LangChain · Anthropic Claude · Pydantic · azure-storage-file-share
+**Stack:** Python · FastAPI · Next.js · TypeScript · React Query · Zustand · Tailwind CSS · LangChain · Anthropic Claude · Pydantic · azure-storage-file-share
 
 <img width="1849" height="958" alt="image" src="https://github.com/user-attachments/assets/28badf7c-1e68-4132-bfed-0eae8c25da64" />
 <img width="1849" height="958" alt="image" src="https://github.com/user-attachments/assets/be3c6cd1-4360-4ae9-8260-7176ed7c0fc0" />
