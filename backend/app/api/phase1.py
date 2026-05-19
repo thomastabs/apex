@@ -5,6 +5,7 @@ from typing import NoReturn
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from backend.app.api.deps import AuthContext, RequestContext, get_auth_context, get_request_context
+from backend.app.api.rate_limit import ai_rate_limit
 from backend.app.schemas.phase1 import (
     CompileGherkinRequest,
     CompileGherkinResponse,
@@ -53,6 +54,7 @@ def suggest_epics(
     payload: SuggestEpicsRequest,
     ctx: RequestContext = Depends(get_request_context),
     service: Phase1Service = Depends(get_phase1_service),
+    _rl: None = Depends(ai_rate_limit),
 ):
     try:
         return {"epics": service.suggest_epics(ctx, hint=payload.hint)}
@@ -65,6 +67,7 @@ def generate_nl_stories(
     payload: GenerateNlStoriesRequest,
     ctx: RequestContext = Depends(get_request_context),
     service: Phase1Service = Depends(get_phase1_service),
+    _rl: None = Depends(ai_rate_limit),
 ):
     try:
         nl_draft, story_count = service.generate_nl_stories(
@@ -81,8 +84,9 @@ def generate_nl_stories(
 @router.post("/compile-gherkin", response_model=CompileGherkinResponse)
 def compile_gherkin(
     payload: CompileGherkinRequest,
-    _auth: AuthContext = Depends(get_auth_context),
+    _auth: AuthContext = Depends(get_auth_context),  # auth-only: no project needed (pure AI)
     service: Phase1Service = Depends(get_phase1_service),
+    _rl: None = Depends(ai_rate_limit),
 ):
     try:
         return {"stories": service.compile_gherkin(nl_draft=payload.nl_draft)}

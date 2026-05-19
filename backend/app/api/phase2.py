@@ -5,6 +5,7 @@ from typing import NoReturn
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from backend.app.api.deps import RequestContext, get_request_context
+from backend.app.api.rate_limit import ai_rate_limit
 from backend.app.schemas.phase2 import (
     DesignBundleResponse,
     EligibleEpicSchema,
@@ -64,6 +65,7 @@ def propose_tech_stack(
     payload: ProposeTechStackRequest,
     ctx: RequestContext = Depends(get_request_context),
     service: Phase2Service = Depends(get_phase2_service),
+    _rl: None = Depends(ai_rate_limit),
 ):
     try:
         return {"alternatives": service.propose_tech_stack(ctx, hint=payload.hint)}
@@ -88,6 +90,7 @@ def generate_design_bundle(
     payload: GenerateDesignBundleRequest,
     ctx: RequestContext = Depends(get_request_context),
     service: Phase2Service = Depends(get_phase2_service),
+    _rl: None = Depends(ai_rate_limit),
 ):
     try:
         return service.generate_design_bundle(ctx, epic_id=payload.epic_id)

@@ -193,6 +193,8 @@ class Phase2Service:
         return sorted(stories, key=lambda item: item["story_id"])
 
     def _transition_taiga_stories(self, story_ids: list[int]) -> list[dict]:
+        import logging
+        _log = logging.getLogger("apex.phase2")
         failures = []
         status_id = self.taiga.find_design_locked_status_id()
         for story_id in story_ids:
@@ -206,6 +208,7 @@ class Phase2Service:
                     status_id=status_id,
                 )
             except Exception as exc:
+                _log.warning("phase2.lock_design taiga_transition failed story_id=%s: %s", story_id, exc)
                 failures.append({"story_id": story_id, "error": str(exc)})
         return failures
 

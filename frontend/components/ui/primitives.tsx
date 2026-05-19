@@ -81,3 +81,16 @@ export function Callout({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
+export function Skeleton({ className }: { className?: string }) {
+  const dark = useUiStore((s) => s.theme) === "dark";
+  return (
+    <div
+      className={cn(
+        "animate-pulse rounded",
+        dark ? "bg-neutral-800" : "bg-slate-200",
+        className,
+      )}
+    />
+  );
+}

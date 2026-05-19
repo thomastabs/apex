@@ -2,30 +2,32 @@
 
 import pytest
 
+_TEST_PROJECT_ID = 99999
+
 
 @pytest.fixture()
 def ctx(tmp_path, monkeypatch):
     """Patch context_manager to use an isolated tmp directory for each test.
 
-    Resets module-level caches (_story_index_cache, _context_initialized) so
-    tests never bleed state into each other.
+    Sets the ContextVar to a fixed test project_id and redirects _BASE_CONTEXTSPEC
+    to a tmp_path so tests never share filesystem state.  Per-project caches are
+    replaced with fresh objects so tests never bleed in-memory state into each other.
     """
     from src import context_manager as cm
 
-    ctx_dir = tmp_path / "contextspec"
-    ctx_dir.mkdir()
+    test_base = tmp_path / "contextspec"
+    test_base.mkdir()
 
-    monkeypatch.setattr(cm, "CONTEXT_DIR",          ctx_dir)
-    monkeypatch.setattr(cm, "MEMORY_BANK_FILE",     ctx_dir / "memory-bank.md")
-    monkeypatch.setattr(cm, "FUNCTIONAL_SPEC_FILE", ctx_dir / "functional-spec.md")
-    monkeypatch.setattr(cm, "TECHNICAL_SPEC_FILE",  ctx_dir / "technical-spec.md")
-    monkeypatch.setattr(cm, "VACCINES_FILE",        ctx_dir / "vaccines.md")
-    monkeypatch.setattr(cm, "STORY_INDEX_FILE",     ctx_dir / "story-index.json")
-    monkeypatch.setattr(cm, "DRAFT_FILE",           ctx_dir / ".apex-draft.json")
-    monkeypatch.setattr(cm, "DESIGN_DRAFT_FILE",   ctx_dir / ".apex-design-draft.json")
-    monkeypatch.setattr(cm, "SESSION_FILE",         ctx_dir / ".apex-session.json")
-    monkeypatch.setattr(cm, "DESIGN_BUNDLE_FILE",  ctx_dir / "design-bundle.md")
-    monkeypatch.setattr(cm, "_story_index_cache",   None)
-    monkeypatch.setattr(cm, "_context_initialized", False)
+    # Redirect file storage — _context_dir() and _path() derive from this.
+    monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", test_base)
 
-    return cm
+    # Isolated per-test caches (monkeypatch restores originals after each test).
+    monkeypatch.setattr(cm, "_initialized_projects", set())
+    monkeypatch.setattr(cm, "_story_index_caches", {})
+
+    # Set ContextVar to test project_id for the duration of this test.
+    token = cm._active_project_id.set(_TEST_PROJECT_ID)
+
+    yield cm
+
+    cm._active_project_id.reset(token)

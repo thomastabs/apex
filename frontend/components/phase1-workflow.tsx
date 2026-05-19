@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, ChevronRight, Download, ExternalLink, FilePlus2, Info, Plus, RefreshCw, RotateCcw, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { Button, Callout, Input, SectionHeading, Textarea } from "@/components/ui/primitives";
+import { Button, Callout, Input, SectionHeading, Skeleton, Textarea } from "@/components/ui/primitives";
 import {
   useCompileGherkin,
   useGenerateNlStories,
@@ -419,7 +419,11 @@ export function Phase1Workflow() {
                 </button>
               </div>
               {epics.isLoading ? (
-                <div className={cn("py-4 text-center text-sm", dark ? "text-neutral-500" : "text-slate-400")}>Loading epics…</div>
+                <div className="space-y-2 py-2">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                </div>
               ) : null}
               {epics.data?.map((epic) => {
                 const isSelected = selectedLoadEpicId === epic.id;

@@ -279,7 +279,7 @@ class TestRebuildStoryIndex:
         ctx.init_context()
         ctx.append_gherkin(10, "Story Ten", self.GHERKIN)
         ctx.append_technical_spec(10, "openapi: '3.0'\n")
-        ctx._story_index_cache = None  # force disk re-read
+        ctx._story_index_caches.pop(ctx._get_project_id(), None)  # force disk re-read
         index = ctx.rebuild_story_index()
         assert index["10"]["has_tech_spec"] is True
         assert index["10"]["phase_status"] == "design_locked"
@@ -562,97 +562,106 @@ class TestGetOtherEpicsDesignContext:
 
 
 # ---------------------------------------------------------------------------
-# _build_context_dir
+# _context_dir
 # ---------------------------------------------------------------------------
 
 class TestBuildContextDir:
     def test_nonzero_id_returns_project_subdir(self):
         from src import context_manager as cm
-        assert cm._build_context_dir(42) == cm._BASE_CONTEXTSPEC / "42"
+        assert cm._context_dir(42) == cm._BASE_CONTEXTSPEC / "42"
 
     def test_zero_id_returns_default_subdir(self):
         from src import context_manager as cm
-        assert cm._build_context_dir(0) == cm._BASE_CONTEXTSPEC / "default"
+        assert cm._context_dir(0) == cm._BASE_CONTEXTSPEC / "default"
 
     def test_different_ids_produce_different_dirs(self):
         from src import context_manager as cm
-        assert cm._build_context_dir(1) != cm._build_context_dir(2)
+        assert cm._context_dir(1) != cm._context_dir(2)
 
 
 # ---------------------------------------------------------------------------
 # set_active_project
 # ---------------------------------------------------------------------------
 
-_PATH_GLOBALS = (
-    "CONTEXT_DIR", "MEMORY_BANK_FILE", "FUNCTIONAL_SPEC_FILE",
-    "TECHNICAL_SPEC_FILE", "VACCINES_FILE", "STORY_INDEX_FILE",
-    "DRAFT_FILE", "DESIGN_DRAFT_FILE", "SESSION_FILE", "DESIGN_BUNDLE_FILE",
-    "_context_initialized", "_story_index_cache",
-)
-
-
-def _snapshot(monkeypatch, cm) -> None:
-    """Register all path globals and caches for automatic restore after the test."""
-    for attr in _PATH_GLOBALS:
-        monkeypatch.setattr(cm, attr, getattr(cm, attr))
-
-
 class TestSetActiveProject:
     def test_updates_context_dir(self, tmp_path, monkeypatch):
         from src import context_manager as cm
         monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
-        _snapshot(monkeypatch, cm)
-        cm.set_active_project(99)
-        assert cm.CONTEXT_DIR == tmp_path / "99"
+        token = cm._active_project_id.set(0)
+        try:
+            cm.set_active_project(99)
+            assert cm.CONTEXT_DIR == tmp_path / "99"
+        finally:
+            cm._active_project_id.reset(token)
 
     def test_updates_all_file_paths(self, tmp_path, monkeypatch):
         from src import context_manager as cm
         monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
-        _snapshot(monkeypatch, cm)
-        cm.set_active_project(77)
-        expected = tmp_path / "77"
-        assert cm.MEMORY_BANK_FILE     == expected / "memory-bank.md"
-        assert cm.FUNCTIONAL_SPEC_FILE == expected / "functional-spec.md"
-        assert cm.TECHNICAL_SPEC_FILE  == expected / "technical-spec.md"
-        assert cm.VACCINES_FILE        == expected / "vaccines.md"
-        assert cm.STORY_INDEX_FILE     == expected / "story-index.json"
-        assert cm.DRAFT_FILE           == expected / ".apex-draft.json"
-        assert cm.DESIGN_DRAFT_FILE    == expected / ".apex-design-draft.json"
-        assert cm.SESSION_FILE         == expected / ".apex-session.json"
-        assert cm.DESIGN_BUNDLE_FILE   == expected / "design-bundle.md"
+        token = cm._active_project_id.set(0)
+        try:
+            cm.set_active_project(77)
+            expected = tmp_path / "77"
+            assert cm.MEMORY_BANK_FILE     == expected / "memory-bank.md"
+            assert cm.FUNCTIONAL_SPEC_FILE == expected / "functional-spec.md"
+            assert cm.TECHNICAL_SPEC_FILE  == expected / "technical-spec.md"
+            assert cm.VACCINES_FILE        == expected / "vaccines.md"
+            assert cm.STORY_INDEX_FILE     == expected / "story-index.json"
+            assert cm.DRAFT_FILE           == expected / ".apex-draft.json"
+            assert cm.DESIGN_DRAFT_FILE    == expected / ".apex-design-draft.json"
+            assert cm.SESSION_FILE         == expected / ".apex-session.json"
+            assert cm.DESIGN_BUNDLE_FILE   == expected / "design-bundle.md"
+        finally:
+            cm._active_project_id.reset(token)
 
-    def test_resets_context_initialized(self, monkeypatch):
+    def test_switching_to_new_project_shows_uninitialized(self, monkeypatch):
         from src import context_manager as cm
-        _snapshot(monkeypatch, cm)
-        monkeypatch.setattr(cm, "_context_initialized", True)
-        cm.set_active_project(1)
-        assert cm._context_initialized is False
+        monkeypatch.setattr(cm, "_initialized_projects", set())
+        token = cm._active_project_id.set(111)
+        try:
+            # Mark project 111 as initialized.
+            cm._initialized_projects.add(111)
+            assert cm._context_initialized is True
+            # Switch to a different project — it has not been initialized yet.
+            cm.set_active_project(222)
+            assert cm._context_initialized is False
+        finally:
+            cm._active_project_id.reset(token)
 
-    def test_resets_story_index_cache(self, monkeypatch):
+    def test_story_index_not_served_from_previous_project_cache(self, monkeypatch):
         from src import context_manager as cm
-        _snapshot(monkeypatch, cm)
-        monkeypatch.setattr(cm, "_story_index_cache", {"1": {"story_id": 1}})
-        cm.set_active_project(1)
-        assert cm._story_index_cache is None
+        monkeypatch.setattr(cm, "_story_index_caches", {111: {"1": {"story_id": 1}}})
+        token = cm._active_project_id.set(111)
+        try:
+            cm.set_active_project(222)
+            # Project 222 has no cache entry — get_story_index() returns empty.
+            assert cm._story_index_caches.get(222) is None
+        finally:
+            cm._active_project_id.reset(token)
 
     def test_zero_project_id_uses_default_dir(self, tmp_path, monkeypatch):
         from src import context_manager as cm
         monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
-        _snapshot(monkeypatch, cm)
-        cm.set_active_project(0)
-        assert cm.CONTEXT_DIR == tmp_path / "default"
+        token = cm._active_project_id.set(1)
+        try:
+            cm.set_active_project(0)
+            assert cm.CONTEXT_DIR == tmp_path / "default"
+        finally:
+            cm._active_project_id.reset(token)
 
     def test_switching_between_projects_changes_dir(self, tmp_path, monkeypatch):
         from src import context_manager as cm
         monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
-        _snapshot(monkeypatch, cm)
-        cm.set_active_project(10)
-        dir_a = cm.CONTEXT_DIR
-        cm.set_active_project(20)
-        dir_b = cm.CONTEXT_DIR
-        assert dir_a != dir_b
-        assert dir_a == tmp_path / "10"
-        assert dir_b == tmp_path / "20"
+        token = cm._active_project_id.set(0)
+        try:
+            cm.set_active_project(10)
+            dir_a = cm.CONTEXT_DIR
+            cm.set_active_project(20)
+            dir_b = cm.CONTEXT_DIR
+            assert dir_a != dir_b
+            assert dir_a == tmp_path / "10"
+            assert dir_b == tmp_path / "20"
+        finally:
+            cm._active_project_id.reset(token)
 
 
 # ---------------------------------------------------------------------------
@@ -660,24 +669,24 @@ class TestSetActiveProject:
 # ---------------------------------------------------------------------------
 
 class TestResetCache:
-    def test_resets_initialized_flag(self, monkeypatch):
-        from src import context_manager as cm
-        monkeypatch.setattr(cm, "_context_initialized", True)
-        cm.reset_cache()
-        assert cm._context_initialized is False
+    def test_resets_initialized_flag(self, ctx):
+        ctx.init_context()
+        assert ctx._context_initialized is True
+        ctx.reset_cache()
+        assert ctx._context_initialized is False
 
-    def test_resets_story_index_cache(self, monkeypatch):
-        from src import context_manager as cm
-        monkeypatch.setattr(cm, "_story_index_cache", {"42": {}})
-        cm.reset_cache()
-        assert cm._story_index_cache is None
+    def test_resets_story_index_cache(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(42, title="Test")
+        pid = ctx._get_project_id()
+        assert pid in ctx._story_index_caches
+        ctx.reset_cache()
+        assert pid not in ctx._story_index_caches
 
-    def test_does_not_change_context_dir(self, monkeypatch):
-        from src import context_manager as cm
-        from pathlib import Path
-        original = cm.CONTEXT_DIR
-        cm.reset_cache()
-        assert cm.CONTEXT_DIR == original
+    def test_does_not_change_context_dir(self, ctx):
+        original = ctx.CONTEXT_DIR
+        ctx.reset_cache()
+        assert ctx.CONTEXT_DIR == original
 
 
 # ---------------------------------------------------------------------------
@@ -689,62 +698,68 @@ class TestProjectIsolation:
 
     GHERKIN = "Feature: X\n\n  Scenario: s\n    Given x\n    When y\n    Then z\n"
 
-    def test_gherkin_isolated_between_projects(self, tmp_path, monkeypatch):
+    def _setup(self, tmp_path, monkeypatch):
         from src import context_manager as cm
         monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
-        _snapshot(monkeypatch, cm)
+        monkeypatch.setattr(cm, "_initialized_projects", set())
+        monkeypatch.setattr(cm, "_story_index_caches", {})
+        return cm
 
-        cm.set_active_project(1)
-        cm.init_context()
-        cm.append_gherkin(10, "Story A", self.GHERKIN)
-        assert "Feature: X" in cm.get_story_gherkin(10)
+    def test_gherkin_isolated_between_projects(self, tmp_path, monkeypatch):
+        cm = self._setup(tmp_path, monkeypatch)
+        token = cm._active_project_id.set(1)
+        try:
+            cm.init_context()
+            cm.append_gherkin(10, "Story A", self.GHERKIN)
+            assert "Feature: X" in cm.get_story_gherkin(10)
 
-        cm.set_active_project(2)
-        cm.init_context()
-        assert cm.get_story_gherkin(10) == ""
+            cm.set_active_project(2)
+            cm.init_context()
+            assert cm.get_story_gherkin(10) == ""
 
-        # switch back — original data still present
-        cm.set_active_project(1)
-        assert "Feature: X" in cm.get_story_gherkin(10)
+            # switch back — original data still present
+            cm.set_active_project(1)
+            assert "Feature: X" in cm.get_story_gherkin(10)
+        finally:
+            cm._active_project_id.reset(token)
 
     def test_story_index_isolated_between_projects(self, tmp_path, monkeypatch):
-        from src import context_manager as cm
-        monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
-        _snapshot(monkeypatch, cm)
+        cm = self._setup(tmp_path, monkeypatch)
+        token = cm._active_project_id.set(10)
+        try:
+            cm.init_context()
+            cm.upsert_story_index(5, title="Project 10 Story")
 
-        cm.set_active_project(10)
-        cm.init_context()
-        cm.upsert_story_index(5, title="Project 10 Story")
-
-        cm.set_active_project(20)
-        cm.init_context()
-        assert "5" not in cm.get_story_index()
+            cm.set_active_project(20)
+            cm.init_context()
+            assert "5" not in cm.get_story_index()
+        finally:
+            cm._active_project_id.reset(token)
 
     def test_separate_subdirectories_created_on_disk(self, tmp_path, monkeypatch):
-        from src import context_manager as cm
-        monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
-        _snapshot(monkeypatch, cm)
-
-        cm.set_active_project(100)
-        cm.init_context()
-        cm.set_active_project(200)
-        cm.init_context()
-
-        assert (tmp_path / "100").is_dir()
-        assert (tmp_path / "200").is_dir()
+        cm = self._setup(tmp_path, monkeypatch)
+        token = cm._active_project_id.set(100)
+        try:
+            cm.init_context()
+            cm.set_active_project(200)
+            cm.init_context()
+            assert (tmp_path / "100").is_dir()
+            assert (tmp_path / "200").is_dir()
+        finally:
+            cm._active_project_id.reset(token)
 
     def test_memory_bank_content_isolated(self, tmp_path, monkeypatch):
-        from src import context_manager as cm
-        monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
-        _snapshot(monkeypatch, cm)
+        cm = self._setup(tmp_path, monkeypatch)
+        token = cm._active_project_id.set(1)
+        try:
+            cm.init_context()
+            cm.MEMORY_BANK_FILE.write_text("# Memory Bank\n\n## Project Concept\n\nProject One.", encoding="utf-8")
 
-        cm.set_active_project(1)
-        cm.init_context()
-        cm.MEMORY_BANK_FILE.write_text("# Memory Bank\n\n## Project Concept\n\nProject One.", encoding="utf-8")
-
-        cm.set_active_project(2)
-        cm.init_context()
-        assert "Project One" not in cm.MEMORY_BANK_FILE.read_text(encoding="utf-8")
+            cm.set_active_project(2)
+            cm.init_context()
+            assert "Project One" not in cm.MEMORY_BANK_FILE.read_text(encoding="utf-8")
+        finally:
+            cm._active_project_id.reset(token)
 
 
 # ---------------------------------------------------------------------------
@@ -752,17 +767,21 @@ class TestProjectIsolation:
 # ---------------------------------------------------------------------------
 
 class TestIsProjectSelected:
-    def test_false_when_context_dir_is_default(self, monkeypatch):
+    def test_false_when_project_id_is_zero(self):
         from src import context_manager as cm
-        from pathlib import Path
-        monkeypatch.setattr(cm, "CONTEXT_DIR", Path("contextspec/default"))
-        assert cm.is_project_selected() is False
+        token = cm._active_project_id.set(0)
+        try:
+            assert cm.is_project_selected() is False
+        finally:
+            cm._active_project_id.reset(token)
 
-    def test_true_when_context_dir_has_project_id(self, monkeypatch):
+    def test_true_when_project_id_is_nonzero(self):
         from src import context_manager as cm
-        from pathlib import Path
-        monkeypatch.setattr(cm, "CONTEXT_DIR", Path("contextspec/1786966"))
-        assert cm.is_project_selected() is True
+        token = cm._active_project_id.set(1786966)
+        try:
+            assert cm.is_project_selected() is True
+        finally:
+            cm._active_project_id.reset(token)
 
 
 # ---------------------------------------------------------------------------
@@ -807,9 +826,12 @@ class TestConfig:
         from src import context_manager as cm
         monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
         monkeypatch.setattr(cm, "_CONFIG_FILE", tmp_path / ".apex-config.json")
-        _snapshot(monkeypatch, cm)
-        cm.set_active_project(42)
-        assert cm.load_config().get("project_id") == 42
+        token = cm._active_project_id.set(0)
+        try:
+            cm.set_active_project(42)
+            assert cm.load_config().get("project_id") == 42
+        finally:
+            cm._active_project_id.reset(token)
 
 
 # ---------------------------------------------------------------------------
@@ -820,18 +842,24 @@ class TestInitContextNoProject:
     def test_does_not_create_files_when_no_project(self, tmp_path, monkeypatch):
         from src import context_manager as cm
         monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
-        _snapshot(monkeypatch, cm)
-        cm.set_active_project(0)  # puts CONTEXT_DIR at tmp_path/default
-        cm.init_context()
-        assert not (tmp_path / "default").exists()
+        monkeypatch.setattr(cm, "_initialized_projects", set())
+        token = cm._active_project_id.set(0)
+        try:
+            cm.init_context()
+            assert not (tmp_path / "default").exists()
+        finally:
+            cm._active_project_id.reset(token)
 
     def test_readers_return_empty_when_no_project(self, tmp_path, monkeypatch):
         from src import context_manager as cm
         monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
-        _snapshot(monkeypatch, cm)
-        cm.set_active_project(0)
-        assert cm.get_memory_bank() == ""
-        assert cm.get_vaccines() == ""
-        assert cm.get_story_gherkin(1) == ""
-        assert cm.get_story_technical_spec(1) == ""
-        assert cm.get_story_index() == {}
+        monkeypatch.setattr(cm, "_initialized_projects", set())
+        token = cm._active_project_id.set(0)
+        try:
+            assert cm.get_memory_bank() == ""
+            assert cm.get_vaccines() == ""
+            assert cm.get_story_gherkin(1) == ""
+            assert cm.get_story_technical_spec(1) == ""
+            assert cm.get_story_index() == {}
+        finally:
+            cm._active_project_id.reset(token)

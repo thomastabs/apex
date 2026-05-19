@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { AlertCircle, CheckCircle2, ChevronRight, Code2, Compass, Info, RefreshCw, RotateCcw, Save, Sparkles, Unlock } from "lucide-react";
 import { toast } from "sonner";
-import { Button, Callout, Input, SectionHeading, Textarea } from "@/components/ui/primitives";
+import { Button, Callout, Input, SectionHeading, Skeleton, Textarea } from "@/components/ui/primitives";
 import {
   useEligiblePhase2Epics,
   useGenerateDesignBundle,
@@ -310,6 +310,9 @@ export function Phase2Workflow() {
               <div className="space-y-3">
                 <label className={cn("block text-sm font-medium", labelClass)}>
                   Eligible Epic
+                  {eligibleEpics.isLoading ? (
+                    <Skeleton className="mt-1 h-10 w-full" />
+                  ) : (
                   <select
                     className={cn(
                       "mt-1 h-10 w-full rounded border px-3 text-sm outline-none transition-colors",
@@ -331,6 +334,7 @@ export function Phase2Workflow() {
                       </option>
                     ))}
                   </select>
+                  )}
                 </label>
                 <div className="flex gap-2">
                   <Button

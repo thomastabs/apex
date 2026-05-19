@@ -47,6 +47,7 @@ import {
   useSaveAiConfig,
   useSaveServerConfig,
   useServerConfig,
+  useStoryIndexStats,
   useStoryStatuses,
   useUpdateContextFile,
   useUpdateEpic,
@@ -60,6 +61,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Epic, Story } from "@/lib/api/types";
 import { ApiError } from "@/lib/api/client";
+import { Skeleton } from "@/components/ui/primitives";
 
 // ── constants ─────────────────────────────────────────────────────────────────
 
@@ -924,6 +926,7 @@ export function Sidebar() {
   const createStory = useCreateStory();
   const deleteStory = useDeleteStory();
   const rebuildIndex = useRebuildStoryIndex();
+  const storyStats = useStoryIndexStats();
   const resetAll = useResetAllContextFiles();
   const saveServerConfig = useSaveServerConfig();
   const aiConfig = useAiConfig();
@@ -1213,7 +1216,40 @@ export function Sidebar() {
                           </button>
                         </div>
                       </div>
-                      {board.data?.map((epic) => (
+                      {storyStats.data && storyStats.data.total > 0 ? (
+                        <div className="rounded border border-neutral-700 bg-neutral-900/60 p-2">
+                          <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-500">Story Progress</div>
+                          <div className="space-y-1">
+                            {(
+                              [
+                                { label: "Phase 2 Designed", count: storyStats.data.phase2_designed },
+                                { label: "Phase 3 Proposed", count: storyStats.data.phase3_proposed },
+                                { label: "Phase 4 Tested",   count: storyStats.data.phase4_tested },
+                                { label: "Phase 5 Deployed", count: storyStats.data.phase5_deployed },
+                              ] as const
+                            ).map(({ label, count }) => (
+                              <div key={label} className="flex items-center gap-2">
+                                <div className="w-24 shrink-0 text-xs text-neutral-400">{label}</div>
+                                <div className="relative h-1.5 flex-1 rounded-full bg-neutral-700">
+                                  <div
+                                    className="absolute inset-y-0 left-0 rounded-full bg-violet-500"
+                                    style={{ width: `${Math.round((count / storyStats.data!.total) * 100)}%` }}
+                                  />
+                                </div>
+                                <div className="w-8 text-right text-xs text-neutral-400">{count}/{storyStats.data.total}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                      {board.isLoading ? (
+                        <div className="space-y-2">
+                          <Skeleton className="h-6 w-3/4" />
+                          <Skeleton className="h-6 w-2/3" />
+                          <Skeleton className="h-6 w-4/5" />
+                        </div>
+                      ) : null}
+                      {!board.isLoading && board.data?.map((epic) => (
                         <div key={epic.id}>
                           <div className="flex w-full items-center gap-1">
                             <button
@@ -1275,7 +1311,7 @@ export function Sidebar() {
                           ) : null}
                         </div>
                       ))}
-                      {!board.data?.length ? <div className="text-neutral-500">No epics yet.</div> : null}
+                      {!board.isLoading && !board.data?.length ? <div className="text-neutral-500">No epics yet.</div> : null}
                     </div>
                   ) : null}
                 </section>

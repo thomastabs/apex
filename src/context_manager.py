@@ -9,6 +9,7 @@ Manages read/write operations on the contextspec/ artefacts:
   story-index.json     — machine-readable index of all stories and their phase status
 """
 
+import contextvars
 import json
 import os
 import re
@@ -19,42 +20,58 @@ from src.storage import StoragePath as Path
 _BASE_CONTEXTSPEC = Path("contextspec")
 _CONFIG_FILE      = _BASE_CONTEXTSPEC / ".apex-config.json"
 
-
-def _build_context_dir(project_id: int) -> Path:
-    return _BASE_CONTEXTSPEC / str(project_id) if project_id else _BASE_CONTEXTSPEC / "default"
-
-
-def _init_paths(project_id: int) -> None:
-    """Update all module-level path constants for the given project and reset caches."""
-    global CONTEXT_DIR, MEMORY_BANK_FILE, FUNCTIONAL_SPEC_FILE, TECHNICAL_SPEC_FILE
-    global VACCINES_FILE, STORY_INDEX_FILE, DRAFT_FILE, DESIGN_DRAFT_FILE, SESSION_FILE
-    global DESIGN_BUNDLE_FILE
-    global _story_index_cache, _context_initialized
-    CONTEXT_DIR          = _build_context_dir(project_id)
-    MEMORY_BANK_FILE     = CONTEXT_DIR / "memory-bank.md"
-    FUNCTIONAL_SPEC_FILE = CONTEXT_DIR / "functional-spec.md"
-    TECHNICAL_SPEC_FILE  = CONTEXT_DIR / "technical-spec.md"
-    VACCINES_FILE        = CONTEXT_DIR / "vaccines.md"
-    STORY_INDEX_FILE     = CONTEXT_DIR / "story-index.json"
-    DRAFT_FILE           = CONTEXT_DIR / ".apex-draft.json"
-    DESIGN_DRAFT_FILE    = CONTEXT_DIR / ".apex-design-draft.json"
-    SESSION_FILE         = CONTEXT_DIR / ".apex-session.json"
-    DESIGN_BUNDLE_FILE   = CONTEXT_DIR / "design-bundle.md"
-    _story_index_cache   = None
-    _context_initialized = False
+# Per-request active project — set by taiga_adapter.set_active_project() via deps.py.
+# Uses ContextVar so concurrent FastAPI requests on different projects are isolated.
+_active_project_id: contextvars.ContextVar[int] = contextvars.ContextVar(
+    "context_manager_project_id",
+    default=int(os.getenv("TAIGA_PROJECT_ID") or "0"),
+)
 
 
-# Module-level cache for the story index — avoids a file read on every sidebar render.
-# Invalidated by _save_story_index() so rebuild/upsert calls always keep it current.
-# WARNING: module-level state is shared across all Streamlit sessions in the same
-# Python process. Fine for single-user use; multi-user deployments need per-session storage.
-_story_index_cache: dict | None = None
+def _get_project_id() -> int:
+    return _active_project_id.get()
 
-# Guards init_context() so filesystem checks run once per process, not on every AI call.
-_context_initialized: bool = False
 
-# Initialise all path globals from env so the correct project dir is used from first import.
-_init_paths(int(os.getenv("TAIGA_PROJECT_ID") or "0"))
+def _context_dir(pid: int | None = None) -> Path:
+    p = pid if pid is not None else _get_project_id()
+    return _BASE_CONTEXTSPEC / str(p) if p else _BASE_CONTEXTSPEC / "default"
+
+
+def _path(filename: str, pid: int | None = None) -> Path:
+    return _context_dir(pid) / filename
+
+
+# Process-scoped per-project caches.  Keyed by project_id so concurrent requests
+# on different projects never share or overwrite each other's in-memory state.
+_story_index_caches:  dict[int, dict | None] = {}
+_initialized_projects: set[int]              = set()
+
+
+def __getattr__(name: str):
+    """Dynamic module attribute access for path constants.
+
+    Allows external code (and legacy tests) to read ctx.MEMORY_BANK_FILE etc. as if
+    they were module globals; each call returns the path for the current ContextVar project.
+    """
+    _filenames: dict[str, str] = {
+        "MEMORY_BANK_FILE":     "memory-bank.md",
+        "FUNCTIONAL_SPEC_FILE": "functional-spec.md",
+        "TECHNICAL_SPEC_FILE":  "technical-spec.md",
+        "VACCINES_FILE":        "vaccines.md",
+        "STORY_INDEX_FILE":     "story-index.json",
+        "DRAFT_FILE":           ".apex-draft.json",
+        "DESIGN_DRAFT_FILE":    ".apex-design-draft.json",
+        "SESSION_FILE":         ".apex-session.json",
+        "DESIGN_BUNDLE_FILE":   "design-bundle.md",
+    }
+    if name in _filenames:
+        return _path(_filenames[name])
+    if name == "CONTEXT_DIR":
+        return _context_dir()
+    if name == "_context_initialized":
+        return _get_project_id() in _initialized_projects
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 _MEMORY_BANK_TEMPLATE = """\
 # Memory Bank
@@ -122,19 +139,19 @@ PHASE_STATUSES = (
 # ---------------------------------------------------------------------------
 
 def set_active_project(project_id: int) -> None:
-    """Switch all context paths to the given Taiga project's subdirectory and reset caches.
+    """Switch the active project for the current request context and reset caches.
 
-    Called by taiga_adapter.set_active_project() whenever the user changes project.
-    Each project gets its own contextspec/<project_id>/ subdirectory so context
+    Sets the ContextVar so all subsequent file operations in this request use
+    contextspec/<project_id>/.  Each project has its own subdirectory so context
     files never bleed across projects.
     """
-    _init_paths(project_id)
+    _active_project_id.set(project_id)
     save_config(project_id)
 
 
 def is_project_selected() -> bool:
     """Return True when a real Taiga project is active (not the fallback default dir)."""
-    return CONTEXT_DIR.name != "default"
+    return _context_dir().name != "default"
 
 
 def save_ai_config(fast_model: str, coder_model: str) -> None:
@@ -172,13 +189,14 @@ def load_config() -> dict:
 
 
 def reset_cache() -> None:
-    """Reset module-level read caches without changing the active project paths.
+    """Reset in-memory caches for the current project without changing active paths.
 
-    Useful when the underlying files may have changed externally (e.g. in tests).
+    Useful when the underlying files may have changed externally (e.g. in tests or
+    after a story index rebuild via the API).
     """
-    global _context_initialized, _story_index_cache
-    _context_initialized = False
-    _story_index_cache   = None
+    pid = _get_project_id()
+    _initialized_projects.discard(pid)
+    _story_index_caches.pop(pid, None)
 
 
 # ---------------------------------------------------------------------------
@@ -187,25 +205,26 @@ def reset_cache() -> None:
 
 def init_context() -> None:
     """Create spec files with standard templates if they do not exist, then run migrations."""
-    global _context_initialized
-    if _context_initialized:
+    pid = _get_project_id()
+    if pid in _initialized_projects:
         return
     if not is_project_selected():
         return  # no project chosen yet — do not create contextspec/default/ files
-    CONTEXT_DIR.mkdir(parents=True, exist_ok=True)
-    for path, template in [
-        (MEMORY_BANK_FILE,     _MEMORY_BANK_TEMPLATE),
-        (FUNCTIONAL_SPEC_FILE, _FUNCTIONAL_SPEC_TEMPLATE),
-        (TECHNICAL_SPEC_FILE,  _TECHNICAL_SPEC_TEMPLATE),
-        (VACCINES_FILE,        _VACCINES_TEMPLATE),
-        (DESIGN_BUNDLE_FILE,   _DESIGN_BUNDLE_TEMPLATE),
+    _context_dir().mkdir(parents=True, exist_ok=True)
+    for filename, template in [
+        ("memory-bank.md",     _MEMORY_BANK_TEMPLATE),
+        ("functional-spec.md", _FUNCTIONAL_SPEC_TEMPLATE),
+        ("technical-spec.md",  _TECHNICAL_SPEC_TEMPLATE),
+        ("vaccines.md",        _VACCINES_TEMPLATE),
+        ("design-bundle.md",   _DESIGN_BUNDLE_TEMPLATE),
     ]:
-        if not path.exists():
-            path.write_text(template, encoding="utf-8")
+        p = _path(filename)
+        if not p.exists():
+            p.write_text(template, encoding="utf-8")
     _migrate_vaccine_records()
-    if not STORY_INDEX_FILE.exists():
+    if not _path("story-index.json").exists():
         rebuild_story_index()
-    _context_initialized = True
+    _initialized_projects.add(pid)
 
 
 def _migrate_vaccine_records() -> None:
@@ -215,10 +234,12 @@ def _migrate_vaccine_records() -> None:
     This function detects it, strips it from memory-bank.md, and moves any real records
     (## Vaccine # entries) into vaccines.md.  Idempotent — safe to call on every init.
     """
-    if not MEMORY_BANK_FILE.exists() or not VACCINES_FILE.exists():
+    mb = _path("memory-bank.md")
+    vx = _path("vaccines.md")
+    if not mb.exists() or not vx.exists():
         return
 
-    content = MEMORY_BANK_FILE.read_text(encoding="utf-8")
+    content = mb.read_text(encoding="utf-8")
     heading_pos = content.find("\n# Vaccine Records")
     if heading_pos == -1:
         return  # already migrated or never had the section
@@ -230,12 +251,12 @@ def _migrate_vaccine_records() -> None:
     if prefix.endswith("---"):
         prefix = prefix[:-3].rstrip()
 
-    MEMORY_BANK_FILE.write_text(prefix + "\n", encoding="utf-8")
+    mb.write_text(prefix + "\n", encoding="utf-8")
 
     records_match = re.search(r"## Vaccine #.*", vaccine_section, re.DOTALL)
     if records_match:
-        vaccines_content = VACCINES_FILE.read_text(encoding="utf-8")
-        VACCINES_FILE.write_text(
+        vaccines_content = vx.read_text(encoding="utf-8")
+        vx.write_text(
             vaccines_content.rstrip() + "\n" + records_match.group(0).rstrip() + "\n",
             encoding="utf-8",
         )
@@ -291,20 +312,23 @@ def _join(*parts: str) -> str:
 def get_memory_bank() -> str:
     """Return memory-bank.md content (architecture rules only, without Vaccine Records)."""
     init_context()
-    return MEMORY_BANK_FILE.read_text(encoding="utf-8").strip() if MEMORY_BANK_FILE.exists() else ""
+    mb = _path("memory-bank.md")
+    return mb.read_text(encoding="utf-8").strip() if mb.exists() else ""
 
 
 def get_vaccines() -> str:
     """Return vaccines.md content."""
     init_context()
-    return VACCINES_FILE.read_text(encoding="utf-8").strip() if VACCINES_FILE.exists() else ""
+    vx = _path("vaccines.md")
+    return vx.read_text(encoding="utf-8").strip() if vx.exists() else ""
 
 
 def get_project_concept() -> str:
     """Return the Project Concept section from memory-bank.md, or '' if not set."""
-    if not MEMORY_BANK_FILE.exists():
+    mb = _path("memory-bank.md")
+    if not mb.exists():
         return ""
-    content = MEMORY_BANK_FILE.read_text(encoding="utf-8")
+    content = mb.read_text(encoding="utf-8")
     match = re.search(
         r"^##\s+Project\s+Concept[^\n]*\n(.*?)(?=^##\s|\Z)",
         content,
@@ -321,9 +345,10 @@ def get_project_concept() -> str:
 def get_story_gherkin(story_id: int) -> str:
     """Extract the Gherkin block for a specific story from functional-spec.md."""
     init_context()
-    if not FUNCTIONAL_SPEC_FILE.exists():
+    fs = _path("functional-spec.md")
+    if not fs.exists():
         return ""
-    content = FUNCTIONAL_SPEC_FILE.read_text(encoding="utf-8")
+    content = fs.read_text(encoding="utf-8")
     # Try nested (### under an Epic) format first, then legacy flat ## format.
     for pattern in (
         rf"### Story {story_id}:.*?(?=\n### |\n## |\Z)",
@@ -341,9 +366,10 @@ def get_story_technical_spec(story_id: int) -> str:
     Handles both nested (### under ## Epic) and flat formats.
     """
     init_context()
-    if not TECHNICAL_SPEC_FILE.exists():
+    ts = _path("technical-spec.md")
+    if not ts.exists():
         return ""
-    content = TECHNICAL_SPEC_FILE.read_text(encoding="utf-8")
+    content = ts.read_text(encoding="utf-8")
     pattern = rf"### Technical Spec — Story {story_id}.*?(?=\n## |\n### |\Z)"
     match = re.search(pattern, content, re.DOTALL)
     return match.group(0).strip() if match else ""
@@ -352,14 +378,14 @@ def get_story_technical_spec(story_id: int) -> str:
 def get_context_sizes() -> dict[str, int]:
     """Return character counts for each context file (used for sidebar size indicator)."""
     return {
-        name: (len(path.read_text(encoding="utf-8")) if path.exists() else 0)
-        for name, path in [
-            ("memory-bank.md",     MEMORY_BANK_FILE),
-            ("functional-spec.md", FUNCTIONAL_SPEC_FILE),
-            ("technical-spec.md",  TECHNICAL_SPEC_FILE),
-            ("vaccines.md",        VACCINES_FILE),
-            ("design-bundle.md",   DESIGN_BUNDLE_FILE),
-        ]
+        name: (len(_path(name).read_text(encoding="utf-8")) if _path(name).exists() else 0)
+        for name in (
+            "memory-bank.md",
+            "functional-spec.md",
+            "technical-spec.md",
+            "vaccines.md",
+            "design-bundle.md",
+        )
     }
 
 
@@ -369,18 +395,20 @@ def get_context_sizes() -> dict[str, int]:
 
 def get_story_index() -> dict[str, dict]:
     """Return the story index as {str(story_id): entry_dict}."""
-    global _story_index_cache
-    if _story_index_cache is None:
-        if not STORY_INDEX_FILE.exists():
+    pid = _get_project_id()
+    cached = _story_index_caches.get(pid)
+    if cached is None:
+        sif = _path("story-index.json")
+        if not sif.exists():
             return {}
-        _story_index_cache = json.loads(STORY_INDEX_FILE.read_text(encoding="utf-8"))
-    return _story_index_cache
+        _story_index_caches[pid] = json.loads(sif.read_text(encoding="utf-8"))
+    return _story_index_caches[pid]
 
 
 def _save_story_index(index: dict[str, dict]) -> None:
-    global _story_index_cache
-    _story_index_cache = index
-    STORY_INDEX_FILE.write_text(
+    pid = _get_project_id()
+    _story_index_caches[pid] = index
+    _path("story-index.json").write_text(
         json.dumps(index, indent=2, ensure_ascii=False, sort_keys=True),
         encoding="utf-8",
     )
@@ -416,27 +444,30 @@ def upsert_story_index(story_id: int, **updates) -> None:
 def remove_story_from_specs(story_id: int) -> None:
     """Remove a story's blocks from functional-spec.md, technical-spec.md,
     and delete its proposal and BDD files."""
-    if FUNCTIONAL_SPEC_FILE.exists():
-        content = FUNCTIONAL_SPEC_FILE.read_text(encoding="utf-8")
+    fs = _path("functional-spec.md")
+    if fs.exists():
+        content = fs.read_text(encoding="utf-8")
         content = re.sub(
             rf"\n### Story {story_id}:.*?(?=\n### |\n## |\Z)", "", content, flags=re.DOTALL,
         )
         content = re.sub(
             rf"\n## Story {story_id}:.*?(?=\n## |\Z)", "", content, flags=re.DOTALL,
         )
-        FUNCTIONAL_SPEC_FILE.write_text(content, encoding="utf-8")
-    if TECHNICAL_SPEC_FILE.exists():
-        content = TECHNICAL_SPEC_FILE.read_text(encoding="utf-8")
+        fs.write_text(content, encoding="utf-8")
+    ts = _path("technical-spec.md")
+    if ts.exists():
+        content = ts.read_text(encoding="utf-8")
         content = re.sub(
             rf"\n### Technical Spec — Story {story_id}.*?(?=\n## |\n### |\Z)",
             "", content, flags=re.DOTALL,
         )
-        TECHNICAL_SPEC_FILE.write_text(content, encoding="utf-8")
-    if CONTEXT_DIR.exists():
-        for path in CONTEXT_DIR.iterdir():
-            if path.name.startswith(f"proposal_story_{story_id}_"):
-                path.unlink(missing_ok=True)
-        (CONTEXT_DIR / f"bdd_story_{story_id}.feature").unlink(missing_ok=True)
+        ts.write_text(content, encoding="utf-8")
+    cd = _context_dir()
+    if cd.exists():
+        for p in cd.iterdir():
+            if p.name.startswith(f"proposal_story_{story_id}_"):
+                p.unlink(missing_ok=True)
+        (cd / f"bdd_story_{story_id}.feature").unlink(missing_ok=True)
 
 
 def remove_story_index_entries(story_ids: list[int]) -> None:
@@ -461,7 +492,7 @@ def remove_epic_from_story_index(epic_id: int) -> None:
         del index[k]
     _save_story_index(index)
     # Remove ## Epic N: section (contains all nested stories) from both spec files
-    for spec_file in (FUNCTIONAL_SPEC_FILE, TECHNICAL_SPEC_FILE):
+    for spec_file in (_path("functional-spec.md"), _path("technical-spec.md")):
         if spec_file.exists():
             content = spec_file.read_text(encoding="utf-8")
             content = re.sub(
@@ -469,19 +500,21 @@ def remove_epic_from_story_index(epic_id: int) -> None:
             )
             spec_file.write_text(content, encoding="utf-8")
     # Remove this epic's section from design-bundle.md
-    if DESIGN_BUNDLE_FILE.exists():
-        bundle_content = DESIGN_BUNDLE_FILE.read_text(encoding="utf-8")
+    db = _path("design-bundle.md")
+    if db.exists():
+        bundle_content = db.read_text(encoding="utf-8")
         bundle_content = re.sub(
             rf"\n## Epic {epic_id}:.*?(?=\n## |\Z)", "", bundle_content, flags=re.DOTALL,
         )
-        DESIGN_BUNDLE_FILE.write_text(bundle_content, encoding="utf-8")
+        db.write_text(bundle_content, encoding="utf-8")
     # Delete loose files for each story
-    if CONTEXT_DIR.exists():
+    cd = _context_dir()
+    if cd.exists():
         for story_id in story_ids:
-            for path in CONTEXT_DIR.iterdir():
-                if path.name.startswith(f"proposal_story_{story_id}_"):
-                    path.unlink(missing_ok=True)
-            (CONTEXT_DIR / f"bdd_story_{story_id}.feature").unlink(missing_ok=True)
+            for p in cd.iterdir():
+                if p.name.startswith(f"proposal_story_{story_id}_"):
+                    p.unlink(missing_ok=True)
+            (cd / f"bdd_story_{story_id}.feature").unlink(missing_ok=True)
 
 
 def rebuild_story_index() -> dict[str, dict]:
@@ -493,12 +526,14 @@ def rebuild_story_index() -> dict[str, dict]:
 
     Safe to call at any time — replaces the existing index entirely.
     """
-    CONTEXT_DIR.mkdir(parents=True, exist_ok=True)
+    cd = _context_dir()
+    cd.mkdir(parents=True, exist_ok=True)
     index: dict[str, dict] = {}
 
     # ── Parse functional-spec.md ────────────────────────────────────────────
-    if FUNCTIONAL_SPEC_FILE.exists():
-        content = FUNCTIONAL_SPEC_FILE.read_text(encoding="utf-8")
+    fs = _path("functional-spec.md")
+    if fs.exists():
+        content = fs.read_text(encoding="utf-8")
         current_epic_id: int | None = None
 
         for line in content.splitlines():
@@ -538,8 +573,9 @@ def rebuild_story_index() -> dict[str, dict]:
                     }
 
     # ── Cross-reference technical-spec.md ───────────────────────────────────
-    if TECHNICAL_SPEC_FILE.exists():
-        tech = TECHNICAL_SPEC_FILE.read_text(encoding="utf-8")
+    ts = _path("technical-spec.md")
+    if ts.exists():
+        tech = ts.read_text(encoding="utf-8")
         # Legacy per-story format: ### Technical Spec ... Story {id}
         for m in re.finditer(r"### Technical Spec.*?Story (\d+)", tech):
             sid = str(int(m.group(1)))
@@ -557,11 +593,10 @@ def rebuild_story_index() -> dict[str, dict]:
                         entry["phase_status"] = "design_locked"
 
     # ── Cross-reference proposal_story_*_task_*.md files ────────────────────
-    for path in CONTEXT_DIR.iterdir():
-        if path.name.startswith("proposal_story_") and path.suffix == ".md":
+    for p in cd.iterdir():
+        if p.name.startswith("proposal_story_") and p.suffix == ".md":
             try:
-                # Format: proposal_story_{story_id}_task_{task_id}.md
-                stem_parts = path.stem.split("_")
+                stem_parts = p.stem.split("_")
                 story_part_idx = stem_parts.index("story")
                 sid = str(int(stem_parts[story_part_idx + 1]))
                 if sid in index:
@@ -572,10 +607,10 @@ def rebuild_story_index() -> dict[str, dict]:
                 pass
 
     # ── Cross-reference bdd_story_*.feature files ────────────────────────────
-    for path in CONTEXT_DIR.iterdir():
-        if path.name.startswith("bdd_story_") and path.suffix == ".feature":
+    for p in cd.iterdir():
+        if p.name.startswith("bdd_story_") and p.suffix == ".feature":
             try:
-                sid = str(int(path.stem.removeprefix("bdd_story_")))
+                sid = str(int(p.stem.removeprefix("bdd_story_")))
                 if sid in index:
                     index[sid]["has_bdd"] = True
                     if index[sid]["phase_status"] in ("gherkin_locked", "design_locked", "implementation"):
@@ -600,9 +635,9 @@ def read_context() -> str:
     """
     init_context()
     return "\n\n---\n\n".join(
-        p.read_text(encoding="utf-8")
-        for p in (MEMORY_BANK_FILE, FUNCTIONAL_SPEC_FILE, TECHNICAL_SPEC_FILE, VACCINES_FILE)
-        if p.exists()
+        _path(name).read_text(encoding="utf-8")
+        for name in ("memory-bank.md", "functional-spec.md", "technical-spec.md", "vaccines.md")
+        if _path(name).exists()
     )
 
 
@@ -624,7 +659,8 @@ def append_gherkin(
     otherwise a legacy flat ## Story block is written.
     """
     init_context()
-    content = FUNCTIONAL_SPEC_FILE.read_text(encoding="utf-8")
+    fs = _path("functional-spec.md")
+    content = fs.read_text(encoding="utf-8")
 
     # Remove any previous entry for this story (handles both format versions).
     content = re.sub(rf"\n### Story {story_id}:.*?(?=\n### |\n## |\Z)", "", content, flags=re.DOTALL)
@@ -653,7 +689,7 @@ def append_gherkin(
         )
         content = content.rstrip() + "\n" + block
 
-    FUNCTIONAL_SPEC_FILE.write_text(content, encoding="utf-8")
+    fs.write_text(content, encoding="utf-8")
     upsert_story_index(
         story_id,
         epic_id=epic_id,
@@ -676,7 +712,8 @@ def append_technical_spec(
     mirroring the structure of functional-spec.md for consistent retrieval.
     """
     init_context()
-    content = TECHNICAL_SPEC_FILE.read_text(encoding="utf-8")
+    ts = _path("technical-spec.md")
+    content = ts.read_text(encoding="utf-8")
 
     # Remove any previous entry for this story.
     content = re.sub(
@@ -701,14 +738,15 @@ def append_technical_spec(
     else:
         content = content.rstrip() + "\n" + tech_block
 
-    TECHNICAL_SPEC_FILE.write_text(content, encoding="utf-8")
+    ts.write_text(content, encoding="utf-8")
     upsert_story_index(story_id, has_tech_spec=True, phase_status="design_locked")
 
 
 def append_vaccine_record(issue_id: int, root_cause: str, resolution_summary: str) -> None:
     """Append a permanent Vaccine Record for a resolved bug to vaccines.md."""
     init_context()
-    content = VACCINES_FILE.read_text(encoding="utf-8")
+    vx = _path("vaccines.md")
+    content = vx.read_text(encoding="utf-8")
 
     record = (
         f"\n## Vaccine #{issue_id} — {_now()}\n\n"
@@ -716,8 +754,7 @@ def append_vaccine_record(issue_id: int, root_cause: str, resolution_summary: st
         f"**Resolution:** {resolution_summary.strip()}\n"
     )
 
-    content = content.rstrip() + "\n" + record + "\n"
-    VACCINES_FILE.write_text(content, encoding="utf-8")
+    vx.write_text(content.rstrip() + "\n" + record + "\n", encoding="utf-8")
 
 
 def save_proposal(story_id: int, task_id: int, proposal: str) -> Path:
@@ -726,82 +763,94 @@ def save_proposal(story_id: int, task_id: int, proposal: str) -> Path:
     Encoding story_id in the filename lets rebuild_story_index() recover has_proposal
     state without requiring a separate metadata file.
     """
-    CONTEXT_DIR.mkdir(parents=True, exist_ok=True)
-    path = CONTEXT_DIR / f"proposal_story_{story_id}_task_{task_id}.md"
-    path.write_text(proposal, encoding="utf-8")
+    cd = _context_dir()
+    cd.mkdir(parents=True, exist_ok=True)
+    p = cd / f"proposal_story_{story_id}_task_{task_id}.md"
+    p.write_text(proposal, encoding="utf-8")
     upsert_story_index(story_id, has_proposal=True)
-    return path
+    return p
 
 
 def save_bdd_tests(story_id: int, test_script: str) -> Path:
     """Save BDD test scripts to contextspec/bdd_story_<id>.feature and return the path."""
-    CONTEXT_DIR.mkdir(parents=True, exist_ok=True)
-    path = CONTEXT_DIR / f"bdd_story_{story_id}.feature"
-    path.write_text(test_script, encoding="utf-8")
+    cd = _context_dir()
+    cd.mkdir(parents=True, exist_ok=True)
+    p = cd / f"bdd_story_{story_id}.feature"
+    p.write_text(test_script, encoding="utf-8")
     upsert_story_index(story_id, has_bdd=True, phase_status="qa")
-    return path
+    return p
 
 
 def load_session() -> dict:
     """Return the persisted apex session dict, or {} if missing or corrupt."""
-    if not SESSION_FILE.exists():
+    sf = _path("session.json")
+    if not sf.exists():
+        sf = _path(".apex-session.json")  # legacy name
+    if not sf.exists():
         return {}
     try:
-        return json.loads(SESSION_FILE.read_text(encoding="utf-8"))
+        return json.loads(sf.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return {}
 
 
 def save_session(updates: dict) -> None:
     """Merge updates into the persisted session file."""
-    CONTEXT_DIR.mkdir(parents=True, exist_ok=True)
+    cd = _context_dir()
+    cd.mkdir(parents=True, exist_ok=True)
     data = load_session()
     data.update(updates)
-    SESSION_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    _path(".apex-session.json").write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def save_draft(data: dict) -> None:
     """Persist the current Phase 1 elaboration state so it survives a page refresh."""
-    CONTEXT_DIR.mkdir(parents=True, exist_ok=True)
-    DRAFT_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    cd = _context_dir()
+    cd.mkdir(parents=True, exist_ok=True)
+    _path(".apex-draft.json").write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def load_draft() -> dict | None:
     """Return the persisted draft data, or None if no draft exists or it is corrupt."""
-    if not DRAFT_FILE.exists():
+    df = _path(".apex-draft.json")
+    if not df.exists():
         return None
     try:
-        return json.loads(DRAFT_FILE.read_text(encoding="utf-8"))
+        return json.loads(df.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return None
 
 
 def clear_draft() -> None:
     """Delete the draft file (called after a successful push or manual reset)."""
-    if DRAFT_FILE.exists():
-        DRAFT_FILE.unlink()
+    df = _path(".apex-draft.json")
+    if df.exists():
+        df.unlink()
 
 
 def save_design_draft(data: dict) -> None:
     """Persist the current Phase 2 design state so it survives a page refresh."""
-    CONTEXT_DIR.mkdir(parents=True, exist_ok=True)
-    DESIGN_DRAFT_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    cd = _context_dir()
+    cd.mkdir(parents=True, exist_ok=True)
+    _path(".apex-design-draft.json").write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def load_design_draft() -> dict | None:
     """Return the persisted Phase 2 design draft, or None if absent or corrupt."""
-    if not DESIGN_DRAFT_FILE.exists():
+    dd = _path(".apex-design-draft.json")
+    if not dd.exists():
         return None
     try:
-        return json.loads(DESIGN_DRAFT_FILE.read_text(encoding="utf-8"))
+        return json.loads(dd.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return None
 
 
 def clear_design_draft() -> None:
     """Delete the Phase 2 design draft file."""
-    if DESIGN_DRAFT_FILE.exists():
-        DESIGN_DRAFT_FILE.unlink()
+    dd = _path(".apex-design-draft.json")
+    if dd.exists():
+        dd.unlink()
 
 
 def append_epic_design_bundle(
@@ -818,9 +867,10 @@ def append_epic_design_bundle(
     so they survive navigate-away and container restarts.
     """
     init_context()
+    db = _path("design-bundle.md")
     content = (
-        DESIGN_BUNDLE_FILE.read_text(encoding="utf-8")
-        if DESIGN_BUNDLE_FILE.exists()
+        db.read_text(encoding="utf-8")
+        if db.exists()
         else "# Design Bundles\n\n"
     )
     content = re.sub(
@@ -838,15 +888,16 @@ def append_epic_design_bundle(
         f"### Technical Spec\n\n"
         f"```yaml\n{tech_spec.strip()}\n```\n"
     )
-    DESIGN_BUNDLE_FILE.write_text(content.rstrip() + "\n" + block, encoding="utf-8")
+    db.write_text(content.rstrip() + "\n" + block, encoding="utf-8")
 
 
 def get_epic_design_bundle(epic_id: int) -> dict | None:
     """Return the saved design bundle for an epic, or None if not yet saved."""
     init_context()
-    if not DESIGN_BUNDLE_FILE.exists():
+    db = _path("design-bundle.md")
+    if not db.exists():
         return None
-    content = DESIGN_BUNDLE_FILE.read_text(encoding="utf-8")
+    content = db.read_text(encoding="utf-8")
     match = re.search(
         rf"\n## Epic {epic_id}:.*?(?=\n## |\Z)", content, flags=re.DOTALL,
     )
@@ -866,17 +917,22 @@ def get_epic_design_bundle(epic_id: int) -> dict | None:
     }
 
 
+_CROSS_EPIC_CONTEXT_CHAR_LIMIT = 50_000
+
+
 def get_other_epics_design_context(exclude_epic_id: int) -> str:
     """Return a prompt-ready block of all saved design bundles except exclude_epic_id.
 
     Used by the AI to maintain cross-epic consistency — components, wireframe patterns,
     and user flows from already-locked epics are injected as binding constraints.
     Returns empty string when no other epics have saved designs.
+    Truncated to _CROSS_EPIC_CONTEXT_CHAR_LIMIT chars to avoid overflowing the LLM context window.
     """
     init_context()
-    if not DESIGN_BUNDLE_FILE.exists():
+    db = _path("design-bundle.md")
+    if not db.exists():
         return ""
-    content = DESIGN_BUNDLE_FILE.read_text(encoding="utf-8")
+    content = db.read_text(encoding="utf-8")
 
     # Find all epic block boundaries (start positions + ids + titles)
     headers = list(re.finditer(r"\n## Epic (\d+): (.+?)\n", content))
@@ -885,7 +941,7 @@ def get_other_epics_design_context(exclude_epic_id: int) -> str:
 
     component_sections: list[str] = []
     wireframe_sections: list[str] = []
-    flow_sections: list[str] = []
+    flow_sections:      list[str] = []
 
     for i, header in enumerate(headers):
         epic_id = int(header.group(1))
@@ -933,7 +989,8 @@ def get_other_epics_design_context(exclude_epic_id: int) -> str:
             " (new flows must connect coherently — reuse shared states/nodes):**\n"
             + "\n\n".join(flow_sections)
         )
-    return "\n\n".join(parts)
+    result = "\n\n".join(parts)
+    return result[:_CROSS_EPIC_CONTEXT_CHAR_LIMIT]
 
 
 def write_tech_stack(tech_stack: str) -> None:
@@ -968,7 +1025,8 @@ def append_epic_technical_spec(
     Transitions all story_ids to design_locked in the story index.
     """
     init_context()
-    content = TECHNICAL_SPEC_FILE.read_text(encoding="utf-8")
+    ts = _path("technical-spec.md")
+    content = ts.read_text(encoding="utf-8")
 
     # Remove existing block for this epic (header through next ## or EOF).
     content = re.sub(
@@ -984,7 +1042,7 @@ def append_epic_technical_spec(
         f"**Locked at:** {_now()}\n\n"
         f"```yaml\n{spec.strip()}\n```\n"
     )
-    TECHNICAL_SPEC_FILE.write_text(content.rstrip() + "\n" + block, encoding="utf-8")
+    ts.write_text(content.rstrip() + "\n" + block, encoding="utf-8")
 
     for story_id in story_ids:
         upsert_story_index(story_id, phase_status="design_locked", has_tech_spec=True)
@@ -1027,14 +1085,14 @@ _TEMPLATES: dict[str, str] = {
 def read_context_file(filename: str) -> str:
     """Return the content of a named context file, or '' if missing."""
     init_context()
-    path = CONTEXT_DIR / filename
-    return path.read_text(encoding="utf-8").strip() if path.exists() else ""
+    p = _path(filename)
+    return p.read_text(encoding="utf-8").strip() if p.exists() else ""
 
 
 def write_context_file(filename: str, content: str) -> None:
     """Overwrite a named context file with new content."""
     init_context()
-    (CONTEXT_DIR / filename).write_text(content, encoding="utf-8")
+    _path(filename).write_text(content, encoding="utf-8")
 
 
 def reset_context_file(filename: str) -> None:
@@ -1042,9 +1100,9 @@ def reset_context_file(filename: str) -> None:
     template = _TEMPLATES.get(filename)
     if template is None:
         return
-    path = CONTEXT_DIR / filename
-    if path.exists():
-        path.write_text(template, encoding="utf-8")
+    p = _path(filename)
+    if p.exists():
+        p.write_text(template, encoding="utf-8")
     reset_cache()
 
 
@@ -1054,16 +1112,13 @@ def reset_context() -> None:
     Intended for test/demo purposes only — all locked Gherkin, technical specs,
     vaccine records, and index entries are permanently erased.
     """
-    global _context_initialized
-    CONTEXT_DIR.mkdir(parents=True, exist_ok=True)
-    MEMORY_BANK_FILE.write_text(_MEMORY_BANK_TEMPLATE,       encoding="utf-8")
-    FUNCTIONAL_SPEC_FILE.write_text(_FUNCTIONAL_SPEC_TEMPLATE, encoding="utf-8")
-    TECHNICAL_SPEC_FILE.write_text(_TECHNICAL_SPEC_TEMPLATE,  encoding="utf-8")
-    VACCINES_FILE.write_text(_VACCINES_TEMPLATE,             encoding="utf-8")
-    DESIGN_BUNDLE_FILE.write_text(_DESIGN_BUNDLE_TEMPLATE,   encoding="utf-8")
+    pid = _get_project_id()
+    _context_dir().mkdir(parents=True, exist_ok=True)
+    for filename, template in _TEMPLATES.items():
+        _path(filename).write_text(template, encoding="utf-8")
     _save_story_index({})
     clear_draft()
-    _context_initialized = False
+    _initialized_projects.discard(pid)
 
 
 def _now() -> str:
