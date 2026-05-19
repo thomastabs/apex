@@ -340,18 +340,27 @@ export function Phase2Workflow() {
                   <Button
                     className="flex-1"
                     disabled={busy || !selectedEpic}
-                    onClick={() =>
-                      selectedEpic &&
-                      generateBundle.mutate(
-                        { epic_id: selectedEpic.epic_id },
-                        {
-                          onSuccess: (bundle) => {
-                            setDesignBundle(bundle);
-                            toast.success("Design bundle generated");
+                    onClick={() => {
+                      if (!selectedEpic) return;
+                      const doGenerate = () =>
+                        generateBundle.mutate(
+                          { epic_id: selectedEpic.epic_id },
+                          {
+                            onSuccess: (bundle) => {
+                              setDesignBundle(bundle);
+                              toast.success("Design bundle generated");
+                            },
                           },
-                        },
-                      )
-                    }
+                        );
+                      if (selectedEpic.phase_status === "design_locked") {
+                        toast.warning("This epic's design is already locked. Regenerating will overwrite it — save & lock again to confirm.", {
+                          action: { label: "Regenerate", onClick: doGenerate },
+                          duration: 8000,
+                        });
+                      } else {
+                        doGenerate();
+                      }
+                    }}
                   >
                     <Sparkles className="size-4" />
                     Generate
@@ -479,11 +488,11 @@ export function Phase2Workflow() {
 
                 <div className={cn("flex flex-wrap items-center gap-4 rounded-md border p-4", cardClass)}>
                   <label className={cn("inline-flex items-center gap-2 text-sm", labelClass)}>
-                    <input type="checkbox" checked={designLeadApproved} onChange={(event) => setDesignLeadApproved(event.target.checked)} />
+                    <input type="checkbox" checked={designLeadApproved} disabled={busy} onChange={(event) => setDesignLeadApproved(event.target.checked)} />
                     Design Lead Approval (UX & Flows)
                   </label>
                   <label className={cn("inline-flex items-center gap-2 text-sm", labelClass)}>
-                    <input type="checkbox" checked={techLeadApproved} onChange={(event) => setTechLeadApproved(event.target.checked)} />
+                    <input type="checkbox" checked={techLeadApproved} disabled={busy} onChange={(event) => setTechLeadApproved(event.target.checked)} />
                     Tech Lead Approval (Specs & Architecture)
                   </label>
                   <Button

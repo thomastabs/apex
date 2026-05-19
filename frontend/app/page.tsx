@@ -4,6 +4,8 @@ import Link from "next/link";
 import { CheckCircle2, Code2, Compass, FileText, Rocket, Wrench } from "lucide-react";
 import { PhaseCard } from "@/components/phase-card";
 import { useSessionStore } from "@/lib/stores/session-store";
+import { useStoryIndexStats } from "@/lib/hooks/use-workspace";
+import { useTechStackStatus } from "@/lib/hooks/use-phase2";
 
 const phases = [
   {
@@ -17,7 +19,7 @@ const phases = [
     href: "/phase2",
     phase: "Phase 2",
     title: "Design",
-    description: "Technical architecture & specifications for each user story",
+    description: "Technical architecture & specifications for each epic",
     icon: Compass,
   },
   {
@@ -56,6 +58,24 @@ export default function HomePage() {
   const projectName = useSessionStore((s) => s.projectName);
   const isAuthenticated = Boolean(taigaToken);
   const hasProject = Boolean(taigaToken && projectId);
+
+  const storyStats = useStoryIndexStats();
+  const techStack = useTechStackStatus();
+
+  function phaseBadge(phaseHref: string): string | undefined {
+    if (!hasProject) return undefined;
+    const stats = storyStats.data;
+    if (phaseHref === "/phase1" && stats) return `${stats.total} stories`;
+    if (phaseHref === "/phase2" && stats && stats.total > 0) {
+      const pct = Math.round((stats.phase2_designed / stats.total) * 100);
+      const stack = techStack.data?.defined ? " · stack ✓" : "";
+      return `${stats.phase2_designed}/${stats.total} designed${stack}`;
+    }
+    if (phaseHref === "/phase3" && stats && stats.total > 0) return `${stats.phase3_proposed}/${stats.total} ready`;
+    if (phaseHref === "/phase4" && stats && stats.total > 0) return `${stats.phase4_tested}/${stats.total} tested`;
+    if (phaseHref === "/phase5" && stats && stats.total > 0) return `${stats.phase5_deployed}/${stats.total} deployed`;
+    return undefined;
+  }
 
   return (
     <section className="px-8 py-8">
@@ -111,7 +131,7 @@ export default function HomePage() {
         </h2>
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
           {phases.map((phase) => (
-            <PhaseCard key={phase.href} {...phase} />
+            <PhaseCard key={phase.href} {...phase} badge={phaseBadge(phase.href)} />
           ))}
         </div>
       </div>

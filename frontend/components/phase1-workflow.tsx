@@ -31,22 +31,31 @@ function draftKey(projectId: number | null) {
   return `apex-phase1-draft-${projectId ?? "none"}`;
 }
 
-function loadDraft(projectId: number | null): { nlDraft: string; compiledStories: CompiledStory[] } | null {
+type Draft = {
+  nlDraft: string;
+  compiledStories: CompiledStory[];
+  mode: Mode;
+  epicTitle: string;
+  epicDescription: string;
+  epicId: number | null;
+};
+
+function loadDraft(projectId: number | null): Draft | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(draftKey(projectId));
-    return raw ? (JSON.parse(raw) as { nlDraft: string; compiledStories: CompiledStory[] }) : null;
+    return raw ? (JSON.parse(raw) as Draft) : null;
   } catch {
     return null;
   }
 }
 
-function saveDraft(projectId: number | null, nlDraft: string, compiledStories: CompiledStory[]) {
+function saveDraft(projectId: number | null, draft: Draft) {
   if (typeof window === "undefined") return;
-  if (!nlDraft && !compiledStories.length) {
+  if (!draft.nlDraft && !draft.compiledStories.length && !draft.epicTitle) {
     localStorage.removeItem(draftKey(projectId));
   } else {
-    localStorage.setItem(draftKey(projectId), JSON.stringify({ nlDraft, compiledStories }));
+    localStorage.setItem(draftKey(projectId), JSON.stringify(draft));
   }
 }
 
@@ -179,14 +188,18 @@ export function Phase1Workflow() {
     if (saved) {
       setNlDraft(saved.nlDraft);
       setCompiledStories(saved.compiledStories);
+      if (saved.mode) setMode(saved.mode);
+      if (saved.epicTitle) setEpicTitle(saved.epicTitle);
+      if (saved.epicDescription) setEpicDescription(saved.epicDescription);
+      if (saved.epicId !== undefined) setEpicId(saved.epicId);
     }
     draftRestored.current = true;
   }, [context?.projectId]);
 
   // Persist draft whenever it changes
   useEffect(() => {
-    saveDraft(context?.projectId ?? null, nlDraft, compiledStories);
-  }, [context?.projectId, nlDraft, compiledStories]);
+    saveDraft(context?.projectId ?? null, { nlDraft, compiledStories, mode, epicTitle, epicDescription, epicId });
+  }, [context?.projectId, nlDraft, compiledStories, mode, epicTitle, epicDescription, epicId]);
 
   const memoryBank = contextFiles.data?.files.find((f) => f.filename === "memory-bank.md")?.content ?? "";
   const hasProjectConcept = useMemo(() => {

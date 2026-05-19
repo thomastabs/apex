@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { useUiStore } from "@/lib/stores/ui-store";
 
 type Props = {
   content: string;
@@ -29,13 +30,14 @@ function MermaidDiagram({ diagram }: { diagram: string }) {
   const id = useId().replace(/:/g, "");
   const ref = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const dark = useUiStore((s) => s.theme) === "dark";
 
   useEffect(() => {
     let cancelled = false;
     async function render() {
       try {
         const mermaid = (await import("mermaid")).default;
-        mermaid.initialize({ startOnLoad: false, theme: "dark", securityLevel: "loose" });
+        mermaid.initialize({ startOnLoad: false, theme: dark ? "dark" : "default", securityLevel: "loose" });
         const { svg } = await mermaid.render(`mermaid-${id}`, diagram);
         if (!cancelled && ref.current) {
           ref.current.innerHTML = svg;
@@ -46,7 +48,7 @@ function MermaidDiagram({ diagram }: { diagram: string }) {
     }
     void render();
     return () => { cancelled = true; };
-  }, [diagram, id]);
+  }, [diagram, id, dark]);
 
   if (error) {
     return (

@@ -7,12 +7,14 @@ export function PhaseCard({
   title,
   description,
   icon: Icon,
+  badge,
 }: {
   href: string;
   phase: string;
   title: string;
   description: string;
   icon: LucideIcon;
+  badge?: string;
 }) {
   return (
     <Link
@@ -21,8 +23,15 @@ export function PhaseCard({
     >
       <div className="mb-6 flex items-start gap-4">
         <Icon className="mt-1 size-5 shrink-0 text-violet-400" />
-        <div>
-          <div className="text-xs font-bold text-violet-400">{phase}</div>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-violet-400">{phase}</span>
+            {badge ? (
+              <span className="rounded border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-400">
+                {badge}
+              </span>
+            ) : null}
+          </div>
           <div className="text-base font-bold text-white">{title}</div>
         </div>
       </div>

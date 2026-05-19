@@ -58,6 +58,7 @@ import {
 } from "@/lib/hooks/use-workspace";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
+import { usePhase2Store } from "@/lib/stores/phase2-store";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Epic, Story } from "@/lib/api/types";
@@ -888,6 +889,7 @@ export function Sidebar() {
   const projectId = useSessionStore((state) => state.projectId);
   const projectName = useSessionStore((state) => state.projectName);
   const setProject = useSessionStore((state) => state.setProject);
+  const clearPhase2Draft = usePhase2Store((state) => state.clearPhase2Draft);
 
   useRestoreSession();
   useRestoreProjectConfig();
@@ -1142,9 +1144,11 @@ export function Sidebar() {
                         value={projectId ?? ""}
                         onChange={(e) => {
                           const selected = projectOptions.find((p) => p.id === Number(e.target.value));
-                          if (selected) {
+                          if (selected && selected.id !== projectId) {
                             setProject({ projectId: selected.id, projectName: selected.name });
                             saveServerConfig.mutate(selected.id);
+                            clearPhase2Draft();
+                            toast.info(`Switched to ${selected.name} — Phase 2 draft cleared`);
                           }
                         }}
                       >
@@ -1221,8 +1225,8 @@ export function Sidebar() {
                         </div>
                       </div>
                       {storyStats.data && storyStats.data.total > 0 ? (
-                        <div className="rounded border border-neutral-700 bg-neutral-900/60 p-2">
-                          <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-500">Story Progress</div>
+                        <div className={cn("rounded border p-2", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
+                          <div className={cn("mb-1.5 text-xs font-semibold uppercase tracking-wide", dark ? "text-neutral-500" : "text-slate-500")}>Story Progress</div>
                           <div className="space-y-1">
                             {(
                               [
@@ -1233,14 +1237,14 @@ export function Sidebar() {
                               ] as const
                             ).map(({ label, count }) => (
                               <div key={label} className="flex items-center gap-2">
-                                <div className="w-24 shrink-0 text-xs text-neutral-400">{label}</div>
-                                <div className="relative h-1.5 flex-1 rounded-full bg-neutral-700">
+                                <div className={cn("w-24 shrink-0 text-xs", dark ? "text-neutral-400" : "text-slate-600")}>{label}</div>
+                                <div className={cn("relative h-1.5 flex-1 rounded-full", dark ? "bg-neutral-700" : "bg-slate-200")}>
                                   <div
                                     className="absolute inset-y-0 left-0 rounded-full bg-violet-500"
                                     style={{ width: `${Math.round((count / storyStats.data!.total) * 100)}%` }}
                                   />
                                 </div>
-                                <div className="w-8 text-right text-xs text-neutral-400">{count}/{storyStats.data.total}</div>
+                                <div className={cn("w-8 text-right text-xs", dark ? "text-neutral-400" : "text-slate-500")}>{count}/{storyStats.data.total}</div>
                               </div>
                             ))}
                           </div>

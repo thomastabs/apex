@@ -150,8 +150,8 @@ def set_active_project(project_id: int) -> None:
 
 
 def is_project_selected() -> bool:
-    """Return True when a real Taiga project is active (not the fallback default dir)."""
-    return _context_dir().name != "default"
+    """Return True when a real Taiga project is active."""
+    return _get_project_id() != 0
 
 
 def save_ai_config(fast_model: str, coder_model: str) -> None:
