@@ -57,6 +57,7 @@ import {
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import type { Epic, Story } from "@/lib/api/types";
 import { ApiError } from "@/lib/api/client";
 
@@ -1288,7 +1289,7 @@ export function Sidebar() {
                                 title="Remove member"
                                 onClick={() =>
                                   confirm(`Remove ${member.full_name || member.username} from project?`, () =>
-                                    removeMember.mutate(member.id),
+                                    removeMember.mutate(member.id, { onSuccess: () => toast.success(`${member.full_name || member.username} removed`) }),
                                   )
                                 }
                               >
@@ -1356,7 +1357,7 @@ export function Sidebar() {
                         <button
                           className="h-8 w-full rounded bg-violet-600 text-sm font-semibold text-white transition-colors hover:bg-violet-500 disabled:opacity-50"
                           disabled={!inviteValue.trim() || !defaultRoleId || invite.isPending}
-                          onClick={() => invite.mutate({ usernameOrEmail: inviteValue, roleId: defaultRoleId })}
+                          onClick={() => invite.mutate({ usernameOrEmail: inviteValue, roleId: defaultRoleId }, { onSuccess: () => { toast.success(`Invite sent to ${inviteValue}`); setInviteValue(""); } })}
                         >
                           Send invite
                         </button>
@@ -1414,7 +1415,7 @@ export function Sidebar() {
                       <div className="space-y-2">
                         <button
                           className="flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm text-violet-300 transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 hover:text-violet-200"
-                          onClick={() => contextFiles.refetch()}
+                          onClick={() => { contextFiles.refetch(); toast.info("Context reloaded"); }}
                         >
                           <span>Reload context</span>
                           <RefreshCw className="size-4 text-violet-400" />
@@ -1422,7 +1423,7 @@ export function Sidebar() {
                         <button
                           className="flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm text-violet-300 transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 hover:text-violet-200 disabled:opacity-40"
                           disabled={rebuildIndex.isPending}
-                          onClick={() => rebuildIndex.mutate()}
+                          onClick={() => rebuildIndex.mutate(undefined, { onSuccess: () => toast.success("Story index rebuilt") })}
                         >
                           <span>Rebuild story index</span>
                           <RefreshCw className="size-4 text-violet-400" />
@@ -1431,7 +1432,7 @@ export function Sidebar() {
                           className="flex h-9 w-full items-center justify-between rounded border border-red-500/30 px-3 text-sm text-red-400 transition-colors hover:border-red-500/60 hover:bg-red-500/15 hover:text-red-300 disabled:opacity-40"
                           disabled={resetAll.isPending}
                           onClick={() =>
-                            confirm("Reset ALL context files to defaults? This cannot be undone.", () => resetAll.mutate())
+                            confirm("Reset ALL context files to defaults? This cannot be undone.", () => resetAll.mutate(undefined, { onSuccess: () => toast.success("All context files reset") }))
                           }
                         >
                           <span>Reset all context files</span>

@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, CheckCircle2, ChevronRight, Download, ExternalLink, FilePlus2, Info, Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { AlertCircle, CheckCircle2, ChevronRight, Download, ExternalLink, FilePlus2, Info, Plus, RefreshCw, RotateCcw, Sparkles, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button, Callout, Input, SectionHeading, Textarea } from "@/components/ui/primitives";
 import {
   useCompileGherkin,
@@ -57,7 +59,7 @@ function validateStories(stories: CompiledStory[]): string[] {
 
 // ── AI Progress Indicator ─────────────────────────────────────────────────────
 
-function AIProgressIndicator({ steps, isPending }: { steps: string[]; isPending: boolean }) {
+function AIProgressIndicator({ steps, isPending, dark }: { steps: string[]; isPending: boolean; dark: boolean }) {
   const [stepIdx, setStepIdx] = useState(0);
   const [dots, setDots] = useState("");
 
@@ -71,10 +73,15 @@ function AIProgressIndicator({ steps, isPending }: { steps: string[]; isPending:
   if (!isPending) return null;
 
   return (
-    <div className="space-y-3 rounded-md border border-violet-500/20 bg-violet-950/20 p-4">
+    <div className={cn(
+      "space-y-3 rounded-md border p-4",
+      dark ? "border-violet-500/20 bg-violet-950/20" : "border-violet-300 bg-violet-50",
+    )}>
       <div className="flex items-center gap-2">
         <div className="size-4 animate-spin rounded-full border-2 border-violet-500 border-t-transparent" />
-        <span className="text-sm font-medium text-violet-300">AI Working{dots}</span>
+        <span className={cn("text-sm font-medium", dark ? "text-violet-300" : "text-violet-700")}>
+          AI Working{dots}
+        </span>
       </div>
       <div className="space-y-1.5">
         {steps.map((step, i) => (
@@ -82,15 +89,19 @@ function AIProgressIndicator({ steps, isPending }: { steps: string[]; isPending:
             key={step}
             className={cn(
               "flex items-center gap-2 text-xs transition-all duration-500",
-              i < stepIdx ? "text-emerald-400" : i === stepIdx ? "text-violet-300" : "text-neutral-600",
+              i < stepIdx
+                ? "text-emerald-500"
+                : i === stepIdx
+                  ? dark ? "text-violet-300" : "text-violet-600"
+                  : dark ? "text-neutral-600" : "text-slate-400",
             )}
           >
             {i < stepIdx ? (
-              <CheckCircle2 className="size-3 shrink-0 text-emerald-400" />
+              <CheckCircle2 className="size-3 shrink-0 text-emerald-500" />
             ) : i === stepIdx ? (
-              <span className="shrink-0 animate-pulse text-violet-400">›</span>
+              <span className={cn("shrink-0 animate-pulse", dark ? "text-violet-400" : "text-violet-500")}>›</span>
             ) : (
-              <span className="shrink-0 text-neutral-700">○</span>
+              <span className={cn("shrink-0", dark ? "text-neutral-700" : "text-slate-300")}>○</span>
             )}
             {step}
           </div>
@@ -129,6 +140,7 @@ const PUSH_STEPS = [
 
 export function Phase1Workflow() {
   const dark = useUiStore((state) => state.theme) === "dark";
+  const router = useRouter();
   const context = useApiContext();
   const [mode, setMode] = useState<Mode>("create");
   const [epicTitle, setEpicTitle] = useState("");
@@ -188,6 +200,7 @@ export function Phase1Workflow() {
   const busy = generate.isPending || compile.isPending || push.isPending || suggestEpics.isPending;
   const noContext = !context;
   const hasUnsaved = Boolean(nlDraft || compiledStories.length);
+  const hasWorkInProgress = Boolean(epicTitle || epicDescription || epicId || nlDraft || compiledStories.length || suggestions.length);
   const validationErrors = compiledStories.length ? validateStories(compiledStories) : [];
   const canPush = !busy && !noContext && compiledStories.length > 0 && validationErrors.length === 0;
 
@@ -235,6 +248,15 @@ export function Phase1Workflow() {
     setExpandedLoadEpic(null);
     setAppliedSuggestionIndex(null);
     setSelectedSuggestion(null);
+    suggestEpics.reset();
+  }
+
+  function clearSuggestions() {
+    suggestEpics.reset();
+    setAppliedSuggestionIndex(null);
+    setSelectedSuggestion(null);
+    setEditedDescriptions({});
+    toast.info("Suggestions cleared");
   }
 
   function backToNlEdit() {
@@ -242,23 +264,56 @@ export function Phase1Workflow() {
     setShowGherkin(false);
   }
 
+  // theme-aware shared classes
+  const cardClass = dark
+    ? "border-neutral-800 bg-[#1f1f21] hover:border-neutral-700"
+    : "border-slate-200 bg-slate-50 hover:border-slate-300";
+  const labelClass = dark ? "text-neutral-200" : "text-slate-700";
+  const sectionBorderClass = dark ? "border-neutral-700" : "border-slate-200";
+
   return (
     <section
       className="relative px-8 py-8"
       style={{ cursor: busy ? "wait" : undefined }}
       onClickCapture={(e) => { if (busy) { e.stopPropagation(); e.preventDefault(); } }}
     >
-      <div className="mb-7">
-        <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Phase 1</p>
-        <h1 className="text-5xl font-black tracking-tight text-white">Requirements</h1>
-        <p className="mt-2 text-neutral-500">
-          Mob Elaboration — transform an Epic into formal Gherkin Acceptance Criteria
-        </p>
+      <div className="mb-7 flex items-start justify-between">
+        <div>
+          <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Phase 1</p>
+          <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
+            Requirements
+          </h1>
+          <p className="mt-2 text-neutral-500">
+            Mob Elaboration — transform an Epic into formal Gherkin Acceptance Criteria
+          </p>
+        </div>
+        {hasWorkInProgress && !pushSuccess ? (
+          <button
+            className={cn(
+              "mt-2 flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm transition-colors",
+              dark
+                ? "border-neutral-700 text-neutral-400 hover:border-red-800 hover:bg-red-950/30 hover:text-red-300"
+                : "border-slate-300 text-slate-500 hover:border-red-300 hover:bg-red-50 hover:text-red-600",
+            )}
+            onClick={() => {
+              if (window.confirm("Start over? All draft content will be cleared.")) {
+                startNewEpic();
+                toast.info("Started over — all draft cleared");
+              }
+            }}
+          >
+            <RotateCcw className="size-3.5" />
+            Start Over
+          </button>
+        ) : null}
       </div>
 
-      <div className="mb-6 rounded-md border border-neutral-800">
+      <div className={cn("mb-6 rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}>
         <button
-          className="flex w-full items-center gap-2 px-4 py-3 text-sm text-neutral-400 transition-colors hover:text-neutral-300"
+          className={cn(
+            "flex w-full items-center gap-2 px-4 py-3 text-sm transition-colors",
+            dark ? "text-neutral-400 hover:text-neutral-300" : "text-slate-500 hover:text-slate-700",
+          )}
           onClick={() => setDiagramOpen(!diagramOpen)}
         >
           <ChevronRight className={cn("size-4 transition-transform", diagramOpen && "rotate-90")} />
@@ -266,7 +321,7 @@ export function Phase1Workflow() {
           <span>View Process Diagram (How this works)</span>
         </button>
         {diagramOpen ? (
-          <div className="border-t border-neutral-800 p-4">
+          <div className={cn("border-t p-4", dark ? "border-neutral-800" : "border-slate-200")}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/images/requirements.svg" alt="Phase 1 requirements process diagram" className="mx-auto max-w-full" />
           </div>
@@ -295,7 +350,7 @@ export function Phase1Workflow() {
         </div>
       )}
 
-      <div className="space-y-8 border-t border-neutral-700 pt-6">
+      <div className={cn("space-y-8 border-t pt-6", sectionBorderClass)}>
         <section className="space-y-4">
           <SectionHeading>Step 1 · Define Your Epic</SectionHeading>
           <div className={cn("grid grid-cols-3 rounded-md p-1", dark ? "bg-neutral-800" : "bg-slate-200")}>
@@ -324,16 +379,16 @@ export function Phase1Workflow() {
           {mode === "create" ? (
             <div className="space-y-4">
               <div className="grid grid-cols-[1fr_340px] gap-4">
-                <label className="text-sm font-medium text-neutral-200">
+                <label className={cn("text-sm font-medium", labelClass)}>
                   Epic Title <span className="block text-xs text-red-400">Required</span>
                   <Input value={epicTitle} onChange={(event) => setEpicTitle(event.target.value)} placeholder="e.g. User Authentication" />
                 </label>
-                <label className="text-sm font-medium text-neutral-200">
-                  Taiga Epic ID <span className="block text-xs text-neutral-500">Optional — leave blank to create new</span>
+                <label className={cn("text-sm font-medium", labelClass)}>
+                  Taiga Epic ID <span className={cn("block text-xs", dark ? "text-neutral-500" : "text-slate-400")}>Optional — leave blank to create new</span>
                   <Input value={epicId ?? ""} onChange={(event) => setEpicId(event.target.value ? Number(event.target.value) : null)} placeholder="e.g. 42" />
                 </label>
               </div>
-              <label className="block text-sm font-medium text-neutral-200">
+              <label className={cn("block text-sm font-medium", labelClass)}>
                 Description
                 <Textarea rows={5} value={epicDescription} onChange={(event) => setEpicDescription(event.target.value)} placeholder="Describe the epic in detail — context helps the AI generate better stories..." />
               </label>
@@ -342,18 +397,18 @@ export function Phase1Workflow() {
 
           {mode === "load" ? (
             <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm text-neutral-500">
+              <div className={cn("flex items-center justify-between text-sm", dark ? "text-neutral-500" : "text-slate-500")}>
                 <span>{epics.data?.length ?? 0} epic(s) in this project</span>
                 <button
-                  className="text-violet-300 transition-colors hover:text-violet-200"
-                  onClick={() => epics.refetch()}
+                  className="text-violet-400 transition-colors hover:text-violet-300"
+                  onClick={() => { epics.refetch(); toast.info("Epics refreshed"); }}
                 >
                   <RefreshCw className="mr-1 inline size-3" />
                   Refresh
                 </button>
               </div>
               {epics.isLoading ? (
-                <div className="py-4 text-center text-sm text-neutral-500">Loading epics…</div>
+                <div className={cn("py-4 text-center text-sm", dark ? "text-neutral-500" : "text-slate-400")}>Loading epics…</div>
               ) : null}
               {epics.data?.map((epic) => {
                 const isSelected = selectedLoadEpicId === epic.id;
@@ -365,7 +420,7 @@ export function Phase1Workflow() {
                       "rounded-md border transition-all duration-200",
                       isSelected
                         ? "border-emerald-500/50 bg-emerald-500/10"
-                        : "border-neutral-800 bg-[#1f1f21] hover:border-neutral-700",
+                        : cardClass,
                     )}
                   >
                     <button
@@ -374,7 +429,8 @@ export function Phase1Workflow() {
                     >
                       <ChevronRight
                         className={cn(
-                          "size-4 shrink-0 text-neutral-500 transition-transform duration-200",
+                          "size-4 shrink-0 transition-transform duration-200",
+                          dark ? "text-neutral-500" : "text-slate-400",
                           isExpanded && "rotate-90",
                         )}
                       />
@@ -388,7 +444,7 @@ export function Phase1Workflow() {
                       >
                         #{epic.ref}
                       </span>
-                      <span className={cn("flex-1 font-semibold", isSelected ? "text-emerald-300" : "text-white")}>
+                      <span className={cn("flex-1 font-semibold", isSelected ? "text-emerald-300" : dark ? "text-white" : "text-slate-800")}>
                         {epic.subject}
                       </span>
                       {isSelected ? (
@@ -398,18 +454,21 @@ export function Phase1Workflow() {
                       ) : null}
                     </button>
                     {isExpanded ? (
-                      <div className="space-y-3 border-t border-neutral-800 px-4 pb-4 pt-3">
+                      <div className={cn("space-y-3 border-t px-4 pb-4 pt-3", dark ? "border-neutral-800" : "border-slate-200")}>
                         {epic.description ? (
-                          <p className="text-sm leading-6 text-neutral-400">{epic.description}</p>
+                          <p className={cn("text-sm leading-6", dark ? "text-neutral-400" : "text-slate-600")}>{epic.description}</p>
                         ) : (
-                          <p className="text-sm italic text-neutral-600">No description provided.</p>
+                          <p className={cn("text-sm italic", dark ? "text-neutral-600" : "text-slate-400")}>No description provided.</p>
                         )}
                         {epic.tags?.length ? (
                           <div className="flex flex-wrap gap-1">
                             {epic.tags.map((tag) => (
                               <span
                                 key={tag}
-                                className="rounded border border-neutral-700 bg-neutral-800 px-2 py-0.5 text-xs text-neutral-400"
+                                className={cn(
+                                  "rounded border px-2 py-0.5 text-xs",
+                                  dark ? "border-neutral-700 bg-neutral-800 text-neutral-400" : "border-slate-300 bg-slate-100 text-slate-500",
+                                )}
                               >
                                 {tag}
                               </span>
@@ -421,13 +480,16 @@ export function Phase1Workflow() {
                             "flex w-full items-center justify-center gap-2 rounded border py-2 text-sm font-semibold transition-all duration-200",
                             isSelected
                               ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
-                              : "border-neutral-600 bg-neutral-800 text-neutral-200 hover:border-violet-500/50 hover:bg-violet-500/10 hover:text-violet-300",
+                              : dark
+                                ? "border-neutral-600 bg-neutral-800 text-neutral-200 hover:border-violet-500/50 hover:bg-violet-500/10 hover:text-violet-300"
+                                : "border-slate-300 bg-white text-slate-700 hover:border-violet-400 hover:bg-violet-50 hover:text-violet-700",
                           )}
                           onClick={() => {
                             setSelectedLoadEpicId(epic.id);
                             setEpicId(epic.id);
                             setEpicTitle(epic.subject);
                             setEpicDescription(epic.description);
+                            toast.success(`Epic "${epic.subject}" loaded`);
                           }}
                         >
                           <CheckCircle2 className="size-4" />
@@ -439,15 +501,16 @@ export function Phase1Workflow() {
                 );
               })}
               {!epics.isLoading && !epics.data?.length ? (
-                <div className="py-4 text-center text-sm text-neutral-500">No epics found in this project.</div>
+                <div className={cn("py-4 text-center text-sm", dark ? "text-neutral-500" : "text-slate-400")}>No epics found in this project.</div>
               ) : null}
             </div>
           ) : null}
 
           {mode === "suggest" ? (
             <div className="space-y-4">
-              <label className="block text-sm font-medium text-neutral-200">
-                AI Guidance <span className="text-neutral-500">Optional — focus or constrain the epic suggestions.</span>
+              <label className={cn("block text-sm font-medium", labelClass)}>
+                AI Guidance{" "}
+                <span className={dark ? "text-neutral-500" : "text-slate-400"}>Optional — focus or constrain the epic suggestions.</span>
                 <Input value={hint} onChange={(event) => setHint(event.target.value)} placeholder="e.g. focus on mobile-first flows, B2B enterprise context..." />
               </label>
               <Button
@@ -455,17 +518,32 @@ export function Phase1Workflow() {
                 onClick={() => {
                   setEditedDescriptions({});
                   setAppliedSuggestionIndex(null);
-                  suggestEpics.mutate(hint);
+                  suggestEpics.mutate(hint, {
+                    onSuccess: () => toast.success("Epic suggestions ready"),
+                  });
                 }}
                 disabled={suggestEpics.isPending || noContext}
               >
                 <Sparkles className="size-4" />
                 {suggestEpics.isPending ? "Generating…" : "AI Suggests"}
               </Button>
-              <AIProgressIndicator steps={SUGGEST_STEPS} isPending={suggestEpics.isPending} />
+              <AIProgressIndicator steps={SUGGEST_STEPS} isPending={suggestEpics.isPending} dark={dark} />
               {suggestions.length && !suggestEpics.isPending ? (
                 <div className="space-y-3">
-                  <div className="text-sm text-neutral-500">{suggestions.length} suggestions — click to expand, then select one</div>
+                  <div className="flex items-center justify-between">
+                    <span className={cn("text-sm", dark ? "text-neutral-500" : "text-slate-500")}>
+                      {suggestions.length} suggestions — click to expand, then select one
+                    </span>
+                    <button
+                      className={cn(
+                        "text-sm transition-colors",
+                        dark ? "text-red-400 hover:text-red-300" : "text-red-500 hover:text-red-700",
+                      )}
+                      onClick={clearSuggestions}
+                    >
+                      Clear suggestions
+                    </button>
+                  </div>
                   {suggestions.map((suggestion, index) => {
                     const isApplied = appliedSuggestionIndex === index;
                     const isExpanded = selectedSuggestion === index;
@@ -474,9 +552,7 @@ export function Phase1Workflow() {
                         key={suggestion.title}
                         className={cn(
                           "rounded-md border transition-all duration-200",
-                          isApplied
-                            ? "border-emerald-500/50 bg-emerald-500/10"
-                            : "border-neutral-800 bg-[#1f1f21] hover:border-neutral-700",
+                          isApplied ? "border-emerald-500/50 bg-emerald-500/10" : cardClass,
                         )}
                       >
                         <button
@@ -485,12 +561,13 @@ export function Phase1Workflow() {
                         >
                           <ChevronRight
                             className={cn(
-                              "size-4 shrink-0 text-neutral-500 transition-transform duration-200",
+                              "size-4 shrink-0 transition-transform duration-200",
+                              dark ? "text-neutral-500" : "text-slate-400",
                               isExpanded && "rotate-90",
                             )}
                           />
                           <Sparkles className={cn("size-4 shrink-0", isApplied ? "text-emerald-400" : "text-violet-400")} />
-                          <span className={cn("flex-1 font-semibold", isApplied ? "text-emerald-300" : "text-white")}>
+                          <span className={cn("flex-1 font-semibold", isApplied ? "text-emerald-300" : dark ? "text-white" : "text-slate-800")}>
                             {suggestion.title}
                           </span>
                           {isApplied ? (
@@ -500,7 +577,7 @@ export function Phase1Workflow() {
                           ) : null}
                         </button>
                         {isExpanded ? (
-                          <div className="space-y-3 border-t border-neutral-800 px-4 pb-4 pt-3">
+                          <div className={cn("space-y-3 border-t px-4 pb-4 pt-3", dark ? "border-neutral-800" : "border-slate-200")}>
                             <Textarea
                               rows={3}
                               value={editedDescriptions[index] ?? suggestion.description}
@@ -513,9 +590,14 @@ export function Phase1Workflow() {
                                 "flex w-full items-center justify-center gap-2 rounded border py-2 text-sm font-semibold transition-all duration-200",
                                 isApplied
                                   ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
-                                  : "border-neutral-600 bg-neutral-800 text-neutral-200 hover:border-violet-500/50 hover:bg-violet-500/10 hover:text-violet-300",
+                                  : dark
+                                    ? "border-neutral-600 bg-neutral-800 text-neutral-200 hover:border-violet-500/50 hover:bg-violet-500/10 hover:text-violet-300"
+                                    : "border-slate-300 bg-white text-slate-700 hover:border-violet-400 hover:bg-violet-50 hover:text-violet-700",
                               )}
-                              onClick={() => useSuggestion(suggestion, index)}
+                              onClick={() => {
+                                useSuggestion(suggestion, index);
+                                toast.success(`"${suggestion.title}" selected as epic`);
+                              }}
                             >
                               <CheckCircle2 className="size-4" />
                               {isApplied ? "Selected" : "Use Suggestion"}
@@ -527,15 +609,20 @@ export function Phase1Workflow() {
                   })}
                 </div>
               ) : null}
+              {suggestEpics.isError ? (
+                <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
+                  Suggestion failed: {String(suggestEpics.error)}
+                </div>
+              ) : null}
             </div>
           ) : null}
         </section>
 
-        <section className="space-y-4 border-t border-neutral-700 pt-6">
+        <section className={cn("space-y-4 border-t pt-6", sectionBorderClass)}>
           <SectionHeading>Step 2 · Generate User Stories</SectionHeading>
           {!canGenerate ? <Callout>Fill in your Epic above, then click Generate to create Natural Language user stories.</Callout> : null}
-          <label className="block text-sm font-medium text-neutral-200">
-            AI Guidance <span className="text-neutral-500">Optional</span>
+          <label className={cn("block text-sm font-medium", labelClass)}>
+            AI Guidance <span className={dark ? "text-neutral-500" : "text-slate-400"}>Optional</span>
             <Input value={hint} onChange={(event) => setHint(event.target.value)} placeholder="e.g. focus on error handling and edge cases" />
           </label>
           <Button
@@ -549,6 +636,7 @@ export function Phase1Workflow() {
                     setNlDraft(data.nl_draft);
                     setCompiledStories([]);
                     setShowGherkin(false);
+                    toast.success("Stories generated — review the draft below");
                   },
                 },
               )
@@ -557,7 +645,7 @@ export function Phase1Workflow() {
             <Sparkles className="size-4" />
             {generate.isPending ? "Generating…" : "Generate Stories"}
           </Button>
-          <AIProgressIndicator steps={GENERATE_STEPS} isPending={generate.isPending} />
+          <AIProgressIndicator steps={GENERATE_STEPS} isPending={generate.isPending} dark={dark} />
           {generate.isError ? (
             <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
               Generation failed: {String(generate.error)}
@@ -566,7 +654,7 @@ export function Phase1Workflow() {
         </section>
 
         {nlDraft ? (
-          <section className="space-y-4 border-t border-neutral-700 pt-6">
+          <section className={cn("space-y-4 border-t pt-6", sectionBorderClass)}>
             <SectionHeading>Step 3 · Review Natural Language Draft</SectionHeading>
             <Textarea rows={14} value={nlDraft} onChange={(event) => setNlDraft(event.target.value)} />
             <Button
@@ -576,13 +664,14 @@ export function Phase1Workflow() {
                   onSuccess: (data) => {
                     setCompiledStories(data.stories);
                     setShowGherkin(true);
+                    toast.success(`${data.stories.length} stories compiled to Gherkin`);
                   },
                 })
               }
             >
               {compile.isPending ? "Compiling…" : "Compile to Gherkin"}
             </Button>
-            <AIProgressIndicator steps={COMPILE_STEPS} isPending={compile.isPending} />
+            <AIProgressIndicator steps={COMPILE_STEPS} isPending={compile.isPending} dark={dark} />
             {compile.isError ? (
               <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
                 Compile failed: {String(compile.error)}
@@ -592,11 +681,14 @@ export function Phase1Workflow() {
         ) : null}
 
         {compiledStories.length && showGherkin ? (
-          <section className="space-y-4 border-t border-neutral-700 pt-6">
+          <section className={cn("space-y-4 border-t pt-6", sectionBorderClass)}>
             <div className="flex items-center justify-between">
               <SectionHeading>Step 4 · Review Gherkin & Push to Taiga</SectionHeading>
               <button
-                className="text-sm text-neutral-400 transition-colors hover:text-neutral-200"
+                className={cn(
+                  "text-sm transition-colors",
+                  dark ? "text-neutral-400 hover:text-neutral-200" : "text-slate-500 hover:text-slate-700",
+                )}
                 onClick={backToNlEdit}
               >
                 ← Back to NL Draft
@@ -614,7 +706,13 @@ export function Phase1Workflow() {
 
             <div className="space-y-4">
               {compiledStories.map((story, index) => (
-                <div key={`${story.title}-${index}`} className="rounded-md border border-neutral-800 bg-[#1f1f21] p-4">
+                <div
+                  key={`${story.title}-${index}`}
+                  className={cn(
+                    "rounded-md border p-4",
+                    dark ? "border-neutral-800 bg-[#1f1f21]" : "border-slate-200 bg-slate-50",
+                  )}
+                >
                   <div className="mb-3 flex items-center gap-2">
                     <Input
                       className="flex-1 font-semibold"
@@ -652,7 +750,12 @@ export function Phase1Workflow() {
               ))}
             </div>
             <button
-              className="flex items-center gap-2 rounded border border-neutral-700 px-3 py-2 text-sm text-neutral-300 transition-colors hover:border-violet-500/50 hover:bg-violet-500/10 hover:text-violet-300"
+              className={cn(
+                "flex items-center gap-2 rounded border px-3 py-2 text-sm transition-colors",
+                dark
+                  ? "border-neutral-700 text-neutral-300 hover:border-violet-500/50 hover:bg-violet-500/10 hover:text-violet-300"
+                  : "border-slate-300 text-slate-600 hover:border-violet-400 hover:bg-violet-50 hover:text-violet-700",
+              )}
               onClick={() => setCompiledStories((s) => [...s, { title: "New Story", size: "M", gherkin: "Feature: \n\nScenario: \n  Given \n  When \n  Then " }])}
             >
               <Plus className="size-4" /> Add Story
@@ -663,7 +766,7 @@ export function Phase1Workflow() {
                 <Callout>{push.data?.count ?? 0} stories pushed and locked in the functional spec.</Callout>
                 {push.data?.story_urls?.length ? (
                   <div className="space-y-1">
-                    <div className="text-xs font-medium text-neutral-400">Created stories in Taiga:</div>
+                    <div className={cn("text-xs font-medium", dark ? "text-neutral-400" : "text-slate-500")}>Created stories in Taiga:</div>
                     {push.data.story_urls.map((url) => (
                       <a
                         key={url}
@@ -678,9 +781,14 @@ export function Phase1Workflow() {
                     ))}
                   </div>
                 ) : null}
-                <Button variant="secondary" onClick={startNewEpic}>
-                  <RefreshCw className="size-4" /> Start New Epic
-                </Button>
+                <div className="flex gap-3">
+                  <Button variant="secondary" onClick={() => { startNewEpic(); toast.info("Ready for next epic"); }}>
+                    <RefreshCw className="size-4" /> Start New Epic
+                  </Button>
+                  <Button onClick={() => router.push("/phase2")}>
+                    <ChevronRight className="size-4" /> Move to Phase 2
+                  </Button>
+                </div>
               </div>
             ) : (
               <>
@@ -694,13 +802,18 @@ export function Phase1Workflow() {
                         epic_id: epicId,
                         stories: compiledStories,
                       },
-                      { onSuccess: () => setPushSuccess(true) },
+                      {
+                        onSuccess: (data) => {
+                          setPushSuccess(true);
+                          toast.success(`${data.count} stories pushed to Taiga`);
+                        },
+                      },
                     )
                   }
                 >
                   {push.isPending ? "Pushing…" : "Push Stories to Taiga"}
                 </Button>
-                <AIProgressIndicator steps={PUSH_STEPS} isPending={push.isPending} />
+                <AIProgressIndicator steps={PUSH_STEPS} isPending={push.isPending} dark={dark} />
                 {push.isError ? (
                   <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
                     Push failed: {String(push.error)}
