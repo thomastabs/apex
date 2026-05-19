@@ -39,7 +39,7 @@ class TaigaService:
     def get_story_statuses(self) -> list[dict]:
         return taiga_adapter.get_story_statuses()
 
-    def delete_epic_with_stories(self, epic_id: int) -> int:
+    def delete_epic_with_stories(self, epic_id: int) -> dict:
         return taiga_adapter.delete_epic_with_stories(epic_id)
 
     def find_ready_status_id(self) -> int | None:

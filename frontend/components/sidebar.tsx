@@ -932,6 +932,7 @@ export function Sidebar() {
   const createStory = useCreateStory();
   const deleteStory = useDeleteStory();
   const rebuildIndex = useRebuildStoryIndex();
+  const [storyIndexSyncedAt, setStoryIndexSyncedAt] = useState<Date | null>(null);
   const storyStats = useStoryIndexStats();
   const resetAll = useResetAllContextFiles();
   const saveServerConfig = useSaveServerConfig();
@@ -1218,7 +1219,7 @@ export function Sidebar() {
                           </button>
                           <button
                             className="flex items-center gap-1 rounded border border-neutral-600 px-2 py-1.5 text-neutral-300 transition-colors hover:border-violet-500/50 hover:text-violet-300"
-                            onClick={() => board.refetch()}
+                            onClick={() => toast.promise(board.refetch(), { loading: "Refreshing…", success: "Board refreshed", error: "Failed to refresh board" })}
                           >
                             <RefreshCw className="size-3" />
                           </button>
@@ -1226,7 +1227,14 @@ export function Sidebar() {
                       </div>
                       {storyStats.data && storyStats.data.total > 0 ? (
                         <div className={cn("rounded border p-2", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
-                          <div className={cn("mb-1.5 text-xs font-semibold uppercase tracking-wide", dark ? "text-neutral-500" : "text-slate-500")}>Story Progress</div>
+                          <div className="mb-1.5 flex items-center justify-between">
+                            <div className={cn("text-xs font-semibold uppercase tracking-wide", dark ? "text-neutral-500" : "text-slate-500")}>Story Progress</div>
+                            {storyIndexSyncedAt ? (
+                              <div className={cn("text-[10px]", dark ? "text-neutral-600" : "text-slate-400")}>
+                                synced {storyIndexSyncedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              </div>
+                            ) : null}
+                          </div>
                           <div className="space-y-1">
                             {(
                               [
@@ -1489,7 +1497,7 @@ export function Sidebar() {
                         <button
                           className="flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm text-violet-300 transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 hover:text-violet-200 disabled:opacity-40"
                           disabled={rebuildIndex.isPending}
-                          onClick={() => rebuildIndex.mutate(undefined, { onSuccess: () => toast.success("Story index rebuilt") })}
+                          onClick={() => rebuildIndex.mutate(undefined, { onSuccess: () => { toast.success("Story index rebuilt"); setStoryIndexSyncedAt(new Date()); } })}
                         >
                           <span>Rebuild story index</span>
                           <RefreshCw className="size-4 text-violet-400" />

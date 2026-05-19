@@ -7,6 +7,7 @@ requests. Callers invoke set_token(token) before making API requests.
 All public methods raise TaigaAPIError on non-2xx responses.
 """
 
+import concurrent.futures
 import contextvars
 import json
 import logging
@@ -42,6 +43,8 @@ _project_id_var: contextvars.ContextVar[int] = contextvars.ContextVar(
 _project_cache: dict[int, dict]       = {}
 _project_cache_failed: set[int]       = set()
 _status_cache:  dict[int, list[dict]] = {}
+_status_cache_ts: dict[int, float]    = {}
+_STATUS_CACHE_TTL = 300.0  # 5 minutes — status columns change infrequently
 
 _logger = logging.getLogger("apex.taiga")
 
@@ -288,20 +291,28 @@ def get_story_url(story_ref: int | None) -> str | None:
 def get_epics() -> list[dict]:
     """Return all Epics for the project, ordered by ref, normalized.
 
-    Taiga's list endpoint omits description; fetch individual detail when missing.
+    Taiga's list endpoint omits description; missing descriptions are fetched in
+    parallel (up to 8 concurrent requests) to avoid serial N+1 latency.
     """
     raw_list = _get("epics", params={"project": _get_project_id(), "order_by": "ref"}) or []
-    result = []
-    for e in raw_list:
-        if not e.get("description"):
+
+    missing = [e for e in raw_list if not e.get("description")]
+    if missing:
+        ctx_snapshot = contextvars.copy_context()
+
+        def _fetch_detail(epic: dict) -> tuple[int, dict]:
             try:
-                detail = _get(f"epics/{e['id']}")
-                if detail:
-                    e = detail
+                detail = ctx_snapshot.run(_get, f"epics/{epic['id']}")
+                return epic["id"], detail or epic
             except Exception:
-                pass
-        result.append(normalize_epic(e))
-    return result
+                return epic["id"], epic
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(missing), 8)) as pool:
+            fetched = dict(pool.map(lambda e: _fetch_detail(e), missing))
+    else:
+        fetched = {}
+
+    return [normalize_epic(fetched.get(e["id"], e)) for e in raw_list]
 
 
 def get_epic(epic_id: int) -> dict:
@@ -404,10 +415,12 @@ def update_story_status(story_id: int, status_id: int, version: int) -> dict:
 
 
 def get_story_statuses() -> list[dict]:
-    """Return all User Story statuses defined for the project (cached per project)."""
+    """Return all User Story statuses defined for the project (cached per project, 5-min TTL)."""
     pid = _get_project_id()
-    if pid not in _status_cache:
+    now = time.time()
+    if pid not in _status_cache or now - _status_cache_ts.get(pid, 0.0) > _STATUS_CACHE_TTL:
         _status_cache[pid] = _get("userstory-statuses", params={"project": pid}) or []
+        _status_cache_ts[pid] = now
     return _status_cache[pid]
 
 
@@ -482,17 +495,31 @@ def delete_epic(epic_id: int) -> None:
     _logger.info("taiga.delete_epic id=%s", epic_id)
 
 
-def delete_epic_with_stories(epic_id: int) -> int:
+def delete_epic_with_stories(epic_id: int) -> dict:
     """Delete all stories linked to epic_id, then delete the epic itself.
 
-    Returns the number of stories deleted.
+    Returns {"deleted": int, "failures": list[int]} — failures contains story IDs
+    that could not be deleted; the epic is still removed even if some stories fail.
     """
     stories = get_stories_for_epic(epic_id)
+    deleted = 0
+    failures: list[int] = []
     for s in stories:
-        delete_story(s["id"])
+        try:
+            delete_story(s["id"])
+            deleted += 1
+        except TaigaAPIError as exc:
+            _logger.warning(
+                "taiga.delete_epic_with_stories story delete failed story_id=%s epic_id=%s: %s",
+                s["id"], epic_id, exc,
+            )
+            failures.append(s["id"])
     delete_epic(epic_id)
-    _logger.info("taiga.delete_epic_with_stories epic_id=%s stories_deleted=%s", epic_id, len(stories))
-    return len(stories)
+    _logger.info(
+        "taiga.delete_epic_with_stories epic_id=%s deleted=%s failures=%s",
+        epic_id, deleted, failures,
+    )
+    return {"deleted": deleted, "failures": failures}
 
 
 # ---------------------------------------------------------------------------
@@ -528,6 +555,7 @@ def _clear_auth_caches() -> None:
     _project_cache.clear()
     _project_cache_failed.clear()
     _status_cache.clear()
+    _status_cache_ts.clear()
     _me_cache_failed = False
 
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   generateDesignBundle,
@@ -63,11 +64,29 @@ export function useLockTechStack() {
 
 export function useGenerateDesignBundle() {
   const context = useApiContext();
+  const abortRef = useRef<AbortController | null>(null);
 
-  return useMutation({
-    mutationFn: (body: GenerateDesignBundleRequest) => generateDesignBundle(context!, body),
-    onError: () => toast.error("Design bundle generation failed. The AI may be busy — try again shortly."),
+  const mutation = useMutation({
+    mutationFn: (body: GenerateDesignBundleRequest) => {
+      abortRef.current = new AbortController();
+      return generateDesignBundle(context!, body, abortRef.current.signal);
+    },
+    onError: (err) => {
+      if (err instanceof Error && err.name === "AbortError") return;
+      toast.error("Design bundle generation failed. The AI may be busy — try again shortly.");
+    },
+    onSettled: () => {
+      abortRef.current = null;
+    },
   });
+
+  const cancel = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    toast.info("Generation cancelled");
+  }, []);
+
+  return { ...mutation, cancel };
 }
 
 export function useLockEpicDesign() {

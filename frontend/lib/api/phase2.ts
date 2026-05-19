@@ -42,12 +42,14 @@ export function lockTechStack(context: RequestContext, body: LockTechStackReques
 export function generateDesignBundle(
   context: RequestContext,
   body: GenerateDesignBundleRequest,
+  signal?: AbortSignal,
 ) {
   return apiRequest<DesignBundle>("/api/phase2/generate-design-bundle", {
     method: "POST",
     context,
     body,
     timeoutMs: PHASE2_AI_TIMEOUT_MS,
+    signal,
   });
 }
 

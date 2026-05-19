@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertCircle, CheckCircle2, ChevronRight, Code2, Compass, Info, RefreshCw, RotateCcw, Save, Sparkles, Unlock } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronRight, Code2, Compass, Info, RefreshCw, RotateCcw, Save, Sparkles, StopCircle, Unlock } from "lucide-react";
 import { toast } from "sonner";
 import { Button, Callout, Input, SectionHeading, Skeleton, Textarea } from "@/components/ui/primitives";
 import {
@@ -337,34 +337,44 @@ export function Phase2Workflow() {
                   )}
                 </label>
                 <div className="flex gap-2">
-                  <Button
-                    className="flex-1"
-                    disabled={busy || !selectedEpic}
-                    onClick={() => {
-                      if (!selectedEpic) return;
-                      const doGenerate = () =>
-                        generateBundle.mutate(
-                          { epic_id: selectedEpic.epic_id },
-                          {
-                            onSuccess: (bundle) => {
-                              setDesignBundle(bundle);
-                              toast.success("Design bundle generated");
+                  {generateBundle.isPending ? (
+                    <button
+                      className={cn("flex flex-1 items-center justify-center gap-2 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
+                      onClick={() => generateBundle.cancel()}
+                    >
+                      <StopCircle className="size-4 text-red-400" />
+                      Cancel
+                    </button>
+                  ) : (
+                    <Button
+                      className="flex-1"
+                      disabled={busy || !selectedEpic}
+                      onClick={() => {
+                        if (!selectedEpic) return;
+                        const doGenerate = () =>
+                          generateBundle.mutate(
+                            { epic_id: selectedEpic.epic_id },
+                            {
+                              onSuccess: (bundle) => {
+                                setDesignBundle(bundle);
+                                toast.success("Design bundle generated");
+                              },
                             },
-                          },
-                        );
-                      if (selectedEpic.phase_status === "design_locked") {
-                        toast.warning("This epic's design is already locked. Regenerating will overwrite it — save & lock again to confirm.", {
-                          action: { label: "Regenerate", onClick: doGenerate },
-                          duration: 8000,
-                        });
-                      } else {
-                        doGenerate();
-                      }
-                    }}
-                  >
-                    <Sparkles className="size-4" />
-                    Generate
-                  </Button>
+                          );
+                        if (selectedEpic.phase_status === "design_locked") {
+                          toast.warning("This epic's design is already locked. Regenerating will overwrite it — save & lock again to confirm.", {
+                            action: { label: "Regenerate", onClick: doGenerate },
+                            duration: 8000,
+                          });
+                        } else {
+                          doGenerate();
+                        }
+                      }}
+                    >
+                      <Sparkles className="size-4" />
+                      Generate
+                    </Button>
+                  )}
                   <button
                     className={cn("flex items-center gap-1 rounded border px-3 py-2 text-sm transition-colors disabled:opacity-40", outlineButtonClass)}
                     disabled={busy}

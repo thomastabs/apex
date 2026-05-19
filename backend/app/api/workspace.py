@@ -246,10 +246,10 @@ def delete_epic(epic_id: int, ctx: RequestContext = Depends(get_request_context)
     taiga = TaigaService()
     taiga.set_context(ctx.taiga_token, ctx.project_id)
     try:
-        count = taiga.delete_epic_with_stories(epic_id)
+        result = taiga.delete_epic_with_stories(epic_id)
         context_manager.set_active_project(ctx.project_id)
         context_manager.remove_epic_from_story_index(epic_id)
-        return {"ok": True, "stories_deleted": count}
+        return {"ok": True, "stories_deleted": result["deleted"], "story_failures": result["failures"]}
     except TaigaAPIError as exc:
         raise _taiga_error(exc) from exc
 

@@ -989,6 +989,13 @@ def get_other_epics_design_context(exclude_epic_id: int) -> str:
             + "\n\n".join(flow_sections)
         )
     result = "\n\n".join(parts)
+    if len(result) > _CROSS_EPIC_CONTEXT_CHAR_LIMIT:
+        import logging as _log
+        _log.getLogger("apex.context_manager").warning(
+            "get_other_epics_design_context: truncating cross-epic context "
+            "from %d to %d chars for project %s",
+            len(result), _CROSS_EPIC_CONTEXT_CHAR_LIMIT, _get_project_id(),
+        )
     return result[:_CROSS_EPIC_CONTEXT_CHAR_LIMIT]
 
 

@@ -30,14 +30,17 @@ type ApiRequestOptions = {
   body?: unknown;
   context?: RequestContext | AuthContext | null;
   timeoutMs?: number;
+  signal?: AbortSignal;
 };
 
 export async function apiRequest<T>(
   path: string,
-  { method = "GET", body, context, timeoutMs = DEFAULT_TIMEOUT_MS }: ApiRequestOptions = {},
+  { method = "GET", body, context, timeoutMs = DEFAULT_TIMEOUT_MS, signal }: ApiRequestOptions = {},
 ): Promise<T> {
   const controller = new AbortController();
   const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+  // Chain external abort signal so callers can cancel mid-flight
+  signal?.addEventListener("abort", () => controller.abort(signal.reason), { once: true });
   const headers: Record<string, string> = {
     Accept: "application/json",
   };
