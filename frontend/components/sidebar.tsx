@@ -72,6 +72,15 @@ const FALLBACK_MODELS = [
   { id: "claude-sonnet-4-6",         label: "Claude Sonnet 4.6", role: "Smart" },
 ];
 
+const SECTION_LABELS: Record<string, string> = {
+  project: "Project",
+  board: "Epics & Stories",
+  users: "Users & Roles",
+  context: "Active Context",
+  ai: "AI Models",
+  resources: "Resources",
+};
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function initials(name: string) {
@@ -244,7 +253,7 @@ function PanelHeader({
   return (
     <div className={cn(
       "flex items-center border-b transition-colors hover:bg-violet-500/5",
-      dark ? "border-neutral-800" : "border-slate-300 bg-white",
+      dark ? "border-neutral-800" : "border-slate-300",
     )}>
       {onDragStart ? (
         <div
@@ -1033,7 +1042,9 @@ export function Sidebar() {
   const [createEpicOpen, setCreateEpicOpen] = useState(false);
   const [createStoryEpicId, setCreateStoryEpicId] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
+  const [draggingSection, setDraggingSection] = useState<string | null>(null);
   const dragSourceRef = useRef<string | null>(null);
+  const dragPreviewRef = useRef<HTMLElement | null>(null);
   const [expandedEpic, setExpandedEpic] = useState<number | null>(null);
   const [dialogEpic, setDialogEpic] = useState<import("@/lib/api/types").Epic | null>(null);
   const [dialogStory, setDialogStory] = useState<import("@/lib/api/types").Story | null>(null);
@@ -1094,6 +1105,11 @@ export function Sidebar() {
   const defaultRoleId = roleId ?? users.data?.roles[0]?.id ?? 0;
   const dark = theme === "dark";
   const sizeColor = contextSizeColor(totalChars);
+  const sectionBorderClass = dark ? "border-neutral-800" : "border-slate-300";
+  const expandedPanelClass = dark ? "bg-[#20232b]" : "bg-white";
+  const subduedTextClass = dark ? "text-neutral-500" : "text-slate-500";
+  const bodyTextClass = dark ? "text-neutral-300" : "text-slate-700";
+  const strongTextClass = dark ? "text-white" : "text-slate-950";
 
   const visibleFiles = useVisibleContextFiles(contextFiles.data?.files);
 
@@ -1121,6 +1137,18 @@ export function Sidebar() {
     setSectionOrder(next);
   }
 
+  function clearDragPreview() {
+    dragPreviewRef.current?.remove();
+    dragPreviewRef.current = null;
+  }
+
+  function endSectionDrag() {
+    setDragOver(null);
+    setDraggingSection(null);
+    dragSourceRef.current = null;
+    clearDragPreview();
+  }
+
   function makeDragSectionProps(id: string) {
     return {
       onDragOver: (e: React.DragEvent) => { e.preventDefault(); setDragOver(id); },
@@ -1130,17 +1158,48 @@ export function Sidebar() {
       onDrop: (e: React.DragEvent) => {
         e.preventDefault();
         if (dragSourceRef.current) reorderSections(dragSourceRef.current, id);
-        setDragOver(null);
-        dragSourceRef.current = null;
+        endSectionDrag();
       },
+      onDragEnd: endSectionDrag,
     };
   }
 
   function makeDragStartHandler(id: string) {
     return (e: React.DragEvent) => {
       dragSourceRef.current = id;
+      setDraggingSection(id);
       e.dataTransfer.effectAllowed = "move";
+      clearDragPreview();
+
+      const preview = document.createElement("div");
+      preview.textContent = SECTION_LABELS[id] ?? id;
+      preview.style.position = "fixed";
+      preview.style.top = "-1000px";
+      preview.style.left = "-1000px";
+      preview.style.width = `${Math.max(220, sidebarWidth - 32)}px`;
+      preview.style.height = "48px";
+      preview.style.display = "flex";
+      preview.style.alignItems = "center";
+      preview.style.padding = "0 16px";
+      preview.style.borderRadius = "8px";
+      preview.style.border = "1px solid rgba(139, 92, 246, 0.75)";
+      preview.style.background = dark ? "#1f1f21" : "#ffffff";
+      preview.style.color = dark ? "#f5f5f5" : "#0f172a";
+      preview.style.boxShadow = "0 18px 40px rgba(15, 23, 42, 0.28)";
+      preview.style.font = "600 14px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+      preview.style.pointerEvents = "none";
+      document.body.appendChild(preview);
+      dragPreviewRef.current = preview;
+      e.dataTransfer.setDragImage(preview, 20, 24);
     };
+  }
+
+  function sectionShellClass(id: string, isOver: boolean) {
+    return cn(
+      "relative transition-all duration-150",
+      draggingSection === id && "opacity-40",
+      isOver && draggingSection !== id && "z-10 scale-[1.01] bg-violet-500/10 shadow-[0_0_0_2px_rgba(139,92,246,0.65)]",
+    );
   }
 
   useEffect(() => {
@@ -1169,6 +1228,8 @@ export function Sidebar() {
       window.removeEventListener("mouseup", onUp);
     };
   }, [setSidebarWidth]);
+
+  useEffect(() => () => clearDragPreview(), []);
 
   if (sidebarCollapsed) {
     return (
@@ -1257,8 +1318,8 @@ export function Sidebar() {
 
           if (id === "project") {
             return (
-              <div key="project" {...dragHandlers} className={cn("transition-all", isOver && "outline outline-2 outline-violet-500 outline-offset-[-2px]")}>
-                <section className="border-b border-neutral-800">
+              <div key="project" {...dragHandlers} className={sectionShellClass(id, isOver)}>
+                <section className={cn("border-b", sectionBorderClass)}>
                   <PanelHeader
                     icon={<FolderOpen className="size-4" />}
                     title={activeProjectName}
@@ -1267,7 +1328,7 @@ export function Sidebar() {
                     onDragStart={makeDragStartHandler("project")}
                   />
                   {projectOpen ? (
-                    <div className="space-y-2 bg-[#181719] p-3">
+                    <div className={cn("space-y-2 p-3", expandedPanelClass)}>
                       <select
                         className="h-9 w-full rounded border border-neutral-600 bg-neutral-950 px-2 text-sm text-white"
                         value={projectId ?? ""}
@@ -1324,8 +1385,8 @@ export function Sidebar() {
 
           if (id === "board" && projectId) {
             return (
-              <div key="board" {...dragHandlers} className={cn("transition-all", isOver && "outline outline-2 outline-violet-500 outline-offset-[-2px]")}>
-                <section className="border-b border-neutral-800">
+              <div key="board" {...dragHandlers} className={sectionShellClass(id, isOver)}>
+                <section className={cn("border-b", sectionBorderClass)}>
                   <PanelHeader
                     icon={<Layers3 className="size-4" />}
                     title="Epics & Stories"
@@ -1335,8 +1396,8 @@ export function Sidebar() {
                     onDragStart={makeDragStartHandler("board")}
                   />
                   {boardOpen ? (
-                    <div className="space-y-3 bg-[#181719] p-3 text-sm">
-                      <div className="flex items-center justify-between text-neutral-500">
+                    <div className={cn("space-y-3 p-3 text-sm", expandedPanelClass)}>
+                      <div className={cn("flex items-center justify-between", subduedTextClass)}>
                         <span>{epicCount} epic(s)</span>
                         <div className="flex gap-2">
                           <button
@@ -1397,7 +1458,7 @@ export function Sidebar() {
                         <div key={epic.id}>
                           <div className="flex w-full items-center gap-1">
                             <button
-                              className="flex flex-1 items-center gap-1 text-left font-semibold text-white transition-colors hover:text-violet-300"
+                              className={cn("flex flex-1 items-center gap-1 text-left font-semibold transition-colors hover:text-violet-300", strongTextClass)}
                               onClick={() => setExpandedEpic(expandedEpic === epic.id ? null : epic.id)}
                             >
                               {expandedEpic === epic.id ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
@@ -1421,7 +1482,7 @@ export function Sidebar() {
                             </button>
                           </div>
                           {expandedEpic === epic.id ? (
-                            <div className="mt-2 space-y-2 pl-4 text-neutral-300">
+                            <div className={cn("mt-2 space-y-2 pl-4", bodyTextClass)}>
                               <button
                                 className="flex items-center gap-1 rounded border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-xs font-semibold text-violet-400 transition-colors hover:bg-violet-500/20"
                                 onClick={() => setCreateStoryEpicId(epic.id)}
@@ -1455,7 +1516,7 @@ export function Sidebar() {
                           ) : null}
                         </div>
                       ))}
-                      {!board.isLoading && !board.data?.length ? <div className="text-neutral-500">No epics yet.</div> : null}
+                      {!board.isLoading && !board.data?.length ? <div className={subduedTextClass}>No epics yet.</div> : null}
                     </div>
                   ) : null}
                 </section>
@@ -1465,8 +1526,8 @@ export function Sidebar() {
 
           if (id === "users" && projectId) {
             return (
-              <div key="users" {...dragHandlers} className={cn("transition-all", isOver && "outline outline-2 outline-violet-500 outline-offset-[-2px]")}>
-                <section className="border-b border-neutral-800">
+              <div key="users" {...dragHandlers} className={sectionShellClass(id, isOver)}>
+                <section className={cn("border-b", sectionBorderClass)}>
                   <PanelHeader
                     icon={<Users className="size-4" />}
                     title="Users & Roles"
@@ -1476,13 +1537,13 @@ export function Sidebar() {
                     onDragStart={makeDragStartHandler("users")}
                   />
                   {usersOpen ? (
-                    <div className="space-y-3 bg-[#181719] p-3 text-sm">
+                    <div className={cn("space-y-3 p-3 text-sm", expandedPanelClass)}>
                       {users.data?.memberships.map((member) => (
                         <div key={member.id} className="border-b border-neutral-700 pb-3">
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
-                              <div className="font-semibold text-white">{member.full_name || member.username || member.email}</div>
-                              <div className="text-xs text-neutral-500">{member.email}</div>
+                              <div className={cn("font-semibold", strongTextClass)}>{member.full_name || member.username || member.email}</div>
+                              <div className={cn("text-xs", subduedTextClass)}>{member.email}</div>
                             </div>
                             {!member.is_owner ? (
                               <button
@@ -1538,7 +1599,7 @@ export function Sidebar() {
                         </div>
                       ))}
                       <div className="space-y-2">
-                        <div className="font-semibold text-white">Invite member</div>
+                        <div className={cn("font-semibold", strongTextClass)}>Invite member</div>
                         <input
                           value={inviteValue}
                           onChange={(e) => setInviteValue(e.target.value)}
@@ -1572,8 +1633,8 @@ export function Sidebar() {
 
           if (id === "context" && projectId) {
             return (
-              <div key="context" {...dragHandlers} className={cn("transition-all", isOver && "outline outline-2 outline-violet-500 outline-offset-[-2px]")}>
-                <section className={cn("border-b", dark ? "border-neutral-800" : "border-slate-300 bg-white")}>
+              <div key="context" {...dragHandlers} className={sectionShellClass(id, isOver)}>
+                <section className={cn("border-b", sectionBorderClass)}>
                   <PanelHeader
                     icon={<FileText className="size-4" />}
                     title="Active Context"
@@ -1583,7 +1644,7 @@ export function Sidebar() {
                     onDragStart={makeDragStartHandler("context")}
                   />
                   {contextOpen ? (
-                    <div className="px-4 py-4">
+                    <div className={cn("px-4 py-4", expandedPanelClass)}>
                       <div className={cn("mb-3 text-sm", dark ? "text-neutral-500" : "text-slate-500")}>
                         context:{" "}
                         <span className="font-bold" style={{ color: sizeColor }}>
@@ -1601,18 +1662,30 @@ export function Sidebar() {
                           <div
                             key={file.filename}
                             className={cn(
-                              "rounded-md border",
-                              dark ? "border-neutral-800 bg-[#181719]" : "border-slate-200 bg-white",
+                              "group rounded-md border transition-all duration-200 ease-out",
+                              dark
+                                ? "border-neutral-700 bg-[#17181d] hover:border-violet-500/60 hover:bg-[#232638] hover:shadow-[0_0_0_1px_rgba(139,92,246,0.22)]"
+                                : "border-slate-200 bg-white hover:border-violet-300 hover:bg-violet-50/70 hover:shadow-sm",
                             )}
                           >
                             <button
-                              className="flex h-10 w-full items-center gap-3 px-4 text-left"
+                              className="flex h-10 w-full items-center gap-3 px-4 text-left transition-colors duration-200"
                               onClick={() => setExpandedContext(expandedContext === file.filename ? null : file.filename)}
                             >
-                              <ChevronRight className={cn("size-3", dark ? "text-neutral-500" : "text-slate-400", expandedContext === file.filename && "rotate-90")} />
-                              <FileText className="size-4 text-violet-400" />
-                              <span className={cn("flex-1 text-sm font-medium", dark ? "text-white" : "text-slate-950")}>{file.label}</span>
-                              <span className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-500")}>{file.chars} ch</span>
+                              <ChevronRight className={cn(
+                                "size-3 transition-all duration-200 group-hover:text-violet-400",
+                                dark ? "text-neutral-500" : "text-slate-400",
+                                expandedContext === file.filename && "rotate-90 text-violet-400",
+                              )} />
+                              <FileText className="size-4 text-violet-400 transition-colors duration-200 group-hover:text-violet-300" />
+                              <span className={cn(
+                                "flex-1 text-sm font-medium transition-colors duration-200",
+                                dark ? "text-white group-hover:text-violet-100" : "text-slate-950 group-hover:text-violet-900",
+                              )}>{file.label}</span>
+                              <span className={cn(
+                                "text-xs transition-colors duration-200",
+                                dark ? "text-neutral-500 group-hover:text-violet-300" : "text-slate-500 group-hover:text-violet-600",
+                              )}>{file.chars} ch</span>
                             </button>
                             {expandedContext === file.filename ? (
                               <ContextEditor file={file} onConfirm={confirm} />
@@ -1668,8 +1741,8 @@ export function Sidebar() {
           // ── AI Models ─────────────────────────────────────────────────────
           if (id === "ai") {
             return (
-              <div key="ai" {...dragHandlers} className={cn("transition-all", isOver && "outline outline-2 outline-violet-500 outline-offset-[-2px]")}>
-                <section className="border-b border-neutral-800">
+              <div key="ai" {...dragHandlers} className={sectionShellClass(id, isOver)}>
+                <section className={cn("border-b", sectionBorderClass)}>
                   <PanelHeader
                     icon={<Bot className="size-4" />}
                     title="AI Models"
@@ -1678,7 +1751,7 @@ export function Sidebar() {
                     onDragStart={makeDragStartHandler("ai")}
                   />
                   {aiOpen ? (
-                    <div className="space-y-4 bg-[#181719] px-4 py-4 text-sm">
+                    <div className={cn("space-y-4 px-4 py-4 text-sm", expandedPanelClass)}>
                       <div>
                         <label className="mb-1.5 block text-xs font-semibold text-neutral-400">
                           Discovery & Breakdown
@@ -1732,8 +1805,8 @@ export function Sidebar() {
           // ── Resources ──────────────────────────────────────────────────────
           if (id === "resources") {
             return (
-              <div key="resources" {...dragHandlers} className={cn("transition-all", isOver && "outline outline-2 outline-violet-500 outline-offset-[-2px]")}>
-                <section className="border-b border-neutral-800">
+              <div key="resources" {...dragHandlers} className={sectionShellClass(id, isOver)}>
+                <section className={cn("border-b", sectionBorderClass)}>
                   <PanelHeader
                     icon={<BookOpen className="size-4" />}
                     title="Resources"
@@ -1742,8 +1815,8 @@ export function Sidebar() {
                     onDragStart={makeDragStartHandler("resources")}
                   />
                   {resourcesOpen ? (
-                    <div className="bg-[#181719] px-4 py-3">
-                      <p className="mb-2 text-xs font-semibold text-neutral-500">Taiga Documentation</p>
+                    <div className={cn("px-4 py-3", expandedPanelClass)}>
+                      <p className={cn("mb-2 text-xs font-semibold", subduedTextClass)}>Taiga Documentation</p>
                       <div className="space-y-0.5">
                         {[
                           { href: "https://docs.taiga.io/", label: "User Guide" },
@@ -1765,7 +1838,7 @@ export function Sidebar() {
                       </div>
                       {taigaWebUrl ? (
                         <>
-                          <p className="mb-2 mt-4 text-xs font-semibold text-neutral-500">Taiga Instance</p>
+                          <p className={cn("mb-2 mt-4 text-xs font-semibold", subduedTextClass)}>Taiga Instance</p>
                           <a
                             href={taigaWebUrl}
                             target="_blank"
