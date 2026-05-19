@@ -308,7 +308,7 @@ def get_epics() -> list[dict]:
                 return epic["id"], epic
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(missing), 8)) as pool:
-            fetched = dict(pool.map(lambda e: _fetch_detail(e), missing))
+            fetched = dict(pool.map(_fetch_detail, missing))
     else:
         fetched = {}
 

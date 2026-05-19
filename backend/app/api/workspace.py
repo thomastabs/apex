@@ -173,7 +173,7 @@ def update_context_file(
     ctx: RequestContext = Depends(get_request_context),
 ):
     if filename not in _ALLOWED_CONTEXT_FILES:
-        raise HTTPException(status_code=404, detail="Unknown context file.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown context file.")
     context = ContextService()
     context.set_project(ctx.project_id)
     context.write_context_file(filename, payload.content)
@@ -183,7 +183,7 @@ def update_context_file(
 @router.post("/context-files/{filename}/reset", response_model=ContextFilesResponse)
 def reset_context_file(filename: str, ctx: RequestContext = Depends(get_request_context)):
     if filename not in _ALLOWED_CONTEXT_FILES:
-        raise HTTPException(status_code=404, detail="Unknown context file.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown context file.")
     context = ContextService()
     context.set_project(ctx.project_id)
     context.reset_context_file(filename)
@@ -375,7 +375,7 @@ def story_index_stats(ctx: RequestContext = Depends(get_request_context)):
         "phase2_designed": sum(1 for s in stories if s.get("has_tech_spec")),
         "phase3_proposed": sum(1 for s in stories if s.get("has_proposal")),
         "phase4_tested": sum(1 for s in stories if s.get("has_bdd")),
-        "phase5_deployed": sum(1 for s in stories if s.get("phase_status") == "deployed"),
+        "phase5_deployed": sum(1 for s in stories if s.get("phase_status") == "deployed" or s.get("has_bdd")),
     }
 
 

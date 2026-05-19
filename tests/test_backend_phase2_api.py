@@ -125,7 +125,7 @@ def test_lock_epic_design_route():
     assert response == {"ok": True, "epic_id": 7, "story_ids": [10], "taiga_failures": []}
 
 
-def test_phase2_validation_errors_map_to_conflict():
+def test_phase2_validation_errors_map_to_422():
     class FailingService(StubPhase2Service):
         def tech_stack_status(self, ctx):
             from backend.app.services.phase2_service import Phase2ValidationError
@@ -134,7 +134,7 @@ def test_phase2_validation_errors_map_to_conflict():
     with pytest.raises(HTTPException) as exc:
         tech_stack_status(ctx=_ctx(), service=FailingService())
 
-    assert exc.value.status_code == 409
+    assert exc.value.status_code == 422
 
 
 def test_taiga_error_maps_to_502():
