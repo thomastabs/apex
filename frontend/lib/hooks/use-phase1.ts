@@ -38,8 +38,10 @@ export function useGenerateNlStories() {
 }
 
 export function useCompileGherkin() {
+  const context = useApiContext();
+
   return useMutation({
-    mutationFn: (nlDraft: string) => compileGherkin(nlDraft),
+    mutationFn: (nlDraft: string) => compileGherkin(context!, nlDraft),
   });
 }
 

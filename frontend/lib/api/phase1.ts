@@ -35,9 +35,10 @@ export function generateNlStories(
   });
 }
 
-export function compileGherkin(nlDraft: string) {
+export function compileGherkin(context: RequestContext, nlDraft: string) {
   return apiRequest<{ stories: CompiledStory[] }>("/api/phase1/compile-gherkin", {
     method: "POST",
+    context,
     body: { nl_draft: nlDraft },
     timeoutMs: 180_000,
   });
