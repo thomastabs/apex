@@ -90,6 +90,118 @@ function downloadFile(filename: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
+let crcTable: Uint32Array | null = null;
+
+function getCrcTable() {
+  if (crcTable) return crcTable;
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let k = 0; k < 8; k++) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    table[i] = c >>> 0;
+  }
+  crcTable = table;
+  return table;
+}
+
+function crc32(bytes: Uint8Array) {
+  const table = getCrcTable();
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc = table[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function writeU16(target: number[], value: number) {
+  target.push(value & 0xff, (value >>> 8) & 0xff);
+}
+
+function writeU32(target: number[], value: number) {
+  target.push(value & 0xff, (value >>> 8) & 0xff, (value >>> 16) & 0xff, (value >>> 24) & 0xff);
+}
+
+function downloadContextZip(files: Array<{ filename: string; content: string }>) {
+  if (!files.length) {
+    toast.error("No context files to download");
+    return;
+  }
+
+  const encoder = new TextEncoder();
+  const chunks: Uint8Array[] = [];
+  const centralDirectory: Uint8Array[] = [];
+  let offset = 0;
+
+  for (const file of files) {
+    const nameBytes = encoder.encode(file.filename);
+    const data = encoder.encode(file.content);
+    const checksum = crc32(data);
+
+    const local: number[] = [];
+    writeU32(local, 0x04034b50);
+    writeU16(local, 20);
+    writeU16(local, 0x0800);
+    writeU16(local, 0);
+    writeU16(local, 0);
+    writeU16(local, 0);
+    writeU32(local, checksum);
+    writeU32(local, data.length);
+    writeU32(local, data.length);
+    writeU16(local, nameBytes.length);
+    writeU16(local, 0);
+    chunks.push(new Uint8Array(local), nameBytes, data);
+
+    const central: number[] = [];
+    writeU32(central, 0x02014b50);
+    writeU16(central, 20);
+    writeU16(central, 20);
+    writeU16(central, 0x0800);
+    writeU16(central, 0);
+    writeU16(central, 0);
+    writeU16(central, 0);
+    writeU32(central, checksum);
+    writeU32(central, data.length);
+    writeU32(central, data.length);
+    writeU16(central, nameBytes.length);
+    writeU16(central, 0);
+    writeU16(central, 0);
+    writeU16(central, 0);
+    writeU16(central, 0);
+    writeU32(central, 0);
+    writeU32(central, offset);
+    centralDirectory.push(new Uint8Array(central), nameBytes);
+
+    offset += local.length + nameBytes.length + data.length;
+  }
+
+  const centralOffset = offset;
+  const centralSize = centralDirectory.reduce((sum, chunk) => sum + chunk.length, 0);
+  const end: number[] = [];
+  writeU32(end, 0x06054b50);
+  writeU16(end, 0);
+  writeU16(end, 0);
+  writeU16(end, files.length);
+  writeU16(end, files.length);
+  writeU32(end, centralSize);
+  writeU32(end, centralOffset);
+  writeU16(end, 0);
+
+  const zipParts = [...chunks, ...centralDirectory, new Uint8Array(end)].map((chunk) => {
+    const copy = new ArrayBuffer(chunk.byteLength);
+    new Uint8Array(copy).set(chunk);
+    return copy;
+  });
+  const blob = new Blob(zipParts, { type: "application/zip" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "apex-context-files.zip";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function contextSizeColor(totalChars: number): string {
   if (totalChars < 30_000) return "#4ade80";
   if (totalChars < 80_000) return "#facc15";
@@ -128,14 +240,21 @@ function PanelHeader({
   icon: React.ReactNode; title: string; badge?: string; open: boolean; onClick: () => void;
   onDragStart?: (e: React.DragEvent) => void;
 }) {
+  const dark = useUiStore((state) => state.theme) === "dark";
   return (
-    <div className="flex items-center border-b border-neutral-800 transition-colors hover:bg-violet-500/5">
+    <div className={cn(
+      "flex items-center border-b transition-colors hover:bg-violet-500/5",
+      dark ? "border-neutral-800" : "border-slate-300 bg-white",
+    )}>
       {onDragStart ? (
         <div
           draggable
           onDragStart={onDragStart}
           onClickCapture={(e) => e.stopPropagation()}
-          className="flex h-14 w-8 shrink-0 cursor-grab items-center justify-center pl-2 text-neutral-600 transition-colors hover:text-neutral-400 active:cursor-grabbing"
+          className={cn(
+            "flex h-14 w-8 shrink-0 cursor-grab items-center justify-center pl-2 transition-colors active:cursor-grabbing",
+            dark ? "text-neutral-600 hover:text-neutral-400" : "text-slate-400 hover:text-slate-600",
+          )}
           title="Drag to reorder"
         >
           <GripVertical className="size-3.5" />
@@ -145,9 +264,9 @@ function PanelHeader({
         className="flex h-14 flex-1 items-center gap-2 px-4 text-left"
         onClick={onClick}
       >
-        {open ? <ChevronDown className="size-3 text-neutral-500" /> : <ChevronRight className="size-3 text-neutral-500" />}
+        {open ? <ChevronDown className={cn("size-3", dark ? "text-neutral-500" : "text-slate-400")} /> : <ChevronRight className={cn("size-3", dark ? "text-neutral-500" : "text-slate-400")} />}
         <span className="text-violet-400">{icon}</span>
-        <span className="flex-1 text-sm font-semibold text-neutral-100">{title}</span>
+        <span className={cn("flex-1 text-sm font-semibold", dark ? "text-neutral-100" : "text-slate-950")}>{title}</span>
         {badge ? <span className="rounded border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-xs text-violet-400">{badge}</span> : null}
       </button>
     </div>
@@ -627,6 +746,7 @@ function ContextEditor({
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const update = useUpdateContextFile();
   const reset = useResetContextFile();
+  const dark = useUiStore((state) => state.theme) === "dark";
 
   useEffect(() => {
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
@@ -645,18 +765,20 @@ function ContextEditor({
   }
 
   const statusLabel = update.isPending ? "Saving…" : update.isError ? "Error" : update.isSuccess ? "Saved" : "";
-  const statusColor = update.isError ? "text-red-400" : "text-neutral-500";
+  const statusColor = update.isError ? "text-red-400" : dark ? "text-neutral-500" : "text-slate-500";
 
   return (
-    <div className="border-t border-neutral-800">
-      <div className="flex items-center gap-2 border-b border-neutral-800 px-3 py-1">
-        <span className="text-xs text-neutral-500">{value.length} ch</span>
+    <div className={cn("border-t", dark ? "border-neutral-800" : "border-slate-200")}>
+      <div className={cn("flex items-center gap-2 border-b px-3 py-1", dark ? "border-neutral-800" : "border-slate-200")}>
+        <span className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-500")}>{value.length} ch</span>
         {statusLabel ? <span className={cn("text-xs", statusColor)}>{statusLabel}</span> : null}
         <div className="flex-1" />
         <button
           className={cn(
             "rounded px-2 py-0.5 text-xs",
-            mdPreview ? "bg-violet-800 text-violet-100" : "text-neutral-400 hover:bg-neutral-800",
+            mdPreview
+              ? "bg-violet-800 text-violet-100"
+              : dark ? "text-neutral-400 hover:bg-neutral-800" : "text-slate-500 hover:bg-slate-100",
           )}
           onClick={() => setMdPreview(!mdPreview)}
         >
@@ -667,14 +789,20 @@ function ContextEditor({
         <MarkdownPreview content={value} />
       ) : (
         <textarea
-          className="h-56 w-full resize-y bg-neutral-950 p-3 font-mono text-xs leading-5 text-neutral-200 outline-none"
+          className={cn(
+            "h-56 w-full resize-y p-3 font-mono text-xs leading-5 outline-none",
+            dark ? "bg-neutral-950 text-neutral-200" : "bg-white text-slate-800",
+          )}
           value={value}
           onChange={(e) => handleChange(e.target.value)}
         />
       )}
       <div className="grid grid-cols-2 gap-2 p-2">
         <button
-          className="flex h-8 items-center justify-center gap-1 rounded bg-neutral-700 text-xs text-neutral-200 hover:bg-neutral-600"
+          className={cn(
+            "flex h-8 items-center justify-center gap-1 rounded text-xs",
+            dark ? "bg-neutral-700 text-neutral-200 hover:bg-neutral-600" : "bg-slate-100 text-slate-700 hover:bg-slate-200",
+          )}
           onClick={() => downloadFile(file.filename, value)}
         >
           <Download className="size-3" />
@@ -1445,7 +1573,7 @@ export function Sidebar() {
           if (id === "context" && projectId) {
             return (
               <div key="context" {...dragHandlers} className={cn("transition-all", isOver && "outline outline-2 outline-violet-500 outline-offset-[-2px]")}>
-                <section className="border-b border-neutral-800">
+                <section className={cn("border-b", dark ? "border-neutral-800" : "border-slate-300 bg-white")}>
                   <PanelHeader
                     icon={<FileText className="size-4" />}
                     title="Active Context"
@@ -1456,7 +1584,7 @@ export function Sidebar() {
                   />
                   {contextOpen ? (
                     <div className="px-4 py-4">
-                      <div className="mb-3 text-sm text-neutral-500">
+                      <div className={cn("mb-3 text-sm", dark ? "text-neutral-500" : "text-slate-500")}>
                         context:{" "}
                         <span className="font-bold" style={{ color: sizeColor }}>
                           {totalChars} chars
@@ -1470,15 +1598,21 @@ export function Sidebar() {
                       ) : null}
                       <div className="mb-4 space-y-3">
                         {visibleFiles.map((file) => (
-                          <div key={file.filename} className="rounded-md border border-neutral-800 bg-[#181719]">
+                          <div
+                            key={file.filename}
+                            className={cn(
+                              "rounded-md border",
+                              dark ? "border-neutral-800 bg-[#181719]" : "border-slate-200 bg-white",
+                            )}
+                          >
                             <button
                               className="flex h-10 w-full items-center gap-3 px-4 text-left"
                               onClick={() => setExpandedContext(expandedContext === file.filename ? null : file.filename)}
                             >
-                              <ChevronRight className={cn("size-3 text-neutral-500", expandedContext === file.filename && "rotate-90")} />
+                              <ChevronRight className={cn("size-3", dark ? "text-neutral-500" : "text-slate-400", expandedContext === file.filename && "rotate-90")} />
                               <FileText className="size-4 text-violet-400" />
-                              <span className="flex-1 text-sm font-medium text-white">{file.label}</span>
-                              <span className="text-xs text-neutral-500">{file.chars} ch</span>
+                              <span className={cn("flex-1 text-sm font-medium", dark ? "text-white" : "text-slate-950")}>{file.label}</span>
+                              <span className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-500")}>{file.chars} ch</span>
                             </button>
                             {expandedContext === file.filename ? (
                               <ContextEditor file={file} onConfirm={confirm} />
@@ -1493,6 +1627,17 @@ export function Sidebar() {
                         >
                           <span>Reload context</span>
                           <RefreshCw className="size-4 text-violet-400" />
+                        </button>
+                        <button
+                          className="flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm text-violet-300 transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 hover:text-violet-200 disabled:opacity-40"
+                          disabled={!contextFiles.data?.files.length}
+                          onClick={() => {
+                            downloadContextZip(contextFiles.data?.files ?? []);
+                            toast.success("Context ZIP downloaded");
+                          }}
+                        >
+                          <span>Download all context files</span>
+                          <Download className="size-4 text-violet-400" />
                         </button>
                         <button
                           className="flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm text-violet-300 transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 hover:text-violet-200 disabled:opacity-40"
