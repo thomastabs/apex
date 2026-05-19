@@ -403,20 +403,20 @@ class TestTokenRefresh:
         r.json.return_value = body or {}
         return r
 
-    def test_refreshes_token_on_401_with_credentials(self):
+    def test_401_always_raises_regardless_of_credentials(self):
+        """401 is no longer silently refreshed — callers must re-authenticate."""
         from src import taiga_adapter
         with (
             _patch_token("old_token"),
             patch.object(taiga_adapter, "TAIGA_API_URL", "https://taiga.example.com"),
             patch.object(taiga_adapter, "TAIGA_USERNAME", "user"),
             patch.object(taiga_adapter, "TAIGA_PASSWORD", "pass"),
-            patch("src.taiga_adapter.requests.get",
-                  side_effect=[self._resp(401), self._resp(200, {"id": 1})]),
-            patch.object(taiga_adapter, "_refresh_token") as mock_refresh,
+            patch("src.taiga_adapter.requests.get", return_value=self._resp(401)),
+            patch("src.taiga_adapter.time.sleep"),
         ):
-            result = taiga_adapter._get("projects/1")
-        mock_refresh.assert_called_once()
-        assert result == {"id": 1}
+            with pytest.raises(taiga_adapter.TaigaAPIError) as exc_info:
+                taiga_adapter._get("projects/1")
+        assert exc_info.value.status == 401
 
     def test_no_refresh_without_credentials_raises_401(self):
         from src import taiga_adapter
@@ -502,47 +502,28 @@ class TestDeleteHelpers:
 
 class TestSetActiveProject:
     def _call(self, monkeypatch, project_id: int, ctx_calls: list | None = None) -> None:
-        """Call set_active_project with .env writing and context_manager patched out."""
         from src import taiga_adapter, context_manager
         if ctx_calls is None:
             ctx_calls = []
         monkeypatch.setattr(context_manager, "set_active_project", lambda pid: ctx_calls.append(pid))
-        monkeypatch.setattr(taiga_adapter, "TAIGA_PROJECT_ID", taiga_adapter.TAIGA_PROJECT_ID)
-        with patch("src.taiga_adapter.set_key"):
-            taiga_adapter.set_active_project(project_id)
+        taiga_adapter.set_active_project(project_id)
 
-    def test_updates_taiga_project_id(self, monkeypatch):
+    def test_updates_project_id_contextvar(self, monkeypatch):
         from src import taiga_adapter
         self._call(monkeypatch, 42)
-        assert taiga_adapter.TAIGA_PROJECT_ID == 42
+        assert taiga_adapter._project_id_var.get() == 42
 
     def test_calls_context_manager_set_active_project(self, monkeypatch):
         calls: list[int] = []
         self._call(monkeypatch, 77, ctx_calls=calls)
         assert calls == [77]
 
-    def test_clears_project_cache(self, monkeypatch):
-        from src import taiga_adapter
-        taiga_adapter._project_cache["slug"] = "old-project"
-        self._call(monkeypatch, 5)
-        assert taiga_adapter._project_cache == {}
-
-    def test_clears_status_cache(self, monkeypatch):
-        from src import taiga_adapter
-        taiga_adapter._status_cache.append({"id": 1, "name": "New"})
-        self._call(monkeypatch, 5)
-        assert taiga_adapter._status_cache == []
-
-    def test_persists_to_env(self, monkeypatch):
+    def test_does_not_write_to_env(self, monkeypatch):
         from src import taiga_adapter, context_manager
         monkeypatch.setattr(context_manager, "set_active_project", lambda pid: None)
-        monkeypatch.setattr(taiga_adapter, "TAIGA_PROJECT_ID", taiga_adapter.TAIGA_PROJECT_ID)
-        with (
-            patch("src.taiga_adapter.Path.exists", return_value=True),
-            patch("src.taiga_adapter.set_key") as mock_set_key,
-        ):
-            taiga_adapter.set_active_project(88)
-        mock_set_key.assert_called_once_with(".env", "TAIGA_PROJECT_ID", "88")
+        # No set_key import in taiga_adapter — calling set_active_project must not raise.
+        taiga_adapter.set_active_project(88)
+        assert taiga_adapter._project_id_var.get() == 88
 
 
 # ---------------------------------------------------------------------------
@@ -568,10 +549,10 @@ class TestClearToken:
             taiga_adapter.clear_token()
             assert taiga_adapter._token_var.get() == ""
 
-    def test_resets_failure_flags(self, monkeypatch):
+    def test_resets_failure_flags(self):
         from src import taiga_adapter
-        monkeypatch.setattr(taiga_adapter, "_me_cache_failed", True)
-        monkeypatch.setattr(taiga_adapter, "_project_cache_failed", True)
+        taiga_adapter._me_cache_failed = True
+        taiga_adapter._project_cache_failed.add(99)
         taiga_adapter.clear_token()
         assert not taiga_adapter._me_cache_failed
         assert not taiga_adapter._project_cache_failed

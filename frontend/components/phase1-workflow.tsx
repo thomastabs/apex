@@ -16,11 +16,16 @@ import { useContextFiles } from "@/lib/hooks/use-workspace";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import type { CompiledStory, EpicSuggestion } from "@/lib/api/types";
+import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
+
+function errMsg(err: unknown): string {
+  return err instanceof ApiError ? err.message : String(err);
+}
 
 type Mode = "create" | "load" | "suggest";
 
-const SIZES = ["XS", "S"] as const;
+const SIZES = ["XS", "S", "M", "L", "XL"] as const;
 
 function draftKey(projectId: number | null) {
   return `apex-phase1-draft-${projectId ?? "none"}`;
@@ -146,7 +151,8 @@ export function Phase1Workflow() {
   const [epicTitle, setEpicTitle] = useState("");
   const [epicDescription, setEpicDescription] = useState("");
   const [epicId, setEpicId] = useState<number | null>(null);
-  const [hint, setHint] = useState("");
+  const [suggestHint, setSuggestHint] = useState("");
+  const [generateHint, setGenerateHint] = useState("");
   const [nlDraft, setNlDraft] = useState("");
   const [compiledStories, setCompiledStories] = useState<CompiledStory[]>([]);
   const [selectedSuggestion, setSelectedSuggestion] = useState<number | null>(null);
@@ -206,7 +212,9 @@ export function Phase1Workflow() {
 
   function requestModeSwitch(next: Mode) {
     if (hasUnsaved && mode !== next) {
-      if (!window.confirm("Switch mode? Unsaved draft will be cleared.")) return;
+      toast.info("Draft cleared — switching mode.", {
+        action: { label: "Undo", onClick: () => setMode(mode) },
+      });
       setNlDraft("");
       setCompiledStories([]);
     }
@@ -238,7 +246,8 @@ export function Phase1Workflow() {
     setEpicTitle("");
     setEpicDescription("");
     setEpicId(null);
-    setHint("");
+    setSuggestHint("");
+    setGenerateHint("");
     setNlDraft("");
     setCompiledStories([]);
     setPushSuccess(false);
@@ -296,10 +305,12 @@ export function Phase1Workflow() {
                 : "border-slate-300 text-slate-500 hover:border-red-300 hover:bg-red-50 hover:text-red-600",
             )}
             onClick={() => {
-              if (window.confirm("Start over? All draft content will be cleared.")) {
-                startNewEpic();
-                toast.info("Started over — all draft cleared");
-              }
+              toast.warning("Start over? All draft content will be cleared.", {
+                action: {
+                  label: "Start Over",
+                  onClick: () => { startNewEpic(); toast.info("Started over — all draft cleared"); },
+                },
+              });
             }}
           >
             <RotateCcw className="size-3.5" />
@@ -511,14 +522,14 @@ export function Phase1Workflow() {
               <label className={cn("block text-sm font-medium", labelClass)}>
                 AI Guidance{" "}
                 <span className={dark ? "text-neutral-500" : "text-slate-400"}>Optional — focus or constrain the epic suggestions.</span>
-                <Input value={hint} onChange={(event) => setHint(event.target.value)} placeholder="e.g. focus on mobile-first flows, B2B enterprise context..." />
+                <Input value={suggestHint} onChange={(event) => setSuggestHint(event.target.value)} placeholder="e.g. focus on mobile-first flows, B2B enterprise context..." />
               </label>
               <Button
                 className="w-full"
                 onClick={() => {
                   setEditedDescriptions({});
                   setAppliedSuggestionIndex(null);
-                  suggestEpics.mutate(hint, {
+                  suggestEpics.mutate(suggestHint, {
                     onSuccess: () => toast.success("Epic suggestions ready"),
                   });
                 }}
@@ -611,7 +622,7 @@ export function Phase1Workflow() {
               ) : null}
               {suggestEpics.isError ? (
                 <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-                  Suggestion failed: {String(suggestEpics.error)}
+                  Suggestion failed: {errMsg(suggestEpics.error)}
                 </div>
               ) : null}
             </div>
@@ -623,14 +634,14 @@ export function Phase1Workflow() {
           {!canGenerate ? <Callout>Fill in your Epic above, then click Generate to create Natural Language user stories.</Callout> : null}
           <label className={cn("block text-sm font-medium", labelClass)}>
             AI Guidance <span className={dark ? "text-neutral-500" : "text-slate-400"}>Optional</span>
-            <Input value={hint} onChange={(event) => setHint(event.target.value)} placeholder="e.g. focus on error handling and edge cases" />
+            <Input value={generateHint} onChange={(event) => setGenerateHint(event.target.value)} placeholder="e.g. focus on error handling and edge cases" />
           </label>
           <Button
             className="w-full"
             disabled={!canGenerate || busy || noContext}
             onClick={() =>
               generate.mutate(
-                { epic_subject: epicTitle, epic_description: epicDescription, hint },
+                { epic_subject: epicTitle, epic_description: epicDescription, hint: generateHint },
                 {
                   onSuccess: (data) => {
                     setNlDraft(data.nl_draft);
@@ -648,7 +659,7 @@ export function Phase1Workflow() {
           <AIProgressIndicator steps={GENERATE_STEPS} isPending={generate.isPending} dark={dark} />
           {generate.isError ? (
             <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-              Generation failed: {String(generate.error)}
+              Generation failed: {errMsg(generate.error)}
             </div>
           ) : null}
         </section>
@@ -674,7 +685,7 @@ export function Phase1Workflow() {
             <AIProgressIndicator steps={COMPILE_STEPS} isPending={compile.isPending} dark={dark} />
             {compile.isError ? (
               <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-                Compile failed: {String(compile.error)}
+                Compile failed: {errMsg(compile.error)}
               </div>
             ) : null}
           </section>
@@ -816,7 +827,7 @@ export function Phase1Workflow() {
                 <AIProgressIndicator steps={PUSH_STEPS} isPending={push.isPending} dark={dark} />
                 {push.isError ? (
                   <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-                    Push failed: {String(push.error)}
+                    Push failed: {errMsg(push.error)}
                   </div>
                 ) : null}
               </>

@@ -17,7 +17,12 @@ import { usePhase2Store } from "@/lib/stores/phase2-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { MermaidBlock } from "@/components/mermaid-block";
+import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
+
+function errMsg(err: unknown): string {
+  return err instanceof ApiError ? err.message : String(err);
+}
 
 type BundleTab = "ux" | "architecture";
 
@@ -239,7 +244,7 @@ export function Phase2Workflow() {
           ) : null}
           {proposeStack.isError ? (
             <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-              Proposal failed: {String(proposeStack.error)}
+              Proposal failed: {errMsg(proposeStack.error)}
             </div>
           ) : null}
 
@@ -293,7 +298,7 @@ export function Phase2Workflow() {
           </Button>
           {lockStack.isError ? (
             <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-              Lock failed: {String(lockStack.error)}
+              Lock failed: {errMsg(lockStack.error)}
             </div>
           ) : null}
         </section>
@@ -409,7 +414,7 @@ export function Phase2Workflow() {
             ) : null}
             {generateBundle.isError ? (
               <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-                Generation failed: {String(generateBundle.error)}
+                Generation failed: {errMsg(generateBundle.error)}
               </div>
             ) : null}
 
@@ -510,7 +515,7 @@ export function Phase2Workflow() {
                 ) : null}
                 {lockDesign.isError ? (
                   <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-                    Save failed: {String(lockDesign.error)}
+                    Save failed: {errMsg(lockDesign.error)}
                   </div>
                 ) : null}
               </div>

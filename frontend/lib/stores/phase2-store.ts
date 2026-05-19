@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type { ArchitectureAlternative, DesignBundle, EligibleEpic } from "@/lib/api/types";
 
 type Phase2State = {
@@ -22,35 +23,9 @@ type Phase2State = {
   clearPhase2Draft: () => void;
 };
 
-export const usePhase2Store = create<Phase2State>((set) => ({
-  selectedEpic: null,
-  selectedAlternativeIndex: -1,
-  alternatives: [],
-  techStackDraft: "",
-  designBundle: null,
-  designLeadApproved: false,
-  techLeadApproved: false,
-  setSelectedEpic: (selectedEpic) =>
-    set({
-      selectedEpic,
-      designBundle: null,
-      designLeadApproved: false,
-      techLeadApproved: false,
-    }),
-  setAlternatives: (alternatives) => set({ alternatives }),
-  setSelectedAlternativeIndex: (selectedAlternativeIndex) => set({ selectedAlternativeIndex }),
-  setTechStackDraft: (techStackDraft) => set({ techStackDraft }),
-  setDesignBundle: (designBundle) =>
-    set({
-      designBundle,
-      designLeadApproved: false,
-      techLeadApproved: false,
-    }),
-  setDesignLeadApproved: (designLeadApproved) => set({ designLeadApproved }),
-  setTechLeadApproved: (techLeadApproved) => set({ techLeadApproved }),
-  resetDesignApprovals: () => set({ designLeadApproved: false, techLeadApproved: false }),
-  clearPhase2Draft: () =>
-    set({
+export const usePhase2Store = create<Phase2State>()(
+  persist(
+    (set) => ({
       selectedEpic: null,
       selectedAlternativeIndex: -1,
       alternatives: [],
@@ -58,5 +33,44 @@ export const usePhase2Store = create<Phase2State>((set) => ({
       designBundle: null,
       designLeadApproved: false,
       techLeadApproved: false,
+      setSelectedEpic: (selectedEpic) =>
+        set({
+          selectedEpic,
+          designBundle: null,
+          designLeadApproved: false,
+          techLeadApproved: false,
+        }),
+      setAlternatives: (alternatives) => set({ alternatives }),
+      setSelectedAlternativeIndex: (selectedAlternativeIndex) => set({ selectedAlternativeIndex }),
+      setTechStackDraft: (techStackDraft) => set({ techStackDraft }),
+      setDesignBundle: (designBundle) =>
+        set({
+          designBundle,
+          designLeadApproved: false,
+          techLeadApproved: false,
+        }),
+      setDesignLeadApproved: (designLeadApproved) => set({ designLeadApproved }),
+      setTechLeadApproved: (techLeadApproved) => set({ techLeadApproved }),
+      resetDesignApprovals: () => set({ designLeadApproved: false, techLeadApproved: false }),
+      clearPhase2Draft: () =>
+        set({
+          selectedEpic: null,
+          selectedAlternativeIndex: -1,
+          alternatives: [],
+          techStackDraft: "",
+          designBundle: null,
+          designLeadApproved: false,
+          techLeadApproved: false,
+        }),
     }),
-}));
+    {
+      name: "apex-phase2-draft",
+      partialize: (state) => ({
+        alternatives: state.alternatives,
+        selectedAlternativeIndex: state.selectedAlternativeIndex,
+        techStackDraft: state.techStackDraft,
+        selectedEpic: state.selectedEpic,
+      }),
+    },
+  ),
+);

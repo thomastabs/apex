@@ -2,10 +2,8 @@
 taiga_adapter.py
 All Taiga REST API GET/POST/PATCH logic.
 
-Authentication: Bearer token stored in a module-level dict. Callers (Reflex event
-handlers) call set_token(token) before making API requests to keep it current.
-Auto-refresh: when a request returns 401 and TAIGA_USERNAME + TAIGA_PASSWORD are
-present in .env, the adapter re-authenticates automatically and updates the token.
+Authentication: Bearer token stored in a ContextVar; safe for concurrent FastAPI
+requests. Callers invoke set_token(token) before making API requests.
 All public methods raise TaigaAPIError on non-2xx responses.
 """
 
@@ -15,11 +13,10 @@ import logging
 import os
 import re
 import time
-from pathlib import Path
 from typing import Any
 
 import requests
-from dotenv import load_dotenv, set_key
+from dotenv import load_dotenv
 
 # Status codes that are safe to retry with exponential back-off.
 # 501 (Not Implemented) is excluded — retrying won't help.
@@ -27,20 +24,24 @@ _RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
 
 load_dotenv()
 
-TAIGA_API_URL    = os.getenv("TAIGA_API_URL", "https://api.taiga.io").rstrip("/")
-TAIGA_PROJECT_ID = int(os.getenv("TAIGA_PROJECT_ID") or "0")
-TAIGA_USERNAME   = os.getenv("TAIGA_USERNAME", "")
-TAIGA_PASSWORD   = os.getenv("TAIGA_PASSWORD", "")
+TAIGA_API_URL  = os.getenv("TAIGA_API_URL", "https://api.taiga.io").rstrip("/")
+TAIGA_USERNAME = os.getenv("TAIGA_USERNAME", "")
+TAIGA_PASSWORD = os.getenv("TAIGA_PASSWORD", "")
 
-# Per-request token — ContextVar is safe across concurrent asyncio tasks and
-# FastAPI threadpool workers (anyio copies the context into each thread).
+# Per-request ContextVars — safe across concurrent asyncio tasks and FastAPI
+# threadpool workers (anyio copies the context snapshot into each thread).
 _token_var: contextvars.ContextVar[str] = contextvars.ContextVar(
     "taiga_token", default=os.getenv("TAIGA_AUTH_TOKEN", "")
 )
+_project_id_var: contextvars.ContextVar[int] = contextvars.ContextVar(
+    "taiga_project_id", default=int(os.getenv("TAIGA_PROJECT_ID") or "0")
+)
 
-# Session-scoped caches — valid for the lifetime of the Python process.
-_project_cache: dict      = {}
-_status_cache:  list[dict] = []
+# Process-scoped caches keyed by project_id so concurrent requests for
+# different projects never share stale status or project metadata.
+_project_cache: dict[int, dict]       = {}
+_project_cache_failed: set[int]       = set()
+_status_cache:  dict[int, list[dict]] = {}
 
 _logger = logging.getLogger("apex.taiga")
 
@@ -68,6 +69,14 @@ def _get_token() -> str:
 
 def _set_token(value: str) -> None:
     _token_var.set(value)
+
+
+def _get_project_id() -> int:
+    return _project_id_var.get()
+
+
+def _set_project_id(value: int) -> None:
+    _project_id_var.set(value)
 
 
 def _headers() -> dict[str, str]:
@@ -106,15 +115,15 @@ def is_configured() -> bool:
 
 
 def validate_project() -> str | None:
-    """Check that TAIGA_PROJECT_ID is set and reachable.
+    """Check that a project ID is set and reachable.
 
     Returns None on success, or a human-readable error string on failure.
     get_project() is cached, so this is cheap after the first call.
     """
     if not is_configured():
         return "set TAIGA_AUTH_TOKEN (or TAIGA_USERNAME + TAIGA_PASSWORD) in .env"
-    if TAIGA_PROJECT_ID == 0:
-        return "TAIGA_PROJECT_ID is not set in .env"
+    if _get_project_id() == 0:
+        return "TAIGA_PROJECT_ID is not set"
     try:
         get_project()
         return None
@@ -139,13 +148,10 @@ def clear_token() -> None:
 
 
 def set_api_url(url: str) -> None:
-    """Override the Taiga API URL for this session and persist to .env."""
+    """Override the Taiga API URL for this process (runtime only — not persisted)."""
     global TAIGA_API_URL
     TAIGA_API_URL = url.rstrip("/")
     os.environ["TAIGA_API_URL"] = TAIGA_API_URL
-    env_path = Path(".env")
-    env_path.touch()
-    set_key(str(env_path), "TAIGA_API_URL", TAIGA_API_URL)
     _logger.info("taiga.set_api_url url=%r", TAIGA_API_URL)
 
 
@@ -176,14 +182,10 @@ def _request(method: str, path: str, *, params: dict | None = None, payload: dic
     resp = _safe_call()
 
     if resp.status_code == 401:
-        if TAIGA_USERNAME and TAIGA_PASSWORD:
-            _refresh_token()
-            resp = _safe_call()
-        else:
-            raise TaigaAPIError(
-                method.upper(), url, 401,
-                "Session expired — use the ⇄ button in the sidebar to sign in again.",
-            )
+        raise TaigaAPIError(
+            method.upper(), url, 401,
+            "Session expired — use the ⇄ button in the sidebar to sign in again.",
+        )
 
     # Retry for 429 (rate-limited) and transient 5xx with exponential back-off.
     delay = 1.0
@@ -236,17 +238,17 @@ def _patch(path: str, payload: dict) -> Any:
 
 def get_project() -> dict:
     """Fetch and cache the current project's details (slug, name, etc.)."""
-    global _project_cache_failed
-    if _project_cache_failed:
-        raise TaigaAPIError("GET", f"projects/{TAIGA_PROJECT_ID}", 401,
+    pid = _get_project_id()
+    if pid in _project_cache_failed:
+        raise TaigaAPIError("GET", f"projects/{pid}", 401,
                             "Session expired — use the ⇄ button to sign in again.")
-    if not _project_cache:
+    if pid not in _project_cache:
         try:
-            _project_cache.update(_get(f"projects/{TAIGA_PROJECT_ID}"))
+            _project_cache[pid] = _get(f"projects/{pid}")
         except TaigaAPIError:
-            _project_cache_failed = True
+            _project_cache_failed.add(pid)
             raise
-    return _project_cache
+    return _project_cache[pid]
 
 
 def _web_base_url() -> str:
@@ -288,7 +290,7 @@ def get_epics() -> list[dict]:
 
     Taiga's list endpoint omits description; fetch individual detail when missing.
     """
-    raw_list = _get("epics", params={"project": TAIGA_PROJECT_ID, "order_by": "ref"}) or []
+    raw_list = _get("epics", params={"project": _get_project_id(), "order_by": "ref"}) or []
     result = []
     for e in raw_list:
         if not e.get("description"):
@@ -310,7 +312,7 @@ def get_epic(epic_id: int) -> dict:
 def create_epic(subject: str, description: str, *, tags: list[str] | None = None) -> dict:
     """Create a new Epic in the project and return a normalized dict (includes 'id')."""
     payload: dict = {
-        "project": TAIGA_PROJECT_ID,
+        "project": _get_project_id(),
         "subject": subject,
         "description": description,
     }
@@ -343,7 +345,7 @@ def get_stories(epic_id: int | None = None) -> list[dict]:
 
     Pass epic_id to filter by a specific Epic.
     """
-    params: dict = {"project": TAIGA_PROJECT_ID, "order_by": "ref"}
+    params: dict = {"project": _get_project_id(), "order_by": "ref"}
     if epic_id is not None:
         params["epic"] = epic_id
     raw = _get("userstories", params=params)
@@ -373,7 +375,7 @@ def create_story(
     backlog_order — explicit sort key; pass a sequence of values to preserve compilation order.
     """
     payload: dict[str, Any] = {
-        "project": TAIGA_PROJECT_ID,
+        "project": _get_project_id(),
         "subject": subject,
         "description": description,
     }
@@ -402,11 +404,11 @@ def update_story_status(story_id: int, status_id: int, version: int) -> dict:
 
 
 def get_story_statuses() -> list[dict]:
-    """Return all User Story statuses defined for the project (cached per session)."""
-    global _status_cache
-    if not _status_cache:
-        _status_cache = _get("userstory-statuses", params={"project": TAIGA_PROJECT_ID})
-    return _status_cache
+    """Return all User Story statuses defined for the project (cached per project)."""
+    pid = _get_project_id()
+    if pid not in _status_cache:
+        _status_cache[pid] = _get("userstory-statuses", params={"project": pid}) or []
+    return _status_cache[pid]
 
 
 def find_status_id(name_fragment: str) -> int | None:
@@ -432,7 +434,7 @@ def get_task(task_id: int) -> dict:
 
 def get_tasks_for_story(story_id: int) -> list[dict]:
     """Return all Tasks linked to a User Story."""
-    return _get("tasks", params={"user_story": story_id, "project": TAIGA_PROJECT_ID})
+    return _get("tasks", params={"user_story": story_id, "project": _get_project_id()})
 
 
 def create_task(subject: str, description: str, story_id: int) -> dict:
@@ -440,7 +442,7 @@ def create_task(subject: str, description: str, story_id: int) -> dict:
     return _post(
         "tasks",
         {
-            "project": TAIGA_PROJECT_ID,
+            "project": _get_project_id(),
             "user_story": story_id,
             "subject": subject,
             "description": description,
@@ -499,7 +501,6 @@ def delete_epic_with_stories(epic_id: int) -> int:
 
 _me_cache: dict = {}
 _me_cache_failed: bool = False
-_project_cache_failed: bool = False
 
 
 def _get_me() -> dict:
@@ -522,12 +523,12 @@ def get_me() -> dict:
 
 
 def _clear_auth_caches() -> None:
-    global _status_cache, _me_cache_failed, _project_cache_failed
+    global _me_cache_failed
     _me_cache.clear()
     _project_cache.clear()
-    _status_cache = []
+    _project_cache_failed.clear()
+    _status_cache.clear()
     _me_cache_failed = False
-    _project_cache_failed = False
 
 
 def set_token(token: str) -> None:
@@ -563,7 +564,7 @@ def login(username: str, password: str) -> None:
 
 def get_memberships() -> list[dict]:
     """Return all memberships for the current project."""
-    members = _get("memberships", params={"project": TAIGA_PROJECT_ID}) or []
+    members = _get("memberships", params={"project": _get_project_id()}) or []
     for m in members:
         if "is_owner" not in m:
             m["is_owner"] = m.get("role_name", "").lower() == "owner"
@@ -572,13 +573,13 @@ def get_memberships() -> list[dict]:
 
 def get_roles() -> list[dict]:
     """Return all roles defined for the current project."""
-    return _get("roles", params={"project": TAIGA_PROJECT_ID}) or []
+    return _get("roles", params={"project": _get_project_id()}) or []
 
 
 def invite_member(username_or_email: str, role_id: int) -> dict:
     """Invite a user to the current project with the given role."""
     return _post("memberships", {
-        "project": TAIGA_PROJECT_ID,
+        "project": _get_project_id(),
         "role":    role_id,
         "username": username_or_email,
     })
@@ -617,22 +618,13 @@ def delete_project(project_id: int) -> None:
 
 
 def set_active_project(project_id: int) -> None:
-    """Switch the active project for this session and persist the choice to .env."""
-    global TAIGA_PROJECT_ID, _status_cache, _project_cache_failed
-    TAIGA_PROJECT_ID = project_id
-    _project_cache.clear()
-    _project_cache_failed = False
-    _status_cache = []
-    os.environ["TAIGA_PROJECT_ID"] = str(project_id)
+    """Set the active project for this request context (ContextVar — not global)."""
+    _set_project_id(project_id)
 
     # Switch context_manager paths to this project's subdirectory.
     # Lazy import avoids a circular dependency at module level.
     from src import context_manager as _ctx_mgr  # noqa: PLC0415
     _ctx_mgr.set_active_project(project_id)
-
-    env_path = Path(".env")
-    if env_path.exists():
-        set_key(str(env_path), "TAIGA_PROJECT_ID", str(project_id))
 
 
 # ---------------------------------------------------------------------------
