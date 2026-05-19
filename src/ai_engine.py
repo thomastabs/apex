@@ -23,7 +23,7 @@ import logging
 import os
 import re
 import time
-from collections.abc import Callable, Generator
+from collections.abc import Callable
 from typing import Literal
 
 from dotenv import load_dotenv
@@ -313,31 +313,6 @@ def _invoke_json_fallback(
         items = getattr(result, item_field, [])
         on_item(len(items))
     return result
-
-
-def stream_text(
-    system: str, human: str, model: str, max_tokens: int = 4096
-) -> Generator[str, None, None]:
-    """Yield text chunks from a streaming LLM call.
-
-    Compatible with st.write_stream() — yields plain strings.
-    Used by Phases 2-6 which produce raw text (not structured output).
-    """
-    llm = _get_llm(model, max_tokens)
-    try:
-        for chunk in llm.stream(_make_messages(system, human)):
-            content = chunk.content
-            if isinstance(content, str):
-                yield content
-            elif isinstance(content, list):
-                for block in content:
-                    if isinstance(block, dict) and block.get("type") == "text":
-                        yield block.get("text", "")
-    except AIError:
-        raise
-    except Exception as exc:
-        _logger.warning("ai_stream model=%s status=error error=%s", model, type(exc).__name__)
-        _reclassify_llm_exc(exc)
 
 
 # ---------------------------------------------------------------------------

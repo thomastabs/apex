@@ -396,12 +396,11 @@ def get_context_sizes() -> dict[str, int]:
 def get_story_index() -> dict[str, dict]:
     """Return the story index as {str(story_id): entry_dict}."""
     pid = _get_project_id()
-    cached = _story_index_caches.get(pid)
-    if cached is None:
+    if pid not in _story_index_caches:
         sif = _path("story-index.json")
-        if not sif.exists():
-            return {}
-        _story_index_caches[pid] = json.loads(sif.read_text(encoding="utf-8"))
+        _story_index_caches[pid] = (
+            json.loads(sif.read_text(encoding="utf-8")) if sif.exists() else {}
+        )
     return _story_index_caches[pid]
 
 

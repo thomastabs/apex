@@ -26,6 +26,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useAiConfig,
   useBoard,
@@ -715,6 +716,7 @@ function LoginSection({ taigaWebUrl }: { taigaWebUrl: string }) {
   const setAuth = useSessionStore((state) => state.setAuth);
   const clearSession = useSessionStore((state) => state.clearSession);
   const taigaToken = useSessionStore((state) => state.taigaToken);
+  const queryClient = useQueryClient();
   const login = useLogin();
   const me = useMe();
 
@@ -739,7 +741,7 @@ function LoginSection({ taigaWebUrl }: { taigaWebUrl: string }) {
         </div>
         <button
           className="shrink-0 rounded border border-violet-500/30 px-2 py-1 text-xs text-violet-400 transition-colors hover:border-violet-500/60 hover:bg-violet-500/10 hover:text-violet-300"
-          onClick={() => clearSession()}
+          onClick={() => { clearSession(); queryClient.clear(); }}
         >
           Sign out
         </button>
@@ -839,6 +841,7 @@ function LoginSection({ taigaWebUrl }: { taigaWebUrl: string }) {
 function useRestoreSession() {
   const taigaToken = useSessionStore((s) => s.taigaToken);
   const clearSession = useSessionStore((s) => s.clearSession);
+  const queryClient = useQueryClient();
   const me = useMe();
 
   useEffect(() => {
@@ -846,8 +849,9 @@ function useRestoreSession() {
     if (me.isError && me.error instanceof ApiError && me.error.status === 401) {
       toast.error("Session expired — please sign in again.");
       clearSession();
+      queryClient.clear();
     }
-  }, [taigaToken, me.isError, me.error, clearSession]);
+  }, [taigaToken, me.isError, me.error, clearSession, queryClient]);
 }
 
 // ── Server-side project config restore ───────────────────────────────────────
