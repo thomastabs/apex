@@ -28,8 +28,8 @@ class FakeAiService:
 class FakeContextService:
     def __init__(self, memory_bank=None, index=None):
         self.project_id = 0
-        self.memory_bank = memory_bank or _memory_bank_with_stack()
-        self.index = index or _story_index()
+        self.memory_bank = memory_bank if memory_bank is not None else _memory_bank_with_stack()
+        self.index = index if index is not None else _story_index()
         self.written_stack = None
         self.appended_tech = None
         self.appended_bundle = None
@@ -133,6 +133,28 @@ def _memory_bank_without_stack():
 ## Architecture Principles
 
 Keep it simple.
+"""
+
+
+def _memory_bank_empty_tech_section():
+    return """\
+# Memory Bank
+
+## Tech Stack
+
+## Architecture Principles
+
+Keep it simple.
+"""
+
+
+def _memory_bank_no_tech_section():
+    return """\
+# Memory Bank
+
+## Project Concept
+
+No tech section at all.
 """
 
 
@@ -295,3 +317,218 @@ def test_lock_epic_design_reports_taiga_transition_failures_after_persisting():
     assert result["ok"] is False
     assert result["taiga_failures"] == [{"story_id": 11, "error": "Taiga unavailable"}]
     assert context.appended_tech is not None
+
+
+# ---------------------------------------------------------------------------
+# tech_stack_status — additional edge cases
+# ---------------------------------------------------------------------------
+
+def test_tech_stack_status_empty_section_returns_undefined():
+    service, _, _, _ = _service(context=FakeContextService(memory_bank=_memory_bank_empty_tech_section()))
+    assert service.tech_stack_status(_ctx()) == {"defined": False, "tech_stack": None}
+
+
+def test_tech_stack_status_missing_section_returns_undefined():
+    service, _, _, _ = _service(context=FakeContextService(memory_bank=_memory_bank_no_tech_section()))
+    assert service.tech_stack_status(_ctx()) == {"defined": False, "tech_stack": None}
+
+
+# ---------------------------------------------------------------------------
+# eligible_epics — edge cases
+# ---------------------------------------------------------------------------
+
+def test_eligible_epics_excludes_stories_without_gherkin():
+    index = {
+        "10": {"story_id": 10, "epic_id": 7, "title": "A", "phase_status": "gherkin_locked", "has_gherkin": False},
+    }
+    service, _, _, _ = _service(context=FakeContextService(index=index))
+    assert service.eligible_epics(_ctx()) == []
+
+
+def test_eligible_epics_all_design_locked_reports_design_locked():
+    index = {
+        "10": {"story_id": 10, "epic_id": 7, "title": "A", "phase_status": "design_locked", "has_gherkin": True},
+        "11": {"story_id": 11, "epic_id": 7, "title": "B", "phase_status": "design_locked", "has_gherkin": True},
+    }
+    service, _, _, _ = _service(context=FakeContextService(index=index))
+    epics = service.eligible_epics(_ctx())
+    assert epics[0]["phase_status"] == "design_locked"
+
+
+def test_eligible_epics_falls_back_to_epic_id_when_not_in_taiga():
+    index = {
+        "30": {"story_id": 30, "epic_id": 999, "title": "X", "phase_status": "gherkin_locked", "has_gherkin": True},
+    }
+    service, _, _, _ = _service(context=FakeContextService(index=index))
+    epics = service.eligible_epics(_ctx())
+    assert epics[0]["epic_title"] == "Epic 999"
+
+
+def test_eligible_epics_excludes_stories_without_epic_id():
+    index = {
+        "10": {"story_id": 10, "epic_id": None, "title": "A", "phase_status": "gherkin_locked", "has_gherkin": True},
+    }
+    service, _, _, _ = _service(context=FakeContextService(index=index))
+    assert service.eligible_epics(_ctx()) == []
+
+
+def test_eligible_epics_empty_index():
+    service, _, _, _ = _service(context=FakeContextService(index={}))
+    assert service.eligible_epics(_ctx()) == []
+
+
+# ---------------------------------------------------------------------------
+# propose_tech_stack — additional assertions
+# ---------------------------------------------------------------------------
+
+def test_propose_tech_stack_passes_memory_bank_to_ai():
+    service, ai, _, _ = _service()
+    service.propose_tech_stack(_ctx())
+    _, memory_bank, _ = ai.tech_stack_args
+    assert "FastAPI + Next.js + PostgreSQL" in memory_bank
+
+
+def test_propose_tech_stack_excludes_pending_stories():
+    service, ai, _, _ = _service()
+    service.propose_tech_stack(_ctx())
+    stories, _, _ = ai.tech_stack_args
+    titles = [s["title"] for s in stories]
+    assert "Pending Billing" not in titles
+
+
+# ---------------------------------------------------------------------------
+# lock_tech_stack — validation guard
+# ---------------------------------------------------------------------------
+
+def test_lock_tech_stack_empty_raises():
+    service, _, _, _ = _service()
+    with pytest.raises(Phase2ValidationError, match="tech_stack is required"):
+        service.lock_tech_stack(_ctx(), tech_stack="   ")
+
+
+# ---------------------------------------------------------------------------
+# generate_design_bundle — validation guards and AI passthrough
+# ---------------------------------------------------------------------------
+
+def test_generate_design_bundle_epic_id_zero_raises():
+    service, _, _, _ = _service()
+    with pytest.raises(Phase2ValidationError, match="epic_id"):
+        service.generate_design_bundle(_ctx(), epic_id=0)
+
+
+def test_generate_design_bundle_epic_id_negative_raises():
+    service, _, _, _ = _service()
+    with pytest.raises(Phase2ValidationError, match="epic_id"):
+        service.generate_design_bundle(_ctx(), epic_id=-5)
+
+
+def test_generate_design_bundle_no_stories_for_epic_raises():
+    service, _, _, _ = _service()
+    with pytest.raises(Phase2ValidationError, match="No Phase 1 locked Gherkin"):
+        service.generate_design_bundle(_ctx(), epic_id=999)
+
+
+def test_generate_design_bundle_passes_epic_title_from_taiga():
+    service, ai, _, _ = _service()
+    service.generate_design_bundle(_ctx(), epic_id=7)
+    epic_title, _, _, _ = ai.design_args
+    assert epic_title == "Authentication"
+
+
+def test_generate_design_bundle_passes_cross_epic_context():
+    service, ai, _, _ = _service()
+    service.generate_design_bundle(_ctx(), epic_id=7)
+    _, _, _, cross_epic = ai.design_args
+    assert "except 7" in cross_epic
+
+
+def test_generate_design_bundle_stories_sorted_by_id():
+    service, ai, _, _ = _service()
+    service.generate_design_bundle(_ctx(), epic_id=7)
+    _, stories, _, _ = ai.design_args
+    ids = [s["story_id"] for s in stories]
+    assert ids == sorted(ids)
+
+
+# ---------------------------------------------------------------------------
+# lock_epic_design — validation guards and fallbacks
+# ---------------------------------------------------------------------------
+
+def test_lock_epic_design_epic_id_zero_raises():
+    service, _, _, _ = _service()
+    with pytest.raises(Phase2ValidationError, match="epic_id"):
+        service.lock_epic_design(
+            _ctx(), epic_id=0, epic_title="A", story_ids=[10],
+            wireframes="W", user_flow="F", component_tree="C", tech_spec="T",
+        )
+
+
+def test_lock_epic_design_empty_tech_spec_raises():
+    service, _, _, _ = _service()
+    with pytest.raises(Phase2ValidationError, match="tech_spec"):
+        service.lock_epic_design(
+            _ctx(), epic_id=7, epic_title="A", story_ids=[10],
+            wireframes="W", user_flow="F", component_tree="C", tech_spec="  ",
+        )
+
+
+def test_lock_epic_design_resolves_title_from_taiga_when_not_provided():
+    service, _, context, _ = _service()
+    service.lock_epic_design(
+        _ctx(), epic_id=7, epic_title="", story_ids=[10, 11],
+        wireframes="W", user_flow="F", component_tree="C", tech_spec="T",
+    )
+    assert context.appended_tech[1] == "Authentication"
+
+
+def test_lock_epic_design_falls_back_to_index_when_story_ids_empty():
+    service, _, context, _ = _service()
+    service.lock_epic_design(
+        _ctx(), epic_id=7, epic_title="Authentication", story_ids=[],
+        wireframes="W", user_flow="F", component_tree="C", tech_spec="T",
+    )
+    assert sorted(context.appended_tech[2]) == [10, 11]
+
+
+def test_lock_epic_design_raises_when_no_story_ids_and_none_in_index():
+    service, _, _, _ = _service(context=FakeContextService(index={}))
+    with pytest.raises(Phase2ValidationError, match="At least one story_id"):
+        service.lock_epic_design(
+            _ctx(), epic_id=7, epic_title="A", story_ids=[],
+            wireframes="W", user_flow="F", component_tree="C", tech_spec="T",
+        )
+
+
+def test_lock_epic_design_adds_design_locked_tag():
+    service, _, _, taiga = _service()
+    service.lock_epic_design(
+        _ctx(), epic_id=7, epic_title="Authentication", story_ids=[10],
+        wireframes="W", user_flow="F", component_tree="C", tech_spec="T",
+    )
+    tags = taiga.updated_stories[0][2]
+    assert "design_locked" in tags
+    assert "apex" in tags
+
+
+# ---------------------------------------------------------------------------
+# _extract_tech_stack — tested via tech_stack_status with various formats
+# ---------------------------------------------------------------------------
+
+def test_extract_tech_stack_single_line():
+    service, _, _, _ = _service(context=FakeContextService(memory_bank="## Tech Stack\n\nReact + FastAPI\n\n## Other\n"))
+    assert service.tech_stack_status(_ctx())["tech_stack"] == "React + FastAPI"
+
+
+def test_extract_tech_stack_multiline():
+    mb = "## Tech Stack\n\n- Next.js\n- FastAPI\n- PostgreSQL\n\n## Other\n"
+    service, _, _, _ = _service(context=FakeContextService(memory_bank=mb))
+    result = service.tech_stack_status(_ctx())["tech_stack"]
+    assert "Next.js" in result
+    assert "PostgreSQL" in result
+
+
+def test_extract_tech_stack_stops_at_next_heading():
+    mb = "## Tech Stack\n\nFastAPI\n\n## Architecture Principles\n\nKeep it simple.\n"
+    service, _, _, _ = _service(context=FakeContextService(memory_bank=mb))
+    result = service.tech_stack_status(_ctx())["tech_stack"]
+    assert "Architecture" not in result

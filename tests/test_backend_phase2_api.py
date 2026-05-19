@@ -18,6 +18,8 @@ from backend.app.schemas.phase2 import (
     LockTechStackRequest,
     ProposeTechStackRequest,
 )
+from src.ai_engine import AIError, AIRateLimitError
+from src.taiga_adapter import TaigaAPIError
 
 
 class StubPhase2Service:
@@ -133,3 +135,45 @@ def test_phase2_validation_errors_map_to_conflict():
         tech_stack_status(ctx=_ctx(), service=FailingService())
 
     assert exc.value.status_code == 409
+
+
+def test_taiga_error_maps_to_502():
+    class FailingService(StubPhase2Service):
+        def eligible_epics(self, ctx):
+            raise TaigaAPIError("GET", "https://api.taiga.io/epics", 503, "service unavailable")
+
+    with pytest.raises(HTTPException) as exc:
+        eligible_epics(ctx=_ctx(), service=FailingService())
+
+    assert exc.value.status_code == 502
+
+
+def test_ai_error_maps_to_502():
+    class FailingService(StubPhase2Service):
+        def propose_tech_stack(self, ctx, *, hint=""):
+            raise AIError("Model overloaded")
+
+    with pytest.raises(HTTPException) as exc:
+        propose_tech_stack(ProposeTechStackRequest(), ctx=_ctx(), service=FailingService())
+
+    assert exc.value.status_code == 502
+
+
+def test_ai_rate_limit_error_maps_to_502():
+    class FailingService(StubPhase2Service):
+        def generate_design_bundle(self, ctx, *, epic_id):
+            raise AIRateLimitError("Rate limited")
+
+    with pytest.raises(HTTPException) as exc:
+        generate_design_bundle(GenerateDesignBundleRequest(epic_id=7), ctx=_ctx(), service=FailingService())
+
+    assert exc.value.status_code == 502
+
+
+def test_unknown_errors_bubble_up():
+    class FailingService(StubPhase2Service):
+        def lock_tech_stack(self, ctx, *, tech_stack):
+            raise RuntimeError("unexpected crash")
+
+    with pytest.raises(RuntimeError, match="unexpected crash"):
+        lock_tech_stack(LockTechStackRequest(tech_stack="X"), ctx=_ctx(), service=FailingService())
