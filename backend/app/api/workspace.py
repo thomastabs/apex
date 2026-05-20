@@ -42,7 +42,14 @@ _ALLOWED_CONTEXT_FILES = {filename for filename, _ in _CONTEXT_FILES}
 
 
 def _taiga_error(exc: TaigaAPIError) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=exc.user_message)
+    if exc.status in {status.HTTP_400_BAD_REQUEST, status.HTTP_401_UNAUTHORIZED}:
+        status_code = status.HTTP_401_UNAUTHORIZED
+    elif exc.status == 0:
+        status_code = status.HTTP_504_GATEWAY_TIMEOUT
+    else:
+        status_code = status.HTTP_502_BAD_GATEWAY
+    _logger.warning("Taiga API error mapped to HTTP %s: %s", status_code, exc)
+    return HTTPException(status_code=status_code, detail=exc.user_message)
 
 
 def _me_payload(me: dict) -> dict:

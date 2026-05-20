@@ -836,6 +836,23 @@ const CONTEXT_FILE_PHASES: Record<string, string[]> = {
   "/phase2": ["memory-bank.md", "functional-spec.md", "technical-spec.md", "design-bundle.md"],
 };
 
+function getLoginErrorMessage(error: unknown) {
+  if (error instanceof ApiError) {
+    const detail = typeof error.detail === "string" ? error.detail : "";
+    if (detail) {
+      return detail;
+    }
+    if (error.status === 401) {
+      return "Login failed — check credentials.";
+    }
+    if (error.status === 504) {
+      return "Taiga did not respond before the backend timeout.";
+    }
+    return `Login failed — API returned ${error.status}.`;
+  }
+  return "Login failed — check credentials.";
+}
+
 function useVisibleContextFiles(
   files: Array<{ filename: string; label: string; content: string; chars: number }> | undefined,
 ) {
@@ -924,7 +941,7 @@ function LoginSection({ taigaWebUrl }: { taigaWebUrl: string }) {
                   { username, password },
                   {
                     onSuccess: (data) => { setAuth({ taigaToken: data.auth_token }); },
-                    onError: () => setLoginError("Login failed — check credentials."),
+                    onError: (error) => setLoginError(getLoginErrorMessage(error)),
                   },
                 );
               }
@@ -950,7 +967,7 @@ function LoginSection({ taigaWebUrl }: { taigaWebUrl: string }) {
               { username, password },
               {
                 onSuccess: (data) => { setAuth({ taigaToken: data.auth_token }); },
-                onError: () => setLoginError("Login failed — check credentials."),
+                onError: (error) => setLoginError(getLoginErrorMessage(error)),
               },
             );
           } else if (tokenInput.trim()) {

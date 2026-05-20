@@ -55,7 +55,7 @@ class TaigaAPIError(Exception):
     def __init__(self, method: str, url: str, status: int, body: str) -> None:
         try:
             parsed = json.loads(body)
-            self.user_message = parsed.get("_error_message") or body[:300]
+            self.user_message = parsed.get("_error_message") or parsed.get("detail") or parsed.get("error") or body[:300]
         except Exception:
             self.user_message = body[:300]
         super().__init__(f"[{method} {url}] HTTP {status}: {self.user_message}")
