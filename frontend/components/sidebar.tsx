@@ -315,6 +315,7 @@ function ConfirmDialog({
 }
 
 function EpicDialog({ epic, onClose }: { epic: Epic; onClose: () => void }) {
+  const dark = useUiStore((state) => state.theme === "dark");
   const [subject, setSubject] = useState(epic.subject);
   const [description, setDescription] = useState(epic.description);
   const [tagsInput, setTagsInput] = useState((epic.tags ?? []).join(", "));
@@ -329,18 +330,31 @@ function EpicDialog({ epic, onClose }: { epic: Epic; onClose: () => void }) {
     );
   }
 
+  const inputClass = cn(
+    "w-full rounded border px-3 text-sm outline-none focus:border-violet-500",
+    dark
+      ? "border-neutral-700 bg-neutral-950 text-white placeholder:text-neutral-500"
+      : "border-slate-300 bg-white text-slate-950 placeholder:text-slate-400",
+  );
+
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4" onClick={onClose}>
+    <div
+      className={cn("fixed inset-0 z-50 grid place-items-center p-4", dark ? "bg-black/75" : "bg-slate-950/35 backdrop-blur-sm")}
+      onClick={onClose}
+    >
       <div
-        className="w-full max-w-md rounded-xl border border-neutral-700 bg-neutral-900 p-5 shadow-2xl"
+        className={cn(
+          "w-full max-w-md rounded-xl border p-5 shadow-2xl",
+          dark ? "border-neutral-700 bg-neutral-900" : "border-slate-300 bg-white",
+        )}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="mb-4 text-base font-bold text-white">Epic #{epic.ref}</h3>
+        <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>Epic #{epic.ref}</h3>
         <div className="space-y-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-neutral-400">Title</label>
+            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Title</label>
             <input
-              className="h-9 w-full rounded border border-violet-700 bg-neutral-950 px-3 text-sm text-white outline-none focus:border-violet-500"
+              className={cn("h-9 border-violet-700", inputClass)}
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="Epic title"
@@ -348,18 +362,20 @@ function EpicDialog({ epic, onClose }: { epic: Epic; onClose: () => void }) {
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-neutral-400">Description</label>
+            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Description</label>
             <textarea
-              className="h-32 w-full resize-none rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-200 outline-none focus:border-violet-500"
+              className={cn("h-32 resize-none py-2", inputClass)}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe the epic…"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-neutral-400">Tags <span className="text-neutral-600">(comma-separated)</span></label>
+            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
+              Tags <span className={dark ? "text-neutral-600" : "text-slate-400"}>(comma-separated)</span>
+            </label>
             <input
-              className="h-8 w-full rounded border border-neutral-700 bg-neutral-950 px-3 text-xs text-neutral-200 outline-none focus:border-violet-500"
+              className={cn("h-8 text-xs", inputClass)}
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
               placeholder="e.g. backend, auth, v2"
@@ -375,7 +391,10 @@ function EpicDialog({ epic, onClose }: { epic: Epic; onClose: () => void }) {
             {update.isPending ? "Saving…" : "Save"}
           </button>
           <button
-            className="flex-1 rounded bg-neutral-800 py-2 text-sm text-neutral-300 transition-colors hover:bg-neutral-700"
+            className={cn(
+              "flex-1 rounded py-2 text-sm transition-colors",
+              dark ? "bg-neutral-800 text-neutral-300 hover:bg-neutral-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200",
+            )}
             onClick={onClose}
           >
             Cancel
@@ -387,6 +406,7 @@ function EpicDialog({ epic, onClose }: { epic: Epic; onClose: () => void }) {
 }
 
 function StoryDialog({ story, onClose }: { story: Story; onClose: () => void }) {
+  const dark = useUiStore((state) => state.theme === "dark");
   const [subject, setSubject] = useState(story.subject);
   const [description, setDescription] = useState(story.description ?? "");
   const [tagsInput, setTagsInput] = useState((story.tags ?? []).join(", "));
@@ -401,18 +421,31 @@ function StoryDialog({ story, onClose }: { story: Story; onClose: () => void }) 
     );
   }
 
+  const inputClass = cn(
+    "w-full rounded border px-3 text-sm outline-none focus:border-violet-500",
+    dark
+      ? "border-neutral-700 bg-neutral-950 text-white placeholder:text-neutral-500"
+      : "border-slate-300 bg-white text-slate-950 placeholder:text-slate-400",
+  );
+
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4" onClick={onClose}>
+    <div
+      className={cn("fixed inset-0 z-50 grid place-items-center p-4", dark ? "bg-black/75" : "bg-slate-950/35 backdrop-blur-sm")}
+      onClick={onClose}
+    >
       <div
-        className="w-full max-w-md rounded-xl border border-neutral-700 bg-neutral-900 p-5 shadow-2xl"
+        className={cn(
+          "w-full max-w-md rounded-xl border p-5 shadow-2xl",
+          dark ? "border-neutral-700 bg-neutral-900" : "border-slate-300 bg-white",
+        )}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="mb-4 text-base font-bold text-white">Story #{story.ref}</h3>
+        <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>Story #{story.ref}</h3>
         <div className="space-y-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-neutral-400">Title</label>
+            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Title</label>
             <input
-              className="h-9 w-full rounded border border-violet-700 bg-neutral-950 px-3 text-sm text-white outline-none focus:border-violet-500"
+              className={cn("h-9 border-violet-700", inputClass)}
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="Story title"
@@ -420,18 +453,20 @@ function StoryDialog({ story, onClose }: { story: Story; onClose: () => void }) 
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-neutral-400">Description</label>
+            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Description</label>
             <textarea
-              className="h-28 w-full resize-none rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-200 outline-none focus:border-violet-500"
+              className={cn("h-28 resize-none py-2", inputClass)}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe the story…"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-neutral-400">Tags <span className="text-neutral-600">(comma-separated)</span></label>
+            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
+              Tags <span className={dark ? "text-neutral-600" : "text-slate-400"}>(comma-separated)</span>
+            </label>
             <input
-              className="h-8 w-full rounded border border-neutral-700 bg-neutral-950 px-3 text-xs text-neutral-200 outline-none focus:border-violet-500"
+              className={cn("h-8 text-xs", inputClass)}
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
               placeholder="e.g. frontend, ui, sprint-1"
@@ -447,7 +482,10 @@ function StoryDialog({ story, onClose }: { story: Story; onClose: () => void }) 
             {update.isPending ? "Saving…" : "Save"}
           </button>
           <button
-            className="flex-1 rounded bg-neutral-800 py-2 text-sm text-neutral-300 transition-colors hover:bg-neutral-700"
+            className={cn(
+              "flex-1 rounded py-2 text-sm transition-colors",
+              dark ? "bg-neutral-800 text-neutral-300 hover:bg-neutral-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200",
+            )}
             onClick={onClose}
           >
             Cancel
@@ -1013,18 +1051,24 @@ function useRestoreSession() {
 
 function useRestoreProjectConfig() {
   const projectId = useSessionStore((s) => s.projectId);
+  const projectName = useSessionStore((s) => s.projectName);
   const setProject = useSessionStore((s) => s.setProject);
   const projects = useProjects();
   const serverConfig = useServerConfig();
 
   useEffect(() => {
-    if (projectId) return; // already have project in localStorage
+    if (projectId) {
+      const match = projects.data?.find((p) => p.id === projectId);
+      if (match && projectName !== match.name) {
+        setProject({ projectId, projectName: match.name });
+      }
+      return;
+    }
     const serverId = serverConfig.data?.project_id;
     if (!serverId) return;
-    // find project name from list if available
     const match = projects.data?.find((p) => p.id === serverId);
     setProject({ projectId: serverId, projectName: match?.name ?? "" });
-  }, [projectId, serverConfig.data?.project_id, projects.data, setProject]);
+  }, [projectId, projectName, serverConfig.data?.project_id, projects.data, setProject]);
 }
 
 // ── main Sidebar ──────────────────────────────────────────────────────────────
@@ -1117,7 +1161,9 @@ export function Sidebar() {
   }, [aiConfig.data]);
 
   const projectOptions = useMemo(() => projects.data ?? [], [projects.data]);
-  const activeProjectName = projectName || (projectId ? `Project ${projectId}` : "No project selected");
+  const activeProjectName = projectOptions.find((p) => p.id === projectId)?.name
+    ?? projectName
+    ?? (projectId ? `Project ${projectId}` : "No project selected");
   const totalChars = contextFiles.data?.total_chars ?? 0;
   const memberCount = users.data?.memberships.length ?? 0;
   const epicCount = board.data?.length ?? 0;

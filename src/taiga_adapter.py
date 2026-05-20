@@ -9,6 +9,7 @@ All public methods raise TaigaAPIError on non-2xx responses.
 
 import concurrent.futures
 import contextvars
+import html
 import json
 import logging
 import os
@@ -288,6 +289,42 @@ def get_story_url(story_ref: int | None) -> str | None:
 # Epics
 # ---------------------------------------------------------------------------
 
+def _description_text(raw: dict) -> str:
+    description = raw.get("description") or raw.get("description_diff")
+    if description:
+        return str(description)
+    description_html = raw.get("description_html")
+    if not description_html:
+        return ""
+    text = re.sub(r"(?i)<br\s*/?>|</p>|</li>", "\n", str(description_html))
+    text = re.sub(r"<[^>]+>", "", text)
+    return html.unescape(text).strip()
+
+
+def _fetch_missing_descriptions(raw_list: list[dict], resource: str) -> dict[int, dict]:
+    missing = [item for item in raw_list if item.get("id") and not _description_text(item)]
+    if not missing:
+        return {}
+
+    token = _get_token()
+    project_id = _get_project_id()
+
+    def _fetch_detail(item: dict) -> tuple[int, dict]:
+        token_reset = _token_var.set(token)
+        project_reset = _project_id_var.set(project_id)
+        try:
+            detail = _get(f"{resource}/{item['id']}")
+            return item["id"], detail or item
+        except Exception:
+            return item["id"], item
+        finally:
+            _project_id_var.reset(project_reset)
+            _token_var.reset(token_reset)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(missing), 8)) as pool:
+        return dict(pool.map(_fetch_detail, missing))
+
+
 def get_epics() -> list[dict]:
     """Return all Epics for the project, ordered by ref, normalized.
 
@@ -296,22 +333,7 @@ def get_epics() -> list[dict]:
     """
     raw_list = _get("epics", params={"project": _get_project_id(), "order_by": "ref"}) or []
 
-    missing = [e for e in raw_list if not e.get("description")]
-    if missing:
-        ctx_snapshot = contextvars.copy_context()
-
-        def _fetch_detail(epic: dict) -> tuple[int, dict]:
-            try:
-                detail = ctx_snapshot.run(_get, f"epics/{epic['id']}")
-                return epic["id"], detail or epic
-            except Exception:
-                return epic["id"], epic
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(missing), 8)) as pool:
-            fetched = dict(pool.map(_fetch_detail, missing))
-    else:
-        fetched = {}
-
+    fetched = _fetch_missing_descriptions(raw_list, "epics")
     return [normalize_epic(fetched.get(e["id"], e)) for e in raw_list]
 
 
@@ -359,8 +381,9 @@ def get_stories(epic_id: int | None = None) -> list[dict]:
     params: dict = {"project": _get_project_id(), "order_by": "ref"}
     if epic_id is not None:
         params["epic"] = epic_id
-    raw = _get("userstories", params=params)
-    return [normalize_story(s) for s in (raw or [])]
+    raw_list = _get("userstories", params=params) or []
+    fetched = _fetch_missing_descriptions(raw_list, "userstories")
+    return [normalize_story(fetched.get(s["id"], s)) for s in raw_list]
 
 
 def get_stories_for_epic(epic_id: int) -> list[dict]:
@@ -668,7 +691,7 @@ def normalize_epic(raw: dict) -> dict:
         "id":          raw["id"],
         "ref":         raw.get("ref", raw["id"]),
         "subject":     raw.get("subject", ""),
-        "description": raw.get("description", "") or "",
+        "description": _description_text(raw),
         "version":     raw.get("version"),
         "tags":        _parse_tags(raw.get("tags")),
     }
@@ -726,7 +749,7 @@ def normalize_story(raw: dict) -> dict:
         "id":           raw["id"],
         "ref":          raw.get("ref", raw["id"]),
         "subject":      raw.get("subject", ""),
-        "description":  raw.get("description", "") or "",
+        "description":  _description_text(raw),
         "version":      raw.get("version"),
         "status":       raw.get("status"),
         "tags":         _parse_tags(raw.get("tags")),

@@ -252,6 +252,11 @@ class TestNormalizeEpic:
         from src import taiga_adapter
         assert taiga_adapter.normalize_epic({"id": 3})["description"] == ""
 
+    def test_description_html_used_when_plain_description_missing(self):
+        from src import taiga_adapter
+        raw = {"id": 4, "description_html": "<p>User &amp; profile<br>settings</p>"}
+        assert taiga_adapter.normalize_epic(raw)["description"] == "User & profile\nsettings"
+
 
 # ---------------------------------------------------------------------------
 # normalize_story
@@ -297,6 +302,11 @@ class TestNormalizeStory:
         raw = {"id": 7, "epics": []}
         assert taiga_adapter.normalize_story(raw)["epic_subject"] == ""
 
+    def test_description_html_used_when_plain_description_missing(self):
+        from src import taiga_adapter
+        raw = {"id": 8, "description_html": "<p>Story &amp; acceptance</p>"}
+        assert taiga_adapter.normalize_story(raw)["description"] == "Story & acceptance"
+
 
 # ---------------------------------------------------------------------------
 # normalize applied in get_epics / get_stories
@@ -333,7 +343,7 @@ class TestGetEpicsNormalized:
 class TestGetStoriesNormalized:
     def test_returns_normalized_dicts(self):
         from src import taiga_adapter
-        raw = [{"id": 10, "ref": 3, "subject": "Login", "version": 1, "status": 2,
+        raw = [{"id": 10, "ref": 3, "subject": "Login", "description": "Desc", "version": 1, "status": 2,
                 "epic_extra_info": {"subject": "Auth"}}]
         with patch.object(taiga_adapter, "_get", return_value=raw):
             result = taiga_adapter.get_stories()
@@ -343,10 +353,25 @@ class TestGetStoriesNormalized:
 
     def test_missing_fields_filled_in(self):
         from src import taiga_adapter
-        with patch.object(taiga_adapter, "_get", return_value=[{"id": 5}]):
+        with patch.object(taiga_adapter, "_get", side_effect=[[{"id": 5}], {"id": 5}]):
             result = taiga_adapter.get_stories()
         assert result[0] == {"id": 5, "ref": 5, "subject": "", "description": "",
                               "version": None, "status": None, "tags": [], "epic_subject": ""}
+
+    def test_fetches_story_detail_when_list_omits_description(self):
+        from src import taiga_adapter
+        with patch.object(
+            taiga_adapter,
+            "_get",
+            side_effect=[
+                [{"id": 6, "ref": 6, "subject": "Profile"}],
+                {"id": 6, "ref": 6, "subject": "Profile", "description": "Full detail"},
+            ],
+        ) as mock_get:
+            result = taiga_adapter.get_stories()
+
+        assert result[0]["description"] == "Full detail"
+        assert mock_get.call_count == 2
 
 
 # ---------------------------------------------------------------------------
