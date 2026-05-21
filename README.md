@@ -308,37 +308,6 @@ The deployed image tags use the short Git SHA:
 - `ghcr.io/<owner>/<repo>-backend:sha-xxxxxxx`
 - `ghcr.io/<owner>/<repo>-frontend:sha-xxxxxxx`
 
-### GitHub Secrets
-
-Required:
-
-| Secret | Used by | Purpose |
-|---|---|---|
-| `AZURE_CREDENTIALS` | CI/CD and scheduler | Azure service principal JSON for `azure/login` |
-| `NEXT_PUBLIC_API_BASE_URL` | frontend image build | Public backend API URL compiled into the Next.js frontend |
-
-The Container Apps themselves should have runtime environment variables configured in Azure.
-
-Backend runtime env:
-
-```env
-ANTHROPIC_API_KEY=...
-TAIGA_API_URL=https://api.taiga.io
-ALLOWED_ORIGINS=https://<frontend-domain>
-AZURE_STORAGE_CONNECTION_STRING=...
-AZURE_FILE_SHARE_NAME=contextspec
-LANGCHAIN_TRACING_V2=
-LANGCHAIN_API_KEY=
-LANGCHAIN_PROJECT=apex
-```
-
-Frontend runtime/build env:
-
-```env
-NEXT_PUBLIC_API_BASE_URL=https://<backend-domain>
-```
-
-Important: `NEXT_PUBLIC_API_BASE_URL` is a build-time public variable for Next.js. If the backend URL changes, rebuild/redeploy the frontend image.
 
 ### Azure File Share Mount
 
