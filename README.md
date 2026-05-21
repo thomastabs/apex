@@ -6,7 +6,7 @@ The current migrated version is a split full-stack web app:
 
 - **Backend:** Python 3.12, FastAPI, Pydantic v2, LangChain, Anthropic Claude, Taiga REST API
 - **Frontend:** Next.js 15 App Router, TypeScript, React Query 5, Zustand, Tailwind CSS
-- **Storage:** local `contextspec/` folder in development, or Azure File Share in deployment
+- **Storage:** `contextspec/` folder in Azure File Share in deployment
 - **Deployment:** GitHub Actions builds Docker images and deploys to Azure Container Apps
 
 Phases 1 and 2 are implemented. Phases 3 to 6 currently exist as navigation placeholders.
