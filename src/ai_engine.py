@@ -4,18 +4,13 @@ LangChain AI engine backed exclusively by Anthropic (Claude).
 
 Two-model split (configured via .env):
   AI_MODEL_FAST   — discovery, breakdown          (structured output)
-  AI_MODEL_CODER  — architecture, propose, qa,    (code generation & debugging)
-                    infra-delta, fix-apex
+  AI_MODEL_CODER  — architecture, propose, design (structured + long-form generation)
 
 Both fall back to the defaults below when the vars are not set.
 
 Phase 1 pipeline (two-step):
-  Step 1 — generate_nl_stories()    : Epic → NLStoryList (Natural Language, for human review)
-  Step 2 — compile_gherkin_stories(): NL draft → GherkinStoryList (formal GL, on approval)
-
-Context Isolation Rule (enforced in fix_bolt_diagnose):
-  NEVER pass the full .ai-context.md to the fix-apex AI call.
-  Only pass: bug description + stack trace + isolated code snippet.
+  Step 1 — generate_nl_stories()  : Epic → NL story list (human review draft)
+  Step 2 — compile_gherkin()      : NL draft → Gherkin acceptance criteria (on approval)
 """
 
 import json

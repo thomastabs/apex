@@ -16,12 +16,7 @@ import { useContextFiles } from "@/lib/hooks/use-workspace";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import type { CompiledStory, EpicSuggestion } from "@/lib/api/types";
-import { ApiError } from "@/lib/api/client";
-import { cn } from "@/lib/utils";
-
-function errMsg(err: unknown): string {
-  return err instanceof ApiError ? err.message : String(err);
-}
+import { cn, errMsg } from "@/lib/utils";
 
 type Mode = "create" | "load" | "suggest";
 

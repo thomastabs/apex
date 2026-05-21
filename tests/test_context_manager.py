@@ -1,7 +1,6 @@
 """Unit tests for context_manager.py — all storage and index operations."""
 
 import json
-import pytest
 
 
 # ---------------------------------------------------------------------------
@@ -36,7 +35,6 @@ class TestInitContext:
         ctx.init_context()
         # Patch mkdir to fail — second call must not reach it
         calls = []
-        original_mkdir = ctx.CONTEXT_DIR.__class__.mkdir
         monkeypatch.setattr(ctx.CONTEXT_DIR.__class__, "mkdir",
                             lambda self, **kw: calls.append(1))
         ctx.init_context()

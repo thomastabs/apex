@@ -2,7 +2,7 @@
 
 import pytest
 from contextlib import contextmanager
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch, MagicMock
 
 
 @contextmanager
@@ -268,7 +268,7 @@ class TestNormalizeStory:
         raw = {
             "id": 10, "ref": 7, "subject": "Login Story",
             "version": 3, "status": 1,
-            "epic_extra_info": {"subject": "Auth Epic"},
+            "epic_extra_info": {"id": 99, "subject": "Auth Epic"},
         }
         result = taiga_adapter.normalize_story(raw)
         assert result["id"] == 10
@@ -276,12 +276,14 @@ class TestNormalizeStory:
         assert result["subject"] == "Login Story"
         assert result["version"] == 3
         assert result["status"] == 1
+        assert result["epic_id"] == 99
         assert result["epic_subject"] == "Auth Epic"
 
     def test_epics_list_field(self):
         from src import taiga_adapter
-        raw = {"id": 4, "epics": [{"subject": "Epic A"}, {"subject": "Epic B"}]}
+        raw = {"id": 4, "epics": [{"id": 12, "subject": "Epic A"}, {"id": 13, "subject": "Epic B"}]}
         result = taiga_adapter.normalize_story(raw)
+        assert result["epic_id"] == 12
         assert result["epic_subject"] == "Epic A"
 
     def test_no_epic_info_gives_empty_epic_subject(self):
@@ -301,6 +303,14 @@ class TestNormalizeStory:
         from src import taiga_adapter
         raw = {"id": 7, "epics": []}
         assert taiga_adapter.normalize_story(raw)["epic_subject"] == ""
+
+    def test_epic_id_can_come_from_raw_epic_field(self):
+        from src import taiga_adapter
+        assert taiga_adapter.normalize_story({"id": 9, "epic": 22})["epic_id"] == 22
+
+    def test_epic_id_can_come_from_raw_epic_dict(self):
+        from src import taiga_adapter
+        assert taiga_adapter.normalize_story({"id": 9, "epic": {"id": 23}})["epic_id"] == 23
 
     def test_description_html_used_when_plain_description_missing(self):
         from src import taiga_adapter
@@ -356,7 +366,8 @@ class TestGetStoriesNormalized:
         with patch.object(taiga_adapter, "_get", side_effect=[[{"id": 5}], {"id": 5}]):
             result = taiga_adapter.get_stories()
         assert result[0] == {"id": 5, "ref": 5, "subject": "", "description": "",
-                              "version": None, "status": None, "tags": [], "epic_subject": ""}
+                              "version": None, "status": None, "tags": [], "epic_id": None,
+                              "epic_subject": ""}
 
     def test_fetches_story_detail_when_list_omits_description(self):
         from src import taiga_adapter

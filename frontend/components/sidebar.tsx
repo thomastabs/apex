@@ -59,7 +59,7 @@ import {
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { usePhase2Store } from "@/lib/stores/phase2-store";
-import { cn } from "@/lib/utils";
+import { cn, errMsg } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Epic, Story } from "@/lib/api/types";
 import { ApiError } from "@/lib/api/client";
@@ -1555,6 +1555,23 @@ export function Sidebar() {
                           </div>
                         </div>
                       ) : null}
+                      {(() => {
+                        if (!board.data || !storyStats.data) return null;
+                        const boardTotal = board.data.reduce((sum, epic) => sum + epic.stories.length, 0);
+                        const indexTotal = storyStats.data.total;
+                        if (boardTotal === indexTotal) return null;
+                        return (
+                          <div className={cn("flex items-center justify-between rounded border px-2 py-1.5 text-xs", dark ? "border-amber-700/50 bg-amber-950/30 text-amber-300" : "border-amber-400/50 bg-amber-50 text-amber-700")}>
+                            <span>Story index out of sync — {boardTotal} on board, {indexTotal} indexed</span>
+                            <button
+                              className="ml-2 shrink-0 rounded px-1.5 py-0.5 font-semibold underline hover:no-underline"
+                              onClick={() => rebuildIndex.mutate(undefined, { onSuccess: () => { setStoryIndexSyncedAt(new Date()); toast.success("Story index rebuilt"); }, onError: () => toast.error("Failed to rebuild story index") })}
+                            >
+                              Rebuild
+                            </button>
+                          </div>
+                        );
+                      })()}
                       {board.isLoading ? (
                         <div className="space-y-2">
                           <Skeleton className="h-6 w-3/4" />
@@ -1659,7 +1676,7 @@ export function Sidebar() {
                                 title="Remove member"
                                 onClick={() =>
                                   confirm(`Remove ${member.full_name || member.username} from project?`, () =>
-                                    removeMember.mutate(member.id, { onSuccess: () => toast.success(`${member.full_name || member.username} removed`) }),
+                                    removeMember.mutate(member.id, { onSuccess: () => toast.success(`${member.full_name || member.username} removed`), onError: () => toast.error("Failed to remove member") }),
                                   )
                                 }
                               >
@@ -1727,7 +1744,7 @@ export function Sidebar() {
                         <button
                           className="h-8 w-full rounded bg-violet-600 text-sm font-semibold text-white transition-colors hover:bg-violet-500 disabled:opacity-50"
                           disabled={!inviteValue.trim() || !defaultRoleId || invite.isPending}
-                          onClick={() => invite.mutate({ usernameOrEmail: inviteValue, roleId: defaultRoleId }, { onSuccess: () => { toast.success(`Invite sent to ${inviteValue}`); setInviteValue(""); } })}
+                          onClick={() => invite.mutate({ usernameOrEmail: inviteValue, roleId: defaultRoleId }, { onSuccess: () => { toast.success(`Invite sent to ${inviteValue}`); setInviteValue(""); }, onError: (err) => toast.error(errMsg(err)) })}
                         >
                           Send invite
                         </button>
@@ -1823,7 +1840,7 @@ export function Sidebar() {
                         <button
                           className="flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm text-violet-300 transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 hover:text-violet-200 disabled:opacity-40"
                           disabled={rebuildIndex.isPending}
-                          onClick={() => rebuildIndex.mutate(undefined, { onSuccess: () => { toast.success("Story index rebuilt"); setStoryIndexSyncedAt(new Date()); } })}
+                          onClick={() => rebuildIndex.mutate(undefined, { onSuccess: () => { toast.success("Story index rebuilt"); setStoryIndexSyncedAt(new Date()); }, onError: () => toast.error("Failed to rebuild story index") })}
                         >
                           <span>Rebuild story index</span>
                           <RefreshCw className="size-4 text-violet-400" />

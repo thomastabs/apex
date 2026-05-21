@@ -316,6 +316,12 @@ def _fetch_missing_descriptions(raw_list: list[dict], resource: str) -> dict[int
             detail = _get(f"{resource}/{item['id']}")
             return item["id"], detail or item
         except Exception:
+            _logger.warning(
+                "taiga.detail_fallback_failed resource=%s id=%s",
+                resource,
+                item.get("id"),
+                exc_info=True,
+            )
             return item["id"], item
         finally:
             _project_id_var.reset(project_reset)
@@ -745,6 +751,11 @@ def normalize_story(raw: dict) -> dict:
     if isinstance(epic_info, list):
         epic_info = epic_info[0] if epic_info else {}
     epic_subject = epic_info.get("subject", "") if isinstance(epic_info, dict) else ""
+    epic_id = raw.get("epic")
+    if isinstance(epic_id, dict):
+        epic_id = epic_id.get("id")
+    if isinstance(epic_info, dict):
+        epic_id = epic_id or epic_info.get("id")
     return {
         "id":           raw["id"],
         "ref":          raw.get("ref", raw["id"]),
@@ -753,6 +764,7 @@ def normalize_story(raw: dict) -> dict:
         "version":      raw.get("version"),
         "status":       raw.get("status"),
         "tags":         _parse_tags(raw.get("tags")),
+        "epic_id":      epic_id,
         "epic_subject": epic_subject,
     }
 

@@ -38,6 +38,7 @@ export type Story = {
   version?: number | null;
   status?: number | null;
   tags: string[];
+  epic_id?: number | null;
   epic_subject: string;
 };
 

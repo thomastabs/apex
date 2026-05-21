@@ -1,6 +1,6 @@
 """Schemas for shell/sidebar workspace endpoints."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class MeResponse(BaseModel):
@@ -13,6 +13,13 @@ class MeResponse(BaseModel):
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+    @field_validator("username", "password")
+    @classmethod
+    def not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("must not be empty")
+        return v
 
 
 class LoginResponse(BaseModel):
@@ -31,6 +38,13 @@ class CreateProjectRequest(BaseModel):
     name: str
     description: str = ""
 
+    @field_validator("name")
+    @classmethod
+    def name_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("must not be empty")
+        return v
+
 
 class StorySchema(BaseModel):
     id: int
@@ -40,6 +54,7 @@ class StorySchema(BaseModel):
     version: int | None = None
     status: int | None = None
     tags: list[str] = Field(default_factory=list)
+    epic_id: int | None = None
     epic_subject: str = ""
 
 
@@ -58,6 +73,13 @@ class CreateEpicRequest(BaseModel):
     description: str = ""
     tags: list[str] = Field(default_factory=list)
 
+    @field_validator("subject")
+    @classmethod
+    def subject_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("must not be empty")
+        return v
+
 
 class CreateStoryRequest(BaseModel):
     subject: str
@@ -65,6 +87,13 @@ class CreateStoryRequest(BaseModel):
     epic_id: int
     tags: list[str] = Field(default_factory=list)
     status_id: int | None = None
+
+    @field_validator("subject")
+    @classmethod
+    def subject_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("must not be empty")
+        return v
 
 
 class ContextFileSchema(BaseModel):
@@ -125,3 +154,54 @@ class UpdateStoryRequest(BaseModel):
 
 class UpdateMemberRoleRequest(BaseModel):
     role_id: int
+
+
+class EpicSchema(BaseModel):
+    id: int
+    ref: int
+    subject: str
+    description: str = ""
+    version: int | None = None
+    tags: list[str] = Field(default_factory=list)
+
+
+class StoryStatusSchema(BaseModel):
+    id: int
+    name: str
+    color: str = ""
+    is_closed: bool = False
+
+
+class OkResponse(BaseModel):
+    ok: bool = True
+
+
+class DeleteEpicResponse(BaseModel):
+    ok: bool = True
+    stories_deleted: int = 0
+    story_failures: list[int] = Field(default_factory=list)
+
+
+class ConfigResponse(BaseModel):
+    project_id: int | None = None
+    taiga_web_url: str = ""
+
+
+class AiConfigModel(BaseModel):
+    id: str
+    label: str
+    context_window: int = 0
+
+
+class AiConfigResponse(BaseModel):
+    fast_model: str
+    coder_model: str
+    available_models: list[AiConfigModel] = Field(default_factory=list)
+
+
+class StoryIndexStatsResponse(BaseModel):
+    total: int = 0
+    phase2_designed: int = 0
+    phase3_proposed: int = 0
+    phase4_tested: int = 0
+    phase5_deployed: int = 0

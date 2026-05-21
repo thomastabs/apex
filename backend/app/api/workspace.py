@@ -4,20 +4,27 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-_logger = logging.getLogger("apex.workspace")
-
 from backend.app.api.deps import AuthContext, RequestContext, get_auth_context, get_request_context
 from backend.app.schemas.workspace import (
+    AiConfigResponse,
+    ConfigResponse,
     ContextFilesResponse,
     CreateEpicRequest,
     CreateProjectRequest,
     CreateStoryRequest,
+    DeleteEpicResponse,
+    EpicSchema,
     EpicWithStoriesSchema,
     InviteMemberRequest,
     LoginRequest,
     LoginResponse,
+    MembershipSchema,
     MeResponse,
+    OkResponse,
     ProjectSchema,
+    StoryIndexStatsResponse,
+    StorySchema,
+    StoryStatusSchema,
     UpdateContextFileRequest,
     UpdateEpicRequest,
     UpdateMemberRoleRequest,
@@ -28,6 +35,8 @@ from backend.app.services.context_service import ContextService
 from backend.app.services.taiga_service import TaigaService
 from src import taiga_adapter
 from src.taiga_adapter import TaigaAPIError
+
+_logger = logging.getLogger("apex.workspace")
 
 router = APIRouter()
 
@@ -61,7 +70,7 @@ def _me_payload(me: dict) -> dict:
     }
 
 
-@router.get("/config")
+@router.get("/config", response_model=ConfigResponse)
 def get_config(auth: AuthContext = Depends(get_auth_context)):
     from src import context_manager, taiga_adapter
     config = context_manager.load_config()
@@ -71,7 +80,7 @@ def get_config(auth: AuthContext = Depends(get_auth_context)):
     }
 
 
-@router.get("/ai-config")
+@router.get("/ai-config", response_model=AiConfigResponse)
 def get_ai_config(auth: AuthContext = Depends(get_auth_context)):
     from src.ai_engine import AVAILABLE_MODELS, get_coder_model, get_fast_model
     return {
@@ -81,7 +90,7 @@ def get_ai_config(auth: AuthContext = Depends(get_auth_context)):
     }
 
 
-@router.post("/ai-config")
+@router.post("/ai-config", response_model=AiConfigResponse)
 def save_ai_config_endpoint(payload: dict, auth: AuthContext = Depends(get_auth_context)):
     from src import ai_engine, context_manager
     from src.ai_engine import AVAILABLE_MODELS, get_coder_model, get_fast_model
@@ -92,10 +101,10 @@ def save_ai_config_endpoint(payload: dict, auth: AuthContext = Depends(get_auth_
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid model ID.")
     context_manager.save_ai_config(fast, coder)
     ai_engine._llm_cache.clear()
-    return {"fast_model": fast, "coder_model": coder}
+    return {"fast_model": fast, "coder_model": coder, "available_models": AVAILABLE_MODELS}
 
 
-@router.post("/config")
+@router.post("/config", response_model=OkResponse)
 def save_config(payload: dict, auth: AuthContext = Depends(get_auth_context)):
     from src import context_manager
     project_id = payload.get("project_id")
@@ -146,7 +155,7 @@ def create_project(payload: CreateProjectRequest, auth: AuthContext = Depends(ge
         raise _taiga_error(exc) from exc
 
 
-@router.delete("/projects/{project_id}")
+@router.delete("/projects/{project_id}", response_model=OkResponse)
 def delete_project(project_id: int, auth: AuthContext = Depends(get_auth_context)):
     taiga = TaigaService()
     taiga.set_token(auth.taiga_token)
@@ -203,15 +212,17 @@ def get_board(ctx: RequestContext = Depends(get_request_context)):
     taiga.set_context(ctx.taiga_token, ctx.project_id)
     try:
         epics = taiga.get_epics()
-        result = []
-        for epic in epics:
-            result.append({**epic, "stories": taiga.get_stories_for_epic(epic["id"])})
-        return result
+        stories_by_epic: dict[int, list[dict]] = {}
+        for story in taiga.get_stories():
+            epic_id = story.get("epic_id")
+            if epic_id:
+                stories_by_epic.setdefault(int(epic_id), []).append(story)
+        return [{**epic, "stories": stories_by_epic.get(epic["id"], [])} for epic in epics]
     except TaigaAPIError as exc:
         raise _taiga_error(exc) from exc
 
 
-@router.get("/story-statuses")
+@router.get("/story-statuses", response_model=list[StoryStatusSchema])
 def list_story_statuses(ctx: RequestContext = Depends(get_request_context)):
     taiga = TaigaService()
     taiga.set_context(ctx.taiga_token, ctx.project_id)
@@ -221,7 +232,7 @@ def list_story_statuses(ctx: RequestContext = Depends(get_request_context)):
         raise _taiga_error(exc) from exc
 
 
-@router.post("/epics")
+@router.post("/epics", response_model=EpicSchema)
 def create_epic(payload: CreateEpicRequest, ctx: RequestContext = Depends(get_request_context)):
     taiga = TaigaService()
     taiga.set_context(ctx.taiga_token, ctx.project_id)
@@ -231,7 +242,7 @@ def create_epic(payload: CreateEpicRequest, ctx: RequestContext = Depends(get_re
         raise _taiga_error(exc) from exc
 
 
-@router.put("/epics/{epic_id}")
+@router.put("/epics/{epic_id}", response_model=EpicSchema)
 def update_epic(epic_id: int, payload: UpdateEpicRequest, ctx: RequestContext = Depends(get_request_context)):
     taiga = TaigaService()
     taiga.set_context(ctx.taiga_token, ctx.project_id)
@@ -247,7 +258,7 @@ def update_epic(epic_id: int, payload: UpdateEpicRequest, ctx: RequestContext = 
         raise _taiga_error(exc) from exc
 
 
-@router.delete("/epics/{epic_id}")
+@router.delete("/epics/{epic_id}", response_model=DeleteEpicResponse)
 def delete_epic(epic_id: int, ctx: RequestContext = Depends(get_request_context)):
     from src import context_manager
     taiga = TaigaService()
@@ -261,7 +272,7 @@ def delete_epic(epic_id: int, ctx: RequestContext = Depends(get_request_context)
         raise _taiga_error(exc) from exc
 
 
-@router.post("/stories")
+@router.post("/stories", response_model=StorySchema)
 def create_story(payload: CreateStoryRequest, ctx: RequestContext = Depends(get_request_context)):
     taiga = TaigaService()
     taiga.set_context(ctx.taiga_token, ctx.project_id)
@@ -283,7 +294,7 @@ def create_story(payload: CreateStoryRequest, ctx: RequestContext = Depends(get_
         raise _taiga_error(exc) from exc
 
 
-@router.put("/stories/{story_id}")
+@router.put("/stories/{story_id}", response_model=StorySchema)
 def update_story(story_id: int, payload: UpdateStoryRequest, ctx: RequestContext = Depends(get_request_context)):
     taiga = TaigaService()
     taiga.set_context(ctx.taiga_token, ctx.project_id)
@@ -299,7 +310,7 @@ def update_story(story_id: int, payload: UpdateStoryRequest, ctx: RequestContext
         raise _taiga_error(exc) from exc
 
 
-@router.delete("/stories/{story_id}")
+@router.delete("/stories/{story_id}", response_model=OkResponse)
 def delete_story(story_id: int, ctx: RequestContext = Depends(get_request_context)):
     from src import context_manager
     taiga = TaigaService()
@@ -323,7 +334,7 @@ def get_users(ctx: RequestContext = Depends(get_request_context)):
         raise _taiga_error(exc) from exc
 
 
-@router.post("/users/invite")
+@router.post("/users/invite", response_model=MembershipSchema)
 def invite_user(payload: InviteMemberRequest, ctx: RequestContext = Depends(get_request_context)):
     taiga = TaigaService()
     taiga.set_context(ctx.taiga_token, ctx.project_id)
@@ -333,7 +344,7 @@ def invite_user(payload: InviteMemberRequest, ctx: RequestContext = Depends(get_
         raise _taiga_error(exc) from exc
 
 
-@router.delete("/users/members/{membership_id}")
+@router.delete("/users/members/{membership_id}", response_model=OkResponse)
 def remove_member(membership_id: int, ctx: RequestContext = Depends(get_request_context)):
     taiga = TaigaService()
     taiga.set_context(ctx.taiga_token, ctx.project_id)
@@ -344,7 +355,7 @@ def remove_member(membership_id: int, ctx: RequestContext = Depends(get_request_
         raise _taiga_error(exc) from exc
 
 
-@router.put("/users/members/{membership_id}/role")
+@router.put("/users/members/{membership_id}/role", response_model=MembershipSchema)
 def update_member_role(
     membership_id: int,
     payload: UpdateMemberRoleRequest,
@@ -358,15 +369,19 @@ def update_member_role(
         raise _taiga_error(exc) from exc
 
 
-@router.post("/context-files/rebuild-index")
+@router.post("/context-files/rebuild-index", response_model=OkResponse)
 def rebuild_story_index(ctx: RequestContext = Depends(get_request_context)):
     from src import context_manager
     context_manager.set_active_project(ctx.project_id)
-    context_manager.rebuild_story_index()
+    try:
+        context_manager.rebuild_story_index()
+    except Exception as exc:
+        _logger.exception("rebuild_story_index failed: %s", exc)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to rebuild story index.") from exc
     return {"ok": True}
 
 
-@router.get("/context-files/story-index-stats")
+@router.get("/context-files/story-index-stats", response_model=StoryIndexStatsResponse)
 def story_index_stats(ctx: RequestContext = Depends(get_request_context)):
     from src import context_manager
     context_manager.set_active_project(ctx.project_id)
@@ -382,7 +397,7 @@ def story_index_stats(ctx: RequestContext = Depends(get_request_context)):
         "phase2_designed": sum(1 for s in stories if s.get("has_tech_spec")),
         "phase3_proposed": sum(1 for s in stories if s.get("has_proposal")),
         "phase4_tested": sum(1 for s in stories if s.get("has_bdd")),
-        "phase5_deployed": sum(1 for s in stories if s.get("phase_status") == "deployed" or s.get("has_bdd")),
+        "phase5_deployed": sum(1 for s in stories if s.get("phase_status") == "deployed"),
     }
 
 

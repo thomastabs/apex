@@ -17,6 +17,7 @@ from backend.app.schemas.phase2 import (
     ProposeTechStackResponse,
     TechStackStatusResponse,
 )
+from backend.app.schemas.workspace import OkResponse
 from backend.app.services.phase2_service import Phase2Service, Phase2ValidationError
 from src.ai_engine import AIError
 from src.taiga_adapter import TaigaAPIError
@@ -119,7 +120,7 @@ def lock_epic_design(
         _handle_error(exc)
 
 
-@router.post("/refresh-story-index")
+@router.post("/refresh-story-index", response_model=OkResponse)
 def refresh_story_index(ctx: RequestContext = Depends(get_request_context)):
     from src import context_manager
     context_manager.set_active_project(ctx.project_id)

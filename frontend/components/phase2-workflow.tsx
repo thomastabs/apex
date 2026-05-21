@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertCircle, CheckCircle2, ChevronRight, Code2, Compass, Info, RefreshCw, RotateCcw, Save, Sparkles, StopCircle, Unlock } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronRight, Code2, Compass, Download, Info, RefreshCw, RotateCcw, Save, Sparkles, StopCircle, Unlock } from "lucide-react";
 import { toast } from "sonner";
 import { Button, Callout, Input, SectionHeading, Skeleton, Textarea } from "@/components/ui/primitives";
 import {
@@ -17,12 +17,7 @@ import { usePhase2Store } from "@/lib/stores/phase2-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { MermaidBlock } from "@/components/mermaid-block";
-import { ApiError } from "@/lib/api/client";
-import { cn } from "@/lib/utils";
-
-function errMsg(err: unknown): string {
-  return err instanceof ApiError ? err.message : String(err);
-}
+import { cn, errMsg } from "@/lib/utils";
 
 type BundleTab = "ux" | "architecture";
 
@@ -78,6 +73,31 @@ function loadBundleDraft(projectId: number | null, epicId: number | null): objec
   } catch {
     return null;
   }
+}
+
+function downloadDesignBundle(epicTitle: string, bundle: { wireframes: string; user_flow: string; component_tree: string; tech_spec: string }) {
+  const content = [
+    `# Design Bundle — ${epicTitle}`,
+    "",
+    "## Wireframes",
+    bundle.wireframes,
+    "",
+    "## User Flow",
+    bundle.user_flow,
+    "",
+    "## Component Tree",
+    bundle.component_tree,
+    "",
+    "## Tech Spec",
+    bundle.tech_spec,
+  ].join("\n");
+  const blob = new Blob([content], { type: "text/markdown" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `design-bundle-${epicTitle.toLowerCase().replace(/\s+/g, "-")}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export function Phase2Workflow() {
@@ -146,6 +166,23 @@ export function Phase2Workflow() {
   }
 
   function reopenGate0() {
+    const lockedCount = eligibleEpics.data?.filter((e) => e.phase_status === "design_locked").length ?? 0;
+    if (lockedCount > 0) {
+      toast.warning(
+        `${lockedCount} epic(s) already have locked designs. Changing the tech stack may create inconsistency with existing designs.`,
+        {
+          action: {
+            label: "Reopen Anyway",
+            onClick: () => {
+              setStackReopened(true);
+              setTechStackDraft(techStack.data?.tech_stack ?? "");
+            },
+          },
+          duration: 8000,
+        },
+      );
+      return;
+    }
     setStackReopened(true);
     setTechStackDraft(techStack.data?.tech_stack ?? "");
   }
@@ -392,14 +429,24 @@ export function Phase2Workflow() {
                     Refresh
                   </button>
                   {designBundle ? (
-                    <button
-                      className={cn("flex items-center gap-1 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
-                      title="Clear current design"
-                      onClick={clearDesign}
-                    >
-                      <RotateCcw className="size-3" />
-                      Clear
-                    </button>
+                    <>
+                      <button
+                        className={cn("flex items-center gap-1 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
+                        title="Download design bundle as Markdown"
+                        onClick={() => downloadDesignBundle(selectedEpic?.epic_title ?? "epic", designBundle)}
+                      >
+                        <Download className="size-3" />
+                        Export
+                      </button>
+                      <button
+                        className={cn("flex items-center gap-1 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
+                        title="Clear current design"
+                        onClick={clearDesign}
+                      >
+                        <RotateCcw className="size-3" />
+                        Clear
+                      </button>
+                    </>
                   ) : null}
                 </div>
               </div>

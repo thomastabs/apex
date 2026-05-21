@@ -93,6 +93,9 @@ class TaigaService:
     def get_story(self, story_id: int) -> dict:
         return taiga_adapter.get_story(story_id)
 
+    def get_stories(self) -> list[dict]:
+        return taiga_adapter.get_stories()
+
     def get_stories_for_epic(self, epic_id: int) -> list[dict]:
         return taiga_adapter.get_stories_for_epic(epic_id)
 

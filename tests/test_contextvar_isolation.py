@@ -8,7 +8,6 @@ import concurrent.futures
 import contextvars
 import time
 
-import pytest
 
 
 def test_contextvar_project_isolation_concurrent():
