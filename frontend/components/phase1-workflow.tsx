@@ -281,6 +281,14 @@ export function Phase1Workflow() {
     setShowGherkin(false);
   }
 
+  function backToStoryGeneration() {
+    setNlDraft("");
+    setCompiledStories([]);
+    setShowGherkin(false);
+    compile.reset();
+    toast.info("Natural language draft cleared — adjust guidance and generate again");
+  }
+
   // theme-aware shared classes
   const cardClass = dark
     ? "border-neutral-800 bg-[#1f1f21] hover:border-neutral-700"
@@ -680,20 +688,35 @@ export function Phase1Workflow() {
           <section className={cn("space-y-4 border-t pt-6", sectionBorderClass)}>
             <SectionHeading>Step 3 · Review Natural Language Draft</SectionHeading>
             <Textarea rows={14} value={nlDraft} onChange={(event) => setNlDraft(event.target.value)} />
-            <Button
-              disabled={busy || noContext}
-              onClick={() =>
-                compile.mutate(nlDraft, {
-                  onSuccess: (data) => {
-                    setCompiledStories(data.stories);
-                    setShowGherkin(true);
-                    toast.success(`${data.stories.length} stories compiled to Gherkin`);
-                  },
-                })
-              }
-            >
-              {compile.isPending ? "Compiling…" : "Compile to Gherkin"}
-            </Button>
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+              <button
+                className={cn(
+                  "h-10 rounded border px-4 text-sm font-semibold transition-colors disabled:opacity-50",
+                  dark
+                    ? "border-neutral-700 text-neutral-300 hover:bg-neutral-800"
+                    : "border-slate-300 text-slate-700 hover:bg-slate-100",
+                )}
+                disabled={busy || noContext}
+                onClick={backToStoryGeneration}
+              >
+                Go Back
+              </button>
+              <Button
+                className="w-full"
+                disabled={busy || noContext}
+                onClick={() =>
+                  compile.mutate(nlDraft, {
+                    onSuccess: (data) => {
+                      setCompiledStories(data.stories);
+                      setShowGherkin(true);
+                      toast.success(`${data.stories.length} stories compiled to Gherkin`);
+                    },
+                  })
+                }
+              >
+                {compile.isPending ? "Compiling…" : "Compile to Gherkin"}
+              </Button>
+            </div>
             <AIProgressIndicator steps={COMPILE_STEPS} isPending={compile.isPending} dark={dark} />
             {compile.isError ? (
               <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
