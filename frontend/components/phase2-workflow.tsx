@@ -42,7 +42,7 @@ function ComponentTreeView({ content, dark }: { content: string; dark: boolean }
     rows.push(
       <div
         key={rows.length}
-        style={{ paddingLeft: depth * 20, display: "flex", alignItems: "baseline", lineHeight: 1.65, padding: "2px 8px" }}
+        style={{ padding: `2px 8px 2px ${depth * 20 + 8}px`, display: "flex", alignItems: "baseline", lineHeight: 1.65 }}
       >
         <span style={{ color, marginRight: 5, fontSize: 10, flexShrink: 0 }}>{icon}</span>
         <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: dark ? "#e5e5e5" : "#1e293b" }}>{stripped}</span>

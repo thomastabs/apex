@@ -10,6 +10,7 @@ import { useStoryIndexStats } from "@/lib/hooks/use-workspace";
 function phaseBadge(stats: ReturnType<typeof useStoryIndexStats>["data"], phase: number): string {
   if (!stats || stats.total === 0) return "";
   const total = stats.total;
+  if (phase === 1) return `${total} pushed`;
   if (phase === 2 && stats.phase2_designed > 0) return `${stats.phase2_designed}/${total} designed`;
   if (phase === 3 && stats.phase3_proposed > 0) return `${stats.phase3_proposed}/${total} proposed`;
   if (phase === 4 && stats.phase4_tested > 0) return `${stats.phase4_tested}/${total} tested`;

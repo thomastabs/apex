@@ -103,6 +103,7 @@ export function useContextFiles() {
     queryKey: ["workspace", "context-files", context?.projectId],
     queryFn: () => getContextFiles(context!),
     enabled: Boolean(context),
+    staleTime: 30 * 1000,
   });
 }
 
@@ -135,6 +136,7 @@ export function useBoard() {
     queryKey: ["workspace", "board", context?.projectId],
     queryFn: () => getBoard(context!),
     enabled: Boolean(context),
+    staleTime: 30 * 1000,
   });
 }
 
@@ -204,6 +206,7 @@ export function useUsers() {
     queryKey: ["workspace", "users", context?.projectId],
     queryFn: () => getUsers(context!),
     enabled: Boolean(context),
+    staleTime: 60 * 1000,
   });
 }
 
@@ -299,6 +302,7 @@ export function useStoryIndexStats() {
     queryKey: ["workspace", "story-index-stats", context?.projectId],
     queryFn: () => getStoryIndexStats(context!),
     enabled: Boolean(context),
+    staleTime: 30 * 1000,
   });
 }
 
