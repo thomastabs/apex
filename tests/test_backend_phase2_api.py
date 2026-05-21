@@ -159,7 +159,7 @@ def test_ai_error_maps_to_502():
     assert exc.value.status_code == 502
 
 
-def test_ai_rate_limit_error_maps_to_502():
+def test_ai_rate_limit_error_maps_to_429():
     class FailingService(StubPhase2Service):
         def generate_design_bundle(self, ctx, *, epic_id):
             raise AIRateLimitError("Rate limited")
@@ -167,7 +167,7 @@ def test_ai_rate_limit_error_maps_to_502():
     with pytest.raises(HTTPException) as exc:
         generate_design_bundle(GenerateDesignBundleRequest(epic_id=7), ctx=_ctx(), service=FailingService())
 
-    assert exc.value.status_code == 502
+    assert exc.value.status_code == 429
 
 
 def test_unknown_errors_bubble_up():

@@ -91,7 +91,6 @@ class Phase1Service:
             )
             if status_id:
                 story = self.taiga.update_story_status(story["id"], status_id, story["version"])
-            story_obj = self.taiga.get_story(story["id"])
             self.context.append_gherkin(
                 story["id"],
                 title,
@@ -100,7 +99,7 @@ class Phase1Service:
                 epic_title=epic.get("subject", ""),
             )
             story_ids.append(story["id"])
-            url = self.taiga.get_story_url(story_obj.get("ref"))
+            url = self.taiga.get_story_url(story.get("ref"))
             if url:
                 story_urls.append(url)
 

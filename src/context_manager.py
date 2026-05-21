@@ -145,8 +145,10 @@ def set_active_project(project_id: int) -> None:
     contextspec/<project_id>/.  Each project has its own subdirectory so context
     files never bleed across projects.
     """
+    previous = _active_project_id.get(0)
     _active_project_id.set(project_id)
-    save_config(project_id)
+    if project_id != previous:
+        save_config(project_id)
 
 
 def is_project_selected() -> bool:

@@ -18,7 +18,7 @@ from backend.app.schemas.phase1 import (
     SuggestEpicsResponse,
 )
 from backend.app.services.phase1_service import Phase1Service, Phase1ValidationError
-from src.ai_engine import AIError
+from src.ai_engine import AIError, AIRateLimitError, AITimeoutError
 from src.taiga_adapter import TaigaAPIError
 
 router = APIRouter()
@@ -33,6 +33,10 @@ def _handle_error(exc: Exception) -> NoReturn:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     if isinstance(exc, TaigaAPIError):
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=exc.user_message) from exc
+    if isinstance(exc, AIRateLimitError):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
+    if isinstance(exc, AITimeoutError):
+        raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail=str(exc)) from exc
     if isinstance(exc, AIError):
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
     raise exc

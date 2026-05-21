@@ -19,7 +19,7 @@ from backend.app.schemas.phase2 import (
 )
 from backend.app.schemas.workspace import OkResponse
 from backend.app.services.phase2_service import Phase2Service, Phase2ValidationError
-from src.ai_engine import AIError
+from src.ai_engine import AIError, AIRateLimitError, AITimeoutError
 from src.taiga_adapter import TaigaAPIError
 
 router = APIRouter()
@@ -34,6 +34,10 @@ def _handle_error(exc: Exception) -> NoReturn:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     if isinstance(exc, TaigaAPIError):
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=exc.user_message) from exc
+    if isinstance(exc, AIRateLimitError):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
+    if isinstance(exc, AITimeoutError):
+        raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail=str(exc)) from exc
     if isinstance(exc, AIError):
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
     raise exc

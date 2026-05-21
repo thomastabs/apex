@@ -191,9 +191,14 @@ export function Phase1Workflow() {
     draftRestored.current = true;
   }, [context?.projectId]);
 
-  // Persist draft whenever it changes
+  // Persist draft — debounced 500 ms to avoid synchronous localStorage writes on every keystroke
+  const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    saveDraft(context?.projectId ?? null, { nlDraft, compiledStories, mode, epicTitle, epicDescription, epicId });
+    if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current);
+    draftSaveTimer.current = setTimeout(() => {
+      saveDraft(context?.projectId ?? null, { nlDraft, compiledStories, mode, epicTitle, epicDescription, epicId });
+    }, 500);
+    return () => { if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current); };
   }, [context?.projectId, nlDraft, compiledStories, mode, epicTitle, epicDescription, epicId]);
 
   const memoryBank = contextFiles.data?.files.find((f) => f.filename === "memory-bank.md")?.content ?? "";
@@ -233,7 +238,7 @@ export function Phase1Workflow() {
     setSelectedSuggestion(null);
   }
 
-  function useSuggestion(suggestion: EpicSuggestion, index: number) {
+  function applySuggestion(suggestion: EpicSuggestion, index: number) {
     setAppliedSuggestionIndex(index);
     setEpicTitle(suggestion.title);
     setEpicDescription(editedDescriptions[index] ?? suggestion.description);
@@ -626,7 +631,7 @@ export function Phase1Workflow() {
                                     : "border-slate-300 bg-white text-slate-700 hover:border-violet-400 hover:bg-violet-50 hover:text-violet-700",
                               )}
                               onClick={() => {
-                                useSuggestion(suggestion, index);
+                                applySuggestion(suggestion, index);
                                 toast.success(`"${suggestion.title}" selected as epic`);
                               }}
                             >

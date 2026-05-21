@@ -587,7 +587,7 @@ class TestClearToken:
 
     def test_resets_failure_flags(self):
         from src import taiga_adapter
-        taiga_adapter._me_cache_failed = True
+        taiga_adapter._me_cache_failed.add("testkey")
         taiga_adapter._project_cache_failed.add(99)
         taiga_adapter.clear_token()
         assert not taiga_adapter._me_cache_failed

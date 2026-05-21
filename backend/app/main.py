@@ -32,6 +32,16 @@ class _BodySizeLimitMiddleware(BaseHTTPMiddleware):
         content_length = request.headers.get("content-length")
         if content_length and int(content_length) > _MAX_BODY_BYTES:
             return Response("Request body too large (max 4 MB).", status_code=413)
+        # Also enforce limit for chunked transfer encoding (no Content-Length header)
+        if not content_length:
+            body = b""
+            async for chunk in request.stream():
+                body += chunk
+                if len(body) > _MAX_BODY_BYTES:
+                    return Response("Request body too large (max 4 MB).", status_code=413)
+            async def _replay():
+                yield body
+            request._stream = _replay()  # type: ignore[attr-defined]
         return await call_next(request)
 
 

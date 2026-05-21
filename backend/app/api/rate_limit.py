@@ -21,6 +21,11 @@ def ai_rate_limit(auth: AuthContext = Depends(get_auth_context)) -> None:
     key = auth.taiga_token[-20:]
     now = time.monotonic()
     with _lock:
+        # Prune expired buckets to prevent unbounded growth
+        expired = [k for k, (ws, _) in _buckets.items() if now - ws >= _WINDOW_SECS]
+        for k in expired:
+            del _buckets[k]
+
         window_start, count = _buckets[key]
         if now - window_start >= _WINDOW_SECS:
             _buckets[key] = (now, 1)

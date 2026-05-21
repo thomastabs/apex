@@ -555,43 +555,50 @@ def delete_epic_with_stories(epic_id: int) -> dict:
 # Project management
 # ---------------------------------------------------------------------------
 
-_me_cache: dict = {}
-_me_cache_failed: bool = False
+# Keyed by token (last 20 chars) so concurrent requests with different tokens
+# never share a cached profile. Entries are removed by _clear_auth_caches().
+_me_cache: dict[str, dict] = {}
+_me_cache_failed: set[str] = set()
+
+
+def _me_key() -> str:
+    return _get_token()[-20:]
 
 
 def _get_me() -> dict:
-    global _me_cache_failed
-    if _me_cache_failed:
+    key = _me_key()
+    if key in _me_cache_failed:
         raise TaigaAPIError("GET", "users/me", 401,
                             "Session expired — use the ⇄ button to sign in again.")
-    if not _me_cache:
+    if key not in _me_cache:
         try:
-            _me_cache.update(_get("users/me"))
+            _me_cache[key] = _get("users/me")
         except TaigaAPIError:
-            _me_cache_failed = True
+            _me_cache_failed.add(key)
             raise
-    return _me_cache
+    return _me_cache[key]
 
 
 def get_me() -> dict:
-    """Return the authenticated user's profile (cached per session)."""
+    """Return the authenticated user's profile (cached per token)."""
     return _get_me()
 
 
 def _clear_auth_caches() -> None:
-    global _me_cache_failed
     _me_cache.clear()
+    _me_cache_failed.clear()
     _project_cache.clear()
     _project_cache_failed.clear()
     _status_cache.clear()
     _status_cache_ts.clear()
-    _me_cache_failed = False
 
 
 def set_token(token: str) -> None:
-    """Override the auth token for this session."""
+    """Override the auth token for this session; only clears caches when token changes."""
+    current = _get_token()
     _set_token(token)
-    _clear_auth_caches()
+    if token != current:
+        _clear_auth_caches()
     _logger.info("taiga.set_token (manual override)")
 
 

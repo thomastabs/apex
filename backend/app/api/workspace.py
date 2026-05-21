@@ -22,6 +22,8 @@ from backend.app.schemas.workspace import (
     MeResponse,
     OkResponse,
     ProjectSchema,
+    SaveAiConfigRequest,
+    SaveConfigRequest,
     StoryIndexStatsResponse,
     StorySchema,
     StoryStatusSchema,
@@ -91,12 +93,12 @@ def get_ai_config(auth: AuthContext = Depends(get_auth_context)):
 
 
 @router.post("/ai-config", response_model=AiConfigResponse)
-def save_ai_config_endpoint(payload: dict, auth: AuthContext = Depends(get_auth_context)):
+def save_ai_config_endpoint(payload: SaveAiConfigRequest, auth: AuthContext = Depends(get_auth_context)):
     from src import ai_engine, context_manager
     from src.ai_engine import AVAILABLE_MODELS, get_coder_model, get_fast_model
     valid_ids = {m["id"] for m in AVAILABLE_MODELS}
-    fast = payload.get("fast_model") or get_fast_model()
-    coder = payload.get("coder_model") or get_coder_model()
+    fast = payload.fast_model or get_fast_model()
+    coder = payload.coder_model or get_coder_model()
     if fast not in valid_ids or coder not in valid_ids:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid model ID.")
     context_manager.save_ai_config(fast, coder)
@@ -105,11 +107,10 @@ def save_ai_config_endpoint(payload: dict, auth: AuthContext = Depends(get_auth_
 
 
 @router.post("/config", response_model=OkResponse)
-def save_config(payload: dict, auth: AuthContext = Depends(get_auth_context)):
+def save_config(payload: SaveConfigRequest, auth: AuthContext = Depends(get_auth_context)):
     from src import context_manager
-    project_id = payload.get("project_id")
-    if project_id:
-        context_manager.save_config(int(project_id))
+    if payload.project_id:
+        context_manager.save_config(payload.project_id)
     return {"ok": True}
 
 
@@ -180,6 +181,47 @@ def get_context_files(ctx: RequestContext = Depends(get_request_context)):
             "chars": len(content),
         })
     return {"files": files, "total_chars": sum(file["chars"] for file in files)}
+
+
+@router.post("/context-files/rebuild-index", response_model=OkResponse)
+def rebuild_story_index(ctx: RequestContext = Depends(get_request_context)):
+    from src import context_manager
+    context_manager.set_active_project(ctx.project_id)
+    try:
+        context_manager.rebuild_story_index()
+    except Exception as exc:
+        _logger.exception("rebuild_story_index failed: %s", exc)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to rebuild story index.") from exc
+    return {"ok": True}
+
+
+@router.get("/context-files/story-index-stats", response_model=StoryIndexStatsResponse)
+def story_index_stats(ctx: RequestContext = Depends(get_request_context)):
+    from src import context_manager
+    context_manager.set_active_project(ctx.project_id)
+    try:
+        index = context_manager.get_story_index()
+    except Exception as _idx_exc:
+        _logger.warning("story_index_stats: failed to load index: %s", _idx_exc)
+        index = {}
+    stories = list(index.values())
+    total = len(stories)
+    return {
+        "total": total,
+        "phase2_designed": sum(1 for s in stories if s.get("has_tech_spec")),
+        "phase3_proposed": sum(1 for s in stories if s.get("has_proposal")),
+        "phase4_tested": sum(1 for s in stories if s.get("has_bdd")),
+        "phase5_deployed": sum(1 for s in stories if s.get("phase_status") == "deployed"),
+    }
+
+
+@router.post("/context-files/reset-all", response_model=ContextFilesResponse)
+def reset_all_context_files(ctx: RequestContext = Depends(get_request_context)):
+    context = ContextService()
+    context.set_project(ctx.project_id)
+    for filename, _ in _CONTEXT_FILES:
+        context.reset_context_file(filename)
+    return get_context_files(ctx)
 
 
 @router.put("/context-files/{filename}", response_model=ContextFilesResponse)
@@ -367,44 +409,3 @@ def update_member_role(
         return taiga.update_membership_role(membership_id, payload.role_id)
     except TaigaAPIError as exc:
         raise _taiga_error(exc) from exc
-
-
-@router.post("/context-files/rebuild-index", response_model=OkResponse)
-def rebuild_story_index(ctx: RequestContext = Depends(get_request_context)):
-    from src import context_manager
-    context_manager.set_active_project(ctx.project_id)
-    try:
-        context_manager.rebuild_story_index()
-    except Exception as exc:
-        _logger.exception("rebuild_story_index failed: %s", exc)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to rebuild story index.") from exc
-    return {"ok": True}
-
-
-@router.get("/context-files/story-index-stats", response_model=StoryIndexStatsResponse)
-def story_index_stats(ctx: RequestContext = Depends(get_request_context)):
-    from src import context_manager
-    context_manager.set_active_project(ctx.project_id)
-    try:
-        index = context_manager.get_story_index()
-    except Exception as _idx_exc:
-        _logger.warning("story_index_stats: failed to load index: %s", _idx_exc)
-        index = {}
-    stories = list(index.values())
-    total = len(stories)
-    return {
-        "total": total,
-        "phase2_designed": sum(1 for s in stories if s.get("has_tech_spec")),
-        "phase3_proposed": sum(1 for s in stories if s.get("has_proposal")),
-        "phase4_tested": sum(1 for s in stories if s.get("has_bdd")),
-        "phase5_deployed": sum(1 for s in stories if s.get("phase_status") == "deployed"),
-    }
-
-
-@router.post("/context-files/reset-all", response_model=ContextFilesResponse)
-def reset_all_context_files(ctx: RequestContext = Depends(get_request_context)):
-    context = ContextService()
-    context.set_project(ctx.project_id)
-    for filename, _ in _CONTEXT_FILES:
-        context.reset_context_file(filename)
-    return get_context_files(ctx)

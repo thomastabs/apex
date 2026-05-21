@@ -137,6 +137,22 @@ class InviteMemberRequest(BaseModel):
     username_or_email: str
     role_id: int
 
+    @field_validator("username_or_email")
+    @classmethod
+    def username_or_email_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("must not be empty")
+        return v
+
+
+class SaveAiConfigRequest(BaseModel):
+    fast_model: str | None = None
+    coder_model: str | None = None
+
+
+class SaveConfigRequest(BaseModel):
+    project_id: int | None = None
+
 
 class UpdateEpicRequest(BaseModel):
     version: int

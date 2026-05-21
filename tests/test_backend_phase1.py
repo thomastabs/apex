@@ -87,6 +87,7 @@ class FakeTaigaService:
     def create_story(self, subject, description, *, epic_id, tags, backlog_order) -> dict:
         story = {
             "id": 100 + backlog_order,
+            "ref": 1100 + backlog_order,
             "version": 3,
             "subject": subject,
             "description": description,
@@ -99,10 +100,7 @@ class FakeTaigaService:
 
     def update_story_status(self, story_id: int, status_id: int, version: int) -> dict:
         self.status_updates.append((story_id, status_id, version))
-        return {"id": story_id, "version": version + 1}
-
-    def get_story(self, story_id: int) -> dict:
-        return {"id": story_id, "ref": story_id + 1000}
+        return {"id": story_id, "ref": story_id + 1000, "version": version + 1}
 
     def get_story_url(self, story_ref: int | None) -> str | None:
         return f"https://taiga.test/us/{story_ref}" if story_ref else None

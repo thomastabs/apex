@@ -27,6 +27,7 @@ export function useTechStackStatus() {
     queryKey: ["phase2", "tech-stack-status", context?.projectId],
     queryFn: () => getTechStackStatus(context!),
     enabled: Boolean(context),
+    staleTime: 30_000,
   });
 }
 
@@ -37,6 +38,7 @@ export function useEligiblePhase2Epics() {
     queryKey: ["phase2", "eligible-epics", context?.projectId],
     queryFn: () => listEligiblePhase2Epics(context!),
     enabled: Boolean(context),
+    staleTime: 30_000,
   });
 }
 
@@ -99,6 +101,7 @@ export function useLockEpicDesign() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["phase2", "eligible-epics"] });
       void queryClient.invalidateQueries({ queryKey: ["phase2", "tech-stack-status"] });
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
     },
   });
 }

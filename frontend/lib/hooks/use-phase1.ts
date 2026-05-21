@@ -19,6 +19,7 @@ export function usePhase1Epics() {
     queryKey: ["phase1", "epics", context?.projectId],
     queryFn: () => listPhase1Epics(context!),
     enabled: Boolean(context),
+    staleTime: 30_000,
   });
 }
 
@@ -59,6 +60,7 @@ export function usePushPhase1Stories() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["phase1", "epics"] });
       void queryClient.invalidateQueries({ queryKey: ["phase2", "eligible-epics"] });
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
     },
   });
 }
