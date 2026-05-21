@@ -4,8 +4,8 @@ Apex is an academic AI-guided SDLC tool that combines a **Spec-Anchored workflow
 
 The current migrated version is a split full-stack web app:
 
-- **Backend:** Python, FastAPI, Pydantic, LangChain, Anthropic Claude, Taiga REST API
-- **Frontend:** Next.js App Router, TypeScript, React Query, Zustand, Tailwind CSS
+- **Backend:** Python 3.12, FastAPI, Pydantic v2, LangChain, Anthropic Claude, Taiga REST API
+- **Frontend:** Next.js 15 App Router, TypeScript, React Query 5, Zustand, Tailwind CSS
 - **Storage:** local `contextspec/` folder in development, or Azure File Share in deployment
 - **Deployment:** GitHub Actions builds Docker images and deploys to Azure Container Apps
 
@@ -58,12 +58,14 @@ Phase 2 creates design artefacts from locked Phase 1 stories.
 Implemented:
 
 - Gate 0: propose and lock a project-wide tech stack into `memory-bank.md`
+- Reopen protection: warning toast when epics already have locked designs
 - Select eligible epics with locked Gherkin stories
 - Generate a design bundle with:
   - ASCII wireframes
   - Mermaid user flow
   - component/module tree
   - OpenAPI/DB technical specification
+- Export design bundle as a Markdown file
 - Reuse prior locked design bundles as cross-epic context
 - Gate 1: Design Lead approval
 - Gate 2: Tech Lead approval
@@ -89,9 +91,9 @@ Implemented:
 - Active context file viewer/editor
 - Individual context file download
 - ZIP download of all context files
-- Story index rebuild
-- Context reset
-- AI model selector
+- Story index rebuild with out-of-sync warning
+- Context reset (individual and all files)
+- AI model selector (fast model / coder model)
 - Light/dark mode
 
 ---
@@ -244,6 +246,7 @@ Frontend:
 ```bash
 cd frontend
 npm ci
+npm run lint
 npm run typecheck
 npm test
 npm run build
@@ -251,11 +254,10 @@ npm run build
 
 CI runs:
 
-- backend pytest
-- frontend typecheck
-- frontend Vitest
-- frontend production build
-- backend/frontend Docker builds
+- backend: ruff lint, pytest
+- frontend: ESLint, typecheck, Vitest, production build
+- backend/frontend Docker builds and pushes
+- post-deploy health check (`/api/health`)
 
 ---
 
@@ -278,15 +280,19 @@ On push to `main`, it:
 4. Builds the frontend image from `frontend/Dockerfile`.
 5. Pushes both images to GitHub Container Registry.
 6. Updates Azure Container Apps to the new image tags.
+7. Polls `/api/health` for up to 2 minutes to confirm the backend came up.
 
 ### Container Apps
 
-The current workflow expects these Azure Container Apps:
+Azure resources in `apex-rg`:
 
-| Container App | Purpose | Port |
+| Resource | Type | Purpose |
 |---|---|---|
-| `apex-backend` | FastAPI API | `8000` |
-| `apex-frontend` | Next.js app | `3000` |
+| `apex-backend` | Container App | FastAPI API on port 8000 |
+| `apex-frontend` | Container App | Next.js app on port 3000 |
+| `apex-env` | Container Apps Environment | Shared CA environment |
+| `apex-logs` | Log Analytics workspace | Container log sink |
+| `apexctxstore` | Storage account | Azure File Share for context files |
 
 The workflow uses:
 
@@ -429,4 +435,6 @@ Phase 3 is expected to be an academic implementation-planning workflow, not a re
 - Keep Claude prompt logic in `src/ai_engine.py`.
 - Keep Taiga-specific REST behavior in `src/taiga_adapter.py` / `TaigaService`.
 - Treat Markdown context files as human-readable artefacts, and `story-index.json` as the machine-readable workflow index.
+- The backend runs with `--workers 2` in Docker so concurrent AI calls don't block each other.
+- AI errors map to distinct HTTP codes: `AIRateLimitError` → 429, `AITimeoutError` → 504, generic `AIError` → 502.
 - Do not commit local `contextspec/`, `.env`, `.next`, `node_modules`, or Python cache files.
