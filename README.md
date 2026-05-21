@@ -364,16 +364,6 @@ This one-hour seasonal drift is acceptable for the project. If exact Lisbon loca
 
 When scaled down to `min=0`, both frontend and backend can cold start. The first request after scale-up/down may be slower. This is expected.
 
-### Scheduler Requirements
-
-The scheduler requires the same GitHub secret as deployment:
-
-```text
-AZURE_CREDENTIALS
-```
-
-The service principal must be allowed to update Container Apps in `apex-rg`.
-
 ---
 
 ## Current Phase Status
