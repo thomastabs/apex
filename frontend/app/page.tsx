@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2, Code2, Compass, FileText, Rocket, Wrench } from "lucide-react";
+import { AlertCircle, CheckCircle2, Code2, Compass, FileText, Rocket, Wrench } from "lucide-react";
 import { PhaseCard } from "@/components/phase-card";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useStoryIndexStats } from "@/lib/hooks/use-workspace";
@@ -102,7 +102,7 @@ export default function HomePage() {
           </div>
         ) : (
           <div className="mt-4 flex items-start gap-3 rounded-md border border-amber-600/50 bg-amber-500/10 px-4 py-3 text-sm">
-            <span className="mt-0.5 text-lg leading-none text-amber-500">⚠</span>
+            <AlertCircle className="mt-0.5 size-4 shrink-0 text-amber-500" />
             <div>
               <p className="font-semibold text-amber-400">Not signed in</p>
               <p className="mt-0.5 text-amber-500/80">Sign in via the sidebar to start a session and select a Taiga project.</p>
@@ -113,7 +113,7 @@ export default function HomePage() {
 
       {hasProject ? null : (
         <div className="mb-6 flex items-start gap-3 rounded-md border border-amber-600/40 bg-amber-500/8 px-4 py-3 text-sm">
-          <span className="mt-0.5 shrink-0 text-amber-500">⚠</span>
+          <AlertCircle className="mt-0.5 size-4 shrink-0 text-amber-500" />
           <p className="text-amber-500/90">
             Phase workflows are available after signing in and selecting a project.{" "}
             {!isAuthenticated ? (
