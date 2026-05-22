@@ -5,7 +5,6 @@ import re
 from backend.app.services.ai_service import AiService
 from backend.app.services.context_service import ContextService
 from backend.app.services.request_context import RequestContext
-from backend.app.services.taiga_service import TaigaService
 
 
 class Phase2ValidationError(ValueError):
@@ -18,15 +17,12 @@ class Phase2Service:
         *,
         ai: AiService | None = None,
         context: ContextService | None = None,
-        taiga: TaigaService | None = None,
     ) -> None:
         self.ai = ai or AiService()
         self.context = context or ContextService()
-        self.taiga = taiga or TaigaService()
 
     def configure_request(self, ctx: RequestContext) -> None:
         self.context.set_project(ctx.project_id)
-        self.taiga.set_context(ctx.taiga_token, ctx.project_id)
 
     def tech_stack_status(self, ctx: RequestContext) -> dict:
         self.configure_request(ctx)
@@ -83,37 +79,9 @@ class Phase2Service:
             "story_ids": [s["story_id"] for s in all_stories],
         }
 
-    def lock_design(
-        self,
-        ctx: RequestContext,
-        *,
-        story_ids: list[int],
-        wireframes: str,
-        user_flow: str,
-        component_tree: str,
-        tech_spec: str,
-    ) -> dict:
-        self.configure_request(ctx)
-        if not tech_spec.strip():
-            raise Phase2ValidationError("tech_spec is required.")
-
-        locked_story_ids = story_ids or [s["story_id"] for s in self._all_eligible_stories()]
-        if not locked_story_ids:
-            raise Phase2ValidationError("At least one story_id is required.")
-
-        self.context.write_project_design_bundle(wireframes, user_flow, component_tree, tech_spec)
-        self.context.write_project_technical_spec(locked_story_ids, tech_spec)
-
-        failures = self._transition_taiga_stories(locked_story_ids)
-        return {
-            "ok": not failures,
-            "story_ids": locked_story_ids,
-            "taiga_failures": failures,
-        }
-
     def _all_eligible_stories(self, *, epics: list[dict] | None = None) -> list[dict]:
         """Return all stories with locked Gherkin, sorted by story_id."""
-        epics_by_id = {epic["id"]: epic for epic in epics} if epics is not None else {epic["id"]: epic for epic in self.taiga.get_epics()}
+        epics_by_id = {epic["id"]: epic for epic in epics} if epics is not None else {}
         stories = []
         for entry in self.context.story_index().values():
             if not entry.get("has_gherkin"):
@@ -138,26 +106,6 @@ class Phase2Service:
                 "gherkin": gherkin,
             })
         return sorted(stories, key=lambda s: s["story_id"])
-
-    def _transition_taiga_stories(self, story_ids: list[int]) -> list[dict]:
-        import logging
-        _log = logging.getLogger("apex.phase2")
-        failures = []
-        status_id = self.taiga.find_design_locked_status_id()
-        for story_id in story_ids:
-            try:
-                story = self.taiga.get_story(story_id)
-                tags = sorted({*story.get("tags", []), "apex", "design_locked"})
-                self.taiga.update_story_fields(
-                    story_id,
-                    story["version"],
-                    tags=tags,
-                    status_id=status_id,
-                )
-            except Exception as exc:
-                _log.warning("phase2.lock_design taiga_transition failed story_id=%s: %s", story_id, exc)
-                failures.append({"story_id": story_id, "error": str(exc)})
-        return failures
 
     def _extract_tech_stack(self, memory_bank: str) -> str:
         match = re.search(

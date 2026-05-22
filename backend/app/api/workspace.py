@@ -9,34 +9,13 @@ from backend.app.schemas.workspace import (
     AiConfigResponse,
     ConfigResponse,
     ContextFilesResponse,
-    CreateEpicRequest,
-    CreateProjectRequest,
-    CreateStoryRequest,
-    DeleteEpicResponse,
-    EpicSchema,
-    EpicWithStoriesSchema,
-    InviteMemberRequest,
-    LoginRequest,
-    LoginResponse,
-    MembershipSchema,
-    MeResponse,
     OkResponse,
-    ProjectSchema,
     SaveAiConfigRequest,
     SaveConfigRequest,
     StoryIndexStatsResponse,
-    StorySchema,
-    StoryStatusSchema,
     UpdateContextFileRequest,
-    UpdateEpicRequest,
-    UpdateMemberRoleRequest,
-    UpdateStoryRequest,
-    UsersResponse,
 )
 from backend.app.services.context_service import ContextService
-from backend.app.services.taiga_service import TaigaService
-from src import taiga_adapter
-from src.taiga_adapter import TaigaAPIError
 
 _logger = logging.getLogger("apex.workspace")
 
@@ -50,26 +29,6 @@ _CONTEXT_FILES = [
     ("design-bundle.md", "Design Bundle"),
 ]
 _ALLOWED_CONTEXT_FILES = {filename for filename, _ in _CONTEXT_FILES}
-
-
-def _taiga_error(exc: TaigaAPIError) -> HTTPException:
-    if exc.status in {status.HTTP_400_BAD_REQUEST, status.HTTP_401_UNAUTHORIZED}:
-        status_code = status.HTTP_401_UNAUTHORIZED
-    elif exc.status == 0:
-        status_code = status.HTTP_504_GATEWAY_TIMEOUT
-    else:
-        status_code = status.HTTP_502_BAD_GATEWAY
-    _logger.warning("Taiga API error mapped to HTTP %s: %s", status_code, exc)
-    return HTTPException(status_code=status_code, detail=exc.user_message)
-
-
-def _me_payload(me: dict) -> dict:
-    return {
-        "id": me.get("id"),
-        "username": me.get("username", ""),
-        "full_name": me.get("full_name", ""),
-        "email": me.get("email", ""),
-    }
 
 
 @router.get("/config", response_model=ConfigResponse)
@@ -112,59 +71,6 @@ def save_config(payload: SaveConfigRequest, auth: AuthContext = Depends(get_auth
     if payload.project_id:
         context_manager.save_config(payload.project_id)
     return {"ok": True}
-
-
-@router.post("/login", response_model=LoginResponse)
-def login(payload: LoginRequest):
-    taiga = TaigaService()
-    try:
-        token = taiga.login(payload.username, payload.password)
-        me = taiga.get_me()
-        return {"auth_token": token, "me": _me_payload(me)}
-    except TaigaAPIError as exc:
-        raise _taiga_error(exc) from exc
-
-
-@router.get("/me", response_model=MeResponse)
-def get_me(auth: AuthContext = Depends(get_auth_context)):
-    taiga = TaigaService()
-    taiga.set_token(auth.taiga_token)
-    try:
-        me = taiga.get_me()
-        return _me_payload(me)
-    except TaigaAPIError as exc:
-        raise _taiga_error(exc) from exc
-
-
-@router.get("/projects", response_model=list[ProjectSchema])
-def get_projects(auth: AuthContext = Depends(get_auth_context)):
-    taiga = TaigaService()
-    taiga.set_token(auth.taiga_token)
-    try:
-        return taiga.get_projects()
-    except TaigaAPIError as exc:
-        raise _taiga_error(exc) from exc
-
-
-@router.post("/projects", response_model=ProjectSchema)
-def create_project(payload: CreateProjectRequest, auth: AuthContext = Depends(get_auth_context)):
-    taiga = TaigaService()
-    taiga.set_token(auth.taiga_token)
-    try:
-        return taiga.create_project(payload.name, payload.description)
-    except TaigaAPIError as exc:
-        raise _taiga_error(exc) from exc
-
-
-@router.delete("/projects/{project_id}", response_model=OkResponse)
-def delete_project(project_id: int, auth: AuthContext = Depends(get_auth_context)):
-    taiga = TaigaService()
-    taiga.set_token(auth.taiga_token)
-    try:
-        taiga.delete_project(project_id)
-        return {"ok": True}
-    except TaigaAPIError as exc:
-        raise _taiga_error(exc) from exc
 
 
 @router.get("/context-files", response_model=ContextFilesResponse)
@@ -276,166 +182,3 @@ def reset_context_file(filename: str, ctx: RequestContext = Depends(get_request_
     context.set_project(ctx.project_id)
     context.reset_context_file(filename)
     return get_context_files(ctx)
-
-
-@router.get("/board", response_model=list[EpicWithStoriesSchema])
-def get_board(ctx: RequestContext = Depends(get_request_context)):
-    taiga = TaigaService()
-    taiga.set_context(ctx.taiga_token, ctx.project_id)
-    try:
-        epics = taiga.get_epics()
-        stories_by_epic: dict[int, list[dict]] = {}
-        for story in taiga.get_stories():
-            epic_id = story.get("epic_id")
-            if epic_id:
-                stories_by_epic.setdefault(int(epic_id), []).append(story)
-        return [{**epic, "stories": stories_by_epic.get(epic["id"], [])} for epic in epics]
-    except TaigaAPIError as exc:
-        raise _taiga_error(exc) from exc
-
-
-@router.get("/story-statuses", response_model=list[StoryStatusSchema])
-def list_story_statuses(ctx: RequestContext = Depends(get_request_context)):
-    taiga = TaigaService()
-    taiga.set_context(ctx.taiga_token, ctx.project_id)
-    try:
-        return taiga.get_story_statuses()
-    except TaigaAPIError as exc:
-        raise _taiga_error(exc) from exc
-
-
-@router.post("/epics", response_model=EpicSchema)
-def create_epic(payload: CreateEpicRequest, ctx: RequestContext = Depends(get_request_context)):
-    taiga = TaigaService()
-    taiga.set_context(ctx.taiga_token, ctx.project_id)
-    try:
-        return taiga.create_epic(payload.subject, payload.description, tags=payload.tags)
-    except TaigaAPIError as exc:
-        raise _taiga_error(exc) from exc
-
-
-@router.put("/epics/{epic_id}", response_model=EpicSchema)
-def update_epic(epic_id: int, payload: UpdateEpicRequest, ctx: RequestContext = Depends(get_request_context)):
-    taiga = TaigaService()
-    taiga.set_context(ctx.taiga_token, ctx.project_id)
-    try:
-        return taiga.update_epic_fields(
-            epic_id,
-            payload.version,
-            subject=payload.subject,
-            description=payload.description,
-            tags=payload.tags,
-        )
-    except TaigaAPIError as exc:
-        raise _taiga_error(exc) from exc
-
-
-@router.delete("/epics/{epic_id}", response_model=DeleteEpicResponse)
-def delete_epic(epic_id: int, ctx: RequestContext = Depends(get_request_context)):
-    from src import context_manager
-    taiga = TaigaService()
-    taiga.set_context(ctx.taiga_token, ctx.project_id)
-    try:
-        result = taiga.delete_epic_with_stories(epic_id)
-        context_manager.set_active_project(ctx.project_id)
-        context_manager.remove_epic_from_story_index(epic_id)
-        return {"ok": True, "stories_deleted": result["deleted"], "story_failures": result["failures"]}
-    except TaigaAPIError as exc:
-        raise _taiga_error(exc) from exc
-
-
-@router.post("/stories", response_model=StorySchema)
-def create_story(payload: CreateStoryRequest, ctx: RequestContext = Depends(get_request_context)):
-    taiga = TaigaService()
-    taiga.set_context(ctx.taiga_token, ctx.project_id)
-    try:
-        story = taiga.create_story(
-            payload.subject,
-            payload.description,
-            epic_id=payload.epic_id,
-            tags=payload.tags,
-            backlog_order=0,
-        )
-        if payload.status_id:
-            try:
-                story = taiga_adapter.update_story_status(story["id"], payload.status_id, story["version"])
-            except TaigaAPIError as _status_exc:
-                _logger.warning("story status update failed story_id=%s: %s", story["id"], _status_exc)
-        return story
-    except TaigaAPIError as exc:
-        raise _taiga_error(exc) from exc
-
-
-@router.put("/stories/{story_id}", response_model=StorySchema)
-def update_story(story_id: int, payload: UpdateStoryRequest, ctx: RequestContext = Depends(get_request_context)):
-    taiga = TaigaService()
-    taiga.set_context(ctx.taiga_token, ctx.project_id)
-    try:
-        return taiga.update_story_subject(
-            story_id,
-            payload.version,
-            subject=payload.subject,
-            description=payload.description,
-            tags=payload.tags,
-        )
-    except TaigaAPIError as exc:
-        raise _taiga_error(exc) from exc
-
-
-@router.delete("/stories/{story_id}", response_model=OkResponse)
-def delete_story(story_id: int, ctx: RequestContext = Depends(get_request_context)):
-    from src import context_manager
-    taiga = TaigaService()
-    taiga.set_context(ctx.taiga_token, ctx.project_id)
-    try:
-        taiga.delete_story(story_id)
-        context_manager.set_active_project(ctx.project_id)
-        context_manager.remove_story_index_entries([story_id])
-        return {"ok": True}
-    except TaigaAPIError as exc:
-        raise _taiga_error(exc) from exc
-
-
-@router.get("/users", response_model=UsersResponse)
-def get_users(ctx: RequestContext = Depends(get_request_context)):
-    taiga = TaigaService()
-    taiga.set_context(ctx.taiga_token, ctx.project_id)
-    try:
-        return {"memberships": taiga.get_memberships(), "roles": taiga.get_roles()}
-    except TaigaAPIError as exc:
-        raise _taiga_error(exc) from exc
-
-
-@router.post("/users/invite", response_model=MembershipSchema)
-def invite_user(payload: InviteMemberRequest, ctx: RequestContext = Depends(get_request_context)):
-    taiga = TaigaService()
-    taiga.set_context(ctx.taiga_token, ctx.project_id)
-    try:
-        return taiga.invite_member(payload.username_or_email, payload.role_id)
-    except TaigaAPIError as exc:
-        raise _taiga_error(exc) from exc
-
-
-@router.delete("/users/members/{membership_id}", response_model=OkResponse)
-def remove_member(membership_id: int, ctx: RequestContext = Depends(get_request_context)):
-    taiga = TaigaService()
-    taiga.set_context(ctx.taiga_token, ctx.project_id)
-    try:
-        taiga.remove_member(membership_id)
-        return {"ok": True}
-    except TaigaAPIError as exc:
-        raise _taiga_error(exc) from exc
-
-
-@router.put("/users/members/{membership_id}/role", response_model=MembershipSchema)
-def update_member_role(
-    membership_id: int,
-    payload: UpdateMemberRoleRequest,
-    ctx: RequestContext = Depends(get_request_context),
-):
-    taiga = TaigaService()
-    taiga.set_context(ctx.taiga_token, ctx.project_id)
-    try:
-        return taiga.update_membership_role(membership_id, payload.role_id)
-    except TaigaAPIError as exc:
-        raise _taiga_error(exc) from exc

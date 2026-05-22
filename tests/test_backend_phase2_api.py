@@ -6,19 +6,18 @@ from fastapi import HTTPException
 from backend.app.api.deps import get_request_context
 from backend.app.api.phase2 import (
     generate_design_bundle,
-    lock_design,
     lock_tech_stack,
     persist_design,
     propose_tech_stack,
     tech_stack_status,
 )
 from backend.app.schemas.phase2 import (
+    GenerateDesignBundleRequest,
     LockDesignRequest,
     LockTechStackRequest,
     ProposeTechStackRequest,
 )
 from src.ai_engine import AIError, AIRateLimitError
-from src.taiga_adapter import TaigaAPIError
 
 
 class StubPhase2Service:
@@ -31,7 +30,7 @@ class StubPhase2Service:
     def lock_tech_stack(self, ctx, *, tech_stack):
         return {"defined": True, "tech_stack": tech_stack}
 
-    def generate_design_bundle(self, ctx):
+    def generate_design_bundle(self, ctx, *, epics=None):
         return {
             "wireframes": "SCREEN",
             "user_flow": "flowchart TD",
@@ -39,9 +38,6 @@ class StubPhase2Service:
             "tech_spec": "openapi: 3.0.0",
             "story_ids": [10],
         }
-
-    def lock_design(self, ctx, *, story_ids, wireframes, user_flow, component_tree, tech_spec):
-        return {"ok": True, "story_ids": story_ids, "taiga_failures": []}
 
 
 def _ctx():
@@ -76,26 +72,14 @@ def test_lock_tech_stack_route():
 
 
 def test_generate_design_bundle_route():
-    response = generate_design_bundle(ctx=_ctx(), service=StubPhase2Service())
-
-    assert response["story_ids"] == [10]
-    assert response["wireframes"] == "SCREEN"
-
-
-def test_lock_design_route():
-    response = lock_design(
-        LockDesignRequest(
-            story_ids=[10, 11],
-            wireframes="SCREEN",
-            user_flow="flowchart TD",
-            component_tree="App",
-            tech_spec="openapi: 3.0.0",
-        ),
+    response = generate_design_bundle(
+        GenerateDesignBundleRequest(epics=[{"id": 1, "subject": "Login"}]),
         ctx=_ctx(),
         service=StubPhase2Service(),
     )
 
-    assert response == {"ok": True, "story_ids": [10, 11], "taiga_failures": []}
+    assert response["story_ids"] == [10]
+    assert response["wireframes"] == "SCREEN"
 
 
 def test_persist_design_route():
@@ -146,17 +130,6 @@ def test_phase2_validation_errors_map_to_422():
     assert exc.value.status_code == 422
 
 
-def test_taiga_error_maps_to_502():
-    class FailingService(StubPhase2Service):
-        def generate_design_bundle(self, ctx):
-            raise TaigaAPIError("GET", "https://api.taiga.io/epics", 503, "service unavailable")
-
-    with pytest.raises(HTTPException) as exc:
-        generate_design_bundle(ctx=_ctx(), service=FailingService())
-
-    assert exc.value.status_code == 502
-
-
 def test_ai_error_maps_to_502():
     class FailingService(StubPhase2Service):
         def propose_tech_stack(self, ctx, *, hint=""):
@@ -170,7 +143,7 @@ def test_ai_error_maps_to_502():
 
 def test_ai_rate_limit_error_maps_to_429():
     class FailingService(StubPhase2Service):
-        def generate_design_bundle(self, ctx):
+        def generate_design_bundle(self, ctx, *, epics=None):
             raise AIRateLimitError("Rate limited")
 
     with pytest.raises(HTTPException) as exc:

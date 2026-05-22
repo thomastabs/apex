@@ -56,36 +56,6 @@ class FakeContextService:
         self.written_tech_spec = (story_ids, spec)
 
 
-class FakeTaigaService:
-    def __init__(self, fail_story_id=None):
-        self.token = ""
-        self.project_id = 0
-        self.fail_story_id = fail_story_id
-        self.updated_stories = []
-
-    def set_context(self, token, project_id):
-        self.token = token
-        self.project_id = project_id
-
-    def get_epics(self):
-        return [
-            {"id": 7, "subject": "Authentication"},
-            {"id": 9, "subject": "Billing"},
-        ]
-
-    def find_design_locked_status_id(self):
-        return 12
-
-    def get_story(self, story_id):
-        if story_id == self.fail_story_id:
-            raise RuntimeError("Taiga unavailable")
-        return {"id": story_id, "version": 2, "tags": ["gherkin"]}
-
-    def update_story_fields(self, story_id, version, *, tags=None, status_id=None):
-        self.updated_stories.append((story_id, version, tags, status_id))
-        return {"id": story_id, "version": version + 1, "tags": tags, "status": status_id}
-
-
 def _memory_bank_with_stack():
     return """\
 # Memory Bank
@@ -170,39 +140,37 @@ def _ctx():
     return RequestContext(taiga_token="token", project_id=42)
 
 
-def _service(context=None, taiga=None):
+def _service(context=None):
     ai = FakeAiService()
     context = context or FakeContextService()
-    taiga = taiga or FakeTaigaService()
-    return Phase2Service(ai=ai, context=context, taiga=taiga), ai, context, taiga
+    return Phase2Service(ai=ai, context=context), ai, context
 
 
 def test_tech_stack_status_detects_locked_stack():
-    service, _, context, taiga = _service()
+    service, _, context = _service()
 
     status = service.tech_stack_status(_ctx())
 
     assert status == {"defined": True, "tech_stack": "FastAPI + Next.js + PostgreSQL"}
     assert context.project_id == 42
-    assert taiga.token == "token"
 
 
 def test_tech_stack_status_ignores_placeholder_stack():
-    service, _, _, _ = _service(context=FakeContextService(memory_bank=_memory_bank_without_stack()))
+    service, _, _ = _service(context=FakeContextService(memory_bank=_memory_bank_without_stack()))
 
     assert service.tech_stack_status(_ctx()) == {"defined": False, "tech_stack": None}
 
 
 def test_propose_tech_stack_requires_locked_stories():
     empty_index = {"1": {"story_id": 1, "epic_id": 7, "phase_status": "pending", "has_gherkin": False}}
-    service, _, _, _ = _service(context=FakeContextService(index=empty_index))
+    service, _, _ = _service(context=FakeContextService(index=empty_index))
 
     with pytest.raises(Phase2ValidationError, match="No Phase 1 locked"):
         service.propose_tech_stack(_ctx())
 
 
 def test_propose_tech_stack_passes_all_locked_stories_to_ai():
-    service, ai, _, _ = _service()
+    service, ai, _ = _service()
 
     alternatives = service.propose_tech_stack(_ctx(), hint="Prefer Python")
 
@@ -214,7 +182,7 @@ def test_propose_tech_stack_passes_all_locked_stories_to_ai():
 
 
 def test_lock_tech_stack_writes_memory_bank():
-    service, _, context, _ = _service()
+    service, _, context = _service()
 
     status = service.lock_tech_stack(_ctx(), tech_stack=" Django + React ")
 
@@ -223,7 +191,7 @@ def test_lock_tech_stack_writes_memory_bank():
 
 
 def test_generate_design_bundle_requires_locked_tech_stack():
-    service, _, _, _ = _service(context=FakeContextService(memory_bank=_memory_bank_without_stack()))
+    service, _, _ = _service(context=FakeContextService(memory_bank=_memory_bank_without_stack()))
 
     with pytest.raises(Phase2ValidationError, match="Tech Stack"):
         service.generate_design_bundle(_ctx())
@@ -231,16 +199,16 @@ def test_generate_design_bundle_requires_locked_tech_stack():
 
 def test_generate_design_bundle_requires_eligible_stories():
     empty_index = {"1": {"story_id": 1, "epic_id": 7, "phase_status": "pending", "has_gherkin": False}}
-    service, _, _, _ = _service(context=FakeContextService(index=empty_index))
+    service, _, _ = _service(context=FakeContextService(index=empty_index))
 
     with pytest.raises(Phase2ValidationError, match="No Phase 1 locked"):
         service.generate_design_bundle(_ctx())
 
 
 def test_generate_design_bundle_passes_all_stories_to_ai():
-    service, ai, _, _ = _service()
+    service, ai, _ = _service()
 
-    bundle = service.generate_design_bundle(_ctx())
+    bundle = service.generate_design_bundle(_ctx(), epics=[{"id": 7, "subject": "Authentication"}, {"id": 9, "subject": "Billing"}])
 
     assert bundle["tech_spec"] == "openapi: 3.0.0"
     assert sorted(bundle["story_ids"]) == [10, 11]
@@ -251,116 +219,19 @@ def test_generate_design_bundle_passes_all_stories_to_ai():
 
 
 def test_generate_design_bundle_groups_stories_by_epic():
-    service, ai, _, _ = _service()
-    service.generate_design_bundle(_ctx())
+    service, ai, _ = _service()
+    service.generate_design_bundle(_ctx(), epics=[{"id": 7, "subject": "Authentication"}, {"id": 9, "subject": "Billing"}])
     all_stories, _ = ai.design_args
     epic_titles = {s["epic_title"] for s in all_stories}
     assert "Authentication" in epic_titles
 
 
 def test_generate_design_bundle_stories_sorted_by_id():
-    service, ai, _, _ = _service()
-    service.generate_design_bundle(_ctx())
+    service, ai, _ = _service()
+    service.generate_design_bundle(_ctx(), epics=[{"id": 7, "subject": "Authentication"}, {"id": 9, "subject": "Billing"}])
     all_stories, _ = ai.design_args
     ids = [s["story_id"] for s in all_stories]
     assert ids == sorted(ids)
-
-
-def test_lock_design_persists_bundle_and_transitions_taiga():
-    service, _, context, taiga = _service()
-
-    result = service.lock_design(
-        _ctx(),
-        story_ids=[10, 11],
-        wireframes="SCREEN",
-        user_flow="flowchart TD",
-        component_tree="App",
-        tech_spec="openapi: 3.0.0",
-    )
-
-    assert result["ok"] is True
-    assert result["taiga_failures"] == []
-    assert context.written_bundle == ("SCREEN", "flowchart TD", "App", "openapi: 3.0.0")
-    assert context.written_tech_spec == ([10, 11], "openapi: 3.0.0")
-    assert taiga.updated_stories == [
-        (10, 2, ["apex", "design_locked", "gherkin"], 12),
-        (11, 2, ["apex", "design_locked", "gherkin"], 12),
-    ]
-
-
-def test_lock_design_falls_back_to_index_when_story_ids_empty():
-    service, _, context, _ = _service()
-
-    service.lock_design(
-        _ctx(),
-        story_ids=[],
-        wireframes="W",
-        user_flow="F",
-        component_tree="C",
-        tech_spec="T",
-    )
-
-    assert sorted(context.written_tech_spec[0]) == [10, 11]
-
-
-def test_lock_design_raises_when_no_story_ids_and_none_eligible():
-    service, _, _, _ = _service(context=FakeContextService(index={}))
-
-    with pytest.raises(Phase2ValidationError, match="At least one story_id"):
-        service.lock_design(
-            _ctx(),
-            story_ids=[],
-            wireframes="W",
-            user_flow="F",
-            component_tree="C",
-            tech_spec="T",
-        )
-
-
-def test_lock_design_empty_tech_spec_raises():
-    service, _, _, _ = _service()
-
-    with pytest.raises(Phase2ValidationError, match="tech_spec"):
-        service.lock_design(
-            _ctx(),
-            story_ids=[10],
-            wireframes="W",
-            user_flow="F",
-            component_tree="C",
-            tech_spec="  ",
-        )
-
-
-def test_lock_design_reports_taiga_failures():
-    service, _, context, _ = _service(taiga=FakeTaigaService(fail_story_id=11))
-
-    result = service.lock_design(
-        _ctx(),
-        story_ids=[10, 11],
-        wireframes="W",
-        user_flow="F",
-        component_tree="C",
-        tech_spec="T",
-    )
-
-    assert result["ok"] is False
-    assert result["taiga_failures"] == [{"story_id": 11, "error": "Taiga unavailable"}]
-    assert context.written_bundle is not None
-
-
-def test_lock_design_adds_design_locked_tag():
-    service, _, _, taiga = _service()
-    service.lock_design(
-        _ctx(),
-        story_ids=[10],
-        wireframes="W",
-        user_flow="F",
-        component_tree="C",
-        tech_spec="T",
-    )
-    tags = taiga.updated_stories[0][2]
-    assert "design_locked" in tags
-    assert "apex" in tags
 
 
 # ---------------------------------------------------------------------------
@@ -368,12 +239,12 @@ def test_lock_design_adds_design_locked_tag():
 # ---------------------------------------------------------------------------
 
 def test_tech_stack_status_empty_section_returns_undefined():
-    service, _, _, _ = _service(context=FakeContextService(memory_bank=_memory_bank_empty_tech_section()))
+    service, _, _ = _service(context=FakeContextService(memory_bank=_memory_bank_empty_tech_section()))
     assert service.tech_stack_status(_ctx()) == {"defined": False, "tech_stack": None}
 
 
 def test_tech_stack_status_missing_section_returns_undefined():
-    service, _, _, _ = _service(context=FakeContextService(memory_bank=_memory_bank_no_tech_section()))
+    service, _, _ = _service(context=FakeContextService(memory_bank=_memory_bank_no_tech_section()))
     assert service.tech_stack_status(_ctx()) == {"defined": False, "tech_stack": None}
 
 
@@ -382,14 +253,14 @@ def test_tech_stack_status_missing_section_returns_undefined():
 # ---------------------------------------------------------------------------
 
 def test_propose_tech_stack_passes_memory_bank_to_ai():
-    service, ai, _, _ = _service()
+    service, ai, _ = _service()
     service.propose_tech_stack(_ctx())
     _, memory_bank, _ = ai.tech_stack_args
     assert "FastAPI + Next.js + PostgreSQL" in memory_bank
 
 
 def test_propose_tech_stack_excludes_pending_stories():
-    service, ai, _, _ = _service()
+    service, ai, _ = _service()
     service.propose_tech_stack(_ctx())
     stories, _, _ = ai.tech_stack_args
     titles = [s["title"] for s in stories]
@@ -401,7 +272,7 @@ def test_propose_tech_stack_excludes_pending_stories():
 # ---------------------------------------------------------------------------
 
 def test_lock_tech_stack_empty_raises():
-    service, _, _, _ = _service()
+    service, _, _ = _service()
     with pytest.raises(Phase2ValidationError, match="tech_stack is required"):
         service.lock_tech_stack(_ctx(), tech_stack="   ")
 
@@ -411,13 +282,13 @@ def test_lock_tech_stack_empty_raises():
 # ---------------------------------------------------------------------------
 
 def test_extract_tech_stack_single_line():
-    service, _, _, _ = _service(context=FakeContextService(memory_bank="## Tech Stack\n\nReact + FastAPI\n\n## Other\n"))
+    service, _, _ = _service(context=FakeContextService(memory_bank="## Tech Stack\n\nReact + FastAPI\n\n## Other\n"))
     assert service.tech_stack_status(_ctx())["tech_stack"] == "React + FastAPI"
 
 
 def test_extract_tech_stack_multiline():
     mb = "## Tech Stack\n\n- Next.js\n- FastAPI\n- PostgreSQL\n\n## Other\n"
-    service, _, _, _ = _service(context=FakeContextService(memory_bank=mb))
+    service, _, _ = _service(context=FakeContextService(memory_bank=mb))
     result = service.tech_stack_status(_ctx())["tech_stack"]
     assert "Next.js" in result
     assert "PostgreSQL" in result
@@ -425,6 +296,6 @@ def test_extract_tech_stack_multiline():
 
 def test_extract_tech_stack_stops_at_next_heading():
     mb = "## Tech Stack\n\nFastAPI\n\n## Architecture Principles\n\nKeep it simple.\n"
-    service, _, _, _ = _service(context=FakeContextService(memory_bank=mb))
+    service, _, _ = _service(context=FakeContextService(memory_bank=mb))
     result = service.tech_stack_status(_ctx())["tech_stack"]
     assert "Architecture" not in result

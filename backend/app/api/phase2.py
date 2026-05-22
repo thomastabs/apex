@@ -19,7 +19,6 @@ from backend.app.schemas.phase2 import (
 from backend.app.schemas.workspace import OkResponse
 from backend.app.services.phase2_service import Phase2Service, Phase2ValidationError
 from src.ai_engine import AIError, AIRateLimitError, AITimeoutError
-from src.taiga_adapter import TaigaAPIError
 
 router = APIRouter()
 
@@ -31,8 +30,6 @@ def get_phase2_service() -> Phase2Service:
 def _handle_error(exc: Exception) -> NoReturn:
     if isinstance(exc, Phase2ValidationError):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
-    if isinstance(exc, TaigaAPIError):
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=exc.user_message) from exc
     if isinstance(exc, AIRateLimitError):
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
     if isinstance(exc, AITimeoutError):
@@ -87,28 +84,7 @@ def generate_design_bundle(
 ):
     try:
         epics = [epic.model_dump() for epic in payload.epics] if payload else []
-        if epics:
-            return service.generate_design_bundle(ctx, epics=epics)
-        return service.generate_design_bundle(ctx)
-    except Exception as exc:
-        _handle_error(exc)
-
-
-@router.post("/lock-design", response_model=LockDesignResponse)
-def lock_design(
-    payload: LockDesignRequest,
-    ctx: RequestContext = Depends(get_request_context),
-    service: Phase2Service = Depends(get_phase2_service),
-):
-    try:
-        return service.lock_design(
-            ctx,
-            story_ids=payload.story_ids,
-            wireframes=payload.wireframes,
-            user_flow=payload.user_flow,
-            component_tree=payload.component_tree,
-            tech_spec=payload.tech_spec,
-        )
+        return service.generate_design_bundle(ctx, epics=epics)
     except Exception as exc:
         _handle_error(exc)
 

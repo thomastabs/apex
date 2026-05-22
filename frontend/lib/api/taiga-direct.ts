@@ -279,7 +279,7 @@ export async function taigaUpdateEpic(
   token: string,
   epicId: number,
   version: number,
-  fields: { subject?: string; description?: string; tags?: string[] },
+  fields: { subject?: string; description?: string; tags?: string[]; status?: number },
   apiBaseUrl?: string,
 ): Promise<Epic> {
   const raw = await taigaFetch<Record<string, unknown>>(`/epics/${epicId}`, token, apiBaseUrl, {

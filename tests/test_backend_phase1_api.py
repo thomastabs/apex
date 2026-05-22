@@ -8,15 +8,12 @@ from backend.app.api.phase1 import (
     compile_gherkin,
     finalize_stories,
     generate_nl_stories,
-    list_epics,
-    push_stories,
 )
 from backend.app.main import health
 from backend.app.schemas.phase1 import (
     CompileGherkinRequest,
     FinalizeStoriesRequest,
     GenerateNlStoriesRequest,
-    PushStoriesRequest,
 )
 
 
@@ -24,26 +21,12 @@ class StubPhase1Service:
     def __init__(self):
         self.last_ctx = None
 
-    def list_epics(self, ctx):
-        self.last_ctx = ctx
-        return [{"id": 1, "ref": 9, "subject": "Epic", "description": "", "tags": []}]
-
     def generate_nl_stories(self, ctx, *, epic_subject, epic_description, hint=""):
         self.last_ctx = ctx
         return f"[S] {epic_subject}", 1
 
     def compile_gherkin(self, *, nl_draft):
         return [{"title": "Story A", "size": "S", "gherkin": "Feature: A"}]
-
-    def push_stories(self, ctx, *, epic_subject, epic_description, epic_id, stories):
-        self.last_ctx = ctx
-        return {
-            "ok": True,
-            "epic_id": epic_id or 10,
-            "count": len(stories),
-            "story_ids": [100],
-            "story_urls": ["https://taiga.test/us/1"],
-        }
 
     def finalize_stories(self, ctx, *, epic_id, epic_subject, stories):
         self.last_ctx = ctx
@@ -88,16 +71,6 @@ def test_request_context_parses_headers():
     assert ctx.project_id == 42
 
 
-def test_epics_route_passes_request_context_to_service():
-    service = StubPhase1Service()
-
-    response = list_epics(ctx=_ctx(), service=service)
-
-    assert response[0]["subject"] == "Epic"
-    assert service.last_ctx.taiga_token == "tok"
-    assert service.last_ctx.project_id == 42
-
-
 def test_generate_nl_stories_route():
     response = generate_nl_stories(
         GenerateNlStoriesRequest(epic_subject="Login", epic_description="Scope", hint=""),
@@ -115,19 +88,6 @@ def test_compile_gherkin_route_does_not_need_request_context():
     )
 
     assert response["stories"][0]["title"] == "Story A"
-
-
-def test_push_stories_route():
-    response = push_stories(
-        PushStoriesRequest(
-            epic_subject="Epic",
-            stories=[{"title": "Story", "size": "S", "gherkin": "Feature: Story"}],
-        ),
-        ctx=_ctx(),
-        service=StubPhase1Service(),
-    )
-
-    assert response["story_ids"] == [100]
 
 
 def test_finalize_stories_route():

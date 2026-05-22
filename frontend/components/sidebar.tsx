@@ -343,7 +343,7 @@ function EpicDialog({ epic, onClose }: { epic: Epic; onClose: () => void }) {
     >
       <div
         className={cn(
-          "w-full max-w-md rounded-xl border p-5 shadow-2xl",
+          "w-full max-w-2xl rounded-xl border p-6 shadow-2xl",
           dark ? "border-neutral-700 bg-neutral-900" : "border-slate-300 bg-white",
         )}
         onClick={(e) => e.stopPropagation()}
@@ -363,7 +363,7 @@ function EpicDialog({ epic, onClose }: { epic: Epic; onClose: () => void }) {
           <div>
             <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Description</label>
             <textarea
-              className={cn("h-32 resize-none py-2", inputClass)}
+              className={cn("h-52 resize-none py-2", inputClass)}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe the epic…"
@@ -434,7 +434,7 @@ function StoryDialog({ story, onClose }: { story: Story; onClose: () => void }) 
     >
       <div
         className={cn(
-          "w-full max-w-md rounded-xl border p-5 shadow-2xl",
+          "w-full max-w-2xl rounded-xl border p-6 shadow-2xl",
           dark ? "border-neutral-700 bg-neutral-900" : "border-slate-300 bg-white",
         )}
         onClick={(e) => e.stopPropagation()}
@@ -454,7 +454,7 @@ function StoryDialog({ story, onClose }: { story: Story; onClose: () => void }) 
           <div>
             <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Description</label>
             <textarea
-              className={cn("h-28 resize-none py-2", inputClass)}
+              className={cn("h-52 resize-none py-2", inputClass)}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe the story…"
@@ -525,7 +525,7 @@ function CreateEpicDialog({ onClose }: { onClose: () => void }) {
     >
       <div
         className={cn(
-          "w-full max-w-md rounded-xl border p-5 shadow-2xl",
+          "w-full max-w-2xl rounded-xl border p-6 shadow-2xl",
           dark ? "border-neutral-700 bg-neutral-900" : "border-slate-300 bg-white",
         )}
         onClick={(e) => e.stopPropagation()}
@@ -548,7 +548,7 @@ function CreateEpicDialog({ onClose }: { onClose: () => void }) {
           <div>
             <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Description</label>
             <textarea
-              className={cn("h-28 resize-none py-2", inputClass)}
+              className={cn("h-48 resize-none py-2", inputClass)}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe this epic…"
@@ -621,7 +621,7 @@ function CreateStoryDialog({ epicId, onClose }: { epicId: number; onClose: () =>
     >
       <div
         className={cn(
-          "w-full max-w-md rounded-xl border p-5 shadow-2xl",
+          "w-full max-w-2xl rounded-xl border p-6 shadow-2xl",
           dark ? "border-neutral-700 bg-neutral-900" : "border-slate-300 bg-white",
         )}
         onClick={(e) => e.stopPropagation()}
@@ -644,7 +644,7 @@ function CreateStoryDialog({ epicId, onClose }: { epicId: number; onClose: () =>
           <div>
             <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Description</label>
             <textarea
-              className={cn("h-24 resize-none py-2", inputClass)}
+              className={cn("h-40 resize-none py-2", inputClass)}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe this story…"

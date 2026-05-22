@@ -3,15 +3,6 @@
 from pydantic import BaseModel, Field
 
 
-class EpicSchema(BaseModel):
-    id: int
-    ref: int
-    subject: str
-    description: str = ""
-    version: int | None = None
-    tags: list[str] = Field(default_factory=list)
-
-
 class EpicSuggestionSchema(BaseModel):
     title: str
     description: str
@@ -50,21 +41,6 @@ class CompileGherkinResponse(BaseModel):
     stories: list[CompiledStorySchema]
 
 
-class PushStoriesRequest(BaseModel):
-    epic_subject: str = ""
-    epic_description: str = ""
-    epic_id: int | None = None
-    stories: list[CompiledStorySchema]
-
-
-class PushStoriesResponse(BaseModel):
-    ok: bool
-    epic_id: int
-    count: int
-    story_ids: list[int]
-    story_urls: list[str] = Field(default_factory=list)
-
-
 class FinalizedStorySchema(BaseModel):
     id: int
     title: str
@@ -75,3 +51,11 @@ class FinalizeStoriesRequest(BaseModel):
     epic_id: int
     epic_subject: str = ""
     stories: list[FinalizedStorySchema]
+
+
+class FinalizeStoriesResponse(BaseModel):
+    ok: bool
+    epic_id: int
+    count: int
+    story_ids: list[int]
+    story_urls: list[str] = Field(default_factory=list)

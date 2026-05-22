@@ -9,18 +9,15 @@ from backend.app.api.rate_limit import ai_rate_limit
 from backend.app.schemas.phase1 import (
     CompileGherkinRequest,
     CompileGherkinResponse,
-    EpicSchema,
     FinalizeStoriesRequest,
+    FinalizeStoriesResponse,
     GenerateNlStoriesRequest,
     GenerateNlStoriesResponse,
-    PushStoriesRequest,
-    PushStoriesResponse,
     SuggestEpicsRequest,
     SuggestEpicsResponse,
 )
 from backend.app.services.phase1_service import Phase1Service, Phase1ValidationError
 from src.ai_engine import AIError, AIRateLimitError, AITimeoutError
-from src.taiga_adapter import TaigaAPIError
 
 router = APIRouter()
 
@@ -32,8 +29,6 @@ def get_phase1_service() -> Phase1Service:
 def _handle_error(exc: Exception) -> NoReturn:
     if isinstance(exc, Phase1ValidationError):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    if isinstance(exc, TaigaAPIError):
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=exc.user_message) from exc
     if isinstance(exc, AIRateLimitError):
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
     if isinstance(exc, AITimeoutError):
@@ -41,17 +36,6 @@ def _handle_error(exc: Exception) -> NoReturn:
     if isinstance(exc, AIError):
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
     raise exc
-
-
-@router.get("/epics", response_model=list[EpicSchema])
-def list_epics(
-    ctx: RequestContext = Depends(get_request_context),
-    service: Phase1Service = Depends(get_phase1_service),
-):
-    try:
-        return service.list_epics(ctx)
-    except Exception as exc:
-        _handle_error(exc)
 
 
 @router.post("/suggest-epics", response_model=SuggestEpicsResponse)
@@ -99,25 +83,7 @@ def compile_gherkin(
         _handle_error(exc)
 
 
-@router.post("/push-stories", response_model=PushStoriesResponse)
-def push_stories(
-    payload: PushStoriesRequest,
-    ctx: RequestContext = Depends(get_request_context),
-    service: Phase1Service = Depends(get_phase1_service),
-):
-    try:
-        return service.push_stories(
-            ctx,
-            epic_subject=payload.epic_subject,
-            epic_description=payload.epic_description,
-            epic_id=payload.epic_id,
-            stories=[story.model_dump() for story in payload.stories],
-        )
-    except Exception as exc:
-        _handle_error(exc)
-
-
-@router.post("/finalize-stories", response_model=PushStoriesResponse)
+@router.post("/finalize-stories", response_model=FinalizeStoriesResponse)
 def finalize_stories(
     payload: FinalizeStoriesRequest,
     ctx: RequestContext = Depends(get_request_context),

@@ -119,7 +119,7 @@ export async function deleteEpic(context: RequestContext, epicId: number) {
   await apiRequest<{ ok: boolean }>(`/api/workspace/context-files/story-index/epics/${epicId}`, {
     method: "DELETE",
     context,
-  });
+  }).catch(() => undefined);
   return result;
 }
 
