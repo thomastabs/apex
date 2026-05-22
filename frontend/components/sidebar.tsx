@@ -798,6 +798,7 @@ function StoryEditRow({ story, onDone }: { story: Story; onDone: () => void }) {
 
 function MarkdownPreview({ content }: { content: string }) {
   const [html, setHtml] = useState("");
+  const dark = useUiStore((state) => state.theme) === "dark";
 
   useEffect(() => {
     async function render() {
@@ -810,7 +811,10 @@ function MarkdownPreview({ content }: { content: string }) {
 
   return (
     <div
-      className="prose prose-invert prose-sm max-w-none overflow-auto p-3 text-xs leading-5"
+      className={cn(
+        "prose prose-sm max-w-none overflow-auto p-3 text-xs leading-5",
+        dark ? "prose-invert" : "prose-slate",
+      )}
       // eslint-disable-next-line react/no-danger
       dangerouslySetInnerHTML={{ __html: html }}
     />
