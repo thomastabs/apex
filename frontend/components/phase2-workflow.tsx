@@ -180,7 +180,7 @@ export function Phase2Workflow() {
         <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Phase 2</p>
         <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>Design</h1>
         <p className={cn("mt-2", mutedClass)}>
-          Design Lead + Tech Lead gate: unified visual prototype and OpenAPI spec for the whole project.
+          Two-gate approval process: your Design Lead and Tech Lead review and lock the project design before implementation begins.
         </p>
       </div>
 
@@ -217,13 +217,16 @@ export function Phase2Workflow() {
       <div className={cn("space-y-8 border-t pt-6", sectionBorderClass)}>
         {/* ── Stage A: Tech Stack ─────────────────────────────────────────── */}
         <section className="space-y-4">
-          <SectionHeading>Stage A · Tech Stack Definition</SectionHeading>
+          <SectionHeading>Stage A · Technology Choices</SectionHeading>
+          <p className={cn("text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
+            Example: React frontend, FastAPI backend, PostgreSQL database, hosted on Azure.
+          </p>
           {stackDefined ? (
             <div className="flex items-start justify-between gap-4">
-              <Callout>Tech Stack is locked for this project. You can review it below before generating the design bundle.</Callout>
+              <Callout>Technology choices are locked for this project. You can review them below before generating the design.</Callout>
               <button
                 className={cn("flex shrink-0 items-center gap-1 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
-                title="Reopen tech stack for editing"
+                title="Reopen technology choices for editing"
                 onClick={reopenStack}
               >
                 <Unlock className="size-3" />
@@ -231,10 +234,10 @@ export function Phase2Workflow() {
               </button>
             </div>
           ) : (
-            <Callout>Define and lock the global Tech Stack before generating the project design bundle.</Callout>
+            <Callout>Choose and lock in the technologies your team will use. This guides the AI when generating your project design.</Callout>
           )}
           <label className={cn("block text-sm font-medium", labelClass)}>
-            Tech Lead Guidance <span className={mutedClass}>Optional</span>
+            Tech Lead Notes <span className={mutedClass}>Optional</span>
             <Input value={stackHint} onChange={(event) => setStackHint(event.target.value)} placeholder="e.g. prefer Python backend, PostgreSQL, simple deployment" />
           </label>
           {!stackDefined ? (
@@ -292,7 +295,7 @@ export function Phase2Workflow() {
           ) : null}
 
           <label className={cn("block text-sm font-medium", labelClass)}>
-            Locked Tech Stack Draft
+            Technology Choices Draft
             <Textarea rows={8} value={techStackDraft} onChange={(event) => setTechStackDraft(event.target.value)} />
           </label>
           <Button
@@ -304,14 +307,14 @@ export function Phase2Workflow() {
                 {
                   onSuccess: () => {
                     setStackReopened(false);
-                    toast.success("Tech stack locked to memory bank");
+                    toast.success("Technology choices saved");
                   },
                 },
               );
             }}
           >
             <Save className="size-4" />
-            Lock Tech Stack to Memory Bank
+            Save Technology Choices
           </Button>
           {lockStack.isError ? (
             <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
@@ -323,9 +326,9 @@ export function Phase2Workflow() {
         {/* ── Stage B: Project Design Bundle ──────────────────────────────── */}
         {stackDefined ? (
           <section className={cn("space-y-5 border-t pt-6", sectionBorderClass)}>
-            <SectionHeading>Stage B · Project Design Bundle</SectionHeading>
+            <SectionHeading>Stage B · Project Design</SectionHeading>
             <p className={cn("text-sm", mutedClass)}>
-              Generate a unified design bundle covering all epics — wireframes, user flow, component tree, and OpenAPI spec for the entire project.
+              Generate a complete design covering all your project stories — screens, flows, components, and technical specifications.
             </p>
 
             <div className="flex flex-wrap gap-2">
@@ -407,8 +410,8 @@ export function Phase2Workflow() {
                   <div className="size-4 animate-spin rounded-full border-2 border-violet-500 border-t-transparent" />
                   <span className="font-medium">AI Working…</span>
                 </div>
-                <div className={dark ? "text-violet-400/70" : "text-violet-600/70"}>Loading memory bank, tech stack, and all story Gherkin…</div>
-                <div className={dark ? "text-violet-400/70" : "text-violet-600/70"}>Generating unified design for all epics. This can take several minutes…</div>
+                <div className={dark ? "text-violet-400/70" : "text-violet-600/70"}>Loading project information and story requirements…</div>
+                <div className={dark ? "text-violet-400/70" : "text-violet-600/70"}>Generating your project design. This may take a few minutes…</div>
               </div>
             ) : null}
             {generateBundle.isError ? (
@@ -430,7 +433,7 @@ export function Phase2Workflow() {
                     onClick={() => setBundleTab("ux")}
                   >
                     <Compass className="mr-2 inline size-4" />
-                    UX Design
+                    Screens & Flows
                   </button>
                   <button
                     className={cn(
@@ -442,7 +445,7 @@ export function Phase2Workflow() {
                     onClick={() => setBundleTab("architecture")}
                   >
                     <Code2 className="mr-2 inline size-4" />
-                    System Architecture
+                    Technical Architecture
                   </button>
                 </div>
 
@@ -466,7 +469,7 @@ export function Phase2Workflow() {
                       </div>
                     </div>
                     <div className={cn("min-h-96 overflow-auto rounded-md border", dark ? "border-neutral-800 bg-neutral-950" : "border-slate-200 bg-slate-900")}>
-                      <div className={cn("border-b px-3 py-1.5 text-xs font-semibold", panelHeaderClass)}>Tech Spec (OpenAPI)</div>
+                      <div className={cn("border-b px-3 py-1.5 text-xs font-semibold", panelHeaderClass)}>Technical Specification</div>
                       <pre className="overflow-auto p-4 text-xs leading-5 text-neutral-200">{designBundle.tech_spec}</pre>
                     </div>
                   </div>
@@ -476,11 +479,11 @@ export function Phase2Workflow() {
                   <div className="flex flex-wrap gap-4">
                     <label className={cn("inline-flex items-center gap-2 text-sm", labelClass)}>
                       <input type="checkbox" checked={designLeadApproved} disabled={busy} onChange={(event) => setDesignLeadApproved(event.target.checked)} />
-                      Design Lead Approval (UX & Flows)
+                      Design Lead Sign-off (Screens & Flows)
                     </label>
                     <label className={cn("inline-flex items-center gap-2 text-sm", labelClass)}>
                       <input type="checkbox" checked={techLeadApproved} disabled={busy} onChange={(event) => setTechLeadApproved(event.target.checked)} />
-                      Tech Lead Approval (Specs & Architecture)
+                      Tech Lead Sign-off (Architecture & Specs)
                     </label>
                   </div>
                   <Button

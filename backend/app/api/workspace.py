@@ -22,7 +22,8 @@ _logger = logging.getLogger("apex.workspace")
 router = APIRouter()
 
 _CONTEXT_FILES = [
-    ("memory-bank.md", "Memory Bank"),
+    ("project-concept.md", "Project Concept"),
+    ("tech-stack.md", "Technology Choices"),
     ("functional-spec.md", "Functional Spec"),
     ("technical-spec.md", "Technical Spec"),
     ("vaccines.md", "Vaccine Records"),

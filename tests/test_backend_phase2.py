@@ -26,9 +26,10 @@ class FakeAiService:
 
 
 class FakeContextService:
-    def __init__(self, memory_bank=None, index=None):
+    def __init__(self, tech_stack=None, project_concept=None, index=None):
         self.project_id = 0
-        self.memory_bank = memory_bank if memory_bank is not None else _memory_bank_with_stack()
+        self.tech_stack = tech_stack if tech_stack is not None else _tech_stack_with_content()
+        self.project_concept = project_concept if project_concept is not None else "Test project."
         self.index = index if index is not None else _story_index()
         self.written_stack = None
         self.written_bundle = None
@@ -37,8 +38,11 @@ class FakeContextService:
     def set_project(self, project_id: int):
         self.project_id = project_id
 
-    def read_memory_bank(self):
-        return self.memory_bank
+    def read_tech_stack(self):
+        return self.tech_stack
+
+    def read_project_concept(self):
+        return self.project_concept
 
     def write_tech_stack(self, tech_stack):
         self.written_stack = tech_stack
@@ -56,58 +60,12 @@ class FakeContextService:
         self.written_tech_spec = (story_ids, spec)
 
 
-def _memory_bank_with_stack():
-    return """\
-# Memory Bank
-
-## Project Concept
-
-Test project.
-
-## Tech Stack
-
-FastAPI + Next.js + PostgreSQL
-
-## Architecture Principles
-
-Keep it simple.
-"""
+def _tech_stack_with_content():
+    return "FastAPI + Next.js + PostgreSQL"
 
 
-def _memory_bank_without_stack():
-    return """\
-# Memory Bank
-
-## Tech Stack
-
-<!-- Fill in stack -->
-
-## Architecture Principles
-
-Keep it simple.
-"""
-
-
-def _memory_bank_empty_tech_section():
-    return """\
-# Memory Bank
-
-## Tech Stack
-
-## Architecture Principles
-
-Keep it simple.
-"""
-
-
-def _memory_bank_no_tech_section():
-    return """\
-# Memory Bank
-
-## Project Concept
-
-No tech section at all.
-"""
+def _tech_stack_empty():
+    return ""
 
 
 def _story_index():
@@ -156,7 +114,7 @@ def test_tech_stack_status_detects_locked_stack():
 
 
 def test_tech_stack_status_ignores_placeholder_stack():
-    service, _, _ = _service(context=FakeContextService(memory_bank=_memory_bank_without_stack()))
+    service, _, _ = _service(context=FakeContextService(tech_stack=_tech_stack_empty()))
 
     assert service.tech_stack_status(_ctx()) == {"defined": False, "tech_stack": None}
 
@@ -175,13 +133,13 @@ def test_propose_tech_stack_passes_all_locked_stories_to_ai():
     alternatives = service.propose_tech_stack(_ctx(), hint="Prefer Python")
 
     assert alternatives[0]["name"] == "FastAPI + Next.js"
-    stories, memory_bank, hint = ai.tech_stack_args
+    stories, tech_stack, hint = ai.tech_stack_args
     assert len(stories) == 2
-    assert "FastAPI" in memory_bank
+    assert "FastAPI" in tech_stack
     assert hint == "Prefer Python"
 
 
-def test_lock_tech_stack_writes_memory_bank():
+def test_lock_tech_stack_saves_tech_stack():
     service, _, context = _service()
 
     status = service.lock_tech_stack(_ctx(), tech_stack=" Django + React ")
@@ -191,7 +149,7 @@ def test_lock_tech_stack_writes_memory_bank():
 
 
 def test_generate_design_bundle_requires_locked_tech_stack():
-    service, _, _ = _service(context=FakeContextService(memory_bank=_memory_bank_without_stack()))
+    service, _, _ = _service(context=FakeContextService(tech_stack=_tech_stack_empty()))
 
     with pytest.raises(Phase2ValidationError, match="Tech Stack"):
         service.generate_design_bundle(_ctx())
@@ -238,13 +196,13 @@ def test_generate_design_bundle_stories_sorted_by_id():
 # tech_stack_status — additional edge cases
 # ---------------------------------------------------------------------------
 
-def test_tech_stack_status_empty_section_returns_undefined():
-    service, _, _ = _service(context=FakeContextService(memory_bank=_memory_bank_empty_tech_section()))
+def test_tech_stack_status_empty_string_returns_undefined():
+    service, _, _ = _service(context=FakeContextService(tech_stack=""))
     assert service.tech_stack_status(_ctx()) == {"defined": False, "tech_stack": None}
 
 
-def test_tech_stack_status_missing_section_returns_undefined():
-    service, _, _ = _service(context=FakeContextService(memory_bank=_memory_bank_no_tech_section()))
+def test_tech_stack_status_whitespace_only_returns_undefined():
+    service, _, _ = _service(context=FakeContextService(tech_stack="   "))
     assert service.tech_stack_status(_ctx()) == {"defined": False, "tech_stack": None}
 
 
@@ -252,11 +210,11 @@ def test_tech_stack_status_missing_section_returns_undefined():
 # propose_tech_stack — additional assertions
 # ---------------------------------------------------------------------------
 
-def test_propose_tech_stack_passes_memory_bank_to_ai():
+def test_propose_tech_stack_passes_tech_stack_to_ai():
     service, ai, _ = _service()
     service.propose_tech_stack(_ctx())
-    _, memory_bank, _ = ai.tech_stack_args
-    assert "FastAPI + Next.js + PostgreSQL" in memory_bank
+    _, tech_stack, _ = ai.tech_stack_args
+    assert "FastAPI + Next.js + PostgreSQL" in tech_stack
 
 
 def test_propose_tech_stack_excludes_pending_stories():
@@ -278,24 +236,16 @@ def test_lock_tech_stack_empty_raises():
 
 
 # ---------------------------------------------------------------------------
-# _extract_tech_stack — tested via tech_stack_status with various formats
+# tech_stack_status — content passthrough
 # ---------------------------------------------------------------------------
 
-def test_extract_tech_stack_single_line():
-    service, _, _ = _service(context=FakeContextService(memory_bank="## Tech Stack\n\nReact + FastAPI\n\n## Other\n"))
+def test_tech_stack_status_single_line_content():
+    service, _, _ = _service(context=FakeContextService(tech_stack="React + FastAPI"))
     assert service.tech_stack_status(_ctx())["tech_stack"] == "React + FastAPI"
 
 
-def test_extract_tech_stack_multiline():
-    mb = "## Tech Stack\n\n- Next.js\n- FastAPI\n- PostgreSQL\n\n## Other\n"
-    service, _, _ = _service(context=FakeContextService(memory_bank=mb))
+def test_tech_stack_status_multiline_content():
+    service, _, _ = _service(context=FakeContextService(tech_stack="- Next.js\n- FastAPI\n- PostgreSQL"))
     result = service.tech_stack_status(_ctx())["tech_stack"]
     assert "Next.js" in result
     assert "PostgreSQL" in result
-
-
-def test_extract_tech_stack_stops_at_next_heading():
-    mb = "## Tech Stack\n\nFastAPI\n\n## Architecture Principles\n\nKeep it simple.\n"
-    service, _, _ = _service(context=FakeContextService(memory_bank=mb))
-    result = service.tech_stack_status(_ctx())["tech_stack"]
-    assert "Architecture" not in result

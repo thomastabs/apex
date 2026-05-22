@@ -6,8 +6,8 @@ Azure File Share (azure-storage-file-share SDK). Otherwise falls back to
 local filesystem so CI and no-Azure local dev require zero changes.
 
 Path mapping (Azure mode):
-  Local:  contextspec/<project_id>/memory-bank.md
-  Azure:  <project_id>/memory-bank.md   (share root = local contextspec/)
+  Local:  contextspec/<project_id>/project-concept.md
+  Azure:  <project_id>/project-concept.md   (share root = local contextspec/)
 
 The Container App mounts the share at /app/contextspec, so paths are
 already consistent — the share root IS the local contextspec/ directory.

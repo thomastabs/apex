@@ -1,0 +1,43 @@
+Apex — Sequence Diagram: Phase 1 Requirements Workflow (Mermaid)
+Last updated: 2026-05-22
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant FE as Next.js Frontend
+    participant BE as FastAPI Backend
+    participant AI as Claude API
+    participant CTX as contextspec/ Files
+    participant TG as Taiga API
+
+    User->>FE: Select epic · enter hint
+    FE->>BE: POST /api/phase1/generate-nl-stories
+    BE->>AI: generate_nl_stories(epic, project_concept, hint)
+    AI-->>BE: NLStoryList (structured output)
+    BE-->>FE: {nl_draft, story_count}
+    FE-->>User: Story description editor
+
+    User->>FE: Review & edit → Convert to Acceptance Criteria
+    FE->>BE: POST /api/phase1/compile-gherkin {nl_draft}
+    BE->>AI: compile_gherkin(nl_draft)
+    AI-->>BE: GherkinStoryList (structured output)
+    BE-->>FE: {stories: [{title, size, gherkin}]}
+    FE-->>User: Acceptance Criteria editor
+
+    User->>FE: Approve → Push to Taiga
+    FE->>TG: createEpic() [browser-direct]
+    TG-->>FE: {epic_id, ref}
+    loop for each story
+        FE->>TG: createStory(epic_id) [browser-direct]
+        TG-->>FE: {story_id, ref}
+    end
+    FE->>TG: getProject(projectId) → slug
+    TG-->>FE: {slug}
+
+    FE->>BE: POST /api/phase1/finalize-stories {epic_id, stories}
+    BE->>CTX: append_gherkin() per story
+    BE->>CTX: upsert_story_index(phase_status=gherkin_locked)
+    CTX-->>BE: ok
+    BE-->>FE: {ok, story_ids, story_urls}
+    FE-->>User: Taiga links · Move to Phase 2
+```

@@ -1,0 +1,48 @@
+Apex — Architecture Diagram (Mermaid)
+Last updated: 2026-05-22
+
+```mermaid
+graph TD
+    subgraph FE["Frontend (Next.js)"]
+        UI["Web UI<br/>Phase Workflows · Sidebar · Phase Nav"]
+        TD["taiga-direct.ts<br/>Browser-side Taiga Client"]
+    end
+
+    subgraph BE["Backend API (FastAPI)"]
+        Server["FastAPI Server<br/>main.py · CORS · rate limit"]
+        P1["Phase1Service"]
+        P2["Phase2Service"]
+        WS["WorkspaceService"]
+    end
+
+    subgraph AIL["AI Layer"]
+        AISvc["AiService<br/>ai_engine.py · 3-tier fallback"]
+        Claude["Claude API<br/>claude-haiku-4-5 · claude-sonnet-4-6"]
+    end
+
+    subgraph SL["Storage Layer"]
+        CM["ContextService<br/>context_manager.py"]
+        Files["contextspec/ files<br/>project-concept · tech-stack<br/>functional-spec · technical-spec<br/>story-index.json"]
+        AzFS["Azure File Share<br/>production mount"]
+    end
+
+    TaigaAPI["Taiga API<br/>api.taiga.io"]
+
+    UI -- "POST /api/phase1/* /api/phase2/*<br/>X-Taiga-Project-Id header" --> Server
+    UI --- TD
+    TD -- "login · epics · stories<br/>transitions · users<br/>(browser-direct, no backend)" --> TaigaAPI
+
+    Server --> P1
+    Server --> P2
+    Server --> WS
+
+    P1 -- "generate_nl_stories<br/>compile_gherkin" --> AISvc
+    P2 -- "suggest_tech_stack<br/>generate_project_design" --> AISvc
+    AISvc -- "LangChain invoke<br/>with_structured_output" --> Claude
+
+    P1 --> CM
+    P2 --> CM
+    WS --> CM
+    CM -- "read / write" --> Files
+    Files -. "mount or SDK" .-> AzFS
+```

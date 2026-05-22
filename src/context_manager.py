@@ -2,8 +2,9 @@
 context_manager.py
 Manages read/write operations on the contextspec/ artefacts:
 
-  memory-bank.md       — architecture rules, tech stack, enterprise policies (Tech Lead only)
-  functional-spec.md   — per-story Gherkin Acceptance Criteria (locked on push)
+  project-concept.md   — project purpose, target users, core value proposition (editable)
+  tech-stack.md        — technology choices and architecture principles (Tech Lead only)
+  functional-spec.md   — per-story Acceptance Criteria (locked on push)
   technical-spec.md    — per-story technical contracts (OpenAPI / DB schema)
   vaccines.md          — permanent vaccine records for diagnosed bugs (Fix-Apex output only)
   story-index.json     — machine-readable index of all stories and their phase status
@@ -56,7 +57,8 @@ def __getattr__(name: str):
     they were module globals; each call returns the path for the current ContextVar project.
     """
     _filenames: dict[str, str] = {
-        "MEMORY_BANK_FILE":     "memory-bank.md",
+        "PROJECT_CONCEPT_FILE": "project-concept.md",
+        "TECH_STACK_FILE":      "tech-stack.md",
         "FUNCTIONAL_SPEC_FILE": "functional-spec.md",
         "TECHNICAL_SPEC_FILE":  "technical-spec.md",
         "VACCINES_FILE":        "vaccines.md",
@@ -75,17 +77,14 @@ def __getattr__(name: str):
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-_MEMORY_BANK_TEMPLATE = """\
-# Memory Bank
-
-> Immutable architecture rules, tech stack decisions, and enterprise policies.
-> Edited only by the Tech Lead.
-
-## Project Concept
+_PROJECT_CONCEPT_TEMPLATE = """\
+# Project Concept
 
 <!-- Describe the project's purpose, target users, and core value proposition. -->
+"""
 
-## Tech Stack
+_TECH_STACK_TEMPLATE = """\
+# Tech Stack
 
 <!-- Fill in the project's language, frameworks, libraries, and runtime environment. -->
 
@@ -215,8 +214,10 @@ def init_context() -> None:
     if not is_project_selected():
         return  # no project chosen yet — do not create contextspec/default/ files
     _context_dir().mkdir(parents=True, exist_ok=True)
+    _migrate_memory_bank()
     for filename, template in [
-        ("memory-bank.md",     _MEMORY_BANK_TEMPLATE),
+        ("project-concept.md", _PROJECT_CONCEPT_TEMPLATE),
+        ("tech-stack.md",      _TECH_STACK_TEMPLATE),
         ("functional-spec.md", _FUNCTIONAL_SPEC_TEMPLATE),
         ("technical-spec.md",  _TECHNICAL_SPEC_TEMPLATE),
         ("vaccines.md",        _VACCINES_TEMPLATE),
@@ -231,12 +232,60 @@ def init_context() -> None:
     _initialized_projects.add(pid)
 
 
+def _migrate_memory_bank() -> None:
+    """One-time migration: split legacy memory-bank.md into project-concept.md + tech-stack.md.
+
+    If memory-bank.md exists and neither new file exists, extract the Project Concept
+    and Tech Stack / Architecture Principles sections and write them to the new files,
+    then delete memory-bank.md.  Idempotent — safe to call on every init.
+    """
+    mb = _path("memory-bank.md")
+    pc = _path("project-concept.md")
+    ts = _path("tech-stack.md")
+    if not mb.exists():
+        return
+    if pc.exists() or ts.exists():
+        return  # already migrated
+    content = mb.read_text(encoding="utf-8")
+
+    # Extract Project Concept section
+    concept_match = re.search(
+        r"^##\s+Project\s+Concept[^\n]*\n(.*?)(?=^##\s|\Z)",
+        content, re.IGNORECASE | re.MULTILINE | re.DOTALL,
+    )
+    concept_text = concept_match.group(1).strip() if concept_match else ""
+    if not concept_text or concept_text.startswith("<!--"):
+        concept_text = ""
+
+    # Extract Tech Stack + Architecture Principles (everything from ## Tech Stack onward)
+    stack_match = re.search(
+        r"^##\s+Tech\s+Stack[^\n]*\n(.*?)(?=^## Project Concept|^# Vaccine|\Z)",
+        content, re.IGNORECASE | re.MULTILINE | re.DOTALL,
+    )
+    stack_raw = stack_match.group(0).strip() if stack_match else ""
+
+    if concept_text:
+        pc.write_text(f"# Project Concept\n\n{concept_text}\n", encoding="utf-8")
+    else:
+        pc.write_text(_PROJECT_CONCEPT_TEMPLATE, encoding="utf-8")
+
+    if stack_raw:
+        # Normalise heading level to H1 since it's now the whole file
+        stack_raw = re.sub(r"^## Tech Stack", "# Tech Stack", stack_raw, count=1)
+        ts.write_text(stack_raw + "\n", encoding="utf-8")
+    else:
+        ts.write_text(_TECH_STACK_TEMPLATE, encoding="utf-8")
+
+    mb.unlink()
+    _logger.info("_migrate_memory_bank: split memory-bank.md into project-concept.md + tech-stack.md")
+
+
 def _migrate_vaccine_records() -> None:
     """One-time migration: move the # Vaccine Records section out of memory-bank.md.
 
-    Older memory-bank.md files had a '# Vaccine Records' section appended at the bottom.
-    This function detects it, strips it from memory-bank.md, and moves any real records
-    (## Vaccine # entries) into vaccines.md.  Idempotent — safe to call on every init.
+    Legacy memory-bank.md files had a '# Vaccine Records' section appended at the bottom.
+    No-op when memory-bank.md no longer exists (already migrated by _migrate_memory_bank).
+    Idempotent — safe to call on every init.
     """
     mb = _path("memory-bank.md")
     vx = _path("vaccines.md")
@@ -273,11 +322,11 @@ def _migrate_vaccine_records() -> None:
 def get_context_for_phase(phase: int, story_id: int | None = None) -> str:
     """Return the context slice appropriate for a given SDLC phase.
 
-    Phase 1 — Requirements:   Memory Bank only (Project Concept + arch rules)
-    Phase 2 — Design:         Memory Bank + story Gherkin
-    Phase 3 — Implementation: Memory Bank + story Gherkin + story Technical Spec
-    Phase 4 — QA/Testing:     Story Gherkin only
-    Phase 5 — Deployment:     Memory Bank + story Technical Spec
+    Phase 1 — Requirements:   Project Concept + Tech Stack
+    Phase 2 — Design:         Project Concept + Tech Stack + story Acceptance Criteria
+    Phase 3 — Implementation: Project Concept + Tech Stack + Acceptance Criteria + Technical Spec
+    Phase 4 — QA/Testing:     Story Acceptance Criteria only
+    Phase 5 — Deployment:     Project Concept + Tech Stack + story Technical Spec
     Phase 6 — Maintenance:    Empty string — Context Isolation Rule enforced here
 
     Feeding the entire project context to the AI is prohibited by the framework:
@@ -285,24 +334,24 @@ def get_context_for_phase(phase: int, story_id: int | None = None) -> str:
     read_context() when building AI prompts.
     """
     init_context()
-    mb      = get_memory_bank()
-    gherkin = get_story_gherkin(story_id)        if story_id is not None else ""
-    tech    = get_story_technical_spec(story_id) if story_id is not None else ""
+    project_ctx = _join(get_project_concept(), get_tech_stack_content())
+    gherkin     = get_story_gherkin(story_id)        if story_id is not None else ""
+    tech        = get_story_technical_spec(story_id) if story_id is not None else ""
 
     if phase == 1:
-        return mb
+        return project_ctx
     if phase == 2:
-        return _join(mb, gherkin)
+        return _join(project_ctx, gherkin)
     if phase == 3:
-        return _join(mb, gherkin, tech)
+        return _join(project_ctx, gherkin, tech)
     if phase == 4:
         return gherkin
     if phase == 5:
-        return _join(mb, tech)
+        return _join(project_ctx, tech)
     if phase == 6:
         # Context Isolation Rule — Fix-Apex AI must never receive full project context.
         return ""
-    return mb
+    return project_ctx
 
 
 def _join(*parts: str) -> str:
@@ -313,11 +362,28 @@ def _join(*parts: str) -> str:
 # Granular readers
 # ---------------------------------------------------------------------------
 
-def get_memory_bank() -> str:
-    """Return memory-bank.md content (architecture rules only, without Vaccine Records)."""
+def get_tech_stack_content() -> str:
+    """Return the user-written tech stack text from tech-stack.md.
+
+    Extracts only the content between the '# Tech Stack' heading and the
+    '## Architecture Principles' section (or EOF).  Returns '' when the file
+    has not been filled in (placeholder comment only).
+    """
     init_context()
-    mb = _path("memory-bank.md")
-    return mb.read_text(encoding="utf-8").strip() if mb.exists() else ""
+    ts = _path("tech-stack.md")
+    if not ts.exists():
+        return ""
+    content = ts.read_text(encoding="utf-8")
+    match = re.search(
+        r"^#\s+Tech\s+Stack[^\n]*\n(.*?)(?=^##\s+Architecture\s+Principles|\Z)",
+        content, re.IGNORECASE | re.MULTILINE | re.DOTALL,
+    )
+    if not match:
+        return content.strip()
+    text = match.group(1).strip()
+    if not text or text.startswith("<!--"):
+        return ""
+    return text
 
 
 def get_vaccines() -> str:
@@ -328,19 +394,13 @@ def get_vaccines() -> str:
 
 
 def get_project_concept() -> str:
-    """Return the Project Concept section from memory-bank.md, or '' if not set."""
-    mb = _path("memory-bank.md")
-    if not mb.exists():
+    """Return the content of project-concept.md, or '' if not yet filled in."""
+    pc = _path("project-concept.md")
+    if not pc.exists():
         return ""
-    content = mb.read_text(encoding="utf-8")
-    match = re.search(
-        r"^##\s+Project\s+Concept[^\n]*\n(.*?)(?=^##\s|\Z)",
-        content,
-        re.IGNORECASE | re.MULTILINE | re.DOTALL,
-    )
-    if not match:
-        return ""
-    text = match.group(1).strip()
+    content = pc.read_text(encoding="utf-8")
+    # Strip the heading line and any placeholder comment
+    text = re.sub(r"^#\s+Project\s+Concept[^\n]*\n", "", content, count=1, flags=re.IGNORECASE).strip()
     if not text or text.startswith("<!--"):
         return ""
     return text
@@ -384,7 +444,8 @@ def get_context_sizes() -> dict[str, int]:
     return {
         name: (len(_path(name).read_text(encoding="utf-8")) if _path(name).exists() else 0)
         for name in (
-            "memory-bank.md",
+            "project-concept.md",
+            "tech-stack.md",
             "functional-spec.md",
             "technical-spec.md",
             "vaccines.md",
@@ -645,7 +706,7 @@ def read_context() -> str:
     init_context()
     return "\n\n---\n\n".join(
         _path(name).read_text(encoding="utf-8")
-        for name in ("memory-bank.md", "functional-spec.md", "technical-spec.md", "vaccines.md")
+        for name in ("project-concept.md", "tech-stack.md", "functional-spec.md", "technical-spec.md", "vaccines.md")
         if _path(name).exists()
     )
 
@@ -1056,23 +1117,25 @@ def get_other_epics_design_context(exclude_epic_id: int) -> str:
 
 
 def write_tech_stack(tech_stack: str) -> None:
-    """Replace the ## Tech Stack section in memory-bank.md with tech_stack.
+    """Overwrite the tech stack content in tech-stack.md.
 
-    Uses regex to find and replace content between ## Tech Stack and the next ## section.
-    Appends the section if absent. Never touches other sections.
+    Preserves the '## Architecture Principles' section from the existing file
+    (or the default template if the file was freshly created).
     """
-    content = read_context_file("memory-bank.md")
-    new_section = f"## Tech Stack\n\n{tech_stack.strip()}\n"
-    replaced, count = re.subn(
-        r"^## Tech Stack[^\n]*\n.*?(?=^## |\Z)",
-        new_section,
-        content,
-        count=1,
-        flags=re.MULTILINE | re.DOTALL,
+    ts = _path("tech-stack.md")
+    existing = ts.read_text(encoding="utf-8") if ts.exists() else _TECH_STACK_TEMPLATE
+
+    # Preserve the Architecture Principles section if present
+    arch_match = re.search(
+        r"^##\s+Architecture\s+Principles.*",
+        existing, re.IGNORECASE | re.MULTILINE | re.DOTALL,
     )
-    if count == 0:
-        replaced = content.rstrip() + f"\n\n{new_section}"
-    write_context_file("memory-bank.md", replaced)
+    arch_section = arch_match.group(0).strip() if arch_match else (
+        "## Architecture Principles\n\n"
+        "<!-- Document the core architectural decisions and constraints for this project. -->"
+    )
+    content = f"# Tech Stack\n\n{tech_stack.strip()}\n\n{arch_section}\n"
+    ts.write_text(content, encoding="utf-8")
 
 
 def append_epic_technical_spec(
@@ -1110,33 +1173,9 @@ def append_epic_technical_spec(
         upsert_story_index(story_id, phase_status="design_locked", has_tech_spec=True)
 
 
-def append_memory_bank_design(
-    epic_id: int,
-    epic_title: str,
-    prototype_summary: str,
-    tech_spec_summary: str,
-) -> None:
-    """Append a design decision entry under ## Design Decisions in memory-bank.md.
-
-    Creates the section if absent. Never touches ## Tech Stack, ## Architecture
-    Principles, or ## Project Concept.
-    """
-    content = read_context_file("memory-bank.md")
-    entry = (
-        f"\n### Epic {epic_id}: {epic_title}\n"
-        f"**Locked at:** {_now()}\n"
-        f"**Visual Design:** {prototype_summary[:200]}\n"
-        f"**Architecture:** {tech_spec_summary[:200]}\n"
-    )
-    if "## Design Decisions" in content:
-        content = content.rstrip() + "\n" + entry
-    else:
-        content = content.rstrip() + "\n\n## Design Decisions\n" + entry
-    write_context_file("memory-bank.md", content)
-
-
 _TEMPLATES: dict[str, str] = {
-    "memory-bank.md":     _MEMORY_BANK_TEMPLATE,
+    "project-concept.md": _PROJECT_CONCEPT_TEMPLATE,
+    "tech-stack.md":      _TECH_STACK_TEMPLATE,
     "functional-spec.md": _FUNCTIONAL_SPEC_TEMPLATE,
     "technical-spec.md":  _TECHNICAL_SPEC_TEMPLATE,
     "vaccines.md":        _VACCINES_TEMPLATE,

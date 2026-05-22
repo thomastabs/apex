@@ -10,7 +10,8 @@ import json
 class TestInitContext:
     def test_creates_all_spec_files(self, ctx):
         ctx.init_context()
-        assert ctx.MEMORY_BANK_FILE.exists()
+        assert ctx.PROJECT_CONCEPT_FILE.exists()
+        assert ctx.TECH_STACK_FILE.exists()
         assert ctx.FUNCTIONAL_SPEC_FILE.exists()
         assert ctx.TECHNICAL_SPEC_FILE.exists()
         assert ctx.VACCINES_FILE.exists()
@@ -22,9 +23,9 @@ class TestInitContext:
 
     def test_idempotent_does_not_overwrite_existing_files(self, ctx):
         ctx.init_context()
-        ctx.MEMORY_BANK_FILE.write_text("custom content", encoding="utf-8")
+        ctx.PROJECT_CONCEPT_FILE.write_text("custom content", encoding="utf-8")
         ctx.init_context()
-        assert ctx.MEMORY_BANK_FILE.read_text(encoding="utf-8") == "custom content"
+        assert ctx.PROJECT_CONCEPT_FILE.read_text(encoding="utf-8") == "custom content"
 
     def test_context_initialized_flag_set(self, ctx):
         assert ctx._context_initialized is False
@@ -48,10 +49,10 @@ class TestInitContext:
 class TestResetContext:
     def test_resets_files_to_templates(self, ctx):
         ctx.init_context()
-        ctx.MEMORY_BANK_FILE.write_text("custom", encoding="utf-8")
+        ctx.PROJECT_CONCEPT_FILE.write_text("custom", encoding="utf-8")
         ctx.reset_context()
-        content = ctx.MEMORY_BANK_FILE.read_text(encoding="utf-8")
-        assert "Memory Bank" in content
+        content = ctx.PROJECT_CONCEPT_FILE.read_text(encoding="utf-8")
+        assert "Project Concept" in content
         assert "custom" not in content
 
     def test_clears_story_index(self, ctx):
@@ -200,23 +201,19 @@ class TestGetProjectConcept:
 
     def test_returns_content_when_filled(self, ctx):
         ctx.init_context()
-        mb = ctx.MEMORY_BANK_FILE.read_text(encoding="utf-8")
-        filled = mb.replace(
-            "<!-- Describe the project's purpose, target users, and core value proposition. -->",
-            "A fishing mobile game for casual players."
+        ctx.PROJECT_CONCEPT_FILE.write_text(
+            "# Project Concept\n\nA fishing mobile game for casual players.\n",
+            encoding="utf-8",
         )
-        ctx.MEMORY_BANK_FILE.write_text(filled, encoding="utf-8")
         result = ctx.get_project_concept()
         assert "fishing mobile game" in result
 
     def test_stops_at_next_section(self, ctx):
         ctx.init_context()
-        mb = ctx.MEMORY_BANK_FILE.read_text(encoding="utf-8")
-        filled = mb.replace(
-            "<!-- Describe the project's purpose, target users, and core value proposition. -->",
-            "A fishing game."
+        ctx.PROJECT_CONCEPT_FILE.write_text(
+            "# Project Concept\n\nA fishing game.\n",
+            encoding="utf-8",
         )
-        ctx.MEMORY_BANK_FILE.write_text(filled, encoding="utf-8")
         result = ctx.get_project_concept()
         assert "Tech Stack" not in result
 
@@ -365,12 +362,8 @@ class TestGetContextForPhase:
 
     def _setup(self, ctx):
         ctx.init_context()
-        mb = ctx.MEMORY_BANK_FILE.read_text(encoding="utf-8")
-        ctx.MEMORY_BANK_FILE.write_text(
-            mb.replace(
-                "<!-- Describe the project's purpose, target users, and core value proposition. -->",
-                "Fishing game."
-            ),
+        ctx.PROJECT_CONCEPT_FILE.write_text(
+            "# Project Concept\n\nFishing game.\n",
             encoding="utf-8",
         )
         ctx.append_gherkin(1, "Story One", self.GHERKIN)
@@ -379,7 +372,7 @@ class TestGetContextForPhase:
     def test_phase_1_returns_memory_bank(self, ctx):
         self._setup(ctx)
         result = ctx.get_context_for_phase(1)
-        assert "Memory Bank" in result
+        assert "Fishing game" in result
         assert "Feature: X" not in result
 
     def test_phase_2_includes_gherkin(self, ctx):
@@ -397,7 +390,7 @@ class TestGetContextForPhase:
         self._setup(ctx)
         result = ctx.get_context_for_phase(4, story_id=1)
         assert "Feature: X" in result
-        assert "Memory Bank" not in result
+        assert "Project Concept" not in result
 
     def test_phase_5_includes_tech_not_gherkin(self, ctx):
         self._setup(ctx)
@@ -442,8 +435,8 @@ class TestGetContextSizes:
         ctx.init_context()
         sizes = ctx.get_context_sizes()
         assert set(sizes.keys()) == {
-            "memory-bank.md", "functional-spec.md", "technical-spec.md", "vaccines.md",
-            "design-bundle.md",
+            "project-concept.md", "tech-stack.md", "functional-spec.md", "technical-spec.md",
+            "vaccines.md", "design-bundle.md",
         }
 
     def test_sizes_are_non_negative_ints(self, ctx):
@@ -599,7 +592,8 @@ class TestSetActiveProject:
         try:
             cm.set_active_project(77)
             expected = tmp_path / "77"
-            assert cm.MEMORY_BANK_FILE     == expected / "memory-bank.md"
+            assert cm.PROJECT_CONCEPT_FILE == expected / "project-concept.md"
+            assert cm.TECH_STACK_FILE      == expected / "tech-stack.md"
             assert cm.FUNCTIONAL_SPEC_FILE == expected / "functional-spec.md"
             assert cm.TECHNICAL_SPEC_FILE  == expected / "technical-spec.md"
             assert cm.VACCINES_FILE        == expected / "vaccines.md"
@@ -751,11 +745,11 @@ class TestProjectIsolation:
         token = cm._active_project_id.set(1)
         try:
             cm.init_context()
-            cm.MEMORY_BANK_FILE.write_text("# Memory Bank\n\n## Project Concept\n\nProject One.", encoding="utf-8")
+            cm.PROJECT_CONCEPT_FILE.write_text("# Project Concept\n\nProject One.", encoding="utf-8")
 
             cm.set_active_project(2)
             cm.init_context()
-            assert "Project One" not in cm.MEMORY_BANK_FILE.read_text(encoding="utf-8")
+            assert "Project One" not in cm.PROJECT_CONCEPT_FILE.read_text(encoding="utf-8")
         finally:
             cm._active_project_id.reset(token)
 
@@ -854,7 +848,7 @@ class TestInitContextNoProject:
         monkeypatch.setattr(cm, "_initialized_projects", set())
         token = cm._active_project_id.set(0)
         try:
-            assert cm.get_memory_bank() == ""
+            assert cm.get_project_concept() == ""
             assert cm.get_vaccines() == ""
             assert cm.get_story_gherkin(1) == ""
             assert cm.get_story_technical_spec(1) == ""

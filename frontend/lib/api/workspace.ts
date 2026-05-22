@@ -139,7 +139,7 @@ export async function deleteStory(context: RequestContext, storyId: number) {
   await apiRequest<{ ok: boolean }>(`/api/workspace/context-files/story-index/stories/${storyId}`, {
     method: "DELETE",
     context,
-  });
+  }).catch(() => undefined);
   return { ok: true };
 }
 

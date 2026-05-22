@@ -906,8 +906,8 @@ function ContextEditor({
 }
 
 const CONTEXT_FILE_PHASES: Record<string, string[]> = {
-  "/phase1": ["memory-bank.md", "functional-spec.md"],
-  "/phase2": ["memory-bank.md", "functional-spec.md", "technical-spec.md", "design-bundle.md"],
+  "/phase1": ["project-concept.md", "functional-spec.md"],
+  "/phase2": ["project-concept.md", "tech-stack.md", "functional-spec.md", "technical-spec.md", "design-bundle.md"],
 };
 
 function useVisibleContextFiles(
@@ -1220,14 +1220,11 @@ export function Sidebar() {
 
   const visibleFiles = useVisibleContextFiles(contextFiles.data?.files);
 
-  const memoryBank = contextFiles.data?.files.find((f) => f.filename === "memory-bank.md")?.content ?? "";
+  const projectConcept = contextFiles.data?.files.find((f) => f.filename === "project-concept.md")?.content ?? "";
   const hasProjectConcept = useMemo(() => {
-    if (!memoryBank) return false;
-    const match = /^##\s+Project\s+Concept[^\n]*\n([\s\S]*?)(?=^##\s|\Z)/im.exec(memoryBank);
-    if (!match) return false;
-    const text = match[1].trim();
+    const text = projectConcept.replace(/^#[^\n]*\n/, "").trim();
     return Boolean(text) && !text.startsWith("<!--");
-  }, [memoryBank]);
+  }, [projectConcept]);
 
   function confirm(message: string, onConfirm: () => void) {
     setConfirmState({ message, onConfirm });
@@ -1784,7 +1781,7 @@ export function Sidebar() {
                       <ContextSizeWarning totalChars={totalChars} />
                       {!hasProjectConcept && contextFiles.data ? (
                         <div className="mb-3 rounded border border-amber-700 bg-amber-950/30 px-3 py-2 text-sm text-amber-300">
-                          Memory Bank lacks <code>## Project Concept</code>. Add one for best AI results.
+                          Project Concept file is empty. Fill it in for best AI results.
                         </div>
                       ) : null}
                       <div className="mb-4 space-y-3">

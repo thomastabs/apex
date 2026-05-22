@@ -710,7 +710,7 @@ def suggest_tech_stack(
     """Return 5 ranked architectural alternatives for the full project scope.
 
     all_stories: [{"epic_title": str, "title": str, "gherkin": str}, ...]
-    context: full Memory Bank content (Project Concept + Architecture Principles)
+    context: project context (Project Concept + Tech Stack)
     hint: optional free-text guidance from the Tech Lead
     Returns: [{"name": str, "description": str, "trade_offs": str}, ...]
     """
@@ -740,7 +740,7 @@ _PROJECT_DESIGN_SYSTEM = """\
 You are a Senior Full-Stack Architect and UX Lead operating within the Apex Framework.
 Generate a unified design bundle for the ENTIRE PROJECT described below.
 
-**Memory Bank (binding constraints — DO NOT violate):**
+**Project Context and Tech Stack (binding constraints — DO NOT violate):**
 {context}
 
 Rules you MUST follow:
@@ -767,7 +767,7 @@ def generate_project_design(
     """Generate a unified design bundle for the whole project.
 
     all_epics_stories: [{"epic_id": int, "epic_title": str, "story_id": int, "title": str, "gherkin": str}, ...]
-    context: full Memory Bank including confirmed ## Tech Stack
+    context: project context including confirmed tech stack
     Returns: {"wireframes": str, "user_flow": str, "component_tree": str, "tech_spec": str}
     """
     grouped: dict[str, list[dict]] = {}

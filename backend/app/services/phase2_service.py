@@ -1,7 +1,5 @@
 """Phase 2 architectural and UX design workflow service."""
 
-import re
-
 from backend.app.services.ai_service import AiService
 from backend.app.services.context_service import ContextService
 from backend.app.services.request_context import RequestContext
@@ -26,7 +24,7 @@ class Phase2Service:
 
     def tech_stack_status(self, ctx: RequestContext) -> dict:
         self.configure_request(ctx)
-        tech_stack = self._extract_tech_stack(self.context.read_memory_bank())
+        tech_stack = (self.context.read_tech_stack() or "").strip()
         return {"defined": bool(tech_stack), "tech_stack": tech_stack or None}
 
     def propose_tech_stack(self, ctx: RequestContext, *, hint: str = "") -> list[dict]:
@@ -47,7 +45,7 @@ class Phase2Service:
             })
         if not all_stories:
             raise Phase2ValidationError("No Phase 1 locked Gherkin stories are available.")
-        return self.ai.suggest_tech_stack(all_stories, self.context.read_memory_bank(), hint)
+        return self.ai.suggest_tech_stack(all_stories, self.context.read_tech_stack(), hint)
 
     def lock_tech_stack(self, ctx: RequestContext, *, tech_stack: str) -> dict:
         self.configure_request(ctx)
@@ -59,20 +57,24 @@ class Phase2Service:
 
     def generate_design_bundle(self, ctx: RequestContext, *, epics: list[dict] | None = None) -> dict:
         self.configure_request(ctx)
-        memory_bank = self.context.read_memory_bank()
-        tech_stack = self._extract_tech_stack(memory_bank)
+        tech_stack = self.context.read_tech_stack()
         if not tech_stack:
             raise Phase2ValidationError("A locked Tech Stack is required before generating designs.")
         all_stories = self._all_eligible_stories(epics=epics)
         if not all_stories:
             raise Phase2ValidationError("No Phase 1 locked Gherkin stories found.")
-        constrained_context = (
-            f"{memory_bank.strip()}\n\n"
+        project_concept = self.context.read_project_concept()
+        context_parts = []
+        if project_concept.strip():
+            context_parts.append(f"## Project Concept\n\n{project_concept.strip()}")
+        context_parts.append(f"## Tech Stack\n\n{tech_stack.strip()}")
+        context_parts.append(
             "## Phase 2 Locked Tech Stack Constraint\n\n"
             "The following Tech Stack is locked and binding. The generated design bundle "
             "must not introduce technologies, frameworks, runtimes, databases, or deployment "
             f"targets outside this stack:\n\n{tech_stack}"
         )
+        constrained_context = "\n\n".join(context_parts)
         bundle = self.ai.generate_project_design(all_stories, constrained_context)
         return {
             **bundle,

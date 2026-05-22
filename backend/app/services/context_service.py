@@ -13,8 +13,11 @@ class ContextService:
     def init_context(self) -> None:
         context_manager.init_context()
 
-    def read_memory_bank(self) -> str:
-        return context_manager.read_context_file("memory-bank.md")
+    def read_project_concept(self) -> str:
+        return context_manager.get_project_concept()
+
+    def read_tech_stack(self) -> str:
+        return context_manager.get_tech_stack_content()
 
     def read_context_file(self, filename: str) -> str:
         return context_manager.read_context_file(filename)
@@ -93,16 +96,3 @@ class ContextService:
             tech_spec,
         )
 
-    def append_memory_bank_design(
-        self,
-        epic_id: int,
-        epic_title: str,
-        prototype_summary: str,
-        tech_spec_summary: str,
-    ) -> None:
-        context_manager.append_memory_bank_design(
-            epic_id,
-            epic_title,
-            prototype_summary,
-            tech_spec_summary,
-        )

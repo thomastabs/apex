@@ -57,7 +57,7 @@ Phase 2 creates a unified project-wide design bundle from all locked Phase 1 sto
 
 Implemented:
 
-- Gate 0: propose and lock a project-wide tech stack into `memory-bank.md`
+- Gate 0: propose and lock a project-wide tech stack into `tech-stack.md`
 - Generate a single design bundle covering all epics with:
   - ASCII wireframes
   - Mermaid user flow
@@ -69,7 +69,7 @@ Implemented:
 - Persist locked artefacts into:
   - `technical-spec.md`
   - `design-bundle.md`
-  - `memory-bank.md`
+  - `tech-stack.md`
   - `story-index.json`
 - Transition Taiga stories to design-ready status (browser-side, no backend Taiga calls)
 
@@ -127,7 +127,8 @@ Apex stores workflow state in context files under `contextspec/<taiga_project_id
 
 | File | Purpose |
 |---|---|
-| `memory-bank.md` | Project concept, tech stack, architecture principles, design decisions |
+| `project-concept.md` | Project purpose, target users, and core value proposition |
+| `tech-stack.md` | Tech stack, architecture principles, and design decisions |
 | `functional-spec.md` | Locked Gherkin acceptance criteria from Phase 1 |
 | `technical-spec.md` | Locked technical specs from Phase 2 |
 | `design-bundle.md` | Locked wireframes, user flows, component trees, and technical bundles |

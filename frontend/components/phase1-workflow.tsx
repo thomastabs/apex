@@ -121,7 +121,7 @@ function AIProgressIndicator({ steps, isPending, dark }: { steps: string[]; isPe
 }
 
 const SUGGEST_STEPS = [
-  "Reading project memory bank…",
+  "Loading project information…",
   "Analyzing functional requirements…",
   "Generating epic candidates…",
   "Ranking by project fit…",
@@ -201,14 +201,11 @@ export function Phase1Workflow() {
     return () => { if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current); };
   }, [context?.projectId, nlDraft, compiledStories, mode, epicTitle, epicDescription, epicId]);
 
-  const memoryBank = contextFiles.data?.files.find((f) => f.filename === "memory-bank.md")?.content ?? "";
+  const projectConcept = contextFiles.data?.files.find((f) => f.filename === "project-concept.md")?.content ?? "";
   const hasProjectConcept = useMemo(() => {
-    if (!memoryBank) return false;
-    const match = /^##\s+Project\s+Concept[^\n]*\n([\s\S]*?)(?=^##\s|\Z)/im.exec(memoryBank);
-    if (!match) return false;
-    const text = match[1].trim();
+    const text = projectConcept.replace(/^#[^\n]*\n/, "").trim();
     return Boolean(text) && !text.startsWith("<!--");
-  }, [memoryBank]);
+  }, [projectConcept]);
 
   const suggestions = suggestEpics.data?.epics ?? [];
   const activeEpic = useMemo(
@@ -314,7 +311,7 @@ export function Phase1Workflow() {
             Requirements
           </h1>
           <p className="mt-2 text-neutral-500">
-            Mob Elaboration — transform an Epic into formal Gherkin Acceptance Criteria
+            Turn your project ideas into clear, testable behaviour specifications, ready to be shared with the team.
           </p>
         </div>
         {hasWorkInProgress && !pushSuccess ? (
@@ -372,7 +369,7 @@ export function Phase1Workflow() {
 
       {!hasProjectConcept && contextFiles.data ? (
         <div className="mb-4 rounded-md border border-amber-700 bg-amber-950/40 px-4 py-2 text-sm text-amber-300">
-          Memory Bank has no <code className="text-amber-200">## Project Concept</code> section. Add one before generating stories for best results.
+          Project Concept is empty. Fill it in for best AI results.
         </div>
       ) : null}
 
@@ -691,7 +688,10 @@ export function Phase1Workflow() {
 
         {nlDraft ? (
           <section className={cn("space-y-4 border-t pt-6", sectionBorderClass)}>
-            <SectionHeading>Step 3 · Review Natural Language Draft</SectionHeading>
+            <SectionHeading>Step 3 · Review Story Descriptions</SectionHeading>
+            <p className={cn("text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
+              The AI has written plain descriptions of each user story. Read them, adjust any that don&apos;t match your intent, then convert them to Acceptance Criteria.
+            </p>
             <Textarea rows={14} value={nlDraft} onChange={(event) => setNlDraft(event.target.value)} />
             <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
               <button
@@ -714,12 +714,12 @@ export function Phase1Workflow() {
                     onSuccess: (data) => {
                       setCompiledStories(data.stories);
                       setShowGherkin(true);
-                      toast.success(`${data.stories.length} stories compiled to Gherkin`);
+                      toast.success(`${data.stories.length} stories converted to Acceptance Criteria`);
                     },
                   })
                 }
               >
-                {compile.isPending ? "Compiling…" : "Compile to Gherkin"}
+                {compile.isPending ? "Converting…" : "Convert to Acceptance Criteria"}
               </Button>
             </div>
             <AIProgressIndicator steps={COMPILE_STEPS} isPending={compile.isPending} dark={dark} />
@@ -734,7 +734,7 @@ export function Phase1Workflow() {
         {compiledStories.length && showGherkin ? (
           <section className={cn("space-y-4 border-t pt-6", sectionBorderClass)}>
             <div className="flex items-center justify-between">
-              <SectionHeading>Step 4 · Review Gherkin & Push to Taiga</SectionHeading>
+              <SectionHeading>Step 4 · Review Acceptance Criteria & Publish</SectionHeading>
               <button
                 className={cn(
                   "text-sm transition-colors",
@@ -742,9 +742,12 @@ export function Phase1Workflow() {
                 )}
                 onClick={backToNlEdit}
               >
-                ← Back to NL Draft
+                ← Back to Story Descriptions
               </button>
             </div>
+            <p className={cn("text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
+              Acceptance Criteria are structured conditions that must be true for a story to be complete. Review them, then publish to your Taiga board.
+            </p>
 
             {validationErrors.length > 0 ? (
               <div className="rounded-md border border-red-800 bg-red-950/30 p-3 text-sm text-red-300">

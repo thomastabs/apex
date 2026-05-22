@@ -100,6 +100,7 @@ export function useRefreshStoryIndex() {
     mutationFn: () => refreshStoryIndex(context!),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["phase2", "tech-stack-status"] });
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
     },
   });
 }
