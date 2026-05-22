@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  generateDesignBundle,
+  generateDesignSection,
   getTechStackStatus,
   lockDesign,
   lockTechStack,
@@ -11,6 +11,7 @@ import {
   refreshStoryIndex,
 } from "@/lib/api/phase2";
 import type {
+  DesignSectionKey,
   LockDesignRequest,
   LockTechStackRequest,
   ProposeTechStackRequest,
@@ -51,23 +52,55 @@ export function useLockTechStack() {
   });
 }
 
-export function useGenerateDesignBundle() {
+export const DESIGN_SECTION_ORDER: DesignSectionKey[] = [
+  "wireframes",
+  "user_flow",
+  "component_tree",
+  "tech_spec",
+];
+
+export type DesignSectionCallbacks = {
+  onSection: (section: DesignSectionKey, content: string, storyIds: number[]) => void;
+  onDone: () => void;
+};
+
+export function useGenerateDesignSections() {
   const context = useApiContext();
+  const [isPending, setIsPending] = useState(false);
+  const [currentSection, setCurrentSection] = useState<DesignSectionKey | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const mutation = useMutation({
-    mutationFn: () => {
+  const generate = useCallback(
+    async (callbacks: DesignSectionCallbacks) => {
+      if (!context) return;
       abortRef.current = new AbortController();
-      return generateDesignBundle(context!, abortRef.current.signal);
+      setIsPending(true);
+      setError(null);
+      const prior: Record<string, string> = {};
+      try {
+        for (const section of DESIGN_SECTION_ORDER) {
+          setCurrentSection(section);
+          const result = await generateDesignSection(
+            context, section, prior, abortRef.current.signal,
+          );
+          prior[section] = result.content;
+          callbacks.onSection(section, result.content, result.story_ids);
+        }
+        callbacks.onDone();
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return;
+        const msg = err instanceof Error ? err.message : "Generation failed";
+        setError(msg);
+        toast.error(`Design generation failed: ${msg}`);
+      } finally {
+        setIsPending(false);
+        setCurrentSection(null);
+        abortRef.current = null;
+      }
     },
-    onError: (err) => {
-      if (err instanceof Error && err.name === "AbortError") return;
-      toast.error("Design bundle generation failed. The AI may be busy — try again shortly.");
-    },
-    onSettled: () => {
-      abortRef.current = null;
-    },
-  });
+    [context],
+  );
 
   const cancel = useCallback(() => {
     abortRef.current?.abort();
@@ -75,7 +108,7 @@ export function useGenerateDesignBundle() {
     toast.info("Generation cancelled");
   }, []);
 
-  return { ...mutation, cancel };
+  return { generate, isPending, currentSection, error, cancel };
 }
 
 export function useLockDesign() {

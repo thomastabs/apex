@@ -669,21 +669,6 @@ class ArchAlternativeList(BaseModel):
     )
 
 
-class Phase2DesignResult(BaseModel):
-    wireframes: str = Field(
-        description="ASCII screen mockups for each screen/view required by the epic stories"
-    )
-    user_flow: str = Field(
-        description="Valid Mermaid flowchart TD diagram showing the complete user flow across all stories"
-    )
-    component_tree: str = Field(
-        default="",
-        description="Indented text-based component/module hierarchy for the epic",
-    )
-    tech_spec: str = Field(
-        default="",
-        description="OpenAPI 3.0 YAML specification and/or DB schema DDL for all stories in the epic",
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -736,63 +721,147 @@ def suggest_tech_stack(
 
 
 # ---------------------------------------------------------------------------
-# Phase 2 · Stage B — Project Design Bundle (Architect + UX Lead persona)
+# Phase 2 · Stage B — Project Design (4 sequential sections)
 # ---------------------------------------------------------------------------
 
-_PROJECT_DESIGN_SYSTEM = """\
-You are a Senior Full-Stack Architect and UX Lead operating within the Apex Framework.
-Generate a unified design bundle for the ENTIRE PROJECT described below.
-
-**Project Context and Tech Stack (binding constraints — DO NOT violate):**
-{context}
-
-Rules you MUST follow:
-- wireframes: ASCII art mockups for every distinct screen or view required by ALL stories \
-across ALL epics. Label each screen clearly. Show key UI elements (inputs, buttons, labels, \
-navigation). Group screens by epic but keep shared navigation and layout patterns consistent.
-- user_flow: A valid Mermaid `flowchart TD` diagram (no other Mermaid type) showing the \
-complete user journey across ALL stories and ALL epics. Every story must appear as a node. \
-Show how epics connect to each other in the overall user journey.
-- component_tree: An indented plain-text hierarchy of ALL frontend components and/or backend \
-modules needed for the entire project. Use 2-space indentation. No code, just names and brief \
-labels. Design for reuse — shared components appear once at the top level, referenced by name \
-in epic-specific sections below.
-- tech_spec: A full OpenAPI 3.0 YAML specification covering ALL API endpoints required by ALL \
-stories across ALL epics, PLUS a DB schema DDL block. ONLY use technologies from ## Tech Stack. \
-Every endpoint must be traceable to at least one Gherkin scenario.
-"""
-
-
-def generate_project_design(
-    all_epics_stories: list[dict],
-    context: str,
-) -> dict:
-    """Generate a unified design bundle for the whole project.
-
-    all_epics_stories: [{"epic_id": int, "epic_title": str, "story_id": int, "title": str, "gherkin": str}, ...]
-    context: project context including confirmed tech stack
-    Returns: {"wireframes": str, "user_flow": str, "component_tree": str, "tech_spec": str}
-    """
+def _group_stories_by_epic(all_stories: list[dict]) -> dict[str, list[dict]]:
     grouped: dict[str, list[dict]] = {}
-    for s in all_epics_stories:
+    for s in all_stories:
         key = s.get("epic_title") or f"Epic {s.get('epic_id', '?')}"
         grouped.setdefault(key, []).append(s)
+    return grouped
 
-    story_parts = ["All Project Stories:"]
+
+def _format_stories_human(grouped: dict[str, list[dict]]) -> str:
+    parts = ["All Project Stories:"]
     for epic_title, stories in grouped.items():
-        story_parts.append(f"\n## {epic_title}")
+        parts.append(f"\n## {epic_title}")
         for s in stories:
-            story_parts.append(
+            parts.append(
                 f"\n### Story {s.get('story_id', '')}: {s.get('title', '')}\n"
                 f"{s.get('gherkin', '').strip()}"
             )
-    human = "\n".join(story_parts)
-    system = _PROJECT_DESIGN_SYSTEM.format(context=context.strip())
-    result = _invoke_structured_with_progress(
-        system, human, get_coder_model(), Phase2DesignResult,
-        max_tokens=20000, timeout=660, item_field="wireframes",
+    return "\n".join(parts)
+
+
+_WIREFRAMES_SYSTEM = """\
+You are a UX Designer generating ASCII wireframe mockups for a software project.
+
+**Project Context and Tech Stack (binding constraints):**
+{context}
+
+Rules:
+- Generate ASCII art mockups for every distinct screen or view required by ALL stories.
+- Label each screen clearly with its name and which story it serves.
+- Show key UI elements: inputs, buttons, labels, navigation bars, sidebars.
+- Group screens by epic. Keep shared navigation and layout patterns consistent across epics.
+- Use simple ASCII box drawing: +----+, | text |, [ Button ], < input >, etc.
+- Output ONLY the wireframes — no commentary, no explanations.
+"""
+
+_USER_FLOW_SYSTEM = """\
+You are a UX Designer generating a Mermaid user flow diagram for a software project.
+
+**Project Context:**
+{context}
+
+**Wireframes already designed (reference these screen names exactly):**
+{wireframes}
+
+Rules:
+- Output a single valid Mermaid `flowchart TD` diagram — no other Mermaid diagram type.
+- Use the exact screen names shown in the wireframes above as node labels.
+- Every story must appear as at least one node in the diagram.
+- Show decision points, error paths, and how epics connect in the overall user journey.
+- Output ONLY the Mermaid diagram — no commentary, no explanations.
+"""
+
+_COMPONENT_TREE_SYSTEM = """\
+You are a Software Architect generating a component and module hierarchy for a software project.
+
+**Project Context:**
+{context}
+
+**Wireframes (screens to map to components):**
+{wireframes}
+
+**User Flow (navigation paths to reflect in routing/components):**
+{user_flow}
+
+Rules:
+- Output an indented plain-text hierarchy using 2-space indentation.
+- Include both frontend components and backend modules/services.
+- Shared components appear once at the top level; epic-specific sections below reference them.
+- Every screen from the wireframes must map to at least one component.
+- Names and brief labels only — no code.
+- Output ONLY the component tree — no commentary, no explanations.
+"""
+
+_TECH_SPEC_SYSTEM = """\
+You are a Software Architect generating an OpenAPI specification and database schema.
+
+**Project Context (binding constraints — ONLY use technologies from the Tech Stack):**
+{context}
+
+**Wireframes (screens that drive the API surface):**
+{wireframes}
+
+**User Flow (navigation that drives endpoint paths):**
+{user_flow}
+
+**Component Tree (module names to align with route/service names):**
+{component_tree}
+
+Rules:
+- Write a full OpenAPI 3.0 YAML specification covering ALL API endpoints for ALL stories.
+- After the YAML, add a `# Database Schema` section with DDL (CREATE TABLE statements).
+- ONLY use technologies from the Tech Stack — no additional frameworks or databases.
+- Every endpoint must be traceable to at least one story.
+- Route and service names must align with the component tree above.
+- Output ONLY the spec and DDL — no commentary, no explanations.
+"""
+
+
+def generate_design_wireframes(all_stories: list[dict], context: str) -> str:
+    grouped = _group_stories_by_epic(all_stories)
+    system = _WIREFRAMES_SYSTEM.format(context=context.strip())
+    return _invoke(system, _format_stories_human(grouped), get_coder_model(),
+                   max_tokens=8000, timeout=200)
+
+
+def generate_design_user_flow(all_stories: list[dict], context: str, *, wireframes: str) -> str:
+    grouped = _group_stories_by_epic(all_stories)
+    system = _USER_FLOW_SYSTEM.format(context=context.strip(), wireframes=wireframes.strip())
+    return _invoke(system, _format_stories_human(grouped), get_coder_model(),
+                   max_tokens=3000, timeout=120)
+
+
+def generate_design_component_tree(
+    all_stories: list[dict], context: str, *, wireframes: str, user_flow: str
+) -> str:
+    grouped = _group_stories_by_epic(all_stories)
+    system = _COMPONENT_TREE_SYSTEM.format(
+        context=context.strip(),
+        wireframes=wireframes.strip(),
+        user_flow=user_flow.strip(),
     )
-    return result.model_dump()
+    return _invoke(system, _format_stories_human(grouped), get_coder_model(),
+                   max_tokens=4000, timeout=120)
+
+
+def generate_design_tech_spec(
+    all_stories: list[dict], context: str,
+    *, wireframes: str, user_flow: str, component_tree: str,
+) -> str:
+    grouped = _group_stories_by_epic(all_stories)
+    system = _TECH_SPEC_SYSTEM.format(
+        context=context.strip(),
+        wireframes=wireframes.strip(),
+        user_flow=user_flow.strip(),
+        component_tree=component_tree.strip(),
+    )
+    return _invoke(system, _format_stories_human(grouped), get_coder_model(),
+                   max_tokens=10000, timeout=240)
 
 
 # ---------------------------------------------------------------------------

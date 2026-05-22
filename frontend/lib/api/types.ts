@@ -145,6 +145,14 @@ export type LockTechStackRequest = {
   tech_stack: string;
 };
 
+export type DesignSectionKey = "wireframes" | "user_flow" | "component_tree" | "tech_spec";
+
+export type DesignSectionResponse = {
+  section: DesignSectionKey;
+  content: string;
+  story_ids: number[];
+};
+
 export type DesignBundle = {
   wireframes: string;
   user_flow: string;

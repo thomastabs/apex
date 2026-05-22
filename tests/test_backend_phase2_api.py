@@ -5,14 +5,14 @@ from fastapi import HTTPException
 
 from backend.app.api.deps import get_request_context
 from backend.app.api.phase2 import (
-    generate_design_bundle,
+    generate_design_section,
     lock_tech_stack,
     persist_design,
     propose_tech_stack,
     tech_stack_status,
 )
 from backend.app.schemas.phase2 import (
-    GenerateDesignBundleRequest,
+    DesignSectionRequest,
     LockDesignRequest,
     LockTechStackRequest,
     ProposeTechStackRequest,
@@ -34,12 +34,11 @@ class StubPhase2Service:
     def lock_tech_stack(self, ctx, *, tech_stack):
         return {"defined": True, "tech_stack": tech_stack}
 
-    def generate_design_bundle(self, ctx, *, epics=None):
+    def generate_design_section(self, ctx, *, section, prior_sections=None):
         return {
-            "wireframes": "SCREEN",
-            "user_flow": "flowchart TD",
-            "component_tree": "App",
-            "tech_spec": "openapi: 3.0.0",
+            "section": section,
+            "content": {"wireframes": "SCREEN", "user_flow": "flowchart TD",
+                        "component_tree": "App", "tech_spec": "openapi: 3.0.0"}[section],
             "story_ids": [10],
         }
 
@@ -75,15 +74,27 @@ def test_lock_tech_stack_route():
     assert response == {"defined": True, "tech_stack": "FastAPI"}
 
 
-def test_generate_design_bundle_route():
-    response = generate_design_bundle(
-        GenerateDesignBundleRequest(epics=[{"id": 1, "subject": "Login"}]),
+def test_generate_design_section_route_wireframes():
+    response = generate_design_section(
+        DesignSectionRequest(section="wireframes"),
         ctx=_ctx(),
         service=StubPhase2Service(),
     )
 
+    assert response["section"] == "wireframes"
+    assert response["content"] == "SCREEN"
     assert response["story_ids"] == [10]
-    assert response["wireframes"] == "SCREEN"
+
+
+def test_generate_design_section_route_with_prior():
+    response = generate_design_section(
+        DesignSectionRequest(section="user_flow", prior={"wireframes": "SCREEN"}),
+        ctx=_ctx(),
+        service=StubPhase2Service(),
+    )
+
+    assert response["section"] == "user_flow"
+    assert response["content"] == "flowchart TD"
 
 
 def test_persist_design_route():
@@ -147,11 +158,15 @@ def test_ai_error_maps_to_502():
 
 def test_ai_rate_limit_error_maps_to_429():
     class FailingService(StubPhase2Service):
-        def generate_design_bundle(self, ctx, *, epics=None):
+        def generate_design_section(self, ctx, *, section, prior_sections=None):
             raise AIRateLimitError("Rate limited")
 
     with pytest.raises(HTTPException) as exc:
-        generate_design_bundle(ctx=_ctx(), service=FailingService())
+        generate_design_section(
+            DesignSectionRequest(section="wireframes"),
+            ctx=_ctx(),
+            service=FailingService(),
+        )
 
     assert exc.value.status_code == 429
 

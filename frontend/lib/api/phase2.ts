@@ -1,12 +1,12 @@
 import { apiRequest } from "./client";
 import {
-  taigaGetBoard,
   taigaGetStory,
   taigaListStoryStatuses,
   taigaUpdateStory,
 } from "./taiga-direct";
 import type {
-  DesignBundle,
+  DesignSectionKey,
+  DesignSectionResponse,
   LockDesignRequest,
   LockDesignResponse,
   LockTechStackRequest,
@@ -39,12 +39,16 @@ export function lockTechStack(context: RequestContext, body: LockTechStackReques
   });
 }
 
-export async function generateDesignBundle(context: RequestContext, signal?: AbortSignal) {
-  const epics = await taigaGetBoard(context.taigaToken, context.projectId, context.taigaApiUrl);
-  return apiRequest<DesignBundle>("/api/phase2/generate-design-bundle", {
+export function generateDesignSection(
+  context: RequestContext,
+  section: DesignSectionKey,
+  prior: Record<string, string>,
+  signal?: AbortSignal,
+): Promise<DesignSectionResponse> {
+  return apiRequest<DesignSectionResponse>("/api/phase2/generate-design-section", {
     method: "POST",
     context,
-    body: { epics: epics.map((epic) => ({ id: epic.id, subject: epic.subject })) },
+    body: { section, prior },
     timeoutMs: PHASE2_AI_TIMEOUT_MS,
     signal,
   });

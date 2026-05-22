@@ -7,8 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from backend.app.api.deps import RequestContext, get_request_context
 from backend.app.api.rate_limit import ai_rate_limit
 from backend.app.schemas.phase2 import (
-    DesignBundleResponse,
-    GenerateDesignBundleRequest,
+    DesignSectionRequest,
+    DesignSectionResponse,
     LockDesignRequest,
     LockDesignResponse,
     LockTechStackRequest,
@@ -77,16 +77,17 @@ def lock_tech_stack(
         _handle_error(exc)
 
 
-@router.post("/generate-design-bundle", response_model=DesignBundleResponse)
-def generate_design_bundle(
-    payload: GenerateDesignBundleRequest | None = None,
+@router.post("/generate-design-section", response_model=DesignSectionResponse)
+def generate_design_section(
+    payload: DesignSectionRequest,
     ctx: RequestContext = Depends(get_request_context),
     service: Phase2Service = Depends(get_phase2_service),
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
-        epics = [epic.model_dump() for epic in payload.epics] if payload else []
-        return service.generate_design_bundle(ctx, epics=epics)
+        return service.generate_design_section(
+            ctx, section=payload.section, prior_sections=payload.prior
+        )
     except Exception as exc:
         _handle_error(exc)
 

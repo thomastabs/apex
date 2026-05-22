@@ -8,20 +8,24 @@ export function AIProgressIndicator({
   steps,
   isPending,
   dark,
+  activeStep,
 }: {
   steps: string[];
   isPending: boolean;
   dark: boolean;
+  activeStep?: number;
 }) {
   const [stepIdx, setStepIdx] = useState(0);
   const [dots, setDots] = useState("");
 
   useEffect(() => {
     if (!isPending) { setStepIdx(0); setDots(""); return; }
-    const stepTimer = setInterval(() => setStepIdx((i) => (i + 1) % steps.length), 2200);
+    if (activeStep !== undefined) { setStepIdx(activeStep); }
     const dotsTimer = setInterval(() => setDots((d) => (d.length >= 3 ? "" : d + ".")), 400);
+    if (activeStep !== undefined) return () => clearInterval(dotsTimer);
+    const stepTimer = setInterval(() => setStepIdx((i) => (i + 1) % steps.length), 2200);
     return () => { clearInterval(stepTimer); clearInterval(dotsTimer); };
-  }, [isPending, steps.length]);
+  }, [isPending, steps.length, activeStep]);
 
   if (!isPending) return null;
 

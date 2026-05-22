@@ -6,13 +6,15 @@ import { toast } from "sonner";
 import { Button, Callout, Input, SectionHeading, Skeleton, Textarea } from "@/components/ui/primitives";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
 import {
-  useGenerateDesignBundle,
+  DESIGN_SECTION_ORDER,
+  useGenerateDesignSections,
   useLockDesign,
   useLockTechStack,
   useProposeTechStack,
   useRefreshStoryIndex,
   useTechStackStatus,
 } from "@/lib/hooks/use-phase2";
+import type { DesignSectionKey } from "@/lib/api/types";
 import { usePhase2Store } from "@/lib/stores/phase2-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -28,14 +30,12 @@ const PROPOSE_STEPS = [
   "Ranking alternatives by project fit…",
 ];
 
-const DESIGN_STEPS = [
-  "Loading project information and story requirements…",
-  "Analysing all epics and acceptance criteria…",
-  "Generating wireframes and screen layouts…",
-  "Designing user flows and navigation…",
-  "Building component and module tree…",
-  "Writing technical specification…",
-];
+const DESIGN_STEPS: Record<DesignSectionKey, string> = {
+  wireframes: "Generating screen wireframes…",
+  user_flow: "Building user flow diagram…",
+  component_tree: "Designing component architecture…",
+  tech_spec: "Writing technical specification…",
+};
 
 const TREE_COLORS = ["#a78bfa", "#60a5fa", "#34d399", "#fbbf24", "#f87171", "#fb923c"];
 
@@ -122,10 +122,12 @@ export function Phase2Workflow() {
   const [bundleTab, setBundleTab] = useState<BundleTab>("ux");
   const [stackReopened, setStackReopened] = useState(false);
   const [diagramOpen, setDiagramOpen] = useState(false);
+  const [partial, setPartial] = useState<Partial<Record<DesignSectionKey, string>>>({});
+  const [partialStoryIds, setPartialStoryIds] = useState<number[]>([]);
   const techStack = useTechStackStatus();
   const proposeStack = useProposeTechStack();
   const lockStack = useLockTechStack();
-  const generateBundle = useGenerateDesignBundle();
+  const generateSections = useGenerateDesignSections();
   const lockDesign = useLockDesign();
   const refreshIndex = useRefreshStoryIndex();
 
@@ -166,19 +168,63 @@ export function Phase2Workflow() {
 
   const stackDefined = Boolean(techStack.data?.defined) && !stackReopened;
   const noContext = !context;
-  const busy = proposeStack.isPending || lockStack.isPending || generateBundle.isPending || lockDesign.isPending || refreshIndex.isPending;
-  const canSave = Boolean(designBundle && designLeadApproved && techLeadApproved);
+  const busy = proposeStack.isPending || lockStack.isPending || generateSections.isPending || lockDesign.isPending || refreshIndex.isPending;
+
+  // During generation show partial; otherwise show persisted bundle from store.
+  const activeBundle = generateSections.isPending && Object.keys(partial).length > 0
+    ? {
+        wireframes: partial.wireframes ?? "",
+        user_flow: partial.user_flow ?? "",
+        component_tree: partial.component_tree ?? "",
+        tech_spec: partial.tech_spec ?? "",
+        story_ids: partialStoryIds,
+      }
+    : designBundle;
+
+  const canSave = Boolean(activeBundle && !generateSections.isPending && designLeadApproved && techLeadApproved);
+
+  const activeStepIdx = generateSections.currentSection
+    ? DESIGN_SECTION_ORDER.indexOf(generateSections.currentSection)
+    : undefined;
 
   function clearDesign() {
     setDesignBundle(null);
     setDesignLeadApproved(false);
     setTechLeadApproved(false);
+    setPartial({});
     toast.info("Design cleared");
   }
 
   function reopenStack() {
     setStackReopened(true);
     setTechStackDraft(techStack.data?.tech_stack ?? "");
+  }
+
+  function doGenerate() {
+    const accumulated: Partial<Record<DesignSectionKey, string>> = {};
+    let accStoryIds: number[] = [];
+    setPartial({});
+    generateSections.generate({
+      onSection: (section, content, storyIds) => {
+        accumulated[section] = content;
+        accStoryIds = storyIds;
+        setPartial({ ...accumulated });
+        setPartialStoryIds(storyIds);
+        if (section === "wireframes") setBundleTab("ux");
+        if (section === "component_tree") setBundleTab("architecture");
+      },
+      onDone: () => {
+        setDesignBundle({
+          wireframes: accumulated.wireframes ?? "",
+          user_flow: accumulated.user_flow ?? "",
+          component_tree: accumulated.component_tree ?? "",
+          tech_spec: accumulated.tech_spec ?? "",
+          story_ids: accStoryIds,
+        });
+        setPartial({});
+        toast.success("Project design generated");
+      },
+    });
   }
 
   // theme-aware shared classes
@@ -350,10 +396,10 @@ export function Phase2Workflow() {
             </p>
 
             <div className="flex flex-wrap gap-2">
-              {generateBundle.isPending ? (
+              {generateSections.isPending ? (
                 <button
                   className={cn("flex items-center gap-2 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
-                  onClick={() => generateBundle.cancel()}
+                  onClick={() => generateSections.cancel()}
                 >
                   <StopCircle className="size-4 text-red-400" />
                   Cancel Generation
@@ -363,15 +409,8 @@ export function Phase2Workflow() {
                   className="w-full"
                   disabled={busy || noContext}
                   onClick={() => {
-                    const doGenerate = () =>
-                      generateBundle.mutate(undefined, {
-                        onSuccess: (bundle) => {
-                          setDesignBundle(bundle);
-                          toast.success("Project design bundle generated");
-                        },
-                      });
                     if (designBundle) {
-                      toast.warning("A design bundle already exists. Regenerating will overwrite it — lock again to confirm.", {
+                      toast.warning("A design already exists. Regenerating will overwrite it.", {
                         action: { label: "Regenerate", onClick: doGenerate },
                         duration: 8000,
                       });
@@ -397,12 +436,12 @@ export function Phase2Workflow() {
                 <RefreshCw className="size-3" />
                 Refresh Index
               </button>
-              {designBundle ? (
+              {activeBundle && !generateSections.isPending ? (
                 <>
                   <button
                     className={cn("flex items-center gap-1 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
                     title="Download design bundle as Markdown"
-                    onClick={() => downloadDesignBundle(designBundle)}
+                    onClick={() => downloadDesignBundle(activeBundle)}
                   >
                     <Download className="size-3" />
                     Export
@@ -419,14 +458,19 @@ export function Phase2Workflow() {
               ) : null}
             </div>
 
-            <AIProgressIndicator steps={DESIGN_STEPS} isPending={generateBundle.isPending} dark={dark} />
-            {generateBundle.isError ? (
+            <AIProgressIndicator
+              steps={DESIGN_SECTION_ORDER.map((s) => DESIGN_STEPS[s])}
+              isPending={generateSections.isPending}
+              dark={dark}
+              activeStep={activeStepIdx}
+            />
+            {generateSections.error ? (
               <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-                Generation failed: {errMsg(generateBundle.error)}
+                Generation failed: {generateSections.error}
               </div>
             ) : null}
 
-            {designBundle ? (
+            {activeBundle ? (
               <div className="space-y-4">
                 <div className={cn("flex rounded-md p-1", dark ? "bg-neutral-800" : "bg-slate-200")}>
                   <button
@@ -459,11 +503,11 @@ export function Phase2Workflow() {
                   <div className="grid gap-4 xl:grid-cols-2">
                     <div className={cn("min-h-96 overflow-auto rounded-md border", dark ? "border-neutral-800 bg-neutral-950" : "border-slate-200 bg-slate-900")}>
                       <div className={cn("border-b px-3 py-1.5 text-xs font-semibold", panelHeaderClass)}>Wireframes</div>
-                      <MermaidBlock content={designBundle.wireframes} className="p-4 text-xs leading-5 text-neutral-200" />
+                      <MermaidBlock content={activeBundle.wireframes} className="p-4 text-xs leading-5 text-neutral-200" />
                     </div>
                     <div className={cn("min-h-96 overflow-auto rounded-md border", dark ? "border-neutral-800 bg-neutral-950" : "border-slate-200 bg-slate-900")}>
                       <div className={cn("border-b px-3 py-1.5 text-xs font-semibold", panelHeaderClass)}>User Flow</div>
-                      <MermaidBlock content={designBundle.user_flow} className="p-4 text-xs leading-5 text-violet-100" />
+                      <MermaidBlock content={activeBundle.user_flow} className="p-4 text-xs leading-5 text-violet-100" />
                     </div>
                   </div>
                 ) : (
@@ -471,12 +515,12 @@ export function Phase2Workflow() {
                     <div className={cn("min-h-96 overflow-auto rounded-md border", dark ? "border-neutral-800 bg-neutral-950" : "border-slate-200 bg-slate-900")}>
                       <div className={cn("border-b px-3 py-1.5 text-xs font-semibold", panelHeaderClass)}>Component Tree</div>
                       <div className="p-2">
-                        <ComponentTreeView content={designBundle.component_tree} dark={dark} />
+                        <ComponentTreeView content={activeBundle.component_tree} dark={dark} />
                       </div>
                     </div>
                     <div className={cn("min-h-96 overflow-auto rounded-md border", dark ? "border-neutral-800 bg-neutral-950" : "border-slate-200 bg-slate-900")}>
                       <div className={cn("border-b px-3 py-1.5 text-xs font-semibold", panelHeaderClass)}>Technical Specification</div>
-                      <pre className="overflow-auto p-4 text-xs leading-5 text-neutral-200">{designBundle.tech_spec}</pre>
+                      <pre className="overflow-auto p-4 text-xs leading-5 text-neutral-200">{activeBundle.tech_spec}</pre>
                     </div>
                   </div>
                 )}
@@ -498,11 +542,11 @@ export function Phase2Workflow() {
                     onClick={() =>
                       lockDesign.mutate(
                         {
-                          story_ids: designBundle.story_ids,
-                          wireframes: designBundle.wireframes,
-                          user_flow: designBundle.user_flow,
-                          component_tree: designBundle.component_tree,
-                          tech_spec: designBundle.tech_spec,
+                          story_ids: activeBundle.story_ids,
+                          wireframes: activeBundle.wireframes,
+                          user_flow: activeBundle.user_flow,
+                          component_tree: activeBundle.component_tree,
+                          tech_spec: activeBundle.tech_spec,
                         },
                         {
                           onSuccess: (data) => toast.success(`Design locked for ${data.story_ids.length} stories`),

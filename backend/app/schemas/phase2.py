@@ -1,5 +1,7 @@
 """Request and response schemas for Phase 2 design endpoints."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -26,17 +28,15 @@ class LockTechStackRequest(BaseModel):
     tech_stack: str
 
 
-class DesignBundleResponse(BaseModel):
-    wireframes: str
-    user_flow: str
-    component_tree: str
-    tech_spec: str
+class DesignSectionRequest(BaseModel):
+    section: Literal["wireframes", "user_flow", "component_tree", "tech_spec"]
+    prior: dict[str, str] = Field(default_factory=dict)
+
+
+class DesignSectionResponse(BaseModel):
+    section: str
+    content: str
     story_ids: list[int] = Field(default_factory=list)
-
-
-class EpicContextSchema(BaseModel):
-    id: int
-    subject: str
 
 
 class LockDesignRequest(BaseModel):
@@ -56,7 +56,3 @@ class LockDesignResponse(BaseModel):
     ok: bool
     story_ids: list[int]
     taiga_failures: list[TaigaTransitionFailure] = Field(default_factory=list)
-
-
-class GenerateDesignBundleRequest(BaseModel):
-    epics: list[EpicContextSchema] = Field(default_factory=list)

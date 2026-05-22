@@ -6,23 +6,26 @@ from backend.app.services.phase2_service import Phase2Service, Phase2ValidationE
 from backend.app.services.request_context import RequestContext
 
 
+_FAKE_SECTION_CONTENT = {
+    "wireframes": "SCREEN",
+    "user_flow": "flowchart TD\nA-->B",
+    "component_tree": "App\n  Page",
+    "tech_spec": "openapi: 3.0.0",
+}
+
+
 class FakeAiService:
     def __init__(self):
         self.tech_stack_args = None
-        self.design_args = None
+        self.section_args: list[tuple] = []
 
     def suggest_tech_stack(self, all_stories, context, hint):
         self.tech_stack_args = (all_stories, context, hint)
         return [{"name": "FastAPI + Next.js", "description": "Good fit.", "trade_offs": "+ simple"}]
 
-    def generate_project_design(self, all_epics_stories, context):
-        self.design_args = (all_epics_stories, context)
-        return {
-            "wireframes": "SCREEN",
-            "user_flow": "flowchart TD\nA-->B",
-            "component_tree": "App\n  Page",
-            "tech_spec": "openapi: 3.0.0",
-        }
+    def generate_design_section(self, all_stories, context, section, prior_sections):
+        self.section_args.append((all_stories, context, section, prior_sections))
+        return _FAKE_SECTION_CONTENT[section]
 
 
 class FakeContextService:
@@ -73,6 +76,7 @@ def _story_index():
         "10": {
             "story_id": 10,
             "epic_id": 7,
+            "epic_title": "Authentication",
             "title": "Login",
             "phase_status": "gherkin_locked",
             "has_gherkin": True,
@@ -80,6 +84,7 @@ def _story_index():
         "11": {
             "story_id": 11,
             "epic_id": 7,
+            "epic_title": "Authentication",
             "title": "Logout",
             "phase_status": "design_locked",
             "has_gherkin": True,
@@ -87,6 +92,7 @@ def _story_index():
         "12": {
             "story_id": 12,
             "epic_id": 9,
+            "epic_title": "Billing",
             "title": "Pending Billing",
             "phase_status": "pending",
             "has_gherkin": False,
@@ -148,48 +154,79 @@ def test_lock_tech_stack_saves_tech_stack():
     assert context.written_stack == "Django + React"
 
 
-def test_generate_design_bundle_requires_locked_tech_stack():
+def test_generate_design_section_requires_locked_tech_stack():
     service, _, _ = _service(context=FakeContextService(tech_stack=_tech_stack_empty()))
 
     with pytest.raises(Phase2ValidationError, match="Tech Stack"):
-        service.generate_design_bundle(_ctx())
+        service.generate_design_section(_ctx(), section="wireframes")
 
 
-def test_generate_design_bundle_requires_eligible_stories():
+def test_generate_design_section_requires_eligible_stories():
     empty_index = {"1": {"story_id": 1, "epic_id": 7, "phase_status": "pending", "has_gherkin": False}}
     service, _, _ = _service(context=FakeContextService(index=empty_index))
 
     with pytest.raises(Phase2ValidationError, match="No Phase 1 locked"):
-        service.generate_design_bundle(_ctx())
+        service.generate_design_section(_ctx(), section="wireframes")
 
 
-def test_generate_design_bundle_passes_all_stories_to_ai():
+def test_generate_design_section_rejects_unknown_section():
+    service, _, _ = _service()
+
+    with pytest.raises(Phase2ValidationError, match="Unknown section"):
+        service.generate_design_section(_ctx(), section="bad_section")
+
+
+def test_generate_design_section_wireframes_returns_content_and_story_ids():
     service, ai, _ = _service()
 
-    bundle = service.generate_design_bundle(_ctx(), epics=[{"id": 7, "subject": "Authentication"}, {"id": 9, "subject": "Billing"}])
+    result = service.generate_design_section(_ctx(), section="wireframes")
 
-    assert bundle["tech_spec"] == "openapi: 3.0.0"
-    assert sorted(bundle["story_ids"]) == [10, 11]
-    all_stories, context = ai.design_args
-    assert len(all_stories) == 2
-    assert "locked and binding" in context
+    assert result["section"] == "wireframes"
+    assert result["content"] == "SCREEN"
+    assert sorted(result["story_ids"]) == [10, 11]
+
+
+def test_generate_design_section_passes_constrained_context():
+    service, ai, _ = _service()
+
+    service.generate_design_section(_ctx(), section="wireframes")
+
+    _, context, section, prior = ai.section_args[0]
+    assert section == "wireframes"
+    assert "locked and binding" in context or "Locked Tech Stack Constraint" in context
     assert "FastAPI + Next.js + PostgreSQL" in context
 
 
-def test_generate_design_bundle_groups_stories_by_epic():
+def test_generate_design_section_passes_prior_sections_as_context():
     service, ai, _ = _service()
-    service.generate_design_bundle(_ctx(), epics=[{"id": 7, "subject": "Authentication"}, {"id": 9, "subject": "Billing"}])
-    all_stories, _ = ai.design_args
-    epic_titles = {s["epic_title"] for s in all_stories}
-    assert "Authentication" in epic_titles
+    prior = {"wireframes": "SCREEN", "user_flow": "flowchart TD\nA-->B"}
+
+    service.generate_design_section(_ctx(), section="component_tree", prior_sections=prior)
+
+    _, _, section, received_prior = ai.section_args[0]
+    assert section == "component_tree"
+    assert received_prior["wireframes"] == "SCREEN"
+    assert received_prior["user_flow"] == "flowchart TD\nA-->B"
 
 
-def test_generate_design_bundle_stories_sorted_by_id():
+def test_generate_design_section_stories_sorted_by_id():
     service, ai, _ = _service()
-    service.generate_design_bundle(_ctx(), epics=[{"id": 7, "subject": "Authentication"}, {"id": 9, "subject": "Billing"}])
-    all_stories, _ = ai.design_args
+
+    service.generate_design_section(_ctx(), section="wireframes")
+
+    all_stories, _, _, _ = ai.section_args[0]
     ids = [s["story_id"] for s in all_stories]
     assert ids == sorted(ids)
+
+
+def test_generate_design_section_includes_epic_titles_from_index():
+    service, ai, _ = _service()
+
+    service.generate_design_section(_ctx(), section="wireframes")
+
+    all_stories, _, _, _ = ai.section_args[0]
+    epic_titles = {s["epic_title"] for s in all_stories}
+    assert "Authentication" in epic_titles
 
 
 # ---------------------------------------------------------------------------

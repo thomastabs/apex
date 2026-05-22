@@ -763,6 +763,7 @@ def append_gherkin(
     upsert_story_index(
         story_id,
         epic_id=epic_id,
+        epic_title=epic_title,
         title=story_title,
         has_gherkin=True,
         phase_status="gherkin_locked",

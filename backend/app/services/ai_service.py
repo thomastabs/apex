@@ -49,9 +49,31 @@ class AiService:
     ) -> list[dict]:
         return ai_engine.suggest_tech_stack(all_stories, context, hint)
 
-    def generate_project_design(
+    def generate_design_section(
         self,
-        all_epics_stories: list[dict],
+        all_stories: list[dict],
         context: str,
-    ) -> dict:
-        return ai_engine.generate_project_design(all_epics_stories, context)
+        section: str,
+        prior_sections: dict[str, str],
+    ) -> str:
+        if section == "wireframes":
+            return ai_engine.generate_design_wireframes(all_stories, context)
+        if section == "user_flow":
+            return ai_engine.generate_design_user_flow(
+                all_stories, context,
+                wireframes=prior_sections.get("wireframes", ""),
+            )
+        if section == "component_tree":
+            return ai_engine.generate_design_component_tree(
+                all_stories, context,
+                wireframes=prior_sections.get("wireframes", ""),
+                user_flow=prior_sections.get("user_flow", ""),
+            )
+        if section == "tech_spec":
+            return ai_engine.generate_design_tech_spec(
+                all_stories, context,
+                wireframes=prior_sections.get("wireframes", ""),
+                user_flow=prior_sections.get("user_flow", ""),
+                component_tree=prior_sections.get("component_tree", ""),
+            )
+        raise ValueError(f"Unknown design section: {section!r}")

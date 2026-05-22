@@ -55,35 +55,50 @@ class Phase2Service:
         self.context.write_tech_stack(clean)
         return {"defined": True, "tech_stack": clean}
 
-    def generate_design_bundle(self, ctx: RequestContext, *, epics: list[dict] | None = None) -> dict:
+    DESIGN_SECTION_ORDER = ("wireframes", "user_flow", "component_tree", "tech_spec")
+
+    def generate_design_section(
+        self,
+        ctx: RequestContext,
+        *,
+        section: str,
+        prior_sections: dict[str, str] | None = None,
+    ) -> dict:
+        if section not in self.DESIGN_SECTION_ORDER:
+            raise Phase2ValidationError(f"Unknown section: {section!r}")
         self.configure_request(ctx)
         tech_stack = self.context.read_tech_stack()
         if not tech_stack:
             raise Phase2ValidationError("A locked Tech Stack is required before generating designs.")
-        all_stories = self._all_eligible_stories(epics=epics)
+        all_stories = self._all_eligible_stories()
         if not all_stories:
             raise Phase2ValidationError("No Phase 1 locked Gherkin stories found.")
         project_concept = self.context.read_project_concept()
-        context_parts = []
-        if project_concept.strip():
-            context_parts.append(f"## Project Concept\n\n{project_concept.strip()}")
-        context_parts.append(f"## Tech Stack\n\n{tech_stack.strip()}")
-        context_parts.append(
-            "## Phase 2 Locked Tech Stack Constraint\n\n"
-            "The following Tech Stack is locked and binding. The generated design bundle "
-            "must not introduce technologies, frameworks, runtimes, databases, or deployment "
-            f"targets outside this stack:\n\n{tech_stack}"
+        constrained_context = self._build_constrained_context(project_concept, tech_stack)
+        content = self.ai.generate_design_section(
+            all_stories, constrained_context, section, prior_sections or {}
         )
-        constrained_context = "\n\n".join(context_parts)
-        bundle = self.ai.generate_project_design(all_stories, constrained_context)
         return {
-            **bundle,
+            "section": section,
+            "content": content,
             "story_ids": [s["story_id"] for s in all_stories],
         }
 
-    def _all_eligible_stories(self, *, epics: list[dict] | None = None) -> list[dict]:
+    def _build_constrained_context(self, project_concept: str, tech_stack: str) -> str:
+        parts = []
+        if project_concept.strip():
+            parts.append(f"## Project Concept\n\n{project_concept.strip()}")
+        parts.append(f"## Tech Stack\n\n{tech_stack.strip()}")
+        parts.append(
+            "## Locked Tech Stack Constraint\n\n"
+            "The following Tech Stack is locked and binding. The generated design "
+            "must not introduce technologies, frameworks, runtimes, databases, or deployment "
+            f"targets outside this stack:\n\n{tech_stack}"
+        )
+        return "\n\n".join(parts)
+
+    def _all_eligible_stories(self) -> list[dict]:
         """Return all stories with locked Gherkin, sorted by story_id."""
-        epics_by_id = {epic["id"]: epic for epic in epics} if epics is not None else {}
         stories = []
         for entry in self.context.story_index().values():
             if not entry.get("has_gherkin"):
@@ -97,9 +112,7 @@ class Phase2Service:
             if not gherkin:
                 continue
             epic_id = entry.get("epic_id")
-            epic_title = ""
-            if epic_id:
-                epic_title = epics_by_id.get(epic_id, {}).get("subject") or f"Epic {epic_id}"
+            epic_title = entry.get("epic_title") or (f"Epic {epic_id}" if epic_id else "")
             stories.append({
                 "story_id": story_id,
                 "epic_id": epic_id,
