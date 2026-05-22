@@ -195,6 +195,36 @@ def rebuild_story_index(ctx: RequestContext = Depends(get_request_context)):
     return {"ok": True}
 
 
+@router.delete("/context-files/story-index/epics/{epic_id}", response_model=OkResponse)
+def remove_epic_from_story_index(epic_id: int, ctx: RequestContext = Depends(get_request_context)):
+    from src import context_manager
+    context_manager.set_active_project(ctx.project_id)
+    try:
+        context_manager.remove_epic_from_story_index(epic_id)
+    except Exception as exc:
+        _logger.exception("remove_epic_from_story_index failed epic_id=%s: %s", epic_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update story index.",
+        ) from exc
+    return {"ok": True}
+
+
+@router.delete("/context-files/story-index/stories/{story_id}", response_model=OkResponse)
+def remove_story_from_story_index(story_id: int, ctx: RequestContext = Depends(get_request_context)):
+    from src import context_manager
+    context_manager.set_active_project(ctx.project_id)
+    try:
+        context_manager.remove_story_index_entries([story_id])
+    except Exception as exc:
+        _logger.exception("remove_story_from_story_index failed story_id=%s: %s", story_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update story index.",
+        ) from exc
+    return {"ok": True}
+
+
 @router.get("/context-files/story-index-stats", response_model=StoryIndexStatsResponse)
 def story_index_stats(ctx: RequestContext = Depends(get_request_context)):
     from src import context_manager

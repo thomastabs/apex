@@ -4,6 +4,7 @@ import { useSessionStore } from "@/lib/stores/session-store";
 beforeEach(() => {
   useSessionStore.setState({
     taigaToken: "",
+    taigaApiUrl: "",
     projectId: null,
     projectName: "",
   });
@@ -17,8 +18,9 @@ describe("useSessionStore", () => {
   });
 
   it("setAuth stores token", () => {
-    useSessionStore.getState().setAuth({ taigaToken: "tok" });
+    useSessionStore.getState().setAuth({ taigaToken: "tok", taigaApiUrl: "https://api.example.test/api/v1" });
     expect(useSessionStore.getState().taigaToken).toBe("tok");
+    expect(useSessionStore.getState().taigaApiUrl).toBe("https://api.example.test/api/v1");
   });
 
   it("setProject stores project id and name", () => {

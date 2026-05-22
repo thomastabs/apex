@@ -969,7 +969,7 @@ function LoginSection({ taigaWebUrl }: { taigaWebUrl: string }) {
         full_name: data.full_name,
         email: data.email,
       });
-      setAuth({ taigaToken: token });
+      setAuth({ taigaToken: token, taigaApiUrl });
     } catch {
       setLoginError("Cannot reach Taiga — check your network.");
     } finally {
@@ -1049,7 +1049,7 @@ function LoginSection({ taigaWebUrl }: { taigaWebUrl: string }) {
           if (mode === "password") {
             handlePasswordLogin();
           } else if (tokenInput.trim()) {
-            setAuth({ taigaToken: tokenInput.trim() });
+            setAuth({ taigaToken: tokenInput.trim(), taigaApiUrl });
           }
         }}
       >

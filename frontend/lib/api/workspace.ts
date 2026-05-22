@@ -60,19 +60,19 @@ export function saveServerConfig(context: AuthContext, projectId: number) {
 }
 
 export function getMe(context: AuthContext) {
-  return taigaGetMe(context.taigaToken);
+  return taigaGetMe(context.taigaToken, context.taigaApiUrl);
 }
 
 export function listProjects(context: AuthContext) {
-  return taigaListProjects(context.taigaToken);
+  return taigaListProjects(context.taigaToken, context.taigaApiUrl);
 }
 
 export function createProject(context: AuthContext, name: string, description: string) {
-  return taigaCreateProject(context.taigaToken, name, description);
+  return taigaCreateProject(context.taigaToken, name, description, context.taigaApiUrl);
 }
 
 export function deleteProject(context: AuthContext, projectId: number) {
-  return taigaDeleteProject(context.taigaToken, projectId);
+  return taigaDeleteProject(context.taigaToken, projectId, context.taigaApiUrl);
 }
 
 export function getContextFiles(context: RequestContext) {
@@ -95,27 +95,32 @@ export function resetContextFile(context: RequestContext, filename: string) {
 }
 
 export function getBoard(context: RequestContext) {
-  return taigaGetBoard(context.taigaToken, context.projectId);
+  return taigaGetBoard(context.taigaToken, context.projectId, context.taigaApiUrl);
 }
 
 export function getUsers(context: RequestContext) {
-  return taigaGetUsers(context.taigaToken, context.projectId);
+  return taigaGetUsers(context.taigaToken, context.projectId, context.taigaApiUrl);
 }
 
 export function inviteUser(context: RequestContext, usernameOrEmail: string, roleId: number) {
-  return taigaInviteUser(context.taigaToken, context.projectId, usernameOrEmail, roleId);
+  return taigaInviteUser(context.taigaToken, context.projectId, usernameOrEmail, roleId, context.taigaApiUrl);
 }
 
 export function listStoryStatuses(context: RequestContext) {
-  return taigaListStoryStatuses(context.taigaToken, context.projectId);
+  return taigaListStoryStatuses(context.taigaToken, context.projectId, context.taigaApiUrl);
 }
 
 export function createEpic(context: RequestContext, subject: string, description: string, tags: string[] = []) {
-  return taigaCreateEpic(context.taigaToken, context.projectId, subject, description, tags);
+  return taigaCreateEpic(context.taigaToken, context.projectId, subject, description, tags, context.taigaApiUrl);
 }
 
-export function deleteEpic(context: RequestContext, epicId: number) {
-  return taigaDeleteEpic(context.taigaToken, epicId);
+export async function deleteEpic(context: RequestContext, epicId: number) {
+  const result = await taigaDeleteEpic(context.taigaToken, context.projectId, epicId, context.taigaApiUrl);
+  await apiRequest<{ ok: boolean }>(`/api/workspace/context-files/story-index/epics/${epicId}`, {
+    method: "DELETE",
+    context,
+  });
+  return result;
 }
 
 export function createStory(
@@ -126,11 +131,16 @@ export function createStory(
   tags: string[] = [],
   statusId?: number,
 ) {
-  return taigaCreateStory(context.taigaToken, context.projectId, epicId, subject, description, tags, statusId);
+  return taigaCreateStory(context.taigaToken, context.projectId, epicId, subject, description, tags, statusId, context.taigaApiUrl);
 }
 
-export function deleteStory(context: RequestContext, storyId: number) {
-  return taigaDeleteStory(context.taigaToken, storyId);
+export async function deleteStory(context: RequestContext, storyId: number) {
+  await taigaDeleteStory(context.taigaToken, storyId, context.taigaApiUrl);
+  await apiRequest<{ ok: boolean }>(`/api/workspace/context-files/story-index/stories/${storyId}`, {
+    method: "DELETE",
+    context,
+  });
+  return { ok: true };
 }
 
 export function updateEpic(
@@ -139,7 +149,7 @@ export function updateEpic(
   version: number,
   fields: { subject?: string; description?: string; tags?: string[] },
 ) {
-  return taigaUpdateEpic(context.taigaToken, epicId, version, fields);
+  return taigaUpdateEpic(context.taigaToken, epicId, version, fields, context.taigaApiUrl);
 }
 
 export function updateStory(
@@ -148,15 +158,15 @@ export function updateStory(
   version: number,
   fields: { subject?: string; description?: string; tags?: string[] },
 ) {
-  return taigaUpdateStory(context.taigaToken, storyId, version, fields);
+  return taigaUpdateStory(context.taigaToken, storyId, version, fields, context.taigaApiUrl);
 }
 
 export function removeMember(context: RequestContext, membershipId: number) {
-  return taigaRemoveMember(context.taigaToken, membershipId);
+  return taigaRemoveMember(context.taigaToken, membershipId, context.taigaApiUrl);
 }
 
 export function updateMemberRole(context: RequestContext, membershipId: number, roleId: number) {
-  return taigaUpdateMemberRole(context.taigaToken, membershipId, roleId);
+  return taigaUpdateMemberRole(context.taigaToken, membershipId, roleId, context.taigaApiUrl);
 }
 
 export function rebuildStoryIndex(context: RequestContext) {

@@ -1,10 +1,12 @@
 export type RequestContext = {
   taigaToken: string;
   projectId: number;
+  taigaApiUrl?: string;
 };
 
 export type AuthContext = {
   taigaToken: string;
+  taigaApiUrl?: string;
 };
 
 export type Me = {
