@@ -85,8 +85,24 @@ def check_api_key() -> None:
 
 
 AVAILABLE_MODELS: list[dict] = [
-    {"id": "claude-haiku-4-5-20251001", "label": "Claude Haiku 4.5", "role": "Fast"},
-    {"id": "claude-sonnet-4-6",         "label": "Claude Sonnet 4.6", "role": "Smart"},
+    {
+        "id":    "claude-haiku-4-5-20251001",
+        "label": "Claude Haiku 4.5",
+        "role":  "Fast",
+        "note":  "Fastest & cheapest — good for simple tasks and tight budgets",
+    },
+    {
+        "id":    "claude-sonnet-4-6",
+        "label": "Claude Sonnet 4.6",
+        "role":  "Balanced",
+        "note":  "Best quality-to-cost ratio — recommended for most projects",
+    },
+    {
+        "id":    "claude-opus-4-7",
+        "label": "Claude Opus 4.7",
+        "role":  "Premium",
+        "note":  "Most capable — best for complex architecture and large projects",
+    },
 ]
 
 

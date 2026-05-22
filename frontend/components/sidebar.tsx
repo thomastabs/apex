@@ -67,8 +67,9 @@ import { Skeleton } from "@/components/ui/primitives";
 // ── constants ─────────────────────────────────────────────────────────────────
 
 const FALLBACK_MODELS = [
-  { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", role: "Fast" },
-  { id: "claude-sonnet-4-6",         label: "Claude Sonnet 4.6", role: "Smart" },
+  { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5",  role: "Fast",     note: "Fastest & cheapest" },
+  { id: "claude-sonnet-4-6",         label: "Claude Sonnet 4.6", role: "Balanced",  note: "Recommended for most projects" },
+  { id: "claude-opus-4-7",           label: "Claude Opus 4.7",   role: "Premium",   note: "Most capable" },
 ];
 
 const SECTION_LABELS: Record<string, string> = {
@@ -1883,9 +1884,13 @@ export function Sidebar() {
                   />
                   {aiOpen ? (
                     <div className={cn("space-y-4 px-4 py-4 text-sm", expandedPanelClass)}>
+                      <p className="text-xs text-neutral-500">
+                        Choose models per role. Haiku is cheapest; Opus is most capable. Changes apply on next generation.
+                      </p>
                       <div>
                         <label className="mb-1.5 block text-xs font-semibold text-neutral-400">
                           Discovery & Breakdown
+                          <span className="ml-1 font-normal text-neutral-600">(Phase 1)</span>
                         </label>
                         <select
                           className="h-9 w-full rounded border border-neutral-600 bg-neutral-950 px-2 text-sm text-white"
@@ -1893,13 +1898,16 @@ export function Sidebar() {
                           onChange={(e) => setLocalFastModel(e.target.value)}
                         >
                           {availableModels.map((m) => (
-                            <option key={m.id} value={m.id}>{m.label}</option>
+                            <option key={m.id} value={m.id}>
+                              {m.label} — {(m as { note?: string }).note ?? m.role}
+                            </option>
                           ))}
                         </select>
                       </div>
                       <div>
                         <label className="mb-1.5 block text-xs font-semibold text-neutral-400">
                           Architecture & Design
+                          <span className="ml-1 font-normal text-neutral-600">(Phase 2)</span>
                         </label>
                         <select
                           className="h-9 w-full rounded border border-neutral-600 bg-neutral-950 px-2 text-sm text-white"
@@ -1907,7 +1915,9 @@ export function Sidebar() {
                           onChange={(e) => setLocalCoderModel(e.target.value)}
                         >
                           {availableModels.map((m) => (
-                            <option key={m.id} value={m.id}>{m.label}</option>
+                            <option key={m.id} value={m.id}>
+                              {m.label} — {(m as { note?: string }).note ?? m.role}
+                            </option>
                           ))}
                         </select>
                       </div>
