@@ -36,7 +36,7 @@ export function getServerConfig(context: AuthContext) {
 export type AiConfigResponse = {
   fast_model: string;
   coder_model: string;
-  available_models: Array<{ id: string; label: string; role: string; note?: string }>;
+  available_models: Array<{ id: string; label: string; role: string; provider?: string; note?: string }>;
 };
 
 export function getAiConfig(context: AuthContext) {

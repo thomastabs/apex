@@ -7,6 +7,7 @@ services:
       - .env
     environment:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       TAIGA_API_URL: ${TAIGA_API_URL:-https://api.taiga.io}
       AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-}
       AZURE_FILE_SHARE_NAME: ${AZURE_FILE_SHARE_NAME:-contextspec}

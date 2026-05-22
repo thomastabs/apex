@@ -67,9 +67,11 @@ import { Skeleton } from "@/components/ui/primitives";
 // ── constants ─────────────────────────────────────────────────────────────────
 
 const FALLBACK_MODELS = [
-  { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5",  role: "Fast",     note: "Fastest & cheapest" },
-  { id: "claude-sonnet-4-6",         label: "Claude Sonnet 4.6", role: "Balanced",  note: "Recommended for most projects" },
-  { id: "claude-opus-4-7",           label: "Claude Opus 4.7",   role: "Premium",   note: "Most capable" },
+  { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5",  role: "Fast",     provider: "anthropic", note: "Fastest & cheapest" },
+  { id: "claude-sonnet-4-6",         label: "Claude Sonnet 4.6", role: "Balanced",  provider: "anthropic", note: "Recommended for most projects" },
+  { id: "claude-opus-4-7",           label: "Claude Opus 4.7",   role: "Premium",   provider: "anthropic", note: "Most capable" },
+  { id: "gpt-4o-mini",               label: "GPT-4o Mini",       role: "Fast",     provider: "openai",    note: "OpenAI fast tier — requires OPENAI_API_KEY" },
+  { id: "gpt-4o",                    label: "GPT-4o",            role: "Balanced",  provider: "openai",    note: "OpenAI flagship — requires OPENAI_API_KEY" },
 ];
 
 const SECTION_LABELS: Record<string, string> = {
@@ -82,6 +84,32 @@ const SECTION_LABELS: Record<string, string> = {
 };
 
 // ── helpers ──────────────────────────────────────────────────────────────────
+
+type ModelEntry = { id: string; label: string; role: string; provider?: string; note?: string };
+type ProviderKey = "anthropic" | "openai";
+
+function modelProvider(m: ModelEntry): ProviderKey {
+  return (m.provider ?? "anthropic") as ProviderKey;
+}
+
+function ModelSelect({ models, value, onChange }: { models: ModelEntry[]; value: string; onChange: (v: string) => void }) {
+  return (
+    <select
+      className="h-9 w-full rounded border border-neutral-600 bg-neutral-950 px-2 text-sm text-white"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      {models.map((m) => (
+        <option key={m.id} value={m.id}>{m.label} — {m.note ?? m.role}</option>
+      ))}
+    </select>
+  );
+}
+
+const PROVIDER_LABELS: Record<ProviderKey, string> = {
+  anthropic: "Anthropic (Claude)",
+  openai:    "OpenAI (GPT)",
+};
 
 function initials(name: string) {
   const clean = name.trim();
@@ -1147,6 +1175,7 @@ export function Sidebar() {
   const [resourcesOpen, setResourcesOpen] = useState(false);
   const [localFastModel, setLocalFastModel] = useState("");
   const [localCoderModel, setLocalCoderModel] = useState("");
+  const [localProvider, setLocalProvider] = useState<ProviderKey>("anthropic");
   const [createEpicOpen, setCreateEpicOpen] = useState(false);
   const [createStoryEpicId, setCreateStoryEpicId] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
@@ -1204,6 +1233,8 @@ export function Sidebar() {
     if (aiConfig.data) {
       setLocalFastModel(aiConfig.data.fast_model);
       setLocalCoderModel(aiConfig.data.coder_model);
+      const savedFast = aiConfig.data.available_models.find((m) => m.id === aiConfig.data!.fast_model);
+      if (savedFast?.provider === "openai") setLocalProvider("openai");
     }
   }, [aiConfig.data]);
 
@@ -1884,55 +1915,70 @@ export function Sidebar() {
                   />
                   {aiOpen ? (
                     <div className={cn("space-y-4 px-4 py-4 text-sm", expandedPanelClass)}>
-                      <p className="text-xs text-neutral-500">
-                        Choose models per role. Haiku is cheapest; Opus is most capable. Changes apply on next generation.
-                      </p>
+                      {/* Provider toggle */}
                       <div>
-                        <label className="mb-1.5 block text-xs font-semibold text-neutral-400">
-                          Discovery & Breakdown
-                          <span className="ml-1 font-normal text-neutral-600">(Phase 1)</span>
-                        </label>
-                        <select
-                          className="h-9 w-full rounded border border-neutral-600 bg-neutral-950 px-2 text-sm text-white"
-                          value={localFastModel || (aiConfig.data?.fast_model ?? FALLBACK_MODELS[0].id)}
-                          onChange={(e) => setLocalFastModel(e.target.value)}
-                        >
-                          {availableModels.map((m) => (
-                            <option key={m.id} value={m.id}>
-                              {m.label} — {(m as { note?: string }).note ?? m.role}
-                            </option>
+                        <p className="mb-2 text-xs text-neutral-500">Provider</p>
+                        <div className="flex rounded border border-neutral-700 overflow-hidden">
+                          {(["anthropic", "openai"] as ProviderKey[]).map((p) => (
+                            <button
+                              key={p}
+                              className={cn(
+                                "flex-1 py-1.5 text-xs font-semibold transition-colors",
+                                localProvider === p
+                                  ? "bg-violet-700 text-white"
+                                  : "bg-neutral-900 text-neutral-400 hover:bg-neutral-800",
+                              )}
+                              onClick={() => {
+                                setLocalProvider(p);
+                                const filtered = availableModels.filter((m) => modelProvider(m) === p);
+                                setLocalFastModel(filtered[0]?.id ?? "");
+                                setLocalCoderModel(filtered[1]?.id ?? filtered[0]?.id ?? "");
+                              }}
+                            >
+                              {PROVIDER_LABELS[p]}
+                            </button>
                           ))}
-                        </select>
+                        </div>
+                        {localProvider === "openai" && (
+                          <p className="mt-1.5 text-xs text-amber-400">Requires OPENAI_API_KEY set in backend env.</p>
+                        )}
                       </div>
-                      <div>
-                        <label className="mb-1.5 block text-xs font-semibold text-neutral-400">
-                          Architecture & Design
-                          <span className="ml-1 font-normal text-neutral-600">(Phase 2)</span>
-                        </label>
-                        <select
-                          className="h-9 w-full rounded border border-neutral-600 bg-neutral-950 px-2 text-sm text-white"
-                          value={localCoderModel || (aiConfig.data?.coder_model ?? FALLBACK_MODELS[1].id)}
-                          onChange={(e) => setLocalCoderModel(e.target.value)}
-                        >
-                          {availableModels.map((m) => (
-                            <option key={m.id} value={m.id}>
-                              {m.label} — {(m as { note?: string }).note ?? m.role}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <button
-                        className="h-8 w-full rounded bg-violet-700 text-sm font-semibold text-white transition-colors hover:bg-violet-600 disabled:opacity-50"
-                        disabled={saveAiConfigMutation.isPending || !taigaToken}
-                        onClick={() =>
-                          saveAiConfigMutation.mutate({
-                            fast_model: localFastModel || FALLBACK_MODELS[0].id,
-                            coder_model: localCoderModel || FALLBACK_MODELS[1].id,
-                          })
-                        }
-                      >
-                        {!taigaToken ? "Sign in to save" : saveAiConfigMutation.isPending ? "Saving…" : "Save"}
-                      </button>
+                      {/* Model selectors filtered to active provider */}
+                      {(() => {
+                        const providerModels = availableModels.filter((m) => modelProvider(m) === localProvider);
+                        const effectiveFast  = (localFastModel  && providerModels.some((m) => m.id === localFastModel))  ? localFastModel  : (providerModels[0]?.id ?? "");
+                        const effectiveCoder = (localCoderModel && providerModels.some((m) => m.id === localCoderModel)) ? localCoderModel : (providerModels[1]?.id ?? providerModels[0]?.id ?? "");
+                        return (
+                          <>
+                            <div>
+                              <label className="mb-1.5 block text-xs font-semibold text-neutral-400">
+                                Discovery & Breakdown
+                                <span className="ml-1 font-normal text-neutral-600">(Phase 1)</span>
+                              </label>
+                              <ModelSelect models={providerModels} value={effectiveFast} onChange={setLocalFastModel} />
+                            </div>
+                            <div>
+                              <label className="mb-1.5 block text-xs font-semibold text-neutral-400">
+                                Architecture & Design
+                                <span className="ml-1 font-normal text-neutral-600">(Phase 2)</span>
+                              </label>
+                              <ModelSelect models={providerModels} value={effectiveCoder} onChange={setLocalCoderModel} />
+                            </div>
+                            <button
+                              className="h-8 w-full rounded bg-violet-700 text-sm font-semibold text-white transition-colors hover:bg-violet-600 disabled:opacity-50"
+                              disabled={saveAiConfigMutation.isPending || !taigaToken}
+                              onClick={() =>
+                                saveAiConfigMutation.mutate({
+                                  fast_model:  effectiveFast,
+                                  coder_model: effectiveCoder,
+                                })
+                              }
+                            >
+                              {!taigaToken ? "Sign in to save" : saveAiConfigMutation.isPending ? "Saving…" : "Save"}
+                            </button>
+                          </>
+                        );
+                      })()}
                       {saveAiConfigMutation.isSuccess ? (
                         <p className="text-center text-xs text-emerald-400">Model config saved.</p>
                       ) : null}

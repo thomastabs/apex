@@ -1,12 +1,16 @@
 """
 ai_engine.py
-LangChain AI engine backed exclusively by Anthropic (Claude).
+LangChain AI engine supporting Anthropic (Claude) and OpenAI (GPT) models.
 
-Two-model split (configured via .env):
+Two-model split (configured via .env or in-app model selector):
   AI_MODEL_FAST   — discovery, breakdown          (structured output)
   AI_MODEL_CODER  — architecture, propose, design (structured + long-form generation)
 
 Both fall back to the defaults below when the vars are not set.
+
+Provider detection is automatic by model ID prefix:
+  "gpt-" / "o1-" / "o3-"  → OpenAI  (requires OPENAI_API_KEY)
+  anything else             → Anthropic (requires ANTHROPIC_API_KEY)
 
 Phase 1 pipeline (two-step):
   Step 1 — generate_nl_stories()  : Epic → NL story list (human review draft)
@@ -24,6 +28,7 @@ from typing import Literal
 from dotenv import load_dotenv
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
 # LangSmith tracing is enabled automatically when LANGCHAIN_TRACING_V2=true
@@ -78,30 +83,67 @@ def _reclassify_llm_exc(exc: Exception, *, reraise_unrecognized: bool = True) ->
         raise exc
 
 
-def check_api_key() -> None:
-    """Raise EnvironmentError if ANTHROPIC_API_KEY is not set."""
-    if not os.getenv("ANTHROPIC_API_KEY"):
-        raise EnvironmentError("ANTHROPIC_API_KEY is not set. Add it to your .env file.")
+def _get_provider(model: str) -> str:
+    """Return 'openai' for GPT/o-series models, 'anthropic' for everything else."""
+    if model.startswith(("gpt-", "o1-", "o3-", "o4-")):
+        return "openai"
+    return "anthropic"
+
+
+def check_api_key(model: str | None = None) -> None:
+    """Raise EnvironmentError if the required API key for *model* is not set.
+
+    Checks ANTHROPIC_API_KEY for Claude models and OPENAI_API_KEY for GPT models.
+    When *model* is None, only ANTHROPIC_API_KEY is checked (backward-compat).
+    """
+    provider = _get_provider(model) if model else "anthropic"
+    if provider == "openai":
+        if not os.getenv("OPENAI_API_KEY"):
+            raise EnvironmentError(
+                "OPENAI_API_KEY is not set. Add it to your .env file or set it as an environment variable."
+            )
+    else:
+        if not os.getenv("ANTHROPIC_API_KEY"):
+            raise EnvironmentError("ANTHROPIC_API_KEY is not set. Add it to your .env file.")
 
 
 AVAILABLE_MODELS: list[dict] = [
+    # ── Anthropic (Claude) ───────────────────────────────────────────────────
     {
-        "id":    "claude-haiku-4-5-20251001",
-        "label": "Claude Haiku 4.5",
-        "role":  "Fast",
-        "note":  "Fastest & cheapest — good for simple tasks and tight budgets",
+        "id":       "claude-haiku-4-5-20251001",
+        "label":    "Claude Haiku 4.5",
+        "role":     "Fast",
+        "provider": "anthropic",
+        "note":     "Fastest & cheapest — good for simple tasks and tight budgets",
     },
     {
-        "id":    "claude-sonnet-4-6",
-        "label": "Claude Sonnet 4.6",
-        "role":  "Balanced",
-        "note":  "Best quality-to-cost ratio — recommended for most projects",
+        "id":       "claude-sonnet-4-6",
+        "label":    "Claude Sonnet 4.6",
+        "role":     "Balanced",
+        "provider": "anthropic",
+        "note":     "Best quality-to-cost ratio — recommended for most projects",
     },
     {
-        "id":    "claude-opus-4-7",
-        "label": "Claude Opus 4.7",
-        "role":  "Premium",
-        "note":  "Most capable — best for complex architecture and large projects",
+        "id":       "claude-opus-4-7",
+        "label":    "Claude Opus 4.7",
+        "role":     "Premium",
+        "provider": "anthropic",
+        "note":     "Most capable — best for complex architecture and large projects",
+    },
+    # ── OpenAI (GPT) — requires OPENAI_API_KEY ───────────────────────────────
+    {
+        "id":       "gpt-4o-mini",
+        "label":    "GPT-4o Mini",
+        "role":     "Fast",
+        "provider": "openai",
+        "note":     "OpenAI fast tier — requires OPENAI_API_KEY",
+    },
+    {
+        "id":       "gpt-4o",
+        "label":    "GPT-4o",
+        "role":     "Balanced",
+        "provider": "openai",
+        "note":     "OpenAI flagship — requires OPENAI_API_KEY",
     },
 ]
 
@@ -128,27 +170,37 @@ def get_coder_model() -> str:
     return os.getenv("AI_MODEL_CODER", _DEFAULT_CODER)
 
 
-def _get_llm(model: str, max_tokens: int, timeout: float | None = None) -> ChatAnthropic:
+def _get_llm(model: str, max_tokens: int, timeout: float | None = None) -> ChatAnthropic | ChatOpenAI:
     key = f"{model}:{max_tokens}:{timeout}"
     if key not in _llm_cache:
-        check_api_key()
-        _llm_cache[key] = ChatAnthropic(
-            model=model,
-            temperature=0.2,
-            max_tokens=max_tokens,
-            max_retries=2,
-            timeout=timeout,
-        )
+        check_api_key(model)
+        if _get_provider(model) == "openai":
+            _llm_cache[key] = ChatOpenAI(
+                model=model,
+                temperature=0.2,
+                max_tokens=max_tokens,
+                max_retries=2,
+                timeout=timeout,
+            )
+        else:
+            _llm_cache[key] = ChatAnthropic(
+                model=model,
+                temperature=0.2,
+                max_tokens=max_tokens,
+                max_retries=2,
+                timeout=timeout,
+            )
     return _llm_cache[key]
 
 
-def _make_messages(system: str, human: str) -> list:
-    """Build [SystemMessage, HumanMessage] with Anthropic prompt caching on the system turn.
+def _make_messages(system: str, human: str, *, model: str = "") -> list:
+    """Build [SystemMessage, HumanMessage].
 
-    cache_control ephemeral caches everything up to this breakpoint for 5 min.
-    Anthropic only bills cache write on first call; cache hits cost ~10% of normal.
-    Short system prompts (<1024 tokens) are silently skipped by the API — no harm.
+    For Anthropic models: uses cache_control=ephemeral on the system turn (5-min cache,
+    ~10% cost on hits). For OpenAI models: plain text content — cache_control is ignored.
     """
+    if _get_provider(model) == "openai":
+        return [SystemMessage(content=system), HumanMessage(content=human)]
     return [
         SystemMessage(content=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]),
         HumanMessage(content=human),
@@ -159,7 +211,7 @@ def _invoke(system: str, human: str, model: str, max_tokens: int = 2048, timeout
     llm = _get_llm(model, max_tokens, timeout)
     t0 = time.monotonic()
     try:
-        response = llm.invoke(_make_messages(system, human))
+        response = llm.invoke(_make_messages(system, human, model=model))
         _logger.info("ai_call model=%s tokens=%s duration_s=%.2f status=ok",
                      model, max_tokens, time.monotonic() - t0)
         return response.content.strip()
@@ -195,7 +247,7 @@ def _invoke_structured_with_progress(
     """
     llm = _get_llm(model, max_tokens, timeout)
     chain = llm.with_structured_output(schema)
-    messages = _make_messages(system, human)
+    messages = _make_messages(system, human, model=model)
     last = None
     seen = 0
 
@@ -294,7 +346,7 @@ def _invoke_json_fallback(
     )
     t0 = time.monotonic()
     try:
-        response = llm.invoke(_make_messages(augmented, human))
+        response = llm.invoke(_make_messages(augmented, human, model=model))
         _logger.info("ai_json_fallback model=%s duration_s=%.2f status=ok", model, time.monotonic() - t0)
     except AIError:
         raise
