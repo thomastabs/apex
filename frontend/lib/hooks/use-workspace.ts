@@ -18,7 +18,6 @@ import {
   inviteUser,
   listProjects,
   listStoryStatuses,
-  login,
   rebuildStoryIndex,
   removeMember,
   resetAllContextFiles,
@@ -64,13 +63,6 @@ export function useProjects() {
     queryKey: ["workspace", "projects"],
     queryFn: () => listProjects(auth!),
     enabled: Boolean(auth),
-  });
-}
-
-export function useLogin() {
-  return useMutation({
-    mutationFn: ({ username, password }: { username: string; password: string }) =>
-      login(username, password),
   });
 }
 

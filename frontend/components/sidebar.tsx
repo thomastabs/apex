@@ -952,16 +952,24 @@ function LoginSection({ taigaWebUrl }: { taigaWebUrl: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: username.trim(), password, type: "normal" }),
       });
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json().catch(() => ({})) as Record<string, unknown>;
       if (!res.ok) {
         setLoginError(
-          (data as Record<string, string>)._error_message ||
-          (data as Record<string, string>).detail ||
+          (data._error_message as string) ||
+          (data.detail as string) ||
           `Login failed — Taiga returned ${res.status}.`
         );
         return;
       }
-      setAuth({ taigaToken: (data as { auth_token: string }).auth_token });
+      const token = data.auth_token as string;
+      // Seed the me cache immediately so the sidebar shows real user info without a round-trip.
+      queryClient.setQueryData(["workspace", "me"], {
+        id: data.id,
+        username: data.username,
+        full_name: data.full_name,
+        email: data.email,
+      });
+      setAuth({ taigaToken: token });
     } catch {
       setLoginError("Cannot reach Taiga — check your network.");
     } finally {
