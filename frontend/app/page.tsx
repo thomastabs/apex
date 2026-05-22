@@ -19,7 +19,7 @@ const phases = [
     href: "/phase2",
     phase: "Phase 2",
     title: "Design",
-    description: "Lock technology choices and generate screens, flows, and technical specifications",
+    description: "One project-wide design: lock tech choices, generate screens, flows, and specs, then get Design Lead + Tech Lead sign-off",
     icon: Compass,
   },
   {
@@ -67,9 +67,11 @@ export default function HomePage() {
     const stats = storyStats.data;
     if (phaseHref === "/phase1" && stats) return `${stats.total} stories`;
     if (phaseHref === "/phase2" && stats && stats.total > 0) {
-      const pct = Math.round((stats.phase2_designed / stats.total) * 100);
-      const stack = techStack.data?.defined ? " · stack ✓" : "";
-      return `${stats.phase2_designed}/${stats.total} designed${stack}`;
+      const stackDefined = techStack.data?.defined;
+      const allDesigned = stats.phase2_designed === stats.total && stats.total > 0;
+      if (allDesigned) return "design locked ✓";
+      if (stackDefined) return "stack ✓ · bundle pending";
+      return "stack pending";
     }
     if (phaseHref === "/phase3" && stats && stats.total > 0) return `${stats.phase3_proposed}/${stats.total} ready`;
     if (phaseHref === "/phase4" && stats && stats.total > 0) return `${stats.phase4_tested}/${stats.total} tested`;
