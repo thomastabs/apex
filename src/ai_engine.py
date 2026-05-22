@@ -112,15 +112,16 @@ def get_coder_model() -> str:
     return os.getenv("AI_MODEL_CODER", _DEFAULT_CODER)
 
 
-def _get_llm(model: str, max_tokens: int) -> ChatAnthropic:
-    key = f"{model}:{max_tokens}"
+def _get_llm(model: str, max_tokens: int, timeout: float | None = None) -> ChatAnthropic:
+    key = f"{model}:{max_tokens}:{timeout}"
     if key not in _llm_cache:
         check_api_key()
         _llm_cache[key] = ChatAnthropic(
             model=model,
             temperature=0.2,
             max_tokens=max_tokens,
-            max_retries=5,
+            max_retries=2,
+            timeout=timeout,
         )
     return _llm_cache[key]
 
@@ -138,8 +139,8 @@ def _make_messages(system: str, human: str) -> list:
     ]
 
 
-def _invoke(system: str, human: str, model: str, max_tokens: int = 2048) -> str:
-    llm = _get_llm(model, max_tokens)
+def _invoke(system: str, human: str, model: str, max_tokens: int = 2048, timeout: float | None = None) -> str:
+    llm = _get_llm(model, max_tokens, timeout)
     t0 = time.monotonic()
     try:
         response = llm.invoke(_make_messages(system, human))
@@ -161,6 +162,7 @@ def _invoke_structured_with_progress(
     schema,
     max_tokens: int = 4096,
     *,
+    timeout: float | None = None,
     on_item: Callable[[int], None] | None = None,
     item_field: str = "stories",
 ):
@@ -175,7 +177,7 @@ def _invoke_structured_with_progress(
     from Anthropic's content_block_start streaming event into Pydantic validation,
     which raises ValidationError in both streaming and invoke paths.
     """
-    llm = _get_llm(model, max_tokens)
+    llm = _get_llm(model, max_tokens, timeout)
     chain = llm.with_structured_output(schema)
     messages = _make_messages(system, human)
     last = None
@@ -219,7 +221,7 @@ def _invoke_structured_with_progress(
     # Tier 3 — raw JSON fallback (bypasses with_structured_output entirely)
     return _invoke_json_fallback(
         system, human, model, schema, max_tokens,
-        on_item=on_item, item_field=item_field,
+        timeout=timeout, on_item=on_item, item_field=item_field,
     )
 
 
@@ -255,6 +257,7 @@ def _invoke_json_fallback(
     schema,
     max_tokens: int,
     *,
+    timeout: float | None = None,
     on_item: Callable[[int], None] | None = None,
     item_field: str = "stories",
 ):
@@ -268,7 +271,7 @@ def _invoke_json_fallback(
     )
     # Add headroom so long responses don't get truncated mid-JSON.
     effective_tokens = max(max_tokens + 2048, 8192)
-    llm = _get_llm(model, effective_tokens)
+    llm = _get_llm(model, effective_tokens, timeout)
     _logger.warning(
         "ai_json_fallback model=%s tokens=%s — structured output failed, falling back to raw JSON",
         model, effective_tokens,
@@ -727,7 +730,7 @@ def suggest_tech_stack(
     human = "\n".join(human_parts)
     result = _invoke_structured_with_progress(
         _TECH_STACK_SYSTEM, human, get_coder_model(), ArchAlternativeList,
-        max_tokens=4096, item_field="alternatives",
+        max_tokens=4096, timeout=120, item_field="alternatives",
     )
     return [alt.model_dump() for alt in result.alternatives]
 
@@ -787,7 +790,7 @@ def generate_project_design(
     system = _PROJECT_DESIGN_SYSTEM.format(context=context.strip())
     result = _invoke_structured_with_progress(
         system, human, get_coder_model(), Phase2DesignResult,
-        max_tokens=20000, item_field="wireframes",
+        max_tokens=20000, timeout=660, item_field="wireframes",
     )
     return result.model_dump()
 
