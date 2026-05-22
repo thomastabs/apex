@@ -30,7 +30,11 @@ _MAX_BODY_BYTES = 4 * 1024 * 1024  # 4 MB
 class _BodySizeLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         content_length = request.headers.get("content-length")
-        if content_length and int(content_length) > _MAX_BODY_BYTES:
+        try:
+            cl_int = int(content_length) if content_length else 0
+        except ValueError:
+            return Response("Invalid Content-Length header.", status_code=400)
+        if cl_int > _MAX_BODY_BYTES:
             return Response("Request body too large (max 4 MB).", status_code=413)
         # Also enforce limit for chunked transfer encoding (no Content-Length header)
         if not content_length:

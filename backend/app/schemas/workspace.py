@@ -206,7 +206,7 @@ class ConfigResponse(BaseModel):
 class AiConfigModel(BaseModel):
     id: str
     label: str
-    context_window: int = 0
+    role: str = ""
 
 
 class AiConfigResponse(BaseModel):

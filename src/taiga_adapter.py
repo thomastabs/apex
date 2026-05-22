@@ -343,8 +343,10 @@ def _fetch_missing_descriptions(raw_list: list[dict], resource: str) -> dict[int
             )
             return item["id"], item
         finally:
-            _project_id_var.reset(project_reset)
-            _token_var.reset(token_reset)
+            try:
+                _project_id_var.reset(project_reset)
+            finally:
+                _token_var.reset(token_reset)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(missing), 8)) as pool:
         return dict(pool.map(_fetch_detail, missing))

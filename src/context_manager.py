@@ -11,11 +11,14 @@ Manages read/write operations on the contextspec/ artefacts:
 
 import contextvars
 import json
+import logging
 import os
 import re
 from datetime import datetime, timezone
 
 from src.storage import StoragePath as Path
+
+_logger = logging.getLogger("apex.context_manager")
 
 _BASE_CONTEXTSPEC = Path("contextspec")
 _CONFIG_FILE      = _BASE_CONTEXTSPEC / ".apex-config.json"
@@ -164,8 +167,8 @@ def save_ai_config(fast_model: str, coder_model: str) -> None:
         data["ai_model_fast"] = fast_model
         data["ai_model_coder"] = coder_model
         _CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    except OSError:
-        pass
+    except OSError as exc:
+        _logger.warning("save_ai_config: failed to persist AI config: %s", exc)
 
 
 def save_config(project_id: int) -> None:
@@ -176,8 +179,8 @@ def save_config(project_id: int) -> None:
         data["project_id"] = project_id
         data.pop("auth_token", None)  # never persist auth tokens
         _CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    except OSError:
-        pass  # non-fatal — in-memory state is still correct
+    except OSError as exc:
+        _logger.warning("save_config: failed to persist project config: %s", exc)
 
 
 def load_config() -> dict:

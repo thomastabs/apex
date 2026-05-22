@@ -29,7 +29,7 @@ def get_phase2_service() -> Phase2Service:
 
 def _handle_error(exc: Exception) -> NoReturn:
     if isinstance(exc, Phase2ValidationError):
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
     if isinstance(exc, TaigaAPIError):
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=exc.user_message) from exc
     if isinstance(exc, AIRateLimitError):
