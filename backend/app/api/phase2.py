@@ -8,10 +8,8 @@ from backend.app.api.deps import RequestContext, get_request_context
 from backend.app.api.rate_limit import ai_rate_limit
 from backend.app.schemas.phase2 import (
     DesignBundleResponse,
-    EligibleEpicSchema,
-    GenerateDesignBundleRequest,
-    LockEpicDesignRequest,
-    LockEpicDesignResponse,
+    LockDesignRequest,
+    LockDesignResponse,
     LockTechStackRequest,
     ProposeTechStackRequest,
     ProposeTechStackResponse,
@@ -54,17 +52,6 @@ def tech_stack_status(
         _handle_error(exc)
 
 
-@router.get("/eligible-epics", response_model=list[EligibleEpicSchema])
-def eligible_epics(
-    ctx: RequestContext = Depends(get_request_context),
-    service: Phase2Service = Depends(get_phase2_service),
-):
-    try:
-        return service.eligible_epics(ctx)
-    except Exception as exc:
-        _handle_error(exc)
-
-
 @router.post("/propose-tech-stack", response_model=ProposeTechStackResponse)
 def propose_tech_stack(
     payload: ProposeTechStackRequest,
@@ -92,28 +79,25 @@ def lock_tech_stack(
 
 @router.post("/generate-design-bundle", response_model=DesignBundleResponse)
 def generate_design_bundle(
-    payload: GenerateDesignBundleRequest,
     ctx: RequestContext = Depends(get_request_context),
     service: Phase2Service = Depends(get_phase2_service),
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
-        return service.generate_design_bundle(ctx, epic_id=payload.epic_id)
+        return service.generate_design_bundle(ctx)
     except Exception as exc:
         _handle_error(exc)
 
 
-@router.post("/lock-epic-design", response_model=LockEpicDesignResponse)
-def lock_epic_design(
-    payload: LockEpicDesignRequest,
+@router.post("/lock-design", response_model=LockDesignResponse)
+def lock_design(
+    payload: LockDesignRequest,
     ctx: RequestContext = Depends(get_request_context),
     service: Phase2Service = Depends(get_phase2_service),
 ):
     try:
-        return service.lock_epic_design(
+        return service.lock_design(
             ctx,
-            epic_id=payload.epic_id,
-            epic_title=payload.epic_title,
             story_ids=payload.story_ids,
             wireframes=payload.wireframes,
             user_flow=payload.user_flow,

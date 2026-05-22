@@ -733,63 +733,58 @@ def suggest_tech_stack(
 
 
 # ---------------------------------------------------------------------------
-# Phase 2 · Stage B — Epic Design Bundle (Architect + UX Lead persona)
+# Phase 2 · Stage B — Project Design Bundle (Architect + UX Lead persona)
 # ---------------------------------------------------------------------------
 
-_PHASE2_DESIGN_SYSTEM = """\
+_PROJECT_DESIGN_SYSTEM = """\
 You are a Senior Full-Stack Architect and UX Lead operating within the Apex Framework.
-Generate a complete design bundle for the epic described below.
+Generate a unified design bundle for the ENTIRE PROJECT described below.
 
 **Memory Bank (binding constraints — DO NOT violate):**
 {context}
-{cross_epic_section}
+
 Rules you MUST follow:
-- wireframes: ASCII art mockups for every distinct screen or view required by the stories.
-  Label each screen clearly. Show key UI elements (inputs, buttons, labels, navigation).
-  Match the visual style and layout conventions of any existing wireframes shown above.
-- user_flow: A valid Mermaid `flowchart TD` diagram (no other Mermaid type) showing the
-  complete user journey across all stories in this epic. Every story must appear as a node.
-  Where this epic's flows connect to screens from other epics, reference those node names.
-- component_tree: An indented plain-text hierarchy of all frontend components and/or
-  backend modules needed. Use 2-space indentation. No code, just names and brief labels.
-  Do NOT re-declare components that already exist in the existing architecture above —
-  reference them by name instead and add only genuinely new components.
-- tech_spec: A full OpenAPI 3.0 YAML specification covering all API endpoints required by
-  the stories, PLUS a DB schema DDL block. ONLY use technologies from ## Tech Stack.
-  Every endpoint must be traceable to at least one Gherkin scenario.
+- wireframes: ASCII art mockups for every distinct screen or view required by ALL stories \
+across ALL epics. Label each screen clearly. Show key UI elements (inputs, buttons, labels, \
+navigation). Group screens by epic but keep shared navigation and layout patterns consistent.
+- user_flow: A valid Mermaid `flowchart TD` diagram (no other Mermaid type) showing the \
+complete user journey across ALL stories and ALL epics. Every story must appear as a node. \
+Show how epics connect to each other in the overall user journey.
+- component_tree: An indented plain-text hierarchy of ALL frontend components and/or backend \
+modules needed for the entire project. Use 2-space indentation. No code, just names and brief \
+labels. Design for reuse — shared components appear once at the top level, referenced by name \
+in epic-specific sections below.
+- tech_spec: A full OpenAPI 3.0 YAML specification covering ALL API endpoints required by ALL \
+stories across ALL epics, PLUS a DB schema DDL block. ONLY use technologies from ## Tech Stack. \
+Every endpoint must be traceable to at least one Gherkin scenario.
 """
 
 
-def generate_phase2_design(
-    epic_title: str,
-    stories: list[dict],
+def generate_project_design(
+    all_epics_stories: list[dict],
     context: str,
-    cross_epic_context: str = "",
 ) -> dict:
-    """Generate wireframes, user flow, component tree, and OpenAPI spec for an epic.
+    """Generate a unified design bundle for the whole project.
 
-    stories: [{"story_id": int, "title": str, "gherkin": str}, ...]
+    all_epics_stories: [{"epic_id": int, "epic_title": str, "story_id": int, "title": str, "gherkin": str}, ...]
     context: full Memory Bank including confirmed ## Tech Stack
-    cross_epic_context: formatted block from get_other_epics_design_context() — empty for
-        the first epic, populated for subsequent ones to enforce cross-epic consistency
     Returns: {"wireframes": str, "user_flow": str, "component_tree": str, "tech_spec": str}
     """
-    cross_epic_section = (
-        f"\n{cross_epic_context.strip()}\n"
-        if cross_epic_context.strip()
-        else ""
-    )
-    system = _PHASE2_DESIGN_SYSTEM.format(
-        context=context.strip(),
-        cross_epic_section=cross_epic_section,
-    )
-    story_parts = [f"Epic: {epic_title}\n\nStories:"]
-    for s in stories:
-        story_parts.append(
-            f"\n### Story {s.get('story_id', '')}: {s.get('title', '')}\n"
-            f"{s.get('gherkin', '').strip()}"
-        )
+    grouped: dict[str, list[dict]] = {}
+    for s in all_epics_stories:
+        key = s.get("epic_title") or f"Epic {s.get('epic_id', '?')}"
+        grouped.setdefault(key, []).append(s)
+
+    story_parts = ["All Project Stories:"]
+    for epic_title, stories in grouped.items():
+        story_parts.append(f"\n## {epic_title}")
+        for s in stories:
+            story_parts.append(
+                f"\n### Story {s.get('story_id', '')}: {s.get('title', '')}\n"
+                f"{s.get('gherkin', '').strip()}"
+            )
     human = "\n".join(story_parts)
+    system = _PROJECT_DESIGN_SYSTEM.format(context=context.strip())
     result = _invoke_structured_with_progress(
         system, human, get_coder_model(), Phase2DesignResult,
         max_tokens=20000, item_field="wireframes",

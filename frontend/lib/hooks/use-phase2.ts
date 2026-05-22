@@ -5,15 +5,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   generateDesignBundle,
   getTechStackStatus,
-  listEligiblePhase2Epics,
-  lockEpicDesign,
+  lockDesign,
   lockTechStack,
   proposeTechStack,
   refreshStoryIndex,
 } from "@/lib/api/phase2";
 import type {
-  GenerateDesignBundleRequest,
-  LockEpicDesignRequest,
+  LockDesignRequest,
   LockTechStackRequest,
   ProposeTechStackRequest,
 } from "@/lib/api/types";
@@ -26,17 +24,6 @@ export function useTechStackStatus() {
   return useQuery({
     queryKey: ["phase2", "tech-stack-status", context?.projectId],
     queryFn: () => getTechStackStatus(context!),
-    enabled: Boolean(context),
-    staleTime: 30_000,
-  });
-}
-
-export function useEligiblePhase2Epics() {
-  const context = useApiContext();
-
-  return useQuery({
-    queryKey: ["phase2", "eligible-epics", context?.projectId],
-    queryFn: () => listEligiblePhase2Epics(context!),
     enabled: Boolean(context),
     staleTime: 30_000,
   });
@@ -69,9 +56,9 @@ export function useGenerateDesignBundle() {
   const abortRef = useRef<AbortController | null>(null);
 
   const mutation = useMutation({
-    mutationFn: (body: GenerateDesignBundleRequest) => {
+    mutationFn: () => {
       abortRef.current = new AbortController();
-      return generateDesignBundle(context!, body, abortRef.current.signal);
+      return generateDesignBundle(context!, abortRef.current.signal);
     },
     onError: (err) => {
       if (err instanceof Error && err.name === "AbortError") return;
@@ -91,15 +78,14 @@ export function useGenerateDesignBundle() {
   return { ...mutation, cancel };
 }
 
-export function useLockEpicDesign() {
+export function useLockDesign() {
   const context = useApiContext();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (body: LockEpicDesignRequest) => lockEpicDesign(context!, body),
-    onError: () => toast.error("Failed to lock epic design."),
+    mutationFn: (body: LockDesignRequest) => lockDesign(context!, body),
+    onError: () => toast.error("Failed to lock design."),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["phase2", "eligible-epics"] });
       void queryClient.invalidateQueries({ queryKey: ["phase2", "tech-stack-status"] });
       void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
     },
@@ -113,7 +99,7 @@ export function useRefreshStoryIndex() {
   return useMutation({
     mutationFn: () => refreshStoryIndex(context!),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["phase2", "eligible-epics"] });
+      void queryClient.invalidateQueries({ queryKey: ["phase2", "tech-stack-status"] });
     },
   });
 }

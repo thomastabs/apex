@@ -1,10 +1,8 @@
 import { apiRequest } from "./client";
 import type {
   DesignBundle,
-  EligibleEpic,
-  GenerateDesignBundleRequest,
-  LockEpicDesignRequest,
-  LockEpicDesignResponse,
+  LockDesignRequest,
+  LockDesignResponse,
   LockTechStackRequest,
   ProposeTechStackRequest,
   ProposeTechStackResponse,
@@ -16,10 +14,6 @@ export const PHASE2_AI_TIMEOUT_MS = 480_000;
 
 export function getTechStackStatus(context: RequestContext) {
   return apiRequest<TechStackStatus>("/api/phase2/tech-stack-status", { context });
-}
-
-export function listEligiblePhase2Epics(context: RequestContext) {
-  return apiRequest<EligibleEpic[]>("/api/phase2/eligible-epics", { context });
 }
 
 export function proposeTechStack(context: RequestContext, body: ProposeTechStackRequest = {}) {
@@ -39,22 +33,18 @@ export function lockTechStack(context: RequestContext, body: LockTechStackReques
   });
 }
 
-export function generateDesignBundle(
-  context: RequestContext,
-  body: GenerateDesignBundleRequest,
-  signal?: AbortSignal,
-) {
+export function generateDesignBundle(context: RequestContext, signal?: AbortSignal) {
   return apiRequest<DesignBundle>("/api/phase2/generate-design-bundle", {
     method: "POST",
     context,
-    body,
+    body: {},
     timeoutMs: PHASE2_AI_TIMEOUT_MS,
     signal,
   });
 }
 
-export function lockEpicDesign(context: RequestContext, body: LockEpicDesignRequest) {
-  return apiRequest<LockEpicDesignResponse>("/api/phase2/lock-epic-design", {
+export function lockDesign(context: RequestContext, body: LockDesignRequest) {
+  return apiRequest<LockDesignResponse>("/api/phase2/lock-design", {
     method: "POST",
     context,
     body,

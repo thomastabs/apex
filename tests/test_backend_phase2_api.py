@@ -1,20 +1,18 @@
-"""API route tests for migrated Phase 2 FastAPI routes."""
+"""API route tests for Phase 2 FastAPI routes."""
 
 import pytest
 from fastapi import HTTPException
 
 from backend.app.api.deps import get_request_context
 from backend.app.api.phase2 import (
-    eligible_epics,
     generate_design_bundle,
-    lock_epic_design,
+    lock_design,
     lock_tech_stack,
     propose_tech_stack,
     tech_stack_status,
 )
 from backend.app.schemas.phase2 import (
-    GenerateDesignBundleRequest,
-    LockEpicDesignRequest,
+    LockDesignRequest,
     LockTechStackRequest,
     ProposeTechStackRequest,
 )
@@ -26,16 +24,13 @@ class StubPhase2Service:
     def tech_stack_status(self, ctx):
         return {"defined": True, "tech_stack": "FastAPI"}
 
-    def eligible_epics(self, ctx):
-        return [{"epic_id": 7, "epic_title": "Auth", "story_count": 2, "phase_status": "gherkin_locked"}]
-
     def propose_tech_stack(self, ctx, *, hint=""):
         return [{"name": "FastAPI", "description": hint or "Good", "trade_offs": "+ simple"}]
 
     def lock_tech_stack(self, ctx, *, tech_stack):
         return {"defined": True, "tech_stack": tech_stack}
 
-    def generate_design_bundle(self, ctx, *, epic_id):
+    def generate_design_bundle(self, ctx):
         return {
             "wireframes": "SCREEN",
             "user_flow": "flowchart TD",
@@ -44,19 +39,8 @@ class StubPhase2Service:
             "story_ids": [10],
         }
 
-    def lock_epic_design(
-        self,
-        ctx,
-        *,
-        epic_id,
-        epic_title,
-        story_ids,
-        wireframes,
-        user_flow,
-        component_tree,
-        tech_spec,
-    ):
-        return {"ok": True, "epic_id": epic_id, "story_ids": story_ids, "taiga_failures": []}
+    def lock_design(self, ctx, *, story_ids, wireframes, user_flow, component_tree, tech_spec):
+        return {"ok": True, "story_ids": story_ids, "taiga_failures": []}
 
 
 def _ctx():
@@ -68,12 +52,6 @@ def test_tech_stack_status_route():
         "defined": True,
         "tech_stack": "FastAPI",
     }
-
-
-def test_eligible_epics_route():
-    response = eligible_epics(ctx=_ctx(), service=StubPhase2Service())
-
-    assert response[0]["epic_id"] == 7
 
 
 def test_propose_tech_stack_route():
@@ -97,22 +75,16 @@ def test_lock_tech_stack_route():
 
 
 def test_generate_design_bundle_route():
-    response = generate_design_bundle(
-        GenerateDesignBundleRequest(epic_id=7),
-        ctx=_ctx(),
-        service=StubPhase2Service(),
-    )
+    response = generate_design_bundle(ctx=_ctx(), service=StubPhase2Service())
 
     assert response["story_ids"] == [10]
     assert response["wireframes"] == "SCREEN"
 
 
-def test_lock_epic_design_route():
-    response = lock_epic_design(
-        LockEpicDesignRequest(
-            epic_id=7,
-            epic_title="Auth",
-            story_ids=[10],
+def test_lock_design_route():
+    response = lock_design(
+        LockDesignRequest(
+            story_ids=[10, 11],
             wireframes="SCREEN",
             user_flow="flowchart TD",
             component_tree="App",
@@ -122,7 +94,7 @@ def test_lock_epic_design_route():
         service=StubPhase2Service(),
     )
 
-    assert response == {"ok": True, "epic_id": 7, "story_ids": [10], "taiga_failures": []}
+    assert response == {"ok": True, "story_ids": [10, 11], "taiga_failures": []}
 
 
 def test_phase2_validation_errors_map_to_422():
@@ -139,11 +111,11 @@ def test_phase2_validation_errors_map_to_422():
 
 def test_taiga_error_maps_to_502():
     class FailingService(StubPhase2Service):
-        def eligible_epics(self, ctx):
+        def generate_design_bundle(self, ctx):
             raise TaigaAPIError("GET", "https://api.taiga.io/epics", 503, "service unavailable")
 
     with pytest.raises(HTTPException) as exc:
-        eligible_epics(ctx=_ctx(), service=FailingService())
+        generate_design_bundle(ctx=_ctx(), service=FailingService())
 
     assert exc.value.status_code == 502
 
@@ -161,11 +133,11 @@ def test_ai_error_maps_to_502():
 
 def test_ai_rate_limit_error_maps_to_429():
     class FailingService(StubPhase2Service):
-        def generate_design_bundle(self, ctx, *, epic_id):
+        def generate_design_bundle(self, ctx):
             raise AIRateLimitError("Rate limited")
 
     with pytest.raises(HTTPException) as exc:
-        generate_design_bundle(GenerateDesignBundleRequest(epic_id=7), ctx=_ctx(), service=FailingService())
+        generate_design_bundle(ctx=_ctx(), service=FailingService())
 
     assert exc.value.status_code == 429
 

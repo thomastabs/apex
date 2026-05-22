@@ -37,8 +37,17 @@ class ContextService:
     def story_gherkin(self, story_id: int) -> str:
         return context_manager.get_story_gherkin(story_id)
 
-    def other_epics_design_context(self, exclude_epic_id: int) -> str:
-        return context_manager.get_other_epics_design_context(exclude_epic_id)
+    def write_project_design_bundle(
+        self,
+        wireframes: str,
+        user_flow: str,
+        component_tree: str,
+        tech_spec: str,
+    ) -> None:
+        context_manager.write_project_design_bundle(wireframes, user_flow, component_tree, tech_spec)
+
+    def write_project_technical_spec(self, story_ids: list[int], spec: str) -> None:
+        context_manager.write_project_technical_spec(story_ids, spec)
 
     def append_gherkin(
         self,

@@ -49,16 +49,9 @@ class AiService:
     ) -> list[dict]:
         return ai_engine.suggest_tech_stack(all_stories, context, hint)
 
-    def generate_phase2_design(
+    def generate_project_design(
         self,
-        epic_title: str,
-        stories: list[dict],
+        all_epics_stories: list[dict],
         context: str,
-        cross_epic_context: str,
     ) -> dict:
-        return ai_engine.generate_phase2_design(
-            epic_title,
-            stories,
-            context,
-            cross_epic_context,
-        )
+        return ai_engine.generate_project_design(all_epics_stories, context)

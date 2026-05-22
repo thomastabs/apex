@@ -577,6 +577,12 @@ def rebuild_story_index() -> dict[str, dict]:
     ts = _path("technical-spec.md")
     if ts.exists():
         tech = ts.read_text(encoding="utf-8")
+        # Unified project design block (write_project_technical_spec): marks ALL stories.
+        if re.search(r"^## Project Design\b", tech, re.MULTILINE):
+            for sid, entry in index.items():
+                entry["has_tech_spec"] = True
+                if entry["phase_status"] == "gherkin_locked":
+                    entry["phase_status"] = "design_locked"
         # Legacy per-story format: ### Technical Spec ... Story {id}
         for m in re.finditer(r"### Technical Spec.*?Story (\d+)", tech):
             sid = str(int(m.group(1)))
@@ -584,7 +590,7 @@ def rebuild_story_index() -> dict[str, dict]:
                 index[sid]["has_tech_spec"] = True
                 if index[sid]["phase_status"] == "gherkin_locked":
                     index[sid]["phase_status"] = "design_locked"
-        # Current per-epic format written by append_epic_technical_spec: ## Epic {id}: ...
+        # Per-epic format written by append_epic_technical_spec: ## Epic {id}: ...
         for m in re.finditer(r"^## Epic (\d+):", tech, re.MULTILINE):
             locked_epic_id = int(m.group(1))
             for sid, entry in index.items():
@@ -852,6 +858,52 @@ def clear_design_draft() -> None:
     dd = _path(".apex-design-draft.json")
     if dd.exists():
         dd.unlink()
+
+
+def write_project_design_bundle(
+    wireframes: str,
+    user_flow: str,
+    component_tree: str,
+    tech_spec: str,
+) -> None:
+    """Overwrite design-bundle.md with a single unified project-level design bundle."""
+    init_context()
+    db = _path("design-bundle.md")
+    content = (
+        "# Design Bundle\n\n"
+        f"**Locked at:** {_now()}\n\n"
+        "## Wireframes\n\n"
+        f"```\n{wireframes.strip()}\n```\n\n"
+        "## User Flow\n\n"
+        f"```\n{user_flow.strip()}\n```\n\n"
+        "## Component Tree\n\n"
+        f"```\n{component_tree.strip()}\n```\n\n"
+        "## Technical Spec\n\n"
+        f"```yaml\n{tech_spec.strip()}\n```\n"
+    )
+    db.write_text(content, encoding="utf-8")
+
+
+def write_project_technical_spec(story_ids: list[int], spec: str) -> None:
+    """Overwrite technical-spec.md with a unified project-level technical spec.
+
+    Writes a '## Project Design' section (detected by rebuild_story_index to mark all
+    stories design_locked). Transitions all story_ids to design_locked in the story index.
+    """
+    init_context()
+    ts = _path("technical-spec.md")
+    content = (
+        "# Technical Specification\n\n"
+        "> Per-story technical contracts (OpenAPI / DB schema).\n"
+        "> Appended automatically by apex after human approval.\n\n"
+        "## Project Design\n\n"
+        "### Unified Technical Spec\n\n"
+        f"**Locked at:** {_now()}\n\n"
+        f"```yaml\n{spec.strip()}\n```\n"
+    )
+    ts.write_text(content, encoding="utf-8")
+    for story_id in story_ids:
+        upsert_story_index(story_id, phase_status="design_locked", has_tech_spec=True)
 
 
 def append_epic_design_bundle(

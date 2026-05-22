@@ -33,35 +33,6 @@ class Phase2Service:
         tech_stack = self._extract_tech_stack(self.context.read_memory_bank())
         return {"defined": bool(tech_stack), "tech_stack": tech_stack or None}
 
-    def eligible_epics(self, ctx: RequestContext) -> list[dict]:
-        self.configure_request(ctx)
-        index = self.context.story_index()
-        epics_by_id = {epic["id"]: epic for epic in self.taiga.get_epics()}
-        grouped: dict[int, list[dict]] = {}
-        for entry in index.values():
-            epic_id = entry.get("epic_id")
-            if not epic_id:
-                continue
-            if not entry.get("has_gherkin"):
-                continue
-            if entry.get("phase_status") not in ("gherkin_locked", "design_locked"):
-                continue
-            grouped.setdefault(int(epic_id), []).append(entry)
-
-        result = []
-        for epic_id, stories in sorted(grouped.items()):
-            epic = epics_by_id.get(epic_id, {})
-            all_design_locked = all(
-                story.get("phase_status") == "design_locked" for story in stories
-            )
-            result.append({
-                "epic_id": epic_id,
-                "epic_title": epic.get("subject") or f"Epic {epic_id}",
-                "story_count": len(stories),
-                "phase_status": "design_locked" if all_design_locked else "gherkin_locked",
-            })
-        return result
-
     def propose_tech_stack(self, ctx: RequestContext, *, hint: str = "") -> list[dict]:
         self.configure_request(ctx)
         index = self.context.story_index()
@@ -90,18 +61,15 @@ class Phase2Service:
         self.context.write_tech_stack(clean)
         return {"defined": True, "tech_stack": clean}
 
-    def generate_design_bundle(self, ctx: RequestContext, *, epic_id: int) -> dict:
+    def generate_design_bundle(self, ctx: RequestContext) -> dict:
         self.configure_request(ctx)
-        if epic_id <= 0:
-            raise Phase2ValidationError("epic_id must be greater than zero.")
         memory_bank = self.context.read_memory_bank()
         tech_stack = self._extract_tech_stack(memory_bank)
         if not tech_stack:
             raise Phase2ValidationError("A locked Tech Stack is required before generating designs.")
-        stories = self._stories_for_epic(epic_id)
-        if not stories:
-            raise Phase2ValidationError("No Phase 1 locked Gherkin stories found for this epic.")
-        epic = self.taiga.get_epic(epic_id)
+        all_stories = self._all_eligible_stories()
+        if not all_stories:
+            raise Phase2ValidationError("No Phase 1 locked Gherkin stories found.")
         constrained_context = (
             f"{memory_bank.strip()}\n\n"
             "## Phase 2 Locked Tech Stack Constraint\n\n"
@@ -109,23 +77,16 @@ class Phase2Service:
             "must not introduce technologies, frameworks, runtimes, databases, or deployment "
             f"targets outside this stack:\n\n{tech_stack}"
         )
-        bundle = self.ai.generate_phase2_design(
-            epic.get("subject", f"Epic {epic_id}"),
-            stories,
-            constrained_context,
-            self.context.other_epics_design_context(epic_id),
-        )
+        bundle = self.ai.generate_project_design(all_stories, constrained_context)
         return {
             **bundle,
-            "story_ids": [story["story_id"] for story in stories],
+            "story_ids": [s["story_id"] for s in all_stories],
         }
 
-    def lock_epic_design(
+    def lock_design(
         self,
         ctx: RequestContext,
         *,
-        epic_id: int,
-        epic_title: str,
         story_ids: list[int],
         wireframes: str,
         user_flow: str,
@@ -133,48 +94,28 @@ class Phase2Service:
         tech_spec: str,
     ) -> dict:
         self.configure_request(ctx)
-        if epic_id <= 0:
-            raise Phase2ValidationError("epic_id must be greater than zero.")
         if not tech_spec.strip():
             raise Phase2ValidationError("tech_spec is required.")
 
-        title = epic_title.strip()
-        if not title:
-            title = self.taiga.get_epic(epic_id).get("subject", f"Epic {epic_id}")
-
-        locked_story_ids = story_ids or [story["story_id"] for story in self._stories_for_epic(epic_id)]
+        locked_story_ids = story_ids or [s["story_id"] for s in self._all_eligible_stories()]
         if not locked_story_ids:
             raise Phase2ValidationError("At least one story_id is required.")
 
-        self.context.append_epic_technical_spec(epic_id, title, locked_story_ids, tech_spec)
-        self.context.append_memory_bank_design(
-            epic_id,
-            title,
-            prototype_summary=wireframes,
-            tech_spec_summary=tech_spec,
-        )
-        self.context.append_epic_design_bundle(
-            epic_id,
-            title,
-            wireframes,
-            user_flow,
-            component_tree,
-            tech_spec,
-        )
+        self.context.write_project_design_bundle(wireframes, user_flow, component_tree, tech_spec)
+        self.context.write_project_technical_spec(locked_story_ids, tech_spec)
 
         failures = self._transition_taiga_stories(locked_story_ids)
         return {
             "ok": not failures,
-            "epic_id": epic_id,
             "story_ids": locked_story_ids,
             "taiga_failures": failures,
         }
 
-    def _stories_for_epic(self, epic_id: int) -> list[dict]:
+    def _all_eligible_stories(self) -> list[dict]:
+        """Return all stories with locked Gherkin, sorted by story_id."""
+        epics_by_id = {epic["id"]: epic for epic in self.taiga.get_epics()}
         stories = []
         for entry in self.context.story_index().values():
-            if entry.get("epic_id") != epic_id:
-                continue
             if not entry.get("has_gherkin"):
                 continue
             if entry.get("phase_status") not in ("gherkin_locked", "design_locked"):
@@ -185,12 +126,18 @@ class Phase2Service:
             gherkin = self.context.story_gherkin(story_id)
             if not gherkin:
                 continue
+            epic_id = entry.get("epic_id")
+            epic_title = ""
+            if epic_id:
+                epic_title = epics_by_id.get(epic_id, {}).get("subject") or f"Epic {epic_id}"
             stories.append({
                 "story_id": story_id,
+                "epic_id": epic_id,
+                "epic_title": epic_title,
                 "title": entry.get("title", ""),
                 "gherkin": gherkin,
             })
-        return sorted(stories, key=lambda item: item["story_id"])
+        return sorted(stories, key=lambda s: s["story_id"])
 
     def _transition_taiga_stories(self, story_ids: list[int]) -> list[dict]:
         import logging

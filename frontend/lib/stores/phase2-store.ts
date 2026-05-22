@@ -2,44 +2,33 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { ArchitectureAlternative, DesignBundle, EligibleEpic } from "@/lib/api/types";
+import type { ArchitectureAlternative, DesignBundle } from "@/lib/api/types";
 
 type Phase2State = {
-  selectedEpic: EligibleEpic | null;
   selectedAlternativeIndex: number;
   alternatives: ArchitectureAlternative[];
   techStackDraft: string;
   designBundle: DesignBundle | null;
   designLeadApproved: boolean;
   techLeadApproved: boolean;
-  setSelectedEpic: (epic: EligibleEpic | null) => void;
   setAlternatives: (alternatives: ArchitectureAlternative[]) => void;
   setSelectedAlternativeIndex: (index: number) => void;
   setTechStackDraft: (value: string) => void;
   setDesignBundle: (bundle: DesignBundle | null) => void;
   setDesignLeadApproved: (approved: boolean) => void;
   setTechLeadApproved: (approved: boolean) => void;
-  resetDesignApprovals: () => void;
   clearPhase2Draft: () => void;
 };
 
 export const usePhase2Store = create<Phase2State>()(
   persist(
     (set) => ({
-      selectedEpic: null,
       selectedAlternativeIndex: -1,
       alternatives: [],
       techStackDraft: "",
       designBundle: null,
       designLeadApproved: false,
       techLeadApproved: false,
-      setSelectedEpic: (selectedEpic) =>
-        set({
-          selectedEpic,
-          designBundle: null,
-          designLeadApproved: false,
-          techLeadApproved: false,
-        }),
       setAlternatives: (alternatives) => set({ alternatives }),
       setSelectedAlternativeIndex: (selectedAlternativeIndex) => set({ selectedAlternativeIndex }),
       setTechStackDraft: (techStackDraft) => set({ techStackDraft }),
@@ -51,10 +40,8 @@ export const usePhase2Store = create<Phase2State>()(
         }),
       setDesignLeadApproved: (designLeadApproved) => set({ designLeadApproved }),
       setTechLeadApproved: (techLeadApproved) => set({ techLeadApproved }),
-      resetDesignApprovals: () => set({ designLeadApproved: false, techLeadApproved: false }),
       clearPhase2Draft: () =>
         set({
-          selectedEpic: null,
           selectedAlternativeIndex: -1,
           alternatives: [],
           techStackDraft: "",
@@ -69,7 +56,6 @@ export const usePhase2Store = create<Phase2State>()(
         alternatives: state.alternatives,
         selectedAlternativeIndex: state.selectedAlternativeIndex,
         techStackDraft: state.techStackDraft,
-        selectedEpic: state.selectedEpic,
       }),
     },
   ),

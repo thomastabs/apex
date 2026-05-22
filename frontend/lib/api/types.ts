@@ -125,13 +125,6 @@ export type TechStackStatus = {
   tech_stack: string | null;
 };
 
-export type EligibleEpic = {
-  epic_id: number;
-  epic_title: string;
-  story_count: number;
-  phase_status: "gherkin_locked" | "design_locked";
-};
-
 export type ArchitectureAlternative = {
   name: string;
   description: string;
@@ -158,19 +151,16 @@ export type DesignBundle = {
   story_ids: number[];
 };
 
-export type GenerateDesignBundleRequest = {
-  epic_id: number;
-};
-
-export type LockEpicDesignRequest = DesignBundle & {
-  epic_id: number;
-  epic_title: string;
+export type LockDesignRequest = {
   story_ids: number[];
+  wireframes: string;
+  user_flow: string;
+  component_tree: string;
+  tech_spec: string;
 };
 
-export type LockEpicDesignResponse = {
+export type LockDesignResponse = {
   ok: boolean;
-  epic_id: number;
   story_ids: number[];
   taiga_failures?: Array<{ story_id: number; error: string }>;
 };

@@ -5,9 +5,8 @@ import { AlertCircle, CheckCircle2, ChevronRight, Code2, Compass, Download, Info
 import { toast } from "sonner";
 import { Button, Callout, Input, SectionHeading, Skeleton, Textarea } from "@/components/ui/primitives";
 import {
-  useEligiblePhase2Epics,
   useGenerateDesignBundle,
-  useLockEpicDesign,
+  useLockDesign,
   useLockTechStack,
   useProposeTechStack,
   useRefreshStoryIndex,
@@ -52,32 +51,9 @@ function ComponentTreeView({ content, dark }: { content: string; dark: boolean }
   );
 }
 
-function draftKey(projectId: number | null, epicId: number | null) {
-  return `apex-phase2-draft-${projectId ?? "none"}-${epicId ?? "none"}`;
-}
-
-function saveBundleDraft(projectId: number | null, epicId: number | null, bundle: object | null) {
-  if (typeof window === "undefined") return;
-  if (!bundle || !epicId) {
-    localStorage.removeItem(draftKey(projectId, epicId));
-  } else {
-    localStorage.setItem(draftKey(projectId, epicId), JSON.stringify(bundle));
-  }
-}
-
-function loadBundleDraft(projectId: number | null, epicId: number | null): object | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(draftKey(projectId, epicId));
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function downloadDesignBundle(epicTitle: string, bundle: { wireframes: string; user_flow: string; component_tree: string; tech_spec: string }) {
+function downloadDesignBundle(bundle: { wireframes: string; user_flow: string; component_tree: string; tech_spec: string }) {
   const content = [
-    `# Design Bundle — ${epicTitle}`,
+    "# Project Design Bundle",
     "",
     "## Wireframes",
     bundle.wireframes,
@@ -95,9 +71,31 @@ function downloadDesignBundle(epicTitle: string, bundle: { wireframes: string; u
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `design-bundle-${epicTitle.toLowerCase().replace(/\s+/g, "-")}.md`;
+  a.download = "design-bundle.md";
   a.click();
   URL.revokeObjectURL(url);
+}
+
+const DRAFT_KEY = "apex-phase2-bundle-draft";
+
+function saveBundleDraft(projectId: number | null, bundle: object | null) {
+  if (typeof window === "undefined") return;
+  const key = `${DRAFT_KEY}-${projectId ?? "none"}`;
+  if (!bundle) {
+    localStorage.removeItem(key);
+  } else {
+    localStorage.setItem(key, JSON.stringify(bundle));
+  }
+}
+
+function loadBundleDraft(projectId: number | null): object | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(`${DRAFT_KEY}-${projectId ?? "none"}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
 }
 
 export function Phase2Workflow() {
@@ -108,25 +106,22 @@ export function Phase2Workflow() {
   const [stackReopened, setStackReopened] = useState(false);
   const [diagramOpen, setDiagramOpen] = useState(false);
   const techStack = useTechStackStatus();
-  const eligibleEpics = useEligiblePhase2Epics();
   const proposeStack = useProposeTechStack();
   const lockStack = useLockTechStack();
   const generateBundle = useGenerateDesignBundle();
-  const lockDesign = useLockEpicDesign();
+  const lockDesign = useLockDesign();
   const refreshIndex = useRefreshStoryIndex();
 
   const {
     alternatives,
     selectedAlternativeIndex,
     techStackDraft,
-    selectedEpic,
     designBundle,
     designLeadApproved,
     techLeadApproved,
     setAlternatives,
     setSelectedAlternativeIndex,
     setTechStackDraft,
-    setSelectedEpic,
     setDesignBundle,
     setDesignLeadApproved,
     setTechLeadApproved,
@@ -138,25 +133,24 @@ export function Phase2Workflow() {
     }
   }, [setTechStackDraft, techStack.data?.tech_stack, techStackDraft]);
 
-  // Restore bundle draft when epic changes
+  // Restore bundle draft on project change
   useEffect(() => {
-    if (!selectedEpic) return;
-    const saved = loadBundleDraft(context?.projectId ?? null, selectedEpic.epic_id);
+    const saved = loadBundleDraft(context?.projectId ?? null);
     if (saved && !designBundle) {
       setDesignBundle(saved as Parameters<typeof setDesignBundle>[0]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedEpic?.epic_id]);
+  }, [context?.projectId]);
 
   // Persist bundle draft when it changes
   useEffect(() => {
-    saveBundleDraft(context?.projectId ?? null, selectedEpic?.epic_id ?? null, designBundle);
-  }, [context?.projectId, selectedEpic?.epic_id, designBundle]);
+    saveBundleDraft(context?.projectId ?? null, designBundle);
+  }, [context?.projectId, designBundle]);
 
   const stackDefined = Boolean(techStack.data?.defined) && !stackReopened;
   const noContext = !context;
   const busy = proposeStack.isPending || lockStack.isPending || generateBundle.isPending || lockDesign.isPending || refreshIndex.isPending;
-  const canSave = Boolean(selectedEpic && designBundle && designLeadApproved && techLeadApproved);
+  const canSave = Boolean(designBundle && designLeadApproved && techLeadApproved);
 
   function clearDesign() {
     setDesignBundle(null);
@@ -165,24 +159,7 @@ export function Phase2Workflow() {
     toast.info("Design cleared");
   }
 
-  function reopenGate0() {
-    const lockedCount = eligibleEpics.data?.filter((e) => e.phase_status === "design_locked").length ?? 0;
-    if (lockedCount > 0) {
-      toast.warning(
-        `${lockedCount} epic(s) already have locked designs. Changing the tech stack may create inconsistency with existing designs.`,
-        {
-          action: {
-            label: "Reopen Anyway",
-            onClick: () => {
-              setStackReopened(true);
-              setTechStackDraft(techStack.data?.tech_stack ?? "");
-            },
-          },
-          duration: 8000,
-        },
-      );
-      return;
-    }
+  function reopenStack() {
     setStackReopened(true);
     setTechStackDraft(techStack.data?.tech_stack ?? "");
   }
@@ -203,7 +180,7 @@ export function Phase2Workflow() {
         <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Phase 2</p>
         <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>Design</h1>
         <p className={cn("mt-2", mutedClass)}>
-          Design Lead + Tech Lead gate: visual prototype and OpenAPI spec per epic.
+          Design Lead + Tech Lead gate: unified visual prototype and OpenAPI spec for the whole project.
         </p>
       </div>
 
@@ -238,22 +215,23 @@ export function Phase2Workflow() {
       ) : null}
 
       <div className={cn("space-y-8 border-t pt-6", sectionBorderClass)}>
+        {/* ── Stage A: Tech Stack ─────────────────────────────────────────── */}
         <section className="space-y-4">
           <SectionHeading>Stage A · Tech Stack Definition</SectionHeading>
           {stackDefined ? (
             <div className="flex items-start justify-between gap-4">
-              <Callout>Tech Stack is locked for this project. You can review it below before designing epics.</Callout>
+              <Callout>Tech Stack is locked for this project. You can review it below before generating the design bundle.</Callout>
               <button
                 className={cn("flex shrink-0 items-center gap-1 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
                 title="Reopen tech stack for editing"
-                onClick={reopenGate0}
+                onClick={reopenStack}
               >
                 <Unlock className="size-3" />
                 Reopen
               </button>
             </div>
           ) : (
-            <Callout>Define and lock the global Tech Stack before Phase 2 design generation.</Callout>
+            <Callout>Define and lock the global Tech Stack before generating the project design bundle.</Callout>
           )}
           <label className={cn("block text-sm font-medium", labelClass)}>
             Tech Lead Guidance <span className={mutedClass}>Optional</span>
@@ -340,133 +318,81 @@ export function Phase2Workflow() {
           ) : null}
         </section>
 
+        {/* ── Stage B: Project Design Bundle ──────────────────────────────── */}
         {stackDefined ? (
           <section className={cn("space-y-5 border-t pt-6", sectionBorderClass)}>
-            <SectionHeading>Stage B · Epic Design Bundle</SectionHeading>
-            <div className="grid gap-4 xl:grid-cols-[360px_1fr]">
-              <div className="space-y-3">
-                <label className={cn("block text-sm font-medium", labelClass)}>
-                  Eligible Epic
-                  {eligibleEpics.isLoading ? (
-                    <Skeleton className="mt-1 h-10 w-full" />
-                  ) : (
-                  <select
-                    className={cn(
-                      "mt-1 h-10 w-full rounded border px-3 text-sm outline-none transition-colors",
-                      dark
-                        ? "border-neutral-700 bg-neutral-950 text-white hover:border-neutral-500 focus:border-violet-500"
-                        : "border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20",
-                    )}
-                    value={selectedEpic?.epic_id ?? ""}
-                    onChange={(event) => {
-                      const epic = eligibleEpics.data?.find((item) => item.epic_id === Number(event.target.value)) ?? null;
-                      setSelectedEpic(epic);
-                    }}
-                  >
-                    <option value="">Select an epic...</option>
-                    {eligibleEpics.data?.map((epic) => (
-                      <option key={epic.epic_id} value={epic.epic_id}>
-                        {epic.epic_title} ({epic.story_count} stories)
-                        {epic.phase_status === "design_locked" ? " ✓" : ""}
-                      </option>
-                    ))}
-                  </select>
-                  )}
-                </label>
-                <div className="flex gap-2">
-                  {generateBundle.isPending ? (
-                    <button
-                      className={cn("flex flex-1 items-center justify-center gap-2 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
-                      onClick={() => generateBundle.cancel()}
-                    >
-                      <StopCircle className="size-4 text-red-400" />
-                      Cancel
-                    </button>
-                  ) : (
-                    <Button
-                      className="flex-1"
-                      disabled={busy || !selectedEpic}
-                      onClick={() => {
-                        if (!selectedEpic) return;
-                        const doGenerate = () =>
-                          generateBundle.mutate(
-                            { epic_id: selectedEpic.epic_id },
-                            {
-                              onSuccess: (bundle) => {
-                                setDesignBundle(bundle);
-                                toast.success("Design bundle generated");
-                              },
-                            },
-                          );
-                        if (selectedEpic.phase_status === "design_locked") {
-                          toast.warning("This epic's design is already locked. Regenerating will overwrite it — save & lock again to confirm.", {
-                            action: { label: "Regenerate", onClick: doGenerate },
-                            duration: 8000,
-                          });
-                        } else {
-                          doGenerate();
-                        }
-                      }}
-                    >
-                      <Sparkles className="size-4" />
-                      Generate
-                    </Button>
-                  )}
-                  <button
-                    className={cn("flex items-center gap-1 rounded border px-3 py-2 text-sm transition-colors disabled:opacity-40", outlineButtonClass)}
-                    disabled={busy}
-                    title="Refresh story index from Taiga"
-                    onClick={() =>
-                      refreshIndex.mutate(undefined, {
-                        onSuccess: () => {
-                          eligibleEpics.refetch();
-                          toast.success("Story index refreshed");
-                        },
-                      })
-                    }
-                  >
-                    <RefreshCw className="size-3" />
-                    Refresh
-                  </button>
-                  {designBundle ? (
-                    <>
-                      <button
-                        className={cn("flex items-center gap-1 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
-                        title="Download design bundle as Markdown"
-                        onClick={() => downloadDesignBundle(selectedEpic?.epic_title ?? "epic", designBundle)}
-                      >
-                        <Download className="size-3" />
-                        Export
-                      </button>
-                      <button
-                        className={cn("flex items-center gap-1 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
-                        title="Clear current design"
-                        onClick={clearDesign}
-                      >
-                        <RotateCcw className="size-3" />
-                        Clear
-                      </button>
-                    </>
-                  ) : null}
-                </div>
-              </div>
+            <SectionHeading>Stage B · Project Design Bundle</SectionHeading>
+            <p className={cn("text-sm", mutedClass)}>
+              Generate a unified design bundle covering all epics — wireframes, user flow, component tree, and OpenAPI spec for the entire project.
+            </p>
 
-              <div className={cn("rounded-md border p-4 text-sm", cardClass, mutedClass)}>
-                {selectedEpic ? (
-                  <>
-                    <div className={cn("font-semibold", dark ? "text-white" : "text-slate-800")}>{selectedEpic.epic_title}</div>
-                    <div>{selectedEpic.story_count} locked story/stories available for design.</div>
-                    <div className="mt-1 text-xs">
-                      Status:{" "}
-                      <span className={selectedEpic.phase_status === "design_locked" ? "text-emerald-400" : "text-violet-400"}>
-                        {selectedEpic.phase_status === "design_locked" ? "Design locked" : "Gherkin locked"}
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  "Select an epic with Phase 1 locked Gherkin stories."
-                )}
-              </div>
+            <div className="flex flex-wrap gap-2">
+              {generateBundle.isPending ? (
+                <button
+                  className={cn("flex items-center gap-2 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
+                  onClick={() => generateBundle.cancel()}
+                >
+                  <StopCircle className="size-4 text-red-400" />
+                  Cancel Generation
+                </button>
+              ) : (
+                <Button
+                  disabled={busy || noContext}
+                  onClick={() => {
+                    const doGenerate = () =>
+                      generateBundle.mutate(undefined, {
+                        onSuccess: (bundle) => {
+                          setDesignBundle(bundle);
+                          toast.success("Project design bundle generated");
+                        },
+                      });
+                    if (designBundle) {
+                      toast.warning("A design bundle already exists. Regenerating will overwrite it — lock again to confirm.", {
+                        action: { label: "Regenerate", onClick: doGenerate },
+                        duration: 8000,
+                      });
+                    } else {
+                      doGenerate();
+                    }
+                  }}
+                >
+                  <Sparkles className="size-4" />
+                  Generate Project Design
+                </Button>
+              )}
+              <button
+                className={cn("flex items-center gap-1 rounded border px-3 py-2 text-sm transition-colors disabled:opacity-40", outlineButtonClass)}
+                disabled={busy}
+                title="Refresh story index from Taiga"
+                onClick={() =>
+                  refreshIndex.mutate(undefined, {
+                    onSuccess: () => toast.success("Story index refreshed"),
+                  })
+                }
+              >
+                <RefreshCw className="size-3" />
+                Refresh Index
+              </button>
+              {designBundle ? (
+                <>
+                  <button
+                    className={cn("flex items-center gap-1 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
+                    title="Download design bundle as Markdown"
+                    onClick={() => downloadDesignBundle(designBundle)}
+                  >
+                    <Download className="size-3" />
+                    Export
+                  </button>
+                  <button
+                    className={cn("flex items-center gap-1 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
+                    title="Clear current design"
+                    onClick={clearDesign}
+                  >
+                    <RotateCcw className="size-3" />
+                    Clear
+                  </button>
+                </>
+              ) : null}
             </div>
 
             {generateBundle.isPending ? (
@@ -478,8 +404,8 @@ export function Phase2Workflow() {
                   <div className="size-4 animate-spin rounded-full border-2 border-violet-500 border-t-transparent" />
                   <span className="font-medium">AI Working…</span>
                 </div>
-                <div className={dark ? "text-violet-400/70" : "text-violet-600/70"}>Loading memory bank and tech stack…</div>
-                <div className={dark ? "text-violet-400/70" : "text-violet-600/70"}>Calling AI to generate design bundle. This can take several minutes…</div>
+                <div className={dark ? "text-violet-400/70" : "text-violet-600/70"}>Loading memory bank, tech stack, and all story Gherkin…</div>
+                <div className={dark ? "text-violet-400/70" : "text-violet-600/70"}>Generating unified design for all epics. This can take several minutes…</div>
               </div>
             ) : null}
             {generateBundle.isError ? (
@@ -556,11 +482,8 @@ export function Phase2Workflow() {
                     className="ml-auto"
                     disabled={!canSave || busy}
                     onClick={() =>
-                      selectedEpic &&
                       lockDesign.mutate(
                         {
-                          epic_id: selectedEpic.epic_id,
-                          epic_title: selectedEpic.epic_title,
                           story_ids: designBundle.story_ids,
                           wireframes: designBundle.wireframes,
                           user_flow: designBundle.user_flow,
@@ -568,7 +491,7 @@ export function Phase2Workflow() {
                           tech_spec: designBundle.tech_spec,
                         },
                         {
-                          onSuccess: (data) => toast.success(`Design locked for ${data.story_ids.length} story/stories`),
+                          onSuccess: (data) => toast.success(`Design locked for ${data.story_ids.length} stories`),
                         },
                       )
                     }
@@ -579,7 +502,7 @@ export function Phase2Workflow() {
                 </div>
                 {lockDesign.data ? (
                   <Callout>
-                    Design locked for {lockDesign.data.story_ids.length} story/stories.
+                    Design locked for {lockDesign.data.story_ids.length} stories.
                     {lockDesign.data.taiga_failures?.length ? ` ${lockDesign.data.taiga_failures.length} Taiga transition(s) failed.` : ""}
                   </Callout>
                 ) : null}
