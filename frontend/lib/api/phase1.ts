@@ -1,9 +1,11 @@
 import { apiRequest } from "./client";
 import {
+  getTaigaApiBaseUrl,
   taigaCreateEpic,
   taigaCreateStory,
   taigaGetEpic,
   taigaGetBoard,
+  taigaGetProject,
   taigaListStoryStatuses,
   taigaUpdateStory,
 } from "./taiga-direct";
@@ -95,7 +97,20 @@ async function pushPhase1StoriesDirect(
       : created;
     createdStories.push({ ...updated, title: story.title, gherkin: story.gherkin, order: index });
   }
-  return apiRequest<Phase1PushStoriesResponse>("/api/phase1/finalize-stories", {
+
+  // Build Taiga web URLs for the created stories (best-effort — failure just omits links)
+  let storyUrls: string[] = [];
+  try {
+    const { slug } = await taigaGetProject(context.taigaToken, context.projectId, context.taigaApiUrl);
+    if (slug) {
+      const webBase = getTaigaApiBaseUrl(context.taigaApiUrl)
+        .replace("/api/v1", "")
+        .replace("//api.taiga.io", "//tree.taiga.io");
+      storyUrls = createdStories.filter((s) => s.ref).map((s) => `${webBase}/project/${slug}/us/${s.ref}`);
+    }
+  } catch { /* skip URLs if fetch fails */ }
+
+  const finalized = await apiRequest<Phase1PushStoriesResponse>("/api/phase1/finalize-stories", {
     method: "POST",
     context,
     body: {
@@ -109,6 +124,7 @@ async function pushPhase1StoriesDirect(
     },
     timeoutMs: 120_000,
   });
+  return { ...finalized, story_urls: storyUrls.length ? storyUrls : finalized.story_urls };
 }
 
 function boldGherkinKeywords(gherkin: string) {

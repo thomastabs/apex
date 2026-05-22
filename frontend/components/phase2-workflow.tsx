@@ -239,6 +239,7 @@ export function Phase2Workflow() {
           </label>
           {!stackDefined ? (
             <Button
+              className="w-full"
               disabled={busy || noContext}
               onClick={() =>
                 proposeStack.mutate(
@@ -295,6 +296,7 @@ export function Phase2Workflow() {
             <Textarea rows={8} value={techStackDraft} onChange={(event) => setTechStackDraft(event.target.value)} />
           </label>
           <Button
+            className="w-full"
             disabled={busy || noContext || !techStackDraft.trim()}
             onClick={() => {
               lockStack.mutate(
@@ -337,6 +339,7 @@ export function Phase2Workflow() {
                 </button>
               ) : (
                 <Button
+                  className="w-full"
                   disabled={busy || noContext}
                   onClick={() => {
                     const doGenerate = () =>
@@ -469,17 +472,19 @@ export function Phase2Workflow() {
                   </div>
                 )}
 
-                <div className={cn("flex flex-wrap items-center gap-4 rounded-md border p-4", cardClass)}>
-                  <label className={cn("inline-flex items-center gap-2 text-sm", labelClass)}>
-                    <input type="checkbox" checked={designLeadApproved} disabled={busy} onChange={(event) => setDesignLeadApproved(event.target.checked)} />
-                    Design Lead Approval (UX & Flows)
-                  </label>
-                  <label className={cn("inline-flex items-center gap-2 text-sm", labelClass)}>
-                    <input type="checkbox" checked={techLeadApproved} disabled={busy} onChange={(event) => setTechLeadApproved(event.target.checked)} />
-                    Tech Lead Approval (Specs & Architecture)
-                  </label>
+                <div className={cn("space-y-4 rounded-md border p-4", cardClass)}>
+                  <div className="flex flex-wrap gap-4">
+                    <label className={cn("inline-flex items-center gap-2 text-sm", labelClass)}>
+                      <input type="checkbox" checked={designLeadApproved} disabled={busy} onChange={(event) => setDesignLeadApproved(event.target.checked)} />
+                      Design Lead Approval (UX & Flows)
+                    </label>
+                    <label className={cn("inline-flex items-center gap-2 text-sm", labelClass)}>
+                      <input type="checkbox" checked={techLeadApproved} disabled={busy} onChange={(event) => setTechLeadApproved(event.target.checked)} />
+                      Tech Lead Approval (Specs & Architecture)
+                    </label>
+                  </div>
                   <Button
-                    className="ml-auto"
+                    className="w-full"
                     disabled={!canSave || busy}
                     onClick={() =>
                       lockDesign.mutate(

@@ -21,6 +21,10 @@ from src.ai_engine import AIError, AIRateLimitError
 
 
 class StubPhase2Service:
+    def configure_request(self, ctx):
+        if hasattr(self, "context"):
+            self.context.set_project(ctx.project_id)
+
     def tech_stack_status(self, ctx):
         return {"defined": True, "tech_stack": "FastAPI"}
 

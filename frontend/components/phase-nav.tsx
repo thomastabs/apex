@@ -11,7 +11,6 @@ function phaseBadge(stats: ReturnType<typeof useStoryIndexStats>["data"], phase:
   if (!stats || stats.total === 0) return "";
   const total = stats.total;
   if (phase === 1) return `${total} pushed`;
-  if (phase === 2 && stats.phase2_designed > 0) return `${stats.phase2_designed}/${total} designed`;
   if (phase === 3 && stats.phase3_proposed > 0) return `${stats.phase3_proposed}/${total} proposed`;
   if (phase === 4 && stats.phase4_tested > 0) return `${stats.phase4_tested}/${total} tested`;
   if (phase === 5 && stats.phase5_deployed > 0) return `${stats.phase5_deployed}/${total} deployed`;

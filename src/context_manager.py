@@ -23,8 +23,7 @@ _logger = logging.getLogger("apex.context_manager")
 _BASE_CONTEXTSPEC = Path("contextspec")
 _CONFIG_FILE      = _BASE_CONTEXTSPEC / ".apex-config.json"
 
-# Per-request active project — set by taiga_adapter.set_active_project() via deps.py.
-# Uses ContextVar so concurrent FastAPI requests on different projects are isolated.
+# Per-request active project. Uses ContextVar so concurrent FastAPI requests on different projects are isolated.
 _active_project_id: contextvars.ContextVar[int] = contextvars.ContextVar(
     "context_manager_project_id",
     default=int(os.getenv("TAIGA_PROJECT_ID") or "0"),

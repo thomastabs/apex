@@ -96,7 +96,7 @@ def persist_design(
     service: Phase2Service = Depends(get_phase2_service),
 ):
     try:
-        service.context.set_project(ctx.project_id)
+        service.configure_request(ctx)
         locked_story_ids = payload.story_ids
         if not locked_story_ids:
             raise Phase2ValidationError("At least one story_id is required.")

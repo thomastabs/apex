@@ -144,6 +144,11 @@ export async function taigaGetMe(token: string, apiBaseUrl?: string): Promise<Me
   };
 }
 
+export async function taigaGetProject(token: string, projectId: number, apiBaseUrl?: string): Promise<{ slug: string }> {
+  const raw = await taigaFetch<Record<string, unknown>>(`/projects/${projectId}`, token, apiBaseUrl);
+  return { slug: (raw.slug as string) || "" };
+}
+
 export async function taigaListProjects(token: string, apiBaseUrl?: string): Promise<Project[]> {
   const me = await taigaFetch<{ id: number }>("/users/me", token, apiBaseUrl);
   const raw = await taigaFetch<Record<string, unknown>[]>(
