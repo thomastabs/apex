@@ -17,8 +17,27 @@ import re
 import time
 from typing import Any
 
+import socket
+
 import requests
+import urllib3.util.connection as _urllib3_conn
 from dotenv import load_dotenv
+
+# Azure Container Apps Consumption tier has no IPv6 egress. api.taiga.io advertises
+# both A and AAAA records; Python picks AAAA first → [Errno 101] Network is unreachable.
+# Patch urllib3's connection factory to resolve only IPv4 addresses.
+_orig_create_connection = _urllib3_conn.create_connection
+
+
+def _ipv4_create_connection(address, *args, **kwargs):
+    host, port = address
+    ipv4 = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
+    if ipv4:
+        host = ipv4[0][4][0]
+    return _orig_create_connection((host, port), *args, **kwargs)
+
+
+_urllib3_conn.create_connection = _ipv4_create_connection
 
 # Status codes that are safe to retry with exponential back-off.
 # 501 (Not Implemented) is excluded — retrying won't help.
