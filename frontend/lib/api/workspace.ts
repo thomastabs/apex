@@ -147,7 +147,7 @@ export function updateEpic(
   context: RequestContext,
   epicId: number,
   version: number,
-  fields: { subject?: string; description?: string; tags?: string[] },
+  fields: { subject?: string; description?: string; tags?: string[]; status?: number },
 ) {
   return taigaUpdateEpic(context.taigaToken, epicId, version, fields, context.taigaApiUrl);
 }
@@ -156,7 +156,7 @@ export function updateStory(
   context: RequestContext,
   storyId: number,
   version: number,
-  fields: { subject?: string; description?: string; tags?: string[] },
+  fields: { subject?: string; description?: string; tags?: string[]; status?: number },
 ) {
   return taigaUpdateStory(context.taigaToken, storyId, version, fields, context.taigaApiUrl);
 }

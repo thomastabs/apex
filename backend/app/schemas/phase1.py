@@ -63,3 +63,15 @@ class PushStoriesResponse(BaseModel):
     count: int
     story_ids: list[int]
     story_urls: list[str] = Field(default_factory=list)
+
+
+class FinalizedStorySchema(BaseModel):
+    id: int
+    title: str
+    gherkin: str
+
+
+class FinalizeStoriesRequest(BaseModel):
+    epic_id: int
+    epic_subject: str = ""
+    stories: list[FinalizedStorySchema]

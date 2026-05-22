@@ -8,6 +8,7 @@ from backend.app.api.deps import RequestContext, get_request_context
 from backend.app.api.rate_limit import ai_rate_limit
 from backend.app.schemas.phase2 import (
     DesignBundleResponse,
+    GenerateDesignBundleRequest,
     LockDesignRequest,
     LockDesignResponse,
     LockTechStackRequest,
@@ -79,11 +80,15 @@ def lock_tech_stack(
 
 @router.post("/generate-design-bundle", response_model=DesignBundleResponse)
 def generate_design_bundle(
+    payload: GenerateDesignBundleRequest | None = None,
     ctx: RequestContext = Depends(get_request_context),
     service: Phase2Service = Depends(get_phase2_service),
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
+        epics = [epic.model_dump() for epic in payload.epics] if payload else []
+        if epics:
+            return service.generate_design_bundle(ctx, epics=epics)
         return service.generate_design_bundle(ctx)
     except Exception as exc:
         _handle_error(exc)
@@ -104,6 +109,29 @@ def lock_design(
             component_tree=payload.component_tree,
             tech_spec=payload.tech_spec,
         )
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/persist-design", response_model=LockDesignResponse)
+def persist_design(
+    payload: LockDesignRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase2Service = Depends(get_phase2_service),
+):
+    try:
+        service.context.set_project(ctx.project_id)
+        locked_story_ids = payload.story_ids
+        if not locked_story_ids:
+            raise Phase2ValidationError("At least one story_id is required.")
+        service.context.write_project_design_bundle(
+            payload.wireframes,
+            payload.user_flow,
+            payload.component_tree,
+            payload.tech_spec,
+        )
+        service.context.write_project_technical_spec(locked_story_ids, payload.tech_spec)
+        return {"ok": True, "story_ids": locked_story_ids, "taiga_failures": []}
     except Exception as exc:
         _handle_error(exc)
 

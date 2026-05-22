@@ -248,7 +248,7 @@ export function useUpdateEpic() {
     }: {
       epicId: number;
       version: number;
-      fields: { subject?: string; description?: string; tags?: string[] };
+      fields: { subject?: string; description?: string; tags?: string[]; status?: number };
     }) => updateEpic(context!, epicId, version, fields),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "board"] });
@@ -268,7 +268,7 @@ export function useUpdateStory() {
     }: {
       storyId: number;
       version: number;
-      fields: { subject?: string; description?: string; tags?: string[] };
+      fields: { subject?: string; description?: string; tags?: string[]; status?: number };
     }) => updateStory(context!, storyId, version, fields),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "board"] });

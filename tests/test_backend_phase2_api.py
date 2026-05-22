@@ -8,6 +8,7 @@ from backend.app.api.phase2 import (
     generate_design_bundle,
     lock_design,
     lock_tech_stack,
+    persist_design,
     propose_tech_stack,
     tech_stack_status,
 )
@@ -95,6 +96,42 @@ def test_lock_design_route():
     )
 
     assert response == {"ok": True, "story_ids": [10, 11], "taiga_failures": []}
+
+
+def test_persist_design_route():
+    class Context:
+        def __init__(self):
+            self.project_id = None
+            self.design = None
+            self.spec = None
+
+        def set_project(self, project_id):
+            self.project_id = project_id
+
+        def write_project_design_bundle(self, wireframes, user_flow, component_tree, tech_spec):
+            self.design = (wireframes, user_flow, component_tree, tech_spec)
+
+        def write_project_technical_spec(self, story_ids, spec):
+            self.spec = (story_ids, spec)
+
+    service = StubPhase2Service()
+    service.context = Context()
+
+    response = persist_design(
+        LockDesignRequest(
+            story_ids=[10],
+            wireframes="SCREEN",
+            user_flow="flowchart TD",
+            component_tree="App",
+            tech_spec="openapi: 3.0.0",
+        ),
+        ctx=_ctx(),
+        service=service,
+    )
+
+    assert response == {"ok": True, "story_ids": [10], "taiga_failures": []}
+    assert service.context.project_id == 42
+    assert service.context.spec == ([10], "openapi: 3.0.0")
 
 
 def test_phase2_validation_errors_map_to_422():

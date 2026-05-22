@@ -34,6 +34,11 @@ class DesignBundleResponse(BaseModel):
     story_ids: list[int] = Field(default_factory=list)
 
 
+class EpicContextSchema(BaseModel):
+    id: int
+    subject: str
+
+
 class LockDesignRequest(BaseModel):
     story_ids: list[int] = Field(default_factory=list)
     wireframes: str
@@ -51,3 +56,7 @@ class LockDesignResponse(BaseModel):
     ok: bool
     story_ids: list[int]
     taiga_failures: list[TaigaTransitionFailure] = Field(default_factory=list)
+
+
+class GenerateDesignBundleRequest(BaseModel):
+    epics: list[EpicContextSchema] = Field(default_factory=list)

@@ -48,6 +48,23 @@ describe("taiga direct API", () => {
     );
   });
 
+  it("removes a newly created story when epic relation linking fails", async () => {
+    mockFetch
+      .mockResolvedValueOnce(makeResponse(200, { id: 10, ref: 1, subject: "Story", version: 3 }))
+      .mockResolvedValueOnce(makeResponse(500, { detail: "link failed" }))
+      .mockResolvedValueOnce(makeResponse(204, {}));
+
+    await expect(
+      taigaCreateStory("tok", 2, 5, "Story", "Desc", ["tag"], undefined, "https://api.taiga.test/api/v1"),
+    ).rejects.toMatchObject({ status: 500 });
+
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      3,
+      "https://api.taiga.test/api/v1/userstories/10",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+  });
+
   it("hydrates missing board descriptions from detail endpoints", async () => {
     mockFetch
       .mockResolvedValueOnce(makeResponse(200, [{ id: 5, ref: 1, subject: "Epic" }]))

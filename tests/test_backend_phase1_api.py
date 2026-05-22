@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from backend.app.api.deps import get_request_context
 from backend.app.api.phase1 import (
     compile_gherkin,
+    finalize_stories,
     generate_nl_stories,
     list_epics,
     push_stories,
@@ -13,6 +14,7 @@ from backend.app.api.phase1 import (
 from backend.app.main import health
 from backend.app.schemas.phase1 import (
     CompileGherkinRequest,
+    FinalizeStoriesRequest,
     GenerateNlStoriesRequest,
     PushStoriesRequest,
 )
@@ -41,6 +43,16 @@ class StubPhase1Service:
             "count": len(stories),
             "story_ids": [100],
             "story_urls": ["https://taiga.test/us/1"],
+        }
+
+    def finalize_stories(self, ctx, *, epic_id, epic_subject, stories):
+        self.last_ctx = ctx
+        return {
+            "ok": True,
+            "epic_id": epic_id,
+            "count": len(stories),
+            "story_ids": [story["id"] for story in stories],
+            "story_urls": [],
         }
 
 
@@ -115,4 +127,19 @@ def test_push_stories_route():
         service=StubPhase1Service(),
     )
 
+    assert response["story_ids"] == [100]
+
+
+def test_finalize_stories_route():
+    response = finalize_stories(
+        FinalizeStoriesRequest(
+            epic_id=10,
+            epic_subject="Epic",
+            stories=[{"id": 100, "title": "Story", "gherkin": "Feature: Story"}],
+        ),
+        ctx=_ctx(),
+        service=StubPhase1Service(),
+    )
+
+    assert response["epic_id"] == 10
     assert response["story_ids"] == [100]

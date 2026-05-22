@@ -206,6 +206,16 @@ export async function taigaGetBoard(token: string, projectId: number, apiBaseUrl
   });
 }
 
+export async function taigaGetEpic(token: string, epicId: number, apiBaseUrl?: string): Promise<Epic> {
+  const raw = await taigaFetch<Record<string, unknown>>(`/epics/${epicId}`, token, apiBaseUrl);
+  return normalizeEpic(raw);
+}
+
+export async function taigaGetStory(token: string, storyId: number, apiBaseUrl?: string): Promise<Story> {
+  const raw = await taigaFetch<Record<string, unknown>>(`/userstories/${storyId}`, token, apiBaseUrl);
+  return normalizeStory(raw);
+}
+
 export async function taigaListStoryStatuses(
   token: string,
   projectId: number,
@@ -320,10 +330,15 @@ export async function taigaCreateStory(
     method: "POST",
     body: { project: projectId, subject, description, tags },
   });
-  await taigaFetch<unknown>(`/epics/${epicId}/related_userstories`, token, apiBaseUrl, {
-    method: "POST",
-    body: { epic: epicId, user_story: raw.id },
-  });
+  try {
+    await taigaFetch<unknown>(`/epics/${epicId}/related_userstories`, token, apiBaseUrl, {
+      method: "POST",
+      body: { epic: epicId, user_story: raw.id },
+    });
+  } catch (error) {
+    await taigaFetch<unknown>(`/userstories/${raw.id}`, token, apiBaseUrl, { method: "DELETE" }).catch(() => undefined);
+    throw error;
+  }
   if (statusId) {
     raw = await taigaFetch<Record<string, unknown>>(`/userstories/${raw.id}`, token, apiBaseUrl, {
       method: "PATCH",
@@ -338,7 +353,7 @@ export async function taigaUpdateStory(
   token: string,
   storyId: number,
   version: number,
-  fields: { subject?: string; description?: string; tags?: string[] },
+  fields: { subject?: string; description?: string; tags?: string[]; status?: number },
   apiBaseUrl?: string,
 ): Promise<Story> {
   const raw = await taigaFetch<Record<string, unknown>>(`/userstories/${storyId}`, token, apiBaseUrl, {

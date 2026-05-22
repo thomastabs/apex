@@ -10,6 +10,7 @@ from backend.app.schemas.phase1 import (
     CompileGherkinRequest,
     CompileGherkinResponse,
     EpicSchema,
+    FinalizeStoriesRequest,
     GenerateNlStoriesRequest,
     GenerateNlStoriesResponse,
     PushStoriesRequest,
@@ -110,6 +111,23 @@ def push_stories(
             epic_subject=payload.epic_subject,
             epic_description=payload.epic_description,
             epic_id=payload.epic_id,
+            stories=[story.model_dump() for story in payload.stories],
+        )
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/finalize-stories", response_model=PushStoriesResponse)
+def finalize_stories(
+    payload: FinalizeStoriesRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase1Service = Depends(get_phase1_service),
+):
+    try:
+        return service.finalize_stories(
+            ctx,
+            epic_id=payload.epic_id,
+            epic_subject=payload.epic_subject,
             stories=[story.model_dump() for story in payload.stories],
         )
     except Exception as exc:

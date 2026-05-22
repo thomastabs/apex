@@ -1,4 +1,10 @@
 import { apiRequest } from "./client";
+import {
+  taigaGetBoard,
+  taigaGetStory,
+  taigaListStoryStatuses,
+  taigaUpdateStory,
+} from "./taiga-direct";
 import type {
   DesignBundle,
   LockDesignRequest,
@@ -33,23 +39,30 @@ export function lockTechStack(context: RequestContext, body: LockTechStackReques
   });
 }
 
-export function generateDesignBundle(context: RequestContext, signal?: AbortSignal) {
+export async function generateDesignBundle(context: RequestContext, signal?: AbortSignal) {
+  const epics = await taigaGetBoard(context.taigaToken, context.projectId, context.taigaApiUrl);
   return apiRequest<DesignBundle>("/api/phase2/generate-design-bundle", {
     method: "POST",
     context,
-    body: {},
+    body: { epics: epics.map((epic) => ({ id: epic.id, subject: epic.subject })) },
     timeoutMs: PHASE2_AI_TIMEOUT_MS,
     signal,
   });
 }
 
-export function lockDesign(context: RequestContext, body: LockDesignRequest) {
-  return apiRequest<LockDesignResponse>("/api/phase2/lock-design", {
+export async function lockDesign(context: RequestContext, body: LockDesignRequest): Promise<LockDesignResponse> {
+  const taiga_failures = await transitionTaigaStories(context, body.story_ids);
+  const persisted = await apiRequest<LockDesignResponse>("/api/phase2/persist-design", {
     method: "POST",
     context,
     body,
     timeoutMs: 120_000,
   });
+  return {
+    ...persisted,
+    ok: persisted.ok && taiga_failures.length === 0,
+    taiga_failures,
+  };
 }
 
 export function refreshStoryIndex(context: RequestContext) {
@@ -57,4 +70,32 @@ export function refreshStoryIndex(context: RequestContext) {
     method: "POST",
     context,
   });
+}
+
+async function transitionTaigaStories(context: RequestContext, storyIds: number[]) {
+  const statuses = await taigaListStoryStatuses(context.taigaToken, context.projectId, context.taigaApiUrl).catch(() => []);
+  const statusId = statuses.find((status) => {
+    const name = status.name.toLowerCase();
+    return name.includes("design_locked") || name.includes("design locked") || name.includes("ready for implementation");
+  })?.id;
+  const failures: Array<{ story_id: number; error: string }> = [];
+  for (const storyId of storyIds) {
+    try {
+      const story = await taigaGetStory(context.taigaToken, storyId, context.taigaApiUrl);
+      if (!story.version) continue;
+      await taigaUpdateStory(
+        context.taigaToken,
+        storyId,
+        story.version,
+        {
+          tags: Array.from(new Set([...(story.tags ?? []), "apex", "design_locked"])).sort(),
+          ...(statusId ? { status: statusId } : {}),
+        },
+        context.taigaApiUrl,
+      );
+    } catch (error) {
+      failures.push({ story_id: storyId, error: error instanceof Error ? error.message : "Taiga transition failed" });
+    }
+  }
+  return failures;
 }

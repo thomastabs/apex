@@ -1,4 +1,12 @@
 import { apiRequest } from "./client";
+import {
+  taigaCreateEpic,
+  taigaCreateStory,
+  taigaGetEpic,
+  taigaGetBoard,
+  taigaListStoryStatuses,
+  taigaUpdateStory,
+} from "./taiga-direct";
 import type {
   CompiledStory,
   Epic,
@@ -11,7 +19,7 @@ import type {
 } from "./types";
 
 export function listPhase1Epics(context: RequestContext) {
-  return apiRequest<Epic[]>("/api/phase1/epics", { context });
+  return taigaGetBoard(context.taigaToken, context.projectId, context.taigaApiUrl);
 }
 
 export function suggestPhase1Epics(context: RequestContext, hint = "") {
@@ -45,10 +53,67 @@ export function compileGherkin(context: RequestContext, nlDraft: string) {
 }
 
 export function pushPhase1Stories(context: RequestContext, body: Phase1PushStoriesRequest) {
-  return apiRequest<Phase1PushStoriesResponse>("/api/phase1/push-stories", {
+  return pushPhase1StoriesDirect(context, body);
+}
+
+async function pushPhase1StoriesDirect(
+  context: RequestContext,
+  body: Phase1PushStoriesRequest,
+): Promise<Phase1PushStoriesResponse> {
+  const epic = body.epic_id
+    ? await taigaGetEpic(context.taigaToken, body.epic_id, context.taigaApiUrl)
+    : await taigaCreateEpic(
+      context.taigaToken,
+      context.projectId,
+      body.epic_subject ?? "",
+      body.epic_description ?? "",
+      [],
+      context.taigaApiUrl,
+    );
+  const statuses = await taigaListStoryStatuses(context.taigaToken, context.projectId, context.taigaApiUrl).catch(() => []);
+  const readyStatus = statuses.find((status) => status.name.toLowerCase().includes("ready for discovery"));
+  const createdStories = [];
+  for (const [index, story] of body.stories.entries()) {
+    const created = await taigaCreateStory(
+      context.taigaToken,
+      context.projectId,
+      epic.id,
+      story.title,
+      boldGherkinKeywords(story.gherkin),
+      ["apex", "gherkin", story.size].filter(Boolean),
+      undefined,
+      context.taigaApiUrl,
+    );
+    const updated = readyStatus && created.version
+      ? await taigaUpdateStory(
+        context.taigaToken,
+        created.id,
+        created.version,
+        { status: readyStatus.id },
+        context.taigaApiUrl,
+      ).catch(() => created)
+      : created;
+    createdStories.push({ ...updated, title: story.title, gherkin: story.gherkin, order: index });
+  }
+  return apiRequest<Phase1PushStoriesResponse>("/api/phase1/finalize-stories", {
     method: "POST",
     context,
-    body,
+    body: {
+      epic_id: epic.id,
+      epic_subject: epic.subject,
+      stories: createdStories.map((story) => ({
+        id: story.id,
+        title: story.title,
+        gherkin: story.gherkin,
+      })),
+    },
     timeoutMs: 120_000,
   });
+}
+
+function boldGherkinKeywords(gherkin: string) {
+  return gherkin.replace(
+    /^(Feature:|Background:|Scenario(?: Outline)?:|Examples:|Given|When|Then|And|But)\b/gm,
+    "**$1**",
+  );
 }

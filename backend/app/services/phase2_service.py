@@ -61,13 +61,13 @@ class Phase2Service:
         self.context.write_tech_stack(clean)
         return {"defined": True, "tech_stack": clean}
 
-    def generate_design_bundle(self, ctx: RequestContext) -> dict:
+    def generate_design_bundle(self, ctx: RequestContext, *, epics: list[dict] | None = None) -> dict:
         self.configure_request(ctx)
         memory_bank = self.context.read_memory_bank()
         tech_stack = self._extract_tech_stack(memory_bank)
         if not tech_stack:
             raise Phase2ValidationError("A locked Tech Stack is required before generating designs.")
-        all_stories = self._all_eligible_stories()
+        all_stories = self._all_eligible_stories(epics=epics)
         if not all_stories:
             raise Phase2ValidationError("No Phase 1 locked Gherkin stories found.")
         constrained_context = (
@@ -111,9 +111,9 @@ class Phase2Service:
             "taiga_failures": failures,
         }
 
-    def _all_eligible_stories(self) -> list[dict]:
+    def _all_eligible_stories(self, *, epics: list[dict] | None = None) -> list[dict]:
         """Return all stories with locked Gherkin, sorted by story_id."""
-        epics_by_id = {epic["id"]: epic for epic in self.taiga.get_epics()}
+        epics_by_id = {epic["id"]: epic for epic in epics} if epics is not None else {epic["id"]: epic for epic in self.taiga.get_epics()}
         stories = []
         for entry in self.context.story_index().values():
             if not entry.get("has_gherkin"):

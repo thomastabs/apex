@@ -111,6 +111,37 @@ class Phase1Service:
             "story_urls": story_urls,
         }
 
+    def finalize_stories(
+        self,
+        ctx: RequestContext,
+        *,
+        epic_id: int,
+        epic_subject: str,
+        stories: list[dict],
+    ) -> dict:
+        self.context.set_project(ctx.project_id)
+        self.context.init_context()
+        story_ids: list[int] = []
+        for item in stories:
+            story_id = int(item["id"])
+            title = item["title"].strip()
+            gherkin = item["gherkin"].strip()
+            self.context.append_gherkin(
+                story_id,
+                title,
+                gherkin,
+                epic_id=epic_id,
+                epic_title=epic_subject,
+            )
+            story_ids.append(story_id)
+        return {
+            "ok": True,
+            "epic_id": epic_id,
+            "count": len(story_ids),
+            "story_ids": story_ids,
+            "story_urls": [],
+        }
+
     def _resolve_epic(
         self,
         epic_id: int | None,
