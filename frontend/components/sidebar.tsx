@@ -38,7 +38,6 @@ import {
   useDeleteProject,
   useDeleteStory,
   useInviteUser,
-  useLogin,
   useMe,
   useProjects,
   useRebuildStoryIndex,
@@ -911,23 +910,6 @@ const CONTEXT_FILE_PHASES: Record<string, string[]> = {
   "/phase2": ["memory-bank.md", "functional-spec.md", "technical-spec.md", "design-bundle.md"],
 };
 
-function getLoginErrorMessage(error: unknown) {
-  if (error instanceof ApiError) {
-    const detail = typeof error.detail === "string" ? error.detail : "";
-    if (detail) {
-      return detail;
-    }
-    if (error.status === 401) {
-      return "Login failed — check credentials.";
-    }
-    if (error.status === 504) {
-      return "Taiga did not respond before the backend timeout.";
-    }
-    return `Login failed — API returned ${error.status}.`;
-  }
-  return "Login failed — check credentials.";
-}
-
 function useVisibleContextFiles(
   files: Array<{ filename: string; label: string; content: string; chars: number }> | undefined,
 ) {
@@ -948,7 +930,6 @@ function LoginSection({ taigaWebUrl }: { taigaWebUrl: string }) {
   const taigaToken = useSessionStore((state) => state.taigaToken);
   const clearPhase2Draft = usePhase2Store((state) => state.clearPhase2Draft);
   const queryClient = useQueryClient();
-  const login = useLogin();
   const me = useMe();
 
   const [mode, setMode] = useState<"password" | "token">("password");
@@ -956,6 +937,37 @@ function LoginSection({ taigaWebUrl }: { taigaWebUrl: string }) {
   const [password, setPassword] = useState("");
   const [tokenInput, setTokenInput] = useState(taigaToken);
   const [loginError, setLoginError] = useState("");
+  const [isPending, setIsPending] = useState(false);
+
+  // Taiga Cloud: tree.taiga.io → api.taiga.io; self-hosted: same host
+  const taigaApiUrl = taigaWebUrl.replace("//tree.", "//api.");
+
+  async function handlePasswordLogin() {
+    if (!username.trim() || !password.trim()) return;
+    setIsPending(true);
+    setLoginError("");
+    try {
+      const res = await fetch(`${taigaApiUrl}/api/v1/auth`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username.trim(), password, type: "normal" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setLoginError(
+          (data as Record<string, string>)._error_message ||
+          (data as Record<string, string>).detail ||
+          `Login failed — Taiga returned ${res.status}.`
+        );
+        return;
+      }
+      setAuth({ taigaToken: (data as { auth_token: string }).auth_token });
+    } catch {
+      setLoginError("Cannot reach Taiga — check your network.");
+    } finally {
+      setIsPending(false);
+    }
+  }
 
   const displayName = me.data?.full_name || me.data?.username || (taigaToken ? "Taiga User" : "");
   const email = me.data?.email || "";
@@ -1010,18 +1022,7 @@ function LoginSection({ taigaWebUrl }: { taigaWebUrl: string }) {
             onChange={(e) => setPassword(e.target.value)}
             className="h-9 w-full rounded border border-violet-500 bg-neutral-950 px-3 text-sm text-white outline-none"
             placeholder="Password"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                setLoginError("");
-                login.mutate(
-                  { username, password },
-                  {
-                    onSuccess: (data) => { setAuth({ taigaToken: data.auth_token }); },
-                    onError: (error) => setLoginError(getLoginErrorMessage(error)),
-                  },
-                );
-              }
-            }}
+            onKeyDown={(e) => { if (e.key === "Enter") handlePasswordLogin(); }}
           />
         </>
       ) : (
@@ -1035,24 +1036,17 @@ function LoginSection({ taigaWebUrl }: { taigaWebUrl: string }) {
       {loginError ? <p className="text-xs text-red-400">{loginError}</p> : null}
       <button
         className="inline-flex h-9 w-full items-center justify-center gap-2 rounded bg-violet-700 text-sm font-semibold text-white hover:bg-violet-600 disabled:opacity-50"
-        disabled={login.isPending}
+        disabled={isPending}
         onClick={() => {
-          setLoginError("");
           if (mode === "password") {
-            login.mutate(
-              { username, password },
-              {
-                onSuccess: (data) => { setAuth({ taigaToken: data.auth_token }); },
-                onError: (error) => setLoginError(getLoginErrorMessage(error)),
-              },
-            );
+            handlePasswordLogin();
           } else if (tokenInput.trim()) {
             setAuth({ taigaToken: tokenInput.trim() });
           }
         }}
       >
         <Send className="size-4" />
-        {login.isPending ? "Signing in..." : "Sign in"}
+        {isPending ? "Signing in..." : "Sign in"}
       </button>
       <a
         href={taigaWebUrl}
