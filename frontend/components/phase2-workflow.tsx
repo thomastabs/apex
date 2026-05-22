@@ -394,6 +394,13 @@ export function Phase2Workflow() {
             <p className={cn("text-sm", mutedClass)}>
               Generate a complete design covering all your project stories — screens, flows, components, and technical specifications.
             </p>
+            <div className={cn("flex items-start gap-3 rounded-md border px-4 py-3 text-sm", dark ? "border-amber-600/30 bg-amber-500/8" : "border-amber-400/50 bg-amber-50")}>
+              <Info className={cn("mt-0.5 size-4 shrink-0", dark ? "text-amber-400" : "text-amber-600")} />
+              <p className={dark ? "text-amber-300/90" : "text-amber-700"}>
+                <span className="font-semibold">These are AI-generated drafts</span> — starting points for team review, not final deliverables.
+                Read each section carefully, edit the content as needed, and only lock once both leads have signed off.
+              </p>
+            </div>
 
             <div className="flex flex-wrap gap-2">
               {generateSections.isPending ? (

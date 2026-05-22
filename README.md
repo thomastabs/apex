@@ -53,19 +53,22 @@ Implemented:
 
 ### Phase 2 · Design
 
-Phase 2 creates a unified project-wide design bundle from all locked Phase 1 stories.
+Phase 2 creates a unified project-wide design **draft** from all locked Phase 1 stories.
+All generated artefacts are AI suggestions — starting points for team review, not final deliverables.
+The Design Lead and Tech Lead must review, edit if needed, and explicitly sign off before anything is locked.
 
 Implemented:
 
 - Gate 0: propose and lock a project-wide tech stack into `tech-stack.md`
-- Generate a single design bundle covering all epics with:
-  - ASCII wireframes
-  - Mermaid user flow
-  - component/module tree
-  - OpenAPI/DB technical specification
-- Export design bundle as a Markdown file
-- Gate 1: Design Lead approval
-- Gate 2: Tech Lead approval
+- Generate a design draft in 4 sequential AI steps (each step uses previous sections as context for consistency):
+  1. ASCII wireframes — screen-by-screen mockups for every story
+  2. Mermaid user flow — navigation paths referencing the wireframe screens
+  3. Component/module tree — frontend and backend structure aligned to the flows
+  4. OpenAPI + DB schema — API spec and DDL consistent with the component tree
+- Results appear incrementally in the UI as each step completes (~30–90 s each)
+- Export the full draft as a Markdown file for offline review
+- Gate 1: Design Lead sign-off (screens & flows)
+- Gate 2: Tech Lead sign-off (architecture & specs)
 - Persist locked artefacts into:
   - `technical-spec.md`
   - `design-bundle.md`
