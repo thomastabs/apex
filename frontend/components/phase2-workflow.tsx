@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AlertCircle, CheckCircle2, ChevronRight, Code2, Compass, Download, Info, RefreshCw, RotateCcw, Save, Sparkles, StopCircle, Unlock } from "lucide-react";
 import { toast } from "sonner";
 import { Button, Callout, Input, SectionHeading, Skeleton, Textarea } from "@/components/ui/primitives";
+import { AIProgressIndicator } from "@/components/ai-progress-indicator";
 import {
   useGenerateDesignBundle,
   useLockDesign,
@@ -19,6 +20,22 @@ import { MermaidBlock } from "@/components/mermaid-block";
 import { cn, errMsg } from "@/lib/utils";
 
 type BundleTab = "ux" | "architecture";
+
+const PROPOSE_STEPS = [
+  "Loading project information…",
+  "Analysing all stories and requirements…",
+  "Evaluating technology options…",
+  "Ranking alternatives by project fit…",
+];
+
+const DESIGN_STEPS = [
+  "Loading project information and story requirements…",
+  "Analysing all epics and acceptance criteria…",
+  "Generating wireframes and screen layouts…",
+  "Designing user flows and navigation…",
+  "Building component and module tree…",
+  "Writing technical specification…",
+];
 
 const TREE_COLORS = ["#a78bfa", "#60a5fa", "#34d399", "#fbbf24", "#f87171", "#fb923c"];
 
@@ -261,6 +278,7 @@ export function Phase2Workflow() {
               Propose Architecture
             </Button>
           ) : null}
+          <AIProgressIndicator steps={PROPOSE_STEPS} isPending={proposeStack.isPending} dark={dark} />
           {proposeStack.isError ? (
             <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
               Proposal failed: {errMsg(proposeStack.error)}
@@ -401,19 +419,7 @@ export function Phase2Workflow() {
               ) : null}
             </div>
 
-            {generateBundle.isPending ? (
-              <div className={cn(
-                "space-y-1 rounded-md border p-4 text-sm",
-                dark ? "border-violet-500/20 bg-violet-950/20 text-violet-300" : "border-violet-300 bg-violet-50 text-violet-700",
-              )}>
-                <div className="flex items-center gap-2">
-                  <div className="size-4 animate-spin rounded-full border-2 border-violet-500 border-t-transparent" />
-                  <span className="font-medium">AI Working…</span>
-                </div>
-                <div className={dark ? "text-violet-400/70" : "text-violet-600/70"}>Loading project information and story requirements…</div>
-                <div className={dark ? "text-violet-400/70" : "text-violet-600/70"}>Generating your project design. This may take a few minutes…</div>
-              </div>
-            ) : null}
+            <AIProgressIndicator steps={DESIGN_STEPS} isPending={generateBundle.isPending} dark={dark} />
             {generateBundle.isError ? (
               <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
                 Generation failed: {errMsg(generateBundle.error)}

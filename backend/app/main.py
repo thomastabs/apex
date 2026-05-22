@@ -16,14 +16,6 @@ _DEFAULT_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
 _extra = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
 _allowed_origins = _DEFAULT_ORIGINS + _extra
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_allowed_origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Taiga-Project-Id"],
-)
-
 _MAX_BODY_BYTES = 4 * 1024 * 1024  # 4 MB
 
 
@@ -49,7 +41,16 @@ class _BodySizeLimitMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+# Add BodySizeLimitMiddleware first (inner), then CORSMiddleware last (outermost)
+# so CORS headers are always present on every response, including error responses.
 app.add_middleware(_BodySizeLimitMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_allowed_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Taiga-Project-Id"],
+)
 
 
 @app.get("/api/health")
