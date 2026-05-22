@@ -832,18 +832,19 @@ export function Phase1Workflow() {
                     ))}
                   </div>
                 ) : null}
-                <div className="flex gap-3">
-                  <Button variant="secondary" onClick={() => { startNewEpic(); toast.info("Ready for next epic"); }}>
-                    <RefreshCw className="size-4" /> Start New Epic
-                  </Button>
-                  <Button onClick={() => router.push("/phase2")}>
+                <div className="flex flex-col gap-3">
+                  <Button onClick={() => router.push("/phase2")} className="w-full">
                     <ChevronRight className="size-4" /> Move to Phase 2
+                  </Button>
+                  <Button variant="secondary" className="w-full" onClick={() => { startNewEpic(); toast.info("Ready for next epic"); }}>
+                    <RefreshCw className="size-4" /> Start New Epic
                   </Button>
                 </div>
               </div>
             ) : (
               <>
                 <Button
+                  className="w-full"
                   disabled={!canPush}
                   onClick={() =>
                     push.mutate(

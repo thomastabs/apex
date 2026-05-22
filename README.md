@@ -4,7 +4,7 @@ Apex is an academic AI-guided SDLC tool that combines a **Spec-Anchored workflow
 
 The current migrated version is a split full-stack web app:
 
-- **Backend:** Python 3.12, FastAPI, Pydantic v2, LangChain, Anthropic Claude, Taiga REST API
+- **Backend:** Python 3.12, FastAPI, Pydantic v2, LangChain, Anthropic Claude
 - **Frontend:** Next.js 15 App Router, TypeScript, React Query 5, Zustand, Tailwind CSS
 - **Storage:** `contextspec/` folder in Azure File Share in deployment
 - **Deployment:** GitHub Actions builds Docker images and deploys to Azure Container Apps
@@ -53,20 +53,17 @@ Implemented:
 
 ### Phase 2 · Design
 
-Phase 2 creates design artefacts from locked Phase 1 stories.
+Phase 2 creates a unified project-wide design bundle from all locked Phase 1 stories.
 
 Implemented:
 
 - Gate 0: propose and lock a project-wide tech stack into `memory-bank.md`
-- Reopen protection: warning toast when epics already have locked designs
-- Select eligible epics with locked Gherkin stories
-- Generate a design bundle with:
+- Generate a single design bundle covering all epics with:
   - ASCII wireframes
   - Mermaid user flow
   - component/module tree
   - OpenAPI/DB technical specification
 - Export design bundle as a Markdown file
-- Reuse prior locked design bundles as cross-epic context
 - Gate 1: Design Lead approval
 - Gate 2: Tech Lead approval
 - Persist locked artefacts into:
@@ -74,7 +71,7 @@ Implemented:
   - `design-bundle.md`
   - `memory-bank.md`
   - `story-index.json`
-- Transition Taiga stories toward the design-ready status when available
+- Transition Taiga stories to design-ready status (browser-side, no backend Taiga calls)
 
 ### Sidebar Workspace
 
@@ -82,10 +79,10 @@ The sidebar is the operational shell for the app.
 
 Implemented:
 
-- Taiga login using username/password or bearer token
+- Taiga login using username/password or bearer token (browser-direct, no backend proxy)
 - Project selector
 - Project create/delete
-- Epics and stories board
+- Epics and stories board (fetched directly from Taiga API in the browser)
 - Epic/story create, edit, delete
 - Users and roles management
 - Active context file viewer/editor
@@ -112,9 +109,10 @@ Implemented:
 | `src/ai_engine.py` | Claude prompts, structured outputs, model selection, AI error handling |
 | `src/context_manager.py` | Context file templates, readers/writers, story index, phase context selection |
 | `src/storage.py` | Storage abstraction over local disk or Azure File Share SDK |
-| `src/taiga_adapter.py` | Taiga REST API client |
+| `src/taiga_adapter.py` | Taiga web URL derivation for the config endpoint (minimal; all Taiga REST calls are browser-side) |
 | `frontend/app/` | Next.js routes |
 | `frontend/components/` | App shell, sidebar, Phase 1 workflow, Phase 2 workflow, UI components |
+| `frontend/lib/api/taiga-direct.ts` | Browser-side Taiga REST client — all CRUD, auth, and story transitions |
 | `frontend/lib/api/` | Typed frontend API clients |
 | `frontend/lib/hooks/` | React Query hooks |
 | `frontend/lib/stores/` | Zustand stores for session, UI, and Phase 2 draft state |
@@ -388,11 +386,21 @@ Phase 3 is expected to be an academic implementation-planning workflow, not a re
 
 ---
 
+## Architecture Note — Taiga Calls Are Browser-Side
+
+All Taiga REST API calls (login, projects, epics, stories, users, story transitions) are made directly from the user's browser via `frontend/lib/api/taiga-direct.ts`. The FastAPI backend never connects to Taiga.
+
+**Why:** Azure Container Apps Consumption tier uses shared egress IPs that are blocked by `api.taiga.io` at the TCP level. Moving all Taiga calls to the browser bypasses this entirely and also removes a latency hop.
+
+**Implication:** `src/taiga_adapter.py` is now a stub that only derives the Taiga web URL from `TAIGA_API_URL` for the `GET /config` endpoint. Do not add new backend-to-Taiga calls.
+
+---
+
 ## Notes For Future Maintainers
 
 - Keep routers thin and put workflow logic in `backend/app/services/`.
 - Keep Claude prompt logic in `src/ai_engine.py`.
-- Keep Taiga-specific REST behavior in `src/taiga_adapter.py` / `TaigaService`.
+- All Taiga REST calls go through `frontend/lib/api/taiga-direct.ts` in the browser. Do not proxy Taiga through the backend.
 - Treat Markdown context files as human-readable artefacts, and `story-index.json` as the machine-readable workflow index.
 - The backend runs with `--workers 2` in Docker so concurrent AI calls don't block each other.
 - AI errors map to distinct HTTP codes: `AIRateLimitError` → 429, `AITimeoutError` → 504, generic `AIError` → 502.
