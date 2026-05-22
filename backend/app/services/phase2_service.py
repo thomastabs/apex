@@ -108,16 +108,3 @@ class Phase2Service:
                 "gherkin": gherkin,
             })
         return sorted(stories, key=lambda s: s["story_id"])
-
-    def _extract_tech_stack(self, memory_bank: str) -> str:
-        match = re.search(
-            r"^## Tech Stack[^\n]*\n(.*?)(?=^## |\Z)",
-            memory_bank,
-            re.MULTILINE | re.DOTALL,
-        )
-        if not match:
-            return ""
-        text = match.group(1).strip()
-        if not text or text.startswith("<!--"):
-            return ""
-        return text
