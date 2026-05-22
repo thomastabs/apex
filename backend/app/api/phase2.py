@@ -36,6 +36,8 @@ def _handle_error(exc: Exception) -> NoReturn:
         raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail=str(exc)) from exc
     if isinstance(exc, AIError):
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+    if isinstance(exc, EnvironmentError):
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
     raise exc
 
 

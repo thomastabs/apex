@@ -32,7 +32,7 @@ from pydantic import BaseModel, Field
 load_dotenv()
 
 _DEFAULT_FAST  = "claude-haiku-4-5-20251001"
-_DEFAULT_CODER = "claude-sonnet-4-6-20250514"
+_DEFAULT_CODER = "claude-sonnet-4-6"
 
 
 # ---------------------------------------------------------------------------
