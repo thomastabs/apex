@@ -978,7 +978,7 @@ def generate_design_api_surface(all_stories: list[dict], context: str, *, ux_bri
         anti_hallucination=_ANTI_HALLUCINATION,
     )
     return _invoke(system, _format_stories_human(grouped), get_coder_model(),
-                   max_tokens=4500, timeout=240)
+                   max_tokens=8500, timeout=300)
 
 
 # ---------------------------------------------------------------------------
