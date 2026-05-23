@@ -946,6 +946,9 @@ Rules:
 - `in:` — key request body/query fields only (field:type pairs). Omit for GET with no params.
 - `out:` — key response fields only (field:type pairs). Always present.
 - ONLY use HTTP methods and path style consistent with the Tech Stack.
+- Use a single consistent path prefix across all epics (e.g. `/api/v1/` — pick one, never mix).
+- No duplicate METHOD+path combinations across the entire output.
+- Every story ID in the story list must appear on at least one endpoint line.
 - Derive route names from screen names in the UX Brief above.
 - Cover ALL epics — do not stop early.
 """
@@ -973,7 +976,10 @@ For each entity:
 Rules:
 - Maximum 12 entities.
 - No SQL, no YAML, no code blocks.
-- Only entities directly required by the stories and endpoints above.
+- No duplicate entity names.
+- Every entity must be directly referenced by at least one endpoint in the list above.
+- Relations must only name entities defined within this Data Model — never invent external entities.
+- Use consistent field naming (snake_case or camelCase — pick one, never mix).
 - Cover all entities implied by the endpoint list — do not stop early.
 """
 
