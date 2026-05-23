@@ -99,7 +99,7 @@ def test_finalize_stories_writes_context_entries():
         _ctx(),
         epic_id=20,
         epic_subject="New Epic",
-        stories=[{"id": 100, "title": "Story A", "gherkin": "Feature: Story A"}],
+        stories=[{"id": 100, "title": "Story A", "gherkin": "Feature: Story A\n  Scenario: basic\n    Given a state\n    When action\n    Then outcome"}],
     )
     assert result["ok"] is True
     assert result["epic_id"] == 20

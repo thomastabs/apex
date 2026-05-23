@@ -67,6 +67,10 @@ class Phase1Service:
             story_id = int(item["id"])
             title = item["title"].strip()
             gherkin = item["gherkin"].strip()
+            if not gherkin or "Scenario" not in gherkin:
+                raise Phase1ValidationError(
+                    f"Story '{title}' (id={story_id}) has invalid Gherkin — must contain at least one Scenario."
+                )
             self.context.append_gherkin(
                 story_id,
                 title,

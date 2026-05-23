@@ -1,8 +1,12 @@
 """Phase 2 architectural and UX design workflow service."""
 
+import logging
+
 from backend.app.services.ai_service import AiService
 from backend.app.services.context_service import ContextService
 from backend.app.services.request_context import RequestContext
+
+_logger = logging.getLogger("apex.phase2_service")
 
 
 class Phase2ValidationError(ValueError):
@@ -108,6 +112,7 @@ class Phase2Service:
                 continue
             gherkin = self.context.story_gherkin(story_id)
             if not gherkin:
+                _logger.warning("_all_eligible_stories: story %s has empty gherkin file — skipping", story_id)
                 continue
             epic_id = entry.get("epic_id")
             epic_title = entry.get("epic_title") or (f"Epic {epic_id}" if epic_id else "")

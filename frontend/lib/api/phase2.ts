@@ -55,13 +55,15 @@ export function generateDesignSection(
 }
 
 export async function lockDesign(context: RequestContext, body: LockDesignRequest): Promise<LockDesignResponse> {
-  const taiga_failures = await transitionTaigaStories(context, body.story_ids);
+  // Persist to backend first — Taiga is only updated after the bundle is safely stored.
+  // If persist fails it throws and Taiga is never touched, avoiding split-brain state.
   const persisted = await apiRequest<LockDesignResponse>("/api/phase2/persist-design", {
     method: "POST",
     context,
     body,
     timeoutMs: 120_000,
   });
+  const taiga_failures = await transitionTaigaStories(context, body.story_ids);
   return {
     ...persisted,
     ok: persisted.ok && taiga_failures.length === 0,

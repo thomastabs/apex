@@ -17,6 +17,7 @@ Required env vars (Azure mode only):
   AZURE_FILE_SHARE_NAME            — File share name (default: "contextspec")
 """
 
+import logging
 import os
 from pathlib import Path
 from typing import Iterator
@@ -25,9 +26,11 @@ _CONN_STR = os.getenv("AZURE_STORAGE_CONNECTION_STRING", "")
 _SHARE = os.getenv("AZURE_FILE_SHARE_NAME", "contextspec")
 _LOCAL_PREFIX = "contextspec"  # local base dir that maps to the share root
 _USE_AZURE = bool(_CONN_STR)
+_logger = logging.getLogger("apex.storage")
 
 if _USE_AZURE:
     from azure.storage.fileshare import ShareFileClient, ShareDirectoryClient
+    from azure.core.exceptions import ResourceExistsError as _AzResourceExistsError
 
 
 # ── Path mapping ──────────────────────────────────────────────────────────────
@@ -91,8 +94,8 @@ def _az_ensure_dirs(azure_path: str) -> None:
         dir_path = "/".join(parts[:i])
         try:
             _az_dir_client(dir_path).create_directory()
-        except Exception:
-            pass  # already exists
+        except _AzResourceExistsError:
+            pass  # directory already exists — expected
 
 
 def _az_write(azure_path: str, content: str) -> None:
@@ -117,8 +120,8 @@ def _az_mkdir(azure_path: str) -> None:
         dir_path = "/".join(parts[:i])
         try:
             _az_dir_client(dir_path).create_directory()
-        except Exception:
-            pass  # already exists
+        except _AzResourceExistsError:
+            pass  # directory already exists — expected
 
 
 def _az_iterdir(azure_path: str) -> "Iterator[StoragePath]":
@@ -134,7 +137,8 @@ def _az_iterdir(azure_path: str) -> "Iterator[StoragePath]":
                     else f"{_LOCAL_PREFIX}/{item['name']}"
                 )
                 yield StoragePath(local_path)
-    except Exception:
+    except Exception as exc:
+        _logger.warning("_az_iterdir failed for path=%r: %s", azure_path, exc)
         return
 
 

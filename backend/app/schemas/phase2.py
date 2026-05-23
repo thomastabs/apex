@@ -40,11 +40,11 @@ class DesignSectionResponse(BaseModel):
 
 
 class LockDesignRequest(BaseModel):
-    story_ids: list[int] = Field(default_factory=list)
-    wireframes: str
-    user_flow: str
-    component_tree: str
-    tech_spec: str
+    story_ids: list[int] = Field(min_length=1)
+    wireframes: str = Field(min_length=1)
+    user_flow: str = Field(min_length=1)
+    component_tree: str = Field(min_length=1)
+    tech_spec: str = Field(min_length=1)
 
 
 class TaigaTransitionFailure(BaseModel):
