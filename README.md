@@ -4,7 +4,7 @@ Apex is an academic AI-guided SDLC tool that combines a **Spec-Anchored workflow
 
 The current migrated version is a split full-stack web app:
 
-- **Backend:** Python 3.12, FastAPI, Pydantic v2, LangChain, Anthropic Claude
+- **Backend:** Python 3.12, FastAPI, Pydantic v2, LangChain, Anthropic Claude / OpenAI GPT / Google Gemini
 - **Frontend:** Next.js 15 App Router, TypeScript, React Query 5, Zustand, Tailwind CSS
 - **Storage:** `contextspec/` folder in Azure File Share in deployment
 - **Deployment:** GitHub Actions builds Docker images and deploys to Azure Container Apps
@@ -93,7 +93,7 @@ Implemented:
 - ZIP download of all context files
 - Story index rebuild with out-of-sync warning
 - Context reset (individual and all files)
-- AI model selector (fast model / coder model)
+- AI model selector (fast model / coder model) — supports Anthropic (Claude), OpenAI (GPT), and Google (Gemini); provider warnings shown only when the corresponding API key is not configured in the backend
 - Light/dark mode
 
 ---
@@ -409,7 +409,7 @@ All Taiga REST API calls (login, projects, epics, stories, users, story transiti
 ## Notes For Future Maintainers
 
 - Keep routers thin and put workflow logic in `backend/app/services/`.
-- Keep Claude prompt logic in `src/ai_engine.py`.
+- Keep AI prompt logic in `src/ai_engine.py`. Provider is detected automatically from the model ID prefix (`claude-` → Anthropic, `gpt-`/`o1-`/`o3-` → OpenAI, `gemini-` → Google).
 - All Taiga REST calls go through `frontend/lib/api/taiga-direct.ts` in the browser. Do not proxy Taiga through the backend.
 - Treat Markdown context files as human-readable artefacts, and `story-index.json` as the machine-readable workflow index.
 - The backend runs with `--workers 2` in Docker so concurrent AI calls don't block each other.
