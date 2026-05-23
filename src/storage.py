@@ -226,6 +226,13 @@ class StoragePath:
         else:
             self._p.mkdir(parents=parents, exist_ok=exist_ok)
 
+    def stat(self):
+        if _USE_AZURE:
+            props = _az_file_client(self._az()).get_file_properties()
+            lm = props.get("last_modified")
+            return type("_AzStat", (), {"st_mtime": lm.timestamp() if lm else 0.0})()
+        return self._p.stat()
+
     def iterdir(self) -> "Iterator[StoragePath]":
         if _USE_AZURE:
             return _az_iterdir(self._az())

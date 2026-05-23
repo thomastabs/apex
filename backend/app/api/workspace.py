@@ -85,9 +85,12 @@ def get_context_files(ctx: RequestContext = Depends(get_request_context)):
         content = context.read_context_file(filename)
         fpath = _cm._path(filename)  # noqa: SLF001
         last_modified: str | None = None
-        if fpath.exists():
-            mtime = fpath.stat().st_mtime
-            last_modified = datetime.datetime.fromtimestamp(mtime, tz=datetime.timezone.utc).isoformat()
+        try:
+            if fpath.exists():
+                mtime = fpath.stat().st_mtime
+                last_modified = datetime.datetime.fromtimestamp(mtime, tz=datetime.timezone.utc).isoformat()
+        except Exception as _stat_exc:
+            _logger.debug("context-files: could not read mtime for %s: %s", filename, _stat_exc)
         files.append({
             "filename": filename,
             "label": label,
