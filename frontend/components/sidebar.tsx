@@ -67,11 +67,13 @@ import { Skeleton } from "@/components/ui/primitives";
 // ── constants ─────────────────────────────────────────────────────────────────
 
 const FALLBACK_MODELS = [
-  { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5",  role: "Fast",     provider: "anthropic", note: "Fastest & cheapest" },
-  { id: "claude-sonnet-4-6",         label: "Claude Sonnet 4.6", role: "Balanced",  provider: "anthropic", note: "Recommended for most projects" },
-  { id: "claude-opus-4-7",           label: "Claude Opus 4.7",   role: "Premium",   provider: "anthropic", note: "Most capable" },
-  { id: "gpt-4o-mini",               label: "GPT-4o Mini",       role: "Fast",     provider: "openai",    note: "OpenAI fast tier — requires OPENAI_API_KEY" },
-  { id: "gpt-4o",                    label: "GPT-4o",            role: "Balanced",  provider: "openai",    note: "OpenAI flagship — requires OPENAI_API_KEY" },
+  { id: "claude-haiku-4-5-20251001",         label: "Claude Haiku 4.5",  role: "Fast",    provider: "anthropic", note: "Fastest & cheapest" },
+  { id: "claude-sonnet-4-6",                 label: "Claude Sonnet 4.6", role: "Balanced", provider: "anthropic", note: "Recommended for most projects" },
+  { id: "claude-opus-4-7",                   label: "Claude Opus 4.7",   role: "Premium",  provider: "anthropic", note: "Most capable" },
+  { id: "gpt-4o-mini",                       label: "GPT-4o Mini",       role: "Fast",    provider: "openai",    note: "OpenAI fast tier — requires OPENAI_API_KEY" },
+  { id: "gpt-4o",                            label: "GPT-4o",            role: "Balanced", provider: "openai",    note: "OpenAI flagship — requires OPENAI_API_KEY" },
+  { id: "gemini-2.0-flash",                  label: "Gemini 2.0 Flash",  role: "Fast",    provider: "google",    note: "Google fast tier — requires GOOGLE_API_KEY" },
+  { id: "gemini-2.5-pro-preview-06-05",      label: "Gemini 2.5 Pro",    role: "Premium",  provider: "google",    note: "Google most capable — requires GOOGLE_API_KEY" },
 ];
 
 const SECTION_LABELS: Record<string, string> = {
@@ -86,7 +88,7 @@ const SECTION_LABELS: Record<string, string> = {
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 type ModelEntry = { id: string; label: string; role: string; provider?: string; note?: string };
-type ProviderKey = "anthropic" | "openai";
+type ProviderKey = "anthropic" | "openai" | "google";
 
 function modelProvider(m: ModelEntry): ProviderKey {
   return (m.provider ?? "anthropic") as ProviderKey;
@@ -109,6 +111,7 @@ function ModelSelect({ models, value, onChange }: { models: ModelEntry[]; value:
 const PROVIDER_LABELS: Record<ProviderKey, string> = {
   anthropic: "Anthropic (Claude)",
   openai:    "OpenAI (GPT)",
+  google:    "Google (Gemini)",
 };
 
 function initials(name: string) {
@@ -1247,6 +1250,7 @@ export function Sidebar() {
       setLocalCoderModel(aiConfig.data.coder_model);
       const savedFast = aiConfig.data.available_models.find((m) => m.id === aiConfig.data!.fast_model);
       if (savedFast?.provider === "openai") setLocalProvider("openai");
+      else if (savedFast?.provider === "google") setLocalProvider("google");
     }
   }, [aiConfig.data]);
 
@@ -1936,7 +1940,7 @@ export function Sidebar() {
                       <div>
                         <p className="mb-2 text-xs text-neutral-500">Provider</p>
                         <div className="flex rounded border border-neutral-700 overflow-hidden">
-                          {(["anthropic", "openai"] as ProviderKey[]).map((p) => (
+                          {(["anthropic", "openai", "google"] as ProviderKey[]).map((p) => (
                             <button
                               key={p}
                               className={cn(
@@ -1958,6 +1962,9 @@ export function Sidebar() {
                         </div>
                         {localProvider === "openai" && (
                           <p className="mt-1.5 text-xs text-amber-400">Requires OPENAI_API_KEY set in backend env.</p>
+                        )}
+                        {localProvider === "google" && (
+                          <p className="mt-1.5 text-xs text-amber-400">Requires GOOGLE_API_KEY set in backend env.</p>
                         )}
                       </div>
                       {/* Model selectors filtered to active provider */}

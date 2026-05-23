@@ -170,6 +170,12 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 TAIGA_API_URL=https://api.taiga.io
 
+# Optional — only needed if using OpenAI models in the AI model selector.
+OPENAI_API_KEY=
+
+# Optional — only needed if using Google Gemini models in the AI model selector.
+GOOGLE_API_KEY=
+
 # Optional. Leave blank for local contextspec/ storage.
 AZURE_STORAGE_CONNECTION_STRING=
 AZURE_FILE_SHARE_NAME=contextspec

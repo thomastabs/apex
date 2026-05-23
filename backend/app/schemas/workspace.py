@@ -42,6 +42,8 @@ class AiConfigModel(BaseModel):
     id: str
     label: str
     role: str = ""
+    provider: str = "anthropic"
+    note: str = ""
 
 
 class AiConfigResponse(BaseModel):

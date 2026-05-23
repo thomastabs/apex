@@ -1,6 +1,6 @@
 """
 ai_engine.py
-LangChain AI engine supporting Anthropic (Claude) and OpenAI (GPT) models.
+LangChain AI engine supporting Anthropic (Claude), OpenAI (GPT), and Google (Gemini) models.
 
 Two-model split (configured via .env or in-app model selector):
   AI_MODEL_FAST   — discovery, breakdown          (structured output)
@@ -10,6 +10,7 @@ Both fall back to the defaults below when the vars are not set.
 
 Provider detection is automatic by model ID prefix:
   "gpt-" / "o1-" / "o3-"  → OpenAI  (requires OPENAI_API_KEY)
+  "gemini-"                → Google  (requires GOOGLE_API_KEY)
   anything else             → Anthropic (requires ANTHROPIC_API_KEY)
 
 Phase 1 pipeline (two-step):
@@ -28,6 +29,7 @@ from typing import Literal
 from dotenv import load_dotenv
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
@@ -84,23 +86,26 @@ def _reclassify_llm_exc(exc: Exception, *, reraise_unrecognized: bool = True) ->
 
 
 def _get_provider(model: str) -> str:
-    """Return 'openai' for GPT/o-series models, 'anthropic' for everything else."""
+    """Detect provider from model ID prefix."""
     if model.startswith(("gpt-", "o1-", "o3-", "o4-")):
         return "openai"
+    if model.startswith("gemini-"):
+        return "google"
     return "anthropic"
 
 
 def check_api_key(model: str | None = None) -> None:
-    """Raise EnvironmentError if the required API key for *model* is not set.
-
-    Checks ANTHROPIC_API_KEY for Claude models and OPENAI_API_KEY for GPT models.
-    When *model* is None, only ANTHROPIC_API_KEY is checked (backward-compat).
-    """
+    """Raise EnvironmentError if the required API key for *model* is not set."""
     provider = _get_provider(model) if model else "anthropic"
     if provider == "openai":
         if not os.getenv("OPENAI_API_KEY"):
             raise EnvironmentError(
                 "OPENAI_API_KEY is not set. Add it to your .env file or set it as an environment variable."
+            )
+    elif provider == "google":
+        if not os.getenv("GOOGLE_API_KEY"):
+            raise EnvironmentError(
+                "GOOGLE_API_KEY is not set. Add it to your .env file or set it as an environment variable."
             )
     else:
         if not os.getenv("ANTHROPIC_API_KEY"):
@@ -145,6 +150,21 @@ AVAILABLE_MODELS: list[dict] = [
         "provider": "openai",
         "note":     "OpenAI flagship — requires OPENAI_API_KEY",
     },
+    # ── Google (Gemini) — requires GOOGLE_API_KEY ────────────────────────────
+    {
+        "id":       "gemini-2.0-flash",
+        "label":    "Gemini 2.0 Flash",
+        "role":     "Fast",
+        "provider": "google",
+        "note":     "Google fast tier — requires GOOGLE_API_KEY",
+    },
+    {
+        "id":       "gemini-2.5-pro-preview-06-05",
+        "label":    "Gemini 2.5 Pro",
+        "role":     "Premium",
+        "provider": "google",
+        "note":     "Google most capable — requires GOOGLE_API_KEY",
+    },
 ]
 
 
@@ -170,17 +190,25 @@ def get_coder_model() -> str:
     return os.getenv("AI_MODEL_CODER", _DEFAULT_CODER)
 
 
-def _get_llm(model: str, max_tokens: int, timeout: float | None = None) -> ChatAnthropic | ChatOpenAI:
+def _get_llm(model: str, max_tokens: int, timeout: float | None = None) -> ChatAnthropic | ChatOpenAI | ChatGoogleGenerativeAI:
     key = f"{model}:{max_tokens}:{timeout}"
     if key not in _llm_cache:
         check_api_key(model)
-        if _get_provider(model) == "openai":
+        provider = _get_provider(model)
+        if provider == "openai":
             _llm_cache[key] = ChatOpenAI(
                 model=model,
                 temperature=0.2,
                 max_tokens=max_tokens,
                 max_retries=2,
                 timeout=timeout,
+            )
+        elif provider == "google":
+            _llm_cache[key] = ChatGoogleGenerativeAI(
+                model=model,
+                temperature=0.2,
+                max_output_tokens=max_tokens,
+                max_retries=2,
             )
         else:
             _llm_cache[key] = ChatAnthropic(
@@ -196,15 +224,15 @@ def _get_llm(model: str, max_tokens: int, timeout: float | None = None) -> ChatA
 def _make_messages(system: str, human: str, *, model: str = "") -> list:
     """Build [SystemMessage, HumanMessage].
 
-    For Anthropic models: uses cache_control=ephemeral on the system turn (5-min cache,
-    ~10% cost on hits). For OpenAI models: plain text content — cache_control is ignored.
+    Anthropic models: cache_control=ephemeral on the system turn (5-min cache, ~10% cost on hits).
+    OpenAI and Google models: plain text — cache_control is not supported.
     """
-    if _get_provider(model) == "openai":
-        return [SystemMessage(content=system), HumanMessage(content=human)]
-    return [
-        SystemMessage(content=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]),
-        HumanMessage(content=human),
-    ]
+    if _get_provider(model) == "anthropic":
+        return [
+            SystemMessage(content=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]),
+            HumanMessage(content=human),
+        ]
+    return [SystemMessage(content=system), HumanMessage(content=human)]
 
 
 def _invoke(system: str, human: str, model: str, max_tokens: int = 2048, timeout: float | None = None) -> str:
