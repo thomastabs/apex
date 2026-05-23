@@ -558,10 +558,10 @@ export function Phase2Workflow() {
                       </div>
                     ) : hasContent ? (
                       <div
-                        className={cn("overflow-auto border-t", dark ? "border-neutral-800 bg-neutral-950" : "border-slate-100 bg-slate-900")}
+                        className={cn("overflow-auto border-t", dark ? "border-neutral-800 bg-neutral-950" : "border-slate-200 bg-slate-50")}
                         style={{ resize: "vertical", minHeight: "8rem", height: "20rem" }}
                       >
-                        <pre className="overflow-auto whitespace-pre-wrap p-4 text-xs leading-5 text-neutral-200">
+                        <pre className={cn("overflow-auto whitespace-pre-wrap p-4 text-xs leading-5", dark ? "text-neutral-200" : "text-slate-800")}>
                           {content}
                         </pre>
                       </div>
