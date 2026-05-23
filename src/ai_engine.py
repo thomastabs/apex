@@ -967,7 +967,7 @@ def generate_design_ux_brief(all_stories: list[dict], context: str) -> str:
         anti_hallucination=_ANTI_HALLUCINATION,
     )
     return _invoke(system, _format_stories_human(grouped), get_coder_model(),
-                   max_tokens=2500, timeout=180)
+                   max_tokens=3500, timeout=210)
 
 
 def generate_design_api_surface(all_stories: list[dict], context: str, *, ux_brief: str) -> str:
@@ -978,7 +978,7 @@ def generate_design_api_surface(all_stories: list[dict], context: str, *, ux_bri
         anti_hallucination=_ANTI_HALLUCINATION,
     )
     return _invoke(system, _format_stories_human(grouped), get_coder_model(),
-                   max_tokens=2000, timeout=150)
+                   max_tokens=4500, timeout=240)
 
 
 # ---------------------------------------------------------------------------
