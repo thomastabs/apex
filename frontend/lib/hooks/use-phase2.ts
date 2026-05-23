@@ -53,7 +53,7 @@ export function useLockTechStack() {
   });
 }
 
-export const DESIGN_SECTION_ORDER: DesignSectionKey[] = ["ux_brief", "api_surface"];
+export const DESIGN_SECTION_ORDER: DesignSectionKey[] = ["ux_brief", "endpoints", "data_model"];
 
 export type DesignSectionCallbacks = {
   onSection: (section: DesignSectionKey, content: string, storyIds: number[]) => void;

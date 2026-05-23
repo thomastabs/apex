@@ -918,8 +918,8 @@ Rules for Navigation Paths:
 - No ASCII art, no diagrams, no code.
 """
 
-_API_SURFACE_SYSTEM = """\
-You are a Software Architect defining the API surface and data model.
+_ENDPOINTS_SYSTEM = """\
+You are a Software Architect defining the REST endpoint list for this project.
 
 **Project Context (binding constraints — ONLY use technologies from the Tech Stack):**
 {context}
@@ -929,7 +929,7 @@ You are a Software Architect defining the API surface and data model.
 **UX Brief (screens and navigation — derive route names from screen names):**
 {ux_brief}
 
-Output exactly two sections — nothing else, no introduction, no commentary.
+Output exactly one section — nothing else, no introduction, no commentary.
 
 ## Endpoints
 
@@ -938,13 +938,28 @@ Format:
 ### <Epic Title — exact copy from story list>
 - `METHOD /path/to/resource` — purpose (Story <ID>) · auth:<none|bearer|role:admin> · in:<field:type,...> · out:<field:type,...>
 
-Rules for Endpoints:
+Rules:
 - One bullet per endpoint.
 - `auth:` — always present: none, bearer, or role:admin.
 - `in:` — key request body/query fields only (field:type pairs). Omit for GET with no params.
 - `out:` — key response fields only (field:type pairs). Always present.
 - ONLY use HTTP methods and path style consistent with the Tech Stack.
 - Derive route names from screen names in the UX Brief above.
+- Cover ALL epics — do not stop early.
+"""
+
+_DATA_MODEL_SYSTEM = """\
+You are a Software Architect defining the data model for this project.
+
+**Project Context (binding constraints — ONLY use technologies from the Tech Stack):**
+{context}
+
+{anti_hallucination}
+
+**Endpoint List (derive entities from the routes and fields defined here):**
+{endpoints}
+
+Output exactly one section — nothing else, no introduction, no commentary.
 
 ## Data Model
 
@@ -953,10 +968,11 @@ For each entity:
 - Fields: `field_name: type`, `field_name: type`, …
 - Relations: one line (e.g. belongs to User, has many Orders) — omit if none.
 
-Rules for Data Model:
-- Maximum 8 entities.
+Rules:
+- Maximum 12 entities.
 - No SQL, no YAML, no code blocks.
-- Only entities directly required by the stories.
+- Only entities directly required by the stories and endpoints above.
+- Cover all entities implied by the endpoint list — do not stop early.
 """
 
 
@@ -970,15 +986,26 @@ def generate_design_ux_brief(all_stories: list[dict], context: str) -> str:
                    max_tokens=3500, timeout=210)
 
 
-def generate_design_api_surface(all_stories: list[dict], context: str, *, ux_brief: str) -> str:
+def generate_design_endpoints(all_stories: list[dict], context: str, *, ux_brief: str) -> str:
     grouped = _group_stories_by_epic(all_stories)
-    system = _API_SURFACE_SYSTEM.format(
+    system = _ENDPOINTS_SYSTEM.format(
         context=context.strip(),
         ux_brief=ux_brief.strip(),
         anti_hallucination=_ANTI_HALLUCINATION,
     )
     return _invoke(system, _format_stories_human(grouped), get_coder_model(),
-                   max_tokens=8500, timeout=300)
+                   max_tokens=8000, timeout=300)
+
+
+def generate_design_data_model(all_stories: list[dict], context: str, *, endpoints: str) -> str:
+    grouped = _group_stories_by_epic(all_stories)
+    system = _DATA_MODEL_SYSTEM.format(
+        context=context.strip(),
+        endpoints=endpoints.strip(),
+        anti_hallucination=_ANTI_HALLUCINATION,
+    )
+    return _invoke(system, _format_stories_human(grouped), get_coder_model(),
+                   max_tokens=3000, timeout=180)
 
 
 # ---------------------------------------------------------------------------

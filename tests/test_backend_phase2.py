@@ -7,8 +7,9 @@ from backend.app.services.request_context import RequestContext
 
 
 _FAKE_SECTION_CONTENT = {
-    "ux_brief": "## Screens\n- Login\n## Navigation Paths\n- Login → Dashboard",
-    "api_surface": "## Endpoints\n- POST /auth/login\n## Data Model\n- User: id, email",
+    "ux_brief":   "## Screens\n- Login\n## Navigation Paths\n- Login → Dashboard",
+    "endpoints":  "## Endpoints\n### Auth\n- `POST /auth/login` — login (Story 10)",
+    "data_model": "## Data Model\n### User\n- Fields: id:int, email:str",
 }
 
 
@@ -54,8 +55,8 @@ class FakeContextService:
     def story_gherkin(self, story_id):
         return f"### Story {story_id}\n\n```gherkin\nFeature: Story {story_id}\n```"
 
-    def write_project_design_bundle(self, ux_brief: str, api_surface: str) -> None:
-        self.written_bundle = (ux_brief, api_surface)
+    def write_project_design_bundle(self, ux_brief: str, endpoints: str, data_model: str) -> None:
+        self.written_bundle = (ux_brief, endpoints, data_model)
 
     def write_project_technical_spec(self, story_ids, spec):
         self.written_tech_spec = (story_ids, spec)
@@ -164,7 +165,7 @@ def test_generate_design_section_requires_eligible_stories():
     service, _, _ = _service(context=FakeContextService(index=empty_index))
 
     with pytest.raises(Phase2ValidationError, match="No Phase 1 locked"):
-        service.generate_design_section(_ctx(), section="ux_brief")
+        service.generate_design_section(_ctx(), section="endpoints")
 
 
 def test_generate_design_section_rejects_unknown_section():
@@ -197,13 +198,13 @@ def test_generate_design_section_passes_constrained_context():
 
 def test_generate_design_section_passes_prior_sections_as_context():
     service, ai, _ = _service()
-    prior = {"ux_brief": "## Screens\n- Login"}
+    prior = {"ux_brief": "## Screens\n- Login", "endpoints": "## Endpoints\n- POST /auth"}
 
-    service.generate_design_section(_ctx(), section="api_surface", prior_sections=prior)
+    service.generate_design_section(_ctx(), section="data_model", prior_sections=prior)
 
     _, _, section, received_prior = ai.section_args[0]
-    assert section == "api_surface"
-    assert received_prior["ux_brief"] == "## Screens\n- Login"
+    assert section == "data_model"
+    assert received_prior["endpoints"] == "## Endpoints\n- POST /auth"
 
 
 def test_generate_design_section_stories_sorted_by_id():

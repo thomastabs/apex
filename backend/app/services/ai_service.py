@@ -58,9 +58,14 @@ class AiService:
     ) -> str:
         if section == "ux_brief":
             return ai_engine.generate_design_ux_brief(all_stories, context)
-        if section == "api_surface":
-            return ai_engine.generate_design_api_surface(
+        if section == "endpoints":
+            return ai_engine.generate_design_endpoints(
                 all_stories, context,
                 ux_brief=prior_sections.get("ux_brief", ""),
+            )
+        if section == "data_model":
+            return ai_engine.generate_design_data_model(
+                all_stories, context,
+                endpoints=prior_sections.get("endpoints", ""),
             )
         raise ValueError(f"Unknown design section: {section!r}")

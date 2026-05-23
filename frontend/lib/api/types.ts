@@ -146,7 +146,7 @@ export type LockTechStackRequest = {
   tech_stack: string;
 };
 
-export type DesignSectionKey = "ux_brief" | "api_surface";
+export type DesignSectionKey = "ux_brief" | "endpoints" | "data_model";
 
 export type DesignSectionResponse = {
   section: DesignSectionKey;
@@ -156,14 +156,16 @@ export type DesignSectionResponse = {
 
 export type DesignBundle = {
   ux_brief: string;
-  api_surface: string;
+  endpoints: string;
+  data_model: string;
   story_ids: number[];
 };
 
 export type LockDesignRequest = {
   story_ids: number[];
   ux_brief: string;
-  api_surface: string;
+  endpoints: string;
+  data_model: string;
 };
 
 export type LockDesignResponse = {

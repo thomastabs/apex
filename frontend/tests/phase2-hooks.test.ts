@@ -7,7 +7,8 @@ import type { DesignSectionKey } from "@/lib/api/types";
 
 type DesignBundle = {
   ux_brief: string;
-  api_surface: string;
+  endpoints: string;
+  data_model: string;
   story_ids: number[];
 };
 
@@ -19,18 +20,20 @@ function computeActiveBundle(
 ): DesignBundle | null {
   if (isPending && Object.keys(partial).length > 0) {
     return {
-      ux_brief:    partial.ux_brief    ?? designBundle?.ux_brief    ?? "",
-      api_surface: partial.api_surface ?? designBundle?.api_surface ?? "",
-      story_ids:   partialStoryIds.length ? partialStoryIds : (designBundle?.story_ids ?? []),
+      ux_brief:   partial.ux_brief   ?? designBundle?.ux_brief   ?? "",
+      endpoints:  partial.endpoints  ?? designBundle?.endpoints  ?? "",
+      data_model: partial.data_model ?? designBundle?.data_model ?? "",
+      story_ids:  partialStoryIds.length ? partialStoryIds : (designBundle?.story_ids ?? []),
     };
   }
   return designBundle;
 }
 
 const FULL_BUNDLE: DesignBundle = {
-  ux_brief:    "## Screens\n- Login",
-  api_surface: "## Endpoints\n- POST /auth",
-  story_ids:   [1, 2],
+  ux_brief:   "## Screens\n- Login",
+  endpoints:  "## Endpoints\n- POST /auth",
+  data_model: "## Data Model\n### User",
+  story_ids:  [1, 2],
 };
 
 describe("computeActiveBundle — merge logic", () => {
@@ -51,39 +54,41 @@ describe("computeActiveBundle — merge logic", () => {
   it("merges single partial section with existing bundle", () => {
     const result = computeActiveBundle(true, { ux_brief: "updated UX" }, [3], FULL_BUNDLE);
     expect(result).toEqual({
-      ux_brief:    "updated UX",
-      api_surface: "## Endpoints\n- POST /auth",
-      story_ids:   [3],
+      ux_brief:   "updated UX",
+      endpoints:  "## Endpoints\n- POST /auth",
+      data_model: "## Data Model\n### User",
+      story_ids:  [3],
     });
   });
 
   it("falls back to empty strings when no existing bundle", () => {
     const result = computeActiveBundle(true, { ux_brief: "UX" }, [], null);
     expect(result).toEqual({
-      ux_brief:    "UX",
-      api_surface: "",
-      story_ids:   [],
+      ux_brief:   "UX",
+      endpoints:  "",
+      data_model: "",
+      story_ids:  [],
     });
   });
 
   it("uses partialStoryIds when available", () => {
-    const result = computeActiveBundle(true, { api_surface: "API" }, [5, 6], FULL_BUNDLE);
+    const result = computeActiveBundle(true, { endpoints: "EP" }, [5, 6], FULL_BUNDLE);
     expect(result?.story_ids).toEqual([5, 6]);
   });
 
   it("falls back to bundle story_ids when partialStoryIds is empty", () => {
-    const result = computeActiveBundle(true, { api_surface: "API" }, [], FULL_BUNDLE);
+    const result = computeActiveBundle(true, { endpoints: "EP" }, [], FULL_BUNDLE);
     expect(result?.story_ids).toEqual([1, 2]);
   });
 
-  it("merges both partial sections simultaneously", () => {
+  it("merges all three partial sections simultaneously", () => {
     const result = computeActiveBundle(
       true,
-      { ux_brief: "UX", api_surface: "API" },
+      { ux_brief: "UX", endpoints: "EP", data_model: "DM" },
       [7],
       FULL_BUNDLE,
     );
-    expect(result).toEqual({ ux_brief: "UX", api_surface: "API", story_ids: [7] });
+    expect(result).toEqual({ ux_brief: "UX", endpoints: "EP", data_model: "DM", story_ids: [7] });
   });
 });
 
@@ -92,17 +97,18 @@ describe("computeActiveBundle — merge logic", () => {
 // ---------------------------------------------------------------------------
 
 function allSectionsPopulated(bundle: DesignBundle | null): boolean {
-  return Boolean(bundle?.ux_brief && bundle?.api_surface);
+  return Boolean(bundle?.ux_brief && bundle?.endpoints && bundle?.data_model);
 }
 
 describe("allSectionsPopulated", () => {
-  it("returns true when both sections have content", () => {
+  it("returns true when all three sections have content", () => {
     expect(allSectionsPopulated(FULL_BUNDLE)).toBe(true);
   });
 
   it("returns false when any section is empty", () => {
     expect(allSectionsPopulated({ ...FULL_BUNDLE, ux_brief: "" })).toBe(false);
-    expect(allSectionsPopulated({ ...FULL_BUNDLE, api_surface: "" })).toBe(false);
+    expect(allSectionsPopulated({ ...FULL_BUNDLE, endpoints: "" })).toBe(false);
+    expect(allSectionsPopulated({ ...FULL_BUNDLE, data_model: "" })).toBe(false);
   });
 
   it("returns false when bundle is null", () => {
@@ -120,7 +126,7 @@ vi.mock("@/lib/api/phase2", () => ({
 
 import { generateDesignSection } from "@/lib/api/phase2";
 
-const SECTION_ORDER: DesignSectionKey[] = ["ux_brief", "api_surface"];
+const SECTION_ORDER: DesignSectionKey[] = ["ux_brief", "endpoints", "data_model"];
 const CONTEXT = { taigaToken: "tok", projectId: 1 };
 
 async function runGenerate(
@@ -155,7 +161,7 @@ describe("sequential generation sequencing", () => {
     });
 
     expect(calls).toEqual(SECTION_ORDER);
-    expect(onSection).toHaveBeenCalledTimes(2);
+    expect(onSection).toHaveBeenCalledTimes(3);
     expect(onDone).toHaveBeenCalledOnce();
   });
 
@@ -168,6 +174,7 @@ describe("sequential generation sequencing", () => {
 
     expect(priorsReceived[0]).toEqual({});
     expect(priorsReceived[1]).toHaveProperty("ux_brief", "c-ux_brief");
+    expect(priorsReceived[2]).toHaveProperty("endpoints", "c-endpoints");
   });
 
   it("propagates section content to onSection callbacks", async () => {
@@ -177,16 +184,17 @@ describe("sequential generation sequencing", () => {
     }));
 
     expect(onSection).toHaveBeenCalledWith("ux_brief", "result-ux_brief", [42]);
-    expect(onSection).toHaveBeenCalledWith("api_surface", "result-api_surface", [42]);
+    expect(onSection).toHaveBeenCalledWith("endpoints", "result-endpoints", [42]);
+    expect(onSection).toHaveBeenCalledWith("data_model", "result-data_model", [42]);
   });
 });
 
 describe("single-section regeneration prior building", () => {
-  it("builds prior from ux_brief when regenerating api_surface", () => {
+  it("builds prior from ux_brief + endpoints when regenerating data_model", () => {
     const existingBundle: DesignBundle = {
-      ux_brief: "UX", api_surface: "API", story_ids: [1],
+      ux_brief: "UX", endpoints: "EP", data_model: "DM", story_ids: [1],
     };
-    const targetSection: DesignSectionKey = "api_surface";
+    const targetSection: DesignSectionKey = "data_model";
     const sectionsBefore = SECTION_ORDER.slice(0, SECTION_ORDER.indexOf(targetSection));
 
     const prior: Record<string, string> = {};
@@ -194,13 +202,13 @@ describe("single-section regeneration prior building", () => {
       prior[s] = existingBundle[s as keyof DesignBundle] as string;
     }
 
-    expect(prior).toEqual({ ux_brief: "UX" });
-    expect(prior).not.toHaveProperty("api_surface");
+    expect(prior).toEqual({ ux_brief: "UX", endpoints: "EP" });
+    expect(prior).not.toHaveProperty("data_model");
   });
 
   it("prior is empty when regenerating the first section", () => {
     const existingBundle: DesignBundle = {
-      ux_brief: "UX", api_surface: "API", story_ids: [1],
+      ux_brief: "UX", endpoints: "EP", data_model: "DM", story_ids: [1],
     };
     const targetSection: DesignSectionKey = "ux_brief";
     const sectionsBefore = SECTION_ORDER.slice(0, SECTION_ORDER.indexOf(targetSection));

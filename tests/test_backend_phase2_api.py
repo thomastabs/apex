@@ -37,7 +37,11 @@ class StubPhase2Service:
     def generate_design_section(self, ctx, *, section, prior_sections=None):
         return {
             "section": section,
-            "content": {"ux_brief": "## Screens\n- Login", "api_surface": "## Endpoints\n- POST /auth"}[section],
+            "content": {
+                "ux_brief":   "## Screens\n- Login",
+                "endpoints":  "## Endpoints\n- POST /auth",
+                "data_model": "## Data Model\n### User",
+            }[section],
             "story_ids": [10],
         }
 
@@ -87,13 +91,13 @@ def test_generate_design_section_route_ux_brief():
 
 def test_generate_design_section_route_with_prior():
     response = generate_design_section(
-        DesignSectionRequest(section="api_surface", prior={"ux_brief": "## Screens\n- Login"}),
+        DesignSectionRequest(section="data_model", prior={"endpoints": "## Endpoints\n- POST /auth"}),
         ctx=_ctx(),
         service=StubPhase2Service(),
     )
 
-    assert response["section"] == "api_surface"
-    assert "Endpoints" in response["content"]
+    assert response["section"] == "data_model"
+    assert "Data Model" in response["content"]
 
 
 def test_persist_design_route():
@@ -106,8 +110,8 @@ def test_persist_design_route():
         def set_project(self, project_id):
             self.project_id = project_id
 
-        def write_project_design_bundle(self, ux_brief: str, api_surface: str) -> None:
-            self.design = (ux_brief, api_surface)
+        def write_project_design_bundle(self, ux_brief: str, endpoints: str, data_model: str) -> None:
+            self.design = (ux_brief, endpoints, data_model)
 
         def write_project_technical_spec(self, story_ids, spec):
             self.spec = (story_ids, spec)
@@ -119,7 +123,8 @@ def test_persist_design_route():
         LockDesignRequest(
             story_ids=[10],
             ux_brief="## Screens\n- Login",
-            api_surface="## Endpoints\n- POST /auth",
+            endpoints="## Endpoints\n- POST /auth",
+            data_model="## Data Model\n### User",
         ),
         ctx=_ctx(),
         service=service,

@@ -40,8 +40,9 @@ const PROPOSE_STEPS = [
 ];
 
 const DESIGN_STEPS: Record<DesignSectionKey, string> = {
-  ux_brief:    "Writing UX Brief…",
-  api_surface: "Defining API Surface…",
+  ux_brief:   "Writing UX Brief…",
+  endpoints:  "Defining Endpoints…",
+  data_model: "Building Data Model…",
 };
 
 type SectionCfg = {
@@ -58,23 +59,32 @@ const SECTION_CONFIG: Record<DesignSectionKey, SectionCfg> = {
     description: "Screen inventory and navigation paths — every screen grouped by epic, plus the key navigation flows.",
     dependsOn:   [],
   },
-  api_surface: {
+  endpoints: {
     stepLabel:   "Step 2",
-    title:       "API Surface",
-    description: "Endpoint list and data model — REST endpoints grouped by epic, plus the core entity definitions.",
+    title:       "Endpoints",
+    description: "REST endpoint list grouped by epic — method, path, auth, request fields, and response fields per story.",
     dependsOn:   ["ux_brief"],
+  },
+  data_model: {
+    stepLabel:   "Step 3",
+    title:       "Data Model",
+    description: "Core entities, fields, and relations derived from the endpoint list.",
+    dependsOn:   ["endpoints"],
   },
 };
 
-function downloadDesignBundle(bundle: { ux_brief: string; api_surface: string }) {
+function downloadDesignBundle(bundle: { ux_brief: string; endpoints: string; data_model: string }) {
   const content = [
     "# Project Design Bundle",
     "",
     "## UX Brief",
     bundle.ux_brief,
     "",
-    "## API Surface",
-    bundle.api_surface,
+    "## Endpoints",
+    bundle.endpoints,
+    "",
+    "## Data Model",
+    bundle.data_model,
   ].join("\n");
   const blob = new Blob([content], { type: "text/markdown" });
   const url = URL.createObjectURL(blob);
@@ -161,13 +171,14 @@ export function Phase2Workflow() {
 
   const activeBundle = generateSections.isPending && Object.keys(partial).length > 0
     ? {
-        ux_brief:    partial.ux_brief    ?? designBundle?.ux_brief    ?? "",
-        api_surface: partial.api_surface ?? designBundle?.api_surface ?? "",
-        story_ids:   partialStoryIds.length ? partialStoryIds : (designBundle?.story_ids ?? []),
+        ux_brief:   partial.ux_brief   ?? designBundle?.ux_brief   ?? "",
+        endpoints:  partial.endpoints  ?? designBundle?.endpoints  ?? "",
+        data_model: partial.data_model ?? designBundle?.data_model ?? "",
+        story_ids:  partialStoryIds.length ? partialStoryIds : (designBundle?.story_ids ?? []),
       }
     : designBundle;
 
-  const allSectionsPopulated = Boolean(activeBundle?.ux_brief && activeBundle?.api_surface);
+  const allSectionsPopulated = Boolean(activeBundle?.ux_brief && activeBundle?.endpoints && activeBundle?.data_model);
   const canSave = Boolean(activeBundle && !generateSections.isPending && allSectionsPopulated && designLeadApproved && techLeadApproved);
 
   const activeStepIdx = generateSections.currentSection
@@ -202,9 +213,10 @@ export function Phase2Workflow() {
       },
       onDone: () => {
         setDesignBundle({
-          ux_brief:    accumulated.ux_brief    ?? "",
-          api_surface: accumulated.api_surface ?? "",
-          story_ids:   accStoryIds,
+          ux_brief:   accumulated.ux_brief   ?? "",
+          endpoints:  accumulated.endpoints  ?? "",
+          data_model: accumulated.data_model ?? "",
+          story_ids:  accStoryIds,
         });
         setPartial({});
         toast.success("Project design generated");
@@ -245,9 +257,10 @@ export function Phase2Workflow() {
       },
       onDone: () => {
         setDesignBundle({
-          ux_brief:    existingBundle?.ux_brief    ?? "",
-          api_surface: existingBundle?.api_surface ?? "",
-          story_ids:   latestStoryIds.length ? latestStoryIds : (existingBundle?.story_ids ?? []),
+          ux_brief:   existingBundle?.ux_brief   ?? "",
+          endpoints:  existingBundle?.endpoints  ?? "",
+          data_model: existingBundle?.data_model ?? "",
+          story_ids:  latestStoryIds.length ? latestStoryIds : (existingBundle?.story_ids ?? []),
           [targetSection]: latestContent,
         });
         setPartial({});
@@ -614,7 +627,7 @@ export function Phase2Workflow() {
                   </label>
                   <label className={cn("inline-flex items-center gap-2 text-sm", labelClass)}>
                     <input type="checkbox" checked={techLeadApproved} disabled={busy} onChange={(event) => setTechLeadApproved(event.target.checked)} />
-                    Tech Lead Sign-off (API Surface)
+                    Tech Lead Sign-off (Endpoints &amp; Data Model)
                   </label>
                 </div>
                 <Button
@@ -623,9 +636,10 @@ export function Phase2Workflow() {
                   onClick={() =>
                     lockDesign.mutate(
                       {
-                        story_ids:   activeBundle.story_ids,
-                        ux_brief:    activeBundle.ux_brief,
-                        api_surface: activeBundle.api_surface,
+                        story_ids:  activeBundle.story_ids,
+                        ux_brief:   activeBundle.ux_brief,
+                        endpoints:  activeBundle.endpoints,
+                        data_model: activeBundle.data_model,
                       },
                       {
                         onSuccess: (data) => toast.success(`Design locked for ${data.story_ids.length} stories`),

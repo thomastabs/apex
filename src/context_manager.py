@@ -953,8 +953,8 @@ def clear_design_draft() -> None:
         dd.unlink()
 
 
-def write_project_design_bundle(ux_brief: str, api_surface: str) -> None:
-    """Overwrite design-bundle.md with the approved project-level design (UX Brief + API Surface)."""
+def write_project_design_bundle(ux_brief: str, endpoints: str, data_model: str) -> None:
+    """Overwrite design-bundle.md with the approved project-level design."""
     init_context()
     db = _path("design-bundle.md")
     content = (
@@ -962,8 +962,10 @@ def write_project_design_bundle(ux_brief: str, api_surface: str) -> None:
         f"**Locked at:** {_now()}\n\n"
         "## UX Brief\n\n"
         f"{ux_brief.strip()}\n\n"
-        "## API Surface\n\n"
-        f"{api_surface.strip()}\n"
+        "## Endpoints\n\n"
+        f"{endpoints.strip()}\n\n"
+        "## Data Model\n\n"
+        f"{data_model.strip()}\n"
     )
     db.write_text(content, encoding="utf-8")
 

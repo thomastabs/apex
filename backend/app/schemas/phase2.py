@@ -29,7 +29,7 @@ class LockTechStackRequest(BaseModel):
 
 
 class DesignSectionRequest(BaseModel):
-    section: Literal["ux_brief", "api_surface"]
+    section: Literal["ux_brief", "endpoints", "data_model"]
     prior: dict[str, str] = Field(default_factory=dict)
 
 
@@ -42,7 +42,8 @@ class DesignSectionResponse(BaseModel):
 class LockDesignRequest(BaseModel):
     story_ids: list[int] = Field(min_length=1)
     ux_brief: str = Field(min_length=1)
-    api_surface: str = Field(min_length=1)
+    endpoints: str = Field(min_length=1)
+    data_model: str = Field(min_length=1)
 
 
 class TaigaTransitionFailure(BaseModel):

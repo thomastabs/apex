@@ -59,7 +59,7 @@ class Phase2Service:
         self.context.write_tech_stack(clean)
         return {"defined": True, "tech_stack": clean}
 
-    DESIGN_SECTION_ORDER = ("ux_brief", "api_surface")
+    DESIGN_SECTION_ORDER = ("ux_brief", "endpoints", "data_model")
 
     def generate_design_section(
         self,

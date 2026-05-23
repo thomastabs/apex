@@ -107,10 +107,11 @@ def persist_design(
             raise Phase2ValidationError("At least one story_id is required.")
         service.context.write_project_design_bundle(
             payload.ux_brief,
-            payload.api_surface,
+            payload.endpoints,
+            payload.data_model,
         )
         try:
-            service.context.write_project_technical_spec(locked_story_ids, payload.api_surface)
+            service.context.write_project_technical_spec(locked_story_ids, payload.endpoints)
         except Exception as spec_exc:
             _logger.warning("persist_design: tech-spec write failed after bundle write: %s", spec_exc)
         return {"ok": True, "story_ids": locked_story_ids, "taiga_failures": []}
