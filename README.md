@@ -61,8 +61,8 @@ Implemented:
 
 - Gate 0: propose and lock a project-wide tech stack into `tech-stack.md`
 - Generate a design draft in 4 sequential AI steps (each step uses previous sections as context for consistency):
-  1. ASCII wireframes — screen-by-screen mockups for every story
-  2. Mermaid user flow — navigation paths referencing the wireframe screens
+  1. **Screen Inventory** or **Component Spec** (user-selectable toggle) — either a per-screen UI summary grouped by epic, or an Atomic Design component catalog (atoms → molecules → organisms) with props, states, and usage context
+  2. Mermaid user flow — navigation paths referencing the Step 1 artifact
   3. Component/module tree — frontend and backend structure aligned to the flows
   4. OpenAPI + DB schema — API spec and DDL consistent with the component tree
 - Results appear incrementally in the UI as each step completes (~30–90 s each)
