@@ -1,7 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertCircle, CheckCircle2, ChevronRight, Code2, Compass, Download, Info, RefreshCw, RotateCcw, Save, Sparkles, StopCircle, Unlock } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  ChevronRight,
+  Download,
+  Info,
+  RefreshCw,
+  RotateCcw,
+  Save,
+  Sparkles,
+  StopCircle,
+  Unlock,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button, Callout, Input, SectionHeading, Skeleton, Textarea } from "@/components/ui/primitives";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
@@ -21,8 +33,6 @@ import { useUiStore } from "@/lib/stores/ui-store";
 import { MermaidBlock } from "@/components/mermaid-block";
 import { cn, errMsg } from "@/lib/utils";
 
-type BundleTab = "ux" | "architecture";
-
 const PROPOSE_STEPS = [
   "Loading project information…",
   "Analysing all stories and requirements…",
@@ -31,10 +41,44 @@ const PROPOSE_STEPS = [
 ];
 
 const DESIGN_STEPS: Record<DesignSectionKey, string> = {
-  wireframes: "Generating screen wireframes…",
-  user_flow: "Building user flow diagram…",
-  component_tree: "Designing component architecture…",
-  tech_spec: "Writing technical specification…",
+  wireframes:      "Generating screen wireframes…",
+  user_flow:       "Building user flow diagram…",
+  component_tree:  "Designing component architecture…",
+  tech_spec:       "Writing technical specification…",
+};
+
+type SectionCfg = {
+  stepLabel: string;
+  title: string;
+  description: string;
+  dependsOn: DesignSectionKey[];
+};
+
+const SECTION_CONFIG: Record<DesignSectionKey, SectionCfg> = {
+  wireframes: {
+    stepLabel:   "Step 1",
+    title:       "Screen Wireframes",
+    description: "ASCII mockups of every screen defined in your user stories.",
+    dependsOn:   [],
+  },
+  user_flow: {
+    stepLabel:   "Step 2",
+    title:       "User Flow",
+    description: "Navigation paths between screens as a Mermaid diagram.",
+    dependsOn:   ["wireframes"],
+  },
+  component_tree: {
+    stepLabel:   "Step 3",
+    title:       "Component Architecture",
+    description: "Frontend and backend module structure aligned to the flows.",
+    dependsOn:   ["wireframes", "user_flow"],
+  },
+  tech_spec: {
+    stepLabel:   "Step 4",
+    title:       "Technical Specification",
+    description: "OpenAPI endpoints and database schema consistent with the component architecture.",
+    dependsOn:   ["wireframes", "user_flow", "component_tree"],
+  },
 };
 
 const TREE_COLORS = ["#a78bfa", "#60a5fa", "#34d399", "#fbbf24", "#f87171", "#fb923c"];
@@ -119,7 +163,6 @@ export function Phase2Workflow() {
   const dark = useUiStore((state) => state.theme) === "dark";
   const context = useApiContext();
   const [stackHint, setStackHint] = useState("");
-  const [bundleTab, setBundleTab] = useState<BundleTab>("ux");
   const [stackReopened, setStackReopened] = useState(false);
   const [diagramOpen, setDiagramOpen] = useState(false);
   const [partial, setPartial] = useState<Partial<Record<DesignSectionKey, string>>>({});
@@ -170,14 +213,14 @@ export function Phase2Workflow() {
   const noContext = !context;
   const busy = proposeStack.isPending || lockStack.isPending || generateSections.isPending || lockDesign.isPending || refreshIndex.isPending;
 
-  // During generation show partial; otherwise show persisted bundle from store.
+  // During single-section generation: merge partial with existing bundle so other sections stay visible.
   const activeBundle = generateSections.isPending && Object.keys(partial).length > 0
     ? {
-        wireframes: partial.wireframes ?? "",
-        user_flow: partial.user_flow ?? "",
-        component_tree: partial.component_tree ?? "",
-        tech_spec: partial.tech_spec ?? "",
-        story_ids: partialStoryIds,
+        wireframes:     partial.wireframes      ?? designBundle?.wireframes      ?? "",
+        user_flow:      partial.user_flow        ?? designBundle?.user_flow       ?? "",
+        component_tree: partial.component_tree   ?? designBundle?.component_tree  ?? "",
+        tech_spec:      partial.tech_spec        ?? designBundle?.tech_spec       ?? "",
+        story_ids:      partialStoryIds.length   ? partialStoryIds : (designBundle?.story_ids ?? []),
       }
     : designBundle;
 
@@ -200,7 +243,10 @@ export function Phase2Workflow() {
     setTechStackDraft(techStack.data?.tech_stack ?? "");
   }
 
+  // Generate all 4 sections sequentially.
   function doGenerate() {
+    setDesignLeadApproved(false);
+    setTechLeadApproved(false);
     const accumulated: Partial<Record<DesignSectionKey, string>> = {};
     let accStoryIds: number[] = [];
     setPartial({});
@@ -210,16 +256,14 @@ export function Phase2Workflow() {
         accStoryIds = storyIds;
         setPartial({ ...accumulated });
         setPartialStoryIds(storyIds);
-        if (section === "wireframes") setBundleTab("ux");
-        if (section === "component_tree") setBundleTab("architecture");
       },
       onDone: () => {
         setDesignBundle({
-          wireframes: accumulated.wireframes ?? "",
-          user_flow: accumulated.user_flow ?? "",
+          wireframes:     accumulated.wireframes     ?? "",
+          user_flow:      accumulated.user_flow      ?? "",
           component_tree: accumulated.component_tree ?? "",
-          tech_spec: accumulated.tech_spec ?? "",
-          story_ids: accStoryIds,
+          tech_spec:      accumulated.tech_spec      ?? "",
+          story_ids:      accStoryIds,
         });
         setPartial({});
         toast.success("Project design generated");
@@ -227,12 +271,75 @@ export function Phase2Workflow() {
     });
   }
 
+  // Generate or regenerate a single section.
+  function doGenerateSection(targetSection: DesignSectionKey) {
+    const existingBundle = designBundle;
+    setDesignLeadApproved(false);
+    setTechLeadApproved(false);
+    setPartial({});
+
+    // Warn if regenerating a section that downstream sections depend on.
+    const idx = DESIGN_SECTION_ORDER.indexOf(targetSection);
+    const downstreamHasContent = DESIGN_SECTION_ORDER.slice(idx + 1).some((s) => existingBundle?.[s]);
+    if (downstreamHasContent) {
+      toast.warning(
+        `Regenerating "${SECTION_CONFIG[targetSection].title}" may make later sections inconsistent — regenerate them afterwards.`,
+        { duration: 6000 },
+      );
+    }
+
+    // Build prior from existing bundle for sections that come before the target.
+    const prior: Record<string, string> = {};
+    for (const s of DESIGN_SECTION_ORDER) {
+      if (s === targetSection) break;
+      const prev = existingBundle?.[s as DesignSectionKey];
+      if (prev) prior[s] = prev;
+    }
+
+    let latestContent = "";
+    let latestStoryIds: number[] = [];
+    generateSections.generateSection(targetSection, prior, {
+      onSection: (section, content, storyIds) => {
+        latestContent = content;
+        latestStoryIds = storyIds;
+        setPartial({ [section]: content });
+        setPartialStoryIds(storyIds);
+      },
+      onDone: () => {
+        setDesignBundle({
+          wireframes:     existingBundle?.wireframes     ?? "",
+          user_flow:      existingBundle?.user_flow      ?? "",
+          component_tree: existingBundle?.component_tree ?? "",
+          tech_spec:      existingBundle?.tech_spec      ?? "",
+          story_ids:      latestStoryIds.length ? latestStoryIds : (existingBundle?.story_ids ?? []),
+          [targetSection]: latestContent,
+        });
+        setPartial({});
+        toast.success(`${SECTION_CONFIG[targetSection].title} generated`);
+      },
+    });
+  }
+
+  // Inline content renderer per section type.
+  function renderSectionContent(section: DesignSectionKey, content: string) {
+    if (section === "user_flow") {
+      return <MermaidBlock content={content} className="p-4 text-xs leading-5 text-violet-100" />;
+    }
+    if (section === "component_tree") {
+      return <div className="p-2"><ComponentTreeView content={content} dark={dark} /></div>;
+    }
+    return (
+      <pre className="overflow-auto whitespace-pre-wrap p-4 text-xs leading-5 text-neutral-200">
+        {content}
+      </pre>
+    );
+  }
+
   // theme-aware shared classes
   const sectionBorderClass = dark ? "border-neutral-700" : "border-slate-200";
   const labelClass = dark ? "text-neutral-200" : "text-slate-700";
   const mutedClass = dark ? "text-neutral-500" : "text-slate-400";
   const cardClass = dark ? "border-neutral-800 bg-[#1f1f21]" : "border-slate-200 bg-slate-50";
-  const panelHeaderClass = dark ? "border-neutral-800 text-neutral-400" : "border-slate-200 text-slate-500";
   const outlineButtonClass = dark
     ? "border-neutral-700 text-neutral-300 hover:bg-neutral-800"
     : "border-slate-300 text-slate-600 hover:bg-slate-100";
@@ -387,7 +494,7 @@ export function Phase2Workflow() {
           ) : null}
         </section>
 
-        {/* ── Stage B: Project Design Bundle ──────────────────────────────── */}
+        {/* ── Stage B: Project Design (4 subsections) ─────────────────────── */}
         {stackDefined ? (
           <section className={cn("space-y-5 border-t pt-6", sectionBorderClass)}>
             <SectionHeading>Stage B · Project Design</SectionHeading>
@@ -402,6 +509,7 @@ export function Phase2Workflow() {
               </p>
             </div>
 
+            {/* Action bar */}
             <div className="flex flex-wrap gap-2">
               {generateSections.isPending ? (
                 <button
@@ -413,12 +521,11 @@ export function Phase2Workflow() {
                 </button>
               ) : (
                 <Button
-                  className="w-full"
                   disabled={busy || noContext}
                   onClick={() => {
                     if (designBundle) {
-                      toast.warning("A design already exists. Regenerating will overwrite it.", {
-                        action: { label: "Regenerate", onClick: doGenerate },
+                      toast.warning("A design already exists. Regenerating all sections will overwrite it.", {
+                        action: { label: "Regenerate All", onClick: doGenerate },
                         duration: 8000,
                       });
                     } else {
@@ -427,7 +534,7 @@ export function Phase2Workflow() {
                   }}
                 >
                   <Sparkles className="size-4" />
-                  Generate Project Design
+                  Generate All Sections
                 </Button>
               )}
               <button
@@ -465,6 +572,7 @@ export function Phase2Workflow() {
               ) : null}
             </div>
 
+            {/* Overall progress indicator (shown during generate-all) */}
             <AIProgressIndicator
               steps={DESIGN_SECTION_ORDER.map((s) => DESIGN_STEPS[s])}
               isPending={generateSections.isPending}
@@ -477,105 +585,143 @@ export function Phase2Workflow() {
               </div>
             ) : null}
 
-            {activeBundle ? (
-              <div className="space-y-4">
-                <div className={cn("flex rounded-md p-1", dark ? "bg-neutral-800" : "bg-slate-200")}>
-                  <button
-                    className={cn(
-                      "h-10 flex-1 rounded text-sm transition-colors",
-                      bundleTab === "ux"
-                        ? "bg-violet-600 text-white"
-                        : dark ? "text-neutral-400 hover:text-neutral-200" : "text-slate-500 hover:text-slate-800",
-                    )}
-                    onClick={() => setBundleTab("ux")}
-                  >
-                    <Compass className="mr-2 inline size-4" />
-                    Screens & Flows
-                  </button>
-                  <button
-                    className={cn(
-                      "h-10 flex-1 rounded text-sm transition-colors",
-                      bundleTab === "architecture"
-                        ? "bg-violet-600 text-white"
-                        : dark ? "text-neutral-400 hover:text-neutral-200" : "text-slate-500 hover:text-slate-800",
-                    )}
-                    onClick={() => setBundleTab("architecture")}
-                  >
-                    <Code2 className="mr-2 inline size-4" />
-                    Technical Architecture
-                  </button>
-                </div>
+            {/* ── 4 Design Subsections ──────────────────────────────────────── */}
+            <div className="space-y-4">
+              {DESIGN_SECTION_ORDER.map((section) => {
+                const cfg = SECTION_CONFIG[section];
+                const content = activeBundle?.[section] ?? "";
+                const isThisGenerating = generateSections.isPending && generateSections.currentSection === section;
+                const hasContent = Boolean(content);
+                const depsOk = cfg.dependsOn.every((dep) => Boolean(activeBundle?.[dep as DesignSectionKey]));
+                const canGenerate = !busy && !noContext && depsOk;
 
-                {bundleTab === "ux" ? (
-                  <div className="grid gap-4 xl:grid-cols-2">
-                    <div className={cn("min-h-96 overflow-auto rounded-md border", dark ? "border-neutral-800 bg-neutral-950" : "border-slate-200 bg-slate-900")}>
-                      <div className={cn("border-b px-3 py-1.5 text-xs font-semibold", panelHeaderClass)}>Wireframes</div>
-                      <MermaidBlock content={activeBundle.wireframes} className="p-4 text-xs leading-5 text-neutral-200" />
-                    </div>
-                    <div className={cn("min-h-96 overflow-auto rounded-md border", dark ? "border-neutral-800 bg-neutral-950" : "border-slate-200 bg-slate-900")}>
-                      <div className={cn("border-b px-3 py-1.5 text-xs font-semibold", panelHeaderClass)}>User Flow</div>
-                      <MermaidBlock content={activeBundle.user_flow} className="p-4 text-xs leading-5 text-violet-100" />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid gap-4 xl:grid-cols-2">
-                    <div className={cn("min-h-96 overflow-auto rounded-md border", dark ? "border-neutral-800 bg-neutral-950" : "border-slate-200 bg-slate-900")}>
-                      <div className={cn("border-b px-3 py-1.5 text-xs font-semibold", panelHeaderClass)}>Component Tree</div>
-                      <div className="p-2">
-                        <ComponentTreeView content={activeBundle.component_tree} dark={dark} />
+                return (
+                  <div
+                    key={section}
+                    className={cn("overflow-hidden rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}
+                  >
+                    {/* Panel header */}
+                    <div className={cn("flex items-center justify-between px-4 py-3", dark ? "bg-neutral-900" : "bg-slate-50")}>
+                      <div className="flex items-center gap-3">
+                        <span className={cn(
+                          "inline-flex h-5 items-center justify-center rounded px-2 text-xs font-bold",
+                          dark ? "bg-violet-900/60 text-violet-300" : "bg-violet-100 text-violet-700",
+                        )}>
+                          {cfg.stepLabel}
+                        </span>
+                        <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>
+                          {cfg.title}
+                        </span>
                       </div>
+                      {isThisGenerating ? (
+                        <span className="animate-pulse text-xs text-violet-400">Generating…</span>
+                      ) : hasContent ? (
+                        <span className={cn("flex items-center gap-1 text-xs", dark ? "text-emerald-400" : "text-emerald-600")}>
+                          <CheckCircle2 className="size-3" /> Generated
+                        </span>
+                      ) : (
+                        <span className={cn("text-xs", mutedClass)}>Not generated</span>
+                      )}
                     </div>
-                    <div className={cn("min-h-96 overflow-auto rounded-md border", dark ? "border-neutral-800 bg-neutral-950" : "border-slate-200 bg-slate-900")}>
-                      <div className={cn("border-b px-3 py-1.5 text-xs font-semibold", panelHeaderClass)}>Technical Specification</div>
-                      <pre className="overflow-auto p-4 text-xs leading-5 text-neutral-200">{activeBundle.tech_spec}</pre>
-                    </div>
-                  </div>
-                )}
 
-                <div className={cn("space-y-4 rounded-md border p-4", cardClass)}>
-                  <div className="flex flex-wrap gap-4">
-                    <label className={cn("inline-flex items-center gap-2 text-sm", labelClass)}>
-                      <input type="checkbox" checked={designLeadApproved} disabled={busy} onChange={(event) => setDesignLeadApproved(event.target.checked)} />
-                      Design Lead Sign-off (Screens & Flows)
-                    </label>
-                    <label className={cn("inline-flex items-center gap-2 text-sm", labelClass)}>
-                      <input type="checkbox" checked={techLeadApproved} disabled={busy} onChange={(event) => setTechLeadApproved(event.target.checked)} />
-                      Tech Lead Sign-off (Architecture & Specs)
-                    </label>
+                    {/* Description */}
+                    <div className={cn("border-t px-4 py-2 text-xs", dark ? "border-neutral-800 text-neutral-500" : "border-slate-100 text-slate-500")}>
+                      {cfg.description}
+                    </div>
+
+                    {/* Content */}
+                    {isThisGenerating ? (
+                      <div className={cn("border-t px-4 py-4", dark ? "border-neutral-800" : "border-slate-100")}>
+                        <Skeleton className="h-48 w-full" />
+                      </div>
+                    ) : hasContent ? (
+                      <div className={cn("max-h-96 min-h-32 overflow-auto border-t", dark ? "border-neutral-800 bg-neutral-950" : "border-slate-100 bg-slate-900")}>
+                        {renderSectionContent(section, content)}
+                      </div>
+                    ) : (
+                      <div className={cn("border-t px-4 py-8 text-center text-sm", dark ? "border-neutral-800 text-neutral-700" : "border-slate-100 text-slate-400")}>
+                        {!depsOk
+                          ? `Generate ${cfg.dependsOn.map((d) => SECTION_CONFIG[d].title).join(" and ")} first.`
+                          : "Not generated yet."}
+                      </div>
+                    )}
+
+                    {/* Generate / Regenerate button */}
+                    <div className={cn("border-t px-4 py-3", dark ? "border-neutral-800" : "border-slate-100")}>
+                      {isThisGenerating ? (
+                        <button
+                          className={cn("flex items-center gap-2 rounded border px-3 py-1.5 text-sm transition-colors", outlineButtonClass)}
+                          onClick={() => generateSections.cancel()}
+                        >
+                          <StopCircle className="size-3.5 text-red-400" />
+                          Cancel
+                        </button>
+                      ) : (
+                        <button
+                          className={cn(
+                            "flex items-center gap-2 rounded px-3 py-1.5 text-sm font-medium transition-colors",
+                            canGenerate
+                              ? "bg-violet-700 text-white hover:bg-violet-600"
+                              : cn("cursor-not-allowed opacity-40", dark ? "bg-neutral-800 text-neutral-500" : "bg-slate-100 text-slate-400"),
+                          )}
+                          disabled={!canGenerate}
+                          onClick={() => doGenerateSection(section)}
+                        >
+                          <Sparkles className="size-3.5" />
+                          {hasContent ? `Regenerate ${cfg.title}` : `Generate ${cfg.title}`}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <Button
-                    className="w-full"
-                    disabled={!canSave || busy}
-                    onClick={() =>
-                      lockDesign.mutate(
-                        {
-                          story_ids: activeBundle.story_ids,
-                          wireframes: activeBundle.wireframes,
-                          user_flow: activeBundle.user_flow,
-                          component_tree: activeBundle.component_tree,
-                          tech_spec: activeBundle.tech_spec,
-                        },
-                        {
-                          onSuccess: (data) => toast.success(`Design locked for ${data.story_ids.length} stories`),
-                        },
-                      )
-                    }
-                  >
-                    <CheckCircle2 className="size-4" />
-                    Save & Lock Design
-                  </Button>
+                );
+              })}
+            </div>
+
+            {/* ── Sign-off & Lock ───────────────────────────────────────────── */}
+            {activeBundle && !generateSections.isPending ? (
+              <div className={cn("space-y-4 rounded-md border p-4", cardClass)}>
+                <div className="flex flex-wrap gap-4">
+                  <label className={cn("inline-flex items-center gap-2 text-sm", labelClass)}>
+                    <input type="checkbox" checked={designLeadApproved} disabled={busy} onChange={(event) => setDesignLeadApproved(event.target.checked)} />
+                    Design Lead Sign-off (Screens &amp; Flows)
+                  </label>
+                  <label className={cn("inline-flex items-center gap-2 text-sm", labelClass)}>
+                    <input type="checkbox" checked={techLeadApproved} disabled={busy} onChange={(event) => setTechLeadApproved(event.target.checked)} />
+                    Tech Lead Sign-off (Architecture &amp; Specs)
+                  </label>
                 </div>
-                {lockDesign.data ? (
-                  <Callout>
-                    Design locked for {lockDesign.data.story_ids.length} stories.
-                    {lockDesign.data.taiga_failures?.length ? ` ${lockDesign.data.taiga_failures.length} Taiga transition(s) failed.` : ""}
-                  </Callout>
-                ) : null}
-                {lockDesign.isError ? (
-                  <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-                    Save failed: {errMsg(lockDesign.error)}
-                  </div>
-                ) : null}
+                <Button
+                  className="w-full"
+                  disabled={!canSave || busy}
+                  onClick={() =>
+                    lockDesign.mutate(
+                      {
+                        story_ids:      activeBundle.story_ids,
+                        wireframes:     activeBundle.wireframes,
+                        user_flow:      activeBundle.user_flow,
+                        component_tree: activeBundle.component_tree,
+                        tech_spec:      activeBundle.tech_spec,
+                      },
+                      {
+                        onSuccess: (data) => toast.success(`Design locked for ${data.story_ids.length} stories`),
+                      },
+                    )
+                  }
+                >
+                  <CheckCircle2 className="size-4" />
+                  Save &amp; Lock Design
+                </Button>
+              </div>
+            ) : null}
+            {lockDesign.data ? (
+              <Callout>
+                Design locked for {lockDesign.data.story_ids.length} stories.
+                {lockDesign.data.taiga_failures?.length ? ` ${lockDesign.data.taiga_failures.length} Taiga transition(s) failed.` : ""}
+              </Callout>
+            ) : null}
+            {lockDesign.isError ? (
+              <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
+                Save failed: {errMsg(lockDesign.error)}
               </div>
             ) : null}
           </section>

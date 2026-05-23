@@ -1,8 +1,11 @@
 """Phase 2 architectural and UX design API routes."""
 
+import logging
 from typing import NoReturn
 
 from fastapi import APIRouter, Depends, HTTPException, status
+
+_logger = logging.getLogger("apex.phase2")
 
 from backend.app.api.deps import RequestContext, get_request_context
 from backend.app.api.rate_limit import ai_rate_limit
@@ -109,7 +112,10 @@ def persist_design(
             payload.component_tree,
             payload.tech_spec,
         )
-        service.context.write_project_technical_spec(locked_story_ids, payload.tech_spec)
+        try:
+            service.context.write_project_technical_spec(locked_story_ids, payload.tech_spec)
+        except Exception as spec_exc:
+            _logger.warning("persist_design: tech-spec write failed after bundle write: %s", spec_exc)
         return {"ok": True, "story_ids": locked_story_ids, "taiga_failures": []}
     except Exception as exc:
         _handle_error(exc)

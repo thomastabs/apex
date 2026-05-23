@@ -71,6 +71,7 @@ export function useGenerateDesignSections() {
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
+  // Generate all 4 sections sequentially.
   const generate = useCallback(
     async (callbacks: DesignSectionCallbacks) => {
       if (!context) return;
@@ -102,13 +103,45 @@ export function useGenerateDesignSections() {
     [context],
   );
 
+  // Generate a single section with explicit prior sections (for per-step regeneration).
+  const generateSection = useCallback(
+    async (
+      targetSection: DesignSectionKey,
+      priorSections: Record<string, string>,
+      callbacks: DesignSectionCallbacks,
+    ) => {
+      if (!context) return;
+      abortRef.current = new AbortController();
+      setIsPending(true);
+      setError(null);
+      setCurrentSection(targetSection);
+      try {
+        const result = await generateDesignSection(
+          context, targetSection, priorSections, abortRef.current.signal,
+        );
+        callbacks.onSection(targetSection, result.content, result.story_ids);
+        callbacks.onDone();
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return;
+        const msg = err instanceof Error ? err.message : "Generation failed";
+        setError(msg);
+        toast.error(`Generation failed: ${msg}`);
+      } finally {
+        setIsPending(false);
+        setCurrentSection(null);
+        abortRef.current = null;
+      }
+    },
+    [context],
+  );
+
   const cancel = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
     toast.info("Generation cancelled");
   }, []);
 
-  return { generate, isPending, currentSection, error, cancel };
+  return { generate, generateSection, isPending, currentSection, error, cancel };
 }
 
 export function useLockDesign() {

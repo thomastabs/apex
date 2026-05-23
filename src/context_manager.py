@@ -187,7 +187,11 @@ def load_config() -> dict:
         return {}
     try:
         return json.loads(_CONFIG_FILE.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
+    except json.JSONDecodeError as exc:
+        _logger.warning("load_config: config file is corrupt (%s) — returning empty config", exc)
+        return {}
+    except OSError as exc:
+        _logger.warning("load_config: failed to read config file (%s) — returning empty config", exc)
         return {}
 
 
