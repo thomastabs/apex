@@ -812,19 +812,34 @@ def _format_stories_human(grouped: dict[str, list[dict]]) -> str:
     return "\n".join(parts)
 
 
+_ANTI_HALLUCINATION = """\
+CRITICAL CONSTRAINT — No hallucination:
+- ONLY reference Story IDs and Epic titles that appear verbatim in the story list below.
+- NEVER invent, guess, or extrapolate Epic IDs, story IDs, or epic names.
+- Every screen, component, and endpoint you produce must cite the exact Story ID it satisfies.
+- If you are unsure which story a screen or endpoint belongs to, omit it.
+"""
+
 _WIREFRAMES_SYSTEM = """\
-You are a UX Designer generating ASCII wireframe mockups for a software project.
+You are a UX Designer producing a Screen Inventory for a software project.
 
 **Project Context and Tech Stack (binding constraints):**
 {context}
 
+{anti_hallucination}
+
 Rules:
-- Generate ASCII art mockups for every distinct screen or view required by ALL stories.
-- Label each screen clearly with its name and which story it serves.
-- Show key UI elements: inputs, buttons, labels, navigation bars, sidebars.
-- Group screens by epic. Keep shared navigation and layout patterns consistent across epics.
-- Use simple ASCII box drawing: +----+, | text |, [ Button ], < input >, etc.
-- Output ONLY the wireframes — no commentary, no explanations.
+- For each Epic (using the exact epic title from the story list — no IDs), list every distinct
+  screen required by its stories.
+- Format each epic as: ## <Epic Title>
+- Format each screen as:
+    ### <Screen Name>  (Story ID: <exact story_id from list>)
+    **Entry point:** one sentence describing how the user reaches this screen
+    **Key UI elements:** bullet list — inputs, buttons, data displays, navigation items
+    **Primary actions:** bullet list — what the user can do on this screen
+- If a screen serves multiple stories, list all story IDs in the heading.
+- Do NOT use ASCII art, box-drawing characters, or any diagram syntax.
+- Output ONLY the screen inventory — no introduction, no commentary.
 """
 
 _USER_FLOW_SYSTEM = """\
@@ -833,14 +848,17 @@ You are a UX Designer generating a Mermaid user flow diagram for a software proj
 **Project Context:**
 {context}
 
-**Wireframes already designed (reference these screen names exactly):**
+{anti_hallucination}
+
+**Screen Inventory (use these screen names exactly as Mermaid node labels):**
 {wireframes}
 
 Rules:
 - Output a single valid Mermaid `flowchart TD` diagram — no other Mermaid diagram type.
-- Use the exact screen names shown in the wireframes above as node labels.
-- Every story must appear as at least one node in the diagram.
+- Node labels must match screen names from the Screen Inventory above word-for-word.
+- Every story must be reachable through at least one path in the diagram.
 - Show decision points, error paths, and how epics connect in the overall user journey.
+- Use short quoted labels: A["Screen Name"]
 - Output ONLY the Mermaid diagram — no commentary, no explanations.
 """
 
@@ -850,7 +868,9 @@ You are a Software Architect generating a component and module hierarchy for a s
 **Project Context:**
 {context}
 
-**Wireframes (screens to map to components):**
+{anti_hallucination}
+
+**Screen Inventory (screens to map to components):**
 {wireframes}
 
 **User Flow (navigation paths to reflect in routing/components):**
@@ -860,7 +880,8 @@ Rules:
 - Output an indented plain-text hierarchy using 2-space indentation.
 - Include both frontend components and backend modules/services.
 - Shared components appear once at the top level; epic-specific sections below reference them.
-- Every screen from the wireframes must map to at least one component.
+- Every screen from the Screen Inventory must map to at least one component.
+- Annotate each leaf with its Story ID: e.g. `SearchScreen  # Story 9264729`
 - Names and brief labels only — no code.
 - Output ONLY the component tree — no commentary, no explanations.
 """
@@ -871,7 +892,9 @@ You are a Software Architect generating an OpenAPI specification and database sc
 **Project Context (binding constraints — ONLY use technologies from the Tech Stack):**
 {context}
 
-**Wireframes (screens that drive the API surface):**
+{anti_hallucination}
+
+**Screen Inventory (screens that drive the API surface):**
 {wireframes}
 
 **User Flow (navigation that drives endpoint paths):**
@@ -884,7 +907,7 @@ Rules:
 - Write a full OpenAPI 3.0 YAML specification covering ALL API endpoints for ALL stories.
 - After the YAML, add a `# Database Schema` section with DDL (CREATE TABLE statements).
 - ONLY use technologies from the Tech Stack — no additional frameworks or databases.
-- Every endpoint must be traceable to at least one story.
+- Every endpoint must include an `x-story-id` extension referencing the exact Story ID it serves.
 - Route and service names must align with the component tree above.
 - Output ONLY the spec and DDL — no commentary, no explanations.
 """
@@ -892,14 +915,18 @@ Rules:
 
 def generate_design_wireframes(all_stories: list[dict], context: str) -> str:
     grouped = _group_stories_by_epic(all_stories)
-    system = _WIREFRAMES_SYSTEM.format(context=context.strip())
+    system = _WIREFRAMES_SYSTEM.format(context=context.strip(), anti_hallucination=_ANTI_HALLUCINATION)
     return _invoke(system, _format_stories_human(grouped), get_coder_model(),
                    max_tokens=8000, timeout=200)
 
 
 def generate_design_user_flow(all_stories: list[dict], context: str, *, wireframes: str) -> str:
     grouped = _group_stories_by_epic(all_stories)
-    system = _USER_FLOW_SYSTEM.format(context=context.strip(), wireframes=wireframes.strip())
+    system = _USER_FLOW_SYSTEM.format(
+        context=context.strip(),
+        wireframes=wireframes.strip(),
+        anti_hallucination=_ANTI_HALLUCINATION,
+    )
     return _invoke(system, _format_stories_human(grouped), get_coder_model(),
                    max_tokens=3000, timeout=120)
 
@@ -912,6 +939,7 @@ def generate_design_component_tree(
         context=context.strip(),
         wireframes=wireframes.strip(),
         user_flow=user_flow.strip(),
+        anti_hallucination=_ANTI_HALLUCINATION,
     )
     return _invoke(system, _format_stories_human(grouped), get_coder_model(),
                    max_tokens=4000, timeout=120)
@@ -927,6 +955,7 @@ def generate_design_tech_spec(
         wireframes=wireframes.strip(),
         user_flow=user_flow.strip(),
         component_tree=component_tree.strip(),
+        anti_hallucination=_ANTI_HALLUCINATION,
     )
     return _invoke(system, _format_stories_human(grouped), get_coder_model(),
                    max_tokens=10000, timeout=240)

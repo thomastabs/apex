@@ -41,7 +41,7 @@ const PROPOSE_STEPS = [
 ];
 
 const DESIGN_STEPS: Record<DesignSectionKey, string> = {
-  wireframes:      "Generating screen wireframes…",
+  wireframes:      "Building screen inventory…",
   user_flow:       "Building user flow diagram…",
   component_tree:  "Designing component architecture…",
   tech_spec:       "Writing technical specification…",
@@ -57,8 +57,8 @@ type SectionCfg = {
 const SECTION_CONFIG: Record<DesignSectionKey, SectionCfg> = {
   wireframes: {
     stepLabel:   "Step 1",
-    title:       "Screen Wireframes",
-    description: "ASCII mockups of every screen defined in your user stories.",
+    title:       "Screen Inventory",
+    description: "Every screen in the product — entry point, key UI elements, and primary actions — grouped by epic.",
     dependsOn:   [],
   },
   user_flow: {
@@ -641,7 +641,10 @@ export function Phase2Workflow() {
                         <Skeleton className="h-48 w-full" />
                       </div>
                     ) : hasContent ? (
-                      <div className={cn("max-h-96 min-h-32 overflow-auto border-t", dark ? "border-neutral-800 bg-neutral-950" : "border-slate-100 bg-slate-900")}>
+                      <div
+                        className={cn("overflow-auto border-t", dark ? "border-neutral-800 bg-neutral-950" : "border-slate-100 bg-slate-900")}
+                        style={{ resize: "vertical", minHeight: "8rem", height: "24rem" }}
+                      >
                         {renderSectionContent(section, content)}
                       </div>
                     ) : (
