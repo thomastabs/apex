@@ -15,6 +15,7 @@ import type {
   LockDesignRequest,
   LockTechStackRequest,
   ProposeTechStackRequest,
+  WireframeMode,
 } from "@/lib/api/types";
 import { useApiContext } from "@/lib/stores/session-store";
 import { toast } from "sonner";
@@ -65,7 +66,7 @@ export type DesignSectionCallbacks = {
   onDone: () => void;
 };
 
-export function useGenerateDesignSections() {
+export function useGenerateDesignSections(wireframeMode: WireframeMode = "screen_inventory") {
   const context = useApiContext();
   const [isPending, setIsPending] = useState(false);
   const [currentSection, setCurrentSection] = useState<DesignSectionKey | null>(null);
@@ -84,7 +85,7 @@ export function useGenerateDesignSections() {
         for (const section of DESIGN_SECTION_ORDER) {
           setCurrentSection(section);
           const result = await generateDesignSection(
-            context, section, prior, abortRef.current.signal,
+            context, section, prior, abortRef.current.signal, wireframeMode,
           );
           prior[section] = result.content;
           callbacks.onSection(section, result.content, result.story_ids);
@@ -101,7 +102,7 @@ export function useGenerateDesignSections() {
         abortRef.current = null;
       }
     },
-    [context],
+    [context, wireframeMode],
   );
 
   // Generate a single section with explicit prior sections (for per-step regeneration).
@@ -118,7 +119,7 @@ export function useGenerateDesignSections() {
       setCurrentSection(targetSection);
       try {
         const result = await generateDesignSection(
-          context, targetSection, priorSections, abortRef.current.signal,
+          context, targetSection, priorSections, abortRef.current.signal, wireframeMode,
         );
         callbacks.onSection(targetSection, result.content, result.story_ids);
         callbacks.onDone();
@@ -133,7 +134,7 @@ export function useGenerateDesignSections() {
         abortRef.current = null;
       }
     },
-    [context],
+    [context, wireframeMode],
   );
 
   const cancel = useCallback(() => {

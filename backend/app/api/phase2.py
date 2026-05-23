@@ -88,7 +88,8 @@ def generate_design_section(
 ):
     try:
         return service.generate_design_section(
-            ctx, section=payload.section, prior_sections=payload.prior
+            ctx, section=payload.section, prior_sections=payload.prior,
+            wireframe_mode=payload.wireframe_mode,
         )
     except Exception as exc:
         _handle_error(exc)

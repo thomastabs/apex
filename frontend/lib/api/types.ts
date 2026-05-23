@@ -147,6 +147,7 @@ export type LockTechStackRequest = {
 };
 
 export type DesignSectionKey = "wireframes" | "user_flow" | "component_tree" | "tech_spec";
+export type WireframeMode = "screen_inventory" | "component_spec";
 
 export type DesignSectionResponse = {
   section: DesignSectionKey;

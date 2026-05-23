@@ -31,6 +31,7 @@ class LockTechStackRequest(BaseModel):
 class DesignSectionRequest(BaseModel):
     section: Literal["wireframes", "user_flow", "component_tree", "tech_spec"]
     prior: dict[str, str] = Field(default_factory=dict)
+    wireframe_mode: Literal["screen_inventory", "component_spec"] = "screen_inventory"
 
 
 class DesignSectionResponse(BaseModel):

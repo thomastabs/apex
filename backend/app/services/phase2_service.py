@@ -67,6 +67,7 @@ class Phase2Service:
         *,
         section: str,
         prior_sections: dict[str, str] | None = None,
+        wireframe_mode: str = "screen_inventory",
     ) -> dict:
         if section not in self.DESIGN_SECTION_ORDER:
             raise Phase2ValidationError(f"Unknown section: {section!r}")
@@ -80,7 +81,8 @@ class Phase2Service:
         project_concept = self.context.read_project_concept()
         constrained_context = self._build_constrained_context(project_concept, tech_stack)
         content = self.ai.generate_design_section(
-            all_stories, constrained_context, section, prior_sections or {}
+            all_stories, constrained_context, section, prior_sections or {},
+            wireframe_mode=wireframe_mode,
         )
         return {
             "section": section,

@@ -23,7 +23,7 @@ class FakeAiService:
         self.tech_stack_args = (all_stories, context, hint)
         return [{"name": "FastAPI + Next.js", "description": "Good fit.", "trade_offs": "+ simple"}]
 
-    def generate_design_section(self, all_stories, context, section, prior_sections):
+    def generate_design_section(self, all_stories, context, section, prior_sections, *, wireframe_mode="screen_inventory"):
         self.section_args.append((all_stories, context, section, prior_sections))
         return _FAKE_SECTION_CONTENT[section]
 

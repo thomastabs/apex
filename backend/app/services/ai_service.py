@@ -55,9 +55,11 @@ class AiService:
         context: str,
         section: str,
         prior_sections: dict[str, str],
+        *,
+        wireframe_mode: str = "screen_inventory",
     ) -> str:
         if section == "wireframes":
-            return ai_engine.generate_design_wireframes(all_stories, context)
+            return ai_engine.generate_design_wireframes(all_stories, context, wireframe_mode=wireframe_mode)
         if section == "user_flow":
             return ai_engine.generate_design_user_flow(
                 all_stories, context,

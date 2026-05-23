@@ -26,7 +26,7 @@ import {
   useRefreshStoryIndex,
   useTechStackStatus,
 } from "@/lib/hooks/use-phase2";
-import type { DesignSectionKey } from "@/lib/api/types";
+import type { DesignSectionKey, WireframeMode } from "@/lib/api/types";
 import { usePhase2Store } from "@/lib/stores/phase2-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -78,6 +78,19 @@ const SECTION_CONFIG: Record<DesignSectionKey, SectionCfg> = {
     title:       "Technical Specification",
     description: "OpenAPI endpoints and database schema consistent with the component architecture.",
     dependsOn:   ["wireframes", "user_flow", "component_tree"],
+  },
+};
+
+const WIREFRAME_MODE_CONFIG: Record<WireframeMode, { title: string; description: string; step: string }> = {
+  screen_inventory: {
+    title: "Screen Inventory",
+    description: "Every screen in the product — entry point, key UI elements, and primary actions — grouped by epic.",
+    step: "Building screen inventory…",
+  },
+  component_spec: {
+    title: "Component Spec",
+    description: "Atomic Design component inventory — atoms, molecules, organisms — with props, states, and usage context.",
+    step: "Building component spec…",
   },
 };
 
@@ -167,13 +180,6 @@ export function Phase2Workflow() {
   const [diagramOpen, setDiagramOpen] = useState(false);
   const [partial, setPartial] = useState<Partial<Record<DesignSectionKey, string>>>({});
   const [partialStoryIds, setPartialStoryIds] = useState<number[]>([]);
-  const techStack = useTechStackStatus();
-  const proposeStack = useProposeTechStack();
-  const lockStack = useLockTechStack();
-  const generateSections = useGenerateDesignSections();
-  const lockDesign = useLockDesign();
-  const refreshIndex = useRefreshStoryIndex();
-
   const {
     alternatives,
     selectedAlternativeIndex,
@@ -181,13 +187,22 @@ export function Phase2Workflow() {
     designBundle,
     designLeadApproved,
     techLeadApproved,
+    wireframeMode,
     setAlternatives,
     setSelectedAlternativeIndex,
     setTechStackDraft,
     setDesignBundle,
     setDesignLeadApproved,
     setTechLeadApproved,
+    setWireframeMode,
   } = usePhase2Store();
+
+  const techStack = useTechStackStatus();
+  const proposeStack = useProposeTechStack();
+  const lockStack = useLockTechStack();
+  const generateSections = useGenerateDesignSections(wireframeMode);
+  const lockDesign = useLockDesign();
+  const refreshIndex = useRefreshStoryIndex();
 
   useEffect(() => {
     if (techStack.data?.tech_stack && !techStackDraft) {
@@ -285,8 +300,11 @@ export function Phase2Workflow() {
     const idx = DESIGN_SECTION_ORDER.indexOf(targetSection);
     const downstreamHasContent = DESIGN_SECTION_ORDER.slice(idx + 1).some((s) => existingBundle?.[s]);
     if (downstreamHasContent) {
+      const sectionTitle = targetSection === "wireframes"
+        ? WIREFRAME_MODE_CONFIG[wireframeMode].title
+        : SECTION_CONFIG[targetSection].title;
       toast.warning(
-        `Regenerating "${SECTION_CONFIG[targetSection].title}" may make later sections inconsistent — regenerate them afterwards.`,
+        `Regenerating "${sectionTitle}" may make later sections inconsistent — regenerate them afterwards.`,
         { duration: 6000 },
       );
     }
@@ -318,7 +336,10 @@ export function Phase2Workflow() {
           [targetSection]: latestContent,
         });
         setPartial({});
-        toast.success(`${SECTION_CONFIG[targetSection].title} generated`);
+        const doneTitle = targetSection === "wireframes"
+          ? WIREFRAME_MODE_CONFIG[wireframeMode].title
+          : SECTION_CONFIG[targetSection].title;
+        toast.success(`${doneTitle} generated`);
       },
     });
   }
@@ -512,6 +533,28 @@ export function Phase2Workflow() {
               </p>
             </div>
 
+            {/* Wireframe mode toggle */}
+            <div className="flex items-center gap-3">
+              <span className={cn("text-xs font-medium", labelClass)}>Step 1 artifact</span>
+              <div className={cn("flex rounded-md border p-0.5", dark ? "border-neutral-700 bg-neutral-900" : "border-slate-200 bg-slate-100")}>
+                {(["screen_inventory", "component_spec"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    disabled={busy}
+                    onClick={() => setWireframeMode(mode)}
+                    className={cn(
+                      "rounded px-3 py-1 text-xs font-medium transition-colors disabled:opacity-50",
+                      wireframeMode === mode
+                        ? "bg-violet-700 text-white"
+                        : dark ? "text-neutral-400 hover:text-neutral-300" : "text-slate-500 hover:text-slate-700",
+                    )}
+                  >
+                    {mode === "screen_inventory" ? "Screen Inventory" : "Component Spec"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Action bar */}
             <div className="space-y-2">
               {generateSections.isPending ? (
@@ -580,7 +623,9 @@ export function Phase2Workflow() {
 
             {/* Overall progress indicator (shown during generate-all) */}
             <AIProgressIndicator
-              steps={DESIGN_SECTION_ORDER.map((s) => DESIGN_STEPS[s])}
+              steps={DESIGN_SECTION_ORDER.map((s) =>
+                s === "wireframes" ? WIREFRAME_MODE_CONFIG[wireframeMode].step : DESIGN_STEPS[s],
+              )}
               isPending={generateSections.isPending}
               dark={dark}
               activeStep={activeStepIdx}
@@ -595,6 +640,8 @@ export function Phase2Workflow() {
             <div className="space-y-4">
               {DESIGN_SECTION_ORDER.map((section) => {
                 const cfg = SECTION_CONFIG[section];
+                const effectiveTitle = section === "wireframes" ? WIREFRAME_MODE_CONFIG[wireframeMode].title : cfg.title;
+                const effectiveDescription = section === "wireframes" ? WIREFRAME_MODE_CONFIG[wireframeMode].description : cfg.description;
                 const content = activeBundle?.[section] ?? "";
                 const isThisGenerating = generateSections.isPending && generateSections.currentSection === section;
                 const hasContent = Boolean(content);
@@ -616,7 +663,7 @@ export function Phase2Workflow() {
                           {cfg.stepLabel}
                         </span>
                         <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>
-                          {cfg.title}
+                          {effectiveTitle}
                         </span>
                       </div>
                       {isThisGenerating ? (
@@ -632,7 +679,7 @@ export function Phase2Workflow() {
 
                     {/* Description */}
                     <div className={cn("border-t px-4 py-2 text-xs", dark ? "border-neutral-800 text-neutral-500" : "border-slate-100 text-slate-500")}>
-                      {cfg.description}
+                      {effectiveDescription}
                     </div>
 
                     {/* Content */}
@@ -677,7 +724,7 @@ export function Phase2Workflow() {
                           onClick={() => doGenerateSection(section)}
                         >
                           <Sparkles className="size-3.5" />
-                          {hasContent ? `Regenerate ${cfg.title}` : `Generate ${cfg.title}`}
+                          {hasContent ? `Regenerate ${effectiveTitle}` : `Generate ${effectiveTitle}`}
                         </button>
                       )}
                     </div>

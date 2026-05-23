@@ -34,7 +34,7 @@ class StubPhase2Service:
     def lock_tech_stack(self, ctx, *, tech_stack):
         return {"defined": True, "tech_stack": tech_stack}
 
-    def generate_design_section(self, ctx, *, section, prior_sections=None):
+    def generate_design_section(self, ctx, *, section, prior_sections=None, wireframe_mode="screen_inventory"):
         return {
             "section": section,
             "content": {"wireframes": "SCREEN", "user_flow": "flowchart TD",
@@ -158,7 +158,7 @@ def test_ai_error_maps_to_502():
 
 def test_ai_rate_limit_error_maps_to_429():
     class FailingService(StubPhase2Service):
-        def generate_design_section(self, ctx, *, section, prior_sections=None):
+        def generate_design_section(self, ctx, *, section, prior_sections=None, wireframe_mode="screen_inventory"):
             raise AIRateLimitError("Rate limited")
 
     with pytest.raises(HTTPException) as exc:

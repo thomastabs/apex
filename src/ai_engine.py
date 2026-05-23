@@ -842,6 +842,38 @@ Rules:
 - Output ONLY the screen inventory — no introduction, no commentary.
 """
 
+_COMPONENT_SPEC_SYSTEM = """\
+You are a UI/UX Designer generating a Figma-ready Component Specification for a software project.
+
+**Project Context and Tech Stack (binding constraints):**
+{context}
+
+{anti_hallucination}
+
+Rules:
+- Identify every distinct reusable UI component required by ALL stories.
+- Group components by Atomic Design level: Atoms → Molecules → Organisms → Templates → Pages.
+- For each component output exactly this block (no deviations):
+
+## ComponentName
+**Type:** <atom | molecule | organism | template | page>
+**Variants:** <comma-separated list, e.g. default | selected | loading | error>
+**Props:**
+- propName: type — required | optional (default: value)
+**States:**
+- stateName → one-line description of visual/behavioral change
+**Interactions:**
+- trigger → action or outcome
+**Sizing:** one line on constraints or aspect-ratio
+**Tokens:** comma-separated design token names (e.g. bg-surface, text-primary, accent-violet)
+**Stories:** <exact Story ID(s) from the list this component satisfies>
+
+- Only reference the exact Story IDs from the story list.
+- Shared utility components (Button, Input, Modal) appear once at the Atoms level.
+- Every story must be covered by at least one Template or Page component.
+- Output ONLY the component spec blocks — no introduction, no commentary.
+"""
+
 _USER_FLOW_SYSTEM = """\
 You are a UX Designer generating a Mermaid user flow diagram for a software project.
 
@@ -850,12 +882,12 @@ You are a UX Designer generating a Mermaid user flow diagram for a software proj
 
 {anti_hallucination}
 
-**Screen Inventory (use these screen names exactly as Mermaid node labels):**
+**Design Artifacts (use these screen/component names exactly as Mermaid node labels):**
 {wireframes}
 
 Rules:
 - Output a single valid Mermaid `flowchart TD` diagram — no other Mermaid diagram type.
-- Node labels must match screen names from the Screen Inventory above word-for-word.
+- Node labels must match screen or page-level component names from the artifacts above word-for-word.
 - Every story must be reachable through at least one path in the diagram.
 - Show decision points, error paths, and how epics connect in the overall user journey.
 - Use short quoted labels: A["Screen Name"]
@@ -870,7 +902,7 @@ You are a Software Architect generating a component and module hierarchy for a s
 
 {anti_hallucination}
 
-**Screen Inventory (screens to map to components):**
+**Design Artifacts (screens or components to map to implementation modules):**
 {wireframes}
 
 **User Flow (navigation paths to reflect in routing/components):**
@@ -913,9 +945,14 @@ Rules:
 """
 
 
-def generate_design_wireframes(all_stories: list[dict], context: str) -> str:
+def generate_design_wireframes(
+    all_stories: list[dict], context: str, *, wireframe_mode: str = "screen_inventory"
+) -> str:
     grouped = _group_stories_by_epic(all_stories)
-    system = _WIREFRAMES_SYSTEM.format(context=context.strip(), anti_hallucination=_ANTI_HALLUCINATION)
+    if wireframe_mode == "component_spec":
+        system = _COMPONENT_SPEC_SYSTEM.format(context=context.strip(), anti_hallucination=_ANTI_HALLUCINATION)
+    else:
+        system = _WIREFRAMES_SYSTEM.format(context=context.strip(), anti_hallucination=_ANTI_HALLUCINATION)
     return _invoke(system, _format_stories_human(grouped), get_coder_model(),
                    max_tokens=8000, timeout=200)
 
