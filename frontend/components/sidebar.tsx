@@ -24,7 +24,6 @@ import {
   Trash2,
   UserPlus,
   Users,
-  Zap,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -1450,10 +1449,6 @@ export function Sidebar() {
       {/* ── Account ── */}
       <section className="border-b border-neutral-800 px-4 py-5">
         <div className="mb-4 flex flex-wrap gap-2">
-          <span className="inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/15 px-2 py-1 text-xs font-medium text-emerald-500">
-            <Zap className="size-3" />
-            Anthropic
-          </span>
           <span className="rounded border border-violet-400/40 bg-violet-500/10 px-2 py-1 font-mono text-xs text-violet-400">
             {aiConfig.data?.coder_model ?? "claude-sonnet-4-6"}
           </span>
