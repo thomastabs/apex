@@ -1,6 +1,14 @@
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 
+type PhaseStatus = "done" | "active" | "pending";
+
+const BADGE_STYLES: Record<PhaseStatus, string> = {
+  done:    "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
+  active:  "border-violet-500/30 bg-violet-500/10 text-violet-400",
+  pending: "border-neutral-700 bg-neutral-800/50 text-neutral-500",
+};
+
 export function PhaseCard({
   href,
   phase,
@@ -8,6 +16,7 @@ export function PhaseCard({
   description,
   icon: Icon,
   badge,
+  status = "pending",
 }: {
   href: string;
   phase: string;
@@ -15,6 +24,7 @@ export function PhaseCard({
   description: string;
   icon: LucideIcon;
   badge?: string;
+  status?: PhaseStatus;
 }) {
   return (
     <Link
@@ -27,7 +37,7 @@ export function PhaseCard({
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-violet-400">{phase}</span>
             {badge ? (
-              <span className="rounded border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-400">
+              <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${BADGE_STYLES[status]}`}>
                 {badge}
               </span>
             ) : null}

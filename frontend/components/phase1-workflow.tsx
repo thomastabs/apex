@@ -396,6 +396,7 @@ export function Phase1Workflow() {
               {epics.data?.map((epic) => {
                 const isSelected = selectedLoadEpicId === epic.id;
                 const isExpanded = expandedLoadEpic === epic.id;
+                const pushedCount = epic.stories.filter((s) => s.tags.includes("gherkin")).length;
                 return (
                   <div
                     key={epic.id}
@@ -430,6 +431,18 @@ export function Phase1Workflow() {
                       <span className={cn("flex-1 font-semibold", isSelected ? "text-emerald-300" : dark ? "text-white" : "text-slate-800")}>
                         {epic.subject}
                       </span>
+                      <div className="flex shrink-0 items-center gap-1">
+                        {epic.stories.length > 0 ? (
+                          <span className={cn("rounded border px-1.5 py-0.5 text-xs", dark ? "border-neutral-700 text-neutral-600" : "border-slate-300 text-slate-400")}>
+                            {epic.stories.length} {epic.stories.length === 1 ? "story" : "stories"}
+                          </span>
+                        ) : null}
+                        {pushedCount > 0 ? (
+                          <span className="rounded border border-emerald-700/50 bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-400">
+                            {pushedCount} pushed
+                          </span>
+                        ) : null}
+                      </div>
                       {isSelected ? (
                         <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-emerald-400">
                           <CheckCircle2 className="size-3.5" /> Selected

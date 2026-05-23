@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertCircle, CheckCircle2, Code2, Compass, FileText, Rocket, Wrench } from "lucide-react";
+import { AlertCircle, ArrowRight, CheckCircle2, Code2, Compass, FileText, Rocket, Wrench } from "lucide-react";
 import { PhaseCard } from "@/components/phase-card";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useStoryIndexStats } from "@/lib/hooks/use-workspace";
@@ -62,21 +62,41 @@ export default function HomePage() {
   const storyStats = useStoryIndexStats();
   const techStack = useTechStackStatus();
 
-  function phaseBadge(phaseHref: string): string | undefined {
-    if (!hasProject) return undefined;
-    const stats = storyStats.data;
-    if (phaseHref === "/phase1" && stats) return `${stats.total} stories`;
-    if (phaseHref === "/phase2" && stats && stats.total > 0) {
-      const stackDefined = techStack.data?.defined;
-      const allDesigned = stats.phase2_designed === stats.total && stats.total > 0;
-      if (allDesigned) return "design locked ✓";
-      if (stackDefined) return "stack ✓ · bundle pending";
-      return "stack pending";
+  const stats = storyStats.data;
+  const stackDefined = Boolean(techStack.data?.defined);
+  const phase1Done = Boolean(stats && stats.total > 0);
+  const phase2Done = Boolean(stats && stats.total > 0 && stats.phase2_designed === stats.total);
+
+  type PhaseInfo = { badge?: string; status: "done" | "active" | "pending" };
+
+  function phaseInfo(phaseHref: string): PhaseInfo {
+    if (!hasProject) return { status: "pending" };
+    if (phaseHref === "/phase1") {
+      if (!stats) return { status: "active" };
+      return stats.total > 0
+        ? { badge: `${stats.total} pushed`, status: "done" }
+        : { badge: "no stories yet", status: "active" };
     }
-    if (phaseHref === "/phase3" && stats && stats.total > 0) return `${stats.phase3_proposed}/${stats.total} ready`;
-    if (phaseHref === "/phase4" && stats && stats.total > 0) return `${stats.phase4_tested}/${stats.total} tested`;
-    if (phaseHref === "/phase5" && stats && stats.total > 0) return `${stats.phase5_deployed}/${stats.total} deployed`;
-    return undefined;
+    if (phaseHref === "/phase2") {
+      if (!phase1Done) return { badge: "waiting for Phase 1", status: "pending" };
+      if (phase2Done)  return { badge: "design locked ✓", status: "done" };
+      if (stackDefined) return { badge: "stack ✓ · design pending", status: "active" };
+      return { badge: "stack pending", status: "active" };
+    }
+    if (phaseHref === "/phase3") {
+      if (!phase2Done) return { badge: "waiting for Phase 2", status: "pending" };
+      if (stats && stats.phase3_proposed > 0) return { badge: `${stats.phase3_proposed}/${stats.total} proposed`, status: "active" };
+      return { badge: "ready to start", status: "active" };
+    }
+    if (phaseHref === "/phase4") {
+      if (stats && stats.phase4_tested > 0) return { badge: `${stats.phase4_tested}/${stats.total} tested`, status: "active" };
+      return { status: "pending" };
+    }
+    if (phaseHref === "/phase5") {
+      if (stats && stats.phase5_deployed > 0) return { badge: `${stats.phase5_deployed}/${stats.total} deployed`, status: "active" };
+      return { status: "pending" };
+    }
+    return { status: "pending" };
   }
 
   return (
@@ -127,14 +147,32 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* Next-step callout when Phase 2 is complete */}
+      {hasProject && phase2Done ? (
+        <Link
+          href="/phase3"
+          className="mb-6 flex items-center justify-between gap-4 rounded-md border border-emerald-600/40 bg-emerald-500/8 px-4 py-3 text-sm transition-colors hover:border-emerald-500/60"
+        >
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="size-4 shrink-0 text-emerald-400" />
+            <div>
+              <p className="font-semibold text-emerald-300">Phases 1 &amp; 2 complete</p>
+              <p className="text-emerald-500/80">Design is locked. Your project is ready for Phase 3 · Implementation.</p>
+            </div>
+          </div>
+          <ArrowRight className="size-4 shrink-0 text-emerald-400" />
+        </Link>
+      ) : null}
+
       <div>
         <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.1em] text-neutral-500">
           SDLC Phases
         </h2>
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-          {phases.map((phase) => (
-            <PhaseCard key={phase.href} {...phase} badge={phaseBadge(phase.href)} />
-          ))}
+          {phases.map((phase) => {
+            const { badge, status } = phaseInfo(phase.href);
+            return <PhaseCard key={phase.href} {...phase} badge={badge} status={status} />;
+          })}
         </div>
       </div>
     </section>

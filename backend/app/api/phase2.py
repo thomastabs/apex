@@ -4,9 +4,6 @@ import logging
 from typing import NoReturn
 
 from fastapi import APIRouter, Depends, HTTPException, status
-
-_logger = logging.getLogger("apex.phase2")
-
 from backend.app.api.deps import RequestContext, get_request_context
 from backend.app.api.rate_limit import ai_rate_limit
 from backend.app.schemas.phase2 import (
@@ -22,6 +19,8 @@ from backend.app.schemas.phase2 import (
 from backend.app.schemas.workspace import OkResponse
 from backend.app.services.phase2_service import Phase2Service, Phase2ValidationError
 from src.ai_engine import AIError, AIRateLimitError, AITimeoutError
+
+_logger = logging.getLogger("apex.phase2")
 
 router = APIRouter()
 
