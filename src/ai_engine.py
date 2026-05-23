@@ -936,11 +936,14 @@ Output exactly two sections — nothing else, no introduction, no commentary.
 One `### <Epic Title>` subsection per epic. The subsection heading MUST be copied verbatim from the `## <heading>` in the story list — do not rename, shorten, or merge.
 Format:
 ### <Epic Title — exact copy from story list>
-- `METHOD /path/to/resource` — one-line purpose (Story <ID>)
+- `METHOD /path/to/resource` — purpose (Story <ID>) · auth:<none|bearer|role:admin> · in:<field:type,...> · out:<field:type,...>
 
 Rules for Endpoints:
-- One bullet per endpoint. Method + path + purpose only — no request/response schemas.
-- ONLY use the HTTP methods and path style consistent with the Tech Stack.
+- One bullet per endpoint.
+- `auth:` — always present: none, bearer, or role:admin.
+- `in:` — key request body/query fields only (field:type pairs). Omit for GET with no params.
+- `out:` — key response fields only (field:type pairs). Always present.
+- ONLY use HTTP methods and path style consistent with the Tech Stack.
 - Derive route names from screen names in the UX Brief above.
 
 ## Data Model
