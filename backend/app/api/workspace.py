@@ -42,6 +42,18 @@ def get_config(auth: AuthContext = Depends(get_auth_context)):
     }
 
 
+def _configured_providers() -> list[str]:
+    import os
+    providers = []
+    if os.getenv("ANTHROPIC_API_KEY"):
+        providers.append("anthropic")
+    if os.getenv("OPENAI_API_KEY"):
+        providers.append("openai")
+    if os.getenv("GOOGLE_API_KEY"):
+        providers.append("google")
+    return providers
+
+
 @router.get("/ai-config", response_model=AiConfigResponse)
 def get_ai_config(auth: AuthContext = Depends(get_auth_context)):
     from src.ai_engine import AVAILABLE_MODELS, get_coder_model, get_fast_model
@@ -49,6 +61,7 @@ def get_ai_config(auth: AuthContext = Depends(get_auth_context)):
         "fast_model": get_fast_model(),
         "coder_model": get_coder_model(),
         "available_models": AVAILABLE_MODELS,
+        "configured_providers": _configured_providers(),
     }
 
 
@@ -63,7 +76,7 @@ def save_ai_config_endpoint(payload: SaveAiConfigRequest, auth: AuthContext = De
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid model ID.")
     context_manager.save_ai_config(fast, coder)
     ai_engine._llm_cache.clear()
-    return {"fast_model": fast, "coder_model": coder, "available_models": AVAILABLE_MODELS}
+    return {"fast_model": fast, "coder_model": coder, "available_models": AVAILABLE_MODELS, "configured_providers": _configured_providers()}
 
 
 @router.post("/config", response_model=OkResponse)

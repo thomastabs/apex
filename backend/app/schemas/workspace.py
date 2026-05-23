@@ -50,6 +50,7 @@ class AiConfigResponse(BaseModel):
     fast_model: str
     coder_model: str
     available_models: list[AiConfigModel] = Field(default_factory=list)
+    configured_providers: list[str] = Field(default_factory=list)
 
 
 class StoryIndexStatsResponse(BaseModel):

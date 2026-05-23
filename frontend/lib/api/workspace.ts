@@ -37,6 +37,7 @@ export type AiConfigResponse = {
   fast_model: string;
   coder_model: string;
   available_models: Array<{ id: string; label: string; role: string; provider?: string; note?: string }>;
+  configured_providers: string[];
 };
 
 export function getAiConfig(context: AuthContext) {

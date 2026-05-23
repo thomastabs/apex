@@ -1235,6 +1235,7 @@ export function Sidebar() {
   const serverConfig = useServerConfig();
   const taigaWebUrl = serverConfig.data?.taiga_web_url ?? "https://tree.taiga.io";
   const availableModels = aiConfig.data?.available_models ?? FALLBACK_MODELS;
+  const configuredProviders = aiConfig.data?.configured_providers ?? [];
 
   // Migrate stored section order when new section IDs are added
   useEffect(() => {
@@ -1960,10 +1961,10 @@ export function Sidebar() {
                             </button>
                           ))}
                         </div>
-                        {localProvider === "openai" && (
+                        {localProvider === "openai" && !configuredProviders.includes("openai") && (
                           <p className="mt-1.5 text-xs text-amber-400">Requires OPENAI_API_KEY set in backend env.</p>
                         )}
-                        {localProvider === "google" && (
+                        {localProvider === "google" && !configuredProviders.includes("google") && (
                           <p className="mt-1.5 text-xs text-amber-400">Requires GOOGLE_API_KEY set in backend env.</p>
                         )}
                       </div>
