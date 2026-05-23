@@ -93,7 +93,7 @@ Implemented:
 - ZIP download of all context files
 - Story index rebuild with out-of-sync warning
 - Context reset (individual and all files)
-- AI model selector (fast model / coder model) — supports Anthropic (Claude), OpenAI (GPT), and Google (Gemini); provider warnings shown only when the corresponding API key is not configured in the backend
+- AI model selector (Phase 1 model / Phase 2 model) — supports Anthropic (Claude), OpenAI (GPT), and Google (Gemini); budget-tier to premium options available per provider; provider warnings shown only when the corresponding API key is not configured in the backend
 - Light/dark mode
 
 ---
