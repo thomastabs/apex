@@ -625,11 +625,13 @@ def rebuild_story_index() -> dict[str, dict]:
     if fs.exists():
         content = fs.read_text(encoding="utf-8")
         current_epic_id: int | None = None
+        current_epic_title: str = ""
 
         for line in content.splitlines():
             epic_m = re.match(r"^## Epic (\d+): (.+)$", line)
             if epic_m:
                 current_epic_id = int(epic_m.group(1))
+                current_epic_title = epic_m.group(2).strip()
                 continue
 
             nested_m = re.match(r"^### Story (\d+): (.+)$", line)
@@ -638,6 +640,7 @@ def rebuild_story_index() -> dict[str, dict]:
                 index[sid] = {
                     "story_id":    int(sid),
                     "epic_id":     current_epic_id,
+                    "epic_title":  current_epic_title,
                     "title":       nested_m.group(2).strip(),
                     "phase_status": "gherkin_locked",
                     "has_gherkin":  True,
