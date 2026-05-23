@@ -1,87 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { usePathname } from "next/navigation";
-import {
-  Bot,
-  BookOpen,
-  ChevronDown,
-  ChevronRight,
-  Download,
-  ExternalLink,
-  FileText,
-  FolderOpen,
-  GripVertical,
-  Info,
-  Layers3,
-  Moon,
-  PanelLeftOpen,
-  Plus,
-  RefreshCw,
-  Send,
-  Sun,
-  Trash2,
-  UserPlus,
-  Users,
-} from "lucide-react";
+import { Moon, PanelLeftOpen, Send, Sun, UserPlus } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  useAiConfig,
-  useBoard,
-  useContextFiles,
-  useCreateEpic,
-  useCreateProject,
-  useCreateStory,
-  useDeleteEpic,
-  useDeleteProject,
-  useDeleteStory,
-  useInviteUser,
-  useMe,
-  useProjects,
-  useRebuildStoryIndex,
-  useRemoveMember,
-  useResetAllContextFiles,
-  useResetContextFile,
-  useSaveAiConfig,
-  useSaveServerConfig,
-  useServerConfig,
-  useStoryIndexStats,
-  useStoryStatuses,
-  useUpdateContextFile,
-  useUpdateEpic,
-  useUpdateMemberRole,
-  useUpdateStory,
-  useUsers,
-} from "@/lib/hooks/use-workspace";
+import { useAiConfig, useMe, useProjects, useServerConfig } from "@/lib/hooks/use-workspace";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { usePhase2Store } from "@/lib/stores/phase2-store";
-import { cn, errMsg } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import type { Epic, Story } from "@/lib/api/types";
 import { ApiError } from "@/lib/api/client";
-import { Skeleton } from "@/components/ui/primitives";
+import { BoardSection } from "./sidebar/board-section";
+import { ProjectSection } from "./sidebar/project-section";
+import { UsersSection } from "./sidebar/users-section";
+import { ContextSection } from "./sidebar/context-section";
+import { AiSection } from "./sidebar/ai-section";
+import { ResourcesSection } from "./sidebar/resources-section";
 
 // ── constants ─────────────────────────────────────────────────────────────────
-
-const FALLBACK_MODELS = [
-  // Anthropic
-  { id: "claude-haiku-4-5-20251001",       label: "Claude Haiku 4.5",     role: "Budget",   provider: "anthropic", note: "Cheapest Claude — good for simple tasks" },
-  { id: "claude-sonnet-4-6",               label: "Claude Sonnet 4.6",    role: "Standard",  provider: "anthropic", note: "Recommended for most projects" },
-  { id: "claude-opus-4-7",                 label: "Claude Opus 4.7",      role: "Premium",   provider: "anthropic", note: "Most capable" },
-  // OpenAI
-  { id: "gpt-4.1-nano",                    label: "GPT-4.1 Nano",         role: "Budget",   provider: "openai",    note: "Cheapest OpenAI model — good for simple tasks" },
-  { id: "gpt-4.1-mini",                    label: "GPT-4.1 Mini",         role: "Economy",   provider: "openai",    note: "Low cost with strong capability" },
-  { id: "gpt-4o-mini",                     label: "GPT-4o Mini",          role: "Economy",   provider: "openai",    note: "Reliable low-cost option" },
-  { id: "gpt-4.1",                         label: "GPT-4.1",              role: "Standard",  provider: "openai",    note: "Latest GPT-4.1 — strong and efficient" },
-  { id: "gpt-4o",                          label: "GPT-4o",               role: "Standard",  provider: "openai",    note: "GPT-4o flagship" },
-  // Google
-  { id: "gemini-2.0-flash-lite",           label: "Gemini 2.0 Flash Lite", role: "Budget",  provider: "google",    note: "Cheapest Gemini model — ideal for simple tasks" },
-  { id: "gemini-2.0-flash",                label: "Gemini 2.0 Flash",     role: "Economy",   provider: "google",    note: "Fast and low cost" },
-  { id: "gemini-2.5-flash-preview-05-20",  label: "Gemini 2.5 Flash",     role: "Standard",  provider: "google",    note: "Best Gemini balance of quality and cost" },
-  { id: "gemini-2.5-pro-preview-06-05",    label: "Gemini 2.5 Pro",       role: "Premium",   provider: "google",    note: "Most capable Gemini model" },
-];
 
 const SECTION_LABELS: Record<string, string> = {
   project: "Project",
@@ -92,34 +29,7 @@ const SECTION_LABELS: Record<string, string> = {
   resources: "Resources",
 };
 
-// ── helpers ──────────────────────────────────────────────────────────────────
-
-type ModelEntry = { id: string; label: string; role: string; provider?: string; note?: string };
-type ProviderKey = "anthropic" | "openai" | "google";
-
-function modelProvider(m: ModelEntry): ProviderKey {
-  return (m.provider ?? "anthropic") as ProviderKey;
-}
-
-function ModelSelect({ models, value, onChange }: { models: ModelEntry[]; value: string; onChange: (v: string) => void }) {
-  return (
-    <select
-      className="h-9 w-full rounded border border-neutral-600 bg-neutral-950 px-2 text-sm text-white"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    >
-      {models.map((m) => (
-        <option key={m.id} value={m.id}>{m.label} — {m.note ?? m.role}</option>
-      ))}
-    </select>
-  );
-}
-
-const PROVIDER_LABELS: Record<ProviderKey, string> = {
-  anthropic: "Anthropic (Claude)",
-  openai:    "OpenAI (GPT)",
-  google:    "Google (Gemini)",
-};
+// ── helpers ───────────────────────────────────────────────────────────────────
 
 function initials(name: string) {
   const clean = name.trim();
@@ -127,198 +37,7 @@ function initials(name: string) {
   return clean.split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("");
 }
 
-function downloadFile(filename: string, content: string) {
-  const blob = new Blob([content], { type: "text/markdown" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-let crcTable: Uint32Array | null = null;
-
-function getCrcTable() {
-  if (crcTable) return crcTable;
-  const table = new Uint32Array(256);
-  for (let i = 0; i < 256; i++) {
-    let c = i;
-    for (let k = 0; k < 8; k++) {
-      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    }
-    table[i] = c >>> 0;
-  }
-  crcTable = table;
-  return table;
-}
-
-function crc32(bytes: Uint8Array) {
-  const table = getCrcTable();
-  let crc = 0xffffffff;
-  for (const byte of bytes) {
-    crc = table[(crc ^ byte) & 0xff] ^ (crc >>> 8);
-  }
-  return (crc ^ 0xffffffff) >>> 0;
-}
-
-function writeU16(target: number[], value: number) {
-  target.push(value & 0xff, (value >>> 8) & 0xff);
-}
-
-function writeU32(target: number[], value: number) {
-  target.push(value & 0xff, (value >>> 8) & 0xff, (value >>> 16) & 0xff, (value >>> 24) & 0xff);
-}
-
-function downloadContextZip(files: Array<{ filename: string; content: string }>) {
-  if (!files.length) {
-    toast.error("No context files to download");
-    return;
-  }
-
-  const encoder = new TextEncoder();
-  const chunks: Uint8Array[] = [];
-  const centralDirectory: Uint8Array[] = [];
-  let offset = 0;
-
-  for (const file of files) {
-    const nameBytes = encoder.encode(file.filename);
-    const data = encoder.encode(file.content);
-    const checksum = crc32(data);
-
-    const local: number[] = [];
-    writeU32(local, 0x04034b50);
-    writeU16(local, 20);
-    writeU16(local, 0x0800);
-    writeU16(local, 0);
-    writeU16(local, 0);
-    writeU16(local, 0);
-    writeU32(local, checksum);
-    writeU32(local, data.length);
-    writeU32(local, data.length);
-    writeU16(local, nameBytes.length);
-    writeU16(local, 0);
-    chunks.push(new Uint8Array(local), nameBytes, data);
-
-    const central: number[] = [];
-    writeU32(central, 0x02014b50);
-    writeU16(central, 20);
-    writeU16(central, 20);
-    writeU16(central, 0x0800);
-    writeU16(central, 0);
-    writeU16(central, 0);
-    writeU16(central, 0);
-    writeU32(central, checksum);
-    writeU32(central, data.length);
-    writeU32(central, data.length);
-    writeU16(central, nameBytes.length);
-    writeU16(central, 0);
-    writeU16(central, 0);
-    writeU16(central, 0);
-    writeU16(central, 0);
-    writeU32(central, 0);
-    writeU32(central, offset);
-    centralDirectory.push(new Uint8Array(central), nameBytes);
-
-    offset += local.length + nameBytes.length + data.length;
-  }
-
-  const centralOffset = offset;
-  const centralSize = centralDirectory.reduce((sum, chunk) => sum + chunk.length, 0);
-  const end: number[] = [];
-  writeU32(end, 0x06054b50);
-  writeU16(end, 0);
-  writeU16(end, 0);
-  writeU16(end, files.length);
-  writeU16(end, files.length);
-  writeU32(end, centralSize);
-  writeU32(end, centralOffset);
-  writeU16(end, 0);
-
-  const zipParts = [...chunks, ...centralDirectory, new Uint8Array(end)].map((chunk) => {
-    const copy = new ArrayBuffer(chunk.byteLength);
-    new Uint8Array(copy).set(chunk);
-    return copy;
-  });
-  const blob = new Blob(zipParts, { type: "application/zip" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "apex-context-files.zip";
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function contextSizeColor(totalChars: number): string {
-  if (totalChars < 30_000) return "#4ade80";
-  if (totalChars < 80_000) return "#facc15";
-  return "#f87171";
-}
-
-function ContextSizeWarning({ totalChars }: { totalChars: number }) {
-  if (totalChars >= 200_000) {
-    return (
-      <div className="mb-3 rounded border border-red-600 bg-red-950/50 px-3 py-2 text-xs text-red-300">
-        <strong>Context at {Math.round(totalChars / 1000)}k chars</strong> — exceeds Claude&apos;s limit. AI calls will fail. Delete or reset context files.
-      </div>
-    );
-  }
-  if (totalChars >= 150_000) {
-    return (
-      <div className="mb-3 rounded border border-orange-700 bg-orange-950/30 px-3 py-2 text-xs text-orange-300">
-        <strong>Context at {Math.round(totalChars / 1000)}k chars</strong> — approaching Claude&apos;s limit. Consider trimming context files.
-      </div>
-    );
-  }
-  return null;
-}
-
-// ── sub-components ────────────────────────────────────────────────────────────
-
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 className="mb-4 text-sm font-bold uppercase tracking-[0.14em] text-violet-300">{children}</h2>
-  );
-}
-
-function PanelHeader({
-  icon, title, badge, open, onClick, onDragStart,
-}: {
-  icon: React.ReactNode; title: string; badge?: string; open: boolean; onClick: () => void;
-  onDragStart?: (e: React.DragEvent) => void;
-}) {
-  const dark = useUiStore((state) => state.theme) === "dark";
-  return (
-    <div className={cn(
-      "flex items-center border-b transition-colors hover:bg-violet-500/5",
-      dark ? "border-neutral-800" : "border-slate-300",
-    )}>
-      {onDragStart ? (
-        <div
-          draggable
-          onDragStart={onDragStart}
-          onClickCapture={(e) => e.stopPropagation()}
-          className={cn(
-            "flex h-14 w-8 shrink-0 cursor-grab items-center justify-center pl-2 transition-colors active:cursor-grabbing",
-            dark ? "text-neutral-600 hover:text-neutral-400" : "text-slate-400 hover:text-slate-600",
-          )}
-          title="Drag to reorder"
-        >
-          <GripVertical className="size-3.5" />
-        </div>
-      ) : null}
-      <button
-        className="flex h-14 flex-1 items-center gap-2 px-4 text-left"
-        onClick={onClick}
-      >
-        {open ? <ChevronDown className={cn("size-3", dark ? "text-neutral-500" : "text-slate-400")} /> : <ChevronRight className={cn("size-3", dark ? "text-neutral-500" : "text-slate-400")} />}
-        <span className="text-violet-400">{icon}</span>
-        <span className={cn("flex-1 text-sm font-semibold", dark ? "text-neutral-100" : "text-slate-950")}>{title}</span>
-        {badge ? <span className="rounded border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-xs text-violet-400">{badge}</span> : null}
-      </button>
-    </div>
-  );
-}
+// ── ConfirmDialog ─────────────────────────────────────────────────────────────
 
 function ConfirmDialog({
   open, message, onConfirm, onCancel,
@@ -352,632 +71,7 @@ function ConfirmDialog({
   );
 }
 
-function EpicDialog({ epic, onClose }: { epic: Epic; onClose: () => void }) {
-  const dark = useUiStore((state) => state.theme === "dark");
-  const [subject, setSubject] = useState(epic.subject);
-  const [description, setDescription] = useState(epic.description);
-  const [tagsInput, setTagsInput] = useState((epic.tags ?? []).join(", "));
-  const update = useUpdateEpic();
-
-  function save() {
-    if (!epic.version) return;
-    const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
-    update.mutate(
-      { epicId: epic.id, version: epic.version, fields: { subject, description, tags } },
-      { onSuccess: onClose },
-    );
-  }
-
-  const inputClass = cn(
-    "w-full rounded border px-3 text-sm outline-none focus:border-violet-500",
-    dark
-      ? "border-neutral-700 bg-neutral-950 text-white placeholder:text-neutral-500"
-      : "border-slate-300 bg-white text-slate-950 placeholder:text-slate-400",
-  );
-
-  return (
-    <div
-      className={cn("fixed inset-0 z-50 grid place-items-center p-4", dark ? "bg-black/75" : "bg-slate-950/35 backdrop-blur-sm")}
-      onClick={onClose}
-    >
-      <div
-        className={cn(
-          "w-full max-w-2xl rounded-xl border p-6 shadow-2xl",
-          dark ? "border-neutral-700 bg-neutral-900" : "border-slate-300 bg-white",
-        )}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>Epic #{epic.ref}</h3>
-        <div className="space-y-3">
-          <div>
-            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Title</label>
-            <input
-              className={cn("h-9 border-violet-700", inputClass)}
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="Epic title"
-              autoFocus
-            />
-          </div>
-          <div>
-            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Description</label>
-            <textarea
-              className={cn("h-52 resize-none py-2", inputClass)}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe the epic…"
-            />
-          </div>
-          <div>
-            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
-              Tags <span className={dark ? "text-neutral-600" : "text-slate-400"}>(comma-separated)</span>
-            </label>
-            <input
-              className={cn("h-8 text-xs", inputClass)}
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="e.g. backend, auth, v2"
-            />
-          </div>
-        </div>
-        <div className="mt-5 flex gap-3">
-          <button
-            className="flex-1 rounded bg-violet-700 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-600 disabled:opacity-50"
-            disabled={update.isPending || !subject.trim()}
-            onClick={save}
-          >
-            {update.isPending ? "Saving…" : "Save"}
-          </button>
-          <button
-            className={cn(
-              "flex-1 rounded py-2 text-sm transition-colors",
-              dark ? "bg-neutral-800 text-neutral-300 hover:bg-neutral-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200",
-            )}
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StoryDialog({ story, onClose }: { story: Story; onClose: () => void }) {
-  const dark = useUiStore((state) => state.theme === "dark");
-  const [subject, setSubject] = useState(story.subject);
-  const [description, setDescription] = useState(story.description ?? "");
-  const [tagsInput, setTagsInput] = useState((story.tags ?? []).join(", "));
-  const update = useUpdateStory();
-
-  function save() {
-    if (!story.version) return;
-    const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
-    update.mutate(
-      { storyId: story.id, version: story.version, fields: { subject, description, tags } },
-      { onSuccess: onClose },
-    );
-  }
-
-  const inputClass = cn(
-    "w-full rounded border px-3 text-sm outline-none focus:border-violet-500",
-    dark
-      ? "border-neutral-700 bg-neutral-950 text-white placeholder:text-neutral-500"
-      : "border-slate-300 bg-white text-slate-950 placeholder:text-slate-400",
-  );
-
-  return (
-    <div
-      className={cn("fixed inset-0 z-50 grid place-items-center p-4", dark ? "bg-black/75" : "bg-slate-950/35 backdrop-blur-sm")}
-      onClick={onClose}
-    >
-      <div
-        className={cn(
-          "w-full max-w-2xl rounded-xl border p-6 shadow-2xl",
-          dark ? "border-neutral-700 bg-neutral-900" : "border-slate-300 bg-white",
-        )}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>Story #{story.ref}</h3>
-        <div className="space-y-3">
-          <div>
-            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Title</label>
-            <input
-              className={cn("h-9 border-violet-700", inputClass)}
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="Story title"
-              autoFocus
-            />
-          </div>
-          <div>
-            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Description</label>
-            <textarea
-              className={cn("h-52 resize-none py-2", inputClass)}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe the story…"
-            />
-          </div>
-          <div>
-            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
-              Tags <span className={dark ? "text-neutral-600" : "text-slate-400"}>(comma-separated)</span>
-            </label>
-            <input
-              className={cn("h-8 text-xs", inputClass)}
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="e.g. frontend, ui, sprint-1"
-            />
-          </div>
-        </div>
-        <div className="mt-5 flex gap-3">
-          <button
-            className="flex-1 rounded bg-violet-700 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-600 disabled:opacity-50"
-            disabled={update.isPending || !subject.trim()}
-            onClick={save}
-          >
-            {update.isPending ? "Saving…" : "Save"}
-          </button>
-          <button
-            className={cn(
-              "flex-1 rounded py-2 text-sm transition-colors",
-              dark ? "bg-neutral-800 text-neutral-300 hover:bg-neutral-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200",
-            )}
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CreateEpicDialog({ onClose }: { onClose: () => void }) {
-  const dark = useUiStore((state) => state.theme === "dark");
-  const [subject, setSubject] = useState("");
-  const [description, setDescription] = useState("");
-  const [tagsInput, setTagsInput] = useState("");
-  const create = useCreateEpic();
-
-  const inputClass = cn(
-    "w-full rounded border px-3 text-sm outline-none focus:border-violet-500",
-    dark
-      ? "border-neutral-700 bg-neutral-950 text-white placeholder:text-neutral-500"
-      : "border-slate-300 bg-white text-slate-950 placeholder:text-slate-400",
-  );
-
-  function submit() {
-    if (!subject.trim()) return;
-    const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
-    create.mutate(
-      { subject: subject.trim(), description, tags },
-      { onSuccess: onClose },
-    );
-  }
-
-  return (
-    <div
-      className={cn("fixed inset-0 z-50 grid place-items-center p-4", dark ? "bg-black/75" : "bg-slate-950/35 backdrop-blur-sm")}
-      onClick={onClose}
-    >
-      <div
-        className={cn(
-          "w-full max-w-2xl rounded-xl border p-6 shadow-2xl",
-          dark ? "border-neutral-700 bg-neutral-900" : "border-slate-300 bg-white",
-        )}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>Create New Epic</h3>
-        <div className="space-y-3">
-          <div>
-            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
-              Title <span className="text-red-400">*</span>
-            </label>
-            <input
-              className={cn("h-9 border-violet-700", inputClass)}
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="Epic title"
-              autoFocus
-              onKeyDown={(e) => e.key === "Enter" && submit()}
-            />
-          </div>
-          <div>
-            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Description</label>
-            <textarea
-              className={cn("h-48 resize-none py-2", inputClass)}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe this epic…"
-            />
-          </div>
-          <div>
-            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
-              Tags <span className={dark ? "text-neutral-600" : "text-slate-400"}>(comma-separated)</span>
-            </label>
-            <input
-              className={cn("h-8 text-xs", inputClass)}
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="e.g. backend, auth, v2"
-            />
-          </div>
-        </div>
-        <div className="mt-5 flex gap-3">
-          <button
-            className="flex-1 rounded bg-violet-700 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-600 disabled:opacity-50"
-            disabled={create.isPending || !subject.trim()}
-            onClick={submit}
-          >
-            {create.isPending ? "Creating…" : "Create Epic"}
-          </button>
-          <button
-            className={cn(
-              "flex-1 rounded py-2 text-sm transition-colors",
-              dark ? "bg-neutral-800 text-neutral-300 hover:bg-neutral-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200",
-            )}
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CreateStoryDialog({ epicId, onClose }: { epicId: number; onClose: () => void }) {
-  const dark = useUiStore((state) => state.theme === "dark");
-  const [subject, setSubject] = useState("");
-  const [description, setDescription] = useState("");
-  const [tagsInput, setTagsInput] = useState("");
-  const [statusId, setStatusId] = useState<number | undefined>(undefined);
-  const create = useCreateStory();
-  const statuses = useStoryStatuses();
-
-  const inputClass = cn(
-    "w-full rounded border px-3 text-sm outline-none focus:border-violet-500",
-    dark
-      ? "border-neutral-700 bg-neutral-950 text-white placeholder:text-neutral-500"
-      : "border-slate-300 bg-white text-slate-950 placeholder:text-slate-400",
-  );
-
-  function submit() {
-    if (!subject.trim()) return;
-    const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
-    create.mutate(
-      { epicId, subject: subject.trim(), description, tags, statusId },
-      { onSuccess: onClose },
-    );
-  }
-
-  return (
-    <div
-      className={cn("fixed inset-0 z-50 grid place-items-center p-4", dark ? "bg-black/75" : "bg-slate-950/35 backdrop-blur-sm")}
-      onClick={onClose}
-    >
-      <div
-        className={cn(
-          "w-full max-w-2xl rounded-xl border p-6 shadow-2xl",
-          dark ? "border-neutral-700 bg-neutral-900" : "border-slate-300 bg-white",
-        )}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>Create New Story</h3>
-        <div className="space-y-3">
-          <div>
-            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
-              Title <span className="text-red-400">*</span>
-            </label>
-            <input
-              className={cn("h-9 border-violet-700", inputClass)}
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="Story title"
-              autoFocus
-              onKeyDown={(e) => e.key === "Enter" && submit()}
-            />
-          </div>
-          <div>
-            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Description</label>
-            <textarea
-              className={cn("h-40 resize-none py-2", inputClass)}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe this story…"
-            />
-          </div>
-          <div>
-            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
-              Tags <span className={dark ? "text-neutral-600" : "text-slate-400"}>(comma-separated)</span>
-            </label>
-            <input
-              className={cn("h-8 text-xs", inputClass)}
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="e.g. frontend, sprint-1"
-            />
-          </div>
-          <div>
-            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Status</label>
-            <select
-              className={cn(
-                "h-8 w-full rounded border px-2 text-xs outline-none focus:border-violet-500",
-                dark ? "border-neutral-700 bg-neutral-950 text-neutral-200" : "border-slate-300 bg-white text-slate-950",
-              )}
-              value={statusId ?? ""}
-              onChange={(e) => setStatusId(e.target.value ? Number(e.target.value) : undefined)}
-            >
-              <option value="">Default</option>
-              {statuses.data?.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="mt-5 flex gap-3">
-          <button
-            className="flex-1 rounded bg-violet-700 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-600 disabled:opacity-50"
-            disabled={create.isPending || !subject.trim()}
-            onClick={submit}
-          >
-            {create.isPending ? "Creating…" : "Create Story"}
-          </button>
-          <button
-            className={cn(
-              "flex-1 rounded py-2 text-sm transition-colors",
-              dark ? "bg-neutral-800 text-neutral-300 hover:bg-neutral-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200",
-            )}
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function EpicEditRow({ epic, onDone }: { epic: Epic; onDone: () => void }) {
-  const [subject, setSubject] = useState(epic.subject);
-  const [description, setDescription] = useState(epic.description);
-  const [tagsInput, setTagsInput] = useState((epic.tags ?? []).join(", "));
-  const update = useUpdateEpic();
-
-  function save() {
-    if (!epic.version) return;
-    const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
-    update.mutate(
-      { epicId: epic.id, version: epic.version, fields: { subject, description, tags } },
-      { onSuccess: onDone },
-    );
-  }
-
-  return (
-    <div className="mt-2 space-y-2 pl-5">
-      <input
-        className="h-8 w-full rounded border border-violet-700 bg-neutral-950 px-2 text-sm text-white"
-        value={subject}
-        onChange={(e) => setSubject(e.target.value)}
-        placeholder="Epic title"
-      />
-      <textarea
-        className="h-20 w-full resize-none rounded border border-neutral-600 bg-neutral-950 px-2 py-1 text-xs text-neutral-200"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        placeholder="Description"
-      />
-      <input
-        className="h-7 w-full rounded border border-neutral-600 bg-neutral-950 px-2 text-xs text-neutral-200"
-        value={tagsInput}
-        onChange={(e) => setTagsInput(e.target.value)}
-        placeholder="Tags (comma-separated)"
-      />
-      <div className="flex gap-2">
-        <button
-          className="rounded bg-violet-700 px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
-          disabled={update.isPending || !subject.trim()}
-          onClick={save}
-        >
-          Save
-        </button>
-        <button className="rounded bg-neutral-700 px-3 py-1 text-xs text-neutral-300" onClick={onDone}>
-          Cancel
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function StoryEditRow({ story, onDone }: { story: Story; onDone: () => void }) {
-  const [subject, setSubject] = useState(story.subject);
-  const [tagsInput, setTagsInput] = useState((story.tags ?? []).join(", "));
-  const update = useUpdateStory();
-
-  function save() {
-    if (!story.version) return;
-    const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
-    update.mutate(
-      { storyId: story.id, version: story.version, fields: { subject, tags } },
-      { onSuccess: onDone },
-    );
-  }
-
-  return (
-    <div className="mt-1 space-y-1">
-      <div className="flex gap-1">
-        <input
-          className="h-7 flex-1 rounded border border-violet-700 bg-neutral-950 px-2 text-xs text-white"
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-          placeholder="Story title"
-        />
-        <button
-          className="rounded bg-violet-700 px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
-          disabled={update.isPending || !subject.trim()}
-          onClick={save}
-        >
-          ✓
-        </button>
-        <button className="rounded bg-neutral-700 px-2 py-1 text-xs text-neutral-300" onClick={onDone}>
-          ✕
-        </button>
-      </div>
-      <input
-        className="h-6 w-full rounded border border-neutral-700 bg-neutral-950 px-2 text-xs text-neutral-300"
-        value={tagsInput}
-        onChange={(e) => setTagsInput(e.target.value)}
-        placeholder="Tags (comma-separated)"
-      />
-    </div>
-  );
-}
-
-function MarkdownPreview({ content }: { content: string }) {
-  const [html, setHtml] = useState("");
-  const dark = useUiStore((state) => state.theme) === "dark";
-
-  useEffect(() => {
-    async function render() {
-      const { marked } = await import("marked");
-      const result = await marked.parse(content || "");
-      setHtml(result);
-    }
-    void render();
-  }, [content]);
-
-  return (
-    <div
-      className={cn(
-        "prose prose-sm max-w-none overflow-auto p-3 text-xs leading-5",
-        dark ? "prose-invert" : "prose-slate",
-      )}
-      // eslint-disable-next-line react/no-danger
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  );
-}
-
-function ContextEditor({
-  file,
-  onConfirm,
-}: {
-  file: { filename: string; label: string; content: string };
-  onConfirm: (msg: string, cb: () => void) => void;
-}) {
-  const [value, setValue] = useState(file.content);
-  const [mdPreview, setMdPreview] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const update = useUpdateContextFile();
-  const reset = useResetContextFile();
-  const dark = useUiStore((state) => state.theme) === "dark";
-
-  useEffect(() => {
-    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-    setValue(file.content);
-  }, [file.content]);
-
-  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
-
-  function handleChange(newValue: string) {
-    setValue(newValue);
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      timerRef.current = null;
-      update.mutate({ filename: file.filename, content: newValue });
-    }, 700);
-  }
-
-  const statusLabel = update.isPending ? "Saving…" : update.isError ? "Error" : update.isSuccess ? "Saved" : "";
-  const statusColor = update.isError ? "text-red-400" : dark ? "text-neutral-500" : "text-slate-500";
-
-  return (
-    <div className={cn("border-t", dark ? "border-neutral-800" : "border-slate-200")}>
-      <div className={cn("flex items-center gap-2 border-b px-3 py-1", dark ? "border-neutral-800" : "border-slate-200")}>
-        <span className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-500")}>{value.length} ch</span>
-        {statusLabel ? <span className={cn("text-xs", statusColor)}>{statusLabel}</span> : null}
-        <div className="flex-1" />
-        <button
-          className={cn(
-            "rounded px-2 py-0.5 text-xs",
-            mdPreview
-              ? "bg-violet-800 text-violet-100"
-              : dark ? "text-neutral-400 hover:bg-neutral-800" : "text-slate-500 hover:bg-slate-100",
-          )}
-          onClick={() => setMdPreview(!mdPreview)}
-        >
-          {mdPreview ? "Raw" : "Preview"}
-        </button>
-      </div>
-      {mdPreview ? (
-        <MarkdownPreview content={value} />
-      ) : (
-        <textarea
-          className={cn(
-            "h-56 w-full resize-y p-3 font-mono text-xs leading-5 outline-none",
-            dark ? "bg-neutral-950 text-neutral-200" : "bg-white text-slate-800",
-          )}
-          value={value}
-          onChange={(e) => handleChange(e.target.value)}
-        />
-      )}
-      <div className="grid grid-cols-2 gap-2 p-2">
-        <button
-          className={cn(
-            "flex h-8 items-center justify-center gap-1 rounded text-xs",
-            dark ? "bg-neutral-700 text-neutral-200 hover:bg-neutral-600" : "bg-slate-100 text-slate-700 hover:bg-slate-200",
-          )}
-          onClick={() => downloadFile(file.filename, value)}
-        >
-          <Download className="size-3" />
-          Download
-        </button>
-        <button
-          className="h-8 rounded bg-red-950/70 text-xs font-semibold text-red-300 disabled:opacity-50"
-          disabled={reset.isPending}
-          onClick={() =>
-            onConfirm(`Reset ${file.label} to default?`, () => reset.mutate(file.filename))
-          }
-        >
-          Reset to default
-        </button>
-      </div>
-    </div>
-  );
-}
-
-const CONTEXT_FILE_PHASES: Record<string, string[]> = {
-  "/phase1": ["project-concept.md", "functional-spec.md"],
-  "/phase2": ["project-concept.md", "tech-stack.md", "functional-spec.md", "technical-spec.md", "design-bundle.md"],
-};
-
-function relativeTime(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.round(diff / 60_000);
-  if (mins < 2) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.round(diff / 3_600_000);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.round(diff / 86_400_000);
-  return `${days}d ago`;
-}
-
-function useVisibleContextFiles(
-  files: Array<{ filename: string; label: string; content: string; chars: number; last_modified?: string | null }> | undefined,
-) {
-  const pathname = usePathname();
-  return useMemo(() => {
-    if (!files) return [];
-    const allowed = CONTEXT_FILE_PHASES[pathname];
-    if (!allowed) return files;
-    return files.filter((f) => allowed.includes(f.filename));
-  }, [files, pathname]);
-}
-
-// ── Login section ────────────────────────────────────────────────────────────
+// ── Login section ─────────────────────────────────────────────────────────────
 
 function LoginSection({ taigaWebUrl }: { taigaWebUrl: string }) {
   const setAuth = useSessionStore((state) => state.setAuth);
@@ -1124,7 +218,7 @@ function LoginSection({ taigaWebUrl }: { taigaWebUrl: string }) {
   );
 }
 
-// ── Token revalidation on mount ───────────────────────────────────────────────
+// ── session hooks ─────────────────────────────────────────────────────────────
 
 function useRestoreSession() {
   const taigaToken = useSessionStore((s) => s.taigaToken);
@@ -1143,8 +237,6 @@ function useRestoreSession() {
     }
   }, [taigaToken, me.isError, me.error, clearSession, clearPhase2Draft, queryClient]);
 }
-
-// ── Server-side project config restore ───────────────────────────────────────
 
 function useRestoreProjectConfig() {
   const projectId = useSessionStore((s) => s.projectId);
@@ -1182,67 +274,22 @@ export function Sidebar() {
 
   const taigaToken = useSessionStore((state) => state.taigaToken);
   const projectId = useSessionStore((state) => state.projectId);
-  const projectName = useSessionStore((state) => state.projectName);
-  const setProject = useSessionStore((state) => state.setProject);
-  const clearPhase2Draft = usePhase2Store((state) => state.clearPhase2Draft);
 
   useRestoreSession();
   useRestoreProjectConfig();
 
-  const [projectOpen, setProjectOpen] = useState(true);
-  const [boardOpen, setBoardOpen] = useState(false);
-  const [usersOpen, setUsersOpen] = useState(false);
-  const [contextOpen, setContextOpen] = useState(true);
-  const [aiOpen, setAiOpen] = useState(false);
-  const [resourcesOpen, setResourcesOpen] = useState(false);
-  const [localFastModel, setLocalFastModel] = useState("");
-  const [localCoderModel, setLocalCoderModel] = useState("");
-  const [localProvider, setLocalProvider] = useState<ProviderKey>("anthropic");
-  const [createEpicOpen, setCreateEpicOpen] = useState(false);
-  const [createStoryEpicId, setCreateStoryEpicId] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
   const [draggingSection, setDraggingSection] = useState<string | null>(null);
   const dragSourceRef = useRef<string | null>(null);
   const dragPreviewRef = useRef<HTMLElement | null>(null);
   const resizeStartXRef = useRef(0);
   const resizeStartWidthRef = useRef(0);
-  const [expandedEpic, setExpandedEpic] = useState<number | null>(null);
-  const [dialogEpic, setDialogEpic] = useState<import("@/lib/api/types").Epic | null>(null);
-  const [dialogStory, setDialogStory] = useState<import("@/lib/api/types").Story | null>(null);
-  const [expandedContext, setExpandedContext] = useState<string | null>(null);
-  const [inviteValue, setInviteValue] = useState("");
-  const [roleId, setRoleId] = useState<number | null>(null);
-  const [editingMemberRole, setEditingMemberRole] = useState<number | null>(null);
-  const [memberRoleValue, setMemberRoleValue] = useState<number>(0);
-
   const [confirmState, setConfirmState] = useState<{ message: string; onConfirm: () => void } | null>(null);
 
-  const me = useMe();
-  const projects = useProjects();
-  const contextFiles = useContextFiles();
-  const board = useBoard();
-  const users = useUsers();
-  const invite = useInviteUser();
-  const removeMember = useRemoveMember();
-  const updateMemberRole = useUpdateMemberRole();
-  const createProject = useCreateProject();
-  const deleteProject = useDeleteProject();
-  const createEpic = useCreateEpic();
-  const deleteEpic = useDeleteEpic();
-  const createStory = useCreateStory();
-  const deleteStory = useDeleteStory();
-  const rebuildIndex = useRebuildStoryIndex();
-  const [storyIndexSyncedAt, setStoryIndexSyncedAt] = useState<Date | null>(null);
-  const storyStats = useStoryIndexStats();
-  const resetAll = useResetAllContextFiles();
-  const saveServerConfig = useSaveServerConfig();
   const aiConfig = useAiConfig();
-  const saveAiConfigMutation = useSaveAiConfig();
-
   const serverConfig = useServerConfig();
   const taigaWebUrl = serverConfig.data?.taiga_web_url ?? "https://tree.taiga.io";
-  const availableModels = aiConfig.data?.available_models ?? FALLBACK_MODELS;
-  const configuredProviders = aiConfig.data?.configured_providers ?? [];
+  const dark = theme === "dark";
 
   // Migrate stored section order when new section IDs are added
   useEffect(() => {
@@ -1251,40 +298,6 @@ export function Sidebar() {
     if (missing.length) setSectionOrder([...sectionOrder, ...missing]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (aiConfig.data) {
-      setLocalFastModel(aiConfig.data.fast_model);
-      setLocalCoderModel(aiConfig.data.coder_model);
-      const savedFast = aiConfig.data.available_models.find((m) => m.id === aiConfig.data!.fast_model);
-      if (savedFast?.provider === "openai") setLocalProvider("openai");
-      else if (savedFast?.provider === "google") setLocalProvider("google");
-    }
-  }, [aiConfig.data]);
-
-  const projectOptions = useMemo(() => projects.data ?? [], [projects.data]);
-  const activeProjectName = projectOptions.find((p) => p.id === projectId)?.name
-    ?? projectName
-    ?? (projectId ? `Project ${projectId}` : "No project selected");
-  const totalChars = contextFiles.data?.total_chars ?? 0;
-  const memberCount = users.data?.memberships.length ?? 0;
-  const epicCount = board.data?.length ?? 0;
-  const defaultRoleId = roleId ?? users.data?.roles[0]?.id ?? 0;
-  const dark = theme === "dark";
-  const sizeColor = contextSizeColor(totalChars);
-  const sectionBorderClass = dark ? "border-neutral-800" : "border-slate-300";
-  const expandedPanelClass = dark ? "bg-[#20232b]" : "bg-white";
-  const subduedTextClass = dark ? "text-neutral-500" : "text-slate-500";
-  const bodyTextClass = dark ? "text-neutral-300" : "text-slate-700";
-  const strongTextClass = dark ? "text-white" : "text-slate-950";
-
-  const visibleFiles = useVisibleContextFiles(contextFiles.data?.files);
-
-  const projectConcept = contextFiles.data?.files.find((f) => f.filename === "project-concept.md")?.content ?? "";
-  const hasProjectConcept = useMemo(() => {
-    const text = projectConcept.replace(/^#[^\n]*\n/, "").trim();
-    return Boolean(text) && !text.startsWith("<!--");
-  }, [projectConcept]);
 
   function confirm(message: string, onConfirm: () => void) {
     setConfirmState({ message, onConfirm });
@@ -1378,7 +391,6 @@ export function Sidebar() {
       const delta = event.clientX - resizeStartXRef.current;
       setSidebarWidth(resizeStartWidthRef.current + delta);
     }
-
     function onUp() {
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
@@ -1386,7 +398,6 @@ export function Sidebar() {
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     }
-
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onUp);
@@ -1423,662 +434,146 @@ export function Sidebar() {
       </div>
 
       {typeof document !== "undefined" ? createPortal(
-        <>
-          <ConfirmDialog
-            open={Boolean(confirmState)}
-            message={confirmState?.message ?? ""}
-            onConfirm={() => { confirmState?.onConfirm(); setConfirmState(null); }}
-            onCancel={() => setConfirmState(null)}
-          />
-          {dialogEpic ? <EpicDialog epic={dialogEpic} onClose={() => setDialogEpic(null)} /> : null}
-          {dialogStory ? <StoryDialog story={dialogStory} onClose={() => setDialogStory(null)} /> : null}
-          {createEpicOpen ? <CreateEpicDialog onClose={() => setCreateEpicOpen(false)} /> : null}
-          {createStoryEpicId !== null ? (
-            <CreateStoryDialog epicId={createStoryEpicId} onClose={() => setCreateStoryEpicId(null)} />
-          ) : null}
-        </>,
+        <ConfirmDialog
+          open={Boolean(confirmState)}
+          message={confirmState?.message ?? ""}
+          onConfirm={() => { confirmState?.onConfirm(); setConfirmState(null); }}
+          onCancel={() => setConfirmState(null)}
+        />,
         document.body,
       ) : null}
 
       <div className="h-full overflow-y-auto">
-      <header className="flex h-[58px] items-center border-b border-neutral-800 px-4">
-        <div className="flex min-w-0 flex-1 items-baseline gap-1">
-          <span className="text-2xl font-bold text-violet-400">Apex</span>
-          <span className="truncate text-sm text-neutral-500">· Spec-Anchored</span>
-        </div>
-        <button onClick={toggleTheme} className="mr-2 grid size-8 place-items-center rounded text-white hover:bg-neutral-800" aria-label="Toggle theme">
-          {dark ? <Moon className="size-5" /> : <Sun className="size-5 text-slate-800" />}
-        </button>
-        <button className="grid size-8 place-items-center rounded text-neutral-300 hover:bg-neutral-800" onClick={() => setSidebarCollapsed(true)}>
-          <span className="text-xl leading-none">↤</span>
-        </button>
-      </header>
+        <header className="flex h-[58px] items-center border-b border-neutral-800 px-4">
+          <div className="flex min-w-0 flex-1 items-baseline gap-1">
+            <span className="text-2xl font-bold text-violet-400">Apex</span>
+            <span className="truncate text-sm text-neutral-500">· Spec-Anchored</span>
+          </div>
+          <button onClick={toggleTheme} className="mr-2 grid size-8 place-items-center rounded text-white hover:bg-neutral-800" aria-label="Toggle theme">
+            {dark ? <Moon className="size-5" /> : <Sun className="size-5 text-slate-800" />}
+          </button>
+          <button className="grid size-8 place-items-center rounded text-neutral-300 hover:bg-neutral-800" onClick={() => setSidebarCollapsed(true)}>
+            <span className="text-xl leading-none">↤</span>
+          </button>
+        </header>
 
-      {/* ── Account ── */}
-      <section className="border-b border-neutral-800 px-4 py-5">
-        <div className="mb-4 flex flex-wrap gap-2">
-          <span className="rounded border border-violet-400/40 bg-violet-500/10 px-2 py-1 font-mono text-xs text-violet-400">
-            {aiConfig.data?.coder_model ?? "claude-sonnet-4-6"}
-          </span>
-          {aiConfig.data && aiConfig.data.fast_model !== aiConfig.data.coder_model ? (
-            <span className={cn(
-              "rounded border px-2 py-1 font-mono text-xs",
-              dark
-                ? "border-neutral-700 bg-neutral-800/50 text-neutral-400"
-                : "border-slate-400 bg-slate-200 text-slate-600",
-            )}>
-              {aiConfig.data.fast_model}
+        {/* ── Account ── */}
+        <section className="border-b border-neutral-800 px-4 py-5">
+          <div className="mb-4 flex flex-wrap gap-2">
+            <span className="rounded border border-violet-400/40 bg-violet-500/10 px-2 py-1 font-mono text-xs text-violet-400">
+              {aiConfig.data?.coder_model ?? "claude-sonnet-4-6"}
             </span>
-          ) : null}
-        </div>
-        <LoginSection taigaWebUrl={taigaWebUrl} />
-      </section>
+            {aiConfig.data && aiConfig.data.fast_model !== aiConfig.data.coder_model ? (
+              <span className={cn(
+                "rounded border px-2 py-1 font-mono text-xs",
+                dark ? "border-neutral-700 bg-neutral-800/50 text-neutral-400" : "border-slate-400 bg-slate-200 text-slate-600",
+              )}>
+                {aiConfig.data.fast_model}
+              </span>
+            ) : null}
+          </div>
+          <LoginSection taigaWebUrl={taigaWebUrl} />
+        </section>
 
-      {/* ── Draggable sections ── */}
-      {sectionOrder.map((id) => {
+        {/* ── Draggable sections ── */}
+        {sectionOrder.map((id) => {
           const isOver = dragOver === id;
+          const shellClass = sectionShellClass(id, isOver);
           const dragHandlers = makeDragSectionProps(id);
+          const onDragStart = makeDragStartHandler(id);
 
-          // ai / resources are auth-free; everything below requires a session
           if (id !== "ai" && id !== "resources" && !taigaToken) return null;
 
           if (id === "project") {
             return (
-              <div key="project" {...dragHandlers} className={sectionShellClass(id, isOver)}>
-                <section className={cn("border-b", sectionBorderClass)}>
-                  <PanelHeader
-                    icon={<FolderOpen className="size-4" />}
-                    title={activeProjectName}
-                    open={projectOpen}
-                    onClick={() => setProjectOpen(!projectOpen)}
-                    onDragStart={makeDragStartHandler("project")}
-                  />
-                  {projectOpen ? (
-                    <div className={cn("space-y-2 p-3", expandedPanelClass)}>
-                      <select
-                        className="h-9 w-full rounded border border-neutral-600 bg-neutral-950 px-2 text-sm text-white"
-                        value={projectId ?? ""}
-                        onChange={(e) => {
-                          const selected = projectOptions.find((p) => p.id === Number(e.target.value));
-                          if (selected && selected.id !== projectId) {
-                            setProject({ projectId: selected.id, projectName: selected.name });
-                            saveServerConfig.mutate(selected.id);
-                            clearPhase2Draft();
-                            toast.info(`Switched to ${selected.name} — Phase 2 draft cleared`);
-                          }
-                        }}
-                      >
-                        <option value="">{projects.isLoading ? "Loading..." : "Select project"}</option>
-                        {projectOptions.map((p) => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
-                      </select>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          className="flex h-8 items-center justify-center gap-1 rounded border border-neutral-600 text-sm text-neutral-300 transition-colors hover:border-violet-500/50 hover:text-violet-300"
-                          onClick={() => projects.refetch()}
-                        >
-                          <RefreshCw className="size-3" /> Refresh
-                        </button>
-                        <button
-                          className="flex h-8 items-center justify-center gap-1 rounded border border-violet-500/40 bg-violet-500/10 text-sm font-semibold text-violet-400 transition-colors hover:bg-violet-500/20"
-                          onClick={() => {
-                            const name = window.prompt("Project name");
-                            if (name?.trim()) createProject.mutate({ name: name.trim(), description: "" });
-                          }}
-                        >
-                          <Plus className="size-3" /> Create New
-                        </button>
-                      </div>
-                      {projectId ? (
-                        <button
-                          className="flex h-8 w-full items-center justify-center gap-2 rounded border border-red-500/40 bg-red-500/10 text-sm font-semibold text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50"
-                          disabled={deleteProject.isPending}
-                          onClick={() =>
-                            confirm("Delete this Taiga project and all its data?", () => deleteProject.mutate(projectId))
-                          }
-                        >
-                          <Trash2 className="size-3" />
-                          Delete Project
-                        </button>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </section>
-              </div>
+              <ProjectSection
+                key="project"
+                dark={dark}
+                confirm={confirm}
+                shellClass={shellClass}
+                dragHandlers={dragHandlers}
+                onDragStart={onDragStart}
+              />
             );
           }
 
           if (id === "board" && projectId) {
             return (
-              <div key="board" {...dragHandlers} className={sectionShellClass(id, isOver)}>
-                <section className={cn("border-b", sectionBorderClass)}>
-                  <PanelHeader
-                    icon={<Layers3 className="size-4" />}
-                    title="Epics & Stories"
-                    badge={`${epicCount}`}
-                    open={boardOpen}
-                    onClick={() => setBoardOpen(!boardOpen)}
-                    onDragStart={makeDragStartHandler("board")}
-                  />
-                  {boardOpen ? (
-                    <div className={cn("space-y-3 p-3 text-sm", expandedPanelClass)}>
-                      <div className={cn("flex items-center justify-between", subduedTextClass)}>
-                        <span>{epicCount} epic(s)</span>
-                        <div className="flex gap-2">
-                          <button
-                            className="flex items-center gap-1 rounded border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-400 transition-colors hover:bg-violet-500/20"
-                            onClick={() => setCreateEpicOpen(true)}
-                          >
-                            <Plus className="size-3" /> Create New Epic
-                          </button>
-                          <button
-                            className="flex items-center gap-1 rounded border border-neutral-600 px-2 py-1.5 text-neutral-300 transition-colors hover:border-violet-500/50 hover:text-violet-300"
-                            onClick={() => toast.promise(board.refetch(), { loading: "Refreshing…", success: "Board refreshed", error: "Failed to refresh board" })}
-                          >
-                            <RefreshCw className="size-3" />
-                          </button>
-                        </div>
-                      </div>
-                      {storyStats.data && storyStats.data.total > 0 ? (
-                        <div className={cn("rounded border p-2", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
-                          <div className="mb-1.5 flex items-center justify-between">
-                            <div className={cn("text-xs font-semibold uppercase tracking-wide", dark ? "text-neutral-500" : "text-slate-500")}>Story Progress</div>
-                            {storyIndexSyncedAt ? (
-                              <div className={cn("text-[10px]", dark ? "text-neutral-600" : "text-slate-400")}>
-                                synced {storyIndexSyncedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                              </div>
-                            ) : null}
-                          </div>
-                          <div className="space-y-1">
-                            {(
-                              [
-                                { label: "Phase 2 Designed", count: storyStats.data.phase2_designed },
-                                { label: "Phase 3 Proposed", count: storyStats.data.phase3_proposed },
-                                { label: "Phase 4 Tested",   count: storyStats.data.phase4_tested },
-                                { label: "Phase 5 Deployed", count: storyStats.data.phase5_deployed },
-                              ] as const
-                            ).map(({ label, count }) => (
-                              <div key={label} className="flex items-center gap-2">
-                                <div className={cn("w-24 shrink-0 text-xs", dark ? "text-neutral-400" : "text-slate-600")}>{label}</div>
-                                <div className={cn("relative h-1.5 flex-1 rounded-full", dark ? "bg-neutral-700" : "bg-slate-200")}>
-                                  <div
-                                    className="absolute inset-y-0 left-0 rounded-full bg-violet-500"
-                                    style={{ width: `${Math.round((count / storyStats.data!.total) * 100)}%` }}
-                                  />
-                                </div>
-                                <div className={cn("w-8 text-right text-xs", dark ? "text-neutral-400" : "text-slate-500")}>{count}/{storyStats.data.total}</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-                      {(() => {
-                        if (!board.data || !storyStats.data) return null;
-                        const boardTotal = board.data.reduce((sum, epic) => sum + epic.stories.length, 0);
-                        const indexTotal = storyStats.data.total;
-                        if (boardTotal === indexTotal) return null;
-                        return (
-                          <div className={cn("flex items-center justify-between rounded border px-2 py-1.5 text-xs", dark ? "border-amber-700/50 bg-amber-950/30 text-amber-300" : "border-amber-400/50 bg-amber-50 text-amber-700")}>
-                            <span>Story index out of sync — {boardTotal} on board, {indexTotal} indexed</span>
-                            <button
-                              className="ml-2 shrink-0 rounded px-1.5 py-0.5 font-semibold underline hover:no-underline"
-                              onClick={() => rebuildIndex.mutate(undefined, { onSuccess: () => { setStoryIndexSyncedAt(new Date()); toast.success("Story index rebuilt"); }, onError: () => toast.error("Failed to rebuild story index") })}
-                            >
-                              Rebuild
-                            </button>
-                          </div>
-                        );
-                      })()}
-                      {board.isLoading ? (
-                        <div className="space-y-2">
-                          <Skeleton className="h-6 w-3/4" />
-                          <Skeleton className="h-6 w-2/3" />
-                          <Skeleton className="h-6 w-4/5" />
-                        </div>
-                      ) : null}
-                      {!board.isLoading && board.data?.map((epic) => (
-                        <div key={epic.id}>
-                          <div className="flex w-full items-center gap-1">
-                            <button
-                              className={cn("flex flex-1 items-center gap-1 text-left font-semibold transition-colors hover:text-violet-300", strongTextClass)}
-                              onClick={() => setExpandedEpic(expandedEpic === epic.id ? null : epic.id)}
-                            >
-                              {expandedEpic === epic.id ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
-                              #{epic.ref} {epic.subject}
-                            </button>
-                            <button
-                              className="grid size-6 place-items-center rounded text-neutral-400 transition-colors hover:bg-violet-500/20 hover:text-violet-300"
-                              onClick={() => setDialogEpic(epic)}
-                              title="Edit epic"
-                            >
-                              <Info className="size-3" />
-                            </button>
-                            <button
-                              className="grid size-6 place-items-center rounded text-red-400 transition-colors hover:bg-red-500/20"
-                              onClick={() =>
-                                confirm(`Delete epic "${epic.subject}" and all its stories?`, () => deleteEpic.mutate(epic.id))
-                              }
-                              title="Delete epic"
-                            >
-                              <Trash2 className="size-3" />
-                            </button>
-                          </div>
-                          {expandedEpic === epic.id ? (
-                            <div className={cn("mt-2 space-y-2 pl-4", bodyTextClass)}>
-                              <button
-                                className="flex items-center gap-1 rounded border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-xs font-semibold text-violet-400 transition-colors hover:bg-violet-500/20"
-                                onClick={() => setCreateStoryEpicId(epic.id)}
-                              >
-                                <Plus className="size-3" /> Story
-                              </button>
-                              {epic.stories.map((story) => (
-                                <div key={story.id}>
-                                  <div className="flex items-center gap-1">
-                                    <span className="min-w-0 flex-1 truncate text-xs">#{story.ref} {story.subject}</span>
-                                    <button
-                                      className="grid size-5 place-items-center rounded text-neutral-400 transition-colors hover:bg-violet-500/20 hover:text-violet-300"
-                                      onClick={() => setDialogStory(story)}
-                                      title="Edit story"
-                                    >
-                                      <Info className="size-3" />
-                                    </button>
-                                    <button
-                                      className="grid size-5 place-items-center rounded text-red-400 transition-colors hover:bg-red-500/20"
-                                      onClick={() =>
-                                        confirm(`Delete story "${story.subject}"?`, () => deleteStory.mutate(story.id))
-                                      }
-                                      title="Delete story"
-                                    >
-                                      <Trash2 className="size-3" />
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : null}
-                        </div>
-                      ))}
-                      {!board.isLoading && !board.data?.length ? <div className={subduedTextClass}>No epics yet.</div> : null}
-                    </div>
-                  ) : null}
-                </section>
-              </div>
+              <BoardSection
+                key="board"
+                dark={dark}
+                projectId={projectId}
+                confirm={confirm}
+                shellClass={shellClass}
+                dragHandlers={dragHandlers}
+                onDragStart={onDragStart}
+              />
             );
           }
 
           if (id === "users" && projectId) {
             return (
-              <div key="users" {...dragHandlers} className={sectionShellClass(id, isOver)}>
-                <section className={cn("border-b", sectionBorderClass)}>
-                  <PanelHeader
-                    icon={<Users className="size-4" />}
-                    title="Users & Roles"
-                    badge={`${memberCount}`}
-                    open={usersOpen}
-                    onClick={() => setUsersOpen(!usersOpen)}
-                    onDragStart={makeDragStartHandler("users")}
-                  />
-                  {usersOpen ? (
-                    <div className={cn("space-y-3 p-3 text-sm", expandedPanelClass)}>
-                      {users.data?.memberships.map((member) => (
-                        <div key={member.id} className="border-b border-neutral-700 pb-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <div className={cn("font-semibold", strongTextClass)}>{member.full_name || member.username || member.email}</div>
-                              <div className={cn("text-xs", subduedTextClass)}>{member.email}</div>
-                            </div>
-                            {!member.is_owner ? (
-                              <button
-                                className="shrink-0 rounded text-red-400 hover:text-red-300"
-                                title="Remove member"
-                                onClick={() =>
-                                  confirm(`Remove ${member.full_name || member.username} from project?`, () =>
-                                    removeMember.mutate(member.id, { onSuccess: () => toast.success(`${member.full_name || member.username} removed`), onError: () => toast.error("Failed to remove member") }),
-                                  )
-                                }
-                              >
-                                <Trash2 className="size-3" />
-                              </button>
-                            ) : null}
-                          </div>
-                          {editingMemberRole === member.id ? (
-                            <div className="mt-2 flex gap-2">
-                              <select
-                                className="h-7 flex-1 rounded border border-neutral-600 bg-neutral-950 px-2 text-xs text-white"
-                                value={memberRoleValue || member.role || 0}
-                                onChange={(e) => setMemberRoleValue(Number(e.target.value))}
-                              >
-                                {users.data?.roles.map((r) => (
-                                  <option key={r.id} value={r.id}>{r.name}</option>
-                                ))}
-                              </select>
-                              <button
-                                className="rounded bg-violet-700 px-2 py-1 text-xs font-semibold text-white"
-                                onClick={() => {
-                                  updateMemberRole.mutate(
-                                    { membershipId: member.id, roleId: memberRoleValue || member.role || 0 },
-                                    { onSuccess: () => setEditingMemberRole(null) },
-                                  );
-                                }}
-                              >
-                                Save
-                              </button>
-                              <button
-                                className="rounded bg-neutral-700 px-2 py-1 text-xs text-neutral-300"
-                                onClick={() => setEditingMemberRole(null)}
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              className="mt-1 inline-block rounded border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-xs text-violet-400 transition-colors hover:border-violet-500/60 hover:bg-violet-500/20"
-                              onClick={() => { setEditingMemberRole(member.id); setMemberRoleValue(member.role ?? 0); }}
-                            >
-                              {member.role_name || "Member"}
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                      <div className="space-y-2">
-                        <div className={cn("font-semibold", strongTextClass)}>Invite member</div>
-                        <input
-                          value={inviteValue}
-                          onChange={(e) => setInviteValue(e.target.value)}
-                          className="h-8 w-full rounded border border-violet-700 bg-neutral-950 px-2 text-sm text-white"
-                          placeholder="Username or email"
-                        />
-                        <select
-                          value={defaultRoleId}
-                          onChange={(e) => setRoleId(Number(e.target.value))}
-                          className="h-8 w-full rounded border border-neutral-600 bg-neutral-950 px-2 text-sm text-white"
-                        >
-                          <option value={0}>Role</option>
-                          {users.data?.roles.map((r) => (
-                            <option key={r.id} value={r.id}>{r.name}</option>
-                          ))}
-                        </select>
-                        <button
-                          className="h-8 w-full rounded bg-violet-600 text-sm font-semibold text-white transition-colors hover:bg-violet-500 disabled:opacity-50"
-                          disabled={!inviteValue.trim() || !defaultRoleId || invite.isPending}
-                          onClick={() => invite.mutate({ usernameOrEmail: inviteValue, roleId: defaultRoleId }, { onSuccess: () => { toast.success(`Invite sent to ${inviteValue}`); setInviteValue(""); }, onError: (err) => toast.error(errMsg(err)) })}
-                        >
-                          Send invite
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-                </section>
-              </div>
+              <UsersSection
+                key="users"
+                dark={dark}
+                projectId={projectId}
+                confirm={confirm}
+                shellClass={shellClass}
+                dragHandlers={dragHandlers}
+                onDragStart={onDragStart}
+              />
             );
           }
 
           if (id === "context" && projectId) {
             return (
-              <div key="context" {...dragHandlers} className={sectionShellClass(id, isOver)}>
-                <section className={cn("border-b", sectionBorderClass)}>
-                  <PanelHeader
-                    icon={<FileText className="size-4" />}
-                    title="Active Context"
-                    badge={`${totalChars} ch`}
-                    open={contextOpen}
-                    onClick={() => setContextOpen(!contextOpen)}
-                    onDragStart={makeDragStartHandler("context")}
-                  />
-                  {contextOpen ? (
-                    <div className={cn("px-4 py-4", expandedPanelClass)}>
-                      <div className={cn("mb-3 text-sm", dark ? "text-neutral-500" : "text-slate-500")}>
-                        context:{" "}
-                        <span className="font-bold" style={{ color: sizeColor }}>
-                          {totalChars} chars
-                        </span>
-                      </div>
-                      <ContextSizeWarning totalChars={totalChars} />
-                      {!hasProjectConcept && contextFiles.data ? (
-                        <div className="mb-3 rounded border border-amber-700 bg-amber-950/30 px-3 py-2 text-sm text-amber-300">
-                          Project Concept file is empty. Fill it in for best AI results.
-                        </div>
-                      ) : null}
-                      <div className="mb-4 space-y-3">
-                        {visibleFiles.map((file) => (
-                          <div
-                            key={file.filename}
-                            className={cn(
-                              "group rounded-md border transition-all duration-200 ease-out",
-                              dark
-                                ? "border-neutral-700 bg-[#17181d] hover:border-violet-500/60 hover:bg-[#232638] hover:shadow-[0_0_0_1px_rgba(139,92,246,0.22)]"
-                                : "border-slate-200 bg-white hover:border-violet-300 hover:bg-violet-50/70 hover:shadow-sm",
-                            )}
-                          >
-                            <button
-                              className="flex h-10 w-full items-center gap-3 px-4 text-left transition-colors duration-200"
-                              onClick={() => setExpandedContext(expandedContext === file.filename ? null : file.filename)}
-                            >
-                              <ChevronRight className={cn(
-                                "size-3 transition-all duration-200 group-hover:text-violet-400",
-                                dark ? "text-neutral-500" : "text-slate-400",
-                                expandedContext === file.filename && "rotate-90 text-violet-400",
-                              )} />
-                              <FileText className="size-4 text-violet-400 transition-colors duration-200 group-hover:text-violet-300" />
-                              <span className={cn(
-                                "flex-1 text-sm font-medium transition-colors duration-200",
-                                dark ? "text-white group-hover:text-violet-100" : "text-slate-950 group-hover:text-violet-900",
-                              )}>{file.label}</span>
-                              <span className={cn(
-                                "text-xs transition-colors duration-200",
-                                dark ? "text-neutral-500 group-hover:text-violet-300" : "text-slate-500 group-hover:text-violet-600",
-                              )}>
-                                {file.chars} ch
-                                {relativeTime(file.last_modified) ? (
-                                  <span className="ml-1.5 opacity-60">· {relativeTime(file.last_modified)}</span>
-                                ) : null}
-                              </span>
-                            </button>
-                            {expandedContext === file.filename ? (
-                              <ContextEditor file={file} onConfirm={confirm} />
-                            ) : null}
-                          </div>
-                        ))}
-                      </div>
-                      <div className="space-y-2">
-                        <button
-                          className="flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm text-violet-300 transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 hover:text-violet-200"
-                          onClick={() => { contextFiles.refetch(); toast.info("Context reloaded"); }}
-                        >
-                          <span>Reload context</span>
-                          <RefreshCw className="size-4 text-violet-400" />
-                        </button>
-                        <button
-                          className="flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm text-violet-300 transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 hover:text-violet-200 disabled:opacity-40"
-                          disabled={!contextFiles.data?.files.length}
-                          onClick={() => {
-                            downloadContextZip(contextFiles.data?.files ?? []);
-                            toast.success("Context ZIP downloaded");
-                          }}
-                        >
-                          <span>Download all context files</span>
-                          <Download className="size-4 text-violet-400" />
-                        </button>
-                        <button
-                          className="flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm text-violet-300 transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 hover:text-violet-200 disabled:opacity-40"
-                          disabled={rebuildIndex.isPending}
-                          onClick={() => rebuildIndex.mutate(undefined, { onSuccess: () => { toast.success("Story index rebuilt"); setStoryIndexSyncedAt(new Date()); }, onError: () => toast.error("Failed to rebuild story index") })}
-                        >
-                          <span>Rebuild story index</span>
-                          <RefreshCw className="size-4 text-violet-400" />
-                        </button>
-                        <button
-                          className="flex h-9 w-full items-center justify-between rounded border border-red-500/30 px-3 text-sm text-red-400 transition-colors hover:border-red-500/60 hover:bg-red-500/15 hover:text-red-300 disabled:opacity-40"
-                          disabled={resetAll.isPending}
-                          onClick={() =>
-                            confirm("Reset ALL context files to defaults? This cannot be undone.", () => resetAll.mutate(undefined, { onSuccess: () => toast.success("All context files reset") }))
-                          }
-                        >
-                          <span>Reset all context files</span>
-                          <Trash2 className="size-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-                </section>
-              </div>
+              <ContextSection
+                key="context"
+                dark={dark}
+                projectId={projectId}
+                confirm={confirm}
+                shellClass={shellClass}
+                dragHandlers={dragHandlers}
+                onDragStart={onDragStart}
+              />
             );
           }
 
-          // ── AI Models ─────────────────────────────────────────────────────
           if (id === "ai") {
             return (
-              <div key="ai" {...dragHandlers} className={sectionShellClass(id, isOver)}>
-                <section className={cn("border-b", sectionBorderClass)}>
-                  <PanelHeader
-                    icon={<Bot className="size-4" />}
-                    title="AI Models"
-                    open={aiOpen}
-                    onClick={() => setAiOpen(!aiOpen)}
-                    onDragStart={makeDragStartHandler("ai")}
-                  />
-                  {aiOpen ? (
-                    <div className={cn("space-y-4 px-4 py-4 text-sm", expandedPanelClass)}>
-                      {/* Provider toggle */}
-                      <div>
-                        <p className="mb-2 text-xs text-neutral-500">Provider</p>
-                        <div className="flex rounded border border-neutral-700 overflow-hidden">
-                          {(["anthropic", "openai", "google"] as ProviderKey[]).map((p) => (
-                            <button
-                              key={p}
-                              className={cn(
-                                "flex-1 py-1.5 text-xs font-semibold transition-colors",
-                                localProvider === p
-                                  ? "bg-violet-700 text-white"
-                                  : "bg-neutral-900 text-neutral-400 hover:bg-neutral-800",
-                              )}
-                              onClick={() => {
-                                setLocalProvider(p);
-                                const filtered = availableModels.filter((m) => modelProvider(m) === p);
-                                setLocalFastModel(filtered[0]?.id ?? "");
-                                setLocalCoderModel(filtered[1]?.id ?? filtered[0]?.id ?? "");
-                              }}
-                            >
-                              {PROVIDER_LABELS[p]}
-                            </button>
-                          ))}
-                        </div>
-                        {localProvider === "openai" && !configuredProviders.includes("openai") && (
-                          <p className="mt-1.5 text-xs text-amber-400">Requires OPENAI_API_KEY set in backend env.</p>
-                        )}
-                        {localProvider === "google" && !configuredProviders.includes("google") && (
-                          <p className="mt-1.5 text-xs text-amber-400">Requires GOOGLE_API_KEY set in backend env.</p>
-                        )}
-                      </div>
-                      {/* Model selectors filtered to active provider */}
-                      {(() => {
-                        const providerModels = availableModels.filter((m) => modelProvider(m) === localProvider);
-                        const effectiveFast  = (localFastModel  && providerModels.some((m) => m.id === localFastModel))  ? localFastModel  : (providerModels[0]?.id ?? "");
-                        const effectiveCoder = (localCoderModel && providerModels.some((m) => m.id === localCoderModel)) ? localCoderModel : (providerModels[1]?.id ?? providerModels[0]?.id ?? "");
-                        return (
-                          <>
-                            <div>
-                              <label className="mb-1.5 block text-xs font-semibold text-neutral-400">
-                                Phase 1 — Requirements
-                              </label>
-                              <ModelSelect models={providerModels} value={effectiveFast} onChange={setLocalFastModel} />
-                            </div>
-                            <div>
-                              <label className="mb-1.5 block text-xs font-semibold text-neutral-400">
-                                Phase 2 — Design
-                              </label>
-                              <ModelSelect models={providerModels} value={effectiveCoder} onChange={setLocalCoderModel} />
-                            </div>
-                            <button
-                              className="h-8 w-full rounded bg-violet-700 text-sm font-semibold text-white transition-colors hover:bg-violet-600 disabled:opacity-50"
-                              disabled={saveAiConfigMutation.isPending || !taigaToken}
-                              onClick={() =>
-                                saveAiConfigMutation.mutate({
-                                  fast_model:  effectiveFast,
-                                  coder_model: effectiveCoder,
-                                })
-                              }
-                            >
-                              {!taigaToken ? "Sign in to save" : saveAiConfigMutation.isPending ? "Saving…" : "Save"}
-                            </button>
-                          </>
-                        );
-                      })()}
-                      {saveAiConfigMutation.isSuccess ? (
-                        <p className="text-center text-xs text-emerald-400">Model config saved.</p>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </section>
-              </div>
+              <AiSection
+                key="ai"
+                dark={dark}
+                taigaToken={taigaToken ?? ""}
+                shellClass={shellClass}
+                dragHandlers={dragHandlers}
+                onDragStart={onDragStart}
+              />
             );
           }
 
-          // ── Resources ──────────────────────────────────────────────────────
           if (id === "resources") {
             return (
-              <div key="resources" {...dragHandlers} className={sectionShellClass(id, isOver)}>
-                <section className={cn("border-b", sectionBorderClass)}>
-                  <PanelHeader
-                    icon={<BookOpen className="size-4" />}
-                    title="Resources"
-                    open={resourcesOpen}
-                    onClick={() => setResourcesOpen(!resourcesOpen)}
-                    onDragStart={makeDragStartHandler("resources")}
-                  />
-                  {resourcesOpen ? (
-                    <div className={cn("px-4 py-3", expandedPanelClass)}>
-                      <p className={cn("mb-2 text-xs font-semibold", subduedTextClass)}>Taiga Documentation</p>
-                      <div className="space-y-0.5">
-                        {[
-                          { href: "https://docs.taiga.io/", label: "User Guide" },
-                          { href: "https://docs.taiga.io/api.html", label: "API Reference" },
-                          { href: "https://community.taiga.io/", label: "Community Forum" },
-                          { href: "https://github.com/taigaio", label: "GitHub" },
-                        ].map(({ href, label }) => (
-                          <a
-                            key={href}
-                            href={href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 rounded px-2 py-1.5 text-sm text-violet-300 transition-colors hover:bg-violet-500/10 hover:text-violet-200"
-                          >
-                            <ExternalLink className="size-3 shrink-0" />
-                            {label}
-                          </a>
-                        ))}
-                      </div>
-                      {taigaWebUrl ? (
-                        <>
-                          <p className={cn("mb-2 mt-4 text-xs font-semibold", subduedTextClass)}>Taiga Instance</p>
-                          <a
-                            href={taigaWebUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 rounded px-2 py-1.5 text-sm text-violet-300 transition-colors hover:bg-violet-500/10 hover:text-violet-200"
-                          >
-                            <ExternalLink className="size-3 shrink-0" />
-                            Open Taiga
-                          </a>
-                        </>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </section>
-              </div>
+              <ResourcesSection
+                key="resources"
+                dark={dark}
+                taigaWebUrl={taigaWebUrl}
+                shellClass={shellClass}
+                dragHandlers={dragHandlers}
+                onDragStart={onDragStart}
+              />
             );
           }
 
           return null;
         })}
-      {!taigaToken ? (
-        <section className="px-4 py-5">
-          <p className="text-sm leading-6 text-neutral-500">
-            Sign in and select a project to view board, users, and context files.
-          </p>
-        </section>
-      ) : null}
+        {!taigaToken ? (
+          <section className="px-4 py-5">
+            <p className="text-sm leading-6 text-neutral-500">
+              Sign in and select a project to view board, users, and context files.
+            </p>
+          </section>
+        ) : null}
       </div>
     </aside>
   );

@@ -509,6 +509,11 @@ def upsert_story_index(story_id: int, **updates) -> None:
     _save_story_index(index)
 
 
+def mark_story_deployed(story_id: int) -> None:
+    """Set a story's phase_status to 'deployed' after Phase 5 deployment."""
+    upsert_story_index(story_id, phase_status="deployed")
+
+
 def remove_story_from_specs(story_id: int) -> None:
     """Remove a story's blocks from functional-spec.md, technical-spec.md,
     and delete its proposal and BDD files."""
