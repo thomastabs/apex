@@ -76,16 +76,24 @@ def save_config(payload: SaveConfigRequest, auth: AuthContext = Depends(get_auth
 
 @router.get("/context-files", response_model=ContextFilesResponse)
 def get_context_files(ctx: RequestContext = Depends(get_request_context)):
+    import datetime
+    from src import context_manager as _cm
     context = ContextService()
     context.set_project(ctx.project_id)
     files = []
     for filename, label in _CONTEXT_FILES:
         content = context.read_context_file(filename)
+        fpath = _cm._path(filename)  # noqa: SLF001
+        last_modified: str | None = None
+        if fpath.exists():
+            mtime = fpath.stat().st_mtime
+            last_modified = datetime.datetime.fromtimestamp(mtime, tz=datetime.timezone.utc).isoformat()
         files.append({
             "filename": filename,
             "label": label,
             "content": content,
             "chars": len(content),
+            "last_modified": last_modified,
         })
     return {"files": files, "total_chars": sum(file["chars"] for file in files)}
 
@@ -154,10 +162,13 @@ def story_index_stats(ctx: RequestContext = Depends(get_request_context)):
 
 @router.post("/context-files/reset-all", response_model=ContextFilesResponse)
 def reset_all_context_files(ctx: RequestContext = Depends(get_request_context)):
+    from src import context_manager
     context = ContextService()
     context.set_project(ctx.project_id)
     for filename, _ in _CONTEXT_FILES:
         context.reset_context_file(filename)
+    context_manager.set_active_project(ctx.project_id)
+    context_manager.reset_story_index_phase_statuses()
     return get_context_files(ctx)
 
 

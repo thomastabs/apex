@@ -538,6 +538,23 @@ def remove_story_from_specs(story_id: int) -> None:
         (cd / f"bdd_story_{story_id}.feature").unlink(missing_ok=True)
 
 
+def reset_story_index_phase_statuses() -> None:
+    """Reset all phase-derived flags in the story index back to their post-Phase-1 defaults.
+
+    Called when context files are reset so phase readiness gates reflect the cleared state.
+    Preserves story identity fields (story_id, epic_id, title, has_gherkin).
+    """
+    index = get_story_index()
+    for entry in index.values():
+        entry["has_tech_spec"] = False
+        entry["has_proposal"] = False
+        entry["has_bdd"] = False
+        if entry.get("phase_status") not in ("gherkin_locked",):
+            entry["phase_status"] = "gherkin_locked"
+    _save_story_index(index)
+    reset_cache()
+
+
 def remove_story_index_entries(story_ids: list[int]) -> None:
     """Remove entries for the given story IDs from the story index and spec files."""
     if not story_ids:

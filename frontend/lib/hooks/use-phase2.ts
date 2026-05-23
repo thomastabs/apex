@@ -48,6 +48,7 @@ export function useLockTechStack() {
     onError: () => toast.error("Failed to lock tech stack."),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["phase2", "tech-stack-status"] });
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
     },
   });
 }

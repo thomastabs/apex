@@ -224,7 +224,10 @@ export function Phase2Workflow() {
       }
     : designBundle;
 
-  const canSave = Boolean(activeBundle && !generateSections.isPending && designLeadApproved && techLeadApproved);
+  const allSectionsPopulated = Boolean(
+    activeBundle?.wireframes && activeBundle?.user_flow && activeBundle?.component_tree && activeBundle?.tech_spec,
+  );
+  const canSave = Boolean(activeBundle && !generateSections.isPending && allSectionsPopulated && designLeadApproved && techLeadApproved);
 
   const activeStepIdx = generateSections.currentSection
     ? DESIGN_SECTION_ORDER.indexOf(generateSections.currentSection)

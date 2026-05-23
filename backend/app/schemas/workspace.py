@@ -8,6 +8,7 @@ class ContextFileSchema(BaseModel):
     label: str
     content: str
     chars: int
+    last_modified: str | None = None
 
 
 class ContextFilesResponse(BaseModel):

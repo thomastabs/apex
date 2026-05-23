@@ -101,8 +101,6 @@ class Phase2Service:
         """Return all stories with locked Gherkin, sorted by story_id."""
         stories = []
         for entry in self.context.story_index().values():
-            if not entry.get("has_gherkin"):
-                continue
             if entry.get("phase_status") not in ("gherkin_locked", "design_locked"):
                 continue
             story_id = entry.get("story_id")

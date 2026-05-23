@@ -124,7 +124,7 @@ async function pushPhase1StoriesDirect(
     },
     timeoutMs: 120_000,
   });
-  return { ...finalized, story_urls: storyUrls.length ? storyUrls : finalized.story_urls };
+  return { ...finalized, story_urls: storyUrls };
 }
 
 function boldGherkinKeywords(gherkin: string) {

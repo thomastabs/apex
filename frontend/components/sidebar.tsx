@@ -943,8 +943,20 @@ const CONTEXT_FILE_PHASES: Record<string, string[]> = {
   "/phase2": ["project-concept.md", "tech-stack.md", "functional-spec.md", "technical-spec.md", "design-bundle.md"],
 };
 
+function relativeTime(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.round(diff / 60_000);
+  if (mins < 2) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(diff / 3_600_000);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.round(diff / 86_400_000);
+  return `${days}d ago`;
+}
+
 function useVisibleContextFiles(
-  files: Array<{ filename: string; label: string; content: string; chars: number }> | undefined,
+  files: Array<{ filename: string; label: string; content: string; chars: number; last_modified?: string | null }> | undefined,
 ) {
   const pathname = usePathname();
   return useMemo(() => {
@@ -1848,7 +1860,12 @@ export function Sidebar() {
                               <span className={cn(
                                 "text-xs transition-colors duration-200",
                                 dark ? "text-neutral-500 group-hover:text-violet-300" : "text-slate-500 group-hover:text-violet-600",
-                              )}>{file.chars} ch</span>
+                              )}>
+                                {file.chars} ch
+                                {relativeTime(file.last_modified) ? (
+                                  <span className="ml-1.5 opacity-60">· {relativeTime(file.last_modified)}</span>
+                                ) : null}
+                              </span>
                             </button>
                             {expandedContext === file.filename ? (
                               <ContextEditor file={file} onConfirm={confirm} />

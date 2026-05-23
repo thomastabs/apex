@@ -1,6 +1,6 @@
 """Request and response schemas for Phase 1 requirements endpoints."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class EpicSuggestionSchema(BaseModel):
@@ -58,4 +58,3 @@ class FinalizeStoriesResponse(BaseModel):
     epic_id: int
     count: int
     story_ids: list[int]
-    story_urls: list[str] = Field(default_factory=list)

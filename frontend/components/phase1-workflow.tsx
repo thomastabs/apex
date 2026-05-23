@@ -126,6 +126,11 @@ export function Phase1Workflow() {
   const compile = useCompileGherkin();
   const push = usePushPhase1Stories();
 
+  // Reset the restored flag whenever the project changes so the next effect re-loads the correct draft.
+  useEffect(() => {
+    draftRestored.current = false;
+  }, [context?.projectId]);
+
   // Restore draft on mount / project change
   useEffect(() => {
     if (draftRestored.current) return;

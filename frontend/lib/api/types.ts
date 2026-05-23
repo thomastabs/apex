@@ -53,6 +53,7 @@ export type ContextFile = {
   label: string;
   content: string;
   chars: number;
+  last_modified?: string | null;
 };
 
 export type ContextFilesResponse = {
@@ -119,7 +120,7 @@ export type Phase1PushStoriesResponse = {
   epic_id: number;
   count: number;
   story_ids: number[];
-  story_urls: string[];
+  story_urls?: string[];
 };
 
 export type TechStackStatus = {

@@ -80,5 +80,4 @@ class Phase1Service:
             "epic_id": epic_id,
             "count": len(story_ids),
             "story_ids": story_ids,
-            "story_urls": [],
         }
