@@ -914,6 +914,8 @@ Format: `<Start Screen> → <Screen 2> → <End Screen>` (Stories: <IDs>)
 
 Rules for Navigation Paths:
 - Maximum 6 paths.
+- Each path must represent a distinct user goal — no two paths may cover the same journey.
+- No screen name may appear as the start of more than one path.
 - Use exact screen names from the Screens section above.
 - No ASCII art, no diagrams, no code.
 """
