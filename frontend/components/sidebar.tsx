@@ -66,13 +66,21 @@ import { Skeleton } from "@/components/ui/primitives";
 // ── constants ─────────────────────────────────────────────────────────────────
 
 const FALLBACK_MODELS = [
-  { id: "claude-haiku-4-5-20251001",         label: "Claude Haiku 4.5",  role: "Fast",    provider: "anthropic", note: "Fastest & cheapest" },
-  { id: "claude-sonnet-4-6",                 label: "Claude Sonnet 4.6", role: "Balanced", provider: "anthropic", note: "Recommended for most projects" },
-  { id: "claude-opus-4-7",                   label: "Claude Opus 4.7",   role: "Premium",  provider: "anthropic", note: "Most capable" },
-  { id: "gpt-4o-mini",                       label: "GPT-4o Mini",       role: "Fast",    provider: "openai",    note: "OpenAI fast tier — requires OPENAI_API_KEY" },
-  { id: "gpt-4o",                            label: "GPT-4o",            role: "Balanced", provider: "openai",    note: "OpenAI flagship — requires OPENAI_API_KEY" },
-  { id: "gemini-2.0-flash",                  label: "Gemini 2.0 Flash",  role: "Fast",    provider: "google",    note: "Google fast tier — requires GOOGLE_API_KEY" },
-  { id: "gemini-2.5-pro-preview-06-05",      label: "Gemini 2.5 Pro",    role: "Premium",  provider: "google",    note: "Google most capable — requires GOOGLE_API_KEY" },
+  // Anthropic
+  { id: "claude-haiku-4-5-20251001",       label: "Claude Haiku 4.5",     role: "Budget",   provider: "anthropic", note: "Cheapest Claude — good for simple tasks" },
+  { id: "claude-sonnet-4-6",               label: "Claude Sonnet 4.6",    role: "Standard",  provider: "anthropic", note: "Recommended for most projects" },
+  { id: "claude-opus-4-7",                 label: "Claude Opus 4.7",      role: "Premium",   provider: "anthropic", note: "Most capable" },
+  // OpenAI
+  { id: "gpt-4.1-nano",                    label: "GPT-4.1 Nano",         role: "Budget",   provider: "openai",    note: "Cheapest OpenAI model — good for simple tasks" },
+  { id: "gpt-4.1-mini",                    label: "GPT-4.1 Mini",         role: "Economy",   provider: "openai",    note: "Low cost with strong capability" },
+  { id: "gpt-4o-mini",                     label: "GPT-4o Mini",          role: "Economy",   provider: "openai",    note: "Reliable low-cost option" },
+  { id: "gpt-4.1",                         label: "GPT-4.1",              role: "Standard",  provider: "openai",    note: "Latest GPT-4.1 — strong and efficient" },
+  { id: "gpt-4o",                          label: "GPT-4o",               role: "Standard",  provider: "openai",    note: "GPT-4o flagship" },
+  // Google
+  { id: "gemini-2.0-flash-lite",           label: "Gemini 2.0 Flash Lite", role: "Budget",  provider: "google",    note: "Cheapest Gemini model — ideal for simple tasks" },
+  { id: "gemini-2.0-flash",                label: "Gemini 2.0 Flash",     role: "Economy",   provider: "google",    note: "Fast and low cost" },
+  { id: "gemini-2.5-flash-preview-05-20",  label: "Gemini 2.5 Flash",     role: "Standard",  provider: "google",    note: "Best Gemini balance of quality and cost" },
+  { id: "gemini-2.5-pro-preview-06-05",    label: "Gemini 2.5 Pro",       role: "Premium",   provider: "google",    note: "Most capable Gemini model" },
 ];
 
 const SECTION_LABELS: Record<string, string> = {
@@ -1459,7 +1467,7 @@ export function Sidebar() {
                 ? "border-neutral-700 bg-neutral-800/50 text-neutral-400"
                 : "border-slate-400 bg-slate-200 text-slate-600",
             )}>
-              {aiConfig.data.fast_model} (fast)
+              {aiConfig.data.fast_model}
             </span>
           ) : null}
         </div>
@@ -1972,15 +1980,13 @@ export function Sidebar() {
                           <>
                             <div>
                               <label className="mb-1.5 block text-xs font-semibold text-neutral-400">
-                                Discovery & Breakdown
-                                <span className="ml-1 font-normal text-neutral-600">(Phase 1)</span>
+                                Phase 1 — Requirements
                               </label>
                               <ModelSelect models={providerModels} value={effectiveFast} onChange={setLocalFastModel} />
                             </div>
                             <div>
                               <label className="mb-1.5 block text-xs font-semibold text-neutral-400">
-                                Architecture & Design
-                                <span className="ml-1 font-normal text-neutral-600">(Phase 2)</span>
+                                Phase 2 — Design
                               </label>
                               <ModelSelect models={providerModels} value={effectiveCoder} onChange={setLocalCoderModel} />
                             </div>
