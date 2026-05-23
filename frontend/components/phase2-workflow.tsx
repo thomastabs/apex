@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Download,
   Info,
+  Loader2,
   RefreshCw,
   RotateCcw,
   Save,
@@ -654,9 +655,25 @@ export function Phase2Workflow() {
                     )
                   }
                 >
-                  <CheckCircle2 className="size-4" />
-                  Save &amp; Lock Design
+                  {lockDesign.isPending ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="size-4" />
+                  )}
+                  {lockDesign.isPending ? "Saving…" : "Save & Lock Design"}
                 </Button>
+                {lockDesign.isPending ? (
+                  <div className={cn("space-y-1 rounded-md border px-4 py-3 text-xs", dark ? "border-violet-800/40 bg-violet-950/30 text-violet-300" : "border-violet-200 bg-violet-50 text-violet-700")}>
+                    <p className="flex items-center gap-2 font-medium">
+                      <Loader2 className="size-3 animate-spin" />
+                      Saving design bundle to context files…
+                    </p>
+                    <p className={dark ? "text-violet-400/70" : "text-violet-500"}>
+                      Taiga story transitions will run after the bundle is saved.
+                      {activeBundle.story_ids.length > 0 && ` ${activeBundle.story_ids.length} stories to update.`}
+                    </p>
+                  </div>
+                ) : null}
               </div>
             ) : null}
             {lockDesign.data ? (
