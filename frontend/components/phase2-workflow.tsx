@@ -513,10 +513,10 @@ export function Phase2Workflow() {
             </div>
 
             {/* Action bar */}
-            <div className="flex flex-wrap gap-2">
+            <div className="space-y-2">
               {generateSections.isPending ? (
                 <button
-                  className={cn("flex items-center gap-2 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
+                  className={cn("flex w-full items-center justify-center gap-2 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
                   onClick={() => generateSections.cancel()}
                 >
                   <StopCircle className="size-4 text-red-400" />
@@ -524,6 +524,7 @@ export function Phase2Workflow() {
                 </button>
               ) : (
                 <Button
+                  className="w-full"
                   disabled={busy || noContext}
                   onClick={() => {
                     if (designBundle) {
@@ -540,39 +541,41 @@ export function Phase2Workflow() {
                   Generate All Sections
                 </Button>
               )}
-              <button
-                className={cn("flex items-center gap-1 rounded border px-3 py-2 text-sm transition-colors disabled:opacity-40", outlineButtonClass)}
-                disabled={busy}
-                title="Refresh story index from Taiga"
-                onClick={() =>
-                  refreshIndex.mutate(undefined, {
-                    onSuccess: () => toast.success("Story index refreshed"),
-                  })
-                }
-              >
-                <RefreshCw className="size-3" />
-                Refresh Index
-              </button>
-              {activeBundle && !generateSections.isPending ? (
-                <>
-                  <button
-                    className={cn("flex items-center gap-1 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
-                    title="Download design bundle as Markdown"
-                    onClick={() => downloadDesignBundle(activeBundle)}
-                  >
-                    <Download className="size-3" />
-                    Export
-                  </button>
-                  <button
-                    className={cn("flex items-center gap-1 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
-                    title="Clear current design"
-                    onClick={clearDesign}
-                  >
-                    <RotateCcw className="size-3" />
-                    Clear
-                  </button>
-                </>
-              ) : null}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className={cn("flex items-center gap-1 rounded border px-3 py-2 text-sm transition-colors disabled:opacity-40", outlineButtonClass)}
+                  disabled={busy}
+                  title="Refresh story index from Taiga"
+                  onClick={() =>
+                    refreshIndex.mutate(undefined, {
+                      onSuccess: () => toast.success("Story index refreshed"),
+                    })
+                  }
+                >
+                  <RefreshCw className="size-3" />
+                  Refresh Index
+                </button>
+                {activeBundle && !generateSections.isPending ? (
+                  <>
+                    <button
+                      className={cn("flex items-center gap-1 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
+                      title="Download design bundle as Markdown"
+                      onClick={() => downloadDesignBundle(activeBundle)}
+                    >
+                      <Download className="size-3" />
+                      Export
+                    </button>
+                    <button
+                      className={cn("flex items-center gap-1 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
+                      title="Clear current design"
+                      onClick={clearDesign}
+                    >
+                      <RotateCcw className="size-3" />
+                      Clear
+                    </button>
+                  </>
+                ) : null}
+              </div>
             </div>
 
             {/* Overall progress indicator (shown during generate-all) */}
@@ -653,7 +656,7 @@ export function Phase2Workflow() {
                     <div className={cn("border-t px-4 py-3", dark ? "border-neutral-800" : "border-slate-100")}>
                       {isThisGenerating ? (
                         <button
-                          className={cn("flex items-center gap-2 rounded border px-3 py-1.5 text-sm transition-colors", outlineButtonClass)}
+                          className={cn("flex w-full items-center justify-center gap-2 rounded border px-3 py-1.5 text-sm transition-colors", outlineButtonClass)}
                           onClick={() => generateSections.cancel()}
                         >
                           <StopCircle className="size-3.5 text-red-400" />
@@ -662,7 +665,7 @@ export function Phase2Workflow() {
                       ) : (
                         <button
                           className={cn(
-                            "flex items-center gap-2 rounded px-3 py-1.5 text-sm font-medium transition-colors",
+                            "flex w-full items-center justify-center gap-2 rounded px-3 py-1.5 text-sm font-medium transition-colors",
                             canGenerate
                               ? "bg-violet-700 text-white hover:bg-violet-600"
                               : cn("cursor-not-allowed opacity-40", dark ? "bg-neutral-800 text-neutral-500" : "bg-slate-100 text-slate-400"),
