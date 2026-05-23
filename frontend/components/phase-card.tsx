@@ -6,7 +6,7 @@ type PhaseStatus = "done" | "active" | "pending";
 const BADGE_STYLES: Record<PhaseStatus, string> = {
   done:    "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
   active:  "border-violet-500/30 bg-violet-500/10 text-violet-400",
-  pending: "border-neutral-700 bg-neutral-800/50 text-neutral-500",
+  pending: "border-neutral-300 bg-neutral-100 text-neutral-500 dark:border-neutral-700 dark:bg-neutral-800/50 dark:text-neutral-500",
 };
 
 export function PhaseCard({
