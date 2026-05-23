@@ -570,14 +570,21 @@ export function Phase2Workflow() {
                         <Skeleton className="h-48 w-full" />
                       </div>
                     ) : hasContent ? (
-                      <div
-                        className={cn("overflow-auto border-t", dark ? "border-neutral-800 bg-neutral-950" : "border-slate-200 bg-slate-50")}
-                        style={{ resize: "vertical", minHeight: "8rem", height: "20rem" }}
-                      >
-                        <pre className={cn("overflow-auto whitespace-pre-wrap p-4 text-xs leading-5", dark ? "text-neutral-200" : "text-slate-800")}>
-                          {content}
-                        </pre>
-                      </div>
+                      <textarea
+                        className={cn(
+                          "w-full resize-y border-t p-4 font-mono text-xs leading-5 outline-none",
+                          dark
+                            ? "border-neutral-800 bg-neutral-950 text-neutral-200 placeholder-neutral-600"
+                            : "border-slate-200 bg-slate-50 text-slate-800 placeholder-slate-400",
+                        )}
+                        style={{ minHeight: "8rem", height: "20rem" }}
+                        value={content}
+                        onChange={(e) => {
+                          if (!designBundle) return;
+                          setDesignBundle({ ...designBundle, [section]: e.target.value });
+                        }}
+                        spellCheck={false}
+                      />
                     ) : (
                       <div className={cn("border-t px-4 py-8 text-center text-sm", dark ? "border-neutral-800 text-neutral-700" : "border-slate-100 text-slate-400")}>
                         {!depsOk
