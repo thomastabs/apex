@@ -877,7 +877,8 @@ def _format_stories_human(grouped: dict[str, list[dict]]) -> str:
 
 _ANTI_HALLUCINATION = """\
 CRITICAL CONSTRAINT — No hallucination:
-- ONLY reference Story IDs and Epic titles that appear verbatim in the story list below.
+- The story list is in the user message. Every `## <heading>` in that list is an epic title.
+- ONLY use those exact epic title strings as section headings. Copy them verbatim — do not shorten, rephrase, or merge epics under new category names.
 - NEVER invent, guess, or extrapolate Epic IDs, story IDs, or epic names.
 - Every screen and endpoint you produce must cite the exact Story ID it satisfies.
 - If you are unsure which story a screen or endpoint belongs to, omit it.
@@ -895,9 +896,9 @@ Output exactly two sections — nothing else, no introduction, no commentary.
 
 ## Screens
 
-Group by epic using the exact epic title from the story list.
+One `### <Epic Title>` subsection per epic. The subsection heading MUST be copied verbatim from the `## <heading>` in the story list — do not rename, shorten, or merge.
 Format:
-### <Epic Title>
+### <Epic Title — exact copy from story list>
 - **<Screen Name>** [Story <ID>]: <entry point — one phrase>. Actions: <action1>, <action2>, <action3>.
 
 Rules for Screens:
@@ -932,9 +933,9 @@ Output exactly two sections — nothing else, no introduction, no commentary.
 
 ## Endpoints
 
-Group by epic using the exact epic title from the story list.
+One `### <Epic Title>` subsection per epic. The subsection heading MUST be copied verbatim from the `## <heading>` in the story list — do not rename, shorten, or merge.
 Format:
-### <Epic Title>
+### <Epic Title — exact copy from story list>
 - `METHOD /path/to/resource` — one-line purpose (Story <ID>)
 
 Rules for Endpoints:
