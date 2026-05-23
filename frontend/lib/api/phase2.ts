@@ -14,7 +14,6 @@ import type {
   ProposeTechStackResponse,
   RequestContext,
   TechStackStatus,
-  WireframeMode,
 } from "./types";
 
 export const PHASE2_AI_TIMEOUT_MS = 480_000;
@@ -45,12 +44,11 @@ export function generateDesignSection(
   section: DesignSectionKey,
   prior: Record<string, string>,
   signal?: AbortSignal,
-  wireframeMode: WireframeMode = "screen_inventory",
 ): Promise<DesignSectionResponse> {
   return apiRequest<DesignSectionResponse>("/api/phase2/generate-design-section", {
     method: "POST",
     context,
-    body: { section, prior, wireframe_mode: wireframeMode },
+    body: { section, prior },
     timeoutMs: PHASE2_AI_TIMEOUT_MS,
     signal,
   });

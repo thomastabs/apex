@@ -29,9 +29,8 @@ class LockTechStackRequest(BaseModel):
 
 
 class DesignSectionRequest(BaseModel):
-    section: Literal["wireframes", "user_flow", "component_tree", "tech_spec"]
+    section: Literal["ux_brief", "api_surface"]
     prior: dict[str, str] = Field(default_factory=dict)
-    wireframe_mode: Literal["screen_inventory", "component_spec"] = "screen_inventory"
 
 
 class DesignSectionResponse(BaseModel):
@@ -42,10 +41,8 @@ class DesignSectionResponse(BaseModel):
 
 class LockDesignRequest(BaseModel):
     story_ids: list[int] = Field(min_length=1)
-    wireframes: str = Field(min_length=1)
-    user_flow: str = Field(min_length=1)
-    component_tree: str = Field(min_length=1)
-    tech_spec: str = Field(min_length=1)
+    ux_brief: str = Field(min_length=1)
+    api_surface: str = Field(min_length=1)
 
 
 class TaigaTransitionFailure(BaseModel):

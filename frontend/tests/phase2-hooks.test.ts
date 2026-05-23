@@ -6,10 +6,8 @@ import type { DesignSectionKey } from "@/lib/api/types";
 // ---------------------------------------------------------------------------
 
 type DesignBundle = {
-  wireframes: string;
-  user_flow: string;
-  component_tree: string;
-  tech_spec: string;
+  ux_brief: string;
+  api_surface: string;
   story_ids: number[];
 };
 
@@ -21,22 +19,18 @@ function computeActiveBundle(
 ): DesignBundle | null {
   if (isPending && Object.keys(partial).length > 0) {
     return {
-      wireframes:     partial.wireframes      ?? designBundle?.wireframes      ?? "",
-      user_flow:      partial.user_flow        ?? designBundle?.user_flow       ?? "",
-      component_tree: partial.component_tree   ?? designBundle?.component_tree  ?? "",
-      tech_spec:      partial.tech_spec        ?? designBundle?.tech_spec       ?? "",
-      story_ids:      partialStoryIds.length   ? partialStoryIds : (designBundle?.story_ids ?? []),
+      ux_brief:    partial.ux_brief    ?? designBundle?.ux_brief    ?? "",
+      api_surface: partial.api_surface ?? designBundle?.api_surface ?? "",
+      story_ids:   partialStoryIds.length ? partialStoryIds : (designBundle?.story_ids ?? []),
     };
   }
   return designBundle;
 }
 
 const FULL_BUNDLE: DesignBundle = {
-  wireframes:     "w",
-  user_flow:      "f",
-  component_tree: "c",
-  tech_spec:      "t",
-  story_ids:      [1, 2],
+  ux_brief:    "## Screens\n- Login",
+  api_surface: "## Endpoints\n- POST /auth",
+  story_ids:   [1, 2],
 };
 
 describe("computeActiveBundle — merge logic", () => {
@@ -55,47 +49,41 @@ describe("computeActiveBundle — merge logic", () => {
   });
 
   it("merges single partial section with existing bundle", () => {
-    const result = computeActiveBundle(true, { wireframes: "w2" }, [3], FULL_BUNDLE);
+    const result = computeActiveBundle(true, { ux_brief: "updated UX" }, [3], FULL_BUNDLE);
     expect(result).toEqual({
-      wireframes:     "w2",
-      user_flow:      "f",
-      component_tree: "c",
-      tech_spec:      "t",
-      story_ids:      [3],
+      ux_brief:    "updated UX",
+      api_surface: "## Endpoints\n- POST /auth",
+      story_ids:   [3],
     });
   });
 
   it("falls back to empty strings when no existing bundle", () => {
-    const result = computeActiveBundle(true, { wireframes: "w2" }, [], null);
+    const result = computeActiveBundle(true, { ux_brief: "UX" }, [], null);
     expect(result).toEqual({
-      wireframes:     "w2",
-      user_flow:      "",
-      component_tree: "",
-      tech_spec:      "",
-      story_ids:      [],
+      ux_brief:    "UX",
+      api_surface: "",
+      story_ids:   [],
     });
   });
 
   it("uses partialStoryIds when available", () => {
-    const result = computeActiveBundle(true, { tech_spec: "ts" }, [5, 6], FULL_BUNDLE);
+    const result = computeActiveBundle(true, { api_surface: "API" }, [5, 6], FULL_BUNDLE);
     expect(result?.story_ids).toEqual([5, 6]);
   });
 
   it("falls back to bundle story_ids when partialStoryIds is empty", () => {
-    const result = computeActiveBundle(true, { tech_spec: "ts" }, [], FULL_BUNDLE);
+    const result = computeActiveBundle(true, { api_surface: "API" }, [], FULL_BUNDLE);
     expect(result?.story_ids).toEqual([1, 2]);
   });
 
-  it("merges all four partial sections simultaneously", () => {
+  it("merges both partial sections simultaneously", () => {
     const result = computeActiveBundle(
       true,
-      { wireframes: "W", user_flow: "F", component_tree: "C", tech_spec: "T" },
+      { ux_brief: "UX", api_surface: "API" },
       [7],
       FULL_BUNDLE,
     );
-    expect(result).toEqual({
-      wireframes: "W", user_flow: "F", component_tree: "C", tech_spec: "T", story_ids: [7],
-    });
+    expect(result).toEqual({ ux_brief: "UX", api_surface: "API", story_ids: [7] });
   });
 });
 
@@ -104,19 +92,17 @@ describe("computeActiveBundle — merge logic", () => {
 // ---------------------------------------------------------------------------
 
 function allSectionsPopulated(bundle: DesignBundle | null): boolean {
-  return Boolean(bundle?.wireframes && bundle?.user_flow && bundle?.component_tree && bundle?.tech_spec);
+  return Boolean(bundle?.ux_brief && bundle?.api_surface);
 }
 
 describe("allSectionsPopulated", () => {
-  it("returns true when all four sections have content", () => {
+  it("returns true when both sections have content", () => {
     expect(allSectionsPopulated(FULL_BUNDLE)).toBe(true);
   });
 
   it("returns false when any section is empty", () => {
-    expect(allSectionsPopulated({ ...FULL_BUNDLE, wireframes: "" })).toBe(false);
-    expect(allSectionsPopulated({ ...FULL_BUNDLE, user_flow: "" })).toBe(false);
-    expect(allSectionsPopulated({ ...FULL_BUNDLE, component_tree: "" })).toBe(false);
-    expect(allSectionsPopulated({ ...FULL_BUNDLE, tech_spec: "" })).toBe(false);
+    expect(allSectionsPopulated({ ...FULL_BUNDLE, ux_brief: "" })).toBe(false);
+    expect(allSectionsPopulated({ ...FULL_BUNDLE, api_surface: "" })).toBe(false);
   });
 
   it("returns false when bundle is null", () => {
@@ -134,7 +120,7 @@ vi.mock("@/lib/api/phase2", () => ({
 
 import { generateDesignSection } from "@/lib/api/phase2";
 
-const SECTION_ORDER: DesignSectionKey[] = ["wireframes", "user_flow", "component_tree", "tech_spec"];
+const SECTION_ORDER: DesignSectionKey[] = ["ux_brief", "api_surface"];
 const CONTEXT = { taigaToken: "tok", projectId: 1 };
 
 async function runGenerate(
@@ -169,7 +155,7 @@ describe("sequential generation sequencing", () => {
     });
 
     expect(calls).toEqual(SECTION_ORDER);
-    expect(onSection).toHaveBeenCalledTimes(4);
+    expect(onSection).toHaveBeenCalledTimes(2);
     expect(onDone).toHaveBeenCalledOnce();
   });
 
@@ -181,9 +167,7 @@ describe("sequential generation sequencing", () => {
     });
 
     expect(priorsReceived[0]).toEqual({});
-    expect(priorsReceived[1]).toHaveProperty("wireframes", "c-wireframes");
-    expect(priorsReceived[2]).toHaveProperty("user_flow", "c-user_flow");
-    expect(priorsReceived[3]).toHaveProperty("component_tree", "c-component_tree");
+    expect(priorsReceived[1]).toHaveProperty("ux_brief", "c-ux_brief");
   });
 
   it("propagates section content to onSection callbacks", async () => {
@@ -192,17 +176,17 @@ describe("sequential generation sequencing", () => {
       story_ids: [42],
     }));
 
-    expect(onSection).toHaveBeenCalledWith("wireframes", "result-wireframes", [42]);
-    expect(onSection).toHaveBeenCalledWith("tech_spec", "result-tech_spec", [42]);
+    expect(onSection).toHaveBeenCalledWith("ux_brief", "result-ux_brief", [42]);
+    expect(onSection).toHaveBeenCalledWith("api_surface", "result-api_surface", [42]);
   });
 });
 
 describe("single-section regeneration prior building", () => {
-  it("builds prior from existing bundle sections before target", () => {
+  it("builds prior from ux_brief when regenerating api_surface", () => {
     const existingBundle: DesignBundle = {
-      wireframes: "W", user_flow: "F", component_tree: "C", tech_spec: "T", story_ids: [1],
+      ux_brief: "UX", api_surface: "API", story_ids: [1],
     };
-    const targetSection: DesignSectionKey = "component_tree";
+    const targetSection: DesignSectionKey = "api_surface";
     const sectionsBefore = SECTION_ORDER.slice(0, SECTION_ORDER.indexOf(targetSection));
 
     const prior: Record<string, string> = {};
@@ -210,16 +194,15 @@ describe("single-section regeneration prior building", () => {
       prior[s] = existingBundle[s as keyof DesignBundle] as string;
     }
 
-    expect(prior).toEqual({ wireframes: "W", user_flow: "F" });
-    expect(prior).not.toHaveProperty("component_tree");
-    expect(prior).not.toHaveProperty("tech_spec");
+    expect(prior).toEqual({ ux_brief: "UX" });
+    expect(prior).not.toHaveProperty("api_surface");
   });
 
   it("prior is empty when regenerating the first section", () => {
     const existingBundle: DesignBundle = {
-      wireframes: "W", user_flow: "F", component_tree: "C", tech_spec: "T", story_ids: [1],
+      ux_brief: "UX", api_surface: "API", story_ids: [1],
     };
-    const targetSection: DesignSectionKey = "wireframes";
+    const targetSection: DesignSectionKey = "ux_brief";
     const sectionsBefore = SECTION_ORDER.slice(0, SECTION_ORDER.indexOf(targetSection));
 
     const prior: Record<string, string> = {};

@@ -55,27 +55,12 @@ class AiService:
         context: str,
         section: str,
         prior_sections: dict[str, str],
-        *,
-        wireframe_mode: str = "screen_inventory",
     ) -> str:
-        if section == "wireframes":
-            return ai_engine.generate_design_wireframes(all_stories, context, wireframe_mode=wireframe_mode)
-        if section == "user_flow":
-            return ai_engine.generate_design_user_flow(
+        if section == "ux_brief":
+            return ai_engine.generate_design_ux_brief(all_stories, context)
+        if section == "api_surface":
+            return ai_engine.generate_design_api_surface(
                 all_stories, context,
-                wireframes=prior_sections.get("wireframes", ""),
-            )
-        if section == "component_tree":
-            return ai_engine.generate_design_component_tree(
-                all_stories, context,
-                wireframes=prior_sections.get("wireframes", ""),
-                user_flow=prior_sections.get("user_flow", ""),
-            )
-        if section == "tech_spec":
-            return ai_engine.generate_design_tech_spec(
-                all_stories, context,
-                wireframes=prior_sections.get("wireframes", ""),
-                user_flow=prior_sections.get("user_flow", ""),
-                component_tree=prior_sections.get("component_tree", ""),
+                ux_brief=prior_sections.get("ux_brief", ""),
             )
         raise ValueError(f"Unknown design section: {section!r}")

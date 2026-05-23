@@ -59,7 +59,7 @@ class Phase2Service:
         self.context.write_tech_stack(clean)
         return {"defined": True, "tech_stack": clean}
 
-    DESIGN_SECTION_ORDER = ("wireframes", "user_flow", "component_tree", "tech_spec")
+    DESIGN_SECTION_ORDER = ("ux_brief", "api_surface")
 
     def generate_design_section(
         self,
@@ -67,7 +67,6 @@ class Phase2Service:
         *,
         section: str,
         prior_sections: dict[str, str] | None = None,
-        wireframe_mode: str = "screen_inventory",
     ) -> dict:
         if section not in self.DESIGN_SECTION_ORDER:
             raise Phase2ValidationError(f"Unknown section: {section!r}")
@@ -82,7 +81,6 @@ class Phase2Service:
         constrained_context = self._build_constrained_context(project_concept, tech_stack)
         content = self.ai.generate_design_section(
             all_stories, constrained_context, section, prior_sections or {},
-            wireframe_mode=wireframe_mode,
         )
         return {
             "section": section,

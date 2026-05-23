@@ -950,26 +950,17 @@ def clear_design_draft() -> None:
         dd.unlink()
 
 
-def write_project_design_bundle(
-    wireframes: str,
-    user_flow: str,
-    component_tree: str,
-    tech_spec: str,
-) -> None:
-    """Overwrite design-bundle.md with a single unified project-level design bundle."""
+def write_project_design_bundle(ux_brief: str, api_surface: str) -> None:
+    """Overwrite design-bundle.md with the approved project-level design (UX Brief + API Surface)."""
     init_context()
     db = _path("design-bundle.md")
     content = (
         "# Design Bundle\n\n"
         f"**Locked at:** {_now()}\n\n"
-        "## Wireframes\n\n"
-        f"```\n{wireframes.strip()}\n```\n\n"
-        "## User Flow\n\n"
-        f"```\n{user_flow.strip()}\n```\n\n"
-        "## Component Tree\n\n"
-        f"```\n{component_tree.strip()}\n```\n\n"
-        "## Technical Spec\n\n"
-        f"```yaml\n{tech_spec.strip()}\n```\n"
+        "## UX Brief\n\n"
+        f"{ux_brief.strip()}\n\n"
+        "## API Surface\n\n"
+        f"{api_surface.strip()}\n"
     )
     db.write_text(content, encoding="utf-8")
 

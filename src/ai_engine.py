@@ -879,186 +879,102 @@ _ANTI_HALLUCINATION = """\
 CRITICAL CONSTRAINT — No hallucination:
 - ONLY reference Story IDs and Epic titles that appear verbatim in the story list below.
 - NEVER invent, guess, or extrapolate Epic IDs, story IDs, or epic names.
-- Every screen, component, and endpoint you produce must cite the exact Story ID it satisfies.
+- Every screen and endpoint you produce must cite the exact Story ID it satisfies.
 - If you are unsure which story a screen or endpoint belongs to, omit it.
 """
 
-_WIREFRAMES_SYSTEM = """\
-You are a UX Designer producing a Screen Inventory for a software project.
+_UX_BRIEF_SYSTEM = """\
+You are a UX Designer writing a concise screen inventory and navigation overview.
 
 **Project Context and Tech Stack (binding constraints):**
 {context}
 
 {anti_hallucination}
 
-Rules:
-- For each Epic (using the exact epic title from the story list — no IDs), list every distinct
-  screen required by its stories.
-- Format each epic as: ## <Epic Title>
-- Format each screen as:
-    ### <Screen Name>  (Story ID: <exact story_id from list>)
-    **Entry point:** one sentence describing how the user reaches this screen
-    **Key UI elements:** bullet list — inputs, buttons, data displays, navigation items
-    **Primary actions:** bullet list — what the user can do on this screen
-- If a screen serves multiple stories, list all story IDs in the heading.
-- Do NOT use ASCII art, box-drawing characters, or any diagram syntax.
-- Output ONLY the screen inventory — no introduction, no commentary.
+Output exactly two sections — nothing else, no introduction, no commentary.
+
+## Screens
+
+Group by epic using the exact epic title from the story list.
+Format:
+### <Epic Title>
+- **<Screen Name>** [Story <ID>]: <entry point — one phrase>. Actions: <action1>, <action2>, <action3>.
+
+Rules for Screens:
+- One bullet per screen. Maximum 25 words per bullet.
+- 2–4 actions per screen maximum.
+- If a screen serves multiple stories list all IDs.
+- Only screens a real user navigates to.
+
+## Navigation Paths
+
+Bullet list of the main user journeys, from entry to goal.
+Format: `<Start Screen> → <Screen 2> → <End Screen>` (Stories: <IDs>)
+
+Rules for Navigation Paths:
+- Maximum 6 paths.
+- Use exact screen names from the Screens section above.
+- No ASCII art, no diagrams, no code.
 """
 
-_COMPONENT_SPEC_SYSTEM = """\
-You are a UI/UX Designer generating a Figma-ready Component Specification for a software project.
-
-**Project Context and Tech Stack (binding constraints):**
-{context}
-
-{anti_hallucination}
-
-Rules:
-- Identify every distinct reusable UI component required by ALL stories.
-- Group components by Atomic Design level: Atoms → Molecules → Organisms → Templates → Pages.
-- For each component output exactly this block (no deviations):
-
-## ComponentName
-**Type:** <atom | molecule | organism | template | page>
-**Variants:** <comma-separated list, e.g. default | selected | loading | error>
-**Props:**
-- propName: type — required | optional (default: value)
-**States:**
-- stateName → one-line description of visual/behavioral change
-**Interactions:**
-- trigger → action or outcome
-**Sizing:** one line on constraints or aspect-ratio
-**Tokens:** comma-separated design token names (e.g. bg-surface, text-primary, accent-violet)
-**Stories:** <exact Story ID(s) from the list this component satisfies>
-
-- Only reference the exact Story IDs from the story list.
-- Shared utility components (Button, Input, Modal) appear once at the Atoms level.
-- Every story must be covered by at least one Template or Page component.
-- Output ONLY the component spec blocks — no introduction, no commentary.
-"""
-
-_USER_FLOW_SYSTEM = """\
-You are a UX Designer generating a Mermaid user flow diagram for a software project.
-
-**Project Context:**
-{context}
-
-{anti_hallucination}
-
-**Design Artifacts (use these screen/component names exactly as Mermaid node labels):**
-{wireframes}
-
-Rules:
-- Output a single valid Mermaid `flowchart TD` diagram — no other Mermaid diagram type.
-- Node labels must match screen or page-level component names from the artifacts above word-for-word.
-- Every story must be reachable through at least one path in the diagram.
-- Show decision points, error paths, and how epics connect in the overall user journey.
-- Use short quoted labels: A["Screen Name"]
-- Output ONLY the Mermaid diagram — no commentary, no explanations.
-"""
-
-_COMPONENT_TREE_SYSTEM = """\
-You are a Software Architect generating a component and module hierarchy for a software project.
-
-**Project Context:**
-{context}
-
-{anti_hallucination}
-
-**Design Artifacts (screens or components to map to implementation modules):**
-{wireframes}
-
-**User Flow (navigation paths to reflect in routing/components):**
-{user_flow}
-
-Rules:
-- Output an indented plain-text hierarchy using 2-space indentation.
-- Include both frontend components and backend modules/services.
-- Shared components appear once at the top level; epic-specific sections below reference them.
-- Every screen from the Screen Inventory must map to at least one component.
-- Annotate each leaf with its Story ID: e.g. `SearchScreen  # Story 9264729`
-- Names and brief labels only — no code.
-- Output ONLY the component tree — no commentary, no explanations.
-"""
-
-_TECH_SPEC_SYSTEM = """\
-You are a Software Architect generating an OpenAPI specification and database schema.
+_API_SURFACE_SYSTEM = """\
+You are a Software Architect defining the API surface and data model.
 
 **Project Context (binding constraints — ONLY use technologies from the Tech Stack):**
 {context}
 
 {anti_hallucination}
 
-**Screen Inventory (screens that drive the API surface):**
-{wireframes}
+**UX Brief (screens and navigation — derive route names from screen names):**
+{ux_brief}
 
-**User Flow (navigation that drives endpoint paths):**
-{user_flow}
+Output exactly two sections — nothing else, no introduction, no commentary.
 
-**Component Tree (module names to align with route/service names):**
-{component_tree}
+## Endpoints
 
-Rules:
-- Write a full OpenAPI 3.0 YAML specification covering ALL API endpoints for ALL stories.
-- After the YAML, add a `# Database Schema` section with DDL (CREATE TABLE statements).
-- ONLY use technologies from the Tech Stack — no additional frameworks or databases.
-- Every endpoint must include an `x-story-id` extension referencing the exact Story ID it serves.
-- Route and service names must align with the component tree above.
-- Output ONLY the spec and DDL — no commentary, no explanations.
+Group by epic using the exact epic title from the story list.
+Format:
+### <Epic Title>
+- `METHOD /path/to/resource` — one-line purpose (Story <ID>)
+
+Rules for Endpoints:
+- One bullet per endpoint. Method + path + purpose only — no request/response schemas.
+- ONLY use the HTTP methods and path style consistent with the Tech Stack.
+- Derive route names from screen names in the UX Brief above.
+
+## Data Model
+
+For each entity:
+### <EntityName>
+- Fields: `field_name: type`, `field_name: type`, …
+- Relations: one line (e.g. belongs to User, has many Orders) — omit if none.
+
+Rules for Data Model:
+- Maximum 8 entities.
+- No SQL, no YAML, no code blocks.
+- Only entities directly required by the stories.
 """
 
 
-def generate_design_wireframes(
-    all_stories: list[dict], context: str, *, wireframe_mode: str = "screen_inventory"
-) -> str:
+def generate_design_ux_brief(all_stories: list[dict], context: str) -> str:
     grouped = _group_stories_by_epic(all_stories)
-    if wireframe_mode == "component_spec":
-        system = _COMPONENT_SPEC_SYSTEM.format(context=context.strip(), anti_hallucination=_ANTI_HALLUCINATION)
-    else:
-        system = _WIREFRAMES_SYSTEM.format(context=context.strip(), anti_hallucination=_ANTI_HALLUCINATION)
-    return _invoke(system, _format_stories_human(grouped), get_coder_model(),
-                   max_tokens=8000, timeout=200)
-
-
-def generate_design_user_flow(all_stories: list[dict], context: str, *, wireframes: str) -> str:
-    grouped = _group_stories_by_epic(all_stories)
-    system = _USER_FLOW_SYSTEM.format(
+    system = _UX_BRIEF_SYSTEM.format(
         context=context.strip(),
-        wireframes=wireframes.strip(),
         anti_hallucination=_ANTI_HALLUCINATION,
     )
     return _invoke(system, _format_stories_human(grouped), get_coder_model(),
-                   max_tokens=3000, timeout=120)
+                   max_tokens=2500, timeout=180)
 
 
-def generate_design_component_tree(
-    all_stories: list[dict], context: str, *, wireframes: str, user_flow: str
-) -> str:
+def generate_design_api_surface(all_stories: list[dict], context: str, *, ux_brief: str) -> str:
     grouped = _group_stories_by_epic(all_stories)
-    system = _COMPONENT_TREE_SYSTEM.format(
+    system = _API_SURFACE_SYSTEM.format(
         context=context.strip(),
-        wireframes=wireframes.strip(),
-        user_flow=user_flow.strip(),
+        ux_brief=ux_brief.strip(),
         anti_hallucination=_ANTI_HALLUCINATION,
     )
     return _invoke(system, _format_stories_human(grouped), get_coder_model(),
-                   max_tokens=4000, timeout=120)
-
-
-def generate_design_tech_spec(
-    all_stories: list[dict], context: str,
-    *, wireframes: str, user_flow: str, component_tree: str,
-) -> str:
-    grouped = _group_stories_by_epic(all_stories)
-    system = _TECH_SPEC_SYSTEM.format(
-        context=context.strip(),
-        wireframes=wireframes.strip(),
-        user_flow=user_flow.strip(),
-        component_tree=component_tree.strip(),
-        anti_hallucination=_ANTI_HALLUCINATION,
-    )
-    return _invoke(system, _format_stories_human(grouped), get_coder_model(),
-                   max_tokens=10000, timeout=240)
+                   max_tokens=2000, timeout=150)
 
 
 # ---------------------------------------------------------------------------

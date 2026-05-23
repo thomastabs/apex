@@ -146,8 +146,7 @@ export type LockTechStackRequest = {
   tech_stack: string;
 };
 
-export type DesignSectionKey = "wireframes" | "user_flow" | "component_tree" | "tech_spec";
-export type WireframeMode = "screen_inventory" | "component_spec";
+export type DesignSectionKey = "ux_brief" | "api_surface";
 
 export type DesignSectionResponse = {
   section: DesignSectionKey;
@@ -156,19 +155,15 @@ export type DesignSectionResponse = {
 };
 
 export type DesignBundle = {
-  wireframes: string;
-  user_flow: string;
-  component_tree: string;
-  tech_spec: string;
+  ux_brief: string;
+  api_surface: string;
   story_ids: number[];
 };
 
 export type LockDesignRequest = {
   story_ids: number[];
-  wireframes: string;
-  user_flow: string;
-  component_tree: string;
-  tech_spec: string;
+  ux_brief: string;
+  api_surface: string;
 };
 
 export type LockDesignResponse = {

@@ -7,10 +7,8 @@ from backend.app.services.request_context import RequestContext
 
 
 _FAKE_SECTION_CONTENT = {
-    "wireframes": "SCREEN",
-    "user_flow": "flowchart TD\nA-->B",
-    "component_tree": "App\n  Page",
-    "tech_spec": "openapi: 3.0.0",
+    "ux_brief": "## Screens\n- Login\n## Navigation Paths\n- Login → Dashboard",
+    "api_surface": "## Endpoints\n- POST /auth/login\n## Data Model\n- User: id, email",
 }
 
 
@@ -23,7 +21,7 @@ class FakeAiService:
         self.tech_stack_args = (all_stories, context, hint)
         return [{"name": "FastAPI + Next.js", "description": "Good fit.", "trade_offs": "+ simple"}]
 
-    def generate_design_section(self, all_stories, context, section, prior_sections, *, wireframe_mode="screen_inventory"):
+    def generate_design_section(self, all_stories, context, section, prior_sections) -> str:
         self.section_args.append((all_stories, context, section, prior_sections))
         return _FAKE_SECTION_CONTENT[section]
 
@@ -56,8 +54,8 @@ class FakeContextService:
     def story_gherkin(self, story_id):
         return f"### Story {story_id}\n\n```gherkin\nFeature: Story {story_id}\n```"
 
-    def write_project_design_bundle(self, wireframes, user_flow, component_tree, tech_spec):
-        self.written_bundle = (wireframes, user_flow, component_tree, tech_spec)
+    def write_project_design_bundle(self, ux_brief: str, api_surface: str) -> None:
+        self.written_bundle = (ux_brief, api_surface)
 
     def write_project_technical_spec(self, story_ids, spec):
         self.written_tech_spec = (story_ids, spec)
@@ -158,7 +156,7 @@ def test_generate_design_section_requires_locked_tech_stack():
     service, _, _ = _service(context=FakeContextService(tech_stack=_tech_stack_empty()))
 
     with pytest.raises(Phase2ValidationError, match="Tech Stack"):
-        service.generate_design_section(_ctx(), section="wireframes")
+        service.generate_design_section(_ctx(), section="ux_brief")
 
 
 def test_generate_design_section_requires_eligible_stories():
@@ -166,7 +164,7 @@ def test_generate_design_section_requires_eligible_stories():
     service, _, _ = _service(context=FakeContextService(index=empty_index))
 
     with pytest.raises(Phase2ValidationError, match="No Phase 1 locked"):
-        service.generate_design_section(_ctx(), section="wireframes")
+        service.generate_design_section(_ctx(), section="ux_brief")
 
 
 def test_generate_design_section_rejects_unknown_section():
@@ -176,43 +174,42 @@ def test_generate_design_section_rejects_unknown_section():
         service.generate_design_section(_ctx(), section="bad_section")
 
 
-def test_generate_design_section_wireframes_returns_content_and_story_ids():
+def test_generate_design_section_ux_brief_returns_content_and_story_ids():
     service, ai, _ = _service()
 
-    result = service.generate_design_section(_ctx(), section="wireframes")
+    result = service.generate_design_section(_ctx(), section="ux_brief")
 
-    assert result["section"] == "wireframes"
-    assert result["content"] == "SCREEN"
+    assert result["section"] == "ux_brief"
+    assert "Screens" in result["content"]
     assert sorted(result["story_ids"]) == [10, 11]
 
 
 def test_generate_design_section_passes_constrained_context():
     service, ai, _ = _service()
 
-    service.generate_design_section(_ctx(), section="wireframes")
+    service.generate_design_section(_ctx(), section="ux_brief")
 
     _, context, section, prior = ai.section_args[0]
-    assert section == "wireframes"
+    assert section == "ux_brief"
     assert "locked and binding" in context or "Locked Tech Stack Constraint" in context
     assert "FastAPI + Next.js + PostgreSQL" in context
 
 
 def test_generate_design_section_passes_prior_sections_as_context():
     service, ai, _ = _service()
-    prior = {"wireframes": "SCREEN", "user_flow": "flowchart TD\nA-->B"}
+    prior = {"ux_brief": "## Screens\n- Login"}
 
-    service.generate_design_section(_ctx(), section="component_tree", prior_sections=prior)
+    service.generate_design_section(_ctx(), section="api_surface", prior_sections=prior)
 
     _, _, section, received_prior = ai.section_args[0]
-    assert section == "component_tree"
-    assert received_prior["wireframes"] == "SCREEN"
-    assert received_prior["user_flow"] == "flowchart TD\nA-->B"
+    assert section == "api_surface"
+    assert received_prior["ux_brief"] == "## Screens\n- Login"
 
 
 def test_generate_design_section_stories_sorted_by_id():
     service, ai, _ = _service()
 
-    service.generate_design_section(_ctx(), section="wireframes")
+    service.generate_design_section(_ctx(), section="ux_brief")
 
     all_stories, _, _, _ = ai.section_args[0]
     ids = [s["story_id"] for s in all_stories]
@@ -222,7 +219,7 @@ def test_generate_design_section_stories_sorted_by_id():
 def test_generate_design_section_includes_epic_titles_from_index():
     service, ai, _ = _service()
 
-    service.generate_design_section(_ctx(), section="wireframes")
+    service.generate_design_section(_ctx(), section="ux_brief")
 
     all_stories, _, _, _ = ai.section_args[0]
     epic_titles = {s["epic_title"] for s in all_stories}

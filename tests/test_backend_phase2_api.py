@@ -34,11 +34,10 @@ class StubPhase2Service:
     def lock_tech_stack(self, ctx, *, tech_stack):
         return {"defined": True, "tech_stack": tech_stack}
 
-    def generate_design_section(self, ctx, *, section, prior_sections=None, wireframe_mode="screen_inventory"):
+    def generate_design_section(self, ctx, *, section, prior_sections=None):
         return {
             "section": section,
-            "content": {"wireframes": "SCREEN", "user_flow": "flowchart TD",
-                        "component_tree": "App", "tech_spec": "openapi: 3.0.0"}[section],
+            "content": {"ux_brief": "## Screens\n- Login", "api_surface": "## Endpoints\n- POST /auth"}[section],
             "story_ids": [10],
         }
 
@@ -74,27 +73,27 @@ def test_lock_tech_stack_route():
     assert response == {"defined": True, "tech_stack": "FastAPI"}
 
 
-def test_generate_design_section_route_wireframes():
+def test_generate_design_section_route_ux_brief():
     response = generate_design_section(
-        DesignSectionRequest(section="wireframes"),
+        DesignSectionRequest(section="ux_brief"),
         ctx=_ctx(),
         service=StubPhase2Service(),
     )
 
-    assert response["section"] == "wireframes"
-    assert response["content"] == "SCREEN"
+    assert response["section"] == "ux_brief"
+    assert "Screens" in response["content"]
     assert response["story_ids"] == [10]
 
 
 def test_generate_design_section_route_with_prior():
     response = generate_design_section(
-        DesignSectionRequest(section="user_flow", prior={"wireframes": "SCREEN"}),
+        DesignSectionRequest(section="api_surface", prior={"ux_brief": "## Screens\n- Login"}),
         ctx=_ctx(),
         service=StubPhase2Service(),
     )
 
-    assert response["section"] == "user_flow"
-    assert response["content"] == "flowchart TD"
+    assert response["section"] == "api_surface"
+    assert "Endpoints" in response["content"]
 
 
 def test_persist_design_route():
@@ -107,8 +106,8 @@ def test_persist_design_route():
         def set_project(self, project_id):
             self.project_id = project_id
 
-        def write_project_design_bundle(self, wireframes, user_flow, component_tree, tech_spec):
-            self.design = (wireframes, user_flow, component_tree, tech_spec)
+        def write_project_design_bundle(self, ux_brief: str, api_surface: str) -> None:
+            self.design = (ux_brief, api_surface)
 
         def write_project_technical_spec(self, story_ids, spec):
             self.spec = (story_ids, spec)
@@ -119,10 +118,8 @@ def test_persist_design_route():
     response = persist_design(
         LockDesignRequest(
             story_ids=[10],
-            wireframes="SCREEN",
-            user_flow="flowchart TD",
-            component_tree="App",
-            tech_spec="openapi: 3.0.0",
+            ux_brief="## Screens\n- Login",
+            api_surface="## Endpoints\n- POST /auth",
         ),
         ctx=_ctx(),
         service=service,
@@ -130,7 +127,7 @@ def test_persist_design_route():
 
     assert response == {"ok": True, "story_ids": [10], "taiga_failures": []}
     assert service.context.project_id == 42
-    assert service.context.spec == ([10], "openapi: 3.0.0")
+    assert service.context.spec == ([10], "## Endpoints\n- POST /auth")
 
 
 def test_phase2_validation_errors_map_to_422():
@@ -158,12 +155,12 @@ def test_ai_error_maps_to_502():
 
 def test_ai_rate_limit_error_maps_to_429():
     class FailingService(StubPhase2Service):
-        def generate_design_section(self, ctx, *, section, prior_sections=None, wireframe_mode="screen_inventory"):
+        def generate_design_section(self, ctx, *, section, prior_sections=None):
             raise AIRateLimitError("Rate limited")
 
     with pytest.raises(HTTPException) as exc:
         generate_design_section(
-            DesignSectionRequest(section="wireframes"),
+            DesignSectionRequest(section="ux_brief"),
             ctx=_ctx(),
             service=FailingService(),
         )
