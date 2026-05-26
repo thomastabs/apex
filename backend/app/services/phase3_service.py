@@ -8,7 +8,7 @@ from backend.app.services.request_context import RequestContext
 
 _logger = logging.getLogger("apex.phase3_service")
 
-_PREVIEW_CHARS = 300
+_PREVIEW_CHARS = 3000
 
 
 class Phase3ValidationError(ValueError):

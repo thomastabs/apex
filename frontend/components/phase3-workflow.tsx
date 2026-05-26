@@ -127,6 +127,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
   const dark = useUiStore((s) => s.theme) === "dark";
   const { data, isLoading, error } = useEligibleStories();
   const [activeEpic, setActiveEpic] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
 
   if (isLoading) {
     return (
@@ -175,7 +176,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
         <div className="relative flex-1 max-w-sm">
           <select
             value={currentEpic}
-            onChange={(e) => setActiveEpic(e.target.value)}
+            onChange={(e) => { setActiveEpic(e.target.value); setPage(0); }}
             className={cn(
               "w-full appearance-none rounded-lg border px-4 py-2.5 pr-9 text-sm font-medium transition cursor-pointer",
               dark
@@ -196,7 +197,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
         </div>
       </div>
 
-      {/* 2×2 paginated horizontal scroll */}
+      {/* 2×2 paged grid with arrow navigation */}
       {(() => {
         type Slot = (typeof epicStories)[number] | null;
         const chunks: Slot[][] = [];
@@ -206,79 +207,89 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
           chunks.push(chunk);
         }
         const pageCount = chunks.length;
+        const safePage = Math.min(page, pageCount - 1);
+        const chunk = chunks[safePage] ?? [];
         return (
-          <>
-            <div
-              className="flex items-start overflow-x-auto gap-0"
-              style={{ scrollSnapType: "x mandatory", scrollBehavior: "smooth" }}
-            >
-              {chunks.map((chunk, ci) => (
-                <div
-                  key={ci}
-                  className="grid shrink-0 w-full grid-cols-2 gap-4 pr-0"
-                  style={{ scrollSnapAlign: "start" }}
-                >
-                  {chunk.map((story, si) =>
-                    story === null ? (
-                      <div key={`empty-${si}`} />
-                    ) : (
-                      <button
-                        key={story.story_id}
-                        onClick={() => onSelect(story.story_id)}
-                        className={cn(
-                          "group flex h-full flex-col rounded-xl border p-5 text-left transition-all duration-150",
-                          dark
-                            ? "border-neutral-700 bg-neutral-900 hover:border-violet-500 hover:bg-neutral-800/80 hover:shadow-lg hover:shadow-violet-900/20"
-                            : "border-slate-200 bg-white hover:border-violet-400 hover:bg-violet-50/50 shadow-sm hover:shadow-md",
-                        )}
-                      >
-                        <span className={cn(
-                          "mb-3 inline-flex w-fit items-center rounded-md px-2 py-0.5 text-[11px] font-mono font-semibold",
-                          dark ? "bg-neutral-800 text-violet-400 ring-1 ring-neutral-700" : "bg-violet-50 text-violet-700 ring-1 ring-violet-200",
-                        )}>
-                          US#{story.story_id}
-                        </span>
-                        <p className={cn("text-base font-bold leading-snug", dark ? "text-neutral-100" : "text-slate-800")}>
-                          {story.title}
-                        </p>
-                        {story.gherkin_preview && (() => {
-                          const scenarios = cleanGherkinPreview(story.gherkin_preview);
-                          return scenarios.length > 0 ? (
-                            <div className="mt-2.5 flex flex-wrap gap-1.5">
-                              {scenarios.map((sc, i) => (
-                                <span
-                                  key={i}
-                                  className={cn(
-                                    "rounded-md px-2 py-0.5 text-[10px] font-medium leading-snug",
-                                    dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-100 text-slate-500",
-                                  )}
-                                >
-                                  {sc}
-                                </span>
-                              ))}
-                            </div>
-                          ) : null;
-                        })()}
-                        <div className="mt-auto flex items-center justify-end pt-4">
-                          <span className={cn(
-                            "flex items-center gap-1 text-[11px] font-medium transition",
-                            dark ? "text-neutral-600 group-hover:text-violet-400" : "text-slate-400 group-hover:text-violet-600",
-                          )}>
-                            Implement <ChevronRight className="h-3 w-3" />
-                          </span>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              {chunk.map((story, si) =>
+                story === null ? (
+                  <div key={`empty-${si}`} />
+                ) : (
+                  <button
+                    key={story.story_id}
+                    onClick={() => onSelect(story.story_id)}
+                    className={cn(
+                      "group flex h-full flex-col rounded-xl border p-5 text-left transition-all duration-150",
+                      dark
+                        ? "border-neutral-700 bg-neutral-900 hover:border-violet-500 hover:bg-neutral-800/80 hover:shadow-lg hover:shadow-violet-900/20"
+                        : "border-slate-200 bg-white hover:border-violet-400 hover:bg-violet-50/50 shadow-sm hover:shadow-md",
+                    )}
+                  >
+                    <span className={cn(
+                      "mb-3 inline-flex w-fit items-center rounded-md px-2 py-0.5 text-[11px] font-mono font-semibold",
+                      dark ? "bg-neutral-800 text-violet-400 ring-1 ring-neutral-700" : "bg-violet-50 text-violet-700 ring-1 ring-violet-200",
+                    )}>
+                      US#{story.story_id}
+                    </span>
+                    <p className={cn("text-base font-bold leading-snug", dark ? "text-neutral-100" : "text-slate-800")}>
+                      {story.title}
+                    </p>
+                    {story.gherkin_preview && (() => {
+                      const scenarios = cleanGherkinPreview(story.gherkin_preview);
+                      return scenarios.length > 0 ? (
+                        <div className="mt-2.5 flex flex-wrap gap-1.5">
+                          {scenarios.map((sc, i) => (
+                            <span key={i} className={cn(
+                              "rounded-md px-2 py-0.5 text-[10px] font-medium leading-snug",
+                              dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-100 text-slate-500",
+                            )}>
+                              {sc}
+                            </span>
+                          ))}
                         </div>
-                      </button>
-                    )
-                  )}
-                </div>
-              ))}
+                      ) : null;
+                    })()}
+                    <div className="mt-auto flex items-center justify-end pt-4">
+                      <span className={cn(
+                        "flex items-center gap-1 text-[11px] font-medium transition",
+                        dark ? "text-neutral-600 group-hover:text-violet-400" : "text-slate-400 group-hover:text-violet-600",
+                      )}>
+                        Implement <ChevronRight className="h-3 w-3" />
+                      </span>
+                    </div>
+                  </button>
+                )
+              )}
             </div>
             {pageCount > 1 && (
-              <p className="text-center text-xs text-neutral-500">
-                Scroll horizontally to see all {epicStories.length} stories ({pageCount} pages of 4)
-              </p>
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={safePage === 0}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-medium transition disabled:opacity-30",
+                    dark ? "border-neutral-700 bg-neutral-900 text-neutral-300 hover:bg-neutral-800" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 shadow-sm",
+                  )}
+                >
+                  ← Prev
+                </button>
+                <span className="text-xs text-neutral-500">
+                  Page {safePage + 1} of {pageCount} · {epicStories.length} stories
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                  disabled={safePage === pageCount - 1}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-medium transition disabled:opacity-30",
+                    dark ? "border-neutral-700 bg-neutral-900 text-neutral-300 hover:bg-neutral-800" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 shadow-sm",
+                  )}
+                >
+                  Next →
+                </button>
+              </div>
             )}
-          </>
+          </div>
         );
       })()}
     </div>
@@ -289,7 +300,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
 // Stage B — Task decomposition
 // ---------------------------------------------------------------------------
 
-function StageB({ storyId, onBack }: { storyId: number; onBack: () => void }) {
+function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () => void; onContinue: () => void }) {
   const dark = useUiStore((s) => s.theme) === "dark";
   const { data: ctx, isLoading: ctxLoading } = useStoryContext(storyId);
   const { taskList, tasksPushed } = usePhase3Store();
@@ -362,23 +373,30 @@ function StageB({ storyId, onBack }: { storyId: number; onBack: () => void }) {
         );
       })()}
 
-      {/* Generate tasks */}
-      <div className="flex flex-col gap-2">
+      {/* Generate tasks + Continue */}
+      <div className="grid grid-cols-2 gap-3">
         <Button
           className="w-full justify-center"
           onClick={() => generateTasksMut.mutate(storyId)}
           disabled={generateTasksMut.isPending || tasksPushed}
         >
           {generateTasksMut.isPending
-            ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating tasks…</>
+            ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
             : <><Sparkles className="h-4 w-4" /> Generate Tasks</>}
         </Button>
-        {tasksPushed && (
-          <div className="flex items-center justify-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
-            <CheckCircle2 className="h-3.5 w-3.5" /> Pushed to Taiga
-          </div>
-        )}
+        <Button
+          className="w-full justify-center"
+          variant="secondary"
+          onClick={onContinue}
+        >
+          Developer Packs <ChevronRight className="h-4 w-4" />
+        </Button>
       </div>
+      {tasksPushed && (
+        <div className="flex items-center justify-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
+          <CheckCircle2 className="h-3.5 w-3.5" /> Pushed to Taiga
+        </div>
+      )}
 
       {generateTasksMut.isPending && (
         <AIProgressIndicator
@@ -980,12 +998,7 @@ export function Phase3Workflow() {
       <div>
         {stage === "A" && <StageA onSelect={handleSelectStory} />}
         {stage === "B" && selectedStoryId !== null && (
-          <div className="space-y-8">
-            <StageB storyId={selectedStoryId} onBack={handleBackToStories} />
-            <Button className="w-full justify-center" onClick={() => setStage("C")}>
-              Continue to Developer Packs <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+          <StageB storyId={selectedStoryId} onBack={handleBackToStories} onContinue={() => setStage("C")} />
         )}
         {stage === "C" && selectedStoryId !== null && (
           <div className="space-y-6">
