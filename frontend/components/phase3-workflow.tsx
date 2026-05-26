@@ -334,21 +334,33 @@ function StageB({ storyId, onBack }: { storyId: number; onBack: () => void }) {
       </div>
 
       {/* Gherkin preview */}
-      {ctx?.gherkin && (
-        <div className={cn("rounded-xl border overflow-hidden", dark ? "border-neutral-700" : "border-slate-200")}>
-          <div className={cn("px-4 py-2.5 flex items-center gap-2", dark ? "bg-neutral-800 border-b border-neutral-700" : "bg-slate-50 border-b border-slate-200")}>
-            <span className={cn("text-xs font-semibold uppercase tracking-wider", dark ? "text-neutral-400" : "text-slate-500")}>
-              Acceptance Criteria
-            </span>
+      {ctx?.gherkin && (() => {
+        const rawGherkin = ctx.gherkin;
+        const codeBlock = rawGherkin.match(/```(?:gherkin)?\s*([\s\S]*?)```/);
+        const featureIdx = rawGherkin.indexOf("Feature:");
+        const cleanGherkin = codeBlock
+          ? codeBlock[1].trim()
+          : featureIdx !== -1
+            ? rawGherkin.slice(featureIdx).trim()
+            : rawGherkin;
+        return (
+          <div className={cn("rounded-xl border overflow-hidden", dark ? "border-neutral-700" : "border-slate-200")}>
+            <div className={cn("px-4 py-2.5 flex items-center gap-2", dark ? "bg-neutral-800 border-b border-neutral-700" : "bg-slate-50 border-b border-slate-200")}>
+              <span className={cn("text-xs font-semibold uppercase tracking-wider", dark ? "text-neutral-400" : "text-slate-500")}>
+                Acceptance Criteria
+              </span>
+            </div>
+            <pre
+              className={cn(
+                "min-h-48 overflow-y-auto p-4 text-xs whitespace-pre-wrap leading-relaxed resize-y",
+                dark ? "bg-neutral-950 text-neutral-300" : "bg-white text-slate-700",
+              )}
+            >
+              {cleanGherkin}
+            </pre>
           </div>
-          <pre className={cn(
-            "max-h-44 overflow-y-auto p-4 text-xs whitespace-pre-wrap leading-relaxed",
-            dark ? "bg-neutral-950 text-neutral-300" : "bg-white text-slate-700",
-          )}>
-            {ctx.gherkin}
-          </pre>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Generate tasks */}
       <div className="flex items-center gap-3 flex-wrap">
