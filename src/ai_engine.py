@@ -77,10 +77,13 @@ def _reclassify_llm_exc(exc: Exception, *, reraise_unrecognized: bool = True) ->
     if exc_type in ("APITimeoutError", "Timeout", "ReadTimeout", "ConnectTimeout"):
         raise AITimeoutError(str(exc)) from exc
     msg = str(exc).lower()
-    if any(k in msg for k in ("429", "rate_limit", "rate limit", "overloaded", "quota")):
+    if any(k in msg for k in ("429", "rate_limit", "rate limit", "overloaded", "quota", "resource_exhausted")):
         raise AIRateLimitError(str(exc)) from exc
     if "timeout" in msg or "timed out" in msg:
         raise AITimeoutError(str(exc)) from exc
+    # Google/Gemini errors — ChatGoogleGenerativeAIError wraps all Google API call errors
+    if exc_type == "ChatGoogleGenerativeAIError":
+        raise AIError(str(exc)) from exc
     if reraise_unrecognized:
         raise exc
 
@@ -173,28 +176,21 @@ AVAILABLE_MODELS: list[dict] = [
     },
     # ── Google (Gemini) — requires GOOGLE_API_KEY ────────────────────────────
     {
-        "id":       "gemini-2.0-flash-lite",
-        "label":    "Gemini 2.0 Flash Lite",
+        "id":       "gemini-2.5-flash-lite",
+        "label":    "Gemini 2.5 Flash Lite",
         "role":     "Budget",
         "provider": "google",
         "note":     "Cheapest Gemini model — ideal for simple tasks",
     },
     {
-        "id":       "gemini-2.0-flash",
-        "label":    "Gemini 2.0 Flash",
-        "role":     "Economy",
-        "provider": "google",
-        "note":     "Fast and low cost",
-    },
-    {
-        "id":       "gemini-2.5-flash-preview-05-20",
+        "id":       "gemini-2.5-flash",
         "label":    "Gemini 2.5 Flash",
         "role":     "Standard",
         "provider": "google",
         "note":     "Best Gemini balance of quality and cost",
     },
     {
-        "id":       "gemini-2.5-pro-preview-06-05",
+        "id":       "gemini-2.5-pro",
         "label":    "Gemini 2.5 Pro",
         "role":     "Premium",
         "provider": "google",

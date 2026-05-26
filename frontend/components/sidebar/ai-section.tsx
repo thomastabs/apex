@@ -17,10 +17,9 @@ const FALLBACK_MODELS: ModelEntry[] = [
   { id: "gpt-4o-mini",                     label: "GPT-4o Mini",           role: "Economy",   provider: "openai",    note: "Reliable low-cost option" },
   { id: "gpt-4.1",                         label: "GPT-4.1",               role: "Standard",  provider: "openai",    note: "Latest GPT-4.1 — strong and efficient" },
   { id: "gpt-4o",                          label: "GPT-4o",                role: "Standard",  provider: "openai",    note: "GPT-4o flagship" },
-  { id: "gemini-2.0-flash-lite",           label: "Gemini 2.0 Flash Lite", role: "Budget",   provider: "google",    note: "Cheapest Gemini model — ideal for simple tasks" },
-  { id: "gemini-2.0-flash",                label: "Gemini 2.0 Flash",      role: "Economy",   provider: "google",    note: "Fast and low cost" },
-  { id: "gemini-2.5-flash-preview-05-20",  label: "Gemini 2.5 Flash",      role: "Standard",  provider: "google",    note: "Best Gemini balance of quality and cost" },
-  { id: "gemini-2.5-pro-preview-06-05",    label: "Gemini 2.5 Pro",        role: "Premium",   provider: "google",    note: "Most capable Gemini model" },
+  { id: "gemini-2.5-flash-lite",            label: "Gemini 2.5 Flash Lite", role: "Budget",   provider: "google",    note: "Cheapest Gemini model — ideal for simple tasks" },
+  { id: "gemini-2.5-flash",                label: "Gemini 2.5 Flash",      role: "Standard",  provider: "google",    note: "Best Gemini balance of quality and cost" },
+  { id: "gemini-2.5-pro",                  label: "Gemini 2.5 Pro",        role: "Premium",   provider: "google",    note: "Most capable Gemini model" },
 ];
 
 const PROVIDER_LABELS: Record<ProviderKey, string> = {
