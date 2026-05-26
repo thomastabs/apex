@@ -363,8 +363,9 @@ function StageB({ storyId, onBack }: { storyId: number; onBack: () => void }) {
       })()}
 
       {/* Generate tasks */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex flex-col gap-2">
         <Button
+          className="w-full justify-center"
           onClick={() => generateTasksMut.mutate(storyId)}
           disabled={generateTasksMut.isPending || tasksPushed}
         >
@@ -373,9 +374,9 @@ function StageB({ storyId, onBack }: { storyId: number; onBack: () => void }) {
             : <><Sparkles className="h-4 w-4" /> Generate Tasks</>}
         </Button>
         {tasksPushed && (
-          <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
+          <div className="flex items-center justify-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
             <CheckCircle2 className="h-3.5 w-3.5" /> Pushed to Taiga
-          </span>
+          </div>
         )}
       </div>
 
@@ -497,6 +498,7 @@ function StageB({ storyId, onBack }: { storyId: number; onBack: () => void }) {
           {/* Stage B.5 — Push to Taiga */}
           {!tasksPushed && (
             <Button
+              className="w-full justify-center"
               onClick={() => pushToTaiga.mutate(storyId)}
               disabled={pushToTaiga.isPending || taskList.length === 0}
               variant="secondary"
@@ -821,8 +823,9 @@ function StageD({ storyId, onLocked }: { storyId: number; onLocked: () => void }
         <Callout>Generate at least one developer pack before locking.</Callout>
       )}
 
-      <div className="flex gap-3 flex-wrap">
+      <div className="flex flex-col gap-2">
         <Button
+          className="w-full justify-center"
           onClick={handleLock}
           disabled={!canLock || lockStoryMut.isPending}
         >
@@ -831,7 +834,7 @@ function StageD({ storyId, onLocked }: { storyId: number; onLocked: () => void }
             : <><Lock className="h-4 w-4" /> Lock Story</>}
         </Button>
         {canLock && (
-          <Button variant="secondary" onClick={handleExportAll}>
+          <Button className="w-full justify-center" variant="secondary" onClick={handleExportAll}>
             <Download className="h-4 w-4" /> Export All Packs
           </Button>
         )}
@@ -979,21 +982,17 @@ export function Phase3Workflow() {
         {stage === "B" && selectedStoryId !== null && (
           <div className="space-y-8">
             <StageB storyId={selectedStoryId} onBack={handleBackToStories} />
-            <div className="flex justify-end">
-              <Button onClick={() => setStage("C")}>
-                Continue to Developer Packs <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
+            <Button className="w-full justify-center" onClick={() => setStage("C")}>
+              Continue to Developer Packs <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
         )}
         {stage === "C" && selectedStoryId !== null && (
           <div className="space-y-6">
             <StageC storyId={selectedStoryId} />
-            <div className="flex justify-end">
-              <Button onClick={() => setStage("D")}>
-                Continue to Lock &amp; Export <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
+            <Button className="w-full justify-center" onClick={() => setStage("D")}>
+              Continue to Lock &amp; Export <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
         )}
         {stage === "D" && selectedStoryId !== null && (
