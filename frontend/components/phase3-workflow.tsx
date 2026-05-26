@@ -117,6 +117,7 @@ function extractAiPrompt(packMd: string): string {
 function StageA({ onSelect }: { onSelect: (id: number) => void }) {
   const dark = useUiStore((s) => s.theme) === "dark";
   const { data, isLoading, error } = useEligibleStories();
+  const [activeEpic, setActiveEpic] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -145,37 +146,73 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
     if (!byEpic.has(epic)) byEpic.set(epic, []);
     byEpic.get(epic)!.push(s);
   }
+  const epics = [...byEpic.keys()];
+  const currentEpic = activeEpic ?? epics[0];
+  const epicStories = byEpic.get(currentEpic) ?? [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <SectionHeading>Select a story to implement</SectionHeading>
-      {[...byEpic.entries()].map(([epic, epicStories]) => (
-        <div key={epic}>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">{epic}</p>
-          <div className="space-y-2">
-            {epicStories.map((story) => (
-              <button
-                key={story.story_id}
-                onClick={() => onSelect(story.story_id)}
-                className={cn(
-                  "flex w-full items-start justify-between rounded border p-3 text-left transition",
-                  dark
-                    ? "border-neutral-700 bg-neutral-900 hover:border-violet-500 hover:bg-neutral-800"
-                    : "border-slate-200 bg-white hover:border-violet-400 hover:bg-slate-50",
-                )}
-              >
-                <div>
-                  <p className="text-sm font-medium">US#{story.story_id} — {story.title}</p>
-                  {story.gherkin_preview && (
-                    <p className="mt-1 text-xs text-neutral-500 line-clamp-2">{story.gherkin_preview}</p>
-                  )}
-                </div>
-                <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
-              </button>
-            ))}
-          </div>
-        </div>
-      ))}
+
+      {/* Epic tabs */}
+      <div className={cn(
+        "flex gap-1 overflow-x-auto border-b pb-0",
+        dark ? "border-neutral-700" : "border-slate-200",
+      )}>
+        {epics.map((epic) => {
+          const isActive = epic === currentEpic;
+          return (
+            <button
+              key={epic}
+              onClick={() => setActiveEpic(epic)}
+              className={cn(
+                "shrink-0 rounded-t px-4 py-2 text-xs font-semibold uppercase tracking-wider transition whitespace-nowrap border-b-2 -mb-px",
+                isActive
+                  ? dark
+                    ? "border-violet-500 text-violet-400"
+                    : "border-violet-600 text-violet-700"
+                  : dark
+                    ? "border-transparent text-neutral-500 hover:text-neutral-300"
+                    : "border-transparent text-neutral-500 hover:text-neutral-700",
+              )}
+            >
+              {epic}
+              <span className={cn(
+                "ml-1.5 rounded-full px-1.5 py-0.5 text-[10px]",
+                isActive
+                  ? dark ? "bg-violet-900 text-violet-300" : "bg-violet-100 text-violet-700"
+                  : dark ? "bg-neutral-800 text-neutral-500" : "bg-slate-100 text-neutral-500",
+              )}>
+                {byEpic.get(epic)!.length}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Stories for active epic */}
+      <div className="space-y-2">
+        {epicStories.map((story) => (
+          <button
+            key={story.story_id}
+            onClick={() => onSelect(story.story_id)}
+            className={cn(
+              "flex w-full items-start justify-between rounded border p-3 text-left transition",
+              dark
+                ? "border-neutral-700 bg-neutral-900 hover:border-violet-500 hover:bg-neutral-800"
+                : "border-slate-200 bg-white hover:border-violet-400 hover:bg-slate-50",
+            )}
+          >
+            <div>
+              <p className="text-sm font-medium">US#{story.story_id} — {story.title}</p>
+              {story.gherkin_preview && (
+                <p className="mt-1 text-xs text-neutral-500 line-clamp-2">{story.gherkin_preview}</p>
+              )}
+            </div>
+            <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
