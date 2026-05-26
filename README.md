@@ -60,12 +60,13 @@ The Design Lead and Tech Lead must review, edit if needed, and explicitly sign o
 Implemented:
 
 - Gate 0: propose and lock a project-wide tech stack into `tech-stack.md`
-- Generate a design draft in 4 sequential AI steps (each step uses previous sections as context for consistency):
-  1. **Screen Inventory** or **Component Spec** (user-selectable toggle) — either a per-screen UI summary grouped by epic, or an Atomic Design component catalog (atoms → molecules → organisms) with props, states, and usage context
-  2. Mermaid user flow — navigation paths referencing the Step 1 artifact
-  3. Component/module tree — frontend and backend structure aligned to the flows
-  4. OpenAPI + DB schema — API spec and DDL consistent with the component tree
-- Results appear incrementally in the UI as each step completes (~30–90 s each)
+- Generate a **Screen Inventory** or **Component Spec** (user-selectable toggle) as Step 1 — either a per-screen UI summary grouped by epic, or an Atomic Design component catalog (atoms → molecules → organisms) with props, states, and usage context
+- Generate a **design bundle** in a 3-section AI cascade (each section uses previous output as context for consistency):
+  1. **UX Brief** — user flows, navigation paths, and interaction patterns referencing Step 1
+  2. **Endpoints** — API surface with auth, request/response contracts (`METHOD /path · auth · in:{} · out:{}`)
+  3. **Data Model** — entities, fields, and relations consistent with the endpoint contracts
+- All sections are editable in-place before locking
+- Results appear incrementally as each section completes
 - Export the full draft as a Markdown file for offline review
 - Gate 1: Design Lead sign-off (screens & flows)
 - Gate 2: Tech Lead sign-off (architecture & specs)
@@ -354,12 +355,12 @@ Schedules are UTC-based because GitHub Actions cron uses UTC:
 | Cron | Action | Result |
 |---|---|---|
 | `0 8 * * *` | Scale up | backend/frontend `min=1`, `max=10` |
-| `0 22 * * *` | Scale down | backend/frontend `min=0`, `max=1` |
+| `0 22 * * *` | Scale down | backend/frontend `min=0`, `max=0` |
 
 Manual dispatch is also supported:
 
 - `up`: sets both apps to `min=1`, `max=10`
-- `down`: sets both apps to `min=0`, `max=1`
+- `down`: sets both apps to `min=0`, `max=0` (fully off)
 
 Portugal time note:
 
@@ -370,7 +371,7 @@ This one-hour seasonal drift is acceptable for the project. If exact Lisbon loca
 
 ### Cold Starts
 
-When scaled down to `min=0`, both frontend and backend can cold start. The first request after scale-up/down may be slower. This is expected.
+During night mode (`min=0`, `max=0`) both apps are fully stopped — no containers run and incoming requests are rejected. The morning cron (or manual `up` dispatch) restores `min=1, max=10`. The first request after scale-up may be slower while the container warms up.
 
 ---
 
