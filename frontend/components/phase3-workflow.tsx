@@ -111,13 +111,12 @@ function extractAiPrompt(packMd: string): string {
   return idx !== -1 ? packMd.slice(idx + "## AI Prompt".length).trim() : packMd;
 }
 
-function cleanGherkinPreview(raw: string): { feature: string; scenario: string } {
-  const featureMatch = raw.match(/Feature:\s*(.+)/);
-  const scenarioMatch = raw.match(/Scenario:\s*(.+)/);
-  return {
-    feature: featureMatch ? featureMatch[1].trim() : "",
-    scenario: scenarioMatch ? scenarioMatch[1].trim() : "",
-  };
+function cleanGherkinPreview(raw: string): string[] {
+  const scenarios: string[] = [];
+  for (const m of raw.matchAll(/Scenario(?:\s+Outline)?:\s*(.+)/g)) {
+    scenarios.push(m[1].trim());
+  }
+  return scenarios;
 }
 
 // ---------------------------------------------------------------------------
@@ -239,22 +238,24 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                         )}>
                           US#{story.story_id}
                         </span>
-                        <p className={cn("text-sm font-semibold leading-snug", dark ? "text-neutral-100" : "text-slate-800")}>
+                        <p className={cn("text-base font-bold leading-snug", dark ? "text-neutral-100" : "text-slate-800")}>
                           {story.title}
                         </p>
                         {story.gherkin_preview && (() => {
-                          const { feature, scenario } = cleanGherkinPreview(story.gherkin_preview);
-                          return feature ? (
-                            <div className="mt-2 space-y-1">
-                              <p className="text-xs leading-relaxed text-neutral-500 line-clamp-2">{feature}</p>
-                              {scenario && (
-                                <p className={cn(
-                                  "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium",
-                                  dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-100 text-slate-500",
-                                )}>
-                                  Scenario: {scenario}
-                                </p>
-                              )}
+                          const scenarios = cleanGherkinPreview(story.gherkin_preview);
+                          return scenarios.length > 0 ? (
+                            <div className="mt-2.5 flex flex-wrap gap-1.5">
+                              {scenarios.map((sc, i) => (
+                                <span
+                                  key={i}
+                                  className={cn(
+                                    "rounded-md px-2 py-0.5 text-[10px] font-medium leading-snug",
+                                    dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-100 text-slate-500",
+                                  )}
+                                >
+                                  {sc}
+                                </span>
+                              ))}
                             </div>
                           ) : null;
                         })()}
