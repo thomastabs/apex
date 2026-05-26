@@ -188,47 +188,69 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
         </div>
       </div>
 
-      {/* 3-col story grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {epicStories.map((story) => (
-          <button
-            key={story.story_id}
-            onClick={() => onSelect(story.story_id)}
-            className={cn(
-              "group flex flex-col rounded-xl border p-4 text-left transition-all duration-150",
-              dark
-                ? "border-neutral-700 bg-neutral-900 hover:border-violet-500 hover:bg-neutral-800/80 hover:shadow-lg hover:shadow-violet-900/20"
-                : "border-slate-200 bg-white hover:border-violet-400 hover:bg-violet-50/50 shadow-sm hover:shadow-md",
-            )}
-          >
-            <span className={cn(
-              "mb-3 inline-flex w-fit items-center rounded-md px-2 py-0.5 text-[11px] font-mono font-semibold",
-              dark ? "bg-neutral-800 text-violet-400 ring-1 ring-neutral-700" : "bg-violet-50 text-violet-700 ring-1 ring-violet-200",
-            )}>
-              US#{story.story_id}
-            </span>
-
-            <p className={cn("text-sm font-semibold leading-snug", dark ? "text-neutral-100" : "text-slate-800")}>
-              {story.title}
-            </p>
-
-            {story.gherkin_preview && (
-              <p className="mt-2 line-clamp-4 text-xs leading-relaxed text-neutral-500">
-                {story.gherkin_preview}
+      {/* 2×2 paginated horizontal scroll */}
+      {(() => {
+        const chunks: (typeof epicStories)[] = [];
+        for (let i = 0; i < epicStories.length; i += 4) chunks.push(epicStories.slice(i, i + 4));
+        const pageCount = chunks.length;
+        return (
+          <>
+            <div
+              className="flex overflow-x-auto gap-0"
+              style={{ scrollSnapType: "x mandatory", scrollBehavior: "smooth" }}
+            >
+              {chunks.map((chunk, ci) => (
+                <div
+                  key={ci}
+                  className="grid shrink-0 w-full grid-cols-2 gap-4 pr-0"
+                  style={{ scrollSnapAlign: "start" }}
+                >
+                  {chunk.map((story) => (
+                    <button
+                      key={story.story_id}
+                      onClick={() => onSelect(story.story_id)}
+                      className={cn(
+                        "group flex flex-col rounded-xl border p-5 text-left transition-all duration-150",
+                        dark
+                          ? "border-neutral-700 bg-neutral-900 hover:border-violet-500 hover:bg-neutral-800/80 hover:shadow-lg hover:shadow-violet-900/20"
+                          : "border-slate-200 bg-white hover:border-violet-400 hover:bg-violet-50/50 shadow-sm hover:shadow-md",
+                      )}
+                    >
+                      <span className={cn(
+                        "mb-3 inline-flex w-fit items-center rounded-md px-2 py-0.5 text-[11px] font-mono font-semibold",
+                        dark ? "bg-neutral-800 text-violet-400 ring-1 ring-neutral-700" : "bg-violet-50 text-violet-700 ring-1 ring-violet-200",
+                      )}>
+                        US#{story.story_id}
+                      </span>
+                      <p className={cn("text-sm font-semibold leading-snug", dark ? "text-neutral-100" : "text-slate-800")}>
+                        {story.title}
+                      </p>
+                      {story.gherkin_preview && (
+                        <p className="mt-2 line-clamp-4 text-xs leading-relaxed text-neutral-500">
+                          {story.gherkin_preview}
+                        </p>
+                      )}
+                      <div className="mt-auto flex items-center justify-end pt-4">
+                        <span className={cn(
+                          "flex items-center gap-1 text-[11px] font-medium transition",
+                          dark ? "text-neutral-600 group-hover:text-violet-400" : "text-slate-400 group-hover:text-violet-600",
+                        )}>
+                          Implement <ChevronRight className="h-3 w-3" />
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+            {pageCount > 1 && (
+              <p className="text-center text-xs text-neutral-500">
+                Scroll horizontally to see all {epicStories.length} stories ({pageCount} pages of 4)
               </p>
             )}
-
-            <div className="mt-auto flex items-center justify-end pt-4">
-              <span className={cn(
-                "flex items-center gap-1 text-[11px] font-medium transition",
-                dark ? "text-neutral-600 group-hover:text-violet-400" : "text-slate-400 group-hover:text-violet-600",
-              )}>
-                Implement <ChevronRight className="h-3 w-3" />
-              </span>
-            </div>
-          </button>
-        ))}
-      </div>
+          </>
+        );
+      })()}
     </div>
   );
 }
@@ -846,7 +868,7 @@ export function Phase3Workflow() {
       )}
 
     <div className={cn("space-y-6 border-t pt-6", dark ? "border-neutral-700" : "border-slate-200")}>
-      <div className="mx-auto max-w-5xl space-y-6">
+      <div className="space-y-6">
       {/* Stage nav */}
       <div className="flex items-center gap-1 text-sm">
         {(["A", "B", "C", "D"] as Stage[]).map((s, i) => (
