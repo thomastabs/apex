@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: 'up → min=1 (day mode)  |  down → min=0 (night mode)'
+        description: 'up → min=1 max=10 (day mode)  |  down → min=0 max=0 (fully off)'
         required: true
         type: choice
         options: [up, down]
@@ -60,17 +60,17 @@ jobs:
             --max-replicas 10
           echo "Scaled UP: apex-backend + apex-frontend → min=1, max=10"
 
-      - name: Scale DOWN — min 0 replicas (night mode)
+      - name: Scale DOWN — 0 replicas (night mode)
         if: steps.action.outputs.mode == 'down'
         run: |
           az containerapp update \
             --name apex-backend \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --min-replicas 0 \
-            --max-replicas 1
+            --max-replicas 0
           az containerapp update \
             --name apex-frontend \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --min-replicas 0 \
-            --max-replicas 1
-          echo "Scaled DOWN: apex-backend + apex-frontend → min=0, max=1"
+            --max-replicas 0
+          echo "Scaled DOWN: apex-backend + apex-frontend → min=0, max=0 (fully off)"
