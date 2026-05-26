@@ -218,7 +218,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                         key={story.story_id}
                         onClick={() => onSelect(story.story_id)}
                         className={cn(
-                          "group flex flex-col rounded-xl border p-5 text-left transition-all duration-150",
+                          "group flex h-full flex-col rounded-xl border p-5 text-left transition-all duration-150",
                           dark
                             ? "border-neutral-700 bg-neutral-900 hover:border-violet-500 hover:bg-neutral-800/80 hover:shadow-lg hover:shadow-violet-900/20"
                             : "border-slate-200 bg-white hover:border-violet-400 hover:bg-violet-50/50 shadow-sm hover:shadow-md",
@@ -878,31 +878,67 @@ export function Phase3Workflow() {
 
     <div className={cn("space-y-6 border-t pt-6", dark ? "border-neutral-700" : "border-slate-200")}>
       <div className="space-y-6">
-      {/* Stage nav */}
-      <div className="flex items-center gap-1 text-sm">
-        {(["A", "B", "C", "D"] as Stage[]).map((s, i) => (
-          <div key={s} className="flex items-center gap-1">
-            {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-neutral-500" />}
-            <button
-              onClick={() => {
-                if (s === "A") { setStage("A"); return; }
-                if (selectedStoryId !== null) setStage(s);
-              }}
-              disabled={s !== "A" && selectedStoryId === null}
-              className={cn(
-                "rounded-md px-2.5 py-1 text-sm font-medium transition",
-                stage === s
-                  ? "bg-violet-600 text-white shadow-sm"
-                  : dark
-                    ? "text-neutral-400 hover:text-neutral-200 disabled:opacity-30"
-                    : "text-slate-500 hover:text-slate-700 disabled:opacity-30",
-              )}
-            >
-              {STAGE_LABELS[s]}
-            </button>
+      {/* Stage stepper */}
+      {(() => {
+        const stages: Stage[] = ["A", "B", "C", "D"];
+        const stageNums: Record<Stage, number> = { A: 1, B: 2, C: 3, D: 4 };
+        const currentIdx = stages.indexOf(stage);
+        return (
+          <div className={cn("rounded-xl border px-6 py-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
+            <div className="flex items-center">
+              {stages.map((s, i) => {
+                const num = stageNums[s];
+                const isActive = stage === s;
+                const isDone = stages.indexOf(s) < currentIdx;
+                const isLocked = s !== "A" && selectedStoryId === null;
+                return (
+                  <div key={s} className="flex flex-1 items-center">
+                    <button
+                      onClick={() => {
+                        if (s === "A") { setStage("A"); return; }
+                        if (selectedStoryId !== null) setStage(s);
+                      }}
+                      disabled={isLocked}
+                      className={cn("group flex flex-col items-center gap-1.5 transition disabled:pointer-events-none", isLocked && "opacity-35")}
+                    >
+                      <span className={cn(
+                        "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ring-2 transition",
+                        isActive
+                          ? "bg-violet-600 text-white ring-violet-400"
+                          : isDone
+                            ? dark ? "bg-emerald-600 text-white ring-emerald-500" : "bg-emerald-500 text-white ring-emerald-400"
+                            : dark
+                              ? "bg-neutral-800 text-neutral-400 ring-neutral-700 group-hover:ring-neutral-500"
+                              : "bg-white text-slate-500 ring-slate-300 group-hover:ring-violet-400",
+                      )}>
+                        {isDone ? <CheckCircle2 className="h-4 w-4" /> : num}
+                      </span>
+                      <span className={cn(
+                        "text-xs font-semibold whitespace-nowrap",
+                        isActive
+                          ? "text-violet-500"
+                          : isDone
+                            ? dark ? "text-emerald-400" : "text-emerald-600"
+                            : dark ? "text-neutral-500" : "text-slate-400",
+                      )}>
+                        {STAGE_LABELS[s]}
+                      </span>
+                    </button>
+                    {i < stages.length - 1 && (
+                      <div className={cn(
+                        "mx-2 mb-5 h-0.5 flex-1 rounded-full transition-all",
+                        isDone
+                          ? dark ? "bg-emerald-600" : "bg-emerald-400"
+                          : dark ? "bg-neutral-700" : "bg-slate-200",
+                      )} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        ))}
-      </div>
+        );
+      })()}
 
       {/* Stage content */}
       <div>
