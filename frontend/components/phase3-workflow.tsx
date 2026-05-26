@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Clipboard,
   Download,
+  Info,
   Loader2,
   Lock,
   Plus,
@@ -158,54 +159,48 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
         </p>
       </div>
 
-      {/* Epic tabs */}
-      <div className={cn("flex gap-0 overflow-x-auto border-b", dark ? "border-neutral-700" : "border-slate-200")}>
-        {epics.map((epic) => {
-          const isActive = epic === currentEpic;
-          return (
-            <button
-              key={epic}
-              onClick={() => setActiveEpic(epic)}
-              className={cn(
-                "shrink-0 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider transition whitespace-nowrap border-b-2 -mb-px",
-                isActive
-                  ? dark
-                    ? "border-violet-500 text-violet-400"
-                    : "border-violet-600 text-violet-700"
-                  : dark
-                    ? "border-transparent text-neutral-500 hover:text-neutral-300"
-                    : "border-transparent text-neutral-500 hover:text-neutral-700",
-              )}
-            >
-              {epic}
-              <span className={cn(
-                "ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-                isActive
-                  ? dark ? "bg-violet-900/60 text-violet-300" : "bg-violet-100 text-violet-700"
-                  : dark ? "bg-neutral-800 text-neutral-500" : "bg-slate-100 text-slate-500",
-              )}>
-                {byEpic.get(epic)!.length}
-              </span>
-            </button>
-          );
-        })}
+      {/* Epic dropdown */}
+      <div className="flex items-center gap-3">
+        <label className="text-xs font-semibold uppercase tracking-wider text-neutral-500 shrink-0">
+          Epic
+        </label>
+        <div className="relative flex-1 max-w-sm">
+          <select
+            value={currentEpic}
+            onChange={(e) => setActiveEpic(e.target.value)}
+            className={cn(
+              "w-full appearance-none rounded-lg border px-4 py-2.5 pr-9 text-sm font-medium transition cursor-pointer",
+              dark
+                ? "border-neutral-700 bg-neutral-900 text-neutral-100 hover:border-violet-500 focus:border-violet-500 focus:outline-none"
+                : "border-slate-300 bg-white text-slate-800 hover:border-violet-400 focus:border-violet-500 focus:outline-none shadow-sm",
+            )}
+          >
+            {epics.map((epic) => (
+              <option key={epic} value={epic}>
+                {epic} ({byEpic.get(epic)!.length})
+              </option>
+            ))}
+          </select>
+          <ChevronRight className={cn(
+            "pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90",
+            dark ? "text-neutral-500" : "text-slate-400",
+          )} />
+        </div>
       </div>
 
-      {/* Horizontal card scroll */}
-      <div className="flex gap-4 overflow-x-auto pb-3" style={{ scrollSnapType: "x mandatory" }}>
+      {/* 3-col story grid */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {epicStories.map((story) => (
           <button
             key={story.story_id}
             onClick={() => onSelect(story.story_id)}
-            style={{ scrollSnapAlign: "start" }}
             className={cn(
-              "group flex shrink-0 w-64 flex-col rounded-xl border p-4 text-left transition-all duration-150",
+              "group flex flex-col rounded-xl border p-4 text-left transition-all duration-150",
               dark
                 ? "border-neutral-700 bg-neutral-900 hover:border-violet-500 hover:bg-neutral-800/80 hover:shadow-lg hover:shadow-violet-900/20"
                 : "border-slate-200 bg-white hover:border-violet-400 hover:bg-violet-50/50 shadow-sm hover:shadow-md",
             )}
           >
-            {/* US ref badge */}
             <span className={cn(
               "mb-3 inline-flex w-fit items-center rounded-md px-2 py-0.5 text-[11px] font-mono font-semibold",
               dark ? "bg-neutral-800 text-violet-400 ring-1 ring-neutral-700" : "bg-violet-50 text-violet-700 ring-1 ring-violet-200",
@@ -213,25 +208,20 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
               US#{story.story_id}
             </span>
 
-            {/* Title */}
             <p className={cn("text-sm font-semibold leading-snug", dark ? "text-neutral-100" : "text-slate-800")}>
               {story.title}
             </p>
 
-            {/* Preview */}
             {story.gherkin_preview && (
               <p className="mt-2 line-clamp-4 text-xs leading-relaxed text-neutral-500">
                 {story.gherkin_preview}
               </p>
             )}
 
-            {/* Footer */}
             <div className="mt-auto flex items-center justify-end pt-4">
               <span className={cn(
                 "flex items-center gap-1 text-[11px] font-medium transition",
-                dark
-                  ? "text-neutral-600 group-hover:text-violet-400"
-                  : "text-slate-400 group-hover:text-violet-600",
+                dark ? "text-neutral-600 group-hover:text-violet-400" : "text-slate-400 group-hover:text-violet-600",
               )}>
                 Implement <ChevronRight className="h-3 w-3" />
               </span>
@@ -804,10 +794,9 @@ export function Phase3Workflow() {
   const context = useApiContext();
   const { selectedStoryId, setSelectedStoryId, clearPhase3Draft } = usePhase3Store();
   const [stage, setStage] = useState<Stage>(selectedStoryId !== null ? "B" : "A");
+  const [diagramOpen, setDiagramOpen] = useState(false);
 
-  if (!context) {
-    return <Callout>Log in and select a project to use Phase 3.</Callout>;
-  }
+  const mutedClass = dark ? "text-neutral-500" : "text-slate-400";
 
   const handleSelectStory = (id: number) => {
     if (id !== selectedStoryId) clearPhase3Draft();
@@ -819,7 +808,45 @@ export function Phase3Workflow() {
   const handleLocked = () => setStage("A");
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-6">
+    <section className="px-8 py-8">
+      {/* Phase header */}
+      <div className="mb-7">
+        <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Phase 3</p>
+        <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
+          Implementation
+        </h1>
+        <p className={cn("mt-2", mutedClass)}>
+          Decompose design-locked stories into atomic developer tasks, generate implementation packs, and push to Taiga.
+        </p>
+      </div>
+
+      {/* Diagram collapsible */}
+      <div className={cn("mb-6 rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}>
+        <button
+          className={cn(
+            "flex w-full items-center gap-2 px-4 py-3 text-sm transition-colors",
+            dark ? "text-neutral-400 hover:text-neutral-300" : "text-slate-500 hover:text-slate-700",
+          )}
+          onClick={() => setDiagramOpen(!diagramOpen)}
+        >
+          <ChevronRight className={cn("size-4 transition-transform", diagramOpen && "rotate-90")} />
+          <Info className="size-4" />
+          <span>View Process Diagram (How this works)</span>
+        </button>
+        {diagramOpen && (
+          <div className={cn("border-t p-4", dark ? "border-neutral-800" : "border-slate-200")}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/images/implementation.svg" alt="Phase 3 implementation process diagram" className="mx-auto max-w-full" />
+          </div>
+        )}
+      </div>
+
+      {!context && (
+        <Callout>Log in and select a project to use Phase 3.</Callout>
+      )}
+
+    <div className={cn("space-y-6 border-t pt-6", dark ? "border-neutral-700" : "border-slate-200")}>
+      <div className="mx-auto max-w-5xl space-y-6">
       {/* Stage nav */}
       <div className="flex items-center gap-1 text-sm">
         {(["A", "B", "C", "D"] as Stage[]).map((s, i) => (
@@ -873,6 +900,8 @@ export function Phase3Workflow() {
           <StageD storyId={selectedStoryId} onLocked={handleLocked} />
         )}
       </div>
+      </div>
     </div>
+    </section>
   );
 }
