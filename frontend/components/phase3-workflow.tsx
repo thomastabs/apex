@@ -121,25 +121,24 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 text-sm text-neutral-400">
+      <div className="flex items-center gap-3 text-sm text-neutral-400">
         <Loader2 className="h-4 w-4 animate-spin" /> Loading stories…
       </div>
     );
   }
   if (error) {
-    return <Callout >Failed to load stories: {errMsg(error)}</Callout>;
+    return <Callout>Failed to load stories: {errMsg(error)}</Callout>;
   }
 
   const stories = data?.stories ?? [];
   if (stories.length === 0) {
     return (
-      <Callout >
+      <Callout>
         No design-locked stories found. Complete Phase 2 for at least one story first.
       </Callout>
     );
   }
 
-  // Group by epic
   const byEpic = new Map<string, typeof stories>();
   for (const s of stories) {
     const epic = s.epic_title || "Ungrouped";
@@ -151,14 +150,16 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
   const epicStories = byEpic.get(currentEpic) ?? [];
 
   return (
-    <div className="space-y-4">
-      <SectionHeading>Select a story to implement</SectionHeading>
+    <div className="space-y-5">
+      <div>
+        <SectionHeading>Select a story to implement</SectionHeading>
+        <p className={cn("mt-1 text-sm", dark ? "text-neutral-400" : "text-slate-500")}>
+          Choose a design-locked user story to decompose and build developer packs for.
+        </p>
+      </div>
 
       {/* Epic tabs */}
-      <div className={cn(
-        "flex gap-1 overflow-x-auto border-b pb-0",
-        dark ? "border-neutral-700" : "border-slate-200",
-      )}>
+      <div className={cn("flex gap-0 overflow-x-auto border-b", dark ? "border-neutral-700" : "border-slate-200")}>
         {epics.map((epic) => {
           const isActive = epic === currentEpic;
           return (
@@ -166,7 +167,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
               key={epic}
               onClick={() => setActiveEpic(epic)}
               className={cn(
-                "shrink-0 rounded-t px-4 py-2 text-xs font-semibold uppercase tracking-wider transition whitespace-nowrap border-b-2 -mb-px",
+                "shrink-0 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider transition whitespace-nowrap border-b-2 -mb-px",
                 isActive
                   ? dark
                     ? "border-violet-500 text-violet-400"
@@ -178,10 +179,10 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
             >
               {epic}
               <span className={cn(
-                "ml-1.5 rounded-full px-1.5 py-0.5 text-[10px]",
+                "ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
                 isActive
-                  ? dark ? "bg-violet-900 text-violet-300" : "bg-violet-100 text-violet-700"
-                  : dark ? "bg-neutral-800 text-neutral-500" : "bg-slate-100 text-neutral-500",
+                  ? dark ? "bg-violet-900/60 text-violet-300" : "bg-violet-100 text-violet-700"
+                  : dark ? "bg-neutral-800 text-neutral-500" : "bg-slate-100 text-slate-500",
               )}>
                 {byEpic.get(epic)!.length}
               </span>
@@ -190,26 +191,51 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
         })}
       </div>
 
-      {/* Stories for active epic */}
-      <div className="space-y-2">
+      {/* Horizontal card scroll */}
+      <div className="flex gap-4 overflow-x-auto pb-3" style={{ scrollSnapType: "x mandatory" }}>
         {epicStories.map((story) => (
           <button
             key={story.story_id}
             onClick={() => onSelect(story.story_id)}
+            style={{ scrollSnapAlign: "start" }}
             className={cn(
-              "flex w-full items-start justify-between rounded border p-3 text-left transition",
+              "group flex shrink-0 w-64 flex-col rounded-xl border p-4 text-left transition-all duration-150",
               dark
-                ? "border-neutral-700 bg-neutral-900 hover:border-violet-500 hover:bg-neutral-800"
-                : "border-slate-200 bg-white hover:border-violet-400 hover:bg-slate-50",
+                ? "border-neutral-700 bg-neutral-900 hover:border-violet-500 hover:bg-neutral-800/80 hover:shadow-lg hover:shadow-violet-900/20"
+                : "border-slate-200 bg-white hover:border-violet-400 hover:bg-violet-50/50 shadow-sm hover:shadow-md",
             )}
           >
-            <div>
-              <p className="text-sm font-medium">US#{story.story_id} — {story.title}</p>
-              {story.gherkin_preview && (
-                <p className="mt-1 text-xs text-neutral-500 line-clamp-2">{story.gherkin_preview}</p>
-              )}
+            {/* US ref badge */}
+            <span className={cn(
+              "mb-3 inline-flex w-fit items-center rounded-md px-2 py-0.5 text-[11px] font-mono font-semibold",
+              dark ? "bg-neutral-800 text-violet-400 ring-1 ring-neutral-700" : "bg-violet-50 text-violet-700 ring-1 ring-violet-200",
+            )}>
+              US#{story.story_id}
+            </span>
+
+            {/* Title */}
+            <p className={cn("text-sm font-semibold leading-snug", dark ? "text-neutral-100" : "text-slate-800")}>
+              {story.title}
+            </p>
+
+            {/* Preview */}
+            {story.gherkin_preview && (
+              <p className="mt-2 line-clamp-4 text-xs leading-relaxed text-neutral-500">
+                {story.gherkin_preview}
+              </p>
+            )}
+
+            {/* Footer */}
+            <div className="mt-auto flex items-center justify-end pt-4">
+              <span className={cn(
+                "flex items-center gap-1 text-[11px] font-medium transition",
+                dark
+                  ? "text-neutral-600 group-hover:text-violet-400"
+                  : "text-slate-400 group-hover:text-violet-600",
+              )}>
+                Implement <ChevronRight className="h-3 w-3" />
+              </span>
             </div>
-            <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
           </button>
         ))}
       </div>
@@ -236,27 +262,46 @@ function StageB({ storyId, onBack }: { storyId: number; onBack: () => void }) {
 
   if (ctxLoading) {
     return (
-      <div className="flex items-center gap-2 text-sm text-neutral-400">
-        <Loader2 className="h-4 w-4 animate-spin" /> Loading story…
+      <div className="flex items-center gap-3 text-sm text-neutral-400">
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading story context…
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <button onClick={onBack} className="text-xs text-neutral-500 hover:text-neutral-300">← Stories</button>
-        <ChevronRight className="h-3 w-3 text-neutral-600" />
-        <span className="text-sm font-medium">US#{storyId} — {ctx?.title}</span>
+      {/* Story breadcrumb */}
+      <div className={cn(
+        "flex items-center gap-2 rounded-lg border px-4 py-3",
+        dark ? "border-neutral-700 bg-neutral-900" : "border-slate-200 bg-slate-50",
+      )}>
+        <button
+          onClick={onBack}
+          className={cn("text-xs font-medium transition", dark ? "text-neutral-400 hover:text-violet-400" : "text-slate-500 hover:text-violet-600")}
+        >
+          ← Stories
+        </button>
+        <ChevronRight className="h-3 w-3 text-neutral-500" />
+        <span className={cn(
+          "inline-flex items-center gap-1.5 text-xs font-mono font-semibold",
+          dark ? "text-violet-400" : "text-violet-700",
+        )}>
+          US#{storyId}
+        </span>
+        <span className="text-sm font-medium truncate">{ctx?.title}</span>
       </div>
 
       {/* Gherkin preview */}
       {ctx?.gherkin && (
-        <div>
-          <SectionHeading>Acceptance Criteria</SectionHeading>
+        <div className={cn("rounded-xl border overflow-hidden", dark ? "border-neutral-700" : "border-slate-200")}>
+          <div className={cn("px-4 py-2.5 flex items-center gap-2", dark ? "bg-neutral-800 border-b border-neutral-700" : "bg-slate-50 border-b border-slate-200")}>
+            <span className={cn("text-xs font-semibold uppercase tracking-wider", dark ? "text-neutral-400" : "text-slate-500")}>
+              Acceptance Criteria
+            </span>
+          </div>
           <pre className={cn(
-            "mt-2 max-h-48 overflow-y-auto rounded border p-3 text-xs whitespace-pre-wrap",
-            dark ? "border-neutral-700 bg-neutral-950 text-neutral-300" : "border-slate-200 bg-slate-50 text-slate-700",
+            "max-h-44 overflow-y-auto p-4 text-xs whitespace-pre-wrap leading-relaxed",
+            dark ? "bg-neutral-950 text-neutral-300" : "bg-white text-slate-700",
           )}>
             {ctx.gherkin}
           </pre>
@@ -264,17 +309,17 @@ function StageB({ storyId, onBack }: { storyId: number; onBack: () => void }) {
       )}
 
       {/* Generate tasks */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <Button
           onClick={() => generateTasksMut.mutate(storyId)}
           disabled={generateTasksMut.isPending || tasksPushed}
         >
           {generateTasksMut.isPending
-            ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
+            ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating tasks…</>
             : <><Sparkles className="h-4 w-4" /> Generate Tasks</>}
         </Button>
         {tasksPushed && (
-          <span className="flex items-center gap-1 text-xs text-emerald-400">
+          <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
             <CheckCircle2 className="h-3.5 w-3.5" /> Pushed to Taiga
           </span>
         )}
@@ -291,21 +336,24 @@ function StageB({ storyId, onBack }: { storyId: number; onBack: () => void }) {
       {/* Task list */}
       {taskList.length > 0 && (
         <div className="space-y-4">
-          <SectionHeading>Tasks ({taskList.length})</SectionHeading>
+          <div className="flex items-center justify-between">
+            <SectionHeading>Tasks ({taskList.length})</SectionHeading>
+          </div>
+
           <div className="space-y-2">
             {taskList.map((task, idx) => (
               <div
                 key={task.id}
                 className={cn(
-                  "rounded border p-3",
-                  dark ? "border-neutral-700 bg-neutral-900" : "border-slate-200 bg-white",
+                  "group rounded-xl border transition",
+                  dark ? "border-neutral-700 bg-neutral-900 hover:border-neutral-600" : "border-slate-200 bg-white hover:border-slate-300 shadow-sm",
                 )}
               >
                 {editingId === task.id ? (
-                  <div className="space-y-2">
+                  <div className="space-y-2 p-4">
                     <input
                       className={cn(
-                        "w-full rounded border px-2 py-1 text-sm",
+                        "w-full rounded-lg border px-3 py-1.5 text-sm font-medium",
                         dark ? "border-neutral-600 bg-neutral-800 text-white" : "border-slate-300 bg-white text-slate-900",
                       )}
                       value={task.subject}
@@ -319,18 +367,28 @@ function StageB({ storyId, onBack }: { storyId: number; onBack: () => void }) {
                     <Button variant="secondary" onClick={() => setEditingId(null)}>Done</Button>
                   </div>
                 ) : (
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-3 p-4">
+                    {/* Number badge */}
+                    <span className={cn(
+                      "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold",
+                      dark ? "bg-neutral-800 text-violet-400" : "bg-violet-50 text-violet-700",
+                    )}>
+                      {idx + 1}
+                    </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">
-                        <span className="mr-1 text-neutral-500">#{idx + 1}</span>{task.subject}
+                      <p className={cn("text-sm font-semibold", dark ? "text-neutral-100" : "text-slate-800")}>
+                        {task.subject}
                       </p>
-                      <p className="mt-0.5 text-xs text-neutral-400">{task.description}</p>
+                      <p className="mt-0.5 text-xs leading-relaxed text-neutral-500">{task.description}</p>
                     </div>
-                    <div className="flex shrink-0 gap-1">
+                    <div className="flex shrink-0 gap-1 opacity-0 transition group-hover:opacity-100">
                       <button
                         onClick={() => setEditingId(task.id)}
                         disabled={tasksPushed}
-                        className="rounded px-2 py-1 text-xs text-neutral-500 hover:text-neutral-200 disabled:opacity-40"
+                        className={cn(
+                          "rounded px-2 py-1 text-xs font-medium transition disabled:opacity-40",
+                          dark ? "text-neutral-400 hover:text-neutral-200" : "text-slate-500 hover:text-slate-700",
+                        )}
                       >
                         Edit
                       </button>
@@ -353,8 +411,10 @@ function StageB({ storyId, onBack }: { storyId: number; onBack: () => void }) {
             <div className="flex gap-2">
               <input
                 className={cn(
-                  "flex-1 rounded border px-3 py-2 text-sm",
-                  dark ? "border-neutral-600 bg-neutral-800 text-white placeholder:text-neutral-500" : "border-slate-300 bg-white text-slate-900",
+                  "flex-1 rounded-lg border px-3 py-2 text-sm",
+                  dark
+                    ? "border-neutral-700 bg-neutral-900 text-white placeholder:text-neutral-600"
+                    : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400",
                 )}
                 placeholder="Add a task manually…"
                 value={newSubject}
@@ -415,6 +475,7 @@ function StageC({ storyId }: { storyId: number }) {
 
   const selectedTask = taskList.find((t) => t.id === selectedTaskId) ?? null;
   const packMd = selectedTaskId !== null ? (packDrafts[selectedTaskId] ?? "") : "";
+  const generatedCount = taskList.filter((t) => Boolean(packDrafts[t.id])).length;
 
   const handleGenerate = (taskId: number) => {
     const task = taskList.find((t) => t.id === taskId);
@@ -442,124 +503,194 @@ function StageC({ storyId }: { storyId: number }) {
   };
 
   if (taskList.length === 0) {
-    return (
-      <Callout >Generate and finalise tasks in Stage B first.</Callout>
-    );
+    return <Callout>Generate and finalise tasks in Stage B first.</Callout>;
   }
 
   return (
-    <div className="flex gap-4">
-      {/* Task list sidebar */}
-      <div className="w-56 shrink-0 space-y-1">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">Tasks</p>
-        {taskList.map((task, idx) => {
-          const hasPack = Boolean(packDrafts[task.id]);
-          const taigaRef = taigaTaskRefs[idx];
-          return (
-            <button
-              key={task.id}
-              onClick={() => setSelectedTaskId(task.id)}
-              className={cn(
-                "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition",
-                selectedTaskId === task.id
-                  ? "bg-violet-600 text-white"
-                  : dark
-                    ? "hover:bg-neutral-800 text-neutral-300"
-                    : "hover:bg-slate-100 text-slate-700",
-              )}
-            >
-              {hasPack
-                ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
-                : <span className="h-3.5 w-3.5 shrink-0 rounded-full border border-current opacity-40" />}
-              <span className="truncate flex-1">
-                {taigaRef ? `#${taigaRef} ` : ""}{task.subject}
-              </span>
-            </button>
-          );
-        })}
+    <div className="space-y-4">
+      {/* Progress bar */}
+      <div className={cn("rounded-xl border p-4", dark ? "border-neutral-700 bg-neutral-900" : "border-slate-200 bg-slate-50")}>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Packs generated</span>
+          <span className={cn("text-sm font-bold", dark ? "text-neutral-200" : "text-slate-800")}>
+            {generatedCount} / {taskList.length}
+          </span>
+        </div>
+        <div className={cn("h-1.5 rounded-full overflow-hidden", dark ? "bg-neutral-800" : "bg-slate-200")}>
+          <div
+            className="h-full rounded-full bg-violet-500 transition-all duration-500"
+            style={{ width: taskList.length > 0 ? `${(generatedCount / taskList.length) * 100}%` : "0%" }}
+          />
+        </div>
       </div>
 
-      {/* Pack panel */}
-      <div className="min-w-0 flex-1 space-y-4">
-        {selectedTask ? (
-          <>
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <p className="text-sm font-medium">{selectedTask.subject}</p>
-              <div className="flex gap-2">
-                <Button
-                  variant="secondary"
-                  onClick={() => handleGenerate(selectedTask.id)}
-                  disabled={generatingTaskId !== null}
-                >
-                  {generatingTaskId === selectedTask.id
-                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
-                    : <><Sparkles className="h-4 w-4" /> {packMd ? "Regenerate Pack" : "Generate Pack"}</>}
-                </Button>
-                {packMd && (
-                  <>
-                    <Button variant="secondary" onClick={handleCopyPrompt}>
-                      <Clipboard className="h-4 w-4" /> Copy AI Prompt
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => ctx && downloadPack(selectedTask.subject, packMd, ctx)}
-                    >
-                      <Download className="h-4 w-4" /> Download .md
-                    </Button>
-                  </>
+      <div className="flex gap-5">
+        {/* Task list sidebar */}
+        <div className="w-60 shrink-0 space-y-1.5">
+          <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Tasks</p>
+          {taskList.map((task, idx) => {
+            const hasPack = Boolean(packDrafts[task.id]);
+            const isGenerating = generatingTaskId === task.id;
+            const isSelected = selectedTaskId === task.id;
+            const taigaRef = taigaTaskRefs[idx];
+            return (
+              <button
+                key={task.id}
+                onClick={() => setSelectedTaskId(task.id)}
+                className={cn(
+                  "flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left transition-all",
+                  isSelected
+                    ? "bg-violet-600 text-white shadow-md shadow-violet-900/30"
+                    : dark
+                      ? "hover:bg-neutral-800 text-neutral-300"
+                      : "hover:bg-slate-100 text-slate-700",
+                )}
+              >
+                {/* Status icon */}
+                <span className="mt-0.5 shrink-0">
+                  {isGenerating
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-300" />
+                    : hasPack
+                      ? <CheckCircle2 className={cn("h-3.5 w-3.5", isSelected ? "text-emerald-300" : "text-emerald-500")} />
+                      : <span className={cn("block h-3.5 w-3.5 rounded-full border-2", isSelected ? "border-violet-300" : dark ? "border-neutral-600" : "border-slate-300")} />}
+                </span>
+                <div className="min-w-0 flex-1">
+                  {taigaRef && (
+                    <p className={cn("text-[10px] font-mono mb-0.5", isSelected ? "text-violet-200" : "text-neutral-500")}>
+                      #{taigaRef}
+                    </p>
+                  )}
+                  <p className="truncate text-xs font-medium leading-snug">
+                    <span className={cn("mr-1 font-bold", isSelected ? "text-violet-200" : "text-neutral-500")}>
+                      {idx + 1}.
+                    </span>
+                    {task.subject}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Pack panel */}
+        <div className={cn("min-w-0 flex-1 rounded-xl border", dark ? "border-neutral-700" : "border-slate-200")}>
+          {selectedTask ? (
+            <>
+              {/* Panel header */}
+              <div className={cn(
+                "flex items-start justify-between gap-3 border-b px-5 py-4 flex-wrap",
+                dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50",
+              )}>
+                <div className="min-w-0">
+                  <p className="text-xs font-mono text-neutral-500 mb-0.5">
+                    US#{storyId} · Task {taskList.findIndex(t => t.id === selectedTask.id) + 1}
+                  </p>
+                  <p className={cn("text-sm font-semibold leading-snug", dark ? "text-neutral-100" : "text-slate-800")}>
+                    {selectedTask.subject}
+                  </p>
+                </div>
+                <div className="flex gap-2 flex-wrap shrink-0">
+                  <Button
+                    variant="secondary"
+                    onClick={() => handleGenerate(selectedTask.id)}
+                    disabled={generatingTaskId !== null}
+                  >
+                    {generatingTaskId === selectedTask.id
+                      ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
+                      : <><Sparkles className="h-4 w-4" /> {packMd ? "Regenerate" : "Generate Pack"}</>}
+                  </Button>
+                  {packMd && (
+                    <>
+                      <Button variant="secondary" onClick={handleCopyPrompt}>
+                        <Clipboard className="h-4 w-4" /> Copy AI Prompt
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={() => ctx && downloadPack(selectedTask.subject, packMd, ctx)}
+                      >
+                        <Download className="h-4 w-4" /> .md
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Panel body */}
+              <div className="p-5 space-y-4">
+                {generatingTaskId === selectedTask.id && (
+                  <AIProgressIndicator
+                    steps={[
+                      "Reading story context…",
+                      "Analysing design bundle…",
+                      "Writing implementation steps…",
+                      "Generating test assertions…",
+                      "Assembling AI prompt…",
+                    ]}
+                    isPending={generatingTaskId === selectedTask.id}
+                    dark={dark}
+                  />
+                )}
+
+                {packMd ? (
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <div>
+                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Edit</p>
+                      <Textarea
+                        rows={28}
+                        value={packMd}
+                        onChange={(e) => {
+                          setPackDraft(selectedTask.id, e.target.value);
+                          saveProposalMut.mutate({
+                            story_id: storyId,
+                            task_id: selectedTask.id,
+                            proposal_md: e.target.value,
+                          });
+                        }}
+                        className="font-mono text-xs"
+                      />
+                    </div>
+                    <div>
+                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Preview</p>
+                      <pre className={cn(
+                        "h-full max-h-[28rem] overflow-y-auto rounded-lg border p-4 text-xs whitespace-pre-wrap leading-relaxed",
+                        dark ? "border-neutral-700 bg-neutral-950 text-neutral-300" : "border-slate-200 bg-slate-50 text-slate-700",
+                      )}>
+                        {packMd}
+                      </pre>
+                    </div>
+                  </div>
+                ) : (
+                  <div className={cn(
+                    "flex flex-col items-center justify-center rounded-xl border-2 border-dashed py-16 text-center",
+                    dark ? "border-neutral-700" : "border-slate-200",
+                  )}>
+                    <Sparkles className={cn("mb-3 h-8 w-8", dark ? "text-neutral-600" : "text-slate-300")} />
+                    <p className={cn("text-sm font-medium", dark ? "text-neutral-400" : "text-slate-500")}>
+                      No pack generated yet
+                    </p>
+                    <p className="mt-1 text-xs text-neutral-500">
+                      Click &ldquo;Generate Pack&rdquo; to create a developer context pack for this task.
+                    </p>
+                  </div>
                 )}
               </div>
-            </div>
-
-            {generatingTaskId === selectedTask.id && (
-              <AIProgressIndicator
-                steps={[
-                  "Reading story context…",
-                  "Analysing design bundle…",
-                  "Writing implementation steps…",
-                  "Generating test assertions…",
-                  "Assembling AI prompt…",
-                ]}
-                isPending={generatingTaskId === selectedTask.id}
-                dark={dark}
-              />
-            )}
-
-            {packMd ? (
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div>
-                  <p className="mb-1 text-xs text-neutral-500">Edit</p>
-                  <Textarea
-                    rows={28}
-                    value={packMd}
-                    onChange={(e) => {
-                      setPackDraft(selectedTask.id, e.target.value);
-                      saveProposalMut.mutate({
-                        story_id: storyId,
-                        task_id: selectedTask.id,
-                        proposal_md: e.target.value,
-                      });
-                    }}
-                    className="font-mono text-xs"
-                  />
-                </div>
-                <div>
-                  <p className="mb-1 text-xs text-neutral-500">Preview</p>
-                  <pre className={cn(
-                    "h-full max-h-[28rem] overflow-y-auto rounded border p-3 text-xs whitespace-pre-wrap",
-                    dark ? "border-neutral-700 bg-neutral-950 text-neutral-300" : "border-slate-200 bg-slate-50 text-slate-700",
-                  )}>
-                    {packMd}
-                  </pre>
-                </div>
+            </>
+          ) : (
+            <div className={cn(
+              "flex flex-col items-center justify-center py-24 text-center",
+            )}>
+              <div className={cn(
+                "mb-4 flex h-12 w-12 items-center justify-center rounded-full",
+                dark ? "bg-neutral-800" : "bg-slate-100",
+              )}>
+                <Sparkles className={cn("h-6 w-6", dark ? "text-neutral-500" : "text-slate-400")} />
               </div>
-            ) : (
-              <p className="text-sm text-neutral-500">Click &ldquo;Generate Pack&rdquo; to create a developer context pack for this task.</p>
-            )}
-          </>
-        ) : (
-          <p className="text-sm text-neutral-500">Select a task on the left to generate its developer pack.</p>
-        )}
+              <p className={cn("text-sm font-medium", dark ? "text-neutral-400" : "text-slate-500")}>
+                Select a task to generate its developer pack
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -576,6 +707,7 @@ function StageD({ storyId, onLocked }: { storyId: number; onLocked: () => void }
   const lockStoryMut = useLockStory();
 
   const generatedTasks = taskList.filter((t) => Boolean(packDrafts[t.id]));
+  const skippedCount = taskList.length - generatedTasks.length;
   const canLock = generatedTasks.length > 0;
 
   const handleLock = () => {
@@ -597,25 +729,42 @@ function StageD({ storyId, onLocked }: { storyId: number; onLocked: () => void }
   };
 
   return (
-    <div className="space-y-4">
-      <SectionHeading>Lock &amp; Export</SectionHeading>
-      <div className={cn(
-        "rounded border p-4",
-        dark ? "border-neutral-700 bg-neutral-900" : "border-slate-200 bg-white",
-      )}>
-        <p className="text-sm">
-          <span className="font-medium">{generatedTasks.length}</span> of{" "}
-          <span className="font-medium">{taskList.length}</span> tasks have developer packs.
+    <div className="space-y-5">
+      <div>
+        <SectionHeading>Lock &amp; Export</SectionHeading>
+        <p className={cn("mt-1 text-sm", dark ? "text-neutral-400" : "text-slate-500")}>
+          Lock this story as implementation-ready and export the developer packs.
         </p>
-        {taskList.length > generatedTasks.length && (
-          <p className="mt-1 text-xs text-neutral-500">
-            {taskList.length - generatedTasks.length} task(s) without packs will be skipped — they are not auto-generated.
-          </p>
-        )}
+      </div>
+
+      {/* Summary card */}
+      <div className={cn("rounded-xl border overflow-hidden", dark ? "border-neutral-700" : "border-slate-200")}>
+        <div className={cn("px-5 py-4 border-b", dark ? "border-neutral-700 bg-neutral-900" : "border-slate-200 bg-slate-50")}>
+          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Summary</p>
+        </div>
+        <div className={cn("px-5 py-4 space-y-3", dark ? "bg-neutral-900/50" : "bg-white")}>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-neutral-500">Packs ready</span>
+            <span className={cn("font-bold", dark ? "text-neutral-100" : "text-slate-800")}>
+              {generatedTasks.length} / {taskList.length}
+            </span>
+          </div>
+          <div className={cn("h-2 rounded-full overflow-hidden", dark ? "bg-neutral-800" : "bg-slate-100")}>
+            <div
+              className={cn("h-full rounded-full transition-all duration-700", canLock ? "bg-violet-500" : "bg-neutral-600")}
+              style={{ width: taskList.length > 0 ? `${(generatedTasks.length / taskList.length) * 100}%` : "0%" }}
+            />
+          </div>
+          {skippedCount > 0 && (
+            <p className="text-xs text-neutral-500">
+              {skippedCount} task{skippedCount > 1 ? "s" : ""} without packs will be skipped — they are not auto-generated.
+            </p>
+          )}
+        </div>
       </div>
 
       {!canLock && (
-        <Callout >Generate at least one developer pack before locking.</Callout>
+        <Callout>Generate at least one developer pack before locking.</Callout>
       )}
 
       <div className="flex gap-3 flex-wrap">
@@ -657,7 +806,7 @@ export function Phase3Workflow() {
   const [stage, setStage] = useState<Stage>(selectedStoryId !== null ? "B" : "A");
 
   if (!context) {
-    return <Callout >Log in and select a project to use Phase 3.</Callout>;
+    return <Callout>Log in and select a project to use Phase 3.</Callout>;
   }
 
   const handleSelectStory = (id: number) => {
@@ -666,13 +815,8 @@ export function Phase3Workflow() {
     setStage("B");
   };
 
-  const handleBackToStories = () => {
-    setStage("A");
-  };
-
-  const handleLocked = () => {
-    setStage("A");
-  };
+  const handleBackToStories = () => setStage("A");
+  const handleLocked = () => setStage("A");
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-6">
@@ -680,7 +824,7 @@ export function Phase3Workflow() {
       <div className="flex items-center gap-1 text-sm">
         {(["A", "B", "C", "D"] as Stage[]).map((s, i) => (
           <div key={s} className="flex items-center gap-1">
-            {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-neutral-600" />}
+            {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-neutral-500" />}
             <button
               onClick={() => {
                 if (s === "A") { setStage("A"); return; }
@@ -688,9 +832,9 @@ export function Phase3Workflow() {
               }}
               disabled={s !== "A" && selectedStoryId === null}
               className={cn(
-                "rounded px-2 py-0.5 transition",
+                "rounded-md px-2.5 py-1 text-sm font-medium transition",
                 stage === s
-                  ? "bg-violet-600 text-white"
+                  ? "bg-violet-600 text-white shadow-sm"
                   : dark
                     ? "text-neutral-400 hover:text-neutral-200 disabled:opacity-30"
                     : "text-slate-500 hover:text-slate-700 disabled:opacity-30",
