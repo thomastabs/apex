@@ -111,6 +111,15 @@ function extractAiPrompt(packMd: string): string {
   return idx !== -1 ? packMd.slice(idx + "## AI Prompt".length).trim() : packMd;
 }
 
+function cleanGherkinPreview(raw: string): { feature: string; scenario: string } {
+  const featureMatch = raw.match(/Feature:\s*(.+)/);
+  const scenarioMatch = raw.match(/Scenario:\s*(.+)/);
+  return {
+    feature: featureMatch ? featureMatch[1].trim() : "",
+    scenario: scenarioMatch ? scenarioMatch[1].trim() : "",
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Stage A — Story selection
 // ---------------------------------------------------------------------------
@@ -233,11 +242,22 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                         <p className={cn("text-sm font-semibold leading-snug", dark ? "text-neutral-100" : "text-slate-800")}>
                           {story.title}
                         </p>
-                        {story.gherkin_preview && (
-                          <p className="mt-2 line-clamp-4 text-xs leading-relaxed text-neutral-500">
-                            {story.gherkin_preview}
-                          </p>
-                        )}
+                        {story.gherkin_preview && (() => {
+                          const { feature, scenario } = cleanGherkinPreview(story.gherkin_preview);
+                          return feature ? (
+                            <div className="mt-2 space-y-1">
+                              <p className="text-xs leading-relaxed text-neutral-500 line-clamp-2">{feature}</p>
+                              {scenario && (
+                                <p className={cn(
+                                  "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium",
+                                  dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-100 text-slate-500",
+                                )}>
+                                  Scenario: {scenario}
+                                </p>
+                              )}
+                            </div>
+                          ) : null;
+                        })()}
                         <div className="mt-auto flex items-center justify-end pt-4">
                           <span className={cn(
                             "flex items-center gap-1 text-[11px] font-medium transition",
