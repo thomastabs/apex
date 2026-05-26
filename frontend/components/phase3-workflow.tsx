@@ -201,7 +201,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
         return (
           <>
             <div
-              className="flex overflow-x-auto gap-0"
+              className="flex items-start overflow-x-auto gap-0"
               style={{ scrollSnapType: "x mandatory", scrollBehavior: "smooth" }}
             >
               {chunks.map((chunk, ci) => (
