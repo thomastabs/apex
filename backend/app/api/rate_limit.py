@@ -13,11 +13,11 @@ _lock = threading.Lock()
 _buckets: dict[str, tuple[float, int]] = defaultdict(lambda: (time.monotonic(), 0))
 
 _WINDOW_SECS = 60
-_MAX_AI_REQUESTS = 10
+_MAX_AI_REQUESTS = 20
 
 
 def ai_rate_limit(auth: AuthContext = Depends(get_auth_context)) -> None:
-    """Dependency: max 10 AI requests per token per 60 s."""
+    """Dependency: max 20 AI requests per token per 60 s."""
     key = auth.taiga_token[-20:]
     now = time.monotonic()
     with _lock:
