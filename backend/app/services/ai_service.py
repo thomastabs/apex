@@ -49,6 +49,35 @@ class AiService:
     ) -> list[dict]:
         return ai_engine.suggest_tech_stack(all_stories, context, hint)
 
+    def generate_tasks(
+        self,
+        story_subject: str,
+        gherkin: str,
+        technical_spec: str,
+        tech_stack: str = "",
+        design_bundle: str = "",
+    ) -> list[dict]:
+        result = ai_engine.generate_tasks(
+            story_subject, gherkin, technical_spec,
+            tech_stack=tech_stack, design_bundle=design_bundle,
+        )
+        return [{"id": t.id, "subject": t.subject, "description": t.description} for t in result.tasks]
+
+    def generate_proposal(
+        self,
+        task_subject: str,
+        task_description: str,
+        gherkin: str,
+        technical_spec: str,
+        tech_stack: str = "",
+        design_bundle: str = "",
+        story_ref: str = "",
+    ) -> str:
+        return ai_engine.generate_coding_proposal(
+            task_subject, task_description, gherkin, technical_spec,
+            tech_stack=tech_stack, design_bundle=design_bundle, story_ref=story_ref,
+        )
+
     def generate_design_section(
         self,
         all_stories: list[dict],

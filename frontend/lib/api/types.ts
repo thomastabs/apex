@@ -173,3 +173,62 @@ export type LockDesignResponse = {
   story_ids: number[];
   taiga_failures?: Array<{ story_id: number; error: string }>;
 };
+
+// ---------------------------------------------------------------------------
+// Phase 3 — Implementation Assist
+// ---------------------------------------------------------------------------
+
+export type Phase3Task = {
+  id: number;
+  subject: string;
+  description: string;
+};
+
+export type Phase3StoryPreview = {
+  story_id: number;
+  title: string;
+  epic_title: string;
+  gherkin_preview: string;
+  tech_spec_preview: string;
+};
+
+export type Phase3EligibleStoriesResponse = {
+  stories: Phase3StoryPreview[];
+};
+
+export type Phase3StoryContext = {
+  story_id: number;
+  title: string;
+  gherkin: string;
+  technical_spec: string;
+  project_concept: string;
+  tech_stack: string;
+  design_bundle: string;
+};
+
+export type Phase3GenerateTasksResponse = {
+  story_id: number;
+  tasks: Phase3Task[];
+};
+
+export type Phase3GenerateProposalRequest = {
+  story_id: number;
+  task_id: number;
+  task_subject: string;
+  task_description: string;
+};
+
+export type Phase3GenerateProposalResponse = {
+  proposal_md: string;
+};
+
+export type Phase3SaveProposalRequest = {
+  story_id: number;
+  task_id: number;
+  proposal_md: string;
+};
+
+export type Phase3LockStoryRequest = {
+  story_id: number;
+  task_ids: number[];
+};

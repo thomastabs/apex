@@ -72,6 +72,15 @@ class ContextService:
     ) -> None:
         context_manager.append_epic_technical_spec(epic_id, epic_title, story_ids, spec)
 
+    def story_technical_spec(self, story_id: int) -> str:
+        return context_manager.get_story_technical_spec(story_id)
+
+    def save_proposal(self, story_id: int, task_id: int, proposal_md: str) -> None:
+        context_manager.save_proposal(story_id, task_id, proposal_md)
+
+    def upsert_story_index(self, story_id: int, **updates) -> None:
+        context_manager.upsert_story_index(story_id, **updates)
+
     def append_epic_design_bundle(
         self,
         epic_id: int,

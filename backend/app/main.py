@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from backend.app.api.phase1 import router as phase1_router
 from backend.app.api.phase2 import router as phase2_router
+from backend.app.api.phase3 import router as phase3_router
 from backend.app.api.workspace import router as workspace_router
 
 _logger = logging.getLogger("apex.main")
@@ -75,4 +76,5 @@ def health() -> dict[str, str]:
 
 app.include_router(phase1_router, prefix="/api/phase1", tags=["phase1"])
 app.include_router(phase2_router, prefix="/api/phase2", tags=["phase2"])
+app.include_router(phase3_router, prefix="/api/phase3", tags=["phase3"])
 app.include_router(workspace_router, prefix="/api/workspace", tags=["workspace"])

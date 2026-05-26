@@ -1013,18 +1013,143 @@ def generate_design_data_model(all_stories: list[dict], context: str, *, endpoin
 
 
 # ---------------------------------------------------------------------------
-# 3. Implementation Phase — Phase 3 (not yet implemented)
+# 3. Implementation Phase — Phase 3
 # ---------------------------------------------------------------------------
 
-# TODO: generate_tasks(story_subject, gherkin, technical_spec) -> str
-#   Tech Lead persona. Decompose story into sequential atomic tasks for the Apex Backlog.
-#   Output: numbered list — Task title | Short description | [HIGH RISK] flag.
-#   Use get_fast_model().
+class Phase3Task(BaseModel):
+    id: int = Field(description="Sequential task number starting at 1")
+    subject: str = Field(description="Short task title (5-10 words, imperative verb phrase)")
+    description: str = Field(
+        description="2-3 sentence technical description referencing specific endpoints, entities, or components from the design bundle"
+    )
 
-# TODO: generate_coding_proposal(task_subject, task_description, gherkin, technical_spec) -> str
-#   Senior Developer persona. Step-by-step coding plan + Consistency Factor (test assertions).
-#   Output: structured Markdown — ## Task, ## Context, ## Implementation Steps, ## Consistency Factor.
-#   Use get_coder_model().
+
+class Phase3TaskList(BaseModel):
+    tasks: list[Phase3Task] = Field(description="Ordered list of atomic implementation tasks (3-7 items)")
+
+
+_GENERATE_TASKS_SYSTEM = """\
+You are a Tech Lead operating within the Apex Framework.
+Given a user story with its acceptance criteria, technical spec, tech stack, and design bundle,
+decompose the story into 3-7 atomic, independently-implementable technical tasks.
+
+Rules you MUST follow:
+- Each task represents a single cohesive unit of technical work (e.g. "Implement POST /auth/login endpoint", "Create User entity and migration", "Build login form component").
+- Task subjects must be imperative verb phrases, 5-10 words (e.g. "Implement token refresh endpoint").
+- Task descriptions must be 2-3 sentences referencing specific endpoints, entities, or UI components from the design bundle and tech spec — never invent new ones.
+- Tasks must cover the full story scope implied by the Gherkin scenarios — do not stop early.
+- Order tasks from backend-first to frontend-last (infrastructure → data model → API → UI).
+- No task may duplicate work covered by another task.
+- Do NOT include devops, CI, or deployment tasks unless the story explicitly requires them.
+
+Tech Stack: {tech_stack}
+
+Design Bundle (UX Brief + Endpoints + Data Model):
+{design_bundle}
+
+Technical Spec (endpoint contracts):
+{technical_spec}
+"""
+
+
+def generate_tasks(
+    story_subject: str,
+    gherkin: str,
+    technical_spec: str,
+    tech_stack: str = "",
+    design_bundle: str = "",
+) -> Phase3TaskList:
+    system = _GENERATE_TASKS_SYSTEM.format(
+        tech_stack=tech_stack.strip() or "Not specified",
+        design_bundle=design_bundle.strip() or "Not specified",
+        technical_spec=technical_spec.strip() or "Not specified",
+    )
+    human = f"User Story: {story_subject}\n\nAcceptance Criteria (Gherkin):\n{gherkin.strip()}\n\nDecompose this story into atomic implementation tasks."
+    return _invoke_structured_with_progress(
+        system, human, get_fast_model(), Phase3TaskList,
+        max_tokens=2048, item_field="tasks",
+    )
+
+
+_GENERATE_PROPOSAL_SYSTEM = """\
+You are a Senior Developer operating within the Apex Framework.
+Given a specific implementation task within a user story, produce a structured Developer Pack —
+a concise, actionable guide a developer can hand to an AI coding assistant and immediately start working.
+
+Output EXACTLY these four sections in order, using these exact headings:
+
+## Context
+One paragraph. State the tech stack, the story this task belongs to, and what this task specifically does.
+Reference the relevant endpoint(s) or UI component(s) from the design bundle.
+
+## Implementation Steps
+Numbered list. Each step is file-level and action-oriented (e.g. "1. Create `src/models/user.py` — define User SQLAlchemy model with fields: id, email, hashed_password, created_at").
+Reference exact endpoint signatures from the Technical Spec (method, path, auth, request/response fields).
+Reference exact entity names and fields from the Data Model.
+5-10 steps maximum.
+
+## Test Assertions
+Bulleted list derived directly from the story's Gherkin scenarios.
+Each assertion maps to one Gherkin Then step — phrase it as a testable statement (e.g. "POST /auth/login with valid credentials returns 200 and a JWT token").
+
+## AI Prompt
+A self-contained prompt block the developer pastes into Claude, Cursor, or ChatGPT.
+Include: tech stack, story reference, acceptance criteria, task description, implementation steps, required test coverage.
+Format:
+
+You are implementing a specific task in a software project.
+
+**Tech Stack**: {tech_stack}
+**Story**: {story_ref}
+**Acceptance Criteria**:
+<paste Gherkin here>
+
+**Your Task**: <task_subject>
+<task_description>
+
+**Implementation Steps**:
+<numbered steps>
+
+**Required Test Coverage**:
+<test assertions>
+
+Rules:
+- Never invent endpoints, entities, or components not present in the Technical Spec or Design Bundle.
+- Never include vague steps like "add error handling" — be specific about what to catch and where.
+- The AI Prompt must be fully self-contained — no references to external documents.
+
+Tech Stack: {tech_stack}
+
+Design Bundle (UX Brief + Endpoints + Data Model):
+{design_bundle}
+
+Technical Spec (endpoint contracts):
+{technical_spec}
+"""
+
+
+def generate_coding_proposal(
+    task_subject: str,
+    task_description: str,
+    gherkin: str,
+    technical_spec: str,
+    tech_stack: str = "",
+    design_bundle: str = "",
+    story_ref: str = "",
+) -> str:
+    system = _GENERATE_PROPOSAL_SYSTEM.format(
+        tech_stack=tech_stack.strip() or "Not specified",
+        design_bundle=design_bundle.strip() or "Not specified",
+        technical_spec=technical_spec.strip() or "Not specified",
+        story_ref=story_ref or "this story",
+    )
+    human = (
+        f"Task: {task_subject}\n\n"
+        f"Task Description: {task_description.strip()}\n\n"
+        f"Acceptance Criteria (Gherkin):\n{gherkin.strip()}\n\n"
+        "Generate the Developer Pack for this task."
+    )
+    return _invoke(system, human, get_coder_model(), max_tokens=4096, timeout=240)
 
 
 # ---------------------------------------------------------------------------
