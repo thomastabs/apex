@@ -906,7 +906,7 @@ export function Phase3Workflow() {
                         isActive
                           ? "bg-violet-600 text-white ring-violet-400"
                           : isDone
-                            ? dark ? "bg-emerald-600 text-white ring-emerald-500" : "bg-emerald-500 text-white ring-emerald-400"
+                            ? dark ? "bg-violet-800 text-violet-200 ring-violet-700" : "bg-violet-100 text-violet-600 ring-violet-300"
                             : dark
                               ? "bg-neutral-800 text-neutral-400 ring-neutral-700 group-hover:ring-neutral-500"
                               : "bg-white text-slate-500 ring-slate-300 group-hover:ring-violet-400",
@@ -918,7 +918,7 @@ export function Phase3Workflow() {
                         isActive
                           ? "text-violet-500"
                           : isDone
-                            ? dark ? "text-emerald-400" : "text-emerald-600"
+                            ? dark ? "text-violet-400" : "text-violet-500"
                             : dark ? "text-neutral-500" : "text-slate-400",
                       )}>
                         {STAGE_LABELS[s]}
@@ -928,7 +928,7 @@ export function Phase3Workflow() {
                       <div className={cn(
                         "mx-2 mb-5 h-0.5 flex-1 rounded-full transition-all",
                         isDone
-                          ? dark ? "bg-emerald-600" : "bg-emerald-400"
+                          ? dark ? "bg-violet-700" : "bg-violet-300"
                           : dark ? "bg-neutral-700" : "bg-slate-200",
                       )} />
                     )}
