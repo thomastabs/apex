@@ -121,6 +121,7 @@ export type Phase1PushStoriesResponse = {
   count: number;
   story_ids: number[];
   story_urls?: string[];
+  push_failures?: Array<{ title: string; error: string }>;
 };
 
 export type TechStackStatus = {

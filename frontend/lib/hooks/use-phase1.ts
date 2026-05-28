@@ -58,11 +58,15 @@ export function usePushPhase1Stories() {
   return useMutation({
     mutationFn: (body: Phase1PushStoriesRequest) => pushPhase1Stories(context!, body),
     onError: () => toast.error("Failed to push stories to Taiga. Check your connection and try again."),
-    onSuccess: () => {
+    onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: ["phase1", "epics"] });
       void queryClient.invalidateQueries({ queryKey: ["phase2", "eligible-epics"] });
       void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
       if (context) void refreshStoryIndex(context);
+      if (data.push_failures && data.push_failures.length > 0) {
+        const names = data.push_failures.map((f) => f.title).join(", ");
+        toast.warning(`${data.push_failures.length} story/stories failed to push: ${names}. Others were pushed successfully.`);
+      }
     },
   });
 }

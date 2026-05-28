@@ -151,8 +151,9 @@ function MarkdownPreview({ content }: { content: string }) {
   useEffect(() => {
     async function render() {
       const { marked } = await import("marked");
-      const result = await marked.parse(content || "");
-      setHtml(result);
+      const DOMPurify = (await import("dompurify")).default;
+      const raw = await marked.parse(content || "");
+      setHtml(DOMPurify.sanitize(raw));
     }
     void render();
   }, [content]);

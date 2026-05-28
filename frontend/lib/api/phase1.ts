@@ -75,27 +75,35 @@ async function pushPhase1StoriesDirect(
   const statuses = await taigaListStoryStatuses(context.taigaToken, context.projectId, context.taigaApiUrl).catch(() => []);
   const readyStatus = statuses.find((status) => status.name.toLowerCase().includes("ready for discovery"));
   const createdStories = [];
+  const pushFailures: Array<{ title: string; error: string }> = [];
   for (const [index, story] of body.stories.entries()) {
-    const created = await taigaCreateStory(
-      context.taigaToken,
-      context.projectId,
-      epic.id,
-      story.title,
-      boldGherkinKeywords(story.gherkin),
-      ["apex", "gherkin", story.size].filter(Boolean),
-      undefined,
-      context.taigaApiUrl,
-    );
-    const updated = readyStatus && created.version
-      ? await taigaUpdateStory(
+    try {
+      const created = await taigaCreateStory(
         context.taigaToken,
-        created.id,
-        created.version,
-        { status: readyStatus.id },
+        context.projectId,
+        epic.id,
+        story.title,
+        boldGherkinKeywords(story.gherkin),
+        ["apex", "gherkin", story.size].filter(Boolean),
+        undefined,
         context.taigaApiUrl,
-      ).catch(() => created)
-      : created;
-    createdStories.push({ ...updated, title: story.title, gherkin: story.gherkin, order: index });
+      );
+      const updated = readyStatus && created.version
+        ? await taigaUpdateStory(
+          context.taigaToken,
+          created.id,
+          created.version,
+          { status: readyStatus.id },
+          context.taigaApiUrl,
+        ).catch(() => created)
+        : created;
+      createdStories.push({ ...updated, title: story.title, gherkin: story.gherkin, order: index });
+    } catch (err) {
+      pushFailures.push({ title: story.title, error: err instanceof Error ? err.message : "Unknown error" });
+    }
+  }
+  if (createdStories.length === 0) {
+    throw new Error(`All story pushes failed. First error: ${pushFailures[0]?.error ?? "unknown"}`);
   }
 
   // Build Taiga web URLs for the created stories (best-effort — failure just omits links)
@@ -124,7 +132,11 @@ async function pushPhase1StoriesDirect(
     },
     timeoutMs: 120_000,
   });
-  return { ...finalized, story_urls: storyUrls };
+  return {
+    ...finalized,
+    story_urls: storyUrls,
+    push_failures: pushFailures.length > 0 ? pushFailures : undefined,
+  };
 }
 
 function boldGherkinKeywords(gherkin: string) {

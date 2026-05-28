@@ -110,10 +110,7 @@ def persist_design(
             payload.endpoints,
             payload.data_model,
         )
-        try:
-            service.context.write_project_technical_spec(locked_story_ids, payload.endpoints)
-        except Exception as spec_exc:
-            _logger.warning("persist_design: tech-spec write failed after bundle write: %s", spec_exc)
+        service.context.write_project_technical_spec(locked_story_ids, payload.endpoints)
         return {"ok": True, "story_ids": locked_story_ids, "taiga_failures": []}
     except Exception as exc:
         _handle_error(exc)
