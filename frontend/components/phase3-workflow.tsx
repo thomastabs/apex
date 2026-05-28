@@ -567,8 +567,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 function StageC({ storyId }: { storyId: number }) {
   const dark = useUiStore((s) => s.theme) === "dark";
   const { data: ctx } = useStoryContext(storyId);
-  const { taskList, packDrafts, taigaTaskRefs } = usePhase3Store();
-  const { setPackDraft } = usePhase3Store();
+  const { taskList, packDrafts, taigaTaskRefs, setPackDraft } = usePhase3Store();
   const generateProposal = useGenerateProposal();
   const saveProposalMut = useSaveProposal();
 

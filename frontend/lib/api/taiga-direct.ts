@@ -15,8 +15,12 @@ const DEFAULT_TAIGA_API = "https://api.taiga.io/api/v1";
 export function getTaigaApiBaseUrl(input?: string) {
   const configured = input || process.env.NEXT_PUBLIC_TAIGA_API_URL || DEFAULT_TAIGA_API;
   const trimmed = configured.trim().replace(/\/+$/, "");
-  if (trimmed.endsWith("/api/v1")) return trimmed;
-  return `${trimmed.replace("//tree.", "//api.")}/api/v1`;
+  // Normalize Taiga Cloud (tree.taiga.io → api.taiga.io) before the /api/v1 suffix check,
+  // so "https://tree.taiga.io/api/v1" is correctly returned as "https://api.taiga.io/api/v1"
+  // rather than passing through with the wrong hostname.
+  const normalized = trimmed.replace("//tree.", "//api.");
+  if (normalized.endsWith("/api/v1")) return normalized;
+  return `${normalized}/api/v1`;
 }
 
 async function taigaFetch<T>(

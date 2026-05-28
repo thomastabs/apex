@@ -55,11 +55,13 @@ _story_index_caches:  dict[int, dict | None] = {}
 _initialized_projects: set[int]              = set()
 
 
+
+
 def __getattr__(name: str):
     """Dynamic module attribute access for path constants.
 
-    Allows external code (and legacy tests) to read ctx.MEMORY_BANK_FILE etc. as if
-    they were module globals; each call returns the path for the current ContextVar project.
+    Used by tests and legacy callers. Each call returns the path for the
+    current ContextVar project so project isolation is maintained.
     """
     _filenames: dict[str, str] = {
         "PROJECT_CONCEPT_FILE": "project-concept.md",
@@ -497,6 +499,10 @@ def upsert_story_index(story_id: int, **updates) -> None:
     """
     index = get_story_index()
     key   = str(story_id)
+    if "phase_status" in updates and updates["phase_status"] not in PHASE_STATUSES:
+        raise ValueError(
+            f"Invalid phase_status {updates['phase_status']!r}. Must be one of {PHASE_STATUSES}."
+        )
     entry = index.get(key, {
         "story_id":    story_id,
         "epic_id":     None,
@@ -541,10 +547,16 @@ def remove_story_from_specs(story_id: int) -> None:
         ts.write_text(content, encoding="utf-8")
     cd = _context_dir()
     if cd.exists():
-        for p in cd.iterdir():
-            if p.name.startswith(f"proposal_story_{story_id}_"):
-                p.unlink(missing_ok=True)
+        to_delete = [p for p in cd.iterdir() if p.name.startswith(f"proposal_story_{story_id}_")]
+        for p in to_delete:
+            p.unlink(missing_ok=True)
         (cd / f"bdd_story_{story_id}.feature").unlink(missing_ok=True)
+
+
+def clear_story_index() -> None:
+    """Wipe the story index entirely (all entries removed)."""
+    _save_story_index({})
+    reset_cache()
 
 
 def reset_story_index_phase_statuses() -> None:

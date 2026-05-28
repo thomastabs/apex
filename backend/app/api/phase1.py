@@ -28,7 +28,7 @@ def get_phase1_service() -> Phase1Service:
 
 def _handle_error(exc: Exception) -> NoReturn:
     if isinstance(exc, Phase1ValidationError):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
     if isinstance(exc, AIRateLimitError):
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
     if isinstance(exc, AITimeoutError):

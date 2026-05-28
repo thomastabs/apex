@@ -142,6 +142,8 @@ export function Phase2Workflow() {
   } = usePhase2Store();
 
   const bundleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const designBundleRef = useRef(designBundle);
+  designBundleRef.current = designBundle;
 
   const techStack = useTechStackStatus();
   const proposeStack = useProposeTechStack();
@@ -158,11 +160,10 @@ export function Phase2Workflow() {
 
   useEffect(() => {
     const saved = loadBundleDraft(context?.projectId ?? null);
-    if (saved && !designBundle) {
+    if (saved && !designBundleRef.current) {
       setDesignBundle(saved as Parameters<typeof setDesignBundle>[0]);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [context?.projectId]);
+  }, [context?.projectId, setDesignBundle]);
 
   useEffect(() => {
     if (bundleSaveTimer.current) clearTimeout(bundleSaveTimer.current);

@@ -18,7 +18,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./contextspec:/app/contextspec
+      - ./contextspec:/app/contextspec  # ignored when AZURE_STORAGE_CONNECTION_STRING is set — all writes go to Azure in that case
 
   frontend:
     build:

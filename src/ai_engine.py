@@ -106,7 +106,9 @@ def _ai_retry(fn, *, delays: tuple[float, ...] = _RATE_LIMIT_RETRY_DELAYS):
                 break
             _logger.warning("ai_rate_limited delay=%.0fs retry=%d", delay, i + 1)
             time.sleep(delay)
-    raise last_exc  # type: ignore[misc]
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError("_ai_retry: all retries exhausted without capturing an exception")
 
 
 def _get_provider(model: str) -> str:
@@ -376,6 +378,8 @@ def _repair_truncated_json(content: str) -> str:
     # Count unescaped double-quotes to detect open strings
     in_string = False
     escape_next = False
+    open_curly = 0
+    open_square = 0
     for ch in s:
         if escape_next:
             escape_next = False
@@ -385,12 +389,21 @@ def _repair_truncated_json(content: str) -> str:
             continue
         if ch == '"':
             in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch == "{":
+            open_curly += 1
+        elif ch == "}":
+            open_curly -= 1
+        elif ch == "[":
+            open_square += 1
+        elif ch == "]":
+            open_square -= 1
     if in_string:
         s += '"'
-    open_curly  = s.count("{") - s.count("}")
-    open_square = s.count("[") - s.count("]")
     s += "]" * max(open_square, 0)
-    s += "}" * max(open_curly,  0)
+    s += "}" * max(open_curly, 0)
     return s
 
 

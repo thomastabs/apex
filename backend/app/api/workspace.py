@@ -38,7 +38,7 @@ def get_config(auth: AuthContext = Depends(get_auth_context)):
     config = context_manager.load_config()
     return {
         "project_id": config.get("project_id"),
-        "taiga_web_url": taiga_adapter._web_base_url(),
+        "taiga_web_url": taiga_adapter.get_web_base_url(),
     }
 
 
@@ -182,7 +182,7 @@ def reset_all_context_files(ctx: RequestContext = Depends(get_request_context)):
     for filename, _ in _CONTEXT_FILES:
         context.reset_context_file(filename)
     context_manager.set_active_project(ctx.project_id)
-    context_manager.reset_story_index_phase_statuses()
+    context_manager.clear_story_index()
     return get_context_files(ctx)
 
 

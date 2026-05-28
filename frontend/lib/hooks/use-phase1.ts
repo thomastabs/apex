@@ -64,7 +64,7 @@ export function usePushPhase1Stories() {
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: ["phase1", "epics"] });
       void queryClient.invalidateQueries({ queryKey: ["phase2", "eligible-epics"] });
-      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats"], exact: true });
       if (contextRef.current) void refreshStoryIndex(contextRef.current);
       if (data.push_failures && data.push_failures.length > 0) {
         const names = data.push_failures.map((f) => f.title).join(", ");

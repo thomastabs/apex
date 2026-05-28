@@ -1,7 +1,7 @@
 """taiga_adapter.py — Taiga web URL derivation.
 
 All Taiga REST API calls now originate from the browser via taiga-direct.ts.
-The only backend usage is _web_base_url() for the GET /config endpoint.
+The only backend usage is get_web_base_url() for the GET /config endpoint.
 """
 
 import os
@@ -14,7 +14,7 @@ load_dotenv()
 TAIGA_API_URL = os.getenv("TAIGA_API_URL", "https://api.taiga.io").rstrip("/")
 
 
-def _web_base_url() -> str:
+def get_web_base_url() -> str:
     """Derive the Taiga web base URL from TAIGA_API_URL.
 
     Handles two common patterns:

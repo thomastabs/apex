@@ -1,4 +1,4 @@
-"""Unit tests for taiga_adapter.py — _web_base_url URL derivation."""
+"""Unit tests for taiga_adapter.py — get_web_base_url URL derivation."""
 
 from unittest.mock import patch
 
@@ -7,7 +7,7 @@ class TestWebBaseUrl:
     def _url(self, api_url: str) -> str:
         from src import taiga_adapter
         with patch.object(taiga_adapter, "TAIGA_API_URL", api_url):
-            return taiga_adapter._web_base_url()
+            return taiga_adapter.get_web_base_url()
 
     def test_taiga_cloud_strips_api_subdomain(self):
         assert self._url("https://api.taiga.io") == "https://tree.taiga.io"

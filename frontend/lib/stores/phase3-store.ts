@@ -60,6 +60,7 @@ export const usePhase3Store = create<Phase3State>()(
         selectedStoryId: state.selectedStoryId,
         taskList: state.taskList,
         packDrafts: state.packDrafts,
+        tasksPushed: state.tasksPushed,
       }),
     },
   ),
