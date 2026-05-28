@@ -53,8 +53,7 @@ type AiSectionProps = DragSectionProps & {
 
 export function AiSection({ dark, taigaToken, shellClass, dragHandlers, onDragStart }: AiSectionProps) {
   const [aiOpen, setAiOpen] = useState(false);
-  const [localFastModel, setLocalFastModel] = useState("");
-  const [localCoderModel, setLocalCoderModel] = useState("");
+  const [localModel, setLocalModel] = useState("");
   const [localProvider, setLocalProvider] = useState<ProviderKey>("anthropic");
 
   const aiConfig = useAiConfig();
@@ -65,11 +64,10 @@ export function AiSection({ dark, taigaToken, shellClass, dragHandlers, onDragSt
 
   useEffect(() => {
     if (aiConfig.data) {
-      setLocalFastModel(aiConfig.data.fast_model);
-      setLocalCoderModel(aiConfig.data.coder_model);
-      const savedFast = aiConfig.data.available_models.find((m) => m.id === aiConfig.data!.fast_model);
-      if (savedFast?.provider === "openai") setLocalProvider("openai");
-      else if (savedFast?.provider === "google") setLocalProvider("google");
+      setLocalModel(aiConfig.data.model);
+      const saved = aiConfig.data.available_models.find((m) => m.id === aiConfig.data!.model);
+      if (saved?.provider === "openai") setLocalProvider("openai");
+      else if (saved?.provider === "google") setLocalProvider("google");
     }
   }, [aiConfig.data]);
 
@@ -81,7 +79,7 @@ export function AiSection({ dark, taigaToken, shellClass, dragHandlers, onDragSt
       <section className={cn("border-b", sectionBorderClass)}>
         <PanelHeader
           icon={<Bot className="size-4" />}
-          title="AI Models"
+          title="AI Model"
           open={aiOpen}
           onClick={() => setAiOpen(!aiOpen)}
           onDragStart={onDragStart}
@@ -101,8 +99,7 @@ export function AiSection({ dark, taigaToken, shellClass, dragHandlers, onDragSt
                     onClick={() => {
                       setLocalProvider(p);
                       const filtered = availableModels.filter((m) => modelProvider(m) === p);
-                      setLocalFastModel(filtered[0]?.id ?? "");
-                      setLocalCoderModel(filtered[1]?.id ?? filtered[0]?.id ?? "");
+                      setLocalModel(filtered[0]?.id ?? "");
                     }}
                   >
                     {PROVIDER_LABELS[p]}
@@ -118,22 +115,19 @@ export function AiSection({ dark, taigaToken, shellClass, dragHandlers, onDragSt
             </div>
             {(() => {
               const providerModels = availableModels.filter((m) => modelProvider(m) === localProvider);
-              const effectiveFast  = (localFastModel  && providerModels.some((m) => m.id === localFastModel))  ? localFastModel  : (providerModels[0]?.id ?? "");
-              const effectiveCoder = (localCoderModel && providerModels.some((m) => m.id === localCoderModel)) ? localCoderModel : (providerModels[1]?.id ?? providerModels[0]?.id ?? "");
+              const effectiveModel = (localModel && providerModels.some((m) => m.id === localModel))
+                ? localModel
+                : (providerModels[0]?.id ?? "");
               return (
                 <>
                   <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-neutral-400">Phase 1 — Requirements</label>
-                    <ModelSelect models={providerModels} value={effectiveFast} onChange={setLocalFastModel} />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-neutral-400">Phase 2 — Design</label>
-                    <ModelSelect models={providerModels} value={effectiveCoder} onChange={setLocalCoderModel} />
+                    <label className="mb-1.5 block text-xs font-semibold text-neutral-400">Model</label>
+                    <ModelSelect models={providerModels} value={effectiveModel} onChange={setLocalModel} />
                   </div>
                   <button
                     className="h-8 w-full rounded bg-violet-700 text-sm font-semibold text-white transition-colors hover:bg-violet-600 disabled:opacity-50"
                     disabled={saveAiConfigMutation.isPending || !taigaToken}
-                    onClick={() => saveAiConfigMutation.mutate({ fast_model: effectiveFast, coder_model: effectiveCoder })}
+                    onClick={() => saveAiConfigMutation.mutate({ model: effectiveModel })}
                   >
                     {!taigaToken ? "Sign in to save" : saveAiConfigMutation.isPending ? "Saving…" : "Save"}
                   </button>

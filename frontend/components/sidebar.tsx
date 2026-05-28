@@ -461,16 +461,8 @@ export function Sidebar() {
         <section className="border-b border-neutral-800 px-4 py-5">
           <div className="mb-4 flex flex-wrap gap-2">
             <span className="rounded border border-violet-400/40 bg-violet-500/10 px-2 py-1 font-mono text-xs text-violet-400">
-              {aiConfig.data?.coder_model ?? "claude-sonnet-4-6"}
+              {aiConfig.data?.model ?? "claude-sonnet-4-6"}
             </span>
-            {aiConfig.data && aiConfig.data.fast_model !== aiConfig.data.coder_model ? (
-              <span className={cn(
-                "rounded border px-2 py-1 font-mono text-xs",
-                dark ? "border-neutral-700 bg-neutral-800/50 text-neutral-400" : "border-slate-400 bg-slate-200 text-slate-600",
-              )}>
-                {aiConfig.data.fast_model}
-              </span>
-            ) : null}
           </div>
           <LoginSection taigaWebUrl={taigaWebUrl} />
         </section>

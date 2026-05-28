@@ -56,10 +56,9 @@ def _configured_providers() -> list[str]:
 
 @router.get("/ai-config", response_model=AiConfigResponse)
 def get_ai_config(auth: AuthContext = Depends(get_auth_context)):
-    from src.ai_engine import AVAILABLE_MODELS, get_coder_model, get_fast_model
+    from src.ai_engine import AVAILABLE_MODELS, get_model
     return {
-        "fast_model": get_fast_model(),
-        "coder_model": get_coder_model(),
+        "model": get_model(),
         "available_models": AVAILABLE_MODELS,
         "configured_providers": _configured_providers(),
     }
@@ -68,15 +67,14 @@ def get_ai_config(auth: AuthContext = Depends(get_auth_context)):
 @router.post("/ai-config", response_model=AiConfigResponse)
 def save_ai_config_endpoint(payload: SaveAiConfigRequest, auth: AuthContext = Depends(get_auth_context)):
     from src import ai_engine, context_manager
-    from src.ai_engine import AVAILABLE_MODELS, get_coder_model, get_fast_model
+    from src.ai_engine import AVAILABLE_MODELS, get_model
     valid_ids = {m["id"] for m in AVAILABLE_MODELS}
-    fast = payload.fast_model or get_fast_model()
-    coder = payload.coder_model or get_coder_model()
-    if fast not in valid_ids or coder not in valid_ids:
+    model = payload.model or get_model()
+    if model not in valid_ids:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid model ID.")
-    context_manager.save_ai_config(fast, coder)
+    context_manager.save_ai_config(model)
     ai_engine._llm_cache.clear()
-    return {"fast_model": fast, "coder_model": coder, "available_models": AVAILABLE_MODELS, "configured_providers": _configured_providers()}
+    return {"model": model, "available_models": AVAILABLE_MODELS, "configured_providers": _configured_providers()}
 
 
 @router.post("/config", response_model=OkResponse)

@@ -38,8 +38,7 @@ from pydantic import BaseModel, Field
 
 load_dotenv()
 
-_DEFAULT_FAST  = "claude-haiku-4-5-20251001"
-_DEFAULT_CODER = "claude-sonnet-4-6"
+_DEFAULT_MODEL = "claude-sonnet-4-6"
 
 
 # ---------------------------------------------------------------------------
@@ -221,26 +220,20 @@ AVAILABLE_MODELS: list[dict] = [
 ]
 
 
-def get_fast_model() -> str:
+def get_model() -> str:
     try:
         from src.context_manager import load_config  # lazy to avoid circular at module level
         cfg = load_config()
+        if cfg.get("ai_model"):
+            return cfg["ai_model"]
+        # backward compat: migrate from old split config
+        if cfg.get("ai_model_coder"):
+            return cfg["ai_model_coder"]
         if cfg.get("ai_model_fast"):
             return cfg["ai_model_fast"]
     except Exception:
         pass
-    return os.getenv("AI_MODEL_FAST", _DEFAULT_FAST)
-
-
-def get_coder_model() -> str:
-    try:
-        from src.context_manager import load_config
-        cfg = load_config()
-        if cfg.get("ai_model_coder"):
-            return cfg["ai_model_coder"]
-    except Exception:
-        pass
-    return os.getenv("AI_MODEL_CODER", _DEFAULT_CODER)
+    return os.getenv("AI_MODEL", _DEFAULT_MODEL)
 
 
 def _get_llm(model: str, max_tokens: int, timeout: float | None = None) -> ChatAnthropic | ChatOpenAI | ChatGoogleGenerativeAI:
@@ -606,7 +599,7 @@ def generate_nl_stories(
     human = _build_nl_human(epic_subject, epic_description, hint, project_concept)
     _logger.debug("generate_nl_stories prompt_version=%s", _NL_GENERATION_VERSION)
     return _invoke_structured_with_progress(
-        _NL_GENERATION_SYSTEM, human, get_fast_model(), NLStoryList,
+        _NL_GENERATION_SYSTEM, human, get_model(), NLStoryList,
         max_tokens=8192, on_item=on_story,
     )
 
@@ -708,7 +701,7 @@ def compile_gherkin_stories(
     human = _build_gherkin_human(nl_draft)
     _logger.debug("compile_gherkin_stories prompt_version=%s", _GL_COMPILATION_VERSION)
     return _invoke_structured_with_progress(
-        _GL_COMPILATION_SYSTEM, human, get_fast_model(), GherkinStoryList,
+        _GL_COMPILATION_SYSTEM, human, get_model(), GherkinStoryList,
         max_tokens=8192, on_item=on_story,
     )
 
@@ -795,7 +788,7 @@ def suggest_epics(
         human += f"Focus / constraints:\n{hint.strip()}\n\n"
     human += "Suggest a complete set of high-level Epics for this project."
     return _invoke_structured_with_progress(
-        _EPIC_SUGGESTION_SYSTEM, human, get_fast_model(), EpicSuggestionList,
+        _EPIC_SUGGESTION_SYSTEM, human, get_model(), EpicSuggestionList,
         max_tokens=2048, item_field="epics",
     )
 
@@ -863,7 +856,7 @@ def suggest_tech_stack(
         human_parts.append(f"\nTech Lead Guidance:\n{hint.strip()}")
     human = "\n".join(human_parts)
     result = _invoke_structured_with_progress(
-        _TECH_STACK_SYSTEM, human, get_coder_model(), ArchAlternativeList,
+        _TECH_STACK_SYSTEM, human, get_model(), ArchAlternativeList,
         max_tokens=4096, timeout=120, item_field="alternatives",
     )
     return [alt.model_dump() for alt in result.alternatives]
@@ -1008,7 +1001,7 @@ def generate_design_ux_brief(all_stories: list[dict], context: str) -> str:
         context=context.strip(),
         anti_hallucination=_ANTI_HALLUCINATION,
     )
-    return _invoke(system, _format_stories_human(grouped), get_coder_model(),
+    return _invoke(system, _format_stories_human(grouped), get_model(),
                    max_tokens=3500, timeout=210)
 
 
@@ -1019,7 +1012,7 @@ def generate_design_endpoints(all_stories: list[dict], context: str, *, ux_brief
         ux_brief=ux_brief.strip(),
         anti_hallucination=_ANTI_HALLUCINATION,
     )
-    return _invoke(system, _format_stories_human(grouped), get_coder_model(),
+    return _invoke(system, _format_stories_human(grouped), get_model(),
                    max_tokens=8000, timeout=300)
 
 
@@ -1030,7 +1023,7 @@ def generate_design_data_model(all_stories: list[dict], context: str, *, endpoin
         endpoints=endpoints.strip(),
         anti_hallucination=_ANTI_HALLUCINATION,
     )
-    return _invoke(system, _format_stories_human(grouped), get_coder_model(),
+    return _invoke(system, _format_stories_human(grouped), get_model(),
                    max_tokens=3000, timeout=180)
 
 
@@ -1088,7 +1081,7 @@ def generate_tasks(
     )
     human = f"User Story: {story_subject}\n\nAcceptance Criteria (Gherkin):\n{gherkin.strip()}\n\nDecompose this story into atomic implementation tasks."
     return _ai_retry(lambda: _invoke_structured_with_progress(
-        system, human, get_fast_model(), Phase3TaskList,
+        system, human, get_model(), Phase3TaskList,
         max_tokens=2048, item_field="tasks",
     ))
 
@@ -1171,7 +1164,7 @@ def generate_coding_proposal(
         f"Acceptance Criteria (Gherkin):\n{gherkin.strip()}\n\n"
         "Generate the Developer Pack for this task."
     )
-    return _invoke(system, human, get_coder_model(), max_tokens=4096, timeout=240)
+    return _invoke(system, human, get_model(), max_tokens=4096, timeout=240)
 
 
 # ---------------------------------------------------------------------------
@@ -1181,7 +1174,7 @@ def generate_coding_proposal(
 # TODO: generate_bdd_tests(story_subject, gherkin) -> str
 #   QA Engineer persona. End-to-end BDD test scripts from Gherkin only — no hallucinated scenarios.
 #   Cypress (JS) for frontend, Pytest+BDD for APIs.
-#   Use get_coder_model().
+#   Use get_model().
 
 
 # ---------------------------------------------------------------------------
@@ -1191,7 +1184,7 @@ def generate_coding_proposal(
 # TODO: generate_infra_delta(story_subject, technical_spec) -> str
 #   DevOps persona. Determine if feature needs new infra, env vars, or deploy script changes.
 #   Output: "INFRA_DELTA: NONE <justification>" or "INFRA_DELTA: REQUIRED <Terraform HCL / CF YAML>".
-#   Use get_coder_model().
+#   Use get_model().
 
 
 # ---------------------------------------------------------------------------
@@ -1201,4 +1194,4 @@ def generate_coding_proposal(
 # TODO: fix_bolt_diagnose(issue_subject, issue_description, stack_trace, code_snippet) -> str
 #   Senior Debugging Engineer under Context Isolation Rule — ONLY bug + stack trace + snippet.
 #   Output: ## Root Cause, ## Patch, ## Vaccine Summary.
-#   Use get_coder_model().
+#   Use get_model().

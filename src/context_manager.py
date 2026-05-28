@@ -157,13 +157,12 @@ def is_project_selected() -> bool:
     return _get_project_id() != 0
 
 
-def save_ai_config(fast_model: str, coder_model: str) -> None:
-    """Persist AI model preferences to the shared config file."""
+def save_ai_config(model: str) -> None:
+    """Persist AI model preference to the shared config file."""
     try:
         _BASE_CONTEXTSPEC.mkdir(parents=True, exist_ok=True)
         data = load_config()
-        data["ai_model_fast"] = fast_model
-        data["ai_model_coder"] = coder_model
+        data["ai_model"] = model
         _CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
     except OSError as exc:
         _logger.warning("save_ai_config: failed to persist AI config: %s", exc)

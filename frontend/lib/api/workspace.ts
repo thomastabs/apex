@@ -34,8 +34,7 @@ export function getServerConfig(context: AuthContext) {
 }
 
 export type AiConfigResponse = {
-  fast_model: string;
-  coder_model: string;
+  model: string;
   available_models: Array<{ id: string; label: string; role: string; provider?: string; note?: string }>;
   configured_providers: string[];
 };
@@ -44,11 +43,11 @@ export function getAiConfig(context: AuthContext) {
   return apiRequest<AiConfigResponse>("/api/workspace/ai-config", { context });
 }
 
-export function saveAiConfig(context: AuthContext, fast_model: string, coder_model: string) {
-  return apiRequest<{ fast_model: string; coder_model: string }>("/api/workspace/ai-config", {
+export function saveAiConfig(context: AuthContext, model: string) {
+  return apiRequest<{ model: string }>("/api/workspace/ai-config", {
     method: "POST",
     context,
-    body: { fast_model, coder_model },
+    body: { model },
   });
 }
 

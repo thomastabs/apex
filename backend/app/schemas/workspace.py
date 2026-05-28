@@ -21,8 +21,7 @@ class UpdateContextFileRequest(BaseModel):
 
 
 class SaveAiConfigRequest(BaseModel):
-    fast_model: str | None = None
-    coder_model: str | None = None
+    model: str | None = None
 
 
 class SaveConfigRequest(BaseModel):
@@ -47,8 +46,7 @@ class AiConfigModel(BaseModel):
 
 
 class AiConfigResponse(BaseModel):
-    fast_model: str
-    coder_model: str
+    model: str
     available_models: list[AiConfigModel] = Field(default_factory=list)
     configured_providers: list[str] = Field(default_factory=list)
 

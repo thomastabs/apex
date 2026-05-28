@@ -323,8 +323,7 @@ export function useSaveAiConfig() {
   const auth = useAuthContext();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ fast_model, coder_model }: { fast_model: string; coder_model: string }) =>
-      saveAiConfig(auth!, fast_model, coder_model),
+    mutationFn: ({ model }: { model: string }) => saveAiConfig(auth!, model),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "ai-config"] });
     },
