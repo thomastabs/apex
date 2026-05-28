@@ -27,7 +27,7 @@ def ai_rate_limit(auth: AuthContext = Depends(get_auth_context)) -> None:
             del _buckets[k]
 
         window_start, count = _buckets[key]
-        if now - window_start >= _WINDOW_SECS:
+        if now - window_start > _WINDOW_SECS:
             _buckets[key] = (now, 1)
         elif count >= _MAX_AI_REQUESTS:
             raise HTTPException(

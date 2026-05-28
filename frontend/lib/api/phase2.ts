@@ -63,7 +63,13 @@ export async function lockDesign(context: RequestContext, body: LockDesignReques
     body,
     timeoutMs: 120_000,
   });
-  const taiga_failures = await transitionTaigaStories(context, body.story_ids);
+  let taiga_failures: Array<{ story_id: number; error: string }> = [];
+  try {
+    taiga_failures = await transitionTaigaStories(context, body.story_ids);
+  } catch {
+    // transitionTaigaStories shouldn't throw, but if it does the bundle is already saved
+    taiga_failures = body.story_ids.map((id) => ({ story_id: id, error: "Taiga transition failed unexpectedly" }));
+  }
   return {
     ...persisted,
     ok: persisted.ok && taiga_failures.length === 0,
@@ -79,11 +85,17 @@ export function refreshStoryIndex(context: RequestContext) {
 }
 
 async function transitionTaigaStories(context: RequestContext, storyIds: number[]) {
-  const statuses = await taigaListStoryStatuses(context.taigaToken, context.projectId, context.taigaApiUrl).catch(() => []);
-  const statusId = statuses.find((status) => {
-    const name = status.name.toLowerCase();
-    return name.includes("design_locked") || name.includes("design locked") || name.includes("ready for implementation");
-  })?.id;
+  let statusId: number | undefined;
+  let statusFetchFailed = false;
+  try {
+    const statuses = await taigaListStoryStatuses(context.taigaToken, context.projectId, context.taigaApiUrl);
+    statusId = statuses.find((status) => {
+      const name = status.name.toLowerCase();
+      return name.includes("design_locked") || name.includes("design locked") || name.includes("ready for implementation");
+    })?.id;
+  } catch {
+    statusFetchFailed = true;
+  }
   const failures: Array<{ story_id: number; error: string }> = [];
   for (const storyId of storyIds) {
     try {
@@ -102,6 +114,10 @@ async function transitionTaigaStories(context: RequestContext, storyIds: number[
     } catch (error) {
       failures.push({ story_id: storyId, error: error instanceof Error ? error.message : "Taiga transition failed" });
     }
+  }
+  if (statusFetchFailed && failures.length === 0) {
+    // Stories were tagged but status wasn't updated — surface this so the lock result isn't misleadingly ok=true
+    failures.push({ story_id: -1, error: "Could not fetch Taiga story statuses — stories tagged but status not updated" });
   }
   return failures;
 }
