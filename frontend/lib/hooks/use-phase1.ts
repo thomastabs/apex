@@ -8,6 +8,7 @@ import {
   pushPhase1Stories,
   suggestPhase1Epics,
 } from "@/lib/api/phase1";
+import { refreshStoryIndex } from "@/lib/api/phase2";
 import type { Phase1GenerateNlStoriesRequest, Phase1PushStoriesRequest } from "@/lib/api/types";
 import { useApiContext } from "@/lib/stores/session-store";
 import { toast } from "sonner";
@@ -61,6 +62,7 @@ export function usePushPhase1Stories() {
       void queryClient.invalidateQueries({ queryKey: ["phase1", "epics"] });
       void queryClient.invalidateQueries({ queryKey: ["phase2", "eligible-epics"] });
       void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
+      if (context) void refreshStoryIndex(context);
     },
   });
 }

@@ -88,6 +88,28 @@ def _reclassify_llm_exc(exc: Exception, *, reraise_unrecognized: bool = True) ->
         raise exc
 
 
+_RATE_LIMIT_RETRY_DELAYS: tuple[float, ...] = (10.0, 30.0)
+
+
+def _ai_retry(fn, *, delays: tuple[float, ...] = _RATE_LIMIT_RETRY_DELAYS):
+    """Call fn(), retrying on AIRateLimitError with increasing delays.
+
+    Gemini Flash Lite has tight RPM limits; this prevents spurious 429s
+    from bubbling up to the user when a short wait would succeed.
+    """
+    last_exc: Exception | None = None
+    for i, delay in enumerate((*delays, None)):
+        try:
+            return fn()
+        except AIRateLimitError as exc:
+            last_exc = exc
+            if delay is None:
+                break
+            _logger.warning("ai_rate_limited delay=%.0fs retry=%d", delay, i + 1)
+            time.sleep(delay)
+    raise last_exc  # type: ignore[misc]
+
+
 def _get_provider(model: str) -> str:
     """Detect provider from model ID prefix."""
     if model.startswith(("gpt-", "o1-", "o3-", "o4-")):
@@ -1065,10 +1087,10 @@ def generate_tasks(
         technical_spec=technical_spec.strip() or "Not specified",
     )
     human = f"User Story: {story_subject}\n\nAcceptance Criteria (Gherkin):\n{gherkin.strip()}\n\nDecompose this story into atomic implementation tasks."
-    return _invoke_structured_with_progress(
+    return _ai_retry(lambda: _invoke_structured_with_progress(
         system, human, get_fast_model(), Phase3TaskList,
         max_tokens=2048, item_field="tasks",
-    )
+    ))
 
 
 _GENERATE_PROPOSAL_SYSTEM = """\
