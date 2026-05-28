@@ -332,7 +332,8 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
             </div>
             <div className="space-y-2">
               <button
-                className="flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm text-violet-300 transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 hover:text-violet-200"
+                className="flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm text-violet-300 transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 hover:text-violet-200 disabled:opacity-40"
+                disabled={contextFiles.isFetching}
                 onClick={() => { contextFiles.refetch(); toast.info("Context reloaded"); }}
               >
                 <span>Reload context</span>

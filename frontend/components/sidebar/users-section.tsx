@@ -87,13 +87,14 @@ export function UsersSection({ dark, projectId: _projectId, confirm, shellClass,
                       ))}
                     </select>
                     <button
-                      className="rounded bg-violet-700 px-2 py-1 text-xs font-semibold text-white"
+                      className="rounded bg-violet-700 px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                      disabled={updateMemberRole.isPending}
                       onClick={() => updateMemberRole.mutate(
                         { membershipId: member.id, roleId: memberRoleValue || member.role || 0 },
                         { onSuccess: () => setEditingMemberRole(null) },
                       )}
                     >
-                      Save
+                      {updateMemberRole.isPending ? "Saving…" : "Save"}
                     </button>
                     <button className="rounded bg-neutral-700 px-2 py-1 text-xs text-neutral-300" onClick={() => setEditingMemberRole(null)}>
                       ✕

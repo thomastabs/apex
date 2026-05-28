@@ -62,26 +62,39 @@ export function usePushTasksToTaiga() {
     mutationFn: async (storyId: number) => {
       if (!context) throw new Error("No project context.");
       const results: Array<{ taskIndex: number; id: number; ref: number }> = [];
+      const failures: Array<{ subject: string; error: string }> = [];
       for (let i = 0; i < taskList.length; i++) {
         const task = taskList[i];
-        const created = await taigaCreateTask(
-          context.taigaToken,
-          context.projectId,
-          storyId,
-          task.subject,
-          task.description,
-          context.taigaApiUrl,
-        );
-        results.push({ taskIndex: i, id: created.id, ref: created.ref });
+        try {
+          const created = await taigaCreateTask(
+            context.taigaToken,
+            context.projectId,
+            storyId,
+            task.subject,
+            task.description,
+            context.taigaApiUrl,
+          );
+          results.push({ taskIndex: i, id: created.id, ref: created.ref });
+        } catch (err) {
+          failures.push({ subject: task.subject, error: err instanceof Error ? err.message : "Unknown error" });
+        }
       }
-      return results;
+      if (results.length === 0) {
+        throw new Error(`All task pushes failed. First error: ${failures[0]?.error ?? "unknown"}`);
+      }
+      return { results, failures };
     },
-    onSuccess: (results) => {
+    onSuccess: ({ results, failures }) => {
       for (const { taskIndex, id, ref } of results) {
         setTaigaTaskResult(taskIndex, id, ref);
       }
       setTasksPushed(true);
-      toast.success(`${results.length} tasks pushed to Taiga.`);
+      if (failures.length > 0) {
+        const names = failures.map((f) => f.subject).join(", ");
+        toast.warning(`${results.length} tasks pushed; ${failures.length} failed: ${names}`);
+      } else {
+        toast.success(`${results.length} tasks pushed to Taiga.`);
+      }
     },
     onError: () => toast.error("Failed to push tasks to Taiga. Check your connection and try again."),
   });

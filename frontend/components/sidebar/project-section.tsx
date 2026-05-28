@@ -53,7 +53,8 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
         {projectOpen ? (
           <div className={cn("space-y-2 p-3", expandedPanelClass)}>
             <select
-              className="h-9 w-full rounded border border-neutral-600 bg-neutral-950 px-2 text-sm text-white"
+              className="h-9 w-full rounded border border-neutral-600 bg-neutral-950 px-2 text-sm text-white disabled:opacity-50"
+              disabled={saveServerConfig.isPending}
               value={projectId ?? ""}
               onChange={(e) => {
                 const selected = projectOptions.find((p) => p.id === Number(e.target.value));

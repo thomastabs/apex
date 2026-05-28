@@ -61,8 +61,8 @@ function validateStories(stories: CompiledStory[]): string[] {
     const { title, gherkin } = stories[i];
     const label = title.trim() ? `"${title.trim()}"` : `Story ${i + 1}`;
     if (!title.trim()) errors.push(`Story ${i + 1} has no title.`);
-    if (!/^\s*Feature:/m.test(gherkin)) errors.push(`${label} is missing a Feature: header.`);
-    if (!/^\s*Scenario/m.test(gherkin)) errors.push(`${label} is missing a Scenario block.`);
+    if (!gherkin.includes("Feature:")) errors.push(`${label} is missing a Feature: header.`);
+    if (!gherkin.includes("Scenario")) errors.push(`${label} is missing a Scenario block.`);
   }
   return errors;
 }
@@ -145,6 +145,18 @@ export function Phase1Workflow() {
     }
     draftRestored.current = true;
   }, [context?.projectId]);
+
+  // Warn if restored epicId no longer exists once epics load
+  useEffect(() => {
+    if (!draftRestored.current || !epics.data || epicId === null) return;
+    if (!epics.data.find((e) => e.id === epicId)) {
+      toast.warning("Restored epic no longer exists in this project. Please select a new epic.");
+      setEpicId(null);
+      setEpicTitle("");
+      setEpicDescription("");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [epics.data]);
 
   // Persist draft — debounced 500 ms to avoid synchronous localStorage writes on every keystroke
   const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

@@ -1001,8 +1001,8 @@ def generate_design_ux_brief(all_stories: list[dict], context: str) -> str:
         context=context.strip(),
         anti_hallucination=_ANTI_HALLUCINATION,
     )
-    return _invoke(system, _format_stories_human(grouped), get_model(),
-                   max_tokens=3500, timeout=210)
+    return _ai_retry(lambda: _invoke(system, _format_stories_human(grouped), get_model(),
+                                     max_tokens=3500, timeout=210))
 
 
 def generate_design_endpoints(all_stories: list[dict], context: str, *, ux_brief: str) -> str:
@@ -1012,8 +1012,8 @@ def generate_design_endpoints(all_stories: list[dict], context: str, *, ux_brief
         ux_brief=ux_brief.strip(),
         anti_hallucination=_ANTI_HALLUCINATION,
     )
-    return _invoke(system, _format_stories_human(grouped), get_model(),
-                   max_tokens=8000, timeout=300)
+    return _ai_retry(lambda: _invoke(system, _format_stories_human(grouped), get_model(),
+                                     max_tokens=8000, timeout=300))
 
 
 def generate_design_data_model(all_stories: list[dict], context: str, *, endpoints: str) -> str:
@@ -1023,8 +1023,8 @@ def generate_design_data_model(all_stories: list[dict], context: str, *, endpoin
         endpoints=endpoints.strip(),
         anti_hallucination=_ANTI_HALLUCINATION,
     )
-    return _invoke(system, _format_stories_human(grouped), get_model(),
-                   max_tokens=3000, timeout=180)
+    return _ai_retry(lambda: _invoke(system, _format_stories_human(grouped), get_model(),
+                                     max_tokens=3000, timeout=180))
 
 
 # ---------------------------------------------------------------------------

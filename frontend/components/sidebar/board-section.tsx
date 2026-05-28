@@ -437,13 +437,14 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                 <div className={cn("flex items-center justify-between rounded border px-2 py-1.5 text-xs", dark ? "border-amber-700/50 bg-amber-950/30 text-amber-300" : "border-amber-400/50 bg-amber-50 text-amber-700")}>
                   <span>Story index out of sync — {boardTotal} on board, {indexTotal} indexed</span>
                   <button
-                    className="ml-2 shrink-0 rounded px-1.5 py-0.5 font-semibold underline hover:no-underline"
+                    className="ml-2 shrink-0 rounded px-1.5 py-0.5 font-semibold underline hover:no-underline disabled:opacity-50"
+                    disabled={rebuildIndex.isPending}
                     onClick={() => rebuildIndex.mutate(undefined, {
                       onSuccess: () => { setStoryIndexSyncedAt(new Date()); toast.success("Story index rebuilt"); },
                       onError: () => toast.error("Failed to rebuild story index"),
                     })}
                   >
-                    Rebuild
+                    {rebuildIndex.isPending ? "Rebuilding…" : "Rebuild"}
                   </button>
                 </div>
               );

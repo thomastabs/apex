@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   compileGherkin,
@@ -53,6 +54,8 @@ export function useCompileGherkin() {
 
 export function usePushPhase1Stories() {
   const context = useApiContext();
+  const contextRef = useRef(context);
+  contextRef.current = context;
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -62,7 +65,7 @@ export function usePushPhase1Stories() {
       void queryClient.invalidateQueries({ queryKey: ["phase1", "epics"] });
       void queryClient.invalidateQueries({ queryKey: ["phase2", "eligible-epics"] });
       void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
-      if (context) void refreshStoryIndex(context);
+      if (contextRef.current) void refreshStoryIndex(contextRef.current);
       if (data.push_failures && data.push_failures.length > 0) {
         const names = data.push_failures.map((f) => f.title).join(", ");
         toast.warning(`${data.push_failures.length} story/stories failed to push: ${names}. Others were pushed successfully.`);

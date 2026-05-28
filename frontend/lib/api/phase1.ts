@@ -72,8 +72,13 @@ async function pushPhase1StoriesDirect(
       [],
       context.taigaApiUrl,
     );
-  const statuses = await taigaListStoryStatuses(context.taigaToken, context.projectId, context.taigaApiUrl).catch(() => []);
-  const readyStatus = statuses.find((status) => status.name.toLowerCase().includes("ready for discovery"));
+  let readyStatus: { id: number; name: string } | undefined;
+  try {
+    const statuses = await taigaListStoryStatuses(context.taigaToken, context.projectId, context.taigaApiUrl);
+    readyStatus = statuses.find((s) => s.name.toLowerCase().includes("ready for discovery"));
+  } catch {
+    // Status fetch failed; stories created without status transition
+  }
   const createdStories = [];
   const pushFailures: Array<{ title: string; error: string }> = [];
   for (const [index, story] of body.stories.entries()) {

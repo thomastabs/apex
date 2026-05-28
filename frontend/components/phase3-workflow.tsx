@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CheckCircle2,
   ChevronRight,
@@ -574,6 +574,7 @@ function StageC({ storyId }: { storyId: number }) {
 
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [generatingTaskId, setGeneratingTaskId] = useState<number | null>(null);
+  const packSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectedTask = taskList.find((t) => t.id === selectedTaskId) ?? null;
   const packMd = selectedTaskId !== null ? (packDrafts[selectedTaskId] ?? "") : "";
@@ -742,11 +743,12 @@ function StageC({ storyId }: { storyId: number }) {
                         value={packMd}
                         onChange={(e) => {
                           setPackDraft(selectedTask.id, e.target.value);
-                          saveProposalMut.mutate({
-                            story_id: storyId,
-                            task_id: selectedTask.id,
-                            proposal_md: e.target.value,
-                          });
+                          const val = e.target.value;
+                          const tid = selectedTask.id;
+                          if (packSaveTimer.current) clearTimeout(packSaveTimer.current);
+                          packSaveTimer.current = setTimeout(() => {
+                            saveProposalMut.mutate({ story_id: storyId, task_id: tid, proposal_md: val });
+                          }, 600);
                         }}
                         className="font-mono text-xs"
                       />

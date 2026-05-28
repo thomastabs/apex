@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
@@ -141,6 +141,8 @@ export function Phase2Workflow() {
     setTechLeadApproved,
   } = usePhase2Store();
 
+  const bundleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const techStack = useTechStackStatus();
   const proposeStack = useProposeTechStack();
   const lockStack = useLockTechStack();
@@ -163,7 +165,12 @@ export function Phase2Workflow() {
   }, [context?.projectId]);
 
   useEffect(() => {
-    saveBundleDraft(context?.projectId ?? null, designBundle);
+    if (bundleSaveTimer.current) clearTimeout(bundleSaveTimer.current);
+    bundleSaveTimer.current = setTimeout(() => {
+      saveBundleDraft(context?.projectId ?? null, designBundle);
+    }, 500);
+    return () => { if (bundleSaveTimer.current) clearTimeout(bundleSaveTimer.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [context?.projectId, designBundle]);
 
   const stackDefined = Boolean(techStack.data?.defined) && !stackReopened;
@@ -230,6 +237,7 @@ export function Phase2Workflow() {
     setDesignLeadApproved(false);
     setTechLeadApproved(false);
     setPartial({});
+    setPartialStoryIds([]);
 
     const idx = DESIGN_SECTION_ORDER.indexOf(targetSection);
     const downstreamHasContent = DESIGN_SECTION_ORDER.slice(idx + 1).some((s) => existingBundle?.[s as DesignSectionKey]);
