@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CheckCircle2,
   ChevronRight,
@@ -31,6 +31,33 @@ import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
 import type { Phase3StoryContext } from "@/lib/api/types";
+
+// ---------------------------------------------------------------------------
+// Markdown preview
+// ---------------------------------------------------------------------------
+
+function MarkdownPreview({ content, dark, className }: { content: string; dark: boolean; className?: string }) {
+  const [html, setHtml] = useState("");
+  useEffect(() => {
+    async function render() {
+      const { marked } = await import("marked");
+      const result = await marked.parse(content || "");
+      setHtml(result);
+    }
+    void render();
+  }, [content]);
+  return (
+    <div
+      className={cn(
+        "prose prose-sm max-w-none overflow-y-auto rounded-lg border p-4 text-xs leading-relaxed",
+        dark ? "prose-invert border-neutral-700 bg-neutral-950" : "prose-slate border-slate-200 bg-slate-50",
+        className,
+      )}
+      // eslint-disable-next-line react/no-danger
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Download helpers
@@ -725,12 +752,7 @@ function StageC({ storyId }: { storyId: number }) {
                     </div>
                     <div>
                       <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Preview</p>
-                      <pre className={cn(
-                        "h-full max-h-[28rem] overflow-y-auto rounded-lg border p-4 text-xs whitespace-pre-wrap leading-relaxed",
-                        dark ? "border-neutral-700 bg-neutral-950 text-neutral-300" : "border-slate-200 bg-slate-50 text-slate-700",
-                      )}>
-                        {packMd}
-                      </pre>
+                      <MarkdownPreview content={packMd} dark={dark} className="max-h-[28rem]" />
                     </div>
                   </div>
                 ) : (

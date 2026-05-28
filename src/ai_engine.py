@@ -1164,7 +1164,7 @@ def generate_coding_proposal(
         f"Acceptance Criteria (Gherkin):\n{gherkin.strip()}\n\n"
         "Generate the Developer Pack for this task."
     )
-    return _invoke(system, human, get_model(), max_tokens=4096, timeout=240)
+    return _ai_retry(lambda: _invoke(system, human, get_model(), max_tokens=4096, timeout=240))
 
 
 # ---------------------------------------------------------------------------
