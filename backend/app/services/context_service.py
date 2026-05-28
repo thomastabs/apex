@@ -78,6 +78,9 @@ class ContextService:
     def save_proposal(self, story_id: int, task_id: int, proposal_md: str) -> None:
         context_manager.save_proposal(story_id, task_id, proposal_md)
 
+    def proposal_exists(self, story_id: int, task_id: int) -> bool:
+        return context_manager.proposal_exists(story_id, task_id)
+
     def upsert_story_index(self, story_id: int, **updates) -> None:
         context_manager.upsert_story_index(story_id, **updates)
 

@@ -77,6 +77,9 @@ class FakeContextService:
     def upsert_story_index(self, story_id: int, **updates) -> None:
         self.upserted.append((story_id, updates))
 
+    def proposal_exists(self, story_id: int, task_id: int) -> bool:
+        return any(s == story_id and t == task_id for s, t, _ in self.saved_proposals)
+
 
 def _story_index(status: str = "design_locked") -> dict:
     return {
@@ -209,8 +212,9 @@ def test_save_proposal_delegates_to_context():
 
 def test_lock_story_transitions_to_implementation():
     ctx_svc = FakeContextService()
+    ctx_svc.saved_proposals.append((10, 1, "## pack"))
     svc = Phase3Service(ai=FakeAiService(), context=ctx_svc)
-    svc.lock_story(_ctx(), 10)
+    svc.lock_story(_ctx(), 10, [1])
     assert len(ctx_svc.upserted) == 1
     story_id, updates = ctx_svc.upserted[0]
     assert story_id == 10

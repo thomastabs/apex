@@ -255,6 +255,7 @@ def _get_llm(model: str, max_tokens: int, timeout: float | None = None) -> ChatA
                 temperature=0.2,
                 max_output_tokens=max_tokens,
                 max_retries=2,
+                timeout=timeout,
             )
         else:
             _llm_cache[key] = ChatAnthropic(
@@ -295,6 +296,7 @@ def _invoke(system: str, human: str, model: str, max_tokens: int = 2048, timeout
         _logger.warning("ai_call model=%s tokens=%s duration_s=%.2f status=error error=%s",
                         model, max_tokens, time.monotonic() - t0, type(exc).__name__)
         _reclassify_llm_exc(exc)
+        raise exc  # unreachable when reraise_unrecognized=True, but prevents silent None return
 
 
 def _invoke_structured_with_progress(

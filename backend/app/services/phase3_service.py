@@ -117,8 +117,13 @@ class Phase3Service:
         self.configure_request(ctx)
         self.context.save_proposal(story_id, task_id, proposal_md)
 
-    def lock_story(self, ctx: RequestContext, story_id: int) -> None:
+    def lock_story(self, ctx: RequestContext, story_id: int, task_ids: list[int]) -> None:
         self.configure_request(ctx)
+        missing = [tid for tid in task_ids if not self.context.proposal_exists(story_id, tid)]
+        if missing:
+            raise Phase3ValidationError(
+                f"Tasks {missing} have no saved proposals — save all packs before locking."
+            )
         self.context.upsert_story_index(
             story_id, phase_status="implementation", has_proposal=True,
         )

@@ -589,7 +589,10 @@ function StageC({ storyId }: { storyId: number }) {
       {
         onSettled: () => setGeneratingTaskId(null),
         onSuccess: (data) => {
-          saveProposalMut.mutate({ story_id: storyId, task_id: taskId, proposal_md: data.proposal_md });
+          saveProposalMut.mutate(
+            { story_id: storyId, task_id: taskId, proposal_md: data.proposal_md },
+            { onError: () => toast.error("Pack generated but failed to save — regenerate or try again.") },
+          );
         },
       },
     );

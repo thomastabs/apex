@@ -101,17 +101,13 @@ def persist_design(
     service: Phase2Service = Depends(get_phase2_service),
 ):
     try:
-        service.configure_request(ctx)
-        locked_story_ids = payload.story_ids
-        if not locked_story_ids:
-            raise Phase2ValidationError("At least one story_id is required.")
-        service.context.write_project_design_bundle(
-            payload.ux_brief,
-            payload.endpoints,
-            payload.data_model,
+        return service.persist_design(
+            ctx,
+            story_ids=payload.story_ids,
+            ux_brief=payload.ux_brief,
+            endpoints=payload.endpoints,
+            data_model=payload.data_model,
         )
-        service.context.write_project_technical_spec(locked_story_ids, payload.endpoints)
-        return {"ok": True, "story_ids": locked_story_ids, "taiga_failures": []}
     except Exception as exc:
         _handle_error(exc)
 

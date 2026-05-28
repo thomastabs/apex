@@ -118,7 +118,7 @@ def lock_story(
     service: Phase3Service = Depends(get_phase3_service),
 ):
     try:
-        service.lock_story(ctx, payload.story_id)
+        service.lock_story(ctx, payload.story_id, payload.task_ids)
         return {"ok": True}
     except Exception as exc:
         _handle_error(exc)

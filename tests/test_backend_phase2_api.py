@@ -45,6 +45,12 @@ class StubPhase2Service:
             "story_ids": [10],
         }
 
+    def persist_design(self, ctx, *, story_ids, ux_brief, endpoints, data_model):
+        self.configure_request(ctx)
+        self.context.write_project_design_bundle(ux_brief, endpoints, data_model)
+        self.context.write_project_technical_spec(story_ids, endpoints)
+        return {"ok": True, "story_ids": story_ids, "taiga_failures": []}
+
 
 def _ctx():
     return get_request_context("Bearer tok", 42)

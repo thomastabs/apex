@@ -94,7 +94,7 @@ def get_context_files(ctx: RequestContext = Depends(get_request_context)):
     files = []
     for filename, label in _CONTEXT_FILES:
         content = context.read_context_file(filename)
-        fpath = _cm._path(filename)  # noqa: SLF001
+        fpath = _cm.get_file_path(filename)
         last_modified: str | None = None
         try:
             if fpath.exists():

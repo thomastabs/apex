@@ -44,6 +44,11 @@ def _path(filename: str, pid: int | None = None) -> Path:
     return _context_dir(pid) / filename
 
 
+def get_file_path(filename: str, pid: int | None = None) -> Path:
+    """Public accessor for the resolved filesystem path of a context file."""
+    return _path(filename, pid)
+
+
 # Process-scoped per-project caches.  Keyed by project_id so concurrent requests
 # on different projects never share or overwrite each other's in-memory state.
 _story_index_caches:  dict[int, dict | None] = {}
@@ -496,7 +501,7 @@ def upsert_story_index(story_id: int, **updates) -> None:
         "story_id":    story_id,
         "epic_id":     None,
         "title":       "",
-        "phase_status": "gherkin_locked",
+        "phase_status": updates.get("phase_status", "gherkin_locked"),
         "has_gherkin":  False,
         "has_tech_spec": False,
         "has_proposal":  False,
@@ -868,6 +873,11 @@ def save_proposal(story_id: int, task_id: int, proposal: str) -> Path:
     p.write_text(proposal, encoding="utf-8")
     upsert_story_index(story_id, has_proposal=True)
     return p
+
+
+def proposal_exists(story_id: int, task_id: int) -> bool:
+    """Return True if a saved proposal file exists for this story/task pair."""
+    return (_context_dir() / f"proposal_story_{story_id}_task_{task_id}.md").exists()
 
 
 def save_bdd_tests(story_id: int, test_script: str) -> Path:
