@@ -257,7 +257,7 @@ export function ERDiagramPanel({
                 "rounded-lg border overflow-hidden",
                 dark ? "border-neutral-700" : "border-slate-200",
               )}
-              style={{ height: 440 }}
+              style={{ resize: "vertical", overflow: "hidden", minHeight: 280, height: 440 }}
             >
               <ReactFlow
                 nodes={nodes}
@@ -269,6 +269,7 @@ export function ERDiagramPanel({
                 fitView
                 fitViewOptions={{ padding: 0.2 }}
                 colorMode={dark ? "dark" : "light"}
+                style={{ height: "100%" }}
               >
                 <Background color={dark ? "#404040" : "#e2e8f0"} gap={16} />
                 <Controls />

@@ -20,6 +20,7 @@ import { Button, Callout, Input, SectionHeading, Skeleton, Textarea } from "@/co
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
 import {
   DESIGN_SECTION_ORDER,
+  useGenerateDiagram,
   useGenerateDesignSections,
   useLockDesign,
   useLockTechStack,
@@ -150,6 +151,7 @@ export function Phase2Workflow() {
   const proposeStack = useProposeTechStack();
   const lockStack = useLockTechStack();
   const generateSections = useGenerateDesignSections();
+  const generateDiagramMut = useGenerateDiagram();
   const lockDesign = useLockDesign();
   const refreshIndex = useRefreshStoryIndex();
 
@@ -220,6 +222,9 @@ export function Phase2Workflow() {
         accStoryIds = storyIds;
         setPartial({ ...accumulated });
         setPartialStoryIds(storyIds);
+        if (section === "data_model" && content.trim()) {
+          generateDiagramMut.mutate(content);
+        }
       },
       onDone: () => {
         setDesignBundle({
@@ -276,6 +281,9 @@ export function Phase2Workflow() {
         });
         setPartial({});
         toast.success(`${SECTION_CONFIG[targetSection].title} generated`);
+        if (targetSection === "data_model" && latestContent.trim()) {
+          generateDiagramMut.mutate(latestContent);
+        }
       },
     });
   }
