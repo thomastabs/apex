@@ -9,7 +9,7 @@ The current migrated version is a split full-stack web app:
 - **Storage:** `contextspec/` folder in Azure File Share in deployment
 - **Deployment:** GitHub Actions builds Docker images and deploys to Azure Container Apps
 
-Phases 1 and 2 are implemented. Phases 3 to 6 currently exist as navigation placeholders.
+Phases 1, 2, and 3 are implemented. Phases 4 to 6 currently exist as navigation placeholders.
 
 ---
 
@@ -31,7 +31,15 @@ flowchart TD
     K --> L[Lock Design Artefacts]
     L --> G
 
-    G --> M[Future Phases 3-6]
+    G --> M[Phase 3: Select Story]
+    M --> N[Generate Task Breakdown]
+    N --> O[Human Review & Edit Tasks]
+    O --> P[Push Tasks to Taiga]
+    P --> Q[Generate Developer Packs per Task]
+    Q --> R[Lock Story — Implementation Ready]
+    R --> G
+
+    G --> S[Future Phases 4-6]
 ```
 
 ### Phase 1 · Requirements
@@ -77,6 +85,38 @@ Implemented:
   - `story-index.json`
 - Transition Taiga stories to design-ready status (browser-side, no backend Taiga calls)
 
+### Phase 3 · Implementation Assist
+
+Phase 3 turns locked design artefacts into actionable developer tasks and coding proposals.
+It operates story-by-story: only stories with `design_locked` status are eligible.
+
+Implemented — 4-stage stepper workflow:
+
+**Stage A — Select Story**
+
+- Filter by epic from a dropdown
+- Browse eligible stories in a 2×2 paged card grid (Prev/Next navigation)
+- Each card shows a Gherkin scenario preview and the story title
+
+**Stage B — Generate Tasks**
+
+- View the full Gherkin spec for the selected story
+- Ask the AI to decompose the story into developer implementation tasks (subject + description each)
+- Review and edit the generated task list before proceeding; add or remove tasks manually
+
+**Stage C — Developer Packs**
+
+- Push all tasks to Taiga as subtasks (browser-direct, no backend proxy); each task gets a Taiga ref
+- For each task, generate a **Developer Pack** — a structured Markdown coding proposal including context, approach, and acceptance checklist
+- View and edit packs in an in-browser editor; re-generate any pack if needed
+- Packs are auto-saved to `proposal_story_<id>_task_<id>.md` in `contextspec/`
+
+**Stage D — Lock**
+
+- Lock the story into `implementation` status; all task packs must be saved before locking is allowed
+- Export all developer packs for the story as a single ZIP download
+- Updates `story-index.json` with `has_proposal: true` and `phase_status: "implementation"`
+
 ### Sidebar Workspace
 
 The sidebar is the operational shell for the app.
@@ -94,7 +134,7 @@ Implemented:
 - ZIP download of all context files
 - Story index rebuild with out-of-sync warning
 - Context reset (individual and all files)
-- AI model selector (Phase 1 model / Phase 2 model) — supports Anthropic (Claude), OpenAI (GPT), and Google (Gemini); budget-tier to premium options available per provider; provider warnings shown only when the corresponding API key is not configured in the backend
+- AI model selector — single unified selector used across all phases; supports Anthropic (Claude), OpenAI (GPT), and Google (Gemini); budget-tier to premium options per provider; provider warnings shown when the corresponding API key is absent from the backend
 - Light/dark mode
 
 ---
@@ -106,6 +146,7 @@ Implemented:
 | `backend/app/main.py` | FastAPI entrypoint, CORS, body limit middleware, router registration |
 | `backend/app/api/phase1.py` | Phase 1 HTTP routes |
 | `backend/app/api/phase2.py` | Phase 2 HTTP routes |
+| `backend/app/api/phase3.py` | Phase 3 HTTP routes |
 | `backend/app/api/workspace.py` | Sidebar/workspace routes: auth, projects, board, users, context files, AI config |
 | `backend/app/api/deps.py` | FastAPI request/auth dependencies |
 | `backend/app/services/` | Service layer for phase workflows, AI, Taiga, and context operations |
@@ -115,11 +156,11 @@ Implemented:
 | `src/storage.py` | Storage abstraction over local disk or Azure File Share SDK |
 | `src/taiga_adapter.py` | Taiga web URL derivation for the config endpoint (minimal; all Taiga REST calls are browser-side) |
 | `frontend/app/` | Next.js routes |
-| `frontend/components/` | App shell, sidebar, Phase 1 workflow, Phase 2 workflow, UI components |
+| `frontend/components/` | App shell, sidebar, Phase 1 workflow, Phase 2 workflow, Phase 3 workflow, UI components |
 | `frontend/lib/api/taiga-direct.ts` | Browser-side Taiga REST client — all CRUD, auth, and story transitions |
 | `frontend/lib/api/` | Typed frontend API clients |
 | `frontend/lib/hooks/` | React Query hooks |
-| `frontend/lib/stores/` | Zustand stores for session, UI, and Phase 2 draft state |
+| `frontend/lib/stores/` | Zustand stores for session, UI, Phase 2 draft state, and Phase 3 task/pack state |
 | `.github/workflows/ci.yml` | Test, build, push, and deploy workflow |
 | `.github/workflows/scale-scheduler.yml` | Azure Container Apps scale up/down scheduler |
 
@@ -136,6 +177,7 @@ Apex stores workflow state in context files under `contextspec/<taiga_project_id
 | `functional-spec.md` | Locked Gherkin acceptance criteria from Phase 1 |
 | `technical-spec.md` | Locked technical specs from Phase 2 |
 | `design-bundle.md` | Locked wireframes, user flows, component trees, and technical bundles |
+| `proposal_story_<id>_task_<id>.md` | Developer pack generated by Phase 3 for each task |
 | `vaccines.md` | Future bug-resolution memory for Phase 6 |
 | `story-index.json` | Machine-readable story phase state |
 
@@ -381,19 +423,10 @@ During night mode (`min=0`, `max=0`) both apps are fully stopped — no containe
 |---|---|
 | Phase 1 · Requirements | Implemented |
 | Phase 2 · Design | Implemented |
-| Phase 3 · Implementation | Placeholder |
+| Phase 3 · Implementation | Implemented |
 | Phase 4 · Testing | Placeholder |
 | Phase 5 · Deployment | Placeholder |
 | Phase 6 · Maintenance | Placeholder |
-
-Phase 3 is expected to be an academic implementation-planning workflow, not a real code-writing agent. A likely shape is:
-
-- select stories with locked technical specs
-- generate implementation task breakdowns
-- generate developer handoff/proposal documents
-- optionally create Taiga tasks
-- persist proposals into context files
-- update `story-index.json` with implementation readiness state
 
 ---
 
