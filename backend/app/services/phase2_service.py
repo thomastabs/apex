@@ -117,6 +117,39 @@ class Phase2Service:
         self.context.write_project_technical_spec(story_ids, endpoints)
         return {"ok": True, "story_ids": story_ids, "taiga_failures": []}
 
+    def generate_diagram(self, ctx: RequestContext, *, data_model_md: str) -> dict:
+        self.configure_request(ctx)
+        result = self.ai.generate_er_diagram(data_model_md)
+        nodes = [
+            {
+                "id": e.id,
+                "type": "entity",
+                "position": {"x": 0, "y": 0},
+                "data": {"label": e.label, "fields": [f.model_dump() for f in e.fields]},
+            }
+            for e in result.entities
+        ]
+        edges = [
+            {"id": e.id, "source": e.source, "target": e.target, "label": e.label, "animated": False}
+            for e in result.edges
+        ]
+        diagram = {"nodes": nodes, "edges": edges}
+        self.context.save_er_diagram(diagram)
+        return diagram
+
+    def load_diagram(self, ctx: RequestContext) -> dict | None:
+        self.configure_request(ctx)
+        return self.context.load_er_diagram()
+
+    def save_diagram_positions(self, ctx: RequestContext, *, nodes: list[dict]) -> None:
+        self.configure_request(ctx)
+        diagram = self.context.load_er_diagram() or {"nodes": [], "edges": []}
+        pos_map = {n["id"]: n["position"] for n in nodes}
+        for node in diagram["nodes"]:
+            if node["id"] in pos_map:
+                node["position"] = pos_map[node["id"]]
+        self.context.save_er_diagram(diagram)
+
     def _all_eligible_stories(self) -> list[dict]:
         """Return all stories with locked Gherkin, sorted by story_id."""
         stories = []

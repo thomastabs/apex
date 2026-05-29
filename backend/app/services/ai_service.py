@@ -78,6 +78,9 @@ class AiService:
             tech_stack=tech_stack, design_bundle=design_bundle, story_ref=story_ref,
         )
 
+    def generate_er_diagram(self, data_model_md: str):
+        return ai_engine.extract_er_diagram(data_model_md)
+
     def generate_design_section(
         self,
         all_stories: list[dict],

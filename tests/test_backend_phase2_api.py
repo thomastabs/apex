@@ -6,16 +6,21 @@ from fastapi import HTTPException
 from backend.app.api.deps import get_request_context
 from backend.app.api.phase2 import (
     generate_design_section,
+    generate_diagram,
+    get_diagram,
     lock_tech_stack,
     persist_design,
     propose_tech_stack,
+    save_diagram_positions,
     tech_stack_status,
 )
 from backend.app.schemas.phase2 import (
     DesignSectionRequest,
+    GenerateDiagramRequest,
     LockDesignRequest,
     LockTechStackRequest,
     ProposeTechStackRequest,
+    SaveDiagramPositionsRequest,
 )
 from src.ai_engine import AIError, AIRateLimitError
 
@@ -50,6 +55,18 @@ class StubPhase2Service:
         self.context.write_project_design_bundle(ux_brief, endpoints, data_model)
         self.context.write_project_technical_spec(story_ids, endpoints)
         return {"ok": True, "story_ids": story_ids, "taiga_failures": []}
+
+    def load_diagram(self, ctx):
+        return None
+
+    def generate_diagram(self, ctx, *, data_model_md):
+        return {
+            "nodes": [{"id": "user", "type": "entity", "position": {"x": 0, "y": 0}, "data": {"label": "User", "fields": []}}],
+            "edges": [],
+        }
+
+    def save_diagram_positions(self, ctx, *, nodes):
+        pass
 
 
 def _ctx():
@@ -177,6 +194,30 @@ def test_ai_rate_limit_error_maps_to_429():
         )
 
     assert exc.value.status_code == 429
+
+
+def test_get_diagram_returns_none_when_missing():
+    assert get_diagram(ctx=_ctx(), service=StubPhase2Service()) is None
+
+
+def test_generate_diagram_route():
+    result = generate_diagram(
+        GenerateDiagramRequest(data_model_md="### User\n- id: UUID (PK)"),
+        ctx=_ctx(),
+        service=StubPhase2Service(),
+    )
+    assert len(result["nodes"]) == 1
+    assert result["nodes"][0]["id"] == "user"
+    assert result["edges"] == []
+
+
+def test_save_diagram_positions_route():
+    result = save_diagram_positions(
+        SaveDiagramPositionsRequest(nodes=[{"id": "user", "position": {"x": 100, "y": 200}}]),
+        ctx=_ctx(),
+        service=StubPhase2Service(),
+    )
+    assert result == {"ok": True}
 
 
 def test_unknown_errors_bubble_up():

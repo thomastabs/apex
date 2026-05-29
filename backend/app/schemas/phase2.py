@@ -55,3 +55,40 @@ class LockDesignResponse(BaseModel):
     ok: bool
     story_ids: list[int]
     taiga_failures: list[TaigaTransitionFailure] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# ER Diagram schemas
+# ---------------------------------------------------------------------------
+
+class GenerateDiagramRequest(BaseModel):
+    data_model_md: str = Field(min_length=1)
+
+
+class DiagramNodeData(BaseModel):
+    label: str
+    fields: list[dict]
+
+
+class DiagramNode(BaseModel):
+    id: str
+    type: str = "entity"
+    position: dict
+    data: DiagramNodeData
+
+
+class DiagramEdge(BaseModel):
+    id: str
+    source: str
+    target: str
+    label: str
+    animated: bool = False
+
+
+class DiagramResponse(BaseModel):
+    nodes: list[DiagramNode]
+    edges: list[DiagramEdge]
+
+
+class SaveDiagramPositionsRequest(BaseModel):
+    nodes: list[dict]

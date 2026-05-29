@@ -4,14 +4,19 @@ import { useCallback, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   generateDesignSection,
+  generateDiagram,
   getTechStackStatus,
+  loadDiagram,
   lockDesign,
   lockTechStack,
   proposeTechStack,
   refreshStoryIndex,
+  saveDiagramPositions,
 } from "@/lib/api/phase2";
 import type {
   DesignSectionKey,
+  DiagramNode,
+  DiagramResponse,
   LockDesignRequest,
   LockTechStackRequest,
   ProposeTechStackRequest,
@@ -149,6 +154,35 @@ export function useLockDesign() {
       void queryClient.invalidateQueries({ queryKey: ["phase2", "tech-stack-status"] });
       void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
     },
+  });
+}
+
+export function useLoadDiagram() {
+  const context = useApiContext();
+  return useQuery({
+    queryKey: ["phase2", "diagram", context?.projectId],
+    queryFn: () => loadDiagram(context!),
+    enabled: Boolean(context),
+    staleTime: Infinity,
+  });
+}
+
+export function useGenerateDiagram() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data_model_md: string) => generateDiagram(context!, data_model_md),
+    onSuccess: (data: DiagramResponse) => {
+      queryClient.setQueryData(["phase2", "diagram", context?.projectId], data);
+    },
+    onError: () => toast.error("Failed to generate diagram. Try again."),
+  });
+}
+
+export function useSaveDiagramPositions() {
+  const context = useApiContext();
+  return useMutation({
+    mutationFn: (nodes: DiagramNode[]) => saveDiagramPositions(context!, nodes),
   });
 }
 

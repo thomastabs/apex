@@ -81,6 +81,12 @@ class ContextService:
     def proposal_exists(self, story_id: int, task_id: int) -> bool:
         return context_manager.proposal_exists(story_id, task_id)
 
+    def save_er_diagram(self, diagram: dict) -> None:
+        context_manager.save_er_diagram(diagram)
+
+    def load_er_diagram(self) -> dict | None:
+        return context_manager.load_er_diagram()
+
     def upsert_story_index(self, story_id: int, **updates) -> None:
         context_manager.upsert_story_index(story_id, **updates)
 

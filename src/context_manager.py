@@ -892,6 +892,26 @@ def proposal_exists(story_id: int, task_id: int) -> bool:
     return (_context_dir() / f"proposal_story_{story_id}_task_{task_id}.md").exists()
 
 
+def save_er_diagram(diagram: dict) -> None:
+    """Persist the ER diagram React Flow JSON for the current project."""
+    cd = _context_dir()
+    cd.mkdir(parents=True, exist_ok=True)
+    _path("diagram-er.json").write_text(
+        json.dumps(diagram, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+def load_er_diagram() -> dict | None:
+    """Return the ER diagram JSON, or None if not yet generated."""
+    p = _path("diagram-er.json")
+    if not p.exists():
+        return None
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
 def save_bdd_tests(story_id: int, test_script: str) -> Path:
     """Save BDD test scripts to contextspec/bdd_story_<id>.feature and return the path."""
     cd = _context_dir()

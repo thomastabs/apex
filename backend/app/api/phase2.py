@@ -9,11 +9,14 @@ from backend.app.api.rate_limit import ai_rate_limit
 from backend.app.schemas.phase2 import (
     DesignSectionRequest,
     DesignSectionResponse,
+    DiagramResponse,
+    GenerateDiagramRequest,
     LockDesignRequest,
     LockDesignResponse,
     LockTechStackRequest,
     ProposeTechStackRequest,
     ProposeTechStackResponse,
+    SaveDiagramPositionsRequest,
     TechStackStatusResponse,
 )
 from backend.app.schemas.workspace import OkResponse
@@ -108,6 +111,43 @@ def persist_design(
             endpoints=payload.endpoints,
             data_model=payload.data_model,
         )
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.get("/diagram", response_model=DiagramResponse | None)
+def get_diagram(
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase2Service = Depends(get_phase2_service),
+):
+    try:
+        return service.load_diagram(ctx)
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/generate-diagram", response_model=DiagramResponse)
+def generate_diagram(
+    payload: GenerateDiagramRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase2Service = Depends(get_phase2_service),
+    _rl: None = Depends(ai_rate_limit),
+):
+    try:
+        return service.generate_diagram(ctx, data_model_md=payload.data_model_md)
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.put("/diagram/positions", response_model=OkResponse)
+def save_diagram_positions(
+    payload: SaveDiagramPositionsRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase2Service = Depends(get_phase2_service),
+):
+    try:
+        service.save_diagram_positions(ctx, nodes=payload.nodes)
+        return {"ok": True}
     except Exception as exc:
         _handle_error(exc)
 

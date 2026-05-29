@@ -7,6 +7,8 @@ import {
 import type {
   DesignSectionKey,
   DesignSectionResponse,
+  DiagramNode,
+  DiagramResponse,
   LockDesignRequest,
   LockDesignResponse,
   LockTechStackRequest,
@@ -75,6 +77,27 @@ export async function lockDesign(context: RequestContext, body: LockDesignReques
     ok: persisted.ok && taiga_failures.length === 0,
     taiga_failures,
   };
+}
+
+export function loadDiagram(context: RequestContext) {
+  return apiRequest<DiagramResponse | null>("/api/phase2/diagram", { context });
+}
+
+export function generateDiagram(context: RequestContext, data_model_md: string) {
+  return apiRequest<DiagramResponse>("/api/phase2/generate-diagram", {
+    method: "POST",
+    context,
+    body: { data_model_md },
+    timeoutMs: PHASE2_AI_TIMEOUT_MS,
+  });
+}
+
+export function saveDiagramPositions(context: RequestContext, nodes: DiagramNode[]) {
+  return apiRequest<{ ok: boolean }>("/api/phase2/diagram/positions", {
+    method: "PUT",
+    context,
+    body: { nodes },
+  });
 }
 
 export function refreshStoryIndex(context: RequestContext) {

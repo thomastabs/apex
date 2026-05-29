@@ -32,6 +32,7 @@ import { usePhase2Store } from "@/lib/stores/phase2-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
+import { ERDiagramPanel } from "@/components/er-diagram-panel";
 
 const PROPOSE_STEPS = [
   "Loading project information…",
@@ -600,6 +601,13 @@ export function Phase2Workflow() {
                         {!depsOk
                           ? `Generate ${cfg.dependsOn.map((d) => SECTION_CONFIG[d].title).join(" and ")} first.`
                           : "Not generated yet."}
+                      </div>
+                    )}
+
+                    {/* ER Diagram — data_model section only */}
+                    {section === "data_model" && (
+                      <div className={cn("border-t px-4 py-3", dark ? "border-neutral-800" : "border-slate-100")}>
+                        <ERDiagramPanel dataModelContent={content} dark={dark} />
                       </div>
                     )}
 

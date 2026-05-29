@@ -175,6 +175,38 @@ export type LockDesignResponse = {
   taiga_failures?: Array<{ story_id: number; error: string }>;
 };
 
+export type DiagramField = {
+  name: string;
+  type: string;
+  pk: boolean;
+  fk: boolean;
+};
+
+export type DiagramNodeData = {
+  label: string;
+  fields: DiagramField[];
+};
+
+export type DiagramNode = {
+  id: string;
+  type: string;
+  position: { x: number; y: number };
+  data: DiagramNodeData;
+};
+
+export type DiagramEdge = {
+  id: string;
+  source: string;
+  target: string;
+  label: string;
+  animated: boolean;
+};
+
+export type DiagramResponse = {
+  nodes: DiagramNode[];
+  edges: DiagramEdge[];
+};
+
 // ---------------------------------------------------------------------------
 // Phase 3 — Implementation Assist
 // ---------------------------------------------------------------------------

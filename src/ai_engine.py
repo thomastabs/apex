@@ -1183,6 +1183,55 @@ def generate_coding_proposal(
 
 
 # ---------------------------------------------------------------------------
+# ER Diagram extraction — Phase 2 visualization
+# ---------------------------------------------------------------------------
+
+class ERDiagramField(BaseModel):
+    name: str = Field(description="Field name")
+    type: str = Field(description="Data type, e.g. UUID, string, int, bool, datetime")
+    pk: bool = Field(default=False, description="True if primary key")
+    fk: bool = Field(default=False, description="True if foreign key")
+
+
+class ERDiagramEntity(BaseModel):
+    id: str = Field(description="Snake_case entity id, e.g. 'project_member'")
+    label: str = Field(description="Human-readable entity name, e.g. 'Project Member'")
+    fields: list[ERDiagramField] = Field(description="Entity fields, PK first")
+
+
+class ERDiagramEdge(BaseModel):
+    id: str = Field(description="Unique edge id, e.g. 'user__project'")
+    source: str = Field(description="Source entity id")
+    target: str = Field(description="Target entity id")
+    label: str = Field(description="Short relationship label, e.g. 'has many', 'belongs to'")
+
+
+class ERDiagramData(BaseModel):
+    entities: list[ERDiagramEntity] = Field(description="All entities in the data model")
+    edges: list[ERDiagramEdge] = Field(description="Directed relationships between entities")
+
+
+_ER_DIAGRAM_SYSTEM = """\
+You are a data modelling expert. Extract all entities and relationships from the data model below.
+
+Rules:
+- Each entity: snake_case id, human-readable label, all fields with types.
+- Mark primary keys (pk=true) and foreign keys (fk=true). Put PK field first.
+- Each relationship: directed edge from owning to owned entity, short label
+  (e.g. "has many", "belongs to", "has one", "many-to-many via <table>").
+- Only include entities and fields explicitly described — do not invent extras.
+"""
+
+
+def extract_er_diagram(data_model_md: str) -> ERDiagramData:
+    """Extract ER diagram nodes and edges from a Data Model markdown section."""
+    return _ai_retry(lambda: _invoke_structured_with_progress(
+        _ER_DIAGRAM_SYSTEM, data_model_md, get_model(), ERDiagramData,
+        max_tokens=2048, item_field="entities",
+    ))
+
+
+# ---------------------------------------------------------------------------
 # 4. Testing Phase — Phase 4 (not yet implemented)
 # ---------------------------------------------------------------------------
 
