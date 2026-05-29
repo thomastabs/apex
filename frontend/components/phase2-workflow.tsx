@@ -21,6 +21,7 @@ import { AIProgressIndicator } from "@/components/ai-progress-indicator";
 import {
   DESIGN_SECTION_ORDER,
   useGenerateDiagram,
+  useGenerateScreenFlow,
   useGenerateDesignSections,
   useLockDesign,
   useLockTechStack,
@@ -34,6 +35,8 @@ import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
 import { ERDiagramPanel } from "@/components/er-diagram-panel";
+import { ScreenFlowPanel } from "@/components/screen-flow-panel";
+import { EndpointTable } from "@/components/endpoint-table";
 
 const PROPOSE_STEPS = [
   "Loading project information…",
@@ -152,6 +155,7 @@ export function Phase2Workflow() {
   const lockStack = useLockTechStack();
   const generateSections = useGenerateDesignSections();
   const generateDiagramMut = useGenerateDiagram();
+  const generateScreenFlowMut = useGenerateScreenFlow();
   const lockDesign = useLockDesign();
   const refreshIndex = useRefreshStoryIndex();
 
@@ -225,6 +229,9 @@ export function Phase2Workflow() {
         if (section === "data_model" && content.trim()) {
           generateDiagramMut.mutate(content);
         }
+        if (section === "ux_brief" && content.trim()) {
+          generateScreenFlowMut.mutate(content);
+        }
       },
       onDone: () => {
         setDesignBundle({
@@ -283,6 +290,9 @@ export function Phase2Workflow() {
         toast.success(`${SECTION_CONFIG[targetSection].title} generated`);
         if (targetSection === "data_model" && latestContent.trim()) {
           generateDiagramMut.mutate(latestContent);
+        }
+        if (targetSection === "ux_brief" && latestContent.trim()) {
+          generateScreenFlowMut.mutate(latestContent);
         }
       },
     });
@@ -612,10 +622,18 @@ export function Phase2Workflow() {
                       </div>
                     )}
 
-                    {/* ER Diagram — data_model section only */}
-                    {section === "data_model" && (
+                    {/* Section-specific visualizations */}
+                    {(section === "ux_brief" || section === "endpoints" || section === "data_model") && (
                       <div className={cn("border-t px-4 py-3", dark ? "border-neutral-800" : "border-slate-100")}>
-                        <ERDiagramPanel dataModelContent={content} dark={dark} />
+                        {section === "ux_brief" && (
+                          <ScreenFlowPanel uxBriefContent={content} dark={dark} />
+                        )}
+                        {section === "endpoints" && (
+                          <EndpointTable endpointsContent={content} dark={dark} />
+                        )}
+                        {section === "data_model" && (
+                          <ERDiagramPanel dataModelContent={content} dark={dark} />
+                        )}
                       </div>
                     )}
 

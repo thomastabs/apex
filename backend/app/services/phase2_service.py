@@ -150,6 +150,39 @@ class Phase2Service:
                 node["position"] = pos_map[node["id"]]
         self.context.save_er_diagram(diagram)
 
+    def generate_screen_flow(self, ctx: RequestContext, *, ux_brief_md: str) -> dict:
+        self.configure_request(ctx)
+        result = self.ai.generate_screen_flow(ux_brief_md)
+        nodes = [
+            {
+                "id": n.id,
+                "type": "screen",
+                "position": {"x": 0, "y": 0},
+                "data": {"label": n.label, "description": n.description},
+            }
+            for n in result.nodes
+        ]
+        edges = [
+            {"id": e.id, "source": e.source, "target": e.target, "label": e.label, "animated": False}
+            for e in result.edges
+        ]
+        diagram = {"nodes": nodes, "edges": edges}
+        self.context.save_screen_flow(diagram)
+        return diagram
+
+    def load_screen_flow(self, ctx: RequestContext) -> dict | None:
+        self.configure_request(ctx)
+        return self.context.load_screen_flow()
+
+    def save_screen_flow_positions(self, ctx: RequestContext, *, nodes: list[dict]) -> None:
+        self.configure_request(ctx)
+        diagram = self.context.load_screen_flow() or {"nodes": [], "edges": []}
+        pos_map = {n["id"]: n["position"] for n in nodes}
+        for node in diagram["nodes"]:
+            if node["id"] in pos_map:
+                node["position"] = pos_map[node["id"]]
+        self.context.save_screen_flow(diagram)
+
     def _all_eligible_stories(self) -> list[dict]:
         """Return all stories with locked Gherkin, sorted by story_id."""
         stories = []

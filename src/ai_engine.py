@@ -1232,6 +1232,49 @@ def extract_er_diagram(data_model_md: str) -> ERDiagramData:
 
 
 # ---------------------------------------------------------------------------
+# Screen Flow extraction — Phase 2 UX Brief visualization
+# ---------------------------------------------------------------------------
+
+class ScreenFlowNode(BaseModel):
+    id: str = Field(description="Snake_case screen id, e.g. 'login_screen'")
+    label: str = Field(description="Human-readable screen name, e.g. 'Login'")
+    description: str = Field(default="", description="One-word page type, e.g. 'Form', 'Dashboard', 'Modal'")
+
+
+class ScreenFlowEdge(BaseModel):
+    id: str = Field(description="Unique edge id, e.g. 'login__dashboard'")
+    source: str = Field(description="Source screen id")
+    target: str = Field(description="Target screen id")
+    label: str = Field(description="Short navigation trigger, e.g. 'submit login', 'click project'")
+
+
+class ScreenFlowData(BaseModel):
+    nodes: list[ScreenFlowNode] = Field(description="All screens in the UX flow")
+    edges: list[ScreenFlowEdge] = Field(description="Navigation transitions between screens")
+
+
+_SCREEN_FLOW_SYSTEM = """\
+You are a UX architect. Extract a screen navigation flow from the UX Brief below.
+
+Rules:
+- Each distinct screen or page becomes a node with a snake_case id and human label.
+- Include a one-word description for the page type (Form, Dashboard, Modal, List, Detail, etc.).
+- Each navigation action (button click, form submit, redirect, etc.) becomes a directed edge
+  from the source screen to the destination screen with a short trigger label (3-6 words).
+- Only include screens and transitions explicitly described — do not invent extras.
+- Prefer ids like: login_screen, dashboard, project_detail, settings_modal.
+"""
+
+
+def extract_screen_flow(ux_brief_md: str) -> ScreenFlowData:
+    """Extract screen navigation flow from a UX Brief markdown section."""
+    return _ai_retry(lambda: _invoke_structured_with_progress(
+        _SCREEN_FLOW_SYSTEM, ux_brief_md, get_model(), ScreenFlowData,
+        max_tokens=2048, item_field="nodes",
+    ))
+
+
+# ---------------------------------------------------------------------------
 # 4. Testing Phase — Phase 4 (not yet implemented)
 # ---------------------------------------------------------------------------
 

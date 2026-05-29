@@ -11,12 +11,15 @@ from backend.app.schemas.phase2 import (
     DesignSectionResponse,
     DiagramResponse,
     GenerateDiagramRequest,
+    GenerateScreenFlowRequest,
     LockDesignRequest,
     LockDesignResponse,
     LockTechStackRequest,
     ProposeTechStackRequest,
     ProposeTechStackResponse,
     SaveDiagramPositionsRequest,
+    SaveScreenFlowPositionsRequest,
+    ScreenFlowResponse,
     TechStackStatusResponse,
 )
 from backend.app.schemas.workspace import OkResponse
@@ -147,6 +150,43 @@ def save_diagram_positions(
 ):
     try:
         service.save_diagram_positions(ctx, nodes=payload.nodes)
+        return {"ok": True}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.get("/screen-flow", response_model=ScreenFlowResponse | None)
+def get_screen_flow(
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase2Service = Depends(get_phase2_service),
+):
+    try:
+        return service.load_screen_flow(ctx)
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/generate-screen-flow", response_model=ScreenFlowResponse)
+def generate_screen_flow(
+    payload: GenerateScreenFlowRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase2Service = Depends(get_phase2_service),
+    _rl: None = Depends(ai_rate_limit),
+):
+    try:
+        return service.generate_screen_flow(ctx, ux_brief_md=payload.ux_brief_md)
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.put("/screen-flow/positions", response_model=OkResponse)
+def save_screen_flow_positions(
+    payload: SaveScreenFlowPositionsRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase2Service = Depends(get_phase2_service),
+):
+    try:
+        service.save_screen_flow_positions(ctx, nodes=payload.nodes)
         return {"ok": True}
     except Exception as exc:
         _handle_error(exc)

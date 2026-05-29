@@ -7,20 +7,25 @@ from backend.app.api.deps import get_request_context
 from backend.app.api.phase2 import (
     generate_design_section,
     generate_diagram,
+    generate_screen_flow,
     get_diagram,
+    get_screen_flow,
     lock_tech_stack,
     persist_design,
     propose_tech_stack,
     save_diagram_positions,
+    save_screen_flow_positions,
     tech_stack_status,
 )
 from backend.app.schemas.phase2 import (
     DesignSectionRequest,
     GenerateDiagramRequest,
+    GenerateScreenFlowRequest,
     LockDesignRequest,
     LockTechStackRequest,
     ProposeTechStackRequest,
     SaveDiagramPositionsRequest,
+    SaveScreenFlowPositionsRequest,
 )
 from src.ai_engine import AIError, AIRateLimitError
 
@@ -66,6 +71,18 @@ class StubPhase2Service:
         }
 
     def save_diagram_positions(self, ctx, *, nodes):
+        pass
+
+    def load_screen_flow(self, ctx):
+        return None
+
+    def generate_screen_flow(self, ctx, *, ux_brief_md):
+        return {
+            "nodes": [{"id": "login", "type": "screen", "position": {"x": 0, "y": 0}, "data": {"label": "Login", "description": "Form"}}],
+            "edges": [],
+        }
+
+    def save_screen_flow_positions(self, ctx, *, nodes):
         pass
 
 
@@ -214,6 +231,29 @@ def test_generate_diagram_route():
 def test_save_diagram_positions_route():
     result = save_diagram_positions(
         SaveDiagramPositionsRequest(nodes=[{"id": "user", "position": {"x": 100, "y": 200}}]),
+        ctx=_ctx(),
+        service=StubPhase2Service(),
+    )
+    assert result == {"ok": True}
+
+
+def test_get_screen_flow_returns_none_when_missing():
+    assert get_screen_flow(ctx=_ctx(), service=StubPhase2Service()) is None
+
+
+def test_generate_screen_flow_route():
+    result = generate_screen_flow(
+        GenerateScreenFlowRequest(ux_brief_md="## Login screen\nUser enters email and password."),
+        ctx=_ctx(),
+        service=StubPhase2Service(),
+    )
+    assert len(result["nodes"]) == 1
+    assert result["nodes"][0]["id"] == "login"
+
+
+def test_save_screen_flow_positions_route():
+    result = save_screen_flow_positions(
+        SaveScreenFlowPositionsRequest(nodes=[{"id": "login", "position": {"x": 50, "y": 100}}]),
         ctx=_ctx(),
         service=StubPhase2Service(),
     )

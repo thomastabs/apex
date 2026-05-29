@@ -87,6 +87,12 @@ class ContextService:
     def load_er_diagram(self) -> dict | None:
         return context_manager.load_er_diagram()
 
+    def save_screen_flow(self, diagram: dict) -> None:
+        context_manager.save_screen_flow(diagram)
+
+    def load_screen_flow(self) -> dict | None:
+        return context_manager.load_screen_flow()
+
     def upsert_story_index(self, story_id: int, **updates) -> None:
         context_manager.upsert_story_index(story_id, **updates)
 

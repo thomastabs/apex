@@ -92,3 +92,40 @@ class DiagramResponse(BaseModel):
 
 class SaveDiagramPositionsRequest(BaseModel):
     nodes: list[dict]
+
+
+# ---------------------------------------------------------------------------
+# Screen Flow schemas
+# ---------------------------------------------------------------------------
+
+class GenerateScreenFlowRequest(BaseModel):
+    ux_brief_md: str = Field(min_length=1)
+
+
+class ScreenFlowNodeData(BaseModel):
+    label: str
+    description: str = ""
+
+
+class ScreenFlowNode(BaseModel):
+    id: str
+    type: str = "screen"
+    position: dict
+    data: ScreenFlowNodeData
+
+
+class ScreenFlowEdge(BaseModel):
+    id: str
+    source: str
+    target: str
+    label: str
+    animated: bool = False
+
+
+class ScreenFlowResponse(BaseModel):
+    nodes: list[ScreenFlowNode]
+    edges: list[ScreenFlowEdge]
+
+
+class SaveScreenFlowPositionsRequest(BaseModel):
+    nodes: list[dict]

@@ -5,13 +5,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   generateDesignSection,
   generateDiagram,
+  generateScreenFlow,
   getTechStackStatus,
   loadDiagram,
+  loadScreenFlow,
   lockDesign,
   lockTechStack,
   proposeTechStack,
   refreshStoryIndex,
   saveDiagramPositions,
+  saveScreenFlowPositions,
 } from "@/lib/api/phase2";
 import type {
   DesignSectionKey,
@@ -20,6 +23,8 @@ import type {
   LockDesignRequest,
   LockTechStackRequest,
   ProposeTechStackRequest,
+  ScreenFlowNode,
+  ScreenFlowResponse,
 } from "@/lib/api/types";
 import { useApiContext } from "@/lib/stores/session-store";
 import { toast } from "sonner";
@@ -183,6 +188,35 @@ export function useSaveDiagramPositions() {
   const context = useApiContext();
   return useMutation({
     mutationFn: (nodes: DiagramNode[]) => saveDiagramPositions(context!, nodes),
+  });
+}
+
+export function useLoadScreenFlow() {
+  const context = useApiContext();
+  return useQuery({
+    queryKey: ["phase2", "screen-flow", context?.projectId],
+    queryFn: () => loadScreenFlow(context!),
+    enabled: Boolean(context),
+    staleTime: Infinity,
+  });
+}
+
+export function useGenerateScreenFlow() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ux_brief_md: string) => generateScreenFlow(context!, ux_brief_md),
+    onSuccess: (data: ScreenFlowResponse) => {
+      queryClient.setQueryData(["phase2", "screen-flow", context?.projectId], data);
+    },
+    onError: () => toast.error("Failed to generate screen flow. Try again."),
+  });
+}
+
+export function useSaveScreenFlowPositions() {
+  const context = useApiContext();
+  return useMutation({
+    mutationFn: (nodes: ScreenFlowNode[]) => saveScreenFlowPositions(context!, nodes),
   });
 }
 

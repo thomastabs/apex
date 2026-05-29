@@ -81,6 +81,9 @@ class AiService:
     def generate_er_diagram(self, data_model_md: str):
         return ai_engine.extract_er_diagram(data_model_md)
 
+    def generate_screen_flow(self, ux_brief_md: str):
+        return ai_engine.extract_screen_flow(ux_brief_md)
+
     def generate_design_section(
         self,
         all_stories: list[dict],

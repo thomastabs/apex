@@ -15,6 +15,8 @@ import type {
   ProposeTechStackRequest,
   ProposeTechStackResponse,
   RequestContext,
+  ScreenFlowNode,
+  ScreenFlowResponse,
   TechStackStatus,
 } from "./types";
 
@@ -94,6 +96,27 @@ export function generateDiagram(context: RequestContext, data_model_md: string) 
 
 export function saveDiagramPositions(context: RequestContext, nodes: DiagramNode[]) {
   return apiRequest<{ ok: boolean }>("/api/phase2/diagram/positions", {
+    method: "PUT",
+    context,
+    body: { nodes },
+  });
+}
+
+export function loadScreenFlow(context: RequestContext) {
+  return apiRequest<ScreenFlowResponse | null>("/api/phase2/screen-flow", { context });
+}
+
+export function generateScreenFlow(context: RequestContext, ux_brief_md: string) {
+  return apiRequest<ScreenFlowResponse>("/api/phase2/generate-screen-flow", {
+    method: "POST",
+    context,
+    body: { ux_brief_md },
+    timeoutMs: PHASE2_AI_TIMEOUT_MS,
+  });
+}
+
+export function saveScreenFlowPositions(context: RequestContext, nodes: ScreenFlowNode[]) {
+  return apiRequest<{ ok: boolean }>("/api/phase2/screen-flow/positions", {
     method: "PUT",
     context,
     body: { nodes },

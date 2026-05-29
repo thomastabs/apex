@@ -207,6 +207,31 @@ export type DiagramResponse = {
   edges: DiagramEdge[];
 };
 
+export type ScreenFlowNodeData = {
+  label: string;
+  description: string;
+};
+
+export type ScreenFlowNode = {
+  id: string;
+  type: string;
+  position: { x: number; y: number };
+  data: ScreenFlowNodeData;
+};
+
+export type ScreenFlowEdge = {
+  id: string;
+  source: string;
+  target: string;
+  label: string;
+  animated: boolean;
+};
+
+export type ScreenFlowResponse = {
+  nodes: ScreenFlowNode[];
+  edges: ScreenFlowEdge[];
+};
+
 // ---------------------------------------------------------------------------
 // Phase 3 — Implementation Assist
 // ---------------------------------------------------------------------------
