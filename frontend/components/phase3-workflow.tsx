@@ -358,13 +358,21 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
       )}>
         <button
           onClick={onBack}
-          className={cn("text-xs font-medium transition", dark ? "text-neutral-400 hover:text-violet-400" : "text-slate-500 hover:text-violet-600")}
+          className={cn("shrink-0 text-xs font-medium transition", dark ? "text-neutral-400 hover:text-violet-400" : "text-slate-500 hover:text-violet-600")}
         >
           ← Stories
         </button>
-        <ChevronRight className="h-3 w-3 text-neutral-500" />
+        {ctx?.epic_title && (
+          <>
+            <ChevronRight className="h-3 w-3 shrink-0 text-neutral-500" />
+            <span className={cn("shrink-0 text-xs font-medium", dark ? "text-neutral-300" : "text-slate-600")}>
+              {ctx.epic_title}
+            </span>
+          </>
+        )}
+        <ChevronRight className="h-3 w-3 shrink-0 text-neutral-500" />
         <span className={cn(
-          "inline-flex items-center gap-1.5 text-xs font-mono font-semibold",
+          "shrink-0 inline-flex items-center gap-1.5 text-xs font-mono font-semibold",
           dark ? "text-violet-400" : "text-violet-700",
         )}>
           US#{storyId}

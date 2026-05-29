@@ -33,6 +33,7 @@ class EligibleStoriesResponse(BaseModel):
 class StoryContextResponse(BaseModel):
     story_id: int
     title: str
+    epic_title: str
     gherkin: str
     technical_spec: str
     project_concept: str

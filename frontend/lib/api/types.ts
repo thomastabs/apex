@@ -257,6 +257,7 @@ export type Phase3EligibleStoriesResponse = {
 export type Phase3StoryContext = {
   story_id: number;
   title: string;
+  epic_title: string;
   gherkin: string;
   technical_spec: string;
   project_concept: string;

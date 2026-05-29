@@ -58,6 +58,7 @@ class Phase3Service:
         return {
             "story_id": story_id,
             "title": entry.get("title", ""),
+            "epic_title": entry.get("epic_title", ""),
             "gherkin": self.context.story_gherkin(story_id),
             "technical_spec": self.context.story_technical_spec(story_id),
             "project_concept": self.context.read_project_concept(),
