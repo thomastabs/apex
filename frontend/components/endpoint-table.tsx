@@ -24,7 +24,7 @@ interface EndpointGroup {
 }
 
 const METHOD_RE = /\b(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\b/;
-const PATH_RE = /(?:^|\s)(\/[^\s·|\],)}\n]+)/;
+const PATH_RE = /(?:^|\s)(\/[^\s·|`\n]+)/;
 
 function parseEndpoints(markdown: string): EndpointGroup[] {
   const lines = markdown.split("\n");
