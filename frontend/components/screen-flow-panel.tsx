@@ -12,7 +12,7 @@ import {
   useEdgesState,
 } from "@xyflow/react";
 import Dagre from "@dagrejs/dagre";
-import { ChevronRight, Loader2, Monitor, RefreshCw } from "lucide-react";
+import { ChevronRight, LayoutDashboard, Loader2, Monitor, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGenerateScreenFlow, useLoadScreenFlow, useSaveScreenFlowPositions } from "@/lib/hooks/use-phase2";
 import type { ScreenFlowEdge, ScreenFlowNode, ScreenFlowResponse } from "@/lib/api/types";
@@ -105,6 +105,12 @@ export function ScreenFlowPanel({
     });
   }, [canGenerate, uxBriefContent, generateMut, setNodes, setEdges]);
 
+  const handleReLayout = useCallback(() => {
+    const layouted = applyDagreLayout(nodes as ScreenFlowNode[], edges as ScreenFlowEdge[]);
+    setNodes(layouted as ScreenFlowNode[]);
+    savePosMut.mutate(layouted.map((n) => ({ id: n.id, position: n.position })) as ScreenFlowNode[]);
+  }, [nodes, edges, setNodes, savePosMut]);
+
   const handleDragStop = useCallback(
     (_: unknown, __: unknown, allNodes: ScreenFlowNode[]) => {
       if (savePosTimer.current) clearTimeout(savePosTimer.current);
@@ -151,6 +157,21 @@ export function ScreenFlowPanel({
           )}
         </div>
         <div className="flex items-center gap-2">
+          {hasDiagram && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); handleReLayout(); }}
+              className={cn(
+                "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+                dark
+                  ? "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700"
+                  : "text-slate-500 hover:text-slate-700 hover:bg-slate-200",
+              )}
+            >
+              <LayoutDashboard className="size-3" />
+              Auto-layout
+            </button>
+          )}
           {hasDiagram && (
             <button
               type="button"
