@@ -64,6 +64,7 @@ export function useGenerateTasks() {
 
 export function usePushTasksToTaiga() {
   const context = useApiContext();
+  const queryClient = useQueryClient();
   const { taskList, setTaigaTaskResult, setTasksPushed } = usePhase3Store();
 
   return useMutation({
@@ -93,11 +94,17 @@ export function usePushTasksToTaiga() {
       }
       return { results, failures };
     },
-    onSuccess: ({ results, failures }) => {
+    onSuccess: ({ results, failures }, storyId) => {
       for (const { taskIndex, id, ref } of results) {
         setTaigaTaskResult(taskIndex, id, ref);
       }
       setTasksPushed(true);
+      // Persist task list to backend so Task Board reflects pushed tasks
+      if (context && taskList.length > 0) {
+        void saveTaskList(context, storyId, taskList).then(() => {
+          void queryClient.invalidateQueries({ queryKey: ["phase3", "task-board"] });
+        });
+      }
       if (failures.length > 0) {
         const names = failures.map((f) => f.subject).join(", ");
         toast.warning(`${results.length} tasks pushed; ${failures.length} failed: ${names}`);

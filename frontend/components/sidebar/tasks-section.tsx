@@ -1,8 +1,10 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { CheckCircle2, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTaskBoard } from "@/lib/hooks/use-phase3";
+import { usePhase3Store } from "@/lib/stores/phase3-store";
+import type { TaskBoardStory } from "@/lib/api/types";
 import { PanelHeader, type DragSectionProps } from "./shared";
 
 const EFFORT_COLORS: Record<string, string> = {
@@ -17,7 +19,31 @@ type TasksSectionProps = DragSectionProps & { dark: boolean };
 
 export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: TasksSectionProps) {
   const [open, setOpen] = useState(false);
-  const { data: stories = [], isLoading } = useTaskBoard();
+  const { data: backendStories = [], isLoading } = useTaskBoard();
+  const { selectedStoryId, taskList, currentStoryMeta } = usePhase3Store();
+
+  // Merge backend data with current in-session story (Zustand store fallback)
+  const stories = useMemo<TaskBoardStory[]>(() => {
+    const merged = [...backendStories];
+    if (selectedStoryId !== null && taskList.length > 0) {
+      const alreadyInBoard = merged.some((s) => s.story_id === selectedStoryId);
+      if (!alreadyInBoard) {
+        merged.unshift({
+          story_id: selectedStoryId,
+          title: currentStoryMeta.title || `Story #${selectedStoryId}`,
+          epic_title: currentStoryMeta.epicTitle,
+          phase_status: "",
+          tasks: taskList.map((t) => ({
+            id: t.id,
+            subject: t.subject,
+            effort_estimate: t.effort_estimate ?? "",
+            has_proposal: false,
+          })),
+        });
+      }
+    }
+    return merged;
+  }, [backendStories, selectedStoryId, taskList, currentStoryMeta]);
 
   const totalTasks = stories.reduce((sum, s) => sum + s.tasks.length, 0);
 
