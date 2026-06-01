@@ -1,5 +1,7 @@
 """Request and response schemas for Phase 3 implementation endpoints."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -11,6 +13,9 @@ class TaskSchema(BaseModel):
     id: int
     subject: str
     description: str
+    effort_estimate: Literal["XS", "S", "M", "L", "XL"]
+    covered_scenarios: list[str]
+    predecessor_task_ids: list[int] = Field(default_factory=list)
 
 
 class GenerateTasksResponse(BaseModel):

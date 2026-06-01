@@ -1052,6 +1052,16 @@ class Phase3Task(BaseModel):
     description: str = Field(
         description="2-3 sentence technical description referencing specific endpoints, entities, or components from the design bundle"
     )
+    effort_estimate: Literal["XS", "S", "M", "L", "XL"] = Field(
+        description="Effort estimate: XS=<2h, S=<1d, M=2-3d, L=4-5d, XL=>1 week"
+    )
+    covered_scenarios: list[str] = Field(
+        description="Exact Gherkin scenario titles (text after 'Scenario:' or 'Scenario Outline:') this task helps satisfy"
+    )
+    predecessor_task_ids: list[int] = Field(
+        default_factory=list,
+        description="IDs of tasks that must be completed before this task can start. Use the sequential id values assigned above. Empty list means no dependencies.",
+    )
 
 
 class Phase3TaskList(BaseModel):
@@ -1071,6 +1081,9 @@ Rules you MUST follow:
 - Order tasks from backend-first to frontend-last (infrastructure → data model → API → UI).
 - No task may duplicate work covered by another task.
 - Do NOT include devops, CI, or deployment tasks unless the story explicitly requires them.
+- For each task, set effort_estimate: XS (<2h), S (<1d), M (2–3d), L (4–5d), XL (>1wk). Base it on the implementation complexity of that task alone.
+- For each task, list covered_scenarios: the exact titles of Gherkin scenarios (after "Scenario:" or "Scenario Outline:") whose acceptance criteria this task helps satisfy. Every scenario MUST appear in at least one task's covered_scenarios.
+- For each task, set predecessor_task_ids: list the id values of tasks that MUST be completed before this task starts. Tasks with no prerequisites get an empty list. Never create cycles — if task 3 depends on task 2, task 2 must not depend on task 3.
 
 Tech Stack: {tech_stack}
 

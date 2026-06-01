@@ -30,7 +30,8 @@ import { usePhase3Store } from "@/lib/stores/phase3-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
-import type { Phase3StoryContext } from "@/lib/api/types";
+import type { EffortEstimate, Phase3StoryContext, Phase3Task } from "@/lib/api/types";
+import { TaskDagPanel } from "@/components/task-dag-panel";
 
 // ---------------------------------------------------------------------------
 // Markdown preview
@@ -58,6 +59,34 @@ function MarkdownPreview({ content, dark, className }: { content: string; dark: 
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
+}
+
+// ---------------------------------------------------------------------------
+// Effort badge
+// ---------------------------------------------------------------------------
+
+const EFFORT_COLORS: Record<string, string> = {
+  XS: "bg-emerald-500/15 text-emerald-400 ring-emerald-500/30",
+  S:  "bg-blue-500/15 text-blue-400 ring-blue-500/30",
+  M:  "bg-yellow-500/15 text-yellow-400 ring-yellow-500/30",
+  L:  "bg-orange-500/15 text-orange-400 ring-orange-500/30",
+  XL: "bg-red-500/15 text-red-400 ring-red-500/30",
+};
+
+function EffortBadge({ estimate }: { estimate?: string }) {
+  if (!estimate) return null;
+  return (
+    <span className={cn(
+      "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold ring-1",
+      EFFORT_COLORS[estimate] ?? "bg-neutral-500/15 text-neutral-400 ring-neutral-500/30",
+    )}>
+      {estimate}
+    </span>
+  );
+}
+
+function parseGherkinScenarios(gherkin: string): string[] {
+  return [...gherkin.matchAll(/Scenario(?:\s+Outline)?:\s*(.+)/g)].map((m) => m[1].trim());
 }
 
 // ---------------------------------------------------------------------------
@@ -331,7 +360,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
 function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () => void; onContinue: () => void }) {
   const dark = useUiStore((s) => s.theme) === "dark";
   const { data: ctx, isLoading: ctxLoading } = useStoryContext(storyId);
-  const { taskList, tasksPushed } = usePhase3Store();
+  const { taskList, tasksPushed, packDrafts } = usePhase3Store();
   const { addTask, removeTask, updateTask } = useUpdateTaskList();
   const generateTasksMut = useGenerateTasks();
   const pushToTaiga = usePushTasksToTaiga();
@@ -473,6 +502,52 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                       value={task.description}
                       onChange={(e) => updateTask(task.id, { description: e.target.value })}
                     />
+                    {/* Effort selector */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-neutral-500 w-14 shrink-0">Effort</span>
+                      <select
+                        value={task.effort_estimate ?? "M"}
+                        onChange={(e) => updateTask(task.id, { effort_estimate: e.target.value as EffortEstimate })}
+                        className={cn(
+                          "rounded-lg border px-2 py-1 text-xs",
+                          dark ? "border-neutral-700 bg-neutral-900 text-white" : "border-slate-300 bg-white text-slate-900",
+                        )}
+                        disabled={tasksPushed}
+                      >
+                        {(["XS", "S", "M", "L", "XL"] as EffortEstimate[]).map((e) => (
+                          <option key={e} value={e}>{e}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {/* Predecessor checkboxes */}
+                    {taskList.length > 1 && (
+                      <div className="space-y-1">
+                        <span className="text-xs text-neutral-500">Depends on</span>
+                        <div className="space-y-0.5 pl-1">
+                          {taskList.filter((t) => t.id !== task.id).map((other) => (
+                            <label key={other.id} className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={(task.predecessor_task_ids ?? []).includes(other.id)}
+                                onChange={(e) => {
+                                  const current = task.predecessor_task_ids ?? [];
+                                  updateTask(task.id, {
+                                    predecessor_task_ids: e.target.checked
+                                      ? [...current, other.id]
+                                      : current.filter((id) => id !== other.id),
+                                  });
+                                }}
+                                disabled={tasksPushed}
+                                className="accent-violet-600"
+                              />
+                              <span className={cn("text-xs", dark ? "text-neutral-300" : "text-slate-700")}>
+                                Task {taskList.findIndex((t) => t.id === other.id) + 1}: {other.subject}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <Button variant="secondary" onClick={() => setEditingId(null)}>Done</Button>
                   </div>
                 ) : (
@@ -485,9 +560,12 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                       {idx + 1}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className={cn("text-sm font-semibold", dark ? "text-neutral-100" : "text-slate-800")}>
-                        {task.subject}
-                      </p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className={cn("text-sm font-semibold", dark ? "text-neutral-100" : "text-slate-800")}>
+                          {task.subject}
+                        </p>
+                        <EffortBadge estimate={task.effort_estimate} />
+                      </div>
                       <p className="mt-0.5 text-xs leading-relaxed text-neutral-500">{task.description}</p>
                     </div>
                     <div className="flex shrink-0 gap-1 opacity-0 transition group-hover:opacity-100">
@@ -530,7 +608,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                 onChange={(e) => setNewSubject(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && newSubject.trim()) {
-                    addTask({ id: nextId, subject: newSubject.trim(), description: "" });
+                    addTask({ id: nextId, subject: newSubject.trim(), description: "", effort_estimate: "M" as EffortEstimate, covered_scenarios: [], predecessor_task_ids: [] });
                     setNewSubject("");
                   }
                 }}
@@ -539,7 +617,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                 variant="secondary"
                 onClick={() => {
                   if (newSubject.trim()) {
-                    addTask({ id: nextId, subject: newSubject.trim(), description: "" });
+                    addTask({ id: nextId, subject: newSubject.trim(), description: "", effort_estimate: "M" as EffortEstimate, covered_scenarios: [], predecessor_task_ids: [] });
                     setNewSubject("");
                   }
                 }}
@@ -547,6 +625,10 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
+          )}
+
+          {taskList.length > 0 && (
+            <TaskDagPanel taskList={taskList} packDrafts={packDrafts} dark={dark} />
           )}
 
           {/* Stage B.5 — Push to Taiga */}
@@ -679,6 +761,9 @@ function StageC({ storyId }: { storyId: number }) {
                     </span>
                     {task.subject}
                   </p>
+                  {task.effort_estimate && (
+                    <EffortBadge estimate={task.effort_estimate} />
+                  )}
                 </div>
               </button>
             );
@@ -698,9 +783,12 @@ function StageC({ storyId }: { storyId: number }) {
                   <p className="text-xs font-mono text-neutral-500 mb-0.5">
                     US#{storyId} · Task {taskList.findIndex(t => t.id === selectedTask.id) + 1}
                   </p>
-                  <p className={cn("text-sm font-semibold leading-snug", dark ? "text-neutral-100" : "text-slate-800")}>
-                    {selectedTask.subject}
-                  </p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className={cn("text-sm font-semibold leading-snug", dark ? "text-neutral-100" : "text-slate-800")}>
+                      {selectedTask.subject}
+                    </p>
+                    <EffortBadge estimate={selectedTask.effort_estimate} />
+                  </div>
                 </div>
                 <div className="flex gap-2 flex-wrap shrink-0">
                   <Button
@@ -801,6 +889,74 @@ function StageC({ storyId }: { storyId: number }) {
           )}
         </div>
       </div>
+
+      {taskList.length > 0 && (
+        <TaskDagPanel taskList={taskList} packDrafts={packDrafts} dark={dark} />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Scenario coverage panel
+// ---------------------------------------------------------------------------
+
+function ScenarioCoveragePanel({
+  gherkin,
+  taskList,
+  dark,
+}: {
+  gherkin: string;
+  taskList: Phase3Task[];
+  dark: boolean;
+}) {
+  const allScenarios = parseGherkinScenarios(gherkin);
+  if (allScenarios.length === 0) return null;
+  const hasCoverageData = taskList.some((t) => (t.covered_scenarios?.length ?? 0) > 0);
+  const coveredSet = new Set(taskList.flatMap((t) => t.covered_scenarios ?? []));
+  const uncovered = allScenarios.filter((sc) => !coveredSet.has(sc));
+
+  return (
+    <div className={cn("rounded-xl border overflow-hidden", dark ? "border-neutral-700" : "border-slate-200")}>
+      <div className={cn(
+        "px-5 py-3 border-b flex items-center justify-between",
+        dark ? "border-neutral-700 bg-neutral-900" : "border-slate-200 bg-slate-50",
+      )}>
+        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Gherkin Scenario Coverage</p>
+        <span className={cn("text-xs font-medium", uncovered.length > 0 ? "text-amber-500" : "text-emerald-500")}>
+          {allScenarios.length - uncovered.length}/{allScenarios.length} covered
+        </span>
+      </div>
+      <div className={cn("px-5 py-3 space-y-1.5", dark ? "bg-neutral-900/50" : "bg-white")}>
+        {!hasCoverageData && (
+          <p className="text-xs text-amber-500 mb-2">
+            Coverage data not available — re-generate tasks to populate.
+          </p>
+        )}
+        {allScenarios.map((sc) => {
+          const covered = coveredSet.has(sc);
+          return (
+            <div key={sc} className="flex items-center gap-2">
+              {covered
+                ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                : <span className="h-3.5 w-3.5 shrink-0 rounded-full border-2 border-amber-400 inline-block" />}
+              <span className={cn(
+                "text-xs",
+                covered
+                  ? (dark ? "text-neutral-300" : "text-slate-700")
+                  : "text-amber-500 font-medium",
+              )}>
+                {sc}
+              </span>
+            </div>
+          );
+        })}
+        {uncovered.length > 0 && (
+          <p className="mt-2 text-xs text-amber-500">
+            {uncovered.length} scenario{uncovered.length > 1 ? "s" : ""} uncovered — add tasks or re-generate.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -814,10 +970,17 @@ function StageD({ storyId, onLocked }: { storyId: number; onLocked: () => void }
   const { data: ctx } = useStoryContext(storyId);
   const { taskList, packDrafts, clearPhase3Draft } = usePhase3Store();
   const lockStoryMut = useLockStory();
+  const [overrideCoverage, setOverrideCoverage] = useState(false);
 
   const generatedTasks = taskList.filter((t) => Boolean(packDrafts[t.id]));
-  const skippedCount = taskList.length - generatedTasks.length;
-  const canLock = generatedTasks.length > 0;
+  const skippedTasks = taskList.filter((t) => !packDrafts[t.id]);
+
+  const allScenarios = parseGherkinScenarios(ctx?.gherkin ?? "");
+  const coveredSet = new Set(taskList.flatMap((t) => t.covered_scenarios ?? []));
+  const uncoveredScenarios = allScenarios.filter((sc) => !coveredSet.has(sc));
+  const coverageOk = allScenarios.length === 0 || uncoveredScenarios.length === 0;
+
+  const canLock = generatedTasks.length > 0 && (coverageOk || overrideCoverage);
 
   const handleLock = () => {
     lockStoryMut.mutate(
@@ -864,15 +1027,44 @@ function StageD({ storyId, onLocked }: { storyId: number; onLocked: () => void }
               style={{ width: taskList.length > 0 ? `${(generatedTasks.length / taskList.length) * 100}%` : "0%" }}
             />
           </div>
-          {skippedCount > 0 && (
-            <p className="text-xs text-neutral-500">
-              {skippedCount} task{skippedCount > 1 ? "s" : ""} without packs will be skipped — they are not auto-generated.
-            </p>
+          {skippedTasks.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-amber-500">
+                {skippedTasks.length} task{skippedTasks.length > 1 ? "s" : ""} without packs will be skipped on lock:
+              </p>
+              <ul className={cn(
+                "space-y-0.5 rounded-lg border px-3 py-2",
+                dark ? "border-neutral-700 bg-neutral-900" : "border-amber-100 bg-amber-50",
+              )}>
+                {skippedTasks.map((t, idx) => (
+                  <li key={t.id} className="flex items-center gap-1.5 text-xs text-neutral-500">
+                    <span className="font-mono text-amber-400">{idx + 1}.</span>
+                    {t.subject}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
       </div>
 
-      {!canLock && (
+      <ScenarioCoveragePanel gherkin={ctx?.gherkin ?? ""} taskList={taskList} dark={dark} />
+
+      {!coverageOk && (
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={overrideCoverage}
+            onChange={(e) => setOverrideCoverage(e.target.checked)}
+            className="accent-amber-500"
+          />
+          <span className="text-xs text-amber-500">
+            I acknowledge {uncoveredScenarios.length} scenario{uncoveredScenarios.length > 1 ? "s are" : " is"} uncovered — lock anyway
+          </span>
+        </label>
+      )}
+
+      {generatedTasks.length === 0 && (
         <Callout>Generate at least one developer pack before locking.</Callout>
       )}
 

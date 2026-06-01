@@ -365,10 +365,13 @@ export async function taigaCreateTask(
   subject: string,
   description: string,
   apiBaseUrl?: string,
+  points?: number,
 ): Promise<{ id: number; ref: number; subject: string }> {
+  const body: Record<string, unknown> = { project: projectId, user_story: storyId, subject, description };
+  if (points !== undefined) body.milestone_points = points;
   const raw = await taigaFetch<Record<string, unknown>>("/tasks", token, apiBaseUrl, {
     method: "POST",
-    body: { project: projectId, user_story: storyId, subject, description },
+    body,
   });
   return {
     id: raw.id as number,

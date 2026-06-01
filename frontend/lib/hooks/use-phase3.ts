@@ -11,11 +11,16 @@ import {
 } from "@/lib/api/phase3";
 import { taigaCreateTask } from "@/lib/api/taiga-direct";
 import type {
+  EffortEstimate,
   Phase3GenerateProposalRequest,
   Phase3LockStoryRequest,
   Phase3SaveProposalRequest,
   Phase3Task,
 } from "@/lib/api/types";
+
+const EFFORT_POINTS: Record<EffortEstimate, number> = {
+  XS: 1, S: 2, M: 3, L: 5, XL: 8,
+};
 import { usePhase3Store } from "@/lib/stores/phase3-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { toast } from "sonner";
@@ -73,6 +78,7 @@ export function usePushTasksToTaiga() {
             task.subject,
             task.description,
             context.taigaApiUrl,
+            task.effort_estimate ? EFFORT_POINTS[task.effort_estimate] : undefined,
           );
           results.push({ taskIndex: i, id: created.id, ref: created.ref });
         } catch (err) {

@@ -236,10 +236,15 @@ export type ScreenFlowResponse = {
 // Phase 3 — Implementation Assist
 // ---------------------------------------------------------------------------
 
+export type EffortEstimate = "XS" | "S" | "M" | "L" | "XL";
+
 export type Phase3Task = {
   id: number;
   subject: string;
   description: string;
+  effort_estimate: EffortEstimate;
+  covered_scenarios: string[];
+  predecessor_task_ids: number[];
 };
 
 export type Phase3StoryPreview = {

@@ -61,7 +61,17 @@ class AiService:
             story_subject, gherkin, technical_spec,
             tech_stack=tech_stack, design_bundle=design_bundle,
         )
-        return [{"id": t.id, "subject": t.subject, "description": t.description} for t in result.tasks]
+        return [
+            {
+                "id": t.id,
+                "subject": t.subject,
+                "description": t.description,
+                "effort_estimate": t.effort_estimate,
+                "covered_scenarios": t.covered_scenarios,
+                "predecessor_task_ids": t.predecessor_task_ids,
+            }
+            for t in result.tasks
+        ]
 
     def generate_proposal(
         self,

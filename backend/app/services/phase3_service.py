@@ -97,6 +97,12 @@ class Phase3Service:
         self.configure_request(ctx)
         index = self.context.story_index()
         entry = index.get(str(story_id)) or {}
+        if not entry:
+            raise Phase3ValidationError(f"Story {story_id} not found in index.")
+        if entry.get("phase_status") != "design_locked":
+            raise Phase3ValidationError(
+                f"Story {story_id} is not design_locked (status: {entry.get('phase_status')!r})."
+            )
         story_title = entry.get("title", f"Story {story_id}")
         story_ref = f"US#{story_id} — {story_title}"
         gherkin = self.context.story_gherkin(story_id)
@@ -120,6 +126,15 @@ class Phase3Service:
 
     def lock_story(self, ctx: RequestContext, story_id: int, task_ids: list[int]) -> None:
         self.configure_request(ctx)
+        index = self.context.story_index()
+        entry = index.get(str(story_id)) or {}
+        if not entry:
+            raise Phase3ValidationError(f"Story {story_id} not found.")
+        if entry.get("phase_status") != "design_locked":
+            raise Phase3ValidationError(
+                f"Story {story_id} is not design_locked (status: {entry.get('phase_status')!r})."
+            )
+        task_ids = list(dict.fromkeys(task_ids))  # dedup, preserve order
         missing = [tid for tid in task_ids if not self.context.proposal_exists(story_id, tid)]
         if missing:
             raise Phase3ValidationError(
