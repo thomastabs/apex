@@ -6,8 +6,11 @@ import {
   generateTasks,
   getEligibleStories,
   getStoryContext,
+  getTaskBoard,
+  getTaskList,
   lockStory,
   saveProposal,
+  saveTaskList,
 } from "@/lib/api/phase3";
 import { taigaCreateTask } from "@/lib/api/taiga-direct";
 import type {
@@ -161,4 +164,44 @@ export function useUpdateTaskList() {
   };
 
   return { addTask, removeTask, updateTask, reorderTasks };
+}
+
+export function useLoadTaskList(storyId: number | null) {
+  const context = useApiContext();
+  const { setTaskList, taskList } = usePhase3Store();
+  return useQuery({
+    queryKey: ["phase3", "task-list", context?.projectId, storyId],
+    queryFn: async () => {
+      const data = await getTaskList(context!, storyId!);
+      if (data.tasks.length > 0 && taskList.length === 0) setTaskList(data.tasks);
+      return data.tasks;
+    },
+    enabled: Boolean(context) && storyId !== null,
+    staleTime: Infinity,
+  });
+}
+
+export function useSaveTaskList() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ storyId, tasks }: { storyId: number; tasks: Phase3Task[] }) =>
+      saveTaskList(context!, storyId, tasks),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["phase3", "task-board"] });
+    },
+  });
+}
+
+export function useTaskBoard() {
+  const context = useApiContext();
+  return useQuery({
+    queryKey: ["phase3", "task-board", context?.projectId],
+    queryFn: async () => {
+      const data = await getTaskBoard(context!);
+      return data.stories;
+    },
+    enabled: Boolean(context),
+    staleTime: 60_000,
+  });
 }

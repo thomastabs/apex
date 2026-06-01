@@ -12,12 +12,14 @@ type Phase3State = {
   tasksPushed: boolean;
   packDrafts: Record<number, string>;     // taskId → markdown string
   lockedTaskIds: number[];
+  currentStoryMeta: { title: string; epicTitle: string };
   setSelectedStoryId: (id: number | null) => void;
   setTaskList: (tasks: Phase3Task[]) => void;
   setTaigaTaskResult: (taskIndex: number, id: number, ref: number) => void;
   setTasksPushed: (pushed: boolean) => void;
   setPackDraft: (taskId: number, md: string) => void;
   setLockedTaskIds: (ids: number[]) => void;
+  setCurrentStoryMeta: (title: string, epicTitle: string) => void;
   clearPhase3Draft: () => void;
 };
 
@@ -31,8 +33,22 @@ export const usePhase3Store = create<Phase3State>()(
       tasksPushed: false,
       packDrafts: {},
       lockedTaskIds: [],
-      setSelectedStoryId: (selectedStoryId) =>
-        set({ selectedStoryId, taskList: [], taigaTaskIds: {}, taigaTaskRefs: {}, tasksPushed: false, packDrafts: {}, lockedTaskIds: [] }),
+      currentStoryMeta: { title: "", epicTitle: "" },
+      setSelectedStoryId: (id) =>
+        set((state) => {
+          // Only reset task data when switching to a different story
+          if (id === state.selectedStoryId) return { selectedStoryId: id };
+          return {
+            selectedStoryId: id,
+            taskList: [],
+            taigaTaskIds: {},
+            taigaTaskRefs: {},
+            tasksPushed: false,
+            packDrafts: {},
+            lockedTaskIds: [],
+            currentStoryMeta: { title: "", epicTitle: "" },
+          };
+        }),
       setTaskList: (taskList) => set({ taskList, taigaTaskIds: {}, taigaTaskRefs: {}, tasksPushed: false }),
       setTaigaTaskResult: (taskIndex, id, ref) =>
         set((s) => ({
@@ -43,6 +59,7 @@ export const usePhase3Store = create<Phase3State>()(
       setPackDraft: (taskId, md) =>
         set((s) => ({ packDrafts: { ...s.packDrafts, [taskId]: md } })),
       setLockedTaskIds: (lockedTaskIds) => set({ lockedTaskIds }),
+      setCurrentStoryMeta: (title, epicTitle) => set({ currentStoryMeta: { title, epicTitle } }),
       clearPhase3Draft: () =>
         set({
           selectedStoryId: null,
@@ -52,6 +69,7 @@ export const usePhase3Store = create<Phase3State>()(
           tasksPushed: false,
           packDrafts: {},
           lockedTaskIds: [],
+          currentStoryMeta: { title: "", epicTitle: "" },
         }),
     }),
     {
@@ -61,6 +79,7 @@ export const usePhase3Store = create<Phase3State>()(
         taskList: state.taskList,
         packDrafts: state.packDrafts,
         tasksPushed: state.tasksPushed,
+        currentStoryMeta: state.currentStoryMeta,
       }),
     },
   ),

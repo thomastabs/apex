@@ -17,6 +17,8 @@ import { UsersSection } from "./sidebar/users-section";
 import { ContextSection } from "./sidebar/context-section";
 import { AiSection } from "./sidebar/ai-section";
 import { ResourcesSection } from "./sidebar/resources-section";
+import { TasksSection } from "./sidebar/tasks-section";
+import { AboutSection } from "./sidebar/about-section";
 
 // ── constants ─────────────────────────────────────────────────────────────────
 
@@ -27,6 +29,8 @@ const SECTION_LABELS: Record<string, string> = {
   context: "Active Context",
   ai: "AI Models",
   resources: "Resources",
+  tasks: "Task Board",
+  about: "About Apex",
 };
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -474,7 +478,7 @@ export function Sidebar() {
           const dragHandlers = makeDragSectionProps(id);
           const onDragStart = makeDragStartHandler(id);
 
-          if (id !== "ai" && id !== "resources" && !taigaToken) return null;
+          if (id !== "ai" && id !== "resources" && id !== "tasks" && id !== "about" && !taigaToken) return null;
 
           if (id === "project") {
             return (
@@ -550,6 +554,30 @@ export function Sidebar() {
                 key="resources"
                 dark={dark}
                 taigaWebUrl={taigaWebUrl}
+                shellClass={shellClass}
+                dragHandlers={dragHandlers}
+                onDragStart={onDragStart}
+              />
+            );
+          }
+
+          if (id === "tasks") {
+            return (
+              <TasksSection
+                key="tasks"
+                dark={dark}
+                shellClass={shellClass}
+                dragHandlers={dragHandlers}
+                onDragStart={onDragStart}
+              />
+            );
+          }
+
+          if (id === "about") {
+            return (
+              <AboutSection
+                key="about"
+                dark={dark}
                 shellClass={shellClass}
                 dragHandlers={dragHandlers}
                 onDragStart={onDragStart}
