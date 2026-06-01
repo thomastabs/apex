@@ -227,7 +227,7 @@ export function TaskDagPanel({
             <div className="flex flex-col items-center gap-2 py-5 text-center">
               <GitBranch className={cn("size-7", dark ? "text-neutral-600" : "text-slate-300")} />
               <p className={cn("text-sm", dark ? "text-neutral-400" : "text-slate-500")}>
-                No dependencies defined. Edit tasks and check "Depends on" to add them.
+                No dependencies defined. Edit tasks and check &ldquo;Depends on&rdquo; to add them.
               </p>
             </div>
           ) : (
