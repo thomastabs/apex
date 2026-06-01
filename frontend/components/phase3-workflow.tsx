@@ -93,39 +93,12 @@ function parseGherkinScenarios(gherkin: string): string[] {
 // Download helpers
 // ---------------------------------------------------------------------------
 
-function buildContextAppendix(ctx: Phase3StoryContext): string {
-  return [
-    "## Project Concept",
-    ctx.project_concept || "_Not set_",
-    "",
-    "## Tech Stack",
-    ctx.tech_stack || "_Not set_",
-    "",
-    "## Acceptance Criteria (Gherkin)",
-    ctx.gherkin || "_Not set_",
-    "",
-    "## Technical Spec",
-    ctx.technical_spec || "_Not set_",
-    "",
-    "## Design Bundle",
-    ctx.design_bundle || "_Not set_",
-  ].join("\n");
-}
-
 function downloadPack(taskSubject: string, packMd: string, ctx: Phase3StoryContext) {
-  const appendix = buildContextAppendix(ctx);
   const full = [
     `# Developer Pack — ${taskSubject}`,
     `## Story: US#${ctx.story_id} — ${ctx.title}`,
     "",
     packMd,
-    "",
-    "---",
-    "",
-    "# Context Appendix",
-    "> Files used to generate this pack",
-    "",
-    appendix,
   ].join("\n");
   const slug = taskSubject.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
   blobDownload(full, `pack-${slug}.md`);
@@ -137,20 +110,9 @@ function downloadAllPacks(
   ctx: Phase3StoryContext,
 ) {
   const parts = packs.map(({ taskSubject, packMd }) =>
-    [`# Developer Pack — ${taskSubject}`, "", packMd].join("\n"),
+    [`# Developer Pack — ${taskSubject}`, `## Story: US#${ctx.story_id} — ${ctx.title}`, "", packMd].join("\n"),
   );
-  const appendix = buildContextAppendix(ctx);
-  const full = [
-    ...parts,
-    "",
-    "---",
-    "",
-    "# Context Appendix",
-    "> Files used to generate these packs",
-    "",
-    appendix,
-  ].join("\n\n---\n\n");
-  blobDownload(full, `story-${storyId}-packs.md`);
+  blobDownload(parts.join("\n\n---\n\n"), `story-${storyId}-packs.md`);
 }
 
 function blobDownload(content: string, filename: string) {
