@@ -358,22 +358,61 @@ export async function taigaCreateStory(
   return normalizeStory(raw);
 }
 
+export type TaigaTask = {
+  id: number;
+  ref: number;
+  subject: string;
+  description: string;
+  version: number;
+  user_story: number;
+  user_story_ref: number;
+  user_story_subject: string;
+};
+
 export async function taigaGetProjectTasks(
   token: string,
   projectId: number,
   apiBaseUrl?: string,
-): Promise<Array<{ id: number; ref: number; subject: string; user_story: number }>> {
+): Promise<TaigaTask[]> {
   const raw = await taigaFetch<Array<Record<string, unknown>>>(
     `/tasks?project=${projectId}`,
     token,
     apiBaseUrl,
   );
-  return (raw ?? []).map((t) => ({
-    id: t.id as number,
-    ref: t.ref as number,
-    subject: t.subject as string,
-    user_story: t.user_story as number,
-  }));
+  return (raw ?? []).map((t) => {
+    const usInfo = t.user_story_extra_info as Record<string, unknown> | null;
+    return {
+      id: t.id as number,
+      ref: t.ref as number,
+      subject: t.subject as string,
+      description: (t.description as string) ?? "",
+      version: (t.version as number) ?? 1,
+      user_story: t.user_story as number,
+      user_story_ref: (usInfo?.ref as number) ?? (t.user_story as number),
+      user_story_subject: (usInfo?.subject as string) ?? "",
+    };
+  });
+}
+
+export async function taigaUpdateTask(
+  token: string,
+  taskId: number,
+  version: number,
+  updates: { subject?: string; description?: string },
+  apiBaseUrl?: string,
+): Promise<void> {
+  await taigaFetch<Record<string, unknown>>(`/tasks/${taskId}`, token, apiBaseUrl, {
+    method: "PATCH",
+    body: { version, ...updates },
+  });
+}
+
+export async function taigaDeleteTask(
+  token: string,
+  taskId: number,
+  apiBaseUrl?: string,
+): Promise<void> {
+  await taigaFetch<unknown>(`/tasks/${taskId}`, token, apiBaseUrl, { method: "DELETE" });
 }
 
 export async function taigaCreateTask(
