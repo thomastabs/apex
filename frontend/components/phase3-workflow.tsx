@@ -927,7 +927,7 @@ function ScenarioCoveragePanel({
 // Stage D — Lock & Export
 // ---------------------------------------------------------------------------
 
-function StageD({ storyId, onLocked }: { storyId: number; onLocked: () => void }) {
+function StageD({ storyId, onLocked, onChooseNewStory }: { storyId: number; onLocked: () => void; onChooseNewStory: () => void }) {
   const dark = useUiStore((s) => s.theme) === "dark";
   const { data: ctx } = useStoryContext(storyId);
   const { taskList, packDrafts, clearPhase3Draft } = usePhase3Store();
@@ -1045,6 +1045,9 @@ function StageD({ storyId, onLocked }: { storyId: number; onLocked: () => void }
             <Download className="h-4 w-4" /> Export All Packs
           </Button>
         )}
+        <Button className="w-full justify-center" variant="secondary" onClick={onChooseNewStory}>
+          Choose New Story
+        </Button>
       </div>
     </div>
   );
@@ -1198,7 +1201,7 @@ export function Phase3Workflow() {
           </div>
         )}
         {stage === "D" && selectedStoryId !== null && (
-          <StageD storyId={selectedStoryId} onLocked={handleLocked} />
+          <StageD storyId={selectedStoryId} onLocked={handleLocked} onChooseNewStory={() => setStage("A")} />
         )}
       </div>
       </div>
