@@ -124,6 +124,37 @@ class Phase3Service:
         self.configure_request(ctx)
         self.context.save_proposal(story_id, task_id, proposal_md)
 
+    def get_task_list(self, ctx: RequestContext, story_id: int) -> list[dict]:
+        self.configure_request(ctx)
+        return self.context.load_task_list(story_id)
+
+    def save_task_list(self, ctx: RequestContext, story_id: int, tasks: list[dict]) -> None:
+        self.configure_request(ctx)
+        self.context.save_task_list(story_id, tasks)
+
+    def get_task_board(self, ctx: RequestContext) -> list[dict]:
+        self.configure_request(ctx)
+        index = self.context.story_index()
+        all_lists = self.context.load_all_task_lists()
+        stories = []
+        for story_id, tasks in all_lists.items():
+            entry = index.get(str(story_id)) or {}
+            stories.append({
+                "story_id": story_id,
+                "title": entry.get("title", f"Story {story_id}"),
+                "epic_title": entry.get("epic_title", ""),
+                "phase_status": entry.get("phase_status", ""),
+                "tasks": [
+                    {
+                        "id": t.get("id"),
+                        "subject": t.get("subject", ""),
+                        "effort_estimate": t.get("effort_estimate", ""),
+                        "has_proposal": self.context.proposal_exists(story_id, t.get("id", -1)),
+                    }
+                    for t in tasks
+                ],
+            })
+        return sorted(stories, key=lambda s: s["story_id"])
 
     def lock_story(self, ctx: RequestContext, story_id: int, task_ids: list[int]) -> None:
         self.configure_request(ctx)
