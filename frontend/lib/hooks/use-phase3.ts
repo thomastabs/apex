@@ -6,13 +6,10 @@ import {
   generateTasks,
   getEligibleStories,
   getStoryContext,
-  getTaskBoard,
-  getTaskList,
   lockStory,
   saveProposal,
-  saveTaskList,
 } from "@/lib/api/phase3";
-import { taigaCreateTask } from "@/lib/api/taiga-direct";
+import { taigaCreateTask, taigaGetProjectTasks, taigaGetStoryTasks } from "@/lib/api/taiga-direct";
 import type {
   EffortEstimate,
   Phase3GenerateProposalRequest,
@@ -64,7 +61,6 @@ export function useGenerateTasks() {
 
 export function usePushTasksToTaiga() {
   const context = useApiContext();
-  const queryClient = useQueryClient();
   const { taskList, setTaigaTaskResult, setTasksPushed } = usePhase3Store();
 
   return useMutation({
@@ -94,17 +90,11 @@ export function usePushTasksToTaiga() {
       }
       return { results, failures };
     },
-    onSuccess: ({ results, failures }, storyId) => {
+    onSuccess: ({ results, failures }) => {
       for (const { taskIndex, id, ref } of results) {
         setTaigaTaskResult(taskIndex, id, ref);
       }
       setTasksPushed(true);
-      // Persist task list to backend so Task Board reflects pushed tasks
-      if (context && taskList.length > 0) {
-        void saveTaskList(context, storyId, taskList).then(() => {
-          void queryClient.invalidateQueries({ queryKey: ["phase3", "task-board"] });
-        });
-      }
       if (failures.length > 0) {
         const names = failures.map((f) => f.subject).join(", ");
         toast.warning(`${results.length} tasks pushed; ${failures.length} failed: ${names}`);
@@ -173,40 +163,55 @@ export function useUpdateTaskList() {
   return { addTask, removeTask, updateTask, reorderTasks };
 }
 
-export function useLoadTaskList(storyId: number | null) {
+export function useTaigaStoryTasks(storyId: number) {
   const context = useApiContext();
   const { setTaskList, taskList } = usePhase3Store();
   return useQuery({
-    queryKey: ["phase3", "task-list", context?.projectId, storyId],
+    queryKey: ["taiga", "story-tasks", context?.projectId, storyId],
     queryFn: async () => {
-      const data = await getTaskList(context!, storyId!);
-      if (data.tasks.length > 0 && taskList.length === 0) setTaskList(data.tasks);
-      return data.tasks;
+      const tasks = await taigaGetStoryTasks(
+        context!.taigaToken,
+        context!.projectId,
+        storyId,
+        context!.taigaApiUrl,
+      );
+      // Hydrate store if empty (coming back to a pushed story after a switch)
+      if (tasks.length > 0 && taskList.length === 0) {
+        setTaskList(tasks.map((t, i) => ({
+          id: i + 1,
+          subject: t.subject,
+          description: t.description,
+          effort_estimate: "M" as const,
+          covered_scenarios: [],
+          predecessor_task_ids: [],
+        })));
+      }
+      return tasks;
     },
-    enabled: Boolean(context) && storyId !== null,
-    staleTime: Infinity,
+    enabled: Boolean(context) && storyId > 0,
+    staleTime: 30_000,
   });
 }
 
-export function useSaveTaskList() {
-  const context = useApiContext();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ storyId, tasks }: { storyId: number; tasks: Phase3Task[] }) =>
-      saveTaskList(context!, storyId, tasks),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["phase3", "task-board"] });
-    },
-  });
-}
-
-export function useTaskBoard() {
+export function useTaigaTaskBoard() {
   const context = useApiContext();
   return useQuery({
-    queryKey: ["phase3", "task-board", context?.projectId],
+    queryKey: ["taiga", "project-tasks", context?.projectId],
     queryFn: async () => {
-      const data = await getTaskBoard(context!);
-      return data.stories;
+      const tasks = await taigaGetProjectTasks(
+        context!.taigaToken,
+        context!.projectId,
+        context!.taigaApiUrl,
+      );
+      const grouped = new Map<number, typeof tasks>();
+      for (const t of tasks) {
+        if (!grouped.has(t.user_story)) grouped.set(t.user_story, []);
+        grouped.get(t.user_story)!.push(t);
+      }
+      return Array.from(grouped.entries()).map(([story_id, storyTasks]) => ({
+        story_id,
+        tasks: storyTasks,
+      }));
     },
     enabled: Boolean(context),
     staleTime: 60_000,

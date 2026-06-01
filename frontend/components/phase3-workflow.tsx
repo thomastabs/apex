@@ -20,13 +20,12 @@ import {
   useEligibleStories,
   useGenerateProposal,
   useGenerateTasks,
-  useLoadTaskList,
   useLockStory,
   usePushTasksToTaiga,
   useSaveProposal,
-  useSaveTaskList,
   useStoryContext,
-  useTaskBoard,
+  useTaigaStoryTasks,
+  useTaigaTaskBoard,
   useUpdateTaskList,
 } from "@/lib/hooks/use-phase3";
 import { usePhase3Store } from "@/lib/stores/phase3-store";
@@ -148,8 +147,8 @@ function cleanGherkinPreview(raw: string): string[] {
 function StageA({ onSelect }: { onSelect: (id: number) => void }) {
   const dark = useUiStore((s) => s.theme) === "dark";
   const { data, isLoading, error } = useEligibleStories();
-  const { data: taskBoardStories = [] } = useTaskBoard();
-  const taskCountByStory = new Map(taskBoardStories.map((s) => [s.story_id, s.tasks.length]));
+  const { data: taigaBoard = [] } = useTaigaTaskBoard();
+  const taskCountByStory = new Map(taigaBoard.map((s) => [s.story_id, s.tasks.length]));
   const [activeEpic, setActiveEpic] = useState<string | null>(null);
   const [page, setPage] = useState(0);
 
@@ -344,23 +343,12 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const { data: ctx, isLoading: ctxLoading } = useStoryContext(storyId);
   const { taskList, tasksPushed, packDrafts, setCurrentStoryMeta } = usePhase3Store();
   const { addTask, removeTask, updateTask } = useUpdateTaskList();
-  const saveTaskListMut = useSaveTaskList();
-  useLoadTaskList(storyId);
+  useTaigaStoryTasks(storyId);
 
   useEffect(() => {
     if (ctx) setCurrentStoryMeta(ctx.title, ctx.epic_title);
   }, [ctx, setCurrentStoryMeta]);
 
-  const mountedRef = useRef(false);
-  useEffect(() => { mountedRef.current = true; }, []);
-  useEffect(() => {
-    if (!mountedRef.current || taskList.length === 0) return;
-    const timer = setTimeout(() => {
-      saveTaskListMut.mutate({ storyId, tasks: taskList });
-    }, 800);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [taskList, storyId]);
   const generateTasksMut = useGenerateTasks();
   const pushToTaiga = usePushTasksToTaiga();
 
