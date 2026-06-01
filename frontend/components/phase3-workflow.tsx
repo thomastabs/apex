@@ -26,6 +26,7 @@ import {
   useSaveProposal,
   useSaveTaskList,
   useStoryContext,
+  useTaskBoard,
   useUpdateTaskList,
 } from "@/lib/hooks/use-phase3";
 import { usePhase3Store } from "@/lib/stores/phase3-store";
@@ -147,6 +148,8 @@ function cleanGherkinPreview(raw: string): string[] {
 function StageA({ onSelect }: { onSelect: (id: number) => void }) {
   const dark = useUiStore((s) => s.theme) === "dark";
   const { data, isLoading, error } = useEligibleStories();
+  const { data: taskBoardStories = [] } = useTaskBoard();
+  const taskCountByStory = new Map(taskBoardStories.map((s) => [s.story_id, s.tasks.length]));
   const [activeEpic, setActiveEpic] = useState<string | null>(null);
   const [page, setPage] = useState(0);
 
@@ -271,7 +274,22 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                         </div>
                       ) : null;
                     })()}
-                    <div className="mt-auto flex items-center justify-end pt-4">
+                    <div className="mt-auto flex items-center justify-between pt-4">
+                      {(() => {
+                        const count = taskCountByStory.get(story.story_id) ?? 0;
+                        return count > 0 ? (
+                          <span className={cn(
+                            "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold",
+                            dark ? "bg-violet-900/40 text-violet-300" : "bg-violet-100 text-violet-700",
+                          )}>
+                            {count} task{count > 1 ? "s" : ""}
+                          </span>
+                        ) : (
+                          <span className={cn("text-[10px]", dark ? "text-neutral-700" : "text-slate-300")}>
+                            No tasks yet
+                          </span>
+                        );
+                      })()}
                       <span className={cn(
                         "flex items-center gap-1 text-[11px] font-medium transition",
                         dark ? "text-neutral-600 group-hover:text-violet-400" : "text-slate-400 group-hover:text-violet-600",
