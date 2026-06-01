@@ -358,6 +358,24 @@ export async function taigaCreateStory(
   return normalizeStory(raw);
 }
 
+export async function taigaGetProjectTasks(
+  token: string,
+  projectId: number,
+  apiBaseUrl?: string,
+): Promise<Array<{ id: number; ref: number; subject: string; user_story: number }>> {
+  const raw = await taigaFetch<Array<Record<string, unknown>>>(
+    `/tasks?project=${projectId}`,
+    token,
+    apiBaseUrl,
+  );
+  return (raw ?? []).map((t) => ({
+    id: t.id as number,
+    ref: t.ref as number,
+    subject: t.subject as string,
+    user_story: t.user_story as number,
+  }));
+}
+
 export async function taigaCreateTask(
   token: string,
   projectId: number,

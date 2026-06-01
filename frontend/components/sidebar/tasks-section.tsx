@@ -1,9 +1,12 @@
 "use client";
 import { useMemo, useState } from "react";
 import { CheckCircle2, ClipboardList } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useTaskBoard } from "@/lib/hooks/use-phase3";
 import { usePhase3Store } from "@/lib/stores/phase3-store";
+import { useApiContext } from "@/lib/stores/session-store";
+import { taigaGetProjectTasks } from "@/lib/api/taiga-direct";
 import type { TaskBoardStory } from "@/lib/api/types";
 import { PanelHeader, type DragSectionProps } from "./shared";
 
@@ -21,13 +24,42 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
   const [open, setOpen] = useState(false);
   const { data: backendStories = [], isLoading } = useTaskBoard();
   const { selectedStoryId, taskList, currentStoryMeta } = usePhase3Store();
+  const context = useApiContext();
 
-  // Merge backend data with current in-session story (Zustand store fallback)
+  // Taiga fallback — fetch all project tasks to surface stories not yet in JSON
+  const { data: taigaTasks = [] } = useQuery({
+    queryKey: ["taiga", "project-tasks", context?.projectId],
+    queryFn: () => taigaGetProjectTasks(context!.taigaToken, context!.projectId, context!.taigaApiUrl),
+    enabled: Boolean(context) && open,
+    staleTime: 60_000,
+  });
+
   const stories = useMemo<TaskBoardStory[]>(() => {
-    const merged = [...backendStories];
+    const merged: TaskBoardStory[] = [...backendStories];
+    const jsonStoryIds = new Set(merged.map((s) => s.story_id));
+
+    // Add stories from Taiga that have no JSON file yet
+    const taigaByStory = new Map<number, typeof taigaTasks>();
+    for (const t of taigaTasks) {
+      if (!jsonStoryIds.has(t.user_story)) {
+        if (!taigaByStory.has(t.user_story)) taigaByStory.set(t.user_story, []);
+        taigaByStory.get(t.user_story)!.push(t);
+      }
+    }
+    for (const [storyId, tasks] of taigaByStory) {
+      merged.push({
+        story_id: storyId,
+        title: storyId === selectedStoryId ? currentStoryMeta.title : `Story #${storyId}`,
+        epic_title: "",
+        phase_status: "",
+        tasks: tasks.map((t) => ({ id: t.id, subject: t.subject, effort_estimate: "", has_proposal: false })),
+      });
+    }
+
+    // Add current in-session story if not in either source
     if (selectedStoryId !== null && taskList.length > 0) {
-      const alreadyInBoard = merged.some((s) => s.story_id === selectedStoryId);
-      if (!alreadyInBoard) {
+      const alreadyPresent = merged.some((s) => s.story_id === selectedStoryId);
+      if (!alreadyPresent) {
         merged.unshift({
           story_id: selectedStoryId,
           title: currentStoryMeta.title || `Story #${selectedStoryId}`,
@@ -42,8 +74,9 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
         });
       }
     }
-    return merged;
-  }, [backendStories, selectedStoryId, taskList, currentStoryMeta]);
+
+    return merged.sort((a, b) => a.story_id - b.story_id);
+  }, [backendStories, taigaTasks, selectedStoryId, taskList, currentStoryMeta]);
 
   const totalTasks = stories.reduce((sum, s) => sum + s.tasks.length, 0);
 
