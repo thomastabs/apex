@@ -23,6 +23,7 @@ import {
   taigaCreateTask,
   taigaDeleteTask,
   taigaGetProjectTasks,
+  taigaGetTask,
   taigaUpdateTask,
   type TaigaTask,
 } from "@/lib/api/taiga-direct";
@@ -119,6 +120,12 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+
+  const loadForEditMut = useMutation({
+    mutationFn: (taskId: number) => taigaGetTask(context!.taigaToken, taskId, context!.taigaApiUrl),
+    onSuccess: (task) => setEditingTask({ id: task.id, subject: task.subject, description: task.description, version: task.version }),
+    onError: () => toast.error("Failed to load task."),
+  });
 
   const updateMut = useMutation({
     mutationFn: (v: { id: number; version: number; subject: string; description: string }) =>
@@ -351,10 +358,11 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
                                   {canEdit && (
                                     <>
                                       <button
-                                        onClick={() => setEditingTask({ id: task.id, subject: task.subject, description: task.description, version: task.version })}
-                                        className={cn("shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors", dark ? "text-neutral-500 hover:text-neutral-200" : "text-slate-400 hover:text-slate-700")}
+                                        onClick={() => loadForEditMut.mutate(task.id)}
+                                        disabled={loadForEditMut.isPending}
+                                        className={cn("shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors disabled:opacity-40", dark ? "text-neutral-500 hover:text-neutral-200" : "text-slate-400 hover:text-slate-700")}
                                       >
-                                        Edit
+                                        {loadForEditMut.isPending && loadForEditMut.variables === task.id ? "…" : "Edit"}
                                       </button>
                                       <button
                                         onClick={() => setPendingDelete({ id: task.id, ref: task.ref, subject: task.subject })}

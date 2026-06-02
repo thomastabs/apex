@@ -99,12 +99,13 @@ export function usePushTasksToTaiga() {
         setTaigaTaskResult(taskIndex, id, ref);
       }
       setTasksPushed(true);
-      // Persist task list to backend so Task Board reflects pushed tasks
+      // Persist task list + refresh both board queries
       if (context && taskList.length > 0) {
         void saveTaskList(context, storyId, taskList).then(() => {
           void queryClient.invalidateQueries({ queryKey: ["phase3", "task-board"] });
         });
       }
+      void queryClient.invalidateQueries({ queryKey: ["taiga", "project-tasks"] });
       if (failures.length > 0) {
         const names = failures.map((f) => f.subject).join(", ");
         toast.warning(`${results.length} tasks pushed; ${failures.length} failed: ${names}`);

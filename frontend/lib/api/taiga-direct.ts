@@ -394,6 +394,25 @@ export async function taigaGetProjectTasks(
   });
 }
 
+export async function taigaGetTask(
+  token: string,
+  taskId: number,
+  apiBaseUrl?: string,
+): Promise<TaigaTask> {
+  const raw = await taigaFetch<Record<string, unknown>>(`/tasks/${taskId}`, token, apiBaseUrl);
+  const usInfo = raw.user_story_extra_info as Record<string, unknown> | null;
+  return {
+    id: raw.id as number,
+    ref: raw.ref as number,
+    subject: raw.subject as string,
+    description: (raw.description as string) ?? "",
+    version: (raw.version as number) ?? 1,
+    user_story: raw.user_story as number,
+    user_story_ref: (usInfo?.ref as number) ?? (raw.user_story as number),
+    user_story_subject: (usInfo?.subject as string) ?? "",
+  };
+}
+
 export async function taigaUpdateTask(
   token: string,
   taskId: number,
