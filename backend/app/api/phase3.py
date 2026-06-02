@@ -13,6 +13,7 @@ from backend.app.schemas.phase3 import (
     GenerateTasksRequest,
     GenerateTasksResponse,
     LockStoryRequest,
+    ProposalsResponse,
     SaveProposalRequest,
     StoryContextResponse,
     TaskBoardResponse,
@@ -110,6 +111,19 @@ def save_proposal(
     try:
         service.save_proposal(ctx, payload.story_id, payload.task_id, payload.proposal_md)
         return {"ok": True}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.get("/proposals/{story_id}", response_model=ProposalsResponse)
+def get_proposals(
+    story_id: int,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase3Service = Depends(get_phase3_service),
+):
+    try:
+        proposals = service.get_proposals(ctx, story_id)
+        return {"story_id": story_id, "proposals": proposals}
     except Exception as exc:
         _handle_error(exc)
 

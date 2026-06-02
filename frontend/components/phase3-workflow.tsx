@@ -20,6 +20,7 @@ import {
   useEligibleStories,
   useGenerateProposal,
   useGenerateTasks,
+  useLoadProposals,
   useLoadTaskList,
   useLockStory,
   usePushTasksToTaiga,
@@ -345,7 +346,6 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const { taskList, tasksPushed, packDrafts, setCurrentStoryMeta } = usePhase3Store();
   const { addTask, removeTask, updateTask } = useUpdateTaskList();
   const saveTaskListMut = useSaveTaskList();
-  useLoadTaskList(storyId);
 
   useEffect(() => {
     if (ctx) setCurrentStoryMeta(ctx.title, ctx.epic_title);
@@ -1106,14 +1106,17 @@ const STAGE_LABELS: Record<Stage, string> = {
 export function Phase3Workflow() {
   const dark = useUiStore((s) => s.theme) === "dark";
   const context = useApiContext();
-  const { selectedStoryId, setSelectedStoryId, clearPhase3Draft } = usePhase3Store();
+  const { selectedStoryId, setSelectedStoryId } = usePhase3Store();
   const [stage, setStage] = useState<Stage>(selectedStoryId !== null ? "B" : "A");
   const [diagramOpen, setDiagramOpen] = useState(false);
+
+  // Hoist load hooks so they fire regardless of active stage (e.g. stepper jump)
+  useLoadTaskList(selectedStoryId);
+  useLoadProposals(selectedStoryId);
 
   const mutedClass = dark ? "text-neutral-500" : "text-slate-400";
 
   const handleSelectStory = (id: number) => {
-    if (id !== selectedStoryId) clearPhase3Draft();
     setSelectedStoryId(id);
     setStage("B");
   };

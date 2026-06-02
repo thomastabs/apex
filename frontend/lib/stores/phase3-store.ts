@@ -13,11 +13,14 @@ type Phase3State = {
   packDrafts: Record<number, string>;     // taskId → markdown string
   lockedTaskIds: number[];
   currentStoryMeta: { title: string; epicTitle: string };
+  pushedStoryIds: number[];               // persisted across story switches
   setSelectedStoryId: (id: number | null) => void;
   setTaskList: (tasks: Phase3Task[]) => void;
+  hydrateTasks: (tasks: Phase3Task[]) => void;
   setTaigaTaskResult: (taskIndex: number, id: number, ref: number) => void;
   setTasksPushed: (pushed: boolean) => void;
   setPackDraft: (taskId: number, md: string) => void;
+  setPackDrafts: (drafts: Record<number, string>) => void;
   setLockedTaskIds: (ids: number[]) => void;
   setCurrentStoryMeta: (title: string, epicTitle: string) => void;
   clearPhase3Draft: () => void;
@@ -34,34 +37,47 @@ export const usePhase3Store = create<Phase3State>()(
       packDrafts: {},
       lockedTaskIds: [],
       currentStoryMeta: { title: "", epicTitle: "" },
+      pushedStoryIds: [],
       setSelectedStoryId: (id) =>
         set((state) => {
-          // Only reset task data when switching to a different story
-          if (id === state.selectedStoryId) return { selectedStoryId: id };
+          if (id === state.selectedStoryId) return {};
           return {
             selectedStoryId: id,
             taskList: [],
             taigaTaskIds: {},
             taigaTaskRefs: {},
-            tasksPushed: false,
+            tasksPushed: id !== null && state.pushedStoryIds.includes(id),
             packDrafts: {},
             lockedTaskIds: [],
             currentStoryMeta: { title: "", epicTitle: "" },
           };
         }),
+      // Used when generating new tasks — resets push state
       setTaskList: (taskList) => set({ taskList, taigaTaskIds: {}, taigaTaskRefs: {}, tasksPushed: false }),
+      // Used when restoring from backend — preserves tasksPushed
+      hydrateTasks: (tasks) =>
+        set((state) => (state.taskList.length === 0 ? { taskList: tasks } : {})),
       setTaigaTaskResult: (taskIndex, id, ref) =>
         set((s) => ({
           taigaTaskIds: { ...s.taigaTaskIds, [taskIndex]: id },
           taigaTaskRefs: { ...s.taigaTaskRefs, [taskIndex]: ref },
         })),
-      setTasksPushed: (tasksPushed) => set({ tasksPushed }),
+      setTasksPushed: (tasksPushed) =>
+        set((s) => {
+          if (!tasksPushed || s.selectedStoryId === null) return { tasksPushed };
+          const already = s.pushedStoryIds.includes(s.selectedStoryId);
+          return {
+            tasksPushed,
+            pushedStoryIds: already ? s.pushedStoryIds : [...s.pushedStoryIds, s.selectedStoryId],
+          };
+        }),
       setPackDraft: (taskId, md) =>
         set((s) => ({ packDrafts: { ...s.packDrafts, [taskId]: md } })),
+      setPackDrafts: (drafts) => set({ packDrafts: drafts }),
       setLockedTaskIds: (lockedTaskIds) => set({ lockedTaskIds }),
       setCurrentStoryMeta: (title, epicTitle) => set({ currentStoryMeta: { title, epicTitle } }),
       clearPhase3Draft: () =>
-        set({
+        set((s) => ({
           selectedStoryId: null,
           taskList: [],
           taigaTaskIds: {},
@@ -70,7 +86,11 @@ export const usePhase3Store = create<Phase3State>()(
           packDrafts: {},
           lockedTaskIds: [],
           currentStoryMeta: { title: "", epicTitle: "" },
-        }),
+          // Remove locked story from pushedStoryIds
+          pushedStoryIds: s.selectedStoryId !== null
+            ? s.pushedStoryIds.filter((id) => id !== s.selectedStoryId)
+            : s.pushedStoryIds,
+        })),
     }),
     {
       name: "apex-phase3-draft",
@@ -80,6 +100,7 @@ export const usePhase3Store = create<Phase3State>()(
         packDrafts: state.packDrafts,
         tasksPushed: state.tasksPushed,
         currentStoryMeta: state.currentStoryMeta,
+        pushedStoryIds: state.pushedStoryIds,
       }),
     },
   ),

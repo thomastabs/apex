@@ -94,3 +94,13 @@ class TaskBoardStory(BaseModel):
 
 class TaskBoardResponse(BaseModel):
     stories: list[TaskBoardStory]
+
+
+class ProposalItem(BaseModel):
+    task_id: int
+    proposal_md: str
+
+
+class ProposalsResponse(BaseModel):
+    story_id: int
+    proposals: list[ProposalItem]

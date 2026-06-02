@@ -81,6 +81,9 @@ class ContextService:
     def proposal_exists(self, story_id: int, task_id: int) -> bool:
         return context_manager.proposal_exists(story_id, task_id)
 
+    def load_proposals(self, story_id: int) -> list[dict]:
+        return context_manager.load_proposals(story_id)
+
     def save_task_list(self, story_id: int, tasks: list[dict]) -> None:
         context_manager.save_task_list(story_id, tasks)
 

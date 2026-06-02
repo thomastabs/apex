@@ -892,6 +892,24 @@ def proposal_exists(story_id: int, task_id: int) -> bool:
     return (_context_dir() / f"proposal_story_{story_id}_task_{task_id}.md").exists()
 
 
+def load_proposals(story_id: int) -> list[dict]:
+    """Return all saved proposals for a story as [{"task_id": int, "proposal_md": str}]."""
+    cd = _context_dir()
+    prefix = f"proposal_story_{story_id}_task_"
+    results = []
+    for p in sorted(cd.glob(f"{prefix}*.md")):
+        stem = p.stem  # proposal_story_N_task_M
+        try:
+            task_id = int(stem[len(prefix):])
+        except ValueError:
+            continue
+        try:
+            results.append({"task_id": task_id, "proposal_md": p.read_text(encoding="utf-8")})
+        except OSError:
+            continue
+    return results
+
+
 def save_task_list(story_id: int, tasks: list[dict]) -> None:
     """Persist a story's task list to contextspec/task-list-{story_id}.json."""
     cd = _context_dir()

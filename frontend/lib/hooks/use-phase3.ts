@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   generateProposal,
   generateTasks,
   getEligibleStories,
+  getProposals,
   getStoryContext,
   getTaskBoard,
   getTaskList,
@@ -176,17 +178,45 @@ export function useUpdateTaskList() {
 
 export function useLoadTaskList(storyId: number | null) {
   const context = useApiContext();
-  const { setTaskList, taskList } = usePhase3Store();
-  return useQuery({
+  const { hydrateTasks } = usePhase3Store();
+  const query = useQuery({
     queryKey: ["phase3", "task-list", context?.projectId, storyId],
-    queryFn: async () => {
-      const data = await getTaskList(context!, storyId!);
-      if (data.tasks.length > 0 && taskList.length === 0) setTaskList(data.tasks);
-      return data.tasks;
-    },
+    queryFn: () => getTaskList(context!, storyId!),
     enabled: Boolean(context) && storyId !== null,
-    staleTime: Infinity,
+    staleTime: 0,
   });
+  useEffect(() => {
+    if (query.data?.tasks && query.data.tasks.length > 0) {
+      hydrateTasks(query.data.tasks);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query.data]);
+  return query;
+}
+
+export function useLoadProposals(storyId: number | null) {
+  const context = useApiContext();
+  const { setPackDrafts, setTasksPushed, packDrafts } = usePhase3Store();
+  const query = useQuery({
+    queryKey: ["phase3", "proposals", context?.projectId, storyId],
+    queryFn: () => getProposals(context!, storyId!),
+    enabled: Boolean(context) && storyId !== null,
+    staleTime: 0,
+  });
+  useEffect(() => {
+    if (!query.data?.proposals?.length) return;
+    const hasAny = Object.keys(packDrafts).length > 0;
+    if (hasAny) return;
+    const restored: Record<number, string> = {};
+    for (const { task_id, proposal_md } of query.data.proposals) {
+      restored[task_id] = proposal_md;
+    }
+    setPackDrafts(restored);
+    // proposals exist → tasks were definitely pushed to Taiga
+    setTasksPushed(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query.data]);
+  return query;
 }
 
 export function useSaveTaskList() {

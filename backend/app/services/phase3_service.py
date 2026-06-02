@@ -132,6 +132,10 @@ class Phase3Service:
         self.configure_request(ctx)
         self.context.save_task_list(story_id, tasks)
 
+    def get_proposals(self, ctx: RequestContext, story_id: int) -> list[dict]:
+        self.configure_request(ctx)
+        return self.context.load_proposals(story_id)
+
     def get_task_board(self, ctx: RequestContext) -> list[dict]:
         self.configure_request(ctx)
         index = self.context.story_index()
