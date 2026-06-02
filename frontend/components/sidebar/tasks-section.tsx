@@ -94,6 +94,82 @@ function DeleteTaskDialog({
   );
 }
 
+function TaskEditDialog({
+  task,
+  dark,
+  onSave,
+  onClose,
+  isPending,
+}: {
+  task: { id: number; ref?: number; subject: string; description: string; version: number };
+  dark: boolean;
+  onSave: (subject: string, description: string) => void;
+  onClose: () => void;
+  isPending: boolean;
+}) {
+  const [subject, setSubject] = useState(task.subject);
+  const [description, setDescription] = useState(task.description);
+
+  const inputClass = cn(
+    "w-full rounded border px-3 text-sm outline-none focus:border-violet-500",
+    dark
+      ? "border-neutral-700 bg-neutral-950 text-white placeholder:text-neutral-500"
+      : "border-slate-300 bg-white text-slate-950 placeholder:text-slate-400",
+  );
+
+  return (
+    <div
+      className={cn("fixed inset-0 z-50 grid place-items-center p-4", dark ? "bg-black/75" : "bg-slate-950/35 backdrop-blur-sm")}
+      onClick={onClose}
+    >
+      <div
+        className={cn("w-full max-w-2xl rounded-xl border p-6 shadow-2xl", dark ? "border-neutral-700 bg-neutral-900" : "border-slate-300 bg-white")}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>
+          {task.ref ? `Task #${task.ref}` : "Edit Task"}
+        </h3>
+        <div className="space-y-3">
+          <div>
+            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Subject</label>
+            <input
+              className={cn("h-9", inputClass)}
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Task subject"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Description</label>
+            <textarea
+              className={cn("h-48 resize-none py-2", inputClass)}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe this task…"
+            />
+          </div>
+        </div>
+        <div className="mt-5 flex gap-3">
+          <button
+            className="flex-1 rounded bg-violet-700 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-600 disabled:opacity-50"
+            disabled={isPending || !subject.trim()}
+            onClick={() => onSave(subject.trim(), description)}
+          >
+            {isPending ? "Saving…" : "Save"}
+          </button>
+          <button
+            className={cn("flex-1 rounded py-2 text-sm transition-colors", dark ? "bg-neutral-800 text-neutral-300 hover:bg-neutral-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200")}
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: TasksSectionProps) {
   const darkTheme = useUiStore((s) => s.theme) === "dark";
   const [open, setOpen] = useState(false);
@@ -231,6 +307,19 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
         document.body,
       ) : null}
 
+      {typeof document !== "undefined" && editingTask ? createPortal(
+        <TaskEditDialog
+          task={editingTask}
+          dark={darkTheme}
+          onSave={(subject, description) =>
+            updateMut.mutate({ id: editingTask.id, version: editingTask.version, subject, description })
+          }
+          onClose={() => setEditingTask(null)}
+          isPending={updateMut.isPending}
+        />,
+        document.body,
+      ) : null}
+
       <section className={cn("border-b", sectionBorderClass)}>
         <PanelHeader
           icon={<ClipboardList className="size-4" />}
@@ -312,37 +401,12 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
                   {isExpanded && (
                     <div className="pb-2">
                       {group.tasks.map((task) => {
-                        const isEditing = editingTask?.id === task.id;
                         const effort = effortByStoryTask.get(`${group.story_id}:${task.subject}`);
                         const canEdit = task.id > 0;
                         return (
                           <div key={task.id} className={cn("mx-2 mb-1 rounded-lg border",
                             dark ? "border-neutral-800 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
-                            {isEditing ? (
-                              <div className="space-y-1.5 p-2">
-                                <input autoFocus className={inputClass} value={editingTask.subject}
-                                  onChange={(e) => setEditingTask({ ...editingTask, subject: e.target.value })}
-                                  placeholder="Task subject" />
-                                <textarea className={cn(inputClass, "resize-y")} rows={3} value={editingTask.description}
-                                  onChange={(e) => setEditingTask({ ...editingTask, description: e.target.value })}
-                                  placeholder="Description (optional)" />
-                                <div className="flex gap-1">
-                                  <button
-                                    onClick={() => updateMut.mutate({ id: editingTask.id, version: editingTask.version, subject: editingTask.subject, description: editingTask.description })}
-                                    disabled={updateMut.isPending}
-                                    className="flex items-center gap-1 rounded bg-violet-600 px-2 py-1 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
-                                  >
-                                    {updateMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />} Save
-                                  </button>
-                                  <button onClick={() => setEditingTask(null)}
-                                    className={cn("rounded px-2 py-1 text-xs", dark ? "text-neutral-400 hover:text-neutral-200" : "text-slate-500")}>
-                                    <X className="h-3 w-3" />
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <>
-                                <div className="flex items-center gap-1.5 px-2.5 py-2">
+                            <div className="flex items-center gap-1.5 px-2.5 py-2">
                                   {task.ref > 0 && (
                                     <span className={cn("shrink-0 font-mono text-xs", subduedTextClass)}>#{task.ref}</span>
                                   )}
@@ -373,9 +437,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
                                       </button>
                                     </>
                                   )}
-                                </div>
-                              </>
-                            )}
+                            </div>
                           </div>
                         );
                       })}
