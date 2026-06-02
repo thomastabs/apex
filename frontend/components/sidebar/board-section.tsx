@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronRight, Info, Layers3, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Info, Layers3, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   useBoard,
@@ -391,15 +391,14 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
           actions={
             <button
               onClick={(e) => { e.stopPropagation(); setFilterOpen((v) => !v); if (filterOpen) setFilter(""); }}
-              title="Filter"
               className={cn(
-                "grid h-7 w-7 place-items-center rounded transition-colors",
+                "rounded px-2 py-1 text-xs font-medium transition-colors",
                 filterOpen || filter
                   ? "bg-violet-500/20 text-violet-400"
                   : dark ? "text-neutral-600 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600",
               )}
             >
-              <Search className="h-3.5 w-3.5" />
+              Filter
             </button>
           }
         />
@@ -407,11 +406,10 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
           <div className={cn("space-y-3 p-3 text-sm", expandedPanelClass)}>
             {filterOpen && (
               <div className="relative">
-                <Search className={cn("absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3", subduedTextClass)} />
                 <input
                   autoFocus
                   className={cn(
-                    "w-full rounded border py-1 pl-7 pr-7 text-xs outline-none focus:border-violet-500",
+                    "w-full rounded border py-1 pl-2 pr-7 text-xs outline-none focus:border-violet-500",
                     dark ? "border-neutral-700 bg-neutral-900 text-white placeholder:text-neutral-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400",
                   )}
                   placeholder="Filter epics & stories…"

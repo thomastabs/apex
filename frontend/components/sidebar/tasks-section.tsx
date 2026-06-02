@@ -8,9 +8,7 @@ import {
   ChevronRight,
   ClipboardList,
   Loader2,
-  Pencil,
   Plus,
-  Search,
   Trash2,
   X,
 } from "lucide-react";
@@ -202,15 +200,14 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
   const filterBtn = (
     <button
       onClick={(e) => { e.stopPropagation(); setFilterOpen((v) => !v); if (filterOpen) setFilter(""); }}
-      title="Filter"
       className={cn(
-        "grid h-7 w-7 place-items-center rounded transition-colors",
+        "rounded px-2 py-1 text-xs font-medium transition-colors",
         filterOpen || filter
           ? "bg-violet-500/20 text-violet-400"
           : dark ? "text-neutral-600 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600",
       )}
     >
-      <Search className="h-3.5 w-3.5" />
+      Filter
     </button>
   );
 
@@ -243,10 +240,9 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
             {/* Filter input */}
             {filterOpen && (
               <div className="relative px-3 pb-2 pt-1">
-                <Search className={cn("absolute left-5 top-1/2 -translate-y-1/2 h-3 w-3", subduedTextClass)} />
                 <input
                   autoFocus
-                  className={cn(inputClass, "pl-6")}
+                  className={inputClass}
                   placeholder="Filter stories or tasks…"
                   value={filter}
                   onChange={(e) => setFilter(e.target.value)}
@@ -356,10 +352,9 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
                                     <>
                                       <button
                                         onClick={() => setEditingTask({ id: task.id, subject: task.subject, description: task.description, version: task.version })}
-                                        className={cn("shrink-0 rounded p-1 transition-colors", dark ? "text-neutral-600 hover:text-neutral-400" : "text-slate-400 hover:text-slate-600")}
-                                        title="Edit task"
+                                        className={cn("shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors", dark ? "text-neutral-500 hover:text-neutral-200" : "text-slate-400 hover:text-slate-700")}
                                       >
-                                        <Pencil className="h-3 w-3" />
+                                        Edit
                                       </button>
                                       <button
                                         onClick={() => setPendingDelete({ id: task.id, ref: task.ref, subject: task.subject })}
