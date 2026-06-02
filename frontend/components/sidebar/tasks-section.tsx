@@ -101,7 +101,6 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
   const [filterOpen, setFilterOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const [expandedStories, setExpandedStories] = useState<Set<number>>(new Set());
-  const [expandedTaskDesc, setExpandedTaskDesc] = useState<Set<number>>(new Set());
   const [editingTask, setEditingTask] = useState<{ id: number; subject: string; description: string; version: number } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{ id: number; ref: number; subject: string } | null>(null);
   const [addingToStory, setAddingToStory] = useState<number | null>(null);
@@ -191,8 +190,6 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
   const toggleStory = (id: number) =>
     setExpandedStories((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
-  const toggleTaskDesc = (id: number) =>
-    setExpandedTaskDesc((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   const sectionBorderClass = dark ? "border-neutral-800" : "border-slate-300";
   const expandedPanelClass = dark ? "bg-[#20232b]" : "bg-white";
@@ -313,7 +310,6 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
                     <div className="pb-2">
                       {group.tasks.map((task) => {
                         const isEditing = editingTask?.id === task.id;
-                        const isDescOpen = expandedTaskDesc.has(task.id);
                         const effort = effortByStoryTask.get(`${group.story_id}:${task.subject}`);
                         const canEdit = task.id > 0;
                         return (
@@ -359,12 +355,9 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
                                   {canEdit && (
                                     <>
                                       <button
-                                        onClick={() => { toggleTaskDesc(task.id); }}
-                                        className={cn("shrink-0 rounded p-1 transition-colors",
-                                          isDescOpen
-                                            ? "text-violet-400"
-                                            : dark ? "text-neutral-600 hover:text-neutral-400" : "text-slate-400 hover:text-slate-600")}
-                                        title="View/edit description"
+                                        onClick={() => setEditingTask({ id: task.id, subject: task.subject, description: task.description, version: task.version })}
+                                        className={cn("shrink-0 rounded p-1 transition-colors", dark ? "text-neutral-600 hover:text-neutral-400" : "text-slate-400 hover:text-slate-600")}
+                                        title="Edit task"
                                       >
                                         <Pencil className="h-3 w-3" />
                                       </button>
@@ -378,22 +371,6 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
                                     </>
                                   )}
                                 </div>
-                                {isDescOpen && canEdit && (
-                                  <div className={cn("border-t px-2.5 py-2 space-y-1.5", dark ? "border-neutral-800" : "border-slate-200")}>
-                                    <textarea
-                                      className={cn(inputClass, "resize-y text-sm")}
-                                      rows={3}
-                                      defaultValue={task.description}
-                                      placeholder="No description"
-                                    />
-                                    <button
-                                      onClick={() => setEditingTask({ id: task.id, subject: task.subject, description: task.description, version: task.version })}
-                                      className={cn("text-xs font-medium", dark ? "text-violet-400 hover:text-violet-300" : "text-violet-600 hover:text-violet-700")}
-                                    >
-                                      Edit subject too
-                                    </button>
-                                  </div>
-                                )}
                               </>
                             )}
                           </div>
