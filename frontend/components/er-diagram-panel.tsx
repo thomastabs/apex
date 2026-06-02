@@ -68,7 +68,7 @@ function EntityNode({ data }: { data: { label: string; fields: DiagramField[] } 
                 "text-slate-600 dark:text-neutral-300",
               )}
             >
-              {f.pk ? "🔑 " : f.fk ? "🔗 " : ""}{f.name}
+              {f.name}
             </span>
             <span className="text-slate-400 dark:text-neutral-500 shrink-0">{f.type}</span>
           </div>
