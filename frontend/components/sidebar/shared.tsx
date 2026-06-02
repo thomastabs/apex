@@ -15,7 +15,7 @@ export type DragSectionProps = {
 };
 
 export function PanelHeader({
-  icon, title, badge, open, onClick, onDragStart,
+  icon, title, badge, open, onClick, onDragStart, actions,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -23,6 +23,7 @@ export function PanelHeader({
   open: boolean;
   onClick: () => void;
   onDragStart?: (e: React.DragEvent) => void;
+  actions?: React.ReactNode;
 }) {
   const dark = useUiStore((state) => state.theme) === "dark";
   return (
@@ -62,6 +63,7 @@ export function PanelHeader({
           </span>
         ) : null}
       </button>
+      {actions ? <div className="shrink-0 pr-2">{actions}</div> : null}
     </div>
   );
 }

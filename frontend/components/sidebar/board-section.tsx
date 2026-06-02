@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronRight, Info, Layers3, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Info, Layers3, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   useBoard,
@@ -334,6 +334,8 @@ type BoardSectionProps = DragSectionProps & {
 
 export function BoardSection({ dark, projectId, confirm, shellClass, dragHandlers, onDragStart }: BoardSectionProps) {
   const [boardOpen, setBoardOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filter, setFilter] = useState("");
   const [expandedEpic, setExpandedEpic] = useState<number | null>(null);
   const [dialogEpic, setDialogEpic] = useState<Epic | null>(null);
   const [dialogStory, setDialogStory] = useState<Story | null>(null);
@@ -348,6 +350,17 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
   const storyStats = useStoryIndexStats();
 
   const epicCount = board.data?.length ?? 0;
+
+  const q = filter.toLowerCase().trim();
+  const filteredBoard = q
+    ? (board.data ?? [])
+        .map((epic) => {
+          const epicMatch = epic.subject.toLowerCase().includes(q) || `#${epic.ref}`.includes(q);
+          const filteredStories = epicMatch ? epic.stories : epic.stories.filter((s) => s.subject.toLowerCase().includes(q) || `#${s.ref}`.includes(q));
+          return filteredStories.length > 0 ? { ...epic, stories: filteredStories } : null;
+        })
+        .filter((e): e is NonNullable<typeof e> => e !== null)
+    : (board.data ?? []);
   const sectionBorderClass = dark ? "border-neutral-800" : "border-slate-300";
   const expandedPanelClass = dark ? "bg-[#20232b]" : "bg-white";
   const subduedTextClass = dark ? "text-neutral-500" : "text-slate-500";
@@ -375,9 +388,43 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
           open={boardOpen}
           onClick={() => setBoardOpen(!boardOpen)}
           onDragStart={onDragStart}
+          actions={
+            <button
+              onClick={(e) => { e.stopPropagation(); setFilterOpen((v) => !v); if (filterOpen) setFilter(""); }}
+              title="Filter"
+              className={cn(
+                "grid h-7 w-7 place-items-center rounded transition-colors",
+                filterOpen || filter
+                  ? "bg-violet-500/20 text-violet-400"
+                  : dark ? "text-neutral-600 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600",
+              )}
+            >
+              <Search className="h-3.5 w-3.5" />
+            </button>
+          }
         />
         {boardOpen ? (
           <div className={cn("space-y-3 p-3 text-sm", expandedPanelClass)}>
+            {filterOpen && (
+              <div className="relative">
+                <Search className={cn("absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3", subduedTextClass)} />
+                <input
+                  autoFocus
+                  className={cn(
+                    "w-full rounded border py-1 pl-7 pr-7 text-xs outline-none focus:border-violet-500",
+                    dark ? "border-neutral-700 bg-neutral-900 text-white placeholder:text-neutral-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400",
+                  )}
+                  placeholder="Filter epics & stories…"
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                />
+                {filter && (
+                  <button onClick={() => setFilter("")} className={cn("absolute right-2 top-1/2 -translate-y-1/2", subduedTextClass)}>
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            )}
             <div className={cn("flex items-center justify-between", subduedTextClass)}>
               <span>{epicCount} epic(s)</span>
               <div className="flex gap-2">
@@ -456,7 +503,10 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                 <Skeleton className="h-6 w-4/5" />
               </div>
             ) : null}
-            {!board.isLoading && board.data?.map((epic) => (
+            {!board.isLoading && q && filteredBoard.length === 0 && (
+              <div className={subduedTextClass}>No matches.</div>
+            )}
+            {!board.isLoading && filteredBoard.map((epic) => (
               <div key={epic.id}>
                 <div className="flex w-full items-center gap-1">
                   <button
@@ -515,6 +565,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
               </div>
             ))}
             {!board.isLoading && !board.data?.length ? <div className={subduedTextClass}>No epics yet.</div> : null}
+
           </div>
         ) : null}
       </section>
