@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { TaigaTask } from "@/lib/api/taiga-direct";
 import {
@@ -157,9 +157,29 @@ function cleanGherkinPreview(raw: string): string[] {
 
 function StageA({ onSelect }: { onSelect: (id: number) => void }) {
   const dark = useUiStore((s) => s.theme) === "dark";
+  const context = useApiContext();
+  const queryClient = useQueryClient();
   const { data, isLoading, error } = useEligibleStories();
   const { data: taskBoardStories = [] } = useTaskBoard();
-  const taskCountByStory = new Map(taskBoardStories.map((s) => [s.story_id, s.tasks.length]));
+  const jsonCountByStory = new Map(taskBoardStories.map((s) => [s.story_id, s.tasks.length]));
+
+  // Fall back to cached Taiga tasks when backend JSON has no data for a story
+  const taigaCountByStory = useMemo(() => {
+    const taigaTasks = queryClient.getQueryData<TaigaTask[]>(["taiga", "project-tasks", context?.projectId]) ?? [];
+    const map = new Map<number, number>();
+    for (const t of taigaTasks) {
+      map.set(t.user_story, (map.get(t.user_story) ?? 0) + 1);
+    }
+    return map;
+  }, [queryClient, context?.projectId]);
+
+  const taskCountByStory = new Map(
+    [...new Set([...jsonCountByStory.keys(), ...taigaCountByStory.keys()])].map((id) => [
+      id,
+      jsonCountByStory.get(id) ?? taigaCountByStory.get(id) ?? 0,
+    ]),
+  );
+
   const [activeEpic, setActiveEpic] = useState<string | null>(null);
   const [page, setPage] = useState(0);
 
