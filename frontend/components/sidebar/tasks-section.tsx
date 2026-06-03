@@ -21,6 +21,7 @@ import { usePhase3Store } from "@/lib/stores/phase3-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import {
+  isTaiga409,
   taigaCreateTask,
   taigaDeleteTask,
   taigaErrMsg,
@@ -131,7 +132,7 @@ function TaskEditDialog({
   const labelClass = cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600");
 
   const handleSave = () => {
-    const scenarios = scenariosText.split("\n").map((s) => s.trim()).filter(Boolean);
+    const scenarios = scenariosText.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
     const deps = depsText.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n));
     onSave(subject.trim(), description, effort, scenarios, deps);
   };
@@ -205,7 +206,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
   const [filter, setFilter] = useState("");
   const [expandedStories, setExpandedStories] = useState<Set<number>>(new Set());
   const [editingTask, setEditingTask] = useState<{
-    id: number; subject: string; description: string; rawDescription: string; version: number;
+    id: number; subject: string; description: string; version: number;
     storyId: number; effort_estimate: EffortEstimate; covered_scenarios: string[]; predecessor_task_ids: number[];
   } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{ id: number; ref: number; subject: string } | null>(null);
@@ -234,7 +235,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
       const decoded = decodeApexMeta(task.description);
       setEditingTask({
         id: task.id, subject: task.subject, description: decoded.description,
-        rawDescription: task.description, version: task.version, storyId: task.user_story,
+        version: task.version, storyId: task.user_story,
         effort_estimate: decoded.effort_estimate, covered_scenarios: decoded.covered_scenarios,
         predecessor_task_ids: decoded.predecessor_task_ids,
       });
@@ -243,20 +244,33 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
   });
 
   const updateMut = useMutation({
-    mutationFn: (v: {
-      id: number; version: number; subject: string; description: string;
+    mutationFn: async (v: {
+      id: number; version: number; subject: string; description: string; storyId: number;
       effort_estimate: EffortEstimate; covered_scenarios: string[]; predecessor_task_ids: number[];
     }) => {
+      if (!context) throw new Error("No context.");
       const fullDesc = encodeApexMeta({
-        id: v.id, subject: v.subject, description: v.description,
+        id: 0, subject: v.subject, description: v.description,
         effort_estimate: v.effort_estimate, covered_scenarios: v.covered_scenarios,
         predecessor_task_ids: v.predecessor_task_ids,
       });
-      return taigaUpdateTask(context!.taigaToken, v.id, v.version, { subject: v.subject, description: fullDesc }, context!.taigaApiUrl);
+      let ver = v.version;
+      for (let attempt = 0; attempt <= 1; attempt++) {
+        try {
+          await taigaUpdateTask(context.taigaToken, v.id, ver, { subject: v.subject, description: fullDesc }, context.taigaApiUrl);
+          return;
+        } catch (err) {
+          if (isTaiga409(err) && attempt === 0) {
+            const refreshed = await taigaGetTask(context.taigaToken, v.id, context.taigaApiUrl);
+            ver = refreshed.version;
+          } else throw err;
+        }
+      }
     },
     onSuccess: (_, v) => {
-      // Sync Phase 3 store so StageB reflects the change immediately (debounce auto-saves JSON)
-      const local = taskList.find((t) => t.taiga_task_id === v.id);
+      // Use fresh store state to avoid stale closure bug
+      const freshList = usePhase3Store.getState().taskList;
+      const local = freshList.find((t) => t.taiga_task_id === v.id);
       if (local) {
         patchTask(local.id, {
           subject: v.subject, description: v.description,
@@ -266,6 +280,8 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
       }
       setEditingTask(null);
       void invalidate();
+      void queryClient.invalidateQueries({ queryKey: ["phase3", "task-board"] });
+      void queryClient.invalidateQueries({ queryKey: ["phase3", "task-list", context?.projectId, v.storyId] });
     },
     onError: (err) => toast.error(taigaErrMsg(err, "Update task")),
   });
@@ -389,7 +405,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
           task={editingTask}
           dark={darkTheme}
           onSave={(subject, description, effort_estimate, covered_scenarios, predecessor_task_ids) =>
-            updateMut.mutate({ id: editingTask.id, version: editingTask.version, subject, description, effort_estimate, covered_scenarios, predecessor_task_ids })
+            updateMut.mutate({ id: editingTask.id, version: editingTask.version, storyId: editingTask.storyId, subject, description, effort_estimate, covered_scenarios, predecessor_task_ids })
           }
           onClose={() => setEditingTask(null)}
           isPending={updateMut.isPending}

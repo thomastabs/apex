@@ -448,7 +448,7 @@ export function useUpdateTaskInTaiga() {
       }
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["taiga", "project-tasks"] });
+      void queryClient.invalidateQueries({ queryKey: ["taiga", "project-tasks", context?.projectId] });
       toast.success("Task saved to Taiga.");
     },
     onError: (err) => toast.error(taigaErrMsg(err, "Save task")),
