@@ -511,7 +511,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                           "rounded-lg border px-2 py-1 text-xs",
                           dark ? "border-neutral-700 bg-neutral-900 text-white" : "border-slate-300 bg-white text-slate-900",
                         )}
-                        disabled={tasksPushed}
+
                       >
                         {(["XS", "S", "M", "L", "XL"] as EffortEstimate[]).map((e) => (
                           <option key={e} value={e}>{e}</option>
@@ -536,7 +536,6 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                                       : current.filter((id) => id !== other.id),
                                   });
                                 }}
-                                disabled={tasksPushed}
                                 className="accent-violet-600"
                               />
                               <span className={cn("text-xs", dark ? "text-neutral-300" : "text-slate-700")}>
@@ -570,21 +569,21 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                     <div className="flex shrink-0 gap-1 opacity-0 transition group-hover:opacity-100">
                       <button
                         onClick={() => setEditingId(task.id)}
-                        disabled={tasksPushed}
                         className={cn(
-                          "rounded px-2 py-1 text-xs font-medium transition disabled:opacity-40",
+                          "rounded px-2 py-1 text-xs font-medium transition",
                           dark ? "text-neutral-400 hover:text-neutral-200" : "text-slate-500 hover:text-slate-700",
                         )}
                       >
                         Edit
                       </button>
-                      <button
-                        onClick={() => removeTask(task.id)}
-                        disabled={tasksPushed}
-                        className="rounded px-2 py-1 text-xs text-red-500 hover:text-red-400 disabled:opacity-40"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      {!tasksPushed && (
+                        <button
+                          onClick={() => removeTask(task.id)}
+                          className="rounded px-2 py-1 text-xs text-red-500 hover:text-red-400"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
