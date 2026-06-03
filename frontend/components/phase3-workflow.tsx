@@ -29,6 +29,7 @@ import {
   useLoadProposals,
   useLoadTaskList,
   useLockStory,
+  usePushMetadataToTaiga,
   usePushSingleTask,
   usePushTasksToTaiga,
   useSaveProposal,
@@ -358,6 +359,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const saveTaskListMut = useSaveTaskList();
   const updateInTaigaMut = useUpdateTaskInTaiga();
   const pushSingleMut = usePushSingleTask();
+  const pushMetaMut = usePushMetadataToTaiga();
 
   useEffect(() => {
     if (ctx) setCurrentStoryMeta(ctx.title, ctx.epic_title);
@@ -532,8 +534,22 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
         </Button>
       </div>
       {tasksPushed && (
-        <div className="flex items-center justify-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
-          <CheckCircle2 className="h-3.5 w-3.5" /> Pushed to Taiga
+        <div className="flex items-center justify-center gap-3">
+          <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
+            <CheckCircle2 className="h-3.5 w-3.5" /> Pushed to Taiga
+          </div>
+          <button
+            onClick={() => pushMetaMut.mutate()}
+            disabled={pushMetaMut.isPending}
+            className={cn(
+              "rounded px-2 py-1 text-xs font-medium transition-colors",
+              pushMetaMut.isPending
+                ? "cursor-wait text-neutral-400"
+                : dark ? "text-neutral-500 hover:text-violet-400" : "text-slate-400 hover:text-violet-600",
+            )}
+          >
+            {pushMetaMut.isPending ? "Updating…" : "Push metadata to Taiga"}
+          </button>
         </div>
       )}
 

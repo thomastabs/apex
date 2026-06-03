@@ -438,3 +438,40 @@ export function usePushSingleTask() {
     onError: (err) => toast.error(taigaErrMsg(err, "Add task")),
   });
 }
+
+export function usePushMetadataToTaiga() {
+  const context = useApiContext();
+  const { taskList } = usePhase3Store();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!context) throw new Error("No context.");
+      const targets = taskList.filter((t) => t.taiga_task_id);
+      if (targets.length === 0) throw new Error("No tasks with Taiga IDs to update.");
+      let updated = 0;
+      const errors: string[] = [];
+      for (const task of targets) {
+        try {
+          const current = await taigaGetTask(context.taigaToken, task.taiga_task_id!, context.taigaApiUrl);
+          await taigaUpdateTask(
+            context.taigaToken, task.taiga_task_id!, current.version,
+            { description: encodeApexMeta(task) },
+            context.taigaApiUrl,
+          );
+          updated++;
+        } catch (err) {
+          errors.push(`#${task.taiga_task_id}: ${err instanceof Error ? err.message : "unknown"}`);
+        }
+      }
+      return { updated, errors };
+    },
+    onSuccess: ({ updated, errors }) => {
+      if (errors.length > 0) {
+        toast.warning(`Updated ${updated} tasks. ${errors.length} failed.`);
+      } else {
+        toast.success(`Metadata pushed to Taiga for ${updated} task${updated !== 1 ? "s" : ""}.`);
+      }
+    },
+    onError: (err) => toast.error(taigaErrMsg(err, "Push metadata")),
+  });
+}
