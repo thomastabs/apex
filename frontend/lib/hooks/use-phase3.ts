@@ -15,7 +15,7 @@ import {
   saveProposal,
   saveTaskList,
 } from "@/lib/api/phase3";
-import { taigaCreateTask, taigaGetProjectTasks } from "@/lib/api/taiga-direct";
+import { taigaCreateTask, taigaGetProjectTasks, taigaGetTask, taigaUpdateTask, type TaigaTask } from "@/lib/api/taiga-direct";
 import type {
   EffortEstimate,
   Phase3GenerateProposalRequest,
@@ -113,12 +113,12 @@ export function useGenerateTasks() {
 export function usePushTasksToTaiga() {
   const context = useApiContext();
   const queryClient = useQueryClient();
-  const { taskList, setTaigaTaskResult, setTasksPushed } = usePhase3Store();
+  const { taskList, setTaigaTaskResult, setTasksPushed, patchTask } = usePhase3Store();
 
   return useMutation({
     mutationFn: async (storyId: number) => {
       if (!context) throw new Error("No project context.");
-      const results: Array<{ taskIndex: number; id: number; ref: number }> = [];
+      const results: Array<{ taskIndex: number; localTaskId: number; id: number; ref: number }> = [];
       const failures: Array<{ subject: string; error: string }> = [];
       for (let i = 0; i < taskList.length; i++) {
         const task = taskList[i];
@@ -132,7 +132,7 @@ export function usePushTasksToTaiga() {
             context.taigaApiUrl,
             task.effort_estimate ? EFFORT_POINTS[task.effort_estimate] : undefined,
           );
-          results.push({ taskIndex: i, id: created.id, ref: created.ref });
+          results.push({ taskIndex: i, localTaskId: task.id, id: created.id, ref: created.ref });
         } catch (err) {
           failures.push({ subject: task.subject, error: err instanceof Error ? err.message : "Unknown error" });
         }
@@ -143,13 +143,15 @@ export function usePushTasksToTaiga() {
       return { results, failures };
     },
     onSuccess: ({ results, failures }, storyId) => {
-      for (const { taskIndex, id, ref } of results) {
+      for (const { taskIndex, localTaskId, id, ref } of results) {
         setTaigaTaskResult(taskIndex, id, ref);
+        patchTask(localTaskId, { taiga_task_id: id });
       }
       setTasksPushed(true);
-      // Persist task list + refresh both board queries
-      if (context && taskList.length > 0) {
-        void saveTaskList(context, storyId, taskList).then(() => {
+      // Persist updated task list (with taiga_task_ids) + refresh board queries
+      const updatedList = usePhase3Store.getState().taskList;
+      if (context && updatedList.length > 0) {
+        void saveTaskList(context, storyId, updatedList).then(() => {
           void queryClient.invalidateQueries({ queryKey: ["phase3", "task-board"] });
         });
       }
@@ -203,14 +205,14 @@ export function useLockStory() {
 }
 
 export function useUpdateTaskList() {
-  const { taskList, setTaskList } = usePhase3Store();
+  const { taskList, setTaskList, patchTask } = usePhase3Store();
 
+  // setTaskList resets tasksPushed — only use for fresh generation / deletion
   const addTask = (task: Phase3Task) => setTaskList([...taskList, task]);
-
   const removeTask = (id: number) => setTaskList(taskList.filter((t) => t.id !== id));
 
-  const updateTask = (id: number, updates: Partial<Omit<Phase3Task, "id">>) =>
-    setTaskList(taskList.map((t) => (t.id === id ? { ...t, ...updates } : t)));
+  // patchTask preserves tasksPushed — use for in-place metadata edits
+  const updateTask = (id: number, updates: Partial<Omit<Phase3Task, "id">>) => patchTask(id, updates);
 
   const reorderTasks = (from: number, to: number) => {
     const next = [...taskList];
@@ -260,6 +262,7 @@ export function useLoadTaskList(storyId: number | null) {
         effort_estimate: decoded.effort_estimate,
         covered_scenarios: decoded.covered_scenarios,
         predecessor_task_ids: decoded.predecessor_task_ids,
+        taiga_task_id: t.id,
       };
     });
     hydrateTasks(reconstructed);
@@ -351,6 +354,7 @@ export function useSyncTaskLists() {
             effort_estimate: decoded.effort_estimate,
             covered_scenarios: decoded.covered_scenarios,
             predecessor_task_ids: decoded.predecessor_task_ids,
+            taiga_task_id: t.id,
           };
         });
         await saveTaskList(context, storyId, tasks);
@@ -367,5 +371,62 @@ export function useSyncTaskLists() {
       }
     },
     onError: () => toast.error("Task list sync failed."),
+  });
+}
+
+// Fetch the full Taiga task (bypasses list API truncation) and return decoded description + version.
+export async function fetchTaigaTaskFull(
+  token: string, taigaTaskId: number, apiBaseUrl: string | undefined,
+): Promise<{ description: string; version: number }> {
+  const raw = await taigaGetTask(token, taigaTaskId, apiBaseUrl);
+  const { description } = decodeApexMeta(raw.description);
+  return { description, version: raw.version };
+}
+
+export function useUpdateTaskInTaiga() {
+  const context = useApiContext();
+  return useMutation({
+    mutationFn: async ({ taigaTaskId, task }: { taigaTaskId: number; task: Phase3Task }) => {
+      if (!context) throw new Error("No context.");
+      const current = await taigaGetTask(context.taigaToken, taigaTaskId, context.taigaApiUrl);
+      await taigaUpdateTask(
+        context.taigaToken, taigaTaskId, current.version,
+        { subject: task.subject, description: encodeApexMeta(task) },
+        context.taigaApiUrl,
+      );
+    },
+    onSuccess: () => toast.success("Task saved to Taiga."),
+    onError: () => toast.error("Failed to save task to Taiga."),
+  });
+}
+
+export function usePushSingleTask() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  const { appendTask } = usePhase3Store();
+
+  return useMutation({
+    mutationFn: async ({ storyId, task }: { storyId: number; task: Phase3Task }) => {
+      if (!context) throw new Error("No context.");
+      // Duplicate check against cached Taiga tasks
+      const cached = queryClient.getQueryData<TaigaTask[]>(["taiga", "project-tasks", context.projectId]) ?? [];
+      const dupe = cached.find(
+        (t) => t.user_story === storyId && t.subject.trim().toLowerCase() === task.subject.trim().toLowerCase(),
+      );
+      if (dupe) throw new Error(`"${task.subject}" already exists in Taiga (#${dupe.ref})`);
+      const created = await taigaCreateTask(
+        context.taigaToken, context.projectId, storyId, task.subject,
+        encodeApexMeta(task), context.taigaApiUrl,
+        task.effort_estimate ? EFFORT_POINTS[task.effort_estimate] : undefined,
+      );
+      return { taigaTaskId: created.id };
+    },
+    onSuccess: ({ taigaTaskId }, { task }) => {
+      appendTask({ ...task, taiga_task_id: taigaTaskId });
+      void queryClient.invalidateQueries({ queryKey: ["taiga", "project-tasks"] });
+      void queryClient.invalidateQueries({ queryKey: ["phase3", "task-board"] });
+      toast.success("Task added to Taiga.");
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to add task."),
   });
 }

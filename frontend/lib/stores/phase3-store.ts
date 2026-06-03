@@ -17,6 +17,8 @@ type Phase3State = {
   setSelectedStoryId: (id: number | null) => void;
   setTaskList: (tasks: Phase3Task[]) => void;
   hydrateTasks: (tasks: Phase3Task[]) => void;
+  patchTask: (id: number, updates: Partial<Omit<Phase3Task, "id">>) => void;
+  appendTask: (task: Phase3Task) => void;
   setTaigaTaskResult: (taskIndex: number, id: number, ref: number) => void;
   setTasksPushed: (pushed: boolean) => void;
   setPackDraft: (taskId: number, md: string) => void;
@@ -54,6 +56,11 @@ export const usePhase3Store = create<Phase3State>()(
         }),
       // Used when generating new tasks — resets push state
       setTaskList: (taskList) => set({ taskList, taigaTaskIds: {}, taigaTaskRefs: {}, tasksPushed: false }),
+      // Patch a single task in-place without touching tasksPushed
+      patchTask: (id, updates) =>
+        set((s) => ({ taskList: s.taskList.map((t) => (t.id === id ? { ...t, ...updates } : t)) })),
+      // Append a new task without resetting push state
+      appendTask: (task) => set((s) => ({ taskList: [...s.taskList, task] })),
       // Used when restoring from backend — marks story as pushed (tasks exist in backend = they were pushed)
       hydrateTasks: (tasks) =>
         set((state) => {

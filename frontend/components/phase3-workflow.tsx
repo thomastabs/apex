@@ -17,17 +17,22 @@ import { toast } from "sonner";
 import { Button, Callout, SectionHeading, Textarea } from "@/components/ui/primitives";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
 import {
+  decodeApexMeta,
+  encodeApexMeta,
+  fetchTaigaTaskFull,
   useEligibleStories,
   useGenerateProposal,
   useGenerateTasks,
   useLoadProposals,
   useLoadTaskList,
   useLockStory,
+  usePushSingleTask,
   usePushTasksToTaiga,
   useSaveProposal,
   useSaveTaskList,
   useStoryContext,
   useTaskBoard,
+  useUpdateTaskInTaiga,
   useUpdateTaskList,
 } from "@/lib/hooks/use-phase3";
 import { usePhase3Store } from "@/lib/stores/phase3-store";
@@ -342,10 +347,13 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
 
 function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () => void; onContinue: () => void }) {
   const dark = useUiStore((s) => s.theme) === "dark";
+  const context = useApiContext();
   const { data: ctx, isLoading: ctxLoading } = useStoryContext(storyId);
-  const { taskList, tasksPushed, packDrafts, setCurrentStoryMeta } = usePhase3Store();
+  const { taskList, tasksPushed, packDrafts, setCurrentStoryMeta, patchTask } = usePhase3Store();
   const { addTask, removeTask, updateTask } = useUpdateTaskList();
   const saveTaskListMut = useSaveTaskList();
+  const updateInTaigaMut = useUpdateTaskInTaiga();
+  const pushSingleMut = usePushSingleTask();
 
   useEffect(() => {
     if (ctx) setCurrentStoryMeta(ctx.title, ctx.epic_title);
@@ -361,13 +369,47 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskList, storyId]);
+
   const generateTasksMut = useGenerateTasks();
   const pushToTaiga = usePushTasksToTaiga();
 
   const [newSubject, setNewSubject] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [descFetching, setDescFetching] = useState(false);
+
+  // When opening edit for a pushed task, fetch full description from Taiga
+  useEffect(() => {
+    if (editingId === null || !context) return;
+    const task = taskList.find((t) => t.id === editingId);
+    if (!task?.taiga_task_id) return;
+    setDescFetching(true);
+    fetchTaigaTaskFull(context.taigaToken, task.taiga_task_id, context.taigaApiUrl)
+      .then(({ description }) => { patchTask(task.id, { description }); })
+      .catch(() => {})
+      .finally(() => setDescFetching(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingId]);
 
   const nextId = taskList.length > 0 ? Math.max(...taskList.map((t) => t.id)) + 1 : 1;
+
+  const handleAddTask = () => {
+    if (!newSubject.trim()) return;
+    const newTask: Phase3Task = {
+      id: nextId,
+      subject: newSubject.trim(),
+      description: "",
+      effort_estimate: "M" as EffortEstimate,
+      covered_scenarios: [],
+      predecessor_task_ids: [],
+    };
+    if (tasksPushed) {
+      pushSingleMut.mutate({ storyId, task: newTask });
+      setNewSubject("");
+    } else {
+      addTask(newTask);
+      setNewSubject("");
+    }
+  };
 
   if (ctxLoading) {
     return (
@@ -496,11 +538,17 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                       value={task.subject}
                       onChange={(e) => updateTask(task.id, { subject: e.target.value })}
                     />
-                    <Textarea
-                      rows={3}
-                      value={task.description}
-                      onChange={(e) => updateTask(task.id, { description: e.target.value })}
-                    />
+                    {descFetching && editingId === task.id ? (
+                      <div className="flex items-center gap-2 text-xs text-neutral-400 py-2">
+                        <Loader2 className="h-3 w-3 animate-spin" /> Loading from Taiga…
+                      </div>
+                    ) : (
+                      <Textarea
+                        rows={3}
+                        value={task.description}
+                        onChange={(e) => updateTask(task.id, { description: e.target.value })}
+                      />
+                    )}
                     {/* Effort selector */}
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-neutral-500 w-14 shrink-0">Effort</span>
@@ -546,7 +594,18 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                         </div>
                       </div>
                     )}
-                    <Button variant="secondary" onClick={() => setEditingId(null)}>Done</Button>
+                    <div className="flex items-center gap-2">
+                      <Button variant="secondary" onClick={() => setEditingId(null)}>Done</Button>
+                      {task.taiga_task_id && (
+                        <Button
+                          variant="primary"
+                          onClick={() => updateInTaigaMut.mutate({ taigaTaskId: task.taiga_task_id!, task })}
+                          disabled={updateInTaigaMut.isPending}
+                        >
+                          {updateInTaigaMut.isPending ? "Saving…" : "Save to Taiga"}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <div className="flex items-start gap-3 p-4">
@@ -591,39 +650,28 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
             ))}
           </div>
 
-          {/* Add manual task */}
-          {!tasksPushed && (
-            <div className="flex gap-2">
-              <input
-                className={cn(
-                  "flex-1 rounded-lg border px-3 py-2 text-sm",
-                  dark
-                    ? "border-neutral-700 bg-neutral-900 text-white placeholder:text-neutral-600"
-                    : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400",
-                )}
-                placeholder="Add a task manually…"
-                value={newSubject}
-                onChange={(e) => setNewSubject(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && newSubject.trim()) {
-                    addTask({ id: nextId, subject: newSubject.trim(), description: "", effort_estimate: "M" as EffortEstimate, covered_scenarios: [], predecessor_task_ids: [] });
-                    setNewSubject("");
-                  }
-                }}
-              />
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  if (newSubject.trim()) {
-                    addTask({ id: nextId, subject: newSubject.trim(), description: "", effort_estimate: "M" as EffortEstimate, covered_scenarios: [], predecessor_task_ids: [] });
-                    setNewSubject("");
-                  }
-                }}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
+          {/* Add task — always visible; after push goes directly to Taiga with dupe check */}
+          <div className="flex gap-2">
+            <input
+              className={cn(
+                "flex-1 rounded-lg border px-3 py-2 text-sm",
+                dark
+                  ? "border-neutral-700 bg-neutral-900 text-white placeholder:text-neutral-600"
+                  : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400",
+              )}
+              placeholder={tasksPushed ? "Add task to Taiga…" : "Add a task manually…"}
+              value={newSubject}
+              onChange={(e) => setNewSubject(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleAddTask(); }}
+            />
+            <Button
+              variant="secondary"
+              onClick={handleAddTask}
+              disabled={pushSingleMut.isPending || !newSubject.trim()}
+            >
+              {pushSingleMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            </Button>
+          </div>
 
           {taskList.length > 0 && (
             <TaskDagPanel taskList={taskList} packDrafts={packDrafts} dark={dark} />

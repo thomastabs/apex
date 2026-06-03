@@ -245,6 +245,7 @@ export type Phase3Task = {
   effort_estimate: EffortEstimate;
   covered_scenarios: string[];
   predecessor_task_ids: number[];
+  taiga_task_id?: number;
 };
 
 export type TaskBoardTask = {

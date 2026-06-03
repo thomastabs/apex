@@ -16,6 +16,7 @@ class TaskSchema(BaseModel):
     effort_estimate: Literal["XS", "S", "M", "L", "XL"]
     covered_scenarios: list[str]
     predecessor_task_ids: list[int] = Field(default_factory=list)
+    taiga_task_id: int | None = None
 
 
 class GenerateTasksResponse(BaseModel):
