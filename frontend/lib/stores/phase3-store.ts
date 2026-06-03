@@ -17,6 +17,7 @@ type Phase3State = {
   setSelectedStoryId: (id: number | null) => void;
   setTaskList: (tasks: Phase3Task[]) => void;
   hydrateTasks: (tasks: Phase3Task[]) => void;
+  hydrateFromBackend: (tasks: Phase3Task[]) => void;
   patchTask: (id: number, updates: Partial<Omit<Phase3Task, "id">>) => void;
   appendTask: (task: Phase3Task) => void;
   removePushedStoryId: (id: number) => void;
@@ -57,12 +58,45 @@ export const usePhase3Store = create<Phase3State>()(
         }),
       // Used when generating new tasks — resets push state
       setTaskList: (taskList) => set({ taskList, taigaTaskIds: {}, taigaTaskRefs: {}, tasksPushed: false }),
-      // Patch a single task in-place without touching tasksPushed
+      // Patch a single task in-place without touching tasksPushed.
+      // Clears the pack draft for the task if description or effort changes (pack is now stale).
       patchTask: (id, updates) =>
-        set((s) => ({ taskList: s.taskList.map((t) => (t.id === id ? { ...t, ...updates } : t)) })),
+        set((s) => {
+          const newTaskList = s.taskList.map((t) => (t.id === id ? { ...t, ...updates } : t));
+          const orig = s.taskList.find((t) => t.id === id);
+          const packStale =
+            (updates.description !== undefined && updates.description !== orig?.description) ||
+            (updates.effort_estimate !== undefined && updates.effort_estimate !== orig?.effort_estimate);
+          if (packStale && s.packDrafts[id] !== undefined) {
+            const { [id]: _dropped, ...remainingDrafts } = s.packDrafts;
+            return { taskList: newTaskList, packDrafts: remainingDrafts };
+          }
+          return { taskList: newTaskList };
+        }),
       // Append a new task without resetting push state
       appendTask: (task) => set((s) => ({ taskList: [...s.taskList, task] })),
-      // Used when restoring from backend — marks story as pushed (tasks exist in backend = they were pushed)
+      // Authoritative backend JSON hydrate — overwrites if JSON is fresher than persisted store.
+      // "Fresher" = JSON has taiga_task_ids but current store tasks don't (post-Sync scenario).
+      hydrateFromBackend: (tasks) =>
+        set((state) => {
+          const alreadyTracked =
+            state.selectedStoryId !== null && state.pushedStoryIds.includes(state.selectedStoryId);
+          const fresh: Partial<Phase3State> = {
+            taskList: tasks,
+            tasksPushed: true,
+            pushedStoryIds:
+              alreadyTracked || state.selectedStoryId === null
+                ? state.pushedStoryIds
+                : [...state.pushedStoryIds, state.selectedStoryId],
+          };
+          if (state.taskList.length === 0) return fresh;
+          // Non-empty: only override if JSON has taiga_task_ids but store doesn't (stale persisted data)
+          const jsonHasIds = tasks.some((t) => t.taiga_task_id);
+          const storeHasIds = state.taskList.some((t) => t.taiga_task_id);
+          if (jsonHasIds && !storeHasIds) return fresh;
+          return {};
+        }),
+      // Used when restoring from Taiga fallback — only if store is empty
       hydrateTasks: (tasks) =>
         set((state) => {
           if (state.taskList.length !== 0) return {};

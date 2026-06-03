@@ -106,6 +106,7 @@ function TaskEditDialog({
   onSave,
   onClose,
   isPending,
+  validTaskIds,
 }: {
   task: {
     id: number; ref?: number; subject: string; description: string;
@@ -116,6 +117,7 @@ function TaskEditDialog({
   onSave: (subject: string, description: string, effort: EffortEstimate, scenarios: string[], deps: number[]) => void;
   onClose: () => void;
   isPending: boolean;
+  validTaskIds?: number[];
 }) {
   const [subject, setSubject] = useState(task.subject);
   const [description, setDescription] = useState(task.description);
@@ -133,7 +135,9 @@ function TaskEditDialog({
 
   const handleSave = () => {
     const scenarios = scenariosText.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
-    const deps = depsText.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n));
+    const rawDeps = depsText.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n) && n > 0);
+    // Filter to known valid task IDs if available, otherwise keep all positive integers
+    const deps = validTaskIds ? rawDeps.filter((n) => validTaskIds.includes(n)) : rawDeps;
     onSave(subject.trim(), description, effort, scenarios, deps);
   };
 
@@ -170,7 +174,14 @@ function TaskEditDialog({
               </select>
             </div>
             <div className="flex-1 min-w-0">
-              <label className={labelClass}>Depends on tasks <span className={cn("font-normal", dark ? "text-neutral-600" : "text-slate-400")}>(Phase 3 task numbers, comma-separated)</span></label>
+              <label className={labelClass}>
+                Depends on tasks{" "}
+                <span className={cn("font-normal", dark ? "text-neutral-600" : "text-slate-400")}>
+                  {validTaskIds && validTaskIds.length > 0
+                    ? `(valid: ${validTaskIds.join(", ")})`
+                    : "(Phase 3 task numbers, comma-separated)"}
+                </span>
+              </label>
               <input className={cn("h-8", inputClass)} value={depsText} onChange={(e) => setDepsText(e.target.value)} placeholder="e.g. 1, 2" />
             </div>
           </div>
@@ -409,6 +420,11 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
           }
           onClose={() => setEditingTask(null)}
           isPending={updateMut.isPending}
+          validTaskIds={
+            editingTask.storyId === selectedStoryId && taskList.length > 0
+              ? taskList.filter((t) => t.id !== editingTask.id).map((t) => t.id)
+              : undefined
+          }
         />,
         document.body,
       ) : null}

@@ -125,13 +125,21 @@ class Phase3Service:
         self.context.save_proposal(story_id, task_id, proposal_md)
 
     def get_stories_missing_task_lists(self, ctx: RequestContext) -> list[int]:
-        """Return story_ids present in the story index that have no saved task-list JSON."""
+        """Return story_ids that need task-list sync:
+        - no JSON file at all, OR
+        - JSON exists but all tasks have no taiga_task_id (synced before ID persistence was added).
+        """
         self.configure_request(ctx)
         index = self.context.story_index()
         missing = []
         for entry in index.values():
             story_id = entry.get("story_id")
-            if story_id and not self.context.load_task_list(story_id):
+            if not story_id:
+                continue
+            tasks = self.context.load_task_list(story_id)
+            if not tasks:
+                missing.append(story_id)
+            elif all(t.get("taiga_task_id") is None for t in tasks):
                 missing.append(story_id)
         return sorted(missing)
 

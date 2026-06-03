@@ -308,12 +308,19 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                     <div className="mt-auto flex items-center justify-between pt-4">
                       {(() => {
                         const count = taskCountByStory.get(story.story_id) ?? 0;
+                        const fromJson = (jsonCountByStory.get(story.story_id) ?? 0) > 0;
                         return count > 0 ? (
-                          <span className={cn(
-                            "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold",
-                            dark ? "bg-violet-900/40 text-violet-300" : "bg-violet-100 text-violet-700",
-                          )}>
+                          <span
+                            title={fromJson ? "Tasks synced with Apex" : "Tasks from Taiga (not yet synced with Apex)"}
+                            className={cn(
+                              "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold",
+                              fromJson
+                                ? dark ? "bg-violet-900/40 text-violet-300" : "bg-violet-100 text-violet-700"
+                                : dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-100 text-slate-500",
+                            )}
+                          >
                             {count} task{count > 1 ? "s" : ""}
+                            {!fromJson && <span className="opacity-60">·</span>}
                           </span>
                         ) : (
                           <span className={cn("text-[10px]", dark ? "text-neutral-700" : "text-slate-300")}>

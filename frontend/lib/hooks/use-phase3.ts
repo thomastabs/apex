@@ -264,7 +264,7 @@ export function useUpdateTaskList() {
 
 export function useLoadTaskList(storyId: number | null) {
   const context = useApiContext();
-  const { hydrateTasks } = usePhase3Store();
+  const { hydrateTasks, hydrateFromBackend } = usePhase3Store();
   const query = useQuery({
     queryKey: ["phase3", "task-list", context?.projectId, storyId],
     queryFn: () => getTaskList(context!, storyId!),
@@ -285,7 +285,7 @@ export function useLoadTaskList(storyId: number | null) {
   useEffect(() => {
     if (!query.isSuccess) return;
     if (query.data?.tasks && query.data.tasks.length > 0) {
-      hydrateTasks(query.data.tasks);
+      hydrateFromBackend(query.data.tasks); // authoritative JSON — overwrites stale persisted data
       return;
     }
     if (!storyId || !taigaFallbackQuery.data) return;
