@@ -19,6 +19,7 @@ type Phase3State = {
   hydrateTasks: (tasks: Phase3Task[]) => void;
   patchTask: (id: number, updates: Partial<Omit<Phase3Task, "id">>) => void;
   appendTask: (task: Phase3Task) => void;
+  removePushedStoryId: (id: number) => void;
   setTaigaTaskResult: (taskIndex: number, id: number, ref: number) => void;
   setTasksPushed: (pushed: boolean) => void;
   setPackDraft: (taskId: number, md: string) => void;
@@ -76,6 +77,8 @@ export const usePhase3Store = create<Phase3State>()(
                 : [...state.pushedStoryIds, state.selectedStoryId],
           };
         }),
+      removePushedStoryId: (id) =>
+        set((s) => ({ pushedStoryIds: s.pushedStoryIds.filter((sid) => sid !== id) })),
       setTaigaTaskResult: (taskIndex, id, ref) =>
         set((s) => ({
           taigaTaskIds: { ...s.taigaTaskIds, [taskIndex]: id },
