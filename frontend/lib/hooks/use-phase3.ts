@@ -35,29 +35,24 @@ import { toast } from "sonner";
 // Apex metadata encoding / decoding in Taiga task descriptions
 // ---------------------------------------------------------------------------
 
-// Matches just the JSON comment — format-agnostic so old and new human-readable sections both decode
-const APEX_META_COMMENT_RE = /\[\/\/\]: # \(apex-meta:(\{.*?\})\)\s*$/s;
-// Strips the whole Apex block starting at the separator
-const APEX_META_BLOCK_RE = /\n\n---\n\n[\s\S]*?\[\/\/\]: # \(apex-meta:\{.*?\}\)\s*$/s;
+// Strips the whole Apex block (separator + Apex Metadata section) from the end of a description.
+// Handles both old format (*Apex — ...*) and new format (**Apex Metadata** bullets).
+// Also strips the legacy [//]: # () JSON comment if present.
+const APEX_META_BLOCK_RE = /\n\n---\n\n(?:\*Apex —[^\n]*\*|[\s\S]*?\*\*Apex Metadata\*\*[\s\S]*?)(?:\n\n\[\/\/\]: # \(apex-meta:\{.*?\}\))?\s*$/s;
 
 const EFFORT_LABELS: Record<string, string> = { XS: "XS (1 pt)", S: "S (2 pts)", M: "M (3 pts)", L: "L (5 pts)", XL: "XL (8 pts)" };
+const EFFORT_FROM_LABEL: Record<string, string> = { "XS (1 pt)": "XS", "S (2 pts)": "S", "M (3 pts)": "M", "L (5 pts)": "L", "XL (8 pts)": "XL" };
 
 export function encodeApexMeta(task: Phase3Task): string {
   const base = task.description.trim();
-  const meta = {
-    effort: task.effort_estimate ?? "M",
-    covered_scenarios: task.covered_scenarios ?? [],
-    predecessor_task_ids: task.predecessor_task_ids ?? [],
-  };
+  const effort = task.effort_estimate ?? "M";
+  const covered = task.covered_scenarios ?? [];
+  const deps = task.predecessor_task_ids ?? [];
   const lines: string[] = ["**Apex Metadata**"];
-  lines.push(`- **Effort:** ${EFFORT_LABELS[meta.effort] ?? meta.effort}`);
-  if (meta.covered_scenarios.length) {
-    lines.push(`- **Covers:** ${meta.covered_scenarios.join("; ")}`);
-  }
-  if (meta.predecessor_task_ids.length) {
-    lines.push(`- **Depends on tasks:** ${meta.predecessor_task_ids.join(", ")}`);
-  }
-  return `${base}\n\n---\n\n${lines.join("\n")}\n\n[//]: # (apex-meta:${JSON.stringify(meta)})`;
+  lines.push(`- **Effort:** ${EFFORT_LABELS[effort] ?? effort}`);
+  if (covered.length) lines.push(`- **Covers:** ${covered.join("; ")}`);
+  if (deps.length) lines.push(`- **Depends on tasks:** ${deps.join(", ")}`);
+  return `${base}\n\n---\n\n${lines.join("\n")}`;
 }
 
 export function decodeApexMeta(rawDescription: string): {
@@ -66,22 +61,41 @@ export function decodeApexMeta(rawDescription: string): {
   covered_scenarios: string[];
   predecessor_task_ids: number[];
 } {
-  const commentMatch = rawDescription.match(APEX_META_COMMENT_RE);
-  if (!commentMatch) {
-    return { description: rawDescription.trim(), effort_estimate: "M", covered_scenarios: [], predecessor_task_ids: [] };
+  // Try legacy JSON comment first (backward compat with old tasks)
+  const legacyMatch = rawDescription.match(/\[\/\/\]: # \(apex-meta:(\{.*?\})\)\s*$/s);
+  const blockMatch = rawDescription.match(APEX_META_BLOCK_RE);
+  const description = blockMatch ? rawDescription.slice(0, rawDescription.length - blockMatch[0].length).trim() : rawDescription.trim();
+
+  if (legacyMatch) {
+    try {
+      const meta = JSON.parse(legacyMatch[1]) as { effort?: string; covered_scenarios?: string[]; predecessor_task_ids?: number[] };
+      return {
+        description,
+        effort_estimate: (meta.effort ?? "M") as EffortEstimate,
+        covered_scenarios: meta.covered_scenarios ?? [],
+        predecessor_task_ids: meta.predecessor_task_ids ?? [],
+      };
+    } catch { /* fall through to human-readable parse */ }
   }
-  try {
-    const meta = JSON.parse(commentMatch[1]) as { effort?: string; covered_scenarios?: string[]; predecessor_task_ids?: number[] };
-    const description = rawDescription.replace(APEX_META_BLOCK_RE, "").trim();
-    return {
-      description,
-      effort_estimate: (meta.effort ?? "M") as EffortEstimate,
-      covered_scenarios: meta.covered_scenarios ?? [],
-      predecessor_task_ids: meta.predecessor_task_ids ?? [],
-    };
-  } catch {
-    return { description: rawDescription.trim(), effort_estimate: "M", covered_scenarios: [], predecessor_task_ids: [] };
+
+  if (!blockMatch) {
+    return { description, effort_estimate: "M", covered_scenarios: [], predecessor_task_ids: [] };
   }
+
+  // Parse human-readable bullet points
+  const block = blockMatch[0];
+  const effortRaw = block.match(/\*\*Effort:\*\*\s*([^\n]+)/)?.[1]?.trim() ?? "M";
+  const effort = (EFFORT_FROM_LABEL[effortRaw] ?? effortRaw.split(" ")[0]) as EffortEstimate;
+  const coversRaw = block.match(/\*\*Covers:\*\*\s*([^\n]+)/)?.[1]?.trim();
+  const depsRaw = block.match(/\*\*Depends on tasks:\*\*\s*([\d, ]+)/)?.[1]?.trim();
+  return {
+    description,
+    effort_estimate: effort,
+    covered_scenarios: coversRaw ? coversRaw.split(";").map((s) => s.trim()).filter(Boolean) : [],
+    predecessor_task_ids: depsRaw
+      ? depsRaw.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n))
+      : [],
+  };
 }
 
 export function useEligibleStories() {
@@ -441,33 +455,56 @@ export function usePushSingleTask() {
 
 export function usePushMetadataToTaiga() {
   const context = useApiContext();
-  const { taskList } = usePhase3Store();
+  const queryClient = useQueryClient();
+  const { taskList, selectedStoryId, patchTask } = usePhase3Store();
 
   return useMutation({
     mutationFn: async () => {
       if (!context) throw new Error("No context.");
-      const targets = taskList.filter((t) => t.taiga_task_id);
+
+      // Resolve missing taiga_task_ids via subject lookup in cache
+      const cached = queryClient.getQueryData<TaigaTask[]>(["taiga", "project-tasks", context.projectId]) ?? [];
+      const targets = taskList.map((task) => {
+        if (task.taiga_task_id) return task;
+        const match = cached.find(
+          (t) => t.user_story === selectedStoryId && t.subject.trim().toLowerCase() === task.subject.trim().toLowerCase(),
+        );
+        if (match) {
+          patchTask(task.id, { taiga_task_id: match.id });
+          return { ...task, taiga_task_id: match.id };
+        }
+        return task;
+      }).filter((t) => t.taiga_task_id);
+
       if (targets.length === 0) throw new Error("No tasks with Taiga IDs to update.");
+
+      // Fetch all current versions in parallel to minimise version-conflict window
+      const withVersions = await Promise.all(
+        targets.map(async (task) => {
+          const current = await taigaGetTask(context.taigaToken, task.taiga_task_id!, context.taigaApiUrl);
+          return { task, version: current.version };
+        }),
+      );
+
       let updated = 0;
       const errors: string[] = [];
-      for (const task of targets) {
+      for (const { task, version } of withVersions) {
         try {
-          const current = await taigaGetTask(context.taigaToken, task.taiga_task_id!, context.taigaApiUrl);
           await taigaUpdateTask(
-            context.taigaToken, task.taiga_task_id!, current.version,
+            context.taigaToken, task.taiga_task_id!, version,
             { description: encodeApexMeta(task) },
             context.taigaApiUrl,
           );
           updated++;
         } catch (err) {
-          errors.push(`#${task.taiga_task_id}: ${err instanceof Error ? err.message : "unknown"}`);
+          errors.push(`Task ${task.id}: ${err instanceof Error ? err.message : "unknown"}`);
         }
       }
       return { updated, errors };
     },
     onSuccess: ({ updated, errors }) => {
       if (errors.length > 0) {
-        toast.warning(`Updated ${updated} tasks. ${errors.length} failed.`);
+        toast.warning(`Updated ${updated} tasks. ${errors.length} failed: ${errors.join("; ")}`);
       } else {
         toast.success(`Metadata pushed to Taiga for ${updated} task${updated !== 1 ? "s" : ""}.`);
       }
