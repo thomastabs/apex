@@ -124,6 +124,17 @@ class Phase3Service:
         self.configure_request(ctx)
         self.context.save_proposal(story_id, task_id, proposal_md)
 
+    def get_stories_missing_task_lists(self, ctx: RequestContext) -> list[int]:
+        """Return story_ids present in the story index that have no saved task-list JSON."""
+        self.configure_request(ctx)
+        index = self.context.story_index()
+        missing = []
+        for entry in index.values():
+            story_id = entry.get("story_id")
+            if story_id and not self.context.load_task_list(story_id):
+                missing.append(story_id)
+        return sorted(missing)
+
     def get_task_list(self, ctx: RequestContext, story_id: int) -> list[dict]:
         self.configure_request(ctx)
         return self.context.load_task_list(story_id)

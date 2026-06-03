@@ -54,9 +54,21 @@ export const usePhase3Store = create<Phase3State>()(
         }),
       // Used when generating new tasks — resets push state
       setTaskList: (taskList) => set({ taskList, taigaTaskIds: {}, taigaTaskRefs: {}, tasksPushed: false }),
-      // Used when restoring from backend — preserves tasksPushed
+      // Used when restoring from backend — marks story as pushed (tasks exist in backend = they were pushed)
       hydrateTasks: (tasks) =>
-        set((state) => (state.taskList.length === 0 ? { taskList: tasks } : {})),
+        set((state) => {
+          if (state.taskList.length !== 0) return {};
+          const alreadyTracked =
+            state.selectedStoryId !== null && state.pushedStoryIds.includes(state.selectedStoryId);
+          return {
+            taskList: tasks,
+            tasksPushed: true,
+            pushedStoryIds:
+              alreadyTracked || state.selectedStoryId === null
+                ? state.pushedStoryIds
+                : [...state.pushedStoryIds, state.selectedStoryId],
+          };
+        }),
       setTaigaTaskResult: (taskIndex, id, ref) =>
         set((s) => ({
           taigaTaskIds: { ...s.taigaTaskIds, [taskIndex]: id },

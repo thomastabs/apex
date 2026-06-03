@@ -72,6 +72,10 @@ export function getTaskBoard(context: RequestContext) {
   return apiRequest<{ stories: TaskBoardStory[] }>("/api/phase3/task-board", { context });
 }
 
+export function getMissingTaskLists(context: RequestContext) {
+  return apiRequest<{ story_ids: number[] }>("/api/phase3/missing-task-lists", { context });
+}
+
 export function getProposals(context: RequestContext, storyId: number) {
   return apiRequest<{ story_id: number; proposals: Array<{ task_id: number; proposal_md: string }> }>(
     `/api/phase3/proposals/${storyId}`,

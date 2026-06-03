@@ -104,3 +104,7 @@ class ProposalItem(BaseModel):
 class ProposalsResponse(BaseModel):
     story_id: int
     proposals: list[ProposalItem]
+
+
+class MissingTaskListsResponse(BaseModel):
+    story_ids: list[int]

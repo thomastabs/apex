@@ -6,6 +6,7 @@ import {
   generateProposal,
   generateTasks,
   getEligibleStories,
+  getMissingTaskLists,
   getProposals,
   getStoryContext,
   getTaskBoard,
@@ -14,7 +15,7 @@ import {
   saveProposal,
   saveTaskList,
 } from "@/lib/api/phase3";
-import { taigaCreateTask } from "@/lib/api/taiga-direct";
+import { taigaCreateTask, taigaGetProjectTasks } from "@/lib/api/taiga-direct";
 import type {
   EffortEstimate,
   Phase3GenerateProposalRequest,
@@ -185,12 +186,37 @@ export function useLoadTaskList(storyId: number | null) {
     enabled: Boolean(context) && storyId !== null,
     staleTime: 0,
   });
+
+  // When JSON file is missing (tasks pushed before persistence was added), fall back to Taiga cache.
+  // The sidebar already runs this query so it's a shared-cache hit, not an extra network call.
+  const jsonEmpty = query.isSuccess && (query.data?.tasks.length ?? 0) === 0;
+  const taigaFallbackQuery = useQuery({
+    queryKey: ["taiga", "project-tasks", context?.projectId],
+    queryFn: () => taigaGetProjectTasks(context!.taigaToken, context!.projectId, context!.taigaApiUrl),
+    enabled: Boolean(context) && jsonEmpty && storyId !== null,
+    staleTime: 60_000,
+  });
+
   useEffect(() => {
+    if (!query.isSuccess) return;
     if (query.data?.tasks && query.data.tasks.length > 0) {
       hydrateTasks(query.data.tasks);
+      return;
     }
+    if (!storyId || !taigaFallbackQuery.data) return;
+    const storyTasks = taigaFallbackQuery.data.filter((t) => t.user_story === storyId);
+    if (storyTasks.length === 0) return;
+    const reconstructed: Phase3Task[] = storyTasks.map((t, i) => ({
+      id: i + 1,
+      subject: t.subject,
+      description: t.description || "",
+      effort_estimate: "M" as const,
+      covered_scenarios: [],
+      predecessor_task_ids: [],
+    }));
+    hydrateTasks(reconstructed);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query.data]);
+  }, [query.data, taigaFallbackQuery.data, storyId]);
   return query;
 }
 
@@ -241,5 +267,54 @@ export function useTaskBoard() {
     },
     enabled: Boolean(context),
     staleTime: 60_000,
+  });
+}
+
+export function useSyncTaskLists() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!context) throw new Error("No project context.");
+      const [{ story_ids: missingIds }, taigaTasks] = await Promise.all([
+        getMissingTaskLists(context),
+        taigaGetProjectTasks(context.taigaToken, context.projectId, context.taigaApiUrl),
+      ]);
+      if (missingIds.length === 0) return { saved: 0, skipped: 0 };
+
+      const tasksByStory = new Map<number, typeof taigaTasks>();
+      for (const t of taigaTasks) {
+        if (!tasksByStory.has(t.user_story)) tasksByStory.set(t.user_story, []);
+        tasksByStory.get(t.user_story)!.push(t);
+      }
+
+      let saved = 0;
+      let skipped = 0;
+      for (const storyId of missingIds) {
+        const storyTasks = tasksByStory.get(storyId);
+        if (!storyTasks || storyTasks.length === 0) { skipped++; continue; }
+        const tasks: Phase3Task[] = storyTasks.map((t, i) => ({
+          id: i + 1,
+          subject: t.subject,
+          description: t.description || "",
+          effort_estimate: "M" as const,
+          covered_scenarios: [],
+          predecessor_task_ids: [],
+        }));
+        await saveTaskList(context, storyId, tasks);
+        saved++;
+      }
+      return { saved, skipped };
+    },
+    onSuccess: ({ saved, skipped }) => {
+      void queryClient.invalidateQueries({ queryKey: ["phase3", "task-board"] });
+      if (saved === 0 && skipped === 0) {
+        toast.success("All task lists already synced.");
+      } else {
+        toast.success(`Synced ${saved} task list${saved !== 1 ? "s" : ""}.${skipped > 0 ? ` ${skipped} stories had no Taiga tasks.` : ""}`);
+      }
+    },
+    onError: () => toast.error("Task list sync failed."),
   });
 }

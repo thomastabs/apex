@@ -15,7 +15,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { useTaskBoard } from "@/lib/hooks/use-phase3";
+import { useSyncTaskLists, useTaskBoard } from "@/lib/hooks/use-phase3";
 import { usePhase3Store } from "@/lib/stores/phase3-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -280,18 +280,35 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
     dark ? "border-neutral-700 bg-neutral-900 text-white" : "border-slate-300 bg-white text-slate-900",
   );
 
+  const syncMut = useSyncTaskLists();
+
   const filterBtn = (
-    <button
-      onClick={(e) => { e.stopPropagation(); setFilterOpen((v) => !v); if (filterOpen) setFilter(""); }}
-      className={cn(
-        "rounded px-2 py-1 text-xs font-medium transition-colors",
-        filterOpen || filter
-          ? "bg-violet-500/20 text-violet-400"
-          : dark ? "text-neutral-600 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600",
-      )}
-    >
-      Filter
-    </button>
+    <div className="flex items-center gap-1">
+      <button
+        onClick={(e) => { e.stopPropagation(); void syncMut.mutate(); }}
+        disabled={syncMut.isPending}
+        title="Sync task lists from Taiga for stories missing local JSON"
+        className={cn(
+          "rounded px-2 py-1 text-xs font-medium transition-colors",
+          syncMut.isPending
+            ? "cursor-wait text-neutral-400"
+            : dark ? "text-neutral-600 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600",
+        )}
+      >
+        {syncMut.isPending ? "Syncing…" : "Sync"}
+      </button>
+      <button
+        onClick={(e) => { e.stopPropagation(); setFilterOpen((v) => !v); if (filterOpen) setFilter(""); }}
+        className={cn(
+          "rounded px-2 py-1 text-xs font-medium transition-colors",
+          filterOpen || filter
+            ? "bg-violet-500/20 text-violet-400"
+            : dark ? "text-neutral-600 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600",
+        )}
+      >
+        Filter
+      </button>
+    </div>
   );
 
   return (

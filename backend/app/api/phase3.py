@@ -13,6 +13,7 @@ from backend.app.schemas.phase3 import (
     GenerateTasksRequest,
     GenerateTasksResponse,
     LockStoryRequest,
+    MissingTaskListsResponse,
     ProposalsResponse,
     SaveProposalRequest,
     StoryContextResponse,
@@ -151,6 +152,17 @@ def save_task_list(
     try:
         service.save_task_list(ctx, story_id, [t.model_dump() for t in payload.tasks])
         return {"ok": True}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.get("/missing-task-lists", response_model=MissingTaskListsResponse)
+def get_missing_task_lists(
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase3Service = Depends(get_phase3_service),
+):
+    try:
+        return {"story_ids": service.get_stories_missing_task_lists(ctx)}
     except Exception as exc:
         _handle_error(exc)
 
