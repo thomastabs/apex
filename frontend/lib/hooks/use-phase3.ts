@@ -35,7 +35,12 @@ import { toast } from "sonner";
 // Apex metadata encoding / decoding in Taiga task descriptions
 // ---------------------------------------------------------------------------
 
-const APEX_META_RE = /\n\n---\n\n\*Apex — [^\n]+\*\n\n\[\/\/\]: # \(apex-meta:(\{.+?\})\)/s;
+// Matches just the JSON comment — format-agnostic so old and new human-readable sections both decode
+const APEX_META_COMMENT_RE = /\[\/\/\]: # \(apex-meta:(\{.*?\})\)\s*$/s;
+// Strips the whole Apex block starting at the separator
+const APEX_META_BLOCK_RE = /\n\n---\n\n[\s\S]*?\[\/\/\]: # \(apex-meta:\{.*?\}\)\s*$/s;
+
+const EFFORT_LABELS: Record<string, string> = { XS: "XS (1 pt)", S: "S (2 pts)", M: "M (3 pts)", L: "L (5 pts)", XL: "XL (8 pts)" };
 
 export function encodeApexMeta(task: Phase3Task): string {
   const base = task.description.trim();
@@ -44,12 +49,15 @@ export function encodeApexMeta(task: Phase3Task): string {
     covered_scenarios: task.covered_scenarios ?? [],
     predecessor_task_ids: task.predecessor_task_ids ?? [],
   };
-  const parts: string[] = [];
-  if (meta.effort) parts.push(`Effort: ${meta.effort}`);
-  if (meta.covered_scenarios.length) parts.push(`Covers: ${meta.covered_scenarios.join("; ")}`);
-  if (meta.predecessor_task_ids.length) parts.push(`Depends on tasks: ${meta.predecessor_task_ids.join(", ")}`);
-  const humanLine = parts.length ? `*Apex — ${parts.join(" | ")}*` : `*Apex — Effort: ${meta.effort}*`;
-  return `${base}\n\n---\n\n${humanLine}\n\n[//]: # (apex-meta:${JSON.stringify(meta)})`;
+  const lines: string[] = ["**Apex Metadata**"];
+  lines.push(`- **Effort:** ${EFFORT_LABELS[meta.effort] ?? meta.effort}`);
+  if (meta.covered_scenarios.length) {
+    lines.push(`- **Covers:** ${meta.covered_scenarios.join("; ")}`);
+  }
+  if (meta.predecessor_task_ids.length) {
+    lines.push(`- **Depends on tasks:** ${meta.predecessor_task_ids.join(", ")}`);
+  }
+  return `${base}\n\n---\n\n${lines.join("\n")}\n\n[//]: # (apex-meta:${JSON.stringify(meta)})`;
 }
 
 export function decodeApexMeta(rawDescription: string): {
@@ -58,13 +66,13 @@ export function decodeApexMeta(rawDescription: string): {
   covered_scenarios: string[];
   predecessor_task_ids: number[];
 } {
-  const match = rawDescription.match(APEX_META_RE);
-  if (!match) {
+  const commentMatch = rawDescription.match(APEX_META_COMMENT_RE);
+  if (!commentMatch) {
     return { description: rawDescription.trim(), effort_estimate: "M", covered_scenarios: [], predecessor_task_ids: [] };
   }
   try {
-    const meta = JSON.parse(match[1]) as { effort?: string; covered_scenarios?: string[]; predecessor_task_ids?: number[] };
-    const description = rawDescription.slice(0, rawDescription.length - match[0].length).trim();
+    const meta = JSON.parse(commentMatch[1]) as { effort?: string; covered_scenarios?: string[]; predecessor_task_ids?: number[] };
+    const description = rawDescription.replace(APEX_META_BLOCK_RE, "").trim();
     return {
       description,
       effort_estimate: (meta.effort ?? "M") as EffortEstimate,
