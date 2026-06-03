@@ -22,6 +22,7 @@ import { useUiStore } from "@/lib/stores/ui-store";
 import {
   taigaCreateTask,
   taigaDeleteTask,
+  taigaErrMsg,
   taigaGetProjectTasks,
   taigaGetTask,
   taigaUpdateTask,
@@ -203,27 +204,27 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
       const { description } = decodeApexMeta(task.description);
       setEditingTask({ id: task.id, subject: task.subject, description, version: task.version });
     },
-    onError: () => toast.error("Failed to load task."),
+    onError: (err) => toast.error(taigaErrMsg(err, "Load task")),
   });
 
   const updateMut = useMutation({
     mutationFn: (v: { id: number; version: number; subject: string; description: string }) =>
       taigaUpdateTask(context!.taigaToken, v.id, v.version, { subject: v.subject, description: v.description }, context!.taigaApiUrl),
     onSuccess: () => { setEditingTask(null); void invalidate(); },
-    onError: () => toast.error("Failed to update task."),
+    onError: (err) => toast.error(taigaErrMsg(err, "Update task")),
   });
 
   const deleteMut = useMutation({
     mutationFn: (taskId: number) => taigaDeleteTask(context!.taigaToken, taskId, context!.taigaApiUrl),
     onSuccess: () => { setPendingDelete(null); void invalidate(); toast.success("Task deleted."); },
-    onError: () => { setPendingDelete(null); toast.error("Failed to delete task."); },
+    onError: (err) => { setPendingDelete(null); toast.error(taigaErrMsg(err, "Delete task")); },
   });
 
   const addMut = useMutation({
     mutationFn: (v: { storyId: number; subject: string }) =>
       taigaCreateTask(context!.taigaToken, context!.projectId, v.storyId, v.subject, "", context!.taigaApiUrl),
     onSuccess: () => { setAddingToStory(null); setNewTaskSubject(""); void invalidate(); toast.success("Task added."); },
-    onError: () => toast.error("Failed to add task."),
+    onError: (err) => toast.error(taigaErrMsg(err, "Add task")),
   });
 
   const effortByStoryTask = useMemo(() => {

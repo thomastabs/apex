@@ -8,6 +8,16 @@ import type { Epic, EpicWithStories, Me, Membership, Project, Story } from "./ty
 
 const DEFAULT_TAIGA_API = "https://api.taiga.io/api/v1";
 
+export function isTaiga401(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 401;
+}
+
+export function taigaErrMsg(err: unknown, action = "Taiga request"): string {
+  if (isTaiga401(err)) return "Session expired — sign out and sign in again.";
+  if (err instanceof Error) return `${action} failed: ${err.message}`;
+  return `${action} failed.`;
+}
+
 // ---------------------------------------------------------------------------
 // Fetch helpers
 // ---------------------------------------------------------------------------

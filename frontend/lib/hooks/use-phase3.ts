@@ -15,7 +15,7 @@ import {
   saveProposal,
   saveTaskList,
 } from "@/lib/api/phase3";
-import { taigaCreateTask, taigaGetProjectTasks, taigaGetTask, taigaUpdateTask, type TaigaTask } from "@/lib/api/taiga-direct";
+import { taigaCreateTask, taigaErrMsg, taigaGetProjectTasks, taigaGetTask, taigaUpdateTask, type TaigaTask } from "@/lib/api/taiga-direct";
 import type {
   EffortEstimate,
   Phase3GenerateProposalRequest,
@@ -396,7 +396,7 @@ export function useUpdateTaskInTaiga() {
       );
     },
     onSuccess: () => toast.success("Task saved to Taiga."),
-    onError: () => toast.error("Failed to save task to Taiga."),
+    onError: (err) => toast.error(taigaErrMsg(err, "Save task")),
   });
 }
 
@@ -427,6 +427,6 @@ export function usePushSingleTask() {
       void queryClient.invalidateQueries({ queryKey: ["phase3", "task-board"] });
       toast.success("Task added to Taiga.");
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to add task."),
+    onError: (err) => toast.error(taigaErrMsg(err, "Add task")),
   });
 }

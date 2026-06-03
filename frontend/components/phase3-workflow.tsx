@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import { Button, Callout, SectionHeading, Textarea } from "@/components/ui/primitives";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
+import { taigaErrMsg } from "@/lib/api/taiga-direct";
 import {
   decodeApexMeta,
   encodeApexMeta,
@@ -385,7 +386,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
     setDescFetching(true);
     fetchTaigaTaskFull(context.taigaToken, task.taiga_task_id, context.taigaApiUrl)
       .then(({ description }) => { patchTask(task.id, { description }); })
-      .catch(() => {})
+      .catch((err) => { toast.error(taigaErrMsg(err, "Load description")); })
       .finally(() => setDescFetching(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingId]);
