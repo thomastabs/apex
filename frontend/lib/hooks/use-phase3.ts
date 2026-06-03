@@ -31,6 +31,51 @@ import { usePhase3Store } from "@/lib/stores/phase3-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { toast } from "sonner";
 
+// ---------------------------------------------------------------------------
+// Apex metadata encoding / decoding in Taiga task descriptions
+// ---------------------------------------------------------------------------
+
+const APEX_META_RE = /\n\n---\n\n\*Apex — [^\n]+\*\n\n\[\/\/\]: # \(apex-meta:(\{.+?\})\)/s;
+
+export function encodeApexMeta(task: Phase3Task): string {
+  const base = task.description.trim();
+  const meta = {
+    effort: task.effort_estimate ?? "M",
+    covered_scenarios: task.covered_scenarios ?? [],
+    predecessor_task_ids: task.predecessor_task_ids ?? [],
+  };
+  const parts: string[] = [];
+  if (meta.effort) parts.push(`Effort: ${meta.effort}`);
+  if (meta.covered_scenarios.length) parts.push(`Covers: ${meta.covered_scenarios.join("; ")}`);
+  if (meta.predecessor_task_ids.length) parts.push(`Depends on tasks: ${meta.predecessor_task_ids.join(", ")}`);
+  const humanLine = parts.length ? `*Apex — ${parts.join(" | ")}*` : `*Apex — Effort: ${meta.effort}*`;
+  return `${base}\n\n---\n\n${humanLine}\n\n[//]: # (apex-meta:${JSON.stringify(meta)})`;
+}
+
+export function decodeApexMeta(rawDescription: string): {
+  description: string;
+  effort_estimate: EffortEstimate;
+  covered_scenarios: string[];
+  predecessor_task_ids: number[];
+} {
+  const match = rawDescription.match(APEX_META_RE);
+  if (!match) {
+    return { description: rawDescription.trim(), effort_estimate: "M", covered_scenarios: [], predecessor_task_ids: [] };
+  }
+  try {
+    const meta = JSON.parse(match[1]) as { effort?: string; covered_scenarios?: string[]; predecessor_task_ids?: number[] };
+    const description = rawDescription.slice(0, rawDescription.length - match[0].length).trim();
+    return {
+      description,
+      effort_estimate: (meta.effort ?? "M") as EffortEstimate,
+      covered_scenarios: meta.covered_scenarios ?? [],
+      predecessor_task_ids: meta.predecessor_task_ids ?? [],
+    };
+  } catch {
+    return { description: rawDescription.trim(), effort_estimate: "M", covered_scenarios: [], predecessor_task_ids: [] };
+  }
+}
+
 export function useEligibleStories() {
   const context = useApiContext();
   return useQuery({
@@ -83,7 +128,7 @@ export function usePushTasksToTaiga() {
             context.projectId,
             storyId,
             task.subject,
-            task.description,
+            encodeApexMeta(task),
             context.taigaApiUrl,
             task.effort_estimate ? EFFORT_POINTS[task.effort_estimate] : undefined,
           );
@@ -206,14 +251,17 @@ export function useLoadTaskList(storyId: number | null) {
     if (!storyId || !taigaFallbackQuery.data) return;
     const storyTasks = taigaFallbackQuery.data.filter((t) => t.user_story === storyId);
     if (storyTasks.length === 0) return;
-    const reconstructed: Phase3Task[] = storyTasks.map((t, i) => ({
-      id: i + 1,
-      subject: t.subject,
-      description: t.description || "",
-      effort_estimate: "M" as const,
-      covered_scenarios: [],
-      predecessor_task_ids: [],
-    }));
+    const reconstructed: Phase3Task[] = storyTasks.map((t, i) => {
+      const decoded = decodeApexMeta(t.description || "");
+      return {
+        id: i + 1,
+        subject: t.subject,
+        description: decoded.description,
+        effort_estimate: decoded.effort_estimate,
+        covered_scenarios: decoded.covered_scenarios,
+        predecessor_task_ids: decoded.predecessor_task_ids,
+      };
+    });
     hydrateTasks(reconstructed);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query.data, taigaFallbackQuery.data, storyId]);
@@ -294,14 +342,17 @@ export function useSyncTaskLists() {
       for (const storyId of missingIds) {
         const storyTasks = tasksByStory.get(storyId);
         if (!storyTasks || storyTasks.length === 0) { skipped++; continue; }
-        const tasks: Phase3Task[] = storyTasks.map((t, i) => ({
-          id: i + 1,
-          subject: t.subject,
-          description: t.description || "",
-          effort_estimate: "M" as const,
-          covered_scenarios: [],
-          predecessor_task_ids: [],
-        }));
+        const tasks: Phase3Task[] = storyTasks.map((t, i) => {
+          const decoded = decodeApexMeta(t.description || "");
+          return {
+            id: i + 1,
+            subject: t.subject,
+            description: decoded.description,
+            effort_estimate: decoded.effort_estimate,
+            covered_scenarios: decoded.covered_scenarios,
+            predecessor_task_ids: decoded.predecessor_task_ids,
+          };
+        });
         await saveTaskList(context, storyId, tasks);
         saved++;
       }

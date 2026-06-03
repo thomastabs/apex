@@ -15,7 +15,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { useSyncTaskLists, useTaskBoard } from "@/lib/hooks/use-phase3";
+import { decodeApexMeta, useSyncTaskLists, useTaskBoard } from "@/lib/hooks/use-phase3";
 import { usePhase3Store } from "@/lib/stores/phase3-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -199,7 +199,10 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
 
   const loadForEditMut = useMutation({
     mutationFn: (taskId: number) => taigaGetTask(context!.taigaToken, taskId, context!.taigaApiUrl),
-    onSuccess: (task) => setEditingTask({ id: task.id, subject: task.subject, description: task.description, version: task.version }),
+    onSuccess: (task) => {
+      const { description } = decodeApexMeta(task.description);
+      setEditingTask({ id: task.id, subject: task.subject, description, version: task.version });
+    },
     onError: () => toast.error("Failed to load task."),
   });
 
