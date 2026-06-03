@@ -381,6 +381,19 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const [editingId, setEditingId] = useState<number | null>(null);
   const [descFetching, setDescFetching] = useState(false);
 
+  // Prefetch descriptions for tasks that have taiga_task_id but empty description
+  useEffect(() => {
+    if (!context || taskList.length === 0) return;
+    const needsDesc = taskList.filter((t) => t.taiga_task_id && !t.description);
+    if (needsDesc.length === 0) return;
+    for (const task of needsDesc) {
+      fetchTaigaTaskFull(context.taigaToken, task.taiga_task_id!, context.taigaApiUrl)
+        .then(({ description }) => { if (description) patchTask(task.id, { description }); })
+        .catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskList.length, context]);
+
   // When opening edit, resolve taiga_task_id if missing then fetch full description
   useEffect(() => {
     if (editingId === null || !context) return;
