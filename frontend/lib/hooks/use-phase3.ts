@@ -43,6 +43,14 @@ const APEX_META_BLOCK_RE = /\n\n---\n\n(?:\*Apex —[^\n]*\*|[\s\S]*?\*\*Apex Me
 const EFFORT_LABELS: Record<string, string> = { XS: "XS (1 pt)", S: "S (2 pts)", M: "M (3 pts)", L: "L (5 pts)", XL: "XL (8 pts)" };
 const EFFORT_FROM_LABEL: Record<string, string> = { "XS (1 pt)": "XS", "S (2 pts)": "S", "M (3 pts)": "M", "L (5 pts)": "L", "XL (8 pts)": "XL" };
 
+// Re-attach the existing apex block from a raw Taiga description onto a new user-edited description.
+// Preserves metadata when the sidebar edits only the description text.
+export function reattachApexBlock(rawOrig: string, newDescription: string): string {
+  const blockMatch = rawOrig.match(APEX_META_BLOCK_RE);
+  if (!blockMatch) return newDescription.trim();
+  return newDescription.trim() + blockMatch[0];
+}
+
 export function encodeApexMeta(task: Phase3Task): string {
   const base = task.description.trim();
   const effort = task.effort_estimate ?? "M";

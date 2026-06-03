@@ -15,7 +15,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { decodeApexMeta, useSyncTaskLists, useTaskBoard } from "@/lib/hooks/use-phase3";
+import { decodeApexMeta, reattachApexBlock, useSyncTaskLists, useTaskBoard } from "@/lib/hooks/use-phase3";
 import { usePhase3Store } from "@/lib/stores/phase3-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -177,7 +177,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
   const [filterOpen, setFilterOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const [expandedStories, setExpandedStories] = useState<Set<number>>(new Set());
-  const [editingTask, setEditingTask] = useState<{ id: number; subject: string; description: string; version: number } | null>(null);
+  const [editingTask, setEditingTask] = useState<{ id: number; subject: string; description: string; rawDescription: string; version: number } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{ id: number; ref: number; subject: string } | null>(null);
   const [addingToStory, setAddingToStory] = useState<number | null>(null);
   const [newTaskSubject, setNewTaskSubject] = useState("");
@@ -202,14 +202,14 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
     mutationFn: (taskId: number) => taigaGetTask(context!.taigaToken, taskId, context!.taigaApiUrl),
     onSuccess: (task) => {
       const { description } = decodeApexMeta(task.description);
-      setEditingTask({ id: task.id, subject: task.subject, description, version: task.version });
+      setEditingTask({ id: task.id, subject: task.subject, description, rawDescription: task.description, version: task.version });
     },
     onError: (err) => toast.error(taigaErrMsg(err, "Load task")),
   });
 
   const updateMut = useMutation({
-    mutationFn: (v: { id: number; version: number; subject: string; description: string }) =>
-      taigaUpdateTask(context!.taigaToken, v.id, v.version, { subject: v.subject, description: v.description }, context!.taigaApiUrl),
+    mutationFn: (v: { id: number; version: number; subject: string; description: string; rawDescription: string }) =>
+      taigaUpdateTask(context!.taigaToken, v.id, v.version, { subject: v.subject, description: reattachApexBlock(v.rawDescription, v.description) }, context!.taigaApiUrl),
     onSuccess: () => { setEditingTask(null); void invalidate(); },
     onError: (err) => toast.error(taigaErrMsg(err, "Update task")),
   });
@@ -333,7 +333,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
           task={editingTask}
           dark={darkTheme}
           onSave={(subject, description) =>
-            updateMut.mutate({ id: editingTask.id, version: editingTask.version, subject, description })
+            updateMut.mutate({ id: editingTask.id, version: editingTask.version, subject, description, rawDescription: editingTask.rawDescription })
           }
           onClose={() => setEditingTask(null)}
           isPending={updateMut.isPending}
