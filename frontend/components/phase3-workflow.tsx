@@ -23,6 +23,7 @@ import {
   decodeApexMeta,
   encodeApexMeta,
   fetchTaigaTaskFull,
+  findTaigaTaskBySubject,
   useEligibleStories,
   useGenerateProposal,
   useGenerateTasks,
@@ -403,18 +404,18 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const [editingId, setEditingId] = useState<number | null>(null);
   const [descFetching, setDescFetching] = useState(false);
 
-  // Prefetch descriptions for tasks that have taiga_task_id but empty description
+  // Prefetch descriptions for tasks that have taiga_task_id but empty description.
+  // Dep on needsFetchCount so re-fires if a description gets cleared.
+  const needsFetchCount = taskList.filter((t) => t.taiga_task_id && !t.description).length;
   useEffect(() => {
-    if (!context || taskList.length === 0) return;
-    const needsDesc = taskList.filter((t) => t.taiga_task_id && !t.description);
-    if (needsDesc.length === 0) return;
-    for (const task of needsDesc) {
+    if (!context || needsFetchCount === 0) return;
+    for (const task of taskList.filter((t) => t.taiga_task_id && !t.description)) {
       fetchTaigaTaskFull(context.taigaToken, task.taiga_task_id!, context.taigaApiUrl)
         .then(({ description }) => { if (description) patchTask(task.id, { description }); })
         .catch(() => {});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [taskList.length, context]);
+  }, [needsFetchCount, context]);
 
   // When opening edit, resolve taiga_task_id if missing then fetch full description
   useEffect(() => {
@@ -427,9 +428,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
     // Resolve missing taiga_task_id via cached project tasks (subject match)
     if (!taigaId) {
       const cached = queryClient.getQueryData<TaigaTask[]>(["taiga", "project-tasks", context.projectId]) ?? [];
-      const match = cached.find(
-        (t) => t.user_story === storyId && t.subject.trim().toLowerCase() === task.subject.trim().toLowerCase(),
-      );
+      const match = findTaigaTaskBySubject(cached, storyId, task.subject);
       if (match) {
         taigaId = match.id;
         patchTask(task.id, { taiga_task_id: match.id });

@@ -135,16 +135,24 @@ class Phase3Service:
                 missing.append(story_id)
         return sorted(missing)
 
+    def _require_story(self, story_id: int) -> None:
+        """Raise Phase3ValidationError if story_id is not in the project index."""
+        if str(story_id) not in self.context.story_index():
+            raise Phase3ValidationError(f"Story {story_id} not found in project index.")
+
     def get_task_list(self, ctx: RequestContext, story_id: int) -> list[dict]:
         self.configure_request(ctx)
+        self._require_story(story_id)
         return self.context.load_task_list(story_id)
 
     def save_task_list(self, ctx: RequestContext, story_id: int, tasks: list[dict]) -> None:
         self.configure_request(ctx)
+        self._require_story(story_id)
         self.context.save_task_list(story_id, tasks)
 
     def get_proposals(self, ctx: RequestContext, story_id: int) -> list[dict]:
         self.configure_request(ctx)
+        self._require_story(story_id)
         return self.context.load_proposals(story_id)
 
     def get_task_board(self, ctx: RequestContext) -> list[dict]:

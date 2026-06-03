@@ -12,6 +12,10 @@ export function isTaiga401(err: unknown): boolean {
   return err instanceof ApiError && err.status === 401;
 }
 
+export function isTaiga409(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 409;
+}
+
 export function taigaErrMsg(err: unknown, action = "Taiga request"): string {
   if (isTaiga401(err)) return "Session expired — sign out and sign in again.";
   if (err instanceof Error) return `${action} failed: ${err.message}`;

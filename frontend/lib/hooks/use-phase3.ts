@@ -15,7 +15,7 @@ import {
   saveProposal,
   saveTaskList,
 } from "@/lib/api/phase3";
-import { taigaCreateTask, taigaErrMsg, taigaGetProjectTasks, taigaGetTask, taigaUpdateTask, type TaigaTask } from "@/lib/api/taiga-direct";
+import { isTaiga409, taigaCreateTask, taigaErrMsg, taigaGetProjectTasks, taigaGetTask, taigaUpdateTask, type TaigaTask } from "@/lib/api/taiga-direct";
 import type {
   EffortEstimate,
   Phase3GenerateProposalRequest,
@@ -93,7 +93,8 @@ export function decodeApexMeta(rawDescription: string): {
   // Parse human-readable bullet points
   const block = blockMatch[0];
   const effortRaw = block.match(/\*\*Effort:\*\*\s*([^\n]+)/)?.[1]?.trim() ?? "M";
-  const effort = (EFFORT_FROM_LABEL[effortRaw] ?? effortRaw.split(" ")[0]) as EffortEstimate;
+  const effortParsed = EFFORT_FROM_LABEL[effortRaw] ?? effortRaw.split(" ")[0];
+  const effort = (["XS","S","M","L","XL"].includes(effortParsed) ? effortParsed : "M") as EffortEstimate;
   const coversRaw = block.match(/\*\*Covers:\*\*\s*([^\n]+)/)?.[1]?.trim();
   const depsRaw = block.match(/\*\*Depends on tasks:\*\*\s*([\d, ]+)/)?.[1]?.trim();
   return {
@@ -104,6 +105,13 @@ export function decodeApexMeta(rawDescription: string): {
       ? depsRaw.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n))
       : [],
   };
+}
+
+export function findTaigaTaskBySubject(
+  cached: TaigaTask[], storyId: number, subject: string,
+): TaigaTask | undefined {
+  const key = subject.trim().toLowerCase();
+  return cached.find((t) => t.user_story === storyId && t.subject.trim().toLowerCase() === key);
 }
 
 export function useEligibleStories() {
@@ -335,6 +343,7 @@ export function useSaveTaskList() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["phase3", "task-board"] });
     },
+    onError: () => toast.error("Failed to save task list. Changes may not persist."),
   });
 }
 
@@ -422,12 +431,20 @@ export function useUpdateTaskInTaiga() {
   return useMutation({
     mutationFn: async ({ taigaTaskId, task }: { taigaTaskId: number; task: Phase3Task }) => {
       if (!context) throw new Error("No context.");
-      const current = await taigaGetTask(context.taigaToken, taigaTaskId, context.taigaApiUrl);
-      await taigaUpdateTask(
-        context.taigaToken, taigaTaskId, current.version,
-        { subject: task.subject, description: encodeApexMeta(task) },
-        context.taigaApiUrl,
-      );
+      for (let attempt = 0; attempt <= 1; attempt++) {
+        try {
+          const { version } = await fetchTaigaTaskFull(context.taigaToken, taigaTaskId, context.taigaApiUrl);
+          await taigaUpdateTask(
+            context.taigaToken, taigaTaskId, version,
+            { subject: task.subject, description: encodeApexMeta(task) },
+            context.taigaApiUrl,
+          );
+          return;
+        } catch (err) {
+          if (isTaiga409(err) && attempt === 0) continue; // version conflict — retry once
+          throw err;
+        }
+      }
     },
     onSuccess: () => toast.success("Task saved to Taiga."),
     onError: (err) => toast.error(taigaErrMsg(err, "Save task")),
@@ -448,9 +465,7 @@ export function usePushSingleTask() {
         queryFn: () => taigaGetProjectTasks(context.taigaToken, context.projectId, context.taigaApiUrl),
         staleTime: 0,
       });
-      const dupe = fresh.find(
-        (t) => t.user_story === storyId && t.subject.trim().toLowerCase() === task.subject.trim().toLowerCase(),
-      );
+      const dupe = findTaigaTaskBySubject(fresh, storyId, task.subject);
       if (dupe) throw new Error(`"${task.subject}" already exists in Taiga (#${dupe.ref})`);
       const created = await taigaCreateTask(
         context.taigaToken, context.projectId, storyId, task.subject,
@@ -478,15 +493,14 @@ export function usePushMetadataToTaiga() {
     mutationFn: async (storyId: number) => {
       if (!context) throw new Error("No context.");
 
-      // Resolve missing taiga_task_ids via subject lookup in cache
+      // Resolve missing taiga_task_ids via subject lookup — collect for onSuccess side-effect
       const cached = queryClient.getQueryData<TaigaTask[]>(["taiga", "project-tasks", context.projectId]) ?? [];
+      const resolved: Array<{ localId: number; taigaId: number }> = [];
       const targets = taskList.map((task) => {
         if (task.taiga_task_id) return task;
-        const match = cached.find(
-          (t) => t.user_story === storyId && t.subject.trim().toLowerCase() === task.subject.trim().toLowerCase(),
-        );
+        const match = findTaigaTaskBySubject(cached, storyId, task.subject);
         if (match) {
-          patchTask(task.id, { taiga_task_id: match.id });
+          resolved.push({ localId: task.id, taigaId: match.id });
           return { ...task, taiga_task_id: match.id };
         }
         return task;
@@ -504,21 +518,37 @@ export function usePushMetadataToTaiga() {
 
       let updated = 0;
       const errors: string[] = [];
-      for (const { task, version } of withVersions) {
+      for (const { task, version: initialVersion } of withVersions) {
         try {
-          await taigaUpdateTask(
-            context.taigaToken, task.taiga_task_id!, version,
-            { description: encodeApexMeta(task) },
-            context.taigaApiUrl,
-          );
+          let ver = initialVersion;
+          for (let attempt = 0; attempt <= 1; attempt++) {
+            try {
+              await taigaUpdateTask(
+                context.taigaToken, task.taiga_task_id!, ver,
+                { description: encodeApexMeta(task) },
+                context.taigaApiUrl,
+              );
+              break;
+            } catch (err) {
+              if (isTaiga409(err) && attempt === 0) {
+                // Version conflict — re-fetch and retry once
+                const refreshed = await taigaGetTask(context.taigaToken, task.taiga_task_id!, context.taigaApiUrl);
+                ver = refreshed.version;
+              } else throw err;
+            }
+          }
           updated++;
         } catch (err) {
           errors.push(`Task ${task.id}: ${err instanceof Error ? err.message : "unknown"}`);
         }
       }
-      return { updated, errors };
+      return { updated, errors, resolved };
     },
-    onSuccess: ({ updated, errors }) => {
+    onSuccess: ({ updated, errors, resolved }) => {
+      // Persist resolved taiga_task_ids — side-effect belongs here not in mutationFn
+      for (const { localId, taigaId } of resolved) {
+        patchTask(localId, { taiga_task_id: taigaId });
+      }
       if (errors.length > 0) {
         toast.warning(`Updated ${updated} tasks. ${errors.length} failed: ${errors.join("; ")}`);
       } else {
