@@ -443,7 +443,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
       .catch((err) => { toast.error(taigaErrMsg(err, "Load description")); })
       .finally(() => setDescFetching(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingId]);
+  }, [editingId, storyId]);
 
   const nextId = taskList.length > 0 ? Math.max(...taskList.map((t) => t.id)) + 1 : 1;
 
@@ -559,7 +559,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
             <CheckCircle2 className="h-3.5 w-3.5" /> Pushed to Taiga
           </div>
           <button
-            onClick={() => pushMetaMut.mutate()}
+            onClick={() => pushMetaMut.mutate(storyId)}
             disabled={pushMetaMut.isPending}
             className={cn(
               "rounded px-2 py-1 text-xs font-medium transition-colors",
@@ -591,7 +591,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                 setTaskList([]);
                 setEditingId(null);
                 removePushedStoryId(storyId);
-                if (context) void saveTaskListMut.mutateAsync({ storyId, tasks: [] });
+                if (context) void saveTaskListMut.mutateAsync({ storyId, tasks: [] }).catch((err) => toast.error(taigaErrMsg(err, "Clear tasks")));
               }}
               className={cn(
                 "rounded px-2 py-1 text-xs font-medium transition-colors",

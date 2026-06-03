@@ -58,7 +58,7 @@ export function encodeApexMeta(task: Phase3Task): string {
   const deps = task.predecessor_task_ids ?? [];
   const lines: string[] = ["**Apex Metadata**"];
   lines.push(`- **Effort:** ${EFFORT_LABELS[effort] ?? effort}`);
-  if (covered.length) lines.push(`- **Covers:** ${covered.join("; ")}`);
+  if (covered.length) lines.push(`- **Covers:** ${covered.join(" | ")}`);
   if (deps.length) lines.push(`- **Depends on tasks:** ${deps.join(", ")}`);
   return `${base}\n\n---\n\n${lines.join("\n")}`;
 }
@@ -99,7 +99,7 @@ export function decodeApexMeta(rawDescription: string): {
   return {
     description,
     effort_estimate: effort,
-    covered_scenarios: coversRaw ? coversRaw.split(";").map((s) => s.trim()).filter(Boolean) : [],
+    covered_scenarios: coversRaw ? coversRaw.split(" | ").map((s) => s.trim()).filter(Boolean) : [],
     predecessor_task_ids: depsRaw
       ? depsRaw.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n))
       : [],
@@ -387,8 +387,12 @@ export function useSyncTaskLists() {
             taiga_task_id: t.id,
           };
         });
-        await saveTaskList(context, storyId, tasks);
-        saved++;
+        try {
+          await saveTaskList(context, storyId, tasks);
+          saved++;
+        } catch {
+          skipped++;
+        }
       }
       return { saved, skipped };
     },
@@ -438,9 +442,13 @@ export function usePushSingleTask() {
   return useMutation({
     mutationFn: async ({ storyId, task }: { storyId: number; task: Phase3Task }) => {
       if (!context) throw new Error("No context.");
-      // Duplicate check against cached Taiga tasks
-      const cached = queryClient.getQueryData<TaigaTask[]>(["taiga", "project-tasks", context.projectId]) ?? [];
-      const dupe = cached.find(
+      // Duplicate check — force fresh fetch to avoid stale 60s cache window
+      const fresh = await queryClient.fetchQuery({
+        queryKey: ["taiga", "project-tasks", context.projectId],
+        queryFn: () => taigaGetProjectTasks(context.taigaToken, context.projectId, context.taigaApiUrl),
+        staleTime: 0,
+      });
+      const dupe = fresh.find(
         (t) => t.user_story === storyId && t.subject.trim().toLowerCase() === task.subject.trim().toLowerCase(),
       );
       if (dupe) throw new Error(`"${task.subject}" already exists in Taiga (#${dupe.ref})`);
@@ -464,10 +472,10 @@ export function usePushSingleTask() {
 export function usePushMetadataToTaiga() {
   const context = useApiContext();
   const queryClient = useQueryClient();
-  const { taskList, selectedStoryId, patchTask } = usePhase3Store();
+  const { taskList, patchTask } = usePhase3Store();
 
   return useMutation({
-    mutationFn: async () => {
+    mutationFn: async (storyId: number) => {
       if (!context) throw new Error("No context.");
 
       // Resolve missing taiga_task_ids via subject lookup in cache
@@ -475,7 +483,7 @@ export function usePushMetadataToTaiga() {
       const targets = taskList.map((task) => {
         if (task.taiga_task_id) return task;
         const match = cached.find(
-          (t) => t.user_story === selectedStoryId && t.subject.trim().toLowerCase() === task.subject.trim().toLowerCase(),
+          (t) => t.user_story === storyId && t.subject.trim().toLowerCase() === task.subject.trim().toLowerCase(),
         );
         if (match) {
           patchTask(task.id, { taiga_task_id: match.id });
