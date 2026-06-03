@@ -15,7 +15,8 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { decodeApexMeta, reattachApexBlock, useSyncTaskLists, useTaskBoard } from "@/lib/hooks/use-phase3";
+import { decodeApexMeta, encodeApexMeta, useSyncTaskLists, useTaskBoard } from "@/lib/hooks/use-phase3";
+import type { EffortEstimate } from "@/lib/api/types";
 import { usePhase3Store } from "@/lib/stores/phase3-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -95,6 +96,9 @@ function DeleteTaskDialog({
   );
 }
 
+const EFFORT_OPTIONS: EffortEstimate[] = ["XS", "S", "M", "L", "XL"];
+const EFFORT_LABELS_DIALOG: Record<EffortEstimate, string> = { XS: "XS (1 pt)", S: "S (2 pts)", M: "M (3 pts)", L: "L (5 pts)", XL: "XL (8 pts)" };
+
 function TaskEditDialog({
   task,
   dark,
@@ -102,14 +106,21 @@ function TaskEditDialog({
   onClose,
   isPending,
 }: {
-  task: { id: number; ref?: number; subject: string; description: string; version: number };
+  task: {
+    id: number; ref?: number; subject: string; description: string;
+    effort_estimate: EffortEstimate; covered_scenarios: string[]; predecessor_task_ids: number[];
+    version: number;
+  };
   dark: boolean;
-  onSave: (subject: string, description: string) => void;
+  onSave: (subject: string, description: string, effort: EffortEstimate, scenarios: string[], deps: number[]) => void;
   onClose: () => void;
   isPending: boolean;
 }) {
   const [subject, setSubject] = useState(task.subject);
   const [description, setDescription] = useState(task.description);
+  const [effort, setEffort] = useState<EffortEstimate>(task.effort_estimate);
+  const [scenariosText, setScenariosText] = useState(task.covered_scenarios.join("\n"));
+  const [depsText, setDepsText] = useState(task.predecessor_task_ids.join(", "));
 
   const inputClass = cn(
     "w-full rounded border px-3 text-sm outline-none focus:border-violet-500",
@@ -117,6 +128,13 @@ function TaskEditDialog({
       ? "border-neutral-700 bg-neutral-950 text-white placeholder:text-neutral-500"
       : "border-slate-300 bg-white text-slate-950 placeholder:text-slate-400",
   );
+  const labelClass = cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600");
+
+  const handleSave = () => {
+    const scenarios = scenariosText.split("\n").map((s) => s.trim()).filter(Boolean);
+    const deps = depsText.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n));
+    onSave(subject.trim(), description, effort, scenarios, deps);
+  };
 
   return (
     <div
@@ -132,30 +150,39 @@ function TaskEditDialog({
         </h3>
         <div className="space-y-3">
           <div>
-            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Subject</label>
-            <input
-              className={cn("h-9", inputClass)}
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="Task subject"
-              autoFocus
-            />
+            <label className={labelClass}>Subject</label>
+            <input className={cn("h-9", inputClass)} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Task subject" autoFocus />
           </div>
           <div>
-            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Description</label>
-            <textarea
-              className={cn("h-48 resize-none py-2", inputClass)}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe this task…"
-            />
+            <label className={labelClass}>Description</label>
+            <textarea className={cn("h-32 resize-none py-2", inputClass)} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe this task…" />
+          </div>
+          <div className="flex gap-4">
+            <div className="flex-shrink-0">
+              <label className={labelClass}>Effort</label>
+              <select
+                value={effort}
+                onChange={(e) => setEffort(e.target.value as EffortEstimate)}
+                className={cn("rounded border px-2 py-1.5 text-xs", dark ? "border-neutral-700 bg-neutral-950 text-white" : "border-slate-300 bg-white text-slate-900")}
+              >
+                {EFFORT_OPTIONS.map((e) => <option key={e} value={e}>{EFFORT_LABELS_DIALOG[e]}</option>)}
+              </select>
+            </div>
+            <div className="flex-1 min-w-0">
+              <label className={labelClass}>Depends on tasks <span className={cn("font-normal", dark ? "text-neutral-600" : "text-slate-400")}>(Phase 3 task numbers, comma-separated)</span></label>
+              <input className={cn("h-8", inputClass)} value={depsText} onChange={(e) => setDepsText(e.target.value)} placeholder="e.g. 1, 2" />
+            </div>
+          </div>
+          <div>
+            <label className={labelClass}>Covered scenarios <span className={cn("font-normal", dark ? "text-neutral-600" : "text-slate-400")}>(one per line)</span></label>
+            <textarea className={cn("h-20 resize-none py-2", inputClass)} value={scenariosText} onChange={(e) => setScenariosText(e.target.value)} placeholder="Scenario: …&#10;Scenario: …" />
           </div>
         </div>
         <div className="mt-5 flex gap-3">
           <button
             className="flex-1 rounded bg-violet-700 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-600 disabled:opacity-50"
             disabled={isPending || !subject.trim()}
-            onClick={() => onSave(subject.trim(), description)}
+            onClick={handleSave}
           >
             {isPending ? "Saving…" : "Save"}
           </button>
@@ -177,7 +204,10 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
   const [filterOpen, setFilterOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const [expandedStories, setExpandedStories] = useState<Set<number>>(new Set());
-  const [editingTask, setEditingTask] = useState<{ id: number; subject: string; description: string; rawDescription: string; version: number } | null>(null);
+  const [editingTask, setEditingTask] = useState<{
+    id: number; subject: string; description: string; rawDescription: string; version: number;
+    storyId: number; effort_estimate: EffortEstimate; covered_scenarios: string[]; predecessor_task_ids: number[];
+  } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{ id: number; ref: number; subject: string } | null>(null);
   const [addingToStory, setAddingToStory] = useState<number | null>(null);
   const [newTaskSubject, setNewTaskSubject] = useState("");
@@ -185,7 +215,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
   const context = useApiContext();
   const queryClient = useQueryClient();
   const { data: jsonBoard = [] } = useTaskBoard();
-  const { selectedStoryId, taskList, currentStoryMeta } = usePhase3Store();
+  const { selectedStoryId, taskList, currentStoryMeta, patchTask } = usePhase3Store();
 
   const QUERY_KEY = ["taiga", "project-tasks", context?.projectId];
 
@@ -201,16 +231,42 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
   const loadForEditMut = useMutation({
     mutationFn: (taskId: number) => taigaGetTask(context!.taigaToken, taskId, context!.taigaApiUrl),
     onSuccess: (task) => {
-      const { description } = decodeApexMeta(task.description);
-      setEditingTask({ id: task.id, subject: task.subject, description, rawDescription: task.description, version: task.version });
+      const decoded = decodeApexMeta(task.description);
+      setEditingTask({
+        id: task.id, subject: task.subject, description: decoded.description,
+        rawDescription: task.description, version: task.version, storyId: task.user_story,
+        effort_estimate: decoded.effort_estimate, covered_scenarios: decoded.covered_scenarios,
+        predecessor_task_ids: decoded.predecessor_task_ids,
+      });
     },
     onError: (err) => toast.error(taigaErrMsg(err, "Load task")),
   });
 
   const updateMut = useMutation({
-    mutationFn: (v: { id: number; version: number; subject: string; description: string; rawDescription: string }) =>
-      taigaUpdateTask(context!.taigaToken, v.id, v.version, { subject: v.subject, description: reattachApexBlock(v.rawDescription, v.description) }, context!.taigaApiUrl),
-    onSuccess: () => { setEditingTask(null); void invalidate(); },
+    mutationFn: (v: {
+      id: number; version: number; subject: string; description: string;
+      effort_estimate: EffortEstimate; covered_scenarios: string[]; predecessor_task_ids: number[];
+    }) => {
+      const fullDesc = encodeApexMeta({
+        id: v.id, subject: v.subject, description: v.description,
+        effort_estimate: v.effort_estimate, covered_scenarios: v.covered_scenarios,
+        predecessor_task_ids: v.predecessor_task_ids,
+      });
+      return taigaUpdateTask(context!.taigaToken, v.id, v.version, { subject: v.subject, description: fullDesc }, context!.taigaApiUrl);
+    },
+    onSuccess: (_, v) => {
+      // Sync Phase 3 store so StageB reflects the change immediately (debounce auto-saves JSON)
+      const local = taskList.find((t) => t.taiga_task_id === v.id);
+      if (local) {
+        patchTask(local.id, {
+          subject: v.subject, description: v.description,
+          effort_estimate: v.effort_estimate, covered_scenarios: v.covered_scenarios,
+          predecessor_task_ids: v.predecessor_task_ids,
+        });
+      }
+      setEditingTask(null);
+      void invalidate();
+    },
     onError: (err) => toast.error(taigaErrMsg(err, "Update task")),
   });
 
@@ -332,8 +388,8 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
         <TaskEditDialog
           task={editingTask}
           dark={darkTheme}
-          onSave={(subject, description) =>
-            updateMut.mutate({ id: editingTask.id, version: editingTask.version, subject, description, rawDescription: editingTask.rawDescription })
+          onSave={(subject, description, effort_estimate, covered_scenarios, predecessor_task_ids) =>
+            updateMut.mutate({ id: editingTask.id, version: editingTask.version, subject, description, effort_estimate, covered_scenarios, predecessor_task_ids })
           }
           onClose={() => setEditingTask(null)}
           isPending={updateMut.isPending}

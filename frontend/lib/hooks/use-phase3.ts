@@ -428,6 +428,7 @@ export async function fetchTaigaTaskFull(
 
 export function useUpdateTaskInTaiga() {
   const context = useApiContext();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ taigaTaskId, task }: { taigaTaskId: number; task: Phase3Task }) => {
       if (!context) throw new Error("No context.");
@@ -446,7 +447,10 @@ export function useUpdateTaskInTaiga() {
         }
       }
     },
-    onSuccess: () => toast.success("Task saved to Taiga."),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["taiga", "project-tasks"] });
+      toast.success("Task saved to Taiga.");
+    },
     onError: (err) => toast.error(taigaErrMsg(err, "Save task")),
   });
 }
