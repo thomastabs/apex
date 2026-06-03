@@ -350,7 +350,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const dark = useUiStore((s) => s.theme) === "dark";
   const context = useApiContext();
   const { data: ctx, isLoading: ctxLoading } = useStoryContext(storyId);
-  const { taskList, tasksPushed, packDrafts, setCurrentStoryMeta, patchTask } = usePhase3Store();
+  const { taskList, tasksPushed, packDrafts, setCurrentStoryMeta, patchTask, setTaskList } = usePhase3Store();
   const { addTask, removeTask, updateTask } = useUpdateTaskList();
   const saveTaskListMut = useSaveTaskList();
   const updateInTaigaMut = useUpdateTaskInTaiga();
@@ -518,6 +518,17 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <SectionHeading>Tasks ({taskList.length})</SectionHeading>
+            {!tasksPushed && (
+              <button
+                onClick={() => { setTaskList([]); setEditingId(null); }}
+                className={cn(
+                  "rounded px-2 py-1 text-xs font-medium transition-colors",
+                  dark ? "text-neutral-500 hover:text-red-400" : "text-slate-400 hover:text-red-500",
+                )}
+              >
+                Clear
+              </button>
+            )}
           </div>
 
           <div className="space-y-2">
