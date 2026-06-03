@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import type { TaigaTask } from "@/lib/api/taiga-direct";
 import {
   CheckCircle2,
   ChevronRight,
@@ -349,6 +351,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
 function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () => void; onContinue: () => void }) {
   const dark = useUiStore((s) => s.theme) === "dark";
   const context = useApiContext();
+  const queryClient = useQueryClient();
   const { data: ctx, isLoading: ctxLoading } = useStoryContext(storyId);
   const { taskList, tasksPushed, packDrafts, setCurrentStoryMeta, patchTask, setTaskList, removePushedStoryId } = usePhase3Store();
   const { addTask, removeTask, updateTask } = useUpdateTaskList();
@@ -378,13 +381,29 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const [editingId, setEditingId] = useState<number | null>(null);
   const [descFetching, setDescFetching] = useState(false);
 
-  // When opening edit for a pushed task, fetch full description from Taiga
+  // When opening edit, resolve taiga_task_id if missing then fetch full description
   useEffect(() => {
     if (editingId === null || !context) return;
     const task = taskList.find((t) => t.id === editingId);
-    if (!task?.taiga_task_id) return;
+    if (!task) return;
+
+    let taigaId = task.taiga_task_id;
+
+    // Resolve missing taiga_task_id via cached project tasks (subject match)
+    if (!taigaId) {
+      const cached = queryClient.getQueryData<TaigaTask[]>(["taiga", "project-tasks", context.projectId]) ?? [];
+      const match = cached.find(
+        (t) => t.user_story === storyId && t.subject.trim().toLowerCase() === task.subject.trim().toLowerCase(),
+      );
+      if (match) {
+        taigaId = match.id;
+        patchTask(task.id, { taiga_task_id: match.id });
+      }
+    }
+
+    if (!taigaId) return;
     setDescFetching(true);
-    fetchTaigaTaskFull(context.taigaToken, task.taiga_task_id, context.taigaApiUrl)
+    fetchTaigaTaskFull(context.taigaToken, taigaId, context.taigaApiUrl)
       .then(({ description }) => { patchTask(task.id, { description }); })
       .catch((err) => { toast.error(taigaErrMsg(err, "Load description")); })
       .finally(() => setDescFetching(false));
