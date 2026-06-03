@@ -289,7 +289,11 @@ export function useLoadTaskList(storyId: number | null) {
       return;
     }
     if (!storyId || !taigaFallbackQuery.data) return;
-    const storyTasks = taigaFallbackQuery.data.filter((t) => t.user_story === storyId);
+    // Sort by Taiga id (push order) so reconstructed local ids (i+1) are stable
+    // across reloads — keeps predecessor_task_ids referencing the right tasks.
+    const storyTasks = taigaFallbackQuery.data
+      .filter((t) => t.user_story === storyId)
+      .sort((a, b) => a.id - b.id);
     if (storyTasks.length === 0) return;
     const reconstructed: Phase3Task[] = storyTasks.map((t, i) => {
       const decoded = decodeApexMeta(t.description || "");
@@ -382,7 +386,7 @@ export function useSyncTaskLists() {
       let saved = 0;
       let skipped = 0;
       for (const storyId of missingIds) {
-        const storyTasks = tasksByStory.get(storyId);
+        const storyTasks = tasksByStory.get(storyId)?.sort((a, b) => a.id - b.id);
         if (!storyTasks || storyTasks.length === 0) { skipped++; continue; }
         const tasks: Phase3Task[] = storyTasks.map((t, i) => {
           const decoded = decodeApexMeta(t.description || "");

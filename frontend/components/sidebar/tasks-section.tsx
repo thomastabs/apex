@@ -422,7 +422,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
           isPending={updateMut.isPending}
           validTaskIds={
             editingTask.storyId === selectedStoryId && taskList.length > 0
-              ? taskList.filter((t) => t.id !== editingTask.id).map((t) => t.id)
+              ? taskList.filter((t) => t.taiga_task_id !== editingTask.id).map((t) => t.id)
               : undefined
           }
         />,
