@@ -2,11 +2,14 @@ export type RequestContext = {
   taigaToken: string;
   projectId: number;
   taigaApiUrl?: string;
+  pmTool?: "taiga" | "jira";
+  pmProjectId?: string;
 };
 
 export type AuthContext = {
   taigaToken: string;
   taigaApiUrl?: string;
+  pmTool?: "taiga" | "jira";
 };
 
 export type Me = {
@@ -38,7 +41,7 @@ export type Story = {
   subject: string;
   description: string;
   version?: number | null;
-  status?: number | null;
+  status?: number | string | null;
   tags: string[];
   epic_id?: number | null;
   epic_subject: string;
@@ -246,6 +249,7 @@ export type Phase3Task = {
   covered_scenarios: string[];
   predecessor_task_ids: number[];
   taiga_task_id?: number;
+  pm_task_id?: string;
 };
 
 export type TaskBoardTask = {

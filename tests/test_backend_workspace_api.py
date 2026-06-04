@@ -21,7 +21,7 @@ def test_story_index_stats_deployed_counts_only_explicit_deployed(monkeypatch):
         },
     )
 
-    stats = story_index_stats(RequestContext(taiga_token="tok", project_id=42))
+    stats = story_index_stats(RequestContext(pm_token="tok", project_id=42))
 
     assert stats == {
         "total": 2,
@@ -44,7 +44,7 @@ def test_remove_epic_from_story_index_uses_request_project(monkeypatch):
     monkeypatch.setattr("src.context_manager.set_active_project", set_active_project)
     monkeypatch.setattr("src.context_manager.remove_epic_from_story_index", remove_epic)
 
-    response = remove_epic_from_story_index(7, RequestContext(taiga_token="tok", project_id=42))
+    response = remove_epic_from_story_index(7, RequestContext(pm_token="tok", project_id=42))
 
     assert response == {"ok": True}
     assert calls == [("project", 42), ("epic", 7)]
@@ -62,7 +62,7 @@ def test_remove_story_from_story_index_uses_request_project(monkeypatch):
     monkeypatch.setattr("src.context_manager.set_active_project", set_active_project)
     monkeypatch.setattr("src.context_manager.remove_story_index_entries", remove_stories)
 
-    response = remove_story_from_story_index(11, RequestContext(taiga_token="tok", project_id=42))
+    response = remove_story_from_story_index(11, RequestContext(pm_token="tok", project_id=42))
 
     assert response == {"ok": True}
     assert calls == [("project", 42), ("stories", [11])]

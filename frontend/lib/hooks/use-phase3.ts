@@ -15,7 +15,8 @@ import {
   saveProposal,
   saveTaskList,
 } from "@/lib/api/phase3";
-import { isTaiga409, taigaCreateTask, taigaErrMsg, taigaGetProjectTasks, taigaGetTask, taigaUpdateTask, type TaigaTask } from "@/lib/api/taiga-direct";
+import { getPmAdapter } from "@/lib/api/pm-factory";
+import type { PmTask } from "@/lib/api/pm-types";
 import type {
   EffortEstimate,
   Phase3GenerateProposalRequest,
@@ -32,19 +33,14 @@ import { useApiContext } from "@/lib/stores/session-store";
 import { toast } from "sonner";
 
 // ---------------------------------------------------------------------------
-// Apex metadata encoding / decoding in Taiga task descriptions
+// Apex metadata encoding / decoding in PM task descriptions
 // ---------------------------------------------------------------------------
 
-// Strips the whole Apex block (separator + Apex Metadata section) from the end of a description.
-// Handles both old format (*Apex — ...*) and new format (**Apex Metadata** bullets).
-// Also strips the legacy [//]: # () JSON comment if present.
 const APEX_META_BLOCK_RE = /\n\n---\n\n(?:\*Apex —[^\n]*\*|[\s\S]*?\*\*Apex Metadata\*\*[\s\S]*?)(?:\n\n\[\/\/\]: # \(apex-meta:\{.*?\}\))?\s*$/s;
 
 const EFFORT_LABELS: Record<string, string> = { XS: "XS (1 pt)", S: "S (2 pts)", M: "M (3 pts)", L: "L (5 pts)", XL: "XL (8 pts)" };
 const EFFORT_FROM_LABEL: Record<string, string> = { "XS (1 pt)": "XS", "S (2 pts)": "S", "M (3 pts)": "M", "L (5 pts)": "L", "XL (8 pts)": "XL" };
 
-// Re-attach the existing apex block from a raw Taiga description onto a new user-edited description.
-// Preserves metadata when the sidebar edits only the description text.
 export function reattachApexBlock(rawOrig: string, newDescription: string): string {
   const blockMatch = rawOrig.match(APEX_META_BLOCK_RE);
   if (!blockMatch) return newDescription.trim();
@@ -69,7 +65,6 @@ export function decodeApexMeta(rawDescription: string): {
   covered_scenarios: string[];
   predecessor_task_ids: number[];
 } {
-  // Try legacy JSON comment first (backward compat with old tasks)
   const legacyMatch = rawDescription.match(/\[\/\/\]: # \(apex-meta:(\{.*?\})\)\s*$/s);
   const blockMatch = rawDescription.match(APEX_META_BLOCK_RE);
   const description = blockMatch ? rawDescription.slice(0, rawDescription.length - blockMatch[0].length).trim() : rawDescription.trim();
@@ -83,14 +78,13 @@ export function decodeApexMeta(rawDescription: string): {
         covered_scenarios: meta.covered_scenarios ?? [],
         predecessor_task_ids: meta.predecessor_task_ids ?? [],
       };
-    } catch { /* fall through to human-readable parse */ }
+    } catch { /* fall through */ }
   }
 
   if (!blockMatch) {
     return { description, effort_estimate: "M", covered_scenarios: [], predecessor_task_ids: [] };
   }
 
-  // Parse human-readable bullet points
   const block = blockMatch[0];
   const effortRaw = block.match(/\*\*Effort:\*\*\s*([^\n]+)/)?.[1]?.trim() ?? "M";
   const effortParsed = EFFORT_FROM_LABEL[effortRaw] ?? effortRaw.split(" ")[0];
@@ -107,12 +101,25 @@ export function decodeApexMeta(rawDescription: string): {
   };
 }
 
-export function findTaigaTaskBySubject(
-  cached: TaigaTask[], storyId: number, subject: string,
-): TaigaTask | undefined {
+export function findPmTaskBySubject(
+  cached: PmTask[], storyId: number, subject: string,
+): PmTask | undefined {
   const key = subject.trim().toLowerCase();
-  return cached.find((t) => t.user_story === storyId && t.subject.trim().toLowerCase() === key);
+  return cached.find((t) => Number(t.user_story) === storyId && t.subject.trim().toLowerCase() === key);
 }
+
+// Kept for backward compat with phase3-workflow.tsx imports
+export { findPmTaskBySubject as findTaigaTaskBySubject };
+
+function getAdapterCtx(context: NonNullable<ReturnType<typeof useApiContext>>) {
+  return {
+    token: context.taigaToken,
+    baseUrl: context.taigaApiUrl ?? "",
+    projectId: String(context.projectId),
+  };
+}
+
+// ---------------------------------------------------------------------------
 
 export function useEligibleStories() {
   const context = useApiContext();
@@ -151,23 +158,23 @@ export function useGenerateTasks() {
 export function usePushTasksToTaiga() {
   const context = useApiContext();
   const queryClient = useQueryClient();
-  const { taskList, setTaigaTaskResult, setTasksPushed, patchTask } = usePhase3Store();
+  const { taskList, setPmTaskResult, setTasksPushed, patchTask } = usePhase3Store();
 
   return useMutation({
     mutationFn: async (storyId: number) => {
       if (!context) throw new Error("No project context.");
-      const results: Array<{ taskIndex: number; localTaskId: number; id: number; ref: number }> = [];
+      const adapter = getPmAdapter(context.pmTool);
+      const ctx = getAdapterCtx(context);
+      const results: Array<{ taskIndex: number; localTaskId: number; id: string; ref: string | number }> = [];
       const failures: Array<{ subject: string; error: string }> = [];
       for (let i = 0; i < taskList.length; i++) {
         const task = taskList[i];
         try {
-          const created = await taigaCreateTask(
-            context.taigaToken,
-            context.projectId,
-            storyId,
+          const created = await adapter.createTask(
+            ctx,
+            String(storyId),
             task.subject,
             encodeApexMeta(task),
-            context.taigaApiUrl,
             task.effort_estimate ? EFFORT_POINTS[task.effort_estimate] : undefined,
           );
           results.push({ taskIndex: i, localTaskId: task.id, id: created.id, ref: created.ref });
@@ -182,26 +189,25 @@ export function usePushTasksToTaiga() {
     },
     onSuccess: ({ results, failures }, storyId) => {
       for (const { taskIndex, localTaskId, id, ref } of results) {
-        setTaigaTaskResult(taskIndex, id, ref);
-        patchTask(localTaskId, { taiga_task_id: id });
+        setPmTaskResult(taskIndex, id, ref);
+        patchTask(localTaskId, { pm_task_id: id });
       }
       setTasksPushed(true);
-      // Persist updated task list (with taiga_task_ids) + refresh board queries
       const updatedList = usePhase3Store.getState().taskList;
       if (context && updatedList.length > 0) {
         void saveTaskList(context, storyId, updatedList).then(() => {
           void queryClient.invalidateQueries({ queryKey: ["phase3", "task-board"] });
         });
       }
-      void queryClient.invalidateQueries({ queryKey: ["taiga", "project-tasks"] });
+      void queryClient.invalidateQueries({ queryKey: ["pm", "project-tasks"] });
       if (failures.length > 0) {
         const names = failures.map((f) => f.subject).join(", ");
         toast.warning(`${results.length} tasks pushed; ${failures.length} failed: ${names}`);
       } else {
-        toast.success(`${results.length} tasks pushed to Taiga.`);
+        toast.success(`${results.length} tasks pushed.`);
       }
     },
-    onError: () => toast.error("Failed to push tasks to Taiga. Check your connection and try again."),
+    onError: () => toast.error("Failed to push tasks. Check your connection and try again."),
   });
 }
 
@@ -245,11 +251,8 @@ export function useLockStory() {
 export function useUpdateTaskList() {
   const { taskList, setTaskList, patchTask } = usePhase3Store();
 
-  // setTaskList resets tasksPushed — only use for fresh generation / deletion
   const addTask = (task: Phase3Task) => setTaskList([...taskList, task]);
   const removeTask = (id: number) => setTaskList(taskList.filter((t) => t.id !== id));
-
-  // patchTask preserves tasksPushed — use for in-place metadata edits
   const updateTask = (id: number, updates: Partial<Omit<Phase3Task, "id">>) => patchTask(id, updates);
 
   const reorderTasks = (from: number, to: number) => {
@@ -272,12 +275,10 @@ export function useLoadTaskList(storyId: number | null) {
     staleTime: 0,
   });
 
-  // When JSON file is missing (tasks pushed before persistence was added), fall back to Taiga cache.
-  // The sidebar already runs this query so it's a shared-cache hit, not an extra network call.
   const jsonEmpty = query.isSuccess && (query.data?.tasks.length ?? 0) === 0;
-  const taigaFallbackQuery = useQuery({
-    queryKey: ["taiga", "project-tasks", context?.projectId],
-    queryFn: () => taigaGetProjectTasks(context!.taigaToken, context!.projectId, context!.taigaApiUrl),
+  const pmFallbackQuery = useQuery({
+    queryKey: ["pm", "project-tasks", context?.projectId],
+    queryFn: () => getPmAdapter(context!.pmTool).getProjectTasks(getAdapterCtx(context!)),
     enabled: Boolean(context) && jsonEmpty && storyId !== null,
     staleTime: 60_000,
   });
@@ -285,15 +286,13 @@ export function useLoadTaskList(storyId: number | null) {
   useEffect(() => {
     if (!query.isSuccess) return;
     if (query.data?.tasks && query.data.tasks.length > 0) {
-      hydrateFromBackend(query.data.tasks); // authoritative JSON — overwrites stale persisted data
+      hydrateFromBackend(query.data.tasks);
       return;
     }
-    if (!storyId || !taigaFallbackQuery.data) return;
-    // Sort by Taiga id (push order) so reconstructed local ids (i+1) are stable
-    // across reloads — keeps predecessor_task_ids referencing the right tasks.
-    const storyTasks = taigaFallbackQuery.data
-      .filter((t) => t.user_story === storyId)
-      .sort((a, b) => a.id - b.id);
+    if (!storyId || !pmFallbackQuery.data) return;
+    const storyTasks = pmFallbackQuery.data
+      .filter((t) => Number(t.user_story) === storyId)
+      .sort((a, b) => Number(a.id) - Number(b.id) || String(a.id).localeCompare(String(b.id)));
     if (storyTasks.length === 0) return;
     const reconstructed: Phase3Task[] = storyTasks.map((t, i) => {
       const decoded = decodeApexMeta(t.description || "");
@@ -304,12 +303,12 @@ export function useLoadTaskList(storyId: number | null) {
         effort_estimate: decoded.effort_estimate,
         covered_scenarios: decoded.covered_scenarios,
         predecessor_task_ids: decoded.predecessor_task_ids,
-        taiga_task_id: t.id,
+        pm_task_id: String(t.id),
       };
     });
     hydrateTasks(reconstructed);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query.data, taigaFallbackQuery.data, storyId]);
+  }, [query.data, pmFallbackQuery.data, storyId]);
   return query;
 }
 
@@ -331,7 +330,6 @@ export function useLoadProposals(storyId: number | null) {
       restored[task_id] = proposal_md;
     }
     setPackDrafts(restored);
-    // proposals exist → tasks were definitely pushed to Taiga
     setTasksPushed(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query.data]);
@@ -371,22 +369,25 @@ export function useSyncTaskLists() {
   return useMutation({
     mutationFn: async () => {
       if (!context) throw new Error("No project context.");
-      const [{ story_ids: missingIds }, taigaTasks] = await Promise.all([
+      const adapter = getPmAdapter(context.pmTool);
+      const ctx = getAdapterCtx(context);
+      const [{ story_ids: missingIds }, pmTasks] = await Promise.all([
         getMissingTaskLists(context),
-        taigaGetProjectTasks(context.taigaToken, context.projectId, context.taigaApiUrl),
+        adapter.getProjectTasks(ctx),
       ]);
       if (missingIds.length === 0) return { saved: 0, skipped: 0 };
 
-      const tasksByStory = new Map<number, typeof taigaTasks>();
-      for (const t of taigaTasks) {
-        if (!tasksByStory.has(t.user_story)) tasksByStory.set(t.user_story, []);
-        tasksByStory.get(t.user_story)!.push(t);
+      const tasksByStory = new Map<number, PmTask[]>();
+      for (const t of pmTasks) {
+        const sid = Number(t.user_story);
+        if (!tasksByStory.has(sid)) tasksByStory.set(sid, []);
+        tasksByStory.get(sid)!.push(t);
       }
 
       let saved = 0;
       let skipped = 0;
       for (const storyId of missingIds) {
-        const storyTasks = tasksByStory.get(storyId)?.sort((a, b) => a.id - b.id);
+        const storyTasks = tasksByStory.get(storyId)?.sort((a, b) => Number(a.id) - Number(b.id));
         if (!storyTasks || storyTasks.length === 0) { skipped++; continue; }
         const tasks: Phase3Task[] = storyTasks.map((t, i) => {
           const decoded = decodeApexMeta(t.description || "");
@@ -397,7 +398,7 @@ export function useSyncTaskLists() {
             effort_estimate: decoded.effort_estimate,
             covered_scenarios: decoded.covered_scenarios,
             predecessor_task_ids: decoded.predecessor_task_ids,
-            taiga_task_id: t.id,
+            pm_task_id: String(t.id),
           };
         });
         try {
@@ -414,48 +415,54 @@ export function useSyncTaskLists() {
       if (saved === 0 && skipped === 0) {
         toast.success("All task lists already synced.");
       } else {
-        toast.success(`Synced ${saved} task list${saved !== 1 ? "s" : ""}.${skipped > 0 ? ` ${skipped} stories had no Taiga tasks.` : ""}`);
+        toast.success(`Synced ${saved} task list${saved !== 1 ? "s" : ""}.${skipped > 0 ? ` ${skipped} stories had no tasks.` : ""}`);
       }
     },
     onError: () => toast.error("Task list sync failed."),
   });
 }
 
-// Fetch the full Taiga task (bypasses list API truncation) and return decoded description + version.
-export async function fetchTaigaTaskFull(
-  token: string, taigaTaskId: number, apiBaseUrl: string | undefined,
-): Promise<{ description: string; version: number }> {
-  const raw = await taigaGetTask(token, taigaTaskId, apiBaseUrl);
+export async function fetchPmTaskFull(
+  context: { taigaToken: string; taigaApiUrl?: string; pmTool?: "taiga" | "jira"; projectId: number },
+  taskId: string,
+): Promise<{ description: string; version: string | number }> {
+  const adapter = getPmAdapter(context.pmTool);
+  const ctx = { token: context.taigaToken, baseUrl: context.taigaApiUrl ?? "", projectId: String(context.projectId) };
+  const raw = await adapter.getTask(ctx, taskId);
   const { description } = decodeApexMeta(raw.description);
   return { description, version: raw.version };
 }
+
+// Backward compat alias — phase3-workflow.tsx still imports this name
+export const fetchTaigaTaskFull = fetchPmTaskFull;
 
 export function useUpdateTaskInTaiga() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ taigaTaskId, task }: { taigaTaskId: number; task: Phase3Task }) => {
+    mutationFn: async ({ pmTaskId, task }: { pmTaskId: string; task: Phase3Task }) => {
       if (!context) throw new Error("No context.");
+      const adapter = getPmAdapter(context.pmTool);
+      const ctx = getAdapterCtx(context);
       for (let attempt = 0; attempt <= 1; attempt++) {
         try {
-          const { version } = await fetchTaigaTaskFull(context.taigaToken, taigaTaskId, context.taigaApiUrl);
-          await taigaUpdateTask(
-            context.taigaToken, taigaTaskId, version,
-            { subject: task.subject, description: encodeApexMeta(task) },
-            context.taigaApiUrl,
-          );
+          const { version } = await fetchPmTaskFull(context, pmTaskId);
+          await adapter.updateTask(ctx, pmTaskId, version, { subject: task.subject, description: encodeApexMeta(task) });
           return;
         } catch (err) {
-          if (isTaiga409(err) && attempt === 0) continue; // version conflict — retry once
+          if (adapter.isPmVersionConflict(err) && attempt === 0) continue;
           throw err;
         }
       }
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["taiga", "project-tasks", context?.projectId] });
-      toast.success("Task saved to Taiga.");
+      void queryClient.invalidateQueries({ queryKey: ["pm", "project-tasks", context?.projectId] });
+      toast.success("Task saved.");
     },
-    onError: (err) => toast.error(taigaErrMsg(err, "Save task")),
+    onError: (err) => {
+      const adapter = getPmAdapter(context?.pmTool);
+      toast.error(adapter.errMsg(err, "Save task"));
+    },
   });
 }
 
@@ -467,28 +474,31 @@ export function usePushSingleTask() {
   return useMutation({
     mutationFn: async ({ storyId, task }: { storyId: number; task: Phase3Task }) => {
       if (!context) throw new Error("No context.");
-      // Duplicate check — force fresh fetch to avoid stale 60s cache window
+      const adapter = getPmAdapter(context.pmTool);
+      const ctx = getAdapterCtx(context);
       const fresh = await queryClient.fetchQuery({
-        queryKey: ["taiga", "project-tasks", context.projectId],
-        queryFn: () => taigaGetProjectTasks(context.taigaToken, context.projectId, context.taigaApiUrl),
+        queryKey: ["pm", "project-tasks", context.projectId],
+        queryFn: () => adapter.getProjectTasks(ctx),
         staleTime: 0,
       });
-      const dupe = findTaigaTaskBySubject(fresh, storyId, task.subject);
-      if (dupe) throw new Error(`"${task.subject}" already exists in Taiga (#${dupe.ref})`);
-      const created = await taigaCreateTask(
-        context.taigaToken, context.projectId, storyId, task.subject,
-        encodeApexMeta(task), context.taigaApiUrl,
+      const dupe = findPmTaskBySubject(fresh, storyId, task.subject);
+      if (dupe) throw new Error(`"${task.subject}" already exists (#${dupe.ref})`);
+      const created = await adapter.createTask(
+        ctx, String(storyId), task.subject, encodeApexMeta(task),
         task.effort_estimate ? EFFORT_POINTS[task.effort_estimate] : undefined,
       );
-      return { taigaTaskId: created.id };
+      return { pmTaskId: created.id };
     },
-    onSuccess: ({ taigaTaskId }, { task }) => {
-      appendTask({ ...task, taiga_task_id: taigaTaskId });
-      void queryClient.invalidateQueries({ queryKey: ["taiga", "project-tasks"] });
+    onSuccess: ({ pmTaskId }, { task }) => {
+      appendTask({ ...task, pm_task_id: pmTaskId });
+      void queryClient.invalidateQueries({ queryKey: ["pm", "project-tasks"] });
       void queryClient.invalidateQueries({ queryKey: ["phase3", "task-board"] });
-      toast.success("Task added to Taiga.");
+      toast.success("Task added.");
     },
-    onError: (err) => toast.error(taigaErrMsg(err, "Add task")),
+    onError: (err) => {
+      const adapter = getPmAdapter(context?.pmTool);
+      toast.error(adapter.errMsg(err, "Add task"));
+    },
   });
 }
 
@@ -500,26 +510,27 @@ export function usePushMetadataToTaiga() {
   return useMutation({
     mutationFn: async (storyId: number) => {
       if (!context) throw new Error("No context.");
+      const adapter = getPmAdapter(context.pmTool);
+      const ctx = getAdapterCtx(context);
 
-      // Resolve missing taiga_task_ids via subject lookup — collect for onSuccess side-effect
-      const cached = queryClient.getQueryData<TaigaTask[]>(["taiga", "project-tasks", context.projectId]) ?? [];
-      const resolved: Array<{ localId: number; taigaId: number }> = [];
+      const cached = queryClient.getQueryData<PmTask[]>(["pm", "project-tasks", context.projectId]) ?? [];
+      const resolved: Array<{ localId: number; pmTaskId: string }> = [];
       const targets = taskList.map((task) => {
-        if (task.taiga_task_id) return task;
-        const match = findTaigaTaskBySubject(cached, storyId, task.subject);
+        const pmId = task.pm_task_id ?? (task.taiga_task_id ? String(task.taiga_task_id) : undefined);
+        if (pmId) return { ...task, pm_task_id: pmId };
+        const match = findPmTaskBySubject(cached, storyId, task.subject);
         if (match) {
-          resolved.push({ localId: task.id, taigaId: match.id });
-          return { ...task, taiga_task_id: match.id };
+          resolved.push({ localId: task.id, pmTaskId: match.id });
+          return { ...task, pm_task_id: match.id };
         }
         return task;
-      }).filter((t) => t.taiga_task_id);
+      }).filter((t) => t.pm_task_id);
 
-      if (targets.length === 0) throw new Error("No tasks with Taiga IDs to update.");
+      if (targets.length === 0) throw new Error("No tasks with PM IDs to update.");
 
-      // Fetch all current versions in parallel to minimise version-conflict window
       const withVersions = await Promise.all(
         targets.map(async (task) => {
-          const current = await taigaGetTask(context.taigaToken, task.taiga_task_id!, context.taigaApiUrl);
+          const current = await adapter.getTask(ctx, task.pm_task_id!);
           return { task, version: current.version };
         }),
       );
@@ -531,16 +542,11 @@ export function usePushMetadataToTaiga() {
           let ver = initialVersion;
           for (let attempt = 0; attempt <= 1; attempt++) {
             try {
-              await taigaUpdateTask(
-                context.taigaToken, task.taiga_task_id!, ver,
-                { description: encodeApexMeta(task) },
-                context.taigaApiUrl,
-              );
+              await adapter.updateTask(ctx, task.pm_task_id!, ver, { description: encodeApexMeta(task) });
               break;
             } catch (err) {
-              if (isTaiga409(err) && attempt === 0) {
-                // Version conflict — re-fetch and retry once
-                const refreshed = await taigaGetTask(context.taigaToken, task.taiga_task_id!, context.taigaApiUrl);
+              if (adapter.isPmVersionConflict(err) && attempt === 0) {
+                const refreshed = await adapter.getTask(ctx, task.pm_task_id!);
                 ver = refreshed.version;
               } else throw err;
             }
@@ -553,16 +559,18 @@ export function usePushMetadataToTaiga() {
       return { updated, errors, resolved };
     },
     onSuccess: ({ updated, errors, resolved }) => {
-      // Persist resolved taiga_task_ids — side-effect belongs here not in mutationFn
-      for (const { localId, taigaId } of resolved) {
-        patchTask(localId, { taiga_task_id: taigaId });
+      for (const { localId, pmTaskId } of resolved) {
+        patchTask(localId, { pm_task_id: pmTaskId });
       }
       if (errors.length > 0) {
         toast.warning(`Updated ${updated} tasks. ${errors.length} failed: ${errors.join("; ")}`);
       } else {
-        toast.success(`Metadata pushed to Taiga for ${updated} task${updated !== 1 ? "s" : ""}.`);
+        toast.success(`Metadata pushed for ${updated} task${updated !== 1 ? "s" : ""}.`);
       }
     },
-    onError: (err) => toast.error(taigaErrMsg(err, "Push metadata")),
+    onError: (err) => {
+      const adapter = getPmAdapter(context?.pmTool);
+      toast.error(adapter.errMsg(err, "Push metadata"));
+    },
   });
 }

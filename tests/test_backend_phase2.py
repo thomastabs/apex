@@ -100,7 +100,7 @@ def _story_index():
 
 
 def _ctx():
-    return RequestContext(taiga_token="token", project_id=42)
+    return RequestContext(pm_token="token", project_id=42)
 
 
 def _service(context=None):

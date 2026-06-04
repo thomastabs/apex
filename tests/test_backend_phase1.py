@@ -60,7 +60,7 @@ def _service():
 
 
 def _ctx() -> RequestContext:
-    return RequestContext(taiga_token="token", project_id=42)
+    return RequestContext(pm_token="token", project_id=42)
 
 
 def test_generate_nl_stories_injects_project_concept():

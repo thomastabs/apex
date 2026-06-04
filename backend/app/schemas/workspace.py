@@ -26,6 +26,8 @@ class SaveAiConfigRequest(BaseModel):
 
 class SaveConfigRequest(BaseModel):
     project_id: int | None = None
+    pm_tool: str | None = None
+    jira_base_url: str | None = None
 
 
 class OkResponse(BaseModel):
@@ -35,6 +37,8 @@ class OkResponse(BaseModel):
 class ConfigResponse(BaseModel):
     project_id: int | None = None
     taiga_web_url: str = ""
+    pm_tool: str = "taiga"
+    pm_web_url: str = ""
 
 
 class AiConfigModel(BaseModel):

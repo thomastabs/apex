@@ -2,8 +2,6 @@
 import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
-  Check,
-  CheckCircle2,
   ChevronDown,
   ChevronRight,
   ClipboardList,
@@ -17,19 +15,11 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { decodeApexMeta, encodeApexMeta, useSyncTaskLists, useTaskBoard } from "@/lib/hooks/use-phase3";
 import type { EffortEstimate } from "@/lib/api/types";
+import type { PmTask } from "@/lib/api/pm-types";
+import { getPmAdapter } from "@/lib/api/pm-factory";
 import { usePhase3Store } from "@/lib/stores/phase3-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
-import {
-  isTaiga409,
-  taigaCreateTask,
-  taigaDeleteTask,
-  taigaErrMsg,
-  taigaGetProjectTasks,
-  taigaGetTask,
-  taigaUpdateTask,
-  type TaigaTask,
-} from "@/lib/api/taiga-direct";
 import { PanelHeader, type DragSectionProps } from "./shared";
 
 const EFFORT_COLORS: Record<string, string> = {
@@ -44,9 +34,9 @@ type TasksSectionProps = DragSectionProps & { dark: boolean };
 
 type StoryGroup = {
   story_id: number;
-  story_ref: number;
+  story_ref: string | number;
   story_subject: string;
-  tasks: TaigaTask[];
+  tasks: PmTask[];
 };
 
 function DeleteTaskDialog({
@@ -56,7 +46,7 @@ function DeleteTaskDialog({
   onCancel,
   isPending,
 }: {
-  task: { id: number; ref: number; subject: string };
+  task: { id: string; ref: string | number; subject: string };
   dark: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -75,7 +65,7 @@ function DeleteTaskDialog({
           Delete task #{task.ref}?
         </p>
         <p className={cn("mb-4 text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
-          &ldquo;{task.subject}&rdquo; will be permanently deleted from Taiga.
+          &ldquo;{task.subject}&rdquo; will be permanently deleted.
         </p>
         <div className="flex gap-2">
           <button
@@ -109,9 +99,9 @@ function TaskEditDialog({
   validTaskIds,
 }: {
   task: {
-    id: number; ref?: number; subject: string; description: string;
+    id: string; ref?: string | number; subject: string; description: string;
     effort_estimate: EffortEstimate; covered_scenarios: string[]; predecessor_task_ids: number[];
-    version: number;
+    version: string | number;
   };
   dark: boolean;
   onSave: (subject: string, description: string, effort: EffortEstimate, scenarios: string[], deps: number[]) => void;
@@ -136,7 +126,6 @@ function TaskEditDialog({
   const handleSave = () => {
     const scenarios = scenariosText.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
     const rawDeps = depsText.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n) && n > 0);
-    // Filter to known valid task IDs if available, otherwise keep all positive integers
     const deps = validTaskIds ? rawDeps.filter((n) => validTaskIds.includes(n)) : rawDeps;
     onSave(subject.trim(), description, effort, scenarios, deps);
   };
@@ -217,10 +206,11 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
   const [filter, setFilter] = useState("");
   const [expandedStories, setExpandedStories] = useState<Set<number>>(new Set());
   const [editingTask, setEditingTask] = useState<{
-    id: number; subject: string; description: string; version: number;
+    id: string; subject: string; description: string; version: string | number;
     storyId: number; effort_estimate: EffortEstimate; covered_scenarios: string[]; predecessor_task_ids: number[];
+    ref?: string | number;
   } | null>(null);
-  const [pendingDelete, setPendingDelete] = useState<{ id: number; ref: number; subject: string } | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; ref: string | number; subject: string } | null>(null);
   const [addingToStory, setAddingToStory] = useState<number | null>(null);
   const [newTaskSubject, setNewTaskSubject] = useState("");
 
@@ -229,11 +219,16 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
   const { data: jsonBoard = [] } = useTaskBoard();
   const { selectedStoryId, taskList, currentStoryMeta, patchTask } = usePhase3Store();
 
-  const QUERY_KEY = ["taiga", "project-tasks", context?.projectId];
+  const QUERY_KEY = ["pm", "project-tasks", context?.projectId];
 
-  const { data: taigaTasks = [], isLoading } = useQuery({
+  const adapter = getPmAdapter(context?.pmTool);
+  const adapterCtx = context
+    ? { token: context.taigaToken, baseUrl: context.taigaApiUrl ?? "", projectId: String(context.projectId) }
+    : null;
+
+  const { data: pmTasks = [], isLoading } = useQuery({
     queryKey: QUERY_KEY,
-    queryFn: () => taigaGetProjectTasks(context!.taigaToken, context!.projectId, context!.taigaApiUrl),
+    queryFn: () => adapter.getProjectTasks(adapterCtx!),
     enabled: Boolean(context),
     staleTime: 60_000,
   });
@@ -241,25 +236,25 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
   const invalidate = () => queryClient.invalidateQueries({ queryKey: QUERY_KEY });
 
   const loadForEditMut = useMutation({
-    mutationFn: (taskId: number) => taigaGetTask(context!.taigaToken, taskId, context!.taigaApiUrl),
+    mutationFn: (taskId: string) => adapter.getTask(adapterCtx!, taskId),
     onSuccess: (task) => {
       const decoded = decodeApexMeta(task.description);
       setEditingTask({
-        id: task.id, subject: task.subject, description: decoded.description,
-        version: task.version, storyId: task.user_story,
+        id: task.id, ref: task.ref, subject: task.subject, description: decoded.description,
+        version: task.version, storyId: Number(task.user_story),
         effort_estimate: decoded.effort_estimate, covered_scenarios: decoded.covered_scenarios,
         predecessor_task_ids: decoded.predecessor_task_ids,
       });
     },
-    onError: (err) => toast.error(taigaErrMsg(err, "Load task")),
+    onError: (err) => toast.error(adapter.errMsg(err, "Load task")),
   });
 
   const updateMut = useMutation({
     mutationFn: async (v: {
-      id: number; version: number; subject: string; description: string; storyId: number;
+      id: string; version: string | number; subject: string; description: string; storyId: number;
       effort_estimate: EffortEstimate; covered_scenarios: string[]; predecessor_task_ids: number[];
     }) => {
-      if (!context) throw new Error("No context.");
+      if (!adapterCtx) throw new Error("No context.");
       const fullDesc = encodeApexMeta({
         id: 0, subject: v.subject, description: v.description,
         effort_estimate: v.effort_estimate, covered_scenarios: v.covered_scenarios,
@@ -268,20 +263,19 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
       let ver = v.version;
       for (let attempt = 0; attempt <= 1; attempt++) {
         try {
-          await taigaUpdateTask(context.taigaToken, v.id, ver, { subject: v.subject, description: fullDesc }, context.taigaApiUrl);
+          await adapter.updateTask(adapterCtx, v.id, ver, { subject: v.subject, description: fullDesc });
           return;
         } catch (err) {
-          if (isTaiga409(err) && attempt === 0) {
-            const refreshed = await taigaGetTask(context.taigaToken, v.id, context.taigaApiUrl);
+          if (adapter.isPmVersionConflict(err) && attempt === 0) {
+            const refreshed = await adapter.getTask(adapterCtx, v.id);
             ver = refreshed.version;
           } else throw err;
         }
       }
     },
     onSuccess: (_, v) => {
-      // Use fresh store state to avoid stale closure bug
       const freshList = usePhase3Store.getState().taskList;
-      const local = freshList.find((t) => t.taiga_task_id === v.id);
+      const local = freshList.find((t) => (t.pm_task_id ?? String(t.taiga_task_id)) === v.id);
       if (local) {
         patchTask(local.id, {
           subject: v.subject, description: v.description,
@@ -293,22 +287,22 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
       void invalidate();
       void queryClient.invalidateQueries({ queryKey: ["phase3", "task-board"] });
       void queryClient.invalidateQueries({ queryKey: ["phase3", "task-list", context?.projectId, v.storyId] });
-      toast.success(local ? "Task saved to Taiga and synced to Phase 3." : "Task saved to Taiga.");
+      toast.success(local ? "Task saved and synced to Phase 3." : "Task saved.");
     },
-    onError: (err) => toast.error(taigaErrMsg(err, "Update task")),
+    onError: (err) => toast.error(adapter.errMsg(err, "Update task")),
   });
 
   const deleteMut = useMutation({
-    mutationFn: (taskId: number) => taigaDeleteTask(context!.taigaToken, taskId, context!.taigaApiUrl),
+    mutationFn: (taskId: string) => adapter.deleteTask(adapterCtx!, taskId),
     onSuccess: () => { setPendingDelete(null); void invalidate(); toast.success("Task deleted."); },
-    onError: (err) => { setPendingDelete(null); toast.error(taigaErrMsg(err, "Delete task")); },
+    onError: (err) => { setPendingDelete(null); toast.error(adapter.errMsg(err, "Delete task")); },
   });
 
   const addMut = useMutation({
     mutationFn: (v: { storyId: number; subject: string }) =>
-      taigaCreateTask(context!.taigaToken, context!.projectId, v.storyId, v.subject, "", context!.taigaApiUrl),
+      adapter.createTask(adapterCtx!, String(v.storyId), v.subject, ""),
     onSuccess: () => { setAddingToStory(null); setNewTaskSubject(""); void invalidate(); toast.success("Task added."); },
-    onError: (err) => toast.error(taigaErrMsg(err, "Add task")),
+    onError: (err) => toast.error(adapter.errMsg(err, "Add task")),
   });
 
   const effortByStoryTask = useMemo(() => {
@@ -323,11 +317,12 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
 
   const allStoryGroups = useMemo<StoryGroup[]>(() => {
     const groups = new Map<number, StoryGroup>();
-    for (const t of taigaTasks) {
-      if (!groups.has(t.user_story)) {
-        groups.set(t.user_story, { story_id: t.user_story, story_ref: t.user_story_ref, story_subject: t.user_story_subject, tasks: [] });
+    for (const t of pmTasks) {
+      const sid = Number(t.user_story);
+      if (!groups.has(sid)) {
+        groups.set(sid, { story_id: sid, story_ref: t.user_story_ref, story_subject: t.user_story_subject, tasks: [] });
       }
-      groups.get(t.user_story)!.tasks.push(t);
+      groups.get(sid)!.tasks.push(t);
     }
     const result = Array.from(groups.values()).sort((a, b) => a.story_id - b.story_id);
     if (selectedStoryId !== null && taskList.length > 0 && !groups.has(selectedStoryId)) {
@@ -335,13 +330,15 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
         story_id: selectedStoryId,
         story_ref: selectedStoryId,
         story_subject: currentStoryMeta.title,
-        tasks: taskList.map((t, i) => ({ id: -(i + 1), ref: 0, subject: t.subject, description: "", version: 1, user_story: selectedStoryId, user_story_ref: selectedStoryId, user_story_subject: currentStoryMeta.title })),
+        tasks: taskList.map((t, i) => ({
+          id: String(-(i + 1)), ref: 0, subject: t.subject, description: "",
+          version: 1, user_story: selectedStoryId, user_story_ref: selectedStoryId, user_story_subject: currentStoryMeta.title,
+        })),
       });
     }
     return result;
-  }, [taigaTasks, selectedStoryId, taskList, currentStoryMeta]);
+  }, [pmTasks, selectedStoryId, taskList, currentStoryMeta]);
 
-  // Apply filter
   const q = filter.toLowerCase().trim();
   const storyGroups = useMemo(() => {
     if (!q) return allStoryGroups;
@@ -359,7 +356,6 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
   const toggleStory = (id: number) =>
     setExpandedStories((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
-
   const sectionBorderClass = dark ? "border-neutral-800" : "border-slate-300";
   const expandedPanelClass = dark ? "bg-[#20232b]" : "bg-white";
   const subduedTextClass = dark ? "text-neutral-500" : "text-slate-500";
@@ -375,7 +371,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
       <button
         onClick={(e) => { e.stopPropagation(); void syncMut.mutate(); }}
         disabled={syncMut.isPending}
-        title="Sync task lists from Taiga for stories missing local JSON"
+        title="Sync task lists for stories missing local JSON"
         className={cn(
           "rounded px-2 py-1 text-xs font-medium transition-colors",
           syncMut.isPending
@@ -423,7 +419,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
           isPending={updateMut.isPending}
           validTaskIds={
             editingTask.storyId === selectedStoryId && taskList.length > 0
-              ? taskList.filter((t) => t.taiga_task_id !== editingTask.id).map((t) => t.id)
+              ? taskList.filter((t) => (t.pm_task_id ?? String(t.taiga_task_id)) !== editingTask.id).map((t) => t.id)
               : undefined
           }
         />,
@@ -443,7 +439,6 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
 
         {open && (
           <div className={cn("py-1", expandedPanelClass)}>
-            {/* Filter input */}
             {filterOpen && (
               <div className="relative px-3 pb-2 pt-1">
                 <input
@@ -467,14 +462,13 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
               </div>
             ) : storyGroups.length === 0 ? (
               <p className={cn("px-4 py-3 text-sm", subduedTextClass)}>
-                {q ? "No tasks match your filter." : "No tasks pushed to Taiga yet."}
+                {q ? "No tasks match your filter." : "No tasks pushed yet."}
               </p>
             ) : storyGroups.map((group) => {
               const isExpanded = expandedStories.has(group.story_id);
-              const isPending = group.tasks.some((t) => t.id < 0);
+              const isPending = group.tasks.some((t) => Number(t.id) < 0);
               return (
                 <div key={group.story_id} className={cn("border-b last:border-b-0", sectionBorderClass)}>
-                  {/* Story header */}
                   <div className="flex items-center gap-1 px-2 py-2">
                     <button
                       onClick={() => toggleStory(group.story_id)}
@@ -507,46 +501,45 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
                     )}
                   </div>
 
-                  {/* Task list */}
                   {isExpanded && (
                     <div className="pb-2">
                       {group.tasks.map((task) => {
                         const effort = effortByStoryTask.get(`${group.story_id}:${task.subject}`);
-                        const canEdit = task.id > 0;
+                        const canEdit = Number(task.id) > 0;
                         return (
                           <div key={task.id} className={cn("mx-2 mb-1 rounded-lg border",
                             dark ? "border-neutral-800 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
                             <div className="flex items-center gap-1.5 px-2.5 py-2">
-                                  {task.ref > 0 && (
-                                    <span className={cn("shrink-0 font-mono text-xs", subduedTextClass)}>#{task.ref}</span>
-                                  )}
-                                  <span className={cn("min-w-0 flex-1 truncate text-sm", dark ? "text-neutral-200" : "text-slate-700")}>
-                                    {task.subject}
-                                  </span>
-                                  {effort && (
-                                    <span className={cn("inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[10px] font-bold ring-1",
-                                      EFFORT_COLORS[effort] ?? "bg-neutral-500/15 text-neutral-400 ring-neutral-500/30")}>
-                                      {effort}
-                                    </span>
-                                  )}
-                                  {canEdit && (
-                                    <>
-                                      <button
-                                        onClick={() => loadForEditMut.mutate(task.id)}
-                                        disabled={loadForEditMut.isPending}
-                                        className={cn("shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors disabled:opacity-40", dark ? "text-neutral-500 hover:text-neutral-200" : "text-slate-400 hover:text-slate-700")}
-                                      >
-                                        {loadForEditMut.isPending && loadForEditMut.variables === task.id ? "…" : "Edit"}
-                                      </button>
-                                      <button
-                                        onClick={() => setPendingDelete({ id: task.id, ref: task.ref, subject: task.subject })}
-                                        className={cn("shrink-0 rounded p-1 transition-colors", dark ? "text-neutral-600 hover:text-red-400" : "text-slate-400 hover:text-red-500")}
-                                        title="Delete task"
-                                      >
-                                        <Trash2 className="h-3 w-3" />
-                                      </button>
-                                    </>
-                                  )}
+                              {task.ref && Number(task.ref) > 0 && (
+                                <span className={cn("shrink-0 font-mono text-xs", subduedTextClass)}>#{task.ref}</span>
+                              )}
+                              <span className={cn("min-w-0 flex-1 truncate text-sm", dark ? "text-neutral-200" : "text-slate-700")}>
+                                {task.subject}
+                              </span>
+                              {effort && (
+                                <span className={cn("inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[10px] font-bold ring-1",
+                                  EFFORT_COLORS[effort] ?? "bg-neutral-500/15 text-neutral-400 ring-neutral-500/30")}>
+                                  {effort}
+                                </span>
+                              )}
+                              {canEdit && (
+                                <>
+                                  <button
+                                    onClick={() => loadForEditMut.mutate(task.id)}
+                                    disabled={loadForEditMut.isPending}
+                                    className={cn("shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors disabled:opacity-40", dark ? "text-neutral-500 hover:text-neutral-200" : "text-slate-400 hover:text-slate-700")}
+                                  >
+                                    {loadForEditMut.isPending && loadForEditMut.variables === task.id ? "…" : "Edit"}
+                                  </button>
+                                  <button
+                                    onClick={() => setPendingDelete({ id: task.id, ref: task.ref, subject: task.subject })}
+                                    className={cn("shrink-0 rounded p-1 transition-colors", dark ? "text-neutral-600 hover:text-red-400" : "text-slate-400 hover:text-red-500")}
+                                    title="Delete task"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </div>
                         );

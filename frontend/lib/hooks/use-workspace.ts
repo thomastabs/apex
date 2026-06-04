@@ -206,7 +206,7 @@ export function useInviteUser() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ usernameOrEmail, roleId }: { usernameOrEmail: string; roleId: number }) =>
+    mutationFn: ({ usernameOrEmail, roleId }: { usernameOrEmail: string; roleId: number | string }) =>
       inviteUser(context!, usernameOrEmail, roleId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "users"] });
@@ -268,7 +268,7 @@ export function useUpdateStory() {
     }: {
       storyId: number;
       version: number;
-      fields: { subject?: string; description?: string; tags?: string[]; status?: number };
+      fields: { subject?: string; description?: string; tags?: string[]; status?: string };
     }) => updateStory(context!, storyId, version, fields),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "board"] });

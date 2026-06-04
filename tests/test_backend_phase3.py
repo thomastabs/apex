@@ -96,7 +96,7 @@ def _story_index(status: str = "design_locked") -> dict:
 
 
 def _ctx() -> RequestContext:
-    return RequestContext(taiga_token="tok", project_id=1)
+    return RequestContext(pm_token="tok", project_id=1)
 
 
 # ---------------------------------------------------------------------------

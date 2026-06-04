@@ -18,7 +18,7 @@ _MAX_AI_REQUESTS = 20
 
 def ai_rate_limit(auth: AuthContext = Depends(get_auth_context)) -> None:
     """Dependency: max 20 AI requests per token per 60 s."""
-    key = auth.taiga_token[-20:]
+    key = auth.pm_token[-20:]
     now = time.monotonic()
     with _lock:
         # Prune expired buckets to prevent unbounded growth
