@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { TaigaTask } from "@/lib/api/taiga-direct";
+import type { PmTask } from "@/lib/api/pm-types";
+import { getPmAdapter } from "@/lib/api/pm-factory";
 import {
   CheckCircle2,
   ChevronRight,
@@ -18,7 +19,6 @@ import {
 import { toast } from "sonner";
 import { Button, Callout, SectionHeading, Textarea } from "@/components/ui/primitives";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
-import { taigaErrMsg, taigaGetProjectTasks } from "@/lib/api/taiga-direct";
 import {
   decodeApexMeta,
   encodeApexMeta,
@@ -163,21 +163,22 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
   const { data: taskBoardStories = [] } = useTaskBoard();
   const jsonCountByStory = new Map(taskBoardStories.map((s) => [s.story_id, s.tasks.length]));
 
-  // Fall back to live Taiga tasks when backend JSON has no data for a story.
+  // Fall back to live PM tasks when backend JSON has no data for a story.
   // useQuery shares the cache with the sidebar — no extra network call when sidebar is mounted.
-  const { data: taigaTasks = [] } = useQuery({
-    queryKey: ["taiga", "project-tasks", context?.projectId],
-    queryFn: () => taigaGetProjectTasks(context!.taigaToken, context!.projectId, context!.taigaApiUrl),
+  const { data: pmTasksAll = [] } = useQuery({
+    queryKey: ["pm", "project-tasks", context?.projectId],
+    queryFn: () => getPmAdapter(context!.pmTool).getProjectTasks({ token: context!.taigaToken, baseUrl: context!.taigaApiUrl ?? "", projectId: String(context!.projectId) }),
     enabled: Boolean(context),
     staleTime: 60_000,
   });
   const taigaCountByStory = useMemo(() => {
     const map = new Map<number, number>();
-    for (const t of taigaTasks) {
-      map.set(t.user_story, (map.get(t.user_story) ?? 0) + 1);
+    for (const t of pmTasksAll) {
+      const sid = Number(t.user_story);
+      map.set(sid, (map.get(sid) ?? 0) + 1);
     }
     return map;
-  }, [taigaTasks]);
+  }, [pmTasksAll]);
 
   const taskCountByStory = new Map(
     [...new Set([...jsonCountByStory.keys(), ...taigaCountByStory.keys()])].map((id) => [
@@ -316,7 +317,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                         const fromJson = (jsonCountByStory.get(story.story_id) ?? 0) > 0;
                         return count > 0 ? (
                           <span
-                            title={fromJson ? "Tasks synced with Apex" : "Tasks from Taiga (not yet synced with Apex)"}
+                            title={fromJson ? "Tasks synced with Apex" : "Tasks from PM board (not yet synced with Apex)"}
                             className={cn(
                               "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold",
                               fromJson
@@ -416,42 +417,45 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const [editingId, setEditingId] = useState<number | null>(null);
   const [descFetching, setDescFetching] = useState(false);
 
-  // Prefetch descriptions for tasks that have taiga_task_id but empty description.
-  // Dep on needsFetchCount so re-fires if a description gets cleared.
-  const needsFetchCount = taskList.filter((t) => t.taiga_task_id && !t.description).length;
+  // Prefetch descriptions for tasks that have pm_task_id but empty description.
+  const needsFetchCount = taskList.filter((t) => (t.pm_task_id ?? t.taiga_task_id) && !t.description).length;
   useEffect(() => {
     if (!context || needsFetchCount === 0) return;
-    for (const task of taskList.filter((t) => t.taiga_task_id && !t.description)) {
-      fetchTaigaTaskFull(context.taigaToken, task.taiga_task_id!, context.taigaApiUrl)
+    for (const task of taskList.filter((t) => (t.pm_task_id ?? t.taiga_task_id) && !t.description)) {
+      const pmId = task.pm_task_id ?? String(task.taiga_task_id!);
+      fetchTaigaTaskFull(context, pmId)
         .then(({ description }) => { if (description) patchTask(task.id, { description }); })
         .catch(() => {});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [needsFetchCount, context]);
 
-  // When opening edit, resolve taiga_task_id if missing then fetch full description
+  // When opening edit, resolve pm_task_id if missing then fetch full description
   useEffect(() => {
     if (editingId === null || !context) return;
     const task = taskList.find((t) => t.id === editingId);
     if (!task) return;
 
-    let taigaId = task.taiga_task_id;
+    let pmId = task.pm_task_id ?? (task.taiga_task_id ? String(task.taiga_task_id) : undefined);
 
-    // Resolve missing taiga_task_id via cached project tasks (subject match)
-    if (!taigaId) {
-      const cached = queryClient.getQueryData<TaigaTask[]>(["taiga", "project-tasks", context.projectId]) ?? [];
+    // Resolve missing pm_task_id via cached project tasks (subject match)
+    if (!pmId) {
+      const cached = queryClient.getQueryData<PmTask[]>(["pm", "project-tasks", context.projectId]) ?? [];
       const match = findTaigaTaskBySubject(cached, storyId, task.subject);
       if (match) {
-        taigaId = match.id;
-        patchTask(task.id, { taiga_task_id: match.id });
+        pmId = match.id;
+        patchTask(task.id, { pm_task_id: match.id });
       }
     }
 
-    if (!taigaId) return;
+    if (!pmId) return;
     setDescFetching(true);
-    fetchTaigaTaskFull(context.taigaToken, taigaId, context.taigaApiUrl)
+    fetchTaigaTaskFull(context, pmId)
       .then(({ description }) => { patchTask(task.id, { description }); })
-      .catch((err) => { toast.error(taigaErrMsg(err, "Load description")); })
+      .catch((err) => {
+        const adapter = getPmAdapter(context.pmTool);
+        toast.error(adapter.errMsg(err, "Load description"));
+      })
       .finally(() => setDescFetching(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingId, storyId]);
@@ -567,7 +571,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
       {tasksPushed && (
         <div className="flex items-center justify-center gap-3">
           <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
-            <CheckCircle2 className="h-3.5 w-3.5" /> Pushed to Taiga
+            <CheckCircle2 className="h-3.5 w-3.5" /> Pushed
           </div>
           <button
             onClick={() => pushMetaMut.mutate(storyId)}
@@ -579,7 +583,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                 : dark ? "text-neutral-500 hover:text-violet-400" : "text-slate-400 hover:text-violet-600",
             )}
           >
-            {pushMetaMut.isPending ? "Updating…" : "Push metadata to Taiga"}
+            {pushMetaMut.isPending ? "Updating…" : "Sync metadata"}
           </button>
         </div>
       )}
@@ -602,7 +606,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                 setTaskList([]);
                 setEditingId(null);
                 removePushedStoryId(storyId);
-                if (context) void saveTaskListMut.mutateAsync({ storyId, tasks: [] }).catch((err) => toast.error(taigaErrMsg(err, "Clear tasks")));
+                if (context) void saveTaskListMut.mutateAsync({ storyId, tasks: [] }).catch((err) => toast.error(errMsg(err)));
               }}
               className={cn(
                 "rounded px-2 py-1 text-xs font-medium transition-colors",
@@ -634,7 +638,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                     />
                     {descFetching && editingId === task.id ? (
                       <div className="flex items-center gap-2 text-xs text-neutral-400 py-2">
-                        <Loader2 className="h-3 w-3 animate-spin" /> Loading from Taiga…
+                        <Loader2 className="h-3 w-3 animate-spin" /> Loading…
                       </div>
                     ) : (
                       <Textarea
@@ -690,13 +694,13 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                     )}
                     <div className="flex items-center gap-2">
                       <Button variant="secondary" onClick={() => setEditingId(null)}>Done</Button>
-                      {task.taiga_task_id && (
+                      {(task.pm_task_id ?? task.taiga_task_id) && (
                         <Button
                           variant="primary"
-                          onClick={() => updateInTaigaMut.mutate({ taigaTaskId: task.taiga_task_id!, task })}
+                          onClick={() => updateInTaigaMut.mutate({ pmTaskId: task.pm_task_id ?? String(task.taiga_task_id!), task })}
                           disabled={updateInTaigaMut.isPending}
                         >
-                          {updateInTaigaMut.isPending ? "Saving…" : "Save to Taiga"}
+                          {updateInTaigaMut.isPending ? "Saving…" : "Save"}
                         </Button>
                       )}
                     </div>
@@ -753,7 +757,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                   ? "border-neutral-700 bg-neutral-900 text-white placeholder:text-neutral-600"
                   : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400",
               )}
-              placeholder={tasksPushed ? "Add task to Taiga…" : "Add a task manually…"}
+              placeholder={tasksPushed ? "Add task to PM board…" : "Add a task manually…"}
               value={newSubject}
               onChange={(e) => setNewSubject(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleAddTask(); }}
@@ -780,8 +784,8 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
               variant="secondary"
             >
               {pushToTaiga.isPending
-                ? <><Loader2 className="h-4 w-4 animate-spin" /> Pushing to Taiga…</>
-                : "Push Tasks to Taiga"}
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Pushing…</>
+                : "Push Tasks"}
             </Button>
           )}
         </div>
@@ -797,7 +801,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 function StageC({ storyId }: { storyId: number }) {
   const dark = useUiStore((s) => s.theme) === "dark";
   const { data: ctx } = useStoryContext(storyId);
-  const { taskList, packDrafts, taigaTaskRefs, setPackDraft } = usePhase3Store();
+  const { taskList, packDrafts, pmTaskRefs, setPackDraft } = usePhase3Store();
   const generateProposal = useGenerateProposal();
   const saveProposalMut = useSaveProposal();
 
@@ -867,7 +871,7 @@ function StageC({ storyId }: { storyId: number }) {
             const hasPack = Boolean(packDrafts[task.id]);
             const isGenerating = generatingTaskId === task.id;
             const isSelected = selectedTaskId === task.id;
-            const taigaRef = taigaTaskRefs[idx];
+            const taigaRef = pmTaskRefs[idx];
             return (
               <button
                 key={task.id}

@@ -341,7 +341,7 @@ export function Phase2Workflow() {
           <AlertCircle className="mt-0.5 size-4 shrink-0 text-amber-400" />
           <div>
             <p className="text-sm font-semibold text-amber-300">Sign in required</p>
-            <p className="mt-0.5 text-xs text-amber-400/80">Sign in and select a Taiga project in the sidebar to unlock Phase 2 design tools.</p>
+            <p className="mt-0.5 text-xs text-amber-400/80">Sign in and select a project in the sidebar to unlock Phase 2 design tools.</p>
           </div>
         </div>
       ) : null}
@@ -504,7 +504,7 @@ export function Phase2Workflow() {
                 <button
                   className={cn("flex items-center gap-1 rounded border px-3 py-2 text-sm transition-colors disabled:opacity-40", outlineButtonClass)}
                   disabled={busy}
-                  title="Refresh story index from Taiga"
+                  title="Refresh story index"
                   onClick={() =>
                     refreshIndex.mutate(undefined, {
                       onSuccess: () => toast.success("Story index refreshed"),
@@ -712,7 +712,7 @@ export function Phase2Workflow() {
                       Saving design bundle to context files…
                     </p>
                     <p className={dark ? "text-violet-400/70" : "text-violet-500"}>
-                      Taiga story transitions will run after the bundle is saved.
+                      PM story transitions will run after the bundle is saved.
                       {activeBundle.story_ids.length > 0 && ` ${activeBundle.story_ids.length} stories to update.`}
                     </p>
                   </div>
@@ -722,7 +722,7 @@ export function Phase2Workflow() {
             {lockDesign.data ? (
               <Callout>
                 Design locked for {lockDesign.data.story_ids.length} stories.
-                {lockDesign.data.taiga_failures?.length ? ` ${lockDesign.data.taiga_failures.length} Taiga transition(s) failed.` : ""}
+                {lockDesign.data.taiga_failures?.length ? ` ${lockDesign.data.taiga_failures.length} PM transition(s) failed.` : ""}
               </Callout>
             ) : null}
             {lockDesign.isError ? (

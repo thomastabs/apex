@@ -1,17 +1,8 @@
 import { apiRequest } from "./client";
-import {
-  getTaigaApiBaseUrl,
-  taigaCreateEpic,
-  taigaCreateStory,
-  taigaGetEpic,
-  taigaGetBoard,
-  taigaGetProject,
-  taigaListStoryStatuses,
-  taigaUpdateStory,
-} from "./taiga-direct";
+import { getPmAdapter } from "./pm-factory";
+import { taigaGetProject } from "./taiga-direct";
 import type {
   CompiledStory,
-  Epic,
   EpicSuggestion,
   Phase1GenerateNlStoriesRequest,
   Phase1GenerateNlStoriesResponse,
@@ -20,8 +11,16 @@ import type {
   RequestContext,
 } from "./types";
 
+function pmCtx(context: RequestContext) {
+  return {
+    token: context.taigaToken,
+    baseUrl: context.taigaApiUrl ?? "",
+    projectId: context.pmProjectId ?? String(context.projectId),
+  };
+}
+
 export function listPhase1Epics(context: RequestContext) {
-  return taigaGetBoard(context.taigaToken, context.projectId, context.taigaApiUrl);
+  return getPmAdapter(context.pmTool).getBoard(pmCtx(context));
 }
 
 export function suggestPhase1Epics(context: RequestContext, hint = "") {
@@ -62,64 +61,65 @@ async function pushPhase1StoriesDirect(
   context: RequestContext,
   body: Phase1PushStoriesRequest,
 ): Promise<Phase1PushStoriesResponse> {
+  const adapter = getPmAdapter(context.pmTool);
+  const ctx = pmCtx(context);
+
   const epic = body.epic_id
-    ? await taigaGetEpic(context.taigaToken, body.epic_id, context.taigaApiUrl)
-    : await taigaCreateEpic(
-      context.taigaToken,
-      context.projectId,
-      body.epic_subject ?? "",
-      body.epic_description ?? "",
-      [],
-      context.taigaApiUrl,
-    );
-  let readyStatus: { id: number; name: string } | undefined;
+    ? await adapter.getEpic(ctx, String(body.epic_id))
+    : await adapter.createEpic(ctx, body.epic_subject ?? "", body.epic_description ?? "", []);
+
+  let readyStatus: { id: string; name: string } | undefined;
   try {
-    const statuses = await taigaListStoryStatuses(context.taigaToken, context.projectId, context.taigaApiUrl);
+    const statuses = await adapter.listStoryStatuses(ctx);
     readyStatus = statuses.find((s) => s.name.toLowerCase().includes("ready for discovery"));
   } catch {
     // Status fetch failed; stories created without status transition
   }
+
   const createdStories = [];
   const pushFailures: Array<{ title: string; error: string }> = [];
+
   for (const [index, story] of body.stories.entries()) {
     try {
-      const created = await taigaCreateStory(
-        context.taigaToken,
-        context.projectId,
-        epic.id,
+      const created = await adapter.createStory(
+        ctx,
+        String(epic.id),
         story.title,
         boldGherkinKeywords(story.gherkin),
         ["apex", "gherkin", story.size].filter(Boolean),
         undefined,
-        context.taigaApiUrl,
       );
-      const updated = readyStatus && created.version
-        ? await taigaUpdateStory(
-          context.taigaToken,
-          created.id,
-          created.version,
-          { status: readyStatus.id },
-          context.taigaApiUrl,
-        ).catch(() => created)
+      const updated = readyStatus
+        ? await adapter.updateStory(ctx, String(created.id), created.version ?? 1, { status: readyStatus.id })
+            .then(() => created)
+            .catch(() => created)
         : created;
       createdStories.push({ ...updated, title: story.title, gherkin: story.gherkin, order: index });
     } catch (err) {
       pushFailures.push({ title: story.title, error: err instanceof Error ? err.message : "Unknown error" });
     }
   }
+
   if (createdStories.length === 0) {
     throw new Error(`All story pushes failed. First error: ${pushFailures[0]?.error ?? "unknown"}`);
   }
 
-  // Build Taiga web URLs for the created stories (best-effort — failure just omits links)
+  // Build PM web URLs for created stories (best-effort)
   let storyUrls: string[] = [];
   try {
-    const { slug } = await taigaGetProject(context.taigaToken, context.projectId, context.taigaApiUrl);
-    if (slug) {
-      const webBase = getTaigaApiBaseUrl(context.taigaApiUrl)
-        .replace("/api/v1", "")
-        .replace("//api.taiga.io", "//tree.taiga.io");
-      storyUrls = createdStories.filter((s) => s.ref).map((s) => `${webBase}/project/${slug}/us/${s.ref}`);
+    if (context.pmTool === "jira") {
+      const domain = (context.taigaApiUrl ?? "").replace(/\/+$/, "");
+      storyUrls = createdStories.filter((s) => s.ref).map((s) => `${domain}/browse/${ctx.projectId}-${s.ref}`);
+    } else {
+      // Taiga: fetch project slug then build tree.taiga.io URLs
+      const { slug } = await taigaGetProject(context.taigaToken, context.projectId, context.taigaApiUrl);
+      if (slug) {
+        const webBase = (context.taigaApiUrl ?? "")
+          .replace("/api/v1", "")
+          .replace("//api.taiga.io", "//tree.taiga.io")
+          .replace(/\/+$/, "");
+        storyUrls = createdStories.filter((s) => s.ref).map((s) => `${webBase}/project/${slug}/us/${s.ref}`);
+      }
     }
   } catch { /* skip URLs if fetch fails */ }
 
@@ -137,6 +137,7 @@ async function pushPhase1StoriesDirect(
     },
     timeoutMs: 120_000,
   });
+
   return {
     ...finalized,
     story_urls: storyUrls,

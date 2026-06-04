@@ -8,7 +8,7 @@ import {
   useProjects,
   useSaveServerConfig,
 } from "@/lib/hooks/use-workspace";
-import { useSessionStore } from "@/lib/stores/session-store";
+import { useSessionStore, useAuthContext } from "@/lib/stores/session-store";
 import { usePhase2Store } from "@/lib/stores/phase2-store";
 import { cn } from "@/lib/utils";
 import { PanelHeader, type DragSectionProps } from "./shared";
@@ -25,6 +25,8 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
   const projectName = useSessionStore((s) => s.projectName);
   const setProject = useSessionStore((s) => s.setProject);
   const clearPhase2Draft = usePhase2Store((s) => s.clearPhase2Draft);
+  const auth = useAuthContext();
+  const isJira = auth?.pmTool === "jira";
 
   const projects = useProjects();
   const createProject = useCreateProject();
@@ -78,21 +80,27 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
               >
                 <RefreshCw className="size-3" /> Refresh
               </button>
-              <button
-                className="flex h-8 items-center justify-center gap-1 rounded border border-violet-500/40 bg-violet-500/10 text-sm font-semibold text-violet-400 transition-colors hover:bg-violet-500/20"
-                onClick={() => {
-                  const name = window.prompt("Project name");
-                  if (name?.trim()) createProject.mutate({ name: name.trim(), description: "" });
-                }}
-              >
-                <Plus className="size-3" /> Create New
-              </button>
+              {!isJira ? (
+                <button
+                  className="flex h-8 items-center justify-center gap-1 rounded border border-violet-500/40 bg-violet-500/10 text-sm font-semibold text-violet-400 transition-colors hover:bg-violet-500/20"
+                  onClick={() => {
+                    const name = window.prompt("Project name");
+                    if (name?.trim()) createProject.mutate({ name: name.trim(), description: "" });
+                  }}
+                >
+                  <Plus className="size-3" /> Create New
+                </button>
+              ) : (
+                <div className="flex h-8 items-center justify-center rounded border border-neutral-700 px-2 text-xs text-neutral-500">
+                  Create in Jira UI
+                </div>
+              )}
             </div>
             {projectId ? (
               <button
                 className="flex h-8 w-full items-center justify-center gap-2 rounded border border-red-500/40 bg-red-500/10 text-sm font-semibold text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50"
                 disabled={deleteProject.isPending}
-                onClick={() => confirm("Delete this Taiga project and all its data?", () => deleteProject.mutate(projectId))}
+                onClick={() => confirm("Delete this project and all its data?", () => deleteProject.mutate(projectId))}
               >
                 <Trash2 className="size-3" />
                 Delete Project

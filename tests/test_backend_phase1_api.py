@@ -42,7 +42,7 @@ class StubPhase1Service:
 def _ctx():
     return get_request_context(
         authorization="Bearer tok",
-        project_id=42,
+        project_id_new=42,
     )
 
 
@@ -52,14 +52,14 @@ def test_health_endpoint_function():
 
 def test_request_context_requires_auth_header():
     with pytest.raises(HTTPException) as exc:
-        get_request_context(authorization="", project_id=42)
+        get_request_context(authorization="", project_id_new=42)
 
     assert exc.value.status_code == 401
 
 
 def test_request_context_requires_project_header():
     with pytest.raises(HTTPException) as exc:
-        get_request_context(authorization="Bearer tok", project_id=None)
+        get_request_context(authorization="Bearer tok", project_id_new=None)
 
     assert exc.value.status_code == 400
 
@@ -67,7 +67,7 @@ def test_request_context_requires_project_header():
 def test_request_context_parses_headers():
     ctx = _ctx()
 
-    assert ctx.taiga_token == "tok"
+    assert ctx.pm_token == "tok"
     assert ctx.project_id == 42
 
 

@@ -7,8 +7,8 @@ import type { Phase3Task } from "@/lib/api/types";
 type Phase3State = {
   selectedStoryId: number | null;
   taskList: Phase3Task[];
-  taigaTaskIds: Record<number, number>;   // taskIndex → taiga task id
-  taigaTaskRefs: Record<number, number>;  // taskIndex → taiga task ref
+  pmTaskIds: Record<number, string>;      // taskIndex → PM task id (string for Jira compat)
+  pmTaskRefs: Record<number, string | number>; // taskIndex → PM task ref
   tasksPushed: boolean;
   packDrafts: Record<number, string>;     // taskId → markdown string
   lockedTaskIds: number[];
@@ -21,7 +21,7 @@ type Phase3State = {
   patchTask: (id: number, updates: Partial<Omit<Phase3Task, "id">>) => void;
   appendTask: (task: Phase3Task) => void;
   removePushedStoryId: (id: number) => void;
-  setTaigaTaskResult: (taskIndex: number, id: number, ref: number) => void;
+  setPmTaskResult: (taskIndex: number, id: string, ref: string | number) => void;
   setTasksPushed: (pushed: boolean) => void;
   setPackDraft: (taskId: number, md: string) => void;
   setPackDrafts: (drafts: Record<number, string>) => void;
@@ -35,8 +35,8 @@ export const usePhase3Store = create<Phase3State>()(
     (set) => ({
       selectedStoryId: null,
       taskList: [],
-      taigaTaskIds: {},
-      taigaTaskRefs: {},
+      pmTaskIds: {},
+      pmTaskRefs: {},
       tasksPushed: false,
       packDrafts: {},
       lockedTaskIds: [],
@@ -48,8 +48,8 @@ export const usePhase3Store = create<Phase3State>()(
           return {
             selectedStoryId: id,
             taskList: [],
-            taigaTaskIds: {},
-            taigaTaskRefs: {},
+            pmTaskIds: {},
+            pmTaskRefs: {},
             tasksPushed: id !== null && state.pushedStoryIds.includes(id),
             packDrafts: {},
             lockedTaskIds: [],
@@ -57,7 +57,7 @@ export const usePhase3Store = create<Phase3State>()(
           };
         }),
       // Used when generating new tasks — resets push state
-      setTaskList: (taskList) => set({ taskList, taigaTaskIds: {}, taigaTaskRefs: {}, tasksPushed: false }),
+      setTaskList: (taskList) => set({ taskList, pmTaskIds: {}, pmTaskRefs: {}, tasksPushed: false }),
       // Patch a single task in-place without touching tasksPushed.
       // Clears the pack draft for the task if description or effort changes (pack is now stale).
       patchTask: (id, updates) =>
@@ -90,9 +90,9 @@ export const usePhase3Store = create<Phase3State>()(
                 : [...state.pushedStoryIds, state.selectedStoryId],
           };
           if (state.taskList.length === 0) return fresh;
-          // Non-empty: only override if JSON has taiga_task_ids but store doesn't (stale persisted data)
-          const jsonHasIds = tasks.some((t) => t.taiga_task_id);
-          const storeHasIds = state.taskList.some((t) => t.taiga_task_id);
+          // Non-empty: only override if JSON has PM task IDs but store doesn't (stale persisted data)
+          const jsonHasIds = tasks.some((t) => t.pm_task_id ?? t.taiga_task_id);
+          const storeHasIds = state.taskList.some((t) => t.pm_task_id ?? t.taiga_task_id);
           if (jsonHasIds && !storeHasIds) return fresh;
           return {};
         }),
@@ -113,10 +113,10 @@ export const usePhase3Store = create<Phase3State>()(
         }),
       removePushedStoryId: (id) =>
         set((s) => ({ pushedStoryIds: s.pushedStoryIds.filter((sid) => sid !== id) })),
-      setTaigaTaskResult: (taskIndex, id, ref) =>
+      setPmTaskResult: (taskIndex, id, ref) =>
         set((s) => ({
-          taigaTaskIds: { ...s.taigaTaskIds, [taskIndex]: id },
-          taigaTaskRefs: { ...s.taigaTaskRefs, [taskIndex]: ref },
+          pmTaskIds: { ...s.pmTaskIds, [taskIndex]: id },
+          pmTaskRefs: { ...s.pmTaskRefs, [taskIndex]: ref },
         })),
       setTasksPushed: (tasksPushed) =>
         set((s) => {
@@ -136,8 +136,8 @@ export const usePhase3Store = create<Phase3State>()(
         set((s) => ({
           selectedStoryId: null,
           taskList: [],
-          taigaTaskIds: {},
-          taigaTaskRefs: {},
+          pmTaskIds: {},
+          pmTaskRefs: {},
           tasksPushed: false,
           packDrafts: {},
           lockedTaskIds: [],

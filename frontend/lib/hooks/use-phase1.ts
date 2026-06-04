@@ -60,7 +60,7 @@ export function usePushPhase1Stories() {
 
   return useMutation({
     mutationFn: (body: Phase1PushStoriesRequest) => pushPhase1Stories(context!, body),
-    onError: () => toast.error("Failed to push stories to Taiga. Check your connection and try again."),
+    onError: () => toast.error("Failed to push stories. Check your connection and try again."),
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: ["phase1", "epics"] });
       void queryClient.invalidateQueries({ queryKey: ["phase2", "eligible-epics"] });

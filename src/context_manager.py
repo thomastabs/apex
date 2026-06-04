@@ -27,7 +27,7 @@ _CONFIG_FILE      = _BASE_CONTEXTSPEC / ".apex-config.json"
 # Per-request active project. Uses ContextVar so concurrent FastAPI requests on different projects are isolated.
 _active_project_id: contextvars.ContextVar[int] = contextvars.ContextVar(
     "context_manager_project_id",
-    default=int(os.getenv("TAIGA_PROJECT_ID") or "0"),
+    default=int(os.getenv("PM_PROJECT_ID") or os.getenv("TAIGA_PROJECT_ID") or "0"),
 )
 
 
@@ -160,7 +160,7 @@ def set_active_project(project_id: int) -> None:
 
 
 def is_project_selected() -> bool:
-    """Return True when a real Taiga project is active."""
+    """Return True when a real PM project is active."""
     return _get_project_id() != 0
 
 
@@ -185,6 +185,20 @@ def save_config(project_id: int) -> None:
         _CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
     except OSError as exc:
         _logger.warning("save_config: failed to persist project config: %s", exc)
+
+
+def save_pm_config(pm_tool: str | None = None, jira_base_url: str | None = None) -> None:
+    """Persist PM tool selection and Jira base URL to the shared config file."""
+    try:
+        _BASE_CONTEXTSPEC.mkdir(parents=True, exist_ok=True)
+        data = load_config()
+        if pm_tool is not None:
+            data["pm_tool"] = pm_tool
+        if jira_base_url is not None:
+            data["jira_base_url"] = jira_base_url
+        _CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    except OSError as exc:
+        _logger.warning("save_pm_config: failed to persist PM config: %s", exc)
 
 
 def load_config() -> dict:

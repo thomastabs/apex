@@ -36,9 +36,17 @@ _ALLOWED_CONTEXT_FILES = {filename for filename, _ in _CONTEXT_FILES}
 def get_config(auth: AuthContext = Depends(get_auth_context)):
     from src import context_manager, taiga_adapter
     config = context_manager.load_config()
+    pm_tool = config.get("pm_tool", "taiga")
+    if pm_tool == "jira":
+        from src import jira_adapter
+        pm_web_url = jira_adapter.get_web_base_url(config.get("jira_base_url", ""))
+    else:
+        pm_web_url = taiga_adapter.get_web_base_url()
     return {
         "project_id": config.get("project_id"),
-        "taiga_web_url": taiga_adapter.get_web_base_url(),
+        "taiga_web_url": pm_web_url,
+        "pm_tool": pm_tool,
+        "pm_web_url": pm_web_url,
     }
 
 
@@ -82,6 +90,11 @@ def save_config(payload: SaveConfigRequest, auth: AuthContext = Depends(get_auth
     from src import context_manager
     if payload.project_id:
         context_manager.save_config(payload.project_id)
+    if payload.pm_tool is not None or payload.jira_base_url is not None:
+        context_manager.save_pm_config(
+            pm_tool=payload.pm_tool,
+            jira_base_url=payload.jira_base_url,
+        )
     return {"ok": True}
 
 

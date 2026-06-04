@@ -77,23 +77,31 @@ function ConfirmDialog({
 
 // ── Login section ─────────────────────────────────────────────────────────────
 
-function LoginSection({ taigaWebUrl }: { taigaWebUrl: string }) {
+function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
   const setAuth = useSessionStore((state) => state.setAuth);
   const clearSession = useSessionStore((state) => state.clearSession);
   const taigaToken = useSessionStore((state) => state.taigaToken);
+  const storedPmTool = useSessionStore((state) => state.pmTool);
   const clearPhase2Draft = usePhase2Store((state) => state.clearPhase2Draft);
   const queryClient = useQueryClient();
   const me = useMe();
 
+  // Drive pmTool from store so it tracks clearSession/sign-out resets correctly
+  const [pmTool, setPmTool] = useState<"taiga" | "jira">(storedPmTool);
+  // Sync local selector state when store changes (e.g. after sign-out resets pmTool)
+  useEffect(() => { setPmTool(storedPmTool); }, [storedPmTool]);
   const [mode, setMode] = useState<"password" | "token">("password");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [tokenInput, setTokenInput] = useState(taigaToken);
+  const [tokenInput, setTokenInput] = useState(pmTool === "taiga" ? taigaToken : "");
+  const [jiraDomain, setJiraDomain] = useState("");
+  const [jiraEmail, setJiraEmail] = useState("");
+  const [jiraApiToken, setJiraApiToken] = useState("");
   const [loginError, setLoginError] = useState("");
   const [isPending, setIsPending] = useState(false);
 
   // Taiga Cloud: tree.taiga.io → api.taiga.io; self-hosted: same host
-  const taigaApiUrl = taigaWebUrl.replace("//tree.", "//api.");
+  const taigaApiUrl = pmWebUrl.replace("//tree.", "//api.");
 
   async function handlePasswordLogin() {
     if (!username.trim() || !password.trim()) return;
@@ -115,14 +123,13 @@ function LoginSection({ taigaWebUrl }: { taigaWebUrl: string }) {
         return;
       }
       const token = data.auth_token as string;
-      // Seed the me cache immediately so the sidebar shows real user info without a round-trip.
       queryClient.setQueryData(["workspace", "me"], {
         id: data.id,
         username: data.username,
         full_name: data.full_name,
         email: data.email,
       });
-      setAuth({ taigaToken: token, taigaApiUrl });
+      setAuth({ taigaToken: token, taigaApiUrl, pmTool: "taiga" });
     } catch {
       setLoginError("Cannot reach Taiga — check your network.");
     } finally {
@@ -130,18 +137,69 @@ function LoginSection({ taigaWebUrl }: { taigaWebUrl: string }) {
     }
   }
 
-  const displayName = me.data?.full_name || me.data?.username || (taigaToken ? "Taiga User" : "");
+  async function handleJiraLogin() {
+    const domain = jiraDomain.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+    const email = jiraEmail.trim();
+    const apiToken = jiraApiToken.trim();
+    if (!domain || !email || !apiToken) {
+      setLoginError("Domain, email, and API token are required.");
+      return;
+    }
+    setIsPending(true);
+    setLoginError("");
+    try {
+      const jiraBaseUrl = `https://${domain}`;
+      const encodedToken = btoa(`${email}:${apiToken}`);
+      const res = await fetch(`${jiraBaseUrl}/rest/api/3/myself`, {
+        headers: {
+          Authorization: `Basic ${encodedToken}`,
+          Accept: "application/json",
+        },
+      });
+      if (!res.ok) {
+        setLoginError(`Jira auth failed (${res.status}) — check your domain, email, and API token.`);
+        return;
+      }
+      const data = await res.json().catch(() => ({})) as Record<string, unknown>;
+      queryClient.setQueryData(["workspace", "me"], {
+        id: undefined,
+        username: (data.emailAddress as string) || (data.displayName as string) || email,
+        full_name: (data.displayName as string) || "",
+        email: (data.emailAddress as string) || email,
+      });
+      setAuth({ taigaToken: encodedToken, taigaApiUrl: jiraBaseUrl, pmTool: "jira", jiraEmail: email });
+    } catch {
+      setLoginError("Cannot reach Jira — check your domain and network.");
+    } finally {
+      setIsPending(false);
+    }
+  }
+
+  const displayName = me.data?.full_name || me.data?.username || (taigaToken ? "User" : "");
   const email = me.data?.email || "";
 
   if (taigaToken) {
+    const pmLabel = storedPmTool === "jira" ? "Jira Cloud" : "Taiga";
+    const pmColor = storedPmTool === "jira"
+      ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
+      : "border-violet-500/30 bg-violet-500/10 text-violet-400";
     return (
       <div className="flex items-center gap-3">
         <div className="grid size-8 shrink-0 place-items-center rounded bg-violet-950 text-xs font-bold text-violet-300">
           {initials(displayName)}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold text-white">{displayName || "Taiga User"}</div>
-          <div className="truncate text-xs text-neutral-500">{email || "Authenticated"}</div>
+          <div className="truncate text-sm font-semibold text-white">{displayName || "User"}</div>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className={cn("rounded border px-1.5 py-0.5 text-[10px] font-semibold", pmColor)}>
+              {pmLabel}
+            </span>
+            {email ? (
+              <span className="truncate text-xs text-neutral-500">{email}</span>
+            ) : (
+              <span className="text-xs text-neutral-500">Authenticated</span>
+            )}
+          </div>
         </div>
         <button
           className="shrink-0 rounded border border-violet-500/30 px-2 py-1 text-xs text-violet-400 transition-colors hover:border-violet-500/60 hover:bg-violet-500/10 hover:text-violet-300"
@@ -155,69 +213,130 @@ function LoginSection({ taigaWebUrl }: { taigaWebUrl: string }) {
 
   return (
     <div className="space-y-3">
+      {/* PM Tool Selector */}
       <div className="grid grid-cols-2 rounded-md bg-neutral-800 p-1">
         <button
-          className={cn("h-9 rounded text-xs text-neutral-200", mode === "password" && "bg-violet-600 text-white")}
-          onClick={() => setMode("password")}
+          className={cn("h-9 rounded text-xs text-neutral-200", pmTool === "taiga" && "bg-violet-600 text-white")}
+          onClick={() => { setPmTool("taiga"); setLoginError(""); }}
         >
-          Username / Password
+          Taiga
         </button>
         <button
-          className={cn("h-9 rounded text-xs text-neutral-200", mode === "token" && "bg-violet-600 text-white")}
-          onClick={() => setMode("token")}
+          className={cn("h-9 rounded text-xs text-neutral-200", pmTool === "jira" && "bg-violet-600 text-white")}
+          onClick={() => { setPmTool("jira"); setLoginError(""); }}
         >
-          Auth Token
+          Jira Cloud
         </button>
       </div>
-      {mode === "password" ? (
+
+      {pmTool === "taiga" ? (
+        <>
+          <div className="grid grid-cols-2 rounded-md bg-neutral-800 p-1">
+            <button
+              className={cn("h-9 rounded text-xs text-neutral-200", mode === "password" && "bg-neutral-700 text-white")}
+              onClick={() => setMode("password")}
+            >
+              Username / Password
+            </button>
+            <button
+              className={cn("h-9 rounded text-xs text-neutral-200", mode === "token" && "bg-neutral-700 text-white")}
+              onClick={() => setMode("token")}
+            >
+              Auth Token
+            </button>
+          </div>
+          {mode === "password" ? (
+            <>
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="h-9 w-full rounded border border-violet-500 bg-neutral-950 px-3 text-sm text-white outline-none"
+                placeholder="Username"
+              />
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="h-9 w-full rounded border border-violet-500 bg-neutral-950 px-3 text-sm text-white outline-none"
+                placeholder="Password"
+                onKeyDown={(e) => { if (e.key === "Enter") handlePasswordLogin(); }}
+              />
+            </>
+          ) : (
+            <input
+              value={tokenInput}
+              onChange={(e) => setTokenInput(e.target.value)}
+              className="h-9 w-full rounded border border-violet-500 bg-neutral-950 px-3 text-sm text-white outline-none"
+              placeholder="Taiga auth token"
+            />
+          )}
+          {loginError ? <p className="text-xs text-red-400">{loginError}</p> : null}
+          <button
+            className="inline-flex h-9 w-full items-center justify-center gap-2 rounded bg-violet-700 text-sm font-semibold text-white hover:bg-violet-600 disabled:opacity-50"
+            disabled={isPending}
+            onClick={() => {
+              if (mode === "password") {
+                handlePasswordLogin();
+              } else if (tokenInput.trim()) {
+                setAuth({ taigaToken: tokenInput.trim(), taigaApiUrl, pmTool: "taiga" });
+              }
+            }}
+          >
+            <Send className="size-4" />
+            {isPending ? "Signing in..." : "Sign in to Taiga"}
+          </button>
+          <a
+            href={pmWebUrl || "https://tree.taiga.io"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1.5 text-xs text-neutral-400 transition-colors hover:text-violet-300"
+          >
+            <UserPlus className="size-3" />
+            Create a Taiga account
+          </a>
+        </>
+      ) : (
         <>
           <input
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            value={jiraDomain}
+            onChange={(e) => setJiraDomain(e.target.value)}
             className="h-9 w-full rounded border border-violet-500 bg-neutral-950 px-3 text-sm text-white outline-none"
-            placeholder="Username"
+            placeholder="yourcompany.atlassian.net"
+          />
+          <input
+            value={jiraEmail}
+            onChange={(e) => setJiraEmail(e.target.value)}
+            className="h-9 w-full rounded border border-violet-500 bg-neutral-950 px-3 text-sm text-white outline-none"
+            placeholder="your@email.com"
           />
           <input
             type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            value={jiraApiToken}
+            onChange={(e) => setJiraApiToken(e.target.value)}
             className="h-9 w-full rounded border border-violet-500 bg-neutral-950 px-3 text-sm text-white outline-none"
-            placeholder="Password"
-            onKeyDown={(e) => { if (e.key === "Enter") handlePasswordLogin(); }}
+            placeholder="Jira API token"
+            onKeyDown={(e) => { if (e.key === "Enter") handleJiraLogin(); }}
           />
+          {loginError ? <p className="text-xs text-red-400">{loginError}</p> : null}
+          <button
+            className="inline-flex h-9 w-full items-center justify-center gap-2 rounded bg-violet-700 text-sm font-semibold text-white hover:bg-violet-600 disabled:opacity-50"
+            disabled={isPending}
+            onClick={handleJiraLogin}
+          >
+            <Send className="size-4" />
+            {isPending ? "Connecting..." : "Connect to Jira"}
+          </button>
+          <a
+            href="https://id.atlassian.com/manage-profile/security/api-tokens"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1.5 text-xs text-neutral-400 transition-colors hover:text-violet-300"
+          >
+            <UserPlus className="size-3" />
+            Create an Atlassian API token
+          </a>
         </>
-      ) : (
-        <input
-          value={tokenInput}
-          onChange={(e) => setTokenInput(e.target.value)}
-          className="h-9 w-full rounded border border-violet-500 bg-neutral-950 px-3 text-sm text-white outline-none"
-          placeholder="Taiga auth token"
-        />
       )}
-      {loginError ? <p className="text-xs text-red-400">{loginError}</p> : null}
-      <button
-        className="inline-flex h-9 w-full items-center justify-center gap-2 rounded bg-violet-700 text-sm font-semibold text-white hover:bg-violet-600 disabled:opacity-50"
-        disabled={isPending}
-        onClick={() => {
-          if (mode === "password") {
-            handlePasswordLogin();
-          } else if (tokenInput.trim()) {
-            setAuth({ taigaToken: tokenInput.trim(), taigaApiUrl });
-          }
-        }}
-      >
-        <Send className="size-4" />
-        {isPending ? "Signing in..." : "Sign in"}
-      </button>
-      <a
-        href={taigaWebUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center justify-center gap-1.5 text-xs text-neutral-400 transition-colors hover:text-violet-300"
-      >
-        <UserPlus className="size-3" />
-        Create a Taiga account
-      </a>
     </div>
   );
 }
@@ -292,7 +411,7 @@ export function Sidebar() {
 
   const aiConfig = useAiConfig();
   const serverConfig = useServerConfig();
-  const taigaWebUrl = serverConfig.data?.taiga_web_url ?? "https://tree.taiga.io";
+  const pmWebUrl = serverConfig.data?.pm_web_url ?? serverConfig.data?.taiga_web_url ?? "https://tree.taiga.io";
   const dark = theme === "dark";
 
   // Migrate stored section order when new section IDs are added
@@ -468,7 +587,7 @@ export function Sidebar() {
               {aiConfig.data?.model ?? "claude-sonnet-4-6"}
             </span>
           </div>
-          <LoginSection taigaWebUrl={taigaWebUrl} />
+          <LoginSection pmWebUrl={pmWebUrl} />
         </section>
 
         {/* ── Draggable sections ── */}
@@ -479,6 +598,7 @@ export function Sidebar() {
           const onDragStart = makeDragStartHandler(id);
 
           if (id !== "ai" && id !== "resources" && id !== "about" && !taigaToken) return null;
+
 
           if (id === "project") {
             return (
@@ -553,7 +673,8 @@ export function Sidebar() {
               <ResourcesSection
                 key="resources"
                 dark={dark}
-                taigaWebUrl={taigaWebUrl}
+                pmWebUrl={pmWebUrl}
+                pmTool={serverConfig.data?.pm_tool === "jira" ? "jira" : "taiga"}
                 shellClass={shellClass}
                 dragHandlers={dragHandlers}
                 onDragStart={onDragStart}
@@ -594,6 +715,7 @@ export function Sidebar() {
             </p>
           </section>
         ) : null}
+
       </div>
     </aside>
   );

@@ -12,7 +12,7 @@ const phases = [
     href: "/phase1",
     phase: "Phase 1",
     title: "Requirements",
-    description: "Turn epics into clear, testable Acceptance Criteria and publish them to Taiga",
+    description: "Turn epics into clear, testable Acceptance Criteria and publish them to your PM tool",
     icon: FileText,
   },
   {
@@ -127,7 +127,7 @@ export default function HomePage() {
             <AlertCircle className="mt-0.5 size-4 shrink-0 text-amber-500" />
             <div>
               <p className="font-semibold text-amber-400">Not signed in</p>
-              <p className="mt-0.5 text-amber-500/80">Sign in via the sidebar to start a session and select a Taiga project.</p>
+              <p className="mt-0.5 text-amber-500/80">Sign in via the sidebar to start a session and select a project.</p>
             </div>
           </div>
         )}

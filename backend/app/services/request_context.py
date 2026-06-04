@@ -5,5 +5,5 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class RequestContext:
-    taiga_token: str
+    pm_token: str
     project_id: int

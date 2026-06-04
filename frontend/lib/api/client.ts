@@ -52,6 +52,7 @@ export async function apiRequest<T>(
     headers.Authorization = `Bearer ${context.taigaToken}`;
   }
   if (context && "projectId" in context && context.projectId) {
+    headers["X-Project-Id"] = String(context.projectId);
     headers["X-Taiga-Project-Id"] = String(context.projectId);
   }
 
