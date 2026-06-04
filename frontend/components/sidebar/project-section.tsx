@@ -61,7 +61,7 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
               onChange={(e) => {
                 const selected = projectOptions.find((p) => p.id === Number(e.target.value));
                 if (selected && selected.id !== projectId) {
-                  setProject({ projectId: selected.id, projectName: selected.name });
+                  setProject({ projectId: selected.id, projectName: selected.name, pmProjectSlug: selected.slug ?? undefined });
                   saveServerConfig.mutate(selected.id);
                   clearPhase2Draft();
                   toast.info(`Switched to ${selected.name} — Phase 2 draft cleared`);

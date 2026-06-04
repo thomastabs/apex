@@ -12,9 +12,10 @@ type SessionState = {
   jiraEmail: string;
   projectId: number | null;
   projectName: string;
+  pmProjectSlug: string;
   setSession: (session: { taigaToken: string; taigaApiUrl?: string; projectId?: number; projectName?: string; pmTool?: PmTool; jiraEmail?: string }) => void;
   setAuth: (auth: { taigaToken: string; taigaApiUrl?: string; pmTool?: PmTool; jiraEmail?: string }) => void;
-  setProject: (project: { projectId: number; projectName?: string }) => void;
+  setProject: (project: { projectId: number; projectName?: string; pmProjectSlug?: string }) => void;
   clearSession: () => void;
 };
 
@@ -27,6 +28,7 @@ export const useSessionStore = create<SessionState>()(
       jiraEmail: "",
       projectId: null,
       projectName: "",
+      pmProjectSlug: "",
       setSession: ({ taigaToken, taigaApiUrl, projectId, projectName = "", pmTool, jiraEmail }) =>
         set({
           taigaToken,
@@ -43,13 +45,14 @@ export const useSessionStore = create<SessionState>()(
           ...(jiraEmail != null ? { jiraEmail } : {}),
           projectId: null,
           projectName: "",
+          pmProjectSlug: "",
         }),
-      setProject: ({ projectId, projectName = "" }) => set({ projectId, projectName }),
-      clearSession: () => set((s) => ({ pmTool: s.pmTool, taigaToken: "", taigaApiUrl: "", jiraEmail: "", projectId: null, projectName: "" })),
+      setProject: ({ projectId, projectName = "", pmProjectSlug = "" }) => set({ projectId, projectName, pmProjectSlug }),
+      clearSession: () => set((s) => ({ pmTool: s.pmTool, taigaToken: "", taigaApiUrl: "", jiraEmail: "", projectId: null, projectName: "", pmProjectSlug: "" })),
     }),
     {
       name: "apex-session",
-      version: 2,
+      version: 3,
       migrate: (persisted: unknown, version: number) => {
         const state = (persisted ?? {}) as Record<string, unknown>;
         if (version < 2) {
@@ -60,7 +63,11 @@ export const useSessionStore = create<SessionState>()(
             jiraEmail: "",
             projectId: (state.projectId as number | null) ?? null,
             projectName: (state.projectName as string) ?? "",
+            pmProjectSlug: "",
           };
+        }
+        if (version < 3) {
+          return { ...state, pmProjectSlug: "" };
         }
         return state as SessionState;
       },
@@ -71,6 +78,7 @@ export const useSessionStore = create<SessionState>()(
         jiraEmail: state.jiraEmail,
         projectId: state.projectId,
         projectName: state.projectName,
+        pmProjectSlug: state.pmProjectSlug,
       }),
     },
   ),
@@ -81,12 +89,13 @@ export function useApiContext() {
   const taigaApiUrl = useSessionStore((state) => state.taigaApiUrl);
   const projectId = useSessionStore((state) => state.projectId);
   const pmTool = useSessionStore((state) => state.pmTool);
+  const pmProjectSlug = useSessionStore((state) => state.pmProjectSlug);
 
   if (!taigaToken || !projectId) {
     return null;
   }
 
-  return { taigaToken, taigaApiUrl, projectId, pmTool };
+  return { taigaToken, taigaApiUrl, projectId, pmTool, pmProjectId: pmProjectSlug || undefined };
 }
 
 export function useAuthContext() {

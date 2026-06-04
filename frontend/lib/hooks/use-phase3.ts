@@ -115,7 +115,7 @@ function getAdapterCtx(context: NonNullable<ReturnType<typeof useApiContext>>) {
   return {
     token: context.taigaToken,
     baseUrl: context.taigaApiUrl ?? "",
-    projectId: String(context.projectId),
+    projectId: context.pmProjectId ?? String(context.projectId),
   };
 }
 

@@ -103,6 +103,10 @@ async function jiraFetchAll<T>(
 
 const _projectTypeCache = new Map<string, "next-gen" | "classic">();
 
+export function clearJiraProjectTypeCache(): void {
+  _projectTypeCache.clear();
+}
+
 async function getProjectStyle(token: string, baseUrl: string, projectKey: string): Promise<"next-gen" | "classic"> {
   // Key includes baseUrl to avoid collisions across different Jira instances with identical project keys
   const cacheKey = `${baseUrl}|${projectKey}`;
@@ -146,6 +150,9 @@ function normalizeIssueAsStory(raw: Record<string, unknown>): Story {
   const parentFields = (parentRaw?.fields as Record<string, unknown>) ?? {};
   const statusRaw = fields.status as Record<string, unknown> | null;
   const statusName = (statusRaw?.name as string) || null;
+  // Only link epic_id when parent is actually an Epic — parent could be Initiative or other type
+  const parentIssueType = (parentFields.issuetype as Record<string, unknown> | undefined)?.name as string | undefined;
+  const epicId = (parentRaw && parentIssueType === "Epic") ? (parseInt(parentRaw.id as string, 10) || null) : null;
   return {
     id: parseInt(raw.id as string, 10) || 0,
     ref: parseInt((raw.key as string).split("-")[1] ?? "0", 10),
@@ -154,8 +161,8 @@ function normalizeIssueAsStory(raw: Record<string, unknown>): Story {
     version: null,
     status: statusName,
     tags: Array.isArray(fields.labels) ? (fields.labels as string[]) : [],
-    epic_id: parentRaw ? (parseInt(parentRaw.id as string, 10) || null) : null,
-    epic_subject: (parentFields.summary as string) || "",
+    epic_id: epicId,
+    epic_subject: epicId ? ((parentFields.summary as string) || "") : "",
   };
 }
 
@@ -322,15 +329,20 @@ const jiraAdapter: ProjectManagementAdapter = {
       ctx.token,
       ctx.baseUrl,
     );
+    const results = await Promise.allSettled(
+      rawStories.map((rawStory) => {
+        const key = (rawStory.key as string) || String(rawStory.id);
+        return jiraFetch<unknown>(`/rest/api/3/issue/${key}`, ctx.token, ctx.baseUrl, { method: "DELETE" }).then(() => key);
+      }),
+    );
     let deleted = 0;
     const failures: Array<{ story_id: string; error: string }> = [];
-    for (const rawStory of rawStories) {
-      const key = (rawStory.key as string) || String(rawStory.id);
-      try {
-        await jiraFetch<unknown>(`/rest/api/3/issue/${key}`, ctx.token, ctx.baseUrl, { method: "DELETE" });
+    for (const [i, result] of results.entries()) {
+      if (result.status === "fulfilled") {
         deleted++;
-      } catch (err) {
-        failures.push({ story_id: key, error: err instanceof Error ? err.message : "Delete failed" });
+      } else {
+        const key = (rawStories[i].key as string) || String(rawStories[i].id);
+        failures.push({ story_id: key, error: result.reason instanceof Error ? result.reason.message : "Delete failed" });
       }
     }
     await jiraFetch<unknown>(`/rest/api/3/issue/${epicId}`, ctx.token, ctx.baseUrl, { method: "DELETE" });

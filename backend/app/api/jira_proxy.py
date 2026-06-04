@@ -17,6 +17,16 @@ _logger = logging.getLogger("apex.jira_proxy")
 _JIRA_REST_PREFIX = "/rest/api/3"
 _TIMEOUT = 30.0
 
+# Module-level client for connection pooling — created lazily, lives for process lifetime.
+_client: httpx.AsyncClient | None = None
+
+
+def _get_client() -> httpx.AsyncClient:
+    global _client
+    if _client is None or _client.is_closed:
+        _client = httpx.AsyncClient(follow_redirects=False, timeout=_TIMEOUT)
+    return _client
+
 
 def _get_jira_base_url() -> str:
     from src import context_manager
@@ -55,26 +65,26 @@ async def proxy_jira(
     if request.url.query:
         target_url = f"{target_url}?{request.url.query}"
 
-    body = await request.body()
+    # Skip body read for GET/HEAD — avoids stream-consumed errors from body-size middleware.
+    body = b"" if request.method in ("GET", "HEAD") else await request.body()
 
-    async with httpx.AsyncClient(follow_redirects=False, timeout=_TIMEOUT) as client:
-        try:
-            resp = await client.request(
-                method=request.method,
-                url=target_url,
-                headers={
-                    "Authorization": authorization,
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                },
-                content=body or None,
-            )
-        except httpx.RequestError as exc:
-            _logger.error("Jira proxy failed to reach %s: %s", target_url, exc)
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Failed to reach Jira Cloud.",
-            ) from exc
+    try:
+        resp = await _get_client().request(
+            method=request.method,
+            url=target_url,
+            headers={
+                "Authorization": authorization,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            content=body or None,
+        )
+    except httpx.RequestError as exc:
+        _logger.error("Jira proxy failed to reach %s: %s", target_url, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to reach Jira Cloud.",
+        ) from exc
 
     return Response(
         content=resp.content,

@@ -10,7 +10,8 @@ import { useUiStore } from "@/lib/stores/ui-store";
 import { usePhase2Store } from "@/lib/stores/phase2-store";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { ApiError } from "@/lib/api/client";
+import { ApiError, getApiBaseUrl } from "@/lib/api/client";
+import { clearJiraProjectTypeCache } from "@/lib/api/jira-adapter";
 import { BoardSection } from "./sidebar/board-section";
 import { ProjectSection } from "./sidebar/project-section";
 import { UsersSection } from "./sidebar/users-section";
@@ -150,7 +151,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
     try {
       const jiraBaseUrl = `https://${domain}`;
       const encodedToken = btoa(`${email}:${apiToken}`);
-      const res = await fetch(`${jiraBaseUrl}/rest/api/3/myself`, {
+      const res = await fetch(`${getApiBaseUrl()}/api/pm/jira/myself`, {
         headers: {
           Authorization: `Basic ${encodedToken}`,
           Accept: "application/json",
@@ -203,7 +204,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
         </div>
         <button
           className="shrink-0 rounded border border-violet-500/30 px-2 py-1 text-xs text-violet-400 transition-colors hover:border-violet-500/60 hover:bg-violet-500/10 hover:text-violet-300"
-          onClick={() => { clearSession(); clearPhase2Draft(); queryClient.clear(); }}
+          onClick={() => { clearJiraProjectTypeCache(); clearSession(); clearPhase2Draft(); queryClient.clear(); }}
         >
           Sign out
         </button>
