@@ -43,7 +43,10 @@ const taigaAdapter: ProjectManagementAdapter = {
 
   errMsg: (err, action) => taigaErrMsg(err, action),
   isPmVersionConflict: (err) => isTaiga409(err),
-  getWebUrl: (baseUrl) => baseUrl.replace("//api.", "//tree.").replace(/\/api(\/v\d+)?$/, ""),
+  getWebUrl: (baseUrl) => baseUrl
+    .replace("//tree.", "//api.")   // normalise first so replace is idempotent
+    .replace("//api.", "//tree.")   // api.taiga.io → tree.taiga.io
+    .replace(/\/api(?:\/v\d+)?$/, ""), // strip /api or /api/v1 suffix
 
   getMe: (auth: PmAuthContext): Promise<Me> =>
     taigaGetMe(auth.token, auth.baseUrl),

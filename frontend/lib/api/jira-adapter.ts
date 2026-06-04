@@ -103,7 +103,9 @@ async function jiraFetchAll<T>(
 const _projectTypeCache = new Map<string, "next-gen" | "classic">();
 
 async function getProjectStyle(token: string, baseUrl: string, projectKey: string): Promise<"next-gen" | "classic"> {
-  if (_projectTypeCache.has(projectKey)) return _projectTypeCache.get(projectKey)!;
+  // Key includes baseUrl to avoid collisions across different Jira instances with identical project keys
+  const cacheKey = `${baseUrl}|${projectKey}`;
+  if (_projectTypeCache.has(cacheKey)) return _projectTypeCache.get(cacheKey)!;
   try {
     const raw = await jiraFetch<Record<string, unknown>>(
       `/rest/api/3/project/${projectKey}`,
@@ -112,7 +114,7 @@ async function getProjectStyle(token: string, baseUrl: string, projectKey: strin
     );
     const style = ((raw.style as string) || "").toLowerCase();
     const result: "next-gen" | "classic" = style === "next-gen" ? "next-gen" : "classic";
-    _projectTypeCache.set(projectKey, result);
+    _projectTypeCache.set(cacheKey, result);
     return result;
   } catch {
     return "classic";
@@ -141,13 +143,15 @@ function normalizeIssueAsStory(raw: Record<string, unknown>): Story {
   const desc = adfToText(fields.description);
   const parentRaw = fields.parent as Record<string, unknown> | null;
   const parentFields = (parentRaw?.fields as Record<string, unknown>) ?? {};
+  const statusRaw = fields.status as Record<string, unknown> | null;
+  const statusName = (statusRaw?.name as string) || null;
   return {
     id: parseInt(raw.id as string, 10) || 0,
     ref: parseInt((raw.key as string).split("-")[1] ?? "0", 10),
     subject: (fields.summary as string) || "",
     description: desc,
     version: null,
-    status: (raw.key as string) || null,
+    status: statusName,
     tags: Array.isArray(fields.labels) ? (fields.labels as string[]) : [],
     epic_id: parentRaw ? (parseInt(parentRaw.id as string, 10) || null) : null,
     epic_subject: (parentFields.summary as string) || "",
@@ -250,13 +254,30 @@ const jiraAdapter: ProjectManagementAdapter = {
       const epic = normalizeIssueAsEpic(rawEpic);
       epicMap.set(epic.id, { ...epic, stories: [] });
     }
+    const orphanStories: Story[] = [];
     for (const rawStory of rawStories) {
       const story = normalizeIssueAsStory(rawStory);
       if (story.epic_id != null && epicMap.has(story.epic_id)) {
         epicMap.get(story.epic_id)!.stories.push(story);
+      } else {
+        // Story's epic not in this project's epic list (deleted/cross-project); collect as orphan
+        orphanStories.push(story);
       }
     }
-    return Array.from(epicMap.values());
+    const result = Array.from(epicMap.values());
+    if (orphanStories.length > 0) {
+      // Synthesise a virtual "Unepiced Stories" epic so orphaned stories are still visible
+      result.push({
+        id: 0,
+        ref: 0,
+        subject: "Stories without Epic",
+        description: "",
+        version: null,
+        tags: [],
+        stories: orphanStories,
+      });
+    }
+    return result;
   },
 
   getEpic: async (ctx: PmRequestContext, epicId: string): Promise<Epic> => {
@@ -399,8 +420,10 @@ const jiraAdapter: ProjectManagementAdapter = {
             const accountId = actor.actorUser?.accountId ?? String(actor.id);
             if (seen.has(accountId)) continue;
             seen.add(accountId);
+            // Encode "roleId:accountId" so removeMember/updateMemberRole can split it back
+            const membershipKey = `${roleId}:${accountId}`;
             memberships.push({
-              id: actor.id,
+              id: membershipKey as unknown as number, // interface uses number; Jira adapter uses encoded string
               user: actor.id,
               username: accountId,
               full_name: actor.displayName,
@@ -464,8 +487,10 @@ const jiraAdapter: ProjectManagementAdapter = {
   },
 
   getProjectTasks: async (ctx: PmRequestContext): Promise<PmTask[]> => {
+    // subTaskIssueTypes() is a Jira JQL function that matches any subtask type regardless of naming
+    // ("Subtask", "Sub-task", custom names) — avoids legacy/Cloud naming differences
     const rawTasks = await jiraFetchAll<Record<string, unknown>>(
-      `/rest/api/3/search?jql=${encodeURIComponent(`project=${ctx.projectId} AND issuetype=Subtask ORDER BY created ASC`)}&fields=id,key,summary,description,parent`,
+      `/rest/api/3/search?jql=${encodeURIComponent(`project=${ctx.projectId} AND issuetype in subTaskIssueTypes() ORDER BY created ASC`)}&fields=id,key,summary,description,parent`,
       ctx.token,
       ctx.baseUrl,
     );

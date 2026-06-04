@@ -86,7 +86,10 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
   const queryClient = useQueryClient();
   const me = useMe();
 
+  // Drive pmTool from store so it tracks clearSession/sign-out resets correctly
   const [pmTool, setPmTool] = useState<"taiga" | "jira">(storedPmTool);
+  // Sync local selector state when store changes (e.g. after sign-out resets pmTool)
+  useEffect(() => { setPmTool(storedPmTool); }, [storedPmTool]);
   const [mode, setMode] = useState<"password" | "token">("password");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");

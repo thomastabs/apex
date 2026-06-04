@@ -45,7 +45,7 @@ export const useSessionStore = create<SessionState>()(
           projectName: "",
         }),
       setProject: ({ projectId, projectName = "" }) => set({ projectId, projectName }),
-      clearSession: () => set({ pmTool: "taiga", taigaToken: "", taigaApiUrl: "", jiraEmail: "", projectId: null, projectName: "" }),
+      clearSession: () => set((s) => ({ pmTool: s.pmTool, taigaToken: "", taigaApiUrl: "", jiraEmail: "", projectId: null, projectName: "" })),
     }),
     {
       name: "apex-session",
