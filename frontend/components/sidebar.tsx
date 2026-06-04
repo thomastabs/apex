@@ -299,44 +299,63 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
         </>
       ) : (
         <>
-          <input
-            value={jiraDomain}
-            onChange={(e) => setJiraDomain(e.target.value)}
-            className="h-9 w-full rounded border border-violet-500 bg-neutral-950 px-3 text-sm text-white outline-none"
-            placeholder="yourcompany.atlassian.net"
-          />
-          <input
-            value={jiraEmail}
-            onChange={(e) => setJiraEmail(e.target.value)}
-            className="h-9 w-full rounded border border-violet-500 bg-neutral-950 px-3 text-sm text-white outline-none"
-            placeholder="your@email.com"
-          />
-          <input
-            type="password"
-            value={jiraApiToken}
-            onChange={(e) => setJiraApiToken(e.target.value)}
-            className="h-9 w-full rounded border border-violet-500 bg-neutral-950 px-3 text-sm text-white outline-none"
-            placeholder="Jira API token"
-            onKeyDown={(e) => { if (e.key === "Enter") handleJiraLogin(); }}
-          />
+          <div className="rounded border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-xs text-blue-300/80 space-y-0.5">
+            <p className="font-semibold text-blue-300">How to connect:</p>
+            <p>1. Enter your Jira site domain below</p>
+            <p>2. Enter your Atlassian account email</p>
+            <p>3. <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-200">Generate an API token</a> and paste it</p>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-neutral-500">Jira site domain</label>
+            <input
+              value={jiraDomain}
+              onChange={(e) => setJiraDomain(e.target.value)}
+              className="h-9 w-full rounded border border-violet-500 bg-neutral-950 px-3 text-sm text-white outline-none"
+              placeholder="yourcompany.atlassian.net"
+              autoComplete="off"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-neutral-500">Atlassian account email</label>
+            <input
+              value={jiraEmail}
+              onChange={(e) => setJiraEmail(e.target.value)}
+              className="h-9 w-full rounded border border-violet-500 bg-neutral-950 px-3 text-sm text-white outline-none"
+              placeholder="you@example.com"
+              autoComplete="email"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="flex items-center justify-between text-xs text-neutral-500">
+              <span>API token</span>
+              <a
+                href="https://id.atlassian.com/manage-profile/security/api-tokens"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 hover:text-blue-300"
+              >
+                Generate token ↗
+              </a>
+            </label>
+            <input
+              type="password"
+              value={jiraApiToken}
+              onChange={(e) => setJiraApiToken(e.target.value)}
+              className="h-9 w-full rounded border border-violet-500 bg-neutral-950 px-3 text-sm text-white outline-none"
+              placeholder="ATATT3xFfGF0…"
+              onKeyDown={(e) => { if (e.key === "Enter") handleJiraLogin(); }}
+              autoComplete="off"
+            />
+          </div>
           {loginError ? <p className="text-xs text-red-400">{loginError}</p> : null}
           <button
-            className="inline-flex h-9 w-full items-center justify-center gap-2 rounded bg-violet-700 text-sm font-semibold text-white hover:bg-violet-600 disabled:opacity-50"
+            className="inline-flex h-9 w-full items-center justify-center gap-2 rounded bg-blue-700 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50"
             disabled={isPending}
             onClick={handleJiraLogin}
           >
             <Send className="size-4" />
-            {isPending ? "Connecting..." : "Connect to Jira"}
+            {isPending ? "Connecting…" : "Connect to Jira"}
           </button>
-          <a
-            href="https://id.atlassian.com/manage-profile/security/api-tokens"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1.5 text-xs text-neutral-400 transition-colors hover:text-violet-300"
-          >
-            <UserPlus className="size-3" />
-            Create an Atlassian API token
-          </a>
         </>
       )}
     </div>
