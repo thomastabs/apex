@@ -176,6 +176,10 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
   const email = me.data?.email || "";
 
   if (taigaToken) {
+    const pmLabel = storedPmTool === "jira" ? "Jira Cloud" : "Taiga";
+    const pmColor = storedPmTool === "jira"
+      ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
+      : "border-violet-500/30 bg-violet-500/10 text-violet-400";
     return (
       <div className="flex items-center gap-3">
         <div className="grid size-8 shrink-0 place-items-center rounded bg-violet-950 text-xs font-bold text-violet-300">
@@ -183,7 +187,16 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
         </div>
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold text-white">{displayName || "User"}</div>
-          <div className="truncate text-xs text-neutral-500">{email || "Authenticated"}</div>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className={cn("rounded border px-1.5 py-0.5 text-[10px] font-semibold", pmColor)}>
+              {pmLabel}
+            </span>
+            {email ? (
+              <span className="truncate text-xs text-neutral-500">{email}</span>
+            ) : (
+              <span className="text-xs text-neutral-500">Authenticated</span>
+            )}
+          </div>
         </div>
         <button
           className="shrink-0 rounded border border-violet-500/30 px-2 py-1 text-xs text-violet-400 transition-colors hover:border-violet-500/60 hover:bg-violet-500/10 hover:text-violet-300"

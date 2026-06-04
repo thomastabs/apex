@@ -90,7 +90,7 @@ const COMPILE_STEPS = [
 ];
 const PUSH_STEPS = [
   "Validating Gherkin stories…",
-  "Creating Taiga user stories…",
+  "Creating PM stories…",
   "Locking functional spec…",
   "Syncing context files…",
 ];
@@ -329,7 +329,7 @@ export function Phase1Workflow() {
           <AlertCircle className="mt-0.5 size-4 shrink-0 text-amber-400" />
           <div>
             <p className="text-sm font-semibold text-amber-300">Sign in required</p>
-            <p className="mt-0.5 text-xs text-amber-400/80">Sign in and select a Taiga project in the sidebar to unlock AI generation features.</p>
+            <p className="mt-0.5 text-xs text-amber-400/80">Sign in and select a project in the sidebar to unlock AI generation features.</p>
           </div>
         </div>
       ) : null}
@@ -352,7 +352,7 @@ export function Phase1Workflow() {
           <div className={cn("grid grid-cols-3 rounded-md p-1", dark ? "bg-neutral-800" : "bg-slate-200")}>
             {[
               { value: "create", Icon: FilePlus2, label: "Create New" },
-              { value: "load", Icon: Download, label: "Load from Taiga" },
+              { value: "load", Icon: Download, label: "Load from PM" },
               { value: "suggest", Icon: Sparkles, label: "AI Suggests" },
             ].map(({ value, Icon, label }) => (
               <button
@@ -380,7 +380,7 @@ export function Phase1Workflow() {
                   <Input value={epicTitle} onChange={(event) => setEpicTitle(event.target.value)} placeholder="e.g. User Authentication" />
                 </label>
                 <label className={cn("text-sm font-medium", labelClass)}>
-                  Taiga Epic ID <span className={cn("block text-xs", dark ? "text-neutral-500" : "text-slate-400")}>Optional — leave blank to create new</span>
+                  Epic ID <span className={cn("block text-xs", dark ? "text-neutral-500" : "text-slate-400")}>Optional — leave blank to create new</span>
                   <Input value={epicId ?? ""} onChange={(event) => setEpicId(event.target.value ? Number(event.target.value) : null)} placeholder="e.g. 42" />
                 </label>
               </div>
@@ -726,7 +726,7 @@ export function Phase1Workflow() {
               </button>
             </div>
             <p className={cn("text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
-              Acceptance Criteria are structured conditions that must be true for a story to be complete. Review them, then publish to your Taiga board.
+              Acceptance Criteria are structured conditions that must be true for a story to be complete. Review them, then publish to your PM board.
             </p>
 
             {validationErrors.length > 0 ? (
@@ -800,7 +800,7 @@ export function Phase1Workflow() {
                 <Callout>{push.data?.count ?? 0} stories pushed and locked in the functional spec.</Callout>
                 {push.data?.story_urls?.length ? (
                   <div className="space-y-1">
-                    <div className={cn("text-xs font-medium", dark ? "text-neutral-400" : "text-slate-500")}>Created stories in Taiga:</div>
+                    <div className={cn("text-xs font-medium", dark ? "text-neutral-400" : "text-slate-500")}>Created stories:</div>
                     {push.data.story_urls.map((url) => (
                       <a
                         key={url}
@@ -840,13 +840,13 @@ export function Phase1Workflow() {
                       {
                         onSuccess: (data) => {
                           setPushSuccess(true);
-                          toast.success(`${data.count} stories pushed to Taiga`);
+                          toast.success(`${data.count} stories pushed`);
                         },
                       },
                     )
                   }
                 >
-                  {push.isPending ? "Pushing…" : "Push Stories to Taiga"}
+                  {push.isPending ? "Pushing…" : "Push Stories"}
                 </Button>
                 <AIProgressIndicator steps={PUSH_STEPS} isPending={push.isPending} dark={dark} />
                 {push.isError ? (

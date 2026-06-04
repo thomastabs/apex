@@ -317,7 +317,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                         const fromJson = (jsonCountByStory.get(story.story_id) ?? 0) > 0;
                         return count > 0 ? (
                           <span
-                            title={fromJson ? "Tasks synced with Apex" : "Tasks from Taiga (not yet synced with Apex)"}
+                            title={fromJson ? "Tasks synced with Apex" : "Tasks from PM board (not yet synced with Apex)"}
                             className={cn(
                               "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold",
                               fromJson
@@ -571,7 +571,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
       {tasksPushed && (
         <div className="flex items-center justify-center gap-3">
           <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
-            <CheckCircle2 className="h-3.5 w-3.5" /> Pushed to Taiga
+            <CheckCircle2 className="h-3.5 w-3.5" /> Pushed
           </div>
           <button
             onClick={() => pushMetaMut.mutate(storyId)}
@@ -583,7 +583,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                 : dark ? "text-neutral-500 hover:text-violet-400" : "text-slate-400 hover:text-violet-600",
             )}
           >
-            {pushMetaMut.isPending ? "Updating…" : "Push metadata to Taiga"}
+            {pushMetaMut.isPending ? "Updating…" : "Sync metadata"}
           </button>
         </div>
       )}
@@ -638,7 +638,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                     />
                     {descFetching && editingId === task.id ? (
                       <div className="flex items-center gap-2 text-xs text-neutral-400 py-2">
-                        <Loader2 className="h-3 w-3 animate-spin" /> Loading from Taiga…
+                        <Loader2 className="h-3 w-3 animate-spin" /> Loading…
                       </div>
                     ) : (
                       <Textarea
@@ -757,7 +757,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                   ? "border-neutral-700 bg-neutral-900 text-white placeholder:text-neutral-600"
                   : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400",
               )}
-              placeholder={tasksPushed ? "Add task to Taiga…" : "Add a task manually…"}
+              placeholder={tasksPushed ? "Add task to PM board…" : "Add a task manually…"}
               value={newSubject}
               onChange={(e) => setNewSubject(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleAddTask(); }}
@@ -784,8 +784,8 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
               variant="secondary"
             >
               {pushToTaiga.isPending
-                ? <><Loader2 className="h-4 w-4 animate-spin" /> Pushing to Taiga…</>
-                : "Push Tasks to Taiga"}
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Pushing…</>
+                : "Push Tasks"}
             </Button>
           )}
         </div>
