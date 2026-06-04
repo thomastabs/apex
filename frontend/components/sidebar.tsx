@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Moon, PanelLeftOpen, Send, Sun, UserPlus } from "lucide-react";
+import { ExternalLink, Moon, PanelLeftOpen, Send, Sun, UserPlus } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAiConfig, useMe, useProjects, useServerConfig } from "@/lib/hooks/use-workspace";
 import { useSessionStore } from "@/lib/stores/session-store";
@@ -306,11 +306,11 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
         </>
       ) : (
         <>
-          <div className="rounded border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-xs text-blue-300/80 space-y-0.5">
-            <p className="font-semibold text-blue-300">How to connect:</p>
+          <div className="rounded border border-blue-200 dark:border-blue-500/20 bg-blue-50 dark:bg-blue-500/5 px-3 py-2 text-xs text-blue-700 dark:text-blue-300/80 space-y-0.5">
+            <p className="font-semibold text-blue-800 dark:text-blue-300">How to connect:</p>
             <p>1. Enter your Jira site domain below</p>
             <p>2. Enter your Atlassian account email</p>
-            <p>3. <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-200">Generate an API token</a> and paste it</p>
+            <p>3. <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-200">Generate an API token</a> and paste it</p>
           </div>
           <div className="space-y-1">
             <label className="text-xs text-neutral-500">Jira site domain</label>
@@ -339,9 +339,9 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
                 href="https://id.atlassian.com/manage-profile/security/api-tokens"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-400 hover:text-blue-300"
+                className="inline-flex items-center gap-1 text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
               >
-                Generate token ↗
+                Generate token <ExternalLink className="size-3" />
               </a>
             </label>
             <input

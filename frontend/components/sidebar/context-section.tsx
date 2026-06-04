@@ -255,6 +255,12 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
   const rebuildIndex = useRebuildStoryIndex();
   const resetAll = useResetAllContextFiles();
 
+  useEffect(() => {
+    if (!contextFiles.isLoading) return;
+    const id = toast.loading("Loading project context…");
+    return () => { toast.dismiss(id); };
+  }, [contextFiles.isLoading]);
+
   const totalChars = contextFiles.data?.total_chars ?? 0;
   const sizeColor = contextSizeColor(totalChars);
   const visibleFiles = useVisibleContextFiles(contextFiles.data?.files);
