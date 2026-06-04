@@ -155,6 +155,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
         headers: {
           Authorization: `Basic ${encodedToken}`,
           Accept: "application/json",
+          "X-Jira-Base-Url": jiraBaseUrl,
         },
       });
       if (!res.ok) {

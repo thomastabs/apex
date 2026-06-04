@@ -46,11 +46,31 @@ def _get_jira_base_url() -> str:
     return base_url
 
 
+def _validate_override_base_url(url: str) -> str:
+    """Validate X-Jira-Base-Url override used in the pre-auth login flow.
+
+    Restricted to *.atlassian.net to prevent SSRF via the unauthenticated path.
+    """
+    from urllib.parse import urlparse
+
+    url = url.strip().rstrip("/")
+    if not url.startswith("https://"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="X-Jira-Base-Url must start with https://")
+    host = urlparse(url).hostname or ""
+    if not (host == "atlassian.net" or host.endswith(".atlassian.net")):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="X-Jira-Base-Url must be an atlassian.net domain.",
+        )
+    return url
+
+
 @router.api_route("/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 async def proxy_jira(
     path: str,
     request: Request,
     authorization: str = Header(default="", alias="Authorization"),
+    x_jira_base_url: str = Header(default="", alias="X-Jira-Base-Url"),
 ) -> Response:
     """Forward Jira REST API v3 calls from the browser to Jira Cloud."""
     scheme, _, token = authorization.partition(" ")
@@ -60,7 +80,9 @@ async def proxy_jira(
             detail="Authorization: Basic <token> header required.",
         )
 
-    base_url = _get_jira_base_url()
+    # X-Jira-Base-Url override is used during login (before config is saved).
+    # Restricted to *.atlassian.net to prevent SSRF.
+    base_url = _validate_override_base_url(x_jira_base_url) if x_jira_base_url else _get_jira_base_url()
     target_url = f"{base_url}{_JIRA_REST_PREFIX}/{path}"
     if request.url.query:
         target_url = f"{target_url}?{request.url.query}"

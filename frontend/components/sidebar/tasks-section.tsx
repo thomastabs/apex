@@ -490,15 +490,6 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
                         {group.tasks.length}
                       </span>
                     </button>
-                    {!isPending && (
-                      <button
-                        onClick={() => { setAddingToStory(group.story_id); setExpandedStories((p) => new Set(p).add(group.story_id)); }}
-                        className={cn("shrink-0 rounded p-1 transition-colors", dark ? "text-neutral-600 hover:text-violet-400" : "text-slate-400 hover:text-violet-600")}
-                        title="Add task"
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                      </button>
-                    )}
                   </div>
 
                   {isExpanded && (
