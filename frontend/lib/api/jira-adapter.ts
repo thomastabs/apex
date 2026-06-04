@@ -2,14 +2,13 @@
  * Jira Cloud implementation of ProjectManagementAdapter.
  * Uses Jira REST API v3 with Basic auth (email:apiToken base64-encoded).
  *
- * NOTE: Jira Cloud REST API v3 is primarily server-to-server. Browser calls
- * may encounter CORS restrictions on some endpoints. If CORS issues arise,
- * consider proxying through the FastAPI backend.
+ * All Jira REST calls are routed through the FastAPI proxy at /api/pm/jira/*
+ * to bypass Jira Cloud's CORS restrictions on browser Basic-auth requests.
+ * The proxy forwards the Authorization header to Jira Cloud server-side.
  *
  * Auth stored in pmToken field is already base64(email:apiToken).
- * baseUrl is the Jira Cloud instance root, e.g. https://mycompany.atlassian.net
  */
-import { ApiError } from "./client";
+import { ApiError, getApiBaseUrl } from "./client";
 import type { PmAuthContext, PmRequestContext, PmTask, PmStoryStatus, ProjectManagementAdapter } from "./pm-types";
 import type { Epic, EpicWithStories, Me, Membership, Project, Story } from "./types";
 
@@ -46,10 +45,12 @@ function adfToText(adf: unknown): string {
 async function jiraFetch<T>(
   path: string,
   token: string,
-  baseUrl: string,
+  _baseUrl: string, // resolved server-side; kept for call-site compat
   options?: { method?: string; body?: unknown },
 ): Promise<T> {
-  const url = `${baseUrl.replace(/\/+$/, "")}${path}`;
+  // Strip /rest/api/3 prefix — the backend proxy re-adds it when forwarding to Jira Cloud.
+  const jiraPath = path.replace(/^\/rest\/api\/3/, "");
+  const url = `${getApiBaseUrl()}/api/pm/jira${jiraPath}`;
   const res = await fetch(url, {
     method: options?.method ?? "GET",
     headers: {
