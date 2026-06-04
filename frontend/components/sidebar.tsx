@@ -10,7 +10,7 @@ import { useUiStore } from "@/lib/stores/ui-store";
 import { usePhase2Store } from "@/lib/stores/phase2-store";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { ApiError, getApiBaseUrl } from "@/lib/api/client";
+import { ApiError, apiRequest, getApiBaseUrl } from "@/lib/api/client";
 import { clearJiraProjectTypeCache } from "@/lib/api/jira-adapter";
 import { BoardSection } from "./sidebar/board-section";
 import { ProjectSection } from "./sidebar/project-section";
@@ -169,6 +169,13 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
         full_name: (data.displayName as string) || "",
         email: (data.emailAddress as string) || email,
       });
+      // Persist pm_tool + jira_base_url to server config so the proxy can forward
+      // subsequent requests without requiring X-Jira-Base-Url on every call.
+      await apiRequest("/api/workspace/config", {
+        method: "POST",
+        context: { taigaToken: encodedToken, taigaApiUrl: jiraBaseUrl, pmTool: "jira" },
+        body: { pm_tool: "jira", jira_base_url: jiraBaseUrl },
+      }).catch(() => undefined); // non-fatal: proxy falls back to X-Jira-Base-Url header
       setAuth({ taigaToken: encodedToken, taigaApiUrl: jiraBaseUrl, pmTool: "jira", jiraEmail: email });
     } catch {
       setLoginError("Cannot reach Jira — check your domain and network.");

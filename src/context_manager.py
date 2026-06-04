@@ -911,7 +911,7 @@ def load_proposals(story_id: int) -> list[dict]:
     cd = _context_dir()
     prefix = f"proposal_story_{story_id}_task_"
     results = []
-    for p in sorted(cd.glob(f"{prefix}*.md")):
+    for p in sorted(p for p in cd.iterdir() if p.name.startswith(prefix) and p.name.endswith(".md")):
         stem = p.stem  # proposal_story_N_task_M
         try:
             task_id = int(stem[len(prefix):])
@@ -947,7 +947,7 @@ def load_task_list(story_id: int) -> list[dict]:
 def load_all_task_lists() -> dict[int, list[dict]]:
     """Return a mapping of story_id → task list for all saved task lists."""
     result: dict[int, list[dict]] = {}
-    for p in sorted(_context_dir().glob("task-list-*.json")):
+    for p in sorted(p for p in _context_dir().iterdir() if p.name.startswith("task-list-") and p.name.endswith(".json")):
         try:
             story_id = int(p.stem.split("-")[-1])
             result[story_id] = json.loads(p.read_text(encoding="utf-8"))
