@@ -293,6 +293,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
       void invalidate();
       void queryClient.invalidateQueries({ queryKey: ["phase3", "task-board"] });
       void queryClient.invalidateQueries({ queryKey: ["phase3", "task-list", context?.projectId, v.storyId] });
+      toast.success(local ? "Task saved to Taiga and synced to Phase 3." : "Task saved to Taiga.");
     },
     onError: (err) => toast.error(taigaErrMsg(err, "Update task")),
   });
