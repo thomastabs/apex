@@ -450,7 +450,7 @@ export function Sidebar() {
 
   // Migrate stored section order when new section IDs are added
   useEffect(() => {
-    const known = ["project", "board", "users", "context", "ai", "resources", "github"];
+    const known = ["project", "board", "users", "context", "ai", "github", "resources"];
     const missing = known.filter((id) => !sectionOrder.includes(id));
     if (missing.length) setSectionOrder([...sectionOrder, ...missing]);
   // eslint-disable-next-line react-hooks/exhaustive-deps

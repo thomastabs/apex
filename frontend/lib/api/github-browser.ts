@@ -55,12 +55,29 @@ export interface GithubSyncContext {
   pat: string;
 }
 
-/** Verify a repo is accessible. Throws if PAT or repo is wrong. */
-export async function verifyGithubRepo(ctx: GithubSyncContext): Promise<{ fullName: string; description: string }> {
+export interface RepoMeta {
+  fullName: string;
+  description: string;
+  language: string;
+  stars: number;
+  forks: number;
+  defaultBranch: string;
+  htmlUrl: string;
+  isPrivate: boolean;
+}
+
+/** Verify a repo is accessible and return its metadata. Throws if PAT or repo is wrong. */
+export async function verifyGithubRepo(ctx: GithubSyncContext): Promise<RepoMeta> {
   const raw = await ghFetch<Record<string, unknown>>(`/repos/${ctx.owner}/${ctx.repo}`, ctx.pat);
   return {
     fullName: (raw.full_name as string) || `${ctx.owner}/${ctx.repo}`,
     description: (raw.description as string) || "",
+    language: (raw.language as string) || "",
+    stars: (raw.stargazers_count as number) ?? 0,
+    forks: (raw.forks_count as number) ?? 0,
+    defaultBranch: (raw.default_branch as string) || "main",
+    htmlUrl: (raw.html_url as string) || `https://github.com/${ctx.owner}/${ctx.repo}`,
+    isPrivate: Boolean(raw.private),
   };
 }
 
