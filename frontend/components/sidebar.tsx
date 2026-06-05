@@ -100,22 +100,24 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
   const [jiraDomain, setJiraDomain] = useState("");
   const [jiraEmail, setJiraEmail] = useState("");
   const [jiraApiToken, setJiraApiToken] = useState("");
+  const [taigaInstanceUrl, setTaigaInstanceUrl] = useState("");
   const [loginError, setLoginError] = useState("");
   const [isPending, setIsPending] = useState(false);
 
-  // Taiga Cloud: tree.taiga.io → api.taiga.io; self-hosted: same host
-  // Only derive Taiga API URL from pmWebUrl when actually using Taiga.
-  // When pm_tool=jira, pmWebUrl is the Jira base URL — fall back to Taiga default.
-  const taigaApiUrl = pmWebUrl.includes("taiga")
-    ? pmWebUrl.replace("//tree.", "//api.")
-    : "https://api.taiga.io";
+  // When the user supplies a private instance URL, prefer it; otherwise fall back
+  // to the server-configured pmWebUrl (cloud: tree→api) or the public cloud default.
+  const effectiveTaigaApiUrl = taigaInstanceUrl.trim()
+    ? taigaInstanceUrl.trim().replace(/\/+$/, "").replace("//tree.", "//api.").replace(/\/api\/v1$/, "")
+    : pmWebUrl.includes("taiga")
+      ? pmWebUrl.replace("//tree.", "//api.")
+      : "https://api.taiga.io";
 
   async function handlePasswordLogin() {
     if (!username.trim() || !password.trim()) return;
     setIsPending(true);
     setLoginError("");
     try {
-      const res = await fetch(`${taigaApiUrl}/api/v1/auth`, {
+      const res = await fetch(`${effectiveTaigaApiUrl}/api/v1/auth`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: username.trim(), password, type: "normal" }),
@@ -136,7 +138,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
         full_name: data.full_name,
         email: data.email,
       });
-      setAuth({ taigaToken: token, taigaApiUrl, pmTool: "taiga" });
+      setAuth({ taigaToken: token, taigaApiUrl: effectiveTaigaApiUrl, pmTool: "taiga" });
     } catch {
       setLoginError("Cannot reach Taiga — check your network.");
     } finally {
@@ -260,6 +262,18 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
               Auth Token
             </button>
           </div>
+          <div className="space-y-1">
+            <label className="text-xs text-neutral-500">
+              Taiga instance URL <span className="text-neutral-600">(leave blank for Taiga Cloud)</span>
+            </label>
+            <input
+              value={taigaInstanceUrl}
+              onChange={(e) => setTaigaInstanceUrl(e.target.value)}
+              className="h-9 w-full rounded border border-violet-500/50 bg-neutral-950 px-3 text-sm text-white outline-none placeholder:text-neutral-600"
+              placeholder="https://taiga.yourcompany.com"
+              autoComplete="off"
+            />
+          </div>
           {mode === "password" ? (
             <>
               <input
@@ -293,7 +307,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
               if (mode === "password") {
                 handlePasswordLogin();
               } else if (tokenInput.trim()) {
-                setAuth({ taigaToken: tokenInput.trim(), taigaApiUrl, pmTool: "taiga" });
+                setAuth({ taigaToken: tokenInput.trim(), taigaApiUrl: effectiveTaigaApiUrl, pmTool: "taiga" });
               }
             }}
           >
