@@ -124,7 +124,7 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
                       rel="noopener noreferrer"
                       className={cn("hover:underline", dark ? "text-violet-400 hover:text-violet-300" : "text-violet-600 hover:text-violet-500")}
                     >
-                      Generate PAT ↗
+                      Generate PAT
                     </a>
                   </label>
                   <input
