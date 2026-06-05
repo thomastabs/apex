@@ -54,7 +54,8 @@ function relativeTime(iso: string | null | undefined): string | null {
 
 const CONTEXT_FILE_PHASES: Record<string, string[]> = {
   "/phase1": ["project-concept.md", "functional-spec.md"],
-  "/phase2": ["project-concept.md", "tech-stack.md", "functional-spec.md", "technical-spec.md", "design-bundle.md"],
+  "/phase2": ["project-concept.md", "tech-stack.md", "functional-spec.md", "technical-spec.md", "design-bundle.md", "github-context.md"],
+  "/phase3": ["project-concept.md", "tech-stack.md", "design-bundle.md", "github-context.md"],
 };
 
 function useVisibleContextFiles(

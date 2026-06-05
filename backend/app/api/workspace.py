@@ -28,6 +28,7 @@ _CONTEXT_FILES = [
     ("technical-spec.md", "Technical Spec"),
     ("vaccines.md", "Vaccine Records"),
     ("design-bundle.md", "Design Bundle"),
+    ("github-context.md", "GitHub Context"),
 ]
 _ALLOWED_CONTEXT_FILES = {filename for filename, _ in _CONTEXT_FILES}
 
@@ -47,6 +48,7 @@ def get_config(auth: AuthContext = Depends(get_auth_context)):
         "taiga_web_url": pm_web_url,
         "pm_tool": pm_tool,
         "pm_web_url": pm_web_url,
+        "github_repo": config.get("github_repo", ""),
     }
 
 
@@ -95,6 +97,8 @@ def save_config(payload: SaveConfigRequest, auth: AuthContext = Depends(get_auth
             pm_tool=payload.pm_tool,
             jira_base_url=payload.jira_base_url,
         )
+    if payload.github_repo is not None:
+        context_manager.save_github_config(payload.github_repo)
     return {"ok": True}
 
 

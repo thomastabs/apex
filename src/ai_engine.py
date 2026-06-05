@@ -1101,12 +1101,15 @@ def generate_tasks(
     technical_spec: str,
     tech_stack: str = "",
     design_bundle: str = "",
+    github_context: str = "",
 ) -> Phase3TaskList:
     system = _GENERATE_TASKS_SYSTEM.format(
         tech_stack=tech_stack.strip() or "Not specified",
         design_bundle=design_bundle.strip() or "Not specified",
         technical_spec=technical_spec.strip() or "Not specified",
     )
+    if github_context.strip() and not github_context.strip().startswith("<!--"):
+        system += f"\n\nExisting Codebase (GitHub):\n{github_context.strip()}"
     human = f"User Story: {story_subject}\n\nAcceptance Criteria (Gherkin):\n{gherkin.strip()}\n\nDecompose this story into atomic implementation tasks."
     return _ai_retry(lambda: _invoke_structured_with_progress(
         system, human, get_model(), Phase3TaskList,
@@ -1179,6 +1182,7 @@ def generate_coding_proposal(
     tech_stack: str = "",
     design_bundle: str = "",
     story_ref: str = "",
+    github_context: str = "",
 ) -> str:
     system = _GENERATE_PROPOSAL_SYSTEM.format(
         tech_stack=tech_stack.strip() or "Not specified",
@@ -1186,6 +1190,8 @@ def generate_coding_proposal(
         technical_spec=technical_spec.strip() or "Not specified",
         story_ref=story_ref or "this story",
     )
+    if github_context.strip() and not github_context.strip().startswith("<!--"):
+        system += f"\n\nExisting Codebase (GitHub):\n{github_context.strip()}"
     human = (
         f"Task: {task_subject}\n\n"
         f"Task Description: {task_description.strip()}\n\n"

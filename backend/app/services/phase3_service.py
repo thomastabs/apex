@@ -81,9 +81,10 @@ class Phase3Service:
         technical_spec = self.context.story_technical_spec(story_id)
         tech_stack = self.context.read_tech_stack()
         design_bundle = self.context.read_context_file("design-bundle.md")
+        github_context = self.context.read_context_file("github-context.md")
         return self.ai.generate_tasks(
             story_title, gherkin, technical_spec,
-            tech_stack=tech_stack, design_bundle=design_bundle,
+            tech_stack=tech_stack, design_bundle=design_bundle, github_context=github_context,
         )
 
     def generate_proposal(
@@ -109,9 +110,11 @@ class Phase3Service:
         technical_spec = self.context.story_technical_spec(story_id)
         tech_stack = self.context.read_tech_stack()
         design_bundle = self.context.read_context_file("design-bundle.md")
+        github_context = self.context.read_context_file("github-context.md")
         return self.ai.generate_proposal(
             task_subject, task_description, gherkin, technical_spec,
             tech_stack=tech_stack, design_bundle=design_bundle, story_ref=story_ref,
+            github_context=github_context,
         )
 
     def save_proposal(

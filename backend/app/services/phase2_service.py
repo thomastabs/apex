@@ -99,6 +99,9 @@ class Phase2Service:
             "must not introduce technologies, frameworks, runtimes, databases, or deployment "
             f"targets outside this stack:\n\n{tech_stack}"
         )
+        github_context = self.context.read_context_file("github-context.md")
+        if github_context.strip() and not github_context.strip().startswith("<!--"):
+            parts.append(f"## Existing Codebase (GitHub)\n\n{github_context.strip()}")
         return "\n\n".join(parts)
 
     def persist_design(

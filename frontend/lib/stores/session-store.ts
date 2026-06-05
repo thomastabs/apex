@@ -13,9 +13,12 @@ type SessionState = {
   projectId: number | null;
   projectName: string;
   pmProjectSlug: string;
+  githubPat: string;
+  githubRepo: string;
   setSession: (session: { taigaToken: string; taigaApiUrl?: string; projectId?: number; projectName?: string; pmTool?: PmTool; jiraEmail?: string }) => void;
   setAuth: (auth: { taigaToken: string; taigaApiUrl?: string; pmTool?: PmTool; jiraEmail?: string }) => void;
   setProject: (project: { projectId: number; projectName?: string; pmProjectSlug?: string }) => void;
+  setGithub: (opts: { pat?: string; repo?: string }) => void;
   clearSession: () => void;
 };
 
@@ -29,6 +32,8 @@ export const useSessionStore = create<SessionState>()(
       projectId: null,
       projectName: "",
       pmProjectSlug: "",
+      githubPat: "",
+      githubRepo: "",
       setSession: ({ taigaToken, taigaApiUrl, projectId, projectName = "", pmTool, jiraEmail }) =>
         set({
           taigaToken,
@@ -48,11 +53,15 @@ export const useSessionStore = create<SessionState>()(
           pmProjectSlug: "",
         }),
       setProject: ({ projectId, projectName = "", pmProjectSlug = "" }) => set({ projectId, projectName, pmProjectSlug }),
-      clearSession: () => set((s) => ({ pmTool: s.pmTool, taigaToken: "", taigaApiUrl: "", jiraEmail: "", projectId: null, projectName: "", pmProjectSlug: "" })),
+      setGithub: ({ pat, repo }) => set({
+        ...(pat !== undefined ? { githubPat: pat } : {}),
+        ...(repo !== undefined ? { githubRepo: repo } : {}),
+      }),
+      clearSession: () => set((s) => ({ pmTool: s.pmTool, taigaToken: "", taigaApiUrl: "", jiraEmail: "", projectId: null, projectName: "", pmProjectSlug: "", githubPat: "", githubRepo: "" })),
     }),
     {
       name: "apex-session",
-      version: 3,
+      version: 4,
       migrate: (persisted: unknown, version: number) => {
         const state = (persisted ?? {}) as Record<string, unknown>;
         if (version < 2) {
@@ -64,10 +73,15 @@ export const useSessionStore = create<SessionState>()(
             projectId: (state.projectId as number | null) ?? null,
             projectName: (state.projectName as string) ?? "",
             pmProjectSlug: "",
+            githubPat: "",
+            githubRepo: "",
           };
         }
         if (version < 3) {
-          return { ...state, pmProjectSlug: "" };
+          return { ...state, pmProjectSlug: "", githubPat: "", githubRepo: "" };
+        }
+        if (version < 4) {
+          return { ...state, githubPat: "", githubRepo: "" };
         }
         return state as SessionState;
       },
@@ -79,6 +93,8 @@ export const useSessionStore = create<SessionState>()(
         projectId: state.projectId,
         projectName: state.projectName,
         pmProjectSlug: state.pmProjectSlug,
+        githubPat: state.githubPat,
+        githubRepo: state.githubRepo,
       }),
     },
   ),
@@ -96,6 +112,15 @@ export function useApiContext() {
   }
 
   return { taigaToken, taigaApiUrl, projectId, pmTool, pmProjectId: pmProjectSlug || undefined };
+}
+
+export function useGithubContext() {
+  const githubPat = useSessionStore((state) => state.githubPat);
+  const githubRepo = useSessionStore((state) => state.githubRepo);
+  if (!githubPat || !githubRepo) return null;
+  const [owner, repo] = githubRepo.split("/");
+  if (!owner || !repo) return null;
+  return { pat: githubPat, owner, repo };
 }
 
 export function useAuthContext() {

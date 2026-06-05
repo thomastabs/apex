@@ -18,6 +18,7 @@ import { UsersSection } from "./sidebar/users-section";
 import { ContextSection } from "./sidebar/context-section";
 import { AiSection } from "./sidebar/ai-section";
 import { ResourcesSection } from "./sidebar/resources-section";
+import { GitHubSection } from "./sidebar/github-section";
 import { TasksSection } from "./sidebar/tasks-section";
 import { AboutSection } from "./sidebar/about-section";
 
@@ -30,6 +31,7 @@ const SECTION_LABELS: Record<string, string> = {
   context: "Active Context",
   ai: "AI Models",
   resources: "Resources",
+  github: "GitHub",
   tasks: "Task Board",
   about: "About Apex",
 };
@@ -444,7 +446,7 @@ export function Sidebar() {
 
   // Migrate stored section order when new section IDs are added
   useEffect(() => {
-    const known = ["project", "board", "users", "context", "ai", "resources"];
+    const known = ["project", "board", "users", "context", "ai", "resources", "github"];
     const missing = known.filter((id) => !sectionOrder.includes(id));
     if (missing.length) setSectionOrder([...sectionOrder, ...missing]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -625,7 +627,7 @@ export function Sidebar() {
           const dragHandlers = makeDragSectionProps(id);
           const onDragStart = makeDragStartHandler(id);
 
-          if (id !== "ai" && id !== "resources" && id !== "about" && !taigaToken) return null;
+          if (id !== "ai" && id !== "resources" && id !== "about" && id !== "github" && !taigaToken) return null;
 
 
           if (id === "project") {
@@ -703,6 +705,19 @@ export function Sidebar() {
                 dark={dark}
                 pmWebUrl={pmWebUrl}
                 pmTool={serverConfig.data?.pm_tool === "jira" ? "jira" : "taiga"}
+                shellClass={shellClass}
+                dragHandlers={dragHandlers}
+                onDragStart={onDragStart}
+              />
+            );
+          }
+
+          if (id === "github") {
+            return (
+              <GitHubSection
+                key="github"
+                dark={dark}
+                githubRepo={serverConfig.data?.github_repo ?? ""}
                 shellClass={shellClass}
                 dragHandlers={dragHandlers}
                 onDragStart={onDragStart}

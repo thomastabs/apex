@@ -56,10 +56,11 @@ class AiService:
         technical_spec: str,
         tech_stack: str = "",
         design_bundle: str = "",
+        github_context: str = "",
     ) -> list[dict]:
         result = ai_engine.generate_tasks(
             story_subject, gherkin, technical_spec,
-            tech_stack=tech_stack, design_bundle=design_bundle,
+            tech_stack=tech_stack, design_bundle=design_bundle, github_context=github_context,
         )
         return [
             {
@@ -82,10 +83,12 @@ class AiService:
         tech_stack: str = "",
         design_bundle: str = "",
         story_ref: str = "",
+        github_context: str = "",
     ) -> str:
         return ai_engine.generate_coding_proposal(
             task_subject, task_description, gherkin, technical_spec,
             tech_stack=tech_stack, design_bundle=design_bundle, story_ref=story_ref,
+            github_context=github_context,
         )
 
     def generate_er_diagram(self, data_model_md: str):

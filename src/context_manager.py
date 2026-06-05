@@ -132,6 +132,14 @@ _DESIGN_BUNDLE_TEMPLATE = """\
 
 """
 
+_GITHUB_CONTEXT_TEMPLATE = """\
+# GitHub Repository Context
+
+<!-- Populated automatically by the GitHub Sync button in the sidebar. -->
+<!-- Contains: repo metadata, file tree, README, and key config files. -->
+<!-- Injected into Phase 2 and Phase 3 AI prompts as codebase context. -->
+"""
+
 # Phase status values — ordered by SDLC progression.
 PHASE_STATUSES = (
     "gherkin_locked",  # Phase 1 complete: Gherkin approved and locked
@@ -199,6 +207,19 @@ def save_pm_config(pm_tool: str | None = None, jira_base_url: str | None = None)
         _CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
     except OSError as exc:
         _logger.warning("save_pm_config: failed to persist PM config: %s", exc)
+
+
+def save_github_config(repo: str | None) -> None:
+    """Persist GitHub repo (owner/repo) to shared config."""
+    if repo is None:
+        return
+    try:
+        _BASE_CONTEXTSPEC.mkdir(parents=True, exist_ok=True)
+        data = load_config()
+        data["github_repo"] = repo
+        _CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    except OSError as exc:
+        _logger.warning("save_github_config: failed to persist GitHub config: %s", exc)
 
 
 def load_config() -> dict:
@@ -1328,6 +1349,7 @@ _TEMPLATES: dict[str, str] = {
     "technical-spec.md":  _TECHNICAL_SPEC_TEMPLATE,
     "vaccines.md":        _VACCINES_TEMPLATE,
     "design-bundle.md":   _DESIGN_BUNDLE_TEMPLATE,
+    "github-context.md":  _GITHUB_CONTEXT_TEMPLATE,
 }
 
 

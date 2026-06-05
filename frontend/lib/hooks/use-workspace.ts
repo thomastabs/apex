@@ -23,13 +23,14 @@ import {
   resetAllContextFiles,
   resetContextFile,
   saveAiConfig,
+  saveGithubConfig,
   saveServerConfig,
   updateContextFile,
   updateEpic,
   updateMemberRole,
   updateStory,
 } from "@/lib/api/workspace";
-import { useApiContext, useAuthContext } from "@/lib/stores/session-store";
+import { useApiContext, useAuthContext, useGithubContext } from "@/lib/stores/session-store";
 
 export function useMe() {
   const auth = useAuthContext();
@@ -326,6 +327,35 @@ export function useSaveAiConfig() {
     mutationFn: ({ model }: { model: string }) => saveAiConfig(auth!, model),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "ai-config"] });
+    },
+  });
+}
+
+export function useSaveGithubConfig() {
+  const auth = useAuthContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (repo: string) => saveGithubConfig(auth!, repo),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "server-config"] });
+    },
+  });
+}
+
+export function useSyncGithubContext() {
+  const ctx = useApiContext();
+  const github = useGithubContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      if (!ctx || !github) throw new Error("Not connected to GitHub.");
+      const { fetchGithubContextMd } = await import("@/lib/api/github-browser");
+      const md = await fetchGithubContextMd(github);
+      const { updateContextFile } = await import("@/lib/api/workspace");
+      return updateContextFile(ctx, "github-context.md", md);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "context-files"] });
     },
   });
 }

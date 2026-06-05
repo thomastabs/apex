@@ -24,7 +24,16 @@ export type ServerConfig = {
   taiga_web_url: string;
   pm_tool: string;
   pm_web_url: string;
+  github_repo: string;
 };
+
+export function saveGithubConfig(context: AuthContext, repo: string) {
+  return apiRequest<{ ok: boolean }>("/api/workspace/config", {
+    method: "POST",
+    context,
+    body: { github_repo: repo },
+  });
+}
 
 export function getServerConfig(context: AuthContext) {
   return apiRequest<ServerConfig>("/api/workspace/config", { context });
