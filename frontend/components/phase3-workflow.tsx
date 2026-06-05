@@ -87,12 +87,14 @@ const EFFORT_COLORS: Record<string, string> = {
   XL: "bg-red-500/15 text-red-400 ring-red-500/30",
 };
 
-function EffortBadge({ estimate }: { estimate?: string }) {
+function EffortBadge({ estimate, onDark = false }: { estimate?: string; onDark?: boolean }) {
   if (!estimate) return null;
   return (
     <span className={cn(
       "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold ring-1",
-      EFFORT_COLORS[estimate] ?? "bg-neutral-500/15 text-neutral-400 ring-neutral-500/30",
+      onDark
+        ? "bg-white/20 text-white ring-white/30"
+        : EFFORT_COLORS[estimate] ?? "bg-neutral-500/15 text-neutral-400 ring-neutral-500/30",
     )}>
       {estimate}
     </span>
@@ -906,7 +908,7 @@ function StageC({ storyId }: { storyId: number }) {
                     {task.subject}
                   </p>
                   {task.effort_estimate && (
-                    <EffortBadge estimate={task.effort_estimate} />
+                    <EffortBadge estimate={task.effort_estimate} onDark={isSelected} />
                   )}
                 </div>
               </button>
