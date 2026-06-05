@@ -61,6 +61,9 @@ class FakeContextService:
     def write_project_technical_spec(self, story_ids, spec):
         self.written_tech_spec = (story_ids, spec)
 
+    def read_context_file(self, filename: str) -> str:
+        return ""
+
 
 def _tech_stack_with_content():
     return "FastAPI + Next.js + PostgreSQL"

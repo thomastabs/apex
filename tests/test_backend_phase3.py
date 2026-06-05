@@ -32,12 +32,12 @@ class FakeAiService:
         self.generate_tasks_args = None
         self.generate_proposal_args = None
 
-    def generate_tasks(self, story_subject, gherkin, technical_spec, tech_stack="", design_bundle=""):
+    def generate_tasks(self, story_subject, gherkin, technical_spec, tech_stack="", design_bundle="", github_context=""):
         self.generate_tasks_args = (story_subject, gherkin, technical_spec, tech_stack, design_bundle)
         return _FAKE_TASKS
 
     def generate_proposal(self, task_subject, task_description, gherkin, technical_spec,
-                          tech_stack="", design_bundle="", story_ref=""):
+                          tech_stack="", design_bundle="", story_ref="", github_context=""):
         self.generate_proposal_args = (task_subject, task_description, gherkin, technical_spec,
                                        tech_stack, design_bundle, story_ref)
         return _FAKE_PROPOSAL
