@@ -104,7 +104,11 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
   const [isPending, setIsPending] = useState(false);
 
   // Taiga Cloud: tree.taiga.io → api.taiga.io; self-hosted: same host
-  const taigaApiUrl = pmWebUrl.replace("//tree.", "//api.");
+  // Only derive Taiga API URL from pmWebUrl when actually using Taiga.
+  // When pm_tool=jira, pmWebUrl is the Jira base URL — fall back to Taiga default.
+  const taigaApiUrl = pmWebUrl.includes("taiga")
+    ? pmWebUrl.replace("//tree.", "//api.")
+    : "https://api.taiga.io";
 
   async function handlePasswordLogin() {
     if (!username.trim() || !password.trim()) return;
