@@ -902,7 +902,7 @@ function StageC({ storyId }: { storyId: number }) {
                     </p>
                   )}
                   <p className="truncate text-xs font-medium leading-snug">
-                    <span className={cn("mr-1 font-bold", isSelected ? "text-violet-200" : "text-neutral-500")}>
+                    <span className={cn("mr-1 font-bold", isSelected ? "text-white" : "text-neutral-500")}>
                       {idx + 1}.
                     </span>
                     {task.subject}

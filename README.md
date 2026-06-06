@@ -77,7 +77,7 @@ Implemented:
 - Results appear incrementally as each section completes
 - Each section has a collapsible visualization panel — auto-generated when the section completes, persisted so it loads instantly on return:
   - **UX Brief → Screen Flow** (React Flow) — screens as nodes, navigation actions as labelled directed edges; dagre left-to-right auto-layout; drag to rearrange; layout saved to `diagram-screens.json`
-  - **Endpoints → API Surface Table** — client-side parse of the endpoint markdown; groups by resource; color-coded method badges (GET green, POST blue, PUT/PATCH amber, DELETE red); shows auth, request fields, and response fields per row; zero AI cost
+  - **Endpoints → API Surface** — client-side parse of the endpoint markdown; groups by resource; at the top a method distribution summary — color-coded pill counts (GET green, POST blue, PUT/PATCH amber, DELETE red) with a proportional stacked bar showing API shape at a glance; each endpoint row is an accordion — collapsed shows method badge, path, and auth; expanded reveals request and response fields as typed key:type pills (e.g. `username:string`); zero AI cost
   - **Data Model → ER Diagram** (React Flow) — entities as cards with field types; primary keys amber, foreign keys blue; dagre auto-layout; drag to rearrange; layout saved to `diagram-er.json`
 - Export the full draft as a Markdown file for offline review
 - Gate 1: Design Lead sign-off (screens & flows)
