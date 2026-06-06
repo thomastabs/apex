@@ -432,10 +432,6 @@ Portugal time note:
 
 This one-hour seasonal drift is acceptable for the project. If exact Lisbon local time is required, split the scheduler into separate DST-aware cron periods or trigger scaling from Azure Automation/Logic Apps with timezone support.
 
-### Cold Starts
-
-During night mode (`min=0`, `max=0`) both apps are fully stopped — no containers run and incoming requests are rejected. The morning cron (or manual `up` dispatch) restores `min=1, max=10`. The first request after scale-up may be slower while the container warms up.
-
 ---
 
 ## Current Phase Status
