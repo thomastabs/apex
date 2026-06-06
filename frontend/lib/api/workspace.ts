@@ -15,7 +15,12 @@ function toPmCtx(ctx: RequestContext): PmRequestContext {
   return {
     token: ctx.taigaToken,
     baseUrl: ctx.taigaApiUrl ?? "",
-    projectId: ctx.pmProjectId ?? String(ctx.projectId),
+    // For Jira, pmProjectId is the project KEY (e.g. "TEST") — required.
+    // For Taiga, pmProjectId is the slug (e.g. "test2") — wrong; Taiga REST API
+    // uses numeric IDs, so always fall back to the numeric projectId for Taiga.
+    projectId: ctx.pmTool === "jira"
+      ? (ctx.pmProjectId ?? String(ctx.projectId))
+      : String(ctx.projectId),
   };
 }
 
