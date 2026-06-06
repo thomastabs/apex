@@ -1,6 +1,6 @@
 # Apex
 
-Apex is an academic AI-guided SDLC tool that combines a **Spec-Anchored workflow**, **Claude AI**, and **Taiga**. The app helps a team move from product requirements into design artefacts while keeping the important project context in persistent, human-readable files.
+Apex is an academic AI-guided SDLC tool that combines a **Spec-Anchored workflow**, **Claude AI**, **Taiga or Jira** as project management backend, and optional **GitHub** repository context. The app helps a team move from product requirements into design artefacts while keeping the important project context in persistent, human-readable files.
 
 The current migrated version is a split full-stack web app:
 
@@ -17,11 +17,11 @@ Phases 1, 2, and 3 are implemented. Phases 4 to 6 currently exist as navigation 
 
 ```mermaid
 flowchart TD
-    A[Taiga Epic] --> B[Phase 1: Generate Natural Language Stories]
+    A[PM Epic — Taiga or Jira] --> B[Phase 1: Generate Natural Language Stories]
     B --> C[Human Review]
     C --> D[Compile Gherkin]
     D --> E[Human Review]
-    E --> F[Push Stories to Taiga]
+    E --> F[Push Stories to PM Tool]
     F --> G[(contextspec/<project_id>)]
 
     G --> H[Phase 2 Gate 0: Lock Tech Stack]
@@ -34,7 +34,7 @@ flowchart TD
     G --> M[Phase 3: Select Story]
     M --> N[Generate Task Breakdown]
     N --> O[Human Review & Edit Tasks]
-    O --> P[Push Tasks to Taiga]
+    O --> P[Push Tasks to PM Tool]
     P --> Q[Generate Developer Packs per Task]
     Q --> R[Lock Story — Implementation Ready]
     R --> G
@@ -44,18 +44,18 @@ flowchart TD
 
 ### Phase 1 · Requirements
 
-Phase 1 turns Taiga epics into approved user stories and Gherkin acceptance criteria.
+Phase 1 turns PM epics into approved user stories and Gherkin acceptance criteria. Works with both Taiga and Jira Cloud via the PM adapter layer.
 
 Implemented:
 
-- Load existing Taiga epics
+- Load existing epics from Taiga or Jira
 - Create a new epic or use an existing one
 - Ask Claude to suggest epics from the project concept
 - Generate Natural Language story drafts
 - Review and edit drafts before formalization
 - Compile reviewed drafts into Gherkin
 - Review and edit compiled Gherkin
-- Push approved stories to Taiga
+- Push approved stories to the connected PM tool
 - Persist approved Gherkin into `functional-spec.md`
 - Update `story-index.json` with `gherkin_locked` state
 
@@ -87,7 +87,8 @@ Implemented:
   - `design-bundle.md`
   - `tech-stack.md`
   - `story-index.json`
-- Transition Taiga stories to design-ready status (browser-side, no backend Taiga calls)
+- Transition stories to design-ready status in the PM tool (browser-side, no backend PM calls)
+- GitHub repository context (`github-context.md`) is injected into AI prompts when available
 
 ### Phase 3 · Implementation Assist
 
@@ -110,8 +111,8 @@ Implemented — 4-stage stepper workflow:
 
 **Stage C — Developer Packs**
 
-- Push all tasks to Taiga as subtasks (browser-direct, no backend proxy); each task gets a Taiga ref
-- For each task, generate a **Developer Pack** — a structured Markdown coding proposal including context, approach, and acceptance checklist
+- Push all tasks to the PM tool as subtasks (browser-direct); each task gets a PM ref
+- For each task, generate a **Developer Pack** — a structured Markdown coding proposal including context, approach, and acceptance checklist; GitHub repository context is injected when available
 - View and edit packs in an in-browser editor; re-generate any pack if needed
 - Packs are auto-saved to `proposal_story_<id>_task_<id>.md` in `contextspec/`
 
@@ -127,6 +128,7 @@ The sidebar is the operational shell for the app.
 
 Implemented:
 
+- PM tool selector — toggle between Taiga (violet) and Jira Cloud (blue) before signing in; connected Taiga private cloud URL shown under account when non-default
 - **Taiga login** — username/password or bearer token (browser-direct, no backend proxy); supports Taiga Cloud (`tree.taiga.io`) and private/self-hosted instances via an optional instance URL field (e.g. `https://taiga.yourcompany.com`)
 - **Jira Cloud login** — domain, Atlassian account email, and API token; auth is verified through the FastAPI backend proxy before the session is stored
 - Project selector
@@ -156,6 +158,7 @@ Implemented:
 | `backend/app/api/phase2.py` | Phase 2 HTTP routes |
 | `backend/app/api/phase3.py` | Phase 3 HTTP routes |
 | `backend/app/api/workspace.py` | Sidebar/workspace routes: auth, projects, board, users, context files, AI config |
+| `backend/app/api/jira_proxy.py` | FastAPI reverse proxy for Jira Cloud REST API v3 (Basic auth, SSRF-guarded to `*.atlassian.net`) |
 | `backend/app/api/deps.py` | FastAPI request/auth dependencies |
 | `backend/app/services/` | Service layer for phase workflows, AI, Taiga, and context operations |
 | `backend/app/schemas/` | Pydantic request/response models |
@@ -166,6 +169,10 @@ Implemented:
 | `frontend/app/` | Next.js routes |
 | `frontend/components/` | App shell, sidebar, Phase 1 workflow, Phase 2 workflow, Phase 3 workflow, UI components |
 | `frontend/lib/api/taiga-direct.ts` | Browser-side Taiga REST client — all CRUD, auth, and story transitions |
+| `frontend/lib/api/pm-types.ts` | `ProjectManagementAdapter` interface and shared PM types |
+| `frontend/lib/api/pm-factory.ts` | `getPmAdapter(pmTool)` dispatcher — returns Taiga or Jira adapter |
+| `frontend/lib/api/taiga-adapter.ts` | Taiga adapter wrapping `taiga-direct.ts` |
+| `frontend/lib/api/jira-adapter.ts` | Jira Cloud adapter — REST v3, ADF, paginated JQL, two-step transitions |
 | `frontend/lib/api/github-browser.ts` | Browser-side GitHub REST client — repo metadata, file tree, README, config file, and OpenAPI spec fetching for context sync |
 | `frontend/lib/api/` | Typed frontend API clients |
 | `frontend/lib/hooks/` | React Query hooks |
@@ -188,6 +195,7 @@ Apex stores workflow state in context files under `contextspec/<taiga_project_id
 | `design-bundle.md` | Locked wireframes, user flows, component trees, and technical bundles |
 | `diagram-screens.json` | React Flow screen flow diagram generated from Phase 2 UX Brief (includes saved layout positions) |
 | `diagram-er.json` | React Flow ER diagram generated from Phase 2 Data Model (includes saved layout positions) |
+| `github-context.md` | GitHub repo metadata, file tree, README, and key config files — injected into Phase 2 and Phase 3 AI prompts |
 | `proposal_story_<id>_task_<id>.md` | Developer pack generated by Phase 3 for each task |
 | `github-context.md` | Repo file tree, README, config file, and OpenAPI spec synced from GitHub; injected into Phase 2 and Phase 3 AI prompts |
 | `vaccines.md` | Future bug-resolution memory for Phase 6 |
@@ -214,7 +222,8 @@ For normal local development, leave Azure storage blank unless you deliberately 
 - npm
 - Docker, optional
 - Anthropic API key
-- Taiga account
+- Taiga account (or Jira Cloud account — at least one required)
+- GitHub Personal Access Token, optional (for repository context enrichment)
 
 ### Environment
 
@@ -461,6 +470,8 @@ During night mode (`min=0`, `max=0`) both apps are fully stopped — no containe
 - Keep routers thin and put workflow logic in `backend/app/services/`.
 - Keep AI prompt logic in `src/ai_engine.py`. Provider is detected automatically from the model ID prefix (`claude-` → Anthropic, `gpt-`/`o1-`/`o3-` → OpenAI, `gemini-` → Google).
 - All Taiga REST calls go through `frontend/lib/api/taiga-direct.ts` in the browser. Do not proxy Taiga through the backend.
+- All Jira REST calls go through the FastAPI proxy at `/api/pm/jira/*`. Do not call Jira Cloud directly from the browser.
+- New PM operations should go through the `ProjectManagementAdapter` interface (`frontend/lib/api/pm-types.ts`) — add to both `taiga-adapter.ts` and `jira-adapter.ts`, then dispatch via `getPmAdapter()` in `pm-factory.ts`.
 - Treat Markdown context files as human-readable artefacts, and `story-index.json` as the machine-readable workflow index.
 - The backend runs with `--workers 2` in Docker so concurrent AI calls don't block each other.
 - AI errors map to distinct HTTP codes: `AIRateLimitError` → 429, `AITimeoutError` → 504, generic `AIError` → 502.

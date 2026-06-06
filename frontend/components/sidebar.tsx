@@ -85,6 +85,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
   const clearSession = useSessionStore((state) => state.clearSession);
   const taigaToken = useSessionStore((state) => state.taigaToken);
   const storedPmTool = useSessionStore((state) => state.pmTool);
+  const storedTaigaApiUrl = useSessionStore((state) => state.taigaApiUrl);
   const clearPhase2Draft = usePhase2Store((state) => state.clearPhase2Draft);
   const queryClient = useQueryClient();
   const me = useMe();
@@ -217,6 +218,9 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
               <span className="text-xs text-neutral-500">Authenticated</span>
             )}
           </div>
+          {storedPmTool === "taiga" && storedTaigaApiUrl && storedTaigaApiUrl !== "https://api.taiga.io" && (
+            <div className="truncate text-[10px] text-neutral-500 mt-0.5">{storedTaigaApiUrl}</div>
+          )}
         </div>
         <button
           className="shrink-0 rounded border border-violet-500/30 px-2 py-1 text-xs text-violet-400 transition-colors hover:border-violet-500/60 hover:bg-violet-500/10 hover:text-violet-300"
