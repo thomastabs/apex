@@ -307,13 +307,23 @@ docker compose down
 
 ## Tests
 
-Backend:
+### Backend (pytest)
 
 ```bash
 python3 -m pytest tests/ -v --tb=short
 ```
 
-Frontend:
+Coverage:
+
+- `tests/test_backend_phase1.py` — Phase 1 service-layer unit tests
+- `tests/test_backend_phase2.py` — Phase 2 service-layer unit tests; AI cascade, design section generation, persist-design flow
+- `tests/test_backend_phase2_api.py` — Phase 2 HTTP route tests; stub service, error-code mapping
+- `tests/test_backend_phase3.py` — Phase 3 service-layer unit tests; task generation, proposal generation, hint/cross-task context passthrough
+- `tests/test_backend_phase3_api.py` — Phase 3 HTTP route tests; all 9 endpoints, error-code mapping (422/429/504)
+
+`AzureFileShareService` is mocked at the service boundary via a `ctx` fixture in `conftest.py`. No real Azure credentials or live backend needed to run the suite.
+
+### Frontend (Vitest)
 
 ```bash
 cd frontend
@@ -324,10 +334,84 @@ npm test
 npm run build
 ```
 
+Coverage: React Query hooks, Taiga direct API calls, session store, API client utilities.
+
+### Frontend E2E (Playwright)
+
+```bash
+cd frontend
+npx playwright install --with-deps chromium   # first time only
+npm run test:e2e
+npm run test:e2e:ui                           # with interactive UI
+```
+
+Three spec files, each exercising one full phase flow against mocked backend and Taiga APIs:
+
+**`e2e/phase1-story-flow.spec.ts`**
+
+1. Navigate to `/phase1`
+2. Fill epic title → click **Generate Stories** (mocks `/api/phase1/generate-nl-stories`)
+3. Wait for **Convert to Acceptance Criteria** to be enabled → click
+4. Assert the first gherkin textarea contains `Feature: User Login` (mocks `/api/phase1/compile-gherkin`)
+5. Assert **Push Stories** enabled → click (mocks `/api/phase1/finalize-stories`)
+6. Assert `stories pushed and locked` confirmation
+
+**`e2e/phase2-design-flow.spec.ts`**
+
+1. Navigate to `/phase2`
+2. Click **Propose Architecture** (mocks `/api/phase2/propose-tech-stack`) → two alternatives appear
+3. Click first alternative card → click **Save Technology Choices** (mocks `/api/phase2/lock-tech-stack`, stateful: sets `techStackDefined=true`)
+4. Assert `Technology choices saved` toast
+5. Wait for **Generate Design** to appear (status query refetches and returns `defined: true`)
+6. Click **Generate Design** — three-section cascade (mocks `/api/phase2/generate-design-section` three times sequentially for `ux_brief`, `endpoints`, `data_model`)
+7. Assert `Login screen` text visible in UX Brief section
+8. Wait for sign-off panel → check **Design Lead Sign-off** and **Tech Lead Sign-off** checkboxes
+9. Click **Save & Lock Design** (mocks `/api/phase2/persist-design`)
+10. Assert `Design locked for` toast/callout
+
+**`e2e/phase3-pack-flow.spec.ts`**
+
+1. Navigate to `/phase3`
+2. Assert `User Login` story card visible (mocks `/api/phase3/eligible-stories`)
+3. Click story card → Stage B — wait for **Generate Tasks** enabled (story context loads via `/api/phase3/story-context/10`)
+4. Click **Generate Tasks** (mocks `/api/phase3/generate-tasks`) → two tasks appear
+5. Click **Developer Packs** → Stage C
+6. Click task `Create User model and migration` to select it
+7. Click **Generate Pack** (mocks `/api/phase3/generate-proposal`) → pack markdown appears
+8. Click **Agentic Brief** copy button → assert `Agentic Brief copied.` toast (clipboard permission granted)
+9. Click **Continue to Lock** → Stage D
+10. Click **Lock Story** (mocks `/api/phase3/lock-story`, `canLock` requires `covered_scenarios` matches gherkin scenario names)
+11. Assert **Export All Packs** button visible
+
+#### Mock infrastructure
+
+All mocks live in `frontend/e2e/mocks/handlers.ts` and are applied via `page.route()` (Chromium-level interception). No real server is required.
+
+Key design decisions:
+
+| Decision | Reason |
+|---|---|
+| `page.route()` instead of MSW Node | Browser fetch is not intercepted by Node-level MSW; `page.route()` intercepts at the Chromium network layer |
+| Catch-all `workspace/**` registered first | Playwright matches last-registered handler first; specific routes registered after override the catch-all |
+| Stateful `mockState.techStackDefined` closure | `lock-tech-stack` sets the flag so the subsequent `tech-stack-status` refetch returns `defined: true`, advancing Phase 2 from Stage A to Stage B |
+| Empty task list from `task-list` mock | Returning pre-existing tasks triggers `hydrateFromBackend` which sets `tasksPushed: true`, disabling **Generate Tasks**; empty list keeps it enabled |
+| `covered_scenarios: ["Successful login"]` | Must match the exact scenario name from `parseGherkinScenarios()`; using the story title instead keeps `coverageOk: false` and disables **Lock Story** |
+| Zustand hydration via `addInitScript` | Sets `apex-session` (v4) and `apex-phase3-draft` in localStorage before first navigation so components see a valid token and project ID on first render |
+| Clipboard permission grant | `navigator.clipboard.writeText()` is blocked headless without explicit permission; granted via `page.context().grantPermissions()` |
+
+Mocked endpoints (both `http://localhost:8000` and `https://api.taiga.io`):
+
+- `/api/health`, all `/api/workspace/**` routes
+- Phase 1: `generate-nl-stories`, `compile-gherkin`, `finalize-stories`
+- Phase 2: `tech-stack-status` (stateful), `propose-tech-stack`, `lock-tech-stack`, `generate-design-section`, `persist-design`, `diagram`, `generate-diagram`, `screen-flow`, `generate-screen-flow`, `refresh-story-index`
+- Phase 3: `eligible-stories`, `story-context/**`, `generate-tasks`, `generate-proposal`, `save-proposal`, `task-list/**`, `proposals/**`, `lock-story`, `task-board`, `missing-task-lists`
+- Taiga: `/users/me`, `/memberships**`, `/roles**`, `/tasks**`, `/epics**`, `/userstories**`, `/projects**`
+
 CI runs:
 
 - backend: ruff lint, pytest
-- frontend: ESLint, typecheck, Vitest, production build
+- frontend: ESLint, typecheck, Vitest (`npm test`), production build
+- frontend E2E: Playwright chromium (`npm run test:e2e`) — runs after Vitest, gates Docker builds
 - backend/frontend Docker builds and pushes
 - post-deploy health check (`/api/health`)
 
