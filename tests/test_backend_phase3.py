@@ -31,15 +31,33 @@ class FakeAiService:
     def __init__(self):
         self.generate_tasks_args = None
         self.generate_proposal_args = None
+        self.generate_proposal_kwargs: dict = {}
 
     def generate_tasks(self, story_subject, gherkin, technical_spec, tech_stack="", design_bundle="", github_context=""):
         self.generate_tasks_args = (story_subject, gherkin, technical_spec, tech_stack, design_bundle)
         return _FAKE_TASKS
 
-    def generate_proposal(self, task_subject, task_description, gherkin, technical_spec,
-                          tech_stack="", design_bundle="", story_ref="", github_context=""):
+    def generate_proposal(
+        self,
+        task_subject,
+        task_description,
+        gherkin,
+        technical_spec,
+        tech_stack="",
+        design_bundle="",
+        story_ref="",
+        github_context="",
+        hint="",
+        recent_commits="",
+        other_tasks=None,
+    ):
         self.generate_proposal_args = (task_subject, task_description, gherkin, technical_spec,
                                        tech_stack, design_bundle, story_ref)
+        self.generate_proposal_kwargs = {
+            "hint": hint,
+            "recent_commits": recent_commits,
+            "other_tasks": other_tasks,
+        }
         return _FAKE_PROPOSAL
 
 
@@ -220,3 +238,48 @@ def test_lock_story_transitions_to_implementation():
     assert story_id == 10
     assert updates["phase_status"] == "implementation"
     assert updates["has_proposal"] is True
+
+
+# ---------------------------------------------------------------------------
+# generate_proposal — hint / all_tasks / recent_commits passthrough
+# ---------------------------------------------------------------------------
+
+def test_generate_proposal_passes_hint_to_ai():
+    ai = FakeAiService()
+    svc = Phase3Service(ai=ai, context=FakeContextService())
+    svc.generate_proposal(_ctx(), 10, 1, "Implement endpoint", "Build it.", hint="prefer async")
+    assert ai.generate_proposal_kwargs["hint"] == "prefer async"
+
+
+def test_generate_proposal_passes_recent_commits_to_ai():
+    ai = FakeAiService()
+    svc = Phase3Service(ai=ai, context=FakeContextService())
+    svc.generate_proposal(
+        _ctx(), 10, 1, "Implement endpoint", "Build it.",
+        recent_commits_context="- abc123: add auth module",
+    )
+    assert ai.generate_proposal_kwargs["recent_commits"] == "- abc123: add auth module"
+
+
+def test_generate_proposal_filters_current_task_from_all_tasks():
+    ai = FakeAiService()
+    svc = Phase3Service(ai=ai, context=FakeContextService())
+    all_tasks = [
+        {"id": 1, "subject": "Implement endpoint", "description": "current task"},
+        {"id": 2, "subject": "Write migration", "description": "another task"},
+    ]
+    svc.generate_proposal(
+        _ctx(), 10, 1, "Implement endpoint", "Build it.",
+        all_tasks=all_tasks,
+    )
+    other = ai.generate_proposal_kwargs["other_tasks"]
+    subjects = [t["subject"] for t in other]
+    assert "Implement endpoint" not in subjects
+    assert "Write migration" in subjects
+
+
+def test_generate_proposal_empty_hint_passes_through():
+    ai = FakeAiService()
+    svc = Phase3Service(ai=ai, context=FakeContextService())
+    svc.generate_proposal(_ctx(), 10, 1, "Implement endpoint", "Build it.")
+    assert ai.generate_proposal_kwargs["hint"] == ""
