@@ -300,6 +300,9 @@ export type Phase3GenerateProposalRequest = {
   task_id: number;
   task_subject: string;
   task_description: string;
+  hint?: string;
+  recent_commits_context?: string;
+  all_tasks?: Array<{ id: number; subject: string; description: string }>;
 };
 
 export type Phase3GenerateProposalResponse = {

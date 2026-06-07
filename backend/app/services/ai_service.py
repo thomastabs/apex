@@ -84,11 +84,15 @@ class AiService:
         design_bundle: str = "",
         story_ref: str = "",
         github_context: str = "",
+        hint: str = "",
+        recent_commits: str = "",
+        other_tasks: list[dict] | None = None,
     ) -> str:
         return ai_engine.generate_coding_proposal(
             task_subject, task_description, gherkin, technical_spec,
             tech_stack=tech_stack, design_bundle=design_bundle, story_ref=story_ref,
-            github_context=github_context,
+            github_context=github_context, hint=hint, recent_commits=recent_commits,
+            other_tasks=other_tasks or [],
         )
 
     def generate_er_diagram(self, data_model_md: str):

@@ -47,11 +47,20 @@ class StoryContextResponse(BaseModel):
     design_bundle: str
 
 
+class TaskSummary(BaseModel):
+    id: int
+    subject: str
+    description: str = ""
+
+
 class GenerateProposalRequest(BaseModel):
     story_id: int
     task_id: int
     task_subject: str
     task_description: str
+    hint: str = ""
+    recent_commits_context: str = ""
+    all_tasks: list[TaskSummary] = Field(default_factory=list)
 
 
 class GenerateProposalResponse(BaseModel):

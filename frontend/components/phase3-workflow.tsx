@@ -5,10 +5,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { PmTask } from "@/lib/api/pm-types";
 import { getPmAdapter } from "@/lib/api/pm-factory";
 import {
+  ArrowDown,
+  ArrowUp,
   CheckCircle2,
   ChevronRight,
   Clipboard,
   Download,
+  ExternalLink,
+  GitBranch,
   Info,
   Loader2,
   Lock,
@@ -41,9 +45,10 @@ import {
   useUpdateTaskList,
 } from "@/lib/hooks/use-phase3";
 import { usePhase3Store } from "@/lib/stores/phase3-store";
-import { useApiContext } from "@/lib/stores/session-store";
+import { useApiContext, useGithubContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
+import { createGithubIssue, fetchRecentCommitsContext } from "@/lib/api/github-browser";
 import type { EffortEstimate, Phase3StoryContext, Phase3Task } from "@/lib/api/types";
 import { TaskDagPanel } from "@/components/task-dag-panel";
 
@@ -141,9 +146,41 @@ function blobDownload(content: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+function extractSection(packMd: string, heading: string): string {
+  const idx = packMd.indexOf(heading);
+  if (idx === -1) return "";
+  const after = packMd.slice(idx + heading.length);
+  const next = after.search(/\n## /);
+  return next !== -1 ? after.slice(0, next).trim() : after.trim();
+}
+
 function extractAiPrompt(packMd: string): string {
-  const idx = packMd.indexOf("## AI Prompt");
-  return idx !== -1 ? packMd.slice(idx + "## AI Prompt".length).trim() : packMd;
+  // backward compat: old packs use "## AI Prompt", new use "## Chat Prompt"
+  return extractSection(packMd, "## Chat Prompt") || extractSection(packMd, "## AI Prompt") || packMd;
+}
+
+function extractAgenticBrief(packMd: string): string {
+  return extractSection(packMd, "## Agentic Brief");
+}
+
+function extractClaudeMdSnippet(packMd: string): string {
+  return extractSection(packMd, "## CLAUDE.md Snippet");
+}
+
+function getBranchName(storyId: number, taskSubject: string): string {
+  const slug = taskSubject
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 45);
+  return `feat/us-${storyId}-${slug}`;
+}
+
+function extractContext(packMd: string): string {
+  const match = packMd.match(/## Context\s*\n([\s\S]*?)(?=\n## |\s*$)/);
+  return match ? match[1].trim().slice(0, 250) : "";
 }
 
 function cleanGherkinPreview(raw: string): string[] {
@@ -391,7 +428,8 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const queryClient = useQueryClient();
   const { data: ctx, isLoading: ctxLoading } = useStoryContext(storyId);
   const { taskList, tasksPushed, packDrafts, setCurrentStoryMeta, patchTask, setTaskList, removePushedStoryId } = usePhase3Store();
-  const { addTask, removeTask, updateTask } = useUpdateTaskList();
+  const { addTask, removeTask, updateTask, reorderTasks } = useUpdateTaskList();
+
   const saveTaskListMut = useSaveTaskList();
   const updateInTaigaMut = useUpdateTaskInTaiga();
   const pushSingleMut = usePushSingleTask();
@@ -725,7 +763,31 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                       </div>
                       <p className="mt-0.5 text-xs leading-relaxed text-neutral-500">{task.description}</p>
                     </div>
-                    <div className="flex shrink-0 gap-1 opacity-0 transition group-hover:opacity-100">
+                    <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover:opacity-100">
+                      {!tasksPushed && (
+                        <>
+                          <button
+                            onClick={() => reorderTasks(idx, idx - 1)}
+                            disabled={idx === 0}
+                            className={cn(
+                              "rounded p-1 transition disabled:opacity-20",
+                              dark ? "text-neutral-500 hover:text-neutral-200" : "text-slate-400 hover:text-slate-600",
+                            )}
+                          >
+                            <ArrowUp className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => reorderTasks(idx, idx + 1)}
+                            disabled={idx === taskList.length - 1}
+                            className={cn(
+                              "rounded p-1 transition disabled:opacity-20",
+                              dark ? "text-neutral-500 hover:text-neutral-200" : "text-slate-400 hover:text-slate-600",
+                            )}
+                          >
+                            <ArrowDown className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      )}
                       <button
                         onClick={() => setEditingId(task.id)}
                         className={cn(
@@ -802,25 +864,39 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
 function StageC({ storyId }: { storyId: number }) {
   const dark = useUiStore((s) => s.theme) === "dark";
+  const githubCtx = useGithubContext();
   const { data: ctx } = useStoryContext(storyId);
-  const { taskList, packDrafts, pmTaskRefs, setPackDraft } = usePhase3Store();
+  const { taskList, packDrafts, prevPackDrafts, pmTaskRefs, setPackDraft, restorePackDraft } = usePhase3Store();
   const generateProposal = useGenerateProposal();
   const saveProposalMut = useSaveProposal();
 
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [generatingTaskId, setGeneratingTaskId] = useState<number | null>(null);
+  const [hints, setHints] = useState<Record<number, string>>({});
+  const [bulkQueue, setBulkQueue] = useState<number[]>([]);
   const packSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectedTask = taskList.find((t) => t.id === selectedTaskId) ?? null;
   const packMd = selectedTaskId !== null ? (packDrafts[selectedTaskId] ?? "") : "";
   const generatedCount = taskList.filter((t) => Boolean(packDrafts[t.id])).length;
 
-  const handleGenerate = (taskId: number) => {
+  const handleGenerate = async (taskId: number, hint?: string) => {
     const task = taskList.find((t) => t.id === taskId);
     if (!task) return;
     setGeneratingTaskId(taskId);
+    const recentCommitsContext = githubCtx
+      ? await fetchRecentCommitsContext(githubCtx, task.subject).catch(() => "")
+      : "";
     generateProposal.mutate(
-      { story_id: storyId, task_id: taskId, task_subject: task.subject, task_description: task.description },
+      {
+        story_id: storyId,
+        task_id: taskId,
+        task_subject: task.subject,
+        task_description: task.description,
+        hint: hint?.trim() || undefined,
+        recent_commits_context: recentCommitsContext || undefined,
+        all_tasks: taskList.map((t) => ({ id: t.id, subject: t.subject, description: t.description })),
+      },
       {
         onSettled: () => setGeneratingTaskId(null),
         onSuccess: (data) => {
@@ -833,14 +909,34 @@ function StageC({ storyId }: { storyId: number }) {
     );
   };
 
-  const handleCopyPrompt = async () => {
-    const prompt = extractAiPrompt(packMd);
+  // Bulk generation: process one task at a time, waiting for each to finish
+  useEffect(() => {
+    if (bulkQueue.length === 0 || generatingTaskId !== null) return;
+    const [nextId, ...rest] = bulkQueue;
+    setBulkQueue(rest);
+    void handleGenerate(nextId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bulkQueue, generatingTaskId]);
+
+  const copyToClipboard = async (text: string, label: string) => {
     try {
-      await navigator.clipboard.writeText(prompt);
-      toast.success("AI Prompt copied to clipboard.");
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} copied.`);
     } catch {
       toast.error("Clipboard access denied.");
     }
+  };
+
+  const handleCopyPrompt = () => copyToClipboard(extractAiPrompt(packMd), "Chat Prompt");
+  const handleCopyAgenticBrief = () => {
+    const brief = extractAgenticBrief(packMd);
+    if (!brief) { toast.error("No Agentic Brief found — regenerate pack."); return; }
+    void copyToClipboard(brief, "Agentic Brief");
+  };
+  const handleCopyClaudeMd = () => {
+    const snippet = extractClaudeMdSnippet(packMd);
+    if (!snippet) { toast.error("No CLAUDE.md Snippet found — regenerate pack."); return; }
+    void copyToClipboard(snippet, "CLAUDE.md Snippet");
   };
 
   if (taskList.length === 0) {
@@ -849,13 +945,30 @@ function StageC({ storyId }: { storyId: number }) {
 
   return (
     <div className="space-y-4">
-      {/* Progress bar */}
+      {/* Progress bar + Generate All */}
       <div className={cn("rounded-xl border p-4", dark ? "border-neutral-700 bg-neutral-900" : "border-slate-200 bg-slate-50")}>
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Packs generated</span>
-          <span className={cn("text-sm font-bold", dark ? "text-neutral-200" : "text-slate-800")}>
-            {generatedCount} / {taskList.length}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className={cn("text-sm font-bold", dark ? "text-neutral-200" : "text-slate-800")}>
+              {generatedCount} / {taskList.length}
+            </span>
+            <button
+              onClick={() => {
+                const missing = taskList.filter((t) => !packDrafts[t.id]).map((t) => t.id);
+                setBulkQueue(missing);
+              }}
+              disabled={generatingTaskId !== null || bulkQueue.length > 0 || taskList.every((t) => Boolean(packDrafts[t.id]))}
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg border px-3 py-1 text-xs font-medium transition disabled:opacity-40",
+                dark ? "border-neutral-600 text-neutral-300 hover:border-violet-500 hover:text-violet-400" : "border-slate-300 text-slate-600 hover:border-violet-400 hover:text-violet-600",
+              )}
+            >
+              {bulkQueue.length > 0
+                ? <><Loader2 className="h-3 w-3 animate-spin" /> {bulkQueue.length} left…</>
+                : <><Sparkles className="h-3 w-3" /> Generate All</>}
+            </button>
+          </div>
         </div>
         <div className={cn("h-1.5 rounded-full overflow-hidden", dark ? "bg-neutral-800" : "bg-slate-200")}>
           <div
@@ -922,34 +1035,57 @@ function StageC({ storyId }: { storyId: number }) {
             <>
               {/* Panel header */}
               <div className={cn(
-                "flex items-start justify-between gap-3 border-b px-5 py-4 flex-wrap",
+                "border-b px-5 py-4 space-y-3",
                 dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50",
               )}>
-                <div className="min-w-0">
-                  <p className="text-xs font-mono text-neutral-500 mb-0.5">
-                    US#{storyId} · Task {taskList.findIndex(t => t.id === selectedTask.id) + 1}
-                  </p>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className={cn("text-sm font-semibold leading-snug", dark ? "text-neutral-100" : "text-slate-800")}>
-                      {selectedTask.subject}
+                {/* Row 1: task info + action buttons */}
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div className="min-w-0">
+                    <p className="text-xs font-mono text-neutral-500 mb-0.5">
+                      US#{storyId} · Task {taskList.findIndex(t => t.id === selectedTask.id) + 1}
                     </p>
-                    <EffortBadge estimate={selectedTask.effort_estimate} />
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className={cn("text-sm font-semibold leading-snug", dark ? "text-neutral-100" : "text-slate-800")}>
+                        {selectedTask.subject}
+                      </p>
+                      <EffortBadge estimate={selectedTask.effort_estimate} />
+                    </div>
                   </div>
-                </div>
-                <div className="flex gap-2 flex-wrap shrink-0">
+                  <div className="flex gap-2 flex-wrap shrink-0">
                   <Button
                     variant="secondary"
-                    onClick={() => handleGenerate(selectedTask.id)}
+                    onClick={() => void handleGenerate(selectedTask.id, hints[selectedTask.id])}
                     disabled={generatingTaskId !== null}
                   >
                     {generatingTaskId === selectedTask.id
                       ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
                       : <><Sparkles className="h-4 w-4" /> {packMd ? "Regenerate" : "Generate Pack"}</>}
                   </Button>
+                  {prevPackDrafts[selectedTask.id] && (
+                    <Button
+                      variant="secondary"
+                      title="Undo last regeneration"
+                      onClick={() => {
+                        restorePackDraft(selectedTask.id);
+                        saveProposalMut.mutate(
+                          { story_id: storyId, task_id: selectedTask.id, proposal_md: prevPackDrafts[selectedTask.id] },
+                          { onError: () => toast.error("Restore failed to save.") },
+                        );
+                      }}
+                    >
+                      ↩ Restore
+                    </Button>
+                  )}
                   {packMd && (
                     <>
-                      <Button variant="secondary" onClick={handleCopyPrompt}>
-                        <Clipboard className="h-4 w-4" /> Copy AI Prompt
+                      <Button variant="secondary" onClick={handleCopyAgenticBrief} title="Copy terse brief for Claude Code / Codex">
+                        <Clipboard className="h-4 w-4" /> Agentic Brief
+                      </Button>
+                      <Button variant="secondary" onClick={() => void handleCopyPrompt()} title="Copy full prompt for Claude.ai / ChatGPT / Cursor">
+                        <Clipboard className="h-4 w-4" /> Chat Prompt
+                      </Button>
+                      <Button variant="secondary" onClick={handleCopyClaudeMd} title="Copy snippet for CLAUDE.md">
+                        <Clipboard className="h-4 w-4" /> CLAUDE.md
                       </Button>
                       <Button
                         variant="secondary"
@@ -959,6 +1095,41 @@ function StageC({ storyId }: { storyId: number }) {
                       </Button>
                     </>
                   )}
+                  </div>
+                </div>
+                {/* Row 2: branch chip (GitHub optional) + hint input */}
+                <div className="flex items-center gap-2">
+                  {githubCtx && (
+                    <button
+                      onClick={async () => {
+                        const name = getBranchName(storyId, selectedTask.subject);
+                        await navigator.clipboard.writeText(name).catch(() => {});
+                        toast.success("Branch name copied.");
+                      }}
+                      title="Copy branch name"
+                      className={cn(
+                        "flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1 font-mono text-[11px] transition",
+                        dark
+                          ? "border-neutral-700 bg-neutral-800 text-neutral-400 hover:border-violet-600 hover:text-violet-400"
+                          : "border-slate-200 bg-white text-slate-500 hover:border-violet-400 hover:text-violet-600",
+                      )}
+                    >
+                      <GitBranch className="h-3 w-3" />
+                      {getBranchName(storyId, selectedTask.subject)}
+                    </button>
+                  )}
+                  <input
+                    type="text"
+                    placeholder="Optional hint for AI (e.g. use Redis, focus on validation)…"
+                    value={hints[selectedTask.id] ?? ""}
+                    onChange={(e) => setHints((h) => ({ ...h, [selectedTask.id]: e.target.value }))}
+                    className={cn(
+                      "min-w-0 flex-1 rounded-lg border px-3 py-1.5 text-xs",
+                      dark
+                        ? "border-neutral-700 bg-neutral-800 text-neutral-200 placeholder:text-neutral-600 focus:border-violet-600 focus:outline-none"
+                        : "border-slate-200 bg-white text-slate-700 placeholder:text-slate-400 focus:border-violet-400 focus:outline-none",
+                    )}
+                  />
                 </div>
               </div>
 
@@ -970,8 +1141,10 @@ function StageC({ storyId }: { storyId: number }) {
                       "Reading story context…",
                       "Analysing design bundle…",
                       "Writing implementation steps…",
+                      "Mapping files to change…",
                       "Generating test assertions…",
-                      "Assembling AI prompt…",
+                      "Building agentic brief…",
+                      "Assembling chat prompt…",
                     ]}
                     isPending={generatingTaskId === selectedTask.id}
                     dark={dark}
@@ -1113,10 +1286,14 @@ function ScenarioCoveragePanel({
 
 function StageD({ storyId, onLocked, onChooseNewStory }: { storyId: number; onLocked: () => void; onChooseNewStory: () => void }) {
   const dark = useUiStore((s) => s.theme) === "dark";
+  const githubCtx = useGithubContext();
   const { data: ctx } = useStoryContext(storyId);
   const { taskList, packDrafts, clearPhase3Draft } = usePhase3Store();
   const lockStoryMut = useLockStory();
   const [overrideCoverage, setOverrideCoverage] = useState(false);
+  const [lockedSuccessfully, setLockedSuccessfully] = useState(false);
+  const [creatingIssue, setCreatingIssue] = useState(false);
+  const [issueUrl, setIssueUrl] = useState<string | null>(null);
 
   const generatedTasks = taskList.filter((t) => Boolean(packDrafts[t.id]));
   const skippedTasks = taskList.filter((t) => !packDrafts[t.id]);
@@ -1133,7 +1310,7 @@ function StageD({ storyId, onLocked, onChooseNewStory }: { storyId: number; onLo
       { story_id: storyId, task_ids: generatedTasks.map((t) => t.id) },
       {
         onSuccess: () => {
-          clearPhase3Draft();
+          setLockedSuccessfully(true);
           onLocked();
         },
       },
@@ -1145,6 +1322,77 @@ function StageD({ storyId, onLocked, onChooseNewStory }: { storyId: number; onLo
     const packs = generatedTasks.map((t) => ({ taskSubject: t.subject, packMd: packDrafts[t.id] }));
     downloadAllPacks(packs, storyId, ctx);
   };
+
+  const handleCreateIssue = async () => {
+    if (!githubCtx || !ctx) return;
+    setCreatingIssue(true);
+    const title = `US#${storyId} Implementation: ${ctx.title}`;
+    const taskLines = generatedTasks.map((t, i) => {
+      const summary = extractContext(packDrafts[t.id] ?? "");
+      return `- [ ] **Task ${i + 1}: ${t.subject}** (${t.effort_estimate ?? "M"})${summary ? `\n  > ${summary}` : ""}`;
+    }).join("\n");
+    const body = `## Implementation Plan\n\nThis story has been locked for implementation in Apex.\n\n### Tasks\n\n${taskLines}\n\n---\n*Generated by Apex*`;
+    try {
+      const { url } = await createGithubIssue(githubCtx, title, body);
+      setIssueUrl(url);
+      toast.success("GitHub Issue created.");
+    } catch (err) {
+      toast.error(`Failed to create issue: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } finally {
+      setCreatingIssue(false);
+    }
+  };
+
+  const handleChooseNew = () => {
+    clearPhase3Draft();
+    onChooseNewStory();
+  };
+
+  if (lockedSuccessfully) {
+    return (
+      <div className="space-y-4">
+        <div className={cn("flex items-center gap-3 rounded-xl border px-5 py-4", dark ? "border-emerald-800 bg-emerald-900/20" : "border-emerald-200 bg-emerald-50")}>
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" />
+          <div>
+            <p className={cn("text-sm font-semibold", dark ? "text-emerald-400" : "text-emerald-700")}>
+              Story locked as implementation-ready
+            </p>
+            <p className={cn("text-xs mt-0.5", dark ? "text-emerald-600" : "text-emerald-600")}>
+              {generatedTasks.length} developer pack{generatedTasks.length !== 1 ? "s" : ""} ready
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Button className="w-full justify-center" variant="secondary" onClick={handleExportAll}>
+            <Download className="h-4 w-4" /> Export All Packs
+          </Button>
+          {githubCtx && !issueUrl && (
+            <Button className="w-full justify-center" variant="secondary" onClick={() => void handleCreateIssue()} disabled={creatingIssue}>
+              {creatingIssue
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Creating issue…</>
+                : <><GitBranch className="h-4 w-4" /> Create GitHub Issue</>}
+            </Button>
+          )}
+          {issueUrl && (
+            <a
+              href={issueUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                "flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition",
+                dark ? "border-emerald-700 text-emerald-400 hover:bg-emerald-900/30" : "border-emerald-300 text-emerald-700 hover:bg-emerald-50",
+              )}
+            >
+              <ExternalLink className="h-4 w-4" /> View GitHub Issue
+            </a>
+          )}
+          <Button className="w-full justify-center" variant="secondary" onClick={handleChooseNew}>
+            Choose New Story
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -1229,7 +1477,7 @@ function StageD({ storyId, onLocked, onChooseNewStory }: { storyId: number; onLo
             <Download className="h-4 w-4" /> Export All Packs
           </Button>
         )}
-        <Button className="w-full justify-center" variant="secondary" onClick={onChooseNewStory}>
+        <Button className="w-full justify-center" variant="secondary" onClick={handleChooseNew}>
           Choose New Story
         </Button>
       </div>
@@ -1253,9 +1501,10 @@ const STAGE_LABELS: Record<Stage, string> = {
 export function Phase3Workflow() {
   const dark = useUiStore((s) => s.theme) === "dark";
   const context = useApiContext();
-  const { selectedStoryId, setSelectedStoryId } = usePhase3Store();
+  const { selectedStoryId, setSelectedStoryId, clearPhase3Draft } = usePhase3Store();
   const [stage, setStage] = useState<Stage>(selectedStoryId !== null ? "B" : "A");
   const [diagramOpen, setDiagramOpen] = useState(false);
+  const [lockedStoryId, setLockedStoryId] = useState<number | null>(null);
 
   // Hoist load hooks so they fire regardless of active stage (e.g. stepper jump)
   useLoadTaskList(selectedStoryId);
@@ -1269,7 +1518,16 @@ export function Phase3Workflow() {
   };
 
   const handleBackToStories = () => setStage("A");
-  const handleLocked = () => setStage("A");
+  const handleLocked = () => setLockedStoryId(selectedStoryId);
+
+  // When navigating to Stage A via stepper after lock, clear the draft
+  const handleStepperGoA = () => {
+    if (lockedStoryId !== null) {
+      clearPhase3Draft();
+      setLockedStoryId(null);
+    }
+    setStage("A");
+  };
 
   return (
     <section className="px-8 py-8">
@@ -1328,7 +1586,7 @@ export function Phase3Workflow() {
                   <div key={s} className="flex flex-1 items-center">
                     <button
                       onClick={() => {
-                        if (s === "A") { setStage("A"); return; }
+                        if (s === "A") { handleStepperGoA(); return; }
                         if (selectedStoryId !== null) setStage(s);
                       }}
                       disabled={isLocked}

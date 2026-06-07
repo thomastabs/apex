@@ -11,6 +11,7 @@ type Phase3State = {
   pmTaskRefs: Record<number, string | number>; // taskIndex → PM task ref
   tasksPushed: boolean;
   packDrafts: Record<number, string>;     // taskId → markdown string
+  prevPackDrafts: Record<number, string>; // taskId → previous markdown (undo buffer, not persisted)
   lockedTaskIds: number[];
   currentStoryMeta: { title: string; epicTitle: string };
   pushedStoryIds: number[];               // persisted across story switches
@@ -25,6 +26,7 @@ type Phase3State = {
   setTasksPushed: (pushed: boolean) => void;
   setPackDraft: (taskId: number, md: string) => void;
   setPackDrafts: (drafts: Record<number, string>) => void;
+  restorePackDraft: (taskId: number) => void;
   setLockedTaskIds: (ids: number[]) => void;
   setCurrentStoryMeta: (title: string, epicTitle: string) => void;
   clearPhase3Draft: () => void;
@@ -39,6 +41,7 @@ export const usePhase3Store = create<Phase3State>()(
       pmTaskRefs: {},
       tasksPushed: false,
       packDrafts: {},
+      prevPackDrafts: {},
       lockedTaskIds: [],
       currentStoryMeta: { title: "", epicTitle: "" },
       pushedStoryIds: [],
@@ -52,6 +55,7 @@ export const usePhase3Store = create<Phase3State>()(
             pmTaskRefs: {},
             tasksPushed: id !== null && state.pushedStoryIds.includes(id),
             packDrafts: {},
+            prevPackDrafts: {},
             lockedTaskIds: [],
             currentStoryMeta: { title: "", epicTitle: "" },
           };
@@ -128,8 +132,25 @@ export const usePhase3Store = create<Phase3State>()(
           };
         }),
       setPackDraft: (taskId, md) =>
-        set((s) => ({ packDrafts: { ...s.packDrafts, [taskId]: md } })),
+        set((s) => {
+          const prev = s.packDrafts[taskId];
+          return {
+            packDrafts: { ...s.packDrafts, [taskId]: md },
+            // only save to undo buffer when overwriting an existing non-empty pack
+            ...(prev && prev !== md ? { prevPackDrafts: { ...s.prevPackDrafts, [taskId]: prev } } : {}),
+          };
+        }),
       setPackDrafts: (drafts) => set({ packDrafts: drafts }),
+      restorePackDraft: (taskId) =>
+        set((s) => {
+          const prev = s.prevPackDrafts[taskId];
+          if (!prev) return {};
+          const { [taskId]: _removed, ...remainingPrev } = s.prevPackDrafts;
+          return {
+            packDrafts: { ...s.packDrafts, [taskId]: prev },
+            prevPackDrafts: remainingPrev,
+          };
+        }),
       setLockedTaskIds: (lockedTaskIds) => set({ lockedTaskIds }),
       setCurrentStoryMeta: (title, epicTitle) => set({ currentStoryMeta: { title, epicTitle } }),
       clearPhase3Draft: () =>
@@ -140,9 +161,9 @@ export const usePhase3Store = create<Phase3State>()(
           pmTaskRefs: {},
           tasksPushed: false,
           packDrafts: {},
+          prevPackDrafts: {},
           lockedTaskIds: [],
           currentStoryMeta: { title: "", epicTitle: "" },
-          // Remove locked story from pushedStoryIds
           pushedStoryIds: s.selectedStoryId !== null
             ? s.pushedStoryIds.filter((id) => id !== s.selectedStoryId)
             : s.pushedStoryIds,

@@ -94,6 +94,9 @@ class Phase3Service:
         task_id: int,
         task_subject: str,
         task_description: str,
+        hint: str = "",
+        recent_commits_context: str = "",
+        all_tasks: list[dict] | None = None,
     ) -> str:
         self.configure_request(ctx)
         index = self.context.story_index()
@@ -111,10 +114,12 @@ class Phase3Service:
         tech_stack = self.context.read_tech_stack()
         design_bundle = self.context.read_context_file("design-bundle.md")
         github_context = self.context.read_context_file("github-context.md")
+        other_tasks = [t for t in (all_tasks or []) if t.get("subject") != task_subject]
         return self.ai.generate_proposal(
             task_subject, task_description, gherkin, technical_spec,
             tech_stack=tech_stack, design_bundle=design_bundle, story_ref=story_ref,
-            github_context=github_context,
+            github_context=github_context, hint=hint, recent_commits=recent_commits_context,
+            other_tasks=other_tasks,
         )
 
     def save_proposal(

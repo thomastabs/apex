@@ -97,6 +97,9 @@ def generate_proposal(
             payload.task_id,
             payload.task_subject,
             payload.task_description,
+            hint=payload.hint,
+            recent_commits_context=payload.recent_commits_context,
+            all_tasks=[t.model_dump() for t in payload.all_tasks],
         )
         return {"proposal_md": md}
     except Exception as exc:

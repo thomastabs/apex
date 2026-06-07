@@ -44,6 +44,19 @@ async function ghFetch<T>(path: string, pat: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function ghPost<T>(path: string, pat: string, body: unknown): Promise<T> {
+  const res = await fetch(`${GITHUB_API}${path}`, {
+    method: "POST",
+    headers: { ...ghHeaders(pat), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const msg = await res.json().catch(() => ({})) as Record<string, unknown>;
+    throw new Error((msg.message as string) || `GitHub ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}
+
 function truncate(text: string, limit: number): string {
   if (text.length <= limit) return text;
   return text.slice(0, limit) + `\n\n... [truncated at ${limit} chars]`;
@@ -179,4 +192,44 @@ export async function fetchGithubContextMd(ctx: GithubSyncContext): Promise<stri
   }
 
   return sections.join("\n\n");
+}
+
+/** Fetch recent commits and return those whose messages match task subject keywords as markdown. */
+export async function fetchRecentCommitsContext(ctx: GithubSyncContext, taskSubject: string): Promise<string> {
+  type CommitItem = { sha: string; commit: { message: string; author: { date: string; name: string } } };
+  const commits = await ghFetch<CommitItem[]>(
+    `/repos/${ctx.owner}/${ctx.repo}/commits?per_page=30`,
+    ctx.pat,
+  );
+  const keywords = taskSubject.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
+  if (keywords.length === 0) return "";
+  const scored = commits
+    .map((c) => {
+      const msg = c.commit.message.toLowerCase();
+      return { ...c, score: keywords.filter((k) => msg.includes(k)).length };
+    })
+    .filter((c) => c.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
+  if (scored.length === 0) return "";
+  const lines = scored.map((c) => {
+    const firstLine = c.commit.message.split("\n")[0].trim().slice(0, 100);
+    const date = c.commit.author.date.slice(0, 10);
+    return `- ${date}: ${firstLine} (${c.sha.slice(0, 7)})`;
+  });
+  return `## Recent Related Commits\n\n${lines.join("\n")}`;
+}
+
+/** Create a GitHub Issue and return its URL and number. Requires PAT with repo scope. */
+export async function createGithubIssue(
+  ctx: GithubSyncContext,
+  title: string,
+  body: string,
+): Promise<{ url: string; number: number }> {
+  const data = await ghPost<{ html_url: string; number: number }>(
+    `/repos/${ctx.owner}/${ctx.repo}/issues`,
+    ctx.pat,
+    { title, body },
+  );
+  return { url: data.html_url, number: data.number };
 }

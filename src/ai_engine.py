@@ -1122,7 +1122,7 @@ You are a Senior Developer operating within the Apex Framework.
 Given a specific implementation task within a user story, produce a structured Developer Pack —
 a concise, actionable guide a developer can hand to an AI coding assistant and immediately start working.
 
-Output EXACTLY these four sections in order, using these exact headings:
+Output EXACTLY these seven sections in order, using these exact headings:
 
 ## Context
 One paragraph. State the tech stack, the story this task belongs to, and what this task specifically does.
@@ -1134,12 +1134,31 @@ Reference exact endpoint signatures from the Technical Spec (method, path, auth,
 Reference exact entity names and fields from the Data Model.
 5-10 steps maximum.
 
+## Files to Change
+Bulleted list of files to create or modify for this specific task.
+Each entry: `path/to/file.ext` — one-line description of what changes.
+Use exact paths from the GitHub file tree if provided; otherwise infer from tech stack conventions.
+Maximum 10 files.
+
 ## Test Assertions
 Bulleted list derived directly from the story's Gherkin scenarios.
 Each assertion maps to one Gherkin Then step — phrase it as a testable statement (e.g. "POST /auth/login with valid credentials returns 200 and a JWT token").
 
-## AI Prompt
-A self-contained prompt block the developer pastes into Claude, Cursor, or ChatGPT.
+## Agentic Brief
+Terse copy-paste directive for agentic coding tools (Claude Code, Codex, Windsurf). No narrative. Use exactly this format:
+
+**Task**: <imperative verb phrase, ≤10 words — what to implement>
+**Files**: `file1`, `file2` (exact paths from Files to Change above)
+**Verify**: `<infer the correct test command from the tech stack — e.g. pytest tests/test_X.py -k "scenario", npm test -- --testPathPattern=X, go test ./...>` — if genuinely ambiguous write `# run tests covering <module>`
+**Constraints**:
+- <constraint 1 — e.g. no new dependencies, use existing auth middleware>
+- <constraint 2 — specific library or pattern to follow>
+**Done when**: all Test Assertions pass and no pre-existing tests break.
+
+Tech stack (use to infer verify command): {tech_stack}
+
+## Chat Prompt
+Self-contained prompt for chat interfaces (Claude.ai, ChatGPT, Cursor chat).
 Include: tech stack, story reference, acceptance criteria, task description, implementation steps, required test coverage.
 Format:
 
@@ -1159,10 +1178,21 @@ You are implementing a specific task in a software project.
 **Required Test Coverage**:
 <test assertions>
 
+## CLAUDE.md Snippet
+A compact block developers paste into their project's CLAUDE.md to give Claude Code persistent task context.
+Use exactly this format:
+
+### Active Task: <task_subject>
+**Story**: {story_ref}
+**Goal**: <one sentence — what this task achieves when complete>
+**Key files**: `file1`, `file2` (from Files to Change)
+**Done when**: <one sentence summarising the primary test assertion>
+*Delete this section once the task is complete.*
+
 Rules:
 - Never invent endpoints, entities, or components not present in the Technical Spec or Design Bundle.
 - Never include vague steps like "add error handling" — be specific about what to catch and where.
-- The AI Prompt must be fully self-contained — no references to external documents.
+- Chat Prompt and CLAUDE.md Snippet must be fully self-contained — no references to external documents.
 
 Tech Stack: {tech_stack}
 
@@ -1183,6 +1213,9 @@ def generate_coding_proposal(
     design_bundle: str = "",
     story_ref: str = "",
     github_context: str = "",
+    hint: str = "",
+    recent_commits: str = "",
+    other_tasks: list[dict] | None = None,
 ) -> str:
     system = _GENERATE_PROPOSAL_SYSTEM.format(
         tech_stack=tech_stack.strip() or "Not specified",
@@ -1190,15 +1223,28 @@ def generate_coding_proposal(
         technical_spec=technical_spec.strip() or "Not specified",
         story_ref=story_ref or "this story",
     )
+    if other_tasks:
+        lines = []
+        for i, t in enumerate(other_tasks, 1):
+            desc = t.get("description", "").strip()
+            line = f"  {i}. {t['subject']}"
+            if desc:
+                line += f" — {desc[:120]}"
+            lines.append(line)
+        system += "\n\nOther tasks in this story (do NOT duplicate their work — assume they are implemented separately):\n" + "\n".join(lines)
     if github_context.strip() and not github_context.strip().startswith("<!--"):
         system += f"\n\nExisting Codebase (GitHub):\n{github_context.strip()}"
+    if recent_commits.strip():
+        system += f"\n\nRecent Related Commits:\n{recent_commits.strip()}"
     human = (
         f"Task: {task_subject}\n\n"
         f"Task Description: {task_description.strip()}\n\n"
         f"Acceptance Criteria (Gherkin):\n{gherkin.strip()}\n\n"
-        "Generate the Developer Pack for this task."
     )
-    return _ai_retry(lambda: _invoke(system, human, get_model(), max_tokens=4096, timeout=240))
+    if hint.strip():
+        human += f"Implementation Hint (prioritise in Implementation Steps and AI Prompt): {hint.strip()}\n\n"
+    human += "Generate the Developer Pack for this task."
+    return _ai_retry(lambda: _invoke(system, human, get_model(), max_tokens=6000, timeout=300))
 
 
 # ---------------------------------------------------------------------------
