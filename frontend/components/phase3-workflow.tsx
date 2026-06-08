@@ -10,9 +10,13 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Clipboard,
+  Download,
+  ExternalLink,
   GitBranch,
   Info,
   Loader2,
+  Lock,
   Plus,
   Sparkles,
   Trash2,
@@ -595,7 +599,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
         >
           {generateTasksMut.isPending
             ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
-            : "Generate Tasks"}
+            : <><Sparkles className="h-4 w-4" /> Generate Tasks</>}
         </Button>
         <div className="flex gap-2">
           <Button variant="secondary" className="gap-1.5" onClick={onBack}>
@@ -606,7 +610,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
             variant="secondary"
             onClick={onContinue}
           >
-            Developer Packs
+            Developer Packs <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -968,7 +972,7 @@ function StageC({ storyId }: { storyId: number }) {
             >
               {bulkQueue.length > 0
                 ? <><Loader2 className="h-3 w-3 animate-spin" /> {bulkQueue.length} left…</>
-                : "Generate All"}
+                : <><Sparkles className="h-3 w-3" /> Generate All</>}
             </button>
           </div>
         </div>
@@ -1061,7 +1065,7 @@ function StageC({ storyId }: { storyId: number }) {
                   >
                     {generatingTaskId === selectedTask.id
                       ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
-                      : (packMd ? "Regenerate" : "Generate Pack")}
+                      : <><Sparkles className="h-4 w-4" /> {packMd ? "Regenerate" : "Generate Pack"}</>}
                   </Button>
                   {prevPackDrafts[selectedTask.id] && (
                     <Button
@@ -1075,25 +1079,25 @@ function StageC({ storyId }: { storyId: number }) {
                         );
                       }}
                     >
-                      Restore
+                      ↩ Restore
                     </Button>
                   )}
                   {packMd && (
                     <>
                       <Button variant="secondary" onClick={handleCopyAgenticBrief} title="Copy terse brief for Claude Code / Codex">
-                        Agentic Brief
+                        <Clipboard className="h-4 w-4" /> Agentic Brief
                       </Button>
                       <Button variant="secondary" onClick={() => void handleCopyPrompt()} title="Copy full prompt for Claude.ai / ChatGPT / Cursor">
-                        Chat Prompt
+                        <Clipboard className="h-4 w-4" /> Chat Prompt
                       </Button>
                       <Button variant="secondary" onClick={handleCopyClaudeMd} title="Copy snippet for CLAUDE.md">
-                        CLAUDE.md
+                        <Clipboard className="h-4 w-4" /> CLAUDE.md
                       </Button>
                       <Button
                         variant="secondary"
                         onClick={() => ctx && downloadPack(selectedTask.subject, packMd, ctx)}
                       >
-                        .md
+                        <Download className="h-4 w-4" /> .md
                       </Button>
                     </>
                   )}
@@ -1366,13 +1370,13 @@ function StageD({ storyId, onLocked, onChooseNewStory, onBack }: { storyId: numb
         </div>
         <div className="flex flex-col gap-2">
           <Button className="w-full justify-center" variant="secondary" onClick={handleExportAll}>
-            Export All Packs
+            <Download className="h-4 w-4" /> Export All Packs
           </Button>
           {githubCtx && !issueUrl && (
             <Button className="w-full justify-center" variant="secondary" onClick={() => void handleCreateIssue()} disabled={creatingIssue}>
               {creatingIssue
                 ? <><Loader2 className="h-4 w-4 animate-spin" /> Creating issue…</>
-                : "Create GitHub Issue"}
+                : <><GitBranch className="h-4 w-4" /> Create GitHub Issue</>}
             </Button>
           )}
           {issueUrl && (
@@ -1385,7 +1389,7 @@ function StageD({ storyId, onLocked, onChooseNewStory, onBack }: { storyId: numb
                 dark ? "border-emerald-700 text-emerald-400 hover:bg-emerald-900/30" : "border-emerald-300 text-emerald-700 hover:bg-emerald-50",
               )}
             >
-              View GitHub Issue
+              <ExternalLink className="h-4 w-4" /> View GitHub Issue
             </a>
           )}
           <Button className="w-full justify-center" variant="secondary" onClick={handleChooseNew}>
@@ -1476,12 +1480,12 @@ function StageD({ storyId, onLocked, onChooseNewStory, onBack }: { storyId: numb
           >
             {lockStoryMut.isPending
               ? <><Loader2 className="h-4 w-4 animate-spin" /> Locking…</>
-              : "Lock Story"}
+              : <><Lock className="h-4 w-4" /> Lock Story</>}
           </Button>
         </div>
         {canLock && (
           <Button className="w-full justify-center" variant="secondary" onClick={handleExportAll}>
-            Export All Packs
+            <Download className="h-4 w-4" /> Export All Packs
           </Button>
         )}
         <Button className="w-full justify-center" variant="secondary" onClick={handleChooseNew}>
@@ -1651,8 +1655,8 @@ export function Phase3Workflow() {
               <Button variant="secondary" className="gap-1.5" onClick={() => setStage("B")}>
                 <ChevronLeft className="h-4 w-4" /> Back
               </Button>
-              <Button className="flex-1 justify-center" onClick={() => setStage("D")}>
-                Continue to Lock &amp; Export
+              <Button className="flex-1 justify-center gap-1.5" onClick={() => setStage("D")}>
+                Continue to Lock &amp; Export <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </div>
