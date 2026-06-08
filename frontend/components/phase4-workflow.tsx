@@ -813,14 +813,9 @@ export function Phase4Workflow() {
           <span>View Process Diagram (How this works)</span>
         </button>
         {diagramOpen && (
-          <div className={cn("border-t p-6 text-sm", dark ? "border-neutral-800 text-neutral-400" : "border-slate-200 text-slate-500")}>
-            <p className="font-medium mb-2">Phase 4 — QA Validation Playbook</p>
-            <ol className="list-decimal list-inside space-y-1">
-              <li><strong>Select Story</strong> — pick an implementation-locked story</li>
-              <li><strong>Test Plan</strong> — AI generates per-scenario test plan from Gherkin</li>
-              <li><strong>Execute</strong> — mark each scenario Pass / Fail with QA notes</li>
-              <li><strong>Testing Gate</strong> — all pass → qa_passed; any fail → Bug Isolation Wizard generates Fix-Bolt artifact</li>
-            </ol>
+          <div className={cn("border-t p-4", dark ? "border-neutral-800" : "border-slate-200")}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/images/testing.svg" alt="Phase 4 testing process diagram" className="mx-auto max-w-full" />
           </div>
         )}
       </div>
