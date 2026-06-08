@@ -307,13 +307,21 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
 
   const effortByStoryTask = useMemo(() => {
     const map = new Map<string, string>();
+    // Seed from JSON board as baseline
     for (const story of jsonBoard) {
       for (const t of story.tasks) {
         if (t.effort_estimate) map.set(`${story.story_id}:${t.subject}`, t.effort_estimate);
       }
     }
+    // Override with values decoded directly from PM task descriptions (authoritative source)
+    for (const t of pmTasks) {
+      const decoded = decodeApexMeta(t.description);
+      if (decoded.effort_estimate) {
+        map.set(`${Number(t.user_story)}:${t.subject}`, decoded.effort_estimate);
+      }
+    }
     return map;
-  }, [jsonBoard]);
+  }, [jsonBoard, pmTasks]);
 
   const allStoryGroups = useMemo<StoryGroup[]>(() => {
     const groups = new Map<number, StoryGroup>();
