@@ -1,11 +1,5 @@
-import { PhasePlaceholder } from "@/components/phase-placeholder";
+import { Phase4Workflow } from "@/components/phase4-workflow";
 
 export default function Phase4Page() {
-  return (
-    <PhasePlaceholder
-      phase="Phase 4"
-      title="Testing"
-      description="BDD validation, QA coverage tracking, and Fix-Apex cycles derived from approved requirements."
-    />
-  );
+  return <Phase4Workflow />;
 }

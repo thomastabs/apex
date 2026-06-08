@@ -319,3 +319,63 @@ export type Phase3LockStoryRequest = {
   story_id: number;
   task_ids: number[];
 };
+
+// ---------------------------------------------------------------------------
+// Phase 4 — QA Assistant
+// ---------------------------------------------------------------------------
+
+export type Phase4StoryPreview = {
+  story_id: number;
+  title: string;
+  epic_title: string;
+  gherkin_preview: string;
+  has_bdd: boolean;
+  has_bug_report: boolean;
+  is_regression_bypass: boolean;
+};
+
+export type Phase4EligibleStoriesResponse = {
+  stories: Phase4StoryPreview[];
+};
+
+export type Phase4StoryContext = {
+  story_id: number;
+  title: string;
+  epic_title: string;
+  gherkin: string;
+  technical_spec: string;
+  tech_stack: string;
+};
+
+export type Phase4GenerateTestPlanResponse = {
+  story_id: number;
+  test_plan_md: string;
+};
+
+export type Phase4TestPlanResponse = {
+  story_id: number;
+  test_plan_md: string;
+};
+
+export type Phase4FailedScenario = {
+  scenario_name: string;
+  qa_notes: string;
+};
+
+export type Phase4GenerateBugReportRequest = {
+  story_id: number;
+  failed_scenarios: Phase4FailedScenario[];
+};
+
+export type Phase4GenerateBugReportResponse = {
+  story_id: number;
+  bug_report_md: string;
+};
+
+export type Phase4FailGateRequest = {
+  story_id: number;
+  bug_report_md: string;
+  root_cause?: string;
+  resolution_summary?: string;
+  push_to_pm?: boolean;
+};

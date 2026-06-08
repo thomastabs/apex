@@ -145,7 +145,8 @@ PHASE_STATUSES = (
     "gherkin_locked",  # Phase 1 complete: Gherkin approved and locked
     "design_locked",   # Phase 2 complete: Technical Spec generated and locked
     "implementation",  # Phase 3: Coding proposals / tasks generated
-    "qa",              # Phase 4: BDD tests generated
+    "qa",              # Phase 4: BDD test plan generated
+    "qa_passed",       # Phase 4 complete: Testing Gate passed, awaiting deployment
     "deployed",        # Phase 5: Deployed to production
 )
 
@@ -530,7 +531,7 @@ def upsert_story_index(story_id: int, **updates) -> None:
     retain their current values.  Missing entries are created with defaults.
 
     Valid fields: epic_id, title, phase_status, has_gherkin, has_tech_spec,
-                  has_proposal, has_bdd.
+                  has_proposal, has_bdd, has_bug_report.
     """
     index = get_story_index()
     key   = str(story_id)
@@ -543,10 +544,11 @@ def upsert_story_index(story_id: int, **updates) -> None:
         "epic_id":     None,
         "title":       "",
         "phase_status": updates.get("phase_status", "gherkin_locked"),
-        "has_gherkin":  False,
-        "has_tech_spec": False,
-        "has_proposal":  False,
-        "has_bdd":       False,
+        "has_gherkin":     False,
+        "has_tech_spec":   False,
+        "has_proposal":    False,
+        "has_bdd":         False,
+        "has_bug_report":  False,
     })
     entry.update(updates)
     entry["story_id"] = story_id  # ensure the canonical field is always correct
@@ -602,9 +604,10 @@ def reset_story_index_phase_statuses() -> None:
     """
     index = get_story_index()
     for entry in index.values():
-        entry["has_tech_spec"] = False
-        entry["has_proposal"] = False
-        entry["has_bdd"] = False
+        entry["has_tech_spec"]  = False
+        entry["has_proposal"]   = False
+        entry["has_bdd"]        = False
+        entry["has_bug_report"] = False
         if entry.get("phase_status") not in ("gherkin_locked",):
             entry["phase_status"] = "gherkin_locked"
     _save_story_index(index)
@@ -694,10 +697,11 @@ def rebuild_story_index() -> dict[str, dict]:
                     "epic_title":  current_epic_title,
                     "title":       nested_m.group(2).strip(),
                     "phase_status": "gherkin_locked",
-                    "has_gherkin":  True,
-                    "has_tech_spec": False,
-                    "has_proposal":  False,
-                    "has_bdd":       False,
+                    "has_gherkin":    True,
+                    "has_tech_spec":  False,
+                    "has_proposal":   False,
+                    "has_bdd":        False,
+                    "has_bug_report": False,
                 }
                 continue
 
@@ -706,14 +710,15 @@ def rebuild_story_index() -> dict[str, dict]:
                 sid = str(int(flat_m.group(1)))
                 if sid not in index:  # don't overwrite a nested entry
                     index[sid] = {
-                        "story_id":    int(sid),
-                        "epic_id":     None,
-                        "title":       flat_m.group(2).strip(),
-                        "phase_status": "gherkin_locked",
-                        "has_gherkin":  True,
-                        "has_tech_spec": False,
-                        "has_proposal":  False,
-                        "has_bdd":       False,
+                        "story_id":      int(sid),
+                        "epic_id":       None,
+                        "title":         flat_m.group(2).strip(),
+                        "phase_status":  "gherkin_locked",
+                        "has_gherkin":    True,
+                        "has_tech_spec":  False,
+                        "has_proposal":   False,
+                        "has_bdd":        False,
+                        "has_bug_report": False,
                     }
 
     # ── Cross-reference technical-spec.md ───────────────────────────────────
@@ -765,6 +770,16 @@ def rebuild_story_index() -> dict[str, dict]:
                     index[sid]["has_bdd"] = True
                     if index[sid]["phase_status"] in ("gherkin_locked", "design_locked", "implementation"):
                         index[sid]["phase_status"] = "qa"
+            except ValueError:
+                pass
+
+    # ── Cross-reference bug_report_*.md files ────────────────────────────────
+    for p in cd.iterdir():
+        if p.name.startswith("bug_report_") and p.suffix == ".md":
+            try:
+                sid = str(int(p.stem.removeprefix("bug_report_")))
+                if sid in index:
+                    index[sid]["has_bug_report"] = True
             except ValueError:
                 pass
 
@@ -1018,13 +1033,45 @@ def load_screen_flow() -> dict | None:
 
 
 def save_bdd_tests(story_id: int, test_script: str) -> Path:
-    """Save BDD test scripts to contextspec/bdd_story_<id>.feature and return the path."""
+    """Save BDD test plan to contextspec/bdd_story_<id>.feature and return the path."""
     cd = _context_dir()
     cd.mkdir(parents=True, exist_ok=True)
     p = cd / f"bdd_story_{story_id}.feature"
     p.write_text(test_script, encoding="utf-8")
     upsert_story_index(story_id, has_bdd=True, phase_status="qa")
     return p
+
+
+def load_bdd_tests(story_id: int) -> str:
+    """Load the BDD test plan for a story, empty string if not found."""
+    p = _context_dir() / f"bdd_story_{story_id}.feature"
+    if not p.exists():
+        return ""
+    try:
+        return p.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+
+def save_bug_report(story_id: int, bug_md: str) -> Path:
+    """Persist the Fix-Bolt artifact for a story to contextspec/bug_report_<id>.md."""
+    cd = _context_dir()
+    cd.mkdir(parents=True, exist_ok=True)
+    p = cd / f"bug_report_{story_id}.md"
+    p.write_text(bug_md, encoding="utf-8")
+    upsert_story_index(story_id, has_bug_report=True)
+    return p
+
+
+def load_bug_report(story_id: int) -> str:
+    """Load the Fix-Bolt artifact for a story, empty string if not found."""
+    p = _context_dir() / f"bug_report_{story_id}.md"
+    if not p.exists():
+        return ""
+    try:
+        return p.read_text(encoding="utf-8")
+    except OSError:
+        return ""
 
 
 def load_session() -> dict:

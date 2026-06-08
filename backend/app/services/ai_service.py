@@ -101,6 +101,29 @@ class AiService:
     def generate_screen_flow(self, ux_brief_md: str):
         return ai_engine.extract_screen_flow(ux_brief_md)
 
+    def generate_test_plan(
+        self,
+        story_subject: str,
+        gherkin: str,
+        technical_spec: str,
+        tech_stack: str = "",
+    ) -> str:
+        return ai_engine.generate_test_plan(
+            story_subject, gherkin, technical_spec, tech_stack=tech_stack,
+        )
+
+    def generate_bug_report(
+        self,
+        story_subject: str,
+        gherkin: str,
+        technical_spec: str,
+        failed_scenario: str,
+        qa_notes: str,
+    ) -> str:
+        return ai_engine.generate_bug_report(
+            story_subject, gherkin, technical_spec, failed_scenario, qa_notes,
+        )
+
     def generate_design_section(
         self,
         all_stories: list[dict],

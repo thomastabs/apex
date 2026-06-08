@@ -108,6 +108,15 @@ class ContextService:
     def upsert_story_index(self, story_id: int, **updates) -> None:
         context_manager.upsert_story_index(story_id, **updates)
 
+    def load_bdd_tests(self, story_id: int) -> str:
+        return context_manager.load_bdd_tests(story_id)
+
+    def save_bug_report(self, story_id: int, bug_md: str) -> None:
+        context_manager.save_bug_report(story_id, bug_md)
+
+    def load_bug_report(self, story_id: int) -> str:
+        return context_manager.load_bug_report(story_id)
+
     def append_epic_design_bundle(
         self,
         epic_id: int,

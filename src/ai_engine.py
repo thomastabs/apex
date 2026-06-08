@@ -1340,13 +1340,121 @@ def extract_screen_flow(ux_brief_md: str) -> ScreenFlowData:
 
 
 # ---------------------------------------------------------------------------
-# 4. Testing Phase — Phase 4 (not yet implemented)
+# 4. Testing Phase — Phase 4
 # ---------------------------------------------------------------------------
 
-# TODO: generate_bdd_tests(story_subject, gherkin) -> str
-#   QA Engineer persona. End-to-end BDD test scripts from Gherkin only — no hallucinated scenarios.
-#   Cypress (JS) for frontend, Pytest+BDD for APIs.
-#   Use get_model().
+_GENERATE_TEST_PLAN_SYSTEM = """\
+You are a senior QA engineer with deep knowledge of Behavior-Driven Development.
+Your job is to produce a structured, human-readable test plan for a single User Story.
+
+The test plan must be grounded exclusively in the Gherkin acceptance criteria provided.
+Do NOT invent new scenarios, test cases, or requirements beyond what is stated in the Gherkin.
+
+Tech stack context (for framing test steps in the right environment):
+{tech_stack}
+
+Technical Spec (endpoints, data model — use for identifying risk areas and edge cases):
+{technical_spec}
+
+---
+
+Output format — one section per Gherkin scenario, using these exact headings:
+
+## Scenario: <scenario name>
+
+### Test Steps
+Numbered list of manual steps a QA engineer performs to execute this scenario.
+Be concrete: describe UI interactions or API calls without referencing code or CSS selectors.
+
+### Expected Results
+Bullet list of observable outcomes that confirm the scenario passes (one per Given/When/Then step).
+
+### Edge Cases
+Bullet list of non-obvious inputs, boundary conditions, or error paths to probe for this scenario.
+Draw from the technical spec complexity — e.g. empty states, concurrent users, invalid payloads.
+
+### Risk Areas
+One or two sentences identifying which part of the tech spec (specific endpoints or entities)
+is most likely to surface bugs for this scenario, and why.
+
+---
+
+Write for a human QA engineer reading this in a staging environment.
+No code, no test framework syntax, no CSS selectors.
+"""
+
+_GENERATE_BUG_REPORT_SYSTEM = """\
+You are a senior QA engineer writing a Fix-Bolt artifact — a structured bug report that gives
+a developer the exact, mathematically-constrained context they need to patch this bug rapidly.
+
+The report must be grounded in the provided Gherkin, technical spec, and QA notes.
+Do NOT speculate beyond what the spec and notes describe.
+
+---
+
+Output format — use these exact headings in order:
+
+## Bug Summary
+One concise sentence: what failed and what was expected.
+
+## Failed Scenario
+The exact Gherkin scenario text that this bug violates (copy from the Gherkin provided).
+
+## Reproduction Steps
+Numbered list of precise steps to reproduce the failure from a clean staging state.
+
+## Root Cause Hypothesis
+Two to four sentences. Based on the technical spec (endpoints, data model), identify the most
+likely component or layer where the defect originates. Flag if the bug could be a data integrity
+issue, a missing validation, a wrong HTTP status, or a UI state mismatch.
+
+## Patch Scope
+Bullet list of specific endpoints, entities, or components from the technical spec that a developer
+should inspect and modify. Keep it narrow — only what is directly implicated by the root cause.
+
+## Fix-Bolt Brief
+A terse, copy-pasteable brief (≤120 words) for the developer to feed directly into their AI coding
+agent (Claude Code, Codex, Cursor). Format: problem statement → failing contract reference → patch directive.
+"""
+
+
+def generate_test_plan(
+    story_subject: str,
+    gherkin: str,
+    technical_spec: str,
+    tech_stack: str = "",
+) -> str:
+    """Generate a structured QA test plan for all Gherkin scenarios in a User Story."""
+    system = _GENERATE_TEST_PLAN_SYSTEM.format(
+        tech_stack=tech_stack.strip() or "Not specified",
+        technical_spec=technical_spec.strip() or "Not specified",
+    )
+    human = (
+        f"User Story: {story_subject}\n\n"
+        f"Acceptance Criteria (Gherkin):\n{gherkin.strip()}\n\n"
+        "Generate the QA Test Plan for all scenarios above."
+    )
+    return _ai_retry(lambda: _invoke(system, human, get_model(), max_tokens=6000, timeout=300))
+
+
+def generate_bug_report(
+    story_subject: str,
+    gherkin: str,
+    technical_spec: str,
+    failed_scenario: str,
+    qa_notes: str,
+) -> str:
+    """Generate a Fix-Bolt artifact (structured bug report) from QA failure notes."""
+    system = _GENERATE_BUG_REPORT_SYSTEM
+    human = (
+        f"User Story: {story_subject}\n\n"
+        f"Acceptance Criteria (Gherkin):\n{gherkin.strip()}\n\n"
+        f"Technical Spec:\n{technical_spec.strip() or 'Not specified'}\n\n"
+        f"Failed Scenario: {failed_scenario.strip()}\n\n"
+        f"QA Notes:\n{qa_notes.strip()}\n\n"
+        "Generate the Fix-Bolt artifact for this bug."
+    )
+    return _ai_retry(lambda: _invoke(system, human, get_model(), max_tokens=4000, timeout=300))
 
 
 # ---------------------------------------------------------------------------

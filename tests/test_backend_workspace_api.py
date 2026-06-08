@@ -28,6 +28,7 @@ def test_story_index_stats_deployed_counts_only_explicit_deployed(monkeypatch):
         "phase2_designed": 2,
         "phase3_proposed": 1,
         "phase4_tested": 1,
+        "phase4_passed": 1,
         "phase5_deployed": 1,
     }
 
