@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, ChevronRight, Download, ExternalLink, FilePlus2, Info, Plus, RefreshCw, RotateCcw, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -338,18 +338,18 @@ export function Phase1Workflow() {
       <div className={cn("space-y-6 border-t pt-6", sectionBorderClass)}>
         {/* Stepper */}
         <div className={cn("rounded-xl border px-6 py-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
-          <div className="flex items-center">
+          <div className="flex w-full items-center">
             {STEP_LABELS.map((label, i) => {
               const stepNum = (i + 1) as 1 | 2 | 3 | 4;
               const isActive = step === stepNum;
               const isDone = step > stepNum;
               const canNav = stepNum <= maxUnlockedStep;
               return (
-                <div key={label} className="flex flex-1 items-center">
+                <Fragment key={label}>
                   <button
                     onClick={() => setStep(stepNum)}
                     disabled={!canNav}
-                    className={cn("group flex flex-col items-center gap-1.5 transition disabled:pointer-events-none", !canNav && "opacity-35")}
+                    className={cn("group flex shrink-0 flex-col items-center gap-1.5 transition disabled:pointer-events-none", !canNav && "opacity-35")}
                   >
                     <span className={cn(
                       "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ring-2 transition",
@@ -382,7 +382,7 @@ export function Phase1Workflow() {
                         : dark ? "bg-neutral-700" : "bg-slate-200",
                     )} />
                   )}
-                </div>
+                </Fragment>
               );
             })}
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { Fragment, useState, useMemo, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -834,21 +834,21 @@ export function Phase4Workflow() {
 
           {/* Stage stepper */}
           <div className={cn("rounded-xl border px-6 py-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
-            <div className="flex items-center">
+            <div className="flex w-full items-center">
               {stages.map((s, i) => {
                 const num = stageNums[s];
                 const isActive = stage === s;
                 const isDone = i < currentIdx;
                 const isLocked = s !== "A" && selectedStoryId === null;
                 return (
-                  <div key={s} className="flex flex-1 items-center">
+                  <Fragment key={s}>
                     <button
                       onClick={() => {
                         if (s === "A") { handleStepperGoA(); return; }
                         if (selectedStoryId !== null) setStage(s);
                       }}
                       disabled={isLocked}
-                      className={cn("group flex flex-col items-center gap-1.5 transition disabled:pointer-events-none", isLocked && "opacity-35")}
+                      className={cn("group flex shrink-0 flex-col items-center gap-1.5 transition disabled:pointer-events-none", isLocked && "opacity-35")}
                     >
                       <span className={cn(
                         "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ring-2 transition",
@@ -881,7 +881,7 @@ export function Phase4Workflow() {
                           : dark ? "bg-neutral-700" : "bg-slate-200",
                       )} />
                     )}
-                  </div>
+                  </Fragment>
                 );
               })}
             </div>
