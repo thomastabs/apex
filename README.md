@@ -9,7 +9,7 @@ The current migrated version is a split full-stack web app:
 - **Storage:** `contextspec/` folder in Azure File Share in deployment
 - **Deployment:** GitHub Actions builds Docker images and deploys to Azure Container Apps
 
-Phases 1, 2, and 3 are implemented. Phases 4 to 6 currently exist as navigation placeholders.
+Phases 1, 2, 3, and 4 are implemented. Phases 5 and 6 currently exist as navigation placeholders.
 
 ---
 
@@ -39,7 +39,17 @@ flowchart TD
     Q --> R[Lock Story — Implementation Ready]
     R --> G
 
-    G --> S[Future Phases 4-6]
+    G --> S[Phase 4: Select Story to Test]
+    S --> T[Generate Test Plan]
+    T --> U[Execute Scenarios — Pass/Fail]
+    U --> V{Testing Gate}
+    V -->|All pass| W[Lock qa_passed]
+    V -->|Fail| X[Bug Isolation Wizard — Fix-Bolt Artifact]
+    X --> Y[Trigger Fix-Bolt — vaccines.md + bug_report]
+    Y -->|Story re-enters Phase 4| S
+    W --> G
+
+    G --> Z[Future Phases 5-6]
 ```
 
 ### Phase 1 · Requirements
@@ -122,6 +132,45 @@ Implemented — 4-stage stepper workflow:
 - Export all developer packs for the story as a single ZIP download
 - Updates `story-index.json` with `has_proposal: true` and `phase_status: "implementation"`
 
+### Phase 4 · Testing
+
+Phase 4 is the QA validation playbook. It operates story-by-story on stories with `implementation` status and provides AI-assisted test plan generation, manual scenario execution tracking, and a bug isolation wizard.
+
+Implemented — 4-stage stepper workflow:
+
+**Stage A — Select Story**
+
+- Filter eligible stories (`implementation` status) grouped by epic; 2×2 paged card grid
+- Each card shows: story ID badge, Gherkin scenario preview, "Plan ready" badge if a test plan is already saved, and "Regression Bypass" badge for stories re-entering after a Fix-Bolt cycle
+
+**Stage B — Test Plan**
+
+- Breadcrumb: Stories → Epic → US#ID Story Title
+- Acceptance Criteria (Gherkin) panel expanded by default
+- Implementation Tasks list — each task shows effort estimate badge (XS–XL), subject, and description
+- AI generates a full per-scenario test plan: Test Steps, Expected Results, Edge Cases, Risk Areas for each Gherkin scenario
+- Edit the generated test plan in a monospace textarea before saving
+- Download `.md` / Copy actions
+- Save & Continue → Stage C (saves to `bdd_story_{id}.feature`)
+
+**Stage C — Execute Tests**
+
+- Progress bar: X / Y scenarios marked
+- Per-scenario cards with **Pass** / **Fail** toggle buttons; colour-coded (green / red)
+- Fail → inline notes textarea expands for reproduction steps and observed vs expected behaviour
+- Expandable "View test steps" per scenario (collapsible section from the test plan)
+- Regression Bypass mode: amber banner shown; previously failed scenarios highlighted in amber
+- All scenarios must be marked before proceeding to the Testing Gate
+
+**Stage D — Testing Gate**
+
+- Summary card: all pass (green) or N failed (red, with list of failing scenario names)
+- **Pass path:** lock story to `qa_passed` status → optional PM story status update → "Test Another Story"
+- **Fail path → Bug Isolation Wizard:**
+  - AI analyses all failed scenarios + QA notes to generate a **Fix-Bolt artifact**: Bug Summary, Failed Scenario, Root Cause Hypothesis, Patch Scope, Reproduction Steps, Fix-Bolt Brief
+  - Preview in monospace panel; Download `.md` / Copy Fix-Bolt Brief
+  - **Trigger Fix-Bolt:** saves `bug_report_{id}.md`, appends `vaccines.md`, marks story with `has_bug_report`; story returns to `implementation` and re-enters Phase 4 as Regression Bypass on next select
+
 ### Sidebar Workspace
 
 The sidebar is the operational shell for the app.
@@ -157,6 +206,7 @@ Implemented:
 | `backend/app/api/phase1.py` | Phase 1 HTTP routes |
 | `backend/app/api/phase2.py` | Phase 2 HTTP routes |
 | `backend/app/api/phase3.py` | Phase 3 HTTP routes |
+| `backend/app/api/phase4.py` | Phase 4 HTTP routes |
 | `backend/app/api/workspace.py` | Sidebar/workspace routes: auth, projects, board, users, context files, AI config |
 | `backend/app/api/jira_proxy.py` | FastAPI reverse proxy for Jira Cloud REST API v3 (Basic auth, SSRF-guarded to `*.atlassian.net`) |
 | `backend/app/api/deps.py` | FastAPI request/auth dependencies |
@@ -167,16 +217,16 @@ Implemented:
 | `src/storage.py` | Storage abstraction over local disk or Azure File Share SDK |
 | `src/taiga_adapter.py` | Taiga web URL derivation for the config endpoint (minimal; all Taiga REST calls are browser-side) |
 | `frontend/app/` | Next.js routes |
-| `frontend/components/` | App shell, sidebar, Phase 1 workflow, Phase 2 workflow, Phase 3 workflow, UI components |
+| `frontend/components/` | App shell, sidebar, Phase 1–4 workflow components, UI primitives |
 | `frontend/lib/api/taiga-direct.ts` | Browser-side Taiga REST client — all CRUD, auth, and story transitions |
 | `frontend/lib/api/pm-types.ts` | `ProjectManagementAdapter` interface and shared PM types |
 | `frontend/lib/api/pm-factory.ts` | `getPmAdapter(pmTool)` dispatcher — returns Taiga or Jira adapter |
 | `frontend/lib/api/taiga-adapter.ts` | Taiga adapter wrapping `taiga-direct.ts` |
 | `frontend/lib/api/jira-adapter.ts` | Jira Cloud adapter — REST v3, ADF, paginated JQL, two-step transitions |
 | `frontend/lib/api/github-browser.ts` | Browser-side GitHub REST client — repo metadata, file tree, README, config file, and OpenAPI spec fetching for context sync |
-| `frontend/lib/api/` | Typed frontend API clients |
-| `frontend/lib/hooks/` | React Query hooks |
-| `frontend/lib/stores/` | Zustand stores for session, UI, Phase 2 draft state, and Phase 3 task/pack state |
+| `frontend/lib/api/` | Typed frontend API clients for all phases |
+| `frontend/lib/hooks/` | React Query hooks for all phases |
+| `frontend/lib/stores/` | Zustand stores for session, UI, and per-phase draft state |
 | `.github/workflows/ci.yml` | Test, build, push, and deploy workflow |
 | `.github/workflows/scale-scheduler.yml` | Azure Container Apps scale up/down scheduler |
 
@@ -195,10 +245,11 @@ Apex stores workflow state in context files under `contextspec/<taiga_project_id
 | `design-bundle.md` | Locked wireframes, user flows, component trees, and technical bundles |
 | `diagram-screens.json` | React Flow screen flow diagram generated from Phase 2 UX Brief (includes saved layout positions) |
 | `diagram-er.json` | React Flow ER diagram generated from Phase 2 Data Model (includes saved layout positions) |
-| `github-context.md` | GitHub repo metadata, file tree, README, and key config files — injected into Phase 2 and Phase 3 AI prompts |
-| `proposal_story_<id>_task_<id>.md` | Developer pack generated by Phase 3 for each task |
 | `github-context.md` | Repo file tree, README, config file, and OpenAPI spec synced from GitHub; injected into Phase 2 and Phase 3 AI prompts |
-| `vaccines.md` | Future bug-resolution memory for Phase 6 |
+| `proposal_story_<id>_task_<id>.md` | Developer pack generated by Phase 3 for each task |
+| `bdd_story_<id>.feature` | Test plan generated by Phase 4 for each story |
+| `bug_report_<id>.md` | Fix-Bolt artifact generated by Phase 4 when a story fails the Testing Gate |
+| `vaccines.md` | Appended with each Fix-Bolt record — bug isolation log for future reference |
 | `story-index.json` | Machine-readable story phase state |
 
 Each Taiga project gets its own context directory. The backend reads `X-Taiga-Project-Id` on each request and uses that project ID to select the correct context folder.
@@ -525,7 +576,7 @@ This one-hour seasonal drift is acceptable for the project. If exact Lisbon loca
 | Phase 1 · Requirements | Implemented |
 | Phase 2 · Design | Implemented |
 | Phase 3 · Implementation | Implemented |
-| Phase 4 · Testing | Placeholder |
+| Phase 4 · Testing | Implemented |
 | Phase 5 · Deployment | Placeholder |
 | Phase 6 · Maintenance | Placeholder |
 
