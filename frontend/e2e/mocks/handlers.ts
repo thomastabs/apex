@@ -223,6 +223,7 @@ export async function applyMocks(page: Page) {
         gherkin: "Feature: User Login\n  Scenario: Successful login\n    Given a registered user\n    When they submit valid credentials\n    Then they receive a JWT token",
         technical_spec: "## Endpoints\n- POST /auth/login · auth:none · in:{email,password} · out:{token}",
         tech_stack: "FastAPI + Next.js + PostgreSQL",
+        task_list: [],
       }),
     }),
   );

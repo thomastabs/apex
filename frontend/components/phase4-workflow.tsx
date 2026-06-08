@@ -262,13 +262,13 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
         </details>
       )}
 
-      {ctx && ctx.task_list.length > 0 && (
+      {ctx && (ctx.task_list ?? []).length > 0 && (
         <div className={cn("rounded-lg border text-sm", dark ? "border-neutral-700" : "border-slate-200")}>
           <div className={cn("px-4 py-2.5 font-medium border-b", dark ? "text-neutral-300 border-neutral-700" : "text-slate-700 border-slate-200")}>
             Implementation Tasks
           </div>
           <ul className="divide-y divide-inherit">
-            {ctx.task_list.map((task) => (
+            {(ctx.task_list ?? []).map((task) => (
               <li key={task.id} className={cn("px-4 py-2.5 flex items-start gap-3", dark ? "divide-neutral-700" : "divide-slate-200")}>
                 <span className={cn("mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-xs font-mono font-semibold", dark ? "bg-neutral-700 text-neutral-300" : "bg-slate-100 text-slate-500")}>
                   {task.effort_estimate}
