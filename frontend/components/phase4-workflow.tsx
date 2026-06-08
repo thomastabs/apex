@@ -5,6 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   Info,
   Loader2,
@@ -315,6 +316,9 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
       )}
 
       <div className="flex gap-3">
+        <Button variant="secondary" className="gap-1.5" onClick={onBack} disabled={generateMut.isPending || saveMut.isPending}>
+          <ChevronLeft className="h-4 w-4" /> Back
+        </Button>
         <Button
           onClick={handleGenerate}
           disabled={generateMut.isPending}
@@ -490,13 +494,18 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
         })}
       </div>
 
-      <Button
-        className="w-full justify-center"
-        onClick={onContinue}
-        disabled={!allMarked}
-      >
-        Testing Gate <ChevronRight className="h-4 w-4" />
-      </Button>
+      <div className="flex gap-2">
+        <Button variant="secondary" className="gap-1.5" onClick={onBack}>
+          <ChevronLeft className="h-4 w-4" /> Back
+        </Button>
+        <Button
+          className="flex-1 justify-center"
+          onClick={onContinue}
+          disabled={!allMarked}
+        >
+          Testing Gate <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
       {!allMarked && (
         <p className={cn("text-xs text-center", dark ? "text-neutral-500" : "text-slate-400")}>
           Mark all {scenarios.length} scenarios before proceeding.
@@ -683,15 +692,20 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
 
       {/* Pass path */}
       {allPassed && (
-        <Button
-          className="w-full justify-center"
-          onClick={handlePass}
-          disabled={passGateMut.isPending}
-        >
-          {passGateMut.isPending
-            ? <><Loader2 className="h-4 w-4 animate-spin" /> Passing gate…</>
-            : "Pass Testing Gate"}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" className="gap-1.5" onClick={onBack} disabled={passGateMut.isPending}>
+            <ChevronLeft className="h-4 w-4" /> Back
+          </Button>
+          <Button
+            className="flex-1 justify-center"
+            onClick={handlePass}
+            disabled={passGateMut.isPending}
+          >
+            {passGateMut.isPending
+              ? <><Loader2 className="h-4 w-4 animate-spin" /> Passing gate…</>
+              : "Pass Testing Gate"}
+          </Button>
+        </div>
       )}
 
       {/* Fail path — Bug Isolation Wizard */}
@@ -744,16 +758,21 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
             </div>
           )}
 
-          <Button
-            className="w-full justify-center"
-            onClick={handleFail}
-            disabled={failGateMut.isPending || !combinedBugReport}
-            variant="danger"
-          >
-            {failGateMut.isPending
-              ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
-              : "Trigger Fix-Bolt"}
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" className="gap-1.5" onClick={onBack} disabled={failGateMut.isPending}>
+              <ChevronLeft className="h-4 w-4" /> Back
+            </Button>
+            <Button
+              className="flex-1 justify-center"
+              onClick={handleFail}
+              disabled={failGateMut.isPending || !combinedBugReport}
+              variant="danger"
+            >
+              {failGateMut.isPending
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
+                : "Trigger Fix-Bolt"}
+            </Button>
+          </div>
           {!combinedBugReport && (
             <p className={cn("text-xs text-center", dark ? "text-neutral-500" : "text-slate-400")}>
               Generate the Fix-Bolt artifact first.

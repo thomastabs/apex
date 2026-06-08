@@ -4,6 +4,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   Download,
   Info,
@@ -545,23 +546,28 @@ export function Phase2Workflow() {
                   Cancel Generation
                 </button>
               ) : (
-                <Button
-                  className="w-full"
-                  disabled={busy || noContext}
-                  onClick={() => {
-                    if (designBundle) {
-                      toast.warning("A design already exists. Regenerating all sections will overwrite it.", {
-                        action: { label: "Regenerate All", onClick: doGenerate },
-                        duration: 8000,
-                      });
-                    } else {
-                      doGenerate();
-                    }
-                  }}
-                >
-                  <Sparkles className="size-4" />
-                  Generate Design
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="secondary" className="gap-1.5" onClick={() => setStep(1)} disabled={busy}>
+                    <ChevronLeft className="size-4" /> Back
+                  </Button>
+                  <Button
+                    className="flex-1"
+                    disabled={busy || noContext}
+                    onClick={() => {
+                      if (designBundle) {
+                        toast.warning("A design already exists. Regenerating all sections will overwrite it.", {
+                          action: { label: "Regenerate All", onClick: doGenerate },
+                          duration: 8000,
+                        });
+                      } else {
+                        doGenerate();
+                      }
+                    }}
+                  >
+                    <Sparkles className="size-4" />
+                    Generate Design
+                  </Button>
+                </div>
               )}
               <div className="flex flex-wrap gap-2">
                 <button
@@ -726,10 +732,15 @@ export function Phase2Workflow() {
             </div>
 
             {allSectionsPopulated && !generateSections.isPending ? (
-              <Button className="w-full" onClick={() => setStep(3)}>
-                Continue to Sign-off
-                <ChevronRight className="size-4" />
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="secondary" className="gap-1.5" onClick={() => setStep(1)} disabled={busy}>
+                  <ChevronLeft className="size-4" /> Back
+                </Button>
+                <Button className="flex-1" onClick={() => setStep(3)}>
+                  Continue to Sign-off
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
             ) : null}
           </section>
         )}
@@ -752,30 +763,35 @@ export function Phase2Workflow() {
                     Tech Lead Sign-off (Endpoints &amp; Data Model)
                   </label>
                 </div>
-                <Button
-                  className="w-full"
-                  disabled={!canSave || busy}
-                  onClick={() =>
-                    lockDesign.mutate(
-                      {
-                        story_ids:  activeBundle.story_ids,
-                        ux_brief:   activeBundle.ux_brief,
-                        endpoints:  activeBundle.endpoints,
-                        data_model: activeBundle.data_model,
-                      },
-                      {
-                        onSuccess: (data) => toast.success(`Design locked for ${data.story_ids.length} stories`),
-                      },
-                    )
-                  }
-                >
-                  {lockDesign.isPending ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="size-4" />
-                  )}
-                  {lockDesign.isPending ? "Saving…" : "Save & Lock Design"}
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="secondary" className="gap-1.5" onClick={() => setStep(2)} disabled={busy}>
+                    <ChevronLeft className="size-4" /> Back
+                  </Button>
+                  <Button
+                    className="flex-1"
+                    disabled={!canSave || busy}
+                    onClick={() =>
+                      lockDesign.mutate(
+                        {
+                          story_ids:  activeBundle.story_ids,
+                          ux_brief:   activeBundle.ux_brief,
+                          endpoints:  activeBundle.endpoints,
+                          data_model: activeBundle.data_model,
+                        },
+                        {
+                          onSuccess: (data) => toast.success(`Design locked for ${data.story_ids.length} stories`),
+                        },
+                      )
+                    }
+                  >
+                    {lockDesign.isPending ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="size-4" />
+                    )}
+                    {lockDesign.isPending ? "Saving…" : "Save & Lock Design"}
+                  </Button>
+                </div>
                 {lockDesign.isPending ? (
                   <div className={cn("space-y-1 rounded-md border px-4 py-3 text-xs", dark ? "border-violet-800/40 bg-violet-950/30 text-violet-300" : "border-violet-200 bg-violet-50 text-violet-700")}>
                     <p className="flex items-center gap-2 font-medium">

@@ -8,6 +8,7 @@ import {
   ArrowDown,
   ArrowUp,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   GitBranch,
   Info,
@@ -596,13 +597,18 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
             ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
             : "Generate Tasks"}
         </Button>
-        <Button
-          className="w-full justify-center"
-          variant="secondary"
-          onClick={onContinue}
-        >
-          Developer Packs
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" className="gap-1.5" onClick={onBack}>
+            <ChevronLeft className="h-4 w-4" /> Back
+          </Button>
+          <Button
+            className="flex-1 justify-center"
+            variant="secondary"
+            onClick={onContinue}
+          >
+            Developer Packs
+          </Button>
+        </div>
       </div>
       {tasksPushed && (
         <div className="flex items-center justify-center gap-3">
@@ -1280,7 +1286,7 @@ function ScenarioCoveragePanel({
 // Stage D — Lock & Export
 // ---------------------------------------------------------------------------
 
-function StageD({ storyId, onLocked, onChooseNewStory }: { storyId: number; onLocked: () => void; onChooseNewStory: () => void }) {
+function StageD({ storyId, onLocked, onChooseNewStory, onBack }: { storyId: number; onLocked: () => void; onChooseNewStory: () => void; onBack: () => void }) {
   const dark = useUiStore((s) => s.theme) === "dark";
   const githubCtx = useGithubContext();
   const { data: ctx } = useStoryContext(storyId);
@@ -1459,15 +1465,20 @@ function StageD({ storyId, onLocked, onChooseNewStory }: { storyId: number; onLo
       )}
 
       <div className="flex flex-col gap-2">
-        <Button
-          className="w-full justify-center"
-          onClick={handleLock}
-          disabled={!canLock || lockStoryMut.isPending}
-        >
-          {lockStoryMut.isPending
-            ? <><Loader2 className="h-4 w-4 animate-spin" /> Locking…</>
-            : "Lock Story"}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" className="gap-1.5" onClick={onBack} disabled={lockStoryMut.isPending}>
+            <ChevronLeft className="h-4 w-4" /> Back
+          </Button>
+          <Button
+            className="flex-1 justify-center"
+            onClick={handleLock}
+            disabled={!canLock || lockStoryMut.isPending}
+          >
+            {lockStoryMut.isPending
+              ? <><Loader2 className="h-4 w-4 animate-spin" /> Locking…</>
+              : "Lock Story"}
+          </Button>
+        </div>
         {canLock && (
           <Button className="w-full justify-center" variant="secondary" onClick={handleExportAll}>
             Export All Packs
@@ -1636,13 +1647,18 @@ export function Phase3Workflow() {
         {stage === "C" && selectedStoryId !== null && (
           <div className="space-y-6">
             <StageC storyId={selectedStoryId} />
-            <Button className="w-full justify-center" onClick={() => setStage("D")}>
-              Continue to Lock &amp; Export
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="secondary" className="gap-1.5" onClick={() => setStage("B")}>
+                <ChevronLeft className="h-4 w-4" /> Back
+              </Button>
+              <Button className="flex-1 justify-center" onClick={() => setStage("D")}>
+                Continue to Lock &amp; Export
+              </Button>
+            </div>
           </div>
         )}
         {stage === "D" && selectedStoryId !== null && (
-          <StageD storyId={selectedStoryId} onLocked={handleLocked} onChooseNewStory={() => setStage("A")} />
+          <StageD storyId={selectedStoryId} onLocked={handleLocked} onChooseNewStory={() => setStage("A")} onBack={() => setStage("C")} />
         )}
       </div>
       </div>
