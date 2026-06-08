@@ -20,6 +20,8 @@ export function AIProgressIndicator({
   // progress: 0–100. Asymptotically approaches ~90 while pending, jumps to 100 on done.
   const [progress, setProgress] = useState(0);
   const progressRef = useRef(0);
+  // Track whether we've ever been pending so the "snap to 100" path only fires after real work.
+  const wasPendingRef = useRef(false);
 
   // Step cycling — advance forward only, stop at last step (no wrap-around).
   useEffect(() => {
@@ -50,10 +52,13 @@ export function AIProgressIndicator({
   // Progress bar — easing toward 90% while pending, snap to 100 on complete.
   useEffect(() => {
     if (!isPending) {
+      if (!wasPendingRef.current) return; // never ran — skip the "done" flash on mount
+      wasPendingRef.current = false;
       setProgress(100);
       const reset = setTimeout(() => { setProgress(0); progressRef.current = 0; }, 600);
       return () => clearTimeout(reset);
     }
+    wasPendingRef.current = true;
     progressRef.current = 0;
     setProgress(0);
     const TICK_MS = 250;

@@ -649,9 +649,13 @@ export function Phase1Workflow() {
         {step === 2 && (
           <div className="space-y-4">
             {epicTitle ? (
-              <p className={cn("text-sm", mutedClass)}>
-                Epic: <span className={cn("font-semibold", dark ? "text-neutral-200" : "text-slate-700")}>{epicTitle}</span>
-              </p>
+              <div className={cn("rounded-md border px-4 py-3", dark ? "border-neutral-700 bg-neutral-800/50" : "border-slate-200 bg-slate-50")}>
+                <p className={cn("text-xs font-medium uppercase tracking-wider", dark ? "text-neutral-500" : "text-slate-400")}>Epic</p>
+                <p className={cn("mt-0.5 text-base font-semibold", dark ? "text-neutral-100" : "text-slate-800")}>{epicTitle}</p>
+                {epicDescription && (
+                  <p className={cn("mt-1 text-sm", dark ? "text-neutral-400" : "text-slate-500")}>{epicDescription}</p>
+                )}
+              </div>
             ) : null}
             {!canGenerate ? <Callout>Fill in your Epic above, then click Generate to create Natural Language user stories.</Callout> : null}
             <label className={cn("block text-sm font-medium", labelClass)}>
@@ -691,9 +695,13 @@ export function Phase1Workflow() {
         {step === 3 && (
           <div className="space-y-4">
             {epicTitle ? (
-              <p className={cn("text-sm", mutedClass)}>
-                Epic: <span className={cn("font-semibold", dark ? "text-neutral-200" : "text-slate-700")}>{epicTitle}</span>
-              </p>
+              <div className={cn("rounded-md border px-4 py-3", dark ? "border-neutral-700 bg-neutral-800/50" : "border-slate-200 bg-slate-50")}>
+                <p className={cn("text-xs font-medium uppercase tracking-wider", dark ? "text-neutral-500" : "text-slate-400")}>Epic</p>
+                <p className={cn("mt-0.5 text-base font-semibold", dark ? "text-neutral-100" : "text-slate-800")}>{epicTitle}</p>
+                {epicDescription && (
+                  <p className={cn("mt-1 text-sm", dark ? "text-neutral-400" : "text-slate-500")}>{epicDescription}</p>
+                )}
+              </div>
             ) : null}
             <p className={cn("text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
               The AI has written plain descriptions of each user story. Read them, adjust any that don&apos;t match your intent, then convert them to Acceptance Criteria.
@@ -727,9 +735,13 @@ export function Phase1Workflow() {
         {step === 4 && (
           <div className="space-y-4">
             {epicTitle ? (
-              <p className={cn("text-sm", mutedClass)}>
-                Epic: <span className={cn("font-semibold", dark ? "text-neutral-200" : "text-slate-700")}>{epicTitle}</span>
-              </p>
+              <div className={cn("rounded-md border px-4 py-3", dark ? "border-neutral-700 bg-neutral-800/50" : "border-slate-200 bg-slate-50")}>
+                <p className={cn("text-xs font-medium uppercase tracking-wider", dark ? "text-neutral-500" : "text-slate-400")}>Epic</p>
+                <p className={cn("mt-0.5 text-base font-semibold", dark ? "text-neutral-100" : "text-slate-800")}>{epicTitle}</p>
+                {epicDescription && (
+                  <p className={cn("mt-1 text-sm", dark ? "text-neutral-400" : "text-slate-500")}>{epicDescription}</p>
+                )}
+              </div>
             ) : null}
             <p className={cn("text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
               Acceptance Criteria are structured conditions that must be true for a story to be complete. Review them, then publish to your PM board.
