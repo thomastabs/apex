@@ -35,12 +35,12 @@ test("Phase 4 pass: select story → generate test plan → mark all pass → pa
   await expect(page.getByText(/1\/1 scenarios tested/)).toBeVisible();
 
   // Testing Gate button becomes enabled
-  const gateBtn = page.getByRole("button", { name: /Testing Gate/i });
+  const gateBtn = page.getByRole("button", { name: "Testing Gate", exact: true });
   await expect(gateBtn).toBeEnabled({ timeout: 5_000 });
   await gateBtn.click();
 
   // Stage D — all passed summary
-  await expect(page.getByRole("heading", { name: /Testing Gate/i })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("heading", { name: "Testing Gate", exact: true })).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText(/All 1 scenarios passed/i)).toBeVisible({ timeout: 10_000 });
 
   // Pass gate
@@ -74,10 +74,10 @@ test("Phase 4 fail: mark scenario fail → generate Fix-Bolt → trigger Fix-Bol
   await page.locator("textarea[placeholder*='Describe what failed']").fill("Login returns 500 instead of JWT token.");
 
   // Proceed to gate
-  await page.getByRole("button", { name: /Testing Gate/i }).click();
+  await page.getByRole("button", { name: "Testing Gate", exact: true }).click();
 
   // Stage D — failure summary
-  await expect(page.getByRole("heading", { name: /Testing Gate/i })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("heading", { name: "Testing Gate", exact: true })).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText(/1 of 1 scenarios failed/i)).toBeVisible({ timeout: 10_000 });
 
   // Generate Fix-Bolt artifact

@@ -6,9 +6,9 @@ import { toast } from "sonner";
 import {
   CheckCircle2,
   ChevronRight,
+  Info,
   Loader2,
   ShieldAlert,
-  TestTube2,
   XCircle,
 } from "lucide-react";
 import { Button, Callout, SectionHeading, Textarea } from "@/components/ui/primitives";
@@ -25,6 +25,7 @@ import {
   useUpdatePmStoryStatus,
 } from "@/lib/hooks/use-phase4";
 import { usePhase4Store } from "@/lib/stores/phase4-store";
+import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
 import type { Phase4StoryPreview } from "@/lib/api/types";
@@ -248,15 +249,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <Button variant="secondary" onClick={onBack} className="text-sm px-2">← Back</Button>
-        <div>
-          <SectionHeading>Test Plan — US#{storyId}</SectionHeading>
-          {ctx && (
-            <p className={cn("text-sm mt-0.5", dark ? "text-neutral-400" : "text-slate-500")}>{ctx.title}</p>
-          )}
-        </div>
-      </div>
+      <SectionHeading>Test Plan</SectionHeading>
 
       {ctx && (
         <details className={cn("rounded-lg border text-sm", dark ? "border-neutral-700" : "border-slate-200")}>
@@ -357,15 +350,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <Button variant="secondary" onClick={onBack} className="text-sm px-2">← Back</Button>
-        <div>
-          <SectionHeading>Execute Tests — US#{storyId}</SectionHeading>
-          {ctx && (
-            <p className={cn("text-sm mt-0.5", dark ? "text-neutral-400" : "text-slate-500")}>{ctx.title}</p>
-          )}
-        </div>
-      </div>
+      <SectionHeading>Execute Tests</SectionHeading>
 
       {isRegressionBypass && (
         <div className={cn(
@@ -646,15 +631,7 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <Button variant="secondary" onClick={onBack} className="text-sm px-2">← Back</Button>
-        <div>
-          <SectionHeading>Testing Gate — US#{storyId}</SectionHeading>
-          {ctx && (
-            <p className={cn("text-sm mt-0.5", dark ? "text-neutral-400" : "text-slate-500")}>{ctx.title}</p>
-          )}
-        </div>
-      </div>
+      <SectionHeading>Testing Gate</SectionHeading>
 
       {/* Summary */}
       <div className={cn(
@@ -771,12 +748,24 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
 
 type Stage = "A" | "B" | "C" | "D";
 
+const STAGE_LABELS: Record<Stage, string> = {
+  A: "Select Story",
+  B: "Test Plan",
+  C: "Execute",
+  D: "Testing Gate",
+};
+
 export function Phase4Workflow() {
   const dark = useUiStore((s) => s.theme) === "dark";
+  const context = useApiContext();
   const [stage, setStage] = useState<Stage>("A");
+  const [diagramOpen, setDiagramOpen] = useState(false);
   const selectedStoryId = usePhase4Store((s) => s.selectedStoryId);
+  const currentStoryMeta = usePhase4Store((s) => s.currentStoryMeta);
   const setSelectedStoryId = usePhase4Store((s) => s.setSelectedStoryId);
   const clearPhase4Draft = usePhase4Store((s) => s.clearPhase4Draft);
+
+  const mutedClass = dark ? "text-neutral-500" : "text-slate-400";
 
   const handleSelect = (id: number) => {
     setSelectedStoryId(id);
@@ -788,74 +777,162 @@ export function Phase4Workflow() {
     setStage("A");
   };
 
-  const STAGES: { key: Stage; label: string }[] = [
-    { key: "A", label: "Select" },
-    { key: "B", label: "Test Plan" },
-    { key: "C", label: "Execute" },
-    { key: "D", label: "Gate" },
-  ];
+  const handleStepperGoA = () => {
+    clearPhase4Draft();
+    setStage("A");
+  };
 
-  const stageIndex = STAGES.findIndex((s) => s.key === stage);
+  const stages: Stage[] = ["A", "B", "C", "D"];
+  const stageNums: Record<Stage, number> = { A: 1, B: 2, C: 3, D: 4 };
+  const currentIdx = stages.indexOf(stage);
 
   return (
-    <div className="max-w-3xl mx-auto py-8 px-4 space-y-8">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <TestTube2 className={cn("h-6 w-6", dark ? "text-emerald-400" : "text-emerald-600")} />
-        <div>
-          <h1 className={cn("text-xl font-bold", dark ? "text-neutral-100" : "text-slate-900")}>
-            Phase 4 — QA Testing
-          </h1>
-          <p className={cn("text-sm mt-0.5", dark ? "text-neutral-500" : "text-slate-500")}>
-            Generate test plans, track execution, and isolate bugs with AI assistance.
-          </p>
-        </div>
+    <section className="px-8 py-8">
+      {/* Phase header */}
+      <div className="mb-7">
+        <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Phase 4</p>
+        <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
+          Testing
+        </h1>
+        <p className={cn("mt-2", mutedClass)}>
+          Generate AI-assisted test plans, track scenario execution, and isolate bugs with the Fix-Bolt wizard.
+        </p>
       </div>
 
-      {/* Stage stepper */}
-      <div className="flex items-center gap-1">
-        {STAGES.map((s, i) => (
-          <div key={s.key} className="flex items-center gap-1">
-            <div className={cn(
-              "rounded-full text-xs font-semibold px-3 py-1",
-              i < stageIndex
-                ? dark ? "bg-emerald-900/40 text-emerald-400" : "bg-emerald-100 text-emerald-700"
-                : i === stageIndex
-                ? dark ? "bg-emerald-600 text-white" : "bg-emerald-500 text-white"
-                : dark ? "bg-neutral-800 text-neutral-500" : "bg-slate-100 text-slate-400",
-            )}>
-              {s.label}
+      {/* Diagram collapsible */}
+      <div className={cn("mb-6 rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}>
+        <button
+          className={cn(
+            "flex w-full items-center gap-2 px-4 py-3 text-sm transition-colors",
+            dark ? "text-neutral-400 hover:text-neutral-300" : "text-slate-500 hover:text-slate-700",
+          )}
+          onClick={() => setDiagramOpen(!diagramOpen)}
+        >
+          <ChevronRight className={cn("size-4 transition-transform", diagramOpen && "rotate-90")} />
+          <Info className="size-4" />
+          <span>View Process Diagram (How this works)</span>
+        </button>
+        {diagramOpen && (
+          <div className={cn("border-t p-6 text-sm", dark ? "border-neutral-800 text-neutral-400" : "border-slate-200 text-slate-500")}>
+            <p className="font-medium mb-2">Phase 4 — QA Validation Playbook</p>
+            <ol className="list-decimal list-inside space-y-1">
+              <li><strong>Select Story</strong> — pick an implementation-locked story</li>
+              <li><strong>Test Plan</strong> — AI generates per-scenario test plan from Gherkin</li>
+              <li><strong>Execute</strong> — mark each scenario Pass / Fail with QA notes</li>
+              <li><strong>Testing Gate</strong> — all pass → qa_passed; any fail → Bug Isolation Wizard generates Fix-Bolt artifact</li>
+            </ol>
+          </div>
+        )}
+      </div>
+
+      {!context && (
+        <Callout>Log in and select a project to use Phase 4.</Callout>
+      )}
+
+      <div className={cn("space-y-6 border-t pt-6", dark ? "border-neutral-700" : "border-slate-200")}>
+        <div className="space-y-6">
+
+          {/* Stage stepper */}
+          <div className={cn("rounded-xl border px-6 py-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
+            <div className="flex items-center">
+              {stages.map((s, i) => {
+                const num = stageNums[s];
+                const isActive = stage === s;
+                const isDone = i < currentIdx;
+                const isLocked = s !== "A" && selectedStoryId === null;
+                return (
+                  <div key={s} className="flex flex-1 items-center">
+                    <button
+                      onClick={() => {
+                        if (s === "A") { handleStepperGoA(); return; }
+                        if (selectedStoryId !== null) setStage(s);
+                      }}
+                      disabled={isLocked}
+                      className={cn("group flex flex-col items-center gap-1.5 transition disabled:pointer-events-none", isLocked && "opacity-35")}
+                    >
+                      <span className={cn(
+                        "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ring-2 transition",
+                        isActive
+                          ? "bg-violet-600 text-white ring-violet-400"
+                          : isDone
+                            ? dark ? "bg-violet-800 text-violet-200 ring-violet-700" : "bg-violet-100 text-violet-600 ring-violet-300"
+                            : dark
+                              ? "bg-neutral-800 text-neutral-400 ring-neutral-700 group-hover:ring-neutral-500"
+                              : "bg-white text-slate-500 ring-slate-300 group-hover:ring-violet-400",
+                      )}>
+                        {isDone ? <CheckCircle2 className="h-4 w-4" /> : num}
+                      </span>
+                      <span className={cn(
+                        "text-xs font-semibold whitespace-nowrap",
+                        isActive
+                          ? "text-violet-500"
+                          : isDone
+                            ? dark ? "text-violet-400" : "text-violet-500"
+                            : dark ? "text-neutral-500" : "text-slate-400",
+                      )}>
+                        {STAGE_LABELS[s]}
+                      </span>
+                    </button>
+                    {i < stages.length - 1 && (
+                      <div className={cn(
+                        "mx-2 mb-5 h-0.5 flex-1 rounded-full transition-all",
+                        isDone
+                          ? dark ? "bg-violet-700" : "bg-violet-300"
+                          : dark ? "bg-neutral-700" : "bg-slate-200",
+                      )} />
+                    )}
+                  </div>
+                );
+              })}
             </div>
-            {i < STAGES.length - 1 && (
-              <ChevronRight className={cn("h-3 w-3", dark ? "text-neutral-600" : "text-slate-300")} />
+          </div>
+
+          {/* Breadcrumb — shown when a story is selected */}
+          {selectedStoryId !== null && stage !== "A" && (
+            <div className={cn(
+              "flex items-center gap-2 rounded-lg border px-4 py-3",
+              dark ? "border-neutral-700 bg-neutral-900" : "border-slate-200 bg-slate-50",
+            )}>
+              <button
+                onClick={handleStepperGoA}
+                className={cn("shrink-0 text-xs font-medium transition", dark ? "text-neutral-400 hover:text-violet-400" : "text-slate-500 hover:text-violet-600")}
+              >
+                ← Stories
+              </button>
+              {currentStoryMeta.epicTitle && (
+                <>
+                  <ChevronRight className="h-3 w-3 shrink-0 text-neutral-500" />
+                  <span className={cn("shrink-0 text-xs font-medium", dark ? "text-neutral-300" : "text-slate-600")}>
+                    {currentStoryMeta.epicTitle}
+                  </span>
+                </>
+              )}
+              <ChevronRight className="h-3 w-3 shrink-0 text-neutral-500" />
+              <span className={cn("shrink-0 inline-flex items-center gap-1.5 text-xs font-mono font-semibold", dark ? "text-violet-400" : "text-violet-700")}>
+                US#{selectedStoryId}
+              </span>
+              <span className={cn("text-sm font-medium truncate", dark ? "text-neutral-300" : "text-slate-700")}>
+                {currentStoryMeta.title}
+              </span>
+            </div>
+          )}
+
+          {/* Stage content */}
+          <div>
+            {stage === "A" && <StageA onSelect={handleSelect} />}
+            {stage === "B" && selectedStoryId !== null && (
+              <StageB storyId={selectedStoryId} onBack={handleStepperGoA} onContinue={() => setStage("C")} />
+            )}
+            {stage === "C" && selectedStoryId !== null && (
+              <StageC storyId={selectedStoryId} onBack={() => setStage("B")} onContinue={() => setStage("D")} />
+            )}
+            {stage === "D" && selectedStoryId !== null && (
+              <StageD storyId={selectedStoryId} onBack={() => setStage("C")} onNewStory={handleNewStory} />
             )}
           </div>
-        ))}
-      </div>
 
-      {/* Stage content */}
-      {stage === "A" && <StageA onSelect={handleSelect} />}
-      {stage === "B" && selectedStoryId !== null && (
-        <StageB
-          storyId={selectedStoryId}
-          onBack={() => { setStage("A"); }}
-          onContinue={() => setStage("C")}
-        />
-      )}
-      {stage === "C" && selectedStoryId !== null && (
-        <StageC
-          storyId={selectedStoryId}
-          onBack={() => setStage("B")}
-          onContinue={() => setStage("D")}
-        />
-      )}
-      {stage === "D" && selectedStoryId !== null && (
-        <StageD
-          storyId={selectedStoryId}
-          onBack={() => setStage("C")}
-          onNewStory={handleNewStory}
-        />
-      )}
-    </div>
+        </div>
+      </div>
+    </section>
   );
 }
