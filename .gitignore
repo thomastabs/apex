@@ -18,6 +18,8 @@ node_modules/
 .next/
 frontend/node_modules/
 frontend/.next/
+frontend/playwright-report/
+frontend/test-results/
 *.tsbuildinfo
 *.egg-info/
 .claude/
