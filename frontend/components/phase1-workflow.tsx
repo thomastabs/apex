@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, CheckCircle2, ChevronRight, Download, ExternalLink, FilePlus2, Info, Plus, RefreshCw, RotateCcw, Sparkles, Trash2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, FilePlus2, Info, Plus, RefreshCw, RotateCcw, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button, Callout, Input, Skeleton, Textarea } from "@/components/ui/primitives";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
@@ -247,6 +247,17 @@ export function Phase1Workflow() {
     toast.info("Suggestions cleared");
   }
 
+  function clearEpicInputs() {
+    setEpicTitle("");
+    setEpicDescription("");
+    setEpicId(null);
+    setSelectedLoadEpicId(null);
+    setExpandedLoadEpic(null);
+    setAppliedSuggestionIndex(null);
+    setSelectedSuggestion(null);
+    suggestEpics.reset();
+  }
+
   const cardClass = dark
     ? "border-neutral-800 bg-[#1f1f21] hover:border-neutral-700"
     : "border-slate-200 bg-slate-50 hover:border-slate-300";
@@ -430,6 +441,11 @@ export function Phase1Workflow() {
                   Description
                   <Textarea rows={5} value={epicDescription} onChange={(event) => setEpicDescription(event.target.value)} placeholder="Describe the epic in detail — context helps the AI generate better stories..." />
                 </label>
+                {(epicTitle || epicDescription || epicId) && (
+                  <Button variant="secondary" className="gap-2" onClick={clearEpicInputs}>
+                    <RotateCcw className="size-3.5" /> Clear Fields
+                  </Button>
+                )}
               </div>
             ) : null}
 
@@ -649,12 +665,20 @@ export function Phase1Workflow() {
         {step === 2 && (
           <div className="space-y-4">
             {epicTitle ? (
-              <div className={cn("rounded-md border px-4 py-3", dark ? "border-neutral-700 bg-neutral-800/50" : "border-slate-200 bg-slate-50")}>
-                <p className={cn("text-xs font-medium uppercase tracking-wider", dark ? "text-neutral-500" : "text-slate-400")}>Epic</p>
-                <p className={cn("mt-0.5 text-base font-semibold", dark ? "text-neutral-100" : "text-slate-800")}>{epicTitle}</p>
-                {epicDescription && (
-                  <p className={cn("mt-1 text-sm", dark ? "text-neutral-400" : "text-slate-500")}>{epicDescription}</p>
-                )}
+              <div className={cn("flex items-start justify-between rounded-md border px-4 py-3", dark ? "border-neutral-700 bg-neutral-800/50" : "border-slate-200 bg-slate-50")}>
+                <div>
+                  <p className={cn("text-xs font-medium uppercase tracking-wider", dark ? "text-neutral-500" : "text-slate-400")}>Epic</p>
+                  <p className={cn("mt-0.5 text-base font-semibold", dark ? "text-neutral-100" : "text-slate-800")}>{epicTitle}</p>
+                  {epicDescription && (
+                    <p className={cn("mt-1 text-sm", dark ? "text-neutral-400" : "text-slate-500")}>{epicDescription}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => setStep(1)}
+                  className={cn("ml-4 shrink-0 text-xs font-medium transition", dark ? "text-neutral-400 hover:text-violet-400" : "text-slate-400 hover:text-violet-600")}
+                >
+                  Change
+                </button>
               </div>
             ) : null}
             {!canGenerate ? <Callout>Fill in your Epic above, then click Generate to create Natural Language user stories.</Callout> : null}
@@ -662,26 +686,31 @@ export function Phase1Workflow() {
               AI Guidance <span className={dark ? "text-neutral-500" : "text-slate-400"}>Optional</span>
               <Input value={generateHint} onChange={(event) => setGenerateHint(event.target.value)} placeholder="e.g. focus on error handling and edge cases" />
             </label>
-            <Button
-              className="w-full"
-              disabled={!canGenerate || busy || noContext}
-              onClick={() =>
-                generate.mutate(
-                  { epic_subject: epicTitle, epic_description: epicDescription, hint: generateHint },
-                  {
-                    onSuccess: (data) => {
-                      setNlDraft(data.nl_draft);
-                      setCompiledStories([]);
-                      setStep(3);
-                      toast.success("Stories generated — review the draft below");
+            <div className="flex gap-2">
+              <Button variant="secondary" className="gap-1.5" onClick={() => setStep(1)} disabled={busy}>
+                <ChevronLeft className="size-4" /> Back
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={!canGenerate || busy || noContext}
+                onClick={() =>
+                  generate.mutate(
+                    { epic_subject: epicTitle, epic_description: epicDescription, hint: generateHint },
+                    {
+                      onSuccess: (data) => {
+                        setNlDraft(data.nl_draft);
+                        setCompiledStories([]);
+                        setStep(3);
+                        toast.success("Stories generated — review the draft below");
+                      },
                     },
-                  },
-                )
-              }
-            >
-              <Sparkles className="size-4" />
-              {generate.isPending ? "Generating…" : "Generate Stories"}
-            </Button>
+                  )
+                }
+              >
+                <Sparkles className="size-4" />
+                {generate.isPending ? "Generating…" : "Generate Stories"}
+              </Button>
+            </div>
             <AIProgressIndicator steps={GENERATE_STEPS} isPending={generate.isPending} dark={dark} />
             {generate.isError ? (
               <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
