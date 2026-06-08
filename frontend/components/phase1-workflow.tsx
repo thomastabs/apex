@@ -187,6 +187,13 @@ export function Phase1Workflow() {
   const validationErrors = compiledStories.length ? validateStories(compiledStories) : [];
   const canPush = !busy && !noContext && compiledStories.length > 0 && validationErrors.length === 0;
 
+  const currentStep =
+    pushSuccess ? 4 :
+    (compiledStories.length > 0 && showGherkin) ? 3 :
+    nlDraft ? 2 :
+    canGenerate ? 1 :
+    0;
+
   function requestModeSwitch(next: Mode) {
     if (hasUnsaved && mode !== next) {
       toast.info("Draft cleared — switching mode.", {
@@ -347,6 +354,57 @@ export function Phase1Workflow() {
       )}
 
       <div className={cn("space-y-8 border-t pt-6", sectionBorderClass)}>
+        {/* Step progress stepper */}
+        {(() => {
+          const steps = ["Define Epic", "Generate", "Review Draft", "Publish"];
+          return (
+            <div className={cn("rounded-xl border px-6 py-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
+              <div className="flex items-center">
+                {steps.map((label, i) => {
+                  const isActive = currentStep === i;
+                  const isDone = currentStep > i;
+                  return (
+                    <div key={label} className="flex flex-1 items-center">
+                      <div className="flex flex-col items-center gap-1.5">
+                        <span className={cn(
+                          "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ring-2 transition",
+                          isActive
+                            ? "bg-violet-600 text-white ring-violet-400"
+                            : isDone
+                              ? dark ? "bg-violet-800 text-violet-200 ring-violet-700" : "bg-violet-100 text-violet-600 ring-violet-300"
+                              : dark
+                                ? "bg-neutral-800 text-neutral-400 ring-neutral-700"
+                                : "bg-white text-slate-500 ring-slate-300",
+                        )}>
+                          {isDone ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
+                        </span>
+                        <span className={cn(
+                          "text-xs font-semibold whitespace-nowrap",
+                          isActive
+                            ? "text-violet-500"
+                            : isDone
+                              ? dark ? "text-violet-400" : "text-violet-500"
+                              : dark ? "text-neutral-500" : "text-slate-400",
+                        )}>
+                          {label}
+                        </span>
+                      </div>
+                      {i < steps.length - 1 && (
+                        <div className={cn(
+                          "mx-2 mb-5 h-0.5 flex-1 rounded-full transition-all",
+                          isDone
+                            ? dark ? "bg-violet-700" : "bg-violet-300"
+                            : dark ? "bg-neutral-700" : "bg-slate-200",
+                        )} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
         <section className="space-y-4">
           <SectionHeading>Step 1 · Define Your Epic</SectionHeading>
           <div className={cn("grid grid-cols-3 rounded-md p-1", dark ? "bg-neutral-800" : "bg-slate-200")}>

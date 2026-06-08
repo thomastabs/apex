@@ -302,6 +302,12 @@ export function Phase2Workflow() {
   const labelClass = dark ? "text-neutral-200" : "text-slate-700";
   const mutedClass = dark ? "text-neutral-500" : "text-slate-400";
   const cardClass = dark ? "border-neutral-800 bg-[#1f1f21]" : "border-slate-200 bg-slate-50";
+
+  const currentStep =
+    Boolean(lockDesign.data) ? 3 :
+    (stackDefined && allSectionsPopulated) ? 2 :
+    stackDefined ? 1 :
+    0;
   const outlineButtonClass = dark
     ? "border-neutral-700 text-neutral-300 hover:bg-neutral-800"
     : "border-slate-300 text-slate-600 hover:bg-slate-100";
@@ -347,6 +353,57 @@ export function Phase2Workflow() {
       ) : null}
 
       <div className={cn("space-y-8 border-t pt-6", sectionBorderClass)}>
+        {/* Step progress stepper */}
+        {(() => {
+          const steps = ["Tech Stack", "Project Design", "Sign-off"];
+          return (
+            <div className={cn("rounded-xl border px-6 py-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
+              <div className="flex items-center">
+                {steps.map((label, i) => {
+                  const isActive = currentStep === i;
+                  const isDone = currentStep > i;
+                  return (
+                    <div key={label} className="flex flex-1 items-center">
+                      <div className="flex flex-col items-center gap-1.5">
+                        <span className={cn(
+                          "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ring-2 transition",
+                          isActive
+                            ? "bg-violet-600 text-white ring-violet-400"
+                            : isDone
+                              ? dark ? "bg-violet-800 text-violet-200 ring-violet-700" : "bg-violet-100 text-violet-600 ring-violet-300"
+                              : dark
+                                ? "bg-neutral-800 text-neutral-400 ring-neutral-700"
+                                : "bg-white text-slate-500 ring-slate-300",
+                        )}>
+                          {isDone ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
+                        </span>
+                        <span className={cn(
+                          "text-xs font-semibold whitespace-nowrap",
+                          isActive
+                            ? "text-violet-500"
+                            : isDone
+                              ? dark ? "text-violet-400" : "text-violet-500"
+                              : dark ? "text-neutral-500" : "text-slate-400",
+                        )}>
+                          {label}
+                        </span>
+                      </div>
+                      {i < steps.length - 1 && (
+                        <div className={cn(
+                          "mx-2 mb-5 h-0.5 flex-1 rounded-full transition-all",
+                          isDone
+                            ? dark ? "bg-violet-700" : "bg-violet-300"
+                            : dark ? "bg-neutral-700" : "bg-slate-200",
+                        )} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ── Stage A: Tech Stack ─────────────────────────────────────────── */}
         <section className="space-y-4">
           <SectionHeading>Stage A · Technology Choices</SectionHeading>
