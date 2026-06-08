@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,29 +17,82 @@ export function AIProgressIndicator({
 }) {
   const [stepIdx, setStepIdx] = useState(0);
   const [dots, setDots] = useState("");
+  // progress: 0–100. Asymptotically approaches ~90 while pending, jumps to 100 on done.
+  const [progress, setProgress] = useState(0);
+  const progressRef = useRef(0);
 
+  // Step cycling — advance forward only, stop at last step (no wrap-around).
   useEffect(() => {
-    if (!isPending) { setStepIdx(0); setDots(""); return; }
-    if (activeStep !== undefined) { setStepIdx(activeStep); }
-    const dotsTimer = setInterval(() => setDots((d) => (d.length >= 3 ? "" : d + ".")), 400);
+    if (!isPending) {
+      setStepIdx(0);
+      setDots("");
+      return;
+    }
+    if (activeStep !== undefined) {
+      setStepIdx(Math.min(activeStep, steps.length - 1));
+    }
+    const dotsTimer = setInterval(
+      () => setDots((d) => (d.length >= 3 ? "" : d + ".")),
+      400,
+    );
     if (activeStep !== undefined) return () => clearInterval(dotsTimer);
-    const stepTimer = setInterval(() => setStepIdx((i) => (i + 1) % steps.length), 2200);
-    return () => { clearInterval(stepTimer); clearInterval(dotsTimer); };
+
+    // Advance only to the last step, then stay there.
+    const stepTimer = setInterval(() => {
+      setStepIdx((i) => Math.min(i + 1, steps.length - 1));
+    }, 2200);
+    return () => {
+      clearInterval(stepTimer);
+      clearInterval(dotsTimer);
+    };
   }, [isPending, steps.length, activeStep]);
 
-  if (!isPending) return null;
+  // Progress bar — easing toward 90% while pending, snap to 100 on complete.
+  useEffect(() => {
+    if (!isPending) {
+      setProgress(100);
+      const reset = setTimeout(() => { setProgress(0); progressRef.current = 0; }, 600);
+      return () => clearTimeout(reset);
+    }
+    progressRef.current = 0;
+    setProgress(0);
+    const TICK_MS = 250;
+    const PULL_RATE = 0.028; // each tick: progress += (90 - progress) * PULL_RATE
+    const timer = setInterval(() => {
+      const next = progressRef.current + (90 - progressRef.current) * PULL_RATE;
+      progressRef.current = next;
+      setProgress(next);
+    }, TICK_MS);
+    return () => clearInterval(timer);
+  }, [isPending]);
+
+  if (!isPending && progress === 0) return null;
 
   return (
     <div className={cn(
       "space-y-3 rounded-md border p-4",
       dark ? "border-violet-500/20 bg-violet-950/20" : "border-violet-300 bg-violet-50",
     )}>
+      {/* Header */}
       <div className="flex items-center gap-2">
         <div className="size-4 animate-spin rounded-full border-2 border-violet-500 border-t-transparent" />
         <span className={cn("text-sm font-medium", dark ? "text-violet-300" : "text-violet-700")}>
           AI Working{dots}
         </span>
       </div>
+
+      {/* Progress bar */}
+      <div className={cn("h-1 rounded-full overflow-hidden", dark ? "bg-violet-900/40" : "bg-violet-200")}>
+        <div
+          className={cn(
+            "h-full rounded-full transition-all",
+            isPending ? "bg-violet-500" : "bg-emerald-500",
+          )}
+          style={{ width: `${progress}%`, transitionDuration: isPending ? "200ms" : "400ms" }}
+        />
+      </div>
+
+      {/* Step list */}
       <div className="space-y-1.5">
         {steps.map((step, i) => (
           <div

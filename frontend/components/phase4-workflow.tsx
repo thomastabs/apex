@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -25,7 +25,6 @@ import {
   useUpdatePmStoryStatus,
 } from "@/lib/hooks/use-phase4";
 import { usePhase4Store } from "@/lib/stores/phase4-store";
-import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
 import type { Phase4StoryPreview } from "@/lib/api/types";
@@ -213,7 +212,6 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
 
 function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () => void; onContinue: () => void }) {
   const dark = useUiStore((s) => s.theme) === "dark";
-  const context = useApiContext();
   const { data: ctx } = useStoryContext(storyId);
   const { data: savedPlan, isLoading: planLoading } = useLoadTestPlan(storyId);
 
@@ -226,13 +224,15 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
   const displayMd = testPlanMd ?? savedPlan?.test_plan_md ?? "";
 
-  if (ctx && !testPlanMd && savedPlan?.test_plan_md) {
-    setTestPlanMd(savedPlan.test_plan_md);
-  }
+  useEffect(() => {
+    if (ctx && !testPlanMd && savedPlan?.test_plan_md) {
+      setTestPlanMd(savedPlan.test_plan_md);
+    }
+  }, [ctx, testPlanMd, savedPlan?.test_plan_md, setTestPlanMd]);
 
-  if (ctx) {
-    setCurrentStoryMeta(ctx.title, ctx.epic_title);
-  }
+  useEffect(() => {
+    if (ctx) setCurrentStoryMeta(ctx.title, ctx.epic_title);
+  }, [ctx, setCurrentStoryMeta]);
 
   const handleGenerate = () => {
     generateMut.mutate(storyId);

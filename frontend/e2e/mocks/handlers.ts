@@ -5,6 +5,48 @@
 
 import type { Page } from "@playwright/test";
 
+const FAKE_TEST_PLAN_MD = `## Scenario: Successful login
+
+## Test Steps
+1. Navigate to the login page
+2. Enter valid email and password
+3. Submit the form
+
+## Expected Results
+User is redirected to dashboard. Response includes JWT token.
+
+## Edge Cases
+- Empty credentials should return 400
+- Invalid password should return 401
+
+## Risk Areas
+- Token expiry handling
+- Concurrent session management
+`;
+
+const FAKE_BUG_REPORT_MD = `## Bug Summary
+Login endpoint returns 500 on valid credentials.
+
+## Failed Scenario
+Successful login
+
+## Root Cause Hypothesis
+Unhandled exception in password hashing comparison.
+
+## Patch Scope
+backend/app/api/auth.py — validate_credentials()
+
+## Reproduction Steps
+1. POST /auth/login with valid credentials
+2. Observe 500 response
+
+## Fix-Bolt Brief
+Task: Fix validate_credentials() to handle bcrypt exceptions.
+Files: backend/app/api/auth.py
+Verify: POST /auth/login returns 200 with JWT token
+Done-when: login test passes
+`;
+
 const FAKE_PACK_MD = `## Context
 Implement login endpoint for the authentication feature.
 
@@ -147,6 +189,78 @@ export async function applyMocks(page: Page) {
       contentType: "application/json",
       body: JSON.stringify({ ok: true }),
     }),
+  );
+
+  // ── Phase 4 ───────────────────────────────────────────────────────────────
+  await page.route(`${api}/api/phase4/eligible-stories`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        stories: [
+          {
+            story_id: 10,
+            title: "User Login",
+            epic_title: "Authentication",
+            gherkin_preview: "Feature: User Login\n  Scenario: Successful login",
+            has_bdd: false,
+            has_bug_report: false,
+            is_regression_bypass: false,
+          },
+        ],
+      }),
+    }),
+  );
+
+  await page.route(`${api}/api/phase4/story-context/**`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        story_id: 10,
+        title: "User Login",
+        epic_title: "Authentication",
+        gherkin: "Feature: User Login\n  Scenario: Successful login\n    Given a registered user\n    When they submit valid credentials\n    Then they receive a JWT token",
+        technical_spec: "## Endpoints\n- POST /auth/login · auth:none · in:{email,password} · out:{token}",
+        tech_stack: "FastAPI + Next.js + PostgreSQL",
+      }),
+    }),
+  );
+
+  await page.route(`${api}/api/phase4/generate-test-plan`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ story_id: 10, test_plan_md: FAKE_TEST_PLAN_MD }),
+    }),
+  );
+
+  await page.route(`${api}/api/phase4/save-test-plan`, (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) }),
+  );
+
+  await page.route(`${api}/api/phase4/test-plan/**`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ story_id: 10, test_plan_md: "" }),
+    }),
+  );
+
+  await page.route(`${api}/api/phase4/generate-bug-report`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ story_id: 10, bug_report_md: FAKE_BUG_REPORT_MD }),
+    }),
+  );
+
+  await page.route(`${api}/api/phase4/pass-gate`, (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) }),
+  );
+
+  await page.route(`${api}/api/phase4/fail-gate`, (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) }),
   );
 
   // ── Phase 3 ───────────────────────────────────────────────────────────────
@@ -409,6 +523,20 @@ export const SESSION_STORAGE = JSON.stringify({
     githubRepo: "",
   },
   version: 4,
+});
+
+export const PHASE4_STORE_RESET = JSON.stringify({
+  state: {
+    selectedStoryId: null,
+    testPlanMd: null,
+    scenarioResults: {},
+    scenarioNotes: {},
+    bugReportDrafts: {},
+    isRegressionBypass: false,
+    failedScenarioNames: [],
+    currentStoryMeta: { title: "", epicTitle: "" },
+  },
+  version: 0,
 });
 
 // Clean phase3 store so stale tasksPushed/pushedStoryIds don't disable buttons.
