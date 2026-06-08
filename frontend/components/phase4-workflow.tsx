@@ -252,7 +252,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
       <SectionHeading>Test Plan</SectionHeading>
 
       {ctx && (
-        <details className={cn("rounded-lg border text-sm", dark ? "border-neutral-700" : "border-slate-200")}>
+        <details open className={cn("rounded-lg border text-sm", dark ? "border-neutral-700" : "border-slate-200")}>
           <summary className={cn("cursor-pointer px-4 py-2.5 font-medium", dark ? "text-neutral-300" : "text-slate-700")}>
             Acceptance Criteria (Gherkin)
           </summary>
@@ -260,6 +260,29 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
             {ctx.gherkin}
           </pre>
         </details>
+      )}
+
+      {ctx && ctx.task_list.length > 0 && (
+        <div className={cn("rounded-lg border text-sm", dark ? "border-neutral-700" : "border-slate-200")}>
+          <div className={cn("px-4 py-2.5 font-medium border-b", dark ? "text-neutral-300 border-neutral-700" : "text-slate-700 border-slate-200")}>
+            Implementation Tasks
+          </div>
+          <ul className="divide-y divide-inherit">
+            {ctx.task_list.map((task) => (
+              <li key={task.id} className={cn("px-4 py-2.5 flex items-start gap-3", dark ? "divide-neutral-700" : "divide-slate-200")}>
+                <span className={cn("mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-xs font-mono font-semibold", dark ? "bg-neutral-700 text-neutral-300" : "bg-slate-100 text-slate-500")}>
+                  {task.effort_estimate}
+                </span>
+                <div className="min-w-0">
+                  <p className={cn("font-medium leading-snug", dark ? "text-neutral-200" : "text-slate-700")}>{task.subject}</p>
+                  {task.description && (
+                    <p className={cn("mt-0.5 text-xs", dark ? "text-neutral-500" : "text-slate-400")}>{task.description}</p>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {generateMut.isPending && (

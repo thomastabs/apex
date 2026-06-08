@@ -345,6 +345,7 @@ export type Phase4StoryContext = {
   gherkin: string;
   technical_spec: string;
   tech_stack: string;
+  task_list: Array<{ id: number; subject: string; description: string; effort_estimate: string; covered_scenarios: string[] }>;
 };
 
 export type Phase4GenerateTestPlanResponse = {

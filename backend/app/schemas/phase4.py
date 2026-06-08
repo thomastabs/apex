@@ -24,6 +24,7 @@ class StoryContextResponse(BaseModel):
     gherkin: str
     technical_spec: str
     tech_stack: str
+    task_list: list[dict] = Field(default_factory=list)
 
 
 class GenerateTestPlanRequest(BaseModel):
