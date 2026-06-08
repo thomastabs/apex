@@ -72,6 +72,30 @@ function extractScenarioSection(testPlanMd: string, scenarioName: string): strin
   return extractSection(testPlanMd, heading);
 }
 
+function MarkdownPreview({ content, dark, className }: { content: string; dark: boolean; className?: string }) {
+  const [html, setHtml] = useState("");
+  useEffect(() => {
+    async function render() {
+      const { marked } = await import("marked");
+      const DOMPurify = (await import("dompurify")).default;
+      const raw = await marked.parse(content || "");
+      setHtml(DOMPurify.sanitize(raw));
+    }
+    void render();
+  }, [content]);
+  return (
+    <div
+      className={cn(
+        "prose prose-sm max-w-none overflow-y-auto rounded-lg border p-4 text-xs leading-relaxed",
+        dark ? "prose-invert border-neutral-700 bg-neutral-950" : "prose-slate border-slate-200 bg-slate-50",
+        className,
+      )}
+      // eslint-disable-next-line react/no-danger
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Stage A — Story selection
 // ---------------------------------------------------------------------------
@@ -296,14 +320,21 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
       {displayMd && (
         <div className="space-y-2">
-          <Textarea
-            value={displayMd}
-            onChange={(e) => setTestPlanMd(e.target.value)}
-            className={cn(
-              "font-mono text-xs min-h-[400px] w-full",
-              dark ? "bg-neutral-950 text-neutral-200 border-neutral-700" : "bg-white text-slate-700 border-slate-300",
-            )}
-          />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Edit</p>
+              <Textarea
+                value={displayMd}
+                onChange={(e) => setTestPlanMd(e.target.value)}
+                rows={28}
+                className="font-mono text-xs"
+              />
+            </div>
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Preview</p>
+              <MarkdownPreview content={displayMd} dark={dark} className="max-h-[28rem]" />
+            </div>
+          </div>
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => blobDownload(displayMd, `test-plan-us${storyId}.md`)}>
               Download .md
