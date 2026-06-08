@@ -3,20 +3,19 @@ import { test, expect } from "./fixtures";
 test("Phase 1: generate NL stories → convert to Gherkin → push to PM", async ({ page }) => {
   await page.goto("/phase1");
 
-  // Default mode is "Create New" — fill in the epic title.
+  // Step 1 — fill epic title, then proceed
   await page.getByPlaceholder("e.g. User Authentication").fill("User Authentication");
+  await page.getByRole("button", { name: /Continue to Generate/i }).click();
 
-  // Click "Generate Stories"
+  // Step 2 — generate stories
   await page.getByRole("button", { name: /Generate Stories/i }).click();
 
-  // "Convert to Acceptance Criteria" button only appears when nlDraft is truthy.
-  // Wait for it to be enabled (confirms generation succeeded AND context is available).
+  // Step 3 auto-advances — "Convert to Acceptance Criteria" appears
   const convertBtn = page.getByRole("button", { name: /Convert to Acceptance Criteria/i });
   await expect(convertBtn).toBeEnabled({ timeout: 10_000 });
   await convertBtn.click();
 
-  // "Push Stories" becomes enabled once compiledStories is non-empty.
-  // This confirms the compile mutation succeeded.
+  // Step 4 auto-advances — "Push Stories" appears
   const pushBtn = page.getByRole("button", { name: /Push Stories/i });
   await expect(pushBtn).toBeEnabled({ timeout: 10_000 });
 

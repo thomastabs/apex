@@ -3,7 +3,7 @@ import { test, expect } from "./fixtures";
 test("Phase 2: propose architecture → save tech stack → generate design → lock design", async ({ page }) => {
   await page.goto("/phase2");
 
-  // Stage A — tech stack not yet defined, "Propose Architecture" button visible
+  // Step 1 — tech stack not yet defined, "Propose Architecture" button visible
   await expect(page.getByRole("button", { name: /Propose Architecture/i })).toBeVisible({ timeout: 10_000 });
 
   // Click "Propose Architecture"
@@ -16,25 +16,23 @@ test("Phase 2: propose architecture → save tech stack → generate design → 
   // Click the first alternative card to select it
   await page.getByText("Option 1: FastAPI + Next.js + PostgreSQL").click();
 
-  // Click "Save Technology Choices"
+  // Click "Save Technology Choices" — auto-advances to Step 2
   await page.getByRole("button", { name: /Save Technology Choices/i }).click();
 
-  // Success toast
-  await expect(page.getByText(/Technology choices saved/i)).toBeVisible({ timeout: 5_000 });
-
-  // Stage B appears after the status query refetches and returns defined=true.
-  // The mock is stateful: lock-tech-stack handler sets techStackDefined=true.
+  // Step 2 — "Generate Design" is now visible
   await expect(page.getByRole("button", { name: /Generate Design/i })).toBeVisible({ timeout: 15_000 });
 
   // Click "Generate Design"
   await page.getByRole("button", { name: /Generate Design/i }).click();
 
-  // Design sections should populate — look for UX Brief content
-  await expect(page.getByText(/Login screen/i)).toBeVisible({ timeout: 15_000 });
+  // Design sections should populate — wait for "Continue to Sign-off" button
+  await expect(page.getByRole("button", { name: /Continue to Sign-off/i })).toBeVisible({ timeout: 15_000 });
 
-  // Wait for generation to finish and sign-off section to appear.
-  // Both checkboxes must be checked before "Save & Lock Design" is enabled.
-  await expect(page.getByText(/Design Lead Sign-off/i)).toBeVisible({ timeout: 15_000 });
+  // Proceed to Step 3
+  await page.getByRole("button", { name: /Continue to Sign-off/i }).click();
+
+  // Step 3 — sign-off section appears
+  await expect(page.getByText(/Design Lead Sign-off/i)).toBeVisible({ timeout: 5_000 });
   await page.getByText(/Design Lead Sign-off/i).click();
   await page.getByText(/Tech Lead Sign-off/i).click();
 

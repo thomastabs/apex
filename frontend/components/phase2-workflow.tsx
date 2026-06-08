@@ -123,9 +123,12 @@ function loadBundleDraft(projectId: number | null): object | null {
   }
 }
 
+const STEP_LABELS = ["Tech Stack", "Project Design", "Sign-off"] as const;
+
 export function Phase2Workflow() {
   const dark = useUiStore((state) => state.theme) === "dark";
   const context = useApiContext();
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [stackHint, setStackHint] = useState("");
   const [stackReopened, setStackReopened] = useState(false);
   const [diagramOpen, setDiagramOpen] = useState(false);
@@ -201,6 +204,11 @@ export function Phase2Workflow() {
     ? DESIGN_SECTION_ORDER.indexOf(generateSections.currentSection)
     : undefined;
 
+  const maxUnlockedStep: 1 | 2 | 3 =
+    (stackDefined && allSectionsPopulated) ? 3 :
+    stackDefined ? 2 :
+    1;
+
   function clearDesign() {
     setDesignBundle(null);
     setDesignLeadApproved(false);
@@ -212,6 +220,7 @@ export function Phase2Workflow() {
   function reopenStack() {
     setStackReopened(true);
     setTechStackDraft(techStack.data?.tech_stack ?? "");
+    setStep(1);
   }
 
   function doGenerate() {
@@ -302,12 +311,6 @@ export function Phase2Workflow() {
   const labelClass = dark ? "text-neutral-200" : "text-slate-700";
   const mutedClass = dark ? "text-neutral-500" : "text-slate-400";
   const cardClass = dark ? "border-neutral-800 bg-[#1f1f21]" : "border-slate-200 bg-slate-50";
-
-  const currentStep =
-    Boolean(lockDesign.data) ? 3 :
-    (stackDefined && allSectionsPopulated) ? 2 :
-    stackDefined ? 1 :
-    0;
   const outlineButtonClass = dark
     ? "border-neutral-700 text-neutral-300 hover:bg-neutral-800"
     : "border-slate-300 text-slate-600 hover:bg-slate-100";
@@ -352,170 +355,174 @@ export function Phase2Workflow() {
         </div>
       ) : null}
 
-      <div className={cn("space-y-8 border-t pt-6", sectionBorderClass)}>
-        {/* Step progress stepper */}
-        {(() => {
-          const steps = ["Tech Stack", "Project Design", "Sign-off"];
-          return (
-            <div className={cn("rounded-xl border px-6 py-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
-              <div className="flex items-center">
-                {steps.map((label, i) => {
-                  const isActive = currentStep === i;
-                  const isDone = currentStep > i;
-                  return (
-                    <div key={label} className="flex flex-1 items-center">
-                      <div className="flex flex-col items-center gap-1.5">
-                        <span className={cn(
-                          "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ring-2 transition",
-                          isActive
-                            ? "bg-violet-600 text-white ring-violet-400"
-                            : isDone
-                              ? dark ? "bg-violet-800 text-violet-200 ring-violet-700" : "bg-violet-100 text-violet-600 ring-violet-300"
-                              : dark
-                                ? "bg-neutral-800 text-neutral-400 ring-neutral-700"
-                                : "bg-white text-slate-500 ring-slate-300",
-                        )}>
-                          {isDone ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
-                        </span>
-                        <span className={cn(
-                          "text-xs font-semibold whitespace-nowrap",
-                          isActive
-                            ? "text-violet-500"
-                            : isDone
-                              ? dark ? "text-violet-400" : "text-violet-500"
-                              : dark ? "text-neutral-500" : "text-slate-400",
-                        )}>
-                          {label}
-                        </span>
-                      </div>
-                      {i < steps.length - 1 && (
-                        <div className={cn(
-                          "mx-2 mb-5 h-0.5 flex-1 rounded-full transition-all",
-                          isDone
-                            ? dark ? "bg-violet-700" : "bg-violet-300"
-                            : dark ? "bg-neutral-700" : "bg-slate-200",
-                        )} />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })()}
+      <div className={cn("space-y-6 border-t pt-6", sectionBorderClass)}>
+        {/* Stepper */}
+        <div className={cn("rounded-xl border px-6 py-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
+          <div className="flex items-center">
+            {STEP_LABELS.map((label, i) => {
+              const stepNum = (i + 1) as 1 | 2 | 3;
+              const isActive = step === stepNum;
+              const isDone = step > stepNum;
+              const canNav = stepNum <= maxUnlockedStep;
+              return (
+                <div key={label} className="flex flex-1 items-center">
+                  <button
+                    onClick={() => setStep(stepNum)}
+                    disabled={!canNav}
+                    className={cn("group flex flex-col items-center gap-1.5 transition disabled:pointer-events-none", !canNav && "opacity-35")}
+                  >
+                    <span className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ring-2 transition",
+                      isActive
+                        ? "bg-violet-600 text-white ring-violet-400"
+                        : isDone
+                          ? dark ? "bg-violet-800 text-violet-200 ring-violet-700" : "bg-violet-100 text-violet-600 ring-violet-300"
+                          : dark
+                            ? "bg-neutral-800 text-neutral-400 ring-neutral-700 group-hover:ring-neutral-500"
+                            : "bg-white text-slate-500 ring-slate-300 group-hover:ring-violet-400",
+                    )}>
+                      {isDone ? <CheckCircle2 className="h-4 w-4" /> : stepNum}
+                    </span>
+                    <span className={cn(
+                      "text-xs font-semibold whitespace-nowrap",
+                      isActive
+                        ? "text-violet-500"
+                        : isDone
+                          ? dark ? "text-violet-400" : "text-violet-500"
+                          : dark ? "text-neutral-500" : "text-slate-400",
+                    )}>
+                      {label}
+                    </span>
+                  </button>
+                  {i < STEP_LABELS.length - 1 && (
+                    <div className={cn(
+                      "mx-2 mb-5 h-0.5 flex-1 rounded-full transition-all",
+                      isDone
+                        ? dark ? "bg-violet-700" : "bg-violet-300"
+                        : dark ? "bg-neutral-700" : "bg-slate-200",
+                    )} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
-        {/* ── Stage A: Tech Stack ─────────────────────────────────────────── */}
-        <section className="space-y-4">
-          <SectionHeading>Stage A · Technology Choices</SectionHeading>
-          <p className={cn("text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
-            Example: React frontend, FastAPI backend, PostgreSQL database, hosted on Azure.
-          </p>
-          {stackDefined ? (
-            <div className="flex items-start justify-between gap-4">
-              <Callout>Technology choices are locked for this project. You can review them below before generating the design.</Callout>
-              <button
-                className={cn("flex shrink-0 items-center gap-1 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
-                title="Reopen technology choices for editing"
-                onClick={reopenStack}
+        {/* ── Step 1: Technology Choices ────────────────────────────────── */}
+        {step === 1 && (
+          <section className="space-y-4">
+            <SectionHeading>Stage A · Technology Choices</SectionHeading>
+            <p className={cn("text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
+              Example: React frontend, FastAPI backend, PostgreSQL database, hosted on Azure.
+            </p>
+            {stackDefined ? (
+              <div className="flex items-start justify-between gap-4">
+                <Callout>Technology choices are locked for this project. You can review them below before generating the design.</Callout>
+                <button
+                  className={cn("flex shrink-0 items-center gap-1 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
+                  title="Reopen technology choices for editing"
+                  onClick={reopenStack}
+                >
+                  <Unlock className="size-3" />
+                  Reopen
+                </button>
+              </div>
+            ) : (
+              <Callout>Choose and lock in the technologies your team will use. This guides the AI when generating your project design.</Callout>
+            )}
+            <label className={cn("block text-sm font-medium", labelClass)}>
+              Tech Lead Notes <span className={mutedClass}>Optional</span>
+              <Input value={stackHint} onChange={(event) => setStackHint(event.target.value)} placeholder="e.g. prefer Python backend, PostgreSQL, simple deployment" />
+            </label>
+            {!stackDefined ? (
+              <Button
+                className="w-full"
+                disabled={busy || noContext}
+                onClick={() =>
+                  proposeStack.mutate(
+                    { hint: stackHint },
+                    {
+                      onSuccess: (data) => {
+                        setAlternatives(data.alternatives);
+                        setSelectedAlternativeIndex(-1);
+                        toast.success("Architecture alternatives proposed");
+                      },
+                    },
+                  )
+                }
               >
-                <Unlock className="size-3" />
-                Reopen
-              </button>
-            </div>
-          ) : (
-            <Callout>Choose and lock in the technologies your team will use. This guides the AI when generating your project design.</Callout>
-          )}
-          <label className={cn("block text-sm font-medium", labelClass)}>
-            Tech Lead Notes <span className={mutedClass}>Optional</span>
-            <Input value={stackHint} onChange={(event) => setStackHint(event.target.value)} placeholder="e.g. prefer Python backend, PostgreSQL, simple deployment" />
-          </label>
-          {!stackDefined ? (
+                <Sparkles className="size-4" />
+                Propose Architecture
+              </Button>
+            ) : null}
+            <AIProgressIndicator steps={PROPOSE_STEPS} isPending={proposeStack.isPending} dark={dark} />
+            {proposeStack.isError ? (
+              <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
+                Proposal failed: {errMsg(proposeStack.error)}
+              </div>
+            ) : null}
+
+            {alternatives.length ? (
+              <div className="grid gap-3 xl:grid-cols-2">
+                {alternatives.map((alt, index) => (
+                  <button
+                    key={alt.name}
+                    onClick={() => {
+                      setSelectedAlternativeIndex(index);
+                      setTechStackDraft(`${alt.name}\n\n${alt.description}\n\n${alt.trade_offs}`);
+                    }}
+                    className={cn(
+                      "rounded-md border p-4 text-left transition-colors",
+                      dark ? "bg-[#1f1f21]" : "bg-slate-50",
+                      selectedAlternativeIndex === index
+                        ? "border-violet-500"
+                        : dark ? "border-neutral-800 hover:border-neutral-700" : "border-slate-200 hover:border-slate-300",
+                    )}
+                  >
+                    <div className={cn("mb-2 font-semibold", dark ? "text-white" : "text-slate-900")}>
+                      Option {index + 1}: {alt.name}
+                    </div>
+                    <p className={cn("mb-3 text-sm leading-6", dark ? "text-neutral-400" : "text-slate-600")}>{alt.description}</p>
+                    <pre className={cn("whitespace-pre-wrap text-xs", dark ? "text-neutral-500" : "text-slate-400")}>{alt.trade_offs}</pre>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            <label className={cn("block text-sm font-medium", labelClass)}>
+              Technology Choices Draft
+              <Textarea rows={8} value={techStackDraft} onChange={(event) => setTechStackDraft(event.target.value)} />
+            </label>
             <Button
               className="w-full"
-              disabled={busy || noContext}
-              onClick={() =>
-                proposeStack.mutate(
-                  { hint: stackHint },
+              disabled={busy || noContext || !techStackDraft.trim()}
+              onClick={() => {
+                lockStack.mutate(
+                  { tech_stack: techStackDraft },
                   {
-                    onSuccess: (data) => {
-                      setAlternatives(data.alternatives);
-                      setSelectedAlternativeIndex(-1);
-                      toast.success("Architecture alternatives proposed");
+                    onSuccess: () => {
+                      setStackReopened(false);
+                      setStep(2);
+                      toast.success("Technology choices saved");
                     },
                   },
-                )
-              }
+                );
+              }}
             >
-              <Sparkles className="size-4" />
-              Propose Architecture
+              <Save className="size-4" />
+              Save Technology Choices
             </Button>
-          ) : null}
-          <AIProgressIndicator steps={PROPOSE_STEPS} isPending={proposeStack.isPending} dark={dark} />
-          {proposeStack.isError ? (
-            <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-              Proposal failed: {errMsg(proposeStack.error)}
-            </div>
-          ) : null}
+            {lockStack.isError ? (
+              <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
+                Lock failed: {errMsg(lockStack.error)}
+              </div>
+            ) : null}
+          </section>
+        )}
 
-          {alternatives.length ? (
-            <div className="grid gap-3 xl:grid-cols-2">
-              {alternatives.map((alt, index) => (
-                <button
-                  key={alt.name}
-                  onClick={() => {
-                    setSelectedAlternativeIndex(index);
-                    setTechStackDraft(`${alt.name}\n\n${alt.description}\n\n${alt.trade_offs}`);
-                  }}
-                  className={cn(
-                    "rounded-md border p-4 text-left transition-colors",
-                    dark ? "bg-[#1f1f21]" : "bg-slate-50",
-                    selectedAlternativeIndex === index
-                      ? "border-violet-500"
-                      : dark ? "border-neutral-800 hover:border-neutral-700" : "border-slate-200 hover:border-slate-300",
-                  )}
-                >
-                  <div className={cn("mb-2 font-semibold", dark ? "text-white" : "text-slate-900")}>
-                    Option {index + 1}: {alt.name}
-                  </div>
-                  <p className={cn("mb-3 text-sm leading-6", dark ? "text-neutral-400" : "text-slate-600")}>{alt.description}</p>
-                  <pre className={cn("whitespace-pre-wrap text-xs", dark ? "text-neutral-500" : "text-slate-400")}>{alt.trade_offs}</pre>
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          <label className={cn("block text-sm font-medium", labelClass)}>
-            Technology Choices Draft
-            <Textarea rows={8} value={techStackDraft} onChange={(event) => setTechStackDraft(event.target.value)} />
-          </label>
-          <Button
-            className="w-full"
-            disabled={busy || noContext || !techStackDraft.trim()}
-            onClick={() => {
-              lockStack.mutate(
-                { tech_stack: techStackDraft },
-                {
-                  onSuccess: () => {
-                    setStackReopened(false);
-                    toast.success("Technology choices saved");
-                  },
-                },
-              );
-            }}
-          >
-            <Save className="size-4" />
-            Save Technology Choices
-          </Button>
-          {lockStack.isError ? (
-            <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-              Lock failed: {errMsg(lockStack.error)}
-            </div>
-          ) : null}
-        </section>
-
-        {/* ── Stage B: Project Design (2 sections) ────────────────────────── */}
-        {stackDefined ? (
-          <section className={cn("space-y-5 border-t pt-6", sectionBorderClass)}>
+        {/* ── Step 2: Project Design ────────────────────────────────────── */}
+        {step === 2 && (
+          <section className="space-y-5">
             <SectionHeading>Stage B · Project Design</SectionHeading>
             <p className={cn("text-sm", mutedClass)}>
               Generate a concise UX Brief and API Surface covering all your project stories.
@@ -528,7 +535,6 @@ export function Phase2Workflow() {
               </p>
             </div>
 
-            {/* Action bar */}
             <div className="space-y-2">
               {generateSections.isPending ? (
                 <button
@@ -606,7 +612,6 @@ export function Phase2Workflow() {
               </div>
             ) : null}
 
-            {/* ── 2 Design Sections ─────────────────────────────────────────── */}
             <div className="space-y-4">
               {DESIGN_SECTION_ORDER.map((section) => {
                 const cfg = SECTION_CONFIG[section];
@@ -621,7 +626,6 @@ export function Phase2Workflow() {
                     key={section}
                     className={cn("overflow-hidden rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}
                   >
-                    {/* Panel header */}
                     <div className={cn("flex items-center justify-between px-4 py-3", dark ? "bg-neutral-900" : "bg-slate-50")}>
                       <div className="flex items-center gap-3">
                         <span className={cn(
@@ -645,12 +649,10 @@ export function Phase2Workflow() {
                       )}
                     </div>
 
-                    {/* Description */}
                     <div className={cn("border-t px-4 py-2 text-xs", dark ? "border-neutral-800 text-neutral-500" : "border-slate-100 text-slate-500")}>
                       {cfg.description}
                     </div>
 
-                    {/* Content */}
                     {isThisGenerating ? (
                       <div className={cn("border-t px-4 py-4", dark ? "border-neutral-800" : "border-slate-100")}>
                         <Skeleton className="h-48 w-full" />
@@ -679,7 +681,6 @@ export function Phase2Workflow() {
                       </div>
                     )}
 
-                    {/* Section-specific visualizations */}
                     {(section === "ux_brief" || section === "endpoints" || section === "data_model") && (
                       <div className={cn("border-t px-4 py-3", dark ? "border-neutral-800" : "border-slate-100")}>
                         {section === "ux_brief" && (
@@ -694,7 +695,6 @@ export function Phase2Workflow() {
                       </div>
                     )}
 
-                    {/* Generate / Regenerate button */}
                     <div className={cn("border-t px-4 py-3", dark ? "border-neutral-800" : "border-slate-100")}>
                       {isThisGenerating ? (
                         <button
@@ -725,8 +725,22 @@ export function Phase2Workflow() {
               })}
             </div>
 
-            {/* ── Sign-off & Lock ───────────────────────────────────────────── */}
-            {activeBundle && !generateSections.isPending ? (
+            {allSectionsPopulated && !generateSections.isPending ? (
+              <Button className="w-full" onClick={() => setStep(3)}>
+                Continue to Sign-off
+                <ChevronRight className="size-4" />
+              </Button>
+            ) : null}
+          </section>
+        )}
+
+        {/* ── Step 3: Sign-off & Lock ───────────────────────────────────── */}
+        {step === 3 && (
+          <section className="space-y-4">
+            <SectionHeading>Stage C · Sign-off &amp; Lock</SectionHeading>
+            {!activeBundle ? (
+              <Callout>Generate all design sections first, then return here to sign off.</Callout>
+            ) : (
               <div className={cn("space-y-4 rounded-md border p-4", cardClass)}>
                 <div className="flex flex-wrap gap-4">
                   <label className={cn("inline-flex items-center gap-2 text-sm", labelClass)}>
@@ -775,7 +789,7 @@ export function Phase2Workflow() {
                   </div>
                 ) : null}
               </div>
-            ) : null}
+            )}
             {lockDesign.data ? (
               <Callout>
                 Design locked for {lockDesign.data.story_ids.length} stories.
@@ -788,7 +802,7 @@ export function Phase2Workflow() {
               </div>
             ) : null}
           </section>
-        ) : null}
+        )}
       </div>
     </section>
   );
