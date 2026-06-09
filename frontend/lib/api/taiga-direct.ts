@@ -1,9 +1,10 @@
 /**
- * Direct Taiga API calls from the browser.
- * Bypasses the FastAPI backend so Azure egress IPs are never involved.
+ * Taiga API calls routed through the FastAPI backend proxy.
+ * The backend forwards requests server-side, eliminating browser CORS issues
+ * with self-hosted Taiga instances.
  * All functions throw ApiError on failure for compatibility with existing hooks.
  */
-import { ApiError } from "./client";
+import { ApiError, getApiBaseUrl } from "./client";
 import type { Epic, EpicWithStories, Me, Membership, Project, Story } from "./types";
 
 const DEFAULT_TAIGA_API = "https://api.taiga.io/api/v1";
@@ -43,13 +44,14 @@ async function taigaFetch<T>(
   apiBaseUrl?: string,
   options?: { method?: string; body?: unknown },
 ): Promise<T> {
-  const url = `${getTaigaApiBaseUrl(apiBaseUrl)}${path}`;
+  const taigaUrl = getTaigaApiBaseUrl(apiBaseUrl);
+  const url = `${getApiBaseUrl()}/api/pm/taiga${path}`;
   const res = await fetch(url, {
     method: options?.method ?? "GET",
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
-      "x-disable-pagination": "True",
+      "X-Taiga-Url": taigaUrl,
     },
     body: options?.body != null ? JSON.stringify(options.body) : undefined,
   });

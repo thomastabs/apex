@@ -40,10 +40,11 @@ describe("taiga direct API", () => {
 
     expect(mockFetch).toHaveBeenNthCalledWith(
       2,
-      "https://api.taiga.test/api/v1/epics/5/related_userstories",
+      "http://localhost:8000/api/pm/taiga/epics/5/related_userstories",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ epic: 5, user_story: 10 }),
+        headers: expect.objectContaining({ "X-Taiga-Url": "https://api.taiga.test/api/v1" }),
       }),
     );
   });
@@ -60,14 +61,12 @@ describe("taiga direct API", () => {
 
     expect(mockFetch).toHaveBeenNthCalledWith(
       3,
-      "https://api.taiga.test/api/v1/userstories/10",
+      "http://localhost:8000/api/pm/taiga/userstories/10",
       expect.objectContaining({ method: "DELETE" }),
     );
   });
 
   it("hydrates missing epic descriptions but not story descriptions from detail endpoints", async () => {
-    // Story descriptions are intentionally NOT hydrated in the board fetch to avoid
-    // a CORS preflight (OPTIONS) storm — one per story — in the browser.
     mockFetch
       .mockResolvedValueOnce(makeResponse(200, [{ id: 5, ref: 1, subject: "Epic" }]))
       .mockResolvedValueOnce(makeResponse(200, [{ id: 10, ref: 2, subject: "Story", epic: 5 }]))
@@ -92,7 +91,7 @@ describe("taiga direct API", () => {
     expect(result).toMatchObject({ ok: true, stories_deleted: 2, story_failures: [] });
     expect(mockFetch).toHaveBeenNthCalledWith(
       4,
-      "https://api.taiga.test/api/v1/epics/5",
+      "http://localhost:8000/api/pm/taiga/epics/5",
       expect.objectContaining({ method: "DELETE" }),
     );
   });
