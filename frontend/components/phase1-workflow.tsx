@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, FilePlus2, Info, Plus, RefreshCw, RotateCcw, Sparkles, Trash2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, FilePlus2, Info, Loader2, Plus, RefreshCw, RotateCcw, Sparkles, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button, Callout, Input, Skeleton, Textarea } from "@/components/ui/primitives";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
@@ -749,7 +749,9 @@ export function Phase1Workflow() {
                 })
               }
             >
-              {compile.isPending ? "Converting…" : "Convert to Acceptance Criteria"}
+              {compile.isPending
+                ? <><Loader2 className="size-4 animate-spin" /> Converting…</>
+                : <><Sparkles className="size-4" /> Convert to Acceptance Criteria</>}
             </Button>
             <AIProgressIndicator steps={COMPILE_STEPS} isPending={compile.isPending} dark={dark} />
             {compile.isError ? (
@@ -890,7 +892,9 @@ export function Phase1Workflow() {
                     )
                   }
                 >
-                  {push.isPending ? "Pushing…" : "Push Stories"}
+                  {push.isPending
+                    ? <><Loader2 className="size-4 animate-spin" /> Pushing…</>
+                    : <><Upload className="size-4" /> Push Stories</>}
                 </Button>
                 <AIProgressIndicator steps={PUSH_STEPS} isPending={push.isPending} dark={dark} />
                 {push.isError ? (

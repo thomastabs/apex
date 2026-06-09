@@ -18,8 +18,10 @@ import {
   Loader2,
   Lock,
   Plus,
+  RefreshCw,
   Sparkles,
   Trash2,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button, Callout, SectionHeading, Textarea } from "@/components/ui/primitives";
@@ -739,14 +741,19 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                       </div>
                     )}
                     <div className="flex items-center gap-2">
-                      <Button variant="secondary" onClick={() => setEditingId(null)}>Done</Button>
+                      <Button variant="secondary" className="gap-1.5" onClick={() => setEditingId(null)}>
+                        <CheckCircle2 className="h-4 w-4" /> Done
+                      </Button>
                       {(task.pm_task_id ?? task.taiga_task_id) && (
                         <Button
                           variant="primary"
+                          className="gap-1.5"
                           onClick={() => updateInTaigaMut.mutate({ pmTaskId: task.pm_task_id ?? String(task.taiga_task_id!), task })}
                           disabled={updateInTaigaMut.isPending}
                         >
-                          {updateInTaigaMut.isPending ? "Saving…" : "Save"}
+                          {updateInTaigaMut.isPending
+                            ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
+                            : <><CheckCircle2 className="h-4 w-4" /> Save</>}
                         </Button>
                       )}
                     </div>
@@ -855,7 +862,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
             >
               {pushToTaiga.isPending
                 ? <><Loader2 className="h-4 w-4 animate-spin" /> Pushing…</>
-                : "Push Tasks"}
+                : <><Upload className="h-4 w-4" /> Push Tasks</>}
             </Button>
           )}
         </div>
@@ -1392,8 +1399,8 @@ function StageD({ storyId, onLocked, onChooseNewStory, onBack }: { storyId: numb
               <ExternalLink className="h-4 w-4" /> View GitHub Issue
             </a>
           )}
-          <Button className="w-full justify-center" variant="secondary" onClick={handleChooseNew}>
-            Choose New Story
+          <Button className="w-full justify-center gap-1.5" variant="secondary" onClick={handleChooseNew}>
+            <RefreshCw className="h-4 w-4" /> Choose New Story
           </Button>
         </div>
       </div>
