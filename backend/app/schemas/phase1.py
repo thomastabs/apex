@@ -1,6 +1,6 @@
 """Request and response schemas for Phase 1 requirements endpoints."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class EpicSuggestionSchema(BaseModel):
@@ -9,7 +9,7 @@ class EpicSuggestionSchema(BaseModel):
 
 
 class SuggestEpicsRequest(BaseModel):
-    hint: str = ""
+    hint: str = Field("", max_length=2_000)
 
 
 class SuggestEpicsResponse(BaseModel):
@@ -17,9 +17,9 @@ class SuggestEpicsResponse(BaseModel):
 
 
 class GenerateNlStoriesRequest(BaseModel):
-    epic_subject: str
-    epic_description: str = ""
-    hint: str = ""
+    epic_subject: str = Field(..., max_length=500)
+    epic_description: str = Field("", max_length=5_000)
+    hint: str = Field("", max_length=2_000)
 
 
 class GenerateNlStoriesResponse(BaseModel):
@@ -28,7 +28,7 @@ class GenerateNlStoriesResponse(BaseModel):
 
 
 class CompileGherkinRequest(BaseModel):
-    nl_draft: str
+    nl_draft: str = Field(..., max_length=50_000)
 
 
 class CompiledStorySchema(BaseModel):

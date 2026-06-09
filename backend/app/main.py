@@ -24,7 +24,22 @@ _DEFAULT_ORIGINS = [
     "http://127.0.0.1:3000",
     "https://apex-bolt.com",
 ]
-_extra = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+
+
+def _parse_extra_origins(raw: str) -> list[str]:
+    origins = []
+    for o in raw.split(","):
+        o = o.strip()
+        if not o:
+            continue
+        if not (o.startswith("https://") or o.startswith("http://localhost") or o.startswith("http://127.0.0.1")):
+            _logger.warning("ALLOWED_ORIGINS: skipping invalid origin %r (must be https:// or http://localhost)", o)
+            continue
+        origins.append(o)
+    return origins
+
+
+_extra = _parse_extra_origins(os.getenv("ALLOWED_ORIGINS", ""))
 _allowed_origins = _DEFAULT_ORIGINS + _extra
 
 _MAX_BODY_BYTES = 4 * 1024 * 1024  # 4 MB

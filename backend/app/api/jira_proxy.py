@@ -6,7 +6,9 @@ browser through the FastAPI backend, which makes the actual request
 server-side using the credentials provided by the client.
 """
 
+import ipaddress
 import logging
+from urllib.parse import urlparse
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
@@ -16,6 +18,31 @@ _logger = logging.getLogger("apex.jira_proxy")
 
 _JIRA_REST_PREFIX = "/rest/api/3"
 _TIMEOUT = 30.0
+
+# RFC-1918, loopback, link-local, CGNAT, IPv6 ULA, IPv4-mapped
+_BLOCKED_NETS = [
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("100.64.0.0/10"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),
+    ipaddress.ip_network("::ffff:0:0/96"),
+]
+
+
+def _is_blocked_host(host: str) -> bool:
+    if host.lower() == "localhost":
+        return True
+    try:
+        addr = ipaddress.ip_address(host)
+        return any(addr in net for net in _BLOCKED_NETS)
+    except ValueError:
+        return False
+
 
 # Module-level client for connection pooling — created lazily, lives for process lifetime.
 _client: httpx.AsyncClient | None = None
@@ -51,12 +78,15 @@ def _validate_override_base_url(url: str) -> str:
 
     Restricted to *.atlassian.net to prevent SSRF via the unauthenticated path.
     """
-    from urllib.parse import urlparse
-
     url = url.strip().rstrip("/")
     if not url.startswith("https://"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="X-Jira-Base-Url must start with https://")
     host = urlparse(url).hostname or ""
+    if not host or _is_blocked_host(host):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="X-Jira-Base-Url must not point to a private/loopback address.",
+        )
     if not (host == "atlassian.net" or host.endswith(".atlassian.net")):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -73,6 +103,11 @@ async def proxy_jira(
     x_jira_base_url: str = Header(default="", alias="X-Jira-Base-Url"),
 ) -> Response:
     """Forward Jira REST API v3 calls from the browser to Jira Cloud."""
+    if "\r" in authorization or "\n" in authorization:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid Authorization header.",
+        )
     scheme, _, token = authorization.partition(" ")
     if scheme.lower() != "basic" or not token.strip():
         raise HTTPException(

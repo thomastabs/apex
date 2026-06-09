@@ -5,6 +5,7 @@ third-party origins. This module forwards all Taiga REST calls server-side
 so the browser never contacts the Taiga instance directly.
 """
 
+import ipaddress
 import logging
 from urllib.parse import urlparse
 
@@ -18,6 +19,30 @@ _logger = logging.getLogger("apex.taiga_proxy")
 _TIMEOUT = 20.0
 _client: httpx.AsyncClient | None = None
 
+# RFC-1918, loopback, link-local, CGNAT, IPv6 ULA, IPv4-mapped
+_BLOCKED_NETS = [
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("100.64.0.0/10"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),
+    ipaddress.ip_network("::ffff:0:0/96"),
+]
+
+
+def _is_blocked_host(host: str) -> bool:
+    if host.lower() == "localhost":
+        return True
+    try:
+        addr = ipaddress.ip_address(host)
+        return any(addr in net for net in _BLOCKED_NETS)
+    except ValueError:
+        return False
+
 
 def _get_client() -> httpx.AsyncClient:
     global _client
@@ -27,17 +52,15 @@ def _get_client() -> httpx.AsyncClient:
 
 
 def _validate_taiga_url(url: str) -> str:
-    """Require https:// and a proper hostname to prevent SSRF against internal services."""
+    """Require https:// and a non-private hostname to prevent SSRF."""
     url = url.strip().rstrip("/")
     if not url.startswith("https://"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="X-Taiga-Url must start with https://",
         )
-    parsed = urlparse(url)
-    host = parsed.hostname or ""
-    # Block localhost / loopback / private ranges at the hostname level
-    if host in ("localhost", "127.0.0.1", "::1") or host.startswith("192.168.") or host.startswith("10."):
+    host = urlparse(url).hostname or ""
+    if not host or _is_blocked_host(host):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="X-Taiga-Url must not point to a private/loopback address.",
@@ -123,7 +146,7 @@ async def proxy_taiga(
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
 ) -> Response:
     """Forward any Taiga REST API call server-side to eliminate browser CORS issues."""
-    if not authorization.startswith("Bearer "):
+    if not authorization.startswith("Bearer ") or "\r" in authorization or "\n" in authorization:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authorization: Bearer <token> header required.",

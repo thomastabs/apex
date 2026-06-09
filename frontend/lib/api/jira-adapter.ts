@@ -61,7 +61,12 @@ async function jiraFetch<T>(
     body: options?.body != null ? JSON.stringify(options.body) : undefined,
   });
   if (res.status === 204) return undefined as T;
-  const data = await res.json().catch(() => ({})) as Record<string, unknown>;
+  let data: Record<string, unknown> = {};
+  try {
+    data = await res.json();
+  } catch {
+    throw new ApiError(res.status, `Jira error ${res.status}: unexpected non-JSON response`);
+  }
   if (!res.ok) {
     const msg =
       (Array.isArray(data.errorMessages) && data.errorMessages.length > 0 ? (data.errorMessages as string[])[0] : null) ||

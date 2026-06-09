@@ -56,7 +56,12 @@ async function taigaFetch<T>(
     body: options?.body != null ? JSON.stringify(options.body) : undefined,
   });
   if (res.status === 204) return undefined as T;
-  const data = await res.json().catch(() => ({})) as Record<string, unknown>;
+  let data: Record<string, unknown> = {};
+  try {
+    data = await res.json();
+  } catch {
+    throw new ApiError(res.status, `Taiga error ${res.status}: unexpected non-JSON response`);
+  }
   if (!res.ok) {
     const msg = (data._error_message as string) || (data.detail as string) || `Taiga error ${res.status}`;
     throw new ApiError(res.status, msg);

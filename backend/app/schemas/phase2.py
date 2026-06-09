@@ -17,7 +17,7 @@ class ArchitectureAlternativeSchema(BaseModel):
 
 
 class ProposeTechStackRequest(BaseModel):
-    hint: str = ""
+    hint: str = Field("", max_length=2_000)
 
 
 class ProposeTechStackResponse(BaseModel):
@@ -25,7 +25,7 @@ class ProposeTechStackResponse(BaseModel):
 
 
 class LockTechStackRequest(BaseModel):
-    tech_stack: str
+    tech_stack: str = Field(..., max_length=10_000)
 
 
 class DesignSectionRequest(BaseModel):
@@ -41,9 +41,9 @@ class DesignSectionResponse(BaseModel):
 
 class LockDesignRequest(BaseModel):
     story_ids: list[int] = Field(min_length=1)
-    ux_brief: str = Field(min_length=1)
-    endpoints: str = Field(min_length=1)
-    data_model: str = Field(min_length=1)
+    ux_brief: str = Field(min_length=1, max_length=100_000)
+    endpoints: str = Field(min_length=1, max_length=100_000)
+    data_model: str = Field(min_length=1, max_length=100_000)
 
 
 class TaigaTransitionFailure(BaseModel):
@@ -62,7 +62,7 @@ class LockDesignResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 class GenerateDiagramRequest(BaseModel):
-    data_model_md: str = Field(min_length=1)
+    data_model_md: str = Field(min_length=1, max_length=100_000)
 
 
 class DiagramNodeData(BaseModel):
@@ -99,7 +99,7 @@ class SaveDiagramPositionsRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 class GenerateScreenFlowRequest(BaseModel):
-    ux_brief_md: str = Field(min_length=1)
+    ux_brief_md: str = Field(min_length=1, max_length=100_000)
 
 
 class ScreenFlowNodeData(BaseModel):

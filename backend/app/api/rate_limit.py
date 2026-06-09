@@ -1,5 +1,6 @@
 """Simple per-token sliding-window rate limiter for expensive AI endpoints."""
 
+import hashlib
 import threading
 import time
 from collections import defaultdict
@@ -18,7 +19,7 @@ _MAX_AI_REQUESTS = 20
 
 def ai_rate_limit(auth: AuthContext = Depends(get_auth_context)) -> None:
     """Dependency: max 20 AI requests per token per 60 s."""
-    key = auth.pm_token[-20:]
+    key = hashlib.sha256(auth.pm_token.encode()).hexdigest()[:16]
     now = time.monotonic()
     with _lock:
         # Prune expired buckets to prevent unbounded growth

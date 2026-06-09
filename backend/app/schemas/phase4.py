@@ -38,7 +38,7 @@ class GenerateTestPlanResponse(BaseModel):
 
 class SaveTestPlanRequest(BaseModel):
     story_id: int
-    test_plan_md: str = Field(min_length=1)
+    test_plan_md: str = Field(min_length=1, max_length=200_000)
 
 
 class TestPlanResponse(BaseModel):
@@ -47,8 +47,8 @@ class TestPlanResponse(BaseModel):
 
 
 class FailedScenario(BaseModel):
-    scenario_name: str
-    qa_notes: str = ""
+    scenario_name: str = Field(..., max_length=500)
+    qa_notes: str = Field("", max_length=5_000)
 
 
 class GenerateBugReportRequest(BaseModel):
@@ -67,7 +67,7 @@ class PassGateRequest(BaseModel):
 
 class FailGateRequest(BaseModel):
     story_id: int
-    bug_report_md: str = Field(min_length=1)
-    root_cause: str = ""
-    resolution_summary: str = ""
+    bug_report_md: str = Field(min_length=1, max_length=200_000)
+    root_cause: str = Field("", max_length=5_000)
+    resolution_summary: str = Field("", max_length=5_000)
     push_to_pm: bool = False

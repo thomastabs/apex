@@ -56,10 +56,10 @@ class TaskSummary(BaseModel):
 class GenerateProposalRequest(BaseModel):
     story_id: int
     task_id: int
-    task_subject: str
-    task_description: str
-    hint: str = ""
-    recent_commits_context: str = ""
+    task_subject: str = Field(..., max_length=2_000)
+    task_description: str = Field(..., max_length=10_000)
+    hint: str = Field("", max_length=2_000)
+    recent_commits_context: str = Field("", max_length=20_000)
     all_tasks: list[TaskSummary] = Field(default_factory=list)
 
 
@@ -70,7 +70,7 @@ class GenerateProposalResponse(BaseModel):
 class SaveProposalRequest(BaseModel):
     story_id: int
     task_id: int
-    proposal_md: str = Field(min_length=1)
+    proposal_md: str = Field(min_length=1, max_length=200_000)
 
 
 class LockStoryRequest(BaseModel):

@@ -17,18 +17,18 @@ class ContextFilesResponse(BaseModel):
 
 
 class UpdateContextFileRequest(BaseModel):
-    content: str
+    content: str = Field(..., max_length=5_242_880)  # 5 MB
 
 
 class SaveAiConfigRequest(BaseModel):
-    model: str | None = None
+    model: str | None = Field(None, max_length=200)
 
 
 class SaveConfigRequest(BaseModel):
     project_id: int | None = None
-    pm_tool: str | None = None
-    jira_base_url: str | None = None
-    github_repo: str | None = None
+    pm_tool: str | None = Field(None, max_length=20)
+    jira_base_url: str | None = Field(None, max_length=2_048)
+    github_repo: str | None = Field(None, max_length=255)
 
 
 class OkResponse(BaseModel):
