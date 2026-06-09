@@ -313,9 +313,14 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
         if (t.effort_estimate) map.set(`${story.story_id}:${t.subject}`, t.effort_estimate);
       }
     }
-    // Override with values decoded directly from PM task descriptions (authoritative source)
+    // Override with values decoded directly from PM task descriptions (authoritative source).
+    // Only apply when the description actually contains an apex metadata block — decodeApexMeta
+    // returns "M" as a fallback default for tasks with no block, which would silently overwrite
+    // correct estimates seeded from the JSON board above.
     for (const t of pmTasks) {
-      const decoded = decodeApexMeta(t.description);
+      const desc = t.description ?? "";
+      if (!desc.includes("**Apex Metadata**") && !desc.includes("apex-meta:")) continue;
+      const decoded = decodeApexMeta(desc);
       if (decoded.effort_estimate) {
         map.set(`${Number(t.user_story)}:${t.subject}`, decoded.effort_estimate);
       }
