@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ExternalLink, Moon, PanelLeftOpen, Send, Sun, UserPlus } from "lucide-react";
+import { Eye, EyeOff, ExternalLink, Moon, PanelLeftOpen, Send, Sun, UserPlus } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAiConfig, useMe, useProjects, useServerConfig } from "@/lib/hooks/use-workspace";
 import { useSessionStore } from "@/lib/stores/session-store";
@@ -104,6 +104,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
   const [taigaInstanceUrl, setTaigaInstanceUrl] = useState("");
   const [loginError, setLoginError] = useState("");
   const [isPending, setIsPending] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // When the user supplies a private instance URL, prefer it; otherwise fall back
   // to the server-configured pmWebUrl (cloud: tree→api) or the public cloud default.
@@ -286,14 +287,36 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
                 className="h-9 w-full rounded border border-violet-500 bg-neutral-950 px-3 text-sm text-white outline-none"
                 placeholder="Username"
               />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="h-9 w-full rounded border border-violet-500 bg-neutral-950 px-3 text-sm text-white outline-none"
-                placeholder="Password"
-                onKeyDown={(e) => { if (e.key === "Enter") handlePasswordLogin(); }}
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="h-9 w-full rounded border border-violet-500 bg-neutral-950 px-3 pr-9 text-sm text-white outline-none"
+                  placeholder="Password"
+                  onKeyDown={(e) => { if (e.key === "Enter") handlePasswordLogin(); }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute inset-y-0 right-2 flex items-center text-neutral-500 hover:text-neutral-300 transition-colors"
+                  tabIndex={-1}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+              <p className="text-[11px] text-neutral-600">
+                For better security use{" "}
+                <button
+                  type="button"
+                  className="text-violet-400 hover:text-violet-300 underline underline-offset-2"
+                  onClick={() => setMode("token")}
+                >
+                  Auth Token
+                </button>{" "}
+                — no password transmitted.
+              </p>
             </>
           ) : (
             <input
