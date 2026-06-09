@@ -305,6 +305,66 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
     onError: (err) => toast.error(adapter.errMsg(err, "Add task")),
   });
 
+  // Sync all apex metadata from JSON board → PM task descriptions
+  const syncAllMetaMut = useMutation({
+    mutationFn: async () => {
+      if (!adapterCtx) throw new Error("No context.");
+      // Fetch fresh PM task list so versions are current
+      const fresh = await queryClient.fetchQuery({
+        queryKey: QUERY_KEY,
+        queryFn: () => adapter.getProjectTasks(adapterCtx),
+        staleTime: 0,
+      });
+      let updated = 0;
+      const errors: string[] = [];
+      for (const story of jsonBoard) {
+        for (const localTask of story.tasks) {
+          if (!localTask.effort_estimate) continue;
+          const pmTask = fresh.find(
+            (t) => Number(t.user_story) === story.story_id && t.subject === localTask.subject,
+          );
+          if (!pmTask) continue;
+          const existing = decodeApexMeta(pmTask.description ?? "");
+          const encoded = encodeApexMeta({
+            id: 0,
+            subject: localTask.subject,
+            description: existing.description,
+            effort_estimate: localTask.effort_estimate as EffortEstimate,
+            covered_scenarios: existing.covered_scenarios,
+            predecessor_task_ids: existing.predecessor_task_ids,
+          });
+          try {
+            let ver = pmTask.version;
+            for (let attempt = 0; attempt <= 1; attempt++) {
+              try {
+                await adapter.updateTask(adapterCtx, pmTask.id, ver, { description: encoded });
+                break;
+              } catch (err) {
+                if (adapter.isPmVersionConflict(err) && attempt === 0) {
+                  const refreshed = await adapter.getTask(adapterCtx, pmTask.id);
+                  ver = refreshed.version;
+                } else throw err;
+              }
+            }
+            updated++;
+          } catch (err) {
+            errors.push(`${localTask.subject}: ${err instanceof Error ? err.message : "unknown"}`);
+          }
+        }
+      }
+      return { updated, errors };
+    },
+    onSuccess: ({ updated, errors }) => {
+      void invalidate();
+      if (errors.length) {
+        toast.warning(`Synced ${updated} tasks. ${errors.length} failed.`);
+      } else {
+        toast.success(`Apex metadata synced for ${updated} task${updated !== 1 ? "s" : ""}.`);
+      }
+    },
+    onError: (err) => toast.error(`Sync failed: ${err instanceof Error ? err.message : "unknown"}`),
+  });
+
   const effortByStoryTask = useMemo(() => {
     const map = new Map<string, string>();
     // Seed from JSON board as baseline
@@ -393,6 +453,19 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
         )}
       >
         {syncMut.isPending ? "Syncing…" : "Sync"}
+      </button>
+      <button
+        onClick={(e) => { e.stopPropagation(); void syncAllMetaMut.mutate(); }}
+        disabled={syncAllMetaMut.isPending || jsonBoard.length === 0}
+        title="Write apex metadata (effort, scenarios) from JSON board into PM task descriptions"
+        className={cn(
+          "rounded px-2 py-1 text-xs font-medium transition-colors",
+          syncAllMetaMut.isPending
+            ? "cursor-wait text-neutral-400"
+            : dark ? "text-neutral-600 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600",
+        )}
+      >
+        {syncAllMetaMut.isPending ? "Syncing…" : "Sync Meta"}
       </button>
       <button
         onClick={(e) => { e.stopPropagation(); setFilterOpen((v) => !v); if (filterOpen) setFilter(""); }}

@@ -25,6 +25,7 @@ import {
   useStoryContext,
   useUpdatePmStoryStatus,
 } from "@/lib/hooks/use-phase4";
+import { decodeApexMeta } from "@/lib/hooks/use-phase3";
 import { usePhase4Store } from "@/lib/stores/phase4-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -293,19 +294,29 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
             Implementation Tasks
           </div>
           <ul className="divide-y divide-inherit">
-            {(ctx.task_list ?? []).map((task) => (
-              <li key={task.id} className={cn("px-4 py-2.5 flex items-start gap-3", dark ? "divide-neutral-700" : "divide-slate-200")}>
-                <span className={cn("mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-xs font-mono font-semibold", dark ? "bg-neutral-700 text-neutral-300" : "bg-slate-100 text-slate-500")}>
-                  {task.effort_estimate}
-                </span>
-                <div className="min-w-0">
-                  <p className={cn("font-medium leading-snug", dark ? "text-neutral-200" : "text-slate-700")}>{task.subject}</p>
-                  {task.description && (
-                    <p className={cn("mt-0.5 text-xs", dark ? "text-neutral-500" : "text-slate-400")}>{task.description}</p>
-                  )}
-                </div>
-              </li>
-            ))}
+            {(ctx.task_list ?? []).map((task) => {
+              // Strip any residual apex meta block — description may be encoded
+              const cleanDesc = decodeApexMeta(task.description ?? "").description.trim();
+              const displayDesc = cleanDesc.length > 140 ? `${cleanDesc.slice(0, 137)}…` : cleanDesc;
+              const scenarios = task.covered_scenarios ?? [];
+              return (
+                <li key={task.id} className={cn("px-4 py-2.5 flex items-start gap-3", dark ? "divide-neutral-700" : "divide-slate-200")}>
+                  <span className={cn("mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-xs font-mono font-semibold", dark ? "bg-neutral-700 text-neutral-300" : "bg-slate-100 text-slate-500")}>
+                    {task.effort_estimate || "?"}
+                  </span>
+                  <div className="min-w-0">
+                    <p className={cn("font-medium leading-snug", dark ? "text-neutral-200" : "text-slate-700")}>{task.subject}</p>
+                    {displayDesc ? (
+                      <p className={cn("mt-0.5 text-xs", dark ? "text-neutral-500" : "text-slate-400")}>{displayDesc}</p>
+                    ) : scenarios.length > 0 ? (
+                      <p className={cn("mt-0.5 text-xs italic", dark ? "text-neutral-600" : "text-slate-400")}>
+                        Covers: {scenarios.join(" · ")}
+                      </p>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
