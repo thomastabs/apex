@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from backend.app.api.jira_proxy import router as jira_proxy_router
+from backend.app.api.taiga_proxy import router as taiga_proxy_router
 from backend.app.api.phase1 import router as phase1_router
 from backend.app.api.phase2 import router as phase2_router
 from backend.app.api.phase3 import router as phase3_router
@@ -82,3 +83,4 @@ app.include_router(phase3_router, prefix="/api/phase3", tags=["phase3"])
 app.include_router(phase4_router, prefix="/api/phase4", tags=["phase4"])
 app.include_router(workspace_router, prefix="/api/workspace", tags=["workspace"])
 app.include_router(jira_proxy_router, prefix="/api/pm/jira", tags=["jira-proxy"])
+app.include_router(taiga_proxy_router, prefix="/api/pm/taiga", tags=["taiga-proxy"])

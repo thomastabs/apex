@@ -119,16 +119,20 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
     setIsPending(true);
     setLoginError("");
     try {
-      const res = await fetch(`${effectiveTaigaApiUrl}/api/v1/auth`, {
+      // Route through the backend proxy — direct browser→Taiga calls fail with CORS on self-hosted instances.
+      const res = await fetch("/api/pm/taiga/auth", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Taiga-Url": effectiveTaigaApiUrl,
+        },
         body: JSON.stringify({ username: username.trim(), password, type: "normal" }),
       });
       const data = await res.json().catch(() => ({})) as Record<string, unknown>;
       if (!res.ok) {
         setLoginError(
-          (data._error_message as string) ||
           (data.detail as string) ||
+          (data._error_message as string) ||
           `Login failed — Taiga returned ${res.status}.`
         );
         return;
@@ -142,7 +146,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
       });
       setAuth({ taigaToken: token, taigaApiUrl: effectiveTaigaApiUrl, pmTool: "taiga" });
     } catch {
-      setLoginError("Cannot reach Taiga — check your network.");
+      setLoginError("Cannot reach Apex backend — check your network.");
     } finally {
       setIsPending(false);
     }
