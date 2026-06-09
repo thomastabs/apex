@@ -210,10 +210,10 @@ export async function taigaGetBoard(token: string, projectId: number, apiBaseUrl
     taigaFetch<Record<string, unknown>[]>(`/epics?project=${projectId}&order_by=ref`, token, apiBaseUrl),
     taigaFetch<Record<string, unknown>[]>(`/userstories?project=${projectId}&order_by=ref`, token, apiBaseUrl),
   ]);
-  const [epics, stories] = await Promise.all([
-    hydrateMissingDescriptions("epics", rawEpics ?? [], token, apiBaseUrl),
-    hydrateMissingDescriptions("userstories", rawStories ?? [], token, apiBaseUrl),
-  ]);
+  // Only hydrate epic descriptions — story descriptions are not shown in the board list view
+  // and each individual fetch triggers a CORS preflight, causing a storm of OPTIONS requests.
+  const epics = await hydrateMissingDescriptions("epics", rawEpics ?? [], token, apiBaseUrl);
+  const stories = rawStories ?? [];
   const storiesByEpic = new Map<number, Story[]>();
   for (const rawStory of stories) {
     const story = normalizeStory(rawStory);
