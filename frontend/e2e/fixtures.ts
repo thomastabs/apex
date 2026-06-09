@@ -10,7 +10,9 @@ export const test = base.extend({
 
     await page.addInitScript(
       ({ sessionJson, phase3Json, phase4Json }: { sessionJson: string; phase3Json: string; phase4Json: string }) => {
-        localStorage.setItem("apex-session", sessionJson);
+        // apex-session migrated to sessionStorage in v5 — inject there so
+        // Zustand hydrates correctly in E2E tests.
+        sessionStorage.setItem("apex-session", sessionJson);
         localStorage.setItem("apex-phase3-draft", phase3Json);
         localStorage.setItem("apex-phase4-draft", phase4Json);
       },

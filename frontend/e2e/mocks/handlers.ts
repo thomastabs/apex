@@ -132,7 +132,8 @@ const FAKE_COMPILED_STORIES = [
 
 export async function applyMocks(page: Page) {
   const api = "http://localhost:8000";
-  const taiga = "https://api.taiga.io/api/v1";
+  // All Taiga calls now route through the FastAPI proxy — never directly to taiga.io.
+  const taiga = `${api}/api/pm/taiga`;
 
   // Mutable state shared between route handlers (allows stateful mock transitions).
   const mockState = { techStackDefined: false };
@@ -471,7 +472,10 @@ export async function applyMocks(page: Page) {
     }),
   );
 
-  // ── Taiga direct calls ─────────────────────────────────────────────────────
+  // ── Taiga calls via backend proxy (/api/pm/taiga/*) ──────────────────────
+  const FAKE_EPIC = { id: 10, ref: 1, subject: "Authentication", description: "User auth epic", version: 1, tags: [] };
+  const FAKE_STORY = { id: 101, ref: 1, subject: "User Login", description: "", version: 2, status: 1, tags: [], epic: 10, epic_extra_info: { id: 10, subject: "Authentication" } };
+
   await page.route(`${taiga}/users/me`, (route) =>
     route.fulfill({
       status: 200,
@@ -492,22 +496,41 @@ export async function applyMocks(page: Page) {
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([]) }),
   );
 
-  await page.route(`${taiga}/epics**`, (route) =>
+  await page.route(`${taiga}/userstory-statuses**`, (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([]) }),
+  );
+
+  await page.route(`${taiga}/epics**`, (route) => {
+    const url = route.request().url();
+    if (url.includes("related_userstories")) {
+      // POST /epics/{id}/related_userstories — epic↔story link
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+    } else if (route.request().method() === "POST") {
+      // POST /epics — create epic
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(FAKE_EPIC) });
+    } else {
+      // GET /epics or /epics/{id}
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([FAKE_EPIC]) });
+    }
+  });
+
+  await page.route(`${taiga}/userstories**`, (route) => {
+    const method = route.request().method();
+    if (method === "GET" && !route.request().url().match(/userstories\/\d+/)) {
+      // GET /userstories?project=... — list stories
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([]) });
+    } else {
+      // POST (create), PATCH (update status), GET /userstories/{id} (re-fetch)
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(FAKE_STORY) });
+    }
+  });
+
+  await page.route(`${taiga}/projects**`, (route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([
-        { id: 10, subject: "Authentication", description: "User auth epic", ref: 1, tags: [] },
-      ]),
+      body: JSON.stringify([{ id: 1, slug: "test-project", name: "Test Project", description: "" }]),
     }),
-  );
-
-  await page.route(`${taiga}/userstories**`, (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([]) }),
-  );
-
-  await page.route(`${taiga}/projects**`, (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([]) }),
   );
 }
 
@@ -523,7 +546,7 @@ export const SESSION_STORAGE = JSON.stringify({
     githubPat: "",
     githubRepo: "",
   },
-  version: 4,
+  version: 5,
 });
 
 export const PHASE4_STORE_RESET = JSON.stringify({

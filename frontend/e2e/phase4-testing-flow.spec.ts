@@ -43,8 +43,8 @@ test("Phase 4 pass: select story → generate test plan → mark all pass → pa
   await expect(page.getByRole("heading", { name: "Testing Gate", exact: true })).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText(/All 1 scenarios passed/i)).toBeVisible({ timeout: 10_000 });
 
-  // Pass gate
-  await page.getByRole("button", { name: /Pass Testing Gate/i }).click();
+  // Pass gate — force: true bypasses any Sonner toast that may overlay the button
+  await page.getByRole("button", { name: /Pass Testing Gate/i }).click({ force: true });
 
   // Success panel — use heading role to avoid matching the Sonner toast
   await expect(page.getByRole("heading", { name: /Testing Gate Passed/i })).toBeVisible({ timeout: 10_000 });
