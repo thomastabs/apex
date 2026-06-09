@@ -65,17 +65,19 @@ describe("taiga direct API", () => {
     );
   });
 
-  it("hydrates missing board descriptions from detail endpoints", async () => {
+  it("hydrates missing epic descriptions but not story descriptions from detail endpoints", async () => {
+    // Story descriptions are intentionally NOT hydrated in the board fetch to avoid
+    // a CORS preflight (OPTIONS) storm — one per story — in the browser.
     mockFetch
       .mockResolvedValueOnce(makeResponse(200, [{ id: 5, ref: 1, subject: "Epic" }]))
       .mockResolvedValueOnce(makeResponse(200, [{ id: 10, ref: 2, subject: "Story", epic: 5 }]))
-      .mockResolvedValueOnce(makeResponse(200, { id: 5, ref: 1, subject: "Epic", description: "Epic desc" }))
-      .mockResolvedValueOnce(makeResponse(200, { id: 10, ref: 2, subject: "Story", description: "Story desc", epic: 5 }));
+      .mockResolvedValueOnce(makeResponse(200, { id: 5, ref: 1, subject: "Epic", description: "Epic desc" }));
 
     const board = await taigaGetBoard("tok", 2, "https://api.taiga.test/api/v1");
 
     expect(board[0].description).toBe("Epic desc");
-    expect(board[0].stories[0].description).toBe("Story desc");
+    // Story description is not hydrated in board view — empty string is expected.
+    expect(board[0].stories[0].description).toBe("");
   });
 
   it("deletes stories before deleting an epic", async () => {
