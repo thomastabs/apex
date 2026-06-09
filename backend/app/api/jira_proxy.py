@@ -114,6 +114,11 @@ async def proxy_jira(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authorization: Basic <token> header required.",
         )
+    if len(token.strip()) > 2_000:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid authorization token.",
+        )
 
     # X-Jira-Base-Url override is used during login (before config is saved).
     # Restricted to *.atlassian.net to prevent SSRF.

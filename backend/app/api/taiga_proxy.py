@@ -151,6 +151,11 @@ async def proxy_taiga(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authorization: Bearer <token> header required.",
         )
+    if len(authorization) > 2_007:  # "Bearer " (7) + 2000-char token max
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid authorization token.",
+        )
     base_url = _get_taiga_url(x_taiga_url)
     target_url = f"{base_url}/{path}"
     if request.url.query:

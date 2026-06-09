@@ -131,9 +131,9 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
       const data = await res.json().catch(() => ({})) as Record<string, unknown>;
       if (!res.ok) {
         setLoginError(
-          (data.detail as string) ||
-          (data._error_message as string) ||
-          `Login failed — Taiga returned ${res.status}.`
+          res.status === 400 || res.status === 401
+            ? "Invalid username or password."
+            : `Login failed — server returned ${res.status}.`
         );
         return;
       }
@@ -144,6 +144,8 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
         full_name: data.full_name,
         email: data.email,
       });
+      setPassword("");
+      setUsername("");
       setAuth({ taigaToken: token, taigaApiUrl: effectiveTaigaApiUrl, pmTool: "taiga" });
     } catch {
       setLoginError("Cannot reach Apex backend — check your network.");
@@ -173,7 +175,11 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
         },
       });
       if (!res.ok) {
-        setLoginError(`Jira auth failed (${res.status}) — check your domain, email, and API token.`);
+        setLoginError(
+          res.status === 401 || res.status === 403
+            ? "Authentication failed — check your credentials."
+            : `Authentication failed — server returned ${res.status}.`
+        );
         return;
       }
       const data = await res.json().catch(() => ({})) as Record<string, unknown>;
@@ -190,6 +196,8 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
         context: { taigaToken: encodedToken, taigaApiUrl: jiraBaseUrl, pmTool: "jira" },
         body: { pm_tool: "jira", jira_base_url: jiraBaseUrl },
       }).catch(() => undefined); // non-fatal: proxy falls back to X-Jira-Base-Url header
+      setJiraApiToken("");
+      setJiraEmail("");
       setAuth({ taigaToken: encodedToken, taigaApiUrl: jiraBaseUrl, pmTool: "jira", jiraEmail: email });
     } catch {
       setLoginError("Cannot reach Jira — check your domain and network.");

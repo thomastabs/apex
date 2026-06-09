@@ -11,16 +11,30 @@ class AuthContext:
     pm_token: str
 
 
+_MAX_TOKEN_LEN = 2_000
+
+
 def get_auth_context(
     authorization: str = Header(default="", alias="Authorization"),
 ) -> AuthContext:
+    if "\r" in authorization or "\n" in authorization:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid authorization header.",
+        )
     scheme, _, token = authorization.partition(" ")
-    if scheme.lower() != "bearer" or not token.strip():
+    token = token.strip()
+    if scheme.lower() != "bearer" or not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authorization: Bearer <token> header is required.",
         )
-    return AuthContext(pm_token=token.strip())
+    if len(token) > _MAX_TOKEN_LEN:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid authorization token.",
+        )
+    return AuthContext(pm_token=token)
 
 
 def get_request_context(

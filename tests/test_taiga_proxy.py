@@ -116,10 +116,46 @@ class TestProxyTaigaCatchAll:
         )
         assert resp.status_code == 400
 
+    def test_ssrf_172_16_blocked(self, client):
+        resp = client.get(
+            "/api/pm/taiga/epics",
+            headers={"Authorization": self.AUTH, "X-Taiga-Url": "https://172.16.0.1/api/v1"},
+        )
+        assert resp.status_code == 400
+
+    def test_ssrf_link_local_blocked(self, client):
+        resp = client.get(
+            "/api/pm/taiga/epics",
+            headers={"Authorization": self.AUTH, "X-Taiga-Url": "https://169.254.169.254/api/v1"},
+        )
+        assert resp.status_code == 400
+
+    def test_ssrf_cgnat_blocked(self, client):
+        resp = client.get(
+            "/api/pm/taiga/epics",
+            headers={"Authorization": self.AUTH, "X-Taiga-Url": "https://100.64.0.1/api/v1"},
+        )
+        assert resp.status_code == 400
+
     def test_ssrf_localhost_blocked(self, client):
         resp = client.get(
             "/api/pm/taiga/epics",
             headers={"Authorization": self.AUTH, "X-Taiga-Url": "https://localhost/api/v1"},
+        )
+        assert resp.status_code == 400
+
+    def test_header_injection_blocked(self, client):
+        resp = client.get(
+            "/api/pm/taiga/epics",
+            headers={"Authorization": "Bearer token\r\nX-Evil: injected", "X-Taiga-Url": self.TAIGA_URL},
+        )
+        assert resp.status_code in (400, 401)
+
+    def test_oversized_token_blocked(self, client):
+        big_token = "Bearer " + "a" * 2001
+        resp = client.get(
+            "/api/pm/taiga/epics",
+            headers={"Authorization": big_token, "X-Taiga-Url": self.TAIGA_URL},
         )
         assert resp.status_code == 400
 

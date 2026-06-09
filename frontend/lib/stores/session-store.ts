@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 
 type PmTool = "taiga" | "jira";
 
@@ -61,30 +61,32 @@ export const useSessionStore = create<SessionState>()(
     }),
     {
       name: "apex-session",
-      version: 4,
-      migrate: (persisted: unknown, version: number) => {
+      // Use sessionStorage so tokens are cleared when the browser tab/window closes.
+      // Tokens are not persisted to localStorage — localStorage is cleared of the old
+      // key on first load via the migrate function.
+      storage: createJSONStorage(() => {
+        if (typeof window === "undefined") return localStorage;
+        // Remove stale localStorage entry from older versions
+        try { localStorage.removeItem("apex-session"); } catch { /* ignore */ }
+        return sessionStorage;
+      }),
+      version: 5,
+      migrate: (persisted: unknown) => {
         const state = (persisted ?? {}) as Record<string, unknown>;
-        if (version < 2) {
-          return {
-            pmTool: "taiga" as PmTool,
-            taigaToken: (state.taigaToken as string) ?? "",
-            taigaApiUrl: (state.taigaApiUrl as string) ?? "",
-            jiraEmail: "",
-            projectId: (state.projectId as number | null) ?? null,
-            projectName: (state.projectName as string) ?? "",
-            pmProjectSlug: "",
-            githubPat: "",
-            githubRepo: "",
-          };
-        }
-        if (version < 3) {
-          return { ...state, pmProjectSlug: "", githubPat: "", githubRepo: "" };
-        }
-        if (version < 4) {
-          return { ...state, githubPat: "", githubRepo: "" };
-        }
-        return state as SessionState;
+        return {
+          pmTool: (state.pmTool as PmTool) ?? "taiga",
+          taigaToken: (state.taigaToken as string) ?? "",
+          taigaApiUrl: (state.taigaApiUrl as string) ?? "",
+          jiraEmail: (state.jiraEmail as string) ?? "",
+          projectId: (state.projectId as number | null) ?? null,
+          projectName: (state.projectName as string) ?? "",
+          pmProjectSlug: (state.pmProjectSlug as string) ?? "",
+          githubPat: "",
+          githubRepo: (state.githubRepo as string) ?? "",
+        };
       },
+      // githubPat intentionally excluded — GitHub PATs are not persisted anywhere.
+      // Users must re-enter the PAT each session.
       partialize: (state) => ({
         pmTool: state.pmTool,
         taigaToken: state.taigaToken,
@@ -93,7 +95,6 @@ export const useSessionStore = create<SessionState>()(
         projectId: state.projectId,
         projectName: state.projectName,
         pmProjectSlug: state.pmProjectSlug,
-        githubPat: state.githubPat,
         githubRepo: state.githubRepo,
       }),
     },
