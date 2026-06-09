@@ -120,7 +120,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
     setLoginError("");
     try {
       // Route through the backend proxy — direct browser→Taiga calls fail with CORS on self-hosted instances.
-      const res = await fetch("/api/pm/taiga/auth", {
+      const res = await fetch(`${getApiBaseUrl()}/api/pm/taiga/auth`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
