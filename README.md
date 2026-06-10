@@ -286,10 +286,6 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 TAIGA_API_URL=https://api.taiga.io
 
-# Optional. Set to true when testing against a local Taiga Docker instance (http://localhost:9000).
-# Bypasses the https:// and loopback SSRF check for localhost only. Never set in production.
-APEX_ALLOW_HTTP_LOCALHOST=
-
 # Optional — only needed if using OpenAI models in the AI model selector.
 OPENAI_API_KEY=
 
@@ -389,10 +385,6 @@ In the Apex sidebar:
 - PM tool: **Taiga**
 - Taiga instance URL: `https://xxxx-xxxx.trycloudflare.com`
 - Username / password: your Taiga admin credentials
-
-#### Local-only shortcut (no tunnel)
-
-If running Apex backend locally (not the deployed app), you can skip the tunnel by setting `APEX_ALLOW_HTTP_LOCALHOST=true` in `.env` and using `http://localhost:9000` as the instance URL directly. This bypasses the SSRF `https://` requirement for localhost only — do **not** set this in production.
 
 #### Stop
 
