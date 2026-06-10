@@ -130,10 +130,13 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
       });
       const data = await res.json().catch(() => ({})) as Record<string, unknown>;
       if (!res.ok) {
+        const detail = (data as Record<string, unknown>).detail as string | undefined;
         setLoginError(
-          res.status === 400 || res.status === 401
-            ? "Invalid username or password."
-            : `Login failed — server returned ${res.status}.`
+          detail
+            ? detail
+            : res.status === 401
+              ? "Invalid username or password."
+              : `Login failed — server returned ${res.status}.`
         );
         return;
       }

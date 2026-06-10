@@ -7,11 +7,15 @@ so the browser never contacts the Taiga instance directly.
 
 import ipaddress
 import logging
+import os
 from urllib.parse import urlparse
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from pydantic import BaseModel
+
+# Set APEX_ALLOW_HTTP_LOCALHOST=true in .env to allow http://localhost Taiga instances in local dev.
+_ALLOW_HTTP_LOCALHOST: bool = os.getenv("APEX_ALLOW_HTTP_LOCALHOST", "").lower() in ("1", "true", "yes")
 
 router = APIRouter()
 _logger = logging.getLogger("apex.taiga_proxy")
@@ -52,14 +56,29 @@ def _get_client() -> httpx.AsyncClient:
 
 
 def _validate_taiga_url(url: str) -> str:
-    """Require https:// and a non-private hostname to prevent SSRF."""
+    """Require https:// and a non-private hostname to prevent SSRF.
+
+    Exception: when APEX_ALLOW_HTTP_LOCALHOST=true, http://localhost:<port> is permitted
+    for local development against a self-hosted Taiga running on the same machine.
+    """
     url = url.strip().rstrip("/")
+    host = urlparse(url).hostname or ""
+    parsed_is_localhost = host.lower() in ("localhost", "127.0.0.1", "::1")
+
+    if _ALLOW_HTTP_LOCALHOST and parsed_is_localhost:
+        # Local dev bypass — allow http://localhost:* only
+        if not url.startswith(("http://localhost", "http://127.0.0.1", "http://[::1]")):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="APEX_ALLOW_HTTP_LOCALHOST only permits http://localhost URLs.",
+            )
+        return url
+
     if not url.startswith("https://"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="X-Taiga-Url must start with https://",
+            detail="Taiga instance URL must use https://. For local dev set APEX_ALLOW_HTTP_LOCALHOST=true.",
         )
-    host = urlparse(url).hostname or ""
     if not host or _is_blocked_host(host):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
