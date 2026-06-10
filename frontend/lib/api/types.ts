@@ -252,21 +252,6 @@ export type Phase3Task = {
   pm_task_id?: string;
 };
 
-export type TaskBoardTask = {
-  id: number;
-  subject: string;
-  effort_estimate: EffortEstimate | "";
-  has_proposal: boolean;
-};
-
-export type TaskBoardStory = {
-  story_id: number;
-  title: string;
-  epic_title: string;
-  phase_status: string;
-  tasks: TaskBoardTask[];
-};
-
 export type Phase3StoryPreview = {
   story_id: number;
   title: string;

@@ -78,34 +78,6 @@ class LockStoryRequest(BaseModel):
     task_ids: list[int] = Field(min_length=1)
 
 
-class TaskListRequest(BaseModel):
-    tasks: list[TaskSchema]
-
-
-class TaskListResponse(BaseModel):
-    story_id: int
-    tasks: list[TaskSchema]
-
-
-class TaskBoardTask(BaseModel):
-    id: int
-    subject: str
-    effort_estimate: str = ""
-    has_proposal: bool
-
-
-class TaskBoardStory(BaseModel):
-    story_id: int
-    title: str
-    epic_title: str
-    phase_status: str
-    tasks: list[TaskBoardTask]
-
-
-class TaskBoardResponse(BaseModel):
-    stories: list[TaskBoardStory]
-
-
 class ProposalItem(BaseModel):
     task_id: int
     proposal_md: str
@@ -116,5 +88,3 @@ class ProposalsResponse(BaseModel):
     proposals: list[ProposalItem]
 
 
-class MissingTaskListsResponse(BaseModel):
-    story_ids: list[int]

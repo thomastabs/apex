@@ -8,13 +8,9 @@ from backend.app.api.phase3 import (
     eligible_stories,
     generate_proposal,
     generate_tasks,
-    get_missing_task_lists,
     get_proposals,
-    get_task_board,
-    get_task_list,
     lock_story,
     save_proposal,
-    save_task_list,
     story_context,
 )
 from backend.app.schemas.phase3 import (
@@ -22,8 +18,6 @@ from backend.app.schemas.phase3 import (
     GenerateTasksRequest,
     LockStoryRequest,
     SaveProposalRequest,
-    TaskListRequest,
-    TaskSchema,
     TaskSummary,
 )
 from src.ai_engine import AIError, AIRateLimitError, AITimeoutError
@@ -115,26 +109,6 @@ class StubPhase3Service:
 
     def get_proposals(self, ctx, story_id):
         return [{"task_id": 1, "proposal_md": _FAKE_PROPOSAL}]
-
-    def get_task_list(self, ctx, story_id):
-        return _FAKE_TASKS
-
-    def save_task_list(self, ctx, story_id, tasks):
-        pass
-
-    def get_stories_missing_task_lists(self, ctx):
-        return [10]
-
-    def get_task_board(self, ctx):
-        return [
-            {
-                "story_id": 10,
-                "title": "User Login",
-                "epic_title": "Auth",
-                "phase_status": "design_locked",
-                "tasks": [{"id": 1, "subject": "Create User model", "effort_estimate": "S", "has_proposal": True}],
-            }
-        ]
 
     def lock_story(self, ctx, story_id, task_ids):
         pass
@@ -288,53 +262,6 @@ def test_get_proposals_route():
 
 
 # ---------------------------------------------------------------------------
-# task-list GET / PUT
-# ---------------------------------------------------------------------------
-
-def test_get_task_list_route():
-    result = get_task_list(story_id=10, ctx=_ctx(), service=StubPhase3Service())
-    assert result["story_id"] == 10
-    assert len(result["tasks"]) == 2
-
-
-def test_save_task_list_route():
-    task = TaskSchema(
-        id=1,
-        subject="Create User model",
-        description="",
-        effort_estimate="S",
-        covered_scenarios=[],
-    )
-    result = save_task_list(
-        10,
-        TaskListRequest(tasks=[task]),
-        ctx=_ctx(),
-        service=StubPhase3Service(),
-    )
-    assert result == {"ok": True}
-
-
-# ---------------------------------------------------------------------------
-# missing-task-lists
-# ---------------------------------------------------------------------------
-
-def test_missing_task_lists_route():
-    result = get_missing_task_lists(ctx=_ctx(), service=StubPhase3Service())
-    assert result == {"story_ids": [10]}
-
-
-# ---------------------------------------------------------------------------
-# task-board
-# ---------------------------------------------------------------------------
-
-def test_task_board_route():
-    result = get_task_board(ctx=_ctx(), service=StubPhase3Service())
-    assert len(result["stories"]) == 1
-    assert result["stories"][0]["story_id"] == 10
-    assert result["stories"][0]["tasks"][0]["has_proposal"] is True
-
-
-# ---------------------------------------------------------------------------
 # lock-story
 # ---------------------------------------------------------------------------
 
@@ -435,8 +362,8 @@ def test_lock_story_validation_error_maps_to_422():
 
 def test_unknown_errors_bubble_up():
     class FailingService(StubPhase3Service):
-        def get_task_board(self, ctx):
+        def get_eligible_stories(self, ctx):
             raise RuntimeError("unexpected crash")
 
     with pytest.raises(RuntimeError, match="unexpected crash"):
-        get_task_board(ctx=_ctx(), service=FailingService())
+        eligible_stories(ctx=_ctx(), service=FailingService())

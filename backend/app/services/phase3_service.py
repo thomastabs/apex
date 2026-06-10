@@ -132,68 +132,15 @@ class Phase3Service:
         self.configure_request(ctx)
         self.context.save_proposal(story_id, task_id, proposal_md)
 
-    def get_stories_missing_task_lists(self, ctx: RequestContext) -> list[int]:
-        """Return story_ids that need task-list sync:
-        - no JSON file at all, OR
-        - JSON exists but all tasks have no taiga_task_id (synced before ID persistence was added).
-        """
-        self.configure_request(ctx)
-        index = self.context.story_index()
-        missing = []
-        for entry in index.values():
-            story_id = entry.get("story_id")
-            if not story_id:
-                continue
-            tasks = self.context.load_task_list(story_id)
-            if not tasks:
-                missing.append(story_id)
-            elif all(t.get("taiga_task_id") is None for t in tasks):
-                missing.append(story_id)
-        return sorted(missing)
-
     def _require_story(self, story_id: int) -> None:
         """Raise Phase3ValidationError if story_id is not in the project index."""
         if str(story_id) not in self.context.story_index():
             raise Phase3ValidationError(f"Story {story_id} not found in project index.")
 
-    def get_task_list(self, ctx: RequestContext, story_id: int) -> list[dict]:
-        self.configure_request(ctx)
-        self._require_story(story_id)
-        return self.context.load_task_list(story_id)
-
-    def save_task_list(self, ctx: RequestContext, story_id: int, tasks: list[dict]) -> None:
-        self.configure_request(ctx)
-        self._require_story(story_id)
-        self.context.save_task_list(story_id, tasks)
-
     def get_proposals(self, ctx: RequestContext, story_id: int) -> list[dict]:
         self.configure_request(ctx)
         self._require_story(story_id)
         return self.context.load_proposals(story_id)
-
-    def get_task_board(self, ctx: RequestContext) -> list[dict]:
-        self.configure_request(ctx)
-        index = self.context.story_index()
-        all_lists = self.context.load_all_task_lists()
-        stories = []
-        for story_id, tasks in all_lists.items():
-            entry = index.get(str(story_id)) or {}
-            stories.append({
-                "story_id": story_id,
-                "title": entry.get("title", f"Story {story_id}"),
-                "epic_title": entry.get("epic_title", ""),
-                "phase_status": entry.get("phase_status", ""),
-                "tasks": [
-                    {
-                        "id": t.get("id"),
-                        "subject": t.get("subject", ""),
-                        "effort_estimate": t.get("effort_estimate", ""),
-                        "has_proposal": self.context.proposal_exists(story_id, t.get("id", -1)),
-                    }
-                    for t in tasks
-                ],
-            })
-        return sorted(stories, key=lambda s: s["story_id"])
 
     def lock_story(self, ctx: RequestContext, story_id: int, task_ids: list[int]) -> None:
         self.configure_request(ctx)

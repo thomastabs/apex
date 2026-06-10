@@ -312,18 +312,6 @@ export async function applyMocks(page: Page) {
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) }),
   );
 
-  await page.route(`${api}/api/phase3/task-list/**`, (route) => {
-    if (route.request().method() === "PUT") {
-      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) });
-    }
-    // Return empty tasks so tasksPushed stays false and "Generate Tasks" stays enabled.
-    return route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ story_id: 10, tasks: [] }),
-    });
-  });
-
   await page.route(`${api}/api/phase3/proposals/**`, (route) =>
     route.fulfill({
       status: 200,
@@ -334,14 +322,6 @@ export async function applyMocks(page: Page) {
 
   await page.route(`${api}/api/phase3/lock-story`, (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) }),
-  );
-
-  await page.route(`${api}/api/phase3/task-board`, (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ stories: [] }) }),
-  );
-
-  await page.route(`${api}/api/phase3/missing-task-lists`, (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ story_ids: [] }) }),
   );
 
   // ── Phase 2 ───────────────────────────────────────────────────────────────

@@ -1,19 +1,15 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   generateProposal,
   generateTasks,
   getEligibleStories,
-  getMissingTaskLists,
   getProposals,
   getStoryContext,
-  getTaskBoard,
-  getTaskList,
   lockStory,
   saveProposal,
-  saveTaskList,
 } from "@/lib/api/phase3";
 import { getPmAdapter } from "@/lib/api/pm-factory";
 import type { PmTask } from "@/lib/api/pm-types";
@@ -187,18 +183,12 @@ export function usePushTasksToTaiga() {
       }
       return { results, failures };
     },
-    onSuccess: ({ results, failures }, storyId) => {
+    onSuccess: ({ results, failures }) => {
       for (const { taskIndex, localTaskId, id, ref } of results) {
         setPmTaskResult(taskIndex, id, ref);
         patchTask(localTaskId, { pm_task_id: id });
       }
       setTasksPushed(true);
-      const updatedList = usePhase3Store.getState().taskList;
-      if (context && updatedList.length > 0) {
-        void saveTaskList(context, storyId, updatedList).then(() => {
-          void queryClient.invalidateQueries({ queryKey: ["phase3", "task-board"] });
-        });
-      }
       void queryClient.invalidateQueries({ queryKey: ["pm", "project-tasks"] });
       if (failures.length > 0) {
         const names = failures.map((f) => f.subject).join(", ");
@@ -267,30 +257,17 @@ export function useUpdateTaskList() {
 
 export function useLoadTaskList(storyId: number | null) {
   const context = useApiContext();
-  const { hydrateTasks, hydrateFromBackend } = usePhase3Store();
+  const { hydrateTasks } = usePhase3Store();
   const query = useQuery({
-    queryKey: ["phase3", "task-list", context?.projectId, storyId],
-    queryFn: () => getTaskList(context!, storyId!),
-    enabled: Boolean(context) && storyId !== null,
-    staleTime: 0,
-  });
-
-  const jsonEmpty = query.isSuccess && (query.data?.tasks.length ?? 0) === 0;
-  const pmFallbackQuery = useQuery({
     queryKey: ["pm", "project-tasks", context?.projectId],
     queryFn: () => getPmAdapter(context!.pmTool).getProjectTasks(getAdapterCtx(context!)),
-    enabled: Boolean(context) && jsonEmpty && storyId !== null,
+    enabled: Boolean(context) && storyId !== null,
     staleTime: 60_000,
   });
 
   useEffect(() => {
-    if (!query.isSuccess) return;
-    if (query.data?.tasks && query.data.tasks.length > 0) {
-      hydrateFromBackend(query.data.tasks);
-      return;
-    }
-    if (!storyId || !pmFallbackQuery.data) return;
-    const storyTasks = pmFallbackQuery.data
+    if (!query.data || storyId === null) return;
+    const storyTasks = query.data
       .filter((t) => Number(t.user_story) === storyId)
       .sort((a, b) => Number(a.id) - Number(b.id) || String(a.id).localeCompare(String(b.id)));
     if (storyTasks.length === 0) return;
@@ -308,7 +285,7 @@ export function useLoadTaskList(storyId: number | null) {
     });
     hydrateTasks(reconstructed);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query.data, pmFallbackQuery.data, storyId]);
+  }, [query.data, storyId]);
   return query;
 }
 
@@ -336,90 +313,27 @@ export function useLoadProposals(storyId: number | null) {
   return query;
 }
 
-export function useSaveTaskList() {
-  const context = useApiContext();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ storyId, tasks }: { storyId: number; tasks: Phase3Task[] }) =>
-      saveTaskList(context!, storyId, tasks),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["phase3", "task-board"] });
-    },
-    onError: () => toast.error("Failed to save task list. Changes may not persist."),
-  });
-}
-
 export function useTaskBoard() {
   const context = useApiContext();
-  return useQuery({
-    queryKey: ["phase3", "task-board", context?.projectId],
-    queryFn: async () => {
-      const data = await getTaskBoard(context!);
-      return data.stories;
-    },
+  const { data: pmTasks = [] } = useQuery({
+    queryKey: ["pm", "project-tasks", context?.projectId],
+    queryFn: () => getPmAdapter(context!.pmTool).getProjectTasks(getAdapterCtx(context!)),
     enabled: Boolean(context),
     staleTime: 60_000,
   });
-}
-
-export function useSyncTaskLists() {
-  const context = useApiContext();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async () => {
-      if (!context) throw new Error("No project context.");
-      const adapter = getPmAdapter(context.pmTool);
-      const ctx = getAdapterCtx(context);
-      const [{ story_ids: missingIds }, pmTasks] = await Promise.all([
-        getMissingTaskLists(context),
-        adapter.getProjectTasks(ctx),
-      ]);
-      if (missingIds.length === 0) return { saved: 0, skipped: 0 };
-
-      const tasksByStory = new Map<number, PmTask[]>();
-      for (const t of pmTasks) {
-        const sid = Number(t.user_story);
-        if (!tasksByStory.has(sid)) tasksByStory.set(sid, []);
-        tasksByStory.get(sid)!.push(t);
+  const stories = useMemo(() => {
+    const groups = new Map<number, { story_id: number; title: string; tasks: Array<{ id: number; subject: string; effort_estimate: string }> }>();
+    for (const t of pmTasks) {
+      const sid = Number(t.user_story);
+      if (!groups.has(sid)) {
+        groups.set(sid, { story_id: sid, title: t.user_story_subject ?? "", tasks: [] });
       }
-
-      let saved = 0;
-      let skipped = 0;
-      for (const storyId of missingIds) {
-        const storyTasks = tasksByStory.get(storyId)?.sort((a, b) => Number(a.id) - Number(b.id));
-        if (!storyTasks || storyTasks.length === 0) { skipped++; continue; }
-        const tasks: Phase3Task[] = storyTasks.map((t, i) => {
-          const decoded = decodeApexMeta(t.description || "");
-          return {
-            id: i + 1,
-            subject: t.subject,
-            description: decoded.description,
-            effort_estimate: decoded.effort_estimate,
-            covered_scenarios: decoded.covered_scenarios,
-            predecessor_task_ids: decoded.predecessor_task_ids,
-            pm_task_id: String(t.id),
-          };
-        });
-        try {
-          await saveTaskList(context, storyId, tasks);
-          saved++;
-        } catch {
-          skipped++;
-        }
-      }
-      return { saved, skipped };
-    },
-    onSuccess: ({ saved, skipped }) => {
-      void queryClient.invalidateQueries({ queryKey: ["phase3", "task-board"] });
-      if (saved === 0 && skipped === 0) {
-        toast.success("All task lists already synced.");
-      } else {
-        toast.success(`Synced ${saved} task list${saved !== 1 ? "s" : ""}.${skipped > 0 ? ` ${skipped} stories had no tasks.` : ""}`);
-      }
-    },
-    onError: () => toast.error("Task list sync failed."),
-  });
+      const decoded = decodeApexMeta(t.description || "");
+      groups.get(sid)!.tasks.push({ id: Number(t.id), subject: t.subject, effort_estimate: decoded.effort_estimate });
+    }
+    return Array.from(groups.values()).sort((a, b) => a.story_id - b.story_id);
+  }, [pmTasks]);
+  return { data: stories };
 }
 
 export async function fetchPmTaskFull(

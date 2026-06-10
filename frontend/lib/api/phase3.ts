@@ -7,9 +7,7 @@ import type {
   Phase3LockStoryRequest,
   Phase3SaveProposalRequest,
   Phase3StoryContext,
-  Phase3Task,
   RequestContext,
-  TaskBoardStory,
 } from "./types";
 
 export const PHASE3_AI_TIMEOUT_MS = 480_000;
@@ -56,29 +54,10 @@ export function lockStory(context: RequestContext, body: Phase3LockStoryRequest)
   });
 }
 
-export function getTaskList(context: RequestContext, storyId: number) {
-  return apiRequest<{ story_id: number; tasks: Phase3Task[] }>(`/api/phase3/task-list/${storyId}`, { context });
-}
-
-export function saveTaskList(context: RequestContext, storyId: number, tasks: Phase3Task[]) {
-  return apiRequest<{ ok: boolean }>(`/api/phase3/task-list/${storyId}`, {
-    method: "PUT",
-    context,
-    body: { tasks },
-  });
-}
-
-export function getTaskBoard(context: RequestContext) {
-  return apiRequest<{ stories: TaskBoardStory[] }>("/api/phase3/task-board", { context });
-}
-
-export function getMissingTaskLists(context: RequestContext) {
-  return apiRequest<{ story_ids: number[] }>("/api/phase3/missing-task-lists", { context });
-}
-
 export function getProposals(context: RequestContext, storyId: number) {
   return apiRequest<{ story_id: number; proposals: Array<{ task_id: number; proposal_md: string }> }>(
     `/api/phase3/proposals/${storyId}`,
     { context },
   );
 }
+

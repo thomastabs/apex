@@ -960,38 +960,6 @@ def load_proposals(story_id: int) -> list[dict]:
     return results
 
 
-def save_task_list(story_id: int, tasks: list[dict]) -> None:
-    """Persist a story's task list to contextspec/task-list-{story_id}.json."""
-    cd = _context_dir()
-    cd.mkdir(parents=True, exist_ok=True)
-    (cd / f"task-list-{story_id}.json").write_text(
-        json.dumps(tasks, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-
-
-def load_task_list(story_id: int) -> list[dict]:
-    """Load a story's saved task list, returning [] if not found."""
-    p = _context_dir() / f"task-list-{story_id}.json"
-    if not p.exists():
-        return []
-    try:
-        return json.loads(p.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return []
-
-
-def load_all_task_lists() -> dict[int, list[dict]]:
-    """Return a mapping of story_id → task list for all saved task lists."""
-    result: dict[int, list[dict]] = {}
-    for p in sorted(p for p in _context_dir().iterdir() if p.name.startswith("task-list-") and p.name.endswith(".json")):
-        try:
-            story_id = int(p.stem.split("-")[-1])
-            result[story_id] = json.loads(p.read_text(encoding="utf-8"))
-        except (ValueError, json.JSONDecodeError, OSError):
-            pass
-    return result
-
-
 def save_er_diagram(diagram: dict) -> None:
     """Persist the ER diagram React Flow JSON for the current project."""
     cd = _context_dir()

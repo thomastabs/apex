@@ -18,7 +18,6 @@ type Phase3State = {
   setSelectedStoryId: (id: number | null) => void;
   setTaskList: (tasks: Phase3Task[]) => void;
   hydrateTasks: (tasks: Phase3Task[]) => void;
-  hydrateFromBackend: (tasks: Phase3Task[]) => void;
   patchTask: (id: number, updates: Partial<Omit<Phase3Task, "id">>) => void;
   appendTask: (task: Phase3Task) => void;
   removePushedStoryId: (id: number) => void;
@@ -79,28 +78,7 @@ export const usePhase3Store = create<Phase3State>()(
         }),
       // Append a new task without resetting push state
       appendTask: (task) => set((s) => ({ taskList: [...s.taskList, task] })),
-      // Authoritative backend JSON hydrate — overwrites if JSON is fresher than persisted store.
-      // "Fresher" = JSON has taiga_task_ids but current store tasks don't (post-Sync scenario).
-      hydrateFromBackend: (tasks) =>
-        set((state) => {
-          const alreadyTracked =
-            state.selectedStoryId !== null && state.pushedStoryIds.includes(state.selectedStoryId);
-          const fresh: Partial<Phase3State> = {
-            taskList: tasks,
-            tasksPushed: true,
-            pushedStoryIds:
-              alreadyTracked || state.selectedStoryId === null
-                ? state.pushedStoryIds
-                : [...state.pushedStoryIds, state.selectedStoryId],
-          };
-          if (state.taskList.length === 0) return fresh;
-          // Non-empty: only override if JSON has PM task IDs but store doesn't (stale persisted data)
-          const jsonHasIds = tasks.some((t) => t.pm_task_id ?? t.taiga_task_id);
-          const storeHasIds = state.taskList.some((t) => t.pm_task_id ?? t.taiga_task_id);
-          if (jsonHasIds && !storeHasIds) return fresh;
-          return {};
-        }),
-      // Used when restoring from Taiga fallback — only if store is empty
+      // Used when restoring from PM — only if store is empty
       hydrateTasks: (tasks) =>
         set((state) => {
           if (state.taskList.length !== 0) return {};

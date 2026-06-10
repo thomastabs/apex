@@ -13,13 +13,9 @@ from backend.app.schemas.phase3 import (
     GenerateTasksRequest,
     GenerateTasksResponse,
     LockStoryRequest,
-    MissingTaskListsResponse,
     ProposalsResponse,
     SaveProposalRequest,
     StoryContextResponse,
-    TaskBoardResponse,
-    TaskListRequest,
-    TaskListResponse,
 )
 from backend.app.schemas.workspace import OkResponse
 from backend.app.services.phase3_service import Phase3Service, Phase3ValidationError
@@ -128,55 +124,6 @@ def get_proposals(
     try:
         proposals = service.get_proposals(ctx, story_id)
         return {"story_id": story_id, "proposals": proposals}
-    except Exception as exc:
-        _handle_error(exc)
-
-
-@router.get("/task-list/{story_id}", response_model=TaskListResponse)
-def get_task_list(
-    story_id: int,
-    ctx: RequestContext = Depends(get_request_context),
-    service: Phase3Service = Depends(get_phase3_service),
-):
-    try:
-        tasks = service.get_task_list(ctx, story_id)
-        return {"story_id": story_id, "tasks": tasks}
-    except Exception as exc:
-        _handle_error(exc)
-
-
-@router.put("/task-list/{story_id}", response_model=OkResponse)
-def save_task_list(
-    story_id: int,
-    payload: TaskListRequest,
-    ctx: RequestContext = Depends(get_request_context),
-    service: Phase3Service = Depends(get_phase3_service),
-):
-    try:
-        service.save_task_list(ctx, story_id, [t.model_dump() for t in payload.tasks])
-        return {"ok": True}
-    except Exception as exc:
-        _handle_error(exc)
-
-
-@router.get("/missing-task-lists", response_model=MissingTaskListsResponse)
-def get_missing_task_lists(
-    ctx: RequestContext = Depends(get_request_context),
-    service: Phase3Service = Depends(get_phase3_service),
-):
-    try:
-        return {"story_ids": service.get_stories_missing_task_lists(ctx)}
-    except Exception as exc:
-        _handle_error(exc)
-
-
-@router.get("/task-board", response_model=TaskBoardResponse)
-def get_task_board(
-    ctx: RequestContext = Depends(get_request_context),
-    service: Phase3Service = Depends(get_phase3_service),
-):
-    try:
-        return {"stories": service.get_task_board(ctx)}
     except Exception as exc:
         _handle_error(exc)
 

@@ -41,9 +41,7 @@ import {
   usePushSingleTask,
   usePushTasksToTaiga,
   useSaveProposal,
-  useSaveTaskList,
   useStoryContext,
-  useTaskBoard,
   useUpdateTaskInTaiga,
   useUpdateTaskList,
 } from "@/lib/hooks/use-phase3";
@@ -202,18 +200,13 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
   const dark = useUiStore((s) => s.theme) === "dark";
   const context = useApiContext();
   const { data, isLoading, error } = useEligibleStories();
-  const { data: taskBoardStories = [] } = useTaskBoard();
-  const jsonCountByStory = new Map(taskBoardStories.map((s) => [s.story_id, s.tasks.length]));
-
-  // Fall back to live PM tasks when backend JSON has no data for a story.
-  // useQuery shares the cache with the sidebar — no extra network call when sidebar is mounted.
   const { data: pmTasksAll = [] } = useQuery({
     queryKey: ["pm", "project-tasks", context?.projectId],
     queryFn: () => getPmAdapter(context!.pmTool).getProjectTasks({ token: context!.taigaToken, baseUrl: context!.taigaApiUrl ?? "", projectId: String(context!.projectId) }),
     enabled: Boolean(context),
     staleTime: 60_000,
   });
-  const taigaCountByStory = useMemo(() => {
+  const taskCountByStory = useMemo(() => {
     const map = new Map<number, number>();
     for (const t of pmTasksAll) {
       const sid = Number(t.user_story);
@@ -221,13 +214,6 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
     }
     return map;
   }, [pmTasksAll]);
-
-  const taskCountByStory = new Map(
-    [...new Set([...jsonCountByStory.keys(), ...taigaCountByStory.keys()])].map((id) => [
-      id,
-      jsonCountByStory.get(id) ?? taigaCountByStory.get(id) ?? 0,
-    ]),
-  );
 
   const [activeEpic, setActiveEpic] = useState<string | null>(null);
   const [page, setPage] = useState(0);
@@ -356,19 +342,15 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                     <div className="mt-auto flex items-center justify-between pt-4">
                       {(() => {
                         const count = taskCountByStory.get(story.story_id) ?? 0;
-                        const fromJson = (jsonCountByStory.get(story.story_id) ?? 0) > 0;
                         return count > 0 ? (
                           <span
-                            title={fromJson ? "Tasks synced with Apex" : "Tasks from PM board (not yet synced with Apex)"}
+                            title="Tasks in PM board"
                             className={cn(
                               "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold",
-                              fromJson
-                                ? dark ? "bg-violet-900/40 text-violet-300" : "bg-violet-100 text-violet-700"
-                                : dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-100 text-slate-500",
+                              dark ? "bg-violet-900/40 text-violet-300" : "bg-violet-100 text-violet-700",
                             )}
                           >
                             {count} task{count > 1 ? "s" : ""}
-                            {!fromJson && <span className="opacity-60">·</span>}
                           </span>
                         ) : (
                           <span className={cn("text-[10px]", dark ? "text-neutral-700" : "text-slate-300")}>
@@ -433,7 +415,6 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const { taskList, tasksPushed, packDrafts, setCurrentStoryMeta, patchTask, setTaskList, removePushedStoryId } = usePhase3Store();
   const { addTask, removeTask, updateTask, reorderTasks } = useUpdateTaskList();
 
-  const saveTaskListMut = useSaveTaskList();
   const updateInTaigaMut = useUpdateTaskInTaiga();
   const pushSingleMut = usePushSingleTask();
   const pushMetaMut = usePushMetadataToTaiga();
@@ -442,16 +423,6 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
     if (ctx) setCurrentStoryMeta(ctx.title, ctx.epic_title);
   }, [ctx, setCurrentStoryMeta]);
 
-  const mountedRef = useRef(false);
-  useEffect(() => { mountedRef.current = true; }, []);
-  useEffect(() => {
-    if (!mountedRef.current || taskList.length === 0) return;
-    const timer = setTimeout(() => {
-      saveTaskListMut.mutate({ storyId, tasks: taskList });
-    }, 800);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [taskList, storyId]);
 
   const generateTasksMut = useGenerateTasks();
   const pushToTaiga = usePushTasksToTaiga();
@@ -654,7 +625,6 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                 setTaskList([]);
                 setEditingId(null);
                 removePushedStoryId(storyId);
-                if (context) void saveTaskListMut.mutateAsync({ storyId, tasks: [] }).catch((err) => toast.error(errMsg(err)));
               }}
               className={cn(
                 "rounded px-2 py-1 text-xs font-medium transition-colors",
