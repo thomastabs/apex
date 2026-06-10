@@ -338,19 +338,25 @@ Open:
 
 ### Testing Against a Private Taiga Instance
 
-Use this to verify Apex works correctly against a self-hosted Taiga deployment (e.g. `taiga.yourcompany.com`) before going to production.
+Use this to verify Apex works correctly against a self-hosted Taiga deployment (e.g. `taiga.yourcompany.com`) before going to production. The Apex backend proxy enforces `https://` on all Taiga URLs, so a Cloudflare tunnel is required to expose the local instance — no domain or Cloudflare account needed.
 
-#### 1. Run a local Taiga instance via Docker
+#### 1. Install cloudflared (one-time)
+
+```bash
+curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /tmp/cloudflared
+chmod +x /tmp/cloudflared && sudo mv /tmp/cloudflared /usr/local/bin/cloudflared
+```
+
+#### 2. Run a local Taiga instance via Docker
 
 ```bash
 git clone https://github.com/taigaio/taiga-docker ~/taiga-docker
 cd ~/taiga-docker
-cp .env.example .env   # defaults work for localhost:9000
-# Edit .env: set ENABLE_TELEMETRY=False
+# Edit .env: set ENABLE_TELEMETRY=False (defaults otherwise work for localhost:9000)
 docker compose up -d
 ```
 
-Run DB migrations and create an admin user:
+Run DB migrations and create a user:
 
 ```bash
 bash taiga-manage.sh migrate
@@ -362,34 +368,29 @@ User.objects.create_superuser('admin','admin@localhost.com','yourpassword')
 
 Taiga is now accessible at `http://localhost:9000`.
 
-#### 2. Expose Taiga with a public HTTPS URL (Cloudflare Tunnel)
-
-The Apex backend proxy requires `https://` for all Taiga URLs. Use a Cloudflare quick tunnel to get one without a domain or account:
+#### 3. Start the Cloudflare tunnel
 
 ```bash
-# Install cloudflared (one-time)
-curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /tmp/cloudflared
-chmod +x /tmp/cloudflared && sudo mv /tmp/cloudflared /usr/local/bin/cloudflared
-
-# Start tunnel (run while testing — URL changes on each restart)
+# Run while testing — URL changes on each restart
 cloudflared tunnel --url http://localhost:9000
 ```
 
-The tunnel prints a URL like `https://xxxx-xxxx.trycloudflare.com`. Use that as the Taiga instance URL in Apex.
+The tunnel prints a stable public URL like `https://xxxx-xxxx.trycloudflare.com`.
 
-#### 3. Configure Apex
-
-In `.env`, leave `APEX_ALLOW_HTTP_LOCALHOST` blank (not needed when using the tunnel URL).
+#### 4. Configure Apex
 
 In the Apex sidebar:
 - PM tool: **Taiga**
 - Taiga instance URL: `https://xxxx-xxxx.trycloudflare.com`
 - Username / password: your Taiga admin credentials
 
+Sign in — all Taiga API calls will route through the Apex backend proxy to the tunnel.
+
 #### Stop
 
 ```bash
 cd ~/taiga-docker && docker compose down
+# Ctrl+C the cloudflared process
 ```
 
 ---
