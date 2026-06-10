@@ -178,7 +178,7 @@ The sidebar is the operational shell for the app.
 Implemented:
 
 - PM tool selector — toggle between Taiga (violet) and Jira Cloud (blue) before signing in; connected Taiga private cloud URL shown under account when non-default
-- **Taiga login** — username/password or bearer token (browser-direct, no backend proxy); supports Taiga Cloud (`tree.taiga.io`) and private/self-hosted instances via an optional instance URL field (e.g. `https://taiga.yourcompany.com`)
+- **Taiga login** — username/password or bearer token; all Taiga API calls are proxied through the FastAPI backend (`/api/pm/taiga/{path}`) — supports Taiga Cloud and private/self-hosted instances (e.g. `https://taiga.yourcompany.com`)
 - **Jira Cloud login** — domain, Atlassian account email, and API token; auth is verified through the FastAPI backend proxy before the session is stored
 - Project selector
 - Project create/delete
@@ -208,6 +208,7 @@ Implemented:
 | `backend/app/api/phase3.py` | Phase 3 HTTP routes |
 | `backend/app/api/phase4.py` | Phase 4 HTTP routes |
 | `backend/app/api/workspace.py` | Sidebar/workspace routes: auth, projects, board, users, context files, AI config |
+| `backend/app/api/taiga_proxy.py` | FastAPI reverse proxy for all Taiga REST calls — SSRF-guarded, header-injection-safe, forwards `DELETE/GET/PATCH/POST/PUT /api/pm/taiga/{path}` to the configured Taiga instance |
 | `backend/app/api/jira_proxy.py` | FastAPI reverse proxy for Jira Cloud REST API v3 (Basic auth, SSRF-guarded to `*.atlassian.net`) |
 | `backend/app/api/deps.py` | FastAPI request/auth dependencies |
 | `backend/app/services/` | Service layer for phase workflows, AI, Taiga, and context operations |
@@ -215,10 +216,10 @@ Implemented:
 | `src/ai_engine.py` | Claude prompts, structured outputs, model selection, AI error handling |
 | `src/context_manager.py` | Context file templates, readers/writers, story index, phase context selection |
 | `src/storage.py` | Storage abstraction over local disk or Azure File Share SDK |
-| `src/taiga_adapter.py` | Taiga web URL derivation for the config endpoint (minimal; all Taiga REST calls are browser-side) |
+| `src/taiga_adapter.py` | Taiga web URL derivation for the config endpoint (minimal stub; all Taiga REST calls go through `taiga_proxy.py`) |
 | `frontend/app/` | Next.js routes |
 | `frontend/components/` | App shell, sidebar, Phase 1–4 workflow components, UI primitives |
-| `frontend/lib/api/taiga-direct.ts` | Browser-side Taiga REST client — all CRUD, auth, and story transitions |
+| `frontend/lib/api/taiga-direct.ts` | Taiga REST client — all CRUD, auth, and story transitions; sends requests to the FastAPI Taiga proxy with `X-Taiga-Url` header |
 | `frontend/lib/api/pm-types.ts` | `ProjectManagementAdapter` interface and shared PM types |
 | `frontend/lib/api/pm-factory.ts` | `getPmAdapter(pmTool)` dispatcher — returns Taiga or Jira adapter |
 | `frontend/lib/api/taiga-adapter.ts` | Taiga adapter wrapping `taiga-direct.ts` |
@@ -371,6 +372,8 @@ Coverage:
 - `tests/test_backend_phase2_api.py` — Phase 2 HTTP route tests; stub service, error-code mapping
 - `tests/test_backend_phase3.py` — Phase 3 service-layer unit tests; task generation, proposal generation, hint/cross-task context passthrough
 - `tests/test_backend_phase3_api.py` — Phase 3 HTTP route tests; all 9 endpoints, error-code mapping (422/429/504)
+- `tests/test_taiga_proxy.py` — 19 tests covering Taiga proxy routing, SSRF blocking, header injection guard, method forwarding
+- `tests/test_deps.py` — 10 tests covering FastAPI dependency utilities (`deps.py`)
 
 `AzureFileShareService` is mocked at the service boundary via a `ctx` fixture in `conftest.py`. No real Azure credentials or live backend needed to run the suite.
 
@@ -447,10 +450,10 @@ Key design decisions:
 | Stateful `mockState.techStackDefined` closure | `lock-tech-stack` sets the flag so the subsequent `tech-stack-status` refetch returns `defined: true`, advancing Phase 2 from Stage A to Stage B |
 | Empty task list from `task-list` mock | Returning pre-existing tasks triggers `hydrateFromBackend` which sets `tasksPushed: true`, disabling **Generate Tasks**; empty list keeps it enabled |
 | `covered_scenarios: ["Successful login"]` | Must match the exact scenario name from `parseGherkinScenarios()`; using the story title instead keeps `coverageOk: false` and disables **Lock Story** |
-| Zustand hydration via `addInitScript` | Sets `apex-session` (v4) and `apex-phase3-draft` in localStorage before first navigation so components see a valid token and project ID on first render |
+| Zustand hydration via `addInitScript` | Sets `apex-session` (v5) in `sessionStorage` and `apex-phase3-draft` in localStorage before first navigation so components see a valid token and project ID on first render |
 | Clipboard permission grant | `navigator.clipboard.writeText()` is blocked headless without explicit permission; granted via `page.context().grantPermissions()` |
 
-Mocked endpoints (both `http://localhost:8000` and `https://api.taiga.io`):
+Mocked endpoints (`http://localhost:8000` — all Taiga calls now go through the backend proxy, not directly to `api.taiga.io`):
 
 - `/api/health`, all `/api/workspace/**` routes
 - Phase 1: `generate-nl-stories`, `compile-gherkin`, `finalize-stories`
@@ -584,15 +587,17 @@ This one-hour seasonal drift is acceptable for the project. If exact Lisbon loca
 
 ## Architecture Note — Browser-Side vs Proxied API Calls
 
-**Taiga:** All Taiga REST API calls (login, projects, epics, stories, users, story transitions) are made directly from the user's browser via `frontend/lib/api/taiga-direct.ts`. The FastAPI backend never connects to Taiga. This applies to both Taiga Cloud and private/self-hosted instances — the browser connects directly to whichever host the user specifies.
+**Taiga:** All Taiga REST API calls (login, projects, epics, stories, users, story transitions) are proxied through the FastAPI backend at `DELETE/GET/PATCH/POST/PUT /api/pm/taiga/{path}` (`backend/app/api/taiga_proxy.py`). `frontend/lib/api/taiga-direct.ts` sends an `X-Taiga-Url` header carrying the user-configured Taiga base URL; the backend validates it with SSRF guards, resolves it against the saved workspace config if absent, and forwards the request server-side.
 
-**Why browser-side for Taiga:** Azure Container Apps Consumption tier uses shared egress IPs that are blocked by `api.taiga.io` at the TCP level. Moving all Taiga calls to the browser bypasses this entirely and also removes a latency hop.
+**Why server-side for Taiga:** Private/self-hosted Taiga instances (e.g. `taiga.marsshot.eu`) reject browser CORS preflight requests from third-party origins. Proxying through the backend eliminates this entirely for both self-hosted and Taiga Cloud. The proxy also adds SSRF protection (RFC-1918 / loopback block), `\r\n` header-injection guards, and a consistent place to apply future auth or rate-limit logic.
 
-**Implication:** `src/taiga_adapter.py` is now a stub that only derives the Taiga web URL from `TAIGA_API_URL` for the `GET /config` endpoint. Do not add new backend-to-Taiga calls.
+**Implication:** `src/taiga_adapter.py` is a stub that only derives the Taiga web URL for the `GET /config` endpoint. All Taiga REST traffic goes through `taiga_proxy.py` — do not add browser-direct Taiga calls.
 
 **Jira:** Jira API calls are proxied through the FastAPI backend (`backend/app/api/jira_proxy.py`). The browser sends requests to `/api/pm/jira/*` with `X-Jira-Base-Url` and `Authorization: Basic` headers; the backend forwards them to the Jira Cloud REST API. This is required because Jira Cloud does not allow direct browser requests from arbitrary origins.
 
-**GitHub:** GitHub REST API calls are made directly from the browser via `frontend/lib/api/github-browser.ts`. GitHub returns `Access-Control-Allow-Origin: *` so no backend proxy is needed. The PAT is stored in the session store (Zustand/localStorage) and never sent to the backend.
+**GitHub:** GitHub REST API calls are made directly from the browser via `frontend/lib/api/github-browser.ts`. GitHub returns `Access-Control-Allow-Origin: *` so no backend proxy is needed. The GitHub PAT is excluded from session persistence and never sent to the backend.
+
+**Session security:** The Zustand `apex-session` store (v5) persists to `sessionStorage` so credentials are cleared when the browser tab closes. The GitHub PAT is excluded from the persist partition entirely.
 
 ---
 
@@ -600,7 +605,7 @@ This one-hour seasonal drift is acceptable for the project. If exact Lisbon loca
 
 - Keep routers thin and put workflow logic in `backend/app/services/`.
 - Keep AI prompt logic in `src/ai_engine.py`. Provider is detected automatically from the model ID prefix (`claude-` → Anthropic, `gpt-`/`o1-`/`o3-` → OpenAI, `gemini-` → Google).
-- All Taiga REST calls go through `frontend/lib/api/taiga-direct.ts` in the browser. Do not proxy Taiga through the backend.
+- All Taiga REST calls go through the FastAPI proxy at `/api/pm/taiga/{path}` (`backend/app/api/taiga_proxy.py`). Do not add browser-direct Taiga calls.
 - All Jira REST calls go through the FastAPI proxy at `/api/pm/jira/*`. Do not call Jira Cloud directly from the browser.
 - New PM operations should go through the `ProjectManagementAdapter` interface (`frontend/lib/api/pm-types.ts`) — add to both `taiga-adapter.ts` and `jira-adapter.ts`, then dispatch via `getPmAdapter()` in `pm-factory.ts`.
 - Treat Markdown context files as human-readable artefacts, and `story-index.json` as the machine-readable workflow index.
