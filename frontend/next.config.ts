@@ -16,6 +16,10 @@ const _CSP = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Standalone output bundles only traced production deps into
+  // .next/standalone — the Docker runner stage copies that instead of the
+  // full dev node_modules (cuts the image by roughly 70%).
+  output: "standalone",
   outputFileTracingRoot: path.join(process.cwd()),
   async headers() {
     return [

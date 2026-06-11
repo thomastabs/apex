@@ -1,4 +1,6 @@
-FROM python:3.12-slim
+# python:3.12-slim pinned by digest for reproducible builds (2026-06-11).
+# To bump: docker buildx imagetools inspect python:3.12-slim
+FROM python:3.12-slim@sha256:a39549e211a16149edf74e5fdc9ef03a6767e46cd987c5048b6659b6c9904c94
 
 WORKDIR /app
 
