@@ -207,3 +207,76 @@ class TestProxyTaigaCatchAll:
         )
         assert resp.status_code == 400
         assert "X-Taiga-Url" in resp.json().get("detail", "")
+
+
+class TestTaigaConfigPathSsrf:
+    """The workspace-config URL is user-writable — it must pass the same
+    SSRF guard as the X-Taiga-Url header (audit C3)."""
+
+    AUTH = "Bearer mytoken"
+
+    def _get_with_config(self, client, taiga_url: str):
+        config = {"pm_tool": "taiga", "taiga_url": taiga_url}
+        with patch("src.context_manager.load_config", return_value=config):
+            return client.get("/api/pm/taiga/epics", headers={"Authorization": self.AUTH})
+
+    def test_config_private_ip_blocked(self, client):
+        assert self._get_with_config(client, "https://192.168.1.50").status_code == 400
+
+    def test_config_link_local_blocked(self, client):
+        assert self._get_with_config(client, "https://169.254.169.254").status_code == 400
+
+    def test_config_localhost_blocked(self, client):
+        assert self._get_with_config(client, "https://localhost:9000").status_code == 400
+
+    def test_config_http_blocked(self, client):
+        assert self._get_with_config(client, "http://taiga.example.test").status_code == 400
+
+
+class TestTaigaDnsRebinding:
+    """Public-looking hostnames resolving to private addresses must be
+    blocked (audit H3)."""
+
+    AUTH = "Bearer mytoken"
+
+    @staticmethod
+    def _addrinfo(ip: str):
+        return [(2, 1, 6, "", (ip, 0))]
+
+    def test_hostname_resolving_to_private_blocked(self, client):
+        with patch("backend.app.api.ssrf.socket.getaddrinfo", return_value=self._addrinfo("10.0.0.5")):
+            resp = client.get(
+                "/api/pm/taiga/epics",
+                headers={"Authorization": self.AUTH, "X-Taiga-Url": "https://rebind.example.com/api/v1"},
+            )
+        assert resp.status_code == 400
+
+    def test_hostname_resolving_to_metadata_ip_blocked(self, client):
+        with patch("backend.app.api.ssrf.socket.getaddrinfo", return_value=self._addrinfo("169.254.169.254")):
+            resp = client.get(
+                "/api/pm/taiga/epics",
+                headers={"Authorization": self.AUTH, "X-Taiga-Url": "https://rebind.example.com/api/v1"},
+            )
+        assert resp.status_code == 400
+
+    def test_hostname_resolving_to_public_allowed(self, client):
+        upstream = _mock_upstream(200, [])
+        patcher, _ = _patch_client(upstream)
+        with patcher, patch("backend.app.api.ssrf.socket.getaddrinfo", return_value=self._addrinfo("93.184.216.34")):
+            resp = client.get(
+                "/api/pm/taiga/epics",
+                headers={"Authorization": self.AUTH, "X-Taiga-Url": "https://public.example.com/api/v1"},
+            )
+        assert resp.status_code == 200
+
+    def test_unresolvable_hostname_allowed_through_guard(self, client):
+        # Connection will fail downstream anyway; blocking on resolver errors
+        # would break offline/CI runs.
+        upstream = _mock_upstream(200, [])
+        patcher, _ = _patch_client(upstream)
+        with patcher, patch("backend.app.api.ssrf.socket.getaddrinfo", side_effect=OSError("NXDOMAIN")):
+            resp = client.get(
+                "/api/pm/taiga/epics",
+                headers={"Authorization": self.AUTH, "X-Taiga-Url": "https://nxdomain.example.com/api/v1"},
+            )
+        assert resp.status_code == 200

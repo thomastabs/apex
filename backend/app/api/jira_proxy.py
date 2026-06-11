@@ -6,42 +6,19 @@ browser through the FastAPI backend, which makes the actual request
 server-side using the credentials provided by the client.
 """
 
-import ipaddress
 import logging
 from urllib.parse import urlparse
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 
+from backend.app.api.ssrf import is_blocked_host
+
 router = APIRouter()
 _logger = logging.getLogger("apex.jira_proxy")
 
 _JIRA_REST_PREFIX = "/rest/api/3"
 _TIMEOUT = 30.0
-
-# RFC-1918, loopback, link-local, CGNAT, IPv6 ULA, IPv4-mapped
-_BLOCKED_NETS = [
-    ipaddress.ip_network("127.0.0.0/8"),
-    ipaddress.ip_network("10.0.0.0/8"),
-    ipaddress.ip_network("172.16.0.0/12"),
-    ipaddress.ip_network("192.168.0.0/16"),
-    ipaddress.ip_network("169.254.0.0/16"),
-    ipaddress.ip_network("100.64.0.0/10"),
-    ipaddress.ip_network("::1/128"),
-    ipaddress.ip_network("fc00::/7"),
-    ipaddress.ip_network("fe80::/10"),
-    ipaddress.ip_network("::ffff:0:0/96"),
-]
-
-
-def _is_blocked_host(host: str) -> bool:
-    if host.lower() == "localhost":
-        return True
-    try:
-        addr = ipaddress.ip_address(host)
-        return any(addr in net for net in _BLOCKED_NETS)
-    except ValueError:
-        return False
 
 
 # Module-level client for connection pooling — created lazily, lives for process lifetime.
@@ -53,6 +30,31 @@ def _get_client() -> httpx.AsyncClient:
     if _client is None or _client.is_closed:
         _client = httpx.AsyncClient(follow_redirects=False, timeout=_TIMEOUT)
     return _client
+
+
+def validate_jira_base_url(url: str, *, source: str = "X-Jira-Base-Url") -> str:
+    """Validate a Jira base URL — header override or persisted workspace config.
+
+    Restricted to https:// *.atlassian.net to prevent SSRF: the config is
+    writable through POST /workspace/config, so it is just as user-influenced
+    as the pre-auth header path. Also called from the workspace router so bad
+    URLs are rejected at save time, not only at proxy time.
+    """
+    url = url.strip().rstrip("/")
+    if not url.startswith("https://"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{source} must start with https://")
+    host = urlparse(url).hostname or ""
+    if not host or is_blocked_host(host):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{source} must not point to a private/loopback address.",
+        )
+    if not (host == "atlassian.net" or host.endswith(".atlassian.net")):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{source} must be an atlassian.net domain.",
+        )
+    return url
 
 
 def _get_jira_base_url() -> str:
@@ -70,29 +72,7 @@ def _get_jira_base_url() -> str:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Jira base URL is not configured.",
         )
-    return base_url
-
-
-def _validate_override_base_url(url: str) -> str:
-    """Validate X-Jira-Base-Url override used in the pre-auth login flow.
-
-    Restricted to *.atlassian.net to prevent SSRF via the unauthenticated path.
-    """
-    url = url.strip().rstrip("/")
-    if not url.startswith("https://"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="X-Jira-Base-Url must start with https://")
-    host = urlparse(url).hostname or ""
-    if not host or _is_blocked_host(host):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="X-Jira-Base-Url must not point to a private/loopback address.",
-        )
-    if not (host == "atlassian.net" or host.endswith(".atlassian.net")):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="X-Jira-Base-Url must be an atlassian.net domain.",
-        )
-    return url
+    return validate_jira_base_url(base_url, source="Configured Jira base URL")
 
 
 @router.api_route("/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
@@ -122,7 +102,7 @@ async def proxy_jira(
 
     # X-Jira-Base-Url override is used during login (before config is saved).
     # Restricted to *.atlassian.net to prevent SSRF.
-    base_url = _validate_override_base_url(x_jira_base_url) if x_jira_base_url else _get_jira_base_url()
+    base_url = validate_jira_base_url(x_jira_base_url) if x_jira_base_url else _get_jira_base_url()
     target_url = f"{base_url}{_JIRA_REST_PREFIX}/{path}"
     if request.url.query:
         target_url = f"{target_url}?{request.url.query}"

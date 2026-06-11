@@ -187,3 +187,84 @@ class TestProxyJiraCatchAll:
                 headers={"Authorization": self.AUTH},
             )
         assert resp.status_code == 400
+
+
+class TestJiraConfigPathSsrf:
+    """The persisted jira_base_url is user-writable — the config path must
+    enforce the same https + atlassian.net + non-private rules as the
+    X-Jira-Base-Url header (audit C3)."""
+
+    AUTH = "Basic dXNlckBleGFtcGxlLmNvbTp0b2tlbg=="
+
+    def _get_with_config(self, client, base_url: str):
+        config = {"pm_tool": "jira", "jira_base_url": base_url}
+        with patch("src.context_manager.load_config", return_value=config):
+            return client.get("/api/pm/jira/myself", headers={"Authorization": self.AUTH})
+
+    def test_config_non_atlassian_blocked(self, client):
+        assert self._get_with_config(client, "https://evil.example.com").status_code == 400
+
+    def test_config_private_ip_blocked(self, client):
+        assert self._get_with_config(client, "https://169.254.169.254").status_code == 400
+
+    def test_config_http_blocked(self, client):
+        assert self._get_with_config(client, "http://example.atlassian.net").status_code == 400
+
+    def test_dns_rebinding_on_atlassian_name_blocked(self, client):
+        with patch(
+            "backend.app.api.ssrf.socket.getaddrinfo",
+            return_value=[(2, 1, 6, "", ("10.0.0.5", 0))],
+        ):
+            resp = client.get(
+                "/api/pm/jira/myself",
+                headers={"Authorization": self.AUTH, "X-Jira-Base-Url": "https://rebind.atlassian.net"},
+            )
+        assert resp.status_code == 400
+
+
+class TestSaveConfigValidation:
+    """POST /workspace/config must reject bad jira_base_url at save time."""
+
+    HEADERS = {"Authorization": "Bearer tok"}
+
+    def test_save_non_atlassian_jira_url_rejected(self, client):
+        resp = client.post(
+            "/api/workspace/config",
+            headers=self.HEADERS,
+            json={"pm_tool": "jira", "jira_base_url": "https://evil.example.com"},
+        )
+        assert resp.status_code == 400
+
+    def test_save_http_jira_url_rejected(self, client):
+        resp = client.post(
+            "/api/workspace/config",
+            headers=self.HEADERS,
+            json={"pm_tool": "jira", "jira_base_url": "http://example.atlassian.net"},
+        )
+        assert resp.status_code == 400
+
+    def test_save_valid_jira_url_accepted(self, client):
+        saved: dict = {}
+
+        def fake_save_pm_config(pm_tool=None, jira_base_url=None):
+            saved["pm_tool"] = pm_tool
+            saved["jira_base_url"] = jira_base_url
+
+        with patch("src.context_manager.save_pm_config", side_effect=fake_save_pm_config):
+            resp = client.post(
+                "/api/workspace/config",
+                headers=self.HEADERS,
+                json={"pm_tool": "jira", "jira_base_url": "https://example.atlassian.net"},
+            )
+        assert resp.status_code == 200
+        assert saved == {"pm_tool": "jira", "jira_base_url": "https://example.atlassian.net"}
+
+    def test_save_empty_jira_url_allowed_to_clear(self, client):
+        with patch("src.context_manager.save_pm_config") as mock_save:
+            resp = client.post(
+                "/api/workspace/config",
+                headers=self.HEADERS,
+                json={"pm_tool": "taiga", "jira_base_url": ""},
+            )
+        assert resp.status_code == 200
+        mock_save.assert_called_once()

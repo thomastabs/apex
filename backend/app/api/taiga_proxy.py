@@ -5,7 +5,6 @@ third-party origins. This module forwards all Taiga REST calls server-side
 so the browser never contacts the Taiga instance directly.
 """
 
-import ipaddress
 import logging
 from urllib.parse import urlparse
 
@@ -13,35 +12,13 @@ import httpx
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from pydantic import BaseModel
 
+from backend.app.api.ssrf import is_blocked_host
+
 router = APIRouter()
 _logger = logging.getLogger("apex.taiga_proxy")
 
 _TIMEOUT = 20.0
 _client: httpx.AsyncClient | None = None
-
-# RFC-1918, loopback, link-local, CGNAT, IPv6 ULA, IPv4-mapped
-_BLOCKED_NETS = [
-    ipaddress.ip_network("127.0.0.0/8"),
-    ipaddress.ip_network("10.0.0.0/8"),
-    ipaddress.ip_network("172.16.0.0/12"),
-    ipaddress.ip_network("192.168.0.0/16"),
-    ipaddress.ip_network("169.254.0.0/16"),
-    ipaddress.ip_network("100.64.0.0/10"),
-    ipaddress.ip_network("::1/128"),
-    ipaddress.ip_network("fc00::/7"),
-    ipaddress.ip_network("fe80::/10"),
-    ipaddress.ip_network("::ffff:0:0/96"),
-]
-
-
-def _is_blocked_host(host: str) -> bool:
-    if host.lower() == "localhost":
-        return True
-    try:
-        addr = ipaddress.ip_address(host)
-        return any(addr in net for net in _BLOCKED_NETS)
-    except ValueError:
-        return False
 
 
 def _get_client() -> httpx.AsyncClient:
@@ -51,19 +28,24 @@ def _get_client() -> httpx.AsyncClient:
     return _client
 
 
-def _validate_taiga_url(url: str) -> str:
-    """Require https:// and a non-private hostname to prevent SSRF."""
+def _validate_taiga_url(url: str, *, source: str = "X-Taiga-Url") -> str:
+    """Require https:// and a non-private hostname to prevent SSRF.
+
+    Applied to BOTH the X-Taiga-Url header override and the workspace-config
+    URL — the config is writable through the API, so it is just as
+    user-influenced as the header.
+    """
     url = url.strip().rstrip("/")
     if not url.startswith("https://"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Taiga instance URL must use https://. Use a Cloudflare tunnel for local instances.",
+            detail=f"{source}: Taiga instance URL must use https://. Use a Cloudflare tunnel for local instances.",
         )
     host = urlparse(url).hostname or ""
-    if not host or _is_blocked_host(host):
+    if not host or is_blocked_host(host):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="X-Taiga-Url must not point to a private/loopback address.",
+            detail=f"{source} must not point to a private/loopback address.",
         )
     return url
 
@@ -132,10 +114,9 @@ def _get_taiga_url(x_taiga_url: str = "") -> str:
             detail="Taiga URL is not configured in workspace.",
         )
     # Config URL is the web URL (e.g. https://tree.taiga.io); append /api/v1
-    if taiga_url.endswith("/api/v1"):
-        return taiga_url
-    taiga_url = taiga_url.replace("//tree.", "//api.")
-    return f"{taiga_url}/api/v1"
+    if not taiga_url.endswith("/api/v1"):
+        taiga_url = taiga_url.replace("//tree.", "//api.") + "/api/v1"
+    return _validate_taiga_url(taiga_url, source="Configured Taiga URL")
 
 
 @router.api_route("/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
