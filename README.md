@@ -11,6 +11,18 @@ The current migrated version is a split full-stack web app:
 
 Phases 1, 2, 3, and 4 are implemented. Phases 5 and 6 currently exist as navigation placeholders.
 
+<img width="1908" height="991" alt="image" src="https://github.com/user-attachments/assets/818d2d66-add0-40c4-883f-c558a8445183" />
+
+<img width="1908" height="991" alt="image" src="https://github.com/user-attachments/assets/da6d3f52-a4d3-45ef-bad1-e9749519b657" />
+
+<img width="1908" height="991" alt="image" src="https://github.com/user-attachments/assets/8a0c2b92-b4d4-43e4-9696-9057f9a5d954" />
+
+<img width="1908" height="991" alt="image" src="https://github.com/user-attachments/assets/32fb3831-b20c-4743-8e6d-63233ebfdcc6" />
+
+<img width="1908" height="991" alt="image" src="https://github.com/user-attachments/assets/dd0b4adc-613f-4e37-aa85-e6a68f9168b1" />
+
+<img width="1908" height="991" alt="image" src="https://github.com/user-attachments/assets/354afd6a-8bf9-4ae1-9614-fa6cc6880ee6" />
+
 ---
 
 ## Implemented Workflow
