@@ -814,14 +814,18 @@ class TestConfig:
         monkeypatch.setattr(cm, "_CONFIG_FILE", f)
         assert cm.load_config() == {}
 
-    def test_set_active_project_saves_config(self, tmp_path, monkeypatch):
+    def test_set_active_project_does_not_write_config(self, tmp_path, monkeypatch):
+        """set_active_project runs on every request — persisting config here
+        lets concurrent users on different projects thrash the shared config
+        file. Persistence is the frontend's explicit POST /workspace/config."""
         from src import context_manager as cm
         monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
         monkeypatch.setattr(cm, "_CONFIG_FILE", tmp_path / ".apex-config.json")
         token = cm._active_project_id.set(0)
         try:
             cm.set_active_project(42)
-            assert cm.load_config().get("project_id") == 42
+            assert cm._get_project_id() == 42
+            assert not (tmp_path / ".apex-config.json").exists()
         finally:
             cm._active_project_id.reset(token)
 
@@ -855,3 +859,52 @@ class TestInitContextNoProject:
             assert cm.get_story_index() == {}
         finally:
             cm._active_project_id.reset(token)
+
+
+# ---------------------------------------------------------------------------
+# Story index — locking + cross-worker invalidation (audit H2)
+# ---------------------------------------------------------------------------
+
+class TestStoryIndexConcurrency:
+    def test_concurrent_upserts_do_not_lose_updates(self, ctx):
+        import concurrent.futures
+        import contextvars
+
+        ctx.init_context()
+
+        def upsert(i: int) -> None:
+            ctx.upsert_story_index(i, title=f"story-{i}")
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+            futures = [
+                pool.submit(contextvars.copy_context().run, upsert, i)
+                for i in range(1, 41)
+            ]
+            for f in futures:
+                f.result()
+
+        index = ctx.get_story_index()
+        assert len(index) == 40
+        assert all(str(i) in index for i in range(1, 41))
+
+    def test_external_file_write_invalidates_cache(self, ctx):
+        """A write from another worker/process must be visible here —
+        the cache is keyed on the index file's mtime."""
+        import json
+        import os
+
+        ctx.init_context()
+        ctx.upsert_story_index(1, title="from this worker")
+        assert "1" in ctx.get_story_index()
+
+        # Simulate another worker rewriting the file behind our back.
+        sif = ctx.get_file_path("story-index.json")
+        sif.write_text(
+            json.dumps({"2": {"story_id": 2, "title": "from other worker"}}),
+            encoding="utf-8",
+        )
+        os.utime(str(sif), (os.path.getmtime(str(sif)) + 10, os.path.getmtime(str(sif)) + 10))
+
+        index = ctx.get_story_index()
+        assert "2" in index
+        assert "1" not in index

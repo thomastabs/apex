@@ -62,9 +62,9 @@ def test_contextvar_cache_isolation_concurrent(tmp_path, monkeypatch):
         token = cm._active_project_id.set(pid)
         try:
             cm.init_context()
-            # Write a unique marker to this project's story index cache
+            # Write a unique marker to this project's story index (file + cache)
             marker = f"project-{pid}-marker"
-            cm._story_index_caches[pid] = {f"story-{pid}": {"title": marker}}
+            cm._save_story_index({f"story-{pid}": {"title": marker}})
             time.sleep(0.01)
             index = cm.get_story_index()
             read_back[pid] = list(index.values())[0]["title"] if index else ""

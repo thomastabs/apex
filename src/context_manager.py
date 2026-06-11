@@ -15,6 +15,7 @@ import json
 import logging
 import os
 import re
+import threading
 from datetime import datetime, timezone
 
 from src.storage import StoragePath as Path
@@ -51,7 +52,13 @@ def get_file_path(filename: str, pid: int | None = None) -> Path:
 
 # Process-scoped per-project caches.  Keyed by project_id so concurrent requests
 # on different projects never share or overwrite each other's in-memory state.
-_story_index_caches:  dict[int, dict | None] = {}
+# Story-index cache entries are (file_mtime_at_load, index); the mtime is
+# compared on every read so a write from another worker/process invalidates
+# this one's cache. _index_lock serializes read-modify-write cycles — phase
+# endpoints are sync `def`s running on a threadpool, so unlocked upserts can
+# interleave and lose updates.
+_index_lock = threading.RLock()
+_story_index_caches:  dict[int, tuple[float, dict]] = {}
 _initialized_projects: set[int]              = set()
 
 
@@ -156,16 +163,18 @@ PHASE_STATUSES = (
 # ---------------------------------------------------------------------------
 
 def set_active_project(project_id: int) -> None:
-    """Switch the active project for the current request context and reset caches.
+    """Switch the active project for the current request context.
 
     Sets the ContextVar so all subsequent file operations in this request use
     contextspec/<project_id>/.  Each project has its own subdirectory so context
     files never bleed across projects.
+
+    Deliberately does NOT persist to config: this runs on every request, and a
+    config write here means concurrent users on different projects thrash the
+    shared config file. The frontend persists the selection explicitly via
+    POST /workspace/config when the user picks a project.
     """
-    previous = _active_project_id.get(0)
     _active_project_id.set(project_id)
-    if project_id != previous:
-        save_config(project_id)
 
 
 def is_project_selected() -> bool:
@@ -504,24 +513,42 @@ def get_context_sizes() -> dict[str, int]:
 # Story index — machine-readable map of story_id → phase status
 # ---------------------------------------------------------------------------
 
+def _index_file_mtime(sif) -> float:
+    """Return the index file's mtime, or -1.0 when absent/unreadable."""
+    try:
+        return sif.stat().st_mtime if sif.exists() else -1.0
+    except OSError:
+        return -1.0
+
+
 def get_story_index() -> dict[str, dict]:
-    """Return the story index as {str(story_id): entry_dict}."""
+    """Return the story index as {str(story_id): entry_dict}.
+
+    Cached per project, invalidated when the file's mtime changes — required
+    for multi-worker deployments where another process may have written the
+    index since this one cached it.
+    """
     pid = _get_project_id()
-    if pid not in _story_index_caches:
+    with _index_lock:
         sif = _path("story-index.json")
-        _story_index_caches[pid] = (
-            json.loads(sif.read_text(encoding="utf-8")) if sif.exists() else {}
-        )
-    return _story_index_caches[pid]
+        mtime = _index_file_mtime(sif)
+        cached = _story_index_caches.get(pid)
+        if cached is not None and cached[0] == mtime:
+            return cached[1]
+        index = json.loads(sif.read_text(encoding="utf-8")) if mtime >= 0 else {}
+        _story_index_caches[pid] = (mtime, index)
+        return index
 
 
 def _save_story_index(index: dict[str, dict]) -> None:
     pid = _get_project_id()
-    _story_index_caches[pid] = index
-    _path("story-index.json").write_text(
-        json.dumps(index, indent=2, ensure_ascii=False, sort_keys=True),
-        encoding="utf-8",
-    )
+    with _index_lock:
+        sif = _path("story-index.json")
+        sif.write_text(
+            json.dumps(index, indent=2, ensure_ascii=False, sort_keys=True),
+            encoding="utf-8",
+        )
+        _story_index_caches[pid] = (_index_file_mtime(sif), index)
 
 
 def upsert_story_index(story_id: int, **updates) -> None:
@@ -533,27 +560,28 @@ def upsert_story_index(story_id: int, **updates) -> None:
     Valid fields: epic_id, title, phase_status, has_gherkin, has_tech_spec,
                   has_proposal, has_bdd, has_bug_report.
     """
-    index = get_story_index()
-    key   = str(story_id)
     if "phase_status" in updates and updates["phase_status"] not in PHASE_STATUSES:
         raise ValueError(
             f"Invalid phase_status {updates['phase_status']!r}. Must be one of {PHASE_STATUSES}."
         )
-    entry = index.get(key, {
-        "story_id":    story_id,
-        "epic_id":     None,
-        "title":       "",
-        "phase_status": updates.get("phase_status", "gherkin_locked"),
-        "has_gherkin":     False,
-        "has_tech_spec":   False,
-        "has_proposal":    False,
-        "has_bdd":         False,
-        "has_bug_report":  False,
-    })
-    entry.update(updates)
-    entry["story_id"] = story_id  # ensure the canonical field is always correct
-    index[key] = entry
-    _save_story_index(index)
+    with _index_lock:
+        index = get_story_index()
+        key   = str(story_id)
+        entry = index.get(key, {
+            "story_id":    story_id,
+            "epic_id":     None,
+            "title":       "",
+            "phase_status": updates.get("phase_status", "gherkin_locked"),
+            "has_gherkin":     False,
+            "has_tech_spec":   False,
+            "has_proposal":    False,
+            "has_bdd":         False,
+            "has_bug_report":  False,
+        })
+        entry.update(updates)
+        entry["story_id"] = story_id  # ensure the canonical field is always correct
+        index[key] = entry
+        _save_story_index(index)
 
 
 def mark_story_deployed(story_id: int) -> None:
@@ -602,15 +630,16 @@ def reset_story_index_phase_statuses() -> None:
     Called when context files are reset so phase readiness gates reflect the cleared state.
     Preserves story identity fields (story_id, epic_id, title, has_gherkin).
     """
-    index = get_story_index()
-    for entry in index.values():
-        entry["has_tech_spec"]  = False
-        entry["has_proposal"]   = False
-        entry["has_bdd"]        = False
-        entry["has_bug_report"] = False
-        if entry.get("phase_status") not in ("gherkin_locked",):
-            entry["phase_status"] = "gherkin_locked"
-    _save_story_index(index)
+    with _index_lock:
+        index = get_story_index()
+        for entry in index.values():
+            entry["has_tech_spec"]  = False
+            entry["has_proposal"]   = False
+            entry["has_bdd"]        = False
+            entry["has_bug_report"] = False
+            if entry.get("phase_status") not in ("gherkin_locked",):
+                entry["phase_status"] = "gherkin_locked"
+        _save_story_index(index)
     reset_cache()
 
 
@@ -618,10 +647,11 @@ def remove_story_index_entries(story_ids: list[int]) -> None:
     """Remove entries for the given story IDs from the story index and spec files."""
     if not story_ids:
         return
-    index = get_story_index()
-    for sid in story_ids:
-        index.pop(str(sid), None)
-    _save_story_index(index)
+    with _index_lock:
+        index = get_story_index()
+        for sid in story_ids:
+            index.pop(str(sid), None)
+        _save_story_index(index)
     for story_id in story_ids:
         remove_story_from_specs(story_id)
 
@@ -629,12 +659,13 @@ def remove_story_index_entries(story_ids: list[int]) -> None:
 def remove_epic_from_story_index(epic_id: int) -> None:
     """Remove all story index entries for epic_id, the epic sections from both
     spec files, and all associated proposal and BDD files."""
-    index = get_story_index()
-    keys = [k for k, e in index.items() if e.get("epic_id") == epic_id]
-    story_ids = [int(k) for k in keys]
-    for k in keys:
-        del index[k]
-    _save_story_index(index)
+    with _index_lock:
+        index = get_story_index()
+        keys = [k for k, e in index.items() if e.get("epic_id") == epic_id]
+        story_ids = [int(k) for k in keys]
+        for k in keys:
+            del index[k]
+        _save_story_index(index)
     # Remove ## Epic N: section (contains all nested stories) from both spec files
     for spec_file in (_path("functional-spec.md"), _path("technical-spec.md")):
         if spec_file.exists():
