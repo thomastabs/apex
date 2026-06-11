@@ -7,6 +7,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# One run per ref. PR runs cancel superseded ones; pushes to main queue
+# instead so an in-flight deploy is never killed halfway.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
@@ -112,10 +118,79 @@ jobs:
           path: frontend/playwright-report/
           retention-days: 7
 
+  test-smoke:
+    name: Real-stack smoke test
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install backend dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install & build frontend
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+
+      - name: Start real stack
+        run: |
+          nohup python -m uvicorn backend.app.main:app --port 8000 > backend.log 2>&1 &
+          (cd frontend && nohup npm run start > ../frontend.log 2>&1 &)
+        env:
+          ANTHROPIC_API_KEY: sk-ant-stub
+          TAIGA_API_URL: https://api.taiga.io
+
+      - name: Smoke checks
+        run: |
+          set -e
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8000/api/health > /dev/null && break
+            [ "$i" = 30 ] && { echo "backend never came up"; exit 1; }
+            sleep 2
+          done
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/ > /dev/null && break
+            [ "$i" = 30 ] && { echo "frontend never came up"; exit 1; }
+            sleep 2
+          done
+          # Auth wiring: a bogus token must NOT reach workspace data.
+          # 401 = PM rejected it; 503 = PM unreachable from the runner. Both
+          # prove validation runs; the pre-auth bug returned 200 here.
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer bogus-smoke-token" \
+            http://localhost:8000/api/workspace/config)
+          echo "workspace/config with bogus token -> $STATUS"
+          [ "$STATUS" = "401" ] || [ "$STATUS" = "503" ] || { echo "expected 401/503"; exit 1; }
+          # And no token at all is rejected outright.
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/workspace/config)
+          [ "$STATUS" = "401" ] || { echo "expected 401 without token, got $STATUS"; exit 1; }
+
+      - name: Print logs on failure
+        if: failure()
+        run: |
+          echo "── backend.log ──"; cat backend.log || true
+          echo "── frontend.log ──"; cat frontend.log || true
+
   build-backend:
     name: Build & push backend image
     runs-on: ubuntu-latest
-    needs: [test-backend, test-frontend, test-e2e]
+    needs: [test-backend, test-frontend, test-e2e, test-smoke]
     permissions:
       contents: read
       packages: write
@@ -157,7 +232,7 @@ jobs:
   build-frontend:
     name: Build & push frontend image
     runs-on: ubuntu-latest
-    needs: [test-backend, test-frontend, test-e2e]
+    needs: [test-backend, test-frontend, test-e2e, test-smoke]
     permissions:
       contents: read
       packages: write
@@ -210,6 +285,18 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Capture current images for rollback
+        id: current
+        run: |
+          echo "backend=$(az containerapp show \
+            --name apex-backend \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query 'properties.template.containers[0].image' -o tsv)" >> "$GITHUB_OUTPUT"
+          echo "frontend=$(az containerapp show \
+            --name apex-frontend \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query 'properties.template.containers[0].image' -o tsv)" >> "$GITHUB_OUTPUT"
+
       - name: Deploy backend
         run: |
           az containerapp update \
@@ -237,3 +324,16 @@ jobs:
             sleep 10
           done
           echo "Health check failed after 2 minutes" && exit 1
+
+      - name: Roll back on failure
+        if: failure() && steps.current.outputs.backend != ''
+        run: |
+          echo "Deploy failed — rolling back to previous images"
+          az containerapp update \
+            --name apex-backend \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image "${{ steps.current.outputs.backend }}"
+          az containerapp update \
+            --name apex-frontend \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image "${{ steps.current.outputs.frontend }}"
