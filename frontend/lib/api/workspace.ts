@@ -11,7 +11,7 @@ function toPmAuth(ctx: AuthContext): PmAuthContext {
   return { token: ctx.taigaToken, baseUrl: ctx.taigaApiUrl ?? "" };
 }
 
-function toPmCtx(ctx: RequestContext): PmRequestContext {
+export function toPmCtx(ctx: RequestContext): PmRequestContext {
   return {
     token: ctx.taigaToken,
     baseUrl: ctx.taigaApiUrl ?? "",

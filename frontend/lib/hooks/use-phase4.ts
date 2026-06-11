@@ -12,6 +12,8 @@ import {
   saveTestPlan,
 } from "@/lib/api/phase4";
 import { getPmAdapter } from "@/lib/api/pm-factory";
+import { toPmCtx } from "@/lib/api/workspace";
+import { decodeApexMeta } from "@/lib/hooks/use-phase3";
 import { useApiContext } from "@/lib/stores/session-store";
 import { usePhase4Store } from "@/lib/stores/phase4-store";
 import { toast } from "sonner";
@@ -33,6 +35,32 @@ export function useStoryContext(storyId: number | null) {
     queryFn: () => getStoryContext(context!, storyId!),
     enabled: Boolean(context) && storyId !== null,
   });
+}
+
+/** Implementation tasks for a story, fetched from the PM tool (single source of
+ *  truth since the task-list JSON store was removed). Shares the phase-3
+ *  project-tasks cache key so the board and Phase 4 stay consistent. */
+export function useStoryTasks(storyId: number | null) {
+  const context = useApiContext();
+  const query = useQuery({
+    queryKey: ["pm", "project-tasks", context?.projectId],
+    queryFn: () => getPmAdapter(context!.pmTool).getProjectTasks(toPmCtx(context!)),
+    enabled: Boolean(context) && storyId !== null,
+    staleTime: 60_000,
+  });
+  const tasks = (query.data ?? [])
+    .filter((t) => Number(t.user_story) === storyId)
+    .map((t, i) => {
+      const decoded = decodeApexMeta(t.description || "");
+      return {
+        id: i + 1,
+        subject: t.subject,
+        description: decoded.description,
+        effort_estimate: decoded.effort_estimate,
+        covered_scenarios: decoded.covered_scenarios,
+      };
+    });
+  return { ...query, tasks };
 }
 
 export function useLoadTestPlan(storyId: number | null) {
@@ -116,11 +144,9 @@ export function useUpdatePmStoryStatus() {
     mutationFn: async ({ pmStoryId, statusName }: { pmStoryId: string; statusName: string }) => {
       if (!context) throw new Error("No project context.");
       const adapter = getPmAdapter(context.pmTool);
-      const pmCtx = {
-        token: context.taigaToken,
-        baseUrl: context.taigaApiUrl ?? "",
-        projectId: context.pmProjectId ?? String(context.projectId ?? ""),
-      };
+      // Tool-aware ctx: Jira needs the project KEY, Taiga the numeric id —
+      // pmProjectId holds the Taiga slug, which the Taiga REST API rejects.
+      const pmCtx = toPmCtx(context);
       const statuses = await adapter.listStoryStatuses(pmCtx);
       const target = statuses.find((s) => s.name.toLowerCase().includes(statusName.toLowerCase()));
       if (!target) throw new Error(`Status "${statusName}" not found in PM board.`);

@@ -74,7 +74,6 @@ class Phase4Service:
             "gherkin": self.context.story_gherkin(story_id),
             "technical_spec": self.context.story_technical_spec(story_id),
             "tech_stack": self.context.read_tech_stack(),
-            "task_list": self.context.load_task_list(story_id),
         }
 
     def generate_test_plan(self, ctx: RequestContext, story_id: int) -> str:

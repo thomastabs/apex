@@ -23,9 +23,9 @@ import {
   usePassGate,
   useSaveTestPlan,
   useStoryContext,
+  useStoryTasks,
   useUpdatePmStoryStatus,
 } from "@/lib/hooks/use-phase4";
-import { decodeApexMeta } from "@/lib/hooks/use-phase3";
 import { usePhase4Store } from "@/lib/stores/phase4-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -240,6 +240,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
 function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () => void; onContinue: () => void }) {
   const dark = useUiStore((s) => s.theme) === "dark";
   const { data: ctx } = useStoryContext(storyId);
+  const { tasks: storyTasks } = useStoryTasks(storyId);
   const { data: savedPlan, isLoading: planLoading } = useLoadTestPlan(storyId);
 
   const testPlanMd = usePhase4Store((s) => s.testPlanMd);
@@ -288,15 +289,15 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
         </details>
       )}
 
-      {ctx && (ctx.task_list ?? []).length > 0 && (
+      {storyTasks.length > 0 && (
         <div className={cn("rounded-lg border text-sm", dark ? "border-neutral-700" : "border-slate-200")}>
           <div className={cn("px-4 py-2.5 font-medium border-b", dark ? "text-neutral-300 border-neutral-700" : "text-slate-700 border-slate-200")}>
             Implementation Tasks
           </div>
           <ul className="divide-y divide-inherit">
-            {(ctx.task_list ?? []).map((task) => {
-              // Strip any residual apex meta block — description may be encoded
-              const cleanDesc = decodeApexMeta(task.description ?? "").description.trim();
+            {storyTasks.map((task) => {
+              // Descriptions arrive pre-decoded from useStoryTasks
+              const cleanDesc = task.description.trim();
               const displayDesc = cleanDesc.length > 140 ? `${cleanDesc.slice(0, 137)}…` : cleanDesc;
               const scenarios = task.covered_scenarios ?? [];
               return (

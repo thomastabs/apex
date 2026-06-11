@@ -12,6 +12,7 @@ import {
   saveProposal,
 } from "@/lib/api/phase3";
 import { getPmAdapter } from "@/lib/api/pm-factory";
+import { toPmCtx } from "@/lib/api/workspace";
 import type { PmTask } from "@/lib/api/pm-types";
 import type {
   EffortEstimate,
@@ -107,13 +108,9 @@ export function findPmTaskBySubject(
 // Kept for backward compat with phase3-workflow.tsx imports
 export { findPmTaskBySubject as findTaigaTaskBySubject };
 
-function getAdapterCtx(context: NonNullable<ReturnType<typeof useApiContext>>) {
-  return {
-    token: context.taigaToken,
-    baseUrl: context.taigaApiUrl ?? "",
-    projectId: context.pmProjectId ?? String(context.projectId),
-  };
-}
+// Tool-aware: Jira needs the project KEY (pmProjectId); Taiga needs the numeric
+// id — pmProjectId holds the slug there, which Taiga's REST API rejects (NaN).
+const getAdapterCtx = toPmCtx;
 
 // ---------------------------------------------------------------------------
 

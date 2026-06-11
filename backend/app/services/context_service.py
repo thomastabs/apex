@@ -84,15 +84,6 @@ class ContextService:
     def load_proposals(self, story_id: int) -> list[dict]:
         return context_manager.load_proposals(story_id)
 
-    def save_task_list(self, story_id: int, tasks: list[dict]) -> None:
-        context_manager.save_task_list(story_id, tasks)
-
-    def load_task_list(self, story_id: int) -> list[dict]:
-        return context_manager.load_task_list(story_id)
-
-    def load_all_task_lists(self) -> dict[int, list[dict]]:
-        return context_manager.load_all_task_lists()
-
     def save_er_diagram(self, diagram: dict) -> None:
         context_manager.save_er_diagram(diagram)
 
