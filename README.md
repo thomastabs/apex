@@ -452,17 +452,17 @@ docker compose down
 python3 -m pytest tests/ -v --tb=short
 ```
 
-Coverage:
+Coverage (~350 tests):
 
-- `tests/test_backend_phase1.py` — Phase 1 service-layer unit tests
-- `tests/test_backend_phase2.py` — Phase 2 service-layer unit tests; AI cascade, design section generation, persist-design flow
-- `tests/test_backend_phase2_api.py` — Phase 2 HTTP route tests; stub service, error-code mapping
-- `tests/test_backend_phase3.py` — Phase 3 service-layer unit tests; task generation, proposal generation, hint/cross-task context passthrough
-- `tests/test_backend_phase3_api.py` — Phase 3 HTTP route tests; all 9 endpoints, error-code mapping (422/429/504)
-- `tests/test_taiga_proxy.py` — 19 tests covering Taiga proxy routing, SSRF blocking, header injection guard, method forwarding
-- `tests/test_deps.py` — 10 tests covering FastAPI dependency utilities (`deps.py`)
+- `tests/test_backend_phase1*.py` / `test_backend_phase2*.py` / `test_backend_phase3*.py` / `test_backend_phase4*.py` — per-phase service-layer unit tests plus HTTP route tests (stub services, error-code mapping 422/429/504)
+- `tests/test_backend_workspace_api.py` — workspace/config route tests
+- `tests/test_ai_engine.py` — AI engine: provider detection, prompt assembly, structured output parsing, error mapping
+- `tests/test_context_manager.py` — context files, story index, locking and cross-worker cache invalidation
+- `tests/test_contextvar_isolation.py` — per-request project isolation under concurrency
+- `tests/test_taiga_proxy.py` / `test_jira_proxy.py` — proxy routing, SSRF blocking (incl. DNS-resolved private hosts), header injection guard, method forwarding
+- `tests/test_deps.py` / `test_deps_auth.py` — FastAPI dependency utilities and PM-anchored token/project authorization (identity anchor resolution, caching, 401/403 paths)
 
-`AzureFileShareService` is mocked at the service boundary via a `ctx` fixture in `conftest.py`. No real Azure credentials or live backend needed to run the suite.
+PM auth is bypassed by an autouse fixture in `conftest.py`; tests that exercise the real validation logic opt out with `@pytest.mark.real_auth`. `AzureFileShareService` is mocked at the service boundary via a `ctx` fixture. No real Azure credentials or live backend needed to run the suite.
 
 ### Frontend (Vitest)
 
@@ -553,8 +553,10 @@ CI runs:
 - backend: ruff lint, pytest
 - frontend: ESLint, typecheck, Vitest (`npm test`), production build
 - frontend E2E: Playwright chromium (`npm run test:e2e`) — runs after Vitest, gates Docker builds
+- real-stack smoke test: boots the actual uvicorn backend and `next start` frontend, then asserts the auth wiring rejects missing/bogus PM tokens — covers the integration seam the mocked suites can't
 - backend/frontend Docker builds and pushes
-- post-deploy health check (`/api/health`)
+- post-deploy health check (`/api/health`) with automatic rollback to the previously deployed images on failure
+- a concurrency group cancels superseded PR runs; pushes to `main` queue instead, so an in-flight deploy is never killed
 
 ---
 
@@ -576,8 +578,8 @@ On push to `main`, it:
 3. Builds the backend image from `backend/Dockerfile`.
 4. Builds the frontend image from `frontend/Dockerfile`.
 5. Pushes both images to GitHub Container Registry.
-6. Updates Azure Container Apps to the new image tags.
-7. Polls `/api/health` for up to 2 minutes to confirm the backend came up.
+6. Captures the currently deployed image tags, then updates Azure Container Apps to the new ones.
+7. Polls `/api/health` for up to 2 minutes to confirm the backend came up; on failure, rolls both apps back to the captured images.
 
 ### Container Apps
 
@@ -686,6 +688,8 @@ This one-hour seasonal drift is acceptable for the project. If exact Lisbon loca
 
 **Session security:** The Zustand `apex-session` store (v5) persists to `sessionStorage` so credentials are cleared when the browser tab closes. The GitHub PAT is excluded from the persist partition entirely.
 
+**Backend authentication (PM-anchored):** every backend request must carry `Authorization: Bearer <PM token>`. The backend validates the token against a server-side identity anchor (Taiga `/users/me` or Jira `/myself`) and additionally confirms the token can read the project named in `X-Project-Id` before serving any context data — a cross-tenant request gets 403. The anchor URL is resolved server-side only (`TAIGA_API_URL` env → workspace config → Taiga Cloud) and never from request headers, so an attacker cannot point validation at a host they control. Validation results are briefly cached (60s success / 10s failure), and AI endpoints are rate-limited per token and per IP.
+
 ---
 
 ## Notes For Future Maintainers
@@ -696,6 +700,6 @@ This one-hour seasonal drift is acceptable for the project. If exact Lisbon loca
 - All Jira REST calls go through the FastAPI proxy at `/api/pm/jira/*`. Do not call Jira Cloud directly from the browser.
 - New PM operations should go through the `ProjectManagementAdapter` interface (`frontend/lib/api/pm-types.ts`) — add to both `taiga-adapter.ts` and `jira-adapter.ts`, then dispatch via `getPmAdapter()` in `pm-factory.ts`.
 - Treat Markdown context files as human-readable artefacts, and `story-index.json` as the machine-readable workflow index.
-- The backend runs with `--workers 2` in Docker so concurrent AI calls don't block each other.
+- The backend Docker image currently runs with `--workers 1`; the code is written to tolerate multiple workers (story-index locking + mtime cache invalidation), so avoid module-level mutable singletons regardless.
 - AI errors map to distinct HTTP codes: `AIRateLimitError` → 429, `AITimeoutError` → 504, generic `AIError` → 502.
 - Do not commit local `contextspec/`, `.env`, `.next`, `node_modules`, or Python cache files.
