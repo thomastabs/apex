@@ -53,7 +53,7 @@ export function useStoryTasks(storyId: number | null) {
     .map((t, i) => {
       const decoded = decodeApexMeta(t.description || "");
       return {
-        id: i + 1,
+        id: decoded.apex_task_id ?? i + 1,
         subject: t.subject,
         description: decoded.description,
         effort_estimate: decoded.effort_estimate,

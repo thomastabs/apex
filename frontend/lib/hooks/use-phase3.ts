@@ -33,7 +33,10 @@ import { toast } from "sonner";
 // Apex metadata encoding / decoding in PM task descriptions
 // ---------------------------------------------------------------------------
 
-const APEX_META_BLOCK_RE = /\n\n---\n\n(?:\*Apex —[^\n]*\*|[\s\S]*?\*\*Apex Metadata\*\*[\s\S]*?)(?:\n\n\[\/\/\]: # \(apex-meta:\{.*?\}\))?\s*$/s;
+// The marker heading must follow the --- immediately: matching any "---"
+// that is *eventually* followed by the heading swallows user content that
+// legitimately contains a markdown horizontal rule.
+const APEX_META_BLOCK_RE = /\n\n---\n\n(?:\*Apex —[^\n]*\*|\*\*Apex Metadata\*\*[\s\S]*?)(?:\n\n\[\/\/\]: # \(apex-meta:\{.*?\}\))?\s*$/;
 
 const EFFORT_LABELS: Record<string, string> = { XS: "XS (1 pt)", S: "S (2 pts)", M: "M (3 pts)", L: "L (5 pts)", XL: "XL (8 pts)" };
 const EFFORT_FROM_LABEL: Record<string, string> = { "XS (1 pt)": "XS", "S (2 pts)": "S", "M (3 pts)": "M", "L (5 pts)": "L", "XL (8 pts)": "XL" };
@@ -50,6 +53,10 @@ export function encodeApexMeta(task: Phase3Task): string {
   const covered = task.covered_scenarios ?? [];
   const deps = task.predecessor_task_ids ?? [];
   const lines: string[] = ["**Apex Metadata**"];
+  // Persist the local id so predecessor_task_ids stay valid after a
+  // round-trip through the PM tool — positional reassignment breaks the
+  // DAG as soon as a task is deleted or reordered in the PM.
+  lines.push(`- **Apex task id:** ${task.id}`);
   lines.push(`- **Effort:** ${EFFORT_LABELS[effort] ?? effort}`);
   if (covered.length) lines.push(`- **Covers:** ${covered.join(" | ")}`);
   if (deps.length) lines.push(`- **Depends on tasks:** ${deps.join(", ")}`);
@@ -61,6 +68,7 @@ export function decodeApexMeta(rawDescription: string): {
   effort_estimate: EffortEstimate;
   covered_scenarios: string[];
   predecessor_task_ids: number[];
+  apex_task_id: number | null;
 } {
   const legacyMatch = rawDescription.match(/\[\/\/\]: # \(apex-meta:(\{.*?\})\)\s*$/s);
   const blockMatch = rawDescription.match(APEX_META_BLOCK_RE);
@@ -74,12 +82,13 @@ export function decodeApexMeta(rawDescription: string): {
         effort_estimate: (meta.effort ?? "M") as EffortEstimate,
         covered_scenarios: meta.covered_scenarios ?? [],
         predecessor_task_ids: meta.predecessor_task_ids ?? [],
+        apex_task_id: null,
       };
     } catch { /* fall through */ }
   }
 
   if (!blockMatch) {
-    return { description, effort_estimate: "M", covered_scenarios: [], predecessor_task_ids: [] };
+    return { description, effort_estimate: "M", covered_scenarios: [], predecessor_task_ids: [], apex_task_id: null };
   }
 
   const block = blockMatch[0];
@@ -88,6 +97,7 @@ export function decodeApexMeta(rawDescription: string): {
   const effort = (["XS","S","M","L","XL"].includes(effortParsed) ? effortParsed : "M") as EffortEstimate;
   const coversRaw = block.match(/\*\*Covers:\*\*\s*([^\n]+)/)?.[1]?.trim();
   const depsRaw = block.match(/\*\*Depends on tasks:\*\*\s*([\d, ]+)/)?.[1]?.trim();
+  const idRaw = block.match(/\*\*Apex task id:\*\*\s*(\d+)/)?.[1];
   return {
     description,
     effort_estimate: effort,
@@ -95,6 +105,7 @@ export function decodeApexMeta(rawDescription: string): {
     predecessor_task_ids: depsRaw
       ? depsRaw.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n))
       : [],
+    apex_task_id: idRaw ? parseInt(idRaw, 10) : null,
   };
 }
 
@@ -268,10 +279,17 @@ export function useLoadTaskList(storyId: number | null) {
       .filter((t) => Number(t.user_story) === storyId)
       .sort((a, b) => Number(a.id) - Number(b.id) || String(a.id).localeCompare(String(b.id)));
     if (storyTasks.length === 0) return;
+    // Prefer the encoded Apex task id — predecessor_task_ids reference it, so
+    // positional ids would corrupt the DAG after a deletion/reorder in the PM.
+    // Fall back to position for legacy tasks (and on duplicates).
+    const seenIds = new Set<number>();
     const reconstructed: Phase3Task[] = storyTasks.map((t, i) => {
       const decoded = decodeApexMeta(t.description || "");
+      let id = decoded.apex_task_id ?? i + 1;
+      while (seenIds.has(id)) id = Math.max(...seenIds) + 1;
+      seenIds.add(id);
       return {
-        id: i + 1,
+        id,
         subject: t.subject,
         description: decoded.description,
         effort_estimate: decoded.effort_estimate,
