@@ -389,7 +389,23 @@ cloudflared tunnel --url http://localhost:9000
 
 The tunnel prints a stable public URL like `https://xxxx-xxxx.trycloudflare.com`.
 
-#### 4. Configure Apex
+#### 4. Start the Apex backend anchored to the tunnel
+
+The backend validates every request's PM credentials against a server-side
+"identity anchor" (it never trusts a client-supplied URL for this). For a
+private instance, point the anchor at the tunnel via `TAIGA_API_URL`:
+
+```bash
+TAIGA_API_URL=https://xxxx-xxxx.trycloudflare.com \
+  python3 -m uvicorn backend.app.main:app --reload --port 8000
+```
+
+Without this, tokens are validated against Taiga Cloud (`api.taiga.io`) and
+private-instance logins get 401 on all phase/workspace endpoints. The quick
+tunnel URL changes on each `cloudflared` restart — restart the backend with
+the new value when it does.
+
+#### 5. Configure Apex
 
 In the Apex sidebar:
 - PM tool: **Taiga**

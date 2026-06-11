@@ -73,9 +73,16 @@ def _cache_put(cache: dict, key, ok: bool) -> None:
 
 
 def _pm_endpoints() -> tuple[str, str, str]:
-    """Return (auth_scheme, identity_url, project_url_template) for the anchored PM."""
+    """Return (auth_scheme, identity_url, project_url_template) for the anchored PM.
+
+    Taiga anchor resolution: TAIGA_API_URL env (operator-set — required for
+    self-hosted/tunnelled instances) → workspace-config taiga_url (legacy) →
+    Taiga Cloud. All sources pass the proxy's SSRF validator since the result
+    is dialled server-side.
+    """
+    import os
+
     from src import context_manager
-    from src.taiga_adapter import TAIGA_API_URL
 
     config = context_manager.load_config()
     pm_tool = config.get("pm_tool") or "taiga"
@@ -87,9 +94,17 @@ def _pm_endpoints() -> tuple[str, str, str]:
                 detail="Workspace is configured for Jira but has no Jira base URL.",
             )
         return "Basic", f"{base}/rest/api/3/myself", f"{base}/rest/api/3/project/{{project_id}}"
-    base = TAIGA_API_URL
+
+    from backend.app.api.taiga_proxy import _validate_taiga_url
+
+    base = (
+        os.getenv("TAIGA_API_URL", "").strip().rstrip("/")
+        or (config.get("taiga_url") or "").strip().rstrip("/")
+        or "https://api.taiga.io"
+    )
     if not base.endswith("/api/v1"):
-        base = f"{base}/api/v1"
+        base = base.replace("//tree.", "//api.") + "/api/v1"
+    base = _validate_taiga_url(base, source="Taiga identity URL")
     return "Bearer", f"{base}/users/me", f"{base}/projects/{{project_id}}"
 
 

@@ -9,9 +9,10 @@ type ModelEntry = { id: string; label: string; role: string; provider?: string; 
 type ProviderKey = "anthropic" | "openai" | "google";
 
 const FALLBACK_MODELS: ModelEntry[] = [
-  { id: "claude-haiku-4-5-20251001",       label: "Claude Haiku 4.5",      role: "Budget",   provider: "anthropic", note: "Cheapest Claude — good for simple tasks" },
+  { id: "claude-haiku-4-5",                label: "Claude Haiku 4.5",      role: "Budget",   provider: "anthropic", note: "Cheapest Claude — good for simple tasks" },
   { id: "claude-sonnet-4-6",               label: "Claude Sonnet 4.6",     role: "Standard",  provider: "anthropic", note: "Recommended for most projects" },
-  { id: "claude-opus-4-7",                 label: "Claude Opus 4.7",       role: "Premium",   provider: "anthropic", note: "Most capable" },
+  { id: "claude-opus-4-8",                 label: "Claude Opus 4.8",       role: "Premium",   provider: "anthropic", note: "Most capable Opus" },
+  { id: "claude-fable-5",                  label: "Claude Fable 5",        role: "Flagship",  provider: "anthropic", note: "Most powerful Claude — premium cost" },
   { id: "gpt-4.1-nano",                    label: "GPT-4.1 Nano",          role: "Budget",   provider: "openai",    note: "Cheapest OpenAI model — good for simple tasks" },
   { id: "gpt-4.1-mini",                    label: "GPT-4.1 Mini",          role: "Economy",   provider: "openai",    note: "Low cost with strong capability" },
   { id: "gpt-4o-mini",                     label: "GPT-4o Mini",           role: "Economy",   provider: "openai",    note: "Reliable low-cost option" },

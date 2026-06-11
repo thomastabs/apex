@@ -141,7 +141,7 @@ def check_api_key(model: str | None = None) -> None:
 AVAILABLE_MODELS: list[dict] = [
     # ── Anthropic (Claude) ───────────────────────────────────────────────────
     {
-        "id":       "claude-haiku-4-5-20251001",
+        "id":       "claude-haiku-4-5",
         "label":    "Claude Haiku 4.5",
         "role":     "Fast",
         "provider": "anthropic",
@@ -155,11 +155,18 @@ AVAILABLE_MODELS: list[dict] = [
         "note":     "Best quality-to-cost ratio — recommended for most projects",
     },
     {
-        "id":       "claude-opus-4-7",
-        "label":    "Claude Opus 4.7",
+        "id":       "claude-opus-4-8",
+        "label":    "Claude Opus 4.8",
         "role":     "Premium",
         "provider": "anthropic",
-        "note":     "Most capable — best for complex architecture and large projects",
+        "note":     "Most capable Opus — best for complex architecture and large projects",
+    },
+    {
+        "id":       "claude-fable-5",
+        "label":    "Claude Fable 5",
+        "role":     "Flagship",
+        "provider": "anthropic",
+        "note":     "Most powerful Claude model — highest quality at premium cost",
     },
     # ── OpenAI (GPT) — requires OPENAI_API_KEY ───────────────────────────────
     {
