@@ -51,6 +51,7 @@ import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
 import { createGithubIssue, fetchRecentCommitsContext } from "@/lib/api/github-browser";
 import type { EffortEstimate, Phase3StoryContext, Phase3Task } from "@/lib/api/types";
+import { toPmCtx } from "@/lib/api/workspace";
 import { TaskDagPanel } from "@/components/task-dag-panel";
 
 // ---------------------------------------------------------------------------
@@ -202,7 +203,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
   const { data, isLoading, error } = useEligibleStories();
   const { data: pmTasksAll = [] } = useQuery({
     queryKey: ["pm", "project-tasks", context?.projectId],
-    queryFn: () => getPmAdapter(context!.pmTool).getProjectTasks({ token: context!.taigaToken, baseUrl: context!.taigaApiUrl ?? "", projectId: String(context!.projectId) }),
+    queryFn: () => getPmAdapter(context!.pmTool).getProjectTasks(toPmCtx(context!)),
     enabled: Boolean(context),
     staleTime: 60_000,
   });

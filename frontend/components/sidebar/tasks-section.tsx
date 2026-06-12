@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { decodeApexMeta, encodeApexMeta } from "@/lib/hooks/use-phase3";
 import { useAutoSyncStoryIndex } from "@/lib/hooks/use-workspace";
 import { deleteProposal } from "@/lib/api/phase3";
+import { toPmCtx } from "@/lib/api/workspace";
 import type { EffortEstimate } from "@/lib/api/types";
 import type { PmTask } from "@/lib/api/pm-types";
 import { getPmAdapter } from "@/lib/api/pm-factory";
@@ -223,9 +224,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
   const QUERY_KEY = ["pm", "project-tasks", context?.projectId];
 
   const adapter = getPmAdapter(context?.pmTool);
-  const adapterCtx = context
-    ? { token: context.taigaToken, baseUrl: context.taigaApiUrl ?? "", projectId: String(context.projectId) }
-    : null;
+  const adapterCtx = context ? toPmCtx(context) : null;
 
   const { data: pmTasks = [], isLoading } = useQuery({
     queryKey: QUERY_KEY,

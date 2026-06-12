@@ -10,6 +10,9 @@ import {
 } from "@/lib/hooks/use-workspace";
 import { useSessionStore, useAuthContext } from "@/lib/stores/session-store";
 import { usePhase2Store } from "@/lib/stores/phase2-store";
+import { usePhase3Store } from "@/lib/stores/phase3-store";
+import { usePhase4Store } from "@/lib/stores/phase4-store";
+import { usePhase5Store } from "@/lib/stores/phase5-store";
 import { cn } from "@/lib/utils";
 import { PanelHeader, type DragSectionProps } from "./shared";
 
@@ -25,6 +28,9 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
   const projectName = useSessionStore((s) => s.projectName);
   const setProject = useSessionStore((s) => s.setProject);
   const clearPhase2Draft = usePhase2Store((s) => s.clearPhase2Draft);
+  const clearPhase3Draft = usePhase3Store((s) => s.clearPhase3Draft);
+  const clearPhase4Draft = usePhase4Store((s) => s.clearPhase4Draft);
+  const clearPhase5Draft = usePhase5Store((s) => s.clearPhase5Draft);
   const auth = useAuthContext();
   const isJira = auth?.pmTool === "jira";
 
@@ -63,8 +69,13 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
                 if (selected && selected.id !== projectId) {
                   setProject({ projectId: selected.id, projectName: selected.name, pmProjectSlug: selected.slug ?? undefined });
                   saveServerConfig.mutate(selected.id);
+                  // All phase drafts are project-scoped — stale story IDs from
+                  // the previous project would collide with the new one.
                   clearPhase2Draft();
-                  toast.info(`Switched to ${selected.name} — Phase 2 draft cleared`);
+                  clearPhase3Draft();
+                  clearPhase4Draft();
+                  clearPhase5Draft();
+                  toast.info(`Switched to ${selected.name} — phase drafts cleared`);
                 }
               }}
             >

@@ -30,7 +30,20 @@ _logger = logging.getLogger("apex.storage")
 
 if _USE_AZURE:
     from azure.storage.fileshare import ShareFileClient, ShareDirectoryClient
-    from azure.core.exceptions import ResourceExistsError as _AzResourceExistsError
+
+try:
+    # azure-core ships with azure-storage-file-share (always in requirements);
+    # the fallbacks keep this module importable if Azure deps are ever absent.
+    from azure.core.exceptions import (
+        ResourceExistsError as _AzResourceExistsError,
+        ResourceNotFoundError as _AzResourceNotFoundError,
+    )
+except ImportError:  # pragma: no cover
+    class _AzResourceExistsError(Exception):
+        pass
+
+    class _AzResourceNotFoundError(Exception):
+        pass
 
 
 # ── Path mapping ──────────────────────────────────────────────────────────────
@@ -65,18 +78,30 @@ def _az_dir_client(azure_path: str) -> "ShareDirectoryClient":
 
 
 def _az_exists(azure_path: str) -> bool:
+    """True/False only for a definitive answer; infrastructure failures raise.
+
+    Swallowing auth/network errors here made a transient Azure failure look
+    like "file missing" — and init_context would then overwrite real context
+    files with templates (audit H5). Better a loud 500 than silent data loss.
+    """
     if not azure_path:
         return True  # share root always exists
     try:
         _az_file_client(azure_path).get_file_properties()
         return True
-    except Exception:
+    except _AzResourceNotFoundError:
         pass
+    except Exception as exc:
+        _logger.error("_az_exists: file probe failed for %r: %s", azure_path, exc)
+        raise
     try:
         _az_dir_client(azure_path).get_directory_properties()
         return True
-    except Exception:
+    except _AzResourceNotFoundError:
         return False
+    except Exception as exc:
+        _logger.error("_az_exists: directory probe failed for %r: %s", azure_path, exc)
+        raise
 
 
 def _az_read(azure_path: str) -> str:
@@ -106,9 +131,10 @@ def _az_write(azure_path: str, content: str) -> None:
 def _az_delete(azure_path: str, missing_ok: bool = False) -> None:
     try:
         _az_file_client(azure_path).delete_file()
-    except Exception:
+    except _AzResourceNotFoundError:
+        # missing_ok only forgives absence — never auth/network failures.
         if not missing_ok:
-            raise
+            raise FileNotFoundError(azure_path)
 
 
 def _az_mkdir(azure_path: str) -> None:
@@ -137,9 +163,14 @@ def _az_iterdir(azure_path: str) -> "Iterator[StoragePath]":
                     else f"{_LOCAL_PREFIX}/{item['name']}"
                 )
                 yield StoragePath(local_path)
-    except Exception as exc:
-        _logger.warning("_az_iterdir failed for path=%r: %s", azure_path, exc)
+    except _AzResourceNotFoundError:
+        # Missing directory → empty listing (callers guard with exists() anyway).
         return
+    except Exception as exc:
+        # Auth/network failures must not masquerade as "directory is empty" —
+        # rebuild_story_index would silently drop every artifact-derived flag.
+        _logger.error("_az_iterdir failed for path=%r: %s", azure_path, exc)
+        raise
 
 
 # ── StoragePath ───────────────────────────────────────────────────────────────
@@ -230,7 +261,12 @@ class StoragePath:
         if _USE_AZURE:
             props = _az_file_client(self._az()).get_file_properties()
             lm = props.get("last_modified")
-            return type("_AzStat", (), {"st_mtime": lm.timestamp() if lm else 0.0})()
+            # No mtime → use "now" so every read looks fresh and cache layers
+            # re-read. A constant 0.0 would satisfy the story-index cache's
+            # mtime-equality check forever, serving stale data.
+            import time as _time
+            mtime = lm.timestamp() if lm else _time.time()
+            return type("_AzStat", (), {"st_mtime": mtime})()
         return self._p.stat()
 
     def iterdir(self) -> "Iterator[StoragePath]":

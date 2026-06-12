@@ -20,6 +20,7 @@ import type {
   Phase3LockStoryRequest,
   Phase3SaveProposalRequest,
   Phase3Task,
+  RequestContext,
 } from "@/lib/api/types";
 
 const EFFORT_POINTS: Record<EffortEstimate, number> = {
@@ -352,12 +353,11 @@ export function useTaskBoard() {
 }
 
 export async function fetchPmTaskFull(
-  context: { taigaToken: string; taigaApiUrl?: string; pmTool?: "taiga" | "jira"; projectId: number },
+  context: RequestContext,
   taskId: string,
 ): Promise<{ description: string; version: string | number }> {
   const adapter = getPmAdapter(context.pmTool);
-  const ctx = { token: context.taigaToken, baseUrl: context.taigaApiUrl ?? "", projectId: String(context.projectId) };
-  const raw = await adapter.getTask(ctx, taskId);
+  const raw = await adapter.getTask(toPmCtx(context), taskId);
   const { description } = decodeApexMeta(raw.description);
   return { description, version: raw.version };
 }
