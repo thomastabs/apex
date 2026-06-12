@@ -268,6 +268,15 @@ def test_fail_gate_skips_vaccine_when_no_root_cause(ctx):
     assert "## Vaccine #" not in ctx.get_vaccines()
 
 
+def test_fail_gate_increments_fix_bolt_count(ctx):
+    ctx.init_context()
+    ctx.upsert_story_index(10, title="S", phase_status="qa")
+    svc = Phase4Service(ai=FakeAiService(), context=FakeContextService())
+    svc.fail_gate(_ctx(), 10, _FAKE_BUG_REPORT, "", "")
+    svc.fail_gate(_ctx(), 10, _FAKE_BUG_REPORT, "", "")
+    assert ctx.get_story_index()["10"]["fix_bolt_count"] == 2
+
+
 def test_pass_gate_persists_scenario_results(ctx):
     ctx.init_context()
     svc = Phase4Service(ai=FakeAiService(), context=FakeContextService())

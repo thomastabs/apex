@@ -62,4 +62,5 @@ class StoryIndexStatsResponse(BaseModel):
     phase2_designed: int = 0
     phase3_proposed: int = 0
     phase4_tested: int = 0
+    phase4_passed: int = 0
     phase5_deployed: int = 0

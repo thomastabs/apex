@@ -274,6 +274,18 @@ class TestUpsertStoryIndex:
         assert len(history["implementation"]) == 2
         assert len(history["qa"]) == 1
 
+    def test_increment_story_counter(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(42, title="S")
+        assert ctx.increment_story_counter(42) == 1
+        assert ctx.increment_story_counter(42) == 2
+        assert ctx.get_story_index()["42"]["fix_bolt_count"] == 2
+
+    def test_increment_story_counter_missing_entry_is_noop(self, ctx):
+        ctx.init_context()
+        assert ctx.increment_story_counter(999) == 0
+        assert "999" not in ctx.get_story_index()
+
 
 # ---------------------------------------------------------------------------
 # rebuild_story_index

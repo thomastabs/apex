@@ -161,6 +161,8 @@ class Phase4Service:
             context_manager.save_qa_results(story_id, "fail", scenario_results)
         # Save per-story bug report
         context_manager.save_bug_report(story_id, bug_report_md)
+        # Each failed gate triggers one Fix-Bolt — the AI-defect-rate proxy
+        context_manager.increment_story_counter(story_id, "fix_bolt_count")
         # Append to global vaccine log
         if root_cause.strip():
             context_manager.append_vaccine_record(

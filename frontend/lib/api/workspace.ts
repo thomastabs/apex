@@ -207,6 +207,7 @@ export type StoryIndexStats = {
   phase2_designed: number;
   phase3_proposed: number;
   phase4_tested: number;
+  phase4_passed: number;
   phase5_deployed: number;
 };
 

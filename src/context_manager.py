@@ -610,6 +610,23 @@ def upsert_story_index(story_id: int, **updates) -> None:
         _save_story_index(index)
 
 
+def increment_story_counter(story_id: int, field: str = "fix_bolt_count") -> int:
+    """Atomically increment a numeric counter on a story-index entry.
+
+    Read-modify-write must happen under _index_lock — services must never
+    compute counter values themselves and pass them to upsert_story_index.
+    Returns the new value. No-op (returns 0) if the entry doesn't exist.
+    """
+    with _index_lock:
+        index = get_story_index()
+        entry = index.get(str(story_id))
+        if entry is None:
+            return 0
+        entry[field] = int(entry.get(field, 0)) + 1
+        _save_story_index(index)
+        return entry[field]
+
+
 def mark_story_deployed(story_id: int) -> None:
     """Set a story's phase_status to 'deployed' after Phase 5 deployment."""
     upsert_story_index(story_id, phase_status="deployed")
