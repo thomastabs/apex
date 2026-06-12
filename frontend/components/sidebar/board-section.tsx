@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Info, Layers3, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -15,6 +16,9 @@ import {
   useUpdateEpic,
   useUpdateStory,
 } from "@/lib/hooks/use-workspace";
+import { getPmAdapter } from "@/lib/api/pm-factory";
+import { toPmCtx } from "@/lib/api/workspace";
+import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/primitives";
@@ -23,18 +27,53 @@ import { PanelHeader, type DragSectionProps } from "./shared";
 
 // ── dialogs ───────────────────────────────────────────────────────────────────
 
+/** Board lists come from the PM tool's LIST endpoints, which omit
+ *  descriptions (Taiga's light serializer). Edit dialogs must hydrate from
+ *  the detail endpoint — otherwise the textarea starts empty and saving
+ *  silently wipes the real description. */
+function useDetailHydration<T extends { description?: string; version?: number | null }>(
+  kind: "epic" | "story",
+  id: number,
+  fetchDetail: () => Promise<T>,
+  setDescription: (d: string) => void,
+) {
+  const context = useApiContext();
+  const hydratedRef = useRef(false);
+  const detail = useQuery({
+    queryKey: ["pm", `${kind}-detail`, context?.projectId, id],
+    queryFn: fetchDetail,
+    enabled: Boolean(context),
+    staleTime: 0,
+  });
+  useEffect(() => {
+    if (detail.data && !hydratedRef.current) {
+      hydratedRef.current = true;
+      setDescription(detail.data.description ?? "");
+    }
+  }, [detail.data, setDescription]);
+  return detail;
+}
+
 function EpicDialog({ epic, onClose }: { epic: Epic; onClose: () => void }) {
   const dark = useUiStore((state) => state.theme === "dark");
+  const context = useApiContext();
   const [subject, setSubject] = useState(epic.subject);
-  const [description, setDescription] = useState(epic.description);
+  const [description, setDescription] = useState(epic.description ?? "");
   const [tagsInput, setTagsInput] = useState((epic.tags ?? []).join(", "));
   const update = useUpdateEpic();
 
+  const detail = useDetailHydration(
+    "epic", epic.id,
+    () => getPmAdapter(context!.pmTool).getEpic(toPmCtx(context!), String(epic.id)),
+    setDescription,
+  );
+
   function save() {
-    if (!epic.version) return;
+    const version = detail.data?.version ?? epic.version;
+    if (!version) return;
     const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
     update.mutate(
-      { epicId: epic.id, version: epic.version, fields: { subject, description, tags } },
+      { epicId: epic.id, version, fields: { subject, description, tags } },
       { onSuccess: onClose },
     );
   }
@@ -75,10 +114,10 @@ function EpicDialog({ epic, onClose }: { epic: Epic; onClose: () => void }) {
         <div className="mt-5 flex gap-3">
           <button
             className="flex-1 rounded bg-violet-700 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-600 disabled:opacity-50"
-            disabled={update.isPending || !subject.trim()}
+            disabled={update.isPending || detail.isLoading || !subject.trim()}
             onClick={save}
           >
-            {update.isPending ? "Saving…" : "Save"}
+            {update.isPending ? "Saving…" : detail.isLoading ? "Loading…" : "Save"}
           </button>
           <button
             className={cn("flex-1 rounded py-2 text-sm transition-colors", dark ? "bg-neutral-800 text-neutral-300 hover:bg-neutral-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200")}
@@ -94,16 +133,39 @@ function EpicDialog({ epic, onClose }: { epic: Epic; onClose: () => void }) {
 
 function StoryDialog({ story, onClose }: { story: Story; onClose: () => void }) {
   const dark = useUiStore((state) => state.theme === "dark");
+  const context = useApiContext();
   const [subject, setSubject] = useState(story.subject);
   const [description, setDescription] = useState(story.description ?? "");
   const [tagsInput, setTagsInput] = useState((story.tags ?? []).join(", "));
+  const [statusId, setStatusId] = useState<string>(story.status != null ? String(story.status) : "");
   const update = useUpdateStory();
+  const { data: statuses = [] } = useStoryStatuses();
+
+  const detail = useDetailHydration(
+    "story", story.id,
+    () => getPmAdapter(context!.pmTool).getStory(toPmCtx(context!), String(story.id)),
+    setDescription,
+  );
+
+  const statusHydratedRef = useRef(false);
+  useEffect(() => {
+    if (detail.data && !statusHydratedRef.current) {
+      statusHydratedRef.current = true;
+      const s = (detail.data as Story).status;
+      if (s != null) setStatusId(String(s));
+    }
+  }, [detail.data]);
 
   function save() {
-    if (!story.version) return;
+    const version = detail.data?.version ?? story.version;
+    if (!version) return;
     const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
     update.mutate(
-      { storyId: story.id, version: story.version, fields: { subject, description, tags } },
+      {
+        storyId: story.id,
+        version,
+        fields: { subject, description, tags, ...(statusId ? { status: statusId } : {}) },
+      },
       { onSuccess: onClose },
     );
   }
@@ -132,7 +194,25 @@ function StoryDialog({ story, onClose }: { story: Story; onClose: () => void }) 
           </div>
           <div>
             <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Description</label>
-            <textarea className={cn("h-52 resize-none py-2", inputClass)} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe the story…" />
+            <textarea
+              className={cn("h-52 resize-none py-2", inputClass)}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder={detail.isLoading ? "Loading description…" : "Describe the story…"}
+            />
+          </div>
+          <div>
+            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Status</label>
+            <select
+              className={cn("h-9 cursor-pointer", inputClass)}
+              value={statusId}
+              onChange={(e) => setStatusId(e.target.value)}
+            >
+              {statusId === "" && <option value="">(unchanged)</option>}
+              {statuses.map((s) => (
+                <option key={s.id} value={String(s.id)}>{s.name}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
@@ -144,10 +224,10 @@ function StoryDialog({ story, onClose }: { story: Story; onClose: () => void }) 
         <div className="mt-5 flex gap-3">
           <button
             className="flex-1 rounded bg-violet-700 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-600 disabled:opacity-50"
-            disabled={update.isPending || !subject.trim()}
+            disabled={update.isPending || detail.isLoading || !subject.trim()}
             onClick={save}
           >
-            {update.isPending ? "Saving…" : "Save"}
+            {update.isPending ? "Saving…" : detail.isLoading ? "Loading…" : "Save"}
           </button>
           <button
             className={cn("flex-1 rounded py-2 text-sm transition-colors", dark ? "bg-neutral-800 text-neutral-300 hover:bg-neutral-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200")}
