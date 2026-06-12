@@ -691,31 +691,12 @@ The current code supports both local disk and SDK mode. The mount model is simpl
 
 The scheduler is defined in `.github/workflows/scale-scheduler.yml`.
 
-Purpose: reduce Azure cost for an academic/demo deployment by scaling both Container Apps down when not in use and scaling them back up during the day.
+Cost mode (default since 2026-06): both Container Apps (`apex-backend`, `apex-frontend`) run **scale-to-zero around the clock** — `min=0`, `max=2`, replicas spin down after ~5 minutes idle and compute is billed only while requests are served. The frontend's "server waking up" toast covers the ~30s cold start. Cost analysis showed the always-on daytime replica was the dominant line item on the student subscription; Log Analytics sits within its free tier.
 
-It controls:
+There are no cron schedules anymore. Manual dispatch remains for presentations:
 
-- `apex-backend`
-- `apex-frontend`
-
-Schedules are UTC-based because GitHub Actions cron uses UTC:
-
-| Cron | Action | Result |
-|---|---|---|
-| `0 8 * * *` | Scale up | backend/frontend `min=1`, `max=10` |
-| `0 22 * * *` | Scale down | backend/frontend `min=0`, `max=0` |
-
-Manual dispatch is also supported:
-
-- `up`: sets both apps to `min=1`, `max=10`
-- `down`: sets both apps to `min=0`, `max=0` (fully off)
-
-Portugal time note:
-
-- During WET, `08:00 UTC` is `08:00` in Lisbon and `22:00 UTC` is `22:00`.
-- During WEST, `08:00 UTC` is `09:00` in Lisbon and `22:00 UTC` is `23:00`.
-
-This one-hour seasonal drift is acceptable for the project. If exact Lisbon local time is required, split the scheduler into separate DST-aware cron periods or trigger scaling from Azure Automation/Logic Apps with timezone support.
+- `up`: pre-warm — both apps `min=1`, `max=10` (no cold starts during a demo)
+- `down`: back to cost mode — `min=0`, `max=2`
 
 ---
 

@@ -1,21 +1,18 @@
 name: Apex · Scale scheduler
 
-# Keeps costs low: 0 replicas overnight, 1 replica during Portugal daytime.
-# Scales BOTH apex-backend and apex-frontend Container Apps together.
+# Cost mode: both Container Apps run scale-to-zero (min=0) around the clock —
+# compute is billed only while requests are being served. The frontend shows a
+# "server waking up" toast during the ~30s cold start.
 #
-# Portugal timezone:
-#   WET (UTC+0): Oct–Mar  →  scale-up = 08:00 UTC, scale-down = 22:00 UTC
-#   WEST (UTC+1): Mar–Oct →  scale-up = 09:00 Lisbon, scale-down = 23:00 Lisbon
-# Acceptable drift of ±1h around DST transitions for an academic project.
+# Use the manual dispatch to pre-warm before a demo/presentation (up), and to
+# return to scale-to-zero afterwards (down). No cron schedules: the daily
+# min=1 day-mode was the main cost driver on the student subscription.
 
 on:
-  schedule:
-    - cron: '0 8 * * *'   # 08:00 UTC daily → scale UP
-    - cron: '0 22 * * *'  # 22:00 UTC daily → scale DOWN
   workflow_dispatch:
     inputs:
       action:
-        description: 'up → min=1 max=10 (day mode)  |  down → min=0 max=1'
+        description: 'up → min=1 max=10 (pre-warm for demos)  |  down → min=0 max=2 (default cost mode)'
         required: true
         type: choice
         options: [up, down]
@@ -25,7 +22,7 @@ env:
 
 jobs:
   scale:
-    name: ${{ github.event_name == 'workflow_dispatch' && inputs.action == 'up' && 'Scale UP (manual)' || github.event_name == 'workflow_dispatch' && 'Scale DOWN (manual)' || github.event.schedule == '0 8 * * *' && 'Scale UP (scheduled)' || 'Scale DOWN (scheduled)' }}
+    name: ${{ inputs.action == 'up' && 'Scale UP (pre-warm)' || 'Scale DOWN (cost mode)' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -34,19 +31,8 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Determine action
-        id: action
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "mode=${{ inputs.action }}" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.event.schedule }}" == "0 8 * * *" ]]; then
-            echo "mode=up" >> $GITHUB_OUTPUT
-          else
-            echo "mode=down" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Scale UP — min 1 replica (day mode)
-        if: steps.action.outputs.mode == 'up'
+      - name: Scale UP — min 1 replica (pre-warm)
+        if: inputs.action == 'up'
         run: |
           az containerapp update \
             --name apex-backend \
@@ -60,17 +46,17 @@ jobs:
             --max-replicas 10
           echo "Scaled UP: apex-backend + apex-frontend → min=1, max=10"
 
-      - name: Scale DOWN — 0 replicas (night mode)
-        if: steps.action.outputs.mode == 'down'
+      - name: Scale DOWN — scale-to-zero (cost mode)
+        if: inputs.action == 'down'
         run: |
           az containerapp update \
             --name apex-backend \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --min-replicas 0 \
-            --max-replicas 1
+            --max-replicas 2
           az containerapp update \
             --name apex-frontend \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --min-replicas 0 \
-            --max-replicas 1
-          echo "Scaled DOWN: apex-backend + apex-frontend → min=0, max=1"
+            --max-replicas 2
+          echo "Scaled DOWN: apex-backend + apex-frontend → min=0, max=2"
