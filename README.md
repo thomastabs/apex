@@ -692,12 +692,14 @@ The current code supports both local disk and SDK mode. The mount model is simpl
 
 The scheduler is defined in `.github/workflows/scale-scheduler.yml`.
 
-Cost mode (default since 2026-06): both Container Apps (`apex-backend`, `apex-frontend`) run **scale-to-zero around the clock** — `min=0`, `max=2`, replicas spin down after ~5 minutes idle and compute is billed only while requests are served. The frontend's "server waking up" toast covers the ~30s cold start. Cost analysis showed the always-on daytime replica was the dominant line item on the student subscription; Log Analytics sits within its free tier.
+Cost mode (default since 2026-06): both Container Apps run **scale-to-zero around the clock** — `min=0`, replicas spin down after ~5 minutes idle and compute is billed only while requests are served. The frontend's "server waking up" toast covers the ~30s cold start. Cost analysis showed the always-on daytime replica was the dominant line item on the student subscription; Log Analytics sits within its free tier.
+
+**Single-writer constraint:** `apex-backend` is always capped at `max=1`. The story index and workspace config live on a shared Azure File Share guarded only by a process-local lock — a second backend replica would introduce lost-update races on `story-index.json`. The stateless frontend scales out freely (`max=2` in cost mode, `max=10` pre-warmed).
 
 There are no cron schedules anymore. Manual dispatch remains for presentations:
 
-- `up`: pre-warm — both apps `min=1`, `max=10` (no cold starts during a demo)
-- `down`: back to cost mode — `min=0`, `max=2`
+- `up`: pre-warm — backend `min=1 max=1`, frontend `min=1 max=10` (no cold starts during a demo)
+- `down`: back to cost mode — `min=0`; backend `max=1`, frontend `max=2`
 
 ---
 

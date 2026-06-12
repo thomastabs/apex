@@ -7,12 +7,17 @@ name: Apex · Scale scheduler
 # Use the manual dispatch to pre-warm before a demo/presentation (up), and to
 # return to scale-to-zero afterwards (down). No cron schedules: the daily
 # min=1 day-mode was the main cost driver on the student subscription.
+#
+# apex-backend is ALWAYS capped at max=1: the story index and workspace config
+# live on a shared Azure File Share guarded only by a process-local lock —
+# a second backend replica means lost-update races (audit C1). The stateless
+# frontend may scale out freely.
 
 on:
   workflow_dispatch:
     inputs:
       action:
-        description: 'up → min=1 max=10 (pre-warm for demos)  |  down → min=0 max=2 (default cost mode)'
+        description: 'up → pre-warm for demos (backend min=1 max=1, frontend min=1 max=10)  |  down → cost mode (min=0; backend max=1, frontend max=2)'
         required: true
         type: choice
         options: [up, down]
@@ -38,13 +43,13 @@ jobs:
             --name apex-backend \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --min-replicas 1 \
-            --max-replicas 10
+            --max-replicas 1
           az containerapp update \
             --name apex-frontend \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --min-replicas 1 \
             --max-replicas 10
-          echo "Scaled UP: apex-backend + apex-frontend → min=1, max=10"
+          echo "Scaled UP: backend → min=1 max=1 (single writer), frontend → min=1 max=10"
 
       - name: Scale DOWN — scale-to-zero (cost mode)
         if: inputs.action == 'down'
@@ -53,10 +58,10 @@ jobs:
             --name apex-backend \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --min-replicas 0 \
-            --max-replicas 2
+            --max-replicas 1
           az containerapp update \
             --name apex-frontend \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --min-replicas 0 \
             --max-replicas 2
-          echo "Scaled DOWN: apex-backend + apex-frontend → min=0, max=2"
+          echo "Scaled DOWN: backend → min=0 max=1 (single writer), frontend → min=0 max=2"

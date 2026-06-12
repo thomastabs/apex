@@ -288,14 +288,22 @@ jobs:
       - name: Capture current images for rollback
         id: current
         run: |
-          echo "backend=$(az containerapp show \
+          set -euo pipefail
+          BACKEND_IMG=$(az containerapp show \
             --name apex-backend \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --query 'properties.template.containers[0].image' -o tsv)" >> "$GITHUB_OUTPUT"
-          echo "frontend=$(az containerapp show \
+            --query 'properties.template.containers[0].image' -o tsv)
+          FRONTEND_IMG=$(az containerapp show \
             --name apex-frontend \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --query 'properties.template.containers[0].image' -o tsv)" >> "$GITHUB_OUTPUT"
+            --query 'properties.template.containers[0].image' -o tsv)
+          # Fail fast: deploying without a known rollback target is worse than
+          # not deploying — an empty value here would make the rollback step
+          # run `az containerapp update --image ""`.
+          [ -n "$BACKEND_IMG" ] || { echo "::error::could not capture current backend image"; exit 1; }
+          [ -n "$FRONTEND_IMG" ] || { echo "::error::could not capture current frontend image"; exit 1; }
+          echo "backend=$BACKEND_IMG" >> "$GITHUB_OUTPUT"
+          echo "frontend=$FRONTEND_IMG" >> "$GITHUB_OUTPUT"
 
       - name: Deploy backend
         run: |
@@ -311,7 +319,7 @@ jobs:
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:sha-$(echo ${{ github.sha }} | cut -c1-7)
 
-      - name: Health check
+      - name: Health check — backend
         run: |
           BACKEND_FQDN=$(az containerapp show \
             --name apex-backend \
@@ -319,14 +327,28 @@ jobs:
             --query properties.configuration.ingress.fqdn -o tsv)
           for i in $(seq 1 12); do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://${BACKEND_FQDN}/api/health" || true)
-            if [ "$STATUS" = "200" ]; then echo "Health check passed"; exit 0; fi
+            if [ "$STATUS" = "200" ]; then echo "Backend health check passed"; exit 0; fi
             echo "Attempt $i: status=${STATUS}, retrying in 10s..."
             sleep 10
           done
-          echo "Health check failed after 2 minutes" && exit 1
+          echo "Backend health check failed after 2 minutes" && exit 1
+
+      - name: Health check — frontend
+        run: |
+          FRONTEND_FQDN=$(az containerapp show \
+            --name apex-frontend \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query properties.configuration.ingress.fqdn -o tsv)
+          for i in $(seq 1 12); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://${FRONTEND_FQDN}/" || true)
+            if [ "$STATUS" = "200" ]; then echo "Frontend health check passed"; exit 0; fi
+            echo "Attempt $i: status=${STATUS}, retrying in 10s..."
+            sleep 10
+          done
+          echo "Frontend health check failed after 2 minutes" && exit 1
 
       - name: Roll back on failure
-        if: failure() && steps.current.outputs.backend != ''
+        if: failure() && steps.current.outputs.backend != '' && steps.current.outputs.frontend != ''
         run: |
           echo "Deploy failed — rolling back to previous images"
           az containerapp update \
