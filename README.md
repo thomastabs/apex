@@ -173,7 +173,7 @@ Implemented — 4-stage stepper workflow:
 - Implementation Tasks list — each task shows effort estimate badge (XS–XL), subject, and description
 - AI generates a full per-scenario test plan: Test Steps, Expected Results, Edge Cases, Risk Areas for each Gherkin scenario
 - Edit the generated test plan in a monospace textarea before saving
-- Download `.md` / Copy actions
+- Download `.md` / Copy / **Clear Plan** actions — Clear deletes the saved plan server-side, wipes the local execution draft, and rolls the story from `qa` back to `implementation` (never demotes `qa_passed`); Regenerate replaces the plan in place
 - Save & Continue → Stage C (saves to `bdd_story_{id}.feature`)
 
 **Stage C — Execute Tests**
@@ -245,13 +245,14 @@ Implemented:
 - Project selector
 - Project create/delete
 - Epics and stories board (fetched directly from Taiga or Jira API in the browser); filter by text across epics and stories
-- Epic/story create, edit, delete
-- **Task Board** — view implementation tasks grouped by story; tasks are fetched from Taiga (or Jira) and merged with locally generated JSON; filter by epic/story; add, edit, and delete tasks inline; effort badges (XS → XL)
+- Epic/story create, edit, delete — edit dialogs hydrate the description from the PM detail endpoint (list responses omit it) and the story dialog includes an inline **Status** selector fed by the project's status list
+- **Task Board** — view implementation tasks grouped by story; tasks are fetched from Taiga (or Jira) and merged with locally generated JSON; filter by epic/story; add, edit, and delete tasks inline; effort badges (XS → XL); deleting a task also deletes its developer pack so "proposed" counts stay truthful
+- **Developer Packs** — every saved Phase 3 pack grouped by story; view in a modal, download, delete one or all packs for a story
 - Users and roles management
 - Active context file viewer/editor
 - Individual context file download
 - ZIP download of all context files
-- Story index rebuild with out-of-sync warning
+- **Automatic story-index sync** — every epic/story/task create/edit/delete, plus sign-in and project switch, silently rebuilds the story index and refreshes nav badges; the manual rebuild button (with out-of-sync warning) remains as a fallback
 - Context reset (individual and all files)
 - **GitHub integration** — connect a GitHub repository via a Personal Access Token (`repo` scope); displays repo name, description, primary language, star count, default branch, and public/private badge; **Sync Context** fetches the repo's file tree, README, primary config file (`package.json` / `requirements.txt` / `pyproject.toml`), and OpenAPI spec (if present) and writes them to `github-context.md`; synced context is automatically injected into Phase 2 and Phase 3 AI prompts; GitHub API calls are made browser-side (no backend proxy needed)
 - AI model selector — single unified selector used across all phases; supports Anthropic (Claude), OpenAI (GPT), and Google (Gemini); budget-tier to premium options per provider; provider warnings shown when the corresponding API key is absent from the backend
@@ -509,7 +510,7 @@ docker compose down
 python3 -m pytest tests/ -v --tb=short
 ```
 
-Coverage (~415 tests):
+Coverage (~425 tests):
 
 - `tests/test_backend_phase1*.py` … `test_backend_phase5*.py` — per-phase service-layer unit tests plus HTTP route tests (stub services, error-code mapping 422/429/504)
 - `tests/test_backend_analytics.py` — governance metrics: cycle times, traceability rate, defect proxy
@@ -719,6 +720,8 @@ There are no cron schedules anymore. Manual dispatch remains for presentations:
 **Taiga:** All Taiga REST API calls (login, projects, epics, stories, users, story transitions) are proxied through the FastAPI backend at `DELETE/GET/PATCH/POST/PUT /api/pm/taiga/{path}` (`backend/app/api/taiga_proxy.py`). `frontend/lib/api/taiga-direct.ts` sends an `X-Taiga-Url` header carrying the user-configured Taiga base URL; the backend validates it with SSRF guards, resolves it against the saved workspace config if absent, and forwards the request server-side.
 
 **Why server-side for Taiga:** Private/self-hosted Taiga instances (e.g. `taiga.marsshot.eu`) reject browser CORS preflight requests from third-party origins. Proxying through the backend eliminates this entirely for both self-hosted and Taiga Cloud. The proxy also adds SSRF protection (RFC-1918 / loopback block), `\r\n` header-injection guards, and a consistent place to apply future auth or rate-limit logic.
+
+**Proxy egress self-heal:** both PM proxies use a pooled `httpx.AsyncClient` with a split timeout (8s connect / full read budget). On a connect-level failure the pool is closed, recreated, and the request retried once — this recovers from dead SNAT paths observed on Azure Container Apps (June 2026 incident: api.taiga.io unreachable for ~10 minutes while Jira egress was fine) without a manual revision restart. Read-phase errors are never retried, so mutations can't be duplicated.
 
 **Implication:** `src/taiga_adapter.py` is a stub that only derives the Taiga web URL for the `GET /config` endpoint. All Taiga REST traffic goes through `taiga_proxy.py` — do not add browser-direct Taiga calls.
 
