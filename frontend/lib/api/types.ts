@@ -371,3 +371,59 @@ export type Phase4FailGateRequest = {
   push_to_pm?: boolean;
   scenario_results?: Phase4ScenarioResultItem[];
 };
+
+// ---------------------------------------------------------------------------
+// Phase 5 — Deployment Gate
+// ---------------------------------------------------------------------------
+
+export type Phase5StoryPreview = {
+  story_id: number;
+  title: string;
+  epic_title: string;
+  gherkin_preview: string;
+  has_infra_delta: boolean;
+  has_deploy_pack: boolean;
+  deploy_bypass: boolean;
+  fix_bolt_count: number;
+};
+
+export type Phase5EligibleStoriesResponse = {
+  stories: Phase5StoryPreview[];
+};
+
+export type Phase5StoryContext = {
+  story_id: number;
+  title: string;
+  epic_title: string;
+  gherkin: string;
+  technical_spec: string;
+  tech_stack: string;
+  github_context_synced: boolean;
+  has_bug_report: boolean;
+  fix_bolt_count: number;
+};
+
+export type InfraDeltaCategory = "env_var" | "migration" | "iac" | "ci_config" | "secret";
+
+export type InfraDeltaItem = {
+  category: InfraDeltaCategory;
+  title: string;
+  detail: string;
+  risk: "low" | "high";
+};
+
+export type InfraDelta = {
+  needs_infra_change: boolean;
+  rationale: string;
+  deltas: InfraDeltaItem[];
+};
+
+export type Phase5InfraDeltaResponse = {
+  story_id: number;
+  delta: InfraDelta;
+};
+
+export type Phase5DeployPackResponse = {
+  story_id: number;
+  deploy_pack_md: string;
+};

@@ -1,11 +1,5 @@
-import { PhasePlaceholder } from "@/components/phase-placeholder";
+import { Phase5Workflow } from "@/components/phase5-workflow";
 
 export default function Phase5Page() {
-  return (
-    <PhasePlaceholder
-      phase="Phase 5"
-      title="Deployment"
-      description="Release management, deployment readiness, infrastructure deltas, and staging sign-off."
-    />
-  );
+  return <Phase5Workflow />;
 }
