@@ -9,7 +9,7 @@ The current migrated version is a split full-stack web app:
 - **Storage:** `contextspec/` folder in Azure File Share in deployment
 - **Deployment:** GitHub Actions builds Docker images and deploys to Azure Container Apps
 
-Phases 1, 2, 3, and 4 are implemented. Phases 5 and 6 currently exist as navigation placeholders.
+Phases 1–5 are implemented, plus a governance analytics dashboard. Phase 6 currently exists as a navigation placeholder.
 
 <img width="1908" height="991" alt="image" src="https://github.com/user-attachments/assets/818d2d66-add0-40c4-883f-c558a8445183" />
 
@@ -61,7 +61,18 @@ flowchart TD
     Y -->|Story re-enters Phase 4| S
     W --> G
 
-    G --> Z[Future Phases 5-6]
+    G --> Z[Phase 5: Select QA-Passed Story]
+    Z --> AA[Pre-Flight: AI Infra Delta Check + Traceability Matrix]
+    AA --> AB{Infra changes?}
+    AB -->|No — routine| AD[Deployment Gate]
+    AB -->|Yes| AC[Generate Deploy Pack — scripts + rollback]
+    AC --> AD
+    AD -->|Tech Lead + DevOps Alliance sign-off| AE[Lock deployed — deployment-log.md]
+    AD -->|Reject| AF[Security feedback → AI revises pack]
+    AF --> AC
+    AE --> G
+
+    G --> AG[Future Phase 6]
 ```
 
 ### Phase 1 · Requirements
@@ -183,6 +194,45 @@ Implemented — 4-stage stepper workflow:
   - Preview in monospace panel; Download `.md` / Copy Fix-Bolt Brief
   - **Trigger Fix-Bolt:** saves `bug_report_{id}.md`, appends `vaccines.md`, marks story with `has_bug_report`; story returns to `implementation` and re-enters Phase 4 as Regression Bypass on next select
 
+### Phase 5 · Deployment
+
+Phase 5 implements the framework's Deployment & Release playbook as a governance layer: Apex records gate decisions and artifacts; it does not trigger real deployments. It operates story-by-story on `qa_passed` stories.
+
+Implemented — 4-stage stepper workflow:
+
+**Stage A — Select Story**
+
+- QA-passed stories grouped by epic; 2×2 paged card grid
+- Badges: "Delta ready", "Pack ready", "Routine" (bypass verdict)
+
+**Stage B — Pre-Flight**
+
+- **AI Infrastructure Delta Check** — answers one question: does deploying this story need new infra, env vars, secrets, migrations, or CI changes, or is it a routine deployment on the existing pipeline? Context is strictly narrowed (story Gherkin + technical spec + tech stack + GitHub context when synced)
+- Fully editable verdict: routine/changes toggle, rationale, per-item rows (category: env var / migration / IaC / CI config / secret; risk: low/high); add or remove items
+- **Traceability Matrix** panel — zero AI calls; assembles Gherkin scenarios × PM task "Covers" metadata × saved developer packs × persisted QA results; gaps (`NO_COVERING_TASK`, `TASK_WITHOUT_PACK`, `NOT_TESTED`, `ORPHAN_COVERS`) shown as amber rows, advisory only
+- Saved to `infra_delta_story_<id>.json` (+ rendered `.md`)
+
+**Stage C — Deploy Pack (or Routine Bypass)**
+
+- Routine verdict → bypass banner, straight to the gate
+- Changes flagged → AI generates a **Deploy Pack**: per-item scripts (env diffs, migration SQL with rollback, IaC/CI fragments, secret provisioning instructions — never values) plus a Rollback Plan; editable split-pane editor; saved to `deploy_pack_story_<id>.md`
+
+**Stage D — Deployment Gate**
+
+- Evidence summary: delta verdict, pack status, traceability matrix (auto-persisted to `verification_story_<id>.json` as gate evidence)
+- Two human sign-offs required: **Tech Lead** (pack reviewed) and **DevOps Alliance** (security review passed)
+- **Approve:** story locks to `deployed`, a machine-parseable record (route, sign-offs, traceability summary) is appended to `deployment-log.md`, optional PM story status update
+- **Reject:** security feedback is fed to the AI, which revises the pack → back to Stage C
+
+### Analytics
+
+The `/analytics` page computes the framework's Core Governance Metrics on demand from the story index and context artifacts:
+
+- **Cycle time per gate transition** — median/p90 hours from `status_history` timestamps recorded at every phase transition (Fix-Bolt re-entries restart the clock)
+- **Context Traceability Rate** — % of deployed stories with a complete artifact chain (Gherkin + test plan + infra delta + complete matrix + deployment-log entry)
+- **Fix-Bolt defect proxy** — total/avg Fix-Bolt triggers per story (Apex has no production telemetry, so QA-caught defects stand in for the Defect Escape Rate)
+- Phase funnel and per-story drill-down table; CSV and Markdown export
+
 ### Sidebar Workspace
 
 The sidebar is the operational shell for the app.
@@ -219,6 +269,8 @@ Implemented:
 | `backend/app/api/phase2.py` | Phase 2 HTTP routes |
 | `backend/app/api/phase3.py` | Phase 3 HTTP routes |
 | `backend/app/api/phase4.py` | Phase 4 HTTP routes |
+| `backend/app/api/phase5.py` | Phase 5 HTTP routes (deployment gate, infra delta, deploy pack, verification) |
+| `backend/app/api/analytics.py` | Governance analytics endpoint |
 | `backend/app/api/workspace.py` | Sidebar/workspace routes: auth, projects, board, users, context files, AI config |
 | `backend/app/api/taiga_proxy.py` | FastAPI reverse proxy for all Taiga REST calls — SSRF-guarded, header-injection-safe, forwards `DELETE/GET/PATCH/POST/PUT /api/pm/taiga/{path}` to the configured Taiga instance |
 | `backend/app/api/jira_proxy.py` | FastAPI reverse proxy for Jira Cloud REST API v3 (Basic auth, SSRF-guarded to `*.atlassian.net`) |
@@ -261,7 +313,12 @@ Apex stores workflow state in context files under `contextspec/<taiga_project_id
 | `github-context.md` | Repo file tree, README, config file, and OpenAPI spec synced from GitHub; injected into Phase 2 and Phase 3 AI prompts |
 | `proposal_story_<id>_task_<id>.md` | Developer pack generated by Phase 3 for each task |
 | `bdd_story_<id>.feature` | Test plan generated by Phase 4 for each story |
+| `qa_results_story_<id>.json` | Per-scenario pass/fail attempts recorded at each Testing Gate decision |
 | `bug_report_<id>.md` | Fix-Bolt artifact generated by Phase 4 when a story fails the Testing Gate |
+| `infra_delta_story_<id>.json` / `.md` | Phase 5 infra delta verdict (JSON canonical + rendered markdown) |
+| `deploy_pack_story_<id>.md` | Phase 5 deploy pack — scripts and rollback plan for flagged infra changes |
+| `verification_story_<id>.json` / `.md` | Traceability matrix persisted as Deployment Gate evidence |
+| `deployment-log.md` | Append-only log of Deployment Gate decisions (route, sign-offs, traceability summary) |
 | `vaccines.md` | Appended with each Fix-Bolt record — bug isolation log for future reference |
 | `story-index.json` | Machine-readable story phase state |
 
@@ -452,9 +509,10 @@ docker compose down
 python3 -m pytest tests/ -v --tb=short
 ```
 
-Coverage (~350 tests):
+Coverage (~415 tests):
 
-- `tests/test_backend_phase1*.py` / `test_backend_phase2*.py` / `test_backend_phase3*.py` / `test_backend_phase4*.py` — per-phase service-layer unit tests plus HTTP route tests (stub services, error-code mapping 422/429/504)
+- `tests/test_backend_phase1*.py` … `test_backend_phase5*.py` — per-phase service-layer unit tests plus HTTP route tests (stub services, error-code mapping 422/429/504)
+- `tests/test_backend_analytics.py` — governance metrics: cycle times, traceability rate, defect proxy
 - `tests/test_backend_workspace_api.py` — workspace/config route tests
 - `tests/test_ai_engine.py` — AI engine: provider detection, prompt assembly, structured output parsing, error mapping
 - `tests/test_context_manager.py` — context files, story index, locking and cross-worker cache invalidation
@@ -486,7 +544,7 @@ npm run test:e2e
 npm run test:e2e:ui                           # with interactive UI
 ```
 
-Three spec files, each exercising one full phase flow against mocked backend and Taiga APIs:
+Five spec files, each exercising one full phase flow against mocked backend and Taiga APIs. `phase4-testing-flow` covers the pass path and the Fix-Bolt fail path; `phase5-deploy-flow` covers the routine-bypass deployment and the changes-flagged → pack → reject/revise → gate path. The three documented in detail below:
 
 **`e2e/phase1-story-flow.spec.ts`**
 
@@ -669,7 +727,8 @@ This one-hour seasonal drift is acceptable for the project. If exact Lisbon loca
 | Phase 2 · Design | Implemented |
 | Phase 3 · Implementation | Implemented |
 | Phase 4 · Testing | Implemented |
-| Phase 5 · Deployment | Placeholder |
+| Phase 5 · Deployment | Implemented |
+| Governance Analytics | Implemented |
 | Phase 6 · Maintenance | Placeholder |
 
 ---
