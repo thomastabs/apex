@@ -24,6 +24,44 @@ User is redirected to dashboard. Response includes JWT token.
 - Concurrent session management
 `;
 
+export const FAKE_INFRA_DELTA_BYPASS = {
+  needs_infra_change: false,
+  rationale: "The story only adds an endpoint on the existing FastAPI service — the current pipeline covers it.",
+  deltas: [],
+};
+
+export const FAKE_INFRA_DELTA_CHANGES = {
+  needs_infra_change: true,
+  rationale: "Login token issuance requires a JWT signing secret in the backend environment.",
+  deltas: [
+    {
+      category: "secret",
+      title: "Provision JWT signing secret",
+      detail: "Add JWT_SECRET to the backend container environment and the deployment workflow.",
+      risk: "high",
+    },
+  ],
+};
+
+export const FAKE_DEPLOY_PACK_MD = `## Provision JWT signing secret
+
+**Category:** secret · **Risk:** high
+
+### Change
+Add JWT_SECRET to the backend environment.
+
+### Script
+\`\`\`env
+JWT_SECRET=<generate-256-bit>
+\`\`\`
+
+### Verification
+1. Boot the backend and confirm /auth/login issues tokens.
+
+## Rollback Plan
+1. Remove JWT_SECRET from the environment.
+`;
+
 const FAKE_BUG_REPORT_MD = `## Bug Summary
 Login endpoint returns 500 on valid credentials.
 
@@ -262,6 +300,104 @@ export async function applyMocks(page: Page) {
   );
 
   await page.route(`${api}/api/phase4/fail-gate`, (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) }),
+  );
+
+  // ── Phase 5 ───────────────────────────────────────────────────────────────
+  await page.route(`${api}/api/phase5/eligible-stories`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        stories: [
+          {
+            story_id: 10,
+            title: "User Login",
+            epic_title: "Authentication",
+            gherkin_preview: "Feature: User Login\n  Scenario: Successful login",
+            has_infra_delta: false,
+            has_deploy_pack: false,
+            deploy_bypass: false,
+            fix_bolt_count: 0,
+          },
+        ],
+      }),
+    }),
+  );
+
+  await page.route(`${api}/api/phase5/story-context/**`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        story_id: 10,
+        title: "User Login",
+        epic_title: "Authentication",
+        gherkin: "Feature: User Login\n  Scenario: Successful login\n    Given a registered user\n    When they submit valid credentials\n    Then they receive a JWT token",
+        technical_spec: "## Endpoints\n- POST /auth/login · auth:none · in:{email,password} · out:{token}",
+        tech_stack: "FastAPI + Next.js + PostgreSQL",
+        github_context_synced: true,
+        has_bug_report: false,
+        fix_bolt_count: 0,
+      }),
+    }),
+  );
+
+  // Default verdict: routine bypass. Specs override this route for the
+  // changes-required flow (last-registered handler wins).
+  await page.route(`${api}/api/phase5/generate-infra-delta`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ story_id: 10, delta: FAKE_INFRA_DELTA_BYPASS }),
+    }),
+  );
+
+  await page.route(`${api}/api/phase5/save-infra-delta`, (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) }),
+  );
+
+  // No saved delta on first load — the hook treats 422 as "not yet saved".
+  await page.route(`${api}/api/phase5/infra-delta/**`, (route) =>
+    route.fulfill({
+      status: 422,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "No infra delta saved for story 10." }),
+    }),
+  );
+
+  await page.route(`${api}/api/phase5/generate-deploy-pack`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ story_id: 10, deploy_pack_md: FAKE_DEPLOY_PACK_MD }),
+    }),
+  );
+
+  await page.route(`${api}/api/phase5/save-deploy-pack`, (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) }),
+  );
+
+  await page.route(`${api}/api/phase5/deploy-pack/**`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ story_id: 10, deploy_pack_md: "" }),
+    }),
+  );
+
+  await page.route(`${api}/api/phase5/revise-deploy-pack`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        story_id: 10,
+        deploy_pack_md: `${FAKE_DEPLOY_PACK_MD}\n\n## Revision Notes\nSecret rotation added per security review.`,
+      }),
+    }),
+  );
+
+  await page.route(`${api}/api/phase5/pass-deployment-gate`, (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) }),
   );
 
@@ -539,6 +675,20 @@ export const PHASE4_STORE_RESET = JSON.stringify({
     isRegressionBypass: false,
     failedScenarioNames: [],
     currentStoryMeta: { title: "", epicTitle: "" },
+  },
+  version: 0,
+});
+
+export const PHASE5_STORE_RESET = JSON.stringify({
+  state: {
+    selectedStoryId: null,
+    currentStoryMeta: { title: "", epicTitle: "" },
+    infraDelta: null,
+    deltaSaved: false,
+    deployPackMd: null,
+    packSaved: false,
+    techLeadApproved: false,
+    devopsApproved: false,
   },
   version: 0,
 });
