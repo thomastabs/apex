@@ -1,0 +1,147 @@
+"""Tests for the governance analytics service."""
+
+from backend.app.services.analytics_service import AnalyticsService
+from backend.app.services.request_context import RequestContext
+
+
+def _ctx() -> RequestContext:
+    return RequestContext(pm_token="tok", project_id=1)
+
+
+class FakeContextService:
+    def __init__(self, index=None, deployment_log="", verifications=None):
+        self.index = index or {}
+        self.deployment_log = deployment_log
+        self.verifications = verifications or {}
+
+    def set_project(self, project_id: int):
+        pass
+
+    def story_index(self):
+        return self.index
+
+    def read_context_file(self, filename: str) -> str:
+        assert filename == "deployment-log.md"
+        return self.deployment_log
+
+    def load_verification(self, story_id: int):
+        return self.verifications.get(story_id)
+
+
+def _entry(story_id, status, history=None, **extra):
+    e = {
+        "story_id": story_id,
+        "title": f"Story {story_id}",
+        "epic_title": "Auth",
+        "phase_status": status,
+        "has_gherkin": True,
+        "has_bdd": False,
+        "has_infra_delta": False,
+        "fix_bolt_count": 0,
+        "status_history": history or {},
+    }
+    e.update(extra)
+    return e
+
+
+def test_funnel_counts_all_statuses():
+    index = {
+        "1": _entry(1, "gherkin_locked"),
+        "2": _entry(2, "qa_passed"),
+        "3": _entry(3, "deployed"),
+        "4": _entry(4, "deployed"),
+    }
+    summary = AnalyticsService(context=FakeContextService(index=index)).summary(_ctx())
+    assert summary["funnel"]["gherkin_locked"] == 1
+    assert summary["funnel"]["deployed"] == 2
+    assert summary["funnel"]["implementation"] == 0
+
+
+def test_cycle_times_median_and_samples():
+    h1 = {
+        "gherkin_locked": ["2026-06-01T00:00:00+00:00"],
+        "design_locked": ["2026-06-01T12:00:00+00:00"],  # 12h
+    }
+    h2 = {
+        "gherkin_locked": ["2026-06-02T00:00:00+00:00"],
+        "design_locked": ["2026-06-03T00:00:00+00:00"],  # 24h
+    }
+    index = {"1": _entry(1, "design_locked", h1), "2": _entry(2, "design_locked", h2)}
+    summary = AnalyticsService(context=FakeContextService(index=index)).summary(_ctx())
+    stat = next(s for s in summary["cycle_times"] if s["transition"] == "gherkin_locked → design_locked")
+    assert stat["samples"] == 2
+    assert stat["median_hours"] == 18.0
+    assert stat["p90_hours"] == 24.0
+
+
+def test_cycle_times_use_latest_reentry():
+    # Fix-Bolt loop: second implementation entry pushes the clock forward
+    history = {
+        "implementation": ["2026-06-01T00:00:00+00:00", "2026-06-05T00:00:00+00:00"],
+        "qa": ["2026-06-05T06:00:00+00:00"],
+    }
+    index = {"1": _entry(1, "qa", history)}
+    summary = AnalyticsService(context=FakeContextService(index=index)).summary(_ctx())
+    stat = next(s for s in summary["cycle_times"] if s["transition"] == "implementation → qa")
+    assert stat["median_hours"] == 6.0
+
+
+def test_traceability_rate_over_deployed():
+    log = (
+        "# Deployment Log\n\n"
+        "## Deployment — Story 1 — 2026-06-10T00:00:00+00:00\n\n- ok\n"
+        "## Deployment — Story 2 — 2026-06-11T00:00:00+00:00\n\n- ok\n"
+    )
+    index = {
+        "1": _entry(1, "deployed", has_bdd=True, has_infra_delta=True),
+        "2": _entry(2, "deployed", has_bdd=True, has_infra_delta=True),
+        "3": _entry(3, "qa_passed"),
+    }
+    verifications = {1: {"complete": True}, 2: {"complete": False}}
+    svc = AnalyticsService(context=FakeContextService(
+        index=index, deployment_log=log, verifications=verifications,
+    ))
+    summary = svc.summary(_ctx())
+    assert summary["traceability"] == {"deployed": 2, "complete": 1, "rate": 0.5}
+
+
+def test_traceability_requires_log_entry():
+    index = {"1": _entry(1, "deployed", has_bdd=True, has_infra_delta=True)}
+    svc = AnalyticsService(context=FakeContextService(
+        index=index, deployment_log="", verifications={1: {"complete": True}},
+    ))
+    assert svc.summary(_ctx())["traceability"]["complete"] == 0
+
+
+def test_defect_proxy_stats():
+    index = {
+        "1": _entry(1, "deployed", fix_bolt_count=2),
+        "2": _entry(2, "qa", fix_bolt_count=0),
+        "3": _entry(3, "qa_passed", fix_bolt_count=1),
+    }
+    summary = AnalyticsService(context=FakeContextService(index=index)).summary(_ctx())
+    assert summary["defects"] == {"total_fix_bolts": 3, "stories_affected": 2, "avg_per_story": 1.0}
+
+
+def test_story_rows_total_cycle_hours():
+    history = {
+        "gherkin_locked": ["2026-06-01T00:00:00+00:00"],
+        "deployed": ["2026-06-03T00:00:00+00:00"],
+    }
+    index = {"1": _entry(1, "deployed", history)}
+    summary = AnalyticsService(context=FakeContextService(index=index)).summary(_ctx())
+    assert summary["stories"][0]["total_cycle_hours"] == 48.0
+
+
+def test_empty_index_yields_zeroes():
+    summary = AnalyticsService(context=FakeContextService()).summary(_ctx())
+    assert summary["cycle_times"] == []
+    assert summary["traceability"]["rate"] == 0.0
+    assert summary["stories"] == []
+
+
+def test_malformed_timestamps_skipped():
+    history = {"gherkin_locked": ["not-a-date"], "design_locked": ["2026-06-01T00:00:00+00:00"]}
+    index = {"1": _entry(1, "design_locked", history)}
+    summary = AnalyticsService(context=FakeContextService(index=index)).summary(_ctx())
+    assert summary["cycle_times"] == []

@@ -14,6 +14,7 @@ from backend.app.api.phase2 import router as phase2_router
 from backend.app.api.phase3 import router as phase3_router
 from backend.app.api.phase4 import router as phase4_router
 from backend.app.api.phase5 import router as phase5_router
+from backend.app.api.analytics import router as analytics_router
 from backend.app.api.workspace import router as workspace_router
 
 _logger = logging.getLogger("apex.main")
@@ -98,6 +99,7 @@ app.include_router(phase2_router, prefix="/api/phase2", tags=["phase2"])
 app.include_router(phase3_router, prefix="/api/phase3", tags=["phase3"])
 app.include_router(phase4_router, prefix="/api/phase4", tags=["phase4"])
 app.include_router(phase5_router, prefix="/api/phase5", tags=["phase5"])
+app.include_router(analytics_router, prefix="/api/analytics", tags=["analytics"])
 app.include_router(workspace_router, prefix="/api/workspace", tags=["workspace"])
 app.include_router(jira_proxy_router, prefix="/api/pm/jira", tags=["jira-proxy"])
 app.include_router(taiga_proxy_router, prefix="/api/pm/taiga", tags=["taiga-proxy"])

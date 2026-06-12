@@ -22,7 +22,7 @@ test("Phase 5 routine: delta check says bypass → no pack → pass deployment g
 
   // Run the delta check (default mock returns the routine/bypass verdict)
   await page.getByRole("button", { name: /Run Infra Delta Check/i }).click();
-  await expect(page.getByText(/existing pipeline|current pipeline covers it/i)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText(/current pipeline covers it/i)).toBeVisible({ timeout: 10_000 });
 
   // Save & Continue → Stage C bypass banner
   await page.getByRole("button", { name: /Save & Continue/i }).click();
