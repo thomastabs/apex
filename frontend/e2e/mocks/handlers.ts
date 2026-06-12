@@ -401,6 +401,36 @@ export async function applyMocks(page: Page) {
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) }),
   );
 
+  await page.route(`${api}/api/phase5/qa-results/**`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        story_id: 10,
+        qa_results: {
+          story_id: 10,
+          attempts: [{
+            recorded_at: "2026-06-12T00:00:00+00:00",
+            gate: "pass",
+            results: [{ scenario: "Successful login", result: "pass", notes: "" }],
+          }],
+        },
+      }),
+    }),
+  );
+
+  await page.route(`${api}/api/phase5/save-verification`, (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) }),
+  );
+
+  await page.route(`${api}/api/phase5/verification/**`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ story_id: 10, matrix: null }),
+    }),
+  );
+
   // ── Phase 3 ───────────────────────────────────────────────────────────────
   await page.route(`${api}/api/phase3/eligible-stories`, (route) =>
     route.fulfill({

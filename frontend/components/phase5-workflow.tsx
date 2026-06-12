@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   CheckCircle2,
@@ -24,7 +24,9 @@ import {
   useReviseDeployPack,
   useSaveDeployPack,
   useSaveInfraDelta,
+  useSaveVerification,
   useStoryContext,
+  useTraceabilityMatrix,
 } from "@/lib/hooks/use-phase5";
 import { useUpdatePmStoryStatus } from "@/lib/hooks/use-phase4";
 import { usePhase5Store } from "@/lib/stores/phase5-store";
@@ -68,6 +70,93 @@ function MarkdownPreview({ content, dark, className }: { content: string; dark: 
       // eslint-disable-next-line react/no-danger
       dangerouslySetInnerHTML={{ __html: html }}
     />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Traceability matrix panel (Feature B — zero AI, assembled from artifacts)
+// ---------------------------------------------------------------------------
+
+const GAP_LABELS: Record<string, string> = {
+  NO_COVERING_TASK: "no covering task",
+  TASK_WITHOUT_PACK: "task without pack",
+  NOT_TESTED: "not tested",
+  ORPHAN_COVERS: "covers unknown scenario",
+};
+
+function TraceabilityPanel({ storyId }: { storyId: number }) {
+  const dark = useUiStore((s) => s.theme) === "dark";
+  const { matrix, isLoading } = useTraceabilityMatrix(storyId);
+
+  if (isLoading) {
+    return (
+      <div className={cn("rounded-lg border px-4 py-3 text-sm flex items-center gap-2", dark ? "border-neutral-700 text-neutral-400" : "border-slate-200 text-slate-500")}>
+        <Loader2 className="h-4 w-4 animate-spin" /> Assembling traceability matrix…
+      </div>
+    );
+  }
+  if (!matrix) {
+    return (
+      <div className={cn("rounded-lg border px-4 py-3 text-sm", dark ? "border-neutral-700 text-neutral-500" : "border-slate-200 text-slate-400")}>
+        No Gherkin scenarios found for this story — nothing to trace.
+      </div>
+    );
+  }
+
+  const { summary } = matrix;
+  return (
+    <div className={cn("rounded-lg border text-sm", dark ? "border-neutral-700" : "border-slate-200")}>
+      <div className={cn("flex items-center justify-between px-4 py-2.5 border-b", dark ? "border-neutral-700" : "border-slate-200")}>
+        <span className={cn("font-medium", dark ? "text-neutral-300" : "text-slate-700")}>
+          Traceability Matrix
+        </span>
+        <span className={cn(
+          "rounded px-2 py-0.5 text-xs font-semibold",
+          matrix.complete
+            ? dark ? "bg-emerald-900/40 text-emerald-400" : "bg-emerald-100 text-emerald-700"
+            : dark ? "bg-amber-900/40 text-amber-400" : "bg-amber-100 text-amber-700",
+        )}>
+          {matrix.complete ? "Complete" : `${summary.gap_count} gap(s)`}
+        </span>
+      </div>
+      <p className={cn("px-4 py-2 text-xs border-b", dark ? "text-neutral-500 border-neutral-800" : "text-slate-400 border-slate-100")}>
+        {summary.covered}/{summary.total} scenarios covered by tasks · {summary.with_pack}/{summary.total} fully packed · {summary.tested}/{summary.total} QA-tested
+      </p>
+      <ul className={cn("divide-y", dark ? "divide-neutral-800" : "divide-slate-100")}>
+        {matrix.scenarios.map((row) => (
+          <li
+            key={row.scenario}
+            className={cn(
+              "px-4 py-2 flex items-start gap-3",
+              row.gaps.length > 0 && (dark ? "bg-amber-950/20" : "bg-amber-50/60"),
+            )}
+          >
+            <span className={cn(
+              "mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-xs font-mono font-semibold",
+              row.qa_result === "pass"
+                ? dark ? "bg-emerald-900/40 text-emerald-400" : "bg-emerald-100 text-emerald-700"
+                : row.qa_result === "fail"
+                  ? dark ? "bg-red-900/40 text-red-400" : "bg-red-100 text-red-700"
+                  : dark ? "bg-neutral-800 text-neutral-500" : "bg-slate-100 text-slate-400",
+            )}>
+              {row.qa_result}
+            </span>
+            <div className="min-w-0">
+              <p className={cn("leading-snug", dark ? "text-neutral-200" : "text-slate-700")}>{row.scenario}</p>
+              <p className={cn("mt-0.5 text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
+                {row.tasks.length > 0 ? `Tasks ${row.tasks.join(", ")}` : "No covering task"}
+                {row.tasks.length > 0 && ` · packs: ${row.tasks_with_pack.length}/${row.tasks.length}`}
+                {row.gaps.length > 0 && (
+                  <span className={dark ? "text-amber-400" : "text-amber-600"}>
+                    {" "}— {row.gaps.map((g) => GAP_LABELS[g] ?? g).join(", ")}
+                  </span>
+                )}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -298,6 +387,9 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
           sidebar for pipeline-aware verdicts.
         </Callout>
       )}
+
+      <TraceabilityPanel storyId={storyId} />
+
 
       {generateMut.isPending && (
         <AIProgressIndicator
@@ -578,6 +670,19 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
   const reviseMut = useReviseDeployPack();
   const pmStatusMut = useUpdatePmStoryStatus();
 
+  // Auto-persist the matrix as gate evidence the moment it's assembled —
+  // advisory only, never blocks the gate.
+  const { matrix } = useTraceabilityMatrix(storyId);
+  const saveVerificationMut = useSaveVerification();
+  const verificationSavedRef = useRef(false);
+  const saveVerification = saveVerificationMut.mutate;
+  useEffect(() => {
+    if (matrix && !verificationSavedRef.current) {
+      verificationSavedRef.current = true;
+      saveVerification({ storyId, matrix });
+    }
+  }, [matrix, storyId, saveVerification]);
+
   const bypass = infraDelta !== null && !infraDelta.needs_infra_change;
   const packOk = bypass || (Boolean(deployPackMd?.trim()) && packSaved);
   const canApprove = infraDelta !== null && packOk && techLeadApproved && devopsApproved;
@@ -664,6 +769,9 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
           )}
         </div>
       </div>
+
+      {/* Traceability evidence */}
+      <TraceabilityPanel storyId={storyId} />
 
       {/* Sign-offs */}
       <div className={cn("rounded-xl border p-5 space-y-3", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>

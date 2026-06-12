@@ -173,6 +173,21 @@ class Phase5Service:
             infra_delta_md=context_manager.render_infra_delta_md(story_id, delta),
         )
 
+    # ── Verification evidence (traceability matrix, assembled client-side) ──
+
+    def get_qa_results(self, ctx: RequestContext, story_id: int) -> dict | None:
+        self.configure_request(ctx)
+        return self.context.load_qa_results(story_id)
+
+    def save_verification(self, ctx: RequestContext, story_id: int, matrix: dict) -> None:
+        self.configure_request(ctx)
+        self._eligible_entry(story_id)
+        self.context.save_verification(story_id, matrix)
+
+    def load_verification(self, ctx: RequestContext, story_id: int) -> dict | None:
+        self.configure_request(ctx)
+        return self.context.load_verification(story_id)
+
     # ── Steps 3-4: the Deployment Gate ──────────────────────────────────────
 
     def pass_deployment_gate(
@@ -201,6 +216,18 @@ class Phase5Service:
             raise Phase5ValidationError(
                 "A saved deploy pack is required — the delta check flagged infra changes."
             )
+        # The matrix is advisory gate evidence — its absence is recorded, never blocking.
+        verification = self.context.load_verification(story_id)
+        gate_notes = notes.strip()
+        if verification is None:
+            trace_note = "traceability matrix: not saved"
+        else:
+            s = verification.get("summary", {})
+            trace_note = (
+                f"traceability: {s.get('covered', 0)}/{s.get('total', 0)} scenarios covered, "
+                f"{s.get('gap_count', 0)} gap(s)"
+            )
+        gate_notes = f"{gate_notes} · {trace_note}" if gate_notes else trace_note
         from src import context_manager
         self.context.append_deployment_record(
             story_id,
@@ -208,7 +235,7 @@ class Phase5Service:
             bypass=bypass,
             pack_present=bool(pack.strip()),
             sign_offs=["Tech Lead — pack reviewed", "DevOps Alliance — security review passed"],
-            notes=notes,
+            notes=gate_notes,
         )
         context_manager.upsert_story_index(story_id, phase_status="deployed")
         _logger.info("Phase 5 deployment gate passed for story %s (bypass=%s)", story_id, bypass)

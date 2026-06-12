@@ -427,3 +427,40 @@ export type Phase5DeployPackResponse = {
   story_id: number;
   deploy_pack_md: string;
 };
+
+export type Phase5QaAttempt = {
+  recorded_at: string;
+  gate: "pass" | "fail";
+  results: Array<{ scenario: string; result: "pass" | "fail"; notes?: string }>;
+};
+
+export type Phase5QaResultsResponse = {
+  story_id: number;
+  qa_results: { story_id: number; attempts: Phase5QaAttempt[] } | null;
+};
+
+export type TraceabilityGap =
+  | "NO_COVERING_TASK"
+  | "TASK_WITHOUT_PACK"
+  | "NOT_TESTED"
+  | "ORPHAN_COVERS";
+
+export type VerificationScenarioRow = {
+  scenario: string;
+  tasks: number[];
+  tasks_with_pack: number[];
+  qa_result: "pass" | "fail" | "untested";
+  gaps: string[];
+};
+
+export type VerificationMatrixPayload = {
+  scenarios: VerificationScenarioRow[];
+  summary: {
+    total: number;
+    covered: number;
+    with_pack: number;
+    tested: number;
+    gap_count: number;
+  };
+  complete: boolean;
+};

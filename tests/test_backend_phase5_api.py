@@ -10,10 +10,13 @@ from backend.app.api.phase5 import (
     generate_infra_delta,
     get_deploy_pack,
     get_infra_delta,
+    get_verification,
     pass_deployment_gate,
+    qa_results,
     revise_deploy_pack,
     save_deploy_pack,
     save_infra_delta,
+    save_verification,
     story_context,
 )
 from backend.app.schemas.phase5 import (
@@ -25,6 +28,10 @@ from backend.app.schemas.phase5 import (
     ReviseDeployPackRequest,
     SaveDeployPackRequest,
     SaveInfraDeltaRequest,
+    SaveVerificationRequest,
+    VerificationMatrix,
+    VerificationScenarioRow,
+    VerificationSummary,
 )
 from src.ai_engine import AIError, AIRateLimitError, AITimeoutError
 
@@ -103,6 +110,15 @@ class StubPhase5Service:
     def pass_deployment_gate(self, ctx, story_id, *, tech_lead_approved,
                              devops_approved, notes=""):
         self.gate_args = (story_id, tech_lead_approved, devops_approved, notes)
+
+    def get_qa_results(self, ctx, story_id):
+        return {"story_id": story_id, "attempts": [{"gate": "pass", "results": []}]}
+
+    def save_verification(self, ctx, story_id, matrix):
+        self.saved_verification = (story_id, matrix)
+
+    def load_verification(self, ctx, story_id):
+        return {"story_id": story_id, "summary": {"total": 1}}
 
 
 def _ctx():
@@ -194,6 +210,34 @@ def test_pass_deployment_gate_route():
     )
     assert result == {"ok": True}
     assert svc.gate_args == (10, True, True, "ok")
+
+
+def test_qa_results_route():
+    result = qa_results(story_id=10, ctx=_ctx(), service=StubPhase5Service())
+    assert result["qa_results"]["attempts"][0]["gate"] == "pass"
+
+
+def test_save_verification_route():
+    svc = StubPhase5Service()
+    payload = SaveVerificationRequest(
+        story_id=10,
+        matrix=VerificationMatrix(
+            scenarios=[VerificationScenarioRow(
+                scenario="Successful login", tasks=[1], tasks_with_pack=[1],
+                qa_result="pass", gaps=[],
+            )],
+            summary=VerificationSummary(total=1, covered=1, with_pack=1, tested=1, gap_count=0),
+            complete=True,
+        ),
+    )
+    result = save_verification(payload, ctx=_ctx(), service=svc)
+    assert result == {"ok": True}
+    assert svc.saved_verification[1]["complete"] is True
+
+
+def test_get_verification_route():
+    result = get_verification(story_id=10, ctx=_ctx(), service=StubPhase5Service())
+    assert result["matrix"]["summary"]["total"] == 1
 
 
 # ---------------------------------------------------------------------------

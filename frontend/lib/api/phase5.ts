@@ -4,8 +4,10 @@ import type {
   Phase5DeployPackResponse,
   Phase5EligibleStoriesResponse,
   Phase5InfraDeltaResponse,
+  Phase5QaResultsResponse,
   Phase5StoryContext,
   RequestContext,
+  VerificationMatrixPayload,
 } from "./types";
 
 export const PHASE5_AI_TIMEOUT_MS = 480_000;
@@ -71,6 +73,22 @@ export function reviseDeployPack(
     context,
     body: { story_id: storyId, deploy_pack_md: deployPackMd, feedback },
     timeoutMs: PHASE5_AI_TIMEOUT_MS,
+  });
+}
+
+export function getQaResults(context: RequestContext, storyId: number) {
+  return apiRequest<Phase5QaResultsResponse>(`/api/phase5/qa-results/${storyId}`, { context });
+}
+
+export function saveVerification(
+  context: RequestContext,
+  storyId: number,
+  matrix: VerificationMatrixPayload,
+) {
+  return apiRequest<{ ok: boolean }>("/api/phase5/save-verification", {
+    method: "POST",
+    context,
+    body: { story_id: storyId, matrix },
   });
 }
 

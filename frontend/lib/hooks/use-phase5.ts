@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   generateDeployPack,
@@ -7,16 +8,24 @@ import {
   getDeployPack,
   getEligibleStories,
   getInfraDelta,
+  getQaResults,
   getStoryContext,
   passDeploymentGate,
   reviseDeployPack,
   saveDeployPack,
   saveInfraDelta,
+  saveVerification,
 } from "@/lib/api/phase5";
+import { getProposals } from "@/lib/api/phase3";
+import { useStoryTasks } from "@/lib/hooks/use-phase4";
 import { useApiContext } from "@/lib/stores/session-store";
 import { usePhase5Store } from "@/lib/stores/phase5-store";
 import { toast } from "sonner";
-import type { InfraDelta } from "@/lib/api/types";
+import type {
+  InfraDelta,
+  VerificationMatrixPayload,
+  VerificationScenarioRow,
+} from "@/lib/api/types";
 
 export function useEligibleStories() {
   const context = useApiContext();
@@ -135,6 +144,125 @@ export function useReviseDeployPack() {
       toast.success("Deploy pack revised — review and save it again.");
     },
     onError: (err: Error) => toast.error(`Revision failed: ${err.message}`),
+  });
+}
+
+/** Gherkin scenario titles — NOT phase4's parseScenarioNames, which parses
+ *  test-plan `## Scenario:` headings instead of the gherkin itself. */
+export function parseGherkinScenarioTitles(gherkin: string): string[] {
+  const names: string[] = [];
+  for (const m of gherkin.matchAll(/^\s*Scenario(?:\s+Outline)?:\s*(.+)$/gm)) {
+    names.push(m[1].trim());
+  }
+  return [...new Set(names)];
+}
+
+const norm = (s: string) => s.trim().toLowerCase();
+
+export type TraceabilityTaskInput = {
+  id: number;
+  covered_scenarios?: string[];
+};
+
+/**
+ * Traceability matrix — pure assembly of existing artifacts, zero AI calls:
+ * gherkin scenario titles × PM task "Covers" lines × saved developer packs ×
+ * persisted QA results. Scenario names come from three independently
+ * AI-generated sources, so the join is normalized and mismatches surface as
+ * gaps rather than errors.
+ */
+export function buildTraceabilityMatrix(
+  gherkin: string,
+  tasks: TraceabilityTaskInput[],
+  packTaskIds: Set<number>,
+  qaAttempts: Array<{ results: Array<{ scenario: string; result: "pass" | "fail" }> }>,
+): VerificationMatrixPayload | null {
+  const scenarioTitles = parseGherkinScenarioTitles(gherkin);
+  if (scenarioTitles.length === 0) return null;
+
+  // Latest QA verdict per scenario (attempts are chronological)
+  const qaByScenario = new Map<string, "pass" | "fail">();
+  for (const attempt of qaAttempts) {
+    for (const r of attempt.results) qaByScenario.set(norm(r.scenario), r.result);
+  }
+
+  const knownScenarios = new Set(scenarioTitles.map(norm));
+  const rows: VerificationScenarioRow[] = scenarioTitles.map((title) => {
+    const covering = tasks.filter((t) =>
+      (t.covered_scenarios ?? []).some((c) => norm(c) === norm(title)),
+    );
+    const taskIds = covering.map((t) => t.id);
+    const withPack = taskIds.filter((id) => packTaskIds.has(id));
+    const qaResult = qaByScenario.get(norm(title)) ?? "untested";
+    const gaps: string[] = [];
+    if (taskIds.length === 0) gaps.push("NO_COVERING_TASK");
+    if (taskIds.length > 0 && withPack.length < taskIds.length) gaps.push("TASK_WITHOUT_PACK");
+    if (qaResult === "untested") gaps.push("NOT_TESTED");
+    return { scenario: title, tasks: taskIds, tasks_with_pack: withPack, qa_result: qaResult, gaps };
+  });
+
+  // Covers-lines pointing at no gherkin scenario — surfaces task/spec drift
+  const orphans = new Set<string>();
+  for (const t of tasks) {
+    for (const c of t.covered_scenarios ?? []) {
+      if (!knownScenarios.has(norm(c))) orphans.add(c.trim());
+    }
+  }
+  for (const o of orphans) {
+    rows.push({ scenario: `${o} (task covers — not in gherkin)`, tasks: [], tasks_with_pack: [], qa_result: "untested", gaps: ["ORPHAN_COVERS"] });
+  }
+
+  const real = rows.filter((r) => !r.gaps.includes("ORPHAN_COVERS"));
+  const summary = {
+    total: real.length,
+    covered: real.filter((r) => r.tasks.length > 0).length,
+    with_pack: real.filter((r) => r.tasks.length > 0 && r.tasks_with_pack.length === r.tasks.length).length,
+    tested: real.filter((r) => r.qa_result !== "untested").length,
+    gap_count: rows.reduce((n, r) => n + r.gaps.length, 0),
+  };
+  return { scenarios: rows, summary, complete: summary.gap_count === 0 };
+}
+
+export function useTraceabilityMatrix(storyId: number | null) {
+  const context = useApiContext();
+  const { data: storyCtx } = useStoryContext(storyId);
+  const { tasks, isLoading: tasksLoading } = useStoryTasks(storyId);
+
+  const proposalsQuery = useQuery({
+    queryKey: ["phase3", "proposals", context?.projectId, storyId],
+    queryFn: () => getProposals(context!, storyId!),
+    enabled: Boolean(context) && storyId !== null,
+  });
+
+  const qaQuery = useQuery({
+    queryKey: ["phase5", "qa-results", context?.projectId, storyId],
+    queryFn: () => getQaResults(context!, storyId!),
+    enabled: Boolean(context) && storyId !== null,
+  });
+
+  const matrix: VerificationMatrixPayload | null = useMemo(() => {
+    if (!storyCtx) return null;
+    return buildTraceabilityMatrix(
+      storyCtx.gherkin,
+      tasks,
+      new Set((proposalsQuery.data?.proposals ?? []).map((p) => p.task_id)),
+      qaQuery.data?.qa_results?.attempts ?? [],
+    );
+  }, [storyCtx, tasks, proposalsQuery.data, qaQuery.data]);
+
+  return {
+    matrix,
+    isLoading: !storyCtx || tasksLoading || proposalsQuery.isLoading || qaQuery.isLoading,
+  };
+}
+
+export function useSaveVerification() {
+  const context = useApiContext();
+  return useMutation({
+    mutationFn: ({ storyId, matrix }: { storyId: number; matrix: VerificationMatrixPayload }) =>
+      saveVerification(context!, storyId, matrix),
+    // Silent on success — auto-saved as gate evidence; failure is advisory only.
+    onError: (err: Error) => toast.error(`Verification save failed: ${err.message}`),
   });
 }
 

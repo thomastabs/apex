@@ -99,6 +99,15 @@ class FakeContextService:
     def load_deploy_pack(self, story_id: int) -> str:
         return self.saved_pack[1] if self.saved_pack else ""
 
+    def load_qa_results(self, story_id: int):
+        return None
+
+    def save_verification(self, story_id: int, data: dict) -> None:
+        self.saved_verification = (story_id, data)
+
+    def load_verification(self, story_id: int):
+        return getattr(self, "saved_verification", (None, None))[1]
+
     def append_deployment_record(self, story_id, title, *, bypass, pack_present,
                                  sign_offs, notes=""):
         self.deployment_records.append({
@@ -303,6 +312,47 @@ def test_deploy_pack_roundtrip(ctx):
     ctx.save_deploy_pack(10, _FAKE_PACK)
     assert ctx.load_deploy_pack(10) == _FAKE_PACK
     assert ctx.get_story_index()["10"]["has_deploy_pack"] is True
+
+
+def test_verification_roundtrip(ctx):
+    ctx.init_context()
+    matrix = {
+        "scenarios": [
+            {"scenario": "Successful login", "tasks": [1], "tasks_with_pack": [1],
+             "qa_result": "pass", "gaps": []},
+            {"scenario": "Invalid password", "tasks": [], "tasks_with_pack": [],
+             "qa_result": "untested", "gaps": ["NO_COVERING_TASK", "NOT_TESTED"]},
+        ],
+        "summary": {"total": 2, "covered": 1, "with_pack": 1, "tested": 1, "gap_count": 2},
+        "complete": False,
+    }
+    ctx.save_verification(10, matrix)
+    loaded = ctx.load_verification(10)
+    assert loaded["story_id"] == 10
+    assert loaded["generated_at"]
+    assert loaded["summary"]["gap_count"] == 2
+    md = (ctx.CONTEXT_DIR / "verification_story_10.md").read_text(encoding="utf-8")
+    assert "| Successful login | 1 | 1 | pass | — |" in md
+    assert "NO_COVERING_TASK" in md
+
+
+def test_gate_records_traceability_note():
+    ctx_service = FakeContextService()
+    svc = _svc(context=ctx_service)
+    svc.save_infra_delta(_ctx(), 10, _FAKE_DELTA_BYPASS)
+    svc.save_verification(_ctx(), 10, {
+        "scenarios": [], "summary": {"total": 3, "covered": 2, "gap_count": 1}, "complete": False,
+    })
+    svc.pass_deployment_gate(_ctx(), 10, tech_lead_approved=True, devops_approved=True)
+    assert "traceability: 2/3 scenarios covered, 1 gap(s)" in ctx_service.deployment_records[0]["notes"]
+
+
+def test_gate_records_missing_matrix():
+    ctx_service = FakeContextService()
+    svc = _svc(context=ctx_service)
+    svc.save_infra_delta(_ctx(), 10, _FAKE_DELTA_BYPASS)
+    svc.pass_deployment_gate(_ctx(), 10, tech_lead_approved=True, devops_approved=True)
+    assert "traceability matrix: not saved" in ctx_service.deployment_records[0]["notes"]
 
 
 def test_deployment_log_appends(ctx):

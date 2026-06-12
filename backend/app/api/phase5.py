@@ -13,10 +13,13 @@ from backend.app.schemas.phase5 import (
     GenerateInfraDeltaRequest,
     InfraDeltaResponse,
     PassDeploymentGateRequest,
+    QaResultsResponse,
     ReviseDeployPackRequest,
     SaveDeployPackRequest,
     SaveInfraDeltaRequest,
+    SaveVerificationRequest,
     StoryContextResponse,
+    VerificationResponse,
 )
 from backend.app.schemas.workspace import OkResponse
 from backend.app.services.phase5_service import Phase5Service, Phase5ValidationError
@@ -154,6 +157,43 @@ def revise_deploy_pack(
     try:
         md = service.revise_deploy_pack(ctx, payload.story_id, payload.deploy_pack_md, payload.feedback)
         return {"story_id": payload.story_id, "deploy_pack_md": md}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.get("/qa-results/{story_id}", response_model=QaResultsResponse)
+def qa_results(
+    story_id: int,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase5Service = Depends(get_phase5_service),
+):
+    try:
+        return {"story_id": story_id, "qa_results": service.get_qa_results(ctx, story_id)}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/save-verification", response_model=OkResponse)
+def save_verification(
+    payload: SaveVerificationRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase5Service = Depends(get_phase5_service),
+):
+    try:
+        service.save_verification(ctx, payload.story_id, payload.matrix.model_dump())
+        return {"ok": True}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.get("/verification/{story_id}", response_model=VerificationResponse)
+def get_verification(
+    story_id: int,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase5Service = Depends(get_phase5_service),
+):
+    try:
+        return {"story_id": story_id, "matrix": service.load_verification(ctx, story_id)}
     except Exception as exc:
         _handle_error(exc)
 

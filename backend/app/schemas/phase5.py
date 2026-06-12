@@ -84,3 +84,40 @@ class PassDeploymentGateRequest(BaseModel):
     tech_lead_approved: bool = False
     devops_approved: bool = False
     notes: str = Field("", max_length=5_000)
+
+
+class VerificationScenarioRow(BaseModel):
+    scenario: str = Field(..., max_length=500)
+    tasks: list[int] = Field(default_factory=list)
+    tasks_with_pack: list[int] = Field(default_factory=list)
+    qa_result: Literal["pass", "fail", "untested"] = "untested"
+    gaps: list[str] = Field(default_factory=list)
+
+
+class VerificationSummary(BaseModel):
+    total: int = 0
+    covered: int = 0
+    with_pack: int = 0
+    tested: int = 0
+    gap_count: int = 0
+
+
+class VerificationMatrix(BaseModel):
+    scenarios: list[VerificationScenarioRow] = Field(default_factory=list)
+    summary: VerificationSummary = Field(default_factory=VerificationSummary)
+    complete: bool = False
+
+
+class SaveVerificationRequest(BaseModel):
+    story_id: int
+    matrix: VerificationMatrix
+
+
+class VerificationResponse(BaseModel):
+    story_id: int
+    matrix: dict | None = None
+
+
+class QaResultsResponse(BaseModel):
+    story_id: int
+    qa_results: dict | None = None

@@ -1288,6 +1288,55 @@ def append_deployment_record(
         fh.write("\n".join(entry))
 
 
+def _render_verification_md(story_id: int, data: dict) -> str:
+    """Human-readable traceability matrix (the JSON stays canonical)."""
+    summary = data.get("summary", {})
+    lines = [
+        f"# Traceability Matrix — Story {story_id}",
+        "",
+        f"Generated: {data.get('generated_at', '')} · "
+        f"Scenarios: {summary.get('total', 0)} · Covered: {summary.get('covered', 0)} · "
+        f"With pack: {summary.get('with_pack', 0)} · Tested: {summary.get('tested', 0)} · "
+        f"Gaps: {summary.get('gap_count', 0)}",
+        "",
+        "| Scenario | Covering tasks | Tasks with pack | QA result | Gaps |",
+        "|---|---|---|---|---|",
+    ]
+    for row in data.get("scenarios", []):
+        tasks = ", ".join(str(t) for t in row.get("tasks", [])) or "—"
+        packs = ", ".join(str(t) for t in row.get("tasks_with_pack", [])) or "—"
+        gaps = ", ".join(row.get("gaps", [])) or "—"
+        lines.append(
+            f"| {row.get('scenario', '')} | {tasks} | {packs} | {row.get('qa_result', 'untested')} | {gaps} |"
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
+def save_verification(story_id: int, data: dict) -> Path:
+    """Persist the Phase 5 traceability matrix (JSON canonical + rendered markdown)."""
+    cd = _context_dir()
+    cd.mkdir(parents=True, exist_ok=True)
+    data = {**data, "story_id": story_id, "generated_at": data.get("generated_at") or _now_iso()}
+    p = cd / f"verification_story_{story_id}.json"
+    p.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    (cd / f"verification_story_{story_id}.md").write_text(
+        _render_verification_md(story_id, data), encoding="utf-8",
+    )
+    return p
+
+
+def load_verification(story_id: int) -> dict | None:
+    """Load the traceability matrix for a story, None if absent/unreadable."""
+    p = _context_dir() / f"verification_story_{story_id}.json"
+    if not p.exists():
+        return None
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
 def save_bug_report(story_id: int, bug_md: str) -> Path:
     """Persist the Fix-Bolt artifact for a story to contextspec/bug_report_<id>.md."""
     cd = _context_dir()
