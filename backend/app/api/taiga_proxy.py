@@ -18,14 +18,49 @@ router = APIRouter()
 _logger = logging.getLogger("apex.taiga_proxy")
 
 _TIMEOUT = 20.0
+_CONNECT_TIMEOUT = 8.0  # fail fast on dead egress paths; read keeps the full budget
+_CONNECT_ERRORS = (httpx.ConnectError, httpx.ConnectTimeout)
 _client: httpx.AsyncClient | None = None
 
 
 def _get_client() -> httpx.AsyncClient:
     global _client
     if _client is None or _client.is_closed:
-        _client = httpx.AsyncClient(follow_redirects=False, timeout=_TIMEOUT)
+        _client = httpx.AsyncClient(
+            follow_redirects=False,
+            timeout=httpx.Timeout(_TIMEOUT, connect=_CONNECT_TIMEOUT),
+        )
     return _client
+
+
+async def _reset_client() -> None:
+    """Drop the pooled client so the next call starts with fresh connections."""
+    global _client
+    old, _client = _client, None
+    if old is not None and not old.is_closed:
+        try:
+            await old.aclose()
+        except Exception:  # noqa: BLE001 — best-effort cleanup of a dead pool
+            pass
+
+
+async def _send(method: str, url: str, **kwargs) -> httpx.Response:
+    """Send with one self-heal retry.
+
+    Observed in Azure Container Apps: outbound flows to a single destination
+    can silently die (SNAT path drop or upstream throttling) while the pooled
+    client keeps timing out. A connect-level failure resets the pool and
+    retries once; a second failure surfaces to the caller as usual.
+    """
+    try:
+        return await _get_client().request(method=method, url=url, **kwargs)
+    except _CONNECT_ERRORS as exc:
+        _logger.warning(
+            "Connect failure to %s (%s: %s) — resetting client pool and retrying once",
+            url, type(exc).__name__, exc,
+        )
+        await _reset_client()
+        return await _get_client().request(method=method, url=url, **kwargs)
 
 
 def _validate_taiga_url(url: str, *, source: str = "X-Taiga-Url") -> str:
@@ -71,7 +106,8 @@ async def proxy_taiga_auth(
     target = f"{base_url}/api/v1/auth"
 
     try:
-        resp = await _get_client().post(
+        resp = await _send(
+            "POST",
             target,
             json={"username": payload.username, "password": payload.password, "type": payload.type},
             headers={"Content-Type": "application/json", "Accept": "application/json"},
@@ -145,9 +181,9 @@ async def proxy_taiga(
     body = b"" if request.method in ("GET", "HEAD") else await request.body()
 
     try:
-        resp = await _get_client().request(
-            method=request.method,
-            url=target_url,
+        resp = await _send(
+            request.method,
+            target_url,
             headers={
                 "Authorization": authorization,
                 "Content-Type": "application/json",
