@@ -1,6 +1,8 @@
 """Governance analytics API routes."""
 
-from fastapi import APIRouter, Depends
+import json
+
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from backend.app.api.deps import RequestContext, get_request_context
 from backend.app.schemas.analytics import AnalyticsSummaryResponse
@@ -18,4 +20,12 @@ def analytics_summary(
     ctx: RequestContext = Depends(get_request_context),
     service: AnalyticsService = Depends(get_analytics_service),
 ):
-    return service.summary(ctx)
+    try:
+        return service.summary(ctx)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Story index is corrupt; rebuild it from workspace settings.",
+        ) from exc
+    except EnvironmentError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc

@@ -1,5 +1,11 @@
-"""Tests for the governance analytics service."""
+"""Tests for the governance analytics service and route error mapping."""
 
+import json
+
+import pytest
+from fastapi import HTTPException
+
+from backend.app.api.analytics import analytics_summary
 from backend.app.services.analytics_service import AnalyticsService
 from backend.app.services.request_context import RequestContext
 
@@ -13,6 +19,7 @@ class FakeContextService:
         self.index = index or {}
         self.deployment_log = deployment_log
         self.verifications = verifications or {}
+        self.verification_reads = []
 
     def set_project(self, project_id: int):
         pass
@@ -25,6 +32,7 @@ class FakeContextService:
         return self.deployment_log
 
     def load_verification(self, story_id: int):
+        self.verification_reads.append(story_id)
         return self.verifications.get(story_id)
 
 
@@ -145,3 +153,49 @@ def test_malformed_timestamps_skipped():
     index = {"1": _entry(1, "design_locked", history)}
     summary = AnalyticsService(context=FakeContextService(index=index)).summary(_ctx())
     assert summary["cycle_times"] == []
+
+
+def test_verification_read_once_per_deployed_story():
+    log = (
+        "## Deployment — Story 1 — 2026-06-10T00:00:00+00:00\n"
+        "## Deployment — Story 2 — 2026-06-11T00:00:00+00:00\n"
+    )
+    index = {
+        "1": _entry(1, "deployed", has_bdd=True, has_infra_delta=True),
+        "2": _entry(2, "deployed", has_bdd=True, has_infra_delta=True),
+        "3": _entry(3, "qa_passed"),
+    }
+    fake = FakeContextService(
+        index=index, deployment_log=log,
+        verifications={1: {"complete": True}, 2: {"complete": True}},
+    )
+    summary = AnalyticsService(context=fake).summary(_ctx())
+    assert sorted(fake.verification_reads) == [1, 2]
+    assert summary["traceability"]["complete"] == 2
+    assert [r["artifact_complete"] for r in summary["stories"]] == [True, True, False]
+
+
+# ---------------------------------------------------------------------------
+# route error mapping
+# ---------------------------------------------------------------------------
+
+class _BrokenService:
+    def __init__(self, exc: Exception):
+        self.exc = exc
+
+    def summary(self, ctx):
+        raise self.exc
+
+
+def test_route_maps_corrupt_index_to_clean_500():
+    exc = json.JSONDecodeError("Expecting value", "{", 0)
+    with pytest.raises(HTTPException) as exc_info:
+        analytics_summary(ctx=_ctx(), service=_BrokenService(exc))
+    assert exc_info.value.status_code == 500
+    assert "Story index is corrupt" in exc_info.value.detail
+
+
+def test_route_maps_storage_failure_to_502():
+    with pytest.raises(HTTPException) as exc_info:
+        analytics_summary(ctx=_ctx(), service=_BrokenService(OSError("share unreachable")))
+    assert exc_info.value.status_code == 502

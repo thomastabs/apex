@@ -66,8 +66,14 @@ class AnalyticsService:
         cycle_times = self._cycle_times(entries)
         deployed_ids = self._deployment_log_story_ids()
 
+        # One verification read per deployed story, shared by the traceability
+        # aggregate and the per-story rows (the reads are network calls in
+        # Azure mode).
         deployed = [e for e in entries if e.get("phase_status") == "deployed"]
-        complete = sum(1 for e in deployed if self._artifact_complete(e, deployed_ids))
+        complete_by_id = {
+            e.get("story_id"): self._artifact_complete(e, deployed_ids) for e in deployed
+        }
+        complete = sum(1 for done in complete_by_id.values() if done)
         traceability = {
             "deployed": len(deployed),
             "complete": complete,
@@ -83,7 +89,7 @@ class AnalyticsService:
         }
 
         stories = sorted(
-            (self._story_row(e, deployed_ids) for e in entries if e.get("story_id")),
+            (self._story_row(e, complete_by_id) for e in entries if e.get("story_id")),
             key=lambda r: r["story_id"],
         )
         return {
@@ -129,7 +135,7 @@ class AnalyticsService:
         verification = self.context.load_verification(story_id)
         return bool(verification and verification.get("complete"))
 
-    def _story_row(self, entry: dict, deployed_ids: set[int]) -> dict:
+    def _story_row(self, entry: dict, complete_by_id: dict[int, bool]) -> dict:
         history = entry.get("status_history") or {}
         first = _earliest(history, "gherkin_locked")
         current = entry.get("phase_status", "")
@@ -144,7 +150,5 @@ class AnalyticsService:
             "phase_status": current,
             "fix_bolt_count": int(entry.get("fix_bolt_count", 0)),
             "total_cycle_hours": total_hours,
-            "artifact_complete": (
-                self._artifact_complete(entry, deployed_ids) if current == "deployed" else False
-            ),
+            "artifact_complete": complete_by_id.get(entry.get("story_id"), False),
         }

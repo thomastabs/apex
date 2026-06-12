@@ -21,10 +21,14 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Standalone output contains server.js plus only the traced production
-# dependencies — no dev node_modules in the final image.
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+# dependencies — no dev node_modules in the final image. Owned by the
+# image's built-in non-root `node` user; Next needs write access to
+# .next/cache at runtime.
+COPY --from=builder --chown=node:node /app/.next/standalone ./
+COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+COPY --from=builder --chown=node:node /app/public ./public
+
+USER node
 
 EXPOSE 3000
 

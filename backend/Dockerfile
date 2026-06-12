@@ -13,7 +13,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend ./backend
 COPY src ./src
 
-RUN mkdir -p contextspec
+# Non-root runtime user; uid 1000 matches the typical host dev uid so the
+# docker-compose bind mount of ./contextspec stays writable on both sides.
+RUN useradd --create-home --uid 1000 apex \
+    && mkdir -p contextspec \
+    && chown apex:apex contextspec
+
+USER apex
 
 EXPOSE 8000
 

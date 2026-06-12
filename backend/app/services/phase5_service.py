@@ -36,13 +36,15 @@ class Phase5Service:
 
     # ── eligibility ─────────────────────────────────────────────────────────
 
-    def _eligible_entry(self, story_id: int) -> dict:
+    def _eligible_entry(
+        self, story_id: int, *, allowed: tuple[str, ...] = ("qa_passed",)
+    ) -> dict:
         index = self.context.story_index()
         entry = index.get(str(story_id)) or {}
         if not entry:
             raise Phase5ValidationError(f"Story {story_id} not found in index.")
         status = entry.get("phase_status", "")
-        if status != "qa_passed":
+        if status not in allowed:
             raise Phase5ValidationError(
                 f"Story {story_id} is not eligible for Phase 5 (status: {status!r})."
             )
@@ -181,7 +183,9 @@ class Phase5Service:
 
     def save_verification(self, ctx: RequestContext, story_id: int, matrix: dict) -> None:
         self.configure_request(ctx)
-        self._eligible_entry(story_id)
+        # Stage D auto-saves can fire on a revisit after the gate has already
+        # been passed, so an already-deployed story is still a valid target.
+        self._eligible_entry(story_id, allowed=("qa_passed", "deployed"))
         self.context.save_verification(story_id, matrix)
 
     def load_verification(self, ctx: RequestContext, story_id: int) -> dict | None:

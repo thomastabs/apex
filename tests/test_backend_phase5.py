@@ -253,6 +253,24 @@ def test_revise_deploy_pack_passes_feedback():
 
 
 # ---------------------------------------------------------------------------
+# save_verification
+# ---------------------------------------------------------------------------
+
+def test_save_verification_allows_deployed_story():
+    # Stage D auto-save fires on revisit after the gate has been passed.
+    ctx_service = FakeContextService(index=_story_index(status="deployed"))
+    svc = _svc(context=ctx_service)
+    svc.save_verification(_ctx(), 10, {"scenarios": [], "summary": {}, "complete": False})
+    assert ctx_service.saved_verification[0] == 10
+
+
+def test_save_verification_rejects_pre_gate_status():
+    ctx_service = FakeContextService(index=_story_index(status="qa"))
+    with pytest.raises(Phase5ValidationError, match="not eligible"):
+        _svc(context=ctx_service).save_verification(_ctx(), 10, {"scenarios": []})
+
+
+# ---------------------------------------------------------------------------
 # pass_deployment_gate (stubbed context)
 # ---------------------------------------------------------------------------
 
