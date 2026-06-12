@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from backend.app.api.deps import RequestContext, get_request_context
 from backend.app.api.rate_limit import ai_rate_limit
 from backend.app.schemas.phase3 import (
+    PacksResponse,
     EligibleStoriesResponse,
     GenerateProposalRequest,
     GenerateProposalResponse,
@@ -111,6 +112,17 @@ def save_proposal(
     try:
         service.save_proposal(ctx, payload.story_id, payload.task_id, payload.proposal_md)
         return {"ok": True}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.get("/packs", response_model=PacksResponse)
+def list_packs(
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase3Service = Depends(get_phase3_service),
+):
+    try:
+        return {"packs": service.list_all_packs(ctx)}
     except Exception as exc:
         _handle_error(exc)
 

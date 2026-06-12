@@ -147,6 +147,16 @@ class Phase3Service:
         self.configure_request(ctx)
         self.context.delete_proposal(story_id, task_id)
 
+    def list_all_packs(self, ctx: RequestContext) -> list[dict]:
+        """All developer packs in the project, annotated with story titles."""
+        self.configure_request(ctx)
+        index = self.context.story_index()
+        packs = self.context.list_all_proposals()
+        for p in packs:
+            entry = index.get(str(p["story_id"])) or {}
+            p["story_title"] = entry.get("title", "")
+        return packs
+
     def lock_story(self, ctx: RequestContext, story_id: int, task_ids: list[int]) -> None:
         self.configure_request(ctx)
         index = self.context.story_index()

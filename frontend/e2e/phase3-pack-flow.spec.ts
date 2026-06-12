@@ -18,8 +18,9 @@ test("Phase 3: select story → generate tasks → generate pack → copy agenti
   await expect(page.getByText("Create User model and migration")).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText("Implement POST /auth/login endpoint")).toBeVisible();
 
-  // Navigate to Developer Packs (exact to avoid matching step-bar "3 Developer Packs" button)
-  await page.getByRole("button", { name: "Developer Packs", exact: true }).click();
+  // Navigate to Developer Packs — scoped to main: the sidebar has a
+  // "Developer Packs" section header with the same accessible name.
+  await page.getByRole("main").getByRole("button", { name: "Developer Packs", exact: true }).click();
 
   // Stage C — click on the first task to select it, then "Generate Pack" appears.
   await page.getByText("Create User model and migration").click();

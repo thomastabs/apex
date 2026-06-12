@@ -402,6 +402,17 @@ class TestSaveProposal:
         ctx.save_proposal(story_id=10, task_id=1, proposal="proposal")
         assert ctx.get_story_index()["10"]["has_proposal"] is True
 
+    def test_list_all_proposals(self, ctx):
+        ctx.init_context()
+        ctx.append_gherkin(10, "Story Ten",
+                           "Feature: X\n\n  Scenario: s\n    Given x\n    When y\n    Then z\n")
+        ctx.save_proposal(story_id=10, task_id=2, proposal="pack two")
+        ctx.save_proposal(story_id=10, task_id=1, proposal="pack one")
+        ctx.save_proposal(story_id=11, task_id=1, proposal="other story")
+        packs = ctx.list_all_proposals()
+        assert [(p["story_id"], p["task_id"]) for p in packs] == [(10, 1), (10, 2), (11, 1)]
+        assert packs[0]["chars"] == len("pack one")
+
     def test_delete_proposal_keeps_flag_while_others_remain(self, ctx):
         ctx.init_context()
         ctx.append_gherkin(10, "Story Ten",

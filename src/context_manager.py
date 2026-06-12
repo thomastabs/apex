@@ -1148,6 +1148,25 @@ def delete_bdd_tests(story_id: int) -> None:
         _save_story_index(index)
 
 
+def list_all_proposals() -> list[dict]:
+    """Every developer pack in the project: [{story_id, task_id, chars}]."""
+    cd = _context_dir()
+    out: list[dict] = []
+    if not cd.exists():
+        return out
+    for p in cd.iterdir():
+        if p.name.startswith("proposal_story_") and p.suffix == ".md":
+            try:
+                parts = p.stem.split("_")
+                sid = int(parts[parts.index("story") + 1])
+                tid = int(parts[parts.index("task") + 1])
+                out.append({"story_id": sid, "task_id": tid,
+                            "chars": len(p.read_text(encoding="utf-8"))})
+            except (ValueError, IndexError, OSError):
+                pass
+    return sorted(out, key=lambda x: (x["story_id"], x["task_id"]))
+
+
 def delete_proposal(story_id: int, task_id: int) -> None:
     """Remove one task's developer pack; clear has_proposal when none remain.
 

@@ -88,3 +88,14 @@ class ProposalsResponse(BaseModel):
     proposals: list[ProposalItem]
 
 
+class PackItem(BaseModel):
+    story_id: int
+    story_title: str = ""
+    task_id: int
+    chars: int = 0
+
+
+class PacksResponse(BaseModel):
+    packs: list[PackItem]
+
+

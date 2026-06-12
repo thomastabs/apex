@@ -20,6 +20,7 @@ import { AiSection } from "./sidebar/ai-section";
 import { ResourcesSection } from "./sidebar/resources-section";
 import { GitHubSection } from "./sidebar/github-section";
 import { TasksSection } from "./sidebar/tasks-section";
+import { PacksSection } from "./sidebar/packs-section";
 import { AboutSection } from "./sidebar/about-section";
 
 // ── constants ─────────────────────────────────────────────────────────────────
@@ -33,6 +34,7 @@ const SECTION_LABELS: Record<string, string> = {
   resources: "Resources",
   github: "GitHub",
   tasks: "Task Board",
+  packs: "Developer Packs",
   about: "About Apex",
 };
 
@@ -790,6 +792,19 @@ export function Sidebar() {
               <TasksSection
                 key="tasks"
                 dark={dark}
+                shellClass={shellClass}
+                dragHandlers={dragHandlers}
+                onDragStart={onDragStart}
+              />
+            );
+          }
+
+          if (id === "packs" && projectId) {
+            return (
+              <PacksSection
+                key="packs"
+                dark={dark}
+                confirm={confirm}
                 shellClass={shellClass}
                 dragHandlers={dragHandlers}
                 onDragStart={onDragStart}

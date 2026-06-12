@@ -61,6 +61,12 @@ export function getProposals(context: RequestContext, storyId: number) {
   );
 }
 
+export function listPacks(context: RequestContext) {
+  return apiRequest<{
+    packs: Array<{ story_id: number; story_title: string; task_id: number; chars: number }>;
+  }>("/api/phase3/packs", { context });
+}
+
 export function deleteProposal(context: RequestContext, storyId: number, taskId: number) {
   return apiRequest<{ ok: boolean }>(`/api/phase3/proposal/${storyId}/${taskId}`, {
     method: "DELETE",

@@ -108,6 +108,9 @@ class ContextService:
     def delete_proposal(self, story_id: int, task_id: int) -> None:
         context_manager.delete_proposal(story_id, task_id)
 
+    def list_all_proposals(self) -> list[dict]:
+        return context_manager.list_all_proposals()
+
     def save_bug_report(self, story_id: int, bug_md: str) -> None:
         context_manager.save_bug_report(story_id, bug_md)
 
