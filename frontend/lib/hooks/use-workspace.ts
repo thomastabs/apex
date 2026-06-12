@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createEpic,
@@ -143,13 +144,38 @@ export function useStoryStatuses() {
   });
 }
 
+/**
+ * Fire-and-forget story-index resync. Called automatically after every
+ * operation that adds, changes, or removes epics/stories/tasks so the index
+ * (and the nav badges derived from it) never needs a manual rebuild click.
+ * Silent on failure — the manual rebuild button stays as the fallback.
+ */
+export function useAutoSyncStoryIndex() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useCallback(() => {
+    if (!context) return;
+    void rebuildStoryIndex(context)
+      .then(() => {
+        void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
+        void queryClient.invalidateQueries({ queryKey: ["phase2", "eligible-epics"] });
+        void queryClient.invalidateQueries({ queryKey: ["phase3", "eligible-stories"] });
+        void queryClient.invalidateQueries({ queryKey: ["phase4", "eligible-stories"] });
+        void queryClient.invalidateQueries({ queryKey: ["phase5", "eligible-stories"] });
+      })
+      .catch(() => undefined);
+  }, [context, queryClient]);
+}
+
 export function useCreateEpic() {
   const context = useApiContext();
   const queryClient = useQueryClient();
+  const autoSync = useAutoSyncStoryIndex();
   return useMutation({
     mutationFn: ({ subject, description, tags }: { subject: string; description: string; tags?: string[] }) =>
       createEpic(context!, subject, description, tags ?? []),
     onSuccess: () => {
+      autoSync();
       void queryClient.invalidateQueries({ queryKey: ["workspace", "board"] });
       void queryClient.invalidateQueries({ queryKey: ["phase1", "epics"] });
     },
@@ -159,9 +185,11 @@ export function useCreateEpic() {
 export function useDeleteEpic() {
   const context = useApiContext();
   const queryClient = useQueryClient();
+  const autoSync = useAutoSyncStoryIndex();
   return useMutation({
     mutationFn: (epicId: number) => deleteEpic(context!, epicId),
     onSuccess: () => {
+      autoSync();
       void queryClient.invalidateQueries({ queryKey: ["workspace", "board"] });
       void queryClient.invalidateQueries({ queryKey: ["phase1", "epics"] });
     },
@@ -171,12 +199,14 @@ export function useDeleteEpic() {
 export function useCreateStory() {
   const context = useApiContext();
   const queryClient = useQueryClient();
+  const autoSync = useAutoSyncStoryIndex();
   return useMutation({
     mutationFn: ({
       epicId, subject, description, tags, statusId,
     }: { epicId: number; subject: string; description: string; tags?: string[]; statusId?: number }) =>
       createStory(context!, epicId, subject, description, tags ?? [], statusId),
     onSuccess: () => {
+      autoSync();
       void queryClient.invalidateQueries({ queryKey: ["workspace", "board"] });
     },
   });
@@ -185,9 +215,11 @@ export function useCreateStory() {
 export function useDeleteStory() {
   const context = useApiContext();
   const queryClient = useQueryClient();
+  const autoSync = useAutoSyncStoryIndex();
   return useMutation({
     mutationFn: (storyId: number) => deleteStory(context!, storyId),
     onSuccess: () => {
+      autoSync();
       void queryClient.invalidateQueries({ queryKey: ["workspace", "board"] });
     },
   });
@@ -241,6 +273,7 @@ export function useUpdateMemberRole() {
 export function useUpdateEpic() {
   const context = useApiContext();
   const queryClient = useQueryClient();
+  const autoSync = useAutoSyncStoryIndex();
   return useMutation({
     mutationFn: ({
       epicId,
@@ -252,6 +285,7 @@ export function useUpdateEpic() {
       fields: { subject?: string; description?: string; tags?: string[]; status?: number };
     }) => updateEpic(context!, epicId, version, fields),
     onSuccess: () => {
+      autoSync();
       void queryClient.invalidateQueries({ queryKey: ["workspace", "board"] });
       void queryClient.invalidateQueries({ queryKey: ["phase1", "epics"] });
     },
@@ -261,6 +295,7 @@ export function useUpdateEpic() {
 export function useUpdateStory() {
   const context = useApiContext();
   const queryClient = useQueryClient();
+  const autoSync = useAutoSyncStoryIndex();
   return useMutation({
     mutationFn: ({
       storyId,
@@ -272,6 +307,7 @@ export function useUpdateStory() {
       fields: { subject?: string; description?: string; tags?: string[]; status?: string };
     }) => updateStory(context!, storyId, version, fields),
     onSuccess: () => {
+      autoSync();
       void queryClient.invalidateQueries({ queryKey: ["workspace", "board"] });
     },
   });

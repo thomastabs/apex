@@ -268,6 +268,27 @@ def test_fail_gate_skips_vaccine_when_no_root_cause(ctx):
     assert "## Vaccine #" not in ctx.get_vaccines()
 
 
+def test_delete_test_plan_rolls_back_to_implementation(ctx):
+    ctx.init_context()
+    ctx.save_bdd_tests(10, _FAKE_TEST_PLAN)  # sets has_bdd=True, phase_status="qa"
+    svc = Phase4Service(ai=FakeAiService(), context=FakeContextService())
+    svc.delete_test_plan(_ctx(), 10)
+    entry = ctx.get_story_index()["10"]
+    assert entry["has_bdd"] is False
+    assert entry["phase_status"] == "implementation"
+    assert ctx.load_bdd_tests(10) == ""
+
+
+def test_delete_test_plan_keeps_qa_passed_status(ctx):
+    # Clearing a plan must not demote a story that already passed the gate.
+    ctx.init_context()
+    ctx.save_bdd_tests(10, _FAKE_TEST_PLAN)
+    ctx.upsert_story_index(10, phase_status="qa_passed")
+    svc = Phase4Service(ai=FakeAiService(), context=FakeContextService())
+    svc.delete_test_plan(_ctx(), 10)
+    assert ctx.get_story_index()["10"]["phase_status"] == "qa_passed"
+
+
 def test_fail_gate_increments_fix_bolt_count(ctx):
     ctx.init_context()
     ctx.upsert_story_index(10, title="S", phase_status="qa")

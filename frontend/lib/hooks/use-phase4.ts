@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  deleteTestPlan,
   failGate,
   generateBugReport,
   generateTestPlan,
@@ -108,6 +109,23 @@ export function useSaveTestPlan() {
       void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
     },
     onError: (err: Error) => toast.error(`Save failed: ${err.message}`),
+  });
+}
+
+export function useClearTestPlan() {
+  const context = useApiContext();
+  const qc = useQueryClient();
+  const clearTestPlanDraft = usePhase4Store((s) => s.clearTestPlanDraft);
+  return useMutation({
+    mutationFn: (storyId: number) => deleteTestPlan(context!, storyId),
+    onSuccess: (_, storyId) => {
+      clearTestPlanDraft();
+      toast.success("Test plan cleared — story back in implementation.");
+      void qc.invalidateQueries({ queryKey: ["phase4", "test-plan", context?.projectId, storyId] });
+      void qc.invalidateQueries({ queryKey: ["phase4", "eligible-stories"] });
+      void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
+    },
+    onError: (err: Error) => toast.error(`Clear failed: ${err.message}`),
   });
 }
 

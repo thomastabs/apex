@@ -22,6 +22,7 @@ type Phase4State = {
   setBugReportDraft: (scenarioName: string, md: string) => void;
   setCurrentStoryMeta: (title: string, epicTitle: string) => void;
   setRegressionBypass: (isRegression: boolean, failedNames: string[]) => void;
+  clearTestPlanDraft: () => void;
   clearPhase4Draft: () => void;
 };
 
@@ -68,6 +69,15 @@ export const usePhase4Store = create<Phase4State>()(
 
       setRegressionBypass: (isRegressionBypass, failedScenarioNames) =>
         set({ isRegressionBypass, failedScenarioNames }),
+
+      // Wipe plan + execution draft but keep the story selected (Clear Plan)
+      clearTestPlanDraft: () =>
+        set({
+          testPlanMd: null,
+          scenarioResults: {},
+          scenarioNotes: {},
+          bugReportDrafts: {},
+        }),
 
       clearPhase4Draft: () =>
         set({

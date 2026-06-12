@@ -402,6 +402,30 @@ class TestSaveProposal:
         ctx.save_proposal(story_id=10, task_id=1, proposal="proposal")
         assert ctx.get_story_index()["10"]["has_proposal"] is True
 
+    def test_delete_proposal_keeps_flag_while_others_remain(self, ctx):
+        ctx.init_context()
+        ctx.append_gherkin(10, "Story Ten",
+                           "Feature: X\n\n  Scenario: s\n    Given x\n    When y\n    Then z\n")
+        ctx.save_proposal(story_id=10, task_id=1, proposal="p1")
+        ctx.save_proposal(story_id=10, task_id=2, proposal="p2")
+        ctx.upsert_story_index(10, phase_status="implementation")
+        ctx.delete_proposal(10, 1)
+        entry = ctx.get_story_index()["10"]
+        assert entry["has_proposal"] is True
+        assert entry["phase_status"] == "implementation"
+        assert not (ctx.CONTEXT_DIR / "proposal_story_10_task_1.md").exists()
+
+    def test_delete_last_proposal_clears_flag_and_downgrades(self, ctx):
+        ctx.init_context()
+        ctx.append_gherkin(10, "Story Ten",
+                           "Feature: X\n\n  Scenario: s\n    Given x\n    When y\n    Then z\n")
+        ctx.save_proposal(story_id=10, task_id=1, proposal="p1")
+        ctx.upsert_story_index(10, phase_status="implementation", has_tech_spec=True)
+        ctx.delete_proposal(10, 1)
+        entry = ctx.get_story_index()["10"]
+        assert entry["has_proposal"] is False
+        assert entry["phase_status"] == "design_locked"
+
 
 # ---------------------------------------------------------------------------
 # Draft persistence

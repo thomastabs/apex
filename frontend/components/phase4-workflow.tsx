@@ -15,6 +15,7 @@ import {
 import { Button, Callout, SectionHeading, Textarea } from "@/components/ui/primitives";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
 import {
+  useClearTestPlan,
   useEligibleStories,
   useFailGate,
   useGenerateBugReport,
@@ -249,6 +250,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
   const generateMut = useGenerateTestPlan();
   const saveMut = useSaveTestPlan();
+  const clearMut = useClearTestPlan();
 
   const displayMd = testPlanMd ?? savedPlan?.test_plan_md ?? "";
 
@@ -353,6 +355,16 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
             </Button>
             <Button variant="secondary" onClick={() => { void navigator.clipboard.writeText(displayMd); toast.success("Copied."); }}>
               Copy
+            </Button>
+            <Button
+              variant="secondary"
+              className={dark ? "text-red-400 hover:text-red-300" : "text-red-600 hover:text-red-500"}
+              disabled={clearMut.isPending || generateMut.isPending}
+              onClick={() => clearMut.mutate(storyId)}
+            >
+              {clearMut.isPending
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Clearing…</>
+                : "Clear Plan"}
             </Button>
           </div>
         </div>

@@ -115,6 +115,20 @@ def save_proposal(
         _handle_error(exc)
 
 
+@router.delete("/proposal/{story_id}/{task_id}", response_model=OkResponse)
+def delete_proposal(
+    story_id: int,
+    task_id: int,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase3Service = Depends(get_phase3_service),
+):
+    try:
+        service.delete_proposal(ctx, story_id, task_id)
+        return {"ok": True}
+    except Exception as exc:
+        _handle_error(exc)
+
+
 @router.get("/proposals/{story_id}", response_model=ProposalsResponse)
 def get_proposals(
     story_id: int,

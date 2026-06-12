@@ -61,3 +61,10 @@ export function getProposals(context: RequestContext, storyId: number) {
   );
 }
 
+export function deleteProposal(context: RequestContext, storyId: number, taskId: number) {
+  return apiRequest<{ ok: boolean }>(`/api/phase3/proposal/${storyId}/${taskId}`, {
+    method: "DELETE",
+    context,
+  });
+}
+

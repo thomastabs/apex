@@ -14,6 +14,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { decodeApexMeta, encodeApexMeta } from "@/lib/hooks/use-phase3";
+import { useAutoSyncStoryIndex } from "@/lib/hooks/use-workspace";
+import { deleteProposal } from "@/lib/api/phase3";
 import type { EffortEstimate } from "@/lib/api/types";
 import type { PmTask } from "@/lib/api/pm-types";
 import { getPmAdapter } from "@/lib/api/pm-factory";
@@ -291,16 +293,36 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
     onError: (err) => toast.error(adapter.errMsg(err, "Update task")),
   });
 
+  const autoSync = useAutoSyncStoryIndex();
+
   const deleteMut = useMutation({
-    mutationFn: (taskId: string) => adapter.deleteTask(adapterCtx!, taskId),
-    onSuccess: () => { setPendingDelete(null); void invalidate(); toast.success("Task deleted."); },
+    mutationFn: async (taskId: string) => {
+      // Capture Apex metadata before the PM task disappears — needed to drop
+      // the orphaned developer pack so the story stops counting as "proposed".
+      const task = pmTasks.find((t) => String(t.id) === taskId);
+      const decoded = task ? decodeApexMeta(task.description ?? "") : null;
+      await adapter.deleteTask(adapterCtx!, taskId);
+      return {
+        storyId: task ? Number(task.user_story) : null,
+        apexTaskId: decoded?.apex_task_id ?? null,
+      };
+    },
+    onSuccess: ({ storyId, apexTaskId }) => {
+      setPendingDelete(null);
+      void invalidate();
+      const cleanup = storyId && apexTaskId && context
+        ? deleteProposal(context, storyId, apexTaskId).catch(() => undefined)
+        : Promise.resolve();
+      void cleanup.then(() => autoSync());
+      toast.success("Task deleted.");
+    },
     onError: (err) => { setPendingDelete(null); toast.error(adapter.errMsg(err, "Delete task")); },
   });
 
   const addMut = useMutation({
     mutationFn: (v: { storyId: number; subject: string }) =>
       adapter.createTask(adapterCtx!, String(v.storyId), v.subject, ""),
-    onSuccess: () => { setAddingToStory(null); setNewTaskSubject(""); void invalidate(); toast.success("Task added."); },
+    onSuccess: () => { setAddingToStory(null); setNewTaskSubject(""); void invalidate(); autoSync(); toast.success("Task added."); },
     onError: (err) => toast.error(adapter.errMsg(err, "Add task")),
   });
 

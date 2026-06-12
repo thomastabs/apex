@@ -142,6 +142,11 @@ class Phase3Service:
         self._require_story(story_id)
         return self.context.load_proposals(story_id)
 
+    def delete_proposal(self, ctx: RequestContext, story_id: int, task_id: int) -> None:
+        """Drop one task's developer pack (the task was deleted in the PM tool)."""
+        self.configure_request(ctx)
+        self.context.delete_proposal(story_id, task_id)
+
     def lock_story(self, ctx: RequestContext, story_id: int, task_ids: list[int]) -> None:
         self.configure_request(ctx)
         index = self.context.story_index()

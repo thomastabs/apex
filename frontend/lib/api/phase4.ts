@@ -42,6 +42,13 @@ export function getTestPlan(context: RequestContext, storyId: number) {
   return apiRequest<Phase4TestPlanResponse>(`/api/phase4/test-plan/${storyId}`, { context });
 }
 
+export function deleteTestPlan(context: RequestContext, storyId: number) {
+  return apiRequest<{ ok: boolean }>(`/api/phase4/test-plan/${storyId}`, {
+    method: "DELETE",
+    context,
+  });
+}
+
 export function generateBugReport(context: RequestContext, body: Phase4GenerateBugReportRequest) {
   return apiRequest<Phase4GenerateBugReportResponse>("/api/phase4/generate-bug-report", {
     method: "POST",

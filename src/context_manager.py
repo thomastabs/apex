@@ -1130,6 +1130,49 @@ def save_bdd_tests(story_id: int, test_script: str) -> Path:
     return p
 
 
+def delete_bdd_tests(story_id: int) -> None:
+    """Remove a story's test plan and roll its phase state back to implementation.
+
+    QA results are deliberately kept — they are execution history, not plan state.
+    """
+    (_context_dir() / f"bdd_story_{story_id}.feature").unlink(missing_ok=True)
+    with _index_lock:
+        index = get_story_index()
+        entry = index.get(str(story_id))
+        if entry is None:
+            return
+        entry["has_bdd"] = False
+        if entry.get("phase_status") == "qa":
+            entry["phase_status"] = "implementation"
+            entry.setdefault("status_history", {}).setdefault("implementation", []).append(_now_iso())
+        _save_story_index(index)
+
+
+def delete_proposal(story_id: int, task_id: int) -> None:
+    """Remove one task's developer pack; clear has_proposal when none remain.
+
+    Called when the task itself is deleted in the PM tool — an orphaned pack
+    would keep the story counting as "proposed" forever.
+    """
+    cd = _context_dir()
+    (cd / f"proposal_story_{story_id}_task_{task_id}.md").unlink(missing_ok=True)
+    remaining = cd.exists() and any(
+        p.name.startswith(f"proposal_story_{story_id}_") for p in cd.iterdir()
+    )
+    if remaining:
+        return
+    with _index_lock:
+        index = get_story_index()
+        entry = index.get(str(story_id))
+        if entry is None:
+            return
+        entry["has_proposal"] = False
+        if entry.get("phase_status") == "implementation":
+            entry["phase_status"] = "design_locked" if entry.get("has_tech_spec") else "gherkin_locked"
+            entry.setdefault("status_history", {}).setdefault(entry["phase_status"], []).append(_now_iso())
+        _save_story_index(index)
+
+
 def load_bdd_tests(story_id: int) -> str:
     """Load the BDD test plan for a story, empty string if not found."""
     p = _context_dir() / f"bdd_story_{story_id}.feature"

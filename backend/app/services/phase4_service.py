@@ -100,6 +100,13 @@ class Phase4Service:
         from src import context_manager
         context_manager.save_bdd_tests(story_id, test_plan_md)
 
+    def delete_test_plan(self, ctx: RequestContext, story_id: int) -> None:
+        """Clear a story's test plan; rolls qa status back to implementation."""
+        self.configure_request(ctx)
+        from src import context_manager
+        context_manager.delete_bdd_tests(story_id)
+        _logger.info("Phase 4 test plan cleared for story %s", story_id)
+
     def load_test_plan(self, ctx: RequestContext, story_id: int) -> str:
         self.configure_request(ctx)
         return self.context.load_bdd_tests(story_id)

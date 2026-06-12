@@ -106,6 +106,19 @@ def get_test_plan(
         _handle_error(exc)
 
 
+@router.delete("/test-plan/{story_id}", response_model=OkResponse)
+def delete_test_plan(
+    story_id: int,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase4Service = Depends(get_phase4_service),
+):
+    try:
+        service.delete_test_plan(ctx, story_id)
+        return {"ok": True}
+    except Exception as exc:
+        _handle_error(exc)
+
+
 @router.post("/generate-bug-report", response_model=GenerateBugReportResponse)
 def generate_bug_report(
     payload: GenerateBugReportRequest,
