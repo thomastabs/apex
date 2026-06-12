@@ -31,7 +31,7 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # LangSmith tracing is enabled automatically when LANGCHAIN_TRACING_V2=true
 # and LANGCHAIN_API_KEY are set in the environment — no code changes needed.
@@ -1465,13 +1465,185 @@ def generate_bug_report(
 
 
 # ---------------------------------------------------------------------------
-# 5. Deployment Phase — Phase 5 (not yet implemented)
+# 5. Deployment Phase — Phase 5
 # ---------------------------------------------------------------------------
 
-# TODO: generate_infra_delta(story_subject, technical_spec) -> str
-#   DevOps persona. Determine if feature needs new infra, env vars, or deploy script changes.
-#   Output: "INFRA_DELTA: NONE <justification>" or "INFRA_DELTA: REQUIRED <Terraform HCL / CF YAML>".
-#   Use get_model().
+_INFRA_DELTA_CATEGORIES = ("env_var", "migration", "iac", "ci_config", "secret")
+
+
+class InfraDeltaItem(BaseModel):
+    category: str = Field(
+        description="One of: env_var (new/changed environment variable), migration "
+                    "(database schema/data migration), iac (infrastructure-as-code or "
+                    "cloud resource change), ci_config (CI/CD pipeline change), "
+                    "secret (new credential or key that must be provisioned)"
+    )
+    title: str = Field(description="Short imperative title for this change (5-10 words)")
+    detail: str = Field(
+        description="2-4 sentences: exactly what must change and why this story requires it, "
+                    "referencing the specific endpoint/entity/config involved"
+    )
+    risk: Literal["low", "high"] = Field(
+        description="high if the change touches data, credentials, or core business logic paths"
+    )
+
+    @field_validator("category", mode="before")
+    @classmethod
+    def _normalize_category(cls, v: object) -> str:
+        # Models occasionally emit off-vocabulary categories; failing all three
+        # structured-output tiers over that is wasteful — coerce to "iac".
+        s = str(v).strip().lower().replace("-", "_").replace(" ", "_")
+        return s if s in _INFRA_DELTA_CATEGORIES else "iac"
+
+
+class InfraDelta(BaseModel):
+    needs_infra_change: bool = Field(
+        description="True only if deploying this story requires changes beyond the "
+                    "existing automated CI/CD pipeline"
+    )
+    rationale: str = Field(
+        description="2-4 sentences justifying the verdict, grounded in the story spec and tech stack"
+    )
+    deltas: list[InfraDeltaItem] = Field(
+        default_factory=list,
+        description="The required changes; MUST be empty when needs_infra_change is false",
+    )
+
+
+_GENERATE_INFRA_DELTA_SYSTEM = """\
+You are a senior DevOps engineer performing the Infrastructure Delta Check of the Apex
+Framework's Deployment Gate. A User Story has passed QA and is ready for production.
+
+Answer exactly one question: does deploying THIS story require new infrastructure,
+environment variables, secrets, database migrations, or CI/CD pipeline changes —
+or can it ride the existing automated pipeline unchanged (a "routine deployment")?
+
+Rules you MUST follow:
+- Ground every claim in the provided story spec, tech stack, and (if present) repository
+  context. Do NOT invent infrastructure that isn't implied by them.
+- Most application-level stories (new endpoints on an existing service, UI changes,
+  business-logic changes against existing tables) are ROUTINE: needs_infra_change=false.
+- Flag a delta only when the story demonstrably introduces: a new external service or
+  datastore, a schema change to persistent storage, a new environment variable or secret,
+  a new build/deploy step, or a change to exposed ports/domains/scaling characteristics.
+- When needs_infra_change is false, deltas MUST be an empty list and the rationale must
+  state why the existing pipeline suffices.
+- Mark risk "high" for anything touching data (migrations), credentials (secrets), or
+  externally reachable surface; otherwise "low".
+
+Tech Stack:
+{tech_stack}
+
+Technical Spec (endpoints, data model for this story):
+{technical_spec}
+"""
+
+
+def generate_infra_delta(
+    story_subject: str,
+    gherkin: str,
+    technical_spec: str,
+    tech_stack: str = "",
+    github_context: str = "",
+) -> InfraDelta:
+    """Phase 5 Step 1: decide whether a story needs infra changes to deploy."""
+    system = _GENERATE_INFRA_DELTA_SYSTEM.format(
+        tech_stack=tech_stack.strip() or "Not specified",
+        technical_spec=technical_spec.strip() or "Not specified",
+    )
+    if github_context.strip() and not github_context.strip().startswith("<!--"):
+        system += f"\n\nExisting Repository Context (file tree, configs, CI):\n{github_context.strip()}"
+    human = (
+        f"User Story: {story_subject}\n\n"
+        f"Acceptance Criteria (Gherkin):\n{gherkin.strip()}\n\n"
+        "Perform the Infrastructure Delta Check for deploying this story."
+    )
+    return _ai_retry(lambda: _invoke_structured_with_progress(
+        system, human, get_model(), InfraDelta,
+        max_tokens=4000, timeout=300,
+    ))
+
+
+_GENERATE_DEPLOY_PACK_SYSTEM = """\
+You are a senior DevOps engineer producing a Deploy Pack — the concrete scripts and
+configuration changes required to deploy a User Story whose Infrastructure Delta Check
+flagged changes. A human DevOps reviewer (the Alliance) will security-review this pack
+before anything is applied; write for that reviewer.
+
+The pack must be grounded exclusively in the infra delta items, technical spec, and tech
+stack provided. Do NOT invent resources, providers, or tools the project does not use.
+
+Output format — one section per delta item, using these exact headings:
+
+## <delta title>
+
+**Category:** <category> · **Risk:** <risk>
+
+### Change
+What changes and where (file, service, or resource), in 2-3 sentences.
+
+### Script
+A fenced code block with the concrete artifact:
+- env_var → the exact .env / app-settings diff (KEY=value lines, placeholders for secrets)
+- migration → the SQL (or framework migration) with an explicit rollback section
+- iac → the Terraform/Bicep/compose snippet, minimal and self-contained
+- ci_config → the pipeline YAML fragment with surrounding context lines
+- secret → provisioning instructions; NEVER an actual secret value
+
+### Verification
+1-3 steps the reviewer runs to confirm the change applied correctly.
+
+---
+
+End the pack with a "## Rollback Plan" section: ordered steps to revert every change above.
+"""
+
+
+def generate_deploy_pack(
+    story_subject: str,
+    infra_delta_md: str,
+    technical_spec: str,
+    tech_stack: str = "",
+    github_context: str = "",
+) -> str:
+    """Phase 5 Step 2 (YES path): generate the deploy scripts for a flagged delta."""
+    system = _GENERATE_DEPLOY_PACK_SYSTEM
+    if github_context.strip() and not github_context.strip().startswith("<!--"):
+        system += f"\n\nExisting Repository Context (file tree, configs, CI):\n{github_context.strip()}"
+    human = (
+        f"User Story: {story_subject}\n\n"
+        f"Tech Stack:\n{tech_stack.strip() or 'Not specified'}\n\n"
+        f"Technical Spec:\n{technical_spec.strip() or 'Not specified'}\n\n"
+        f"Infrastructure Delta (approved by the Tech Lead):\n{infra_delta_md.strip()}\n\n"
+        "Generate the Deploy Pack for these delta items."
+    )
+    return _ai_retry(lambda: _invoke(system, human, get_model(), max_tokens=6000, timeout=300))
+
+
+_REVISE_DEPLOY_PACK_SYSTEM = """\
+You are a senior DevOps engineer revising a Deploy Pack that was REJECTED at the
+Deployment Gate security review. Address every point of the reviewer feedback while
+keeping the pack grounded in the same infra delta — do not add new delta items, and
+preserve the original section structure and headings exactly.
+
+Return the complete revised Deploy Pack, not a diff or commentary.
+"""
+
+
+def revise_deploy_pack(
+    current_pack_md: str,
+    feedback: str,
+    infra_delta_md: str = "",
+) -> str:
+    """Phase 5 Step 4 (FAIL path): regenerate the pack from security feedback."""
+    human = (
+        f"Infrastructure Delta:\n{infra_delta_md.strip() or 'Not provided'}\n\n"
+        f"Current Deploy Pack:\n{current_pack_md.strip()}\n\n"
+        f"Security Review Feedback (must be fully addressed):\n{feedback.strip()}\n\n"
+        "Produce the revised Deploy Pack."
+    )
+    return _ai_retry(lambda: _invoke(_REVISE_DEPLOY_PACK_SYSTEM, human, get_model(),
+                                     max_tokens=6000, timeout=300))
 
 
 # ---------------------------------------------------------------------------

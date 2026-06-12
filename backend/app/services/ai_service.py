@@ -124,6 +124,43 @@ class AiService:
             story_subject, gherkin, technical_spec, failed_scenario, qa_notes,
         )
 
+    def generate_infra_delta(
+        self,
+        story_subject: str,
+        gherkin: str,
+        technical_spec: str,
+        tech_stack: str = "",
+        github_context: str = "",
+    ) -> dict:
+        result = ai_engine.generate_infra_delta(
+            story_subject, gherkin, technical_spec,
+            tech_stack=tech_stack, github_context=github_context,
+        )
+        return result.model_dump()
+
+    def generate_deploy_pack(
+        self,
+        story_subject: str,
+        infra_delta_md: str,
+        technical_spec: str,
+        tech_stack: str = "",
+        github_context: str = "",
+    ) -> str:
+        return ai_engine.generate_deploy_pack(
+            story_subject, infra_delta_md, technical_spec,
+            tech_stack=tech_stack, github_context=github_context,
+        )
+
+    def revise_deploy_pack(
+        self,
+        current_pack_md: str,
+        feedback: str,
+        infra_delta_md: str = "",
+    ) -> str:
+        return ai_engine.revise_deploy_pack(
+            current_pack_md, feedback, infra_delta_md=infra_delta_md,
+        )
+
     def generate_design_section(
         self,
         all_stories: list[dict],

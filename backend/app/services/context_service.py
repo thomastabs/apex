@@ -108,6 +108,37 @@ class ContextService:
     def load_bug_report(self, story_id: int) -> str:
         return context_manager.load_bug_report(story_id)
 
+    def save_infra_delta(self, story_id: int, delta: dict) -> None:
+        context_manager.save_infra_delta(story_id, delta)
+
+    def load_infra_delta(self, story_id: int) -> dict | None:
+        return context_manager.load_infra_delta(story_id)
+
+    def save_deploy_pack(self, story_id: int, pack_md: str) -> None:
+        context_manager.save_deploy_pack(story_id, pack_md)
+
+    def load_deploy_pack(self, story_id: int) -> str:
+        return context_manager.load_deploy_pack(story_id)
+
+    def load_qa_results(self, story_id: int) -> dict | None:
+        return context_manager.load_qa_results(story_id)
+
+    def append_deployment_record(
+        self,
+        story_id: int,
+        title: str,
+        *,
+        bypass: bool,
+        pack_present: bool,
+        sign_offs: list[str],
+        notes: str = "",
+    ) -> None:
+        context_manager.append_deployment_record(
+            story_id, title,
+            bypass=bypass, pack_present=pack_present,
+            sign_offs=sign_offs, notes=notes,
+        )
+
     def append_epic_design_bundle(
         self,
         epic_id: int,

@@ -1178,6 +1178,116 @@ def load_qa_results(story_id: int) -> dict | None:
         return None
 
 
+def render_infra_delta_md(story_id: int, delta: dict) -> str:
+    """Human-readable rendering of an infra delta verdict (the JSON stays canonical)."""
+    verdict = "CHANGES REQUIRED" if delta.get("needs_infra_change") else "ROUTINE DEPLOYMENT (bypass)"
+    lines = [
+        f"# Infrastructure Delta — Story {story_id}",
+        "",
+        f"**Verdict:** {verdict}",
+        "",
+        f"**Rationale:** {delta.get('rationale', '').strip()}",
+        "",
+    ]
+    for item in delta.get("deltas", []):
+        lines += [
+            f"## {item.get('title', '').strip()}",
+            "",
+            f"**Category:** {item.get('category', '')} · **Risk:** {item.get('risk', '')}",
+            "",
+            item.get("detail", "").strip(),
+            "",
+        ]
+    return "\n".join(lines)
+
+
+def save_infra_delta(story_id: int, delta: dict) -> Path:
+    """Persist the Phase 5 infra delta verdict (JSON canonical + rendered markdown)."""
+    cd = _context_dir()
+    cd.mkdir(parents=True, exist_ok=True)
+    p = cd / f"infra_delta_story_{story_id}.json"
+    p.write_text(json.dumps(delta, indent=2, ensure_ascii=False), encoding="utf-8")
+    (cd / f"infra_delta_story_{story_id}.md").write_text(
+        render_infra_delta_md(story_id, delta), encoding="utf-8",
+    )
+    upsert_story_index(
+        story_id,
+        has_infra_delta=True,
+        deploy_bypass=not delta.get("needs_infra_change", True),
+    )
+    return p
+
+
+def load_infra_delta(story_id: int) -> dict | None:
+    """Load the infra delta verdict for a story, None if absent/unreadable."""
+    p = _context_dir() / f"infra_delta_story_{story_id}.json"
+    if not p.exists():
+        return None
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def save_deploy_pack(story_id: int, pack_md: str) -> Path:
+    """Persist the Phase 5 deploy pack to contextspec/deploy_pack_story_<id>.md."""
+    cd = _context_dir()
+    cd.mkdir(parents=True, exist_ok=True)
+    p = cd / f"deploy_pack_story_{story_id}.md"
+    p.write_text(pack_md, encoding="utf-8")
+    upsert_story_index(story_id, has_deploy_pack=True)
+    return p
+
+
+def load_deploy_pack(story_id: int) -> str:
+    """Load the deploy pack for a story, empty string if not found."""
+    p = _context_dir() / f"deploy_pack_story_{story_id}.md"
+    if not p.exists():
+        return ""
+    try:
+        return p.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+
+def append_deployment_record(
+    story_id: int,
+    title: str,
+    *,
+    bypass: bool,
+    pack_present: bool,
+    sign_offs: list[str],
+    notes: str = "",
+) -> None:
+    """Append a Deployment Gate decision to deployment-log.md (created on demand).
+
+    The entry heading embeds the story id and an ISO timestamp so the log stays
+    machine-parseable for rebuilds and analytics.
+    """
+    cd = _context_dir()
+    cd.mkdir(parents=True, exist_ok=True)
+    p = cd / "deployment-log.md"
+    if not p.exists():
+        p.write_text(
+            "# Deployment Log\n\nGate decisions recorded by Phase 5 — one entry per deployment.\n",
+            encoding="utf-8",
+        )
+    entry = [
+        "",
+        f"## Deployment — Story {story_id} — {_now_iso()}",
+        "",
+        f"- **Story:** {title.strip() or f'Story {story_id}'}",
+        f"- **Route:** {'Routine (bypass — no infra changes)' if bypass else 'Deploy pack applied'}",
+        f"- **Deploy pack:** {'present' if pack_present else 'n/a'}",
+        f"- **Sign-offs:** {', '.join(sign_offs)}",
+    ]
+    if notes.strip():
+        entry.append(f"- **Notes:** {notes.strip()}")
+    entry.append("")
+    with p.open("a", encoding="utf-8") as fh:
+        fh.write("\n".join(entry))
+
+
 def save_bug_report(story_id: int, bug_md: str) -> Path:
     """Persist the Fix-Bolt artifact for a story to contextspec/bug_report_<id>.md."""
     cd = _context_dir()
