@@ -268,3 +268,46 @@ class TestSaveConfigValidation:
             )
         assert resp.status_code == 200
         mock_save.assert_called_once()
+
+
+class TestJiraAuthBackoff:
+    """Every Jira request carries Basic credentials, so the proxy backs off
+    IPs with repeated upstream 401s instead of capping all traffic (audit H1)."""
+
+    BASE = "https://example.atlassian.net"
+    AUTH = "Basic cHJvYmU6cHJvYmU="
+
+    def _get(self, client):
+        return client.get(
+            "/api/pm/jira/myself",
+            headers={"X-Jira-Base-Url": self.BASE, "Authorization": self.AUTH},
+        )
+
+    def test_upstream_401_recorded(self, client):
+        from backend.app.api import rate_limit
+        upstream = _mock_upstream(401, {"errorMessages": ["bad creds"]})
+        patcher, _ = _patch_client(upstream)
+        with patcher:
+            assert self._get(client).status_code == 401
+        assert rate_limit._failure_buckets["authfail:testclient"][1] == 1
+
+    def test_backoff_blocks_after_threshold(self, client):
+        import time as _time
+        from backend.app.api import rate_limit
+        rate_limit._failure_buckets["authfail:testclient"] = (
+            _time.monotonic(), rate_limit._MAX_AUTH_FAILURES_PER_IP,
+        )
+        upstream = _mock_upstream(200, {"accountId": "x"})
+        patcher, mock_http = _patch_client(upstream)
+        with patcher:
+            resp = self._get(client)
+        assert resp.status_code == 429
+        mock_http.request.assert_not_called()
+
+    def test_successful_requests_unaffected(self, client):
+        from backend.app.api import rate_limit
+        upstream = _mock_upstream(200, {"accountId": "x"})
+        patcher, _ = _patch_client(upstream)
+        with patcher:
+            assert self._get(client).status_code == 200
+        assert "authfail:testclient" not in rate_limit._failure_buckets

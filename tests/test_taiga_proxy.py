@@ -332,3 +332,69 @@ class TestSelfHeal:
             )
         assert resp.status_code == 502
         assert mock_http.request.call_count == 1
+
+
+class TestAuthBruteForceProtection:
+    """The /auth relay caps attempts per IP and backs off after repeated
+    upstream credential rejections (audit H1)."""
+
+    URL = "https://taiga.example.test"
+
+    def _login(self, client):
+        return client.post(
+            "/api/pm/taiga/auth",
+            json={"username": "u", "password": "wrong", "type": "normal"},
+            headers={"X-Taiga-Url": self.URL},
+        )
+
+    @staticmethod
+    def _auth_upstream(status_code: int, body: dict):
+        # The auth handler (unlike the catch-all) calls resp.json() and
+        # resp.is_success — configure both on the mock.
+        resp = _mock_upstream(status_code, body)
+        resp.json.return_value = body
+        resp.is_success = 200 <= status_code < 300
+        return resp
+
+    def test_attempt_cap_per_ip(self, client):
+        upstream = self._auth_upstream(401, {"detail": "bad credentials"})
+        patcher, _ = _patch_client(upstream)
+        from backend.app.api import rate_limit
+        with patcher:
+            for _ in range(rate_limit._MAX_AUTH_ATTEMPTS_PER_IP):
+                assert self._login(client).status_code == 401
+            resp = self._login(client)
+        assert resp.status_code == 429
+        assert "sign-in attempts" in resp.json()["detail"]
+
+    def test_failure_backoff_blocks_before_forwarding(self, client):
+        from backend.app.api import rate_limit
+        # Simulate an IP that already exhausted its failure budget.
+        import time as _time
+        rate_limit._failure_buckets["authfail:testclient"] = (
+            _time.monotonic(), rate_limit._MAX_AUTH_FAILURES_PER_IP,
+        )
+        upstream = self._auth_upstream(200, {"auth_token": "tok"})
+        patcher, mock_http = _patch_client(upstream)
+        with patcher:
+            resp = self._login(client)
+        assert resp.status_code == 429
+        assert "failed PM sign-in" in resp.json()["detail"]
+        mock_http.request.assert_not_called()  # rejected before reaching Taiga
+
+    def test_upstream_rejection_recorded(self, client):
+        from backend.app.api import rate_limit
+        upstream = self._auth_upstream(401, {"detail": "bad credentials"})
+        patcher, _ = _patch_client(upstream)
+        with patcher:
+            self._login(client)
+        assert rate_limit._failure_buckets["authfail:testclient"][1] == 1
+
+    def test_successful_login_not_counted_as_failure(self, client):
+        from backend.app.api import rate_limit
+        upstream = self._auth_upstream(200, {"auth_token": "tok"})
+        patcher, _ = _patch_client(upstream)
+        with patcher:
+            resp = self._login(client)
+        assert resp.status_code == 200
+        assert "authfail:testclient" not in rate_limit._failure_buckets

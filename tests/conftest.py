@@ -23,6 +23,19 @@ def _bypass_pm_auth(request, monkeypatch):
     yield
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limit_buckets():
+    """Rate-limit buckets are module-global; TestClient requests all share the
+    'testclient' source IP, so attempts/failures would leak across tests."""
+    from backend.app.api import rate_limit
+
+    rate_limit._buckets.clear()
+    rate_limit._failure_buckets.clear()
+    yield
+    rate_limit._buckets.clear()
+    rate_limit._failure_buckets.clear()
+
+
 @pytest.fixture()
 def ctx(tmp_path, monkeypatch):
     """Patch context_manager to use an isolated tmp directory for each test.

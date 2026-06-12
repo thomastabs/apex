@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 import httpx
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 
+from backend.app.api.rate_limit import check_auth_failures, record_auth_failure
 from backend.app.api.ssrf import is_blocked_host
 
 router = APIRouter()
@@ -123,6 +124,9 @@ async def proxy_jira(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authorization: Basic <token> header required.",
         )
+    # Every Jira request carries Basic credentials, so any endpoint doubles as
+    # a password oracle — back off IPs that keep getting rejected upstream.
+    check_auth_failures(request)
     if len(token.strip()) > 2_000:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -156,6 +160,9 @@ async def proxy_jira(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Failed to reach Jira Cloud.",
         ) from exc
+
+    if resp.status_code == 401:
+        record_auth_failure(request)
 
     return Response(
         content=resp.content,

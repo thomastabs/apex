@@ -22,6 +22,14 @@ _WINDOW_SECS = 60
 _MAX_AI_REQUESTS = 20        # per token
 _MAX_AI_REQUESTS_PER_IP = 30  # per source address, across all tokens
 
+# Credential brute-force protection for the PM auth relays.
+_MAX_AUTH_ATTEMPTS_PER_IP = 10   # login attempts per IP per minute (Taiga /auth)
+_MAX_AUTH_FAILURES_PER_IP = 15   # upstream credential rejections per IP per window
+_FAILURE_WINDOW_SECS = 300
+# Separate dict: the AI limiter prunes its buckets on the 60s window, which
+# would wipe failure counters early if they shared storage.
+_failure_buckets: dict[str, tuple[float, int]] = {}
+
 
 def _client_ip(request: Request) -> str:
     # Behind Azure Container Apps ingress the socket peer is the proxy;
@@ -32,7 +40,7 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def _check_bucket(key: str, limit: int, now: float) -> None:
+def _check_bucket(key: str, limit: int, now: float, what: str = "AI requests") -> None:
     """Count one request against key; raise 429 when over limit. Caller holds _lock."""
     window_start, count = _buckets[key]
     if now - window_start > _WINDOW_SECS:
@@ -40,10 +48,59 @@ def _check_bucket(key: str, limit: int, now: float) -> None:
     elif count >= limit:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Rate limit: max {limit} AI requests per minute. Try again shortly.",
+            detail=f"Rate limit: max {limit} {what} per minute. Try again shortly.",
         )
     else:
         _buckets[key] = (window_start, count + 1)
+
+
+def auth_rate_limit(request: Request) -> None:
+    """Dependency for the Taiga login relay: caps sign-in attempts per IP.
+
+    Runs pre-auth (there is no token yet), so it can only key on the source
+    address. Legitimate users sign in a handful of times per session;
+    credential stuffing needs thousands of attempts.
+    """
+    ip_key = "auth:" + _client_ip(request)
+    now = time.monotonic()
+    with _lock:
+        _check_bucket(ip_key, _MAX_AUTH_ATTEMPTS_PER_IP, now, what="sign-in attempts")
+
+
+def check_auth_failures(request: Request) -> None:
+    """Raise 429 when this IP accumulated too many upstream credential rejections.
+
+    Unlike auth_rate_limit this also guards the Jira proxy, where every request
+    carries Basic credentials and so any endpoint is a password oracle —
+    throttling only *failures* leaves normal signed-in traffic untouched.
+    """
+    key = "authfail:" + _client_ip(request)
+    now = time.monotonic()
+    with _lock:
+        hit = _failure_buckets.get(key)
+        if hit is None:
+            return
+        window_start, count = hit
+        if now - window_start > _FAILURE_WINDOW_SECS:
+            del _failure_buckets[key]
+            return
+        if count >= _MAX_AUTH_FAILURES_PER_IP:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many failed PM sign-in attempts from this address. Try again later.",
+            )
+
+
+def record_auth_failure(request: Request) -> None:
+    """Count one upstream credential rejection against the source IP."""
+    key = "authfail:" + _client_ip(request)
+    now = time.monotonic()
+    with _lock:
+        hit = _failure_buckets.get(key)
+        if hit is None or now - hit[0] > _FAILURE_WINDOW_SECS:
+            _failure_buckets[key] = (now, 1)
+        else:
+            _failure_buckets[key] = (hit[0], hit[1] + 1)
 
 
 def ai_rate_limit(request: Request, auth: AuthContext = Depends(get_auth_context)) -> None:
