@@ -2,6 +2,13 @@
 
 **Date:** 2026-06-12 · **Source:** framework draft "Deployment & Release" / "QA Validation" playbooks + governance metrics (Draft&Ideas v14), adapted to the current Apex architecture.
 
+> **STATUS: ✅ IMPLEMENTED 2026-06-12** — all milestones shipped on `main`:
+> M0a `4b19f8f` (status_history + lossless rebuild) · M0b `4a2c98e` (QA results persisted) ·
+> M0c `b2184ab` (fix_bolt_count + phase4_passed fix) · M1a `f5eea30` (backend vertical) ·
+> M1b `7792420` (frontend workflow) · M1c `5fe3cd6` (e2e + toast-flake fix) ·
+> M2 `183303d` (traceability matrix) · M3 `0846784` (analytics) · docs `efad707`.
+> Suite: 416 backend / 50 unit / 7 e2e. Remaining ideas live in "Out of scope" below.
+
 Scope agreed: **Feature A** (Deployment Gate + infra delta) as Phase 5 core, **Feature B** in its lean form (traceability matrix, no live-code fetching), **Feature C** (governance analytics). Pure governance v1 — Apex records gate decisions and artifacts; it does not trigger real deployments (a GitHub `workflow_dispatch` hook is a possible v2).
 
 ---
