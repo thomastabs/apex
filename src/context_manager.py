@@ -551,6 +551,15 @@ def _save_story_index(index: dict[str, dict]) -> None:
         _story_index_caches[pid] = (_index_file_mtime(sif), index)
 
 
+def _now_iso() -> str:
+    """Machine-readable UTC timestamp for status_history and JSON artifacts.
+
+    Distinct from _now(), whose human format is baked into existing markdown
+    headers (vaccines, locked-at lines) — never swap one for the other.
+    """
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
 def upsert_story_index(story_id: int, **updates) -> None:
     """Create or update the index entry for a story.
 
@@ -558,7 +567,12 @@ def upsert_story_index(story_id: int, **updates) -> None:
     retain their current values.  Missing entries are created with defaults.
 
     Valid fields: epic_id, title, phase_status, has_gherkin, has_tech_spec,
-                  has_proposal, has_bdd, has_bug_report.
+                  has_proposal, has_bdd, has_bug_report, has_infra_delta,
+                  has_deploy_pack, deploy_bypass, fix_bolt_count.
+
+    Whenever phase_status changes (including the initial status of a new
+    entry) a UTC timestamp is appended to entry["status_history"][status] —
+    a list, so Fix-Bolt re-entries into the same status are preserved.
     """
     if "phase_status" in updates and updates["phase_status"] not in PHASE_STATUSES:
         raise ValueError(
@@ -567,6 +581,10 @@ def upsert_story_index(story_id: int, **updates) -> None:
     with _index_lock:
         index = get_story_index()
         key   = str(story_id)
+        # Compare against what existed before this call: the defaults dict seeds
+        # phase_status from `updates`, so comparing against `entry` afterwards
+        # would never record a new entry's first status.
+        prev_status = index.get(key, {}).get("phase_status")
         entry = index.get(key, {
             "story_id":    story_id,
             "epic_id":     None,
@@ -577,9 +595,17 @@ def upsert_story_index(story_id: int, **updates) -> None:
             "has_proposal":    False,
             "has_bdd":         False,
             "has_bug_report":  False,
+            "has_infra_delta": False,
+            "has_deploy_pack": False,
+            "deploy_bypass":   False,
+            "fix_bolt_count":  0,
+            "status_history":  {},
         })
         entry.update(updates)
         entry["story_id"] = story_id  # ensure the canonical field is always correct
+        new_status = entry.get("phase_status")
+        if new_status and new_status != prev_status:
+            entry.setdefault("status_history", {}).setdefault(new_status, []).append(_now_iso())
         index[key] = entry
         _save_story_index(index)
 
@@ -637,6 +663,11 @@ def reset_story_index_phase_statuses() -> None:
             entry["has_proposal"]   = False
             entry["has_bdd"]        = False
             entry["has_bug_report"] = False
+            entry["has_infra_delta"] = False
+            entry["has_deploy_pack"] = False
+            entry["deploy_bypass"]   = False
+            entry["fix_bolt_count"]  = 0
+            entry["status_history"]  = {}
             if entry.get("phase_status") not in ("gherkin_locked",):
                 entry["phase_status"] = "gherkin_locked"
         _save_story_index(index)
@@ -699,10 +730,17 @@ def rebuild_story_index() -> dict[str, dict]:
     under ## Epic), then cross-references technical-spec.md and bdd_story_*.feature
     files to determine which phase each story has reached.
 
-    Safe to call at any time — replaces the existing index entirely.
+    Safe to call at any time — replaces the existing index entirely, except
+    that fields a rebuild cannot derive from files (status_history,
+    fix_bolt_count, and the qa_passed/deployed statuses) are carried over
+    from the previous index for stories that still exist.
     """
     cd = _context_dir()
     cd.mkdir(parents=True, exist_ok=True)
+    try:
+        old_index = get_story_index()
+    except Exception:
+        old_index = {}
     index: dict[str, dict] = {}
 
     # ── Parse functional-spec.md ────────────────────────────────────────────
@@ -813,6 +851,40 @@ def rebuild_story_index() -> dict[str, dict]:
                     index[sid]["has_bug_report"] = True
             except ValueError:
                 pass
+
+    # ── Cross-reference Phase 5 artifacts ─────────────────────────────────────
+    for p in cd.iterdir():
+        if p.name.startswith("infra_delta_story_") and p.suffix == ".json":
+            try:
+                sid = str(int(p.stem.removeprefix("infra_delta_story_")))
+                if sid in index:
+                    index[sid]["has_infra_delta"] = True
+                    delta = json.loads(p.read_text(encoding="utf-8"))
+                    index[sid]["deploy_bypass"] = not delta.get("needs_infra_change", True)
+            except (ValueError, json.JSONDecodeError):
+                pass
+        elif p.name.startswith("deploy_pack_story_") and p.suffix == ".md":
+            try:
+                sid = str(int(p.stem.removeprefix("deploy_pack_story_")))
+                if sid in index:
+                    index[sid]["has_deploy_pack"] = True
+            except ValueError:
+                pass
+
+    # ── Carry over what files can't tell us ───────────────────────────────────
+    # A rebuild can only infer statuses up to "qa" (from bdd files); qa_passed
+    # and deployed are gate decisions recorded solely in the index, and
+    # status_history / fix_bolt_count have no file counterpart at all.
+    for sid, entry in index.items():
+        old = old_index.get(sid)
+        if not old:
+            continue
+        if old.get("status_history"):
+            entry["status_history"] = old["status_history"]
+        if old.get("fix_bolt_count"):
+            entry["fix_bolt_count"] = old["fix_bolt_count"]
+        if old.get("phase_status") in ("qa_passed", "deployed") and entry["phase_status"] == "qa":
+            entry["phase_status"] = old["phase_status"]
 
     _save_story_index(index)
     return index

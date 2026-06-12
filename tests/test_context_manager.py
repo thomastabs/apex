@@ -249,6 +249,31 @@ class TestUpsertStoryIndex:
         raw = json.loads(ctx.STORY_INDEX_FILE.read_text(encoding="utf-8"))
         assert "42" in raw
 
+    def test_status_history_stamps_initial_status(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(42, title="S", phase_status="gherkin_locked")
+        history = ctx.get_story_index()["42"]["status_history"]
+        assert len(history["gherkin_locked"]) == 1
+
+    def test_status_history_appends_on_change_only(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(42, phase_status="gherkin_locked")
+        ctx.upsert_story_index(42, title="renamed only")          # no status change
+        ctx.upsert_story_index(42, phase_status="gherkin_locked")  # same status
+        ctx.upsert_story_index(42, phase_status="design_locked")
+        history = ctx.get_story_index()["42"]["status_history"]
+        assert len(history["gherkin_locked"]) == 1
+        assert len(history["design_locked"]) == 1
+
+    def test_status_history_preserves_reentries(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(42, phase_status="implementation")
+        ctx.upsert_story_index(42, phase_status="qa")
+        ctx.upsert_story_index(42, phase_status="implementation")  # Fix-Bolt return
+        history = ctx.get_story_index()["42"]["status_history"]
+        assert len(history["implementation"]) == 2
+        assert len(history["qa"]) == 1
+
 
 # ---------------------------------------------------------------------------
 # rebuild_story_index
@@ -302,6 +327,47 @@ class TestRebuildStoryIndex:
         ctx.init_context()
         index = ctx.rebuild_story_index()
         assert index == {}
+
+    def test_rebuild_preserves_gate_statuses_and_history(self, ctx):
+        ctx.init_context()
+        ctx.append_gherkin(10, "Story Ten", self.GHERKIN)
+        (ctx.CONTEXT_DIR / "bdd_story_10.feature").write_text("Feature: BDD\n", encoding="utf-8")
+        ctx.upsert_story_index(10, phase_status="qa")
+        ctx.upsert_story_index(10, phase_status="qa_passed", fix_bolt_count=2)
+        index = ctx.rebuild_story_index()
+        assert index["10"]["phase_status"] == "qa_passed"
+        assert index["10"]["fix_bolt_count"] == 2
+        assert "qa_passed" in index["10"]["status_history"]
+
+    def test_rebuild_preserves_deployed(self, ctx):
+        ctx.init_context()
+        ctx.append_gherkin(10, "Story Ten", self.GHERKIN)
+        (ctx.CONTEXT_DIR / "bdd_story_10.feature").write_text("Feature: BDD\n", encoding="utf-8")
+        ctx.upsert_story_index(10, phase_status="deployed")
+        index = ctx.rebuild_story_index()
+        assert index["10"]["phase_status"] == "deployed"
+
+    def test_rebuild_does_not_promote_without_bdd(self, ctx):
+        # No bdd file → recomputed status stays below qa; old qa_passed must NOT
+        # be restored because the artifact chain no longer supports it.
+        ctx.init_context()
+        ctx.append_gherkin(10, "Story Ten", self.GHERKIN)
+        ctx.upsert_story_index(10, phase_status="qa_passed")
+        index = ctx.rebuild_story_index()
+        assert index["10"]["phase_status"] == "gherkin_locked"
+
+    def test_rebuild_recovers_phase5_artifacts(self, ctx):
+        ctx.init_context()
+        ctx.append_gherkin(10, "Story Ten", self.GHERKIN)
+        (ctx.CONTEXT_DIR / "infra_delta_story_10.json").write_text(
+            json.dumps({"needs_infra_change": False, "rationale": "r", "deltas": []}),
+            encoding="utf-8",
+        )
+        (ctx.CONTEXT_DIR / "deploy_pack_story_10.md").write_text("# Pack", encoding="utf-8")
+        index = ctx.rebuild_story_index()
+        assert index["10"]["has_infra_delta"] is True
+        assert index["10"]["deploy_bypass"] is True
+        assert index["10"]["has_deploy_pack"] is True
 
 
 # ---------------------------------------------------------------------------
