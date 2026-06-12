@@ -1,5 +1,7 @@
 """Request and response schemas for Phase 4 QA endpoints."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -60,8 +62,15 @@ class GenerateBugReportResponse(BaseModel):
     bug_report_md: str
 
 
+class ScenarioResultItem(BaseModel):
+    scenario: str = Field(..., max_length=500)
+    result: Literal["pass", "fail"]
+    notes: str = Field("", max_length=5_000)
+
+
 class PassGateRequest(BaseModel):
     story_id: int
+    scenario_results: list[ScenarioResultItem] | None = None
 
 
 class FailGateRequest(BaseModel):
@@ -70,3 +79,4 @@ class FailGateRequest(BaseModel):
     root_cause: str = Field("", max_length=5_000)
     resolution_summary: str = Field("", max_length=5_000)
     push_to_pm: bool = False
+    scenario_results: list[ScenarioResultItem] | None = None

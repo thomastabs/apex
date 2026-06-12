@@ -76,11 +76,13 @@ class StubPhase4Service:
     def generate_bug_report(self, ctx, story_id, failed_scenarios):
         return _FAKE_BUG_REPORT
 
-    def pass_gate(self, ctx, story_id):
-        pass
+    def pass_gate(self, ctx, story_id, scenario_results=None):
+        self.pass_gate_args = (story_id, scenario_results)
 
-    def fail_gate(self, ctx, story_id, bug_report_md, root_cause, resolution_summary):
+    def fail_gate(self, ctx, story_id, bug_report_md, root_cause, resolution_summary,
+                  scenario_results=None):
         self.fail_gate_args = (story_id, bug_report_md, root_cause, resolution_summary)
+        self.fail_gate_scenario_results = scenario_results
 
 
 def _ctx():
@@ -156,8 +158,24 @@ def test_generate_bug_report_requires_at_least_one_scenario():
 
 
 def test_pass_gate_route():
-    result = pass_gate(PassGateRequest(story_id=10), ctx=_ctx(), service=StubPhase4Service())
+    svc = StubPhase4Service()
+    result = pass_gate(PassGateRequest(story_id=10), ctx=_ctx(), service=svc)
     assert result == {"ok": True}
+    # Bare {story_id} body (no scenario_results) must remain accepted.
+    assert svc.pass_gate_args == (10, None)
+
+
+def test_pass_gate_route_forwards_scenario_results():
+    svc = StubPhase4Service()
+    payload = PassGateRequest(
+        story_id=10,
+        scenario_results=[{"scenario": "Successful login", "result": "pass", "notes": ""}],
+    )
+    result = pass_gate(payload, ctx=_ctx(), service=svc)
+    assert result == {"ok": True}
+    assert svc.pass_gate_args[1] == [
+        {"scenario": "Successful login", "result": "pass", "notes": ""}
+    ]
 
 
 def test_fail_gate_route_passes_all_fields():

@@ -133,9 +133,16 @@ class Phase4Service:
             qa_notes=failed_text,
         )
 
-    def pass_gate(self, ctx: RequestContext, story_id: int) -> None:
+    def pass_gate(
+        self,
+        ctx: RequestContext,
+        story_id: int,
+        scenario_results: list[dict] | None = None,
+    ) -> None:
         self.configure_request(ctx)
         from src import context_manager
+        if scenario_results:
+            context_manager.save_qa_results(story_id, "pass", scenario_results)
         context_manager.upsert_story_index(story_id, phase_status="qa_passed")
         _logger.info("Phase 4 gate passed for story %s", story_id)
 
@@ -146,9 +153,12 @@ class Phase4Service:
         bug_report_md: str,
         root_cause: str,
         resolution_summary: str,
+        scenario_results: list[dict] | None = None,
     ) -> None:
         self.configure_request(ctx)
         from src import context_manager
+        if scenario_results:
+            context_manager.save_qa_results(story_id, "fail", scenario_results)
         # Save per-story bug report
         context_manager.save_bug_report(story_id, bug_report_md)
         # Append to global vaccine log

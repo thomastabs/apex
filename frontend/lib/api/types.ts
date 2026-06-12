@@ -357,10 +357,17 @@ export type Phase4GenerateBugReportResponse = {
   bug_report_md: string;
 };
 
+export type Phase4ScenarioResultItem = {
+  scenario: string;
+  result: "pass" | "fail";
+  notes?: string;
+};
+
 export type Phase4FailGateRequest = {
   story_id: number;
   bug_report_md: string;
   root_cause?: string;
   resolution_summary?: string;
   push_to_pm?: boolean;
+  scenario_results?: Phase4ScenarioResultItem[];
 };

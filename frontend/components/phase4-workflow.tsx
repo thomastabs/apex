@@ -585,8 +585,18 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
 
   const combinedBugReport = Object.values(bugReportDrafts).join("\n\n---\n\n");
 
+  // Persist the per-scenario verdicts server-side at gate time — they only
+  // exist in this browser's draft store until now.
+  const gateScenarioResults = scenarios
+    .filter((n) => scenarioResults[n] === "pass" || scenarioResults[n] === "fail")
+    .map((n) => ({
+      scenario: n,
+      result: scenarioResults[n] as "pass" | "fail",
+      notes: scenarioNotes[n] ?? "",
+    }));
+
   const handlePass = () => {
-    passGateMut.mutate(storyId, {
+    passGateMut.mutate({ storyId, scenarioResults: gateScenarioResults }, {
       onSuccess: () => {
         setRegressionBypass(false, []);
       },
@@ -607,6 +617,7 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
         bug_report_md: combinedBugReport,
         root_cause: rootCause,
         resolution_summary: `Patch scope: ${patchScope.slice(0, 300)}`,
+        scenario_results: gateScenarioResults,
       },
       {
         onSuccess: () => {

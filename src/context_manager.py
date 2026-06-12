@@ -1124,6 +1124,43 @@ def load_bdd_tests(story_id: int) -> str:
         return ""
 
 
+def save_qa_results(story_id: int, gate: str, results: list[dict]) -> Path:
+    """Append a QA execution attempt to contextspec/qa_results_story_<id>.json.
+
+    Attempts accumulate rather than overwrite so a fail-then-pass history
+    survives for the traceability matrix and analytics.
+    """
+    cd = _context_dir()
+    cd.mkdir(parents=True, exist_ok=True)
+    p = cd / f"qa_results_story_{story_id}.json"
+    data: dict = {"story_id": story_id, "attempts": []}
+    if p.exists():
+        try:
+            existing = json.loads(p.read_text(encoding="utf-8"))
+            if isinstance(existing.get("attempts"), list):
+                data = existing
+        except (json.JSONDecodeError, OSError):
+            pass
+    data["attempts"].append({
+        "recorded_at": _now_iso(),
+        "gate": gate,
+        "results": results,
+    })
+    p.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    return p
+
+
+def load_qa_results(story_id: int) -> dict | None:
+    """Load the QA results envelope for a story, None if absent/unreadable."""
+    p = _context_dir() / f"qa_results_story_{story_id}.json"
+    if not p.exists():
+        return None
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
 def save_bug_report(story_id: int, bug_md: str) -> Path:
     """Persist the Fix-Bolt artifact for a story to contextspec/bug_report_<id>.md."""
     cd = _context_dir()

@@ -131,7 +131,14 @@ def pass_gate(
     service: Phase4Service = Depends(get_phase4_service),
 ):
     try:
-        service.pass_gate(ctx, payload.story_id)
+        service.pass_gate(
+            ctx,
+            payload.story_id,
+            scenario_results=(
+                [r.model_dump() for r in payload.scenario_results]
+                if payload.scenario_results else None
+            ),
+        )
         return {"ok": True}
     except Exception as exc:
         _handle_error(exc)
@@ -150,6 +157,10 @@ def fail_gate(
             payload.bug_report_md,
             payload.root_cause,
             payload.resolution_summary,
+            scenario_results=(
+                [r.model_dump() for r in payload.scenario_results]
+                if payload.scenario_results else None
+            ),
         )
         return {"ok": True}
     except Exception as exc:

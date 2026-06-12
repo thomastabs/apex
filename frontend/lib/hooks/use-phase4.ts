@@ -17,7 +17,11 @@ import { decodeApexMeta } from "@/lib/hooks/use-phase3";
 import { useApiContext } from "@/lib/stores/session-store";
 import { usePhase4Store } from "@/lib/stores/phase4-store";
 import { toast } from "sonner";
-import type { Phase4FailGateRequest, Phase4FailedScenario } from "@/lib/api/types";
+import type {
+  Phase4FailGateRequest,
+  Phase4FailedScenario,
+  Phase4ScenarioResultItem,
+} from "@/lib/api/types";
 
 export function useEligibleStories() {
   const context = useApiContext();
@@ -128,7 +132,10 @@ export function usePassGate() {
   const context = useApiContext();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (storyId: number) => passGate(context!, storyId),
+    mutationFn: ({ storyId, scenarioResults }: {
+      storyId: number;
+      scenarioResults?: Phase4ScenarioResultItem[];
+    }) => passGate(context!, storyId, scenarioResults),
     onSuccess: () => {
       toast.success("Testing Gate passed — story ready for production.");
       void qc.invalidateQueries({ queryKey: ["phase4", "eligible-stories"] });

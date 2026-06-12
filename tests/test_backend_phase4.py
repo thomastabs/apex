@@ -266,3 +266,27 @@ def test_fail_gate_skips_vaccine_when_no_root_cause(ctx):
     svc.fail_gate(_ctx(), 10, _FAKE_BUG_REPORT, "", "")
     assert ctx.load_bug_report(10) == _FAKE_BUG_REPORT
     assert "## Vaccine #" not in ctx.get_vaccines()
+
+
+def test_pass_gate_persists_scenario_results(ctx):
+    ctx.init_context()
+    svc = Phase4Service(ai=FakeAiService(), context=FakeContextService())
+    svc.pass_gate(_ctx(), 10, scenario_results=[
+        {"scenario": "Successful login", "result": "pass", "notes": ""},
+    ])
+    data = ctx.load_qa_results(10)
+    assert data["attempts"][0]["gate"] == "pass"
+    assert data["attempts"][0]["results"][0]["scenario"] == "Successful login"
+
+
+def test_qa_results_accumulate_fail_then_pass(ctx):
+    ctx.init_context()
+    svc = Phase4Service(ai=FakeAiService(), context=FakeContextService())
+    svc.fail_gate(_ctx(), 10, _FAKE_BUG_REPORT, "", "", scenario_results=[
+        {"scenario": "Successful login", "result": "fail", "notes": "500 on submit"},
+    ])
+    svc.pass_gate(_ctx(), 10, scenario_results=[
+        {"scenario": "Successful login", "result": "pass", "notes": ""},
+    ])
+    data = ctx.load_qa_results(10)
+    assert [a["gate"] for a in data["attempts"]] == ["fail", "pass"]

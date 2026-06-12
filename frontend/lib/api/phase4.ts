@@ -5,6 +5,7 @@ import type {
   Phase4GenerateBugReportRequest,
   Phase4GenerateBugReportResponse,
   Phase4GenerateTestPlanResponse,
+  Phase4ScenarioResultItem,
   Phase4StoryContext,
   Phase4TestPlanResponse,
   RequestContext,
@@ -50,11 +51,18 @@ export function generateBugReport(context: RequestContext, body: Phase4GenerateB
   });
 }
 
-export function passGate(context: RequestContext, storyId: number) {
+export function passGate(
+  context: RequestContext,
+  storyId: number,
+  scenarioResults?: Phase4ScenarioResultItem[],
+) {
   return apiRequest<{ ok: boolean }>("/api/phase4/pass-gate", {
     method: "POST",
     context,
-    body: { story_id: storyId },
+    body: {
+      story_id: storyId,
+      ...(scenarioResults?.length ? { scenario_results: scenarioResults } : {}),
+    },
   });
 }
 
