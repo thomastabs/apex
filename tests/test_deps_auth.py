@@ -188,6 +188,15 @@ def test_config_taiga_url_used_when_env_unset(monkeypatch):
     assert url == "https://api.taiga.example.org/api/v1/users/me"
 
 
+def test_header_taiga_url_anchors_identity(monkeypatch):
+    monkeypatch.setenv("TAIGA_API_URL", "https://api.taiga.io")
+    pm, client = _mock_pm(200)
+    with pm, _taiga_config(), _no_dns():
+        deps.get_auth_context("Bearer privatetoken", "https://private.example.org")
+    url = client.get.call_args.args[0]
+    assert url == "https://private.example.org/api/v1/users/me"
+
+
 def test_env_wins_over_config(monkeypatch):
     monkeypatch.setenv("TAIGA_API_URL", "https://env-tunnel.trycloudflare.com")
     config = {"pm_tool": "taiga", "taiga_url": "https://config.example.org"}
@@ -195,6 +204,19 @@ def test_env_wins_over_config(monkeypatch):
     with pm, patch("src.context_manager.load_config", return_value=config), _no_dns():
         deps.get_auth_context("Bearer sometoken")
     assert client.get.call_args.args[0].startswith("https://env-tunnel.trycloudflare.com")
+
+
+def test_token_cache_is_scoped_to_identity_anchor(monkeypatch):
+    monkeypatch.delenv("TAIGA_API_URL", raising=False)
+    pm, client = _mock_pm(200)
+    with pm, _taiga_config(), _no_dns():
+        deps.get_auth_context("Bearer same-token", "https://one.example.org")
+        deps.get_auth_context("Bearer same-token", "https://two.example.org")
+    urls = [call.args[0] for call in client.get.call_args_list]
+    assert urls == [
+        "https://one.example.org/api/v1/users/me",
+        "https://two.example.org/api/v1/users/me",
+    ]
 
 
 def test_default_anchor_is_taiga_cloud(monkeypatch):

@@ -70,11 +70,11 @@ export function saveServerConfig(context: AuthContext, projectId: number) {
   });
 }
 
-export function savePmConfig(context: AuthContext, opts: { pmTool: "taiga" | "jira"; jiraBaseUrl?: string }) {
+export function savePmConfig(context: AuthContext, opts: { pmTool: "taiga" | "jira"; taigaUrl?: string; jiraBaseUrl?: string }) {
   return apiRequest<{ ok: boolean }>("/api/workspace/config", {
     method: "POST",
     context,
-    body: { pm_tool: opts.pmTool, jira_base_url: opts.jiraBaseUrl ?? "" },
+    body: { pm_tool: opts.pmTool, taiga_url: opts.taigaUrl ?? "", jira_base_url: opts.jiraBaseUrl ?? "" },
   });
 }
 

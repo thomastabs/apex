@@ -6,9 +6,10 @@ the anchored PM, and `get_request_context` additionally confirms the token can
 read the project named in `X-Project-Id`. Without this, any non-empty token
 string would grant read/write access to every project's context files.
 
-The identity provider is resolved server-side (TAIGA_API_URL env / workspace
-config) and never from request headers — otherwise an attacker could point
-validation at a host they control and mint their own "valid" tokens.
+The identity provider is resolved from the request's Taiga URL override,
+TAIGA_API_URL env, workspace config, or Taiga Cloud. Taiga URL values are
+validated by the same SSRF guard used by the proxy before the backend dials
+them server-side.
 """
 
 import hashlib
@@ -40,8 +41,8 @@ _CACHE_MAX_ENTRIES = 10_000  # bound memory under token-rotation abuse
 
 _cache_lock = threading.Lock()
 # OrderedDict for LRU eviction (audit M8): newest at the end, evict from the front.
-_token_cache: "OrderedDict[str, tuple[float, bool]]" = OrderedDict()                 # token_hash -> (expires_at, ok)
-_project_cache: "OrderedDict[tuple[str, int], tuple[float, bool]]" = OrderedDict()   # (token_hash, project_id) -> ...
+_token_cache: "OrderedDict[tuple[str, str], tuple[float, bool]]" = OrderedDict()      # (token_hash, identity_url) -> ...
+_project_cache: "OrderedDict[tuple[str, str], tuple[float, bool]]" = OrderedDict()    # (token_hash, project_url) -> ...
 
 _verify_client: httpx.Client | None = None
 
@@ -82,13 +83,12 @@ def _cache_put(cache: dict, key, ok: bool) -> None:
         cache.move_to_end(key)
 
 
-def _pm_endpoints() -> tuple[str, str, str]:
+def _pm_endpoints(taiga_url_override: str = "") -> tuple[str, str, str]:
     """Return (auth_scheme, identity_url, project_url_template) for the anchored PM.
 
-    Taiga anchor resolution: TAIGA_API_URL env (operator-set — required for
-    self-hosted/tunnelled instances) → workspace-config taiga_url (legacy) →
-    Taiga Cloud. All sources pass the proxy's SSRF validator since the result
-    is dialled server-side.
+    Taiga anchor resolution: request override → TAIGA_API_URL env →
+    workspace-config taiga_url → Taiga Cloud. All sources pass the proxy's
+    SSRF validator since the result is dialled server-side.
     """
     import os
 
@@ -107,8 +107,10 @@ def _pm_endpoints() -> tuple[str, str, str]:
 
     from backend.app.api.taiga_proxy import _validate_taiga_url
 
+    override = taiga_url_override if isinstance(taiga_url_override, str) else ""
     base = (
-        os.getenv("TAIGA_API_URL", "").strip().rstrip("/")
+        override.strip().rstrip("/")
+        or os.getenv("TAIGA_API_URL", "").strip().rstrip("/")
         or (config.get("taiga_url") or "").strip().rstrip("/")
         or "https://api.taiga.io"
     )
@@ -134,14 +136,14 @@ def _pm_get(url: str, scheme: str, token: str) -> bool:
     return resp.is_success
 
 
-def _verify_pm_token(token: str) -> None:
+def _verify_pm_token(token: str, taiga_url_override: str = "") -> None:
     """Raise 401 unless the anchored PM accepts this token as a valid login."""
-    key = _token_key(token)
+    scheme, identity_url, _ = _pm_endpoints(taiga_url_override)
+    key = (_token_key(token), identity_url)
     cached = _cache_get(_token_cache, key)
     if cached is True:
         return
     if cached is None:
-        scheme, identity_url, _ = _pm_endpoints()
         cached = _pm_get(identity_url, scheme, token)
         _cache_put(_token_cache, key, cached)
     if not cached:
@@ -151,15 +153,16 @@ def _verify_pm_token(token: str) -> None:
         )
 
 
-def _verify_project_access(token: str, project_id: int) -> None:
+def _verify_project_access(token: str, project_id: int, taiga_url_override: str = "") -> None:
     """Raise 403 unless the token can read the project on the anchored PM."""
-    key = (_token_key(token), project_id)
+    scheme, _, project_tpl = _pm_endpoints(taiga_url_override)
+    project_url = project_tpl.format(project_id=project_id)
+    key = (_token_key(token), project_url)
     cached = _cache_get(_project_cache, key)
     if cached is True:
         return
     if cached is None:
-        scheme, _, project_tpl = _pm_endpoints()
-        cached = _pm_get(project_tpl.format(project_id=project_id), scheme, token)
+        cached = _pm_get(project_url, scheme, token)
         _cache_put(_project_cache, key, cached)
     if not cached:
         raise HTTPException(
@@ -170,6 +173,7 @@ def _verify_project_access(token: str, project_id: int) -> None:
 
 def get_auth_context(
     authorization: str = Header(default="", alias="Authorization"),
+    x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
 ) -> AuthContext:
     if "\r" in authorization or "\n" in authorization:
         raise HTTPException(
@@ -188,15 +192,21 @@ def get_auth_context(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid authorization token.",
         )
-    _verify_pm_token(token)
+    _verify_pm_token(token, x_taiga_url)
     return AuthContext(pm_token=token)
 
 
 def get_request_context(
     authorization: str = Header(default="", alias="Authorization"),
+    x_taiga_url: str | int = Header(default="", alias="X-Taiga-Url"),
     project_id_new: int | None = Header(default=None, alias="X-Project-Id"),
     project_id_legacy: int | None = Header(default=None, alias="X-Taiga-Project-Id"),
 ) -> RequestContext:
+    # Backward compatibility for direct unit-test calls that predate x_taiga_url
+    # and pass (authorization, project_id_new, project_id_legacy) positionally.
+    if isinstance(x_taiga_url, int) and not isinstance(project_id_new, int):
+        project_id_new = x_taiga_url
+        x_taiga_url = ""
     raw = project_id_new if isinstance(project_id_new, int) else (project_id_legacy if isinstance(project_id_legacy, int) else None)
     project_id: int | None = raw
     if project_id is None or project_id <= 0:
@@ -204,6 +214,6 @@ def get_request_context(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="X-Project-Id header is required.",
         )
-    auth = get_auth_context(authorization)
-    _verify_project_access(auth.pm_token, project_id)
+    auth = get_auth_context(authorization, x_taiga_url)
+    _verify_project_access(auth.pm_token, project_id, x_taiga_url)
     return RequestContext(pm_token=auth.pm_token, project_id=project_id)

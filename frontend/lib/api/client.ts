@@ -51,6 +51,9 @@ export async function apiRequest<T>(
   if (context?.taigaToken) {
     headers.Authorization = `Bearer ${context.taigaToken}`;
   }
+  if (context?.pmTool !== "jira" && context?.taigaApiUrl) {
+    headers["X-Taiga-Url"] = context.taigaApiUrl;
+  }
   if (context && "projectId" in context && context.projectId) {
     headers["X-Project-Id"] = String(context.projectId);
     headers["X-Taiga-Project-Id"] = String(context.projectId);

@@ -27,6 +27,7 @@ class SaveAiConfigRequest(BaseModel):
 class SaveConfigRequest(BaseModel):
     project_id: int | None = None
     pm_tool: str | None = Field(None, max_length=20)
+    taiga_url: str | None = Field(None, max_length=2_048)
     jira_base_url: str | None = Field(None, max_length=2_048)
     github_repo: str | None = Field(None, max_length=255)
 

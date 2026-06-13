@@ -246,7 +246,7 @@ class TestSaveConfigValidation:
     def test_save_valid_jira_url_accepted(self, client):
         saved: dict = {}
 
-        def fake_save_pm_config(pm_tool=None, jira_base_url=None):
+        def fake_save_pm_config(pm_tool=None, jira_base_url=None, taiga_url=None):
             saved["pm_tool"] = pm_tool
             saved["jira_base_url"] = jira_base_url
 

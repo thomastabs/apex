@@ -255,13 +255,19 @@ def save_config(project_id: int) -> None:
     _update_config(_mutate, log_label="save_config")
 
 
-def save_pm_config(pm_tool: str | None = None, jira_base_url: str | None = None) -> None:
-    """Persist PM tool selection and Jira base URL to the shared config file."""
+def save_pm_config(
+    pm_tool: str | None = None,
+    jira_base_url: str | None = None,
+    taiga_url: str | None = None,
+) -> None:
+    """Persist PM tool selection and PM base URLs to the shared config file."""
     def _mutate(data: dict) -> None:
         if pm_tool is not None:
             data["pm_tool"] = pm_tool
         if jira_base_url is not None:
             data["jira_base_url"] = jira_base_url
+        if taiga_url is not None:
+            data["taiga_url"] = taiga_url
     _update_config(_mutate, log_label="save_pm_config")
 
 

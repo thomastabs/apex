@@ -90,17 +90,21 @@ def save_ai_config_endpoint(payload: SaveAiConfigRequest, auth: AuthContext = De
 @router.post("/config", response_model=OkResponse)
 def save_config(payload: SaveConfigRequest, auth: AuthContext = Depends(get_auth_context)):
     from backend.app.api.jira_proxy import validate_jira_base_url
+    from backend.app.api.taiga_proxy import _validate_taiga_url
     from src import context_manager
     if payload.project_id:
         context_manager.save_config(payload.project_id)
-    if payload.pm_tool is not None or payload.jira_base_url is not None:
+    if payload.pm_tool is not None or payload.jira_base_url is not None or payload.taiga_url is not None:
         # Empty string clears the URL (sent when switching back to Taiga);
         # anything else must pass the same SSRF guard as the proxy paths.
         if payload.jira_base_url:
             validate_jira_base_url(payload.jira_base_url, source="jira_base_url")
+        if payload.taiga_url:
+            _validate_taiga_url(payload.taiga_url, source="taiga_url")
         context_manager.save_pm_config(
             pm_tool=payload.pm_tool,
             jira_base_url=payload.jira_base_url,
+            taiga_url=payload.taiga_url,
         )
     if payload.github_repo is not None:
         context_manager.save_github_config(payload.github_repo)

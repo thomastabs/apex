@@ -151,6 +151,11 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
       });
       setPassword("");
       setUsername("");
+      await apiRequest("/api/workspace/config", {
+        method: "POST",
+        context: { taigaToken: token, taigaApiUrl: effectiveTaigaApiUrl, pmTool: "taiga" },
+        body: { pm_tool: "taiga", taiga_url: effectiveTaigaApiUrl, jira_base_url: "" },
+      }).catch(() => undefined);
       setAuth({ taigaToken: token, taigaApiUrl: effectiveTaigaApiUrl, pmTool: "taiga" });
     } catch {
       setLoginError("Cannot reach Apex backend — check your network.");
@@ -351,7 +356,13 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
               if (mode === "password") {
                 handlePasswordLogin();
               } else if (tokenInput.trim()) {
-                setAuth({ taigaToken: tokenInput.trim(), taigaApiUrl: effectiveTaigaApiUrl, pmTool: "taiga" });
+                const token = tokenInput.trim();
+                void apiRequest("/api/workspace/config", {
+                  method: "POST",
+                  context: { taigaToken: token, taigaApiUrl: effectiveTaigaApiUrl, pmTool: "taiga" },
+                  body: { pm_tool: "taiga", taiga_url: effectiveTaigaApiUrl, jira_base_url: "" },
+                }).catch(() => undefined);
+                setAuth({ taigaToken: token, taigaApiUrl: effectiveTaigaApiUrl, pmTool: "taiga" });
               }
             }}
           >

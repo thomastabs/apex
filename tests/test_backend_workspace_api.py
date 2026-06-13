@@ -179,7 +179,7 @@ def test_save_config_validates_jira_base_url_against_ssrf(monkeypatch):
     )
     monkeypatch.setattr(
         "src.context_manager.save_pm_config",
-        lambda *, pm_tool, jira_base_url: None,
+        lambda *, pm_tool, jira_base_url, taiga_url: None,
     )
 
     response = save_config(
@@ -188,6 +188,28 @@ def test_save_config_validates_jira_base_url_against_ssrf(monkeypatch):
 
     assert response == {"ok": True}
     assert validated == ["https://acme.atlassian.net"]
+
+
+def test_save_config_validates_and_saves_taiga_url(monkeypatch):
+    validated: list[str] = []
+    saved: list[tuple[str | None, str | None, str | None]] = []
+    monkeypatch.setattr(
+        "backend.app.api.taiga_proxy._validate_taiga_url",
+        lambda url, source: validated.append(url),
+    )
+    monkeypatch.setattr(
+        "src.context_manager.save_pm_config",
+        lambda *, pm_tool, jira_base_url, taiga_url: saved.append((pm_tool, jira_base_url, taiga_url)),
+    )
+
+    response = save_config(
+        SaveConfigRequest(pm_tool="taiga", taiga_url="https://private.example.org/api/v1", jira_base_url=""),
+        _AUTH,
+    )
+
+    assert response == {"ok": True}
+    assert validated == ["https://private.example.org/api/v1"]
+    assert saved == [("taiga", "", "https://private.example.org/api/v1")]
 
 
 # ── context-file routes: unknown filename guard ───────────────────────────────
