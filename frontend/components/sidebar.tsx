@@ -96,7 +96,9 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
   const [pmTool, setPmTool] = useState<"taiga" | "jira">(storedPmTool);
   // Sync local selector state when store changes (e.g. after sign-out resets pmTool)
   useEffect(() => { setPmTool(storedPmTool); }, [storedPmTool]);
-  const [mode, setMode] = useState<"password" | "token">("password");
+  // Default to token login — it sends no password through the Apex backend
+  // (security gap #1). Password mode stays one click away as the fallback.
+  const [mode, setMode] = useState<"password" | "token">("token");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [tokenInput, setTokenInput] = useState(pmTool === "taiga" ? taigaToken : "");

@@ -4,6 +4,7 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from backend.app.main import app
@@ -209,6 +210,54 @@ class TestProxyTaigaCatchAll:
         assert "X-Taiga-Url" in resp.json().get("detail", "")
 
 
+def _mock_auth_upstream(status_code: int, body: dict):
+    resp = MagicMock()
+    resp.content = json.dumps(body).encode()
+    resp.status_code = status_code
+    resp.is_success = 200 <= status_code < 300
+    resp.json = MagicMock(return_value=body)
+    return resp
+
+
+class TestUsernameBruteForce:
+    """Per-account credential-stuffing throttle (security gap #2): forging
+    X-Forwarded-For must not let an attacker bypass it for one account."""
+
+    URL = "https://taiga.example.test"
+
+    def test_per_username_throttle_unit(self):
+        from backend.app.api import rate_limit as rl
+        for _ in range(rl._MAX_AUTH_FAILURES_PER_USER):
+            rl.record_username_failure("victim")
+        with pytest.raises(HTTPException) as exc:
+            rl.check_username_failures("victim")
+        assert exc.value.status_code == 429
+        # A different account is untouched.
+        rl.check_username_failures("someone-else")
+
+    def test_username_match_is_case_insensitive(self):
+        from backend.app.api import rate_limit as rl
+        for _ in range(rl._MAX_AUTH_FAILURES_PER_USER):
+            rl.record_username_failure("Victim")
+        with pytest.raises(HTTPException):
+            rl.check_username_failures("victim ")  # normalised before hashing
+
+    def test_ip_rotation_does_not_bypass_account_throttle(self, client):
+        from backend.app.api import rate_limit as rl
+        patcher, _ = _patch_client(_mock_auth_upstream(401, {"_error_message": "bad creds"}))
+        with patcher:
+            last = None
+            for i in range(rl._MAX_AUTH_FAILURES_PER_USER + 1):
+                last = client.post(
+                    "/api/pm/taiga/auth",
+                    json={"username": "victim", "password": "guess", "type": "normal"},
+                    headers={"X-Taiga-Url": self.URL, "X-Forwarded-For": f"203.0.113.{i}"},
+                )
+        # Each attempt came from a distinct (spoofed) IP, yet the account-keyed
+        # counter still trips once the per-user ceiling is hit.
+        assert last is not None and last.status_code == 429
+
+
 class TestTaigaConfigPathSsrf:
     """The workspace-config URL is user-writable — it must pass the same
     SSRF guard as the X-Taiga-Url header (audit C3)."""
@@ -360,10 +409,18 @@ class TestAuthBruteForceProtection:
         upstream = self._auth_upstream(401, {"detail": "bad credentials"})
         patcher, _ = _patch_client(upstream)
         from backend.app.api import rate_limit
+        # Distinct usernames per attempt so the per-account failure throttle
+        # never trips — this isolates the per-IP *attempt* cap.
+        def _login_as(name: str):
+            return client.post(
+                "/api/pm/taiga/auth",
+                json={"username": name, "password": "wrong", "type": "normal"},
+                headers={"X-Taiga-Url": self.URL},
+            )
         with patcher:
-            for _ in range(rate_limit._MAX_AUTH_ATTEMPTS_PER_IP):
-                assert self._login(client).status_code == 401
-            resp = self._login(client)
+            for i in range(rate_limit._MAX_AUTH_ATTEMPTS_PER_IP):
+                assert _login_as(f"user{i}").status_code == 401
+            resp = _login_as("user-final")
         assert resp.status_code == 429
         assert "sign-in attempts" in resp.json()["detail"]
 

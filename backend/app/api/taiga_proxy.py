@@ -12,7 +12,13 @@ import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
 from pydantic import BaseModel
 
-from backend.app.api.rate_limit import auth_rate_limit, check_auth_failures, record_auth_failure
+from backend.app.api.rate_limit import (
+    auth_rate_limit,
+    check_auth_failures,
+    check_username_failures,
+    record_auth_failure,
+    record_username_failure,
+)
 from backend.app.api.ssrf import is_blocked_host
 
 router = APIRouter()
@@ -101,6 +107,7 @@ async def proxy_taiga_auth(
 ) -> dict:
     """Forward a Taiga username/password login request server-side to avoid CORS."""
     check_auth_failures(request)
+    check_username_failures(payload.username)
     if not x_taiga_url:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -127,6 +134,7 @@ async def proxy_taiga_auth(
     if not resp.is_success:
         if resp.status_code in (400, 401, 403):
             record_auth_failure(request)
+            record_username_failure(payload.username)
         error_msg = (
             data.get("_error_message")
             or data.get("detail")

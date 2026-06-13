@@ -18,8 +18,8 @@ def _bypass_pm_auth(request, monkeypatch):
         return
     from backend.app.api import deps
 
-    monkeypatch.setattr(deps, "_verify_pm_token", lambda token: None)
-    monkeypatch.setattr(deps, "_verify_project_access", lambda token, project_id: None)
+    monkeypatch.setattr(deps, "_verify_pm_token", lambda token, taiga_url_override="": None)
+    monkeypatch.setattr(deps, "_verify_project_access", lambda token, project_id, taiga_url_override="": None)
     yield
 
 
@@ -31,9 +31,11 @@ def _reset_rate_limit_buckets():
 
     rate_limit._buckets.clear()
     rate_limit._failure_buckets.clear()
+    rate_limit._username_failure_buckets.clear()
     yield
     rate_limit._buckets.clear()
     rate_limit._failure_buckets.clear()
+    rate_limit._username_failure_buckets.clear()
 
 
 @pytest.fixture(autouse=True)

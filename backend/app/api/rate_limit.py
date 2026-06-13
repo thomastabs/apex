@@ -25,10 +25,15 @@ _MAX_AI_REQUESTS_PER_IP = 30  # per source address, across all tokens
 # Credential brute-force protection for the PM auth relays.
 _MAX_AUTH_ATTEMPTS_PER_IP = 10   # login attempts per IP per minute (Taiga /auth)
 _MAX_AUTH_FAILURES_PER_IP = 15   # upstream credential rejections per IP per window
+_MAX_AUTH_FAILURES_PER_USER = 8  # upstream rejections targeting one account per window
 _FAILURE_WINDOW_SECS = 300
 # Separate dict: the AI limiter prunes its buckets on the 60s window, which
 # would wipe failure counters early if they shared storage.
 _failure_buckets: dict[str, tuple[float, int]] = {}
+# Per-account failure counter. The per-IP limiter is bypassable by forging
+# X-Forwarded-For (one account stuffed "from many IPs"); the username is the
+# resource under attack and cannot be spoofed, so this closes that gap.
+_username_failure_buckets: dict[str, tuple[float, int]] = {}
 
 
 def _client_ip(request: Request) -> str:
@@ -101,6 +106,48 @@ def record_auth_failure(request: Request) -> None:
             _failure_buckets[key] = (now, 1)
         else:
             _failure_buckets[key] = (hit[0], hit[1] + 1)
+
+
+def _username_key(username: str) -> str:
+    # Normalise case/whitespace and hash so the bucket store never holds the
+    # raw account names in memory.
+    norm = (username or "").strip().lower()
+    return "userfail:" + hashlib.sha256(norm.encode()).hexdigest()[:16]
+
+
+def check_username_failures(username: str) -> None:
+    """Raise 429 when one account has accumulated too many credential rejections.
+
+    IP-independent, so forging X-Forwarded-For cannot spread a stuffing attack
+    against a single account across fake source addresses.
+    """
+    key = _username_key(username)
+    now = time.monotonic()
+    with _lock:
+        hit = _username_failure_buckets.get(key)
+        if hit is None:
+            return
+        window_start, count = hit
+        if now - window_start > _FAILURE_WINDOW_SECS:
+            del _username_failure_buckets[key]
+            return
+        if count >= _MAX_AUTH_FAILURES_PER_USER:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many failed sign-in attempts for this account. Try again later.",
+            )
+
+
+def record_username_failure(username: str) -> None:
+    """Count one upstream credential rejection against the targeted account."""
+    key = _username_key(username)
+    now = time.monotonic()
+    with _lock:
+        hit = _username_failure_buckets.get(key)
+        if hit is None or now - hit[0] > _FAILURE_WINDOW_SECS:
+            _username_failure_buckets[key] = (now, 1)
+        else:
+            _username_failure_buckets[key] = (hit[0], hit[1] + 1)
 
 
 def ai_rate_limit(request: Request, auth: AuthContext = Depends(get_auth_context)) -> None:

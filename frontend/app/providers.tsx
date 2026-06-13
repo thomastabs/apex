@@ -3,6 +3,13 @@
 import { QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { toast, Toaster } from "sonner";
+import { useIdleLogout } from "@/lib/hooks/use-idle-logout";
+
+/** Runs inside the QueryClientProvider so the idle timer can clear caches. */
+function IdleGuard() {
+  useIdleLogout();
+  return null;
+}
 
 export function AppProviders({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -29,6 +36,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <IdleGuard />
       {children}
       <Toaster position="bottom-right" richColors closeButton />
     </QueryClientProvider>
