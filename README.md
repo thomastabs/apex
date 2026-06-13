@@ -410,14 +410,78 @@ Open:
 
 Use this to verify Apex works correctly against a self-hosted Taiga deployment (e.g. `taiga.yourcompany.com`) before going to production. The Apex backend proxy enforces `https://` on all Taiga URLs, so a Cloudflare tunnel is required to expose the local instance — no domain or Cloudflare account needed.
 
-#### 1. Install cloudflared (one-time)
+#### Automated setup
+
+From the repository root:
+
+```bash
+scripts/private-taiga-cloud.sh --install-cloudflared --with-frontend
+```
+
+The script:
+
+- installs `cloudflared` into `~/.local/bin` if missing
+- clones `taigaio/taiga-docker` into `~/taiga-docker` if missing
+- disables Taiga telemetry in `~/taiga-docker/.env`
+- starts Taiga with Docker Compose
+- runs Taiga migrations
+- creates or updates an admin user
+- starts a temporary `trycloudflare.com` HTTPS tunnel
+- starts the Apex backend with `TAIGA_API_URL` anchored to that tunnel
+- optionally starts the frontend on `http://localhost:3000`
+
+Defaults:
+
+```text
+Taiga checkout: ~/taiga-docker
+Taiga username: admin
+Taiga email:    admin@localhost.com
+Taiga password: yourpassword
+Backend:        http://localhost:8000
+Frontend:       http://localhost:3000 when --with-frontend is used
+```
+
+Customize credentials or paths with flags:
+
+```bash
+scripts/private-taiga-cloud.sh \
+  --username admin \
+  --email admin@localhost.com \
+  --password yourpassword \
+  --taiga-dir ~/taiga-docker \
+  --with-frontend
+```
+
+Or with environment variables:
+
+```bash
+TAIGA_ADMIN_PASSWORD='change-me' WITH_FRONTEND=1 scripts/private-taiga-cloud.sh
+```
+
+When the script prints `Private Taiga test stack is running`, configure Apex:
+
+- PM tool: **Taiga**
+- Taiga instance URL: the printed `https://...trycloudflare.com` URL
+- Username / password: the printed Taiga credentials
+
+Press `Ctrl+C` in the script terminal to stop the tunnel and Apex processes. Taiga Docker services keep running; stop them with:
+
+```bash
+cd ~/taiga-docker && docker compose down
+```
+
+#### Manual setup
+
+Use these commands if you need to debug or run each step yourself.
+
+##### 1. Install cloudflared (one-time)
 
 ```bash
 curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /tmp/cloudflared
 chmod +x /tmp/cloudflared && sudo mv /tmp/cloudflared /usr/local/bin/cloudflared
 ```
 
-#### 2. Run a local Taiga instance via Docker
+##### 2. Run a local Taiga instance via Docker
 
 ```bash
 git clone https://github.com/taigaio/taiga-docker ~/taiga-docker
@@ -438,7 +502,7 @@ User.objects.create_superuser('admin','admin@localhost.com','yourpassword')
 
 Taiga is now accessible at `http://localhost:9000`.
 
-#### 3. Start the Cloudflare tunnel
+##### 3. Start the Cloudflare tunnel
 
 ```bash
 # Run while testing — URL changes on each restart
@@ -447,7 +511,7 @@ cloudflared tunnel --url http://localhost:9000
 
 The tunnel prints a stable public URL like `https://xxxx-xxxx.trycloudflare.com`.
 
-#### 4. Start the Apex backend anchored to the tunnel
+##### 4. Start the Apex backend anchored to the tunnel
 
 The backend validates every request's PM credentials against a server-side
 "identity anchor" (it never trusts a client-supplied URL for this). For a
@@ -463,7 +527,7 @@ private-instance logins get 401 on all phase/workspace endpoints. The quick
 tunnel URL changes on each `cloudflared` restart — restart the backend with
 the new value when it does.
 
-#### 5. Configure Apex
+##### 5. Configure Apex
 
 In the Apex sidebar:
 - PM tool: **Taiga**
