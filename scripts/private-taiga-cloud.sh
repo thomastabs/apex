@@ -203,7 +203,8 @@ user.is_staff = True
 user.is_superuser = True
 user.set_password(password)
 user.save()
-print(f"{username} {'created' if created else 'updated'}")
+status = "created" if created else "updated"
+print(f"{username} {status}")
 '
 }
 
