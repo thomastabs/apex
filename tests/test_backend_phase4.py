@@ -64,6 +64,36 @@ class FakeContextService:
     def load_bdd_tests(self, story_id: int) -> str:
         return _FAKE_TEST_PLAN
 
+    # Writes delegate to the real context_manager (the `ctx` fixture points it
+    # at tmp_path) so the write-path tests can assert through `ctx`.
+    def save_bdd_tests(self, story_id: int, test_script: str) -> None:
+        from src import context_manager
+        context_manager.save_bdd_tests(story_id, test_script)
+
+    def delete_bdd_tests(self, story_id: int) -> None:
+        from src import context_manager
+        context_manager.delete_bdd_tests(story_id)
+
+    def save_qa_results(self, story_id: int, gate: str, results: list[dict]) -> None:
+        from src import context_manager
+        context_manager.save_qa_results(story_id, gate, results)
+
+    def save_bug_report(self, story_id: int, bug_md: str) -> None:
+        from src import context_manager
+        context_manager.save_bug_report(story_id, bug_md)
+
+    def increment_story_counter(self, story_id: int, field: str = "fix_bolt_count") -> int:
+        from src import context_manager
+        return context_manager.increment_story_counter(story_id, field)
+
+    def append_vaccine_record(self, issue_id: int, root_cause: str, resolution_summary: str) -> None:
+        from src import context_manager
+        context_manager.append_vaccine_record(issue_id, root_cause, resolution_summary)
+
+    def upsert_story_index(self, story_id: int, **updates) -> None:
+        from src import context_manager
+        context_manager.upsert_story_index(story_id, **updates)
+
 
 def _story_index(status: str = "implementation", **extra) -> dict:
     entry = {

@@ -942,6 +942,58 @@ class TestConfig:
         finally:
             cm._active_project_id.reset(token)
 
+    # ── H4: TTL cache + write serialisation ──────────────────────────────────
+
+    def test_load_caches_within_ttl(self, tmp_path, monkeypatch):
+        """A second load within the TTL must not re-read the file (the Azure
+        File Share read is the cost H4 removes)."""
+        import json
+        from src import context_manager as cm
+        f = tmp_path / ".apex-config.json"
+        f.write_text(json.dumps({"project_id": 1}), encoding="utf-8")
+        monkeypatch.setattr(cm, "_CONFIG_FILE", f)
+
+        assert cm.load_config()["project_id"] == 1
+        # Edit the file behind the cache's back; within TTL the cached value stands.
+        f.write_text(json.dumps({"project_id": 2}), encoding="utf-8")
+        assert cm.load_config()["project_id"] == 1
+        # Explicit invalidation forces a fresh read.
+        cm._invalidate_config_cache()
+        assert cm.load_config()["project_id"] == 2
+
+    def test_load_returns_copy_not_cached_object(self, tmp_path, monkeypatch):
+        """Callers (save_* read-modify-write) mutate the returned dict; that must
+        not corrupt the cached config."""
+        import json
+        from src import context_manager as cm
+        f = tmp_path / ".apex-config.json"
+        f.write_text(json.dumps({"project_id": 1}), encoding="utf-8")
+        monkeypatch.setattr(cm, "_CONFIG_FILE", f)
+
+        first = cm.load_config()
+        first["mutated"] = True
+        assert "mutated" not in cm.load_config()
+
+    def test_save_primes_cache_with_written_value(self, tmp_path, monkeypatch):
+        from src import context_manager as cm
+        monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
+        monkeypatch.setattr(cm, "_CONFIG_FILE", tmp_path / ".apex-config.json")
+        cm.save_pm_config(pm_tool="jira", jira_base_url="https://acme.atlassian.net")
+        cfg = cm.load_config()
+        assert cfg["pm_tool"] == "jira"
+        assert cfg["jira_base_url"] == "https://acme.atlassian.net"
+
+    def test_sequential_saves_preserve_each_others_fields(self, tmp_path, monkeypatch):
+        """Serialised read-modify-write: one save must not drop another's field."""
+        from src import context_manager as cm
+        monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
+        monkeypatch.setattr(cm, "_CONFIG_FILE", tmp_path / ".apex-config.json")
+        cm.save_config(42)
+        cm.save_pm_config(pm_tool="taiga")
+        cm.save_github_config("owner/repo")
+        cfg = cm.load_config()
+        assert cfg == {"project_id": 42, "pm_tool": "taiga", "github_repo": "owner/repo"}
+
 
 # ---------------------------------------------------------------------------
 # init_context no-op when no project selected

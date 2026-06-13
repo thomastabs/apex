@@ -97,14 +97,12 @@ class Phase4Service:
 
     def save_test_plan(self, ctx: RequestContext, story_id: int, test_plan_md: str) -> None:
         self.configure_request(ctx)
-        from src import context_manager
-        context_manager.save_bdd_tests(story_id, test_plan_md)
+        self.context.save_bdd_tests(story_id, test_plan_md)
 
     def delete_test_plan(self, ctx: RequestContext, story_id: int) -> None:
         """Clear a story's test plan; rolls qa status back to implementation."""
         self.configure_request(ctx)
-        from src import context_manager
-        context_manager.delete_bdd_tests(story_id)
+        self.context.delete_bdd_tests(story_id)
         _logger.info("Phase 4 test plan cleared for story %s", story_id)
 
     def load_test_plan(self, ctx: RequestContext, story_id: int) -> str:
@@ -147,10 +145,9 @@ class Phase4Service:
         scenario_results: list[dict] | None = None,
     ) -> None:
         self.configure_request(ctx)
-        from src import context_manager
         if scenario_results:
-            context_manager.save_qa_results(story_id, "pass", scenario_results)
-        context_manager.upsert_story_index(story_id, phase_status="qa_passed")
+            self.context.save_qa_results(story_id, "pass", scenario_results)
+        self.context.upsert_story_index(story_id, phase_status="qa_passed")
         _logger.info("Phase 4 gate passed for story %s", story_id)
 
     def fail_gate(
@@ -163,16 +160,15 @@ class Phase4Service:
         scenario_results: list[dict] | None = None,
     ) -> None:
         self.configure_request(ctx)
-        from src import context_manager
         if scenario_results:
-            context_manager.save_qa_results(story_id, "fail", scenario_results)
+            self.context.save_qa_results(story_id, "fail", scenario_results)
         # Save per-story bug report
-        context_manager.save_bug_report(story_id, bug_report_md)
+        self.context.save_bug_report(story_id, bug_report_md)
         # Each failed gate triggers one Fix-Bolt — the AI-defect-rate proxy
-        context_manager.increment_story_counter(story_id, "fix_bolt_count")
+        self.context.increment_story_counter(story_id, "fix_bolt_count")
         # Append to global vaccine log
         if root_cause.strip():
-            context_manager.append_vaccine_record(
+            self.context.append_vaccine_record(
                 story_id,
                 root_cause.strip(),
                 resolution_summary.strip() or "Fix-Bolt triggered — resolution pending.",

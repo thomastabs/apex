@@ -23,6 +23,7 @@ from backend.app.schemas.phase2 import (
     TechStackStatusResponse,
 )
 from backend.app.schemas.workspace import OkResponse
+from backend.app.services.context_service import ContextService
 from backend.app.services.phase2_service import Phase2Service, Phase2ValidationError
 from src.ai_engine import AIError, AIRateLimitError, AITimeoutError
 
@@ -194,7 +195,7 @@ def save_screen_flow_positions(
 
 @router.post("/refresh-story-index", response_model=OkResponse)
 def refresh_story_index(ctx: RequestContext = Depends(get_request_context)):
-    from src import context_manager
-    context_manager.set_active_project(ctx.project_id)
-    context_manager.reset_cache()
+    context = ContextService()
+    context.set_project(ctx.project_id)
+    context.reset_cache()
     return {"ok": True}

@@ -172,3 +172,42 @@ class ContextService:
             tech_spec,
         )
 
+    # ── Phase 4/5 artifacts ─────────────────────────────────────────────────
+
+    def save_bdd_tests(self, story_id: int, test_script: str) -> None:
+        context_manager.save_bdd_tests(story_id, test_script)
+
+    def save_qa_results(self, story_id: int, gate: str, results: list[dict]) -> None:
+        context_manager.save_qa_results(story_id, gate, results)
+
+    def increment_story_counter(self, story_id: int, field: str = "fix_bolt_count") -> int:
+        return context_manager.increment_story_counter(story_id, field)
+
+    def append_vaccine_record(
+        self, issue_id: int, root_cause: str, resolution_summary: str
+    ) -> None:
+        context_manager.append_vaccine_record(issue_id, root_cause, resolution_summary)
+
+    def render_infra_delta_md(self, story_id: int, delta: dict) -> str:
+        return context_manager.render_infra_delta_md(story_id, delta)
+
+    # ── Story index maintenance ─────────────────────────────────────────────
+
+    def rebuild_story_index(self) -> None:
+        context_manager.rebuild_story_index()
+
+    def remove_epic_from_story_index(self, epic_id: int) -> None:
+        context_manager.remove_epic_from_story_index(epic_id)
+
+    def remove_story_index_entries(self, story_ids: list[int]) -> None:
+        context_manager.remove_story_index_entries(story_ids)
+
+    def clear_story_index(self) -> None:
+        context_manager.clear_story_index()
+
+    def file_path(self, filename: str):
+        return context_manager.get_file_path(filename)
+
+    def reset_cache(self) -> None:
+        context_manager.reset_cache()
+

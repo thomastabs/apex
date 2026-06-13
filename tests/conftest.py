@@ -36,6 +36,17 @@ def _reset_rate_limit_buckets():
     rate_limit._failure_buckets.clear()
 
 
+@pytest.fixture(autouse=True)
+def _reset_config_cache():
+    """The workspace-config cache (audit H4) is module-global and TTL'd; clear it
+    around every test so a cached config never bleeds across tests."""
+    from src import context_manager as cm
+
+    cm._invalidate_config_cache()
+    yield
+    cm._invalidate_config_cache()
+
+
 @pytest.fixture()
 def ctx(tmp_path, monkeypatch):
     """Patch context_manager to use an isolated tmp directory for each test.

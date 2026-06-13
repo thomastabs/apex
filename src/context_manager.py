@@ -16,6 +16,7 @@ import logging
 import os
 import re
 import threading
+import time
 from datetime import datetime, timezone
 
 from src.storage import StoragePath as Path
@@ -24,6 +25,18 @@ _logger = logging.getLogger("apex.context_manager")
 
 _BASE_CONTEXTSPEC = Path("contextspec")
 _CONFIG_FILE      = _BASE_CONTEXTSPEC / ".apex-config.json"
+
+# Workspace config cache (audit H4). In Azure mode the config lives on the File
+# Share, so an uncached load_config() is a network round-trip — and deps.py /
+# the PM proxies hit it on every cache-missed credential check. The backend is
+# the single writer (audit C1); _config_write_lock serialises read-modify-write
+# so interleaved threads can't lose updates, and every write primes the cache.
+# The only staleness window is out-of-band edits, bounded by the short TTL.
+_CONFIG_CACHE_TTL = 5.0  # seconds
+_config_cache: dict | None = None
+_config_cache_expires: float = 0.0
+_config_cache_lock = threading.Lock()
+_config_write_lock = threading.Lock()
 
 # Per-request active project. Uses ContextVar so concurrent FastAPI requests on different projects are isolated.
 _active_project_id: contextvars.ContextVar[int] = contextvars.ContextVar(
@@ -182,58 +195,8 @@ def is_project_selected() -> bool:
     return _get_project_id() != 0
 
 
-def save_ai_config(model: str) -> None:
-    """Persist AI model preference to the shared config file."""
-    try:
-        _BASE_CONTEXTSPEC.mkdir(parents=True, exist_ok=True)
-        data = load_config()
-        data["ai_model"] = model
-        _CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    except OSError as exc:
-        _logger.warning("save_ai_config: failed to persist AI config: %s", exc)
-
-
-def save_config(project_id: int) -> None:
-    """Persist the active project ID to the file share root so it survives container restarts."""
-    try:
-        _BASE_CONTEXTSPEC.mkdir(parents=True, exist_ok=True)
-        data = load_config()
-        data["project_id"] = project_id
-        data.pop("auth_token", None)  # never persist auth tokens
-        _CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    except OSError as exc:
-        _logger.warning("save_config: failed to persist project config: %s", exc)
-
-
-def save_pm_config(pm_tool: str | None = None, jira_base_url: str | None = None) -> None:
-    """Persist PM tool selection and Jira base URL to the shared config file."""
-    try:
-        _BASE_CONTEXTSPEC.mkdir(parents=True, exist_ok=True)
-        data = load_config()
-        if pm_tool is not None:
-            data["pm_tool"] = pm_tool
-        if jira_base_url is not None:
-            data["jira_base_url"] = jira_base_url
-        _CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    except OSError as exc:
-        _logger.warning("save_pm_config: failed to persist PM config: %s", exc)
-
-
-def save_github_config(repo: str | None) -> None:
-    """Persist GitHub repo (owner/repo) to shared config."""
-    if repo is None:
-        return
-    try:
-        _BASE_CONTEXTSPEC.mkdir(parents=True, exist_ok=True)
-        data = load_config()
-        data["github_repo"] = repo
-        _CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    except OSError as exc:
-        _logger.warning("save_github_config: failed to persist GitHub config: %s", exc)
-
-
-def load_config() -> dict:
-    """Return the persisted config dict, or {} if the file is missing or corrupt."""
+def _read_config_file() -> dict:
+    """Read and parse the config file directly, bypassing the cache. {} if missing/corrupt."""
     if not _CONFIG_FILE.exists():
         return {}
     try:
@@ -246,6 +209,87 @@ def load_config() -> dict:
         return {}
 
 
+def _prime_config_cache(data: dict) -> None:
+    global _config_cache, _config_cache_expires
+    with _config_cache_lock:
+        _config_cache = dict(data)
+        _config_cache_expires = time.monotonic() + _CONFIG_CACHE_TTL
+
+
+def _invalidate_config_cache() -> None:
+    global _config_cache, _config_cache_expires
+    with _config_cache_lock:
+        _config_cache = None
+        _config_cache_expires = 0.0
+
+
+def _update_config(mutate, *, log_label: str) -> None:
+    """Serialised read-modify-write of the shared config file.
+
+    The write lock makes the read-modify-write atomic across interleaved
+    threadpool requests (config writes had no lock — audit C1/H4), and the
+    fresh read avoids acting on a stale cache. On success the cache is primed
+    with the written data so the next load_config() is warm.
+    """
+    try:
+        with _config_write_lock:
+            _BASE_CONTEXTSPEC.mkdir(parents=True, exist_ok=True)
+            data = _read_config_file()
+            mutate(data)
+            _CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            _prime_config_cache(data)
+    except OSError as exc:
+        _logger.warning("%s: failed to persist config: %s", log_label, exc)
+
+
+def save_ai_config(model: str) -> None:
+    """Persist AI model preference to the shared config file."""
+    _update_config(lambda data: data.__setitem__("ai_model", model), log_label="save_ai_config")
+
+
+def save_config(project_id: int) -> None:
+    """Persist the active project ID to the file share root so it survives container restarts."""
+    def _mutate(data: dict) -> None:
+        data["project_id"] = project_id
+        data.pop("auth_token", None)  # never persist auth tokens
+    _update_config(_mutate, log_label="save_config")
+
+
+def save_pm_config(pm_tool: str | None = None, jira_base_url: str | None = None) -> None:
+    """Persist PM tool selection and Jira base URL to the shared config file."""
+    def _mutate(data: dict) -> None:
+        if pm_tool is not None:
+            data["pm_tool"] = pm_tool
+        if jira_base_url is not None:
+            data["jira_base_url"] = jira_base_url
+    _update_config(_mutate, log_label="save_pm_config")
+
+
+def save_github_config(repo: str | None) -> None:
+    """Persist GitHub repo (owner/repo) to shared config."""
+    if repo is None:
+        return
+    _update_config(lambda data: data.__setitem__("github_repo", repo), log_label="save_github_config")
+
+
+def load_config() -> dict:
+    """Return the persisted config dict (a copy), or {} if missing/corrupt.
+
+    Cached for _CONFIG_CACHE_TTL seconds — see the cache note at module top.
+    Always returns a fresh copy so callers can mutate without corrupting the cache.
+    """
+    global _config_cache, _config_cache_expires
+    now = time.monotonic()
+    with _config_cache_lock:
+        if _config_cache is not None and now < _config_cache_expires:
+            return dict(_config_cache)
+    cfg = _read_config_file()
+    with _config_cache_lock:
+        _config_cache = dict(cfg)
+        _config_cache_expires = time.monotonic() + _CONFIG_CACHE_TTL
+    return dict(cfg)
+
+
 def reset_cache() -> None:
     """Reset in-memory caches for the current project without changing active paths.
 
@@ -255,6 +299,7 @@ def reset_cache() -> None:
     pid = _get_project_id()
     _initialized_projects.discard(pid)
     _story_index_caches.pop(pid, None)
+    _invalidate_config_cache()
 
 
 # ---------------------------------------------------------------------------
@@ -524,9 +569,10 @@ def _index_file_mtime(sif) -> float:
 def get_story_index() -> dict[str, dict]:
     """Return the story index as {str(story_id): entry_dict}.
 
-    Cached per project, invalidated when the file's mtime changes — required
-    for multi-worker deployments where another process may have written the
-    index since this one cached it.
+    Cached per project, invalidated when the file's mtime changes. The backend
+    is the single writer (audit C1) and updates this cache on every write, so
+    the mtime check exists to pick up out-of-band changes — tests, manual edits,
+    or an index rebuild via the API — not concurrent writers.
     """
     pid = _get_project_id()
     with _index_lock:

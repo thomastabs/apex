@@ -143,10 +143,9 @@ class Phase5Service:
         self.configure_request(ctx)
         entry = self._eligible_entry(story_id)
         delta = self._require_delta_with_changes(story_id)
-        from src import context_manager
         return self.ai.generate_deploy_pack(
             entry.get("title", f"Story {story_id}"),
-            context_manager.render_infra_delta_md(story_id, delta),
+            self.context.render_infra_delta_md(story_id, delta),
             self.context.story_technical_spec(story_id),
             tech_stack=self.context.read_tech_stack(),
             github_context=self.context.read_context_file("github-context.md"),
@@ -168,11 +167,10 @@ class Phase5Service:
         self.configure_request(ctx)
         self._eligible_entry(story_id)
         delta = self._require_delta_with_changes(story_id)
-        from src import context_manager
         return self.ai.revise_deploy_pack(
             pack_md,
             feedback,
-            infra_delta_md=context_manager.render_infra_delta_md(story_id, delta),
+            infra_delta_md=self.context.render_infra_delta_md(story_id, delta),
         )
 
     # ── Verification evidence (traceability matrix, assembled client-side) ──
@@ -232,7 +230,6 @@ class Phase5Service:
                 f"{s.get('gap_count', 0)} gap(s)"
             )
         gate_notes = f"{gate_notes} · {trace_note}" if gate_notes else trace_note
-        from src import context_manager
         self.context.append_deployment_record(
             story_id,
             entry.get("title", f"Story {story_id}"),
@@ -241,5 +238,5 @@ class Phase5Service:
             sign_offs=["Tech Lead — pack reviewed", "DevOps Alliance — security review passed"],
             notes=gate_notes,
         )
-        context_manager.upsert_story_index(story_id, phase_status="deployed")
+        self.context.upsert_story_index(story_id, phase_status="deployed")
         _logger.info("Phase 5 deployment gate passed for story %s (bypass=%s)", story_id, bypass)

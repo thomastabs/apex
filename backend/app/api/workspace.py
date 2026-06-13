@@ -110,13 +110,12 @@ def save_config(payload: SaveConfigRequest, auth: AuthContext = Depends(get_auth
 @router.get("/context-files", response_model=ContextFilesResponse)
 def get_context_files(ctx: RequestContext = Depends(get_request_context)):
     import datetime
-    from src import context_manager as _cm
     context = ContextService()
     context.set_project(ctx.project_id)
     files = []
     for filename, label in _CONTEXT_FILES:
         content = context.read_context_file(filename)
-        fpath = _cm.get_file_path(filename)
+        fpath = context.file_path(filename)
         last_modified: str | None = None
         try:
             if fpath.exists():
@@ -136,10 +135,10 @@ def get_context_files(ctx: RequestContext = Depends(get_request_context)):
 
 @router.post("/context-files/rebuild-index", response_model=OkResponse)
 def rebuild_story_index(ctx: RequestContext = Depends(get_request_context)):
-    from src import context_manager
-    context_manager.set_active_project(ctx.project_id)
+    context = ContextService()
+    context.set_project(ctx.project_id)
     try:
-        context_manager.rebuild_story_index()
+        context.rebuild_story_index()
     except Exception as exc:
         _logger.exception("rebuild_story_index failed: %s", exc)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to rebuild story index.") from exc
@@ -148,10 +147,10 @@ def rebuild_story_index(ctx: RequestContext = Depends(get_request_context)):
 
 @router.delete("/context-files/story-index/epics/{epic_id}", response_model=OkResponse)
 def remove_epic_from_story_index(epic_id: int, ctx: RequestContext = Depends(get_request_context)):
-    from src import context_manager
-    context_manager.set_active_project(ctx.project_id)
+    context = ContextService()
+    context.set_project(ctx.project_id)
     try:
-        context_manager.remove_epic_from_story_index(epic_id)
+        context.remove_epic_from_story_index(epic_id)
     except Exception as exc:
         _logger.exception("remove_epic_from_story_index failed epic_id=%s: %s", epic_id, exc)
         raise HTTPException(
@@ -163,10 +162,10 @@ def remove_epic_from_story_index(epic_id: int, ctx: RequestContext = Depends(get
 
 @router.delete("/context-files/story-index/stories/{story_id}", response_model=OkResponse)
 def remove_story_from_story_index(story_id: int, ctx: RequestContext = Depends(get_request_context)):
-    from src import context_manager
-    context_manager.set_active_project(ctx.project_id)
+    context = ContextService()
+    context.set_project(ctx.project_id)
     try:
-        context_manager.remove_story_index_entries([story_id])
+        context.remove_story_index_entries([story_id])
     except Exception as exc:
         _logger.exception("remove_story_from_story_index failed story_id=%s: %s", story_id, exc)
         raise HTTPException(
@@ -178,10 +177,10 @@ def remove_story_from_story_index(story_id: int, ctx: RequestContext = Depends(g
 
 @router.get("/context-files/story-index-stats", response_model=StoryIndexStatsResponse)
 def story_index_stats(ctx: RequestContext = Depends(get_request_context)):
-    from src import context_manager
-    context_manager.set_active_project(ctx.project_id)
+    context = ContextService()
+    context.set_project(ctx.project_id)
     try:
-        index = context_manager.get_story_index()
+        index = context.story_index()
     except Exception as _idx_exc:
         _logger.warning("story_index_stats: failed to load index: %s", _idx_exc)
         index = {}
@@ -199,13 +198,11 @@ def story_index_stats(ctx: RequestContext = Depends(get_request_context)):
 
 @router.post("/context-files/reset-all", response_model=ContextFilesResponse)
 def reset_all_context_files(ctx: RequestContext = Depends(get_request_context)):
-    from src import context_manager
     context = ContextService()
     context.set_project(ctx.project_id)
     for filename, _ in _CONTEXT_FILES:
         context.reset_context_file(filename)
-    context_manager.set_active_project(ctx.project_id)
-    context_manager.clear_story_index()
+    context.clear_story_index()
     return get_context_files(ctx)
 
 

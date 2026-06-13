@@ -108,6 +108,14 @@ class FakeContextService:
     def load_verification(self, story_id: int):
         return getattr(self, "saved_verification", (None, None))[1]
 
+    def render_infra_delta_md(self, story_id: int, delta: dict) -> str:
+        from src import context_manager
+        return context_manager.render_infra_delta_md(story_id, delta)
+
+    def upsert_story_index(self, story_id: int, **updates) -> None:
+        self.index_updates = getattr(self, "index_updates", [])
+        self.index_updates.append((story_id, updates))
+
     def append_deployment_record(self, story_id, title, *, bypass, pack_present,
                                  sign_offs, notes=""):
         self.deployment_records.append({
@@ -295,17 +303,16 @@ def test_gate_requires_pack_when_changes_flagged():
         svc.pass_deployment_gate(_ctx(), 10, tech_lead_approved=True, devops_approved=True)
 
 
-def test_gate_bypass_skips_pack_requirement(ctx):
-    # Real context_manager via ctx fixture so the index transition is observable.
-    ctx.init_context()
-    ctx.upsert_story_index(10, title="User Login", phase_status="qa_passed")
+def test_gate_bypass_skips_pack_requirement():
+    # Bypass deltas need no deploy pack; the gate still requests the deployed
+    # transition. (The real index/status_history write is covered by the
+    # context_manager tests and the real-ctx roundtrips below.)
     fake = FakeContextService()
     svc = _svc(context=fake)
     svc.save_infra_delta(_ctx(), 10, _FAKE_DELTA_BYPASS)
     svc.pass_deployment_gate(_ctx(), 10, tech_lead_approved=True, devops_approved=True)
     assert fake.deployment_records[0]["bypass"] is True
-    assert ctx.get_story_index()["10"]["phase_status"] == "deployed"
-    assert "deployed" in ctx.get_story_index()["10"]["status_history"]
+    assert (10, {"phase_status": "deployed"}) in fake.index_updates
 
 
 # ---------------------------------------------------------------------------
