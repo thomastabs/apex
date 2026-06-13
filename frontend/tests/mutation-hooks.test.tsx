@@ -49,9 +49,34 @@ vi.mock("@/lib/api/workspace", async (importOriginal) => {
   return { ...actual, rebuildStoryIndex: vi.fn().mockResolvedValue({ ok: true }) };
 });
 
+vi.mock("@/lib/api/phase1", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api/phase1")>();
+  return {
+    ...actual,
+    pushPhase1Stories: vi.fn().mockResolvedValue({ epic_id: 10, count: 2, story_ids: [101, 102], push_failures: [] }),
+  };
+});
+
+vi.mock("@/lib/api/phase2", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api/phase2")>();
+  return {
+    ...actual,
+    lockTechStack: vi.fn().mockResolvedValue({ defined: true, tech_stack: "x" }),
+    refreshStoryIndex: vi.fn().mockResolvedValue({ ok: true }),
+  };
+});
+
+vi.mock("@/lib/api/phase3", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api/phase3")>();
+  return { ...actual, lockStory: vi.fn().mockResolvedValue({ ok: true }) };
+});
+
 import { useSaveTestPlan, usePassGate, useFailGate } from "@/lib/hooks/use-phase4";
 import { useSaveInfraDelta } from "@/lib/hooks/use-phase5";
 import { useRebuildStoryIndex } from "@/lib/hooks/use-workspace";
+import { usePushPhase1Stories } from "@/lib/hooks/use-phase1";
+import { useLockTechStack } from "@/lib/hooks/use-phase2";
+import { useLockStory } from "@/lib/hooks/use-phase3";
 
 function wrapper(qc: QueryClient) {
   return ({ children }: { children: React.ReactNode }) => (
@@ -126,6 +151,44 @@ describe("phase5 + workspace mutation hooks scope invalidations (M6)", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     const keys = spy.mock.calls.map((c) => c[0]?.queryKey);
+    expect(keys).toContainEqual(["workspace", "story-index-stats", PROJECT_ID]);
+  });
+});
+
+describe("phase1/2/3 mutation hooks scope invalidations (M6/M9)", () => {
+  it("usePushPhase1Stories invalidates project-scoped epics + story-index-stats", async () => {
+    const { qc, spy } = freshClient();
+    const { result } = renderHook(() => usePushPhase1Stories(), { wrapper: wrapper(qc) });
+
+    await result.current.mutateAsync({ stories: [], epic_title: "Auth" } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const keys = spy.mock.calls.map((c) => c[0]?.queryKey);
+    expect(keys).toContainEqual(["phase1", "epics", PROJECT_ID]);
+    expect(keys).toContainEqual(["workspace", "story-index-stats", PROJECT_ID]);
+  });
+
+  it("useLockTechStack invalidates project-scoped tech-stack-status + story-index-stats", async () => {
+    const { qc, spy } = freshClient();
+    const { result } = renderHook(() => useLockTechStack(), { wrapper: wrapper(qc) });
+
+    await result.current.mutateAsync({ tech_stack: "FastAPI" } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const keys = spy.mock.calls.map((c) => c[0]?.queryKey);
+    expect(keys).toContainEqual(["phase2", "tech-stack-status", PROJECT_ID]);
+    expect(keys).toContainEqual(["workspace", "story-index-stats", PROJECT_ID]);
+  });
+
+  it("useLockStory invalidates project-scoped eligible-stories + story-index-stats", async () => {
+    const { qc, spy } = freshClient();
+    const { result } = renderHook(() => useLockStory(), { wrapper: wrapper(qc) });
+
+    await result.current.mutateAsync({ story_id: 10 } as never);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const keys = spy.mock.calls.map((c) => c[0]?.queryKey);
+    expect(keys).toContainEqual(["phase3", "eligible-stories", PROJECT_ID]);
     expect(keys).toContainEqual(["workspace", "story-index-stats", PROJECT_ID]);
   });
 });
