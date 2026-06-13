@@ -296,15 +296,27 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
 
   const deleteMut = useMutation({
     mutationFn: async (taskId: string) => {
+      if (!adapterCtx) throw new Error("No context.");
       // Capture Apex metadata before the PM task disappears — needed to drop
       // the orphaned developer pack so the story stops counting as "proposed".
-      const task = pmTasks.find((t) => String(t.id) === taskId);
-      const decoded = task ? decodeApexMeta(task.description ?? "") : null;
-      await adapter.deleteTask(adapterCtx!, taskId);
-      return {
-        storyId: task ? Number(task.user_story) : null,
-        apexTaskId: decoded?.apex_task_id ?? null,
-      };
+      // Fetch the task fresh rather than trusting the pmTasks cache, which may
+      // be empty/stale when delete fires before the board loads (audit M5);
+      // fall back to the cache only if the detail fetch fails.
+      let storyId: number | null = null;
+      let apexTaskId: number | null = null;
+      try {
+        const task = await adapter.getTask(adapterCtx, taskId);
+        const decoded = decodeApexMeta(task.description ?? "");
+        storyId = Number(task.user_story);
+        apexTaskId = decoded.apex_task_id ?? null;
+      } catch {
+        const cached = pmTasks.find((t) => String(t.id) === taskId);
+        const decoded = cached ? decodeApexMeta(cached.description ?? "") : null;
+        storyId = cached ? Number(cached.user_story) : null;
+        apexTaskId = decoded?.apex_task_id ?? null;
+      }
+      await adapter.deleteTask(adapterCtx, taskId);
+      return { storyId, apexTaskId };
     },
     onSuccess: ({ storyId, apexTaskId }) => {
       setPendingDelete(null);

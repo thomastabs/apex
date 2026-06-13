@@ -30,6 +30,7 @@ export function useEligibleStories() {
     queryKey: ["phase4", "eligible-stories", context?.projectId],
     queryFn: () => getEligibleStories(context!),
     enabled: Boolean(context),
+    staleTime: 30_000,
   });
 }
 
@@ -105,8 +106,8 @@ export function useSaveTestPlan() {
     onSuccess: (_, { storyId }) => {
       toast.success("Test plan saved.");
       void qc.invalidateQueries({ queryKey: ["phase4", "test-plan", context?.projectId, storyId] });
-      void qc.invalidateQueries({ queryKey: ["phase4", "eligible-stories"] });
-      void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
+      void qc.invalidateQueries({ queryKey: ["phase4", "eligible-stories", context?.projectId] });
+      void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },
     onError: (err: Error) => toast.error(`Save failed: ${err.message}`),
   });
@@ -122,8 +123,8 @@ export function useClearTestPlan() {
       clearTestPlanDraft();
       toast.success("Test plan cleared — story back in implementation.");
       void qc.invalidateQueries({ queryKey: ["phase4", "test-plan", context?.projectId, storyId] });
-      void qc.invalidateQueries({ queryKey: ["phase4", "eligible-stories"] });
-      void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
+      void qc.invalidateQueries({ queryKey: ["phase4", "eligible-stories", context?.projectId] });
+      void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },
     onError: (err: Error) => toast.error(`Clear failed: ${err.message}`),
   });
@@ -156,8 +157,8 @@ export function usePassGate() {
     }) => passGate(context!, storyId, scenarioResults),
     onSuccess: () => {
       toast.success("Testing Gate passed — story ready for production.");
-      void qc.invalidateQueries({ queryKey: ["phase4", "eligible-stories"] });
-      void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
+      void qc.invalidateQueries({ queryKey: ["phase4", "eligible-stories", context?.projectId] });
+      void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },
     onError: (err: Error) => toast.error(`Gate pass failed: ${err.message}`),
   });
@@ -190,8 +191,8 @@ export function useFailGate() {
     mutationFn: (body: Phase4FailGateRequest) => failGate(context!, body),
     onSuccess: () => {
       toast.success("Bug report saved. Fix-Bolt artifact ready.");
-      void qc.invalidateQueries({ queryKey: ["phase4", "eligible-stories"] });
-      void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
+      void qc.invalidateQueries({ queryKey: ["phase4", "eligible-stories", context?.projectId] });
+      void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },
     onError: (err: Error) => toast.error(`Fail gate save failed: ${err.message}`),
   });

@@ -198,7 +198,7 @@ export function usePushTasksToTaiga() {
         patchTask(localTaskId, { pm_task_id: id });
       }
       setTasksPushed(true);
-      void queryClient.invalidateQueries({ queryKey: ["pm", "project-tasks"] });
+      void queryClient.invalidateQueries({ queryKey: ["pm", "project-tasks", context?.projectId] });
       if (failures.length > 0) {
         const names = failures.map((f) => f.subject).join(", ");
         toast.warning(`${results.length} tasks pushed; ${failures.length} failed: ${names}`);
@@ -239,8 +239,8 @@ export function useLockStory() {
   return useMutation({
     mutationFn: (body: Phase3LockStoryRequest) => lockStory(context!, body),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["phase3", "eligible-stories"] });
-      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
+      void queryClient.invalidateQueries({ queryKey: ["phase3", "eligible-stories", context?.projectId] });
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
       toast.success("Story locked as implementation-ready.");
     },
     onError: () => toast.error("Failed to lock story."),
@@ -420,7 +420,7 @@ export function usePushSingleTask() {
     },
     onSuccess: ({ pmTaskId }, { task }) => {
       appendTask({ ...task, pm_task_id: pmTaskId });
-      void queryClient.invalidateQueries({ queryKey: ["pm", "project-tasks"] });
+      void queryClient.invalidateQueries({ queryKey: ["pm", "project-tasks", context?.projectId] });
       void queryClient.invalidateQueries({ queryKey: ["phase3", "task-board"] });
       toast.success("Task added.");
     },

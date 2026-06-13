@@ -57,8 +57,8 @@ export function useLockTechStack() {
     mutationFn: (body: LockTechStackRequest) => lockTechStack(context!, body),
     onError: () => toast.error("Failed to lock tech stack."),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["phase2", "tech-stack-status"] });
-      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
+      void queryClient.invalidateQueries({ queryKey: ["phase2", "tech-stack-status", context?.projectId] });
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },
   });
 }
@@ -156,8 +156,8 @@ export function useLockDesign() {
     mutationFn: (body: LockDesignRequest) => lockDesign(context!, body),
     onError: () => toast.error("Failed to lock design."),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["phase2", "tech-stack-status"] });
-      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
+      void queryClient.invalidateQueries({ queryKey: ["phase2", "tech-stack-status", context?.projectId] });
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },
   });
 }
@@ -227,8 +227,8 @@ export function useRefreshStoryIndex() {
   return useMutation({
     mutationFn: () => refreshStoryIndex(context!),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["phase2", "tech-stack-status"] });
-      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
+      void queryClient.invalidateQueries({ queryKey: ["phase2", "tech-stack-status", context?.projectId] });
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },
   });
 }

@@ -157,11 +157,11 @@ export function useAutoSyncStoryIndex() {
     if (!context) return;
     void rebuildStoryIndex(context)
       .then(() => {
-        void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
+        void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context.projectId] });
         void queryClient.invalidateQueries({ queryKey: ["phase2", "eligible-epics"] });
-        void queryClient.invalidateQueries({ queryKey: ["phase3", "eligible-stories"] });
-        void queryClient.invalidateQueries({ queryKey: ["phase4", "eligible-stories"] });
-        void queryClient.invalidateQueries({ queryKey: ["phase5", "eligible-stories"] });
+        void queryClient.invalidateQueries({ queryKey: ["phase3", "eligible-stories", context.projectId] });
+        void queryClient.invalidateQueries({ queryKey: ["phase4", "eligible-stories", context.projectId] });
+        void queryClient.invalidateQueries({ queryKey: ["phase5", "eligible-stories", context.projectId] });
       })
       .catch(() => undefined);
   }, [context, queryClient]);
@@ -320,7 +320,7 @@ export function useRebuildStoryIndex() {
     mutationFn: () => rebuildStoryIndex(context!),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["phase2", "eligible-epics"] });
-      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },
   });
 }

@@ -63,19 +63,36 @@ async def _body_size_limit(request: Request, call_next) -> Response:
     if cl_int > _MAX_BODY_BYTES:
         return Response("Request body too large (max 4 MB).", status_code=413)
     if not content_length:
+        # Chunked / no Content-Length: drain the stream, bailing early past the
+        # limit, then cache the bytes in request._body — the attribute
+        # Request.body()/.json() read from. Setting _body is the stable Starlette
+        # idiom; the old request._stream replay reached into the raw receive
+        # channel and broke across Starlette upgrades (audit M2).
         body = b""
         async for chunk in request.stream():
             body += chunk
             if len(body) > _MAX_BODY_BYTES:
                 return Response("Request body too large (max 4 MB).", status_code=413)
-        async def _replay():
-            yield body
-        request._stream = _replay()  # type: ignore[attr-defined]
+        request._body = body  # type: ignore[attr-defined]
     try:
         return await call_next(request)
     except Exception:
         _logger.exception("Unhandled exception in request %s %s", request.method, request.url.path)
         return JSONResponse({"detail": "Internal server error"}, status_code=500)
+
+
+@app.middleware("http")
+async def _security_headers(request: Request, call_next) -> Response:
+    """Baseline hardening headers on every backend (JSON API) response (audit M10).
+
+    Added after the body-size middleware so it also wraps that middleware's
+    413/400/500 responses. CORS is still outermost.
+    """
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault("Cache-Control", "no-store")
+    return response
 
 
 # CORSMiddleware is added last so it is the outermost wrapper.

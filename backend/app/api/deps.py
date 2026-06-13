@@ -15,6 +15,7 @@ import hashlib
 import logging
 import threading
 import time
+from collections import OrderedDict
 from dataclasses import dataclass
 
 import httpx
@@ -38,8 +39,9 @@ _VERIFY_TIMEOUT = 8.0
 _CACHE_MAX_ENTRIES = 10_000  # bound memory under token-rotation abuse
 
 _cache_lock = threading.Lock()
-_token_cache: dict[str, tuple[float, bool]] = {}                 # token_hash -> (expires_at, ok)
-_project_cache: dict[tuple[str, int], tuple[float, bool]] = {}   # (token_hash, project_id) -> ...
+# OrderedDict for LRU eviction (audit M8): newest at the end, evict from the front.
+_token_cache: "OrderedDict[str, tuple[float, bool]]" = OrderedDict()                 # token_hash -> (expires_at, ok)
+_project_cache: "OrderedDict[tuple[str, int], tuple[float, bool]]" = OrderedDict()   # (token_hash, project_id) -> ...
 
 _verify_client: httpx.Client | None = None
 
@@ -59,6 +61,7 @@ def _cache_get(cache: dict, key) -> bool | None:
     with _cache_lock:
         hit = cache.get(key)
         if hit is not None and hit[0] > time.monotonic():
+            cache.move_to_end(key)  # mark recently used (LRU recency)
             return hit[1]
         cache.pop(key, None)
         return None
@@ -67,9 +70,16 @@ def _cache_get(cache: dict, key) -> bool | None:
 def _cache_put(cache: dict, key, ok: bool) -> None:
     ttl = _VALID_TTL if ok else _INVALID_TTL
     with _cache_lock:
-        if len(cache) >= _CACHE_MAX_ENTRIES:
-            cache.clear()
+        if len(cache) >= _CACHE_MAX_ENTRIES and key not in cache:
+            # Evict expired entries first, then the least-recently-used ~10%
+            # rather than nuking the whole cache (audit M8).
+            now = time.monotonic()
+            for k in [k for k, (exp, _) in cache.items() if exp <= now]:
+                del cache[k]
+            while len(cache) >= _CACHE_MAX_ENTRIES:
+                cache.popitem(last=False)  # FIFO/LRU: drop the oldest
         cache[key] = (time.monotonic() + ttl, ok)
+        cache.move_to_end(key)
 
 
 def _pm_endpoints() -> tuple[str, str, str]:

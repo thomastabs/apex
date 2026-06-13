@@ -4,6 +4,7 @@ All tests are marked real_auth so the global _bypass_pm_auth fixture does not
 stub out the functions under test. Upstream PM responses are mocked.
 """
 
+from collections import OrderedDict
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -17,8 +18,9 @@ pytestmark = pytest.mark.real_auth
 
 @pytest.fixture(autouse=True)
 def _fresh_caches(monkeypatch):
-    monkeypatch.setattr(deps, "_token_cache", {})
-    monkeypatch.setattr(deps, "_project_cache", {})
+    # OrderedDict to match the production caches (LRU eviction, audit M8).
+    monkeypatch.setattr(deps, "_token_cache", OrderedDict())
+    monkeypatch.setattr(deps, "_project_cache", OrderedDict())
 
 
 def _mock_pm(status_code: int):

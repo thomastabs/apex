@@ -33,6 +33,7 @@ export function useEligibleStories() {
     queryKey: ["phase5", "eligible-stories", context?.projectId],
     queryFn: () => getEligibleStories(context!),
     enabled: Boolean(context),
+    staleTime: 30_000,
   });
 }
 
@@ -82,7 +83,7 @@ export function useSaveInfraDelta() {
       toast.success("Infra delta saved.");
       setDeltaSaved(true);
       void qc.invalidateQueries({ queryKey: ["phase5", "infra-delta", context?.projectId, storyId] });
-      void qc.invalidateQueries({ queryKey: ["phase5", "eligible-stories"] });
+      void qc.invalidateQueries({ queryKey: ["phase5", "eligible-stories", context?.projectId] });
     },
     onError: (err: Error) => toast.error(`Save failed: ${err.message}`),
   });
@@ -124,7 +125,7 @@ export function useSaveDeployPack() {
       toast.success("Deploy pack saved.");
       setPackSaved(true);
       void qc.invalidateQueries({ queryKey: ["phase5", "deploy-pack", context?.projectId, storyId] });
-      void qc.invalidateQueries({ queryKey: ["phase5", "eligible-stories"] });
+      void qc.invalidateQueries({ queryKey: ["phase5", "eligible-stories", context?.projectId] });
     },
     onError: (err: Error) => toast.error(`Save failed: ${err.message}`),
   });
@@ -278,8 +279,8 @@ export function usePassDeploymentGate() {
     }) => passDeploymentGate(context!, storyId, { techLeadApproved, devopsApproved, notes }),
     onSuccess: () => {
       toast.success("Deployment Gate passed — story deployed.");
-      void qc.invalidateQueries({ queryKey: ["phase5", "eligible-stories"] });
-      void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
+      void qc.invalidateQueries({ queryKey: ["phase5", "eligible-stories", context?.projectId] });
+      void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },
     onError: (err: Error) => toast.error(`Gate failed: ${err.message}`),
   });

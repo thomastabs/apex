@@ -62,9 +62,11 @@ export function usePushPhase1Stories() {
     mutationFn: (body: Phase1PushStoriesRequest) => pushPhase1Stories(context!, body),
     onError: () => toast.error("Failed to push stories. Check your connection and try again."),
     onSuccess: (data) => {
-      void queryClient.invalidateQueries({ queryKey: ["phase1", "epics"] });
+      void queryClient.invalidateQueries({ queryKey: ["phase1", "epics", context?.projectId] });
       void queryClient.invalidateQueries({ queryKey: ["phase2", "eligible-epics"] });
-      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats"], exact: true });
+      // story-index-stats is keyed by projectId, so the previous bare key with
+      // exact:true matched nothing — include the id (audit M6).
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId], exact: true });
       if (contextRef.current) void refreshStoryIndex(contextRef.current);
       if (data.push_failures && data.push_failures.length > 0) {
         const names = data.push_failures.map((f) => f.title).join(", ");
