@@ -168,6 +168,52 @@ const FAKE_COMPILED_STORIES = [
   },
 ];
 
+export const FAKE_ANALYTICS_SUMMARY = {
+  funnel: {
+    gherkin_locked: 0,
+    design_locked: 0,
+    implementation: 1,
+    qa: 0,
+    qa_passed: 1,
+    deployed: 2,
+  },
+  cycle_times: [
+    { transition: "implementation → qa", median_hours: 6.0, p90_hours: 9.0, samples: 3 },
+    { transition: "qa_passed → deployed", median_hours: 2.5, p90_hours: 4.0, samples: 2 },
+  ],
+  traceability: { deployed: 2, complete: 1, rate: 0.5 },
+  defects: { total_fix_bolts: 3, stories_affected: 2, avg_per_story: 0.75 },
+  stories: [
+    {
+      story_id: 10,
+      title: "User Login",
+      epic_title: "Authentication",
+      phase_status: "deployed",
+      fix_bolt_count: 2,
+      total_cycle_hours: 48.0,
+      artifact_complete: true,
+    },
+    {
+      story_id: 11,
+      title: "Password Reset",
+      epic_title: "Authentication",
+      phase_status: "deployed",
+      fix_bolt_count: 1,
+      total_cycle_hours: 30.0,
+      artifact_complete: false,
+    },
+    {
+      story_id: 12,
+      title: "Logout",
+      epic_title: "Authentication",
+      phase_status: "implementation",
+      fix_bolt_count: 0,
+      total_cycle_hours: null,
+      artifact_complete: false,
+    },
+  ],
+};
+
 export async function applyMocks(page: Page) {
   const api = "http://localhost:8000";
   // All Taiga calls now route through the FastAPI proxy — never directly to taiga.io.
@@ -591,6 +637,15 @@ export async function applyMocks(page: Page) {
 
   await page.route(`${api}/api/phase2/refresh-story-index`, (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) }),
+  );
+
+  // ── Analytics ─────────────────────────────────────────────────────────────
+  await page.route(`${api}/api/analytics/summary`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(FAKE_ANALYTICS_SUMMARY),
+    }),
   );
 
   // ── Phase 1 ───────────────────────────────────────────────────────────────

@@ -19,7 +19,7 @@ class FakeContextService:
         self.index = index or {}
         self.deployment_log = deployment_log
         self.verifications = verifications or {}
-        self.verification_reads = []
+        self.verification_reads: list[int] = []
 
     def set_project(self, project_id: int):
         pass

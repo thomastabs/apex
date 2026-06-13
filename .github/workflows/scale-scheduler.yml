@@ -1,23 +1,29 @@
 name: Apex · Scale scheduler
 
-# Cost mode: both Container Apps run scale-to-zero (min=0) around the clock —
-# compute is billed only while requests are being served. The frontend shows a
-# "server waking up" toast during the ~30s cold start.
-#
-# Use the manual dispatch to pre-warm before a demo/presentation (up), and to
-# return to scale-to-zero afterwards (down). No cron schedules: the daily
-# min=1 day-mode was the main cost driver on the student subscription.
+# Day/night cost mode (Portugal):
+#   08:00 UTC  → scale UP   (min=1, apps stay warm through the working day)
+#   22:00 UTC  → scale DOWN (min=0, scale-to-zero overnight)
+# Acceptable ±1h drift around DST transitions for an academic project.
 #
 # apex-backend is ALWAYS capped at max=1: the story index and workspace config
-# live on a shared Azure File Share guarded only by a process-local lock —
-# a second backend replica means lost-update races (audit C1). The stateless
-# frontend may scale out freely.
+# live on a shared Azure File Share guarded only by a process-local lock — a
+# second backend replica means lost-update races (audit C1). The stateless
+# frontend may scale out.
+#
+# Night mode can be turned OFF so the apps stay warm overnight (e.g. a late demo):
+#   gh variable set APEX_NIGHT_MODE --body off   # disable the 22:00 scale-down
+#   gh variable set APEX_NIGHT_MODE --body on    # re-enable (default behaviour)
+# When APEX_NIGHT_MODE=off the scheduled scale-down is skipped; the 08:00
+# scale-up still runs. Manual dispatch (up/down) overrides at any time.
 
 on:
+  schedule:
+    - cron: '0 8 * * *'   # 08:00 UTC daily → scale UP
+    - cron: '0 22 * * *'  # 22:00 UTC daily → scale DOWN
   workflow_dispatch:
     inputs:
       action:
-        description: 'up → pre-warm for demos (backend min=1 max=1, frontend min=1 max=10)  |  down → cost mode (min=0; backend max=1, frontend max=2)'
+        description: 'up → day mode (backend min=1 max=1, frontend min=1 max=10)  |  down → cost mode (min=0; backend max=1, frontend max=2)'
         required: true
         type: choice
         options: [up, down]
@@ -27,7 +33,7 @@ env:
 
 jobs:
   scale:
-    name: ${{ inputs.action == 'up' && 'Scale UP (pre-warm)' || 'Scale DOWN (cost mode)' }}
+    name: Scale (${{ github.event_name == 'workflow_dispatch' && inputs.action || (github.event.schedule == '0 8 * * *' && 'up' || 'down') }})
     runs-on: ubuntu-latest
 
     steps:
@@ -36,8 +42,24 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Scale UP — min 1 replica (pre-warm)
-        if: inputs.action == 'up'
+      - name: Determine action
+        id: action
+        env:
+          NIGHT_MODE: ${{ vars.APEX_NIGHT_MODE }}
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "mode=${{ inputs.action }}" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.event.schedule }}" == "0 8 * * *" ]]; then
+            echo "mode=up" >> "$GITHUB_OUTPUT"
+          elif [[ "${NIGHT_MODE,,}" == "off" ]]; then
+            echo "Night mode disabled (APEX_NIGHT_MODE=off) — skipping scheduled scale-down."
+            echo "mode=skip" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=down" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Scale UP — day mode (min 1 replica)
+        if: steps.action.outputs.mode == 'up'
         run: |
           az containerapp update \
             --name apex-backend \
@@ -51,8 +73,8 @@ jobs:
             --max-replicas 10
           echo "Scaled UP: backend → min=1 max=1 (single writer), frontend → min=1 max=10"
 
-      - name: Scale DOWN — scale-to-zero (cost mode)
-        if: inputs.action == 'down'
+      - name: Scale DOWN — cost mode (scale-to-zero)
+        if: steps.action.outputs.mode == 'down'
         run: |
           az containerapp update \
             --name apex-backend \

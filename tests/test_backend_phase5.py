@@ -364,7 +364,6 @@ def test_gate_records_traceability_note():
     svc.pass_deployment_gate(_ctx(), 10, tech_lead_approved=True, devops_approved=True)
     assert "traceability: 2/3 scenarios covered, 1 gap(s)" in ctx_service.deployment_records[0]["notes"]
 
-
 def test_gate_records_missing_matrix():
     ctx_service = FakeContextService()
     svc = _svc(context=ctx_service)
