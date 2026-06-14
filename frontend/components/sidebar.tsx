@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { Eye, EyeOff, ExternalLink, Moon, PanelLeftOpen, Send, Sun, UserPlus } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -8,6 +9,9 @@ import { useAiConfig, useMe, useProjects, useServerConfig } from "@/lib/hooks/us
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { usePhase2Store } from "@/lib/stores/phase2-store";
+import { usePhase3Store } from "@/lib/stores/phase3-store";
+import { usePhase4Store } from "@/lib/stores/phase4-store";
+import { usePhase5Store } from "@/lib/stores/phase5-store";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ApiError, apiRequest, getApiBaseUrl } from "@/lib/api/client";
@@ -90,8 +94,25 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
   const storedPmTool = useSessionStore((state) => state.pmTool);
   const storedTaigaApiUrl = useSessionStore((state) => state.taigaApiUrl);
   const clearPhase2Draft = usePhase2Store((state) => state.clearPhase2Draft);
+  const clearPhase3Draft = usePhase3Store((state) => state.clearPhase3Draft);
+  const clearPhase4Draft = usePhase4Store((state) => state.clearPhase4Draft);
+  const clearPhase5Draft = usePhase5Store((state) => state.clearPhase5Draft);
   const queryClient = useQueryClient();
+  const router = useRouter();
   const me = useMe();
+
+  // Sign out: drop credentials + all phase drafts + caches, then return to the
+  // home screen so no stale signed-in workflow stage stays rendered.
+  const signOut = () => {
+    clearJiraProjectTypeCache();
+    clearSession();
+    clearPhase2Draft();
+    clearPhase3Draft();
+    clearPhase4Draft();
+    clearPhase5Draft();
+    queryClient.clear();
+    router.push("/");
+  };
 
   // Drive pmTool from store so it tracks clearSession/sign-out resets correctly
   const [pmTool, setPmTool] = useState<"taiga" | "jira">(storedPmTool);
@@ -250,7 +271,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
         </div>
         <button
           className="shrink-0 rounded border border-violet-500/30 px-2 py-1 text-xs text-violet-400 transition-colors hover:border-violet-500/60 hover:bg-violet-500/10 hover:text-violet-300"
-          onClick={() => { clearJiraProjectTypeCache(); clearSession(); clearPhase2Draft(); queryClient.clear(); }}
+          onClick={signOut}
         >
           Sign out
         </button>
@@ -453,7 +474,11 @@ function useRestoreSession() {
   const taigaToken = useSessionStore((s) => s.taigaToken);
   const clearSession = useSessionStore((s) => s.clearSession);
   const clearPhase2Draft = usePhase2Store((s) => s.clearPhase2Draft);
+  const clearPhase3Draft = usePhase3Store((s) => s.clearPhase3Draft);
+  const clearPhase4Draft = usePhase4Store((s) => s.clearPhase4Draft);
+  const clearPhase5Draft = usePhase5Store((s) => s.clearPhase5Draft);
   const queryClient = useQueryClient();
+  const router = useRouter();
   const me = useMe();
 
   useEffect(() => {
@@ -462,9 +487,14 @@ function useRestoreSession() {
       toast.error("Session expired — please sign in again.");
       clearSession();
       clearPhase2Draft();
+      clearPhase3Draft();
+      clearPhase4Draft();
+      clearPhase5Draft();
       queryClient.clear();
+      router.push("/");
     }
-  }, [taigaToken, me.isError, me.error, clearSession, clearPhase2Draft, queryClient]);
+  }, [taigaToken, me.isError, me.error, clearSession, clearPhase2Draft,
+      clearPhase3Draft, clearPhase4Draft, clearPhase5Draft, queryClient, router]);
 }
 
 function useRestoreProjectConfig() {
