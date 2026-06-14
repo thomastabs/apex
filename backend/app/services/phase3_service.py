@@ -103,9 +103,12 @@ class Phase3Service:
         entry = index.get(str(story_id)) or {}
         if not entry:
             raise Phase3ValidationError(f"Story {story_id} not found in index.")
-        if entry.get("phase_status") != "design_locked":
+        # Packs are per-task artifacts valid both before locking (design_locked)
+        # and while the story is being implemented — e.g. generating the
+        # remaining packs after the story was already locked to implementation.
+        if entry.get("phase_status") not in ("design_locked", "implementation"):
             raise Phase3ValidationError(
-                f"Story {story_id} is not design_locked (status: {entry.get('phase_status')!r})."
+                f"Story {story_id} is not ready for developer packs (status: {entry.get('phase_status')!r})."
             )
         story_title = entry.get("title", f"Story {story_id}")
         story_ref = f"US#{story_id} — {story_title}"

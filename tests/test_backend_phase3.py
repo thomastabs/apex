@@ -204,6 +204,22 @@ def test_generate_proposal_returns_markdown():
     assert "## AI Prompt" in md
 
 
+def test_generate_proposal_allowed_after_lock_in_implementation():
+    # A locked story sits at 'implementation'; generating its remaining packs
+    # must still work (regression: guard previously required design_locked).
+    ctx_svc = FakeContextService(index=_story_index(status="implementation"))
+    svc = Phase3Service(ai=FakeAiService(), context=ctx_svc)
+    md = svc.generate_proposal(_ctx(), 10, 1, "Implement endpoint", "Create the login route.")
+    assert "## Context" in md
+
+
+def test_generate_proposal_rejects_pre_design_status():
+    ctx_svc = FakeContextService(index=_story_index(status="gherkin_locked"))
+    svc = Phase3Service(ai=FakeAiService(), context=ctx_svc)
+    with pytest.raises(Phase3ValidationError, match="not ready for developer packs"):
+        svc.generate_proposal(_ctx(), 10, 1, "Implement endpoint", "Create the login route.")
+
+
 def test_generate_proposal_passes_design_context():
     ai = FakeAiService()
     svc = Phase3Service(ai=ai, context=FakeContextService())
