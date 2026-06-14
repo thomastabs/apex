@@ -233,7 +233,13 @@ start_backend() {
   require_command python3
 
   log "Starting Apex backend on http://localhost:$APEX_BACKEND_PORT"
-  TAIGA_API_URL="$tunnel_url" python3 -m uvicorn backend.app.main:app --reload --port "$APEX_BACKEND_PORT" &
+  # Do NOT pin TAIGA_API_URL: that locks the backend to one instance and a stale
+  # pin (an old tunnel URL from a previous run) makes credential validation 401
+  # when you sign into a different instance. With instance-scoped storage the
+  # backend anchors validation on the per-request X-Taiga-Url the frontend sends
+  # — paste the tunnel URL below into the sidebar. This keeps the backend
+  # multi-instance (you can also sign into Taiga Cloud in the same session).
+  python3 -m uvicorn backend.app.main:app --reload --port "$APEX_BACKEND_PORT" &
   PIDS+=("$!")
 }
 
