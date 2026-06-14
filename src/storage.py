@@ -22,6 +22,19 @@ import os
 from pathlib import Path
 from typing import Iterator
 
+# Load .env BEFORE reading the storage env vars below. This module is imported
+# very early (context_manager → storage) — often before other modules call
+# load_dotenv() — so without this a .env-configured AZURE_STORAGE_CONNECTION_STRING
+# is missed and the backend silently falls back to local disk. load_dotenv() does
+# not override vars already in the process env, so the Azure deployment (env
+# injected, no .env file) is unaffected.
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:  # pragma: no cover — dotenv is always in requirements
+    pass
+
 _CONN_STR = os.getenv("AZURE_STORAGE_CONNECTION_STRING", "")
 _SHARE = os.getenv("AZURE_FILE_SHARE_NAME", "contextspec")
 _LOCAL_PREFIX = "contextspec"  # local base dir that maps to the share root
