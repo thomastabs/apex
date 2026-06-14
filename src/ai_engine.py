@@ -1394,12 +1394,27 @@ Rules:
 """
 
 
+def _prune_dangling_edges(valid_ids: set[str], edges: list) -> list:
+    """Drop edges whose source/target is not a real node id.
+
+    Diagram edges reference nodes by id; a hallucinated endpoint would render
+    as an edge to nowhere in React Flow. Self-loops (source == target) are kept
+    — they are legitimate (e.g. a self-referential foreign key).
+    """
+    kept = [e for e in edges if e.source in valid_ids and e.target in valid_ids]
+    if len(kept) != len(edges):
+        _logger.info("diagram_edges_pruned kept=%d of %d", len(kept), len(edges))
+    return kept
+
+
 def extract_er_diagram(data_model_md: str) -> ERDiagramData:
     """Extract ER diagram nodes and edges from a Data Model markdown section."""
-    return _ai_retry(lambda: _invoke_structured_with_progress(
+    result = _ai_retry(lambda: _invoke_structured_with_progress(
         _ER_DIAGRAM_SYSTEM, fence_user_content(data_model_md), get_model(), ERDiagramData,
         max_tokens=2048, item_field="entities",
     ))
+    result.edges = _prune_dangling_edges({e.id for e in result.entities}, result.edges)
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -1439,10 +1454,12 @@ Rules:
 
 def extract_screen_flow(ux_brief_md: str) -> ScreenFlowData:
     """Extract screen navigation flow from a UX Brief markdown section."""
-    return _ai_retry(lambda: _invoke_structured_with_progress(
+    result = _ai_retry(lambda: _invoke_structured_with_progress(
         _SCREEN_FLOW_SYSTEM, fence_user_content(ux_brief_md), get_model(), ScreenFlowData,
         max_tokens=2048, item_field="nodes",
     ))
+    result.edges = _prune_dangling_edges({n.id for n in result.nodes}, result.edges)
+    return result
 
 
 # ---------------------------------------------------------------------------

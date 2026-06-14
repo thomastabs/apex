@@ -554,3 +554,23 @@ class TestReconcileTaskList:
         # every predecessor id is strictly smaller than the task id => DAG
         for t in out.tasks:
             assert all(p < t.id for p in t.predecessor_task_ids)
+
+
+class TestPruneDanglingEdges:
+    """Phase 2 ER / screen-flow graph integrity."""
+
+    def _edge(self, src, tgt):
+        from src.ai_engine import ERDiagramEdge
+        return ERDiagramEdge(id=f"{src}__{tgt}", source=src, target=tgt, label="rel")
+
+    def test_drops_edges_to_unknown_nodes(self):
+        from src.ai_engine import _prune_dangling_edges
+        edges = [self._edge("user", "project"), self._edge("user", "ghost")]
+        kept = _prune_dangling_edges({"user", "project"}, edges)
+        assert [e.id for e in kept] == ["user__project"]
+
+    def test_keeps_self_loops(self):
+        from src.ai_engine import _prune_dangling_edges
+        edges = [self._edge("user", "user")]  # self-referential FK (e.g. manager_id)
+        kept = _prune_dangling_edges({"user"}, edges)
+        assert len(kept) == 1
