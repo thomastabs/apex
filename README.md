@@ -341,16 +341,28 @@ valid on. A caller pointing `X-Taiga-Url` at a Taiga they control only reaches t
 (empty) sandbox — never another team's files. Within an instance, **Taiga project membership** gates
 per-project access (`_verify_project_access` returns 403 to non-members).
 
-**Optional single-instance lock:** set the `TAIGA_API_URL` env var on the backend to force every user
-onto one instance (the env anchor overrides the request header). Use the env var, **not** workspace
-config — config `taiga_url` is user-writable via `POST /workspace/config`.
+**Anchor precedence** (credential validation + storage namespace): `TAIGA_API_URL` env →
+per-request `X-Taiga-Url` → Taiga Cloud. Workspace config `taiga_url` is **not** used — it is
+user-writable via `POST /workspace/config` and goes stale across sessions, which would validate a
+fresh token against the wrong instance and 401.
+
+- **Multi-instance (default):** leave `TAIGA_API_URL` **unset** so each request's `X-Taiga-Url`
+  anchors validation and the storage namespace. Cloud and private instances coexist.
+- **Single-instance lock (optional):** set `TAIGA_API_URL` on the backend to force everyone onto one
+  instance (env overrides the header). Note: this **blocks all other instances** — the deployment is
+  not pinned, so both Cloud and private work.
+
+> Ephemeral tunnels don't persist context: each new `trycloudflare.com` URL is a new `instance_id` =
+> a new (empty) namespace. For a persistent private instance use a **fixed domain or a named
+> Cloudflare tunnel**. Taiga Cloud (`api.taiga.io`) is a stable namespace.
 
 **Migration:** existing pre-namespacing data (`contextspec/<project_id>/`) is relocated with
-`scripts/migrate-instance-scoped.py` (idempotent; run once locally and once against Azure with
-`AZURE_STORAGE_CONNECTION_STRING` set):
+`scripts/migrate-instance-scoped.py` (idempotent; run once per storage backend — local, and Azure
+with `AZURE_STORAGE_CONNECTION_STRING` set):
 
 ```bash
-python3 scripts/migrate-instance-scoped.py --instance-url https://api.taiga.io
+python3 scripts/migrate-instance-scoped.py --dry-run --instance-url https://api.taiga.io   # review
+python3 scripts/migrate-instance-scoped.py           --instance-url https://api.taiga.io   # apply
 ```
 
 The backend reads `X-Project-Id` and the validated anchor on each request to select the correct
@@ -358,11 +370,13 @@ The backend reads `X-Project-Id` and the validated anchor on each request to sel
 
 Storage behavior:
 
-- Without Azure env vars, files are stored locally in `contextspec/`.
-- With `AZURE_STORAGE_CONNECTION_STRING`, `src/storage.py` uses the Azure File Share SDK.
-- In Azure Container Apps, the intended deployment model is to mount the Azure File Share at `/app/contextspec` for the backend.
-
-For normal local development, leave Azure storage blank unless you deliberately want to share context with the deployed app.
+- `src/storage.py` loads `.env` at import, then selects backend from `AZURE_STORAGE_CONNECTION_STRING`:
+  set → **Azure File Share SDK**; unset → **local disk** (`contextspec/`).
+- The Azure deployment sets the connection string (env-injected), so it uses the File Share over the SDK.
+- To run a **local backend against the same shared File Share**, put `AZURE_STORAGE_CONNECTION_STRING`
+  (and `AZURE_FILE_SHARE_NAME`, default `contextspec`) in `.env` — local and deployment then share one
+  source of truth, no local `contextspec/`.
+- For fully offline local dev, leave those blank → local disk.
 
 ---
 
@@ -385,7 +399,9 @@ Create `.env` in the repository root:
 ```env
 ANTHROPIC_API_KEY=sk-ant-...
 
-TAIGA_API_URL=https://api.taiga.io
+# Optional. LOCKS validation/storage to one Taiga instance (overrides the
+# per-request X-Taiga-Url). Leave UNSET for multi-instance (Cloud + private).
+# TAIGA_API_URL=https://api.taiga.io
 
 # Optional — only needed if using OpenAI models in the AI model selector.
 OPENAI_API_KEY=
@@ -393,7 +409,8 @@ OPENAI_API_KEY=
 # Optional — only needed if using Google Gemini models in the AI model selector.
 GOOGLE_API_KEY=
 
-# Optional. Leave blank for local contextspec/ storage.
+# Optional. Set to use the Azure File Share (same source as the deployment);
+# leave blank for local contextspec/ disk storage. storage.py reads these from .env.
 AZURE_STORAGE_CONNECTION_STRING=
 AZURE_FILE_SHARE_NAME=contextspec
 
@@ -457,9 +474,15 @@ The script:
 - starts Taiga with Docker Compose
 - runs Taiga migrations
 - creates or updates an admin user
-- starts a temporary `trycloudflare.com` HTTPS tunnel
-- starts the Apex backend with `TAIGA_API_URL` anchored to that tunnel
+- starts a temporary `trycloudflare.com` HTTPS tunnel and prints its URL
+- starts the Apex backend **without pinning `TAIGA_API_URL`** (stays multi-instance — validation
+  anchors on the `X-Taiga-Url` you paste into the sidebar; you can also sign into Taiga Cloud)
 - optionally starts the frontend on `http://localhost:3000`
+
+Paste the printed tunnel URL into the sidebar's "Taiga instance URL" to sign in against it. Note: the
+tunnel URL changes each run (a new storage namespace each time), so private-instance context isn't
+persistent — see the multi-instance caveat above. To share the deployment's data locally, set
+`AZURE_STORAGE_CONNECTION_STRING` in `.env` and sign into Taiga Cloud.
 
 Defaults:
 
