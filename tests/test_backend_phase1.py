@@ -34,6 +34,9 @@ class FakeContextService:
         self.appended = []
         self.initialized = False
 
+    def set_active(self, ctx):
+        self.set_project(ctx.project_id)
+
     def set_project(self, project_id: int) -> None:
         self.project_id = project_id
 

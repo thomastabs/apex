@@ -21,6 +21,9 @@ class FakeContextService:
         self.verifications = verifications or {}
         self.verification_reads: list[int] = []
 
+    def set_active(self, ctx):
+        self.set_project(ctx.project_id)
+
     def set_project(self, project_id: int):
         pass
 

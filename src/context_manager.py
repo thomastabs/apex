@@ -44,14 +44,54 @@ _active_project_id: contextvars.ContextVar[int] = contextvars.ContextVar(
     default=int(os.getenv("PM_PROJECT_ID") or os.getenv("TAIGA_PROJECT_ID") or "0"),
 )
 
+# Per-request active PM instance. Context files live under
+# contextspec/<instance_id>/<project_id>/ so the same project_id on different
+# Taiga instances (Cloud vs private) never collides — the instance is the tenant
+# boundary that makes multi-user × multi-instance safe. See instance_key().
+_active_instance_id: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "context_manager_instance_id",
+    default=os.getenv("APEX_INSTANCE_ID", "").strip() or "default",
+)
+
 
 def _get_project_id() -> int:
     return _active_project_id.get()
 
 
+def _get_instance_id() -> str:
+    return _active_instance_id.get() or "default"
+
+
+def set_active_instance(instance_id: str) -> None:
+    """Set the active PM instance namespace for the current request context."""
+    _active_instance_id.set(instance_id or "default")
+
+
+def instance_key(url: str) -> str:
+    """Canonical, filesystem-safe storage namespace for a PM instance URL.
+
+    Derived from the host so distinct instances get distinct namespaces
+    (https://api.taiga.io -> 'api_taiga_io', acme.atlassian.net ->
+    'acme_atlassian_net'). Public hosts always contain letters, so an instance
+    dir never looks like a numeric project dir — keeping migration detection
+    unambiguous. Blank/unparseable -> 'default'.
+    """
+    from urllib.parse import urlparse
+    host = (urlparse(url).hostname or "").strip().lower()
+    if not host:
+        return "default"
+    return re.sub(r"[^a-z0-9]", "_", host)
+
+
+def _ctx_key(pid: int | None = None) -> tuple[str, int]:
+    """Composite per-process cache key: (instance_id, project_id)."""
+    return (_get_instance_id(), pid if pid is not None else _get_project_id())
+
+
 def _context_dir(pid: int | None = None) -> Path:
     p = pid if pid is not None else _get_project_id()
-    return _BASE_CONTEXTSPEC / str(p) if p else _BASE_CONTEXTSPEC / "default"
+    base = _BASE_CONTEXTSPEC / _get_instance_id()
+    return base / str(p) if p else base / "default"
 
 
 def _path(filename: str, pid: int | None = None) -> Path:
@@ -71,8 +111,8 @@ def get_file_path(filename: str, pid: int | None = None) -> Path:
 # endpoints are sync `def`s running on a threadpool, so unlocked upserts can
 # interleave and lose updates.
 _index_lock = threading.RLock()
-_story_index_caches:  dict[int, tuple[float, dict]] = {}
-_initialized_projects: set[int]              = set()
+_story_index_caches:  dict[tuple[str, int], tuple[float, dict]] = {}
+_initialized_projects: set[tuple[str, int]]              = set()
 
 
 
@@ -100,7 +140,7 @@ def __getattr__(name: str):
     if name == "CONTEXT_DIR":
         return _context_dir()
     if name == "_context_initialized":
-        return _get_project_id() in _initialized_projects
+        return _ctx_key() in _initialized_projects
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -302,10 +342,46 @@ def reset_cache() -> None:
     Useful when the underlying files may have changed externally (e.g. in tests or
     after a story index rebuild via the API).
     """
-    pid = _get_project_id()
-    _initialized_projects.discard(pid)
-    _story_index_caches.pop(pid, None)
+    key = _ctx_key()
+    _initialized_projects.discard(key)
+    _story_index_caches.pop(key, None)
     _invalidate_config_cache()
+
+
+def migrate_to_instance_scoped(instance_id: str) -> int:
+    """Relocate legacy contextspec/<project_id>/ dirs under contextspec/<instance_id>/.
+
+    Context storage is now namespaced by PM instance (contextspec/<instance>/<pid>/).
+    This moves pre-namespacing data — project dirs that sit directly at the
+    contextspec root — into the given instance namespace. Idempotent: only
+    top-level entries whose name is purely numeric (legacy project dirs) are
+    moved; already-namespaced instance dirs and the root .apex-config.json are
+    left untouched. Project dirs are flat (no nested subdirs), so a single-level
+    file copy suffices. Works in local and Azure File Share modes via StoragePath.
+    Returns the number of project dirs migrated.
+    """
+    instance_id = (instance_id or "").strip() or "default"
+    moved = 0
+    # Materialise before iterating — the loop creates a new top-level instance dir.
+    for entry in list(_BASE_CONTEXTSPEC.iterdir_dirs()):
+        name = entry.name
+        if not name.isdigit():
+            continue  # already an instance namespace dir — skip
+        dest_dir = _BASE_CONTEXTSPEC / instance_id / name
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        for f in entry.iterdir():
+            if f.is_dir():
+                _logger.warning("migrate: unexpected subdir %s — leaving in place", f)
+                continue
+            (dest_dir / f.name).write_text(f.read_text(), encoding="utf-8")
+            f.unlink(missing_ok=True)
+        entry.rmdir()  # remove the now-empty legacy dir
+        moved += 1
+        _logger.info("migrate: contextspec/%s -> contextspec/%s/%s", name, instance_id, name)
+    if moved:
+        _story_index_caches.clear()
+        _initialized_projects.clear()
+    return moved
 
 
 # ---------------------------------------------------------------------------
@@ -315,7 +391,8 @@ def reset_cache() -> None:
 def init_context() -> None:
     """Create spec files with standard templates if they do not exist, then run migrations."""
     pid = _get_project_id()
-    if pid in _initialized_projects:
+    key = _ctx_key(pid)
+    if key in _initialized_projects:
         return
     if not is_project_selected():
         return  # no project chosen yet — do not create contextspec/default/ files
@@ -335,7 +412,7 @@ def init_context() -> None:
     _migrate_vaccine_records()
     if not _path("story-index.json").exists():
         rebuild_story_index()
-    _initialized_projects.add(pid)
+    _initialized_projects.add(key)
 
 
 def _migrate_memory_bank() -> None:
@@ -580,27 +657,27 @@ def get_story_index() -> dict[str, dict]:
     the mtime check exists to pick up out-of-band changes — tests, manual edits,
     or an index rebuild via the API — not concurrent writers.
     """
-    pid = _get_project_id()
+    key = _ctx_key()
     with _index_lock:
         sif = _path("story-index.json")
         mtime = _index_file_mtime(sif)
-        cached = _story_index_caches.get(pid)
+        cached = _story_index_caches.get(key)
         if cached is not None and cached[0] == mtime:
             return cached[1]
         index = json.loads(sif.read_text(encoding="utf-8")) if mtime >= 0 else {}
-        _story_index_caches[pid] = (mtime, index)
+        _story_index_caches[key] = (mtime, index)
         return index
 
 
 def _save_story_index(index: dict[str, dict]) -> None:
-    pid = _get_project_id()
+    key = _ctx_key()
     with _index_lock:
         sif = _path("story-index.json")
         sif.write_text(
             json.dumps(index, indent=2, ensure_ascii=False, sort_keys=True),
             encoding="utf-8",
         )
-        _story_index_caches[pid] = (_index_file_mtime(sif), index)
+        _story_index_caches[key] = (_index_file_mtime(sif), index)
 
 
 def _now_iso() -> str:
@@ -1381,11 +1458,9 @@ def append_deployment_record(
     cd = _context_dir()
     cd.mkdir(parents=True, exist_ok=True)
     p = cd / "deployment-log.md"
-    if not p.exists():
-        p.write_text(
-            "# Deployment Log\n\nGate decisions recorded by Phase 5 — one entry per deployment.\n",
-            encoding="utf-8",
-        )
+    existing = p.read_text(encoding="utf-8") if p.exists() else (
+        "# Deployment Log\n\nGate decisions recorded by Phase 5 — one entry per deployment.\n"
+    )
     entry = [
         "",
         f"## Deployment — Story {story_id} — {_now_iso()}",
@@ -1398,8 +1473,9 @@ def append_deployment_record(
     if notes.strip():
         entry.append(f"- **Notes:** {notes.strip()}")
     entry.append("")
-    with p.open("a", encoding="utf-8") as fh:
-        fh.write("\n".join(entry))
+    # Append via read+write — StoragePath (the production base type, local or
+    # Azure) has no append-mode open().
+    p.write_text(existing + "\n".join(entry), encoding="utf-8")
 
 
 def _render_verification_md(story_id: int, data: dict) -> str:
@@ -1828,13 +1904,12 @@ def reset_context() -> None:
     Intended for test/demo purposes only — all locked Gherkin, technical specs,
     vaccine records, and index entries are permanently erased.
     """
-    pid = _get_project_id()
     _context_dir().mkdir(parents=True, exist_ok=True)
     for filename, template in _TEMPLATES.items():
         _path(filename).write_text(template, encoding="utf-8")
     _save_story_index({})
     clear_draft()
-    _initialized_projects.discard(pid)
+    _initialized_projects.discard(_ctx_key())
 
 
 def _now() -> str:

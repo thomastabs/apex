@@ -147,6 +147,9 @@ def test_persist_design_route():
             self.design = None
             self.spec = None
 
+        def set_active(self, ctx):
+            self.set_project(ctx.project_id)
+
         def set_project(self, project_id):
             self.project_id = project_id
 

@@ -26,7 +26,7 @@ class Phase3Service:
         self.context = context or ContextService()
 
     def configure_request(self, ctx: RequestContext) -> None:
-        self.context.set_project(ctx.project_id)
+        self.context.set_active(ctx)
 
     def get_eligible_stories(self, ctx: RequestContext) -> list[dict]:
         self.configure_request(ctx)

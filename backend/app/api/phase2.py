@@ -196,6 +196,6 @@ def save_screen_flow_positions(
 @router.post("/refresh-story-index", response_model=OkResponse)
 def refresh_story_index(ctx: RequestContext = Depends(get_request_context)):
     context = ContextService()
-    context.set_project(ctx.project_id)
+    context.set_active(ctx)
     context.reset_cache()
     return {"ok": True}

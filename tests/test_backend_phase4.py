@@ -46,6 +46,9 @@ class FakeContextService:
         self.project_id = 0
         self.index = index if index is not None else _story_index()
 
+    def set_active(self, ctx):
+        self.set_project(ctx.project_id)
+
     def set_project(self, project_id: int):
         self.project_id = project_id
 

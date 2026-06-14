@@ -83,12 +83,23 @@ def _cache_put(cache: dict, key, ok: bool) -> None:
         cache.move_to_end(key)
 
 
-def _pm_endpoints(taiga_url_override: str = "") -> tuple[str, str, str]:
-    """Return (auth_scheme, identity_url, project_url_template) for the anchored PM.
+def _resolve_anchor_base(taiga_url_override: str = "") -> tuple[str, str]:
+    """Return (pm_tool, validated_api_base) for the anchored PM.
 
-    Taiga anchor resolution: request override → TAIGA_API_URL env →
-    workspace-config taiga_url → Taiga Cloud. All sources pass the proxy's
-    SSRF validator since the result is dialled server-side.
+    The base's host is ALSO the storage instance namespace
+    (context_manager.instance_key), so this must be the single source of truth
+    for both credential validation and which contextspec/<instance>/ a request
+    reads. The per-request anchor being part of the storage key is what makes
+    multi-instance safe: a rogue anchor only ever reaches its own namespace.
+
+    Taiga anchor precedence: TAIGA_API_URL env → workspace-config taiga_url →
+    request override (X-Taiga-Url) → Taiga Cloud. A server-set anchor (env/config)
+    therefore overrides the request header. For a deployment that wants to LOCK
+    everyone to one instance, pin via the TAIGA_API_URL env var (not config —
+    config taiga_url is user-writable via POST /workspace/config). When nothing
+    is pinned, the per-request header anchors (now safe thanks to instance-scoped
+    storage). All sources pass the SSRF validator since the result is dialled
+    server-side.
     """
     import os
 
@@ -103,21 +114,10 @@ def _pm_endpoints(taiga_url_override: str = "") -> tuple[str, str, str]:
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Workspace is configured for Jira but has no Jira base URL.",
             )
-        return "Basic", f"{base}/rest/api/3/myself", f"{base}/rest/api/3/project/{{project_id}}"
+        return "jira", base
 
     from backend.app.api.taiga_proxy import _validate_taiga_url
 
-    # A server-trusted anchor takes precedence over the per-request X-Taiga-Url.
-    # In a multi-user deployment this is REQUIRED: without it a caller could point
-    # credential validation at a Taiga they control that rubber-stamps any
-    # token+project, then read another team's context files (keyed only by
-    # project_id). The header override is honoured only when no server anchor is
-    # configured — i.e. single-user/dev convenience.
-    #
-    # MULTI-USER: pin via the TAIGA_API_URL env var, NOT workspace config —
-    # config `taiga_url` is writable by any user through POST /workspace/config,
-    # so a config-based anchor is not trustworthy across users. The env var is not
-    # user-mutable. (config is kept in the chain only for single-user setups.)
     override = taiga_url_override if isinstance(taiga_url_override, str) else ""
     base = (
         os.getenv("TAIGA_API_URL", "").strip().rstrip("/")
@@ -128,6 +128,14 @@ def _pm_endpoints(taiga_url_override: str = "") -> tuple[str, str, str]:
     if not base.endswith("/api/v1"):
         base = base.replace("//tree.", "//api.") + "/api/v1"
     base = _validate_taiga_url(base, source="Taiga identity URL")
+    return "taiga", base
+
+
+def _pm_endpoints(taiga_url_override: str = "") -> tuple[str, str, str]:
+    """Return (auth_scheme, identity_url, project_url_template) for the anchored PM."""
+    pm_tool, base = _resolve_anchor_base(taiga_url_override)
+    if pm_tool == "jira":
+        return "Basic", f"{base}/rest/api/3/myself", f"{base}/rest/api/3/project/{{project_id}}"
     return "Bearer", f"{base}/users/me", f"{base}/projects/{{project_id}}"
 
 
@@ -225,6 +233,13 @@ def get_request_context(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="X-Project-Id header is required.",
         )
-    auth = get_auth_context(authorization, x_taiga_url)
-    _verify_project_access(auth.pm_token, project_id, x_taiga_url)
-    return RequestContext(pm_token=auth.pm_token, project_id=project_id)
+    override = x_taiga_url if isinstance(x_taiga_url, str) else ""
+    auth = get_auth_context(authorization, override)
+    _verify_project_access(auth.pm_token, project_id, override)
+    # Derive the storage instance namespace from the SAME validated anchor the
+    # credentials were checked against — so a request can only ever reach the
+    # contextspec/<instance>/ of an instance its token is actually valid on.
+    from src import context_manager
+    _, base = _resolve_anchor_base(override)
+    instance_id = context_manager.instance_key(base)
+    return RequestContext(pm_token=auth.pm_token, project_id=project_id, instance_id=instance_id)

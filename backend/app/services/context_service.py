@@ -7,6 +7,14 @@ class ContextService:
     def set_project(self, project_id: int) -> None:
         context_manager.set_active_project(project_id)
 
+    def set_active(self, ctx) -> None:
+        """Set both the PM-instance namespace and the project from a RequestContext.
+
+        Storage is scoped to contextspec/<instance_id>/<project_id>/, so every
+        request-handling path must set the instance before touching files."""
+        context_manager.set_active_instance(getattr(ctx, "instance_id", "default") or "default")
+        context_manager.set_active_project(ctx.project_id)
+
     def project_concept(self) -> str:
         return context_manager.get_project_concept()
 

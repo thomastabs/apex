@@ -672,11 +672,11 @@ class TestGetOtherEpicsDesignContext:
 class TestBuildContextDir:
     def test_nonzero_id_returns_project_subdir(self):
         from src import context_manager as cm
-        assert cm._context_dir(42) == cm._BASE_CONTEXTSPEC / "42"
+        assert cm._context_dir(42) == cm._BASE_CONTEXTSPEC / "default" / "42"
 
     def test_zero_id_returns_default_subdir(self):
         from src import context_manager as cm
-        assert cm._context_dir(0) == cm._BASE_CONTEXTSPEC / "default"
+        assert cm._context_dir(0) == cm._BASE_CONTEXTSPEC / "default" / "default"
 
     def test_different_ids_produce_different_dirs(self):
         from src import context_manager as cm
@@ -694,7 +694,7 @@ class TestSetActiveProject:
         token = cm._active_project_id.set(0)
         try:
             cm.set_active_project(99)
-            assert cm.CONTEXT_DIR == tmp_path / "99"
+            assert cm.CONTEXT_DIR == tmp_path / "default" / "99"
         finally:
             cm._active_project_id.reset(token)
 
@@ -704,7 +704,7 @@ class TestSetActiveProject:
         token = cm._active_project_id.set(0)
         try:
             cm.set_active_project(77)
-            expected = tmp_path / "77"
+            expected = tmp_path / "default" / "77"
             assert cm.PROJECT_CONCEPT_FILE == expected / "project-concept.md"
             assert cm.TECH_STACK_FILE      == expected / "tech-stack.md"
             assert cm.FUNCTIONAL_SPEC_FILE == expected / "functional-spec.md"
@@ -723,8 +723,8 @@ class TestSetActiveProject:
         monkeypatch.setattr(cm, "_initialized_projects", set())
         token = cm._active_project_id.set(111)
         try:
-            # Mark project 111 as initialized.
-            cm._initialized_projects.add(111)
+            # Mark project 111 as initialized (cache key is (instance, pid)).
+            cm._initialized_projects.add(cm._ctx_key())
             assert cm._context_initialized is True
             # Switch to a different project — it has not been initialized yet.
             cm.set_active_project(222)
@@ -749,7 +749,7 @@ class TestSetActiveProject:
         token = cm._active_project_id.set(1)
         try:
             cm.set_active_project(0)
-            assert cm.CONTEXT_DIR == tmp_path / "default"
+            assert cm.CONTEXT_DIR == tmp_path / "default" / "default"
         finally:
             cm._active_project_id.reset(token)
 
@@ -763,8 +763,8 @@ class TestSetActiveProject:
             cm.set_active_project(20)
             dir_b = cm.CONTEXT_DIR
             assert dir_a != dir_b
-            assert dir_a == tmp_path / "10"
-            assert dir_b == tmp_path / "20"
+            assert dir_a == tmp_path / "default" / "10"
+            assert dir_b == tmp_path / "default" / "20"
         finally:
             cm._active_project_id.reset(token)
 
@@ -783,10 +783,10 @@ class TestResetCache:
     def test_resets_story_index_cache(self, ctx):
         ctx.init_context()
         ctx.upsert_story_index(42, title="Test")
-        pid = ctx._get_project_id()
-        assert pid in ctx._story_index_caches
+        key = ctx._ctx_key()
+        assert key in ctx._story_index_caches
         ctx.reset_cache()
-        assert pid not in ctx._story_index_caches
+        assert key not in ctx._story_index_caches
 
     def test_does_not_change_context_dir(self, ctx):
         original = ctx.CONTEXT_DIR
@@ -848,8 +848,8 @@ class TestProjectIsolation:
             cm.init_context()
             cm.set_active_project(200)
             cm.init_context()
-            assert (tmp_path / "100").is_dir()
-            assert (tmp_path / "200").is_dir()
+            assert (tmp_path / "default" / "100").is_dir()
+            assert (tmp_path / "default" / "200").is_dir()
         finally:
             cm._active_project_id.reset(token)
 

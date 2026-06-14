@@ -37,6 +37,9 @@ class FakeContextService:
         self.written_bundle = None
         self.written_tech_spec = None
 
+    def set_active(self, ctx):
+        self.set_project(ctx.project_id)
+
     def set_project(self, project_id: int):
         self.project_id = project_id
 

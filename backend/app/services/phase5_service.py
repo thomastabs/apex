@@ -32,7 +32,7 @@ class Phase5Service:
         self.context = context or ContextService()
 
     def configure_request(self, ctx: RequestContext) -> None:
-        self.context.set_project(ctx.project_id)
+        self.context.set_active(ctx)
 
     # ── eligibility ─────────────────────────────────────────────────────────
 

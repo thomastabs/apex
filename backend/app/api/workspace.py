@@ -115,7 +115,7 @@ def save_config(payload: SaveConfigRequest, auth: AuthContext = Depends(get_auth
 def get_context_files(ctx: RequestContext = Depends(get_request_context)):
     import datetime
     context = ContextService()
-    context.set_project(ctx.project_id)
+    context.set_active(ctx)
     files = []
     for filename, label in _CONTEXT_FILES:
         content = context.read_context_file(filename)
@@ -140,7 +140,7 @@ def get_context_files(ctx: RequestContext = Depends(get_request_context)):
 @router.post("/context-files/rebuild-index", response_model=OkResponse)
 def rebuild_story_index(ctx: RequestContext = Depends(get_request_context)):
     context = ContextService()
-    context.set_project(ctx.project_id)
+    context.set_active(ctx)
     try:
         context.rebuild_story_index()
     except Exception as exc:
@@ -152,7 +152,7 @@ def rebuild_story_index(ctx: RequestContext = Depends(get_request_context)):
 @router.delete("/context-files/story-index/epics/{epic_id}", response_model=OkResponse)
 def remove_epic_from_story_index(epic_id: int, ctx: RequestContext = Depends(get_request_context)):
     context = ContextService()
-    context.set_project(ctx.project_id)
+    context.set_active(ctx)
     try:
         context.remove_epic_from_story_index(epic_id)
     except Exception as exc:
@@ -167,7 +167,7 @@ def remove_epic_from_story_index(epic_id: int, ctx: RequestContext = Depends(get
 @router.delete("/context-files/story-index/stories/{story_id}", response_model=OkResponse)
 def remove_story_from_story_index(story_id: int, ctx: RequestContext = Depends(get_request_context)):
     context = ContextService()
-    context.set_project(ctx.project_id)
+    context.set_active(ctx)
     try:
         context.remove_story_index_entries([story_id])
     except Exception as exc:
@@ -182,7 +182,7 @@ def remove_story_from_story_index(story_id: int, ctx: RequestContext = Depends(g
 @router.get("/context-files/story-index-stats", response_model=StoryIndexStatsResponse)
 def story_index_stats(ctx: RequestContext = Depends(get_request_context)):
     context = ContextService()
-    context.set_project(ctx.project_id)
+    context.set_active(ctx)
     try:
         index = context.story_index()
     except Exception as _idx_exc:
@@ -203,7 +203,7 @@ def story_index_stats(ctx: RequestContext = Depends(get_request_context)):
 @router.post("/context-files/reset-all", response_model=ContextFilesResponse)
 def reset_all_context_files(ctx: RequestContext = Depends(get_request_context)):
     context = ContextService()
-    context.set_project(ctx.project_id)
+    context.set_active(ctx)
     for filename, _ in _CONTEXT_FILES:
         context.reset_context_file(filename)
     context.clear_story_index()
@@ -219,7 +219,7 @@ def update_context_file(
     if filename not in _ALLOWED_CONTEXT_FILES:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown context file.")
     context = ContextService()
-    context.set_project(ctx.project_id)
+    context.set_active(ctx)
     context.write_context_file(filename, payload.content)
     return get_context_files(ctx)
 
@@ -229,6 +229,6 @@ def reset_context_file(filename: str, ctx: RequestContext = Depends(get_request_
     if filename not in _ALLOWED_CONTEXT_FILES:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown context file.")
     context = ContextService()
-    context.set_project(ctx.project_id)
+    context.set_active(ctx)
     context.reset_context_file(filename)
     return get_context_files(ctx)

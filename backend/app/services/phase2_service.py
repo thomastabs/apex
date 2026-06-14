@@ -24,7 +24,7 @@ class Phase2Service:
         self.context = context or ContextService()
 
     def configure_request(self, ctx: RequestContext) -> None:
-        self.context.set_project(ctx.project_id)
+        self.context.set_active(ctx)
 
     def tech_stack_status(self, ctx: RequestContext) -> dict:
         self.configure_request(ctx)

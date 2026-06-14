@@ -20,7 +20,7 @@ class Phase1Service:
         self.context = context or ContextService()
 
     def configure_request(self, ctx: RequestContext) -> None:
-        self.context.set_project(ctx.project_id)
+        self.context.set_active(ctx)
 
     def suggest_epics(self, ctx: RequestContext, *, hint: str = "") -> list[dict]:
         self.configure_request(ctx)
@@ -60,7 +60,7 @@ class Phase1Service:
         epic_subject: str,
         stories: list[dict],
     ) -> dict:
-        self.context.set_project(ctx.project_id)
+        self.context.set_active(ctx)
         self.context.init_context()
         story_ids: list[int] = []
         for item in stories:

@@ -68,6 +68,9 @@ class FakeContextService:
         self.saved_proposals: list[tuple] = []
         self.upserted: list[tuple] = []
 
+    def set_active(self, ctx):
+        self.set_project(ctx.project_id)
+
     def set_project(self, project_id: int):
         self.project_id = project_id
 

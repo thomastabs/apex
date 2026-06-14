@@ -69,6 +69,9 @@ class FakeContextService:
         self.saved_pack = None
         self.deployment_records = []
 
+    def set_active(self, ctx):
+        self.set_project(ctx.project_id)
+
     def set_project(self, project_id: int):
         self.project_id = project_id
 

@@ -150,6 +150,32 @@ def _az_mkdir(azure_path: str) -> None:
             pass  # directory already exists — expected
 
 
+def _az_iterdir_dirs(azure_path: str) -> "Iterator[StoragePath]":
+    """Yield one StoragePath per SUBDIRECTORY in an Azure File Share directory."""
+    try:
+        dc = _az_dir_client(azure_path)
+        for item in dc.list_directories_and_files():
+            if item.get("is_directory", False):
+                local_path = (
+                    f"{_LOCAL_PREFIX}/{azure_path}/{item['name']}"
+                    if azure_path
+                    else f"{_LOCAL_PREFIX}/{item['name']}"
+                )
+                yield StoragePath(local_path)
+    except _AzResourceNotFoundError:
+        return
+
+
+def _az_rmdir(azure_path: str) -> None:
+    """Delete an (empty) directory in the Azure File Share; no-op if absent."""
+    if not azure_path:
+        return
+    try:
+        _az_dir_client(azure_path).delete_directory()
+    except _AzResourceNotFoundError:
+        pass
+
+
 def _az_iterdir(azure_path: str) -> "Iterator[StoragePath]":
     """Yield one StoragePath per file (not subdirectory) in an Azure File Share directory."""
     try:
@@ -273,3 +299,26 @@ class StoragePath:
         if _USE_AZURE:
             return _az_iterdir(self._az())
         return (StoragePath(p) for p in self._p.iterdir())
+
+    def iterdir_dirs(self) -> "Iterator[StoragePath]":
+        """Yield only the subdirectories of this directory (both storage modes)."""
+        if _USE_AZURE:
+            return _az_iterdir_dirs(self._az())
+        return (StoragePath(p) for p in self._p.iterdir() if p.is_dir())
+
+    def is_dir(self) -> bool:
+        if _USE_AZURE:
+            # Azure callers only test entries from iterdir() (files only), so a
+            # directory never reaches here; treat unknown as not-a-dir.
+            return False
+        return self._p.is_dir()
+
+    def rmdir(self) -> None:
+        """Remove an empty directory (no-op if already gone)."""
+        if _USE_AZURE:
+            _az_rmdir(self._az())
+        else:
+            try:
+                self._p.rmdir()
+            except FileNotFoundError:
+                pass

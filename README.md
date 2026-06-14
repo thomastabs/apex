@@ -300,7 +300,7 @@ Implemented:
 
 ## Context Files
 
-Apex stores workflow state in context files under `contextspec/<taiga_project_id>/`.
+Apex stores workflow state in context files under `contextspec/<instance_id>/<project_id>/`.
 
 | File | Purpose |
 |---|---|
@@ -323,7 +323,38 @@ Apex stores workflow state in context files under `contextspec/<taiga_project_id
 | `vaccines.md` | Appended with each Fix-Bolt record — bug isolation log for future reference |
 | `story-index.json` | Machine-readable story phase state |
 
-Each Taiga project gets its own context directory. The backend reads `X-Taiga-Project-Id` on each request and uses that project ID to select the correct context folder.
+### Multiple users & multiple Taiga instances
+
+Context storage is namespaced by **PM instance**: `contextspec/<instance_id>/<project_id>/`, where
+`instance_id` is derived from the validated Taiga/Jira host (e.g. `api_taiga_io`,
+`taiga_acme_com`, `acme_atlassian_net`). The same `project_id` on different instances therefore
+never collides, so **Taiga Cloud users and private-instance users can use the same deployment at
+once**, each fully isolated.
+
+This is what makes per-request instance selection safe. On every request the backend:
+
+1. validates the bearer token against the instance named by `X-Taiga-Url` (`deps.py`), and
+2. derives the storage namespace from that **same validated host**.
+
+So a request can only ever reach the `contextspec/<instance>/` of an instance its token is actually
+valid on. A caller pointing `X-Taiga-Url` at a Taiga they control only reaches that instance's own
+(empty) sandbox — never another team's files. Within an instance, **Taiga project membership** gates
+per-project access (`_verify_project_access` returns 403 to non-members).
+
+**Optional single-instance lock:** set the `TAIGA_API_URL` env var on the backend to force every user
+onto one instance (the env anchor overrides the request header). Use the env var, **not** workspace
+config — config `taiga_url` is user-writable via `POST /workspace/config`.
+
+**Migration:** existing pre-namespacing data (`contextspec/<project_id>/`) is relocated with
+`scripts/migrate-instance-scoped.py` (idempotent; run once locally and once against Azure with
+`AZURE_STORAGE_CONNECTION_STRING` set):
+
+```bash
+python3 scripts/migrate-instance-scoped.py --instance-url https://api.taiga.io
+```
+
+The backend reads `X-Project-Id` and the validated anchor on each request to select the correct
+`contextspec/<instance_id>/<project_id>/` folder.
 
 Storage behavior:
 
