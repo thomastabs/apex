@@ -1,6 +1,7 @@
 import { apiRequest } from "./client";
 import { getPmAdapter } from "./pm-factory";
 import { taigaGetProject } from "./taiga-direct";
+import { toPmCtx } from "./workspace";
 import type {
   CompiledStory,
   EpicSuggestion,
@@ -11,12 +12,11 @@ import type {
   RequestContext,
 } from "./types";
 
+// Project context for PM adapters. Delegates to the shared toPmCtx so Taiga
+// gets the numeric projectId — using pmProjectId (the slug) here made the
+// adapter send project=NaN→null and Taiga rejected epic/story creates with 400.
 function pmCtx(context: RequestContext) {
-  return {
-    token: context.taigaToken,
-    baseUrl: context.taigaApiUrl ?? "",
-    projectId: context.pmProjectId ?? String(context.projectId),
-  };
+  return toPmCtx(context);
 }
 
 export function listPhase1Epics(context: RequestContext) {

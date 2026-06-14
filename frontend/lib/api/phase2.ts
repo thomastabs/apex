@@ -1,5 +1,6 @@
 import { apiRequest } from "./client";
 import { getPmAdapter } from "./pm-factory";
+import { toPmCtx } from "./workspace";
 import type {
   DesignSectionKey,
   DesignSectionResponse,
@@ -18,12 +19,10 @@ import type {
 
 export const PHASE2_AI_TIMEOUT_MS = 480_000;
 
+// Delegates to the shared toPmCtx so Taiga gets the numeric projectId — using
+// pmProjectId (the slug) made the adapter send project=NaN→null (Taiga 400).
 function pmCtx(context: RequestContext) {
-  return {
-    token: context.taigaToken,
-    baseUrl: context.taigaApiUrl ?? "",
-    projectId: context.pmProjectId ?? String(context.projectId),
-  };
+  return toPmCtx(context);
 }
 
 export function getTechStackStatus(context: RequestContext) {
