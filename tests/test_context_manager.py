@@ -990,9 +990,9 @@ class TestConfig:
         monkeypatch.setattr(cm, "_CONFIG_FILE", tmp_path / ".apex-config.json")
         cm.save_config(42)
         cm.save_pm_config(pm_tool="taiga")
-        cm.save_github_config("owner/repo")
+        cm.save_pm_config(jira_base_url="https://acme.atlassian.net")
         cfg = cm.load_config()
-        assert cfg == {"project_id": 42, "pm_tool": "taiga", "github_repo": "owner/repo"}
+        assert cfg == {"project_id": 42, "pm_tool": "taiga", "jira_base_url": "https://acme.atlassian.net"}
 
 
 # ---------------------------------------------------------------------------

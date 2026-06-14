@@ -311,18 +311,6 @@ def save_pm_config(
     _update_config(_mutate, log_label="save_pm_config")
 
 
-def save_github_config(repo: str | None) -> None:
-    """Persist GitHub repo (owner/repo) to shared config (legacy/global).
-
-    Superseded by the per-instance store (save_instance_github_repo); kept for
-    back-compat. New writes go per-instance so different Taiga instances/users
-    don't share one repo.
-    """
-    if repo is None:
-        return
-    _update_config(lambda data: data.__setitem__("github_repo", repo), log_label="save_github_config")
-
-
 # ── Per-instance config (github_repo) ─────────────────────────────────────────
 # github_repo is scoped to the active PM instance so Cloud and private-instance
 # users don't share one repo. Lives at contextspec/<instance_id>/.instance-config.json

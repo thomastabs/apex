@@ -18,7 +18,15 @@ name: Apex · Scale scheduler
 #   gh variable set APEX_NIGHT_MODE --body off   # disable the 22:00 scale-down
 #   gh variable set APEX_NIGHT_MODE --body on    # re-enable (default behaviour)
 # When APEX_NIGHT_MODE=off the scheduled scale-down is skipped; the 08:00
-# scale-up still runs. Manual dispatch (up/down) overrides at any time.
+# scale-up still runs. Manual dispatch (up/down/hibernate) overrides at any time.
+#
+# hibernate = MANUAL-ONLY full scale-to-zero (backend AND frontend min=0) for
+# stretches of total inactivity (e.g. away for days) to save money. The cron can
+# only ever emit up/down, so hibernate is unreachable from the schedule by
+# design — dispatch it by hand, and dispatch `up` to wake. Trade-off: the first
+# request after hibernate cold-starts the backend onto a fresh SNAT egress path
+# (the churn mitigation #1 retry/keepalive absorbs the transient), so use it only
+# when you're genuinely idle, not for normal nights (that's `down`).
 
 on:
   schedule:
@@ -27,10 +35,10 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: 'up → day mode (backend min=1 max=1, frontend min=1 max=10)  |  down → cost mode (backend stays min=1 max=1, frontend min=0 max=2)'
+        description: 'up → day (backend 1/1, frontend 1/10) | down → night (backend stays 1/1, frontend 0/2) | hibernate → full off (backend 0/1, frontend 0/2)'
         required: true
         type: choice
-        options: [up, down]
+        options: [up, down, hibernate]
 
 env:
   AZURE_RESOURCE_GROUP: apex-rg
@@ -93,3 +101,19 @@ jobs:
             --min-replicas 0 \
             --max-replicas 2
           echo "Scaled DOWN: backend → min=1 max=1 (warm, single writer), frontend → min=0 max=2"
+
+      - name: Hibernate — full scale-to-zero (manual only)
+        if: steps.action.outputs.mode == 'hibernate'
+        run: |
+          # Both apps to zero. Dispatch `up` to wake. backend max stays 1.
+          az containerapp update \
+            --name apex-backend \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --min-replicas 0 \
+            --max-replicas 1
+          az containerapp update \
+            --name apex-frontend \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --min-replicas 0 \
+            --max-replicas 2
+          echo "HIBERNATED: backend → min=0 max=1, frontend → min=0 max=2 (dispatch 'up' to wake)"

@@ -34,7 +34,7 @@ flowchart TD
     C --> D[Compile Gherkin]
     D --> E[Human Review]
     E --> F[Push Stories to PM Tool]
-    F --> G[(contextspec/<project_id>)]
+    F --> G[(contextspec/<instance_id>/<project_id>)]
 
     G --> H[Phase 2 Gate 0: Lock Tech Stack]
     H --> I[Generate Design Bundle]
@@ -810,14 +810,28 @@ The current code supports both local disk and SDK mode. The mount model is simpl
 
 The scheduler is defined in `.github/workflows/scale-scheduler.yml`.
 
-Cost mode (default since 2026-06): both Container Apps run **scale-to-zero around the clock** — `min=0`, replicas spin down after ~5 minutes idle and compute is billed only while requests are served. The frontend's "server waking up" toast covers the ~30s cold start. Cost analysis showed the always-on daytime replica was the dominant line item on the student subscription; Log Analytics sits within its free tier.
+**Day/night mode (two daily crons):**
 
-**Single-writer constraint:** `apex-backend` is always capped at `max=1`. The story index and workspace config live on a shared Azure File Share guarded only by a process-local lock — a second backend replica would introduce lost-update races on `story-index.json`. The stateless frontend scales out freely (`max=2` in cost mode, `max=10` pre-warmed).
+- `08:00 UTC` → **up**: frontend pre-warmed (`min=1 max=10`).
+- `22:00 UTC` → **down**: frontend scales to zero overnight (`min=0 max=2`).
 
-There are no cron schedules anymore. Manual dispatch remains for presentations:
+**`apex-backend` stays `min=1 max=1` around the clock — it is never scaled to zero.**
 
-- `up`: pre-warm — backend `min=1 max=1`, frontend `min=1 max=10` (no cold starts during a demo)
-- `down`: back to cost mode — `min=0`; backend `max=1`, frontend `max=2`
+- `max=1` (**single-writer constraint**): the story index and workspace config live on a shared Azure File Share guarded only by a process-local lock — a second backend replica would cause lost-update races on `story-index.json`.
+- `min=1`: a cold start re-rolls the revision onto a fresh Azure SNAT egress path + cold HTTP pool, the daily churn behind the 2026-06-12 Taiga egress incident. Keeping the backend warm removes that churn for ~cents/month. The PM proxies also self-heal connect failures (retry + keepalive recycling) — see the egress note below.
+
+**Night mode toggle** (skip the 22:00 scale-down, e.g. a late demo):
+
+```bash
+gh variable set APEX_NIGHT_MODE --body off   # skip the scheduled scale-down (08:00 up still runs)
+gh variable set APEX_NIGHT_MODE --body on    # re-enable (default)
+```
+
+**Manual dispatch** (overrides the schedule at any time):
+
+- `up`: pre-warm — backend `min=1 max=1`, frontend `min=1 max=10` (no cold starts during a demo).
+- `down`: night/cost mode — backend stays `min=1 max=1`, frontend `min=0 max=2`.
+- `hibernate`: **manual-only full scale-to-zero** — backend `min=0 max=1` *and* frontend `min=0 max=2`. For stretches of total inactivity (e.g. away for days) to save the most money. Unreachable from the cron by design (the schedule only emits up/down). Dispatch `up` to wake. The first request after hibernate cold-starts the backend (the self-heal retry/keepalive absorbs the transient SNAT churn), so use it only when genuinely idle — not for normal nights (that's `down`).
 
 ---
 
