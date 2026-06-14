@@ -112,6 +112,24 @@ function parseGherkinScenarios(gherkin: string): string[] {
   return [...gherkin.matchAll(/Scenario(?:\s+Outline)?:\s*(.+)/g)].map((m) => m[1].trim());
 }
 
+// Coverage matches AI-reported covered_scenarios against parsed Gherkin titles.
+// Normalize both sides so trivial differences (case, inner/outer whitespace,
+// trailing punctuation, markdown bold from boldGherkinKeywords) don't produce
+// false "uncovered" negatives.
+function normalizeScenario(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/\*+/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/[.:;,!?]+$/, "")
+    .trim();
+}
+
+// Set of normalized scenario titles the AI claims at least one task covers.
+function coveredScenarioSet(taskList: Phase3Task[]): Set<string> {
+  return new Set(taskList.flatMap((t) => t.covered_scenarios ?? []).map(normalizeScenario));
+}
+
 // ---------------------------------------------------------------------------
 // Download helpers
 // ---------------------------------------------------------------------------
@@ -1216,8 +1234,9 @@ function ScenarioCoveragePanel({
   const allScenarios = parseGherkinScenarios(gherkin);
   if (allScenarios.length === 0) return null;
   const hasCoverageData = taskList.some((t) => (t.covered_scenarios?.length ?? 0) > 0);
-  const coveredSet = new Set(taskList.flatMap((t) => t.covered_scenarios ?? []));
-  const uncovered = allScenarios.filter((sc) => !coveredSet.has(sc));
+  const coveredSet = coveredScenarioSet(taskList);
+  const isCovered = (sc: string) => coveredSet.has(normalizeScenario(sc));
+  const uncovered = allScenarios.filter((sc) => !isCovered(sc));
 
   return (
     <div className={cn("rounded-xl border overflow-hidden", dark ? "border-neutral-700" : "border-slate-200")}>
@@ -1225,8 +1244,14 @@ function ScenarioCoveragePanel({
         "px-5 py-3 border-b flex items-center justify-between",
         dark ? "border-neutral-700 bg-neutral-900" : "border-slate-200 bg-slate-50",
       )}>
-        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Gherkin Scenario Coverage</p>
-        <span className={cn("text-xs font-medium", uncovered.length > 0 ? "text-amber-500" : "text-emerald-500")}>
+        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+          Gherkin Scenario Coverage
+          <span className="ml-2 normal-case font-normal italic text-neutral-500">· AI-asserted</span>
+        </p>
+        <span
+          className={cn("text-xs font-medium", uncovered.length > 0 ? "text-amber-500" : "text-emerald-500")}
+          title="Self-reported by the AI during decomposition — not an independent check that the tasks implement the scenarios."
+        >
           {allScenarios.length - uncovered.length}/{allScenarios.length} covered
         </span>
       </div>
@@ -1237,7 +1262,7 @@ function ScenarioCoveragePanel({
           </p>
         )}
         {allScenarios.map((sc) => {
-          const covered = coveredSet.has(sc);
+          const covered = isCovered(sc);
           return (
             <div key={sc} className="flex items-center gap-2">
               {covered
@@ -1259,6 +1284,10 @@ function ScenarioCoveragePanel({
             {uncovered.length} scenario{uncovered.length > 1 ? "s" : ""} uncovered — add tasks or re-generate.
           </p>
         )}
+        <p className={cn("mt-2 text-[11px] leading-snug", dark ? "text-neutral-600" : "text-slate-400")}>
+          Coverage is self-reported by the AI when it decomposes the story — it confirms each scenario is
+          claimed by a task, not that the task actually implements it.
+        </p>
       </div>
     </div>
   );
@@ -1283,8 +1312,8 @@ function StageD({ storyId, onLocked, onChooseNewStory, onBack }: { storyId: numb
   const skippedTasks = taskList.filter((t) => !packDrafts[t.id]);
 
   const allScenarios = parseGherkinScenarios(ctx?.gherkin ?? "");
-  const coveredSet = new Set(taskList.flatMap((t) => t.covered_scenarios ?? []));
-  const uncoveredScenarios = allScenarios.filter((sc) => !coveredSet.has(sc));
+  const coveredSet = coveredScenarioSet(taskList);
+  const uncoveredScenarios = allScenarios.filter((sc) => !coveredSet.has(normalizeScenario(sc)));
   const coverageOk = allScenarios.length === 0 || uncoveredScenarios.length === 0;
 
   const canLock = generatedTasks.length > 0 && (coverageOk || overrideCoverage);
