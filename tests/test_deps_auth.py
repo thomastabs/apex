@@ -188,13 +188,37 @@ def test_config_taiga_url_used_when_env_unset(monkeypatch):
     assert url == "https://api.taiga.example.org/api/v1/users/me"
 
 
-def test_header_taiga_url_anchors_identity(monkeypatch):
-    monkeypatch.setenv("TAIGA_API_URL", "https://api.taiga.io")
+def test_header_anchor_used_when_no_server_anchor(monkeypatch):
+    # Single-user/dev: nothing pinned (no env, config without taiga_url) → the
+    # per-request X-Taiga-Url anchors validation (codex's private-instance flow).
+    monkeypatch.delenv("TAIGA_API_URL", raising=False)
     pm, client = _mock_pm(200)
     with pm, _taiga_config(), _no_dns():
         deps.get_auth_context("Bearer privatetoken", "https://private.example.org")
     url = client.get.call_args.args[0]
     assert url == "https://private.example.org/api/v1/users/me"
+
+
+def test_server_env_anchor_overrides_request_header(monkeypatch):
+    # Multi-user security: a pinned server anchor (env) must beat the caller's
+    # X-Taiga-Url so a rogue instance can't be used to rubber-stamp credentials.
+    monkeypatch.setenv("TAIGA_API_URL", "https://api.taiga.io")
+    pm, client = _mock_pm(200)
+    with pm, _taiga_config(), _no_dns():
+        deps.get_auth_context("Bearer tok", "https://rogue.example.org")
+    url = client.get.call_args.args[0]
+    assert url == "https://api.taiga.io/api/v1/users/me"
+
+
+def test_server_config_anchor_overrides_request_header(monkeypatch):
+    # Same protection via admin-set workspace config (no env).
+    monkeypatch.delenv("TAIGA_API_URL", raising=False)
+    config = {"pm_tool": "taiga", "taiga_url": "https://trusted.example.org"}
+    pm, client = _mock_pm(200)
+    with pm, patch("src.context_manager.load_config", return_value=config), _no_dns():
+        deps.get_auth_context("Bearer tok", "https://rogue.example.org")
+    url = client.get.call_args.args[0]
+    assert url == "https://trusted.example.org/api/v1/users/me"
 
 
 def test_env_wins_over_config(monkeypatch):

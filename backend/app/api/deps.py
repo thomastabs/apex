@@ -107,11 +107,22 @@ def _pm_endpoints(taiga_url_override: str = "") -> tuple[str, str, str]:
 
     from backend.app.api.taiga_proxy import _validate_taiga_url
 
+    # A server-trusted anchor takes precedence over the per-request X-Taiga-Url.
+    # In a multi-user deployment this is REQUIRED: without it a caller could point
+    # credential validation at a Taiga they control that rubber-stamps any
+    # token+project, then read another team's context files (keyed only by
+    # project_id). The header override is honoured only when no server anchor is
+    # configured — i.e. single-user/dev convenience.
+    #
+    # MULTI-USER: pin via the TAIGA_API_URL env var, NOT workspace config —
+    # config `taiga_url` is writable by any user through POST /workspace/config,
+    # so a config-based anchor is not trustworthy across users. The env var is not
+    # user-mutable. (config is kept in the chain only for single-user setups.)
     override = taiga_url_override if isinstance(taiga_url_override, str) else ""
     base = (
-        override.strip().rstrip("/")
-        or os.getenv("TAIGA_API_URL", "").strip().rstrip("/")
+        os.getenv("TAIGA_API_URL", "").strip().rstrip("/")
         or (config.get("taiga_url") or "").strip().rstrip("/")
+        or override.strip().rstrip("/")
         or "https://api.taiga.io"
     )
     if not base.endswith("/api/v1"):
