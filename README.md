@@ -1,6 +1,6 @@
 # Apex
 
-Apex is an academic AI-guided SDLC tool that combines a **Spec-Anchored workflow**, **Claude AI**, **Taiga or Jira** as project management backend, and optional **GitHub** repository context. The app helps a team move from product requirements into design artefacts while keeping the important project context in persistent, human-readable files.
+Apex is an academic AI-guided SDLC tool that combines a **Spec-Anchored workflow**, **AI**, **Taiga or Jira** as project management backend, and optional **GitHub** repository context. The app helps a team move from product requirements into design artefacts while keeping the important project context in persistent, human-readable files.
 
 The current migrated version is a split full-stack web app:
 
