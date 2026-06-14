@@ -34,6 +34,7 @@ type Draft = {
   epicTitle: string;
   epicDescription: string;
   epicId: number | null;
+  suggestions?: EpicSuggestion[];
 };
 
 function loadDraft(projectId: number | null): Draft | null {
@@ -48,7 +49,7 @@ function loadDraft(projectId: number | null): Draft | null {
 
 function saveDraft(projectId: number | null, draft: Draft) {
   if (typeof window === "undefined") return;
-  if (!draft.nlDraft && !draft.compiledStories.length && !draft.epicTitle) {
+  if (!draft.nlDraft && !draft.compiledStories.length && !draft.epicTitle && !draft.suggestions?.length) {
     localStorage.removeItem(draftKey(projectId));
   } else {
     localStorage.setItem(draftKey(projectId), JSON.stringify(draft));
@@ -107,6 +108,7 @@ export function Phase1Workflow() {
   const [generateHint, setGenerateHint] = useState("");
   const [nlDraft, setNlDraft] = useState("");
   const [compiledStories, setCompiledStories] = useState<CompiledStory[]>([]);
+  const [suggestions, setSuggestions] = useState<EpicSuggestion[]>([]);
   const [selectedSuggestion, setSelectedSuggestion] = useState<number | null>(null);
   const [appliedSuggestionIndex, setAppliedSuggestionIndex] = useState<number | null>(null);
   const [editedDescriptions, setEditedDescriptions] = useState<Record<number, string>>({});
@@ -137,6 +139,7 @@ export function Phase1Workflow() {
       if (saved.epicTitle) setEpicTitle(saved.epicTitle);
       if (saved.epicDescription) setEpicDescription(saved.epicDescription);
       if (saved.epicId !== undefined) setEpicId(saved.epicId);
+      if (saved.suggestions?.length) setSuggestions(saved.suggestions);
       if (saved.compiledStories.length > 0) setStep(4);
       else if (saved.nlDraft) setStep(3);
       else if (saved.epicTitle) setStep(2);
@@ -159,10 +162,10 @@ export function Phase1Workflow() {
   useEffect(() => {
     if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current);
     draftSaveTimer.current = setTimeout(() => {
-      saveDraft(context?.projectId ?? null, { nlDraft, compiledStories, mode, epicTitle, epicDescription, epicId });
+      saveDraft(context?.projectId ?? null, { nlDraft, compiledStories, mode, epicTitle, epicDescription, epicId, suggestions });
     }, 500);
     return () => { if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current); };
-  }, [context?.projectId, nlDraft, compiledStories, mode, epicTitle, epicDescription, epicId]);
+  }, [context?.projectId, nlDraft, compiledStories, mode, epicTitle, epicDescription, epicId, suggestions]);
 
   const projectConcept = contextFiles.data?.files.find((f) => f.filename === "project-concept.md")?.content ?? "";
   const hasProjectConcept = useMemo(() => {
@@ -170,7 +173,6 @@ export function Phase1Workflow() {
     return Boolean(text) && !text.startsWith("<!--");
   }, [projectConcept]);
 
-  const suggestions = suggestEpics.data?.epics ?? [];
   const activeEpic = useMemo(
     () => epics.data?.find((epic) => epic.id === epicId),
     [epics.data, epicId],
@@ -221,7 +223,10 @@ export function Phase1Workflow() {
     );
   }
 
-  function startNewEpic() {
+  // keepSuggestions preserves the AI suggestion pool so it can be reused for
+  // the next epic (e.g. after pushing one to the PM tool). A full "Start Over"
+  // passes false to wipe everything.
+  function startNewEpic(keepSuggestions = false) {
     setEpicTitle("");
     setEpicDescription("");
     setEpicId(null);
@@ -236,11 +241,15 @@ export function Phase1Workflow() {
     setExpandedLoadEpic(null);
     setAppliedSuggestionIndex(null);
     setSelectedSuggestion(null);
-    suggestEpics.reset();
+    if (!keepSuggestions) {
+      setSuggestions([]);
+      suggestEpics.reset();
+    }
   }
 
   function clearSuggestions() {
     suggestEpics.reset();
+    setSuggestions([]);
     setAppliedSuggestionIndex(null);
     setSelectedSuggestion(null);
     setEditedDescriptions({});
@@ -569,7 +578,10 @@ export function Phase1Workflow() {
                     setEditedDescriptions({});
                     setAppliedSuggestionIndex(null);
                     suggestEpics.mutate(suggestHint, {
-                      onSuccess: () => toast.success("Epic suggestions ready"),
+                      onSuccess: (data) => {
+                        setSuggestions(data.epics);
+                        toast.success("Epic suggestions ready");
+                      },
                     });
                   }}
                   disabled={suggestEpics.isPending || noContext}
@@ -865,7 +877,7 @@ export function Phase1Workflow() {
                   <Button onClick={() => router.push("/phase2")} className="w-full">
                     <ChevronRight className="size-4" /> Move to Phase 2
                   </Button>
-                  <Button variant="secondary" className="w-full" onClick={() => { startNewEpic(); toast.info("Ready for next epic"); }}>
+                  <Button variant="secondary" className="w-full" onClick={() => { startNewEpic(true); toast.info("Ready for next epic — suggestions kept"); }}>
                     <RefreshCw className="size-4" /> Start New Epic
                   </Button>
                 </div>
