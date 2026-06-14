@@ -148,6 +148,23 @@ def test_eligible_stories_no_bypass_when_in_qa():
 
 
 # ---------------------------------------------------------------------------
+# list_all_test_plans
+# ---------------------------------------------------------------------------
+
+def test_list_all_test_plans_only_includes_stories_with_bdd():
+    index = {
+        "10": {"story_id": 10, "title": "User Login", "has_bdd": True},
+        "11": {"story_id": 11, "title": "Logout", "has_bdd": False},
+        "12": {"story_id": 12, "title": "Reset", "has_bdd": True},
+    }
+    svc = Phase4Service(ai=FakeAiService(), context=FakeContextService(index=index))
+    plans = svc.list_all_test_plans(_ctx())
+    assert [p["story_id"] for p in plans] == [10, 12]
+    assert plans[0]["title"] == "User Login"
+    assert plans[0]["chars"] == len(_FAKE_TEST_PLAN)
+
+
+# ---------------------------------------------------------------------------
 # get_story_context
 # ---------------------------------------------------------------------------
 

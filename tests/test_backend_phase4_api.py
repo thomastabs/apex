@@ -13,6 +13,7 @@ from backend.app.api.phase4 import (
     generate_bug_report,
     generate_test_plan,
     get_test_plan,
+    list_test_plans,
     pass_gate,
     save_test_plan,
     story_context,
@@ -72,6 +73,9 @@ class StubPhase4Service:
 
     def load_test_plan(self, ctx, story_id):
         return _FAKE_TEST_PLAN
+
+    def list_all_test_plans(self, ctx):
+        return [{"story_id": 10, "title": "User Login", "chars": len(_FAKE_TEST_PLAN)}]
 
     def generate_bug_report(self, ctx, story_id, failed_scenarios):
         return _FAKE_BUG_REPORT
@@ -136,6 +140,13 @@ def test_get_test_plan_route():
     result = get_test_plan(story_id=10, ctx=_ctx(), service=StubPhase4Service())
     assert result["story_id"] == 10
     assert result["test_plan_md"] == _FAKE_TEST_PLAN
+
+
+def test_list_test_plans_route():
+    result = list_test_plans(ctx=_ctx(), service=StubPhase4Service())
+    assert len(result["test_plans"]) == 1
+    assert result["test_plans"][0]["story_id"] == 10
+    assert result["test_plans"][0]["chars"] == len(_FAKE_TEST_PLAN)
 
 
 def test_generate_bug_report_route():

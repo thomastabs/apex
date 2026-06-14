@@ -16,12 +16,16 @@ vi.mock("@/lib/api/phase3", () => ({
       { story_id: 11, story_title: "Logout", task_id: 3, chars: 400 },
     ],
   }),
-  getProposals: vi.fn(),
+  getProposals: vi.fn().mockResolvedValue({
+    story_id: 10,
+    proposals: [{ task_id: 1, proposal_md: "## Pack\nstep 1" }],
+  }),
   deleteProposal: vi.fn().mockResolvedValue({ ok: true }),
+  saveProposal: vi.fn().mockResolvedValue({ ok: true }),
 }));
 
 import { PacksSection } from "@/components/sidebar/packs-section";
-import { deleteProposal } from "@/lib/api/phase3";
+import { deleteProposal, saveProposal } from "@/lib/api/phase3";
 
 const DRAG_PROPS = {
   shellClass: "",
@@ -68,6 +72,28 @@ describe("PacksSection", () => {
     await waitFor(() => expect(vi.mocked(deleteProposal)).toHaveBeenCalledWith(expect.anything(), 10, 1));
     const keys = invalidateSpy.mock.calls.map((c) => c[0]?.queryKey);
     expect(keys).toContainEqual(["phase3", "packs", 7]);
+  });
+
+  it("edits a pack in the view modal and saves it", async () => {
+    renderPacks();
+    fireEvent.click(screen.getByRole("button", { name: /Developer Packs/i }));
+    await waitFor(() => expect(screen.getByText("Task 1")).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByTitle("View pack")[0]);
+    await waitFor(() => expect(screen.getByTitle("Edit")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTitle("Edit"));
+    const textarea = await screen.findByRole("textbox");
+    fireEvent.change(textarea, { target: { value: "## Pack\nedited" } });
+    fireEvent.click(screen.getByTitle("Save changes"));
+
+    await waitFor(() =>
+      expect(vi.mocked(saveProposal)).toHaveBeenCalledWith(expect.anything(), {
+        story_id: 10,
+        task_id: 1,
+        proposal_md: "## Pack\nedited",
+      }),
+    );
   });
 
   it("shows an empty state when there are no packs", async () => {

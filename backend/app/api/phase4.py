@@ -17,6 +17,7 @@ from backend.app.schemas.phase4 import (
     StoryContextResponse,
     SaveTestPlanRequest,
     TestPlanResponse,
+    TestPlansResponse,
 )
 from backend.app.schemas.workspace import OkResponse
 from backend.app.services.phase4_service import Phase4Service, Phase4ValidationError
@@ -89,6 +90,17 @@ def save_test_plan(
     try:
         service.save_test_plan(ctx, payload.story_id, payload.test_plan_md)
         return {"ok": True}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.get("/test-plans", response_model=TestPlansResponse)
+def list_test_plans(
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase4Service = Depends(get_phase4_service),
+):
+    try:
+        return {"test_plans": service.list_all_test_plans(ctx)}
     except Exception as exc:
         _handle_error(exc)
 

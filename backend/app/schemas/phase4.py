@@ -47,6 +47,16 @@ class TestPlanResponse(BaseModel):
     test_plan_md: str
 
 
+class TestPlanListItem(BaseModel):
+    story_id: int
+    title: str = ""
+    chars: int = 0
+
+
+class TestPlansResponse(BaseModel):
+    test_plans: list[TestPlanListItem]
+
+
 class FailedScenario(BaseModel):
     scenario_name: str = Field(..., max_length=500)
     qa_notes: str = Field("", max_length=5_000)

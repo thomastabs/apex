@@ -8,6 +8,7 @@ import type {
   Phase4ScenarioResultItem,
   Phase4StoryContext,
   Phase4TestPlanResponse,
+  Phase4TestPlansResponse,
   RequestContext,
 } from "./types";
 
@@ -40,6 +41,10 @@ export function saveTestPlan(context: RequestContext, storyId: number, testPlanM
 
 export function getTestPlan(context: RequestContext, storyId: number) {
   return apiRequest<Phase4TestPlanResponse>(`/api/phase4/test-plan/${storyId}`, { context });
+}
+
+export function listTestPlans(context: RequestContext) {
+  return apiRequest<Phase4TestPlansResponse>("/api/phase4/test-plans", { context });
 }
 
 export function deleteTestPlan(context: RequestContext, storyId: number) {

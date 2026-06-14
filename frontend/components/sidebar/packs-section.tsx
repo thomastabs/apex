@@ -1,11 +1,11 @@
 "use client";
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Download, Eye, FileCode2, Loader2, Trash2, X } from "lucide-react";
+import { Download, Eye, FileCode2, Loader2, Pencil, Save, Trash2, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { deleteProposal, getProposals, listPacks } from "@/lib/api/phase3";
+import { deleteProposal, getProposals, listPacks, saveProposal } from "@/lib/api/phase3";
 import { useAutoSyncStoryIndex } from "@/lib/hooks/use-workspace";
 import { useApiContext } from "@/lib/stores/session-store";
 import { PanelHeader, type DragSectionProps } from "./shared";
@@ -30,6 +30,8 @@ function packDownload(content: string, storyId: number, taskId: number) {
 export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragStart }: PacksSectionProps) {
   const [open, setOpen] = useState(false);
   const [viewing, setViewing] = useState<(PackRef & { content: string }) | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
 
   const context = useApiContext();
   const queryClient = useQueryClient();
@@ -61,9 +63,31 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
 
   const viewMut = useMutation({
     mutationFn: fetchPackContent,
-    onSuccess: (content, ref) => setViewing({ ...ref, content }),
+    onSuccess: (content, ref) => {
+      setViewing({ ...ref, content });
+      setEditing(false);
+      setDraft(content);
+    },
     onError: (err: Error) => toast.error(`Load pack failed: ${err.message}`),
   });
+
+  const saveMut = useMutation({
+    mutationFn: ({ storyId, taskId, md }: PackRef & { md: string }) =>
+      saveProposal(context!, { story_id: storyId, task_id: taskId, proposal_md: md }),
+    onSuccess: (_, { storyId, taskId, md }) => {
+      void queryClient.invalidateQueries({ queryKey: PACKS_KEY });
+      void queryClient.invalidateQueries({ queryKey: ["phase3", "proposals"] });
+      setViewing({ storyId, taskId, content: md });
+      setEditing(false);
+      toast.success("Pack saved.");
+    },
+    onError: (err: Error) => toast.error(`Save failed: ${err.message}`),
+  });
+
+  const closeModal = () => {
+    setViewing(null);
+    setEditing(false);
+  };
 
   const downloadMut = useMutation({
     mutationFn: fetchPackContent,
@@ -202,7 +226,7 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
 
       {viewing &&
         createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={() => setViewing(null)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={closeModal}>
             <div
               className={cn(
                 "flex max-h-[85vh] w-full max-w-3xl flex-col rounded-xl border shadow-2xl",
@@ -215,23 +239,48 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
                 <span className={cn("flex-1 text-sm font-semibold", dark ? "text-neutral-100" : "text-slate-800")}>
                   Developer Pack — US#{viewing.storyId} · Task {viewing.taskId}
                 </span>
+                {editing ? (
+                  <button
+                    className={rowBtn}
+                    title="Save changes"
+                    disabled={saveMut.isPending || !draft.trim()}
+                    onClick={() => saveMut.mutate({ storyId: viewing.storyId, taskId: viewing.taskId, md: draft })}
+                  >
+                    {saveMut.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                  </button>
+                ) : (
+                  <button className={rowBtn} title="Edit" onClick={() => { setEditing(true); setDraft(viewing.content); }}>
+                    <Pencil className="size-4" />
+                  </button>
+                )}
                 <button
                   className={rowBtn}
                   title="Download"
-                  onClick={() => packDownload(viewing.content, viewing.storyId, viewing.taskId)}
+                  onClick={() => packDownload(editing ? draft : viewing.content, viewing.storyId, viewing.taskId)}
                 >
                   <Download className="size-4" />
                 </button>
-                <button className={rowBtn} title="Close" onClick={() => setViewing(null)}>
+                <button className={rowBtn} title="Close" onClick={closeModal}>
                   <X className="size-4" />
                 </button>
               </div>
-              <pre className={cn(
-                "min-h-0 flex-1 overflow-auto whitespace-pre-wrap p-5 font-mono text-xs leading-relaxed",
-                dark ? "text-neutral-300" : "text-slate-700",
-              )}>
-                {viewing.content || "(empty pack)"}
-              </pre>
+              {editing ? (
+                <textarea
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  className={cn(
+                    "min-h-0 flex-1 resize-none overflow-auto p-5 font-mono text-xs leading-relaxed outline-none",
+                    dark ? "bg-[#1b1b1c] text-neutral-300" : "bg-white text-slate-700",
+                  )}
+                />
+              ) : (
+                <pre className={cn(
+                  "min-h-0 flex-1 overflow-auto whitespace-pre-wrap p-5 font-mono text-xs leading-relaxed",
+                  dark ? "text-neutral-300" : "text-slate-700",
+                )}>
+                  {viewing.content || "(empty pack)"}
+                </pre>
+              )}
             </div>
           </div>,
           document.body,

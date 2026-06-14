@@ -21,6 +21,7 @@ import { ResourcesSection } from "./sidebar/resources-section";
 import { GitHubSection } from "./sidebar/github-section";
 import { TasksSection } from "./sidebar/tasks-section";
 import { PacksSection } from "./sidebar/packs-section";
+import { TestPlansSection } from "./sidebar/test-plans-section";
 import { AboutSection } from "./sidebar/about-section";
 
 // ── constants ─────────────────────────────────────────────────────────────────
@@ -816,6 +817,19 @@ export function Sidebar() {
             return (
               <PacksSection
                 key="packs"
+                dark={dark}
+                confirm={confirm}
+                shellClass={shellClass}
+                dragHandlers={dragHandlers}
+                onDragStart={onDragStart}
+              />
+            );
+          }
+
+          if (id === "testplans" && projectId) {
+            return (
+              <TestPlansSection
+                key="testplans"
                 dark={dark}
                 confirm={confirm}
                 shellClass={shellClass}

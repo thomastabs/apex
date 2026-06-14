@@ -342,6 +342,16 @@ export type Phase4TestPlanResponse = {
   test_plan_md: string;
 };
 
+export type Phase4TestPlanListItem = {
+  story_id: number;
+  title: string;
+  chars: number;
+};
+
+export type Phase4TestPlansResponse = {
+  test_plans: Phase4TestPlanListItem[];
+};
+
 export type Phase4FailedScenario = {
   scenario_name: string;
   qa_notes: string;

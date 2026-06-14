@@ -109,6 +109,27 @@ class Phase4Service:
         self.configure_request(ctx)
         return self.context.load_bdd_tests(story_id)
 
+    def list_all_test_plans(self, ctx: RequestContext) -> list[dict]:
+        """All saved test plans in the project, annotated with story titles."""
+        self.configure_request(ctx)
+        index = self.context.story_index()
+        plans = []
+        for entry in index.values():
+            if not entry.get("has_bdd"):
+                continue
+            story_id = entry.get("story_id")
+            if not story_id:
+                continue
+            md = self.context.load_bdd_tests(story_id)
+            if not md.strip():
+                continue
+            plans.append({
+                "story_id": story_id,
+                "title": entry.get("title", ""),
+                "chars": len(md),
+            })
+        return sorted(plans, key=lambda p: p["story_id"])
+
     def generate_bug_report(
         self,
         ctx: RequestContext,
