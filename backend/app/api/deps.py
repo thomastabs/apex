@@ -92,22 +92,29 @@ def _resolve_anchor_base(taiga_url_override: str = "") -> tuple[str, str]:
     reads. The per-request anchor being part of the storage key is what makes
     multi-instance safe: a rogue anchor only ever reaches its own namespace.
 
-    Taiga anchor precedence: TAIGA_API_URL env → workspace-config taiga_url →
-    request override (X-Taiga-Url) → Taiga Cloud. A server-set anchor (env/config)
-    therefore overrides the request header. For a deployment that wants to LOCK
-    everyone to one instance, pin via the TAIGA_API_URL env var (not config —
-    config taiga_url is user-writable via POST /workspace/config). When nothing
-    is pinned, the per-request header anchors (now safe thanks to instance-scoped
-    storage). All sources pass the SSRF validator since the result is dialled
-    server-side.
+    Taiga anchor precedence: TAIGA_API_URL env → request override (X-Taiga-Url)
+    → Taiga Cloud. The env var is an OPTIONAL single-instance lock; otherwise the
+    per-request header anchors (safe — storage is instance-scoped). Workspace
+    `taiga_url` config is deliberately NOT used: it is user-writable via POST
+    /workspace/config, shared across users, and goes stale across sessions
+    (e.g. a previous Cloudflare tunnel URL), which would validate a current
+    private token against the wrong instance and 401. A present X-Taiga-Url also
+    forces the Taiga path, so a stale config pm_tool can't misroute it. All
+    sources pass the SSRF validator since the result is dialled server-side.
     """
     import os
 
     from src import context_manager
 
+    override = (taiga_url_override.strip().rstrip("/")
+                if isinstance(taiga_url_override, str) else "")
+    env_taiga = os.getenv("TAIGA_API_URL", "").strip().rstrip("/")
+
     config = context_manager.load_config()
     pm_tool = config.get("pm_tool") or "taiga"
-    if pm_tool == "jira":
+    # An X-Taiga-Url header is an unambiguous Taiga request — honour it even if
+    # the shared config still says jira.
+    if pm_tool == "jira" and not override:
         base = (config.get("jira_base_url") or "").rstrip("/")
         if not base:
             raise HTTPException(
@@ -118,13 +125,7 @@ def _resolve_anchor_base(taiga_url_override: str = "") -> tuple[str, str]:
 
     from backend.app.api.taiga_proxy import _validate_taiga_url
 
-    override = taiga_url_override if isinstance(taiga_url_override, str) else ""
-    base = (
-        os.getenv("TAIGA_API_URL", "").strip().rstrip("/")
-        or (config.get("taiga_url") or "").strip().rstrip("/")
-        or override.strip().rstrip("/")
-        or "https://api.taiga.io"
-    )
+    base = env_taiga or override or "https://api.taiga.io"
     if not base.endswith("/api/v1"):
         base = base.replace("//tree.", "//api.") + "/api/v1"
     base = _validate_taiga_url(base, source="Taiga identity URL")

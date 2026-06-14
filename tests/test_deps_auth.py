@@ -178,14 +178,17 @@ def test_env_taiga_api_url_anchors_identity(monkeypatch):
     assert url == "https://my-tunnel.trycloudflare.com/api/v1/users/me"
 
 
-def test_config_taiga_url_used_when_env_unset(monkeypatch):
+def test_config_taiga_url_is_not_used_as_anchor(monkeypatch):
+    # Workspace config taiga_url is user-writable and goes stale across sessions,
+    # so it is NOT a validation anchor. With no env and no request header, the
+    # anchor falls through to Taiga Cloud (not the config value).
     monkeypatch.delenv("TAIGA_API_URL", raising=False)
     config = {"pm_tool": "taiga", "taiga_url": "https://tree.taiga.example.org"}
     pm, client = _mock_pm(200)
     with pm, patch("src.context_manager.load_config", return_value=config), _no_dns():
         deps.get_auth_context("Bearer sometoken")
     url = client.get.call_args.args[0]
-    assert url == "https://api.taiga.example.org/api/v1/users/me"
+    assert url == "https://api.taiga.io/api/v1/users/me"
 
 
 def test_header_anchor_used_when_no_server_anchor(monkeypatch):
@@ -210,15 +213,29 @@ def test_server_env_anchor_overrides_request_header(monkeypatch):
     assert url == "https://api.taiga.io/api/v1/users/me"
 
 
-def test_server_config_anchor_overrides_request_header(monkeypatch):
-    # Same protection via admin-set workspace config (no env).
+def test_request_header_beats_stale_config(monkeypatch):
+    # The deployment bug: a stale config taiga_url must NOT override the current
+    # request's X-Taiga-Url, or a fresh private-instance token validates against
+    # the old instance and 401s. Header wins; config is ignored.
     monkeypatch.delenv("TAIGA_API_URL", raising=False)
-    config = {"pm_tool": "taiga", "taiga_url": "https://trusted.example.org"}
+    config = {"pm_tool": "taiga", "taiga_url": "https://old-tunnel.example.org"}
     pm, client = _mock_pm(200)
     with pm, patch("src.context_manager.load_config", return_value=config), _no_dns():
-        deps.get_auth_context("Bearer tok", "https://rogue.example.org")
+        deps.get_auth_context("Bearer tok", "https://current-tunnel.example.org")
     url = client.get.call_args.args[0]
-    assert url == "https://trusted.example.org/api/v1/users/me"
+    assert url == "https://current-tunnel.example.org/api/v1/users/me"
+
+
+def test_header_taiga_url_overrides_stale_jira_pm_tool(monkeypatch):
+    # A present X-Taiga-Url is an unambiguous Taiga request even if shared config
+    # still says jira (stale) — it must not be routed to the Jira anchor.
+    monkeypatch.delenv("TAIGA_API_URL", raising=False)
+    config = {"pm_tool": "jira", "jira_base_url": "https://acme.atlassian.net"}
+    pm, client = _mock_pm(200)
+    with pm, patch("src.context_manager.load_config", return_value=config), _no_dns():
+        deps.get_auth_context("Bearer tok", "https://taiga.example.org")
+    url = client.get.call_args.args[0]
+    assert url == "https://taiga.example.org/api/v1/users/me"
 
 
 def test_env_wins_over_config(monkeypatch):
