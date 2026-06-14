@@ -496,3 +496,61 @@ class TestPromptFencing:
         assert "<user_content>" in captured["human"]
         assert "Ignore previous instructions" in captured["human"]  # data preserved
         assert "<user_content>" in captured["system"]  # tech stack slot fenced
+
+
+class TestReconcileTaskList:
+    """Phase 3 server-side hardening of AI-reported task fields."""
+
+    def _tasks(self, items):
+        from src.ai_engine import Phase3Task, Phase3TaskList
+        return Phase3TaskList(tasks=[Phase3Task(**i) for i in items])
+
+    def test_drops_hallucinated_scenarios_and_canonicalizes(self):
+        from src.ai_engine import _reconcile_task_list
+        gherkin = "Scenario: Create a new note\nScenario: Delete a note"
+        tasks = self._tasks([
+            {"id": 1, "subject": "Build create", "description": "d", "effort_estimate": "S",
+             # case/whitespace/markdown drift + one title that doesn't exist
+             "covered_scenarios": ["**create a new note**", "Edit a note"], "predecessor_task_ids": []},
+        ])
+        out = _reconcile_task_list(tasks, gherkin)
+        # hallucinated "Edit a note" dropped; survivor canonicalized to exact title
+        assert out.tasks[0].covered_scenarios == ["Create a new note"]
+
+    def test_dedupes_scenarios(self):
+        from src.ai_engine import _reconcile_task_list
+        gherkin = "Scenario: Create a new note"
+        tasks = self._tasks([
+            {"id": 1, "subject": "s", "description": "d", "effort_estimate": "S",
+             "covered_scenarios": ["Create a new note", "create a new note"], "predecessor_task_ids": []},
+        ])
+        out = _reconcile_task_list(tasks, gherkin)
+        assert out.tasks[0].covered_scenarios == ["Create a new note"]
+
+    def test_predecessors_kept_only_for_earlier_real_tasks(self):
+        from src.ai_engine import _reconcile_task_list
+        gherkin = "Scenario: X"
+        tasks = self._tasks([
+            {"id": 1, "subject": "a", "description": "d", "effort_estimate": "S",
+             "covered_scenarios": [], "predecessor_task_ids": [2, 99]},  # forward + unknown
+            {"id": 2, "subject": "b", "description": "d", "effort_estimate": "S",
+             "covered_scenarios": [], "predecessor_task_ids": [1, 2]},   # valid back-ref + self
+        ])
+        out = _reconcile_task_list(tasks, gherkin)
+        assert out.tasks[0].predecessor_task_ids == []   # 2 is forward, 99 unknown
+        assert out.tasks[1].predecessor_task_ids == [1]  # self-ref 2 dropped
+
+    def test_resulting_graph_is_acyclic(self):
+        from src.ai_engine import _reconcile_task_list
+        gherkin = "Scenario: X"
+        # AI returns a 1<->2 cycle; reconciliation must break it
+        tasks = self._tasks([
+            {"id": 1, "subject": "a", "description": "d", "effort_estimate": "S",
+             "covered_scenarios": [], "predecessor_task_ids": [2]},
+            {"id": 2, "subject": "b", "description": "d", "effort_estimate": "S",
+             "covered_scenarios": [], "predecessor_task_ids": [1]},
+        ])
+        out = _reconcile_task_list(tasks, gherkin)
+        # every predecessor id is strictly smaller than the task id => DAG
+        for t in out.tasks:
+            assert all(p < t.id for p in t.predecessor_task_ids)

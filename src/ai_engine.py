@@ -245,15 +245,22 @@ def get_model() -> str:
     return os.getenv("AI_MODEL", _DEFAULT_MODEL)
 
 
-def _get_llm(model: str, max_tokens: int, timeout: float | None = None) -> ChatAnthropic | ChatOpenAI | ChatGoogleGenerativeAI:
-    key = f"{model}:{max_tokens}:{timeout}"
+def _get_llm(
+    model: str,
+    max_tokens: int,
+    timeout: float | None = None,
+    temperature: float = 0.0,
+) -> ChatAnthropic | ChatOpenAI | ChatGoogleGenerativeAI:
+    # temperature defaults to 0.0: structured/extraction calls want determinism.
+    # The few creative long-form generators pass temperature=0.2 explicitly.
+    key = f"{model}:{max_tokens}:{timeout}:{temperature}"
     if key not in _llm_cache:
         check_api_key(model)
         provider = _get_provider(model)
         if provider == "openai":
             _llm_cache[key] = ChatOpenAI(
                 model=model,
-                temperature=0.2,
+                temperature=temperature,
                 max_tokens=max_tokens,
                 max_retries=2,
                 timeout=timeout,
@@ -261,7 +268,7 @@ def _get_llm(model: str, max_tokens: int, timeout: float | None = None) -> ChatA
         elif provider == "google":
             _llm_cache[key] = ChatGoogleGenerativeAI(
                 model=model,
-                temperature=0.2,
+                temperature=temperature,
                 max_output_tokens=max_tokens,
                 max_retries=2,
                 timeout=timeout,
@@ -269,7 +276,7 @@ def _get_llm(model: str, max_tokens: int, timeout: float | None = None) -> ChatA
         else:
             _llm_cache[key] = ChatAnthropic(
                 model=model,
-                temperature=0.2,
+                temperature=temperature,
                 max_tokens=max_tokens,
                 max_retries=2,
                 timeout=timeout,
@@ -318,8 +325,9 @@ def _make_messages(system: str, human: str, *, model: str = "") -> list:
     return [SystemMessage(content=system), HumanMessage(content=human)]
 
 
-def _invoke(system: str, human: str, model: str, max_tokens: int = 2048, timeout: float | None = None) -> str:
-    llm = _get_llm(model, max_tokens, timeout)
+def _invoke(system: str, human: str, model: str, max_tokens: int = 2048, timeout: float | None = None,
+            temperature: float = 0.0) -> str:
+    llm = _get_llm(model, max_tokens, timeout, temperature)
     t0 = time.monotonic()
     try:
         response = llm.invoke(_make_messages(system, human, model=model))
@@ -343,6 +351,7 @@ def _invoke_structured_with_progress(
     max_tokens: int = 4096,
     *,
     timeout: float | None = None,
+    temperature: float = 0.0,
     on_item: Callable[[int], None] | None = None,
     item_field: str = "stories",
 ):
@@ -357,7 +366,7 @@ def _invoke_structured_with_progress(
     from Anthropic's content_block_start streaming event into Pydantic validation,
     which raises ValidationError in both streaming and invoke paths.
     """
-    llm = _get_llm(model, max_tokens, timeout)
+    llm = _get_llm(model, max_tokens, timeout, temperature)
     chain = llm.with_structured_output(schema)
     messages = _make_messages(system, human, model=model)
     last = None
@@ -401,7 +410,7 @@ def _invoke_structured_with_progress(
     # Tier 3 — raw JSON fallback (bypasses with_structured_output entirely)
     return _invoke_json_fallback(
         system, human, model, schema, max_tokens,
-        timeout=timeout, on_item=on_item, item_field=item_field,
+        timeout=timeout, temperature=temperature, on_item=on_item, item_field=item_field,
     )
 
 
@@ -449,6 +458,7 @@ def _invoke_json_fallback(
     max_tokens: int,
     *,
     timeout: float | None = None,
+    temperature: float = 0.0,
     on_item: Callable[[int], None] | None = None,
     item_field: str = "stories",
 ):
@@ -462,7 +472,7 @@ def _invoke_json_fallback(
     )
     # Add headroom so long responses don't get truncated mid-JSON.
     effective_tokens = max(max_tokens + 2048, 8192)
-    llm = _get_llm(model, effective_tokens, timeout)
+    llm = _get_llm(model, effective_tokens, timeout, temperature)
     _logger.warning(
         "ai_json_fallback model=%s tokens=%s — structured output failed, falling back to raw JSON",
         model, effective_tokens,
@@ -652,7 +662,7 @@ def generate_nl_stories(
     _logger.debug("generate_nl_stories prompt_version=%s", _NL_GENERATION_VERSION)
     return _invoke_structured_with_progress(
         _NL_GENERATION_SYSTEM, human, get_model(), NLStoryList,
-        max_tokens=8192, on_item=on_story,
+        max_tokens=8192, temperature=0.2, on_item=on_story,
     )
 
 
@@ -842,7 +852,7 @@ def suggest_epics(
     human += "Suggest a complete set of high-level Epics for this project."
     return _invoke_structured_with_progress(
         _EPIC_SUGGESTION_SYSTEM, human, get_model(), EpicSuggestionList,
-        max_tokens=2048, item_field="epics",
+        max_tokens=2048, temperature=0.2, item_field="epics",
     )
 
 
@@ -1056,7 +1066,7 @@ def generate_design_ux_brief(all_stories: list[dict], context: str) -> str:
         anti_hallucination=_ANTI_HALLUCINATION,
     )
     return _ai_retry(lambda: _invoke(system, _format_stories_human(grouped), get_model(),
-                                     max_tokens=3500, timeout=210))
+                                     max_tokens=3500, timeout=210, temperature=0.2))
 
 
 def generate_design_endpoints(all_stories: list[dict], context: str, *, ux_brief: str) -> str:
@@ -1107,6 +1117,55 @@ class Phase3TaskList(BaseModel):
     tasks: list[Phase3Task] = Field(description="Ordered list of atomic implementation tasks (3-7 items)")
 
 
+def _parse_gherkin_titles(gherkin: str) -> list[str]:
+    """Scenario titles from a Gherkin block (text after Scenario:/Scenario Outline:)."""
+    return [m.group(1).strip() for m in re.finditer(r"Scenario(?:\s+Outline)?:\s*(.+)", gherkin or "")]
+
+
+def _normalize_scenario(title: str) -> str:
+    """Canonical key for matching AI-reported titles to parsed Gherkin titles.
+
+    Mirrors the frontend normalizeScenario: case, markdown bold, inner/outer
+    whitespace, and trailing punctuation are all collapsed.
+    """
+    t = title.lower()
+    t = re.sub(r"\*+", "", t)
+    t = re.sub(r"\s+", " ", t)
+    t = re.sub(r"[.:;,!?]+$", "", t)
+    return t.strip()
+
+
+def _reconcile_task_list(tasks: Phase3TaskList, gherkin: str) -> Phase3TaskList:
+    """Harden AI-reported task fields against ground truth.
+
+    The coverage claim and the dependency graph were previously trusted exactly
+    as the model returned them. Verify both server-side:
+      - covered_scenarios: drop titles that don't match a real Gherkin scenario,
+        canonicalise survivors to the exact parsed title, de-duplicate. Stops
+        hallucinated/misspelled titles from inflating coverage.
+      - predecessor_task_ids: keep only references to real, *earlier* tasks (ids
+        are assigned in dependency order), which also guarantees an acyclic graph.
+    """
+    canon = {_normalize_scenario(t): t for t in _parse_gherkin_titles(gherkin)}
+    valid_ids = {t.id for t in tasks.tasks}
+    for t in tasks.tasks:
+        matched: list[str] = []
+        for sc in t.covered_scenarios:
+            real = canon.get(_normalize_scenario(sc))
+            if real and real not in matched:
+                matched.append(real)
+        if len(matched) != len(t.covered_scenarios):
+            _logger.info("phase3_coverage_reconciled task=%s kept=%d of %d",
+                         t.id, len(matched), len(t.covered_scenarios))
+        t.covered_scenarios = matched
+        preds = [p for p in dict.fromkeys(t.predecessor_task_ids) if p in valid_ids and p < t.id]
+        if len(preds) != len(t.predecessor_task_ids):
+            _logger.info("phase3_dag_reconciled task=%s kept_preds=%d of %d",
+                         t.id, len(preds), len(t.predecessor_task_ids))
+        t.predecessor_task_ids = preds
+    return tasks
+
+
 _GENERATE_TASKS_SYSTEM = """\
 You are a Tech Lead operating within the Apex Framework.
 Given a user story with its acceptance criteria, technical spec, tech stack, and design bundle,
@@ -1154,10 +1213,11 @@ def generate_tasks(
         + "\n\nAcceptance Criteria (Gherkin):\n" + fence_user_content(gherkin)
         + "\n\nDecompose this story into atomic implementation tasks."
     )
-    return _ai_retry(lambda: _invoke_structured_with_progress(
+    result = _ai_retry(lambda: _invoke_structured_with_progress(
         system, human, get_model(), Phase3TaskList,
         max_tokens=2048, item_field="tasks",
     ))
+    return _reconcile_task_list(result, gherkin)
 
 
 _GENERATE_PROPOSAL_SYSTEM = """\
@@ -1290,7 +1350,7 @@ def generate_coding_proposal(
             + fence_user_content(hint) + "\n\n"
         )
     human += "Generate the Developer Pack for this task."
-    return _ai_retry(lambda: _invoke(system, human, get_model(), max_tokens=6000, timeout=300))
+    return _ai_retry(lambda: _invoke(system, human, get_model(), max_tokens=6000, timeout=300, temperature=0.2))
 
 
 # ---------------------------------------------------------------------------
@@ -1656,7 +1716,7 @@ def generate_deploy_pack(
         + "Infrastructure Delta (approved by the Tech Lead):\n" + fence_user_content(infra_delta_md) + "\n\n"
         + "Generate the Deploy Pack for these delta items."
     )
-    return _ai_retry(lambda: _invoke(system, human, get_model(), max_tokens=6000, timeout=300))
+    return _ai_retry(lambda: _invoke(system, human, get_model(), max_tokens=6000, timeout=300, temperature=0.2))
 
 
 _REVISE_DEPLOY_PACK_SYSTEM = """\
@@ -1682,7 +1742,7 @@ def revise_deploy_pack(
         + "Produce the revised Deploy Pack."
     )
     return _ai_retry(lambda: _invoke(_REVISE_DEPLOY_PACK_SYSTEM, human, get_model(),
-                                     max_tokens=6000, timeout=300))
+                                     max_tokens=6000, timeout=300, temperature=0.2))
 
 
 # ---------------------------------------------------------------------------
