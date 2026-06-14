@@ -83,14 +83,12 @@ def _cache_put(cache: dict, key, ok: bool) -> None:
         cache.move_to_end(key)
 
 
-def _resolve_anchor_base(taiga_url_override: str = "") -> tuple[str, str]:
-    """Return (pm_tool, validated_api_base) for the anchored PM.
+def _anchor_base(taiga_url_override: str = "") -> tuple[str, str]:
+    """(pm_tool, base_url) selection WITHOUT SSRF validation.
 
-    The base's host is ALSO the storage instance namespace
-    (context_manager.instance_key), so this must be the single source of truth
-    for both credential validation and which contextspec/<instance>/ a request
-    reads. The per-request anchor being part of the storage key is what makes
-    multi-instance safe: a rogue anchor only ever reaches its own namespace.
+    The base's host is the storage instance namespace
+    (context_manager.instance_key), so this is the single source of truth for
+    both credential validation and which contextspec/<instance>/ a request reads.
 
     Taiga anchor precedence: TAIGA_API_URL env → request override (X-Taiga-Url)
     → Taiga Cloud. The env var is an OPTIONAL single-instance lock; otherwise the
@@ -99,8 +97,7 @@ def _resolve_anchor_base(taiga_url_override: str = "") -> tuple[str, str]:
     /workspace/config, shared across users, and goes stale across sessions
     (e.g. a previous Cloudflare tunnel URL), which would validate a current
     private token against the wrong instance and 401. A present X-Taiga-Url also
-    forces the Taiga path, so a stale config pm_tool can't misroute it. All
-    sources pass the SSRF validator since the result is dialled server-side.
+    forces the Taiga path, so a stale config pm_tool can't misroute it.
     """
     import os
 
@@ -112,24 +109,36 @@ def _resolve_anchor_base(taiga_url_override: str = "") -> tuple[str, str]:
 
     config = context_manager.load_config()
     pm_tool = config.get("pm_tool") or "taiga"
-    # An X-Taiga-Url header is an unambiguous Taiga request — honour it even if
-    # the shared config still says jira.
     if pm_tool == "jira" and not override:
-        base = (config.get("jira_base_url") or "").rstrip("/")
+        return "jira", (config.get("jira_base_url") or "").rstrip("/")
+
+    base = env_taiga or override or "https://api.taiga.io"
+    if not base.endswith("/api/v1"):
+        base = base.replace("//tree.", "//api.") + "/api/v1"
+    return "taiga", base
+
+
+def _resolve_anchor_base(taiga_url_override: str = "") -> tuple[str, str]:
+    """Return (pm_tool, validated_api_base) for the anchored PM — used to dial
+    the PM for credential validation, so the base passes the SSRF validator."""
+    pm_tool, base = _anchor_base(taiga_url_override)
+    if pm_tool == "jira":
         if not base:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Workspace is configured for Jira but has no Jira base URL.",
             )
         return "jira", base
-
     from backend.app.api.taiga_proxy import _validate_taiga_url
+    return "taiga", _validate_taiga_url(base, source="Taiga identity URL")
 
-    base = env_taiga or override or "https://api.taiga.io"
-    if not base.endswith("/api/v1"):
-        base = base.replace("//tree.", "//api.") + "/api/v1"
-    base = _validate_taiga_url(base, source="Taiga identity URL")
-    return "taiga", base
+
+def anchor_instance_id(taiga_url_override: str = "") -> str:
+    """Storage instance namespace for the current anchor — matches the namespace
+    get_request_context derives, without the SSRF/DNS dial (folder selection only)."""
+    from src import context_manager
+    _, base = _anchor_base(taiga_url_override)
+    return context_manager.instance_key(base)
 
 
 def _pm_endpoints(taiga_url_override: str = "") -> tuple[str, str, str]:

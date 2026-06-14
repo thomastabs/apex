@@ -2,9 +2,15 @@
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 
-from backend.app.api.deps import AuthContext, RequestContext, get_auth_context, get_request_context
+from backend.app.api.deps import (
+    AuthContext,
+    RequestContext,
+    anchor_instance_id,
+    get_auth_context,
+    get_request_context,
+)
 from backend.app.schemas.workspace import (
     AiConfigResponse,
     ConfigResponse,
@@ -34,7 +40,10 @@ _ALLOWED_CONTEXT_FILES = {filename for filename, _ in _CONTEXT_FILES}
 
 
 @router.get("/config", response_model=ConfigResponse)
-def get_config(auth: AuthContext = Depends(get_auth_context)):
+def get_config(
+    auth: AuthContext = Depends(get_auth_context),
+    x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+):
     from src import context_manager, taiga_adapter
     config = context_manager.load_config()
     pm_tool = config.get("pm_tool", "taiga")
@@ -43,12 +52,14 @@ def get_config(auth: AuthContext = Depends(get_auth_context)):
         pm_web_url = jira_adapter.get_web_base_url(config.get("jira_base_url", ""))
     else:
         pm_web_url = taiga_adapter.get_web_base_url()
+    # github_repo is per-instance (see context_manager); anchor it on the request.
+    context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
     return {
         "project_id": config.get("project_id"),
         "taiga_web_url": pm_web_url,
         "pm_tool": pm_tool,
         "pm_web_url": pm_web_url,
-        "github_repo": config.get("github_repo", ""),
+        "github_repo": context_manager.get_instance_github_repo(),
     }
 
 
@@ -88,7 +99,11 @@ def save_ai_config_endpoint(payload: SaveAiConfigRequest, auth: AuthContext = De
 
 
 @router.post("/config", response_model=OkResponse)
-def save_config(payload: SaveConfigRequest, auth: AuthContext = Depends(get_auth_context)):
+def save_config(
+    payload: SaveConfigRequest,
+    auth: AuthContext = Depends(get_auth_context),
+    x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+):
     from backend.app.api.jira_proxy import validate_jira_base_url
     from backend.app.api.taiga_proxy import _validate_taiga_url
     from src import context_manager
@@ -107,7 +122,9 @@ def save_config(payload: SaveConfigRequest, auth: AuthContext = Depends(get_auth
             taiga_url=payload.taiga_url,
         )
     if payload.github_repo is not None:
-        context_manager.save_github_config(payload.github_repo)
+        # Per-instance: the repo belongs to the Taiga instance this request is for.
+        context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
+        context_manager.save_instance_github_repo(payload.github_repo)
     return {"ok": True}
 
 

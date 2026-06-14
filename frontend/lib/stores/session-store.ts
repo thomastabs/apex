@@ -13,6 +13,10 @@ type SessionState = {
   projectId: number | null;
   projectName: string;
   pmProjectSlug: string;
+  // Instance the selected project belongs to. A project picked on one Taiga
+  // instance must not be used under another (would request a cross-instance
+  // project the token isn't a member of → 403). useApiContext gates on this.
+  projectInstanceUrl: string;
   githubPat: string;
   githubRepo: string;
   setSession: (session: { taigaToken: string; taigaApiUrl?: string; projectId?: number; projectName?: string; pmTool?: PmTool; jiraEmail?: string }) => void;
@@ -32,6 +36,7 @@ export const useSessionStore = create<SessionState>()(
       projectId: null,
       projectName: "",
       pmProjectSlug: "",
+      projectInstanceUrl: "",
       githubPat: "",
       githubRepo: "",
       setSession: ({ taigaToken, taigaApiUrl, projectId, projectName = "", pmTool, jiraEmail }) =>
@@ -51,13 +56,15 @@ export const useSessionStore = create<SessionState>()(
           projectId: null,
           projectName: "",
           pmProjectSlug: "",
+          projectInstanceUrl: "",
         }),
-      setProject: ({ projectId, projectName = "", pmProjectSlug = "" }) => set({ projectId, projectName, pmProjectSlug }),
+      setProject: ({ projectId, projectName = "", pmProjectSlug = "" }) =>
+        set((s) => ({ projectId, projectName, pmProjectSlug, projectInstanceUrl: s.taigaApiUrl })),
       setGithub: ({ pat, repo }) => set({
         ...(pat !== undefined ? { githubPat: pat } : {}),
         ...(repo !== undefined ? { githubRepo: repo } : {}),
       }),
-      clearSession: () => set((s) => ({ pmTool: s.pmTool, taigaToken: "", taigaApiUrl: "", jiraEmail: "", projectId: null, projectName: "", pmProjectSlug: "", githubPat: "", githubRepo: "" })),
+      clearSession: () => set((s) => ({ pmTool: s.pmTool, taigaToken: "", taigaApiUrl: "", jiraEmail: "", projectId: null, projectName: "", pmProjectSlug: "", projectInstanceUrl: "", githubPat: "", githubRepo: "" })),
     }),
     {
       name: "apex-session",
@@ -70,7 +77,7 @@ export const useSessionStore = create<SessionState>()(
         try { localStorage.removeItem("apex-session"); } catch { /* ignore */ }
         return sessionStorage;
       }),
-      version: 5,
+      version: 6,
       migrate: (persisted: unknown) => {
         const state = (persisted ?? {}) as Record<string, unknown>;
         return {
@@ -81,6 +88,9 @@ export const useSessionStore = create<SessionState>()(
           projectId: (state.projectId as number | null) ?? null,
           projectName: (state.projectName as string) ?? "",
           pmProjectSlug: (state.pmProjectSlug as string) ?? "",
+          // Reset on upgrade so a pre-v6 selection (no instance binding) is
+          // re-confirmed before any project-scoped request fires.
+          projectInstanceUrl: (state.projectInstanceUrl as string) ?? "",
           githubPat: "",
           githubRepo: (state.githubRepo as string) ?? "",
         };
@@ -95,6 +105,7 @@ export const useSessionStore = create<SessionState>()(
         projectId: state.projectId,
         projectName: state.projectName,
         pmProjectSlug: state.pmProjectSlug,
+        projectInstanceUrl: state.projectInstanceUrl,
         githubRepo: state.githubRepo,
       }),
     },
@@ -107,8 +118,14 @@ export function useApiContext() {
   const projectId = useSessionStore((state) => state.projectId);
   const pmTool = useSessionStore((state) => state.pmTool);
   const pmProjectSlug = useSessionStore((state) => state.pmProjectSlug);
+  const projectInstanceUrl = useSessionStore((state) => state.projectInstanceUrl);
 
   if (!taigaToken || !projectId) {
+    return null;
+  }
+  // Don't use a project selected on a different instance — it would fire
+  // project-scoped requests the current token can't access (cross-instance 403).
+  if (projectInstanceUrl !== taigaApiUrl) {
     return null;
   }
 

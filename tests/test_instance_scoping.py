@@ -133,6 +133,28 @@ class TestRequestContextDerivesInstance:
         assert rc.project_id == 5
 
 
+class TestPerInstanceGithub:
+    """github_repo is scoped to the PM instance so Cloud and private users don't
+    share one repo."""
+
+    def test_github_repo_isolated_per_instance(self, ctx):
+        ctx.set_active_instance("api_taiga_io")
+        ctx.save_instance_github_repo("cloud/repo")
+
+        ctx.set_active_instance("taiga_acme_com")
+        assert ctx.get_instance_github_repo() != "cloud/repo"
+        ctx.save_instance_github_repo("private/repo")
+
+        ctx.set_active_instance("api_taiga_io")
+        assert ctx.get_instance_github_repo() == "cloud/repo"
+
+    def test_github_repo_falls_back_to_legacy_global(self, ctx, monkeypatch):
+        # No per-instance file yet → use the legacy global config value (migration).
+        monkeypatch.setattr("src.context_manager.load_config", lambda: {"github_repo": "legacy/repo"})
+        ctx.set_active_instance("api_taiga_io")
+        assert ctx.get_instance_github_repo() == "legacy/repo"
+
+
 class TestMultiInstanceIntegration:
     """Full plumbing: deps.get_request_context → ContextService.set_active →
     context_manager storage. Two instances with the SAME project_id must stay

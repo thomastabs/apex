@@ -744,10 +744,13 @@ export const SESSION_STORAGE = JSON.stringify({
     projectId: 1,
     projectName: "Test Project",
     pmProjectSlug: "test-project",
+    // Must match taigaApiUrl or useApiContext() treats the project as a
+    // cross-instance selection and returns null (no context loads).
+    projectInstanceUrl: "https://api.taiga.io/api/v1",
     githubPat: "",
     githubRepo: "",
   },
-  version: 5,
+  version: 6,
 });
 
 export const PHASE4_STORE_RESET = JSON.stringify({

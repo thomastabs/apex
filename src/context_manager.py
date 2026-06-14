@@ -312,10 +312,57 @@ def save_pm_config(
 
 
 def save_github_config(repo: str | None) -> None:
-    """Persist GitHub repo (owner/repo) to shared config."""
+    """Persist GitHub repo (owner/repo) to shared config (legacy/global).
+
+    Superseded by the per-instance store (save_instance_github_repo); kept for
+    back-compat. New writes go per-instance so different Taiga instances/users
+    don't share one repo.
+    """
     if repo is None:
         return
     _update_config(lambda data: data.__setitem__("github_repo", repo), log_label="save_github_config")
+
+
+# ── Per-instance config (github_repo) ─────────────────────────────────────────
+# github_repo is scoped to the active PM instance so Cloud and private-instance
+# users don't share one repo. Lives at contextspec/<instance_id>/.instance-config.json
+# (a file alongside the project dirs; migration only moves numeric project dirs).
+_INSTANCE_CONFIG_FILE = ".instance-config.json"
+
+
+def _instance_dir() -> Path:
+    return _BASE_CONTEXTSPEC / _get_instance_id()
+
+
+def get_instance_github_repo() -> str:
+    """GitHub repo for the active instance, falling back to legacy global config."""
+    p = _instance_dir() / _INSTANCE_CONFIG_FILE
+    if p.exists():
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+            repo = data.get("github_repo")
+            if isinstance(repo, str):
+                return repo
+        except (json.JSONDecodeError, OSError):
+            pass
+    return load_config().get("github_repo", "") or ""  # migration fallback
+
+
+def save_instance_github_repo(repo: str | None) -> None:
+    """Persist GitHub repo (owner/repo) for the active instance namespace."""
+    if repo is None:
+        return
+    inst = _instance_dir()
+    inst.mkdir(parents=True, exist_ok=True)
+    p = inst / _INSTANCE_CONFIG_FILE
+    data: dict = {}
+    if p.exists():
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            data = {}
+    data["github_repo"] = repo or ""
+    p.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
 def load_config() -> dict:

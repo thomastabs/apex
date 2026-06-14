@@ -95,6 +95,8 @@ def test_get_config_taiga_uses_taiga_web_url(monkeypatch):
         lambda: {"project_id": 42, "pm_tool": "taiga", "github_repo": "owner/repo"},
     )
     monkeypatch.setattr("src.taiga_adapter.get_web_base_url", lambda: "https://taiga.example")
+    # github_repo is per-instance now — stub the instance lookup (decouples from disk).
+    monkeypatch.setattr("src.context_manager.get_instance_github_repo", lambda: "owner/repo")
 
     response = get_config(_AUTH)
 
@@ -156,11 +158,12 @@ def test_save_ai_config_rejects_unknown_model(monkeypatch):
 # ── save_config ─────────────────────────────────────────────────────────────
 
 
-def test_save_config_persists_project_and_github(monkeypatch):
+def test_save_config_persists_project_and_per_instance_github(monkeypatch):
     calls: list[tuple] = []
     monkeypatch.setattr("src.context_manager.save_config", lambda pid: calls.append(("project", pid)))
+    # github_repo is now saved per-instance (not the legacy global save_github_config).
     monkeypatch.setattr(
-        "src.context_manager.save_github_config", lambda repo: calls.append(("github", repo))
+        "src.context_manager.save_instance_github_repo", lambda repo: calls.append(("github", repo))
     )
 
     response = save_config(
