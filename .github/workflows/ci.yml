@@ -154,7 +154,8 @@ jobs:
           (cd frontend && nohup npm run start > ../frontend.log 2>&1 &)
         env:
           ANTHROPIC_API_KEY: sk-ant-stub
-          TAIGA_API_URL: https://api.taiga.io
+          # No TAIGA_API_URL: exercise the unpinned multi-instance config the
+          # deployment actually runs (validation anchors on the X-Taiga-Url header).
 
       - name: Smoke checks
         run: |
@@ -180,6 +181,16 @@ jobs:
           # And no token at all is rejected outright.
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/workspace/config)
           [ "$STATUS" = "401" ] || { echo "expected 401 without token, got $STATUS"; exit 1; }
+          # Multi-instance: with no TAIGA_API_URL pin, a workspace request must
+          # anchor validation on the per-request X-Taiga-Url and still reject a
+          # bogus token (regression guard: the deadlock bug had this path 401 even
+          # for VALID tokens; here a bogus token must NOT pass / 500).
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer bogus-smoke-token" \
+            -H "X-Taiga-Url: https://api.taiga.io" \
+            http://localhost:8000/api/workspace/config)
+          echo "workspace/config bogus token + X-Taiga-Url -> $STATUS"
+          [ "$STATUS" = "401" ] || [ "$STATUS" = "503" ] || { echo "expected 401/503 (header-anchored), got $STATUS"; exit 1; }
 
       - name: Print logs on failure
         if: failure()

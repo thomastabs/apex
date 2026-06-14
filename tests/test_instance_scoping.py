@@ -131,3 +131,79 @@ class TestRequestContextDerivesInstance:
             )
         assert rc.instance_id == "private_example_org"
         assert rc.project_id == 5
+
+
+class TestMultiInstanceIntegration:
+    """Full plumbing: deps.get_request_context → ContextService.set_active →
+    context_manager storage. Two instances with the SAME project_id must stay
+    isolated, and a token must only reach the namespace of the instance it
+    validated against (regressed 3× during the auth/multi-instance work)."""
+
+    @staticmethod
+    def _public_dns():
+        from unittest.mock import MagicMock
+        import socket as _socket
+        return MagicMock(
+            getaddrinfo=MagicMock(return_value=[(2, 1, 6, "", ("93.184.216.34", 0))]),
+            AF_INET=_socket.AF_INET,
+        )
+
+    @pytest.mark.real_auth
+    def test_two_instances_same_project_id_isolated(self, monkeypatch, ctx):
+        from unittest.mock import patch
+        from backend.app.api import deps, ssrf
+        from backend.app.services.context_service import ContextService
+
+        # Token is accepted + member everywhere (mock only the network hop), so
+        # the only thing separating the two requests is the validated anchor host.
+        from collections import OrderedDict
+        monkeypatch.setattr(deps, "_pm_get", lambda url, scheme, token: True)
+        monkeypatch.setattr(deps, "_token_cache", OrderedDict())
+        monkeypatch.setattr(deps, "_project_cache", OrderedDict())
+        monkeypatch.delenv("TAIGA_API_URL", raising=False)
+
+        with patch.object(ssrf, "socket", self._public_dns()):
+            cloud = deps.get_request_context("Bearer tok", "https://api.taiga.io", 5, None)
+            priv = deps.get_request_context("Bearer tok", "https://taiga.acme.com", 5, None)
+
+        assert cloud.instance_id == "api_taiga_io"
+        assert priv.instance_id == "taiga_acme_com"
+        assert cloud.project_id == priv.project_id == 5
+
+        cs = ContextService()
+        cs.set_active(cloud)
+        cs.write_context_file("project-concept.md", "CLOUD-5")
+
+        # Same project_id, different instance → must NOT see the cloud file.
+        cs.set_active(priv)
+        assert cs.read_context_file("project-concept.md") != "CLOUD-5"
+        cs.write_context_file("project-concept.md", "PRIVATE-5")
+
+        # Cloud namespace untouched.
+        cs.set_active(cloud)
+        assert cs.read_context_file("project-concept.md") == "CLOUD-5"
+
+        # Both namespaces exist on disk, side by side.
+        names = sorted(e.name for e in ctx._BASE_CONTEXTSPEC.iterdir_dirs())
+        assert names == ["api_taiga_io", "taiga_acme_com"]
+
+    @pytest.mark.real_auth
+    def test_token_not_member_of_project_gets_403(self, monkeypatch):
+        from unittest.mock import patch
+        from fastapi import HTTPException
+        from backend.app.api import deps, ssrf
+
+        # Token valid (identity 200) but NOT a member of the project (project 403).
+        def fake_pm_get(url, scheme, token):
+            return "/projects/" not in url  # identity ok, project check fails
+
+        from collections import OrderedDict
+        monkeypatch.setattr(deps, "_pm_get", fake_pm_get)
+        monkeypatch.setattr(deps, "_token_cache", OrderedDict())
+        monkeypatch.setattr(deps, "_project_cache", OrderedDict())
+        monkeypatch.delenv("TAIGA_API_URL", raising=False)
+
+        with patch.object(ssrf, "socket", self._public_dns()):
+            with pytest.raises(HTTPException) as exc:
+                deps.get_request_context("Bearer tok", "https://taiga.acme.com", 999, None)
+        assert exc.value.status_code == 403
