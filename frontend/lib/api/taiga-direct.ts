@@ -197,7 +197,8 @@ export async function taigaCreateProject(
 ): Promise<Project> {
   const raw = await taigaFetch<Record<string, unknown>>("/projects", token, apiBaseUrl, {
     method: "POST",
-    body: { name, description },
+    // Taiga rejects a blank description with 400 — fall back to the name.
+    body: { name, description: description.trim() || name },
   });
   return {
     id: raw.id as number,

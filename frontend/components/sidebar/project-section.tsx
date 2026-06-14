@@ -23,6 +23,7 @@ type ProjectSectionProps = DragSectionProps & {
 
 export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDragStart }: ProjectSectionProps) {
   const [projectOpen, setProjectOpen] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
 
   const projectId = useSessionStore((s) => s.projectId);
   const projectName = useSessionStore((s) => s.projectName);
@@ -94,10 +95,7 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
               {!isJira ? (
                 <button
                   className="flex h-8 items-center justify-center gap-1 rounded border border-violet-500/40 bg-violet-500/10 text-sm font-semibold text-violet-400 transition-colors hover:bg-violet-500/20"
-                  onClick={() => {
-                    const name = window.prompt("Project name");
-                    if (name?.trim()) createProject.mutate({ name: name.trim(), description: "" });
-                  }}
+                  onClick={() => setShowCreate(true)}
                 >
                   <Plus className="size-3" /> Create New
                 </button>
@@ -120,6 +118,100 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
           </div>
         ) : null}
       </section>
+      {showCreate ? (
+        <CreateProjectDialog
+          dark={dark}
+          pending={createProject.isPending}
+          onClose={() => setShowCreate(false)}
+          onSubmit={(name, description) =>
+            createProject.mutate({ name, description }, { onSuccess: () => setShowCreate(false) })
+          }
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function CreateProjectDialog({
+  dark,
+  pending,
+  onClose,
+  onSubmit,
+}: {
+  dark: boolean;
+  pending: boolean;
+  onClose: () => void;
+  onSubmit: (name: string, description: string) => void;
+}) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+
+  const inputClass = cn(
+    "w-full rounded border px-3 text-sm outline-none focus:border-violet-500",
+    dark
+      ? "border-neutral-700 bg-neutral-950 text-white placeholder:text-neutral-500"
+      : "border-slate-300 bg-white text-slate-950 placeholder:text-slate-400",
+  );
+
+  const canSubmit = Boolean(name.trim()) && Boolean(description.trim());
+
+  function submit() {
+    if (!canSubmit) return;
+    onSubmit(name.trim(), description.trim());
+  }
+
+  return (
+    <div
+      className={cn("fixed inset-0 z-50 grid place-items-center p-4", dark ? "bg-black/75" : "bg-slate-950/35 backdrop-blur-sm")}
+      onClick={onClose}
+    >
+      <div
+        className={cn("w-full max-w-lg rounded-xl border p-6 shadow-2xl", dark ? "border-neutral-700 bg-neutral-900" : "border-slate-300 bg-white")}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>Create New Project</h3>
+        <div className="space-y-3">
+          <div>
+            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
+              Name <span className="text-red-400">*</span>
+            </label>
+            <input
+              className={cn("h-9 border-violet-700", inputClass)}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Project name"
+              autoFocus
+              onKeyDown={(e) => e.key === "Enter" && submit()}
+            />
+          </div>
+          <div>
+            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
+              Description <span className="text-red-400">*</span>
+            </label>
+            <textarea
+              className={cn("h-28 resize-none py-2", inputClass)}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe this project…"
+            />
+          </div>
+        </div>
+        <div className="mt-5 flex gap-3">
+          <button
+            className="flex-1 rounded bg-violet-700 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-600 disabled:opacity-50"
+            disabled={pending || !canSubmit}
+            onClick={submit}
+          >
+            {pending ? "Creating…" : "Create Project"}
+          </button>
+          <button
+            className={cn("flex-1 rounded py-2 text-sm transition-colors", dark ? "bg-neutral-800 text-neutral-300 hover:bg-neutral-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200")}
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
