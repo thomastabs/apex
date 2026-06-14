@@ -19,6 +19,7 @@ from backend.app.api.rate_limit import (
     record_auth_failure,
     record_username_failure,
 )
+from backend.app.api.pm_http import send_with_retry
 from backend.app.api.ssrf import is_blocked_host
 
 router = APIRouter()
@@ -26,7 +27,9 @@ _logger = logging.getLogger("apex.taiga_proxy")
 
 _TIMEOUT = 20.0
 _CONNECT_TIMEOUT = 8.0  # fail fast on dead egress paths; read keeps the full budget
-_CONNECT_ERRORS = (httpx.ConnectError, httpx.ConnectTimeout)
+# Recycle idle keepalive sockets quickly: a connection bound to a dead Azure
+# SNAT flow is dropped instead of being reused into a 20s timeout.
+_KEEPALIVE_EXPIRY = 15.0
 _client: httpx.AsyncClient | None = None
 
 
@@ -36,6 +39,7 @@ def _get_client() -> httpx.AsyncClient:
         _client = httpx.AsyncClient(
             follow_redirects=False,
             timeout=httpx.Timeout(_TIMEOUT, connect=_CONNECT_TIMEOUT),
+            limits=httpx.Limits(keepalive_expiry=_KEEPALIVE_EXPIRY),
         )
     return _client
 
@@ -52,22 +56,8 @@ async def _reset_client() -> None:
 
 
 async def _send(method: str, url: str, **kwargs) -> httpx.Response:
-    """Send with one self-heal retry.
-
-    Observed in Azure Container Apps: outbound flows to a single destination
-    can silently die (SNAT path drop or upstream throttling) while the pooled
-    client keeps timing out. A connect-level failure resets the pool and
-    retries once; a second failure surfaces to the caller as usual.
-    """
-    try:
-        return await _get_client().request(method=method, url=url, **kwargs)
-    except _CONNECT_ERRORS as exc:
-        _logger.warning(
-            "Connect failure to %s (%s: %s) — resetting client pool and retrying once",
-            url, type(exc).__name__, exc,
-        )
-        await _reset_client()
-        return await _get_client().request(method=method, url=url, **kwargs)
+    """Send with self-heal retry on connect failures (see pm_http)."""
+    return await send_with_retry(_get_client, _reset_client, method, url, logger=_logger, **kwargs)
 
 
 def _validate_taiga_url(url: str, *, source: str = "X-Taiga-Url") -> str:

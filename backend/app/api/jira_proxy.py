@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 import httpx
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 
+from backend.app.api.pm_http import send_with_retry
 from backend.app.api.rate_limit import check_auth_failures, record_auth_failure
 from backend.app.api.ssrf import is_blocked_host
 
@@ -24,7 +25,9 @@ _TIMEOUT = 30.0
 
 # Module-level client for connection pooling — created lazily, lives for process lifetime.
 _CONNECT_TIMEOUT = 8.0  # fail fast on dead egress paths; read keeps the full budget
-_CONNECT_ERRORS = (httpx.ConnectError, httpx.ConnectTimeout)
+# Recycle idle keepalive sockets quickly so a connection bound to a dead Azure
+# SNAT flow is dropped instead of being reused into a long timeout.
+_KEEPALIVE_EXPIRY = 15.0
 _client: httpx.AsyncClient | None = None
 
 
@@ -34,6 +37,7 @@ def _get_client() -> httpx.AsyncClient:
         _client = httpx.AsyncClient(
             follow_redirects=False,
             timeout=httpx.Timeout(_TIMEOUT, connect=_CONNECT_TIMEOUT),
+            limits=httpx.Limits(keepalive_expiry=_KEEPALIVE_EXPIRY),
         )
     return _client
 
@@ -50,16 +54,8 @@ async def _reset_client() -> None:
 
 
 async def _send(method: str, url: str, **kwargs) -> httpx.Response:
-    """Send with one self-heal retry — see taiga_proxy._send for the rationale."""
-    try:
-        return await _get_client().request(method=method, url=url, **kwargs)
-    except _CONNECT_ERRORS as exc:
-        _logger.warning(
-            "Connect failure to %s (%s: %s) — resetting client pool and retrying once",
-            url, type(exc).__name__, exc,
-        )
-        await _reset_client()
-        return await _get_client().request(method=method, url=url, **kwargs)
+    """Send with self-heal retry on connect failures (see pm_http)."""
+    return await send_with_retry(_get_client, _reset_client, method, url, logger=_logger, **kwargs)
 
 
 def validate_jira_base_url(url: str, *, source: str = "X-Jira-Base-Url") -> str:

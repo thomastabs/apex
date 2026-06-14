@@ -1,14 +1,18 @@
 name: Apex · Scale scheduler
 
 # Day/night cost mode (Portugal):
-#   08:00 UTC  → scale UP   (min=1, apps stay warm through the working day)
-#   22:00 UTC  → scale DOWN (min=0, scale-to-zero overnight)
+#   08:00 UTC  → scale UP   (frontend min=1, warm for the working day)
+#   22:00 UTC  → scale DOWN (frontend → scale-to-zero overnight)
 # Acceptable ±1h drift around DST transitions for an academic project.
 #
-# apex-backend is ALWAYS capped at max=1: the story index and workspace config
-# live on a shared Azure File Share guarded only by a process-local lock — a
-# second backend replica means lost-update races (audit C1). The stateless
-# frontend may scale out.
+# apex-backend stays min=1 max=1 AROUND THE CLOCK (never scaled to zero):
+#   - max=1 because the story index and workspace config live on a shared Azure
+#     File Share guarded only by a process-local lock — a second replica means
+#     lost-update races (audit C1).
+#   - min=1 because a cold start re-rolls the revision onto a fresh Azure SNAT
+#     egress path + cold httpx pool, the daily churn behind the 2026-06-12 Taiga
+#     egress incident. Keeping it warm removes that churn (~cents/mo). Only the
+#     stateless frontend scales to zero overnight.
 #
 # Night mode can be turned OFF so the apps stay warm overnight (e.g. a late demo):
 #   gh variable set APEX_NIGHT_MODE --body off   # disable the 22:00 scale-down
@@ -23,7 +27,7 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: 'up → day mode (backend min=1 max=1, frontend min=1 max=10)  |  down → cost mode (min=0; backend max=1, frontend max=2)'
+        description: 'up → day mode (backend min=1 max=1, frontend min=1 max=10)  |  down → cost mode (backend stays min=1 max=1, frontend min=0 max=2)'
         required: true
         type: choice
         options: [up, down]
@@ -73,17 +77,19 @@ jobs:
             --max-replicas 10
           echo "Scaled UP: backend → min=1 max=1 (single writer), frontend → min=1 max=10"
 
-      - name: Scale DOWN — cost mode (scale-to-zero)
+      - name: Scale DOWN — cost mode (frontend only)
         if: steps.action.outputs.mode == 'down'
         run: |
+          # Backend stays min=1 max=1 — never scaled to zero (warm egress path,
+          # single writer). Only the stateless frontend scales down overnight.
           az containerapp update \
             --name apex-backend \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --min-replicas 0 \
+            --min-replicas 1 \
             --max-replicas 1
           az containerapp update \
             --name apex-frontend \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --min-replicas 0 \
             --max-replicas 2
-          echo "Scaled DOWN: backend → min=0 max=1 (single writer), frontend → min=0 max=2"
+          echo "Scaled DOWN: backend → min=1 max=1 (warm, single writer), frontend → min=0 max=2"

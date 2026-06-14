@@ -332,11 +332,17 @@ class TestTaigaDnsRebinding:
 
 
 class TestSelfHeal:
-    """A connect-level failure resets the pooled client and retries once
-    (Azure SNAT paths can die while the pool keeps reusing them)."""
+    """A connect-level failure resets the pooled client and retries (up to 2×)
+    with backoff — Azure SNAT paths can die while the pool keeps reusing them."""
 
     AUTH = "Bearer mytoken"
     TAIGA_URL = "https://taiga.example.test/api/v1"
+
+    @pytest.fixture(autouse=True)
+    def _no_backoff(self):
+        # Skip the real jittered sleeps between retries so the suite stays fast.
+        with patch("backend.app.api.pm_http.asyncio.sleep", AsyncMock()):
+            yield
 
     def test_connect_error_retried_once_and_succeeds(self, client):
         import httpx as _httpx
@@ -353,7 +359,25 @@ class TestSelfHeal:
         assert resp.status_code == 200
         assert mock_http.request.call_count == 2
 
-    def test_second_connect_failure_maps_to_502(self, client):
+    def test_two_connect_failures_then_success(self, client):
+        import httpx as _httpx
+        upstream = _mock_upstream(200, {"ok": True})
+        mock_http = MagicMock()
+        mock_http.request = AsyncMock(
+            side_effect=[_httpx.ConnectError("drop1"), _httpx.ConnectTimeout("drop2"), upstream]
+        )
+        mock_http.is_closed = False
+        mock_http.aclose = AsyncMock()
+        with patch("backend.app.api.taiga_proxy._get_client", return_value=mock_http):
+            resp = client.get(
+                "/api/pm/taiga/epics",
+                headers={"Authorization": self.AUTH, "X-Taiga-Url": self.TAIGA_URL},
+            )
+        assert resp.status_code == 200
+        assert mock_http.request.call_count == 3
+
+    def test_connect_failures_exhaust_retries_and_map_to_502(self, client):
+        # 1 initial attempt + 2 retries, all failing → surfaces as 502.
         import httpx as _httpx
         mock_http = MagicMock()
         mock_http.request = AsyncMock(side_effect=_httpx.ConnectTimeout("still dead"))
@@ -365,7 +389,7 @@ class TestSelfHeal:
                 headers={"Authorization": self.AUTH, "X-Taiga-Url": self.TAIGA_URL},
             )
         assert resp.status_code == 502
-        assert mock_http.request.call_count == 2
+        assert mock_http.request.call_count == 3
 
     def test_read_errors_not_retried(self, client):
         # Only connect-level failures indicate a dead pool; read timeouts mean

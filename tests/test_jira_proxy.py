@@ -311,3 +311,54 @@ class TestJiraAuthBackoff:
         with patcher:
             assert self._get(client).status_code == 200
         assert "authfail:testclient" not in rate_limit._failure_buckets
+
+
+class TestSelfHeal:
+    """Connect-level failures reset the pooled client and retry (up to 2×);
+    read-level failures never retry. Shared with Taiga via pm_http."""
+
+    JIRA_URL = "https://example.atlassian.net"
+    AUTH = "Basic dXNlckBleGFtcGxlLmNvbTp0b2tlbg=="
+
+    @pytest.fixture(autouse=True)
+    def _no_backoff(self):
+        with patch("backend.app.api.pm_http.asyncio.sleep", AsyncMock()):
+            yield
+
+    def _get(self, client):
+        return client.get(
+            "/api/pm/jira/myself",
+            headers={"Authorization": self.AUTH, "X-Jira-Base-Url": self.JIRA_URL},
+        )
+
+    def test_connect_error_retried_and_succeeds(self, client):
+        import httpx as _httpx
+        upstream = _mock_upstream(200, {"accountId": "x"})
+        mock_http = MagicMock()
+        mock_http.request = AsyncMock(side_effect=[_httpx.ConnectError("dropped"), upstream])
+        mock_http.is_closed = False
+        mock_http.aclose = AsyncMock()
+        with patch("backend.app.api.jira_proxy._get_client", return_value=mock_http):
+            resp = self._get(client)
+        assert resp.status_code == 200
+        assert mock_http.request.call_count == 2
+
+    def test_connect_failures_exhaust_retries_and_map_to_502(self, client):
+        import httpx as _httpx
+        mock_http = MagicMock()
+        mock_http.request = AsyncMock(side_effect=_httpx.ConnectTimeout("still dead"))
+        mock_http.is_closed = False
+        mock_http.aclose = AsyncMock()
+        with patch("backend.app.api.jira_proxy._get_client", return_value=mock_http):
+            resp = self._get(client)
+        assert resp.status_code == 502
+        assert mock_http.request.call_count == 3
+
+    def test_read_errors_not_retried(self, client):
+        import httpx as _httpx
+        mock_http = MagicMock()
+        mock_http.request = AsyncMock(side_effect=_httpx.ReadTimeout("slow upstream"))
+        with patch("backend.app.api.jira_proxy._get_client", return_value=mock_http):
+            resp = self._get(client)
+        assert resp.status_code == 502
+        assert mock_http.request.call_count == 1
