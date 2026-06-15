@@ -11,13 +11,15 @@ import {
   useDeleteEpic,
   useDeleteStory,
   useRebuildStoryIndex,
+  useSetStoryPhaseStatus,
   useStoryIndexStats,
+  useStoryPhaseStatus,
   useStoryStatuses,
   useUpdateEpic,
   useUpdateStory,
 } from "@/lib/hooks/use-workspace";
 import { getPmAdapter } from "@/lib/api/pm-factory";
-import { toPmCtx } from "@/lib/api/workspace";
+import { toPmCtx, type ApexPhaseStatus } from "@/lib/api/workspace";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
@@ -131,6 +133,16 @@ function EpicDialog({ epic, onClose }: { epic: Epic; onClose: () => void }) {
   );
 }
 
+const APEX_STATUS_OPTIONS: [ApexPhaseStatus, string][] = [
+  ["new", "New"],
+  ["gherkin_locked", "Gherkin Locked"],
+  ["design_locked", "Design Locked"],
+  ["implementation", "Implementation"],
+  ["qa", "QA / Testing"],
+  ["qa_passed", "QA Passed"],
+  ["deployed", "Deployed"],
+];
+
 function StoryDialog({ story, onClose }: { story: Story; onClose: () => void }) {
   const dark = useUiStore((state) => state.theme === "dark");
   const context = useApiContext();
@@ -140,6 +152,17 @@ function StoryDialog({ story, onClose }: { story: Story; onClose: () => void }) 
   const [statusId, setStatusId] = useState<string>(story.status != null ? String(story.status) : "");
   const update = useUpdateStory();
   const { data: statuses = [] } = useStoryStatuses();
+
+  const phaseQuery = useStoryPhaseStatus(story.id);
+  const setApexStatus = useSetStoryPhaseStatus();
+  const [apexStatus, setApexStatus_] = useState<ApexPhaseStatus | "">("");
+  const apexHydratedRef = useRef(false);
+  useEffect(() => {
+    if (phaseQuery.data && !apexHydratedRef.current) {
+      apexHydratedRef.current = true;
+      setApexStatus_(phaseQuery.data.phase_status ?? "");
+    }
+  }, [phaseQuery.data]);
 
   const detail = useDetailHydration(
     "story", story.id,
@@ -160,13 +183,25 @@ function StoryDialog({ story, onClose }: { story: Story; onClose: () => void }) 
     const version = detail.data?.version ?? story.version;
     if (!version) return;
     const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
+    const apexChanged = apexStatus !== "" && apexStatus !== (phaseQuery.data?.phase_status ?? "");
     update.mutate(
       {
         storyId: story.id,
         version,
         fields: { subject, description, tags, ...(statusId ? { status: statusId } : {}) },
       },
-      { onSuccess: onClose },
+      {
+        onSuccess: () => {
+          if (!apexChanged) { onClose(); return; }
+          setApexStatus.mutate(
+            { storyId: story.id, phaseStatus: apexStatus as ApexPhaseStatus },
+            {
+              onSuccess: () => { toast.success("Apex status updated."); onClose(); },
+              onError: () => { toast.error("Story saved, but Apex status update failed."); onClose(); },
+            },
+          );
+        },
+      },
     );
   }
 
@@ -213,6 +248,28 @@ function StoryDialog({ story, onClose }: { story: Story; onClose: () => void }) 
                 <option key={s.id} value={String(s.id)}>{s.name}</option>
               ))}
             </select>
+          </div>
+          <div>
+            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
+              Apex Status <span className={dark ? "text-neutral-600" : "text-slate-400"}>(workflow phase)</span>
+            </label>
+            {phaseQuery.isLoading ? (
+              <p className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-400")}>Loading…</p>
+            ) : phaseQuery.data?.phase_status == null ? (
+              <p className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
+                Not in the story index — publish from Phase 1 first.
+              </p>
+            ) : (
+              <select
+                className={cn("h-9 cursor-pointer", inputClass)}
+                value={apexStatus}
+                onChange={(e) => setApexStatus_(e.target.value as ApexPhaseStatus)}
+              >
+                {APEX_STATUS_OPTIONS.map(([v, label]) => (
+                  <option key={v} value={v}>{label}</option>
+                ))}
+              </select>
+            )}
           </div>
           <div>
             <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>

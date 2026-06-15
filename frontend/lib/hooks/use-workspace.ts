@@ -15,6 +15,7 @@ import {
   getMe,
   getServerConfig,
   getStoryIndexStats,
+  getStoryPhaseStatus,
   getUsers,
   inviteUser,
   listProjects,
@@ -26,10 +27,12 @@ import {
   saveAiConfig,
   saveGithubConfig,
   saveServerConfig,
+  setStoryPhaseStatus,
   updateContextFile,
   updateEpic,
   updateMemberRole,
   updateStory,
+  type ApexPhaseStatus,
 } from "@/lib/api/workspace";
 import { useApiContext, useAuthContext, useGithubContext } from "@/lib/stores/session-store";
 
@@ -165,6 +168,37 @@ export function useAutoSyncStoryIndex() {
       })
       .catch(() => undefined);
   }, [context, queryClient]);
+}
+
+// Read a story's Apex phase_status from the story index.
+export function useStoryPhaseStatus(storyId: number | null) {
+  const context = useApiContext();
+  return useQuery({
+    queryKey: ["workspace", "story-phase-status", context?.projectId, storyId],
+    queryFn: () => getStoryPhaseStatus(context!, storyId!),
+    enabled: Boolean(context) && storyId !== null,
+    staleTime: 0,
+  });
+}
+
+// Manually override a story's Apex phase_status. Invalidates the per-phase
+// eligible-story lists + index stats so nav badges and Phase 2-5 reflect it.
+export function useSetStoryPhaseStatus() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ storyId, phaseStatus }: { storyId: number; phaseStatus: ApexPhaseStatus }) =>
+      setStoryPhaseStatus(context!, storyId, phaseStatus),
+    onSuccess: (_, { storyId }) => {
+      const pid = context?.projectId;
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-phase-status", pid, storyId] });
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", pid] });
+      void queryClient.invalidateQueries({ queryKey: ["phase2", "eligible-epics"] });
+      for (const phase of ["phase3", "phase4", "phase5"]) {
+        void queryClient.invalidateQueries({ queryKey: [phase, "eligible-stories", pid] });
+      }
+    },
+  });
 }
 
 export function useCreateEpic() {

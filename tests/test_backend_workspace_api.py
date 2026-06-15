@@ -6,18 +6,21 @@ from fastapi import HTTPException
 from backend.app.api.deps import AuthContext
 from backend.app.api.workspace import (
     get_config,
+    get_story_phase_status,
     rebuild_story_index,
     remove_epic_from_story_index,
     remove_story_from_story_index,
     reset_context_file,
     save_ai_config_endpoint,
     save_config,
+    set_story_phase_status,
     story_index_stats,
     update_context_file,
 )
 from backend.app.schemas.workspace import (
     SaveAiConfigRequest,
     SaveConfigRequest,
+    SetPhaseStatusRequest,
     UpdateContextFileRequest,
 )
 from backend.app.services.request_context import RequestContext
@@ -84,6 +87,39 @@ def test_remove_story_from_story_index_uses_request_project(monkeypatch):
 
     assert response == {"ok": True}
     assert calls == [("project", 42), ("stories", [11])]
+
+
+def test_get_story_phase_status_returns_entry_status(monkeypatch):
+    monkeypatch.setattr("src.context_manager.set_active_project", lambda pid: None)
+    monkeypatch.setattr("src.context_manager.get_story_index", lambda: {"5": {"phase_status": "qa"}})
+    res = get_story_phase_status(5, RequestContext(pm_token="tok", project_id=42))
+    assert res == {"phase_status": "qa"}
+
+
+def test_get_story_phase_status_null_when_absent(monkeypatch):
+    monkeypatch.setattr("src.context_manager.set_active_project", lambda pid: None)
+    monkeypatch.setattr("src.context_manager.get_story_index", lambda: {})
+    res = get_story_phase_status(9, RequestContext(pm_token="tok", project_id=42))
+    assert res == {"phase_status": None}
+
+
+def test_set_story_phase_status_upserts_when_in_index(monkeypatch):
+    calls: list[tuple[int, dict]] = []
+    monkeypatch.setattr("src.context_manager.set_active_project", lambda pid: None)
+    monkeypatch.setattr("src.context_manager.get_story_index", lambda: {"5": {"phase_status": "implementation"}})
+    monkeypatch.setattr("src.context_manager.upsert_story_index", lambda sid, **kw: calls.append((sid, kw)))
+    res = set_story_phase_status(5, SetPhaseStatusRequest(phase_status="qa"), RequestContext(pm_token="tok", project_id=42))
+    assert res == {"ok": True}
+    assert calls == [(5, {"phase_status": "qa"})]
+
+
+def test_set_story_phase_status_404_when_not_in_index(monkeypatch):
+    monkeypatch.setattr("src.context_manager.set_active_project", lambda pid: None)
+    monkeypatch.setattr("src.context_manager.get_story_index", lambda: {})
+    monkeypatch.setattr("src.context_manager.upsert_story_index", lambda *a, **k: pytest.fail("should not upsert"))
+    with pytest.raises(HTTPException) as ei:
+        set_story_phase_status(9, SetPhaseStatusRequest(phase_status="qa"), RequestContext(pm_token="tok", project_id=42))
+    assert ei.value.status_code == 404
 
 
 # ── get_config ──────────────────────────────────────────────────────────────

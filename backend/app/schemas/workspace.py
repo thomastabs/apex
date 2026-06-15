@@ -1,6 +1,20 @@
 """Schemas for shell/sidebar workspace endpoints."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
+
+PhaseStatus = Literal[
+    "new", "gherkin_locked", "design_locked", "implementation", "qa", "qa_passed", "deployed",
+]
+
+
+class PhaseStatusResponse(BaseModel):
+    phase_status: str | None = None
+
+
+class SetPhaseStatusRequest(BaseModel):
+    phase_status: PhaseStatus
 
 
 class ContextFileSchema(BaseModel):

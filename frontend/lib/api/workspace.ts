@@ -215,6 +215,23 @@ export function getStoryIndexStats(context: RequestContext) {
   return apiRequest<StoryIndexStats>("/api/workspace/context-files/story-index-stats", { context });
 }
 
+export type ApexPhaseStatus =
+  | "new" | "gherkin_locked" | "design_locked" | "implementation" | "qa" | "qa_passed" | "deployed";
+
+export function getStoryPhaseStatus(context: RequestContext, storyId: number) {
+  return apiRequest<{ phase_status: ApexPhaseStatus | null }>(
+    `/api/workspace/context-files/story-index/stories/${storyId}/phase-status`,
+    { context },
+  );
+}
+
+export function setStoryPhaseStatus(context: RequestContext, storyId: number, phaseStatus: ApexPhaseStatus) {
+  return apiRequest<{ ok: boolean }>(
+    `/api/workspace/context-files/story-index/stories/${storyId}/phase-status`,
+    { method: "POST", context, body: { phase_status: phaseStatus } },
+  );
+}
+
 export function resetAllContextFiles(context: RequestContext) {
   return apiRequest<ContextFilesResponse>("/api/workspace/context-files/reset-all", {
     method: "POST",

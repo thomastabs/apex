@@ -16,8 +16,10 @@ from backend.app.schemas.workspace import (
     ConfigResponse,
     ContextFilesResponse,
     OkResponse,
+    PhaseStatusResponse,
     SaveAiConfigRequest,
     SaveConfigRequest,
+    SetPhaseStatusRequest,
     StoryIndexStatsResponse,
     UpdateContextFileRequest,
 )
@@ -192,6 +194,44 @@ def remove_story_from_story_index(story_id: int, ctx: RequestContext = Depends(g
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update story index.",
+        ) from exc
+    return {"ok": True}
+
+
+@router.get(
+    "/context-files/story-index/stories/{story_id}/phase-status",
+    response_model=PhaseStatusResponse,
+)
+def get_story_phase_status(story_id: int, ctx: RequestContext = Depends(get_request_context)):
+    context = ContextService()
+    context.set_active(ctx)
+    entry = context.story_index().get(str(story_id)) or {}
+    return {"phase_status": entry.get("phase_status")}
+
+
+@router.post(
+    "/context-files/story-index/stories/{story_id}/phase-status",
+    response_model=OkResponse,
+)
+def set_story_phase_status(
+    story_id: int,
+    payload: SetPhaseStatusRequest,
+    ctx: RequestContext = Depends(get_request_context),
+):
+    context = ContextService()
+    context.set_active(ctx)
+    if str(story_id) not in context.story_index():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Story is not in the index — publish it from Phase 1 first.",
+        )
+    try:
+        context.upsert_story_index(story_id, phase_status=payload.phase_status)
+    except Exception as exc:
+        _logger.exception("set_story_phase_status failed story_id=%s: %s", story_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update story phase status.",
         ) from exc
     return {"ok": True}
 
