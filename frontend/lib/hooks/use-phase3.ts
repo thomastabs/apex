@@ -300,31 +300,55 @@ export function useLoadTaskList(storyId: number | null) {
   });
 
   useEffect(() => {
-    if (!query.data || storyId === null) return;
+    if (!query.data || storyId === null || !context) return;
     const storyTasks = query.data
       .filter((t) => Number(t.user_story) === storyId)
       .sort((a, b) => Number(a.id) - Number(b.id) || String(a.id).localeCompare(String(b.id)));
     if (storyTasks.length === 0) return;
-    // Prefer the encoded Apex task id — predecessor_task_ids reference it, so
-    // positional ids would corrupt the DAG after a deletion/reorder in the PM.
-    // Fall back to position for legacy tasks (and on duplicates).
-    const seenIds = new Set<number>();
-    const reconstructed: Phase3Task[] = storyTasks.map((t, i) => {
-      const decoded = decodeApexMeta(t.description || "");
-      let id = decoded.apex_task_id ?? i + 1;
-      while (seenIds.has(id)) id = Math.max(...seenIds) + 1;
-      seenIds.add(id);
-      return {
-        id,
-        subject: t.subject,
-        description: decoded.description,
-        effort_estimate: decoded.effort_estimate,
-        covered_scenarios: decoded.covered_scenarios,
-        predecessor_task_ids: decoded.predecessor_task_ids,
-        pm_task_id: String(t.id),
-      };
-    });
-    hydrateTasks(reconstructed);
+
+    let cancelled = false;
+    (async () => {
+      const adapter = getPmAdapter(context.pmTool);
+      const ctx = getAdapterCtx(context);
+      // The task LIST endpoint returns a description without the apex-meta block,
+      // so effort/scenarios/deps would decode to defaults (all "M", no covers).
+      // Fetch each task's full description from the detail endpoint before
+      // decoding — same source the sidebar editor uses. Falls back to the list
+      // description if a detail fetch fails.
+      const detailed = await Promise.all(
+        storyTasks.map(async (t) => {
+          try {
+            const full = await adapter.getTask(ctx, String(t.id));
+            return { ...t, description: full.description };
+          } catch {
+            return t;
+          }
+        }),
+      );
+      if (cancelled) return;
+      // Prefer the encoded Apex task id — predecessor_task_ids reference it, so
+      // positional ids would corrupt the DAG after a deletion/reorder in the PM.
+      // Fall back to position for legacy tasks (and on duplicates).
+      const seenIds = new Set<number>();
+      const reconstructed: Phase3Task[] = detailed.map((t, i) => {
+        const decoded = decodeApexMeta(t.description || "");
+        let id = decoded.apex_task_id ?? i + 1;
+        while (seenIds.has(id)) id = Math.max(...seenIds) + 1;
+        seenIds.add(id);
+        return {
+          id,
+          subject: t.subject,
+          description: decoded.description,
+          effort_estimate: decoded.effort_estimate,
+          covered_scenarios: decoded.covered_scenarios,
+          predecessor_task_ids: decoded.predecessor_task_ids,
+          pm_task_id: String(t.id),
+          pm_task_ref: t.ref,
+        };
+      });
+      hydrateTasks(reconstructed);
+    })();
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query.data, storyId]);
   return query;
