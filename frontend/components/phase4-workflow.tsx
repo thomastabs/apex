@@ -406,6 +406,9 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () => void; onContinue: () => void }) {
   const dark = useUiStore((s) => s.theme) === "dark";
   const { data: ctx } = useStoryContext(storyId);
+  // Load the saved plan into the store even when the user jumps straight here
+  // via the stepper (skipping the Test Plan stage that normally loads it).
+  const { isLoading: planLoading } = useLoadTestPlan(storyId);
 
   const testPlanMd = usePhase4Store((s) => s.testPlanMd);
   const scenarioResults = usePhase4Store((s) => s.scenarioResults);
@@ -420,6 +423,10 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const markedCount = scenarios.filter((n) => scenarioResults[n] && scenarioResults[n] !== "pending").length;
   const failCount = scenarios.filter((n) => scenarioResults[n] === "fail").length;
   const allMarked = markedCount === scenarios.length && scenarios.length > 0;
+
+  if (planLoading && !testPlanMd) {
+    return <Callout>Loading the saved test plan…</Callout>;
+  }
 
   if (!testPlanMd || scenarios.length === 0) {
     return (

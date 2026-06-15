@@ -1500,10 +1500,26 @@ Draw from the technical spec complexity — e.g. empty states, concurrent users,
 One or two sentences identifying which part of the tech spec (specific endpoints or entities)
 is most likely to surface bugs for this scenario, and why.
 
+### BDD Mapping
+A machine-actionable mapping an AI coding agent can turn directly into an automated BDD test,
+without inventing behaviour. Provide:
+- **Given/When/Then**: the scenario rewritten as explicit, atomic Given/When/Then/And steps
+  (framework-agnostic Gherkin — no specific test-framework syntax). Every Then must be assertable.
+- **Under test**: the exact endpoint(s) (method + path) and/or data-model entity each step exercises,
+  drawn only from the Technical Spec.
+- **Fixtures / preconditions**: the state or seed data the Given establishes (e.g. an empty session,
+  an authenticated user, a record that already exists).
+- **Assertions**: for each Then, the concrete observable to check (status code, response field + value,
+  persisted entity field, UI state) — specific enough to write an assertion against.
+
 ---
 
-Write for a human QA engineer reading this in a staging environment.
-No code, no test framework syntax, no CSS selectors.
+The human-facing sections (Test Steps, Expected Results, Edge Cases, Risk Areas) stay prose for a
+QA engineer in a staging environment — no code, no CSS selectors there. The BDD Mapping section is
+the automation handoff: keep it framework-agnostic (plain Given/When/Then + endpoints/data), never
+hard-code a specific framework's API, but make it concrete enough that an agent can author step
+definitions. Ground everything strictly in the provided Gherkin and Technical Spec — never invent
+endpoints, fields, or scenarios.
 """
 
 _GENERATE_BUG_REPORT_SYSTEM = """\

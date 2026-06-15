@@ -49,23 +49,39 @@ export function useStoryContext(storyId: number | null) {
 export function useStoryTasks(storyId: number | null) {
   const context = useApiContext();
   const query = useQuery({
-    queryKey: ["pm", "project-tasks", context?.projectId],
-    queryFn: () => getPmAdapter(context!.pmTool).getProjectTasks(toPmCtx(context!)),
+    queryKey: ["phase4", "story-tasks-detailed", context?.projectId, storyId],
+    queryFn: async () => {
+      const adapter = getPmAdapter(context!.pmTool);
+      const ctx = toPmCtx(context!);
+      const all = await adapter.getProjectTasks(ctx);
+      const storyTasks = all.filter((t) => Number(t.user_story) === storyId);
+      // The list endpoint drops the apex-meta block from descriptions, so
+      // effort/scenarios/description would decode to defaults. Fetch each
+      // task's full description from the detail endpoint before decoding.
+      return Promise.all(
+        storyTasks.map(async (t) => {
+          try {
+            const full = await adapter.getTask(ctx, String(t.id));
+            return { ...t, description: full.description };
+          } catch {
+            return t;
+          }
+        }),
+      );
+    },
     enabled: Boolean(context) && storyId !== null,
     staleTime: 60_000,
   });
-  const tasks = (query.data ?? [])
-    .filter((t) => Number(t.user_story) === storyId)
-    .map((t, i) => {
-      const decoded = decodeApexMeta(t.description || "");
-      return {
-        id: decoded.apex_task_id ?? i + 1,
-        subject: t.subject,
-        description: decoded.description,
-        effort_estimate: decoded.effort_estimate,
-        covered_scenarios: decoded.covered_scenarios,
-      };
-    });
+  const tasks = (query.data ?? []).map((t, i) => {
+    const decoded = decodeApexMeta(t.description || "");
+    return {
+      id: decoded.apex_task_id ?? i + 1,
+      subject: t.subject,
+      description: decoded.description,
+      effort_estimate: decoded.effort_estimate,
+      covered_scenarios: decoded.covered_scenarios,
+    };
+  });
   return { ...query, tasks };
 }
 
