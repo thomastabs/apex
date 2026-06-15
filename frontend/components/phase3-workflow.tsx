@@ -586,8 +586,12 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
       <div className="grid grid-cols-2 gap-3">
         <Button
           className="w-full justify-center"
+          // Block regeneration only when a pushed story still has tasks loaded
+          // (use Clear first to avoid diverging from the PM board). When the list
+          // is empty there is nothing to diverge from, so always allow generating
+          // — otherwise a previously-pushed story with no loaded tasks deadlocks.
           onClick={() => generateTasksMut.mutate(storyId)}
-          disabled={generateTasksMut.isPending || tasksPushed}
+          disabled={generateTasksMut.isPending || (tasksPushed && taskList.length > 0)}
         >
           {generateTasksMut.isPending
             ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
