@@ -281,7 +281,8 @@ Implemented:
 | `backend/app/api/phase5.py` | Phase 5 HTTP routes (deployment gate, infra delta, deploy pack, verification) |
 | `backend/app/api/analytics.py` | Governance analytics endpoint |
 | `backend/app/api/workspace.py` | Sidebar/workspace routes: auth, projects, board, users, context files, AI config |
-| `backend/app/api/taiga_proxy.py` | FastAPI reverse proxy for all Taiga REST calls — SSRF-guarded, header-injection-safe, forwards `DELETE/GET/PATCH/POST/PUT /api/pm/taiga/{path}` to the configured Taiga instance |
+| `backend/app/api/taiga_proxy.py` | FastAPI reverse proxy for all Taiga REST calls — SSRF-guarded, header-injection-safe, forwards `DELETE/GET/PATCH/POST/PUT /api/pm/taiga/{path}` to the configured Taiga instance; `_egress()` optionally routes through the Cloudflare relay (see [Taiga egress relay](#taiga-egress-relay-azure-deployment)) |
+| `infra/cloudflare/taiga-relay/` | Cloudflare Worker that forwards Taiga calls from a non-Azure IP — Taiga Cloud firewall-DROPs Azure Container Apps egress (`worker.js`, `wrangler.toml`, `README.md`) |
 | `backend/app/api/jira_proxy.py` | FastAPI reverse proxy for Jira Cloud REST API v3 (Basic auth, SSRF-guarded to `*.atlassian.net`) |
 | `backend/app/api/deps.py` | FastAPI request/auth dependencies |
 | `backend/app/services/` | Service layer for phase workflows, AI, Taiga, and context operations |
@@ -388,6 +389,27 @@ Storage behavior:
 
 ---
 
+## Taiga egress relay (Azure deployment)
+
+Taiga Cloud's host firewall-**DROPs** traffic from Azure Container Apps egress IP ranges (confirmed
+from inside the container: TCP to `api.taiga.io:443` times out while general egress works). The
+deployed backend therefore can't reach Taiga directly — `/api/pm/taiga/*` returns 502 after ~25s.
+
+The fix is a Cloudflare Worker (`infra/cloudflare/taiga-relay/`) on Cloudflare's network, which Taiga
+does not block. When the `TAIGA_EGRESS_RELAY` env var is set, `taiga_proxy._egress()` sends each
+already-SSRF-validated request to the Worker with the real target in `X-Relay-Target` and a shared
+secret in `X-Relay-Secret`; the Worker allow-lists `api.taiga.io`, fails closed without the secret,
+and forwards to Taiga. **Unset the env var → direct egress** (the default; fine for local dev, where
+the host reaches Taiga normally — so no relay is needed locally).
+
+Deploy / rotate: see `infra/cloudflare/taiga-relay/README.md`. Operationally it is a static Worker —
+no cron, no maintenance, well within Cloudflare's free tier (100k req/day). It only needs attention
+if the secret is rotated (update both `wrangler secret put RELAY_SECRET` and the backend env var) or
+`worker.js` changes (`wrangler deploy`). NAT Gateway is **not** a fix — the block is range-level, so a
+new Azure IP is likely dropped too.
+
+---
+
 ## Local Development
 
 ### Requirements
@@ -410,6 +432,12 @@ ANTHROPIC_API_KEY=sk-ant-...
 # Optional. LOCKS validation/storage to one Taiga instance (overrides the
 # per-request X-Taiga-Url). Leave UNSET for multi-instance (Cloud + private).
 # TAIGA_API_URL=https://api.taiga.io
+
+# Optional. Routes Taiga egress through the Cloudflare relay (Azure deployment
+# only — Taiga blocks Azure egress IPs; see "Taiga egress relay" above). Leave
+# UNSET for local dev. Both must be set together; secret must match the Worker's.
+# TAIGA_EGRESS_RELAY=https://apex-taiga-relay.<subdomain>.workers.dev
+# TAIGA_EGRESS_RELAY_SECRET=<same value as the Worker's RELAY_SECRET>
 
 # Optional — only needed if using OpenAI models in the AI model selector.
 OPENAI_API_KEY=
