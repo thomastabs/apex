@@ -52,6 +52,29 @@ class Phase1Service:
             raise Phase1ValidationError("nl_draft is required.")
         return self.ai.compile_gherkin(nl_draft)
 
+    def _all_stories(self) -> list[dict]:
+        """Epic + story titles from the index — scope signal for constraint sizing."""
+        return [
+            {"epic_title": e.get("epic_title", "General"), "title": e.get("title", "")}
+            for e in self.context.story_index().values()
+        ]
+
+    def generate_constraints(self, ctx: RequestContext) -> tuple[list[dict], str]:
+        """Generate EARS non-functional requirements for the whole project."""
+        self.configure_request(ctx)
+        concept = self.context.project_concept()
+        tech_stack = self.context.read_tech_stack()
+        return self.ai.generate_constraints(concept, tech_stack, self._all_stories())
+
+    def save_constraints(self, ctx: RequestContext, *, constraints_md: str) -> None:
+        self.configure_request(ctx)
+        self.context.init_context()
+        self.context.write_context_file("constraints.md", constraints_md)
+
+    def get_constraints(self, ctx: RequestContext) -> str:
+        self.configure_request(ctx)
+        return self.context.read_context_file("constraints.md")
+
     def finalize_stories(
         self,
         ctx: RequestContext,

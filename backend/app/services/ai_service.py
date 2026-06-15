@@ -27,6 +27,17 @@ class AiService:
         )
         return ai_engine.format_nl_draft(result), len(result.stories)
 
+    def generate_constraints(
+        self,
+        project_concept: str,
+        tech_stack: str,
+        all_stories: list[dict],
+    ) -> tuple[list[dict], str]:
+        """Return (structured constraints, rendered constraints.md markdown)."""
+        result = ai_engine.generate_constraints(project_concept, tech_stack, all_stories)
+        items = [c.model_dump() for c in result.constraints]
+        return items, ai_engine.format_constraints(result)
+
     def compile_gherkin(self, nl_draft: str) -> list[dict]:
         result = ai_engine.compile_gherkin_stories(nl_draft)
         return [
@@ -88,6 +99,7 @@ class AiService:
         recent_commits: str = "",
         other_tasks: list[dict] | None = None,
         sibling_packs: list[dict] | None = None,
+        constraints: str = "",
     ) -> str:
         return ai_engine.generate_coding_proposal(
             task_subject, task_description, gherkin, technical_spec,
@@ -95,6 +107,7 @@ class AiService:
             github_context=github_context, hint=hint, recent_commits=recent_commits,
             other_tasks=other_tasks or [],
             sibling_packs=sibling_packs or [],
+            constraints=constraints,
         )
 
     def generate_er_diagram(self, data_model_md: str):
@@ -110,10 +123,12 @@ class AiService:
         technical_spec: str,
         tech_stack: str = "",
         developer_packs: list[dict] | None = None,
+        constraints: str = "",
     ) -> str:
         return ai_engine.generate_test_plan(
             story_subject, gherkin, technical_spec, tech_stack=tech_stack,
             developer_packs=developer_packs or [],
+            constraints=constraints,
         )
 
     def generate_bug_report(

@@ -44,6 +44,21 @@ export function generateNlStories(
   });
 }
 
+export interface Phase1Constraint {
+  id: string;
+  category: string;
+  ears_type: string;
+  text: string;
+  rationale: string;
+}
+
+export function generateConstraints(context: RequestContext) {
+  return apiRequest<{ constraints: Phase1Constraint[]; constraints_md: string }>(
+    "/api/phase1/generate-constraints",
+    { method: "POST", context, timeoutMs: 120_000 },
+  );
+}
+
 export function compileGherkin(context: RequestContext, nlDraft: string) {
   return apiRequest<{ stories: CompiledStory[] }>("/api/phase1/compile-gherkin", {
     method: "POST",

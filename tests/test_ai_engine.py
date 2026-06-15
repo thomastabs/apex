@@ -597,3 +597,36 @@ class TestPackDigest:
         from src.ai_engine import _pack_digest
         d = _pack_digest("plain pack with no headings " * 100, max_chars=50)
         assert len(d) == 50
+
+
+class TestConstraints:
+    """EARS non-functional-requirement model + formatting (no LLM)."""
+
+    def test_constraint_normalizes_category_and_ears(self):
+        from src.ai_engine import Constraint
+        c = Constraint(id="NFR-1", category="Perf", ears_type="event", text="x")
+        assert c.category == "performance"
+        assert c.ears_type == "event-driven"
+
+    def test_constraint_unknown_category_falls_back(self):
+        from src.ai_engine import Constraint
+        c = Constraint(id="NFR-2", category="banana", ears_type="weird", text="x")
+        assert c.category == "maintainability"
+        assert c.ears_type == "ubiquitous"
+
+    def test_format_constraints_groups_by_category(self):
+        from src.ai_engine import Constraint, ConstraintList, format_constraints
+        md = format_constraints(ConstraintList(constraints=[
+            Constraint(id="NFR-1", category="security", ears_type="event-driven",
+                       text="When a user signs in, the system shall rate-limit.", rationale="brute-force"),
+            Constraint(id="NFR-2", category="performance", ears_type="ubiquitous",
+                       text="The system shall respond within 500ms (target — confirm)."),
+        ]))
+        assert "# Non-Functional Requirements" in md
+        assert "## Performance" in md and "## Security" in md
+        assert "**NFR-1**" in md and "_(event-driven)_" in md
+        assert "_Rationale:_ brute-force" in md
+
+    def test_format_constraints_empty(self):
+        from src.ai_engine import ConstraintList, format_constraints
+        assert "_No constraints defined yet._" in format_constraints(ConstraintList())

@@ -11,8 +11,11 @@ from backend.app.schemas.phase1 import (
     CompileGherkinResponse,
     FinalizeStoriesRequest,
     FinalizeStoriesResponse,
+    GenerateConstraintsResponse,
     GenerateNlStoriesRequest,
     GenerateNlStoriesResponse,
+    GetConstraintsResponse,
+    SaveConstraintsRequest,
     SuggestEpicsRequest,
     SuggestEpicsResponse,
 )
@@ -98,5 +101,42 @@ def finalize_stories(
             epic_subject=payload.epic_subject,
             stories=[story.model_dump() for story in payload.stories],
         )
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/generate-constraints", response_model=GenerateConstraintsResponse)
+def generate_constraints(
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase1Service = Depends(get_phase1_service),
+    _rl: None = Depends(ai_rate_limit),
+):
+    try:
+        constraints, constraints_md = service.generate_constraints(ctx)
+        return {"constraints": constraints, "constraints_md": constraints_md}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/save-constraints")
+def save_constraints(
+    payload: SaveConstraintsRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase1Service = Depends(get_phase1_service),
+):
+    try:
+        service.save_constraints(ctx, constraints_md=payload.constraints_md)
+        return {"ok": True}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.get("/constraints", response_model=GetConstraintsResponse)
+def get_constraints(
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase1Service = Depends(get_phase1_service),
+):
+    try:
+        return {"constraints_md": service.get_constraints(ctx)}
     except Exception as exc:
         _handle_error(exc)

@@ -128,6 +128,7 @@ def __getattr__(name: str):
         "TECH_STACK_FILE":      "tech-stack.md",
         "FUNCTIONAL_SPEC_FILE": "functional-spec.md",
         "TECHNICAL_SPEC_FILE":  "technical-spec.md",
+        "CONSTRAINTS_FILE":     "constraints.md",
         "VACCINES_FILE":        "vaccines.md",
         "STORY_INDEX_FILE":     "story-index.json",
         "DRAFT_FILE":           ".apex-draft.json",
@@ -173,6 +174,15 @@ _TECHNICAL_SPEC_TEMPLATE = """\
 
 > Per-story technical contracts (OpenAPI / DB schema).
 > Appended automatically by apex after human approval.
+
+"""
+
+_CONSTRAINTS_TEMPLATE = """\
+# Non-Functional Requirements
+
+> Project-wide quality constraints in EARS notation (performance, security, reliability, …).
+> Behavioural requirements live in the Gherkin acceptance criteria, not here.
+> Generated in Phase 1 and editable; injected into developer packs and test plans.
 
 """
 
@@ -438,6 +448,7 @@ def init_context() -> None:
         ("tech-stack.md",      _TECH_STACK_TEMPLATE),
         ("functional-spec.md", _FUNCTIONAL_SPEC_TEMPLATE),
         ("technical-spec.md",  _TECHNICAL_SPEC_TEMPLATE),
+        ("constraints.md",     _CONSTRAINTS_TEMPLATE),
         ("vaccines.md",        _VACCINES_TEMPLATE),
         ("design-bundle.md",   _DESIGN_BUNDLE_TEMPLATE),
     ]:

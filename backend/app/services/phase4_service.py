@@ -91,6 +91,7 @@ class Phase4Service:
             raise Phase4ValidationError(f"Story {story_id} has no Gherkin content.")
         technical_spec = self.context.story_technical_spec(story_id)
         tech_stack = self.context.read_tech_stack()
+        constraints = self.context.read_context_file("constraints.md")
         # Ground the test plan in how the story was actually built — the saved
         # developer packs (digested to Context + Files to Change downstream).
         developer_packs = [
@@ -99,7 +100,7 @@ class Phase4Service:
         ]
         return self.ai.generate_test_plan(
             story_title, gherkin, technical_spec, tech_stack=tech_stack,
-            developer_packs=developer_packs,
+            developer_packs=developer_packs, constraints=constraints,
         )
 
     def save_test_plan(self, ctx: RequestContext, story_id: int, test_plan_md: str) -> None:

@@ -857,6 +857,155 @@ def suggest_epics(
 
 
 # ---------------------------------------------------------------------------
+# Phase 1 · Constraints — non-functional requirements in EARS notation
+# ---------------------------------------------------------------------------
+# Gherkin captures *behaviour*; it cannot express cross-cutting quality
+# attributes (performance, security, availability, …). This artifact captures
+# those as EARS-structured (Mavin 2009) "shall" statements that ground the
+# downstream technical spec, developer packs, and test plans without inventing
+# functional scenarios.
+
+_CONSTRAINT_CATEGORIES = (
+    "performance", "security", "reliability", "availability", "usability",
+    "scalability", "maintainability", "compliance", "observability",
+)
+# EARS clause types (Easy Approach to Requirements Syntax).
+_EARS_TYPES = (
+    "ubiquitous", "event-driven", "state-driven", "unwanted-behaviour",
+    "optional-feature", "complex",
+)
+
+
+class Constraint(BaseModel):
+    id: str = Field(description="Stable ID, e.g. NFR-1", max_length=12)
+    category: str = Field(
+        description="One of: " + ", ".join(_CONSTRAINT_CATEGORIES), max_length=24,
+    )
+    ears_type: str = Field(
+        description="EARS clause type: " + ", ".join(_EARS_TYPES), max_length=24,
+    )
+    text: str = Field(
+        description="The requirement as a single EARS 'shall' statement, e.g. "
+                    "'When a user submits the login form, the system shall respond within 500ms.'",
+        max_length=400,
+    )
+    rationale: str = Field(
+        default="", description="One sentence: why this constraint exists / its source.",
+        max_length=400,
+    )
+
+    @field_validator("category", mode="before")
+    @classmethod
+    def _normalize_category(cls, v: object) -> str:
+        s = str(v).strip().lower().replace(" ", "_").replace("-", "_")
+        # Common synonyms → canonical bucket; otherwise fall back to maintainability.
+        alias = {"perf": "performance", "sec": "security", "a11y": "usability",
+                 "uptime": "availability", "audit": "compliance", "logging": "observability"}
+        s = alias.get(s, s)
+        return s if s in _CONSTRAINT_CATEGORIES else "maintainability"
+
+    @field_validator("ears_type", mode="before")
+    @classmethod
+    def _normalize_ears(cls, v: object) -> str:
+        s = str(v).strip().lower().replace(" ", "-").replace("_", "-")
+        alias = {"unwanted": "unwanted-behaviour", "event": "event-driven",
+                 "state": "state-driven", "optional": "optional-feature"}
+        s = alias.get(s, s)
+        return s if s in _EARS_TYPES else "ubiquitous"
+
+
+class ConstraintList(BaseModel):
+    constraints: list[Constraint] = Field(
+        default_factory=list,
+        description="The project's non-functional requirements; omit rather than invent.",
+        max_length=40,
+    )
+
+
+_GENERATE_CONSTRAINTS_VERSION = "1.0"
+_GENERATE_CONSTRAINTS_SYSTEM = """\
+You are a Requirements Engineer operating within the Apex Framework.
+Produce the project's NON-FUNCTIONAL requirements (quality constraints) as EARS-structured
+"shall" statements, grounded ONLY in the project concept, tech stack, and story scope provided.
+
+EARS clause templates (use the one that fits each requirement; set ears_type accordingly):
+- ubiquitous:        "The <system> shall <response>."
+- event-driven:      "When <trigger>, the <system> shall <response>."
+- state-driven:      "While <state>, the <system> shall <response>."
+- unwanted-behaviour:"If <condition>, then the <system> shall <response>."
+- optional-feature:  "Where <feature is included>, the <system> shall <response>."
+- complex:           a combination of the above clauses.
+
+Categories (set category to exactly one): {categories}.
+
+Rules you MUST follow:
+- Capture CROSS-CUTTING quality attributes only — performance, security, reliability,
+  availability, usability, scalability, maintainability, compliance, observability.
+- Do NOT restate functional behaviour: anything expressible as a user-facing Given/When/Then
+  scenario belongs in the Gherkin, not here. If it names a feature's happy path, omit it.
+- Ground every constraint in the provided context. Reference concrete technologies from the
+  tech stack where relevant (e.g. the chosen DB, auth method, hosting).
+- Numeric targets: include them only when the context implies a reasonable value; append
+  "(target — confirm)" so the team knows to validate it. Never fabricate precise SLAs.
+- Each statement must be atomic, testable, and a single EARS clause. No compound "and also" lists.
+- Assign a stable id NFR-1, NFR-2, … in output order.
+- Produce 6–15 constraints for a typical project. Quality over quantity; omit rather than pad.
+"""
+
+
+def generate_constraints(
+    project_concept: str,
+    tech_stack: str,
+    all_stories: list[dict],
+) -> ConstraintList:
+    """Generate EARS-structured non-functional requirements for the whole project.
+
+    all_stories: [{"epic_title": str, "title": str}, ...] — titles only; scope signal,
+    not behaviour (behaviour lives in the Gherkin).
+    """
+    _logger.debug("generate_constraints prompt_version=%s", _GENERATE_CONSTRAINTS_VERSION)
+    system = _GENERATE_CONSTRAINTS_SYSTEM.format(categories=", ".join(_CONSTRAINT_CATEGORIES))
+    grouped: dict[str, list[str]] = {}
+    for s in all_stories:
+        grouped.setdefault(s.get("epic_title", "General"), []).append(f"- {s.get('title', '')}")
+    parts = [
+        "Project Concept:\n" + fence_user_content(project_concept.strip() or "Not specified"),
+        "\nTech Stack:\n" + fence_user_content(tech_stack.strip() or "Not specified"),
+        "\nProject Scope (epics and story titles — for sizing the quality needs):",
+    ]
+    for epic, titles in grouped.items():
+        parts.append(f"\n### {epic}")
+        parts.extend(titles)
+    parts.append("\nProduce the project's non-functional requirements in EARS notation.")
+    human = "\n".join(parts)
+    return _ai_retry(lambda: _invoke_structured_with_progress(
+        system, human, get_model(), ConstraintList,
+        max_tokens=3000, temperature=0.2, item_field="constraints",
+    ))
+
+
+def format_constraints(cl: ConstraintList) -> str:
+    """Render a ConstraintList as the constraints.md artifact, grouped by category."""
+    if not cl.constraints:
+        return "# Non-Functional Requirements\n\n_No constraints defined yet._\n"
+    by_cat: dict[str, list[Constraint]] = {}
+    for c in cl.constraints:
+        by_cat.setdefault(c.category, []).append(c)
+    lines = ["# Non-Functional Requirements", "",
+             "EARS-structured quality constraints for the whole project. "
+             "Behavioural requirements live in the Gherkin acceptance criteria.", ""]
+    for cat in sorted(by_cat):
+        lines.append(f"## {cat.replace('_', ' ').title()}")
+        lines.append("")
+        for c in by_cat[cat]:
+            lines.append(f"- **{c.id}** _({c.ears_type})_: {c.text}")
+            if c.rationale.strip():
+                lines.append(f"  - _Rationale:_ {c.rationale.strip()}")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+# ---------------------------------------------------------------------------
 # Phase 2 Pydantic schemas
 # ---------------------------------------------------------------------------
 
@@ -1348,6 +1497,7 @@ def generate_coding_proposal(
     recent_commits: str = "",
     other_tasks: list[dict] | None = None,
     sibling_packs: list[dict] | None = None,
+    constraints: str = "",
 ) -> str:
     system = _GENERATE_PROPOSAL_SYSTEM.format(
         tech_stack=fence_user_content(tech_stack.strip() or "Not specified"),
@@ -1371,6 +1521,13 @@ def generate_coding_proposal(
             "+ Files to Change). Stay consistent with the file paths, entities, and endpoints they "
             "define: reuse the same names, never redefine or contradict them, and do not duplicate "
             "their work:\n" + fence_user_content(sibling_digests)
+        )
+    if constraints.strip():
+        system += (
+            "\n\nNon-functional requirements (EARS) the implementation MUST satisfy. Honour them "
+            "in Implementation Steps and the Agentic Brief Constraints; never weaken or ignore "
+            "them, but do not invent functional behaviour beyond the Gherkin:\n"
+            + fence_user_content(constraints)
         )
     if github_context.strip() and not github_context.strip().startswith("<!--"):
         system += "\n\nExisting Codebase (GitHub):\n" + fence_user_content(github_context)
@@ -1635,12 +1792,20 @@ def generate_test_plan(
     technical_spec: str,
     tech_stack: str = "",
     developer_packs: list[dict] | None = None,
+    constraints: str = "",
 ) -> str:
     """Generate a structured QA test plan for all Gherkin scenarios in a User Story."""
     system = _GENERATE_TEST_PLAN_SYSTEM.format(
         tech_stack=fence_user_content(tech_stack.strip() or "Not specified"),
         technical_spec=fence_user_content(technical_spec.strip() or "Not specified"),
     )
+    if constraints.strip():
+        system += (
+            "\n\nNon-functional requirements (EARS) for this project. Where a scenario touches one, "
+            "add Edge Cases and Risk Areas that probe it (e.g. a performance, security, or "
+            "reliability constraint); never invent scenarios absent from the Gherkin:\n"
+            + fence_user_content(constraints)
+        )
     pack_digests = _format_pack_digests(developer_packs)
     if pack_digests:
         system += (

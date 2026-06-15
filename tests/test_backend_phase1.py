@@ -27,6 +27,13 @@ class FakeAiService:
     def compile_gherkin(self, nl_draft: str) -> list[dict]:
         return [{"title": "Story A", "size": "S", "gherkin": "Feature: A\n\n  Scenario: s"}]
 
+    def generate_constraints(self, project_concept, tech_stack, all_stories):
+        self.constraints_args = (project_concept, tech_stack, all_stories)
+        items = [{"id": "NFR-1", "category": "security", "ears_type": "event-driven",
+                  "text": "When a user signs in, the system shall rate-limit attempts.",
+                  "rationale": "brute-force"}]
+        return items, "# Non-Functional Requirements\n\n## Security\n\n- **NFR-1**: ...\n"
+
 
 class FakeContextService:
     def __init__(self):
@@ -45,6 +52,22 @@ class FakeContextService:
 
     def init_context(self) -> None:
         self.initialized = True
+
+    def read_tech_stack(self) -> str:
+        return "FastAPI + React"
+
+    def story_index(self) -> dict:
+        return {
+            "1": {"title": "Sign In", "epic_title": "Auth"},
+            "2": {"title": "Reset Password", "epic_title": "Auth"},
+        }
+
+    def write_context_file(self, filename: str, content: str) -> None:
+        self.files = getattr(self, "files", {})
+        self.files[filename] = content
+
+    def read_context_file(self, filename: str) -> str:
+        return getattr(self, "files", {}).get(filename, "")
 
     def append_gherkin(self, story_id, story_title, gherkin, *, epic_id, epic_title) -> None:
         self.appended.append({
@@ -111,3 +134,24 @@ def test_finalize_stories_writes_context_entries():
     assert context.appended[0]["epic_id"] == 20
     assert context.appended[0]["epic_title"] == "New Epic"
     assert context.appended[0]["story_title"] == "Story A"
+
+
+def test_generate_constraints_grounds_in_concept_stack_and_stories():
+    service, ai, _ = _service()
+    items, md = service.generate_constraints(_ctx())
+    concept, tech_stack, all_stories = ai.constraints_args
+    assert concept == "Project concept"
+    assert tech_stack == "FastAPI + React"
+    # All index stories passed as scope signal (titles + epic), not behaviour.
+    assert {s["title"] for s in all_stories} == {"Sign In", "Reset Password"}
+    assert all(set(s) == {"epic_title", "title"} for s in all_stories)
+    assert items[0]["id"] == "NFR-1"
+    assert md.startswith("# Non-Functional Requirements")
+
+
+def test_save_and_get_constraints_roundtrip():
+    service, _, context = _service()
+    service.save_constraints(_ctx(), constraints_md="# NFRs\n\n- NFR-1")
+    assert context.initialized is True
+    assert context.files["constraints.md"] == "# NFRs\n\n- NFR-1"
+    assert service.get_constraints(_ctx()) == "# NFRs\n\n- NFR-1"

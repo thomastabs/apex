@@ -51,6 +51,7 @@ class FakeAiService:
         recent_commits="",
         other_tasks=None,
         sibling_packs=None,
+        constraints="",
     ):
         self.generate_proposal_args = (task_subject, task_description, gherkin, technical_spec,
                                        tech_stack, design_bundle, story_ref)
@@ -59,6 +60,7 @@ class FakeAiService:
             "recent_commits": recent_commits,
             "other_tasks": other_tasks,
             "sibling_packs": sibling_packs,
+            "constraints": constraints,
         }
         return _FAKE_PROPOSAL
 

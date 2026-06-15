@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   compileGherkin,
+  generateConstraints,
   generateNlStories,
   listPhase1Epics,
   pushPhase1Stories,
@@ -49,6 +50,15 @@ export function useCompileGherkin() {
   return useMutation({
     mutationFn: (nlDraft: string) => compileGherkin(context!, nlDraft),
     onError: () => toast.error("Gherkin compilation failed. The AI may be busy — try again shortly."),
+  });
+}
+
+export function useGenerateConstraints() {
+  const context = useApiContext();
+
+  return useMutation({
+    mutationFn: () => generateConstraints(context!),
+    onError: () => toast.error("Constraint generation failed. The AI may be busy — try again shortly."),
   });
 }
 

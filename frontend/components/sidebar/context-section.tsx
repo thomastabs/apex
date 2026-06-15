@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { ChevronRight, Download, FileText, RefreshCw, Trash2 } from "lucide-react";
+import { ChevronRight, Download, FileText, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   useContextFiles,
@@ -10,6 +10,7 @@ import {
   useResetContextFile,
   useUpdateContextFile,
 } from "@/lib/hooks/use-workspace";
+import { useGenerateConstraints } from "@/lib/hooks/use-phase1";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
 import { PanelHeader, type DragSectionProps } from "./shared";
@@ -53,9 +54,10 @@ function relativeTime(iso: string | null | undefined): string | null {
 }
 
 const CONTEXT_FILE_PHASES: Record<string, string[]> = {
-  "/phase1": ["project-concept.md", "functional-spec.md"],
+  "/phase1": ["project-concept.md", "functional-spec.md", "constraints.md"],
   "/phase2": ["project-concept.md", "tech-stack.md", "functional-spec.md", "technical-spec.md", "design-bundle.md", "github-context.md"],
-  "/phase3": ["project-concept.md", "tech-stack.md", "design-bundle.md", "github-context.md"],
+  "/phase3": ["project-concept.md", "tech-stack.md", "design-bundle.md", "github-context.md", "constraints.md"],
+  "/phase4": ["project-concept.md", "tech-stack.md", "technical-spec.md", "constraints.md"],
 };
 
 function useVisibleContextFiles(
@@ -179,7 +181,19 @@ function ContextEditor({
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const update = useUpdateContextFile();
   const reset = useResetContextFile();
+  const genConstraints = useGenerateConstraints();
+  const isConstraints = file.filename === "constraints.md";
   const dark = useUiStore((state) => state.theme) === "dark";
+
+  function handleGenerateConstraints() {
+    genConstraints.mutate(undefined, {
+      onSuccess: (res) => {
+        setValue(res.constraints_md);
+        update.mutate({ filename: file.filename, content: res.constraints_md });
+        toast.success(`Generated ${res.constraints.length} non-functional requirements`);
+      },
+    });
+  }
 
   useEffect(() => {
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
@@ -205,6 +219,15 @@ function ContextEditor({
         <span className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-500")}>{value.length} ch</span>
         {statusLabel ? <span className={cn("text-xs", statusColor)}>{statusLabel}</span> : null}
         <div className="flex-1" />
+        {isConstraints ? (
+          <button
+            className="flex items-center gap-1 rounded bg-violet-700 px-2 py-0.5 text-xs font-semibold text-violet-50 hover:bg-violet-600 disabled:opacity-50"
+            disabled={genConstraints.isPending}
+            onClick={handleGenerateConstraints}
+          >
+            <Sparkles className="size-3" /> {genConstraints.isPending ? "Generating…" : "Generate with AI"}
+          </button>
+        ) : null}
         <button
           className={cn("rounded px-2 py-0.5 text-xs", mdPreview ? "bg-violet-800 text-violet-100" : dark ? "text-neutral-400 hover:bg-neutral-800" : "text-slate-500 hover:bg-slate-100")}
           onClick={() => setMdPreview(!mdPreview)}

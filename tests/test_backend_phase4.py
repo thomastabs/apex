@@ -31,9 +31,11 @@ class FakeAiService:
         self.bug_report_args = None
         self.bug_report_kwargs: dict = {}
 
-    def generate_test_plan(self, story_subject, gherkin, technical_spec, tech_stack="", developer_packs=None):
+    def generate_test_plan(self, story_subject, gherkin, technical_spec, tech_stack="",
+                           developer_packs=None, constraints=""):
         self.test_plan_args = (story_subject, gherkin, technical_spec, tech_stack)
         self.test_plan_developer_packs = developer_packs
+        self.test_plan_constraints = constraints
         return _FAKE_TEST_PLAN
 
     def generate_bug_report(self, story_subject, gherkin, technical_spec, failed_scenario, qa_notes):
@@ -64,6 +66,9 @@ class FakeContextService:
 
     def read_tech_stack(self) -> str:
         return _FAKE_TECH_STACK
+
+    def read_context_file(self, filename: str) -> str:
+        return getattr(self, "context_files", {}).get(filename, "")
 
     def load_bdd_tests(self, story_id: int) -> str:
         return _FAKE_TEST_PLAN

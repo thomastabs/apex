@@ -58,3 +58,24 @@ class FinalizeStoriesResponse(BaseModel):
     epic_id: int
     count: int
     story_ids: list[int]
+
+
+class ConstraintSchema(BaseModel):
+    id: str
+    category: str
+    ears_type: str
+    text: str
+    rationale: str = ""
+
+
+class GenerateConstraintsResponse(BaseModel):
+    constraints: list[ConstraintSchema]
+    constraints_md: str
+
+
+class SaveConstraintsRequest(BaseModel):
+    constraints_md: str = Field(..., max_length=50_000)
+
+
+class GetConstraintsResponse(BaseModel):
+    constraints_md: str
