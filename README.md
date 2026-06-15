@@ -91,6 +91,7 @@ Implemented:
 - Push approved stories to the connected PM tool
 - Persist approved Gherkin into `functional-spec.md`
 - Update `story-index.json` with `gherkin_locked` state
+- Generate project-wide **non-functional requirements** in EARS notation (performance, security, reliability, …) into `constraints.md` — Gherkin captures behaviour; this captures cross-cutting quality attributes. Editable, and injected into Phase 3 developer packs and Phase 4 test plans so the technical work honours them
 
 ### Phase 2 · Design
 
@@ -304,6 +305,8 @@ Implemented:
 | `frontend/lib/stores/` | Zustand stores for session, UI, and per-phase draft state |
 | `.github/workflows/ci.yml` | Test, build, push, and deploy workflow |
 | `.github/workflows/scale-scheduler.yml` | Azure Container Apps scale up/down scheduler |
+| `docs/spec-model-roadmap.md` | Benchmark of the spec model vs SDD/BDD/RE literature + the upgrade roadmap |
+| `docs/spec-code-conformance-plan.md` | Design for the planned spec↔code conformance check (roadmap #1) |
 
 ---
 
@@ -316,6 +319,7 @@ Apex stores workflow state in context files under `contextspec/<instance_id>/<pr
 | `project-concept.md` | Project purpose, target users, and core value proposition |
 | `tech-stack.md` | Tech stack, architecture principles, and design decisions |
 | `functional-spec.md` | Locked Gherkin acceptance criteria from Phase 1 |
+| `constraints.md` | Project-wide non-functional requirements (EARS notation) from Phase 1; injected into Phase 3 packs and Phase 4 test plans |
 | `technical-spec.md` | Locked technical specs from Phase 2 |
 | `design-bundle.md` | Locked wireframes, user flows, component trees, and technical bundles |
 | `diagram-screens.json` | React Flow screen flow diagram generated from Phase 2 UX Brief (includes saved layout positions) |
