@@ -126,7 +126,11 @@ Implemented:
 ### Phase 3 · Implementation Assist
 
 Phase 3 turns locked design artefacts into actionable developer tasks and coding proposals.
-It operates story-by-story: only stories with `design_locked` status are eligible.
+It operates story-by-story and stays open through testing: stories with `design_locked`,
+`implementation`, `qa`, or `qa_passed` status are eligible (so you can add/regenerate packs even
+after a story advanced). Task subjects, descriptions, effort and covered-scenario metadata are
+read back from the PM tool's **task detail** endpoint (the list endpoint omits the encoded
+apex-meta block), so they survive a round-trip through Taiga/Jira intact.
 
 Implemented — 4-stage stepper workflow:
 
@@ -144,8 +148,9 @@ Implemented — 4-stage stepper workflow:
 
 **Stage C — Developer Packs**
 
-- Push all tasks to the PM tool as subtasks (browser-direct); each task gets a PM ref
+- Push all tasks to the PM tool as subtasks (browser-direct); each task gets a PM ref, and pushed tasks link out to their Taiga task page
 - For each task, generate a **Developer Pack** — a structured Markdown coding proposal including context, approach, and acceptance checklist; GitHub repository context is injected when available
+- **Cross-pack consistency:** each pack is generated aware of the story's already-saved sibling packs (a compact Context + Files-to-Change digest), so packs reuse the same files/entities/endpoints and don't redefine or duplicate each other — generate task 1's pack first, then 2+ align to it
 - View and edit packs in an in-browser editor; re-generate any pack if needed
 - Packs are auto-saved to `proposal_story_<id>_task_<id>.md` in `contextspec/`
 
@@ -170,8 +175,10 @@ Implemented — 4-stage stepper workflow:
 
 - Breadcrumb: Stories → Epic → US#ID Story Title
 - Acceptance Criteria (Gherkin) panel expanded by default
-- Implementation Tasks list — each task shows effort estimate badge (XS–XL), subject, and description
-- AI generates a full per-scenario test plan: Test Steps, Expected Results, Edge Cases, Risk Areas for each Gherkin scenario
+- Implementation Tasks list — each task shows effort estimate badge (XS–XL), subject, and description (read from the PM detail endpoint so descriptions/effort are accurate)
+- AI generates a full per-scenario test plan: Test Steps, Expected Results, Edge Cases, Risk Areas, plus a **BDD Mapping** (framework-agnostic Given/When/Then + endpoints/entities/fixtures/assertions) for each Gherkin scenario
+- The plan ends with agent-handoff sections like a Developer Pack — **Agentic Test Brief** (inferred BDD framework + test-file paths + run command + constraints) and **Chat Prompt** — so a dev/QA exports the plan and an AI agent writes the automated tests
+- The plan is **grounded in the story's developer packs** (Context + Files-to-Change digests), so Test Steps and BDD Mappings reference the real implementation; still strictly bounded to the Gherkin (no invented scenarios)
 - Edit the generated test plan in a monospace textarea before saving
 - Download `.md` / Copy / **Clear Plan** actions — Clear deletes the saved plan server-side, wipes the local execution draft, and rolls the story from `qa` back to `implementation` (never demotes `qa_passed`); Regenerate replaces the plan in place
 - Save & Continue → Stage C (saves to `bdd_story_{id}.feature`)
@@ -243,11 +250,12 @@ Implemented:
 - **Taiga login** — username/password or bearer token; all Taiga API calls are proxied through the FastAPI backend (`/api/pm/taiga/{path}`) — supports Taiga Cloud and private/self-hosted instances (e.g. `https://taiga.yourcompany.com`)
 - **Jira Cloud login** — domain, Atlassian account email, and API token; auth is verified through the FastAPI backend proxy before the session is stored
 - Project selector
-- Project create/delete
+- Project create (in-app dialog — name + **required** description, since Taiga rejects a blank project description) / delete
 - Epics and stories board (fetched directly from Taiga or Jira API in the browser); filter by text across epics and stories
-- Epic/story create, edit, delete — edit dialogs hydrate the description from the PM detail endpoint (list responses omit it) and the story dialog includes an inline **Status** selector fed by the project's status list
-- **Task Board** — view implementation tasks grouped by story; tasks are fetched from Taiga (or Jira) and merged with locally generated JSON; filter by epic/story; add, edit, and delete tasks inline; effort badges (XS → XL); deleting a task also deletes its developer pack so "proposed" counts stay truthful
-- **Developer Packs** — every saved Phase 3 pack grouped by story; view in a modal, download, delete one or all packs for a story
+- Epic/story create, edit, delete — edit dialogs hydrate the description from the PM detail endpoint (list responses omit it); the story dialog includes an inline **Status** selector (PM status) and an **Apex Status** selector to override the workflow phase (`new` → `deployed`) independent of the PM status
+- **Task Board** — view implementation tasks grouped by story; tasks are fetched from Taiga (or Jira); filter by epic/story; **Refresh** button to refetch on demand; add, edit, and delete tasks inline; effort badges (XS → XL); deleting a task also deletes its developer pack so "proposed" counts stay truthful
+- **Developer Packs** — every saved Phase 3 pack grouped by story; view, **edit inline**, download, delete one or all packs for a story
+- **Test Plans** — every saved Phase 4 test plan listed per story; view, **edit inline**, download, delete
 - Users and roles management
 - Active context file viewer/editor
 - Individual context file download
@@ -628,12 +636,12 @@ docker compose down
 python3 -m pytest tests/ -v --tb=short
 ```
 
-Coverage (~425 tests):
+Coverage (~519 tests):
 
 - `tests/test_backend_phase1*.py` … `test_backend_phase5*.py` — per-phase service-layer unit tests plus HTTP route tests (stub services, error-code mapping 422/429/504)
 - `tests/test_backend_analytics.py` — governance metrics: cycle times, traceability rate, defect proxy
 - `tests/test_backend_workspace_api.py` — workspace/config route tests
-- `tests/test_ai_engine.py` — AI engine: provider detection, prompt assembly, structured output parsing, error mapping
+- `tests/test_ai_engine.py` — AI engine: provider detection, prompt assembly, structured output parsing, error mapping, and the consistency safeguards (per-call temperature, Phase 3 coverage/DAG reconciliation, Phase 2 dangling-edge pruning, pack digests)
 - `tests/test_context_manager.py` — context files, story index, locking and cross-worker cache invalidation
 - `tests/test_contextvar_isolation.py` — per-request project isolation under concurrency
 - `tests/test_taiga_proxy.py` / `test_jira_proxy.py` — proxy routing, SSRF blocking (incl. DNS-resolved private hosts), header injection guard, method forwarding
@@ -873,6 +881,7 @@ gh variable set APEX_NIGHT_MODE --body on    # re-enable (default)
 
 - Keep routers thin and put workflow logic in `backend/app/services/`.
 - Keep AI prompt logic in `src/ai_engine.py`. Provider is detected automatically from the model ID prefix (`claude-` → Anthropic, `gpt-`/`o1-`/`o3-` → OpenAI, `gemini-` → Google).
+- **AI consistency safeguards** (in `src/ai_engine.py`): temperature is a per-call arg defaulting to `0.0` — structured/extraction calls stay deterministic; only the creative long-form generators (NL stories, epic suggestions, design UX brief, developer pack, deploy pack) pass `0.2`. Structured outputs that make self-referential claims are reconciled against ground truth, not trusted as returned: Phase 3 `covered_scenarios` are matched (normalised) to the real Gherkin titles and `predecessor_task_ids` are forced into an acyclic graph; Phase 2 ER/screen-flow edges pointing at non-existent nodes are pruned. Cross-context is fed as bounded `_pack_digest`s (Context + Files-to-Change only) so sibling packs stay consistent and the test plan is grounded in the real implementation without blowing the token budget.
 - All Taiga REST calls go through the FastAPI proxy at `/api/pm/taiga/{path}` (`backend/app/api/taiga_proxy.py`). Do not add browser-direct Taiga calls.
 - All Jira REST calls go through the FastAPI proxy at `/api/pm/jira/*`. Do not call Jira Cloud directly from the browser.
 - New PM operations should go through the `ProjectManagementAdapter` interface (`frontend/lib/api/pm-types.ts`) — add to both `taiga-adapter.ts` and `jira-adapter.ts`, then dispatch via `getPmAdapter()` in `pm-factory.ts`.
