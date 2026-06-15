@@ -1,0 +1,7 @@
+name = "apex-taiga-relay"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+
+# RELAY_SECRET is NOT set here — it is a secret, set with:
+#   wrangler secret put RELAY_SECRET
+# (see README.md). Never commit the secret to this file.

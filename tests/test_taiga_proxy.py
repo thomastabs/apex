@@ -479,3 +479,61 @@ class TestAuthBruteForceProtection:
             resp = self._login(client)
         assert resp.status_code == 200
         assert "authfail:testclient" not in rate_limit._failure_buckets
+
+
+class TestEgressRelay:
+    """When TAIGA_EGRESS_RELAY is set, requests go to the Worker with the real
+    target in X-Relay-Target (Taiga blocks Azure egress — see infra/cloudflare)."""
+
+    RELAY = "https://apex-taiga-relay.example.workers.dev"
+    TAIGA_URL = "https://taiga.example.test/api/v1"
+    AUTH = "Bearer mytoken"
+
+    def test_catch_all_routed_through_relay(self, client, monkeypatch):
+        monkeypatch.setenv("TAIGA_EGRESS_RELAY", self.RELAY + "/")  # trailing slash trimmed
+        monkeypatch.setenv("TAIGA_EGRESS_RELAY_SECRET", "s3cr3t")
+        upstream = _mock_upstream(200, [{"id": 1}])
+        patcher, mock_http = _patch_client(upstream)
+        with patcher:
+            resp = client.get(
+                "/api/pm/taiga/epics?project=2",
+                headers={"Authorization": self.AUTH, "X-Taiga-Url": self.TAIGA_URL},
+            )
+        assert resp.status_code == 200
+        kw = mock_http.request.call_args.kwargs
+        assert kw["url"] == self.RELAY  # sent to the Worker root, not Taiga
+        assert kw["headers"]["X-Relay-Target"] == f"{self.TAIGA_URL}/epics?project=2"
+        assert kw["headers"]["X-Relay-Secret"] == "s3cr3t"
+        assert kw["headers"]["Authorization"] == self.AUTH  # forwarded through
+
+    def test_auth_routed_through_relay(self, client, monkeypatch):
+        monkeypatch.setenv("TAIGA_EGRESS_RELAY", self.RELAY)
+        monkeypatch.setenv("TAIGA_EGRESS_RELAY_SECRET", "s3cr3t")
+        upstream = _mock_auth_upstream(200, {"auth_token": "tok"})
+        patcher, mock_http = _patch_client(upstream)
+        with patcher:
+            # Auth sends the bare origin (frontend strips /api/v1); handler appends it.
+            resp = client.post(
+                "/api/pm/taiga/auth",
+                headers={"X-Taiga-Url": "https://taiga.example.test"},
+                json={"username": "u", "password": "p", "type": "normal"},
+            )
+        assert resp.status_code == 200
+        kw = mock_http.request.call_args.kwargs
+        assert kw["url"] == self.RELAY
+        assert kw["headers"]["X-Relay-Target"] == "https://taiga.example.test/api/v1/auth"
+        assert kw["headers"]["X-Relay-Secret"] == "s3cr3t"
+
+    def test_no_relay_when_unset_goes_direct(self, client, monkeypatch):
+        monkeypatch.delenv("TAIGA_EGRESS_RELAY", raising=False)
+        upstream = _mock_upstream(200, [{"id": 1}])
+        patcher, mock_http = _patch_client(upstream)
+        with patcher:
+            resp = client.get(
+                "/api/pm/taiga/epics",
+                headers={"Authorization": self.AUTH, "X-Taiga-Url": self.TAIGA_URL},
+            )
+        assert resp.status_code == 200
+        kw = mock_http.request.call_args.kwargs
+        assert kw["url"].startswith(self.TAIGA_URL)  # direct to Taiga
+        assert "X-Relay-Target" not in kw["headers"]

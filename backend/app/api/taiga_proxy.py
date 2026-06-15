@@ -6,6 +6,7 @@ so the browser never contacts the Taiga instance directly.
 """
 
 import logging
+import os
 from urllib.parse import urlparse
 
 import httpx
@@ -60,6 +61,28 @@ async def _send(method: str, url: str, **kwargs) -> httpx.Response:
     return await send_with_retry(_get_client, _reset_client, method, url, logger=_logger, **kwargs)
 
 
+def _egress(target_url: str, headers: dict) -> tuple[str, dict]:
+    """Route the request through the Cloudflare relay when configured.
+
+    Taiga Cloud's host firewall-DROPs Azure Container Apps egress IPs, so direct
+    connects to api.taiga.io time out (→ 502). When TAIGA_EGRESS_RELAY is set,
+    the request is sent to that Worker instead, which forwards to the real
+    target from Cloudflare's (non-blocked) network. The real target — already
+    SSRF-validated by the caller — travels in X-Relay-Target; X-Relay-Secret
+    authenticates the backend to the Worker so it is not an open proxy. Unset
+    the env var to fall back to direct egress.
+    """
+    relay = os.getenv("TAIGA_EGRESS_RELAY", "").strip().rstrip("/")
+    if not relay:
+        return target_url, headers
+    relayed = dict(headers)
+    relayed["X-Relay-Target"] = target_url
+    secret = os.getenv("TAIGA_EGRESS_RELAY_SECRET", "").strip()
+    if secret:
+        relayed["X-Relay-Secret"] = secret
+    return relay, relayed
+
+
 def _validate_taiga_url(url: str, *, source: str = "X-Taiga-Url") -> str:
     """Require https:// and a non-private hostname to prevent SSRF.
 
@@ -105,13 +128,14 @@ async def proxy_taiga_auth(
         )
     base_url = _validate_taiga_url(x_taiga_url)
     target = f"{base_url}/api/v1/auth"
+    url, headers = _egress(target, {"Content-Type": "application/json", "Accept": "application/json"})
 
     try:
         resp = await _send(
             "POST",
-            target,
+            url,
             json={"username": payload.username, "password": payload.password, "type": payload.type},
-            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            headers=headers,
         )
     except httpx.RequestError as exc:
         _logger.error("Taiga auth proxy failed to reach %s: %s", target, exc)
@@ -183,17 +207,21 @@ async def proxy_taiga(
         target_url = f"{target_url}?{request.url.query}"
 
     body = b"" if request.method in ("GET", "HEAD") else await request.body()
+    url, headers = _egress(
+        target_url,
+        {
+            "Authorization": authorization,
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "x-disable-pagination": "True",
+        },
+    )
 
     try:
         resp = await _send(
             request.method,
-            target_url,
-            headers={
-                "Authorization": authorization,
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-                "x-disable-pagination": "True",
-            },
+            url,
+            headers=headers,
             content=body or None,
         )
     except httpx.RequestError as exc:
