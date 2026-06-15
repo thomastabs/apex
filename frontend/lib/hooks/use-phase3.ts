@@ -42,8 +42,15 @@ const APEX_META_BLOCK_RE = /\n\n---\n\n(?:\*Apex —[^\n]*\*|\*\*Apex Metadata\*
 const EFFORT_LABELS: Record<string, string> = { XS: "XS (1 pt)", S: "S (2 pts)", M: "M (3 pts)", L: "L (5 pts)", XL: "XL (8 pts)" };
 const EFFORT_FROM_LABEL: Record<string, string> = { "XS (1 pt)": "XS", "S (2 pts)": "S", "M (3 pts)": "M", "L (5 pts)": "L", "XL (8 pts)": "XL" };
 
+// Taiga (and most PM backends) round-trip descriptions with CRLF line endings.
+// The apex-meta regexes are written against "\n", so normalize first — otherwise
+// the block fails to match and effort/covers/deps silently reset to defaults.
+function normalizeEol(text: string): string {
+  return (text ?? "").replace(/\r\n?/g, "\n");
+}
+
 export function reattachApexBlock(rawOrig: string, newDescription: string): string {
-  const blockMatch = rawOrig.match(APEX_META_BLOCK_RE);
+  const blockMatch = normalizeEol(rawOrig).match(APEX_META_BLOCK_RE);
   if (!blockMatch) return newDescription.trim();
   return newDescription.trim() + blockMatch[0];
 }
@@ -71,9 +78,10 @@ export function decodeApexMeta(rawDescription: string): {
   predecessor_task_ids: number[];
   apex_task_id: number | null;
 } {
-  const legacyMatch = rawDescription.match(/\[\/\/\]: # \(apex-meta:(\{.*?\})\)\s*$/s);
-  const blockMatch = rawDescription.match(APEX_META_BLOCK_RE);
-  const description = blockMatch ? rawDescription.slice(0, rawDescription.length - blockMatch[0].length).trim() : rawDescription.trim();
+  const raw = normalizeEol(rawDescription);
+  const legacyMatch = raw.match(/\[\/\/\]: # \(apex-meta:(\{.*?\})\)\s*$/s);
+  const blockMatch = raw.match(APEX_META_BLOCK_RE);
+  const description = blockMatch ? raw.slice(0, raw.length - blockMatch[0].length).trim() : raw.trim();
 
   if (legacyMatch) {
     try {

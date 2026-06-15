@@ -43,6 +43,24 @@ describe("encodeApexMeta / decodeApexMeta round-trip", () => {
     expect(decodeApexMeta(current).description).toBe(description);
   });
 
+  it("decodes after a CRLF round-trip through the PM tool (effort not lost)", () => {
+    // Taiga returns descriptions with \r\n; the block regex is written for \n.
+    const encoded = encodeApexMeta(task()).replace(/\n/g, "\r\n");
+    const decoded = decodeApexMeta(encoded);
+    expect(decoded.effort_estimate).toBe("S");
+    expect(decoded.covered_scenarios).toEqual(["Successful login", "Wrong password"]);
+    expect(decoded.predecessor_task_ids).toEqual([1, 2]);
+    expect(decoded.apex_task_id).toBe(3);
+    expect(decoded.description).toBe("Add POST /auth/login with JWT issuance.");
+  });
+
+  it("reattachApexBlock keeps the block when the original has CRLF endings", () => {
+    const encoded = encodeApexMeta(task()).replace(/\n/g, "\r\n");
+    const decoded = decodeApexMeta(reattachApexBlock(encoded, "New desc."));
+    expect(decoded.effort_estimate).toBe("S");
+    expect(decoded.apex_task_id).toBe(3);
+  });
+
   it("omits Covers and Depends lines when empty", () => {
     const encoded = encodeApexMeta(task({ covered_scenarios: [], predecessor_task_ids: [] }));
     expect(encoded).not.toContain("**Covers:**");
