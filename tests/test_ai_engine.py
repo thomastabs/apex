@@ -574,3 +574,26 @@ class TestPruneDanglingEdges:
         edges = [self._edge("user", "user")]  # self-referential FK (e.g. manager_id)
         kept = _prune_dangling_edges({"user"}, edges)
         assert len(kept) == 1
+
+
+class TestPackDigest:
+    """Compact pack digest fed into sibling-pack / test-plan context."""
+
+    def test_extracts_context_and_files_sections_only(self):
+        from src.ai_engine import _pack_digest
+        md = (
+            "## Context\nDoes the login.\n\n"
+            "## Implementation Steps\n1. lots of detail\n\n"
+            "## Files to Change\n- `auth.py` — login\n\n"
+            "## Chat Prompt\nyou are...\n"
+        )
+        d = _pack_digest(md)
+        assert "## Context" in d and "Does the login." in d
+        assert "## Files to Change" in d and "auth.py" in d
+        # noisy sections excluded
+        assert "Implementation Steps" not in d and "Chat Prompt" not in d
+
+    def test_falls_back_to_head_slice_and_caps_length(self):
+        from src.ai_engine import _pack_digest
+        d = _pack_digest("plain pack with no headings " * 100, max_chars=50)
+        assert len(d) == 50

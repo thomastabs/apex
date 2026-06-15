@@ -87,12 +87,14 @@ class AiService:
         hint: str = "",
         recent_commits: str = "",
         other_tasks: list[dict] | None = None,
+        sibling_packs: list[dict] | None = None,
     ) -> str:
         return ai_engine.generate_coding_proposal(
             task_subject, task_description, gherkin, technical_spec,
             tech_stack=tech_stack, design_bundle=design_bundle, story_ref=story_ref,
             github_context=github_context, hint=hint, recent_commits=recent_commits,
             other_tasks=other_tasks or [],
+            sibling_packs=sibling_packs or [],
         )
 
     def generate_er_diagram(self, data_model_md: str):
@@ -107,9 +109,11 @@ class AiService:
         gherkin: str,
         technical_spec: str,
         tech_stack: str = "",
+        developer_packs: list[dict] | None = None,
     ) -> str:
         return ai_engine.generate_test_plan(
             story_subject, gherkin, technical_spec, tech_stack=tech_stack,
+            developer_packs=developer_packs or [],
         )
 
     def generate_bug_report(

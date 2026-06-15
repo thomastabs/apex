@@ -124,11 +124,26 @@ class Phase3Service:
         design_bundle = self.context.read_context_file("design-bundle.md")
         github_context = self.context.read_context_file("github-context.md")
         other_tasks = [t for t in (all_tasks or []) if t.get("subject") != task_subject]
+        # Sibling packs already saved for this story → keep packs consistent
+        # (shared files/entities/endpoints, no duplication). Label each by its
+        # task subject from all_tasks; exclude the task being (re)generated.
+        subject_by_id = {
+            int(t["id"]): t.get("subject", "")
+            for t in (all_tasks or []) if t.get("id") is not None
+        }
+        sibling_packs = [
+            {
+                "subject": subject_by_id.get(int(p["task_id"]), f"Task {p['task_id']}"),
+                "proposal_md": p.get("proposal_md", ""),
+            }
+            for p in self.context.load_proposals(story_id)
+            if int(p["task_id"]) != int(task_id)
+        ]
         return self.ai.generate_proposal(
             task_subject, task_description, gherkin, technical_spec,
             tech_stack=tech_stack, design_bundle=design_bundle, story_ref=story_ref,
             github_context=github_context, hint=hint, recent_commits=recent_commits_context,
-            other_tasks=other_tasks,
+            other_tasks=other_tasks, sibling_packs=sibling_packs,
         )
 
     def save_proposal(

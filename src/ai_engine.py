@@ -1307,6 +1307,34 @@ Technical Spec (endpoint contracts):
 """
 
 
+def _pack_digest(md: str, *, max_chars: int = 700) -> str:
+    """Compact slice of a developer pack for cross-task consistency context.
+
+    Returns the Context + Files to Change sections (the shared file/entity/
+    endpoint surface that sibling packs must agree on) rather than the full
+    pack — keeps the cross-awareness signal without dumping Implementation
+    Steps / Chat Prompt / CLAUDE.md into every other generation. Falls back to
+    a head slice when those sections aren't present.
+    """
+    sections = []
+    for heading in ("## Context", "## Files to Change"):
+        m = re.search(rf"{re.escape(heading)}\n(.*?)(?=\n## |\Z)", md or "", re.DOTALL)
+        if m and m.group(1).strip():
+            sections.append(f"{heading}\n{m.group(1).strip()}")
+    digest = "\n\n".join(sections) if sections else (md or "").strip()
+    return digest[:max_chars]
+
+
+def _format_pack_digests(packs: list[dict] | None) -> str:
+    """Newline-joined digests of saved packs, labelled by task subject."""
+    blocks = []
+    for p in packs or []:
+        d = _pack_digest(p.get("proposal_md") or "")
+        if d:
+            blocks.append(f"### {p.get('subject', '(task)')}\n{d}")
+    return "\n\n".join(blocks)
+
+
 def generate_coding_proposal(
     task_subject: str,
     task_description: str,
@@ -1319,6 +1347,7 @@ def generate_coding_proposal(
     hint: str = "",
     recent_commits: str = "",
     other_tasks: list[dict] | None = None,
+    sibling_packs: list[dict] | None = None,
 ) -> str:
     system = _GENERATE_PROPOSAL_SYSTEM.format(
         tech_stack=fence_user_content(tech_stack.strip() or "Not specified"),
@@ -1335,6 +1364,14 @@ def generate_coding_proposal(
                 line += f" — {desc[:120]}"
             lines.append(line)
         system += "\n\nOther tasks in this story (do NOT duplicate their work — assume they are implemented separately):\n" + "\n".join(lines)
+    sibling_digests = _format_pack_digests(sibling_packs)
+    if sibling_digests:
+        system += (
+            "\n\nDeveloper packs already generated for sibling tasks in this story (digests — Context "
+            "+ Files to Change). Stay consistent with the file paths, entities, and endpoints they "
+            "define: reuse the same names, never redefine or contradict them, and do not duplicate "
+            "their work:\n" + fence_user_content(sibling_digests)
+        )
     if github_context.strip() and not github_context.strip().startswith("<!--"):
         system += "\n\nExisting Codebase (GitHub):\n" + fence_user_content(github_context)
     if recent_commits.strip():
@@ -1597,12 +1634,21 @@ def generate_test_plan(
     gherkin: str,
     technical_spec: str,
     tech_stack: str = "",
+    developer_packs: list[dict] | None = None,
 ) -> str:
     """Generate a structured QA test plan for all Gherkin scenarios in a User Story."""
     system = _GENERATE_TEST_PLAN_SYSTEM.format(
         tech_stack=fence_user_content(tech_stack.strip() or "Not specified"),
         technical_spec=fence_user_content(technical_spec.strip() or "Not specified"),
     )
+    pack_digests = _format_pack_digests(developer_packs)
+    if pack_digests:
+        system += (
+            "\n\nImplementation context — digests of the developer packs for this story's tasks "
+            "(Context + Files to Change: real files and endpoints). Use them so Test Steps and BDD "
+            "Mappings reference the actual implementation, but never test behaviour absent from the "
+            "Gherkin:\n" + fence_user_content(pack_digests)
+        )
     human = (
         "User Story: " + fence_user_content(story_subject) + "\n\n"
         + "Acceptance Criteria (Gherkin):\n" + fence_user_content(gherkin)

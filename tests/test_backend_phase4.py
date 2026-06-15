@@ -31,8 +31,9 @@ class FakeAiService:
         self.bug_report_args = None
         self.bug_report_kwargs: dict = {}
 
-    def generate_test_plan(self, story_subject, gherkin, technical_spec, tech_stack=""):
+    def generate_test_plan(self, story_subject, gherkin, technical_spec, tech_stack="", developer_packs=None):
         self.test_plan_args = (story_subject, gherkin, technical_spec, tech_stack)
+        self.test_plan_developer_packs = developer_packs
         return _FAKE_TEST_PLAN
 
     def generate_bug_report(self, story_subject, gherkin, technical_spec, failed_scenario, qa_notes):
@@ -66,6 +67,9 @@ class FakeContextService:
 
     def load_bdd_tests(self, story_id: int) -> str:
         return _FAKE_TEST_PLAN
+
+    def load_proposals(self, story_id: int) -> list[dict]:
+        return getattr(self, "proposals", [])
 
     # Writes delegate to the real context_manager (the `ctx` fixture points it
     # at tmp_path) so the write-path tests can assert through `ctx`.
@@ -215,6 +219,16 @@ def test_get_story_context_works_with_real_context_service(ctx):
 # ---------------------------------------------------------------------------
 # generate_test_plan
 # ---------------------------------------------------------------------------
+
+def test_generate_test_plan_passes_developer_packs():
+    ctx_svc = FakeContextService()
+    ctx_svc.proposals = [{"task_id": 7, "proposal_md": "## Context\nBuilt with FastAPI."}]
+    ai = FakeAiService()
+    svc = Phase4Service(ai=ai, context=ctx_svc)
+    svc.generate_test_plan(_ctx(), 10)
+    packs = ai.test_plan_developer_packs
+    assert packs and packs[0]["proposal_md"] == "## Context\nBuilt with FastAPI."
+
 
 def test_generate_test_plan_returns_markdown():
     svc = Phase4Service(ai=FakeAiService(), context=FakeContextService())

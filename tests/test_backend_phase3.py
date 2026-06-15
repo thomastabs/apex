@@ -50,6 +50,7 @@ class FakeAiService:
         hint="",
         recent_commits="",
         other_tasks=None,
+        sibling_packs=None,
     ):
         self.generate_proposal_args = (task_subject, task_description, gherkin, technical_spec,
                                        tech_stack, design_bundle, story_ref)
@@ -57,6 +58,7 @@ class FakeAiService:
             "hint": hint,
             "recent_commits": recent_commits,
             "other_tasks": other_tasks,
+            "sibling_packs": sibling_packs,
         }
         return _FAKE_PROPOSAL
 
@@ -76,6 +78,9 @@ class FakeContextService:
 
     def story_index(self):
         return self.index
+
+    def load_proposals(self, story_id: int) -> list[dict]:
+        return getattr(self, "proposals", [])
 
     def story_gherkin(self, story_id: int) -> str:
         return _FAKE_GHERKIN
@@ -228,6 +233,24 @@ def test_generate_proposal_rejects_pre_design_status():
     svc = Phase3Service(ai=FakeAiService(), context=ctx_svc)
     with pytest.raises(Phase3ValidationError, match="not ready for developer packs"):
         svc.generate_proposal(_ctx(), 10, 1, "Implement endpoint", "Create the login route.")
+
+
+def test_generate_proposal_passes_sibling_packs_excluding_self():
+    ctx_svc = FakeContextService()
+    ctx_svc.proposals = [
+        {"task_id": 1, "proposal_md": "## Context\nTask one."},
+        {"task_id": 2, "proposal_md": "## Context\nTask two."},
+    ]
+    ai = FakeAiService()
+    svc = Phase3Service(ai=ai, context=ctx_svc)
+    # all_tasks gives subjects for labelling; generating for task 1 → sibling = task 2 only
+    svc.generate_proposal(
+        _ctx(), 10, 1, "Implement endpoint", "Create the login route.",
+        all_tasks=[{"id": 1, "subject": "A"}, {"id": 2, "subject": "B"}],
+    )
+    siblings = ai.generate_proposal_kwargs["sibling_packs"]
+    assert [s["task_id"] if "task_id" in s else s["subject"] for s in siblings] == ["B"]
+    assert siblings[0]["proposal_md"] == "## Context\nTask two."
 
 
 def test_generate_proposal_passes_design_context():
