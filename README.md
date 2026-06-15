@@ -402,6 +402,12 @@ secret in `X-Relay-Secret`; the Worker allow-lists `api.taiga.io`, fails closed 
 and forwards to Taiga. **Unset the env var → direct egress** (the default; fine for local dev, where
 the host reaches Taiga normally — so no relay is needed locally).
 
+Only `api.taiga.io` is routed through the relay (`_RELAY_HOSTS`, kept in sync with the Worker's
+`ALLOWED_HOSTS`). **Private / self-hosted instances bypass the relay** — they are reachable from
+Azure directly (e.g. a `*.trycloudflare.com` tunnel), and the Worker would reject a non-allow-listed
+host anyway. Add a host to both `_RELAY_HOSTS` and the Worker's `ALLOWED_HOSTS` only if it, too, is
+blocked from Azure egress.
+
 Deploy / rotate: see `infra/cloudflare/taiga-relay/README.md`. Operationally it is a static Worker —
 no cron, no maintenance, well within Cloudflare's free tier (100k req/day). It only needs attention
 if the secret is rotated (update both `wrangler secret put RELAY_SECRET` and the backend env var) or
