@@ -61,19 +61,27 @@ async def _send(method: str, url: str, **kwargs) -> httpx.Response:
     return await send_with_retry(_get_client, _reset_client, method, url, logger=_logger, **kwargs)
 
 
+# Hosts Azure Container Apps egress cannot reach directly (firewall-DROPped) and
+# must therefore be routed through the Cloudflare relay. Keep in sync with the
+# Worker's ALLOWED_HOSTS. Private/self-hosted instances (e.g. Cloudflare-tunnel
+# *.trycloudflare.com URLs) ARE reachable from Azure, so they bypass the relay.
+_RELAY_HOSTS = frozenset({"api.taiga.io"})
+
+
 def _egress(target_url: str, headers: dict) -> tuple[str, dict]:
     """Route the request through the Cloudflare relay when configured.
 
     Taiga Cloud's host firewall-DROPs Azure Container Apps egress IPs, so direct
-    connects to api.taiga.io time out (→ 502). When TAIGA_EGRESS_RELAY is set,
-    the request is sent to that Worker instead, which forwards to the real
-    target from Cloudflare's (non-blocked) network. The real target — already
-    SSRF-validated by the caller — travels in X-Relay-Target; X-Relay-Secret
-    authenticates the backend to the Worker so it is not an open proxy. Unset
-    the env var to fall back to direct egress.
+    connects to api.taiga.io time out (→ 502). When TAIGA_EGRESS_RELAY is set AND
+    the target is a relay-only host, the request is sent to that Worker instead,
+    which forwards to the real target from Cloudflare's (non-blocked) network. The
+    real target — already SSRF-validated by the caller — travels in X-Relay-Target;
+    X-Relay-Secret authenticates the backend to the Worker so it is not an open
+    proxy. Targets Azure can reach directly (private/self-hosted instances) bypass
+    the relay even when it is configured. Unset the env var to disable it entirely.
     """
     relay = os.getenv("TAIGA_EGRESS_RELAY", "").strip().rstrip("/")
-    if not relay:
+    if not relay or (urlparse(target_url).hostname or "") not in _RELAY_HOSTS:
         return target_url, headers
     relayed = dict(headers)
     relayed["X-Relay-Target"] = target_url
