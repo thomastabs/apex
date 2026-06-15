@@ -250,6 +250,7 @@ export type Phase3Task = {
   predecessor_task_ids: number[];
   taiga_task_id?: number;
   pm_task_id?: string;
+  pm_task_ref?: string | number;
 };
 
 export type Phase3StoryPreview = {

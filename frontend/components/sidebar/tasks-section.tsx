@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Loader2,
   Plus,
+  RefreshCw,
   Trash2,
   X,
 } from "lucide-react";
@@ -226,7 +227,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
   const adapter = getPmAdapter(context?.pmTool);
   const adapterCtx = context ? toPmCtx(context) : null;
 
-  const { data: pmTasks = [], isLoading } = useQuery({
+  const { data: pmTasks = [], isLoading, isFetching } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: () => adapter.getProjectTasks(adapterCtx!),
     enabled: Boolean(context),
@@ -399,6 +400,17 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
 
   const filterBtn = (
     <div className="flex items-center gap-1">
+      <button
+        onClick={(e) => { e.stopPropagation(); if (context) void invalidate(); }}
+        disabled={!context || isFetching}
+        title="Refresh task list from the PM tool"
+        className={cn(
+          "rounded p-1 transition-colors disabled:opacity-40",
+          dark ? "text-neutral-600 hover:text-violet-400" : "text-slate-400 hover:text-violet-600",
+        )}
+      >
+        <RefreshCw className={cn("h-3.5 w-3.5", isFetching && "animate-spin")} />
+      </button>
       <button
         onClick={(e) => { e.stopPropagation(); setFilterOpen((v) => !v); if (filterOpen) setFilter(""); }}
         className={cn(

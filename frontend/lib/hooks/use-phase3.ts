@@ -118,6 +118,23 @@ export function decodeApexMeta(rawDescription: string): {
   };
 }
 
+// Web URL for a pushed task in the PM tool's UI (Taiga only — Jira subtasks
+// have no stable standalone URL here). Mirrors the phase-1 story-URL builder.
+export function pmTaskWebUrl(
+  context: RequestContext | null,
+  ref: string | number | undefined,
+): string | null {
+  if (!context || ref === undefined || ref === null || context.pmTool !== "taiga") return null;
+  const slug = context.pmProjectId;
+  if (!slug) return null;
+  const webBase = (context.taigaApiUrl ?? "")
+    .replace("/api/v1", "")
+    .replace("//api.taiga.io", "//tree.taiga.io")
+    .replace(/\/+$/, "");
+  if (!webBase) return null;
+  return `${webBase}/project/${slug}/task/${ref}`;
+}
+
 export function findPmTaskBySubject(
   cached: PmTask[], storyId: number, subject: string,
 ): PmTask | undefined {
@@ -203,7 +220,7 @@ export function usePushTasksToTaiga() {
     onSuccess: ({ results, failures }) => {
       for (const { taskIndex, localTaskId, id, ref } of results) {
         setPmTaskResult(taskIndex, id, ref);
-        patchTask(localTaskId, { pm_task_id: id });
+        patchTask(localTaskId, { pm_task_id: id, pm_task_ref: ref });
       }
       setTasksPushed(true);
       void queryClient.invalidateQueries({ queryKey: ["pm", "project-tasks", context?.projectId] });
@@ -439,75 +456,3 @@ export function usePushSingleTask() {
   });
 }
 
-export function usePushMetadataToTaiga() {
-  const context = useApiContext();
-  const queryClient = useQueryClient();
-  const { taskList, patchTask } = usePhase3Store();
-
-  return useMutation({
-    mutationFn: async (storyId: number) => {
-      if (!context) throw new Error("No context.");
-      const adapter = getPmAdapter(context.pmTool);
-      const ctx = getAdapterCtx(context);
-
-      const cached = queryClient.getQueryData<PmTask[]>(["pm", "project-tasks", context.projectId]) ?? [];
-      const resolved: Array<{ localId: number; pmTaskId: string }> = [];
-      const targets = taskList.map((task) => {
-        const pmId = task.pm_task_id ?? (task.taiga_task_id ? String(task.taiga_task_id) : undefined);
-        if (pmId) return { ...task, pm_task_id: pmId };
-        const match = findPmTaskBySubject(cached, storyId, task.subject);
-        if (match) {
-          resolved.push({ localId: task.id, pmTaskId: match.id });
-          return { ...task, pm_task_id: match.id };
-        }
-        return task;
-      }).filter((t) => t.pm_task_id);
-
-      if (targets.length === 0) throw new Error("No tasks with PM IDs to update.");
-
-      const withVersions = await Promise.all(
-        targets.map(async (task) => {
-          const current = await adapter.getTask(ctx, task.pm_task_id!);
-          return { task, version: current.version };
-        }),
-      );
-
-      let updated = 0;
-      const errors: string[] = [];
-      for (const { task, version: initialVersion } of withVersions) {
-        try {
-          let ver = initialVersion;
-          for (let attempt = 0; attempt <= 1; attempt++) {
-            try {
-              await adapter.updateTask(ctx, task.pm_task_id!, ver, { description: encodeApexMeta(task) });
-              break;
-            } catch (err) {
-              if (adapter.isPmVersionConflict(err) && attempt === 0) {
-                const refreshed = await adapter.getTask(ctx, task.pm_task_id!);
-                ver = refreshed.version;
-              } else throw err;
-            }
-          }
-          updated++;
-        } catch (err) {
-          errors.push(`Task ${task.id}: ${err instanceof Error ? err.message : "unknown"}`);
-        }
-      }
-      return { updated, errors, resolved };
-    },
-    onSuccess: ({ updated, errors, resolved }) => {
-      for (const { localId, pmTaskId } of resolved) {
-        patchTask(localId, { pm_task_id: pmTaskId });
-      }
-      if (errors.length > 0) {
-        toast.warning(`Updated ${updated} tasks. ${errors.length} failed: ${errors.join("; ")}`);
-      } else {
-        toast.success(`Metadata pushed for ${updated} task${updated !== 1 ? "s" : ""}.`);
-      }
-    },
-    onError: (err) => {
-      const adapter = getPmAdapter(context?.pmTool);
-      toast.error(adapter.errMsg(err, "Push metadata"));
-    },
-  });
-}
