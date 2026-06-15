@@ -10,6 +10,13 @@ _logger = logging.getLogger("apex.phase3_service")
 
 _PREVIEW_CHARS = 3000
 
+# Statuses for which Phase 3 stays open (select story + decompose + packs).
+# design_locked = ready to decompose; implementation = locked & being built;
+# qa/qa_passed = in testing but packs can still be added/regenerated. Excludes
+# pre-design (new/gherkin_locked) and deployed. lock_story stays design_locked-
+# only so re-locking can't downgrade a qa story back to implementation.
+_PHASE3_OPEN_STATUSES = ("design_locked", "implementation", "qa", "qa_passed")
+
 
 class Phase3ValidationError(ValueError):
     """Raised when a Phase 3 request is structurally invalid."""
@@ -33,7 +40,7 @@ class Phase3Service:
         index = self.context.story_index()
         stories = []
         for entry in index.values():
-            if entry.get("phase_status") != "design_locked":
+            if entry.get("phase_status") not in _PHASE3_OPEN_STATUSES:
                 continue
             story_id = entry.get("story_id")
             if not story_id:
@@ -70,9 +77,9 @@ class Phase3Service:
         self.configure_request(ctx)
         index = self.context.story_index()
         entry = index.get(str(story_id)) or {}
-        if entry.get("phase_status") != "design_locked":
+        if entry.get("phase_status") not in _PHASE3_OPEN_STATUSES:
             raise Phase3ValidationError(
-                f"Story {story_id} is not design_locked (status: {entry.get('phase_status')!r})."
+                f"Story {story_id} is not ready for task decomposition (status: {entry.get('phase_status')!r})."
             )
         story_title = entry.get("title", f"Story {story_id}")
         gherkin = self.context.story_gherkin(story_id)
@@ -103,10 +110,9 @@ class Phase3Service:
         entry = index.get(str(story_id)) or {}
         if not entry:
             raise Phase3ValidationError(f"Story {story_id} not found in index.")
-        # Packs are per-task artifacts valid both before locking (design_locked)
-        # and while the story is being implemented — e.g. generating the
-        # remaining packs after the story was already locked to implementation.
-        if entry.get("phase_status") not in ("design_locked", "implementation"):
+        # Packs are per-task artifacts that can be added/regenerated any time the
+        # story is open for Phase 3 work — through testing (see _PHASE3_OPEN_STATUSES).
+        if entry.get("phase_status") not in _PHASE3_OPEN_STATUSES:
             raise Phase3ValidationError(
                 f"Story {story_id} is not ready for developer packs (status: {entry.get('phase_status')!r})."
             )

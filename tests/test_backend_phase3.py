@@ -132,16 +132,19 @@ def test_eligible_stories_returns_design_locked():
     assert stories[0]["title"] == "User Login"
 
 
-def test_eligible_stories_excludes_other_statuses():
+def test_eligible_stories_open_through_testing_excludes_pre_design_and_deployed():
     index = {
         "1": {"story_id": 1, "title": "A", "phase_status": "gherkin_locked", "epic_title": "X"},
         "2": {"story_id": 2, "title": "B", "phase_status": "implementation", "epic_title": "X"},
         "3": {"story_id": 3, "title": "C", "phase_status": "design_locked", "epic_title": "X"},
+        "4": {"story_id": 4, "title": "D", "phase_status": "qa", "epic_title": "X"},
+        "5": {"story_id": 5, "title": "E", "phase_status": "qa_passed", "epic_title": "X"},
+        "6": {"story_id": 6, "title": "F", "phase_status": "deployed", "epic_title": "X"},
     }
     svc = Phase3Service(ai=FakeAiService(), context=FakeContextService(index=index))
     stories = svc.get_eligible_stories(_ctx())
-    assert len(stories) == 1
-    assert stories[0]["story_id"] == 3
+    # design_locked, implementation, qa, qa_passed listed; gherkin_locked + deployed excluded
+    assert [s["story_id"] for s in stories] == [2, 3, 4, 5]
 
 
 # ---------------------------------------------------------------------------
@@ -185,11 +188,18 @@ def test_generate_tasks_passes_full_context_to_ai():
     assert design_bundle == _FAKE_DESIGN_BUNDLE
 
 
-def test_generate_tasks_rejects_non_design_locked():
+def test_generate_tasks_rejects_pre_design_status():
     index = _story_index(status="gherkin_locked")
     svc = Phase3Service(ai=FakeAiService(), context=FakeContextService(index=index))
-    with pytest.raises(Phase3ValidationError, match="not design_locked"):
+    with pytest.raises(Phase3ValidationError, match="not ready for task decomposition"):
         svc.generate_tasks(_ctx(), 10)
+
+
+def test_generate_tasks_allowed_in_implementation():
+    index = _story_index(status="implementation")
+    svc = Phase3Service(ai=FakeAiService(), context=FakeContextService(index=index))
+    tasks = svc.generate_tasks(_ctx(), 10)
+    assert len(tasks) == 2
 
 
 # ---------------------------------------------------------------------------
