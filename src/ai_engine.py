@@ -1514,6 +1514,41 @@ without inventing behaviour. Provide:
 
 ---
 
+After all per-scenario sections, output these two handoff sections ONCE for the whole story
+(exact headings) so a dev/QA can export the plan and have an AI agent write the tests:
+
+## Agentic Test Brief
+Terse copy-paste directive for a test-automation agent (Claude Code, Codex, Cursor):
+
+**Task**: Write automated BDD tests covering every scenario above
+**Framework**: <infer the BDD/test framework from the tech stack — e.g. pytest-bdd or behave (Python), jest-cucumber or Cucumber.js (JS/TS), Cucumber-JVM (Java); if no BDD library fits, use the stack's standard test runner with one test per scenario>
+**Test files**: <infer paths from tech-stack conventions — e.g. `tests/features/<story>.feature` + `tests/steps/`, or `tests/test_<story>.py`>
+**Run**: <infer the test command from the tech stack — e.g. `pytest`, `npm test`>
+**Constraints**:
+- One test per Gherkin scenario; assert every Then from that scenario's BDD Mapping.
+- Exercise only the endpoints/entities named in the BDD Mappings — invent nothing.
+- Add the listed Edge Cases as extra test cases.
+**Done when**: every scenario has a passing automated test and the edge cases are covered.
+
+## Chat Prompt
+A self-contained prompt a dev/QA pastes into a chat AI to generate the tests. Fill it in completely
+(no placeholders left) from this plan's own content:
+
+You are writing automated BDD tests for a user story.
+
+**Tech Stack**: {tech_stack}
+**User Story**: <the story title>
+**Acceptance Criteria (Gherkin)**:
+<paste the full Gherkin here>
+
+**Per-scenario BDD mappings (steps, endpoints/entities, fixtures, assertions)**:
+<paste each scenario's BDD Mapping from above>
+
+**Your task**: implement one automated test per scenario in the project's BDD/test framework,
+asserting every Then. Cover the edge cases. Do not invent endpoints, fields, or scenarios.
+
+---
+
 The human-facing sections (Test Steps, Expected Results, Edge Cases, Risk Areas) stay prose for a
 QA engineer in a staging environment — no code, no CSS selectors there. The BDD Mapping section is
 the automation handoff: keep it framework-agnostic (plain Given/When/Then + endpoints/data), never
@@ -1573,7 +1608,8 @@ def generate_test_plan(
         + "Acceptance Criteria (Gherkin):\n" + fence_user_content(gherkin)
         + "\n\nGenerate the QA Test Plan for all scenarios above."
     )
-    return _ai_retry(lambda: _invoke(system, human, get_model(), max_tokens=6000, timeout=300))
+    # Larger budget: per-scenario sections + the two agent-handoff sections.
+    return _ai_retry(lambda: _invoke(system, human, get_model(), max_tokens=8000, timeout=300))
 
 
 def generate_bug_report(
