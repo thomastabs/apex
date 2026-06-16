@@ -4,8 +4,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 
 vi.mock("@/lib/stores/session-store", () => ({
-  useApiContext: () => ({ projectId: 7, pmTool: "taiga", pmToken: "tok" }),
+  useApiContext: () => ({ projectId: 7, pmTool: "taiga", pmToken: "tok", taigaToken: "t", taigaApiUrl: "u" }),
+  useGithubContext: () => null,
 }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/lib/stores/ui-store", () => ({
   useUiStore: (sel: (s: { theme: string }) => unknown) => sel({ theme: "light" }),
 }));
@@ -42,6 +44,8 @@ vi.mock("@/lib/api/phase6", () => ({
   }),
   getConformanceReport: vi.fn().mockResolvedValue(REPORT),
   verifyConformance: vi.fn().mockResolvedValue(REPORT),
+  // Maintenance tab is the default; stub its data fetch so the tab mounts cleanly.
+  listMaintenanceItems: vi.fn().mockResolvedValue({ items: [] }),
   PHASE6_AI_TIMEOUT_MS: 1000,
 }));
 
@@ -59,9 +63,15 @@ function renderWorkflow() {
 
 beforeEach(() => vi.clearAllMocks());
 
+// Phase 6 is tabbed (Maintenance default). Switch to the Traceability tab.
+function openTraceability() {
+  fireEvent.click(screen.getByRole("button", { name: /Traceability/i }));
+}
+
 describe("Phase6Workflow", () => {
   it("auto-selects the first story and renders its report tables", async () => {
     renderWorkflow();
+    openTraceability();
     await waitFor(() => expect(screen.getByText("POST /api/v1/auth/login")).toBeInTheDocument());
     // score badge rendered from the report
     expect(screen.getByText("DELETE /api/v1/sessions")).toBeInTheDocument();
@@ -72,6 +82,7 @@ describe("Phase6Workflow", () => {
 
   it("Layer A button runs a deterministic (ai=false) check", async () => {
     renderWorkflow();
+    openTraceability();
     await waitFor(() => expect(screen.getByText("POST /api/v1/auth/login")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /Layer A/i }));
     await waitFor(() =>
@@ -81,6 +92,7 @@ describe("Phase6Workflow", () => {
 
   it("Verify button runs the AI (ai=true) check", async () => {
     renderWorkflow();
+    openTraceability();
     await waitFor(() => expect(screen.getByText("POST /api/v1/auth/login")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /Re-verify|Verify/i }));
     await waitFor(() =>

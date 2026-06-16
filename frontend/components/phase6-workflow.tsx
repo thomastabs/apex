@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { GitCompareArrows, Loader2, RefreshCw, Zap } from "lucide-react";
+import { GitCompareArrows, Loader2, RefreshCw, Wrench, Zap } from "lucide-react";
 import { Button, Callout, SectionHeading } from "@/components/ui/primitives";
+import { MaintenanceTriage } from "@/components/maintenance-triage";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
 import {
   useConformanceEligibleStories,
@@ -119,7 +120,7 @@ function ReportTables({ report, dark }: { report: ConformanceReport; dark: boole
   );
 }
 
-export function Phase6Workflow() {
+function TraceabilityPanel() {
   const context = useApiContext();
   const dark = useUiStore((s) => s.theme) === "dark";
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -289,6 +290,37 @@ export function Phase6Workflow() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+export function Phase6Workflow() {
+  const dark = useUiStore((s) => s.theme) === "dark";
+  const [tab, setTab] = useState<"maintenance" | "traceability">("maintenance");
+
+  const tabBtn = (key: "maintenance" | "traceability", label: string, Icon: typeof Wrench) => (
+    <button
+      onClick={() => setTab(key)}
+      className={cn(
+        "flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-semibold transition",
+        tab === key
+          ? "border-violet-500 text-violet-500"
+          : dark
+            ? "border-transparent text-neutral-400 hover:text-neutral-200"
+            : "border-transparent text-slate-500 hover:text-slate-800",
+      )}
+    >
+      <Icon className="h-4 w-4" /> {label}
+    </button>
+  );
+
+  return (
+    <div>
+      <div className={cn("flex gap-1 border-b px-6", dark ? "border-neutral-800" : "border-slate-200")}>
+        {tabBtn("maintenance", "Maintenance", Wrench)}
+        {tabBtn("traceability", "Traceability", GitCompareArrows)}
+      </div>
+      {tab === "maintenance" ? <MaintenanceTriage /> : <TraceabilityPanel />}
     </div>
   );
 }

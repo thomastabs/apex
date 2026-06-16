@@ -247,6 +247,22 @@ export async function taigaGetStory(token: string, storyId: number, apiBaseUrl?:
   return normalizeStory(raw);
 }
 
+/** List open Taiga issues (project bug/issue tracker) as maintenance-intake candidates. */
+export async function taigaListIssues(
+  token: string,
+  projectId: number,
+  apiBaseUrl?: string,
+): Promise<Array<{ ext_ref: string; subject: string; description: string }>> {
+  const raw = await taigaFetch<Record<string, unknown>[]>(
+    `/issues?project=${projectId}`, token, apiBaseUrl,
+  );
+  return (raw ?? []).map((i) => ({
+    ext_ref: `TG#${i.ref ?? i.id}`,
+    subject: String(i.subject ?? ""),
+    description: descriptionText(i),
+  }));
+}
+
 export async function taigaListStoryStatuses(
   token: string,
   projectId: number,

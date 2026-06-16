@@ -533,3 +533,26 @@ export type ConformanceReport = {
   constraints: ConstraintConformance[];
   generated_at: string;
 };
+
+// Phase 6 Maintenance — Triage (F1) + Fix-Bolt & Severity Routing (F2)
+
+export type MaintenanceItem = {
+  id: number;
+  source: "manual" | "github" | "taiga";
+  ext_ref: string;
+  subject: string;
+  description: string;
+  evidence: string;
+  linked_story_id: number | null;
+  classification: "unclassified" | "change_request" | "bug";
+  status: "new" | "routed_to_discovery" | "diagnosed" | "fix_ready" | "resolved";
+  diagnosis_md: string;
+  fix_brief_md: string;
+  lane: "fast" | "secure" | null;
+  ai_rationale: { classify?: string; severity_hint?: string; risk?: string };
+  created_at: string;
+  updated_at: string;
+};
+
+export type MaintenanceItemsResponse = { items: MaintenanceItem[] };
+export type SeveritySuggestion = { lane: "fast" | "secure"; rationale: string };

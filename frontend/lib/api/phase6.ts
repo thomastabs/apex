@@ -2,7 +2,10 @@ import { ApiError, apiRequest } from "./client";
 import type {
   ConformanceEligibleStoriesResponse,
   ConformanceReport,
+  MaintenanceItem,
+  MaintenanceItemsResponse,
   RequestContext,
+  SeveritySuggestion,
 } from "./types";
 
 // Conformance runs the AI semantic layer over the spec + synced code — long.
@@ -32,4 +35,58 @@ export async function getConformanceReport(
     if (err instanceof ApiError && err.status === 404) return null;
     throw err;
   }
+}
+
+// ── Maintenance (F1 Triage + F2 Fix-Bolt routing) ──────────────────────────
+
+const M = "/api/phase6/maintenance";
+
+export function listMaintenanceItems(context: RequestContext) {
+  return apiRequest<MaintenanceItemsResponse>(`${M}/items`, { context });
+}
+
+export function createMaintenanceItem(
+  context: RequestContext,
+  body: {
+    subject: string; description?: string; evidence?: string;
+    source?: "manual" | "github" | "taiga"; ext_ref?: string; linked_story_id?: number | null;
+  },
+) {
+  return apiRequest<MaintenanceItem>(`${M}/items`, { method: "POST", context, body });
+}
+
+export function classifyMaintenanceItem(context: RequestContext, itemId: number) {
+  return apiRequest<MaintenanceItem>(`${M}/items/${itemId}/classify`, {
+    method: "POST", context, timeoutMs: PHASE6_AI_TIMEOUT_MS,
+  });
+}
+
+export function diagnoseMaintenanceItem(context: RequestContext, itemId: number, codeSnippet: string) {
+  return apiRequest<MaintenanceItem>(`${M}/items/${itemId}/diagnose`, {
+    method: "POST", context, body: { code_snippet: codeSnippet }, timeoutMs: PHASE6_AI_TIMEOUT_MS,
+  });
+}
+
+export function fixBriefMaintenanceItem(context: RequestContext, itemId: number) {
+  return apiRequest<MaintenanceItem>(`${M}/items/${itemId}/fix-brief`, {
+    method: "POST", context, timeoutMs: PHASE6_AI_TIMEOUT_MS,
+  });
+}
+
+export function suggestLane(context: RequestContext, itemId: number) {
+  return apiRequest<SeveritySuggestion>(`${M}/items/${itemId}/suggest-lane`, { context });
+}
+
+export function routeMaintenanceItem(context: RequestContext, itemId: number, lane: "fast" | "secure") {
+  return apiRequest<MaintenanceItem>(`${M}/items/${itemId}/route`, {
+    method: "POST", context, body: { lane },
+  });
+}
+
+export function resolveMaintenanceItem(
+  context: RequestContext, itemId: number, rootCause = "", resolutionSummary = "",
+) {
+  return apiRequest<MaintenanceItem>(`${M}/items/${itemId}/resolve`, {
+    method: "POST", context, body: { root_cause: rootCause, resolution_summary: resolutionSummary },
+  });
 }

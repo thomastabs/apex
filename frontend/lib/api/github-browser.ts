@@ -220,6 +220,19 @@ export async function fetchRecentCommitsContext(ctx: GithubSyncContext, taskSubj
   return `## Recent Related Commits\n\n${lines.join("\n")}`;
 }
 
+export type ExternalIssue = { ext_ref: string; subject: string; description: string };
+
+/** List open GitHub Issues (excluding PRs) as maintenance-intake candidates. */
+export async function fetchGithubIssues(ctx: GithubSyncContext): Promise<ExternalIssue[]> {
+  const raw = await ghFetch<Array<{ number: number; title: string; body: string | null; pull_request?: unknown }>>(
+    `/repos/${ctx.owner}/${ctx.repo}/issues?state=open&per_page=50`,
+    ctx.pat,
+  );
+  return (raw ?? [])
+    .filter((i) => !i.pull_request) // the issues endpoint also returns PRs
+    .map((i) => ({ ext_ref: `GH#${i.number}`, subject: i.title, description: i.body ?? "" }));
+}
+
 /** Create a GitHub Issue and return its URL and number. Requires PAT with repo scope. */
 export async function createGithubIssue(
   ctx: GithubSyncContext,
