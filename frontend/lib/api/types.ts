@@ -59,9 +59,17 @@ export type ContextFile = {
   last_modified?: string | null;
 };
 
+export type SpecDriftInfo = {
+  amended: boolean;
+  filename: string;
+  affected_story_ids: number[];
+  note: string;
+};
+
 export type ContextFilesResponse = {
   files: ContextFile[];
   total_chars: number;
+  drift?: SpecDriftInfo | null;
 };
 
 export type Membership = {

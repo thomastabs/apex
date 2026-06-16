@@ -130,6 +130,7 @@ def __getattr__(name: str):
         "TECHNICAL_SPEC_FILE":  "technical-spec.md",
         "CONSTRAINTS_FILE":     "constraints.md",
         "VACCINES_FILE":        "vaccines.md",
+        "AMENDMENTS_FILE":      "amendments.md",
         "STORY_INDEX_FILE":     "story-index.json",
         "DRAFT_FILE":           ".apex-draft.json",
         "DESIGN_DRAFT_FILE":    ".apex-design-draft.json",
@@ -183,6 +184,15 @@ _CONSTRAINTS_TEMPLATE = """\
 > Project-wide quality constraints in EARS notation (performance, security, reliability, …).
 > Behavioural requirements live in the Gherkin acceptance criteria, not here.
 > Generated in Phase 1 and editable; injected into developer packs and test plans.
+
+"""
+
+_AMENDMENTS_TEMPLATE = """\
+# Spec Amendments
+
+> Log of edits made to a locked spec artifact after a story passed its phase gate.
+> Each amendment flags the affected downstream stories for re-derivation (spec drift),
+> so post-lock changes co-evolve through the chain instead of silently diverging.
 
 """
 
@@ -450,6 +460,7 @@ def init_context() -> None:
         ("technical-spec.md",  _TECHNICAL_SPEC_TEMPLATE),
         ("constraints.md",     _CONSTRAINTS_TEMPLATE),
         ("vaccines.md",        _VACCINES_TEMPLATE),
+        ("amendments.md",      _AMENDMENTS_TEMPLATE),
         ("design-bundle.md",   _DESIGN_BUNDLE_TEMPLATE),
     ]:
         p = _path(filename)
@@ -743,7 +754,8 @@ def upsert_story_index(story_id: int, **updates) -> None:
 
     Valid fields: epic_id, title, phase_status, has_gherkin, has_tech_spec,
                   has_proposal, has_bdd, has_bug_report, has_infra_delta,
-                  has_deploy_pack, deploy_bypass, fix_bolt_count.
+                  has_deploy_pack, deploy_bypass, fix_bolt_count,
+                  spec_drift, drift_reason.
 
     Whenever phase_status changes (including the initial status of a new
     entry) a UTC timestamp is appended to entry["status_history"][status] —
@@ -774,6 +786,8 @@ def upsert_story_index(story_id: int, **updates) -> None:
             "has_deploy_pack": False,
             "deploy_bypass":   False,
             "fix_bolt_count":  0,
+            "spec_drift":      False,
+            "drift_reason":    "",
             "status_history":  {},
         })
         entry.update(updates)
@@ -1229,6 +1243,9 @@ def save_proposal(story_id: int, task_id: int, proposal: str) -> Path:
     p = cd / f"proposal_story_{story_id}_task_{task_id}.md"
     p.write_text(proposal, encoding="utf-8")
     upsert_story_index(story_id, has_proposal=True)
+    # Regenerating a dev pack means the story was re-derived from the current
+    # spec — any post-lock drift has been addressed, so clear the flag.
+    clear_spec_drift(story_id)
     return p
 
 
@@ -1812,6 +1829,97 @@ def get_story_design_bundle(story_id: int) -> str:
         if m:
             return m.group(0).strip()
     return content
+
+
+# ---------------------------------------------------------------------------
+# Controlled spec co-evolution — post-lock amendments + drift flag (roadmap #4)
+# ---------------------------------------------------------------------------
+
+# Each spec artifact locks at a phase; a story is "affected" by an edit to that
+# file once its phase_status is at or after the lock. Append/sync artifacts
+# (vaccines.md, github-context.md) are not spec locks and never trigger drift.
+_SPEC_LOCK_PHASE: dict[str, str] = {
+    "project-concept.md": "gherkin_locked",
+    "functional-spec.md": "gherkin_locked",
+    "tech-stack.md":      "design_locked",
+    "technical-spec.md":  "design_locked",
+    "design-bundle.md":   "design_locked",
+    "constraints.md":     "design_locked",
+}
+
+
+def _phase_at_or_after(status: str, lock: str) -> bool:
+    """True when `status` is at or beyond `lock` in PHASE_STATUSES order."""
+    try:
+        return PHASE_STATUSES.index(status) >= PHASE_STATUSES.index(lock)
+    except ValueError:
+        return False
+
+
+def affected_stories_for_spec(filename: str) -> list[int]:
+    """Story ids past the lock phase for a spec file (empty if not a spec file)."""
+    lock = _SPEC_LOCK_PHASE.get(filename)
+    if lock is None:
+        return []
+    out = [
+        e["story_id"]
+        for e in get_story_index().values()
+        if e.get("story_id") is not None and _phase_at_or_after(e.get("phase_status", ""), lock)
+    ]
+    return sorted(out)
+
+
+def record_amendment(filename: str, note: str, story_ids: list[int]) -> None:
+    """Append a dated amendment entry to amendments.md and flag the affected
+    stories with spec_drift so downstream artifacts get re-derived."""
+    init_context()
+    am = _path("amendments.md")
+    header = am.read_text(encoding="utf-8") if am.exists() else _AMENDMENTS_TEMPLATE
+    ids = ", ".join(f"#{s}" for s in story_ids) or "(none)"
+    block = (
+        f"\n## {_now_iso()} — {filename}\n\n"
+        f"- **Affected stories:** {ids}\n"
+        f"- **Note:** {note.strip() or '(none)'}\n"
+    )
+    am.write_text(header.rstrip() + "\n" + block, encoding="utf-8")
+    with _index_lock:
+        index = get_story_index()
+        for sid in story_ids:
+            entry = index.get(str(sid))
+            if entry is not None:
+                entry["spec_drift"] = True
+                entry["drift_reason"] = filename
+        _save_story_index(index)
+
+
+def amend_locked_spec(filename: str, note: str = "") -> dict:
+    """Record a post-lock edit to a spec file. Returns the drift outcome.
+
+    `amended` is False (no log, no drift) when the file is not a lockable spec
+    artifact or no story has passed its lock yet (a normal pre-lock edit)."""
+    story_ids = affected_stories_for_spec(filename)
+    if not story_ids:
+        return {"amended": False, "filename": filename, "affected_story_ids": [], "note": note}
+    record_amendment(filename, note, story_ids)
+    return {"amended": True, "filename": filename, "affected_story_ids": story_ids, "note": note}
+
+
+def clear_spec_drift(story_id: int) -> None:
+    """Clear the drift flag once a story has been re-derived from the new spec."""
+    with _index_lock:
+        index = get_story_index()
+        entry = index.get(str(story_id))
+        if entry is not None and entry.get("spec_drift"):
+            entry["spec_drift"] = False
+            entry["drift_reason"] = ""
+            _save_story_index(index)
+
+
+def get_amendments() -> str:
+    """Read the amendments.md log (empty string if absent)."""
+    init_context()
+    am = _path("amendments.md")
+    return am.read_text(encoding="utf-8") if am.exists() else ""
 
 
 _CROSS_EPIC_CONTEXT_CHAR_LIMIT = 50_000

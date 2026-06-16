@@ -25,13 +25,27 @@ class ContextFileSchema(BaseModel):
     last_modified: str | None = None
 
 
+class SpecDriftInfo(BaseModel):
+    amended: bool = False
+    filename: str = ""
+    affected_story_ids: list[int] = Field(default_factory=list)
+    note: str = ""
+
+
 class ContextFilesResponse(BaseModel):
     files: list[ContextFileSchema]
     total_chars: int
+    # Set only by update_context_file when a post-lock spec edit raises drift.
+    drift: SpecDriftInfo | None = None
 
 
 class UpdateContextFileRequest(BaseModel):
     content: str = Field(..., max_length=5_242_880)  # 5 MB
+    note: str = Field("", max_length=500)
+
+
+class AmendmentsResponse(BaseModel):
+    amendments_md: str = ""
 
 
 class SaveAiConfigRequest(BaseModel):
@@ -79,3 +93,4 @@ class StoryIndexStatsResponse(BaseModel):
     phase4_tested: int = 0
     phase4_passed: int = 0
     phase5_deployed: int = 0
+    spec_drift: int = 0

@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  acknowledgeSpecDrift,
   createEpic,
   createProject,
   createStory,
@@ -35,6 +36,7 @@ import {
   type ApexPhaseStatus,
 } from "@/lib/api/workspace";
 import { useApiContext, useAuthContext, useGithubContext } from "@/lib/stores/session-store";
+import { toast } from "sonner";
 
 export function useMe() {
   const auth = useAuthContext();
@@ -108,10 +110,29 @@ export function useUpdateContextFile() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ filename, content }: { filename: string; content: string }) =>
-      updateContextFile(context!, filename, content),
-    onSuccess: () => {
+    mutationFn: ({ filename, content, note }: { filename: string; content: string; note?: string }) =>
+      updateContextFile(context!, filename, content, note),
+    onSuccess: (res) => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "context-files"] });
+      // Controlled co-evolution: a post-lock spec edit is never silent.
+      if (res.drift?.amended) {
+        const n = res.drift.affected_story_ids.length;
+        toast.warning(
+          `Spec changed after lock — ${n} downstream ${n === 1 ? "story" : "stories"} flagged for review.`,
+        );
+        void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
+      }
+    },
+  });
+}
+
+export function useAcknowledgeSpecDrift() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (storyId: number) => acknowledgeSpecDrift(context!, storyId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },
   });
 }

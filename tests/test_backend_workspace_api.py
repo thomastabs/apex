@@ -50,6 +50,7 @@ def test_story_index_stats_deployed_counts_only_explicit_deployed(monkeypatch):
         "phase4_tested": 1,
         "phase4_passed": 1,
         "phase5_deployed": 1,
+        "spec_drift": 0,
     }
 
 
@@ -270,6 +271,41 @@ def test_reset_context_file_rejects_unknown_filename():
         reset_context_file("unknown.md", RequestContext(pm_token="tok", project_id=42))
 
     assert exc_info.value.status_code == 404
+
+
+# --- Controlled spec co-evolution (roadmap #4) -----------------------------
+
+def test_update_context_file_returns_drift_on_post_lock_edit(ctx):
+    ctx.upsert_story_index(1, phase_status="implementation")
+    resp = update_context_file(
+        "technical-spec.md",
+        UpdateContextFileRequest(content="# edited spec", note="tighten auth"),
+        RequestContext(pm_token="tok", project_id=ctx._get_project_id()),
+    )
+    assert resp["drift"]["amended"] is True
+    assert resp["drift"]["affected_story_ids"] == [1]
+    assert ctx.get_story_index()["1"]["spec_drift"] is True
+
+
+def test_update_context_file_no_drift_pre_lock(ctx):
+    ctx.upsert_story_index(1, phase_status="gherkin_locked")
+    resp = update_context_file(
+        "design-bundle.md",
+        UpdateContextFileRequest(content="# edited"),
+        RequestContext(pm_token="tok", project_id=ctx._get_project_id()),
+    )
+    assert resp.get("drift") is None
+
+
+def test_acknowledge_drift_clears_flag(ctx):
+    from backend.app.api.workspace import acknowledge_spec_drift, get_amendments
+    ctx.upsert_story_index(1, phase_status="implementation")
+    ctx.amend_locked_spec("technical-spec.md", note="x")
+    rc = RequestContext(pm_token="tok", project_id=ctx._get_project_id())
+    assert acknowledge_spec_drift(1, rc) == {"ok": True}
+    assert ctx.get_story_index()["1"]["spec_drift"] is False
+    # amendment log still readable
+    assert "technical-spec.md" in get_amendments(rc)["amendments_md"]
 
 
 # ── rebuild_story_index ───────────────────────────────────────────────────────

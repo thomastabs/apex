@@ -36,6 +36,15 @@ class ContextService:
     def reset_context_file(self, filename: str) -> None:
         context_manager.reset_context_file(filename)
 
+    def amend_locked_spec(self, filename: str, note: str = "") -> dict:
+        return context_manager.amend_locked_spec(filename, note)
+
+    def clear_spec_drift(self, story_id: int) -> None:
+        context_manager.clear_spec_drift(story_id)
+
+    def get_amendments(self) -> str:
+        return context_manager.get_amendments()
+
     def context_sizes(self) -> dict[str, int]:
         return context_manager.get_context_sizes()
 

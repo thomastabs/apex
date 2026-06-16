@@ -1112,3 +1112,67 @@ class TestStoryDesignBundle:
         ctx.append_epic_design_bundle(1, "Auth", "wf1", "flow1", "tree1", "spec1")
         sliced = ctx.get_story_design_bundle(101)
         assert "spec1" in sliced  # whole file returned
+
+
+# ---------------------------------------------------------------------------
+# Controlled spec co-evolution — amendments + drift flag (roadmap #4)
+# ---------------------------------------------------------------------------
+
+class TestSpecCoEvolution:
+    GHERKIN = "Feature: X\n\n  Scenario: S\n    Given a\n    When b\n    Then c\n"
+
+    def test_post_lock_edit_flags_only_affected_stories(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(1, phase_status="implementation")  # past design_locked
+        ctx.upsert_story_index(2, phase_status="gherkin_locked")  # before design_locked
+        result = ctx.amend_locked_spec("technical-spec.md", note="tighten auth")
+        assert result["amended"] is True
+        assert result["affected_story_ids"] == [1]
+        index = ctx.get_story_index()
+        assert index["1"]["spec_drift"] is True
+        assert index["1"]["drift_reason"] == "technical-spec.md"
+        assert index["2"]["spec_drift"] is False
+
+    def test_functional_spec_locks_at_gherkin_locked(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(1, phase_status="gherkin_locked")
+        result = ctx.amend_locked_spec("functional-spec.md")
+        assert result["affected_story_ids"] == [1]
+
+    def test_pre_lock_edit_is_not_an_amendment(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(1, phase_status="gherkin_locked")  # before design_locked
+        result = ctx.amend_locked_spec("design-bundle.md")
+        assert result["amended"] is False
+        assert ctx.get_story_index()["1"]["spec_drift"] is False
+
+    def test_non_spec_file_never_drifts(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(1, phase_status="deployed")
+        assert ctx.amend_locked_spec("github-context.md")["amended"] is False
+        assert ctx.amend_locked_spec("vaccines.md")["amended"] is False
+
+    def test_amendment_logged_to_file(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(1, phase_status="qa")
+        ctx.amend_locked_spec("constraints.md", note="raise rate limit")
+        log = ctx.get_amendments()
+        assert "constraints.md" in log
+        assert "raise rate limit" in log
+        assert "#1" in log
+
+    def test_clear_spec_drift(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(1, phase_status="implementation")
+        ctx.amend_locked_spec("technical-spec.md")
+        ctx.clear_spec_drift(1)
+        assert ctx.get_story_index()["1"]["spec_drift"] is False
+        assert ctx.get_story_index()["1"]["drift_reason"] == ""
+
+    def test_save_proposal_auto_clears_drift(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(1, phase_status="implementation")
+        ctx.amend_locked_spec("technical-spec.md")
+        assert ctx.get_story_index()["1"]["spec_drift"] is True
+        ctx.save_proposal(1, 1, "## Context\nre-derived\n")
+        assert ctx.get_story_index()["1"]["spec_drift"] is False

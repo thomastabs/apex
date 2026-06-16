@@ -98,12 +98,19 @@ export function getContextFiles(context: RequestContext) {
   return apiRequest<ContextFilesResponse>("/api/workspace/context-files", { context });
 }
 
-export function updateContextFile(context: RequestContext, filename: string, content: string) {
+export function updateContextFile(context: RequestContext, filename: string, content: string, note = "") {
   return apiRequest<ContextFilesResponse>(`/api/workspace/context-files/${filename}`, {
     method: "PUT",
     context,
-    body: { content },
+    body: { content, note },
   });
+}
+
+export function acknowledgeSpecDrift(context: RequestContext, storyId: number) {
+  return apiRequest<{ ok: boolean }>(
+    `/api/workspace/context-files/story-index/stories/${storyId}/acknowledge-drift`,
+    { method: "POST", context },
+  );
 }
 
 export function resetContextFile(context: RequestContext, filename: string) {
@@ -209,6 +216,7 @@ export type StoryIndexStats = {
   phase4_tested: number;
   phase4_passed: number;
   phase5_deployed: number;
+  spec_drift: number;
 };
 
 export function getStoryIndexStats(context: RequestContext) {

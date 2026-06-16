@@ -65,10 +65,10 @@ Ranked by (thesis payoff × leverage on existing code).
 - **How:** `Phase3Pack`/`PackFile` model → `render_agentic_brief`/`render_chat_prompt`/`render_claude_md`/`render_pack_md`; test-plan handoffs via `render_agentic_test_brief`/`render_test_chat_prompt`/`append_test_plan_handoffs`. Public function signatures + section headings unchanged (zero downstream change). Design + build log: [`deterministic-compilation-plan.md`](./deterministic-compilation-plan.md).
 - **Effort:** medium. **Payoff:** high — strengthens the central thesis claim.
 
-### #4 — Controlled spec co-evolution  ·  **answers the Twin Peaks critique**
-- **Gap closed:** divergence (3) — rigid phase freezing.
-- **What:** when a downstream artifact reveals a spec problem, allow a *logged amendment* that re-propagates, instead of a silent edit or a hard freeze. Lighter version: a **drift flag** when a locked artifact is edited post-lock.
-- **How:** amendment record on story-index (who/why/what changed) + re-trigger downstream regeneration with a diff note.
+### #4 — Controlled spec co-evolution  ·  **SHIPPED 2026-06-16**
+- **Gap closed:** divergence (3) — rigid phase freezing vs Twin Peaks co-evolution.
+- **What:** a post-lock edit to a spec artifact is now first-class and controlled — logged as a dated amendment in `amendments.md` and raising a `spec_drift` flag on every downstream story (status at/after the file's lock phase), instead of a silent edit or a hard freeze. Drift auto-clears when the story's dev pack is regenerated (re-derived from the new spec), or via an explicit acknowledge action.
+- **How:** `context_manager.amend_locked_spec` (`_SPEC_LOCK_PHASE` table + `affected_stories_for_spec`); `PUT /context-files/{filename}` returns drift + optional note; `acknowledge-drift` + `amendments` routes; `spec_drift` story-index field + stats count; frontend toasts on a post-lock edit. Design + build log: [`spec-co-evolution-plan.md`](./spec-co-evolution-plan.md).
 - **Effort:** medium. **Payoff:** medium — neutralises a predictable committee objection.
 
 ### #5 — Hygiene  ·  **SHIPPED 2026-06-16**
@@ -77,13 +77,15 @@ Ranked by (thesis payoff × leverage on existing code).
 
 ---
 
-## 3. Suggested sequence
+## 3. Sequence — **ALL FIVE SHIPPED** (2026-06-15 / 06-16)
 
-`#2 (done) → #1 → #3`, with `#5` as cleanup and `#4` if time allows.
+`#2 EARS NFRs → #1 conformance → #3 deterministic compilation → #5 hygiene →
+#4 co-evolution`. Every roadmap item is now built and tested.
 
-This trio gives three citable upgrades, each tied to a named literature gap, and
-makes the novelty — *spec-as-source → multi-target agent compilation, now
-deterministic (#3) and verified against code (#1)* — the spine of the thesis.
+This gives five citable upgrades, each tied to a named literature gap, and makes
+the novelty — *spec-as-source → multi-target agent compilation, now
+deterministic (#3) and verified against code (#1), with controlled co-evolution
+(#4) and EARS non-functional coverage (#2)* — the spine of the thesis.
 
 ### One-paragraph positioning (thesis draft)
 > Apex occupies the spec-driven development paradigm (cf. GitHub Spec Kit, AWS
