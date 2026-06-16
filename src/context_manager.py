@@ -1790,6 +1790,30 @@ def get_epic_design_bundle(epic_id: int) -> dict | None:
     }
 
 
+def get_story_design_bundle(story_id: int) -> str:
+    """Design-bundle slice relevant to a story: just its epic's `## Epic {id}`
+    block when the per-epic format is in use, else the whole file.
+
+    Keeps per-task prompts (generate_tasks / generate_proposal) from growing
+    unbounded as unrelated epics are added — only the story's own epic design is
+    injected. Falls back to the full bundle for the unified single-block format
+    (write_project_design_bundle) or when the epic block isn't found, so there is
+    no regression for existing single-epic projects.
+    """
+    init_context()
+    db = _path("design-bundle.md")
+    if not db.exists():
+        return ""
+    content = db.read_text(encoding="utf-8")
+    entry = get_story_index().get(str(story_id)) or {}
+    epic_id = entry.get("epic_id")
+    if epic_id is not None:
+        m = re.search(rf"\n## Epic {epic_id}:.*?(?=\n## |\Z)", content, flags=re.DOTALL)
+        if m:
+            return m.group(0).strip()
+    return content
+
+
 _CROSS_EPIC_CONTEXT_CHAR_LIMIT = 50_000
 
 

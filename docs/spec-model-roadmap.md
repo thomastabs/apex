@@ -71,9 +71,9 @@ Ranked by (thesis payoff × leverage on existing code).
 - **How:** amendment record on story-index (who/why/what changed) + re-trigger downstream regeneration with a diff note.
 - **Effort:** medium. **Payoff:** medium — neutralises a predictable committee objection.
 
-### #5 — Hygiene  ·  **low thesis value, do alongside the above**
-- Per-epic slicing of `technical-spec` injection (today the flat file is injected wholesale and grows unbounded).
-- Non-truncated pack digests (`_pack_digest` currently char-truncates at 700, can silently drop files from the consistency signal — slice by section/line instead).
+### #5 — Hygiene  ·  **SHIPPED 2026-06-16**
+- **Per-epic design-bundle slicing:** `generate_tasks` / `generate_proposal` now inject only the story's own epic block (`context_manager.get_story_design_bundle(story_id)` → `## Epic {id}` slice; falls back to the full file for the unified single-block format or when no epic matches) instead of the whole `design-bundle.md`. Stops per-task prompts growing unbounded as unrelated epics are added. (Note: the wholesale-injected flat file was the design bundle; per-story `technical-spec` was already sliced via `get_story_technical_spec`.)
+- **Non-truncated pack digests:** `_pack_digest` no longer hard-caps the joined string at 700 chars (which could silently drop files). The Files to Change list — the cross-pack consistency signal — is never truncated; only the prose Context is bounded at a word boundary.
 
 ---
 

@@ -90,6 +90,9 @@ class FakeContextService:
     def story_technical_spec(self, story_id: int) -> str:
         return _FAKE_TECH_SPEC
 
+    def story_design_bundle(self, story_id: int) -> str:
+        return _FAKE_DESIGN_BUNDLE
+
     def read_project_concept(self) -> str:
         return "A project about authentication."
 

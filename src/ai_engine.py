@@ -1508,22 +1508,35 @@ Technical Spec (endpoint contracts):
 """
 
 
-def _pack_digest(md: str, *, max_chars: int = 700) -> str:
+def _pack_digest(md: str, *, max_chars: int = 700, max_context_chars: int = 600) -> str:
     """Compact slice of a developer pack for cross-task consistency context.
 
     Returns the Context + Files to Change sections (the shared file/entity/
     endpoint surface that sibling packs must agree on) rather than the full
     pack — keeps the cross-awareness signal without dumping Implementation
-    Steps / Chat Prompt / CLAUDE.md into every other generation. Falls back to
-    a head slice when those sections aren't present.
+    Steps / Chat Prompt / CLAUDE.md into every other generation.
+
+    Only the prose Context is length-bounded (at a word boundary). The Files to
+    Change list is NEVER truncated: it is the consistency signal, and a hard
+    char cap could silently drop files and let sibling packs diverge on paths.
+    Falls back to a head slice (max_chars) only when no sections are present.
     """
-    sections = []
-    for heading in ("## Context", "## Files to Change"):
+    def _section(heading: str) -> str:
         m = re.search(rf"{re.escape(heading)}\n(.*?)(?=\n## |\Z)", md or "", re.DOTALL)
-        if m and m.group(1).strip():
-            sections.append(f"{heading}\n{m.group(1).strip()}")
-    digest = "\n\n".join(sections) if sections else (md or "").strip()
-    return digest[:max_chars]
+        return m.group(1).strip() if m else ""
+
+    sections: list[str] = []
+    ctx = _section("## Context")
+    if ctx:
+        if len(ctx) > max_context_chars:
+            ctx = ctx[:max_context_chars].rsplit(" ", 1)[0].rstrip() + "…"
+        sections.append(f"## Context\n{ctx}")
+    files = _section("## Files to Change")
+    if files:
+        sections.append(f"## Files to Change\n{files}")  # never truncated
+    if sections:
+        return "\n\n".join(sections)
+    return (md or "").strip()[:max_chars]
 
 
 def _format_pack_digests(packs: list[dict] | None) -> str:

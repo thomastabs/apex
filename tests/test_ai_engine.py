@@ -598,6 +598,18 @@ class TestPackDigest:
         d = _pack_digest("plain pack with no headings " * 100, max_chars=50)
         assert len(d) == 50
 
+    def test_files_list_never_truncated(self):
+        from src.ai_engine import _pack_digest
+        files = "\n".join(f"- `pkg/module_{i}.py` — change {i}" for i in range(10))
+        md = f"## Context\n{'x ' * 600}\n\n## Files to Change\n{files}\n\n## Chat Prompt\nnoise\n"
+        d = _pack_digest(md)
+        # every file survives — the consistency signal is never dropped
+        for i in range(10):
+            assert f"pkg/module_{i}.py" in d
+        # the prose Context is bounded (was 1200 chars)
+        ctx_part = d.split("## Files to Change")[0]
+        assert len(ctx_part) < 1200 and ctx_part.rstrip().endswith("…")
+
 
 class TestConstraints:
     """EARS non-functional-requirement model + formatting (no LLM)."""

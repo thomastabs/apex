@@ -1073,3 +1073,42 @@ class TestStoryIndexConcurrency:
         index = ctx.get_story_index()
         assert "2" in index
         assert "1" not in index
+
+
+# ---------------------------------------------------------------------------
+# get_story_design_bundle — per-epic slice (roadmap #5 hygiene)
+# ---------------------------------------------------------------------------
+
+class TestStoryDesignBundle:
+    GHERKIN = (
+        "Feature: X\n\n"
+        "  Scenario: S\n"
+        "    Given a\n"
+        "    When b\n"
+        "    Then c\n"
+    )
+
+    def test_returns_only_the_storys_epic_block(self, ctx):
+        ctx.init_context()
+        ctx.append_gherkin(101, "Login", self.GHERKIN, epic_id=1, epic_title="Auth")
+        ctx.append_gherkin(201, "Cart", self.GHERKIN, epic_id=2, epic_title="Shop")
+        ctx.append_epic_design_bundle(1, "Auth", "wf1", "flow1", "tree1", "spec1")
+        ctx.append_epic_design_bundle(2, "Shop", "wf2", "flow2", "tree2", "spec2")
+        sliced = ctx.get_story_design_bundle(101)
+        assert "## Epic 1: Auth" in sliced and "spec1" in sliced
+        # unrelated epic excluded — this is the unbounded-growth fix
+        assert "Epic 2" not in sliced and "spec2" not in sliced
+
+    def test_falls_back_to_full_bundle_for_unified_format(self, ctx):
+        ctx.init_context()
+        ctx.append_gherkin(101, "Login", self.GHERKIN, epic_id=1, epic_title="Auth")
+        ctx.write_project_design_bundle("ux brief", "endpoint list", "the data model")
+        sliced = ctx.get_story_design_bundle(101)
+        assert "## UX Brief" in sliced and "the data model" in sliced
+
+    def test_falls_back_when_story_has_no_epic_id(self, ctx):
+        ctx.init_context()
+        ctx.append_gherkin(101, "Login", self.GHERKIN)  # flat, no epic
+        ctx.append_epic_design_bundle(1, "Auth", "wf1", "flow1", "tree1", "spec1")
+        sliced = ctx.get_story_design_bundle(101)
+        assert "spec1" in sliced  # whole file returned

@@ -87,7 +87,7 @@ class Phase3Service:
             raise Phase3ValidationError(f"Story {story_id} has no Gherkin content.")
         technical_spec = self.context.story_technical_spec(story_id)
         tech_stack = self.context.read_tech_stack()
-        design_bundle = self.context.read_context_file("design-bundle.md")
+        design_bundle = self.context.story_design_bundle(story_id)
         github_context = self.context.read_context_file("github-context.md")
         return self.ai.generate_tasks(
             story_title, gherkin, technical_spec,
@@ -121,7 +121,7 @@ class Phase3Service:
         gherkin = self.context.story_gherkin(story_id)
         technical_spec = self.context.story_technical_spec(story_id)
         tech_stack = self.context.read_tech_stack()
-        design_bundle = self.context.read_context_file("design-bundle.md")
+        design_bundle = self.context.story_design_bundle(story_id)
         github_context = self.context.read_context_file("github-context.md")
         constraints = self.context.read_context_file("constraints.md")
         other_tasks = [t for t in (all_tasks or []) if t.get("subject") != task_subject]

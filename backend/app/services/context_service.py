@@ -83,6 +83,9 @@ class ContextService:
     def story_technical_spec(self, story_id: int) -> str:
         return context_manager.get_story_technical_spec(story_id)
 
+    def story_design_bundle(self, story_id: int) -> str:
+        return context_manager.get_story_design_bundle(story_id)
+
     def save_proposal(self, story_id: int, task_id: int, proposal_md: str) -> None:
         context_manager.save_proposal(story_id, task_id, proposal_md)
 
