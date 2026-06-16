@@ -1,11 +1,5 @@
-import { PhasePlaceholder } from "@/components/phase-placeholder";
+import { Phase6Workflow } from "@/components/phase6-workflow";
 
 export default function Phase6Page() {
-  return (
-    <PhasePlaceholder
-      phase="Phase 6"
-      title="Maintenance"
-      description="Continuous evolution, bug remediation, vaccine records, and knowledge capture."
-    />
-  );
+  return <Phase6Workflow />;
 }

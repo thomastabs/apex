@@ -30,7 +30,7 @@ function useCommands() {
     { id: "phase3", label: "Go to Phase 3 — Implementation", keywords: "phase3 implementation code",           icon: <Command className="size-3.5" />, action: () => router.push("/phase3") },
     { id: "phase4", label: "Go to Phase 4 — Testing",      keywords: "phase4 testing qa bdd",                  icon: <Command className="size-3.5" />, action: () => router.push("/phase4") },
     { id: "phase5", label: "Go to Phase 5 — Deployment",   keywords: "phase5 deployment deploy",               icon: <Command className="size-3.5" />, action: () => router.push("/phase5") },
-    { id: "phase6", label: "Go to Phase 6 — Monitoring",   keywords: "phase6 monitoring observability",        icon: <Command className="size-3.5" />, action: () => router.push("/phase6") },
+    { id: "phase6", label: "Go to Phase 6 — Traceability", keywords: "phase6 maintenance traceability conformance spec code", icon: <Command className="size-3.5" />, action: () => router.push("/phase6") },
     {
       id: "theme",
       label: `Switch to ${theme === "dark" ? "Light" : "Dark"} Mode`,

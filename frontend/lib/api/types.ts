@@ -475,3 +475,53 @@ export type VerificationMatrixPayload = {
   };
   complete: boolean;
 };
+
+// ---------------------------------------------------------------------------
+// Phase 6 — Spec↔Code Conformance (Traceability Explorer)
+// ---------------------------------------------------------------------------
+
+export type ConformanceEligibleStory = {
+  story_id: number;
+  title: string;
+  epic_title: string;
+  phase_status: string;
+  has_conformance: boolean;
+  score: number | null;
+};
+
+export type ConformanceEligibleStoriesResponse = {
+  stories: ConformanceEligibleStory[];
+};
+
+export type EndpointConformance = {
+  contract: string;
+  status: "present" | "missing" | "mismatch" | "unknown";
+  location: string;
+  notes: string;
+};
+
+export type ScenarioConformance = {
+  scenario: string;
+  status: "tested" | "untested" | "partial" | "unknown";
+  test_location: string;
+  notes: string;
+};
+
+export type ConstraintConformance = {
+  constraint_id: string;
+  status: "addressed" | "not_found" | "unknown";
+  evidence: string;
+};
+
+export type ConformanceReport = {
+  story_id: number;
+  title: string;
+  epic_title: string;
+  layer: string;
+  score: number;
+  summary: string;
+  endpoints: EndpointConformance[];
+  scenarios: ScenarioConformance[];
+  constraints: ConstraintConformance[];
+  generated_at: string;
+};
