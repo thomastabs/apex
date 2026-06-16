@@ -58,11 +58,11 @@ Ranked by (thesis payoff × leverage on existing code).
 - **Where:** `ai_engine.generate_constraints`/`format_constraints` (Constraint/ConstraintList models, category + EARS-type normalisation); `POST /api/phase1/generate-constraints|save-constraints`, `GET /api/phase1/constraints`; "Generate with AI" button on the constraints context file (Phase 1/3/4 panels).
 - **Follow-ups:** richer per-constraint editing UI; verify NFRs in the conformance check (#1).
 
-### #3 — Deterministic agent-target compilation  ·  **hardens the core innovation**
+### #3 — Deterministic agent-target compilation  ·  **SHIPPED 2026-06-16**
 - **Gap closed:** the overengineering flaw in the multi-target-compilation contribution.
-- **What:** stop AI-regenerating the four export wrappers (Agentic Brief / Chat Prompt / CLAUDE.md / Agentic Test Brief). Generate ONE structured pack; render wrappers in code (pure template functions).
-- **Why:** a real compiler is deterministic, not four stochastic re-serialisations. Cuts tokens, kills cross-wrapper drift, and reframes a weakness as rigour.
-- **How:** `Phase3Pack` structured model → `render_agentic_brief()`, `render_chat_prompt()`, `render_claude_md()`. Same for the test-plan handoff sections.
+- **What:** stopped AI-regenerating the export wrappers (Agentic Brief / Chat Prompt / CLAUDE.md Snippet; Agentic Test Brief / Chat Prompt). The AI now emits ONE structured pack / per-scenario plan; the wrappers are rendered by pure code templates over the same fields — so they cannot drift.
+- **Why:** a real compiler is deterministic, not stochastic re-serialisation. Cuts tokens, kills cross-wrapper drift, reframes a weakness as rigour.
+- **How:** `Phase3Pack`/`PackFile` model → `render_agentic_brief`/`render_chat_prompt`/`render_claude_md`/`render_pack_md`; test-plan handoffs via `render_agentic_test_brief`/`render_test_chat_prompt`/`append_test_plan_handoffs`. Public function signatures + section headings unchanged (zero downstream change). Design + build log: [`deterministic-compilation-plan.md`](./deterministic-compilation-plan.md).
 - **Effort:** medium. **Payoff:** high — strengthens the central thesis claim.
 
 ### #4 — Controlled spec co-evolution  ·  **answers the Twin Peaks critique**

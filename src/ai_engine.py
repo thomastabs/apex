@@ -1369,82 +1369,134 @@ def generate_tasks(
     return _reconcile_task_list(result, gherkin)
 
 
+class PackFile(BaseModel):
+    path: str = Field(description="File path to create or modify", max_length=200)
+    change: str = Field(description="One-line description of what changes", max_length=300)
+
+
+class Phase3Pack(BaseModel):
+    """Structured Developer Pack. The genuine content is produced ONCE by the AI;
+    the agent-export wrappers (Agentic Brief / Chat Prompt / CLAUDE.md Snippet)
+    are rendered deterministically in code — see render_pack_md. This makes
+    multi-target compilation a real transform, not four stochastic restatements."""
+    context: str = Field(description="One paragraph: tech stack, the story this task belongs to, what this task does. Reference relevant endpoint(s)/UI component(s) from the design bundle.")
+    implementation_steps: list[str] = Field(
+        description="5-10 file-level, action-oriented steps. Reference exact endpoint signatures (method/path/auth/fields) from the Technical Spec and exact entity names/fields from the Data Model. Never vague — say what to do and where.",
+        max_length=10,
+    )
+    files_to_change: list[PackFile] = Field(
+        description="≤10 files to create/modify. Use exact paths from the GitHub file tree if provided, else infer from tech-stack conventions.",
+        max_length=10,
+    )
+    test_assertions: list[str] = Field(
+        description="One per Gherkin Then step, phrased as a testable statement (e.g. 'POST /auth/login with valid credentials returns 200 and a JWT token').",
+        max_length=20,
+    )
+    task_verb: str = Field(description="Imperative verb phrase ≤10 words — what to implement.", max_length=120)
+    verify_command: str = Field(
+        description="The correct test command for this stack (e.g. 'pytest tests/test_x.py -k scenario', 'npm test -- --testPathPattern=x'); if genuinely ambiguous, '# run tests covering <module>'.",
+        max_length=200,
+    )
+    constraints: list[str] = Field(
+        default_factory=list,
+        description="Agent constraints — no new deps, reuse existing middleware, specific patterns. Honour any non-functional requirements provided.",
+        max_length=10,
+    )
+    goal: str = Field(description="One sentence — what this task achieves when complete.", max_length=300)
+    done_when: str = Field(description="One sentence summarising the primary test assertion.", max_length=300)
+
+
+def _fmt_file_list(files: list[PackFile]) -> str:
+    """Backtick-wrapped comma-joined file paths — the shared surface every
+    wrapper must agree on (rendered once, so they cannot drift)."""
+    return ", ".join(f"`{f.path}`" for f in files) or "(none)"
+
+
+def render_agentic_brief(pack: Phase3Pack) -> str:
+    """Terse copy-paste directive for agentic coding tools (Claude Code, Codex)."""
+    constraints = "\n".join(f"- {c}" for c in pack.constraints) or "- (none)"
+    return (
+        f"**Task**: {pack.task_verb}\n"
+        f"**Files**: {_fmt_file_list(pack.files_to_change)}\n"
+        f"**Verify**: `{pack.verify_command}`\n"
+        f"**Constraints**:\n{constraints}\n"
+        f"**Done when**: all Test Assertions pass and no pre-existing tests break."
+    )
+
+
+def render_chat_prompt(
+    pack: Phase3Pack, *, tech_stack: str, story_ref: str, gherkin: str,
+    task_subject: str, task_description: str,
+) -> str:
+    """Self-contained prompt for chat interfaces (Claude.ai, ChatGPT, Cursor)."""
+    steps = "\n".join(f"{i}. {s}" for i, s in enumerate(pack.implementation_steps, 1))
+    coverage = "\n".join(f"- {a}" for a in pack.test_assertions)
+    return (
+        "You are implementing a specific task in a software project.\n\n"
+        f"**Tech Stack**: {tech_stack or 'Not specified'}\n"
+        f"**Story**: {story_ref}\n"
+        "**Acceptance Criteria**:\n"
+        f"{gherkin.strip() or 'Not specified'}\n\n"
+        f"**Your Task**: {task_subject}\n"
+        f"{task_description.strip()}\n\n"
+        "**Implementation Steps**:\n"
+        f"{steps}\n\n"
+        "**Required Test Coverage**:\n"
+        f"{coverage}"
+    )
+
+
+def render_claude_md(pack: Phase3Pack, *, story_ref: str, task_subject: str) -> str:
+    """Compact block for a project's CLAUDE.md (persistent task context)."""
+    return (
+        f"### Active Task: {task_subject}\n"
+        f"**Story**: {story_ref}\n"
+        f"**Goal**: {pack.goal}\n"
+        f"**Key files**: {_fmt_file_list(pack.files_to_change)}\n"
+        f"**Done when**: {pack.done_when}\n"
+        "*Delete this section once the task is complete.*"
+    )
+
+
+def render_pack_md(
+    pack: Phase3Pack, *, task_subject: str, task_description: str,
+    story_ref: str, tech_stack: str, gherkin: str,
+) -> str:
+    """Assemble the full seven-section Developer Pack markdown. Headings are
+    byte-identical to the legacy format (frontend, _pack_digest, and the Phase-6
+    conformance parser key off them). Content sections come from the structured
+    fields; the last three sections delegate to the pure wrapper renderers."""
+    steps = "\n".join(f"{i}. {s}" for i, s in enumerate(pack.implementation_steps, 1))
+    files = "\n".join(f"- `{f.path}` — {f.change}" for f in pack.files_to_change)
+    assertions = "\n".join(f"- {a}" for a in pack.test_assertions)
+    return (
+        f"## Context\n{pack.context.strip()}\n\n"
+        f"## Implementation Steps\n{steps}\n\n"
+        f"## Files to Change\n{files}\n\n"
+        f"## Test Assertions\n{assertions}\n\n"
+        f"## Agentic Brief\n{render_agentic_brief(pack)}\n\n"
+        f"## Chat Prompt\n{render_chat_prompt(pack, tech_stack=tech_stack, story_ref=story_ref, gherkin=gherkin, task_subject=task_subject, task_description=task_description)}\n\n"
+        f"## CLAUDE.md Snippet\n{render_claude_md(pack, story_ref=story_ref, task_subject=task_subject)}\n"
+    )
+
+
 _GENERATE_PROPOSAL_SYSTEM = """\
 You are a Senior Developer operating within the Apex Framework.
 Given a specific implementation task within a user story, produce a structured Developer Pack —
-a concise, actionable guide a developer can hand to an AI coding assistant and immediately start working.
-
-Output EXACTLY these seven sections in order, using these exact headings:
-
-## Context
-One paragraph. State the tech stack, the story this task belongs to, and what this task specifically does.
-Reference the relevant endpoint(s) or UI component(s) from the design bundle.
-
-## Implementation Steps
-Numbered list. Each step is file-level and action-oriented (e.g. "1. Create `src/models/user.py` — define User SQLAlchemy model with fields: id, email, hashed_password, created_at").
-Reference exact endpoint signatures from the Technical Spec (method, path, auth, request/response fields).
-Reference exact entity names and fields from the Data Model.
-5-10 steps maximum.
-
-## Files to Change
-Bulleted list of files to create or modify for this specific task.
-Each entry: `path/to/file.ext` — one-line description of what changes.
-Use exact paths from the GitHub file tree if provided; otherwise infer from tech stack conventions.
-Maximum 10 files.
-
-## Test Assertions
-Bulleted list derived directly from the story's Gherkin scenarios.
-Each assertion maps to one Gherkin Then step — phrase it as a testable statement (e.g. "POST /auth/login with valid credentials returns 200 and a JWT token").
-
-## Agentic Brief
-Terse copy-paste directive for agentic coding tools (Claude Code, Codex, Windsurf). No narrative. Use exactly this format:
-
-**Task**: <imperative verb phrase, ≤10 words — what to implement>
-**Files**: `file1`, `file2` (exact paths from Files to Change above)
-**Verify**: `<infer the correct test command from the tech stack — e.g. pytest tests/test_X.py -k "scenario", npm test -- --testPathPattern=X, go test ./...>` — if genuinely ambiguous write `# run tests covering <module>`
-**Constraints**:
-- <constraint 1 — e.g. no new dependencies, use existing auth middleware>
-- <constraint 2 — specific library or pattern to follow>
-**Done when**: all Test Assertions pass and no pre-existing tests break.
-
-Tech stack (use to infer verify command): {tech_stack}
-
-## Chat Prompt
-Self-contained prompt for chat interfaces (Claude.ai, ChatGPT, Cursor chat).
-Include: tech stack, story reference, acceptance criteria, task description, implementation steps, required test coverage.
-Format:
-
-You are implementing a specific task in a software project.
-
-**Tech Stack**: {tech_stack}
-**Story**: {story_ref}
-**Acceptance Criteria**:
-<paste Gherkin here>
-
-**Your Task**: <task_subject>
-<task_description>
-
-**Implementation Steps**:
-<numbered steps>
-
-**Required Test Coverage**:
-<test assertions>
-
-## CLAUDE.md Snippet
-A compact block developers paste into their project's CLAUDE.md to give Claude Code persistent task context.
-Use exactly this format:
-
-### Active Task: <task_subject>
-**Story**: {story_ref}
-**Goal**: <one sentence — what this task achieves when complete>
-**Key files**: `file1`, `file2` (from Files to Change)
-**Done when**: <one sentence summarising the primary test assertion>
-*Delete this section once the task is complete.*
+the genuine, grounded content a developer hands to an AI coding assistant. Produce ONLY the
+structured fields requested (the agent-export wrappers are assembled separately): do not write
+"Agentic Brief", "Chat Prompt", or "CLAUDE.md" prose.
 
 Rules:
-- Never invent endpoints, entities, or components not present in the Technical Spec or Design Bundle.
-- Never include vague steps like "add error handling" — be specific about what to catch and where.
-- Chat Prompt and CLAUDE.md Snippet must be fully self-contained — no references to external documents.
+- Ground everything ONLY in the provided spec. Never invent endpoints, entities, or components
+  not present in the Technical Spec or Design Bundle.
+- Implementation steps are file-level and specific — never vague like "add error handling";
+  say exactly what to handle and where. Reference exact endpoint signatures (method, path, auth,
+  request/response fields) and exact entity names/fields.
+- test_assertions: derive one per Gherkin Then step, phrased as a testable statement.
+- files_to_change: use exact paths from the GitHub file tree if provided; else infer from the
+  tech-stack conventions.
+- verify_command / task_verb / goal / done_when / constraints: concrete, grounded in this task.
 
 Tech Stack: {tech_stack}
 
@@ -1503,7 +1555,6 @@ def generate_coding_proposal(
         tech_stack=fence_user_content(tech_stack.strip() or "Not specified"),
         design_bundle=fence_user_content(design_bundle.strip() or "Not specified"),
         technical_spec=fence_user_content(technical_spec.strip() or "Not specified"),
-        story_ref=story_ref or "this story",
     )
     if other_tasks:
         lines = []
@@ -1540,11 +1591,23 @@ def generate_coding_proposal(
     )
     if hint.strip():
         human += (
-            "Implementation Hint (prioritise in Implementation Steps and AI Prompt): "
+            "Implementation Hint (prioritise in the implementation steps): "
             + fence_user_content(hint) + "\n\n"
         )
-    human += "Generate the Developer Pack for this task."
-    return _ai_retry(lambda: _invoke(system, human, get_model(), max_tokens=6000, timeout=300, temperature=0.2))
+    human += "Produce the structured Developer Pack for this task."
+    pack = _ai_retry(lambda: _invoke_structured_with_progress(
+        system, human, get_model(), Phase3Pack,
+        max_tokens=4000, temperature=0.2, item_field="implementation_steps",
+    ))
+    # Wrappers are rendered deterministically — never AI-regenerated.
+    return render_pack_md(
+        pack,
+        task_subject=task_subject,
+        task_description=task_description,
+        story_ref=story_ref or "this story",
+        tech_stack=tech_stack,
+        gherkin=gherkin,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1708,40 +1771,8 @@ without inventing behaviour. Provide:
 
 ---
 
-After all per-scenario sections, output these two handoff sections ONCE for the whole story
-(exact headings) so a dev/QA can export the plan and have an AI agent write the tests:
-
-## Agentic Test Brief
-Terse copy-paste directive for a test-automation agent (Claude Code, Codex, Cursor):
-
-**Task**: Write automated BDD tests covering every scenario above
-**Framework**: <infer the BDD/test framework from the tech stack — e.g. pytest-bdd or behave (Python), jest-cucumber or Cucumber.js (JS/TS), Cucumber-JVM (Java); if no BDD library fits, use the stack's standard test runner with one test per scenario>
-**Test files**: <infer paths from tech-stack conventions — e.g. `tests/features/<story>.feature` + `tests/steps/`, or `tests/test_<story>.py`>
-**Run**: <infer the test command from the tech stack — e.g. `pytest`, `npm test`>
-**Constraints**:
-- One test per Gherkin scenario; assert every Then from that scenario's BDD Mapping.
-- Exercise only the endpoints/entities named in the BDD Mappings — invent nothing.
-- Add the listed Edge Cases as extra test cases.
-**Done when**: every scenario has a passing automated test and the edge cases are covered.
-
-## Chat Prompt
-A self-contained prompt a dev/QA pastes into a chat AI to generate the tests. Fill it in completely
-(no placeholders left) from this plan's own content:
-
-You are writing automated BDD tests for a user story.
-
-**Tech Stack**: {tech_stack}
-**User Story**: <the story title>
-**Acceptance Criteria (Gherkin)**:
-<paste the full Gherkin here>
-
-**Per-scenario BDD mappings (steps, endpoints/entities, fixtures, assertions)**:
-<paste each scenario's BDD Mapping from above>
-
-**Your task**: implement one automated test per scenario in the project's BDD/test framework,
-asserting every Then. Cover the edge cases. Do not invent endpoints, fields, or scenarios.
-
----
+Output ONLY the per-scenario sections above. Do NOT write any "Agentic Test Brief" or "Chat Prompt"
+handoff section — those are assembled separately and deterministically from your per-scenario output.
 
 The human-facing sections (Test Steps, Expected Results, Edge Cases, Risk Areas) stay prose for a
 QA engineer in a staging environment — no code, no CSS selectors there. The BDD Mapping section is
@@ -1819,8 +1850,66 @@ def generate_test_plan(
         + "Acceptance Criteria (Gherkin):\n" + fence_user_content(gherkin)
         + "\n\nGenerate the QA Test Plan for all scenarios above."
     )
-    # Larger budget: per-scenario sections + the two agent-handoff sections.
-    return _ai_retry(lambda: _invoke(system, human, get_model(), max_tokens=8000, timeout=300))
+    plan_md = _ai_retry(lambda: _invoke(system, human, get_model(), max_tokens=8000, timeout=300))
+    # Agent-handoff sections are rendered deterministically — never AI-regenerated.
+    return append_test_plan_handoffs(
+        plan_md, tech_stack=tech_stack, story_subject=story_subject, gherkin=gherkin,
+    )
+
+
+_BDD_MAPPING_RE = re.compile(r"### BDD Mapping\n(.*?)(?=\n## |\n### |\Z)", re.DOTALL)
+
+
+def render_agentic_test_brief() -> str:
+    """Terse copy-paste directive for a test-automation agent. Framework/run are
+    intentionally left for the agent to infer from the repo so the brief stays
+    stack-agnostic and never drifts from the Chat Prompt."""
+    return (
+        "**Task**: Write automated BDD tests covering every scenario above\n"
+        "**Framework**: use the project's BDD/test framework (e.g. pytest-bdd or behave for Python, "
+        "jest-cucumber or Cucumber.js for JS/TS, Cucumber-JVM for Java); if none fits, use the stack's "
+        "standard test runner with one test per scenario\n"
+        "**Test files**: follow the repo's existing test-path conventions\n"
+        "**Run**: the project's standard test command\n"
+        "**Constraints**:\n"
+        "- One test per Gherkin scenario; assert every Then from that scenario's BDD Mapping.\n"
+        "- Exercise only the endpoints/entities named in the BDD Mappings — invent nothing.\n"
+        "- Add the listed Edge Cases as extra test cases.\n"
+        "**Done when**: every scenario has a passing automated test and the edge cases are covered."
+    )
+
+
+def render_test_chat_prompt(
+    plan_md: str, *, tech_stack: str, story_subject: str, gherkin: str,
+) -> str:
+    """Self-contained chat prompt to generate the tests. The per-scenario BDD
+    Mappings are extracted from the plan (not restated by the model)."""
+    mappings = "\n\n".join(m.group(1).strip() for m in _BDD_MAPPING_RE.finditer(plan_md or ""))
+    return (
+        "You are writing automated BDD tests for a user story.\n\n"
+        f"**Tech Stack**: {tech_stack or 'Not specified'}\n"
+        f"**User Story**: {story_subject}\n"
+        "**Acceptance Criteria (Gherkin)**:\n"
+        f"{gherkin.strip() or 'Not specified'}\n\n"
+        "**Per-scenario BDD mappings (steps, endpoints/entities, fixtures, assertions)**:\n"
+        f"{mappings or '(see the per-scenario BDD Mapping sections above)'}\n\n"
+        "**Your task**: implement one automated test per scenario in the project's BDD/test "
+        "framework, asserting every Then. Cover the edge cases. Do not invent endpoints, fields, "
+        "or scenarios."
+    )
+
+
+def append_test_plan_handoffs(
+    plan_md: str, *, tech_stack: str, story_subject: str, gherkin: str,
+) -> str:
+    """Append the two deterministic agent-handoff sections to a test plan."""
+    return (
+        plan_md.rstrip()
+        + "\n\n## Agentic Test Brief\n" + render_agentic_test_brief()
+        + "\n\n## Chat Prompt\n"
+        + render_test_chat_prompt(plan_md, tech_stack=tech_stack, story_subject=story_subject, gherkin=gherkin)
+        + "\n"
+    )
 
 
 def generate_bug_report(

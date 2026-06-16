@@ -884,3 +884,137 @@ class TestVerifyConformance:
         ai.verify_spec_conformance(
             "Login", _GHERKIN_FIXTURE, _TECH_SPEC_FIXTURE, _GITHUB_CONTEXT_FIXTURE)
         assert "Layer-A deterministic pre-check" in captured["human"]
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 · Deterministic agent-target compilation (roadmap #3, no LLM)
+# ---------------------------------------------------------------------------
+
+def _fake_pack():
+    from src.ai_engine import Phase3Pack, PackFile
+    return Phase3Pack(
+        context="Implements login for the Auth story using FastAPI + JWT.",
+        implementation_steps=["Create models/user.py", "Add POST /auth/login route"],
+        files_to_change=[
+            PackFile(path="backend/api/auth.py", change="add login route"),
+            PackFile(path="backend/models/user.py", change="User model"),
+        ],
+        test_assertions=["POST /auth/login with valid creds returns 200 + token"],
+        task_verb="Implement the login endpoint",
+        verify_command="pytest tests/test_auth.py -k login",
+        constraints=["reuse existing auth middleware", "no new dependencies"],
+        goal="Users can sign in and receive a JWT.",
+        done_when="POST /auth/login returns a token for valid credentials.",
+    )
+
+
+class TestDeterministicPack:
+    """Pack wrappers are rendered in code, never AI-regenerated."""
+
+    def test_render_pack_md_has_all_seven_headings_in_order(self):
+        from src.ai_engine import render_pack_md
+        md = render_pack_md(
+            _fake_pack(), task_subject="Login", task_description="Build login.",
+            story_ref="Story 1", tech_stack="FastAPI", gherkin="Scenario: x\n  Then y")
+        headings = [
+            "## Context", "## Implementation Steps", "## Files to Change",
+            "## Test Assertions", "## Agentic Brief", "## Chat Prompt", "## CLAUDE.md Snippet",
+        ]
+        positions = [md.find(h) for h in headings]
+        assert all(p != -1 for p in positions)
+        assert positions == sorted(positions)  # in order
+
+    def test_wrappers_cite_the_same_files_no_drift(self):
+        from src.ai_engine import render_agentic_brief, render_claude_md
+        pack = _fake_pack()
+        brief = render_agentic_brief(pack)
+        claude = render_claude_md(pack, story_ref="Story 1", task_subject="Login")
+        # Both wrappers cite the exact same file set — drift is structurally impossible.
+        for f in ("`backend/api/auth.py`", "`backend/models/user.py`"):
+            assert f in brief
+            assert f in claude
+
+    def test_agentic_brief_format(self):
+        from src.ai_engine import render_agentic_brief
+        b = render_agentic_brief(_fake_pack())
+        assert b.startswith("**Task**: Implement the login endpoint")
+        assert "**Verify**: `pytest tests/test_auth.py -k login`" in b
+        assert "- reuse existing auth middleware" in b
+        assert "**Done when**: all Test Assertions pass" in b
+
+    def test_chat_prompt_is_self_contained(self):
+        from src.ai_engine import render_chat_prompt
+        p = render_chat_prompt(
+            _fake_pack(), tech_stack="FastAPI", story_ref="Story 1",
+            gherkin="Scenario: login\n  Then token", task_subject="Login",
+            task_description="Build login.")
+        assert "**Tech Stack**: FastAPI" in p
+        assert "Scenario: login" in p
+        assert "1. Create models/user.py" in p
+        assert "POST /auth/login with valid creds returns 200 + token" in p
+
+    def test_claude_md_format(self):
+        from src.ai_engine import render_claude_md
+        c = render_claude_md(_fake_pack(), story_ref="Story 1", task_subject="Login")
+        assert c.startswith("### Active Task: Login")
+        assert "**Goal**: Users can sign in" in c
+        assert "*Delete this section once the task is complete.*" in c
+
+    def test_generate_coding_proposal_renders_from_structured(self, monkeypatch):
+        import src.ai_engine as ai
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress", lambda *a, **k: _fake_pack())
+        md = ai.generate_coding_proposal(
+            "Login", "Build login.", "Scenario: x\n  Then y", _TECH_SPEC_FIXTURE,
+            tech_stack="FastAPI", story_ref="Story 1")
+        assert "## Agentic Brief" in md and "## CLAUDE.md Snippet" in md
+        assert "`backend/api/auth.py`" in md
+        # _pack_digest still parses the rendered output
+        assert "## Context" in ai._pack_digest(md)
+
+
+_PLAN_PROSE = """\
+## Scenario: User signs in
+### Test Steps
+1. Open login page.
+### BDD Mapping
+- **Given/When/Then**: Given a user, When they log in, Then a token is returned.
+- **Assertions**: 200 + token field.
+"""
+
+
+class TestDeterministicTestPlanHandoffs:
+    """Test-plan agent handoffs are rendered in code, never AI-regenerated."""
+
+    def test_append_adds_both_sections(self):
+        from src.ai_engine import append_test_plan_handoffs
+        out = append_test_plan_handoffs(
+            _PLAN_PROSE, tech_stack="FastAPI", story_subject="Login",
+            gherkin="Scenario: login\n  Then token")
+        assert "## Agentic Test Brief" in out
+        assert "## Chat Prompt" in out
+        # per-scenario prose preserved
+        assert "## Scenario: User signs in" in out
+
+    def test_chat_prompt_extracts_bdd_mappings_from_prose(self):
+        from src.ai_engine import render_test_chat_prompt
+        p = render_test_chat_prompt(
+            _PLAN_PROSE, tech_stack="FastAPI", story_subject="Login",
+            gherkin="Scenario: login\n  Then token")
+        assert "**Tech Stack**: FastAPI" in p
+        # the BDD Mapping body is lifted from the plan, not restated by a model
+        assert "Given a user, When they log in, Then a token is returned." in p
+
+    def test_chat_prompt_survives_missing_mappings(self):
+        from src.ai_engine import render_test_chat_prompt
+        p = render_test_chat_prompt(
+            "## Scenario: x\n### Test Steps\n1. do x", tech_stack="", story_subject="X",
+            gherkin="")
+        assert "see the per-scenario BDD Mapping sections above" in p
+
+    def test_generate_test_plan_appends_handoffs(self, monkeypatch):
+        import src.ai_engine as ai
+        monkeypatch.setattr(ai, "_invoke", lambda *a, **k: _PLAN_PROSE)
+        out = ai.generate_test_plan("Login", "Scenario: login\n  Then token", _TECH_SPEC_FIXTURE,
+                                    tech_stack="FastAPI")
+        assert out.count("## Chat Prompt") == 1
+        assert "## Agentic Test Brief" in out
