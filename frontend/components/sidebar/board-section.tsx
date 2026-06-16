@@ -2,9 +2,10 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, Info, Layers3, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, Info, Layers3, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import {
+  useAcknowledgeSpecDrift,
   useBoard,
   useCreateEpic,
   useCreateStory,
@@ -143,9 +144,10 @@ const APEX_STATUS_OPTIONS: [ApexPhaseStatus, string][] = [
   ["deployed", "Deployed"],
 ];
 
-function StoryDialog({ story, onClose }: { story: Story; onClose: () => void }) {
+function StoryDialog({ story, drifted = false, onClose }: { story: Story; drifted?: boolean; onClose: () => void }) {
   const dark = useUiStore((state) => state.theme === "dark");
   const context = useApiContext();
+  const ackDrift = useAcknowledgeSpecDrift();
   const [subject, setSubject] = useState(story.subject);
   const [description, setDescription] = useState(story.description ?? "");
   const [tagsInput, setTagsInput] = useState((story.tags ?? []).join(", "));
@@ -222,6 +224,31 @@ function StoryDialog({ story, onClose }: { story: Story; onClose: () => void }) 
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>Story #{story.ref}</h3>
+        {drifted ? (
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-600 dark:text-amber-400">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+            <div className="flex-1">
+              <p className="font-semibold">Spec drift</p>
+              <p className="mt-0.5">
+                A locked spec artifact was edited after this story passed its gate. Re-derive its
+                downstream artifacts (regenerating a dev pack clears this automatically), or
+                acknowledge if the change doesn&apos;t affect it.
+              </p>
+              <button
+                className="mt-2 rounded bg-amber-500/20 px-2 py-1 font-semibold transition-colors hover:bg-amber-500/30 disabled:opacity-50"
+                disabled={ackDrift.isPending}
+                onClick={() =>
+                  ackDrift.mutate(story.id, {
+                    onSuccess: () => toast.success("Spec drift acknowledged."),
+                    onError: () => toast.error("Could not acknowledge drift."),
+                  })
+                }
+              >
+                {ackDrift.isPending ? "Acknowledging…" : "Acknowledge"}
+              </button>
+            </div>
+          </div>
+        ) : null}
         <div className="space-y-3">
           <div>
             <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Title</label>
@@ -485,6 +512,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
   const deleteStory = useDeleteStory();
   const rebuildIndex = useRebuildStoryIndex();
   const storyStats = useStoryIndexStats();
+  const driftedIds = new Set(storyStats.data?.drifted_story_ids ?? []);
 
   const epicCount = board.data?.length ?? 0;
 
@@ -509,7 +537,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
       {typeof document !== "undefined" ? createPortal(
         <>
           {dialogEpic ? <EpicDialog epic={dialogEpic} onClose={() => setDialogEpic(null)} /> : null}
-          {dialogStory ? <StoryDialog story={dialogStory} onClose={() => setDialogStory(null)} /> : null}
+          {dialogStory ? <StoryDialog story={dialogStory} drifted={driftedIds.has(dialogStory.id)} onClose={() => setDialogStory(null)} /> : null}
           {createEpicOpen ? <CreateEpicDialog onClose={() => setCreateEpicOpen(false)} /> : null}
           {createStoryEpicId !== null ? (
             <CreateStoryDialog epicId={createStoryEpicId} onClose={() => setCreateStoryEpicId(null)} />
@@ -678,6 +706,12 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                       <div key={story.id}>
                         <div className="flex items-center gap-1">
                           <span className="min-w-0 flex-1 truncate text-xs">#{story.ref} {story.subject}</span>
+                          {driftedIds.has(story.id) ? (
+                            <AlertTriangle
+                              className="size-3 shrink-0 text-amber-500"
+                              aria-label="Spec drift — locked spec changed after this story passed its gate"
+                            />
+                          ) : null}
                           <button
                             className="grid size-5 place-items-center rounded text-neutral-400 transition-colors hover:bg-violet-500/20 hover:text-violet-300"
                             onClick={() => setDialogStory(story)}

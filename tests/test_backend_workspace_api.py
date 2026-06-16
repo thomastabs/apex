@@ -51,6 +51,7 @@ def test_story_index_stats_deployed_counts_only_explicit_deployed(monkeypatch):
         "phase4_passed": 1,
         "phase5_deployed": 1,
         "spec_drift": 0,
+        "drifted_story_ids": [],
     }
 
 
@@ -306,6 +307,16 @@ def test_acknowledge_drift_clears_flag(ctx):
     assert ctx.get_story_index()["1"]["spec_drift"] is False
     # amendment log still readable
     assert "technical-spec.md" in get_amendments(rc)["amendments_md"]
+
+
+def test_stats_lists_drifted_story_ids(ctx):
+    ctx.upsert_story_index(1, phase_status="implementation")
+    ctx.upsert_story_index(2, phase_status="qa")
+    ctx.upsert_story_index(3, phase_status="gherkin_locked")  # pre-lock, not flagged
+    ctx.amend_locked_spec("technical-spec.md")  # flags 1 and 2 (design_locked+)
+    stats = story_index_stats(RequestContext(pm_token="tok", project_id=ctx._get_project_id()))
+    assert stats["spec_drift"] == 2
+    assert stats["drifted_story_ids"] == [1, 2]
 
 
 # ── rebuild_story_index ───────────────────────────────────────────────────────

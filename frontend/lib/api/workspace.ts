@@ -217,6 +217,7 @@ export type StoryIndexStats = {
   phase4_passed: number;
   phase5_deployed: number;
   spec_drift: number;
+  drifted_story_ids: number[];
 };
 
 export function getStoryIndexStats(context: RequestContext) {

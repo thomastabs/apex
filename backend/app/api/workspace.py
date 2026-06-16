@@ -257,6 +257,9 @@ def story_index_stats(ctx: RequestContext = Depends(get_request_context)):
         "phase4_passed":   sum(1 for s in stories if s.get("phase_status") in ("qa_passed", "deployed")),
         "phase5_deployed": sum(1 for s in stories if s.get("phase_status") == "deployed"),
         "spec_drift":      sum(1 for s in stories if s.get("spec_drift")),
+        "drifted_story_ids": sorted(
+            s["story_id"] for s in stories if s.get("spec_drift") and s.get("story_id") is not None
+        ),
     }
 
 

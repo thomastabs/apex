@@ -30,8 +30,9 @@ vi.mock("@/lib/hooks/use-workspace", () => ({
   useStoryStatuses: () => ({ data: [{ id: 1, name: "New" }, { id: 2, name: "Done" }] }),
   useStoryPhaseStatus: () => ({ data: { phase_status: "implementation" }, isLoading: false }),
   useSetStoryPhaseStatus: () => idleMut,
+  useAcknowledgeSpecDrift: () => idleMut,
   useStoryIndexStats: () => ({
-    data: { total: 1, phase2_designed: 0, phase3_proposed: 0, phase4_tested: 0, phase4_passed: 0, phase5_deployed: 0 },
+    data: { total: 1, phase2_designed: 0, phase3_proposed: 0, phase4_tested: 0, phase4_passed: 0, phase5_deployed: 0, spec_drift: 0, drifted_story_ids: [] },
   }),
 }));
 
