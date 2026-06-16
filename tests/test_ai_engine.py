@@ -821,3 +821,66 @@ class TestLayerAReport:
         r = build_layer_a_report("", "", _GITHUB_CONTEXT_FIXTURE, "")
         assert r.endpoints == [] and r.scenarios == []
         assert r.score == 0
+
+
+class TestVerifyConformance:
+    """Layer-B AI semantic verification (LLM mocked)."""
+
+    def _fake_ai_report(self):
+        from src.ai_engine import (
+            ConformanceReport, EndpointConformance, ScenarioConformance)
+        # AI returns a (deliberately wrong) score of 99 — must be overridden.
+        return ConformanceReport(
+            endpoints=[
+                EndpointConformance(contract="POST /api/v1/auth/login", status="present",
+                                    location="backend/app/api/auth.py:12"),
+                EndpointConformance(contract="DELETE /api/v1/sessions", status="missing"),
+            ],
+            scenarios=[
+                ScenarioConformance(scenario="User signs in", status="tested",
+                                    test_location="tests/test_auth.py"),
+            ],
+            summary="AI narrative", score=99,
+        )
+
+    def test_score_recomputed_not_trusted(self, monkeypatch):
+        import src.ai_engine as ai
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress",
+                            lambda *a, **k: self._fake_ai_report())
+        r = ai.verify_spec_conformance(
+            "Login", _GHERKIN_FIXTURE, _TECH_SPEC_FIXTURE, _GITHUB_CONTEXT_FIXTURE)
+        # 1 present + 1 missing + 1 tested over 3 → (1+0+1)/3 = .667 → 67
+        assert r.score == 67
+        assert r.score != 99
+        assert r.summary == "AI narrative"
+
+    def test_precheck_dict_is_accepted(self, monkeypatch):
+        import src.ai_engine as ai
+        captured = {}
+
+        def fake(system, human, *a, **k):
+            captured["human"] = human
+            return self._fake_ai_report()
+
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress", fake)
+        pre = ai.build_layer_a_report(
+            _GHERKIN_FIXTURE, _TECH_SPEC_FIXTURE, _GITHUB_CONTEXT_FIXTURE).model_dump()
+        ai.verify_spec_conformance(
+            "Login", _GHERKIN_FIXTURE, _TECH_SPEC_FIXTURE, _GITHUB_CONTEXT_FIXTURE,
+            precheck=pre)
+        # Layer-A findings are rendered into the prompt as grounding.
+        assert "Layer-A deterministic pre-check" in captured["human"]
+        assert "POST /api/v1/auth/login" in captured["human"]
+
+    def test_runs_layer_a_when_precheck_omitted(self, monkeypatch):
+        import src.ai_engine as ai
+        captured = {}
+
+        def fake(system, human, *a, **k):
+            captured["human"] = human
+            return self._fake_ai_report()
+
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress", fake)
+        ai.verify_spec_conformance(
+            "Login", _GHERKIN_FIXTURE, _TECH_SPEC_FIXTURE, _GITHUB_CONTEXT_FIXTURE)
+        assert "Layer-A deterministic pre-check" in captured["human"]

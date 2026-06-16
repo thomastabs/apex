@@ -2324,3 +2324,104 @@ def build_layer_a_report(
             f"keyword test evidence. Constraint probes are advisory. "
             f"Score {report.score}/100. Run the AI layer for semantic verification.")
     return report
+
+
+# --- Layer B — AI semantic judgement ---------------------------------------
+
+_VERIFY_CONFORMANCE_VERSION = "1.0"
+_VERIFY_CONFORMANCE_SYSTEM = """\
+You are a Spec-Conformance Auditor operating within the Apex Framework.
+You verify that SHIPPED CODE honours a LOCKED specification. You are given the
+story's Gherkin scenarios, its technical-spec endpoint contracts, the project's
+non-functional constraints, and the synced repository context (file tree + key
+files). A deterministic pre-check (Layer A) has already located candidate routes
+and tests; you CONFIRM or CORRECT it with semantic judgement.
+
+For EACH endpoint contract, decide:
+- present  — a route with the right method+path exists AND honours the contract
+             (auth, request/response fields broadly consistent).
+- mismatch — the route exists but diverges (wrong method, missing auth, wrong
+             fields); explain the divergence in notes.
+- missing  — no such route in the provided code.
+- unknown  — the implicated file is NOT in the provided context; do not guess.
+
+For EACH Gherkin scenario, decide:
+- tested   — a test/assertion clearly exercises this scenario's Then outcome.
+- partial  — a related test exists but does not assert the full Then.
+- untested — no test covers it.
+- unknown  — the test file is not in the provided context.
+
+For EACH constraint (NFR), decide: addressed | not_found | unknown (advisory).
+
+IRON RULES:
+- Ground every judgement in the provided spec + code ONLY. Cite the exact file
+  path (and line range if visible) in `location`/`test_location`/`evidence`.
+- If the relevant code or test is NOT in the provided context, return `unknown`
+  and say which file you would need. NEVER assume conformance you cannot see.
+- Treat the Layer-A pre-check as a hint, not ground truth: correct it when the
+  code contradicts it.
+- Do NOT invent endpoints, scenarios, or constraints not present in the inputs.
+- Leave `score` at 0 — it is computed deterministically downstream, not by you.
+- `summary`: 2-4 sentences narrating the real drift (what is missing/wrong),
+  not a restatement of the counts.
+"""
+
+
+def _format_precheck(report: ConformanceReport) -> str:
+    """Render a Layer-A report as compact grounding text for the AI prompt."""
+    lines = ["Layer-A deterministic pre-check (hint — confirm or correct):", ""]
+    lines.append("Endpoints:")
+    for e in report.endpoints:
+        loc = f" @ {e.location}" if e.location else ""
+        note = f" — {e.notes}" if e.notes else ""
+        lines.append(f"- {e.contract}: {e.status}{loc}{note}")
+    lines.append("\nScenarios:")
+    for s in report.scenarios:
+        loc = f" @ {s.test_location}" if s.test_location else ""
+        lines.append(f"- {s.scenario}: {s.status}{loc}")
+    if report.constraints:
+        lines.append("\nConstraints (advisory):")
+        for c in report.constraints:
+            lines.append(f"- {c.constraint_id}: {c.status}")
+    return "\n".join(lines)
+
+
+def verify_spec_conformance(
+    story_subject: str,
+    gherkin: str,
+    technical_spec: str,
+    github_context: str,
+    constraints: str = "",
+    tech_stack: str = "",
+    precheck: ConformanceReport | dict | None = None,
+) -> ConformanceReport:
+    """Layer B: AI semantic verification of code against the locked spec.
+
+    Runs (or accepts) the deterministic Layer-A pass as grounding, asks the AI to
+    confirm/correct each status with file citations, then RECOMPUTES the score in
+    code so it is reproducible and never a hallucinated number. Temperature 0 —
+    verification wants determinism.
+    """
+    _logger.debug("verify_spec_conformance prompt_version=%s", _VERIFY_CONFORMANCE_VERSION)
+    if precheck is None:
+        precheck = build_layer_a_report(gherkin, technical_spec, github_context, constraints)
+    elif isinstance(precheck, dict):
+        precheck = ConformanceReport.model_validate(precheck)
+
+    human = "\n\n".join([
+        "Story: " + fence_user_content(story_subject.strip() or "Not specified"),
+        "Gherkin acceptance criteria:\n" + fence_user_content(gherkin.strip() or "Not specified"),
+        "Technical Spec (endpoint contracts):\n" + fence_user_content(technical_spec.strip() or "Not specified"),
+        "Non-Functional Constraints:\n" + fence_user_content(constraints.strip() or "None"),
+        "Tech Stack (for route/test conventions):\n" + fence_user_content(tech_stack.strip() or "Not specified"),
+        "Synced Repository Context:\n" + fence_user_content(github_context.strip() or "Not synced"),
+        _format_precheck(precheck),
+        "Produce the ConformanceReport. Cite files; return unknown where the code is not shown.",
+    ])
+    report = _ai_retry(lambda: _invoke_structured_with_progress(
+        _VERIFY_CONFORMANCE_SYSTEM, human, get_model(), ConformanceReport,
+        max_tokens=4000, temperature=0.0, item_field="endpoints",
+    ))
+    # Score is always code-computed, never trusted from the model.
+    report.score = compute_conformance_score(report)
+    return report
