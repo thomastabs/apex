@@ -1573,6 +1573,27 @@ def load_verification(story_id: int) -> dict | None:
         return None
 
 
+def save_conformance(story_id: int, data: dict) -> Path:
+    """Persist the Phase 6 spec↔code conformance report (JSON canonical)."""
+    cd = _context_dir()
+    cd.mkdir(parents=True, exist_ok=True)
+    data = {**data, "story_id": story_id, "generated_at": data.get("generated_at") or _now_iso()}
+    p = cd / f"conformance_story_{story_id}.json"
+    p.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    return p
+
+
+def load_conformance(story_id: int) -> dict | None:
+    """Load the conformance report for a story, None if absent/unreadable."""
+    p = _context_dir() / f"conformance_story_{story_id}.json"
+    if not p.exists():
+        return None
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
 def save_bug_report(story_id: int, bug_md: str) -> Path:
     """Persist the Fix-Bolt artifact for a story to contextspec/bug_report_<id>.md."""
     cd = _context_dir()

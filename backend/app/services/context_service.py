@@ -146,6 +146,12 @@ class ContextService:
     def load_verification(self, story_id: int) -> dict | None:
         return context_manager.load_verification(story_id)
 
+    def save_conformance(self, story_id: int, data: dict) -> None:
+        context_manager.save_conformance(story_id, data)
+
+    def load_conformance(self, story_id: int) -> dict | None:
+        return context_manager.load_conformance(story_id)
+
     def append_deployment_record(
         self,
         story_id: int,

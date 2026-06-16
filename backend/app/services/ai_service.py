@@ -38,6 +38,35 @@ class AiService:
         items = [c.model_dump() for c in result.constraints]
         return items, ai_engine.format_constraints(result)
 
+    def layer_a_conformance(
+        self,
+        gherkin: str,
+        technical_spec: str,
+        github_context: str,
+        constraints: str = "",
+    ) -> dict:
+        """Deterministic Layer-A conformance baseline (no AI). Returns report dict."""
+        return ai_engine.build_layer_a_report(
+            gherkin, technical_spec, github_context, constraints
+        ).model_dump()
+
+    def verify_conformance(
+        self,
+        story_subject: str,
+        gherkin: str,
+        technical_spec: str,
+        github_context: str,
+        constraints: str = "",
+        tech_stack: str = "",
+        precheck: dict | None = None,
+    ) -> dict:
+        """AI semantic spec↔code verification (Layer B). Returns report dict."""
+        report = ai_engine.verify_spec_conformance(
+            story_subject, gherkin, technical_spec, github_context,
+            constraints=constraints, tech_stack=tech_stack, precheck=precheck,
+        )
+        return report.model_dump()
+
     def compile_gherkin(self, nl_draft: str) -> list[dict]:
         result = ai_engine.compile_gherkin_stories(nl_draft)
         return [
