@@ -80,6 +80,8 @@ class AnalyticsService:
             "rate": round(complete / len(deployed), 3) if deployed else 0.0,
         }
 
+        conformance = self._conformance(entries)
+
         fix_bolts = [int(e.get("fix_bolt_count", 0)) for e in entries]
         affected = sum(1 for n in fix_bolts if n > 0)
         defects = {
@@ -96,8 +98,30 @@ class AnalyticsService:
             "funnel": funnel,
             "cycle_times": cycle_times,
             "traceability": traceability,
+            "conformance": conformance,
             "defects": defects,
             "stories": stories,
+        }
+
+    # Stories are eligible for a spec↔code conformance check from implementation on.
+    _CONFORMANCE_STATUSES = ("implementation", "qa", "qa_passed", "deployed")
+
+    def _conformance(self, entries: list[dict]) -> dict:
+        """Spec Conformance Rate: average conformance score over implemented
+        stories that have a saved report. Reports are produced by Phase 6."""
+        eligible = [e for e in entries if e.get("phase_status") in self._CONFORMANCE_STATUSES]
+        scores: list[int] = []
+        for e in eligible:
+            story_id = e.get("story_id")
+            if story_id is None:
+                continue
+            report = self.context.load_conformance(story_id)
+            if report and isinstance(report.get("score"), int):
+                scores.append(report["score"])
+        return {
+            "eligible": len(eligible),
+            "checked": len(scores),
+            "avg_score": round(sum(scores) / len(scores), 1) if scores else 0.0,
         }
 
     def _cycle_times(self, entries: list[dict]) -> list[dict]:

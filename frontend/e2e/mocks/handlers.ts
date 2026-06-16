@@ -182,6 +182,7 @@ export const FAKE_ANALYTICS_SUMMARY = {
     { transition: "qa_passed → deployed", median_hours: 2.5, p90_hours: 4.0, samples: 2 },
   ],
   traceability: { deployed: 2, complete: 1, rate: 0.5 },
+  conformance: { eligible: 2, checked: 1, avg_score: 75.0 },
   defects: { total_fix_bolts: 3, stories_affected: 2, avg_per_story: 0.75 },
   stories: [
     {

@@ -172,7 +172,23 @@ as `precheck` so the AI corrects/confirms rather than re-derives.
    `build_layer_a_report`, `compute_conformance_score` (endpoints+scenarios weighted;
    constraints advisory, excluded). Tests: `TestConformanceParsers`, `TestPathMatching`,
    `TestLayerAReport` in `tests/test_ai_engine.py`.
-2. AI semantic layer + `verify_spec_conformance` (+ mocked tests).
-3. Service + routes + persistence (+ tests).
-4. Phase 6 Traceability Explorer panel + hooks.
-5. Analytics metric (Spec Conformance Rate).
+2. ✅ **DONE 2026-06-16.** AI semantic layer `verify_spec_conformance` (Layer B):
+   Spec-Conformance Auditor prompt, present/mismatch/missing/unknown + file
+   citations, `unknown`-when-not-in-context rule, consumes Layer-A precheck,
+   temperature 0, score always recomputed in code. `TestVerifyConformance`.
+3. ✅ **DONE 2026-06-16.** Service + routes + persistence: `context_manager.save/
+   load_conformance` (`conformance_story_<id>.json`), `AiService.layer_a_conformance`
+   + `verify_conformance`, `Phase6Service` (eligibility implementation→deployed,
+   reads inputs, runs Layer A then optional AI, persists), routes `/api/phase6`
+   (GET eligible-stories, POST conformance w/ `ai` flag, GET conformance/{id}),
+   `schemas/phase6.py`, registered in main. `test_backend_phase6{,_api}.py`.
+4. ✅ **DONE 2026-06-16.** Phase 6 Traceability Explorer panel + hooks:
+   `lib/api/phase6.ts`, `lib/hooks/use-phase6.ts`, `components/phase6-workflow.tsx`
+   (story list + score badge + Layer-A/Verify buttons + 3 status-coloured tables
+   + drift summary), `app/phase6/page.tsx`. `tests/phase6-workflow.test.tsx`.
+5. ✅ **DONE 2026-06-16.** Analytics metric — **Spec Conformance Rate** = avg score
+   over implemented stories with a report. `AnalyticsService._conformance`,
+   `ConformanceStats` schema, metric card + markdown/CSV export in the dashboard.
+
+**Roadmap #1 COMPLETE.** Backend suite 564, frontend 79. Possible follow-ups:
+v2 on-demand file fetch for `unknown` rows (github-browser.ts), per-line citations.

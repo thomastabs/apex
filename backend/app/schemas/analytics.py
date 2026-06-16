@@ -16,6 +16,12 @@ class TraceabilityStats(BaseModel):
     rate: float = 0.0
 
 
+class ConformanceStats(BaseModel):
+    eligible: int = 0
+    checked: int = 0
+    avg_score: float = 0.0
+
+
 class DefectStats(BaseModel):
     total_fix_bolts: int = 0
     stories_affected: int = 0
@@ -36,5 +42,6 @@ class AnalyticsSummaryResponse(BaseModel):
     funnel: dict[str, int] = Field(default_factory=dict)
     cycle_times: list[CycleTimeStat] = Field(default_factory=list)
     traceability: TraceabilityStats = Field(default_factory=TraceabilityStats)
+    conformance: ConformanceStats = Field(default_factory=ConformanceStats)
     defects: DefectStats = Field(default_factory=DefectStats)
     stories: list[StoryAnalyticsRow] = Field(default_factory=list)

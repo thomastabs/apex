@@ -67,6 +67,10 @@ function toMarkdown(data: AnalyticsSummary): string {
     "",
     `${data.traceability.complete}/${data.traceability.deployed} deployed stories with a complete artifact chain (${Math.round(data.traceability.rate * 100)}%).`,
     "",
+    "## Spec Conformance Rate",
+    "",
+    `${data.conformance.checked}/${data.conformance.eligible} implemented stories checked against spec; average conformance score ${Math.round(data.conformance.avg_score)}%.`,
+    "",
     "## Defect Proxy (Fix-Bolts)",
     "",
     `Total Fix-Bolts: ${data.defects.total_fix_bolts} · stories affected: ${data.defects.stories_affected} · avg/story: ${data.defects.avg_per_story}`,
@@ -124,12 +128,18 @@ export function AnalyticsDashboard() {
       {data && (
         <div className="space-y-8">
           {/* Metric cards */}
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <MetricCard
               dark={dark}
               label="Context Traceability Rate"
               value={data.traceability.deployed > 0 ? `${Math.round(data.traceability.rate * 100)}%` : "—"}
               hint={`${data.traceability.complete}/${data.traceability.deployed} deployed stories with a complete artifact chain`}
+            />
+            <MetricCard
+              dark={dark}
+              label="Spec Conformance Rate"
+              value={data.conformance.checked > 0 ? `${Math.round(data.conformance.avg_score)}%` : "—"}
+              hint={`${data.conformance.checked}/${data.conformance.eligible} implemented stories checked against spec`}
             />
             <MetricCard
               dark={dark}

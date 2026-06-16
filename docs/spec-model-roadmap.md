@@ -45,11 +45,11 @@ upgrade is tied to a specific gap so the work is defensible in the thesis.
 
 Ranked by (thesis payoff × leverage on existing code).
 
-### #1 — Spec↔code conformance check  ·  **highest priority**
+### #1 — Spec↔code conformance check  ·  **SHIPPED 2026-06-16**
 - **Gap closed:** divergences (1) + (2) — executable/living-doc + spec↔code honesty.
-- **What:** after a story is implemented, fetch shipped code (existing `github-browser.ts`) and verify it against the spec — do the `technical-spec` endpoints exist? does each Gherkin `Then` have a matching test/assertion? flag drift.
-- **Home:** Phase 6 **Traceability Explorer** (planned F3).
-- **Status:** detailed design in [`spec-code-conformance-plan.md`](./spec-code-conformance-plan.md).
+- **What:** after a story is implemented, the synced code is verified against the spec — do the `technical-spec` endpoints exist? does each Gherkin scenario have a test? flag drift. Two layers: deterministic Layer A (parsers + route matching + code-computed score, zero AI) then AI Layer B (semantic confirm/correct with file citations, `unknown` when code not in context).
+- **Home:** Phase 6 **Traceability Explorer** (F3) — `/phase6`.
+- **Status:** SHIPPED. Build log + design in [`spec-code-conformance-plan.md`](./spec-code-conformance-plan.md). New **Spec Conformance Rate** analytic = avg score over implemented stories. Backend suite 564, frontend 79.
 - **Effort:** medium. **Payoff:** highest — the thesis's answer to "how do spec and code stay honest."
 
 ### #2 — EARS non-functional requirements  ·  **SHIPPED 2026-06-15 (commit 87ebb5d)**

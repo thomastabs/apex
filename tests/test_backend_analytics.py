@@ -15,10 +15,11 @@ def _ctx() -> RequestContext:
 
 
 class FakeContextService:
-    def __init__(self, index=None, deployment_log="", verifications=None):
+    def __init__(self, index=None, deployment_log="", verifications=None, conformances=None):
         self.index = index or {}
         self.deployment_log = deployment_log
         self.verifications = verifications or {}
+        self.conformances = conformances or {}
         self.verification_reads: list[int] = []
 
     def set_active(self, ctx):
@@ -37,6 +38,9 @@ class FakeContextService:
     def load_verification(self, story_id: int):
         self.verification_reads.append(story_id)
         return self.verifications.get(story_id)
+
+    def load_conformance(self, story_id: int):
+        return self.conformances.get(story_id)
 
 
 def _entry(story_id, status, history=None, **extra):
@@ -66,6 +70,29 @@ def test_funnel_counts_all_statuses():
     assert summary["funnel"]["gherkin_locked"] == 1
     assert summary["funnel"]["deployed"] == 2
     assert summary["funnel"]["implementation"] == 0
+
+
+def test_conformance_avg_score_over_checked_stories():
+    index = {
+        "1": _entry(1, "implementation"),  # checked, score 80
+        "2": _entry(2, "qa"),              # checked, score 40
+        "3": _entry(3, "deployed"),        # eligible, no report
+        "4": _entry(4, "design_locked"),   # not eligible
+    }
+    conformances = {1: {"score": 80}, 2: {"score": 40}}
+    summary = AnalyticsService(
+        context=FakeContextService(index=index, conformances=conformances)
+    ).summary(_ctx())
+    c = summary["conformance"]
+    assert c["eligible"] == 3
+    assert c["checked"] == 2
+    assert c["avg_score"] == 60.0
+
+
+def test_conformance_zero_when_none_checked():
+    index = {"1": _entry(1, "design_locked"), "2": _entry(2, "gherkin_locked")}
+    summary = AnalyticsService(context=FakeContextService(index=index)).summary(_ctx())
+    assert summary["conformance"] == {"eligible": 0, "checked": 0, "avg_score": 0.0}
 
 
 def test_cycle_times_median_and_samples():
