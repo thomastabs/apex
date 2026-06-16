@@ -2033,3 +2033,294 @@ def revise_deploy_pack(
 #   Senior Debugging Engineer under Context Isolation Rule — ONLY bug + stack trace + snippet.
 #   Output: ## Root Cause, ## Patch, ## Vaccine Summary.
 #   Use get_model().
+
+
+# ---------------------------------------------------------------------------
+# 6. Spec↔Code Conformance — Phase 6 Traceability Explorer (roadmap #1)
+#
+# Layer A is fully deterministic (no AI): it parses the locked spec for
+# endpoint contracts, Gherkin scenarios, and NFR constraints, then probes the
+# synced GitHub context for evidence each is honoured. It produces a coarse
+# ConformanceReport with a code-computed score — a fast, reproducible baseline
+# and a thesis artifact in its own right. Layer B (AI semantic judgement) builds
+# on this and is added separately; it consumes the Layer-A result as grounding.
+# Design: docs/spec-code-conformance-plan.md.
+# ---------------------------------------------------------------------------
+
+class EndpointConformance(BaseModel):
+    contract: str            # "POST /api/v1/auth/login"
+    status: Literal["present", "missing", "mismatch", "unknown"]
+    location: str = ""       # "backend/app/api/auth.py"
+    notes: str = ""          # what differs, if mismatch
+
+
+class ScenarioConformance(BaseModel):
+    scenario: str
+    status: Literal["tested", "untested", "partial", "unknown"]
+    test_location: str = ""
+    notes: str = ""
+
+
+class ConstraintConformance(BaseModel):
+    constraint_id: str       # "NFR-1"
+    status: Literal["addressed", "not_found", "unknown"]
+    evidence: str = ""
+
+
+class ConformanceReport(BaseModel):
+    endpoints: list[EndpointConformance] = Field(default_factory=list)
+    scenarios: list[ScenarioConformance] = Field(default_factory=list)
+    constraints: list[ConstraintConformance] = Field(default_factory=list)
+    summary: str = ""        # human-readable drift narrative
+    score: int = 0           # 0–100, derived deterministically from the above
+
+
+# --- Spec parsers ----------------------------------------------------------
+
+# Endpoint contract token from technical-spec / design bundle: `METHOD /path`.
+_SPEC_ENDPOINT_RE = re.compile(
+    r"`\s*(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+(/[^\s`]*)\s*`", re.IGNORECASE
+)
+# NFR line in constraints.md: "- **NFR-1** _(event-driven)_: text".
+_CONSTRAINT_ID_RE = re.compile(r"^\s*-\s*\*\*(NFR-\d+)\*\*.*?:\s*(.+)$", re.MULTILINE)
+
+
+def parse_spec_endpoints(technical_spec: str) -> list[tuple[str, str]]:
+    """Extract (METHOD, path) contracts from a technical-spec / design bundle.
+
+    De-duplicated, order-preserving. Method upper-cased, path lower-cased with a
+    trailing slash trimmed so downstream matching is case/slash-insensitive.
+    """
+    seen: set[tuple[str, str]] = set()
+    out: list[tuple[str, str]] = []
+    for m in _SPEC_ENDPOINT_RE.finditer(technical_spec or ""):
+        method = m.group(1).upper()
+        path = (m.group(2).rstrip("/") or "/").lower()
+        key = (method, path)
+        if key not in seen:
+            seen.add(key)
+            out.append(key)
+    return out
+
+
+def parse_constraint_ids(constraints_md: str) -> list[tuple[str, str]]:
+    """Extract (id, text) for each NFR line in constraints.md."""
+    return [(m.group(1), m.group(2).strip())
+            for m in _CONSTRAINT_ID_RE.finditer(constraints_md or "")]
+
+
+# --- GitHub-context probes (deterministic) ---------------------------------
+
+# Route declarations across common frameworks → (method, path).
+_CODE_ROUTE_PATTERNS = (
+    # FastAPI / Flask / Express / NestJS: app.post("/x"), router.get('/x'), @Get('/x')
+    re.compile(r"""[.@]\s*(get|post|put|patch|delete)\s*\(\s*['"`]([^'"`]+)['"`]""", re.IGNORECASE),
+    # Spring: @PostMapping("/x") / @GetMapping(value = "/x")
+    re.compile(r"""@(Get|Post|Put|Patch|Delete)Mapping\s*\(\s*(?:value\s*=\s*)?['"]([^'"]+)['"]""", re.IGNORECASE),
+    # Rails routes.rb / Sinatra: post '/x', get "/x"
+    re.compile(r"""^\s*(get|post|put|patch|delete)\s+['"]([^'"]+)['"]""", re.IGNORECASE | re.MULTILINE),
+)
+# Flask method-list form: @app.route("/x", methods=["POST", "PUT"]).
+_FLASK_ROUTE_RE = re.compile(
+    r"""route\s*\(\s*['"]([^'"]+)['"][^)]*methods\s*=\s*\[([^\]]*)\]""", re.IGNORECASE
+)
+# Markdown section heading naming a file: "## `backend/app/api/auth.py`".
+_FILE_HEADING_RE = re.compile(r"^#{1,6}\s+`?([^\n`]+?)`?\s*(?:\(.*\))?\s*$", re.MULTILINE)
+
+
+def extract_code_routes(github_context: str) -> list[tuple[str, str, int]]:
+    """Find (METHOD, path, char_offset) route declarations in synced code text."""
+    text = github_context or ""
+    routes: list[tuple[str, str, int]] = []
+    for pat in _CODE_ROUTE_PATTERNS:
+        for m in pat.finditer(text):
+            routes.append((m.group(1).upper(), m.group(2), m.start()))
+    for m in _FLASK_ROUTE_RE.finditer(text):
+        path = m.group(1)
+        for raw in m.group(2).split(","):
+            method = raw.strip().strip("'\"").upper()
+            if method:
+                routes.append((method, path, m.start()))
+    return routes
+
+
+def _norm_route_path(p: str) -> str:
+    """Lower-case, trim trailing slash, collapse path params to '*'."""
+    p = (p or "").strip().lower().rstrip("/")
+    p = re.sub(r"\{[^}]*\}", "*", p)   # {id}, {user_id}
+    p = re.sub(r"<[^>]*>", "*", p)     # <int:id>
+    p = re.sub(r":\w+", "*", p)        # :id (express / rails)
+    return p or "/"
+
+
+def _paths_match(spec_path: str, code_path: str) -> bool:
+    """Suffix-match two paths segment-wise; '*' (a path param) matches anything.
+
+    Code routes are often declared under a router prefix, so the spec's full
+    path and the code's sub-path are compared on their shared tail. Requires the
+    last segment to align (after wildcards) to avoid cross-resource collisions.
+    """
+    s = [seg for seg in _norm_route_path(spec_path).split("/") if seg]
+    c = [seg for seg in _norm_route_path(code_path).split("/") if seg]
+    if not s or not c:
+        return _norm_route_path(spec_path) == _norm_route_path(code_path)
+    n = min(len(s), len(c))
+    for a, b in zip(s[-n:], c[-n:]):
+        if a == "*" or b == "*":
+            continue
+        if a != b:
+            return False
+    return True
+
+
+def _locate_offset(github_context: str, offset: int) -> str:
+    """Map a char offset back to the nearest preceding file-naming heading."""
+    nearest = ""
+    for m in _FILE_HEADING_RE.finditer(github_context or ""):
+        if m.start() > offset:
+            break
+        candidate = m.group(1).strip()
+        # Only treat headings that look like file paths as locations.
+        if "/" in candidate or "." in candidate:
+            nearest = candidate
+    return nearest
+
+
+_TEST_PATH_RE = re.compile(r"(^|/)(tests?|spec|specs|__tests__)(/|$)|[._-](test|spec)[._]|(test|spec)s?\.", re.IGNORECASE)
+_STOPWORDS = frozenset(
+    "the a an and or of to for with when then given that this user system should "
+    "shall able view see can will is are be on in at as it its their successfully".split()
+)
+
+
+def _extract_file_tree(github_context: str) -> list[str]:
+    """Pull the file paths from the '## File Tree' fenced block, if present."""
+    m = re.search(r"##\s*File Tree\s*\n+```[^\n]*\n(.*?)```", github_context or "", re.DOTALL | re.IGNORECASE)
+    if not m:
+        return []
+    return [ln.strip() for ln in m.group(1).splitlines() if ln.strip()]
+
+
+def _scenario_keywords(title: str) -> list[str]:
+    words = re.findall(r"[a-z0-9]+", (title or "").lower())
+    return [w for w in words if len(w) > 3 and w not in _STOPWORDS]
+
+
+def _match_endpoints(spec_endpoints, code_routes, github_context):
+    out: list[EndpointConformance] = []
+    for method, path in spec_endpoints:
+        path_hits = [r for r in code_routes if _paths_match(path, r[1])]
+        method_hits = [r for r in path_hits if r[0] == method]
+        contract = f"{method} {path}"
+        if method_hits:
+            loc = _locate_offset(github_context, method_hits[0][2])
+            note = "" if len(method_hits) == 1 else f"{len(method_hits)} matching declarations found"
+            out.append(EndpointConformance(contract=contract, status="present", location=loc, notes=note))
+        elif path_hits:
+            found = ", ".join(sorted({r[0] for r in path_hits}))
+            loc = _locate_offset(github_context, path_hits[0][2])
+            out.append(EndpointConformance(
+                contract=contract, status="mismatch", location=loc,
+                notes=f"path found but declared method(s): {found}, not {method}"))
+        else:
+            out.append(EndpointConformance(contract=contract, status="missing"))
+    return out
+
+
+def _match_scenarios(scenarios, github_context, file_tree):
+    text = (github_context or "").lower()
+    test_files = [p for p in file_tree if _TEST_PATH_RE.search(p)]
+    has_test_dir = bool(test_files)
+    out: list[ScenarioConformance] = []
+    for title in scenarios:
+        kws = _scenario_keywords(title)
+        hit_kws = [k for k in kws if k in text] if kws else []
+        if has_test_dir and hit_kws:
+            loc = next((p for p in test_files if any(k in p.lower() for k in hit_kws)), test_files[0])
+            out.append(ScenarioConformance(
+                scenario=title, status="tested", test_location=loc,
+                notes=f"keyword evidence: {', '.join(hit_kws[:5])}"))
+        elif not has_test_dir:
+            out.append(ScenarioConformance(
+                scenario=title, status="untested", notes="no test files found in synced tree"))
+        else:
+            out.append(ScenarioConformance(
+                scenario=title, status="untested", notes="no test references this scenario's keywords"))
+    return out
+
+
+def _match_constraints(constraints, github_context):
+    text = (github_context or "").lower()
+    out: list[ConstraintConformance] = []
+    for cid, ctext in constraints:
+        kws = _scenario_keywords(ctext)[:8]
+        hits = [k for k in kws if k in text]
+        # Advisory only: weak keyword signal, never a hard fail.
+        if hits:
+            out.append(ConstraintConformance(
+                constraint_id=cid, status="addressed", evidence=f"keyword(s): {', '.join(hits[:5])}"))
+        else:
+            out.append(ConstraintConformance(
+                constraint_id=cid, status="not_found", evidence="no keyword evidence in synced context"))
+    return out
+
+
+_ENDPOINT_WEIGHT = {"present": 1.0, "mismatch": 0.5, "missing": 0.0, "unknown": 0.0}
+_SCENARIO_WEIGHT = {"tested": 1.0, "partial": 0.5, "untested": 0.0, "unknown": 0.0}
+
+
+def compute_conformance_score(report: ConformanceReport) -> int:
+    """Deterministic 0–100 score from endpoint + scenario statuses.
+
+    Computed in code (never by the AI) so it is reproducible. Constraints are
+    advisory (lossy keyword probe) and excluded from the score. Returns 0 when
+    there is nothing to score.
+    """
+    weights = [_ENDPOINT_WEIGHT[e.status] for e in report.endpoints]
+    weights += [_SCENARIO_WEIGHT[s.status] for s in report.scenarios]
+    if not weights:
+        return 0
+    return round(100 * sum(weights) / len(weights))
+
+
+def build_layer_a_report(
+    gherkin: str,
+    technical_spec: str,
+    github_context: str,
+    constraints: str = "",
+) -> ConformanceReport:
+    """Run the deterministic Layer-A conformance pass — no AI, no network.
+
+    Parses the spec for endpoint contracts, Gherkin scenarios, and NFR
+    constraints, probes the synced GitHub context for evidence, and returns a
+    ConformanceReport with a code-computed score. Degrades gracefully: with no
+    synced code everything reads missing/untested rather than erroring.
+    """
+    spec_endpoints = parse_spec_endpoints(technical_spec)
+    scenarios = _parse_gherkin_titles(gherkin)
+    constraint_ids = parse_constraint_ids(constraints)
+    code_routes = extract_code_routes(github_context)
+    file_tree = _extract_file_tree(github_context)
+
+    report = ConformanceReport(
+        endpoints=_match_endpoints(spec_endpoints, code_routes, github_context),
+        scenarios=_match_scenarios(scenarios, github_context, file_tree),
+        constraints=_match_constraints(constraint_ids, github_context),
+    )
+    report.score = compute_conformance_score(report)
+
+    present = sum(1 for e in report.endpoints if e.status == "present")
+    tested = sum(1 for s in report.scenarios if s.status == "tested")
+    synced = bool(code_routes or file_tree)
+    if not synced:
+        report.summary = (
+            "No synced GitHub context — Layer-A could not find code to check against. "
+            "Sync the repository to get a conformance baseline. "
+            "All endpoints read as missing and scenarios as untested by default.")
+    else:
+        report.summary = (
+            f"Layer-A deterministic check: {present}/{len(report.endpoints)} endpoint "
+            f"contracts located in code, {tested}/{len(report.scenarios)} scenarios have "
+            f"keyword test evidence. Constraint probes are advisory. "
+            f"Score {report.score}/100. Run the AI layer for semantic verification.")
+    return report

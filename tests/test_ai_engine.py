@@ -630,3 +630,194 @@ class TestConstraints:
     def test_format_constraints_empty(self):
         from src.ai_engine import ConstraintList, format_constraints
         assert "_No constraints defined yet._" in format_constraints(ConstraintList())
+
+
+# ---------------------------------------------------------------------------
+# Phase 6 · Spec↔Code Conformance — Layer A (deterministic, no LLM)
+# ---------------------------------------------------------------------------
+
+_TECH_SPEC_FIXTURE = """\
+### Technical Spec — Story 1: Login
+- `POST /api/v1/auth/login` — sign in (Story 1) · auth:none · in:email:str · out:token:str
+- `GET /api/v1/users/{id}` — fetch user (Story 1) · auth:bearer · out:id:int
+- `DELETE /api/v1/sessions` — sign out (Story 1) · auth:bearer · out:ok:bool
+"""
+
+_GHERKIN_FIXTURE = """\
+### Story 1: Login
+Scenario: User signs in with valid credentials
+  Given a registered user
+  When they submit the login form
+  Then a session token is returned
+Scenario: User submits an invalid password
+  Given a registered user
+  When they submit a wrong password
+  Then an authentication error is shown
+"""
+
+_CONSTRAINTS_FIXTURE = """\
+# Non-Functional Requirements
+
+## Security
+- **NFR-1** _(event-driven)_: When a user signs in, the system shall rate-limit attempts.
+
+## Performance
+- **NFR-2** _(ubiquitous)_: The system shall respond within 500ms (target — confirm).
+"""
+
+_GITHUB_CONTEXT_FIXTURE = """\
+# GitHub Repository Context
+
+**Repo:** acme/app
+
+## File Tree
+
+```
+backend/app/api/auth.py
+backend/app/api/users.py
+tests/test_auth.py
+frontend/index.tsx
+```
+
+## `backend/app/api/auth.py`
+
+```
+@router.post("/login")
+def login(body: LoginIn):
+    ...
+```
+
+## `backend/app/api/users.py`
+
+```
+@router.put("/users/{id}")
+def update_user(id: int):
+    ...
+```
+
+## `tests/test_auth.py`
+
+```
+def test_credentials_login_returns_token():
+    assert login(...).token
+```
+"""
+
+
+class TestConformanceParsers:
+    """Spec parsers for Layer-A conformance (no LLM)."""
+
+    def test_parse_spec_endpoints_dedupes_and_normalizes(self):
+        from src.ai_engine import parse_spec_endpoints
+        eps = parse_spec_endpoints(_TECH_SPEC_FIXTURE + "\n- `POST /api/v1/auth/login` dup")
+        assert ("POST", "/api/v1/auth/login") in eps
+        assert ("GET", "/api/v1/users/{id}") in eps
+        assert ("DELETE", "/api/v1/sessions") in eps
+        # duplicate collapsed
+        assert eps.count(("POST", "/api/v1/auth/login")) == 1
+
+    def test_parse_spec_endpoints_empty(self):
+        from src.ai_engine import parse_spec_endpoints
+        assert parse_spec_endpoints("") == []
+        assert parse_spec_endpoints("no endpoints here") == []
+
+    def test_parse_constraint_ids(self):
+        from src.ai_engine import parse_constraint_ids
+        cs = parse_constraint_ids(_CONSTRAINTS_FIXTURE)
+        assert [c[0] for c in cs] == ["NFR-1", "NFR-2"]
+        assert "rate-limit" in cs[0][1]
+
+    def test_extract_code_routes_multi_framework(self):
+        from src.ai_engine import extract_code_routes
+        text = (
+            '@router.post("/login")\n'
+            "app.get('/health')\n"
+            '@PostMapping("/orders")\n'
+            "post '/rails/path'\n"
+            '@app.route("/flask", methods=["PUT", "DELETE"])\n'
+        )
+        routes = {(m, p) for m, p, _ in extract_code_routes(text)}
+        assert ("POST", "/login") in routes
+        assert ("GET", "/health") in routes
+        assert ("POST", "/orders") in routes
+        assert ("POST", "/rails/path") in routes
+        assert ("PUT", "/flask") in routes and ("DELETE", "/flask") in routes
+
+
+class TestPathMatching:
+    """Suffix/wildcard path matching."""
+
+    def test_suffix_match_under_router_prefix(self):
+        from src.ai_engine import _paths_match
+        assert _paths_match("/api/v1/auth/login", "/login")
+        assert _paths_match("/api/v1/auth/login", "/auth/login")
+
+    def test_param_wildcard_match(self):
+        from src.ai_engine import _paths_match
+        assert _paths_match("/api/v1/users/{id}", "/users/{user_id}")
+        assert _paths_match("/api/v1/users/{id}", "/users/:id")
+
+    def test_different_resource_does_not_match(self):
+        from src.ai_engine import _paths_match
+        assert not _paths_match("/api/v1/users/{id}", "/orders/{id}")
+
+
+class TestLayerAReport:
+    """End-to-end deterministic report + score."""
+
+    def _report(self):
+        from src.ai_engine import build_layer_a_report
+        return build_layer_a_report(
+            _GHERKIN_FIXTURE, _TECH_SPEC_FIXTURE, _GITHUB_CONTEXT_FIXTURE, _CONSTRAINTS_FIXTURE)
+
+    def test_endpoint_statuses(self):
+        r = self._report()
+        by = {e.contract: e for e in r.endpoints}
+        # POST /login present in auth.py
+        assert by["POST /api/v1/auth/login"].status == "present"
+        assert by["POST /api/v1/auth/login"].location == "backend/app/api/auth.py"
+        # users path declared as PUT, spec wants GET → mismatch
+        assert by["GET /api/v1/users/{id}"].status == "mismatch"
+        assert "PUT" in by["GET /api/v1/users/{id}"].notes
+        # sessions never declared → missing
+        assert by["DELETE /api/v1/sessions"].status == "missing"
+
+    def test_scenario_statuses(self):
+        r = self._report()
+        statuses = {s.scenario: s.status for s in r.scenarios}
+        # "User signs in" keywords (credentials/login/token) appear in test file body
+        assert statuses["User signs in with valid credentials"] == "tested"
+        # invalid-password scenario keywords not present → untested
+        assert statuses["User submits an invalid password"] == "untested"
+
+    def test_constraints_are_advisory(self):
+        r = self._report()
+        nfr = {c.constraint_id: c.status for c in r.constraints}
+        assert set(nfr) == {"NFR-1", "NFR-2"}
+        # never raises, only addressed/not_found
+        assert all(s in ("addressed", "not_found") for s in nfr.values())
+
+    def test_score_is_deterministic_and_in_range(self):
+        from src.ai_engine import build_layer_a_report
+        r1 = self._report()
+        r2 = build_layer_a_report(
+            _GHERKIN_FIXTURE, _TECH_SPEC_FIXTURE, _GITHUB_CONTEXT_FIXTURE, _CONSTRAINTS_FIXTURE)
+        assert r1.score == r2.score
+        assert 0 <= r1.score <= 100
+        # 1 present + 1 mismatch(0.5) + 1 missing, 1 tested + 1 untested over 5 items
+        # = (1 + 0.5 + 0 + 1 + 0) / 5 = 0.5 → 50
+        assert r1.score == 50
+
+    def test_no_sync_degrades_gracefully(self):
+        from src.ai_engine import build_layer_a_report
+        r = build_layer_a_report(_GHERKIN_FIXTURE, _TECH_SPEC_FIXTURE, "", _CONSTRAINTS_FIXTURE)
+        assert r.score == 0
+        assert all(e.status == "missing" for e in r.endpoints)
+        assert all(s.status == "untested" for s in r.scenarios)
+        assert "No synced GitHub context" in r.summary
+
+    def test_empty_spec_scores_zero(self):
+        from src.ai_engine import build_layer_a_report
+        r = build_layer_a_report("", "", _GITHUB_CONTEXT_FIXTURE, "")
+        assert r.endpoints == [] and r.scenarios == []
+        assert r.score == 0

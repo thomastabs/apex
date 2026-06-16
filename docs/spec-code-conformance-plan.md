@@ -165,7 +165,13 @@ as `precheck` so the AI corrects/confirms rather than re-derives.
 
 ## Build order
 
-1. Layer-A parsers + `ConformanceReport` model + code-computed score (+ tests). Ships value with zero AI.
+1. ✅ **DONE 2026-06-16.** Layer-A parsers + `ConformanceReport` model + code-computed
+   score (+ tests). Ships value with zero AI. In `src/ai_engine.py`:
+   `parse_spec_endpoints`, `parse_constraint_ids`, `extract_code_routes` (FastAPI/
+   Flask/Express/Spring/Rails patterns), `_paths_match` (suffix+param-wildcard),
+   `build_layer_a_report`, `compute_conformance_score` (endpoints+scenarios weighted;
+   constraints advisory, excluded). Tests: `TestConformanceParsers`, `TestPathMatching`,
+   `TestLayerAReport` in `tests/test_ai_engine.py`.
 2. AI semantic layer + `verify_spec_conformance` (+ mocked tests).
 3. Service + routes + persistence (+ tests).
 4. Phase 6 Traceability Explorer panel + hooks.
