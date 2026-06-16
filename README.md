@@ -9,7 +9,7 @@ The current migrated version is a split full-stack web app:
 - **Storage:** `contextspec/` folder in Azure File Share in deployment
 - **Deployment:** GitHub Actions builds Docker images and deploys to Azure Container Apps
 
-Phases 1–5 are implemented, plus a governance analytics dashboard. Phase 6 currently exists as a navigation placeholder.
+Phases 1–6 are implemented, plus a governance analytics dashboard. The spec-model upgrade roadmap (see `docs/spec-model-roadmap.md`) is fully shipped: EARS non-functional requirements, spec↔code conformance, deterministic agent-target compilation, controlled spec co-evolution, and per-epic context slicing.
 
 <img width="1908" height="991" alt="image" src="https://github.com/user-attachments/assets/818d2d66-add0-40c4-883f-c558a8445183" />
 
@@ -72,7 +72,14 @@ flowchart TD
     AF --> AC
     AE --> G
 
-    G --> AG[Future Phase 6]
+    G --> AG[Phase 6: Maintenance Triage + Traceability]
+    AG --> AH{Triage: Change Request or Bug?}
+    AH -->|Change Request| AI[Route to Phase 1 discovery]
+    AH -->|Bug| AJ[Narrow diagnosis → Fix-Bolt brief → Vaccine]
+    AJ --> AK{Severity routing}
+    AK -->|Fast Lane| AE
+    AK -->|Secure Lane| S
+    AI --> A
 ```
 
 ### Phase 1 · Requirements
@@ -151,6 +158,7 @@ Implemented — 4-stage stepper workflow:
 
 - Push all tasks to the PM tool as subtasks (browser-direct); each task gets a PM ref, and pushed tasks link out to their Taiga task page
 - For each task, generate a **Developer Pack** — a structured Markdown coding proposal including context, approach, and acceptance checklist; GitHub repository context is injected when available
+- **Deterministic agent-target compilation:** the AI produces one structured pack (context, steps, files, test assertions); the multi-target export wrappers — **Agentic Brief**, **Chat Prompt**, **CLAUDE.md Snippet** — are rendered by pure code templates over those fields, so they cannot drift from each other and cost no extra tokens (roadmap #3)
 - **Cross-pack consistency:** each pack is generated aware of the story's already-saved sibling packs (a compact Context + Files-to-Change digest), so packs reuse the same files/entities/endpoints and don't redefine or duplicate each other — generate task 1's pack first, then 2+ align to it
 - View and edit packs in an in-browser editor; re-generate any pack if needed
 - Packs are auto-saved to `proposal_story_<id>_task_<id>.md` in `contextspec/`
@@ -190,6 +198,7 @@ Implemented — 4-stage stepper workflow:
 - Per-scenario cards with **Pass** / **Fail** toggle buttons; colour-coded (green / red)
 - Fail → inline notes textarea expands for reproduction steps and observed vs expected behaviour
 - Expandable "View test steps" per scenario (collapsible section from the test plan)
+- **Explore edge cases** per scenario — on-demand AI button that surfaces non-obvious boundary/error/abuse probes beyond the plan's happy path, grounded in the scenario + technical spec
 - Regression Bypass mode: amber banner shown; previously failed scenarios highlighted in amber
 - All scenarios must be marked before proceeding to the Testing Gate
 
@@ -232,12 +241,37 @@ Implemented — 4-stage stepper workflow:
 - **Approve:** story locks to `deployed`, a machine-parseable record (route, sign-offs, traceability summary) is appended to `deployment-log.md`, optional PM story status update
 - **Reject:** security feedback is fed to the AI, which revises the pack → back to Stage C
 
+### Phase 6 · Maintenance & Traceability
+
+Phase 6 (`/phase6`) is tabbed: **Maintenance** and **Traceability**.
+
+**Maintenance Triage (F1) + Fix-Bolt & Severity Routing (F2)** — the framework's Maintenance & Evolution playbook:
+
+- **Intake** of post-deployment feedback from three sources: a manual in-app form, **GitHub Issues**, and **Taiga Issues** (read-only import; net-new or linked to a deployed story)
+- **AI Triage** classifies each item: **Path A — Change Request** (business deviation) is never patched directly — it is logged and routed to Phase 1 discovery ("Open in Phase 1"); **Path B — Bug** (technical deviation) proceeds to diagnosis
+- **Narrow diagnosis** under the **Context Isolation Rule** — the AI sees only the bug report + test evidence + the isolated code snippet (never whole-project context), and proposes a root cause for the human to verify (no patch yet)
+- **Fix-Bolt brief** — a deterministic, code-rendered agent directive (problem, failing contract, patch directive, files, regression-guard tests) grounded in the verified diagnosis
+- **Severity Routing** (AI suggests, human decides) — **Fast Lane** (low-risk) routes the linked story straight to a deployment record bypassing QA; **Secure Lane** (high-risk) re-enters Phase 4 as a QA Regression Bypass; **Resolve** records a permanent **Vaccine** in `vaccines.md`
+- Items persist in `maintenance_items.json`; events are logged to `maintenance-log.md`
+
+**Traceability Explorer (F3) — spec↔code conformance:**
+
+- Verifies shipped code against the locked spec for a story. A deterministic **Layer A** parses the technical-spec endpoint contracts, Gherkin scenarios, and EARS constraints, then locates route declarations and tests in the synced GitHub context (framework-aware patterns) with **per-line citations** (`path:line`)
+- An AI **Layer B** confirms/corrects each row with file citations and returns `unknown` when the code is not in context — never assuming conformance
+- **On-demand file fetch:** for any `unknown` row, fetch the implicated file from GitHub and re-verify with it in context (no whole-repo dump)
+- The **score (0–100) is computed in code** from the findings, never by the AI; reports persist to `conformance_story_<id>.json`
+
+### Controlled spec co-evolution
+
+Editing a **locked** spec artifact (e.g. `functional-spec.md` after `gherkin_locked`, `technical-spec.md`/`design-bundle.md`/`constraints.md` after `design_locked`) via the sidebar is no longer silent: the edit is logged to `amendments.md` as a dated **amendment** and raises a `spec_drift` flag on every affected downstream story (status at/after that file's lock). Drift surfaces as a board badge with an Acknowledge action, clears automatically when a story's developer pack is regenerated, and is counted in analytics — the framework's answer to the Twin Peaks requirement↔architecture co-evolution problem (roadmap #4).
+
 ### Analytics
 
 The `/analytics` page computes the framework's Core Governance Metrics on demand from the story index and context artifacts:
 
 - **Cycle time per gate transition** — median/p90 hours from `status_history` timestamps recorded at every phase transition (Fix-Bolt re-entries restart the clock)
 - **Context Traceability Rate** — % of deployed stories with a complete artifact chain (Gherkin + test plan + infra delta + complete matrix + deployment-log entry)
+- **Spec Conformance Rate** — average spec↔code conformance score across implemented stories that have a Phase 6 conformance report
 - **Fix-Bolt defect proxy** — total/avg Fix-Bolt triggers per story (Apex has no production telemetry, so QA-caught defects stand in for the Defect Escape Rate)
 - Phase funnel and per-story drill-down table; CSV and Markdown export
 
@@ -280,6 +314,8 @@ Implemented:
 | `backend/app/api/phase3.py` | Phase 3 HTTP routes |
 | `backend/app/api/phase4.py` | Phase 4 HTTP routes |
 | `backend/app/api/phase5.py` | Phase 5 HTTP routes (deployment gate, infra delta, deploy pack, verification) |
+| `backend/app/api/phase6.py` | Phase 6 HTTP routes — spec↔code conformance (Traceability) + maintenance triage / Fix-Bolt routing |
+| `backend/app/services/maintenance_service.py` | Phase 6 Maintenance & Evolution workflow (triage, diagnosis, Fix-Bolt routing, vaccine) |
 | `backend/app/api/analytics.py` | Governance analytics endpoint |
 | `backend/app/api/workspace.py` | Sidebar/workspace routes: auth, projects, board, users, context files, AI config |
 | `backend/app/api/taiga_proxy.py` | FastAPI reverse proxy for all Taiga REST calls — SSRF-guarded, header-injection-safe, forwards `DELETE/GET/PATCH/POST/PUT /api/pm/taiga/{path}` to the configured Taiga instance; `_egress()` optionally routes through the Cloudflare relay (see [Taiga egress relay](#taiga-egress-relay-azure-deployment)) |
@@ -293,7 +329,7 @@ Implemented:
 | `src/storage.py` | Storage abstraction over local disk or Azure File Share SDK |
 | `src/taiga_adapter.py` | Taiga web URL derivation for the config endpoint (minimal stub; all Taiga REST calls go through `taiga_proxy.py`) |
 | `frontend/app/` | Next.js routes |
-| `frontend/components/` | App shell, sidebar, Phase 1–4 workflow components, UI primitives |
+| `frontend/components/` | App shell, sidebar, Phase 1–6 workflow components (incl. `phase6-workflow.tsx`, `maintenance-triage.tsx`), UI primitives |
 | `frontend/lib/api/taiga-direct.ts` | Taiga REST client — all CRUD, auth, and story transitions; sends requests to the FastAPI Taiga proxy with `X-Taiga-Url` header |
 | `frontend/lib/api/pm-types.ts` | `ProjectManagementAdapter` interface and shared PM types |
 | `frontend/lib/api/pm-factory.ts` | `getPmAdapter(pmTool)` dispatcher — returns Taiga or Jira adapter |
@@ -305,8 +341,10 @@ Implemented:
 | `frontend/lib/stores/` | Zustand stores for session, UI, and per-phase draft state |
 | `.github/workflows/ci.yml` | Test, build, push, and deploy workflow |
 | `.github/workflows/scale-scheduler.yml` | Azure Container Apps scale up/down scheduler |
-| `docs/spec-model-roadmap.md` | Benchmark of the spec model vs SDD/BDD/RE literature + the upgrade roadmap |
-| `docs/spec-code-conformance-plan.md` | Design for the planned spec↔code conformance check (roadmap #1) |
+| `docs/spec-model-roadmap.md` | Benchmark of the spec model vs SDD/BDD/RE literature + the upgrade roadmap (all five upgrades shipped) |
+| `docs/spec-code-conformance-plan.md` | Design + build log for the spec↔code conformance check (roadmap #1, shipped) |
+| `docs/deterministic-compilation-plan.md` | Design + build log for deterministic agent-target compilation (roadmap #3, shipped) |
+| `docs/spec-co-evolution-plan.md` | Design + build log for controlled spec co-evolution / amendments + drift (roadmap #4, shipped) |
 
 ---
 
@@ -333,6 +371,10 @@ Apex stores workflow state in context files under `contextspec/<instance_id>/<pr
 | `deploy_pack_story_<id>.md` | Phase 5 deploy pack — scripts and rollback plan for flagged infra changes |
 | `verification_story_<id>.json` / `.md` | Traceability matrix persisted as Deployment Gate evidence |
 | `deployment-log.md` | Append-only log of Deployment Gate decisions (route, sign-offs, traceability summary) |
+| `conformance_story_<id>.json` | Phase 6 spec↔code conformance report (endpoints/scenarios/constraints + code-computed score) |
+| `maintenance_items.json` | Phase 6 maintenance triage items (source, classification, status, diagnosis, lane) |
+| `maintenance-log.md` | Append-only log of maintenance triage events (classification, routing, resolution) |
+| `amendments.md` | Append-only log of post-lock spec edits (which file, affected stories) — the spec co-evolution audit trail |
 | `vaccines.md` | Appended with each Fix-Bolt record — bug isolation log for future reference |
 | `story-index.json` | Machine-readable story phase state |
 
