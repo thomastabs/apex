@@ -5,6 +5,7 @@ import {
   deleteTestPlan,
   failGate,
   generateBugReport,
+  generateEdgeCases,
   generateTestPlan,
   getEligibleStories,
   getStoryContext,
@@ -110,6 +111,15 @@ export function useGenerateTestPlan() {
       void qc.invalidateQueries({ queryKey: ["phase4", "test-plan", context?.projectId, storyId] });
     },
     onError: (err: Error) => toast.error(`Test plan generation failed: ${err.message}`),
+  });
+}
+
+export function useGenerateEdgeCases() {
+  const context = useApiContext();
+  return useMutation({
+    mutationFn: ({ storyId, scenarioText }: { storyId: number; scenarioText: string }) =>
+      generateEdgeCases(context!, storyId, scenarioText),
+    onError: (err: Error) => toast.error(`Edge-case exploration failed: ${err.message}`),
   });
 }
 

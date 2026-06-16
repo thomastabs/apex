@@ -69,7 +69,8 @@ def verify_conformance(
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
-        return service.verify_conformance(ctx, payload.story_id, ai=payload.ai)
+        extra = [f.model_dump() for f in payload.extra_files]
+        return service.verify_conformance(ctx, payload.story_id, ai=payload.ai, extra_files=extra)
     except Exception as exc:
         _handle_error(exc)
 

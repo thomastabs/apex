@@ -76,16 +76,29 @@ class Phase6Service:
             "github_context": github_context,
         }
 
-    def verify_conformance(self, ctx: RequestContext, story_id: int, *, ai: bool = True) -> dict:
-        """Run a conformance check and persist it. ai=False → Layer-A only (no LLM)."""
+    def verify_conformance(
+        self, ctx: RequestContext, story_id: int, *, ai: bool = True,
+        extra_files: list[dict] | None = None,
+    ) -> dict:
+        """Run a conformance check and persist it. ai=False → Layer-A only (no LLM).
+
+        extra_files ([{path, content}]) are user-supplied source files appended to
+        the synced context so the AI can resolve `unknown` rows (#1 v2 on-demand
+        file fetch) without dumping the whole repo.
+        """
         self.configure_request(ctx)
         inp = self._story_inputs(story_id)
+        github_context = inp["github_context"]
+        for f in extra_files or []:
+            path, content = f.get("path", ""), f.get("content", "")
+            if path and content:
+                github_context += f"\n\n## `{path}`\n\n```\n{content}\n```\n"
         precheck = self.ai.layer_a_conformance(
-            inp["gherkin"], inp["technical_spec"], inp["github_context"], inp["constraints"]
+            inp["gherkin"], inp["technical_spec"], github_context, inp["constraints"]
         )
         if ai:
             report = self.ai.verify_conformance(
-                inp["title"], inp["gherkin"], inp["technical_spec"], inp["github_context"],
+                inp["title"], inp["gherkin"], inp["technical_spec"], github_context,
                 constraints=inp["constraints"], tech_stack=inp["tech_stack"], precheck=precheck,
             )
             report["layer"] = "ai"

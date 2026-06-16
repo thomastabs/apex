@@ -10,6 +10,7 @@ import {
   Info,
   Loader2,
   ShieldAlert,
+  Sparkles,
   XCircle,
 } from "lucide-react";
 import { Button, Callout, SectionHeading, Textarea } from "@/components/ui/primitives";
@@ -19,6 +20,7 @@ import {
   useEligibleStories,
   useFailGate,
   useGenerateBugReport,
+  useGenerateEdgeCases,
   useGenerateTestPlan,
   useLoadTestPlan,
   usePassGate,
@@ -418,6 +420,10 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const setScenarioResult = usePhase4Store((s) => s.setScenarioResult);
   const setScenarioNotes = usePhase4Store((s) => s.setScenarioNotes);
 
+  const edgeCasesMut = useGenerateEdgeCases();
+  const [edgeCases, setEdgeCases] = useState<Record<string, string>>({});
+  const [edgeLoading, setEdgeLoading] = useState<string | null>(null);
+
   const scenarios = useMemo(() => parseScenarioNames(testPlanMd ?? ""), [testPlanMd]);
 
   const markedCount = scenarios.filter((n) => scenarioResults[n] && scenarioResults[n] !== "pending").length;
@@ -538,6 +544,36 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                   <pre className="mt-2 whitespace-pre-wrap font-mono">{sectionMd}</pre>
                 </details>
               )}
+
+              {/* On-demand edge-case exploration */}
+              <div className="text-xs">
+                <button
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded px-2 py-1 font-medium transition disabled:opacity-50",
+                    dark ? "text-violet-400 hover:bg-violet-500/15" : "text-violet-600 hover:bg-violet-50",
+                  )}
+                  disabled={edgeLoading === name}
+                  onClick={() => {
+                    setEdgeLoading(name);
+                    edgeCasesMut.mutate(
+                      { storyId, scenarioText: sectionMd || name },
+                      {
+                        onSuccess: (d) => setEdgeCases((prev) => ({ ...prev, [name]: d.edge_cases_md })),
+                        onSettled: () => setEdgeLoading(null),
+                      },
+                    );
+                  }}
+                >
+                  {edgeLoading === name
+                    ? <><Loader2 className="h-3 w-3 animate-spin" /> Exploring…</>
+                    : <><Sparkles className="h-3 w-3" /> Explore edge cases</>}
+                </button>
+                {edgeCases[name] && (
+                  <pre className={cn("mt-2 whitespace-pre-wrap rounded-lg border p-2 font-mono", dark ? "border-neutral-700 bg-neutral-950 text-neutral-300" : "border-slate-200 bg-slate-50 text-slate-700")}>
+                    {edgeCases[name]}
+                  </pre>
+                )}
+              </div>
 
               {/* Notes on fail */}
               {result === "fail" && (

@@ -43,6 +43,10 @@ class FakeAiService:
         self.bug_report_kwargs = {"failed_scenario": failed_scenario, "qa_notes": qa_notes}
         return _FAKE_BUG_REPORT
 
+    def generate_edge_cases(self, scenario_text, technical_spec=""):
+        self.edge_cases_args = (scenario_text, technical_spec)
+        return "- empty password → 400\n- expired token → 401"
+
 
 class FakeContextService:
     def __init__(self, index=None):
@@ -389,3 +393,31 @@ def test_qa_results_accumulate_fail_then_pass(ctx):
     ])
     data = ctx.load_qa_results(10)
     assert [a["gate"] for a in data["attempts"]] == ["fail", "pass"]
+
+
+# --- on-demand edge cases (Phase 4 post-MVP) ------------------------------
+
+class TestGenerateEdgeCases:
+    def _service(self, index):
+        ctx_svc = FakeContextService(index=index)
+        ai = FakeAiService()
+        return Phase4Service(ai=ai, context=ctx_svc), ai
+
+    def test_generates_edge_cases_with_tech_spec(self):
+        index = {"7": {"story_id": 7, "title": "Login", "phase_status": "qa"}}
+        svc, ai = self._service(index)
+        out = svc.generate_edge_cases(_ctx(), 7, "Scenario: User signs in")
+        assert "expired token" in out
+        # the story's technical spec is passed for risk grounding
+        assert ai.edge_cases_args[0] == "Scenario: User signs in"
+        assert ai.edge_cases_args[1] == _FAKE_TECH_SPEC
+
+    def test_blank_scenario_raises(self):
+        svc, _ = self._service({"7": {"story_id": 7, "phase_status": "qa"}})
+        with pytest.raises(Phase4ValidationError):
+            svc.generate_edge_cases(_ctx(), 7, "   ")
+
+    def test_unknown_story_raises(self):
+        svc, _ = self._service({})
+        with pytest.raises(Phase4ValidationError):
+            svc.generate_edge_cases(_ctx(), 99, "Scenario: x")

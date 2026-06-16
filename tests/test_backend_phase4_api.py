@@ -11,6 +11,7 @@ from backend.app.api.phase4 import (
     eligible_stories,
     fail_gate,
     generate_bug_report,
+    generate_edge_cases,
     generate_test_plan,
     get_test_plan,
     list_test_plans,
@@ -22,6 +23,7 @@ from backend.app.schemas.phase4 import (
     FailedScenario,
     FailGateRequest,
     GenerateBugReportRequest,
+    GenerateEdgeCasesRequest,
     GenerateTestPlanRequest,
     PassGateRequest,
     SaveTestPlanRequest,
@@ -67,6 +69,9 @@ class StubPhase4Service:
 
     def generate_test_plan(self, ctx, story_id):
         return _FAKE_TEST_PLAN
+
+    def generate_edge_cases(self, ctx, story_id, scenario_text):
+        return "- empty input → 400"
 
     def save_test_plan(self, ctx, story_id, test_plan_md):
         pass
@@ -125,6 +130,15 @@ def test_generate_test_plan_route():
     )
     assert result["story_id"] == 10
     assert "## Scenario:" in result["test_plan_md"]
+
+
+def test_generate_edge_cases_route():
+    result = generate_edge_cases(
+        GenerateEdgeCasesRequest(story_id=10, scenario_text="Scenario: login"),
+        ctx=_ctx(), service=StubPhase4Service(), _rl=None,
+    )
+    assert result["story_id"] == 10
+    assert "→ 400" in result["edge_cases_md"]
 
 
 def test_save_test_plan_route():

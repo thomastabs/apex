@@ -27,12 +27,14 @@ class FakeAiService:
 
     def layer_a_conformance(self, gherkin, technical_spec, github_context, constraints=""):
         self.layer_a_calls += 1
+        self.last_github_context = github_context
         return {"endpoints": [], "scenarios": [], "constraints": [], "summary": "layerA", "score": 40}
 
     def verify_conformance(self, story_subject, gherkin, technical_spec, github_context,
                            constraints="", tech_stack="", precheck=None):
         self.verify_calls += 1
         self.last_precheck = precheck
+        self.last_github_context = github_context
         return {"endpoints": [], "scenarios": [], "constraints": [], "summary": "AI", "score": 70}
 
 
@@ -135,3 +137,11 @@ def test_get_conformance_roundtrip(ctx):
     assert svc.get_conformance(ctx, 1) is None
     svc.verify_conformance(ctx, 1, ai=False)
     assert svc.get_conformance(ctx, 1)["story_id"] == 1
+
+
+def test_extra_files_appended_to_context(ctx):
+    svc, ai, context = _service()
+    svc.verify_conformance(ctx, 1, ai=True, extra_files=[{"path": "api/auth.py", "content": "def login(): pass"}])
+    # the supplied file is appended to the github context the AI sees (#1 v2)
+    assert "## `api/auth.py`" in ai.last_github_context
+    assert "def login(): pass" in ai.last_github_context

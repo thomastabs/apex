@@ -31,7 +31,7 @@ class StubPhase6Service:
             "phase_status": "implementation", "has_conformance": True, "score": 75,
         }]
 
-    def verify_conformance(self, ctx, story_id, *, ai=True):
+    def verify_conformance(self, ctx, story_id, *, ai=True, extra_files=None):
         return {**_REPORT, "story_id": story_id, "layer": "ai" if ai else "deterministic"}
 
     def get_conformance(self, ctx, story_id):
@@ -76,7 +76,7 @@ def test_get_conformance_404_when_absent():
 
 def test_validation_error_maps_to_422():
     class Failing(StubPhase6Service):
-        def verify_conformance(self, ctx, story_id, *, ai=True):
+        def verify_conformance(self, ctx, story_id, *, ai=True, extra_files=None):
             raise Phase6ValidationError("not eligible")
 
     with pytest.raises(HTTPException) as exc:
@@ -93,7 +93,7 @@ def test_validation_error_maps_to_422():
 ])
 def test_ai_errors_map(err, code):
     class Failing(StubPhase6Service):
-        def verify_conformance(self, ctx, story_id, *, ai=True):
+        def verify_conformance(self, ctx, story_id, *, ai=True, extra_files=None):
             raise err
 
     with pytest.raises(HTTPException) as exc:

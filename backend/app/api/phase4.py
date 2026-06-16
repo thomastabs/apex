@@ -11,6 +11,8 @@ from backend.app.schemas.phase4 import (
     FailGateRequest,
     GenerateBugReportRequest,
     GenerateBugReportResponse,
+    GenerateEdgeCasesRequest,
+    GenerateEdgeCasesResponse,
     GenerateTestPlanRequest,
     GenerateTestPlanResponse,
     PassGateRequest,
@@ -77,6 +79,20 @@ def generate_test_plan(
     try:
         md = service.generate_test_plan(ctx, payload.story_id)
         return {"story_id": payload.story_id, "test_plan_md": md}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/generate-edge-cases", response_model=GenerateEdgeCasesResponse)
+def generate_edge_cases(
+    payload: GenerateEdgeCasesRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase4Service = Depends(get_phase4_service),
+    _rl: None = Depends(ai_rate_limit),
+):
+    try:
+        md = service.generate_edge_cases(ctx, payload.story_id, payload.scenario_text)
+        return {"story_id": payload.story_id, "edge_cases_md": md}
     except Exception as exc:
         _handle_error(exc)
 

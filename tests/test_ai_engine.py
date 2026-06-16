@@ -787,7 +787,8 @@ class TestLayerAReport:
         by = {e.contract: e for e in r.endpoints}
         # POST /login present in auth.py
         assert by["POST /api/v1/auth/login"].status == "present"
-        assert by["POST /api/v1/auth/login"].location == "backend/app/api/auth.py"
+        # #1 v2: location now carries a 1-based line within the synced code block
+        assert by["POST /api/v1/auth/login"].location.startswith("backend/app/api/auth.py:")
         # users path declared as PUT, spec wants GET → mismatch
         assert by["GET /api/v1/users/{id}"].status == "mismatch"
         assert "PUT" in by["GET /api/v1/users/{id}"].notes
@@ -1088,3 +1089,20 @@ class TestMaintenanceAI:
                             lambda *a, **k: SeverityRouting(lane="secure", rationale="touches auth"))
         r = ai.suggest_severity_lane("root cause: auth bypass", patch_scope="auth.py")
         assert r.lane == "secure"
+
+
+class TestGenerateEdgeCases:
+    def test_invokes_with_scenario_and_spec(self, monkeypatch):
+        import src.ai_engine as ai
+        captured = {}
+
+        def fake(s, h, *a, **k):
+            captured["sys"] = s
+            captured["h"] = h
+            return "- empty pw → 400"
+
+        monkeypatch.setattr(ai, "_invoke", fake)
+        out = ai.generate_edge_cases("Scenario: User signs in", "POST /auth/login")
+        assert out.startswith("- ")
+        assert "User signs in" in captured["h"] and "POST /auth/login" in captured["h"]
+        assert "edge case" in captured["sys"].lower()

@@ -167,6 +167,15 @@ class Phase4Service:
             qa_notes=failed_text,
         )
 
+    def generate_edge_cases(self, ctx: RequestContext, story_id: int, scenario_text: str) -> str:
+        self.configure_request(ctx)
+        if not scenario_text.strip():
+            raise Phase4ValidationError("A scenario is required to explore edge cases.")
+        if str(story_id) not in self.context.story_index():
+            raise Phase4ValidationError(f"Story {story_id} not found in index.")
+        technical_spec = self.context.story_technical_spec(story_id)
+        return self.ai.generate_edge_cases(scenario_text, technical_spec)
+
     def pass_gate(
         self,
         ctx: RequestContext,

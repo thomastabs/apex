@@ -51,10 +51,17 @@ class ConformanceReportResponse(BaseModel):
     generated_at: str = ""
 
 
+class SupplementalFile(BaseModel):
+    path: str = Field(max_length=300)
+    content: str = Field(max_length=100_000)
+
+
 class VerifyConformanceRequest(BaseModel):
     story_id: int
     # ai=False runs the deterministic Layer-A baseline only (no LLM call).
     ai: bool = True
+    # User-fetched source files appended to context to resolve `unknown` rows (#1 v2).
+    extra_files: list[SupplementalFile] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------

@@ -31,6 +31,15 @@ export function generateTestPlan(context: RequestContext, storyId: number) {
   });
 }
 
+export function generateEdgeCases(context: RequestContext, storyId: number, scenarioText: string) {
+  return apiRequest<{ story_id: number; edge_cases_md: string }>("/api/phase4/generate-edge-cases", {
+    method: "POST",
+    context,
+    body: { story_id: storyId, scenario_text: scenarioText },
+    timeoutMs: PHASE4_AI_TIMEOUT_MS,
+  });
+}
+
 export function saveTestPlan(context: RequestContext, storyId: number, testPlanMd: string) {
   return apiRequest<{ ok: boolean }>("/api/phase4/save-test-plan", {
     method: "POST",

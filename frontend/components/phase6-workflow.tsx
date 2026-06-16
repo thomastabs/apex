@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { GitCompareArrows, Loader2, RefreshCw, Wrench, Zap } from "lucide-react";
-import { Button, Callout, SectionHeading } from "@/components/ui/primitives";
+import { Button, Callout, Input, SectionHeading } from "@/components/ui/primitives";
 import { MaintenanceTriage } from "@/components/maintenance-triage";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
 import {
@@ -11,7 +11,7 @@ import {
   useConformanceReport,
   useVerifyConformance,
 } from "@/lib/hooks/use-phase6";
-import { useApiContext } from "@/lib/stores/session-store";
+import { useApiContext, useGithubContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
 import type {
@@ -122,8 +122,11 @@ function ReportTables({ report, dark }: { report: ConformanceReport; dark: boole
 
 function TraceabilityPanel() {
   const context = useApiContext();
+  const github = useGithubContext();
   const dark = useUiStore((s) => s.theme) === "dark";
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [supPath, setSupPath] = useState("");
+  const [fetching, setFetching] = useState(false);
 
   const eligible = useConformanceEligibleStories();
   const reportQuery = useConformanceReport(selectedId);
@@ -157,6 +160,24 @@ function TraceabilityPanel() {
         onSuccess: () => toast.success(ai ? "Conformance verified" : "Layer-A baseline computed"),
       },
     );
+  }
+
+  // #1 v2: fetch a single file and re-verify with it in context — resolves `unknown` rows.
+  async function fetchAndReverify() {
+    if (selectedId === null || !supPath.trim() || !github) return;
+    setFetching(true);
+    try {
+      const { fetchGithubFile } = await import("@/lib/api/github-browser");
+      const content = await fetchGithubFile(github, supPath.trim());
+      if (!content) { toast.error("File empty or not found."); return; }
+      verify.mutate(
+        { storyId: selectedId, ai: true, extraFiles: [{ path: supPath.trim(), content }] },
+        {
+          onError: (err) => toast.error(errMsg(err)),
+          onSuccess: () => { toast.success(`Re-verified with ${supPath.trim()}`); setSupPath(""); },
+        },
+      );
+    } catch (e) { toast.error(errMsg(e)); } finally { setFetching(false); }
   }
 
   return (
@@ -280,7 +301,25 @@ function TraceabilityPanel() {
             {reportQuery.isLoading ? (
               <Callout>Loading report…</Callout>
             ) : report ? (
-              <ReportTables report={report} dark={dark} />
+              <>
+                <ReportTables report={report} dark={dark} />
+                {github && [...report.endpoints, ...report.scenarios].some((r) => r.status === "unknown") ? (
+                  <div className={cn("space-y-2 rounded-lg border p-3", dark ? "border-neutral-800" : "border-slate-200")}>
+                    <p className="text-xs font-semibold">Resolve <code>unknown</code> rows — fetch a file & re-verify</p>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="path/to/implicated/file.py"
+                        value={supPath}
+                        onChange={(e) => setSupPath(e.target.value)}
+                        className="flex-1"
+                      />
+                      <Button onClick={fetchAndReverify} disabled={fetching || verify.isPending || !supPath.trim()}>
+                        {fetching ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Fetch & re-verify
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+              </>
             ) : (
               <Callout>
                 Run a check to compare story #{selectedId} against its spec. Tip: sync GitHub first

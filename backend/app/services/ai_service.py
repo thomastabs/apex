@@ -189,6 +189,9 @@ class AiService:
             story_subject, gherkin, technical_spec, failed_scenario, qa_notes,
         )
 
+    def generate_edge_cases(self, scenario_text: str, technical_spec: str = "") -> str:
+        return ai_engine.generate_edge_cases(scenario_text, technical_spec)
+
     def generate_infra_delta(
         self,
         story_subject: str,

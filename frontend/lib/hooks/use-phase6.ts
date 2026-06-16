@@ -39,8 +39,8 @@ export function useVerifyConformance() {
   const context = useApiContext();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ storyId, ai = true }: { storyId: number; ai?: boolean }) =>
-      verifyConformance(context!, storyId, ai),
+    mutationFn: ({ storyId, ai = true, extraFiles = [] }: { storyId: number; ai?: boolean; extraFiles?: { path: string; content: string }[] }) =>
+      verifyConformance(context!, storyId, ai, extraFiles),
     onSuccess: (report: ConformanceReport) => {
       qc.setQueryData(
         ["phase6", "conformance", context?.projectId, report.story_id],

@@ -220,6 +220,18 @@ export async function fetchRecentCommitsContext(ctx: GithubSyncContext, taskSubj
   return `## Recent Related Commits\n\n${lines.join("\n")}`;
 }
 
+/** Fetch a single file's decoded text content (for on-demand conformance context). */
+export async function fetchGithubFile(ctx: GithubSyncContext, path: string): Promise<string> {
+  const raw = await ghFetch<{ content?: string; encoding?: string }>(
+    `/repos/${ctx.owner}/${ctx.repo}/contents/${path}`,
+    ctx.pat,
+  );
+  if (raw.content && raw.encoding === "base64") {
+    return atob(raw.content.replace(/\n/g, ""));
+  }
+  return "";
+}
+
 export type ExternalIssue = { ext_ref: string; subject: string; description: string };
 
 /** List open GitHub Issues (excluding PRs) as maintenance-intake candidates. */

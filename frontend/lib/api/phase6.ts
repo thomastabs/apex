@@ -15,11 +15,16 @@ export function getConformanceEligibleStories(context: RequestContext) {
   return apiRequest<ConformanceEligibleStoriesResponse>("/api/phase6/eligible-stories", { context });
 }
 
-export function verifyConformance(context: RequestContext, storyId: number, ai = true) {
+export function verifyConformance(
+  context: RequestContext,
+  storyId: number,
+  ai = true,
+  extraFiles: { path: string; content: string }[] = [],
+) {
   return apiRequest<ConformanceReport>("/api/phase6/conformance", {
     method: "POST",
     context,
-    body: { story_id: storyId, ai },
+    body: { story_id: storyId, ai, extra_files: extraFiles },
     timeoutMs: ai ? PHASE6_AI_TIMEOUT_MS : undefined,
   });
 }

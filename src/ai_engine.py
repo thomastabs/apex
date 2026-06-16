@@ -1945,6 +1945,35 @@ def generate_bug_report(
     return _ai_retry(lambda: _invoke(system, human, get_model(), max_tokens=4000, timeout=300))
 
 
+_EDGE_CASES_SYSTEM = """\
+You are a senior QA engineer probing a SINGLE Gherkin scenario for additional edge cases within
+the Apex Framework. The test plan already lists obvious edge cases — your job is to surface the
+NON-OBVIOUS ones an AI-written happy-path test would miss.
+
+Ground every edge case ONLY in the scenario and the technical spec (endpoints, data model). Do
+NOT invent new behaviour or scenarios. For each edge case give a concrete, testable probe.
+
+Output ONLY a markdown bullet list (no preamble, no headings). Each bullet:
+- <edge case — the boundary/error/abuse input> → <the expected observable outcome>
+
+Cover, where the spec implies them: boundary values, empty/null/oversized inputs, malformed
+payloads, unauthorized/expired auth, concurrency/duplicate submits, idempotency, pagination
+limits, and state the scenario assumes but does not establish. 4-8 bullets. Quality over count.
+"""
+
+
+def generate_edge_cases(scenario_text: str, technical_spec: str = "") -> str:
+    """Phase 4: on-demand expansion of non-obvious edge cases for one scenario."""
+    human = (
+        "Scenario:\n" + fence_user_content(scenario_text.strip() or "Not specified") + "\n\n"
+        + "Technical Spec (endpoints, data model — for risk areas):\n"
+        + fence_user_content(technical_spec.strip() or "Not specified") + "\n\n"
+        + "List the additional edge cases to probe for this scenario."
+    )
+    return _ai_retry(lambda: _invoke(_EDGE_CASES_SYSTEM, human, get_model(),
+                                     max_tokens=1200, timeout=180, temperature=0.2))
+
+
 # ---------------------------------------------------------------------------
 # 5. Deployment Phase — Phase 5
 # ---------------------------------------------------------------------------
@@ -2452,16 +2481,33 @@ def _paths_match(spec_path: str, code_path: str) -> bool:
 
 
 def _locate_offset(github_context: str, offset: int) -> str:
-    """Map a char offset back to the nearest preceding file-naming heading."""
+    """Map a char offset to `path:line` using the nearest preceding file heading.
+
+    The line is 1-based within that file's synced code block (#1 v2 per-line
+    citations). Falls back to the bare path when the line can't be derived, and
+    to "" when no file heading precedes the offset.
+    """
+    text = github_context or ""
     nearest = ""
-    for m in _FILE_HEADING_RE.finditer(github_context or ""):
+    heading_end = 0
+    for m in _FILE_HEADING_RE.finditer(text):
         if m.start() > offset:
             break
         candidate = m.group(1).strip()
         # Only treat headings that look like file paths as locations.
         if "/" in candidate or "." in candidate:
             nearest = candidate
-    return nearest
+            heading_end = m.end()
+    if not nearest:
+        return ""
+    fence = text.find("```", heading_end)
+    if fence == -1 or fence > offset:
+        return nearest
+    content_start = text.find("\n", fence)
+    if content_start == -1 or content_start >= offset:
+        return nearest
+    line = text.count("\n", content_start + 1, offset) + 1
+    return f"{nearest}:{line}"
 
 
 _TEST_PATH_RE = re.compile(r"(^|/)(tests?|spec|specs|__tests__)(/|$)|[._-](test|spec)[._]|(test|spec)s?\.", re.IGNORECASE)

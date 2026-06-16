@@ -37,6 +37,16 @@ class GenerateTestPlanResponse(BaseModel):
     test_plan_md: str
 
 
+class GenerateEdgeCasesRequest(BaseModel):
+    story_id: int
+    scenario_text: str = Field(min_length=1, max_length=20_000)
+
+
+class GenerateEdgeCasesResponse(BaseModel):
+    story_id: int
+    edge_cases_md: str
+
+
 class SaveTestPlanRequest(BaseModel):
     story_id: int
     test_plan_md: str = Field(min_length=1, max_length=200_000)
