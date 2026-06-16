@@ -67,6 +67,23 @@ class AiService:
         )
         return report.model_dump()
 
+    # ── Phase 6 maintenance ─────────────────────────────────────────────────
+
+    def triage_feedback(self, subject: str, description: str, spec_excerpt: str = "") -> dict:
+        r = ai_engine.triage_feedback(subject, description, spec_excerpt)
+        return r.model_dump()
+
+    def diagnose_bug(self, subject: str, description: str, evidence: str = "",
+                     code_snippet: str = "", spec_excerpt: str = "") -> str:
+        return ai_engine.diagnose_bug(subject, description, evidence, code_snippet, spec_excerpt)
+
+    def fix_bolt_brief(self, diagnosis_md: str, spec_excerpt: str = "") -> str:
+        patch = ai_engine.generate_fix_bolt_patch(diagnosis_md, spec_excerpt)
+        return ai_engine.render_fix_bolt_brief(patch)
+
+    def suggest_severity_lane(self, diagnosis_md: str, patch_scope: str = "") -> dict:
+        return ai_engine.suggest_severity_lane(diagnosis_md, patch_scope).model_dump()
+
     def compile_gherkin(self, nl_draft: str) -> list[dict]:
         result = ai_engine.compile_gherkin_stories(nl_draft)
         return [

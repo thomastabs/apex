@@ -45,6 +45,26 @@ class ContextService:
     def get_amendments(self) -> str:
         return context_manager.get_amendments()
 
+    # ── Phase 6 maintenance items ───────────────────────────────────────────
+
+    def load_maintenance_items(self) -> list[dict]:
+        return context_manager.load_maintenance_items()
+
+    def get_maintenance_item(self, item_id: int) -> dict | None:
+        return context_manager.get_maintenance_item(item_id)
+
+    def create_maintenance_item(self, **kwargs) -> dict:
+        return context_manager.create_maintenance_item(**kwargs)
+
+    def update_maintenance_item(self, item_id: int, **updates) -> dict | None:
+        return context_manager.update_maintenance_item(item_id, **updates)
+
+    def append_maintenance_log(self, item_id: int, subject: str, event: str, detail: str = "") -> None:
+        context_manager.append_maintenance_log(item_id, subject, event, detail)
+
+    def get_maintenance_log(self) -> str:
+        return context_manager.get_maintenance_log()
+
     def context_sizes(self) -> dict[str, int]:
         return context_manager.get_context_sizes()
 

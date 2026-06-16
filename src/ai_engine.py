@@ -2128,13 +2128,189 @@ def revise_deploy_pack(
 
 
 # ---------------------------------------------------------------------------
-# 6. Maintenance Phase — Phase 6 (not yet implemented)
+# 6. Maintenance Phase — Phase 6 (Triage F1 + Fix-Bolt & Severity Routing F2)
+#
+# The governed Maintenance & Evolution loop. Triage classifies post-deployment
+# feedback into Change Request (business) vs Bug (technical); bugs get a NARROW
+# diagnosis under the Context Isolation Rule (only the bug report + evidence +
+# isolated snippet — never whole-project context), human-verified before any
+# patch. The Fix-Bolt brief (agent target) is rendered deterministically (#3),
+# then severity routing picks Fast vs Secure lane.
 # ---------------------------------------------------------------------------
 
-# TODO: fix_bolt_diagnose(issue_subject, issue_description, stack_trace, code_snippet) -> str
-#   Senior Debugging Engineer under Context Isolation Rule — ONLY bug + stack trace + snippet.
-#   Output: ## Root Cause, ## Patch, ## Vaccine Summary.
-#   Use get_model().
+class TriageResult(BaseModel):
+    classification: Literal["change_request", "bug"] = Field(
+        description="change_request = business deviation (new/changed functionality, never patched directly); bug = technical deviation (existing behaviour is broken)."
+    )
+    rationale: str = Field(description="One or two sentences: why this classification.", max_length=600)
+    severity_hint: Literal["low", "high", "unknown"] = Field(
+        default="unknown",
+        description="For bugs: low = cosmetic/UI/no business-logic change; high = touches core business logic. 'unknown' if unclear or a change request.",
+    )
+
+
+_TRIAGE_SYSTEM = """\
+You are a Project Manager triaging post-deployment feedback within the Apex Framework's
+Maintenance & Evolution phase. Classify a single feedback item.
+
+- change_request — a BUSINESS deviation: the user wants new or changed functionality/business
+  logic. This must NEVER be sent to a developer as a patch; it routes back to discovery to
+  generate new formal Gherkin first.
+- bug — a TECHNICAL deviation: previously approved behaviour is broken or incorrect.
+
+Ground the decision ONLY in the feedback text and any provided spec excerpt. If the item asks
+for something the spec never promised, it is a change_request. If it reports the system failing
+to honour the existing spec, it is a bug.
+For bugs, set severity_hint: low for cosmetic/UI/copy fixes with no business-logic change; high
+when core business logic, data integrity, or security is implicated.
+"""
+
+
+def triage_feedback(subject: str, description: str, spec_excerpt: str = "") -> TriageResult:
+    """F1: classify a maintenance item as change_request vs bug (+ severity hint)."""
+    human = (
+        "Feedback subject: " + fence_user_content(subject) + "\n\n"
+        + "Feedback description:\n" + fence_user_content(description.strip() or "Not specified") + "\n\n"
+    )
+    if spec_excerpt.strip():
+        human += "Relevant approved spec (Gherkin / contract) for the linked story:\n" + fence_user_content(spec_excerpt) + "\n\n"
+    human += "Classify this feedback."
+    return _ai_retry(lambda: _invoke_structured_with_progress(
+        _TRIAGE_SYSTEM, human, get_model(), TriageResult, max_tokens=800, temperature=0.0,
+        item_field="rationale",
+    ))
+
+
+_DIAGNOSE_SYSTEM = """\
+You are a Senior Debugging Engineer operating under the Apex Framework's Context Isolation Rule.
+You are given ONLY a bug report, the test/QA evidence, and an isolated code snippet — deliberately
+NOT the whole project. Do not ask for or assume code you were not given.
+
+Explain why THIS specific logic failed. Output EXACTLY these headings:
+
+## Root Cause
+Two to four sentences naming the precise defect (e.g. wrong comparison, missing validation,
+off-by-one, wrong status code, race) and the line/construct in the provided snippet it stems from.
+
+## Why this legacy logic failed
+One short paragraph connecting the root cause to the observed evidence.
+
+## Confidence
+One line: high / medium / low, and what additional file or evidence (if any) would raise it.
+
+Rules: ground strictly in the provided snippet + evidence. If the snippet does not contain the
+defect, say so in Confidence and name the file you would need — never invent code. Propose NO
+patch here; diagnosis is a separate, human-verified step before any fix.
+"""
+
+
+def diagnose_bug(
+    subject: str, description: str, evidence: str = "", code_snippet: str = "", spec_excerpt: str = "",
+) -> str:
+    """F1 Path B: narrow, context-isolated root-cause diagnosis (no patch)."""
+    human = (
+        "Bug: " + fence_user_content(subject) + "\n\n"
+        + "Report:\n" + fence_user_content(description.strip() or "Not specified") + "\n\n"
+        + "Test / QA evidence:\n" + fence_user_content(evidence.strip() or "None provided") + "\n\n"
+        + "Isolated code snippet:\n" + fence_user_content(code_snippet.strip() or "None provided") + "\n\n"
+    )
+    if spec_excerpt.strip():
+        human += "Relevant contract excerpt (for reference only):\n" + fence_user_content(spec_excerpt) + "\n\n"
+    human += "Diagnose the root cause."
+    return _ai_retry(lambda: _invoke(_DIAGNOSE_SYSTEM, human, get_model(),
+                                     max_tokens=1500, timeout=180, temperature=0.0))
+
+
+class FixBoltPatch(BaseModel):
+    """Structured Fix-Bolt patch directive. Rendered deterministically (#3)."""
+    problem: str = Field(description="One sentence: the verified defect to fix.", max_length=400)
+    failing_contract: str = Field(
+        default="", description="The endpoint/scenario/contract the bug violates (method+path or scenario title).", max_length=300,
+    )
+    patch_directive: str = Field(description="Imperative ≤40 words: what to change to fix it, no more.", max_length=400)
+    files_to_touch: list[str] = Field(default_factory=list, description="Specific files/components to modify. Keep narrow.", max_length=10)
+    new_tests: list[str] = Field(default_factory=list, description="Tests to add that would have caught this (the regression guard).", max_length=10)
+    constraints: list[str] = Field(
+        default_factory=list,
+        description="Constraints: stay within the anchored spec, do not break dependent endpoints, no scope creep.",
+        max_length=8,
+    )
+
+
+_FIX_BOLT_SYSTEM = """\
+You are a Senior Developer producing a Fix-Bolt patch directive within the Apex Framework — a
+terse, constraint-driven brief an AI coding agent turns directly into a minimal patch. You are
+given a HUMAN-VERIFIED diagnosis; do not re-diagnose. Produce ONLY the structured fields.
+
+Rules: the patch must resolve ONLY the diagnosed bug and stay strictly within the anchored
+spec (Gherkin/contract) so it cannot break dependent systems. Keep files_to_touch narrow.
+Every new test must directly assert the previously-failing behaviour (the regression guard).
+Never widen scope or add features.
+"""
+
+
+def generate_fix_bolt_patch(diagnosis_md: str, spec_excerpt: str = "") -> FixBoltPatch:
+    """F2: structured Fix-Bolt patch directive grounded in a verified diagnosis."""
+    human = (
+        "Verified diagnosis:\n" + fence_user_content(diagnosis_md.strip() or "Not provided") + "\n\n"
+    )
+    if spec_excerpt.strip():
+        human += "Anchored spec (must stay within):\n" + fence_user_content(spec_excerpt) + "\n\n"
+    human += "Produce the Fix-Bolt patch directive."
+    return _ai_retry(lambda: _invoke_structured_with_progress(
+        _FIX_BOLT_SYSTEM, human, get_model(), FixBoltPatch, max_tokens=1500, temperature=0.2,
+        item_field="files_to_touch",
+    ))
+
+
+def render_fix_bolt_brief(patch: FixBoltPatch) -> str:
+    """Pure deterministic render of a Fix-Bolt agent brief (#3 — never AI-serialised)."""
+    files = ", ".join(f"`{f}`" for f in patch.files_to_touch) or "(narrow — see directive)"
+    tests = "\n".join(f"- {t}" for t in patch.new_tests) or "- add a test asserting the fixed behaviour"
+    constraints = "\n".join(f"- {c}" for c in patch.constraints) or "- stay within the anchored spec; do not break dependent endpoints"
+    return (
+        "## Fix-Bolt Brief\n"
+        f"**Problem**: {patch.problem}\n"
+        f"**Violates**: {patch.failing_contract or '(see diagnosis)'}\n"
+        f"**Patch**: {patch.patch_directive}\n"
+        f"**Files**: {files}\n"
+        "**Add tests (regression guard)**:\n"
+        f"{tests}\n"
+        "**Constraints**:\n"
+        f"{constraints}\n"
+        "**Done when**: the bug is fixed, the new tests pass, and no pre-existing tests break."
+    )
+
+
+class SeverityRouting(BaseModel):
+    lane: Literal["fast", "secure"] = Field(
+        description="fast = low-risk (UI/cosmetic/copy, no business-logic change) → bypass QA; secure = high-risk (core business logic, data, security) → QA Regression Bypass."
+    )
+    rationale: str = Field(description="One or two sentences justifying the lane.", max_length=500)
+
+
+_SEVERITY_SYSTEM = """\
+You are a Developer assessing the deployment risk of a verified Fix-Bolt patch within the Apex
+Framework's Severity Routing step. Decide the lane:
+- fast — LOW risk: cosmetic, UI, copy, or otherwise no change to core business logic; safe to
+  bypass formal QA and deploy directly.
+- secure — HIGH risk: the patch touches core business logic, data integrity, auth, or anything
+  that could regress dependent behaviour; must return to QA for a Regression Bypass first.
+When in doubt, choose secure. Ground the decision only in the diagnosis and patch scope.
+"""
+
+
+def suggest_severity_lane(diagnosis_md: str, patch_scope: str = "") -> SeverityRouting:
+    """F2: advise Fast vs Secure lane (human makes the final call)."""
+    human = (
+        "Diagnosis:\n" + fence_user_content(diagnosis_md.strip() or "Not provided") + "\n\n"
+        + "Patch scope:\n" + fence_user_content(patch_scope.strip() or "Not provided") + "\n\n"
+        + "Recommend the deployment lane."
+    )
+    return _ai_retry(lambda: _invoke_structured_with_progress(
+        _SEVERITY_SYSTEM, human, get_model(), SeverityRouting, max_tokens=600, temperature=0.0,
+        item_field="rationale",
+    ))
 
 
 # ---------------------------------------------------------------------------

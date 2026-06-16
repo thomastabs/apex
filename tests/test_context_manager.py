@@ -1176,3 +1176,48 @@ class TestSpecCoEvolution:
         assert ctx.get_story_index()["1"]["spec_drift"] is True
         ctx.save_proposal(1, 1, "## Context\nre-derived\n")
         assert ctx.get_story_index()["1"]["spec_drift"] is False
+
+
+# ---------------------------------------------------------------------------
+# Phase 6 Maintenance — feedback triage store (F1/F2)
+# ---------------------------------------------------------------------------
+
+class TestMaintenanceItems:
+    def test_create_assigns_sequential_ids(self, ctx):
+        ctx.init_context()
+        a = ctx.create_maintenance_item(subject="Login 500", description="empty pw")
+        b = ctx.create_maintenance_item(subject="CSV export", source="github", ext_ref="GH#43")
+        assert a["id"] == 1 and b["id"] == 2
+        assert a["status"] == "new" and a["classification"] == "unclassified"
+        assert b["source"] == "github" and b["ext_ref"] == "GH#43"
+
+    def test_load_returns_newest_first(self, ctx):
+        ctx.init_context()
+        ctx.create_maintenance_item(subject="one")
+        ctx.create_maintenance_item(subject="two")
+        ids = [i["id"] for i in ctx.load_maintenance_items()]
+        assert ids == [2, 1]
+
+    def test_update_patches_fields_and_touches_updated_at(self, ctx):
+        ctx.init_context()
+        item = ctx.create_maintenance_item(subject="bug")
+        updated = ctx.update_maintenance_item(item["id"], classification="bug", status="diagnosed")
+        assert updated["classification"] == "bug" and updated["status"] == "diagnosed"
+        assert updated["id"] == item["id"]
+
+    def test_update_missing_returns_none(self, ctx):
+        ctx.init_context()
+        assert ctx.update_maintenance_item(999, status="resolved") is None
+
+    def test_get_maintenance_item(self, ctx):
+        ctx.init_context()
+        ctx.create_maintenance_item(subject="x")
+        assert ctx.get_maintenance_item(1)["subject"] == "x"
+        assert ctx.get_maintenance_item(42) is None
+
+    def test_log_append(self, ctx):
+        ctx.init_context()
+        ctx.append_maintenance_log(1, "Login 500", "classified: bug", "high severity hint")
+        log = ctx.get_maintenance_log()
+        assert "Item #1: Login 500" in log
+        assert "classified: bug" in log and "high severity hint" in log

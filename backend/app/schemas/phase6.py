@@ -55,3 +55,60 @@ class VerifyConformanceRequest(BaseModel):
     story_id: int
     # ai=False runs the deterministic Layer-A baseline only (no LLM call).
     ai: bool = True
+
+
+# ---------------------------------------------------------------------------
+# Phase 6 Maintenance — Triage (F1) + Fix-Bolt & Severity Routing (F2)
+# ---------------------------------------------------------------------------
+
+class MaintenanceItem(BaseModel):
+    id: int
+    source: str = "manual"
+    ext_ref: str = ""
+    subject: str = ""
+    description: str = ""
+    evidence: str = ""
+    linked_story_id: Optional[int] = None
+    classification: str = "unclassified"
+    status: str = "new"
+    diagnosis_md: str = ""
+    fix_brief_md: str = ""
+    lane: Optional[str] = None
+    ai_rationale: dict = Field(default_factory=dict)
+    created_at: str = ""
+    updated_at: str = ""
+
+
+class MaintenanceItemsResponse(BaseModel):
+    items: list[MaintenanceItem] = Field(default_factory=list)
+
+
+class CreateMaintenanceItemRequest(BaseModel):
+    subject: str = Field(..., max_length=300)
+    description: str = Field("", max_length=20_000)
+    evidence: str = Field("", max_length=20_000)
+    source: Literal["manual", "github", "taiga"] = "manual"
+    ext_ref: str = Field("", max_length=200)
+    linked_story_id: Optional[int] = None
+
+
+class DiagnoseRequest(BaseModel):
+    code_snippet: str = Field("", max_length=20_000)
+
+
+class RouteLaneRequest(BaseModel):
+    lane: Literal["fast", "secure"]
+
+
+class ResolveItemRequest(BaseModel):
+    root_cause: str = Field("", max_length=2_000)
+    resolution_summary: str = Field("", max_length=2_000)
+
+
+class SeveritySuggestionResponse(BaseModel):
+    lane: str = "secure"
+    rationale: str = ""
+
+
+class MaintenanceLogResponse(BaseModel):
+    maintenance_log_md: str = ""

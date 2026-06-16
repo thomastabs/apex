@@ -131,6 +131,7 @@ def __getattr__(name: str):
         "CONSTRAINTS_FILE":     "constraints.md",
         "VACCINES_FILE":        "vaccines.md",
         "AMENDMENTS_FILE":      "amendments.md",
+        "MAINTENANCE_LOG_FILE": "maintenance-log.md",
         "STORY_INDEX_FILE":     "story-index.json",
         "DRAFT_FILE":           ".apex-draft.json",
         "DESIGN_DRAFT_FILE":    ".apex-design-draft.json",
@@ -193,6 +194,15 @@ _AMENDMENTS_TEMPLATE = """\
 > Log of edits made to a locked spec artifact after a story passed its phase gate.
 > Each amendment flags the affected downstream stories for re-derivation (spec drift),
 > so post-lock changes co-evolve through the chain instead of silently diverging.
+
+"""
+
+_MAINTENANCE_LOG_TEMPLATE = """\
+# Maintenance Log
+
+> Phase 6 post-deployment feedback triage. Each entry records a maintenance item's
+> classification (Change Request vs Bug), routing, and resolution — the governed
+> Maintenance & Evolution loop. Machine state lives in maintenance_items.json.
 
 """
 
@@ -461,6 +471,7 @@ def init_context() -> None:
         ("constraints.md",     _CONSTRAINTS_TEMPLATE),
         ("vaccines.md",        _VACCINES_TEMPLATE),
         ("amendments.md",      _AMENDMENTS_TEMPLATE),
+        ("maintenance-log.md", _MAINTENANCE_LOG_TEMPLATE),
         ("design-bundle.md",   _DESIGN_BUNDLE_TEMPLATE),
     ]:
         p = _path(filename)
@@ -1920,6 +1931,128 @@ def get_amendments() -> str:
     init_context()
     am = _path("amendments.md")
     return am.read_text(encoding="utf-8") if am.exists() else ""
+
+
+# ---------------------------------------------------------------------------
+# Phase 6 Maintenance — feedback triage items (F1/F2)
+# ---------------------------------------------------------------------------
+
+_MAINTENANCE_FILE = "maintenance_items.json"
+
+
+def load_maintenance_items() -> list[dict]:
+    """All maintenance items, newest first. [] if none."""
+    init_context()
+    p = _path(_MAINTENANCE_FILE)
+    if not p.exists():
+        return []
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        items = data.get("items", []) if isinstance(data, dict) else []
+        return sorted(items, key=lambda i: i.get("id", 0), reverse=True)
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
+def get_maintenance_item(item_id: int) -> dict | None:
+    return next((i for i in load_maintenance_items() if i.get("id") == item_id), None)
+
+
+def _write_maintenance_items(items: list[dict]) -> None:
+    cd = _context_dir()
+    cd.mkdir(parents=True, exist_ok=True)
+    (cd / _MAINTENANCE_FILE).write_text(
+        json.dumps({"items": items}, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+def create_maintenance_item(
+    *,
+    subject: str,
+    description: str = "",
+    evidence: str = "",
+    source: str = "manual",
+    ext_ref: str = "",
+    linked_story_id: int | None = None,
+) -> dict:
+    """Create a new maintenance item with a sequential id. Returns the item."""
+    with _index_lock:
+        # Read raw (unsorted) to compute the next id safely.
+        p = _path(_MAINTENANCE_FILE)
+        items: list[dict] = []
+        if p.exists():
+            try:
+                raw = json.loads(p.read_text(encoding="utf-8"))
+                items = raw.get("items", []) if isinstance(raw, dict) else []
+            except (json.JSONDecodeError, OSError):
+                items = []
+        next_id = max((i.get("id", 0) for i in items), default=0) + 1
+        now = _now_iso()
+        item = {
+            "id": next_id,
+            "source": source,
+            "ext_ref": ext_ref,
+            "subject": subject,
+            "description": description,
+            "evidence": evidence,
+            "linked_story_id": linked_story_id,
+            "classification": "unclassified",
+            "status": "new",
+            "diagnosis_md": "",
+            "fix_brief_md": "",
+            "lane": None,
+            "ai_rationale": {},
+            "created_at": now,
+            "updated_at": now,
+        }
+        items.append(item)
+        _write_maintenance_items(items)
+        return item
+
+
+def update_maintenance_item(item_id: int, **updates) -> dict | None:
+    """Patch a maintenance item's fields. Returns the updated item or None."""
+    with _index_lock:
+        p = _path(_MAINTENANCE_FILE)
+        if not p.exists():
+            return None
+        try:
+            raw = json.loads(p.read_text(encoding="utf-8"))
+            items = raw.get("items", []) if isinstance(raw, dict) else []
+        except (json.JSONDecodeError, OSError):
+            return None
+        target = None
+        for it in items:
+            if it.get("id") == item_id:
+                it.update(updates)
+                it["id"] = item_id
+                it["updated_at"] = _now_iso()
+                target = it
+                break
+        if target is None:
+            return None
+        _write_maintenance_items(items)
+        return target
+
+
+def append_maintenance_log(item_id: int, subject: str, event: str, detail: str = "") -> None:
+    """Append a human-readable maintenance event to maintenance-log.md."""
+    init_context()
+    ml = _path("maintenance-log.md")
+    header = ml.read_text(encoding="utf-8") if ml.exists() else _MAINTENANCE_LOG_TEMPLATE
+    block = (
+        f"\n## {_now_iso()} — Item #{item_id}: {subject.strip()}\n\n"
+        f"- **Event:** {event}\n"
+    )
+    if detail.strip():
+        block += f"- **Detail:** {detail.strip()}\n"
+    ml.write_text(header.rstrip() + "\n" + block, encoding="utf-8")
+
+
+def get_maintenance_log() -> str:
+    init_context()
+    ml = _path("maintenance-log.md")
+    return ml.read_text(encoding="utf-8") if ml.exists() else ""
 
 
 _CROSS_EPIC_CONTEXT_CHAR_LIMIT = 50_000

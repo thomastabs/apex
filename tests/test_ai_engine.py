@@ -1030,3 +1030,61 @@ class TestDeterministicTestPlanHandoffs:
                                     tech_stack="FastAPI")
         assert out.count("## Chat Prompt") == 1
         assert "## Agentic Test Brief" in out
+
+
+# ---------------------------------------------------------------------------
+# Phase 6 Maintenance — Triage (F1) + Fix-Bolt & Severity Routing (F2)
+# ---------------------------------------------------------------------------
+
+class TestMaintenanceAI:
+    def test_triage_result_model_validates(self):
+        from src.ai_engine import TriageResult
+        t = TriageResult(classification="bug", rationale="breaks login", severity_hint="high")
+        assert t.classification == "bug" and t.severity_hint == "high"
+
+    def test_triage_feedback_invokes_structured(self, monkeypatch):
+        import src.ai_engine as ai
+        from src.ai_engine import TriageResult
+        captured = {}
+
+        def fake(s, h, *a, **k):
+            captured["h"] = h
+            return TriageResult(classification="change_request", rationale="wants new feature")
+
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress", fake)
+        res = ai.triage_feedback("Add CSV export", "users want export", spec_excerpt="Scenario: login")
+        assert res.classification == "change_request"
+        assert "Add CSV export" in captured["h"] and "Scenario: login" in captured["h"]
+
+    def test_diagnose_bug_is_context_isolated(self, monkeypatch):
+        import src.ai_engine as ai
+        captured = {}
+        monkeypatch.setattr(ai, "_invoke", lambda s, h, *a, **k: captured.update(sys=s, h=h) or "## Root Cause\nx")
+        out = ai.diagnose_bug("500 on login", "empty pw 500s", evidence="stack: KeyError",
+                              code_snippet="def login(): ...")
+        assert "## Root Cause" in out
+        # only the provided narrow inputs are in the prompt
+        assert "stack: KeyError" in captured["h"] and "def login()" in captured["h"]
+        assert "Context Isolation Rule" in captured["sys"]
+
+    def test_render_fix_bolt_brief_is_pure(self):
+        from src.ai_engine import FixBoltPatch, render_fix_bolt_brief
+        b = render_fix_bolt_brief(FixBoltPatch(
+            problem="empty password 500s",
+            failing_contract="POST /auth/login",
+            patch_directive="guard empty password before hashing",
+            files_to_touch=["backend/api/auth.py"],
+            new_tests=["empty password returns 400"],
+            constraints=["stay within auth contract"],
+        ))
+        assert b.startswith("## Fix-Bolt Brief")
+        assert "POST /auth/login" in b and "`backend/api/auth.py`" in b
+        assert "empty password returns 400" in b and "Done when" in b
+
+    def test_suggest_severity_lane(self, monkeypatch):
+        import src.ai_engine as ai
+        from src.ai_engine import SeverityRouting
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress",
+                            lambda *a, **k: SeverityRouting(lane="secure", rationale="touches auth"))
+        r = ai.suggest_severity_lane("root cause: auth bypass", patch_scope="auth.py")
+        assert r.lane == "secure"
