@@ -5,8 +5,8 @@ skinparam backgroundColor #FFFFFF
 skinparam shadowing false
 skinparam componentStyle uml2
 skinparam linetype ortho
-skinparam nodesep 30
-skinparam ranksep 55
+skinparam nodesep 35
+skinparam ranksep 70
 skinparam component {
   BorderColor #666666
   BackgroundColor #F5F5F5
@@ -32,8 +32,8 @@ package "Backend (FastAPI · single writer)" as BEP {
   [Phase routers\nphase1–6 · workspace] as RT
   [ContextService\nisolation seam] as CS
   [storage.py\nStoragePath] as STG
-  [ai_engine\nprovider routing] as AIE
   [taiga / jira proxy\nSSRF · _egress] as PROX
+  [ai_engine\nprovider routing] as AIE
 }
 
 package "Spec Store" as SSP {
@@ -41,16 +41,16 @@ package "Spec Store" as SSP {
   [local disk /\nAzure File Share] as FSS
 }
 
-package "AI Providers" as AIP {
-  [Anthropic Claude] as CL
-  [OpenAI] as OAI
-  [Google Gemini] as GEM
-}
-
 package "PM Tools" as PMP {
   [Cloudflare relay\nnon-Azure IP] as RLY
   [Taiga\napi.taiga.io / private] as TG
   [Jira Cloud\n*.atlassian.net] as JR
+}
+
+package "AI Providers" as AIP {
+  [Anthropic Claude] as CL
+  [OpenAI] as OAI
+  [Google Gemini] as GEM
 }
 
 package "VCS" as VCSP {
@@ -74,14 +74,16 @@ RT --> AIE
 RT --> PROX
 CS --> STG
 
-' ---- backend -> external (one direction, downward) ----
-STG --> STORE
+' ---- spec store: placed to the LEFT of the backend ----
+STG -left-> STORE
 STORE --> FSS
-AIE --> CL
-AIE --> OAI
-AIE --> GEM
+
+' ---- PM tools sit directly below the proxy; AI providers below ai_engine ----
 PROX --> RLY : Azure egress
 RLY --> TG
 PROX --> JR
+AIE --> CL
+AIE --> OAI
+AIE --> GEM
 
 @enduml
