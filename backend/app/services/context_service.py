@@ -77,14 +77,14 @@ class ContextService:
     def story_gherkin(self, story_id: int) -> str:
         return context_manager.get_story_gherkin(story_id)
 
-    def write_project_design_bundle(self, ux_brief: str, endpoints: str, data_model: str) -> None:
-        context_manager.write_project_design_bundle(ux_brief, endpoints, data_model)
+    def write_project_design_bundle(self, ux_brief: str) -> None:
+        context_manager.write_project_design_bundle(ux_brief)
 
     def read_project_design_bundle(self) -> dict[str, str]:
         return context_manager.read_project_design_bundle()
 
-    def write_project_technical_spec(self, story_ids: list[int], spec: str) -> None:
-        context_manager.write_project_technical_spec(story_ids, spec)
+    def write_project_technical_spec(self, story_ids: list[int], endpoints: str, data_model: str) -> None:
+        context_manager.write_project_technical_spec(story_ids, endpoints, data_model)
 
     def append_gherkin(
         self,

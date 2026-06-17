@@ -57,8 +57,8 @@ class StubPhase2Service:
 
     def persist_design(self, ctx, *, story_ids, ux_brief, endpoints, data_model):
         self.configure_request(ctx)
-        self.context.write_project_design_bundle(ux_brief, endpoints, data_model)
-        self.context.write_project_technical_spec(story_ids, endpoints)
+        self.context.write_project_design_bundle(ux_brief)
+        self.context.write_project_technical_spec(story_ids, endpoints, data_model)
         return {"ok": True, "story_ids": story_ids, "taiga_failures": []}
 
     def load_diagram(self, ctx):
@@ -153,11 +153,11 @@ def test_persist_design_route():
         def set_project(self, project_id):
             self.project_id = project_id
 
-        def write_project_design_bundle(self, ux_brief: str, endpoints: str, data_model: str) -> None:
-            self.design = (ux_brief, endpoints, data_model)
+        def write_project_design_bundle(self, ux_brief: str) -> None:
+            self.design = ux_brief
 
-        def write_project_technical_spec(self, story_ids, spec):
-            self.spec = (story_ids, spec)
+        def write_project_technical_spec(self, story_ids, endpoints, data_model):
+            self.spec = (story_ids, endpoints, data_model)
 
     service = StubPhase2Service()
     service.context = Context()
@@ -175,7 +175,8 @@ def test_persist_design_route():
 
     assert response == {"ok": True, "story_ids": [10], "taiga_failures": []}
     assert service.context.project_id == 42
-    assert service.context.spec == ([10], "## Endpoints\n- POST /auth")
+    assert service.context.spec == ([10], "## Endpoints\n- POST /auth", "## Data Model\n### User")
+    assert service.context.design == "## Screens\n- Login"
 
 
 def test_phase2_validation_errors_map_to_422():

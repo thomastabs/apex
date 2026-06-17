@@ -687,7 +687,14 @@ def get_story_technical_spec(story_id: int) -> str:
     content = ts.read_text(encoding="utf-8")
     pattern = rf"### Technical Spec — Story {story_id}.*?(?=\n## |\n### |\Z)"
     match = re.search(pattern, content, re.DOTALL)
-    return match.group(0).strip() if match else ""
+    if match:
+        return match.group(0).strip()
+    # Unified project-level format (write_project_technical_spec): no per-story
+    # block, so fall back to the whole '## Project Design' contract (endpoints +
+    # data model) — mirrors get_story_design_bundle. Without this the unified
+    # technical spec never reaches Phase 3–6 prompts.
+    unified = re.search(r"\n## Project Design\b.*?(?=\n## (?!Project Design)|\Z)", content, re.DOTALL)
+    return unified.group(0).strip() if unified else ""
 
 
 def get_context_sizes() -> dict[str, int]:
@@ -1715,19 +1722,21 @@ def clear_design_draft() -> None:
         dd.unlink()
 
 
-def write_project_design_bundle(ux_brief: str, endpoints: str, data_model: str) -> None:
-    """Overwrite design-bundle.md with the approved project-level design."""
+def write_project_design_bundle(ux_brief: str) -> None:
+    """Overwrite design-bundle.md with the human design artifact (UX Brief).
+
+    The API + data contracts (endpoints, data model) live in technical-spec.md,
+    not here — design-bundle is the human-facing UX doc, technical-spec is the
+    machine contract injected into Phases 3–6. (Previously this file also stored
+    endpoints + data model, duplicating technical-spec.)
+    """
     init_context()
     db = _path("design-bundle.md")
     content = (
         "# Design Bundle\n\n"
         f"**Locked at:** {_now()}\n\n"
         "## UX Brief\n\n"
-        f"{ux_brief.strip()}\n\n"
-        "## Endpoints\n\n"
-        f"{endpoints.strip()}\n\n"
-        "## Data Model\n\n"
-        f"{data_model.strip()}\n"
+        f"{ux_brief.strip()}\n"
     )
     db.write_text(content, encoding="utf-8")
 
@@ -1742,40 +1751,49 @@ def read_project_design_bundle() -> dict[str, str]:
     browser / cleared storage / another device).
     """
     init_context()
-    db = _path("design-bundle.md")
-    if not db.exists():
-        return {"ux_brief": "", "endpoints": "", "data_model": ""}
-    content = db.read_text(encoding="utf-8")
 
-    def _section(header: str) -> str:
+    def _section(path_name: str, header: str, level: str = "## ") -> str:
+        p = _path(path_name)
+        if not p.exists():
+            return ""
+        content = p.read_text(encoding="utf-8")
         m = re.search(
-            rf"\n## {re.escape(header)}\n+(.*?)(?=\n## |\Z)", content, flags=re.DOTALL
+            rf"\n{re.escape(level)}{re.escape(header)}\n+(.*?)(?=\n#{{2,3}} |\Z)",
+            content,
+            flags=re.DOTALL,
         )
         return m.group(1).strip() if m else ""
 
+    # UX Brief lives in design-bundle.md; the API + data contracts in technical-spec.md.
     return {
-        "ux_brief": _section("UX Brief"),
-        "endpoints": _section("Endpoints"),
-        "data_model": _section("Data Model"),
+        "ux_brief": _section("design-bundle.md", "UX Brief", "## "),
+        "endpoints": _section("technical-spec.md", "Endpoints", "### "),
+        "data_model": _section("technical-spec.md", "Data Model", "### "),
     }
 
 
-def write_project_technical_spec(story_ids: list[int], spec: str) -> None:
-    """Overwrite technical-spec.md with a unified project-level technical spec.
+def write_project_technical_spec(story_ids: list[int], endpoints: str, data_model: str) -> None:
+    """Overwrite technical-spec.md with the unified machine contract.
 
-    Writes a '## Project Design' section (detected by rebuild_story_index to mark all
-    stories design_locked). Transitions all story_ids to design_locked in the story index.
+    This is the API + data contract (endpoints + data model) injected into
+    Phases 3–6 as `technical_spec`. design-bundle.md holds the human UX doc; the
+    two no longer share content.
+
+    Writes a '## Project Design' section (detected by rebuild_story_index to mark
+    all stories design_locked) and transitions all story_ids to design_locked.
     """
     init_context()
     ts = _path("technical-spec.md")
     content = (
         "# Technical Specification\n\n"
-        "> Per-story technical contracts (OpenAPI / DB schema).\n"
-        "> Appended automatically by apex after human approval.\n\n"
+        "> Project API + data contracts (endpoints + data model).\n"
+        "> Written automatically by apex after human approval.\n\n"
         "## Project Design\n\n"
-        "### Unified Technical Spec\n\n"
         f"**Locked at:** {_now()}\n\n"
-        f"```yaml\n{spec.strip()}\n```\n"
+        "### Endpoints\n\n"
+        f"{endpoints.strip()}\n\n"
+        "### Data Model\n\n"
+        f"{data_model.strip()}\n"
     )
     ts.write_text(content, encoding="utf-8")
     for story_id in story_ids:

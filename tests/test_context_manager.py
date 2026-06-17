@@ -1102,9 +1102,9 @@ class TestStoryDesignBundle:
     def test_falls_back_to_full_bundle_for_unified_format(self, ctx):
         ctx.init_context()
         ctx.append_gherkin(101, "Login", self.GHERKIN, epic_id=1, epic_title="Auth")
-        ctx.write_project_design_bundle("ux brief", "endpoint list", "the data model")
+        ctx.write_project_design_bundle("ux brief")
         sliced = ctx.get_story_design_bundle(101)
-        assert "## UX Brief" in sliced and "the data model" in sliced
+        assert "## UX Brief" in sliced and "ux brief" in sliced
 
     def test_falls_back_when_story_has_no_epic_id(self, ctx):
         ctx.init_context()
@@ -1228,6 +1228,8 @@ class TestMaintenanceItems:
 # ---------------------------------------------------------------------------
 
 class TestProjectDesignBundle:
+    GHERKIN = "Feature: X\n\n  Scenario: S\n    Given a\n    When b\n    Then c\n"
+
     def test_read_returns_empty_when_not_locked(self, ctx):
         ctx.init_context()
         assert ctx.read_project_design_bundle() == {
@@ -1237,13 +1239,29 @@ class TestProjectDesignBundle:
         }
 
     def test_write_then_read_round_trips_sections(self, ctx):
-        ctx.write_project_design_bundle(
-            "UX brief body\nsecond line",
-            "GET /api/x — list",
-            "User { id, name }",
-        )
+        # UX → design-bundle.md; endpoints + data model → technical-spec.md.
+        ctx.write_project_design_bundle("UX brief body\nsecond line")
+        ctx.write_project_technical_spec([1], "GET /api/x — list", "User { id, name }")
         assert ctx.read_project_design_bundle() == {
             "ux_brief": "UX brief body\nsecond line",
             "endpoints": "GET /api/x — list",
             "data_model": "User { id, name }",
         }
+
+    def test_design_bundle_and_technical_spec_do_not_overlap(self, ctx):
+        ctx.write_project_design_bundle("UX brief body")
+        ctx.write_project_technical_spec([1], "GET /api/x", "User { id }")
+        design = ctx._path("design-bundle.md").read_text()
+        tech = ctx._path("technical-spec.md").read_text()
+        # endpoints + data model live only in technical-spec; UX only in design-bundle.
+        assert "GET /api/x" in tech and "User { id }" in tech
+        assert "GET /api/x" not in design and "User { id }" not in design
+        assert "UX brief body" in design and "UX brief body" not in tech
+
+    def test_unified_technical_spec_reaches_story(self, ctx):
+        # The per-story extractor must fall back to the unified '## Project Design'
+        # block so endpoints + data model actually inject into Phase 3–6.
+        ctx.append_gherkin(101, "Login", self.GHERKIN, epic_id=1, epic_title="Auth")
+        ctx.write_project_technical_spec([101], "GET /api/login", "Session { token }")
+        spec = ctx.get_story_technical_spec(101)
+        assert "GET /api/login" in spec and "Session { token }" in spec

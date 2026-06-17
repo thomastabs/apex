@@ -58,11 +58,11 @@ class FakeContextService:
     def story_gherkin(self, story_id):
         return f"### Story {story_id}\n\n```gherkin\nFeature: Story {story_id}\n```"
 
-    def write_project_design_bundle(self, ux_brief: str, endpoints: str, data_model: str) -> None:
-        self.written_bundle = (ux_brief, endpoints, data_model)
+    def write_project_design_bundle(self, ux_brief: str) -> None:
+        self.written_bundle = ux_brief
 
-    def write_project_technical_spec(self, story_ids, spec):
-        self.written_tech_spec = (story_ids, spec)
+    def write_project_technical_spec(self, story_ids, endpoints, data_model):
+        self.written_tech_spec = (story_ids, endpoints, data_model)
 
     def read_context_file(self, filename: str) -> str:
         return ""

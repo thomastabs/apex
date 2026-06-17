@@ -165,9 +165,9 @@ Implemented:
 - Export the full draft as a Markdown file for offline review
 - Gate 1: Design Lead sign-off (screens & flows)
 - Gate 2: Tech Lead sign-off (architecture & specs)
-- Persist locked artefacts into:
-  - `technical-spec.md`
-  - `design-bundle.md`
+- Persist locked artefacts into two non-overlapping files:
+  - `technical-spec.md` — the **machine contract** (Endpoints + Data Model); injected as `technical_spec` into Phases 3–6
+  - `design-bundle.md` — the **human UX doc** (UX Brief); injected as `design_bundle` into Phase 3
   - `tech-stack.md`
   - `story-index.json`
 - Transition stories to design-ready status in the PM tool (browser-side, no backend PM calls)
@@ -399,8 +399,8 @@ Apex stores workflow state in context files under `contextspec/<instance_id>/<pr
 | `tech-stack.md` | Tech stack, architecture principles, and design decisions |
 | `functional-spec.md` | Locked Gherkin acceptance criteria from Phase 1 |
 | `constraints.md` | Project-wide non-functional requirements (EARS notation) from Phase 1; injected into Phase 3 packs and Phase 4 test plans |
-| `technical-spec.md` | Locked technical specs from Phase 2 |
-| `design-bundle.md` | Locked wireframes, user flows, component trees, and technical bundles |
+| `technical-spec.md` | Locked machine contract from Phase 2 — Endpoints + Data Model (injected into Phases 3–6) |
+| `design-bundle.md` | Locked human UX design from Phase 2 — UX Brief (injected into Phase 3) |
 | `diagram-screens.json` | React Flow screen flow diagram generated from Phase 2 UX Brief (includes saved layout positions) |
 | `diagram-er.json` | React Flow ER diagram generated from Phase 2 Data Model (includes saved layout positions) |
 | `github-context.md` | Repo file tree, README, config file, and OpenAPI spec synced from GitHub; injected into Phase 2 and Phase 3 AI prompts |

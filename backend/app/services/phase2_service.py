@@ -116,8 +116,8 @@ class Phase2Service:
         if not story_ids:
             raise Phase2ValidationError("At least one story_id is required.")
         self.configure_request(ctx)
-        self.context.write_project_design_bundle(ux_brief, endpoints, data_model)
-        self.context.write_project_technical_spec(story_ids, endpoints)
+        self.context.write_project_design_bundle(ux_brief)
+        self.context.write_project_technical_spec(story_ids, endpoints, data_model)
         return {"ok": True, "story_ids": story_ids, "taiga_failures": []}
 
     def load_design(self, ctx: RequestContext) -> dict[str, str]:
