@@ -80,6 +80,9 @@ class ContextService:
     def write_project_design_bundle(self, ux_brief: str, endpoints: str, data_model: str) -> None:
         context_manager.write_project_design_bundle(ux_brief, endpoints, data_model)
 
+    def read_project_design_bundle(self) -> dict[str, str]:
+        return context_manager.read_project_design_bundle()
+
     def write_project_technical_spec(self, story_ids: list[int], spec: str) -> None:
         context_manager.write_project_technical_spec(story_ids, spec)
 

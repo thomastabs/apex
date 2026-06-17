@@ -26,6 +26,7 @@ import {
   useGenerateDesignSections,
   useLockDesign,
   useLockTechStack,
+  useDesignBundle,
   useProposeTechStack,
   useRefreshStoryIndex,
   useTechStackStatus,
@@ -155,6 +156,7 @@ export function Phase2Workflow() {
   designBundleRef.current = designBundle;
 
   const techStack = useTechStackStatus();
+  const serverDesign = useDesignBundle();
   const proposeStack = useProposeTechStack();
   const lockStack = useLockTechStack();
   const generateSections = useGenerateDesignSections();
@@ -175,6 +177,24 @@ export function Phase2Workflow() {
       setDesignBundle(saved as Parameters<typeof setDesignBundle>[0]);
     }
   }, [context?.projectId, setDesignBundle]);
+
+  // Re-hydrate from the server's locked design-bundle.md when there is no
+  // browser-local draft (different browser / cleared storage / another device).
+  useEffect(() => {
+    const d = serverDesign.data;
+    if (
+      d &&
+      !designBundleRef.current &&
+      (d.ux_brief.trim() || d.endpoints.trim() || d.data_model.trim())
+    ) {
+      setDesignBundle({
+        ux_brief: d.ux_brief,
+        endpoints: d.endpoints,
+        data_model: d.data_model,
+        story_ids: [],
+      });
+    }
+  }, [serverDesign.data, setDesignBundle]);
 
   useEffect(() => {
     if (bundleSaveTimer.current) clearTimeout(bundleSaveTimer.current);

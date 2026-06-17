@@ -29,6 +29,16 @@ export function getTechStackStatus(context: RequestContext) {
   return apiRequest<TechStackStatus>("/api/phase2/tech-stack-status", { context });
 }
 
+export interface DesignBundleResponse {
+  ux_brief: string;
+  endpoints: string;
+  data_model: string;
+}
+
+export function getDesign(context: RequestContext) {
+  return apiRequest<DesignBundleResponse>("/api/phase2/design", { context });
+}
+
 export function proposeTechStack(context: RequestContext, body: ProposeTechStackRequest = {}) {
   return apiRequest<ProposeTechStackResponse>("/api/phase2/propose-tech-stack", {
     method: "POST",

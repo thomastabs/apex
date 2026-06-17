@@ -39,6 +39,12 @@ class DesignSectionResponse(BaseModel):
     story_ids: list[int] = Field(default_factory=list)
 
 
+class DesignBundleResponse(BaseModel):
+    ux_brief: str = ""
+    endpoints: str = ""
+    data_model: str = ""
+
+
 class LockDesignRequest(BaseModel):
     story_ids: list[int] = Field(min_length=1)
     ux_brief: str = Field(min_length=1, max_length=100_000)

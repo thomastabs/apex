@@ -1221,3 +1221,29 @@ class TestMaintenanceItems:
         log = ctx.get_maintenance_log()
         assert "Item #1: Login 500" in log
         assert "classified: bug" in log and "high severity hint" in log
+
+
+# ---------------------------------------------------------------------------
+# project design bundle — write/read round trip (Phase 2 server hydration)
+# ---------------------------------------------------------------------------
+
+class TestProjectDesignBundle:
+    def test_read_returns_empty_when_not_locked(self, ctx):
+        ctx.init_context()
+        assert ctx.read_project_design_bundle() == {
+            "ux_brief": "",
+            "endpoints": "",
+            "data_model": "",
+        }
+
+    def test_write_then_read_round_trips_sections(self, ctx):
+        ctx.write_project_design_bundle(
+            "UX brief body\nsecond line",
+            "GET /api/x — list",
+            "User { id, name }",
+        )
+        assert ctx.read_project_design_bundle() == {
+            "ux_brief": "UX brief body\nsecond line",
+            "endpoints": "GET /api/x — list",
+            "data_model": "User { id, name }",
+        }

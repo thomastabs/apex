@@ -120,6 +120,13 @@ class Phase2Service:
         self.context.write_project_technical_spec(story_ids, endpoints)
         return {"ok": True, "story_ids": story_ids, "taiga_failures": []}
 
+    def load_design(self, ctx: RequestContext) -> dict[str, str]:
+        """Re-hydrate the locked project design (UX brief / endpoints / data
+        model) from design-bundle.md so the Phase 2 UI does not depend on
+        browser-local draft state. Empty strings when nothing is locked yet."""
+        self.configure_request(ctx)
+        return self.context.read_project_design_bundle()
+
     def generate_diagram(self, ctx: RequestContext, *, data_model_md: str) -> dict:
         self.configure_request(ctx)
         result = self.ai.generate_er_diagram(data_model_md)

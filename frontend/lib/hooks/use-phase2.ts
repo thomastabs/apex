@@ -6,6 +6,7 @@ import {
   generateDesignSection,
   generateDiagram,
   generateScreenFlow,
+  getDesign,
   getTechStackStatus,
   loadDiagram,
   loadScreenFlow,
@@ -35,6 +36,17 @@ export function useTechStackStatus() {
   return useQuery({
     queryKey: ["phase2", "tech-stack-status", context?.projectId],
     queryFn: () => getTechStackStatus(context!),
+    enabled: Boolean(context),
+    staleTime: 30_000,
+  });
+}
+
+export function useDesignBundle() {
+  const context = useApiContext();
+
+  return useQuery({
+    queryKey: ["phase2", "design-bundle", context?.projectId],
+    queryFn: () => getDesign(context!),
     enabled: Boolean(context),
     staleTime: 30_000,
   });

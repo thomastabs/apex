@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from backend.app.api.deps import RequestContext, get_request_context
 from backend.app.api.rate_limit import ai_rate_limit
 from backend.app.schemas.phase2 import (
+    DesignBundleResponse,
     DesignSectionRequest,
     DesignSectionResponse,
     DiagramResponse,
@@ -82,6 +83,18 @@ def lock_tech_stack(
 ):
     try:
         return service.lock_tech_stack(ctx, tech_stack=payload.tech_stack)
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.get("/design", response_model=DesignBundleResponse)
+def load_design(
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase2Service = Depends(get_phase2_service),
+):
+    """Re-hydrate the locked project design from the server (design-bundle.md)."""
+    try:
+        return service.load_design(ctx)
     except Exception as exc:
         _handle_error(exc)
 

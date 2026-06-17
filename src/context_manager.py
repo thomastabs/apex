@@ -1732,6 +1732,34 @@ def write_project_design_bundle(ux_brief: str, endpoints: str, data_model: str) 
     db.write_text(content, encoding="utf-8")
 
 
+def read_project_design_bundle() -> dict[str, str]:
+    """Parse the locked design-bundle.md back into its three sections.
+
+    Inverse of write_project_design_bundle. Returns empty strings when no
+    project-level design has been locked yet (file missing or still the per-epic
+    template), so the Phase 2 UI can re-hydrate from the server instead of
+    relying solely on browser-local draft state (which is lost on a different
+    browser / cleared storage / another device).
+    """
+    init_context()
+    db = _path("design-bundle.md")
+    if not db.exists():
+        return {"ux_brief": "", "endpoints": "", "data_model": ""}
+    content = db.read_text(encoding="utf-8")
+
+    def _section(header: str) -> str:
+        m = re.search(
+            rf"\n## {re.escape(header)}\n+(.*?)(?=\n## |\Z)", content, flags=re.DOTALL
+        )
+        return m.group(1).strip() if m else ""
+
+    return {
+        "ux_brief": _section("UX Brief"),
+        "endpoints": _section("Endpoints"),
+        "data_model": _section("Data Model"),
+    }
+
+
 def write_project_technical_spec(story_ids: list[int], spec: str) -> None:
     """Overwrite technical-spec.md with a unified project-level technical spec.
 
