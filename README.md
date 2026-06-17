@@ -27,9 +27,9 @@ Phases 1–6 are implemented, plus a governance analytics dashboard. The spec-mo
 
 ## Implemented Workflow
 
-> A higher-resolution, self-contained copy of this workflow lives in
-> [`docs/user-flow.md`](docs/user-flow.md); the system architecture is in
-> [`docs/architecture.md`](docs/architecture.md).
+> Editable draw.io sources (open at <https://app.diagrams.net>): the full
+> user flow is in [`docs/user-flow.drawio`](docs/user-flow.drawio) and the
+> system architecture in [`docs/architecture.drawio`](docs/architecture.drawio).
 
 ```mermaid
 flowchart TD
@@ -380,8 +380,8 @@ Implemented:
 | `frontend/lib/stores/` | Zustand stores for session, UI, and per-phase draft state |
 | `.github/workflows/ci.yml` | Test, build, push, and deploy workflow |
 | `.github/workflows/scale-scheduler.yml` | Azure Container Apps scale up/down scheduler |
-| `docs/architecture.md` | Full system-architecture diagrams (split stack, multi-tenant isolation, Taiga egress, CI/CD) — thesis reference |
-| `docs/user-flow.md` | End-to-end user-flow diagrams (entry + Phase 1–6 with roles and human gates) — thesis reference |
+| `docs/architecture.drawio` | Editable draw.io system-architecture diagrams (split stack, multi-tenant isolation, Taiga egress, CI/CD) — thesis reference |
+| `docs/user-flow.drawio` | Editable draw.io user-flow diagrams (entry + Phase 1–6 with roles and human gates) — thesis reference |
 
 ---
 
