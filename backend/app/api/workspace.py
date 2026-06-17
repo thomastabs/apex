@@ -35,8 +35,8 @@ _CONTEXT_FILES = [
     ("tech-stack.md", "Technology Choices"),
     ("functional-spec.md", "Functional Spec"),
     ("technical-spec.md", "Technical Spec"),
-    ("constraints.md", "Non-Functional Requirements"),
-    ("vaccines.md", "Vaccine Records"),
+    ("constraints.md", "Constraints"),
+    ("fix-log.md", "Fix Log"),
     ("design-bundle.md", "Design Bundle"),
     ("github-context.md", "GitHub Context"),
 ]

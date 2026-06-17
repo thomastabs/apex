@@ -150,19 +150,19 @@ class MaintenanceService:
         self.context.append_maintenance_log(item_id, item["subject"], f"routed: {lane} lane", detail)
         return updated
 
-    # ── resolve (Vaccine) ─────────────────────────────────────────────────────
+    # ── resolve (Fix Log) ─────────────────────────────────────────────────────
 
     def resolve(self, ctx: RequestContext, item_id: int, *, root_cause: str = "",
                 resolution_summary: str = "") -> dict:
         self.configure_request(ctx)
         item = self._require(item_id)
-        # Vaccine: permanent annotation so the AI never reintroduces this defect.
-        self.context.append_vaccine_record(
+        # Fix Log: permanent annotation so the AI never reintroduces this defect.
+        self.context.append_fix_log_record(
             item_id, root_cause or item.get("diagnosis_md", "").strip()[:500] or item["subject"],
             resolution_summary or item.get("fix_brief_md", "").strip()[:500] or "Resolved via Fix-Bolt.",
         )
         updated = self.context.update_maintenance_item(item_id, status="resolved")
-        self.context.append_maintenance_log(item_id, item["subject"], "resolved (vaccine recorded)")
+        self.context.append_maintenance_log(item_id, item["subject"], "resolved (fix logged)")
         return updated
 
     def get_log(self, ctx: RequestContext) -> str:

@@ -102,9 +102,9 @@ class FakeContextService:
         from src import context_manager
         return context_manager.increment_story_counter(story_id, field)
 
-    def append_vaccine_record(self, issue_id: int, root_cause: str, resolution_summary: str) -> None:
+    def append_fix_log_record(self, issue_id: int, root_cause: str, resolution_summary: str) -> None:
         from src import context_manager
-        context_manager.append_vaccine_record(issue_id, root_cause, resolution_summary)
+        context_manager.append_fix_log_record(issue_id, root_cause, resolution_summary)
 
     def upsert_story_index(self, story_id: int, **updates) -> None:
         from src import context_manager
@@ -326,19 +326,19 @@ def test_pass_gate_transitions_to_qa_passed(ctx):
     assert ctx.get_story_index()["10"]["phase_status"] == "qa_passed"
 
 
-def test_fail_gate_saves_bug_report_and_vaccine(ctx):
+def test_fail_gate_saves_bug_report_and_fix_log(ctx):
     svc = Phase4Service(ai=FakeAiService(), context=FakeContextService())
     svc.fail_gate(_ctx(), 10, _FAKE_BUG_REPORT, "Missing null check", "Added validation")
     assert ctx.load_bug_report(10) == _FAKE_BUG_REPORT
     assert ctx.get_story_index()["10"]["has_bug_report"] is True
-    assert "Missing null check" in ctx.get_vaccines()
+    assert "Missing null check" in ctx.get_fix_log()
 
 
-def test_fail_gate_skips_vaccine_when_no_root_cause(ctx):
+def test_fail_gate_skips_fix_log_when_no_root_cause(ctx):
     svc = Phase4Service(ai=FakeAiService(), context=FakeContextService())
     svc.fail_gate(_ctx(), 10, _FAKE_BUG_REPORT, "", "")
     assert ctx.load_bug_report(10) == _FAKE_BUG_REPORT
-    assert "## Vaccine #" not in ctx.get_vaccines()
+    assert "## Fix #" not in ctx.get_fix_log()
 
 
 def test_delete_test_plan_rolls_back_to_implementation(ctx):

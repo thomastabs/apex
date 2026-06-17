@@ -612,7 +612,7 @@ class TestPackDigest:
 
 
 class TestConstraints:
-    """EARS non-functional-requirement model + formatting (no LLM)."""
+    """EARS constraint model + formatting (no LLM)."""
 
     def test_constraint_normalizes_category_and_ears(self):
         from src.ai_engine import Constraint
@@ -634,7 +634,7 @@ class TestConstraints:
             Constraint(id="NFR-2", category="performance", ears_type="ubiquitous",
                        text="The system shall respond within 500ms (target — confirm)."),
         ]))
-        assert "# Non-Functional Requirements" in md
+        assert "# Constraints" in md
         assert "## Performance" in md and "## Security" in md
         assert "**NFR-1**" in md and "_(event-driven)_" in md
         assert "_Rationale:_ brute-force" in md
@@ -668,7 +668,7 @@ Scenario: User submits an invalid password
 """
 
 _CONSTRAINTS_FIXTURE = """\
-# Non-Functional Requirements
+# Constraints
 
 ## Security
 - **NFR-1** _(event-driven)_: When a user signs in, the system shall rate-limit attempts.

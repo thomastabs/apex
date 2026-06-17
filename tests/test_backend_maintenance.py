@@ -34,7 +34,7 @@ class FakeContextService:
         self.items: dict[int, dict] = {}
         self._seq = 0
         self.deployments: list[dict] = []
-        self.vaccines: list[tuple] = []
+        self.fix_log: list[tuple] = []
         self.log: list[str] = []
 
     def set_active(self, ctx):
@@ -78,8 +78,8 @@ class FakeContextService:
     def append_deployment_record(self, story_id, title, *, bypass, pack_present, sign_offs, notes=""):
         self.deployments.append({"story_id": story_id, "bypass": bypass, "notes": notes})
 
-    def append_vaccine_record(self, issue_id, root_cause, resolution_summary):
-        self.vaccines.append((issue_id, root_cause, resolution_summary))
+    def append_fix_log_record(self, issue_id, root_cause, resolution_summary):
+        self.fix_log.append((issue_id, root_cause, resolution_summary))
 
 
 @pytest.fixture
@@ -164,11 +164,11 @@ def test_route_invalid_lane_raises(ctx):
         svc.route_lane(ctx, item["id"], "turbo")
 
 
-def test_resolve_writes_vaccine(ctx):
+def test_resolve_writes_fix_log(ctx):
     svc, c = _svc()
     item = svc.create_item(ctx, subject="bug", linked_story_id=5)
     svc.resolve(ctx, item["id"], root_cause="null deref", resolution_summary="guarded")
-    assert c.vaccines == [(item["id"], "null deref", "guarded")]
+    assert c.fix_log == [(item["id"], "null deref", "guarded")]
     assert c.items[item["id"]]["status"] == "resolved"
 
 

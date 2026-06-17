@@ -878,10 +878,10 @@ export function Phase1Workflow() {
                     ))}
                   </div>
                 ) : null}
-                {/* Optional: project-wide non-functional requirements (EARS). */}
+                {/* Optional: project-wide constraints (EARS). */}
                 <div className={cn("rounded-lg border p-4", dark ? "border-neutral-800 bg-neutral-900/40" : "border-slate-200 bg-slate-50")}>
                   <div className="flex items-center gap-2">
-                    <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>Non-Functional Requirements</span>
+                    <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>Constraints</span>
                     <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide", dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-500")}>Optional</span>
                   </div>
                   <p className={cn("mt-1 text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
@@ -901,14 +901,14 @@ export function Phase1Workflow() {
                           onSuccess: (res) => {
                             updateContextFile.mutate({ filename: "constraints.md", content: res.constraints_md });
                             setConstraintsGenerated(true);
-                            toast.success(`Generated ${res.constraints.length} non-functional requirements`);
+                            toast.success(`Generated ${res.constraints.length} constraints`);
                           },
                         })
                       }
                     >
                       {genConstraints.isPending
                         ? <><Loader2 className="size-4 animate-spin" /> Generating…</>
-                        : "Generate non-functional requirements"}
+                        : "Generate constraints"}
                     </Button>
                   )}
                 </div>

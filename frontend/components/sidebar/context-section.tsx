@@ -190,7 +190,7 @@ function ContextEditor({
       onSuccess: (res) => {
         setValue(res.constraints_md);
         update.mutate({ filename: file.filename, content: res.constraints_md });
-        toast.success(`Generated ${res.constraints.length} non-functional requirements`);
+        toast.success(`Generated ${res.constraints.length} constraints`);
       },
     });
   }

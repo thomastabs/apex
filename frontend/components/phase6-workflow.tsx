@@ -110,7 +110,7 @@ function ReportTables({ report, dark }: { report: ConformanceReport; dark: boole
         report.scenarios.length,
       )}
       {section(
-        "Non-functional constraints (advisory)",
+        "Constraints (advisory)",
         report.constraints.map((c, i) =>
           row(`c${i}`, c.constraint_id, c.status, c.evidence, ""),
         ),

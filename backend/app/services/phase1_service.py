@@ -60,7 +60,7 @@ class Phase1Service:
         ]
 
     def generate_constraints(self, ctx: RequestContext) -> tuple[list[dict], str]:
-        """Generate EARS non-functional requirements for the whole project."""
+        """Generate EARS constraints for the whole project."""
         self.configure_request(ctx)
         concept = self.context.project_concept()
         tech_stack = self.context.read_tech_stack()

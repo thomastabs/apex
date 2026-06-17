@@ -232,10 +232,10 @@ class ContextService:
     def increment_story_counter(self, story_id: int, field: str = "fix_bolt_count") -> int:
         return context_manager.increment_story_counter(story_id, field)
 
-    def append_vaccine_record(
+    def append_fix_log_record(
         self, issue_id: int, root_cause: str, resolution_summary: str
     ) -> None:
-        context_manager.append_vaccine_record(issue_id, root_cause, resolution_summary)
+        context_manager.append_fix_log_record(issue_id, root_cause, resolution_summary)
 
     def render_infra_delta_md(self, story_id: int, delta: dict) -> str:
         return context_manager.render_infra_delta_md(story_id, delta)

@@ -857,7 +857,7 @@ def suggest_epics(
 
 
 # ---------------------------------------------------------------------------
-# Phase 1 · Constraints — non-functional requirements in EARS notation
+# Phase 1 · Constraints — cross-cutting quality requirements in EARS notation
 # ---------------------------------------------------------------------------
 # Gherkin captures *behaviour*; it cannot express cross-cutting quality
 # attributes (performance, security, availability, …). This artifact captures
@@ -917,7 +917,7 @@ class Constraint(BaseModel):
 class ConstraintList(BaseModel):
     constraints: list[Constraint] = Field(
         default_factory=list,
-        description="The project's non-functional requirements; omit rather than invent.",
+        description="The project's constraints; omit rather than invent.",
         max_length=40,
     )
 
@@ -925,7 +925,7 @@ class ConstraintList(BaseModel):
 _GENERATE_CONSTRAINTS_VERSION = "1.0"
 _GENERATE_CONSTRAINTS_SYSTEM = """\
 You are a Requirements Engineer operating within the Apex Framework.
-Produce the project's NON-FUNCTIONAL requirements (quality constraints) as EARS-structured
+Produce the project's CONSTRAINTS (cross-cutting quality requirements) as EARS-structured
 "shall" statements, grounded ONLY in the project concept, tech stack, and story scope provided.
 
 EARS clause templates (use the one that fits each requirement; set ears_type accordingly):
@@ -958,7 +958,7 @@ def generate_constraints(
     tech_stack: str,
     all_stories: list[dict],
 ) -> ConstraintList:
-    """Generate EARS-structured non-functional requirements for the whole project.
+    """Generate EARS-structured constraints for the whole project.
 
     all_stories: [{"epic_title": str, "title": str}, ...] — titles only; scope signal,
     not behaviour (behaviour lives in the Gherkin).
@@ -976,7 +976,7 @@ def generate_constraints(
     for epic, titles in grouped.items():
         parts.append(f"\n### {epic}")
         parts.extend(titles)
-    parts.append("\nProduce the project's non-functional requirements in EARS notation.")
+    parts.append("\nProduce the project's constraints in EARS notation.")
     human = "\n".join(parts)
     return _ai_retry(lambda: _invoke_structured_with_progress(
         system, human, get_model(), ConstraintList,
@@ -987,11 +987,11 @@ def generate_constraints(
 def format_constraints(cl: ConstraintList) -> str:
     """Render a ConstraintList as the constraints.md artifact, grouped by category."""
     if not cl.constraints:
-        return "# Non-Functional Requirements\n\n_No constraints defined yet._\n"
+        return "# Constraints\n\n_No constraints defined yet._\n"
     by_cat: dict[str, list[Constraint]] = {}
     for c in cl.constraints:
         by_cat.setdefault(c.category, []).append(c)
-    lines = ["# Non-Functional Requirements", "",
+    lines = ["# Constraints", "",
              "EARS-structured quality constraints for the whole project. "
              "Behavioural requirements live in the Gherkin acceptance criteria.", ""]
     for cat in sorted(by_cat):
@@ -1399,7 +1399,7 @@ class Phase3Pack(BaseModel):
     )
     constraints: list[str] = Field(
         default_factory=list,
-        description="Agent constraints — no new deps, reuse existing middleware, specific patterns. Honour any non-functional requirements provided.",
+        description="Agent constraints — no new deps, reuse existing middleware, specific patterns. Honour any constraints provided.",
         max_length=10,
     )
     goal: str = Field(description="One sentence — what this task achieves when complete.", max_length=300)
@@ -1588,7 +1588,7 @@ def generate_coding_proposal(
         )
     if constraints.strip():
         system += (
-            "\n\nNon-functional requirements (EARS) the implementation MUST satisfy. Honour them "
+            "\n\nConstraints (EARS) the implementation MUST satisfy. Honour them "
             "in Implementation Steps and the Agentic Brief Constraints; never weaken or ignore "
             "them, but do not invent functional behaviour beyond the Gherkin:\n"
             + fence_user_content(constraints)
@@ -1845,7 +1845,7 @@ def generate_test_plan(
     )
     if constraints.strip():
         system += (
-            "\n\nNon-functional requirements (EARS) for this project. Where a scenario touches one, "
+            "\n\nConstraints (EARS) for this project. Where a scenario touches one, "
             "add Edge Cases and Risk Areas that probe it (e.g. a performance, security, or "
             "reliability constraint); never invent scenarios absent from the Gherkin:\n"
             + fence_user_content(constraints)
@@ -2656,7 +2656,7 @@ _VERIFY_CONFORMANCE_SYSTEM = """\
 You are a Spec-Conformance Auditor operating within the Apex Framework.
 You verify that SHIPPED CODE honours a LOCKED specification. You are given the
 story's Gherkin scenarios, its technical-spec endpoint contracts, the project's
-non-functional constraints, and the synced repository context (file tree + key
+constraints, and the synced repository context (file tree + key
 files). A deterministic pre-check (Layer A) has already located candidate routes
 and tests; you CONFIRM or CORRECT it with semantic judgement.
 
@@ -2735,7 +2735,7 @@ def verify_spec_conformance(
         "Story: " + fence_user_content(story_subject.strip() or "Not specified"),
         "Gherkin acceptance criteria:\n" + fence_user_content(gherkin.strip() or "Not specified"),
         "Technical Spec (endpoint contracts):\n" + fence_user_content(technical_spec.strip() or "Not specified"),
-        "Non-Functional Constraints:\n" + fence_user_content(constraints.strip() or "None"),
+        "Constraints:\n" + fence_user_content(constraints.strip() or "None"),
         "Tech Stack (for route/test conventions):\n" + fence_user_content(tech_stack.strip() or "Not specified"),
         "Synced Repository Context:\n" + fence_user_content(github_context.strip() or "Not synced"),
         _format_precheck(precheck),

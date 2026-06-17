@@ -32,7 +32,7 @@ class FakeAiService:
         items = [{"id": "NFR-1", "category": "security", "ears_type": "event-driven",
                   "text": "When a user signs in, the system shall rate-limit attempts.",
                   "rationale": "brute-force"}]
-        return items, "# Non-Functional Requirements\n\n## Security\n\n- **NFR-1**: ...\n"
+        return items, "# Constraints\n\n## Security\n\n- **NFR-1**: ...\n"
 
 
 class FakeContextService:
@@ -146,7 +146,7 @@ def test_generate_constraints_grounds_in_concept_stack_and_stories():
     assert {s["title"] for s in all_stories} == {"Sign In", "Reset Password"}
     assert all(set(s) == {"epic_title", "title"} for s in all_stories)
     assert items[0]["id"] == "NFR-1"
-    assert md.startswith("# Non-Functional Requirements")
+    assert md.startswith("# Constraints")
 
 
 def test_save_and_get_constraints_roundtrip():

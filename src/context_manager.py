@@ -6,7 +6,7 @@ Manages read/write operations on the contextspec/ artefacts:
   tech-stack.md        — technology choices and architecture principles (Tech Lead only)
   functional-spec.md   — per-story Acceptance Criteria (locked on push)
   technical-spec.md    — per-story technical contracts (OpenAPI / DB schema)
-  vaccines.md          — permanent vaccine records for diagnosed bugs (Fix-Apex output only)
+  fix-log.md           — permanent fix-log entries for diagnosed bugs (Fix-Apex output only)
   story-index.json     — machine-readable index of all stories and their phase status
 """
 
@@ -129,7 +129,7 @@ def __getattr__(name: str):
         "FUNCTIONAL_SPEC_FILE": "functional-spec.md",
         "TECHNICAL_SPEC_FILE":  "technical-spec.md",
         "CONSTRAINTS_FILE":     "constraints.md",
-        "VACCINES_FILE":        "vaccines.md",
+        "FIX_LOG_FILE":         "fix-log.md",
         "AMENDMENTS_FILE":      "amendments.md",
         "MAINTENANCE_LOG_FILE": "maintenance-log.md",
         "STORY_INDEX_FILE":     "story-index.json",
@@ -180,7 +180,7 @@ _TECHNICAL_SPEC_TEMPLATE = """\
 """
 
 _CONSTRAINTS_TEMPLATE = """\
-# Non-Functional Requirements
+# Constraints
 
 > Project-wide quality constraints in EARS notation (performance, security, reliability, …).
 > Behavioural requirements live in the Gherkin acceptance criteria, not here.
@@ -206,8 +206,8 @@ _MAINTENANCE_LOG_TEMPLATE = """\
 
 """
 
-_VACCINES_TEMPLATE = """\
-# Vaccine Records
+_FIX_LOG_TEMPLATE = """\
+# Fix Log
 
 > Permanent log of diagnosed bugs. Prevents the AI from hallucinating the same error twice.
 > Appended automatically by apex after a Fix-Apex is resolved.
@@ -463,13 +463,14 @@ def init_context() -> None:
         return  # no project chosen yet — do not create contextspec/default/ files
     _context_dir().mkdir(parents=True, exist_ok=True)
     _migrate_memory_bank()
+    _migrate_vaccines_to_fix_log()
     for filename, template in [
         ("project-concept.md", _PROJECT_CONCEPT_TEMPLATE),
         ("tech-stack.md",      _TECH_STACK_TEMPLATE),
         ("functional-spec.md", _FUNCTIONAL_SPEC_TEMPLATE),
         ("technical-spec.md",  _TECHNICAL_SPEC_TEMPLATE),
         ("constraints.md",     _CONSTRAINTS_TEMPLATE),
-        ("vaccines.md",        _VACCINES_TEMPLATE),
+        ("fix-log.md",         _FIX_LOG_TEMPLATE),
         ("amendments.md",      _AMENDMENTS_TEMPLATE),
         ("maintenance-log.md", _MAINTENANCE_LOG_TEMPLATE),
         ("design-bundle.md",   _DESIGN_BUNDLE_TEMPLATE),
@@ -477,7 +478,7 @@ def init_context() -> None:
         p = _path(filename)
         if not p.exists():
             p.write_text(template, encoding="utf-8")
-    _migrate_vaccine_records()
+    _migrate_legacy_vaccine_section()
     if not _path("story-index.json").exists():
         rebuild_story_index()
     _initialized_projects.add(key)
@@ -531,7 +532,35 @@ def _migrate_memory_bank() -> None:
     _logger.info("_migrate_memory_bank: split memory-bank.md into project-concept.md + tech-stack.md")
 
 
-def _migrate_vaccine_records() -> None:
+def _migrate_vaccines_to_fix_log() -> None:
+    """One-time rename: vaccines.md → fix-log.md (the file was renamed for clarity).
+
+    Runs before template creation so a fresh fix-log.md is not created empty ahead of
+    the legacy content. Rewrites the old headings to the new scheme. Idempotent.
+    """
+    old = _path("vaccines.md")
+    new = _path("fix-log.md")
+    if not old.exists():
+        return
+    old_content = old.read_text(encoding="utf-8")
+    if new.exists():
+        # Both present (partial prior migration): fold any records into fix-log.md.
+        records = re.search(r"## (?:Vaccine|Fix) #.*", old_content, re.DOTALL)
+        if records:
+            new.write_text(
+                new.read_text(encoding="utf-8").rstrip() + "\n" + records.group(0).rstrip() + "\n",
+                encoding="utf-8",
+            )
+    else:
+        rewritten = (old_content
+                     .replace("# Vaccine Records", "# Fix Log", 1)
+                     .replace("## Vaccine #", "## Fix #"))
+        new.write_text(rewritten, encoding="utf-8")
+    old.unlink()
+    _logger.info("_migrate_vaccines_to_fix_log: renamed vaccines.md → fix-log.md")
+
+
+def _migrate_legacy_vaccine_section() -> None:
     """One-time migration: move the # Vaccine Records section out of memory-bank.md.
 
     Legacy memory-bank.md files had a '# Vaccine Records' section appended at the bottom.
@@ -539,7 +568,7 @@ def _migrate_vaccine_records() -> None:
     Idempotent — safe to call on every init.
     """
     mb = _path("memory-bank.md")
-    vx = _path("vaccines.md")
+    vx = _path("fix-log.md")
     if not mb.exists() or not vx.exists():
         return
 
@@ -559,9 +588,10 @@ def _migrate_vaccine_records() -> None:
 
     records_match = re.search(r"## Vaccine #.*", vaccine_section, re.DOTALL)
     if records_match:
-        vaccines_content = vx.read_text(encoding="utf-8")
+        records = records_match.group(0).replace("## Vaccine #", "## Fix #")
+        fix_log_content = vx.read_text(encoding="utf-8")
         vx.write_text(
-            vaccines_content.rstrip() + "\n" + records_match.group(0).rstrip() + "\n",
+            fix_log_content.rstrip() + "\n" + records.rstrip() + "\n",
             encoding="utf-8",
         )
 
@@ -637,10 +667,10 @@ def get_tech_stack_content() -> str:
     return text
 
 
-def get_vaccines() -> str:
-    """Return vaccines.md content."""
+def get_fix_log() -> str:
+    """Return fix-log.md content."""
     init_context()
-    vx = _path("vaccines.md")
+    vx = _path("fix-log.md")
     return vx.read_text(encoding="utf-8").strip() if vx.exists() else ""
 
 
@@ -706,7 +736,7 @@ def get_context_sizes() -> dict[str, int]:
             "tech-stack.md",
             "functional-spec.md",
             "technical-spec.md",
-            "vaccines.md",
+            "fix-log.md",
             "design-bundle.md",
         )
     }
@@ -759,7 +789,7 @@ def _now_iso() -> str:
     """Machine-readable UTC timestamp for status_history and JSON artifacts.
 
     Distinct from _now(), whose human format is baked into existing markdown
-    headers (vaccines, locked-at lines) — never swap one for the other.
+    headers (fix-log, locked-at lines) — never swap one for the other.
     """
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -1128,7 +1158,7 @@ def read_context() -> str:
     init_context()
     return "\n\n---\n\n".join(
         _path(name).read_text(encoding="utf-8")
-        for name in ("project-concept.md", "tech-stack.md", "functional-spec.md", "technical-spec.md", "vaccines.md")
+        for name in ("project-concept.md", "tech-stack.md", "functional-spec.md", "technical-spec.md", "fix-log.md")
         if _path(name).exists()
     )
 
@@ -1235,14 +1265,14 @@ def append_technical_spec(
     upsert_story_index(story_id, has_tech_spec=True, phase_status="design_locked")
 
 
-def append_vaccine_record(issue_id: int, root_cause: str, resolution_summary: str) -> None:
-    """Append a permanent Vaccine Record for a resolved bug to vaccines.md."""
+def append_fix_log_record(issue_id: int, root_cause: str, resolution_summary: str) -> None:
+    """Append a permanent Fix Log entry for a resolved bug to fix-log.md."""
     init_context()
-    vx = _path("vaccines.md")
+    vx = _path("fix-log.md")
     content = vx.read_text(encoding="utf-8")
 
     record = (
-        f"\n## Vaccine #{issue_id} — {_now()}\n\n"
+        f"\n## Fix #{issue_id} — {_now()}\n\n"
         f"**Root Cause:** {root_cause.strip()}\n\n"
         f"**Resolution:** {resolution_summary.strip()}\n"
     )
@@ -1894,7 +1924,7 @@ def get_story_design_bundle(story_id: int) -> str:
 
 # Each spec artifact locks at a phase; a story is "affected" by an edit to that
 # file once its phase_status is at or after the lock. Append/sync artifacts
-# (vaccines.md, github-context.md) are not spec locks and never trigger drift.
+# (fix-log.md, github-context.md) are not spec locks and never trigger drift.
 _SPEC_LOCK_PHASE: dict[str, str] = {
     "project-concept.md": "gherkin_locked",
     "functional-spec.md": "gherkin_locked",
@@ -2246,7 +2276,7 @@ _TEMPLATES: dict[str, str] = {
     "tech-stack.md":      _TECH_STACK_TEMPLATE,
     "functional-spec.md": _FUNCTIONAL_SPEC_TEMPLATE,
     "technical-spec.md":  _TECHNICAL_SPEC_TEMPLATE,
-    "vaccines.md":        _VACCINES_TEMPLATE,
+    "fix-log.md":         _FIX_LOG_TEMPLATE,
     "design-bundle.md":   _DESIGN_BUNDLE_TEMPLATE,
     "github-context.md":  _GITHUB_CONTEXT_TEMPLATE,
 }
@@ -2280,7 +2310,7 @@ def reset_context() -> None:
     """Reset all context files to their initial templates and clear the story index.
 
     Intended for test/demo purposes only — all locked Gherkin, technical specs,
-    vaccine records, and index entries are permanently erased.
+    fix-log entries, and index entries are permanently erased.
     """
     _context_dir().mkdir(parents=True, exist_ok=True)
     for filename, template in _TEMPLATES.items():

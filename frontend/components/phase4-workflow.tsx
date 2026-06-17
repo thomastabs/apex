@@ -744,7 +744,7 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
             </h3>
           </div>
           <p className={cn("text-sm", dark ? "text-amber-400" : "text-amber-700")}>
-            Bug report saved. Vaccine record appended. Hand the Fix-Bolt artifact to the developer.
+            Bug report saved. Fix Log entry appended. Hand the Fix-Bolt artifact to the developer.
           </p>
         </div>
         <div className="flex flex-col gap-2">

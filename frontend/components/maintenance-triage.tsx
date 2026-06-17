@@ -130,7 +130,7 @@ export function MaintenanceTriage() {
       </div>
       <p className={cn("text-sm", dark ? "text-neutral-400" : "text-slate-600")}>
         Classify post-deployment feedback: Change Requests route to discovery; bugs get a narrow,
-        context-isolated diagnosis, a Fix-Bolt brief, a Vaccine, and severity routing.
+        context-isolated diagnosis, a Fix-Bolt brief, a Fix Log entry, and severity routing.
       </p>
 
       <div className="flex flex-wrap gap-2">
@@ -282,13 +282,13 @@ export function MaintenanceTriage() {
                 </div>
               ) : null}
 
-              {/* resolve (Vaccine) */}
+              {/* resolve (Fix Log) */}
               {selected.status !== "resolved" && selected.classification === "bug" ? (
-                <Button variant="secondary" onClick={() => resolve.mutate({ itemId: selected.id }, { onSuccess: () => toast.success("Resolved — Vaccine recorded"), onError: (e) => toast.error(errMsg(e)) })} disabled={resolve.isPending}>
-                  Resolve (record Vaccine)
+                <Button variant="secondary" onClick={() => resolve.mutate({ itemId: selected.id }, { onSuccess: () => toast.success("Resolved — fix logged"), onError: (e) => toast.error(errMsg(e)) })} disabled={resolve.isPending}>
+                  Resolve (record fix)
                 </Button>
               ) : null}
-              {selected.status === "resolved" ? <Callout>Resolved — Vaccine recorded in vaccines.md.</Callout> : null}
+              {selected.status === "resolved" ? <Callout>Resolved — fix recorded in fix-log.md.</Callout> : null}
             </div>
           ) : null}
         </div>

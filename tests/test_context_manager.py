@@ -14,7 +14,7 @@ class TestInitContext:
         assert ctx.TECH_STACK_FILE.exists()
         assert ctx.FUNCTIONAL_SPEC_FILE.exists()
         assert ctx.TECHNICAL_SPEC_FILE.exists()
-        assert ctx.VACCINES_FILE.exists()
+        assert ctx.FIX_LOG_FILE.exists()
         assert ctx.DESIGN_BUNDLE_FILE.exists()
 
     def test_creates_story_index(self, ctx):
@@ -518,25 +518,40 @@ class TestGetContextForPhase:
 
 
 # ---------------------------------------------------------------------------
-# append_vaccine_record
+# append_fix_log_record
 # ---------------------------------------------------------------------------
 
-class TestAppendVaccineRecord:
-    def test_record_written_to_vaccines_file(self, ctx):
+class TestAppendFixLogRecord:
+    def test_record_written_to_fix_log_file(self, ctx):
         ctx.init_context()
-        ctx.append_vaccine_record(7, "Null pointer in auth middleware", "Added None check")
-        content = ctx.VACCINES_FILE.read_text(encoding="utf-8")
-        assert "## Vaccine #7" in content
+        ctx.append_fix_log_record(7, "Null pointer in auth middleware", "Added None check")
+        content = ctx.FIX_LOG_FILE.read_text(encoding="utf-8")
+        assert "## Fix #7" in content
         assert "Null pointer" in content
         assert "Added None check" in content
 
     def test_multiple_records_all_present(self, ctx):
         ctx.init_context()
-        ctx.append_vaccine_record(1, "Bug A", "Fix A")
-        ctx.append_vaccine_record(2, "Bug B", "Fix B")
-        content = ctx.VACCINES_FILE.read_text(encoding="utf-8")
-        assert "Vaccine #1" in content
-        assert "Vaccine #2" in content
+        ctx.append_fix_log_record(1, "Bug A", "Fix A")
+        ctx.append_fix_log_record(2, "Bug B", "Fix B")
+        content = ctx.FIX_LOG_FILE.read_text(encoding="utf-8")
+        assert "Fix #1" in content
+        assert "Fix #2" in content
+
+    def test_legacy_vaccines_file_migrates_to_fix_log(self, ctx):
+        # A pre-rename project on disk: vaccines.md exists, fix-log.md does not.
+        cd = ctx._context_dir()
+        cd.mkdir(parents=True, exist_ok=True)
+        (cd / "vaccines.md").write_text(
+            "# Vaccine Records\n\n## Vaccine #3 — 2026-01-01\n\n**Root Cause:** boom\n",
+            encoding="utf-8",
+        )
+        ctx.init_context()
+        assert not (cd / "vaccines.md").exists()
+        migrated = (cd / "fix-log.md").read_text(encoding="utf-8")
+        assert "# Fix Log" in migrated
+        assert "## Fix #3" in migrated
+        assert "boom" in migrated
 
 
 # ---------------------------------------------------------------------------
@@ -549,7 +564,7 @@ class TestGetContextSizes:
         sizes = ctx.get_context_sizes()
         assert set(sizes.keys()) == {
             "project-concept.md", "tech-stack.md", "functional-spec.md", "technical-spec.md",
-            "vaccines.md", "design-bundle.md",
+            "fix-log.md", "design-bundle.md",
         }
 
     def test_sizes_are_non_negative_ints(self, ctx):
@@ -709,7 +724,7 @@ class TestSetActiveProject:
             assert cm.TECH_STACK_FILE      == expected / "tech-stack.md"
             assert cm.FUNCTIONAL_SPEC_FILE == expected / "functional-spec.md"
             assert cm.TECHNICAL_SPEC_FILE  == expected / "technical-spec.md"
-            assert cm.VACCINES_FILE        == expected / "vaccines.md"
+            assert cm.FIX_LOG_FILE         == expected / "fix-log.md"
             assert cm.STORY_INDEX_FILE     == expected / "story-index.json"
             assert cm.DRAFT_FILE           == expected / ".apex-draft.json"
             assert cm.DESIGN_DRAFT_FILE    == expected / ".apex-design-draft.json"
@@ -1018,7 +1033,7 @@ class TestInitContextNoProject:
         token = cm._active_project_id.set(0)
         try:
             assert cm.get_project_concept() == ""
-            assert cm.get_vaccines() == ""
+            assert cm.get_fix_log() == ""
             assert cm.get_story_gherkin(1) == ""
             assert cm.get_story_technical_spec(1) == ""
             assert cm.get_story_index() == {}
@@ -1150,7 +1165,7 @@ class TestSpecCoEvolution:
         ctx.init_context()
         ctx.upsert_story_index(1, phase_status="deployed")
         assert ctx.amend_locked_spec("github-context.md")["amended"] is False
-        assert ctx.amend_locked_spec("vaccines.md")["amended"] is False
+        assert ctx.amend_locked_spec("fix-log.md")["amended"] is False
 
     def test_amendment_logged_to_file(self, ctx):
         ctx.init_context()

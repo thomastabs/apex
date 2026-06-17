@@ -9,7 +9,7 @@ The current migrated version is a split full-stack web app:
 - **Storage:** `contextspec/` folder in Azure File Share in deployment
 - **Deployment:** GitHub Actions builds Docker images and deploys to Azure Container Apps
 
-Phases 1–6 are implemented, plus a governance analytics dashboard. The spec-model upgrade roadmap is fully shipped: EARS non-functional requirements, spec↔code conformance, deterministic agent-target compilation, controlled spec co-evolution, and per-epic context slicing.
+Phases 1–6 are implemented, plus a governance analytics dashboard. The spec-model upgrade roadmap is fully shipped: EARS constraints, spec↔code conformance, deterministic agent-target compilation, controlled spec co-evolution, and per-epic context slicing.
 
 <img width="1908" height="991" alt="image" src="https://github.com/user-attachments/assets/818d2d66-add0-40c4-883f-c558a8445183" />
 
@@ -67,7 +67,7 @@ flowchart TD
         T[Generate Test Plan] --> U[Execute Scenarios — Pass/Fail]
         U --> V{Testing Gate}
         V -->|Fail| X[Bug Isolation Wizard]
-        X --> Y[Fix-Bolt — vaccines.md + bug_report]:::fix
+        X --> Y[Fix-Bolt — fix-log.md + bug_report]:::fix
         V -->|All pass| W[Lock qa_passed]
     end
 
@@ -85,7 +85,7 @@ flowchart TD
     subgraph P6["Phase 6 · Maintenance &amp; Traceability"]
         direction TB
         AH{Triage: Change Request or Bug?}
-        AH -->|Bug| AJ[Narrow diagnosis → Fix-Bolt brief → Vaccine]:::fix
+        AH -->|Bug| AJ[Narrow diagnosis → Fix-Bolt brief → Fix Log]:::fix
         AJ --> AK{Severity routing}
     end
 
@@ -140,7 +140,7 @@ Implemented:
 - Push approved stories to the connected PM tool
 - Persist approved Gherkin into `functional-spec.md`
 - Update `story-index.json` with `gherkin_locked` state
-- Generate project-wide **non-functional requirements** in EARS notation (performance, security, reliability, …) into `constraints.md` — Gherkin captures behaviour; this captures cross-cutting quality attributes. Editable, and injected into Phase 3 developer packs and Phase 4 test plans so the technical work honours them
+- Generate project-wide **constraints** in EARS notation (performance, security, reliability, …) into `constraints.md` — Gherkin captures behaviour; this captures cross-cutting quality attributes. Editable, and injected into Phase 3 developer packs and Phase 4 test plans so the technical work honours them
 
 ### Phase 2 · Design
 
@@ -251,7 +251,7 @@ Implemented — 4-stage stepper workflow:
 - **Fail path → Bug Isolation Wizard:**
   - AI analyses all failed scenarios + QA notes to generate a **Fix-Bolt artifact**: Bug Summary, Failed Scenario, Root Cause Hypothesis, Patch Scope, Reproduction Steps, Fix-Bolt Brief
   - Preview in monospace panel; Download `.md` / Copy Fix-Bolt Brief
-  - **Trigger Fix-Bolt:** saves `bug_report_{id}.md`, appends `vaccines.md`, marks story with `has_bug_report`; story returns to `implementation` and re-enters Phase 4 as Regression Bypass on next select
+  - **Trigger Fix-Bolt:** saves `bug_report_{id}.md`, appends `fix-log.md`, marks story with `has_bug_report`; story returns to `implementation` and re-enters Phase 4 as Regression Bypass on next select
 
 ### Phase 5 · Deployment
 
@@ -293,7 +293,7 @@ Phase 6 (`/phase6`) is tabbed: **Maintenance** and **Traceability**.
 - **AI Triage** classifies each item: **Path A — Change Request** (business deviation) is never patched directly — it is logged and routed to Phase 1 discovery ("Open in Phase 1"); **Path B — Bug** (technical deviation) proceeds to diagnosis
 - **Narrow diagnosis** under the **Context Isolation Rule** — the AI sees only the bug report + test evidence + the isolated code snippet (never whole-project context), and proposes a root cause for the human to verify (no patch yet)
 - **Fix-Bolt brief** — a deterministic, code-rendered agent directive (problem, failing contract, patch directive, files, regression-guard tests) grounded in the verified diagnosis
-- **Severity Routing** (AI suggests, human decides) — **Fast Lane** (low-risk) routes the linked story straight to a deployment record bypassing QA; **Secure Lane** (high-risk) re-enters Phase 4 as a QA Regression Bypass; **Resolve** records a permanent **Vaccine** in `vaccines.md`
+- **Severity Routing** (AI suggests, human decides) — **Fast Lane** (low-risk) routes the linked story straight to a deployment record bypassing QA; **Secure Lane** (high-risk) re-enters Phase 4 as a QA Regression Bypass; **Resolve** records a permanent **Fix Log** entry in `fix-log.md`
 - Items persist in `maintenance_items.json`; events are logged to `maintenance-log.md`
 
 **Traceability Explorer (F3) — spec↔code conformance:**
@@ -357,7 +357,7 @@ Implemented:
 | `backend/app/api/phase4.py` | Phase 4 HTTP routes |
 | `backend/app/api/phase5.py` | Phase 5 HTTP routes (deployment gate, infra delta, deploy pack, verification) |
 | `backend/app/api/phase6.py` | Phase 6 HTTP routes — spec↔code conformance (Traceability) + maintenance triage / Fix-Bolt routing |
-| `backend/app/services/maintenance_service.py` | Phase 6 Maintenance & Evolution workflow (triage, diagnosis, Fix-Bolt routing, vaccine) |
+| `backend/app/services/maintenance_service.py` | Phase 6 Maintenance & Evolution workflow (triage, diagnosis, Fix-Bolt routing, fix log) |
 | `backend/app/api/analytics.py` | Governance analytics endpoint |
 | `backend/app/api/workspace.py` | Sidebar/workspace routes: auth, projects, board, users, context files, AI config |
 | `backend/app/api/taiga_proxy.py` | FastAPI reverse proxy for all Taiga REST calls — SSRF-guarded, header-injection-safe, forwards `DELETE/GET/PATCH/POST/PUT /api/pm/taiga/{path}` to the configured Taiga instance; `_egress()` optionally routes through the Cloudflare relay (see [Taiga egress relay](#taiga-egress-relay-azure-deployment)) |
@@ -398,7 +398,7 @@ Apex stores workflow state in context files under `contextspec/<instance_id>/<pr
 | `project-concept.md` | Project purpose, target users, and core value proposition |
 | `tech-stack.md` | Tech stack, architecture principles, and design decisions |
 | `functional-spec.md` | Locked Gherkin acceptance criteria from Phase 1 |
-| `constraints.md` | Project-wide non-functional requirements (EARS notation) from Phase 1; injected into Phase 3 packs and Phase 4 test plans |
+| `constraints.md` | Project-wide constraints (EARS notation) from Phase 1; injected into Phase 3 packs and Phase 4 test plans |
 | `technical-spec.md` | Locked machine contract from Phase 2 — Endpoints + Data Model (injected into Phases 3–6) |
 | `design-bundle.md` | Locked human UX design from Phase 2 — UX Brief (injected into Phase 3) |
 | `diagram-screens.json` | React Flow screen flow diagram generated from Phase 2 UX Brief (includes saved layout positions) |
@@ -416,7 +416,7 @@ Apex stores workflow state in context files under `contextspec/<instance_id>/<pr
 | `maintenance_items.json` | Phase 6 maintenance triage items (source, classification, status, diagnosis, lane) |
 | `maintenance-log.md` | Append-only log of maintenance triage events (classification, routing, resolution) |
 | `amendments.md` | Append-only log of post-lock spec edits (which file, affected stories) — the spec co-evolution audit trail |
-| `vaccines.md` | Appended with each Fix-Bolt record — bug isolation log for future reference |
+| `fix-log.md` | Appended with each Fix-Bolt record — bug isolation log for future reference |
 | `story-index.json` | Machine-readable story phase state |
 
 ### Multiple users & multiple Taiga instances

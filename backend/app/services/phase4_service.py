@@ -204,9 +204,9 @@ class Phase4Service:
         self.context.save_bug_report(story_id, bug_report_md)
         # Each failed gate triggers one Fix-Bolt — the AI-defect-rate proxy
         self.context.increment_story_counter(story_id, "fix_bolt_count")
-        # Append to global vaccine log
+        # Append to global fix log
         if root_cause.strip():
-            self.context.append_vaccine_record(
+            self.context.append_fix_log_record(
                 story_id,
                 root_cause.strip(),
                 resolution_summary.strip() or "Fix-Bolt triggered — resolution pending.",
