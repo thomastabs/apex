@@ -5,6 +5,9 @@ title Apex — System Architecture (Component)
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
 skinparam componentStyle uml2
+skinparam linetype ortho
+skinparam nodesep 30
+skinparam ranksep 55
 skinparam component {
   BorderColor #666666
   BackgroundColor #F5F5F5
@@ -17,7 +20,7 @@ skinparam ArrowColor #333333
 skinparam databaseBackgroundColor #E8F5E9
 skinparam databaseBorderColor #66A36B
 
-package "Frontend (Next.js 15)" {
+package "Frontend (Next.js 15)" as FEP {
   [Web UI / Phase 1–6\nworkflow + sidebar] as UI
   [React Query 5\n(server state)] as RQ
   [Zustand stores\n(session · drafts)] as ZS
@@ -25,43 +28,45 @@ package "Frontend (Next.js 15)" {
   [github-browser.ts] as GHB
 }
 
-package "Backend (FastAPI · single writer)" {
+package "Backend (FastAPI · single writer)" as BEP {
   [FastAPI Server\nCORS · body-limit] as API
   [Phase routers\nphase1–6 · workspace] as RT
   [ContextService\nisolation seam] as CS
+  [storage.py\nStoragePath] as STG
   [ai_engine\nprovider routing] as AIE
   [taiga / jira proxy\nSSRF · _egress] as PROX
-  [storage.py\nStoragePath] as STG
 }
 
-package "AI Providers" {
+package "Spec Store" as SSP {
+  database "contextspec\nMarkdown + story-index.json" as STORE
+  [local disk /\nAzure File Share] as FSS
+}
+
+package "AI Providers" as AIP {
   [Anthropic Claude] as CL
   [OpenAI] as OAI
   [Google Gemini] as GEM
 }
 
-package "PM Tools" {
+package "PM Tools" as PMP {
   [Cloudflare relay\nnon-Azure IP] as RLY
   [Taiga\napi.taiga.io / private] as TG
   [Jira Cloud\n*.atlassian.net] as JR
 }
 
-package "Spec Store" {
-  database "contextspec\nMarkdown + story-index.json" as STORE
-  [local disk /\nAzure File Share] as FSS
+package "VCS" as VCSP {
+  [GitHub REST API] as GH
 }
-
-[GitHub REST API] as GH
 
 ' ---- frontend internal ----
 UI --> RQ
-RQ --> PMA
 UI --> ZS
-UI ..> GHB
+RQ --> PMA
 
-' ---- frontend → backend ----
-PMA --> PROX : /api/pm/*
+' ---- frontend -> backend / external ----
 UI --> API : REST /api/*
+PMA --> PROX : /api/pm/*
+GHB --> GH : browser-direct
 
 ' ---- backend internal ----
 API --> RT
@@ -70,16 +75,14 @@ RT --> AIE
 RT --> PROX
 CS --> STG
 
-' ---- backend → external ----
+' ---- backend -> external (one direction, downward) ----
+STG --> STORE
+STORE --> FSS
 AIE --> CL
 AIE --> OAI
 AIE --> GEM
-PROX --> RLY : Azure egress (blocked)
+PROX --> RLY : Azure egress
 RLY --> TG
-PROX ..> TG : direct (private)
 PROX --> JR
-STG --> STORE
-STORE --> FSS
-GHB ..> GH : browser-direct
 
 @enduml
