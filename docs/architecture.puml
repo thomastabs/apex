@@ -1,5 +1,4 @@
 @startuml
-!pragma layout smetana
 title Apex — System Architecture (Component)
 
 skinparam backgroundColor #FFFFFF
