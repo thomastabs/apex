@@ -1,0 +1,141 @@
+@startuml
+title Apex — User Flow (Sequence)
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #9E9E9E
+  LifeLineBackgroundColor #FAFAFA
+  ParticipantBorderColor #666666
+  ParticipantBackgroundColor #F5F5F5
+  ActorBorderColor #666666
+  ActorBackgroundColor #F5F5F5
+  GroupBorderColor #B0B0B0
+  DividerBackgroundColor #ECECEC
+  DividerBorderColor #B0B0B0
+}
+
+actor User
+participant "Frontend\n(Next.js)" as FE
+participant "FastAPI\nBackend" as BE
+participant "AI Engine\n(Claude)" as AI
+participant "PM Tool\n(Taiga/Jira)" as PM
+database "Spec Store\n(contextspec)" as ST
+
+== Phase 1 · Requirements ==
+User -> FE : select epic / project concept
+FE -> BE : POST /phase1/generate
+activate BE
+BE -> AI : generate NL stories
+activate AI
+AI --> BE : story drafts
+deactivate AI
+BE --> FE : drafts
+deactivate BE
+FE --> User : review & edit (human gate)
+User -> FE : approve → compile
+FE -> BE : POST /phase1/compile
+activate BE
+BE -> AI : compile Gherkin + EARS constraints
+activate AI
+AI --> BE : Gherkin + constraints
+deactivate AI
+BE -> PM : push approved stories
+BE -> ST : lock functional-spec  (gherkin_locked)
+deactivate BE
+
+== Phase 2 · Design ==
+User -> FE : lock tech stack (Gate 0)
+FE -> BE : POST /phase2/design
+activate BE
+BE -> ST : read locked stories
+BE -> AI : generate design bundle
+activate AI
+AI --> BE : screens · flows · specs
+deactivate AI
+BE --> FE : design draft
+deactivate BE
+FE --> User : Design Lead + Tech Lead sign-off (Gate 1/2)
+User -> FE : approve
+FE -> BE : lock design
+activate BE
+BE -> ST : lock design artefacts  (design_locked)
+deactivate BE
+
+== Phase 3 · Implementation Assist ==
+User -> FE : select story
+FE -> BE : POST /phase3/tasks
+activate BE
+BE -> AI : break into tasks + developer packs
+activate AI
+AI --> BE : tasks + packs
+deactivate AI
+BE --> FE : task breakdown
+deactivate BE
+FE --> User : review & edit tasks
+User -> FE : approve
+FE -> BE : push + lock
+activate BE
+BE -> PM : push tasks
+BE -> ST : lock story  (implementation)
+deactivate BE
+
+== Phase 4 · Testing ==
+User -> FE : select story to test
+FE -> BE : POST /phase4/plan
+activate BE
+BE -> AI : generate test plan
+activate AI
+AI --> BE : scenarios
+deactivate AI
+BE --> FE : test plan
+deactivate BE
+User -> FE : execute scenarios (pass/fail)
+alt all scenarios pass
+  FE -> BE : lock qa_passed
+  BE -> ST : qa_passed
+else failure
+  FE -> BE : Bug Isolation Wizard
+  activate BE
+  BE -> AI : Fix-Bolt vaccine + bug report
+  activate AI
+  AI --> BE : vaccine
+  deactivate AI
+  BE -> ST : vaccines.md  (re-enters Phase 4)
+  deactivate BE
+end
+
+== Phase 5 · Deployment ==
+User -> FE : select QA-passed story
+FE -> BE : POST /phase5/preflight
+activate BE
+BE -> AI : infra delta + traceability matrix
+activate AI
+AI --> BE : deploy pack (if infra changed)
+deactivate AI
+BE --> FE : pre-flight + Deployment Gate
+deactivate BE
+FE --> User : Deployment Gate (Tech Lead + DevOps)
+User -> FE : approve
+FE -> BE : lock deployed
+activate BE
+BE -> ST : deployment-log.md  (deployed)
+deactivate BE
+
+== Phase 6 · Maintenance & Traceability ==
+User -> FE : maintenance event
+FE -> BE : POST /phase6/triage
+activate BE
+BE -> AI : triage + narrow diagnosis
+activate AI
+AI --> BE : change-request | bug + severity
+deactivate AI
+alt change request
+  BE -> ST : route to Phase 1 discovery
+else bug — severity routing
+  BE -> ST : Fast Lane → deploy  /  Secure Lane → Phase 4
+end
+deactivate BE
+
+@enduml

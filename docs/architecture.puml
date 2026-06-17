@@ -1,0 +1,85 @@
+@startuml
+!pragma layout smetana
+title Apex — System Architecture (Component)
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam componentStyle uml2
+skinparam component {
+  BorderColor #666666
+  BackgroundColor #F5F5F5
+}
+skinparam package {
+  BorderColor #888888
+  BackgroundColor #FFFFFF
+}
+skinparam ArrowColor #333333
+skinparam databaseBackgroundColor #E8F5E9
+skinparam databaseBorderColor #66A36B
+
+package "Frontend (Next.js 15)" {
+  [Web UI / Phase 1–6\nworkflow + sidebar] as UI
+  [React Query 5\n(server state)] as RQ
+  [Zustand stores\n(session · drafts)] as ZS
+  [PM Adapter\n(Taiga / Jira)] as PMA
+  [github-browser.ts] as GHB
+}
+
+package "Backend (FastAPI · single writer)" {
+  [FastAPI Server\nCORS · body-limit] as API
+  [Phase routers\nphase1–6 · workspace] as RT
+  [ContextService\nisolation seam] as CS
+  [ai_engine\nprovider routing] as AIE
+  [taiga / jira proxy\nSSRF · _egress] as PROX
+  [storage.py\nStoragePath] as STG
+}
+
+package "AI Providers" {
+  [Anthropic Claude] as CL
+  [OpenAI] as OAI
+  [Google Gemini] as GEM
+}
+
+package "PM Tools" {
+  [Cloudflare relay\nnon-Azure IP] as RLY
+  [Taiga\napi.taiga.io / private] as TG
+  [Jira Cloud\n*.atlassian.net] as JR
+}
+
+package "Spec Store" {
+  database "contextspec\nMarkdown + story-index.json" as STORE
+  [local disk /\nAzure File Share] as FSS
+}
+
+[GitHub REST API] as GH
+
+' ---- frontend internal ----
+UI --> RQ
+RQ --> PMA
+UI --> ZS
+UI ..> GHB
+
+' ---- frontend → backend ----
+PMA --> PROX : /api/pm/*
+UI --> API : REST /api/*
+
+' ---- backend internal ----
+API --> RT
+RT --> CS
+RT --> AIE
+RT --> PROX
+CS --> STG
+
+' ---- backend → external ----
+AIE --> CL
+AIE --> OAI
+AIE --> GEM
+PROX --> RLY : Azure egress (blocked)
+RLY --> TG
+PROX ..> TG : direct (private)
+PROX --> JR
+STG --> STORE
+STORE --> FSS
+GHB ..> GH : browser-direct
+
+@enduml

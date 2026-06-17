@@ -27,10 +27,12 @@ Phases 1–6 are implemented, plus a governance analytics dashboard. The spec-mo
 
 ## Implemented Workflow
 
-> Editable draw.io sources (open at <https://app.diagrams.net>): the full
-> user flow is in [`docs/user-flow.drawio`](docs/user-flow.drawio) and the
-> system architecture in [`docs/architecture.drawio`](docs/architecture.drawio).
-> Pre-rendered PNG exports of every page live in [`docs/diagrams/`](docs/diagrams).
+> UML diagrams (PlantUML sources): the user flow is a sequence diagram in
+> [`docs/user-flow.puml`](docs/user-flow.puml) and the system architecture a
+> component diagram in [`docs/architecture.puml`](docs/architecture.puml).
+> Rendered PNG + SVG live in [`docs/diagrams/`](docs/diagrams). Re-render with
+> `java -jar plantuml.jar -tsvg docs/*.puml` (component diagram uses the
+> built-in `!pragma layout smetana`, so no Graphviz needed).
 
 ```mermaid
 flowchart TD
@@ -381,8 +383,9 @@ Implemented:
 | `frontend/lib/stores/` | Zustand stores for session, UI, and per-phase draft state |
 | `.github/workflows/ci.yml` | Test, build, push, and deploy workflow |
 | `.github/workflows/scale-scheduler.yml` | Azure Container Apps scale up/down scheduler |
-| `docs/architecture.drawio` | Editable draw.io system-architecture diagrams (split stack, multi-tenant isolation, Taiga egress, CI/CD) — thesis reference |
-| `docs/user-flow.drawio` | Editable draw.io user-flow diagrams (entry + Phase 1–6 with roles and human gates) — thesis reference |
+| `docs/architecture.puml` | PlantUML component diagram of the system architecture (frontend, backend, AI, PM tools, spec store) — thesis reference |
+| `docs/user-flow.puml` | PlantUML sequence diagram of the user flow across Phase 1–6 (User · Frontend · Backend · AI · PM · spec store) — thesis reference |
+| `docs/diagrams/` | Rendered PNG + SVG of the two UML diagrams |
 
 ---
 
