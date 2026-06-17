@@ -2351,7 +2351,6 @@ def suggest_severity_lane(diagnosis_md: str, patch_scope: str = "") -> SeverityR
 # ConformanceReport with a code-computed score — a fast, reproducible baseline
 # and a thesis artifact in its own right. Layer B (AI semantic judgement) builds
 # on this and is added separately; it consumes the Layer-A result as grounding.
-# Design: docs/spec-code-conformance-plan.md.
 # ---------------------------------------------------------------------------
 
 class EndpointConformance(BaseModel):

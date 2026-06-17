@@ -9,7 +9,7 @@ The current migrated version is a split full-stack web app:
 - **Storage:** `contextspec/` folder in Azure File Share in deployment
 - **Deployment:** GitHub Actions builds Docker images and deploys to Azure Container Apps
 
-Phases 1–6 are implemented, plus a governance analytics dashboard. The spec-model upgrade roadmap (see `docs/spec-model-roadmap.md`) is fully shipped: EARS non-functional requirements, spec↔code conformance, deterministic agent-target compilation, controlled spec co-evolution, and per-epic context slicing.
+Phases 1–6 are implemented, plus a governance analytics dashboard. The spec-model upgrade roadmap is fully shipped: EARS non-functional requirements, spec↔code conformance, deterministic agent-target compilation, controlled spec co-evolution, and per-epic context slicing.
 
 <img width="1908" height="991" alt="image" src="https://github.com/user-attachments/assets/818d2d66-add0-40c4-883f-c558a8445183" />
 
@@ -382,10 +382,6 @@ Implemented:
 | `.github/workflows/scale-scheduler.yml` | Azure Container Apps scale up/down scheduler |
 | `docs/architecture.md` | Full system-architecture diagrams (split stack, multi-tenant isolation, Taiga egress, CI/CD) — thesis reference |
 | `docs/user-flow.md` | End-to-end user-flow diagrams (entry + Phase 1–6 with roles and human gates) — thesis reference |
-| `docs/spec-model-roadmap.md` | Benchmark of the spec model vs SDD/BDD/RE literature + the upgrade roadmap (all five upgrades shipped) |
-| `docs/spec-code-conformance-plan.md` | Design + build log for the spec↔code conformance check (roadmap #1, shipped) |
-| `docs/deterministic-compilation-plan.md` | Design + build log for deterministic agent-target compilation (roadmap #3, shipped) |
-| `docs/spec-co-evolution-plan.md` | Design + build log for controlled spec co-evolution / amendments + drift (roadmap #4, shipped) |
 
 ---
 
