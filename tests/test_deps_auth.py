@@ -59,6 +59,37 @@ def test_rejected_token_raises_401():
     assert exc.value.status_code == 401
 
 
+def test_credential_check_routes_through_egress_relay(monkeypatch):
+    # Regression: api.taiga.io is firewall-DROPped from Azure egress, so the
+    # credential dial must go through the relay like the proxy does. Without it
+    # validation fails with [Errno 101] Network is unreachable (503) whenever the
+    # token cache is cold, even though the proxy stays up.
+    monkeypatch.setenv("TAIGA_EGRESS_RELAY", "https://relay.example.workers.dev")
+    monkeypatch.setenv("TAIGA_EGRESS_RELAY_SECRET", "shh")
+    pm, client = _mock_pm(200)
+    with pm, _taiga_config():
+        deps.get_auth_context("Bearer goodtoken")
+    url = client.get.call_args.args[0]
+    headers = client.get.call_args.kwargs["headers"]
+    assert url == "https://relay.example.workers.dev"
+    assert headers["X-Relay-Target"].endswith("/api/v1/users/me")
+    assert headers["X-Relay-Secret"] == "shh"
+    assert headers["Authorization"] == "Bearer goodtoken"
+
+
+def test_credential_check_bypasses_relay_for_private_anchor(monkeypatch):
+    # Self-hosted / tunnel instances ARE reachable from Azure — they must NOT be
+    # rewritten to the relay (relay ALLOWED_HOSTS would reject them anyway).
+    monkeypatch.setenv("TAIGA_EGRESS_RELAY", "https://relay.example.workers.dev")
+    monkeypatch.setenv("TAIGA_API_URL", "https://my-tunnel.trycloudflare.com")
+    pm, client = _mock_pm(200)
+    with pm, _taiga_config():
+        deps.get_auth_context("Bearer goodtoken")
+    url = client.get.call_args.args[0]
+    assert url.startswith("https://my-tunnel.trycloudflare.com")
+    assert "X-Relay-Target" not in client.get.call_args.kwargs["headers"]
+
+
 def test_pm_unreachable_raises_503():
     client = MagicMock()
     client.get = MagicMock(side_effect=httpx.ConnectError("refused"))

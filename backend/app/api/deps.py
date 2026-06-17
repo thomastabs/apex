@@ -150,12 +150,22 @@ def _pm_endpoints(taiga_url_override: str = "") -> tuple[str, str, str]:
 
 
 def _pm_get(url: str, scheme: str, token: str) -> bool:
-    """GET url with the user's credentials; True on 2xx, False on PM rejection."""
+    """GET url with the user's credentials; True on 2xx, False on PM rejection.
+
+    Routed through the Cloudflare egress relay for hosts Azure cannot reach
+    directly (api.taiga.io), mirroring the Taiga proxy's `_egress`. Without this
+    the credential check dials Taiga Cloud directly and fails with [Errno 101]
+    Network is unreachable (→ 503) whenever direct egress is firewall-DROPped —
+    even though the proxy itself stays up via the relay. The token-validation
+    cache masks this until it goes cold (e.g. after a restart).
+    """
+    from backend.app.api.taiga_proxy import _egress
+
+    request_url, headers = _egress(
+        url, {"Authorization": f"{scheme} {token}", "Accept": "application/json"}
+    )
     try:
-        resp = _get_verify_client().get(
-            url,
-            headers={"Authorization": f"{scheme} {token}", "Accept": "application/json"},
-        )
+        resp = _get_verify_client().get(request_url, headers=headers)
     except httpx.RequestError as exc:
         _logger.error("PM credential check failed to reach %s: %s", url, exc)
         raise HTTPException(
