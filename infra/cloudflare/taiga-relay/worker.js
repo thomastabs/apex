@@ -20,8 +20,27 @@
 
 const ALLOWED_HOSTS = new Set(["api.taiga.io"]);
 
-// Hop-by-hop / relay-control headers stripped before forwarding upstream.
-const STRIP_HEADERS = ["x-relay-target", "x-relay-secret", "host", "cf-connecting-ip", "cf-ray", "cf-ipcountry"];
+// Headers stripped from the request before forwarding to the real Taiga host.
+//
+// CRITICAL — the x-forwarded-* / cf-* / x-real-ip family: Cloudflare auto-adds
+// x-forwarded-for (= the apex-backend's Azure egress IP) on the request into
+// this Worker. Because Worker→api.taiga.io is Cloudflare-to-Cloudflare, Taiga's
+// edge TRUSTS x-forwarded-for and passes that Azure IP through to Taiga's
+// origin, whose firewall DROPs Azure Container Apps ranges — the origin resets
+// and Cloudflare returns 520 (unknown_origin_error). The entire point of this
+// relay is to present a Cloudflare source IP to Taiga, so these forwarding
+// headers MUST be dropped or the Azure IP leaks straight back in and undoes it.
+// (Verified: forwarding x-forwarded-for=<Azure IP> → 520; a public IP → 401.)
+//
+// Framing headers (content-length/transfer-encoding/content-encoding) are
+// dropped because the body is rebuffered via arrayBuffer() below, so the
+// caller's original framing no longer matches.
+const STRIP_HEADERS = [
+  "x-relay-target", "x-relay-secret", "host",
+  "cf-connecting-ip", "cf-ray", "cf-ipcountry", "cf-visitor", "cf-ew-via", "cf-worker",
+  "x-forwarded-for", "x-forwarded-host", "x-forwarded-proto", "x-real-ip",
+  "content-length", "transfer-encoding", "content-encoding",
+];
 
 export default {
   async fetch(request, env) {
@@ -57,11 +76,32 @@ export default {
       init.body = await request.arrayBuffer();
     }
 
-    // 4. Forward and stream the upstream response straight back.
-    const upstream = await fetch(target.toString(), init);
+    // 4. Forward to the real Taiga host, with a bounded retry on Cloudflare's
+    // own 52x origin errors (520-526), which Taiga's edge flags as retryable.
+    // The deterministic 520 cause is fixed above (x-forwarded-for stripping);
+    // this retry is belt-and-suspenders for genuine transient origin blips and
+    // never fires on normal responses. Non-52x (incl. 4xx auth failures) return
+    // immediately.
+    const RETRYABLE = new Set([520, 521, 522, 523, 524, 525, 526]);
+    let upstream;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      upstream = await fetch(target.toString(), init);
+      if (!RETRYABLE.has(upstream.status)) break;
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+    }
+
+    // upstream.body is the runtime-managed (already decoded) stream, but
+    // upstream.headers still describe the ORIGINAL upstream framing. Copying
+    // content-length / content-encoding / transfer-encoding verbatim would make
+    // the re-emitted response inconsistent with its body, so strip them and let
+    // the runtime recompute.
+    const respHeaders = new Headers(upstream.headers);
+    for (const h of ["content-length", "content-encoding", "transfer-encoding", "connection"]) {
+      respHeaders.delete(h);
+    }
     return new Response(upstream.body, {
       status: upstream.status,
-      headers: upstream.headers,
+      headers: respHeaders,
     });
   },
 };
