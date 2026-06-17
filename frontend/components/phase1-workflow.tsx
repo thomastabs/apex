@@ -8,12 +8,13 @@ import { Button, Callout, Input, Skeleton, Textarea } from "@/components/ui/prim
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
 import {
   useCompileGherkin,
+  useGenerateConstraints,
   useGenerateNlStories,
   usePhase1Epics,
   usePushPhase1Stories,
   useSuggestPhase1Epics,
 } from "@/lib/hooks/use-phase1";
-import { useContextFiles } from "@/lib/hooks/use-workspace";
+import { useContextFiles, useUpdateContextFile } from "@/lib/hooks/use-workspace";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import type { CompiledStory, EpicSuggestion } from "@/lib/api/types";
@@ -115,6 +116,7 @@ export function Phase1Workflow() {
   const [expandedLoadEpic, setExpandedLoadEpic] = useState<number | null>(null);
   const [selectedLoadEpicId, setSelectedLoadEpicId] = useState<number | null>(null);
   const [pushSuccess, setPushSuccess] = useState(false);
+  const [constraintsGenerated, setConstraintsGenerated] = useState(false);
   const [diagramOpen, setDiagramOpen] = useState(false);
   const draftRestored = useRef(false);
 
@@ -124,6 +126,8 @@ export function Phase1Workflow() {
   const generate = useGenerateNlStories();
   const compile = useCompileGherkin();
   const push = usePushPhase1Stories();
+  const genConstraints = useGenerateConstraints();
+  const updateContextFile = useUpdateContextFile();
 
   useEffect(() => {
     draftRestored.current = false;
@@ -235,6 +239,7 @@ export function Phase1Workflow() {
     setNlDraft("");
     setCompiledStories([]);
     setPushSuccess(false);
+    setConstraintsGenerated(false);
     setStep(1);
     setMode("create");
     setSelectedLoadEpicId(null);
@@ -873,6 +878,40 @@ export function Phase1Workflow() {
                     ))}
                   </div>
                 ) : null}
+                {/* Optional: project-wide non-functional requirements (EARS). */}
+                <div className={cn("rounded-lg border p-4", dark ? "border-neutral-800 bg-neutral-900/40" : "border-slate-200 bg-slate-50")}>
+                  <div className="flex items-center gap-2">
+                    <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>Non-Functional Requirements</span>
+                    <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide", dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-500")}>Optional</span>
+                  </div>
+                  <p className={cn("mt-1 text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
+                    EARS quality constraints (performance, security, reliability…) saved to <code>constraints.md</code> and injected into Phase 3 developer packs &amp; Phase 4 test plans. Editable anytime in the sidebar.
+                  </p>
+                  {constraintsGenerated ? (
+                    <div className="mt-3 flex items-center gap-2 text-sm text-emerald-400">
+                      <CheckCircle2 className="size-4" /> Saved to constraints.md
+                    </div>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      className="mt-3 w-full"
+                      disabled={genConstraints.isPending || updateContextFile.isPending}
+                      onClick={() =>
+                        genConstraints.mutate(undefined, {
+                          onSuccess: (res) => {
+                            updateContextFile.mutate({ filename: "constraints.md", content: res.constraints_md });
+                            setConstraintsGenerated(true);
+                            toast.success(`Generated ${res.constraints.length} non-functional requirements`);
+                          },
+                        })
+                      }
+                    >
+                      {genConstraints.isPending
+                        ? <><Loader2 className="size-4 animate-spin" /> Generating…</>
+                        : <><Sparkles className="size-4" /> Generate non-functional requirements</>}
+                    </Button>
+                  )}
+                </div>
                 <div className="flex flex-col gap-3">
                   <Button onClick={() => router.push("/phase2")} className="w-full">
                     <ChevronRight className="size-4" /> Move to Phase 2
