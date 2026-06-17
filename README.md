@@ -31,8 +31,8 @@ Phases 1–6 are implemented, plus a governance analytics dashboard. The spec-mo
 > [`docs/user-flow.puml`](docs/user-flow.puml) and the system architecture a
 > component diagram in [`docs/architecture.puml`](docs/architecture.puml).
 > Rendered PNG + SVG live in [`docs/diagrams/`](docs/diagrams). Re-render with
-> `java -jar plantuml.jar -tsvg docs/*.puml` (component diagram uses the
-> built-in `!pragma layout smetana`, so no Graphviz needed).
+> `java -jar plantuml.jar -tsvg docs/*.puml` (the component diagram is laid out
+> with Graphviz for orthogonal routing — `sudo apt install graphviz`).
 
 ```mermaid
 flowchart TD
