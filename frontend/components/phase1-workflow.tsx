@@ -908,7 +908,7 @@ export function Phase1Workflow() {
                     >
                       {genConstraints.isPending
                         ? <><Loader2 className="size-4 animate-spin" /> Generating…</>
-                        : <><Sparkles className="size-4" /> Generate non-functional requirements</>}
+                        : "Generate non-functional requirements"}
                     </Button>
                   )}
                 </div>
