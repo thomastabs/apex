@@ -30,6 +30,7 @@ Phases 1–6 are implemented, plus a governance analytics dashboard. The spec-mo
 > Editable draw.io sources (open at <https://app.diagrams.net>): the full
 > user flow is in [`docs/user-flow.drawio`](docs/user-flow.drawio) and the
 > system architecture in [`docs/architecture.drawio`](docs/architecture.drawio).
+> Pre-rendered PNG exports of every page live in [`docs/diagrams/`](docs/diagrams).
 
 ```mermaid
 flowchart TD
