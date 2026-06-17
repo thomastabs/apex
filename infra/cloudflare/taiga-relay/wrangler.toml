@@ -1,6 +1,9 @@
 name = "apex-taiga-relay"
 main = "worker.js"
 compatibility_date = "2024-09-23"
+# Account ID is not a secret; it lets CI (cloudflare/wrangler-action) target the
+# right account non-interactively.
+account_id = "ca188aed0a078734b8339ddc9b434fd6"
 
 # RELAY_SECRET is NOT set here — it is a secret, set with:
 #   wrangler secret put RELAY_SECRET

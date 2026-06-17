@@ -1,0 +1,11 @@
+{
+  "name": "apex-taiga-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloudflare Worker that relays apex-backend Taiga calls from a non-Azure IP.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "deploy": "wrangler deploy"
+  }
+}

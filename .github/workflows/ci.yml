@@ -81,6 +81,23 @@ jobs:
         env:
           NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
 
+  test-relay:
+    name: Taiga relay Worker tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "21"
+
+      # Dependency-free (node:test); the headline guard asserts the Worker never
+      # forwards x-forwarded-for to Taiga (the Azure-IP leak that caused the 520).
+      - name: Run Worker tests
+        run: node --test
+        working-directory: infra/cloudflare/taiga-relay
+
   test-e2e:
     name: Playwright E2E tests
     runs-on: ubuntu-latest
@@ -370,3 +387,48 @@ jobs:
             --name apex-frontend \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --image "${{ steps.current.outputs.frontend }}"
+
+  deploy-relay:
+    name: Deploy Taiga relay Worker
+    runs-on: ubuntu-latest
+    # Independent of the Azure pipeline — the Worker is a separate runtime.
+    # Only runs when the relay actually changed (paths filter on the job's
+    # checkout would still cost a runner, so gate cheaply on test-relay + main).
+    needs: [test-relay]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    env:
+      # Secrets can't be used in step `if:` directly, so surface presence here.
+      HAS_CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      # Skip the deploy when nothing under the relay dir changed in this push,
+      # so unrelated commits don't redeploy the Worker.
+      - name: Detect relay changes
+        id: changed
+        run: |
+          if git diff --name-only HEAD^ HEAD | grep -q '^infra/cloudflare/taiga-relay/'; then
+            echo "relay=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "relay=false" >> "$GITHUB_OUTPUT"
+            echo "No relay changes in this push — skipping deploy."
+          fi
+
+      - name: Note missing token
+        if: steps.changed.outputs.relay == 'true' && env.HAS_CF_TOKEN != 'true'
+        run: echo "::warning::CLOUDFLARE_API_TOKEN repo secret not set — skipping Worker deploy. Deploy manually with 'npx wrangler deploy' until it's added."
+
+      # RELAY_SECRET is a Worker secret already set via `wrangler secret put`; it
+      # persists across deploys, so this step never needs it. account_id comes
+      # from wrangler.toml; CLOUDFLARE_API_TOKEN must be a repo secret with the
+      # "Workers Scripts: Edit" permission.
+      - name: Deploy Worker
+        if: steps.changed.outputs.relay == 'true' && env.HAS_CF_TOKEN == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: infra/cloudflare/taiga-relay
+          command: deploy
