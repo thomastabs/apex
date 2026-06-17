@@ -27,60 +27,99 @@ Phases 1–6 are implemented, plus a governance analytics dashboard. The spec-mo
 
 ## Implemented Workflow
 
+> A higher-resolution, self-contained copy of this workflow lives in
+> [`docs/user-flow.md`](docs/user-flow.md); the system architecture is in
+> [`docs/architecture.md`](docs/architecture.md).
+
 ```mermaid
 flowchart TD
-    A[PM Epic — Taiga or Jira] --> B[Phase 1: Generate Natural Language Stories]
-    B --> C[Human Review]
-    C --> D[Compile Gherkin]
-    D --> E[Human Review]
-    E --> F[Push Stories to PM Tool]
-    F --> G[(contextspec/<instance_id>/<project_id>)]
+    A([PM Epic — Taiga or Jira]):::ext
 
-    G --> H[Phase 2 Gate 0: Lock Tech Stack]
-    H --> I[Generate Design Bundle]
-    I --> J[Gate 1: Design Lead Approval]
-    J --> K[Gate 2: Tech Lead Approval]
-    K --> L[Lock Design Artefacts]
-    L --> G
+    %% ---- The shared, versioned spec store every phase reads from / writes to ----
+    G[("contextspec/<br/>&lt;instance&gt;/&lt;project&gt;")]:::store
 
-    G --> M[Phase 3: Select Story]
-    M --> N[Generate Task Breakdown]
-    N --> O[Human Review & Edit Tasks]
-    O --> P[Push Tasks to PM Tool]
-    P --> Q[Generate Developer Packs per Task]
-    Q --> R[Lock Story — Implementation Ready]
-    R --> G
+    subgraph P1["Phase 1 · Requirements"]
+        direction TB
+        B[Generate NL Stories] --> C[Human Review]
+        C --> D[Compile Gherkin] --> E[Human Review]
+        E --> F[Push Stories to PM Tool]
+    end
 
-    G --> S[Phase 4: Select Story to Test]
-    S --> T[Generate Test Plan]
-    T --> U[Execute Scenarios — Pass/Fail]
-    U --> V{Testing Gate}
-    V -->|All pass| W[Lock qa_passed]
-    V -->|Fail| X[Bug Isolation Wizard — Fix-Bolt Artifact]
-    X --> Y[Trigger Fix-Bolt — vaccines.md + bug_report]
-    Y -->|Story re-enters Phase 4| S
-    W --> G
+    subgraph P2["Phase 2 · Design"]
+        direction TB
+        H[Gate 0: Lock Tech Stack] --> I[Generate Design Bundle]
+        I --> J[Gate 1: Design Lead Approval]
+        J --> K[Gate 2: Tech Lead Approval] --> L[Lock Design Artefacts]
+    end
 
-    G --> Z[Phase 5: Select QA-Passed Story]
-    Z --> AA[Pre-Flight: AI Infra Delta Check + Traceability Matrix]
-    AA --> AB{Infra changes?}
-    AB -->|No — routine| AD[Deployment Gate]
-    AB -->|Yes| AC[Generate Deploy Pack — scripts + rollback]
-    AC --> AD
-    AD -->|Tech Lead + DevOps Alliance sign-off| AE[Lock deployed — deployment-log.md]
-    AD -->|Reject| AF[Security feedback → AI revises pack]
-    AF --> AC
-    AE --> G
+    subgraph P3["Phase 3 · Implementation Assist"]
+        direction TB
+        N[Generate Task Breakdown] --> O[Human Review &amp; Edit Tasks]
+        O --> P[Push Tasks to PM Tool] --> Q[Generate Developer Packs per Task]
+        Q --> R[Lock Story — Implementation Ready]
+    end
 
-    G --> AG[Phase 6: Maintenance Triage + Traceability]
-    AG --> AH{Triage: Change Request or Bug?}
-    AH -->|Change Request| AI[Route to Phase 1 discovery]
-    AH -->|Bug| AJ[Narrow diagnosis → Fix-Bolt brief → Vaccine]
-    AJ --> AK{Severity routing}
+    subgraph P4["Phase 4 · Testing"]
+        direction TB
+        T[Generate Test Plan] --> U[Execute Scenarios — Pass/Fail]
+        U --> V{Testing Gate}
+        V -->|Fail| X[Bug Isolation Wizard]
+        X --> Y[Fix-Bolt — vaccines.md + bug_report]:::fix
+        V -->|All pass| W[Lock qa_passed]
+    end
+
+    subgraph P5["Phase 5 · Deployment"]
+        direction TB
+        AA[Pre-Flight: Infra Delta + Traceability Matrix] --> AB{Infra changes?}
+        AB -->|Yes| AC[Generate Deploy Pack — scripts + rollback]
+        AB -->|No — routine| AD{Deployment Gate}
+        AC --> AD
+        AD -->|Reject| AF[Security feedback → AI revises pack]
+        AF --> AC
+        AD -->|Tech Lead + DevOps sign-off| AE[Lock deployed — deployment-log.md]
+    end
+
+    subgraph P6["Phase 6 · Maintenance &amp; Traceability"]
+        direction TB
+        AH{Triage: Change Request or Bug?}
+        AH -->|Bug| AJ[Narrow diagnosis → Fix-Bolt brief → Vaccine]:::fix
+        AJ --> AK{Severity routing}
+    end
+
+    %% ---- Entry into the pipeline ----
+    A --> B
+    F --> G
+
+    %% ---- Each phase is entered by selecting work off the board (reads store) ----
+    G ==>|select story| H
+    G ==>|select story| N
+    G ==>|select story| T
+    G ==>|select QA-passed| AA
+    G ==>|maintenance event| AH
+
+    %% ---- Each phase locks its result back into the store ----
+    L -.->|persist| G
+    R -.->|persist| G
+    W -.->|persist| G
+    AE -.->|persist| G
+
+    %% ---- Cross-phase routing ----
+    Y -.->|re-enters Phase 4| T
     AK -->|Fast Lane| AE
-    AK -->|Secure Lane| S
-    AI --> A
+    AK -->|Secure Lane| T
+    AH -->|Change Request| A
+
+    classDef ext fill:#1f2937,stroke:#60a5fa,color:#e5e7eb;
+    classDef store fill:#0b3b2e,stroke:#34d399,color:#d1fae5;
+    classDef fix fill:#3b0b14,stroke:#f87171,color:#fee2e2;
 ```
+
+**How to read it.** Each phase is its own swim-lane. The green cylinder is the
+versioned spec store (`contextspec/`) — the single source of truth. Bold arrows
+(`select story`) are a human entering a phase by picking work off the PM board;
+dashed arrows (`persist`) are the phase locking its artefacts back into the store
+and advancing `story-index.json`. Everything is gated by a human review or
+sign-off before it locks.
 
 ### Phase 1 · Requirements
 
@@ -341,6 +380,8 @@ Implemented:
 | `frontend/lib/stores/` | Zustand stores for session, UI, and per-phase draft state |
 | `.github/workflows/ci.yml` | Test, build, push, and deploy workflow |
 | `.github/workflows/scale-scheduler.yml` | Azure Container Apps scale up/down scheduler |
+| `docs/architecture.md` | Full system-architecture diagrams (split stack, multi-tenant isolation, Taiga egress, CI/CD) — thesis reference |
+| `docs/user-flow.md` | End-to-end user-flow diagrams (entry + Phase 1–6 with roles and human gates) — thesis reference |
 | `docs/spec-model-roadmap.md` | Benchmark of the spec model vs SDD/BDD/RE literature + the upgrade roadmap (all five upgrades shipped) |
 | `docs/spec-code-conformance-plan.md` | Design + build log for the spec↔code conformance check (roadmap #1, shipped) |
 | `docs/deterministic-compilation-plan.md` | Design + build log for deterministic agent-target compilation (roadmap #3, shipped) |
