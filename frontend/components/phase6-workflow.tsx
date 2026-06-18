@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ChevronRight, Info, Loader2, RefreshCw, Zap } from "lucide-react";
 import { Button, Callout, Input, SectionHeading } from "@/components/ui/primitives";
@@ -380,44 +380,36 @@ export function Phase6Workflow() {
         )}
       </div>
 
-      {/* Section stepper (menu) */}
-      <div className={cn("rounded-xl border px-6 py-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
-        <div className="flex w-full items-center">
-          {steps.map((s, i) => {
-            const isActive = tab === s.key;
-            return (
-              <Fragment key={s.key}>
-                <button
-                  onClick={() => setTab(s.key)}
-                  className="group flex shrink-0 flex-col items-center gap-1.5 transition"
-                >
-                  <span className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ring-2 transition",
-                    isActive
-                      ? "bg-violet-600 text-white ring-violet-400"
-                      : dark
-                        ? "bg-neutral-800 text-neutral-400 ring-neutral-700 group-hover:ring-neutral-500"
-                        : "bg-white text-slate-500 ring-slate-300 group-hover:ring-violet-400",
-                  )}>
-                    {i + 1}
-                  </span>
-                  <span className={cn(
-                    "text-xs font-semibold whitespace-nowrap",
-                    isActive ? "text-violet-500" : dark ? "text-neutral-500" : "text-slate-400",
-                  )}>
-                    {s.label}
-                  </span>
-                </button>
-                {i < steps.length - 1 && (
-                  <div className={cn(
-                    "mx-2 mb-5 h-0.5 flex-1 rounded-full transition-all",
-                    dark ? "bg-neutral-700" : "bg-slate-200",
-                  )} />
-                )}
-              </Fragment>
-            );
-          })}
-        </div>
+      {/* Section tabs — Phase 6 is two parallel workspaces, not a step-by-step flow */}
+      <div
+        role="tablist"
+        aria-label="Phase 6 sections"
+        className={cn(
+          "inline-flex gap-1 rounded-xl border p-1",
+          dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-100",
+        )}
+      >
+        {steps.map((s) => {
+          const isActive = tab === s.key;
+          return (
+            <button
+              key={s.key}
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => setTab(s.key)}
+              className={cn(
+                "rounded-lg px-5 py-2 text-sm font-semibold transition",
+                isActive
+                  ? "bg-violet-600 text-white shadow-sm"
+                  : dark
+                    ? "text-neutral-400 hover:text-neutral-200"
+                    : "text-slate-500 hover:text-slate-800",
+              )}
+            >
+              {s.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Section content */}

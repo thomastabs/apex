@@ -59,6 +59,9 @@ class ContextService:
     def update_maintenance_item(self, item_id: int, **updates) -> dict | None:
         return context_manager.update_maintenance_item(item_id, **updates)
 
+    def delete_maintenance_item(self, item_id: int) -> bool:
+        return context_manager.delete_maintenance_item(item_id)
+
     def append_maintenance_log(self, item_id: int, subject: str, event: str, detail: str = "") -> None:
         context_manager.append_maintenance_log(item_id, subject, event, detail)
 

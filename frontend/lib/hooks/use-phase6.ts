@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   classifyMaintenanceItem,
   createMaintenanceItem,
+  deleteMaintenanceItem,
   diagnoseMaintenanceItem,
   fixBriefMaintenanceItem,
   getConformanceEligibleStories,
@@ -83,6 +84,15 @@ export function useCreateMaintenanceItem() {
 
 export function useClassifyItem() {
   return useItemMutation((ctx, id) => classifyMaintenanceItem(ctx, id));
+}
+
+export function useDeleteMaintenanceItem() {
+  const context = useApiContext();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (itemId: number) => deleteMaintenanceItem(context!, itemId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["phase6", "maintenance", context?.projectId] }),
+  });
 }
 
 export function useDiagnoseItem() {

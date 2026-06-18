@@ -1230,6 +1230,18 @@ class TestMaintenanceItems:
         assert ctx.get_maintenance_item(1)["subject"] == "x"
         assert ctx.get_maintenance_item(42) is None
 
+    def test_delete_removes_item(self, ctx):
+        ctx.init_context()
+        a = ctx.create_maintenance_item(subject="keep")
+        b = ctx.create_maintenance_item(subject="drop")
+        assert ctx.delete_maintenance_item(b["id"]) is True
+        remaining = [i["id"] for i in ctx.load_maintenance_items()]
+        assert remaining == [a["id"]]
+
+    def test_delete_missing_returns_false(self, ctx):
+        ctx.init_context()
+        assert ctx.delete_maintenance_item(999) is False
+
     def test_log_append(self, ctx):
         ctx.init_context()
         ctx.append_maintenance_log(1, "Login 500", "classified: bug", "high severity hint")

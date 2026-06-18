@@ -66,6 +66,9 @@ class FakeContextService:
         self.items[item_id].update(updates)
         return self.items[item_id]
 
+    def delete_maintenance_item(self, item_id):
+        return self.items.pop(item_id, None) is not None
+
     def append_maintenance_log(self, item_id, subject, event, detail=""):
         self.log.append(f"#{item_id} {event} {detail}")
 
@@ -122,6 +125,20 @@ def test_classify_bug_then_diagnose_then_fix(ctx):
     assert diag["status"] == "diagnosed" and "Root Cause" in diag["diagnosis_md"]
     fix = svc.generate_fix_brief(ctx, item["id"])
     assert fix["status"] == "fix_ready" and "Fix-Bolt Brief" in fix["fix_brief_md"]
+
+
+def test_delete_item_removes_and_logs(ctx):
+    svc, c = _svc()
+    item = svc.create_item(ctx, subject="typo")
+    svc.delete_item(ctx, item["id"])
+    assert item["id"] not in c.items
+    assert any("deleted" in entry for entry in c.log)
+
+
+def test_delete_unknown_item_raises(ctx):
+    svc, _ = _svc()
+    with pytest.raises(MaintenanceValidationError):
+        svc.delete_item(ctx, 999)
 
 
 def test_diagnose_requires_bug_classification(ctx):

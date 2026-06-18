@@ -2111,6 +2111,24 @@ def update_maintenance_item(item_id: int, **updates) -> dict | None:
         return target
 
 
+def delete_maintenance_item(item_id: int) -> bool:
+    """Remove a maintenance item. Returns True if an item was deleted."""
+    with _index_lock:
+        p = _path(_MAINTENANCE_FILE)
+        if not p.exists():
+            return False
+        try:
+            raw = json.loads(p.read_text(encoding="utf-8"))
+            items = raw.get("items", []) if isinstance(raw, dict) else []
+        except (json.JSONDecodeError, OSError):
+            return False
+        remaining = [it for it in items if it.get("id") != item_id]
+        if len(remaining) == len(items):
+            return False
+        _write_maintenance_items(remaining)
+        return True
+
+
 def append_maintenance_log(item_id: int, subject: str, event: str, detail: str = "") -> None:
     """Append a human-readable maintenance event to maintenance-log.md."""
     init_context()

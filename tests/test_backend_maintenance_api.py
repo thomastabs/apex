@@ -7,6 +7,7 @@ from backend.app.api.deps import get_request_context
 from backend.app.api.phase6 import (
     classify_maintenance_item,
     create_maintenance_item,
+    delete_maintenance_item,
     list_maintenance_items,
     resolve_maintenance_item,
     route_maintenance_item,
@@ -40,6 +41,9 @@ class StubMaintenanceService:
     def resolve(self, ctx, item_id, root_cause="", resolution_summary=""):
         return {**_ITEM, "status": "resolved"}
 
+    def delete_item(self, ctx, item_id):
+        return None
+
 
 def _ctx():
     return get_request_context("Bearer tok", 42)
@@ -59,6 +63,11 @@ def test_create_item_route():
 def test_classify_route():
     out = classify_maintenance_item(1, ctx=_ctx(), service=StubMaintenanceService(), _rl=None)
     assert out["classification"] == "bug"
+
+
+def test_delete_item_route():
+    out = delete_maintenance_item(1, ctx=_ctx(), service=StubMaintenanceService())
+    assert out["items"][0]["id"] == 1
 
 
 def test_route_lane_route():

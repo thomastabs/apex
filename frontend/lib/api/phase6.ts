@@ -60,6 +60,10 @@ export function createMaintenanceItem(
   return apiRequest<MaintenanceItem>(`${M}/items`, { method: "POST", context, body });
 }
 
+export function deleteMaintenanceItem(context: RequestContext, itemId: number) {
+  return apiRequest<MaintenanceItemsResponse>(`${M}/items/${itemId}`, { method: "DELETE", context });
+}
+
 export function classifyMaintenanceItem(context: RequestContext, itemId: number) {
   return apiRequest<MaintenanceItem>(`${M}/items/${itemId}/classify`, {
     method: "POST", context, timeoutMs: PHASE6_AI_TIMEOUT_MS,

@@ -47,6 +47,12 @@ class MaintenanceService:
         self.context.append_maintenance_log(item["id"], subject, f"created ({source})")
         return item
 
+    def delete_item(self, ctx: RequestContext, item_id: int) -> None:
+        self.configure_request(ctx)
+        item = self._require(item_id)
+        self.context.delete_maintenance_item(item_id)
+        self.context.append_maintenance_log(item_id, item["subject"], "deleted")
+
     # ── helpers ─────────────────────────────────────────────────────────────
 
     def _require(self, item_id: int) -> dict:

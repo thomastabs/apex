@@ -4,12 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  ArrowRight, GitBranch, Github, Loader2, Plus, ShieldCheck, Zap,
+  ArrowRight, GitBranch, Github, Loader2, Plus, ShieldCheck, Trash2, Zap,
 } from "lucide-react";
 import { Button, Callout, Input, SectionHeading, Textarea } from "@/components/ui/primitives";
 import {
   useClassifyItem,
   useCreateMaintenanceItem,
+  useDeleteMaintenanceItem,
   useDiagnoseItem,
   useFixBriefItem,
   useMaintenanceItems,
@@ -45,6 +46,7 @@ export function MaintenanceTriage() {
 
   const itemsQuery = useMaintenanceItems();
   const create = useCreateMaintenanceItem();
+  const del = useDeleteMaintenanceItem();
   const classify = useClassifyItem();
   const diagnose = useDiagnoseItem();
   const fixBrief = useFixBriefItem();
@@ -109,6 +111,17 @@ export function MaintenanceTriage() {
       const { taigaListIssues } = await import("@/lib/api/taiga-direct");
       setIssues({ source: "taiga", list: await taigaListIssues(context!.taigaToken, context!.projectId, context!.taigaApiUrl) });
     } catch (e) { toast.error(errMsg(e)); } finally { setSyncing(false); }
+  }
+
+  function deleteItem(it: MaintenanceItem) {
+    if (!window.confirm(`Delete maintenance item #${it.id} "${it.subject}"? This cannot be undone.`)) return;
+    del.mutate(it.id, {
+      onSuccess: () => {
+        toast.success(`Deleted #${it.id}`);
+        if (selectedId === it.id) setSelectedId(null);
+      },
+      onError: (e) => toast.error(errMsg(e)),
+    });
   }
 
   function importIssue(src: "github" | "taiga", iss: ExternalIssue) {
@@ -193,9 +206,21 @@ export function MaintenanceTriage() {
           {/* detail */}
           {selected ? (
             <div className="space-y-4">
-              <div>
-                <h3 className={cn("text-base font-bold", dark ? "text-white" : "text-slate-900")}>#{selected.id} {selected.subject}</h3>
-                {selected.description ? <p className={cn("mt-1 text-sm", dark ? "text-neutral-400" : "text-slate-600")}>{selected.description}</p> : null}
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className={cn("text-base font-bold", dark ? "text-white" : "text-slate-900")}>#{selected.id} {selected.subject}</h3>
+                  {selected.description ? <p className={cn("mt-1 text-sm", dark ? "text-neutral-400" : "text-slate-600")}>{selected.description}</p> : null}
+                </div>
+                <Button
+                  variant="danger"
+                  onClick={() => deleteItem(selected)}
+                  disabled={del.isPending}
+                  title="Delete this maintenance item"
+                  className="shrink-0"
+                >
+                  {del.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  Delete
+                </Button>
               </div>
 
               {/* F1 classify */}

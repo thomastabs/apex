@@ -65,7 +65,7 @@ beforeEach(() => vi.clearAllMocks());
 
 // Phase 6 is tabbed (Maintenance default). Switch to the Traceability tab.
 function openTraceability() {
-  fireEvent.click(screen.getByRole("button", { name: /Traceability/i }));
+  fireEvent.click(screen.getByRole("tab", { name: /Traceability/i }));
 }
 
 describe("Phase6Workflow", () => {

@@ -126,6 +126,19 @@ def create_maintenance_item(
         _handle_error(exc)
 
 
+@router.delete("/maintenance/items/{item_id}", response_model=MaintenanceItemsResponse)
+def delete_maintenance_item(
+    item_id: int,
+    ctx: RequestContext = Depends(get_request_context),
+    service: MaintenanceService = Depends(get_maintenance_service),
+):
+    try:
+        service.delete_item(ctx, item_id)
+        return {"items": service.list_items(ctx)}
+    except Exception as exc:
+        _handle_error(exc)
+
+
 @router.post("/maintenance/items/{item_id}/classify", response_model=MaintenanceItem)
 def classify_maintenance_item(
     item_id: int,
