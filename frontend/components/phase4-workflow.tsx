@@ -1,14 +1,17 @@
 "use client";
 
 import { Fragment, useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Copy,
   Info,
   Loader2,
+  Rocket,
   ShieldAlert,
   Sparkles,
   XCircle,
@@ -559,6 +562,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                       { storyId, scenarioText: sectionMd || name },
                       {
                         onSuccess: (d) => setEdgeCases((prev) => ({ ...prev, [name]: d.edge_cases_md })),
+                        onError: (e) => toast.error(errMsg(e)),
                         onSettled: () => setEdgeLoading(null),
                       },
                     );
@@ -568,10 +572,35 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                     ? <><Loader2 className="h-3 w-3 animate-spin" /> Exploring…</>
                     : <><Sparkles className="h-3 w-3" /> Explore edge cases</>}
                 </button>
+                {!edgeCases[name] && edgeLoading !== name && (
+                  <p className={cn("mt-1 leading-4", dark ? "text-neutral-500" : "text-slate-400")}>
+                    AI probes for non-obvious boundary, error, and abuse cases this scenario doesn&apos;t cover yet —
+                    grounded in the technical spec. Use them as a manual checklist: try each one and mark the scenario{" "}
+                    <b>Fail</b> (with notes) if any breaks, or fold them into a new scenario back in Phase 1.
+                  </p>
+                )}
+                {edgeLoading === name && (
+                  <p className={cn("mt-1 leading-4", dark ? "text-neutral-500" : "text-slate-400")}>
+                    Generating edge-case probes from the spec…
+                  </p>
+                )}
                 {edgeCases[name] && (
-                  <pre className={cn("mt-2 whitespace-pre-wrap rounded-lg border p-2 font-mono", dark ? "border-neutral-700 bg-neutral-950 text-neutral-300" : "border-slate-200 bg-slate-50 text-slate-700")}>
-                    {edgeCases[name]}
-                  </pre>
+                  <div className="mt-2 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className={cn("font-semibold uppercase tracking-wider text-[10px]", dark ? "text-neutral-500" : "text-slate-400")}>
+                        Edge-case probes — test manually
+                      </span>
+                      <button
+                        className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 transition", dark ? "text-neutral-400 hover:bg-neutral-800" : "text-slate-500 hover:bg-slate-100")}
+                        onClick={() => { void navigator.clipboard.writeText(edgeCases[name]); toast.success("Edge cases copied."); }}
+                      >
+                        <Copy className="h-3 w-3" /> Copy
+                      </button>
+                    </div>
+                    <pre className={cn("whitespace-pre-wrap rounded-lg border p-2 font-mono", dark ? "border-neutral-700 bg-neutral-950 text-neutral-300" : "border-slate-200 bg-slate-50 text-slate-700")}>
+                      {edgeCases[name]}
+                    </pre>
+                  </div>
                 )}
               </div>
 
@@ -619,6 +648,8 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
 function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () => void; onNewStory: () => void }) {
   const dark = useUiStore((s) => s.theme) === "dark";
+  const router = useRouter();
+  const apiCtx = useApiContext();
   const { data: ctx } = useStoryContext(storyId);
 
   const testPlanMd = usePhase4Store((s) => s.testPlanMd);
@@ -710,19 +741,32 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
           </p>
         </div>
         <div className="flex flex-col gap-2">
+          <Button
+            className="w-full justify-center"
+            onClick={() => router.push("/phase5")}
+          >
+            <Rocket className="h-4 w-4" /> Continue to Phase 5 — Deployment
+          </Button>
           {ctx && (
-            <Button
-              variant="secondary"
-              className="w-full justify-center"
-              disabled={pmStatusMut.isPending}
-              onClick={() => pmStatusMut.mutate({ pmStoryId: String(storyId), statusName: "production" })}
-            >
-              {pmStatusMut.isPending
-                ? <><Loader2 className="h-4 w-4 animate-spin" /> Updating PM…</>
-                : "Update PM Story Status"}
-            </Button>
+            <>
+              <Button
+                variant="secondary"
+                className="w-full justify-center"
+                disabled={pmStatusMut.isPending}
+                onClick={() => pmStatusMut.mutate({ pmStoryId: String(storyId) })}
+              >
+                {pmStatusMut.isPending
+                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Updating PM…</>
+                  : "Update PM Story Status"}
+              </Button>
+              <p className={cn("px-1 text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
+                Moves the linked {apiCtx?.pmTool === "jira" ? "Jira" : "Taiga"} story to a done / deploy-ready
+                status on the board (tries Production → Deployed → Done → Closed → Ready for test). Optional —
+                it only mirrors Apex&apos;s state onto your PM tool; skip it if your board has no such column.
+              </p>
+            </>
           )}
-          <Button className="w-full justify-center" onClick={() => { clearPhase4Draft(); onNewStory(); }}>
+          <Button variant="secondary" className="w-full justify-center" onClick={() => { clearPhase4Draft(); onNewStory(); }}>
             Test Another Story
           </Button>
         </div>

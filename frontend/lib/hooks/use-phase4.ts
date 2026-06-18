@@ -190,22 +190,42 @@ export function usePassGate() {
   });
 }
 
+// Candidate "done/deploy-ready" status names, most-preferred first. Boards vary
+// (default Taiga has Done/Ready-for-test, not "production"), so we match the
+// first available rather than a single hardcoded name.
+const PM_DONE_STATUS_CANDIDATES = [
+  "production", "deployed", "ready for deploy", "done", "closed", "accepted", "ready for test",
+];
+
 export function useUpdatePmStoryStatus() {
   const context = useApiContext();
   return useMutation({
-    mutationFn: async ({ pmStoryId, statusName }: { pmStoryId: string; statusName: string }) => {
+    mutationFn: async ({ pmStoryId, statusName }: { pmStoryId: string; statusName?: string | string[] }) => {
       if (!context) throw new Error("No project context.");
       const adapter = getPmAdapter(context.pmTool);
       // Tool-aware ctx: Jira needs the project KEY, Taiga the numeric id —
       // pmProjectId holds the Taiga slug, which the Taiga REST API rejects.
       const pmCtx = toPmCtx(context);
       const statuses = await adapter.listStoryStatuses(pmCtx);
-      const target = statuses.find((s) => s.name.toLowerCase().includes(statusName.toLowerCase()));
-      if (!target) throw new Error(`Status "${statusName}" not found in PM board.`);
+      const candidates = statusName
+        ? (Array.isArray(statusName) ? statusName : [statusName])
+        : PM_DONE_STATUS_CANDIDATES;
+      let target: { id: string; name: string } | undefined;
+      for (const cand of candidates) {
+        target = statuses.find((s) => s.name.toLowerCase().includes(cand.toLowerCase()));
+        if (target) break;
+      }
+      if (!target) {
+        throw new Error(
+          `No matching status on the PM board. Looked for ${candidates.join(", ")}. ` +
+          `Available: ${statuses.map((s) => s.name).join(", ") || "none"}.`,
+        );
+      }
       const story = await adapter.getStory(pmCtx, pmStoryId);
       await adapter.updateStory(pmCtx, pmStoryId, story.version ?? 1, { status: target.id });
+      return target.name;
     },
-    onSuccess: () => toast.success("PM story status updated."),
+    onSuccess: (name) => toast.success(`PM story moved to "${name}".`),
     onError: (err: Error) => toast.error(`PM update failed: ${err.message}`),
   });
 }
