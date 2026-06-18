@@ -15,10 +15,18 @@ import Dagre from "@dagrejs/dagre";
 import { ChevronRight, LayoutDashboard, Loader2, Network, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { AIProgressIndicator } from "@/components/ai-progress-indicator";
 import { useGenerateDiagram, useLoadDiagram, useSaveDiagramPositions } from "@/lib/hooks/use-phase2";
 import type { DiagramEdge, DiagramField, DiagramNode, DiagramResponse } from "@/lib/api/types";
 
 import "@xyflow/react/dist/style.css";
+
+const DIAGRAM_STEPS = [
+  "Parsing the data model…",
+  "Detecting entities & fields…",
+  "Resolving relationships…",
+  "Laying out the diagram…",
+];
 
 // ---------------------------------------------------------------------------
 // Dagre auto-layout
@@ -240,7 +248,17 @@ export function ERDiagramPanel({
             dark ? "border-neutral-700" : "border-slate-200",
           )}
         >
-          {!hasDiagram ? (
+          {generateMut.isPending && !hasDiagram ? (
+            <div className="flex flex-col items-center gap-3 py-8 text-center">
+              <Loader2 className="size-8 animate-spin text-violet-500" />
+              <p className={cn("text-sm font-medium", dark ? "text-neutral-300" : "text-slate-600")}>
+                Generating ER diagram…
+              </p>
+              <div className="w-full max-w-md">
+                <AIProgressIndicator steps={DIAGRAM_STEPS} isPending={generateMut.isPending} dark={dark} />
+              </div>
+            </div>
+          ) : !hasDiagram ? (
             <div className="flex flex-col items-center gap-3 py-6 text-center">
               <Network className={cn("size-8", dark ? "text-neutral-600" : "text-slate-300")} />
               <p className={cn("text-sm", dark ? "text-neutral-400" : "text-slate-500")}>
@@ -259,17 +277,8 @@ export function ERDiagramPanel({
                     : "bg-violet-300 cursor-not-allowed dark:bg-violet-900",
                 )}
               >
-                {generateMut.isPending ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" />
-                    Generating…
-                  </>
-                ) : (
-                  <>
-                    <Network className="size-4" />
-                    Generate Diagram
-                  </>
-                )}
+                <Network className="size-4" />
+                Generate Diagram
               </button>
             </div>
           ) : (

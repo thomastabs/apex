@@ -14,10 +14,18 @@ import {
 import Dagre from "@dagrejs/dagre";
 import { ChevronRight, LayoutDashboard, Loader2, Monitor, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AIProgressIndicator } from "@/components/ai-progress-indicator";
 import { useGenerateScreenFlow, useLoadScreenFlow, useSaveScreenFlowPositions } from "@/lib/hooks/use-phase2";
 import type { ScreenFlowEdge, ScreenFlowNode, ScreenFlowResponse } from "@/lib/api/types";
 
 import "@xyflow/react/dist/style.css";
+
+const SCREEN_FLOW_STEPS = [
+  "Parsing the UX brief…",
+  "Detecting screens…",
+  "Mapping navigation paths…",
+  "Laying out the flow…",
+];
 
 // ---------------------------------------------------------------------------
 // Dagre layout
@@ -202,7 +210,17 @@ export function ScreenFlowPanel({
       {/* Body */}
       {open && (
         <div className={cn("border-t px-4 py-4", dark ? "border-neutral-700" : "border-slate-200")}>
-          {!hasDiagram ? (
+          {generateMut.isPending && !hasDiagram ? (
+            <div className="flex flex-col items-center gap-3 py-8 text-center">
+              <Loader2 className="size-8 animate-spin text-indigo-500" />
+              <p className={cn("text-sm font-medium", dark ? "text-neutral-300" : "text-slate-600")}>
+                Generating screen flow…
+              </p>
+              <div className="w-full max-w-md">
+                <AIProgressIndicator steps={SCREEN_FLOW_STEPS} isPending={generateMut.isPending} dark={dark} />
+              </div>
+            </div>
+          ) : !hasDiagram ? (
             <div className="flex flex-col items-center gap-3 py-6 text-center">
               <Monitor className={cn("size-8", dark ? "text-neutral-600" : "text-slate-300")} />
               <p className={cn("text-sm", dark ? "text-neutral-400" : "text-slate-500")}>
@@ -221,11 +239,7 @@ export function ScreenFlowPanel({
                     : "bg-indigo-300 cursor-not-allowed dark:bg-indigo-900",
                 )}
               >
-                {generateMut.isPending ? (
-                  <><Loader2 className="size-4 animate-spin" />Generating…</>
-                ) : (
-                  <><Monitor className="size-4" />Generate Screen Flow</>
-                )}
+                <Monitor className="size-4" />Generate Screen Flow
               </button>
             </div>
           ) : (
