@@ -1182,7 +1182,7 @@ function StageC({ storyId }: { storyId: number }) {
                     </div>
                     <div>
                       <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Preview</p>
-                      <MarkdownPreview content={packMd} dark={dark} className="max-h-[28rem]" />
+                      <MarkdownPreview content={packMd} dark={dark} className="h-[28rem] resize-y" />
                     </div>
                   </div>
                 ) : (
