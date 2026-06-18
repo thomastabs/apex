@@ -103,6 +103,15 @@ const PUSH_STEPS = [
 
 const STEP_LABELS = ["Define Epic", "Generate", "Review Draft", "Publish"] as const;
 
+// Lower number = ranked first. Drives both the gap sort order and the rank badge.
+const IMPORTANCE_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+const IMPORTANCE_STYLE: Record<string, string> = {
+  critical: "border-red-500/40 text-red-500",
+  high: "border-amber-500/40 text-amber-500",
+  medium: "border-sky-500/40 text-sky-500",
+  low: "border-slate-400/40 text-slate-400",
+};
+
 export function Phase1Workflow() {
   const dark = useUiStore((state) => state.theme) === "dark";
   const router = useRouter();
@@ -754,12 +763,27 @@ export function Phase1Workflow() {
                           <CheckCircle2 className="size-4" /> Coverage looks strong — no gaps found.
                         </div>
                       ) : (
-                        gapReport.gaps.map((gap, index) => {
+                        [...gapReport.gaps]
+                          .sort((a, b) => (IMPORTANCE_RANK[a.importance] ?? 2) - (IMPORTANCE_RANK[b.importance] ?? 2))
+                          .map((gap, index) => {
                           const isApplied = appliedGapIndex === index;
                           const missing = gap.kind === "missing_epic";
+                          const importance = gap.importance in IMPORTANCE_RANK ? gap.importance : "medium";
                           return (
                             <div key={`${gap.title}-${index}`} className={cn("rounded-md border p-3", isApplied ? "border-emerald-500/50 bg-emerald-500/10" : cardClass)}>
                               <div className="flex items-start gap-2">
+                                <span className={cn(
+                                  "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold tabular-nums",
+                                  dark ? "bg-neutral-700 text-neutral-200" : "bg-slate-300 text-slate-700",
+                                )} title={`Priority rank #${index + 1}`}>
+                                  {index + 1}
+                                </span>
+                                <span className={cn(
+                                  "mt-0.5 shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                                  IMPORTANCE_STYLE[importance],
+                                )}>
+                                  {importance}
+                                </span>
                                 <span className={cn(
                                   "mt-0.5 shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
                                   missing

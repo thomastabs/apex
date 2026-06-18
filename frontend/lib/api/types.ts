@@ -101,6 +101,7 @@ export type EpicSuggestion = {
 export type RequirementGap = {
   title: string;
   kind: "missing_epic" | "incomplete_epic" | string;
+  importance: "critical" | "high" | "medium" | "low" | string;
   rationale: string;
   suggested_stories: string[];
 };

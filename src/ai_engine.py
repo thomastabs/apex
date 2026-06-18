@@ -867,6 +867,10 @@ def suggest_epics(
 class RequirementGap(BaseModel):
     title: str = Field(description="Title of the missing epic or the under-covered area, 4-8 words, title case")
     kind: str = Field(description='Either "missing_epic" (a whole feature area absent) or "incomplete_epic" (an existing epic that needs more stories)')
+    importance: str = Field(
+        default="medium",
+        description='How critical closing this gap is to a strong requirement set: "critical", "high", "medium", or "low"',
+    )
     rationale: str = Field(description="1-2 sentences: why the project concept implies this is needed, and what risk its absence creates")
     suggested_stories: list[str] = Field(
         default_factory=list,
@@ -896,7 +900,11 @@ Rules you MUST follow:
   - "incomplete_epic": an existing epic whose story coverage has a clear hole.
 - For each gap give a short rationale tied to the concept, and 2-5 concrete,
   testable user-story titles that would close it.
-- Order gaps by importance (most critical to a strong requirement set first).
+- Rank every gap with an importance of "critical", "high", "medium", or "low",
+  judged by how much the project concept's core value depends on it. Reserve
+  "critical" for gaps without which the product's central promise fails.
+- Order gaps from most to least important (the most critical missing epic first),
+  consistent with the importance you assign.
 - If the current requirements already cover the concept well, return an empty
   gaps list and say so in the assessment. An empty result is a valid, honest answer.
 """

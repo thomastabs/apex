@@ -33,7 +33,8 @@ class StubPhase1Service:
     def analyze_gaps(self, ctx, *, existing_epics, hint=""):
         self.last_ctx = ctx
         return {"assessment": "ok", "gaps": [
-            {"title": "Notifications", "kind": "missing_epic", "rationale": "r", "suggested_stories": ["s"]},
+            {"title": "Notifications", "kind": "missing_epic", "importance": "critical",
+             "rationale": "r", "suggested_stories": ["s"]},
         ]}
 
     def finalize_stories(self, ctx, *, epic_id, epic_subject, stories):
@@ -102,6 +103,7 @@ def test_analyze_gaps_route():
 
     assert response["assessment"] == "ok"
     assert response["gaps"][0]["kind"] == "missing_epic"
+    assert response["gaps"][0]["importance"] == "critical"
 
 
 def test_compile_gherkin_route_does_not_need_request_context():

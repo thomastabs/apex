@@ -30,6 +30,7 @@ class AnalyzeGapsRequest(BaseModel):
 class RequirementGapSchema(BaseModel):
     title: str
     kind: str
+    importance: str = "medium"
     rationale: str
     suggested_stories: list[str] = Field(default_factory=list)
 
