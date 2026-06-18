@@ -10,7 +10,7 @@ then reach it through the proxy).
 import ipaddress
 import socket
 
-# RFC-1918, loopback, link-local, CGNAT, IPv6 ULA, IPv4-mapped
+# RFC-1918, loopback, link-local, CGNAT, IPv6 ULA
 BLOCKED_NETS = [
     ipaddress.ip_network("127.0.0.0/8"),
     ipaddress.ip_network("10.0.0.0/8"),
@@ -21,7 +21,6 @@ BLOCKED_NETS = [
     ipaddress.ip_network("::1/128"),
     ipaddress.ip_network("fc00::/7"),
     ipaddress.ip_network("fe80::/10"),
-    ipaddress.ip_network("::ffff:0:0/96"),
 ]
 
 
@@ -30,6 +29,14 @@ def _is_blocked_addr(value: str) -> bool:
         addr = ipaddress.ip_address(value.split("%")[0])  # strip IPv6 zone id
     except ValueError:
         return False
+    # Unwrap IPv4-mapped IPv6 (::ffff:a.b.c.d) and judge the embedded IPv4 by the
+    # IPv4 rules. getaddrinfo inside dual-stack containers returns mapped forms of
+    # PUBLIC IPv4s (e.g. ::ffff:45.84.208.140) — blanket-blocking the whole mapped
+    # range would reject legitimate public hosts (caused a local Docker 400 on
+    # Taiga Cloud sign-in). The mapped form of a private IPv4 still resolves to a
+    # blocked IPv4 net, so loopback/RFC-1918 stay blocked.
+    if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped is not None:
+        addr = addr.ipv4_mapped
     return any(addr in net for net in BLOCKED_NETS)
 
 

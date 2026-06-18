@@ -318,6 +318,27 @@ class TestTaigaDnsRebinding:
             )
         assert resp.status_code == 200
 
+    def test_ipv4_mapped_public_allowed(self, client):
+        # Dual-stack containers' getaddrinfo returns ::ffff:<public-ipv4> first;
+        # the guard must unwrap it and allow the public IPv4 (Docker sign-in 400 fix).
+        upstream = _mock_upstream(200, [])
+        patcher, _ = _patch_client(upstream)
+        with patcher, patch("backend.app.api.ssrf.socket.getaddrinfo", return_value=self._addrinfo("::ffff:45.84.208.140")):
+            resp = client.get(
+                "/api/pm/taiga/epics",
+                headers={"Authorization": self.AUTH, "X-Taiga-Url": "https://api.taiga.io/api/v1"},
+            )
+        assert resp.status_code == 200
+
+    def test_ipv4_mapped_private_blocked(self, client):
+        # The mapped form of a private IPv4 must still be blocked.
+        with patch("backend.app.api.ssrf.socket.getaddrinfo", return_value=self._addrinfo("::ffff:127.0.0.1")):
+            resp = client.get(
+                "/api/pm/taiga/epics",
+                headers={"Authorization": self.AUTH, "X-Taiga-Url": "https://rebind.example.com/api/v1"},
+            )
+        assert resp.status_code == 400
+
     def test_unresolvable_hostname_allowed_through_guard(self, client):
         # Connection will fail downstream anyway; blocking on resolver errors
         # would break offline/CI runs.
