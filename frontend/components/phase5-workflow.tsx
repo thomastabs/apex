@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Info,
   Loader2,
   Plus,
   Rocket,
@@ -866,6 +867,7 @@ export function Phase5Workflow() {
   const dark = useUiStore((s) => s.theme) === "dark";
   const context = useApiContext();
   const [stage, setStage] = useState<Stage>("A");
+  const [diagramOpen, setDiagramOpen] = useState(false);
   const selectedStoryId = usePhase5Store((s) => s.selectedStoryId);
   const currentStoryMeta = usePhase5Store((s) => s.currentStoryMeta);
   const setSelectedStoryId = usePhase5Store((s) => s.setSelectedStoryId);
@@ -903,6 +905,32 @@ export function Phase5Workflow() {
         <p className={cn("mt-2", mutedClass)}>
           Run the AI infra delta check, prepare deploy packs, and pass the human-gated Deployment Gate.
         </p>
+      </div>
+
+      {/* Diagram collapsible */}
+      <div className={cn("mb-6 rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}>
+        <button
+          className={cn(
+            "flex w-full items-center gap-2 px-4 py-3 text-sm transition-colors",
+            dark ? "text-neutral-400 hover:text-neutral-300" : "text-slate-500 hover:text-slate-700",
+          )}
+          onClick={() => setDiagramOpen(!diagramOpen)}
+        >
+          <ChevronRight className={cn("size-4 transition-transform", diagramOpen && "rotate-90")} />
+          <Info className="size-4" />
+          <span>View Process Diagram (How this works)</span>
+        </button>
+        {diagramOpen && (
+          <div className={cn("border-t p-4", dark ? "border-neutral-800" : "border-slate-200")}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/deployment.svg"
+              alt="Phase 5 deployment process diagram"
+              className="mx-auto max-w-full"
+              onError={(e) => { e.currentTarget.style.display = "none"; }}
+            />
+          </div>
+        )}
       </div>
 
       {!context && (
