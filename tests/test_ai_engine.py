@@ -11,6 +11,7 @@ from src.ai_engine import (
     GherkinStory,
     EpicSuggestion,
     EpicSuggestionList,
+    _format_existing_epics,
     _repair_truncated_json,
     _reclassify_llm_exc,
     bold_gherkin_keywords,
@@ -1089,6 +1090,35 @@ class TestMaintenanceAI:
                             lambda *a, **k: SeverityRouting(lane="secure", rationale="touches auth"))
         r = ai.suggest_severity_lane("root cause: auth bypass", patch_scope="auth.py")
         assert r.lane == "secure"
+
+
+class TestFormatExistingEpics:
+    def test_empty_returns_placeholder(self):
+        assert "none yet" in _format_existing_epics([])
+
+    def test_renders_epics_and_nested_stories(self):
+        out = _format_existing_epics([
+            {"title": "Auth", "description": "login flows", "stories": ["Sign in", "Reset password"]},
+        ])
+        assert "Epic: Auth — login flows" in out
+        assert "Story: Sign in" in out
+        assert "Story: Reset password" in out
+
+    def test_analyze_gaps_prompt_includes_concept_and_epics(self, monkeypatch):
+        import src.ai_engine as ai
+        captured = {}
+
+        def fake(sys, human, *a, **k):
+            captured["sys"] = sys
+            captured["human"] = human
+            return ai.RequirementGapReport(assessment="ok", gaps=[])
+
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress", fake)
+        ai.analyze_requirement_gaps("Concept text", [{"title": "Auth", "stories": ["Sign in"]}], "mobile")
+        assert "Concept text" in captured["human"]
+        assert "Auth" in captured["human"] and "Sign in" in captured["human"]
+        assert "mobile" in captured["human"]
+        assert "gap analysis" in captured["sys"].lower()
 
 
 class TestGenerateEdgeCases:

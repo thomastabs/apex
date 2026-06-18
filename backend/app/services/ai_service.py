@@ -11,6 +11,16 @@ class AiService:
             for epic in result.epics
         ]
 
+    def analyze_requirement_gaps(
+        self, project_concept: str, existing_epics: list[dict], hint: str = "",
+    ) -> dict:
+        """Gap-analyse current epics/stories vs the concept. Returns report dict."""
+        result = ai_engine.analyze_requirement_gaps(project_concept, existing_epics, hint)
+        return {
+            "assessment": result.assessment,
+            "gaps": [g.model_dump() for g in result.gaps],
+        }
+
     def generate_nl_stories(
         self,
         epic_subject: str,

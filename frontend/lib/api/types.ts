@@ -98,6 +98,18 @@ export type EpicSuggestion = {
   description: string;
 };
 
+export type RequirementGap = {
+  title: string;
+  kind: "missing_epic" | "incomplete_epic" | string;
+  rationale: string;
+  suggested_stories: string[];
+};
+
+export type RequirementGapReport = {
+  assessment: string;
+  gaps: RequirementGap[];
+};
+
 export type CompiledStory = {
   title: string;
   size: string;

@@ -13,6 +13,14 @@ class FakeAiService:
     def suggest_epics(self, project_concept: str, hint: str) -> list[dict]:
         return [{"title": "Account Access", "description": f"{project_concept}|{hint}"}]
 
+    def analyze_requirement_gaps(self, project_concept, existing_epics, hint="") -> dict:
+        self.gap_args = (project_concept, existing_epics, hint)
+        return {
+            "assessment": "Decent coverage.",
+            "gaps": [{"title": "Notifications", "kind": "missing_epic",
+                      "rationale": "Concept mentions alerts.", "suggested_stories": ["Email alert"]}],
+        }
+
     def generate_nl_stories(
         self,
         epic_subject: str,
@@ -102,6 +110,27 @@ def test_generate_nl_stories_injects_project_concept():
     assert draft == "[S] Story A"
     assert count == 1
     assert ai.generated_args == ("Epic", "Description", "Keep small", "Project concept")
+
+
+def test_analyze_gaps_passes_concept_and_epics():
+    service, ai, _ = _service()
+    epics = [{"title": "Auth", "description": "login", "stories": ["Sign in"]}]
+
+    report = service.analyze_gaps(_ctx(), existing_epics=epics, hint="mobile")
+
+    assert report["assessment"] == "Decent coverage."
+    assert report["gaps"][0]["title"] == "Notifications"
+    assert ai.gap_args == ("Project concept", epics, "mobile")
+
+
+def test_analyze_gaps_requires_concept():
+    ai = FakeAiService()
+    context = FakeContextService()
+    context.project_concept = lambda: "   "  # type: ignore[assignment]
+    service = Phase1Service(ai=ai, context=context)
+
+    with pytest.raises(Phase1ValidationError, match="project concept"):
+        service.analyze_gaps(_ctx(), existing_epics=[], hint="")
 
 
 def test_generate_nl_stories_requires_subject():

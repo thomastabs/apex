@@ -27,6 +27,18 @@ class Phase1Service:
         concept = self.context.project_concept()
         return self.ai.suggest_epics(concept, hint)
 
+    def analyze_gaps(
+        self, ctx: RequestContext, *, existing_epics: list[dict], hint: str = "",
+    ) -> dict:
+        """Audit current epics/stories against the concept; report coverage gaps."""
+        self.configure_request(ctx)
+        concept = self.context.project_concept()
+        if not concept.strip():
+            raise Phase1ValidationError(
+                "A project concept is required before analysing requirement gaps."
+            )
+        return self.ai.analyze_requirement_gaps(concept, existing_epics, hint)
+
     def generate_nl_stories(
         self,
         ctx: RequestContext,

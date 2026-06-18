@@ -5,12 +5,14 @@ from fastapi import HTTPException
 
 from backend.app.api.deps import get_request_context
 from backend.app.api.phase1 import (
+    analyze_gaps,
     compile_gherkin,
     finalize_stories,
     generate_nl_stories,
 )
 from backend.app.main import health
 from backend.app.schemas.phase1 import (
+    AnalyzeGapsRequest,
     CompileGherkinRequest,
     FinalizeStoriesRequest,
     GenerateNlStoriesRequest,
@@ -27,6 +29,12 @@ class StubPhase1Service:
 
     def compile_gherkin(self, *, nl_draft):
         return [{"title": "Story A", "size": "S", "gherkin": "Feature: A"}]
+
+    def analyze_gaps(self, ctx, *, existing_epics, hint=""):
+        self.last_ctx = ctx
+        return {"assessment": "ok", "gaps": [
+            {"title": "Notifications", "kind": "missing_epic", "rationale": "r", "suggested_stories": ["s"]},
+        ]}
 
     def finalize_stories(self, ctx, *, epic_id, epic_subject, stories):
         self.last_ctx = ctx
@@ -79,6 +87,21 @@ def test_generate_nl_stories_route():
     )
 
     assert response == {"nl_draft": "[S] Login", "story_count": 1}
+
+
+def test_analyze_gaps_route():
+    response = analyze_gaps(
+        AnalyzeGapsRequest(
+            existing_epics=[{"title": "Auth", "description": "login", "stories": ["Sign in"]}],
+            hint="mobile",
+        ),
+        ctx=_ctx(),
+        service=StubPhase1Service(),
+        _rl=None,
+    )
+
+    assert response["assessment"] == "ok"
+    assert response["gaps"][0]["kind"] == "missing_epic"
 
 
 def test_compile_gherkin_route_does_not_need_request_context():

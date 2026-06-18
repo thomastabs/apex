@@ -2,11 +2,12 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, FilePlus2, Info, Loader2, Plus, RefreshCw, RotateCcw, Sparkles, Trash2, Upload } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, FilePlus2, Info, Loader2, Plus, RefreshCw, RotateCcw, ScanSearch, Sparkles, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button, Callout, Input, Skeleton, Textarea } from "@/components/ui/primitives";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
 import {
+  useAnalyzeGaps,
   useCompileGherkin,
   useGenerateConstraints,
   useGenerateNlStories,
@@ -17,7 +18,7 @@ import {
 import { useContextFiles, useUpdateContextFile } from "@/lib/hooks/use-workspace";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
-import type { CompiledStory, EpicSuggestion } from "@/lib/api/types";
+import type { CompiledStory, EpicSuggestion, RequirementGapReport } from "@/lib/api/types";
 import { cn, errMsg } from "@/lib/utils";
 
 type Mode = "create" | "load" | "suggest";
@@ -75,6 +76,12 @@ const SUGGEST_STEPS = [
   "Generating epic candidates…",
   "Ranking by project fit…",
 ];
+const GAP_STEPS = [
+  "Reading project concept…",
+  "Mapping current epics & stories…",
+  "Comparing coverage against the concept…",
+  "Surfacing requirement gaps…",
+];
 const GENERATE_STEPS = [
   "Parsing epic description…",
   "Expanding user scenarios…",
@@ -112,6 +119,8 @@ export function Phase1Workflow() {
   const [suggestions, setSuggestions] = useState<EpicSuggestion[]>([]);
   const [selectedSuggestion, setSelectedSuggestion] = useState<number | null>(null);
   const [appliedSuggestionIndex, setAppliedSuggestionIndex] = useState<number | null>(null);
+  const [gapReport, setGapReport] = useState<RequirementGapReport | null>(null);
+  const [appliedGapIndex, setAppliedGapIndex] = useState<number | null>(null);
   const [editedDescriptions, setEditedDescriptions] = useState<Record<number, string>>({});
   const [expandedLoadEpic, setExpandedLoadEpic] = useState<number | null>(null);
   const [selectedLoadEpicId, setSelectedLoadEpicId] = useState<number | null>(null);
@@ -123,6 +132,7 @@ export function Phase1Workflow() {
   const epics = usePhase1Epics();
   const contextFiles = useContextFiles();
   const suggestEpics = useSuggestPhase1Epics();
+  const analyzeGaps = useAnalyzeGaps();
   const generate = useGenerateNlStories();
   const compile = useCompileGherkin();
   const push = usePushPhase1Stories();
@@ -182,7 +192,7 @@ export function Phase1Workflow() {
     [epics.data, epicId],
   );
   const canGenerate = mode === "load" ? Boolean(activeEpic) : Boolean(epicTitle.trim());
-  const busy = generate.isPending || compile.isPending || push.isPending || suggestEpics.isPending;
+  const busy = generate.isPending || compile.isPending || push.isPending || suggestEpics.isPending || analyzeGaps.isPending;
   const noContext = !context;
   const hasUnsaved = Boolean(nlDraft || compiledStories.length);
   const hasWorkInProgress = Boolean(epicTitle || epicDescription || epicId || nlDraft || compiledStories.length || suggestions.length);
@@ -217,6 +227,42 @@ export function Phase1Workflow() {
     setEpicId(null);
   }
 
+  // Build the current epic/story snapshot the AI audits against the concept.
+  function runGapAnalysis() {
+    const existingEpics = (epics.data ?? []).map((epic) => ({
+      title: epic.subject,
+      description: epic.description ?? "",
+      stories: epic.stories.map((s) => s.subject),
+    }));
+    setAppliedGapIndex(null);
+    analyzeGaps.mutate(
+      { existingEpics, hint: suggestHint },
+      {
+        onSuccess: (report) => {
+          setGapReport(report);
+          toast.success(
+            report.gaps.length
+              ? `${report.gaps.length} requirement gap${report.gaps.length === 1 ? "" : "s"} found`
+              : "Coverage looks strong — no gaps found",
+          );
+        },
+      },
+    );
+  }
+
+  // Seed the Create-New epic fields from a gap so the user can generate stories for it.
+  function applyGap(gap: RequirementGapReport["gaps"][number], index: number) {
+    setAppliedGapIndex(index);
+    const storyHints = gap.suggested_stories.length
+      ? `\n\nSuggested stories:\n${gap.suggested_stories.map((s) => `- ${s}`).join("\n")}`
+      : "";
+    setEpicTitle(gap.title);
+    setEpicDescription(`${gap.rationale}${storyHints}`);
+    setEpicId(null);
+    setMode("create");
+    toast.success(`"${gap.title}" loaded — refine it under Create New`);
+  }
+
   function cycleSize(index: number) {
     setCompiledStories((stories) =>
       stories.map((s, i) => {
@@ -249,6 +295,9 @@ export function Phase1Workflow() {
     if (!keepSuggestions) {
       setSuggestions([]);
       suggestEpics.reset();
+      setGapReport(null);
+      setAppliedGapIndex(null);
+      analyzeGaps.reset();
     }
   }
 
@@ -664,6 +713,105 @@ export function Phase1Workflow() {
                     Suggestion failed: {errMsg(suggestEpics.error)}
                   </div>
                 ) : null}
+
+                {/* ── Coverage gap analysis ─────────────────────────────── */}
+                <div className={cn("space-y-3 rounded-md border border-dashed p-4", dark ? "border-neutral-700" : "border-slate-300")}>
+                  <div className="flex items-start gap-3">
+                    <ScanSearch className={cn("mt-0.5 size-5 shrink-0", dark ? "text-violet-400" : "text-violet-600")} />
+                    <div className="space-y-0.5">
+                      <p className={cn("text-sm font-semibold", dark ? "text-neutral-100" : "text-slate-800")}>Analyze coverage gaps</p>
+                      <p className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-500")}>
+                        Audit your current epics &amp; stories ({epics.data?.length ?? 0} epic{(epics.data?.length ?? 0) === 1 ? "" : "s"}) against the
+                        project concept and surface what is still missing to make the requirements strong.
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    onClick={runGapAnalysis}
+                    disabled={analyzeGaps.isPending || noContext || !hasProjectConcept}
+                  >
+                    <ScanSearch className="size-4" />
+                    {analyzeGaps.isPending ? "Analyzing…" : "Analyze Coverage Gaps"}
+                  </Button>
+                  {!hasProjectConcept ? (
+                    <p className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
+                      Define the project concept (Active Context) first — gap analysis needs it as the baseline.
+                    </p>
+                  ) : null}
+                  <AIProgressIndicator steps={GAP_STEPS} isPending={analyzeGaps.isPending} dark={dark} />
+
+                  {gapReport && !analyzeGaps.isPending ? (
+                    <div className="space-y-3">
+                      {gapReport.assessment ? (
+                        <p className={cn("rounded-md px-3 py-2 text-sm", dark ? "bg-neutral-800/60 text-neutral-300" : "bg-slate-100 text-slate-600")}>
+                          {gapReport.assessment}
+                        </p>
+                      ) : null}
+                      {gapReport.gaps.length === 0 ? (
+                        <div className={cn("flex items-center gap-2 text-sm", dark ? "text-emerald-400" : "text-emerald-600")}>
+                          <CheckCircle2 className="size-4" /> Coverage looks strong — no gaps found.
+                        </div>
+                      ) : (
+                        gapReport.gaps.map((gap, index) => {
+                          const isApplied = appliedGapIndex === index;
+                          const missing = gap.kind === "missing_epic";
+                          return (
+                            <div key={`${gap.title}-${index}`} className={cn("rounded-md border p-3", isApplied ? "border-emerald-500/50 bg-emerald-500/10" : cardClass)}>
+                              <div className="flex items-start gap-2">
+                                <span className={cn(
+                                  "mt-0.5 shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                                  missing
+                                    ? "border-amber-500/40 text-amber-500"
+                                    : "border-sky-500/40 text-sky-500",
+                                )}>
+                                  {missing ? "Missing epic" : "Incomplete"}
+                                </span>
+                                <span className={cn("flex-1 font-semibold", dark ? "text-white" : "text-slate-800")}>{gap.title}</span>
+                                {isApplied ? (
+                                  <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-emerald-400">
+                                    <CheckCircle2 className="size-3.5" /> Loaded
+                                  </span>
+                                ) : null}
+                              </div>
+                              {gap.rationale ? (
+                                <p className={cn("mt-1.5 text-sm leading-6", dark ? "text-neutral-400" : "text-slate-600")}>{gap.rationale}</p>
+                              ) : null}
+                              {gap.suggested_stories.length ? (
+                                <ul className={cn("mt-2 list-disc space-y-0.5 pl-5 text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
+                                  {gap.suggested_stories.map((story, si) => (
+                                    <li key={si}>{story}</li>
+                                  ))}
+                                </ul>
+                              ) : null}
+                              <button
+                                className={cn(
+                                  "mt-3 flex w-full items-center justify-center gap-2 rounded border py-1.5 text-sm font-semibold transition-all duration-200",
+                                  isApplied
+                                    ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
+                                    : dark
+                                      ? "border-neutral-600 bg-neutral-800 text-neutral-200 hover:border-violet-500/50 hover:bg-violet-500/10 hover:text-violet-300"
+                                      : "border-slate-300 bg-white text-slate-700 hover:border-violet-400 hover:bg-violet-50 hover:text-violet-700",
+                                )}
+                                onClick={() => applyGap(gap, index)}
+                              >
+                                <Plus className="size-4" />
+                                {isApplied ? "Loaded into Create New" : "Use as Epic"}
+                              </button>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  ) : null}
+
+                  {analyzeGaps.isError ? (
+                    <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
+                      Gap analysis failed: {errMsg(analyzeGaps.error)}
+                    </div>
+                  ) : null}
+                </div>
               </div>
             ) : null}
 

@@ -7,6 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from backend.app.api.deps import AuthContext, RequestContext, get_auth_context, get_request_context
 from backend.app.api.rate_limit import ai_rate_limit
 from backend.app.schemas.phase1 import (
+    AnalyzeGapsRequest,
+    AnalyzeGapsResponse,
     CompileGherkinRequest,
     CompileGherkinResponse,
     FinalizeStoriesRequest,
@@ -52,6 +54,23 @@ def suggest_epics(
 ):
     try:
         return {"epics": service.suggest_epics(ctx, hint=payload.hint)}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/analyze-gaps", response_model=AnalyzeGapsResponse)
+def analyze_gaps(
+    payload: AnalyzeGapsRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase1Service = Depends(get_phase1_service),
+    _rl: None = Depends(ai_rate_limit),
+):
+    try:
+        return service.analyze_gaps(
+            ctx,
+            existing_epics=[e.model_dump() for e in payload.existing_epics],
+            hint=payload.hint,
+        )
     except Exception as exc:
         _handle_error(exc)
 

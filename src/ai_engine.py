@@ -857,6 +857,84 @@ def suggest_epics(
 
 
 # ---------------------------------------------------------------------------
+# Phase 1 · Requirement Gap Analysis — Requirements Analyst persona
+# ---------------------------------------------------------------------------
+# Unlike suggest_epics (cold-starts a full epic set from the concept), this
+# audits what the user ALREADY has against the project concept and reports the
+# coverage holes — missing feature areas and under-specified epics — so the
+# requirement set becomes complete before it is locked downstream.
+
+class RequirementGap(BaseModel):
+    title: str = Field(description="Title of the missing epic or the under-covered area, 4-8 words, title case")
+    kind: str = Field(description='Either "missing_epic" (a whole feature area absent) or "incomplete_epic" (an existing epic that needs more stories)')
+    rationale: str = Field(description="1-2 sentences: why the project concept implies this is needed, and what risk its absence creates")
+    suggested_stories: list[str] = Field(
+        default_factory=list,
+        description="2-5 concrete user-story titles that would close this gap",
+    )
+
+
+class RequirementGapReport(BaseModel):
+    assessment: str = Field(description="2-4 sentence overall assessment of how well the current epics/stories cover the concept")
+    gaps: list[RequirementGap] = Field(description="The coverage gaps, most important first; empty if coverage is already strong")
+
+
+_GAP_ANALYSIS_SYSTEM = """\
+You are an experienced Requirements Analyst operating within the Apex Framework.
+You are given a project concept and the user's CURRENT set of epics and their
+stories. Your job is gap analysis: judge how completely the current requirements
+cover the concept, then identify what is still missing to make the requirement
+set strong.
+
+Rules you MUST follow:
+- Ground every gap in the project concept. Do NOT invent capabilities the concept
+  does not imply, and do NOT pad the list to look thorough.
+- Compare against what already exists. Never re-suggest an epic or story area that
+  the current list already covers.
+- Classify each gap as either:
+  - "missing_epic": a distinct feature area / user-facing capability that is absent.
+  - "incomplete_epic": an existing epic whose story coverage has a clear hole.
+- For each gap give a short rationale tied to the concept, and 2-5 concrete,
+  testable user-story titles that would close it.
+- Order gaps by importance (most critical to a strong requirement set first).
+- If the current requirements already cover the concept well, return an empty
+  gaps list and say so in the assessment. An empty result is a valid, honest answer.
+"""
+
+
+def _format_existing_epics(existing_epics: list[dict]) -> str:
+    if not existing_epics:
+        return "(none yet — the project has no epics or stories defined)"
+    lines: list[str] = []
+    for epic in existing_epics:
+        title = str(epic.get("title", "")).strip() or "(untitled epic)"
+        desc = str(epic.get("description", "")).strip()
+        lines.append(f"- Epic: {title}" + (f" — {desc}" if desc else ""))
+        for story in epic.get("stories", []) or []:
+            lines.append(f"    - Story: {str(story).strip()}")
+    return "\n".join(lines)
+
+
+def analyze_requirement_gaps(
+    project_concept: str,
+    existing_epics: list[dict],
+    hint: str = "",
+) -> RequirementGapReport:
+    human = "Project Concept:\n" + fence_user_content(project_concept) + "\n\n"
+    human += "Current epics and stories:\n" + fence_user_content(_format_existing_epics(existing_epics)) + "\n\n"
+    if hint.strip():
+        human += "Focus / constraints:\n" + fence_user_content(hint) + "\n\n"
+    human += (
+        "Assess how completely the current requirements cover the concept, then "
+        "list the gaps that remain. Return an empty gaps list if coverage is already strong."
+    )
+    return _invoke_structured_with_progress(
+        _GAP_ANALYSIS_SYSTEM, human, get_model(), RequirementGapReport,
+        max_tokens=3072, temperature=0.2, item_field="gaps",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Phase 1 · Constraints — cross-cutting quality requirements in EARS notation
 # ---------------------------------------------------------------------------
 # Gherkin captures *behaviour*; it cannot express cross-cutting quality

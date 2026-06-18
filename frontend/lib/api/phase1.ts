@@ -10,7 +10,14 @@ import type {
   Phase1PushStoriesRequest,
   Phase1PushStoriesResponse,
   RequestContext,
+  RequirementGapReport,
 } from "./types";
+
+export type ExistingEpicInput = {
+  title: string;
+  description: string;
+  stories: string[];
+};
 
 // Project context for PM adapters. Delegates to the shared toPmCtx so Taiga
 // gets the numeric projectId — using pmProjectId (the slug) here made the
@@ -29,6 +36,19 @@ export function suggestPhase1Epics(context: RequestContext, hint = "") {
     context,
     body: { hint },
     timeoutMs: 120_000,
+  });
+}
+
+export function analyzeRequirementGaps(
+  context: RequestContext,
+  existingEpics: ExistingEpicInput[],
+  hint = "",
+) {
+  return apiRequest<RequirementGapReport>("/api/phase1/analyze-gaps", {
+    method: "POST",
+    context,
+    body: { existing_epics: existingEpics, hint },
+    timeoutMs: 180_000,
   });
 }
 
