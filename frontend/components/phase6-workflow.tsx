@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { GitCompareArrows, Loader2, RefreshCw, Wrench, Zap } from "lucide-react";
+import { ChevronRight, Info, Loader2, RefreshCw, Zap } from "lucide-react";
 import { Button, Callout, Input, SectionHeading } from "@/components/ui/primitives";
 import { MaintenanceTriage } from "@/components/maintenance-triage";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
@@ -181,11 +181,8 @@ function TraceabilityPanel() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6">
-      <div className="flex items-center gap-2">
-        <GitCompareArrows className="h-5 w-5 text-violet-500" />
-        <SectionHeading>Traceability Explorer — Spec↔Code Conformance</SectionHeading>
-      </div>
+    <div className="space-y-6">
+      <SectionHeading>Traceability Explorer — Spec / Code Conformance</SectionHeading>
       <p className={cn("text-sm", dark ? "text-neutral-400" : "text-slate-600")}>
         Verify shipped code against the locked spec. A deterministic Layer-A pass locates
         endpoints and tests; the AI layer confirms each contract is honoured and flags drift.
@@ -336,30 +333,97 @@ function TraceabilityPanel() {
 export function Phase6Workflow() {
   const dark = useUiStore((s) => s.theme) === "dark";
   const [tab, setTab] = useState<"maintenance" | "traceability">("maintenance");
+  const [diagramOpen, setDiagramOpen] = useState(false);
+  const mutedClass = dark ? "text-neutral-400" : "text-slate-500";
 
-  const tabBtn = (key: "maintenance" | "traceability", label: string, Icon: typeof Wrench) => (
-    <button
-      onClick={() => setTab(key)}
-      className={cn(
-        "flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-semibold transition",
-        tab === key
-          ? "border-violet-500 text-violet-500"
-          : dark
-            ? "border-transparent text-neutral-400 hover:text-neutral-200"
-            : "border-transparent text-slate-500 hover:text-slate-800",
-      )}
-    >
-      <Icon className="h-4 w-4" /> {label}
-    </button>
-  );
+  const steps: { key: "maintenance" | "traceability"; label: string }[] = [
+    { key: "maintenance", label: "Maintenance" },
+    { key: "traceability", label: "Traceability" },
+  ];
 
   return (
-    <div>
-      <div className={cn("flex gap-1 border-b px-6", dark ? "border-neutral-800" : "border-slate-200")}>
-        {tabBtn("maintenance", "Maintenance", Wrench)}
-        {tabBtn("traceability", "Traceability", GitCompareArrows)}
+    <section className="px-8 py-8">
+      {/* Phase header */}
+      <div className="mb-7">
+        <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Phase 6</p>
+        <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
+          Maintenance
+        </h1>
+        <p className={cn("mt-2", mutedClass)}>
+          Triage post-deployment feedback into governed fixes, and verify shipped code against the locked spec.
+        </p>
       </div>
-      {tab === "maintenance" ? <MaintenanceTriage /> : <TraceabilityPanel />}
-    </div>
+
+      {/* Diagram collapsible */}
+      <div className={cn("mb-6 rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}>
+        <button
+          className={cn(
+            "flex w-full items-center gap-2 px-4 py-3 text-sm transition-colors",
+            dark ? "text-neutral-400 hover:text-neutral-300" : "text-slate-500 hover:text-slate-700",
+          )}
+          onClick={() => setDiagramOpen(!diagramOpen)}
+        >
+          <ChevronRight className={cn("size-4 transition-transform", diagramOpen && "rotate-90")} />
+          <Info className="size-4" />
+          <span>View Process Diagram (How this works)</span>
+        </button>
+        {diagramOpen && (
+          <div className={cn("border-t p-4", dark ? "border-neutral-800" : "border-slate-200")}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/maintenance.svg"
+              alt="Phase 6 maintenance process diagram"
+              className="mx-auto max-w-full"
+              onError={(e) => { e.currentTarget.style.display = "none"; }}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Section stepper (menu) */}
+      <div className={cn("rounded-xl border px-6 py-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
+        <div className="flex w-full items-center">
+          {steps.map((s, i) => {
+            const isActive = tab === s.key;
+            return (
+              <Fragment key={s.key}>
+                <button
+                  onClick={() => setTab(s.key)}
+                  className="group flex shrink-0 flex-col items-center gap-1.5 transition"
+                >
+                  <span className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ring-2 transition",
+                    isActive
+                      ? "bg-violet-600 text-white ring-violet-400"
+                      : dark
+                        ? "bg-neutral-800 text-neutral-400 ring-neutral-700 group-hover:ring-neutral-500"
+                        : "bg-white text-slate-500 ring-slate-300 group-hover:ring-violet-400",
+                  )}>
+                    {i + 1}
+                  </span>
+                  <span className={cn(
+                    "text-xs font-semibold whitespace-nowrap",
+                    isActive ? "text-violet-500" : dark ? "text-neutral-500" : "text-slate-400",
+                  )}>
+                    {s.label}
+                  </span>
+                </button>
+                {i < steps.length - 1 && (
+                  <div className={cn(
+                    "mx-2 mb-5 h-0.5 flex-1 rounded-full transition-all",
+                    dark ? "bg-neutral-700" : "bg-slate-200",
+                  )} />
+                )}
+              </Fragment>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Section content */}
+      <div className="mt-6">
+        {tab === "maintenance" ? <MaintenanceTriage /> : <TraceabilityPanel />}
+      </div>
+    </section>
   );
 }

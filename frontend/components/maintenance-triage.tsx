@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  ArrowRight, GitBranch, Github, Loader2, Plus, ShieldCheck, Wrench, Zap,
+  ArrowRight, GitBranch, Github, Loader2, Plus, ShieldCheck, Zap,
 } from "lucide-react";
 import { Button, Callout, Input, SectionHeading, Textarea } from "@/components/ui/primitives";
 import {
@@ -123,11 +123,8 @@ export function MaintenanceTriage() {
   const cardBorder = dark ? "border-neutral-800" : "border-slate-200";
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 p-6">
-      <div className="flex items-center gap-2">
-        <Wrench className="h-5 w-5 text-violet-500" />
-        <SectionHeading>Maintenance Triage — Feedback → Fix-Bolt</SectionHeading>
-      </div>
+    <div className="space-y-5">
+      <SectionHeading>Maintenance Triage — Feedback to Fix-Bolt</SectionHeading>
       <p className={cn("text-sm", dark ? "text-neutral-400" : "text-slate-600")}>
         Classify post-deployment feedback: Change Requests route to discovery; bugs get a narrow,
         context-isolated diagnosis, a Fix-Bolt brief, a Fix Log entry, and severity routing.
