@@ -100,6 +100,12 @@ const PUSH_STEPS = [
   "Locking functional spec…",
   "Syncing context files…",
 ];
+const CONSTRAINT_STEPS = [
+  "Reading project concept & tech stack…",
+  "Scoping quality attributes…",
+  "Writing EARS 'shall' statements…",
+  "Saving constraints.md…",
+];
 
 const STEP_LABELS = ["Define Epic", "Generate", "Review Draft", "Publish"] as const;
 
@@ -136,6 +142,7 @@ export function Phase1Workflow() {
   const [pushSuccess, setPushSuccess] = useState(false);
   const [constraintsGenerated, setConstraintsGenerated] = useState(false);
   const [diagramOpen, setDiagramOpen] = useState(false);
+  const [earsOpen, setEarsOpen] = useState(false);
   const draftRestored = useRef(false);
 
   const epics = usePhase1Epics();
@@ -1059,29 +1066,64 @@ export function Phase1Workflow() {
                   <p className={cn("mt-1 text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
                     EARS quality constraints (performance, security, reliability…) saved to <code>constraints.md</code> and injected into Phase 3 developer packs &amp; Phase 4 test plans. Editable anytime in the sidebar.
                   </p>
+
+                  {/* What is EARS? — disclosure explaining the notation + what gets generated. */}
+                  <button
+                    type="button"
+                    onClick={() => setEarsOpen((v) => !v)}
+                    className={cn("mt-2 flex items-center gap-1.5 text-xs font-medium transition-colors", dark ? "text-violet-400 hover:text-violet-300" : "text-violet-600 hover:text-violet-700")}
+                  >
+                    <Info className="size-3.5" />
+                    What is EARS?
+                    <ChevronRight className={cn("size-3.5 transition-transform", earsOpen && "rotate-90")} />
+                  </button>
+                  {earsOpen ? (
+                    <div className={cn("mt-2 space-y-2 rounded-md border p-3 text-xs leading-5", dark ? "border-neutral-800 bg-neutral-950 text-neutral-400" : "border-slate-200 bg-white text-slate-600")}>
+                      <p>
+                        <strong>EARS</strong> (Easy Approach to Requirements Syntax) is a constrained-natural-language template for writing
+                        unambiguous requirements. Gherkin captures <em>behaviour</em>; EARS captures the cross-cutting
+                        <em> quality attributes</em> scenarios can&apos;t express (performance, security, reliability, availability…).
+                      </p>
+                      <p>Each constraint follows one of a few &quot;shall&quot; patterns:</p>
+                      <ul className="list-disc space-y-0.5 pl-4">
+                        <li><strong>Ubiquitous</strong> — &quot;The system shall &lt;requirement&gt;.&quot;</li>
+                        <li><strong>Event-driven</strong> — &quot;When &lt;trigger&gt;, the system shall &lt;response&gt;.&quot;</li>
+                        <li><strong>State-driven</strong> — &quot;While &lt;state&gt;, the system shall &lt;response&gt;.&quot;</li>
+                        <li><strong>Unwanted</strong> — &quot;If &lt;condition&gt;, then the system shall &lt;response&gt;.&quot;</li>
+                      </ul>
+                      <p>
+                        Apex generates these grounded in your project concept, tech stack, and story scope — categorised
+                        (security, performance…) with a rationale each — so downstream packs and test plans inherit testable quality bars.
+                      </p>
+                    </div>
+                  ) : null}
+
                   {constraintsGenerated ? (
                     <div className="mt-3 flex items-center gap-2 text-sm text-emerald-400">
                       <CheckCircle2 className="size-4" /> Saved to constraints.md
                     </div>
                   ) : (
-                    <Button
-                      variant="secondary"
-                      className="mt-3 w-full"
-                      disabled={genConstraints.isPending || updateContextFile.isPending}
-                      onClick={() =>
-                        genConstraints.mutate(undefined, {
-                          onSuccess: (res) => {
-                            updateContextFile.mutate({ filename: "constraints.md", content: res.constraints_md });
-                            setConstraintsGenerated(true);
-                            toast.success(`Generated ${res.constraints.length} constraints`);
-                          },
-                        })
-                      }
-                    >
-                      {genConstraints.isPending
-                        ? <><Loader2 className="size-4 animate-spin" /> Generating…</>
-                        : "Generate constraints"}
-                    </Button>
+                    <>
+                      <Button
+                        variant="secondary"
+                        className="mt-3 w-full"
+                        disabled={genConstraints.isPending || updateContextFile.isPending}
+                        onClick={() =>
+                          genConstraints.mutate(undefined, {
+                            onSuccess: (res) => {
+                              updateContextFile.mutate({ filename: "constraints.md", content: res.constraints_md });
+                              setConstraintsGenerated(true);
+                              toast.success(`Generated ${res.constraints.length} constraints`);
+                            },
+                          })
+                        }
+                      >
+                        {genConstraints.isPending
+                          ? <><Loader2 className="size-4 animate-spin" /> Generating…</>
+                          : "Generate constraints"}
+                      </Button>
+                      <AIProgressIndicator steps={CONSTRAINT_STEPS} isPending={genConstraints.isPending} dark={dark} />
+                    </>
                   )}
                 </div>
                 <div className="flex flex-col gap-3">
