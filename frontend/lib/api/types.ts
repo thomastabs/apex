@@ -431,6 +431,8 @@ export type Phase5StoryContext = {
   technical_spec: string;
   tech_stack: string;
   github_context_synced: boolean;
+  is_first_deployment: boolean;
+  pipeline_detected: boolean;
   has_bug_report: boolean;
   fix_bolt_count: number;
 };
@@ -447,6 +449,8 @@ export type InfraDeltaItem = {
 export type InfraDelta = {
   needs_infra_change: boolean;
   rationale: string;
+  confidence: "low" | "medium" | "high";
+  evidence: string;
   deltas: InfraDeltaItem[];
 };
 

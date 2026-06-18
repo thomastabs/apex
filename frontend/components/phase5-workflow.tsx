@@ -402,6 +402,39 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
       {infraDelta && (
         <div className={cn("rounded-xl border p-5 space-y-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
+          {/* AI recommendation — advisory; the human sets the final verdict below. */}
+          <div className={cn("rounded-lg border p-3 text-xs", dark ? "border-neutral-700 bg-neutral-950" : "border-slate-200 bg-white")}>
+            <div className="mb-1 flex items-center gap-2">
+              <span className="font-semibold uppercase tracking-wider text-neutral-500">AI recommendation</span>
+              <span className={cn(
+                "rounded px-1.5 py-0.5 text-[10px] font-semibold capitalize",
+                infraDelta.confidence === "high" ? "bg-emerald-500/15 text-emerald-500"
+                  : infraDelta.confidence === "low" ? "bg-red-500/15 text-red-500"
+                  : "bg-amber-500/15 text-amber-500",
+              )}>
+                {infraDelta.confidence} confidence
+              </span>
+              <span className={cn("ml-auto font-semibold", infraDelta.needs_infra_change ? "text-amber-500" : "text-sky-500")}>
+                {infraDelta.needs_infra_change ? "Infra changes required" : "Routine deployment"}
+              </span>
+            </div>
+            {infraDelta.evidence && (
+              <p className={cn(dark ? "text-neutral-400" : "text-slate-600")}>
+                <span className="font-medium">Evidence: </span>{infraDelta.evidence}
+              </p>
+            )}
+            {infraDelta.confidence === "low" && (
+              <p className="mt-1.5 flex items-start gap-1.5 text-amber-500">
+                <Info className="mt-0.5 size-3.5 shrink-0" />
+                Low confidence — the pipeline state couldn&apos;t be confirmed (sync the GitHub repo for a
+                grounded check). Verify the verdict below before continuing.
+              </p>
+            )}
+            <p className={cn("mt-1.5", dark ? "text-neutral-500" : "text-slate-400")}>
+              This is advisory — you set the final verdict and rationale below.
+            </p>
+          </div>
+
           <div>
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Verdict</p>
             <div className="flex gap-2">

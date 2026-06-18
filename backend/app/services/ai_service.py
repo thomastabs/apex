@@ -209,10 +209,13 @@ class AiService:
         technical_spec: str,
         tech_stack: str = "",
         github_context: str = "",
+        is_first_deployment: bool = False,
+        pipeline_detected: bool = False,
     ) -> dict:
         result = ai_engine.generate_infra_delta(
             story_subject, gherkin, technical_spec,
             tech_stack=tech_stack, github_context=github_context,
+            is_first_deployment=is_first_deployment, pipeline_detected=pipeline_detected,
         )
         return result.model_dump()
 

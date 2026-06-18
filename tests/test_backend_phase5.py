@@ -47,8 +47,10 @@ class FakeAiService:
         self.revise_args = None
 
     def generate_infra_delta(self, story_subject, gherkin, technical_spec,
-                             tech_stack="", github_context=""):
+                             tech_stack="", github_context="",
+                             is_first_deployment=False, pipeline_detected=False):
         self.infra_delta_args = (story_subject, gherkin, technical_spec, tech_stack)
+        self.infra_delta_signals = (is_first_deployment, pipeline_detected)
         return dict(self.delta)
 
     def generate_deploy_pack(self, story_subject, infra_delta_md, technical_spec,
@@ -207,6 +209,29 @@ def test_generate_infra_delta_passes_context():
     delta = svc.generate_infra_delta(_ctx(), 10)
     assert delta["needs_infra_change"] is False
     assert ai.infra_delta_args == ("User Login", _FAKE_GHERKIN, _FAKE_TECH_SPEC, _FAKE_TECH_STACK)
+
+
+def test_infra_delta_signals_first_deploy_no_pipeline():
+    # Default: only story 10 (qa_passed), empty github context.
+    ai = FakeAiService()
+    _svc(ai=ai).generate_infra_delta(_ctx(), 10)
+    assert ai.infra_delta_signals == (True, False)  # first deploy, no pipeline
+
+
+def test_infra_delta_signals_not_first_when_deployed_exists():
+    index = _story_index()
+    index["3"] = {"story_id": 3, "title": "C", "phase_status": "deployed", "epic_title": "X"}
+    ai = FakeAiService()
+    _svc(ai=ai, context=FakeContextService(index=index)).generate_infra_delta(_ctx(), 10)
+    assert ai.infra_delta_signals[0] is False  # not first deployment
+
+
+def test_infra_delta_pipeline_detected_from_github():
+    ctx_service = FakeContextService()
+    ctx_service.read_context_file = lambda f: "## File Tree\n```\n.github/workflows/ci.yml\nDockerfile\n```"
+    ai = FakeAiService()
+    _svc(ai=ai, context=ctx_service).generate_infra_delta(_ctx(), 10)
+    assert ai.infra_delta_signals[1] is True  # pipeline detected
 
 
 def test_generate_infra_delta_rejects_wrong_status():

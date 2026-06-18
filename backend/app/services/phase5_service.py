@@ -16,6 +16,15 @@ _logger = logging.getLogger("apex.phase5_service")
 
 _PREVIEW_CHARS = 600
 
+# Substrings that, if present in the synced repo context, indicate a deployment
+# pipeline / containerisation / IaC already exists (case-insensitive).
+_PIPELINE_MARKERS = (
+    ".github/workflows", "gitlab-ci", "azure-pipelines", "jenkinsfile", "bitbucket-pipelines",
+    "cloudbuild", "dockerfile", "docker-compose", "compose.yaml", "compose.yml",
+    "procfile", "fly.toml", "vercel.json", "netlify.toml", "render.yaml", "serverless.yml",
+    ".tf", ".bicep", "helm", "k8s", "kubernetes",
+)
+
 
 class Phase5ValidationError(ValueError):
     """Raised when a Phase 5 request is structurally invalid."""
@@ -73,6 +82,23 @@ class Phase5Service:
             })
         return sorted(stories, key=lambda s: s["story_id"])
 
+    def _is_first_deployment(self, *, exclude_story_id: int | None = None) -> bool:
+        """True when no other story has reached the deployed state yet."""
+        for entry in self.context.story_index().values():
+            if entry.get("story_id") == exclude_story_id:
+                continue
+            if entry.get("phase_status") == "deployed" or entry.get("deploy_bypass"):
+                return False
+        return True
+
+    @staticmethod
+    def _pipeline_detected(github_context: str) -> bool:
+        """True when the synced repo context shows CI/CD, containerisation, or IaC."""
+        text = (github_context or "").lower()
+        if not text.strip() or text.strip().startswith("<!--"):
+            return False
+        return any(marker in text for marker in _PIPELINE_MARKERS)
+
     def get_story_context(self, ctx: RequestContext, story_id: int) -> dict:
         self.configure_request(ctx)
         entry = self._eligible_entry(story_id)
@@ -86,6 +112,8 @@ class Phase5Service:
             "technical_spec": self.context.story_technical_spec(story_id),
             "tech_stack": self.context.read_tech_stack(),
             "github_context_synced": synced,
+            "is_first_deployment": self._is_first_deployment(exclude_story_id=story_id),
+            "pipeline_detected": self._pipeline_detected(github_context),
             "has_bug_report": entry.get("has_bug_report", False),
             "fix_bolt_count": entry.get("fix_bolt_count", 0),
         }
@@ -99,12 +127,15 @@ class Phase5Service:
         gherkin = self.context.story_gherkin(story_id)
         if not gherkin.strip():
             raise Phase5ValidationError(f"Story {story_id} has no Gherkin content.")
+        github_context = self.context.read_context_file("github-context.md")
         return self.ai.generate_infra_delta(
             story_title,
             gherkin,
             self.context.story_technical_spec(story_id),
             tech_stack=self.context.read_tech_stack(),
-            github_context=self.context.read_context_file("github-context.md"),
+            github_context=github_context,
+            is_first_deployment=self._is_first_deployment(exclude_story_id=story_id),
+            pipeline_detected=self._pipeline_detected(github_context),
         )
 
     def save_infra_delta(self, ctx: RequestContext, story_id: int, delta: dict) -> None:

@@ -28,6 +28,8 @@ class StoryContextResponse(BaseModel):
     technical_spec: str
     tech_stack: str
     github_context_synced: bool
+    is_first_deployment: bool = False
+    pipeline_detected: bool = False
     has_bug_report: bool
     fix_bolt_count: int
 
@@ -42,6 +44,8 @@ class InfraDeltaItemModel(BaseModel):
 class InfraDeltaModel(BaseModel):
     needs_infra_change: bool
     rationale: str = Field("", max_length=10_000)
+    confidence: Literal["low", "medium", "high"] = "medium"
+    evidence: str = Field("", max_length=5_000)
     deltas: list[InfraDeltaItemModel] = Field(default_factory=list)
 
 

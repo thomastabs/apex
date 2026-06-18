@@ -2100,6 +2100,18 @@ class InfraDelta(BaseModel):
     rationale: str = Field(
         description="2-4 sentences justifying the verdict, grounded in the story spec and tech stack"
     )
+    confidence: Literal["low", "medium", "high"] = Field(
+        default="medium",
+        description="How well the inputs support the verdict. 'high' only when repository "
+                    "context confirms the pipeline/infra state; 'low' when the pipeline cannot "
+                    "be confirmed (e.g. no repository context) and the verdict is inferred.",
+    )
+    evidence: str = Field(
+        default="",
+        description="1-2 sentences naming the concrete inputs the verdict rests on — which "
+                    "pipeline/CI/IaC files were found in the repository context, or an explicit "
+                    "statement that no pipeline could be confirmed.",
+    )
     deltas: list[InfraDeltaItem] = Field(
         default_factory=list,
         description="The required changes; MUST be empty when needs_infra_change is false",
@@ -2115,17 +2127,34 @@ environment variables, secrets, database migrations, or CI/CD pipeline changes �
 or can it ride the existing automated pipeline unchanged (a "routine deployment")?
 
 Rules you MUST follow:
-- Ground every claim in the provided story spec, tech stack, and (if present) repository
-  context. Do NOT invent infrastructure that isn't implied by them.
-- Most application-level stories (new endpoints on an existing service, UI changes,
-  business-logic changes against existing tables) are ROUTINE: needs_infra_change=false.
+- Ground every claim in the provided story spec, tech stack, repository context, and the
+  Deployment State below. Do NOT invent infrastructure that isn't implied by them, and do
+  NOT assume a CI/CD pipeline exists unless the repository context shows one.
+- BOOTSTRAP RULE — read the Deployment State first. If this is the project's FIRST
+  deployment, OR no deployment pipeline can be confirmed from the repository context, then
+  the baseline deployment infrastructure does NOT exist yet and setting it up IS the delta:
+  needs_infra_change=true, with delta items for the missing baseline (CI/CD pipeline, build
+  & deploy step, runtime hosting, environment variables/secrets, and database provisioning
+  if the data model needs persistence). Never return "routine" when there is no pipeline to
+  be routine on.
+- Otherwise (a pipeline is confirmed AND this is not the first deployment): most
+  application-level stories (new endpoints on an existing service, UI changes, business-logic
+  changes against existing tables) are ROUTINE: needs_infra_change=false.
 - Flag a delta only when the story demonstrably introduces: a new external service or
   datastore, a schema change to persistent storage, a new environment variable or secret,
   a new build/deploy step, or a change to exposed ports/domains/scaling characteristics.
 - When needs_infra_change is false, deltas MUST be an empty list and the rationale must
-  state why the existing pipeline suffices.
+  state why the existing pipeline suffices (and cite the pipeline you found).
 - Mark risk "high" for anything touching data (migrations), credentials (secrets), or
   externally reachable surface; otherwise "low".
+- CONFIDENCE & EVIDENCE — set confidence to "high" only when the repository context confirms
+  the pipeline/infra state; "medium" when partially supported; "low" when the pipeline cannot
+  be confirmed (e.g. no repository context) and the verdict is inferred from the spec alone.
+  In `evidence`, name the concrete signals you used — the specific CI/IaC/Docker files found,
+  or an explicit statement that no pipeline could be confirmed.
+
+Deployment State:
+{deployment_state}
 
 Tech Stack:
 {tech_stack}
@@ -2141,9 +2170,23 @@ def generate_infra_delta(
     technical_spec: str,
     tech_stack: str = "",
     github_context: str = "",
+    is_first_deployment: bool = False,
+    pipeline_detected: bool = False,
 ) -> InfraDelta:
     """Phase 5 Step 1: decide whether a story needs infra changes to deploy."""
+    deployment_state = (
+        ("This is the project's FIRST deployment — no story has been deployed yet."
+         if is_first_deployment else
+         "Prior stories have already been deployed for this project.")
+        + " "
+        + ("A deployment pipeline (CI/CD / containerisation / IaC) was DETECTED in the "
+           "repository context."
+           if pipeline_detected else
+           "NO deployment pipeline could be confirmed from the repository context "
+           "(it may not exist yet, or the repository was not synced).")
+    )
     system = _GENERATE_INFRA_DELTA_SYSTEM.format(
+        deployment_state=deployment_state,
         tech_stack=fence_user_content(tech_stack.strip() or "Not specified"),
         technical_spec=fence_user_content(technical_spec.strip() or "Not specified"),
     )
