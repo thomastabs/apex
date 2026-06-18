@@ -8,6 +8,9 @@ type Phase5State = {
   selectedStoryId: number | null;
   currentStoryMeta: { title: string; epicTitle: string };
   infraDelta: InfraDelta | null;
+  // The original AI recommendation, kept so toggling the verdict (which clears
+  // delta items for a Routine save) never loses the AI-generated draft.
+  aiRecommendation: InfraDelta | null;
   deltaSaved: boolean;
   deployPackMd: string | null;
   packSaved: boolean;
@@ -17,7 +20,8 @@ type Phase5State = {
 
   setSelectedStoryId: (id: number | null) => void;
   setCurrentStoryMeta: (title: string, epicTitle: string) => void;
-  setInfraDelta: (delta: InfraDelta | null, saved?: boolean) => void;
+  setInfraDelta: (delta: InfraDelta | null, saved?: boolean, asRecommendation?: boolean) => void;
+  clearInfraDelta: () => void;
   setDeltaSaved: (saved: boolean) => void;
   setDeployPackMd: (md: string | null, saved?: boolean) => void;
   setPackSaved: (saved: boolean) => void;
@@ -30,6 +34,7 @@ const EMPTY_DRAFT = {
   selectedStoryId: null as number | null,
   currentStoryMeta: { title: "", epicTitle: "" },
   infraDelta: null as InfraDelta | null,
+  aiRecommendation: null as InfraDelta | null,
   deltaSaved: false,
   deployPackMd: null as string | null,
   packSaved: false,
@@ -52,8 +57,13 @@ export const usePhase5Store = create<Phase5State>()(
       setCurrentStoryMeta: (title, epicTitle) =>
         set({ currentStoryMeta: { title, epicTitle } }),
 
-      setInfraDelta: (infraDelta, saved = false) =>
-        set({ infraDelta, deltaSaved: saved }),
+      setInfraDelta: (infraDelta, saved = false, asRecommendation = false) =>
+        set(asRecommendation
+          ? { infraDelta, deltaSaved: saved, aiRecommendation: infraDelta }
+          : { infraDelta, deltaSaved: saved }),
+
+      clearInfraDelta: () =>
+        set({ infraDelta: null, aiRecommendation: null, deltaSaved: false }),
 
       setDeltaSaved: (deltaSaved) => set({ deltaSaved }),
 
@@ -75,6 +85,7 @@ export const usePhase5Store = create<Phase5State>()(
         selectedStoryId: state.selectedStoryId,
         currentStoryMeta: state.currentStoryMeta,
         infraDelta: state.infraDelta,
+        aiRecommendation: state.aiRecommendation,
         deltaSaved: state.deltaSaved,
         deployPackMd: state.deployPackMd,
         packSaved: state.packSaved,

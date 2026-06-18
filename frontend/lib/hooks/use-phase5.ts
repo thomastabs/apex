@@ -54,7 +54,7 @@ export function useLoadInfraDelta(storyId: number | null, enabled: boolean) {
     queryKey: ["phase5", "infra-delta", context?.projectId, storyId],
     queryFn: async () => {
       const res = await getInfraDelta(context!, storyId!);
-      setInfraDelta(res.delta, true);
+      setInfraDelta(res.delta, true, true);
       return res;
     },
     enabled: Boolean(context) && storyId !== null && enabled,
@@ -67,7 +67,7 @@ export function useGenerateInfraDelta() {
   const setInfraDelta = usePhase5Store((s) => s.setInfraDelta);
   return useMutation({
     mutationFn: (storyId: number) => generateInfraDelta(context!, storyId),
-    onSuccess: (data) => setInfraDelta(data.delta, false),
+    onSuccess: (data) => setInfraDelta(data.delta, false, true),
     onError: (err: Error) => toast.error(`Infra delta check failed: ${err.message}`),
   });
 }

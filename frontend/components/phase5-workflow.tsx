@@ -12,6 +12,7 @@ import {
   Rocket,
   ShieldCheck,
   Trash2,
+  XCircle,
 } from "lucide-react";
 import { Button, Callout, SectionHeading, Textarea } from "@/components/ui/primitives";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
@@ -224,7 +225,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
 
       {epics.length > 1 && (
         <div className="flex items-center gap-3">
-          <label className="text-xs font-semibold uppercase tracking-wider text-neutral-500 shrink-0">
+          <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 shrink-0">
             Epic
           </label>
           <select
@@ -324,7 +325,9 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const { data: ctx } = useStoryContext(storyId);
 
   const infraDelta = usePhase5Store((s) => s.infraDelta);
+  const aiRecommendation = usePhase5Store((s) => s.aiRecommendation);
   const setInfraDelta = usePhase5Store((s) => s.setInfraDelta);
+  const clearInfraDelta = usePhase5Store((s) => s.clearInfraDelta);
   const setCurrentStoryMeta = usePhase5Store((s) => s.setCurrentStoryMeta);
 
   // Refresh-resume: pull a previously saved delta when the draft store is empty.
@@ -403,40 +406,55 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
       {infraDelta && (
         <div className={cn("rounded-xl border p-5 space-y-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
           {/* AI recommendation — advisory; the human sets the final verdict below. */}
-          <div className={cn("rounded-lg border p-3 text-xs", dark ? "border-neutral-700 bg-neutral-950" : "border-slate-200 bg-white")}>
-            <div className="mb-1 flex items-center gap-2">
-              <span className="font-semibold uppercase tracking-wider text-neutral-500">AI recommendation</span>
+          <div className={cn("rounded-lg border p-3 text-xs", dark ? "border-neutral-700 bg-neutral-950" : "border-slate-300 bg-white")}>
+            <div className="mb-1 flex flex-wrap items-center gap-2">
+              <span className={cn("font-semibold uppercase tracking-wider", dark ? "text-neutral-400" : "text-slate-600")}>AI recommendation</span>
               <span className={cn(
                 "rounded px-1.5 py-0.5 text-[10px] font-semibold capitalize",
-                infraDelta.confidence === "high" ? "bg-emerald-500/15 text-emerald-500"
-                  : infraDelta.confidence === "low" ? "bg-red-500/15 text-red-500"
-                  : "bg-amber-500/15 text-amber-500",
+                infraDelta.confidence === "high" ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
+                  : infraDelta.confidence === "low" ? "bg-red-500/20 text-red-700 dark:text-red-400"
+                  : "bg-amber-500/20 text-amber-700 dark:text-amber-400",
               )}>
                 {infraDelta.confidence} confidence
               </span>
-              <span className={cn("ml-auto font-semibold", infraDelta.needs_infra_change ? "text-amber-500" : "text-sky-500")}>
+              <span className={cn(
+                "ml-auto font-semibold",
+                infraDelta.needs_infra_change
+                  ? "text-amber-700 dark:text-amber-400"
+                  : "text-sky-700 dark:text-sky-400",
+              )}>
                 {infraDelta.needs_infra_change ? "Infra changes required" : "Routine deployment"}
               </span>
+              <button
+                onClick={clearInfraDelta}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-medium transition",
+                  dark ? "text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200" : "text-slate-500 hover:bg-slate-100 hover:text-slate-700",
+                )}
+                title="Discard the AI recommendation and re-run from scratch"
+              >
+                <XCircle className="size-3.5" /> Clear
+              </button>
             </div>
             {infraDelta.evidence && (
-              <p className={cn(dark ? "text-neutral-400" : "text-slate-600")}>
-                <span className="font-medium">Evidence: </span>{infraDelta.evidence}
+              <p className={cn(dark ? "text-neutral-300" : "text-slate-700")}>
+                <span className="font-semibold">Evidence: </span>{infraDelta.evidence}
               </p>
             )}
             {infraDelta.confidence === "low" && (
-              <p className="mt-1.5 flex items-start gap-1.5 text-amber-500">
+              <p className="mt-1.5 flex items-start gap-1.5 text-amber-700 dark:text-amber-400">
                 <Info className="mt-0.5 size-3.5 shrink-0" />
                 Low confidence — the pipeline state couldn&apos;t be confirmed (sync the GitHub repo for a
                 grounded check). Verify the verdict below before continuing.
               </p>
             )}
-            <p className={cn("mt-1.5", dark ? "text-neutral-500" : "text-slate-400")}>
+            <p className={cn("mt-1.5", dark ? "text-neutral-500" : "text-slate-500")}>
               This is advisory — you set the final verdict and rationale below.
             </p>
           </div>
 
           <div>
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Verdict</p>
+            <p className={cn("mb-2 text-[11px] font-semibold uppercase tracking-wider", dark ? "text-neutral-400" : "text-slate-600")}>Verdict</p>
             <div className="flex gap-2">
               <button
                 onClick={() => patchDelta({ needs_infra_change: false, deltas: [] })}
@@ -452,7 +470,12 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
               <button
                 onClick={() => patchDelta({
                   needs_infra_change: true,
-                  deltas: infraDelta.deltas.length > 0 ? infraDelta.deltas : [{ ...EMPTY_ITEM }],
+                  // Restore the AI's draft items after a Routine round-trip rather
+                  // than starting blank; fall back to one empty item only if the AI
+                  // never produced any.
+                  deltas: infraDelta.deltas.length > 0
+                    ? infraDelta.deltas
+                    : (aiRecommendation?.deltas.length ? aiRecommendation.deltas : [{ ...EMPTY_ITEM }]),
                 })}
                 className={cn(
                   "flex-1 rounded-lg border px-4 py-2.5 text-sm font-semibold transition",
@@ -467,7 +490,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
           </div>
 
           <div>
-            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Rationale</p>
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">Rationale</p>
             <Textarea
               value={infraDelta.rationale}
               onChange={(e) => patchDelta({ rationale: e.target.value })}
@@ -478,7 +501,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
           {infraDelta.needs_infra_change && (
             <div className="space-y-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Delta items</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">Delta items</p>
               {infraDelta.deltas.map((item, idx) => (
                 <div key={idx} className={cn("rounded-lg border p-3 space-y-2", dark ? "border-neutral-700 bg-neutral-950" : "border-slate-200 bg-white")}>
                   <div className="flex gap-2">
@@ -630,7 +653,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
         <div className="space-y-2">
           <div className="grid gap-4 lg:grid-cols-2">
             <div>
-              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Edit</p>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">Edit</p>
               <Textarea
                 value={deployPackMd}
                 onChange={(e) => setDeployPackMd(e.target.value, false)}
@@ -639,7 +662,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
               />
             </div>
             <div>
-              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Preview</p>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">Preview</p>
               <MarkdownPreview content={deployPackMd} dark={dark} className="max-h-[28rem]" />
             </div>
           </div>
@@ -778,7 +801,7 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
       {/* Evidence summary */}
       <div className="grid gap-3 sm:grid-cols-2">
         <div className={cn("rounded-lg border p-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 mb-1">Infra delta verdict</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1">Infra delta verdict</p>
           {infraDelta ? (
             <p className={cn("text-sm font-semibold", bypass ? "text-sky-500" : "text-amber-500")}>
               {bypass ? "Routine deployment (bypass)" : `${infraDelta.deltas.length} change(s) required`}
@@ -793,7 +816,7 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
           )}
         </div>
         <div className={cn("rounded-lg border p-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 mb-1">Deploy pack</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1">Deploy pack</p>
           {bypass ? (
             <p className="text-sm text-sky-500 font-semibold">Not required (routine)</p>
           ) : packOk ? (
