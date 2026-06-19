@@ -249,7 +249,7 @@ class Phase5Service:
         entry = self._eligible_entry(story_id)
         if not (tech_lead_approved and devops_approved):
             raise Phase5ValidationError(
-                "Both sign-offs (Tech Lead and DevOps Alliance) are required to pass the gate."
+                "Both sign-offs (Tech Lead and Security Reviewer) are required to pass the gate."
             )
         delta = self.context.load_infra_delta(story_id)
         if delta is None:
@@ -279,7 +279,7 @@ class Phase5Service:
             entry.get("title", f"Story {story_id}"),
             bypass=bypass,
             pack_present=bool(pack.strip()),
-            sign_offs=["Tech Lead — pack reviewed", "DevOps Alliance — security review passed"],
+            sign_offs=["Tech Lead — pack reviewed", "Security Reviewer — security review passed"],
             notes=gate_notes,
         )
         self.context.upsert_story_index(story_id, phase_status="deployed")

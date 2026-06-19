@@ -475,11 +475,11 @@ def test_deployment_log_appends(ctx):
     ctx.init_context()
     ctx.append_deployment_record(
         10, "User Login", bypass=True, pack_present=False,
-        sign_offs=["Tech Lead", "DevOps Alliance"], notes="first deploy",
+        sign_offs=["Tech Lead", "Security Reviewer"], notes="first deploy",
     )
     ctx.append_deployment_record(
         11, "Logout", bypass=False, pack_present=True,
-        sign_offs=["Tech Lead", "DevOps Alliance"],
+        sign_offs=["Tech Lead", "Security Reviewer"],
     )
     log = (ctx.CONTEXT_DIR / "deployment-log.md").read_text(encoding="utf-8")
     assert log.startswith("# Deployment Log")

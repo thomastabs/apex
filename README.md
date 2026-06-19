@@ -279,7 +279,7 @@ Implemented — 4-stage stepper workflow:
 **Stage D — Deployment Gate**
 
 - Evidence summary: delta verdict, pack status, traceability matrix (auto-persisted to `verification_story_<id>.json` as gate evidence)
-- Two human sign-offs required: **Tech Lead** (pack reviewed) and **DevOps Alliance** (security review passed)
+- Two human sign-offs required: **Tech Lead** (pack reviewed) and **Security Reviewer** (security review passed)
 - **Approve:** story locks to `deployed`, a machine-parseable record (route, sign-offs, traceability summary) is appended to `deployment-log.md`, optional PM story status update
 - **Reject:** security feedback is fed to the AI, which revises the pack → back to Stage C
 

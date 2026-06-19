@@ -691,7 +691,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
       <SectionHeading>Deploy Pack</SectionHeading>
       <p className={cn("text-sm -mt-3", dark ? "text-neutral-400" : "text-slate-500")}>
         Concrete scripts for the flagged delta items — env diffs, migrations, IaC and pipeline
-        fragments. The DevOps Alliance security-reviews this pack at the gate.
+        fragments. A security reviewer security-reviews this pack at the gate.
       </p>
 
       <div className={cn("rounded-xl border", dark ? "border-neutral-700 bg-neutral-950/50" : "border-slate-200 bg-slate-50")}>
@@ -1022,7 +1022,7 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
             onChange={(e) => setSignOffs(techLeadApproved, e.target.checked)}
             className="mt-0.5 h-4 w-4 accent-emerald-600"
           />
-          <span><strong>DevOps Alliance</strong> — the security review passed: no vulnerable configuration, policy violation, or scalability risk.</span>
+          <span><strong>Security Reviewer</strong> — the security review passed: no vulnerable configuration, policy violation, or scalability risk.</span>
         </label>
       </div>
 

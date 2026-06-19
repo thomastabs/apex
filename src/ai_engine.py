@@ -2206,7 +2206,7 @@ def generate_infra_delta(
 _GENERATE_DEPLOY_PACK_SYSTEM = """\
 You are a senior DevOps engineer producing a Deploy Pack — the concrete scripts and
 configuration changes required to deploy a User Story whose Infrastructure Delta Check
-flagged changes. A human DevOps reviewer (the Alliance) will security-review this pack
+flagged changes. A human security reviewer will security-review this pack
 before anything is applied; write for that reviewer.
 
 The pack must be grounded exclusively in the infra delta items, technical spec, and tech
