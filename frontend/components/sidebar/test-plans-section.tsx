@@ -179,7 +179,7 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={closeModal}>
             <div
               className={cn(
-                "flex max-h-[85vh] w-full max-w-3xl flex-col rounded-xl border shadow-2xl",
+                "flex h-[85vh] w-full max-w-3xl flex-col rounded-xl border shadow-2xl",
                 dark ? "border-neutral-700 bg-[#1b1b1c]" : "border-slate-200 bg-white",
               )}
               onClick={(e) => e.stopPropagation()}
