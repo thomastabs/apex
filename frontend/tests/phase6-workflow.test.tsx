@@ -80,11 +80,11 @@ describe("Phase6Workflow", () => {
     expect(screen.getByText(/1 endpoint missing/)).toBeInTheDocument();
   });
 
-  it("Layer A button runs a deterministic (ai=false) check", async () => {
+  it("Quick Check button runs a deterministic (ai=false) check", async () => {
     renderWorkflow();
     openTraceability();
     await waitFor(() => expect(screen.getByText("POST /api/v1/auth/login")).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: /Layer A/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Quick Check/i }));
     await waitFor(() =>
       expect(vi.mocked(verifyConformance)).toHaveBeenCalledWith(expect.anything(), 10, false, []),
     );

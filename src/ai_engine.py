@@ -2821,12 +2821,12 @@ def build_layer_a_report(
     synced = bool(code_routes or file_tree)
     if not synced:
         report.summary = (
-            "No synced GitHub context — Layer-A could not find code to check against. "
-            "Sync the repository to get a conformance baseline. "
+            "No synced GitHub context — the quick check (no AI) could not find code to check "
+            "against. Sync the repository to get a conformance baseline. "
             "All endpoints read as missing and scenarios as untested by default.")
     else:
         report.summary = (
-            f"Layer-A deterministic check: {present}/{len(report.endpoints)} endpoint "
+            f"Quick check (no AI): {present}/{len(report.endpoints)} endpoint "
             f"contracts located in code, {tested}/{len(report.scenarios)} scenarios have "
             f"keyword test evidence. Constraint probes are advisory. "
             f"Score {report.score}/100. Run the AI layer for semantic verification.")

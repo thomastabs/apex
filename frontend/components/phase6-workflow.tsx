@@ -157,7 +157,7 @@ function TraceabilityPanel() {
       { storyId: selectedId, ai },
       {
         onError: (err) => toast.error(errMsg(err)),
-        onSuccess: () => toast.success(ai ? "Conformance verified" : "Layer-A baseline computed"),
+        onSuccess: () => toast.success(ai ? "Conformance verified" : "Quick check computed (no AI)"),
       },
     );
   }
@@ -184,7 +184,7 @@ function TraceabilityPanel() {
     <div className="space-y-6">
       <SectionHeading>Traceability Explorer — Spec / Code Conformance</SectionHeading>
       <p className={cn("text-sm", dark ? "text-neutral-400" : "text-slate-600")}>
-        Verify shipped code against the locked spec. A deterministic Layer-A pass locates
+        Verify shipped code against the locked spec. A deterministic quick check (no AI) locates
         endpoints and tests; the AI layer confirms each contract is honoured and flags drift.
         The score is computed from the findings — never by the AI.
       </p>
@@ -248,7 +248,7 @@ function TraceabilityPanel() {
                 )}
                 {report?.generated_at ? (
                   <div className={cn("text-[11px]", dark ? "text-neutral-600" : "text-slate-400")}>
-                    {report.layer === "ai" ? "AI-verified" : "Layer-A only"} ·{" "}
+                    {report.layer === "ai" ? "AI-verified" : "Quick check only"} ·{" "}
                     {report.generated_at.slice(0, 16).replace("T", " ")}
                   </div>
                 ) : null}
@@ -260,7 +260,7 @@ function TraceabilityPanel() {
                   disabled={verify.isPending || selectedId === null}
                   title="Deterministic baseline — no AI"
                 >
-                  <Zap className="h-4 w-4" /> Layer A
+                  <Zap className="h-4 w-4" /> Quick Check (no AI)
                 </Button>
                 <Button
                   onClick={() => runVerify(true)}
