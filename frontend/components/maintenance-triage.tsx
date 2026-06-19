@@ -7,6 +7,7 @@ import {
   ArrowRight, GitBranch, Github, Loader2, Plus, ShieldCheck, Trash2, Zap,
 } from "lucide-react";
 import { Button, Callout, Input, SectionHeading, Textarea } from "@/components/ui/primitives";
+import { CancelButton } from "@/components/ui/cancel-button";
 import {
   useClassifyItem,
   useCreateMaintenanceItem,
@@ -225,9 +226,12 @@ export function MaintenanceTriage() {
 
               {/* F1 classify */}
               {selected.classification === "unclassified" ? (
-                <Button onClick={() => classify.mutate(selected.id, { onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
-                  {classify.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Classify (Triage)
-                </Button>
+                <div className="flex gap-2">
+                  <Button onClick={() => classify.mutate(selected.id, { onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
+                    {classify.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Classify (Triage)
+                  </Button>
+                  {classify.isPending && <CancelButton onCancel={() => classify.cancel()} />}
+                </div>
               ) : null}
 
               {selected.ai_rationale?.classify ? (
@@ -252,9 +256,12 @@ export function MaintenanceTriage() {
                 <div className="space-y-2">
                   <p className={cn("text-xs", muted)}>Narrow diagnosis (Context Isolation): paste ONLY the implicated code snippet.</p>
                   <Textarea placeholder="Isolated code snippet" rows={4} value={snippet} onChange={(e) => setSnippet(e.target.value)} />
-                  <Button onClick={() => diagnose.mutate({ itemId: selected.id, codeSnippet: snippet }, { onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
-                    {diagnose.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Diagnose
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button onClick={() => diagnose.mutate({ itemId: selected.id, codeSnippet: snippet }, { onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
+                      {diagnose.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Diagnose
+                    </Button>
+                    {diagnose.isPending && <CancelButton onCancel={() => diagnose.cancel()} />}
+                  </div>
                 </div>
               ) : null}
 
@@ -266,9 +273,12 @@ export function MaintenanceTriage() {
 
               {/* F2: fix brief */}
               {selected.status === "diagnosed" ? (
-                <Button onClick={() => fixBrief.mutate(selected.id, { onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
-                  {fixBrief.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Generate Fix-Bolt Brief
-                </Button>
+                <div className="flex gap-2">
+                  <Button onClick={() => fixBrief.mutate(selected.id, { onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
+                    {fixBrief.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Generate Fix-Bolt Brief
+                  </Button>
+                  {fixBrief.isPending && <CancelButton onCancel={() => fixBrief.cancel()} />}
+                </div>
               ) : null}
 
               {selected.fix_brief_md ? (

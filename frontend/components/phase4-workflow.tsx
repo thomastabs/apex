@@ -15,10 +15,12 @@ import {
   Rocket,
   ShieldAlert,
   Sparkles,
+  StopCircle,
   XCircle,
 } from "lucide-react";
 import { Button, Callout, SectionHeading, Textarea } from "@/components/ui/primitives";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
+import { CancelButton } from "@/components/ui/cancel-button";
 import {
   useClearTestPlan,
   useEligibleStories,
@@ -388,6 +390,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
             ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
             : (displayMd ? "Regenerate" : "Generate Test Plan")}
         </Button>
+        {generateMut.isPending && <CancelButton onCancel={() => generateMut.cancel()} />}
         {displayMd && (
           <Button
             onClick={handleSave}
@@ -572,6 +575,17 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                     ? <><Loader2 className="h-3 w-3 animate-spin" /> Exploring…</>
                     : <><Sparkles className="h-3 w-3" /> Explore edge cases</>}
                 </button>
+                {edgeLoading === name && (
+                  <button
+                    className={cn(
+                      "ml-2 inline-flex items-center gap-1 rounded px-2 py-1 font-medium transition",
+                      dark ? "text-red-400 hover:bg-red-500/15" : "text-red-600 hover:bg-red-50",
+                    )}
+                    onClick={() => { edgeCasesMut.cancel(); setEdgeLoading(null); }}
+                  >
+                    <StopCircle className="h-3 w-3" /> Cancel
+                  </button>
+                )}
                 {!edgeCases[name] && edgeLoading !== name && (
                   <p className={cn("mt-1 leading-4", dark ? "text-neutral-500" : "text-slate-400")}>
                     AI probes for non-obvious boundary, error, and abuse cases this scenario doesn&apos;t cover yet —
@@ -873,16 +887,17 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
             </p>
           </div>
 
-          <Button
-            variant="secondary"
-            className="w-full justify-center"
-            onClick={handleGenerateBugReport}
-            disabled={bugReportMut.isPending}
-          >
-            {bugReportMut.isPending
-              ? <><Loader2 className="h-4 w-4 animate-spin" /> Analysing…</>
-              : (combinedBugReport ? "Regenerate Bug Report" : "Generate Fix-Bolt Artifact")}
-          </Button>
+          {bugReportMut.isPending ? (
+            <CancelButton onCancel={() => bugReportMut.cancel()} label="Cancel analysis" className="w-full" />
+          ) : (
+            <Button
+              variant="secondary"
+              className="w-full justify-center"
+              onClick={handleGenerateBugReport}
+            >
+              {combinedBugReport ? "Regenerate Bug Report" : "Generate Fix-Bolt Artifact"}
+            </Button>
+          )}
 
           {bugReportMut.isPending && (
             <AIProgressIndicator

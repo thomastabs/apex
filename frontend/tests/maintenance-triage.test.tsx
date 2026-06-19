@@ -59,7 +59,7 @@ describe("MaintenanceTriage", () => {
     // item 2 auto-selected (first), unclassified → Classify button shown
     const btn = await screen.findByRole("button", { name: /Classify/i });
     fireEvent.click(btn);
-    await waitFor(() => expect(vi.mocked(classifyMaintenanceItem)).toHaveBeenCalledWith(expect.anything(), 2));
+    await waitFor(() => expect(vi.mocked(classifyMaintenanceItem)).toHaveBeenCalledWith(expect.anything(), 2, expect.anything()));
   });
 
   it("Path A change request offers Open in Phase 1", async () => {

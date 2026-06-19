@@ -16,6 +16,7 @@ import { ChevronRight, LayoutDashboard, Loader2, Network, RefreshCw } from "luci
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
+import { CancelButton } from "@/components/ui/cancel-button";
 import { useGenerateDiagram, useLoadDiagram, useSaveDiagramPositions } from "@/lib/hooks/use-phase2";
 import type { DiagramEdge, DiagramField, DiagramNode, DiagramResponse } from "@/lib/api/types";
 
@@ -257,6 +258,7 @@ export function ERDiagramPanel({
               <div className="w-full max-w-md">
                 <AIProgressIndicator steps={DIAGRAM_STEPS} isPending={generateMut.isPending} dark={dark} />
               </div>
+              <CancelButton onCancel={() => generateMut.cancel()} />
             </div>
           ) : !hasDiagram ? (
             <div className="flex flex-col items-center gap-3 py-6 text-center">

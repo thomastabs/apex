@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner";
 import { Button, Callout, SectionHeading, Textarea } from "@/components/ui/primitives";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
+import { CancelButton } from "@/components/ui/cancel-button";
 import {
   decodeApexMeta,
   encodeApexMeta,
@@ -596,6 +597,9 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
             ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
             : <><Sparkles className="h-4 w-4" /> Generate Tasks</>}
         </Button>
+        {generateTasksMut.isPending && (
+          <CancelButton onCancel={() => generateTasksMut.cancel()} className="w-full" />
+        )}
         <div className="flex gap-2">
           <Button variant="secondary" className="gap-1.5" onClick={onBack}>
             <ChevronLeft className="h-4 w-4" /> Back
@@ -1071,6 +1075,9 @@ function StageC({ storyId }: { storyId: number }) {
                       ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
                       : <><Sparkles className="h-4 w-4" /> {packMd ? "Regenerate" : "Generate Pack"}</>}
                   </Button>
+                  {generatingTaskId === selectedTask.id && (
+                    <CancelButton onCancel={() => { generateProposal.cancel(); setGeneratingTaskId(null); setBulkQueue([]); }} />
+                  )}
                   {prevPackDrafts[selectedTask.id] && (
                     <Button
                       variant="secondary"

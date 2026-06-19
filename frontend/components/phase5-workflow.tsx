@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Button, Callout, SectionHeading, Textarea } from "@/components/ui/primitives";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
+import { CancelButton } from "@/components/ui/cancel-button";
 import {
   useEligibleStories,
   useGenerateDeployPack,
@@ -576,6 +577,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
             ? <><Loader2 className="h-4 w-4 animate-spin" /> Checking…</>
             : (infraDelta ? "Re-run Delta Check" : "Run Infra Delta Check")}
         </Button>
+        {generateMut.isPending && <CancelButton onCancel={() => generateMut.cancel()} />}
         {infraDelta && (
           <Button onClick={handleSave} disabled={!canSave || saveMut.isPending} className="flex-1 justify-center">
             {saveMut.isPending
@@ -833,6 +835,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
             ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
             : (deployPackMd ? "Regenerate Pack" : "Generate Deploy Pack")}
         </Button>
+        {generateMut.isPending && <CancelButton onCancel={() => generateMut.cancel()} />}
         {deployPackMd && (
           <Button onClick={handleSave} disabled={saveMut.isPending} className="flex-1 justify-center">
             {saveMut.isPending
@@ -1067,16 +1070,18 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
                   dark={dark}
                 />
               )}
-              <Button
-                variant="secondary"
-                onClick={handleReject}
-                disabled={!rejectionFeedback.trim() || reviseMut.isPending}
-                className="w-full justify-center gap-1.5"
-              >
-                {reviseMut.isPending
-                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Revising pack…</>
-                  : "Send feedback & revise pack"}
-              </Button>
+              {reviseMut.isPending ? (
+                <CancelButton onCancel={() => reviseMut.cancel()} label="Cancel revision" className="w-full" />
+              ) : (
+                <Button
+                  variant="secondary"
+                  onClick={handleReject}
+                  disabled={!rejectionFeedback.trim()}
+                  className="w-full justify-center gap-1.5"
+                >
+                  Send feedback & revise pack
+                </Button>
+              )}
             </>
           )}
         </div>

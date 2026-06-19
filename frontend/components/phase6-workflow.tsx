@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ChevronRight, Info, Loader2, RefreshCw, Zap } from "lucide-react";
+import { CancelButton } from "@/components/ui/cancel-button";
 import { Button, Callout, Input, SectionHeading } from "@/components/ui/primitives";
 import { MaintenanceTriage } from "@/components/maintenance-triage";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
@@ -273,6 +274,7 @@ function TraceabilityPanel() {
                   )}
                   {report ? "Re-verify" : "Verify"}
                 </Button>
+                {verify.isPending && <CancelButton onCancel={() => verify.cancel()} />}
               </div>
             </div>
 

@@ -86,7 +86,7 @@ describe("Phase6Workflow", () => {
     await waitFor(() => expect(screen.getByText("POST /api/v1/auth/login")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /Quick Check/i }));
     await waitFor(() =>
-      expect(vi.mocked(verifyConformance)).toHaveBeenCalledWith(expect.anything(), 10, false, []),
+      expect(vi.mocked(verifyConformance)).toHaveBeenCalledWith(expect.anything(), 10, false, [], expect.anything()),
     );
   });
 
@@ -96,7 +96,7 @@ describe("Phase6Workflow", () => {
     await waitFor(() => expect(screen.getByText("POST /api/v1/auth/login")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /Re-verify|Verify/i }));
     await waitFor(() =>
-      expect(vi.mocked(verifyConformance)).toHaveBeenCalledWith(expect.anything(), 10, true, []),
+      expect(vi.mocked(verifyConformance)).toHaveBeenCalledWith(expect.anything(), 10, true, [], expect.anything()),
     );
   });
 });

@@ -15,6 +15,7 @@ import Dagre from "@dagrejs/dagre";
 import { ChevronRight, LayoutDashboard, Loader2, Monitor, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
+import { CancelButton } from "@/components/ui/cancel-button";
 import { useGenerateScreenFlow, useLoadScreenFlow, useSaveScreenFlowPositions } from "@/lib/hooks/use-phase2";
 import type { ScreenFlowEdge, ScreenFlowNode, ScreenFlowResponse } from "@/lib/api/types";
 
@@ -219,6 +220,7 @@ export function ScreenFlowPanel({
               <div className="w-full max-w-md">
                 <AIProgressIndicator steps={SCREEN_FLOW_STEPS} isPending={generateMut.isPending} dark={dark} />
               </div>
+              <CancelButton onCancel={() => generateMut.cancel()} />
             </div>
           ) : !hasDiagram ? (
             <div className="flex flex-col items-center gap-3 py-6 text-center">

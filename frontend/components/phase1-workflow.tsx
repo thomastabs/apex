@@ -6,6 +6,7 @@ import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Download, Externa
 import { toast } from "sonner";
 import { Button, Callout, Input, Skeleton, Textarea } from "@/components/ui/primitives";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
+import { CancelButton } from "@/components/ui/cancel-button";
 import {
   useAnalyzeGaps,
   useCompileGherkin,
@@ -660,6 +661,7 @@ export function Phase1Workflow() {
                   {suggestEpics.isPending ? "Generating…" : "AI Suggests"}
                 </Button>
                 <AIProgressIndicator steps={SUGGEST_STEPS} isPending={suggestEpics.isPending} dark={dark} />
+                {suggestEpics.isPending && <CancelButton onCancel={() => suggestEpics.cancel()} className="mt-2" />}
                 {suggestions.length && !suggestEpics.isPending ? (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
@@ -757,6 +759,7 @@ export function Phase1Workflow() {
                     </p>
                   ) : null}
                   <AIProgressIndicator steps={GAP_STEPS} isPending={analyzeGaps.isPending} dark={dark} />
+                  {analyzeGaps.isPending && <CancelButton onCancel={() => analyzeGaps.cancel()} className="mt-2" />}
 
                   {gapReport && !analyzeGaps.isPending ? (
                     <div className="space-y-3">
@@ -908,6 +911,7 @@ export function Phase1Workflow() {
               </Button>
             </div>
             <AIProgressIndicator steps={GENERATE_STEPS} isPending={generate.isPending} dark={dark} />
+            {generate.isPending && <CancelButton onCancel={() => generate.cancel()} className="w-full" />}
             {generate.isError ? (
               <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
                 Generation failed: {errMsg(generate.error)}
@@ -950,6 +954,7 @@ export function Phase1Workflow() {
                 : <><Sparkles className="size-4" /> Convert to Acceptance Criteria</>}
             </Button>
             <AIProgressIndicator steps={COMPILE_STEPS} isPending={compile.isPending} dark={dark} />
+            {compile.isPending && <CancelButton onCancel={() => compile.cancel()} className="w-full" />}
             {compile.isError ? (
               <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
                 Compile failed: {errMsg(compile.error)}
@@ -1123,6 +1128,7 @@ export function Phase1Workflow() {
                           : "Generate constraints"}
                       </Button>
                       <AIProgressIndicator steps={CONSTRAINT_STEPS} isPending={genConstraints.isPending} dark={dark} />
+                      {genConstraints.isPending && <CancelButton onCancel={() => genConstraints.cancel()} className="mt-2" />}
                     </>
                   )}
                 </div>

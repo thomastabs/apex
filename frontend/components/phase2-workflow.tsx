@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { Button, Callout, Input, SectionHeading, Skeleton, Textarea } from "@/components/ui/primitives";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
+import { CancelButton } from "@/components/ui/cancel-button";
 import {
   DESIGN_SECTION_ORDER,
   useGenerateDiagram,
@@ -477,6 +478,7 @@ export function Phase2Workflow() {
               </Button>
             ) : null}
             <AIProgressIndicator steps={PROPOSE_STEPS} isPending={proposeStack.isPending} dark={dark} />
+            {proposeStack.isPending && <CancelButton onCancel={() => proposeStack.cancel()} className="w-full" />}
             {proposeStack.isError ? (
               <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
                 Proposal failed: {errMsg(proposeStack.error)}
