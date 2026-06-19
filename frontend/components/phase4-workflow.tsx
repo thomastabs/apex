@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Copy,
+  Download,
   Info,
   Loader2,
   Rocket,
@@ -355,11 +356,11 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => blobDownload(displayMd, `test-plan-us${storyId}.md`)}>
-              Download .md
+            <Button variant="secondary" className="gap-1.5" onClick={() => blobDownload(displayMd, `test-plan-us${storyId}.md`)}>
+              <Download className="h-4 w-4" /> Download .md
             </Button>
-            <Button variant="secondary" onClick={() => { void navigator.clipboard.writeText(displayMd); toast.success("Copied."); }}>
-              Copy
+            <Button variant="secondary" className="gap-1.5" onClick={() => { void navigator.clipboard.writeText(displayMd); toast.success("Copied."); }}>
+              <Copy className="h-4 w-4" /> Copy
             </Button>
             <Button
               variant="secondary"
@@ -794,17 +795,17 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
         <div className="flex flex-col gap-2">
           <Button
             variant="secondary"
-            className="w-full justify-center"
+            className="w-full justify-center gap-1.5"
             onClick={() => blobDownload(combinedBugReport, `fix-bolt-us${storyId}.md`)}
           >
-            Download Fix-Bolt Artifact
+            <Download className="h-4 w-4" /> Download Fix-Bolt Artifact
           </Button>
           <Button
             variant="secondary"
-            className="w-full justify-center"
+            className="w-full justify-center gap-1.5"
             onClick={() => { void navigator.clipboard.writeText(combinedBugReport); toast.success("Copied."); }}
           >
-            Copy Fix-Bolt Brief
+            <Copy className="h-4 w-4" /> Copy Fix-Bolt Brief
           </Button>
           <Button className="w-full justify-center" onClick={() => { clearPhase4Draft(); onNewStory(); }}>
             Test Another Story
@@ -901,11 +902,11 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
                 {combinedBugReport}
               </pre>
               <div className="flex gap-2">
-                <Button variant="secondary" onClick={() => blobDownload(combinedBugReport, `fix-bolt-us${storyId}.md`)}>
-                  Download .md
+                <Button variant="secondary" className="gap-1.5" onClick={() => blobDownload(combinedBugReport, `fix-bolt-us${storyId}.md`)}>
+                  <Download className="h-4 w-4" /> Download .md
                 </Button>
-                <Button variant="secondary" onClick={() => { void navigator.clipboard.writeText(extractSection(combinedBugReport, "## Fix-Bolt Brief") || combinedBugReport); toast.success("Copied."); }}>
-                  Copy Fix-Bolt Brief
+                <Button variant="secondary" className="gap-1.5" onClick={() => { void navigator.clipboard.writeText(extractSection(combinedBugReport, "## Fix-Bolt Brief") || combinedBugReport); toast.success("Copied."); }}>
+                  <Copy className="h-4 w-4" /> Copy Fix-Bolt Brief
                 </Button>
               </div>
             </div>

@@ -7,6 +7,8 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Copy,
+  Download,
   Info,
   Loader2,
   Plus,
@@ -806,15 +808,15 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
             </div>
             <div>
               <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">Preview</p>
-              <MarkdownPreview content={deployPackMd} dark={dark} className="max-h-[28rem]" />
+              <MarkdownPreview content={deployPackMd} dark={dark} className="h-[34rem] min-h-[12rem] resize-y" />
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => blobDownload(deployPackMd, `deploy-pack-us${storyId}.md`)}>
-              Download .md
+            <Button variant="secondary" className="gap-1.5" onClick={() => blobDownload(deployPackMd, `deploy-pack-us${storyId}.md`)}>
+              <Download className="h-4 w-4" /> Download .md
             </Button>
-            <Button variant="secondary" onClick={() => { void navigator.clipboard.writeText(deployPackMd); toast.success("Copied."); }}>
-              Copy
+            <Button variant="secondary" className="gap-1.5" onClick={() => { void navigator.clipboard.writeText(deployPackMd); toast.success("Copied."); }}>
+              <Copy className="h-4 w-4" /> Copy
             </Button>
           </div>
         </div>
@@ -963,7 +965,18 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
           {bypass ? (
             <p className="text-sm text-sky-500 font-semibold">Not required (routine)</p>
           ) : packOk ? (
-            <p className="text-sm text-emerald-500 font-semibold">Saved and ready for review</p>
+            <>
+              <p className={cn("text-sm font-semibold leading-snug", dark ? "text-neutral-100" : "text-slate-800")}>
+                Deploy Pack — US#{storyId}{ctx?.title ? `: ${ctx.title}` : ""}
+              </p>
+              <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-emerald-500">
+                <CheckCircle2 className="h-3.5 w-3.5" /> Saved and ready for review
+              </p>
+              <p className={cn("mt-1 text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
+                {infraDelta ? `${infraDelta.deltas.length} delta section(s)` : "—"}
+                {deployPackMd ? ` · ${Math.round((deployPackMd.length / 100)) / 10}k chars` : ""}
+              </p>
+            </>
           ) : (
             <p className="text-sm text-red-500">Missing — generate and save the pack first.</p>
           )}
@@ -1009,21 +1022,39 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
           </button>
           {rejecting && (
             <>
+              <p className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-500")}>
+                The pack returns to the Deploy Pack step where the AI rewrites the flagged sections
+                to address your feedback — grounded in the same infra delta, headings preserved.
+                You then re-review and re-run the gate.
+              </p>
               <Textarea
                 value={rejectionFeedback}
                 onChange={(e) => setRejectionFeedback(e.target.value)}
                 placeholder="Security review findings the revised pack must address…"
                 rows={4}
                 className="text-sm"
+                disabled={reviseMut.isPending}
               />
+              {reviseMut.isPending && (
+                <AIProgressIndicator
+                  steps={[
+                    "Reading security feedback…",
+                    "Rewriting flagged sections…",
+                    "Re-checking rollback plan…",
+                    "Finalising revised pack…",
+                  ]}
+                  isPending={reviseMut.isPending}
+                  dark={dark}
+                />
+              )}
               <Button
                 variant="secondary"
                 onClick={handleReject}
                 disabled={!rejectionFeedback.trim() || reviseMut.isPending}
-                className="w-full justify-center"
+                className="w-full justify-center gap-1.5"
               >
                 {reviseMut.isPending
-                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Revising…</>
+                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Revising pack…</>
                   : "Send feedback & revise pack"}
               </Button>
             </>
