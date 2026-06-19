@@ -1166,7 +1166,6 @@ function StageC({ storyId }: { storyId: number }) {
                     <div>
                       <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Edit</p>
                       <Textarea
-                        rows={28}
                         value={packMd}
                         onChange={(e) => {
                           setPackDraft(selectedTask.id, e.target.value);
@@ -1177,12 +1176,12 @@ function StageC({ storyId }: { storyId: number }) {
                             saveProposalMut.mutate({ story_id: storyId, task_id: tid, proposal_md: val });
                           }, 600);
                         }}
-                        className="font-mono text-xs"
+                        className="font-mono text-xs h-[34rem] resize-y"
                       />
                     </div>
                     <div>
                       <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Preview</p>
-                      <MarkdownPreview content={packMd} dark={dark} className="h-[28rem] resize-y" />
+                      <MarkdownPreview content={packMd} dark={dark} className="h-[34rem] resize-y" />
                     </div>
                   </div>
                 ) : (

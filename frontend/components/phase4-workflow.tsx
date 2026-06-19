@@ -346,13 +346,12 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
               <Textarea
                 value={displayMd}
                 onChange={(e) => setTestPlanMd(e.target.value)}
-                rows={28}
-                className="font-mono text-xs"
+                className="font-mono text-xs h-[34rem] resize-y"
               />
             </div>
             <div>
               <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Preview</p>
-              <MarkdownPreview content={displayMd} dark={dark} className="max-h-[28rem]" />
+              <MarkdownPreview content={displayMd} dark={dark} className="h-[34rem] resize-y" />
             </div>
           </div>
           <div className="flex gap-2">
