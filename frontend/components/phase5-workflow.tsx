@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Copy,
   Download,
+  Eye,
   Info,
   Loader2,
   Plus,
@@ -16,6 +17,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Trash2,
+  X,
   XCircle,
 } from "lucide-react";
 import { Button, Callout, SectionHeading, Textarea } from "@/components/ui/primitives";
@@ -867,6 +869,7 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
   const clearPhase5Draft = usePhase5Store((s) => s.clearPhase5Draft);
 
   const [rejecting, setRejecting] = useState(false);
+  const [viewingPack, setViewingPack] = useState(false);
 
   const gateMut = usePassDeploymentGate();
   const reviseMut = useReviseDeployPack();
@@ -976,6 +979,19 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
                 {infraDelta ? `${infraDelta.deltas.length} delta section(s)` : "—"}
                 {deployPackMd ? ` · ${Math.round((deployPackMd.length / 100)) / 10}k chars` : ""}
               </p>
+              {deployPackMd && (
+                <button
+                  onClick={() => setViewingPack(true)}
+                  className={cn(
+                    "mt-2 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition",
+                    dark
+                      ? "border-neutral-700 text-neutral-300 hover:border-emerald-600 hover:text-emerald-400"
+                      : "border-slate-300 text-slate-600 hover:border-emerald-500 hover:text-emerald-600",
+                  )}
+                >
+                  <Eye className="h-3.5 w-3.5" /> View pack
+                </button>
+              )}
             </>
           ) : (
             <p className="text-sm text-red-500">Missing — generate and save the pack first.</p>
@@ -1076,6 +1092,49 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
             : "Approve & Deploy"}
         </Button>
       </div>
+
+      {viewingPack && deployPackMd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={() => setViewingPack(false)}>
+          <div
+            className={cn(
+              "flex h-[85vh] w-full max-w-3xl flex-col rounded-xl border shadow-2xl",
+              dark ? "border-neutral-700 bg-[#1b1b1c]" : "border-slate-200 bg-white",
+            )}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={cn("flex items-center gap-3 border-b px-5 py-3", dark ? "border-neutral-800" : "border-slate-200")}>
+              <Rocket className="size-4 text-emerald-400" />
+              <span className={cn("flex-1 text-sm font-semibold", dark ? "text-neutral-100" : "text-slate-800")}>
+                Deploy Pack — US#{storyId}{ctx?.title ? `: ${ctx.title}` : ""}
+              </span>
+              <button
+                className={cn("rounded p-1 transition-colors", dark ? "text-neutral-500 hover:text-emerald-400" : "text-slate-400 hover:text-emerald-600")}
+                title="Download"
+                onClick={() => blobDownload(deployPackMd, `deploy-pack-us${storyId}.md`)}
+              >
+                <Download className="size-4" />
+              </button>
+              <button
+                className={cn("rounded p-1 transition-colors", dark ? "text-neutral-500 hover:text-emerald-400" : "text-slate-400 hover:text-emerald-600")}
+                title="Copy"
+                onClick={() => { void navigator.clipboard.writeText(deployPackMd); toast.success("Copied."); }}
+              >
+                <Copy className="size-4" />
+              </button>
+              <button
+                className={cn("rounded p-1 transition-colors", dark ? "text-neutral-500 hover:text-red-400" : "text-slate-400 hover:text-red-500")}
+                title="Close"
+                onClick={() => setViewingPack(false)}
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-auto p-5">
+              <MarkdownPreview content={deployPackMd} dark={dark} className="border-0 !bg-transparent !p-0" />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
