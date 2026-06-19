@@ -2238,12 +2238,66 @@ End the pack with a "## Rollback Plan" section: ordered steps to revert every ch
 """
 
 
+_DEPLOY_ENV_LABELS = {
+    "production": "Production — write for a live production rollout (conservative, reversible).",
+    "staging": "Staging — write for a pre-production/staging environment first.",
+    "both": "Staging then Production — provide the staging dry-run and the production promotion.",
+}
+_DEPLOY_IAC_LABELS = {
+    "terraform": "Terraform (HCL) for any infrastructure-as-code artifacts.",
+    "compose": "Docker Compose for any infrastructure-as-code artifacts.",
+    "kubernetes": "Kubernetes manifests (YAML) for any infrastructure-as-code artifacts.",
+    "bicep": "Azure Bicep for any infrastructure-as-code artifacts.",
+    "shell": "Plain shell scripts (no IaC tool) for provisioning steps.",
+}
+_DEPLOY_EMPHASIS_LABELS = {
+    "zero_downtime": "Zero-downtime: use rolling/blue-green strategies, no service interruption.",
+    "rollback_depth": "Rollback depth: make every step explicitly and quickly reversible, with tested revert commands.",
+    "secrets": "Secrets & security hardening: least-privilege, secret managers, no plaintext credentials anywhere.",
+    "db_safety": "Database migration safety: backwards-compatible/expand-contract migrations, backup-before-migrate.",
+    "observability": "Observability: add health checks, logging, and post-deploy monitoring/alerting steps.",
+}
+
+
+def _deploy_pack_preferences_block(
+    target_env: str = "",
+    iac_format: str = "",
+    emphasis: list[str] | None = None,
+    instructions: str = "",
+) -> str:
+    """Render the operator-specified deployment preferences into a prompt block.
+
+    Returns an empty string when no preferences were supplied so the default
+    behaviour is unchanged.
+    """
+    lines: list[str] = []
+    if target_env and target_env in _DEPLOY_ENV_LABELS:
+        lines.append("- Target environment: " + _DEPLOY_ENV_LABELS[target_env])
+    if iac_format and iac_format in _DEPLOY_IAC_LABELS:
+        lines.append("- Preferred tooling: " + _DEPLOY_IAC_LABELS[iac_format])
+    for key in emphasis or []:
+        if key in _DEPLOY_EMPHASIS_LABELS:
+            lines.append("- " + _DEPLOY_EMPHASIS_LABELS[key])
+    if instructions.strip():
+        lines.append("- Additional operator instructions: " + instructions.strip())
+    if not lines:
+        return ""
+    return (
+        "Deployment Preferences (specified by the operator — honour these where they do not "
+        "conflict with the infra delta or invent unused tools):\n" + "\n".join(lines) + "\n\n"
+    )
+
+
 def generate_deploy_pack(
     story_subject: str,
     infra_delta_md: str,
     technical_spec: str,
     tech_stack: str = "",
     github_context: str = "",
+    target_env: str = "",
+    iac_format: str = "",
+    emphasis: list[str] | None = None,
+    instructions: str = "",
 ) -> str:
     """Phase 5 Step 2 (YES path): generate the deploy scripts for a flagged delta."""
     system = _GENERATE_DEPLOY_PACK_SYSTEM
@@ -2254,6 +2308,7 @@ def generate_deploy_pack(
         + "Tech Stack:\n" + fence_user_content(tech_stack.strip() or "Not specified") + "\n\n"
         + "Technical Spec:\n" + fence_user_content(technical_spec.strip() or "Not specified") + "\n\n"
         + "Infrastructure Delta (approved by the Tech Lead):\n" + fence_user_content(infra_delta_md) + "\n\n"
+        + _deploy_pack_preferences_block(target_env, iac_format, emphasis, instructions)
         + "Generate the Deploy Pack for these delta items."
     )
     return _ai_retry(lambda: _invoke(system, human, get_model(), max_tokens=6000, timeout=300, temperature=0.2))

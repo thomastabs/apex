@@ -226,10 +226,16 @@ class AiService:
         technical_spec: str,
         tech_stack: str = "",
         github_context: str = "",
+        target_env: str = "",
+        iac_format: str = "",
+        emphasis: list[str] | None = None,
+        instructions: str = "",
     ) -> str:
         return ai_engine.generate_deploy_pack(
             story_subject, infra_delta_md, technical_spec,
             tech_stack=tech_stack, github_context=github_context,
+            target_env=target_env, iac_format=iac_format,
+            emphasis=emphasis, instructions=instructions,
         )
 
     def revise_deploy_pack(

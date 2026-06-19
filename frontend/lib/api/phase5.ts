@@ -1,5 +1,6 @@
 import { apiRequest } from "./client";
 import type {
+  DeployPackOptions,
   InfraDelta,
   Phase5DeployPackResponse,
   Phase5EligibleStoriesResponse,
@@ -41,11 +42,15 @@ export function getInfraDelta(context: RequestContext, storyId: number) {
   return apiRequest<Phase5InfraDeltaResponse>(`/api/phase5/infra-delta/${storyId}`, { context });
 }
 
-export function generateDeployPack(context: RequestContext, storyId: number) {
+export function generateDeployPack(
+  context: RequestContext,
+  storyId: number,
+  options?: DeployPackOptions,
+) {
   return apiRequest<Phase5DeployPackResponse>("/api/phase5/generate-deploy-pack", {
     method: "POST",
     context,
-    body: { story_id: storyId },
+    body: { story_id: storyId, ...(options ? { options } : {}) },
     timeoutMs: PHASE5_AI_TIMEOUT_MS,
   });
 }

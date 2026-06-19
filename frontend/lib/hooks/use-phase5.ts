@@ -22,6 +22,7 @@ import { useApiContext } from "@/lib/stores/session-store";
 import { usePhase5Store } from "@/lib/stores/phase5-store";
 import { toast } from "sonner";
 import type {
+  DeployPackOptions,
   InfraDelta,
   VerificationMatrixPayload,
   VerificationScenarioRow,
@@ -108,7 +109,8 @@ export function useGenerateDeployPack() {
   const context = useApiContext();
   const setDeployPackMd = usePhase5Store((s) => s.setDeployPackMd);
   return useMutation({
-    mutationFn: (storyId: number) => generateDeployPack(context!, storyId),
+    mutationFn: ({ storyId, options }: { storyId: number; options?: DeployPackOptions }) =>
+      generateDeployPack(context!, storyId, options),
     onSuccess: (data) => setDeployPackMd(data.deploy_pack_md, false),
     onError: (err: Error) => toast.error(`Deploy pack generation failed: ${err.message}`),
   });

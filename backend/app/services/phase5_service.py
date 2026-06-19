@@ -170,7 +170,7 @@ class Phase5Service:
             )
         return delta
 
-    def generate_deploy_pack(self, ctx: RequestContext, story_id: int) -> str:
+    def generate_deploy_pack(self, ctx: RequestContext, story_id: int, options=None) -> str:
         self.configure_request(ctx)
         entry = self._eligible_entry(story_id)
         delta = self._require_delta_with_changes(story_id)
@@ -180,6 +180,10 @@ class Phase5Service:
             self.context.story_technical_spec(story_id),
             tech_stack=self.context.read_tech_stack(),
             github_context=self.context.read_context_file("github-context.md"),
+            target_env=getattr(options, "target_env", "") or "",
+            iac_format=getattr(options, "iac_format", "") or "",
+            emphasis=list(getattr(options, "emphasis", []) or []),
+            instructions=getattr(options, "instructions", "") or "",
         )
 
     def save_deploy_pack(self, ctx: RequestContext, story_id: int, pack_md: str) -> None:

@@ -464,6 +464,20 @@ export type Phase5DeployPackResponse = {
   deploy_pack_md: string;
 };
 
+export type DeployPackEmphasis =
+  | "zero_downtime"
+  | "rollback_depth"
+  | "secrets"
+  | "db_safety"
+  | "observability";
+
+export type DeployPackOptions = {
+  target_env: "" | "production" | "staging" | "both";
+  iac_format: "" | "terraform" | "compose" | "kubernetes" | "bicep" | "shell";
+  emphasis: DeployPackEmphasis[];
+  instructions: string;
+};
+
 export type Phase5QaAttempt = {
   recorded_at: string;
   gate: "pass" | "fail";

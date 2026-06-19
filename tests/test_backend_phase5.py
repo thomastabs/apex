@@ -54,8 +54,10 @@ class FakeAiService:
         return dict(self.delta)
 
     def generate_deploy_pack(self, story_subject, infra_delta_md, technical_spec,
-                             tech_stack="", github_context=""):
+                             tech_stack="", github_context="", target_env="",
+                             iac_format="", emphasis=None, instructions=""):
         self.deploy_pack_args = (story_subject, infra_delta_md, technical_spec)
+        self.deploy_pack_options = (target_env, iac_format, list(emphasis or []), instructions)
         return _FAKE_PACK
 
     def revise_deploy_pack(self, current_pack_md, feedback, infra_delta_md=""):
@@ -276,6 +278,45 @@ def test_generate_deploy_pack_with_changes():
     pack = svc.generate_deploy_pack(_ctx(), 10)
     assert pack == _FAKE_PACK
     assert "JWT signing secret" in ai.deploy_pack_args[1]  # rendered delta md
+    # no options → empty guidance threaded to the AI layer
+    assert ai.deploy_pack_options == ("", "", [], "")
+
+
+def test_generate_deploy_pack_threads_options_to_ai():
+    from backend.app.schemas.phase5 import DeployPackOptions
+
+    ai = FakeAiService(delta=_FAKE_DELTA_CHANGES)
+    svc = _svc(ai=ai, context=FakeContextService())
+    svc.save_infra_delta(_ctx(), 10, _FAKE_DELTA_CHANGES)
+    opts = DeployPackOptions(
+        target_env="production",
+        iac_format="terraform",
+        emphasis=["secrets", "db_safety"],
+        instructions="deploy to eu-west-1",
+    )
+    svc.generate_deploy_pack(_ctx(), 10, opts)
+    assert ai.deploy_pack_options == (
+        "production", "terraform", ["secrets", "db_safety"], "deploy to eu-west-1",
+    )
+
+
+def test_deploy_pack_preferences_block_empty_is_blank():
+    import src.ai_engine as ai_engine
+    assert ai_engine._deploy_pack_preferences_block() == ""
+    # unknown enum values are ignored (no guidance leaked)
+    assert ai_engine._deploy_pack_preferences_block("bogus", "bogus", ["nope"], "") == ""
+
+
+def test_deploy_pack_preferences_block_renders_known_options():
+    import src.ai_engine as ai_engine
+    block = ai_engine._deploy_pack_preferences_block(
+        "staging", "kubernetes", ["zero_downtime"], "  ship it  ",
+    )
+    assert "Deployment Preferences" in block
+    assert "Staging" in block
+    assert "Kubernetes" in block
+    assert "Zero-downtime" in block
+    assert "ship it" in block  # trimmed
 
 
 def test_revise_deploy_pack_passes_feedback():

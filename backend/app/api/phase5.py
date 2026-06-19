@@ -116,7 +116,7 @@ def generate_deploy_pack(
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
-        md = service.generate_deploy_pack(ctx, payload.story_id)
+        md = service.generate_deploy_pack(ctx, payload.story_id, payload.options)
         return {"story_id": payload.story_id, "deploy_pack_md": md}
     except Exception as exc:
         _handle_error(exc)

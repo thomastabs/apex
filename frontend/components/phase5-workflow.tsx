@@ -4,6 +4,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Info,
@@ -11,6 +12,7 @@ import {
   Plus,
   Rocket,
   ShieldCheck,
+  SlidersHorizontal,
   Trash2,
   XCircle,
 } from "lucide-react";
@@ -35,7 +37,7 @@ import { usePhase5Store } from "@/lib/stores/phase5-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
-import type { InfraDelta, InfraDeltaCategory, InfraDeltaItem, Phase5StoryPreview } from "@/lib/api/types";
+import type { DeployPackEmphasis, DeployPackOptions, InfraDelta, InfraDeltaCategory, InfraDeltaItem, Phase5StoryPreview } from "@/lib/api/types";
 
 // ---------------------------------------------------------------------------
 // Utilities
@@ -585,12 +587,59 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 // Stage C — Deploy Pack (or routine bypass)
 // ---------------------------------------------------------------------------
 
+const DEPLOY_ENV_OPTIONS: { value: DeployPackOptions["target_env"]; label: string }[] = [
+  { value: "", label: "Auto (infer from project)" },
+  { value: "production", label: "Production" },
+  { value: "staging", label: "Staging" },
+  { value: "both", label: "Staging → Production" },
+];
+
+const DEPLOY_IAC_OPTIONS: { value: DeployPackOptions["iac_format"]; label: string }[] = [
+  { value: "", label: "Auto (match tech stack)" },
+  { value: "terraform", label: "Terraform" },
+  { value: "compose", label: "Docker Compose" },
+  { value: "kubernetes", label: "Kubernetes" },
+  { value: "bicep", label: "Azure Bicep" },
+  { value: "shell", label: "Shell scripts" },
+];
+
+const DEPLOY_EMPHASIS_OPTIONS: { value: DeployPackEmphasis; label: string }[] = [
+  { value: "zero_downtime", label: "Zero-downtime" },
+  { value: "rollback_depth", label: "Deep rollback" },
+  { value: "secrets", label: "Secrets hardening" },
+  { value: "db_safety", label: "DB migration safety" },
+  { value: "observability", label: "Observability" },
+];
+
 function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () => void; onContinue: () => void }) {
   const dark = useUiStore((s) => s.theme) === "dark";
 
   const infraDelta = usePhase5Store((s) => s.infraDelta);
   const deployPackMd = usePhase5Store((s) => s.deployPackMd);
   const setDeployPackMd = usePhase5Store((s) => s.setDeployPackMd);
+
+  const [options, setOptions] = useState<DeployPackOptions>({
+    target_env: "",
+    iac_format: "",
+    emphasis: [],
+    instructions: "",
+  });
+  const [optionsOpen, setOptionsOpen] = useState(false);
+
+  const toggleEmphasis = (value: DeployPackEmphasis) =>
+    setOptions((o) => ({
+      ...o,
+      emphasis: o.emphasis.includes(value)
+        ? o.emphasis.filter((e) => e !== value)
+        : [...o.emphasis, value],
+    }));
+
+  const inputClass = cn(
+    "rounded-lg border px-3 py-2 text-sm",
+    dark
+      ? "border-neutral-700 bg-neutral-900 text-neutral-100 focus:border-emerald-500 focus:outline-none"
+      : "border-slate-300 bg-white text-slate-800 focus:border-emerald-500 focus:outline-none",
+  );
 
   const bypass = infraDelta !== null && !infraDelta.needs_infra_change;
 
@@ -641,6 +690,100 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
         fragments. The DevOps Alliance security-reviews this pack at the gate.
       </p>
 
+      <div className={cn("rounded-xl border", dark ? "border-neutral-700 bg-neutral-950/50" : "border-slate-200 bg-slate-50")}>
+        <button
+          type="button"
+          onClick={() => setOptionsOpen((v) => !v)}
+          className={cn(
+            "flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium",
+            dark ? "text-neutral-200" : "text-slate-700",
+          )}
+        >
+          <span className="flex items-center gap-2">
+            <SlidersHorizontal className="h-4 w-4 text-emerald-500" />
+            Guide the AI <span className={cn("font-normal", dark ? "text-neutral-500" : "text-slate-400")}>(optional)</span>
+          </span>
+          <ChevronDown className={cn("h-4 w-4 transition-transform", optionsOpen && "rotate-180")} />
+        </button>
+
+        {optionsOpen && (
+          <div className="space-y-4 border-t px-4 py-4 dark:border-neutral-700">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block space-y-1.5">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">
+                  Target environment
+                </span>
+                <select
+                  value={options.target_env}
+                  onChange={(e) => setOptions((o) => ({ ...o, target_env: e.target.value as DeployPackOptions["target_env"] }))}
+                  className={cn(inputClass, "w-full")}
+                >
+                  {DEPLOY_ENV_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">
+                  IaC / tooling
+                </span>
+                <select
+                  value={options.iac_format}
+                  onChange={(e) => setOptions((o) => ({ ...o, iac_format: e.target.value as DeployPackOptions["iac_format"] }))}
+                  className={cn(inputClass, "w-full")}
+                >
+                  {DEPLOY_IAC_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">
+                Emphasis
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {DEPLOY_EMPHASIS_OPTIONS.map((opt) => {
+                  const active = options.emphasis.includes(opt.value);
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => toggleEmphasis(opt.value)}
+                      aria-pressed={active}
+                      className={cn(
+                        "rounded-full border px-3 py-1 text-xs font-medium transition",
+                        active
+                          ? "border-emerald-500 bg-emerald-500/15 text-emerald-600 dark:text-emerald-300"
+                          : dark
+                            ? "border-neutral-700 text-neutral-400 hover:border-neutral-600"
+                            : "border-slate-300 text-slate-500 hover:border-slate-400",
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <label className="block space-y-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">
+                Extra instructions
+              </span>
+              <Textarea
+                value={options.instructions}
+                onChange={(e) => setOptions((o) => ({ ...o, instructions: e.target.value.slice(0, 2000) }))}
+                rows={3}
+                placeholder="e.g. deploy region eu-west-1, gate behind a feature flag, notify #ops on completion…"
+                className="text-sm"
+              />
+            </label>
+          </div>
+        )}
+      </div>
+
       {generateMut.isPending && (
         <AIProgressIndicator
           steps={["Reading delta items…", "Writing scripts…", "Adding rollback plan…"]}
@@ -681,7 +824,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
         <Button variant="secondary" className="gap-1.5" onClick={onBack} disabled={generateMut.isPending || saveMut.isPending}>
           <ChevronLeft className="h-4 w-4" /> Back
         </Button>
-        <Button onClick={() => generateMut.mutate(storyId)} disabled={generateMut.isPending} className="flex-1 justify-center">
+        <Button onClick={() => generateMut.mutate({ storyId, options })} disabled={generateMut.isPending} className="flex-1 justify-center">
           {generateMut.isPending
             ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
             : (deployPackMd ? "Regenerate Pack" : "Generate Deploy Pack")}

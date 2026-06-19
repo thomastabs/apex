@@ -63,8 +63,20 @@ class SaveInfraDeltaRequest(BaseModel):
     delta: InfraDeltaModel
 
 
+class DeployPackOptions(BaseModel):
+    """Operator-specified guidance to steer deploy-pack generation (all optional)."""
+
+    target_env: Literal["", "production", "staging", "both"] = ""
+    iac_format: Literal["", "terraform", "compose", "kubernetes", "bicep", "shell"] = ""
+    emphasis: list[
+        Literal["zero_downtime", "rollback_depth", "secrets", "db_safety", "observability"]
+    ] = Field(default_factory=list, max_length=5)
+    instructions: str = Field(default="", max_length=2_000)
+
+
 class GenerateDeployPackRequest(BaseModel):
     story_id: int
+    options: DeployPackOptions = Field(default_factory=DeployPackOptions)
 
 
 class DeployPackResponse(BaseModel):

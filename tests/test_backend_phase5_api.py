@@ -94,7 +94,7 @@ class StubPhase5Service:
     def load_infra_delta(self, ctx, story_id):
         return dict(_FAKE_DELTA)
 
-    def generate_deploy_pack(self, ctx, story_id):
+    def generate_deploy_pack(self, ctx, story_id, options=None):
         return _FAKE_PACK
 
     def save_deploy_pack(self, ctx, story_id, pack_md):
@@ -283,7 +283,7 @@ def test_ai_rate_limit_error_maps_to_429():
 
 def test_ai_timeout_error_maps_to_504():
     class FailingService(StubPhase5Service):
-        def generate_deploy_pack(self, ctx, story_id):
+        def generate_deploy_pack(self, ctx, story_id, options=None):
             raise AITimeoutError("LLM timed out")
 
     with pytest.raises(HTTPException) as exc:
