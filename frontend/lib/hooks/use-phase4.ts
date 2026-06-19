@@ -18,6 +18,7 @@ import { toPmCtx } from "@/lib/api/workspace";
 import { decodeApexMeta } from "@/lib/hooks/use-phase3";
 import { useApiContext } from "@/lib/stores/session-store";
 import { usePhase4Store } from "@/lib/stores/phase4-store";
+import { useCancellableMutation } from "@/lib/hooks/use-cancellable-mutation";
 import { toast } from "sonner";
 import type {
   Phase4FailGateRequest,
@@ -104,23 +105,25 @@ export function useGenerateTestPlan() {
   const context = useApiContext();
   const qc = useQueryClient();
   const setTestPlanMd = usePhase4Store((s) => s.setTestPlanMd);
-  return useMutation({
-    mutationFn: (storyId: number) => generateTestPlan(context!, storyId),
-    onSuccess: (data, storyId) => {
-      setTestPlanMd(data.test_plan_md);
-      void qc.invalidateQueries({ queryKey: ["phase4", "test-plan", context?.projectId, storyId] });
+  return useCancellableMutation(
+    (storyId: number, signal) => generateTestPlan(context!, storyId, signal),
+    {
+      onSuccess: (data, storyId) => {
+        setTestPlanMd(data.test_plan_md);
+        void qc.invalidateQueries({ queryKey: ["phase4", "test-plan", context?.projectId, storyId] });
+      },
+      onError: (err: Error) => toast.error(`Test plan generation failed: ${err.message}`),
     },
-    onError: (err: Error) => toast.error(`Test plan generation failed: ${err.message}`),
-  });
+  );
 }
 
 export function useGenerateEdgeCases() {
   const context = useApiContext();
-  return useMutation({
-    mutationFn: ({ storyId, scenarioText }: { storyId: number; scenarioText: string }) =>
-      generateEdgeCases(context!, storyId, scenarioText),
-    onError: (err: Error) => toast.error(`Edge-case exploration failed: ${err.message}`),
-  });
+  return useCancellableMutation(
+    ({ storyId, scenarioText }: { storyId: number; scenarioText: string }, signal) =>
+      generateEdgeCases(context!, storyId, scenarioText, signal),
+    { onError: (err: Error) => toast.error(`Edge-case exploration failed: ${err.message}`) },
+  );
 }
 
 export function useSaveTestPlan() {
@@ -159,18 +162,20 @@ export function useClearTestPlan() {
 export function useGenerateBugReport() {
   const context = useApiContext();
   const setBugReportDraft = usePhase4Store((s) => s.setBugReportDraft);
-  return useMutation({
-    mutationFn: (req: { storyId: number; failedScenarios: Phase4FailedScenario[] }) =>
+  return useCancellableMutation(
+    (req: { storyId: number; failedScenarios: Phase4FailedScenario[] }, signal) =>
       generateBugReport(context!, {
         story_id: req.storyId,
         failed_scenarios: req.failedScenarios,
-      }),
-    onSuccess: (data, req) => {
-      const key = req.failedScenarios[0]?.scenario_name ?? "combined";
-      setBugReportDraft(key, data.bug_report_md);
+      }, signal),
+    {
+      onSuccess: (data, req) => {
+        const key = req.failedScenarios[0]?.scenario_name ?? "combined";
+        setBugReportDraft(key, data.bug_report_md);
+      },
+      onError: (err: Error) => toast.error(`Bug report generation failed: ${err.message}`),
     },
-    onError: (err: Error) => toast.error(`Bug report generation failed: ${err.message}`),
-  });
+  );
 }
 
 export function usePassGate() {

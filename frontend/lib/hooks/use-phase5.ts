@@ -20,6 +20,7 @@ import { getProposals } from "@/lib/api/phase3";
 import { useStoryTasks } from "@/lib/hooks/use-phase4";
 import { useApiContext } from "@/lib/stores/session-store";
 import { usePhase5Store } from "@/lib/stores/phase5-store";
+import { useCancellableMutation } from "@/lib/hooks/use-cancellable-mutation";
 import { toast } from "sonner";
 import type {
   DeployPackOptions,
@@ -66,11 +67,13 @@ export function useLoadInfraDelta(storyId: number | null, enabled: boolean) {
 export function useGenerateInfraDelta() {
   const context = useApiContext();
   const setInfraDelta = usePhase5Store((s) => s.setInfraDelta);
-  return useMutation({
-    mutationFn: (storyId: number) => generateInfraDelta(context!, storyId),
-    onSuccess: (data) => setInfraDelta(data.delta, false, true),
-    onError: (err: Error) => toast.error(`Infra delta check failed: ${err.message}`),
-  });
+  return useCancellableMutation(
+    (storyId: number, signal) => generateInfraDelta(context!, storyId, signal),
+    {
+      onSuccess: (data) => setInfraDelta(data.delta, false, true),
+      onError: (err: Error) => toast.error(`Infra delta check failed: ${err.message}`),
+    },
+  );
 }
 
 export function useSaveInfraDelta() {
@@ -108,12 +111,14 @@ export function useLoadDeployPack(storyId: number | null, enabled: boolean) {
 export function useGenerateDeployPack() {
   const context = useApiContext();
   const setDeployPackMd = usePhase5Store((s) => s.setDeployPackMd);
-  return useMutation({
-    mutationFn: ({ storyId, options }: { storyId: number; options?: DeployPackOptions }) =>
-      generateDeployPack(context!, storyId, options),
-    onSuccess: (data) => setDeployPackMd(data.deploy_pack_md, false),
-    onError: (err: Error) => toast.error(`Deploy pack generation failed: ${err.message}`),
-  });
+  return useCancellableMutation(
+    ({ storyId, options }: { storyId: number; options?: DeployPackOptions }, signal) =>
+      generateDeployPack(context!, storyId, options, signal),
+    {
+      onSuccess: (data) => setDeployPackMd(data.deploy_pack_md, false),
+      onError: (err: Error) => toast.error(`Deploy pack generation failed: ${err.message}`),
+    },
+  );
 }
 
 export function useSaveDeployPack() {
@@ -136,18 +141,20 @@ export function useSaveDeployPack() {
 export function useReviseDeployPack() {
   const context = useApiContext();
   const setDeployPackMd = usePhase5Store((s) => s.setDeployPackMd);
-  return useMutation({
-    mutationFn: ({ storyId, deployPackMd, feedback }: {
+  return useCancellableMutation(
+    ({ storyId, deployPackMd, feedback }: {
       storyId: number;
       deployPackMd: string;
       feedback: string;
-    }) => reviseDeployPack(context!, storyId, deployPackMd, feedback),
+    }, signal) => reviseDeployPack(context!, storyId, deployPackMd, feedback, signal),
+    {
     onSuccess: (data) => {
       setDeployPackMd(data.deploy_pack_md, false);
       toast.success("Deploy pack revised — review and save it again.");
     },
     onError: (err: Error) => toast.error(`Revision failed: ${err.message}`),
-  });
+    },
+  );
 }
 
 /** Gherkin scenario titles — NOT phase4's parseScenarioNames, which parses

@@ -28,6 +28,7 @@ const EFFORT_POINTS: Record<EffortEstimate, number> = {
 };
 import { usePhase3Store } from "@/lib/stores/phase3-store";
 import { useApiContext } from "@/lib/stores/session-store";
+import { useCancellableMutation } from "@/lib/hooks/use-cancellable-mutation";
 import { toast } from "sonner";
 
 // ---------------------------------------------------------------------------
@@ -175,14 +176,16 @@ export function useGenerateTasks() {
   const context = useApiContext();
   const { setTaskList } = usePhase3Store();
 
-  return useMutation({
-    mutationFn: (storyId: number) => generateTasks(context!, storyId),
-    onSuccess: (data) => {
-      setTaskList(data.tasks);
-      toast.success(`${data.tasks.length} tasks generated.`);
+  return useCancellableMutation(
+    (storyId: number, signal) => generateTasks(context!, storyId, signal),
+    {
+      onSuccess: (data) => {
+        setTaskList(data.tasks);
+        toast.success(`${data.tasks.length} tasks generated.`);
+      },
+      onError: () => toast.error("Task generation failed. Try again."),
     },
-    onError: () => toast.error("Task generation failed. Try again."),
-  });
+  );
 }
 
 export function usePushTasksToTaiga() {
@@ -239,13 +242,15 @@ export function useGenerateProposal() {
   const context = useApiContext();
   const { setPackDraft } = usePhase3Store();
 
-  return useMutation({
-    mutationFn: (body: Phase3GenerateProposalRequest) => generateProposal(context!, body),
-    onSuccess: (data, variables) => {
-      setPackDraft(variables.task_id, data.proposal_md);
+  return useCancellableMutation(
+    (body: Phase3GenerateProposalRequest, signal) => generateProposal(context!, body, signal),
+    {
+      onSuccess: (data, variables) => {
+        setPackDraft(variables.task_id, data.proposal_md);
+      },
+      onError: () => toast.error("Pack generation failed. Try again."),
     },
-    onError: () => toast.error("Pack generation failed. Try again."),
-  });
+  );
 }
 
 export function useSaveProposal() {

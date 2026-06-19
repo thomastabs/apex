@@ -15,6 +15,7 @@ import {
 import { refreshStoryIndex } from "@/lib/api/phase2";
 import type { Phase1GenerateNlStoriesRequest, Phase1PushStoriesRequest } from "@/lib/api/types";
 import { useApiContext } from "@/lib/stores/session-store";
+import { useCancellableMutation } from "@/lib/hooks/use-cancellable-mutation";
 import { toast } from "sonner";
 
 export function usePhase1Epics() {
@@ -31,47 +32,47 @@ export function usePhase1Epics() {
 export function useSuggestPhase1Epics() {
   const context = useApiContext();
 
-  return useMutation({
-    mutationFn: (hint: string) => suggestPhase1Epics(context!, hint),
-    onError: () => toast.error("Failed to suggest epics. Check your connection and try again."),
-  });
+  return useCancellableMutation(
+    (hint: string, signal) => suggestPhase1Epics(context!, hint, signal),
+    { onError: () => toast.error("Failed to suggest epics. Check your connection and try again.") },
+  );
 }
 
 export function useAnalyzeGaps() {
   const context = useApiContext();
 
-  return useMutation({
-    mutationFn: ({ existingEpics, hint }: { existingEpics: ExistingEpicInput[]; hint: string }) =>
-      analyzeRequirementGaps(context!, existingEpics, hint),
-    onError: () => toast.error("Gap analysis failed. The AI may be busy — try again shortly."),
-  });
+  return useCancellableMutation(
+    ({ existingEpics, hint }: { existingEpics: ExistingEpicInput[]; hint: string }, signal) =>
+      analyzeRequirementGaps(context!, existingEpics, hint, signal),
+    { onError: () => toast.error("Gap analysis failed. The AI may be busy — try again shortly.") },
+  );
 }
 
 export function useGenerateNlStories() {
   const context = useApiContext();
 
-  return useMutation({
-    mutationFn: (body: Phase1GenerateNlStoriesRequest) => generateNlStories(context!, body),
-    onError: () => toast.error("Story generation failed. The AI may be busy — try again shortly."),
-  });
+  return useCancellableMutation(
+    (body: Phase1GenerateNlStoriesRequest, signal) => generateNlStories(context!, body, signal),
+    { onError: () => toast.error("Story generation failed. The AI may be busy — try again shortly.") },
+  );
 }
 
 export function useCompileGherkin() {
   const context = useApiContext();
 
-  return useMutation({
-    mutationFn: (nlDraft: string) => compileGherkin(context!, nlDraft),
-    onError: () => toast.error("Gherkin compilation failed. The AI may be busy — try again shortly."),
-  });
+  return useCancellableMutation(
+    (nlDraft: string, signal) => compileGherkin(context!, nlDraft, signal),
+    { onError: () => toast.error("Gherkin compilation failed. The AI may be busy — try again shortly.") },
+  );
 }
 
 export function useGenerateConstraints() {
   const context = useApiContext();
 
-  return useMutation({
-    mutationFn: () => generateConstraints(context!),
-    onError: () => toast.error("Constraint generation failed. The AI may be busy — try again shortly."),
-  });
+  return useCancellableMutation(
+    (_: void, signal) => generateConstraints(context!, signal),
+    { onError: () => toast.error("Constraint generation failed. The AI may be busy — try again shortly.") },
+  );
 }
 
 export function usePushPhase1Stories() {

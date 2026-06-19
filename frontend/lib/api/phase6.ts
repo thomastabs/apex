@@ -20,12 +20,14 @@ export function verifyConformance(
   storyId: number,
   ai = true,
   extraFiles: { path: string; content: string }[] = [],
+  signal?: AbortSignal,
 ) {
   return apiRequest<ConformanceReport>("/api/phase6/conformance", {
     method: "POST",
     context,
     body: { story_id: storyId, ai, extra_files: extraFiles },
     timeoutMs: ai ? PHASE6_AI_TIMEOUT_MS : undefined,
+    signal,
   });
 }
 
@@ -64,21 +66,21 @@ export function deleteMaintenanceItem(context: RequestContext, itemId: number) {
   return apiRequest<MaintenanceItemsResponse>(`${M}/items/${itemId}`, { method: "DELETE", context });
 }
 
-export function classifyMaintenanceItem(context: RequestContext, itemId: number) {
+export function classifyMaintenanceItem(context: RequestContext, itemId: number, signal?: AbortSignal) {
   return apiRequest<MaintenanceItem>(`${M}/items/${itemId}/classify`, {
-    method: "POST", context, timeoutMs: PHASE6_AI_TIMEOUT_MS,
+    method: "POST", context, timeoutMs: PHASE6_AI_TIMEOUT_MS, signal,
   });
 }
 
-export function diagnoseMaintenanceItem(context: RequestContext, itemId: number, codeSnippet: string) {
+export function diagnoseMaintenanceItem(context: RequestContext, itemId: number, codeSnippet: string, signal?: AbortSignal) {
   return apiRequest<MaintenanceItem>(`${M}/items/${itemId}/diagnose`, {
-    method: "POST", context, body: { code_snippet: codeSnippet }, timeoutMs: PHASE6_AI_TIMEOUT_MS,
+    method: "POST", context, body: { code_snippet: codeSnippet }, timeoutMs: PHASE6_AI_TIMEOUT_MS, signal,
   });
 }
 
-export function fixBriefMaintenanceItem(context: RequestContext, itemId: number) {
+export function fixBriefMaintenanceItem(context: RequestContext, itemId: number, signal?: AbortSignal) {
   return apiRequest<MaintenanceItem>(`${M}/items/${itemId}/fix-brief`, {
-    method: "POST", context, timeoutMs: PHASE6_AI_TIMEOUT_MS,
+    method: "POST", context, timeoutMs: PHASE6_AI_TIMEOUT_MS, signal,
   });
 }
 

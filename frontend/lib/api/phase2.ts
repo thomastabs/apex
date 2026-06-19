@@ -39,12 +39,13 @@ export function getDesign(context: RequestContext) {
   return apiRequest<DesignBundleResponse>("/api/phase2/design", { context });
 }
 
-export function proposeTechStack(context: RequestContext, body: ProposeTechStackRequest = {}) {
+export function proposeTechStack(context: RequestContext, body: ProposeTechStackRequest = {}, signal?: AbortSignal) {
   return apiRequest<ProposeTechStackResponse>("/api/phase2/propose-tech-stack", {
     method: "POST",
     context,
     body,
     timeoutMs: PHASE2_AI_TIMEOUT_MS,
+    signal,
   });
 }
 
@@ -97,12 +98,13 @@ export function loadDiagram(context: RequestContext) {
   return apiRequest<DiagramResponse | null>("/api/phase2/diagram", { context });
 }
 
-export function generateDiagram(context: RequestContext, data_model_md: string) {
+export function generateDiagram(context: RequestContext, data_model_md: string, signal?: AbortSignal) {
   return apiRequest<DiagramResponse>("/api/phase2/generate-diagram", {
     method: "POST",
     context,
     body: { data_model_md },
     timeoutMs: PHASE2_AI_TIMEOUT_MS,
+    signal,
   });
 }
 
@@ -118,12 +120,13 @@ export function loadScreenFlow(context: RequestContext) {
   return apiRequest<ScreenFlowResponse | null>("/api/phase2/screen-flow", { context });
 }
 
-export function generateScreenFlow(context: RequestContext, ux_brief_md: string) {
+export function generateScreenFlow(context: RequestContext, ux_brief_md: string, signal?: AbortSignal) {
   return apiRequest<ScreenFlowResponse>("/api/phase2/generate-screen-flow", {
     method: "POST",
     context,
     body: { ux_brief_md },
     timeoutMs: PHASE2_AI_TIMEOUT_MS,
+    signal,
   });
 }
 

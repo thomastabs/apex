@@ -20,21 +20,23 @@ export function getStoryContext(context: RequestContext, storyId: number) {
   return apiRequest<Phase3StoryContext>(`/api/phase3/story-context/${storyId}`, { context });
 }
 
-export function generateTasks(context: RequestContext, storyId: number) {
+export function generateTasks(context: RequestContext, storyId: number, signal?: AbortSignal) {
   return apiRequest<Phase3GenerateTasksResponse>("/api/phase3/generate-tasks", {
     method: "POST",
     context,
     body: { story_id: storyId },
     timeoutMs: PHASE3_AI_TIMEOUT_MS,
+    signal,
   });
 }
 
-export function generateProposal(context: RequestContext, body: Phase3GenerateProposalRequest) {
+export function generateProposal(context: RequestContext, body: Phase3GenerateProposalRequest, signal?: AbortSignal) {
   return apiRequest<Phase3GenerateProposalResponse>("/api/phase3/generate-proposal", {
     method: "POST",
     context,
     body,
     timeoutMs: PHASE3_AI_TIMEOUT_MS,
+    signal,
   });
 }
 

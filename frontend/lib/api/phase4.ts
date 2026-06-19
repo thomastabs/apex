@@ -22,21 +22,23 @@ export function getStoryContext(context: RequestContext, storyId: number) {
   return apiRequest<Phase4StoryContext>(`/api/phase4/story-context/${storyId}`, { context });
 }
 
-export function generateTestPlan(context: RequestContext, storyId: number) {
+export function generateTestPlan(context: RequestContext, storyId: number, signal?: AbortSignal) {
   return apiRequest<Phase4GenerateTestPlanResponse>("/api/phase4/generate-test-plan", {
     method: "POST",
     context,
     body: { story_id: storyId },
     timeoutMs: PHASE4_AI_TIMEOUT_MS,
+    signal,
   });
 }
 
-export function generateEdgeCases(context: RequestContext, storyId: number, scenarioText: string) {
+export function generateEdgeCases(context: RequestContext, storyId: number, scenarioText: string, signal?: AbortSignal) {
   return apiRequest<{ story_id: number; edge_cases_md: string }>("/api/phase4/generate-edge-cases", {
     method: "POST",
     context,
     body: { story_id: storyId, scenario_text: scenarioText },
     timeoutMs: PHASE4_AI_TIMEOUT_MS,
+    signal,
   });
 }
 
@@ -63,12 +65,13 @@ export function deleteTestPlan(context: RequestContext, storyId: number) {
   });
 }
 
-export function generateBugReport(context: RequestContext, body: Phase4GenerateBugReportRequest) {
+export function generateBugReport(context: RequestContext, body: Phase4GenerateBugReportRequest, signal?: AbortSignal) {
   return apiRequest<Phase4GenerateBugReportResponse>("/api/phase4/generate-bug-report", {
     method: "POST",
     context,
     body,
     timeoutMs: PHASE4_AI_TIMEOUT_MS,
+    signal,
   });
 }
 

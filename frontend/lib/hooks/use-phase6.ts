@@ -15,6 +15,7 @@ import {
   verifyConformance,
 } from "@/lib/api/phase6";
 import { useApiContext } from "@/lib/stores/session-store";
+import { useCancellableMutation } from "@/lib/hooks/use-cancellable-mutation";
 import type { ConformanceReport, MaintenanceItem } from "@/lib/api/types";
 
 export function useConformanceEligibleStories() {
@@ -39,17 +40,19 @@ export function useConformanceReport(storyId: number | null) {
 export function useVerifyConformance() {
   const context = useApiContext();
   const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ storyId, ai = true, extraFiles = [] }: { storyId: number; ai?: boolean; extraFiles?: { path: string; content: string }[] }) =>
-      verifyConformance(context!, storyId, ai, extraFiles),
-    onSuccess: (report: ConformanceReport) => {
-      qc.setQueryData(
-        ["phase6", "conformance", context?.projectId, report.story_id],
-        report,
-      );
-      qc.invalidateQueries({ queryKey: ["phase6", "eligible-stories", context?.projectId] });
+  return useCancellableMutation(
+    ({ storyId, ai = true, extraFiles = [] }: { storyId: number; ai?: boolean; extraFiles?: { path: string; content: string }[] }, signal) =>
+      verifyConformance(context!, storyId, ai, extraFiles, signal),
+    {
+      onSuccess: (report: ConformanceReport) => {
+        qc.setQueryData(
+          ["phase6", "conformance", context?.projectId, report.story_id],
+          report,
+        );
+        qc.invalidateQueries({ queryKey: ["phase6", "eligible-stories", context?.projectId] });
+      },
     },
-  });
+  );
 }
 
 // ── Maintenance (F1 Triage + F2 Fix-Bolt routing) ──────────────────────────
@@ -64,13 +67,13 @@ export function useMaintenanceItems() {
   });
 }
 
-function useItemMutation(fn: (ctx: NonNullable<ReturnType<typeof useApiContext>>, id: number) => Promise<MaintenanceItem>) {
+function useItemMutation(fn: (ctx: NonNullable<ReturnType<typeof useApiContext>>, id: number, signal: AbortSignal) => Promise<MaintenanceItem>) {
   const context = useApiContext();
   const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (itemId: number) => fn(context!, itemId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["phase6", "maintenance", context?.projectId] }),
-  });
+  return useCancellableMutation(
+    (itemId: number, signal) => fn(context!, itemId, signal),
+    { onSuccess: () => qc.invalidateQueries({ queryKey: ["phase6", "maintenance", context?.projectId] }) },
+  );
 }
 
 export function useCreateMaintenanceItem() {
@@ -83,7 +86,7 @@ export function useCreateMaintenanceItem() {
 }
 
 export function useClassifyItem() {
-  return useItemMutation((ctx, id) => classifyMaintenanceItem(ctx, id));
+  return useItemMutation((ctx, id, signal) => classifyMaintenanceItem(ctx, id, signal));
 }
 
 export function useDeleteMaintenanceItem() {
@@ -98,15 +101,15 @@ export function useDeleteMaintenanceItem() {
 export function useDiagnoseItem() {
   const context = useApiContext();
   const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ itemId, codeSnippet }: { itemId: number; codeSnippet: string }) =>
-      diagnoseMaintenanceItem(context!, itemId, codeSnippet),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["phase6", "maintenance", context?.projectId] }),
-  });
+  return useCancellableMutation(
+    ({ itemId, codeSnippet }: { itemId: number; codeSnippet: string }, signal) =>
+      diagnoseMaintenanceItem(context!, itemId, codeSnippet, signal),
+    { onSuccess: () => qc.invalidateQueries({ queryKey: ["phase6", "maintenance", context?.projectId] }) },
+  );
 }
 
 export function useFixBriefItem() {
-  return useItemMutation((ctx, id) => fixBriefMaintenanceItem(ctx, id));
+  return useItemMutation((ctx, id, signal) => fixBriefMaintenanceItem(ctx, id, signal));
 }
 
 export function useRouteItem() {

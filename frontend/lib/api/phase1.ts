@@ -30,12 +30,13 @@ export function listPhase1Epics(context: RequestContext) {
   return getPmAdapter(context.pmTool).getBoard(pmCtx(context));
 }
 
-export function suggestPhase1Epics(context: RequestContext, hint = "") {
+export function suggestPhase1Epics(context: RequestContext, hint = "", signal?: AbortSignal) {
   return apiRequest<{ epics: EpicSuggestion[] }>("/api/phase1/suggest-epics", {
     method: "POST",
     context,
     body: { hint },
     timeoutMs: 120_000,
+    signal,
   });
 }
 
@@ -43,24 +44,28 @@ export function analyzeRequirementGaps(
   context: RequestContext,
   existingEpics: ExistingEpicInput[],
   hint = "",
+  signal?: AbortSignal,
 ) {
   return apiRequest<RequirementGapReport>("/api/phase1/analyze-gaps", {
     method: "POST",
     context,
     body: { existing_epics: existingEpics, hint },
     timeoutMs: 180_000,
+    signal,
   });
 }
 
 export function generateNlStories(
   context: RequestContext,
   body: Phase1GenerateNlStoriesRequest,
+  signal?: AbortSignal,
 ) {
   return apiRequest<Phase1GenerateNlStoriesResponse>("/api/phase1/generate-nl-stories", {
     method: "POST",
     context,
     body,
     timeoutMs: 180_000,
+    signal,
   });
 }
 
@@ -72,19 +77,20 @@ export interface Phase1Constraint {
   rationale: string;
 }
 
-export function generateConstraints(context: RequestContext) {
+export function generateConstraints(context: RequestContext, signal?: AbortSignal) {
   return apiRequest<{ constraints: Phase1Constraint[]; constraints_md: string }>(
     "/api/phase1/generate-constraints",
-    { method: "POST", context, timeoutMs: 120_000 },
+    { method: "POST", context, timeoutMs: 120_000, signal },
   );
 }
 
-export function compileGherkin(context: RequestContext, nlDraft: string) {
+export function compileGherkin(context: RequestContext, nlDraft: string, signal?: AbortSignal) {
   return apiRequest<{ stories: CompiledStory[] }>("/api/phase1/compile-gherkin", {
     method: "POST",
     context,
     body: { nl_draft: nlDraft },
     timeoutMs: 180_000,
+    signal,
   });
 }
 

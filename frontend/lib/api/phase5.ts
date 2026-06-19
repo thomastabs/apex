@@ -22,12 +22,13 @@ export function getStoryContext(context: RequestContext, storyId: number) {
   return apiRequest<Phase5StoryContext>(`/api/phase5/story-context/${storyId}`, { context });
 }
 
-export function generateInfraDelta(context: RequestContext, storyId: number) {
+export function generateInfraDelta(context: RequestContext, storyId: number, signal?: AbortSignal) {
   return apiRequest<Phase5InfraDeltaResponse>("/api/phase5/generate-infra-delta", {
     method: "POST",
     context,
     body: { story_id: storyId },
     timeoutMs: PHASE5_AI_TIMEOUT_MS,
+    signal,
   });
 }
 
@@ -47,12 +48,14 @@ export function generateDeployPack(
   context: RequestContext,
   storyId: number,
   options?: DeployPackOptions,
+  signal?: AbortSignal,
 ) {
   return apiRequest<Phase5DeployPackResponse>("/api/phase5/generate-deploy-pack", {
     method: "POST",
     context,
     body: { story_id: storyId, ...(options ? { options } : {}) },
     timeoutMs: PHASE5_AI_TIMEOUT_MS,
+    signal,
   });
 }
 
@@ -84,12 +87,14 @@ export function reviseDeployPack(
   storyId: number,
   deployPackMd: string,
   feedback: string,
+  signal?: AbortSignal,
 ) {
   return apiRequest<Phase5DeployPackResponse>("/api/phase5/revise-deploy-pack", {
     method: "POST",
     context,
     body: { story_id: storyId, deploy_pack_md: deployPackMd, feedback },
     timeoutMs: PHASE5_AI_TIMEOUT_MS,
+    signal,
   });
 }
 

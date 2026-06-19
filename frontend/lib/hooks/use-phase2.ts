@@ -28,6 +28,7 @@ import type {
   ScreenFlowResponse,
 } from "@/lib/api/types";
 import { useApiContext } from "@/lib/stores/session-store";
+import { useCancellableMutation } from "@/lib/hooks/use-cancellable-mutation";
 import { toast } from "sonner";
 
 export function useTechStackStatus() {
@@ -55,10 +56,10 @@ export function useDesignBundle() {
 export function useProposeTechStack() {
   const context = useApiContext();
 
-  return useMutation({
-    mutationFn: (body: ProposeTechStackRequest) => proposeTechStack(context!, body),
-    onError: () => toast.error("Tech stack proposal failed. The AI may be busy — try again shortly."),
-  });
+  return useCancellableMutation(
+    (body: ProposeTechStackRequest, signal) => proposeTechStack(context!, body, signal),
+    { onError: () => toast.error("Tech stack proposal failed. The AI may be busy — try again shortly.") },
+  );
 }
 
 export function useLockTechStack() {
@@ -187,13 +188,15 @@ export function useLoadDiagram() {
 export function useGenerateDiagram() {
   const context = useApiContext();
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (data_model_md: string) => generateDiagram(context!, data_model_md),
-    onSuccess: (data: DiagramResponse) => {
-      queryClient.setQueryData(["phase2", "diagram", context?.projectId], data);
+  return useCancellableMutation(
+    (data_model_md: string, signal) => generateDiagram(context!, data_model_md, signal),
+    {
+      onSuccess: (data: DiagramResponse) => {
+        queryClient.setQueryData(["phase2", "diagram", context?.projectId], data);
+      },
+      onError: () => toast.error("Failed to generate diagram. Try again."),
     },
-    onError: () => toast.error("Failed to generate diagram. Try again."),
-  });
+  );
 }
 
 export function useSaveDiagramPositions() {
@@ -216,13 +219,15 @@ export function useLoadScreenFlow() {
 export function useGenerateScreenFlow() {
   const context = useApiContext();
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (ux_brief_md: string) => generateScreenFlow(context!, ux_brief_md),
-    onSuccess: (data: ScreenFlowResponse) => {
-      queryClient.setQueryData(["phase2", "screen-flow", context?.projectId], data);
+  return useCancellableMutation(
+    (ux_brief_md: string, signal) => generateScreenFlow(context!, ux_brief_md, signal),
+    {
+      onSuccess: (data: ScreenFlowResponse) => {
+        queryClient.setQueryData(["phase2", "screen-flow", context?.projectId], data);
+      },
+      onError: () => toast.error("Failed to generate screen flow. Try again."),
     },
-    onError: () => toast.error("Failed to generate screen flow. Try again."),
-  });
+  );
 }
 
 export function useSaveScreenFlowPositions() {
