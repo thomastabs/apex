@@ -175,6 +175,12 @@ class ContextService:
     def load_deploy_pack(self, story_id: int) -> str:
         return context_manager.load_deploy_pack(story_id)
 
+    def delete_deploy_pack(self, story_id: int) -> None:
+        context_manager.delete_deploy_pack(story_id)
+
+    def list_all_deploy_packs(self) -> list[dict]:
+        return context_manager.list_all_deploy_packs()
+
     def load_qa_results(self, story_id: int) -> dict | None:
         return context_manager.load_qa_results(story_id)
 

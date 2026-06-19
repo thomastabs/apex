@@ -26,6 +26,7 @@ import { GitHubSection } from "./sidebar/github-section";
 import { TasksSection } from "./sidebar/tasks-section";
 import { PacksSection } from "./sidebar/packs-section";
 import { TestPlansSection } from "./sidebar/test-plans-section";
+import { DeployPacksSection } from "./sidebar/deploy-packs-section";
 import { AboutSection } from "./sidebar/about-section";
 
 // ── constants ─────────────────────────────────────────────────────────────────
@@ -40,6 +41,8 @@ const SECTION_LABELS: Record<string, string> = {
   github: "GitHub",
   tasks: "Task Board",
   packs: "Developer Packs",
+  testplans: "Test Plans",
+  deploypacks: "Deploy Packs",
   about: "About Apex",
 };
 
@@ -860,6 +863,19 @@ export function Sidebar() {
             return (
               <TestPlansSection
                 key="testplans"
+                dark={dark}
+                confirm={confirm}
+                shellClass={shellClass}
+                dragHandlers={dragHandlers}
+                onDragStart={onDragStart}
+              />
+            );
+          }
+
+          if (id === "deploypacks" && projectId) {
+            return (
+              <DeployPacksSection
+                key="deploypacks"
                 dark={dark}
                 confirm={confirm}
                 shellClass={shellClass}

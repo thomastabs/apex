@@ -1552,6 +1552,35 @@ def load_deploy_pack(story_id: int) -> str:
         return ""
 
 
+def delete_deploy_pack(story_id: int) -> None:
+    """Remove a story's deploy pack and clear its has_deploy_pack flag."""
+    p = _context_dir() / f"deploy_pack_story_{story_id}.md"
+    if p.exists():
+        p.unlink()
+    upsert_story_index(story_id, has_deploy_pack=False)
+
+
+def list_all_deploy_packs() -> list[dict]:
+    """All saved deploy packs in the project, annotated with story titles."""
+    index = get_story_index()
+    packs: list[dict] = []
+    for entry in index.values():
+        if not entry.get("has_deploy_pack"):
+            continue
+        story_id = entry.get("story_id")
+        if not story_id:
+            continue
+        md = load_deploy_pack(story_id)
+        if not md.strip():
+            continue
+        packs.append({
+            "story_id": story_id,
+            "title": entry.get("title", ""),
+            "chars": len(md),
+        })
+    return sorted(packs, key=lambda p: p["story_id"])
+
+
 def append_deployment_record(
     story_id: int,
     title: str,

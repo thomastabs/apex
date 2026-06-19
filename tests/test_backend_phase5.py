@@ -106,6 +106,17 @@ class FakeContextService:
     def load_deploy_pack(self, story_id: int) -> str:
         return self.saved_pack[1] if self.saved_pack else ""
 
+    def delete_deploy_pack(self, story_id: int) -> None:
+        if self.saved_pack and self.saved_pack[0] == story_id:
+            self.saved_pack = None
+
+    def list_all_deploy_packs(self) -> list[dict]:
+        if not self.saved_pack:
+            return []
+        sid, md = self.saved_pack
+        entry = self.index.get(str(sid), {})
+        return [{"story_id": sid, "title": entry.get("title", ""), "chars": len(md)}]
+
     def load_qa_results(self, story_id: int):
         return None
 
@@ -317,6 +328,18 @@ def test_deploy_pack_preferences_block_renders_known_options():
     assert "Kubernetes" in block
     assert "Zero-downtime" in block
     assert "ship it" in block  # trimmed
+
+
+def test_list_and_delete_deploy_packs():
+    ai = FakeAiService(delta=_FAKE_DELTA_CHANGES)
+    ctx_service = FakeContextService()
+    svc = _svc(ai=ai, context=ctx_service)
+    svc.save_infra_delta(_ctx(), 10, _FAKE_DELTA_CHANGES)
+    svc.save_deploy_pack(_ctx(), 10, "# Deploy Pack\nbody")
+    listed = svc.list_all_deploy_packs(_ctx())
+    assert listed == [{"story_id": 10, "title": ctx_service.index["10"]["title"], "chars": len("# Deploy Pack\nbody")}]
+    svc.delete_deploy_pack(_ctx(), 10)
+    assert svc.list_all_deploy_packs(_ctx()) == []
 
 
 def test_revise_deploy_pack_passes_feedback():

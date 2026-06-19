@@ -3,6 +3,7 @@ import type {
   DeployPackOptions,
   InfraDelta,
   Phase5DeployPackResponse,
+  Phase5DeployPacksResponse,
   Phase5EligibleStoriesResponse,
   Phase5InfraDeltaResponse,
   Phase5QaResultsResponse,
@@ -65,6 +66,17 @@ export function saveDeployPack(context: RequestContext, storyId: number, deployP
 
 export function getDeployPack(context: RequestContext, storyId: number) {
   return apiRequest<Phase5DeployPackResponse>(`/api/phase5/deploy-pack/${storyId}`, { context });
+}
+
+export function listDeployPacks(context: RequestContext) {
+  return apiRequest<Phase5DeployPacksResponse>("/api/phase5/deploy-packs", { context });
+}
+
+export function deleteDeployPack(context: RequestContext, storyId: number) {
+  return apiRequest<{ ok: boolean }>(`/api/phase5/deploy-pack/${storyId}`, {
+    method: "DELETE",
+    context,
+  });
 }
 
 export function reviseDeployPack(

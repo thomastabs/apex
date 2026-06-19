@@ -196,6 +196,15 @@ class Phase5Service:
         self.configure_request(ctx)
         return self.context.load_deploy_pack(story_id)
 
+    def delete_deploy_pack(self, ctx: RequestContext, story_id: int) -> None:
+        self.configure_request(ctx)
+        self.context.delete_deploy_pack(story_id)
+
+    def list_all_deploy_packs(self, ctx: RequestContext) -> list[dict]:
+        """All saved deploy packs in the project, annotated with story titles."""
+        self.configure_request(ctx)
+        return self.context.list_all_deploy_packs()
+
     def revise_deploy_pack(
         self, ctx: RequestContext, story_id: int, pack_md: str, feedback: str,
     ) -> str:

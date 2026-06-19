@@ -464,6 +464,16 @@ export type Phase5DeployPackResponse = {
   deploy_pack_md: string;
 };
 
+export type DeployPackListItem = {
+  story_id: number;
+  title: string;
+  chars: number;
+};
+
+export type Phase5DeployPacksResponse = {
+  deploy_packs: DeployPackListItem[];
+};
+
 export type DeployPackEmphasis =
   | "zero_downtime"
   | "rollback_depth"

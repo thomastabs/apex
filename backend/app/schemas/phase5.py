@@ -84,6 +84,16 @@ class DeployPackResponse(BaseModel):
     deploy_pack_md: str
 
 
+class DeployPackListItem(BaseModel):
+    story_id: int
+    title: str = ""
+    chars: int = 0
+
+
+class DeployPacksResponse(BaseModel):
+    deploy_packs: list[DeployPackListItem]
+
+
 class SaveDeployPackRequest(BaseModel):
     story_id: int
     deploy_pack_md: str = Field(min_length=1, max_length=200_000)

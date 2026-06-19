@@ -8,6 +8,7 @@ from backend.app.api.deps import RequestContext, get_request_context
 from backend.app.api.rate_limit import ai_rate_limit
 from backend.app.schemas.phase5 import (
     DeployPackResponse,
+    DeployPacksResponse,
     EligibleStoriesResponse,
     GenerateDeployPackRequest,
     GenerateInfraDeltaRequest,
@@ -135,6 +136,17 @@ def save_deploy_pack(
         _handle_error(exc)
 
 
+@router.get("/deploy-packs", response_model=DeployPacksResponse)
+def list_deploy_packs(
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase5Service = Depends(get_phase5_service),
+):
+    try:
+        return {"deploy_packs": service.list_all_deploy_packs(ctx)}
+    except Exception as exc:
+        _handle_error(exc)
+
+
 @router.get("/deploy-pack/{story_id}", response_model=DeployPackResponse)
 def get_deploy_pack(
     story_id: int,
@@ -143,6 +155,19 @@ def get_deploy_pack(
 ):
     try:
         return {"story_id": story_id, "deploy_pack_md": service.load_deploy_pack(ctx, story_id)}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.delete("/deploy-pack/{story_id}", response_model=OkResponse)
+def delete_deploy_pack(
+    story_id: int,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase5Service = Depends(get_phase5_service),
+):
+    try:
+        service.delete_deploy_pack(ctx, story_id)
+        return {"ok": True}
     except Exception as exc:
         _handle_error(exc)
 
