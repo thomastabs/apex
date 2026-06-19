@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   CheckCircle2,
@@ -855,6 +856,7 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
   onNewStory: () => void;
 }) {
   const dark = useUiStore((s) => s.theme) === "dark";
+  const router = useRouter();
   const { data: ctx } = useStoryContext(storyId);
 
   const infraDelta = usePhase5Store((s) => s.infraDelta);
@@ -933,7 +935,10 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
                 : "Update PM Story Status"}
             </Button>
           )}
-          <Button className="w-full justify-center" onClick={() => { clearPhase5Draft(); onNewStory(); }}>
+          <Button className="w-full justify-center gap-1.5" onClick={() => router.push("/phase6")}>
+            <Rocket className="h-4 w-4" /> Continue to Phase 6 — Maintenance
+          </Button>
+          <Button variant="secondary" className="w-full justify-center" onClick={() => { clearPhase5Draft(); onNewStory(); }}>
             Deploy Another Story
           </Button>
         </div>
