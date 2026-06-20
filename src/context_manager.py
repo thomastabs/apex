@@ -1653,6 +1653,9 @@ def save_verification(story_id: int, data: dict) -> Path:
     (cd / f"verification_story_{story_id}.md").write_text(
         _render_verification_md(story_id, data), encoding="utf-8",
     )
+    # Mirror the completeness flag into the index so the analytics summary can
+    # read it from the single index file instead of re-reading this JSON per story.
+    upsert_story_index(story_id, verification_complete=bool(data.get("complete")))
     return p
 
 
@@ -1674,6 +1677,11 @@ def save_conformance(story_id: int, data: dict) -> Path:
     data = {**data, "story_id": story_id, "generated_at": data.get("generated_at") or _now_iso()}
     p = cd / f"conformance_story_{story_id}.json"
     p.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    # Mirror the score into the index so the analytics summary avoids an
+    # O(stories) fan-out of per-story conformance reads on the File Share.
+    score = data.get("score")
+    if isinstance(score, (int, float)):
+        upsert_story_index(story_id, conformance_score=int(score))
     return p
 
 

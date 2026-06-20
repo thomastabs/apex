@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Callout } from "@/components/ui/primitives";
 import { deleteBugReport, getBugReport, getFixLog, listBugReports, saveBugReport } from "@/lib/api/phase4";
+import { useEscapeKey } from "@/lib/hooks/use-escape-key";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
@@ -95,6 +96,8 @@ export function FixBoltDashboard() {
     setEditing(false);
   };
 
+  useEscapeKey(viewing !== null, closeModal);
+
   const mutedClass = dark ? "text-neutral-500" : "text-slate-400";
   const rowBtn = cn(
     "rounded p-1 transition-colors",
@@ -165,15 +168,16 @@ export function FixBoltDashboard() {
                         {Math.round(r.chars / 100) / 10}k chars
                       </span>
                     </span>
-                    <button className={rowBtn} title="View / edit bug report" disabled={viewMut.isPending} onClick={() => viewMut.mutate(r.story_id)}>
+                    <button className={rowBtn} title="View / edit bug report" aria-label={`View or edit bug report for US#${r.story_id}`} disabled={viewMut.isPending} onClick={() => viewMut.mutate(r.story_id)}>
                       <Eye className="size-4" />
                     </button>
-                    <button className={rowBtn} title="Download bug report" disabled={downloadMut.isPending} onClick={() => downloadMut.mutate(r.story_id)}>
+                    <button className={rowBtn} title="Download bug report" aria-label={`Download bug report for US#${r.story_id}`} disabled={downloadMut.isPending} onClick={() => downloadMut.mutate(r.story_id)}>
                       <Download className="size-4" />
                     </button>
                     <button
                       className={cn(rowBtn, "hover:!text-red-400")}
                       title="Delete bug report"
+                      aria-label={`Delete bug report for US#${r.story_id}`}
                       disabled={deleteMut.isPending}
                       onClick={() => {
                         if (window.confirm(`Delete the bug report for US#${r.story_id}? The story stays flagged so its Regression Bypass is preserved.`)) {
@@ -222,6 +226,9 @@ export function FixBoltDashboard() {
         createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={closeModal}>
             <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Bug report for US#${viewing.storyId}`}
               className={cn(
                 "flex h-[85vh] w-full max-w-3xl flex-col rounded-xl border shadow-2xl",
                 dark ? "border-neutral-700 bg-[#1b1b1c]" : "border-slate-200 bg-white",
@@ -237,24 +244,26 @@ export function FixBoltDashboard() {
                   <button
                     className={rowBtn}
                     title="Save changes"
+                    aria-label="Save changes"
                     disabled={saveMut.isPending || !draft.trim()}
                     onClick={() => saveMut.mutate({ storyId: viewing.storyId, md: draft })}
                   >
                     {saveMut.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
                   </button>
                 ) : (
-                  <button className={rowBtn} title="Edit" onClick={() => { setEditing(true); setDraft(viewing.content); }}>
+                  <button className={rowBtn} title="Edit" aria-label="Edit bug report" onClick={() => { setEditing(true); setDraft(viewing.content); }}>
                     <Pencil className="size-4" />
                   </button>
                 )}
                 <button
                   className={rowBtn}
                   title="Download"
+                  aria-label="Download bug report"
                   onClick={() => bugReportDownload(editing ? draft : viewing.content, viewing.storyId)}
                 >
                   <Download className="size-4" />
                 </button>
-                <button className={rowBtn} title="Close" onClick={closeModal}>
+                <button className={rowBtn} title="Close" aria-label="Close dialog" onClick={closeModal}>
                   <X className="size-4" />
                 </button>
               </div>

@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { deleteDeployPack, getDeployPack, listDeployPacks, saveDeployPack } from "@/lib/api/phase5";
+import { useEscapeKey } from "@/lib/hooks/use-escape-key";
 import { useAutoSyncStoryIndex } from "@/lib/hooks/use-workspace";
 import { useApiContext } from "@/lib/stores/session-store";
 import { PanelHeader, type DragSectionProps } from "./shared";
@@ -95,6 +96,8 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
     setEditing(false);
   };
 
+  useEscapeKey(viewing !== null, closeModal);
+
   const rowBtn = cn(
     "rounded p-1 transition-colors",
     dark ? "text-neutral-500 hover:text-violet-400" : "text-slate-400 hover:text-violet-600",
@@ -178,6 +181,9 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
         createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={closeModal}>
             <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Deploy pack for US#${viewing.storyId}`}
               className={cn(
                 "flex h-[85vh] w-full max-w-3xl flex-col rounded-xl border shadow-2xl",
                 dark ? "border-neutral-700 bg-[#1b1b1c]" : "border-slate-200 bg-white",

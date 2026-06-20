@@ -115,6 +115,12 @@ class AnalyticsService:
             story_id = e.get("story_id")
             if story_id is None:
                 continue
+            # Fast path: score mirrored into the index at save time (no file read).
+            cached = e.get("conformance_score")
+            if isinstance(cached, int):
+                scores.append(cached)
+                continue
+            # Fallback for indexes rebuilt before the mirror existed.
             report = self.context.load_conformance(story_id)
             if report and isinstance(report.get("score"), int):
                 scores.append(report["score"])
@@ -156,6 +162,10 @@ class AnalyticsService:
             return False
         if story_id not in deployed_ids:
             return False
+        # Fast path: completeness mirrored into the index at save time (no file read).
+        if "verification_complete" in entry:
+            return bool(entry["verification_complete"])
+        # Fallback for indexes rebuilt before the mirror existed.
         verification = self.context.load_verification(story_id)
         return bool(verification and verification.get("complete"))
 

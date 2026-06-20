@@ -5,6 +5,7 @@ import { ClipboardCheck, Download, Eye, Loader2, Pencil, Save, Trash2, X } from 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useEscapeKey } from "@/lib/hooks/use-escape-key";
 import { deleteTestPlan, getTestPlan, listTestPlans, saveTestPlan } from "@/lib/api/phase4";
 import { useAutoSyncStoryIndex } from "@/lib/hooks/use-workspace";
 import { useApiContext } from "@/lib/stores/session-store";
@@ -95,6 +96,8 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
     setEditing(false);
   };
 
+  useEscapeKey(viewing !== null, closeModal);
+
   const rowBtn = cn(
     "rounded p-1 transition-colors",
     dark ? "text-neutral-500 hover:text-violet-400" : "text-slate-400 hover:text-violet-600",
@@ -182,6 +185,9 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
                 "flex h-[85vh] w-full max-w-3xl flex-col rounded-xl border shadow-2xl",
                 dark ? "border-neutral-700 bg-[#1b1b1c]" : "border-slate-200 bg-white",
               )}
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Test plan for US#${viewing.storyId}`}
               onClick={(e) => e.stopPropagation()}
             >
               <div className={cn("flex items-center gap-3 border-b px-5 py-3", dark ? "border-neutral-800" : "border-slate-200")}>

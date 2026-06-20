@@ -6,6 +6,7 @@ string; the source address cannot.
 """
 
 import hashlib
+import os
 import threading
 import time
 from collections import defaultdict
@@ -37,11 +38,28 @@ _username_failure_buckets: dict[str, tuple[float, int]] = {}
 
 
 def _client_ip(request: Request) -> str:
-    # Behind Azure Container Apps ingress the socket peer is the proxy;
-    # the original client is the first X-Forwarded-For hop.
+    """Resolve the real client IP from X-Forwarded-For, trusting only the hops
+    our own infrastructure appended.
+
+    A proxy APPENDS the address it received the request from, so the rightmost
+    entries are added by trusted infrastructure and the leftmost is whatever the
+    client sent — i.e. attacker-controlled. Reading `[0]` (the old behaviour) let
+    an attacker spoof a fresh IP per request and walk straight past every per-IP
+    limit. With N trusted proxies in front (Azure Container Apps ingress = 1, the
+    default), the real client is the Nth entry from the right.
+
+    TRUSTED_PROXY_HOPS makes the count tunable without a code change — set it to
+    match the actual number of proxies that rewrite XFF in front of the app. If
+    the chain is shorter than expected (idx < 0), fall back to the socket peer
+    rather than the spoofable leftmost value.
+    """
     forwarded = request.headers.get("x-forwarded-for", "")
     if forwarded:
-        return forwarded.split(",")[0].strip()
+        parts = [p.strip() for p in forwarded.split(",") if p.strip()]
+        hops = max(1, int(os.getenv("TRUSTED_PROXY_HOPS", "1") or "1"))
+        idx = len(parts) - hops
+        if idx >= 0:
+            return parts[idx]
     return request.client.host if request.client else "unknown"
 
 

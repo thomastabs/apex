@@ -5,6 +5,7 @@ import { Download, Eye, FileCode2, Loader2, Pencil, Save, Trash2, X } from "luci
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useEscapeKey } from "@/lib/hooks/use-escape-key";
 import { deleteProposal, getProposals, listPacks, saveProposal } from "@/lib/api/phase3";
 import { useAutoSyncStoryIndex } from "@/lib/hooks/use-workspace";
 import { useApiContext } from "@/lib/stores/session-store";
@@ -88,6 +89,8 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
     setViewing(null);
     setEditing(false);
   };
+
+  useEscapeKey(viewing !== null, closeModal);
 
   const downloadMut = useMutation({
     mutationFn: fetchPackContent,
@@ -232,6 +235,9 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
                 "flex h-[85vh] w-full max-w-3xl flex-col rounded-xl border shadow-2xl",
                 dark ? "border-neutral-700 bg-[#1b1b1c]" : "border-slate-200 bg-white",
               )}
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Developer pack for US#${viewing.storyId}, task ${viewing.taskId}`}
               onClick={(e) => e.stopPropagation()}
             >
               <div className={cn("flex items-center gap-3 border-b px-5 py-3", dark ? "border-neutral-800" : "border-slate-200")}>
