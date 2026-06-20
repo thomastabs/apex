@@ -1,21 +1,19 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
- * CSP nonce rollout — phase 1 (observe).
+ * CSP nonce — phase 2 (enforce).
  *
- * Emits a STRICT, nonce-based policy as `Content-Security-Policy-Report-Only`
- * so violations surface in the browser console / prod without blocking
- * anything. The ENFORCED policy stays permissive (next.config.ts) during this
- * phase, so there is zero breakage risk while we confirm the strict policy is
- * clean. Once verified, flip: drop the static enforced CSP for scripts and set
- * this `strict` string as `Content-Security-Policy` here instead.
+ * Emits a strict, nonce-based policy as the ENFORCED `Content-Security-Policy`:
+ * `script-src 'self' 'nonce-{x}' 'strict-dynamic'` removes 'unsafe-inline' and
+ * 'unsafe-eval', the two big XSS vectors. The nonce is set on the request CSP
+ * header so Next injects it into its own <script> tags; `force-dynamic` in
+ * app/layout.tsx ensures every page is rendered per request so the nonce
+ * actually lands (static prerender would bake nonce-less scripts).
  *
- * The nonce is also set on the REQUEST `Content-Security-Policy` header so Next
- * applies it to its own framework scripts — that keeps the Report-Only signal
- * clean (only genuinely un-nonced inline scripts violate, not Next's hydration
- * scripts). style-src keeps 'unsafe-inline' because ReactFlow + Tailwind inject
- * inline styles that cannot be nonced in practice (style injection is a far
- * lower-risk XSS sink than script).
+ * style-src keeps 'unsafe-inline' because ReactFlow + Tailwind inject inline
+ * styles that cannot be nonced in practice (style injection is a far
+ * lower-risk XSS sink than script). The static CSP in next.config.ts was
+ * removed so this middleware is the single source of the policy.
  */
 export function middleware(request: NextRequest) {
   const nonce = btoa(crypto.randomUUID());
@@ -37,7 +35,7 @@ export function middleware(request: NextRequest) {
   requestHeaders.set("Content-Security-Policy", strict);
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
-  response.headers.set("Content-Security-Policy-Report-Only", strict);
+  response.headers.set("Content-Security-Policy", strict);
   return response;
 }
 
