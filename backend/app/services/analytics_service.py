@@ -90,8 +90,13 @@ class AnalyticsService:
             "avg_per_story": round(sum(fix_bolts) / len(entries), 2) if entries else 0.0,
         }
 
+        # Cohort p90 of total cycle time — a story slower than this is flagged.
+        # Needs a handful of completed samples to be a meaningful threshold.
+        cohort_hours = [h for e in entries if (h := self._total_cycle_hours(e)) is not None]
+        cycle_threshold = _p90(cohort_hours) if len(cohort_hours) >= 4 else None
+
         stories = sorted(
-            (self._story_row(e, complete_by_id) for e in entries if e.get("story_id")),
+            (self._story_row(e, complete_by_id, cycle_threshold) for e in entries if e.get("story_id")),
             key=lambda r: r["story_id"],
         )
         return {
@@ -169,20 +174,64 @@ class AnalyticsService:
         verification = self.context.load_verification(story_id)
         return bool(verification and verification.get("complete"))
 
-    def _story_row(self, entry: dict, complete_by_id: dict[int, bool]) -> dict:
+    def _total_cycle_hours(self, entry: dict) -> float | None:
         history = entry.get("status_history") or {}
         first = _earliest(history, "gherkin_locked")
         current = entry.get("phase_status", "")
         last = _latest(history, current) if current else None
-        total_hours = None
         if first and last and last >= first:
-            total_hours = round((last - first).total_seconds() / 3600, 2)
+            return round((last - first).total_seconds() / 3600, 2)
+        return None
+
+    def _story_risk(self, entry: dict, total_hours: float | None,
+                    cycle_threshold: float | None) -> dict:
+        """Deterministic, explainable risk score from already-logged signals —
+        a forecast of QA-failure / spec-drift likelihood, not an AI guess."""
+        score = 0
+        reasons: list[str] = []
+
+        fb = int(entry.get("fix_bolt_count", 0))
+        if fb >= 2:
+            score += 2
+            reasons.append(f"{fb} Fix-Bolts — defect-prone")
+        elif fb == 1:
+            score += 1
+            reasons.append("1 Fix-Bolt logged")
+
+        if entry.get("spec_drift"):
+            score += 2
+            reasons.append("spec drifted after lock")
+
+        if entry.get("has_bug_report") and entry.get("phase_status") == "implementation":
+            score += 1
+            reasons.append("regression bypass in progress")
+
+        cs = entry.get("conformance_score")
+        if isinstance(cs, int):
+            if cs < 70:
+                score += 2
+                reasons.append(f"low spec conformance ({cs}%)")
+            elif cs < 85:
+                score += 1
+                reasons.append(f"moderate spec conformance ({cs}%)")
+
+        if cycle_threshold is not None and total_hours is not None and total_hours > cycle_threshold:
+            score += 1
+            reasons.append("slow cycle (> cohort p90)")
+
+        level = "high" if score >= 5 else "medium" if score >= 3 else "low" if score >= 1 else "none"
+        return {"level": level, "score": score, "reasons": reasons}
+
+    def _story_row(self, entry: dict, complete_by_id: dict[int, bool],
+                   cycle_threshold: float | None = None) -> dict:
+        total_hours = self._total_cycle_hours(entry)
         return {
             "story_id": entry.get("story_id"),
             "title": entry.get("title", ""),
             "epic_title": entry.get("epic_title", ""),
-            "phase_status": current,
+            "phase_status": entry.get("phase_status", ""),
             "fix_bolt_count": int(entry.get("fix_bolt_count", 0)),
             "total_cycle_hours": total_hours,
             "artifact_complete": complete_by_id.get(entry.get("story_id"), False),
+            "risk": self._story_risk(entry, total_hours, cycle_threshold),
         }

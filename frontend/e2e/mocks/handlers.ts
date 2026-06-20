@@ -193,6 +193,7 @@ export const FAKE_ANALYTICS_SUMMARY = {
       fix_bolt_count: 2,
       total_cycle_hours: 48.0,
       artifact_complete: true,
+      risk: { level: "high", score: 5, reasons: ["2 Fix-Bolts — defect-prone"] },
     },
     {
       story_id: 11,
@@ -202,6 +203,7 @@ export const FAKE_ANALYTICS_SUMMARY = {
       fix_bolt_count: 1,
       total_cycle_hours: 30.0,
       artifact_complete: false,
+      risk: { level: "low", score: 1, reasons: ["1 Fix-Bolt logged"] },
     },
     {
       story_id: 12,
@@ -211,6 +213,7 @@ export const FAKE_ANALYTICS_SUMMARY = {
       fix_bolt_count: 0,
       total_cycle_hours: null,
       artifact_complete: false,
+      risk: { level: "none", score: 0, reasons: [] },
     },
   ],
 };

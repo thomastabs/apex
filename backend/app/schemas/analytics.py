@@ -28,6 +28,12 @@ class DefectStats(BaseModel):
     avg_per_story: float = 0.0
 
 
+class StoryRisk(BaseModel):
+    level: str = "none"  # none | low | medium | high
+    score: int = 0
+    reasons: list[str] = Field(default_factory=list)
+
+
 class StoryAnalyticsRow(BaseModel):
     story_id: int
     title: str
@@ -36,6 +42,7 @@ class StoryAnalyticsRow(BaseModel):
     fix_bolt_count: int = 0
     total_cycle_hours: float | None = None
     artifact_complete: bool = False
+    risk: StoryRisk = Field(default_factory=StoryRisk)
 
 
 class AnalyticsSummaryResponse(BaseModel):

@@ -38,12 +38,12 @@ function blobDownload(content: string, filename: string, type = "text/plain") {
 }
 
 function toCsv(data: AnalyticsSummary): string {
-  const lines = ["story_id,title,epic,phase_status,fix_bolt_count,total_cycle_hours,artifact_complete"];
+  const lines = ["story_id,title,epic,phase_status,fix_bolt_count,total_cycle_hours,artifact_complete,risk_level,risk_score"];
   for (const s of data.stories) {
     const title = `"${s.title.replaceAll('"', '""')}"`;
     const epic = `"${s.epic_title.replaceAll('"', '""')}"`;
     lines.push(
-      `${s.story_id},${title},${epic},${s.phase_status},${s.fix_bolt_count},${s.total_cycle_hours ?? ""},${s.artifact_complete}`,
+      `${s.story_id},${title},${epic},${s.phase_status},${s.fix_bolt_count},${s.total_cycle_hours ?? ""},${s.artifact_complete},${s.risk.level},${s.risk.score}`,
     );
   }
   return lines.join("\n");
@@ -77,11 +77,13 @@ function toMarkdown(data: AnalyticsSummary): string {
     "",
     "## Stories",
     "",
-    "| Story | Status | Fix-Bolts | Cycle (h) | Artifacts complete |",
-    "|---|---|---|---|---|",
-    ...data.stories.map((s) =>
-      `| US#${s.story_id} ${s.title} | ${s.phase_status} | ${s.fix_bolt_count} | ${s.total_cycle_hours ?? "—"} | ${s.artifact_complete ? "yes" : "no"} |`,
-    ),
+    "| Story | Risk | Status | Fix-Bolts | Cycle (h) | Artifacts complete |",
+    "|---|---|---|---|---|---|",
+    ...[...data.stories]
+      .sort((a, b) => b.risk.score - a.risk.score || a.story_id - b.story_id)
+      .map((s) =>
+        `| US#${s.story_id} ${s.title} | ${s.risk.level}${s.risk.reasons.length ? ` (${s.risk.reasons.join("; ")})` : ""} | ${s.phase_status} | ${s.fix_bolt_count} | ${s.total_cycle_hours ?? "—"} | ${s.artifact_complete ? "yes" : "no"} |`,
+      ),
     "",
   ];
   return lines.join("\n");
@@ -222,6 +224,7 @@ export function AnalyticsDashboard() {
                 <thead>
                   <tr className={cn("text-left text-xs uppercase tracking-wider", dark ? "bg-neutral-900 text-neutral-500" : "bg-slate-50 text-slate-400")}>
                     <th className="px-4 py-2.5 font-semibold">Story</th>
+                    <th className="px-4 py-2.5 font-semibold">Risk</th>
                     <th className="px-4 py-2.5 font-semibold">Status</th>
                     <th className="px-4 py-2.5 font-semibold">Fix-Bolts</th>
                     <th className="px-4 py-2.5 font-semibold">Cycle (h)</th>
@@ -229,13 +232,34 @@ export function AnalyticsDashboard() {
                   </tr>
                 </thead>
                 <tbody className={cn("divide-y", dark ? "divide-neutral-800" : "divide-slate-100")}>
-                  {data.stories.map((s) => (
+                  {[...data.stories]
+                    .sort((a, b) => b.risk.score - a.risk.score || a.story_id - b.story_id)
+                    .map((s) => (
                     <tr key={s.story_id}>
                       <td className="px-4 py-2.5">
                         <span className={cn("mr-2 rounded px-1.5 py-0.5 text-xs font-mono font-bold", dark ? "bg-violet-900/40 text-violet-400" : "bg-violet-100 text-violet-700")}>
                           US#{s.story_id}
                         </span>
                         <span className={dark ? "text-neutral-200" : "text-slate-700"}>{s.title}</span>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        {s.risk.level === "none" ? (
+                          <span className={mutedClass}>—</span>
+                        ) : (
+                          <span
+                            title={s.risk.reasons.join(" · ")}
+                            className={cn(
+                              "rounded px-1.5 py-0.5 text-xs font-semibold capitalize",
+                              s.risk.level === "high"
+                                ? dark ? "bg-red-900/40 text-red-400" : "bg-red-100 text-red-700"
+                                : s.risk.level === "medium"
+                                  ? dark ? "bg-amber-900/40 text-amber-400" : "bg-amber-100 text-amber-700"
+                                  : dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-100 text-slate-500",
+                            )}
+                          >
+                            {s.risk.level}
+                          </span>
+                        )}
                       </td>
                       <td className={cn("px-4 py-2.5 text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
                         {STATUS_LABELS[s.phase_status] ?? s.phase_status}

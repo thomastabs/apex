@@ -8,6 +8,12 @@ export type CycleTimeStat = {
   samples: number;
 };
 
+export type StoryRisk = {
+  level: "none" | "low" | "medium" | "high";
+  score: number;
+  reasons: string[];
+};
+
 export type StoryAnalyticsRow = {
   story_id: number;
   title: string;
@@ -16,6 +22,7 @@ export type StoryAnalyticsRow = {
   fix_bolt_count: number;
   total_cycle_hours: number | null;
   artifact_complete: boolean;
+  risk: StoryRisk;
 };
 
 export type AnalyticsSummary = {
