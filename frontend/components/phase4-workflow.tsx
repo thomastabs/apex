@@ -38,6 +38,7 @@ import {
   useUpdatePmStoryStatus,
 } from "@/lib/hooks/use-phase4";
 import { pmTaskWebUrl } from "@/lib/hooks/use-phase3";
+import { useServerConfig } from "@/lib/hooks/use-workspace";
 import { usePhase4Store } from "@/lib/stores/phase4-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -260,6 +261,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
 function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () => void; onContinue: () => void }) {
   const dark = useUiStore((s) => s.theme) === "dark";
   const linkCtx = useApiContext();
+  const pmWebUrl = useServerConfig().data?.pm_web_url;
   const { data: ctx } = useStoryContext(storyId);
   const { tasks: storyTasks } = useStoryTasks(storyId);
   const { data: savedPlan, isLoading: planLoading } = useLoadTestPlan(storyId);
@@ -328,7 +330,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
               const cleanDesc = task.description.trim();
               const displayDesc = cleanDesc.length > 140 ? `${cleanDesc.slice(0, 137)}…` : cleanDesc;
               const scenarios = task.covered_scenarios ?? [];
-              const taskUrl = pmTaskWebUrl(linkCtx, task.pm_task_ref);
+              const taskUrl = pmTaskWebUrl(linkCtx, task.pm_task_ref, pmWebUrl);
               return (
                 <li key={task.id} className={cn("px-4 py-2.5 flex items-start gap-3", dark ? "divide-neutral-700" : "divide-slate-200")}>
                   <span className={cn("mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-xs font-mono font-semibold", dark ? "bg-neutral-700 text-neutral-300" : "bg-slate-100 text-slate-500")}>
@@ -349,8 +351,8 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                       href={taskUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      title="Open task in Taiga"
-                      aria-label={`Open task "${task.subject}" in Taiga`}
+                      title="Open task in the PM tool"
+                      aria-label={`Open task "${task.subject}" in the PM tool`}
                       className={cn(
                         "mt-0.5 shrink-0 rounded p-1 transition",
                         dark ? "text-neutral-500 hover:text-violet-400" : "text-slate-400 hover:text-violet-600",

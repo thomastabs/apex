@@ -48,6 +48,7 @@ import {
 } from "@/lib/hooks/use-phase3";
 import { usePhase3Store } from "@/lib/stores/phase3-store";
 import { useApiContext, useGithubContext } from "@/lib/stores/session-store";
+import { useServerConfig } from "@/lib/hooks/use-workspace";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
 import { createGithubIssue, fetchRecentCommitsContext } from "@/lib/api/github-browser";
@@ -430,6 +431,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
 function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () => void; onContinue: () => void }) {
   const dark = useUiStore((s) => s.theme) === "dark";
   const context = useApiContext();
+  const pmWebUrl = useServerConfig().data?.pm_web_url;
   const queryClient = useQueryClient();
   const { data: ctx, isLoading: ctxLoading } = useStoryContext(storyId);
   const { taskList, tasksPushed, packDrafts, setCurrentStoryMeta, patchTask, setTaskList, removePushedStoryId } = usePhase3Store();
@@ -786,13 +788,13 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                         </>
                       )}
                       {(() => {
-                        const url = pmTaskWebUrl(context, task.pm_task_ref);
+                        const url = pmTaskWebUrl(context, task.pm_task_ref, pmWebUrl);
                         return url ? (
                           <a
                             href={url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            title="Open task in Taiga"
+                            title="Open task in the PM tool"
                             className={cn(
                               "rounded p-1 transition",
                               dark ? "text-neutral-500 hover:text-violet-400" : "text-slate-400 hover:text-violet-600",

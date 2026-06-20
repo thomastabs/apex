@@ -124,16 +124,27 @@ export function decodeApexMeta(rawDescription: string): {
 export function pmTaskWebUrl(
   context: RequestContext | null,
   ref: string | number | undefined,
+  pmWebUrl?: string,
 ): string | null {
-  if (!context || ref === undefined || ref === null || context.pmTool !== "taiga") return null;
-  const slug = context.pmProjectId;
-  if (!slug) return null;
-  const webBase = (context.taigaApiUrl ?? "")
-    .replace("/api/v1", "")
-    .replace("//api.taiga.io", "//tree.taiga.io")
-    .replace(/\/+$/, "");
-  if (!webBase) return null;
-  return `${webBase}/project/${slug}/task/${ref}`;
+  if (!context || ref === undefined || ref === null) return null;
+  const projectId = context.pmProjectId;
+  if (!projectId) return null;
+  if (context.pmTool === "taiga") {
+    const webBase = (context.taigaApiUrl ?? "")
+      .replace("/api/v1", "")
+      .replace("//api.taiga.io", "//tree.taiga.io")
+      .replace(/\/+$/, "");
+    if (!webBase) return null;
+    return `${webBase}/project/${projectId}/task/${ref}`;
+  }
+  if (context.pmTool === "jira") {
+    // pmProjectId is the Jira project KEY; the task ref is the numeric tail of
+    // the issue key, so the browse URL is {base}/browse/{KEY}-{ref}.
+    const base = (pmWebUrl ?? "").replace(/\/+$/, "");
+    if (!base) return null;
+    return `${base}/browse/${projectId}-${ref}`;
+  }
+  return null;
 }
 
 export function findPmTaskBySubject(
