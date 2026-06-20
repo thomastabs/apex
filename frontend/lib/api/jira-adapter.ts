@@ -9,6 +9,7 @@
  * Auth stored in pmToken field is already base64(email:apiToken).
  */
 import { ApiError, getApiBaseUrl } from "./client";
+import type { ExternalIssue } from "./github-browser";
 import type { PmAuthContext, PmRequestContext, PmTask, PmStoryStatus, ProjectManagementAdapter } from "./pm-types";
 import type { Epic, EpicWithStories, Me, Membership, Project, Story } from "./types";
 
@@ -579,3 +580,24 @@ const jiraAdapter: ProjectManagementAdapter = {
 };
 
 export { jiraAdapter };
+
+/**
+ * List open Jira issues in the project for Phase 6 maintenance intake.
+ * Mirrors fetchGithubIssues / taigaListIssues (returns ExternalIssue[]).
+ */
+export async function jiraListIssues(ctx: PmRequestContext): Promise<ExternalIssue[]> {
+  const jql = `project=${ctx.projectId} AND statusCategory != Done ORDER BY updated DESC`;
+  const raw = await jiraFetch<{ issues?: Array<Record<string, unknown>> }>(
+    `/rest/api/3/search?jql=${encodeURIComponent(jql)}&fields=summary,description&maxResults=50`,
+    ctx.token,
+    ctx.baseUrl,
+  );
+  return (raw.issues ?? []).map((i) => {
+    const fields = (i.fields ?? {}) as Record<string, unknown>;
+    return {
+      ext_ref: String(i.key ?? ""),
+      subject: String(fields.summary ?? ""),
+      description: adfToText(fields.description),
+    };
+  });
+}

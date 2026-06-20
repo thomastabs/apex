@@ -70,7 +70,7 @@ export function MaintenanceTriage() {
   const [laneHint, setLaneHint] = useState<{ lane: string; rationale: string } | null>(null);
 
   // issue import
-  const [issues, setIssues] = useState<{ source: "github" | "taiga"; list: ExternalIssue[] } | null>(null);
+  const [issues, setIssues] = useState<{ source: "github" | "taiga" | "jira"; list: ExternalIssue[] } | null>(null);
   const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
@@ -114,6 +114,16 @@ export function MaintenanceTriage() {
     } catch (e) { toast.error(errMsg(e)); } finally { setSyncing(false); }
   }
 
+  async function syncJira() {
+    if (context!.pmTool !== "jira" || !context!.projectId) { toast.error("Jira project required."); return; }
+    setSyncing(true);
+    try {
+      const { jiraListIssues } = await import("@/lib/api/jira-adapter");
+      const { toPmCtx } = await import("@/lib/api/workspace");
+      setIssues({ source: "jira", list: await jiraListIssues(toPmCtx(context!)) });
+    } catch (e) { toast.error(errMsg(e)); } finally { setSyncing(false); }
+  }
+
   function deleteItem(it: MaintenanceItem) {
     if (!window.confirm(`Delete maintenance item #${it.id} "${it.subject}"? This cannot be undone.`)) return;
     del.mutate(it.id, {
@@ -125,7 +135,7 @@ export function MaintenanceTriage() {
     });
   }
 
-  function importIssue(src: "github" | "taiga", iss: ExternalIssue) {
+  function importIssue(src: "github" | "taiga" | "jira", iss: ExternalIssue) {
     create.mutate(
       { subject: iss.subject, description: iss.description, source: src, ext_ref: iss.ext_ref },
       { onSuccess: (it) => { toast.success(`Imported ${iss.ext_ref}`); setSelectedId(it.id); }, onError: (e) => toast.error(errMsg(e)) },
@@ -149,9 +159,15 @@ export function MaintenanceTriage() {
         <Button variant="secondary" onClick={syncGithub} disabled={syncing || !github}>
           <Github className="h-4 w-4" /> Sync GitHub Issues
         </Button>
-        <Button variant="secondary" onClick={syncTaiga} disabled={syncing || context.pmTool !== "taiga"}>
-          <GitBranch className="h-4 w-4" /> Sync Taiga Issues
-        </Button>
+        {context.pmTool === "jira" ? (
+          <Button variant="secondary" onClick={syncJira} disabled={syncing}>
+            <GitBranch className="h-4 w-4" /> Sync Jira Issues
+          </Button>
+        ) : (
+          <Button variant="secondary" onClick={syncTaiga} disabled={syncing || context.pmTool !== "taiga"}>
+            <GitBranch className="h-4 w-4" /> Sync Taiga Issues
+          </Button>
+        )}
       </div>
 
       {showForm ? (

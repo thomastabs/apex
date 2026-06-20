@@ -108,6 +108,19 @@ def test_create_item_rejects_unknown_linked_story(ctx):
         svc.create_item(ctx, subject="bug", linked_story_id=999)
 
 
+def test_create_item_accepts_jira_source(ctx):
+    svc, _ = _svc()
+    item = svc.create_item(ctx, subject="Jira bug", source="jira", ext_ref="PROJ-12")
+    assert item["source"] == "jira"
+    assert item["ext_ref"] == "PROJ-12"
+
+
+def test_create_item_rejects_unknown_source(ctx):
+    svc, _ = _svc()
+    with pytest.raises(MaintenanceValidationError):
+        svc.create_item(ctx, subject="x", source="gitlab")
+
+
 def test_classify_change_request_routes_to_discovery(ctx):
     svc, c = _svc(ai=FakeAiService(classification="change_request"))
     item = svc.create_item(ctx, subject="Add export", linked_story_id=5)

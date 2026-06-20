@@ -598,7 +598,7 @@ export type ConformanceReport = {
 
 export type MaintenanceItem = {
   id: number;
-  source: "manual" | "github" | "taiga";
+  source: "manual" | "github" | "taiga" | "jira";
   ext_ref: string;
   subject: string;
   description: string;
