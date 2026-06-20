@@ -2,6 +2,7 @@
 
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
+from urllib.parse import urlparse
 
 import pytest
 from fastapi import HTTPException
@@ -175,7 +176,13 @@ class TestProxyTaigaCatchAll:
             )
         assert resp.status_code == 400
 
-    def test_config_fallback_used_when_no_header(self, client):
+    def test_config_fallback_used_when_no_header(self, client, monkeypatch):
+        # Pin resolution deterministically (audit H2): the direct path rewrites the
+        # host to the resolved IP and carries the hostname in the Host header.
+        monkeypatch.setattr(
+            "backend.app.api.ssrf.socket.getaddrinfo",
+            lambda host, *a, **k: [(2, 1, 6, "", ("203.0.113.10", 0))],
+        )
         upstream = _mock_upstream(200, [])
         patcher, mock_http = _patch_client(upstream)
         config = {"pm_tool": "taiga", "taiga_url": "https://tree.taiga.io"}
@@ -185,9 +192,10 @@ class TestProxyTaigaCatchAll:
                 headers={"Authorization": self.AUTH},
             )
         assert resp.status_code == 200
-        called_url = mock_http.request.call_args.kwargs["url"]
-        assert "api.taiga.io" in called_url
-        assert "/api/v1/" in called_url
+        kw = mock_http.request.call_args.kwargs
+        assert kw["headers"]["Host"] == "api.taiga.io"   # pinned: hostname preserved for SNI/Host
+        assert "/api/v1/" in kw["url"]
+        assert "203.0.113.10" in kw["url"]               # connected to the pinned IP
 
     def test_x_disable_pagination_always_sent_upstream(self, client):
         upstream = _mock_upstream(200, [])
@@ -582,6 +590,10 @@ class TestEgressRelay:
 
     def test_no_relay_when_unset_goes_direct(self, client, monkeypatch):
         monkeypatch.delenv("TAIGA_EGRESS_RELAY", raising=False)
+        monkeypatch.setattr(
+            "backend.app.api.ssrf.socket.getaddrinfo",
+            lambda host, *a, **k: [(2, 1, 6, "", ("203.0.113.10", 0))],
+        )
         upstream = _mock_upstream(200, [{"id": 1}])
         patcher, mock_http = _patch_client(upstream)
         with patcher:
@@ -591,5 +603,7 @@ class TestEgressRelay:
             )
         assert resp.status_code == 200
         kw = mock_http.request.call_args.kwargs
-        assert kw["url"].startswith(self.CLOUD_URL)  # direct to Taiga
+        # Direct (not relayed): pinned to the resolved IP, hostname in Host header.
+        assert "203.0.113.10" in kw["url"]
+        assert kw["headers"]["Host"] == urlparse(self.CLOUD_URL).hostname
         assert "X-Relay-Target" not in kw["headers"]

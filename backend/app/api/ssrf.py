@@ -9,6 +9,7 @@ then reach it through the proxy).
 
 import ipaddress
 import socket
+from urllib.parse import urlparse
 
 # RFC-1918, loopback, link-local, CGNAT, IPv6 ULA
 BLOCKED_NETS = [
@@ -62,3 +63,59 @@ def is_blocked_host(host: str) -> bool:
     except OSError:
         return False
     return any(_is_blocked_addr(info[4][0]) for info in infos)
+
+
+def _is_ip_literal(host: str) -> bool:
+    try:
+        ipaddress.ip_address(host.split("%")[0])
+        return True
+    except ValueError:
+        return False
+
+
+def pin_host(host: str) -> str | None:
+    """Resolve host and return one non-blocked IP literal to connect to.
+
+    Returns None when the host does not resolve (let the connection fail
+    naturally — same lenient stance as is_blocked_host on resolver hiccups).
+    Raises ValueError when it resolves ONLY to blocked addresses — a
+    DNS-rebinding attempt that flipped a public name to a private IP after the
+    initial validation.
+    """
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except OSError:
+        return None
+    ips = [info[4][0] for info in infos]
+    allowed = [ip for ip in ips if not _is_blocked_addr(ip)]
+    if not ips:
+        return None
+    if not allowed:
+        raise ValueError(f"{host} resolves only to blocked/private addresses")
+    return allowed[0]
+
+
+def pinned_target(url: str, headers: dict) -> tuple[str, dict, dict]:
+    """Pin a validated outbound URL to a resolved non-blocked IP.
+
+    Returns (pinned_url, headers, extensions): the URL host is rewritten to a
+    concrete IP, `Host` is set to the original hostname, and `sni_hostname` is
+    passed so TLS SNI + certificate verification still use the hostname. This
+    closes the DNS-rebinding TOCTOU where the SSRF check and the actual httpx
+    connect re-resolve independently.
+
+    Hosts that are already IP literals (or that don't resolve) are returned
+    unchanged. Raises ValueError if the host now resolves only to blocked IPs.
+    """
+    parsed = urlparse(url)
+    host = parsed.hostname or ""
+    if not host or _is_ip_literal(host):
+        return url, headers, {}
+    ip = pin_host(host)  # may raise ValueError on a rebinding attempt
+    if ip is None:
+        return url, headers, {}
+    netloc = f"[{ip}]" if ":" in ip else ip
+    if parsed.port:
+        netloc = f"{netloc}:{parsed.port}"
+    pinned_url = parsed._replace(netloc=netloc).geturl()
+    return pinned_url, {**headers, "Host": host}, {"sni_hostname": host}

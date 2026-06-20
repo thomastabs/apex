@@ -21,7 +21,7 @@ from backend.app.api.rate_limit import (
     record_username_failure,
 )
 from backend.app.api.pm_http import send_with_retry
-from backend.app.api.ssrf import is_blocked_host
+from backend.app.api.ssrf import is_blocked_host, pinned_target
 
 router = APIRouter()
 _logger = logging.getLogger("apex.taiga_proxy")
@@ -59,6 +59,23 @@ async def _reset_client() -> None:
 async def _send(method: str, url: str, **kwargs) -> httpx.Response:
     """Send with self-heal retry on connect failures (see pm_http)."""
     return await send_with_retry(_get_client, _reset_client, method, url, logger=_logger, **kwargs)
+
+
+def _pin_unless_relayed(url: str, headers: dict) -> tuple[str, dict, dict]:
+    """Pin the DIRECT-egress target to a validated IP (DNS-rebinding guard).
+
+    The relay path is left alone: it connects to Cloudflare (trusted) and the
+    real target travels in X-Relay-Target, which the Worker allow-lists.
+    """
+    if "X-Relay-Target" in headers:
+        return url, headers, {}
+    try:
+        return pinned_target(url, headers)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Taiga host resolves to a private/blocked address.",
+        ) from exc
 
 
 # Hosts Azure Container Apps egress cannot reach directly (firewall-DROPped) and
@@ -137,6 +154,7 @@ async def proxy_taiga_auth(
     base_url = _validate_taiga_url(x_taiga_url)
     target = f"{base_url}/api/v1/auth"
     url, headers = _egress(target, {"Content-Type": "application/json", "Accept": "application/json"})
+    url, headers, ext = _pin_unless_relayed(url, headers)
 
     try:
         resp = await _send(
@@ -144,6 +162,7 @@ async def proxy_taiga_auth(
             url,
             json={"username": payload.username, "password": payload.password, "type": payload.type},
             headers=headers,
+            **({"extensions": ext} if ext else {}),
         )
     except httpx.RequestError as exc:
         _logger.error("Taiga auth proxy failed to reach %s: %s", target, exc)
@@ -224,6 +243,7 @@ async def proxy_taiga(
             "x-disable-pagination": "True",
         },
     )
+    url, headers, ext = _pin_unless_relayed(url, headers)
 
     try:
         resp = await _send(
@@ -231,6 +251,7 @@ async def proxy_taiga(
             url,
             headers=headers,
             content=body or None,
+            **({"extensions": ext} if ext else {}),
         )
     except httpx.RequestError as exc:
         _logger.error("Taiga proxy failed to reach %s: %s", target_url, exc)
