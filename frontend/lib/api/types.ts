@@ -389,6 +389,25 @@ export type Phase4GenerateBugReportResponse = {
   bug_report_md: string;
 };
 
+export type Phase4BugReportListItem = {
+  story_id: number;
+  title: string;
+  chars: number;
+};
+
+export type Phase4BugReportsResponse = {
+  bug_reports: Phase4BugReportListItem[];
+};
+
+export type Phase4BugReportResponse = {
+  story_id: number;
+  bug_report_md: string;
+};
+
+export type Phase4FixLogResponse = {
+  fix_log_md: string;
+};
+
 export type Phase4ScenarioResultItem = {
   scenario: string;
   result: "pass" | "fail";

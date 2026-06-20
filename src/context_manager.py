@@ -1709,6 +1709,39 @@ def load_bug_report(story_id: int) -> str:
         return ""
 
 
+def delete_bug_report(story_id: int) -> None:
+    """Remove a story's Fix-Bolt bug report file.
+
+    Unlike delete_deploy_pack, this deliberately KEEPS the has_bug_report flag:
+    it also drives Phase-4 Regression Bypass eligibility, so clearing it would
+    silently drop an in-flight story's bypass badge + failed-scenario highlights.
+    """
+    p = _context_dir() / f"bug_report_{story_id}.md"
+    if p.exists():
+        p.unlink()
+
+
+def list_all_bug_reports() -> list[dict]:
+    """All saved Fix-Bolt bug reports in the project, annotated with story titles."""
+    index = get_story_index()
+    reports: list[dict] = []
+    for entry in index.values():
+        if not entry.get("has_bug_report"):
+            continue
+        story_id = entry.get("story_id")
+        if not story_id:
+            continue
+        md = load_bug_report(story_id)
+        if not md.strip():
+            continue
+        reports.append({
+            "story_id": story_id,
+            "title": entry.get("title", ""),
+            "chars": len(md),
+        })
+    return sorted(reports, key=lambda r: r["story_id"])
+
+
 def load_session() -> dict:
     """Return the persisted apex session dict, or {} if missing or corrupt."""
     sf = _path("session.json")

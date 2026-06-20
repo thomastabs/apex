@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Home } from "lucide-react";
+import { BarChart3, Home, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { useStoryIndexStats } from "@/lib/hooks/use-workspace";
@@ -79,9 +79,26 @@ export function PhaseNav() {
         })}
       </div>
       <Link
+        href="/fix-bolt"
+        className={cn(
+          "relative flex w-28 shrink-0 flex-col items-center justify-center gap-0.5 border-l text-xs transition-colors",
+          dark ? "border-neutral-800 text-neutral-400 hover:text-neutral-100" : "border-slate-200 text-slate-500 hover:text-slate-800",
+          pathname === "/fix-bolt" && (dark ? "bg-violet-950/30 text-neutral-100" : "bg-violet-50 text-slate-800"),
+        )}
+      >
+        <Zap className="size-4" />
+        <span>Fix Bolt</span>
+        <span
+          className={cn(
+            "absolute bottom-0 hidden h-0.5 w-28 rounded-t",
+            pathname === "/fix-bolt" && "block bg-violet-500",
+          )}
+        />
+      </Link>
+      <Link
         href="/analytics"
         className={cn(
-          "flex w-28 shrink-0 flex-col items-center justify-center gap-0.5 border-l text-xs transition-colors",
+          "relative flex w-28 shrink-0 flex-col items-center justify-center gap-0.5 border-l text-xs transition-colors",
           dark ? "border-neutral-800 text-neutral-400 hover:text-neutral-100" : "border-slate-200 text-slate-500 hover:text-slate-800",
           pathname === "/analytics" && (dark ? "bg-violet-950/30 text-neutral-100" : "bg-violet-50 text-slate-800"),
         )}

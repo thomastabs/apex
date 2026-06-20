@@ -138,6 +138,33 @@ class Phase4Service:
             })
         return sorted(plans, key=lambda p: p["story_id"])
 
+    # ── Fix-Bolt artifacts (bug reports + fix log) ────────────────────────────
+
+    def list_all_bug_reports(self, ctx: RequestContext) -> list[dict]:
+        """All saved Fix-Bolt bug reports in the project, annotated with titles."""
+        self.configure_request(ctx)
+        return self.context.list_all_bug_reports()
+
+    def load_bug_report(self, ctx: RequestContext, story_id: int) -> str:
+        self.configure_request(ctx)
+        return self.context.load_bug_report(story_id)
+
+    def save_bug_report(self, ctx: RequestContext, story_id: int, bug_md: str) -> None:
+        self.configure_request(ctx)
+        if str(story_id) not in self.context.story_index():
+            raise Phase4ValidationError(f"Story {story_id} not found in index.")
+        self.context.save_bug_report(story_id, bug_md)
+
+    def delete_bug_report(self, ctx: RequestContext, story_id: int) -> None:
+        """Delete the bug-report file; keeps has_bug_report (regression-bypass safe)."""
+        self.configure_request(ctx)
+        self.context.delete_bug_report(story_id)
+        _logger.info("Phase 4 bug report deleted for story %s (flag kept)", story_id)
+
+    def get_fix_log(self, ctx: RequestContext) -> str:
+        self.configure_request(ctx)
+        return self.context.get_fix_log()
+
     def generate_bug_report(
         self,
         ctx: RequestContext,

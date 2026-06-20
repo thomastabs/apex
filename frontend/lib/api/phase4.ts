@@ -1,7 +1,10 @@
 import { apiRequest } from "./client";
 import type {
+  Phase4BugReportResponse,
+  Phase4BugReportsResponse,
   Phase4EligibleStoriesResponse,
   Phase4FailGateRequest,
+  Phase4FixLogResponse,
   Phase4GenerateBugReportRequest,
   Phase4GenerateBugReportResponse,
   Phase4GenerateTestPlanResponse,
@@ -96,4 +99,33 @@ export function failGate(context: RequestContext, body: Phase4FailGateRequest) {
     context,
     body,
   });
+}
+
+// ── Fix-Bolt artifacts (bug reports + fix log) ──────────────────────────────
+
+export function listBugReports(context: RequestContext) {
+  return apiRequest<Phase4BugReportsResponse>("/api/phase4/bug-reports", { context });
+}
+
+export function getBugReport(context: RequestContext, storyId: number) {
+  return apiRequest<Phase4BugReportResponse>(`/api/phase4/bug-report/${storyId}`, { context });
+}
+
+export function saveBugReport(context: RequestContext, storyId: number, bugReportMd: string) {
+  return apiRequest<{ ok: boolean }>("/api/phase4/save-bug-report", {
+    method: "POST",
+    context,
+    body: { story_id: storyId, bug_report_md: bugReportMd },
+  });
+}
+
+export function deleteBugReport(context: RequestContext, storyId: number) {
+  return apiRequest<{ ok: boolean }>(`/api/phase4/bug-report/${storyId}`, {
+    method: "DELETE",
+    context,
+  });
+}
+
+export function getFixLog(context: RequestContext) {
+  return apiRequest<Phase4FixLogResponse>("/api/phase4/fix-log", { context });
 }

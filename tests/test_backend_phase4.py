@@ -226,6 +226,49 @@ def test_get_story_context_works_with_real_context_service(ctx):
 
 
 # ---------------------------------------------------------------------------
+# Fix-Bolt artifacts (bug reports + fix log)
+# ---------------------------------------------------------------------------
+
+def test_fix_bolt_list_delete_keeps_flag_and_fix_log(ctx):
+    """list_all_bug_reports + delete (file-only, flag kept) + get_fix_log,
+    end-to-end through the real ContextService + context_manager."""
+    from backend.app.services.context_service import ContextService
+    from src import context_manager
+
+    ctx.set_active_project(1)
+    ctx.append_gherkin(10, "User Login", _FAKE_GHERKIN, epic_id=1, epic_title="Authentication")
+    ctx.append_gherkin(11, "User Logout", _FAKE_GHERKIN, epic_id=1, epic_title="Authentication")
+    context_manager.save_bug_report(10, "# Bug US#10\nboom")
+    context_manager.save_bug_report(11, "# Bug US#11\nboom")
+
+    svc = Phase4Service(ai=FakeAiService(), context=ContextService())
+
+    reports = svc.list_all_bug_reports(_ctx())
+    assert {r["story_id"] for r in reports} == {10, 11}
+    assert any(r["title"] == "User Login" for r in reports)
+    assert all(r["chars"] > 0 for r in reports)
+
+    # delete removes the file but KEEPS has_bug_report (regression-bypass safe)
+    svc.delete_bug_report(_ctx(), 10)
+    reports = svc.list_all_bug_reports(_ctx())
+    assert {r["story_id"] for r in reports} == {11}  # 10's file gone → excluded
+    assert context_manager.get_story_index()["10"]["has_bug_report"] is True
+
+    # fix log read-through
+    context_manager.append_fix_log_record(11, "null deref in handler", "added guard")
+    assert "null deref in handler" in svc.get_fix_log(_ctx())
+
+
+def test_save_bug_report_rejects_unknown_story(ctx):
+    from backend.app.services.context_service import ContextService
+
+    ctx.set_active_project(1)
+    svc = Phase4Service(ai=FakeAiService(), context=ContextService())
+    with pytest.raises(Phase4ValidationError):
+        svc.save_bug_report(_ctx(), 999, "# orphan")
+
+
+# ---------------------------------------------------------------------------
 # generate_test_plan
 # ---------------------------------------------------------------------------
 

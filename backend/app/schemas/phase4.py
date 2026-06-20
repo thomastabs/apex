@@ -82,6 +82,30 @@ class GenerateBugReportResponse(BaseModel):
     bug_report_md: str
 
 
+class BugReportListItem(BaseModel):
+    story_id: int
+    title: str = ""
+    chars: int = 0
+
+
+class BugReportsResponse(BaseModel):
+    bug_reports: list[BugReportListItem]
+
+
+class BugReportResponse(BaseModel):
+    story_id: int
+    bug_report_md: str
+
+
+class SaveBugReportRequest(BaseModel):
+    story_id: int
+    bug_report_md: str = Field(min_length=1, max_length=200_000)
+
+
+class FixLogResponse(BaseModel):
+    fix_log_md: str
+
+
 class ScenarioResultItem(BaseModel):
     scenario: str = Field(..., max_length=500)
     result: Literal["pass", "fail"]

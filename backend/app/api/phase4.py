@@ -7,8 +7,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from backend.app.api.deps import RequestContext, get_request_context
 from backend.app.api.rate_limit import ai_rate_limit
 from backend.app.schemas.phase4 import (
+    BugReportResponse,
+    BugReportsResponse,
     EligibleStoriesResponse,
     FailGateRequest,
+    FixLogResponse,
     GenerateBugReportRequest,
     GenerateBugReportResponse,
     GenerateEdgeCasesRequest,
@@ -16,6 +19,7 @@ from backend.app.schemas.phase4 import (
     GenerateTestPlanRequest,
     GenerateTestPlanResponse,
     PassGateRequest,
+    SaveBugReportRequest,
     StoryContextResponse,
     SaveTestPlanRequest,
     TestPlanResponse,
@@ -203,6 +207,66 @@ def fail_gate(
                 if payload.scenario_results else None
             ),
         )
+        return {"ok": True}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.get("/bug-reports", response_model=BugReportsResponse)
+def list_bug_reports(
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase4Service = Depends(get_phase4_service),
+):
+    try:
+        return {"bug_reports": service.list_all_bug_reports(ctx)}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.get("/fix-log", response_model=FixLogResponse)
+def fix_log(
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase4Service = Depends(get_phase4_service),
+):
+    try:
+        return {"fix_log_md": service.get_fix_log(ctx)}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.get("/bug-report/{story_id}", response_model=BugReportResponse)
+def get_bug_report(
+    story_id: int,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase4Service = Depends(get_phase4_service),
+):
+    try:
+        return {"story_id": story_id, "bug_report_md": service.load_bug_report(ctx, story_id)}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/save-bug-report", response_model=OkResponse)
+def save_bug_report(
+    payload: SaveBugReportRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase4Service = Depends(get_phase4_service),
+):
+    try:
+        service.save_bug_report(ctx, payload.story_id, payload.bug_report_md)
+        return {"ok": True}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.delete("/bug-report/{story_id}", response_model=OkResponse)
+def delete_bug_report(
+    story_id: int,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase4Service = Depends(get_phase4_service),
+):
+    try:
+        service.delete_bug_report(ctx, story_id)
         return {"ok": True}
     except Exception as exc:
         _handle_error(exc)

@@ -163,6 +163,15 @@ class ContextService:
     def load_bug_report(self, story_id: int) -> str:
         return context_manager.load_bug_report(story_id)
 
+    def delete_bug_report(self, story_id: int) -> None:
+        context_manager.delete_bug_report(story_id)
+
+    def list_all_bug_reports(self) -> list[dict]:
+        return context_manager.list_all_bug_reports()
+
+    def get_fix_log(self) -> str:
+        return context_manager.get_fix_log()
+
     def save_infra_delta(self, story_id: int, delta: dict) -> None:
         context_manager.save_infra_delta(story_id, delta)
 
