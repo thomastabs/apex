@@ -2,8 +2,6 @@
 into story-index at save time, so the summary reads the single index file instead
 of an O(stories) fan-out of per-story JSON reads on the File Share."""
 
-import pytest
-
 from backend.app.services.analytics_service import AnalyticsService
 
 
