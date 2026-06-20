@@ -8,6 +8,7 @@ then reach it through the proxy).
 """
 
 import ipaddress
+import os
 import socket
 from urllib.parse import urlparse
 
@@ -63,6 +64,33 @@ def is_blocked_host(host: str) -> bool:
     except OSError:
         return False
     return any(_is_blocked_addr(info[4][0]) for info in infos)
+
+
+def _host_matches(host: str, pattern: str) -> bool:
+    host = host.strip().lower().rstrip(".")
+    pattern = pattern.strip().lower().rstrip(".")
+    if not pattern:
+        return False
+    if pattern.startswith("*."):
+        suffix = pattern[1:]  # ".example.com"
+        return host == pattern[2:] or host.endswith(suffix)
+    return host == pattern
+
+
+def egress_host_allowed(host: str) -> bool:
+    """Egress allowlist policy point (audit Next-Level #1, policy half).
+
+    Reads EGRESS_HOST_ALLOWLIST (comma-separated hostnames; `*.example.com`
+    wildcards allowed). EMPTY = allow-all, so this is a no-op by default and an
+    additive opt-in restriction — the deployment operator can lock outbound PM
+    egress to named hosts. (Per-tenant scoping via .instance-config is a future
+    extension once the management UX is designed.)
+    """
+    raw = os.getenv("EGRESS_HOST_ALLOWLIST", "").strip()
+    if not raw:
+        return True
+    patterns = [p for p in (x.strip() for x in raw.split(",")) if p]
+    return any(_host_matches(host, p) for p in patterns)
 
 
 def _is_ip_literal(host: str) -> bool:

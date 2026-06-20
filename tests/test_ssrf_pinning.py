@@ -78,3 +78,34 @@ def test_pin_unless_relayed_blocks_rebind(monkeypatch):
     with pytest.raises(HTTPException) as ei:
         taiga_proxy._pin_unless_relayed("https://taiga.example.com/api/v1/x", {})
     assert ei.value.status_code == 400
+
+
+# ── Egress allowlist (Next-Level #1, policy half) ───────────────────────────
+
+
+def test_egress_allowlist_default_allows_all(monkeypatch):
+    monkeypatch.delenv("EGRESS_HOST_ALLOWLIST", raising=False)
+    assert ssrf.egress_host_allowed("api.taiga.io") is True
+    assert ssrf.egress_host_allowed("anything.example.com") is True
+
+
+def test_egress_allowlist_exact_and_wildcard(monkeypatch):
+    monkeypatch.setenv("EGRESS_HOST_ALLOWLIST", "api.taiga.io, *.atlassian.net")
+    assert ssrf.egress_host_allowed("api.taiga.io") is True
+    assert ssrf.egress_host_allowed("acme.atlassian.net") is True
+    assert ssrf.egress_host_allowed("atlassian.net") is True  # *.x matches the apex
+    assert ssrf.egress_host_allowed("evil.example.com") is False
+    assert ssrf.egress_host_allowed("api.taiga.io.evil.com") is False
+
+
+def test_validate_taiga_url_rejects_disallowed_host(monkeypatch):
+    from fastapi import HTTPException
+    monkeypatch.setenv("EGRESS_HOST_ALLOWLIST", "api.taiga.io")
+    with pytest.raises(HTTPException) as ei:
+        taiga_proxy._validate_taiga_url("https://other-taiga.example.com/api/v1")
+    assert ei.value.status_code == 403
+
+
+def test_validate_taiga_url_allows_listed_host(monkeypatch):
+    monkeypatch.setenv("EGRESS_HOST_ALLOWLIST", "api.taiga.io")
+    assert taiga_proxy._validate_taiga_url("https://api.taiga.io/api/v1") == "https://api.taiga.io/api/v1"

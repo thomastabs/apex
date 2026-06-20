@@ -21,7 +21,7 @@ from backend.app.api.rate_limit import (
     record_username_failure,
 )
 from backend.app.api.pm_http import send_with_retry
-from backend.app.api.ssrf import is_blocked_host, pinned_target
+from backend.app.api.ssrf import egress_host_allowed, is_blocked_host, pinned_target
 
 router = APIRouter()
 _logger = logging.getLogger("apex.taiga_proxy")
@@ -126,6 +126,11 @@ def _validate_taiga_url(url: str, *, source: str = "X-Taiga-Url") -> str:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"{source} must not point to a private/loopback address.",
+        )
+    if not egress_host_allowed(host):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"{source}: host {host!r} is not in the egress allowlist.",
         )
     return url
 
