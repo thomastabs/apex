@@ -107,8 +107,8 @@ export function useGenerateTestPlan() {
   const qc = useQueryClient();
   const setTestPlanMd = usePhase4Store((s) => s.setTestPlanMd);
   return useCancellableMutation(
-    ({ storyId, instructions }: { storyId: number; instructions?: string }, signal) =>
-      generateTestPlan(context!, storyId, signal, instructions),
+    ({ storyId, instructions, emphasis }: { storyId: number; instructions?: string; emphasis?: string[] }, signal) =>
+      generateTestPlan(context!, storyId, signal, instructions, emphasis),
     {
       onSuccess: (data, { storyId }) => {
         setTestPlanMd(data.test_plan_md);

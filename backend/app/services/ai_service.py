@@ -181,12 +181,14 @@ class AiService:
         developer_packs: list[dict] | None = None,
         constraints: str = "",
         instructions: str = "",
+        emphasis: list[str] | None = None,
     ) -> str:
         return ai_engine.generate_test_plan(
             story_subject, gherkin, technical_spec, tech_stack=tech_stack,
             developer_packs=developer_packs or [],
             constraints=constraints,
             instructions=instructions,
+            emphasis=emphasis or [],
         )
 
     def generate_bug_report(

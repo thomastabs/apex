@@ -44,6 +44,14 @@ import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
 import type { Phase4StoryPreview } from "@/lib/api/types";
 
+const TEST_PLAN_EMPHASIS: { key: string; label: string }[] = [
+  { key: "edge_cases", label: "Edge cases" },
+  { key: "negative_paths", label: "Negative paths" },
+  { key: "security", label: "Security" },
+  { key: "performance", label: "Performance" },
+  { key: "data_integrity", label: "Data integrity" },
+];
+
 // ---------------------------------------------------------------------------
 // Utilities
 // ---------------------------------------------------------------------------
@@ -267,7 +275,10 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const displayMd = testPlanMd ?? savedPlan?.test_plan_md ?? "";
 
   const [guidance, setGuidance] = useState("");
+  const [emphasis, setEmphasis] = useState<string[]>([]);
   const [showGuidance, setShowGuidance] = useState(false);
+  const toggleEmphasis = (key: string) =>
+    setEmphasis((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
 
   useEffect(() => {
     if (ctx && !testPlanMd && savedPlan?.test_plan_md) {
@@ -280,7 +291,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   }, [ctx, setCurrentStoryMeta]);
 
   const handleGenerate = () => {
-    generateMut.mutate({ storyId, instructions: guidance });
+    generateMut.mutate({ storyId, instructions: guidance, emphasis });
   };
 
   const handleSave = () => {
@@ -413,14 +424,40 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
           >
             <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform", !showGuidance && "-rotate-90")} />
             Guide the AI <span className={cn("font-normal", dark ? "text-neutral-500" : "text-slate-400")}>(optional)</span>
-            {guidance.trim() && !showGuidance ? (
+            {(guidance.trim() || emphasis.length > 0) && !showGuidance ? (
               <span className={cn("ml-auto rounded px-1.5 py-0.5 text-[10px]", dark ? "bg-violet-900/40 text-violet-400" : "bg-violet-100 text-violet-700")}>
-                notes added
+                {emphasis.length > 0 ? `${emphasis.length} emphasis${guidance.trim() ? " + notes" : ""}` : "notes added"}
               </span>
             ) : null}
           </button>
           {showGuidance && (
             <div className={cn("border-t px-4 py-3", dark ? "border-neutral-700" : "border-slate-200")}>
+              <p className={cn("mb-1.5 text-[11px] font-semibold uppercase tracking-wider", dark ? "text-neutral-500" : "text-slate-400")}>
+                Emphasis
+              </p>
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {TEST_PLAN_EMPHASIS.map((opt) => {
+                  const on = emphasis.includes(opt.key);
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => toggleEmphasis(opt.key)}
+                      className={cn(
+                        "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                        on
+                          ? "border-violet-500 bg-violet-500/15 text-violet-300"
+                          : dark
+                            ? "border-neutral-700 text-neutral-400 hover:border-neutral-600"
+                            : "border-slate-200 text-slate-500 hover:border-slate-300",
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
               <Textarea
                 value={guidance}
                 onChange={(e) => setGuidance(e.target.value)}

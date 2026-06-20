@@ -1916,6 +1916,45 @@ agent (Claude Code, Codex, Cursor). Format: problem statement → failing contra
 """
 
 
+_TEST_PLAN_EMPHASIS_LABELS = {
+    "edge_cases": "Edge cases: probe boundary values, empty/oversized inputs, and unusual orderings.",
+    "negative_paths": "Negative paths: assert error handling, validation failures, and rejected operations.",
+    "security": "Security: authentication/authorisation checks, input sanitisation, and injection/abuse attempts.",
+    "performance": "Performance: latency under load, concurrency, and large-dataset behaviour.",
+    "data_integrity": "Data integrity: persistence, consistency across operations, and migration safety.",
+}
+
+
+def _test_plan_preferences_block(
+    emphasis: list[str] | None = None,
+    instructions: str = "",
+) -> str:
+    """Render optional QA guidance (emphasis chips + free text) into a prompt block.
+
+    Returns an empty string when nothing was supplied so the default behaviour is
+    unchanged. Advisory only — it never licenses scenarios absent from the Gherkin.
+    """
+    lines = [
+        "- " + _TEST_PLAN_EMPHASIS_LABELS[e]
+        for e in dict.fromkeys(emphasis or [])
+        if e in _TEST_PLAN_EMPHASIS_LABELS
+    ]
+    block = ""
+    if lines:
+        block += (
+            "\n\nPrioritise these QA emphases where a scenario touches them — add Test Steps, "
+            "Edge Cases, and Risk Areas that probe them (advisory; never add scenarios that are "
+            "not in the Gherkin above):\n" + "\n".join(lines)
+        )
+    if instructions.strip():
+        block += (
+            "\n\nAuthor's free-text guidance for THIS test plan — emphasis, environments, or "
+            "risks to favour (advisory; honour where it fits, never invent scenarios):\n"
+            + fence_user_content(instructions)
+        )
+    return block
+
+
 def generate_test_plan(
     story_subject: str,
     gherkin: str,
@@ -1924,13 +1963,14 @@ def generate_test_plan(
     developer_packs: list[dict] | None = None,
     constraints: str = "",
     instructions: str = "",
+    emphasis: list[str] | None = None,
 ) -> str:
     """Generate a structured QA test plan for all Gherkin scenarios in a User Story.
 
-    `instructions` is optional free-text QA guidance from the author (emphasis,
-    environments to favour, risks to probe). Advisory only — EMPTY by default so
-    existing behaviour is unchanged; it never overrides the Gherkin as the source
-    of truth for which scenarios exist.
+    `instructions` (free text) and `emphasis` (preset QA-focus chips) are optional
+    author guidance. Advisory only — EMPTY by default so existing behaviour is
+    unchanged; they never override the Gherkin as the source of truth for which
+    scenarios exist.
     """
     system = _GENERATE_TEST_PLAN_SYSTEM.format(
         tech_stack=fence_user_content(tech_stack.strip() or "Not specified"),
@@ -1951,13 +1991,7 @@ def generate_test_plan(
             "Mappings reference the actual implementation, but never test behaviour absent from the "
             "Gherkin:\n" + fence_user_content(pack_digests)
         )
-    if instructions.strip():
-        system += (
-            "\n\nOptional QA guidance from the author for THIS test plan — emphasis, "
-            "environments, or risks to prioritise. Honour it where it fits, but it is "
-            "advisory: never add scenarios that are not in the Gherkin above:\n"
-            + fence_user_content(instructions)
-        )
+    system += _test_plan_preferences_block(emphasis, instructions)
     human = (
         "User Story: " + fence_user_content(story_subject) + "\n\n"
         + "Acceptance Criteria (Gherkin):\n" + fence_user_content(gherkin)

@@ -25,11 +25,18 @@ export function getStoryContext(context: RequestContext, storyId: number) {
   return apiRequest<Phase4StoryContext>(`/api/phase4/story-context/${storyId}`, { context });
 }
 
-export function generateTestPlan(context: RequestContext, storyId: number, signal?: AbortSignal, instructions?: string) {
+export function generateTestPlan(
+  context: RequestContext, storyId: number, signal?: AbortSignal,
+  instructions?: string, emphasis?: string[],
+) {
   return apiRequest<Phase4GenerateTestPlanResponse>("/api/phase4/generate-test-plan", {
     method: "POST",
     context,
-    body: { story_id: storyId, ...(instructions?.trim() ? { instructions } : {}) },
+    body: {
+      story_id: storyId,
+      ...(instructions?.trim() ? { instructions } : {}),
+      ...(emphasis?.length ? { emphasis } : {}),
+    },
     timeoutMs: PHASE4_AI_TIMEOUT_MS,
     signal,
   });

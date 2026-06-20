@@ -31,6 +31,9 @@ class StoryContextResponse(BaseModel):
 class GenerateTestPlanRequest(BaseModel):
     story_id: int
     instructions: str = Field("", max_length=2_000)
+    emphasis: list[
+        Literal["edge_cases", "negative_paths", "security", "performance", "data_integrity"]
+    ] = Field(default_factory=list, max_length=5)
 
 
 class GenerateTestPlanResponse(BaseModel):

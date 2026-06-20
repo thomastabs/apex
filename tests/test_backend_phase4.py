@@ -32,11 +32,12 @@ class FakeAiService:
         self.bug_report_kwargs: dict = {}
 
     def generate_test_plan(self, story_subject, gherkin, technical_spec, tech_stack="",
-                           developer_packs=None, constraints="", instructions=""):
+                           developer_packs=None, constraints="", instructions="", emphasis=None):
         self.test_plan_args = (story_subject, gherkin, technical_spec, tech_stack)
         self.test_plan_developer_packs = developer_packs
         self.test_plan_constraints = constraints
         self.test_plan_instructions = instructions
+        self.test_plan_emphasis = emphasis
         return _FAKE_TEST_PLAN
 
     def generate_bug_report(self, story_subject, gherkin, technical_spec, failed_scenario, qa_notes):
@@ -295,6 +296,23 @@ def test_generate_test_plan_instructions_default_empty():
     svc = Phase4Service(ai=ai, context=FakeContextService())
     svc.generate_test_plan(_ctx(), 10)
     assert ai.test_plan_instructions == ""
+    assert ai.test_plan_emphasis == []
+
+
+def test_generate_test_plan_threads_emphasis():
+    ai = FakeAiService()
+    svc = Phase4Service(ai=ai, context=FakeContextService())
+    svc.generate_test_plan(_ctx(), 10, emphasis=["security", "edge_cases"])
+    assert ai.test_plan_emphasis == ["security", "edge_cases"]
+
+
+def test_test_plan_preferences_block_renders_known_emphasis_only():
+    from src.ai_engine import _test_plan_preferences_block
+    block = _test_plan_preferences_block(["security", "bogus"], "favour staging")
+    assert "Security:" in block
+    assert "bogus" not in block
+    assert "favour staging" in block
+    assert _test_plan_preferences_block([], "") == ""
 
 
 def test_generate_test_plan_returns_markdown():

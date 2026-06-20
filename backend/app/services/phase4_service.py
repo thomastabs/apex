@@ -76,7 +76,10 @@ class Phase4Service:
             "tech_stack": self.context.read_tech_stack(),
         }
 
-    def generate_test_plan(self, ctx: RequestContext, story_id: int, instructions: str = "") -> str:
+    def generate_test_plan(
+        self, ctx: RequestContext, story_id: int, instructions: str = "",
+        emphasis: list[str] | None = None,
+    ) -> str:
         self.configure_request(ctx)
         index = self.context.story_index()
         entry = index.get(str(story_id)) or {}
@@ -101,7 +104,7 @@ class Phase4Service:
         return self.ai.generate_test_plan(
             story_title, gherkin, technical_spec, tech_stack=tech_stack,
             developer_packs=developer_packs, constraints=constraints,
-            instructions=instructions,
+            instructions=instructions, emphasis=emphasis or [],
         )
 
     def save_test_plan(self, ctx: RequestContext, story_id: int, test_plan_md: str) -> None:

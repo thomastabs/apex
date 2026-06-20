@@ -81,7 +81,7 @@ def generate_test_plan(
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
-        md = service.generate_test_plan(ctx, payload.story_id, payload.instructions)
+        md = service.generate_test_plan(ctx, payload.story_id, payload.instructions, payload.emphasis)
         return {"story_id": payload.story_id, "test_plan_md": md}
     except Exception as exc:
         _handle_error(exc)
