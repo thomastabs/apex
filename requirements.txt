@@ -14,3 +14,6 @@ httpx~=0.28.1
 python-dotenv~=1.0.1
 pydantic~=2.13.3
 azure-storage-file-share~=12.25.0
+# Optional — only imported when REDIS_URL is set (multi-replica coordination via
+# Upstash). Unset = single-replica, redis is never touched. See src/distributed.
+redis~=5.2.1

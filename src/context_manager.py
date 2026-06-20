@@ -19,6 +19,7 @@ import threading
 import time
 from datetime import datetime, timezone
 
+from src import distributed
 from src.storage import StoragePath as Path
 
 _logger = logging.getLogger("apex.context_manager")
@@ -36,7 +37,12 @@ _CONFIG_CACHE_TTL = 5.0  # seconds
 _config_cache: dict | None = None
 _config_cache_expires: float = 0.0
 _config_cache_lock = threading.Lock()
-_config_write_lock = threading.Lock()
+
+
+def _config_write_lock():
+    """Serialise config read-modify-write. Process-local lock by default; a
+    cross-replica distributed lock when REDIS_URL is set (src/distributed)."""
+    return distributed.reentrant_lock("apex:config-write")
 
 # Per-request active project. Uses ContextVar so concurrent FastAPI requests on different projects are isolated.
 _active_project_id: contextvars.ContextVar[int] = contextvars.ContextVar(
@@ -110,7 +116,13 @@ def get_file_path(filename: str, pid: int | None = None) -> Path:
 # this one's cache. _index_lock serializes read-modify-write cycles — phase
 # endpoints are sync `def`s running on a threadpool, so unlocked upserts can
 # interleave and lose updates.
-_index_lock = threading.RLock()
+def _index_lock():
+    """Serialise story-index read-modify-write. Process-local **reentrant** lock
+    by default; a reentrant cross-replica distributed lock when REDIS_URL is set
+    (src/distributed). Reentrant because holders call other index functions."""
+    return distributed.reentrant_lock("apex:story-index")
+
+
 _story_index_caches:  dict[tuple[str, int], tuple[float, dict]] = {}
 _initialized_projects: set[tuple[str, int]]              = set()
 
@@ -302,7 +314,7 @@ def _update_config(mutate, *, log_label: str) -> None:
     with the written data so the next load_config() is warm.
     """
     try:
-        with _config_write_lock:
+        with _config_write_lock():
             _BASE_CONTEXTSPEC.mkdir(parents=True, exist_ok=True)
             data = _read_config_file()
             mutate(data)
@@ -799,7 +811,7 @@ def get_story_index() -> dict[str, dict]:
     or an index rebuild via the API — not concurrent writers.
     """
     key = _ctx_key()
-    with _index_lock:
+    with _index_lock():
         sif = _path("story-index.json")
         mtime = _index_file_mtime(sif)
         cached = _story_index_caches.get(key)
@@ -812,7 +824,7 @@ def get_story_index() -> dict[str, dict]:
 
 def _save_story_index(index: dict[str, dict]) -> None:
     key = _ctx_key()
-    with _index_lock:
+    with _index_lock():
         sif = _path("story-index.json")
         sif.write_text(
             json.dumps(index, indent=2, ensure_ascii=False, sort_keys=True),
@@ -849,7 +861,7 @@ def upsert_story_index(story_id: int, **updates) -> None:
         raise ValueError(
             f"Invalid phase_status {updates['phase_status']!r}. Must be one of {PHASE_STATUSES}."
         )
-    with _index_lock:
+    with _index_lock():
         index = get_story_index()
         key   = str(story_id)
         # Compare against what existed before this call: the defaults dict seeds
@@ -890,7 +902,7 @@ def increment_story_counter(story_id: int, field: str = "fix_bolt_count") -> int
     compute counter values themselves and pass them to upsert_story_index.
     Returns the new value. No-op (returns 0) if the entry doesn't exist.
     """
-    with _index_lock:
+    with _index_lock():
         index = get_story_index()
         entry = index.get(str(story_id))
         if entry is None:
@@ -946,7 +958,7 @@ def reset_story_index_phase_statuses() -> None:
     Called when context files are reset so phase readiness gates reflect the cleared state.
     Preserves story identity fields (story_id, epic_id, title, has_gherkin).
     """
-    with _index_lock:
+    with _index_lock():
         index = get_story_index()
         for entry in index.values():
             entry["has_tech_spec"]  = False
@@ -968,7 +980,7 @@ def remove_story_index_entries(story_ids: list[int]) -> None:
     """Remove entries for the given story IDs from the story index and spec files."""
     if not story_ids:
         return
-    with _index_lock:
+    with _index_lock():
         index = get_story_index()
         for sid in story_ids:
             index.pop(str(sid), None)
@@ -980,7 +992,7 @@ def remove_story_index_entries(story_ids: list[int]) -> None:
 def remove_epic_from_story_index(epic_id: int) -> None:
     """Remove all story index entries for epic_id, the epic sections from both
     spec files, and all associated proposal and BDD files."""
-    with _index_lock:
+    with _index_lock():
         index = get_story_index()
         keys = [k for k, e in index.items() if e.get("epic_id") == epic_id]
         story_ids = [int(k) for k in keys]
@@ -1412,7 +1424,7 @@ def delete_bdd_tests(story_id: int) -> None:
     QA results are deliberately kept — they are execution history, not plan state.
     """
     (_context_dir() / f"bdd_story_{story_id}.feature").unlink(missing_ok=True)
-    with _index_lock:
+    with _index_lock():
         index = get_story_index()
         entry = index.get(str(story_id))
         if entry is None:
@@ -1456,7 +1468,7 @@ def delete_proposal(story_id: int, task_id: int) -> None:
     )
     if remaining:
         return
-    with _index_lock:
+    with _index_lock():
         index = get_story_index()
         entry = index.get(str(story_id))
         if entry is None:
@@ -2075,7 +2087,7 @@ def record_amendment(filename: str, note: str, story_ids: list[int]) -> None:
         f"- **Note:** {note.strip() or '(none)'}\n"
     )
     am.write_text(header.rstrip() + "\n" + block, encoding="utf-8")
-    with _index_lock:
+    with _index_lock():
         index = get_story_index()
         for sid in story_ids:
             entry = index.get(str(sid))
@@ -2099,7 +2111,7 @@ def amend_locked_spec(filename: str, note: str = "") -> dict:
 
 def clear_spec_drift(story_id: int) -> None:
     """Clear the drift flag once a story has been re-derived from the new spec."""
-    with _index_lock:
+    with _index_lock():
         index = get_story_index()
         entry = index.get(str(story_id))
         if entry is not None and entry.get("spec_drift"):
@@ -2158,7 +2170,7 @@ def create_maintenance_item(
     linked_story_id: int | None = None,
 ) -> dict:
     """Create a new maintenance item with a sequential id. Returns the item."""
-    with _index_lock:
+    with _index_lock():
         # Read raw (unsorted) to compute the next id safely.
         p = _path(_MAINTENANCE_FILE)
         items: list[dict] = []
@@ -2194,7 +2206,7 @@ def create_maintenance_item(
 
 def update_maintenance_item(item_id: int, **updates) -> dict | None:
     """Patch a maintenance item's fields. Returns the updated item or None."""
-    with _index_lock:
+    with _index_lock():
         p = _path(_MAINTENANCE_FILE)
         if not p.exists():
             return None
@@ -2219,7 +2231,7 @@ def update_maintenance_item(item_id: int, **updates) -> dict | None:
 
 def delete_maintenance_item(item_id: int) -> bool:
     """Remove a maintenance item. Returns True if an item was deleted."""
-    with _index_lock:
+    with _index_lock():
         p = _path(_MAINTENANCE_FILE)
         if not p.exists():
             return False

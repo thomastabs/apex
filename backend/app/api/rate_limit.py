@@ -14,6 +14,30 @@ from collections import defaultdict
 from fastapi import Depends, HTTPException, Request, status
 
 from backend.app.api.deps import AuthContext, get_auth_context
+from src import distributed
+
+# When REDIS_URL is set (multi-replica), the buckets below are backed by Redis
+# counters so every limit is global across replicas; otherwise they stay the
+# process-local dicts (single-replica behaviour, unchanged). See src/distributed.
+
+
+def _redis_hit_over_limit(client, key: str, limit: int, window: int) -> bool:
+    """Count one hit against a fixed window (from the first hit); True if over."""
+    count = client.incr(key)
+    if count == 1:
+        client.expire(key, window)
+    return count > limit
+
+
+def _redis_record_failure(client, key: str, window: int) -> None:
+    count = client.incr(key)
+    if count == 1:
+        client.expire(key, window)
+
+
+def _redis_failure_over_limit(client, key: str, limit: int) -> bool:
+    value = client.get(key)
+    return value is not None and int(value) >= limit
 
 _lock = threading.Lock()
 # key → (window_start, request_count)
@@ -85,6 +109,14 @@ def auth_rate_limit(request: Request) -> None:
     credential stuffing needs thousands of attempts.
     """
     ip_key = "auth:" + _client_ip(request)
+    client = distributed.redis_client()
+    if client is not None:
+        if _redis_hit_over_limit(client, "rl:" + ip_key, _MAX_AUTH_ATTEMPTS_PER_IP, _WINDOW_SECS):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Rate limit: max {_MAX_AUTH_ATTEMPTS_PER_IP} sign-in attempts per minute. Try again shortly.",
+            )
+        return
     now = time.monotonic()
     with _lock:
         _check_bucket(ip_key, _MAX_AUTH_ATTEMPTS_PER_IP, now, what="sign-in attempts")
@@ -98,6 +130,14 @@ def check_auth_failures(request: Request) -> None:
     throttling only *failures* leaves normal signed-in traffic untouched.
     """
     key = "authfail:" + _client_ip(request)
+    client = distributed.redis_client()
+    if client is not None:
+        if _redis_failure_over_limit(client, "rl:" + key, _MAX_AUTH_FAILURES_PER_IP):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many failed PM sign-in attempts from this address. Try again later.",
+            )
+        return
     now = time.monotonic()
     with _lock:
         hit = _failure_buckets.get(key)
@@ -117,6 +157,10 @@ def check_auth_failures(request: Request) -> None:
 def record_auth_failure(request: Request) -> None:
     """Count one upstream credential rejection against the source IP."""
     key = "authfail:" + _client_ip(request)
+    client = distributed.redis_client()
+    if client is not None:
+        _redis_record_failure(client, "rl:" + key, _FAILURE_WINDOW_SECS)
+        return
     now = time.monotonic()
     with _lock:
         hit = _failure_buckets.get(key)
@@ -140,6 +184,14 @@ def check_username_failures(username: str) -> None:
     against a single account across fake source addresses.
     """
     key = _username_key(username)
+    client = distributed.redis_client()
+    if client is not None:
+        if _redis_failure_over_limit(client, "rl:" + key, _MAX_AUTH_FAILURES_PER_USER):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many failed sign-in attempts for this account. Try again later.",
+            )
+        return
     now = time.monotonic()
     with _lock:
         hit = _username_failure_buckets.get(key)
@@ -159,6 +211,10 @@ def check_username_failures(username: str) -> None:
 def record_username_failure(username: str) -> None:
     """Count one upstream credential rejection against the targeted account."""
     key = _username_key(username)
+    client = distributed.redis_client()
+    if client is not None:
+        _redis_record_failure(client, "rl:" + key, _FAILURE_WINDOW_SECS)
+        return
     now = time.monotonic()
     with _lock:
         hit = _username_failure_buckets.get(key)
@@ -172,6 +228,19 @@ def ai_rate_limit(request: Request, auth: AuthContext = Depends(get_auth_context
     """Dependency: max 20 AI requests/min per token AND 30/min per source IP."""
     token_key = "tok:" + hashlib.sha256(auth.pm_token.encode()).hexdigest()[:16]
     ip_key = "ip:" + _client_ip(request)
+    client = distributed.redis_client()
+    if client is not None:
+        if _redis_hit_over_limit(client, "rl:" + token_key, _MAX_AI_REQUESTS, _WINDOW_SECS):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Rate limit: max {_MAX_AI_REQUESTS} AI requests per minute. Try again shortly.",
+            )
+        if _redis_hit_over_limit(client, "rl:" + ip_key, _MAX_AI_REQUESTS_PER_IP, _WINDOW_SECS):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Rate limit: max {_MAX_AI_REQUESTS_PER_IP} AI requests per minute. Try again shortly.",
+            )
+        return
     now = time.monotonic()
     with _lock:
         # Prune expired buckets to prevent unbounded growth

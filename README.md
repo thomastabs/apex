@@ -574,6 +574,12 @@ ALLOWED_ORIGINS=http://localhost:3000
 # (one ingress, e.g. Azure Container Apps). Raise only if more proxies append XFF.
 # TRUSTED_PROXY_HOPS=1
 
+# Optional. Enables multi-replica coordination (distributed index/config write
+# lock + shared rate-limit counters) so apex-backend can run max-replicas > 1.
+# UNSET = single replica (default; redis never imported). Set to an Upstash
+# serverless free-tier connection string. See "Scale Scheduler".
+# REDIS_URL=rediss://default:<password>@<host>.upstash.io:6379
+
 # Optional LangSmith tracing.
 LANGCHAIN_TRACING_V2=
 LANGCHAIN_API_KEY=
@@ -974,7 +980,7 @@ The scheduler is defined in `.github/workflows/scale-scheduler.yml`.
 
 **`apex-backend` stays `min=1 max=1` around the clock — it is never scaled to zero.**
 
-- `max=1` (**single-writer constraint**): the story index and workspace config live on a shared Azure File Share guarded only by a process-local lock — a second backend replica would cause lost-update races on `story-index.json`.
+- `max=1` (**single-writer constraint**): the story index and workspace config live on a shared Azure File Share guarded only by a process-local lock — a second backend replica would cause lost-update races on `story-index.json`, and the per-process rate-limit buckets would go N× looser. **To lift this, set `REDIS_URL`** (Upstash serverless free tier): `src/distributed.py` then backs the index/config write lock with a reentrant cross-replica Redis lock and the rate-limit counters with shared Redis keys, so `apex-backend` can run `max>1`. Unset = single-replica behaviour, unchanged (Redis is never imported). Cut over by setting the secret and deploying at `max=1` first, then raising max-replicas.
 - `min=1`: a cold start re-rolls the revision onto a fresh Azure SNAT egress path + cold HTTP pool, the daily churn behind the 2026-06-12 Taiga egress incident. Keeping the backend warm removes that churn for ~cents/month. The PM proxies also self-heal connect failures (retry + keepalive recycling) — see the egress note below.
 
 **Night mode toggle** (skip the 22:00 scale-down, e.g. a late demo):

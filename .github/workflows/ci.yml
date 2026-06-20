@@ -33,7 +33,9 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt pytest ruff
+        # fakeredis + lupa (Lua) back the enabled-mode distributed tests; redis
+        # itself is in requirements.txt (optional, imported only when REDIS_URL set).
+        run: pip install -r requirements.txt pytest ruff fakeredis lupa
 
       - name: Lint
         run: ruff check .
