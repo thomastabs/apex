@@ -315,7 +315,10 @@ The `/analytics` page computes the framework's Core Governance Metrics on demand
 - **Context Traceability Rate** — % of deployed stories with a complete artifact chain (Gherkin + test plan + infra delta + complete matrix + deployment-log entry)
 - **Spec Conformance Rate** — average spec↔code conformance score across implemented stories that have a Phase 6 conformance report
 - **Fix-Bolt defect proxy** — total/avg Fix-Bolt triggers per story (Apex has no production telemetry, so QA-caught defects stand in for the Defect Escape Rate)
+- **Predictive risk** — a deterministic, explainable per-story risk score (`none`/`low`/`medium`/`high`) derived from already-logged signals (Fix-Bolt count, spec drift, conformance score, active regression bypass, cycle time vs cohort p90) with the contributing reasons; surfaced as a sorted **Risk** column in the drill-down (and a red/amber dot on board story rows) so at-risk stories are flagged before they fail
 - Phase funnel and per-story drill-down table; CSV and Markdown export
+
+A dedicated **Fix Bolt** page (top nav, left of Analytics) lists every per-story Fix-Bolt bug report (view/edit/download/delete) and the permanent Fix Log — the management surface for the artifacts produced by Phase 4 QA fails and Phase 6 maintenance.
 
 ### Sidebar Workspace
 
@@ -341,6 +344,8 @@ Implemented:
 - Context reset (individual and all files)
 - **GitHub integration** — connect a GitHub repository via a Personal Access Token (`repo` scope); displays repo name, description, primary language, star count, default branch, and public/private badge; **Sync Context** fetches the repo's file tree, README, primary config file (`package.json` / `requirements.txt` / `pyproject.toml`), and OpenAPI spec (if present) and writes them to `github-context.md`; synced context is automatically injected into Phase 2 and Phase 3 AI prompts; GitHub API calls are made browser-side (no backend proxy needed)
 - AI model selector — single unified selector used across all phases; supports Anthropic (Claude), OpenAI (GPT), and Google (Gemini); budget-tier to premium options per provider; provider warnings shown when the corresponding API key is absent from the backend
+- **Deploy Packs** — every saved Phase 5 deploy pack listed per story; view, edit inline, download, delete
+- Maintenance intake from **GitHub Issues, Taiga Issues, and Jira issues** (Phase 6 triage)
 - Draggable sidebar sections — each panel can be reordered by drag-and-drop; order is persisted per session
 - Light/dark mode
 
@@ -503,6 +508,18 @@ new Azure IP is likely dropped too.
 
 ---
 
+## Security
+
+- **Auth = the PM token is your identity.** Every authenticated endpoint validates the bearer token against the anchored PM (`/users/me`), and project-scoped routes additionally confirm the token can read the requested project — closing cross-tenant (IDOR) access to another project's context files. Validations are cached briefly (60s) per `(token-hash, url)`. Tokens live in `sessionStorage` only (cleared on tab close); the GitHub PAT is never persisted.
+- **SSRF guards on every outbound PM call.** Both proxies validate the target before dialing: Taiga must be `https://` + non-private (IP-class blocked, DNS resolved); Jira is hard-locked to `*.atlassian.net`. The same guard applies to header overrides **and** persisted config (both user-influenced).
+- **DNS-rebinding pin.** The validated host is resolved once and the request connects to that pinned IP with the hostname kept for TLS SNI/`Host` (`ssrf.pinned_target`), closing the check-vs-connect re-resolution gap. A host that now resolves only to blocked IPs is rejected (403). Applied across the Taiga proxy **and** the credential-check egress (`deps._pm_get`) through one shared seam. The Cloudflare relay path is trusted (its real target is allow-listed by the Worker).
+- **Egress allowlist (two layers, default allow-all).** `EGRESS_HOST_ALLOWLIST` (env, comma-separated, `*.wildcards`) restricts egress deployment-wide; a **per-instance** allowlist in `contextspec/<instance>/.instance-config.json` (`egress_allowlist`) layers a per-tenant restriction on top. Both are an ops/deployment concern set on the backend (env / file) — not exposed in the UI. Both empty → no restriction.
+- **Content-Security-Policy.** Production enforces a nonce-based CSP — `script-src 'self' 'nonce-{x}' 'strict-dynamic'`, no `unsafe-inline`/`unsafe-eval` (set per request in `frontend/middleware.ts`; routes are `force-dynamic` so the nonce reaches Next's scripts). `style-src` keeps `unsafe-inline` for ReactFlow/Tailwind. Dev keeps the permissive policy (HMR needs `eval`). Markdown is sanitised with DOMPurify before render.
+- **Rate limiting & brute-force throttle.** AI endpoints are capped per token and per source IP; PM sign-ins are throttled per IP **and** per account (the username can't be spoofed via `X-Forwarded-For`). `X-Forwarded-For` is read from the trusted proxy hop (`TRUSTED_PROXY_HOPS`, default 1), not the spoofable leftmost entry.
+- Other hardening: `\r\n` header-injection guards, Pydantic `max_length` on all AI inputs, CORS origin validation, and the security headers in `next.config.ts` (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`).
+
+---
+
 ## Local Development
 
 ### Requirements
@@ -545,6 +562,17 @@ AZURE_FILE_SHARE_NAME=contextspec
 
 # Optional. Comma-separated frontend origins allowed by FastAPI CORS.
 ALLOWED_ORIGINS=http://localhost:3000
+
+# Optional. Deployment-level egress allowlist (comma-separated hostnames,
+# `*.example.com` wildcards). EMPTY = allow-all (default). Restricts which hosts
+# the backend may reach. A per-instance allowlist (sidebar About panel) layers
+# on top. See "Security".
+# EGRESS_HOST_ALLOWLIST=api.taiga.io,*.atlassian.net
+
+# Optional. Number of trusted reverse-proxy hops in front of the backend, used
+# to pick the real client IP from X-Forwarded-For for rate limiting. Default 1
+# (one ingress, e.g. Azure Container Apps). Raise only if more proxies append XFF.
+# TRUSTED_PROXY_HOPS=1
 
 # Optional LangSmith tracing.
 LANGCHAIN_TRACING_V2=

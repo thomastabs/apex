@@ -132,6 +132,17 @@ def _validate_taiga_url(url: str, *, source: str = "X-Taiga-Url") -> str:
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"{source}: host {host!r} is not in the egress allowlist.",
         )
+    # Per-instance (per-tenant) allowlist layered on top of the deployment one:
+    # restrict outbound egress for the instance this URL anchors to.
+    from src import context_manager
+
+    from backend.app.api.ssrf import host_in_allowlist
+    instance_allow = context_manager.get_instance_egress_allowlist(context_manager.instance_key(url))
+    if not host_in_allowlist(host, instance_allow):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"{source}: host {host!r} is not in this instance's egress allowlist.",
+        )
     return url
 
 

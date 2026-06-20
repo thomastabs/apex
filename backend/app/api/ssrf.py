@@ -77,20 +77,25 @@ def _host_matches(host: str, pattern: str) -> bool:
     return host == pattern
 
 
+def host_in_allowlist(host: str, patterns: list[str]) -> bool:
+    """True when host matches any pattern (exact or `*.example.com`). An EMPTY
+    pattern list means allow-all (no restriction configured)."""
+    if not patterns:
+        return True
+    return any(_host_matches(host, p) for p in patterns)
+
+
 def egress_host_allowed(host: str) -> bool:
-    """Egress allowlist policy point (audit Next-Level #1, policy half).
+    """Deployment-level egress allowlist (audit Next-Level #1, policy half).
 
     Reads EGRESS_HOST_ALLOWLIST (comma-separated hostnames; `*.example.com`
-    wildcards allowed). EMPTY = allow-all, so this is a no-op by default and an
-    additive opt-in restriction — the deployment operator can lock outbound PM
-    egress to named hosts. (Per-tenant scoping via .instance-config is a future
-    extension once the management UX is designed.)
+    wildcards). EMPTY = allow-all, so this is a no-op by default and an additive
+    opt-in restriction — the operator can lock outbound egress to named hosts.
+    Per-instance (per-tenant) allowlists are layered on top in the PM proxies.
     """
     raw = os.getenv("EGRESS_HOST_ALLOWLIST", "").strip()
-    if not raw:
-        return True
     patterns = [p for p in (x.strip() for x in raw.split(",")) if p]
-    return any(_host_matches(host, p) for p in patterns)
+    return host_in_allowlist(host, patterns)
 
 
 def _is_ip_literal(host: str) -> bool:

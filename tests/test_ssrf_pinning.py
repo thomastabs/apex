@@ -109,3 +109,30 @@ def test_validate_taiga_url_rejects_disallowed_host(monkeypatch):
 def test_validate_taiga_url_allows_listed_host(monkeypatch):
     monkeypatch.setenv("EGRESS_HOST_ALLOWLIST", "api.taiga.io")
     assert taiga_proxy._validate_taiga_url("https://api.taiga.io/api/v1") == "https://api.taiga.io/api/v1"
+
+
+# ── Per-instance (per-tenant) egress allowlist ──────────────────────────────
+
+
+def test_instance_egress_allowlist_roundtrip(ctx):
+    from src import context_manager
+    assert context_manager.get_instance_egress_allowlist("inst_x") == []
+    context_manager.set_instance_egress_allowlist(["a.com", "*.b.com", "  "], "inst_x")
+    assert context_manager.get_instance_egress_allowlist("inst_x") == ["a.com", "*.b.com"]
+
+
+def test_validate_taiga_url_per_instance_blocks(ctx):
+    from fastapi import HTTPException
+
+    from src import context_manager
+    # api.taiga.io anchors to instance "api_taiga_io"; lock it to a different host.
+    context_manager.set_instance_egress_allowlist(["other.example.com"], "api_taiga_io")
+    with pytest.raises(HTTPException) as ei:
+        taiga_proxy._validate_taiga_url("https://api.taiga.io/api/v1")
+    assert ei.value.status_code == 403
+
+
+def test_validate_taiga_url_per_instance_allows_listed(ctx):
+    from src import context_manager
+    context_manager.set_instance_egress_allowlist(["api.taiga.io"], "api_taiga_io")
+    assert taiga_proxy._validate_taiga_url("https://api.taiga.io/api/v1") == "https://api.taiga.io/api/v1"

@@ -383,6 +383,42 @@ def save_instance_github_repo(repo: str | None) -> None:
     p.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
+def get_instance_egress_allowlist(instance_id: str | None = None) -> list[str]:
+    """Per-instance egress allowlist (hostnames; `*.example.com` wildcards).
+
+    Empty list = allow-all (the default), so this is opt-in. Stored in the
+    instance's .instance-config.json. `instance_id` lets the proxy read the
+    list for the instance a target URL anchors to without the active ContextVar
+    being set; defaults to the active instance.
+    """
+    base = (_BASE_CONTEXTSPEC / instance_id) if instance_id else _instance_dir()
+    p = base / _INSTANCE_CONFIG_FILE
+    if p.exists():
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+            hosts = data.get("egress_allowlist")
+            if isinstance(hosts, list):
+                return [str(h).strip() for h in hosts if str(h).strip()]
+        except (json.JSONDecodeError, OSError):
+            pass
+    return []
+
+
+def set_instance_egress_allowlist(hosts: list[str], instance_id: str | None = None) -> None:
+    """Persist the egress allowlist for the active (or given) instance namespace."""
+    base = (_BASE_CONTEXTSPEC / instance_id) if instance_id else _instance_dir()
+    base.mkdir(parents=True, exist_ok=True)
+    p = base / _INSTANCE_CONFIG_FILE
+    data: dict = {}
+    if p.exists():
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            data = {}
+    data["egress_allowlist"] = [str(h).strip() for h in hosts if str(h).strip()]
+    p.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
 def load_config() -> dict:
     """Return the persisted config dict (a copy), or {} if missing/corrupt.
 
