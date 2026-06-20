@@ -6,10 +6,12 @@ import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Copy,
   Download,
+  ExternalLink,
   Info,
   Loader2,
   Rocket,
@@ -35,6 +37,7 @@ import {
   useStoryTasks,
   useUpdatePmStoryStatus,
 } from "@/lib/hooks/use-phase4";
+import { pmTaskWebUrl } from "@/lib/hooks/use-phase3";
 import { usePhase4Store } from "@/lib/stores/phase4-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -248,6 +251,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
 
 function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () => void; onContinue: () => void }) {
   const dark = useUiStore((s) => s.theme) === "dark";
+  const linkCtx = useApiContext();
   const { data: ctx } = useStoryContext(storyId);
   const { tasks: storyTasks } = useStoryTasks(storyId);
   const { data: savedPlan, isLoading: planLoading } = useLoadTestPlan(storyId);
@@ -262,6 +266,9 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
   const displayMd = testPlanMd ?? savedPlan?.test_plan_md ?? "";
 
+  const [guidance, setGuidance] = useState("");
+  const [showGuidance, setShowGuidance] = useState(false);
+
   useEffect(() => {
     if (ctx && !testPlanMd && savedPlan?.test_plan_md) {
       setTestPlanMd(savedPlan.test_plan_md);
@@ -273,7 +280,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   }, [ctx, setCurrentStoryMeta]);
 
   const handleGenerate = () => {
-    generateMut.mutate(storyId);
+    generateMut.mutate({ storyId, instructions: guidance });
   };
 
   const handleSave = () => {
@@ -310,12 +317,13 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
               const cleanDesc = task.description.trim();
               const displayDesc = cleanDesc.length > 140 ? `${cleanDesc.slice(0, 137)}…` : cleanDesc;
               const scenarios = task.covered_scenarios ?? [];
+              const taskUrl = pmTaskWebUrl(linkCtx, task.pm_task_ref);
               return (
                 <li key={task.id} className={cn("px-4 py-2.5 flex items-start gap-3", dark ? "divide-neutral-700" : "divide-slate-200")}>
                   <span className={cn("mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-xs font-mono font-semibold", dark ? "bg-neutral-700 text-neutral-300" : "bg-slate-100 text-slate-500")}>
                     {task.effort_estimate || "?"}
                   </span>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className={cn("font-medium leading-snug", dark ? "text-neutral-200" : "text-slate-700")}>{task.subject}</p>
                     {displayDesc ? (
                       <p className={cn("mt-0.5 text-xs", dark ? "text-neutral-500" : "text-slate-400")}>{displayDesc}</p>
@@ -325,6 +333,21 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                       </p>
                     ) : null}
                   </div>
+                  {taskUrl ? (
+                    <a
+                      href={taskUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Open task in Taiga"
+                      aria-label={`Open task "${task.subject}" in Taiga`}
+                      className={cn(
+                        "mt-0.5 shrink-0 rounded p-1 transition",
+                        dark ? "text-neutral-500 hover:text-violet-400" : "text-slate-400 hover:text-violet-600",
+                      )}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  ) : null}
                 </li>
               );
             })}
@@ -374,6 +397,42 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                 : "Clear Plan"}
             </Button>
           </div>
+        </div>
+      )}
+
+      {!displayMd && (
+        <div className={cn("rounded-lg border", dark ? "border-neutral-700" : "border-slate-200")}>
+          <button
+            type="button"
+            onClick={() => setShowGuidance((v) => !v)}
+            aria-expanded={showGuidance}
+            className={cn(
+              "flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium transition-colors",
+              dark ? "text-neutral-300 hover:text-neutral-100" : "text-slate-600 hover:text-slate-800",
+            )}
+          >
+            <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform", !showGuidance && "-rotate-90")} />
+            Guide the AI <span className={cn("font-normal", dark ? "text-neutral-500" : "text-slate-400")}>(optional)</span>
+            {guidance.trim() && !showGuidance ? (
+              <span className={cn("ml-auto rounded px-1.5 py-0.5 text-[10px]", dark ? "bg-violet-900/40 text-violet-400" : "bg-violet-100 text-violet-700")}>
+                notes added
+              </span>
+            ) : null}
+          </button>
+          {showGuidance && (
+            <div className={cn("border-t px-4 py-3", dark ? "border-neutral-700" : "border-slate-200")}>
+              <Textarea
+                value={guidance}
+                onChange={(e) => setGuidance(e.target.value)}
+                maxLength={2000}
+                placeholder="Optional notes to steer the test plan — environments to favour, risk areas to probe, data edge cases, etc. The Gherkin still drives which scenarios exist."
+                className="h-28 resize-y text-xs"
+              />
+              <p className={cn("mt-1 text-[11px]", dark ? "text-neutral-500" : "text-slate-400")}>
+                Advisory only — never adds scenarios absent from the Gherkin. {guidance.length}/2000
+              </p>
+            </div>
+          )}
         </div>
       )}
 

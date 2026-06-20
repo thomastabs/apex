@@ -30,6 +30,7 @@ class StoryContextResponse(BaseModel):
 
 class GenerateTestPlanRequest(BaseModel):
     story_id: int
+    instructions: str = Field("", max_length=2_000)
 
 
 class GenerateTestPlanResponse(BaseModel):

@@ -67,7 +67,7 @@ class StubPhase4Service:
             "tech_stack": "FastAPI",
         }
 
-    def generate_test_plan(self, ctx, story_id):
+    def generate_test_plan(self, ctx, story_id, instructions=""):
         return _FAKE_TEST_PLAN
 
     def generate_edge_cases(self, ctx, story_id, scenario_text):
@@ -236,7 +236,7 @@ def test_phase4_validation_error_maps_to_422():
 
 def test_ai_rate_limit_error_maps_to_429():
     class FailingService(StubPhase4Service):
-        def generate_test_plan(self, ctx, story_id):
+        def generate_test_plan(self, ctx, story_id, instructions=""):
             raise AIRateLimitError("Rate limited")
 
     with pytest.raises(HTTPException) as exc:
@@ -248,7 +248,7 @@ def test_ai_rate_limit_error_maps_to_429():
 
 def test_ai_timeout_error_maps_to_504():
     class FailingService(StubPhase4Service):
-        def generate_test_plan(self, ctx, story_id):
+        def generate_test_plan(self, ctx, story_id, instructions=""):
             raise AITimeoutError("LLM timed out")
 
     with pytest.raises(HTTPException) as exc:

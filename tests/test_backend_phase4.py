@@ -32,10 +32,11 @@ class FakeAiService:
         self.bug_report_kwargs: dict = {}
 
     def generate_test_plan(self, story_subject, gherkin, technical_spec, tech_stack="",
-                           developer_packs=None, constraints=""):
+                           developer_packs=None, constraints="", instructions=""):
         self.test_plan_args = (story_subject, gherkin, technical_spec, tech_stack)
         self.test_plan_developer_packs = developer_packs
         self.test_plan_constraints = constraints
+        self.test_plan_instructions = instructions
         return _FAKE_TEST_PLAN
 
     def generate_bug_report(self, story_subject, gherkin, technical_spec, failed_scenario, qa_notes):
@@ -280,6 +281,20 @@ def test_generate_test_plan_passes_developer_packs():
     svc.generate_test_plan(_ctx(), 10)
     packs = ai.test_plan_developer_packs
     assert packs and packs[0]["proposal_md"] == "## Context\nBuilt with FastAPI."
+
+
+def test_generate_test_plan_threads_optional_instructions():
+    ai = FakeAiService()
+    svc = Phase4Service(ai=ai, context=FakeContextService())
+    svc.generate_test_plan(_ctx(), 10, "favour the staging env; probe rate limits")
+    assert ai.test_plan_instructions == "favour the staging env; probe rate limits"
+
+
+def test_generate_test_plan_instructions_default_empty():
+    ai = FakeAiService()
+    svc = Phase4Service(ai=ai, context=FakeContextService())
+    svc.generate_test_plan(_ctx(), 10)
+    assert ai.test_plan_instructions == ""
 
 
 def test_generate_test_plan_returns_markdown():

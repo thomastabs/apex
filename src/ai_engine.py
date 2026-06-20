@@ -1923,8 +1923,15 @@ def generate_test_plan(
     tech_stack: str = "",
     developer_packs: list[dict] | None = None,
     constraints: str = "",
+    instructions: str = "",
 ) -> str:
-    """Generate a structured QA test plan for all Gherkin scenarios in a User Story."""
+    """Generate a structured QA test plan for all Gherkin scenarios in a User Story.
+
+    `instructions` is optional free-text QA guidance from the author (emphasis,
+    environments to favour, risks to probe). Advisory only — EMPTY by default so
+    existing behaviour is unchanged; it never overrides the Gherkin as the source
+    of truth for which scenarios exist.
+    """
     system = _GENERATE_TEST_PLAN_SYSTEM.format(
         tech_stack=fence_user_content(tech_stack.strip() or "Not specified"),
         technical_spec=fence_user_content(technical_spec.strip() or "Not specified"),
@@ -1943,6 +1950,13 @@ def generate_test_plan(
             "(Context + Files to Change: real files and endpoints). Use them so Test Steps and BDD "
             "Mappings reference the actual implementation, but never test behaviour absent from the "
             "Gherkin:\n" + fence_user_content(pack_digests)
+        )
+    if instructions.strip():
+        system += (
+            "\n\nOptional QA guidance from the author for THIS test plan — emphasis, "
+            "environments, or risks to prioritise. Honour it where it fits, but it is "
+            "advisory: never add scenarios that are not in the Gherkin above:\n"
+            + fence_user_content(instructions)
         )
     human = (
         "User Story: " + fence_user_content(story_subject) + "\n\n"

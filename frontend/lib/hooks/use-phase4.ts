@@ -82,6 +82,7 @@ export function useStoryTasks(storyId: number | null) {
       description: decoded.description,
       effort_estimate: decoded.effort_estimate,
       covered_scenarios: decoded.covered_scenarios,
+      pm_task_ref: t.ref,
     };
   });
   return { ...query, tasks };
@@ -106,9 +107,10 @@ export function useGenerateTestPlan() {
   const qc = useQueryClient();
   const setTestPlanMd = usePhase4Store((s) => s.setTestPlanMd);
   return useCancellableMutation(
-    (storyId: number, signal) => generateTestPlan(context!, storyId, signal),
+    ({ storyId, instructions }: { storyId: number; instructions?: string }, signal) =>
+      generateTestPlan(context!, storyId, signal, instructions),
     {
-      onSuccess: (data, storyId) => {
+      onSuccess: (data, { storyId }) => {
         setTestPlanMd(data.test_plan_md);
         void qc.invalidateQueries({ queryKey: ["phase4", "test-plan", context?.projectId, storyId] });
       },
