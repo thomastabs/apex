@@ -159,13 +159,19 @@ def _pm_get(url: str, scheme: str, token: str) -> bool:
     even though the proxy itself stays up via the relay. The token-validation
     cache masks this until it goes cold (e.g. after a restart).
     """
-    from backend.app.api.taiga_proxy import _egress
+    from backend.app.api.taiga_proxy import _egress, _pin_unless_relayed
 
     request_url, headers = _egress(
         url, {"Authorization": f"{scheme} {token}", "Accept": "application/json"}
     )
+    # Unified egress: same relay routing AND DNS-rebinding IP-pin the proxy uses
+    # (audit H2). _pin_unless_relayed leaves the relay path alone and pins the
+    # direct path; a host that now resolves only to blocked IPs raises 400.
+    request_url, headers, ext = _pin_unless_relayed(request_url, headers)
     try:
-        resp = _get_verify_client().get(request_url, headers=headers)
+        resp = _get_verify_client().request(
+            "GET", request_url, headers=headers, **({"extensions": ext} if ext else {})
+        )
     except httpx.RequestError as exc:
         _logger.error("PM credential check failed to reach %s: %s", url, exc)
         raise HTTPException(

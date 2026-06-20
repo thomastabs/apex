@@ -23,13 +23,27 @@ def _fresh_caches(monkeypatch):
     monkeypatch.setattr(deps, "_project_cache", OrderedDict())
 
 
+@pytest.fixture(autouse=True)
+def _deterministic_dns():
+    # The unified egress now IP-pins the direct path (audit H2). Make DNS a
+    # no-op so pinning leaves the URL as the hostname and these tests stay
+    # hermetic; the pin mechanics themselves are covered in test_ssrf_pinning.
+    import socket as _socket
+    from backend.app.api import ssrf
+    with patch.object(
+        ssrf, "socket",
+        MagicMock(getaddrinfo=MagicMock(side_effect=OSError), AF_INET=_socket.AF_INET),
+    ):
+        yield
+
+
 def _mock_pm(status_code: int):
     """Patch the verify client to return status_code for every GET."""
     resp = MagicMock()
     resp.is_success = 200 <= status_code < 300
     resp.status_code = status_code
     client = MagicMock()
-    client.get = MagicMock(return_value=resp)
+    client.request = MagicMock(return_value=resp)
     return patch.object(deps, "_get_verify_client", return_value=client), client
 
 
@@ -46,9 +60,9 @@ def test_valid_token_accepted_and_identity_url_correct():
     with pm, _taiga_config():
         ctx = deps.get_auth_context("Bearer goodtoken")
     assert ctx.pm_token == "goodtoken"
-    url = client.get.call_args.args[0]
+    url = client.request.call_args.args[1]
     assert url.endswith("/api/v1/users/me")
-    assert client.get.call_args.kwargs["headers"]["Authorization"] == "Bearer goodtoken"
+    assert client.request.call_args.kwargs["headers"]["Authorization"] == "Bearer goodtoken"
 
 
 def test_rejected_token_raises_401():
@@ -69,12 +83,29 @@ def test_credential_check_routes_through_egress_relay(monkeypatch):
     pm, client = _mock_pm(200)
     with pm, _taiga_config():
         deps.get_auth_context("Bearer goodtoken")
-    url = client.get.call_args.args[0]
-    headers = client.get.call_args.kwargs["headers"]
+    url = client.request.call_args.args[1]
+    headers = client.request.call_args.kwargs["headers"]
     assert url == "https://relay.example.workers.dev"
     assert headers["X-Relay-Target"].endswith("/api/v1/users/me")
     assert headers["X-Relay-Secret"] == "shh"
     assert headers["Authorization"] == "Bearer goodtoken"
+
+
+def test_unified_egress_pins_direct_path():
+    # The credential check now shares the proxy's IP-pinning (audit H2 unified):
+    # the direct path connects to the resolved IP with the hostname in Host + SNI.
+    from backend.app.api import ssrf
+    pm, client = _mock_pm(200)
+    with pm, _taiga_config(), patch.object(
+        ssrf.socket, "getaddrinfo",
+        new=lambda host, *a, **k: [(2, 1, 6, "", ("203.0.113.10", 0))],
+    ):
+        deps.get_auth_context("Bearer goodtoken")
+    url = client.request.call_args.args[1]
+    headers = client.request.call_args.kwargs["headers"]
+    assert "203.0.113.10" in url
+    assert headers["Host"] == "api.taiga.io"
+    assert client.request.call_args.kwargs["extensions"] == {"sni_hostname": "api.taiga.io"}
 
 
 def test_credential_check_bypasses_relay_for_private_anchor(monkeypatch):
@@ -85,14 +116,14 @@ def test_credential_check_bypasses_relay_for_private_anchor(monkeypatch):
     pm, client = _mock_pm(200)
     with pm, _taiga_config():
         deps.get_auth_context("Bearer goodtoken")
-    url = client.get.call_args.args[0]
+    url = client.request.call_args.args[1]
     assert url.startswith("https://my-tunnel.trycloudflare.com")
-    assert "X-Relay-Target" not in client.get.call_args.kwargs["headers"]
+    assert "X-Relay-Target" not in client.request.call_args.kwargs["headers"]
 
 
 def test_pm_unreachable_raises_503():
     client = MagicMock()
-    client.get = MagicMock(side_effect=httpx.ConnectError("refused"))
+    client.request = MagicMock(side_effect=httpx.ConnectError("refused"))
     with patch.object(deps, "_get_verify_client", return_value=client), _taiga_config():
         with pytest.raises(HTTPException) as exc:
             deps.get_auth_context("Bearer sometoken")
@@ -104,7 +135,7 @@ def test_successful_validation_is_cached():
     with pm, _taiga_config():
         deps.get_auth_context("Bearer goodtoken")
         deps.get_auth_context("Bearer goodtoken")
-    assert client.get.call_count == 1
+    assert client.request.call_count == 1
 
 
 def test_failed_validation_is_negatively_cached():
@@ -113,7 +144,7 @@ def test_failed_validation_is_negatively_cached():
         for _ in range(3):
             with pytest.raises(HTTPException):
                 deps.get_auth_context("Bearer badtoken")
-    assert client.get.call_count == 1
+    assert client.request.call_count == 1
 
 
 def test_jira_workspace_uses_basic_scheme_and_myself():
@@ -121,9 +152,9 @@ def test_jira_workspace_uses_basic_scheme_and_myself():
     config = {"pm_tool": "jira", "jira_base_url": "https://example.atlassian.net"}
     with pm, patch("src.context_manager.load_config", return_value=config):
         deps.get_auth_context("Bearer base64basiccred")
-    url = client.get.call_args.args[0]
+    url = client.request.call_args.args[1]
     assert url == "https://example.atlassian.net/rest/api/3/myself"
-    assert client.get.call_args.kwargs["headers"]["Authorization"] == "Basic base64basiccred"
+    assert client.request.call_args.kwargs["headers"]["Authorization"] == "Basic base64basiccred"
 
 
 def test_jira_workspace_without_base_url_raises_503():
@@ -142,7 +173,7 @@ def test_project_access_granted_for_readable_project():
     with pm, _taiga_config():
         ctx = deps.get_request_context("Bearer goodtoken", 42, None)
     assert ctx.project_id == 42
-    project_url = client.get.call_args_list[-1].args[0]
+    project_url = client.request.call_args_list[-1].args[1]
     assert project_url.endswith("/api/v1/projects/42")
 
 
@@ -152,7 +183,7 @@ def test_project_access_denied_raises_403():
     identity_resp = MagicMock(is_success=True, status_code=200)
     project_resp = MagicMock(is_success=False, status_code=404)
     client = MagicMock()
-    client.get = MagicMock(side_effect=[identity_resp, project_resp])
+    client.request = MagicMock(side_effect=[identity_resp, project_resp])
     with patch.object(deps, "_get_verify_client", return_value=client), _taiga_config():
         with pytest.raises(HTTPException) as exc:
             deps.get_request_context("Bearer goodtoken", 42, None)
@@ -165,7 +196,7 @@ def test_project_access_is_cached_per_token_and_project():
         deps.get_request_context("Bearer goodtoken", 42, None)
         deps.get_request_context("Bearer goodtoken", 42, None)
     # 1 identity check + 1 project check, both cached on the second call
-    assert client.get.call_count == 2
+    assert client.request.call_count == 2
 
 
 def test_different_project_revalidates():
@@ -173,7 +204,7 @@ def test_different_project_revalidates():
     with pm, _taiga_config():
         deps.get_request_context("Bearer goodtoken", 42, None)
         deps.get_request_context("Bearer goodtoken", 43, None)
-    assert client.get.call_count == 3  # identity once, projects 42 and 43
+    assert client.request.call_count == 3  # identity once, projects 42 and 43
 
 
 # ---------------------------------------------------------------------------
@@ -186,7 +217,7 @@ def test_malformed_header_rejected_without_pm_call():
         with pytest.raises(HTTPException) as exc:
             deps.get_auth_context("Basic dXNlcjpwYXNz")
     assert exc.value.status_code == 401
-    assert client.get.call_count == 0
+    assert client.request.call_count == 0
 
 
 # ---------------------------------------------------------------------------
@@ -205,7 +236,7 @@ def test_env_taiga_api_url_anchors_identity(monkeypatch):
     pm, client = _mock_pm(200)
     with pm, _taiga_config(), _no_dns():
         deps.get_auth_context("Bearer privatetoken")
-    url = client.get.call_args.args[0]
+    url = client.request.call_args.args[1]
     assert url == "https://my-tunnel.trycloudflare.com/api/v1/users/me"
 
 
@@ -218,7 +249,7 @@ def test_config_taiga_url_is_not_used_as_anchor(monkeypatch):
     pm, client = _mock_pm(200)
     with pm, patch("src.context_manager.load_config", return_value=config), _no_dns():
         deps.get_auth_context("Bearer sometoken")
-    url = client.get.call_args.args[0]
+    url = client.request.call_args.args[1]
     assert url == "https://api.taiga.io/api/v1/users/me"
 
 
@@ -229,7 +260,7 @@ def test_header_anchor_used_when_no_server_anchor(monkeypatch):
     pm, client = _mock_pm(200)
     with pm, _taiga_config(), _no_dns():
         deps.get_auth_context("Bearer privatetoken", "https://private.example.org")
-    url = client.get.call_args.args[0]
+    url = client.request.call_args.args[1]
     assert url == "https://private.example.org/api/v1/users/me"
 
 
@@ -240,7 +271,7 @@ def test_server_env_anchor_overrides_request_header(monkeypatch):
     pm, client = _mock_pm(200)
     with pm, _taiga_config(), _no_dns():
         deps.get_auth_context("Bearer tok", "https://rogue.example.org")
-    url = client.get.call_args.args[0]
+    url = client.request.call_args.args[1]
     assert url == "https://api.taiga.io/api/v1/users/me"
 
 
@@ -253,7 +284,7 @@ def test_request_header_beats_stale_config(monkeypatch):
     pm, client = _mock_pm(200)
     with pm, patch("src.context_manager.load_config", return_value=config), _no_dns():
         deps.get_auth_context("Bearer tok", "https://current-tunnel.example.org")
-    url = client.get.call_args.args[0]
+    url = client.request.call_args.args[1]
     assert url == "https://current-tunnel.example.org/api/v1/users/me"
 
 
@@ -265,7 +296,7 @@ def test_header_taiga_url_overrides_stale_jira_pm_tool(monkeypatch):
     pm, client = _mock_pm(200)
     with pm, patch("src.context_manager.load_config", return_value=config), _no_dns():
         deps.get_auth_context("Bearer tok", "https://taiga.example.org")
-    url = client.get.call_args.args[0]
+    url = client.request.call_args.args[1]
     assert url == "https://taiga.example.org/api/v1/users/me"
 
 
@@ -275,7 +306,7 @@ def test_env_wins_over_config(monkeypatch):
     pm, client = _mock_pm(200)
     with pm, patch("src.context_manager.load_config", return_value=config), _no_dns():
         deps.get_auth_context("Bearer sometoken")
-    assert client.get.call_args.args[0].startswith("https://env-tunnel.trycloudflare.com")
+    assert client.request.call_args.args[1].startswith("https://env-tunnel.trycloudflare.com")
 
 
 def test_token_cache_is_scoped_to_identity_anchor(monkeypatch):
@@ -284,7 +315,7 @@ def test_token_cache_is_scoped_to_identity_anchor(monkeypatch):
     with pm, _taiga_config(), _no_dns():
         deps.get_auth_context("Bearer same-token", "https://one.example.org")
         deps.get_auth_context("Bearer same-token", "https://two.example.org")
-    urls = [call.args[0] for call in client.get.call_args_list]
+    urls = [call.args[1] for call in client.request.call_args_list]
     assert urls == [
         "https://one.example.org/api/v1/users/me",
         "https://two.example.org/api/v1/users/me",
@@ -296,7 +327,7 @@ def test_default_anchor_is_taiga_cloud(monkeypatch):
     pm, client = _mock_pm(200)
     with pm, _taiga_config(), _no_dns():
         deps.get_auth_context("Bearer cloudtoken")
-    assert client.get.call_args.args[0] == "https://api.taiga.io/api/v1/users/me"
+    assert client.request.call_args.args[1] == "https://api.taiga.io/api/v1/users/me"
 
 
 def test_private_anchor_url_rejected(monkeypatch):
