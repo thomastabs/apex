@@ -21,6 +21,7 @@ import {
 } from "@/lib/hooks/use-workspace";
 import { getPmAdapter } from "@/lib/api/pm-factory";
 import { toPmCtx, type ApexPhaseStatus } from "@/lib/api/workspace";
+import { getAnalyticsSummary, type StoryRisk } from "@/lib/api/analytics";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
@@ -514,6 +515,19 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
   const storyStats = useStoryIndexStats();
   const driftedIds = new Set(storyStats.data?.drifted_story_ids ?? []);
 
+  // Predictive risk badge — reuse the analytics summary (single source of risk),
+  // shared/cached with the Analytics page.
+  const context = useApiContext();
+  const riskQuery = useQuery({
+    queryKey: ["analytics", "summary", context?.projectId],
+    queryFn: () => getAnalyticsSummary(context!),
+    enabled: Boolean(context),
+    staleTime: 60_000,
+  });
+  const riskById = new Map<number, StoryRisk>(
+    (riskQuery.data?.stories ?? []).map((s) => [s.story_id, s.risk]),
+  );
+
   const epicCount = board.data?.length ?? 0;
 
   const q = filter.toLowerCase().trim();
@@ -706,6 +720,19 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                       <div key={story.id}>
                         <div className="flex items-center gap-1">
                           <span className="min-w-0 flex-1 truncate text-xs">#{story.ref} {story.subject}</span>
+                          {(() => {
+                            const r = riskById.get(story.id);
+                            return r && (r.level === "high" || r.level === "medium") ? (
+                              <span
+                                title={`Risk: ${r.level} — ${r.reasons.join("; ")}`}
+                                aria-label={`Predicted risk: ${r.level}`}
+                                className={cn(
+                                  "size-2 shrink-0 rounded-full",
+                                  r.level === "high" ? "bg-red-500" : "bg-amber-500",
+                                )}
+                              />
+                            ) : null;
+                          })()}
                           {driftedIds.has(story.id) ? (
                             <AlertTriangle
                               className="size-3 shrink-0 text-amber-500"
