@@ -17,9 +17,20 @@ import { NextResponse, type NextRequest } from "next/server";
  */
 export function middleware(request: NextRequest) {
   const nonce = btoa(crypto.randomUUID());
-  const strict = [
+  const isProd = process.env.NODE_ENV === "production";
+
+  // Dev (next dev) needs 'unsafe-inline'/'unsafe-eval' for React Fast Refresh /
+  // HMR, and the Playwright harness injects an init script — a strict nonce CSP
+  // breaks both. So enforce the strict nonce policy ONLY in production; dev gets
+  // the permissive policy. force-dynamic (app/layout.tsx) makes the prod nonce
+  // land in Next's scripts.
+  const scriptSrc = isProd
+    ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`
+    : "script-src 'self' 'unsafe-inline' 'unsafe-eval'";
+
+  const policy = [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    scriptSrc,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
@@ -32,10 +43,10 @@ export function middleware(request: NextRequest) {
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
-  requestHeaders.set("Content-Security-Policy", strict);
+  if (isProd) requestHeaders.set("Content-Security-Policy", policy);
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
-  response.headers.set("Content-Security-Policy", strict);
+  response.headers.set("Content-Security-Policy", policy);
   return response;
 }
 
