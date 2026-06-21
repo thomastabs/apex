@@ -2,9 +2,11 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ChevronDown, ChevronRight, Info, Layers3, Plus, RefreshCw, Trash2, TrendingDown, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, Info, Layers3, Plus, RefreshCw, Trash2, TrendingDown, Undo2, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
+  useAcknowledgeBacktrace,
   useAcknowledgeSpecDrift,
   useBoard,
   useCreateEpic,
@@ -146,11 +148,15 @@ const APEX_STATUS_OPTIONS: [ApexPhaseStatus, string][] = [
   ["deployed", "Deployed"],
 ];
 
-function StoryDialog({ story, drifted = false, regressed = false, onClose }: { story: Story; drifted?: boolean; regressed?: boolean; onClose: () => void }) {
+type TracePrompt = { phase_label: string; route: string; reason: string };
+
+function StoryDialog({ story, drifted = false, regressed = false, trace = null, onClose }: { story: Story; drifted?: boolean; regressed?: boolean; trace?: TracePrompt | null; onClose: () => void }) {
   const dark = useUiStore((state) => state.theme === "dark");
   const context = useApiContext();
+  const router = useRouter();
   const ackDrift = useAcknowledgeSpecDrift();
   const ackRegression = useAcknowledgeRegression();
+  const ackTrace = useAcknowledgeBacktrace();
   const [subject, setSubject] = useState(story.subject);
   const [description, setDescription] = useState(story.description ?? "");
   const [tagsInput, setTagsInput] = useState((story.tags ?? []).join(", "));
@@ -274,6 +280,35 @@ function StoryDialog({ story, drifted = false, regressed = false, onClose }: { s
               >
                 {ackRegression.isPending ? "Acknowledging…" : "Acknowledge"}
               </button>
+            </div>
+          </div>
+        ) : null}
+        {trace ? (
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-violet-500/40 bg-violet-500/10 p-3 text-xs text-violet-600 dark:text-violet-400">
+            <Undo2 className="mt-0.5 size-4 shrink-0" />
+            <div className="flex-1">
+              <p className="font-semibold">Backward trace — re-open {trace.phase_label}</p>
+              <p className="mt-0.5">{trace.reason}</p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  className="rounded bg-violet-500/20 px-2 py-1 font-semibold transition-colors hover:bg-violet-500/30"
+                  onClick={() => { router.push(trace.route); onClose(); }}
+                >
+                  Re-open {trace.phase_label}
+                </button>
+                <button
+                  className="rounded px-2 py-1 font-semibold transition-colors hover:bg-violet-500/20 disabled:opacity-50"
+                  disabled={ackTrace.isPending}
+                  onClick={() =>
+                    ackTrace.mutate(story.id, {
+                      onSuccess: () => toast.success("Backward trace acknowledged."),
+                      onError: () => toast.error("Could not acknowledge."),
+                    })
+                  }
+                >
+                  {ackTrace.isPending ? "Acknowledging…" : "Acknowledge"}
+                </button>
+              </div>
             </div>
           </div>
         ) : null}
@@ -542,6 +577,14 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
   const storyStats = useStoryIndexStats();
   const driftedIds = new Set(storyStats.data?.drifted_story_ids ?? []);
   const regressedIds = new Set(storyStats.data?.regressed_story_ids ?? []);
+  const tracedIds = new Set(storyStats.data?.trace_story_ids ?? []);
+  const TRACE_ROUTE: Record<string, string> = { gherkin_locked: "/phase1", design_locked: "/phase2" };
+  const traceById = new Map(
+    (storyStats.data?.trace_flags ?? []).map((t) => [
+      t.story_id,
+      { phase_label: t.phase_label, route: TRACE_ROUTE[t.phase] ?? "/phase1", reason: t.reason },
+    ]),
+  );
 
   // Predictive risk badge — reuse the analytics summary (single source of risk),
   // shared/cached with the Analytics page.
@@ -579,7 +622,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
       {typeof document !== "undefined" ? createPortal(
         <>
           {dialogEpic ? <EpicDialog epic={dialogEpic} onClose={() => setDialogEpic(null)} /> : null}
-          {dialogStory ? <StoryDialog story={dialogStory} drifted={driftedIds.has(dialogStory.id)} regressed={regressedIds.has(dialogStory.id)} onClose={() => setDialogStory(null)} /> : null}
+          {dialogStory ? <StoryDialog story={dialogStory} drifted={driftedIds.has(dialogStory.id)} regressed={regressedIds.has(dialogStory.id)} trace={traceById.get(dialogStory.id) ?? null} onClose={() => setDialogStory(null)} /> : null}
           {createEpicOpen ? <CreateEpicDialog onClose={() => setCreateEpicOpen(false)} /> : null}
           {createStoryEpicId !== null ? (
             <CreateStoryDialog epicId={createStoryEpicId} onClose={() => setCreateStoryEpicId(null)} />
@@ -771,6 +814,12 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                             <TrendingDown
                               className="size-3 shrink-0 text-red-500"
                               aria-label="Conformance regressed — a code change lowered this story's spec↔code conformance"
+                            />
+                          ) : null}
+                          {tracedIds.has(story.id) ? (
+                            <Undo2
+                              className="size-3 shrink-0 text-violet-500"
+                              aria-label="Backward trace — a downstream gap points back at this story's source spec; consider re-opening an earlier phase"
                             />
                           ) : null}
                           <button

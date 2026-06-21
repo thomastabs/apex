@@ -229,6 +229,15 @@ class Phase5Service:
         # been passed, so an already-deployed story is still a valid target.
         self._eligible_entry(story_id, allowed=("qa_passed", "deployed"))
         self.context.save_verification(story_id, matrix)
+        # Backward trace: an uncovered/untested scenario in the matrix points back
+        # at its Gherkin (Phase 1). Set/clear the story's trace_flag accordingly.
+        from src import ai_engine
+
+        summary = ai_engine.summarize_trace(ai_engine.trace_targets_from_matrix(matrix))
+        if summary:
+            self.context.set_trace_flag(story_id, summary["phase"], summary["reason"])
+        else:
+            self.context.clear_trace_flag(story_id)
 
     def load_verification(self, ctx: RequestContext, story_id: int) -> dict | None:
         self.configure_request(ctx)

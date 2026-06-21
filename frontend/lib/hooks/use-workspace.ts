@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  acknowledgeBacktrace,
   acknowledgeSpecDrift,
   createEpic,
   createProject,
@@ -131,6 +132,17 @@ export function useAcknowledgeSpecDrift() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (storyId: number) => acknowledgeSpecDrift(context!, storyId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
+    },
+  });
+}
+
+export function useAcknowledgeBacktrace() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (storyId: number) => acknowledgeBacktrace(context!, storyId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },

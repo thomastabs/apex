@@ -206,6 +206,12 @@ class AnalyticsService:
             score += 2
             reasons.append("conformance regressed after code change")
 
+        if entry.get("trace_flag"):
+            score += 1
+            label = {"gherkin_locked": "Phase 1", "design_locked": "Phase 2"}.get(
+                entry.get("trace_phase", ""), "an earlier phase")
+            reasons.append(f"needs backward trace — re-open {label}")
+
         if entry.get("has_bug_report") and entry.get("phase_status") == "implementation":
             score += 1
             reasons.append("regression bypass in progress")

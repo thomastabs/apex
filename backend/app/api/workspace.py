@@ -240,6 +240,8 @@ def set_story_phase_status(
 
 @router.get("/context-files/story-index-stats", response_model=StoryIndexStatsResponse)
 def story_index_stats(ctx: RequestContext = Depends(get_request_context)):
+    from src.ai_engine import TRACE_PHASE_LABEL
+
     context = ContextService()
     context.set_active(ctx)
     try:
@@ -265,6 +267,22 @@ def story_index_stats(ctx: RequestContext = Depends(get_request_context)):
             s["story_id"] for s in stories
             if s.get("conformance_regressed") and s.get("story_id") is not None
         ),
+        "trace_flagged": sum(1 for s in stories if s.get("trace_flag")),
+        "trace_story_ids": sorted(
+            s["story_id"] for s in stories if s.get("trace_flag") and s.get("story_id") is not None
+        ),
+        "trace_flags": [
+            {
+                "story_id": s["story_id"],
+                "phase": s.get("trace_phase", ""),
+                "phase_label": TRACE_PHASE_LABEL.get(s.get("trace_phase", ""), ""),
+                "reason": s.get("trace_reason", ""),
+            }
+            for s in sorted(
+                (s for s in stories if s.get("trace_flag") and s.get("story_id") is not None),
+                key=lambda s: s["story_id"],
+            )
+        ],
     }
 
 
@@ -276,6 +294,17 @@ def acknowledge_spec_drift(story_id: int, ctx: RequestContext = Depends(get_requ
     context = ContextService()
     context.set_active(ctx)
     context.clear_spec_drift(story_id)
+    return {"ok": True}
+
+
+@router.post(
+    "/context-files/story-index/stories/{story_id}/acknowledge-trace",
+    response_model=OkResponse,
+)
+def acknowledge_backward_trace(story_id: int, ctx: RequestContext = Depends(get_request_context)):
+    context = ContextService()
+    context.set_active(ctx)
+    context.clear_trace_flag(story_id)
     return {"ok": True}
 
 

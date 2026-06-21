@@ -70,6 +70,16 @@ def test_story_risk_flags_conformance_regression():
     assert all("regressed" not in r for r in clean["reasons"])
 
 
+def test_story_risk_flags_backward_trace():
+    svc = AnalyticsService(context=FakeContextService(index={}))
+    risk = svc._story_risk(
+        _entry(1, "deployed", trace_flag=True, trace_phase="gherkin_locked"), None, None)
+    assert any("backward trace" in r and "Phase 1" in r for r in risk["reasons"])
+    assert risk["score"] >= 1
+    clean = svc._story_risk(_entry(2, "deployed"), None, None)
+    assert all("backward trace" not in r for r in clean["reasons"])
+
+
 def test_funnel_counts_all_statuses():
     index = {
         "1": _entry(1, "gherkin_locked"),

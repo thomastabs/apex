@@ -126,6 +126,12 @@ class FakeContextService:
     def load_verification(self, story_id: int):
         return getattr(self, "saved_verification", (None, None))[1]
 
+    def set_trace_flag(self, story_id: int, phase: str, reason: str = "") -> None:
+        self.trace = (story_id, phase, reason)
+
+    def clear_trace_flag(self, story_id: int) -> None:
+        self.trace_cleared = story_id
+
     def render_infra_delta_md(self, story_id: int, delta: dict) -> str:
         from src import context_manager
         return context_manager.render_infra_delta_md(story_id, delta)
@@ -368,6 +374,27 @@ def test_save_verification_rejects_pre_gate_status():
     ctx_service = FakeContextService(index=_story_index(status="qa"))
     with pytest.raises(Phase5ValidationError, match="not eligible"):
         _svc(context=ctx_service).save_verification(_ctx(), 10, {"scenarios": []})
+
+
+def test_save_verification_sets_trace_flag_on_coverage_gap():
+    # An untested scenario in the matrix → backward trace to its Gherkin (Phase 1).
+    ctx_service = FakeContextService(index=_story_index(status="deployed"))
+    svc = _svc(context=ctx_service)
+    svc.save_verification(_ctx(), 10, {
+        "scenarios": [{"scenario": "S1", "tasks": [3], "qa_result": "untested"}],
+        "summary": {}, "complete": False,
+    })
+    assert ctx_service.trace[0] == 10 and ctx_service.trace[1] == "gherkin_locked"
+
+
+def test_save_verification_clears_trace_flag_when_clean():
+    ctx_service = FakeContextService(index=_story_index(status="deployed"))
+    svc = _svc(context=ctx_service)
+    svc.save_verification(_ctx(), 10, {
+        "scenarios": [{"scenario": "S1", "tasks": [3], "qa_result": "pass"}],
+        "summary": {}, "complete": True,
+    })
+    assert ctx_service.trace_cleared == 10
 
 
 # ---------------------------------------------------------------------------

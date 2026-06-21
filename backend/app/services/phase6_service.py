@@ -111,7 +111,19 @@ class Phase6Service:
         report["title"] = inp["title"]
         report["epic_title"] = inp["epic_title"]
         self.context.save_conformance(story_id, report)
+        self._apply_trace(story_id, report)
         return self.context.load_conformance(story_id) or report
+
+    def _apply_trace(self, story_id: int, report: dict) -> None:
+        """Backward trace: set/clear the story's trace_flag from a conformance
+        report's failing rows (suggest re-opening the source spec phase)."""
+        from src import ai_engine
+
+        summary = ai_engine.summarize_trace(ai_engine.derive_trace_targets(report))
+        if summary:
+            self.context.set_trace_flag(story_id, summary["phase"], summary["reason"])
+        else:
+            self.context.clear_trace_flag(story_id)
 
     def get_conformance(self, ctx: RequestContext, story_id: int) -> dict | None:
         self.configure_request(ctx)

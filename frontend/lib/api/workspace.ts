@@ -113,6 +113,13 @@ export function acknowledgeSpecDrift(context: RequestContext, storyId: number) {
   );
 }
 
+export function acknowledgeBacktrace(context: RequestContext, storyId: number) {
+  return apiRequest<{ ok: boolean }>(
+    `/api/workspace/context-files/story-index/stories/${storyId}/acknowledge-trace`,
+    { method: "POST", context },
+  );
+}
+
 export function resetContextFile(context: RequestContext, filename: string) {
   return apiRequest<ContextFilesResponse>(`/api/workspace/context-files/${filename}/reset`, {
     method: "POST",
@@ -220,6 +227,16 @@ export type StoryIndexStats = {
   drifted_story_ids: number[];
   conformance_regressed: number;
   regressed_story_ids: number[];
+  trace_flagged: number;
+  trace_story_ids: number[];
+  trace_flags: TraceFlagInfo[];
+};
+
+export type TraceFlagInfo = {
+  story_id: number;
+  phase: string;        // "gherkin_locked" | "design_locked"
+  phase_label: string;  // "Phase 1" | "Phase 2"
+  reason: string;
 };
 
 export function getStoryIndexStats(context: RequestContext) {

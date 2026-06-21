@@ -16,6 +16,8 @@ vi.mock("@/lib/stores/session-store", () => ({
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/lib/api/pm-factory", () => ({ getPmAdapter: () => ({ getStory, getEpic: vi.fn() }) }));
 vi.mock("@/lib/api/workspace", () => ({ toPmCtx: () => ({ projectId: "7" }) }));
+const pushMock = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: pushMock }) }));
 
 const idleMut = { mutate: vi.fn(), isPending: false };
 vi.mock("@/lib/hooks/use-workspace", () => ({
@@ -31,11 +33,14 @@ vi.mock("@/lib/hooks/use-workspace", () => ({
   useStoryPhaseStatus: () => ({ data: { phase_status: "implementation" }, isLoading: false }),
   useSetStoryPhaseStatus: () => idleMut,
   useAcknowledgeSpecDrift: () => idleMut,
+  useAcknowledgeBacktrace: () => idleMut,
   useStoryIndexStats: () => ({
     data: {
       total: 1, phase2_designed: 0, phase3_proposed: 0, phase4_tested: 0, phase4_passed: 0,
       phase5_deployed: 0, spec_drift: 0, drifted_story_ids: [],
       conformance_regressed: 1, regressed_story_ids: [101],
+      trace_flagged: 1, trace_story_ids: [101],
+      trace_flags: [{ story_id: 101, phase: "gherkin_locked", phase_label: "Phase 1", reason: "scenario untested — re-examine its Gherkin" }],
     },
   }),
 }));
@@ -81,5 +86,17 @@ describe("BoardSection edit dialog", () => {
     await waitFor(() =>
       expect(screen.getByLabelText(/Conformance regressed/i)).toBeInTheDocument(),
     );
+  });
+
+  it("shows a backward-trace badge and the dialog re-opens the source phase", async () => {
+    renderBoard();
+    fireEvent.click(screen.getByRole("button", { name: /Epics & Stories/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Authentication/i }));
+    await waitFor(() => expect(screen.getByLabelText(/Backward trace/i)).toBeInTheDocument());
+    fireEvent.click(screen.getByTitle("Edit story"));
+    const reopen = await screen.findByRole("button", { name: /^Re-open Phase 1$/i });
+    expect(screen.getByText(/scenario untested/i)).toBeInTheDocument();
+    fireEvent.click(reopen);
+    expect(pushMock).toHaveBeenCalledWith("/phase1");
   });
 });

@@ -852,7 +852,8 @@ def upsert_story_index(story_id: int, **updates) -> None:
                   has_proposal, has_bdd, has_bug_report, has_infra_delta,
                   has_deploy_pack, deploy_bypass, fix_bolt_count,
                   spec_drift, drift_reason,
-                  conformance_regressed, regression_reason.
+                  conformance_regressed, regression_reason,
+                  trace_flag, trace_phase, trace_reason.
 
     Whenever phase_status changes (including the initial status of a new
     entry) a UTC timestamp is appended to entry["status_history"][status] —
@@ -887,6 +888,9 @@ def upsert_story_index(story_id: int, **updates) -> None:
             "drift_reason":    "",
             "conformance_regressed": False,
             "regression_reason":     "",
+            "trace_flag":      False,
+            "trace_phase":     "",
+            "trace_reason":    "",
             "status_history":  {},
         })
         entry.update(updates)
@@ -2152,6 +2156,32 @@ def clear_conformance_regressed(story_id: int) -> None:
         if entry is not None and entry.get("conformance_regressed"):
             entry["conformance_regressed"] = False
             entry["regression_reason"] = ""
+            _save_story_index(index)
+
+
+def set_trace_flag(story_id: int, phase: str, reason: str = "") -> None:
+    """Backward trace: flag a story whose downstream failure traces to an earlier
+    spec, suggesting `phase` (a phase_status) be re-opened. Suggest-only — never
+    changes phase_status itself."""
+    with _index_lock():
+        index = get_story_index()
+        entry = index.get(str(story_id))
+        if entry is not None:
+            entry["trace_flag"] = True
+            entry["trace_phase"] = phase
+            entry["trace_reason"] = reason
+            _save_story_index(index)
+
+
+def clear_trace_flag(story_id: int) -> None:
+    """Clear the backward-trace flag (acknowledged, or a later check found no gap)."""
+    with _index_lock():
+        index = get_story_index()
+        entry = index.get(str(story_id))
+        if entry is not None and entry.get("trace_flag"):
+            entry["trace_flag"] = False
+            entry["trace_phase"] = ""
+            entry["trace_reason"] = ""
             _save_story_index(index)
 
 

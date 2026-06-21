@@ -2898,6 +2898,92 @@ def diff_conformance(
     return {"regressed": regressed, "score_delta": score_delta, "worsened_rows": worsened}
 
 
+# --- Backward trace propagation (pure, no AI) ------------------------------
+# A downstream conformance/coverage failure points back at the SOURCE spec it
+# derived from, and the phase that owns it. A failing scenario traces to its
+# Gherkin (Phase 1); a failing endpoint/constraint traces to the technical-spec /
+# constraints (Phase 2). The phase_status here is the lock the source artifact
+# sits behind (see _SPEC_LOCK_PHASE in context_manager).
+
+# phase_status of the source spec → human label (also the re-open target).
+TRACE_PHASE_LABEL = {"gherkin_locked": "Phase 1", "design_locked": "Phase 2"}
+# Earliest-first order so a story is sent back to the root of the problem.
+_TRACE_PHASE_ORDER = ("gherkin_locked", "design_locked")
+# Statuses that count as a downstream failure worth tracing back.
+_TRACE_BAD_SCENARIO = frozenset({"untested", "partial"})
+_TRACE_BAD_ENDPOINT = frozenset({"missing", "mismatch"})
+_TRACE_BAD_CONSTRAINT = frozenset({"not_found"})
+
+
+class TraceTarget(BaseModel):
+    """A backward link from a downstream failure to its source spec + phase."""
+    kind: Literal["scenario", "endpoint", "constraint"]
+    ref: str
+    source_phase: str        # phase_status of the source artifact (re-open target)
+    reason: str
+
+
+def derive_trace_targets(report: ConformanceReport | dict) -> list[TraceTarget]:
+    """Map a conformance report's failing rows to their source spec + phase (pure).
+
+    scenario untested/partial → Gherkin (gherkin_locked); endpoint missing/mismatch
+    and constraint not_found → design/constraints (design_locked). Passing rows
+    yield nothing. No LLM — over already-computed statuses only.
+    """
+    if isinstance(report, dict):
+        report = ConformanceReport.model_validate(report)
+    out: list[TraceTarget] = []
+    for s in report.scenarios:
+        if s.status in _TRACE_BAD_SCENARIO:
+            out.append(TraceTarget(
+                kind="scenario", ref=s.scenario, source_phase="gherkin_locked",
+                reason=f"scenario {s.status} — re-examine its Gherkin"))
+    for e in report.endpoints:
+        if e.status in _TRACE_BAD_ENDPOINT:
+            out.append(TraceTarget(
+                kind="endpoint", ref=e.contract, source_phase="design_locked",
+                reason=f"endpoint {e.status} — re-examine the technical spec"))
+    for c in report.constraints:
+        if c.status in _TRACE_BAD_CONSTRAINT:
+            out.append(TraceTarget(
+                kind="constraint", ref=c.constraint_id, source_phase="design_locked",
+                reason="constraint not addressed — re-examine constraints"))
+    return out
+
+
+def trace_targets_from_matrix(matrix: dict) -> list[TraceTarget]:
+    """Map a saved verification-matrix's uncovered/untested scenario rows to their
+    Gherkin source (Phase 1). The matrix is the Phase-4 test-coverage signal."""
+    rows = (matrix or {}).get("scenarios", []) if isinstance(matrix, dict) else []
+    out: list[TraceTarget] = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        uncovered = not r.get("tasks")
+        untested = r.get("qa_result") == "untested"
+        if uncovered or untested:
+            why = "no covering task" if uncovered else "untested"
+            out.append(TraceTarget(
+                kind="scenario", ref=r.get("scenario", ""), source_phase="gherkin_locked",
+                reason=f"scenario {why} — re-examine its Gherkin"))
+    return out
+
+
+def summarize_trace(targets: list[TraceTarget]) -> dict | None:
+    """Reduce trace targets to one re-open suggestion: the earliest source phase
+    plus a one-line headline. None when there is nothing to trace."""
+    if not targets:
+        return None
+    phases = {t.source_phase for t in targets}
+    earliest = next((p for p in _TRACE_PHASE_ORDER if p in phases), targets[0].source_phase)
+    label = TRACE_PHASE_LABEL.get(earliest, earliest)
+    by_kind: dict[str, int] = {}
+    for t in targets:
+        by_kind[t.kind] = by_kind.get(t.kind, 0) + 1
+    parts = ", ".join(f"{n} {k}{'s' if n > 1 else ''}" for k, n in by_kind.items())
+    return {"phase": earliest, "reason": f"{parts} need attention — re-open {label} (the source spec)"}
+
+
 def build_layer_a_report(
     gherkin: str,
     technical_spec: str,

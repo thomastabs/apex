@@ -54,6 +54,9 @@ def test_story_index_stats_deployed_counts_only_explicit_deployed(monkeypatch):
         "drifted_story_ids": [],
         "conformance_regressed": 0,
         "regressed_story_ids": [],
+        "trace_flagged": 0,
+        "trace_story_ids": [],
+        "trace_flags": [],
     }
 
 
@@ -334,6 +337,24 @@ def test_stats_lists_regressed_story_ids(ctx):
     ctx.clear_conformance_regressed(2)
     stats2 = story_index_stats(RequestContext(pm_token="tok", project_id=ctx._get_project_id()))
     assert stats2["regressed_story_ids"] == [3]
+
+
+def test_stats_lists_trace_flags(ctx):
+    from backend.app.api.workspace import acknowledge_backward_trace
+    ctx.upsert_story_index(1, phase_status="deployed")
+    ctx.upsert_story_index(2, phase_status="qa_passed")
+    ctx.set_trace_flag(1, "gherkin_locked", "scenario untested")
+    ctx.set_trace_flag(2, "design_locked", "endpoint missing")
+    rc = RequestContext(pm_token="tok", project_id=ctx._get_project_id())
+    stats = story_index_stats(rc)
+    assert stats["trace_flagged"] == 2
+    assert stats["trace_story_ids"] == [1, 2]
+    info = {t["story_id"]: t for t in stats["trace_flags"]}
+    assert info[1]["phase_label"] == "Phase 1" and info[2]["phase_label"] == "Phase 2"
+    assert info[1]["reason"] == "scenario untested"
+    # acknowledge clears
+    assert acknowledge_backward_trace(1, rc) == {"ok": True}
+    assert story_index_stats(rc)["trace_story_ids"] == [2]
 
 
 # ── rebuild_story_index ───────────────────────────────────────────────────────

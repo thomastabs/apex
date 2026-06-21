@@ -86,6 +86,13 @@ class AiConfigResponse(BaseModel):
     configured_providers: list[str] = Field(default_factory=list)
 
 
+class TraceFlagInfo(BaseModel):
+    story_id: int
+    phase: str = ""        # phase_status to re-open (e.g. "gherkin_locked")
+    phase_label: str = ""  # "Phase 1" / "Phase 2"
+    reason: str = ""
+
+
 class StoryIndexStatsResponse(BaseModel):
     total: int = 0
     phase2_designed: int = 0
@@ -97,3 +104,6 @@ class StoryIndexStatsResponse(BaseModel):
     drifted_story_ids: list[int] = Field(default_factory=list)
     conformance_regressed: int = 0
     regressed_story_ids: list[int] = Field(default_factory=list)
+    trace_flagged: int = 0
+    trace_story_ids: list[int] = Field(default_factory=list)
+    trace_flags: list["TraceFlagInfo"] = Field(default_factory=list)

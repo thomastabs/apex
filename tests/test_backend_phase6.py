@@ -59,6 +59,8 @@ class FakeContextService:
         self.store: dict[int, dict] = {}
         self.regressed: dict[int, str] = {}
         self.cleared: list[int] = []
+        self.trace: dict[int, tuple] = {}
+        self.trace_cleared: list[int] = []
         self.context_files = {"github-context.md": _GITHUB, "constraints.md": ""}
 
     def set_active(self, ctx):
@@ -91,6 +93,13 @@ class FakeContextService:
     def clear_conformance_regressed(self, story_id):
         self.cleared.append(story_id)
         self.regressed.pop(story_id, None)
+
+    def set_trace_flag(self, story_id, phase, reason=""):
+        self.trace[story_id] = (phase, reason)
+
+    def clear_trace_flag(self, story_id):
+        self.trace_cleared.append(story_id)
+        self.trace.pop(story_id, None)
 
 
 @pytest.fixture
@@ -185,6 +194,30 @@ def test_scan_skips_stories_without_report(ctx):
     out = svc.scan_regressions(ctx)
     assert out["results"] == [] and out["regressed_ids"] == []
     assert ai.verify_calls == 0
+
+
+def test_verify_sets_trace_flag_on_failing_rows(ctx):
+    svc, ai, context = _service()
+    ai.verify_report = {
+        "endpoints": [{"contract": "POST /a", "status": "missing"}],
+        "scenarios": [{"scenario": "S1", "status": "untested"}],
+        "constraints": [], "score": 0,
+    }
+    svc.verify_conformance(ctx, 1, ai=True)
+    assert 1 in context.trace
+    phase, reason = context.trace[1]
+    assert phase == "gherkin_locked"  # scenario (Phase 1) is earliest
+
+
+def test_verify_clears_trace_flag_on_clean_report(ctx):
+    svc, ai, context = _service()
+    ai.verify_report = {
+        "endpoints": [{"contract": "POST /a", "status": "present"}],
+        "scenarios": [{"scenario": "S1", "status": "tested"}],
+        "constraints": [], "score": 100,
+    }
+    svc.verify_conformance(ctx, 1, ai=True)
+    assert 1 not in context.trace and 1 in context.trace_cleared
 
 
 def test_ineligible_story_raises(ctx):

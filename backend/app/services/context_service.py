@@ -48,6 +48,12 @@ class ContextService:
     def clear_conformance_regressed(self, story_id: int) -> None:
         context_manager.clear_conformance_regressed(story_id)
 
+    def set_trace_flag(self, story_id: int, phase: str, reason: str = "") -> None:
+        context_manager.set_trace_flag(story_id, phase, reason)
+
+    def clear_trace_flag(self, story_id: int) -> None:
+        context_manager.clear_trace_flag(story_id)
+
     def get_amendments(self) -> str:
         return context_manager.get_amendments()
 

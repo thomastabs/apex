@@ -1060,6 +1060,68 @@ class TestDiffConformance:
         assert d["regressed"] and d["worsened_rows"][0]["new_status"] == "missing"
 
 
+class TestBackwardTrace:
+    """Backward trace propagation: downstream failure → source spec + phase (pure)."""
+
+    def _report(self, endpoints=(), scenarios=(), constraints=()):
+        from src.ai_engine import (
+            ConformanceReport, EndpointConformance, ScenarioConformance,
+            ConstraintConformance)
+        return ConformanceReport(
+            endpoints=[EndpointConformance(contract=c, status=s) for c, s in endpoints],
+            scenarios=[ScenarioConformance(scenario=sc, status=s) for sc, s in scenarios],
+            constraints=[ConstraintConformance(constraint_id=i, status=s) for i, s in constraints],
+        )
+
+    def test_scenario_untested_traces_to_phase1(self):
+        import src.ai_engine as ai
+        t = ai.derive_trace_targets(self._report(scenarios=[("S1", "untested")]))
+        assert len(t) == 1 and t[0].kind == "scenario" and t[0].source_phase == "gherkin_locked"
+
+    def test_endpoint_and_constraint_trace_to_phase2(self):
+        import src.ai_engine as ai
+        t = ai.derive_trace_targets(self._report(
+            endpoints=[("POST /a", "missing"), ("PUT /b", "mismatch")],
+            constraints=[("NFR-1", "not_found")]))
+        assert {x.source_phase for x in t} == {"design_locked"}
+        assert {x.kind for x in t} == {"endpoint", "constraint"}
+
+    def test_passing_rows_yield_no_targets(self):
+        import src.ai_engine as ai
+        t = ai.derive_trace_targets(self._report(
+            endpoints=[("POST /a", "present")], scenarios=[("S1", "tested")]))
+        assert t == [] and ai.summarize_trace(t) is None
+
+    def test_summarize_picks_earliest_phase(self):
+        import src.ai_engine as ai
+        t = ai.derive_trace_targets(self._report(
+            endpoints=[("POST /a", "missing")], scenarios=[("S1", "untested")]))
+        s = ai.summarize_trace(t)
+        assert s["phase"] == "gherkin_locked"  # Phase 1 before Phase 2
+        assert "Phase 1" in s["reason"]
+
+    def test_summarize_endpoint_only_is_phase2(self):
+        import src.ai_engine as ai
+        s = ai.summarize_trace(ai.derive_trace_targets(self._report(endpoints=[("POST /a", "missing")])))
+        assert s["phase"] == "design_locked" and "Phase 2" in s["reason"]
+
+    def test_accepts_dict(self):
+        import src.ai_engine as ai
+        t = ai.derive_trace_targets({"endpoints": [], "scenarios": [{"scenario": "S", "status": "partial"}], "constraints": [], "score": 0})
+        assert t[0].source_phase == "gherkin_locked"
+
+    def test_matrix_untested_or_uncovered_traces_to_phase1(self):
+        import src.ai_engine as ai
+        m = {"scenarios": [
+            {"scenario": "S1", "tasks": [], "qa_result": "pass"},        # uncovered
+            {"scenario": "S2", "tasks": [3], "qa_result": "untested"},   # untested
+            {"scenario": "S3", "tasks": [4], "qa_result": "pass"},       # fine
+        ]}
+        t = ai.trace_targets_from_matrix(m)
+        refs = {x.ref for x in t}
+        assert refs == {"S1", "S2"} and all(x.source_phase == "gherkin_locked" for x in t)
+
+
 # ---------------------------------------------------------------------------
 # Phase 3 · Deterministic agent-target compilation (roadmap #3, no LLM)
 # ---------------------------------------------------------------------------
