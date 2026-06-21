@@ -13,6 +13,12 @@ class PhaseStatusResponse(BaseModel):
     phase_status: str | None = None
 
 
+class LogDecisionRequest(BaseModel):
+    scope: str = Field(max_length=200)
+    summary: str = Field(max_length=2_000)
+    reason: str = Field("", max_length=2_000)
+
+
 class SetPhaseStatusRequest(BaseModel):
     phase_status: PhaseStatus
 

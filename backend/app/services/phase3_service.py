@@ -124,6 +124,10 @@ class Phase3Service:
         design_bundle = self.context.story_design_bundle(story_id)
         github_context = self.context.read_context_file("github-context.md")
         constraints = self.context.read_context_file("constraints.md")
+        # Only inject the decision log once it has real records (## entries), not
+        # the bare template header — keeps the prompt unchanged for fresh projects.
+        decisions_raw = self.context.read_context_file("decisions.md")
+        decisions = decisions_raw if "\n## " in f"\n{decisions_raw}" else ""
         other_tasks = [t for t in (all_tasks or []) if t.get("subject") != task_subject]
         # Sibling packs already saved for this story → keep packs consistent
         # (shared files/entities/endpoints, no duplication). Label each by its
@@ -145,6 +149,7 @@ class Phase3Service:
             tech_stack=tech_stack, design_bundle=design_bundle, story_ref=story_ref,
             github_context=github_context, hint=hint, recent_commits=recent_commits_context,
             other_tasks=other_tasks, sibling_packs=sibling_packs, constraints=constraints,
+            decisions=decisions,
         )
 
     def save_proposal(

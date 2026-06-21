@@ -226,6 +226,16 @@ _FIX_LOG_TEMPLATE = """\
 
 """
 
+_DECISIONS_TEMPLATE = """\
+# Decision Log
+
+> Record of design decisions: rejected AI proposals and notable human changes.
+> Captured when a regeneration is discarded or a deploy pack is revised, and may
+> be edited by hand. Used as negative constraints downstream so the AI stops
+> re-proposing approaches the team already rejected.
+
+"""
+
 _DESIGN_BUNDLE_TEMPLATE = """\
 # Design Bundles
 
@@ -521,6 +531,7 @@ def init_context() -> None:
         ("fix-log.md",         _FIX_LOG_TEMPLATE),
         ("amendments.md",      _AMENDMENTS_TEMPLATE),
         ("maintenance-log.md", _MAINTENANCE_LOG_TEMPLATE),
+        ("decisions.md",       _DECISIONS_TEMPLATE),
         ("design-bundle.md",   _DESIGN_BUNDLE_TEMPLATE),
     ]:
         p = _path(filename)
@@ -1333,6 +1344,30 @@ def append_fix_log_record(issue_id: int, root_cause: str, resolution_summary: st
     )
 
     vx.write_text(content.rstrip() + "\n" + record + "\n", encoding="utf-8")
+
+
+def append_decision_record(scope: str, summary: str, reason: str = "") -> None:
+    """Append a dated decision-log entry to decisions.md (append-only).
+
+    `scope` names the artifact (e.g. "Phase 3 dev pack · task #5"); `summary` is
+    what was rejected/changed; `reason` is why. Used downstream as a negative
+    constraint so the AI stops re-proposing rejected approaches."""
+    init_context()
+    p = _path("decisions.md")
+    content = p.read_text(encoding="utf-8") if p.exists() else _DECISIONS_TEMPLATE
+    record = (
+        f"\n## {_now_iso()} — {scope.strip() or 'decision'}\n\n"
+        f"- **Rejected/changed:** {summary.strip() or '(unspecified)'}\n"
+        f"- **Reason:** {reason.strip() or '(none given)'}\n"
+    )
+    p.write_text(content.rstrip() + "\n" + record + "\n", encoding="utf-8")
+
+
+def get_decisions() -> str:
+    """Read the decisions.md log (empty string if absent)."""
+    init_context()
+    p = _path("decisions.md")
+    return p.read_text(encoding="utf-8") if p.exists() else ""
 
 
 def save_proposal(story_id: int, task_id: int, proposal: str) -> Path:

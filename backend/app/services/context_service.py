@@ -54,6 +54,9 @@ class ContextService:
     def clear_trace_flag(self, story_id: int) -> None:
         context_manager.clear_trace_flag(story_id)
 
+    def append_decision_record(self, scope: str, summary: str, reason: str = "") -> None:
+        context_manager.append_decision_record(scope, summary, reason)
+
     def get_amendments(self) -> str:
         return context_manager.get_amendments()
 

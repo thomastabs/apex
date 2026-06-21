@@ -49,7 +49,7 @@ import {
 import { usePhase3Store } from "@/lib/stores/phase3-store";
 import { useDiffStore } from "@/lib/stores/diff-store";
 import { useApiContext, useGithubContext } from "@/lib/stores/session-store";
-import { useServerConfig } from "@/lib/hooks/use-workspace";
+import { useServerConfig, useLogDecision } from "@/lib/hooks/use-workspace";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
 import { createGithubIssue, fetchRecentCommitsContext } from "@/lib/api/github-browser";
@@ -885,6 +885,7 @@ function StageC({ storyId }: { storyId: number }) {
   const { data: ctx } = useStoryContext(storyId);
   const { taskList, packDrafts, prevPackDrafts, pmTaskRefs, setPackDraft, restorePackDraft } = usePhase3Store();
   const requestDiff = useDiffStore((s) => s.requestDiff);
+  const logDecision = useLogDecision();
   const generateProposal = useGenerateProposal();
   const saveProposalMut = useSaveProposal();
 
@@ -935,6 +936,11 @@ function StageC({ storyId }: { storyId: number }) {
               oldText: prev,
               newText: data.proposal_md,
               onAccept: () => commitPack(taskId, data.proposal_md),
+              onDiscard: () => logDecision.mutate({
+                scope: `Phase 3 dev pack · task #${taskId}`,
+                summary: "Discarded a regenerated developer pack — kept the previous one.",
+                reason: "The AI's regeneration was rejected in favour of the existing pack.",
+              }),
             });
           } else {
             commitPack(taskId, data.proposal_md);

@@ -1635,6 +1635,19 @@ def _format_pack_digests(packs: list[dict] | None) -> str:
     return "\n\n".join(blocks)
 
 
+def _decisions_block(decisions: str) -> str:
+    """Advisory negative-constraint block from the decision log. EMPTY by default
+    (no behaviour change unless the team has logged rejected approaches)."""
+    if not decisions.strip():
+        return ""
+    return (
+        "\n\nDecision Log — approaches the team has ALREADY REJECTED or changed. Do NOT "
+        "re-propose these; honour the recorded decisions as negative constraints (advisory — "
+        "never override the Gherkin or technical spec):\n"
+        + fence_user_content(decisions)
+    )
+
+
 def generate_coding_proposal(
     task_subject: str,
     task_description: str,
@@ -1649,6 +1662,7 @@ def generate_coding_proposal(
     other_tasks: list[dict] | None = None,
     sibling_packs: list[dict] | None = None,
     constraints: str = "",
+    decisions: str = "",
 ) -> str:
     system = _GENERATE_PROPOSAL_SYSTEM.format(
         tech_stack=fence_user_content(tech_stack.strip() or "Not specified"),
@@ -1679,6 +1693,7 @@ def generate_coding_proposal(
             "them, but do not invent functional behaviour beyond the Gherkin:\n"
             + fence_user_content(constraints)
         )
+    system += _decisions_block(decisions)
     if github_context.strip() and not github_context.strip().startswith("<!--"):
         system += "\n\nExisting Codebase (GitHub):\n" + fence_user_content(github_context)
     if recent_commits.strip():

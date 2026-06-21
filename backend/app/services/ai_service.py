@@ -173,6 +173,7 @@ class AiService:
         other_tasks: list[dict] | None = None,
         sibling_packs: list[dict] | None = None,
         constraints: str = "",
+        decisions: str = "",
     ) -> str:
         return ai_engine.generate_coding_proposal(
             task_subject, task_description, gherkin, technical_spec,
@@ -181,6 +182,7 @@ class AiService:
             other_tasks=other_tasks or [],
             sibling_packs=sibling_packs or [],
             constraints=constraints,
+            decisions=decisions,
         )
 
     def generate_er_diagram(self, data_model_md: str):

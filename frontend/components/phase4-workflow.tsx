@@ -38,7 +38,7 @@ import {
   useUpdatePmStoryStatus,
 } from "@/lib/hooks/use-phase4";
 import { pmTaskWebUrl } from "@/lib/hooks/use-phase3";
-import { useServerConfig } from "@/lib/hooks/use-workspace";
+import { useServerConfig, useLogDecision } from "@/lib/hooks/use-workspace";
 import { usePhase4Store } from "@/lib/stores/phase4-store";
 import { useDiffStore } from "@/lib/stores/diff-store";
 import { useApiContext } from "@/lib/stores/session-store";
@@ -270,6 +270,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const testPlanMd = usePhase4Store((s) => s.testPlanMd);
   const setTestPlanMd = usePhase4Store((s) => s.setTestPlanMd);
   const requestDiff = useDiffStore((s) => s.requestDiff);
+  const logDecision = useLogDecision();
   const setCurrentStoryMeta = usePhase4Store((s) => s.setCurrentStoryMeta);
 
   const generateMut = useGenerateTestPlan();
@@ -306,6 +307,11 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
               oldText: prev,
               newText: data.test_plan_md,
               onAccept: () => setTestPlanMd(data.test_plan_md),
+              onDiscard: () => logDecision.mutate({
+                scope: `Phase 4 test plan · story #${storyId}`,
+                summary: "Discarded a regenerated test plan — kept the previous one.",
+                reason: "The AI's regeneration was rejected in favour of the existing test plan.",
+              }),
             });
           } else {
             setTestPlanMd(data.test_plan_md);

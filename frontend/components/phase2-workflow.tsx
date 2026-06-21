@@ -32,6 +32,7 @@ import {
   useRefreshStoryIndex,
   useTechStackStatus,
 } from "@/lib/hooks/use-phase2";
+import { useLogDecision } from "@/lib/hooks/use-workspace";
 import type { DesignSectionKey } from "@/lib/api/types";
 import { usePhase2Store } from "@/lib/stores/phase2-store";
 import { TECH_STACK_PRESETS } from "@/lib/tech-stack-presets";
@@ -154,6 +155,7 @@ export function Phase2Workflow() {
     setTechLeadApproved,
   } = usePhase2Store();
   const requestDiff = useDiffStore((s) => s.requestDiff);
+  const logDecision = useLogDecision();
 
   const bundleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const designBundleRef = useRef(designBundle);
@@ -338,7 +340,14 @@ export function Phase2Workflow() {
             oldText: priorContent,
             newText: latestContent,
             onAccept: commit,
-            onDiscard: () => setPartial({}),
+            onDiscard: () => {
+              setPartial({});
+              logDecision.mutate({
+                scope: `Phase 2 design · ${SECTION_CONFIG[targetSection].title}`,
+                summary: `Discarded a regenerated "${SECTION_CONFIG[targetSection].title}" section — kept the previous one.`,
+                reason: "The AI's regeneration was rejected in favour of the existing design.",
+              });
+            },
           });
         } else {
           commit();

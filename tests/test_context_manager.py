@@ -538,6 +538,23 @@ class TestAppendFixLogRecord:
         assert "Fix #1" in content
         assert "Fix #2" in content
 
+    def test_decision_record_append_and_read(self, ctx):
+        ctx.init_context()
+        ctx.append_decision_record("Phase 3 dev pack · task #5", "Discarded regenerated pack", "Kept previous")
+        ctx.append_decision_record("Phase 5 deploy pack", "Rejected at gate", "Needs rollback step")
+        content = ctx.get_decisions()
+        assert "Phase 3 dev pack · task #5" in content
+        assert "Discarded regenerated pack" in content
+        assert "Kept previous" in content
+        assert "Phase 5 deploy pack" in content
+        # both records preserved (append-only)
+        assert content.count("## ") >= 2
+
+    def test_decisions_template_has_no_records_initially(self, ctx):
+        ctx.init_context()
+        # bare template → no "## " record headings (so downstream injection stays off)
+        assert "\n## " not in f"\n{ctx.get_decisions()}"
+
     def test_legacy_vaccines_file_migrates_to_fix_log(self, ctx):
         # A pre-rename project on disk: vaccines.md exists, fix-log.md does not.
         cd = ctx._context_dir()

@@ -6,7 +6,9 @@ from fastapi import HTTPException
 from backend.app.api.deps import AuthContext
 from backend.app.api.workspace import (
     get_config,
+    get_context_files,
     get_story_phase_status,
+    log_decision,
     rebuild_story_index,
     remove_epic_from_story_index,
     remove_story_from_story_index,
@@ -18,6 +20,7 @@ from backend.app.api.workspace import (
     update_context_file,
 )
 from backend.app.schemas.workspace import (
+    LogDecisionRequest,
     SaveAiConfigRequest,
     SaveConfigRequest,
     SetPhaseStatusRequest,
@@ -337,6 +340,20 @@ def test_stats_lists_regressed_story_ids(ctx):
     ctx.clear_conformance_regressed(2)
     stats2 = story_index_stats(RequestContext(pm_token="tok", project_id=ctx._get_project_id()))
     assert stats2["regressed_story_ids"] == [3]
+
+
+def test_log_decision_appends_and_lists_in_context_files(ctx):
+    rc = RequestContext(pm_token="tok", project_id=ctx._get_project_id())
+    assert log_decision(
+        LogDecisionRequest(scope="Phase 3 dev pack · task #5", summary="Discarded regen", reason="Kept previous"),
+        rc,
+    ) == {"ok": True}
+    # decisions.md is exposed in the Active Context file list, with the new record
+    files = get_context_files(rc)
+    decisions = next(f for f in files["files"] if f["filename"] == "decisions.md")
+    assert decisions["label"] == "Decision Log"
+    assert "Discarded regen" in decisions["content"]
+    assert "Kept previous" in decisions["content"]
 
 
 def test_stats_lists_trace_flags(ctx):

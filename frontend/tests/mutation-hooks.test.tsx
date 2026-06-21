@@ -46,7 +46,11 @@ vi.mock("@/lib/api/phase5", () => ({
 
 vi.mock("@/lib/api/workspace", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api/workspace")>();
-  return { ...actual, rebuildStoryIndex: vi.fn().mockResolvedValue({ ok: true }) };
+  return {
+    ...actual,
+    rebuildStoryIndex: vi.fn().mockResolvedValue({ ok: true }),
+    logDecision: vi.fn().mockResolvedValue({ ok: true }),
+  };
 });
 
 vi.mock("@/lib/api/phase1", async (importOriginal) => {
@@ -73,7 +77,7 @@ vi.mock("@/lib/api/phase3", async (importOriginal) => {
 
 import { useSaveTestPlan, usePassGate, useFailGate } from "@/lib/hooks/use-phase4";
 import { useSaveInfraDelta } from "@/lib/hooks/use-phase5";
-import { useRebuildStoryIndex } from "@/lib/hooks/use-workspace";
+import { useRebuildStoryIndex, useLogDecision } from "@/lib/hooks/use-workspace";
 import { usePushPhase1Stories } from "@/lib/hooks/use-phase1";
 import { useLockTechStack } from "@/lib/hooks/use-phase2";
 import { useLockStory } from "@/lib/hooks/use-phase3";
@@ -152,6 +156,22 @@ describe("phase5 + workspace mutation hooks scope invalidations (M6)", () => {
 
     const keys = spy.mock.calls.map((c) => c[0]?.queryKey);
     expect(keys).toContainEqual(["workspace", "story-index-stats", PROJECT_ID]);
+  });
+
+  it("useLogDecision posts the decision and invalidates project-scoped context-files", async () => {
+    const { logDecision } = await import("@/lib/api/workspace");
+    const { qc, spy } = freshClient();
+    const { result } = renderHook(() => useLogDecision(), { wrapper: wrapper(qc) });
+
+    await result.current.mutateAsync({ scope: "Phase 3 dev pack · task #5", summary: "Discarded regen", reason: "kept previous" });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(vi.mocked(logDecision)).toHaveBeenCalledWith(
+      expect.anything(),
+      { scope: "Phase 3 dev pack · task #5", summary: "Discarded regen", reason: "kept previous" },
+    );
+    const keys = spy.mock.calls.map((c) => c[0]?.queryKey);
+    expect(keys).toContainEqual(["workspace", "context-files", PROJECT_ID]);
   });
 });
 

@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   acknowledgeBacktrace,
+  logDecision,
   acknowledgeSpecDrift,
   createEpic,
   createProject,
@@ -145,6 +146,18 @@ export function useAcknowledgeBacktrace() {
     mutationFn: (storyId: number) => acknowledgeBacktrace(context!, storyId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
+    },
+  });
+}
+
+export function useLogDecision() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { scope: string; summary: string; reason?: string }) => logDecision(context!, body),
+    onSuccess: () => {
+      // Refresh the Active Context sidebar so the new decisions.md entry shows.
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "context-files", context?.projectId] });
     },
   });
 }

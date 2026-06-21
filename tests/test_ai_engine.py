@@ -1060,6 +1060,34 @@ class TestDiffConformance:
         assert d["regressed"] and d["worsened_rows"][0]["new_status"] == "missing"
 
 
+class TestDecisionsBlock:
+    """Decision-log advisory injection (negative constraints, EMPTY by default)."""
+
+    def test_empty_is_no_op(self):
+        import src.ai_engine as ai
+        assert ai._decisions_block("") == ""
+        assert ai._decisions_block("   \n  ") == ""
+
+    def test_non_empty_injects_negative_constraint(self):
+        import src.ai_engine as ai
+        block = ai._decisions_block("## 2026 — Phase 3\n- **Rejected/changed:** use Redis")
+        assert "ALREADY REJECTED" in block
+        assert "use Redis" in block
+
+    def test_threaded_into_proposal_prompt(self, monkeypatch):
+        import src.ai_engine as ai
+        captured = {}
+
+        def fake(system, human, *a, **k):
+            captured["sys"] = system
+            return _fake_pack()
+
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress", fake)
+        ai.generate_coding_proposal(
+            "Task", "desc", "Scenario: s", "spec", decisions="## d\n- **Rejected/changed:** avoid X")
+        assert "avoid X" in captured["sys"] and "ALREADY REJECTED" in captured["sys"]
+
+
 class TestBackwardTrace:
     """Backward trace propagation: downstream failure → source spec + phase (pure)."""
 

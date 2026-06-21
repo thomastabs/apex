@@ -16,6 +16,7 @@ from backend.app.schemas.workspace import (
     AmendmentsResponse,
     ConfigResponse,
     ContextFilesResponse,
+    LogDecisionRequest,
     OkResponse,
     PhaseStatusResponse,
     SaveAiConfigRequest,
@@ -37,6 +38,7 @@ _CONTEXT_FILES = [
     ("technical-spec.md", "Technical Spec"),
     ("constraints.md", "Constraints"),
     ("fix-log.md", "Fix Log"),
+    ("decisions.md", "Decision Log"),
     ("design-bundle.md", "Design Bundle"),
     ("github-context.md", "GitHub Context"),
 ]
@@ -305,6 +307,14 @@ def acknowledge_backward_trace(story_id: int, ctx: RequestContext = Depends(get_
     context = ContextService()
     context.set_active(ctx)
     context.clear_trace_flag(story_id)
+    return {"ok": True}
+
+
+@router.post("/decisions", response_model=OkResponse)
+def log_decision(payload: LogDecisionRequest, ctx: RequestContext = Depends(get_request_context)):
+    context = ContextService()
+    context.set_active(ctx)
+    context.append_decision_record(payload.scope, payload.summary, payload.reason)
     return {"ok": True}
 
 

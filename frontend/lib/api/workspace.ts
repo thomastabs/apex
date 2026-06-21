@@ -120,6 +120,17 @@ export function acknowledgeBacktrace(context: RequestContext, storyId: number) {
   );
 }
 
+export function logDecision(
+  context: RequestContext,
+  body: { scope: string; summary: string; reason?: string },
+) {
+  return apiRequest<{ ok: boolean }>("/api/workspace/decisions", {
+    method: "POST",
+    context,
+    body: { scope: body.scope, summary: body.summary, reason: body.reason ?? "" },
+  });
+}
+
 export function resetContextFile(context: RequestContext, filename: string) {
   return apiRequest<ContextFilesResponse>(`/api/workspace/context-files/${filename}/reset`, {
     method: "POST",

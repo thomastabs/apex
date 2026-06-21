@@ -41,6 +41,7 @@ import {
 import { useUpdatePmStoryStatus } from "@/lib/hooks/use-phase4";
 import { usePhase5Store } from "@/lib/stores/phase5-store";
 import { useDiffStore } from "@/lib/stores/diff-store";
+import { useLogDecision } from "@/lib/hooks/use-workspace";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
@@ -626,6 +627,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const deployPackMd = usePhase5Store((s) => s.deployPackMd);
   const setDeployPackMd = usePhase5Store((s) => s.setDeployPackMd);
   const requestDiff = useDiffStore((s) => s.requestDiff);
+  const logDecision = useLogDecision();
 
   const [options, setOptions] = useState<DeployPackOptions>({
     target_env: "",
@@ -845,6 +847,11 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                       oldText: prev,
                       newText: data.deploy_pack_md,
                       onAccept: () => setDeployPackMd(data.deploy_pack_md, false),
+                      onDiscard: () => logDecision.mutate({
+                        scope: `Phase 5 deploy pack · story #${storyId}`,
+                        summary: "Discarded a regenerated deploy pack — kept the previous one.",
+                        reason: "The AI's regeneration was rejected in favour of the existing deploy pack.",
+                      }),
                     });
                   } else {
                     setDeployPackMd(data.deploy_pack_md, false);
@@ -898,6 +905,7 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
   const setDeployPackMd = usePhase5Store((s) => s.setDeployPackMd);
   const clearPhase5Draft = usePhase5Store((s) => s.clearPhase5Draft);
   const requestDiff = useDiffStore((s) => s.requestDiff);
+  const logDecision = useLogDecision();
 
   const [rejecting, setRejecting] = useState(false);
   const [viewingPack, setViewingPack] = useState(false);
@@ -926,6 +934,13 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
   const handleReject = () => {
     if (!rejectionFeedback.trim() || !deployPackMd) return;
     const prev = deployPackMd;
+    // The rejection feedback is itself a recorded decision (what was wrong with
+    // the current pack), independent of accepting the AI's revision.
+    logDecision.mutate({
+      scope: `Phase 5 deploy pack · story #${storyId}`,
+      summary: "Rejected the deploy pack at the gate and requested a revision.",
+      reason: rejectionFeedback,
+    });
     reviseMut.mutate(
       { storyId, deployPackMd, feedback: rejectionFeedback },
       {
