@@ -814,7 +814,9 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
         story_id: storyId,
         bug_report_md: combinedBugReport,
         root_cause: rootCause,
-        resolution_summary: `Patch scope: ${patchScope.slice(0, 300)}`,
+        // Keep the full patch scope (was hard-capped at 300 chars → truncated the
+        // Fix Log mid-sentence). Bound only by the schema limit (5000).
+        resolution_summary: `Patch scope: ${patchScope}`.slice(0, 5000),
         scenario_results: gateScenarioResults,
       },
       {
