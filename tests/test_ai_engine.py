@@ -900,6 +900,100 @@ class TestVerifyConformance:
         assert "Layer-A deterministic pre-check" in captured["human"]
 
 
+class TestConformancePanel:
+    """Layer-B+ adversarial multi-agent panel (Prosecutor/Defender/Judge)."""
+
+    def _baseline(self, endpoints, scenarios):
+        from src.ai_engine import (
+            ConformanceReport, EndpointConformance, ScenarioConformance)
+        return ConformanceReport(
+            endpoints=[EndpointConformance(contract=c, status=s) for c, s in endpoints],
+            scenarios=[ScenarioConformance(scenario=sc, status=s) for sc, s in scenarios],
+            summary="baseline",
+        )
+
+    def test_triage_picks_ambiguous_and_disagreements(self):
+        import src.ai_engine as ai
+        report = self._baseline(
+            [("POST /a", "present"), ("POST /b", "mismatch"), ("POST /c", "unknown")],
+            [("S1", "tested"), ("S2", "partial"), ("S3", "unknown")],
+        )
+        # precheck disagrees on the otherwise-confident POST /a (present vs missing).
+        precheck = self._baseline([("POST /a", "missing")], [])
+        contested = ai._triage_contested(report, precheck)
+        refs = {ai._row_ref(k, r) for k, r in contested}
+        assert refs == {"POST /a", "POST /b", "POST /c", "S2", "S3"}
+
+    def test_no_contested_equals_single_pass(self, monkeypatch):
+        import src.ai_engine as ai
+        baseline = self._baseline([("POST /a", "present")], [("S1", "tested")])
+
+        def fake(system, human, model, schema, *a, **k):
+            # Only the baseline single pass should ever be invoked here.
+            assert schema is ai.ConformanceReport
+            return baseline
+
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress", fake)
+        r = ai.verify_conformance_panel("Login", _GHERKIN_FIXTURE, _TECH_SPEC_FIXTURE, "")
+        assert r.panel_meta is not None and r.panel_meta.escalated == 0
+        assert r.score == 100  # 1 present + 1 tested
+
+    def test_panel_merges_judge_verdicts(self, monkeypatch):
+        import src.ai_engine as ai
+        baseline = self._baseline(
+            [("POST /a", "present"), ("DELETE /b", "mismatch")],
+            [("S1", "unknown")],
+        )
+
+        def fake(system, human, model, schema, *a, **k):
+            if schema is ai.ConformanceReport:
+                return baseline
+            if schema is ai._PanelBriefs:
+                return ai._PanelBriefs(arguments=[])
+            if schema is ai._PanelRuling:
+                return ai._PanelRuling(rows=[
+                    ai.RowVerdict(ref="DELETE /b", kind="endpoint", status="present",
+                                  citation="backend/api/b.py:3", agreement="unanimous",
+                                  rationale="route found"),
+                    ai.RowVerdict(ref="S1", kind="scenario", status="tested",
+                                  citation="tests/test_b.py:1", agreement="split",
+                                  rationale="test covers it"),
+                ])
+            raise AssertionError(f"unexpected schema {schema}")
+
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress", fake)
+        r = ai.verify_conformance_panel("Login", _GHERKIN_FIXTURE, _TECH_SPEC_FIXTURE, "")
+        ep = {e.contract: e for e in r.endpoints}
+        assert ep["DELETE /b"].status == "present"
+        assert ep["DELETE /b"].location == "backend/api/b.py:3"
+        assert r.scenarios[0].status == "tested"
+        assert r.panel_meta.escalated == 2 and len(r.panel_meta.rows) == 2
+        # 2 present endpoints + 1 tested scenario → 100, code-computed.
+        assert r.score == 100
+
+    def test_judge_forced_unknown_without_citation(self, monkeypatch):
+        import src.ai_engine as ai
+        baseline = self._baseline([("DELETE /b", "mismatch")], [])
+
+        def fake(system, human, model, schema, *a, **k):
+            if schema is ai.ConformanceReport:
+                return baseline
+            if schema is ai._PanelBriefs:
+                return ai._PanelBriefs(arguments=[])
+            if schema is ai._PanelRuling:
+                # Judge claims present but cites nothing → must be downgraded.
+                return ai._PanelRuling(rows=[
+                    ai.RowVerdict(ref="DELETE /b", kind="endpoint", status="present",
+                                  citation="", agreement="split"),
+                ])
+            raise AssertionError(f"unexpected schema {schema}")
+
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress", fake)
+        r = ai.verify_conformance_panel("Login", _GHERKIN_FIXTURE, _TECH_SPEC_FIXTURE, "")
+        assert r.endpoints[0].status == "unknown"
+        assert "no citation" in r.panel_meta.rows[0].rationale
+
+
 # ---------------------------------------------------------------------------
 # Phase 3 · Deterministic agent-target compilation (roadmap #3, no LLM)
 # ---------------------------------------------------------------------------

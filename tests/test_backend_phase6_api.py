@@ -31,8 +31,14 @@ class StubPhase6Service:
             "phase_status": "implementation", "has_conformance": True, "score": 75,
         }]
 
-    def verify_conformance(self, ctx, story_id, *, ai=True, extra_files=None):
-        return {**_REPORT, "story_id": story_id, "layer": "ai" if ai else "deterministic"}
+    def verify_conformance(self, ctx, story_id, *, ai=True, panel=False, extra_files=None):
+        layer = "panel" if panel else "ai" if ai else "deterministic"
+        report = {**_REPORT, "story_id": story_id, "layer": layer}
+        if panel:
+            report["panel_meta"] = {"escalated": 1, "rows": [{
+                "ref": "POST /x", "kind": "endpoint", "status": "present",
+                "citation": "api/x.py:1", "agreement": "unanimous", "rationale": "ok"}]}
+        return report
 
     def get_conformance(self, ctx, story_id):
         return {**_REPORT, "story_id": story_id} if story_id == 10 else None
@@ -53,6 +59,16 @@ def test_verify_conformance_route():
         VerifyConformanceRequest(story_id=10), ctx=_ctx(), service=StubPhase6Service(), _rl=None,
     )
     assert result["story_id"] == 10 and result["layer"] == "ai"
+
+
+def test_verify_conformance_panel_flag():
+    result = verify_conformance(
+        VerifyConformanceRequest(story_id=10, panel=True),
+        ctx=_ctx(), service=StubPhase6Service(), _rl=None,
+    )
+    assert result["layer"] == "panel"
+    assert result["panel_meta"]["escalated"] == 1
+    assert result["panel_meta"]["rows"][0]["agreement"] == "unanimous"
 
 
 def test_verify_conformance_deterministic_flag():
@@ -76,7 +92,7 @@ def test_get_conformance_404_when_absent():
 
 def test_validation_error_maps_to_422():
     class Failing(StubPhase6Service):
-        def verify_conformance(self, ctx, story_id, *, ai=True, extra_files=None):
+        def verify_conformance(self, ctx, story_id, *, ai=True, panel=False, extra_files=None):
             raise Phase6ValidationError("not eligible")
 
     with pytest.raises(HTTPException) as exc:
@@ -93,7 +109,7 @@ def test_validation_error_maps_to_422():
 ])
 def test_ai_errors_map(err, code):
     class Failing(StubPhase6Service):
-        def verify_conformance(self, ctx, story_id, *, ai=True, extra_files=None):
+        def verify_conformance(self, ctx, story_id, *, ai=True, panel=False, extra_files=None):
             raise err
 
     with pytest.raises(HTTPException) as exc:

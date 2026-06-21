@@ -2605,12 +2605,32 @@ class ConstraintConformance(BaseModel):
     evidence: str = ""
 
 
+class RowVerdict(BaseModel):
+    """A single row's reconciled verdict from the multi-agent panel (Layer B+)."""
+    ref: str                 # the contract / scenario / constraint_id this row is keyed by
+    kind: Literal["endpoint", "scenario", "constraint"]
+    status: str              # final status (same vocabulary as the row's own status field)
+    rationale: str = ""      # Judge's one-line reconciliation
+    citation: str = ""       # file path (+ line) backing the verdict, "" if unknown
+    agreement: Literal["unanimous", "split"] = "split"
+
+
+class PanelMeta(BaseModel):
+    """Provenance for an adversarial-panel conformance pass (opt-in Layer B+)."""
+    escalated: int = 0       # number of contested rows sent to the panel
+    rows: list[RowVerdict] = Field(default_factory=list)
+
+
 class ConformanceReport(BaseModel):
     endpoints: list[EndpointConformance] = Field(default_factory=list)
     scenarios: list[ScenarioConformance] = Field(default_factory=list)
     constraints: list[ConstraintConformance] = Field(default_factory=list)
     summary: str = ""        # human-readable drift narrative
     score: int = 0           # 0–100, derived deterministically from the above
+    # Present only when the adversarial panel ran (panel verify); None for the
+    # deterministic Layer-A and the single-pass Layer-B paths — additive, so the
+    # analytics index-mirror and markdown parsers are unaffected.
+    panel_meta: PanelMeta | None = None
 
 
 # --- Spec parsers ----------------------------------------------------------
@@ -2978,5 +2998,251 @@ def verify_spec_conformance(
         max_tokens=4000, temperature=0.0, item_field="endpoints",
     ))
     # Score is always code-computed, never trusted from the model.
+    report.score = compute_conformance_score(report)
+    return report
+
+
+# --- Layer B+ — adversarial multi-agent panel ------------------------------
+# Opt-in escalation on top of the single-pass Layer B. The single pass is reused
+# as a "baseline auditor"; only its CONTESTED rows (ambiguous status, or status
+# that disagrees with the deterministic Layer-A precheck) are sent to a
+# Prosecutor (argues drift) and a Defender (argues conformance). A Judge
+# reconciles each contested row with a file citation. Confident rows pass through
+# untouched and the score stays code-computed — so the panel can only sharpen the
+# ambiguous verdicts, never fabricate a number. Same provider throughout.
+
+# Rows worth escalating: the statuses where a lone pass is least reliable.
+_CONTESTED_ENDPOINT = frozenset({"unknown", "mismatch"})
+_CONTESTED_SCENARIO = frozenset({"unknown", "partial"})
+# Statuses the Judge may only assign when it cites code actually in context.
+_CITATION_REQUIRED = frozenset({"present", "tested"})
+
+_VERIFY_PANEL_VERSION = "1.0"
+
+
+class _RowArgument(BaseModel):
+    ref: str
+    kind: Literal["endpoint", "scenario"]
+    argument: str = ""       # the strongest case for this side
+    citation: str = ""       # file path (+ line) the argument leans on, "" if none
+
+
+class _PanelBriefs(BaseModel):
+    arguments: list[_RowArgument] = Field(default_factory=list)
+
+
+class _PanelRuling(BaseModel):
+    rows: list[RowVerdict] = Field(default_factory=list)
+
+
+_PANEL_IRON_RULES = """\
+IRON RULES:
+- Ground every claim in the provided spec + code ONLY. Cite the exact file path
+  (and line range if visible). If the relevant code/test is NOT in the provided
+  context, say so plainly — never assume code you cannot see.
+- Do NOT invent endpoints, scenarios, or files not present in the inputs.
+- One entry per contested row you were given; do not add rows."""
+
+_PROSECUTOR_SYSTEM = f"""\
+You are the PROSECUTOR in a spec-conformance review within the Apex Framework.
+For each CONTESTED row (an endpoint contract or Gherkin scenario whose
+conformance is disputed), build the STRONGEST evidence-based case that the
+shipped code FAILS to honour the locked spec — i.e. the endpoint is missing or
+mismatched, or the scenario is untested. Point to what is absent or wrong and
+cite where you looked. If you genuinely cannot find a drift argument, say the
+code appears to conform and leave the citation empty.
+{_PANEL_IRON_RULES}
+"""
+
+_DEFENDER_SYSTEM = f"""\
+You are the DEFENDER in a spec-conformance review within the Apex Framework.
+For each CONTESTED row (an endpoint contract or Gherkin scenario whose
+conformance is disputed), build the STRONGEST evidence-based case that the
+shipped code DOES honour the locked spec — point to the route/handler/test that
+satisfies it and cite the exact file (and line if visible). If no such evidence
+exists in the provided context, say so and leave the citation empty.
+{_PANEL_IRON_RULES}
+"""
+
+_JUDGE_SYSTEM = f"""\
+You are the JUDGE in a spec-conformance review within the Apex Framework. You are
+given, for each CONTESTED row, the Prosecutor's drift case and the Defender's
+conformance case, plus the spec and synced code. Decide the FINAL status for each
+row using the SAME vocabulary as the baseline:
+- endpoints: present | mismatch | missing | unknown
+- scenarios: tested | partial | untested | unknown
+Rules of judgement:
+- Prefer the side whose argument is backed by a concrete file citation visible in
+  the provided context. Unsupported assertions lose to cited ones.
+- You may assign `present` or `tested` ONLY if you can cite the code/test that
+  proves it. If neither side cites code that is actually in the provided context,
+  return `unknown` and name the file you would need.
+- Set `agreement` to "unanimous" when both sides effectively agree on the outcome,
+  else "split".
+- Give a one-line `rationale` naming the deciding evidence (or its absence).
+{_PANEL_IRON_RULES}
+"""
+
+
+def _row_ref(kind: str, row) -> str:
+    """Stable identity for a conformance row across the panel."""
+    if kind == "endpoint":
+        return row.contract
+    if kind == "scenario":
+        return row.scenario
+    return row.constraint_id
+
+
+def _triage_contested(
+    report: ConformanceReport, precheck: ConformanceReport | None = None,
+) -> list[tuple[str, object]]:
+    """Pick the rows worth escalating to the panel (pure, deterministic).
+
+    A row is contested when its baseline status is itself ambiguous, OR when the
+    baseline disagrees with the deterministic Layer-A precheck for the same ref
+    (the two sources of doubt the panel exists to resolve). Constraints are
+    advisory and excluded from the score, so they are never escalated. Returns
+    (kind, row) pairs preserving report order.
+    """
+    pre_ep = {e.contract: e.status for e in precheck.endpoints} if precheck else {}
+    pre_sc = {s.scenario: s.status for s in precheck.scenarios} if precheck else {}
+    out: list[tuple[str, object]] = []
+    for e in report.endpoints:
+        if e.status in _CONTESTED_ENDPOINT or (
+            e.contract in pre_ep and pre_ep[e.contract] != e.status):
+            out.append(("endpoint", e))
+    for s in report.scenarios:
+        if s.status in _CONTESTED_SCENARIO or (
+            s.scenario in pre_sc and pre_sc[s.scenario] != s.status):
+            out.append(("scenario", s))
+    return out
+
+
+def _render_contested(contested: list[tuple[str, object]]) -> str:
+    """Render the contested rows as compact grounding for a panel agent."""
+    lines = ["Contested rows (judge/argue ONLY these):", ""]
+    for kind, row in contested:
+        if kind == "endpoint":
+            loc = f" @ {row.location}" if row.location else ""
+            note = f" — {row.notes}" if row.notes else ""
+            lines.append(f"- [endpoint] {row.contract}: baseline={row.status}{loc}{note}")
+        else:
+            loc = f" @ {row.test_location}" if row.test_location else ""
+            note = f" — {row.notes}" if row.notes else ""
+            lines.append(f"- [scenario] {row.scenario}: baseline={row.status}{loc}{note}")
+    return "\n".join(lines)
+
+
+def _run_panel_side(system: str, shared: str, contested_block: str) -> _PanelBriefs:
+    human = "\n\n".join([
+        shared, contested_block,
+        "Produce one argument entry per contested row above.",
+    ])
+    return _ai_retry(lambda: _invoke_structured_with_progress(
+        system, human, get_model(), _PanelBriefs,
+        max_tokens=4000, temperature=0.0, item_field="arguments",
+    ))
+
+
+def _format_briefs(label: str, briefs: _PanelBriefs) -> str:
+    lines = [f"{label} arguments:"]
+    for a in briefs.arguments:
+        cite = f" [cite: {a.citation}]" if a.citation else " [no citation]"
+        lines.append(f"- [{a.kind}] {a.ref}: {a.argument}{cite}")
+    return "\n".join(lines) if briefs.arguments else f"{label} arguments: (none)"
+
+
+def _apply_verdict(kind: str, row, verdict: RowVerdict) -> None:
+    """Write a Judge verdict back onto its conformance row in place."""
+    row.status = verdict.status
+    note = verdict.rationale.strip()
+    if kind == "endpoint":
+        if verdict.citation:
+            row.location = verdict.citation
+        if note:
+            row.notes = note
+    else:
+        if verdict.citation:
+            row.test_location = verdict.citation
+        if note:
+            row.notes = note
+
+
+def verify_conformance_panel(
+    story_subject: str,
+    gherkin: str,
+    technical_spec: str,
+    github_context: str,
+    constraints: str = "",
+    tech_stack: str = "",
+    precheck: ConformanceReport | dict | None = None,
+) -> ConformanceReport:
+    """Layer B+: adversarial-panel verification (opt-in).
+
+    Reuses the single-pass Layer B as a baseline auditor, escalates only the
+    contested rows through a Prosecutor + Defender + Judge, merges the Judge's
+    verdicts back, and RECOMPUTES the score in code. With no contested rows the
+    result equals the single pass (plus an empty panel_meta). Temperature 0.
+    """
+    _logger.debug("verify_conformance_panel prompt_version=%s", _VERIFY_PANEL_VERSION)
+    if precheck is not None and isinstance(precheck, dict):
+        precheck = ConformanceReport.model_validate(precheck)
+    if precheck is None:
+        precheck = build_layer_a_report(gherkin, technical_spec, github_context, constraints)
+
+    # 1) Baseline single pass (reused, not reimplemented).
+    report = verify_spec_conformance(
+        story_subject, gherkin, technical_spec, github_context,
+        constraints=constraints, tech_stack=tech_stack, precheck=precheck)
+
+    # 2) Triage.
+    contested = _triage_contested(report, precheck)
+    if not contested:
+        report.panel_meta = PanelMeta(escalated=0, rows=[])
+        return report
+
+    shared = "\n\n".join([
+        "Story: " + fence_user_content(story_subject.strip() or "Not specified"),
+        "Gherkin acceptance criteria:\n" + fence_user_content(gherkin.strip() or "Not specified"),
+        "Technical Spec (endpoint contracts):\n" + fence_user_content(technical_spec.strip() or "Not specified"),
+        "Constraints:\n" + fence_user_content(constraints.strip() or "None"),
+        "Tech Stack:\n" + fence_user_content(tech_stack.strip() or "Not specified"),
+        "Synced Repository Context:\n" + fence_user_content(github_context.strip() or "Not synced"),
+    ])
+    contested_block = _render_contested(contested)
+
+    # 3) Prosecutor + Defender (one structured call each).
+    prosecution = _run_panel_side(_PROSECUTOR_SYSTEM, shared, contested_block)
+    defence = _run_panel_side(_DEFENDER_SYSTEM, shared, contested_block)
+
+    # 4) Judge — one batched call over all contested rows.
+    judge_human = "\n\n".join([
+        shared, contested_block,
+        _format_briefs("PROSECUTION", prosecution),
+        _format_briefs("DEFENCE", defence),
+        "Return one verdict row per contested row, using its ref verbatim.",
+    ])
+    ruling = _ai_retry(lambda: _invoke_structured_with_progress(
+        _JUDGE_SYSTEM, judge_human, get_model(), _PanelRuling,
+        max_tokens=4000, temperature=0.0, item_field="rows",
+    ))
+
+    # 5) Merge verdicts onto contested rows; enforce the cite-or-unknown rule in
+    #    code so it holds regardless of what the model returns.
+    verdicts = {(v.kind, v.ref): v for v in ruling.rows}
+    panel_rows: list[RowVerdict] = []
+    for kind, row in contested:
+        ref = _row_ref(kind, row)
+        v = verdicts.get((kind, ref))
+        if v is None:
+            continue
+        if v.status in _CITATION_REQUIRED and not v.citation.strip():
+            v.status = "unknown"
+            v.rationale = (v.rationale + " (downgraded: no citation in context)").strip()
+        _apply_verdict(kind, row, v)
+        panel_rows.append(v)
+
+    report.panel_meta = PanelMeta(escalated=len(contested), rows=panel_rows)
+    # 6) Score is always code-computed, never trusted from any agent.
     report.score = compute_conformance_score(report)
     return report

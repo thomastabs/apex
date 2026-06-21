@@ -581,6 +581,20 @@ export type ConstraintConformance = {
   evidence: string;
 };
 
+export type RowVerdict = {
+  ref: string;
+  kind: "endpoint" | "scenario" | "constraint";
+  status: string;
+  rationale: string;
+  citation: string;
+  agreement: "unanimous" | "split";
+};
+
+export type PanelMeta = {
+  escalated: number;
+  rows: RowVerdict[];
+};
+
 export type ConformanceReport = {
   story_id: number;
   title: string;
@@ -592,6 +606,8 @@ export type ConformanceReport = {
   scenarios: ScenarioConformance[];
   constraints: ConstraintConformance[];
   generated_at: string;
+  // Present only on adversarial-panel passes (layer === "panel").
+  panel_meta?: PanelMeta | null;
 };
 
 // Phase 6 Maintenance — Triage (F1) + Fix-Bolt & Severity Routing (F2)

@@ -21,11 +21,12 @@ export function verifyConformance(
   ai = true,
   extraFiles: { path: string; content: string }[] = [],
   signal?: AbortSignal,
+  panel = false,
 ) {
   return apiRequest<ConformanceReport>("/api/phase6/conformance", {
     method: "POST",
     context,
-    body: { story_id: storyId, ai, extra_files: extraFiles },
+    body: { story_id: storyId, ai, panel, extra_files: extraFiles },
     timeoutMs: ai ? PHASE6_AI_TIMEOUT_MS : undefined,
     signal,
   });

@@ -77,6 +77,23 @@ class AiService:
         )
         return report.model_dump()
 
+    def verify_conformance_panel(
+        self,
+        story_subject: str,
+        gherkin: str,
+        technical_spec: str,
+        github_context: str,
+        constraints: str = "",
+        tech_stack: str = "",
+        precheck: dict | None = None,
+    ) -> dict:
+        """Adversarial-panel spec↔code verification (Layer B+). Returns report dict."""
+        report = ai_engine.verify_conformance_panel(
+            story_subject, gherkin, technical_spec, github_context,
+            constraints=constraints, tech_stack=tech_stack, precheck=precheck,
+        )
+        return report.model_dump()
+
     # ── Phase 6 maintenance ─────────────────────────────────────────────────
 
     def triage_feedback(self, subject: str, description: str, spec_excerpt: str = "") -> dict:

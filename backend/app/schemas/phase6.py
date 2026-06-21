@@ -38,6 +38,20 @@ class ConstraintConformanceSchema(BaseModel):
     evidence: str = ""
 
 
+class RowVerdictSchema(BaseModel):
+    ref: str
+    kind: Literal["endpoint", "scenario", "constraint"]
+    status: str
+    rationale: str = ""
+    citation: str = ""
+    agreement: Literal["unanimous", "split"] = "split"
+
+
+class PanelMetaSchema(BaseModel):
+    escalated: int = 0
+    rows: list[RowVerdictSchema] = Field(default_factory=list)
+
+
 class ConformanceReportResponse(BaseModel):
     story_id: int
     title: str = ""
@@ -49,6 +63,8 @@ class ConformanceReportResponse(BaseModel):
     scenarios: list[ScenarioConformanceSchema] = Field(default_factory=list)
     constraints: list[ConstraintConformanceSchema] = Field(default_factory=list)
     generated_at: str = ""
+    # Present only on adversarial-panel passes (layer == "panel").
+    panel_meta: Optional[PanelMetaSchema] = None
 
 
 class SupplementalFile(BaseModel):
@@ -60,6 +76,9 @@ class VerifyConformanceRequest(BaseModel):
     story_id: int
     # ai=False runs the deterministic Layer-A baseline only (no LLM call).
     ai: bool = True
+    # panel=True escalates contested rows through the adversarial multi-agent
+    # panel (Layer B+); requires ai=True. Default False = single-pass Layer B.
+    panel: bool = False
     # User-fetched source files appended to context to resolve `unknown` rows (#1 v2).
     extra_files: list[SupplementalFile] = Field(default_factory=list)
 

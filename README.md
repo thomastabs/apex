@@ -300,8 +300,9 @@ Phase 6 (`/phase6`) is tabbed: **Maintenance** and **Traceability**.
 
 - Verifies shipped code against the locked spec for a story. A deterministic **Layer A** parses the technical-spec endpoint contracts, Gherkin scenarios, and EARS constraints, then locates route declarations and tests in the synced GitHub context (framework-aware patterns) with **per-line citations** (`path:line`)
 - An AI **Layer B** confirms/corrects each row with file citations and returns `unknown` when the code is not in context — never assuming conformance
+- **Layer B+ — adversarial multi-agent panel (opt-in "Deep verify"):** rather than trust a single LLM pass for the disputed rows, the verifier reuses Layer B as a baseline auditor, then escalates only the *contested* rows (ambiguous status, or status that disagrees with Layer A) to a three-role panel — a **Prosecutor** (argues the code drifts), a **Defender** (argues it conforms), and a **Judge** that reconciles each row with a file citation. The Judge may only assign `present`/`tested` when it cites code actually in context (enforced in code, not just the prompt) — otherwise the row stays `unknown`. Confident rows pass through untouched, so the panel can only sharpen the ambiguous verdicts. Each reconciled row reports its agreement (unanimous / split) and the Judge's rationale in the UI. Same model throughout; ~4 flat AI calls regardless of how many rows are contested (the Judge is one batched call). Default verify is the single pass — the panel is opt-in per check
 - **On-demand file fetch:** for any `unknown` row, fetch the implicated file from GitHub and re-verify with it in context (no whole-repo dump)
-- The **score (0–100) is computed in code** from the findings, never by the AI; reports persist to `conformance_story_<id>.json`
+- The **score (0–100) is computed in code** from the findings, never by the AI (true for Layer A, B, and the panel); reports persist to `conformance_story_<id>.json` (panel runs additionally carry a `panel_meta` block of per-row verdicts)
 
 ### Controlled spec co-evolution
 

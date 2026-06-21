@@ -86,7 +86,7 @@ describe("Phase6Workflow", () => {
     await waitFor(() => expect(screen.getByText("POST /api/v1/auth/login")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /Quick Check/i }));
     await waitFor(() =>
-      expect(vi.mocked(verifyConformance)).toHaveBeenCalledWith(expect.anything(), 10, false, [], expect.anything()),
+      expect(vi.mocked(verifyConformance)).toHaveBeenCalledWith(expect.anything(), 10, false, [], expect.anything(), false),
     );
   });
 
@@ -94,9 +94,45 @@ describe("Phase6Workflow", () => {
     renderWorkflow();
     openTraceability();
     await waitFor(() => expect(screen.getByText("POST /api/v1/auth/login")).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: /Re-verify|Verify/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Re-verify$|^Verify$/i }));
     await waitFor(() =>
-      expect(vi.mocked(verifyConformance)).toHaveBeenCalledWith(expect.anything(), 10, true, [], expect.anything()),
+      expect(vi.mocked(verifyConformance)).toHaveBeenCalledWith(expect.anything(), 10, true, [], expect.anything(), false),
     );
+  });
+
+  it("Deep verify (panel) button runs the panel (ai=true, panel=true)", async () => {
+    renderWorkflow();
+    openTraceability();
+    await waitFor(() => expect(screen.getByText("POST /api/v1/auth/login")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /Deep verify/i }));
+    await waitFor(() =>
+      expect(vi.mocked(verifyConformance)).toHaveBeenCalledWith(expect.anything(), 10, true, [], expect.anything(), true),
+    );
+  });
+
+  it("renders panel agreement badges + Judge rationale from panel_meta", async () => {
+    const panelReport = {
+      ...REPORT,
+      layer: "panel",
+      panel_meta: {
+        escalated: 1,
+        rows: [
+          {
+            ref: "DELETE /api/v1/sessions",
+            kind: "endpoint",
+            status: "present",
+            citation: "api/sessions.py:3",
+            agreement: "split",
+            rationale: "route exists but auth unconfirmed",
+          },
+        ],
+      },
+    };
+    const { getConformanceReport } = await import("@/lib/api/phase6");
+    vi.mocked(getConformanceReport).mockResolvedValueOnce(panelReport as never);
+    renderWorkflow();
+    openTraceability();
+    await waitFor(() => expect(screen.getByText(/split/i)).toBeInTheDocument());
+    expect(screen.getByText(/route exists but auth unconfirmed/i)).toBeInTheDocument();
   });
 });

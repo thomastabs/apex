@@ -41,8 +41,8 @@ export function useVerifyConformance() {
   const context = useApiContext();
   const qc = useQueryClient();
   return useCancellableMutation(
-    ({ storyId, ai = true, extraFiles = [] }: { storyId: number; ai?: boolean; extraFiles?: { path: string; content: string }[] }, signal) =>
-      verifyConformance(context!, storyId, ai, extraFiles, signal),
+    ({ storyId, ai = true, extraFiles = [], panel = false }: { storyId: number; ai?: boolean; extraFiles?: { path: string; content: string }[]; panel?: boolean }, signal) =>
+      verifyConformance(context!, storyId, ai, extraFiles, signal, panel),
     {
       onSuccess: (report: ConformanceReport) => {
         qc.setQueryData(

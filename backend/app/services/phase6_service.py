@@ -78,13 +78,15 @@ class Phase6Service:
 
     def verify_conformance(
         self, ctx: RequestContext, story_id: int, *, ai: bool = True,
-        extra_files: list[dict] | None = None,
+        panel: bool = False, extra_files: list[dict] | None = None,
     ) -> dict:
         """Run a conformance check and persist it. ai=False → Layer-A only (no LLM).
 
-        extra_files ([{path, content}]) are user-supplied source files appended to
-        the synced context so the AI can resolve `unknown` rows (#1 v2 on-demand
-        file fetch) without dumping the whole repo.
+        panel=True (requires ai) escalates contested rows through the adversarial
+        Prosecutor/Defender/Judge panel (Layer B+); the report then carries a
+        `panel_meta` block. extra_files ([{path, content}]) are user-supplied
+        source files appended to the synced context so the AI can resolve
+        `unknown` rows (#1 v2 on-demand file fetch) without dumping the whole repo.
         """
         self.configure_request(ctx)
         inp = self._story_inputs(story_id)
@@ -97,11 +99,12 @@ class Phase6Service:
             inp["gherkin"], inp["technical_spec"], github_context, inp["constraints"]
         )
         if ai:
-            report = self.ai.verify_conformance(
+            verify = self.ai.verify_conformance_panel if panel else self.ai.verify_conformance
+            report = verify(
                 inp["title"], inp["gherkin"], inp["technical_spec"], github_context,
                 constraints=inp["constraints"], tech_stack=inp["tech_stack"], precheck=precheck,
             )
-            report["layer"] = "ai"
+            report["layer"] = "panel" if panel else "ai"
         else:
             report = precheck
             report["layer"] = "deterministic"

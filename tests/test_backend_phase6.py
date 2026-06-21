@@ -37,6 +37,18 @@ class FakeAiService:
         self.last_github_context = github_context
         return {"endpoints": [], "scenarios": [], "constraints": [], "summary": "AI", "score": 70}
 
+    def verify_conformance_panel(self, story_subject, gherkin, technical_spec, github_context,
+                                 constraints="", tech_stack="", precheck=None):
+        self.panel_calls = getattr(self, "panel_calls", 0) + 1
+        self.last_precheck = precheck
+        self.last_github_context = github_context
+        return {
+            "endpoints": [], "scenarios": [], "constraints": [], "summary": "PANEL", "score": 80,
+            "panel_meta": {"escalated": 1, "rows": [
+                {"ref": "POST /x", "kind": "endpoint", "status": "present",
+                 "citation": "api/x.py:1", "agreement": "unanimous", "rationale": "ok"}]},
+        }
+
 
 class FakeContextService:
     def __init__(self, index=None):
@@ -109,6 +121,24 @@ def test_verify_ai_layer_feeds_precheck(ctx):
     assert ai.last_precheck["score"] == 40
     assert report["layer"] == "ai" and report["score"] == 70
     assert context.store[1]["summary"] == "AI"
+
+
+def test_verify_panel_routes_to_panel(ctx):
+    svc, ai, context = _service()
+    report = svc.verify_conformance(ctx, 1, ai=True, panel=True)
+    assert getattr(ai, "panel_calls", 0) == 1 and ai.verify_calls == 0
+    assert report["layer"] == "panel" and report["score"] == 80
+    assert report["panel_meta"]["escalated"] == 1
+    assert report["panel_meta"]["rows"][0]["agreement"] == "unanimous"
+    # persisted with panel_meta intact
+    assert context.store[1]["panel_meta"]["escalated"] == 1
+
+
+def test_verify_default_single_pass_not_panel(ctx):
+    svc, ai, _ = _service()
+    report = svc.verify_conformance(ctx, 1, ai=True)
+    assert ai.verify_calls == 1 and getattr(ai, "panel_calls", 0) == 0
+    assert report["layer"] == "ai" and report.get("panel_meta") is None
 
 
 def test_ineligible_story_raises(ctx):

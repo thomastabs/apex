@@ -70,7 +70,8 @@ def verify_conformance(
 ):
     try:
         extra = [f.model_dump() for f in payload.extra_files]
-        return service.verify_conformance(ctx, payload.story_id, ai=payload.ai, extra_files=extra)
+        return service.verify_conformance(
+            ctx, payload.story_id, ai=payload.ai, panel=payload.panel, extra_files=extra)
     except Exception as exc:
         _handle_error(exc)
 

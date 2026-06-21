@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ChevronRight, Info, Loader2, RefreshCw, Zap } from "lucide-react";
+import { ChevronRight, Info, Loader2, RefreshCw, Scale, Zap } from "lucide-react";
 import { CancelButton } from "@/components/ui/cancel-button";
 import { Button, Callout, Input, SectionHeading } from "@/components/ui/primitives";
 import { MaintenanceTriage } from "@/components/maintenance-triage";
@@ -77,43 +77,71 @@ function ReportTables({ report, dark }: { report: ConformanceReport; dark: boole
     </div>
   );
 
-  const row = (key: string, label: string, status: string, detail: string, loc: string) => (
-    <tr key={key} className={cn("border-b last:border-0", cellBorder)}>
-      <td className="w-24 px-3 py-2 align-top">
-        <StatusPill status={status} />
-      </td>
-      <td className="px-3 py-2 align-top">
-        <div className={dark ? "text-neutral-200" : "text-slate-800"}>{label}</div>
-        {loc ? (
-          <div className={cn("mt-0.5 font-mono text-[11px]", muted)}>{loc}</div>
-        ) : null}
-        {detail ? (
-          <div className={cn("mt-0.5 text-[11px]", muted)}>{detail}</div>
-        ) : null}
-      </td>
-    </tr>
+  // Index the panel verdicts (when present) by kind+ref so a row can show whether
+  // the Prosecutor/Defender/Judge panel reached it and agreed.
+  const verdicts = new Map(
+    (report.panel_meta?.rows ?? []).map((v) => [`${v.kind}:${v.ref}`, v]),
   );
+
+  const row = (
+    key: string, kind: string, label: string, status: string,
+    detail: string, loc: string,
+  ) => {
+    const v = verdicts.get(`${kind}:${label}`);
+    return (
+      <tr key={key} className={cn("border-b last:border-0", cellBorder)}>
+        <td className="w-24 px-3 py-2 align-top">
+          <StatusPill status={status} />
+          {v ? (
+            <span
+              title={v.rationale || "Reconciled by the panel"}
+              className={cn(
+                "mt-1 block w-fit rounded px-1 text-[10px] font-semibold",
+                v.agreement === "unanimous"
+                  ? "bg-emerald-500/15 text-emerald-500"
+                  : "bg-amber-500/15 text-amber-500",
+              )}
+            >
+              {v.agreement === "unanimous" ? "✓ unanimous" : "⚠ split"}
+            </span>
+          ) : null}
+        </td>
+        <td className="px-3 py-2 align-top">
+          <div className={dark ? "text-neutral-200" : "text-slate-800"}>{label}</div>
+          {loc ? (
+            <div className={cn("mt-0.5 font-mono text-[11px]", muted)}>{loc}</div>
+          ) : null}
+          {detail ? (
+            <div className={cn("mt-0.5 text-[11px]", muted)}>{detail}</div>
+          ) : null}
+          {v?.rationale ? (
+            <div className={cn("mt-0.5 text-[11px] italic", muted)}>Judge: {v.rationale}</div>
+          ) : null}
+        </td>
+      </tr>
+    );
+  };
 
   return (
     <div className="space-y-5">
       {section(
         "Endpoint contracts",
         report.endpoints.map((e, i) =>
-          row(`e${i}`, e.contract, e.status, e.notes, e.location),
+          row(`e${i}`, "endpoint", e.contract, e.status, e.notes, e.location),
         ),
         report.endpoints.length,
       )}
       {section(
         "Behavioural scenarios",
         report.scenarios.map((s, i) =>
-          row(`s${i}`, s.scenario, s.status, s.notes, s.test_location),
+          row(`s${i}`, "scenario", s.scenario, s.status, s.notes, s.test_location),
         ),
         report.scenarios.length,
       )}
       {section(
         "Constraints (advisory)",
         report.constraints.map((c, i) =>
-          row(`c${i}`, c.constraint_id, c.status, c.evidence, ""),
+          row(`c${i}`, "constraint", c.constraint_id, c.status, c.evidence, ""),
         ),
         report.constraints.length,
       )}
@@ -152,13 +180,20 @@ function TraceabilityPanel() {
 
   const report = reportQuery.data ?? null;
 
-  function runVerify(ai: boolean) {
+  function runVerify(ai: boolean, panel = false) {
     if (selectedId === null) return;
     verify.mutate(
-      { storyId: selectedId, ai },
+      { storyId: selectedId, ai, panel },
       {
         onError: (err) => toast.error(errMsg(err)),
-        onSuccess: () => toast.success(ai ? "Conformance verified" : "Quick check computed (no AI)"),
+        onSuccess: () =>
+          toast.success(
+            panel
+              ? "Conformance verified by panel"
+              : ai
+                ? "Conformance verified"
+                : "Quick check computed (no AI)",
+          ),
       },
     );
   }
@@ -249,8 +284,12 @@ function TraceabilityPanel() {
                 )}
                 {report?.generated_at ? (
                   <div className={cn("text-[11px]", dark ? "text-neutral-600" : "text-slate-400")}>
-                    {report.layer === "ai" ? "AI-verified" : "Quick check only"} ·{" "}
-                    {report.generated_at.slice(0, 16).replace("T", " ")}
+                    {report.layer === "panel"
+                      ? `Panel-verified${report.panel_meta ? ` · ${report.panel_meta.escalated} row(s) escalated` : ""}`
+                      : report.layer === "ai"
+                        ? "AI-verified"
+                        : "Quick check only"}{" "}
+                    · {report.generated_at.slice(0, 16).replace("T", " ")}
                   </div>
                 ) : null}
               </div>
@@ -273,6 +312,14 @@ function TraceabilityPanel() {
                     <RefreshCw className="h-4 w-4" />
                   )}
                   {report ? "Re-verify" : "Verify"}
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => runVerify(true, true)}
+                  disabled={verify.isPending || selectedId === null}
+                  title="Adversarial multi-agent panel — escalates contested rows to a Prosecutor, Defender & Judge"
+                >
+                  <Scale className="h-4 w-4" /> Deep verify (panel)
                 </Button>
                 {verify.isPending && <CancelButton onCancel={() => verify.cancel()} />}
               </div>
