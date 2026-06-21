@@ -40,6 +40,7 @@ import {
 } from "@/lib/hooks/use-phase5";
 import { useUpdatePmStoryStatus } from "@/lib/hooks/use-phase4";
 import { usePhase5Store } from "@/lib/stores/phase5-store";
+import { useDiffStore } from "@/lib/stores/diff-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
@@ -624,6 +625,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const infraDelta = usePhase5Store((s) => s.infraDelta);
   const deployPackMd = usePhase5Store((s) => s.deployPackMd);
   const setDeployPackMd = usePhase5Store((s) => s.setDeployPackMd);
+  const requestDiff = useDiffStore((s) => s.requestDiff);
 
   const [options, setOptions] = useState<DeployPackOptions>({
     target_env: "",
@@ -830,7 +832,30 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
         <Button variant="secondary" className="gap-1.5" onClick={onBack} disabled={generateMut.isPending || saveMut.isPending}>
           <ChevronLeft className="h-4 w-4" /> Back
         </Button>
-        <Button onClick={() => generateMut.mutate({ storyId, options })} disabled={generateMut.isPending} className="flex-1 justify-center">
+        <Button
+          onClick={() => {
+            const prev = deployPackMd ?? "";
+            generateMut.mutate(
+              { storyId, options },
+              {
+                onSuccess: (data) => {
+                  if (prev.trim() && prev !== data.deploy_pack_md) {
+                    requestDiff({
+                      title: `Deploy pack — story #${storyId}`,
+                      oldText: prev,
+                      newText: data.deploy_pack_md,
+                      onAccept: () => setDeployPackMd(data.deploy_pack_md, false),
+                    });
+                  } else {
+                    setDeployPackMd(data.deploy_pack_md, false);
+                  }
+                },
+              },
+            );
+          }}
+          disabled={generateMut.isPending}
+          className="flex-1 justify-center"
+        >
           {generateMut.isPending
             ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
             : (deployPackMd ? "Regenerate Pack" : "Generate Deploy Pack")}
@@ -870,7 +895,9 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
   const rejectionFeedback = usePhase5Store((s) => s.rejectionFeedback);
   const setSignOffs = usePhase5Store((s) => s.setSignOffs);
   const setRejectionFeedback = usePhase5Store((s) => s.setRejectionFeedback);
+  const setDeployPackMd = usePhase5Store((s) => s.setDeployPackMd);
   const clearPhase5Draft = usePhase5Store((s) => s.clearPhase5Draft);
+  const requestDiff = useDiffStore((s) => s.requestDiff);
 
   const [rejecting, setRejecting] = useState(false);
   const [viewingPack, setViewingPack] = useState(false);
@@ -898,13 +925,28 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
 
   const handleReject = () => {
     if (!rejectionFeedback.trim() || !deployPackMd) return;
+    const prev = deployPackMd;
     reviseMut.mutate(
       { storyId, deployPackMd, feedback: rejectionFeedback },
       {
-        onSuccess: () => {
+        onSuccess: (data) => {
           setRejectionFeedback("");
           setRejecting(false);
-          onRevise();
+          const commit = () => {
+            setDeployPackMd(data.deploy_pack_md, false);
+            toast.success("Deploy pack revised — review and save it again.");
+            onRevise();
+          };
+          if (prev.trim() && prev !== data.deploy_pack_md) {
+            requestDiff({
+              title: `Deploy pack revision — story #${storyId}`,
+              oldText: prev,
+              newText: data.deploy_pack_md,
+              onAccept: commit,
+            });
+          } else {
+            commit();
+          }
         },
       },
     );

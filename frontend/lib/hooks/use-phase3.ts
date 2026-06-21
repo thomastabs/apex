@@ -251,14 +251,12 @@ export function usePushTasksToTaiga() {
 
 export function useGenerateProposal() {
   const context = useApiContext();
-  const { setPackDraft } = usePhase3Store();
 
+  // NOTE: the result is committed by the caller (phase3-workflow handleGenerate)
+  // so a regenerate-over-existing pack can be routed through the diff gate first.
   return useCancellableMutation(
     (body: Phase3GenerateProposalRequest, signal) => generateProposal(context!, body, signal),
     {
-      onSuccess: (data, variables) => {
-        setPackDraft(variables.task_id, data.proposal_md);
-      },
       onError: () => toast.error("Pack generation failed. Try again."),
     },
   );

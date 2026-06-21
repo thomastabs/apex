@@ -110,12 +110,12 @@ export function useLoadDeployPack(storyId: number | null, enabled: boolean) {
 
 export function useGenerateDeployPack() {
   const context = useApiContext();
-  const setDeployPackMd = usePhase5Store((s) => s.setDeployPackMd);
+  // Result committed by the caller (phase5-workflow) so a regenerate-over-existing
+  // pack can be routed through the diff gate first.
   return useCancellableMutation(
     ({ storyId, options }: { storyId: number; options?: DeployPackOptions }, signal) =>
       generateDeployPack(context!, storyId, options, signal),
     {
-      onSuccess: (data) => setDeployPackMd(data.deploy_pack_md, false),
       onError: (err: Error) => toast.error(`Deploy pack generation failed: ${err.message}`),
     },
   );
@@ -140,7 +140,8 @@ export function useSaveDeployPack() {
 
 export function useReviseDeployPack() {
   const context = useApiContext();
-  const setDeployPackMd = usePhase5Store((s) => s.setDeployPackMd);
+  // Result committed by the caller (phase5-workflow) so the revision can be
+  // routed through the diff gate before it replaces the current pack.
   return useCancellableMutation(
     ({ storyId, deployPackMd, feedback }: {
       storyId: number;
@@ -148,11 +149,7 @@ export function useReviseDeployPack() {
       feedback: string;
     }, signal) => reviseDeployPack(context!, storyId, deployPackMd, feedback, signal),
     {
-    onSuccess: (data) => {
-      setDeployPackMd(data.deploy_pack_md, false);
-      toast.success("Deploy pack revised — review and save it again.");
-    },
-    onError: (err: Error) => toast.error(`Revision failed: ${err.message}`),
+      onError: (err: Error) => toast.error(`Revision failed: ${err.message}`),
     },
   );
 }

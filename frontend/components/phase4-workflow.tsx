@@ -40,6 +40,7 @@ import {
 import { pmTaskWebUrl } from "@/lib/hooks/use-phase3";
 import { useServerConfig } from "@/lib/hooks/use-workspace";
 import { usePhase4Store } from "@/lib/stores/phase4-store";
+import { useDiffStore } from "@/lib/stores/diff-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
@@ -268,6 +269,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
   const testPlanMd = usePhase4Store((s) => s.testPlanMd);
   const setTestPlanMd = usePhase4Store((s) => s.setTestPlanMd);
+  const requestDiff = useDiffStore((s) => s.requestDiff);
   const setCurrentStoryMeta = usePhase4Store((s) => s.setCurrentStoryMeta);
 
   const generateMut = useGenerateTestPlan();
@@ -293,7 +295,24 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   }, [ctx, setCurrentStoryMeta]);
 
   const handleGenerate = () => {
-    generateMut.mutate({ storyId, instructions: guidance, emphasis });
+    const prev = displayMd;
+    generateMut.mutate(
+      { storyId, instructions: guidance, emphasis },
+      {
+        onSuccess: (data) => {
+          if (prev.trim() && prev !== data.test_plan_md) {
+            requestDiff({
+              title: `Test plan — story #${storyId}`,
+              oldText: prev,
+              newText: data.test_plan_md,
+              onAccept: () => setTestPlanMd(data.test_plan_md),
+            });
+          } else {
+            setTestPlanMd(data.test_plan_md);
+          }
+        },
+      },
+    );
   };
 
   const handleSave = () => {

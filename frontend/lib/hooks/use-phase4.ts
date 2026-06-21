@@ -105,13 +105,13 @@ export function useLoadTestPlan(storyId: number | null) {
 export function useGenerateTestPlan() {
   const context = useApiContext();
   const qc = useQueryClient();
-  const setTestPlanMd = usePhase4Store((s) => s.setTestPlanMd);
+  // Result is committed by the caller (phase4-workflow handleGenerate) so a
+  // regenerate-over-existing plan can be routed through the diff gate first.
   return useCancellableMutation(
     ({ storyId, instructions, emphasis }: { storyId: number; instructions?: string; emphasis?: string[] }, signal) =>
       generateTestPlan(context!, storyId, signal, instructions, emphasis),
     {
-      onSuccess: (data, { storyId }) => {
-        setTestPlanMd(data.test_plan_md);
+      onSuccess: (_data, { storyId }) => {
         void qc.invalidateQueries({ queryKey: ["phase4", "test-plan", context?.projectId, storyId] });
       },
       onError: (err: Error) => toast.error(`Test plan generation failed: ${err.message}`),

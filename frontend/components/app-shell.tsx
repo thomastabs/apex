@@ -4,6 +4,7 @@ import { ReactNode, useEffect, useRef } from "react";
 import { Sidebar } from "./sidebar";
 import { PhaseNav } from "./phase-nav";
 import { CommandPalette } from "./command-palette";
+import { DiffModal } from "./ui/diff-modal";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useAutoSyncStoryIndex } from "@/lib/hooks/use-workspace";
@@ -59,6 +60,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className={theme === "dark" ? "min-h-screen bg-[#1b1b1c] text-neutral-100" : "min-h-screen bg-white text-slate-950"}>
       <CommandPalette />
+      <DiffModal />
       <div className="flex min-h-screen">
         <Sidebar />
         <main className={theme === "dark" ? "min-w-0 flex-1" : "apex-main-light min-w-0 flex-1"}>

@@ -47,6 +47,7 @@ import {
   useUpdateTaskList,
 } from "@/lib/hooks/use-phase3";
 import { usePhase3Store } from "@/lib/stores/phase3-store";
+import { useDiffStore } from "@/lib/stores/diff-store";
 import { useApiContext, useGithubContext } from "@/lib/stores/session-store";
 import { useServerConfig } from "@/lib/hooks/use-workspace";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -883,6 +884,7 @@ function StageC({ storyId }: { storyId: number }) {
   const githubCtx = useGithubContext();
   const { data: ctx } = useStoryContext(storyId);
   const { taskList, packDrafts, prevPackDrafts, pmTaskRefs, setPackDraft, restorePackDraft } = usePhase3Store();
+  const requestDiff = useDiffStore((s) => s.requestDiff);
   const generateProposal = useGenerateProposal();
   const saveProposalMut = useSaveProposal();
 
@@ -896,9 +898,18 @@ function StageC({ storyId }: { storyId: number }) {
   const packMd = selectedTaskId !== null ? (packDrafts[selectedTaskId] ?? "") : "";
   const generatedCount = taskList.filter((t) => Boolean(packDrafts[t.id])).length;
 
-  const handleGenerate = async (taskId: number, hint?: string) => {
+  const commitPack = (taskId: number, proposalMd: string) => {
+    setPackDraft(taskId, proposalMd);
+    saveProposalMut.mutate(
+      { story_id: storyId, task_id: taskId, proposal_md: proposalMd },
+      { onError: () => toast.error("Pack generated but failed to save — regenerate or try again.") },
+    );
+  };
+
+  const handleGenerate = async (taskId: number, hint?: string, opts?: { gate?: boolean }) => {
     const task = taskList.find((t) => t.id === taskId);
     if (!task) return;
+    const prev = packDrafts[taskId] ?? "";
     setGeneratingTaskId(taskId);
     const recentCommitsContext = githubCtx
       ? await fetchRecentCommitsContext(githubCtx, task.subject).catch(() => "")
@@ -916,10 +927,18 @@ function StageC({ storyId }: { storyId: number }) {
       {
         onSettled: () => setGeneratingTaskId(null),
         onSuccess: (data) => {
-          saveProposalMut.mutate(
-            { story_id: storyId, task_id: taskId, proposal_md: data.proposal_md },
-            { onError: () => toast.error("Pack generated but failed to save — regenerate or try again.") },
-          );
+          // Regenerate over an existing pack → show the diff and let the user
+          // accept/discard. First generation (or bulk) commits directly.
+          if (opts?.gate !== false && prev.trim() && prev !== data.proposal_md) {
+            requestDiff({
+              title: `Dev pack — task #${taskId}`,
+              oldText: prev,
+              newText: data.proposal_md,
+              onAccept: () => commitPack(taskId, data.proposal_md),
+            });
+          } else {
+            commitPack(taskId, data.proposal_md);
+          }
         },
       },
     );
@@ -930,7 +949,7 @@ function StageC({ storyId }: { storyId: number }) {
     if (bulkQueue.length === 0 || generatingTaskId !== null) return;
     const [nextId, ...rest] = bulkQueue;
     setBulkQueue(rest);
-    void handleGenerate(nextId);
+    void handleGenerate(nextId, undefined, { gate: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bulkQueue, generatingTaskId]);
 

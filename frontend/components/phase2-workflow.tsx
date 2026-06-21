@@ -35,6 +35,7 @@ import {
 import type { DesignSectionKey } from "@/lib/api/types";
 import { usePhase2Store } from "@/lib/stores/phase2-store";
 import { TECH_STACK_PRESETS } from "@/lib/tech-stack-presets";
+import { useDiffStore } from "@/lib/stores/diff-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
@@ -152,6 +153,7 @@ export function Phase2Workflow() {
     setDesignLeadApproved,
     setTechLeadApproved,
   } = usePhase2Store();
+  const requestDiff = useDiffStore((s) => s.requestDiff);
 
   const bundleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const designBundleRef = useRef(designBundle);
@@ -311,20 +313,35 @@ export function Phase2Workflow() {
         setPartialStoryIds(storyIds);
       },
       onDone: () => {
-        setDesignBundle({
-          ux_brief:   existingBundle?.ux_brief   ?? "",
-          endpoints:  existingBundle?.endpoints  ?? "",
-          data_model: existingBundle?.data_model ?? "",
-          story_ids:  latestStoryIds.length ? latestStoryIds : (existingBundle?.story_ids ?? []),
-          [targetSection]: latestContent,
-        });
-        setPartial({});
-        toast.success(`${SECTION_CONFIG[targetSection].title} generated`);
-        if (targetSection === "data_model" && latestContent.trim()) {
-          generateDiagramMut.mutate(latestContent);
-        }
-        if (targetSection === "ux_brief" && latestContent.trim()) {
-          generateScreenFlowMut.mutate(latestContent);
+        const commit = () => {
+          setDesignBundle({
+            ux_brief:   existingBundle?.ux_brief   ?? "",
+            endpoints:  existingBundle?.endpoints  ?? "",
+            data_model: existingBundle?.data_model ?? "",
+            story_ids:  latestStoryIds.length ? latestStoryIds : (existingBundle?.story_ids ?? []),
+            [targetSection]: latestContent,
+          });
+          setPartial({});
+          toast.success(`${SECTION_CONFIG[targetSection].title} generated`);
+          if (targetSection === "data_model" && latestContent.trim()) {
+            generateDiagramMut.mutate(latestContent);
+          }
+          if (targetSection === "ux_brief" && latestContent.trim()) {
+            generateScreenFlowMut.mutate(latestContent);
+          }
+        };
+        // Regenerate over an existing section → show the diff before replacing.
+        const priorContent = existingBundle?.[targetSection] ?? "";
+        if (priorContent.trim() && priorContent !== latestContent) {
+          requestDiff({
+            title: `Design — ${SECTION_CONFIG[targetSection].title}`,
+            oldText: priorContent,
+            newText: latestContent,
+            onAccept: commit,
+            onDiscard: () => setPartial({}),
+          });
+        } else {
+          commit();
         }
       },
     });
