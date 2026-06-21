@@ -34,6 +34,7 @@ import {
 } from "@/lib/hooks/use-phase2";
 import type { DesignSectionKey } from "@/lib/api/types";
 import { usePhase2Store } from "@/lib/stores/phase2-store";
+import { TECH_STACK_PRESETS } from "@/lib/tech-stack-presets";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
@@ -457,25 +458,53 @@ export function Phase2Workflow() {
               <Input value={stackHint} onChange={(event) => setStackHint(event.target.value)} placeholder="e.g. prefer Python backend, PostgreSQL, simple deployment" />
             </label>
             {!stackDefined ? (
-              <Button
-                className="w-full"
-                disabled={busy || noContext}
-                onClick={() =>
-                  proposeStack.mutate(
-                    { hint: stackHint },
-                    {
-                      onSuccess: (data) => {
-                        setAlternatives(data.alternatives);
+              <>
+                <label className={cn("block text-sm font-medium", labelClass)}>
+                  Start from a preset <span className={mutedClass}>Optional — seeds the draft, no AI</span>
+                  <select
+                    aria-label="Tech stack preset"
+                    defaultValue=""
+                    disabled={busy || noContext}
+                    onChange={(event) => {
+                      const preset = TECH_STACK_PRESETS.find((p) => p.label === event.target.value);
+                      if (preset) {
+                        setTechStackDraft(preset.body);
                         setSelectedAlternativeIndex(-1);
-                        toast.success("Architecture alternatives proposed");
+                        toast.success(`Seeded draft from "${preset.label}"`);
+                      }
+                      event.target.value = "";
+                    }}
+                    className={cn(
+                      "mt-1 w-full rounded-md border px-3 py-2 text-sm",
+                      dark ? "border-neutral-800 bg-[#1f1f21] text-neutral-200" : "border-slate-200 bg-white text-slate-900",
+                    )}
+                  >
+                    <option value="" disabled>Pick a common stack…</option>
+                    {TECH_STACK_PRESETS.map((p) => (
+                      <option key={p.label} value={p.label}>{p.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <Button
+                  className="w-full"
+                  disabled={busy || noContext}
+                  onClick={() =>
+                    proposeStack.mutate(
+                      { hint: stackHint },
+                      {
+                        onSuccess: (data) => {
+                          setAlternatives(data.alternatives);
+                          setSelectedAlternativeIndex(-1);
+                          toast.success("Architecture alternatives proposed");
+                        },
                       },
-                    },
-                  )
-                }
-              >
-                <Sparkles className="size-4" />
-                Propose Architecture
-              </Button>
+                    )
+                  }
+                >
+                  <Sparkles className="size-4" />
+                  Propose Architecture
+                </Button>
+              </>
             ) : null}
             <AIProgressIndicator steps={PROPOSE_STEPS} isPending={proposeStack.isPending} dark={dark} />
             {proposeStack.isPending && <CancelButton onCancel={() => proposeStack.cancel()} className="w-full" />}
