@@ -23,6 +23,7 @@ import httpx
 from fastapi import Header, HTTPException, status
 
 from backend.app.services.request_context import RequestContext
+from src import distributed
 
 _logger = logging.getLogger("apex.deps")
 
@@ -58,7 +59,19 @@ def _token_key(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()[:32]
 
 
+def _redis_cache_key(key) -> str:
+    # key is (token_hash, identity_or_project_url); both already non-secret
+    # (token is sha256-truncated). Namespaced so token vs project entries differ.
+    return "authc:" + key[0] + ":" + key[1]
+
+
 def _cache_get(cache: dict, key) -> bool | None:
+    client = distributed.redis_client()
+    if client is not None:
+        # Shared across replicas: a validation cached by one replica is visible to
+        # all, and a revoked token is consistently re-checked once its TTL lapses.
+        val = client.get(_redis_cache_key(key))
+        return None if val is None else (val == "1")
     with _cache_lock:
         hit = cache.get(key)
         if hit is not None and hit[0] > time.monotonic():
@@ -70,6 +83,10 @@ def _cache_get(cache: dict, key) -> bool | None:
 
 def _cache_put(cache: dict, key, ok: bool) -> None:
     ttl = _VALID_TTL if ok else _INVALID_TTL
+    client = distributed.redis_client()
+    if client is not None:
+        client.setex(_redis_cache_key(key), int(ttl), "1" if ok else "0")
+        return
     with _cache_lock:
         if len(cache) >= _CACHE_MAX_ENTRIES and key not in cache:
             # Evict expired entries first, then the least-recently-used ~10%

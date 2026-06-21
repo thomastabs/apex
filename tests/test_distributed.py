@@ -115,3 +115,17 @@ def test_auth_failure_throttle_shared(fake_redis):
     with pytest.raises(HTTPException) as ei:
         rate_limit.check_auth_failures(req)
     assert ei.value.status_code == 429
+
+
+def test_token_validation_cache_shared_via_redis(fake_redis):
+    from backend.app.api import deps
+    key = (deps._token_key("tok"), "https://pm.example/users/me")
+    assert deps._cache_get(deps._token_cache, key) is None
+    deps._cache_put(deps._token_cache, key, True)
+    # Stored in Redis, not the local dict → a fresh "replica" (empty dict) sees it.
+    assert deps._cache_get({}, key) is True
+    assert fake_redis.get(deps._redis_cache_key(key)) == "1"
+    # Negative validations are cached too (shorter TTL).
+    bad = (deps._token_key("bad"), "https://pm.example/users/me")
+    deps._cache_put(deps._token_cache, bad, False)
+    assert deps._cache_get({}, bad) is False

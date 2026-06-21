@@ -6,6 +6,22 @@ _TEST_PROJECT_ID = 99999
 
 
 @pytest.fixture(autouse=True)
+def _disable_distributed(monkeypatch):
+    """Default every test to the process-local (single-replica) primitives.
+
+    A dev with REDIS_URL in their .env (multi-replica enabled) must not have the
+    suite connect to real Redis — it would bypass the local lock/cache code paths
+    and hit the network. test_distributed opts back in via its fake_redis fixture,
+    which sets the client directly (overriding this)."""
+    from src import distributed
+
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    distributed.reset_for_tests()
+    yield
+    distributed.reset_for_tests()
+
+
+@pytest.fixture(autouse=True)
 def _bypass_pm_auth(request, monkeypatch):
     """Skip PM credential validation in tests.
 
