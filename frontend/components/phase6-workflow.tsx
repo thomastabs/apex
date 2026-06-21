@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ChevronRight, Info, Loader2, RefreshCw, Scale, Zap } from "lucide-react";
+import { ChevronRight, Info, Loader2, RefreshCw, Scale, TrendingDown, Zap } from "lucide-react";
 import { CancelButton } from "@/components/ui/cancel-button";
 import { Button, Callout, Input, SectionHeading } from "@/components/ui/primitives";
 import { MaintenanceTriage } from "@/components/maintenance-triage";
@@ -10,6 +10,7 @@ import { AIProgressIndicator } from "@/components/ai-progress-indicator";
 import {
   useConformanceEligibleStories,
   useConformanceReport,
+  useScanRegressions,
   useVerifyConformance,
 } from "@/lib/hooks/use-phase6";
 import { useApiContext, useGithubContext } from "@/lib/stores/session-store";
@@ -18,6 +19,7 @@ import { cn, errMsg } from "@/lib/utils";
 import type {
   ConformanceEligibleStory,
   ConformanceReport,
+  ScanReport,
 } from "@/lib/api/types";
 
 const STATUS_STYLE: Record<string, string> = {
@@ -149,6 +151,53 @@ function ReportTables({ report, dark }: { report: ConformanceReport; dark: boole
   );
 }
 
+function ScanResults({ report, dark }: { report: ScanReport; dark: boolean }) {
+  const border = dark ? "border-neutral-800" : "border-slate-200";
+  const muted = dark ? "text-neutral-500" : "text-slate-400";
+  return (
+    <div className={cn("space-y-2 rounded-lg border p-3", border)}>
+      <div className="flex items-center gap-2 text-sm font-semibold">
+        <TrendingDown className={cn("h-4 w-4", report.regressed_ids.length ? "text-red-500" : muted)} />
+        Regression scan — {report.regressed_ids.length} regressed / {report.results.length} checked
+      </div>
+      <div className={cn("overflow-hidden rounded-lg border", border)}>
+        <table className="w-full text-left text-xs">
+          <tbody>
+            {report.results.map((r) => (
+              <tr key={r.story_id} className={cn("border-b last:border-0", border)}>
+                <td className="w-16 px-3 py-2 align-top">
+                  {r.regressed ? (
+                    <span className="rounded bg-red-500/15 px-1.5 py-0.5 font-semibold text-red-500">⚠ regressed</span>
+                  ) : (
+                    <span className={cn("rounded px-1.5 py-0.5 font-semibold", muted)}>✓ ok</span>
+                  )}
+                </td>
+                <td className="px-3 py-2 align-top">
+                  <div className={dark ? "text-neutral-200" : "text-slate-800"}>
+                    #{r.story_id} {r.title}
+                    <span className={cn("ml-2 font-mono", muted)}>
+                      {r.old_score ?? "—"}→{r.new_score}
+                    </span>
+                  </div>
+                  {r.worsened_rows.length > 0 ? (
+                    <ul className={cn("mt-0.5 text-[11px]", muted)}>
+                      {r.worsened_rows.map((w, i) => (
+                        <li key={i}>
+                          {w.kind} <span className="font-mono">{w.ref}</span>: {w.old_status}→{w.new_status}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function TraceabilityPanel() {
   const context = useApiContext();
   const github = useGithubContext();
@@ -160,6 +209,8 @@ function TraceabilityPanel() {
   const eligible = useConformanceEligibleStories();
   const reportQuery = useConformanceReport(selectedId);
   const verify = useVerifyConformance();
+  const scan = useScanRegressions();
+  const [scanReport, setScanReport] = useState<ScanReport | null>(null);
 
   const stories = useMemo(() => eligible.data?.stories ?? [], [eligible.data]);
 
@@ -194,6 +245,23 @@ function TraceabilityPanel() {
                 ? "Conformance verified"
                 : "Quick check computed (no AI)",
           ),
+      },
+    );
+  }
+
+  function runScan() {
+    scan.mutate(
+      { panel: false },
+      {
+        onError: (err) => toast.error(errMsg(err)),
+        onSuccess: (report: ScanReport) => {
+          setScanReport(report);
+          toast.success(
+            report.regressed_ids.length > 0
+              ? `${report.regressed_ids.length} regression(s) found`
+              : "No regressions — all stories steady",
+          );
+        },
       },
     );
   }
@@ -321,9 +389,29 @@ function TraceabilityPanel() {
                 >
                   <Scale className="h-4 w-4" /> Deep verify (panel)
                 </Button>
+                <Button
+                  variant="secondary"
+                  onClick={runScan}
+                  disabled={scan.isPending || verify.isPending}
+                  title="Re-verify every story with a prior report against the synced code and flag any whose conformance dropped"
+                >
+                  {scan.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <TrendingDown className="h-4 w-4" />}
+                  Scan for regressions
+                </Button>
                 {verify.isPending && <CancelButton onCancel={() => verify.cancel()} />}
+                {scan.isPending && <CancelButton onCancel={() => scan.cancel()} />}
               </div>
             </div>
+
+            {scan.isPending ? (
+              <AIProgressIndicator
+                steps={["Re-verifying stories", "Comparing to last report", "Flagging regressions"]}
+                isPending={scan.isPending}
+                dark={dark}
+              />
+            ) : null}
+
+            {scanReport ? <ScanResults report={scanReport} dark={dark} /> : null}
 
             {verify.isPending ? (
               <AIProgressIndicator

@@ -994,6 +994,72 @@ class TestConformancePanel:
         assert "no citation" in r.panel_meta.rows[0].rationale
 
 
+class TestDiffConformance:
+    """Spec-anchored regression diff (pure, no LLM)."""
+
+    def _report(self, endpoints, scenarios, score):
+        from src.ai_engine import (
+            ConformanceReport, EndpointConformance, ScenarioConformance)
+        return ConformanceReport(
+            endpoints=[EndpointConformance(contract=c, status=s) for c, s in endpoints],
+            scenarios=[ScenarioConformance(scenario=sc, status=s) for sc, s in scenarios],
+            score=score,
+        )
+
+    def test_score_drop_only_flags(self):
+        import src.ai_engine as ai
+        old = self._report([("POST /a", "present")], [], 100)
+        new = self._report([("POST /a", "present")], [], 80)  # score forced lower, no row change
+        d = ai.diff_conformance(old, new)
+        assert d["regressed"] and d["score_delta"] == -20 and d["worsened_rows"] == []
+
+    def test_row_worsens_at_equal_score(self):
+        import src.ai_engine as ai
+        old = self._report([("POST /a", "present"), ("POST /b", "missing")], [], 50)
+        new = self._report([("POST /a", "mismatch"), ("POST /b", "present")], [], 50)
+        d = ai.diff_conformance(old, new)
+        # /a present→mismatch worsened; /b missing→present improved; net score equal but flagged.
+        assert d["regressed"]
+        assert d["worsened_rows"] == [
+            {"ref": "POST /a", "kind": "endpoint", "old_status": "present", "new_status": "mismatch"}]
+
+    def test_scenario_tested_to_partial(self):
+        import src.ai_engine as ai
+        old = self._report([], [("S1", "tested")], 100)
+        new = self._report([], [("S1", "partial")], 50)
+        d = ai.diff_conformance(old, new)
+        assert d["regressed"]
+        assert d["worsened_rows"][0]["kind"] == "scenario"
+
+    def test_no_regression_when_steady(self):
+        import src.ai_engine as ai
+        r = self._report([("POST /a", "present")], [("S1", "tested")], 100)
+        d = ai.diff_conformance(r, r)
+        assert not d["regressed"] and d["score_delta"] == 0
+
+    def test_improvement_not_flagged(self):
+        import src.ai_engine as ai
+        old = self._report([("POST /a", "missing")], [], 0)
+        new = self._report([("POST /a", "present")], [], 100)
+        d = ai.diff_conformance(old, new)
+        assert not d["regressed"] and d["score_delta"] == 100
+
+    def test_new_row_is_not_a_regression(self):
+        import src.ai_engine as ai
+        old = self._report([("POST /a", "present")], [], 100)
+        new = self._report([("POST /a", "present"), ("POST /b", "missing")], [], 50)
+        d = ai.diff_conformance(old, new)
+        # /b is new (not in old) → only the score drop flags it, no worsened row for /b.
+        assert d["regressed"] and d["worsened_rows"] == []
+
+    def test_accepts_dicts(self):
+        import src.ai_engine as ai
+        old = {"endpoints": [{"contract": "POST /a", "status": "present"}], "scenarios": [], "score": 100}
+        new = {"endpoints": [{"contract": "POST /a", "status": "missing"}], "scenarios": [], "score": 0}
+        d = ai.diff_conformance(old, new)
+        assert d["regressed"] and d["worsened_rows"][0]["new_status"] == "missing"
+
+
 # ---------------------------------------------------------------------------
 # Phase 3 · Deterministic agent-target compilation (roadmap #3, no LLM)
 # ---------------------------------------------------------------------------

@@ -610,6 +610,27 @@ export type ConformanceReport = {
   panel_meta?: PanelMeta | null;
 };
 
+export type WorsenedRow = {
+  ref: string;
+  kind: "endpoint" | "scenario";
+  old_status: string;
+  new_status: string;
+};
+
+export type ScanResultRow = {
+  story_id: number;
+  title: string;
+  old_score: number | null;
+  new_score: number;
+  regressed: boolean;
+  worsened_rows: WorsenedRow[];
+};
+
+export type ScanReport = {
+  results: ScanResultRow[];
+  regressed_ids: number[];
+};
+
 // Phase 6 Maintenance — Triage (F1) + Fix-Bolt & Severity Routing (F2)
 
 export type MaintenanceItem = {

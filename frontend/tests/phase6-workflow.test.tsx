@@ -44,6 +44,14 @@ vi.mock("@/lib/api/phase6", () => ({
   }),
   getConformanceReport: vi.fn().mockResolvedValue(REPORT),
   verifyConformance: vi.fn().mockResolvedValue(REPORT),
+  scanRegressions: vi.fn().mockResolvedValue({
+    results: [{
+      story_id: 10, title: "Login", old_score: 90, new_score: 61, regressed: true,
+      worsened_rows: [{ ref: "POST /api/v1/auth/login", kind: "endpoint", old_status: "present", new_status: "missing" }],
+    }],
+    regressed_ids: [10],
+  }),
+  acknowledgeRegression: vi.fn().mockResolvedValue({ story_id: 10, acknowledged: true }),
   // Maintenance tab is the default; stub its data fetch so the tab mounts cleanly.
   listMaintenanceItems: vi.fn().mockResolvedValue({ items: [] }),
   PHASE6_AI_TIMEOUT_MS: 1000,
@@ -108,6 +116,18 @@ describe("Phase6Workflow", () => {
     await waitFor(() =>
       expect(vi.mocked(verifyConformance)).toHaveBeenCalledWith(expect.anything(), 10, true, [], expect.anything(), true),
     );
+  });
+
+  it("Scan for regressions posts and renders the inline results", async () => {
+    const { scanRegressions } = await import("@/lib/api/phase6");
+    renderWorkflow();
+    openTraceability();
+    await waitFor(() => expect(screen.getByText("POST /api/v1/auth/login")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /Scan for regressions/i }));
+    await waitFor(() => expect(vi.mocked(scanRegressions)).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByText(/1 regressed \/ 1 checked/i)).toBeInTheDocument());
+    expect(screen.getByText(/⚠ regressed/)).toBeInTheDocument();
+    expect(screen.getByText(/90→61/)).toBeInTheDocument();
   });
 
   it("renders panel agreement badges + Judge rationale from panel_meta", async () => {

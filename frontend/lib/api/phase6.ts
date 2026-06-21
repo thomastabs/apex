@@ -5,6 +5,7 @@ import type {
   MaintenanceItem,
   MaintenanceItemsResponse,
   RequestContext,
+  ScanReport,
   SeveritySuggestion,
 } from "./types";
 
@@ -43,6 +44,24 @@ export async function getConformanceReport(
     if (err instanceof ApiError && err.status === 404) return null;
     throw err;
   }
+}
+
+// Re-verifies every story with a prior report — a full re-verify each, so allow the long timeout.
+export function scanRegressions(context: RequestContext, panel = false, signal?: AbortSignal) {
+  return apiRequest<ScanReport>("/api/phase6/scan-regressions", {
+    method: "POST",
+    context,
+    body: { panel },
+    timeoutMs: PHASE6_AI_TIMEOUT_MS,
+    signal,
+  });
+}
+
+export function acknowledgeRegression(context: RequestContext, storyId: number) {
+  return apiRequest<{ story_id: number; acknowledged: boolean }>(
+    `/api/phase6/conformance/${storyId}/acknowledge-regression`,
+    { method: "POST", context },
+  );
 }
 
 // ── Maintenance (F1 Triage + F2 Fix-Bolt routing) ──────────────────────────

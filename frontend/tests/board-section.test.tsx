@@ -32,9 +32,14 @@ vi.mock("@/lib/hooks/use-workspace", () => ({
   useSetStoryPhaseStatus: () => idleMut,
   useAcknowledgeSpecDrift: () => idleMut,
   useStoryIndexStats: () => ({
-    data: { total: 1, phase2_designed: 0, phase3_proposed: 0, phase4_tested: 0, phase4_passed: 0, phase5_deployed: 0, spec_drift: 0, drifted_story_ids: [] },
+    data: {
+      total: 1, phase2_designed: 0, phase3_proposed: 0, phase4_tested: 0, phase4_passed: 0,
+      phase5_deployed: 0, spec_drift: 0, drifted_story_ids: [],
+      conformance_regressed: 1, regressed_story_ids: [101],
+    },
   }),
 }));
+vi.mock("@/lib/hooks/use-phase6", () => ({ useAcknowledgeRegression: () => idleMut }));
 
 import { BoardSection } from "@/components/sidebar/board-section";
 
@@ -67,5 +72,14 @@ describe("BoardSection edit dialog", () => {
     const textarea = await screen.findByPlaceholderText(/Describe the story/i);
     await waitFor(() => expect(textarea).toHaveValue("HYDRATED FROM DETAIL"));
     expect(getStory).toHaveBeenCalledWith(expect.anything(), "101");
+  });
+
+  it("shows a regression badge for a story in regressed_story_ids", async () => {
+    renderBoard();
+    fireEvent.click(screen.getByRole("button", { name: /Epics & Stories/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Authentication/i }));
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Conformance regressed/i)).toBeInTheDocument(),
+    );
   });
 });

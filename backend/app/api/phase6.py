@@ -16,6 +16,8 @@ from backend.app.schemas.phase6 import (
     MaintenanceLogResponse,
     ResolveItemRequest,
     RouteLaneRequest,
+    ScanRegressionsRequest,
+    ScanReportResponse,
     SeveritySuggestionResponse,
     VerifyConformanceRequest,
 )
@@ -92,6 +94,32 @@ def get_conformance(
         return report
     except HTTPException:
         raise
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/scan-regressions", response_model=ScanReportResponse)
+def scan_regressions(
+    payload: ScanRegressionsRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase6Service = Depends(get_phase6_service),
+    _rl: None = Depends(ai_rate_limit),
+):
+    try:
+        return service.scan_regressions(ctx, panel=payload.panel)
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/conformance/{story_id}/acknowledge-regression")
+def acknowledge_regression(
+    story_id: int,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase6Service = Depends(get_phase6_service),
+):
+    try:
+        service.acknowledge_regression(ctx, story_id)
+        return {"story_id": story_id, "acknowledged": True}
     except Exception as exc:
         _handle_error(exc)
 

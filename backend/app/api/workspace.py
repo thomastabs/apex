@@ -260,6 +260,11 @@ def story_index_stats(ctx: RequestContext = Depends(get_request_context)):
         "drifted_story_ids": sorted(
             s["story_id"] for s in stories if s.get("spec_drift") and s.get("story_id") is not None
         ),
+        "conformance_regressed": sum(1 for s in stories if s.get("conformance_regressed")),
+        "regressed_story_ids": sorted(
+            s["story_id"] for s in stories
+            if s.get("conformance_regressed") and s.get("story_id") is not None
+        ),
     }
 
 

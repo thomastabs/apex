@@ -42,6 +42,12 @@ class ContextService:
     def clear_spec_drift(self, story_id: int) -> None:
         context_manager.clear_spec_drift(story_id)
 
+    def set_conformance_regressed(self, story_id: int, reason: str = "") -> None:
+        context_manager.set_conformance_regressed(story_id, reason)
+
+    def clear_conformance_regressed(self, story_id: int) -> None:
+        context_manager.clear_conformance_regressed(story_id)
+
     def get_amendments(self) -> str:
         return context_manager.get_amendments()
 

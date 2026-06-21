@@ -2858,6 +2858,46 @@ def compute_conformance_score(report: ConformanceReport) -> int:
     return round(100 * sum(weights) / len(weights))
 
 
+def diff_conformance(
+    old: ConformanceReport | dict, new: ConformanceReport | dict,
+) -> dict:
+    """Compare two conformance reports for regression (pure, no AI).
+
+    A story has REGRESSED when the new code-computed score is lower than the old,
+    OR any endpoint/scenario row dropped to a strictly worse status (by the same
+    weights used for scoring — e.g. present→missing, tested→partial). Constraints
+    are advisory and excluded, matching the score. Returns
+    {regressed, score_delta, worsened_rows: [{ref, kind, old_status, new_status}]}.
+    Verdict is computed in code over already-computed scores/statuses — never an
+    LLM judgement.
+    """
+    if isinstance(old, dict):
+        old = ConformanceReport.model_validate(old)
+    if isinstance(new, dict):
+        new = ConformanceReport.model_validate(new)
+
+    worsened: list[dict] = []
+
+    def _scan(old_rows, new_rows, ref_attr, kind, weights):
+        old_by = {getattr(r, ref_attr): r.status for r in old_rows}
+        for r in new_rows:
+            ref = getattr(r, ref_attr)
+            if ref not in old_by:
+                continue  # a newly-appeared row is not a regression
+            old_status = old_by[ref]
+            if weights.get(r.status, 0.0) < weights.get(old_status, 0.0):
+                worsened.append({
+                    "ref": ref, "kind": kind,
+                    "old_status": old_status, "new_status": r.status})
+
+    _scan(old.endpoints, new.endpoints, "contract", "endpoint", _ENDPOINT_WEIGHT)
+    _scan(old.scenarios, new.scenarios, "scenario", "scenario", _SCENARIO_WEIGHT)
+
+    score_delta = new.score - old.score
+    regressed = score_delta < 0 or bool(worsened)
+    return {"regressed": regressed, "score_delta": score_delta, "worsened_rows": worsened}
+
+
 def build_layer_a_report(
     gherkin: str,
     technical_spec: str,

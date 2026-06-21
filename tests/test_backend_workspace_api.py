@@ -52,6 +52,8 @@ def test_story_index_stats_deployed_counts_only_explicit_deployed(monkeypatch):
         "phase5_deployed": 1,
         "spec_drift": 0,
         "drifted_story_ids": [],
+        "conformance_regressed": 0,
+        "regressed_story_ids": [],
     }
 
 
@@ -317,6 +319,21 @@ def test_stats_lists_drifted_story_ids(ctx):
     stats = story_index_stats(RequestContext(pm_token="tok", project_id=ctx._get_project_id()))
     assert stats["spec_drift"] == 2
     assert stats["drifted_story_ids"] == [1, 2]
+
+
+def test_stats_lists_regressed_story_ids(ctx):
+    ctx.upsert_story_index(1, phase_status="implementation")
+    ctx.upsert_story_index(2, phase_status="qa")
+    ctx.upsert_story_index(3, phase_status="deployed")
+    ctx.set_conformance_regressed(2, "score 90→60")
+    ctx.set_conformance_regressed(3, "row worsened")
+    stats = story_index_stats(RequestContext(pm_token="tok", project_id=ctx._get_project_id()))
+    assert stats["conformance_regressed"] == 2
+    assert stats["regressed_story_ids"] == [2, 3]
+    # acknowledging clears it
+    ctx.clear_conformance_regressed(2)
+    stats2 = story_index_stats(RequestContext(pm_token="tok", project_id=ctx._get_project_id()))
+    assert stats2["regressed_story_ids"] == [3]
 
 
 # ── rebuild_story_index ───────────────────────────────────────────────────────

@@ -116,3 +116,51 @@ class Phase6Service:
     def get_conformance(self, ctx: RequestContext, story_id: int) -> dict | None:
         self.configure_request(ctx)
         return self.context.load_conformance(story_id)
+
+    def scan_regressions(self, ctx: RequestContext, *, panel: bool = False) -> dict:
+        """Re-verify every story that already has a conformance report against the
+        freshly-synced code and flag any whose conformance regressed.
+
+        Spec-anchored regression agent: for each eligible story with a prior
+        report, capture the old report, re-run verify (persists the new one),
+        then compare with the pure `ai_engine.diff_conformance`. A regression
+        (lower score OR a worsened row) raises `conformance_regressed`; a
+        previously-flagged story that recovered is cleared automatically.
+        On-demand, sequential (single-writer safe).
+        """
+        from src import ai_engine
+
+        self.configure_request(ctx)
+        eligible = self.get_eligible_stories(ctx)
+        results: list[dict] = []
+        regressed_ids: list[int] = []
+        for s in eligible:
+            if not s["has_conformance"]:
+                continue
+            story_id = s["story_id"]
+            old = self.context.load_conformance(story_id) or {}
+            new = self.verify_conformance(ctx, story_id, ai=True, panel=panel)
+            diff = ai_engine.diff_conformance(old, new)
+            if diff["regressed"]:
+                reason = (
+                    f"score {old.get('score', 0)}→{new.get('score', 0)}, "
+                    f"{len(diff['worsened_rows'])} row(s) worsened"
+                )
+                self.context.set_conformance_regressed(story_id, reason)
+                regressed_ids.append(story_id)
+            else:
+                # Recovery (or steady): clear any stale flag.
+                self.context.clear_conformance_regressed(story_id)
+            results.append({
+                "story_id": story_id,
+                "title": s["title"],
+                "old_score": old.get("score"),
+                "new_score": new.get("score", 0),
+                "regressed": diff["regressed"],
+                "worsened_rows": diff["worsened_rows"],
+            })
+        return {"results": results, "regressed_ids": sorted(regressed_ids)}
+
+    def acknowledge_regression(self, ctx: RequestContext, story_id: int) -> None:
+        self.configure_request(ctx)
+        self.context.clear_conformance_regressed(story_id)

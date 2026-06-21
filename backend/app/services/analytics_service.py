@@ -202,6 +202,10 @@ class AnalyticsService:
             score += 2
             reasons.append("spec drifted after lock")
 
+        if entry.get("conformance_regressed"):
+            score += 2
+            reasons.append("conformance regressed after code change")
+
         if entry.get("has_bug_report") and entry.get("phase_status") == "implementation":
             score += 1
             reasons.append("regression bypass in progress")

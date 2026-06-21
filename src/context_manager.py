@@ -851,7 +851,8 @@ def upsert_story_index(story_id: int, **updates) -> None:
     Valid fields: epic_id, title, phase_status, has_gherkin, has_tech_spec,
                   has_proposal, has_bdd, has_bug_report, has_infra_delta,
                   has_deploy_pack, deploy_bypass, fix_bolt_count,
-                  spec_drift, drift_reason.
+                  spec_drift, drift_reason,
+                  conformance_regressed, regression_reason.
 
     Whenever phase_status changes (including the initial status of a new
     entry) a UTC timestamp is appended to entry["status_history"][status] —
@@ -884,6 +885,8 @@ def upsert_story_index(story_id: int, **updates) -> None:
             "fix_bolt_count":  0,
             "spec_drift":      False,
             "drift_reason":    "",
+            "conformance_regressed": False,
+            "regression_reason":     "",
             "status_history":  {},
         })
         entry.update(updates)
@@ -2125,6 +2128,31 @@ def get_amendments() -> str:
     init_context()
     am = _path("amendments.md")
     return am.read_text(encoding="utf-8") if am.exists() else ""
+
+
+def set_conformance_regressed(story_id: int, reason: str = "") -> None:
+    """Flag a story whose spec↔code conformance regressed after a code change.
+
+    Distinct from spec_drift (a post-lock SPEC edit): this fires when the CODE
+    changed and a re-scan found a lower conformance score or a worsened row."""
+    with _index_lock():
+        index = get_story_index()
+        entry = index.get(str(story_id))
+        if entry is not None:
+            entry["conformance_regressed"] = True
+            entry["regression_reason"] = reason
+            _save_story_index(index)
+
+
+def clear_conformance_regressed(story_id: int) -> None:
+    """Clear the regression flag (acknowledged, or a later scan showed recovery)."""
+    with _index_lock():
+        index = get_story_index()
+        entry = index.get(str(story_id))
+        if entry is not None and entry.get("conformance_regressed"):
+            entry["conformance_regressed"] = False
+            entry["regression_reason"] = ""
+            _save_story_index(index)
 
 
 # ---------------------------------------------------------------------------

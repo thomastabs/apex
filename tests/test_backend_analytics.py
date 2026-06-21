@@ -59,6 +59,17 @@ def _entry(story_id, status, history=None, **extra):
     return e
 
 
+def test_story_risk_flags_conformance_regression():
+    svc = AnalyticsService(context=FakeContextService(index={}))
+    risk = svc._story_risk(
+        _entry(1, "deployed", conformance_regressed=True), None, None)
+    assert "conformance regressed after code change" in risk["reasons"]
+    assert risk["score"] >= 2 and risk["level"] in ("low", "medium", "high")
+    # not flagged when the field is absent/false
+    clean = svc._story_risk(_entry(2, "deployed"), None, None)
+    assert all("regressed" not in r for r in clean["reasons"])
+
+
 def test_funnel_counts_all_statuses():
     index = {
         "1": _entry(1, "gherkin_locked"),

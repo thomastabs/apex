@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  acknowledgeRegression,
   classifyMaintenanceItem,
   createMaintenanceItem,
   deleteMaintenanceItem,
@@ -12,11 +13,12 @@ import {
   listMaintenanceItems,
   resolveMaintenanceItem,
   routeMaintenanceItem,
+  scanRegressions,
   verifyConformance,
 } from "@/lib/api/phase6";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useCancellableMutation } from "@/lib/hooks/use-cancellable-mutation";
-import type { ConformanceReport, MaintenanceItem } from "@/lib/api/types";
+import type { ConformanceReport, MaintenanceItem, ScanReport } from "@/lib/api/types";
 
 export function useConformanceEligibleStories() {
   const context = useApiContext();
@@ -53,6 +55,33 @@ export function useVerifyConformance() {
       },
     },
   );
+}
+
+export function useScanRegressions() {
+  const context = useApiContext();
+  const qc = useQueryClient();
+  return useCancellableMutation(
+    ({ panel = false }: { panel?: boolean }, signal) => scanRegressions(context!, panel, signal),
+    {
+      onSuccess: (report: ScanReport) => {
+        // Refresh per-story reports (each was re-verified) + board/analytics flags.
+        qc.invalidateQueries({ queryKey: ["phase6", "conformance", context?.projectId] });
+        qc.invalidateQueries({ queryKey: ["phase6", "eligible-stories", context?.projectId] });
+        qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
+        return report;
+      },
+    },
+  );
+}
+
+export function useAcknowledgeRegression() {
+  const context = useApiContext();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (storyId: number) => acknowledgeRegression(context!, storyId),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] }),
+  });
 }
 
 // ── Maintenance (F1 Triage + F2 Fix-Bolt routing) ──────────────────────────

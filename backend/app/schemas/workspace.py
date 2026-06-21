@@ -95,3 +95,5 @@ class StoryIndexStatsResponse(BaseModel):
     phase5_deployed: int = 0
     spec_drift: int = 0
     drifted_story_ids: list[int] = Field(default_factory=list)
+    conformance_regressed: int = 0
+    regressed_story_ids: list[int] = Field(default_factory=list)

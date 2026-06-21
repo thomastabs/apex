@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ChevronDown, ChevronRight, Info, Layers3, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, Info, Layers3, Plus, RefreshCw, Trash2, TrendingDown, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   useAcknowledgeSpecDrift,
@@ -19,6 +19,7 @@ import {
   useUpdateEpic,
   useUpdateStory,
 } from "@/lib/hooks/use-workspace";
+import { useAcknowledgeRegression } from "@/lib/hooks/use-phase6";
 import { getPmAdapter } from "@/lib/api/pm-factory";
 import { toPmCtx, type ApexPhaseStatus } from "@/lib/api/workspace";
 import { getAnalyticsSummary, type StoryRisk } from "@/lib/api/analytics";
@@ -145,10 +146,11 @@ const APEX_STATUS_OPTIONS: [ApexPhaseStatus, string][] = [
   ["deployed", "Deployed"],
 ];
 
-function StoryDialog({ story, drifted = false, onClose }: { story: Story; drifted?: boolean; onClose: () => void }) {
+function StoryDialog({ story, drifted = false, regressed = false, onClose }: { story: Story; drifted?: boolean; regressed?: boolean; onClose: () => void }) {
   const dark = useUiStore((state) => state.theme === "dark");
   const context = useApiContext();
   const ackDrift = useAcknowledgeSpecDrift();
+  const ackRegression = useAcknowledgeRegression();
   const [subject, setSubject] = useState(story.subject);
   const [description, setDescription] = useState(story.description ?? "");
   const [tagsInput, setTagsInput] = useState((story.tags ?? []).join(", "));
@@ -246,6 +248,31 @@ function StoryDialog({ story, drifted = false, onClose }: { story: Story; drifte
                 }
               >
                 {ackDrift.isPending ? "Acknowledging…" : "Acknowledge"}
+              </button>
+            </div>
+          </div>
+        ) : null}
+        {regressed ? (
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-600 dark:text-red-400">
+            <TrendingDown className="mt-0.5 size-4 shrink-0" />
+            <div className="flex-1">
+              <p className="font-semibold">Conformance regressed</p>
+              <p className="mt-0.5">
+                A regression scan found this story&apos;s spec↔code conformance dropped after a code
+                change. Re-verify in Phase 6 (a recovered scan clears this automatically), or
+                acknowledge if the drop is expected.
+              </p>
+              <button
+                className="mt-2 rounded bg-red-500/20 px-2 py-1 font-semibold transition-colors hover:bg-red-500/30 disabled:opacity-50"
+                disabled={ackRegression.isPending}
+                onClick={() =>
+                  ackRegression.mutate(story.id, {
+                    onSuccess: () => toast.success("Regression acknowledged."),
+                    onError: () => toast.error("Could not acknowledge regression."),
+                  })
+                }
+              >
+                {ackRegression.isPending ? "Acknowledging…" : "Acknowledge"}
               </button>
             </div>
           </div>
@@ -514,6 +541,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
   const rebuildIndex = useRebuildStoryIndex();
   const storyStats = useStoryIndexStats();
   const driftedIds = new Set(storyStats.data?.drifted_story_ids ?? []);
+  const regressedIds = new Set(storyStats.data?.regressed_story_ids ?? []);
 
   // Predictive risk badge — reuse the analytics summary (single source of risk),
   // shared/cached with the Analytics page.
@@ -551,7 +579,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
       {typeof document !== "undefined" ? createPortal(
         <>
           {dialogEpic ? <EpicDialog epic={dialogEpic} onClose={() => setDialogEpic(null)} /> : null}
-          {dialogStory ? <StoryDialog story={dialogStory} drifted={driftedIds.has(dialogStory.id)} onClose={() => setDialogStory(null)} /> : null}
+          {dialogStory ? <StoryDialog story={dialogStory} drifted={driftedIds.has(dialogStory.id)} regressed={regressedIds.has(dialogStory.id)} onClose={() => setDialogStory(null)} /> : null}
           {createEpicOpen ? <CreateEpicDialog onClose={() => setCreateEpicOpen(false)} /> : null}
           {createStoryEpicId !== null ? (
             <CreateStoryDialog epicId={createStoryEpicId} onClose={() => setCreateStoryEpicId(null)} />
@@ -737,6 +765,12 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                             <AlertTriangle
                               className="size-3 shrink-0 text-amber-500"
                               aria-label="Spec drift — locked spec changed after this story passed its gate"
+                            />
+                          ) : null}
+                          {regressedIds.has(story.id) ? (
+                            <TrendingDown
+                              className="size-3 shrink-0 text-red-500"
+                              aria-label="Conformance regressed — a code change lowered this story's spec↔code conformance"
                             />
                           ) : null}
                           <button

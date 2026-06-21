@@ -83,6 +83,32 @@ class VerifyConformanceRequest(BaseModel):
     extra_files: list[SupplementalFile] = Field(default_factory=list)
 
 
+class ScanRegressionsRequest(BaseModel):
+    # panel=True deep-verifies each story through the adversarial panel during the scan.
+    panel: bool = False
+
+
+class WorsenedRow(BaseModel):
+    ref: str
+    kind: Literal["endpoint", "scenario"]
+    old_status: str
+    new_status: str
+
+
+class ScanResultRow(BaseModel):
+    story_id: int
+    title: str = ""
+    old_score: Optional[int] = None
+    new_score: int = 0
+    regressed: bool = False
+    worsened_rows: list[WorsenedRow] = Field(default_factory=list)
+
+
+class ScanReportResponse(BaseModel):
+    results: list[ScanResultRow] = Field(default_factory=list)
+    regressed_ids: list[int] = Field(default_factory=list)
+
+
 # ---------------------------------------------------------------------------
 # Phase 6 Maintenance — Triage (F1) + Fix-Bolt & Severity Routing (F2)
 # ---------------------------------------------------------------------------

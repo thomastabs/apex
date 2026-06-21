@@ -35,6 +35,9 @@ class FakeAiService:
         self.verify_calls += 1
         self.last_precheck = precheck
         self.last_github_context = github_context
+        # Tests can override the returned report (e.g. to simulate a regression).
+        if getattr(self, "verify_report", None) is not None:
+            return dict(self.verify_report)
         return {"endpoints": [], "scenarios": [], "constraints": [], "summary": "AI", "score": 70}
 
     def verify_conformance_panel(self, story_subject, gherkin, technical_spec, github_context,
@@ -54,6 +57,8 @@ class FakeContextService:
     def __init__(self, index=None):
         self.index = index if index is not None else _index()
         self.store: dict[int, dict] = {}
+        self.regressed: dict[int, str] = {}
+        self.cleared: list[int] = []
         self.context_files = {"github-context.md": _GITHUB, "constraints.md": ""}
 
     def set_active(self, ctx):
@@ -79,6 +84,13 @@ class FakeContextService:
 
     def load_conformance(self, story_id):
         return self.store.get(story_id)
+
+    def set_conformance_regressed(self, story_id, reason=""):
+        self.regressed[story_id] = reason
+
+    def clear_conformance_regressed(self, story_id):
+        self.cleared.append(story_id)
+        self.regressed.pop(story_id, None)
 
 
 @pytest.fixture
@@ -139,6 +151,40 @@ def test_verify_default_single_pass_not_panel(ctx):
     report = svc.verify_conformance(ctx, 1, ai=True)
     assert ai.verify_calls == 1 and getattr(ai, "panel_calls", 0) == 0
     assert report["layer"] == "ai" and report.get("panel_meta") is None
+
+
+_HIGH = {"endpoints": [{"contract": "POST /a", "status": "present"}], "scenarios": [], "constraints": [], "score": 100}
+_LOW = {"endpoints": [{"contract": "POST /a", "status": "missing"}], "scenarios": [], "constraints": [], "score": 0}
+
+
+def test_scan_flags_regressed_story(ctx):
+    svc, ai, context = _service()
+    context.store[1] = {**_HIGH, "story_id": 1}   # prior report (eligible + has_conformance)
+    ai.verify_report = _LOW                        # re-verify returns a worse report
+    out = svc.scan_regressions(ctx)
+    assert out["regressed_ids"] == [1]
+    assert context.regressed[1]  # flag set with a reason
+    row = next(r for r in out["results"] if r["story_id"] == 1)
+    assert row["regressed"] and row["old_score"] == 100 and row["new_score"] == 0
+    assert row["worsened_rows"][0]["new_status"] == "missing"
+
+
+def test_scan_clears_recovered_story(ctx):
+    svc, ai, context = _service()
+    context.store[1] = {**_LOW, "story_id": 1}
+    context.regressed[1] = "was regressed"
+    ai.verify_report = _HIGH                        # recovered
+    out = svc.scan_regressions(ctx)
+    assert out["regressed_ids"] == []
+    assert 1 in context.cleared and 1 not in context.regressed
+
+
+def test_scan_skips_stories_without_report(ctx):
+    svc, ai, context = _service()
+    # story 1 eligible but has no prior conformance report → skipped (nothing to regress against)
+    out = svc.scan_regressions(ctx)
+    assert out["results"] == [] and out["regressed_ids"] == []
+    assert ai.verify_calls == 0
 
 
 def test_ineligible_story_raises(ctx):

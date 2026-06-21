@@ -5,11 +5,13 @@ from fastapi import HTTPException
 
 from backend.app.api.deps import get_request_context
 from backend.app.api.phase6 import (
+    acknowledge_regression,
     eligible_stories,
     get_conformance,
+    scan_regressions,
     verify_conformance,
 )
-from backend.app.schemas.phase6 import VerifyConformanceRequest
+from backend.app.schemas.phase6 import ScanRegressionsRequest, VerifyConformanceRequest
 from backend.app.services.phase6_service import Phase6ValidationError
 from src.ai_engine import AIError, AIRateLimitError, AITimeoutError
 
@@ -42,6 +44,20 @@ class StubPhase6Service:
 
     def get_conformance(self, ctx, story_id):
         return {**_REPORT, "story_id": story_id} if story_id == 10 else None
+
+    def scan_regressions(self, ctx, *, panel=False):
+        return {
+            "results": [{
+                "story_id": 10, "title": "Login", "old_score": 90, "new_score": 60,
+                "regressed": True,
+                "worsened_rows": [{"ref": "POST /a", "kind": "endpoint",
+                                   "old_status": "present", "new_status": "missing"}],
+            }],
+            "regressed_ids": [10],
+        }
+
+    def acknowledge_regression(self, ctx, story_id):
+        self.acked = story_id
 
 
 def _ctx():
@@ -77,6 +93,21 @@ def test_verify_conformance_deterministic_flag():
         ctx=_ctx(), service=StubPhase6Service(), _rl=None,
     )
     assert result["layer"] == "deterministic"
+
+
+def test_scan_regressions_route():
+    result = scan_regressions(
+        ScanRegressionsRequest(), ctx=_ctx(), service=StubPhase6Service(), _rl=None,
+    )
+    assert result["regressed_ids"] == [10]
+    assert result["results"][0]["regressed"] is True
+    assert result["results"][0]["worsened_rows"][0]["new_status"] == "missing"
+
+
+def test_acknowledge_regression_route():
+    svc = StubPhase6Service()
+    result = acknowledge_regression(story_id=10, ctx=_ctx(), service=svc)
+    assert result["acknowledged"] is True and svc.acked == 10
 
 
 def test_get_conformance_route():
