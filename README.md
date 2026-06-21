@@ -1015,6 +1015,46 @@ gh variable set APEX_NIGHT_MODE --body on    # re-enable (default)
 
 ---
 
+## Future Work
+
+These came out of a phase-flow review. The core observation: the spec flows
+**downstream** (each phase grounds in the previous one), but there is little
+**backward** signal, no cross-story consistency check, and no memory of past
+decisions. None of the items below are built yet — they are the explored design
+directions.
+
+- **Backward trace propagation** *(highest priority — smallest change, biggest
+  structural gap)* — a Phase 4 coverage gap or a low Phase 6 conformance score
+  automatically flags the source Gherkin/design it derived from and suggests
+  which phase to re-open, closing the one-way leak. Reuses the status-rollback
+  mechanism already in `delete_test_plan`.
+- **Living traceability graph** *(the differentiator)* — a single queryable graph
+  concept → EARS → Gherkin → design → task → pack → test → deploy → conformance,
+  with **backward edges** ("why does this endpoint exist?", "what breaks if I
+  change story 5?"). The Phase 6 Traceability Explorer is the seed.
+- **Cross-story design-drift detector** — on a Phase 2/3 lock, the AI diffs the new
+  artifact against sibling stories' locked designs and warns on contradiction
+  (duplicate endpoint, conflicting data model). Extends the existing
+  reconciliation seam (`covered_scenarios`/DAG).
+- **Decision log per artifact** — capture human edits and rejected AI proposals,
+  then inject them as negative constraints downstream so the AI stops
+  re-suggesting paths the human already rejected.
+- **Template / preset tech stacks** — Phase 2 presets to skip re-deriving common
+  stacks.
+- **Diff view on re-generation** — regenerating any artifact shows a diff against
+  the locked version rather than a full replace.
+- **Multi-model cross-check** — run the structured phases through two providers
+  (Anthropic + OpenAI + Google are all wired in `ai_engine`) and flag
+  disagreement. Distinct from the merged same-provider adversarial conformance
+  panel (already shipped, Phase 6 "Deep verify").
+
+**Shipped from the earlier visionary backlog:** the adversarial multi-agent
+conformance verifier (Phase 6 "Deep verify") and the spec-anchored regression
+scan (Phase 6 "Scan for regressions") — both documented under
+[Phase 6](#phase-6--maintenance--traceability) above.
+
+---
+
 ## Architecture Note — Browser-Side vs Proxied API Calls
 
 **Taiga:** All Taiga REST API calls (login, projects, epics, stories, users, story transitions) are proxied through the FastAPI backend at `DELETE/GET/PATCH/POST/PUT /api/pm/taiga/{path}` (`backend/app/api/taiga_proxy.py`). `frontend/lib/api/taiga-direct.ts` sends an `X-Taiga-Url` header carrying the user-configured Taiga base URL; the backend validates it with SSRF guards, resolves it against the saved workspace config if absent, and forwards the request server-side.
