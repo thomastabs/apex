@@ -978,9 +978,9 @@ The scheduler is defined in `.github/workflows/scale-scheduler.yml`.
 - `08:00 UTC` → **up**: frontend pre-warmed (`min=1 max=10`).
 - `22:00 UTC` → **down**: frontend scales to zero overnight (`min=0 max=2`).
 
-**`apex-backend` stays `min=1 max=1` around the clock — it is never scaled to zero.**
+**`apex-backend` runs `min=1` around the clock — it is never scaled to zero.**
 
-- `max=1` (**single-writer constraint**): the story index and workspace config live on a shared Azure File Share guarded only by a process-local lock — a second backend replica would cause lost-update races on `story-index.json`, and the per-process rate-limit buckets would go N× looser. **To lift this, set `REDIS_URL`** (Upstash serverless free tier): `src/distributed.py` then backs the index/config write lock with a reentrant cross-replica Redis lock and the rate-limit counters with shared Redis keys, so `apex-backend` can run `max>1`. Unset = single-replica behaviour, unchanged (Redis is never imported). Cut over by setting the secret and deploying at `max=1` first, then raising max-replicas.
+- **Multi-replica is enabled in production** (`max=3`): `REDIS_URL` is set on `apex-backend` (Upstash serverless free tier), so `src/distributed.py` backs the story-index/config write lock with a reentrant cross-replica Redis lock and the rate-limit counters with shared Redis keys — the former single-writer constraint is lifted. Without `REDIS_URL` the lock/counters fall back to process-local (single-replica-safe only), so **`max>1` is safe ONLY while `REDIS_URL` is set and connected** (verify via Upstash `CLIENT LIST` showing the Azure egress IP, or the boot-time `distributed: Redis enabled` log). To run single-replica again, unset `REDIS_URL` and drop `max-replicas` back to 1.
 - `min=1`: a cold start re-rolls the revision onto a fresh Azure SNAT egress path + cold HTTP pool, the daily churn behind the 2026-06-12 Taiga egress incident. Keeping the backend warm removes that churn for ~cents/month. The PM proxies also self-heal connect failures (retry + keepalive recycling) — see the egress note below.
 
 **Night mode toggle** (skip the 22:00 scale-down, e.g. a late demo):
