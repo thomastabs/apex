@@ -42,6 +42,7 @@ import { useServerConfig, useLogDecision } from "@/lib/hooks/use-workspace";
 import { usePhase4Store } from "@/lib/stores/phase4-store";
 import { useDiffStore } from "@/lib/stores/diff-store";
 import { useApiContext } from "@/lib/stores/session-store";
+import { SignInRequired } from "@/components/sign-in-required";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
 import type { Phase4StoryPreview } from "@/lib/api/types";
@@ -1133,6 +1134,8 @@ export function Phase4Workflow() {
           Generate AI-assisted test plans, track scenario execution, and isolate bugs with the Fix-Bolt wizard.
         </p>
       </div>
+
+      {!context ? <SignInRequired unlocks="Phase 4 testing tools" /> : null}
 
       {/* Diagram collapsible */}
       <div className={cn("mb-6 rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}>

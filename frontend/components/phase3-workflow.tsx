@@ -49,6 +49,7 @@ import {
 import { usePhase3Store } from "@/lib/stores/phase3-store";
 import { useDiffStore } from "@/lib/stores/diff-store";
 import { useApiContext, useGithubContext } from "@/lib/stores/session-store";
+import { SignInRequired } from "@/components/sign-in-required";
 import { useServerConfig, useLogDecision } from "@/lib/hooks/use-workspace";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
@@ -1600,6 +1601,8 @@ export function Phase3Workflow() {
           Decompose design-locked stories into atomic developer tasks, generate implementation packs, and push to Taiga.
         </p>
       </div>
+
+      {!context ? <SignInRequired unlocks="Phase 3 implementation tools" /> : null}
 
       {/* Diagram collapsible */}
       <div className={cn("mb-6 rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}>

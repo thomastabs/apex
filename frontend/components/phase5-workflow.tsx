@@ -42,6 +42,7 @@ import { useUpdatePmStoryStatus } from "@/lib/hooks/use-phase4";
 import { usePhase5Store } from "@/lib/stores/phase5-store";
 import { useDiffStore } from "@/lib/stores/diff-store";
 import { useLogDecision } from "@/lib/hooks/use-workspace";
+import { SignInRequired } from "@/components/sign-in-required";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
@@ -1248,6 +1249,8 @@ export function Phase5Workflow() {
           Run the AI infra delta check, prepare deploy packs, and pass the human-gated Deployment Gate.
         </p>
       </div>
+
+      {!context ? <SignInRequired unlocks="Phase 5 deployment tools" /> : null}
 
       {/* Diagram collapsible */}
       <div className={cn("mb-6 rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}>

@@ -147,22 +147,35 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Next-step callout when Phase 2 is complete */}
-      {hasProject && phase2Done ? (
-        <Link
-          href="/phase3"
-          className="mb-6 flex items-center justify-between gap-4 rounded-md border border-emerald-600/40 bg-emerald-500/8 px-4 py-3 text-sm transition-colors hover:border-emerald-500/60"
-        >
-          <div className="flex items-center gap-3">
-            <CheckCircle2 className="size-4 shrink-0 text-emerald-400" />
-            <div>
-              <p className="font-semibold text-emerald-300">Phases 1 &amp; 2 complete</p>
-              <p className="text-emerald-500/80">Design is locked. Your project is ready for Phase 3 · Implementation.</p>
+      {/* Next-step callout — reflects the furthest phase the project has reached */}
+      {hasProject && phase2Done && stats ? (() => {
+        const total = stats.total;
+        const anyDeployed = stats.phase5_deployed > 0;
+        const anyTested = stats.phase4_tested > 0;
+        const anyProposed = stats.phase3_proposed > 0;
+        const next = anyDeployed
+          ? { href: "/phase5", title: "Stories in deployment", body: `${stats.phase5_deployed}/${total} deployed — manage releases in Phase 5 and maintenance in Phase 6.` }
+          : anyTested
+            ? { href: "/phase4", title: "Testing underway", body: `${stats.phase4_tested}/${total} stories have test plans — continue QA in Phase 4.` }
+            : anyProposed
+              ? { href: "/phase3", title: "Implementation underway", body: `${stats.phase3_proposed}/${total} stories have developer packs — continue in Phase 3.` }
+              : { href: "/phase3", title: "Phases 1 & 2 complete", body: "Design is locked. Your project is ready for Phase 3 · Implementation." };
+        return (
+          <Link
+            href={next.href}
+            className="mb-6 flex items-center justify-between gap-4 rounded-md border border-emerald-600/40 bg-emerald-500/8 px-4 py-3 text-sm transition-colors hover:border-emerald-500/60"
+          >
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="size-4 shrink-0 text-emerald-400" />
+              <div>
+                <p className="font-semibold text-emerald-300">{next.title}</p>
+                <p className="text-emerald-500/80">{next.body}</p>
+              </div>
             </div>
-          </div>
-          <ArrowRight className="size-4 shrink-0 text-emerald-400" />
-        </Link>
-      ) : null}
+            <ArrowRight className="size-4 shrink-0 text-emerald-400" />
+          </Link>
+        );
+      })() : null}
 
       <div>
         <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.1em] text-neutral-500">

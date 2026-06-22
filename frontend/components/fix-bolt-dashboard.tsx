@@ -9,6 +9,7 @@ import { Callout } from "@/components/ui/primitives";
 import { deleteBugReport, getBugReport, getFixLog, listBugReports, saveBugReport } from "@/lib/api/phase4";
 import { useEscapeKey } from "@/lib/hooks/use-escape-key";
 import { useApiContext } from "@/lib/stores/session-store";
+import { SignInRequired } from "@/components/sign-in-required";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
 
@@ -117,7 +118,7 @@ export function FixBoltDashboard() {
         </p>
       </div>
 
-      {!context && <Callout>Log in and select a project to view Fix-Bolt artifacts.</Callout>}
+      {!context && <SignInRequired unlocks="the Fix-Bolt dashboard" />}
 
       {context && (
         <div className="space-y-10">

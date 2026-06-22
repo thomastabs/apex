@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button, Callout, SectionHeading } from "@/components/ui/primitives";
 import { getAnalyticsSummary, type AnalyticsSummary } from "@/lib/api/analytics";
 import { useApiContext } from "@/lib/stores/session-store";
+import { SignInRequired } from "@/components/sign-in-required";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
 
@@ -118,7 +119,7 @@ export function AnalyticsDashboard() {
         </p>
       </div>
 
-      {!context && <Callout>Log in and select a project to view analytics.</Callout>}
+      {!context && <SignInRequired unlocks="the governance analytics" />}
 
       {isLoading && (
         <div className="flex items-center gap-3 text-sm text-neutral-400">
