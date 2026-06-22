@@ -241,9 +241,11 @@ const jiraAdapter: ProjectManagementAdapter = {
     }));
   },
 
-  createProject: async (_auth, _name, _description) => {
+  createProject: async (_auth, _name, _description, _opts) => {
     throw new Error("Creating Jira projects requires admin privileges. Please create the project in Jira and connect to it here.");
   },
+
+  listProjectTemplates: async (_auth) => [],
 
   updateProject: async (_auth, _projectId, _fields) => {
     throw new Error("Editing project details is supported for Taiga projects only. Edit Jira projects in the Jira UI.");

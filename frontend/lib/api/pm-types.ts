@@ -12,6 +12,9 @@ export interface PmRequestContext extends PmAuthContext {
   projectId: string;
 }
 
+export type ProjectTemplate = { id: number; slug: string; name: string };
+export type CreateProjectOptions = { isPrivate?: boolean; templateId?: number | null };
+
 export type PmTask = {
   id: string;
   ref: string | number;
@@ -39,9 +42,10 @@ export interface ProjectManagementAdapter {
   getMe(auth: PmAuthContext): Promise<Me>;
 
   listProjects(auth: PmAuthContext): Promise<Project[]>;
-  createProject(auth: PmAuthContext, name: string, description: string): Promise<Project>;
+  createProject(auth: PmAuthContext, name: string, description: string, opts?: CreateProjectOptions): Promise<Project>;
   updateProject(auth: PmAuthContext, projectId: string, fields: { name?: string; description?: string }): Promise<Project>;
   deleteProject(auth: PmAuthContext, projectId: string): Promise<{ ok: boolean }>;
+  listProjectTemplates(auth: PmAuthContext): Promise<ProjectTemplate[]>;
 
   getBoard(ctx: PmRequestContext): Promise<EpicWithStories[]>;
   getEpic(ctx: PmRequestContext, epicId: string): Promise<Epic>;

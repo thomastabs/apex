@@ -8,6 +8,7 @@ import {
   acknowledgeSpecDrift,
   createEpic,
   createProject,
+  listProjectTemplates,
   updateProject,
   createStory,
   deleteEpic,
@@ -80,11 +81,21 @@ export function useCreateProject() {
   const auth = useAuthContext();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ name, description }: { name: string; description: string }) =>
-      createProject(auth!, name, description),
+    mutationFn: ({ name, description, isPrivate, templateId }: { name: string; description: string; isPrivate?: boolean; templateId?: number | null }) =>
+      createProject(auth!, name, description, { isPrivate, templateId }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "projects"] });
     },
+  });
+}
+
+export function useProjectTemplates() {
+  const auth = useAuthContext();
+  return useQuery({
+    queryKey: ["workspace", "project-templates", auth?.pmTool, auth?.taigaApiUrl],
+    queryFn: () => listProjectTemplates(auth!),
+    enabled: Boolean(auth) && auth?.pmTool === "taiga",
+    staleTime: 5 * 60_000,
   });
 }
 

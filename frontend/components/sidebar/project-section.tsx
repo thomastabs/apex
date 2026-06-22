@@ -1,14 +1,16 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FolderOpen, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   useCreateProject,
   useDeleteProject,
   useProjects,
+  useProjectTemplates,
   useSaveServerConfig,
   useUpdateProject,
 } from "@/lib/hooks/use-workspace";
+import type { ProjectTemplate } from "@/lib/api/pm-types";
 import { useSessionStore, useAuthContext } from "@/lib/stores/session-store";
 import { usePhase2Store } from "@/lib/stores/phase2-store";
 import { usePhase3Store } from "@/lib/stores/phase3-store";
@@ -38,6 +40,7 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
   const isJira = auth?.pmTool === "jira";
 
   const projects = useProjects();
+  const projectTemplates = useProjectTemplates();
   const createProject = useCreateProject();
   const updateProject = useUpdateProject();
   const deleteProject = useDeleteProject();
@@ -156,9 +159,10 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
           title="Create New Project"
           submitLabel="Create Project"
           pendingLabel="Creating…"
+          templates={projectTemplates.data ?? []}
           onClose={() => setShowCreate(false)}
-          onSubmit={(name, description) =>
-            createProject.mutate({ name, description }, {
+          onSubmit={(name, description, opts) =>
+            createProject.mutate({ name, description, isPrivate: opts.isPrivate, templateId: opts.templateId }, {
               onSuccess: () => { setShowCreate(false); toast.success(`Project "${name}" created`); },
               onError: (e) => toast.error(errMsg(e)),
             })
@@ -199,6 +203,7 @@ function ProjectDialog({
   pendingLabel,
   initialName = "",
   initialDescription = "",
+  templates,
   onClose,
   onSubmit,
 }: {
@@ -209,11 +214,22 @@ function ProjectDialog({
   pendingLabel: string;
   initialName?: string;
   initialDescription?: string;
+  // When provided, render the create-only Taiga options (template + visibility).
+  templates?: ProjectTemplate[];
   onClose: () => void;
-  onSubmit: (name: string, description: string) => void;
+  onSubmit: (name: string, description: string, opts: { isPrivate: boolean; templateId: number | null }) => void;
 }) {
   const [name, setName] = useState(initialName);
   const [description, setDescription] = useState(initialDescription);
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [templateId, setTemplateId] = useState<number | null>(null);
+
+  // Default the template to Scrum (or the first available) once templates load.
+  useEffect(() => {
+    if (templates && templates.length && templateId === null) {
+      setTemplateId((templates.find((t) => t.slug === "scrum") ?? templates[0]).id);
+    }
+  }, [templates, templateId]);
 
   const inputClass = cn(
     "w-full rounded border px-3 text-sm outline-none focus:border-violet-500",
@@ -226,7 +242,7 @@ function ProjectDialog({
 
   function submit() {
     if (!canSubmit) return;
-    onSubmit(name.trim(), description.trim());
+    onSubmit(name.trim(), description.trim(), { isPrivate, templateId });
   }
 
   return (
@@ -264,6 +280,54 @@ function ProjectDialog({
               placeholder="Describe this project…"
             />
           </div>
+          {templates ? (
+            <>
+              <div>
+                <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
+                  Template
+                </label>
+                <select
+                  className={cn("h-9", inputClass)}
+                  value={templateId ?? ""}
+                  onChange={(e) => setTemplateId(e.target.value ? Number(e.target.value) : null)}
+                >
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
+                  Visibility
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsPrivate(false)}
+                    className={cn(
+                      "h-9 rounded border text-sm font-semibold transition-colors",
+                      !isPrivate ? "border-violet-500 bg-violet-500/15 text-violet-300" : dark ? "border-neutral-700 text-neutral-400 hover:border-neutral-600" : "border-slate-300 text-slate-500 hover:border-slate-400",
+                    )}
+                  >
+                    Public
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsPrivate(true)}
+                    className={cn(
+                      "h-9 rounded border text-sm font-semibold transition-colors",
+                      isPrivate ? "border-violet-500 bg-violet-500/15 text-violet-300" : dark ? "border-neutral-700 text-neutral-400 hover:border-neutral-600" : "border-slate-300 text-slate-500 hover:border-slate-400",
+                    )}
+                  >
+                    Private
+                  </button>
+                </div>
+                <p className={cn("mt-1 text-[11px]", dark ? "text-neutral-500" : "text-slate-500")}>
+                  Taiga free tier caps private projects — use Public if you hit the limit.
+                </p>
+              </div>
+            </>
+          ) : null}
         </div>
         <div className="mt-5 flex gap-3">
           <button

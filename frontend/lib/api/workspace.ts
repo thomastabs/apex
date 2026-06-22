@@ -86,8 +86,12 @@ export function listProjects(context: AuthContext) {
   return getPmAdapter(context.pmTool).listProjects(toPmAuth(context));
 }
 
-export function createProject(context: AuthContext, name: string, description: string) {
-  return getPmAdapter(context.pmTool).createProject(toPmAuth(context), name, description);
+export function createProject(context: AuthContext, name: string, description: string, opts?: { isPrivate?: boolean; templateId?: number | null }) {
+  return getPmAdapter(context.pmTool).createProject(toPmAuth(context), name, description, opts);
+}
+
+export function listProjectTemplates(context: AuthContext) {
+  return getPmAdapter(context.pmTool).listProjectTemplates(toPmAuth(context));
 }
 
 export function updateProject(context: AuthContext, projectId: number | string, fields: { name?: string; description?: string }) {

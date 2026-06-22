@@ -13,6 +13,7 @@ import {
   taigaDeleteProject,
   taigaDeleteStory,
   taigaDeleteTask,
+  taigaListProjectTemplates,
   taigaUpdateProject,
   taigaErrMsg,
   taigaGetBoard,
@@ -32,7 +33,7 @@ import {
   taigaUpdateStory,
   taigaUpdateTask,
 } from "./taiga-direct";
-import type { PmAuthContext, PmRequestContext, PmTask, PmStoryStatus, ProjectManagementAdapter } from "./pm-types";
+import type { CreateProjectOptions, PmAuthContext, PmRequestContext, PmTask, PmStoryStatus, ProjectManagementAdapter, ProjectTemplate } from "./pm-types";
 import type { Epic, EpicWithStories, Me, Membership, Project, Story } from "./types";
 
 function n(id: string | number): number {
@@ -55,8 +56,11 @@ const taigaAdapter: ProjectManagementAdapter = {
   listProjects: (auth: PmAuthContext): Promise<Project[]> =>
     taigaListProjects(auth.token, auth.baseUrl),
 
-  createProject: (auth: PmAuthContext, name: string, description: string): Promise<Project> =>
-    taigaCreateProject(auth.token, name, description, auth.baseUrl),
+  createProject: (auth: PmAuthContext, name: string, description: string, opts?: CreateProjectOptions): Promise<Project> =>
+    taigaCreateProject(auth.token, name, description, opts, auth.baseUrl),
+
+  listProjectTemplates: (auth: PmAuthContext): Promise<ProjectTemplate[]> =>
+    taigaListProjectTemplates(auth.token, auth.baseUrl),
 
   updateProject: (auth: PmAuthContext, projectId: string, fields: { name?: string; description?: string }): Promise<Project> =>
     taigaUpdateProject(auth.token, n(projectId), fields, auth.baseUrl),

@@ -189,16 +189,34 @@ export async function taigaListProjects(token: string, apiBaseUrl?: string): Pro
   }));
 }
 
+export type TaigaProjectTemplate = { id: number; slug: string; name: string };
+
+export async function taigaListProjectTemplates(token: string, apiBaseUrl?: string): Promise<TaigaProjectTemplate[]> {
+  const raw = await taigaFetch<Record<string, unknown>[]>("/project-templates", token, apiBaseUrl);
+  return (raw ?? []).map((t) => ({
+    id: t.id as number,
+    slug: (t.slug as string) || "",
+    name: (t.name as string) || "",
+  }));
+}
+
 export async function taigaCreateProject(
   token: string,
   name: string,
   description: string,
+  opts?: { isPrivate?: boolean; templateId?: number | null },
   apiBaseUrl?: string,
 ): Promise<Project> {
+  const body: Record<string, unknown> = {
+    name,
+    // Taiga rejects a blank description with 400 — fall back to the name.
+    description: description.trim() || name,
+    is_private: opts?.isPrivate ?? false,
+  };
+  if (opts?.templateId != null) body.creation_template = opts.templateId;
   const raw = await taigaFetch<Record<string, unknown>>("/projects", token, apiBaseUrl, {
     method: "POST",
-    // Taiga rejects a blank description with 400 — fall back to the name.
-    body: { name, description: description.trim() || name },
+    body,
   });
   return {
     id: raw.id as number,
