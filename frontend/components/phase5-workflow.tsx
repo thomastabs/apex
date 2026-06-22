@@ -904,7 +904,6 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
   const setRejectionFeedback = usePhase5Store((s) => s.setRejectionFeedback);
   const setDeployPackMd = usePhase5Store((s) => s.setDeployPackMd);
   const clearPhase5Draft = usePhase5Store((s) => s.clearPhase5Draft);
-  const requestDiff = useDiffStore((s) => s.requestDiff);
   const logDecision = useLogDecision();
 
   const [rejecting, setRejecting] = useState(false);
@@ -933,9 +932,9 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
 
   const handleReject = () => {
     if (!rejectionFeedback.trim() || !deployPackMd) return;
-    const prev = deployPackMd;
-    // The rejection feedback is itself a recorded decision (what was wrong with
-    // the current pack), independent of accepting the AI's revision.
+    // A revise is an explicit, human-requested change (the feedback IS the
+    // decision) — record it and commit the revision directly. The diff gate is
+    // reserved for blind regenerations, not deliberate revisions.
     logDecision.mutate({
       scope: `Phase 5 deploy pack · story #${storyId}`,
       summary: "Rejected the deploy pack at the gate and requested a revision.",
@@ -947,21 +946,9 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
         onSuccess: (data) => {
           setRejectionFeedback("");
           setRejecting(false);
-          const commit = () => {
-            setDeployPackMd(data.deploy_pack_md, false);
-            toast.success("Deploy pack revised — review and save it again.");
-            onRevise();
-          };
-          if (prev.trim() && prev !== data.deploy_pack_md) {
-            requestDiff({
-              title: `Deploy pack revision — story #${storyId}`,
-              oldText: prev,
-              newText: data.deploy_pack_md,
-              onAccept: commit,
-            });
-          } else {
-            commit();
-          }
+          setDeployPackMd(data.deploy_pack_md, false);
+          toast.success("Deploy pack revised — review and save it again.");
+          onRevise();
         },
       },
     );
