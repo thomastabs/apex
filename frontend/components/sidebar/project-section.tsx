@@ -1,12 +1,13 @@
 "use client";
 import { useState } from "react";
-import { FolderOpen, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { FolderOpen, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   useCreateProject,
   useDeleteProject,
   useProjects,
   useSaveServerConfig,
+  useUpdateProject,
 } from "@/lib/hooks/use-workspace";
 import { useSessionStore, useAuthContext } from "@/lib/stores/session-store";
 import { usePhase2Store } from "@/lib/stores/phase2-store";
@@ -24,6 +25,7 @@ type ProjectSectionProps = DragSectionProps & {
 export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDragStart }: ProjectSectionProps) {
   const [projectOpen, setProjectOpen] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
 
   const projectId = useSessionStore((s) => s.projectId);
   const projectName = useSessionStore((s) => s.projectName);
@@ -37,10 +39,12 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
 
   const projects = useProjects();
   const createProject = useCreateProject();
+  const updateProject = useUpdateProject();
   const deleteProject = useDeleteProject();
   const saveServerConfig = useSaveServerConfig();
 
   const projectOptions = projects.data ?? [];
+  const selectedProject = projectOptions.find((p) => p.id === projectId) ?? null;
   const activeProjectName =
     projectOptions.find((p) => p.id === projectId)?.name ??
     projectName ??
@@ -87,6 +91,28 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
+            {selectedProject ? (
+              <div className={cn("space-y-1.5 rounded border p-2.5 text-xs", dark ? "border-neutral-700 bg-neutral-950" : "border-slate-200 bg-slate-50")}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className={cn("font-semibold", dark ? "text-neutral-200" : "text-slate-800")}>{selectedProject.name}</span>
+                  {!isJira ? (
+                    <button
+                      className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold text-violet-400 transition-colors hover:bg-violet-500/15"
+                      onClick={() => setShowEdit(true)}
+                      title="Edit project name & description"
+                    >
+                      <Pencil className="size-3" /> Edit
+                    </button>
+                  ) : null}
+                </div>
+                <div className={cn(dark ? "text-neutral-500" : "text-slate-500")}>
+                  ID {selectedProject.id}{selectedProject.slug ? ` · ${selectedProject.slug}` : ""}
+                </div>
+                <p className={cn("whitespace-pre-wrap leading-5", dark ? "text-neutral-400" : "text-slate-600")}>
+                  {selectedProject.description?.trim() || "No description."}
+                </p>
+              </div>
+            ) : null}
             <div className="grid grid-cols-2 gap-2">
               <button
                 className="flex h-8 items-center justify-center gap-1 rounded border border-neutral-600 text-sm text-neutral-300 transition-colors hover:border-violet-500/50 hover:text-violet-300"
@@ -124,9 +150,12 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
         ) : null}
       </section>
       {showCreate ? (
-        <CreateProjectDialog
+        <ProjectDialog
           dark={dark}
           pending={createProject.isPending}
+          title="Create New Project"
+          submitLabel="Create Project"
+          pendingLabel="Creating…"
           onClose={() => setShowCreate(false)}
           onSubmit={(name, description) =>
             createProject.mutate({ name, description }, {
@@ -136,23 +165,55 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
           }
         />
       ) : null}
+      {showEdit && selectedProject ? (
+        <ProjectDialog
+          dark={dark}
+          pending={updateProject.isPending}
+          title="Edit Project"
+          submitLabel="Save Changes"
+          pendingLabel="Saving…"
+          initialName={selectedProject.name}
+          initialDescription={selectedProject.description ?? ""}
+          onClose={() => setShowEdit(false)}
+          onSubmit={(name, description) =>
+            updateProject.mutate({ projectId: selectedProject.id, name, description }, {
+              onSuccess: (p) => {
+                setShowEdit(false);
+                setProject({ projectId: p.id, projectName: p.name, pmProjectSlug: p.slug ?? undefined });
+                toast.success("Project updated");
+              },
+              onError: () => toast.error("Failed to update project"),
+            })
+          }
+        />
+      ) : null}
     </div>
   );
 }
 
-function CreateProjectDialog({
+function ProjectDialog({
   dark,
   pending,
+  title,
+  submitLabel,
+  pendingLabel,
+  initialName = "",
+  initialDescription = "",
   onClose,
   onSubmit,
 }: {
   dark: boolean;
   pending: boolean;
+  title: string;
+  submitLabel: string;
+  pendingLabel: string;
+  initialName?: string;
+  initialDescription?: string;
   onClose: () => void;
   onSubmit: (name: string, description: string) => void;
 }) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
+  const [name, setName] = useState(initialName);
+  const [description, setDescription] = useState(initialDescription);
 
   const inputClass = cn(
     "w-full rounded border px-3 text-sm outline-none focus:border-violet-500",
@@ -177,7 +238,7 @@ function CreateProjectDialog({
         className={cn("w-full max-w-lg rounded-xl border p-6 shadow-2xl", dark ? "border-neutral-700 bg-neutral-900" : "border-slate-300 bg-white")}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>Create New Project</h3>
+        <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>{title}</h3>
         <div className="space-y-3">
           <div>
             <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
@@ -210,7 +271,7 @@ function CreateProjectDialog({
             disabled={pending || !canSubmit}
             onClick={submit}
           >
-            {pending ? "Creating…" : "Create Project"}
+            {pending ? pendingLabel : submitLabel}
           </button>
           <button
             className={cn("flex-1 rounded py-2 text-sm transition-colors", dark ? "bg-neutral-800 text-neutral-300 hover:bg-neutral-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200")}

@@ -208,6 +208,32 @@ export async function taigaCreateProject(
   };
 }
 
+export async function taigaUpdateProject(
+  token: string,
+  projectId: number,
+  fields: { name?: string; description?: string },
+  apiBaseUrl?: string,
+): Promise<Project> {
+  // Taiga PATCH requires the current version (optimistic concurrency) — fetch it first.
+  const current = await taigaFetch<Record<string, unknown>>(`/projects/${projectId}`, token, apiBaseUrl);
+  const body: Record<string, unknown> = { version: current.version };
+  if (fields.name !== undefined) body.name = fields.name;
+  // Taiga rejects a blank description with 400 — fall back to the name.
+  if (fields.description !== undefined) {
+    body.description = fields.description.trim() || (fields.name ?? (current.name as string) ?? "");
+  }
+  const raw = await taigaFetch<Record<string, unknown>>(`/projects/${projectId}`, token, apiBaseUrl, {
+    method: "PATCH",
+    body,
+  });
+  return {
+    id: raw.id as number,
+    name: (raw.name as string) || "",
+    slug: (raw.slug as string) ?? null,
+    description: descriptionText(raw),
+  };
+}
+
 export async function taigaDeleteProject(token: string, projectId: number, apiBaseUrl?: string): Promise<{ ok: boolean }> {
   await taigaFetch<unknown>(`/projects/${projectId}`, token, apiBaseUrl, { method: "DELETE" });
   return { ok: true };

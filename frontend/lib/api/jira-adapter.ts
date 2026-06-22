@@ -245,6 +245,10 @@ const jiraAdapter: ProjectManagementAdapter = {
     throw new Error("Creating Jira projects requires admin privileges. Please create the project in Jira and connect to it here.");
   },
 
+  updateProject: async (_auth, _projectId, _fields) => {
+    throw new Error("Editing project details is supported for Taiga projects only. Edit Jira projects in the Jira UI.");
+  },
+
   deleteProject: async (auth: PmAuthContext, projectId: string): Promise<{ ok: boolean }> => {
     await jiraFetch<unknown>(`/rest/api/3/project/${projectId}`, auth.token, auth.baseUrl, { method: "DELETE" });
     return { ok: true };

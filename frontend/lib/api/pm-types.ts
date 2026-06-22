@@ -40,6 +40,7 @@ export interface ProjectManagementAdapter {
 
   listProjects(auth: PmAuthContext): Promise<Project[]>;
   createProject(auth: PmAuthContext, name: string, description: string): Promise<Project>;
+  updateProject(auth: PmAuthContext, projectId: string, fields: { name?: string; description?: string }): Promise<Project>;
   deleteProject(auth: PmAuthContext, projectId: string): Promise<{ ok: boolean }>;
 
   getBoard(ctx: PmRequestContext): Promise<EpicWithStories[]>;

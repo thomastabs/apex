@@ -13,6 +13,7 @@ import {
   taigaDeleteProject,
   taigaDeleteStory,
   taigaDeleteTask,
+  taigaUpdateProject,
   taigaErrMsg,
   taigaGetBoard,
   taigaGetEpic,
@@ -56,6 +57,9 @@ const taigaAdapter: ProjectManagementAdapter = {
 
   createProject: (auth: PmAuthContext, name: string, description: string): Promise<Project> =>
     taigaCreateProject(auth.token, name, description, auth.baseUrl),
+
+  updateProject: (auth: PmAuthContext, projectId: string, fields: { name?: string; description?: string }): Promise<Project> =>
+    taigaUpdateProject(auth.token, n(projectId), fields, auth.baseUrl),
 
   deleteProject: (auth: PmAuthContext, projectId: string): Promise<{ ok: boolean }> =>
     taigaDeleteProject(auth.token, n(projectId), auth.baseUrl),

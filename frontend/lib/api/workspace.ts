@@ -90,6 +90,10 @@ export function createProject(context: AuthContext, name: string, description: s
   return getPmAdapter(context.pmTool).createProject(toPmAuth(context), name, description);
 }
 
+export function updateProject(context: AuthContext, projectId: number | string, fields: { name?: string; description?: string }) {
+  return getPmAdapter(context.pmTool).updateProject(toPmAuth(context), String(projectId), fields);
+}
+
 export function deleteProject(context: AuthContext, projectId: number | string) {
   return getPmAdapter(context.pmTool).deleteProject(toPmAuth(context), String(projectId));
 }

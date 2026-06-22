@@ -8,6 +8,7 @@ import {
   acknowledgeSpecDrift,
   createEpic,
   createProject,
+  updateProject,
   createStory,
   deleteEpic,
   deleteProject,
@@ -81,6 +82,18 @@ export function useCreateProject() {
   return useMutation({
     mutationFn: ({ name, description }: { name: string; description: string }) =>
       createProject(auth!, name, description),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "projects"] });
+    },
+  });
+}
+
+export function useUpdateProject() {
+  const auth = useAuthContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ projectId, name, description }: { projectId: number; name?: string; description?: string }) =>
+      updateProject(auth!, projectId, { name, description }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "projects"] });
     },
