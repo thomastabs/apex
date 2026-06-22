@@ -11,8 +11,10 @@ import {
   useUpdateContextFile,
 } from "@/lib/hooks/use-workspace";
 import { useGenerateConstraints } from "@/lib/hooks/use-phase1";
+import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
+import { SignInRequired } from "@/components/sign-in-required";
 import { PanelHeader, type DragSectionProps } from "./shared";
 
 // ── utilities ─────────────────────────────────────────────────────────────────
@@ -285,6 +287,7 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
   const [contextOpen, setContextOpen] = useState(true);
   const [expandedContext, setExpandedContext] = useState<string | null>(null);
 
+  const context = useApiContext();
   const contextFiles = useContextFiles();
   const rebuildIndex = useRebuildStoryIndex();
   const resetAll = useResetAllContextFiles();
@@ -314,13 +317,17 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
         <PanelHeader
           icon={<FileText className="size-4" />}
           title="Active Context"
-          badge={`${totalChars} ch`}
+          badge={context ? `${totalChars} ch` : "—"}
           open={contextOpen}
           onClick={() => setContextOpen(!contextOpen)}
           onDragStart={onDragStart}
         />
         {contextOpen ? (
           <div className={cn("px-4 py-4", expandedPanelClass)}>
+            {!context ? (
+              <SignInRequired unlocks="the project context" />
+            ) : (
+            <>
             <div className={cn("mb-3 text-sm", dark ? "text-neutral-500" : "text-slate-500")}>
               context:{" "}
               <span className="font-bold" style={{ color: sizeColor }}>
@@ -407,6 +414,8 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                 <Trash2 className="size-4" />
               </button>
             </div>
+            </>
+            )}
           </div>
         ) : null}
       </section>
