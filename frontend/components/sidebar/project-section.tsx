@@ -69,7 +69,9 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
                 const selected = projectOptions.find((p) => p.id === Number(e.target.value));
                 if (selected && selected.id !== projectId) {
                   setProject({ projectId: selected.id, projectName: selected.name, pmProjectSlug: selected.slug ?? undefined });
-                  saveServerConfig.mutate(selected.id);
+                  saveServerConfig.mutate(selected.id, {
+                    onError: () => toast.error("Switched locally, but saving the active project failed."),
+                  });
                   // All phase drafts are project-scoped — stale story IDs from
                   // the previous project would collide with the new one.
                   clearPhase2Draft();
@@ -109,7 +111,10 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
               <button
                 className="flex h-8 w-full items-center justify-center gap-2 rounded border border-red-500/40 bg-red-500/10 text-sm font-semibold text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50"
                 disabled={deleteProject.isPending}
-                onClick={() => confirm("Delete this project and all its data?", () => deleteProject.mutate(projectId))}
+                onClick={() => confirm("Delete this project and all its data?", () => deleteProject.mutate(projectId, {
+                  onSuccess: () => toast.success("Project deleted"),
+                  onError: () => toast.error("Failed to delete project"),
+                }))}
               >
                 <Trash2 className="size-3" />
                 Delete Project
@@ -124,7 +129,10 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
           pending={createProject.isPending}
           onClose={() => setShowCreate(false)}
           onSubmit={(name, description) =>
-            createProject.mutate({ name, description }, { onSuccess: () => setShowCreate(false) })
+            createProject.mutate({ name, description }, {
+              onSuccess: () => { setShowCreate(false); toast.success(`Project "${name}" created`); },
+              onError: () => toast.error("Failed to create project"),
+            })
           }
         />
       ) : null}

@@ -148,14 +148,18 @@ export function ERDiagramPanel({
   const handleReLayout = useCallback(() => {
     const layouted = applyDagreLayout(nodes as DiagramNode[], edges as DiagramEdge[]);
     setNodes(layouted as DiagramNode[]);
-    savePosMut.mutate(layouted.map((n) => ({ id: n.id, position: n.position })) as DiagramNode[]);
+    savePosMut.mutate(layouted.map((n) => ({ id: n.id, position: n.position })) as DiagramNode[], {
+      onError: () => toast.error("Failed to save diagram layout."),
+    });
   }, [nodes, edges, setNodes, savePosMut]);
 
   const handleDragStop = useCallback(
     (_: unknown, __: unknown, allNodes: DiagramNode[]) => {
       if (savePosTimer.current) clearTimeout(savePosTimer.current);
       savePosTimer.current = setTimeout(() => {
-        savePosMut.mutate(allNodes.map((n) => ({ id: n.id, position: n.position })) as DiagramNode[]);
+        savePosMut.mutate(allNodes.map((n) => ({ id: n.id, position: n.position })) as DiagramNode[], {
+          onError: () => toast.error("Failed to save diagram positions."),
+        });
       }, 1000);
     },
     [savePosMut],

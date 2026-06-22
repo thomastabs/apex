@@ -13,6 +13,7 @@ import {
 } from "@xyflow/react";
 import Dagre from "@dagrejs/dagre";
 import { ChevronRight, LayoutDashboard, Loader2, Monitor, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
 import { CancelButton } from "@/components/ui/cancel-button";
@@ -110,6 +111,7 @@ export function ScreenFlowPanel({
         setNodes(toDagreNodes(data) as ScreenFlowNode[]);
         setEdges(data.edges as ScreenFlowEdge[]);
         setOpen(true);
+        toast.success("Screen flow generated.");
       },
     });
   }, [canGenerate, uxBriefContent, generateMut, setNodes, setEdges]);
@@ -117,14 +119,18 @@ export function ScreenFlowPanel({
   const handleReLayout = useCallback(() => {
     const layouted = applyDagreLayout(nodes as ScreenFlowNode[], edges as ScreenFlowEdge[]);
     setNodes(layouted as ScreenFlowNode[]);
-    savePosMut.mutate(layouted.map((n) => ({ id: n.id, position: n.position })) as ScreenFlowNode[]);
+    savePosMut.mutate(layouted.map((n) => ({ id: n.id, position: n.position })) as ScreenFlowNode[], {
+      onError: () => toast.error("Failed to save screen-flow layout."),
+    });
   }, [nodes, edges, setNodes, savePosMut]);
 
   const handleDragStop = useCallback(
     (_: unknown, __: unknown, allNodes: ScreenFlowNode[]) => {
       if (savePosTimer.current) clearTimeout(savePosTimer.current);
       savePosTimer.current = setTimeout(() => {
-        savePosMut.mutate(allNodes.map((n) => ({ id: n.id, position: n.position })) as ScreenFlowNode[]);
+        savePosMut.mutate(allNodes.map((n) => ({ id: n.id, position: n.position })) as ScreenFlowNode[], {
+          onError: () => toast.error("Failed to save screen-flow positions."),
+        });
       }, 1000);
     },
     [savePosMut],

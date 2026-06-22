@@ -189,9 +189,13 @@ function ContextEditor({
     genConstraints.mutate(undefined, {
       onSuccess: (res) => {
         setValue(res.constraints_md);
-        update.mutate({ filename: file.filename, content: res.constraints_md });
+        update.mutate(
+          { filename: file.filename, content: res.constraints_md },
+          { onError: () => toast.error(`Failed to save ${file.label}`) },
+        );
         toast.success(`Generated ${res.constraints.length} constraints`);
       },
+      onError: () => toast.error("Failed to generate constraints. Try again."),
     });
   }
 
@@ -206,7 +210,10 @@ function ContextEditor({
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       timerRef.current = null;
-      update.mutate({ filename: file.filename, content: newValue });
+      update.mutate(
+        { filename: file.filename, content: newValue },
+        { onError: () => toast.error(`Failed to save ${file.label}`) },
+      );
     }, 700);
   }
 
@@ -254,7 +261,10 @@ function ContextEditor({
         <button
           className="h-8 rounded bg-red-950/70 text-xs font-semibold text-red-300 disabled:opacity-50"
           disabled={reset.isPending}
-          onClick={() => onConfirm(`Reset ${file.label} to default?`, () => reset.mutate(file.filename))}
+          onClick={() => onConfirm(`Reset ${file.label} to default?`, () => reset.mutate(file.filename, {
+            onSuccess: () => toast.success(`${file.label} reset to default`),
+            onError: () => toast.error(`Failed to reset ${file.label}`),
+          }))}
         >
           Reset to default
         </button>
@@ -391,7 +401,7 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
               <button
                 className="flex h-9 w-full items-center justify-between rounded border border-red-500/30 px-3 text-sm text-red-400 transition-colors hover:border-red-500/60 hover:bg-red-500/15 hover:text-red-300 disabled:opacity-40"
                 disabled={resetAll.isPending}
-                onClick={() => confirm("Reset ALL context files to defaults? This cannot be undone.", () => resetAll.mutate(undefined, { onSuccess: () => toast.success("All context files reset") }))}
+                onClick={() => confirm("Reset ALL context files to defaults? This cannot be undone.", () => resetAll.mutate(undefined, { onSuccess: () => toast.success("All context files reset"), onError: () => toast.error("Failed to reset context files") }))}
               >
                 <span>Reset all context files</span>
                 <Trash2 className="size-4" />

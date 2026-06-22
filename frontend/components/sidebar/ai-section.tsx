@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Bot } from "lucide-react";
+import { toast } from "sonner";
 import { useAiConfig, useSaveAiConfig } from "@/lib/hooks/use-workspace";
 import { cn } from "@/lib/utils";
 import { PanelHeader, type DragSectionProps } from "./shared";
@@ -128,7 +129,10 @@ export function AiSection({ dark, taigaToken, shellClass, dragHandlers, onDragSt
                   <button
                     className="h-8 w-full rounded bg-violet-700 text-sm font-semibold text-white transition-colors hover:bg-violet-600 disabled:opacity-50"
                     disabled={saveAiConfigMutation.isPending || !taigaToken}
-                    onClick={() => saveAiConfigMutation.mutate({ model: effectiveModel })}
+                    onClick={() => saveAiConfigMutation.mutate({ model: effectiveModel }, {
+                      onSuccess: () => toast.success("AI model saved."),
+                      onError: () => toast.error("Failed to save AI model."),
+                    })}
                   >
                     {!taigaToken ? "Sign in to save" : saveAiConfigMutation.isPending ? "Saving…" : "Save"}
                   </button>

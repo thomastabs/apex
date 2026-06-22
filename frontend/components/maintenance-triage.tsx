@@ -243,7 +243,7 @@ export function MaintenanceTriage() {
               {/* F1 classify */}
               {selected.classification === "unclassified" ? (
                 <div className="flex gap-2">
-                  <Button onClick={() => classify.mutate(selected.id, { onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
+                  <Button onClick={() => classify.mutate(selected.id, { onSuccess: () => toast.success("Triage complete."), onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
                     {classify.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Classify (Triage)
                   </Button>
                   {classify.isPending && <CancelButton onCancel={() => classify.cancel()} />}
@@ -273,7 +273,7 @@ export function MaintenanceTriage() {
                   <p className={cn("text-xs", muted)}>Narrow diagnosis (Context Isolation): paste ONLY the implicated code snippet.</p>
                   <Textarea placeholder="Isolated code snippet" rows={4} value={snippet} onChange={(e) => setSnippet(e.target.value)} />
                   <div className="flex gap-2">
-                    <Button onClick={() => diagnose.mutate({ itemId: selected.id, codeSnippet: snippet }, { onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
+                    <Button onClick={() => diagnose.mutate({ itemId: selected.id, codeSnippet: snippet }, { onSuccess: () => toast.success("Diagnosis ready."), onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
                       {diagnose.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Diagnose
                     </Button>
                     {diagnose.isPending && <CancelButton onCancel={() => diagnose.cancel()} />}
@@ -290,7 +290,7 @@ export function MaintenanceTriage() {
               {/* F2: fix brief */}
               {selected.status === "diagnosed" ? (
                 <div className="flex gap-2">
-                  <Button onClick={() => fixBrief.mutate(selected.id, { onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
+                  <Button onClick={() => fixBrief.mutate(selected.id, { onSuccess: () => toast.success("Fix-Bolt brief generated."), onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
                     {fixBrief.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Generate Fix-Bolt Brief
                   </Button>
                   {fixBrief.isPending && <CancelButton onCancel={() => fixBrief.cancel()} />}
