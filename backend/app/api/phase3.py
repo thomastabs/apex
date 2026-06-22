@@ -6,7 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from backend.app.api.deps import RequestContext, get_request_context
 from backend.app.api.rate_limit import ai_rate_limit
+from backend.app.schemas.phase1 import CrossCheckResponse
 from backend.app.schemas.phase3 import (
+    CrossCheckTasksRequest,
     DesignConflictReportResponse,
     PacksResponse,
     EligibleStoriesResponse,
@@ -124,6 +126,19 @@ def list_packs(
 ):
     try:
         return {"packs": service.list_all_packs(ctx)}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/cross-check-tasks", response_model=CrossCheckResponse)
+def cross_check_tasks(
+    payload: CrossCheckTasksRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase3Service = Depends(get_phase3_service),
+    _rl: None = Depends(ai_rate_limit),
+):
+    try:
+        return service.cross_check_tasks(ctx, payload.story_id)
     except Exception as exc:
         _handle_error(exc)
 

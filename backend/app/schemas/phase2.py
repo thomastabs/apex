@@ -33,6 +33,10 @@ class DesignSectionRequest(BaseModel):
     prior: dict[str, str] = Field(default_factory=dict)
 
 
+class CrossCheckEndpointsRequest(BaseModel):
+    ux_brief: str = Field("", max_length=20_000)
+
+
 class DesignSectionResponse(BaseModel):
     section: str
     content: str

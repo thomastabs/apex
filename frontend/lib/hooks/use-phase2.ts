@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  crossCheckEndpoints,
   generateDesignSection,
   generateDiagram,
   generateScreenFlow,
@@ -82,6 +83,14 @@ export type DesignSectionCallbacks = {
   onSection: (section: DesignSectionKey, content: string, storyIds: number[]) => void;
   onDone: () => void;
 };
+
+export function useCrossCheckEndpoints() {
+  const context = useApiContext();
+  return useCancellableMutation(
+    (uxBrief: string, signal) => crossCheckEndpoints(context!, uxBrief, signal),
+    { onError: (e: Error) => toast.error(`Cross-check failed: ${e.message}`) },
+  );
+}
 
 export function useGenerateDesignSections() {
   const context = useApiContext();

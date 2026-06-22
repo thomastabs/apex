@@ -94,6 +94,41 @@ class Phase3Service:
             tech_stack=tech_stack, design_bundle=design_bundle, github_context=github_context,
         )
 
+    def cross_check_tasks(self, ctx: RequestContext, story_id: int) -> dict:
+        """Decompose a story with the active model AND a second configured
+        provider, returning the task-subject diff (agreed / only-in-each)."""
+        from src import ai_engine
+
+        self.configure_request(ctx)
+        index = self.context.story_index()
+        entry = index.get(str(story_id)) or {}
+        if entry.get("phase_status") not in _PHASE3_OPEN_STATUSES:
+            raise Phase3ValidationError(
+                f"Story {story_id} is not ready for task decomposition (status: {entry.get('phase_status')!r})."
+            )
+        gherkin = self.context.story_gherkin(story_id)
+        if not gherkin:
+            raise Phase3ValidationError(f"Story {story_id} has no Gherkin content.")
+        primary = ai_engine.get_model()
+        alt = self.ai.pick_alt_model(primary)
+        if not alt:
+            raise Phase3ValidationError(
+                "Cross-check needs a second AI provider — add another provider's API key (OpenAI/Google)."
+            )
+        labels = {m["id"]: m.get("label", m["id"]) for m in ai_engine.AVAILABLE_MODELS}
+        diff = self.ai.cross_check_tasks(
+            entry.get("title", f"Story {story_id}"), gherkin,
+            self.context.story_technical_spec(story_id),
+            tech_stack=self.context.read_tech_stack(),
+            design_bundle=self.context.story_design_bundle(story_id),
+            github_context=self.context.read_context_file("github-context.md"),
+            primary_model=primary, alt_model=alt,
+        )
+        return {
+            "primary_model": primary, "primary_label": labels.get(primary, primary),
+            "alt_model": alt, "alt_label": labels.get(alt, alt), **diff,
+        }
+
     def generate_proposal(
         self,
         ctx: RequestContext,

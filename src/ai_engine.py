@@ -730,6 +730,43 @@ def diff_nl_story_scenarios(primary: "NLStoryList | dict", alt: "NLStoryList | d
     return {"agreed": agreed, "only_primary": only_primary, "only_alt": only_alt}
 
 
+def _diff_named(primary_items: list[dict], alt_items: list[dict]) -> dict:
+    """Generic set-diff of {title, description} items by normalized title. Shared
+    cross-check shape: {agreed: [title], only_primary: [item], only_alt: [item]}."""
+    def _index(items: list[dict]) -> dict[str, dict]:
+        out: dict[str, dict] = {}
+        for it in items:
+            key = _normalize_scenario(it.get("title", ""))
+            if key and key not in out:
+                out[key] = {"title": it.get("title", ""), "description": it.get("description", "")}
+        return out
+    pi, ai = _index(primary_items), _index(alt_items)
+    return {
+        "agreed": [pi[k]["title"] for k in pi if k in ai],
+        "only_primary": [pi[k] for k in pi if k not in ai],
+        "only_alt": [ai[k] for k in ai if k not in pi],
+    }
+
+
+def diff_task_lists(primary: "Phase3TaskList | dict", alt: "Phase3TaskList | dict") -> dict:
+    """Cross-check Phase 3 task decompositions by task subject (pure, no AI)."""
+    if isinstance(primary, dict):
+        primary = Phase3TaskList.model_validate(primary)
+    if isinstance(alt, dict):
+        alt = Phase3TaskList.model_validate(alt)
+    p = [{"title": t.subject, "description": t.description} for t in primary.tasks]
+    a = [{"title": t.subject, "description": t.description} for t in alt.tasks]
+    return _diff_named(p, a)
+
+
+def diff_endpoint_sets(primary_md: str, alt_md: str) -> dict:
+    """Cross-check Phase 2 endpoint contracts (METHOD path) across two design
+    drafts (pure, no AI). Reuses parse_spec_endpoints."""
+    p = [{"title": f"{m} {path}", "description": ""} for m, path in parse_spec_endpoints(primary_md)]
+    a = [{"title": f"{m} {path}", "description": ""} for m, path in parse_spec_endpoints(alt_md)]
+    return _diff_named(p, a)
+
+
 # ---------------------------------------------------------------------------
 # Phase 1 · Step 2 — Gherkin Compilation (GL Compiler persona)
 # ---------------------------------------------------------------------------
@@ -1353,14 +1390,14 @@ def generate_design_ux_brief(all_stories: list[dict], context: str) -> str:
                                      max_tokens=3500, timeout=210, temperature=0.2))
 
 
-def generate_design_endpoints(all_stories: list[dict], context: str, *, ux_brief: str) -> str:
+def generate_design_endpoints(all_stories: list[dict], context: str, *, ux_brief: str, model: str = "") -> str:
     grouped = _group_stories_by_epic(all_stories)
     system = _ENDPOINTS_SYSTEM.format(
         context=fence_user_content(context),
         ux_brief=fence_user_content(ux_brief),
         anti_hallucination=_ANTI_HALLUCINATION,
     )
-    return _ai_retry(lambda: _invoke(system, _format_stories_human(grouped), get_model(),
+    return _ai_retry(lambda: _invoke(system, _format_stories_human(grouped), model or get_model(),
                                      max_tokens=8000, timeout=300))
 
 
@@ -1484,6 +1521,7 @@ def generate_tasks(
     tech_stack: str = "",
     design_bundle: str = "",
     github_context: str = "",
+    model: str = "",
 ) -> Phase3TaskList:
     system = _GENERATE_TASKS_SYSTEM.format(
         tech_stack=fence_user_content(tech_stack.strip() or "Not specified"),
@@ -1498,7 +1536,7 @@ def generate_tasks(
         + "\n\nDecompose this story into atomic implementation tasks."
     )
     result = _ai_retry(lambda: _invoke_structured_with_progress(
-        system, human, get_model(), Phase3TaskList,
+        system, human, model or get_model(), Phase3TaskList,
         max_tokens=2048, item_field="tasks",
     ))
     return _reconcile_task_list(result, gherkin)

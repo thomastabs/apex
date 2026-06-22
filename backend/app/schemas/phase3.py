@@ -112,3 +112,7 @@ class DesignConflictReportResponse(BaseModel):
     conflicted_ids: list[int] = Field(default_factory=list)
 
 
+class CrossCheckTasksRequest(BaseModel):
+    story_id: int
+
+

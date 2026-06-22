@@ -19,6 +19,7 @@ import {
 } from "@/lib/hooks/use-phase1";
 import { useAiConfig, useContextFiles, useUpdateContextFile } from "@/lib/hooks/use-workspace";
 import type { CrossCheckResult } from "@/lib/api/phase1";
+import { CrossCheckPanel } from "@/components/cross-check-panel";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import type { CompiledStory, EpicSuggestion, RequirementGapReport } from "@/lib/api/types";
@@ -970,42 +971,14 @@ export function Phase1Workflow() {
                 <AIProgressIndicator steps={GENERATE_STEPS} isPending={crossCheck.isPending} dark={dark} />
                 {crossCheck.isPending && <CancelButton onCancel={() => crossCheck.cancel()} className="w-full" />}
                 {crossResult ? (
-                  <div className={cn("rounded-md border p-3 text-xs", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
-                    <p className={cn("mb-2 font-semibold", dark ? "text-neutral-200" : "text-slate-700")}>
-                      {crossResult.primary_label} vs {crossResult.alt_label}: {crossResult.agreed.length} agreed
-                    </p>
-                    {crossResult.only_alt.length ? (
-                      <div className="mb-2">
-                        <p className={cn("mb-1 font-medium text-emerald-500")}>Only {crossResult.alt_label} suggested:</p>
-                        <ul className="space-y-1">
-                          {crossResult.only_alt.map((s, i) => (
-                            <li key={i} className="flex items-start justify-between gap-2">
-                              <span className={dark ? "text-neutral-300" : "text-slate-700"}>
-                                <span className="font-medium">{s.title}</span> — {s.description}
-                              </span>
-                              <button
-                                className="shrink-0 rounded bg-emerald-500/15 px-1.5 py-0.5 font-semibold text-emerald-500 hover:bg-emerald-500/25"
-                                onClick={() => {
-                                  setNlDraft((d) => `${d.trimEnd()}\n\n  Scenario: ${s.title}\n  ${s.description}`);
-                                  toast.success("Added to draft");
-                                }}
-                              >
-                                Add
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
-                    {crossResult.only_primary.length ? (
-                      <div>
-                        <p className={cn("mb-1 font-medium", dark ? "text-neutral-400" : "text-slate-500")}>Only {crossResult.primary_label} suggested:</p>
-                        <ul className={cn("space-y-0.5", dark ? "text-neutral-400" : "text-slate-500")}>
-                          {crossResult.only_primary.map((s, i) => <li key={i}>{s.title}</li>)}
-                        </ul>
-                      </div>
-                    ) : null}
-                  </div>
+                  <CrossCheckPanel
+                    result={crossResult}
+                    dark={dark}
+                    onAdd={(s) => {
+                      setNlDraft((d) => `${d.trimEnd()}\n\n  Scenario: ${s.title}\n  ${s.description}`);
+                      toast.success("Added to draft");
+                    }}
+                  />
                 ) : null}
               </div>
             ) : null}

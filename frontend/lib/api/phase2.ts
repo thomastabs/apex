@@ -1,6 +1,7 @@
 import { apiRequest } from "./client";
 import { getPmAdapter } from "./pm-factory";
 import { toPmCtx } from "./workspace";
+import type { CrossCheckResult } from "./phase1";
 import type {
   DesignSectionKey,
   DesignSectionResponse,
@@ -68,6 +69,16 @@ export function generateDesignSection(
     context,
     body: { section, prior },
     timeoutMs: PHASE2_AI_TIMEOUT_MS,
+    signal,
+  });
+}
+
+export function crossCheckEndpoints(context: RequestContext, uxBrief: string, signal?: AbortSignal): Promise<CrossCheckResult> {
+  return apiRequest<CrossCheckResult>("/api/phase2/cross-check-endpoints", {
+    method: "POST",
+    context,
+    body: { ux_brief: uxBrief },
+    timeoutMs: 300_000,
     signal,
   });
 }

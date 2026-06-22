@@ -14,6 +14,7 @@ import {
   Download,
   ExternalLink,
   GitBranch,
+  GitCompare,
   GitFork,
   Info,
   Loader2,
@@ -34,6 +35,7 @@ import {
   fetchTaigaTaskFull,
   findTaigaTaskBySubject,
   useEligibleStories,
+  useCrossCheckTasks,
   useGenerateProposal,
   useScanDesignConflicts,
   useGenerateTasks,
@@ -52,7 +54,9 @@ import { usePhase3Store } from "@/lib/stores/phase3-store";
 import { useDiffStore } from "@/lib/stores/diff-store";
 import { useApiContext, useGithubContext } from "@/lib/stores/session-store";
 import { SignInRequired } from "@/components/sign-in-required";
-import { useServerConfig, useLogDecision } from "@/lib/hooks/use-workspace";
+import { useAiConfig, useServerConfig, useLogDecision } from "@/lib/hooks/use-workspace";
+import { CrossCheckPanel } from "@/components/cross-check-panel";
+import type { CrossCheckResult } from "@/lib/api/phase1";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
 import { createGithubIssue, fetchRecentCommitsContext } from "@/lib/api/github-browser";
@@ -439,6 +443,10 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const queryClient = useQueryClient();
   const { data: ctx, isLoading: ctxLoading } = useStoryContext(storyId);
   const { taskList, tasksPushed, packDrafts, setCurrentStoryMeta, patchTask, setTaskList, removePushedStoryId } = usePhase3Store();
+  const crossCheckTasksMut = useCrossCheckTasks();
+  const [crossResult, setCrossResult] = useState<CrossCheckResult | null>(null);
+  const aiConfig = useAiConfig();
+  const crossEnabled = (aiConfig.data?.configured_providers?.length ?? 0) >= 2;
   const { addTask, removeTask, updateTask, reorderTasks } = useUpdateTaskList();
 
   const updateInTaigaMut = useUpdateTaskInTaiga();
@@ -634,6 +642,45 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
           dark={dark}
         />
       )}
+
+      {crossEnabled && taskList.length > 0 ? (
+        <div className="space-y-2">
+          <Button
+            variant="secondary"
+            className="w-full gap-1.5"
+            disabled={crossCheckTasksMut.isPending}
+            onClick={() =>
+              crossCheckTasksMut.mutate(storyId, {
+                onSuccess: (r) => {
+                  setCrossResult(r);
+                  toast.success(
+                    r.only_alt.length
+                      ? `${r.alt_label} suggested ${r.only_alt.length} task(s) yours missed`
+                      : `${r.alt_label} agreed — no extra tasks`,
+                  );
+                },
+              })
+            }
+          >
+            <GitCompare className="h-4 w-4" /> {crossCheckTasksMut.isPending ? "Cross-checking…" : "Cross-check tasks with another model"}
+          </Button>
+          {crossCheckTasksMut.isPending && <CancelButton onCancel={() => crossCheckTasksMut.cancel()} className="w-full" />}
+          {crossResult ? (
+            <CrossCheckPanel
+              result={crossResult}
+              dark={dark}
+              onAdd={(s) => {
+                const nid = taskList.length > 0 ? Math.max(...taskList.map((t) => t.id)) + 1 : 1;
+                setTaskList([...taskList, {
+                  id: nid, subject: s.title, description: s.description,
+                  effort_estimate: "M", covered_scenarios: [], predecessor_task_ids: [],
+                }]);
+                toast.success("Task added");
+              }}
+            />
+          ) : null}
+        </div>
+      ) : null}
 
       {/* Task list */}
       {taskList.length > 0 && (

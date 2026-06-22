@@ -1,4 +1,5 @@
 import { apiRequest } from "./client";
+import type { CrossCheckResult } from "./phase1";
 import type {
   DesignConflictReport,
   Phase3EligibleStoriesResponse,
@@ -19,6 +20,12 @@ export function getEligibleStories(context: RequestContext) {
 
 export function scanDesignConflicts(context: RequestContext) {
   return apiRequest<DesignConflictReport>("/api/phase3/scan-design-conflicts", { method: "POST", context });
+}
+
+export function crossCheckTasks(context: RequestContext, storyId: number, signal?: AbortSignal) {
+  return apiRequest<CrossCheckResult>("/api/phase3/cross-check-tasks", {
+    method: "POST", context, body: { story_id: storyId }, timeoutMs: 300_000, signal,
+  });
 }
 
 export function getStoryContext(context: RequestContext, storyId: number) {

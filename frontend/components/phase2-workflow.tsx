@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  GitCompare,
   Info,
   Loader2,
   RefreshCw,
@@ -31,8 +32,11 @@ import {
   useProposeTechStack,
   useRefreshStoryIndex,
   useTechStackStatus,
+  useCrossCheckEndpoints,
 } from "@/lib/hooks/use-phase2";
-import { useLogDecision } from "@/lib/hooks/use-workspace";
+import { useAiConfig, useLogDecision } from "@/lib/hooks/use-workspace";
+import { CrossCheckPanel } from "@/components/cross-check-panel";
+import type { CrossCheckResult } from "@/lib/api/phase1";
 import type { DesignSectionKey } from "@/lib/api/types";
 import { usePhase2Store } from "@/lib/stores/phase2-store";
 import { TECH_STACK_PRESETS } from "@/lib/tech-stack-presets";
@@ -156,6 +160,10 @@ export function Phase2Workflow() {
   } = usePhase2Store();
   const requestDiff = useDiffStore((s) => s.requestDiff);
   const logDecision = useLogDecision();
+  const crossCheckEndpointsMut = useCrossCheckEndpoints();
+  const [endpointsCross, setEndpointsCross] = useState<CrossCheckResult | null>(null);
+  const aiConfig = useAiConfig();
+  const crossEnabled = (aiConfig.data?.configured_providers?.length ?? 0) >= 2;
 
   const bundleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const designBundleRef = useRef(designBundle);
@@ -771,6 +779,40 @@ export function Phase2Workflow() {
                         )}
                         {section === "endpoints" && (
                           <EndpointTable endpointsContent={content} dark={dark} />
+                        )}
+                        {section === "endpoints" && hasContent && crossEnabled && (
+                          <div className="mt-3 space-y-2">
+                            <button
+                              className={cn("flex w-full items-center justify-center gap-2 rounded border px-3 py-1.5 text-sm transition-colors", outlineButtonClass)}
+                              disabled={crossCheckEndpointsMut.isPending}
+                              onClick={() =>
+                                crossCheckEndpointsMut.mutate(activeBundle?.ux_brief ?? "", {
+                                  onSuccess: (r) => {
+                                    setEndpointsCross(r);
+                                    toast.success(
+                                      r.only_alt.length
+                                        ? `${r.alt_label} proposed ${r.only_alt.length} endpoint(s) yours missed`
+                                        : `${r.alt_label} agreed — no extra endpoints`,
+                                    );
+                                  },
+                                })
+                              }
+                            >
+                              <GitCompare className="size-3.5" /> {crossCheckEndpointsMut.isPending ? "Cross-checking…" : "Cross-check endpoints with another model"}
+                            </button>
+                            {crossCheckEndpointsMut.isPending && <CancelButton onCancel={() => crossCheckEndpointsMut.cancel()} className="w-full" />}
+                            {endpointsCross ? (
+                              <CrossCheckPanel
+                                result={endpointsCross}
+                                dark={dark}
+                                onAdd={(s) => {
+                                  if (!designBundle) return;
+                                  setDesignBundle({ ...designBundle, endpoints: `${(designBundle.endpoints ?? "").trimEnd()}\n- \`${s.title}\`` });
+                                  toast.success("Endpoint added");
+                                }}
+                              />
+                            ) : null}
+                          </div>
                         )}
                         {section === "data_model" && (
                           <ERDiagramPanel dataModelContent={content} dark={dark} />

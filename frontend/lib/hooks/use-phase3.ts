@@ -8,6 +8,7 @@ import {
   getEligibleStories,
   getProposals,
   getStoryContext,
+  crossCheckTasks,
   lockStory,
   saveProposal,
   scanDesignConflicts,
@@ -260,6 +261,14 @@ export function useScanDesignConflicts() {
       void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },
   });
+}
+
+export function useCrossCheckTasks() {
+  const context = useApiContext();
+  return useCancellableMutation(
+    (storyId: number, signal) => crossCheckTasks(context!, storyId, signal),
+    { onError: (e: Error) => toast.error(`Cross-check failed: ${e.message}`) },
+  );
 }
 
 export function useGenerateProposal() {

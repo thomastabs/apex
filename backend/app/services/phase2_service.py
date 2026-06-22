@@ -88,6 +88,35 @@ class Phase2Service:
             "story_ids": [s["story_id"] for s in all_stories],
         }
 
+    def cross_check_endpoints(self, ctx: RequestContext, *, ux_brief: str) -> dict:
+        """Derive design endpoints with the active model AND a second configured
+        provider (same UX brief), returning the contract diff."""
+        from src import ai_engine
+
+        self.configure_request(ctx)
+        tech_stack = self.context.read_tech_stack()
+        if not tech_stack:
+            raise Phase2ValidationError("A locked Tech Stack is required before generating designs.")
+        all_stories = self._all_eligible_stories()
+        if not all_stories:
+            raise Phase2ValidationError("No Phase 1 locked Gherkin stories found.")
+        primary = ai_engine.get_model()
+        alt = self.ai.pick_alt_model(primary)
+        if not alt:
+            raise Phase2ValidationError(
+                "Cross-check needs a second AI provider — add another provider's API key (OpenAI/Google)."
+            )
+        constrained_context = self._build_constrained_context(self.context.read_project_concept(), tech_stack)
+        labels = {m["id"]: m.get("label", m["id"]) for m in ai_engine.AVAILABLE_MODELS}
+        diff = self.ai.cross_check_endpoints(
+            all_stories, constrained_context, ux_brief=ux_brief,
+            primary_model=primary, alt_model=alt,
+        )
+        return {
+            "primary_model": primary, "primary_label": labels.get(primary, primary),
+            "alt_model": alt, "alt_label": labels.get(alt, alt), **diff,
+        }
+
     def _build_constrained_context(self, project_concept: str, tech_stack: str) -> str:
         parts = []
         if project_concept.strip():

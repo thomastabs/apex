@@ -292,6 +292,38 @@ class AiService:
             current_pack_md, feedback, infra_delta_md=infra_delta_md,
         )
 
+    def cross_check_tasks(
+        self,
+        story_subject: str,
+        gherkin: str,
+        technical_spec: str,
+        *,
+        tech_stack: str,
+        design_bundle: str,
+        github_context: str,
+        primary_model: str,
+        alt_model: str,
+    ) -> dict:
+        """Decompose tasks with two models and diff the task subjects (no AI diff)."""
+        kw = dict(tech_stack=tech_stack, design_bundle=design_bundle, github_context=github_context)
+        primary = ai_engine.generate_tasks(story_subject, gherkin, technical_spec, model=primary_model, **kw)
+        alt = ai_engine.generate_tasks(story_subject, gherkin, technical_spec, model=alt_model, **kw)
+        return ai_engine.diff_task_lists(primary, alt)
+
+    def cross_check_endpoints(
+        self,
+        all_stories: list[dict],
+        context: str,
+        *,
+        ux_brief: str,
+        primary_model: str,
+        alt_model: str,
+    ) -> dict:
+        """Derive design endpoints with two models and diff the contracts (no AI diff)."""
+        primary = ai_engine.generate_design_endpoints(all_stories, context, ux_brief=ux_brief, model=primary_model)
+        alt = ai_engine.generate_design_endpoints(all_stories, context, ux_brief=ux_brief, model=alt_model)
+        return ai_engine.diff_endpoint_sets(primary, alt)
+
     def generate_design_section(
         self,
         all_stories: list[dict],

@@ -1137,6 +1137,24 @@ class TestMultiModelCrossCheck:
         ai.generate_nl_stories("Epic", "desc", model="gpt-4o")
         assert captured["model"] == "gpt-4o"
 
+    def test_diff_task_lists(self):
+        import src.ai_engine as ai
+        p = {"tasks": [{"id": 1, "subject": "Add login route", "description": "x",
+                        "effort_estimate": "S", "covered_scenarios": [], "predecessor_task_ids": []}]}
+        b = {"tasks": [{"id": 1, "subject": "add login route", "description": "y",
+                        "effort_estimate": "S", "covered_scenarios": [], "predecessor_task_ids": []},
+                       {"id": 2, "subject": "Rate limit", "description": "z",
+                        "effort_estimate": "S", "covered_scenarios": [], "predecessor_task_ids": []}]}
+        d = ai.diff_task_lists(p, b)
+        assert d["agreed"] == ["Add login route"]
+        assert [s["title"] for s in d["only_alt"]] == ["Rate limit"]
+
+    def test_diff_endpoint_sets(self):
+        import src.ai_engine as ai
+        d = ai.diff_endpoint_sets("`POST /api/login`", "`POST /api/login`\n`GET /api/me`")
+        assert d["agreed"] == ["POST /api/login"]
+        assert [s["title"] for s in d["only_alt"]] == ["GET /api/me"]
+
 
 class TestDesignConflictDetector:
     """Cross-story design-drift detector (pure, no AI)."""
