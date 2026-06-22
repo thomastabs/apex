@@ -99,3 +99,16 @@ class PacksResponse(BaseModel):
     packs: list[PackItem]
 
 
+class ConflictRow(BaseModel):
+    story_id: int
+    title: str = ""
+    reason: str = ""
+    files: list[str] = Field(default_factory=list)
+    endpoints: list[str] = Field(default_factory=list)
+
+
+class DesignConflictReportResponse(BaseModel):
+    results: list[ConflictRow] = Field(default_factory=list)
+    conflicted_ids: list[int] = Field(default_factory=list)
+
+

@@ -70,6 +70,13 @@ def test_story_risk_flags_conformance_regression():
     assert all("regressed" not in r for r in clean["reasons"])
 
 
+def test_story_risk_flags_design_conflict():
+    svc = AnalyticsService(context=FakeContextService(index={}))
+    risk = svc._story_risk(_entry(1, "implementation", design_conflict=True), None, None)
+    assert any("design conflicts" in r for r in risk["reasons"])
+    assert risk["score"] >= 1
+
+
 def test_story_risk_flags_backward_trace():
     svc = AnalyticsService(context=FakeContextService(index={}))
     risk = svc._story_risk(

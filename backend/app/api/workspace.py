@@ -285,6 +285,17 @@ def story_index_stats(ctx: RequestContext = Depends(get_request_context)):
                 key=lambda s: s["story_id"],
             )
         ],
+        "design_conflict": sum(1 for s in stories if s.get("design_conflict")),
+        "conflicted_story_ids": sorted(
+            s["story_id"] for s in stories if s.get("design_conflict") and s.get("story_id") is not None
+        ),
+        "conflict_flags": [
+            {"story_id": s["story_id"], "reason": s.get("conflict_reason", "")}
+            for s in sorted(
+                (s for s in stories if s.get("design_conflict") and s.get("story_id") is not None),
+                key=lambda s: s["story_id"],
+            )
+        ],
     }
 
 
@@ -307,6 +318,17 @@ def acknowledge_backward_trace(story_id: int, ctx: RequestContext = Depends(get_
     context = ContextService()
     context.set_active(ctx)
     context.clear_trace_flag(story_id)
+    return {"ok": True}
+
+
+@router.post(
+    "/context-files/story-index/stories/{story_id}/acknowledge-conflict",
+    response_model=OkResponse,
+)
+def acknowledge_design_conflict(story_id: int, ctx: RequestContext = Depends(get_request_context)):
+    context = ContextService()
+    context.set_active(ctx)
+    context.clear_design_conflict(story_id)
     return {"ok": True}
 
 

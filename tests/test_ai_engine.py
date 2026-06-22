@@ -1088,6 +1088,58 @@ class TestDecisionsBlock:
         assert "avoid X" in captured["sys"] and "ALREADY REJECTED" in captured["sys"]
 
 
+class TestDesignConflictDetector:
+    """Cross-story design-drift detector (pure, no AI)."""
+
+    def _pack(self, sid, tid, files=(), endpoints=(), title=""):
+        files_md = "\n".join(f"- `{f}` — change" for f in files)
+        ep_md = "\n".join(f"`{m} {p}`" for m, p in endpoints)
+        md = f"## Files to Change\n{files_md}\n\n## Context\n{ep_md}"
+        return {"story_id": sid, "task_id": tid, "story_title": title, "proposal_md": md}
+
+    def test_parse_pack_files(self):
+        import src.ai_engine as ai
+        md = "## Files to Change\n- `models/user.py` — add\n- `api/auth.py` — login\n\n## Context\nprose `not/a/file`"
+        assert ai.parse_pack_files(md) == ["models/user.py", "api/auth.py"]
+
+    def test_cross_story_shared_file_flags_both(self):
+        import src.ai_engine as ai
+        packs = [
+            self._pack(1, 1, files=["models/user.py"], title="Auth"),
+            self._pack(5, 1, files=["models/user.py"], title="Profile"),
+        ]
+        c = ai.detect_design_conflicts(packs)
+        assert set(c) == {1, 5}
+        assert c[1]["conflicts_with"] == [5] and "models/user.py" in c[1]["files"]
+        assert "#5" in c[1]["reason"] and "Profile" in c[1]["reason"]
+
+    def test_same_story_overlap_not_flagged(self):
+        import src.ai_engine as ai
+        packs = [
+            self._pack(1, 1, files=["models/user.py"]),
+            self._pack(1, 2, files=["models/user.py"]),  # sibling, same story
+        ]
+        assert ai.detect_design_conflicts(packs) == {}
+
+    def test_duplicate_endpoint_across_stories(self):
+        import src.ai_engine as ai
+        packs = [
+            self._pack(1, 1, endpoints=[("POST", "/api/orders")]),
+            self._pack(7, 1, endpoints=[("POST", "/api/orders")]),
+        ]
+        c = ai.detect_design_conflicts(packs)
+        assert set(c) == {1, 7}
+        assert "POST /api/orders" in c[1]["endpoints"]
+
+    def test_no_overlap_empty(self):
+        import src.ai_engine as ai
+        packs = [
+            self._pack(1, 1, files=["a.py"]),
+            self._pack(2, 1, files=["b.py"]),
+        ]
+        assert ai.detect_design_conflicts(packs) == {}
+
+
 class TestBackwardTrace:
     """Backward trace propagation: downstream failure → source spec + phase (pure)."""
 

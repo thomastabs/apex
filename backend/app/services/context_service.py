@@ -54,6 +54,15 @@ class ContextService:
     def clear_trace_flag(self, story_id: int) -> None:
         context_manager.clear_trace_flag(story_id)
 
+    def set_design_conflict(self, story_id: int, reason: str = "") -> None:
+        context_manager.set_design_conflict(story_id, reason)
+
+    def clear_design_conflict(self, story_id: int) -> None:
+        context_manager.clear_design_conflict(story_id)
+
+    def load_all_proposals(self) -> list[dict]:
+        return context_manager.load_all_proposals()
+
     def append_decision_record(self, scope: str, summary: str, reason: str = "") -> None:
         context_manager.append_decision_record(scope, summary, reason)
 

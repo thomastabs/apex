@@ -1635,6 +1635,101 @@ def _format_pack_digests(packs: list[dict] | None) -> str:
     return "\n\n".join(blocks)
 
 
+# --- Cross-story design-drift detector (pure, no AI) -----------------------
+# The forward seam (_format_pack_digests injected into generation) only TELLS the
+# AI to stay consistent with siblings of the SAME story. This is the detective
+# half: after packs are saved, find files/endpoints declared by packs from
+# DIFFERENT stories — a real merge / duplicate-build risk no one sees until
+# integration. Deterministic parse of the saved pack markdown; advisory only.
+
+# A "## Files to Change" line: `- `path/to/file.py` — change description`.
+_PACK_FILE_RE = re.compile(r"^\s*[-*]\s*`([^`]+)`", re.MULTILINE)
+
+
+def _pack_section(md: str, heading: str) -> str:
+    """Extract a `## Heading` section body from pack markdown ("" if absent)."""
+    m = re.search(rf"{re.escape(heading)}\n(.*?)(?=\n## |\Z)", md or "", re.DOTALL)
+    return m.group(1).strip() if m else ""
+
+
+def parse_pack_files(md: str) -> list[str]:
+    """File paths a pack declares it changes — backtick paths under
+    '## Files to Change'. De-duplicated, order-preserving (pure)."""
+    section = _pack_section(md, "## Files to Change")
+    seen: set[str] = set()
+    out: list[str] = []
+    for m in _PACK_FILE_RE.finditer(section):
+        path = m.group(1).strip()
+        if path and path not in seen:
+            seen.add(path)
+            out.append(path)
+    return out
+
+
+def detect_design_conflicts(packs: list[dict]) -> dict[int, dict]:
+    """Find cross-story overlaps among saved developer packs (pure, no AI).
+
+    `packs`: [{story_id, task_id, story_title, proposal_md}]. Flags a file or
+    endpoint declared by packs from ≥2 DISTINCT stories (same-story sibling
+    sharing is expected and excluded). Returns {story_id: {reason, files: [...],
+    endpoints: [...], conflicts_with: [story_id,...]}} for each involved story.
+    """
+    file_owners: dict[str, set[int]] = {}
+    endpoint_owners: dict[str, set[int]] = {}
+    titles: dict[int, str] = {}
+    for p in packs or []:
+        sid = p.get("story_id")
+        if sid is None:
+            continue
+        titles[sid] = p.get("story_title", "") or titles.get(sid, "")
+        md = p.get("proposal_md") or ""
+        for f in parse_pack_files(md):
+            file_owners.setdefault(f, set()).add(sid)
+        for method, path in parse_spec_endpoints(md):
+            endpoint_owners.setdefault(f"{method} {path}", set()).add(sid)
+
+    # story_id -> {files: {artifact: others}, endpoints: {artifact: others}}
+    per_story: dict[int, dict] = {}
+
+    def _record(kind: str, artifact: str, owners: set[int]) -> None:
+        if len(owners) < 2:
+            return
+        for sid in owners:
+            others = sorted(o for o in owners if o != sid)
+            entry = per_story.setdefault(sid, {"files": {}, "endpoints": {}})
+            entry[kind][artifact] = others
+
+    for f, owners in file_owners.items():
+        _record("files", f, owners)
+    for ep, owners in endpoint_owners.items():
+        _record("endpoints", ep, owners)
+
+    out: dict[int, dict] = {}
+    for sid, e in per_story.items():
+        conflicts_with = sorted({o for m in (e["files"], e["endpoints"]) for os in m.values() for o in os})
+        files = sorted(e["files"].keys())
+        endpoints = sorted(e["endpoints"].keys())
+        out[sid] = {
+            "files": files,
+            "endpoints": endpoints,
+            "conflicts_with": conflicts_with,
+            "reason": _conflict_reason(files, endpoints, conflicts_with, titles),
+        }
+    return out
+
+
+def _conflict_reason(files: list[str], endpoints: list[str], others: list[int], titles: dict[int, str]) -> str:
+    refs = ", ".join(f"#{o}" + (f" ({titles[o]})" if titles.get(o) else "") for o in others) or "another story"
+    parts: list[str] = []
+    if files:
+        shown = ", ".join(files[:3]) + ("…" if len(files) > 3 else "")
+        parts.append(f"shares file(s) {shown}")
+    if endpoints:
+        shown = ", ".join(endpoints[:3]) + ("…" if len(endpoints) > 3 else "")
+        parts.append(f"duplicate endpoint(s) {shown}")
+    return f"{'; '.join(parts)} with {refs}" if parts else f"design overlap with {refs}"
+
+
 def _decisions_block(decisions: str) -> str:
     """Advisory negative-constraint block from the decision log. EMPTY by default
     (no behaviour change unless the team has logged rejected approaches)."""

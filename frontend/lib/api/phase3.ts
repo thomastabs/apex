@@ -1,5 +1,6 @@
 import { apiRequest } from "./client";
 import type {
+  DesignConflictReport,
   Phase3EligibleStoriesResponse,
   Phase3GenerateProposalRequest,
   Phase3GenerateProposalResponse,
@@ -14,6 +15,10 @@ export const PHASE3_AI_TIMEOUT_MS = 480_000;
 
 export function getEligibleStories(context: RequestContext) {
   return apiRequest<Phase3EligibleStoriesResponse>("/api/phase3/eligible-stories", { context });
+}
+
+export function scanDesignConflicts(context: RequestContext) {
+  return apiRequest<DesignConflictReport>("/api/phase3/scan-design-conflicts", { method: "POST", context });
 }
 
 export function getStoryContext(context: RequestContext, storyId: number) {

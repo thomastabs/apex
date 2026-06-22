@@ -327,6 +327,19 @@ export type Phase3LockStoryRequest = {
   task_ids: number[];
 };
 
+export type DesignConflictRow = {
+  story_id: number;
+  title: string;
+  reason: string;
+  files: string[];
+  endpoints: string[];
+};
+
+export type DesignConflictReport = {
+  results: DesignConflictRow[];
+  conflicted_ids: number[];
+};
+
 // ---------------------------------------------------------------------------
 // Phase 4 — QA Assistant
 // ---------------------------------------------------------------------------

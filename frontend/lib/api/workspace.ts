@@ -128,6 +128,13 @@ export function acknowledgeBacktrace(context: RequestContext, storyId: number) {
   );
 }
 
+export function acknowledgeConflict(context: RequestContext, storyId: number) {
+  return apiRequest<{ ok: boolean }>(
+    `/api/workspace/context-files/story-index/stories/${storyId}/acknowledge-conflict`,
+    { method: "POST", context },
+  );
+}
+
 export function logDecision(
   context: RequestContext,
   body: { scope: string; summary: string; reason?: string },
@@ -249,12 +256,20 @@ export type StoryIndexStats = {
   trace_flagged: number;
   trace_story_ids: number[];
   trace_flags: TraceFlagInfo[];
+  design_conflict: number;
+  conflicted_story_ids: number[];
+  conflict_flags: ConflictFlagInfo[];
 };
 
 export type TraceFlagInfo = {
   story_id: number;
   phase: string;        // "gherkin_locked" | "design_locked"
   phase_label: string;  // "Phase 1" | "Phase 2"
+  reason: string;
+};
+
+export type ConflictFlagInfo = {
+  story_id: number;
   reason: string;
 };
 

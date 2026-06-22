@@ -99,6 +99,11 @@ class TraceFlagInfo(BaseModel):
     reason: str = ""
 
 
+class ConflictFlagInfo(BaseModel):
+    story_id: int
+    reason: str = ""
+
+
 class StoryIndexStatsResponse(BaseModel):
     total: int = 0
     phase2_designed: int = 0
@@ -113,3 +118,6 @@ class StoryIndexStatsResponse(BaseModel):
     trace_flagged: int = 0
     trace_story_ids: list[int] = Field(default_factory=list)
     trace_flags: list["TraceFlagInfo"] = Field(default_factory=list)
+    design_conflict: int = 0
+    conflicted_story_ids: list[int] = Field(default_factory=list)
+    conflict_flags: list["ConflictFlagInfo"] = Field(default_factory=list)

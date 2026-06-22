@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   acknowledgeBacktrace,
+  acknowledgeConflict,
   logDecision,
   acknowledgeSpecDrift,
   createEpic,
@@ -168,6 +169,17 @@ export function useAcknowledgeBacktrace() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (storyId: number) => acknowledgeBacktrace(context!, storyId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
+    },
+  });
+}
+
+export function useAcknowledgeConflict() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (storyId: number) => acknowledgeConflict(context!, storyId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },

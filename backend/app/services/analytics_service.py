@@ -212,6 +212,10 @@ class AnalyticsService:
                 entry.get("trace_phase", ""), "an earlier phase")
             reasons.append(f"needs backward trace — re-open {label}")
 
+        if entry.get("design_conflict"):
+            score += 1
+            reasons.append("design conflicts with another story")
+
         if entry.get("has_bug_report") and entry.get("phase_status") == "implementation":
             score += 1
             reasons.append("regression bypass in progress")

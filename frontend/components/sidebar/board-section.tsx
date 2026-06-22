@@ -2,11 +2,12 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ChevronDown, ChevronRight, Info, Layers3, Plus, RefreshCw, Trash2, TrendingDown, Undo2, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, GitFork, Info, Layers3, Plus, RefreshCw, Trash2, TrendingDown, Undo2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   useAcknowledgeBacktrace,
+  useAcknowledgeConflict,
   useAcknowledgeSpecDrift,
   useBoard,
   useCreateEpic,
@@ -150,13 +151,14 @@ const APEX_STATUS_OPTIONS: [ApexPhaseStatus, string][] = [
 
 type TracePrompt = { phase_label: string; route: string; reason: string };
 
-function StoryDialog({ story, drifted = false, regressed = false, trace = null, onClose }: { story: Story; drifted?: boolean; regressed?: boolean; trace?: TracePrompt | null; onClose: () => void }) {
+function StoryDialog({ story, drifted = false, regressed = false, trace = null, conflict = null, onClose }: { story: Story; drifted?: boolean; regressed?: boolean; trace?: TracePrompt | null; conflict?: string | null; onClose: () => void }) {
   const dark = useUiStore((state) => state.theme === "dark");
   const context = useApiContext();
   const router = useRouter();
   const ackDrift = useAcknowledgeSpecDrift();
   const ackRegression = useAcknowledgeRegression();
   const ackTrace = useAcknowledgeBacktrace();
+  const ackConflict = useAcknowledgeConflict();
   const [subject, setSubject] = useState(story.subject);
   const [description, setDescription] = useState(story.description ?? "");
   const [tagsInput, setTagsInput] = useState((story.tags ?? []).join(", "));
@@ -309,6 +311,28 @@ function StoryDialog({ story, drifted = false, regressed = false, trace = null, 
                   {ackTrace.isPending ? "Acknowledging…" : "Acknowledge"}
                 </button>
               </div>
+            </div>
+          </div>
+        ) : null}
+        {conflict ? (
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-600 dark:text-amber-400">
+            <GitFork className="mt-0.5 size-4 shrink-0" />
+            <div className="flex-1">
+              <p className="font-semibold">Design conflict with another story</p>
+              <p className="mt-0.5">{conflict}</p>
+              <p className="mt-0.5 opacity-80">Coordinate the shared files/endpoints, or acknowledge if intentional.</p>
+              <button
+                className="mt-2 rounded bg-amber-500/20 px-2 py-1 font-semibold transition-colors hover:bg-amber-500/30 disabled:opacity-50"
+                disabled={ackConflict.isPending}
+                onClick={() =>
+                  ackConflict.mutate(story.id, {
+                    onSuccess: () => toast.success("Design conflict acknowledged."),
+                    onError: () => toast.error("Could not acknowledge."),
+                  })
+                }
+              >
+                {ackConflict.isPending ? "Acknowledging…" : "Acknowledge"}
+              </button>
             </div>
           </div>
         ) : null}
@@ -585,6 +609,8 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
       { phase_label: t.phase_label, route: TRACE_ROUTE[t.phase] ?? "/phase1", reason: t.reason },
     ]),
   );
+  const conflictedIds = new Set(storyStats.data?.conflicted_story_ids ?? []);
+  const conflictById = new Map((storyStats.data?.conflict_flags ?? []).map((c) => [c.story_id, c.reason]));
 
   // Predictive risk badge — reuse the analytics summary (single source of risk),
   // shared/cached with the Analytics page.
@@ -622,7 +648,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
       {typeof document !== "undefined" ? createPortal(
         <>
           {dialogEpic ? <EpicDialog epic={dialogEpic} onClose={() => setDialogEpic(null)} /> : null}
-          {dialogStory ? <StoryDialog story={dialogStory} drifted={driftedIds.has(dialogStory.id)} regressed={regressedIds.has(dialogStory.id)} trace={traceById.get(dialogStory.id) ?? null} onClose={() => setDialogStory(null)} /> : null}
+          {dialogStory ? <StoryDialog story={dialogStory} drifted={driftedIds.has(dialogStory.id)} regressed={regressedIds.has(dialogStory.id)} trace={traceById.get(dialogStory.id) ?? null} conflict={conflictById.get(dialogStory.id) ?? null} onClose={() => setDialogStory(null)} /> : null}
           {createEpicOpen ? <CreateEpicDialog onClose={() => setCreateEpicOpen(false)} /> : null}
           {createStoryEpicId !== null ? (
             <CreateStoryDialog epicId={createStoryEpicId} onClose={() => setCreateStoryEpicId(null)} />
@@ -820,6 +846,12 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                             <Undo2
                               className="size-3 shrink-0 text-violet-500"
                               aria-label="Backward trace — a downstream gap points back at this story's source spec; consider re-opening an earlier phase"
+                            />
+                          ) : null}
+                          {conflictedIds.has(story.id) ? (
+                            <GitFork
+                              className="size-3 shrink-0 text-amber-500"
+                              aria-label="Design conflict — this story's developer pack overlaps another story's (shared file or duplicate endpoint)"
                             />
                           ) : null}
                           <button

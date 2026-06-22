@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from backend.app.api.deps import RequestContext, get_request_context
 from backend.app.api.rate_limit import ai_rate_limit
 from backend.app.schemas.phase3 import (
+    DesignConflictReportResponse,
     PacksResponse,
     EligibleStoriesResponse,
     GenerateProposalRequest,
@@ -123,6 +124,17 @@ def list_packs(
 ):
     try:
         return {"packs": service.list_all_packs(ctx)}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/scan-design-conflicts", response_model=DesignConflictReportResponse)
+def scan_design_conflicts(
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase3Service = Depends(get_phase3_service),
+):
+    try:
+        return service.scan_design_conflicts(ctx)
     except Exception as exc:
         _handle_error(exc)
 

@@ -14,6 +14,7 @@ import {
   Download,
   ExternalLink,
   GitBranch,
+  GitFork,
   Info,
   Loader2,
   Lock,
@@ -34,6 +35,7 @@ import {
   findTaigaTaskBySubject,
   useEligibleStories,
   useGenerateProposal,
+  useScanDesignConflicts,
   useGenerateTasks,
   useLoadProposals,
   useLoadTaskList,
@@ -54,7 +56,7 @@ import { useServerConfig, useLogDecision } from "@/lib/hooks/use-workspace";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
 import { createGithubIssue, fetchRecentCommitsContext } from "@/lib/api/github-browser";
-import type { EffortEstimate, Phase3StoryContext, Phase3Task } from "@/lib/api/types";
+import type { DesignConflictReport, EffortEstimate, Phase3StoryContext, Phase3Task } from "@/lib/api/types";
 import { toPmCtx } from "@/lib/api/workspace";
 import { TaskDagPanel } from "@/components/task-dag-panel";
 
@@ -1565,6 +1567,8 @@ export function Phase3Workflow() {
   const [stage, setStage] = useState<Stage>(selectedStoryId !== null ? "B" : "A");
   const [diagramOpen, setDiagramOpen] = useState(false);
   const [lockedStoryId, setLockedStoryId] = useState<number | null>(null);
+  const scanConflicts = useScanDesignConflicts();
+  const [conflictReport, setConflictReport] = useState<DesignConflictReport | null>(null);
 
   // Hoist load hooks so they fire regardless of active stage (e.g. stepper jump)
   useLoadTaskList(selectedStoryId);
@@ -1603,6 +1607,48 @@ export function Phase3Workflow() {
       </div>
 
       {!context ? <SignInRequired unlocks="Phase 3 implementation tools" /> : null}
+
+      {context ? (
+        <div className="mb-6 flex flex-col gap-2">
+          <Button
+            variant="secondary"
+            className="w-fit gap-1.5"
+            disabled={scanConflicts.isPending}
+            onClick={() =>
+              scanConflicts.mutate(undefined, {
+                onSuccess: (r) => {
+                  setConflictReport(r);
+                  toast.success(
+                    r.conflicted_ids.length
+                      ? `${r.conflicted_ids.length} story(ies) with cross-story conflicts`
+                      : "No cross-story design conflicts",
+                  );
+                },
+                onError: (e) => toast.error(errMsg(e)),
+              })
+            }
+            title="Compare every developer pack against other stories' packs for shared files / duplicate endpoints"
+          >
+            <GitFork className="size-4" /> {scanConflicts.isPending ? "Scanning…" : "Scan for conflicts"}
+          </Button>
+          {conflictReport && conflictReport.results.length > 0 ? (
+            <div className={cn("rounded-md border p-3 text-xs", dark ? "border-amber-500/30 bg-amber-500/5" : "border-amber-400/40 bg-amber-50")}>
+              <p className={cn("mb-1 font-semibold", dark ? "text-amber-300" : "text-amber-700")}>
+                Cross-story design conflicts
+              </p>
+              <ul className="space-y-1">
+                {conflictReport.results.map((c) => (
+                  <li key={c.story_id} className={dark ? "text-neutral-300" : "text-slate-700"}>
+                    <span className="font-medium">#{c.story_id} {c.title}</span> — {c.reason}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : conflictReport ? (
+            <p className={cn("text-xs", mutedClass)}>No cross-story design conflicts found.</p>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* Diagram collapsible */}
       <div className={cn("mb-6 rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}>
