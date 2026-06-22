@@ -306,9 +306,17 @@ Phase 6 (`/phase6`) is tabbed: **Maintenance** and **Traceability**.
 
 **Spec-anchored regression scan:** conformance answers "does this story's code honour its spec *now*". The **"Scan for regressions"** action answers the inverse — "did a later code change *break* a story that previously conformed". It re-verifies every story that already has a conformance report against the freshly-synced code, then compares each new result to the last persisted report with a pure code diff (`ai_engine.diff_conformance`): a story has **regressed** when its code-computed score fell, OR a row dropped to a strictly worse status (`present→missing/mismatch`, `tested→untested/partial`). Regressions raise a `conformance_regressed` story-index flag (distinct from `spec_drift`) that surfaces three ways over one source — a red board badge + a StoryDialog banner with **Acknowledge**, a contributing reason in the predictive-risk score, and an inline per-story results list in the Traceability Explorer (`old→new` score + which rows worsened). The flag **clears automatically** when a later scan shows recovery, or on manual Acknowledge. On-demand and sequential (single-writer safe); the diff verdict itself never asks an LLM. Optionally runs each re-verify through the adversarial panel.
 
+**Backward trace propagation:** the spec flows downstream (each phase grounds in the previous), but a downstream failure used to be a dead end. Now a failing signal points back at the **source spec** it derived from and suggests the phase to re-open: a low/regressed Phase 6 conformance row, or an uncovered/untested scenario in the Phase 5 verification matrix, raises a `trace_flag` that names the source — a failing **scenario** → its Gherkin (Phase 1); a failing **endpoint/constraint** → the technical-spec/constraints (Phase 2), choosing the earliest source phase. It surfaces as a violet board badge + a StoryDialog banner with a **"Re-open Phase N"** link and **Acknowledge**, plus a predictive-risk reason. **Suggest-only** — it never rolls back `phase_status`; the human decides. The mapping is a pure code function (`ai_engine.derive_trace_targets`/`summarize_trace`), never an LLM.
+
 ### Controlled spec co-evolution
 
 Editing a **locked** spec artifact (e.g. `functional-spec.md` after `gherkin_locked`, `technical-spec.md`/`design-bundle.md`/`constraints.md` after `design_locked`) via the sidebar is no longer silent: the edit is logged to `amendments.md` as a dated **amendment** and raises a `spec_drift` flag on every affected downstream story (status at/after that file's lock). Drift surfaces as a board badge with an Acknowledge action, clears automatically when a story's developer pack is regenerated, and is counted in analytics — the framework's answer to the Twin Peaks requirement↔architecture co-evolution problem (roadmap #4).
+
+### Human-in-the-loop guardrails
+
+- **Preset tech stacks (Phase 2)** — a "Start from a preset" picker seeds the editable Technology Choices draft from a curated list (Next.js + FastAPI, Django + React, Express + Mongo, T3, Spring Boot + React, FastAPI + HTMX). No AI call — skips the propose round-trip for common stacks; the user edits the seeded markdown and locks as usual.
+- **Diff-on-regenerate** — regenerating an artifact that already has content (Phase 2 design section, Phase 3 developer pack, Phase 4 test plan, Phase 5 deploy pack) no longer silently replaces it: a modal shows an old-vs-new line diff (dependency-free LCS) with **Accept** (replace) / **Discard** (keep current). First-generation and bulk generation commit directly. Deliberate revisions (e.g. a Phase 5 deploy-pack revise with feedback) commit directly — the gate is for blind regenerations only.
+- **Decision log** — Apex remembers rejected work. Discarding a regeneration, or revising a deploy pack with feedback, appends a dated entry to an append-only `decisions.md` (viewable + hand-editable in the sidebar). The log is fed back into Phase 3 coding-proposal prompts as advisory **negative constraints** ("approaches already rejected — do not re-propose"), EMPTY-default so it changes nothing until decisions exist.
 
 ### Analytics
 
@@ -332,8 +340,8 @@ Implemented:
 - PM tool selector — toggle between Taiga (violet) and Jira Cloud (blue) before signing in; connected Taiga private cloud URL shown under account when non-default
 - **Taiga login** — username/password or bearer token; all Taiga API calls are proxied through the FastAPI backend (`/api/pm/taiga/{path}`) — supports Taiga Cloud and private/self-hosted instances (e.g. `https://taiga.yourcompany.com`)
 - **Jira Cloud login** — domain, Atlassian account email, and API token; auth is verified through the FastAPI backend proxy before the session is stored
-- Project selector
-- Project create (in-app dialog — name + **required** description, since Taiga rejects a blank project description) / delete
+- Project selector — shows the selected project's **name, ID, slug, and description**
+- Project create (in-app dialog — name + **required** description, since Taiga rejects a blank project description), **edit** (name + description; Taiga-only, via a fetch-version → PATCH), and delete
 - Epics and stories board (fetched directly from Taiga or Jira API in the browser); filter by text across epics and stories
 - Epic/story create, edit, delete — edit dialogs hydrate the description from the PM detail endpoint (list responses omit it); the story dialog includes an inline **Status** selector (PM status) and an **Apex Status** selector to override the workflow phase (`new` → `deployed`) independent of the PM status
 - **Task Board** — view implementation tasks grouped by story; tasks are fetched from Taiga (or Jira); filter by epic/story; **Refresh** button to refetch on demand; add, edit, and delete tasks inline; effort badges (XS → XL); deleting a task also deletes its developer pack so "proposed" counts stay truthful
@@ -1010,24 +1018,15 @@ gh variable set APEX_NIGHT_MODE --body on    # re-enable (default)
 | Phase 3 · Implementation | Implemented |
 | Phase 4 · Testing | Implemented |
 | Phase 5 · Deployment | Implemented |
+| Phase 6 · Maintenance & Traceability | Implemented |
 | Governance Analytics | Implemented |
-| Phase 6 · Maintenance | Placeholder |
 
 ---
 
 ## Future Work
 
-These came out of a phase-flow review. The core observation: the spec flows
-**downstream** (each phase grounds in the previous one), but there is little
-**backward** signal, no cross-story consistency check, and no memory of past
-decisions. None of the items below are built yet — they are the explored design
-directions.
+These came out of a phase-flow review. The remaining directions are not built yet:
 
-- **Backward trace propagation** *(highest priority — smallest change, biggest
-  structural gap)* — a Phase 4 coverage gap or a low Phase 6 conformance score
-  automatically flags the source Gherkin/design it derived from and suggests
-  which phase to re-open, closing the one-way leak. Reuses the status-rollback
-  mechanism already in `delete_test_plan`.
 - **Living traceability graph** *(the differentiator)* — a single queryable graph
   concept → EARS → Gherkin → design → task → pack → test → deploy → conformance,
   with **backward edges** ("why does this endpoint exist?", "what breaks if I
@@ -1036,22 +1035,15 @@ directions.
   artifact against sibling stories' locked designs and warns on contradiction
   (duplicate endpoint, conflicting data model). Extends the existing
   reconciliation seam (`covered_scenarios`/DAG).
-- **Decision log per artifact** — capture human edits and rejected AI proposals,
-  then inject them as negative constraints downstream so the AI stops
-  re-suggesting paths the human already rejected.
-- **Template / preset tech stacks** — Phase 2 presets to skip re-deriving common
-  stacks.
-- **Diff view on re-generation** — regenerating any artifact shows a diff against
-  the locked version rather than a full replace.
 - **Multi-model cross-check** — run the structured phases through two providers
   (Anthropic + OpenAI + Google are all wired in `ai_engine`) and flag
   disagreement. Distinct from the merged same-provider adversarial conformance
   panel (already shipped, Phase 6 "Deep verify").
 
-**Shipped from the earlier visionary backlog:** the adversarial multi-agent
-conformance verifier (Phase 6 "Deep verify") and the spec-anchored regression
-scan (Phase 6 "Scan for regressions") — both documented under
-[Phase 6](#phase-6--maintenance--traceability) above.
+**Shipped from this backlog:** the adversarial multi-agent conformance verifier
+(Phase 6 "Deep verify"), the spec-anchored regression scan (Phase 6 "Scan for
+regressions"), **backward trace propagation**, **diff-on-regenerate**, the
+**decision log**, and **preset tech stacks** — all documented above.
 
 ---
 
