@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { FolderOpen, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -152,6 +153,8 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
           </div>
         ) : null}
       </section>
+      {typeof document !== "undefined" ? createPortal(
+        <>
       {showCreate ? (
         <ProjectDialog
           dark={dark}
@@ -190,6 +193,9 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
             })
           }
         />
+      ) : null}
+        </>,
+        document.body,
       ) : null}
     </div>
   );
