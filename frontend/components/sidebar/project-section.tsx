@@ -14,7 +14,7 @@ import { usePhase2Store } from "@/lib/stores/phase2-store";
 import { usePhase3Store } from "@/lib/stores/phase3-store";
 import { usePhase4Store } from "@/lib/stores/phase4-store";
 import { usePhase5Store } from "@/lib/stores/phase5-store";
-import { cn } from "@/lib/utils";
+import { cn, errMsg } from "@/lib/utils";
 import { PanelHeader, type DragSectionProps } from "./shared";
 
 type ProjectSectionProps = DragSectionProps & {
@@ -160,7 +160,7 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
           onSubmit={(name, description) =>
             createProject.mutate({ name, description }, {
               onSuccess: () => { setShowCreate(false); toast.success(`Project "${name}" created`); },
-              onError: () => toast.error("Failed to create project"),
+              onError: (e) => toast.error(errMsg(e)),
             })
           }
         />
