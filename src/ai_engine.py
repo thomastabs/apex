@@ -657,11 +657,12 @@ def generate_nl_stories(
     hint: str = "",
     project_concept: str = "",
     on_story: Callable[[int], None] | None = None,
+    model: str = "",
 ) -> NLStoryList:
     human = _build_nl_human(epic_subject, epic_description, hint, project_concept)
     _logger.debug("generate_nl_stories prompt_version=%s", _NL_GENERATION_VERSION)
     return _invoke_structured_with_progress(
-        _NL_GENERATION_SYSTEM, human, get_model(), NLStoryList,
+        _NL_GENERATION_SYSTEM, human, model or get_model(), NLStoryList,
         max_tokens=8192, temperature=0.2, on_item=on_story,
     )
 
@@ -679,6 +680,54 @@ def format_nl_draft(story_list: NLStoryList) -> str:
         lines.append("---")
         lines.append("")
     return "\n".join(lines).rstrip()
+
+
+# --- Multi-model cross-check (Phase 1) -------------------------------------
+# Run story generation through the active model AND a second configured provider,
+# then diff the scenario sets so the human sees what one model surfaced and the
+# other missed. The diff is pure set arithmetic over normalized titles — no LLM.
+
+def pick_alt_model(primary_model: str) -> str | None:
+    """A default model from a DIFFERENT configured provider than `primary_model`'s
+    (for cross-check). None when no other provider has an API key set."""
+    primary_provider = _get_provider(primary_model or "")
+    for m in AVAILABLE_MODELS:
+        if m.get("provider") == primary_provider:
+            continue
+        try:
+            check_api_key(m["id"])
+        except EnvironmentError:
+            continue
+        return m["id"]
+    return None
+
+
+def diff_nl_story_scenarios(primary: "NLStoryList | dict", alt: "NLStoryList | dict") -> dict:
+    """Compare two story drafts at the scenario level (pure, no AI).
+
+    Flattens scenarios per model and keys them by `_normalize_scenario(title)`.
+    Returns {agreed: [titles], only_primary: [{story_title,title,description}],
+    only_alt: [...]} — the only_* lists are what one model surfaced and the other
+    did not, so the human can fold in the misses."""
+    if isinstance(primary, dict):
+        primary = NLStoryList.model_validate(primary)
+    if isinstance(alt, dict):
+        alt = NLStoryList.model_validate(alt)
+
+    def _index(sl: NLStoryList) -> dict[str, dict]:
+        out: dict[str, dict] = {}
+        for story in sl.stories:
+            for sc in story.scenarios:
+                key = _normalize_scenario(sc.title)
+                if key and key not in out:
+                    out[key] = {"story_title": story.title, "title": sc.title, "description": sc.description}
+        return out
+
+    pi, ai = _index(primary), _index(alt)
+    agreed = [pi[k]["title"] for k in pi if k in ai]
+    only_primary = [pi[k] for k in pi if k not in ai]
+    only_alt = [ai[k] for k in ai if k not in pi]
+    return {"agreed": agreed, "only_primary": only_primary, "only_alt": only_alt}
 
 
 # ---------------------------------------------------------------------------

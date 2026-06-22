@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, FilePlus2, Info, Loader2, Plus, RefreshCw, RotateCcw, ScanSearch, Sparkles, Trash2, Upload } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, FilePlus2, GitCompare, Info, Loader2, Plus, RefreshCw, RotateCcw, ScanSearch, Sparkles, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button, Callout, Input, Skeleton, Textarea } from "@/components/ui/primitives";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
@@ -11,12 +11,14 @@ import {
   useAnalyzeGaps,
   useCompileGherkin,
   useGenerateConstraints,
+  useCrossCheckStories,
   useGenerateNlStories,
   usePhase1Epics,
   usePushPhase1Stories,
   useSuggestPhase1Epics,
 } from "@/lib/hooks/use-phase1";
-import { useContextFiles, useUpdateContextFile } from "@/lib/hooks/use-workspace";
+import { useAiConfig, useContextFiles, useUpdateContextFile } from "@/lib/hooks/use-workspace";
+import type { CrossCheckResult } from "@/lib/api/phase1";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import type { CompiledStory, EpicSuggestion, RequirementGapReport } from "@/lib/api/types";
@@ -151,6 +153,10 @@ export function Phase1Workflow() {
   const suggestEpics = useSuggestPhase1Epics();
   const analyzeGaps = useAnalyzeGaps();
   const generate = useGenerateNlStories();
+  const crossCheck = useCrossCheckStories();
+  const [crossResult, setCrossResult] = useState<CrossCheckResult | null>(null);
+  const aiConfig = useAiConfig();
+  const crossEnabled = (aiConfig.data?.configured_providers?.length ?? 0) >= 2;
   const compile = useCompileGherkin();
   const push = usePushPhase1Stories();
   const genConstraints = useGenerateConstraints();
@@ -936,6 +942,74 @@ export function Phase1Workflow() {
               The AI has written plain descriptions of each user story. Read them, adjust any that don&apos;t match your intent, then convert them to Acceptance Criteria.
             </p>
             <Textarea rows={14} value={nlDraft} onChange={(event) => setNlDraft(event.target.value)} />
+
+            {crossEnabled ? (
+              <div className="space-y-2">
+                <Button
+                  variant="secondary"
+                  className="w-full"
+                  disabled={busy || noContext || !epicTitle.trim()}
+                  onClick={() =>
+                    crossCheck.mutate(
+                      { epic_subject: epicTitle, epic_description: epicDescription },
+                      {
+                        onSuccess: (r) => {
+                          setCrossResult(r);
+                          toast.success(
+                            r.only_alt.length
+                              ? `${r.alt_label} surfaced ${r.only_alt.length} scenario(s) yours missed`
+                              : `${r.alt_label} agreed — no extra scenarios`,
+                          );
+                        },
+                      },
+                    )
+                  }
+                >
+                  <GitCompare className="size-4" /> {crossCheck.isPending ? "Cross-checking…" : "Cross-check with another model"}
+                </Button>
+                <AIProgressIndicator steps={GENERATE_STEPS} isPending={crossCheck.isPending} dark={dark} />
+                {crossCheck.isPending && <CancelButton onCancel={() => crossCheck.cancel()} className="w-full" />}
+                {crossResult ? (
+                  <div className={cn("rounded-md border p-3 text-xs", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
+                    <p className={cn("mb-2 font-semibold", dark ? "text-neutral-200" : "text-slate-700")}>
+                      {crossResult.primary_label} vs {crossResult.alt_label}: {crossResult.agreed.length} agreed
+                    </p>
+                    {crossResult.only_alt.length ? (
+                      <div className="mb-2">
+                        <p className={cn("mb-1 font-medium text-emerald-500")}>Only {crossResult.alt_label} suggested:</p>
+                        <ul className="space-y-1">
+                          {crossResult.only_alt.map((s, i) => (
+                            <li key={i} className="flex items-start justify-between gap-2">
+                              <span className={dark ? "text-neutral-300" : "text-slate-700"}>
+                                <span className="font-medium">{s.title}</span> — {s.description}
+                              </span>
+                              <button
+                                className="shrink-0 rounded bg-emerald-500/15 px-1.5 py-0.5 font-semibold text-emerald-500 hover:bg-emerald-500/25"
+                                onClick={() => {
+                                  setNlDraft((d) => `${d.trimEnd()}\n\n  Scenario: ${s.title}\n  ${s.description}`);
+                                  toast.success("Added to draft");
+                                }}
+                              >
+                                Add
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {crossResult.only_primary.length ? (
+                      <div>
+                        <p className={cn("mb-1 font-medium", dark ? "text-neutral-400" : "text-slate-500")}>Only {crossResult.primary_label} suggested:</p>
+                        <ul className={cn("space-y-0.5", dark ? "text-neutral-400" : "text-slate-500")}>
+                          {crossResult.only_primary.map((s, i) => <li key={i}>{s.title}</li>)}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             <Button
               className="w-full"
               disabled={busy || noContext}

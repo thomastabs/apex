@@ -1088,6 +1088,56 @@ class TestDecisionsBlock:
         assert "avoid X" in captured["sys"] and "ALREADY REJECTED" in captured["sys"]
 
 
+class TestMultiModelCrossCheck:
+    """Phase 1 multi-model cross-check (pure diff; provider pick)."""
+
+    def test_pick_alt_model_other_provider(self, monkeypatch):
+        import src.ai_engine as ai
+        # only OpenAI + Anthropic keyed; alt for a Claude model → an OpenAI model.
+        def fake_check(model=None):
+            if ai._get_provider(model) == "google":
+                raise EnvironmentError("no google")
+        monkeypatch.setattr(ai, "check_api_key", fake_check)
+        alt = ai.pick_alt_model("claude-sonnet-4-6")
+        assert alt is not None and ai._get_provider(alt) == "openai"
+
+    def test_pick_alt_model_none_when_single_provider(self, monkeypatch):
+        import src.ai_engine as ai
+        def only_anthropic(model=None):
+            if ai._get_provider(model) != "anthropic":
+                raise EnvironmentError("not configured")
+        monkeypatch.setattr(ai, "check_api_key", only_anthropic)
+        assert ai.pick_alt_model("claude-sonnet-4-6") is None
+
+    def test_diff_scenarios_agreed_and_only(self):
+        import src.ai_engine as ai
+        primary = {"stories": [{"title": "Login", "size": "S", "scenarios": [
+            {"title": "Valid login", "description": "ok"},
+            {"title": "Wrong password", "description": "err"}]}]}
+        alt = {"stories": [{"title": "Login", "size": "S", "scenarios": [
+            {"title": "valid login", "description": "ok2"},   # same (normalized)
+            {"title": "Locked account", "description": "lock"}]}]}
+        d = ai.diff_nl_story_scenarios(primary, alt)
+        assert d["agreed"] == ["Valid login"]
+        assert [s["title"] for s in d["only_primary"]] == ["Wrong password"]
+        assert [s["title"] for s in d["only_alt"]] == ["Locked account"]
+
+    def test_diff_empty(self):
+        import src.ai_engine as ai
+        d = ai.diff_nl_story_scenarios({"stories": []}, {"stories": []})
+        assert d == {"agreed": [], "only_primary": [], "only_alt": []}
+
+    def test_generate_nl_stories_threads_model(self, monkeypatch):
+        import src.ai_engine as ai
+        captured = {}
+        def fake(system, human, model, schema, *a, **k):
+            captured["model"] = model
+            return ai.NLStoryList(stories=[])
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress", fake)
+        ai.generate_nl_stories("Epic", "desc", model="gpt-4o")
+        assert captured["model"] == "gpt-4o"
+
+
 class TestDesignConflictDetector:
     """Cross-story design-drift detector (pure, no AI)."""
 

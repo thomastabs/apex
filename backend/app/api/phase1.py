@@ -11,6 +11,8 @@ from backend.app.schemas.phase1 import (
     AnalyzeGapsResponse,
     CompileGherkinRequest,
     CompileGherkinResponse,
+    CrossCheckRequest,
+    CrossCheckResponse,
     FinalizeStoriesRequest,
     FinalizeStoriesResponse,
     GenerateConstraintsResponse,
@@ -90,6 +92,24 @@ def generate_nl_stories(
             hint=payload.hint,
         )
         return {"nl_draft": nl_draft, "story_count": story_count}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/cross-check-stories", response_model=CrossCheckResponse)
+def cross_check_stories(
+    payload: CrossCheckRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase1Service = Depends(get_phase1_service),
+    _rl: None = Depends(ai_rate_limit),
+):
+    try:
+        return service.cross_check_stories(
+            ctx,
+            epic_subject=payload.epic_subject,
+            epic_description=payload.epic_description,
+            hint=payload.hint,
+        )
     except Exception as exc:
         _handle_error(exc)
 

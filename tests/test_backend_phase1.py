@@ -35,6 +35,18 @@ class FakeAiService:
     def compile_gherkin(self, nl_draft: str) -> list[dict]:
         return [{"title": "Story A", "size": "S", "gherkin": "Feature: A\n\n  Scenario: s"}]
 
+    # Multi-model cross-check
+    alt = "gpt-4o"
+
+    def pick_alt_model(self, model: str):
+        return self.alt
+
+    def cross_check_nl_stories(self, epic_subject, epic_description, *, hint, project_concept, primary_model, alt_model):
+        self.cross_args = (epic_subject, primary_model, alt_model)
+        return {"agreed": ["Valid login"],
+                "only_primary": [],
+                "only_alt": [{"story_title": "Login", "title": "Locked account", "description": "lock"}]}
+
     def generate_constraints(self, project_concept, tech_stack, all_stories):
         self.constraints_args = (project_concept, tech_stack, all_stories)
         items = [{"id": "NFR-1", "category": "security", "ears_type": "event-driven",
@@ -138,6 +150,27 @@ def test_generate_nl_stories_requires_subject():
 
     with pytest.raises(Phase1ValidationError, match="epic_subject"):
         service.generate_nl_stories(_ctx(), epic_subject=" ", epic_description="")
+
+
+def test_cross_check_stories_returns_diff(monkeypatch):
+    import src.ai_engine as ai_engine
+    monkeypatch.setattr(ai_engine, "get_model", lambda: "claude-sonnet-4-6")
+    service, ai, _ = _service()
+    out = service.cross_check_stories(_ctx(), epic_subject="Auth", epic_description="login")
+    assert out["primary_model"] == "claude-sonnet-4-6" and out["alt_model"] == "gpt-4o"
+    assert out["primary_label"] and out["alt_label"]
+    assert out["agreed"] == ["Valid login"]
+    assert out["only_alt"][0]["title"] == "Locked account"
+    assert ai.cross_args[1:] == ("claude-sonnet-4-6", "gpt-4o")
+
+
+def test_cross_check_requires_second_provider(monkeypatch):
+    import src.ai_engine as ai_engine
+    monkeypatch.setattr(ai_engine, "get_model", lambda: "claude-sonnet-4-6")
+    service, ai, _ = _service()
+    ai.pick_alt_model = lambda model: None  # no second provider configured
+    with pytest.raises(Phase1ValidationError, match="second AI provider"):
+        service.cross_check_stories(_ctx(), epic_subject="Auth", epic_description="login")
 
 
 def test_compile_gherkin_requires_draft():

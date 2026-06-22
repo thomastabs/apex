@@ -51,6 +51,28 @@ class GenerateNlStoriesResponse(BaseModel):
     story_count: int
 
 
+class CrossCheckRequest(BaseModel):
+    epic_subject: str = Field(..., max_length=500)
+    epic_description: str = Field("", max_length=5_000)
+    hint: str = Field("", max_length=2_000)
+
+
+class CrossCheckScenario(BaseModel):
+    story_title: str = ""
+    title: str = ""
+    description: str = ""
+
+
+class CrossCheckResponse(BaseModel):
+    primary_model: str
+    primary_label: str
+    alt_model: str
+    alt_label: str
+    agreed: list[str] = Field(default_factory=list)
+    only_primary: list[CrossCheckScenario] = Field(default_factory=list)
+    only_alt: list[CrossCheckScenario] = Field(default_factory=list)
+
+
 class CompileGherkinRequest(BaseModel):
     nl_draft: str = Field(..., max_length=50_000)
 

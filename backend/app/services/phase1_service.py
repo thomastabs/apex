@@ -59,6 +59,42 @@ class Phase1Service:
             project_concept=concept,
         )
 
+    def cross_check_stories(
+        self,
+        ctx: RequestContext,
+        *,
+        epic_subject: str,
+        epic_description: str,
+        hint: str = "",
+    ) -> dict:
+        """Run story generation through the active model AND a second configured
+        provider, returning the scenario-level diff (agreed / only-in-each)."""
+        from src import ai_engine
+
+        self.configure_request(ctx)
+        subject = epic_subject.strip()
+        if not subject:
+            raise Phase1ValidationError("epic_subject is required.")
+        primary = ai_engine.get_model()
+        alt = self.ai.pick_alt_model(primary)
+        if not alt:
+            raise Phase1ValidationError(
+                "Cross-check needs a second AI provider — add another provider's API key (OpenAI/Google)."
+            )
+        labels = {m["id"]: m.get("label", m["id"]) for m in ai_engine.AVAILABLE_MODELS}
+        diff = self.ai.cross_check_nl_stories(
+            subject, epic_description,
+            hint=hint, project_concept=self.context.project_concept(),
+            primary_model=primary, alt_model=alt,
+        )
+        return {
+            "primary_model": primary,
+            "primary_label": labels.get(primary, primary),
+            "alt_model": alt,
+            "alt_label": labels.get(alt, alt),
+            **diff,
+        }
+
     def compile_gherkin(self, *, nl_draft: str) -> list[dict]:
         if not nl_draft.strip():
             raise Phase1ValidationError("nl_draft is required.")

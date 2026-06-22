@@ -37,6 +37,27 @@ class AiService:
         )
         return ai_engine.format_nl_draft(result), len(result.stories)
 
+    def pick_alt_model(self, model: str) -> str | None:
+        return ai_engine.pick_alt_model(model)
+
+    def cross_check_nl_stories(
+        self,
+        epic_subject: str,
+        epic_description: str,
+        *,
+        hint: str,
+        project_concept: str,
+        primary_model: str,
+        alt_model: str,
+    ) -> dict:
+        """Generate stories with two models and diff their scenario sets (no AI in
+        the diff). Returns {agreed, only_primary, only_alt}."""
+        primary = ai_engine.generate_nl_stories(
+            epic_subject, epic_description, hint=hint, project_concept=project_concept, model=primary_model)
+        alt = ai_engine.generate_nl_stories(
+            epic_subject, epic_description, hint=hint, project_concept=project_concept, model=alt_model)
+        return ai_engine.diff_nl_story_scenarios(primary, alt)
+
     def generate_constraints(
         self,
         project_concept: str,

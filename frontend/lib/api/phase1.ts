@@ -69,6 +69,32 @@ export function generateNlStories(
   });
 }
 
+export type CrossCheckScenario = { story_title: string; title: string; description: string };
+export type CrossCheckResult = {
+  primary_model: string;
+  primary_label: string;
+  alt_model: string;
+  alt_label: string;
+  agreed: string[];
+  only_primary: CrossCheckScenario[];
+  only_alt: CrossCheckScenario[];
+};
+
+export function crossCheckStories(
+  context: RequestContext,
+  body: Phase1GenerateNlStoriesRequest,
+  signal?: AbortSignal,
+) {
+  // Two AI calls (primary + alt provider) — allow the long timeout.
+  return apiRequest<CrossCheckResult>("/api/phase1/cross-check-stories", {
+    method: "POST",
+    context,
+    body,
+    timeoutMs: 300_000,
+    signal,
+  });
+}
+
 export interface Phase1Constraint {
   id: string;
   category: string;

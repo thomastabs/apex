@@ -6,6 +6,7 @@ import {
   analyzeRequirementGaps,
   compileGherkin,
   generateConstraints,
+  crossCheckStories,
   generateNlStories,
   listPhase1Epics,
   pushPhase1Stories,
@@ -54,6 +55,15 @@ export function useGenerateNlStories() {
   return useCancellableMutation(
     (body: Phase1GenerateNlStoriesRequest, signal) => generateNlStories(context!, body, signal),
     { onError: () => toast.error("Story generation failed. The AI may be busy — try again shortly.") },
+  );
+}
+
+export function useCrossCheckStories() {
+  const context = useApiContext();
+
+  return useCancellableMutation(
+    (body: Phase1GenerateNlStoriesRequest, signal) => crossCheckStories(context!, body, signal),
+    { onError: (e: Error) => toast.error(`Cross-check failed: ${e.message}`) },
   );
 }
 
