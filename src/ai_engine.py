@@ -702,6 +702,20 @@ def pick_alt_model(primary_model: str) -> str | None:
     return None
 
 
+def resolve_alt_model(primary_model: str, requested: str = "") -> str | None:
+    """Resolve the cross-check alt model: honour a user-requested model when it is
+    a known id, a DIFFERENT provider than primary, and keyed; else auto-pick."""
+    if requested:
+        known = {m["id"] for m in AVAILABLE_MODELS}
+        if requested in known and _get_provider(requested) != _get_provider(primary_model or ""):
+            try:
+                check_api_key(requested)
+                return requested
+            except EnvironmentError:
+                pass
+    return pick_alt_model(primary_model)
+
+
 def diff_nl_story_scenarios(primary: "NLStoryList | dict", alt: "NLStoryList | dict") -> dict:
     """Compare two story drafts at the scenario level (pure, no AI).
 

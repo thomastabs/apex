@@ -138,7 +138,7 @@ def cross_check_tasks(
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
-        return service.cross_check_tasks(ctx, payload.story_id)
+        return service.cross_check_tasks(ctx, payload.story_id, payload.alt_model)
     except Exception as exc:
         _handle_error(exc)
 

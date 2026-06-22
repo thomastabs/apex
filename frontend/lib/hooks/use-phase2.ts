@@ -87,7 +87,8 @@ export type DesignSectionCallbacks = {
 export function useCrossCheckEndpoints() {
   const context = useApiContext();
   return useCancellableMutation(
-    (uxBrief: string, signal) => crossCheckEndpoints(context!, uxBrief, signal),
+    ({ uxBrief, altModel = "" }: { uxBrief: string; altModel?: string }, signal) =>
+      crossCheckEndpoints(context!, uxBrief, altModel, signal),
     { onError: (e: Error) => toast.error(`Cross-check failed: ${e.message}`) },
   );
 }

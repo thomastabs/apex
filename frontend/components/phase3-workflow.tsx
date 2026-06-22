@@ -55,7 +55,7 @@ import { useDiffStore } from "@/lib/stores/diff-store";
 import { useApiContext, useGithubContext } from "@/lib/stores/session-store";
 import { SignInRequired } from "@/components/sign-in-required";
 import { useAiConfig, useServerConfig, useLogDecision } from "@/lib/hooks/use-workspace";
-import { CrossCheckPanel } from "@/components/cross-check-panel";
+import { CrossCheckPanel, AltModelSelect } from "@/components/cross-check-panel";
 import type { CrossCheckResult } from "@/lib/api/phase1";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
@@ -445,6 +445,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const { taskList, tasksPushed, packDrafts, setCurrentStoryMeta, patchTask, setTaskList, removePushedStoryId } = usePhase3Store();
   const crossCheckTasksMut = useCrossCheckTasks();
   const [crossResult, setCrossResult] = useState<CrossCheckResult | null>(null);
+  const [altModel, setAltModel] = useState("");
   const aiConfig = useAiConfig();
   const crossEnabled = (aiConfig.data?.configured_providers?.length ?? 0) >= 2;
   const { addTask, removeTask, updateTask, reorderTasks } = useUpdateTaskList();
@@ -645,30 +646,35 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
       {crossEnabled && taskList.length > 0 ? (
         <div className="space-y-2">
-          <Button
-            variant="secondary"
-            className="w-full gap-1.5"
-            disabled={crossCheckTasksMut.isPending}
-            onClick={() =>
-              crossCheckTasksMut.mutate(storyId, {
-                onSuccess: (r) => {
-                  setCrossResult(r);
-                  toast.success(
-                    r.only_alt.length
-                      ? `${r.alt_label} suggested ${r.only_alt.length} task(s) yours missed`
-                      : `${r.alt_label} agreed — no extra tasks`,
-                  );
-                },
-              })
-            }
-          >
-            <GitCompare className="h-4 w-4" /> {crossCheckTasksMut.isPending ? "Cross-checking…" : "Cross-check tasks with another model"}
-          </Button>
+          <div className="flex gap-2">
+            <AltModelSelect aiConfig={aiConfig.data} value={altModel} onChange={setAltModel} dark={dark} disabled={crossCheckTasksMut.isPending} />
+            <Button
+              variant="secondary"
+              className="flex-1 justify-center gap-1.5"
+              disabled={crossCheckTasksMut.isPending}
+              onClick={() =>
+                crossCheckTasksMut.mutate({ storyId, altModel }, {
+                  onSuccess: (r) => {
+                    setCrossResult(r);
+                    toast.success(
+                      r.only_alt.length
+                        ? `${r.alt_label} suggested ${r.only_alt.length} task(s) yours missed`
+                        : `${r.alt_label} agreed — no extra tasks`,
+                    );
+                  },
+                })
+              }
+            >
+              <GitCompare className="h-4 w-4" /> {crossCheckTasksMut.isPending ? "Cross-checking…" : "Cross-check tasks"}
+            </Button>
+          </div>
           {crossCheckTasksMut.isPending && <CancelButton onCancel={() => crossCheckTasksMut.cancel()} className="w-full" />}
           {crossResult ? (
             <CrossCheckPanel
               result={crossResult}
               dark={dark}
+              noun="task"
+              onDismiss={() => setCrossResult(null)}
               onAdd={(s) => {
                 const nid = taskList.length > 0 ? Math.max(...taskList.map((t) => t.id)) + 1 : 1;
                 setTaskList([...taskList, {

@@ -266,7 +266,8 @@ export function useScanDesignConflicts() {
 export function useCrossCheckTasks() {
   const context = useApiContext();
   return useCancellableMutation(
-    (storyId: number, signal) => crossCheckTasks(context!, storyId, signal),
+    ({ storyId, altModel = "" }: { storyId: number; altModel?: string }, signal) =>
+      crossCheckTasks(context!, storyId, altModel, signal),
     { onError: (e: Error) => toast.error(`Cross-check failed: ${e.message}`) },
   );
 }

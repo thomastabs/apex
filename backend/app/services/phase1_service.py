@@ -66,6 +66,7 @@ class Phase1Service:
         epic_subject: str,
         epic_description: str,
         hint: str = "",
+        alt_model: str = "",
     ) -> dict:
         """Run story generation through the active model AND a second configured
         provider, returning the scenario-level diff (agreed / only-in-each)."""
@@ -76,7 +77,7 @@ class Phase1Service:
         if not subject:
             raise Phase1ValidationError("epic_subject is required.")
         primary = ai_engine.get_model()
-        alt = self.ai.pick_alt_model(primary)
+        alt = ai_engine.resolve_alt_model(primary, alt_model)
         if not alt:
             raise Phase1ValidationError(
                 "Cross-check needs a second AI provider — add another provider's API key (OpenAI/Google)."

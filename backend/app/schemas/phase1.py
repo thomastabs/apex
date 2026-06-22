@@ -55,6 +55,7 @@ class CrossCheckRequest(BaseModel):
     epic_subject: str = Field(..., max_length=500)
     epic_description: str = Field("", max_length=5_000)
     hint: str = Field("", max_length=2_000)
+    alt_model: str = Field("", max_length=100)
 
 
 class CrossCheckScenario(BaseModel):

@@ -35,6 +35,7 @@ class DesignSectionRequest(BaseModel):
 
 class CrossCheckEndpointsRequest(BaseModel):
     ux_brief: str = Field("", max_length=20_000)
+    alt_model: str = Field("", max_length=100)
 
 
 class DesignSectionResponse(BaseModel):

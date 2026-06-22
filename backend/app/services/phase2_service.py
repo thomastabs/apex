@@ -88,7 +88,7 @@ class Phase2Service:
             "story_ids": [s["story_id"] for s in all_stories],
         }
 
-    def cross_check_endpoints(self, ctx: RequestContext, *, ux_brief: str) -> dict:
+    def cross_check_endpoints(self, ctx: RequestContext, *, ux_brief: str, alt_model: str = "") -> dict:
         """Derive design endpoints with the active model AND a second configured
         provider (same UX brief), returning the contract diff."""
         from src import ai_engine
@@ -101,7 +101,7 @@ class Phase2Service:
         if not all_stories:
             raise Phase2ValidationError("No Phase 1 locked Gherkin stories found.")
         primary = ai_engine.get_model()
-        alt = self.ai.pick_alt_model(primary)
+        alt = ai_engine.resolve_alt_model(primary, alt_model)
         if not alt:
             raise Phase2ValidationError(
                 "Cross-check needs a second AI provider — add another provider's API key (OpenAI/Google)."

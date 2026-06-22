@@ -22,9 +22,9 @@ export function scanDesignConflicts(context: RequestContext) {
   return apiRequest<DesignConflictReport>("/api/phase3/scan-design-conflicts", { method: "POST", context });
 }
 
-export function crossCheckTasks(context: RequestContext, storyId: number, signal?: AbortSignal) {
+export function crossCheckTasks(context: RequestContext, storyId: number, altModel = "", signal?: AbortSignal) {
   return apiRequest<CrossCheckResult>("/api/phase3/cross-check-tasks", {
-    method: "POST", context, body: { story_id: storyId }, timeoutMs: 300_000, signal,
+    method: "POST", context, body: { story_id: storyId, alt_model: altModel }, timeoutMs: 300_000, signal,
   });
 }
 

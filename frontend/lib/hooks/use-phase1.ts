@@ -62,7 +62,8 @@ export function useCrossCheckStories() {
   const context = useApiContext();
 
   return useCancellableMutation(
-    (body: Phase1GenerateNlStoriesRequest, signal) => crossCheckStories(context!, body, signal),
+    ({ altModel = "", ...body }: Phase1GenerateNlStoriesRequest & { altModel?: string }, signal) =>
+      crossCheckStories(context!, body, altModel, signal),
     { onError: (e: Error) => toast.error(`Cross-check failed: ${e.message}`) },
   );
 }

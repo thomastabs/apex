@@ -114,5 +114,6 @@ class DesignConflictReportResponse(BaseModel):
 
 class CrossCheckTasksRequest(BaseModel):
     story_id: int
+    alt_model: str = Field("", max_length=100)
 
 

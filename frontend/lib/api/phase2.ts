@@ -73,11 +73,11 @@ export function generateDesignSection(
   });
 }
 
-export function crossCheckEndpoints(context: RequestContext, uxBrief: string, signal?: AbortSignal): Promise<CrossCheckResult> {
+export function crossCheckEndpoints(context: RequestContext, uxBrief: string, altModel = "", signal?: AbortSignal): Promise<CrossCheckResult> {
   return apiRequest<CrossCheckResult>("/api/phase2/cross-check-endpoints", {
     method: "POST",
     context,
-    body: { ux_brief: uxBrief },
+    body: { ux_brief: uxBrief, alt_model: altModel },
     timeoutMs: 300_000,
     signal,
   });

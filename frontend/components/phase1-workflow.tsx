@@ -19,7 +19,7 @@ import {
 } from "@/lib/hooks/use-phase1";
 import { useAiConfig, useContextFiles, useUpdateContextFile } from "@/lib/hooks/use-workspace";
 import type { CrossCheckResult } from "@/lib/api/phase1";
-import { CrossCheckPanel } from "@/components/cross-check-panel";
+import { CrossCheckPanel, AltModelSelect } from "@/components/cross-check-panel";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import type { CompiledStory, EpicSuggestion, RequirementGapReport } from "@/lib/api/types";
@@ -156,6 +156,7 @@ export function Phase1Workflow() {
   const generate = useGenerateNlStories();
   const crossCheck = useCrossCheckStories();
   const [crossResult, setCrossResult] = useState<CrossCheckResult | null>(null);
+  const [altModel, setAltModel] = useState("");
   const aiConfig = useAiConfig();
   const crossEnabled = (aiConfig.data?.configured_providers?.length ?? 0) >= 2;
   const compile = useCompileGherkin();
@@ -946,34 +947,39 @@ export function Phase1Workflow() {
 
             {crossEnabled ? (
               <div className="space-y-2">
-                <Button
-                  variant="secondary"
-                  className="w-full"
-                  disabled={busy || noContext || !epicTitle.trim()}
-                  onClick={() =>
-                    crossCheck.mutate(
-                      { epic_subject: epicTitle, epic_description: epicDescription },
-                      {
-                        onSuccess: (r) => {
-                          setCrossResult(r);
-                          toast.success(
-                            r.only_alt.length
-                              ? `${r.alt_label} surfaced ${r.only_alt.length} scenario(s) yours missed`
-                              : `${r.alt_label} agreed — no extra scenarios`,
-                          );
+                <div className="flex gap-2">
+                  <AltModelSelect aiConfig={aiConfig.data} value={altModel} onChange={setAltModel} dark={dark} disabled={crossCheck.isPending} />
+                  <Button
+                    variant="secondary"
+                    className="flex-1 justify-center"
+                    disabled={busy || noContext || !epicTitle.trim()}
+                    onClick={() =>
+                      crossCheck.mutate(
+                        { epic_subject: epicTitle, epic_description: epicDescription, altModel },
+                        {
+                          onSuccess: (r) => {
+                            setCrossResult(r);
+                            toast.success(
+                              r.only_alt.length
+                                ? `${r.alt_label} surfaced ${r.only_alt.length} scenario(s) yours missed`
+                                : `${r.alt_label} agreed — no extra scenarios`,
+                            );
+                          },
                         },
-                      },
-                    )
-                  }
-                >
-                  <GitCompare className="size-4" /> {crossCheck.isPending ? "Cross-checking…" : "Cross-check with another model"}
-                </Button>
+                      )
+                    }
+                  >
+                    <GitCompare className="size-4" /> {crossCheck.isPending ? "Cross-checking…" : "Cross-check"}
+                  </Button>
+                </div>
                 <AIProgressIndicator steps={GENERATE_STEPS} isPending={crossCheck.isPending} dark={dark} />
                 {crossCheck.isPending && <CancelButton onCancel={() => crossCheck.cancel()} className="w-full" />}
                 {crossResult ? (
                   <CrossCheckPanel
                     result={crossResult}
                     dark={dark}
+                    noun="scenario"
+                    onDismiss={() => setCrossResult(null)}
                     onAdd={(s) => {
                       setNlDraft((d) => `${d.trimEnd()}\n\n  Scenario: ${s.title}\n  ${s.description}`);
                       toast.success("Added to draft");

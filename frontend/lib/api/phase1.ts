@@ -83,13 +83,14 @@ export type CrossCheckResult = {
 export function crossCheckStories(
   context: RequestContext,
   body: Phase1GenerateNlStoriesRequest,
+  altModel = "",
   signal?: AbortSignal,
 ) {
   // Two AI calls (primary + alt provider) — allow the long timeout.
   return apiRequest<CrossCheckResult>("/api/phase1/cross-check-stories", {
     method: "POST",
     context,
-    body,
+    body: { ...body, alt_model: altModel },
     timeoutMs: 300_000,
     signal,
   });

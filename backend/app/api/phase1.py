@@ -109,6 +109,7 @@ def cross_check_stories(
             epic_subject=payload.epic_subject,
             epic_description=payload.epic_description,
             hint=payload.hint,
+            alt_model=payload.alt_model,
         )
     except Exception as exc:
         _handle_error(exc)

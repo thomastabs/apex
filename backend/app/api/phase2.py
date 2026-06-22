@@ -124,7 +124,7 @@ def cross_check_endpoints(
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
-        return service.cross_check_endpoints(ctx, ux_brief=payload.ux_brief)
+        return service.cross_check_endpoints(ctx, ux_brief=payload.ux_brief, alt_model=payload.alt_model)
     except Exception as exc:
         _handle_error(exc)
 

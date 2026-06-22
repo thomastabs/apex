@@ -94,7 +94,7 @@ class Phase3Service:
             tech_stack=tech_stack, design_bundle=design_bundle, github_context=github_context,
         )
 
-    def cross_check_tasks(self, ctx: RequestContext, story_id: int) -> dict:
+    def cross_check_tasks(self, ctx: RequestContext, story_id: int, alt_model: str = "") -> dict:
         """Decompose a story with the active model AND a second configured
         provider, returning the task-subject diff (agreed / only-in-each)."""
         from src import ai_engine
@@ -110,7 +110,7 @@ class Phase3Service:
         if not gherkin:
             raise Phase3ValidationError(f"Story {story_id} has no Gherkin content.")
         primary = ai_engine.get_model()
-        alt = self.ai.pick_alt_model(primary)
+        alt = ai_engine.resolve_alt_model(primary, alt_model)
         if not alt:
             raise Phase3ValidationError(
                 "Cross-check needs a second AI provider — add another provider's API key (OpenAI/Google)."

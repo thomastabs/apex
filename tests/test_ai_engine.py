@@ -1101,6 +1101,21 @@ class TestMultiModelCrossCheck:
         alt = ai.pick_alt_model("claude-sonnet-4-6")
         assert alt is not None and ai._get_provider(alt) == "openai"
 
+    def test_resolve_alt_model_honours_valid_request(self, monkeypatch):
+        import src.ai_engine as ai
+        monkeypatch.setattr(ai, "check_api_key", lambda model=None: None)  # all keyed
+        # a real OpenAI model id from the registry, different provider than Claude
+        gpt = next(m["id"] for m in ai.AVAILABLE_MODELS if m.get("provider") == "openai")
+        assert ai.resolve_alt_model("claude-sonnet-4-6", gpt) == gpt
+
+    def test_resolve_alt_model_rejects_same_provider(self, monkeypatch):
+        import src.ai_engine as ai
+        monkeypatch.setattr(ai, "check_api_key", lambda model=None: None)
+        claude = next(m["id"] for m in ai.AVAILABLE_MODELS if m.get("provider") == "anthropic")
+        # same provider as primary → ignored, falls back to auto-pick (an other provider)
+        alt = ai.resolve_alt_model("claude-sonnet-4-6", claude)
+        assert alt is None or ai._get_provider(alt) != "anthropic"
+
     def test_pick_alt_model_none_when_single_provider(self, monkeypatch):
         import src.ai_engine as ai
         def only_anthropic(model=None):
