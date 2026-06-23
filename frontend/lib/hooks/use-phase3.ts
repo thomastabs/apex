@@ -190,7 +190,8 @@ export function useGenerateTasks() {
   const { setTaskList } = usePhase3Store();
 
   return useCancellableMutation(
-    (storyId: number, signal) => generateTasks(context!, storyId, signal),
+    ({ storyId, instructions = "" }: { storyId: number; instructions?: string }, signal) =>
+      generateTasks(context!, storyId, instructions, signal),
     {
       onSuccess: (data) => {
         setTaskList(data.tasks);

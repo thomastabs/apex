@@ -77,7 +77,7 @@ def generate_tasks(
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
-        tasks = service.generate_tasks(ctx, payload.story_id)
+        tasks = service.generate_tasks(ctx, payload.story_id, payload.instructions)
         return {"story_id": payload.story_id, "tasks": tasks}
     except Exception as exc:
         _handle_error(exc)

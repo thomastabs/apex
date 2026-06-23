@@ -67,6 +67,7 @@ class Phase2Service:
         *,
         section: str,
         prior_sections: dict[str, str] | None = None,
+        instructions: str = "",
     ) -> dict:
         if section not in self.DESIGN_SECTION_ORDER:
             raise Phase2ValidationError(f"Unknown section: {section!r}")
@@ -81,6 +82,7 @@ class Phase2Service:
         constrained_context = self._build_constrained_context(project_concept, tech_stack)
         content = self.ai.generate_design_section(
             all_stories, constrained_context, section, prior_sections or {},
+            instructions=instructions,
         )
         return {
             "section": section,
@@ -101,7 +103,7 @@ class Phase2Service:
         if not all_stories:
             raise Phase2ValidationError("No Phase 1 locked Gherkin stories found.")
         primary = ai_engine.get_model()
-        alt = ai_engine.resolve_alt_model(primary, alt_model)
+        alt = self.ai.resolve_alt_model(primary, alt_model)
         if not alt:
             raise Phase2ValidationError(
                 "Cross-check needs a second AI provider — add another provider's API key (OpenAI/Google)."

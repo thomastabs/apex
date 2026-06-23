@@ -28,17 +28,22 @@ class AiService:
         *,
         hint: str,
         project_concept: str,
+        instructions: str = "",
     ) -> tuple[str, int]:
         result = ai_engine.generate_nl_stories(
             epic_subject,
             epic_description,
             hint=hint,
             project_concept=project_concept,
+            instructions=instructions,
         )
         return ai_engine.format_nl_draft(result), len(result.stories)
 
     def pick_alt_model(self, model: str) -> str | None:
         return ai_engine.pick_alt_model(model)
+
+    def resolve_alt_model(self, primary_model: str, requested: str = "") -> str | None:
+        return ai_engine.resolve_alt_model(primary_model, requested)
 
     def cross_check_nl_stories(
         self,
@@ -162,10 +167,12 @@ class AiService:
         tech_stack: str = "",
         design_bundle: str = "",
         github_context: str = "",
+        instructions: str = "",
     ) -> list[dict]:
         result = ai_engine.generate_tasks(
             story_subject, gherkin, technical_spec,
             tech_stack=tech_stack, design_bundle=design_bundle, github_context=github_context,
+            instructions=instructions,
         )
         return [
             {
@@ -330,17 +337,20 @@ class AiService:
         context: str,
         section: str,
         prior_sections: dict[str, str],
+        instructions: str = "",
     ) -> str:
         if section == "ux_brief":
-            return ai_engine.generate_design_ux_brief(all_stories, context)
+            return ai_engine.generate_design_ux_brief(all_stories, context, instructions=instructions)
         if section == "endpoints":
             return ai_engine.generate_design_endpoints(
                 all_stories, context,
                 ux_brief=prior_sections.get("ux_brief", ""),
+                instructions=instructions,
             )
         if section == "data_model":
             return ai_engine.generate_design_data_model(
                 all_stories, context,
                 endpoints=prior_sections.get("endpoints", ""),
+                instructions=instructions,
             )
         raise ValueError(f"Unknown design section: {section!r}")

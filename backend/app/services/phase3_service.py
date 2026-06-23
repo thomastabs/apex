@@ -73,7 +73,7 @@ class Phase3Service:
             "design_bundle": self.context.read_context_file("design-bundle.md"),
         }
 
-    def generate_tasks(self, ctx: RequestContext, story_id: int) -> list[dict]:
+    def generate_tasks(self, ctx: RequestContext, story_id: int, instructions: str = "") -> list[dict]:
         self.configure_request(ctx)
         index = self.context.story_index()
         entry = index.get(str(story_id)) or {}
@@ -92,6 +92,7 @@ class Phase3Service:
         return self.ai.generate_tasks(
             story_title, gherkin, technical_spec,
             tech_stack=tech_stack, design_bundle=design_bundle, github_context=github_context,
+            instructions=instructions,
         )
 
     def cross_check_tasks(self, ctx: RequestContext, story_id: int, alt_model: str = "") -> dict:
@@ -110,7 +111,7 @@ class Phase3Service:
         if not gherkin:
             raise Phase3ValidationError(f"Story {story_id} has no Gherkin content.")
         primary = ai_engine.get_model()
-        alt = ai_engine.resolve_alt_model(primary, alt_model)
+        alt = self.ai.resolve_alt_model(primary, alt_model)
         if not alt:
             raise Phase3ValidationError(
                 "Cross-check needs a second AI provider — add another provider's API key (OpenAI/Google)."

@@ -46,6 +46,7 @@ class Phase1Service:
         epic_subject: str,
         epic_description: str,
         hint: str = "",
+        instructions: str = "",
     ) -> tuple[str, int]:
         self.configure_request(ctx)
         subject = epic_subject.strip()
@@ -57,6 +58,7 @@ class Phase1Service:
             epic_description,
             hint=hint,
             project_concept=concept,
+            instructions=instructions,
         )
 
     def cross_check_stories(
@@ -77,7 +79,7 @@ class Phase1Service:
         if not subject:
             raise Phase1ValidationError("epic_subject is required.")
         primary = ai_engine.get_model()
-        alt = ai_engine.resolve_alt_model(primary, alt_model)
+        alt = self.ai.resolve_alt_model(primary, alt_model)
         if not alt:
             raise Phase1ValidationError(
                 "Cross-check needs a second AI provider — add another provider's API key (OpenAI/Google)."

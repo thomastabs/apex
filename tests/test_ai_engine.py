@@ -1152,6 +1152,28 @@ class TestMultiModelCrossCheck:
         ai.generate_nl_stories("Epic", "desc", model="gpt-4o")
         assert captured["model"] == "gpt-4o"
 
+    def test_guidance_block_empty_by_default(self):
+        import src.ai_engine as ai
+        assert ai._guidance_block("") == ""
+        assert ai._guidance_block("   ") == ""
+
+    def test_guidance_block_fences_instructions(self):
+        import src.ai_engine as ai
+        block = ai._guidance_block("Favour REST conventions")
+        assert "Favour REST conventions" in block
+        assert "Author's guidance" in block
+
+    def test_generate_tasks_threads_instructions(self, monkeypatch):
+        import src.ai_engine as ai
+        captured = {}
+        def fake(system, human, model, schema, *a, **k):
+            captured["system"] = system
+            return ai.Phase3TaskList(tasks=[])
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress", fake)
+        monkeypatch.setattr(ai, "_reconcile_task_list", lambda r, g: r)
+        ai.generate_tasks("S", "Feature: F\n  Scenario: s", "spec", instructions="Keep tasks small")
+        assert "Keep tasks small" in captured["system"]
+
     def test_diff_task_lists(self):
         import src.ai_engine as ai
         p = {"tasks": [{"id": 1, "subject": "Add login route", "description": "x",

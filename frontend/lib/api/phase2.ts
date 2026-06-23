@@ -62,12 +62,13 @@ export function generateDesignSection(
   context: RequestContext,
   section: DesignSectionKey,
   prior: Record<string, string>,
+  instructions = "",
   signal?: AbortSignal,
 ): Promise<DesignSectionResponse> {
   return apiRequest<DesignSectionResponse>("/api/phase2/generate-design-section", {
     method: "POST",
     context,
-    body: { section, prior },
+    body: { section, prior, instructions },
     timeoutMs: PHASE2_AI_TIMEOUT_MS,
     signal,
   });

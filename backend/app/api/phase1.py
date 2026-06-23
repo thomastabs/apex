@@ -90,6 +90,7 @@ def generate_nl_stories(
             epic_subject=payload.epic_subject,
             epic_description=payload.epic_description,
             hint=payload.hint,
+            instructions=payload.instructions,
         )
         return {"nl_draft": nl_draft, "story_count": story_count}
     except Exception as exc:

@@ -140,7 +140,7 @@ async function runGenerate(
 
   const prior: Record<string, string> = {};
   for (const section of sections) {
-    const result = await generateDesignSection(CONTEXT, section, prior, new AbortController().signal);
+    const result = await generateDesignSection(CONTEXT, section, prior, "", new AbortController().signal);
     prior[section] = result.content;
     onSection(section, result.content, result.story_ids);
   }

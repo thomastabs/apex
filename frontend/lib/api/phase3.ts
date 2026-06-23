@@ -32,11 +32,11 @@ export function getStoryContext(context: RequestContext, storyId: number) {
   return apiRequest<Phase3StoryContext>(`/api/phase3/story-context/${storyId}`, { context });
 }
 
-export function generateTasks(context: RequestContext, storyId: number, signal?: AbortSignal) {
+export function generateTasks(context: RequestContext, storyId: number, instructions = "", signal?: AbortSignal) {
   return apiRequest<Phase3GenerateTasksResponse>("/api/phase3/generate-tasks", {
     method: "POST",
     context,
-    body: { story_id: storyId },
+    body: { story_id: storyId, instructions },
     timeoutMs: PHASE3_AI_TIMEOUT_MS,
     signal,
   });

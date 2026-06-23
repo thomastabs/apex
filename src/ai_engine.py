@@ -651,6 +651,24 @@ def _build_nl_human(
     return "\n\n".join(parts)
 
 
+def _guidance_block(instructions: str) -> str:
+    """Render optional author guidance ("Guide the AI" free text) into a prompt block.
+
+    Empty string when nothing was supplied so default behaviour is unchanged.
+    Advisory only — it never overrides the spec/Gherkin or the anti-hallucination
+    rules; it nudges emphasis, conventions, and phrasing for cross-phase consistency.
+    """
+    if not instructions.strip():
+        return ""
+    return (
+        "\n\nAuthor's guidance for THIS generation — preferences, conventions, or "
+        "emphases to favour for consistency with the rest of the project (advisory; "
+        "honour where it fits the inputs above, never invent requirements that are "
+        "not grounded in them):\n"
+        + fence_user_content(instructions)
+    )
+
+
 def generate_nl_stories(
     epic_subject: str,
     epic_description: str,
@@ -658,12 +676,13 @@ def generate_nl_stories(
     project_concept: str = "",
     on_story: Callable[[int], None] | None = None,
     model: str = "",
+    instructions: str = "",
 ) -> NLStoryList:
     human = _build_nl_human(epic_subject, epic_description, hint, project_concept)
     _logger.debug("generate_nl_stories prompt_version=%s", _NL_GENERATION_VERSION)
     return _invoke_structured_with_progress(
-        _NL_GENERATION_SYSTEM, human, model or get_model(), NLStoryList,
-        max_tokens=8192, temperature=0.2, on_item=on_story,
+        _NL_GENERATION_SYSTEM + _guidance_block(instructions), human, model or get_model(),
+        NLStoryList, max_tokens=8192, temperature=0.2, on_item=on_story,
     )
 
 
@@ -1394,34 +1413,34 @@ Rules:
 """
 
 
-def generate_design_ux_brief(all_stories: list[dict], context: str) -> str:
+def generate_design_ux_brief(all_stories: list[dict], context: str, instructions: str = "") -> str:
     grouped = _group_stories_by_epic(all_stories)
     system = _UX_BRIEF_SYSTEM.format(
         context=fence_user_content(context),
         anti_hallucination=_ANTI_HALLUCINATION,
-    )
+    ) + _guidance_block(instructions)
     return _ai_retry(lambda: _invoke(system, _format_stories_human(grouped), get_model(),
                                      max_tokens=3500, timeout=210, temperature=0.2))
 
 
-def generate_design_endpoints(all_stories: list[dict], context: str, *, ux_brief: str, model: str = "") -> str:
+def generate_design_endpoints(all_stories: list[dict], context: str, *, ux_brief: str, model: str = "", instructions: str = "") -> str:
     grouped = _group_stories_by_epic(all_stories)
     system = _ENDPOINTS_SYSTEM.format(
         context=fence_user_content(context),
         ux_brief=fence_user_content(ux_brief),
         anti_hallucination=_ANTI_HALLUCINATION,
-    )
+    ) + _guidance_block(instructions)
     return _ai_retry(lambda: _invoke(system, _format_stories_human(grouped), model or get_model(),
                                      max_tokens=8000, timeout=300))
 
 
-def generate_design_data_model(all_stories: list[dict], context: str, *, endpoints: str) -> str:
+def generate_design_data_model(all_stories: list[dict], context: str, *, endpoints: str, instructions: str = "") -> str:
     grouped = _group_stories_by_epic(all_stories)
     system = _DATA_MODEL_SYSTEM.format(
         context=fence_user_content(context),
         endpoints=fence_user_content(endpoints),
         anti_hallucination=_ANTI_HALLUCINATION,
-    )
+    ) + _guidance_block(instructions)
     return _ai_retry(lambda: _invoke(system, _format_stories_human(grouped), get_model(),
                                      max_tokens=3000, timeout=180))
 
@@ -1536,6 +1555,7 @@ def generate_tasks(
     design_bundle: str = "",
     github_context: str = "",
     model: str = "",
+    instructions: str = "",
 ) -> Phase3TaskList:
     system = _GENERATE_TASKS_SYSTEM.format(
         tech_stack=fence_user_content(tech_stack.strip() or "Not specified"),
@@ -1544,6 +1564,7 @@ def generate_tasks(
     )
     if github_context.strip() and not github_context.strip().startswith("<!--"):
         system += "\n\nExisting Codebase (GitHub):\n" + fence_user_content(github_context)
+    system += _guidance_block(instructions)
     human = (
         "User Story: " + fence_user_content(story_subject)
         + "\n\nAcceptance Criteria (Gherkin):\n" + fence_user_content(gherkin)

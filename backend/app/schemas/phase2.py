@@ -31,6 +31,7 @@ class LockTechStackRequest(BaseModel):
 class DesignSectionRequest(BaseModel):
     section: Literal["ux_brief", "endpoints", "data_model"]
     prior: dict[str, str] = Field(default_factory=dict)
+    instructions: str = Field("", max_length=2_000)
 
 
 class CrossCheckEndpointsRequest(BaseModel):

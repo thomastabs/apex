@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 class GenerateTasksRequest(BaseModel):
     story_id: int
+    instructions: str = Field("", max_length=2_000)
 
 
 class TaskSchema(BaseModel):

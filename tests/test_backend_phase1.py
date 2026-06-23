@@ -28,6 +28,7 @@ class FakeAiService:
         *,
         hint: str,
         project_concept: str,
+        instructions: str = "",
     ) -> tuple[str, int]:
         self.generated_args = (epic_subject, epic_description, hint, project_concept)
         return "[S] Story A", 1
@@ -40,6 +41,9 @@ class FakeAiService:
 
     def pick_alt_model(self, model: str):
         return self.alt
+
+    def resolve_alt_model(self, primary_model: str, requested: str = ""):
+        return requested or self.pick_alt_model(primary_model)
 
     def cross_check_nl_stories(self, epic_subject, epic_description, *, hint, project_concept, primary_model, alt_model):
         self.cross_args = (epic_subject, primary_model, alt_model)

@@ -83,7 +83,7 @@ class StubPhase3Service:
             "design_bundle": "## UX\n- Login screen",
         }
 
-    def generate_tasks(self, ctx, story_id):
+    def generate_tasks(self, ctx, story_id, instructions=""):
         return _FAKE_TASKS
 
     def generate_proposal(
@@ -292,7 +292,7 @@ def test_phase3_validation_error_maps_to_422():
 
 def test_ai_rate_limit_error_maps_to_429():
     class FailingService(StubPhase3Service):
-        def generate_tasks(self, ctx, story_id):
+        def generate_tasks(self, ctx, story_id, instructions=""):
             raise AIRateLimitError("Rate limited")
 
     with pytest.raises(HTTPException) as exc:

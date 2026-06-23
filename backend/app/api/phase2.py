@@ -111,6 +111,7 @@ def generate_design_section(
     try:
         return service.generate_design_section(
             ctx, section=payload.section, prior_sections=payload.prior,
+            instructions=payload.instructions,
         )
     except Exception as exc:
         _handle_error(exc)

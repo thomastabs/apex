@@ -56,6 +56,7 @@ import { useApiContext, useGithubContext } from "@/lib/stores/session-store";
 import { SignInRequired } from "@/components/sign-in-required";
 import { useAiConfig, useServerConfig, useLogDecision } from "@/lib/hooks/use-workspace";
 import { CrossCheckPanel, AltModelSelect } from "@/components/cross-check-panel";
+import { GuideTheAI } from "@/components/guide-the-ai";
 import type { CrossCheckResult } from "@/lib/api/phase1";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
@@ -446,6 +447,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const crossCheckTasksMut = useCrossCheckTasks();
   const [crossResult, setCrossResult] = useState<CrossCheckResult | null>(null);
   const [altModel, setAltModel] = useState("");
+  const [taskGuidance, setTaskGuidance] = useState("");
   const aiConfig = useAiConfig();
   const crossEnabled = (aiConfig.data?.configured_providers?.length ?? 0) >= 2;
   const { addTask, removeTask, updateTask, reorderTasks } = useUpdateTaskList();
@@ -598,6 +600,13 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
       })()}
 
       {/* Generate tasks + Continue */}
+      <GuideTheAI
+        value={taskGuidance}
+        onChange={setTaskGuidance}
+        dark={dark}
+        disabled={generateTasksMut.isPending}
+        placeholder="Optional notes to steer task decomposition — granularity, ordering, conventions, things to favour or avoid. The Gherkin + design still drive the work."
+      />
       <div className="grid grid-cols-2 gap-3">
         <Button
           className="w-full justify-center"
@@ -605,7 +614,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
           // (use Clear first to avoid diverging from the PM board). When the list
           // is empty there is nothing to diverge from, so always allow generating
           // — otherwise a previously-pushed story with no loaded tasks deadlocks.
-          onClick={() => generateTasksMut.mutate(storyId)}
+          onClick={() => generateTasksMut.mutate({ storyId, instructions: taskGuidance })}
           disabled={generateTasksMut.isPending || (tasksPushed && taskList.length > 0)}
         >
           {generateTasksMut.isPending

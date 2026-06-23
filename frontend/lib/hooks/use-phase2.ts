@@ -101,7 +101,7 @@ export function useGenerateDesignSections() {
   const abortRef = useRef<AbortController | null>(null);
 
   const generate = useCallback(
-    async (callbacks: DesignSectionCallbacks) => {
+    async (callbacks: DesignSectionCallbacks, instructions = "") => {
       if (!context) return;
       abortRef.current = new AbortController();
       setIsPending(true);
@@ -111,7 +111,7 @@ export function useGenerateDesignSections() {
         for (const section of DESIGN_SECTION_ORDER) {
           setCurrentSection(section);
           const result = await generateDesignSection(
-            context, section, prior, abortRef.current.signal,
+            context, section, prior, instructions, abortRef.current.signal,
           );
           prior[section] = result.content;
           callbacks.onSection(section, result.content, result.story_ids);
@@ -136,6 +136,7 @@ export function useGenerateDesignSections() {
       targetSection: DesignSectionKey,
       priorSections: Record<string, string>,
       callbacks: DesignSectionCallbacks,
+      instructions = "",
     ) => {
       if (!context) return;
       abortRef.current = new AbortController();
@@ -144,7 +145,7 @@ export function useGenerateDesignSections() {
       setCurrentSection(targetSection);
       try {
         const result = await generateDesignSection(
-          context, targetSection, priorSections, abortRef.current.signal,
+          context, targetSection, priorSections, instructions, abortRef.current.signal,
         );
         callbacks.onSection(targetSection, result.content, result.story_ids);
         callbacks.onDone();

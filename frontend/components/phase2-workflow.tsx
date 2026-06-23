@@ -36,6 +36,7 @@ import {
 } from "@/lib/hooks/use-phase2";
 import { useAiConfig, useLogDecision } from "@/lib/hooks/use-workspace";
 import { CrossCheckPanel, AltModelSelect } from "@/components/cross-check-panel";
+import { GuideTheAI } from "@/components/guide-the-ai";
 import type { CrossCheckResult } from "@/lib/api/phase1";
 import type { DesignSectionKey } from "@/lib/api/types";
 import { usePhase2Store } from "@/lib/stores/phase2-store";
@@ -163,6 +164,7 @@ export function Phase2Workflow() {
   const crossCheckEndpointsMut = useCrossCheckEndpoints();
   const [endpointsCross, setEndpointsCross] = useState<CrossCheckResult | null>(null);
   const [altModel, setAltModel] = useState("");
+  const [designGuidance, setDesignGuidance] = useState("");
   const aiConfig = useAiConfig();
   const crossEnabled = (aiConfig.data?.configured_providers?.length ?? 0) >= 2;
 
@@ -288,7 +290,7 @@ export function Phase2Workflow() {
         setPartial({});
         toast.success("Project design generated");
       },
-    });
+    }, designGuidance);
   }
 
   function doGenerateSection(targetSection: DesignSectionKey) {
@@ -362,7 +364,7 @@ export function Phase2Workflow() {
           commit();
         }
       },
-    });
+    }, designGuidance);
   }
 
   const sectionBorderClass = dark ? "border-neutral-700" : "border-slate-200";
@@ -623,6 +625,13 @@ export function Phase2Workflow() {
             </div>
 
             <div className="space-y-2">
+              <GuideTheAI
+                value={designGuidance}
+                onChange={setDesignGuidance}
+                dark={dark}
+                disabled={generateSections.isPending}
+                placeholder="Optional notes to steer the design — API conventions, naming, patterns to favour or avoid, things to keep consistent across sections. The stories still drive the scope."
+              />
               {generateSections.isPending ? (
                 <button
                   className={cn("flex w-full items-center justify-center gap-2 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}

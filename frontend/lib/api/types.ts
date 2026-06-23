@@ -121,6 +121,7 @@ export type Phase1GenerateNlStoriesRequest = {
   epic_subject: string;
   epic_description?: string;
   hint?: string;
+  instructions?: string;
 };
 
 export type Phase1GenerateNlStoriesResponse = {

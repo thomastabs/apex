@@ -23,7 +23,7 @@ class StubPhase1Service:
     def __init__(self):
         self.last_ctx = None
 
-    def generate_nl_stories(self, ctx, *, epic_subject, epic_description, hint=""):
+    def generate_nl_stories(self, ctx, *, epic_subject, epic_description, hint="", instructions=""):
         self.last_ctx = ctx
         return f"[S] {epic_subject}", 1
 

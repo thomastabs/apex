@@ -44,6 +44,7 @@ class GenerateNlStoriesRequest(BaseModel):
     epic_subject: str = Field(..., max_length=500)
     epic_description: str = Field("", max_length=5_000)
     hint: str = Field("", max_length=2_000)
+    instructions: str = Field("", max_length=2_000)
 
 
 class GenerateNlStoriesResponse(BaseModel):

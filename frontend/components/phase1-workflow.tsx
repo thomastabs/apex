@@ -20,6 +20,7 @@ import {
 import { useAiConfig, useContextFiles, useUpdateContextFile } from "@/lib/hooks/use-workspace";
 import type { CrossCheckResult } from "@/lib/api/phase1";
 import { CrossCheckPanel, AltModelSelect } from "@/components/cross-check-panel";
+import { GuideTheAI } from "@/components/guide-the-ai";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import type { CompiledStory, EpicSuggestion, RequirementGapReport } from "@/lib/api/types";
@@ -889,10 +890,13 @@ export function Phase1Workflow() {
               </div>
             ) : null}
             {!canGenerate ? <Callout>Fill in your Epic above, then click Generate to create Natural Language user stories.</Callout> : null}
-            <label className={cn("block text-sm font-medium", labelClass)}>
-              AI Guidance <span className={dark ? "text-neutral-500" : "text-slate-400"}>Optional</span>
-              <Input value={generateHint} onChange={(event) => setGenerateHint(event.target.value)} placeholder="e.g. focus on error handling and edge cases" />
-            </label>
+            <GuideTheAI
+              value={generateHint}
+              onChange={setGenerateHint}
+              dark={dark}
+              disabled={busy}
+              placeholder="Optional notes to steer story generation — emphases, conventions, edge cases to favour. The Epic still drives what stories exist."
+            />
             <div className="flex gap-2">
               <Button variant="secondary" className="gap-1.5" onClick={() => setStep(1)} disabled={busy}>
                 <ChevronLeft className="size-4" /> Back
