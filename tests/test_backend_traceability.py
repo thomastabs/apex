@@ -12,10 +12,11 @@ def _ctx() -> RequestContext:
 
 
 class FakeContextService:
-    def __init__(self, index=None, proposals=None, gherkin="Feature: f\n  Scenario: a\n  Scenario: b"):
+    def __init__(self, index=None, proposals=None, gherkin="Feature: f\n  Scenario: a\n  Scenario: b", verifications=None):
         self.index = index or {}
         self.proposals = proposals or []
         self.gherkin = gherkin
+        self.verifications = verifications or {}
 
     def set_active(self, ctx):
         pass
@@ -29,9 +30,13 @@ class FakeContextService:
     def story_gherkin(self, story_id):
         return self.gherkin
 
+    def load_verification(self, story_id):
+        return self.verifications.get(story_id)
 
-def _graph(index, **kw):
-    return TraceabilityService(context=FakeContextService(index=index, **kw)).build_graph(_ctx())
+
+def _graph(index, include_scenarios=False, **kw):
+    return TraceabilityService(context=FakeContextService(index=index, **kw)).build_graph(
+        _ctx(), include_scenarios=include_scenarios)
 
 
 def test_empty_index_is_just_the_project_node():
@@ -81,11 +86,35 @@ def test_conflict_pairs_become_conflict_edges(monkeypatch):
     assert ("story:1", "story:2", "conflict") in {(e["source"], e["target"], e["kind"]) for e in g["edges"]}
 
 
+def test_scenario_layer_adds_scenario_nodes_and_verify_edges():
+    index = {"1": {"story_id": 1, "epic_id": 1, "title": "Login", "phase_status": "qa_passed",
+                   "has_gherkin": True, "has_bdd": True}}
+    verif = {1: {"scenarios": [
+        {"scenario": "a", "qa_result": "passed", "gaps": []},
+        {"scenario": "b", "qa_result": "untested", "gaps": ["no pack"]},
+    ]}}
+    g = _graph(index, include_scenarios=True, verifications=verif)
+    sc = {n["id"]: n for n in g["nodes"] if n["type"] == "scenario"}
+    assert set(sc) == {"scenario:1:0", "scenario:1:1"}
+    assert sc["scenario:1:0"]["verified"] is True
+    assert sc["scenario:1:1"]["flags"]["gap"] is True
+    kinds = {(e["source"], e["target"], e["kind"]) for e in g["edges"]}
+    assert ("gherkin:1", "scenario:1:0", "derive") in kinds
+    assert ("scenario:1:0", "tests:1", "verify") in kinds  # passed scenario links to tests
+    assert ("scenario:1:1", "tests:1", "verify") not in kinds  # untested does not
+
+
+def test_scenarios_off_by_default():
+    index = {"1": {"story_id": 1, "epic_id": 1, "title": "S", "phase_status": "new", "has_gherkin": True}}
+    g = _graph(index)
+    assert not any(n["type"] == "scenario" for n in g["nodes"])
+
+
 def test_route_maps_failure_to_500(monkeypatch):
     from backend.app.api import workspace
     monkeypatch.setattr(
         workspace.ContextService, "set_active", lambda self, ctx: (_ for _ in ()).throw(RuntimeError("boom")),
     )
     with pytest.raises(HTTPException) as exc:
-        workspace.traceability_graph(_ctx())
+        workspace.traceability_graph(ctx=_ctx())
     assert exc.value.status_code == 500

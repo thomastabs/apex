@@ -31,6 +31,7 @@ type NodeData = {
   phase?: number | null;
   phaseStatus?: string | null;
   scenarioCount?: number | null;
+  verified?: boolean | null;
   flags: Record<string, boolean>;
   dark: boolean;
 };
@@ -42,6 +43,7 @@ const TYPE_COLOR: Record<TraceNodeType, string> = {
   design: "#14b8a6",
   story: "#6366f1",
   gherkin: "#a855f7",
+  scenario: "#c084fc",
   tasks: "#f59e0b",
   tests: "#10b981",
   deploy: "#ef4444",
@@ -103,6 +105,15 @@ function TraceFlowNode({ data }: { data: NodeData }) {
           {typeof data.scenarioCount === "number" && data.scenarioCount > 0 ? (
             <span className={data.dark ? "text-neutral-500" : "text-slate-400"}>{data.scenarioCount} scenarios</span>
           ) : null}
+          {data.ntype === "scenario" ? (
+            data.verified ? (
+              <span className="text-emerald-500">✓ verified</span>
+            ) : data.flags.gap ? (
+              <span className="text-red-500">✗ gap</span>
+            ) : (
+              <span className={data.dark ? "text-neutral-500" : "text-slate-400"}>untested</span>
+            )
+          ) : null}
         </div>
       </div>
       <Handle type="source" position={Position.Right} className="!h-2 !w-2" style={{ background: accent }} />
@@ -120,6 +131,8 @@ function edgeStyle(kind: ApiEdge["kind"], dark: boolean) {
       return { animated: true, style: { stroke: "#8b5cf6", strokeWidth: 1.5, strokeDasharray: "5 4" } };
     case "design":
       return { animated: false, style: { stroke: "#14b8a6", strokeWidth: 1.25, strokeDasharray: "4 3" } };
+    case "verify":
+      return { animated: false, style: { stroke: "#10b981", strokeWidth: 1.25 } };
     default:
       return { animated: false, style: { stroke: dark ? "#52525b" : "#cbd5e1", strokeWidth: 1.25 } };
   }
@@ -129,12 +142,13 @@ export function TraceabilityGraphPanel() {
   const dark = useUiStore((s) => s.theme) === "dark";
   const context = useApiContext();
   const router = useRouter();
-  const { data, isLoading, error } = useTraceabilityGraph();
-
   const [epicFilter, setEpicFilter] = useState<string>("all");
   const [flaggedOnly, setFlaggedOnly] = useState(false);
+  const [showScenarios, setShowScenarios] = useState(false);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<NodeData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+
+  const { data, isLoading, error } = useTraceabilityGraph(showScenarios);
 
   const epics = useMemo(
     () => (data?.nodes ?? []).filter((n) => n.type === "epic").map((n) => ({ id: n.id, label: n.label })),
@@ -181,6 +195,7 @@ export function TraceabilityGraphPanel() {
         phase: n.phase,
         phaseStatus: n.phase_status,
         scenarioCount: n.scenario_count,
+        verified: n.verified,
         flags: n.flags ?? {},
         dark,
       },
@@ -249,6 +264,10 @@ export function TraceabilityGraphPanel() {
             <label className={cn("flex items-center gap-1.5 text-sm", dark ? "text-neutral-300" : "text-slate-600")}>
               <input type="checkbox" checked={flaggedOnly} onChange={(e) => setFlaggedOnly(e.target.checked)} className="accent-violet-500" />
               Flagged stories only
+            </label>
+            <label className={cn("flex items-center gap-1.5 text-sm", dark ? "text-neutral-300" : "text-slate-600")}>
+              <input type="checkbox" checked={showScenarios} onChange={(e) => setShowScenarios(e.target.checked)} className="accent-violet-500" />
+              Show scenarios
             </label>
             <span className={cn("ml-auto text-xs", mutedClass)}>{nodes.length} nodes · {edges.length} edges</span>
           </div>

@@ -30,7 +30,7 @@ class TraceabilityService:
     def __init__(self, context: ContextService | None = None):
         self.context = context or ContextService()
 
-    def build_graph(self, ctx: RequestContext) -> dict:
+    def build_graph(self, ctx: RequestContext, include_scenarios: bool = False) -> dict:
         from src import ai_engine
 
         context = self.context
@@ -91,12 +91,32 @@ class TraceabilityService:
             if entry.get("has_gherkin"):
                 gh_node = f"gherkin:{sid}"
                 try:
-                    count = len(ai_engine._parse_gherkin_titles(context.story_gherkin(int(sid))))
+                    titles = ai_engine._parse_gherkin_titles(context.story_gherkin(int(sid)))
                 except Exception:
-                    count = 0
+                    titles = []
                 nodes.append({"id": gh_node, "type": "gherkin", "label": "Gherkin",
-                              "story_id": entry.get("story_id"), "phase": 1, "scenario_count": count})
+                              "story_id": entry.get("story_id"), "phase": 1, "scenario_count": len(titles)})
                 add_edge(prev, gh_node, "derive")
+                if include_scenarios and titles:
+                    try:
+                        verif = context.load_verification(int(sid)) or {}
+                    except Exception:
+                        verif = {}
+                    rows = {r.get("scenario", ""): r for r in verif.get("scenarios", [])}
+                    has_tests = bool(entry.get("has_bdd"))
+                    for i, title in enumerate(titles):
+                        sc_node = f"scenario:{sid}:{i}"
+                        row = rows.get(title)
+                        verified = bool(row and row.get("qa_result") == "passed")
+                        nodes.append({
+                            "id": sc_node, "type": "scenario", "label": title,
+                            "story_id": entry.get("story_id"), "phase": 1,
+                            "verified": verified,
+                            "flags": {"gap": bool(row and row.get("gaps"))},
+                        })
+                        add_edge(gh_node, sc_node, "derive")
+                        if verified and has_tests:
+                            add_edge(sc_node, f"tests:{sid}", "verify")
                 prev = gh_node
 
             if entry.get("has_tech_spec"):

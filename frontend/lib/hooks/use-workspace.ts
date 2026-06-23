@@ -452,11 +452,11 @@ export function useStoryIndexStats() {
   });
 }
 
-export function useTraceabilityGraph() {
+export function useTraceabilityGraph(scenarios = false) {
   const context = useApiContext();
   return useQuery({
-    queryKey: ["workspace", "traceability-graph", context?.projectId],
-    queryFn: () => getTraceabilityGraph(context!),
+    queryKey: ["workspace", "traceability-graph", context?.projectId, scenarios],
+    queryFn: () => getTraceabilityGraph(context!, scenarios),
     enabled: Boolean(context),
     staleTime: 30 * 1000,
   });

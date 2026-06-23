@@ -162,13 +162,13 @@ def get_context_files(ctx: RequestContext = Depends(get_request_context)):
 
 
 @router.get("/traceability-graph", response_model=TraceabilityGraphResponse)
-def traceability_graph(ctx: RequestContext = Depends(get_request_context)):
+def traceability_graph(scenarios: bool = False, ctx: RequestContext = Depends(get_request_context)):
     """Project-wide derivation graph (pure, no AI) for the traceability view."""
     from backend.app.services.traceability_service import TraceabilityService
 
     context = ContextService()
     try:
-        return TraceabilityService(context=context).build_graph(ctx)
+        return TraceabilityService(context=context).build_graph(ctx, include_scenarios=scenarios)
     except Exception as exc:
         _logger.exception("traceability_graph failed: %s", exc)
         raise HTTPException(

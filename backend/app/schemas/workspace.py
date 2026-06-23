@@ -125,12 +125,13 @@ class StoryIndexStatsResponse(BaseModel):
 
 class TraceNode(BaseModel):
     id: str
-    type: Literal["project", "epic", "design", "story", "gherkin", "tasks", "tests", "deploy"]
+    type: Literal["project", "epic", "design", "story", "gherkin", "scenario", "tasks", "tests", "deploy"]
     label: str
     phase: int | None = None
     story_id: int | None = None
     phase_status: str | None = None
     scenario_count: int | None = None
+    verified: bool | None = None
     flags: dict[str, bool] = Field(default_factory=dict)
 
 
@@ -138,7 +139,7 @@ class TraceEdge(BaseModel):
     id: str
     source: str
     target: str
-    kind: Literal["derive", "design", "conflict", "trace"]
+    kind: Literal["derive", "design", "conflict", "trace", "verify"]
 
 
 class TraceabilityGraphResponse(BaseModel):
