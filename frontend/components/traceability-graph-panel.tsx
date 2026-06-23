@@ -15,7 +15,7 @@ import {
   type Edge,
 } from "@xyflow/react";
 import Dagre from "@dagrejs/dagre";
-import { AlertTriangle, GitFork, LayoutDashboard, Loader2, Undo2 } from "lucide-react";
+import { AlertTriangle, GitFork, LayoutDashboard, Loader2, RefreshCw, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -148,7 +148,7 @@ export function TraceabilityGraphPanel() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<NodeData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
-  const { data, isLoading, error } = useTraceabilityGraph(showScenarios);
+  const { data, isLoading, error, refetch, isFetching } = useTraceabilityGraph(showScenarios);
   const saveLayout = useSaveTraceLayout();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -304,6 +304,16 @@ export function TraceabilityGraphPanel() {
               )}
             >
               <LayoutDashboard className="size-3.5" /> Re-layout
+            </button>
+            <button
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50",
+                dark ? "border-neutral-700 text-neutral-300 hover:bg-neutral-800" : "border-slate-300 text-slate-600 hover:bg-slate-100",
+              )}
+            >
+              <RefreshCw className={cn("size-3.5", isFetching && "animate-spin")} /> Refresh
             </button>
             <span className={cn("ml-auto text-xs", mutedClass)}>{nodes.length} nodes · {edges.length} edges</span>
           </div>

@@ -460,6 +460,9 @@ export function useTraceabilityGraph(scenarios = false) {
     queryFn: () => getTraceabilityGraph(context!, scenarios),
     enabled: Boolean(context),
     staleTime: 30 * 1000,
+    // Reflect work done in other phases: refetch when the graph page regains
+    // focus or remounts (it's a standalone route). Stays fresh without websockets.
+    refetchOnWindowFocus: true,
   });
 }
 
