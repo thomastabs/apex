@@ -9,7 +9,7 @@ The current migrated version is a split full-stack web app:
 - **Storage:** `contextspec/` folder in Azure File Share in deployment
 - **Deployment:** GitHub Actions builds Docker images and deploys to Azure Container Apps
 
-Phases 1–6 are implemented, plus a governance analytics dashboard. The spec-model upgrade roadmap is fully shipped: EARS constraints, spec↔code conformance, deterministic agent-target compilation, controlled spec co-evolution, and per-epic context slicing.
+Phases 1–6 are implemented, plus a governance analytics dashboard and a **living traceability graph** (project-wide spec→code derivation view). The spec-model upgrade roadmap is fully shipped: EARS constraints, spec↔code conformance, deterministic agent-target compilation, controlled spec co-evolution, and per-epic context slicing. Human-in-the-loop guardrails layer on top — multi-model cross-check, diff-on-regenerate, a decision log, and an optional "Guide the AI" steer on every generative step.
 
 <img width="1908" height="991" alt="image" src="https://github.com/user-attachments/assets/818d2d66-add0-40c4-883f-c558a8445183" />
 
@@ -317,6 +317,8 @@ Editing a **locked** spec artifact (e.g. `functional-spec.md` after `gherkin_loc
 - **Preset tech stacks (Phase 2)** — a "Start from a preset" picker seeds the editable Technology Choices draft from a curated list (Next.js + FastAPI, Django + React, Express + Mongo, T3, Spring Boot + React, FastAPI + HTMX). No AI call — skips the propose round-trip for common stacks; the user edits the seeded markdown and locks as usual.
 - **Diff-on-regenerate** — regenerating an artifact that already has content (Phase 2 design section, Phase 3 developer pack, Phase 4 test plan, Phase 5 deploy pack) no longer silently replaces it: a modal shows an old-vs-new line diff (dependency-free LCS) with **Accept** (replace) / **Discard** (keep current). First-generation and bulk generation commit directly. Deliberate revisions (e.g. a Phase 5 deploy-pack revise with feedback) commit directly — the gate is for blind regenerations only.
 - **Decision log** — Apex remembers rejected work. Discarding a regeneration, or revising a deploy pack with feedback, appends a dated entry to an append-only `decisions.md` (viewable + hand-editable in the sidebar). The log is fed back into Phase 3 coding-proposal prompts as advisory **negative constraints** ("approaches already rejected — do not re-propose"), EMPTY-default so it changes nothing until decisions exist.
+- **Multi-model cross-check (Phase 1/2/3)** — on demand, run a structured phase through the active model **and** a second configured provider, then show where they disagree via a pure set-diff (no AI in the diff). Available on Phase 1 (story scenarios), Phase 2 (design endpoints) and Phase 3 (task decomposition); the panel lists *agreed* vs *only-in-each* items with per-item **Add** and **Add all**, so the human folds in what the first model missed. A model picker lets you choose which provider to cross-check against (a keyed, different-provider model) or auto-pick; the button is gated on ≥2 keyed providers (Anthropic / OpenAI / Google are all wired in `ai_engine`). Distinct from the same-provider adversarial conformance panel (Phase 6 "Deep verify").
+- **Guide the AI (Phases 1–5)** — every generative step takes an optional free-text guidance note (collapsible "Guide the AI" input) threaded into the prompt as an advisory block — emphases, conventions, things to favour or avoid — EMPTY-default so it never overrides the spec/Gherkin or anti-hallucination rules. Originally on Phase 4/5 (test plan / deploy pack); now consistent across Phase 1 (story generation), Phase 2 (design) and Phase 3 (task decomposition) for cross-phase consistency.
 
 ### Analytics
 
@@ -330,6 +332,15 @@ The `/analytics` page computes the framework's Core Governance Metrics on demand
 - Phase funnel and per-story drill-down table; CSV and Markdown export
 
 A dedicated **Fix Bolt** page (top nav, left of Analytics) lists every per-story Fix-Bolt bug report (view/edit/download/delete) and the permanent Fix Log — the management surface for the artifacts produced by Phase 4 QA fails and Phase 6 maintenance.
+
+### Living Traceability Graph
+
+The **Trace** page (`/traceability`, top nav) renders the whole project as one interactive derivation graph — **epic → story → Gherkin → design → tasks → tests → deploy** — so the spec lineage is visible at a glance and any node is one click away from its phase. It is **pure-derived** (no AI): set arithmetic over the story index + context files, the same approach as the design-drift detector.
+
+- **Nodes** (bounded): project, one per epic, one per story (tinted by phase status), the present phase-artifact nodes of each story (Gherkin / Tasks / Tests / Deploy), and one project-level Design node. Bug/fix state folds onto the story node.
+- **Edges & overlays:** the derivation chain, story↔design links, **cross-story design-conflict** edges (amber, reusing `detect_design_conflicts`), and **backward-trace** edges (violet dashed, from a downstream gap back to the flagged source phase). Conflict / trace / bug badges on the nodes.
+- **Scenario layer (toggle):** drill into per-story Gherkin scenarios with `verify` edges and ✓verified / ✗gap flags sourced from the Phase 4 verification matrix. Off by default (node-count guard).
+- **Interactions:** click a node → jump to its phase; filter by epic or "flagged stories only"; React Flow + Dagre auto-layout with a MiniMap; **drag to rearrange** (layout persists to `trace-layout.json`) + **Re-layout**; **Refresh** (also refetches on tab focus); **Export PNG** of the whole graph for reports.
 
 ### Sidebar Workspace
 
@@ -375,7 +386,8 @@ Implemented:
 | `backend/app/api/phase6.py` | Phase 6 HTTP routes — spec↔code conformance (Traceability) + maintenance triage / Fix-Bolt routing |
 | `backend/app/services/maintenance_service.py` | Phase 6 Maintenance & Evolution workflow (triage, diagnosis, Fix-Bolt routing, fix log) |
 | `backend/app/api/analytics.py` | Governance analytics endpoint |
-| `backend/app/api/workspace.py` | Sidebar/workspace routes: auth, projects, board, users, context files, AI config |
+| `backend/app/services/traceability_service.py` | Living traceability graph builder — pure derivation graph (nodes/edges) over the story index + context files |
+| `backend/app/api/workspace.py` | Sidebar/workspace routes: auth, projects, board, users, context files, AI config, traceability graph |
 | `backend/app/api/taiga_proxy.py` | FastAPI reverse proxy for all Taiga REST calls — SSRF-guarded, header-injection-safe, forwards `DELETE/GET/PATCH/POST/PUT /api/pm/taiga/{path}` to the configured Taiga instance; `_egress()` optionally routes through the Cloudflare relay (see [Taiga egress relay](#taiga-egress-relay-azure-deployment)) |
 | `infra/cloudflare/taiga-relay/` | Cloudflare Worker that forwards Taiga calls from a non-Azure IP — Taiga Cloud firewall-DROPs Azure Container Apps egress (`worker.js`, `wrangler.toml`, `README.md`) |
 | `backend/app/api/jira_proxy.py` | FastAPI reverse proxy for Jira Cloud REST API v3 (Basic auth, SSRF-guarded to `*.atlassian.net`) |
@@ -387,7 +399,7 @@ Implemented:
 | `src/storage.py` | Storage abstraction over local disk or Azure File Share SDK |
 | `src/taiga_adapter.py` | Taiga web URL derivation for the config endpoint (minimal stub; all Taiga REST calls go through `taiga_proxy.py`) |
 | `frontend/app/` | Next.js routes |
-| `frontend/components/` | App shell, sidebar, Phase 1–6 workflow components (incl. `phase6-workflow.tsx`, `maintenance-triage.tsx`), UI primitives |
+| `frontend/components/` | App shell, sidebar, Phase 1–6 workflow components (incl. `phase6-workflow.tsx`, `maintenance-triage.tsx`), the traceability graph (`traceability-graph-panel.tsx`), shared cross-check + guide-the-AI panels, UI primitives |
 | `frontend/lib/api/taiga-direct.ts` | Taiga REST client — all CRUD, auth, and story transitions; sends requests to the FastAPI Taiga proxy with `X-Taiga-Url` header |
 | `frontend/lib/api/pm-types.ts` | `ProjectManagementAdapter` interface and shared PM types |
 | `frontend/lib/api/pm-factory.ts` | `getPmAdapter(pmTool)` dispatcher — returns Taiga or Jira adapter |
@@ -427,6 +439,7 @@ Apex stores workflow state in context files under `contextspec/<instance_id>/<pr
 | `infra_delta_story_<id>.json` / `.md` | Phase 5 infra delta verdict (JSON canonical + rendered markdown) |
 | `deploy_pack_story_<id>.md` | Phase 5 deploy pack — scripts and rollback plan for flagged infra changes |
 | `verification_story_<id>.json` / `.md` | Traceability matrix persisted as Deployment Gate evidence |
+| `trace-layout.json` | Saved manual node positions for the living traceability graph |
 | `deployment-log.md` | Append-only log of Deployment Gate decisions (route, sign-offs, traceability summary) |
 | `conformance_story_<id>.json` | Phase 6 spec↔code conformance report (endpoints/scenarios/constraints + code-computed score) |
 | `maintenance_items.json` | Phase 6 maintenance triage items (source, classification, status, diagnosis, lane) |
@@ -1020,30 +1033,30 @@ gh variable set APEX_NIGHT_MODE --body on    # re-enable (default)
 | Phase 5 · Deployment | Implemented |
 | Phase 6 · Maintenance & Traceability | Implemented |
 | Governance Analytics | Implemented |
+| Living Traceability Graph | Implemented |
 
 ---
 
 ## Future Work
 
-These came out of a phase-flow review. The remaining directions are not built yet:
+Every named feature from the phase-flow review backlog is now shipped (all
+documented above):
 
-- **Living traceability graph** *(the differentiator)* — a single queryable graph
-  concept → EARS → Gherkin → design → task → pack → test → deploy → conformance,
-  with **backward edges** ("why does this endpoint exist?", "what breaks if I
-  change story 5?"). The Phase 6 Traceability Explorer is the seed.
-- **Cross-story design-drift detector** — on a Phase 2/3 lock, the AI diffs the new
-  artifact against sibling stories' locked designs and warns on contradiction
-  (duplicate endpoint, conflicting data model). Extends the existing
-  reconciliation seam (`covered_scenarios`/DAG).
-- **Multi-model cross-check** — run the structured phases through two providers
-  (Anthropic + OpenAI + Google are all wired in `ai_engine`) and flag
-  disagreement. Distinct from the merged same-provider adversarial conformance
-  panel (already shipped, Phase 6 "Deep verify").
+- **Living traceability graph** *(the differentiator)* — project-wide derivation
+  graph with cross-story conflict + backward-trace overlays, scenario drill-down,
+  saved layout, and PNG export (see [Living Traceability Graph](#living-traceability-graph)).
+- **Cross-story design-drift detector** — `detect_design_conflicts` flags packs
+  sharing a file/endpoint across distinct stories (amber board badge + Phase-3 scan).
+- **Multi-model cross-check** — Phases 1/2/3, with an alt-model picker (see
+  [Human-in-the-loop guardrails](#human-in-the-loop-guardrails)).
+- **Backward trace propagation**, **diff-on-regenerate**, **decision log**,
+  **preset tech stacks**, the **adversarial multi-agent conformance verifier**
+  (Phase 6 "Deep verify"), and the **spec-anchored regression scan** (Phase 6
+  "Scan for regressions").
 
-**Shipped from this backlog:** the adversarial multi-agent conformance verifier
-(Phase 6 "Deep verify"), the spec-anchored regression scan (Phase 6 "Scan for
-regressions"), **backward trace propagation**, **diff-on-regenerate**, the
-**decision log**, and **preset tech stacks** — all documented above.
+Remaining open items are minor: Jira issue intake for Phase 6, plus a handful of
+accepted cosmetic/low-severity polish items. Deferred graph v1.1 extras (already
+partly shipped) — none outstanding.
 
 ---
 
