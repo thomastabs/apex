@@ -156,4 +156,20 @@ class TraceabilityService:
             if target:
                 add_edge(f"story:{sid}", target, "trace")
 
+        # Merge any saved manual layout onto matching node ids (unknown/new ids
+        # stay None → the client Dagre-fills only those).
+        try:
+            layout = context.load_trace_layout() or {}
+        except Exception:
+            layout = {}
+        for n in nodes:
+            pos = layout.get(n["id"])
+            n["position"] = {"x": pos["x"], "y": pos["y"]} if isinstance(pos, dict) and "x" in pos and "y" in pos else None
+
         return {"nodes": nodes, "edges": edges}
+
+    def save_layout(self, ctx: RequestContext, positions: list[dict]) -> None:
+        context = self.context
+        context.set_active(ctx)
+        layout = {p["id"]: {"x": p["x"], "y": p["y"]} for p in positions}
+        context.save_trace_layout(layout)

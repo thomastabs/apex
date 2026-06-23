@@ -160,6 +160,12 @@ class ContextService:
     def load_er_diagram(self) -> dict | None:
         return context_manager.load_er_diagram()
 
+    def save_trace_layout(self, layout: dict) -> None:
+        context_manager.save_trace_layout(layout)
+
+    def load_trace_layout(self) -> dict:
+        return context_manager.load_trace_layout()
+
     def save_screen_flow(self, diagram: dict) -> None:
         context_manager.save_screen_flow(diagram)
 

@@ -23,6 +23,7 @@ import {
   getStoryIndexStats,
   getStoryPhaseStatus,
   getTraceabilityGraph,
+  saveTraceabilityLayout,
   getUsers,
   inviteUser,
   listProjects,
@@ -459,6 +460,14 @@ export function useTraceabilityGraph(scenarios = false) {
     queryFn: () => getTraceabilityGraph(context!, scenarios),
     enabled: Boolean(context),
     staleTime: 30 * 1000,
+  });
+}
+
+export function useSaveTraceLayout() {
+  const context = useApiContext();
+  return useMutation({
+    mutationFn: (nodes: Array<{ id: string; x: number; y: number }>) => saveTraceabilityLayout(context!, nodes),
+    onError: () => toast.error("Failed to save the graph layout."),
   });
 }
 

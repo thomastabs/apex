@@ -12,14 +12,22 @@ def _ctx() -> RequestContext:
 
 
 class FakeContextService:
-    def __init__(self, index=None, proposals=None, gherkin="Feature: f\n  Scenario: a\n  Scenario: b", verifications=None):
+    def __init__(self, index=None, proposals=None, gherkin="Feature: f\n  Scenario: a\n  Scenario: b", verifications=None, layout=None):
         self.index = index or {}
         self.proposals = proposals or []
         self.gherkin = gherkin
         self.verifications = verifications or {}
+        self.layout = layout or {}
+        self.saved_layout = None
 
     def set_active(self, ctx):
         pass
+
+    def load_trace_layout(self):
+        return self.layout
+
+    def save_trace_layout(self, layout):
+        self.saved_layout = layout
 
     def story_index(self):
         return self.index
@@ -108,6 +116,24 @@ def test_scenarios_off_by_default():
     index = {"1": {"story_id": 1, "epic_id": 1, "title": "S", "phase_status": "new", "has_gherkin": True}}
     g = _graph(index)
     assert not any(n["type"] == "scenario" for n in g["nodes"])
+
+
+def test_saved_layout_merges_onto_matching_nodes():
+    index = {"1": {"story_id": 1, "epic_id": 1, "title": "S", "phase_status": "new"}}
+    fake = FakeContextService(index=index, layout={"story:1": {"x": 100, "y": 50}})
+    g = TraceabilityService(context=fake).build_graph(_ctx())
+    story = next(n for n in g["nodes"] if n["id"] == "story:1")
+    assert story["position"] == {"x": 100, "y": 50}
+    # nodes without a saved position stay None (client Dagre-fills them)
+    assert next(n for n in g["nodes"] if n["id"] == "project")["position"] is None
+
+
+def test_save_layout_persists_id_keyed_positions():
+    fake = FakeContextService()
+    TraceabilityService(context=fake).save_layout(
+        _ctx(), [{"id": "story:1", "x": 10.0, "y": 20.0}],
+    )
+    assert fake.saved_layout == {"story:1": {"x": 10.0, "y": 20.0}}
 
 
 def test_route_maps_failure_to_500(monkeypatch):

@@ -1433,6 +1433,26 @@ def load_er_diagram() -> dict | None:
         return None
 
 
+def save_trace_layout(layout: dict) -> None:
+    """Persist saved node positions for the traceability graph ({id: {x, y}})."""
+    cd = _context_dir()
+    cd.mkdir(parents=True, exist_ok=True)
+    _path("trace-layout.json").write_text(
+        json.dumps(layout, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+def load_trace_layout() -> dict:
+    """Return saved traceability-graph node positions, or {} if none."""
+    p = _path("trace-layout.json")
+    if not p.exists():
+        return {}
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
 def save_screen_flow(diagram: dict) -> None:
     """Persist the screen flow React Flow JSON for the current project."""
     cd = _context_dir()

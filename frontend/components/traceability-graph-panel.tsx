@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ReactFlow,
@@ -15,12 +15,12 @@ import {
   type Edge,
 } from "@xyflow/react";
 import Dagre from "@dagrejs/dagre";
-import { AlertTriangle, GitFork, Loader2, Undo2 } from "lucide-react";
+import { AlertTriangle, GitFork, LayoutDashboard, Loader2, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { SignInRequired } from "@/components/sign-in-required";
-import { useTraceabilityGraph } from "@/lib/hooks/use-workspace";
+import { useSaveTraceLayout, useTraceabilityGraph } from "@/lib/hooks/use-workspace";
 import type { TraceNode as ApiNode, TraceEdge as ApiEdge, TraceNodeType } from "@/lib/api/workspace";
 
 import "@xyflow/react/dist/style.css";
@@ -149,6 +149,8 @@ export function TraceabilityGraphPanel() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
   const { data, isLoading, error } = useTraceabilityGraph(showScenarios);
+  const saveLayout = useSaveTraceLayout();
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const epics = useMemo(
     () => (data?.nodes ?? []).filter((n) => n.type === "epic").map((n) => ({ id: n.id, label: n.label })),
@@ -204,7 +206,13 @@ export function TraceabilityGraphPanel() {
       .filter((e) => visibleIds.has(e.source) && visibleIds.has(e.target))
       .map((e) => ({ id: e.id, source: e.source, target: e.target, ...edgeStyle(e.kind, dark) }));
 
-    setNodes(applyDagre(rfNodes, rfEdges));
+    // Dagre-layout, then override with any saved manual positions (id-keyed).
+    const savedPos = new Map(visible.filter((n) => n.position).map((n) => [n.id, n.position!]));
+    const laid = applyDagre(rfNodes, rfEdges).map((n) => {
+      const p = savedPos.get(n.id);
+      return p ? { ...n, position: { x: p.x, y: p.y } } : n;
+    });
+    setNodes(laid);
     setEdges(rfEdges);
   }, [data, epicFilter, flaggedOnly, dark, setNodes, setEdges]);
 
@@ -215,6 +223,25 @@ export function TraceabilityGraphPanel() {
     },
     [router],
   );
+
+  const persist = useCallback(
+    (all: Node<NodeData>[]) => saveLayout.mutate(all.map((n) => ({ id: n.id, x: n.position.x, y: n.position.y }))),
+    [saveLayout],
+  );
+
+  const onNodeDragStop = useCallback(
+    (_: unknown, __: unknown, all: Node<NodeData>[]) => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => persist(all), 1000);
+    },
+    [persist],
+  );
+
+  const handleRelayout = useCallback(() => {
+    const laid = applyDagre(nodes as Node<NodeData>[], edges);
+    setNodes(laid);
+    persist(laid);
+  }, [nodes, edges, setNodes, persist]);
 
   const mutedClass = dark ? "text-neutral-500" : "text-slate-400";
   const hasGraph = (data?.nodes.length ?? 0) > 1;
@@ -269,6 +296,15 @@ export function TraceabilityGraphPanel() {
               <input type="checkbox" checked={showScenarios} onChange={(e) => setShowScenarios(e.target.checked)} className="accent-violet-500" />
               Show scenarios
             </label>
+            <button
+              onClick={handleRelayout}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
+                dark ? "border-neutral-700 text-neutral-300 hover:bg-neutral-800" : "border-slate-300 text-slate-600 hover:bg-slate-100",
+              )}
+            >
+              <LayoutDashboard className="size-3.5" /> Re-layout
+            </button>
             <span className={cn("ml-auto text-xs", mutedClass)}>{nodes.length} nodes · {edges.length} edges</span>
           </div>
           <div className={cn("min-h-0 flex-1 overflow-hidden rounded-lg border", dark ? "border-neutral-800" : "border-slate-200")}>
@@ -278,6 +314,7 @@ export function TraceabilityGraphPanel() {
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onNodeClick={onNodeClick}
+              onNodeDragStop={onNodeDragStop}
               nodeTypes={NODE_TYPES}
               fitView
               proOptions={{ hideAttribution: true }}

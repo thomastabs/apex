@@ -50,6 +50,7 @@ const GRAPH = {
 };
 vi.mock("@/lib/hooks/use-workspace", () => ({
   useTraceabilityGraph: () => ({ data: GRAPH, isLoading: false, error: null }),
+  useSaveTraceLayout: () => ({ mutate: vi.fn() }),
 }));
 
 import { TraceabilityGraphPanel } from "@/components/traceability-graph-panel";

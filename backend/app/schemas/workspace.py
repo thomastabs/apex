@@ -133,6 +133,7 @@ class TraceNode(BaseModel):
     scenario_count: int | None = None
     verified: bool | None = None
     flags: dict[str, bool] = Field(default_factory=dict)
+    position: dict[str, float] | None = None
 
 
 class TraceEdge(BaseModel):
@@ -145,3 +146,13 @@ class TraceEdge(BaseModel):
 class TraceabilityGraphResponse(BaseModel):
     nodes: list[TraceNode] = Field(default_factory=list)
     edges: list[TraceEdge] = Field(default_factory=list)
+
+
+class TraceNodePosition(BaseModel):
+    id: str
+    x: float
+    y: float
+
+
+class SaveTraceLayoutRequest(BaseModel):
+    nodes: list[TraceNodePosition] = Field(default_factory=list)

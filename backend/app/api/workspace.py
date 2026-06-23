@@ -22,6 +22,7 @@ from backend.app.schemas.workspace import (
     SaveAiConfigRequest,
     SaveConfigRequest,
     SetPhaseStatusRequest,
+    SaveTraceLayoutRequest,
     StoryIndexStatsResponse,
     TraceabilityGraphResponse,
     UpdateContextFileRequest,
@@ -175,6 +176,27 @@ def traceability_graph(scenarios: bool = False, ctx: RequestContext = Depends(ge
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to build the traceability graph.",
         ) from exc
+
+
+@router.put("/traceability-graph/positions", response_model=OkResponse)
+def save_traceability_layout(
+    payload: SaveTraceLayoutRequest,
+    ctx: RequestContext = Depends(get_request_context),
+):
+    """Persist manual node positions for the traceability graph."""
+    from backend.app.services.traceability_service import TraceabilityService
+
+    try:
+        TraceabilityService(context=ContextService()).save_layout(
+            ctx, [n.model_dump() for n in payload.nodes],
+        )
+    except Exception as exc:
+        _logger.exception("save_traceability_layout failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to save the graph layout.",
+        ) from exc
+    return {"ok": True}
 
 
 @router.post("/context-files/rebuild-index", response_model=OkResponse)

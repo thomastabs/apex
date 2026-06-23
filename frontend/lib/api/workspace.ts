@@ -289,6 +289,7 @@ export type TraceNode = {
   scenario_count?: number | null;
   verified?: boolean | null;
   flags?: Record<string, boolean>;
+  position?: { x: number; y: number } | null;
 };
 
 export type TraceEdge = {
@@ -303,6 +304,14 @@ export type TraceabilityGraph = { nodes: TraceNode[]; edges: TraceEdge[] };
 export function getTraceabilityGraph(context: RequestContext, scenarios = false) {
   const qs = scenarios ? "?scenarios=true" : "";
   return apiRequest<TraceabilityGraph>(`/api/workspace/traceability-graph${qs}`, { context });
+}
+
+export function saveTraceabilityLayout(context: RequestContext, nodes: Array<{ id: string; x: number; y: number }>) {
+  return apiRequest<{ ok: boolean }>("/api/workspace/traceability-graph/positions", {
+    method: "PUT",
+    context,
+    body: { nodes },
+  });
 }
 
 export type ApexPhaseStatus =
