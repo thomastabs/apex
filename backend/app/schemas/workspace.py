@@ -121,3 +121,26 @@ class StoryIndexStatsResponse(BaseModel):
     design_conflict: int = 0
     conflicted_story_ids: list[int] = Field(default_factory=list)
     conflict_flags: list["ConflictFlagInfo"] = Field(default_factory=list)
+
+
+class TraceNode(BaseModel):
+    id: str
+    type: Literal["project", "epic", "design", "story", "gherkin", "tasks", "tests", "deploy"]
+    label: str
+    phase: int | None = None
+    story_id: int | None = None
+    phase_status: str | None = None
+    scenario_count: int | None = None
+    flags: dict[str, bool] = Field(default_factory=dict)
+
+
+class TraceEdge(BaseModel):
+    id: str
+    source: str
+    target: str
+    kind: Literal["derive", "design", "conflict", "trace"]
+
+
+class TraceabilityGraphResponse(BaseModel):
+    nodes: list[TraceNode] = Field(default_factory=list)
+    edges: list[TraceEdge] = Field(default_factory=list)

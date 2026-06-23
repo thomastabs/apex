@@ -23,6 +23,7 @@ from backend.app.schemas.workspace import (
     SaveConfigRequest,
     SetPhaseStatusRequest,
     StoryIndexStatsResponse,
+    TraceabilityGraphResponse,
     UpdateContextFileRequest,
 )
 from backend.app.services.context_service import ContextService
@@ -158,6 +159,22 @@ def get_context_files(ctx: RequestContext = Depends(get_request_context)):
             "last_modified": last_modified,
         })
     return {"files": files, "total_chars": sum(file["chars"] for file in files)}
+
+
+@router.get("/traceability-graph", response_model=TraceabilityGraphResponse)
+def traceability_graph(ctx: RequestContext = Depends(get_request_context)):
+    """Project-wide derivation graph (pure, no AI) for the traceability view."""
+    from backend.app.services.traceability_service import TraceabilityService
+
+    context = ContextService()
+    try:
+        return TraceabilityService(context=context).build_graph(ctx)
+    except Exception as exc:
+        _logger.exception("traceability_graph failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to build the traceability graph.",
+        ) from exc
 
 
 @router.post("/context-files/rebuild-index", response_model=OkResponse)

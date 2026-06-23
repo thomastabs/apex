@@ -22,6 +22,7 @@ import {
   getServerConfig,
   getStoryIndexStats,
   getStoryPhaseStatus,
+  getTraceabilityGraph,
   getUsers,
   inviteUser,
   listProjects,
@@ -446,6 +447,16 @@ export function useStoryIndexStats() {
   return useQuery({
     queryKey: ["workspace", "story-index-stats", context?.projectId],
     queryFn: () => getStoryIndexStats(context!),
+    enabled: Boolean(context),
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useTraceabilityGraph() {
+  const context = useApiContext();
+  return useQuery({
+    queryKey: ["workspace", "traceability-graph", context?.projectId],
+    queryFn: () => getTraceabilityGraph(context!),
     enabled: Boolean(context),
     staleTime: 30 * 1000,
   });

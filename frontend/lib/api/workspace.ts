@@ -277,6 +277,32 @@ export function getStoryIndexStats(context: RequestContext) {
   return apiRequest<StoryIndexStats>("/api/workspace/context-files/story-index-stats", { context });
 }
 
+export type TraceNodeType = "project" | "epic" | "design" | "story" | "gherkin" | "tasks" | "tests" | "deploy";
+
+export type TraceNode = {
+  id: string;
+  type: TraceNodeType;
+  label: string;
+  phase?: number | null;
+  story_id?: number | null;
+  phase_status?: string | null;
+  scenario_count?: number | null;
+  flags?: Record<string, boolean>;
+};
+
+export type TraceEdge = {
+  id: string;
+  source: string;
+  target: string;
+  kind: "derive" | "design" | "conflict" | "trace";
+};
+
+export type TraceabilityGraph = { nodes: TraceNode[]; edges: TraceEdge[] };
+
+export function getTraceabilityGraph(context: RequestContext) {
+  return apiRequest<TraceabilityGraph>("/api/workspace/traceability-graph", { context });
+}
+
 export type ApexPhaseStatus =
   | "new" | "gherkin_locked" | "design_locked" | "implementation" | "qa" | "qa_passed" | "deployed";
 

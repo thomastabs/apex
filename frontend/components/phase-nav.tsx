@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Home, Zap } from "lucide-react";
+import { BarChart3, Home, Network, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { useStoryIndexStats } from "@/lib/hooks/use-workspace";
@@ -92,6 +92,23 @@ export function PhaseNav() {
           className={cn(
             "absolute bottom-0 hidden h-0.5 w-28 rounded-t",
             pathname === "/fix-bolt" && "block bg-violet-500",
+          )}
+        />
+      </Link>
+      <Link
+        href="/traceability"
+        className={cn(
+          "relative flex w-28 shrink-0 flex-col items-center justify-center gap-0.5 border-l text-xs transition-colors",
+          dark ? "border-neutral-800 text-neutral-400 hover:text-neutral-100" : "border-slate-200 text-slate-500 hover:text-slate-800",
+          pathname === "/traceability" && (dark ? "bg-violet-950/30 text-neutral-100" : "bg-violet-50 text-slate-800"),
+        )}
+      >
+        <Network className="size-4" />
+        <span>Trace</span>
+        <span
+          className={cn(
+            "absolute bottom-0 hidden h-0.5 w-28 rounded-t",
+            pathname === "/traceability" && "block bg-violet-500",
           )}
         />
       </Link>

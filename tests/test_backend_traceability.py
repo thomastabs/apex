@@ -1,0 +1,91 @@
+"""Tests for the living traceability graph service + route."""
+
+import pytest
+from fastapi import HTTPException
+
+from backend.app.services.request_context import RequestContext
+from backend.app.services.traceability_service import TraceabilityService
+
+
+def _ctx() -> RequestContext:
+    return RequestContext(pm_token="tok", project_id=1)
+
+
+class FakeContextService:
+    def __init__(self, index=None, proposals=None, gherkin="Feature: f\n  Scenario: a\n  Scenario: b"):
+        self.index = index or {}
+        self.proposals = proposals or []
+        self.gherkin = gherkin
+
+    def set_active(self, ctx):
+        pass
+
+    def story_index(self):
+        return self.index
+
+    def list_all_proposals(self):
+        return self.proposals
+
+    def story_gherkin(self, story_id):
+        return self.gherkin
+
+
+def _graph(index, **kw):
+    return TraceabilityService(context=FakeContextService(index=index, **kw)).build_graph(_ctx())
+
+
+def test_empty_index_is_just_the_project_node():
+    g = _graph({})
+    assert [n["id"] for n in g["nodes"]] == ["project"]
+    assert g["edges"] == []
+
+
+def test_full_story_yields_the_derivation_chain():
+    index = {"1": {"story_id": 1, "epic_id": 10, "title": "Login", "phase_status": "deployed",
+                   "has_gherkin": True, "has_tech_spec": True, "has_proposal": True,
+                   "has_bdd": True, "has_deploy_pack": True}}
+    g = _graph(index)
+    ids = {n["id"] for n in g["nodes"]}
+    assert {"project", "design", "epic:10", "story:1", "gherkin:1", "tasks:1", "tests:1", "deploy:1"} <= ids
+    chain = {(e["source"], e["target"]) for e in g["edges"] if e["kind"] == "derive"}
+    assert {("project", "epic:10"), ("epic:10", "story:1"), ("story:1", "gherkin:1"),
+            ("gherkin:1", "tasks:1"), ("tasks:1", "tests:1"), ("tests:1", "deploy:1")} <= chain
+    # story with a locked design links to the shared Design node
+    assert ("story:1", "design", "design") in {(e["source"], e["target"], e["kind"]) for e in g["edges"]}
+    gh = next(n for n in g["nodes"] if n["id"] == "gherkin:1")
+    assert gh["scenario_count"] == 2
+
+
+def test_no_design_node_when_no_tech_spec():
+    g = _graph({"1": {"story_id": 1, "epic_id": 1, "title": "S", "phase_status": "new", "has_gherkin": True}})
+    assert "design" not in {n["id"] for n in g["nodes"]}
+
+
+def test_trace_flag_adds_a_trace_edge_to_source():
+    index = {"1": {"story_id": 1, "epic_id": 1, "title": "S", "phase_status": "deployed",
+                   "has_gherkin": True, "trace_flag": True, "trace_phase": "gherkin_locked"}}
+    g = _graph(index)
+    assert ("story:1", "gherkin:1", "trace") in {(e["source"], e["target"], e["kind"]) for e in g["edges"]}
+    story = next(n for n in g["nodes"] if n["id"] == "story:1")
+    assert story["flags"]["trace"] is True
+
+
+def test_conflict_pairs_become_conflict_edges(monkeypatch):
+    import src.ai_engine as ai
+    monkeypatch.setattr(ai, "detect_design_conflicts", lambda packs: {1: {"conflicts_with": [2]}})
+    index = {
+        "1": {"story_id": 1, "epic_id": 1, "title": "A", "phase_status": "implementation", "design_conflict": True},
+        "2": {"story_id": 2, "epic_id": 1, "title": "B", "phase_status": "implementation", "design_conflict": True},
+    }
+    g = _graph(index, proposals=[{"story_id": 1}, {"story_id": 2}])
+    assert ("story:1", "story:2", "conflict") in {(e["source"], e["target"], e["kind"]) for e in g["edges"]}
+
+
+def test_route_maps_failure_to_500(monkeypatch):
+    from backend.app.api import workspace
+    monkeypatch.setattr(
+        workspace.ContextService, "set_active", lambda self, ctx: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+    with pytest.raises(HTTPException) as exc:
+        workspace.traceability_graph(_ctx())
+    assert exc.value.status_code == 500
