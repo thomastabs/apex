@@ -14,6 +14,8 @@ vi.mock("@xyflow/react", () => ({
   MiniMap: () => null,
   Handle: () => null,
   Position: { Left: "left", Right: "right" },
+  getNodesBounds: () => ({ x: 0, y: 0, width: 100, height: 100 }),
+  getViewportForBounds: () => ({ x: 0, y: 0, zoom: 1 }),
   useNodesState: () => {
     const [n, setN] = React.useState<unknown[]>([]);
     return [n, setN, vi.fn()];
@@ -29,6 +31,8 @@ vi.mock("@dagrejs/dagre", () => ({
     layout: () => {},
   },
 }));
+const toPngMock = vi.fn().mockResolvedValue("data:image/png;base64,xxx");
+vi.mock("html-to-image", () => ({ toPng: (...a: unknown[]) => toPngMock(...a) }));
 vi.mock("@/lib/stores/ui-store", () => ({ useUiStore: () => "light" }));
 vi.mock("@/lib/stores/session-store", () => ({ useApiContext: () => ({ projectId: 7 }) }));
 const pushMock = vi.fn();
@@ -79,5 +83,12 @@ describe("TraceabilityGraphPanel", () => {
     // story:1 is trace-flagged → kept; project/epic/design always kept.
     const ids = lastFlowProps.nodes.map((n) => (n as { id: string }).id);
     expect(ids).toContain("story:1");
+  });
+
+  it("Export PNG renders the graph to an image", async () => {
+    document.body.innerHTML = '<div class="react-flow__viewport"></div>';
+    render(<TraceabilityGraphPanel />);
+    fireEvent.click(screen.getByText("Export PNG"));
+    expect(toPngMock).toHaveBeenCalled();
   });
 });

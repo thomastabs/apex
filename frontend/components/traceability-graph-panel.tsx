@@ -9,13 +9,16 @@ import {
   Handle,
   MiniMap,
   Position,
+  getNodesBounds,
+  getViewportForBounds,
   useNodesState,
   useEdgesState,
   type Node,
   type Edge,
 } from "@xyflow/react";
 import Dagre from "@dagrejs/dagre";
-import { AlertTriangle, GitFork, LayoutDashboard, Loader2, RefreshCw, Undo2 } from "lucide-react";
+import { toPng } from "html-to-image";
+import { AlertTriangle, Download, GitFork, LayoutDashboard, Loader2, RefreshCw, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -243,6 +246,28 @@ export function TraceabilityGraphPanel() {
     persist(laid);
   }, [nodes, edges, setNodes, persist]);
 
+  const handleExport = useCallback(() => {
+    const viewport = document.querySelector<HTMLElement>(".react-flow__viewport");
+    if (!viewport || nodes.length === 0) return;
+    const w = 1600;
+    const h = 1000;
+    const bounds = getNodesBounds(nodes);
+    const vp = getViewportForBounds(bounds, w, h, 0.2, 2, 0.1);
+    toPng(viewport, {
+      backgroundColor: dark ? "#0a0a0a" : "#ffffff",
+      width: w,
+      height: h,
+      style: { width: `${w}px`, height: `${h}px`, transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})` },
+    })
+      .then((dataUrl) => {
+        const a = document.createElement("a");
+        a.download = "traceability.png";
+        a.href = dataUrl;
+        a.click();
+      })
+      .catch(() => {});
+  }, [nodes, dark]);
+
   const mutedClass = dark ? "text-neutral-500" : "text-slate-400";
   const hasGraph = (data?.nodes.length ?? 0) > 1;
 
@@ -314,6 +339,15 @@ export function TraceabilityGraphPanel() {
               )}
             >
               <RefreshCw className={cn("size-3.5", isFetching && "animate-spin")} /> Refresh
+            </button>
+            <button
+              onClick={handleExport}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
+                dark ? "border-neutral-700 text-neutral-300 hover:bg-neutral-800" : "border-slate-300 text-slate-600 hover:bg-slate-100",
+              )}
+            >
+              <Download className="size-3.5" /> Export PNG
             </button>
             <span className={cn("ml-auto text-xs", mutedClass)}>{nodes.length} nodes · {edges.length} edges</span>
           </div>
