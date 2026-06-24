@@ -21,7 +21,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: pushMock }) }));
 
 const idleMut = { mutate: vi.fn(), isPending: false };
 vi.mock("@/lib/hooks/use-workspace", () => ({
-  useBoard: () => ({ data: [EPIC], isLoading: false }),
+  useBoard: () => ({ data: [EPIC], isLoading: false, refetch: vi.fn() }),
   useDeleteEpic: () => idleMut,
   useDeleteStory: () => idleMut,
   useRebuildStoryIndex: () => idleMut,
@@ -36,6 +36,7 @@ vi.mock("@/lib/hooks/use-workspace", () => ({
   useAcknowledgeBacktrace: () => idleMut,
   useAcknowledgeConflict: () => idleMut,
   useStoryIndexStats: () => ({
+    refetch: vi.fn(),
     data: {
       total: 1, phase2_designed: 0, phase3_proposed: 0, phase4_tested: 0, phase4_passed: 0,
       phase5_deployed: 0, spec_drift: 0, drifted_story_ids: [],
@@ -48,6 +49,7 @@ vi.mock("@/lib/hooks/use-workspace", () => ({
   }),
 }));
 vi.mock("@/lib/hooks/use-phase6", () => ({ useAcknowledgeRegression: () => idleMut }));
+vi.mock("@/lib/api/analytics", () => ({ getAnalyticsSummary: vi.fn().mockResolvedValue({ stories: [] }) }));
 
 import { BoardSection } from "@/components/sidebar/board-section";
 
