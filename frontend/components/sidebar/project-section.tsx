@@ -166,7 +166,15 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
           onClose={() => setShowCreate(false)}
           onSubmit={(name, description, opts) =>
             createProject.mutate({ name, description, isPrivate: opts.isPrivate, templateId: opts.templateId }, {
-              onSuccess: () => { setShowCreate(false); toast.success(`Project "${name}" created`); },
+              onSuccess: (p) => {
+                setShowCreate(false);
+                setProject({ projectId: p.id, projectName: p.name, pmProjectSlug: p.slug ?? undefined });
+                clearPhase2Draft();
+                clearPhase3Draft();
+                clearPhase4Draft();
+                clearPhase5Draft();
+                toast.success(`Project "${name}" created`);
+              },
               onError: (e) => toast.error(errMsg(e)),
             })
           }

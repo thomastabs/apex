@@ -647,11 +647,12 @@ export function Phase1Workflow() {
 
             {mode === "suggest" ? (
               <div className="space-y-4">
-                <label className={cn("block text-sm font-medium", labelClass)}>
-                  AI Guidance{" "}
-                  <span className={dark ? "text-neutral-500" : "text-slate-400"}>Optional — focus or constrain the epic suggestions.</span>
-                  <Input value={suggestHint} onChange={(event) => setSuggestHint(event.target.value)} placeholder="e.g. focus on mobile-first flows, B2B enterprise context..." />
-                </label>
+                <GuideTheAI
+                  value={suggestHint}
+                  onChange={setSuggestHint}
+                  placeholder="e.g. focus on mobile-first flows, B2B enterprise context…"
+                  dark={dark}
+                />
                 <Button
                   className="w-full"
                   onClick={() => {
@@ -854,6 +855,74 @@ export function Phase1Workflow() {
                       Gap analysis failed: {errMsg(analyzeGaps.error)}
                     </div>
                   ) : null}
+                </div>
+
+                {/* ── Constraints (EARS) — available here so you don't need to push stories first ── */}
+                <div className={cn("rounded-lg border p-4", dark ? "border-neutral-800 bg-neutral-900/40" : "border-slate-200 bg-slate-50")}>
+                  <div className="flex items-center gap-2">
+                    <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>Constraints</span>
+                    <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide", dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-500")}>Optional</span>
+                  </div>
+                  <p className={cn("mt-1 text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
+                    EARS quality constraints (performance, security, reliability…) saved to <code>constraints.md</code> and injected into Phase 3 developer packs &amp; Phase 4 test plans. Editable anytime in the sidebar.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setEarsOpen((v) => !v)}
+                    className={cn("mt-2 flex items-center gap-1.5 text-xs font-medium transition-colors", dark ? "text-violet-400 hover:text-violet-300" : "text-violet-600 hover:text-violet-700")}
+                  >
+                    <Info className="size-3.5" />
+                    What is EARS?
+                    <ChevronRight className={cn("size-3.5 transition-transform", earsOpen && "rotate-90")} />
+                  </button>
+                  {earsOpen ? (
+                    <div className={cn("mt-2 space-y-2 rounded-md border p-3 text-xs leading-5", dark ? "border-neutral-800 bg-neutral-950 text-neutral-400" : "border-slate-200 bg-white text-slate-600")}>
+                      <p>
+                        <strong>EARS</strong> (Easy Approach to Requirements Syntax) is a constrained-natural-language template for writing
+                        unambiguous requirements. Gherkin captures <em>behaviour</em>; EARS captures the cross-cutting
+                        <em> quality attributes</em> scenarios can&apos;t express (performance, security, reliability, availability…).
+                      </p>
+                      <p>Each constraint follows one of a few &quot;shall&quot; patterns:</p>
+                      <ul className="list-disc space-y-0.5 pl-4">
+                        <li><strong>Ubiquitous</strong> — &quot;The system shall &lt;requirement&gt;.&quot;</li>
+                        <li><strong>Event-driven</strong> — &quot;When &lt;trigger&gt;, the system shall &lt;response&gt;.&quot;</li>
+                        <li><strong>State-driven</strong> — &quot;While &lt;state&gt;, the system shall &lt;response&gt;.&quot;</li>
+                        <li><strong>Unwanted</strong> — &quot;If &lt;condition&gt;, then the system shall &lt;response&gt;.&quot;</li>
+                      </ul>
+                      <p>
+                        Apex generates these grounded in your project concept, tech stack, and story scope — categorised
+                        (security, performance…) with a rationale each — so downstream packs and test plans inherit testable quality bars.
+                      </p>
+                    </div>
+                  ) : null}
+                  {constraintsGenerated ? (
+                    <div className="mt-3 flex items-center gap-2 text-sm text-emerald-400">
+                      <CheckCircle2 className="size-4" /> Saved to constraints.md
+                    </div>
+                  ) : (
+                    <>
+                      <Button
+                        variant="secondary"
+                        className="mt-3 w-full"
+                        disabled={genConstraints.isPending || updateContextFile.isPending}
+                        onClick={() =>
+                          genConstraints.mutate(undefined, {
+                            onSuccess: (res) => {
+                              updateContextFile.mutate({ filename: "constraints.md", content: res.constraints_md });
+                              setConstraintsGenerated(true);
+                              toast.success(`Generated ${res.constraints.length} constraints`);
+                            },
+                          })
+                        }
+                      >
+                        {genConstraints.isPending
+                          ? <><Loader2 className="size-4 animate-spin" /> Generating…</>
+                          : "Generate constraints"}
+                      </Button>
+                      <AIProgressIndicator steps={CONSTRAINT_STEPS} isPending={genConstraints.isPending} dark={dark} />
+                      {genConstraints.isPending && <CancelButton onCancel={() => genConstraints.cancel()} className="mt-2" />}
+                    </>
+                  )}
                 </div>
               </div>
             ) : null}

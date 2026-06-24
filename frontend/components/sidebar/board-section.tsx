@@ -599,6 +599,13 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
   const deleteStory = useDeleteStory();
   const rebuildIndex = useRebuildStoryIndex();
   const storyStats = useStoryIndexStats();
+
+  useEffect(() => {
+    if (boardOpen) {
+      void board.refetch();
+      void storyStats.refetch();
+    }
+  }, [boardOpen]); // eslint-disable-line react-hooks/exhaustive-deps
   const driftedIds = new Set(storyStats.data?.drifted_story_ids ?? []);
   const regressedIds = new Set(storyStats.data?.regressed_story_ids ?? []);
   const tracedIds = new Set(storyStats.data?.trace_story_ids ?? []);
