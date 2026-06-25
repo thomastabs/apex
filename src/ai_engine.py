@@ -3604,3 +3604,65 @@ def verify_conformance_panel(
     # 6) Score is always code-computed, never trusted from any agent.
     report.score = compute_conformance_score(report)
     return report
+
+
+# ---------------------------------------------------------------------------
+# Taiga import — Gherkin reconstruction from existing stories
+# ---------------------------------------------------------------------------
+
+class _ReconstructedStory(BaseModel):
+    story_id: int
+    gherkin: str = Field(description="Complete Gherkin Feature block with one or more Scenarios")
+
+
+class _ReconstructedBatch(BaseModel):
+    stories: list[_ReconstructedStory]
+
+
+_RECONSTRUCT_SYSTEM = """\
+You are a Gherkin specification writer onboarding an existing software project into a spec-tracking tool.
+The project already has user stories in a project-management tool; your job is to write Gherkin \
+Feature/Scenario blocks for them so the team can resume spec-anchored development.
+
+Rules:
+- Each story MUST have a Feature heading and at least one Scenario.
+- Use the story description and any acceptance criteria as the primary source.
+- If the description is sparse, infer a happy-path Scenario + one edge-case/error Scenario from the title.
+- Plain Given/When/Then — no Backgrounds, no Scenario Outlines.
+- Do not invent functionality not implied by the title or description.
+- Output must be valid Gherkin text (no Markdown code fences).
+"""
+
+
+def reconstruct_gherkin_batch(
+    epic_title: str,
+    stories: list[dict],
+) -> dict[int, str]:
+    """Generate Gherkin for N existing Taiga stories in one AI call.
+
+    `stories` is a list of {id: int, title: str, description: str}.
+    Returns {story_id: gherkin_text}. Empty story list returns {}.
+    Used by the Taiga import flow (Step 2) to reconstruct specs for ongoing projects.
+    """
+    if not stories:
+        return {}
+
+    blocks = []
+    for s in stories:
+        desc = (s.get("description") or "").strip()[:800]
+        block = f"Story {s['id']}: {s['title']}"
+        if desc:
+            block += f"\nDescription: {desc}"
+        blocks.append(block)
+
+    human = (
+        f"Epic: {epic_title}\n\n"
+        + "\n\n---\n\n".join(blocks)
+        + "\n\nWrite Gherkin Feature blocks for every story listed above."
+    )
+
+    result = _ai_retry(lambda: _invoke_structured_with_progress(
+        _RECONSTRUCT_SYSTEM, human, get_model(),
+        _ReconstructedBatch, max_tokens=8192, temperature=0.2, item_field="stories",
+    ))
+    return {s.story_id: s.gherkin for s in result.stories}

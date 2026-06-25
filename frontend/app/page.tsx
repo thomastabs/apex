@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { AlertCircle, ArrowRight, CheckCircle2, Code2, Compass, FileText, Rocket, Wrench } from "lucide-react";
 import { PhaseCard } from "@/components/phase-card";
+import { ImportPanel } from "@/components/import-panel";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useStoryIndexStats } from "@/lib/hooks/use-workspace";
 import { useTechStackStatus } from "@/lib/hooks/use-phase2";
@@ -146,6 +147,13 @@ export default function HomePage() {
           </p>
         </div>
       )}
+
+      {/* Import panel — shown when project is loaded but no stories in Apex yet */}
+      {hasProject && stats && stats.total === 0 ? (
+        <div className="mb-6">
+          <ImportPanel />
+        </div>
+      ) : null}
 
       {/* Next-step callout — reflects the furthest phase the project has reached */}
       {hasProject && phase2Done && stats ? (() => {

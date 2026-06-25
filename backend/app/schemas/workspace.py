@@ -123,6 +123,36 @@ class StoryIndexStatsResponse(BaseModel):
     conflict_flags: list["ConflictFlagInfo"] = Field(default_factory=list)
 
 
+class ImportEpicSummary(BaseModel):
+    id: int
+    title: str
+    story_count: int
+
+
+class ImportStatusMapping(BaseModel):
+    taiga_name: str
+    apex_status: str
+
+
+class ImportBootstrapResponse(BaseModel):
+    imported: int
+    skipped: int
+    epics: list[ImportEpicSummary] = Field(default_factory=list)
+    status_mapping: list[ImportStatusMapping] = Field(default_factory=list)
+
+
+class ImportStoryResult(BaseModel):
+    story_id: int
+    status: str  # "ok" | "skipped"
+    reason: str = ""
+
+
+class ImportReconstructResponse(BaseModel):
+    epic_id: int
+    epic_title: str
+    results: list[ImportStoryResult] = Field(default_factory=list)
+
+
 class TraceNode(BaseModel):
     id: str
     type: Literal["project", "epic", "design", "story", "gherkin", "scenario", "tasks", "tests", "deploy"]

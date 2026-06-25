@@ -158,6 +158,21 @@ def anchor_instance_id(taiga_url_override: str = "") -> str:
     return context_manager.instance_key(base)
 
 
+def resolve_taiga_base(taiga_url_override: str = "") -> str:
+    """Return the validated Taiga API base URL (e.g. https://api.taiga.io/api/v1).
+
+    Raises 503 when pm_tool is Jira (import only supports Taiga).
+    Used by import routes that need to dial Taiga server-side.
+    """
+    pm_tool, base = _resolve_anchor_base(taiga_url_override)
+    if pm_tool != "taiga":
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Import from PM is only supported for Taiga projects.",
+        )
+    return base
+
+
 def _pm_endpoints(taiga_url_override: str = "") -> tuple[str, str, str]:
     """Return (auth_scheme, identity_url, project_url_template) for the anchored PM."""
     pm_tool, base = _resolve_anchor_base(taiga_url_override)

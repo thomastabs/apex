@@ -10,12 +10,15 @@ from backend.app.api.deps import (
     anchor_instance_id,
     get_auth_context,
     get_request_context,
+    resolve_taiga_base,
 )
 from backend.app.schemas.workspace import (
     AiConfigResponse,
     AmendmentsResponse,
     ConfigResponse,
     ContextFilesResponse,
+    ImportBootstrapResponse,
+    ImportReconstructResponse,
     LogDecisionRequest,
     OkResponse,
     PhaseStatusResponse,
@@ -424,3 +427,66 @@ def reset_context_file(filename: str, ctx: RequestContext = Depends(get_request_
     context.set_active(ctx)
     context.reset_context_file(filename)
     return get_context_files(ctx)
+
+
+# ---------------------------------------------------------------------------
+# Taiga import — onboard an ongoing project into Apex
+# ---------------------------------------------------------------------------
+
+@router.post("/import-from-pm", response_model=ImportBootstrapResponse)
+def import_from_pm_bootstrap(
+    ctx: RequestContext = Depends(get_request_context),
+    x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+):
+    """Step 1 (no AI): pull epics + stories from Taiga, populate story-index.
+
+    Skips stories already present in the index so re-runs are safe.
+    Only supported when pm_tool=taiga.
+    """
+    from backend.app.services import import_service
+
+    taiga_base = resolve_taiga_base(x_taiga_url)
+    context = ContextService()
+    context.set_active(ctx)
+    context.init_context()
+
+    try:
+        result = import_service.bootstrap(taiga_base, ctx.pm_token, ctx.project_id)
+    except Exception as exc:
+        _logger.error("import bootstrap failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to fetch from Taiga: {exc}",
+        ) from exc
+
+    return result
+
+
+@router.post("/import-from-pm/reconstruct-epic/{epic_id}", response_model=ImportReconstructResponse)
+def import_reconstruct_epic(
+    epic_id: int,
+    ctx: RequestContext = Depends(get_request_context),
+    x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+):
+    """Step 2 (AI): generate Gherkin for all stories in one epic, one AI call.
+
+    epic_id=0 is the synthetic General epic (orphan stories with no Taiga epic).
+    Writes Gherkin to functional-spec.md and advances stories to gherkin_locked.
+    """
+    from backend.app.services import import_service
+
+    taiga_base = resolve_taiga_base(x_taiga_url)
+    context = ContextService()
+    context.set_active(ctx)
+    context.init_context()
+
+    try:
+        result = import_service.reconstruct_epic(epic_id, taiga_base, ctx.pm_token, ctx.project_id)
+    except Exception as exc:
+        _logger.error("import reconstruct epic=%s failed: %s", epic_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Gherkin reconstruction failed: {exc}",
+        ) from exc
+
+    return result
