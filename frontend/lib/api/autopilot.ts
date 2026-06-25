@@ -1,0 +1,68 @@
+import { apiRequest } from "./client";
+import type { RequestContext } from "./types";
+
+export type AutopilotEpic = {
+  title: string;
+  description: string;
+};
+
+export type AutopilotSettings = {
+  pause_at_checkpoints: boolean;
+  create_epics_in_taiga: boolean;
+};
+
+export type AutopilotStartRequest = {
+  concept: string;
+  epics: AutopilotEpic[];
+  tech_stack_hint: string;
+  settings: AutopilotSettings;
+};
+
+export type AutopilotEvent = {
+  id: number;
+  ts: number;
+  level: "info" | "success" | "warning" | "error" | "checkpoint";
+  msg: string;
+  phase: string;
+  artifact: string;
+};
+
+export type AutopilotState = "running" | "paused" | "stopped" | "done" | "error";
+export type AutopilotPhase = "init" | "phase1" | "phase2" | "phase3" | "phase4" | "phase5" | "done";
+
+export type AutopilotStatus = {
+  job_id: string;
+  state: AutopilotState;
+  current_phase: AutopilotPhase;
+  current_epic_idx: number | null;
+  current_story_id: number | null;
+  events: AutopilotEvent[];
+  error: string | null;
+  story_count: number;
+  stories_done: number;
+  checkpoint_phase: string | null;
+};
+
+export function startAutopilot(ctx: RequestContext, body: AutopilotStartRequest): Promise<{ job_id: string }> {
+  return apiRequest("/api/autopilot/start", { method: "POST", context: ctx, body });
+}
+
+export function getAutopilotStatus(ctx: RequestContext, jobId: string): Promise<AutopilotStatus> {
+  return apiRequest(`/api/autopilot/${jobId}`, { method: "GET", context: ctx });
+}
+
+export function pauseAutopilot(ctx: RequestContext, jobId: string): Promise<{ ok: boolean; state: AutopilotState }> {
+  return apiRequest(`/api/autopilot/${jobId}/pause`, { method: "POST", context: ctx });
+}
+
+export function resumeAutopilot(ctx: RequestContext, jobId: string): Promise<{ ok: boolean; state: AutopilotState }> {
+  return apiRequest(`/api/autopilot/${jobId}/resume`, { method: "POST", context: ctx });
+}
+
+export function stopAutopilot(ctx: RequestContext, jobId: string): Promise<{ ok: boolean; state: AutopilotState }> {
+  return apiRequest(`/api/autopilot/${jobId}/stop`, { method: "POST", context: ctx });
+}
+
+export function takeOverAutopilot(ctx: RequestContext, jobId: string): Promise<{ ok: boolean; state: AutopilotState }> {
+  return apiRequest(`/api/autopilot/${jobId}/take-over`, { method: "POST", context: ctx });
+}
