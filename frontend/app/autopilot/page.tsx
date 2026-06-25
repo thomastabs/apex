@@ -34,7 +34,7 @@ export default function AutopilotPage() {
   }
 
   return (
-    <section className="px-8 py-8 max-w-4xl">
+    <section className="px-8 py-8">
       <div className="mb-6 border-b border-neutral-800 pb-6">
         <h1 className="text-2xl font-bold text-neutral-100">Autopilot</h1>
         <p className="mt-1 text-sm text-neutral-500">
