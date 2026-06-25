@@ -19,7 +19,8 @@ _logger = logging.getLogger("apex.import_service")
 
 _GENERAL_EPIC_ID = 0
 _GENERAL_EPIC_TITLE = "General"
-_PAGE_SIZE = 500
+_PAGE_SIZE = 100   # Taiga Cloud enforces ~100 max; paginate to handle large projects
+_MAX_PAGES = 40    # safety cap: 40 × 100 = 4000 stories
 _TIMEOUT = 20.0
 
 
@@ -28,7 +29,7 @@ _TIMEOUT = 20.0
 # ---------------------------------------------------------------------------
 
 def _taiga_get(url: str, token: str, params: dict | None = None) -> list | dict:
-    """Sync GET to a Taiga API endpoint, routed through the Cloudflare relay when needed."""
+    """Single-page GET to a Taiga API endpoint via relay + SSRF guards."""
     from backend.app.api.taiga_proxy import _egress, _pin_unless_relayed
 
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
@@ -38,8 +39,28 @@ def _taiga_get(url: str, token: str, params: dict | None = None) -> list | dict:
         url, headers=headers, params=params, timeout=_TIMEOUT,
         **({"extensions": ext} if ext else {}),
     )
+    if resp.status_code in (401, 403):
+        raise PermissionError(f"Taiga returned {resp.status_code} — check credentials or project access.")
     resp.raise_for_status()
     return resp.json()
+
+
+def _taiga_get_all(url: str, token: str, params: dict | None = None) -> list:
+    """Paginate through all pages of a Taiga list endpoint."""
+    base_params = dict(params or {})
+    base_params["page_size"] = _PAGE_SIZE
+    results: list = []
+    for page in range(1, _MAX_PAGES + 1):
+        base_params["page"] = page
+        data = _taiga_get(url, token, base_params)
+        if isinstance(data, dict):
+            data = data.get("objects", [])
+        if not isinstance(data, list):
+            break
+        results.extend(data)
+        if len(data) < _PAGE_SIZE:
+            break  # last page
+    return results
 
 
 def _map_taiga_status(s: dict) -> str:
@@ -56,14 +77,28 @@ def _map_taiga_status(s: dict) -> str:
 
 
 def _extract_epic_id(story: dict) -> int | None:
-    """Extract numeric epic id from a Taiga user story dict (handles both int and nested object)."""
-    epic = story.get("epic")
-    if epic is None:
-        return None
-    if isinstance(epic, int):
-        return epic
-    if isinstance(epic, dict):
-        return epic.get("id")
+    """Extract numeric epic id from a Taiga user story, mirroring taiga-direct.ts normalizeStory.
+
+    Taiga API returns epic info in three possible fields:
+      epic_extra_info: {id, subject, ...}   — most reliable (list endpoint)
+      epics:           [{id, subject, ...}]  — alternate array form
+      epic:            int | {id, ...} | null — legacy / fallback
+    """
+    epic_extra_info = story.get("epic_extra_info")
+    epics_arr = story.get("epics")
+    epic_info = (
+        epic_extra_info
+        if isinstance(epic_extra_info, dict) and epic_extra_info
+        else (epics_arr[0] if isinstance(epics_arr, list) and epics_arr else None)
+    )
+
+    epic_field = story.get("epic")
+    if isinstance(epic_field, int):
+        return epic_field
+    if isinstance(epic_field, dict) and epic_field:
+        return epic_field.get("id")
+    if isinstance(epic_info, dict) and epic_info:
+        return epic_info.get("id")
     return None
 
 
@@ -90,20 +125,12 @@ def bootstrap(taiga_base: str, token: str, project_id: int) -> dict:
         status_id_map[s["id"]] = apex
         status_mapping.append({"taiga_name": s.get("name", ""), "apex_status": apex})
 
-    # 2. Fetch all epics → id→title map
-    epics_raw = _taiga_get(f"{taiga_base}/epics", token, {"project": project_id, "page_size": _PAGE_SIZE})
-    if isinstance(epics_raw, dict):
-        epics_raw = epics_raw.get("objects", [])
-    if not isinstance(epics_raw, list):
-        epics_raw = []
+    # 2. Fetch all epics → id→title map (paginated)
+    epics_raw = _taiga_get_all(f"{taiga_base}/epics", token, {"project": project_id})
     epic_title_map: dict[int, str] = {e["id"]: e.get("subject", f"Epic {e['id']}") for e in epics_raw}
 
-    # 3. Fetch all stories
-    stories_raw = _taiga_get(f"{taiga_base}/userstories", token, {"project": project_id, "page_size": _PAGE_SIZE})
-    if isinstance(stories_raw, dict):
-        stories_raw = stories_raw.get("objects", [])
-    if not isinstance(stories_raw, list):
-        stories_raw = []
+    # 3. Fetch all stories (paginated)
+    stories_raw = _taiga_get_all(f"{taiga_base}/userstories", token, {"project": project_id})
 
     # 4. Get existing story-index to detect already-imported entries
     existing = context_manager.get_story_index()
@@ -165,12 +192,13 @@ def reconstruct_epic(epic_id: int, taiga_base: str, token: str, project_id: int)
 
     # Get story-index entries for this epic
     index = context_manager.get_story_index()
-    epic_stories = [
-        e for e in index.values()
-        if e.get("epic_id") == epic_id
-    ]
+    epic_stories = [e for e in index.values() if e.get("epic_id") == epic_id]
     if not epic_stories:
-        return {"epic_id": epic_id, "epic_title": _GENERAL_EPIC_TITLE if epic_id == 0 else f"Epic {epic_id}", "results": []}
+        return {
+            "epic_id": epic_id,
+            "epic_title": _GENERAL_EPIC_TITLE if epic_id == 0 else f"Epic {epic_id}",
+            "results": [],
+        }
 
     epic_title = epic_stories[0].get("epic_title") or (
         _GENERAL_EPIC_TITLE if epic_id == _GENERAL_EPIC_ID else f"Epic {epic_id}"
@@ -178,16 +206,14 @@ def reconstruct_epic(epic_id: int, taiga_base: str, token: str, project_id: int)
 
     # Fetch story descriptions from Taiga
     if epic_id == _GENERAL_EPIC_ID:
-        # Orphan stories: fetch all project stories, filter client-side
-        all_raw = _taiga_get(f"{taiga_base}/userstories", token, {"project": project_id, "page_size": _PAGE_SIZE})
-        if isinstance(all_raw, dict):
-            all_raw = all_raw.get("objects", [])
-        raw_map = {s["id"]: s for s in (all_raw if isinstance(all_raw, list) else []) if _extract_epic_id(s) is None}
+        # Orphan stories: fetch all project stories, filter to those with no epic
+        all_raw = _taiga_get_all(f"{taiga_base}/userstories", token, {"project": project_id})
+        raw_map = {s["id"]: s for s in all_raw if _extract_epic_id(s) is None}
     else:
-        epic_raw = _taiga_get(f"{taiga_base}/userstories", token, {"project": project_id, "epic": epic_id, "page_size": _PAGE_SIZE})
-        if isinstance(epic_raw, dict):
-            epic_raw = epic_raw.get("objects", [])
-        raw_map = {s["id"]: s for s in (epic_raw if isinstance(epic_raw, list) else [])}
+        epic_raw = _taiga_get_all(
+            f"{taiga_base}/userstories", token, {"project": project_id, "epic": epic_id}
+        )
+        raw_map = {s["id"]: s for s in epic_raw}
 
     # Build input list for AI
     ai_input = []

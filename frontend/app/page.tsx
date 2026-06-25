@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { AlertCircle, ArrowRight, CheckCircle2, Code2, Compass, FileText, Rocket, Wrench } from "lucide-react";
 import { PhaseCard } from "@/components/phase-card";
@@ -62,6 +63,9 @@ export default function HomePage() {
 
   const storyStats = useStoryIndexStats();
   const techStack = useTechStackStatus();
+
+  // importOpen: true when panel is explicitly open (persists even after stories imported)
+  const [importOpen, setImportOpen] = useState(false);
 
   const stats = storyStats.data;
   const stackDefined = Boolean(techStack.data?.defined);
@@ -148,10 +152,19 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Import panel — shown when project is loaded but no stories in Apex yet */}
-      {hasProject && stats && stats.total === 0 ? (
+      {/* Import panel — auto-shown when story-index is empty; re-openable via link */}
+      {hasProject && storyStats.isSuccess && (importOpen || (stats && stats.total === 0)) ? (
         <div className="mb-6">
-          <ImportPanel />
+          <ImportPanel onStart={() => setImportOpen(true)} />
+        </div>
+      ) : hasProject && storyStats.isSuccess && stats && stats.total > 0 && !importOpen ? (
+        <div className="mb-6 flex justify-end">
+          <button
+            onClick={() => setImportOpen(true)}
+            className="text-xs text-neutral-500 hover:text-neutral-300 underline underline-offset-2"
+          >
+            Re-import stories from Taiga
+          </button>
         </div>
       ) : null}
 

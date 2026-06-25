@@ -91,7 +91,7 @@ function EpicRow({ epic, result, isReconstructing, onReconstruct }: EpicRowProps
   );
 }
 
-export function ImportPanel() {
+export function ImportPanel({ onStart }: { onStart?: () => void } = {}) {
   const bootstrap = useImportBootstrap();
   const reconstruct = useImportReconstructEpic();
   const qc = useQueryClient();
@@ -101,6 +101,7 @@ export function ImportPanel() {
   const [showMapping, setShowMapping] = useState(false);
 
   async function handleBootstrap() {
+    onStart?.();
     const result = await bootstrap.mutateAsync();
     setReport(result);
     qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats"] });
