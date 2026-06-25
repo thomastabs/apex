@@ -677,6 +677,72 @@ export async function applyMocks(page: Page) {
     }),
   );
 
+  // ── Autopilot ─────────────────────────────────────────────────────────────
+  const FAKE_JOB_ID = "e2e-fake-job-id";
+
+  await page.route(`${api}/api/autopilot/start`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ job_id: FAKE_JOB_ID }),
+    }),
+  );
+
+  // Default: running state with one event. Specs can override for done/paused.
+  await page.route(`${api}/api/autopilot/${FAKE_JOB_ID}`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        job_id: FAKE_JOB_ID,
+        state: "running",
+        current_phase: "phase1",
+        current_epic_idx: 0,
+        current_story_id: null,
+        events: [
+          { id: 1, ts: Date.now() / 1000, level: "info", msg: "Autopilot started", phase: "init", artifact: "" },
+          { id: 2, ts: Date.now() / 1000, level: "info", msg: "Phase 1 · Epic 1/1: 'User Authentication'", phase: "phase1", artifact: "" },
+        ],
+        error: null,
+        story_count: 0,
+        stories_done: 0,
+        checkpoint_phase: null,
+      }),
+    }),
+  );
+
+  await page.route(`${api}/api/autopilot/${FAKE_JOB_ID}/pause`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true, state: "paused" }),
+    }),
+  );
+
+  await page.route(`${api}/api/autopilot/${FAKE_JOB_ID}/resume`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true, state: "running" }),
+    }),
+  );
+
+  await page.route(`${api}/api/autopilot/${FAKE_JOB_ID}/stop`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true, state: "stopped" }),
+    }),
+  );
+
+  await page.route(`${api}/api/autopilot/${FAKE_JOB_ID}/take-over`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true, state: "stopped" }),
+    }),
+  );
+
   // ── Taiga calls via backend proxy (/api/pm/taiga/*) ──────────────────────
   const FAKE_EPIC = { id: 10, ref: 1, subject: "Authentication", description: "User auth epic", version: 1, tags: [] };
   const FAKE_STORY = { id: 101, ref: 1, subject: "User Login", description: "", version: 2, status: 1, tags: [], epic: 10, epic_extra_info: { id: 10, subject: "Authentication" } };
