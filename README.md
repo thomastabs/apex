@@ -9,7 +9,7 @@ The current migrated version is a split full-stack web app:
 - **Storage:** `contextspec/` folder in Azure File Share in deployment
 - **Deployment:** GitHub Actions builds Docker images and deploys to Azure Container Apps
 
-Phases 1–6 are implemented, plus a governance analytics dashboard and a **living traceability graph** (project-wide spec→code derivation view). The spec-model upgrade roadmap is fully shipped: EARS constraints, spec↔code conformance, deterministic agent-target compilation, controlled spec co-evolution, and per-epic context slicing. Human-in-the-loop guardrails layer on top — multi-model cross-check, diff-on-regenerate, a decision log, and an optional "Guide the AI" steer on every generative step.
+Phases 1–6 are implemented, plus a governance analytics dashboard, a **living traceability graph** (project-wide spec→code derivation view), and an **Autopilot** mode that runs the full Phases 1–5 pipeline end-to-end in the background. The spec-model upgrade roadmap is fully shipped: EARS constraints, spec↔code conformance, deterministic agent-target compilation, controlled spec co-evolution, and per-epic context slicing. Human-in-the-loop guardrails layer on top — multi-model cross-check, diff-on-regenerate, a decision log, and an optional "Guide the AI" steer on every generative step.
 
 <img width="1908" height="991" alt="image" src="https://github.com/user-attachments/assets/818d2d66-add0-40c4-883f-c558a8445183" />
 
@@ -341,6 +341,27 @@ The **Trace** page (`/traceability`, top nav) renders the whole project as one i
 - **Edges & overlays:** the derivation chain, story↔design links, **cross-story design-conflict** edges (amber, reusing `detect_design_conflicts`), and **backward-trace** edges (violet dashed, from a downstream gap back to the flagged source phase). Conflict / trace / bug badges on the nodes.
 - **Scenario layer (toggle):** drill into per-story Gherkin scenarios with `verify` edges and ✓verified / ✗gap flags sourced from the Phase 4 verification matrix. Off by default (node-count guard).
 - **Interactions:** click a node → jump to its phase; filter by epic or "flagged stories only"; React Flow + Dagre auto-layout with a MiniMap; **drag to rearrange** (layout persists to `trace-layout.json`) + **Re-layout**; **Refresh** (also refetches on tab focus); **Export PNG** of the whole graph for reports.
+
+### Autopilot
+
+The **Autopilot** page (`/autopilot`, top nav, Zap icon) runs Phases 1–5 as a single unattended background pipeline — from a concept description and a list of epics through requirements, design, implementation assist, testing, and deployment artefacts.
+
+**Setup form** — before launching, the user provides:
+- **Concept** — free-text product brief (seeds Phase 1 story generation)
+- **Epics** — one or more epic titles with optional description (expandable list)
+- **Tech stack hint** (optional) — seeds Phase 2 design
+- **Settings** — *Pause at checkpoints* (human-in-the-loop handoffs after each phase) and *Create epics in Taiga* (push generated epics to the PM tool)
+
+**Run view** — once launched, the page switches to a live run view showing:
+- **Phase stepper** — which of the five phases is currently executing
+- **Progress counter** — `N / total stories done`
+- **Live event log** — timestamped events with level indicators (info / success / warning / error / checkpoint) and the phase/artifact context
+- **Checkpoint banner** — when *pause at checkpoints* is enabled, a banner appears after each phase completes and waits for the user to resume
+- **Completion banner** — `Autopilot complete — N stories through full SDLC pipeline`
+
+**Controls** — Pause, Resume, Stop, Take Over (stops the background job and hands control back to the per-phase pages), and New Run (resets the form after a terminal state).
+
+**Backend** — `backend/app/services/autopilot_service.py` runs each story through the existing phase-service layer inside a `threading.Thread`, using `contextvars.copy_context().run()` to propagate per-request ContextVars. `threading.Event` objects (`_stop_event` / `_resume_event`) provide cooperative pause/stop. Jobs are held in an in-memory `_JOBS` dict (process-local, not persisted across restarts). Routes: `POST /api/autopilot/start`, `GET /api/autopilot/{id}`, `POST /api/autopilot/{id}/pause|resume|stop|take-over`.
 
 ### Sidebar Workspace
 
@@ -1034,6 +1055,7 @@ gh variable set APEX_NIGHT_MODE --body on    # re-enable (default)
 | Phase 6 · Maintenance & Traceability | Implemented |
 | Governance Analytics | Implemented |
 | Living Traceability Graph | Implemented |
+| Autopilot (Phases 1–5 pipeline) | Implemented |
 
 ---
 
@@ -1056,7 +1078,8 @@ documented above):
 
 Remaining open items are minor: Jira issue intake for Phase 6, plus a handful of
 accepted cosmetic/low-severity polish items. Deferred graph v1.1 extras (already
-partly shipped) — none outstanding.
+partly shipped) — none outstanding. The **Autopilot** end-to-end pipeline is also
+now shipped (see [Autopilot](#autopilot)).
 
 ---
 
