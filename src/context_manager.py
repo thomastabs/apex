@@ -945,6 +945,8 @@ def upsert_story_index(story_id: int, **updates) -> None:
             "design_conflict": False,
             "conflict_reason": "",
             "figma_node_id":   "",
+            "figma_synced_at": "",
+            "figma_changed":   False,
             "status_history":  {},
         })
         entry.update(updates)
@@ -2328,14 +2330,61 @@ def clear_design_conflict(story_id: int) -> None:
             _save_story_index(index)
 
 
-def set_story_figma_link(story_id: int, figma_node_id: str) -> None:
+def set_story_figma_link(story_id: int, figma_node_id: str, figma_modified: str = "") -> None:
     """Link (or, with an empty id, unlink) a story to a specific Figma frame node.
+
+    `figma_modified` is the linked file's lastModified timestamp captured at link
+    time — the baseline a later scan compares against to detect design changes.
     The deep link is rebuilt client-side from the linked file key + this node id."""
     with _index_lock():
         index = get_story_index()
         entry = index.get(str(story_id))
         if entry is not None:
             entry["figma_node_id"] = figma_node_id or ""
+            if figma_node_id:
+                entry["figma_synced_at"] = figma_modified or ""
+                entry["figma_changed"] = False
+            else:
+                entry["figma_synced_at"] = ""
+                entry["figma_changed"] = False
+            _save_story_index(index)
+
+
+def scan_figma_changes(current_modified: str) -> list[int]:
+    """Flag linked stories whose baseline predates the file's current lastModified.
+
+    Returns the list of newly-or-already flagged story ids. A purely lexical
+    compare is correct here: Figma lastModified is ISO-8601 UTC, so string order
+    matches chronological order."""
+    flagged: list[int] = []
+    with _index_lock():
+        index = get_story_index()
+        changed = False
+        for entry in index.values():
+            if not entry.get("figma_node_id"):
+                continue
+            baseline = entry.get("figma_synced_at", "")
+            if baseline and current_modified and baseline < current_modified:
+                if not entry.get("figma_changed"):
+                    entry["figma_changed"] = True
+                    changed = True
+                sid = entry.get("story_id")
+                if sid is not None:
+                    flagged.append(sid)
+        if changed:
+            _save_story_index(index)
+    return sorted(flagged)
+
+
+def acknowledge_figma_change(story_id: int, current_modified: str = "") -> None:
+    """Clear the design-changed flag and re-baseline to the current file version."""
+    with _index_lock():
+        index = get_story_index()
+        entry = index.get(str(story_id))
+        if entry is not None:
+            entry["figma_changed"] = False
+            if current_modified:
+                entry["figma_synced_at"] = current_modified
             _save_story_index(index)
 
 

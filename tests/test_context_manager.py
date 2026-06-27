@@ -251,6 +251,44 @@ class TestUpsertStoryIndex:
         ctx.set_story_figma_link(999, "1:1")
         assert "999" not in ctx.get_story_index()
 
+    def test_scan_figma_changes_flags_stale_baseline(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(1, title="Linked")
+        ctx.set_story_figma_link(1, "1:1", "2026-06-01T00:00:00Z")
+        ctx.upsert_story_index(2, title="Unlinked")
+        # Newer file version → story 1 flagged, story 2 (no link) untouched.
+        flagged = ctx.scan_figma_changes("2026-06-27T00:00:00Z")
+        assert flagged == [1]
+        assert ctx.get_story_index()["1"]["figma_changed"] is True
+        assert ctx.get_story_index()["2"].get("figma_changed") in (False, None)
+
+    def test_scan_figma_changes_no_flag_when_baseline_current(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(1, title="Linked")
+        ctx.set_story_figma_link(1, "1:1", "2026-06-27T00:00:00Z")
+        assert ctx.scan_figma_changes("2026-06-27T00:00:00Z") == []
+        assert ctx.get_story_index()["1"]["figma_changed"] is False
+
+    def test_acknowledge_figma_change_clears_and_rebaselines(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(1, title="Linked")
+        ctx.set_story_figma_link(1, "1:1", "2026-06-01T00:00:00Z")
+        ctx.scan_figma_changes("2026-06-27T00:00:00Z")
+        ctx.acknowledge_figma_change(1, "2026-06-27T00:00:00Z")
+        entry = ctx.get_story_index()["1"]
+        assert entry["figma_changed"] is False
+        assert entry["figma_synced_at"] == "2026-06-27T00:00:00Z"
+        # Re-scan at the same version no longer flags.
+        assert ctx.scan_figma_changes("2026-06-27T00:00:00Z") == []
+
+    def test_unlink_clears_figma_baseline(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(1, title="Linked")
+        ctx.set_story_figma_link(1, "1:1", "2026-06-01T00:00:00Z")
+        ctx.set_story_figma_link(1, "")  # unlink
+        entry = ctx.get_story_index()["1"]
+        assert entry["figma_node_id"] == "" and entry["figma_synced_at"] == ""
+
     def test_story_id_always_preserved(self, ctx):
         ctx.init_context()
         ctx.upsert_story_index(42, title="My Story")

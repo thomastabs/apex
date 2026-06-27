@@ -37,6 +37,7 @@ vi.mock("@/lib/hooks/use-workspace", () => ({
   useAcknowledgeBacktrace: () => idleMut,
   useAcknowledgeConflict: () => idleMut,
   useSetStoryFigmaLink: () => idleMut,
+  useAcknowledgeFigmaChange: () => idleMut,
   useStoryIndexStats: () => ({
     refetch: vi.fn(),
     data: {

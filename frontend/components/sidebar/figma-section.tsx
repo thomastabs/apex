@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { ExternalLink, Figma, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { useSaveFigmaConfig, useSyncFigmaContext, useContextFiles } from "@/lib/hooks/use-workspace";
+import { useSaveFigmaConfig, useSyncFigmaContext, useScanFigmaChanges, useContextFiles } from "@/lib/hooks/use-workspace";
 import { useSessionStore, useFigmaContext } from "@/lib/stores/session-store";
 import { figmaVerifyFile, parseFigmaUrl } from "@/lib/api/figma";
 import { cn } from "@/lib/utils";
@@ -24,7 +24,23 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
   const figma = useFigmaContext();
   const saveFigmaConfig = useSaveFigmaConfig();
   const syncContext = useSyncFigmaContext();
+  const scanChanges = useScanFigmaChanges();
   const contextFiles = useContextFiles();
+
+  async function handleScanChanges() {
+    if (!figma) return;
+    try {
+      const { lastModified } = await figmaVerifyFile(figma.token, figma.fileKey);
+      const { changed_story_ids } = await scanChanges.mutateAsync(lastModified);
+      toast[changed_story_ids.length ? "warning" : "success"](
+        changed_story_ids.length
+          ? `${changed_story_ids.length} linked stor${changed_story_ids.length === 1 ? "y has" : "ies have"} design changes`
+          : "No design changes since last link.",
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Scan failed.");
+    }
+  }
 
   const isConnected = Boolean(figma);
   const sectionBorderClass = dark ? "border-neutral-800" : "border-slate-300";
@@ -147,6 +163,17 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
                     Disconnect
                   </button>
                 </div>
+
+                <button
+                  className={cn("inline-flex h-9 w-full items-center justify-center gap-2 rounded border text-sm transition-colors disabled:opacity-50",
+                    dark ? "border-neutral-600 text-neutral-300 hover:border-violet-500/50 hover:text-violet-300" : "border-slate-300 text-slate-600 hover:border-violet-300 hover:text-violet-600",
+                  )}
+                  disabled={scanChanges.isPending}
+                  onClick={handleScanChanges}
+                >
+                  <RefreshCw className={cn("size-3.5", scanChanges.isPending && "animate-spin")} />
+                  {scanChanges.isPending ? "Scanning…" : "Scan for design changes"}
+                </button>
 
                 <p className={cn("text-[11px]", dark ? "text-neutral-600" : "text-slate-400")}>
                   Synced screens are injected into Phase 1 story generation and Phase 2 design automatically.

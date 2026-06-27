@@ -60,8 +60,14 @@ class ContextService:
     def clear_design_conflict(self, story_id: int) -> None:
         context_manager.clear_design_conflict(story_id)
 
-    def set_story_figma_link(self, story_id: int, figma_node_id: str) -> None:
-        context_manager.set_story_figma_link(story_id, figma_node_id)
+    def set_story_figma_link(self, story_id: int, figma_node_id: str, figma_modified: str = "") -> None:
+        context_manager.set_story_figma_link(story_id, figma_node_id, figma_modified)
+
+    def scan_figma_changes(self, current_modified: str) -> list[int]:
+        return context_manager.scan_figma_changes(current_modified)
+
+    def acknowledge_figma_change(self, story_id: int, current_modified: str = "") -> None:
+        context_manager.acknowledge_figma_change(story_id, current_modified)
 
     def load_all_proposals(self) -> list[dict]:
         return context_manager.load_all_proposals()

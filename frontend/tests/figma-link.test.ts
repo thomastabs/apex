@@ -17,7 +17,7 @@ describe("setStoryFigmaLink api", () => {
     await setStoryFigmaLink(CTX, 42, "12:34");
     expect(apiRequest).toHaveBeenCalledWith(
       "/api/workspace/context-files/story-index/stories/42/figma-link",
-      expect.objectContaining({ method: "POST", body: { figma_node_id: "12:34" } }),
+      expect.objectContaining({ method: "POST", body: { figma_node_id: "12:34", figma_modified: "" } }),
     );
   });
 
@@ -25,7 +25,7 @@ describe("setStoryFigmaLink api", () => {
     await setStoryFigmaLink(CTX, 42, "");
     expect(apiRequest).toHaveBeenCalledWith(
       "/api/workspace/context-files/story-index/stories/42/figma-link",
-      expect.objectContaining({ body: { figma_node_id: "" } }),
+      expect.objectContaining({ body: { figma_node_id: "", figma_modified: "" } }),
     );
   });
 });

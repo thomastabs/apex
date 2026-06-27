@@ -20,7 +20,9 @@ import {
   getContextFiles,
   getMe,
   getServerConfig,
+  acknowledgeFigmaChange,
   getStoryIndexStats,
+  scanFigmaChanges,
   setStoryFigmaLink,
   getStoryPhaseStatus,
   getTraceabilityGraph,
@@ -194,8 +196,31 @@ export function useSetStoryFigmaLink() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ storyId, figmaNodeId }: { storyId: number; figmaNodeId: string }) =>
-      setStoryFigmaLink(context!, storyId, figmaNodeId),
+    mutationFn: ({ storyId, figmaNodeId, figmaModified = "" }: { storyId: number; figmaNodeId: string; figmaModified?: string }) =>
+      setStoryFigmaLink(context!, storyId, figmaNodeId, figmaModified),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
+    },
+  });
+}
+
+export function useScanFigmaChanges() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (currentModified: string) => scanFigmaChanges(context!, currentModified),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
+    },
+  });
+}
+
+export function useAcknowledgeFigmaChange() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ storyId, currentModified = "" }: { storyId: number; currentModified?: string }) =>
+      acknowledgeFigmaChange(context!, storyId, currentModified),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },

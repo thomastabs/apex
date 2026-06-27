@@ -16,6 +16,7 @@ import {
   useDeleteStory,
   useRebuildStoryIndex,
   useSetStoryPhaseStatus,
+  useAcknowledgeFigmaChange,
   useSetStoryFigmaLink,
   useStoryIndexStats,
   useStoryPhaseStatus,
@@ -27,7 +28,7 @@ import { useAcknowledgeRegression } from "@/lib/hooks/use-phase6";
 import { getPmAdapter } from "@/lib/api/pm-factory";
 import { toPmCtx, type ApexPhaseStatus } from "@/lib/api/workspace";
 import { getAnalyticsSummary, type StoryRisk } from "@/lib/api/analytics";
-import { figmaGetFile, deriveFramesAndFlows, figmaNodeUrl } from "@/lib/api/figma";
+import { figmaGetFile, figmaVerifyFile, deriveFramesAndFlows, figmaNodeUrl } from "@/lib/api/figma";
 import { useApiContext, useFigmaContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
@@ -157,6 +158,7 @@ function FigmaLinkField({ storyId, figmaNodeId, dark, inputClass }: { storyId: n
   const figma = useFigmaContext();
   const setLink = useSetStoryFigmaLink();
   const [frames, setFrames] = useState<{ node_id: string; name: string }[]>([]);
+  const [fileModified, setFileModified] = useState("");
   const [loading, setLoading] = useState(false);
 
   if (!figma) return null;
@@ -166,6 +168,7 @@ function FigmaLinkField({ storyId, figmaNodeId, dark, inputClass }: { storyId: n
     setLoading(true);
     try {
       const file = await figmaGetFile(figma.token, figma.fileKey, 2);
+      setFileModified(file.lastModified);
       setFrames(deriveFramesAndFlows(file).frames.map((f) => ({ node_id: f.node_id, name: f.name })));
     } catch {
       toast.error("Could not load Figma frames.");
@@ -187,7 +190,7 @@ function FigmaLinkField({ storyId, figmaNodeId, dark, inputClass }: { storyId: n
           disabled={setLink.isPending}
           onChange={(e) =>
             setLink.mutate(
-              { storyId, figmaNodeId: e.target.value },
+              { storyId, figmaNodeId: e.target.value, figmaModified: fileModified },
               {
                 onSuccess: () => toast.success(e.target.value ? "Linked Figma frame." : "Unlinked."),
                 onError: () => toast.error("Could not update Figma link."),
@@ -218,14 +221,27 @@ function FigmaLinkField({ storyId, figmaNodeId, dark, inputClass }: { storyId: n
   );
 }
 
-function StoryDialog({ story, drifted = false, regressed = false, trace = null, conflict = null, figmaNodeId = "", onClose }: { story: Story; drifted?: boolean; regressed?: boolean; trace?: TracePrompt | null; conflict?: string | null; figmaNodeId?: string; onClose: () => void }) {
+function StoryDialog({ story, drifted = false, regressed = false, trace = null, conflict = null, figmaNodeId = "", figmaChanged = false, onClose }: { story: Story; drifted?: boolean; regressed?: boolean; trace?: TracePrompt | null; conflict?: string | null; figmaNodeId?: string; figmaChanged?: boolean; onClose: () => void }) {
   const dark = useUiStore((state) => state.theme === "dark");
   const context = useApiContext();
+  const figma = useFigmaContext();
   const router = useRouter();
   const ackDrift = useAcknowledgeSpecDrift();
   const ackRegression = useAcknowledgeRegression();
   const ackTrace = useAcknowledgeBacktrace();
   const ackConflict = useAcknowledgeConflict();
+  const ackFigmaChange = useAcknowledgeFigmaChange();
+
+  async function acknowledgeFigmaChange() {
+    let modified = "";
+    if (figma) {
+      try { modified = (await figmaVerifyFile(figma.token, figma.fileKey)).lastModified; } catch { /* re-baseline best-effort */ }
+    }
+    ackFigmaChange.mutate(
+      { storyId: story.id, currentModified: modified },
+      { onSuccess: () => toast.success("Design change acknowledged."), onError: () => toast.error("Could not acknowledge.") },
+    );
+  }
   const [subject, setSubject] = useState(story.subject);
   const [description, setDescription] = useState(story.description ?? "");
   const [tagsInput, setTagsInput] = useState((story.tags ?? []).join(", "));
@@ -399,6 +415,22 @@ function StoryDialog({ story, drifted = false, regressed = false, trace = null, 
                 }
               >
                 {ackConflict.isPending ? "Acknowledging…" : "Acknowledge"}
+              </button>
+            </div>
+          </div>
+        ) : null}
+        {figmaChanged ? (
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-violet-500/40 bg-violet-500/10 p-3 text-xs text-violet-600 dark:text-violet-400">
+            <Figma className="mt-0.5 size-4 shrink-0" />
+            <div className="flex-1">
+              <p className="font-semibold">Design changed in Figma</p>
+              <p className="mt-0.5">The linked Figma file was modified after this story was linked. The stories and screen flow may be out of date — review the design and re-generate if needed.</p>
+              <button
+                className="mt-2 rounded bg-violet-500/20 px-2 py-1 font-semibold transition-colors hover:bg-violet-500/30 disabled:opacity-50"
+                disabled={ackFigmaChange.isPending}
+                onClick={acknowledgeFigmaChange}
+              >
+                {ackFigmaChange.isPending ? "Acknowledging…" : "Acknowledge"}
               </button>
             </div>
           </div>
@@ -687,6 +719,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
   const conflictedIds = new Set(storyStats.data?.conflicted_story_ids ?? []);
   const conflictById = new Map((storyStats.data?.conflict_flags ?? []).map((c) => [c.story_id, c.reason]));
   const figmaById = new Map((storyStats.data?.figma_links ?? []).map((f) => [f.story_id, f.figma_node_id]));
+  const figmaChangedIds = new Set(storyStats.data?.figma_changed_story_ids ?? []);
 
   // Predictive risk badge — reuse the analytics summary (single source of risk),
   // shared/cached with the Analytics page.
@@ -724,7 +757,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
       {typeof document !== "undefined" ? createPortal(
         <>
           {dialogEpic ? <EpicDialog epic={dialogEpic} onClose={() => setDialogEpic(null)} /> : null}
-          {dialogStory ? <StoryDialog story={dialogStory} drifted={driftedIds.has(dialogStory.id)} regressed={regressedIds.has(dialogStory.id)} trace={traceById.get(dialogStory.id) ?? null} conflict={conflictById.get(dialogStory.id) ?? null} figmaNodeId={figmaById.get(dialogStory.id) ?? ""} onClose={() => setDialogStory(null)} /> : null}
+          {dialogStory ? <StoryDialog story={dialogStory} drifted={driftedIds.has(dialogStory.id)} regressed={regressedIds.has(dialogStory.id)} trace={traceById.get(dialogStory.id) ?? null} conflict={conflictById.get(dialogStory.id) ?? null} figmaNodeId={figmaById.get(dialogStory.id) ?? ""} figmaChanged={figmaChangedIds.has(dialogStory.id)} onClose={() => setDialogStory(null)} /> : null}
           {createEpicOpen ? <CreateEpicDialog onClose={() => setCreateEpicOpen(false)} /> : null}
           {createStoryEpicId !== null ? (
             <CreateStoryDialog epicId={createStoryEpicId} onClose={() => setCreateStoryEpicId(null)} />
@@ -932,8 +965,8 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                           ) : null}
                           {figmaById.has(story.id) ? (
                             <Figma
-                              className="size-3 shrink-0 text-violet-400"
-                              aria-label="Linked to a Figma frame"
+                              className={cn("size-3 shrink-0", figmaChangedIds.has(story.id) ? "text-amber-500" : "text-violet-400")}
+                              aria-label={figmaChangedIds.has(story.id) ? "Linked Figma frame — design changed since linked" : "Linked to a Figma frame"}
                             />
                           ) : null}
                           <button

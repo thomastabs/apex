@@ -269,6 +269,8 @@ export type StoryIndexStats = {
   conflicted_story_ids: number[];
   conflict_flags: ConflictFlagInfo[];
   figma_links: FigmaLinkInfo[];
+  figma_changed: number;
+  figma_changed_story_ids: number[];
 };
 
 export type FigmaLinkInfo = {
@@ -292,10 +294,25 @@ export function getStoryIndexStats(context: RequestContext) {
   return apiRequest<StoryIndexStats>("/api/workspace/context-files/story-index-stats", { context });
 }
 
-export function setStoryFigmaLink(context: RequestContext, storyId: number, figmaNodeId: string) {
+export function setStoryFigmaLink(context: RequestContext, storyId: number, figmaNodeId: string, figmaModified = "") {
   return apiRequest<{ ok: boolean }>(
     `/api/workspace/context-files/story-index/stories/${storyId}/figma-link`,
-    { method: "POST", context, body: { figma_node_id: figmaNodeId } },
+    { method: "POST", context, body: { figma_node_id: figmaNodeId, figma_modified: figmaModified } },
+  );
+}
+
+export function scanFigmaChanges(context: RequestContext, currentModified: string) {
+  return apiRequest<{ changed_story_ids: number[] }>("/api/workspace/figma/scan-changes", {
+    method: "POST",
+    context,
+    body: { current_modified: currentModified },
+  });
+}
+
+export function acknowledgeFigmaChange(context: RequestContext, storyId: number, currentModified: string) {
+  return apiRequest<{ ok: boolean }>(
+    `/api/workspace/context-files/story-index/stories/${storyId}/acknowledge-figma-change`,
+    { method: "POST", context, body: { current_modified: currentModified } },
   );
 }
 

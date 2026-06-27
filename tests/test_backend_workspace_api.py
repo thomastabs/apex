@@ -64,6 +64,8 @@ def test_story_index_stats_deployed_counts_only_explicit_deployed(monkeypatch):
         "conflicted_story_ids": [],
         "conflict_flags": [],
         "figma_links": [],
+        "figma_changed": 0,
+        "figma_changed_story_ids": [],
     }
 
 

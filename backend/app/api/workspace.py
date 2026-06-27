@@ -23,7 +23,10 @@ from backend.app.schemas.workspace import (
     OkResponse,
     PhaseStatusResponse,
     SaveAiConfigRequest,
+    AcknowledgeFigmaChangeRequest,
     SaveConfigRequest,
+    ScanFigmaChangesRequest,
+    ScanFigmaChangesResponse,
     SetPhaseStatusRequest,
     SetStoryFigmaLinkRequest,
     SaveTraceLayoutRequest,
@@ -352,6 +355,10 @@ def story_index_stats(ctx: RequestContext = Depends(get_request_context)):
                 key=lambda s: s["story_id"],
             )
         ],
+        "figma_changed": sum(1 for s in stories if s.get("figma_changed")),
+        "figma_changed_story_ids": sorted(
+            s["story_id"] for s in stories if s.get("figma_changed") and s.get("story_id") is not None
+        ),
     }
 
 
@@ -400,7 +407,37 @@ def set_story_figma_link(
     """Link (or unlink with an empty id) a story to a Figma frame node."""
     context = ContextService()
     context.set_active(ctx)
-    context.set_story_figma_link(story_id, payload.figma_node_id)
+    context.set_story_figma_link(story_id, payload.figma_node_id, payload.figma_modified)
+    return {"ok": True}
+
+
+@router.post("/figma/scan-changes", response_model=ScanFigmaChangesResponse)
+def scan_figma_changes(
+    payload: ScanFigmaChangesRequest,
+    ctx: RequestContext = Depends(get_request_context),
+):
+    """Flag linked stories whose Figma file changed since they were linked.
+
+    The browser passes the file's current lastModified (fetched via the proxy);
+    each linked story with an older baseline is flagged figma_changed."""
+    context = ContextService()
+    context.set_active(ctx)
+    return {"changed_story_ids": context.scan_figma_changes(payload.current_modified)}
+
+
+@router.post(
+    "/context-files/story-index/stories/{story_id}/acknowledge-figma-change",
+    response_model=OkResponse,
+)
+def acknowledge_figma_change(
+    story_id: int,
+    payload: AcknowledgeFigmaChangeRequest,
+    ctx: RequestContext = Depends(get_request_context),
+):
+    """Clear the design-changed flag and re-baseline the story to the current file version."""
+    context = ContextService()
+    context.set_active(ctx)
+    context.acknowledge_figma_change(story_id, payload.current_modified)
     return {"ok": True}
 
 

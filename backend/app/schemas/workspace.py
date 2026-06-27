@@ -113,6 +113,19 @@ class FigmaLinkInfo(BaseModel):
 
 class SetStoryFigmaLinkRequest(BaseModel):
     figma_node_id: str = Field("", max_length=100)
+    figma_modified: str = Field("", max_length=64)
+
+
+class ScanFigmaChangesRequest(BaseModel):
+    current_modified: str = Field("", max_length=64)
+
+
+class ScanFigmaChangesResponse(BaseModel):
+    changed_story_ids: list[int] = Field(default_factory=list)
+
+
+class AcknowledgeFigmaChangeRequest(BaseModel):
+    current_modified: str = Field("", max_length=64)
 
 
 class StoryIndexStatsResponse(BaseModel):
@@ -133,6 +146,8 @@ class StoryIndexStatsResponse(BaseModel):
     conflicted_story_ids: list[int] = Field(default_factory=list)
     conflict_flags: list["ConflictFlagInfo"] = Field(default_factory=list)
     figma_links: list["FigmaLinkInfo"] = Field(default_factory=list)
+    figma_changed: int = 0
+    figma_changed_story_ids: list[int] = Field(default_factory=list)
 
 
 class ImportEpicSummary(BaseModel):
