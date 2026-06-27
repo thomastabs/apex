@@ -25,6 +25,7 @@ import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import type { CompiledStory, EpicSuggestion, RequirementGapReport } from "@/lib/api/types";
 import { cn, errMsg } from "@/lib/utils";
+import { FigmaStoryPanel } from "@/components/figma-story-panel";
 
 type Mode = "create" | "load" | "suggest";
 
@@ -647,6 +648,13 @@ export function Phase1Workflow() {
 
             {mode === "suggest" ? (
               <div className="space-y-4">
+                <FigmaStoryPanel
+                  dark={dark}
+                  onGenerated={(draft) => {
+                    setNlDraft(draft);
+                    setStep(3);
+                  }}
+                />
                 <GuideTheAI
                   value={suggestHint}
                   onChange={setSuggestHint}

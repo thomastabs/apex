@@ -694,6 +694,56 @@ def generate_nl_stories(
     )
 
 
+_FIGMA_STORY_SYSTEM = _NL_GENERATION_SYSTEM + """\
+
+--- DESIGN-DRIVEN MODE ---
+You are decomposing from a set of REAL UI screens (Figma frames) and the navigation
+flows between them, NOT a text Epic. Treat each named screen as a surface the user
+interacts with. Derive fractional User Stories for the actions a user performs on
+these screens, and use the navigation flows to write scenarios that move from one
+screen to another. Ground every story in a named screen — do NOT invent screens,
+features, or data not represented by the frames, the flows, or the project concept.
+"""
+
+
+def generate_stories_from_figma(
+    frames: list[dict],
+    flows: list[dict],
+    project_concept: str = "",
+    model: str = "",
+    instructions: str = "",
+) -> NLStoryList:
+    """Decompose a set of Figma frames + prototype flows into NL user stories.
+
+    `frames` = [{name, description?}]; `flows` = [{from_name, to_name}].
+    Returns the same NLStoryList contract as generate_nl_stories so the result
+    flows into the existing draft → compile → push pipeline. Empty frames → no stories.
+    """
+    if not frames:
+        return NLStoryList(stories=[])
+
+    parts: list[str] = []
+    if project_concept.strip():
+        parts.append("Project Concept:\n" + fence_user_content(project_concept))
+    screen_lines = "\n".join(
+        f"- {f['name']}" + (f": {f['description']}" if f.get("description") else "")
+        for f in frames
+    )
+    parts.append("Designed screens (Figma frames):\n" + fence_user_content(screen_lines))
+    if flows:
+        flow_lines = "\n".join(f"- {e['from_name']} → {e['to_name']}" for e in flows)
+        parts.append("Navigation flows between screens:\n" + fence_user_content(flow_lines))
+    parts.append(
+        "Decompose into fractional User Stories with Natural Language scenarios, "
+        "grounded in these screens and flows."
+    )
+    human = "\n\n".join(parts)
+    return _invoke_structured_with_progress(
+        _FIGMA_STORY_SYSTEM + _guidance_block(instructions), human, model or get_model(),
+        NLStoryList, max_tokens=8192, temperature=0.2,
+    )
+
+
 def format_nl_draft(story_list: NLStoryList) -> str:
     """Render an NLStoryList as human-readable text for the review editor."""
     lines = []

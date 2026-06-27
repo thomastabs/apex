@@ -69,6 +69,20 @@ export function generateNlStories(
   });
 }
 
+export function generateStoriesFromFigma(
+  context: RequestContext,
+  body: { frames: Array<{ name: string; description?: string }>; flows: Array<{ from_name: string; to_name: string }>; instructions?: string },
+  signal?: AbortSignal,
+) {
+  return apiRequest<Phase1GenerateNlStoriesResponse>("/api/phase1/generate-stories-from-figma", {
+    method: "POST",
+    context,
+    body,
+    timeoutMs: 180_000,
+    signal,
+  });
+}
+
 export type CrossCheckScenario = { story_title: string; title: string; description: string };
 export type CrossCheckResult = {
   primary_model: string;

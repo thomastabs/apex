@@ -41,6 +41,22 @@ class AiService:
         )
         return ai_engine.format_nl_draft(result), len(result.stories)
 
+    def generate_stories_from_figma(
+        self,
+        frames: list[dict],
+        flows: list[dict],
+        *,
+        project_concept: str,
+        instructions: str = "",
+    ) -> tuple[str, int]:
+        result = ai_engine.generate_stories_from_figma(
+            frames,
+            flows,
+            project_concept=project_concept,
+            instructions=instructions,
+        )
+        return ai_engine.format_nl_draft(result), len(result.stories)
+
     def pick_alt_model(self, model: str) -> str | None:
         return ai_engine.pick_alt_model(model)
 

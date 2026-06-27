@@ -8,6 +8,7 @@ import {
   generateConstraints,
   crossCheckStories,
   generateNlStories,
+  generateStoriesFromFigma,
   listPhase1Epics,
   pushPhase1Stories,
   suggestPhase1Epics,
@@ -55,6 +56,18 @@ export function useGenerateNlStories() {
   return useCancellableMutation(
     (body: Phase1GenerateNlStoriesRequest, signal) => generateNlStories(context!, body, signal),
     { onError: () => toast.error("Story generation failed. The AI may be busy — try again shortly.") },
+  );
+}
+
+export function useGenerateStoriesFromFigma() {
+  const context = useApiContext();
+
+  return useCancellableMutation(
+    (
+      body: { frames: Array<{ name: string; description?: string }>; flows: Array<{ from_name: string; to_name: string }>; instructions?: string },
+      signal,
+    ) => generateStoriesFromFigma(context!, body, signal),
+    { onError: () => toast.error("Figma story generation failed. The AI may be busy — try again shortly.") },
   );
 }
 

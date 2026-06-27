@@ -52,6 +52,22 @@ class GenerateNlStoriesResponse(BaseModel):
     story_count: int
 
 
+class FigmaFrameSchema(BaseModel):
+    name: str = Field(..., max_length=300)
+    description: str = Field("", max_length=2_000)
+
+
+class FigmaFlowSchema(BaseModel):
+    from_name: str = Field(..., max_length=300)
+    to_name: str = Field(..., max_length=300)
+
+
+class GenerateStoriesFromFigmaRequest(BaseModel):
+    frames: list[FigmaFrameSchema] = Field(default_factory=list, max_length=200)
+    flows: list[FigmaFlowSchema] = Field(default_factory=list, max_length=400)
+    instructions: str = Field("", max_length=2_000)
+
+
 class CrossCheckRequest(BaseModel):
     epic_subject: str = Field(..., max_length=500)
     epic_description: str = Field("", max_length=5_000)

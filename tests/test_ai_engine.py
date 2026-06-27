@@ -3,6 +3,7 @@
 
 import pytest
 
+from src import ai_engine
 from src.ai_engine import (
     NLScenario,
     NLStory,
@@ -17,7 +18,44 @@ from src.ai_engine import (
     bold_gherkin_keywords,
     format_gherkin_story,
     format_nl_draft,
+    generate_stories_from_figma,
 )
+
+
+# ---------------------------------------------------------------------------
+# generate_stories_from_figma
+# ---------------------------------------------------------------------------
+
+class TestGenerateStoriesFromFigma:
+    def test_empty_frames_returns_empty_no_ai(self, monkeypatch):
+        # Must not call the LLM when there are no frames.
+        def _boom(*a, **k):
+            raise AssertionError("LLM should not be invoked for empty frames")
+        monkeypatch.setattr(ai_engine, "_invoke_structured_with_progress", _boom)
+        assert generate_stories_from_figma([], []).stories == []
+
+    def test_frames_and_flows_reach_the_prompt(self, monkeypatch):
+        captured = {}
+
+        def _fake(system, human, model, schema, **kwargs):
+            captured["system"] = system
+            captured["human"] = human
+            return NLStoryList(stories=[NLStory(
+                title="As a user, I want to log in", size="S",
+                scenarios=[NLScenario(title="ok", description="logs in")],
+            )])
+
+        monkeypatch.setattr(ai_engine, "_invoke_structured_with_progress", _fake)
+        result = generate_stories_from_figma(
+            [{"name": "Login"}, {"name": "Dashboard"}],
+            [{"from_name": "Login", "to_name": "Dashboard"}],
+            project_concept="A todo app",
+        )
+        assert len(result.stories) == 1
+        assert "Login" in captured["human"] and "Dashboard" in captured["human"]
+        assert "Login → Dashboard" in captured["human"]
+        assert "A todo app" in captured["human"]
+        assert "DESIGN-DRIVEN MODE" in captured["system"]
 
 
 # ---------------------------------------------------------------------------

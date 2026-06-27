@@ -63,6 +63,25 @@ class Phase1Service:
             figma_context=figma_context,
         )
 
+    def generate_stories_from_figma(
+        self,
+        ctx: RequestContext,
+        *,
+        frames: list[dict],
+        flows: list[dict],
+        instructions: str = "",
+    ) -> tuple[str, int]:
+        self.configure_request(ctx)
+        if not frames:
+            raise Phase1ValidationError("At least one Figma frame is required.")
+        concept = self.context.project_concept()
+        return self.ai.generate_stories_from_figma(
+            frames,
+            flows,
+            project_concept=concept,
+            instructions=instructions,
+        )
+
     def cross_check_stories(
         self,
         ctx: RequestContext,

@@ -35,6 +35,10 @@ class FakeAiService:
         self.figma_context = figma_context
         return "[S] Story A", 1
 
+    def generate_stories_from_figma(self, frames, flows, *, project_concept, instructions=""):
+        self.figma_args = (frames, flows, project_concept)
+        return "[S] Login Story", len(frames)
+
     def compile_gherkin(self, nl_draft: str) -> list[dict]:
         return [{"title": "Story A", "size": "S", "gherkin": "Feature: A\n\n  Scenario: s"}]
 
@@ -137,6 +141,29 @@ def test_generate_nl_stories_injects_figma_context():
     service.generate_nl_stories(_ctx(), epic_subject="Epic", epic_description="Desc")
 
     assert ai.figma_context == "# Figma\nLogin screen, Dashboard"
+
+
+def test_generate_stories_from_figma_passes_frames_and_concept():
+    service, ai, _ = _service()
+
+    draft, count = service.generate_stories_from_figma(
+        _ctx(),
+        frames=[{"name": "Login", "description": ""}, {"name": "Dashboard", "description": ""}],
+        flows=[{"from_name": "Login", "to_name": "Dashboard"}],
+    )
+
+    assert draft == "[S] Login Story"
+    assert count == 2
+    frames, flows, concept = ai.figma_args
+    assert [f["name"] for f in frames] == ["Login", "Dashboard"]
+    assert flows == [{"from_name": "Login", "to_name": "Dashboard"}]
+    assert concept == "Project concept"
+
+
+def test_generate_stories_from_figma_empty_frames_raises():
+    service, _, _ = _service()
+    with pytest.raises(Phase1ValidationError):
+        service.generate_stories_from_figma(_ctx(), frames=[], flows=[])
 
 
 def test_analyze_gaps_passes_concept_and_epics():
