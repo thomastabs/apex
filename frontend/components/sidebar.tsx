@@ -738,7 +738,7 @@ export function Sidebar() {
           const dragHandlers = makeDragSectionProps(id);
           const onDragStart = makeDragStartHandler(id);
 
-          if (id !== "ai" && id !== "resources" && id !== "about" && id !== "github" && !taigaToken) return null;
+          if (id !== "ai" && id !== "resources" && id !== "about" && !taigaToken) return null;
 
 
           if (id === "project") {
