@@ -13,6 +13,41 @@ class Phase2ValidationError(ValueError):
     """Raised when a Phase 2 request is structurally invalid."""
 
 
+def build_screen_flow_diagram(frames: list[dict], flows: list[dict]) -> dict:
+    """Pure: Figma frames + prototype flows → React Flow screen-flow diagram.
+
+    Node id = Figma node id; label = frame name; description = page name.
+    Edges are flows mapped from frame names to their node ids; flows referencing
+    an unknown frame, self-loops, and duplicate edges are dropped.
+    """
+    name_to_id: dict[str, str] = {}
+    for f in frames:
+        # First frame wins on a duplicate name so the edge mapping is deterministic.
+        name_to_id.setdefault(f["name"], f["node_id"])
+    nodes = [
+        {
+            "id": f["node_id"],
+            "type": "screen",
+            "position": {"x": 0, "y": 0},
+            "data": {"label": f["name"], "description": f.get("page", "")},
+        }
+        for f in frames
+    ]
+    edges = []
+    seen: set[str] = set()
+    for e in flows:
+        src = name_to_id.get(e["from_name"])
+        tgt = name_to_id.get(e["to_name"])
+        if not src or not tgt or src == tgt:
+            continue
+        eid = f"{src}->{tgt}"
+        if eid in seen:
+            continue
+        seen.add(eid)
+        edges.append({"id": eid, "source": src, "target": tgt, "label": "", "animated": False})
+    return {"nodes": nodes, "edges": edges}
+
+
 class Phase2Service:
     def __init__(
         self,
@@ -211,6 +246,19 @@ class Phase2Service:
             for e in result.edges
         ]
         diagram = {"nodes": nodes, "edges": edges}
+        self.context.save_screen_flow(diagram)
+        return diagram
+
+    def build_screen_flow_from_figma(
+        self, ctx: RequestContext, *, frames: list[dict], flows: list[dict],
+    ) -> dict:
+        """Build the screen-flow diagram directly from real Figma frames + prototype
+        flows (no AI). Frame node ids become diagram node ids; flows (by frame name)
+        become edges. Persists like the AI-generated flow so it survives reloads."""
+        self.configure_request(ctx)
+        if not frames:
+            raise Phase2ValidationError("At least one Figma frame is required.")
+        diagram = build_screen_flow_diagram(frames, flows)
         self.context.save_screen_flow(diagram)
         return diagram
 

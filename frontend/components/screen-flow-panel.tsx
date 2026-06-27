@@ -12,12 +12,14 @@ import {
   useEdgesState,
 } from "@xyflow/react";
 import Dagre from "@dagrejs/dagre";
-import { ChevronRight, LayoutDashboard, Loader2, Monitor, RefreshCw } from "lucide-react";
+import { ChevronRight, Figma, LayoutDashboard, Loader2, Monitor, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
 import { CancelButton } from "@/components/ui/cancel-button";
-import { useGenerateScreenFlow, useLoadScreenFlow, useSaveScreenFlowPositions } from "@/lib/hooks/use-phase2";
+import { useBuildScreenFlowFromFigma, useGenerateScreenFlow, useLoadScreenFlow, useSaveScreenFlowPositions } from "@/lib/hooks/use-phase2";
+import { useFigmaContext } from "@/lib/stores/session-store";
+import { figmaGetFile, deriveFramesAndFlows, figmaThumbnails } from "@/lib/api/figma";
 import type { ScreenFlowEdge, ScreenFlowNode, ScreenFlowResponse } from "@/lib/api/types";
 
 import "@xyflow/react/dist/style.css";
@@ -55,13 +57,18 @@ function toDagreNodes(diagram: ScreenFlowResponse): ScreenFlowNode[] {
 // Custom screen node
 // ---------------------------------------------------------------------------
 
-function ScreenNode({ data }: { data: { label: string; description: string } }) {
+function ScreenNode({ data }: { data: { label: string; description: string; thumb?: string } }) {
   return (
     <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 shadow-sm bg-white dark:bg-neutral-900 min-w-[140px] text-center overflow-hidden">
       <Handle type="target" position={Position.Left} className="!bg-indigo-500 !w-2 !h-2" />
       <div className="bg-indigo-600 text-white font-semibold px-3 py-2 text-xs tracking-wide">
         {data.label}
       </div>
+      {data.thumb && (
+        // Figma frame preview (short-lived URL; re-resolved on each build).
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={data.thumb} alt={data.label} className="w-[140px] max-h-24 object-cover" />
+      )}
       {data.description && (
         <div className="px-3 py-1.5 text-[10px] text-slate-400 dark:text-neutral-500 font-mono">
           {data.description}
@@ -93,9 +100,13 @@ export function ScreenFlowPanel({
   const loadQuery = useLoadScreenFlow();
   const generateMut = useGenerateScreenFlow();
   const savePosMut = useSaveScreenFlowPositions();
+  const figma = useFigmaContext();
+  const buildFigmaMut = useBuildScreenFlowFromFigma();
+  const [figmaLoading, setFigmaLoading] = useState(false);
 
   const hasDiagram = nodes.length > 0;
   const canGenerate = uxBriefContent.trim().length > 0;
+  const figmaBusy = figmaLoading || buildFigmaMut.isPending;
 
   useEffect(() => {
     if (loadQuery.data && loadQuery.data.nodes.length > 0) {
@@ -115,6 +126,37 @@ export function ScreenFlowPanel({
       },
     });
   }, [canGenerate, uxBriefContent, generateMut, setNodes, setEdges]);
+
+  const handleBuildFromFigma = useCallback(async () => {
+    if (!figma) return;
+    setFigmaLoading(true);
+    try {
+      const file = await figmaGetFile(figma.token, figma.fileKey, 2);
+      const { frames, flows } = deriveFramesAndFlows(file);
+      if (!frames.length) {
+        toast.info("No top-level frames found in this Figma file.");
+        return;
+      }
+      const diagram = await buildFigmaMut.mutateAsync({
+        frames: frames.map((f) => ({ node_id: f.node_id, name: f.name, page: f.page })),
+        flows,
+      });
+      // Re-resolve thumbnails (short-lived URLs) and overlay them on the nodes.
+      const thumbs = await figmaThumbnails(figma.token, figma.fileKey, frames.map((f) => f.node_id)).catch(() => ({} as Record<string, string>));
+      const withThumbs: ScreenFlowResponse = {
+        ...diagram,
+        nodes: diagram.nodes.map((n) => (thumbs[n.id] ? { ...n, data: { ...n.data, thumb: thumbs[n.id] } } : n)),
+      };
+      setNodes(toDagreNodes(withThumbs) as ScreenFlowNode[]);
+      setEdges(withThumbs.edges as ScreenFlowEdge[]);
+      setOpen(true);
+      toast.success(`Screen flow built from ${frames.length} Figma screen${frames.length === 1 ? "" : "s"}.`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not build screen flow from Figma.");
+    } finally {
+      setFigmaLoading(false);
+    }
+  }, [figma, buildFigmaMut, setNodes, setEdges]);
 
   const handleReLayout = useCallback(() => {
     const layouted = applyDagreLayout(nodes as ScreenFlowNode[], edges as ScreenFlowEdge[]);
@@ -204,6 +246,23 @@ export function ScreenFlowPanel({
               Regenerate
             </button>
           )}
+          {hasDiagram && figma && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); void handleBuildFromFigma(); }}
+              disabled={figmaBusy}
+              className={cn(
+                "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+                dark
+                  ? "text-violet-300 hover:text-violet-200 hover:bg-neutral-700"
+                  : "text-violet-600 hover:text-violet-700 hover:bg-slate-200",
+                figmaBusy && "opacity-50 cursor-not-allowed",
+              )}
+            >
+              {figmaBusy ? <Loader2 className="size-3 animate-spin" /> : <Figma className="size-3" />}
+              From Figma
+            </button>
+          )}
           <ChevronRight
             className={cn(
               "size-4 transition-transform",
@@ -228,27 +287,65 @@ export function ScreenFlowPanel({
               </div>
               <CancelButton onCancel={() => generateMut.cancel()} />
             </div>
+          ) : figmaBusy && !hasDiagram ? (
+            <div className="flex flex-col items-center gap-3 py-8 text-center">
+              <Loader2 className="size-8 animate-spin text-violet-500" />
+              <p className={cn("text-sm font-medium", dark ? "text-neutral-300" : "text-slate-600")}>
+                Building screen flow from Figma…
+              </p>
+            </div>
           ) : !hasDiagram ? (
             <div className="flex flex-col items-center gap-3 py-6 text-center">
               <Monitor className={cn("size-8", dark ? "text-neutral-600" : "text-slate-300")} />
-              <p className={cn("text-sm", dark ? "text-neutral-400" : "text-slate-500")}>
-                {canGenerate
-                  ? "Generate a screen navigation flow from the UX Brief above."
-                  : "Generate the UX Brief section first."}
-              </p>
-              <button
-                type="button"
-                onClick={handleGenerate}
-                disabled={generateMut.isPending || !canGenerate}
-                className={cn(
-                  "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors",
-                  canGenerate && !generateMut.isPending
-                    ? "bg-indigo-600 hover:bg-indigo-700"
-                    : "bg-indigo-300 cursor-not-allowed dark:bg-indigo-900",
-                )}
-              >
-                <Monitor className="size-4" />Generate Screen Flow
-              </button>
+              {figma ? (
+                <>
+                  <p className={cn("text-sm", dark ? "text-neutral-400" : "text-slate-500")}>
+                    Build the screen flow from your linked Figma file&apos;s real frames and prototype flows.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void handleBuildFromFigma()}
+                    disabled={figmaBusy}
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors",
+                      figmaBusy ? "bg-violet-300 cursor-not-allowed dark:bg-violet-900" : "bg-violet-600 hover:bg-violet-700",
+                    )}
+                  >
+                    <Figma className="size-4" />Build from Figma
+                  </button>
+                  {canGenerate && (
+                    <button
+                      type="button"
+                      onClick={handleGenerate}
+                      disabled={generateMut.isPending}
+                      className={cn("text-xs underline-offset-2 hover:underline", dark ? "text-neutral-500" : "text-slate-500")}
+                    >
+                      or generate with AI from the UX Brief
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className={cn("text-sm", dark ? "text-neutral-400" : "text-slate-500")}>
+                    {canGenerate
+                      ? "Generate a screen navigation flow from the UX Brief above."
+                      : "Generate the UX Brief section first."}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleGenerate}
+                    disabled={generateMut.isPending || !canGenerate}
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors",
+                      canGenerate && !generateMut.isPending
+                        ? "bg-indigo-600 hover:bg-indigo-700"
+                        : "bg-indigo-300 cursor-not-allowed dark:bg-indigo-900",
+                    )}
+                  >
+                    <Monitor className="size-4" />Generate Screen Flow
+                  </button>
+                </>
+              )}
             </div>
           ) : (
             <div

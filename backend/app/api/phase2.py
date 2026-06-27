@@ -22,6 +22,7 @@ from backend.app.schemas.phase2 import (
     ProposeTechStackResponse,
     SaveDiagramPositionsRequest,
     SaveScreenFlowPositionsRequest,
+    ScreenFlowFromFigmaRequest,
     ScreenFlowResponse,
     TechStackStatusResponse,
 )
@@ -205,6 +206,22 @@ def generate_screen_flow(
 ):
     try:
         return service.generate_screen_flow(ctx, ux_brief_md=payload.ux_brief_md)
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/screen-flow-from-figma", response_model=ScreenFlowResponse)
+def screen_flow_from_figma(
+    payload: ScreenFlowFromFigmaRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase2Service = Depends(get_phase2_service),
+):
+    try:
+        return service.build_screen_flow_from_figma(
+            ctx,
+            frames=[f.model_dump() for f in payload.frames],
+            flows=[e.model_dump() for e in payload.flows],
+        )
     except Exception as exc:
         _handle_error(exc)
 

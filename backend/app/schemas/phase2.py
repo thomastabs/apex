@@ -141,3 +141,19 @@ class ScreenFlowResponse(BaseModel):
 
 class SaveScreenFlowPositionsRequest(BaseModel):
     nodes: list[dict]
+
+
+class FigmaScreenFrame(BaseModel):
+    node_id: str = Field(max_length=100)
+    name: str = Field(max_length=300)
+    page: str = Field("", max_length=300)
+
+
+class FigmaScreenFlowEdge(BaseModel):
+    from_name: str = Field(max_length=300)
+    to_name: str = Field(max_length=300)
+
+
+class ScreenFlowFromFigmaRequest(BaseModel):
+    frames: list[FigmaScreenFrame] = Field(default_factory=list, max_length=300)
+    flows: list[FigmaScreenFlowEdge] = Field(default_factory=list, max_length=600)

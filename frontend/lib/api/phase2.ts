@@ -150,6 +150,17 @@ export function saveScreenFlowPositions(context: RequestContext, nodes: ScreenFl
   });
 }
 
+export function buildScreenFlowFromFigma(
+  context: RequestContext,
+  body: { frames: Array<{ node_id: string; name: string; page?: string }>; flows: Array<{ from_name: string; to_name: string }> },
+) {
+  return apiRequest<ScreenFlowResponse>("/api/phase2/screen-flow-from-figma", {
+    method: "POST",
+    context,
+    body,
+  });
+}
+
 export function refreshStoryIndex(context: RequestContext) {
   return apiRequest<{ ok: boolean }>("/api/phase2/refresh-story-index", {
     method: "POST",

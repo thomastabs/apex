@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  buildScreenFlowFromFigma,
   crossCheckEndpoints,
   generateDesignSection,
   generateDiagram,
@@ -245,6 +246,19 @@ export function useSaveScreenFlowPositions() {
   const context = useApiContext();
   return useMutation({
     mutationFn: (nodes: ScreenFlowNode[]) => saveScreenFlowPositions(context!, nodes),
+  });
+}
+
+export function useBuildScreenFlowFromFigma() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { frames: Array<{ node_id: string; name: string; page?: string }>; flows: Array<{ from_name: string; to_name: string }> }) =>
+      buildScreenFlowFromFigma(context!, body),
+    onSuccess: (data: ScreenFlowResponse) => {
+      queryClient.setQueryData(["phase2", "screen-flow", context?.projectId], data);
+    },
+    onError: () => toast.error("Failed to build screen flow from Figma. Try again."),
   });
 }
 

@@ -2,7 +2,11 @@
 
 import pytest
 
-from backend.app.services.phase2_service import Phase2Service, Phase2ValidationError
+from backend.app.services.phase2_service import (
+    Phase2Service,
+    Phase2ValidationError,
+    build_screen_flow_diagram,
+)
 from backend.app.services.request_context import RequestContext
 
 
@@ -67,6 +71,9 @@ class FakeContextService:
     def read_context_file(self, filename: str) -> str:
         return ""
 
+    def save_screen_flow(self, diagram) -> None:
+        self.saved_screen_flow = diagram
+
 
 def _tech_stack_with_content():
     return "FastAPI + Next.js + PostgreSQL"
@@ -113,6 +120,52 @@ def _service(context=None):
     ai = FakeAiService()
     context = context or FakeContextService()
     return Phase2Service(ai=ai, context=context), ai, context
+
+
+class TestBuildScreenFlowDiagram:
+    FRAMES = [
+        {"node_id": "1:1", "name": "Login", "page": "Auth"},
+        {"node_id": "1:2", "name": "Dashboard", "page": "Auth"},
+    ]
+
+    def test_frames_become_nodes_with_label_and_page(self):
+        d = build_screen_flow_diagram(self.FRAMES, [])
+        assert [n["id"] for n in d["nodes"]] == ["1:1", "1:2"]
+        assert d["nodes"][0]["data"] == {"label": "Login", "description": "Auth"}
+        assert d["nodes"][0]["type"] == "screen"
+
+    def test_flows_map_names_to_node_ids(self):
+        d = build_screen_flow_diagram(self.FRAMES, [{"from_name": "Login", "to_name": "Dashboard"}])
+        assert d["edges"] == [
+            {"id": "1:1->1:2", "source": "1:1", "target": "1:2", "label": "", "animated": False},
+        ]
+
+    def test_drops_unknown_self_and_duplicate_edges(self):
+        flows = [
+            {"from_name": "Login", "to_name": "Ghost"},      # unknown target
+            {"from_name": "Login", "to_name": "Login"},       # self-loop
+            {"from_name": "Login", "to_name": "Dashboard"},
+            {"from_name": "Login", "to_name": "Dashboard"},   # duplicate
+        ]
+        d = build_screen_flow_diagram(self.FRAMES, flows)
+        assert len(d["edges"]) == 1
+
+
+def test_build_screen_flow_from_figma_saves_and_returns():
+    service, _, context = _service()
+    out = service.build_screen_flow_from_figma(
+        _ctx(),
+        frames=[{"node_id": "1:1", "name": "Login", "page": "Auth"}],
+        flows=[],
+    )
+    assert out["nodes"][0]["id"] == "1:1"
+    assert context.saved_screen_flow == out
+
+
+def test_build_screen_flow_from_figma_empty_frames_raises():
+    service, _, _ = _service()
+    with pytest.raises(Phase2ValidationError):
+        service.build_screen_flow_from_figma(_ctx(), frames=[], flows=[])
 
 
 def test_tech_stack_status_detects_locked_stack():
