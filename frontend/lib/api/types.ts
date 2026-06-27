@@ -649,7 +649,7 @@ export type ScanReport = {
 
 export type MaintenanceItem = {
   id: number;
-  source: "manual" | "github" | "taiga" | "jira";
+  source: "manual" | "github" | "taiga" | "jira" | "figma";
   ext_ref: string;
   subject: string;
   description: string;

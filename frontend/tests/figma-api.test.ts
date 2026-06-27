@@ -11,6 +11,7 @@ import {
   figmaVerifyFile,
   figmaGetFile,
   figmaThumbnails,
+  figmaCommentsToIssues,
   type FigmaFile,
 } from "@/lib/api/figma";
 
@@ -141,5 +142,40 @@ describe("figma api layer", () => {
     const out = await figmaThumbnails("figd_tok", "ABC123", []);
     expect(out).toEqual({});
     expect(apiRequest).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// figmaCommentsToIssues
+// ---------------------------------------------------------------------------
+
+describe("figmaCommentsToIssues", () => {
+  it("converts unresolved comments to issues with figma# ext_ref + handle", () => {
+    const out = figmaCommentsToIssues([
+      { id: "c1", message: "Button is misaligned on mobile", user: { handle: "alice" } },
+    ]);
+    expect(out).toEqual([
+      {
+        ext_ref: "figma#c1",
+        subject: "Button is misaligned on mobile",
+        description: "Button is misaligned on mobile\n\n— alice (Figma comment)",
+      },
+    ]);
+  });
+
+  it("skips resolved and empty comments", () => {
+    const out = figmaCommentsToIssues([
+      { id: "c1", message: "done", resolved_at: "2026-06-27T00:00:00Z" },
+      { id: "c2", message: "   " },
+      { id: "c3", message: "real bug" },
+    ]);
+    expect(out.map((i) => i.ext_ref)).toEqual(["figma#c3"]);
+  });
+
+  it("truncates long subject to 80 chars with ellipsis", () => {
+    const long = "x".repeat(120);
+    const [iss] = figmaCommentsToIssues([{ id: "c1", message: long }]);
+    expect(iss.subject.length).toBe(80);
+    expect(iss.subject.endsWith("…")).toBe(true);
   });
 });

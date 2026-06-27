@@ -6,6 +6,7 @@
  */
 
 import { apiRequest } from "./client";
+import type { ExternalIssue } from "./github-browser";
 
 const CHAR_LIMITS = {
   frameList: 4_000,
@@ -42,8 +43,11 @@ export interface FigmaFlowEdge {
 }
 
 export interface FigmaComment {
+  id?: string;
   message: string;
   user?: { handle?: string };
+  resolved_at?: string | null;
+  order_id?: string;
 }
 
 function figmaHeaders(token: string): Record<string, string> {
@@ -102,6 +106,26 @@ export async function figmaGetComments(token: string, fileKey: string): Promise<
     headers: figmaHeaders(token),
   });
   return data.comments ?? [];
+}
+
+/** Unresolved Figma comments → maintenance ExternalIssue rows (ext_ref `figma#<id>`). */
+export function figmaCommentsToIssues(comments: FigmaComment[]): ExternalIssue[] {
+  return comments
+    .filter((c) => !c.resolved_at && c.message.trim())
+    .map((c) => {
+      const handle = c.user?.handle?.trim();
+      const msg = c.message.trim().replace(/\s+/g, " ");
+      return {
+        ext_ref: `figma#${c.id ?? c.order_id ?? msg.slice(0, 12)}`,
+        subject: msg.length > 80 ? `${msg.slice(0, 79)}…` : msg,
+        description: handle ? `${msg}\n\n— ${handle} (Figma comment)` : msg,
+      };
+    });
+}
+
+/** Fetch + convert unresolved Figma comments to maintenance issues. */
+export async function figmaSyncIssues(token: string, fileKey: string): Promise<ExternalIssue[]> {
+  return figmaCommentsToIssues(await figmaGetComments(token, fileKey));
 }
 
 /** Render thumbnails for the given node ids → { node_id: url }. URLs are short-lived. */

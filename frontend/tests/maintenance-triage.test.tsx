@@ -7,6 +7,7 @@ const PROJECT_ID = 7;
 vi.mock("@/lib/stores/session-store", () => ({
   useApiContext: () => ({ projectId: PROJECT_ID, pmTool: "taiga", taigaToken: "tok", taigaApiUrl: "https://api.taiga.io" }),
   useGithubContext: () => ({ pat: "p", owner: "o", repo: "r" }),
+  useFigmaContext: () => null,
 }));
 vi.mock("@/lib/stores/ui-store", () => ({
   useUiStore: (sel: (s: { theme: string }) => unknown) => sel({ theme: "light" }),

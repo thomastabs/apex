@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  ArrowRight, GitBranch, Github, Loader2, Plus, ShieldCheck, Trash2, Zap,
+  ArrowRight, Figma, GitBranch, Github, Loader2, Plus, ShieldCheck, Trash2, Zap,
 } from "lucide-react";
 import { Button, Callout, Input, SectionHeading, Textarea } from "@/components/ui/primitives";
 import { CancelButton } from "@/components/ui/cancel-button";
@@ -19,7 +19,7 @@ import {
   useRouteItem,
 } from "@/lib/hooks/use-phase6";
 import { suggestLane } from "@/lib/api/phase6";
-import { useApiContext, useGithubContext } from "@/lib/stores/session-store";
+import { useApiContext, useFigmaContext, useGithubContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
 import type { ExternalIssue } from "@/lib/api/github-browser";
@@ -42,6 +42,7 @@ function StatusChip({ item, dark }: { item: MaintenanceItem; dark: boolean }) {
 export function MaintenanceTriage() {
   const context = useApiContext();
   const github = useGithubContext();
+  const figma = useFigmaContext();
   const dark = useUiStore((s) => s.theme) === "dark";
   const router = useRouter();
 
@@ -70,7 +71,7 @@ export function MaintenanceTriage() {
   const [laneHint, setLaneHint] = useState<{ lane: string; rationale: string } | null>(null);
 
   // issue import
-  const [issues, setIssues] = useState<{ source: "github" | "taiga" | "jira"; list: ExternalIssue[] } | null>(null);
+  const [issues, setIssues] = useState<{ source: "github" | "taiga" | "jira" | "figma"; list: ExternalIssue[] } | null>(null);
   const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
@@ -135,7 +136,16 @@ export function MaintenanceTriage() {
     });
   }
 
-  function importIssue(src: "github" | "taiga" | "jira", iss: ExternalIssue) {
+  async function syncFigma() {
+    if (!figma) { toast.error("Connect a Figma file first."); return; }
+    setSyncing(true);
+    try {
+      const { figmaSyncIssues } = await import("@/lib/api/figma");
+      setIssues({ source: "figma", list: await figmaSyncIssues(figma.token, figma.fileKey) });
+    } catch (e) { toast.error(errMsg(e)); } finally { setSyncing(false); }
+  }
+
+  function importIssue(src: "github" | "taiga" | "jira" | "figma", iss: ExternalIssue) {
     create.mutate(
       { subject: iss.subject, description: iss.description, source: src, ext_ref: iss.ext_ref },
       { onSuccess: (it) => { toast.success(`Imported ${iss.ext_ref}`); setSelectedId(it.id); }, onError: (e) => toast.error(errMsg(e)) },
@@ -158,6 +168,9 @@ export function MaintenanceTriage() {
         <Button onClick={() => setShowForm((v) => !v)}><Plus className="h-4 w-4" /> New item</Button>
         <Button variant="secondary" onClick={syncGithub} disabled={syncing || !github}>
           <Github className="h-4 w-4" /> Sync GitHub Issues
+        </Button>
+        <Button variant="secondary" onClick={syncFigma} disabled={syncing || !figma}>
+          <Figma className="h-4 w-4" /> Sync Figma Comments
         </Button>
         {context.pmTool === "jira" ? (
           <Button variant="secondary" onClick={syncJira} disabled={syncing}>

@@ -6,6 +6,7 @@ import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 vi.mock("@/lib/stores/session-store", () => ({
   useApiContext: () => ({ projectId: 7, pmTool: "taiga", pmToken: "tok", taigaToken: "t", taigaApiUrl: "u" }),
   useGithubContext: () => null,
+  useFigmaContext: () => null,
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/lib/stores/ui-store", () => ({

@@ -115,6 +115,13 @@ def test_create_item_accepts_jira_source(ctx):
     assert item["ext_ref"] == "PROJ-12"
 
 
+def test_create_item_accepts_figma_source(ctx):
+    svc, _ = _svc()
+    item = svc.create_item(ctx, subject="Button overlaps on mobile", source="figma", ext_ref="figma#abc123")
+    assert item["source"] == "figma"
+    assert item["ext_ref"] == "figma#abc123"
+
+
 def test_create_item_rejects_unknown_source(ctx):
     svc, _ = _svc()
     with pytest.raises(MaintenanceValidationError):
