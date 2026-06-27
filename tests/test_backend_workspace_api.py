@@ -144,8 +144,9 @@ def test_get_config_taiga_uses_taiga_web_url(monkeypatch):
         lambda: {"project_id": 42, "pm_tool": "taiga", "github_repo": "owner/repo"},
     )
     monkeypatch.setattr("src.taiga_adapter.get_web_base_url", lambda: "https://taiga.example")
-    # github_repo is per-instance now — stub the instance lookup (decouples from disk).
+    # github_repo / figma_file_key are per-instance now — stub the instance lookups.
     monkeypatch.setattr("src.context_manager.get_instance_github_repo", lambda: "owner/repo")
+    monkeypatch.setattr("src.context_manager.get_instance_figma_file_key", lambda: "FIGKEY")
 
     response = get_config(_AUTH)
 
@@ -155,6 +156,7 @@ def test_get_config_taiga_uses_taiga_web_url(monkeypatch):
         "pm_tool": "taiga",
         "pm_web_url": "https://taiga.example",
         "github_repo": "owner/repo",
+        "figma_file_key": "FIGKEY",
     }
 
 

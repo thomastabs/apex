@@ -64,6 +64,7 @@ class SaveConfigRequest(BaseModel):
     taiga_url: str | None = Field(None, max_length=2_048)
     jira_base_url: str | None = Field(None, max_length=2_048)
     github_repo: str | None = Field(None, max_length=255)
+    figma_file_key: str | None = Field(None, max_length=255)
 
 
 class OkResponse(BaseModel):
@@ -76,6 +77,7 @@ class ConfigResponse(BaseModel):
     pm_tool: str = "taiga"
     pm_web_url: str = ""
     github_repo: str = ""
+    figma_file_key: str = ""
 
 
 class AiConfigModel(BaseModel):

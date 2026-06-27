@@ -34,6 +34,7 @@ import {
   resetContextFile,
   saveAiConfig,
   saveGithubConfig,
+  saveFigmaConfig,
   saveServerConfig,
   setStoryPhaseStatus,
   updateContextFile,
@@ -42,7 +43,7 @@ import {
   updateStory,
   type ApexPhaseStatus,
 } from "@/lib/api/workspace";
-import { useApiContext, useAuthContext, useGithubContext } from "@/lib/stores/session-store";
+import { useApiContext, useAuthContext, useGithubContext, useFigmaContext } from "@/lib/stores/session-store";
 import { toast } from "sonner";
 
 export function useMe() {
@@ -528,6 +529,35 @@ export function useSyncGithubContext() {
       const md = await fetchGithubContextMd(github);
       const { updateContextFile } = await import("@/lib/api/workspace");
       return updateContextFile(ctx, "github-context.md", md);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "context-files"] });
+    },
+  });
+}
+
+export function useSaveFigmaConfig() {
+  const auth = useAuthContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (fileKey: string) => saveFigmaConfig(auth!, fileKey),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "server-config"] });
+    },
+  });
+}
+
+export function useSyncFigmaContext() {
+  const ctx = useApiContext();
+  const figma = useFigmaContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      if (!ctx || !figma) throw new Error("Not connected to Figma.");
+      const { fetchFigmaContextMd } = await import("@/lib/api/figma");
+      const md = await fetchFigmaContextMd(figma.token, figma.fileKey);
+      const { updateContextFile } = await import("@/lib/api/workspace");
+      return updateContextFile(ctx, "figma-context.md", md);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "context-files"] });

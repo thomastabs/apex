@@ -31,11 +31,13 @@ type ApiRequestOptions = {
   context?: RequestContext | AuthContext | null;
   timeoutMs?: number;
   signal?: AbortSignal;
+  // Extra request headers (e.g. X-Figma-Token for the Figma proxy). Merged last.
+  headers?: Record<string, string>;
 };
 
 export async function apiRequest<T>(
   path: string,
-  { method = "GET", body, context, timeoutMs = DEFAULT_TIMEOUT_MS, signal }: ApiRequestOptions = {},
+  { method = "GET", body, context, timeoutMs = DEFAULT_TIMEOUT_MS, signal, headers: extraHeaders }: ApiRequestOptions = {},
 ): Promise<T> {
   const controller = new AbortController();
   const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
@@ -57,6 +59,9 @@ export async function apiRequest<T>(
   if (context && "projectId" in context && context.projectId) {
     headers["X-Project-Id"] = String(context.projectId);
     headers["X-Taiga-Project-Id"] = String(context.projectId);
+  }
+  if (extraHeaders) {
+    Object.assign(headers, extraHeaders);
   }
 
   try {

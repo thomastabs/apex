@@ -30,6 +30,7 @@ export type ServerConfig = {
   pm_tool: string;
   pm_web_url: string;
   github_repo: string;
+  figma_file_key: string;
 };
 
 export function saveGithubConfig(context: AuthContext, repo: string) {
@@ -37,6 +38,14 @@ export function saveGithubConfig(context: AuthContext, repo: string) {
     method: "POST",
     context,
     body: { github_repo: repo },
+  });
+}
+
+export function saveFigmaConfig(context: AuthContext, fileKey: string) {
+  return apiRequest<{ ok: boolean }>("/api/workspace/config", {
+    method: "POST",
+    context,
+    body: { figma_file_key: fileKey },
   });
 }
 

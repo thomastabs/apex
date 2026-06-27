@@ -72,6 +72,7 @@ def get_config(
         "pm_tool": pm_tool,
         "pm_web_url": pm_web_url,
         "github_repo": context_manager.get_instance_github_repo(),
+        "figma_file_key": context_manager.get_instance_figma_file_key(),
     }
 
 
@@ -137,6 +138,10 @@ def save_config(
         # Per-instance: the repo belongs to the Taiga instance this request is for.
         context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
         context_manager.save_instance_github_repo(payload.github_repo)
+    if payload.figma_file_key is not None:
+        # Per-instance: the Figma file belongs to the Taiga instance this request is for.
+        context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
+        context_manager.save_instance_figma_file_key(payload.figma_file_key)
     return {"ok": True}
 
 

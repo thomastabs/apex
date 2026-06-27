@@ -23,6 +23,7 @@ import { ContextSection } from "./sidebar/context-section";
 import { AiSection } from "./sidebar/ai-section";
 import { ResourcesSection } from "./sidebar/resources-section";
 import { GitHubSection } from "./sidebar/github-section";
+import { FigmaSection } from "./sidebar/figma-section";
 import { TasksSection } from "./sidebar/tasks-section";
 import { PacksSection } from "./sidebar/packs-section";
 import { TestPlansSection } from "./sidebar/test-plans-section";
@@ -39,6 +40,7 @@ const SECTION_LABELS: Record<string, string> = {
   ai: "AI Models",
   resources: "Resources",
   github: "GitHub",
+  figma: "Figma",
   tasks: "Task Board",
   packs: "Developer Packs",
   testplans: "Test Plans",
@@ -555,7 +557,7 @@ export function Sidebar() {
 
   // Migrate stored section order when new section IDs are added
   useEffect(() => {
-    const known = ["project", "board", "users", "context", "ai", "github", "resources"];
+    const known = ["project", "board", "users", "context", "ai", "github", "figma", "resources"];
     const missing = known.filter((id) => !sectionOrder.includes(id));
     if (missing.length) setSectionOrder([...sectionOrder, ...missing]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -827,6 +829,19 @@ export function Sidebar() {
                 key="github"
                 dark={dark}
                 githubRepo={serverConfig.data?.github_repo ?? ""}
+                shellClass={shellClass}
+                dragHandlers={dragHandlers}
+                onDragStart={onDragStart}
+              />
+            );
+          }
+
+          if (id === "figma") {
+            return (
+              <FigmaSection
+                key="figma"
+                dark={dark}
+                figmaFileKey={serverConfig.data?.figma_file_key ?? ""}
                 shellClass={shellClass}
                 dragHandlers={dragHandlers}
                 onDragStart={onDragStart}

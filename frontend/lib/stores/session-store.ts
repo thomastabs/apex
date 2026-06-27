@@ -19,10 +19,14 @@ type SessionState = {
   projectInstanceUrl: string;
   githubPat: string;
   githubRepo: string;
+  // Figma personal access token (NOT persisted — re-entered each session, like githubPat).
+  figmaToken: string;
+  figmaFileKey: string;
   setSession: (session: { taigaToken: string; taigaApiUrl?: string; projectId?: number; projectName?: string; pmTool?: PmTool; jiraEmail?: string }) => void;
   setAuth: (auth: { taigaToken: string; taigaApiUrl?: string; pmTool?: PmTool; jiraEmail?: string }) => void;
   setProject: (project: { projectId: number; projectName?: string; pmProjectSlug?: string }) => void;
   setGithub: (opts: { pat?: string; repo?: string }) => void;
+  setFigma: (opts: { token?: string; fileKey?: string }) => void;
   clearSession: () => void;
 };
 
@@ -39,6 +43,8 @@ export const useSessionStore = create<SessionState>()(
       projectInstanceUrl: "",
       githubPat: "",
       githubRepo: "",
+      figmaToken: "",
+      figmaFileKey: "",
       setSession: ({ taigaToken, taigaApiUrl, projectId, projectName = "", pmTool, jiraEmail }) =>
         set({
           taigaToken,
@@ -64,7 +70,11 @@ export const useSessionStore = create<SessionState>()(
         ...(pat !== undefined ? { githubPat: pat } : {}),
         ...(repo !== undefined ? { githubRepo: repo } : {}),
       }),
-      clearSession: () => set((s) => ({ pmTool: s.pmTool, taigaToken: "", taigaApiUrl: "", jiraEmail: "", projectId: null, projectName: "", pmProjectSlug: "", projectInstanceUrl: "", githubPat: "", githubRepo: "" })),
+      setFigma: ({ token, fileKey }) => set({
+        ...(token !== undefined ? { figmaToken: token } : {}),
+        ...(fileKey !== undefined ? { figmaFileKey: fileKey } : {}),
+      }),
+      clearSession: () => set((s) => ({ pmTool: s.pmTool, taigaToken: "", taigaApiUrl: "", jiraEmail: "", projectId: null, projectName: "", pmProjectSlug: "", projectInstanceUrl: "", githubPat: "", githubRepo: "", figmaToken: "", figmaFileKey: "" })),
     }),
     {
       name: "apex-session",
@@ -77,7 +87,7 @@ export const useSessionStore = create<SessionState>()(
         try { localStorage.removeItem("apex-session"); } catch { /* ignore */ }
         return sessionStorage;
       }),
-      version: 6,
+      version: 7,
       migrate: (persisted: unknown) => {
         const state = (persisted ?? {}) as Record<string, unknown>;
         return {
@@ -93,10 +103,12 @@ export const useSessionStore = create<SessionState>()(
           projectInstanceUrl: (state.projectInstanceUrl as string) ?? "",
           githubPat: "",
           githubRepo: (state.githubRepo as string) ?? "",
+          figmaToken: "",
+          figmaFileKey: (state.figmaFileKey as string) ?? "",
         };
       },
-      // githubPat intentionally excluded — GitHub PATs are not persisted anywhere.
-      // Users must re-enter the PAT each session.
+      // githubPat / figmaToken intentionally excluded — these credentials are not
+      // persisted anywhere. Users must re-enter them each session.
       partialize: (state) => ({
         pmTool: state.pmTool,
         taigaToken: state.taigaToken,
@@ -107,6 +119,7 @@ export const useSessionStore = create<SessionState>()(
         pmProjectSlug: state.pmProjectSlug,
         projectInstanceUrl: state.projectInstanceUrl,
         githubRepo: state.githubRepo,
+        figmaFileKey: state.figmaFileKey,
       }),
     },
   ),
@@ -139,6 +152,13 @@ export function useGithubContext() {
   const [owner, repo] = githubRepo.split("/");
   if (!owner || !repo) return null;
   return { pat: githubPat, owner, repo };
+}
+
+export function useFigmaContext() {
+  const figmaToken = useSessionStore((state) => state.figmaToken);
+  const figmaFileKey = useSessionStore((state) => state.figmaFileKey);
+  if (!figmaToken || !figmaFileKey) return null;
+  return { token: figmaToken, fileKey: figmaFileKey };
 }
 
 export function useAuthContext() {
