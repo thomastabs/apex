@@ -29,6 +29,7 @@ class AiService:
         hint: str,
         project_concept: str,
         instructions: str = "",
+        figma_context: str = "",
     ) -> tuple[str, int]:
         result = ai_engine.generate_nl_stories(
             epic_subject,
@@ -36,6 +37,7 @@ class AiService:
             hint=hint,
             project_concept=project_concept,
             instructions=instructions,
+            figma_context=figma_context,
         )
         return ai_engine.format_nl_draft(result), len(result.stories)
 

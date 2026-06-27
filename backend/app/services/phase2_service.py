@@ -133,6 +133,9 @@ class Phase2Service:
         github_context = self.context.read_context_file("github-context.md")
         if github_context.strip() and not github_context.strip().startswith("<!--"):
             parts.append(f"## Existing Codebase (GitHub)\n\n{github_context.strip()}")
+        figma_context = self.context.read_context_file("figma-context.md")
+        if figma_context.strip() and not figma_context.strip().startswith("<!--"):
+            parts.append(f"## Design Reference (Figma)\n\n{figma_context.strip()}")
         return "\n\n".join(parts)
 
     def persist_design(

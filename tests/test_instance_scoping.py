@@ -154,6 +154,25 @@ class TestPerInstanceGithub:
         ctx.set_active_instance("api_taiga_io")
         assert ctx.get_instance_github_repo() == "legacy/repo"
 
+    def test_figma_file_key_isolated_per_instance(self, ctx):
+        ctx.set_active_instance("api_taiga_io")
+        ctx.save_instance_figma_file_key("CLOUDKEY")
+
+        ctx.set_active_instance("taiga_acme_com")
+        assert ctx.get_instance_figma_file_key() == ""
+        ctx.save_instance_figma_file_key("PRIVATEKEY")
+
+        ctx.set_active_instance("api_taiga_io")
+        assert ctx.get_instance_figma_file_key() == "CLOUDKEY"
+
+    def test_figma_and_github_coexist_in_instance_config(self, ctx):
+        ctx.set_active_instance("api_taiga_io")
+        ctx.save_instance_github_repo("owner/repo")
+        ctx.save_instance_figma_file_key("FIGKEY")
+        # Writing one key must not clobber the other in .instance-config.json.
+        assert ctx.get_instance_github_repo() == "owner/repo"
+        assert ctx.get_instance_figma_file_key() == "FIGKEY"
+
 
 class TestMultiInstanceIntegration:
     """Full plumbing: deps.get_request_context → ContextService.set_active →

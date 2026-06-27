@@ -29,8 +29,10 @@ class FakeAiService:
         hint: str,
         project_concept: str,
         instructions: str = "",
+        figma_context: str = "",
     ) -> tuple[str, int]:
         self.generated_args = (epic_subject, epic_description, hint, project_concept)
+        self.figma_context = figma_context
         return "[S] Story A", 1
 
     def compile_gherkin(self, nl_draft: str) -> list[dict]:
@@ -126,6 +128,15 @@ def test_generate_nl_stories_injects_project_concept():
     assert draft == "[S] Story A"
     assert count == 1
     assert ai.generated_args == ("Epic", "Description", "Keep small", "Project concept")
+
+
+def test_generate_nl_stories_injects_figma_context():
+    service, ai, context = _service()
+    context.write_context_file("figma-context.md", "# Figma\nLogin screen, Dashboard")
+
+    service.generate_nl_stories(_ctx(), epic_subject="Epic", epic_description="Desc")
+
+    assert ai.figma_context == "# Figma\nLogin screen, Dashboard"
 
 
 def test_analyze_gaps_passes_concept_and_epics():

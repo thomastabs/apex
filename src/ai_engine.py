@@ -637,6 +637,7 @@ def _build_nl_human(
     epic_description: str,
     hint: str = "",
     project_concept: str = "",
+    figma_context: str = "",
 ) -> str:
     parts: list[str] = []
     if project_concept.strip():
@@ -645,6 +646,12 @@ def _build_nl_human(
         "Epic to decompose:\n"
         + fence_user_content(f"Title: {epic_subject}\n\nDescription:\n{epic_description}")
     )
+    if figma_context.strip() and not figma_context.strip().startswith("<!--"):
+        parts.append(
+            "Design reference (Figma) — real screens for this product; ground story "
+            "titles and acceptance scenarios in these where relevant:\n"
+            + fence_user_content(figma_context)
+        )
     if hint.strip():
         parts.append("Team guidance / constraints:\n" + fence_user_content(hint))
     parts.append("Decompose into fractional User Stories with Natural Language scenarios.")
@@ -677,8 +684,9 @@ def generate_nl_stories(
     on_story: Callable[[int], None] | None = None,
     model: str = "",
     instructions: str = "",
+    figma_context: str = "",
 ) -> NLStoryList:
-    human = _build_nl_human(epic_subject, epic_description, hint, project_concept)
+    human = _build_nl_human(epic_subject, epic_description, hint, project_concept, figma_context)
     _logger.debug("generate_nl_stories prompt_version=%s", _NL_GENERATION_VERSION)
     return _invoke_structured_with_progress(
         _NL_GENERATION_SYSTEM + _guidance_block(instructions), human, model or get_model(),

@@ -46,6 +46,7 @@ _CONTEXT_FILES = [
     ("decisions.md", "Decision Log"),
     ("design-bundle.md", "Design Bundle"),
     ("github-context.md", "GitHub Context"),
+    ("figma-context.md", "Figma Context"),
 ]
 _ALLOWED_CONTEXT_FILES = {filename for filename, _ in _CONTEXT_FILES}
 

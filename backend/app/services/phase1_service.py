@@ -53,12 +53,14 @@ class Phase1Service:
         if not subject:
             raise Phase1ValidationError("epic_subject is required.")
         concept = self.context.project_concept()
+        figma_context = self.context.read_context_file("figma-context.md")
         return self.ai.generate_nl_stories(
             subject,
             epic_description,
             hint=hint,
             project_concept=concept,
             instructions=instructions,
+            figma_context=figma_context,
         )
 
     def cross_check_stories(

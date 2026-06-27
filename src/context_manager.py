@@ -252,6 +252,14 @@ _GITHUB_CONTEXT_TEMPLATE = """\
 <!-- Injected into Phase 2 and Phase 3 AI prompts as codebase context. -->
 """
 
+_FIGMA_CONTEXT_TEMPLATE = """\
+# Figma Design Context
+
+<!-- Populated automatically by the Figma Sync button in the sidebar. -->
+<!-- Contains: file name, pages, top-level frame names, prototype flows, comments. -->
+<!-- Injected into Phase 1 story generation and Phase 2 design as design context. -->
+"""
+
 # Phase status values — ordered by SDLC progression.
 PHASE_STATUSES = (
     "gherkin_locked",  # Phase 1 complete: Gherkin approved and locked
@@ -402,6 +410,37 @@ def save_instance_github_repo(repo: str | None) -> None:
         except (json.JSONDecodeError, OSError):
             data = {}
     data["github_repo"] = repo or ""
+    p.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def get_instance_figma_file_key() -> str:
+    """Figma file key for the active instance (the linked Figma design file)."""
+    p = _instance_dir() / _INSTANCE_CONFIG_FILE
+    if p.exists():
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+            key = data.get("figma_file_key")
+            if isinstance(key, str):
+                return key
+        except (json.JSONDecodeError, OSError):
+            pass
+    return ""
+
+
+def save_instance_figma_file_key(file_key: str | None) -> None:
+    """Persist the Figma file key for the active instance namespace."""
+    if file_key is None:
+        return
+    inst = _instance_dir()
+    inst.mkdir(parents=True, exist_ok=True)
+    p = inst / _INSTANCE_CONFIG_FILE
+    data: dict = {}
+    if p.exists():
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            data = {}
+    data["figma_file_key"] = file_key or ""
     p.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
@@ -2128,7 +2167,8 @@ def get_story_design_bundle(story_id: int) -> str:
 
 # Each spec artifact locks at a phase; a story is "affected" by an edit to that
 # file once its phase_status is at or after the lock. Append/sync artifacts
-# (fix-log.md, github-context.md) are not spec locks and never trigger drift.
+# (fix-log.md, github-context.md, figma-context.md) are not spec locks and never
+# trigger drift (any file absent from _SPEC_LOCK_PHASE is exempt).
 _SPEC_LOCK_PHASE: dict[str, str] = {
     "project-concept.md": "gherkin_locked",
     "functional-spec.md": "gherkin_locked",
@@ -2575,6 +2615,7 @@ _TEMPLATES: dict[str, str] = {
     "fix-log.md":         _FIX_LOG_TEMPLATE,
     "design-bundle.md":   _DESIGN_BUNDLE_TEMPLATE,
     "github-context.md":  _GITHUB_CONTEXT_TEMPLATE,
+    "figma-context.md":   _FIGMA_CONTEXT_TEMPLATE,
 }
 
 
