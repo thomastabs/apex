@@ -28,7 +28,7 @@ import { useAcknowledgeRegression } from "@/lib/hooks/use-phase6";
 import { getPmAdapter } from "@/lib/api/pm-factory";
 import { toPmCtx, type ApexPhaseStatus } from "@/lib/api/workspace";
 import { getAnalyticsSummary, type StoryRisk } from "@/lib/api/analytics";
-import { figmaGetFile, figmaVerifyFile, deriveFramesAndFlows, figmaNodeUrl, suggestFrameForStory } from "@/lib/api/figma";
+import { figmaGetFile, figmaVerifyFile, deriveFramesAndFlows, figmaNodeUrl, figmaThumbnails, suggestFrameForStory } from "@/lib/api/figma";
 import { useApiContext, useFigmaContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
@@ -160,6 +160,18 @@ function FigmaLinkField({ storyId, storySubject, figmaNodeId, dark, inputClass }
   const [frames, setFrames] = useState<{ node_id: string; name: string }[]>([]);
   const [fileModified, setFileModified] = useState("");
   const [loading, setLoading] = useState(false);
+  const [thumbUrl, setThumbUrl] = useState("");
+
+  // Render the linked frame's thumbnail (short-lived S3 URL — re-fetched per mount/link change).
+  useEffect(() => {
+    setThumbUrl("");
+    if (!figma || !figmaNodeId) return;
+    let alive = true;
+    figmaThumbnails(figma.token, figma.fileKey, [figmaNodeId])
+      .then((map) => { if (alive) setThumbUrl(map[figmaNodeId] ?? ""); })
+      .catch(() => {/* thumbnail is best-effort */});
+    return () => { alive = false; };
+  }, [figma, figmaNodeId]);
 
   if (!figma) return null;
 
@@ -241,6 +253,17 @@ function FigmaLinkField({ storyId, storySubject, figmaNodeId, dark, inputClass }
         >
           <Figma className="size-3.5" /> Suggested: link “{suggestion.frame.name}”
         </button>
+      )}
+      {figmaNodeId && thumbUrl && (
+        <a
+          href={figmaNodeUrl(figma.fileKey, figmaNodeId)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cn("mt-2 block overflow-hidden rounded-lg border", dark ? "border-neutral-700" : "border-slate-200")}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- short-lived Figma S3 URL, not a static asset */}
+          <img src={thumbUrl} alt="Linked Figma frame" className="max-h-44 w-full object-cover object-top" />
+        </a>
       )}
     </div>
   );
