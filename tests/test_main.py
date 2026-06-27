@@ -16,6 +16,23 @@ class TestSecurityHeaders:
         assert resp.headers["Cache-Control"] == "no-store"
 
 
+class TestCorsPreflight:
+    def test_figma_token_header_allowed_in_preflight(self):
+        # The browser preflights the Figma proxy because X-Figma-Token is a custom
+        # header; the CORS allow_headers list must include it or the request 400s.
+        resp = client.options(
+            "/api/design/figma/files/ABC123",
+            headers={
+                "Origin": "http://localhost:3000",
+                "Access-Control-Request-Method": "GET",
+                "Access-Control-Request-Headers": "x-figma-token",
+            },
+        )
+        assert resp.status_code == 200
+        allowed = resp.headers.get("access-control-allow-headers", "").lower()
+        assert "x-figma-token" in allowed
+
+
 class TestBodySizeLimit:
     def test_oversized_content_length_rejected_with_413(self):
         # Body over the limit with a Content-Length header → rejected before routing.
