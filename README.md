@@ -1,6 +1,6 @@
 # Apex
 
-Apex is an academic AI-guided SDLC tool that combines a **Spec-Anchored workflow**, **AI**, **Taiga or Jira** as project management backend, and optional **GitHub** repository context. The app helps a team move from product requirements into design artefacts while keeping the important project context in persistent, human-readable files.
+Apex is an academic AI-guided SDLC tool that combines a **Spec-Anchored workflow**, **AI**, **Taiga or Jira** as project management backend, and optional **GitHub** repository context and **Figma** design context. The app helps a team move from product requirements into design artefacts while keeping the important project context in persistent, human-readable files.
 
 The current migrated version is a split full-stack web app:
 
@@ -133,6 +133,7 @@ Implemented:
 - Load existing epics from Taiga or Jira
 - Create a new epic or use an existing one
 - Ask Claude to suggest epics from the project concept
+- **Generate stories from Figma** — pick designed frames from a linked Figma file and turn them into a user-story draft grounded in the real screens (navigation flows between frames become scenarios). Requires a Figma file connected in the sidebar
 - Generate Natural Language story drafts
 - Review and edit drafts before formalization
 - Compile reviewed drafts into Gherkin
@@ -386,6 +387,7 @@ Implemented:
 - **Automatic story-index sync** — every epic/story/task create/edit/delete, plus sign-in and project switch, silently rebuilds the story index and refreshes nav badges; the manual rebuild button (with out-of-sync warning) remains as a fallback
 - Context reset (individual and all files)
 - **GitHub integration** — connect a GitHub repository via a Personal Access Token (`repo` scope); displays repo name, description, primary language, star count, default branch, and public/private badge; **Sync Context** fetches the repo's file tree, README, primary config file (`package.json` / `requirements.txt` / `pyproject.toml`), and OpenAPI spec (if present) and writes them to `github-context.md`; synced context is automatically injected into Phase 2 and Phase 3 AI prompts; GitHub API calls are made browser-side (no backend proxy needed)
+- **Figma integration** — link a Figma file via a Personal Access Token + file URL; **Sync Context** pulls the file's pages, top-level frame (screen) names, prototype flows, and comments into `figma-context.md`, which is injected into Phase 1 story generation and Phase 2 design prompts. In Phase 1 you can also select frames and generate user stories directly from them (the "tasks from a UI perspective" loop). Figma REST calls are routed through a backend proxy (`/api/design/figma/*`, SSRF-guarded to `api.figma.com`) because the Figma API has no permissive CORS; the token is never persisted
 - AI model selector — single unified selector used across all phases; supports Anthropic (Claude), OpenAI (GPT), and Google (Gemini); budget-tier to premium options per provider; provider warnings shown when the corresponding API key is absent from the backend
 - **Deploy Packs** — every saved Phase 5 deploy pack listed per story; view, edit inline, download, delete
 - Maintenance intake from **GitHub Issues, Taiga Issues, and Jira issues** (Phase 6 triage)
@@ -412,6 +414,7 @@ Implemented:
 | `backend/app/api/taiga_proxy.py` | FastAPI reverse proxy for all Taiga REST calls — SSRF-guarded, header-injection-safe, forwards `DELETE/GET/PATCH/POST/PUT /api/pm/taiga/{path}` to the configured Taiga instance; `_egress()` optionally routes through the Cloudflare relay (see [Taiga egress relay](#taiga-egress-relay-azure-deployment)) |
 | `infra/cloudflare/taiga-relay/` | Cloudflare Worker that forwards Taiga calls from a non-Azure IP — Taiga Cloud firewall-DROPs Azure Container Apps egress (`worker.js`, `wrangler.toml`, `README.md`) |
 | `backend/app/api/jira_proxy.py` | FastAPI reverse proxy for Jira Cloud REST API v3 (Basic auth, SSRF-guarded to `*.atlassian.net`) |
+| `backend/app/api/figma_proxy.py` | FastAPI reverse proxy for the Figma REST API (`X-Figma-Token`, host-locked to `api.figma.com`, DNS-rebinding pinned) |
 | `backend/app/api/deps.py` | FastAPI request/auth dependencies |
 | `backend/app/services/` | Service layer for phase workflows, AI, Taiga, and context operations |
 | `backend/app/schemas/` | Pydantic request/response models |
@@ -427,6 +430,7 @@ Implemented:
 | `frontend/lib/api/taiga-adapter.ts` | Taiga adapter wrapping `taiga-direct.ts` |
 | `frontend/lib/api/jira-adapter.ts` | Jira Cloud adapter — REST v3, ADF, paginated JQL, two-step transitions |
 | `frontend/lib/api/github-browser.ts` | Browser-side GitHub REST client — repo metadata, file tree, README, config file, and OpenAPI spec fetching for context sync |
+| `frontend/lib/api/figma.ts` | Figma REST client (via the backend proxy) — file/frames/thumbnails/comments, URL parsing, and context-markdown assembly |
 | `frontend/lib/api/` | Typed frontend API clients for all phases |
 | `frontend/lib/hooks/` | React Query hooks for all phases |
 | `frontend/lib/stores/` | Zustand stores for session, UI, and per-phase draft state |
@@ -453,6 +457,7 @@ Apex stores workflow state in context files under `contextspec/<instance_id>/<pr
 | `diagram-screens.json` | React Flow screen flow diagram generated from Phase 2 UX Brief (includes saved layout positions) |
 | `diagram-er.json` | React Flow ER diagram generated from Phase 2 Data Model (includes saved layout positions) |
 | `github-context.md` | Repo file tree, README, config file, and OpenAPI spec synced from GitHub; injected into Phase 2 and Phase 3 AI prompts |
+| `figma-context.md` | File name, pages, top-level frame names, prototype flows, and comments synced from a linked Figma file; injected into Phase 1 story generation and Phase 2 design prompts |
 | `proposal_story_<id>_task_<id>.md` | Developer pack generated by Phase 3 for each task |
 | `bdd_story_<id>.feature` | Test plan generated by Phase 4 for each story |
 | `qa_results_story_<id>.json` | Per-scenario pass/fail attempts recorded at each Testing Gate decision |
@@ -555,10 +560,10 @@ new Azure IP is likely dropped too.
 
 ## Security
 
-- **Auth = the PM token is your identity.** Every authenticated endpoint validates the bearer token against the anchored PM (`/users/me`), and project-scoped routes additionally confirm the token can read the requested project — closing cross-tenant (IDOR) access to another project's context files. Validations are cached briefly (60s) per `(token-hash, url)` — shared across replicas via Redis when `REDIS_URL` is set, so a revoked token is re-checked coherently. Tokens live in `sessionStorage` only (cleared on tab close); the GitHub PAT is never persisted.
-- **SSRF guards on every outbound PM call.** Both proxies validate the target before dialing: Taiga must be `https://` + non-private (IP-class blocked, DNS resolved); Jira is hard-locked to `*.atlassian.net`. The same guard applies to header overrides **and** persisted config (both user-influenced).
+- **Auth = the PM token is your identity.** Every authenticated endpoint validates the bearer token against the anchored PM (`/users/me`), and project-scoped routes additionally confirm the token can read the requested project — closing cross-tenant (IDOR) access to another project's context files. Validations are cached briefly (60s) per `(token-hash, url)` — shared across replicas via Redis when `REDIS_URL` is set, so a revoked token is re-checked coherently. Tokens live in `sessionStorage` only (cleared on tab close); the GitHub PAT and Figma token are never persisted.
+- **SSRF guards on every outbound PM call.** All three proxies validate the target before dialing: Taiga must be `https://` + non-private (IP-class blocked, DNS resolved); Jira is hard-locked to `*.atlassian.net`; Figma is host-locked to `api.figma.com`. The same guard applies to header overrides **and** persisted config (both user-influenced).
 - **DNS-rebinding pin.** The validated host is resolved once and the request connects to that pinned IP with the hostname kept for TLS SNI/`Host` (`ssrf.pinned_target`), closing the check-vs-connect re-resolution gap. A host that now resolves only to blocked IPs is rejected (403). Applied across the Taiga proxy **and** the credential-check egress (`deps._pm_get`) through one shared seam. The Cloudflare relay path is trusted (its real target is allow-listed by the Worker).
-- **Egress allowlist (two layers, default allow-all).** `EGRESS_HOST_ALLOWLIST` (env, comma-separated, `*.wildcards`) restricts egress deployment-wide; a **per-instance** allowlist in `contextspec/<instance>/.instance-config.json` (`egress_allowlist`) layers a per-tenant restriction on top. Both are an ops/deployment concern set on the backend (env / file) — not exposed in the UI. Both empty → no restriction.
+- **Egress allowlist (two layers, default allow-all).** `EGRESS_HOST_ALLOWLIST` (env, comma-separated, `*.wildcards`) restricts egress deployment-wide; a **per-instance** allowlist in `contextspec/<instance>/.instance-config.json` (`egress_allowlist`) layers a per-tenant restriction on top. Both are an ops/deployment concern set on the backend (env / file) — not exposed in the UI. Both empty → no restriction. **If a deployment-wide allowlist is set, include `api.figma.com`** (and the PM hosts) so the Figma proxy is not blocked.
 - **Content-Security-Policy.** Production enforces a nonce-based CSP — `script-src 'self' 'nonce-{x}' 'strict-dynamic'`, no `unsafe-inline`/`unsafe-eval` (set per request in `frontend/middleware.ts`; routes are `force-dynamic` so the nonce reaches Next's scripts). `style-src` keeps `unsafe-inline` for ReactFlow/Tailwind. Dev keeps the permissive policy (HMR needs `eval`). Markdown is sanitised with DOMPurify before render.
 - **Rate limiting & brute-force throttle.** AI endpoints are capped per token and per source IP; PM sign-ins are throttled per IP **and** per account (the username can't be spoofed via `X-Forwarded-For`). `X-Forwarded-For` is read from the trusted proxy hop (`TRUSTED_PROXY_HOPS`, default 1), not the spoofable leftmost entry.
 - Other hardening: `\r\n` header-injection guards, Pydantic `max_length` on all AI inputs, CORS origin validation, and the security headers in `next.config.ts` (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`).
@@ -576,6 +581,7 @@ new Azure IP is likely dropped too.
 - Anthropic API key
 - Taiga account (or Jira Cloud account — at least one required)
 - GitHub Personal Access Token, optional (for repository context enrichment)
+- Figma Personal Access Token, optional (for design context + generating stories from frames)
 
 ### Environment
 
