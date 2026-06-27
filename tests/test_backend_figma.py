@@ -131,3 +131,61 @@ class TestProxyFigmaCatchAll:
         call = mock_http.request.call_args
         assert call.kwargs["method"] == "POST"
         assert json.loads(call.kwargs["content"]) == {"message": "hi"}
+
+
+# ---------------------------------------------------------------------------
+# figma_fetch — server-side helper (Autopilot seeding)
+# ---------------------------------------------------------------------------
+
+class TestFigmaFetch:
+    _FILE = {
+        "name": "ApexTest",
+        "lastModified": "2026-06-27T10:00:00Z",
+        "document": {
+            "children": [
+                {
+                    "type": "CANVAS",
+                    "name": "Flows",
+                    "children": [
+                        {"id": "1:1", "type": "FRAME", "name": "Login", "transitionNodeID": "1:2"},
+                        {"id": "1:2", "type": "FRAME", "name": "Home"},
+                        {"id": "1:3", "type": "RECTANGLE", "name": "ignore me"},
+                    ],
+                },
+            ],
+        },
+    }
+
+    def test_derive_frames_flows(self):
+        from backend.app.services.figma_fetch import derive_frames_flows
+
+        frames, flows = derive_frames_flows(self._FILE)
+        assert [f["name"] for f in frames] == ["Login", "Home"]
+        assert frames[0]["page"] == "Flows"
+        assert flows == [{"from_name": "Login", "to_name": "Home"}]
+
+    def test_build_context_markdown(self):
+        from backend.app.services.figma_fetch import build_context_markdown
+
+        md = build_context_markdown(self._FILE, [{"message": "fix spacing", "user": {"handle": "alice"}}])
+        assert "# Figma Design Context" in md
+        assert "**File:** ApexTest" in md
+        assert "- Login" in md and "- Home" in md
+        assert "Login → Home" in md
+        assert "**alice:** fix spacing" in md
+
+    def test_get_file_blocked_host(self, monkeypatch):
+        from backend.app.services import figma_fetch
+
+        monkeypatch.setattr(figma_fetch, "is_blocked_host", lambda h: True)
+        with pytest.raises(figma_fetch.FigmaFetchError):
+            figma_fetch.get_file("tok", "ABC123")
+
+    def test_get_comments_swallows_errors(self, monkeypatch):
+        from backend.app.services import figma_fetch
+
+        def _boom(*a, **kw):
+            raise figma_fetch.FigmaFetchError("401")
+
+        monkeypatch.setattr(figma_fetch, "_get", _boom)
+        assert figma_fetch.get_comments("tok", "ABC123") == []

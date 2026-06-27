@@ -5,17 +5,20 @@ import { AlertCircle } from "lucide-react";
 import { AutopilotSetupForm } from "@/components/autopilot/setup-form";
 import { AutopilotRunView } from "@/components/autopilot/run-view";
 import { useStartAutopilot, useAutopilotStatus } from "@/lib/hooks/use-autopilot";
-import { useSessionStore } from "@/lib/stores/session-store";
+import { useSessionStore, useFigmaContext } from "@/lib/stores/session-store";
 import type { AutopilotStartRequest } from "@/lib/api/autopilot";
 
 export default function AutopilotPage() {
   const hasProject = useSessionStore((s) => Boolean(s.taigaToken && s.projectId));
+  const figma = useFigmaContext();
   const [jobId, setJobId] = useState<string | null>(null);
   const start = useStartAutopilot();
   const { data: status } = useAutopilotStatus(jobId);
 
   async function handleStart(req: AutopilotStartRequest) {
-    const res = await start.mutateAsync(req);
+    // Seed Figma design context into the pipeline when a file is connected.
+    const body = figma ? { ...req, figma_file_key: figma.fileKey, figma_token: figma.token } : req;
+    const res = await start.mutateAsync(body);
     setJobId(res.job_id);
   }
 

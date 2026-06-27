@@ -31,6 +31,8 @@ def autopilot_start(
         tech_stack_hint=body.tech_stack_hint,
         settings=body.settings.model_dump(),
         taiga_base=taiga_base,
+        figma_file_key=body.figma_file_key,
+        figma_token=body.figma_token,
     )
     return AutopilotStartResponse(job_id=job_id)
 

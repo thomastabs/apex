@@ -239,6 +239,87 @@ class TestStartGetJob:
     def test_get_job_returns_none_for_unknown_id(self):
         assert svc.get_job("does-not-exist") is None
 
+    def test_start_job_stores_figma_fields(self, monkeypatch):
+        class _FakeThread:
+            def __init__(self, *a, **kw):
+                pass
+            def start(self):
+                pass
+
+        monkeypatch.setattr(threading, "Thread", _FakeThread)
+        job_id = svc.start_job(
+            _ctx(),
+            concept="c",
+            epics=[{"title": "E", "description": ""}],
+            tech_stack_hint="",
+            settings={"pause_at_checkpoints": False, "create_epics_in_taiga": False},
+            figma_file_key="  ABC123 ",
+            figma_token=" figd_tok ",
+        )
+        stored = svc.get_job(job_id)
+        assert stored["figma_file_key"] == "ABC123"
+        assert stored["figma_token"] == "figd_tok"
+
+
+# ---------------------------------------------------------------------------
+# _seed_figma
+# ---------------------------------------------------------------------------
+
+class TestSeedFigma:
+    def test_noop_without_key_or_token(self):
+        job = _make_job()
+        job["figma_file_key"] = ""
+        job["figma_token"] = ""
+
+        class _CS:
+            def write_context_file(self, *a, **kw):
+                raise AssertionError("should not write when figma not configured")
+
+        svc._seed_figma(job, _CS())
+        assert "_figma_frames" not in job
+
+    def test_seeds_context_and_stashes_frames(self, monkeypatch):
+        job = _make_job()
+        job["figma_file_key"] = "ABC123"
+        job["figma_token"] = "figd_tok"
+        frames = [{"node_id": "1:1", "name": "Login", "page": "Flows"}]
+        flows = [{"from_name": "Login", "to_name": "Home"}]
+        monkeypatch.setattr(
+            "backend.app.services.figma_fetch.fetch_context_and_frames",
+            lambda token, key: ("# Figma Design Context", frames, flows),
+        )
+        written = {}
+
+        class _CS:
+            def write_context_file(self, name, content):
+                written[name] = content
+
+        svc._seed_figma(job, _CS())
+        assert written["figma-context.md"].startswith("# Figma Design Context")
+        assert job["_figma_frames"] == frames
+        assert job["_figma_flows"] == flows
+
+    def test_seeding_failure_is_swallowed(self, monkeypatch):
+        from backend.app.services.figma_fetch import FigmaFetchError
+
+        job = _make_job()
+        job["figma_file_key"] = "ABC123"
+        job["figma_token"] = "bad"
+
+        def _boom(token, key):
+            raise FigmaFetchError("401")
+
+        monkeypatch.setattr(
+            "backend.app.services.figma_fetch.fetch_context_and_frames", _boom)
+
+        class _CS:
+            def write_context_file(self, *a, **kw):
+                raise AssertionError("should not write on fetch failure")
+
+        svc._seed_figma(job, _CS())  # must not raise
+        assert "_figma_frames" not in job
+        assert any(e["level"] == "warning" for e in job["events"])
+
     def test_start_job_stores_settings(self, monkeypatch):
         class _FakeThread:
             def __init__(self, *a, **kw):

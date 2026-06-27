@@ -127,6 +127,30 @@ def _check_stop(job: dict) -> bool:
 # Phase runners
 # ---------------------------------------------------------------------------
 
+def _seed_figma(job: dict, cs: ContextService) -> None:
+    """Optional: fetch the linked Figma file once and write figma-context.md so
+    Phase 1 story-gen and Phase 2 design pick it up automatically. Frames/flows are
+    stashed on the job for the Phase 2 screen-flow build. Best-effort — never fails
+    the pipeline (a bad token just means no design context)."""
+    file_key = job.get("figma_file_key", "")
+    token = job.get("figma_token", "")
+    if not file_key or not token:
+        return
+    from backend.app.services.figma_fetch import FigmaFetchError, fetch_context_and_frames
+
+    _emit(job, "info", "  Seeding design context from Figma…", phase="phase1")
+    try:
+        context_md, frames, flows = fetch_context_and_frames(token, file_key)
+    except FigmaFetchError as exc:
+        _emit(job, "warning", f"  Figma seeding skipped: {exc}", phase="phase1")
+        return
+    cs.write_context_file("figma-context.md", context_md)
+    job["_figma_frames"] = frames
+    job["_figma_flows"] = flows
+    _emit(job, "success", f"  Figma context seeded ({len(frames)} frames)", phase="phase1",
+          artifact=context_md[:400])
+
+
 def _run_phase1(job: dict, ctx: RequestContext) -> list[int]:
     """Run Phase 1 for all epics. Returns all story IDs created."""
     p1 = Phase1Service()
@@ -135,6 +159,7 @@ def _run_phase1(job: dict, ctx: RequestContext) -> list[int]:
     cs.init_context()
     cs.write_context_file("project-concept.md", job["concept"])
     _emit(job, "info", "Project concept saved", phase="phase1")
+    _seed_figma(job, cs)
 
     all_story_ids: list[int] = []
     epics: list[dict] = job["epics"]
@@ -261,6 +286,19 @@ def _run_phase2(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> Non
         data_model=prior_sections.get("data_model", ""),
     )
     _emit(job, "success", f"  Design locked for {len(all_story_ids)} stories", phase="phase2")
+
+    # Real screen flow from Figma frames (seeded in Phase 1), if present.
+    figma_frames = job.get("_figma_frames") or []
+    if figma_frames:
+        try:
+            diagram = p2.build_screen_flow_from_figma(
+                ctx, frames=figma_frames, flows=job.get("_figma_flows") or [],
+            )
+            _emit(job, "success",
+                  f"  Screen flow built from Figma ({len(diagram['nodes'])} screens, {len(diagram['edges'])} flows)",
+                  phase="phase2")
+        except Exception as exc:  # noqa: BLE001 — advisory; don't fail the pipeline
+            _emit(job, "warning", f"  Figma screen-flow build skipped: {exc}", phase="phase2")
 
 
 def _run_phase3(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> None:
@@ -454,6 +492,8 @@ def start_job(
     tech_stack_hint: str,
     settings: dict,
     taiga_base: str = "",
+    figma_file_key: str = "",
+    figma_token: str = "",
 ) -> str:
     job_id = str(uuid.uuid4())
     stop_event = threading.Event()
@@ -467,6 +507,8 @@ def start_job(
         "concept": concept,
         "epics": epics,
         "tech_stack_hint": tech_stack_hint,
+        "figma_file_key": figma_file_key.strip(),
+        "figma_token": figma_token.strip(),
         "settings": settings,
         "state": "running",
         "current_phase": "init",

@@ -27,6 +27,10 @@ class AutopilotStartRequest(BaseModel):
     epics: list[AutopilotEpic] = Field(min_length=1)
     tech_stack_hint: str = ""
     settings: AutopilotSettings = Field(default_factory=AutopilotSettings)
+    # Optional Figma seeding: design context injected into Phase 1/2 + a real
+    # screen-flow built from frames. The token is held in-memory for the job only.
+    figma_file_key: str = Field("", max_length=128)
+    figma_token: str = Field("", max_length=2_000)
 
 
 class AutopilotEvent(BaseModel):

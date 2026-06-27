@@ -16,6 +16,8 @@ export type AutopilotStartRequest = {
   epics: AutopilotEpic[];
   tech_stack_hint: string;
   settings: AutopilotSettings;
+  figma_file_key?: string;
+  figma_token?: string;
 };
 
 export type AutopilotEvent = {
