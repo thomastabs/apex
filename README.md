@@ -387,10 +387,14 @@ Implemented:
 - **Automatic story-index sync** — every epic/story/task create/edit/delete, plus sign-in and project switch, silently rebuilds the story index and refreshes nav badges; the manual rebuild button (with out-of-sync warning) remains as a fallback
 - Context reset (individual and all files)
 - **GitHub integration** — connect a GitHub repository via a Personal Access Token (`repo` scope); displays repo name, description, primary language, star count, default branch, and public/private badge; **Sync Context** fetches the repo's file tree, README, primary config file (`package.json` / `requirements.txt` / `pyproject.toml`), and OpenAPI spec (if present) and writes them to `github-context.md`; synced context is automatically injected into Phase 2 and Phase 3 AI prompts; GitHub API calls are made browser-side (no backend proxy needed)
-- **Figma integration** — link a Figma file via a Personal Access Token + file URL; **Sync Context** pulls the file's pages, top-level frame (screen) names, prototype flows, and comments into `figma-context.md`, which is injected into Phase 1 story generation and Phase 2 design prompts. In Phase 1 you can also select frames and generate user stories directly from them (the "tasks from a UI perspective" loop). Figma REST calls are routed through a backend proxy (`/api/design/figma/*`, SSRF-guarded to `api.figma.com`) because the Figma API has no permissive CORS; the token is never persisted
+- **Figma integration** — link a Figma file via a Personal Access Token + file URL; **Sync Context** pulls the file's pages, top-level frame (screen) names, prototype flows, and comments into `figma-context.md`, which is injected into Phase 1 story generation and Phase 2 design prompts. In Phase 1 you can also select frames and generate user stories directly from them (the "tasks from a UI perspective" loop). Per-story frames can be linked in the board's story dialog (deep link + thumbnail), and the design can drive the Phase 2 screen-flow diagram directly. Figma REST calls are routed through a backend proxy (`/api/design/figma/*`, SSRF-guarded to `api.figma.com`) because the Figma API has no permissive CORS; the token is never persisted
+  - **Design-change drift** — a linked story records the file's last-modified timestamp at link time; **Scan for design changes** (sidebar) flags any linked story whose design has changed in Figma since, with an amber board badge and a story-dialog banner you acknowledge to re-baseline
+  - **Auto-suggested links** — for an unlinked story, the dialog proposes the best name-matching frame (pure token-overlap similarity, no AI) as a one-click link
+  - **Comments → maintenance** — **Sync Figma Comments** (Phase 6 triage) pulls unresolved file comments in as importable maintenance items
+  - **Autopilot seeding** — when a Figma file is connected, Autopilot fetches it server-side, seeds `figma-context.md` for Phase 1/2, and builds the Phase 2 screen flow from the real frames (best-effort — a bad token is skipped, never failing the run)
 - AI model selector — single unified selector used across all phases; supports Anthropic (Claude), OpenAI (GPT), and Google (Gemini); budget-tier to premium options per provider; provider warnings shown when the corresponding API key is absent from the backend
 - **Deploy Packs** — every saved Phase 5 deploy pack listed per story; view, edit inline, download, delete
-- Maintenance intake from **GitHub Issues, Taiga Issues, and Jira issues** (Phase 6 triage)
+- Maintenance intake from **GitHub Issues, Taiga Issues, Jira issues, and Figma comments** (Phase 6 triage)
 - Draggable sidebar sections — each panel can be reordered by drag-and-drop; order is persisted per session
 - Light/dark mode
 
@@ -415,6 +419,7 @@ Implemented:
 | `infra/cloudflare/taiga-relay/` | Cloudflare Worker that forwards Taiga calls from a non-Azure IP — Taiga Cloud firewall-DROPs Azure Container Apps egress (`worker.js`, `wrangler.toml`, `README.md`) |
 | `backend/app/api/jira_proxy.py` | FastAPI reverse proxy for Jira Cloud REST API v3 (Basic auth, SSRF-guarded to `*.atlassian.net`) |
 | `backend/app/api/figma_proxy.py` | FastAPI reverse proxy for the Figma REST API (`X-Figma-Token`, host-locked to `api.figma.com`, DNS-rebinding pinned) |
+| `backend/app/services/figma_fetch.py` | Server-side Figma fetch for Autopilot (SSRF-pinned, sync) — file/frames/flows + `figma-context.md` assembly without a browser |
 | `backend/app/api/deps.py` | FastAPI request/auth dependencies |
 | `backend/app/services/` | Service layer for phase workflows, AI, Taiga, and context operations |
 | `backend/app/schemas/` | Pydantic request/response models |
