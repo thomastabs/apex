@@ -172,6 +172,45 @@ export function deriveFramesAndFlows(file: FigmaFile): { frames: FigmaFrame[]; f
   return { frames, flows };
 }
 
+// ---------------------------------------------------------------------------
+// Story ↔ frame matching (pure — dependency-free token overlap)
+// ---------------------------------------------------------------------------
+
+const _STOPWORDS = new Set([
+  "the", "a", "an", "of", "to", "and", "or", "for", "in", "on", "with", "as",
+  "is", "are", "be", "screen", "page", "view", "ui", "user", "able",
+]);
+
+function _tokens(text: string): Set<string> {
+  return new Set(
+    text.toLowerCase().replace(/[^a-z0-9\s]+/g, " ").split(/\s+/)
+      .filter((w) => w.length > 1 && !_STOPWORDS.has(w)),
+  );
+}
+
+/**
+ * Best name-match frame for a story subject by Jaccard token overlap.
+ * Returns the frame + score (0..1), or null when nothing clears `minScore`.
+ */
+export function suggestFrameForStory<T extends { node_id: string; name: string }>(
+  subject: string,
+  frames: T[],
+  minScore = 0.34,
+): { frame: T; score: number } | null {
+  const a = _tokens(subject);
+  if (a.size === 0) return null;
+  let best: { frame: T; score: number } | null = null;
+  for (const frame of frames) {
+    const b = _tokens(frame.name);
+    if (b.size === 0) continue;
+    let inter = 0;
+    for (const t of a) if (b.has(t)) inter++;
+    const score = inter / (a.size + b.size - inter);
+    if (score > 0 && (!best || score > best.score)) best = { frame, score };
+  }
+  return best && best.score >= minScore ? best : null;
+}
+
 function truncate(text: string, limit: number): string {
   return text.length <= limit ? text : text.slice(0, limit) + `\n\n... [truncated at ${limit} chars]`;
 }

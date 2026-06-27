@@ -12,6 +12,7 @@ import {
   figmaGetFile,
   figmaThumbnails,
   figmaCommentsToIssues,
+  suggestFrameForStory,
   type FigmaFile,
 } from "@/lib/api/figma";
 
@@ -177,5 +178,37 @@ describe("figmaCommentsToIssues", () => {
     const [iss] = figmaCommentsToIssues([{ id: "c1", message: long }]);
     expect(iss.subject.length).toBe(80);
     expect(iss.subject.endsWith("…")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// suggestFrameForStory
+// ---------------------------------------------------------------------------
+
+describe("suggestFrameForStory", () => {
+  const frames = [
+    { node_id: "1:1", name: "Login Screen" },
+    { node_id: "1:2", name: "Checkout Cart" },
+    { node_id: "1:3", name: "Settings" },
+  ];
+
+  it("matches the most token-overlapping frame", () => {
+    const cart = suggestFrameForStory("Update the checkout cart quantity", frames);
+    expect(cart?.frame.node_id).toBe("1:2");
+    const login = suggestFrameForStory("Login screen validation", frames);
+    expect(login?.frame.node_id).toBe("1:1");
+  });
+
+  it("returns null below the score threshold", () => {
+    expect(suggestFrameForStory("Completely unrelated payment refund flow", frames)).toBeNull();
+  });
+
+  it("returns null on empty subject", () => {
+    expect(suggestFrameForStory("", frames)).toBeNull();
+  });
+
+  it("ignores stopwords so generic words do not force a match", () => {
+    // "the screen page view" are all stopwords → no real tokens → null
+    expect(suggestFrameForStory("the screen page view", frames)).toBeNull();
   });
 });

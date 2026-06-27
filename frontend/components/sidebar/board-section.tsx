@@ -28,7 +28,7 @@ import { useAcknowledgeRegression } from "@/lib/hooks/use-phase6";
 import { getPmAdapter } from "@/lib/api/pm-factory";
 import { toPmCtx, type ApexPhaseStatus } from "@/lib/api/workspace";
 import { getAnalyticsSummary, type StoryRisk } from "@/lib/api/analytics";
-import { figmaGetFile, figmaVerifyFile, deriveFramesAndFlows, figmaNodeUrl } from "@/lib/api/figma";
+import { figmaGetFile, figmaVerifyFile, deriveFramesAndFlows, figmaNodeUrl, suggestFrameForStory } from "@/lib/api/figma";
 import { useApiContext, useFigmaContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
@@ -154,7 +154,7 @@ const APEX_STATUS_OPTIONS: [ApexPhaseStatus, string][] = [
 
 type TracePrompt = { phase_label: string; route: string; reason: string };
 
-function FigmaLinkField({ storyId, figmaNodeId, dark, inputClass }: { storyId: number; figmaNodeId: string; dark: boolean; inputClass: string }) {
+function FigmaLinkField({ storyId, storySubject, figmaNodeId, dark, inputClass }: { storyId: number; storySubject: string; figmaNodeId: string; dark: boolean; inputClass: string }) {
   const figma = useFigmaContext();
   const setLink = useSetStoryFigmaLink();
   const [frames, setFrames] = useState<{ node_id: string; name: string }[]>([]);
@@ -162,6 +162,18 @@ function FigmaLinkField({ storyId, figmaNodeId, dark, inputClass }: { storyId: n
   const [loading, setLoading] = useState(false);
 
   if (!figma) return null;
+
+  const suggestion = !figmaNodeId && frames.length ? suggestFrameForStory(storySubject, frames) : null;
+
+  function linkFrame(nodeId: string) {
+    setLink.mutate(
+      { storyId, figmaNodeId: nodeId, figmaModified: fileModified },
+      {
+        onSuccess: () => toast.success("Linked Figma frame."),
+        onError: () => toast.error("Could not update Figma link."),
+      },
+    );
+  }
 
   async function loadFrames() {
     if (frames.length || loading || !figma) return;
@@ -217,6 +229,19 @@ function FigmaLinkField({ storyId, figmaNodeId, dark, inputClass }: { storyId: n
           </a>
         )}
       </div>
+      {suggestion && (
+        <button
+          type="button"
+          disabled={setLink.isPending}
+          onClick={() => linkFrame(suggestion.frame.node_id)}
+          className={cn(
+            "mt-1.5 inline-flex items-center gap-1 text-xs disabled:opacity-50",
+            dark ? "text-violet-300 hover:text-violet-200" : "text-violet-600 hover:text-violet-500",
+          )}
+        >
+          <Figma className="size-3.5" /> Suggested: link “{suggestion.frame.name}”
+        </button>
+      )}
     </div>
   );
 }
@@ -490,7 +515,7 @@ function StoryDialog({ story, drifted = false, regressed = false, trace = null, 
             </label>
             <input className={cn("h-8 text-xs", inputClass)} value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="e.g. frontend, ui, sprint-1" />
           </div>
-          <FigmaLinkField storyId={story.id} figmaNodeId={figmaNodeId} dark={dark} inputClass={inputClass} />
+          <FigmaLinkField storyId={story.id} storySubject={story.subject} figmaNodeId={figmaNodeId} dark={dark} inputClass={inputClass} />
         </div>
         <div className="mt-5 flex gap-3">
           <button
