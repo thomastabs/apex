@@ -944,6 +944,7 @@ def upsert_story_index(story_id: int, **updates) -> None:
             "trace_reason":    "",
             "design_conflict": False,
             "conflict_reason": "",
+            "figma_node_id":   "",
             "status_history":  {},
         })
         entry.update(updates)
@@ -2324,6 +2325,17 @@ def clear_design_conflict(story_id: int) -> None:
         if entry is not None and entry.get("design_conflict"):
             entry["design_conflict"] = False
             entry["conflict_reason"] = ""
+            _save_story_index(index)
+
+
+def set_story_figma_link(story_id: int, figma_node_id: str) -> None:
+    """Link (or, with an empty id, unlink) a story to a specific Figma frame node.
+    The deep link is rebuilt client-side from the linked file key + this node id."""
+    with _index_lock():
+        index = get_story_index()
+        entry = index.get(str(story_id))
+        if entry is not None:
+            entry["figma_node_id"] = figma_node_id or ""
             _save_story_index(index)
 
 

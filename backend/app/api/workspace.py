@@ -25,6 +25,7 @@ from backend.app.schemas.workspace import (
     SaveAiConfigRequest,
     SaveConfigRequest,
     SetPhaseStatusRequest,
+    SetStoryFigmaLinkRequest,
     SaveTraceLayoutRequest,
     StoryIndexStatsResponse,
     TraceabilityGraphResponse,
@@ -344,6 +345,13 @@ def story_index_stats(ctx: RequestContext = Depends(get_request_context)):
                 key=lambda s: s["story_id"],
             )
         ],
+        "figma_links": [
+            {"story_id": s["story_id"], "figma_node_id": s.get("figma_node_id", "")}
+            for s in sorted(
+                (s for s in stories if s.get("figma_node_id") and s.get("story_id") is not None),
+                key=lambda s: s["story_id"],
+            )
+        ],
     }
 
 
@@ -377,6 +385,22 @@ def acknowledge_design_conflict(story_id: int, ctx: RequestContext = Depends(get
     context = ContextService()
     context.set_active(ctx)
     context.clear_design_conflict(story_id)
+    return {"ok": True}
+
+
+@router.post(
+    "/context-files/story-index/stories/{story_id}/figma-link",
+    response_model=OkResponse,
+)
+def set_story_figma_link(
+    story_id: int,
+    payload: SetStoryFigmaLinkRequest,
+    ctx: RequestContext = Depends(get_request_context),
+):
+    """Link (or unlink with an empty id) a story to a Figma frame node."""
+    context = ContextService()
+    context.set_active(ctx)
+    context.set_story_figma_link(story_id, payload.figma_node_id)
     return {"ok": True}
 
 

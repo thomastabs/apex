@@ -87,6 +87,15 @@ class TraceabilityService:
             })
             add_edge(epic_node, story_node, "derive")
 
+            if entry.get("figma_node_id"):
+                fig_node = f"figma:{sid}"
+                nodes.append({
+                    "id": fig_node, "type": "figma", "label": "Figma",
+                    "story_id": entry.get("story_id"), "phase": 2,
+                    "figma_node_id": entry.get("figma_node_id"),
+                })
+                add_edge(story_node, fig_node, "design")
+
             prev = story_node
             if entry.get("has_gherkin"):
                 gh_node = f"gherkin:{sid}"

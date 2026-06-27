@@ -238,6 +238,19 @@ class TestUpsertStoryIndex:
         assert entry["title"] == "My Story"
         assert entry["has_gherkin"] is True
 
+    def test_set_story_figma_link_round_trip(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(42, title="My Story")
+        ctx.set_story_figma_link(42, "12:34")
+        assert ctx.get_story_index()["42"]["figma_node_id"] == "12:34"
+        ctx.set_story_figma_link(42, "")  # unlink
+        assert ctx.get_story_index()["42"]["figma_node_id"] == ""
+
+    def test_set_story_figma_link_missing_entry_is_noop(self, ctx):
+        ctx.init_context()
+        ctx.set_story_figma_link(999, "1:1")
+        assert "999" not in ctx.get_story_index()
+
     def test_story_id_always_preserved(self, ctx):
         ctx.init_context()
         ctx.upsert_story_index(42, title="My Story")

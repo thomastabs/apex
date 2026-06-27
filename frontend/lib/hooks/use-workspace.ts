@@ -21,6 +21,7 @@ import {
   getMe,
   getServerConfig,
   getStoryIndexStats,
+  setStoryFigmaLink,
   getStoryPhaseStatus,
   getTraceabilityGraph,
   saveTraceabilityLayout,
@@ -183,6 +184,18 @@ export function useAcknowledgeConflict() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (storyId: number) => acknowledgeConflict(context!, storyId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
+    },
+  });
+}
+
+export function useSetStoryFigmaLink() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ storyId, figmaNodeId }: { storyId: number; figmaNodeId: string }) =>
+      setStoryFigmaLink(context!, storyId, figmaNodeId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },

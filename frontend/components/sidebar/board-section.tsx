@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ChevronDown, ChevronRight, GitFork, Info, Layers3, Plus, RefreshCw, Trash2, TrendingDown, Undo2, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, ExternalLink, Figma, GitFork, Info, Layers3, Plus, RefreshCw, Trash2, TrendingDown, Undo2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -16,6 +16,7 @@ import {
   useDeleteStory,
   useRebuildStoryIndex,
   useSetStoryPhaseStatus,
+  useSetStoryFigmaLink,
   useStoryIndexStats,
   useStoryPhaseStatus,
   useStoryStatuses,
@@ -26,7 +27,8 @@ import { useAcknowledgeRegression } from "@/lib/hooks/use-phase6";
 import { getPmAdapter } from "@/lib/api/pm-factory";
 import { toPmCtx, type ApexPhaseStatus } from "@/lib/api/workspace";
 import { getAnalyticsSummary, type StoryRisk } from "@/lib/api/analytics";
-import { useApiContext } from "@/lib/stores/session-store";
+import { figmaGetFile, deriveFramesAndFlows, figmaNodeUrl } from "@/lib/api/figma";
+import { useApiContext, useFigmaContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/primitives";
@@ -151,7 +153,72 @@ const APEX_STATUS_OPTIONS: [ApexPhaseStatus, string][] = [
 
 type TracePrompt = { phase_label: string; route: string; reason: string };
 
-function StoryDialog({ story, drifted = false, regressed = false, trace = null, conflict = null, onClose }: { story: Story; drifted?: boolean; regressed?: boolean; trace?: TracePrompt | null; conflict?: string | null; onClose: () => void }) {
+function FigmaLinkField({ storyId, figmaNodeId, dark, inputClass }: { storyId: number; figmaNodeId: string; dark: boolean; inputClass: string }) {
+  const figma = useFigmaContext();
+  const setLink = useSetStoryFigmaLink();
+  const [frames, setFrames] = useState<{ node_id: string; name: string }[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  if (!figma) return null;
+
+  async function loadFrames() {
+    if (frames.length || loading || !figma) return;
+    setLoading(true);
+    try {
+      const file = await figmaGetFile(figma.token, figma.fileKey, 2);
+      setFrames(deriveFramesAndFlows(file).frames.map((f) => ({ node_id: f.node_id, name: f.name })));
+    } catch {
+      toast.error("Could not load Figma frames.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div>
+      <label className={cn("mb-1 flex items-center gap-1.5 text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
+        <Figma className="size-3.5" /> Figma frame
+      </label>
+      <div className="flex items-center gap-2">
+        <select
+          className={cn("h-9 flex-1 cursor-pointer", inputClass)}
+          value={figmaNodeId}
+          onFocus={loadFrames}
+          disabled={setLink.isPending}
+          onChange={(e) =>
+            setLink.mutate(
+              { storyId, figmaNodeId: e.target.value },
+              {
+                onSuccess: () => toast.success(e.target.value ? "Linked Figma frame." : "Unlinked."),
+                onError: () => toast.error("Could not update Figma link."),
+              },
+            )
+          }
+        >
+          <option value="">{loading ? "Loading frames…" : "Not linked"}</option>
+          {figmaNodeId && !frames.some((f) => f.node_id === figmaNodeId) && (
+            <option value={figmaNodeId}>Linked frame ({figmaNodeId})</option>
+          )}
+          {frames.map((f) => (
+            <option key={f.node_id} value={f.node_id}>{f.name}</option>
+          ))}
+        </select>
+        {figmaNodeId && (
+          <a
+            href={figmaNodeUrl(figma.fileKey, figmaNodeId)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn("inline-flex items-center gap-1 text-xs", dark ? "text-violet-300 hover:text-violet-200" : "text-violet-600 hover:text-violet-500")}
+          >
+            <ExternalLink className="size-3.5" /> View
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StoryDialog({ story, drifted = false, regressed = false, trace = null, conflict = null, figmaNodeId = "", onClose }: { story: Story; drifted?: boolean; regressed?: boolean; trace?: TracePrompt | null; conflict?: string | null; figmaNodeId?: string; onClose: () => void }) {
   const dark = useUiStore((state) => state.theme === "dark");
   const context = useApiContext();
   const router = useRouter();
@@ -391,6 +458,7 @@ function StoryDialog({ story, drifted = false, regressed = false, trace = null, 
             </label>
             <input className={cn("h-8 text-xs", inputClass)} value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="e.g. frontend, ui, sprint-1" />
           </div>
+          <FigmaLinkField storyId={story.id} figmaNodeId={figmaNodeId} dark={dark} inputClass={inputClass} />
         </div>
         <div className="mt-5 flex gap-3">
           <button
@@ -618,6 +686,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
   );
   const conflictedIds = new Set(storyStats.data?.conflicted_story_ids ?? []);
   const conflictById = new Map((storyStats.data?.conflict_flags ?? []).map((c) => [c.story_id, c.reason]));
+  const figmaById = new Map((storyStats.data?.figma_links ?? []).map((f) => [f.story_id, f.figma_node_id]));
 
   // Predictive risk badge — reuse the analytics summary (single source of risk),
   // shared/cached with the Analytics page.
@@ -655,7 +724,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
       {typeof document !== "undefined" ? createPortal(
         <>
           {dialogEpic ? <EpicDialog epic={dialogEpic} onClose={() => setDialogEpic(null)} /> : null}
-          {dialogStory ? <StoryDialog story={dialogStory} drifted={driftedIds.has(dialogStory.id)} regressed={regressedIds.has(dialogStory.id)} trace={traceById.get(dialogStory.id) ?? null} conflict={conflictById.get(dialogStory.id) ?? null} onClose={() => setDialogStory(null)} /> : null}
+          {dialogStory ? <StoryDialog story={dialogStory} drifted={driftedIds.has(dialogStory.id)} regressed={regressedIds.has(dialogStory.id)} trace={traceById.get(dialogStory.id) ?? null} conflict={conflictById.get(dialogStory.id) ?? null} figmaNodeId={figmaById.get(dialogStory.id) ?? ""} onClose={() => setDialogStory(null)} /> : null}
           {createEpicOpen ? <CreateEpicDialog onClose={() => setCreateEpicOpen(false)} /> : null}
           {createStoryEpicId !== null ? (
             <CreateStoryDialog epicId={createStoryEpicId} onClose={() => setCreateStoryEpicId(null)} />
@@ -859,6 +928,12 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                             <GitFork
                               className="size-3 shrink-0 text-amber-500"
                               aria-label="Design conflict — this story's developer pack overlaps another story's (shared file or duplicate endpoint)"
+                            />
+                          ) : null}
+                          {figmaById.has(story.id) ? (
+                            <Figma
+                              className="size-3 shrink-0 text-violet-400"
+                              aria-label="Linked to a Figma frame"
                             />
                           ) : null}
                           <button

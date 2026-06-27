@@ -60,6 +60,9 @@ class ContextService:
     def clear_design_conflict(self, story_id: int) -> None:
         context_manager.clear_design_conflict(story_id)
 
+    def set_story_figma_link(self, story_id: int, figma_node_id: str) -> None:
+        context_manager.set_story_figma_link(story_id, figma_node_id)
+
     def load_all_proposals(self) -> list[dict]:
         return context_manager.load_all_proposals()
 

@@ -268,6 +268,12 @@ export type StoryIndexStats = {
   design_conflict: number;
   conflicted_story_ids: number[];
   conflict_flags: ConflictFlagInfo[];
+  figma_links: FigmaLinkInfo[];
+};
+
+export type FigmaLinkInfo = {
+  story_id: number;
+  figma_node_id: string;
 };
 
 export type TraceFlagInfo = {
@@ -286,7 +292,14 @@ export function getStoryIndexStats(context: RequestContext) {
   return apiRequest<StoryIndexStats>("/api/workspace/context-files/story-index-stats", { context });
 }
 
-export type TraceNodeType = "project" | "epic" | "design" | "story" | "gherkin" | "scenario" | "tasks" | "tests" | "deploy";
+export function setStoryFigmaLink(context: RequestContext, storyId: number, figmaNodeId: string) {
+  return apiRequest<{ ok: boolean }>(
+    `/api/workspace/context-files/story-index/stories/${storyId}/figma-link`,
+    { method: "POST", context, body: { figma_node_id: figmaNodeId } },
+  );
+}
+
+export type TraceNodeType = "project" | "epic" | "design" | "story" | "gherkin" | "scenario" | "tasks" | "tests" | "deploy" | "figma";
 
 export type TraceNode = {
   id: string;
@@ -297,6 +310,7 @@ export type TraceNode = {
   phase_status?: string | null;
   scenario_count?: number | null;
   verified?: boolean | null;
+  figma_node_id?: string | null;
   flags?: Record<string, boolean>;
   position?: { x: number; y: number } | null;
 };

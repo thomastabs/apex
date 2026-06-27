@@ -50,6 +50,7 @@ const TYPE_COLOR: Record<TraceNodeType, string> = {
   tasks: "#f59e0b",
   tests: "#10b981",
   deploy: "#ef4444",
+  figma: "#a259ff",
 };
 
 const STATUS_TINT: Record<string, string> = {

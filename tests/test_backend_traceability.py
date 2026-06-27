@@ -69,6 +69,21 @@ def test_full_story_yields_the_derivation_chain():
     assert gh["scenario_count"] == 2
 
 
+def test_figma_node_added_when_story_linked():
+    index = {"1": {"story_id": 1, "epic_id": 10, "title": "Login", "phase_status": "new",
+                   "figma_node_id": "12:34"}}
+    g = _graph(index)
+    fig = next((n for n in g["nodes"] if n["id"] == "figma:1"), None)
+    assert fig is not None
+    assert fig["type"] == "figma" and fig["figma_node_id"] == "12:34"
+    assert ("story:1", "figma:1", "design") in {(e["source"], e["target"], e["kind"]) for e in g["edges"]}
+
+
+def test_no_figma_node_when_not_linked():
+    g = _graph({"1": {"story_id": 1, "epic_id": 1, "title": "S", "phase_status": "new"}})
+    assert "figma:1" not in {n["id"] for n in g["nodes"]}
+
+
 def test_no_design_node_when_no_tech_spec():
     g = _graph({"1": {"story_id": 1, "epic_id": 1, "title": "S", "phase_status": "new", "has_gherkin": True}})
     assert "design" not in {n["id"] for n in g["nodes"]}

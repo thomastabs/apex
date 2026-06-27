@@ -12,6 +12,7 @@ const getStory = vi.fn().mockResolvedValue({
 
 vi.mock("@/lib/stores/session-store", () => ({
   useApiContext: () => ({ projectId: 7, pmTool: "taiga", pmToken: "tok", pmProjectId: "slug" }),
+  useFigmaContext: () => null,
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/lib/api/pm-factory", () => ({ getPmAdapter: () => ({ getStory, getEpic: vi.fn() }) }));
@@ -35,6 +36,7 @@ vi.mock("@/lib/hooks/use-workspace", () => ({
   useAcknowledgeSpecDrift: () => idleMut,
   useAcknowledgeBacktrace: () => idleMut,
   useAcknowledgeConflict: () => idleMut,
+  useSetStoryFigmaLink: () => idleMut,
   useStoryIndexStats: () => ({
     refetch: vi.fn(),
     data: {

@@ -106,6 +106,15 @@ class ConflictFlagInfo(BaseModel):
     reason: str = ""
 
 
+class FigmaLinkInfo(BaseModel):
+    story_id: int
+    figma_node_id: str = ""
+
+
+class SetStoryFigmaLinkRequest(BaseModel):
+    figma_node_id: str = Field("", max_length=100)
+
+
 class StoryIndexStatsResponse(BaseModel):
     total: int = 0
     phase2_designed: int = 0
@@ -123,6 +132,7 @@ class StoryIndexStatsResponse(BaseModel):
     design_conflict: int = 0
     conflicted_story_ids: list[int] = Field(default_factory=list)
     conflict_flags: list["ConflictFlagInfo"] = Field(default_factory=list)
+    figma_links: list["FigmaLinkInfo"] = Field(default_factory=list)
 
 
 class ImportEpicSummary(BaseModel):
@@ -157,13 +167,14 @@ class ImportReconstructResponse(BaseModel):
 
 class TraceNode(BaseModel):
     id: str
-    type: Literal["project", "epic", "design", "story", "gherkin", "scenario", "tasks", "tests", "deploy"]
+    type: Literal["project", "epic", "design", "story", "gherkin", "scenario", "tasks", "tests", "deploy", "figma"]
     label: str
     phase: int | None = None
     story_id: int | None = None
     phase_status: str | None = None
     scenario_count: int | None = None
     verified: bool | None = None
+    figma_node_id: str | None = None
     flags: dict[str, bool] = Field(default_factory=dict)
     position: dict[str, float] | None = None
 
