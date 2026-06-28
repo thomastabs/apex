@@ -289,6 +289,53 @@ class TestUpsertStoryIndex:
         entry = ctx.get_story_index()["1"]
         assert entry["figma_node_id"] == "" and entry["figma_synced_at"] == ""
 
+    # --- Stage 2: file-scoped links + per-file drift ---
+
+    def test_set_story_figma_link_stores_file_key(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(1, title="Linked")
+        ctx.set_story_figma_link(1, "1:1", "2026-06-01T00:00:00Z", "FILEKEY")
+        entry = ctx.get_story_index()["1"]
+        assert entry["figma_file_key"] == "FILEKEY"
+        ctx.set_story_figma_link(1, "")  # unlink clears the file key too
+        assert ctx.get_story_index()["1"]["figma_file_key"] == ""
+
+    def test_legacy_link_has_empty_file_key(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(1, title="Linked")
+        ctx.set_story_figma_link(1, "1:1", "2026-06-01T00:00:00Z")  # no file key
+        assert ctx.get_story_index()["1"]["figma_file_key"] == ""
+
+    def test_scan_multi_flags_per_file(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(1, title="In file A")
+        ctx.set_story_figma_link(1, "1:1", "2026-06-01T00:00:00Z", "A")
+        ctx.upsert_story_index(2, title="In file B")
+        ctx.set_story_figma_link(2, "2:1", "2026-06-01T00:00:00Z", "B")
+        # File A changed, file B did not → only story 1 flagged.
+        flagged = ctx.scan_figma_changes_multi({
+            "A": "2026-06-27T00:00:00Z",
+            "B": "2026-06-01T00:00:00Z",
+        })
+        assert flagged == [1]
+        assert ctx.get_story_index()["1"]["figma_changed"] is True
+        assert ctx.get_story_index()["2"]["figma_changed"] is False
+
+    def test_scan_multi_legacy_link_uses_empty_key(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(1, title="Legacy link")
+        ctx.set_story_figma_link(1, "1:1", "2026-06-01T00:00:00Z")  # empty file key
+        # The "" key maps to the configured single file.
+        assert ctx.scan_figma_changes_multi({"": "2026-06-27T00:00:00Z"}) == [1]
+
+    def test_single_file_scan_unchanged_for_filed_links(self, ctx):
+        # The legacy single-string scan must still flag every linked story
+        # regardless of its file key (back-compat for the old sidebar call).
+        ctx.init_context()
+        ctx.upsert_story_index(1, title="In file A")
+        ctx.set_story_figma_link(1, "1:1", "2026-06-01T00:00:00Z", "A")
+        assert ctx.scan_figma_changes("2026-06-27T00:00:00Z") == [1]
+
     def test_story_id_always_preserved(self, ctx):
         ctx.init_context()
         ctx.upsert_story_index(42, title="My Story")

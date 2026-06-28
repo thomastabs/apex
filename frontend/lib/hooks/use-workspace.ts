@@ -196,8 +196,8 @@ export function useSetStoryFigmaLink() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ storyId, figmaNodeId, figmaModified = "" }: { storyId: number; figmaNodeId: string; figmaModified?: string }) =>
-      setStoryFigmaLink(context!, storyId, figmaNodeId, figmaModified),
+    mutationFn: ({ storyId, figmaNodeId, figmaModified = "", figmaFileKey = "" }: { storyId: number; figmaNodeId: string; figmaModified?: string; figmaFileKey?: string }) =>
+      setStoryFigmaLink(context!, storyId, figmaNodeId, figmaModified, figmaFileKey),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },

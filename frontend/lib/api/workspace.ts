@@ -276,6 +276,7 @@ export type StoryIndexStats = {
 export type FigmaLinkInfo = {
   story_id: number;
   figma_node_id: string;
+  figma_file_key?: string;  // which file the node lives in; empty = configured single file
 };
 
 export type TraceFlagInfo = {
@@ -294,10 +295,16 @@ export function getStoryIndexStats(context: RequestContext) {
   return apiRequest<StoryIndexStats>("/api/workspace/context-files/story-index-stats", { context });
 }
 
-export function setStoryFigmaLink(context: RequestContext, storyId: number, figmaNodeId: string, figmaModified = "") {
+export function setStoryFigmaLink(
+  context: RequestContext, storyId: number, figmaNodeId: string, figmaModified = "", figmaFileKey = "",
+) {
   return apiRequest<{ ok: boolean }>(
     `/api/workspace/context-files/story-index/stories/${storyId}/figma-link`,
-    { method: "POST", context, body: { figma_node_id: figmaNodeId, figma_modified: figmaModified } },
+    {
+      method: "POST",
+      context,
+      body: { figma_node_id: figmaNodeId, figma_modified: figmaModified, figma_file_key: figmaFileKey },
+    },
   );
 }
 

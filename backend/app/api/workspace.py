@@ -349,7 +349,11 @@ def story_index_stats(ctx: RequestContext = Depends(get_request_context)):
             )
         ],
         "figma_links": [
-            {"story_id": s["story_id"], "figma_node_id": s.get("figma_node_id", "")}
+            {
+                "story_id": s["story_id"],
+                "figma_node_id": s.get("figma_node_id", ""),
+                "figma_file_key": s.get("figma_file_key", ""),
+            }
             for s in sorted(
                 (s for s in stories if s.get("figma_node_id") and s.get("story_id") is not None),
                 key=lambda s: s["story_id"],
@@ -407,7 +411,9 @@ def set_story_figma_link(
     """Link (or unlink with an empty id) a story to a Figma frame node."""
     context = ContextService()
     context.set_active(ctx)
-    context.set_story_figma_link(story_id, payload.figma_node_id, payload.figma_modified)
+    context.set_story_figma_link(
+        story_id, payload.figma_node_id, payload.figma_modified, payload.figma_file_key
+    )
     return {"ok": True}
 
 
@@ -422,6 +428,8 @@ def scan_figma_changes(
     each linked story with an older baseline is flagged figma_changed."""
     context = ContextService()
     context.set_active(ctx)
+    if payload.modified_by_file is not None:
+        return {"changed_story_ids": context.scan_figma_changes_multi(payload.modified_by_file)}
     return {"changed_story_ids": context.scan_figma_changes(payload.current_modified)}
 
 
@@ -437,7 +445,7 @@ def acknowledge_figma_change(
     """Clear the design-changed flag and re-baseline the story to the current file version."""
     context = ContextService()
     context.set_active(ctx)
-    context.acknowledge_figma_change(story_id, payload.current_modified)
+    context.acknowledge_figma_change(story_id, payload.current_modified, payload.figma_file_key)
     return {"ok": True}
 
 

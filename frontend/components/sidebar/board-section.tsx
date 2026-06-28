@@ -154,7 +154,7 @@ const APEX_STATUS_OPTIONS: [ApexPhaseStatus, string][] = [
 
 type TracePrompt = { phase_label: string; route: string; reason: string };
 
-function FigmaLinkField({ storyId, storySubject, figmaNodeId, dark, inputClass }: { storyId: number; storySubject: string; figmaNodeId: string; dark: boolean; inputClass: string }) {
+function FigmaLinkField({ storyId, storySubject, figmaNodeId, figmaFileKey = "", dark, inputClass }: { storyId: number; storySubject: string; figmaNodeId: string; figmaFileKey?: string; dark: boolean; inputClass: string }) {
   const figma = useFigmaContext();
   const setLink = useSetStoryFigmaLink();
   const [frames, setFrames] = useState<{ node_id: string; name: string }[]>([]);
@@ -162,16 +162,19 @@ function FigmaLinkField({ storyId, storySubject, figmaNodeId, dark, inputClass }
   const [loading, setLoading] = useState(false);
   const [thumbUrl, setThumbUrl] = useState("");
 
+  // The file this link points at: its own stored key, or the connected file (legacy).
+  const linkFileKey = figmaFileKey || figma?.fileKey || "";
+
   // Render the linked frame's thumbnail (short-lived S3 URL — re-fetched per mount/link change).
   useEffect(() => {
     setThumbUrl("");
-    if (!figma || !figmaNodeId) return;
+    if (!figma || !figmaNodeId || !linkFileKey) return;
     let alive = true;
-    figmaThumbnails(figma.token, figma.fileKey, [figmaNodeId])
+    figmaThumbnails(figma.token, linkFileKey, [figmaNodeId])
       .then((map) => { if (alive) setThumbUrl(map[figmaNodeId] ?? ""); })
       .catch(() => {/* thumbnail is best-effort */});
     return () => { alive = false; };
-  }, [figma, figmaNodeId]);
+  }, [figma, figmaNodeId, linkFileKey]);
 
   if (!figma) return null;
 
@@ -179,7 +182,7 @@ function FigmaLinkField({ storyId, storySubject, figmaNodeId, dark, inputClass }
 
   function linkFrame(nodeId: string) {
     setLink.mutate(
-      { storyId, figmaNodeId: nodeId, figmaModified: fileModified },
+      { storyId, figmaNodeId: nodeId, figmaModified: fileModified, figmaFileKey: figma!.fileKey },
       {
         onSuccess: () => toast.success("Linked Figma frame."),
         onError: () => toast.error("Could not update Figma link."),
@@ -214,7 +217,7 @@ function FigmaLinkField({ storyId, storySubject, figmaNodeId, dark, inputClass }
           disabled={setLink.isPending}
           onChange={(e) =>
             setLink.mutate(
-              { storyId, figmaNodeId: e.target.value, figmaModified: fileModified },
+              { storyId, figmaNodeId: e.target.value, figmaModified: fileModified, figmaFileKey: e.target.value ? figma.fileKey : "" },
               {
                 onSuccess: () => toast.success(e.target.value ? "Linked Figma frame." : "Unlinked."),
                 onError: () => toast.error("Could not update Figma link."),
@@ -232,7 +235,7 @@ function FigmaLinkField({ storyId, storySubject, figmaNodeId, dark, inputClass }
         </select>
         {figmaNodeId && (
           <a
-            href={figmaNodeUrl(figma.fileKey, figmaNodeId)}
+            href={figmaNodeUrl(linkFileKey, figmaNodeId)}
             target="_blank"
             rel="noopener noreferrer"
             className={cn("inline-flex items-center gap-1 text-xs", dark ? "text-violet-300 hover:text-violet-200" : "text-violet-600 hover:text-violet-500")}
@@ -269,7 +272,7 @@ function FigmaLinkField({ storyId, storySubject, figmaNodeId, dark, inputClass }
   );
 }
 
-function StoryDialog({ story, drifted = false, regressed = false, trace = null, conflict = null, figmaNodeId = "", figmaChanged = false, onClose }: { story: Story; drifted?: boolean; regressed?: boolean; trace?: TracePrompt | null; conflict?: string | null; figmaNodeId?: string; figmaChanged?: boolean; onClose: () => void }) {
+function StoryDialog({ story, drifted = false, regressed = false, trace = null, conflict = null, figmaNodeId = "", figmaFileKey = "", figmaChanged = false, onClose }: { story: Story; drifted?: boolean; regressed?: boolean; trace?: TracePrompt | null; conflict?: string | null; figmaNodeId?: string; figmaFileKey?: string; figmaChanged?: boolean; onClose: () => void }) {
   const dark = useUiStore((state) => state.theme === "dark");
   const context = useApiContext();
   const figma = useFigmaContext();
@@ -538,7 +541,7 @@ function StoryDialog({ story, drifted = false, regressed = false, trace = null, 
             </label>
             <input className={cn("h-8 text-xs", inputClass)} value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="e.g. frontend, ui, sprint-1" />
           </div>
-          <FigmaLinkField storyId={story.id} storySubject={story.subject} figmaNodeId={figmaNodeId} dark={dark} inputClass={inputClass} />
+          <FigmaLinkField storyId={story.id} storySubject={story.subject} figmaNodeId={figmaNodeId} figmaFileKey={figmaFileKey} dark={dark} inputClass={inputClass} />
         </div>
         <div className="mt-5 flex gap-3">
           <button
@@ -766,7 +769,9 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
   );
   const conflictedIds = new Set(storyStats.data?.conflicted_story_ids ?? []);
   const conflictById = new Map((storyStats.data?.conflict_flags ?? []).map((c) => [c.story_id, c.reason]));
-  const figmaById = new Map((storyStats.data?.figma_links ?? []).map((f) => [f.story_id, f.figma_node_id]));
+  const figmaById = new Map(
+    (storyStats.data?.figma_links ?? []).map((f) => [f.story_id, { nodeId: f.figma_node_id, fileKey: f.figma_file_key ?? "" }]),
+  );
   const figmaChangedIds = new Set(storyStats.data?.figma_changed_story_ids ?? []);
 
   // Predictive risk badge — reuse the analytics summary (single source of risk),
@@ -805,7 +810,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
       {typeof document !== "undefined" ? createPortal(
         <>
           {dialogEpic ? <EpicDialog epic={dialogEpic} onClose={() => setDialogEpic(null)} /> : null}
-          {dialogStory ? <StoryDialog story={dialogStory} drifted={driftedIds.has(dialogStory.id)} regressed={regressedIds.has(dialogStory.id)} trace={traceById.get(dialogStory.id) ?? null} conflict={conflictById.get(dialogStory.id) ?? null} figmaNodeId={figmaById.get(dialogStory.id) ?? ""} figmaChanged={figmaChangedIds.has(dialogStory.id)} onClose={() => setDialogStory(null)} /> : null}
+          {dialogStory ? <StoryDialog story={dialogStory} drifted={driftedIds.has(dialogStory.id)} regressed={regressedIds.has(dialogStory.id)} trace={traceById.get(dialogStory.id) ?? null} conflict={conflictById.get(dialogStory.id) ?? null} figmaNodeId={figmaById.get(dialogStory.id)?.nodeId ?? ""} figmaFileKey={figmaById.get(dialogStory.id)?.fileKey ?? ""} figmaChanged={figmaChangedIds.has(dialogStory.id)} onClose={() => setDialogStory(null)} /> : null}
           {createEpicOpen ? <CreateEpicDialog onClose={() => setCreateEpicOpen(false)} /> : null}
           {createStoryEpicId !== null ? (
             <CreateStoryDialog epicId={createStoryEpicId} onClose={() => setCreateStoryEpicId(null)} />

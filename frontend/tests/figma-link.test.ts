@@ -13,11 +13,22 @@ describe("setStoryFigmaLink api", () => {
     vi.mocked(apiRequest).mockResolvedValue({ ok: true } as never);
   });
 
-  it("POSTs the node id to the story figma-link endpoint", async () => {
+  it("POSTs the node id + file key to the story figma-link endpoint", async () => {
+    await setStoryFigmaLink(CTX, 42, "12:34", "2026-06-28T00:00:00Z", "FILEKEY");
+    expect(apiRequest).toHaveBeenCalledWith(
+      "/api/workspace/context-files/story-index/stories/42/figma-link",
+      expect.objectContaining({
+        method: "POST",
+        body: { figma_node_id: "12:34", figma_modified: "2026-06-28T00:00:00Z", figma_file_key: "FILEKEY" },
+      }),
+    );
+  });
+
+  it("defaults file key to empty (legacy single-file link)", async () => {
     await setStoryFigmaLink(CTX, 42, "12:34");
     expect(apiRequest).toHaveBeenCalledWith(
       "/api/workspace/context-files/story-index/stories/42/figma-link",
-      expect.objectContaining({ method: "POST", body: { figma_node_id: "12:34", figma_modified: "" } }),
+      expect.objectContaining({ body: { figma_node_id: "12:34", figma_modified: "", figma_file_key: "" } }),
     );
   });
 
@@ -25,7 +36,7 @@ describe("setStoryFigmaLink api", () => {
     await setStoryFigmaLink(CTX, 42, "");
     expect(apiRequest).toHaveBeenCalledWith(
       "/api/workspace/context-files/story-index/stories/42/figma-link",
-      expect.objectContaining({ body: { figma_node_id: "", figma_modified: "" } }),
+      expect.objectContaining({ body: { figma_node_id: "", figma_modified: "", figma_file_key: "" } }),
     );
   });
 });

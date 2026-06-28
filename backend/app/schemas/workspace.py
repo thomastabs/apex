@@ -109,15 +109,20 @@ class ConflictFlagInfo(BaseModel):
 class FigmaLinkInfo(BaseModel):
     story_id: int
     figma_node_id: str = ""
+    figma_file_key: str = ""  # which file the node lives in; empty = configured single file
 
 
 class SetStoryFigmaLinkRequest(BaseModel):
     figma_node_id: str = Field("", max_length=100)
     figma_modified: str = Field("", max_length=64)
+    figma_file_key: str = Field("", max_length=128)
 
 
 class ScanFigmaChangesRequest(BaseModel):
     current_modified: str = Field("", max_length=64)
+    # Project mode: per-file current lastModified (file key → timestamp; "" key =
+    # the configured single file). When present, drift is scanned per file.
+    modified_by_file: dict[str, str] | None = None
 
 
 class ScanFigmaChangesResponse(BaseModel):
@@ -126,6 +131,7 @@ class ScanFigmaChangesResponse(BaseModel):
 
 class AcknowledgeFigmaChangeRequest(BaseModel):
     current_modified: str = Field("", max_length=64)
+    figma_file_key: str = Field("", max_length=128)
 
 
 class StoryIndexStatsResponse(BaseModel):
