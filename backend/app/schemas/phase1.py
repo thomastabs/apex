@@ -55,6 +55,7 @@ class GenerateNlStoriesResponse(BaseModel):
 class FigmaFrameSchema(BaseModel):
     name: str = Field(..., max_length=300)
     description: str = Field("", max_length=2_000)
+    node_id: str = Field("", max_length=120)  # for U1 multimodal grounding (render this node)
 
 
 class FigmaFlowSchema(BaseModel):
@@ -66,6 +67,7 @@ class GenerateStoriesFromFigmaRequest(BaseModel):
     frames: list[FigmaFrameSchema] = Field(default_factory=list, max_length=200)
     flows: list[FigmaFlowSchema] = Field(default_factory=list, max_length=400)
     instructions: str = Field("", max_length=2_000)
+    file_key: str = Field("", max_length=128)  # enables server-side frame rendering (U1)
 
 
 class CrossCheckRequest(BaseModel):

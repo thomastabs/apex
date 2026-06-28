@@ -11,8 +11,11 @@ kept deliberately small and dependency-free.
 
 from __future__ import annotations
 
+import base64
 import datetime as _dt
 import logging
+from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import urlparse
 
 import httpx
 
@@ -26,9 +29,25 @@ _TIMEOUT = 20.0
 _FRAME_LIST_CAP = 4_000
 _COMMENTS_CAP = 2_000
 
+# Multimodal grounding (U1): the Figma /images endpoint renders frames to PNGs
+# but returns short-lived URLs on a SECOND host (its S3 image CDN), not bytes.
+# Downloading those bytes is a new egress hop, so it gets its own SSRF guard —
+# we deliberately do NOT widen the api.figma.com pin above.
+_MAX_FRAME_IMAGES = 12          # bound token cost (~1600 img-tokens/frame at scale 1.0)
+_IMAGE_RENDER_SCALE = 1.0       # long edge ≤1568px — do NOT raise (cost balloons on 4.7+)
+_MAX_IMAGE_BYTES = 5_000_000    # skip oversized renders (request-too-large guard)
+_IMAGE_FETCH_TIMEOUT = 15.0
+
 
 class FigmaFetchError(RuntimeError):
     """Raised when the Figma file cannot be fetched (network/auth/SSRF)."""
+
+
+def _http_get(url: str, headers: dict, timeout: float, ext: dict) -> httpx.Response:
+    """GET via a Client — the module-level httpx.get() does NOT accept `extensions`
+    (httpx 0.28), and the SSRF pin needs to pass `sni_hostname` through extensions."""
+    with httpx.Client(follow_redirects=False, timeout=timeout) as client:
+        return client.request("GET", url, headers=headers, **({"extensions": ext} if ext else {}))
 
 
 def _get(path: str, token: str, query: str = "") -> dict:
@@ -43,10 +62,7 @@ def _get(path: str, token: str, query: str = "") -> dict:
     except ValueError as exc:
         raise FigmaFetchError("Figma host resolves to a private/blocked address.") from exc
     try:
-        resp = httpx.get(
-            url, headers=headers, timeout=_TIMEOUT,
-            **({"extensions": ext} if ext else {}),
-        )
+        resp = _http_get(url, headers, _TIMEOUT, ext)
     except httpx.RequestError as exc:
         raise FigmaFetchError(f"Failed to reach Figma: {exc}") from exc
     if resp.status_code in (401, 403):
@@ -136,3 +152,103 @@ def fetch_context_and_frames(token: str, file_key: str) -> tuple[str, list[dict]
     comments = get_comments(token, file_key)
     frames, flows = derive_frames_flows(file)
     return build_context_markdown(file, comments), frames, flows
+
+
+# ---------------------------------------------------------------------------
+# Frame image rendering (U1 — multimodal grounding)
+# ---------------------------------------------------------------------------
+
+def get_image_urls(token: str, file_key: str, node_ids: list[str], scale: float = _IMAGE_RENDER_SCALE) -> dict[str, str]:
+    """Render the given nodes to PNGs via Figma's /images endpoint.
+
+    Returns {node_id: render_url}. The URLs point at Figma's S3 image CDN and are
+    short-lived. Pinned to api.figma.com (same guard as every other call here).
+    """
+    if not node_ids:
+        return {}
+    ids = ",".join(node_ids)
+    data = _get(f"images/{file_key}", token, query=f"ids={ids}&format=png&scale={scale}")
+    images = data.get("images") or {}
+    return {nid: url for nid, url in images.items() if url}
+
+
+def _image_host_allowed(host: str) -> bool:
+    """The render URL's host must be a Figma-owned CDN (its S3 bucket or figma.com)."""
+    host = (host or "").strip().lower().rstrip(".")
+    if host.endswith(".figma.com"):
+        return True
+    return "figma" in host and host.endswith(".amazonaws.com")
+
+
+def fetch_image_bytes(url: str) -> bytes:
+    """Download a rendered-frame PNG from Figma's image CDN — the second egress hop.
+
+    Dedicated SSRF guard: https only, Figma-owned host, non-private IP (pinned),
+    and the deployment egress allowlist. Returns the raw bytes.
+    """
+    parsed = urlparse(url)
+    host = parsed.hostname or ""
+    if parsed.scheme != "https" or not _image_host_allowed(host):
+        raise FigmaFetchError("Figma image URL is not an allowed https Figma host.")
+    if is_blocked_host(host) or not egress_host_allowed(host):
+        raise FigmaFetchError("Figma image host is blocked or not in the egress allowlist.")
+    try:
+        pinned_url, headers, ext = pinned_target(url, {})
+    except ValueError as exc:
+        raise FigmaFetchError("Figma image host resolves to a private/blocked address.") from exc
+    try:
+        resp = _http_get(pinned_url, headers, _IMAGE_FETCH_TIMEOUT, ext)
+    except httpx.RequestError as exc:
+        raise FigmaFetchError(f"Failed to fetch Figma image: {exc}") from exc
+    if resp.status_code >= 400:
+        raise FigmaFetchError(f"Figma image CDN returned {resp.status_code}.")
+    return resp.content
+
+
+def get_frame_images(
+    token: str, file_key: str, frames: list[dict], max_frames: int = _MAX_FRAME_IMAGES
+) -> list[dict]:
+    """Render up to `max_frames` frames and return base64 PNGs for vision grounding.
+
+    Returns [{node_id, name, b64_png, media_type}]. Per-frame failures (render
+    miss, oversized, network) are skipped — image grounding is advisory and must
+    never block story generation.
+    """
+    chosen = [f for f in frames if f.get("node_id")][:max_frames]
+    if not chosen:
+        return []
+    node_ids = [f["node_id"] for f in chosen]
+    urls = get_image_urls(token, file_key, node_ids)
+
+    def _one(frame: dict) -> dict | None:
+        url = urls.get(frame["node_id"])
+        if not url:
+            return None
+        try:
+            data = fetch_image_bytes(url)
+        except FigmaFetchError as exc:
+            _logger.warning("frame image skipped node=%s: %s", frame["node_id"], exc)
+            return None
+        if not data or len(data) > _MAX_IMAGE_BYTES:
+            return None
+        return {
+            "node_id": frame["node_id"],
+            "name": frame.get("name", ""),
+            "b64_png": base64.b64encode(data).decode("ascii"),
+            "media_type": "image/png",
+        }
+
+    with ThreadPoolExecutor(max_workers=min(6, len(chosen))) as pool:
+        results = list(pool.map(_one, chosen))
+    return [r for r in results if r]
+
+
+def fetch_frame_images(token: str, file_key: str, frames: list[dict]) -> list[dict]:
+    """Advisory wrapper for the pipeline: never raises — returns [] on any failure."""
+    if not token or not file_key:
+        return []
+    try:
+        return get_frame_images(token, file_key, frames)
+    except FigmaFetchError as exc:
+        _logger.warning("frame image grounding skipped: %s", exc)
+        return []

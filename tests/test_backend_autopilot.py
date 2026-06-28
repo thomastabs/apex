@@ -288,6 +288,11 @@ class TestSeedFigma:
             "backend.app.services.figma_fetch.fetch_context_and_frames",
             lambda token, key: ("# Figma Design Context", frames, flows),
         )
+        images = [{"node_id": "1:1", "name": "Login", "b64_png": "QUJD", "media_type": "image/png"}]
+        monkeypatch.setattr(
+            "backend.app.services.figma_fetch.fetch_frame_images",
+            lambda token, key, fr: images,
+        )
         written = {}
 
         class _CS:
@@ -298,6 +303,7 @@ class TestSeedFigma:
         assert written["figma-context.md"].startswith("# Figma Design Context")
         assert job["_figma_frames"] == frames
         assert job["_figma_flows"] == flows
+        assert job["_figma_images"] == images
 
     def test_seeding_failure_is_swallowed(self, monkeypatch):
         from backend.app.services.figma_fetch import FigmaFetchError

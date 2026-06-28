@@ -47,6 +47,7 @@ class Phase1Service:
         epic_description: str,
         hint: str = "",
         instructions: str = "",
+        images: list[dict] | None = None,
     ) -> tuple[str, int]:
         self.configure_request(ctx)
         subject = epic_subject.strip()
@@ -61,6 +62,7 @@ class Phase1Service:
             project_concept=concept,
             instructions=instructions,
             figma_context=figma_context,
+            images=images,
         )
 
     def generate_stories_from_figma(
@@ -70,16 +72,26 @@ class Phase1Service:
         frames: list[dict],
         flows: list[dict],
         instructions: str = "",
+        figma_token: str = "",
+        file_key: str = "",
     ) -> tuple[str, int]:
         self.configure_request(ctx)
         if not frames:
             raise Phase1ValidationError("At least one Figma frame is required.")
         concept = self.context.project_concept()
+        # U1: when a token + file key are supplied, render the frames to PNGs and
+        # attach them for multimodal grounding. Advisory — fetch_frame_images never
+        # raises, so a bad token simply falls back to the text-only (names) prompt.
+        images: list[dict] = []
+        if figma_token and file_key:
+            from backend.app.services.figma_fetch import fetch_frame_images
+            images = fetch_frame_images(figma_token, file_key, frames)
         return self.ai.generate_stories_from_figma(
             frames,
             flows,
             project_concept=concept,
             instructions=instructions,
+            images=images or None,
         )
 
     def cross_check_stories(

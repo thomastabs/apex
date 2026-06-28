@@ -136,7 +136,11 @@ def _seed_figma(job: dict, cs: ContextService) -> None:
     token = job.get("figma_token", "")
     if not file_key or not token:
         return
-    from backend.app.services.figma_fetch import FigmaFetchError, fetch_context_and_frames
+    from backend.app.services.figma_fetch import (
+        FigmaFetchError,
+        fetch_context_and_frames,
+        fetch_frame_images,
+    )
 
     _emit(job, "info", "  Seeding design context from Figma…", phase="phase1")
     try:
@@ -147,7 +151,11 @@ def _seed_figma(job: dict, cs: ContextService) -> None:
     cs.write_context_file("figma-context.md", context_md)
     job["_figma_frames"] = frames
     job["_figma_flows"] = flows
-    _emit(job, "success", f"  Figma context seeded ({len(frames)} frames)", phase="phase1",
+    # U1: render frames to PNGs for multimodal grounding (advisory — never raises).
+    images = fetch_frame_images(token, file_key, frames)
+    job["_figma_images"] = images
+    img_note = f", {len(images)} frame images" if images else ""
+    _emit(job, "success", f"  Figma context seeded ({len(frames)} frames{img_note})", phase="phase1",
           artifact=context_md[:400])
 
 
@@ -196,6 +204,7 @@ def _run_phase1(job: dict, ctx: RequestContext) -> list[int]:
             ctx,
             epic_subject=epic_title,
             epic_description=epic_description,
+            images=job.get("_figma_images") or None,
         )
         _emit(job, "info", f"  NL draft ready (~{story_count} stories)", phase="phase1",
               artifact=nl_draft[:500])

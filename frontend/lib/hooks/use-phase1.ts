@@ -64,9 +64,18 @@ export function useGenerateStoriesFromFigma() {
 
   return useCancellableMutation(
     (
-      body: { frames: Array<{ name: string; description?: string }>; flows: Array<{ from_name: string; to_name: string }>; instructions?: string },
+      {
+        figmaToken,
+        ...body
+      }: {
+        frames: Array<{ name: string; description?: string; node_id?: string }>;
+        flows: Array<{ from_name: string; to_name: string }>;
+        instructions?: string;
+        file_key?: string;
+        figmaToken?: string;
+      },
       signal,
-    ) => generateStoriesFromFigma(context!, body, signal),
+    ) => generateStoriesFromFigma(context!, body, figmaToken, signal),
     { onError: () => toast.error("Figma story generation failed. The AI may be busy — try again shortly.") },
   );
 }

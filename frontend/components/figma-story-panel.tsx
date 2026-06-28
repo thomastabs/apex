@@ -91,8 +91,12 @@ export function FigmaStoryPanel({ dark, onGenerated }: Props) {
     const scopedFlows = flows.filter((e) => names.has(e.from_name) && names.has(e.to_name));
     generate.mutate(
       {
-        frames: chosen.map((f) => ({ name: f.name, description: "" })),
+        frames: chosen.map((f) => ({ name: f.name, description: "", node_id: f.node_id })),
         flows: scopedFlows,
+        // U1: file_key + token let the backend render these frames to PNGs and
+        // ground the AI in the actual pixels (capped to the first 12 frames).
+        file_key: figma?.fileKey,
+        figmaToken: figma?.token,
       },
       {
         onSuccess: (data) => {
@@ -122,6 +126,7 @@ export function FigmaStoryPanel({ dark, onGenerated }: Props) {
 
       <p className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-500")}>
         Pick the screens to turn into user stories. Navigation flows between them become scenarios.
+        {" "}📷 The first 12 selected frames are rendered and sent to the AI as images, so stories are grounded in the actual design (vision models only).
       </p>
 
       {loading ? (

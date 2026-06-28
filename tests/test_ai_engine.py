@@ -1581,3 +1581,66 @@ class TestGenerateEdgeCases:
         assert out.startswith("- ")
         assert "User signs in" in captured["h"] and "POST /auth/login" in captured["h"]
         assert "edge case" in captured["sys"].lower()
+
+
+class TestMultimodalGrounding:
+    """U1 — image content blocks on the human turn, gated by vision support."""
+
+    _IMGS = [{"node_id": "1:1", "name": "Login", "b64_png": "QUJD", "media_type": "image/png"}]
+
+    def test_provider_supports_vision(self):
+        assert ai_engine._provider_supports_vision("claude-opus-4-8")
+        assert ai_engine._provider_supports_vision("gemini-1.5-pro")
+        assert ai_engine._provider_supports_vision("gpt-4o")
+        assert not ai_engine._provider_supports_vision("gpt-3.5-turbo")
+
+    def test_image_blocks_shape(self):
+        blocks = ai_engine._image_content_blocks(self._IMGS)
+        assert blocks[0] == {"type": "text", "text": "Screen: Login"}
+        assert blocks[1] == {
+            "type": "image", "source_type": "base64",
+            "mime_type": "image/png", "data": "QUJD",
+        }
+
+    def test_image_blocks_drop_empty_data(self):
+        assert ai_engine._image_content_blocks([{"name": "X", "b64_png": ""}]) == []
+
+    def test_make_messages_attaches_images_for_vision_model(self):
+        msgs = ai_engine._make_messages("sys", "hi", model="claude-opus-4-8", images=self._IMGS)
+        content = msgs[1].content
+        assert isinstance(content, list)
+        assert [b["type"] for b in content] == ["text", "text", "image"]
+
+    def test_make_messages_text_only_for_non_vision_model(self):
+        msgs = ai_engine._make_messages("sys", "hi", model="gpt-3.5-turbo", images=self._IMGS)
+        assert msgs[1].content == "hi"
+
+    def test_make_messages_text_only_without_images(self):
+        msgs = ai_engine._make_messages("sys", "hi", model="claude-opus-4-8")
+        assert msgs[1].content == "hi"
+
+    def test_generate_stories_from_figma_threads_images(self, monkeypatch):
+        captured = {}
+
+        def fake(system, human, model, schema, **kw):
+            captured["images"] = kw.get("images")
+            return NLStoryList(stories=[])
+
+        monkeypatch.setattr(ai_engine, "_invoke_structured_with_progress", fake)
+        ai_engine.generate_stories_from_figma(
+            [{"name": "Login", "node_id": "1:1"}], [], images=self._IMGS
+        )
+        assert captured["images"] == self._IMGS
+
+    def test_generate_nl_stories_threads_images(self, monkeypatch):
+        captured = {}
+
+        def fake(system, human, model, schema, **kw):
+            captured["images"] = kw.get("images")
+            captured["human"] = human
+            return NLStoryList(stories=[])
+
+        monkeypatch.setattr(ai_engine, "_invoke_structured_with_progress", fake)
+        ai_engine.generate_nl_stories("Epic", "Desc", images=self._IMGS)
+        assert captured["images"] == self._IMGS
+        assert "Frame images are attached" in captured["human"]

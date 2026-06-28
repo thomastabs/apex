@@ -2,7 +2,7 @@
 
 from typing import NoReturn
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 
 from backend.app.api.deps import AuthContext, RequestContext, get_auth_context, get_request_context
 from backend.app.api.rate_limit import ai_rate_limit
@@ -103,6 +103,7 @@ def generate_stories_from_figma(
     payload: GenerateStoriesFromFigmaRequest,
     ctx: RequestContext = Depends(get_request_context),
     service: Phase1Service = Depends(get_phase1_service),
+    x_figma_token: str = Header(default="", alias="X-Figma-Token"),
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
@@ -111,6 +112,8 @@ def generate_stories_from_figma(
             frames=[f.model_dump() for f in payload.frames],
             flows=[e.model_dump() for e in payload.flows],
             instructions=payload.instructions,
+            figma_token=x_figma_token.strip(),
+            file_key=payload.file_key.strip(),
         )
         return {"nl_draft": nl_draft, "story_count": story_count}
     except Exception as exc:

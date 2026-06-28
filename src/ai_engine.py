@@ -120,6 +120,24 @@ def _get_provider(model: str) -> str:
     return "anthropic"
 
 
+def _provider_supports_vision(model: str) -> bool:
+    """True when *model* can accept image content blocks (U1 multimodal grounding).
+
+    Conservative: an unrecognised model falls through to False so we never send
+    images to a text-only model (which would 400) — the caller then silently uses
+    the text-only prompt path.
+    """
+    provider = _get_provider(model)
+    if provider == "anthropic":
+        return True  # all Claude 3+/4.x are multimodal
+    if provider == "google":
+        return True  # Gemini is multimodal
+    if provider == "openai":
+        m = model.lower()
+        return m.startswith(("gpt-4o", "gpt-4.1", "gpt-4-turbo", "o3", "o4"))
+    return False
+
+
 def check_api_key(model: str | None = None) -> None:
     """Raise EnvironmentError if the required API key for *model* is not set."""
     provider = _get_provider(model) if model else "anthropic"
@@ -307,7 +325,32 @@ def fence_user_content(text: str) -> str:
     return f"<{_FENCE_TAG}>\n{cleaned.strip()}\n</{_FENCE_TAG}>"
 
 
-def _make_messages(system: str, human: str, *, model: str = "") -> list:
+def _image_content_blocks(images: list[dict] | None) -> list[dict]:
+    """Turn [{name, b64_png, media_type}] into langchain standard image content blocks.
+
+    Each frame emits a small text label (the screen name) before its image so the
+    model can map pixels → named screen. Format verified against langchain-anthropic
+    1.4.3 (`source_type == "base64"`, reads `mime_type`/`data`); langchain normalises
+    the same standard block for OpenAI and Google too.
+    """
+    blocks: list[dict] = []
+    for img in images or []:
+        name = (img.get("name") or "").strip()
+        data = img.get("b64_png", "")
+        if not data:
+            continue
+        if name:
+            blocks.append({"type": "text", "text": f"Screen: {name}"})
+        blocks.append({
+            "type": "image",
+            "source_type": "base64",
+            "mime_type": img.get("media_type", "image/png"),
+            "data": data,
+        })
+    return blocks
+
+
+def _make_messages(system: str, human: str, *, model: str = "", images: list[dict] | None = None) -> list:
     """Build [SystemMessage, HumanMessage].
 
     The fence security rule is appended to every system prompt here — the single
@@ -315,22 +358,28 @@ def _make_messages(system: str, human: str, *, model: str = "") -> list:
 
     Anthropic models: cache_control=ephemeral on the system turn (5-min cache, ~10% cost on hits).
     OpenAI and Google models: plain text — cache_control is not supported.
+
+    When `images` are supplied AND the model is vision-capable, they are appended as
+    image content blocks on the human turn (U1). Otherwise the human turn stays a
+    plain string — byte-for-byte the previous behaviour.
     """
     system = system + _FENCE_SYSTEM_RULE
+    img_blocks = _image_content_blocks(images) if (images and _provider_supports_vision(model)) else []
+    human_content = [{"type": "text", "text": human}, *img_blocks] if img_blocks else human
     if _get_provider(model) == "anthropic":
         return [
             SystemMessage(content=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]),
-            HumanMessage(content=human),
+            HumanMessage(content=human_content),
         ]
-    return [SystemMessage(content=system), HumanMessage(content=human)]
+    return [SystemMessage(content=system), HumanMessage(content=human_content)]
 
 
 def _invoke(system: str, human: str, model: str, max_tokens: int = 2048, timeout: float | None = None,
-            temperature: float = 0.0) -> str:
+            temperature: float = 0.0, images: list[dict] | None = None) -> str:
     llm = _get_llm(model, max_tokens, timeout, temperature)
     t0 = time.monotonic()
     try:
-        response = llm.invoke(_make_messages(system, human, model=model))
+        response = llm.invoke(_make_messages(system, human, model=model, images=images))
         _logger.info("ai_call model=%s tokens=%s duration_s=%.2f status=ok",
                      model, max_tokens, time.monotonic() - t0)
         return response.content.strip()
@@ -354,6 +403,7 @@ def _invoke_structured_with_progress(
     temperature: float = 0.0,
     on_item: Callable[[int], None] | None = None,
     item_field: str = "stories",
+    images: list[dict] | None = None,
 ):
     """Structured output with live progress updates.
 
@@ -368,7 +418,7 @@ def _invoke_structured_with_progress(
     """
     llm = _get_llm(model, max_tokens, timeout, temperature)
     chain = llm.with_structured_output(schema)
-    messages = _make_messages(system, human, model=model)
+    messages = _make_messages(system, human, model=model, images=images)
     last = None
     seen = 0
 
@@ -411,6 +461,7 @@ def _invoke_structured_with_progress(
     return _invoke_json_fallback(
         system, human, model, schema, max_tokens,
         timeout=timeout, temperature=temperature, on_item=on_item, item_field=item_field,
+        images=images,
     )
 
 
@@ -461,6 +512,7 @@ def _invoke_json_fallback(
     temperature: float = 0.0,
     on_item: Callable[[int], None] | None = None,
     item_field: str = "stories",
+    images: list[dict] | None = None,
 ):
     """Ask the model for raw JSON and validate it with Pydantic directly."""
     schema_doc = json.dumps(schema.model_json_schema(), indent=2)
@@ -479,7 +531,7 @@ def _invoke_json_fallback(
     )
     t0 = time.monotonic()
     try:
-        response = llm.invoke(_make_messages(augmented, human, model=model))
+        response = llm.invoke(_make_messages(augmented, human, model=model, images=images))
         _logger.info("ai_json_fallback model=%s duration_s=%.2f status=ok", model, time.monotonic() - t0)
     except AIError:
         raise
@@ -685,12 +737,19 @@ def generate_nl_stories(
     model: str = "",
     instructions: str = "",
     figma_context: str = "",
+    images: list[dict] | None = None,
 ) -> NLStoryList:
     human = _build_nl_human(epic_subject, epic_description, hint, project_concept, figma_context)
+    if images:
+        human += (
+            "\n\nFrame images are attached below — these are the REAL designed screens. "
+            "Ground story titles, states, labels, and empty-states in what you SEE; "
+            "never invent UI not visible in the frames."
+        )
     _logger.debug("generate_nl_stories prompt_version=%s", _NL_GENERATION_VERSION)
     return _invoke_structured_with_progress(
         _NL_GENERATION_SYSTEM + _guidance_block(instructions), human, model or get_model(),
-        NLStoryList, max_tokens=8192, temperature=0.2, on_item=on_story,
+        NLStoryList, max_tokens=8192, temperature=0.2, on_item=on_story, images=images,
     )
 
 
@@ -703,6 +762,9 @@ interacts with. Derive fractional User Stories for the actions a user performs o
 these screens, and use the navigation flows to write scenarios that move from one
 screen to another. Ground every story in a named screen — do NOT invent screens,
 features, or data not represented by the frames, the flows, or the project concept.
+When frame images are attached, treat them as the source of truth for layout,
+on-screen labels, controls, and states — ground scenarios in what is VISIBLE, and
+do not invent UI that does not appear in the images.
 """
 
 
@@ -712,10 +774,13 @@ def generate_stories_from_figma(
     project_concept: str = "",
     model: str = "",
     instructions: str = "",
+    images: list[dict] | None = None,
 ) -> NLStoryList:
     """Decompose a set of Figma frames + prototype flows into NL user stories.
 
     `frames` = [{name, description?}]; `flows` = [{from_name, to_name}].
+    `images` (optional) = rendered frame PNGs for multimodal grounding (U1) —
+    attached on the human turn when the active model is vision-capable.
     Returns the same NLStoryList contract as generate_nl_stories so the result
     flows into the existing draft → compile → push pipeline. Empty frames → no stories.
     """
@@ -740,7 +805,7 @@ def generate_stories_from_figma(
     human = "\n\n".join(parts)
     return _invoke_structured_with_progress(
         _FIGMA_STORY_SYSTEM + _guidance_block(instructions), human, model or get_model(),
-        NLStoryList, max_tokens=8192, temperature=0.2,
+        NLStoryList, max_tokens=8192, temperature=0.2, images=images,
     )
 
 

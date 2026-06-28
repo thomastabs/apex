@@ -30,6 +30,7 @@ class AiService:
         project_concept: str,
         instructions: str = "",
         figma_context: str = "",
+        images: list[dict] | None = None,
     ) -> tuple[str, int]:
         result = ai_engine.generate_nl_stories(
             epic_subject,
@@ -38,6 +39,7 @@ class AiService:
             project_concept=project_concept,
             instructions=instructions,
             figma_context=figma_context,
+            images=images,
         )
         return ai_engine.format_nl_draft(result), len(result.stories)
 
@@ -48,12 +50,14 @@ class AiService:
         *,
         project_concept: str,
         instructions: str = "",
+        images: list[dict] | None = None,
     ) -> tuple[str, int]:
         result = ai_engine.generate_stories_from_figma(
             frames,
             flows,
             project_concept=project_concept,
             instructions=instructions,
+            images=images,
         )
         return ai_engine.format_nl_draft(result), len(result.stories)
 

@@ -189,3 +189,89 @@ class TestFigmaFetch:
 
         monkeypatch.setattr(figma_fetch, "_get", _boom)
         assert figma_fetch.get_comments("tok", "ABC123") == []
+
+
+class TestFigmaFrameImages:
+    """U1 multimodal grounding — server-side frame image rendering + SSRF guard."""
+
+    def test_get_image_urls_builds_query(self, monkeypatch):
+        from backend.app.services import figma_fetch
+
+        captured = {}
+
+        def _fake_get(path, token, query=""):
+            captured["path"] = path
+            captured["query"] = query
+            return {"images": {"1:1": "https://x/a.png", "1:2": None}}
+
+        monkeypatch.setattr(figma_fetch, "_get", _fake_get)
+        urls = figma_fetch.get_image_urls("tok", "ABC123", ["1:1", "1:2"])
+        assert captured["path"] == "images/ABC123"
+        assert "ids=1:1,1:2" in captured["query"] and "format=png" in captured["query"]
+        # null render URLs are dropped
+        assert urls == {"1:1": "https://x/a.png"}
+
+    def test_image_host_allowed(self):
+        from backend.app.services.figma_fetch import _image_host_allowed
+
+        assert _image_host_allowed("figma-alpha-api.s3.us-west-2.amazonaws.com")
+        assert _image_host_allowed("s3-alpha-sig.figma.com")
+        assert not _image_host_allowed("evil.s3.amazonaws.com")  # no 'figma'
+        assert not _image_host_allowed("evil.com")
+
+    def test_fetch_image_bytes_rejects_non_https(self):
+        from backend.app.services import figma_fetch
+
+        with pytest.raises(figma_fetch.FigmaFetchError):
+            figma_fetch.fetch_image_bytes("http://figma-alpha-api.s3.amazonaws.com/x.png")
+
+    def test_fetch_image_bytes_rejects_foreign_host(self):
+        from backend.app.services import figma_fetch
+
+        with pytest.raises(figma_fetch.FigmaFetchError):
+            figma_fetch.fetch_image_bytes("https://evil.com/x.png")
+
+    def test_fetch_image_bytes_rejects_blocked_ip(self, monkeypatch):
+        from backend.app.services import figma_fetch
+
+        monkeypatch.setattr(figma_fetch, "is_blocked_host", lambda h: True)
+        with pytest.raises(figma_fetch.FigmaFetchError):
+            figma_fetch.fetch_image_bytes("https://figma-alpha-api.s3.us-west-2.amazonaws.com/x.png")
+
+    def test_get_frame_images_caps_and_skips_failures(self, monkeypatch):
+        from backend.app.services import figma_fetch
+
+        # 15 frames → only the first _MAX_FRAME_IMAGES (12) are rendered.
+        frames = [{"node_id": f"1:{i}", "name": f"S{i}"} for i in range(15)]
+        rendered = {f"1:{i}": f"https://cdn/{i}.png" for i in range(12)}
+        monkeypatch.setattr(figma_fetch, "get_image_urls", lambda *a, **k: rendered)
+
+        def _fake_bytes(url):
+            # one frame fails to download → skipped, not fatal
+            if url.endswith("/3.png"):
+                raise figma_fetch.FigmaFetchError("boom")
+            return b"PNGDATA"
+
+        monkeypatch.setattr(figma_fetch, "fetch_image_bytes", _fake_bytes)
+        out = figma_fetch.get_frame_images("tok", "ABC123", frames)
+        assert len(out) == 11  # 12 capped, 1 failure skipped
+        assert all(set(o) == {"node_id", "name", "b64_png", "media_type"} for o in out)
+        assert all(o["media_type"] == "image/png" for o in out)
+
+    def test_get_frame_images_skips_frames_without_node_id(self, monkeypatch):
+        from backend.app.services import figma_fetch
+
+        monkeypatch.setattr(figma_fetch, "get_image_urls", lambda *a, **k: {})
+        assert figma_fetch.get_frame_images("tok", "K", [{"name": "no-id"}]) == []
+
+    def test_fetch_frame_images_is_advisory(self, monkeypatch):
+        from backend.app.services import figma_fetch
+
+        def _boom(*a, **kw):
+            raise figma_fetch.FigmaFetchError("auth")
+
+        monkeypatch.setattr(figma_fetch, "get_frame_images", _boom)
+        # never raises — returns [] so the pipeline continues
+        assert figma_fetch.fetch_frame_images("tok", "K", [{"node_id": "1:1"}]) == []
+        # missing token/key short-circuits
+        assert figma_fetch.fetch_frame_images("", "K", []) == []

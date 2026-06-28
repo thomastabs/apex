@@ -71,13 +71,22 @@ export function generateNlStories(
 
 export function generateStoriesFromFigma(
   context: RequestContext,
-  body: { frames: Array<{ name: string; description?: string }>; flows: Array<{ from_name: string; to_name: string }>; instructions?: string },
+  body: {
+    frames: Array<{ name: string; description?: string; node_id?: string }>;
+    flows: Array<{ from_name: string; to_name: string }>;
+    instructions?: string;
+    file_key?: string;
+  },
+  // Token + file_key let the backend render the frames to PNGs for multimodal
+  // grounding (U1). Optional — omit and generation falls back to frame names.
+  figmaToken?: string,
   signal?: AbortSignal,
 ) {
   return apiRequest<Phase1GenerateNlStoriesResponse>("/api/phase1/generate-stories-from-figma", {
     method: "POST",
     context,
     body,
+    headers: figmaToken ? { "X-Figma-Token": figmaToken } : undefined,
     timeoutMs: 180_000,
     signal,
   });

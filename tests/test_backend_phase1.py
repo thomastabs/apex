@@ -30,13 +30,16 @@ class FakeAiService:
         project_concept: str,
         instructions: str = "",
         figma_context: str = "",
+        images=None,
     ) -> tuple[str, int]:
         self.generated_args = (epic_subject, epic_description, hint, project_concept)
         self.figma_context = figma_context
+        self.images = images
         return "[S] Story A", 1
 
-    def generate_stories_from_figma(self, frames, flows, *, project_concept, instructions=""):
+    def generate_stories_from_figma(self, frames, flows, *, project_concept, instructions="", images=None):
         self.figma_args = (frames, flows, project_concept)
+        self.images = images
         return "[S] Login Story", len(frames)
 
     def compile_gherkin(self, nl_draft: str) -> list[dict]:
