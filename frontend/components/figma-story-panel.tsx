@@ -132,8 +132,9 @@ export function FigmaStoryPanel({ dark, onGenerated }: Props) {
     const names = new Set(chosen.map((f) => f.name));
     const scopedFlows = flows.filter((e) => names.has(e.from_name) && names.has(e.to_name));
     // Distinct source files among the selection. A single source (legacy single-file,
-    // or a one-file selection in project mode) keeps U1 image grounding with that file's
-    // raw node ids. A multi-file union grounds by frame names (route is single-file).
+    // or a one-file selection in project mode) sends one file_key so the backend renders
+    // its raw node ids. A multi-file union sends file-namespaced ids (`<fileKey>:<raw>`)
+    // and NO file_key — the backend groups by file and renders each against its own file.
     const sourceKeys = new Set(chosen.map((f) => f.fileKey).filter(Boolean) as string[]);
     const singleSource = sourceKeys.size <= 1;
     const fileKey = singleSource ? ([...sourceKeys][0] ?? figma?.fileKey) : undefined;
@@ -146,10 +147,11 @@ export function FigmaStoryPanel({ dark, onGenerated }: Props) {
           node_id: singleSource ? (f.rawNodeId ?? f.node_id) : f.node_id,
         })),
         flows: scopedFlows,
-        // U1: file_key + token let the backend render these frames to PNGs and ground the
-        // AI in the actual pixels. Omitted for a multi-file union → text (names) grounding.
+        // U1: the token always goes (it enables PNG rendering for image grounding).
+        // file_key is sent only for a single source; for a multi-file union it's omitted
+        // so the backend takes the namespaced multi-file render path.
         file_key: singleSource ? fileKey : undefined,
-        figmaToken: singleSource ? figma?.token : undefined,
+        figmaToken: figma?.token,
       },
       {
         onSuccess: (data) => {

@@ -169,6 +169,49 @@ def test_generate_stories_from_figma_empty_frames_raises():
         service.generate_stories_from_figma(_ctx(), frames=[], flows=[])
 
 
+def test_generate_stories_from_figma_single_file_renders_with_file_key(monkeypatch):
+    service, ai, _ = _service()
+    captured = {}
+    import backend.app.services.figma_fetch as ff
+
+    def _single(token, file_key, frames):
+        captured["single"] = (token, file_key)
+        return [{"node_id": "1:1", "name": "Login", "b64_png": "X", "media_type": "image/png"}]
+
+    monkeypatch.setattr(ff, "fetch_frame_images", _single)
+    service.generate_stories_from_figma(
+        _ctx(),
+        frames=[{"name": "Login", "node_id": "1:1"}],
+        flows=[],
+        figma_token="tok",
+        file_key="FILEK",
+    )
+    assert captured["single"] == ("tok", "FILEK")
+    assert ai.images and ai.images[0]["node_id"] == "1:1"
+
+
+def test_generate_stories_from_figma_multi_file_union_renders_per_file(monkeypatch):
+    service, ai, _ = _service()
+    captured = {}
+    import backend.app.services.figma_fetch as ff
+
+    def _multi(token, frames):
+        captured["multi"] = (token, [f["node_id"] for f in frames])
+        return [{"node_id": "FILEA:1:1", "name": "Home", "b64_png": "X", "media_type": "image/png"}]
+
+    monkeypatch.setattr(ff, "fetch_frame_images_multi", _multi)
+    # no file_key but a token → multi-file union path (frames are file-namespaced)
+    service.generate_stories_from_figma(
+        _ctx(),
+        frames=[{"name": "Home", "node_id": "FILEA:1:1"}, {"name": "Cfg", "node_id": "FILEB:2:2"}],
+        flows=[],
+        figma_token="tok",
+        file_key="",
+    )
+    assert captured["multi"] == ("tok", ["FILEA:1:1", "FILEB:2:2"])
+    assert ai.images and ai.images[0]["node_id"] == "FILEA:1:1"
+
+
 def test_analyze_gaps_passes_concept_and_epics():
     service, ai, _ = _service()
     epics = [{"title": "Auth", "description": "login", "stories": ["Sign in"]}]

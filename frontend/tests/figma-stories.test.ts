@@ -40,6 +40,28 @@ describe("generateStoriesFromFigma api", () => {
       }),
     );
   });
+
+  it("sends the X-Figma-Token header when a token is given (image grounding)", async () => {
+    // Multi-file union keeps file-namespaced node ids and sends the token (no file_key)
+    // so the backend renders each frame against its own file.
+    await generateStoriesFromFigma(
+      CTX,
+      { frames: [{ name: "Home", node_id: "FILEA:1:1" }, { name: "Cfg", node_id: "FILEB:2:2" }], flows: [] },
+      "figtok",
+    );
+    expect(apiRequest).toHaveBeenCalledWith(
+      "/api/phase1/generate-stories-from-figma",
+      expect.objectContaining({ headers: { "X-Figma-Token": "figtok" } }),
+    );
+  });
+
+  it("omits the token header when none is given", async () => {
+    await generateStoriesFromFigma(CTX, { frames: [{ name: "Login" }], flows: [] });
+    expect(apiRequest).toHaveBeenCalledWith(
+      "/api/phase1/generate-stories-from-figma",
+      expect.objectContaining({ headers: undefined }),
+    );
+  });
 });
 
 describe("useGenerateStoriesFromFigma", () => {

@@ -80,12 +80,17 @@ class Phase1Service:
             raise Phase1ValidationError("At least one Figma frame is required.")
         concept = self.context.project_concept()
         # U1: when a token + file key are supplied, render the frames to PNGs and
-        # attach them for multimodal grounding. Advisory — fetch_frame_images never
-        # raises, so a bad token simply falls back to the text-only (names) prompt.
+        # attach them for multimodal grounding. Advisory — the fetch helpers never
+        # raise, so a bad token simply falls back to the text-only (names) prompt.
+        # No file_key but a token → a multi-file project union; the frame node_ids are
+        # file-namespaced (`<file_key>:<raw>`) so each renders against its own file.
         images: list[dict] = []
         if figma_token and file_key:
             from backend.app.services.figma_fetch import fetch_frame_images
             images = fetch_frame_images(figma_token, file_key, frames)
+        elif figma_token:
+            from backend.app.services.figma_fetch import fetch_frame_images_multi
+            images = fetch_frame_images_multi(figma_token, frames)
         return self.ai.generate_stories_from_figma(
             frames,
             flows,

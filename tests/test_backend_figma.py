@@ -276,6 +276,55 @@ class TestFigmaFrameImages:
         # missing token/key short-circuits
         assert figma_fetch.fetch_frame_images("", "K", []) == []
 
+    def test_fetch_frame_images_multi_groups_by_file(self, monkeypatch):
+        from backend.app.services import figma_fetch
+
+        calls = {}
+
+        def _imgs(token, key, frames, max_frames=12):
+            calls[key] = (max_frames, [f["node_id"] for f in frames])
+            # echo back one rendered image per frame, keyed by raw node id
+            return [{"node_id": f["node_id"], "name": f["name"], "b64_png": "X", "media_type": "image/png"} for f in frames]
+
+        monkeypatch.setattr(figma_fetch, "get_frame_images", _imgs)
+        frames = [
+            {"node_id": "FILEA:1:1", "name": "Home"},
+            {"node_id": "FILEA:1:2", "name": "List"},
+            {"node_id": "FILEB:2:1", "name": "Settings"},
+        ]
+        out = figma_fetch.fetch_frame_images_multi("tok", frames, max_frames=12)
+        # grouped by file; raw node ids passed to the renderer
+        assert calls["FILEA"][1] == ["1:1", "1:2"]
+        assert calls["FILEB"][1] == ["2:1"]
+        # 12 budget / 2 files → 6 each
+        assert calls["FILEA"][0] == 6 and calls["FILEB"][0] == 6
+        # node_ids are remapped back to the namespaced form for traceability
+        assert sorted(o["node_id"] for o in out) == ["FILEA:1:1", "FILEA:1:2", "FILEB:2:1"]
+
+    def test_fetch_frame_images_multi_skips_unnamespaced_and_no_token(self, monkeypatch):
+        from backend.app.services import figma_fetch
+
+        monkeypatch.setattr(figma_fetch, "get_frame_images", lambda *a, **k: [])
+        # frames without a `<file>:<raw>` node id are skipped → nothing to render
+        assert figma_fetch.fetch_frame_images_multi("tok", [{"node_id": "1:1", "name": "X"}]) == []
+        # missing token short-circuits
+        assert figma_fetch.fetch_frame_images_multi("", [{"node_id": "K:1:1"}]) == []
+
+    def test_fetch_frame_images_multi_advisory_on_file_error(self, monkeypatch):
+        from backend.app.services import figma_fetch
+
+        def _imgs(token, key, frames, max_frames=12):
+            if key == "BAD":
+                raise figma_fetch.FigmaFetchError("auth")
+            return [{"node_id": frames[0]["node_id"], "name": "", "b64_png": "X", "media_type": "image/png"}]
+
+        monkeypatch.setattr(figma_fetch, "get_frame_images", _imgs)
+        out = figma_fetch.fetch_frame_images_multi("tok", [
+            {"node_id": "GOOD:1:1", "name": "ok"}, {"node_id": "BAD:2:2", "name": "boom"},
+        ])
+        # the failing file is skipped, the good one still renders
+        assert [o["node_id"] for o in out] == ["GOOD:1:1"]
+
 
 class TestFigmaProjectIngest:
     """Stage 3 — file-as-epic project ingest."""

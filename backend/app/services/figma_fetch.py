@@ -254,6 +254,42 @@ def fetch_frame_images(token: str, file_key: str, frames: list[dict]) -> list[di
         return []
 
 
+def fetch_frame_images_multi(
+    token: str, frames: list[dict], max_frames: int = _MAX_FRAME_IMAGES
+) -> list[dict]:
+    """Render frames spanning MULTIPLE files for a project union (interactive Phase 1).
+
+    Each frame's ``node_id`` must be file-namespaced as ``<file_key>:<raw_node_id>``
+    (the format the project picker emits). Frames are grouped by file and rendered
+    against their own file; the total image budget is spread across the files so a
+    many-file selection doesn't blow the token cost. The returned ``node_id`` is the
+    original namespaced id (kept for traceability). Advisory — never raises."""
+    if not token:
+        return []
+    by_file: dict[str, list[dict]] = {}
+    for f in frames:
+        nid = f.get("node_id") or ""
+        fk, sep, raw = nid.partition(":")
+        if not sep or not fk or not raw:
+            continue  # not namespaced → skip (single-file path handles those)
+        by_file.setdefault(fk, []).append({"node_id": raw, "name": f.get("name", ""), "_ns": nid})
+    if not by_file:
+        return []
+    per_file = max(1, max_frames // len(by_file))
+    out: list[dict] = []
+    for fk, group in by_file.items():
+        try:
+            imgs = get_frame_images(token, fk, group, max_frames=per_file)
+        except FigmaFetchError as exc:
+            _logger.warning("multi-file frame images skipped file=%s: %s", fk, exc)
+            continue
+        raw_to_ns = {g["node_id"]: g["_ns"] for g in group}
+        for im in imgs:
+            im["node_id"] = raw_to_ns.get(im["node_id"], im["node_id"])
+            out.append(im)
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Project ingest (Stage 3 — file-as-epic in Autopilot)
 # ---------------------------------------------------------------------------
