@@ -50,6 +50,14 @@ export interface FigmaComment {
   order_id?: string;
 }
 
+/** A file row from GET /projects/{id}/files. */
+export interface FigmaProjectFile {
+  key: string;
+  name: string;
+  thumbnail_url?: string;
+  last_modified?: string;
+}
+
 function figmaHeaders(token: string): Record<string, string> {
   return { "X-Figma-Token": token };
 }
@@ -81,6 +89,16 @@ export function figmaNodeUrl(fileKey: string, nodeId: string): string {
   return `https://www.figma.com/design/${fileKey}?node-id=${nodeId.replace(/:/g, "-")}`;
 }
 
+/**
+ * Extract a project id from a Figma project URL, or null if it isn't one.
+ * Handles `figma.com/files/project/{id}/…` and the `…/team/…/project/{id}/…`
+ * and `…/files/{org}/project/{id}/…` variants. Project ids are numeric.
+ */
+export function parseFigmaProjectUrl(input: string): { projectId: string } | null {
+  const m = input.trim().match(/figma\.com\/files\/(?:[^/]+\/)*project\/(\d+)/);
+  return m ? { projectId: m[1] } : null;
+}
+
 // ---------------------------------------------------------------------------
 // API calls (via proxy)
 // ---------------------------------------------------------------------------
@@ -98,6 +116,18 @@ export function figmaGetFile(token: string, fileKey: string, depth = 2): Promise
   return apiRequest<FigmaFile>(`/api/design/figma/files/${fileKey}?depth=${depth}`, {
     headers: figmaHeaders(token),
   });
+}
+
+/**
+ * List the files in a Figma project (for the project picker). Requires a PAT with
+ * the `projects:read` scope — a token that only carries `file_content:read` gets a
+ * 403 here (surfaced to the user as a re-mint prompt). Routes through the proxy.
+ */
+export async function figmaGetProjectFiles(token: string, projectId: string): Promise<FigmaProjectFile[]> {
+  const data = await apiRequest<{ files?: FigmaProjectFile[] }>(`/api/design/figma/projects/${projectId}/files`, {
+    headers: figmaHeaders(token),
+  });
+  return data.files ?? [];
 }
 
 /** Top-level comments on the file (for design-review context). */

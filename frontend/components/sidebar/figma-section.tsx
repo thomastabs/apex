@@ -4,7 +4,13 @@ import { ExternalLink, Figma, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useSaveFigmaConfig, useSyncFigmaContext, useScanFigmaChanges, useContextFiles } from "@/lib/hooks/use-workspace";
 import { useSessionStore, useFigmaContext } from "@/lib/stores/session-store";
-import { figmaVerifyFile, parseFigmaUrl } from "@/lib/api/figma";
+import {
+  figmaVerifyFile,
+  parseFigmaUrl,
+  parseFigmaProjectUrl,
+  figmaGetProjectFiles,
+  type FigmaProjectFile,
+} from "@/lib/api/figma";
 import { cn } from "@/lib/utils";
 import { PanelHeader, type DragSectionProps } from "./shared";
 
@@ -19,6 +25,9 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
   const [urlInput, setUrlInput] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
+  // Project picker (Stage 1): when the URL is a project, list its files and let
+  // the user pick one. Picking sets a single fileKey — downstream is unchanged.
+  const [projectFiles, setProjectFiles] = useState<FigmaProjectFile[] | null>(null);
 
   const setFigma = useSessionStore((s) => s.setFigma);
   const figma = useFigmaContext();
@@ -64,20 +73,45 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
     ? new Date(lastSynced).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
     : null;
 
+  async function connectFile(token: string, fileKey: string) {
+    const meta = await figmaVerifyFile(token, fileKey);
+    await saveFigmaConfig.mutateAsync(fileKey);
+    setFigma({ token, fileKey });
+    setFileName(meta.name);
+    setProjectFiles(null);
+    toast.success(`Connected to ${meta.name}`);
+  }
+
   async function handleConnect() {
     const token = tokenInput.trim();
-    const { fileKey } = parseFigmaUrl(urlInput.trim());
-    if (!token || !fileKey) {
-      toast.error("Enter a valid Figma token and file URL.");
+    const url = urlInput.trim();
+    if (!token || !url) {
+      toast.error("Enter a valid Figma token and file or project URL.");
       return;
     }
     setConnecting(true);
     try {
-      const meta = await figmaVerifyFile(token, fileKey);
-      await saveFigmaConfig.mutateAsync(fileKey);
-      setFigma({ token, fileKey });
-      setFileName(meta.name);
-      toast.success(`Connected to ${meta.name}`);
+      // Project URL → list its files and let the user pick one (Stage 1 picker).
+      const project = parseFigmaProjectUrl(url);
+      if (project) {
+        try {
+          const files = await figmaGetProjectFiles(token, project.projectId);
+          if (!files.length) {
+            toast.info("No files found in this Figma project.");
+          }
+          setProjectFiles(files);
+        } catch {
+          toast.error("Could not list this project. Re-generate your Figma token with the projects:read scope.");
+        }
+        return;
+      }
+      // File URL → connect directly, exactly as before.
+      const { fileKey } = parseFigmaUrl(url);
+      if (!fileKey) {
+        toast.error("Enter a valid Figma file or project URL.");
+        return;
+      }
+      await connectFile(token, fileKey);
       setTokenInput("");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not connect to Figma.");
@@ -86,9 +120,22 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
     }
   }
 
+  async function handlePickFile(file: FigmaProjectFile) {
+    setConnecting(true);
+    try {
+      await connectFile(tokenInput.trim(), file.key);
+      setTokenInput("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not connect to that file.");
+    } finally {
+      setConnecting(false);
+    }
+  }
+
   function handleDisconnect() {
     setFigma({ token: "", fileKey: "" });
     setFileName(null);
+    setProjectFiles(null);
     saveFigmaConfig.mutate("");
     toast.info("Figma disconnected.");
   }
@@ -179,6 +226,49 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
                   Synced screens are injected into Phase 1 story generation and Phase 2 design automatically.
                 </p>
               </>
+            ) : projectFiles !== null ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <p className={cn("text-xs font-semibold", dark ? "text-neutral-300" : "text-slate-700")}>
+                    Pick a file ({projectFiles.length})
+                  </p>
+                  <button
+                    className={cn("text-xs hover:underline", dark ? "text-neutral-400" : "text-slate-500")}
+                    onClick={() => setProjectFiles(null)}
+                  >
+                    Back
+                  </button>
+                </div>
+                <div className="max-h-64 space-y-1 overflow-y-auto">
+                  {projectFiles.map((f) => (
+                    <button
+                      key={f.key}
+                      disabled={connecting}
+                      onClick={() => handlePickFile(f)}
+                      className={cn("flex w-full items-center gap-2 rounded border p-2 text-left transition-colors disabled:opacity-50",
+                        dark ? "border-neutral-700 hover:border-violet-500/50 hover:bg-neutral-900/60" : "border-slate-200 hover:border-violet-300 hover:bg-slate-50",
+                      )}
+                    >
+                      {f.thumbnail_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={f.thumbnail_url} alt="" className="size-9 shrink-0 rounded object-cover" />
+                      ) : (
+                        <span className={cn("flex size-9 shrink-0 items-center justify-center rounded", dark ? "bg-neutral-800" : "bg-slate-100")}>
+                          <Figma className="size-4 text-neutral-500" />
+                        </span>
+                      )}
+                      <span className="min-w-0 flex-1">
+                        <span className={cn("block truncate text-sm", dark ? "text-neutral-200" : "text-slate-700")}>{f.name}</span>
+                        {f.last_modified ? (
+                          <span className={cn("block text-[10px]", dark ? "text-neutral-500" : "text-slate-400")}>
+                            {new Date(f.last_modified).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                          </span>
+                        ) : null}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
             ) : (
               <>
                 <div className={cn("rounded border px-3 py-2 text-xs space-y-0.5",
@@ -188,12 +278,12 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
                   <p>AI will reference your real screens and flows when generating stories and designs.</p>
                 </div>
                 <div className="space-y-1">
-                  <label className={labelClass}>Figma file URL</label>
+                  <label className={labelClass}>Figma file or project URL</label>
                   <input
                     value={urlInput}
                     onChange={(e) => setUrlInput(e.target.value)}
                     className={inputClass}
-                    placeholder="https://www.figma.com/design/…"
+                    placeholder="https://www.figma.com/design/… or /files/project/…"
                     autoComplete="off"
                   />
                 </div>
@@ -219,6 +309,9 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
                     autoComplete="off"
                   />
                 </div>
+                <p className={cn("text-[11px]", dark ? "text-neutral-600" : "text-slate-400")}>
+                  A project URL lists its files to pick from (token needs the <code>projects:read</code> scope).
+                </p>
                 <button
                   className="inline-flex h-9 w-full items-center justify-center gap-2 rounded bg-neutral-800 text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-50"
                   disabled={connecting || !tokenInput.trim() || !urlInput.trim()}

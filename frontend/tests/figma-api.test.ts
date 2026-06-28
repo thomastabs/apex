@@ -5,11 +5,13 @@ vi.mock("@/lib/api/client", () => ({ apiRequest: vi.fn() }));
 import { apiRequest } from "@/lib/api/client";
 import {
   parseFigmaUrl,
+  parseFigmaProjectUrl,
   figmaNodeUrl,
   deriveFramesAndFlows,
   buildFigmaContextMarkdown,
   figmaVerifyFile,
   figmaGetFile,
+  figmaGetProjectFiles,
   figmaThumbnails,
   figmaCommentsToIssues,
   suggestFrameForStory,
@@ -42,6 +44,32 @@ describe("parseFigmaUrl", () => {
 
   it("round-trips a node id into a deep link", () => {
     expect(figmaNodeUrl("ABC123", "12:34")).toBe("https://www.figma.com/design/ABC123?node-id=12-34");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseFigmaProjectUrl (Stage 1 — project picker)
+// ---------------------------------------------------------------------------
+
+describe("parseFigmaProjectUrl", () => {
+  it("parses a /files/project/{id} URL", () => {
+    expect(parseFigmaProjectUrl("https://www.figma.com/files/project/12345678/My-Project")).toEqual({
+      projectId: "12345678",
+    });
+  });
+
+  it("parses the team+project variant", () => {
+    expect(
+      parseFigmaProjectUrl("https://www.figma.com/files/team/9988/Acme/project/777/Designs"),
+    ).toEqual({ projectId: "777" });
+  });
+
+  it("returns null for a file URL (so the file path is taken)", () => {
+    expect(parseFigmaProjectUrl("https://www.figma.com/design/ABC123/App")).toBeNull();
+  });
+
+  it("returns null for an unrelated URL", () => {
+    expect(parseFigmaProjectUrl("https://example.com/x")).toBeNull();
   });
 });
 
@@ -143,6 +171,24 @@ describe("figma api layer", () => {
     const out = await figmaThumbnails("figd_tok", "ABC123", []);
     expect(out).toEqual({});
     expect(apiRequest).not.toHaveBeenCalled();
+  });
+
+  it("figmaGetProjectFiles requests projects/:id/files and returns the files array", async () => {
+    vi.mocked(apiRequest).mockResolvedValue({
+      files: [{ key: "K1", name: "Home", thumbnail_url: "https://s3/t.png", last_modified: "2026-06-28T00:00:00Z" }],
+    } as never);
+    const out = await figmaGetProjectFiles("figd_tok", "777");
+    expect(out).toEqual([
+      { key: "K1", name: "Home", thumbnail_url: "https://s3/t.png", last_modified: "2026-06-28T00:00:00Z" },
+    ]);
+    expect(apiRequest).toHaveBeenCalledWith("/api/design/figma/projects/777/files", {
+      headers: { "X-Figma-Token": "figd_tok" },
+    });
+  });
+
+  it("figmaGetProjectFiles tolerates a missing files key", async () => {
+    vi.mocked(apiRequest).mockResolvedValue({} as never);
+    expect(await figmaGetProjectFiles("figd_tok", "777")).toEqual([]);
   });
 });
 
