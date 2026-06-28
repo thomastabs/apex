@@ -312,3 +312,33 @@ def build_project_context_markdown(bundles: list[dict]) -> str:
     for b in bundles:
         parts.append(f"## File: {b['file_name']}\n\n{b['context_md']}")
     return "\n\n---\n\n".join(parts)
+
+
+def stitch_cross_file_flows(bundles: list[dict], max_edges: int = 40) -> list[dict]:
+    """Infer cross-file navigation edges (name-heuristic).
+
+    Figma's REST API does not expose true cross-file prototype links, so the only
+    usable signal is a frame NAME appearing in ≥2 of the project's files — a likely
+    handoff where the product flow crosses a file boundary on a shared screen. For
+    each such name, link one representative frame per file (file-namespaced ids) in a
+    chain. Returns [{from_id, to_id, kind: "cross_file"}] — clearly *inferred*, not
+    real prototype data. Pure + dependency-free."""
+    by_name: dict[str, dict[str, str]] = {}
+    for b in bundles:
+        fk = b["file_key"]
+        for fr in b.get("frames", []):
+            name = (fr.get("name") or "").strip().lower()
+            if not name:
+                continue
+            # one representative id per (name, file) — first frame wins
+            by_name.setdefault(name, {}).setdefault(fk, f"{fk}:{fr['node_id']}")
+    edges: list[dict] = []
+    for reps in by_name.values():
+        if len(reps) < 2:  # name must span ≥2 distinct files
+            continue
+        ids = list(reps.values())
+        for src, tgt in zip(ids, ids[1:]):
+            edges.append({"from_id": src, "to_id": tgt, "kind": "cross_file"})
+            if len(edges) >= max_edges:
+                return edges
+    return edges

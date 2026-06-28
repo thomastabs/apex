@@ -250,6 +250,7 @@ export type ScreenFlowEdge = {
   target: string;
   label: string;
   animated: boolean;
+  data?: { kind?: string };  // kind: "cross_file" = inferred cross-file link (project mode)
 };
 
 export type ScreenFlowResponse = {

@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/api/client", () => ({ apiRequest: vi.fn() }));
 
 import { apiRequest } from "@/lib/api/client";
-import { setStoryFigmaLink } from "@/lib/api/workspace";
+import { setStoryFigmaLink, scanFigmaChanges, scanFigmaChangesMulti } from "@/lib/api/workspace";
 
 const CTX = { projectId: 1, pmTool: "taiga", taigaToken: "tok" } as never;
 
@@ -37,6 +37,31 @@ describe("setStoryFigmaLink api", () => {
     expect(apiRequest).toHaveBeenCalledWith(
       "/api/workspace/context-files/story-index/stories/42/figma-link",
       expect.objectContaining({ body: { figma_node_id: "", figma_modified: "", figma_file_key: "" } }),
+    );
+  });
+});
+
+describe("scanFigmaChanges api", () => {
+  beforeEach(() => {
+    vi.mocked(apiRequest).mockReset();
+    vi.mocked(apiRequest).mockResolvedValue({ changed_story_ids: [] } as never);
+  });
+
+  it("single-file scan posts current_modified", async () => {
+    await scanFigmaChanges(CTX, "2026-06-28T00:00:00Z");
+    expect(apiRequest).toHaveBeenCalledWith(
+      "/api/workspace/figma/scan-changes",
+      expect.objectContaining({ body: { current_modified: "2026-06-28T00:00:00Z" } }),
+    );
+  });
+
+  it("per-file scan posts modified_by_file", async () => {
+    await scanFigmaChangesMulti(CTX, { "": "2026-06-01T00:00:00Z", K2: "2026-06-28T00:00:00Z" });
+    expect(apiRequest).toHaveBeenCalledWith(
+      "/api/workspace/figma/scan-changes",
+      expect.objectContaining({
+        body: { modified_by_file: { "": "2026-06-01T00:00:00Z", K2: "2026-06-28T00:00:00Z" } },
+      }),
     );
   });
 });

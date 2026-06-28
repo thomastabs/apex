@@ -8,9 +8,10 @@ import { useFigmaContext } from "@/lib/stores/session-store";
 import { useGenerateStoriesFromFigma } from "@/lib/hooks/use-phase1";
 import {
   figmaGetFile,
+  figmaGetProjectFiles,
+  parseFigmaProjectUrl,
   deriveFramesAndFlows,
   figmaThumbnails,
-  type FigmaFrame,
   type FigmaFlowEdge,
 } from "@/lib/api/figma";
 
@@ -19,15 +20,21 @@ type Props = {
   onGenerated: (draft: string, count: number) => void;
 };
 
+// A frame as shown in the panel. In project mode `fileKey`/`rawNodeId` are set and
+// `node_id` is file-namespaced (`<fileKey>:<raw>`) so selection ids stay unique
+// across files; single-file mode leaves them undefined (legacy behaviour).
+type PanelFrame = { node_id: string; name: string; page: string; fileKey?: string; rawNodeId?: string };
+
 /** Phase-1 "From Figma" panel: pick designed frames → generate a story draft. */
 export function FigmaStoryPanel({ dark, onGenerated }: Props) {
   const figma = useFigmaContext();
-  const [frames, setFrames] = useState<FigmaFrame[]>([]);
+  const [frames, setFrames] = useState<PanelFrame[]>([]);
   const [flows, setFlows] = useState<FigmaFlowEdge[]>([]);
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [loadedOnce, setLoadedOnce] = useState(false);
+  const [projectUrl, setProjectUrl] = useState("");
   const generate = useGenerateStoriesFromFigma();
 
   const cardClass = cn(
@@ -72,6 +79,41 @@ export function FigmaStoryPanel({ dark, onGenerated }: Props) {
     }
   }
 
+  // Project import: load every file in a Figma project, frames grouped/namespaced by
+  // file → generate ONE combined draft from the union of selected frames.
+  async function loadProject() {
+    if (!figma) return;
+    const project = parseFigmaProjectUrl(projectUrl);
+    if (!project) {
+      toast.error("Enter a valid Figma project URL.");
+      return;
+    }
+    setLoading(true);
+    setThumbs({});
+    try {
+      const files = await figmaGetProjectFiles(figma.token, project.projectId);
+      const allFrames: PanelFrame[] = [];
+      const allFlows: FigmaFlowEdge[] = [];
+      for (const file of files) {
+        const doc = await figmaGetFile(figma.token, file.key, 2);
+        const { frames: ff, flows: fl } = deriveFramesAndFlows(doc);
+        for (const f of ff) {
+          allFrames.push({ node_id: `${file.key}:${f.node_id}`, name: f.name, page: file.name, fileKey: file.key, rawNodeId: f.node_id });
+        }
+        allFlows.push(...fl);
+      }
+      setFrames(allFrames);
+      setFlows(allFlows);
+      setSelected(new Set(allFrames.map((f) => f.node_id)));
+      setLoadedOnce(true);
+      if (!allFrames.length) toast.info("No frames found in this project's files.");
+    } catch {
+      toast.error("Could not load the project. Re-generate your Figma token with the projects:read scope.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function toggle(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -89,14 +131,25 @@ export function FigmaStoryPanel({ dark, onGenerated }: Props) {
     }
     const names = new Set(chosen.map((f) => f.name));
     const scopedFlows = flows.filter((e) => names.has(e.from_name) && names.has(e.to_name));
+    // Distinct source files among the selection. A single source (legacy single-file,
+    // or a one-file selection in project mode) keeps U1 image grounding with that file's
+    // raw node ids. A multi-file union grounds by frame names (route is single-file).
+    const sourceKeys = new Set(chosen.map((f) => f.fileKey).filter(Boolean) as string[]);
+    const singleSource = sourceKeys.size <= 1;
+    const fileKey = singleSource ? ([...sourceKeys][0] ?? figma?.fileKey) : undefined;
     generate.mutate(
       {
-        frames: chosen.map((f) => ({ name: f.name, description: "", node_id: f.node_id })),
+        frames: chosen.map((f) => ({
+          name: f.name,
+          description: "",
+          // single source → raw node id so the backend can render it; multi → namespaced
+          node_id: singleSource ? (f.rawNodeId ?? f.node_id) : f.node_id,
+        })),
         flows: scopedFlows,
-        // U1: file_key + token let the backend render these frames to PNGs and
-        // ground the AI in the actual pixels (capped to the first 12 frames).
-        file_key: figma?.fileKey,
-        figmaToken: figma?.token,
+        // U1: file_key + token let the backend render these frames to PNGs and ground the
+        // AI in the actual pixels. Omitted for a multi-file union → text (names) grounding.
+        file_key: singleSource ? fileKey : undefined,
+        figmaToken: singleSource ? figma?.token : undefined,
       },
       {
         onSuccess: (data) => {
@@ -128,6 +181,25 @@ export function FigmaStoryPanel({ dark, onGenerated }: Props) {
         Pick the screens to turn into user stories. Navigation flows between them become scenarios.
         {" "}📷 The first 12 selected frames are rendered and sent to the AI as images, so stories are grounded in the actual design (vision models only).
       </p>
+
+      {/* Project import: load frames across all files in a project (one combined draft). */}
+      <div className="flex items-center gap-2">
+        <input
+          value={projectUrl}
+          onChange={(e) => setProjectUrl(e.target.value)}
+          placeholder="…or paste a Figma project URL to span its files"
+          className={cn("h-8 flex-1 rounded border px-2 text-xs outline-none focus:border-violet-500",
+            dark ? "border-neutral-700 bg-neutral-950 text-neutral-200" : "border-slate-300 bg-white text-slate-700")}
+        />
+        <button
+          className={cn("inline-flex h-8 shrink-0 items-center gap-1 rounded border px-2 text-xs transition-colors disabled:opacity-50",
+            dark ? "border-neutral-700 text-neutral-300 hover:border-violet-500/50" : "border-slate-300 text-slate-600 hover:border-violet-300")}
+          onClick={loadProject}
+          disabled={loading || !projectUrl.trim()}
+        >
+          <RefreshCw className={cn("size-3", loading && "animate-spin")} /> Load project
+        </button>
+      </div>
 
       {loading ? (
         <div className={cn("flex items-center gap-2 text-xs", dark ? "text-neutral-500" : "text-slate-500")}>

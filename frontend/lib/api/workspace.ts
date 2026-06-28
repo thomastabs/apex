@@ -316,6 +316,15 @@ export function scanFigmaChanges(context: RequestContext, currentModified: strin
   });
 }
 
+/** Per-file drift scan: file key → that file's current lastModified ("" = configured file). */
+export function scanFigmaChangesMulti(context: RequestContext, modifiedByFile: Record<string, string>) {
+  return apiRequest<{ changed_story_ids: number[] }>("/api/workspace/figma/scan-changes", {
+    method: "POST",
+    context,
+    body: { modified_by_file: modifiedByFile },
+  });
+}
+
 export function acknowledgeFigmaChange(context: RequestContext, storyId: number, currentModified: string) {
   return apiRequest<{ ok: boolean }>(
     `/api/workspace/context-files/story-index/stories/${storyId}/acknowledge-figma-change`,

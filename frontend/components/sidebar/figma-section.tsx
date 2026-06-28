@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { ExternalLink, Figma, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { useSaveFigmaConfig, useSyncFigmaContext, useScanFigmaChanges, useContextFiles } from "@/lib/hooks/use-workspace";
+import { useSaveFigmaConfig, useSyncFigmaContext, useScanFigmaChanges, useContextFiles, useStoryIndexStats } from "@/lib/hooks/use-workspace";
 import { useSessionStore, useFigmaContext } from "@/lib/stores/session-store";
 import {
   figmaVerifyFile,
@@ -35,12 +35,32 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
   const syncContext = useSyncFigmaContext();
   const scanChanges = useScanFigmaChanges();
   const contextFiles = useContextFiles();
+  const storyStats = useStoryIndexStats();
 
   async function handleScanChanges() {
     if (!figma) return;
     try {
-      const { lastModified } = await figmaVerifyFile(figma.token, figma.fileKey);
-      const { changed_story_ids } = await scanChanges.mutateAsync(lastModified);
+      // Distinct file keys across linked stories; "" = the connected (configured) file.
+      const links = storyStats.data?.figma_links ?? [];
+      const keys = Array.from(new Set(links.map((l) => l.figma_file_key ?? "")));
+      const hasPerFile = keys.some((k) => k);
+
+      let changed_story_ids: number[];
+      if (hasPerFile) {
+        // Per-file drift: each linked file scanned against its own lastModified.
+        const entries = await Promise.all(
+          keys.map(async (k) => {
+            const { lastModified } = await figmaVerifyFile(figma.token, k || figma.fileKey);
+            return [k, lastModified] as const;
+          }),
+        );
+        ({ changed_story_ids } = await scanChanges.mutateAsync(Object.fromEntries(entries)));
+      } else {
+        // Legacy single-file scan (no link carries a file key).
+        const { lastModified } = await figmaVerifyFile(figma.token, figma.fileKey);
+        ({ changed_story_ids } = await scanChanges.mutateAsync(lastModified));
+      }
+
       toast[changed_story_ids.length ? "warning" : "success"](
         changed_story_ids.length
           ? `${changed_story_ids.length} linked stor${changed_story_ids.length === 1 ? "y has" : "ies have"} design changes`

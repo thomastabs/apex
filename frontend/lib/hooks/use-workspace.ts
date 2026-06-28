@@ -23,6 +23,7 @@ import {
   acknowledgeFigmaChange,
   getStoryIndexStats,
   scanFigmaChanges,
+  scanFigmaChangesMulti,
   setStoryFigmaLink,
   getStoryPhaseStatus,
   getTraceabilityGraph,
@@ -208,7 +209,11 @@ export function useScanFigmaChanges() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (currentModified: string) => scanFigmaChanges(context!, currentModified),
+    // A bare string scans the single configured file (legacy); a map scans per file.
+    mutationFn: (modified: string | Record<string, string>) =>
+      typeof modified === "string"
+        ? scanFigmaChanges(context!, modified)
+        : scanFigmaChangesMulti(context!, modified),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },

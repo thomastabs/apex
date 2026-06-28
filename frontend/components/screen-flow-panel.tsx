@@ -180,14 +180,22 @@ export function ScreenFlowPanel({
 
   const edgesWithStyle = useMemo(
     () =>
-      edges.map((e) => ({
-        ...e,
-        type: "smoothstep",
-        style: { stroke: dark ? "#4f46e5" : "#6366f1", strokeWidth: 1.5 },
-        labelStyle: { fill: dark ? "#d4d4d4" : "#374151", fontSize: 10 },
-        labelBgStyle: { fill: dark ? "#171717" : "#f8fafc", fillOpacity: 0.85 },
-        markerEnd: { type: "arrowclosed" as const, color: dark ? "#4f46e5" : "#6366f1" },
-      })),
+      edges.map((e) => {
+        // Inferred cross-file links (project mode) render dashed + amber, labelled,
+        // so they're not mistaken for real prototype flows.
+        const crossFile = (e as ScreenFlowEdge).data?.kind === "cross_file";
+        const color = crossFile ? "#d97706" : dark ? "#4f46e5" : "#6366f1";
+        return {
+          ...e,
+          type: "smoothstep",
+          animated: crossFile,
+          label: crossFile ? "cross-file (inferred)" : e.label,
+          style: { stroke: color, strokeWidth: 1.5, ...(crossFile ? { strokeDasharray: "5 5" } : {}) },
+          labelStyle: { fill: crossFile ? "#d97706" : dark ? "#d4d4d4" : "#374151", fontSize: 10 },
+          labelBgStyle: { fill: dark ? "#171717" : "#f8fafc", fillOpacity: 0.85 },
+          markerEnd: { type: "arrowclosed" as const, color },
+        };
+      }),
     [edges, dark],
   );
 

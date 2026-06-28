@@ -13,13 +13,21 @@ class Phase2ValidationError(ValueError):
     """Raised when a Phase 2 request is structurally invalid."""
 
 
-def build_screen_flow_diagram(frames: list[dict], flows: list[dict]) -> dict:
+def build_screen_flow_diagram(
+    frames: list[dict], flows: list[dict], extra_edges: list[dict] | None = None
+) -> dict:
     """Pure: Figma frames + prototype flows → React Flow screen-flow diagram.
 
     Node id = Figma node id; label = frame name; description = page name.
     Edges are flows mapped from frame names to their node ids; flows referencing
     an unknown frame, self-loops, and duplicate edges are dropped.
+
+    `extra_edges` (optional) are id-based cross-file edges
+    `[{from_id, to_id, kind}]` — appended after the name-based edges, deduped, and
+    tagged `data.kind` so the UI can render them distinctly (e.g. inferred
+    cross-file links). Omitting it leaves the output byte-identical.
     """
+    valid_ids = {f["node_id"] for f in frames}
     name_to_id: dict[str, str] = {}
     for f in frames:
         # First frame wins on a duplicate name so the edge mapping is deterministic.
@@ -45,6 +53,18 @@ def build_screen_flow_diagram(frames: list[dict], flows: list[dict]) -> dict:
             continue
         seen.add(eid)
         edges.append({"id": eid, "source": src, "target": tgt, "label": "", "animated": False})
+    for e in extra_edges or []:
+        src, tgt = e.get("from_id"), e.get("to_id")
+        if not src or not tgt or src == tgt or src not in valid_ids or tgt not in valid_ids:
+            continue
+        eid = f"{src}->{tgt}"
+        if eid in seen:
+            continue
+        seen.add(eid)
+        edges.append({
+            "id": eid, "source": src, "target": tgt,
+            "label": "cross-file", "animated": False, "data": {"kind": e.get("kind", "cross_file")},
+        })
     return {"nodes": nodes, "edges": edges}
 
 
@@ -251,14 +271,16 @@ class Phase2Service:
 
     def build_screen_flow_from_figma(
         self, ctx: RequestContext, *, frames: list[dict], flows: list[dict],
+        extra_edges: list[dict] | None = None,
     ) -> dict:
         """Build the screen-flow diagram directly from real Figma frames + prototype
         flows (no AI). Frame node ids become diagram node ids; flows (by frame name)
-        become edges. Persists like the AI-generated flow so it survives reloads."""
+        become edges. `extra_edges` adds inferred cross-file links (project mode).
+        Persists like the AI-generated flow so it survives reloads."""
         self.configure_request(ctx)
         if not frames:
             raise Phase2ValidationError("At least one Figma frame is required.")
-        diagram = build_screen_flow_diagram(frames, flows)
+        diagram = build_screen_flow_diagram(frames, flows, extra_edges)
         self.context.save_screen_flow(diagram)
         return diagram
 

@@ -176,6 +176,7 @@ def _seed_figma_project(job: dict, cs: ContextService, token: str) -> None:
         FigmaFetchError,
         build_project_context_markdown,
         fetch_project_designs,
+        stitch_cross_file_flows,
     )
 
     _emit(job, "info", "  Seeding design context from Figma project…", phase="phase1")
@@ -210,6 +211,8 @@ def _seed_figma_project(job: dict, cs: ContextService, token: str) -> None:
         union_flows.extend(b["flows"])
     job["_figma_frames"] = union_frames
     job["_figma_flows"] = union_flows
+    # Inferred cross-file edges (shared screen names across files) for the screen flow.
+    job["_figma_cross_edges"] = stitch_cross_file_flows(bundles)
 
     total_imgs = sum(len(b["images"]) for b in bundles)
     _emit(job, "success",
@@ -366,6 +369,7 @@ def _run_phase2(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> Non
         try:
             diagram = p2.build_screen_flow_from_figma(
                 ctx, frames=figma_frames, flows=job.get("_figma_flows") or [],
+                extra_edges=job.get("_figma_cross_edges") or None,
             )
             _emit(job, "success",
                   f"  Screen flow built from Figma ({len(diagram['nodes'])} screens, {len(diagram['edges'])} flows)",

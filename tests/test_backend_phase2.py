@@ -150,6 +150,45 @@ class TestBuildScreenFlowDiagram:
         d = build_screen_flow_diagram(self.FRAMES, flows)
         assert len(d["edges"]) == 1
 
+    def test_extra_edges_append_cross_file_links(self):
+        d = build_screen_flow_diagram(
+            self.FRAMES, [], extra_edges=[{"from_id": "1:1", "to_id": "1:2", "kind": "cross_file"}],
+        )
+        assert d["edges"][-1] == {
+            "id": "1:1->1:2", "source": "1:1", "target": "1:2",
+            "label": "cross-file", "animated": False, "data": {"kind": "cross_file"},
+        }
+
+    def test_extra_edges_drop_unknown_node_ids(self):
+        d = build_screen_flow_diagram(
+            self.FRAMES, [], extra_edges=[{"from_id": "1:1", "to_id": "ZZZ"}],
+        )
+        assert d["edges"] == []
+
+    def test_omitting_extra_edges_is_unchanged(self):
+        assert build_screen_flow_diagram(self.FRAMES, []) == build_screen_flow_diagram(self.FRAMES, [], None)
+
+
+class TestStitchCrossFileFlows:
+    def test_links_frames_sharing_a_name_across_files(self):
+        from backend.app.services.figma_fetch import stitch_cross_file_flows
+
+        bundles = [
+            {"file_key": "K1", "frames": [{"node_id": "1:1", "name": "Login"}, {"node_id": "1:2", "name": "Dashboard"}]},
+            {"file_key": "K2", "frames": [{"node_id": "9:9", "name": "Dashboard"}, {"node_id": "9:8", "name": "Settings"}]},
+        ]
+        edges = stitch_cross_file_flows(bundles)
+        assert edges == [{"from_id": "K1:1:2", "to_id": "K2:9:9", "kind": "cross_file"}]
+
+    def test_no_edge_for_unique_or_same_file_names(self):
+        from backend.app.services.figma_fetch import stitch_cross_file_flows
+
+        bundles = [
+            {"file_key": "K1", "frames": [{"node_id": "1:1", "name": "A"}, {"node_id": "1:2", "name": "A"}]},
+            {"file_key": "K2", "frames": [{"node_id": "9:1", "name": "B"}]},
+        ]
+        assert stitch_cross_file_flows(bundles) == []
+
 
 def test_build_screen_flow_from_figma_saves_and_returns():
     service, _, context = _service()
