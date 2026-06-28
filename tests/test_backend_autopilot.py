@@ -326,6 +326,50 @@ class TestSeedFigma:
         assert "_figma_frames" not in job
         assert any(e["level"] == "warning" for e in job["events"])
 
+    def test_project_mode_derives_one_epic_per_file(self, monkeypatch):
+        job = _make_job()
+        job["figma_token"] = "figd_tok"
+        job["figma_project_id"] = "777"
+        bundles = [
+            {"file_key": "K1", "file_name": "Home", "context_md": "# Home",
+             "frames": [{"node_id": "1:1", "name": "Login", "page": "P"}], "flows": [],
+             "images": [{"node_id": "1:1", "name": "Login", "b64_png": "X", "media_type": "image/png"}]},
+            {"file_key": "K2", "file_name": "Settings", "context_md": "# Settings",
+             "frames": [{"node_id": "1:1", "name": "Prefs", "page": "P"}], "flows": [],
+             "images": []},
+        ]
+        monkeypatch.setattr("backend.app.services.figma_fetch.fetch_project_designs", lambda t, p: bundles)
+        monkeypatch.setattr("backend.app.services.figma_fetch.build_project_context_markdown",
+                            lambda b: "# Figma Project Design Context")
+        written = {}
+
+        class _CS:
+            def write_context_file(self, name, content):
+                written[name] = content
+
+        svc._seed_figma(job, _CS())
+        assert written["figma-context.md"].startswith("# Figma Project Design Context")
+        # one epic per file, with the file-key marker
+        assert [e["title"] for e in job["epics"]] == ["Home", "Settings"]
+        assert [e["_figma_file_key"] for e in job["epics"]] == ["K1", "K2"]
+        assert set(job["_figma_by_file"]) == {"K1", "K2"}
+        # union frames have file-namespaced node ids (no cross-file collision)
+        assert {f["node_id"] for f in job["_figma_frames"]} == {"K1:1:1", "K2:1:1"}
+
+    def test_project_mode_empty_bundles_skips(self, monkeypatch):
+        job = _make_job()
+        job["figma_token"] = "figd_tok"
+        job["figma_project_id"] = "777"
+        monkeypatch.setattr("backend.app.services.figma_fetch.fetch_project_designs", lambda t, p: [])
+
+        class _CS:
+            def write_context_file(self, *a, **kw):
+                raise AssertionError("should not write when project has no usable files")
+
+        svc._seed_figma(job, _CS())  # must not raise
+        assert "epics" in job and job["epics"] == []  # untouched
+        assert any(e["level"] == "warning" for e in job["events"])
+
     def test_start_job_stores_settings(self, monkeypatch):
         class _FakeThread:
             def __init__(self, *a, **kw):

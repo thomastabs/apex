@@ -275,3 +275,74 @@ class TestFigmaFrameImages:
         assert figma_fetch.fetch_frame_images("tok", "K", [{"node_id": "1:1"}]) == []
         # missing token/key short-circuits
         assert figma_fetch.fetch_frame_images("", "K", []) == []
+
+
+class TestFigmaProjectIngest:
+    """Stage 3 — file-as-epic project ingest."""
+
+    def test_get_project_files_query(self, monkeypatch):
+        from backend.app.services import figma_fetch
+
+        captured = {}
+
+        def _fake_get(path, token, query=""):
+            captured["path"] = path
+            return {"files": [{"key": "K1", "name": "Home"}, {"key": "K2", "name": "Settings"}]}
+
+        monkeypatch.setattr(figma_fetch, "_get", _fake_get)
+        files = figma_fetch.get_project_files("tok", "777")
+        assert captured["path"] == "projects/777/files"
+        assert [f["key"] for f in files] == ["K1", "K2"]
+
+    def test_fetch_project_designs_bundles_and_image_cap(self, monkeypatch):
+        from backend.app.services import figma_fetch
+
+        monkeypatch.setattr(figma_fetch, "get_project_files", lambda t, p: [
+            {"key": "K1", "name": "Home"}, {"key": "K2", "name": "Settings"},
+        ])
+        monkeypatch.setattr(figma_fetch, "get_file", lambda t, k, depth=2: {"name": k, "document": {}})
+        monkeypatch.setattr(figma_fetch, "get_comments", lambda t, k: [])
+        monkeypatch.setattr(figma_fetch, "derive_frames_flows", lambda f: ([{"node_id": "1:1", "name": "A", "page": "P"}], []))
+        caps = {}
+
+        def _imgs(token, key, frames, max_frames=12):
+            caps[key] = max_frames
+            return [{"node_id": "1:1", "name": "A", "b64_png": "X", "media_type": "image/png"}]
+
+        monkeypatch.setattr(figma_fetch, "get_frame_images", _imgs)
+        bundles = figma_fetch.fetch_project_designs("tok", "777", total_image_cap=16)
+        assert [b["file_key"] for b in bundles] == ["K1", "K2"]
+        assert [b["file_name"] for b in bundles] == ["Home", "Settings"]
+        # 16 budget / 2 files → 8 each
+        assert caps == {"K1": 8, "K2": 8}
+        assert all(b["images"] for b in bundles)
+
+    def test_fetch_project_designs_skips_bad_file(self, monkeypatch):
+        from backend.app.services import figma_fetch
+
+        monkeypatch.setattr(figma_fetch, "get_project_files", lambda t, p: [
+            {"key": "GOOD", "name": "Good"}, {"key": "BAD", "name": "Bad"},
+        ])
+
+        def _get_file(t, k, depth=2):
+            if k == "BAD":
+                raise figma_fetch.FigmaFetchError("404")
+            return {"name": k, "document": {}}
+
+        monkeypatch.setattr(figma_fetch, "get_file", _get_file)
+        monkeypatch.setattr(figma_fetch, "get_comments", lambda t, k: [])
+        monkeypatch.setattr(figma_fetch, "derive_frames_flows", lambda f: ([], []))
+        monkeypatch.setattr(figma_fetch, "get_frame_images", lambda *a, **k: [])
+        bundles = figma_fetch.fetch_project_designs("tok", "777")
+        assert [b["file_key"] for b in bundles] == ["GOOD"]
+
+    def test_build_project_context_markdown_sections(self):
+        from backend.app.services import figma_fetch
+
+        md = figma_fetch.build_project_context_markdown([
+            {"file_name": "Home", "context_md": "# Home ctx"},
+            {"file_name": "Settings", "context_md": "# Settings ctx"},
+        ])
+        assert "# Figma Project Design Context" in md
+        assert "## File: Home" in md and "## File: Settings" in md
+        assert "# Home ctx" in md and "# Settings ctx" in md

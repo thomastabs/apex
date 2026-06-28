@@ -18,6 +18,7 @@ export type AutopilotStartRequest = {
   settings: AutopilotSettings;
   figma_file_key?: string;
   figma_token?: string;
+  figma_project_id?: string;  // project mode: derive one epic per file (file-as-epic)
 };
 
 export type AutopilotEvent = {

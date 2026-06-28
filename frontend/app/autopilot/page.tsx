@@ -11,13 +11,21 @@ import type { AutopilotStartRequest } from "@/lib/api/autopilot";
 export default function AutopilotPage() {
   const hasProject = useSessionStore((s) => Boolean(s.taigaToken && s.projectId));
   const figma = useFigmaContext();
+  const figmaToken = useSessionStore((s) => s.figmaToken);
   const [jobId, setJobId] = useState<string | null>(null);
   const start = useStartAutopilot();
   const { data: status } = useAutopilotStatus(jobId);
 
   async function handleStart(req: AutopilotStartRequest) {
-    // Seed Figma design context into the pipeline when a file is connected.
-    const body = figma ? { ...req, figma_file_key: figma.fileKey, figma_token: figma.token } : req;
+    let body = req;
+    if (req.figma_project_id) {
+      // Project mode (file-as-epic): the token comes from the session (a file need
+      // not be connected, but Figma must be set up so the token is present).
+      body = { ...req, figma_token: figmaToken };
+    } else if (figma) {
+      // Single-file seeding when a file is connected.
+      body = { ...req, figma_file_key: figma.fileKey, figma_token: figma.token };
+    }
     const res = await start.mutateAsync(body);
     setJobId(res.job_id);
   }

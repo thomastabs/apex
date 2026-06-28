@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 AutopilotState = Literal["running", "paused", "stopped", "done", "error"]
@@ -24,13 +24,23 @@ class AutopilotSettings(BaseModel):
 
 class AutopilotStartRequest(BaseModel):
     concept: str = Field(min_length=1)
-    epics: list[AutopilotEpic] = Field(min_length=1)
+    # Epics are required UNLESS a Figma project is supplied — in project mode the
+    # pipeline derives one epic per project file (file-as-epic).
+    epics: list[AutopilotEpic] = Field(default_factory=list)
     tech_stack_hint: str = ""
     settings: AutopilotSettings = Field(default_factory=AutopilotSettings)
     # Optional Figma seeding: design context injected into Phase 1/2 + a real
     # screen-flow built from frames. The token is held in-memory for the job only.
     figma_file_key: str = Field("", max_length=128)
     figma_token: str = Field("", max_length=2_000)
+    # When set, the pipeline ingests the whole project and creates one epic per file.
+    figma_project_id: str = Field("", max_length=64)
+
+    @model_validator(mode="after")
+    def _epics_required_without_project(self) -> "AutopilotStartRequest":
+        if not self.epics and not self.figma_project_id.strip():
+            raise ValueError("epics is required unless figma_project_id is set")
+        return self
 
 
 class AutopilotEvent(BaseModel):

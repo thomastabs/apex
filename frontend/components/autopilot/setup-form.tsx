@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Plus, Trash2, Bot, Loader2 } from "lucide-react";
 import type { AutopilotEpic, AutopilotSettings, AutopilotStartRequest } from "@/lib/api/autopilot";
+import { parseFigmaProjectUrl } from "@/lib/api/figma";
 
 type Props = {
   onStart: (req: AutopilotStartRequest) => void;
@@ -18,7 +19,13 @@ export function AutopilotSetupForm({ onStart, isPending }: Props) {
   const [concept, setConcept] = useState("");
   const [epics, setEpics] = useState<AutopilotEpic[]>([{ title: "", description: "" }]);
   const [techStackHint, setTechStackHint] = useState("");
+  const [figmaProjectUrl, setFigmaProjectUrl] = useState("");
   const [settings, setSettings] = useState<AutopilotSettings>(DEFAULT_SETTINGS);
+
+  // Project mode (file-as-epic): a valid Figma project URL → epics are derived from
+  // the project's files, so the manual epics list becomes optional.
+  const figmaProjectId = figmaProjectUrl.trim() ? (parseFigmaProjectUrl(figmaProjectUrl) ?? null)?.projectId ?? "" : "";
+  const inProjectMode = Boolean(figmaProjectId);
 
   function addEpic() {
     setEpics((prev) => [...prev, { title: "", description: "" }]);
@@ -35,11 +42,18 @@ export function AutopilotSetupForm({ onStart, isPending }: Props) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const validEpics = epics.filter((e) => e.title.trim());
-    if (!concept.trim() || validEpics.length === 0) return;
-    onStart({ concept, epics: validEpics, tech_stack_hint: techStackHint, settings });
+    // In project mode epics are derived server-side from the project's files.
+    if (!concept.trim() || (validEpics.length === 0 && !inProjectMode)) return;
+    onStart({
+      concept,
+      epics: validEpics,
+      tech_stack_hint: techStackHint,
+      settings,
+      ...(figmaProjectId ? { figma_project_id: figmaProjectId } : {}),
+    });
   }
 
-  const canStart = concept.trim().length > 0 && epics.some((e) => e.title.trim());
+  const canStart = concept.trim().length > 0 && (inProjectMode || epics.some((e) => e.title.trim()));
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -70,11 +84,32 @@ export function AutopilotSetupForm({ onStart, isPending }: Props) {
         />
       </div>
 
+      {/* Figma project (file-as-epic) */}
+      <div className="space-y-1.5">
+        <label className="block text-xs font-medium text-neutral-400">
+          Figma project URL <span className="text-neutral-600">(optional — creates one epic per file)</span>
+        </label>
+        <input
+          type="text"
+          value={figmaProjectUrl}
+          onChange={(e) => setFigmaProjectUrl(e.target.value)}
+          placeholder="https://www.figma.com/files/project/…"
+          className="w-full rounded-md border border-neutral-700 bg-neutral-800/60 px-3 py-2 text-sm text-neutral-200 placeholder-neutral-600 focus:border-violet-500/60 focus:outline-none focus:ring-1 focus:ring-violet-500/30"
+        />
+        {inProjectMode ? (
+          <p className="text-xs text-violet-400">
+            Project mode: epics will be created from the project&apos;s files, each grounded in its own screens. Connect Figma in the sidebar first so the token is available (needs the <code>projects:read</code> scope).
+          </p>
+        ) : figmaProjectUrl.trim() ? (
+          <p className="text-xs text-amber-500">That doesn&apos;t look like a Figma project URL.</p>
+        ) : null}
+      </div>
+
       {/* Epics */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <label className="block text-xs font-medium text-neutral-400">
-            Epics <span className="text-red-500">*</span>
+            Epics {inProjectMode ? <span className="text-neutral-600">(from Figma files)</span> : <span className="text-red-500">*</span>}
           </label>
           <button
             type="button"

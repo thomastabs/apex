@@ -252,3 +252,63 @@ def fetch_frame_images(token: str, file_key: str, frames: list[dict]) -> list[di
     except FigmaFetchError as exc:
         _logger.warning("frame image grounding skipped: %s", exc)
         return []
+
+
+# ---------------------------------------------------------------------------
+# Project ingest (Stage 3 — file-as-epic in Autopilot)
+# ---------------------------------------------------------------------------
+
+_MAX_PROJECT_IMAGES = 16  # project-wide image budget, spread across the project's files
+
+
+def get_project_files(token: str, project_id: str) -> list[dict]:
+    """List the files in a Figma project. Needs a PAT with the `projects:read` scope."""
+    return _get(f"projects/{project_id}/files", token).get("files", []) or []
+
+
+def fetch_project_designs(
+    token: str, project_id: str, total_image_cap: int = _MAX_PROJECT_IMAGES
+) -> list[dict]:
+    """Ingest a whole Figma project: one design bundle per file.
+
+    Returns [{file_key, file_name, context_md, frames, flows, images}]. The image
+    budget is spread across the files so a many-file project doesn't blow the token
+    cost. Advisory: a file that fails to fetch is skipped, never fatal."""
+    files = get_project_files(token, project_id)
+    if not files:
+        return []
+    per_file = max(1, total_image_cap // len(files))
+    bundles: list[dict] = []
+    for f in files:
+        key = f.get("key")
+        if not key:
+            continue
+        try:
+            file = get_file(token, key, depth=2)
+        except FigmaFetchError as exc:
+            _logger.warning("project file skipped key=%s: %s", key, exc)
+            continue
+        comments = get_comments(token, key)
+        frames, flows = derive_frames_flows(file)
+        try:
+            images = get_frame_images(token, key, frames, max_frames=per_file)
+        except FigmaFetchError:
+            images = []
+        bundles.append({
+            "file_key": key,
+            "file_name": f.get("name") or file.get("name", "") or key,
+            "context_md": build_context_markdown(file, comments),
+            "frames": frames,
+            "flows": flows,
+            "images": images,
+        })
+    return bundles
+
+
+def build_project_context_markdown(bundles: list[dict]) -> str:
+    """Aggregate per-file context into one figma-context.md, sectioned per file."""
+    today = _dt.datetime.now(_dt.timezone.utc).date().isoformat()
+    parts = [f"# Figma Project Design Context\n\n**Files:** {len(bundles)}  \n**Synced:** {today}"]
+    for b in bundles:
+        parts.append(f"## File: {b['file_name']}\n\n{b['context_md']}")
+    return "\n\n---\n\n".join(parts)

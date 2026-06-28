@@ -128,13 +128,21 @@ def _check_stop(job: dict) -> bool:
 # ---------------------------------------------------------------------------
 
 def _seed_figma(job: dict, cs: ContextService) -> None:
-    """Optional: fetch the linked Figma file once and write figma-context.md so
-    Phase 1 story-gen and Phase 2 design pick it up automatically. Frames/flows are
-    stashed on the job for the Phase 2 screen-flow build. Best-effort — never fails
-    the pipeline (a bad token just means no design context)."""
-    file_key = job.get("figma_file_key", "")
+    """Optional: fetch the linked Figma design and write figma-context.md so Phase 1
+    story-gen and Phase 2 design pick it up automatically. Frames/flows are stashed on
+    the job for the Phase 2 screen-flow build. Best-effort — never fails the pipeline.
+
+    Two modes: a single file (figma_file_key) or a whole project (figma_project_id →
+    one epic per file, Stage 3 file-as-epic)."""
     token = job.get("figma_token", "")
-    if not file_key or not token:
+    if not token:
+        return
+    if job.get("figma_project_id"):
+        _seed_figma_project(job, cs, token)
+        return
+
+    file_key = job.get("figma_file_key", "")
+    if not file_key:
         return
     from backend.app.services.figma_fetch import (
         FigmaFetchError,
@@ -157,6 +165,56 @@ def _seed_figma(job: dict, cs: ContextService) -> None:
     img_note = f", {len(images)} frame images" if images else ""
     _emit(job, "success", f"  Figma context seeded ({len(frames)} frames{img_note})", phase="phase1",
           artifact=context_md[:400])
+
+
+def _seed_figma_project(job: dict, cs: ContextService, token: str) -> None:
+    """Stage 3: ingest a whole Figma project → one epic per file, each grounded in its
+    own file's frames + images. Aggregates the per-file context into figma-context.md
+    and unions the frames (ids namespaced by file key) for the Phase-2 screen flow."""
+    project_id = job["figma_project_id"]
+    from backend.app.services.figma_fetch import (
+        FigmaFetchError,
+        build_project_context_markdown,
+        fetch_project_designs,
+    )
+
+    _emit(job, "info", "  Seeding design context from Figma project…", phase="phase1")
+    try:
+        bundles = fetch_project_designs(token, project_id)
+    except FigmaFetchError as exc:
+        _emit(job, "warning", f"  Figma project seeding skipped: {exc}", phase="phase1")
+        return
+    if not bundles:
+        _emit(job, "warning", "  Figma project had no usable files — skipping.", phase="phase1")
+        return
+
+    context_md = build_project_context_markdown(bundles)
+    cs.write_context_file("figma-context.md", context_md)
+
+    # One epic per file (file-as-epic). The _figma_file_key marker lets _run_phase1
+    # ground each epic with that file's own images.
+    job["epics"] = [
+        {"title": b["file_name"], "description": "", "_figma_file_key": b["file_key"]}
+        for b in bundles
+    ]
+    job["_figma_by_file"] = {b["file_key"]: b for b in bundles}
+
+    # Union frames/flows for the single Phase-2 screen flow. Node ids are file-scoped
+    # in Figma and can collide across files, so namespace them by file key.
+    union_frames: list[dict] = []
+    union_flows: list[dict] = []
+    for b in bundles:
+        fk = b["file_key"]
+        for fr in b["frames"]:
+            union_frames.append({**fr, "node_id": f"{fk}:{fr['node_id']}"})
+        union_flows.extend(b["flows"])
+    job["_figma_frames"] = union_frames
+    job["_figma_flows"] = union_flows
+
+    total_imgs = sum(len(b["images"]) for b in bundles)
+    _emit(job, "success",
+          f"  Figma project seeded — {len(bundles)} files → epics, {total_imgs} frame images",
+          phase="phase1", artifact=context_md[:400])
 
 
 def _run_phase1(job: dict, ctx: RequestContext) -> list[int]:
@@ -198,13 +256,19 @@ def _run_phase1(job: dict, ctx: RequestContext) -> list[int]:
 
         epic_id = epic_taiga_id if epic_taiga_id else (epic_idx + 1)
 
-        # Generate NL stories
+        # Generate NL stories. Project mode (file-as-epic): ground this epic with its
+        # OWN file's images; otherwise use the single-file images (today's behaviour).
+        epic_file_key = epic.get("_figma_file_key")
+        if epic_file_key and job.get("_figma_by_file"):
+            epic_images = job["_figma_by_file"].get(epic_file_key, {}).get("images") or None
+        else:
+            epic_images = job.get("_figma_images") or None
         _emit(job, "info", f"  Generating user stories for {epic_title!r}…", phase="phase1")
         nl_draft, story_count = p1.generate_nl_stories(
             ctx,
             epic_subject=epic_title,
             epic_description=epic_description,
-            images=job.get("_figma_images") or None,
+            images=epic_images,
         )
         _emit(job, "info", f"  NL draft ready (~{story_count} stories)", phase="phase1",
               artifact=nl_draft[:500])
@@ -503,6 +567,7 @@ def start_job(
     taiga_base: str = "",
     figma_file_key: str = "",
     figma_token: str = "",
+    figma_project_id: str = "",
 ) -> str:
     job_id = str(uuid.uuid4())
     stop_event = threading.Event()
@@ -518,6 +583,7 @@ def start_job(
         "tech_stack_hint": tech_stack_hint,
         "figma_file_key": figma_file_key.strip(),
         "figma_token": figma_token.strip(),
+        "figma_project_id": figma_project_id.strip(),
         "settings": settings,
         "state": "running",
         "current_phase": "init",
