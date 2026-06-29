@@ -8,7 +8,9 @@ there is no Cloudflare egress relay; the request is sent directly (DNS-rebinding
 pinned). Modelled on taiga_proxy.py.
 """
 
+import hashlib
 import logging
+import time
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
@@ -30,6 +32,43 @@ _CONNECT_TIMEOUT = 8.0  # fail fast on dead egress paths; read keeps the full bu
 # SNAT flow is dropped instead of being reused into a 20s timeout.
 _KEEPALIVE_EXPIRY = 15.0
 _client: httpx.AsyncClient | None = None
+
+# Short-TTL response cache for idempotent GETs. Figma's REST API is cost-based
+# rate-limited (429); opening one file fans out into files+styles+components+
+# nodes+comments+images, and drift scans + thumbnails repeat the same GETs. The
+# cache collapses identical repeats within the window so a burst counts once
+# upstream. Per-process + bounded-staleness, consistent with the other in-process
+# caches under the single-writer assumption (see CLAUDE.md "Key gotchas").
+_CACHE_TTL = 60.0
+_CACHE_MAX = 256
+# key -> (expiry_monotonic, status_code, content, media_type)
+_cache: dict[str, tuple[float, int, bytes, str]] = {}
+
+
+def _cache_key(path: str, query: str, token: str) -> str:
+    # Token is part of the key (different PATs may see different files) but only
+    # as a salted digest — never store the raw credential.
+    tok = hashlib.sha256(token.encode()).hexdigest()[:16]
+    return f"{tok}:{path}?{query}"
+
+
+def _cache_get(key: str) -> tuple[int, bytes, str] | None:
+    hit = _cache.get(key)
+    if hit is None:
+        return None
+    expiry, code, content, media = hit
+    if time.monotonic() >= expiry:
+        _cache.pop(key, None)
+        return None
+    return code, content, media
+
+
+def _cache_put(key: str, code: int, content: bytes, media: str) -> None:
+    if len(_cache) >= _CACHE_MAX:
+        # Drop the soonest-to-expire entry — cheap bound, no LRU bookkeeping.
+        oldest = min(_cache, key=lambda k: _cache[k][0])
+        _cache.pop(oldest, None)
+    _cache[key] = (time.monotonic() + _CACHE_TTL, code, content, media)
 
 
 def _get_client() -> httpx.AsyncClient:
@@ -105,6 +144,14 @@ async def proxy_figma(
             detail=f"host {_FIGMA_HOST!r} is not in the egress allowlist.",
         )
 
+    is_cacheable = request.method == "GET"
+    cache_key = _cache_key(path, request.url.query, token) if is_cacheable else ""
+    if is_cacheable:
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            code, content, media = cached
+            return Response(content=content, status_code=code, media_type=media)
+
     target_url = f"{_FIGMA_API_BASE}/{path}"
     if request.url.query:
         target_url = f"{target_url}?{request.url.query}"
@@ -133,8 +180,12 @@ async def proxy_figma(
     if resp.status_code in (401, 403):
         record_auth_failure(request)
 
+    media_type = resp.headers.get("content-type", "application/json")
+    if is_cacheable and resp.status_code == 200:
+        _cache_put(cache_key, resp.status_code, resp.content, media_type)
+
     return Response(
         content=resp.content,
         status_code=resp.status_code,
-        media_type=resp.headers.get("content-type", "application/json"),
+        media_type=media_type,
     )

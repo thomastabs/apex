@@ -9,6 +9,16 @@ from fastapi.testclient import TestClient
 from backend.app.main import app
 
 
+@pytest.fixture(autouse=True)
+def _clear_figma_cache():
+    """Reset the proxy's short-TTL GET cache so one test's 200 never leaks into another."""
+    from backend.app.api import figma_proxy
+
+    figma_proxy._cache.clear()
+    yield
+    figma_proxy._cache.clear()
+
+
 @pytest.fixture
 def client():
     return TestClient(app)
@@ -131,6 +141,46 @@ class TestProxyFigmaCatchAll:
         call = mock_http.request.call_args
         assert call.kwargs["method"] == "POST"
         assert json.loads(call.kwargs["content"]) == {"message": "hi"}
+
+    def test_get_200_cached_skips_second_upstream_call(self, client):
+        upstream = _mock_upstream(200, {"name": "Cached File", "document": {}})
+        patcher, mock_http = _patch_client(upstream)
+        with patcher:
+            r1 = client.get("/api/design/figma/files/CACHEKEY?depth=1", headers={"X-Figma-Token": TOKEN})
+            r2 = client.get("/api/design/figma/files/CACHEKEY?depth=1", headers={"X-Figma-Token": TOKEN})
+        assert r1.status_code == r2.status_code == 200
+        assert r1.json() == r2.json()
+        # Second identical GET served from cache — upstream hit only once.
+        assert mock_http.request.call_count == 1
+
+    def test_get_not_cached_across_distinct_tokens(self, client):
+        upstream = _mock_upstream(200, {"ok": True})
+        patcher, mock_http = _patch_client(upstream)
+        with patcher:
+            client.get("/api/design/figma/me", headers={"X-Figma-Token": TOKEN})
+            client.get("/api/design/figma/me", headers={"X-Figma-Token": TOKEN + "-other"})
+        # Cache key includes the token digest → no cross-token leakage.
+        assert mock_http.request.call_count == 2
+
+    def test_non_200_get_not_cached(self, client):
+        upstream = _mock_upstream(404, {"err": "Not found"})
+        patcher, mock_http = _patch_client(upstream)
+        with patcher:
+            client.get("/api/design/figma/files/X404?depth=1", headers={"X-Figma-Token": TOKEN})
+            client.get("/api/design/figma/files/X404?depth=1", headers={"X-Figma-Token": TOKEN})
+        # Errors must not be cached — both reach upstream.
+        assert mock_http.request.call_count == 2
+
+    def test_upstream_429_retried_then_succeeds(self, client):
+        ok = _mock_upstream(200, {"name": "Recovered", "document": {}})
+        throttled = _mock_upstream(429, {"err": "rate limited"})
+        throttled.headers = {"content-type": "application/json", "retry-after": "0"}
+        mock_http = MagicMock()
+        mock_http.request = AsyncMock(side_effect=[throttled, ok])
+        with patch("backend.app.api.figma_proxy._get_client", return_value=mock_http):
+            resp = client.get("/api/design/figma/files/RETRY?depth=1", headers={"X-Figma-Token": TOKEN})
+        assert resp.status_code == 200
+        assert mock_http.request.call_count == 2
 
 
 # ---------------------------------------------------------------------------

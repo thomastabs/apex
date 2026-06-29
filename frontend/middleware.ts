@@ -32,7 +32,7 @@ export function middleware(request: NextRequest) {
     "default-src 'self'",
     scriptSrc,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    "img-src 'self' data: blob: https://s3-alpha.figma.com https://s3-alpha-sig.figma.com https://figma-alpha-api.s3.us-west-2.amazonaws.com",
     "font-src 'self' data:",
     "connect-src 'self' http://localhost:8000 https:",
     "frame-ancestors 'none'",

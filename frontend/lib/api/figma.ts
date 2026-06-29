@@ -62,6 +62,24 @@ function figmaHeaders(token: string): Record<string, string> {
   return { "X-Figma-Token": token };
 }
 
+// Collapse concurrent identical Figma GETs (a file open fans out across several
+// components — board thumbnail, sidebar verify, drift scan — all hitting the same
+// rate-limited endpoint). Sharing one in-flight promise keeps the burst from
+// counting N times against Figma's cost-based limit (429). Read-only; never used
+// for mutations. Entry clears as soon as the request settles.
+const _figmaInflight = new Map<string, Promise<unknown>>();
+
+function figmaGet<T>(path: string, token: string): Promise<T> {
+  const key = `${token.slice(-8)}:${path}`;
+  const existing = _figmaInflight.get(key) as Promise<T> | undefined;
+  if (existing) return existing;
+  const p = apiRequest<T>(path, { headers: figmaHeaders(token) }).finally(() => {
+    _figmaInflight.delete(key);
+  });
+  _figmaInflight.set(key, p);
+  return p;
+}
+
 // ---------------------------------------------------------------------------
 // URL parsing
 // ---------------------------------------------------------------------------
@@ -105,17 +123,13 @@ export function parseFigmaProjectUrl(input: string): { projectId: string } | nul
 
 /** Verify a file is reachable; returns its name + last-modified. Throws on a bad token/key. */
 export async function figmaVerifyFile(token: string, fileKey: string): Promise<{ name: string; lastModified: string }> {
-  const file = await apiRequest<FigmaFile>(`/api/design/figma/files/${fileKey}?depth=1`, {
-    headers: figmaHeaders(token),
-  });
+  const file = await figmaGet<FigmaFile>(`/api/design/figma/files/${fileKey}?depth=1`, token);
   return { name: file.name, lastModified: file.lastModified };
 }
 
 /** Fetch the file document tree, bounded by depth (default 2 = pages + top-level frames). */
 export function figmaGetFile(token: string, fileKey: string, depth = 2): Promise<FigmaFile> {
-  return apiRequest<FigmaFile>(`/api/design/figma/files/${fileKey}?depth=${depth}`, {
-    headers: figmaHeaders(token),
-  });
+  return figmaGet<FigmaFile>(`/api/design/figma/files/${fileKey}?depth=${depth}`, token);
 }
 
 /**
@@ -124,17 +138,13 @@ export function figmaGetFile(token: string, fileKey: string, depth = 2): Promise
  * 403 here (surfaced to the user as a re-mint prompt). Routes through the proxy.
  */
 export async function figmaGetProjectFiles(token: string, projectId: string): Promise<FigmaProjectFile[]> {
-  const data = await apiRequest<{ files?: FigmaProjectFile[] }>(`/api/design/figma/projects/${projectId}/files`, {
-    headers: figmaHeaders(token),
-  });
+  const data = await figmaGet<{ files?: FigmaProjectFile[] }>(`/api/design/figma/projects/${projectId}/files`, token);
   return data.files ?? [];
 }
 
 /** Top-level comments on the file (for design-review context). */
 export async function figmaGetComments(token: string, fileKey: string): Promise<FigmaComment[]> {
-  const data = await apiRequest<{ comments?: FigmaComment[] }>(`/api/design/figma/files/${fileKey}/comments`, {
-    headers: figmaHeaders(token),
-  });
+  const data = await figmaGet<{ comments?: FigmaComment[] }>(`/api/design/figma/files/${fileKey}/comments`, token);
   return data.comments ?? [];
 }
 
@@ -187,17 +197,15 @@ interface FigmaComponentMeta {
 
 /** Published local styles (color/text/effect) — names + node ids. Empty when no library. */
 export async function figmaGetPublishedStyles(token: string, fileKey: string): Promise<FigmaStyleMeta[]> {
-  const data = await apiRequest<{ meta?: { styles?: FigmaStyleMeta[] } }>(`/api/design/figma/files/${fileKey}/styles`, {
-    headers: figmaHeaders(token),
-  });
+  const data = await figmaGet<{ meta?: { styles?: FigmaStyleMeta[] } }>(`/api/design/figma/files/${fileKey}/styles`, token);
   return data.meta?.styles ?? [];
 }
 
 /** Published components — the component inventory (names). */
 export async function figmaGetPublishedComponents(token: string, fileKey: string): Promise<FigmaComponentMeta[]> {
-  const data = await apiRequest<{ meta?: { components?: FigmaComponentMeta[] } }>(
+  const data = await figmaGet<{ meta?: { components?: FigmaComponentMeta[] } }>(
     `/api/design/figma/files/${fileKey}/components`,
-    { headers: figmaHeaders(token) },
+    token,
   );
   return data.meta?.components ?? [];
 }
@@ -206,9 +214,9 @@ export async function figmaGetPublishedComponents(token: string, fileKey: string
 export async function figmaGetNodes(token: string, fileKey: string, ids: string[]): Promise<Record<string, FigmaNode>> {
   if (!ids.length) return {};
   const q = encodeURIComponent(ids.join(","));
-  const data = await apiRequest<{ nodes?: Record<string, { document?: FigmaNode }> }>(
+  const data = await figmaGet<{ nodes?: Record<string, { document?: FigmaNode }> }>(
     `/api/design/figma/files/${fileKey}/nodes?ids=${q}&depth=0`,
-    { headers: figmaHeaders(token) },
+    token,
   );
   const out: Record<string, FigmaNode> = {};
   for (const [id, payload] of Object.entries(data.nodes ?? {})) {
@@ -326,9 +334,9 @@ export function buildDesignTokensMarkdown(tokens: FigmaDesignTokens): string {
 export async function figmaThumbnails(token: string, fileKey: string, ids: string[]): Promise<Record<string, string>> {
   if (!ids.length) return {};
   const q = encodeURIComponent(ids.join(","));
-  const data = await apiRequest<{ images?: Record<string, string | null> }>(
+  const data = await figmaGet<{ images?: Record<string, string | null> }>(
     `/api/design/figma/images/${fileKey}?ids=${q}&format=png&scale=0.5`,
-    { headers: figmaHeaders(token) },
+    token,
   );
   const out: Record<string, string> = {};
   for (const [id, url] of Object.entries(data.images ?? {})) {
