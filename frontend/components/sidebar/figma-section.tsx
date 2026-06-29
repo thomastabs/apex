@@ -119,7 +119,8 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
     : null;
 
   async function connectFile(token: string, fileKey: string) {
-    const meta = await figmaVerifyFile(token, fileKey);
+    // force=true: a deliberate Connect must reach Figma even if a prior 429 set a cooldown.
+    const meta = await figmaVerifyFile(token, fileKey, true);
     await saveFigmaConfig.mutateAsync(fileKey);
     setFigma({ token, fileKey, fileName: meta.name });
     setFileName(meta.name);
@@ -140,7 +141,7 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
       const project = parseFigmaProjectUrl(url);
       if (project) {
         try {
-          const files = await figmaGetProjectFiles(token, project.projectId);
+          const files = await figmaGetProjectFiles(token, project.projectId, true);
           if (!files.length) {
             toast.info("No files found in this Figma project.");
           }

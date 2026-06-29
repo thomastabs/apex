@@ -196,6 +196,24 @@ class TestProxyFigmaCatchAll:
         assert r1.status_code == r2.status_code == 429
         assert mock_http.request.call_count == 1
 
+    def test_force_header_bypasses_cooldown_and_reaches_figma(self, client):
+        throttled = _mock_upstream(429, {"err": "rate limited"})
+        throttled.headers = {"content-type": "application/json", "retry-after": "300"}
+        ok = _mock_upstream(200, {"name": "Connected", "document": {}})
+        mock_http = MagicMock()
+        mock_http.request = AsyncMock(side_effect=[throttled, ok])
+        with patch("backend.app.api.figma_proxy._get_client", return_value=mock_http):
+            # First call trips the cooldown.
+            r1 = client.get("/api/design/figma/files/CONN?depth=1", headers={"X-Figma-Token": TOKEN})
+            # A normal retry would be short-circuited locally; X-Figma-Force reaches Figma.
+            r2 = client.get(
+                "/api/design/figma/files/CONN?depth=1",
+                headers={"X-Figma-Token": TOKEN, "X-Figma-Force": "1"},
+            )
+        assert r1.status_code == 429
+        assert r2.status_code == 200  # forced past the cooldown
+        assert mock_http.request.call_count == 2
+
     def test_429_serves_stale_cached_200(self, client):
         ok = _mock_upstream(200, {"name": "Good", "document": {}})
         throttled = _mock_upstream(429, {"err": "rate limited"})

@@ -148,6 +148,7 @@ async def proxy_figma(
     path: str,
     request: Request,
     x_figma_token: str = Header(default="", alias="X-Figma-Token"),
+    x_figma_force: str = Header(default="", alias="X-Figma-Force"),
 ) -> Response:
     """Forward any Figma REST API call server-side to eliminate browser CORS issues."""
     token = x_figma_token.strip()
@@ -178,8 +179,12 @@ async def proxy_figma(
             detail=f"host {_FIGMA_HOST!r} is not in the egress allowlist.",
         )
 
-    is_cacheable = request.method == "GET"
-    cache_key = _cache_key(path, request.url.query, token) if is_cacheable else ""
+    # A deliberate user action (e.g. clicking "Connect Figma") sets X-Figma-Force so
+    # the request always reaches Figma — the cooldown/cache must never short-circuit
+    # a manual retry, only the app's automatic background fan-out (thumbnails, drift).
+    force = x_figma_force.strip() == "1"
+    is_cacheable = request.method == "GET" and not force
+    cache_key = _cache_key(path, request.url.query, token) if request.method == "GET" else ""
     if is_cacheable:
         fresh = _cache_get(cache_key)
         if fresh is not None:
@@ -226,17 +231,22 @@ async def proxy_figma(
         record_auth_failure(request)
 
     media_type = resp.headers.get("content-type", "application/json")
-    if is_cacheable and resp.status_code == 200:
+    # Cache/cooldown bookkeeping runs for every GET (including a forced one) so a
+    # successful manual connect warms the cache and a 429 still backs off the
+    # background fan-out — force only bypasses the *inbound* short-circuit.
+    is_get = request.method == "GET"
+    if is_get and resp.status_code == 200:
         _cache_put(cache_key, resp.status_code, resp.content, media_type)
-    elif is_cacheable and resp.status_code == 429:
+    elif is_get and resp.status_code == 429:
         # Start a cooldown so the next identical GET skips Figma and lets the
         # bucket refill; if we have recent data, serve it stale instead of erroring.
         ra = resp.headers.get("retry-after", "").strip()
         _set_cooldown(cache_key, float(ra) if ra.isdigit() else None)
-        stale = _cache_get(cache_key, allow_stale=True)
-        if stale is not None:
-            code, content, media = stale
-            return Response(content=content, status_code=code, media_type=media)
+        if not force:
+            stale = _cache_get(cache_key, allow_stale=True)
+            if stale is not None:
+                code, content, media = stale
+                return Response(content=content, status_code=code, media_type=media)
 
     return Response(
         content=resp.content,

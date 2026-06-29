@@ -69,11 +69,15 @@ function figmaHeaders(token: string): Record<string, string> {
 // for mutations. Entry clears as soon as the request settles.
 const _figmaInflight = new Map<string, Promise<unknown>>();
 
-function figmaGet<T>(path: string, token: string): Promise<T> {
+function figmaGet<T>(path: string, token: string, force = false): Promise<T> {
+  // A forced (user-initiated) request must always reach the backend → never share
+  // an in-flight promise and signal X-Figma-Force so it bypasses the cooldown.
+  const headers = force ? { ...figmaHeaders(token), "X-Figma-Force": "1" } : figmaHeaders(token);
+  if (force) return apiRequest<T>(path, { headers });
   const key = `${token.slice(-8)}:${path}`;
   const existing = _figmaInflight.get(key) as Promise<T> | undefined;
   if (existing) return existing;
-  const p = apiRequest<T>(path, { headers: figmaHeaders(token) }).finally(() => {
+  const p = apiRequest<T>(path, { headers }).finally(() => {
     _figmaInflight.delete(key);
   });
   _figmaInflight.set(key, p);
@@ -121,9 +125,13 @@ export function parseFigmaProjectUrl(input: string): { projectId: string } | nul
 // API calls (via proxy)
 // ---------------------------------------------------------------------------
 
-/** Verify a file is reachable; returns its name + last-modified. Throws on a bad token/key. */
-export async function figmaVerifyFile(token: string, fileKey: string): Promise<{ name: string; lastModified: string }> {
-  const file = await figmaGet<FigmaFile>(`/api/design/figma/files/${fileKey}?depth=1`, token);
+/**
+ * Verify a file is reachable; returns its name + last-modified. Throws on a bad token/key.
+ * `force` marks a deliberate user action (Connect / pick-file) so the backend bypasses
+ * its 429 cooldown and the request actually reaches Figma instead of being short-circuited.
+ */
+export async function figmaVerifyFile(token: string, fileKey: string, force = false): Promise<{ name: string; lastModified: string }> {
+  const file = await figmaGet<FigmaFile>(`/api/design/figma/files/${fileKey}?depth=1`, token, force);
   return { name: file.name, lastModified: file.lastModified };
 }
 
@@ -137,8 +145,8 @@ export function figmaGetFile(token: string, fileKey: string, depth = 2): Promise
  * the `projects:read` scope — a token that only carries `file_content:read` gets a
  * 403 here (surfaced to the user as a re-mint prompt). Routes through the proxy.
  */
-export async function figmaGetProjectFiles(token: string, projectId: string): Promise<FigmaProjectFile[]> {
-  const data = await figmaGet<{ files?: FigmaProjectFile[] }>(`/api/design/figma/projects/${projectId}/files`, token);
+export async function figmaGetProjectFiles(token: string, projectId: string, force = false): Promise<FigmaProjectFile[]> {
+  const data = await figmaGet<{ files?: FigmaProjectFile[] }>(`/api/design/figma/projects/${projectId}/files`, token, force);
   return data.files ?? [];
 }
 
