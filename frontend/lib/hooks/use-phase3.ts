@@ -29,7 +29,7 @@ const EFFORT_POINTS: Record<EffortEstimate, number> = {
   XS: 1, S: 2, M: 3, L: 5, XL: 8,
 };
 import { usePhase3Store } from "@/lib/stores/phase3-store";
-import { useApiContext } from "@/lib/stores/session-store";
+import { useApiContext, useFigmaContext } from "@/lib/stores/session-store";
 import { useCancellableMutation } from "@/lib/hooks/use-cancellable-mutation";
 import { toast } from "sonner";
 
@@ -275,11 +275,12 @@ export function useCrossCheckTasks() {
 
 export function useGenerateProposal() {
   const context = useApiContext();
+  const figma = useFigmaContext();
 
   // NOTE: the result is committed by the caller (phase3-workflow handleGenerate)
   // so a regenerate-over-existing pack can be routed through the diff gate first.
   return useCancellableMutation(
-    (body: Phase3GenerateProposalRequest, signal) => generateProposal(context!, body, signal),
+    (body: Phase3GenerateProposalRequest, signal) => generateProposal(context!, body, signal, figma?.token),
     {
       onError: () => toast.error("Pack generation failed. Try again."),
     },

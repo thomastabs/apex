@@ -489,6 +489,23 @@ class TestEpicSuggestionSchema:
         assert restored.description == original.description
 
 
+class TestFigmaDesignBlock:
+    """_figma_design_block — advisory Phase-3 design-system injection (A)."""
+
+    def test_renders_when_context_present(self):
+        from src.ai_engine import _figma_design_block
+        out = _figma_design_block("## Design system\n### Components\nButton, Card")
+        assert "Design Reference (Figma)" in out
+        assert "Button, Card" in out
+
+    def test_empty_when_blank_or_placeholder(self):
+        from src.ai_engine import _figma_design_block
+        assert _figma_design_block("") == ""
+        assert _figma_design_block("   ") == ""
+        # The unsynced figma-context.md template starts with an HTML comment.
+        assert _figma_design_block("<!-- not synced yet -->") == ""
+
+
 class TestPromptFencing:
     """fence_user_content + the standing system rule (audit H2)."""
 

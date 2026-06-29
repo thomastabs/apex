@@ -96,11 +96,13 @@ class StubPhase3Service:
         hint="",
         recent_commits_context="",
         all_tasks=None,
+        figma_token="",
     ):
         self.last_generate_proposal_kwargs = {
             "hint": hint,
             "recent_commits_context": recent_commits_context,
             "all_tasks": all_tasks,
+            "figma_token": figma_token,
         }
         return _FAKE_PROPOSAL
 
@@ -171,6 +173,7 @@ def test_generate_proposal_route_basic():
         ctx=_ctx(),
         service=StubPhase3Service(),
         _rl=None,
+        x_figma_token="",
     )
     assert "## Context" in result["proposal_md"]
     assert "## Agentic Brief" in result["proposal_md"]
@@ -190,6 +193,7 @@ def test_generate_proposal_passes_hint():
         ctx=_ctx(),
         service=svc,
         _rl=None,
+        x_figma_token="",
     )
     assert svc.last_generate_proposal_kwargs["hint"] == "use SQLModel instead of SQLAlchemy"
 
@@ -211,6 +215,7 @@ def test_generate_proposal_passes_all_tasks():
         ctx=_ctx(),
         service=svc,
         _rl=None,
+        x_figma_token="",
     )
     passed = svc.last_generate_proposal_kwargs["all_tasks"]
     assert len(passed) == 2
@@ -233,6 +238,7 @@ def test_generate_proposal_passes_recent_commits():
         ctx=_ctx(),
         service=svc,
         _rl=None,
+        x_figma_token="",
     )
     assert svc.last_generate_proposal_kwargs["recent_commits_context"] == commits
 
@@ -320,6 +326,7 @@ def test_ai_timeout_error_maps_to_504():
             ctx=_ctx(),
             service=FailingService(),
             _rl=None,
+            x_figma_token="",
         )
 
     assert exc.value.status_code == 504
@@ -339,6 +346,7 @@ def test_ai_error_maps_to_502():
             ctx=_ctx(),
             service=FailingService(),
             _rl=None,
+            x_figma_token="",
         )
 
     assert exc.value.status_code == 502

@@ -2,7 +2,7 @@
 
 from typing import NoReturn
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 
 from backend.app.api.deps import RequestContext, get_request_context
 from backend.app.api.rate_limit import ai_rate_limit
@@ -88,6 +88,7 @@ def generate_proposal(
     payload: GenerateProposalRequest,
     ctx: RequestContext = Depends(get_request_context),
     service: Phase3Service = Depends(get_phase3_service),
+    x_figma_token: str = Header(default="", alias="X-Figma-Token"),
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
@@ -100,6 +101,7 @@ def generate_proposal(
             hint=payload.hint,
             recent_commits_context=payload.recent_commits_context,
             all_tasks=[t.model_dump() for t in payload.all_tasks],
+            figma_token=x_figma_token.strip(),
         )
         return {"proposal_md": md}
     except Exception as exc:

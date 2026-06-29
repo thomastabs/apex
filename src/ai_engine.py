@@ -1670,6 +1670,23 @@ Technical Spec (endpoint contracts):
 """
 
 
+def _figma_design_block(figma_context: str) -> str:
+    """Advisory Figma design-system block for Phase-3 prompts ("" when absent).
+
+    Surfaces the synced screens, prototype flows, and design tokens (component
+    inventory + color/text styles) so task decomposition and developer packs
+    reference the REAL design system instead of inventing UI vocabulary."""
+    if not figma_context.strip() or figma_context.strip().startswith("<!--"):
+        return ""
+    return (
+        "\n\nDesign Reference (Figma) — the synced screens, prototype flows, and design "
+        "system (component inventory + color/text tokens) for this product. For any UI work, "
+        "reference these REAL components and tokens and the intended screen flow; never invent "
+        "screens, components, or styles absent from it, and add no functional behaviour beyond "
+        "the Gherkin:\n" + fence_user_content(figma_context)
+    )
+
+
 def generate_tasks(
     story_subject: str,
     gherkin: str,
@@ -1679,6 +1696,7 @@ def generate_tasks(
     github_context: str = "",
     model: str = "",
     instructions: str = "",
+    figma_context: str = "",
 ) -> Phase3TaskList:
     system = _GENERATE_TASKS_SYSTEM.format(
         tech_stack=fence_user_content(tech_stack.strip() or "Not specified"),
@@ -1687,6 +1705,7 @@ def generate_tasks(
     )
     if github_context.strip() and not github_context.strip().startswith("<!--"):
         system += "\n\nExisting Codebase (GitHub):\n" + fence_user_content(github_context)
+    system += _figma_design_block(figma_context)
     system += _guidance_block(instructions)
     human = (
         "User Story: " + fence_user_content(story_subject)
@@ -2003,6 +2022,8 @@ def generate_coding_proposal(
     sibling_packs: list[dict] | None = None,
     constraints: str = "",
     decisions: str = "",
+    figma_context: str = "",
+    images: list[dict] | None = None,
 ) -> str:
     system = _GENERATE_PROPOSAL_SYSTEM.format(
         tech_stack=fence_user_content(tech_stack.strip() or "Not specified"),
@@ -2034,6 +2055,7 @@ def generate_coding_proposal(
             + fence_user_content(constraints)
         )
     system += _decisions_block(decisions)
+    system += _figma_design_block(figma_context)
     if github_context.strip() and not github_context.strip().startswith("<!--"):
         system += "\n\nExisting Codebase (GitHub):\n" + fence_user_content(github_context)
     if recent_commits.strip():
@@ -2048,10 +2070,17 @@ def generate_coding_proposal(
             "Implementation Hint (prioritise in the implementation steps): "
             + fence_user_content(hint) + "\n\n"
         )
+    if images:
+        human += (
+            "The image(s) below are the REAL designed screen this task implements — treat them as "
+            "the source of truth for layout, components, and visual states. Match the design; do not "
+            "invent UI absent from it.\n\n"
+        )
     human += "Produce the structured Developer Pack for this task."
     pack = _ai_retry(lambda: _invoke_structured_with_progress(
         system, human, get_model(), Phase3Pack,
         max_tokens=4000, temperature=0.2, item_field="implementation_steps",
+        images=images,
     ))
     # Wrappers are rendered deterministically — never AI-regenerated.
     return render_pack_md(

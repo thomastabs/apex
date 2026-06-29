@@ -89,10 +89,11 @@ class Phase3Service:
         tech_stack = self.context.read_tech_stack()
         design_bundle = self.context.story_design_bundle(story_id)
         github_context = self.context.read_context_file("github-context.md")
+        figma_context = self.context.read_context_file("figma-context.md")
         return self.ai.generate_tasks(
             story_title, gherkin, technical_spec,
             tech_stack=tech_stack, design_bundle=design_bundle, github_context=github_context,
-            instructions=instructions,
+            instructions=instructions, figma_context=figma_context,
         )
 
     def cross_check_tasks(self, ctx: RequestContext, story_id: int, alt_model: str = "") -> dict:
@@ -140,6 +141,7 @@ class Phase3Service:
         hint: str = "",
         recent_commits_context: str = "",
         all_tasks: list[dict] | None = None,
+        figma_token: str = "",
     ) -> str:
         self.configure_request(ctx)
         index = self.context.story_index()
@@ -160,6 +162,23 @@ class Phase3Service:
         design_bundle = self.context.story_design_bundle(story_id)
         github_context = self.context.read_context_file("github-context.md")
         constraints = self.context.read_context_file("constraints.md")
+        figma_context = self.context.read_context_file("figma-context.md")
+        # B (multimodal): if this story is linked to a Figma frame and a token is
+        # supplied, render that ONE frame to a PNG so the developer pack is grounded
+        # in the literal designed screen. Advisory — the fetch helper never raises,
+        # so a bad token / unlinked story simply falls back to the text-only pack.
+        images: list[dict] = []
+        figma_node_id = entry.get("figma_node_id", "")
+        if figma_token and figma_node_id:
+            from src import context_manager
+            from backend.app.services.figma_fetch import fetch_frame_images
+
+            file_key = entry.get("figma_file_key", "") or context_manager.get_instance_figma_file_key()
+            if file_key:
+                images = fetch_frame_images(
+                    figma_token, file_key,
+                    [{"node_id": figma_node_id, "name": story_title}],
+                )
         # Only inject the decision log once it has real records (## entries), not
         # the bare template header — keeps the prompt unchanged for fresh projects.
         decisions_raw = self.context.read_context_file("decisions.md")
@@ -185,7 +204,7 @@ class Phase3Service:
             tech_stack=tech_stack, design_bundle=design_bundle, story_ref=story_ref,
             github_context=github_context, hint=hint, recent_commits=recent_commits_context,
             other_tasks=other_tasks, sibling_packs=sibling_packs, constraints=constraints,
-            decisions=decisions,
+            decisions=decisions, figma_context=figma_context, images=images or None,
         )
 
     def save_proposal(

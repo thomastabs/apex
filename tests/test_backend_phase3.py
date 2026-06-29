@@ -33,8 +33,9 @@ class FakeAiService:
         self.generate_proposal_args = None
         self.generate_proposal_kwargs: dict = {}
 
-    def generate_tasks(self, story_subject, gherkin, technical_spec, tech_stack="", design_bundle="", github_context="", instructions=""):
+    def generate_tasks(self, story_subject, gherkin, technical_spec, tech_stack="", design_bundle="", github_context="", instructions="", figma_context=""):
         self.generate_tasks_args = (story_subject, gherkin, technical_spec, tech_stack, design_bundle)
+        self.generate_tasks_figma_context = figma_context
         return _FAKE_TASKS
 
     def generate_proposal(
@@ -53,6 +54,8 @@ class FakeAiService:
         sibling_packs=None,
         constraints="",
         decisions="",
+        figma_context="",
+        images=None,
     ):
         self.generate_proposal_args = (task_subject, task_description, gherkin, technical_spec,
                                        tech_stack, design_bundle, story_ref)
@@ -63,6 +66,8 @@ class FakeAiService:
             "sibling_packs": sibling_packs,
             "constraints": constraints,
             "decisions": decisions,
+            "figma_context": figma_context,
+            "images": images,
         }
         return _FAKE_PROPOSAL
 
@@ -102,7 +107,7 @@ class FakeContextService:
         return _FAKE_TECH_STACK
 
     def read_context_file(self, filename: str) -> str:
-        return _FAKE_DESIGN_BUNDLE
+        return getattr(self, "context_files", {}).get(filename, _FAKE_DESIGN_BUNDLE)
 
     def save_proposal(self, story_id: int, task_id: int, proposal_md: str) -> None:
         self.saved_proposals.append((story_id, task_id, proposal_md))
@@ -231,6 +236,16 @@ def test_generate_tasks_allowed_in_implementation():
     assert len(tasks) == 2
 
 
+def test_generate_tasks_injects_figma_context():
+    # A: design-system tokens/screens ground task decomposition.
+    ai = FakeAiService()
+    ctx_svc = FakeContextService()
+    ctx_svc.context_files = {"figma-context.md": "## Design system\n### Components\nButton, Card"}
+    svc = Phase3Service(ai=ai, context=ctx_svc)
+    svc.generate_tasks(_ctx(), 10)
+    assert "Button, Card" in ai.generate_tasks_figma_context
+
+
 # ---------------------------------------------------------------------------
 # generate_proposal
 # ---------------------------------------------------------------------------
@@ -257,6 +272,45 @@ def test_generate_proposal_rejects_pre_design_status():
     svc = Phase3Service(ai=FakeAiService(), context=ctx_svc)
     with pytest.raises(Phase3ValidationError, match="not ready for developer packs"):
         svc.generate_proposal(_ctx(), 10, 1, "Implement endpoint", "Create the login route.")
+
+
+def test_generate_proposal_injects_figma_context():
+    # A: figma design system flows into the developer pack.
+    ai = FakeAiService()
+    ctx_svc = FakeContextService()
+    ctx_svc.context_files = {"figma-context.md": "## Design system\n### Color tokens\n- Primary/500 — #1A73E8"}
+    svc = Phase3Service(ai=ai, context=ctx_svc)
+    svc.generate_proposal(_ctx(), 10, 1, "Build login screen", "UI")
+    assert "Primary/500" in ai.generate_proposal_kwargs["figma_context"]
+
+
+def test_generate_proposal_renders_linked_frame_image(monkeypatch):
+    # B: a linked frame + token → render that frame and attach it to the pack.
+    index = _story_index()
+    index["10"]["figma_node_id"] = "1:1"
+    index["10"]["figma_file_key"] = "FILEK"
+    ai = FakeAiService()
+    svc = Phase3Service(ai=ai, context=FakeContextService(index=index))
+    import backend.app.services.figma_fetch as ff
+    captured = {}
+
+    def _imgs(token, file_key, frames):
+        captured["args"] = (token, file_key, [f["node_id"] for f in frames])
+        return [{"node_id": "1:1", "name": "Login", "b64_png": "X", "media_type": "image/png"}]
+
+    monkeypatch.setattr(ff, "fetch_frame_images", _imgs)
+    svc.generate_proposal(_ctx(), 10, 1, "Build login screen", "UI", figma_token="tok")
+    assert captured["args"] == ("tok", "FILEK", ["1:1"])
+    imgs = ai.generate_proposal_kwargs["images"]
+    assert imgs and imgs[0]["node_id"] == "1:1"
+
+
+def test_generate_proposal_no_image_without_link_or_token():
+    # No linked frame → no image even with a token; no token → no image even if linked.
+    ai = FakeAiService()
+    svc = Phase3Service(ai=ai, context=FakeContextService())  # story has no figma_node_id
+    svc.generate_proposal(_ctx(), 10, 1, "Build login screen", "UI", figma_token="tok")
+    assert ai.generate_proposal_kwargs["images"] is None
 
 
 def test_generate_proposal_passes_sibling_packs_excluding_self():

@@ -42,11 +42,19 @@ export function generateTasks(context: RequestContext, storyId: number, instruct
   });
 }
 
-export function generateProposal(context: RequestContext, body: Phase3GenerateProposalRequest, signal?: AbortSignal) {
+export function generateProposal(
+  context: RequestContext,
+  body: Phase3GenerateProposalRequest,
+  signal?: AbortSignal,
+  // When the story is linked to a Figma frame, passing the token lets the backend
+  // render that screen to a PNG and attach it to the developer pack (multimodal).
+  figmaToken?: string,
+) {
   return apiRequest<Phase3GenerateProposalResponse>("/api/phase3/generate-proposal", {
     method: "POST",
     context,
     body,
+    headers: figmaToken ? { "X-Figma-Token": figmaToken } : undefined,
     timeoutMs: PHASE3_AI_TIMEOUT_MS,
     signal,
   });
