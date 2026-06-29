@@ -33,7 +33,10 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
   const [projectFiles, setProjectFiles] = useState<FigmaProjectFile[] | null>(null);
 
   const setFigma = useSessionStore((s) => s.setFigma);
+  // Persisted verified name — avoids a rate-limited /files?depth=1 verify on every nav.
+  const cachedName = useSessionStore((s) => s.figmaFileName);
   const figma = useFigmaContext();
+  const displayName = fileName ?? (cachedName || null);
   const saveFigmaConfig = useSaveFigmaConfig();
   const syncContext = useSyncFigmaContext();
   const scanChanges = useScanFigmaChanges();
@@ -103,11 +106,12 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
 
   // Verify file metadata when the section opens and the user is connected.
   useEffect(() => {
-    if (!open || !isConnected || !figma || fileName) return;
+    // Already have a name (this session or cached from a prior nav) → no verify call.
+    if (!open || !isConnected || !figma || displayName) return;
     figmaVerifyFile(figma.token, figma.fileKey)
-      .then((m) => setFileName(m.name))
-      .catch(() => {/* token may have expired — fail silently */});
-  }, [open, isConnected]); // eslint-disable-line react-hooks/exhaustive-deps
+      .then((m) => { setFileName(m.name); setFigma({ fileName: m.name }); })
+      .catch(() => {/* token may have expired / be throttled — fail silently */});
+  }, [open, isConnected, displayName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const lastSynced = contextFiles.data?.files.find((f) => f.filename === "figma-context.md")?.last_modified;
   const lastSyncedLabel = lastSynced
@@ -117,7 +121,7 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
   async function connectFile(token: string, fileKey: string) {
     const meta = await figmaVerifyFile(token, fileKey);
     await saveFigmaConfig.mutateAsync(fileKey);
-    setFigma({ token, fileKey });
+    setFigma({ token, fileKey, fileName: meta.name });
     setFileName(meta.name);
     setProjectFiles(null);
     toast.success(`Connected to ${meta.name}`);
@@ -189,7 +193,7 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
         <PanelHeader
           icon={<Figma className="size-4" />}
           title="Figma"
-          badge={isConnected ? (fileName ?? figma!.fileKey) : undefined}
+          badge={isConnected ? (displayName ?? figma!.fileKey) : undefined}
           open={open}
           onClick={() => setOpen(!open)}
           onDragStart={onDragStart}
@@ -210,7 +214,7 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
                         dark ? "text-violet-300 hover:text-violet-200" : "text-violet-700 hover:text-violet-600",
                       )}
                     >
-                      {fileName ?? figma!.fileKey}
+                      {displayName ?? figma!.fileKey}
                     </a>
                     <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 text-neutral-500 hover:text-violet-400">
                       <ExternalLink className="size-3.5" />

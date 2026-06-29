@@ -22,11 +22,14 @@ type SessionState = {
   // Figma personal access token (NOT persisted — re-entered each session, like githubPat).
   figmaToken: string;
   figmaFileKey: string;
+  // Cached verified file name for figmaFileKey — lets the sidebar skip a
+  // /files?depth=1 verify on every navigation (that call is rate-limited).
+  figmaFileName: string;
   setSession: (session: { taigaToken: string; taigaApiUrl?: string; projectId?: number; projectName?: string; pmTool?: PmTool; jiraEmail?: string }) => void;
   setAuth: (auth: { taigaToken: string; taigaApiUrl?: string; pmTool?: PmTool; jiraEmail?: string }) => void;
   setProject: (project: { projectId: number; projectName?: string; pmProjectSlug?: string }) => void;
   setGithub: (opts: { pat?: string; repo?: string }) => void;
-  setFigma: (opts: { token?: string; fileKey?: string }) => void;
+  setFigma: (opts: { token?: string; fileKey?: string; fileName?: string }) => void;
   clearSession: () => void;
 };
 
@@ -45,6 +48,7 @@ export const useSessionStore = create<SessionState>()(
       githubRepo: "",
       figmaToken: "",
       figmaFileKey: "",
+      figmaFileName: "",
       setSession: ({ taigaToken, taigaApiUrl, projectId, projectName = "", pmTool, jiraEmail }) =>
         set({
           taigaToken,
@@ -70,11 +74,13 @@ export const useSessionStore = create<SessionState>()(
         ...(pat !== undefined ? { githubPat: pat } : {}),
         ...(repo !== undefined ? { githubRepo: repo } : {}),
       }),
-      setFigma: ({ token, fileKey }) => set({
+      setFigma: ({ token, fileKey, fileName }) => set({
         ...(token !== undefined ? { figmaToken: token } : {}),
-        ...(fileKey !== undefined ? { figmaFileKey: fileKey } : {}),
+        // A new file key invalidates the cached name unless one is supplied.
+        ...(fileKey !== undefined ? { figmaFileKey: fileKey, figmaFileName: fileName ?? "" } : {}),
+        ...(fileKey === undefined && fileName !== undefined ? { figmaFileName: fileName } : {}),
       }),
-      clearSession: () => set((s) => ({ pmTool: s.pmTool, taigaToken: "", taigaApiUrl: "", jiraEmail: "", projectId: null, projectName: "", pmProjectSlug: "", projectInstanceUrl: "", githubPat: "", githubRepo: "", figmaToken: "", figmaFileKey: "" })),
+      clearSession: () => set((s) => ({ pmTool: s.pmTool, taigaToken: "", taigaApiUrl: "", jiraEmail: "", projectId: null, projectName: "", pmProjectSlug: "", projectInstanceUrl: "", githubPat: "", githubRepo: "", figmaToken: "", figmaFileKey: "", figmaFileName: "" })),
     }),
     {
       name: "apex-session",
@@ -87,7 +93,7 @@ export const useSessionStore = create<SessionState>()(
         try { localStorage.removeItem("apex-session"); } catch { /* ignore */ }
         return sessionStorage;
       }),
-      version: 7,
+      version: 8,
       migrate: (persisted: unknown) => {
         const state = (persisted ?? {}) as Record<string, unknown>;
         return {
@@ -105,6 +111,7 @@ export const useSessionStore = create<SessionState>()(
           githubRepo: (state.githubRepo as string) ?? "",
           figmaToken: "",
           figmaFileKey: (state.figmaFileKey as string) ?? "",
+          figmaFileName: (state.figmaFileName as string) ?? "",
         };
       },
       // githubPat / figmaToken intentionally excluded — these credentials are not
@@ -120,6 +127,7 @@ export const useSessionStore = create<SessionState>()(
         projectInstanceUrl: state.projectInstanceUrl,
         githubRepo: state.githubRepo,
         figmaFileKey: state.figmaFileKey,
+        figmaFileName: state.figmaFileName,
       }),
     },
   ),
