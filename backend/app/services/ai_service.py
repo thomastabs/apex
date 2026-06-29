@@ -251,6 +251,7 @@ class AiService:
         constraints: str = "",
         instructions: str = "",
         emphasis: list[str] | None = None,
+        figma_context: str = "",
     ) -> str:
         return ai_engine.generate_test_plan(
             story_subject, gherkin, technical_spec, tech_stack=tech_stack,
@@ -258,6 +259,7 @@ class AiService:
             constraints=constraints,
             instructions=instructions,
             emphasis=emphasis or [],
+            figma_context=figma_context,
         )
 
     def generate_bug_report(

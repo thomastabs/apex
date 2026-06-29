@@ -116,6 +116,8 @@ class SetStoryFigmaLinkRequest(BaseModel):
     figma_node_id: str = Field("", max_length=100)
     figma_modified: str = Field("", max_length=64)
     figma_file_key: str = Field("", max_length=128)
+    # Structural fingerprint of the linked frame at link time (#2 per-frame drift).
+    figma_frame_hash: str = Field("", max_length=64)
 
 
 class ScanFigmaChangesRequest(BaseModel):
@@ -123,6 +125,9 @@ class ScanFigmaChangesRequest(BaseModel):
     # Project mode: per-file current lastModified (file key → timestamp; "" key =
     # the configured single file). When present, drift is scanned per file.
     modified_by_file: dict[str, str] | None = None
+    # Per-frame drift: maps "<file_key>#<node_id>" → the frame's current fingerprint.
+    # When present, a changed file only flags frames whose fingerprint actually moved.
+    hash_by_node: dict[str, str] | None = None
 
 
 class ScanFigmaChangesResponse(BaseModel):
@@ -132,6 +137,7 @@ class ScanFigmaChangesResponse(BaseModel):
 class AcknowledgeFigmaChangeRequest(BaseModel):
     current_modified: str = Field("", max_length=64)
     figma_file_key: str = Field("", max_length=128)
+    figma_frame_hash: str = Field("", max_length=64)
 
 
 class StoryIndexStatsResponse(BaseModel):

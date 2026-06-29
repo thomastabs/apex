@@ -29,6 +29,13 @@ _TIMEOUT = 20.0
 _FRAME_LIST_CAP = 4_000
 _COMMENTS_CAP = 2_000
 
+# Design-system token extraction (#1): caps keep the figma-context.md bounded.
+_MAX_COLOR_TOKENS = 30
+_MAX_TEXT_TOKENS = 24
+_MAX_EFFECT_TOKENS = 16
+_MAX_COMPONENTS = 60
+_MAX_HEX_NODE_FETCH = 50  # how many color-style nodes to resolve to hex in one /nodes call
+
 # Multimodal grounding (U1): the Figma /images endpoint renders frames to PNGs
 # but returns short-lived URLs on a SECOND host (its S3 image CDN), not bytes.
 # Downloading those bytes is a new egress hop, so it gets its own SSRF guard —
@@ -83,6 +90,38 @@ def get_comments(token: str, file_key: str) -> list[dict]:
         return []  # comments are advisory — never fail the pipeline on them
 
 
+def _short_hash(text: str) -> str:
+    """16-hex-char digest. MUST match the frontend ``_shortHash`` byte-for-byte so a
+    fingerprint captured server-side (Autopilot link) compares equal to one computed
+    client-side (sidebar scan). Two 32-bit rolling hashes (FNV-1a + djb2) concatenated."""
+    h1 = 0x811C9DC5
+    h2 = 0x1505
+    mask = 0xFFFFFFFF
+    for ch in text:
+        c = ord(ch) & 0xFFFF  # JS charCodeAt is a UTF-16 code unit
+        h1 = ((h1 ^ c) * 0x01000193) & mask
+        h2 = (((h2 * 33 + c) & mask) ^ (h2 >> 5)) & mask
+    return f"{h1:08x}{h2:08x}"
+
+
+def frame_fingerprint(node: dict) -> str:
+    """Stable structural fingerprint of a FRAME node (#2 per-frame drift).
+
+    Hashes the frame name, its rounded width×height, and the ordered list of its
+    DIRECT children as ``type:name`` — enough to catch a rename, resize, or an
+    added/removed/reordered element on THIS frame, while ignoring edits to other
+    frames in the same file. Requires the frame's direct children (file depth ≥ 3);
+    a childless node (shallow fetch) still fingerprints on name + size. Mirrors the
+    frontend ``figmaFrameFingerprint`` so link-time and scan-time hashes match."""
+    bbox = node.get("absoluteBoundingBox") or {}
+    w = round(bbox.get("width", 0) or 0)
+    h = round(bbox.get("height", 0) or 0)
+    parts = [node.get("name", ""), f"{w}x{h}"]
+    for child in node.get("children") or []:
+        parts.append(f"{child.get('type', '')}:{child.get('name', '')}")
+    return _short_hash("|".join(parts))
+
+
 def derive_frames_flows(file: dict) -> tuple[list[dict], list[dict]]:
     """Top-level FRAME nodes per CANVAS + prototype flow edges between them."""
     frames: list[dict] = []
@@ -109,7 +148,154 @@ def _truncate(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[:limit] + f"\n\n... [truncated at {limit} chars]"
 
 
-def build_context_markdown(file: dict, comments: list[dict]) -> str:
+# ---------------------------------------------------------------------------
+# Design-system token extraction (#1)
+# ---------------------------------------------------------------------------
+# Grounds Phase 2/3 generation in the REAL design system — the named color/text
+# tokens and the component inventory — so generated UI references the same
+# vocabulary the designer used instead of inventing ad-hoc styles.
+
+def _rgba_to_hex(color: dict) -> str:
+    def ch(v: float) -> int:
+        return max(0, min(255, round((v or 0) * 255)))
+    return f"#{ch(color.get('r')):02X}{ch(color.get('g')):02X}{ch(color.get('b')):02X}"
+
+
+def _solid_hex(node_doc: dict) -> str:
+    """First visible SOLID fill of a node, as a hex string ("" when none)."""
+    for fill in node_doc.get("fills") or []:
+        if fill.get("type") == "SOLID" and fill.get("visible", True):
+            return _rgba_to_hex(fill.get("color") or {})
+    return ""
+
+
+def get_published_styles(token: str, file_key: str) -> list[dict]:
+    """Published local styles (color/text/effect/grid) — names + node ids.
+
+    `GET /files/{key}/styles`. Empty for a file that publishes no library; that is
+    fine — token extraction is advisory."""
+    try:
+        return (_get(f"files/{file_key}/styles", token).get("meta") or {}).get("styles", []) or []
+    except FigmaFetchError:
+        return []
+
+
+def get_published_components(token: str, file_key: str) -> list[dict]:
+    """Published components — the component inventory (names). `GET /files/{key}/components`."""
+    try:
+        return (_get(f"files/{file_key}/components", token).get("meta") or {}).get("components", []) or []
+    except FigmaFetchError:
+        return []
+
+
+def get_nodes(token: str, file_key: str, node_ids: list[str]) -> dict:
+    """`GET /files/{key}/nodes?ids=` — used to resolve color-style nodes to hex values."""
+    if not node_ids:
+        return {}
+    try:
+        return _get(f"files/{file_key}/nodes", token, query=f"ids={','.join(node_ids)}&depth=0").get("nodes", {}) or {}
+    except FigmaFetchError:
+        return {}
+
+
+def extract_design_tokens(token: str, file_key: str, file: dict | None = None) -> dict:
+    """Pull the file's design system: named color/text/effect tokens + components.
+
+    Merges the published-library endpoints (`/styles`, `/components`) with the local
+    `styles`/`components` maps present on an already-fetched ``file`` (so a file that
+    does NOT publish a library still yields whatever it references). Color tokens are
+    enriched to hex via a single `/nodes` call. Advisory — any failure yields empty
+    lists. Returns {colors:[{name,hex}], text_styles:[name], effects:[name], components:[name]}."""
+    colors: dict[str, str] = {}      # name -> node_id (for hex enrichment); insertion-ordered
+    text_styles: list[str] = []
+    effects: list[str] = []
+    seen_text: set[str] = set()
+    seen_effect: set[str] = set()
+
+    def _add_style(name: str, style_type: str, node_id: str = "") -> None:
+        name = (name or "").strip()
+        if not name:
+            return
+        st = (style_type or "").upper()
+        if st == "FILL":
+            colors.setdefault(name, node_id)
+        elif st == "TEXT" and name not in seen_text:
+            seen_text.add(name)
+            text_styles.append(name)
+        elif st == "EFFECT" and name not in seen_effect:
+            seen_effect.add(name)
+            effects.append(name)
+
+    for s in get_published_styles(token, file_key):
+        _add_style(s.get("name", ""), s.get("style_type", ""), s.get("node_id", ""))
+    # Local styles from the file response: { styleId: {name, styleType} }.
+    for sid, meta in ((file or {}).get("styles") or {}).items():
+        _add_style(meta.get("name", ""), meta.get("styleType", ""), sid)
+
+    # Hex enrichment: resolve the color-style nodes (those with a real node id) in one call.
+    color_node_ids = [nid for nid in list(colors.values()) if nid][:_MAX_HEX_NODE_FETCH]
+    color_hex: dict[str, str] = {}
+    if color_node_ids:
+        nodes = get_nodes(token, file_key, color_node_ids)
+        nid_to_name = {nid: name for name, nid in colors.items() if nid}
+        for nid, payload in nodes.items():
+            doc = (payload or {}).get("document") or {}
+            hex_val = _solid_hex(doc)
+            if hex_val and nid in nid_to_name:
+                color_hex[nid_to_name[nid]] = hex_val
+
+    color_tokens = [{"name": name, "hex": color_hex.get(name, "")} for name in colors][:_MAX_COLOR_TOKENS]
+
+    # Components: published endpoint + local file.components map. Names only.
+    comp_names: list[str] = []
+    seen_comp: set[str] = set()
+    for c in get_published_components(token, file_key):
+        n = (c.get("name") or "").strip()
+        if n and n not in seen_comp:
+            seen_comp.add(n)
+            comp_names.append(n)
+    for _cid, meta in ((file or {}).get("components") or {}).items():
+        n = (meta.get("name") or "").strip()
+        if n and n not in seen_comp:
+            seen_comp.add(n)
+            comp_names.append(n)
+
+    return {
+        "colors": color_tokens,
+        "text_styles": text_styles[:_MAX_TEXT_TOKENS],
+        "effects": effects[:_MAX_EFFECT_TOKENS],
+        "components": comp_names[:_MAX_COMPONENTS],
+    }
+
+
+def build_design_tokens_markdown(tokens: dict) -> str:
+    """Render extracted tokens to a bounded '## Design system' markdown section ("" if empty)."""
+    if not tokens:
+        return ""
+    colors = tokens.get("colors") or []
+    text_styles = tokens.get("text_styles") or []
+    effects = tokens.get("effects") or []
+    components = tokens.get("components") or []
+    if not (colors or text_styles or effects or components):
+        return ""
+    parts = ["## Design system"]
+    if colors:
+        lines = []
+        for c in colors:
+            hex_val = c.get("hex") or ""
+            suffix = f" — {hex_val}" if hex_val else ""
+            lines.append(f"- {c.get('name', '')}{suffix}")
+        parts.append("### Color tokens\n\n" + "\n".join(lines))
+    if text_styles:
+        parts.append("### Text styles\n\n" + "\n".join(f"- {n}" for n in text_styles))
+    if effects:
+        parts.append("### Effect styles\n\n" + "\n".join(f"- {n}" for n in effects))
+    if components:
+        parts.append("### Components\n\n" + _truncate(", ".join(components), 2_000))
+    return "\n\n".join(parts)
+
+
+def build_context_markdown(file: dict, comments: list[dict], tokens: dict | None = None) -> str:
     """Python port of buildFigmaContextMarkdown — bounded markdown for figma-context.md."""
     frames, flows = derive_frames_flows(file)
     today = _dt.datetime.now(_dt.timezone.utc).date().isoformat()
@@ -135,6 +321,10 @@ def build_context_markdown(file: dict, comments: list[dict]) -> str:
         flow_lines = "\n".join(f"- {e['from_name']} → {e['to_name']}" for e in flows)
         sections.append(f"## Prototype flows\n\n{flow_lines}")
 
+    tokens_md = build_design_tokens_markdown(tokens or {})
+    if tokens_md:
+        sections.append(tokens_md)
+
     if comments:
         comment_lines: list[str] = []
         for c in comments[:30]:
@@ -151,7 +341,8 @@ def fetch_context_and_frames(token: str, file_key: str) -> tuple[str, list[dict]
     file = get_file(token, file_key, depth=2)
     comments = get_comments(token, file_key)
     frames, flows = derive_frames_flows(file)
-    return build_context_markdown(file, comments), frames, flows
+    tokens = extract_design_tokens(token, file_key, file)
+    return build_context_markdown(file, comments, tokens), frames, flows
 
 
 # ---------------------------------------------------------------------------
@@ -254,6 +445,79 @@ def fetch_frame_images(token: str, file_key: str, frames: list[dict]) -> list[di
         return []
 
 
+# ---------------------------------------------------------------------------
+# Epic → frame matching (Python port of suggestFrameForStory in figma.ts)
+# ---------------------------------------------------------------------------
+
+_STOPWORDS = frozenset({
+    "the", "a", "an", "of", "to", "and", "or", "for", "in", "on", "with", "as",
+    "is", "are", "be", "screen", "page", "view", "ui", "user", "able",
+})
+
+
+def _name_tokens(text: str) -> set[str]:
+    out: set[str] = set()
+    word = []
+    for ch in (text or "").lower():
+        if ch.isalnum():
+            word.append(ch)
+        elif word:
+            out.add("".join(word))
+            word = []
+    if word:
+        out.add("".join(word))
+    return {w for w in out if len(w) > 1 and w not in _STOPWORDS}
+
+
+def rank_frames_for_subject(subject: str, frames: list[dict], top_n: int) -> list[dict]:
+    """Frames most relevant to an epic subject by Jaccard token overlap.
+
+    Mirrors the frontend ``suggestFrameForStory``. Frames with zero overlap are
+    dropped; ties keep document order. When the subject has no usable tokens we
+    fall back to document order so a generic epic still grounds on *some* screens."""
+    toks = _name_tokens(subject)
+    if not toks:
+        return frames[:top_n]
+    scored: list[tuple[float, int, dict]] = []
+    for i, fr in enumerate(frames):
+        b = _name_tokens(fr.get("name", ""))
+        if not b:
+            continue
+        inter = len(toks & b)
+        if inter == 0:
+            continue
+        score = inter / (len(toks) + len(b) - inter)
+        scored.append((score, i, fr))
+    scored.sort(key=lambda t: (-t[0], t[1]))
+    ranked = [fr for _, _, fr in scored[:top_n]]
+    # Pad with document order if nothing (or too little) matched — still advisory.
+    if not ranked:
+        return frames[:top_n]
+    return ranked
+
+
+def fetch_epic_frame_images(
+    token: str, file_key: str, epic_subject: str, max_frames: int = _MAX_FRAME_IMAGES
+) -> list[dict]:
+    """Render the frames most relevant to an epic subject for multimodal grounding.
+
+    For the interactive (manual) Phase 1 story-gen path: the operator types an epic
+    and we ground generation on the designed screens that match it. Advisory — any
+    failure (bad token, no file, render miss) returns []. Never raises."""
+    if not token or not file_key:
+        return []
+    try:
+        file = get_file(token, file_key, depth=2)
+        frames, _flows = derive_frames_flows(file)
+        if not frames:
+            return []
+        chosen = rank_frames_for_subject(epic_subject, frames, max_frames)
+        return get_frame_images(token, file_key, chosen, max_frames=max_frames)
+    except FigmaFetchError as exc:
+        _logger.warning("epic frame image grounding skipped: %s", exc)
+        return []
+
+
 def fetch_frame_images_multi(
     token: str, frames: list[dict], max_frames: int = _MAX_FRAME_IMAGES
 ) -> list[dict]:
@@ -326,6 +590,7 @@ def fetch_project_designs(
             continue
         comments = get_comments(token, key)
         frames, flows = derive_frames_flows(file)
+        tokens = extract_design_tokens(token, key, file)
         try:
             images = get_frame_images(token, key, frames, max_frames=per_file)
         except FigmaFetchError:
@@ -333,7 +598,7 @@ def fetch_project_designs(
         bundles.append({
             "file_key": key,
             "file_name": f.get("name") or file.get("name", "") or key,
-            "context_md": build_context_markdown(file, comments),
+            "context_md": build_context_markdown(file, comments, tokens),
             "frames": frames,
             "flows": flows,
             "images": images,

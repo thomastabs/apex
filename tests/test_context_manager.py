@@ -336,6 +336,59 @@ class TestUpsertStoryIndex:
         ctx.set_story_figma_link(1, "1:1", "2026-06-01T00:00:00Z", "A")
         assert ctx.scan_figma_changes("2026-06-27T00:00:00Z") == [1]
 
+    # --- #2 per-frame drift (fingerprint precision) ---
+
+    def test_set_story_figma_link_stores_frame_hash(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(1, title="Linked")
+        ctx.set_story_figma_link(1, "1:1", "2026-06-01T00:00:00Z", "A", "deadbeef")
+        assert ctx.get_story_index()["1"]["figma_frame_hash"] == "deadbeef"
+        ctx.set_story_figma_link(1, "")  # unlink clears the hash too
+        assert ctx.get_story_index()["1"]["figma_frame_hash"] == ""
+
+    def test_scan_suppresses_when_frame_hash_unchanged(self, ctx):
+        # File changed, but THIS frame's fingerprint is identical → not flagged.
+        ctx.init_context()
+        ctx.upsert_story_index(1, title="Untouched frame")
+        ctx.set_story_figma_link(1, "1:1", "2026-06-01T00:00:00Z", "A", "hash-same")
+        flagged = ctx.scan_figma_changes_multi(
+            {"A": "2026-06-27T00:00:00Z"},
+            hash_by_node={"A#1:1": "hash-same"},
+        )
+        assert flagged == []
+        entry = ctx.get_story_index()["1"]
+        assert entry["figma_changed"] is False
+        # Re-baselined forward so it won't be re-checked until the next edit.
+        assert entry["figma_synced_at"] == "2026-06-27T00:00:00Z"
+
+    def test_scan_flags_when_frame_hash_changed(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(1, title="Changed frame")
+        ctx.set_story_figma_link(1, "1:1", "2026-06-01T00:00:00Z", "A", "hash-old")
+        flagged = ctx.scan_figma_changes_multi(
+            {"A": "2026-06-27T00:00:00Z"},
+            hash_by_node={"A#1:1": "hash-new"},
+        )
+        assert flagged == [1]
+        assert ctx.get_story_index()["1"]["figma_changed"] is True
+
+    def test_scan_falls_back_to_file_level_without_hashes(self, ctx):
+        # Legacy link (no stored hash) → coarse lastModified behaviour is preserved.
+        ctx.init_context()
+        ctx.upsert_story_index(1, title="Legacy")
+        ctx.set_story_figma_link(1, "1:1", "2026-06-01T00:00:00Z", "A")
+        assert ctx.scan_figma_changes_multi({"A": "2026-06-27T00:00:00Z"}) == [1]
+
+    def test_acknowledge_rebaselines_frame_hash(self, ctx):
+        ctx.init_context()
+        ctx.upsert_story_index(1, title="Linked")
+        ctx.set_story_figma_link(1, "1:1", "2026-06-01T00:00:00Z", "A", "hash-old")
+        ctx.scan_figma_changes_multi({"A": "2026-06-27T00:00:00Z"}, hash_by_node={"A#1:1": "hash-new"})
+        ctx.acknowledge_figma_change(1, "2026-06-27T00:00:00Z", "A", "hash-new")
+        entry = ctx.get_story_index()["1"]
+        assert entry["figma_changed"] is False
+        assert entry["figma_frame_hash"] == "hash-new"
+
     def test_story_id_always_preserved(self, ctx):
         ctx.init_context()
         ctx.upsert_story_index(42, title="My Story")

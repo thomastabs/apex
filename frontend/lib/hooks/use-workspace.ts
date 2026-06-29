@@ -197,8 +197,8 @@ export function useSetStoryFigmaLink() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ storyId, figmaNodeId, figmaModified = "", figmaFileKey = "" }: { storyId: number; figmaNodeId: string; figmaModified?: string; figmaFileKey?: string }) =>
-      setStoryFigmaLink(context!, storyId, figmaNodeId, figmaModified, figmaFileKey),
+    mutationFn: ({ storyId, figmaNodeId, figmaModified = "", figmaFileKey = "", figmaFrameHash = "" }: { storyId: number; figmaNodeId: string; figmaModified?: string; figmaFileKey?: string; figmaFrameHash?: string }) =>
+      setStoryFigmaLink(context!, storyId, figmaNodeId, figmaModified, figmaFileKey, figmaFrameHash),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },
@@ -209,11 +209,14 @@ export function useScanFigmaChanges() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
-    // A bare string scans the single configured file (legacy); a map scans per file.
-    mutationFn: (modified: string | Record<string, string>) =>
-      typeof modified === "string"
-        ? scanFigmaChanges(context!, modified)
-        : scanFigmaChangesMulti(context!, modified),
+    // A bare string scans the single configured file (legacy); the object form scans
+    // per file and carries optional per-frame fingerprints for precision drift (#2).
+    mutationFn: (
+      arg: string | { modifiedByFile: Record<string, string>; hashByNode?: Record<string, string> },
+    ) =>
+      typeof arg === "string"
+        ? scanFigmaChanges(context!, arg)
+        : scanFigmaChangesMulti(context!, arg.modifiedByFile, arg.hashByNode),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },
@@ -224,8 +227,8 @@ export function useAcknowledgeFigmaChange() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ storyId, currentModified = "" }: { storyId: number; currentModified?: string }) =>
-      acknowledgeFigmaChange(context!, storyId, currentModified),
+    mutationFn: ({ storyId, currentModified = "", figmaFrameHash = "" }: { storyId: number; currentModified?: string; figmaFrameHash?: string }) =>
+      acknowledgeFigmaChange(context!, storyId, currentModified, figmaFrameHash),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },

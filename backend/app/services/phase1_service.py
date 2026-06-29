@@ -48,6 +48,7 @@ class Phase1Service:
         hint: str = "",
         instructions: str = "",
         images: list[dict] | None = None,
+        figma_token: str = "",
     ) -> tuple[str, int]:
         self.configure_request(ctx)
         subject = epic_subject.strip()
@@ -55,6 +56,18 @@ class Phase1Service:
             raise Phase1ValidationError("epic_subject is required.")
         concept = self.context.project_concept()
         figma_context = self.context.read_context_file("figma-context.md")
+        # U1 parity: when a Figma token is supplied and a file is configured for
+        # this instance, ground generation on the designed screens that match the
+        # epic (multimodal). Advisory — the fetch helper never raises, so a bad
+        # token / unset file simply falls back to the text-only (figma_context) path.
+        if images is None and figma_token:
+            from src import context_manager
+
+            file_key = context_manager.get_instance_figma_file_key()
+            if file_key:
+                from backend.app.services.figma_fetch import fetch_epic_frame_images
+
+                images = fetch_epic_frame_images(figma_token, file_key, subject) or None
         return self.ai.generate_nl_stories(
             subject,
             epic_description,

@@ -83,6 +83,7 @@ def generate_nl_stories(
     payload: GenerateNlStoriesRequest,
     ctx: RequestContext = Depends(get_request_context),
     service: Phase1Service = Depends(get_phase1_service),
+    x_figma_token: str = Header(default="", alias="X-Figma-Token"),
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
@@ -92,6 +93,7 @@ def generate_nl_stories(
             epic_description=payload.epic_description,
             hint=payload.hint,
             instructions=payload.instructions,
+            figma_token=x_figma_token.strip(),
         )
         return {"nl_draft": nl_draft, "story_count": story_count}
     except Exception as exc:

@@ -297,13 +297,17 @@ export function getStoryIndexStats(context: RequestContext) {
 
 export function setStoryFigmaLink(
   context: RequestContext, storyId: number, figmaNodeId: string, figmaModified = "", figmaFileKey = "",
+  figmaFrameHash = "",
 ) {
   return apiRequest<{ ok: boolean }>(
     `/api/workspace/context-files/story-index/stories/${storyId}/figma-link`,
     {
       method: "POST",
       context,
-      body: { figma_node_id: figmaNodeId, figma_modified: figmaModified, figma_file_key: figmaFileKey },
+      body: {
+        figma_node_id: figmaNodeId, figma_modified: figmaModified,
+        figma_file_key: figmaFileKey, figma_frame_hash: figmaFrameHash,
+      },
     },
   );
 }
@@ -316,19 +320,27 @@ export function scanFigmaChanges(context: RequestContext, currentModified: strin
   });
 }
 
-/** Per-file drift scan: file key → that file's current lastModified ("" = configured file). */
-export function scanFigmaChangesMulti(context: RequestContext, modifiedByFile: Record<string, string>) {
+/**
+ * Per-file drift scan: file key → that file's current lastModified ("" = configured file).
+ * `hashByNode` (optional) maps "<file_key>#<node_id>" → the frame's current fingerprint so
+ * a changed file only flags frames whose structure actually moved (#2 per-frame drift).
+ */
+export function scanFigmaChangesMulti(
+  context: RequestContext, modifiedByFile: Record<string, string>, hashByNode?: Record<string, string>,
+) {
   return apiRequest<{ changed_story_ids: number[] }>("/api/workspace/figma/scan-changes", {
     method: "POST",
     context,
-    body: { modified_by_file: modifiedByFile },
+    body: { modified_by_file: modifiedByFile, ...(hashByNode ? { hash_by_node: hashByNode } : {}) },
   });
 }
 
-export function acknowledgeFigmaChange(context: RequestContext, storyId: number, currentModified: string) {
+export function acknowledgeFigmaChange(
+  context: RequestContext, storyId: number, currentModified: string, figmaFrameHash = "",
+) {
   return apiRequest<{ ok: boolean }>(
     `/api/workspace/context-files/story-index/stories/${storyId}/acknowledge-figma-change`,
-    { method: "POST", context, body: { current_modified: currentModified } },
+    { method: "POST", context, body: { current_modified: currentModified, figma_frame_hash: figmaFrameHash } },
   );
 }
 

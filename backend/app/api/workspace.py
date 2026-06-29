@@ -412,7 +412,8 @@ def set_story_figma_link(
     context = ContextService()
     context.set_active(ctx)
     context.set_story_figma_link(
-        story_id, payload.figma_node_id, payload.figma_modified, payload.figma_file_key
+        story_id, payload.figma_node_id, payload.figma_modified,
+        payload.figma_file_key, payload.figma_frame_hash,
     )
     return {"ok": True}
 
@@ -429,7 +430,11 @@ def scan_figma_changes(
     context = ContextService()
     context.set_active(ctx)
     if payload.modified_by_file is not None:
-        return {"changed_story_ids": context.scan_figma_changes_multi(payload.modified_by_file)}
+        return {
+            "changed_story_ids": context.scan_figma_changes_multi(
+                payload.modified_by_file, hash_by_node=payload.hash_by_node
+            )
+        }
     return {"changed_story_ids": context.scan_figma_changes(payload.current_modified)}
 
 
@@ -445,7 +450,9 @@ def acknowledge_figma_change(
     """Clear the design-changed flag and re-baseline the story to the current file version."""
     context = ContextService()
     context.set_active(ctx)
-    context.acknowledge_figma_change(story_id, payload.current_modified, payload.figma_file_key)
+    context.acknowledge_figma_change(
+        story_id, payload.current_modified, payload.figma_file_key, payload.figma_frame_hash
+    )
     return {"ok": True}
 
 

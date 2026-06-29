@@ -23,8 +23,9 @@ class StubPhase1Service:
     def __init__(self):
         self.last_ctx = None
 
-    def generate_nl_stories(self, ctx, *, epic_subject, epic_description, hint="", instructions=""):
+    def generate_nl_stories(self, ctx, *, epic_subject, epic_description, hint="", instructions="", figma_token=""):
         self.last_ctx = ctx
+        self.last_figma_token = figma_token
         return f"[S] {epic_subject}", 1
 
     def compile_gherkin(self, *, nl_draft):
@@ -85,6 +86,7 @@ def test_generate_nl_stories_route():
         GenerateNlStoriesRequest(epic_subject="Login", epic_description="Scope", hint=""),
         ctx=_ctx(),
         service=StubPhase1Service(),
+        x_figma_token="",
     )
 
     assert response == {"nl_draft": "[S] Login", "story_count": 1}

@@ -16,7 +16,7 @@ import {
 } from "@/lib/api/phase1";
 import { refreshStoryIndex } from "@/lib/api/phase2";
 import type { Phase1GenerateNlStoriesRequest, Phase1PushStoriesRequest } from "@/lib/api/types";
-import { useApiContext } from "@/lib/stores/session-store";
+import { useApiContext, useFigmaContext } from "@/lib/stores/session-store";
 import { useCancellableMutation } from "@/lib/hooks/use-cancellable-mutation";
 import { toast } from "sonner";
 
@@ -52,9 +52,11 @@ export function useAnalyzeGaps() {
 
 export function useGenerateNlStories() {
   const context = useApiContext();
+  const figma = useFigmaContext();
 
   return useCancellableMutation(
-    (body: Phase1GenerateNlStoriesRequest, signal) => generateNlStories(context!, body, signal),
+    (body: Phase1GenerateNlStoriesRequest, signal) =>
+      generateNlStories(context!, body, signal, figma?.token),
     { onError: () => toast.error("Story generation failed. The AI may be busy — try again shortly.") },
   );
 }

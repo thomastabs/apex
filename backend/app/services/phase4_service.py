@@ -95,6 +95,7 @@ class Phase4Service:
         technical_spec = self.context.story_technical_spec(story_id)
         tech_stack = self.context.read_tech_stack()
         constraints = self.context.read_context_file("constraints.md")
+        figma_context = self.context.read_context_file("figma-context.md")
         # Ground the test plan in how the story was actually built — the saved
         # developer packs (digested to Context + Files to Change downstream).
         developer_packs = [
@@ -105,6 +106,7 @@ class Phase4Service:
             story_title, gherkin, technical_spec, tech_stack=tech_stack,
             developer_packs=developer_packs, constraints=constraints,
             instructions=instructions, emphasis=emphasis or [],
+            figma_context=figma_context,
         )
 
     def save_test_plan(self, ctx: RequestContext, story_id: int, test_plan_md: str) -> None:

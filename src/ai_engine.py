@@ -2319,6 +2319,7 @@ def generate_test_plan(
     constraints: str = "",
     instructions: str = "",
     emphasis: list[str] | None = None,
+    figma_context: str = "",
 ) -> str:
     """Generate a structured QA test plan for all Gherkin scenarios in a User Story.
 
@@ -2326,6 +2327,10 @@ def generate_test_plan(
     author guidance. Advisory only — EMPTY by default so existing behaviour is
     unchanged; they never override the Gherkin as the source of truth for which
     scenarios exist.
+
+    `figma_context` (the synced Figma design markdown — screens + prototype flows)
+    is advisory grounding so Test Steps and navigation/flow checks reference the
+    real designed screens; it never adds scenarios absent from the Gherkin.
     """
     system = _GENERATE_TEST_PLAN_SYSTEM.format(
         tech_stack=fence_user_content(tech_stack.strip() or "Not specified"),
@@ -2345,6 +2350,13 @@ def generate_test_plan(
             "(Context + Files to Change: real files and endpoints). Use them so Test Steps and BDD "
             "Mappings reference the actual implementation, but never test behaviour absent from the "
             "Gherkin:\n" + fence_user_content(pack_digests)
+        )
+    if figma_context.strip() and not figma_context.strip().startswith("<!--"):
+        system += (
+            "\n\nDesign Reference (Figma) — the synced screens and prototype flows for this "
+            "product. Use it to ground Test Steps and any navigation/screen-transition checks in "
+            "the REAL designed screens and the intended flow between them; never test a screen or "
+            "transition absent from the Gherkin:\n" + fence_user_content(figma_context)
         )
     system += _test_plan_preferences_block(emphasis, instructions)
     human = (

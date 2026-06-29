@@ -32,12 +32,14 @@ class FakeAiService:
         self.bug_report_kwargs: dict = {}
 
     def generate_test_plan(self, story_subject, gherkin, technical_spec, tech_stack="",
-                           developer_packs=None, constraints="", instructions="", emphasis=None):
+                           developer_packs=None, constraints="", instructions="", emphasis=None,
+                           figma_context=""):
         self.test_plan_args = (story_subject, gherkin, technical_spec, tech_stack)
         self.test_plan_developer_packs = developer_packs
         self.test_plan_constraints = constraints
         self.test_plan_instructions = instructions
         self.test_plan_emphasis = emphasis
+        self.test_plan_figma_context = figma_context
         return _FAKE_TEST_PLAN
 
     def generate_bug_report(self, story_subject, gherkin, technical_spec, failed_scenario, qa_notes):
@@ -329,6 +331,23 @@ def test_generate_test_plan_passes_context_to_ai():
     assert story_subject == "User Login"
     assert gherkin == _FAKE_GHERKIN
     assert tech_stack == _FAKE_TECH_STACK
+
+
+def test_generate_test_plan_injects_figma_context():
+    # #3: the synced Figma design markdown grounds the QA test plan.
+    ai = FakeAiService()
+    ctx_svc = FakeContextService()
+    ctx_svc.context_files = {"figma-context.md": "## Screens\n- Login\n## Prototype flows\n- Login → Home"}
+    svc = Phase4Service(ai=ai, context=ctx_svc)
+    svc.generate_test_plan(_ctx(), 10)
+    assert "Login → Home" in ai.test_plan_figma_context
+
+
+def test_generate_test_plan_figma_context_empty_by_default():
+    ai = FakeAiService()
+    svc = Phase4Service(ai=ai, context=FakeContextService())
+    svc.generate_test_plan(_ctx(), 10)
+    assert ai.test_plan_figma_context == ""
 
 
 def test_generate_test_plan_rejects_ineligible_status():

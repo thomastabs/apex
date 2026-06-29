@@ -146,6 +146,40 @@ def test_generate_nl_stories_injects_figma_context():
     assert ai.figma_context == "# Figma\nLogin screen, Dashboard"
 
 
+def test_generate_nl_stories_renders_epic_images_when_token_and_file(monkeypatch):
+    # #4: manual epic→stories grounds on the configured file's matching frames.
+    service, ai, _ = _service()
+    import backend.app.services.figma_fetch as ff
+    from src import context_manager
+
+    monkeypatch.setattr(context_manager, "get_instance_figma_file_key", lambda: "FILEK")
+    captured = {}
+
+    def _epic_imgs(token, file_key, subject, *a, **k):
+        captured["args"] = (token, file_key, subject)
+        return [{"node_id": "1:1", "name": "Login", "b64_png": "X", "media_type": "image/png"}]
+
+    monkeypatch.setattr(ff, "fetch_epic_frame_images", _epic_imgs)
+    service.generate_nl_stories(_ctx(), epic_subject="Login", epic_description="d", figma_token="tok")
+    assert captured["args"] == ("tok", "FILEK", "Login")
+    assert ai.images and ai.images[0]["node_id"] == "1:1"
+
+
+def test_generate_nl_stories_no_images_without_token():
+    # No token → text-only (figma_context) path, ai.images stays None.
+    service, ai, _ = _service()
+    service.generate_nl_stories(_ctx(), epic_subject="Login", epic_description="d")
+    assert ai.images is None
+
+
+def test_generate_nl_stories_no_images_when_no_file_configured(monkeypatch):
+    service, ai, _ = _service()
+    from src import context_manager
+    monkeypatch.setattr(context_manager, "get_instance_figma_file_key", lambda: "")
+    service.generate_nl_stories(_ctx(), epic_subject="Login", epic_description="d", figma_token="tok")
+    assert ai.images is None
+
+
 def test_generate_stories_from_figma_passes_frames_and_concept():
     service, ai, _ = _service()
 

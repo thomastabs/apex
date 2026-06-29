@@ -55,11 +55,23 @@ function relativeTime(iso: string | null | undefined): string | null {
   return `${days}d ago`;
 }
 
+// Each entry lists the context files the corresponding phase service actually
+// reads + injects into its AI prompts — keep this in lock-step with the backend
+// phaseN_service reads so the "Active Context" panel reflects what really grounds
+// the phase (no phantom files, no missed ones).
 const CONTEXT_FILE_PHASES: Record<string, string[]> = {
-  "/phase1": ["project-concept.md", "functional-spec.md", "constraints.md"],
-  "/phase2": ["project-concept.md", "tech-stack.md", "functional-spec.md", "technical-spec.md", "design-bundle.md", "github-context.md"],
-  "/phase3": ["project-concept.md", "tech-stack.md", "design-bundle.md", "github-context.md", "constraints.md"],
-  "/phase4": ["project-concept.md", "tech-stack.md", "technical-spec.md", "constraints.md"],
+  // phase1_service: project_concept, tech-stack, constraints, figma-context
+  "/phase1": ["project-concept.md", "tech-stack.md", "constraints.md", "figma-context.md"],
+  // phase2_service: project_concept, tech-stack, github-context, figma-context, design-bundle
+  "/phase2": ["project-concept.md", "tech-stack.md", "design-bundle.md", "github-context.md", "figma-context.md"],
+  // phase3_service (task decomposition): project_concept, tech-stack, design-bundle, github-context, constraints, decisions
+  "/phase3": ["project-concept.md", "tech-stack.md", "design-bundle.md", "github-context.md", "constraints.md", "decisions.md"],
+  // phase4_service (QA test plan): tech-stack, constraints, figma-context
+  "/phase4": ["tech-stack.md", "constraints.md", "figma-context.md"],
+  // phase5_service (deploy/infra): tech-stack, technical-spec, github-context
+  "/phase5": ["tech-stack.md", "technical-spec.md", "github-context.md"],
+  // phase6_service (maintenance): tech-stack, constraints, github-context (+ Figma comments sync)
+  "/phase6": ["tech-stack.md", "constraints.md", "github-context.md", "figma-context.md"],
 };
 
 function useVisibleContextFiles(

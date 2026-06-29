@@ -231,6 +231,35 @@ export async function applyMocks(page: Page) {
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "ok" }) }),
   );
 
+  // ── Figma proxy (sidebar connect + design-token sync) ─────────────────────
+  // One handler switches on the proxied path: file verify/fetch, comments,
+  // published styles/components, node hex resolution, and image renders.
+  await page.route(`${api}/api/design/figma/**`, (route) => {
+    const url = route.request().url();
+    const json = (body: unknown) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+    if (url.includes("/comments")) return json({ comments: [] });
+    if (url.includes("/styles")) {
+      return json({ meta: { styles: [
+        { node_id: "c1", name: "Primary/500", style_type: "FILL" },
+        { node_id: "t1", name: "Heading/H1", style_type: "TEXT" },
+      ] } });
+    }
+    if (url.includes("/components")) return json({ meta: { components: [{ name: "Button" }, { name: "Card" }] } });
+    if (url.includes("/nodes")) {
+      return json({ nodes: { c1: { document: { fills: [{ type: "SOLID", color: { r: 0.1, g: 0.45, b: 0.91 } }] } } } });
+    }
+    if (url.includes("/images")) return json({ images: {} });
+    // Default: a file fetch (verify at depth=1, sync at depth=2).
+    return json({
+      name: "Design File",
+      lastModified: "2026-06-29T00:00:00Z",
+      document: { children: [
+        { type: "CANVAS", name: "Page 1", children: [{ id: "1:2", name: "Login", type: "FRAME" }] },
+      ] },
+    });
+  });
+
   // ── Workspace (sidebar loads these on mount) ──────────────────────────────
   // Register catch-all FIRST so specific routes registered after override it.
   // (Playwright matches last-registered handler first.)

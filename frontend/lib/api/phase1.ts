@@ -59,11 +59,16 @@ export function generateNlStories(
   context: RequestContext,
   body: Phase1GenerateNlStoriesRequest,
   signal?: AbortSignal,
+  // When a Figma file is connected, passing the token lets the backend render the
+  // screens matching this epic to PNGs for multimodal grounding (U1 parity with
+  // the figma-first path). Optional — omit and generation stays text-only.
+  figmaToken?: string,
 ) {
   return apiRequest<Phase1GenerateNlStoriesResponse>("/api/phase1/generate-nl-stories", {
     method: "POST",
     context,
     body,
+    headers: figmaToken ? { "X-Figma-Token": figmaToken } : undefined,
     timeoutMs: 180_000,
     signal,
   });
