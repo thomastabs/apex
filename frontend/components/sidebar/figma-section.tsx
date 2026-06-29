@@ -118,14 +118,16 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
     ? new Date(lastSynced).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
     : null;
 
-  async function connectFile(token: string, fileKey: string) {
+  // knownName given (picked from the project list, which already returned the name) →
+  // skip the /files verify entirely; that call is rate-limited and the name is redundant.
+  async function connectFile(token: string, fileKey: string, knownName?: string) {
     // force=true: a deliberate Connect must reach Figma even if a prior 429 set a cooldown.
-    const meta = await figmaVerifyFile(token, fileKey, true);
+    const name = knownName ?? (await figmaVerifyFile(token, fileKey, true)).name;
     await saveFigmaConfig.mutateAsync(fileKey);
-    setFigma({ token, fileKey, fileName: meta.name });
-    setFileName(meta.name);
+    setFigma({ token, fileKey, fileName: name });
+    setFileName(name);
     setProjectFiles(null);
-    toast.success(`Connected to ${meta.name}`);
+    toast.success(`Connected to ${name}`);
   }
 
   async function handleConnect() {
@@ -169,7 +171,8 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
   async function handlePickFile(file: FigmaProjectFile) {
     setConnecting(true);
     try {
-      await connectFile(tokenInput.trim(), file.key);
+      // Name came back with the project listing — no extra /files verify needed.
+      await connectFile(tokenInput.trim(), file.key, file.name);
       setTokenInput("");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not connect to that file.");
