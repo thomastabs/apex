@@ -196,6 +196,7 @@ Implemented — 4-stage stepper workflow:
 - View the full Gherkin spec for the selected story
 - Ask the AI to decompose the story into developer implementation tasks (subject + description each)
 - Review and edit the generated task list before proceeding; add or remove tasks manually
+- **Figma-grounded decomposition** — when a Figma file is synced, the design system (component inventory, colour/text tokens) and screen flow from `figma-context.md` are injected, so UI tasks reference the real components and tokens instead of inventing names (advisory; never adds work beyond the Gherkin)
 
 **Stage C — Developer Packs**
 
@@ -203,6 +204,7 @@ Implemented — 4-stage stepper workflow:
 - For each task, generate a **Developer Pack** — a structured Markdown coding proposal including context, approach, and acceptance checklist; GitHub repository context is injected when available
 - **Deterministic agent-target compilation:** the AI produces one structured pack (context, steps, files, test assertions); the multi-target export wrappers — **Agentic Brief**, **Chat Prompt**, **CLAUDE.md Snippet** — are rendered by pure code templates over those fields, so they cannot drift from each other and cost no extra tokens (roadmap #3)
 - **Cross-pack consistency:** each pack is generated aware of the story's already-saved sibling packs (a compact Context + Files-to-Change digest), so packs reuse the same files/entities/endpoints and don't redefine or duplicate each other — generate task 1's pack first, then 2+ align to it
+- **Design-grounded packs** — the synced Figma design system is injected into every pack; and when the story is **linked to a Figma frame**, that frame is rendered to a PNG and attached to the pack so the agentic brief a coding agent consumes is grounded in the *literal designed screen* (layout, components, states), not a text description. Multimodal (vision models only), advisory — an unlinked story or a non-vision model falls back to the text-only pack
 - View and edit packs in an in-browser editor; re-generate any pack if needed
 - Packs are auto-saved to `proposal_story_<id>_task_<id>.md` in `contextspec/`
 
@@ -231,6 +233,7 @@ Implemented — 4-stage stepper workflow:
 - AI generates a full per-scenario test plan: Test Steps, Expected Results, Edge Cases, Risk Areas, plus a **BDD Mapping** (framework-agnostic Given/When/Then + endpoints/entities/fixtures/assertions) for each Gherkin scenario
 - The plan ends with agent-handoff sections like a Developer Pack — **Agentic Test Brief** (inferred BDD framework + test-file paths + run command + constraints) and **Chat Prompt** — so a dev/QA exports the plan and an AI agent writes the automated tests
 - The plan is **grounded in the story's developer packs** (Context + Files-to-Change digests), so Test Steps and BDD Mappings reference the real implementation; still strictly bounded to the Gherkin (no invented scenarios)
+- When a Figma file is synced, the **design context** (screens + prototype flows) also grounds the plan, so navigation / screen-transition checks reference the real designed screens and intended flow (advisory; never adds scenarios absent from the Gherkin)
 - Edit the generated test plan in a monospace textarea before saving
 - Download `.md` / Copy / **Clear Plan** actions — Clear deletes the saved plan server-side, wipes the local execution draft, and rolls the story from `qa` back to `implementation` (never demotes `qa_passed`); Regenerate replaces the plan in place
 - Save & Continue → Stage C (saves to `bdd_story_{id}.feature`)
@@ -387,11 +390,11 @@ Implemented:
 - **Automatic story-index sync** — every epic/story/task create/edit/delete, plus sign-in and project switch, silently rebuilds the story index and refreshes nav badges; the manual rebuild button (with out-of-sync warning) remains as a fallback
 - Context reset (individual and all files)
 - **GitHub integration** — connect a GitHub repository via a Personal Access Token (`repo` scope); displays repo name, description, primary language, star count, default branch, and public/private badge; **Sync Context** fetches the repo's file tree, README, primary config file (`package.json` / `requirements.txt` / `pyproject.toml`), and OpenAPI spec (if present) and writes them to `github-context.md`; synced context is automatically injected into Phase 2 and Phase 3 AI prompts; GitHub API calls are made browser-side (no backend proxy needed)
-- **Figma integration** — link a Figma file via a Personal Access Token + a file **or project** URL (a project URL lists the project's files to pick from — needs the `projects:read` token scope); **Sync Context** pulls the file's pages, top-level frame (screen) names, prototype flows, and comments into `figma-context.md`, which is injected into Phase 1 story generation and Phase 2 design prompts. In Phase 1 you can also select frames and generate user stories directly from them (the "tasks from a UI perspective" loop). Per-story frames can be linked in the board's story dialog (deep link + thumbnail), and the design can drive the Phase 2 screen-flow diagram directly. Figma REST calls are routed through a backend proxy (`/api/design/figma/*`, SSRF-guarded to `api.figma.com`) because the Figma API has no permissive CORS; the token is never persisted
-  - **Design-change drift** — a linked story records the file's last-modified timestamp **and file key** at link time; **Scan for design changes** (sidebar) flags any linked story whose design has changed in Figma since, with an amber board badge and a story-dialog banner you acknowledge to re-baseline. Each link is file-scoped (a story-index can mix files from a project; an empty file key means the configured single file), and the sidebar scan checks **each linked file against its own** last-modified, flagging only the stories whose specific file changed
+- **Figma integration** — link a Figma file via a Personal Access Token + a file **or project** URL (a project URL lists the project's files to pick from — needs the `projects:read` token scope); **Sync Context** pulls the file's pages, top-level frame (screen) names, prototype flows, **design system** (named colour/text/effect style tokens + the component inventory, from the published `styles`/`components` endpoints merged with the file's local maps, colours resolved to hex), and comments into `figma-context.md`, which is injected into Phase 1 story generation, Phase 2 design, **Phase 3 task decomposition + developer packs, and Phase 4 test plans**. In Phase 1 you can also select frames and generate user stories directly from them (the "tasks from a UI perspective" loop). Per-story frames can be linked in the board's story dialog (deep link + thumbnail), the design can drive the Phase 2 screen-flow diagram directly, and a linked frame is rendered into the matching Phase 3 developer pack for multimodal grounding. Figma REST calls are routed through a backend proxy (`/api/design/figma/*`, SSRF-guarded to `api.figma.com`) because the Figma API has no permissive CORS; the token is never persisted
+  - **Design-change drift (per-frame)** — a linked story records the file's last-modified timestamp, its file key, **and a structural fingerprint of the linked frame** (name + size + the ordered list of its direct child elements) at link time; **Scan for design changes** (sidebar) flags a linked story only when *its own frame* actually changed — an edit elsewhere in the same file no longer raises a false positive. An amber board badge + story-dialog banner are shown until acknowledged (which re-baselines to the new design). Links are file-scoped (a story-index can mix files from a project; an empty file key means the configured single file); the scan fetches each linked file's frames and compares fingerprints, falling back to file-level last-modified for older links that carry no fingerprint. The frame fingerprint is computed identically in the browser and the backend (byte-for-byte) so a hash captured at link time matches one re-computed during a scan
   - **Auto-suggested links** — for an unlinked story, the dialog proposes the best name-matching frame (pure token-overlap similarity, no AI) as a one-click link
   - **Comments → maintenance** — **Sync Figma Comments** (Phase 6 triage) pulls unresolved file comments in as importable maintenance items
-  - **Multimodal grounding** — when stories are generated from Figma with a vision-capable model (Claude/GPT-4o/Gemini), the backend renders the selected frames to PNGs and attaches them to the prompt, so the AI grounds stories and acceptance scenarios in the *actual pixels* (layout, on-screen labels, controls, states, empty-states) rather than only the frame names. Capped at the first 12 frames; non-vision models silently fall back to the names-only prompt. Applies to both the interactive "generate from Figma" loop and Autopilot. A **multi-file project union** still renders each frame against its own file (the image budget is spread across the selected files), so cross-file unions are pixel-grounded too. The render download is a second egress hop to Figma's image CDN, guarded by its own SSRF check
+  - **Multimodal grounding** — when stories are generated from Figma with a vision-capable model (Claude/GPT-4o/Gemini), the backend renders the selected frames to PNGs and attaches them to the prompt, so the AI grounds stories and acceptance scenarios in the *actual pixels* (layout, on-screen labels, controls, states, empty-states) rather than only the frame names. Capped at the first 12 frames; non-vision models silently fall back to the names-only prompt. Applies to the interactive "generate from Figma" loop, the manual epic→stories path (the configured file's epic-matching frames are rendered), Autopilot, and **Phase 3 developer packs** (the story's single linked frame is rendered into the pack). A **multi-file project union** still renders each frame against its own file (the image budget is spread across the selected files), so cross-file unions are pixel-grounded too. The render download is a second egress hop to Figma's image CDN, guarded by its own SSRF check
   - **Interactive project import** — in the Phase-1 "generate from Figma" panel, paste a Figma **project** URL to load frames across **all** of the project's files (grouped per file), select any across files, and generate **one** combined story draft from the union — the same review → compile → push flow as a single file. Distinct from Autopilot's file-as-epic mode (this is the manual, single-draft path)
   - **Autopilot seeding** — when a Figma file is connected, Autopilot fetches it server-side, seeds `figma-context.md` for Phase 1/2, builds the Phase 2 screen flow from the real frames, and renders frame images for multimodal grounding (best-effort — a bad token is skipped, never failing the run)
   - **Project mode (file-as-epic)** — give Autopilot a Figma **project** URL instead of typing epics: the pipeline ingests every file in the project, creates **one epic per file** (epic title = file name), and runs Phase 1 per epic grounded in **that file's own** screens + rendered images. The frames are unioned (file-namespaced) into a single Phase-2 screen flow. The image budget is spread across the project's files. Single-file Autopilot and the typed-epics path are unchanged
@@ -423,7 +426,7 @@ Implemented:
 | `infra/cloudflare/taiga-relay/` | Cloudflare Worker that forwards Taiga calls from a non-Azure IP — Taiga Cloud firewall-DROPs Azure Container Apps egress (`worker.js`, `wrangler.toml`, `README.md`) |
 | `backend/app/api/jira_proxy.py` | FastAPI reverse proxy for Jira Cloud REST API v3 (Basic auth, SSRF-guarded to `*.atlassian.net`) |
 | `backend/app/api/figma_proxy.py` | FastAPI reverse proxy for the Figma REST API (`X-Figma-Token`, host-locked to `api.figma.com`, DNS-rebinding pinned) |
-| `backend/app/services/figma_fetch.py` | Server-side Figma fetch (SSRF-pinned, sync) — file/frames/flows + `figma-context.md` assembly without a browser, plus frame-image rendering for multimodal grounding (second egress hop to the Figma image CDN, separately SSRF-guarded) |
+| `backend/app/services/figma_fetch.py` | Server-side Figma fetch (SSRF-pinned, sync) — file/frames/flows + design-token extraction (`/styles`+`/components`+`/nodes`) + `figma-context.md` assembly without a browser, frame-image rendering for multimodal grounding (second egress hop to the Figma image CDN, separately SSRF-guarded), the per-frame `frame_fingerprint` (JS-parity hash for drift), and epic→frame ranking |
 | `backend/app/api/deps.py` | FastAPI request/auth dependencies |
 | `backend/app/services/` | Service layer for phase workflows, AI, Taiga, and context operations |
 | `backend/app/schemas/` | Pydantic request/response models |
@@ -439,7 +442,7 @@ Implemented:
 | `frontend/lib/api/taiga-adapter.ts` | Taiga adapter wrapping `taiga-direct.ts` |
 | `frontend/lib/api/jira-adapter.ts` | Jira Cloud adapter — REST v3, ADF, paginated JQL, two-step transitions |
 | `frontend/lib/api/github-browser.ts` | Browser-side GitHub REST client — repo metadata, file tree, README, config file, and OpenAPI spec fetching for context sync |
-| `frontend/lib/api/figma.ts` | Figma REST client (via the backend proxy) — file/frames/thumbnails/comments, URL parsing, and context-markdown assembly |
+| `frontend/lib/api/figma.ts` | Figma REST client (via the backend proxy) — file/frames/thumbnails/comments, design-token extraction, URL parsing, the per-frame fingerprint (JS side of the parity hash), story↔frame matching, and context-markdown assembly |
 | `frontend/lib/api/` | Typed frontend API clients for all phases |
 | `frontend/lib/hooks/` | React Query hooks for all phases |
 | `frontend/lib/stores/` | Zustand stores for session, UI, and per-phase draft state |
@@ -466,7 +469,7 @@ Apex stores workflow state in context files under `contextspec/<instance_id>/<pr
 | `diagram-screens.json` | React Flow screen flow diagram generated from Phase 2 UX Brief (includes saved layout positions) |
 | `diagram-er.json` | React Flow ER diagram generated from Phase 2 Data Model (includes saved layout positions) |
 | `github-context.md` | Repo file tree, README, config file, and OpenAPI spec synced from GitHub; injected into Phase 2 and Phase 3 AI prompts |
-| `figma-context.md` | File name, pages, top-level frame names, prototype flows, and comments synced from a linked Figma file; injected into Phase 1 story generation and Phase 2 design prompts |
+| `figma-context.md` | File name, pages, top-level frame names, prototype flows, design-system tokens (named colour/text/effect styles + component inventory, colours with hex), and comments synced from a linked Figma file; injected into Phase 1 story generation, Phase 2 design, Phase 3 task decomposition + developer packs, and Phase 4 test plans |
 | `proposal_story_<id>_task_<id>.md` | Developer pack generated by Phase 3 for each task |
 | `bdd_story_<id>.feature` | Test plan generated by Phase 4 for each story |
 | `qa_results_story_<id>.json` | Per-scenario pass/fail attempts recorded at each Testing Gate decision |
@@ -1090,11 +1093,26 @@ documented above):
   **preset tech stacks**, the **adversarial multi-agent conformance verifier**
   (Phase 6 "Deep verify"), and the **spec-anchored regression scan** (Phase 6
   "Scan for regressions").
+- **Figma — full SDLC integration** — design context (screens, prototype flows,
+  **design-system tokens + component inventory**) injected across Phases 1–4;
+  story generation from frames (incl. multi-file project unions); multimodal
+  frame-image grounding in Phases 1 and 3; per-story frame links + traceability;
+  **per-frame** design-change drift; Figma comments → Phase-6 maintenance; and
+  Autopilot seeding (incl. file-as-epic project mode).
 
-Remaining open items are minor: Jira issue intake for Phase 6, plus a handful of
-accepted cosmetic/low-severity polish items. Deferred graph v1.1 extras (already
-partly shipped) — none outstanding. The **Autopilot** end-to-end pipeline is also
-now shipped (see [Autopilot](#autopilot)).
+Remaining open items are minor:
+
+- **Jira issue intake** for Phase 6, plus a handful of accepted cosmetic /
+  low-severity polish items.
+- **Figma, deferred by design:** OAuth "Connect with Figma" (PAT-only for now —
+  OAuth needs a one-time operator app registration, so it can't be the in-UI
+  zero-config flow; reverted in `5c854c4`); **true cross-file prototype links**
+  (Figma's REST API doesn't expose them, so cross-file project flows stay
+  *name-inferred* and are rendered dashed/labelled); and write-back to Figma
+  (Apex never mutates the design — read-only by design).
+
+Deferred graph v1.1 extras (already partly shipped) — none outstanding. The
+**Autopilot** end-to-end pipeline is also now shipped (see [Autopilot](#autopilot)).
 
 ---
 
