@@ -33,16 +33,30 @@ _CONNECT_TIMEOUT = 8.0  # fail fast on dead egress paths; read keeps the full bu
 _KEEPALIVE_EXPIRY = 15.0
 _client: httpx.AsyncClient | None = None
 
-# Short-TTL response cache for idempotent GETs. Figma's REST API is cost-based
+# Resilient response cache for idempotent GETs. Figma's REST API is cost-based
 # rate-limited (429); opening one file fans out into files+styles+components+
-# nodes+comments+images, and drift scans + thumbnails repeat the same GETs. The
-# cache collapses identical repeats within the window so a burst counts once
-# upstream. Per-process + bounded-staleness, consistent with the other in-process
+# nodes+comments+images, and the board renders one /images thumbnail PER linked
+# story card — once the token's budget is spent every call (even a single file
+# verify) 429s, and it stays tripped for a while.
+#
+# Two windows per entry:
+#  - fresh  (<= _CACHE_TTL): served directly, no upstream call.
+#  - stale  (<= _STALE_TTL): served as a fallback when upstream 429s, so the UI
+#    keeps last-known-good data through a throttle instead of erroring.
+#
+# Plus a per-key cooldown: after a 429 we stop calling Figma for that path for a
+# short window so the rate bucket can actually refill (hammering keeps it tripped
+# forever). Per-process + bounded-staleness, consistent with the other in-process
 # caches under the single-writer assumption (see CLAUDE.md "Key gotchas").
-_CACHE_TTL = 60.0
+_CACHE_TTL = 60.0  # fresh window
+_STALE_TTL = 900.0  # serve-stale fallback window (15 min)
+_COOLDOWN = 30.0  # after a 429, skip upstream for this key this long
+_COOLDOWN_CAP = 120.0  # never honour a Retry-After longer than this
 _CACHE_MAX = 256
-# key -> (expiry_monotonic, status_code, content, media_type)
+# key -> (stored_monotonic, status_code, content, media_type)
 _cache: dict[str, tuple[float, int, bytes, str]] = {}
+# key -> monotonic time until which we must NOT call upstream (429 backoff)
+_cooldown: dict[str, float] = {}
 
 
 def _cache_key(path: str, query: str, token: str) -> str:
@@ -52,23 +66,43 @@ def _cache_key(path: str, query: str, token: str) -> str:
     return f"{tok}:{path}?{query}"
 
 
-def _cache_get(key: str) -> tuple[int, bytes, str] | None:
+def _cache_get(key: str, *, allow_stale: bool = False) -> tuple[int, bytes, str] | None:
+    """Return cached (code, content, media). Fresh by default; allow_stale extends
+    the acceptance window to _STALE_TTL for use as a 429 fallback."""
     hit = _cache.get(key)
     if hit is None:
         return None
-    expiry, code, content, media = hit
-    if time.monotonic() >= expiry:
-        _cache.pop(key, None)
+    stored, code, content, media = hit
+    age = time.monotonic() - stored
+    horizon = _STALE_TTL if allow_stale else _CACHE_TTL
+    if age >= horizon:
+        if age >= _STALE_TTL:
+            _cache.pop(key, None)  # fully expired — reclaim
         return None
     return code, content, media
 
 
 def _cache_put(key: str, code: int, content: bytes, media: str) -> None:
-    if len(_cache) >= _CACHE_MAX:
-        # Drop the soonest-to-expire entry — cheap bound, no LRU bookkeeping.
+    if len(_cache) >= _CACHE_MAX and key not in _cache:
+        # Drop the oldest entry — cheap bound, no LRU bookkeeping.
         oldest = min(_cache, key=lambda k: _cache[k][0])
         _cache.pop(oldest, None)
-    _cache[key] = (time.monotonic() + _CACHE_TTL, code, content, media)
+    _cache[key] = (time.monotonic(), code, content, media)
+
+
+def _cooldown_active(key: str) -> bool:
+    until = _cooldown.get(key)
+    if until is None:
+        return False
+    if time.monotonic() >= until:
+        _cooldown.pop(key, None)
+        return False
+    return True
+
+
+def _set_cooldown(key: str, retry_after: float | None) -> None:
+    secs = _COOLDOWN if not retry_after else min(retry_after, _COOLDOWN_CAP)
+    _cooldown[key] = time.monotonic() + secs
 
 
 def _get_client() -> httpx.AsyncClient:
@@ -147,10 +181,21 @@ async def proxy_figma(
     is_cacheable = request.method == "GET"
     cache_key = _cache_key(path, request.url.query, token) if is_cacheable else ""
     if is_cacheable:
-        cached = _cache_get(cache_key)
-        if cached is not None:
-            code, content, media = cached
+        fresh = _cache_get(cache_key)
+        if fresh is not None:
+            code, content, media = fresh
             return Response(content=content, status_code=code, media_type=media)
+        # Under a 429 cooldown: don't touch Figma (let its bucket refill). Serve
+        # stale-but-recent data if we have it; otherwise fail fast (no 10s hang).
+        if _cooldown_active(cache_key):
+            stale = _cache_get(cache_key, allow_stale=True)
+            if stale is not None:
+                code, content, media = stale
+                return Response(content=content, status_code=code, media_type=media)
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Figma is rate-limiting this token; retry shortly.",
+            )
 
     target_url = f"{_FIGMA_API_BASE}/{path}"
     if request.url.query:
@@ -183,6 +228,15 @@ async def proxy_figma(
     media_type = resp.headers.get("content-type", "application/json")
     if is_cacheable and resp.status_code == 200:
         _cache_put(cache_key, resp.status_code, resp.content, media_type)
+    elif is_cacheable and resp.status_code == 429:
+        # Start a cooldown so the next identical GET skips Figma and lets the
+        # bucket refill; if we have recent data, serve it stale instead of erroring.
+        ra = resp.headers.get("retry-after", "").strip()
+        _set_cooldown(cache_key, float(ra) if ra.isdigit() else None)
+        stale = _cache_get(cache_key, allow_stale=True)
+        if stale is not None:
+            code, content, media = stale
+            return Response(content=content, status_code=code, media_type=media)
 
     return Response(
         content=resp.content,

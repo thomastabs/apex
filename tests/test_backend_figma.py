@@ -11,12 +11,14 @@ from backend.app.main import app
 
 @pytest.fixture(autouse=True)
 def _clear_figma_cache():
-    """Reset the proxy's short-TTL GET cache so one test's 200 never leaks into another."""
+    """Reset the proxy's GET cache + 429 cooldown so state never leaks between tests."""
     from backend.app.api import figma_proxy
 
     figma_proxy._cache.clear()
+    figma_proxy._cooldown.clear()
     yield
     figma_proxy._cache.clear()
+    figma_proxy._cooldown.clear()
 
 
 @pytest.fixture
@@ -180,6 +182,39 @@ class TestProxyFigmaCatchAll:
         with patch("backend.app.api.figma_proxy._get_client", return_value=mock_http):
             resp = client.get("/api/design/figma/files/RETRY?depth=1", headers={"X-Figma-Token": TOKEN})
         assert resp.status_code == 200
+        assert mock_http.request.call_count == 2
+
+    def test_persistent_429_fails_fast_then_cooldown_skips_upstream(self, client):
+        # Long Retry-After = real throttle: no in-request sleep-retry, single upstream hit.
+        throttled = _mock_upstream(429, {"err": "rate limited"})
+        throttled.headers = {"content-type": "application/json", "retry-after": "300"}
+        patcher, mock_http = _patch_client(throttled)
+        with patcher:
+            r1 = client.get("/api/design/figma/files/HOT?depth=1", headers={"X-Figma-Token": TOKEN})
+            # Second call is under cooldown → served locally, Figma untouched.
+            r2 = client.get("/api/design/figma/files/HOT?depth=1", headers={"X-Figma-Token": TOKEN})
+        assert r1.status_code == r2.status_code == 429
+        assert mock_http.request.call_count == 1
+
+    def test_429_serves_stale_cached_200(self, client):
+        ok = _mock_upstream(200, {"name": "Good", "document": {}})
+        throttled = _mock_upstream(429, {"err": "rate limited"})
+        throttled.headers = {"content-type": "application/json", "retry-after": "300"}
+        from backend.app.api import figma_proxy
+
+        mock_http = MagicMock()
+        mock_http.request = AsyncMock(side_effect=[ok, throttled])
+        with patch("backend.app.api.figma_proxy._get_client", return_value=mock_http):
+            # Prime cache with a 200, then expire its fresh window so the next call
+            # re-fetches upstream (which 429s) and must fall back to the stale 200.
+            r1 = client.get("/api/design/figma/files/STALE?depth=1", headers={"X-Figma-Token": TOKEN})
+            for k in list(figma_proxy._cache):
+                stored, code, content, media = figma_proxy._cache[k]
+                figma_proxy._cache[k] = (stored - figma_proxy._CACHE_TTL - 1, code, content, media)
+            r2 = client.get("/api/design/figma/files/STALE?depth=1", headers={"X-Figma-Token": TOKEN})
+        assert r1.status_code == 200
+        assert r2.status_code == 200  # served stale despite upstream 429
+        assert r2.json() == {"name": "Good", "document": {}}
         assert mock_http.request.call_count == 2
 
 

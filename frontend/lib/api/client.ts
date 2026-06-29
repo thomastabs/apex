@@ -5,10 +5,18 @@ export class ApiError extends Error {
   detail: unknown;
 
   constructor(status: number, detail: unknown) {
-    super(typeof detail === "string" ? detail : `API request failed with status ${status}`);
+    super(ApiError.messageFor(status, detail));
     this.name = "ApiError";
     this.status = status;
     this.detail = detail;
+  }
+
+  private static messageFor(status: number, detail: unknown): string {
+    if (typeof detail === "string" && detail) return detail;
+    // 429 bodies are often opaque upstream payloads (e.g. Figma's {err:...}) with
+    // no `detail` string — show a human message instead of the raw status.
+    if (status === 429) return "Too many requests — please wait a moment and try again.";
+    return `API request failed with status ${status}`;
   }
 }
 

@@ -21,20 +21,19 @@ CONNECT_ERRORS = (httpx.ConnectError, httpx.ConnectTimeout)
 # retry storm doesn't hammer the PM at a fixed interval.
 _BACKOFFS = (0.25, 0.75)
 
-# Upstream 429 retry (idempotent reads only). Cost-based APIs (e.g. Figma) throttle
-# bursty reads; a short, Retry-After-honouring wait usually clears it without
-# surfacing the error. Capped so a hostile/large Retry-After never hangs a request.
-_RETRY_AFTER_CAP = 5.0
-_DEFAULT_429_DELAY = 1.0
+# Upstream 429 on an idempotent read: try ONE quick retry only when the upstream
+# asks us back almost immediately (transient burst). A larger Retry-After means a
+# real throttle — don't sit on the request for seconds; return the 429 and let the
+# caller (e.g. the Figma proxy's cooldown + serve-stale) absorb it.
+_FAST_RETRY_MAX = 1.5
+_DEFAULT_429_DELAY = 0.5
 
 
-def _retry_after_secs(resp: httpx.Response) -> float:
-    """Parse the Retry-After header (delta-seconds only) → capped delay."""
+def _retry_after_secs(resp: httpx.Response) -> float | None:
+    """Parsed Retry-After (delta-seconds) if a quick retry is worthwhile, else None."""
     raw = resp.headers.get("retry-after", "").strip()
-    delay = _DEFAULT_429_DELAY
-    if raw.isdigit():
-        delay = float(raw)
-    return min(delay, _RETRY_AFTER_CAP)
+    delay = float(raw) if raw.isdigit() else _DEFAULT_429_DELAY
+    return delay if delay <= _FAST_RETRY_MAX else None
 
 
 async def send_with_retry(
@@ -52,19 +51,20 @@ async def send_with_retry(
     failure propagates to the caller (mapped to 502 by the proxy).
     """
     idempotent = method.upper() in ("GET", "HEAD")
+    did_429_retry = False
     last_exc: BaseException | None = None
     for attempt in range(len(_BACKOFFS) + 1):
         try:
             resp = await get_client().request(method=method, url=url, **kwargs)
-            # Retry idempotent reads on an upstream 429, honouring Retry-After.
-            if resp.status_code == 429 and idempotent and attempt < len(_BACKOFFS):
+            # One fast retry for a transient 429 on an idempotent read; a real
+            # throttle (long/absent Retry-After) returns the 429 to the caller.
+            if resp.status_code == 429 and idempotent and not did_429_retry:
                 delay = _retry_after_secs(resp)
-                logger.warning(
-                    "429 from %s — retry %d/%d after %.2fs",
-                    url, attempt + 1, len(_BACKOFFS), delay,
-                )
-                await asyncio.sleep(delay)
-                continue
+                if delay is not None:
+                    did_429_retry = True
+                    logger.warning("429 from %s — single retry after %.2fs", url, delay)
+                    await asyncio.sleep(delay)
+                    continue
             return resp
         except CONNECT_ERRORS as exc:
             last_exc = exc
