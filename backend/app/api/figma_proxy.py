@@ -16,6 +16,7 @@ from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from backend.app.api.pm_http import send_with_retry
 from backend.app.api.rate_limit import check_auth_failures, record_auth_failure
 from backend.app.api.ssrf import egress_host_allowed, is_blocked_host, pinned_target
+from backend.app.services.figma_fetch import figma_auth_headers
 
 router = APIRouter()
 _logger = logging.getLogger("apex.figma_proxy")
@@ -110,7 +111,9 @@ async def proxy_figma(
         target_url = f"{target_url}?{request.url.query}"
 
     body = b"" if request.method in ("GET", "HEAD") else await request.body()
-    headers = {"X-Figma-Token": token, "Accept": "application/json"}
+    # The browser always sends the token in X-Figma-Token; forward it under the
+    # scheme Figma expects (PAT → X-Figma-Token, OAuth access token → Bearer).
+    headers = {**figma_auth_headers(token), "Accept": "application/json"}
     if request.method not in ("GET", "HEAD"):
         headers["Content-Type"] = "application/json"
     url, headers, ext = _pin(target_url, headers)

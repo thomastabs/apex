@@ -15,6 +15,9 @@ import {
   figmaThumbnails,
   figmaCommentsToIssues,
   suggestFrameForStory,
+  figmaOAuthEnabled,
+  figmaOAuthAuthorizeUrl,
+  figmaOAuthExchange,
   type FigmaFile,
 } from "@/lib/api/figma";
 
@@ -256,5 +259,43 @@ describe("suggestFrameForStory", () => {
   it("ignores stopwords so generic words do not force a match", () => {
     // "the screen page view" are all stopwords → no real tokens → null
     expect(suggestFrameForStory("the screen page view", frames)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// OAuth client (backend mocked)
+// ---------------------------------------------------------------------------
+
+describe("figma oauth client", () => {
+  beforeEach(() => {
+    vi.mocked(apiRequest).mockReset();
+  });
+
+  it("figmaOAuthEnabled returns the backend flag", async () => {
+    vi.mocked(apiRequest).mockResolvedValue({ enabled: true } as never);
+    expect(await figmaOAuthEnabled()).toBe(true);
+    expect(apiRequest).toHaveBeenCalledWith("/api/design/figma/oauth/config");
+  });
+
+  it("figmaOAuthEnabled is false when the backend errors (route absent)", async () => {
+    vi.mocked(apiRequest).mockRejectedValue(new Error("404"));
+    expect(await figmaOAuthEnabled()).toBe(false);
+  });
+
+  it("figmaOAuthAuthorizeUrl passes the state and returns the url", async () => {
+    vi.mocked(apiRequest).mockResolvedValue({ url: "https://www.figma.com/oauth?state=abc" } as never);
+    const url = await figmaOAuthAuthorizeUrl("abc");
+    expect(url).toContain("figma.com/oauth");
+    expect(apiRequest).toHaveBeenCalledWith("/api/design/figma/oauth/authorize-url?state=abc");
+  });
+
+  it("figmaOAuthExchange POSTs the code", async () => {
+    vi.mocked(apiRequest).mockResolvedValue({ access_token: "atok", refresh_token: "r", expires_in: 1 } as never);
+    const out = await figmaOAuthExchange("thecode");
+    expect(out.access_token).toBe("atok");
+    expect(apiRequest).toHaveBeenCalledWith(
+      "/api/design/figma/oauth/token",
+      expect.objectContaining({ method: "POST", body: { code: "thecode" } }),
+    );
   });
 });

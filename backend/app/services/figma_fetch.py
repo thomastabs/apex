@@ -43,6 +43,21 @@ class FigmaFetchError(RuntimeError):
     """Raised when the Figma file cannot be fetched (network/auth/SSRF)."""
 
 
+# Figma personal access tokens start with `figd_` and authenticate via the
+# X-Figma-Token header. OAuth 2.0 access tokens have no such prefix and must be
+# sent as `Authorization: Bearer`. One helper picks the right scheme so the same
+# opaque `figmaToken` works whether the user pasted a PAT or connected via OAuth.
+_PAT_PREFIX = "figd_"
+
+
+def figma_auth_headers(token: str) -> dict:
+    """Auth header for a Figma token: X-Figma-Token for a PAT, Bearer for OAuth."""
+    t = (token or "").strip()
+    if t.startswith(_PAT_PREFIX):
+        return {"X-Figma-Token": t}
+    return {"Authorization": f"Bearer {t}"}
+
+
 def _http_get(url: str, headers: dict, timeout: float, ext: dict) -> httpx.Response:
     """GET via a Client — the module-level httpx.get() does NOT accept `extensions`
     (httpx 0.28), and the SSRF pin needs to pass `sni_hostname` through extensions."""
@@ -56,7 +71,7 @@ def _get(path: str, token: str, query: str = "") -> dict:
     url = f"{_FIGMA_API_BASE}/{path}"
     if query:
         url = f"{url}?{query}"
-    headers = {"X-Figma-Token": token, "Accept": "application/json"}
+    headers = {**figma_auth_headers(token), "Accept": "application/json"}
     try:
         url, headers, ext = pinned_target(url, headers)
     except ValueError as exc:

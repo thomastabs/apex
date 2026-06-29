@@ -174,6 +174,39 @@ export async function figmaThumbnails(token: string, fileKey: string, ids: strin
 }
 
 // ---------------------------------------------------------------------------
+// OAuth (operator-gated — backend holds the client secret; token stored in the
+// session like a PAT). These hit Apex's own backend, not the Figma proxy, so no
+// X-Figma-Token header. See backend/app/api/figma_oauth.py.
+// ---------------------------------------------------------------------------
+
+// sessionStorage key the connect button writes the CSRF `state` to before the
+// redirect; the callback page reads it back to verify Figma's echoed state.
+export const FIGMA_OAUTH_STATE_KEY = "figma_oauth_state";
+
+/** Whether the deployment offers the "Connect with Figma" button. */
+export async function figmaOAuthEnabled(): Promise<boolean> {
+  try {
+    const { enabled } = await apiRequest<{ enabled: boolean }>("/api/design/figma/oauth/config");
+    return Boolean(enabled);
+  } catch {
+    return false; // backend unreachable / route absent → hide the OAuth button
+  }
+}
+
+/** Build the Figma authorization URL to redirect the browser to (CSRF `state`). */
+export async function figmaOAuthAuthorizeUrl(state: string): Promise<string> {
+  const { url } = await apiRequest<{ url: string }>(
+    `/api/design/figma/oauth/authorize-url?state=${encodeURIComponent(state)}`,
+  );
+  return url;
+}
+
+/** Exchange the authorization code for an access token (server-side secret). */
+export async function figmaOAuthExchange(code: string): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
+  return apiRequest("/api/design/figma/oauth/token", { method: "POST", body: { code } });
+}
+
+// ---------------------------------------------------------------------------
 // Derivation (pure — from an already-fetched file document)
 // ---------------------------------------------------------------------------
 

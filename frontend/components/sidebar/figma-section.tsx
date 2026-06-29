@@ -9,6 +9,9 @@ import {
   parseFigmaUrl,
   parseFigmaProjectUrl,
   figmaGetProjectFiles,
+  figmaOAuthEnabled,
+  figmaOAuthAuthorizeUrl,
+  FIGMA_OAUTH_STATE_KEY,
   type FigmaProjectFile,
 } from "@/lib/api/figma";
 import { cn } from "@/lib/utils";
@@ -28,9 +31,17 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
   // Project picker (Stage 1): when the URL is a project, list its files and let
   // the user pick one. Picking sets a single fileKey — downstream is unchanged.
   const [projectFiles, setProjectFiles] = useState<FigmaProjectFile[] | null>(null);
+  // OAuth (operator-gated): when the deployment registered a Figma app, offer a
+  // "Connect with Figma" button. After the redirect dance the access token lands
+  // in the session (set by /figma/callback) with no file yet → the user then just
+  // picks a file, reusing the existing URL/picker flow with the session token.
+  const [oauthEnabled, setOauthEnabled] = useState(false);
 
   const setFigma = useSessionStore((s) => s.setFigma);
+  const sessionToken = useSessionStore((s) => s.figmaToken);
   const figma = useFigmaContext();
+  // Signed in via OAuth (token in session) but no file chosen yet.
+  const oauthAwaitingFile = Boolean(sessionToken) && !figmaFileKey;
   const saveFigmaConfig = useSaveFigmaConfig();
   const syncContext = useSyncFigmaContext();
   const scanChanges = useScanFigmaChanges();
@@ -80,6 +91,24 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
     dark ? "border-neutral-600 bg-neutral-950 text-white" : "border-slate-300 bg-white text-slate-800",
   );
 
+  // Is the "Connect with Figma" (OAuth) button available in this deployment?
+  useEffect(() => {
+    figmaOAuthEnabled().then(setOauthEnabled).catch(() => setOauthEnabled(false));
+  }, []);
+
+  async function handleOAuthConnect() {
+    setConnecting(true);
+    try {
+      const state = (globalThis.crypto?.randomUUID?.() ?? String(Math.random())).replace(/-/g, "");
+      sessionStorage.setItem(FIGMA_OAUTH_STATE_KEY, state);
+      const url = await figmaOAuthAuthorizeUrl(state);
+      window.location.assign(url); // leaves the app; returns to /figma/callback
+    } catch (err) {
+      setConnecting(false);
+      toast.error(err instanceof Error ? err.message : "Could not start Figma sign-in.");
+    }
+  }
+
   // Verify file metadata when the section opens and the user is connected.
   useEffect(() => {
     if (!open || !isConnected || !figma || fileName) return;
@@ -103,10 +132,15 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
   }
 
   async function handleConnect() {
-    const token = tokenInput.trim();
+    // OAuth users have a session token already (no PAT typed) → fall back to it.
+    const token = tokenInput.trim() || sessionToken;
     const url = urlInput.trim();
     if (!token || !url) {
-      toast.error("Enter a valid Figma token and file or project URL.");
+      toast.error(
+        oauthAwaitingFile
+          ? "Enter a Figma file or project URL."
+          : "Enter a valid Figma token and file or project URL.",
+      );
       return;
     }
     setConnecting(true);
@@ -143,7 +177,7 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
   async function handlePickFile(file: FigmaProjectFile) {
     setConnecting(true);
     try {
-      await connectFile(tokenInput.trim(), file.key);
+      await connectFile(tokenInput.trim() || sessionToken, file.key);
       setTokenInput("");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not connect to that file.");
@@ -297,6 +331,34 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
                   <p className={cn("font-semibold", dark ? "text-neutral-300" : "text-slate-700")}>Link your designs</p>
                   <p>AI will reference your real screens and flows when generating stories and designs.</p>
                 </div>
+
+                {oauthAwaitingFile ? (
+                  <div className={cn("flex items-center gap-2 rounded border px-3 py-2 text-xs",
+                    dark ? "border-emerald-900/60 bg-emerald-950/30 text-emerald-300" : "border-emerald-200 bg-emerald-50 text-emerald-700")}>
+                    <Figma className="size-3.5 shrink-0" />
+                    <span>Signed in with Figma — now pick a file or paste a project URL.</span>
+                  </div>
+                ) : null}
+
+                {/* OAuth: one click, no token to manage. Hidden when not configured. */}
+                {oauthEnabled && !oauthAwaitingFile ? (
+                  <>
+                    <button
+                      className="inline-flex h-9 w-full items-center justify-center gap-2 rounded bg-violet-700 text-sm font-semibold text-white hover:bg-violet-600 disabled:opacity-50"
+                      disabled={connecting}
+                      onClick={handleOAuthConnect}
+                    >
+                      <Figma className="size-4" />
+                      {connecting ? "Redirecting…" : "Connect with Figma"}
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <span className={cn("h-px flex-1", dark ? "bg-neutral-700" : "bg-slate-200")} />
+                      <span className={cn("text-[10px] uppercase tracking-wide", dark ? "text-neutral-600" : "text-slate-400")}>or use a token</span>
+                      <span className={cn("h-px flex-1", dark ? "bg-neutral-700" : "bg-slate-200")} />
+                    </div>
+                  </>
+                ) : null}
+
                 <div className="space-y-1">
                   <label className={labelClass}>Figma file or project URL</label>
                   <input
@@ -304,42 +366,54 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
                     onChange={(e) => setUrlInput(e.target.value)}
                     className={inputClass}
                     placeholder="https://www.figma.com/design/… or /files/project/…"
+                    onKeyDown={(e) => { if (e.key === "Enter" && oauthAwaitingFile) handleConnect(); }}
                     autoComplete="off"
                   />
                 </div>
-                <div className="space-y-1">
-                  <label className="flex items-center justify-between text-xs text-neutral-500">
-                    <span>Personal Access Token</span>
-                    <a
-                      href="https://www.figma.com/developers/api#access-tokens"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={cn("hover:underline", dark ? "text-violet-400 hover:text-violet-300" : "text-violet-600 hover:text-violet-500")}
-                    >
-                      Generate token
-                    </a>
-                  </label>
-                  <input
-                    type="password"
-                    value={tokenInput}
-                    onChange={(e) => setTokenInput(e.target.value)}
-                    className={inputClass}
-                    placeholder="figd_…"
-                    onKeyDown={(e) => { if (e.key === "Enter") handleConnect(); }}
-                    autoComplete="off"
-                  />
-                </div>
+                {oauthAwaitingFile ? null : (
+                  <div className="space-y-1">
+                    <label className="flex items-center justify-between text-xs text-neutral-500">
+                      <span>Personal Access Token</span>
+                      <a
+                        href="https://www.figma.com/developers/api#access-tokens"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={cn("hover:underline", dark ? "text-violet-400 hover:text-violet-300" : "text-violet-600 hover:text-violet-500")}
+                      >
+                        Generate token
+                      </a>
+                    </label>
+                    <input
+                      type="password"
+                      value={tokenInput}
+                      onChange={(e) => setTokenInput(e.target.value)}
+                      className={inputClass}
+                      placeholder="figd_…"
+                      onKeyDown={(e) => { if (e.key === "Enter") handleConnect(); }}
+                      autoComplete="off"
+                    />
+                  </div>
+                )}
                 <p className={cn("text-[11px]", dark ? "text-neutral-600" : "text-slate-400")}>
                   A project URL lists its files to pick from (token needs the <code>projects:read</code> scope).
                 </p>
                 <button
                   className="inline-flex h-9 w-full items-center justify-center gap-2 rounded bg-neutral-800 text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-50"
-                  disabled={connecting || !tokenInput.trim() || !urlInput.trim()}
+                  disabled={connecting || !urlInput.trim() || (!oauthAwaitingFile && !tokenInput.trim())}
                   onClick={handleConnect}
                 >
                   <Figma className="size-4" />
-                  {connecting ? "Connecting…" : "Connect Figma"}
+                  {connecting ? "Connecting…" : oauthAwaitingFile ? "Use this file" : "Connect Figma"}
                 </button>
+
+                {oauthAwaitingFile ? (
+                  <button
+                    className={cn("w-full text-center text-[11px] hover:underline", dark ? "text-neutral-500" : "text-slate-400")}
+                    onClick={handleDisconnect}
+                  >
+                    Sign out of Figma
+                  </button>
+                ) : null}
               </>
             )}
           </div>
