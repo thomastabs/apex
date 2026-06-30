@@ -196,6 +196,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming }: Props)
   const [steerDraft, setSteerDraft] = useState("");
   const [autoScroll, setAutoScroll] = useState(true);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [now, setNow] = useState(() => Date.now());
 
   // Auto-scroll event log unless the user scrolled up to read history.
   useEffect(() => {
@@ -208,6 +209,17 @@ export function AutopilotRunView({ status, onReset, onResume, resuming }: Props)
   const isTerminal = ["done", "stopped", "error"].includes(status.state);
   const isRunning = status.state === "running";
   const isPaused = status.state === "paused";
+
+  // Tick every second while running so the "current activity" elapsed timer moves
+  // even when a long AI call emits no new event — the view never looks frozen.
+  useEffect(() => {
+    if (!isRunning) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [isRunning]);
+
+  const latestEvent = status.events[status.events.length - 1];
+  const activityElapsed = latestEvent ? Math.max(0, Math.floor((now - latestEvent.ts * 1000) / 1000)) : 0;
 
   async function handleTakeOver() {
     await takeOver.mutateAsync();
@@ -327,6 +339,16 @@ export function AutopilotRunView({ status, onReset, onResume, resuming }: Props)
 
       {/* Phase progress */}
       <PhaseProgress currentPhase={status.current_phase} state={status.state} />
+
+      {/* Current activity — live line with a ticking elapsed timer so a long AI call
+          never makes the view look frozen (the elapsed counts up every second). */}
+      {isRunning && latestEvent && (
+        <div className="flex items-center gap-2 rounded-md border border-violet-600/30 bg-violet-500/5 px-3 py-2 text-xs">
+          <Loader2 className="size-3.5 shrink-0 animate-spin text-violet-400" />
+          <span className="min-w-0 flex-1 truncate text-neutral-200">{latestEvent.msg.trim()}</span>
+          <span className="shrink-0 font-mono text-[10px] text-neutral-500">{activityElapsed}s</span>
+        </div>
+      )}
 
       {/* Story progress bar */}
       {status.story_count > 0 && (

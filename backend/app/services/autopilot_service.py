@@ -12,8 +12,10 @@ Job lifecycle: running → paused (checkpoint) → running → done | stopped | 
 
 from __future__ import annotations
 
+import concurrent.futures as cf
 import contextvars
 import logging
+import os
 import threading
 import time
 import uuid
@@ -41,6 +43,15 @@ _synthetic_counter = 0
 _synthetic_lock = threading.Lock()
 
 _TIMEOUT = 20.0
+
+# Phases 3/4 are per-story and independent → run a bounded number concurrently to
+# cut wall-clock time (each story is still sequential internally). ai_engine backs
+# off on a provider 429, so a small fan-out is safe; tune with AUTOPILOT_CONCURRENCY.
+_AUTOPILOT_CONCURRENCY = max(1, min(8, int(os.getenv("AUTOPILOT_CONCURRENCY", "3") or "3")))
+# Guards the shared event counter/list + stories_done across worker threads.
+_progress_lock = threading.Lock()
+# Serialises the autopilot-job.json write (concurrent persists would interleave).
+_persist_lock = threading.Lock()
 
 # Phase order for resume: a job persists its current_phase; on resume we re-enter
 # at that phase (the running phase didn't finish) and skip the earlier ones, whose
@@ -90,15 +101,16 @@ def _taiga_post(url: str, token: str, body: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 def _emit(job: dict, level: str, msg: str, phase: str = "", artifact: str = "") -> None:
-    job["event_counter"] += 1
-    job["events"].append({
-        "id": job["event_counter"],
-        "ts": time.time(),
-        "level": level,
-        "msg": msg,
-        "phase": phase,
-        "artifact": artifact,
-    })
+    with _progress_lock:
+        job["event_counter"] += 1
+        job["events"].append({
+            "id": job["event_counter"],
+            "ts": time.time(),
+            "level": level,
+            "msg": msg,
+            "phase": phase,
+            "artifact": artifact,
+        })
     _logger.info("[autopilot %s] [%s] %s", job["job_id"][:8], level, msg)
 
 
@@ -448,69 +460,60 @@ def _run_phase2(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> Non
 
 
 def _run_phase3(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> None:
-    """Run Phase 3: task decomposition + developer packs."""
-    p3 = Phase3Service()
-    _emit(job, "info", f"Phase 3 · Implementation plans for {len(all_story_ids)} stories…", phase="phase3")
+    """Run Phase 3: task decomposition + developer packs (stories run concurrently)."""
+    _emit(job, "info",
+          f"Phase 3 · Implementation plans for {len(all_story_ids)} stories "
+          f"(up to {_AUTOPILOT_CONCURRENCY} at a time)…", phase="phase3")
 
-    done = _status_snapshot(job)
-    for story_id in all_story_ids:
+    def _worker(story_id: int) -> None:
         if _check_stop(job):
             return
-        if done.get(str(story_id), "") in _PHASE3_DONE:
-            job["stories_done"] += 1  # already planned in a prior run — keep progress accurate
-            continue
-
+        p3 = Phase3Service()  # per-worker instance — services hold per-request state
         job["current_story_id"] = story_id
         _emit(job, "info", f"  Story {story_id}: generating tasks…", phase="phase3")
-
         tasks = p3.generate_tasks(ctx, story_id, instructions=job.get("steer_note", ""))
         _emit(job, "info", f"  Story {story_id}: {len(tasks)} tasks", phase="phase3")
-
         for task in tasks:
             if _check_stop(job):
                 return
-            task_id = task["id"]
-            task_subject = task["subject"]
-            task_description = task.get("description", "")
-            _emit(job, "info", f"    Task {task_id}: {task_subject[:60]}…", phase="phase3")
-
+            _emit(job, "info", f"    Story {story_id} · task {task['id']}: {task['subject'][:60]}…", phase="phase3")
             proposal_md = p3.generate_proposal(
-                ctx, story_id, task_id, task_subject, task_description,
+                ctx, story_id, task["id"], task["subject"], task.get("description", ""),
                 all_tasks=tasks,
             )
-            p3.save_proposal(ctx, story_id, task_id, proposal_md)
-
-        task_ids = [t["id"] for t in tasks]
-        p3.lock_story(ctx, story_id, task_ids)
-        job["stories_done"] += 1
+            p3.save_proposal(ctx, story_id, task["id"], proposal_md)
+        p3.lock_story(ctx, story_id, [t["id"] for t in tasks])
+        with _progress_lock:
+            job["stories_done"] += 1
         _emit(job, "success", f"  Story {story_id}: implementation plan locked", phase="phase3")
         _persist(job)
 
+    _process_stories(job, all_story_ids, _PHASE3_DONE, _worker)
+
 
 def _run_phase4(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> None:
-    """Run Phase 4: test plan generation + auto QA pass."""
-    p4 = Phase4Service()
+    """Run Phase 4: test plan generation + auto QA pass (stories run concurrently)."""
     job["stories_done"] = 0
-    _emit(job, "info", f"Phase 4 · Test plans for {len(all_story_ids)} stories…", phase="phase4")
+    _emit(job, "info",
+          f"Phase 4 · Test plans for {len(all_story_ids)} stories "
+          f"(up to {_AUTOPILOT_CONCURRENCY} at a time)…", phase="phase4")
 
-    done = _status_snapshot(job)
-    for story_id in all_story_ids:
+    def _worker(story_id: int) -> None:
         if _check_stop(job):
             return
-        if done.get(str(story_id), "") in _PHASE4_DONE:
-            job["stories_done"] += 1
-            continue
-
+        p4 = Phase4Service()
         job["current_story_id"] = story_id
         _emit(job, "info", f"  Story {story_id}: generating test plan…", phase="phase4")
-
         test_plan = p4.generate_test_plan(ctx, story_id)
         p4.save_test_plan(ctx, story_id, test_plan)
         p4.pass_gate(ctx, story_id)
-        job["stories_done"] += 1
+        with _progress_lock:
+            job["stories_done"] += 1
         _emit(job, "success", f"  Story {story_id}: QA passed (test plan saved)", phase="phase4",
               artifact=test_plan[:2000])
         _persist(job)
+
+    _process_stories(job, all_story_ids, _PHASE4_DONE, _worker)
 
 
 def _run_phase5(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> None:
@@ -871,7 +874,7 @@ def serialize_job(job: dict) -> dict:
         "current_phase": job["current_phase"],
         "current_epic_idx": job.get("current_epic_idx"),
         "current_story_id": job.get("current_story_id"),
-        "events": job["events"],
+        "events": list(job["events"]),  # copy — workers may append concurrently
         "error": job.get("error"),
         "story_count": job.get("story_count", 0),
         "stories_done": job.get("stories_done", 0),
@@ -908,11 +911,38 @@ def _persist(job: dict) -> None:
     if ctx is None:
         return
     try:
-        cs = ContextService()
-        cs.set_active(ctx)
-        cs.save_autopilot_job(_descriptor(job))
+        with _progress_lock:
+            snap = _descriptor(job)  # consistent snapshot (events copied in serialize_job)
+        with _persist_lock:          # serialise the file write across worker threads
+            cs = ContextService()
+            cs.set_active(ctx)
+            cs.save_autopilot_job(snap)
     except Exception:  # noqa: BLE001 — persistence is advisory
         _logger.exception("autopilot: failed to persist job %s", job.get("job_id"))
+
+
+def _process_stories(job: dict, story_ids: list[int], done_statuses: set[str], worker) -> None:
+    """Run worker(story_id) across stories with bounded concurrency, skipping those
+    already at/past a done status (resume) and honouring stop. Each worker runs in a
+    copied context so the project ContextVars propagate to the pool threads."""
+    done = _status_snapshot(job)
+    todo = [sid for sid in story_ids if done.get(str(sid), "") not in done_statuses]
+    skipped = len(story_ids) - len(todo)
+    if skipped:
+        with _progress_lock:
+            job["stories_done"] += skipped  # keep the progress bar honest on resume
+    if not todo or _check_stop(job):
+        return
+    with cf.ThreadPoolExecutor(max_workers=_AUTOPILOT_CONCURRENCY) as ex:
+        futures = []
+        for sid in todo:
+            if _check_stop(job):
+                break
+            futures.append(ex.submit(contextvars.copy_context().run, worker, sid))
+        for fut in cf.as_completed(futures):
+            exc = fut.exception()
+            if exc is not None:
+                raise exc
 
 
 def _status_snapshot(job: dict) -> dict[str, str]:

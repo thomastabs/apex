@@ -965,3 +965,36 @@ class TestResumeSkips:
         svc._run_phase3(job, _ctx(), [10, 11])
         assert planned == [11]  # story 10 (deployed) skipped on resume
         assert job["stories_done"] == 2  # skipped one counted for progress
+
+
+# ---------------------------------------------------------------------------
+# Bounded concurrency — Phases 3/4 process stories in parallel
+# ---------------------------------------------------------------------------
+
+class TestConcurrency:
+    def test_phase3_processes_all_pending_stories(self, monkeypatch):
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_taiga": False, "auto_epics": False})
+        monkeypatch.setattr(svc, "_status_snapshot", lambda j: {})  # nothing done yet
+        monkeypatch.setattr(svc, "ContextService", _NoopCS)
+        planned: list[int] = []
+        lock = threading.Lock()
+
+        class _StubP3:
+            def generate_tasks(self, ctx, story_id, instructions=""):
+                with lock:
+                    planned.append(story_id)
+                return [{"id": 1, "subject": "t", "description": ""}]
+
+            def generate_proposal(self, *a, **k):
+                return "pack"
+
+            def save_proposal(self, *a, **k):
+                pass
+
+            def lock_story(self, *a, **k):
+                pass
+
+        monkeypatch.setattr(svc, "Phase3Service", _StubP3)
+        svc._run_phase3(job, _ctx(), [1, 2, 3, 4, 5])
+        assert sorted(planned) == [1, 2, 3, 4, 5]  # every pending story ran
+        assert job["stories_done"] == 5
