@@ -360,8 +360,8 @@ The **Autopilot** page (`/autopilot`, top nav, Zap icon) runs Phases 1–5 as a 
 - **Phase stepper** — which of the five phases is currently executing
 - **Progress counter** — `N / total stories done`
 - **Steer the AI** — a note you can set/update mid-run; it's injected as `instructions` into every subsequent generative step (Phase 1 stories, Phase 2 design, Phase 3 tasks), so you can nudge the pipeline without stopping it. The active steer is shown; clearing the box and applying removes it.
-- **Live event log** — timestamped events with level indicators (info / success / warning / error / checkpoint), grouped into **collapsible per-phase sections**, with an auto-scroll toggle (read history while it keeps running) and a copy-log button. Both the log and the latest-artifact panes are vertically resizable.
-- **Latest artifact** — a preview of the most recent generated artifact, with a copy button
+- **Live event log** — timestamped events with level indicators (info / success / warning / error / checkpoint), **streamed in real time** (`GET /api/autopilot/{id}/stream`, NDJSON pushed the instant an event fires — a streaming fetch since EventSource can't carry the bearer token; the 1.5s poller remains the reconnect fallback). Grouped into **collapsible per-phase sections**, with an auto-scroll toggle (read history while it keeps running) and a copy-log button. Both the log and artifact panes are vertically resizable.
+- **Artifact viewer** — shows the artifact count, a **Live** chip that pulses while running, and clickable chips for the last few artifacts (labelled by kind — *User stories / Design section / Test plan / Dev pack* …); pin any one or follow the latest. Each is shown under a phase-accented header (kind + source event + time) with a copy button.
 - **Checkpoint banner** — when *pause at checkpoints* is enabled, a banner appears after each phase completes and waits for the user to resume
 - **Completion banner** — `Autopilot complete — N stories through full SDLC pipeline`
 
