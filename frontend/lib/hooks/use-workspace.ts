@@ -598,12 +598,14 @@ export function useSyncFigmaContext() {
   const figma = useFigmaContext();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
+    // force=true (the normal click) bypasses the proxy 429 cooldown that background
+    // fan-out may have tripped. After a real Figma 429 the caller passes force=false
+    // so a retry is served stale / fails fast at the proxy WITHOUT hitting Figma —
+    // hammering a throttled token only extends Figma's penalty window.
+    mutationFn: async (force: boolean = true) => {
       if (!ctx || !figma) throw new Error("Not connected to Figma.");
       const { fetchFigmaContextMd } = await import("@/lib/api/figma");
-      // force=true: an explicit Sync click must bypass the proxy 429 cooldown that
-      // background fan-out (thumbnails/drift) may have tripped, exactly like Connect.
-      const md = await fetchFigmaContextMd(figma.token, figma.fileKey, true);
+      const md = await fetchFigmaContextMd(figma.token, figma.fileKey, force);
       const { updateContextFile } = await import("@/lib/api/workspace");
       return updateContextFile(ctx, "figma-context.md", md);
     },
