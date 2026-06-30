@@ -29,6 +29,18 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
   // Project picker (Stage 1): when the URL is a project, list its files and let
   // the user pick one. Picking sets a single fileKey — downstream is unchanged.
   const [projectFiles, setProjectFiles] = useState<FigmaProjectFile[] | null>(null);
+  // After a 429, lock Sync for a cooldown: Sync is forced (bypasses the proxy
+  // cooldown), so unguarded re-clicks would keep re-hitting Figma and hold the
+  // token's cost budget down. Waiting the window out lets it recover.
+  const SYNC_COOLDOWN_MS = 60_000;
+  const [syncBlockedUntil, setSyncBlockedUntil] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+  const syncBlockedSecs = Math.max(0, Math.ceil((syncBlockedUntil - now) / 1000));
+  useEffect(() => {
+    if (syncBlockedUntil <= now) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [syncBlockedUntil, now]);
 
   const setFigma = useSessionStore((s) => s.setFigma);
   // Persisted verified name — avoids a rate-limited /files?depth=1 verify on every nav.
@@ -222,14 +234,28 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     className="inline-flex h-9 items-center justify-center gap-2 rounded bg-violet-700 text-sm font-semibold text-white hover:bg-violet-600 disabled:opacity-50"
-                    disabled={syncContext.isPending}
+                    disabled={syncContext.isPending || syncBlockedSecs > 0}
                     onClick={() => syncContext.mutate(undefined, {
                       onSuccess: () => toast.success("Figma context synced."),
-                      onError: (e) => toast.error(e instanceof Error ? e.message : "Sync failed."),
+                      onError: (e) => {
+                        // A 429 means Figma is rate-limiting this token — common for a
+                        // large library file whose full depth-2 fetch exceeds Figma's
+                        // cost budget. The last-synced context on disk is untouched
+                        // (we never reached the write), so this is a soft "try later",
+                        // not a failure that loses anything. Lock the button for a
+                        // cooldown so re-clicks don't keep the token throttled.
+                        if ((e as { status?: number })?.status === 429) {
+                          setSyncBlockedUntil(Date.now() + SYNC_COOLDOWN_MS);
+                          setNow(Date.now());
+                          toast.warning("Figma is rate-limiting this token — kept your last-synced design context. Try again shortly (large library files may exceed Figma's limit).");
+                          return;
+                        }
+                        toast.error(e instanceof Error ? e.message : "Sync failed.");
+                      },
                     })}
                   >
                     <RefreshCw className={cn("size-3.5", syncContext.isPending && "animate-spin")} />
-                    {syncContext.isPending ? "Syncing…" : "Sync Context"}
+                    {syncContext.isPending ? "Syncing…" : syncBlockedSecs > 0 ? `Wait ${syncBlockedSecs}s` : "Sync Context"}
                   </button>
                   <button
                     className={cn("inline-flex h-9 items-center justify-center rounded border text-sm transition-colors",
