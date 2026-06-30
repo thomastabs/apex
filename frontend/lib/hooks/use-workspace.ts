@@ -598,16 +598,13 @@ export function useSyncFigmaContext() {
   const figma = useFigmaContext();
   const queryClient = useQueryClient();
   return useMutation({
-    // force=true (the normal click) bypasses the proxy 429 cooldown that background
-    // fan-out may have tripped. After a real Figma 429 the caller passes force=false
-    // so a retry is served stale / fails fast at the proxy WITHOUT hitting Figma —
-    // hammering a throttled token only extends Figma's penalty window.
-    mutationFn: async (force: boolean = true) => {
+    // Server-side assembly: one call to our backend, which makes the Figma calls
+    // (file + comments + design tokens) and writes figma-context.md. The token is
+    // sent once as a header; no client-side fan-out to Figma.
+    mutationFn: async () => {
       if (!ctx || !figma) throw new Error("Not connected to Figma.");
-      const { fetchFigmaContextMd } = await import("@/lib/api/figma");
-      const md = await fetchFigmaContextMd(figma.token, figma.fileKey, force);
-      const { updateContextFile } = await import("@/lib/api/workspace");
-      return updateContextFile(ctx, "figma-context.md", md);
+      const { syncFigmaContext } = await import("@/lib/api/workspace");
+      return syncFigmaContext(ctx, figma.token, figma.fileKey);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "context-files"] });

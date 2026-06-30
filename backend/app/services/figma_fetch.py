@@ -47,7 +47,54 @@ _IMAGE_FETCH_TIMEOUT = 15.0
 
 
 class FigmaFetchError(RuntimeError):
-    """Raised when the Figma file cannot be fetched (network/auth/SSRF)."""
+    """Raised when the Figma file cannot be fetched (network/auth/SSRF/rate-limit).
+
+    `status_code` carries the upstream HTTP status when there was one (0 = a
+    transport/SSRF failure with no response) so callers can map a 429 through as
+    a 429 instead of a generic error.
+    """
+
+    def __init__(self, message: str, status_code: int = 0):
+        super().__init__(message)
+        self.status_code = status_code
+
+
+def _human_duration(secs: int) -> str:
+    if secs >= 86_400:
+        return f"~{secs // 86_400} day(s)"
+    if secs >= 3_600:
+        return f"~{secs // 3_600} hour(s)"
+    if secs >= 60:
+        return f"~{secs // 60} minute(s)"
+    return f"{secs} second(s)"
+
+
+def rate_limit_message(headers) -> str:
+    """Turn Figma's 429 diagnostic headers into a precise, honest message.
+
+    Figma rate-limits the GET-file endpoint by the FILE's plan and the caller's
+    SEAT on that file's team (not by the token string): on a Starter/free plan a
+    View/Collab seat reads a file's content only ~6x PER MONTH via a personal
+    access token, and the limit is tracked per Figma USER — so rotating the PAT or
+    waiting minutes does nothing. Surface the tier + Retry-After so the UI can say
+    why instead of showing Figma's opaque body or a misleading 'try shortly'.
+    Shared by the reverse proxy and the server-side sync.
+    """
+    tier = (headers.get("x-figma-plan-tier") or "").strip().lower()
+    ra = (headers.get("retry-after") or "").strip()
+    head = f"Figma is rate-limiting this {tier}-plan file" if tier else "Figma is rate-limiting this Figma account"
+    parts = [head]
+    if ra.isdigit():
+        parts.append(f"retry after {_human_duration(int(ra))}")
+    msg = "; ".join(parts) + "."
+    if tier in ("starter", "student"):
+        msg += (
+            " On Starter/free plans a personal access token can read a file's"
+            " content only ~6x per month, tracked per Figma account — a new token"
+            " or waiting will not help. Use a Dev/Full seat on the file's team, or"
+            " move the file to a Professional+ team."
+        )
+    return msg
 
 
 def _http_get(url: str, headers: dict, timeout: float, ext: dict) -> httpx.Response:
@@ -73,9 +120,11 @@ def _get(path: str, token: str, query: str = "") -> dict:
     except httpx.RequestError as exc:
         raise FigmaFetchError(f"Failed to reach Figma: {exc}") from exc
     if resp.status_code in (401, 403):
-        raise FigmaFetchError("Figma rejected the token (401/403).")
+        raise FigmaFetchError("Figma rejected the token (401/403).", status_code=resp.status_code)
+    if resp.status_code == 429:
+        raise FigmaFetchError(rate_limit_message(resp.headers), status_code=429)
     if resp.status_code >= 400:
-        raise FigmaFetchError(f"Figma returned {resp.status_code}.")
+        raise FigmaFetchError(f"Figma returned {resp.status_code}.", status_code=resp.status_code)
     return resp.json()
 
 

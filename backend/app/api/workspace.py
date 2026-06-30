@@ -29,6 +29,7 @@ from backend.app.schemas.workspace import (
     ScanFigmaChangesResponse,
     SetPhaseStatusRequest,
     SetStoryFigmaLinkRequest,
+    SyncFigmaContextRequest,
     SaveTraceLayoutRequest,
     StoryIndexStatsResponse,
     TraceabilityGraphResponse,
@@ -416,6 +417,37 @@ def set_story_figma_link(
         payload.figma_file_key,
     )
     return {"ok": True}
+
+
+@router.post("/figma/sync-context", response_model=ContextFilesResponse)
+def sync_figma_context(
+    payload: SyncFigmaContextRequest,
+    x_figma_token: str = Header(default="", alias="X-Figma-Token"),
+    ctx: RequestContext = Depends(get_request_context),
+):
+    """Assemble figma-context.md server-side from a single Figma fetch and write it.
+
+    The browser makes ONE call here; the ~5 upstream Figma calls (file + comments +
+    published styles/components/nodes for design tokens) happen server-side, reusing
+    the Autopilot assembler so interactive Sync and Autopilot produce identical
+    context (screens + prototype flows + design system + comments). A Figma 429 is
+    mapped through as a 429 with Figma's real reason (plan tier + Retry-After)."""
+    token = x_figma_token.strip()
+    if not token or "\r" in x_figma_token or "\n" in x_figma_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="X-Figma-Token header required.")
+    file_key = payload.figma_file_key.strip()
+    if not file_key:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="figma_file_key required.")
+    from backend.app.services import figma_fetch
+    try:
+        md, _frames, _flows = figma_fetch.fetch_context_and_frames(token, file_key)
+    except figma_fetch.FigmaFetchError as exc:
+        code = exc.status_code if exc.status_code in (401, 403, 429) else status.HTTP_502_BAD_GATEWAY
+        raise HTTPException(status_code=code, detail=str(exc)) from exc
+    context = ContextService()
+    context.set_active(ctx)
+    context.write_context_file("figma-context.md", md)
+    return get_context_files(ctx)
 
 
 @router.post("/figma/scan-changes", response_model=ScanFigmaChangesResponse)

@@ -123,6 +123,22 @@ export function updateContextFile(context: RequestContext, filename: string, con
   });
 }
 
+/**
+ * Sync figma-context.md server-side: the backend makes the (several) Figma calls
+ * — file + comments + design tokens — assembles the markdown (the same assembler
+ * Autopilot uses) and writes it, so the browser makes ONE request and the Figma
+ * token never round-trips through client-side assembly. Returns the refreshed
+ * context-files listing. A Figma rate-limit surfaces as a 429 with the real reason.
+ */
+export function syncFigmaContext(context: RequestContext, figmaToken: string, figmaFileKey: string) {
+  return apiRequest<ContextFilesResponse>("/api/workspace/figma/sync-context", {
+    method: "POST",
+    context,
+    headers: { "X-Figma-Token": figmaToken },
+    body: { figma_file_key: figmaFileKey },
+  });
+}
+
 export function acknowledgeSpecDrift(context: RequestContext, storyId: number) {
   return apiRequest<{ ok: boolean }>(
     `/api/workspace/context-files/story-index/stories/${storyId}/acknowledge-drift`,

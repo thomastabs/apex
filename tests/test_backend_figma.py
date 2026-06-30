@@ -281,6 +281,69 @@ class TestProxyFigmaCatchAll:
 
 
 # ---------------------------------------------------------------------------
+# /api/workspace/figma/sync-context — server-side context assembly
+# ---------------------------------------------------------------------------
+
+class TestSyncFigmaContextRoute:
+    def _ctx(self):
+        from backend.app.api.deps import get_request_context
+
+        return get_request_context(authorization="Bearer tok", project_id_new=42)
+
+    def test_writes_assembled_context_and_returns_listing(self, monkeypatch):
+        from backend.app.api import workspace as ws
+        from backend.app.schemas.workspace import SyncFigmaContextRequest
+        from backend.app.services import figma_fetch
+
+        monkeypatch.setattr(figma_fetch, "fetch_context_and_frames", lambda t, k: ("# Figma Design Context", [], []))
+        written: dict[str, str] = {}
+        monkeypatch.setattr(ws.ContextService, "set_active", lambda self, ctx: None)
+        monkeypatch.setattr(ws.ContextService, "write_context_file", lambda self, name, content: written.update({name: content}))
+        monkeypatch.setattr(ws, "get_context_files", lambda ctx: {"files": []})
+
+        resp = ws.sync_figma_context(
+            SyncFigmaContextRequest(figma_file_key="ABC123"), x_figma_token="figd_x", ctx=self._ctx()
+        )
+        assert written["figma-context.md"] == "# Figma Design Context"
+        assert resp == {"files": []}
+
+    def test_maps_figma_429_through_with_real_reason(self, monkeypatch):
+        from fastapi import HTTPException
+
+        from backend.app.api import workspace as ws
+        from backend.app.schemas.workspace import SyncFigmaContextRequest
+        from backend.app.services import figma_fetch
+
+        def boom(token, key):
+            raise figma_fetch.FigmaFetchError(
+                "Figma is rate-limiting this starter-plan file; retry after ~14 day(s). "
+                "On Starter/free plans a personal access token can read a file's content only ~6x per month.",
+                status_code=429,
+            )
+
+        monkeypatch.setattr(figma_fetch, "fetch_context_and_frames", boom)
+        with pytest.raises(HTTPException) as exc:
+            ws.sync_figma_context(
+                SyncFigmaContextRequest(figma_file_key="ABC123"), x_figma_token="figd_x", ctx=self._ctx()
+            )
+        assert exc.value.status_code == 429
+        assert "starter" in exc.value.detail.lower()
+        assert "per month" in exc.value.detail.lower()
+
+    def test_requires_token(self):
+        from fastapi import HTTPException
+
+        from backend.app.api import workspace as ws
+        from backend.app.schemas.workspace import SyncFigmaContextRequest
+
+        with pytest.raises(HTTPException) as exc:
+            ws.sync_figma_context(
+                SyncFigmaContextRequest(figma_file_key="ABC123"), x_figma_token="", ctx=self._ctx()
+            )
+        assert exc.value.status_code == 401
+
+
+# ---------------------------------------------------------------------------
 # figma_fetch — server-side helper (Autopilot seeding)
 # ---------------------------------------------------------------------------
 

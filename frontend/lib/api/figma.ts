@@ -8,11 +8,6 @@
 import { apiRequest } from "./client";
 import type { ExternalIssue } from "./github-browser";
 
-const CHAR_LIMITS = {
-  frameList: 4_000,
-  comments: 2_000,
-} as const;
-
 // ---------------------------------------------------------------------------
 // Types (only the fields we use)
 // ---------------------------------------------------------------------------
@@ -259,66 +254,7 @@ export function suggestFrameForStory<T extends { node_id: string; name: string }
   return best && best.score >= minScore ? best : null;
 }
 
-function truncate(text: string, limit: number): string {
-  return text.length <= limit ? text : text.slice(0, limit) + `\n\n... [truncated at ${limit} chars]`;
-}
-
-/** Assemble bounded markdown for figma-context.md from a file (+ optional comments). */
-export function buildFigmaContextMarkdown(file: FigmaFile, comments: FigmaComment[] = []): string {
-  const { frames, flows } = deriveFramesAndFlows(file);
-  const sections: string[] = [];
-
-  sections.push(
-    `# Figma Design Context\n\n` +
-    `**File:** ${file.name}  \n` +
-    `**Last modified:** ${file.lastModified?.slice(0, 10) ?? "unknown"}  \n` +
-    `**Synced:** ${new Date().toISOString().slice(0, 10)}`,
-  );
-
-  // Frames grouped by page.
-  const byPage = new Map<string, string[]>();
-  for (const f of frames) {
-    if (!byPage.has(f.page)) byPage.set(f.page, []);
-    byPage.get(f.page)!.push(f.name);
-  }
-  const frameLines: string[] = [];
-  for (const [page, names] of byPage) {
-    frameLines.push(`### ${page}`);
-    for (const n of names) frameLines.push(`- ${n}`);
-  }
-  if (frameLines.length) {
-    sections.push(`## Screens (frames)\n\n${truncate(frameLines.join("\n"), CHAR_LIMITS.frameList)}`);
-  }
-
-  if (flows.length) {
-    const flowLines = flows.map((e) => `- ${e.from_name} → ${e.to_name}`).join("\n");
-    sections.push(`## Prototype flows\n\n${flowLines}`);
-  }
-
-  if (comments.length) {
-    const lines = comments
-      .slice(0, 30)
-      .map((c) => `- ${c.user?.handle ? `**${c.user.handle}:** ` : ""}${c.message}`)
-      .join("\n");
-    sections.push(`## Comments\n\n${truncate(lines, CHAR_LIMITS.comments)}`);
-  }
-
-  return sections.join("\n\n");
-}
-
-/** Verify + assemble the context markdown in one call (sidebar Sync).
- *
- * Deliberately a SINGLE Figma call (the file at depth 2). Figma's rate limit is
- * cost-based and per-token; a fan-out (comments + design-system styles/components/
- * nodes) made one Sync cost ~5 calls and routinely tripped a token-wide 429 that
- * then blocked even small files. Screens + prototype flows from the file are the
- * essential context; tokens/comments are dropped here to keep Sync reliable.
- *
- * force=true marks an explicit user Sync: the fetch bypasses the proxy's 429
- * cooldown (set by background fan-out like board thumbnails) so the deliberate
- * action reaches Figma — or serves last-known-good — instead of being short-circuited.
- */
-export async function fetchFigmaContextMd(token: string, fileKey: string, force = false): Promise<string> {
-  const file = await figmaGetFile(token, fileKey, 2, force);
-  return buildFigmaContextMarkdown(file);
-}
+// figma-context.md is assembled SERVER-SIDE now (backend /api/workspace/figma/
+// sync-context reuses figma_fetch.fetch_context_and_frames): screens + prototype
+// flows + design-system tokens + comments, the same output Autopilot produces.
+// The browser no longer fans out to Figma to build it.

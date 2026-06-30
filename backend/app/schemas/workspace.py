@@ -118,6 +118,11 @@ class SetStoryFigmaLinkRequest(BaseModel):
     figma_file_key: str = Field("", max_length=128)
 
 
+class SyncFigmaContextRequest(BaseModel):
+    # The file to assemble figma-context.md from (Figma file keys are alphanumeric).
+    figma_file_key: str = Field("", max_length=128, pattern=r"^[A-Za-z0-9]*$")
+
+
 class ScanFigmaChangesRequest(BaseModel):
     current_modified: str = Field("", max_length=64)
     # Project mode: per-file current lastModified (file key → timestamp; "" key =

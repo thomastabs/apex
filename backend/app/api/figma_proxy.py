@@ -19,6 +19,7 @@ from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from backend.app.api.pm_http import send_with_retry
 from backend.app.api.rate_limit import check_auth_failures, record_auth_failure
 from backend.app.api.ssrf import egress_host_allowed, is_blocked_host, pinned_target
+from backend.app.services.figma_fetch import rate_limit_message
 
 router = APIRouter()
 _logger = logging.getLogger("apex.figma_proxy")
@@ -104,44 +105,6 @@ def _cooldown_active(key: str) -> bool:
 def _set_cooldown(key: str, retry_after: float | None) -> None:
     secs = _COOLDOWN if not retry_after else min(retry_after, _COOLDOWN_CAP)
     _cooldown[key] = time.monotonic() + secs
-
-
-def _human_duration(secs: int) -> str:
-    if secs >= 86_400:
-        return f"~{secs // 86_400} day(s)"
-    if secs >= 3_600:
-        return f"~{secs // 3_600} hour(s)"
-    if secs >= 60:
-        return f"~{secs // 60} minute(s)"
-    return f"{secs} second(s)"
-
-
-def _figma_rate_limit_detail(headers: httpx.Headers) -> str:
-    """Turn Figma's 429 diagnostic headers into a precise, honest message.
-
-    Figma rate-limits the GET-file endpoint by the FILE's plan and the caller's
-    SEAT on that file's team (not by the token string): on a Starter/free plan a
-    View/Collab seat reads a file's content only ~6x PER MONTH via a personal
-    access token, and the limit is tracked per Figma USER — so rotating the PAT or
-    waiting minutes does nothing. Surface the tier + Retry-After so the UI can say
-    why instead of showing Figma's opaque body or a misleading 'try shortly'.
-    """
-    tier = (headers.get("x-figma-plan-tier") or "").strip().lower()
-    ra = (headers.get("retry-after") or "").strip()
-    parts = ["Figma is rate-limiting this Figma account"]
-    if tier:
-        parts[0] = f"Figma is rate-limiting this {tier}-plan file"
-    if ra.isdigit():
-        parts.append(f"retry after {_human_duration(int(ra))}")
-    msg = "; ".join(parts) + "."
-    if tier in ("starter", "student"):
-        msg += (
-            " On Starter/free plans a personal access token can read a file's"
-            " content only ~6x per month, tracked per Figma account — a new token"
-            " or waiting will not help. Use a Dev/Full seat on the file's team, or"
-            " move the file to a Professional+ team."
-        )
-    return msg
 
 
 def _get_client() -> httpx.AsyncClient:
@@ -292,7 +255,7 @@ async def proxy_figma(
         # that explains WHY (plan tier + Retry-After), so the UI stops giving the
         # misleading "wait a moment / rotate the token" advice for what is often a
         # per-month, per-account Starter-plan cap.
-        body = json.dumps({"detail": _figma_rate_limit_detail(resp.headers)}).encode()
+        body = json.dumps({"detail": rate_limit_message(resp.headers)}).encode()
         return Response(content=body, status_code=429, media_type="application/json")
 
     return Response(

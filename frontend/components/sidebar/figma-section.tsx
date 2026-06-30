@@ -29,15 +29,11 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
   // Project picker (Stage 1): when the URL is a project, list its files and let
   // the user pick one. Picking sets a single fileKey — downstream is unchanged.
   const [projectFiles, setProjectFiles] = useState<FigmaProjectFile[] | null>(null);
-  // After a 429, lock Sync for a short cooldown so unguarded re-clicks don't keep
-  // re-hitting Figma. Separately, for a longer window after a 429 we mark the token
-  // "rate-limited" and stop FORCING the Sync — a non-forced call is served stale /
-  // fails fast at the proxy without reaching Figma, so a throttled token's penalty
-  // window can actually expire instead of being extended by every retry.
+  // After a 429, lock Sync for a short cooldown so re-clicks don't keep hitting
+  // Figma (the backend makes the upstream calls; hammering a throttled token only
+  // extends Figma's penalty window).
   const SYNC_COOLDOWN_MS = 60_000;
-  const RATE_LIMIT_BACKOFF_MS = 300_000; // 5 min: prefer non-forced syncs after a 429
   const [syncBlockedUntil, setSyncBlockedUntil] = useState(0);
-  const [rateLimitedUntil, setRateLimitedUntil] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const syncBlockedSecs = Math.max(0, Math.ceil((syncBlockedUntil - now) / 1000));
   useEffect(() => {
@@ -239,24 +235,20 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
                   <button
                     className="inline-flex h-9 items-center justify-center gap-2 rounded bg-violet-700 text-sm font-semibold text-white hover:bg-violet-600 disabled:opacity-50"
                     disabled={syncContext.isPending || syncBlockedSecs > 0}
-                    onClick={() => syncContext.mutate(Date.now() >= rateLimitedUntil, {
+                    onClick={() => syncContext.mutate(undefined, {
                       onSuccess: () => toast.success("Figma context synced."),
                       onError: (e) => {
-                        // A 429 means Figma is rate-limiting this token. The last-synced
-                        // context on disk is untouched (we never reached the write), so
-                        // this is a soft "try later", not a loss. Lock the button for a
-                        // short cooldown, and stop forcing Sync for a longer window so
-                        // retries don't keep hitting Figma and extending its penalty.
+                        // A 429 means Figma is rate-limiting this account. The previous
+                        // figma-context.md on disk is untouched, so this is a soft "try
+                        // later", not a loss. Lock the button briefly so retries don't
+                        // keep hitting Figma. The backend 429 carries Figma's real reason
+                        // (plan tier + Retry-After) — show it verbatim. Note: Figma tracks
+                        // this per Figma ACCOUNT, so a new token does not reset it.
                         if ((e as { status?: number })?.status === 429) {
                           const t = Date.now();
                           setSyncBlockedUntil(t + SYNC_COOLDOWN_MS);
-                          setRateLimitedUntil(t + RATE_LIMIT_BACKOFF_MS);
                           setNow(t);
-                          // The backend 429 carries Figma's real reason (plan tier +
-                          // Retry-After). Show it verbatim; your last-synced context is
-                          // untouched. Note: Figma tracks this per Figma ACCOUNT, so a
-                          // new token doesn't reset it.
-                          const why = e instanceof Error && e.message ? e.message : "Figma is rate-limiting this token.";
+                          const why = e instanceof Error && e.message ? e.message : "Figma is rate-limiting this account.";
                           toast.warning(`${why} Your last-synced design context is kept.`);
                           return;
                         }

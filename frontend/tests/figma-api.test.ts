@@ -8,7 +8,6 @@ import {
   parseFigmaProjectUrl,
   figmaNodeUrl,
   deriveFramesAndFlows,
-  buildFigmaContextMarkdown,
   figmaVerifyFile,
   figmaGetFile,
   figmaGetProjectFiles,
@@ -109,26 +108,6 @@ describe("deriveFramesAndFlows", () => {
   it("derives prototype flow edges from transitionNodeID", () => {
     const { flows } = deriveFramesAndFlows(FILE);
     expect(flows).toEqual([{ from_name: "Login", to_name: "Dashboard" }]);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// buildFigmaContextMarkdown
-// ---------------------------------------------------------------------------
-
-describe("buildFigmaContextMarkdown", () => {
-  it("includes file name, screens, and flows", () => {
-    const md = buildFigmaContextMarkdown(FILE, []);
-    expect(md).toContain("**File:** My App");
-    expect(md).toContain("### Page 1");
-    expect(md).toContain("- Login");
-    expect(md).toContain("Login → Dashboard");
-  });
-
-  it("includes comments when present", () => {
-    const md = buildFigmaContextMarkdown(FILE, [{ message: "Use brand blue", user: { handle: "tom" } }]);
-    expect(md).toContain("## Comments");
-    expect(md).toContain("Use brand blue");
   });
 });
 
