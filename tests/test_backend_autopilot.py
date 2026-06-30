@@ -998,3 +998,35 @@ class TestConcurrency:
         svc._run_phase3(job, _ctx(), [1, 2, 3, 4, 5])
         assert sorted(planned) == [1, 2, 3, 4, 5]  # every pending story ran
         assert job["stories_done"] == 5
+
+
+# ---------------------------------------------------------------------------
+# Start at a chosen phase (Phases before it already done in the project)
+# ---------------------------------------------------------------------------
+
+class TestStartPhase:
+    def test_request_allows_empty_inputs_when_starting_later(self):
+        req = AutopilotStartRequest(start_phase="phase3")  # no concept/epics needed
+        assert req.start_phase == "phase3"
+
+    def test_request_requires_concept_and_epics_for_phase1(self):
+        with pytest.raises(ValueError):
+            AutopilotStartRequest(start_phase="phase1", concept="", epics=[])
+        with pytest.raises(ValueError):
+            AutopilotStartRequest(start_phase="phase1", concept="c", epics=[])
+
+    def test_start_job_seeds_current_phase(self, monkeypatch):
+        class _FakeThread:
+            def __init__(self, *a, **kw):
+                pass
+
+            def start(self):
+                pass
+
+        monkeypatch.setattr(threading, "Thread", _FakeThread)
+        job_id = svc.start_job(
+            _ctx(), concept="", epics=[], tech_stack_hint="",
+            settings={"pause_at_checkpoints": False, "create_epics_in_taiga": False},
+            start_phase="phase3",
+        )
+        assert svc.get_job(job_id)["current_phase"] == "phase3"

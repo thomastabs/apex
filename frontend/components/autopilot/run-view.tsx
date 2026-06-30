@@ -350,21 +350,30 @@ export function AutopilotRunView({ status, onReset, onResume, resuming }: Props)
         </div>
       )}
 
-      {/* Story progress bar */}
-      {status.story_count > 0 && (
-        <div className="space-y-1">
-          <div className="flex justify-between text-[10px] text-neutral-500">
-            <span>Stories</span>
-            <span>{status.stories_done}/{status.story_count}</span>
+      {/* Progress bar — phase-aware: epics in Phase 1, stories in Phases 3-5. The
+          per-story counter only moves in Phases 3-5, so during Phase 1/2 we track
+          epics instead of showing a stuck 0/N. */}
+      {(() => {
+        const inPhase1 = status.current_phase === "phase1";
+        const label = inPhase1 ? "Epics" : "Stories";
+        const doneN = inPhase1 ? status.epics_done : status.stories_done;
+        const totalN = inPhase1 ? status.epic_count : status.story_count;
+        if (totalN <= 0) return null;
+        return (
+          <div className="space-y-1">
+            <div className="flex justify-between text-[10px] text-neutral-500">
+              <span>{label}</span>
+              <span>{doneN}/{totalN}</span>
+            </div>
+            <div className="h-1 w-full rounded-full bg-neutral-800">
+              <div
+                className="h-1 rounded-full bg-violet-500 transition-all duration-500"
+                style={{ width: `${Math.min(100, (doneN / totalN) * 100)}%` }}
+              />
+            </div>
           </div>
-          <div className="h-1 w-full rounded-full bg-neutral-800">
-            <div
-              className="h-1 rounded-full bg-violet-500 transition-all duration-500"
-              style={{ width: `${(status.stories_done / status.story_count) * 100}%` }}
-            />
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Checkpoint banner */}
       {isPaused && checkpointPhase && (

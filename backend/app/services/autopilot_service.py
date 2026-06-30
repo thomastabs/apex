@@ -291,72 +291,52 @@ def _run_phase1(job: dict, ctx: RequestContext) -> list[int]:
     all_story_ids: list[int] = list(job.get("_all_story_ids", []))
     completed_epics: set[int] = set(job.get("completed_epics", []))
     epics: list[dict] = job["epics"]
+    pending = [i for i in range(len(epics)) if i not in completed_epics]
+    _emit(job, "info",
+          f"Phase 1 · {len(pending)} epic(s) → stories "
+          f"(up to {_AUTOPILOT_CONCURRENCY} at a time)…", phase="phase1")
 
-    for epic_idx, epic in enumerate(epics):
+    def _epic_worker(epic_idx: int) -> None:
         if _check_stop(job):
-            break
-        if epic_idx in completed_epics:
-            continue  # already finalized in a prior run — its stories are in all_story_ids
-
+            return
+        p1w = Phase1Service()  # per-worker instance — services hold per-request state
+        epic = epics[epic_idx]
         epic_title = epic["title"]
         epic_description = epic.get("description", "")
-        job["current_epic_idx"] = epic_idx
-        _emit(job, "info", f"Phase 1 · Epic {epic_idx + 1}/{len(epics)}: {epic_title!r}", phase="phase1")
+        _emit(job, "info", f"  Epic {epic_idx + 1}/{len(epics)}: {epic_title!r} — generating stories…", phase="phase1")
 
         # Taiga epic creation
         epic_taiga_id: int | None = None
         if job["settings"].get("create_epics_in_taiga") and job.get("taiga_base") and job.get("taiga_token"):
             try:
-                taiga_proj_id = ctx.project_id
                 result = _taiga_post(
                     f"{job['taiga_base']}/epics",
                     job["taiga_token"],
-                    {"project": taiga_proj_id, "subject": epic_title, "description": epic_description},
+                    {"project": ctx.project_id, "subject": epic_title, "description": epic_description},
                 )
                 epic_taiga_id = result.get("id")
-                _emit(job, "info", f"  Created Taiga epic #{epic_taiga_id}", phase="phase1")
+                _emit(job, "info", f"  Created Taiga epic #{epic_taiga_id} ({epic_title!r})", phase="phase1")
             except Exception as exc:
                 _emit(job, "warning", f"  Taiga epic creation failed: {exc} — using synthetic ID", phase="phase1")
 
         epic_id = epic_taiga_id if epic_taiga_id else (epic_idx + 1)
 
-        # Generate NL stories. Project mode (file-as-epic): ground this epic with its
-        # OWN file's images; otherwise use the single-file images (today's behaviour).
+        # Project mode (file-as-epic): ground this epic with its OWN file's images.
         epic_file_key = epic.get("_figma_file_key")
         if epic_file_key and job.get("_figma_by_file"):
             epic_images = job["_figma_by_file"].get(epic_file_key, {}).get("images") or None
         else:
             epic_images = job.get("_figma_images") or None
-        _emit(job, "info", f"  Generating user stories for {epic_title!r}…", phase="phase1")
-        nl_draft, story_count = p1.generate_nl_stories(
-            ctx,
-            epic_subject=epic_title,
-            epic_description=epic_description,
-            images=epic_images,
-            instructions=job.get("steer_note", ""),
+        nl_draft, _ = p1w.generate_nl_stories(
+            ctx, epic_subject=epic_title, epic_description=epic_description,
+            images=epic_images, instructions=job.get("steer_note", ""),
         )
-        _emit(job, "info", f"  NL draft ready (~{story_count} stories)", phase="phase1",
-              artifact=nl_draft[:2000])
-
         if _check_stop(job):
-            break
+            return
+        stories = p1w.compile_gherkin(nl_draft=nl_draft)
 
-        # Compile Gherkin
-        _emit(job, "info", "  Compiling Gherkin…", phase="phase1")
-        stories = p1.compile_gherkin(nl_draft=nl_draft)
-        _emit(job, "info", f"  {len(stories)} Gherkin stories compiled", phase="phase1")
-
-        if _check_stop(job):
-            break
-
-        # Assign real IDs
+        # Assign real IDs (Taiga story + epic link, mirroring taigaCreateStory) or synthetic.
         if job["settings"].get("create_epics_in_taiga") and job.get("taiga_base") and job.get("taiga_token") and epic_taiga_id:
-            # Create user stories in Taiga and use their IDs. Taiga does NOT honour an
-            # `epic` field on userstory create — the story↔epic link is a separate
-            # /epics/{id}/related_userstories call (mirrors taigaCreateStory on the
-            # frontend). The Gherkin becomes the story description so the PM card isn't
-            # empty. Without the explicit link the story exists but sits under no epic,
-            # which shows as "0 on board" against the story index.
             remapped: list[dict] = []
             for s in stories:
                 try:
@@ -380,22 +360,21 @@ def _run_phase1(job: dict, ctx: RequestContext) -> list[int]:
                     remapped.append({**s, "id": _next_synthetic_id()})
             stories = remapped
         else:
-            # Assign synthetic IDs (unique across all epics)
             stories = [{**s, "id": _next_synthetic_id()} for s in stories]
 
-        # Finalize
-        result = p1.finalize_stories(ctx, epic_id=epic_id, epic_subject=epic_title, stories=stories)
+        result = p1w.finalize_stories(ctx, epic_id=epic_id, epic_subject=epic_title, stories=stories)
         story_ids = result["story_ids"]
-        all_story_ids.extend(story_ids)
-        job["story_count"] += len(story_ids)
-        # Mark the epic done + checkpoint to disk so a restart resumes at the next epic.
-        completed_epics.add(epic_idx)
-        job["completed_epics"] = sorted(completed_epics)
-        job["_all_story_ids"] = all_story_ids
+        with _progress_lock:
+            all_story_ids.extend(story_ids)
+            job["story_count"] += len(story_ids)
+            completed_epics.add(epic_idx)
+            job["completed_epics"] = sorted(completed_epics)
+            job["_all_story_ids"] = list(all_story_ids)
         _emit(job, "success", f"  Epic {epic_title!r}: {len(story_ids)} stories locked (Gherkin)", phase="phase1")
         _persist(job)
 
-    return all_story_ids
+    _run_parallel(job, pending, _epic_worker)
+    return list(all_story_ids)
 
 
 def _run_phase2(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> None:
@@ -572,6 +551,20 @@ def _run_pipeline(job_id: str) -> None:
         if start == 0:
             job["current_phase"] = "init"
             _emit(job, "info", "Autopilot started", phase="init")
+        elif not all_story_ids:
+            # Starting at a later phase (Phases 1-2 already done in this project) with
+            # no in-memory cursor → drive the rest from the existing story index.
+            try:
+                cs = ContextService()
+                cs.set_active(ctx)
+                all_story_ids = sorted(int(sid) for sid in cs.story_index().keys())
+            except Exception:  # noqa: BLE001
+                all_story_ids = []
+            job["_all_story_ids"] = all_story_ids
+            job["story_count"] = len(all_story_ids)
+            _emit(job, "info",
+                  f"Starting at {job['current_phase']} — {len(all_story_ids)} existing stories from the project",
+                  phase=job["current_phase"])
         _persist(job)
 
         # Phase 1
@@ -677,6 +670,7 @@ def start_job(
     figma_file_key: str = "",
     figma_token: str = "",
     figma_project_id: str = "",
+    start_phase: str = "phase1",
 ) -> str:
     job_id = str(uuid.uuid4())
     stop_event = threading.Event()
@@ -699,7 +693,9 @@ def start_job(
         # Phase 3 tasks) so they can nudge the AI without stopping the pipeline.
         "steer_note": "",
         "state": "running",
-        "current_phase": "init",
+        # current_phase seeds where the pipeline starts; "phase1" runs from scratch,
+        # a later phase skips earlier ones (their work is assumed already in the project).
+        "current_phase": start_phase if start_phase in _PHASE_KEYS else "phase1",
         "current_epic_idx": None,
         "current_story_id": None,
         "checkpoint_phase": None,
@@ -878,6 +874,8 @@ def serialize_job(job: dict) -> dict:
         "error": job.get("error"),
         "story_count": job.get("story_count", 0),
         "stories_done": job.get("stories_done", 0),
+        "epic_count": len(job.get("epics", []) or []),
+        "epics_done": len(job.get("completed_epics", []) or []),
         "checkpoint_phase": job.get("checkpoint_phase"),
         "steer_note": job.get("steer_note", ""),
     }
@@ -921,28 +919,34 @@ def _persist(job: dict) -> None:
         _logger.exception("autopilot: failed to persist job %s", job.get("job_id"))
 
 
+def _run_parallel(job: dict, items: list, worker) -> None:
+    """Run worker(item) over items with bounded concurrency, honouring stop. Each
+    worker runs in a copied context so the project ContextVars reach the pool
+    threads. The first worker exception propagates (fails the phase)."""
+    if not items or _check_stop(job):
+        return
+    with cf.ThreadPoolExecutor(max_workers=_AUTOPILOT_CONCURRENCY) as ex:
+        futures = []
+        for item in items:
+            if _check_stop(job):
+                break
+            futures.append(ex.submit(contextvars.copy_context().run, worker, item))
+        for fut in cf.as_completed(futures):
+            exc = fut.exception()
+            if exc is not None:
+                raise exc
+
+
 def _process_stories(job: dict, story_ids: list[int], done_statuses: set[str], worker) -> None:
     """Run worker(story_id) across stories with bounded concurrency, skipping those
-    already at/past a done status (resume) and honouring stop. Each worker runs in a
-    copied context so the project ContextVars propagate to the pool threads."""
+    already at/past a done status (resume) and honouring stop."""
     done = _status_snapshot(job)
     todo = [sid for sid in story_ids if done.get(str(sid), "") not in done_statuses]
     skipped = len(story_ids) - len(todo)
     if skipped:
         with _progress_lock:
             job["stories_done"] += skipped  # keep the progress bar honest on resume
-    if not todo or _check_stop(job):
-        return
-    with cf.ThreadPoolExecutor(max_workers=_AUTOPILOT_CONCURRENCY) as ex:
-        futures = []
-        for sid in todo:
-            if _check_stop(job):
-                break
-            futures.append(ex.submit(contextvars.copy_context().run, worker, sid))
-        for fut in cf.as_completed(futures):
-            exc = fut.exception()
-            if exc is not None:
-                raise exc
+    _run_parallel(job, todo, worker)
 
 
 def _status_snapshot(job: dict) -> dict[str, str]:

@@ -30,7 +30,7 @@ class AutopilotSettings(BaseModel):
 
 
 class AutopilotStartRequest(BaseModel):
-    concept: str = Field(min_length=1)
+    concept: str = ""
     # Epics are required UNLESS a Figma project is supplied — in project mode the
     # pipeline derives one epic per project file (file-as-epic).
     epics: list[AutopilotEpic] = Field(default_factory=list)
@@ -42,11 +42,19 @@ class AutopilotStartRequest(BaseModel):
     figma_token: str = Field("", max_length=2_000)
     # When set, the pipeline ingests the whole project and creates one epic per file.
     figma_project_id: str = Field("", max_length=64)
+    # Start the pipeline at a later phase when earlier ones are already done in this
+    # project (e.g. Phase 2 finished manually → start Autopilot at Phase 3). Phases
+    # before it are skipped and the existing story index drives the rest.
+    start_phase: Literal["phase1", "phase2", "phase3", "phase4", "phase5"] = "phase1"
 
     @model_validator(mode="after")
-    def _epics_required_without_project(self) -> "AutopilotStartRequest":
-        # Epics may be empty when the AI derives them (auto_epics) or when a Figma
-        # project supplies one epic per file.
+    def _epics_required_for_phase1(self) -> "AutopilotStartRequest":
+        # Concept + epics only matter for a from-scratch run (Phase 1). When starting
+        # later, the project's existing stories drive the pipeline.
+        if self.start_phase != "phase1":
+            return self
+        if not self.concept.strip():
+            raise ValueError("concept is required when starting at Phase 1")
         if not self.epics and not self.figma_project_id.strip() and not self.settings.auto_epics:
             raise ValueError("epics is required unless figma_project_id is set or auto_epics is enabled")
         return self
@@ -71,6 +79,8 @@ class AutopilotStatusResponse(BaseModel):
     error: str | None = None
     story_count: int = 0
     stories_done: int = 0
+    epic_count: int = 0
+    epics_done: int = 0
     checkpoint_phase: str | None = None
     steer_note: str = ""
 

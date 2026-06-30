@@ -2,8 +2,16 @@
 
 import { useState } from "react";
 import { Plus, Trash2, Bot, Loader2 } from "lucide-react";
-import type { AutopilotEpic, AutopilotSettings, AutopilotStartRequest } from "@/lib/api/autopilot";
+import type { AutopilotEpic, AutopilotPhaseKey, AutopilotSettings, AutopilotStartRequest } from "@/lib/api/autopilot";
 import { parseFigmaProjectUrl } from "@/lib/api/figma";
+
+const START_PHASES: { key: AutopilotPhaseKey; label: string }[] = [
+  { key: "phase1", label: "Phase 1 — Requirements (from scratch)" },
+  { key: "phase2", label: "Phase 2 — Design" },
+  { key: "phase3", label: "Phase 3 — Implementation" },
+  { key: "phase4", label: "Phase 4 — Testing" },
+  { key: "phase5", label: "Phase 5 — Deployment" },
+];
 
 type Props = {
   onStart: (req: AutopilotStartRequest) => void;
@@ -22,6 +30,9 @@ export function AutopilotSetupForm({ onStart, isPending }: Props) {
   const [techStackHint, setTechStackHint] = useState("");
   const [figmaProjectUrl, setFigmaProjectUrl] = useState("");
   const [settings, setSettings] = useState<AutopilotSettings>(DEFAULT_SETTINGS);
+  // Start at a later phase when earlier ones are already done in this project.
+  const [startPhase, setStartPhase] = useState<AutopilotPhaseKey>("phase1");
+  const fromScratch = startPhase === "phase1";
 
   // Project mode (file-as-epic): a valid Figma project URL → epics are derived from
   // the project's files, so the manual epics list becomes optional.
@@ -45,6 +56,12 @@ export function AutopilotSetupForm({ onStart, isPending }: Props) {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // Starting past Phase 1: the project's existing stories drive the run, so concept/
+    // epics are not needed — just hand over the start phase.
+    if (!fromScratch) {
+      onStart({ concept: "", epics: [], tech_stack_hint: techStackHint, settings, start_phase: startPhase });
+      return;
+    }
     const validEpics = epics.filter((e) => e.title.trim());
     // Epics come from the manual list only; in project mode they're derived from the
     // Figma files and in auto mode the AI derives them from the concept (both server-side).
@@ -55,12 +72,14 @@ export function AutopilotSetupForm({ onStart, isPending }: Props) {
       epics: manualNeeded ? validEpics : [],
       tech_stack_hint: techStackHint,
       settings,
+      start_phase: "phase1",
       ...(figmaProjectId ? { figma_project_id: figmaProjectId } : {}),
     });
   }
 
-  const canStart =
-    concept.trim().length > 0 && (inProjectMode || autoEpics || epics.some((e) => e.title.trim()));
+  const canStart = !fromScratch
+    ? true
+    : concept.trim().length > 0 && (inProjectMode || autoEpics || epics.some((e) => e.title.trim()));
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -77,7 +96,27 @@ export function AutopilotSetupForm({ onStart, isPending }: Props) {
         </div>
       </div>
 
-      {/* Project Concept */}
+      {/* Start phase */}
+      <div className="space-y-1.5">
+        <label className="block text-xs font-medium text-neutral-400">Start from</label>
+        <select
+          value={startPhase}
+          onChange={(e) => setStartPhase(e.target.value as AutopilotPhaseKey)}
+          className="w-full rounded-md border border-neutral-700 bg-neutral-800/60 px-3 py-2 text-sm text-neutral-200 focus:border-violet-500/60 focus:outline-none focus:ring-1 focus:ring-violet-500/30"
+        >
+          {START_PHASES.map((p) => (
+            <option key={p.key} value={p.key}>{p.label}</option>
+          ))}
+        </select>
+        {!fromScratch && (
+          <p className="rounded-md border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs text-violet-300">
+            Phases before {START_PHASES.find((p) => p.key === startPhase)?.label.split("—")[0].trim()} are assumed already complete in this project — Autopilot uses the project&apos;s existing stories and runs from there. No concept or epics needed.
+          </p>
+        )}
+      </div>
+
+      {/* Project Concept + Figma + Epics (Phase 1 only) */}
+      {fromScratch && (<>
       <div className="space-y-1.5">
         <label className="block text-xs font-medium text-neutral-400">
           Project concept <span className="text-red-500">*</span>
@@ -189,6 +228,7 @@ export function AutopilotSetupForm({ onStart, isPending }: Props) {
           </>
         )}
       </div>
+      </>)}
 
       {/* Tech stack hint */}
       <div className="space-y-1.5">

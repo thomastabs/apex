@@ -99,6 +99,8 @@ const FAKE_STATUS = {
   error: null,
   story_count: 0,
   stories_done: 0,
+  epic_count: 0,
+  epics_done: 0,
   checkpoint_phase: null,
   steer_note: "",
 };

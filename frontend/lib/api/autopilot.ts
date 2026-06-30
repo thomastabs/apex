@@ -14,6 +14,8 @@ export type AutopilotSettings = {
   auto_epics: boolean;
 };
 
+export type AutopilotPhaseKey = "phase1" | "phase2" | "phase3" | "phase4" | "phase5";
+
 export type AutopilotStartRequest = {
   concept: string;
   epics: AutopilotEpic[];
@@ -22,6 +24,7 @@ export type AutopilotStartRequest = {
   figma_file_key?: string;
   figma_token?: string;
   figma_project_id?: string;  // project mode: derive one epic per file (file-as-epic)
+  start_phase?: AutopilotPhaseKey;  // skip earlier phases already done in the project
 };
 
 export type AutopilotEvent = {
@@ -46,6 +49,8 @@ export type AutopilotStatus = {
   error: string | null;
   story_count: number;
   stories_done: number;
+  epic_count: number;
+  epics_done: number;
   checkpoint_phase: string | null;
   steer_note: string;
 };

@@ -38,6 +38,7 @@ def autopilot_start(
         figma_file_key=body.figma_file_key,
         figma_token=body.figma_token,
         figma_project_id=body.figma_project_id,
+        start_phase=body.start_phase,
     )
     return AutopilotStartResponse(job_id=job_id)
 
