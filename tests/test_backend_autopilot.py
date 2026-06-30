@@ -1030,3 +1030,58 @@ class TestStartPhase:
             start_phase="phase3",
         )
         assert svc.get_job(job_id)["current_phase"] == "phase3"
+
+
+# ---------------------------------------------------------------------------
+# Cross-epic dedup pass (after Phase 1)
+# ---------------------------------------------------------------------------
+
+class TestDedup:
+    def test_removes_cross_epic_duplicate_story(self, monkeypatch):
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_taiga": False, "auto_epics": False})
+        removed: list[int] = []
+
+        class _CS:
+            def set_active(self, ctx):
+                pass
+
+            def story_index(self):
+                return {
+                    "1": {"title": "User Login Flow", "epic_id": 1},
+                    "2": {"title": "User Login Flow", "epic_id": 2},  # cross-epic dup of #1
+                    "3": {"title": "Export Monthly Reports", "epic_id": 2},
+                }
+
+            def remove_story_index_entries(self, ids):
+                removed.extend(ids)
+
+            def save_autopilot_job(self, snap):
+                pass
+
+        monkeypatch.setattr(svc, "ContextService", _CS)
+        out = svc._dedup_stories(job, _ctx(), [1, 2, 3])
+        assert removed == [2]
+        assert out == [1, 3]
+        assert job["story_count"] == 2
+
+    def test_no_duplicates_keeps_all(self, monkeypatch):
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_taiga": False, "auto_epics": False})
+
+        class _CS:
+            def set_active(self, ctx):
+                pass
+
+            def story_index(self):
+                return {
+                    "1": {"title": "Reset Password", "epic_id": 1},
+                    "2": {"title": "Generate Reports", "epic_id": 2},
+                }
+
+            def remove_story_index_entries(self, ids):
+                raise AssertionError("should not remove when there are no duplicates")
+
+            def save_autopilot_job(self, snap):
+                pass
+
+        monkeypatch.setattr(svc, "ContextService", _CS)
+        assert svc._dedup_stories(job, _ctx(), [1, 2]) == [1, 2]

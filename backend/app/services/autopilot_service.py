@@ -96,6 +96,17 @@ def _taiga_post(url: str, token: str, body: dict) -> dict:
     return resp.json()
 
 
+def _taiga_delete(url: str, token: str) -> None:
+    from backend.app.api.taiga_proxy import _egress, _pin_unless_relayed
+
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+    url, headers = _egress(url, headers)
+    url, headers, ext = _pin_unless_relayed(url, headers)
+    resp = httpx.delete(url, headers=headers, timeout=_TIMEOUT, **({"extensions": ext} if ext else {}))
+    if resp.status_code not in (200, 204, 404):  # 404 = already gone, fine
+        resp.raise_for_status()
+
+
 # ---------------------------------------------------------------------------
 # Event helpers
 # ---------------------------------------------------------------------------
@@ -377,6 +388,53 @@ def _run_phase1(job: dict, ctx: RequestContext) -> list[int]:
     return list(all_story_ids)
 
 
+def _dedup_stories(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> list[int]:
+    """Drop near-duplicate stories produced across DIFFERENT epics (pure detector),
+    so the backlog stays concise. Runs right after Phase 1 — before any downstream
+    artifacts exist — so removal is clean: delete the Taiga story (real ids) + its
+    index entry. Idempotent on resume (already-gone deletes 404, index removal no-ops).
+    Returns the surviving story ids."""
+    from src import ai_engine
+
+    cs = ContextService()
+    cs.set_active(ctx)
+    keep = set(all_story_ids)
+    index = cs.story_index()
+    stories = [
+        {"id": int(sid), "title": entry.get("title", ""), "epic_id": entry.get("epic_id")}
+        for sid, entry in index.items()
+        if int(sid) in keep
+    ]
+    drops = ai_engine.find_cross_epic_duplicates(stories)
+    if not drops:
+        _emit(job, "info", "Dedup: no cross-epic duplicate stories found.", phase="phase1")
+        return all_story_ids
+
+    drop_ids = [d["drop_id"] for d in drops]
+    if job["settings"].get("create_epics_in_taiga") and job.get("taiga_base") and job.get("taiga_token"):
+        for did in drop_ids:
+            if did < _SYNTHETIC_BASE:  # real Taiga id (synthetic ids are local-only)
+                try:
+                    _taiga_delete(f"{job['taiga_base']}/userstories/{did}", job["taiga_token"])
+                except Exception as exc:  # noqa: BLE001 — best-effort cleanup
+                    _emit(job, "warning", f"  Could not delete Taiga story #{did}: {exc}", phase="phase1")
+    cs.remove_story_index_entries(drop_ids)
+
+    for d in drops:
+        _emit(job, "info",
+              f"  Removed duplicate story #{d['drop_id']} {d['title'][:50]!r} — overlaps #{d['keep_id']} (sim {d['score']})",
+              phase="phase1")
+    remaining = [sid for sid in all_story_ids if sid not in set(drop_ids)]
+    job["_all_story_ids"] = remaining
+    job["story_count"] = len(remaining)
+    _emit(job, "success",
+          f"Dedup: removed {len(drops)} cross-epic duplicate "
+          f"{'story' if len(drops) == 1 else 'stories'}; {len(remaining)} remain.",
+          phase="phase1")
+    _persist(job)
+    return remaining
+
+
 def _run_phase2(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> None:
     """Run Phase 2: lock tech stack + generate design + persist."""
     p2 = Phase2Service()
@@ -573,6 +631,11 @@ def _run_pipeline(job_id: str) -> None:
                 raise StopIteration
             job["current_phase"] = "phase1"
             all_story_ids = _run_phase1(job, ctx)
+            if _check_stop(job):
+                raise StopIteration
+            # Concise backlog: drop cross-epic duplicate stories before downstream phases.
+            if job["settings"].get("dedup_stories") and len(job.get("epics", [])) > 1:
+                all_story_ids = _dedup_stories(job, ctx, all_story_ids)
             if _check_stop(job):
                 raise StopIteration
             job["_all_story_ids"] = all_story_ids

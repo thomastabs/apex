@@ -22,6 +22,7 @@ const DEFAULT_SETTINGS: AutopilotSettings = {
   pause_at_checkpoints: true,
   create_epics_in_taiga: true,
   auto_epics: false,
+  dedup_stories: true,
 };
 
 export function AutopilotSetupForm({ onStart, isPending }: Props) {
@@ -269,6 +270,18 @@ export function AutopilotSetupForm({ onStart, isPending }: Props) {
           <div>
             <p className="text-sm text-neutral-300">Create epics & stories in Taiga</p>
             <p className="text-xs text-neutral-500">Push generated epics and user stories to your Taiga project. Disable if epics already exist.</p>
+          </div>
+        </label>
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={settings.dedup_stories}
+            onChange={(e) => setSettings((s) => ({ ...s, dedup_stories: e.target.checked }))}
+            className="h-4 w-4 rounded accent-violet-500"
+          />
+          <div>
+            <p className="text-sm text-neutral-300">De-duplicate stories across epics</p>
+            <p className="text-xs text-neutral-500">After Phase 1, drop near-duplicate stories that different epics independently produced, keeping the backlog concise.</p>
           </div>
         </label>
       </div>

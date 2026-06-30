@@ -1930,6 +1930,40 @@ def parse_pack_files(md: str) -> list[str]:
     return out
 
 
+def find_cross_epic_duplicates(stories: list[dict], threshold: float = 0.72) -> list[dict]:
+    """Near-duplicate story detector for Autopilot conciseness (pure, no AI).
+
+    `stories`: [{id, title, epic_id}]. Flags stories in DIFFERENT epics whose titles
+    overlap heavily (Jaccard over keyword tokens >= threshold) — independent per-epic
+    generation tends to re-derive the same cross-cutting story (e.g. "User Login").
+    Greedy + deterministic: stories are walked in id order, the first is kept and any
+    later near-duplicate (in another epic) is reported as a drop. Same-epic pairs are
+    ignored. Returns [{drop_id, keep_id, score, title}], most-confident not ordered.
+    """
+    kept: list[tuple] = []  # (id, epic_id, token_set)
+    drops: list[dict] = []
+    for s in sorted(stories, key=lambda x: x.get("id") or 0):
+        toks = set(_scenario_keywords(s.get("title", "")))
+        if not toks:
+            kept.append((s.get("id"), s.get("epic_id"), toks))
+            continue
+        best: tuple | None = None
+        for kid, kepic, ktoks in kept:
+            if kepic == s.get("epic_id") or not ktoks:
+                continue
+            inter = len(toks & ktoks)
+            if not inter:
+                continue
+            jac = inter / len(toks | ktoks)
+            if jac >= threshold and (best is None or jac > best[1]):
+                best = (kid, jac)
+        if best is not None:
+            drops.append({"drop_id": s.get("id"), "keep_id": best[0], "score": round(best[1], 3), "title": s.get("title", "")})
+        else:
+            kept.append((s.get("id"), s.get("epic_id"), toks))
+    return drops
+
+
 def detect_design_conflicts(packs: list[dict]) -> dict[int, dict]:
     """Find cross-story overlaps among saved developer packs (pure, no AI).
 

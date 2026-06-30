@@ -12,6 +12,8 @@ export type AutopilotSettings = {
   // When true, the pipeline derives epics from the project concept (AI) instead of
   // requiring a manual epics list. Ignored in Figma project mode.
   auto_epics: boolean;
+  // After Phase 1, drop near-duplicate stories across different epics (pure, no AI).
+  dedup_stories: boolean;
 };
 
 export type AutopilotPhaseKey = "phase1" | "phase2" | "phase3" | "phase4" | "phase5";

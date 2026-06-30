@@ -27,6 +27,9 @@ class AutopilotSettings(BaseModel):
     # instead of requiring a manual epics list. Ignored in Figma project mode
     # (which already creates one epic per file).
     auto_epics: bool = False
+    # After Phase 1, drop near-duplicate stories that independent per-epic generation
+    # produced across DIFFERENT epics, so the backlog stays concise (pure, no AI).
+    dedup_stories: bool = True
 
 
 class AutopilotStartRequest(BaseModel):

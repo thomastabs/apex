@@ -1661,3 +1661,38 @@ class TestMultimodalGrounding:
         ai_engine.generate_nl_stories("Epic", "Desc", images=self._IMGS)
         assert captured["images"] == self._IMGS
         assert "Frame images are attached" in captured["human"]
+
+
+class TestFindCrossEpicDuplicates:
+    def test_flags_same_title_in_different_epics(self):
+        stories = [
+            {"id": 1, "title": "User Login Flow", "epic_id": 1},
+            {"id": 2, "title": "User Login Flow", "epic_id": 2},
+            {"id": 3, "title": "Export Monthly Reports", "epic_id": 2},
+        ]
+        drops = ai_engine.find_cross_epic_duplicates(stories)
+        assert [d["drop_id"] for d in drops] == [2]
+        assert drops[0]["keep_id"] == 1  # lowest id kept
+
+    def test_ignores_same_epic_overlap(self):
+        stories = [
+            {"id": 1, "title": "User Login Flow", "epic_id": 1},
+            {"id": 2, "title": "User Login Flow", "epic_id": 1},  # same epic → not a cross-epic dup
+        ]
+        assert ai_engine.find_cross_epic_duplicates(stories) == []
+
+    def test_distinct_titles_not_flagged(self):
+        stories = [
+            {"id": 1, "title": "Reset Password By Email", "epic_id": 1},
+            {"id": 2, "title": "Generate Analytics Dashboard", "epic_id": 2},
+        ]
+        assert ai_engine.find_cross_epic_duplicates(stories) == []
+
+    def test_threshold_partial_overlap(self):
+        stories = [
+            {"id": 1, "title": "Configure Notification Preferences", "epic_id": 1},
+            {"id": 2, "title": "Configure Notification Channels", "epic_id": 2},
+        ]
+        # "configure notification" shared (2/3 tokens) → ~0.5 Jaccard, below 0.72 default
+        assert ai_engine.find_cross_epic_duplicates(stories) == []
+        assert len(ai_engine.find_cross_epic_duplicates(stories, threshold=0.4)) == 1
