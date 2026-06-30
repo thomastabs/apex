@@ -127,7 +127,7 @@ describe("useStartAutopilot", () => {
         concept: "Auth",
         epics: [{ title: "Login", description: "" }],
         tech_stack_hint: "",
-        settings: { pause_at_checkpoints: true, create_epics_in_taiga: false },
+        settings: { pause_at_checkpoints: true, create_epics_in_taiga: false, auto_epics: false },
       });
     });
 
@@ -146,7 +146,7 @@ describe("useStartAutopilot", () => {
         concept: "Auth",
         epics: [{ title: "Login", description: "" }],
         tech_stack_hint: "",
-        settings: { pause_at_checkpoints: false, create_epics_in_taiga: false },
+        settings: { pause_at_checkpoints: false, create_epics_in_taiga: false, auto_epics: false },
       });
     });
 

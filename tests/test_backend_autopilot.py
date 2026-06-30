@@ -563,3 +563,106 @@ class TestAutopilotRoutes:
         with pytest.raises(HTTPException) as exc:
             autopilot_take_over("missing", ctx=_ctx())
         assert exc.value.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Automatic epics (auto_epics) — AI derives the epic set from the concept
+# ---------------------------------------------------------------------------
+
+class TestAutoEpics:
+    def test_request_allows_empty_epics_when_auto(self):
+        # No epics, no Figma project — valid only because auto_epics is on.
+        req = AutopilotStartRequest(
+            concept="A todo app",
+            epics=[],
+            settings=AutopilotSettings(auto_epics=True),
+        )
+        assert req.epics == []
+        assert req.settings.auto_epics is True
+
+    def test_request_rejects_empty_epics_when_not_auto(self):
+        with pytest.raises(ValueError):
+            AutopilotStartRequest(concept="A todo app", epics=[])
+
+    def test_epic_field_reads_dict_and_object(self):
+        assert svc._epic_field({"title": "Auth"}, "title") == "Auth"
+        assert svc._epic_field({"title": None}, "title") == ""
+
+        class _E:
+            title = "Billing"
+            description = "scope"
+
+        assert svc._epic_field(_E(), "title") == "Billing"
+        assert svc._epic_field(_E(), "description") == "scope"
+
+    def test_run_phase1_derives_epics_from_concept(self, monkeypatch):
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_taiga": False, "auto_epics": True})
+        job["epics"] = []  # auto mode: nothing manual
+
+        suggest_calls = []
+
+        class _StubP1:
+            def suggest_epics(self, ctx, *, hint=""):
+                suggest_calls.append(hint)
+                return [{"title": "Authentication", "description": "logins"}, {"title": "Billing", "description": ""}]
+
+            def generate_nl_stories(self, ctx, *, epic_subject, epic_description, images=None):
+                return ("draft", 1)
+
+            def compile_gherkin(self, *, nl_draft):
+                return [{"title": "Story"}]
+
+            def finalize_stories(self, ctx, *, epic_id, epic_subject, stories):
+                return {"story_ids": [epic_id]}
+
+        class _StubCS:
+            def set_active(self, ctx):
+                pass
+
+            def init_context(self):
+                pass
+
+            def write_context_file(self, name, content):
+                pass
+
+        monkeypatch.setattr(svc, "Phase1Service", _StubP1)
+        monkeypatch.setattr(svc, "ContextService", _StubCS)
+
+        story_ids = svc._run_phase1(job, _ctx())
+
+        assert suggest_calls == [""]  # called once, with the (empty) tech-stack hint
+        assert [e["title"] for e in job["epics"]] == ["Authentication", "Billing"]
+        assert len(story_ids) == 2  # one story per derived epic
+
+    def test_run_phase1_skips_derivation_when_epics_given(self, monkeypatch):
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_taiga": False, "auto_epics": True})
+        job["epics"] = [{"title": "Manual epic", "description": ""}]
+
+        class _StubP1:
+            def suggest_epics(self, ctx, *, hint=""):
+                raise AssertionError("suggest_epics must not run when epics are supplied")
+
+            def generate_nl_stories(self, ctx, *, epic_subject, epic_description, images=None):
+                return ("draft", 1)
+
+            def compile_gherkin(self, *, nl_draft):
+                return [{"title": "Story"}]
+
+            def finalize_stories(self, ctx, *, epic_id, epic_subject, stories):
+                return {"story_ids": [epic_id]}
+
+        class _StubCS:
+            def set_active(self, ctx):
+                pass
+
+            def init_context(self):
+                pass
+
+            def write_context_file(self, name, content):
+                pass
+
+        monkeypatch.setattr(svc, "Phase1Service", _StubP1)
+        monkeypatch.setattr(svc, "ContextService", _StubCS)
+
+        svc._run_phase1(job, _ctx())
+        assert [e["title"] for e in job["epics"]] == ["Manual epic"]

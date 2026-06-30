@@ -220,6 +220,13 @@ def _seed_figma_project(job: dict, cs: ContextService, token: str) -> None:
           phase="phase1", artifact=context_md[:400])
 
 
+def _epic_field(epic, field: str) -> str:
+    """Read title/description whether suggest_epics returns dicts or pydantic models."""
+    if isinstance(epic, dict):
+        return str(epic.get(field) or "")
+    return str(getattr(epic, field, "") or "")
+
+
 def _run_phase1(job: dict, ctx: RequestContext) -> list[int]:
     """Run Phase 1 for all epics. Returns all story IDs created."""
     p1 = Phase1Service()
@@ -229,6 +236,31 @@ def _run_phase1(job: dict, ctx: RequestContext) -> list[int]:
     cs.write_context_file("project-concept.md", job["concept"])
     _emit(job, "info", "Project concept saved", phase="phase1")
     _seed_figma(job, cs)
+
+    # Automatic epics: when enabled and the user gave no manual epics (and we're not
+    # in Figma project mode, which already set one epic per file), derive the epic
+    # set from the project concept via AI — the same suggest_epics used by Phase 1.
+    if (
+        job["settings"].get("auto_epics")
+        and not job.get("figma_project_id")
+        and not [e for e in job.get("epics", []) if (e.get("title") or "").strip()]
+    ):
+        _emit(job, "info", "Deriving epics from the project concept…", phase="phase1")
+        try:
+            suggested = p1.suggest_epics(ctx, hint=job.get("tech_stack_hint", ""))
+        except Exception as exc:  # noqa: BLE001 — surface as a job error, don't crash the thread
+            _emit(job, "error", f"Epic generation failed: {exc}", phase="phase1")
+            raise
+        job["epics"] = [
+            {"title": _epic_field(e, "title"), "description": _epic_field(e, "description")}
+            for e in suggested
+            if _epic_field(e, "title").strip()
+        ]
+        if not job["epics"]:
+            _emit(job, "error", "AI returned no epics for this concept.", phase="phase1")
+            raise RuntimeError("Automatic epic generation produced no epics.")
+        _emit(job, "success", f"  {len(job['epics'])} epics derived", phase="phase1",
+              artifact="\n".join(f"- {e['title']}" for e in job["epics"]))
 
     all_story_ids: list[int] = []
     epics: list[dict] = job["epics"]

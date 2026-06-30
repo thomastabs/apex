@@ -20,6 +20,10 @@ class AutopilotEpic(BaseModel):
 class AutopilotSettings(BaseModel):
     pause_at_checkpoints: bool = True
     create_epics_in_taiga: bool = False
+    # When true, the pipeline derives the epic set from the project concept (AI)
+    # instead of requiring a manual epics list. Ignored in Figma project mode
+    # (which already creates one epic per file).
+    auto_epics: bool = False
 
 
 class AutopilotStartRequest(BaseModel):
@@ -38,8 +42,10 @@ class AutopilotStartRequest(BaseModel):
 
     @model_validator(mode="after")
     def _epics_required_without_project(self) -> "AutopilotStartRequest":
-        if not self.epics and not self.figma_project_id.strip():
-            raise ValueError("epics is required unless figma_project_id is set")
+        # Epics may be empty when the AI derives them (auto_epics) or when a Figma
+        # project supplies one epic per file.
+        if not self.epics and not self.figma_project_id.strip() and not self.settings.auto_epics:
+            raise ValueError("epics is required unless figma_project_id is set or auto_epics is enabled")
         return self
 
 

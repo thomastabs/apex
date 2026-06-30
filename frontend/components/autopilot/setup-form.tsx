@@ -13,6 +13,7 @@ type Props = {
 const DEFAULT_SETTINGS: AutopilotSettings = {
   pause_at_checkpoints: true,
   create_epics_in_taiga: false,
+  auto_epics: false,
 };
 
 export function AutopilotSetupForm({ onStart, isPending }: Props) {
@@ -26,6 +27,9 @@ export function AutopilotSetupForm({ onStart, isPending }: Props) {
   // the project's files, so the manual epics list becomes optional.
   const figmaProjectId = figmaProjectUrl.trim() ? (parseFigmaProjectUrl(figmaProjectUrl) ?? null)?.projectId ?? "" : "";
   const inProjectMode = Boolean(figmaProjectId);
+  // Epic source: AI-derived from the concept, manual list, or (project mode) the
+  // Figma files. Project mode always wins, so the auto/manual switch is hidden then.
+  const autoEpics = settings.auto_epics;
 
   function addEpic() {
     setEpics((prev) => [...prev, { title: "", description: "" }]);
@@ -42,18 +46,21 @@ export function AutopilotSetupForm({ onStart, isPending }: Props) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const validEpics = epics.filter((e) => e.title.trim());
-    // In project mode epics are derived server-side from the project's files.
-    if (!concept.trim() || (validEpics.length === 0 && !inProjectMode)) return;
+    // Epics come from the manual list only; in project mode they're derived from the
+    // Figma files and in auto mode the AI derives them from the concept (both server-side).
+    const manualNeeded = !inProjectMode && !autoEpics;
+    if (!concept.trim() || (manualNeeded && validEpics.length === 0)) return;
     onStart({
       concept,
-      epics: validEpics,
+      epics: manualNeeded ? validEpics : [],
       tech_stack_hint: techStackHint,
       settings,
       ...(figmaProjectId ? { figma_project_id: figmaProjectId } : {}),
     });
   }
 
-  const canStart = concept.trim().length > 0 && (inProjectMode || epics.some((e) => e.title.trim()));
+  const canStart =
+    concept.trim().length > 0 && (inProjectMode || autoEpics || epics.some((e) => e.title.trim()));
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -109,48 +116,78 @@ export function AutopilotSetupForm({ onStart, isPending }: Props) {
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <label className="block text-xs font-medium text-neutral-400">
-            Epics {inProjectMode ? <span className="text-neutral-600">(from Figma files)</span> : <span className="text-red-500">*</span>}
+            Epics {inProjectMode ? <span className="text-neutral-600">(from Figma files)</span> : !autoEpics ? <span className="text-red-500">*</span> : null}
           </label>
-          <button
-            type="button"
-            onClick={addEpic}
-            className="flex items-center gap-1 rounded px-2 py-1 text-xs text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-200"
-          >
-            <Plus className="size-3" /> Add epic
-          </button>
-        </div>
-        <div className="space-y-2">
-          {epics.map((epic, i) => (
-            <div key={i} className="rounded-md border border-neutral-700/60 bg-neutral-800/40 p-3 space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-neutral-500 w-4">#{i + 1}</span>
-                <input
-                  type="text"
-                  value={epic.title}
-                  onChange={(e) => updateEpic(i, "title", e.target.value)}
-                  placeholder="Epic title (e.g. User Authentication)"
-                  className="flex-1 rounded border border-neutral-700 bg-neutral-900/60 px-2 py-1 text-sm text-neutral-200 placeholder-neutral-600 focus:border-violet-500/60 focus:outline-none"
-                />
-                {epics.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeEpic(i)}
-                    className="rounded p-1 text-neutral-600 hover:text-red-400"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                )}
-              </div>
-              <textarea
-                value={epic.description}
-                onChange={(e) => updateEpic(i, "description", e.target.value)}
-                rows={2}
-                placeholder="Optional: describe what this epic covers"
-                className="w-full resize-none rounded border border-neutral-700 bg-neutral-900/60 px-2 py-1.5 text-xs text-neutral-300 placeholder-neutral-600 focus:border-violet-500/60 focus:outline-none"
-              />
+          {/* Auto/Manual switch — hidden in project mode (epics come from the files). */}
+          {!inProjectMode && (
+            <div className="inline-flex rounded-md border border-neutral-700 bg-neutral-900/60 p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setSettings((s) => ({ ...s, auto_epics: true }))}
+                className={`rounded px-2 py-1 transition-colors ${autoEpics ? "bg-violet-600 text-white" : "text-neutral-400 hover:text-neutral-200"}`}
+              >
+                Automatic (AI)
+              </button>
+              <button
+                type="button"
+                onClick={() => setSettings((s) => ({ ...s, auto_epics: false }))}
+                className={`rounded px-2 py-1 transition-colors ${!autoEpics ? "bg-violet-600 text-white" : "text-neutral-400 hover:text-neutral-200"}`}
+              >
+                Manual
+              </button>
             </div>
-          ))}
+          )}
         </div>
+
+        {inProjectMode ? null : autoEpics ? (
+          <p className="rounded-md border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs text-violet-300">
+            The AI will derive the epic set from your project concept (and tech-stack hint) before generating stories — the same step Phase 1 uses. Switch to Manual to define epics yourself.
+          </p>
+        ) : (
+          <>
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                onClick={addEpic}
+                className="flex items-center gap-1 rounded px-2 py-1 text-xs text-neutral-400 hover:bg-neutral-700/50 hover:text-neutral-200"
+              >
+                <Plus className="size-3" /> Add epic
+              </button>
+            </div>
+            <div className="space-y-2">
+              {epics.map((epic, i) => (
+                <div key={i} className="rounded-md border border-neutral-700/60 bg-neutral-800/40 p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-neutral-500 w-4">#{i + 1}</span>
+                    <input
+                      type="text"
+                      value={epic.title}
+                      onChange={(e) => updateEpic(i, "title", e.target.value)}
+                      placeholder="Epic title (e.g. User Authentication)"
+                      className="flex-1 rounded border border-neutral-700 bg-neutral-900/60 px-2 py-1 text-sm text-neutral-200 placeholder-neutral-600 focus:border-violet-500/60 focus:outline-none"
+                    />
+                    {epics.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeEpic(i)}
+                        className="rounded p-1 text-neutral-600 hover:text-red-400"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <textarea
+                    value={epic.description}
+                    onChange={(e) => updateEpic(i, "description", e.target.value)}
+                    rows={2}
+                    placeholder="Optional: describe what this epic covers"
+                    className="w-full resize-none rounded border border-neutral-700 bg-neutral-900/60 px-2 py-1.5 text-xs text-neutral-300 placeholder-neutral-600 focus:border-violet-500/60 focus:outline-none"
+                  />
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Tech stack hint */}

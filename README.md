@@ -352,8 +352,8 @@ The **Autopilot** page (`/autopilot`, top nav, Zap icon) runs Phases 1–5 as a 
 
 **Setup form** — before launching, the user provides:
 - **Concept** — free-text product brief (seeds Phase 1 story generation)
-- **Epics** — one or more epic titles with optional description (expandable list)
-- **Tech stack hint** (optional) — seeds Phase 2 design
+- **Epics** — choose **Automatic (AI)** to have the pipeline derive the epic set from the concept (the same `suggest_epics` step Phase 1 uses, run once before story generation), or **Manual** to type one or more epic titles with optional descriptions. A Figma **project** URL overrides both (one epic per file — see below).
+- **Tech stack hint** (optional) — seeds Phase 2 design (and biases automatic epic derivation)
 - **Settings** — *Pause at checkpoints* (human-in-the-loop handoffs after each phase) and *Create epics in Taiga* (push generated epics to the PM tool)
 
 **Run view** — once launched, the page switches to a live run view showing:

@@ -9,6 +9,9 @@ export type AutopilotEpic = {
 export type AutopilotSettings = {
   pause_at_checkpoints: boolean;
   create_epics_in_taiga: boolean;
+  // When true, the pipeline derives epics from the project concept (AI) instead of
+  // requiring a manual epics list. Ignored in Figma project mode.
+  auto_epics: boolean;
 };
 
 export type AutopilotStartRequest = {
