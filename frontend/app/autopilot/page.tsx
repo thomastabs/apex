@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AlertCircle } from "lucide-react";
 import { AutopilotSetupForm } from "@/components/autopilot/setup-form";
 import { AutopilotRunView } from "@/components/autopilot/run-view";
-import { useStartAutopilot, useAutopilotStatus } from "@/lib/hooks/use-autopilot";
+import { useStartAutopilot, useAutopilotStatus, useAutopilotStream } from "@/lib/hooks/use-autopilot";
 import { useSessionStore, useFigmaContext } from "@/lib/stores/session-store";
 import type { AutopilotStartRequest } from "@/lib/api/autopilot";
 
@@ -15,6 +15,9 @@ export default function AutopilotPage() {
   const [jobId, setJobId] = useState<string | null>(null);
   const start = useStartAutopilot();
   const { data: status } = useAutopilotStatus(jobId);
+  // Live push stream (instant events); the poll above stays as the reconnect fallback.
+  const terminal = status ? ["done", "stopped", "error"].includes(status.state) : false;
+  useAutopilotStream(jobId, Boolean(jobId) && !terminal);
 
   async function handleStart(req: AutopilotStartRequest) {
     let body = req;

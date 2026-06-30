@@ -1,8 +1,11 @@
 """Autopilot API routes."""
 
+import asyncio
+import json
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 
 from backend.app.api.deps import RequestContext, get_request_context, resolve_taiga_base
 from backend.app.schemas.autopilot import (
@@ -85,6 +88,46 @@ def autopilot_stop(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Job {job_id} not found.")
     autopilot_service.stop_job(job_id)
     return AutopilotControlResponse(ok=True, state="stopped")
+
+
+@router.get("/{job_id}/stream")
+async def autopilot_stream(
+    job_id: str,
+    ctx: RequestContext = Depends(get_request_context),
+) -> StreamingResponse:
+    """Stream live job status as newline-delimited JSON.
+
+    Pushes a full status snapshot the instant the event list or state changes
+    (server tick 0.25s), so the UI updates in real time instead of polling every
+    1.5s. Each frame is the same shape as GET /{job_id}; the client replaces its
+    cached status with it (reconnecting simply gets a fresh full snapshot, so no
+    cursor/backfill is needed). A periodic ping keeps the connection alive through
+    ingress idle timeouts. The poll endpoint remains the fallback."""
+    job = autopilot_service.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Job {job_id} not found.")
+
+    async def _gen():
+        last_count = -1
+        last_state: str | None = None
+        idle_ticks = 0
+        while True:
+            ev_count = len(job["events"])
+            state = job["state"]
+            if ev_count != last_count or state != last_state:
+                last_count, last_state = ev_count, state
+                idle_ticks = 0
+                yield json.dumps(autopilot_service.serialize_job(job)).encode() + b"\n"
+            else:
+                idle_ticks += 1
+                if idle_ticks >= 40:  # ~10s heartbeat
+                    idle_ticks = 0
+                    yield b'{"type":"ping"}\n'
+            if state in ("done", "error", "stopped"):
+                break
+            await asyncio.sleep(0.25)
+
+    return StreamingResponse(_gen(), media_type="application/x-ndjson")
 
 
 @router.post("/{job_id}/steer", response_model=AutopilotControlResponse)

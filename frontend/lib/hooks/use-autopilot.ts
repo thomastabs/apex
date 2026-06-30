@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getAutopilotStatus,
@@ -10,7 +11,8 @@ import {
   stopAutopilot,
   takeOverAutopilot,
 } from "@/lib/api/autopilot";
-import type { AutopilotStartRequest, AutopilotState } from "@/lib/api/autopilot";
+import type { AutopilotStartRequest, AutopilotState, AutopilotStatus } from "@/lib/api/autopilot";
+import { contextHeaders, getApiBaseUrl } from "@/lib/api/client";
 import { useApiContext } from "@/lib/stores/session-store";
 import { toast } from "sonner";
 
@@ -41,6 +43,53 @@ export function useAutopilotStatus(jobId: string | null) {
     },
     staleTime: 0,
   });
+}
+
+/**
+ * Stream live job status (NDJSON over fetch) into the same React Query cache the
+ * poller uses, so the UI updates the instant the pipeline emits an event instead of
+ * on the 1.5s poll tick. EventSource can't send our Bearer header, so this uses a
+ * streaming fetch + ReadableStream. On any error/disconnect it silently stops and
+ * the poller (useAutopilotStatus) keeps the view live as a fallback.
+ */
+export function useAutopilotStream(jobId: string | null, enabled: boolean) {
+  const ctx = useApiContext();
+  const qc = useQueryClient();
+  useEffect(() => {
+    if (!ctx || !jobId || !enabled) return;
+    const controller = new AbortController();
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${getApiBaseUrl()}/api/autopilot/${jobId}/stream`, {
+          headers: { Accept: "application/x-ndjson", ...contextHeaders(ctx) },
+          signal: controller.signal,
+        });
+        if (!res.ok || !res.body) return;
+        const reader = res.body.getReader();
+        const dec = new TextDecoder();
+        let buf = "";
+        while (!cancelled) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          const lines = buf.split("\n");
+          buf = lines.pop() ?? "";
+          for (const line of lines) {
+            const t = line.trim();
+            if (!t) continue;
+            let obj: unknown;
+            try { obj = JSON.parse(t); } catch { continue; }
+            if (obj && typeof obj === "object" && (obj as { type?: string }).type === "ping") continue;
+            qc.setQueryData(["autopilot", jobId], obj as AutopilotStatus);
+          }
+        }
+      } catch {
+        /* aborted or network error — the poller keeps the view live */
+      }
+    })();
+    return () => { cancelled = true; controller.abort(); };
+  }, [ctx, jobId, enabled, qc]);
 }
 
 export function usePauseAutopilot(jobId: string | null) {

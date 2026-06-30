@@ -42,6 +42,30 @@ const PHASE_LABELS: Record<string, string> = {
   "": "General",
 };
 
+// Left-accent + chip colour per phase, for the artifact viewer.
+const PHASE_ACCENT: Record<string, string> = {
+  phase1: "border-sky-500/70 bg-sky-500/10 text-sky-300",
+  phase2: "border-violet-500/70 bg-violet-500/10 text-violet-300",
+  phase3: "border-emerald-500/70 bg-emerald-500/10 text-emerald-300",
+  phase4: "border-amber-500/70 bg-amber-500/10 text-amber-300",
+  phase5: "border-pink-500/70 bg-pink-500/10 text-pink-300",
+  init: "border-neutral-600 bg-neutral-700/20 text-neutral-300",
+  "": "border-neutral-600 bg-neutral-700/20 text-neutral-300",
+};
+
+/** Short human label for an artifact, inferred from the emitting event. */
+function artifactKind(ev: AutopilotEvent): string {
+  const m = ev.msg.toLowerCase();
+  if (m.includes("nl draft")) return "User stories";
+  if (m.includes("epics")) return "Epics";
+  if (m.includes("tech stack")) return "Tech stack";
+  if (m.includes("section")) return "Design section";
+  if (m.includes("test plan")) return "Test plan";
+  if (m.includes("figma")) return "Figma context";
+  if (m.includes("pack") || m.includes("proposal")) return "Dev pack";
+  return PHASE_LABELS[ev.phase]?.split("·").pop()?.trim() ?? "Artifact";
+}
+
 function CopyButton({ getText, label }: { getText: () => string; label: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -214,8 +238,13 @@ export function AutopilotRunView({ status, onReset }: Props) {
   // Checkpoint banner
   const checkpointPhase = status.checkpoint_phase;
 
-  // Most recent artifact to preview
-  const lastArtifact = [...status.events].reverse().find((e) => e.artifact);
+  // Artifact viewer: all artifacts so far; follow the latest unless the user pins one.
+  const artifacts = status.events.filter((e) => e.artifact);
+  const [pinnedArtifactId, setPinnedArtifactId] = useState<number | null>(null);
+  const following = pinnedArtifactId == null;
+  const selectedArtifact = following
+    ? artifacts[artifacts.length - 1]
+    : artifacts.find((a) => a.id === pinnedArtifactId) ?? artifacts[artifacts.length - 1];
 
   return (
     <div className="flex flex-col gap-5">
@@ -424,25 +453,66 @@ export function AutopilotRunView({ status, onReset }: Props) {
           </div>
         </div>
 
-        {/* Artifact preview */}
+        {/* Artifact viewer — pick from recent artifacts, follow the latest live */}
         <div className="xl:col-span-2">
           <p className="mb-1.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-neutral-600">
-            <span>Latest artifact</span>
+            <span>Artifacts · {artifacts.length}</span>
             <span className="flex items-center gap-2 font-normal normal-case text-neutral-700">
               <span>drag to resize</span>
-              {lastArtifact ? <CopyButton getText={() => lastArtifact.artifact} label="artifact" /> : null}
+              {selectedArtifact ? <CopyButton getText={() => selectedArtifact.artifact} label="artifact" /> : null}
             </span>
           </p>
-          <div className="h-96 min-h-[10rem] max-h-[85vh] resize-y overflow-auto rounded-md border border-neutral-800 bg-neutral-900/60 px-3 py-2">
-            {lastArtifact ? (
+
+          {artifacts.length > 0 && (
+            <div className="mb-1.5 flex flex-wrap gap-1">
+              <button
+                type="button"
+                onClick={() => setPinnedArtifactId(null)}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-colors",
+                  following ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300" : "border-neutral-700 text-neutral-500 hover:text-neutral-300",
+                )}
+              >
+                <span className={cn("size-1.5 rounded-full", following && isRunning ? "animate-pulse bg-emerald-400" : "bg-neutral-600")} />
+                Live
+              </button>
+              {artifacts.slice(-6).reverse().map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => setPinnedArtifactId(a.id)}
+                  className={cn(
+                    "rounded-full border px-2 py-0.5 text-[10px] transition-colors",
+                    !following && selectedArtifact?.id === a.id ? "border-violet-500/50 bg-violet-500/15 text-violet-200" : "border-neutral-700 text-neutral-500 hover:text-neutral-300",
+                  )}
+                >
+                  {artifactKind(a)}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="h-96 min-h-[10rem] max-h-[85vh] resize-y overflow-auto rounded-md border border-neutral-800 bg-neutral-900/60 p-2">
+            {selectedArtifact ? (
               <div>
-                <p className="mb-1.5 text-[10px] text-neutral-500">{lastArtifact.msg}</p>
-                <pre className="whitespace-pre-wrap break-words text-[11px] leading-relaxed text-neutral-400 font-mono">
-                  {lastArtifact.artifact}
+                <div className={cn("mb-2 flex items-start justify-between gap-2 rounded border-l-2 px-2 py-1.5", PHASE_ACCENT[selectedArtifact.phase] ?? PHASE_ACCENT[""])}>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider">{artifactKind(selectedArtifact)}</p>
+                    <p className="truncate text-[10px] text-neutral-400">{selectedArtifact.msg}</p>
+                  </div>
+                  <span className="shrink-0 font-mono text-[9px] text-neutral-500">
+                    {new Date(selectedArtifact.ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  </span>
+                </div>
+                <pre className="whitespace-pre-wrap break-words px-1 text-[11px] leading-relaxed text-neutral-300 font-mono">
+                  {selectedArtifact.artifact}
                 </pre>
               </div>
             ) : (
-              <p className="text-xs text-neutral-600 pt-2">Artifacts will appear here as they&apos;re generated…</p>
+              <div className="flex h-full flex-col items-center justify-center gap-1 text-center">
+                <Bot className="size-5 text-neutral-700" />
+                <p className="text-xs text-neutral-600">Artifacts appear here as each phase generates them.</p>
+              </div>
             )}
           </div>
         </div>

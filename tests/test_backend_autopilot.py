@@ -1,4 +1,6 @@
 """Tests for autopilot service functions and API routes."""
+import asyncio
+import json
 import threading
 import time
 
@@ -11,6 +13,7 @@ from backend.app.api.autopilot import (
     autopilot_start,
     autopilot_status,
     autopilot_stop,
+    autopilot_stream,
     autopilot_take_over,
 )
 from backend.app.api.deps import get_request_context
@@ -784,3 +787,35 @@ class TestSteer:
 
         svc._run_phase1(job, _ctx())
         assert seen["instructions"] == "keep stories tiny"
+
+
+# ---------------------------------------------------------------------------
+# Live stream endpoint (NDJSON push)
+# ---------------------------------------------------------------------------
+
+class TestStream:
+    def test_unknown_job_404(self):
+        with pytest.raises(HTTPException) as exc:
+            asyncio.run(autopilot_stream("nope", ctx=_ctx()))
+        assert exc.value.status_code == 404
+
+    def test_terminal_job_emits_one_snapshot_then_closes(self, monkeypatch):
+        job = _make_job(state="done")
+        monkeypatch.setitem(svc._JOBS, job["job_id"], job)
+        svc._emit(job, "success", "Autopilot complete", phase="done")
+
+        async def _collect():
+            resp = await autopilot_stream(job["job_id"], ctx=_ctx())
+            chunks = [c async for c in resp.body_iterator]
+            return resp, chunks
+
+        resp, chunks = asyncio.run(_collect())
+        assert resp.media_type == "application/x-ndjson"
+        frames = [json.loads(c) for c in b"".join(
+            c if isinstance(c, bytes) else c.encode() for c in chunks
+        ).decode().splitlines() if c.strip()]
+        # A done job yields exactly one snapshot, then the generator stops.
+        assert len(frames) == 1
+        assert frames[0]["job_id"] == job["job_id"]
+        assert frames[0]["state"] == "done"
+        assert any(e["msg"] == "Autopilot complete" for e in frames[0]["events"])

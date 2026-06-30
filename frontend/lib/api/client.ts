@@ -33,6 +33,23 @@ export function getApiBaseUrl() {
   return process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 }
 
+/** Auth/context headers for a request (Bearer token + project + Taiga URL). Shared
+ *  by apiRequest and the streaming fetch in the autopilot hook. */
+export function contextHeaders(context?: RequestContext | AuthContext | null): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (context?.taigaToken) {
+    headers.Authorization = `Bearer ${context.taigaToken}`;
+  }
+  if (context?.pmTool !== "jira" && context?.taigaApiUrl) {
+    headers["X-Taiga-Url"] = context.taigaApiUrl;
+  }
+  if (context && "projectId" in context && context.projectId) {
+    headers["X-Project-Id"] = String(context.projectId);
+    headers["X-Taiga-Project-Id"] = String(context.projectId);
+  }
+  return headers;
+}
+
 type ApiRequestOptions = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
@@ -53,20 +70,11 @@ export async function apiRequest<T>(
   signal?.addEventListener("abort", () => controller.abort(signal.reason), { once: true });
   const headers: Record<string, string> = {
     Accept: "application/json",
+    ...contextHeaders(context),
   };
 
   if (body !== undefined) {
     headers["Content-Type"] = "application/json";
-  }
-  if (context?.taigaToken) {
-    headers.Authorization = `Bearer ${context.taigaToken}`;
-  }
-  if (context?.pmTool !== "jira" && context?.taigaApiUrl) {
-    headers["X-Taiga-Url"] = context.taigaApiUrl;
-  }
-  if (context && "projectId" in context && context.projectId) {
-    headers["X-Project-Id"] = String(context.projectId);
-    headers["X-Taiga-Project-Id"] = String(context.projectId);
   }
   if (extraHeaders) {
     Object.assign(headers, extraHeaders);
