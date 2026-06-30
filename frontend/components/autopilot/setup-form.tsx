@@ -12,7 +12,7 @@ type Props = {
 
 const DEFAULT_SETTINGS: AutopilotSettings = {
   pause_at_checkpoints: true,
-  create_epics_in_taiga: false,
+  create_epics_in_taiga: true,
   auto_epics: false,
 };
 

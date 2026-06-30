@@ -19,7 +19,10 @@ class AutopilotEpic(BaseModel):
 
 class AutopilotSettings(BaseModel):
     pause_at_checkpoints: bool = True
-    create_epics_in_taiga: bool = False
+    # Default ON: a fresh Autopilot run should populate the PM board so it matches the
+    # story index (index-only runs show as "0 on board / N indexed"). Disable for a
+    # re-run where the epics/stories already exist in Taiga.
+    create_epics_in_taiga: bool = True
     # When true, the pipeline derives the epic set from the project concept (AI)
     # instead of requiring a manual epics list. Ignored in Figma project mode
     # (which already creates one epic per file).

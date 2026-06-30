@@ -277,10 +277,13 @@ export function AutopilotRunView({ status, onReset }: Props) {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
         {/* Event log */}
         <div className="xl:col-span-3">
-          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-600">Event log</p>
+          <p className="mb-1.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-neutral-600">
+            <span>Event log</span>
+            <span className="font-normal normal-case text-neutral-700">{status.events.length} events · drag ↕ to resize</span>
+          </p>
           <div
             ref={logRef}
-            className="h-72 overflow-y-auto rounded-md border border-neutral-800 bg-neutral-900/60 px-3 py-2 font-mono space-y-0.5"
+            className="h-96 min-h-[10rem] max-h-[85vh] resize-y overflow-auto rounded-md border border-neutral-800 bg-neutral-900/60 px-3 py-2 font-mono space-y-0.5"
           >
             {status.events.map((ev) => (
               <EventRow key={ev.id} event={ev} />
@@ -293,12 +296,15 @@ export function AutopilotRunView({ status, onReset }: Props) {
 
         {/* Artifact preview */}
         <div className="xl:col-span-2">
-          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-600">Latest artifact</p>
-          <div className="h-72 overflow-y-auto rounded-md border border-neutral-800 bg-neutral-900/60 px-3 py-2">
+          <p className="mb-1.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-neutral-600">
+            <span>Latest artifact</span>
+            <span className="font-normal normal-case text-neutral-700">drag ↕ to resize</span>
+          </p>
+          <div className="h-96 min-h-[10rem] max-h-[85vh] resize-y overflow-auto rounded-md border border-neutral-800 bg-neutral-900/60 px-3 py-2">
             {lastArtifact ? (
               <div>
                 <p className="mb-1.5 text-[10px] text-neutral-500">{lastArtifact.msg}</p>
-                <pre className="whitespace-pre-wrap text-[11px] leading-relaxed text-neutral-400 font-mono">
+                <pre className="whitespace-pre-wrap break-words text-[11px] leading-relaxed text-neutral-400 font-mono">
                   {lastArtifact.artifact}
                 </pre>
               </div>

@@ -164,7 +164,7 @@ def _seed_figma(job: dict, cs: ContextService) -> None:
     job["_figma_images"] = images
     img_note = f", {len(images)} frame images" if images else ""
     _emit(job, "success", f"  Figma context seeded ({len(frames)} frames{img_note})", phase="phase1",
-          artifact=context_md[:400])
+          artifact=context_md[:1500])
 
 
 def _seed_figma_project(job: dict, cs: ContextService, token: str) -> None:
@@ -217,7 +217,7 @@ def _seed_figma_project(job: dict, cs: ContextService, token: str) -> None:
     total_imgs = sum(len(b["images"]) for b in bundles)
     _emit(job, "success",
           f"  Figma project seeded — {len(bundles)} files → epics, {total_imgs} frame images",
-          phase="phase1", artifact=context_md[:400])
+          phase="phase1", artifact=context_md[:1500])
 
 
 def _epic_field(epic, field: str) -> str:
@@ -306,7 +306,7 @@ def _run_phase1(job: dict, ctx: RequestContext) -> list[int]:
             images=epic_images,
         )
         _emit(job, "info", f"  NL draft ready (~{story_count} stories)", phase="phase1",
-              artifact=nl_draft[:500])
+              artifact=nl_draft[:2000])
 
         if _check_stop(job):
             break
@@ -321,16 +321,30 @@ def _run_phase1(job: dict, ctx: RequestContext) -> list[int]:
 
         # Assign real IDs
         if job["settings"].get("create_epics_in_taiga") and job.get("taiga_base") and job.get("taiga_token") and epic_taiga_id:
-            # Create user stories in Taiga and use their IDs
+            # Create user stories in Taiga and use their IDs. Taiga does NOT honour an
+            # `epic` field on userstory create — the story↔epic link is a separate
+            # /epics/{id}/related_userstories call (mirrors taigaCreateStory on the
+            # frontend). The Gherkin becomes the story description so the PM card isn't
+            # empty. Without the explicit link the story exists but sits under no epic,
+            # which shows as "0 on board" against the story index.
             remapped: list[dict] = []
             for s in stories:
                 try:
                     sr = _taiga_post(
                         f"{job['taiga_base']}/userstories",
                         job["taiga_token"],
-                        {"project": ctx.project_id, "subject": s["title"], "epic": epic_taiga_id},
+                        {"project": ctx.project_id, "subject": s["title"], "description": s.get("gherkin", "")},
                     )
-                    remapped.append({**s, "id": sr["id"]})
+                    us_id = sr["id"]
+                    try:
+                        _taiga_post(
+                            f"{job['taiga_base']}/epics/{epic_taiga_id}/related_userstories",
+                            job["taiga_token"],
+                            {"epic": epic_taiga_id, "user_story": us_id},
+                        )
+                    except Exception as link_exc:
+                        _emit(job, "warning", f"  Story #{us_id} created but epic link failed: {link_exc}", phase="phase1")
+                    remapped.append({**s, "id": us_id})
                 except Exception as exc:
                     _emit(job, "warning", f"  Taiga story creation failed: {exc} — using synthetic ID", phase="phase1")
                     remapped.append({**s, "id": _next_synthetic_id()})
@@ -380,7 +394,7 @@ def _run_phase2(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> Non
         result = p2.generate_design_section(ctx, section=section, prior_sections=prior_sections)
         prior_sections[section] = result["content"]
         _emit(job, "info", f"  Section {section!r} ready", phase="phase2",
-              artifact=result["content"][:400])
+              artifact=result["content"][:2000])
 
     if _check_stop(job):
         return
@@ -463,7 +477,7 @@ def _run_phase4(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> Non
         p4.pass_gate(ctx, story_id)
         job["stories_done"] += 1
         _emit(job, "success", f"  Story {story_id}: QA passed (test plan saved)", phase="phase4",
-              artifact=test_plan[:400])
+              artifact=test_plan[:2000])
 
 
 def _run_phase5(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> None:

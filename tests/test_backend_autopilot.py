@@ -666,3 +666,62 @@ class TestAutoEpics:
 
         svc._run_phase1(job, _ctx())
         assert [e["title"] for e in job["epics"]] == ["Manual epic"]
+
+
+# ---------------------------------------------------------------------------
+# Phase 1 Taiga push — story carries the Gherkin as description AND is linked to
+# its epic via the related-userstories endpoint (not an ignored `epic` field).
+# ---------------------------------------------------------------------------
+
+class TestPhase1TaigaPush:
+    def test_story_gets_description_and_epic_link(self, monkeypatch):
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_taiga": True, "auto_epics": False})
+        job["epics"] = [{"title": "Auth", "description": "logins"}]
+        job["taiga_base"] = "https://taiga.example/api/v1"
+        job["taiga_token"] = "tok"
+
+        posts = []
+
+        def _fake_post(url, token, body):
+            posts.append((url, body))
+            if url.endswith("/epics"):
+                return {"id": 555}
+            if url.endswith("/userstories"):
+                return {"id": 1001}
+            return {"id": 1}  # related_userstories
+
+        monkeypatch.setattr(svc, "_taiga_post", _fake_post)
+
+        class _StubP1:
+            def generate_nl_stories(self, ctx, *, epic_subject, epic_description, images=None):
+                return ("draft", 1)
+
+            def compile_gherkin(self, *, nl_draft):
+                return [{"title": "Sign in", "gherkin": "Scenario: user signs in"}]
+
+            def finalize_stories(self, ctx, *, epic_id, epic_subject, stories):
+                return {"story_ids": [s["id"] for s in stories]}
+
+        class _StubCS:
+            def set_active(self, ctx):
+                pass
+
+            def init_context(self):
+                pass
+
+            def write_context_file(self, name, content):
+                pass
+
+        monkeypatch.setattr(svc, "Phase1Service", _StubP1)
+        monkeypatch.setattr(svc, "ContextService", _StubCS)
+
+        story_ids = svc._run_phase1(job, _ctx())
+
+        # The userstory POST carries the Gherkin as description and NO `epic` field.
+        us_posts = [b for (u, b) in posts if u.endswith("/userstories")]
+        assert us_posts == [{"project": 42, "subject": "Sign in", "description": "Scenario: user signs in"}]
+        # The story is linked to its epic via the related-userstories endpoint.
+        link_posts = [(u, b) for (u, b) in posts if "related_userstories" in u]
+        assert link_posts == [("https://taiga.example/api/v1/epics/555/related_userstories", {"epic": 555, "user_story": 1001})]
+        # The real Taiga id (not a synthetic one) is threaded into the story index.
+        assert story_ids == [1001]
