@@ -4,8 +4,6 @@ vi.mock("@/lib/api/client", () => ({ apiRequest: vi.fn() }));
 
 import { apiRequest } from "@/lib/api/client";
 import {
-  figmaFrameFingerprint,
-  deriveFrameFingerprints,
   buildDesignTokensMarkdown,
   buildFigmaContextMarkdown,
   extractDesignTokens,
@@ -14,65 +12,6 @@ import {
 } from "@/lib/api/figma";
 
 const ctx = { projectId: 1 } as never;
-
-// ---------------------------------------------------------------------------
-// #2 frame fingerprint — parity with the Python figma_fetch.frame_fingerprint
-// ---------------------------------------------------------------------------
-
-describe("figmaFrameFingerprint", () => {
-  const frame = {
-    name: "Login",
-    absoluteBoundingBox: { width: 375.4, height: 812 },
-    children: [{ type: "TEXT", name: "Title" }, { type: "INPUT", name: "Email" }],
-  };
-
-  it("is stable across calls", () => {
-    expect(figmaFrameFingerprint(frame)).toBe(figmaFrameFingerprint(frame));
-  });
-
-  it("matches the known Python/JS parity vector", () => {
-    // Same input string the backend test asserts → identical digest cross-language.
-    expect(figmaFrameFingerprint(frame)).toBe("8eb67ec51863f2b9");
-  });
-
-  it("changes on an added child, rename, or resize", () => {
-    const base = figmaFrameFingerprint(frame);
-    expect(figmaFrameFingerprint({ ...frame, children: [...frame.children, { type: "BUTTON", name: "Go" }] })).not.toBe(base);
-    expect(figmaFrameFingerprint({ ...frame, name: "Sign in" })).not.toBe(base);
-    expect(figmaFrameFingerprint({ ...frame, absoluteBoundingBox: { width: 400, height: 812 } })).not.toBe(base);
-  });
-
-  it("ignores sub-pixel width noise (rounds)", () => {
-    expect(figmaFrameFingerprint({ ...frame, absoluteBoundingBox: { width: 375.0, height: 812 } })).toBe(
-      figmaFrameFingerprint(frame),
-    );
-  });
-});
-
-describe("deriveFrameFingerprints", () => {
-  it("fingerprints every top-level frame keyed by node id", () => {
-    const file = {
-      name: "App",
-      lastModified: "2026-06-29T00:00:00Z",
-      document: {
-        id: "0", name: "Doc", type: "DOCUMENT",
-        children: [
-          {
-            id: "p", name: "Page 1", type: "CANVAS",
-            children: [
-              { id: "1:2", name: "Login", type: "FRAME", children: [{ type: "TEXT", name: "T" }] },
-              { id: "1:3", name: "Home", type: "FRAME", children: [] },
-              { id: "1:4", name: "Group", type: "GROUP" },
-            ],
-          },
-        ],
-      },
-    } as unknown as FigmaFile;
-    const fps = deriveFrameFingerprints(file);
-    expect(Object.keys(fps).sort()).toEqual(["1:2", "1:3"]); // GROUP skipped
-    expect(fps["1:2"]).not.toBe(fps["1:3"]);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // #1 design tokens markdown

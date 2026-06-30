@@ -51,9 +51,6 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
 
       // File-level drift: fetch each linked file at depth 1 (cheapest — just its
       // lastModified) and flag stories whose file changed since they were linked.
-      // (Per-frame fingerprint precision was dropped: the depth-3 fetch it required
-      // blew Figma's cost-based files budget; an empty hashByNode tells the backend
-      // to fall back to file-level drift.)
       let changed_story_ids: number[];
       if (hasPerFile) {
         const modifiedByFile: Record<string, string> = {};
@@ -63,10 +60,10 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
             modifiedByFile[k] = file.lastModified;
           }),
         );
-        ({ changed_story_ids } = await scanChanges.mutateAsync({ modifiedByFile, hashByNode: {} }));
+        ({ changed_story_ids } = await scanChanges.mutateAsync({ modifiedByFile }));
       } else {
         const file = await figmaGetFile(figma.token, figma.fileKey, 1);
-        ({ changed_story_ids } = await scanChanges.mutateAsync({ modifiedByFile: { "": file.lastModified }, hashByNode: {} }));
+        ({ changed_story_ids } = await scanChanges.mutateAsync({ modifiedByFile: { "": file.lastModified } }));
       }
 
       toast[changed_story_ids.length ? "warning" : "success"](

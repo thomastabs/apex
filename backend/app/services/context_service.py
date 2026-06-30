@@ -62,26 +62,23 @@ class ContextService:
 
     def set_story_figma_link(
         self, story_id: int, figma_node_id: str, figma_modified: str = "",
-        figma_file_key: str = "", figma_frame_hash: str = "",
+        figma_file_key: str = "",
     ) -> None:
         context_manager.set_story_figma_link(
-            story_id, figma_node_id, figma_modified, figma_file_key, figma_frame_hash
+            story_id, figma_node_id, figma_modified, figma_file_key
         )
 
     def scan_figma_changes(self, current_modified: str) -> list[int]:
         return context_manager.scan_figma_changes(current_modified)
 
-    def scan_figma_changes_multi(
-        self, modified_by_file: dict[str, str], hash_by_node: dict[str, str] | None = None
-    ) -> list[int]:
-        return context_manager.scan_figma_changes_multi(modified_by_file, hash_by_node=hash_by_node)
+    def scan_figma_changes_multi(self, modified_by_file: dict[str, str]) -> list[int]:
+        return context_manager.scan_figma_changes_multi(modified_by_file)
 
     def acknowledge_figma_change(
         self, story_id: int, current_modified: str = "", figma_file_key: str = "",
-        figma_frame_hash: str = "",
     ) -> None:
         context_manager.acknowledge_figma_change(
-            story_id, current_modified, figma_file_key, figma_frame_hash
+            story_id, current_modified, figma_file_key
         )
 
     def load_all_proposals(self) -> list[dict]:

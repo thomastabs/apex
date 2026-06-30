@@ -60,47 +60,6 @@ class TestDesignTokensMarkdown:
         assert ff._solid_hex({}) == ""
 
 
-# --- #2 per-frame fingerprint ------------------------------------------------
-
-class TestFrameFingerprint:
-    def _frame(self, **over):
-        base = {
-            "name": "Login",
-            "absoluteBoundingBox": {"width": 375.4, "height": 812},
-            "children": [{"type": "TEXT", "name": "Title"}, {"type": "INPUT", "name": "Email"}],
-        }
-        base.update(over)
-        return base
-
-    def test_is_stable(self):
-        assert ff.frame_fingerprint(self._frame()) == ff.frame_fingerprint(self._frame())
-
-    def test_changes_on_added_child(self):
-        a = ff.frame_fingerprint(self._frame())
-        b = ff.frame_fingerprint(self._frame(children=[
-            {"type": "TEXT", "name": "Title"}, {"type": "INPUT", "name": "Email"}, {"type": "BUTTON", "name": "Submit"},
-        ]))
-        assert a != b
-
-    def test_changes_on_rename_and_resize(self):
-        base = ff.frame_fingerprint(self._frame())
-        assert ff.frame_fingerprint(self._frame(name="Sign in")) != base
-        assert ff.frame_fingerprint(self._frame(absoluteBoundingBox={"width": 400, "height": 812})) != base
-
-    def test_rounds_subpixel_width(self):
-        # 375.4 and 375.0 round to the same → identical fingerprint (ignore noise).
-        a = ff.frame_fingerprint(self._frame(absoluteBoundingBox={"width": 375.4, "height": 812}))
-        b = ff.frame_fingerprint(self._frame(absoluteBoundingBox={"width": 375.0, "height": 812}))
-        assert a == b
-
-    def test_childless_node_still_fingerprints(self):
-        assert ff.frame_fingerprint({"name": "Empty"})  # no raise, non-empty digest
-
-    def test_short_hash_matches_known_js_vector(self):
-        # Locks the Python↔JS parity contract (verified against the JS _shortHash).
-        assert ff._short_hash("Login|375x812|TEXT:Title|INPUT:Email") == "8eb67ec51863f2b9"
-
-
 # --- #4 epic → frame ranking -------------------------------------------------
 
 class TestRankFramesForSubject:

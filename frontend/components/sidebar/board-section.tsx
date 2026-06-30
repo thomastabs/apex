@@ -182,7 +182,7 @@ function FigmaLinkField({ storyId, storySubject, figmaNodeId, figmaFileKey = "",
 
   function linkFrame(nodeId: string) {
     setLink.mutate(
-      { storyId, figmaNodeId: nodeId, figmaModified: fileModified, figmaFileKey: figma!.fileKey, figmaFrameHash: "" },
+      { storyId, figmaNodeId: nodeId, figmaModified: fileModified, figmaFileKey: figma!.fileKey },
       {
         onSuccess: () => toast.success("Linked Figma frame."),
         onError: () => toast.error("Could not update Figma link."),
@@ -219,7 +219,7 @@ function FigmaLinkField({ storyId, storySubject, figmaNodeId, figmaFileKey = "",
           disabled={setLink.isPending}
           onChange={(e) =>
             setLink.mutate(
-              { storyId, figmaNodeId: e.target.value, figmaModified: fileModified, figmaFileKey: e.target.value ? figma.fileKey : "", figmaFrameHash: "" },
+              { storyId, figmaNodeId: e.target.value, figmaModified: fileModified, figmaFileKey: e.target.value ? figma.fileKey : "" },
               {
                 onSuccess: () => toast.success(e.target.value ? "Linked Figma frame." : "Unlinked."),
                 onError: () => toast.error("Could not update Figma link."),
@@ -290,14 +290,14 @@ function StoryDialog({ story, drifted = false, regressed = false, trace = null, 
     if (figma) {
       const ackFileKey = figmaFileKey || figma.fileKey;
       try {
-        // Re-baseline against the acknowledged design state: depth 1 is enough now
-        // that drift is file-level (lastModified) rather than per-frame fingerprint.
+        // Re-baseline against the acknowledged design state: depth 1 is enough —
+        // drift is file-level (lastModified).
         const file = await figmaGetFile(figma.token, ackFileKey, 1);
         modified = file.lastModified;
       } catch { /* re-baseline best-effort */ }
     }
     ackFigmaChange.mutate(
-      { storyId: story.id, currentModified: modified, figmaFrameHash: "" },
+      { storyId: story.id, currentModified: modified },
       { onSuccess: () => toast.success("Design change acknowledged."), onError: () => toast.error("Could not acknowledge.") },
     );
   }

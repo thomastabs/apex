@@ -413,7 +413,7 @@ def set_story_figma_link(
     context.set_active(ctx)
     context.set_story_figma_link(
         story_id, payload.figma_node_id, payload.figma_modified,
-        payload.figma_file_key, payload.figma_frame_hash,
+        payload.figma_file_key,
     )
     return {"ok": True}
 
@@ -431,9 +431,7 @@ def scan_figma_changes(
     context.set_active(ctx)
     if payload.modified_by_file is not None:
         return {
-            "changed_story_ids": context.scan_figma_changes_multi(
-                payload.modified_by_file, hash_by_node=payload.hash_by_node
-            )
+            "changed_story_ids": context.scan_figma_changes_multi(payload.modified_by_file)
         }
     return {"changed_story_ids": context.scan_figma_changes(payload.current_modified)}
 
@@ -451,7 +449,7 @@ def acknowledge_figma_change(
     context = ContextService()
     context.set_active(ctx)
     context.acknowledge_figma_change(
-        story_id, payload.current_modified, payload.figma_file_key, payload.figma_frame_hash
+        story_id, payload.current_modified, payload.figma_file_key
     )
     return {"ok": True}
 

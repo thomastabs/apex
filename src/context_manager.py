@@ -947,7 +947,6 @@ def upsert_story_index(story_id: int, **updates) -> None:
             "figma_node_id":   "",
             "figma_file_key":  "",
             "figma_synced_at": "",
-            "figma_frame_hash": "",
             "figma_changed":   False,
             "status_history":  {},
         })
@@ -2334,17 +2333,13 @@ def clear_design_conflict(story_id: int) -> None:
 
 def set_story_figma_link(
     story_id: int, figma_node_id: str, figma_modified: str = "",
-    figma_file_key: str = "", figma_frame_hash: str = "",
+    figma_file_key: str = "",
 ) -> None:
     """Link (or, with an empty id, unlink) a story to a specific Figma frame node.
 
     `figma_modified` is the linked file's lastModified timestamp captured at link
-    time — the coarse baseline a later scan compares against to detect that the
-    FILE changed. `figma_frame_hash` is a structural fingerprint of the linked
-    FRAME captured at the same time (see frame_fingerprint); when present a scan
-    only flags the story if that frame's fingerprint actually changed, so an edit
-    elsewhere in the file no longer raises a false drift on this frame. Empty hash
-    = legacy link → falls back to file-level lastModified drift.
+    time — the baseline a later scan compares against to detect that the FILE
+    changed since the story was linked.
     `figma_file_key` records WHICH file the node lives in (project mode, where a
     story-index can mix files). Empty file key = the workspace's configured single
     file — the legacy behaviour, so old links keep resolving.
@@ -2357,19 +2352,12 @@ def set_story_figma_link(
             if figma_node_id:
                 entry["figma_file_key"] = figma_file_key or ""
                 entry["figma_synced_at"] = figma_modified or ""
-                entry["figma_frame_hash"] = figma_frame_hash or ""
                 entry["figma_changed"] = False
             else:
                 entry["figma_file_key"] = ""
                 entry["figma_synced_at"] = ""
-                entry["figma_frame_hash"] = ""
                 entry["figma_changed"] = False
             _save_story_index(index)
-
-
-def _figma_node_key(file_key: str, node_id: str) -> str:
-    """Stable map key for a linked frame across files (node ids contain ':')."""
-    return f"{file_key or ''}#{node_id or ''}"
 
 
 def scan_figma_changes(current_modified: str) -> list[int]:
@@ -2384,7 +2372,6 @@ def scan_figma_changes(current_modified: str) -> list[int]:
 
 def scan_figma_changes_multi(
     modified_by_file: dict[str, str], _default_modified: str = "",
-    hash_by_node: dict[str, str] | None = None,
 ) -> list[int]:
     """Per-file drift scan: each linked story is compared against its OWN file's
     current lastModified, looked up by the story's stored `figma_file_key`.
@@ -2392,17 +2379,10 @@ def scan_figma_changes_multi(
     `modified_by_file` maps file key → current lastModified; the `""` key is the
     workspace's configured single file (so legacy links with no file key resolve
     against it). `_default_modified` is a fallback for a link whose file key is not
-    present in the map (used by the single-file wrapper).
-
-    `hash_by_node` (optional) maps ``_figma_node_key(file_key, node_id)`` → the
-    linked frame's CURRENT structural fingerprint. When the file changed AND a
-    current fingerprint is known AND the story stored a baseline fingerprint, the
-    story is flagged only if the fingerprint actually differs — so edits to OTHER
-    frames in the same file no longer raise a false drift. When fingerprints are
-    absent (legacy links, or the caller didn't supply them) the scan falls back to
-    the coarse file-level lastModified behaviour. Returns flagged ids."""
+    present in the map (used by the single-file wrapper). A story is flagged when
+    its file's lastModified is newer than the baseline captured at link time.
+    Returns flagged ids."""
     flagged: list[int] = []
-    hash_by_node = hash_by_node or {}
     with _index_lock():
         index = get_story_index()
         changed = False
@@ -2416,17 +2396,6 @@ def scan_figma_changes_multi(
             if not (baseline and current and baseline < current):
                 continue  # file unchanged since this story's baseline → no drift
 
-            # File changed. Refine with the frame fingerprint when we have both the
-            # current and the stored baseline; otherwise stay conservative (flag).
-            cur_hash = hash_by_node.get(_figma_node_key(file_key, node_id))
-            base_hash = entry.get("figma_frame_hash", "")
-            if cur_hash is not None and base_hash:
-                if cur_hash == base_hash:
-                    # This frame is untouched: re-baseline to the current file
-                    # version so we stop re-checking it until the next edit.
-                    entry["figma_synced_at"] = current
-                    changed = True
-                    continue
             if not entry.get("figma_changed"):
                 entry["figma_changed"] = True
                 changed = True
@@ -2440,12 +2409,8 @@ def scan_figma_changes_multi(
 
 def acknowledge_figma_change(
     story_id: int, current_modified: str = "", figma_file_key: str = "",
-    figma_frame_hash: str = "",
 ) -> None:
-    """Clear the design-changed flag and re-baseline to the current file version.
-
-    `figma_frame_hash`, when supplied, re-baselines the frame fingerprint too so a
-    subsequent scan compares against the acknowledged design state."""
+    """Clear the design-changed flag and re-baseline to the current file version."""
     with _index_lock():
         index = get_story_index()
         entry = index.get(str(story_id))
@@ -2455,8 +2420,6 @@ def acknowledge_figma_change(
                 entry["figma_synced_at"] = current_modified
             if figma_file_key:
                 entry["figma_file_key"] = figma_file_key
-            if figma_frame_hash:
-                entry["figma_frame_hash"] = figma_frame_hash
             _save_story_index(index)
 
 

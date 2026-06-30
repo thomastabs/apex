@@ -385,65 +385,6 @@ export function deriveFramesAndFlows(file: FigmaFile): { frames: FigmaFrame[]; f
 }
 
 // ---------------------------------------------------------------------------
-// Frame fingerprint (#2 per-frame drift) — pure, mirrors figma_fetch.frame_fingerprint
-// ---------------------------------------------------------------------------
-
-interface FigmaFrameNode {
-  name?: string;
-  absoluteBoundingBox?: { width?: number; height?: number } | null;
-  children?: Array<{ type?: string; name?: string }>;
-}
-
-/** djb2 → 16-hex-char digest (dependency-free; values need only be stable, not cryptographic). */
-function _shortHash(input: string): string {
-  // Two independent 32-bit rolling hashes concatenated → 16 hex chars.
-  let h1 = 0x811c9dc5;
-  let h2 = 0x1505;
-  for (let i = 0; i < input.length; i++) {
-    const c = input.charCodeAt(i);
-    h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
-    h2 = ((Math.imul(h2, 33) + c) ^ (h2 >>> 5)) >>> 0;
-  }
-  return h1.toString(16).padStart(8, "0") + h2.toString(16).padStart(8, "0");
-}
-
-/**
- * Stable structural fingerprint of a FRAME node. Hashes the frame name, its rounded
- * width×height, and the ordered `type:name` of its DIRECT children — catches a
- * rename, resize, or an added/removed/reordered element on THIS frame while ignoring
- * edits to other frames. Needs the frame's direct children (file fetched at depth ≥ 3);
- * a childless node still fingerprints on name + size. The digest differs from the
- * backend's sha1 form, so a frame is fingerprinted on ONE side (link + scan both use
- * THIS function) — the two are only ever compared against their own kind.
- */
-export function figmaFrameFingerprint(node: FigmaFrameNode): string {
-  const bbox = node.absoluteBoundingBox ?? {};
-  const w = Math.round(bbox.width ?? 0);
-  const h = Math.round(bbox.height ?? 0);
-  const parts = [node.name ?? "", `${w}x${h}`];
-  for (const child of node.children ?? []) parts.push(`${child.type ?? ""}:${child.name ?? ""}`);
-  return _shortHash(parts.join("|"));
-}
-
-/**
- * Fingerprint every top-level FRAME in a file → { node_id: hash }. The file must be
- * fetched at depth ≥ 3 so each frame carries its direct children (a shallower fetch
- * still produces name+size fingerprints). Used at link time (capture baseline) and
- * scan time (compare) so per-frame drift only flags frames that actually changed.
- */
-export function deriveFrameFingerprints(file: FigmaFile): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const page of file.document?.children ?? []) {
-    if (page.type !== "CANVAS") continue;
-    for (const node of page.children ?? []) {
-      if (node.type !== "FRAME") continue;
-      out[node.id] = figmaFrameFingerprint(node as unknown as FigmaFrameNode);
-    }
-  }
-  return out;
-}
-
-// ---------------------------------------------------------------------------
 // Story ↔ frame matching (pure — dependency-free token overlap)
 // ---------------------------------------------------------------------------
 

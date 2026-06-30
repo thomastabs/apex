@@ -90,38 +90,6 @@ def get_comments(token: str, file_key: str) -> list[dict]:
         return []  # comments are advisory — never fail the pipeline on them
 
 
-def _short_hash(text: str) -> str:
-    """16-hex-char digest. MUST match the frontend ``_shortHash`` byte-for-byte so a
-    fingerprint captured server-side (Autopilot link) compares equal to one computed
-    client-side (sidebar scan). Two 32-bit rolling hashes (FNV-1a + djb2) concatenated."""
-    h1 = 0x811C9DC5
-    h2 = 0x1505
-    mask = 0xFFFFFFFF
-    for ch in text:
-        c = ord(ch) & 0xFFFF  # JS charCodeAt is a UTF-16 code unit
-        h1 = ((h1 ^ c) * 0x01000193) & mask
-        h2 = (((h2 * 33 + c) & mask) ^ (h2 >> 5)) & mask
-    return f"{h1:08x}{h2:08x}"
-
-
-def frame_fingerprint(node: dict) -> str:
-    """Stable structural fingerprint of a FRAME node (#2 per-frame drift).
-
-    Hashes the frame name, its rounded width×height, and the ordered list of its
-    DIRECT children as ``type:name`` — enough to catch a rename, resize, or an
-    added/removed/reordered element on THIS frame, while ignoring edits to other
-    frames in the same file. Requires the frame's direct children (file depth ≥ 3);
-    a childless node (shallow fetch) still fingerprints on name + size. Mirrors the
-    frontend ``figmaFrameFingerprint`` so link-time and scan-time hashes match."""
-    bbox = node.get("absoluteBoundingBox") or {}
-    w = round(bbox.get("width", 0) or 0)
-    h = round(bbox.get("height", 0) or 0)
-    parts = [node.get("name", ""), f"{w}x{h}"]
-    for child in node.get("children") or []:
-        parts.append(f"{child.get('type', '')}:{child.get('name', '')}")
-    return _short_hash("|".join(parts))
-
-
 def derive_frames_flows(file: dict) -> tuple[list[dict], list[dict]]:
     """Top-level FRAME nodes per CANVAS + prototype flow edges between them."""
     frames: list[dict] = []
