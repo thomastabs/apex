@@ -356,10 +356,12 @@ The **Autopilot** page (`/autopilot`, top nav, Zap icon) runs Phases 1–5 as a 
 - **Tech stack hint** (optional) — seeds Phase 2 design (and biases automatic epic derivation)
 - **Settings** — *Pause at checkpoints* (human-in-the-loop handoffs after each phase) and *Create epics in Taiga* (push generated epics to the PM tool)
 
-**Run view** — once launched, the page switches to a live run view showing:
+**Run view** — once launched, the page switches to a live, interactive run view showing:
 - **Phase stepper** — which of the five phases is currently executing
 - **Progress counter** — `N / total stories done`
-- **Live event log** — timestamped events with level indicators (info / success / warning / error / checkpoint) and the phase/artifact context
+- **Steer the AI** — a note you can set/update mid-run; it's injected as `instructions` into every subsequent generative step (Phase 1 stories, Phase 2 design, Phase 3 tasks), so you can nudge the pipeline without stopping it. The active steer is shown; clearing the box and applying removes it.
+- **Live event log** — timestamped events with level indicators (info / success / warning / error / checkpoint), grouped into **collapsible per-phase sections**, with an auto-scroll toggle (read history while it keeps running) and a copy-log button. Both the log and the latest-artifact panes are vertically resizable.
+- **Latest artifact** — a preview of the most recent generated artifact, with a copy button
 - **Checkpoint banner** — when *pause at checkpoints* is enabled, a banner appears after each phase completes and waits for the user to resume
 - **Completion banner** — `Autopilot complete — N stories through full SDLC pipeline`
 
