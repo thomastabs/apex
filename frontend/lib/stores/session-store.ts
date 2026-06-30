@@ -25,6 +25,10 @@ type SessionState = {
   // Cached verified file name for figmaFileKey — lets the sidebar skip a
   // /files?depth=1 verify on every navigation (that call is rate-limited).
   figmaFileName: string;
+  // Persisted so an Autopilot run can be re-attached after a refresh (the run keeps
+  // going server-side). Cleared on New Run / sign-out.
+  autopilotJobId: string | null;
+  setAutopilotJobId: (jobId: string | null) => void;
   setSession: (session: { taigaToken: string; taigaApiUrl?: string; projectId?: number; projectName?: string; pmTool?: PmTool; jiraEmail?: string }) => void;
   setAuth: (auth: { taigaToken: string; taigaApiUrl?: string; pmTool?: PmTool; jiraEmail?: string }) => void;
   setProject: (project: { projectId: number; projectName?: string; pmProjectSlug?: string }) => void;
@@ -49,6 +53,8 @@ export const useSessionStore = create<SessionState>()(
       figmaToken: "",
       figmaFileKey: "",
       figmaFileName: "",
+      autopilotJobId: null,
+      setAutopilotJobId: (jobId) => set({ autopilotJobId: jobId }),
       setSession: ({ taigaToken, taigaApiUrl, projectId, projectName = "", pmTool, jiraEmail }) =>
         set({
           taigaToken,
@@ -80,7 +86,7 @@ export const useSessionStore = create<SessionState>()(
         ...(fileKey !== undefined ? { figmaFileKey: fileKey, figmaFileName: fileName ?? "" } : {}),
         ...(fileKey === undefined && fileName !== undefined ? { figmaFileName: fileName } : {}),
       }),
-      clearSession: () => set((s) => ({ pmTool: s.pmTool, taigaToken: "", taigaApiUrl: "", jiraEmail: "", projectId: null, projectName: "", pmProjectSlug: "", projectInstanceUrl: "", githubPat: "", githubRepo: "", figmaToken: "", figmaFileKey: "", figmaFileName: "" })),
+      clearSession: () => set((s) => ({ pmTool: s.pmTool, taigaToken: "", taigaApiUrl: "", jiraEmail: "", projectId: null, projectName: "", pmProjectSlug: "", projectInstanceUrl: "", githubPat: "", githubRepo: "", figmaToken: "", figmaFileKey: "", figmaFileName: "", autopilotJobId: null })),
     }),
     {
       name: "apex-session",
@@ -93,10 +99,11 @@ export const useSessionStore = create<SessionState>()(
         try { localStorage.removeItem("apex-session"); } catch { /* ignore */ }
         return sessionStorage;
       }),
-      version: 8,
+      version: 9,
       migrate: (persisted: unknown) => {
         const state = (persisted ?? {}) as Record<string, unknown>;
         return {
+          autopilotJobId: (state.autopilotJobId as string | null) ?? null,
           pmTool: (state.pmTool as PmTool) ?? "taiga",
           taigaToken: (state.taigaToken as string) ?? "",
           taigaApiUrl: (state.taigaApiUrl as string) ?? "",
@@ -128,6 +135,7 @@ export const useSessionStore = create<SessionState>()(
         githubRepo: state.githubRepo,
         figmaFileKey: state.figmaFileKey,
         figmaFileName: state.figmaFileName,
+        autopilotJobId: state.autopilotJobId,
       }),
     },
   ),

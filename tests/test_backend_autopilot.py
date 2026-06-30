@@ -819,3 +819,149 @@ class TestStream:
         assert frames[0]["job_id"] == job["job_id"]
         assert frames[0]["state"] == "done"
         assert any(e["msg"] == "Autopilot complete" for e in frames[0]["events"])
+
+
+# ---------------------------------------------------------------------------
+# Durable resume — persist snapshot, reattach as interrupted, resume from cursor
+# ---------------------------------------------------------------------------
+
+class TestResume:
+    def _save_snapshot(self, **over):
+        from backend.app.services.context_service import ContextService
+        cs = ContextService()
+        cs.set_active(_ctx())
+        cs.init_context()
+        snap = {
+            "job_id": "rj",
+            "state": "running",
+            "current_phase": "phase3",
+            "current_epic_idx": None,
+            "current_story_id": None,
+            "events": [{"id": 1, "ts": 1.0, "level": "info", "msg": "x", "phase": "phase1", "artifact": ""}],
+            "error": None,
+            "story_count": 3,
+            "stories_done": 1,
+            "checkpoint_phase": None,
+            "steer_note": "go small",
+            "_resume": {
+                "concept": "c", "epics": [{"title": "E", "description": ""}], "tech_stack_hint": "",
+                "settings": {"pause_at_checkpoints": False, "create_epics_in_taiga": False, "auto_epics": False},
+                "completed_epics": [0], "all_story_ids": [10, 11, 12],
+                "taiga_base": "", "figma_file_key": "", "figma_project_id": "",
+            },
+        }
+        snap.update(over)
+        cs.save_autopilot_job(snap)
+
+    def test_persisted_status_maps_running_to_interrupted(self, ctx):
+        self._save_snapshot()
+        st = svc.load_persisted_status(_ctx())
+        assert st["state"] == "interrupted"
+        assert st["current_phase"] == "phase3"
+        assert "_resume" not in st  # internal cursor stripped from the status payload
+
+    def test_persisted_status_returns_none_without_snapshot(self, ctx):
+        assert svc.load_persisted_status(_ctx()) is None
+
+    def test_persisted_status_prefers_live_in_memory_job(self, ctx, monkeypatch):
+        self._save_snapshot()
+        live = _make_job(state="running")
+        live["job_id"] = "rj"
+        monkeypatch.setitem(svc._JOBS, "rj", live)
+        st = svc.load_persisted_status(_ctx())
+        assert st["state"] == "running"  # live status wins over the disk snapshot
+
+    def test_resume_rebuilds_job_from_cursor_and_launches(self, ctx, monkeypatch):
+        self._save_snapshot()
+        launched = []
+        monkeypatch.setattr(svc, "_run_pipeline", lambda jid: launched.append(jid))
+        jid = svc.resume_interrupted_job(_ctx())
+        assert jid == "rj"
+        job = svc.get_job("rj")
+        assert job is not None
+        assert job["current_phase"] == "phase3"
+        assert job["completed_epics"] == [0]
+        assert job["_all_story_ids"] == [10, 11, 12]
+        assert job["steer_note"] == "go small"
+        assert job["figma_token"] == ""  # secret not restored
+        time.sleep(0.05)
+        assert launched == ["rj"]
+
+    def test_resume_none_when_no_snapshot(self, ctx):
+        assert svc.resume_interrupted_job(_ctx()) is None
+
+    def test_clear_persisted_removes_snapshot(self, ctx):
+        self._save_snapshot()
+        svc.clear_persisted_job(_ctx())
+        assert svc.load_persisted_status(_ctx()) is None
+
+
+# ---------------------------------------------------------------------------
+# Resume idempotency — re-entering a phase skips already-done units
+# ---------------------------------------------------------------------------
+
+class _NoopCS:
+    def set_active(self, ctx):
+        pass
+
+    def init_context(self):
+        pass
+
+    def write_context_file(self, name, content):
+        pass
+
+    def save_autopilot_job(self, snap):
+        pass
+
+
+class TestResumeSkips:
+    def test_phase1_skips_completed_epics(self, monkeypatch):
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_taiga": False, "auto_epics": False})
+        job["epics"] = [{"title": "A", "description": ""}, {"title": "B", "description": ""}]
+        job["completed_epics"] = [0]
+        job["_all_story_ids"] = [10]
+        generated = []
+
+        class _StubP1:
+            def generate_nl_stories(self, ctx, *, epic_subject, epic_description, images=None, instructions=""):
+                generated.append(epic_subject)
+                return ("draft", 1)
+
+            def compile_gherkin(self, *, nl_draft):
+                return [{"title": "S", "gherkin": "Scenario: x"}]
+
+            def finalize_stories(self, ctx, *, epic_id, epic_subject, stories):
+                return {"story_ids": [s["id"] for s in stories]}
+
+        monkeypatch.setattr(svc, "Phase1Service", _StubP1)
+        monkeypatch.setattr(svc, "ContextService", _NoopCS)
+
+        ids = svc._run_phase1(job, _ctx())
+        assert generated == ["B"]   # epic 0 (A) skipped on resume
+        assert 10 in ids            # prior story id retained
+        assert job["completed_epics"] == [0, 1]
+
+    def test_phase3_skips_already_planned_stories(self, monkeypatch):
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_taiga": False, "auto_epics": False})
+        monkeypatch.setattr(svc, "_status_snapshot", lambda j: {"10": "deployed", "11": "gherkin_locked"})
+        monkeypatch.setattr(svc, "ContextService", _NoopCS)
+        planned = []
+
+        class _StubP3:
+            def generate_tasks(self, ctx, story_id, instructions=""):
+                planned.append(story_id)
+                return [{"id": 1, "subject": "t", "description": ""}]
+
+            def generate_proposal(self, *a, **k):
+                return "pack"
+
+            def save_proposal(self, *a, **k):
+                pass
+
+            def lock_story(self, *a, **k):
+                pass
+
+        monkeypatch.setattr(svc, "Phase3Service", _StubP3)
+        svc._run_phase3(job, _ctx(), [10, 11])
+        assert planned == [11]  # story 10 (deployed) skipped on resume
+        assert job["stories_done"] == 2  # skipped one counted for progress

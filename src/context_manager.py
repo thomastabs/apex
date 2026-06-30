@@ -883,6 +883,37 @@ def _save_story_index(index: dict[str, dict]) -> None:
         _story_index_caches[key] = (_index_file_mtime(sif), index)
 
 
+# ---------------------------------------------------------------------------
+# Autopilot job persistence (one in-flight job per project, for resume-after-
+# restart). Stored alongside the story index in the active project's dir.
+# ---------------------------------------------------------------------------
+
+_AUTOPILOT_JOB_FILE = "autopilot-job.json"
+
+
+def save_autopilot_job(snapshot: dict) -> None:
+    """Persist the autopilot job snapshot for the active project."""
+    _path(_AUTOPILOT_JOB_FILE).write_text(
+        json.dumps(snapshot, ensure_ascii=False), encoding="utf-8",
+    )
+
+
+def load_autopilot_job() -> dict | None:
+    """Load the persisted autopilot job for the active project, or None."""
+    p = _path(_AUTOPILOT_JOB_FILE)
+    if not p.exists():
+        return None
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except ValueError:
+        return None
+
+
+def delete_autopilot_job() -> None:
+    """Remove the persisted autopilot job for the active project (New Run)."""
+    _path(_AUTOPILOT_JOB_FILE).unlink(missing_ok=True)
+
+
 def _now_iso() -> str:
     """Machine-readable UTC timestamp for status_history and JSON artifacts.
 

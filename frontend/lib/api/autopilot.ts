@@ -33,7 +33,7 @@ export type AutopilotEvent = {
   artifact: string;
 };
 
-export type AutopilotState = "running" | "paused" | "stopped" | "done" | "error";
+export type AutopilotState = "running" | "paused" | "stopped" | "done" | "error" | "interrupted";
 export type AutopilotPhase = "init" | "phase1" | "phase2" | "phase3" | "phase4" | "phase5" | "done";
 
 export type AutopilotStatus = {
@@ -76,4 +76,19 @@ export function takeOverAutopilot(ctx: RequestContext, jobId: string): Promise<{
 
 export function steerAutopilot(ctx: RequestContext, jobId: string, note: string): Promise<{ ok: boolean; state: AutopilotState }> {
   return apiRequest(`/api/autopilot/${jobId}/steer`, { method: "POST", context: ctx, body: { note } });
+}
+
+/** Reattach: the active project's persisted job (live, or interrupted after a restart). */
+export function getPersistedAutopilot(ctx: RequestContext): Promise<AutopilotStatus> {
+  return apiRequest("/api/autopilot/persisted", { method: "GET", context: ctx });
+}
+
+/** Resume the active project's interrupted job from its persisted cursor. */
+export function resumeInterruptedAutopilot(ctx: RequestContext): Promise<{ job_id: string }> {
+  return apiRequest("/api/autopilot/persisted/resume", { method: "POST", context: ctx });
+}
+
+/** Forget the persisted job (New Run). */
+export function clearPersistedAutopilot(ctx: RequestContext): Promise<{ ok: boolean; state: AutopilotState }> {
+  return apiRequest("/api/autopilot/persisted", { method: "DELETE", context: ctx });
 }

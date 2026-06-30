@@ -42,6 +42,17 @@ _synthetic_lock = threading.Lock()
 
 _TIMEOUT = 20.0
 
+# Phase order for resume: a job persists its current_phase; on resume we re-enter
+# at that phase (the running phase didn't finish) and skip the earlier ones, whose
+# artifacts are already on disk. Per-unit idempotent skips (completed epics in
+# Phase 1, story phase_status in Phases 3-5) make re-entering a phase safe.
+_PHASE_KEYS = ["phase1", "phase2", "phase3", "phase4", "phase5"]
+_RESUMABLE_STATES = ("running", "paused", "interrupted")
+# A story already at/past these statuses is skipped when its phase re-runs.
+_PHASE3_DONE = {"implementation", "qa", "qa_passed", "deployed"}
+_PHASE4_DONE = {"qa_passed", "deployed"}
+_PHASE5_DONE = {"deployed"}
+
 
 def _next_synthetic_id() -> int:
     global _synthetic_counter
@@ -105,6 +116,7 @@ def _maybe_checkpoint(job: dict, phase_name: str) -> bool:
     _emit(job, "checkpoint", f"Checkpoint after {phase_name} — waiting for resume", phase=phase_name)
     job["state"] = "paused"
     job["checkpoint_phase"] = phase_name
+    _persist(job)
 
     # Block until resumed or stopped.
     resume_event: threading.Event = job["_resume_event"]
@@ -262,12 +274,17 @@ def _run_phase1(job: dict, ctx: RequestContext) -> list[int]:
         _emit(job, "success", f"  {len(job['epics'])} epics derived", phase="phase1",
               artifact="\n".join(f"- {e['title']}" for e in job["epics"]))
 
-    all_story_ids: list[int] = []
+    # Resume: start from any story ids already created in a prior (interrupted) run,
+    # and skip epics already finalized (tracked by index in completed_epics).
+    all_story_ids: list[int] = list(job.get("_all_story_ids", []))
+    completed_epics: set[int] = set(job.get("completed_epics", []))
     epics: list[dict] = job["epics"]
 
     for epic_idx, epic in enumerate(epics):
         if _check_stop(job):
             break
+        if epic_idx in completed_epics:
+            continue  # already finalized in a prior run — its stories are in all_story_ids
 
         epic_title = epic["title"]
         epic_description = epic.get("description", "")
@@ -359,7 +376,12 @@ def _run_phase1(job: dict, ctx: RequestContext) -> list[int]:
         story_ids = result["story_ids"]
         all_story_ids.extend(story_ids)
         job["story_count"] += len(story_ids)
+        # Mark the epic done + checkpoint to disk so a restart resumes at the next epic.
+        completed_epics.add(epic_idx)
+        job["completed_epics"] = sorted(completed_epics)
+        job["_all_story_ids"] = all_story_ids
         _emit(job, "success", f"  Epic {epic_title!r}: {len(story_ids)} stories locked (Gherkin)", phase="phase1")
+        _persist(job)
 
     return all_story_ids
 
@@ -430,9 +452,13 @@ def _run_phase3(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> Non
     p3 = Phase3Service()
     _emit(job, "info", f"Phase 3 · Implementation plans for {len(all_story_ids)} stories…", phase="phase3")
 
+    done = _status_snapshot(job)
     for story_id in all_story_ids:
         if _check_stop(job):
             return
+        if done.get(str(story_id), "") in _PHASE3_DONE:
+            job["stories_done"] += 1  # already planned in a prior run — keep progress accurate
+            continue
 
         job["current_story_id"] = story_id
         _emit(job, "info", f"  Story {story_id}: generating tasks…", phase="phase3")
@@ -458,6 +484,7 @@ def _run_phase3(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> Non
         p3.lock_story(ctx, story_id, task_ids)
         job["stories_done"] += 1
         _emit(job, "success", f"  Story {story_id}: implementation plan locked", phase="phase3")
+        _persist(job)
 
 
 def _run_phase4(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> None:
@@ -466,9 +493,13 @@ def _run_phase4(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> Non
     job["stories_done"] = 0
     _emit(job, "info", f"Phase 4 · Test plans for {len(all_story_ids)} stories…", phase="phase4")
 
+    done = _status_snapshot(job)
     for story_id in all_story_ids:
         if _check_stop(job):
             return
+        if done.get(str(story_id), "") in _PHASE4_DONE:
+            job["stories_done"] += 1
+            continue
 
         job["current_story_id"] = story_id
         _emit(job, "info", f"  Story {story_id}: generating test plan…", phase="phase4")
@@ -479,6 +510,7 @@ def _run_phase4(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> Non
         job["stories_done"] += 1
         _emit(job, "success", f"  Story {story_id}: QA passed (test plan saved)", phase="phase4",
               artifact=test_plan[:2000])
+        _persist(job)
 
 
 def _run_phase5(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> None:
@@ -487,9 +519,13 @@ def _run_phase5(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> Non
     job["stories_done"] = 0
     _emit(job, "info", f"Phase 5 · Deployment gate for {len(all_story_ids)} stories…", phase="phase5")
 
+    done = _status_snapshot(job)
     for story_id in all_story_ids:
         if _check_stop(job):
             return
+        if done.get(str(story_id), "") in _PHASE5_DONE:
+            job["stories_done"] += 1
+            continue
 
         job["current_story_id"] = story_id
         _emit(job, "info", f"  Story {story_id}: saving infra delta (routine bypass)…", phase="phase5")
@@ -508,6 +544,7 @@ def _run_phase5(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> Non
         )
         job["stories_done"] += 1
         _emit(job, "success", f"  Story {story_id}: deployed", phase="phase5")
+        _persist(job)
 
 
 # ---------------------------------------------------------------------------
@@ -521,69 +558,84 @@ def _run_pipeline(job_id: str) -> None:
         return
 
     ctx: RequestContext = job["ctx"]
-    all_story_ids: list[int] = []
+    # Resume: pick up the persisted story ids + re-enter at the saved phase. A fresh
+    # run has current_phase "init" → start at 0; a resumed run starts at its phase
+    # (earlier phases' artifacts are on disk, the re-entered phase skips done units).
+    all_story_ids: list[int] = list(job.get("_all_story_ids", []))
+    start = _PHASE_KEYS.index(job["current_phase"]) if job.get("current_phase") in _PHASE_KEYS else 0
 
     try:
         job["state"] = "running"
-        job["current_phase"] = "init"
-        _emit(job, "info", "Autopilot started", phase="init")
+        if start == 0:
+            job["current_phase"] = "init"
+            _emit(job, "info", "Autopilot started", phase="init")
+        _persist(job)
 
         # Phase 1
-        if _check_stop(job):
-            raise StopIteration
-        job["current_phase"] = "phase1"
-        all_story_ids = _run_phase1(job, ctx)
-        if _check_stop(job):
-            raise StopIteration
-        job["_all_story_ids"] = all_story_ids
-        _emit(job, "success",
-              f"Phase 1 complete — {len(all_story_ids)} stories across {len(job['epics'])} epic(s)",
-              phase="phase1")
-        if _maybe_checkpoint(job, "Phase 1"):
-            raise StopIteration
+        if start <= 0:
+            if _check_stop(job):
+                raise StopIteration
+            job["current_phase"] = "phase1"
+            all_story_ids = _run_phase1(job, ctx)
+            if _check_stop(job):
+                raise StopIteration
+            job["_all_story_ids"] = all_story_ids
+            _emit(job, "success",
+                  f"Phase 1 complete — {len(all_story_ids)} stories across {len(job['epics'])} epic(s)",
+                  phase="phase1")
+            _persist(job)
+            if _maybe_checkpoint(job, "Phase 1"):
+                raise StopIteration
 
         # Phase 2
-        if _check_stop(job):
-            raise StopIteration
-        job["current_phase"] = "phase2"
-        _run_phase2(job, ctx, all_story_ids)
-        if _check_stop(job):
-            raise StopIteration
-        _emit(job, "success", "Phase 2 complete — design locked", phase="phase2")
-        if _maybe_checkpoint(job, "Phase 2"):
-            raise StopIteration
+        if start <= 1:
+            if _check_stop(job):
+                raise StopIteration
+            job["current_phase"] = "phase2"
+            _run_phase2(job, ctx, all_story_ids)
+            if _check_stop(job):
+                raise StopIteration
+            _emit(job, "success", "Phase 2 complete — design locked", phase="phase2")
+            _persist(job)
+            if _maybe_checkpoint(job, "Phase 2"):
+                raise StopIteration
 
         # Phase 3
-        if _check_stop(job):
-            raise StopIteration
-        job["current_phase"] = "phase3"
-        job["stories_done"] = 0
-        _run_phase3(job, ctx, all_story_ids)
-        if _check_stop(job):
-            raise StopIteration
-        _emit(job, "success", f"Phase 3 complete — {len(all_story_ids)} implementation plans", phase="phase3")
-        if _maybe_checkpoint(job, "Phase 3"):
-            raise StopIteration
+        if start <= 2:
+            if _check_stop(job):
+                raise StopIteration
+            job["current_phase"] = "phase3"
+            job["stories_done"] = 0
+            _run_phase3(job, ctx, all_story_ids)
+            if _check_stop(job):
+                raise StopIteration
+            _emit(job, "success", f"Phase 3 complete — {len(all_story_ids)} implementation plans", phase="phase3")
+            _persist(job)
+            if _maybe_checkpoint(job, "Phase 3"):
+                raise StopIteration
 
         # Phase 4
-        if _check_stop(job):
-            raise StopIteration
-        job["current_phase"] = "phase4"
-        _run_phase4(job, ctx, all_story_ids)
-        if _check_stop(job):
-            raise StopIteration
-        _emit(job, "success", f"Phase 4 complete — {len(all_story_ids)} test plans, all QA passed", phase="phase4")
-        if _maybe_checkpoint(job, "Phase 4"):
-            raise StopIteration
+        if start <= 3:
+            if _check_stop(job):
+                raise StopIteration
+            job["current_phase"] = "phase4"
+            _run_phase4(job, ctx, all_story_ids)
+            if _check_stop(job):
+                raise StopIteration
+            _emit(job, "success", f"Phase 4 complete — {len(all_story_ids)} test plans, all QA passed", phase="phase4")
+            _persist(job)
+            if _maybe_checkpoint(job, "Phase 4"):
+                raise StopIteration
 
         # Phase 5
-        if _check_stop(job):
-            raise StopIteration
-        job["current_phase"] = "phase5"
-        _run_phase5(job, ctx, all_story_ids)
-        if _check_stop(job):
-            raise StopIteration
-        _emit(job, "success", f"Phase 5 complete — {len(all_story_ids)} stories deployed", phase="phase5")
+        if start <= 4:
+            if _check_stop(job):
+                raise StopIteration
+            job["current_phase"] = "phase5"
+            _run_phase5(job, ctx, all_story_ids)
+            if _check_stop(job):
+                raise StopIteration
+            _emit(job, "success", f"Phase 5 complete — {len(all_story_ids)} stories deployed", phase="phase5")
 
         # Done
         job["current_phase"] = "done"
@@ -592,16 +644,19 @@ def _run_pipeline(job_id: str) -> None:
         _emit(job, "success",
               f"Autopilot complete — {total} stories through full SDLC pipeline",
               phase="done")
+        _persist(job)
 
     except StopIteration:
         if job.get("state") not in ("paused",):
             job["state"] = "stopped"
             _emit(job, "warning", "Autopilot stopped by user", phase=job.get("current_phase", ""))
+        _persist(job)
     except Exception as exc:
         _logger.exception("Autopilot job %s failed", job_id)
         job["state"] = "error"
         job["error"] = str(exc)
         _emit(job, "error", f"Autopilot error: {exc}", phase=job.get("current_phase", ""))
+        _persist(job)
 
 
 # ---------------------------------------------------------------------------
@@ -650,6 +705,8 @@ def start_job(
         "story_count": 0,
         "stories_done": 0,
         "error": None,
+        # Resume cursor: epic indices finalized in Phase 1 (skip on re-entry).
+        "completed_epics": [],
         "_all_story_ids": [],
         "_stop_event": stop_event,
         "_resume_event": resume_event,
@@ -680,6 +737,7 @@ def pause_job(job_id: str) -> bool:
         return False
     job["state"] = "paused"
     job["_resume_event"].clear()
+    _persist(job)
     return True
 
 
@@ -689,6 +747,7 @@ def resume_job(job_id: str) -> bool:
         return False
     job["state"] = "running"
     job["_resume_event"].set()
+    _persist(job)
     return True
 
 
@@ -699,6 +758,7 @@ def stop_job(job_id: str) -> bool:
     job["state"] = "stopped"
     job["_stop_event"].set()
     job["_resume_event"].set()  # unblock any checkpoint wait
+    _persist(job)
     return True
 
 
@@ -712,7 +772,95 @@ def steer_job(job_id: str, note: str) -> bool:
     job["steer_note"] = note
     _emit(job, "info", f"Steer updated: {note[:120]}" if note else "Steer cleared",
           phase=job.get("current_phase", ""))
+    _persist(job)
     return True
+
+
+def load_persisted_status(ctx: RequestContext) -> dict | None:
+    """Status of the active project's persisted job, for reattach after a refresh
+    or backend restart. If the job is still live in-memory, returns the live status;
+    otherwise returns the disk snapshot with running/paused mapped to 'interrupted'."""
+    cs = ContextService()
+    cs.set_active(ctx)
+    snap = cs.load_autopilot_job()
+    if not snap:
+        return None
+    live = get_job(snap.get("job_id", ""))
+    if live is not None:
+        return serialize_job(live)
+    snap = {k: v for k, v in snap.items() if k != "_resume"}
+    if snap.get("state") in ("running", "paused"):
+        snap["state"] = "interrupted"
+    return snap
+
+
+def clear_persisted_job(ctx: RequestContext) -> None:
+    """Drop the persisted job (New Run). Also forgets it in-memory if terminal."""
+    cs = ContextService()
+    cs.set_active(ctx)
+    cs.delete_autopilot_job()
+
+
+def resume_interrupted_job(ctx: RequestContext) -> str | None:
+    """Re-launch the active project's interrupted job from its persisted cursor.
+
+    Earlier phases' artifacts are on disk; the re-entered phase skips already-done
+    units (completed epics / advanced stories). Secrets aren't persisted, so the PM
+    token is rebuilt from the resuming session and Figma re-seeding is skipped (its
+    context was already written). Returns the (same) job id, or None if nothing to
+    resume / it's already running."""
+    cs = ContextService()
+    cs.set_active(ctx)
+    snap = cs.load_autopilot_job()
+    if not snap or snap.get("state") not in _RESUMABLE_STATES:
+        return None
+    job_id = snap.get("job_id") or str(uuid.uuid4())
+    if get_job(job_id) is not None:
+        return job_id  # already live in-memory — nothing to relaunch
+
+    r = snap.get("_resume", {})
+    events = snap.get("events", [])
+    job: dict[str, Any] = {
+        "job_id": job_id,
+        "ctx": ctx,
+        "taiga_base": r.get("taiga_base", ""),
+        "taiga_token": ctx.pm_token,
+        "concept": r.get("concept", ""),
+        "epics": r.get("epics", []),
+        "tech_stack_hint": r.get("tech_stack_hint", ""),
+        "figma_file_key": r.get("figma_file_key", ""),
+        "figma_token": "",  # secret not persisted — figma already seeded on the first run
+        "figma_project_id": r.get("figma_project_id", ""),
+        "settings": r.get("settings", {}),
+        "steer_note": snap.get("steer_note", ""),
+        "state": "running",
+        "current_phase": snap.get("current_phase", "phase1"),
+        "current_epic_idx": snap.get("current_epic_idx"),
+        "current_story_id": None,
+        "checkpoint_phase": None,
+        "events": list(events),
+        "event_counter": events[-1]["id"] if events else 0,
+        "story_count": snap.get("story_count", 0),
+        "stories_done": snap.get("stories_done", 0),
+        "error": None,
+        "completed_epics": r.get("completed_epics", []),
+        "_all_story_ids": r.get("all_story_ids", []),
+        "_stop_event": threading.Event(),
+        "_resume_event": threading.Event(),
+        "_thread": None,
+    }
+    with _JOBS_LOCK:
+        _JOBS[job_id] = job
+    _emit(job, "info", f"Resuming autopilot from {job['current_phase']} after interruption…",
+          phase=job["current_phase"])
+
+    def _run() -> None:
+        contextvars.copy_context().run(_run_pipeline, job_id)
+
+    thread = threading.Thread(target=_run, daemon=True, name=f"autopilot-{job_id[:8]}")
+    job["_thread"] = thread
+    thread.start()
+    return job_id
 
 
 def serialize_job(job: dict) -> dict:
@@ -730,3 +878,48 @@ def serialize_job(job: dict) -> dict:
         "checkpoint_phase": job.get("checkpoint_phase"),
         "steer_note": job.get("steer_note", ""),
     }
+
+
+def _descriptor(job: dict) -> dict:
+    """Disk snapshot for resume-after-restart: the JSON status plus the inputs and
+    cursor needed to re-launch. Secrets (PM/Figma tokens) are deliberately NOT
+    persisted — a resume rebuilds the PM token from the resuming user's session,
+    and Figma re-seeding is skipped (figma-context.md was already written)."""
+    return {
+        **serialize_job(job),
+        "_resume": {
+            "concept": job.get("concept", ""),
+            "epics": job.get("epics", []),
+            "tech_stack_hint": job.get("tech_stack_hint", ""),
+            "settings": job.get("settings", {}),
+            "completed_epics": job.get("completed_epics", []),
+            "all_story_ids": job.get("_all_story_ids", []),
+            "taiga_base": job.get("taiga_base", ""),
+            "figma_file_key": job.get("figma_file_key", ""),
+            "figma_project_id": job.get("figma_project_id", ""),
+        },
+    }
+
+
+def _persist(job: dict) -> None:
+    """Best-effort write of the job snapshot to the active project's dir. Never
+    raises into the pipeline — a failed persist only costs resume granularity."""
+    ctx = job.get("ctx")
+    if ctx is None:
+        return
+    try:
+        cs = ContextService()
+        cs.set_active(ctx)
+        cs.save_autopilot_job(_descriptor(job))
+    except Exception:  # noqa: BLE001 — persistence is advisory
+        _logger.exception("autopilot: failed to persist job %s", job.get("job_id"))
+
+
+def _status_snapshot(job: dict) -> dict[str, str]:
+    """story_id(str) -> phase_status from the index, for resume skips in Phases 3-5."""
+    try:
+        cs = ContextService()
+        cs.set_active(job["ctx"])
+        return {sid: (entry or {}).get("phase_status", "") for sid, entry in cs.story_index().items()}
+    except Exception:  # noqa: BLE001
+        return {}

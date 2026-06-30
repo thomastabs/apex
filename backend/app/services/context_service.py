@@ -122,6 +122,15 @@ class ContextService:
     def story_index(self) -> dict[str, dict]:
         return context_manager.get_story_index()
 
+    def save_autopilot_job(self, snapshot: dict) -> None:
+        context_manager.save_autopilot_job(snapshot)
+
+    def load_autopilot_job(self) -> dict | None:
+        return context_manager.load_autopilot_job()
+
+    def delete_autopilot_job(self) -> None:
+        context_manager.delete_autopilot_job()
+
     def story_gherkin(self, story_id: int) -> str:
         return context_manager.get_story_gherkin(story_id)
 

@@ -110,6 +110,7 @@ function StateBadge({ state }: { state: AutopilotState }) {
     stopped: { color: "text-neutral-400 bg-neutral-500/15 border-neutral-500/30", icon: <Square className="size-3" />, label: "Stopped" },
     done:    { color: "text-violet-400 bg-violet-500/15 border-violet-500/30", icon: <CheckCircle2 className="size-3" />, label: "Complete" },
     error:   { color: "text-red-400 bg-red-500/15 border-red-500/30", icon: <XCircle className="size-3" />, label: "Error" },
+    interrupted: { color: "text-orange-400 bg-orange-500/15 border-orange-500/30", icon: <AlertTriangle className="size-3" />, label: "Interrupted" },
   }[state];
   return (
     <span className={cn("inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-xs font-medium", cfg.color)}>
@@ -179,9 +180,11 @@ function PhaseProgress({ currentPhase, state }: { currentPhase: AutopilotPhase; 
 type Props = {
   status: AutopilotStatus;
   onReset: () => void;
+  onResume?: () => void;   // present only for an interrupted job (resume from cursor)
+  resuming?: boolean;
 };
 
-export function AutopilotRunView({ status, onReset }: Props) {
+export function AutopilotRunView({ status, onReset, onResume, resuming }: Props) {
   const router = useRouter();
   const logRef = useRef<HTMLDivElement>(null);
   const pause = usePauseAutopilot(status.job_id);
@@ -201,6 +204,7 @@ export function AutopilotRunView({ status, onReset }: Props) {
     }
   }, [status.events.length, autoScroll]);
 
+  const isInterrupted = status.state === "interrupted";
   const isTerminal = ["done", "stopped", "error"].includes(status.state);
   const isRunning = status.state === "running";
   const isPaused = status.state === "paused";
@@ -283,7 +287,7 @@ export function AutopilotRunView({ status, onReset }: Props) {
               <Play className="size-3" /> Resume
             </button>
           )}
-          {!isTerminal && (
+          {!isTerminal && !isInterrupted && (
             <>
               <button
                 onClick={() => stop.mutate()}
@@ -301,7 +305,16 @@ export function AutopilotRunView({ status, onReset }: Props) {
               </button>
             </>
           )}
-          {isTerminal && (
+          {isInterrupted && onResume && (
+            <button
+              onClick={onResume}
+              disabled={resuming}
+              className="flex items-center gap-1.5 rounded border border-orange-600/50 bg-orange-500/15 px-2.5 py-1 text-xs font-medium text-orange-300 hover:bg-orange-500/25 disabled:opacity-50"
+            >
+              <Play className="size-3" /> {resuming ? "Resuming…" : "Resume run"}
+            </button>
+          )}
+          {(isTerminal || isInterrupted) && (
             <button
               onClick={onReset}
               className="flex items-center gap-1.5 rounded border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs text-neutral-300 hover:bg-neutral-700"
@@ -351,6 +364,30 @@ export function AutopilotRunView({ status, onReset }: Props) {
         </div>
       )}
 
+      {/* Interrupted banner — the run was cut off (refresh/restart); resume from cursor */}
+      {isInterrupted && (
+        <div className="flex items-center justify-between rounded-md border border-orange-600/40 bg-orange-500/10 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="size-4 shrink-0 text-orange-400" />
+            <div>
+              <p className="text-sm font-semibold text-orange-300">Run interrupted</p>
+              <p className="text-xs text-orange-400/80">
+                This Autopilot run stopped (a refresh, sign-out, or backend restart). Generated artifacts are saved — resume to continue from {PHASE_LABELS[status.current_phase] ?? status.current_phase}, skipping work already done.
+              </p>
+            </div>
+          </div>
+          {onResume && (
+            <button
+              onClick={onResume}
+              disabled={resuming}
+              className="flex shrink-0 items-center gap-1.5 rounded bg-orange-600/30 px-3 py-1.5 text-xs font-medium text-orange-200 hover:bg-orange-600/40 disabled:opacity-50"
+            >
+              <Play className="size-3" /> {resuming ? "Resuming…" : "Resume"}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Error banner */}
       {status.state === "error" && status.error && (
         <div className="rounded-md border border-red-600/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
@@ -373,7 +410,7 @@ export function AutopilotRunView({ status, onReset }: Props) {
       )}
 
       {/* Steer the AI — inject a note applied to every subsequent generative step */}
-      {!isTerminal && (
+      {!isTerminal && !isInterrupted && (
         <div className="rounded-md border border-neutral-700/60 bg-neutral-800/30 p-3">
           <div className="mb-1.5 flex items-center justify-between">
             <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">

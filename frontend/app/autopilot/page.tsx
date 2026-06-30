@@ -1,10 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertCircle } from "lucide-react";
 import { AutopilotSetupForm } from "@/components/autopilot/setup-form";
 import { AutopilotRunView } from "@/components/autopilot/run-view";
-import { useStartAutopilot, useAutopilotStatus, useAutopilotStream } from "@/lib/hooks/use-autopilot";
+import {
+  useStartAutopilot,
+  useAutopilotStatus,
+  useAutopilotStream,
+  usePersistedAutopilot,
+  useResumeInterruptedAutopilot,
+  useClearPersistedAutopilot,
+} from "@/lib/hooks/use-autopilot";
 import { useSessionStore, useFigmaContext } from "@/lib/stores/session-store";
 import type { AutopilotStartRequest } from "@/lib/api/autopilot";
 
@@ -12,12 +19,28 @@ export default function AutopilotPage() {
   const hasProject = useSessionStore((s) => Boolean(s.taigaToken && s.projectId));
   const figma = useFigmaContext();
   const figmaToken = useSessionStore((s) => s.figmaToken);
-  const [jobId, setJobId] = useState<string | null>(null);
+  const storedJobId = useSessionStore((s) => s.autopilotJobId);
+  const setStoredJobId = useSessionStore((s) => s.setAutopilotJobId);
+  // jobId is seeded from the persisted store so a refresh re-attaches to a run.
+  const [jobId, setJobIdState] = useState<string | null>(storedJobId);
+  const setJobId = (id: string | null) => { setJobIdState(id); setStoredJobId(id); };
+
   const start = useStartAutopilot();
-  const { data: status } = useAutopilotStatus(jobId);
-  // Live push stream (instant events); the poll above stays as the reconnect fallback.
+  const resumeInterrupted = useResumeInterruptedAutopilot();
+  const clearPersisted = useClearPersistedAutopilot();
+  const { data: liveStatus } = useAutopilotStatus(jobId);
+  // Discover/recover the project's job when there's no live one (refresh / restart).
+  const { data: persistedStatus } = usePersistedAutopilot(!liveStatus);
+
+  const status = liveStatus ?? persistedStatus ?? null;
   const terminal = status ? ["done", "stopped", "error"].includes(status.state) : false;
-  useAutopilotStream(jobId, Boolean(jobId) && !terminal);
+  // Stream only a genuinely live run; an interrupted/terminal job has no thread.
+  useAutopilotStream(jobId, Boolean(jobId) && status?.state === "running");
+
+  // Adopt the discovered job id (e.g. after a refresh) so controls/stream target it.
+  useEffect(() => {
+    if (!jobId && persistedStatus?.job_id) setJobId(persistedStatus.job_id);
+  }, [jobId, persistedStatus?.job_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleStart(req: AutopilotStartRequest) {
     let body = req;
@@ -31,6 +54,16 @@ export default function AutopilotPage() {
     }
     const res = await start.mutateAsync(body);
     setJobId(res.job_id);
+  }
+
+  async function handleResume() {
+    const res = await resumeInterrupted.mutateAsync();
+    setJobId(res.job_id);
+  }
+
+  function handleReset() {
+    clearPersisted.mutate();
+    setJobId(null);
   }
 
   if (!hasProject) {
@@ -56,12 +89,14 @@ export default function AutopilotPage() {
         </p>
       </div>
 
-      {!jobId || !status ? (
+      {!status ? (
         <AutopilotSetupForm onStart={handleStart} isPending={start.isPending} />
       ) : (
         <AutopilotRunView
           status={status}
-          onReset={() => setJobId(null)}
+          onReset={handleReset}
+          onResume={status.state === "interrupted" ? handleResume : undefined}
+          resuming={resumeInterrupted.isPending}
         />
       )}
     </section>

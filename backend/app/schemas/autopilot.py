@@ -7,7 +7,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 
-AutopilotState = Literal["running", "paused", "stopped", "done", "error"]
+AutopilotState = Literal["running", "paused", "stopped", "done", "error", "interrupted"]
 AutopilotPhase = Literal["init", "phase1", "phase2", "phase3", "phase4", "phase5", "done"]
 EventLevel = Literal["info", "success", "warning", "error", "checkpoint"]
 

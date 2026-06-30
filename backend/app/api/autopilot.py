@@ -42,6 +42,40 @@ def autopilot_start(
     return AutopilotStartResponse(job_id=job_id)
 
 
+# NOTE: the literal "/persisted" routes are declared BEFORE "/{job_id}" so they win
+# over the path-param match (otherwise /{job_id}=persisted would shadow them).
+@router.get("/persisted", response_model=AutopilotStatusResponse)
+def autopilot_persisted(
+    ctx: RequestContext = Depends(get_request_context),
+) -> AutopilotStatusResponse:
+    """Reattach: the active project's persisted job (live if still in memory, else
+    the disk snapshot with running/paused shown as 'interrupted'). 404 when none."""
+    snap = autopilot_service.load_persisted_status(ctx)
+    if snap is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No autopilot job for this project.")
+    return AutopilotStatusResponse(**snap)
+
+
+@router.post("/persisted/resume", response_model=AutopilotStartResponse)
+def autopilot_resume_interrupted(
+    ctx: RequestContext = Depends(get_request_context),
+) -> AutopilotStartResponse:
+    """Re-launch the active project's interrupted job from its persisted cursor."""
+    job_id = autopilot_service.resume_interrupted_job(ctx)
+    if job_id is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No interrupted autopilot job to resume.")
+    return AutopilotStartResponse(job_id=job_id)
+
+
+@router.delete("/persisted", response_model=AutopilotControlResponse)
+def autopilot_clear_persisted(
+    ctx: RequestContext = Depends(get_request_context),
+) -> AutopilotControlResponse:
+    """Forget the persisted job (New Run)."""
+    autopilot_service.clear_persisted_job(ctx)
+    return AutopilotControlResponse(ok=True, state="stopped")
+
+
 @router.get("/{job_id}", response_model=AutopilotStatusResponse)
 def autopilot_status(
     job_id: str,

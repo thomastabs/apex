@@ -3,9 +3,12 @@
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  clearPersistedAutopilot,
   getAutopilotStatus,
+  getPersistedAutopilot,
   pauseAutopilot,
   resumeAutopilot,
+  resumeInterruptedAutopilot,
   startAutopilot,
   steerAutopilot,
   stopAutopilot,
@@ -90,6 +93,48 @@ export function useAutopilotStream(jobId: string | null, enabled: boolean) {
     })();
     return () => { cancelled = true; controller.abort(); };
   }, [ctx, jobId, enabled, qc]);
+}
+
+/** Reattach discovery: the active project's persisted job (live, interrupted, or none).
+ *  Used to recover the run view after a refresh or backend restart. */
+export function usePersistedAutopilot(enabled: boolean) {
+  const ctx = useApiContext();
+  return useQuery({
+    queryKey: ["autopilot", "persisted", ctx?.projectId],
+    queryFn: async () => {
+      try {
+        return await getPersistedAutopilot(ctx!);
+      } catch (err) {
+        if ((err as { status?: number })?.status === 404) return null;
+        throw err;
+      }
+    },
+    enabled: Boolean(ctx && enabled),
+    refetchInterval: (query) => {
+      const state = query.state.data?.state;
+      return state === "running" || state === "paused" ? POLL_INTERVAL : false;
+    },
+    staleTime: 0,
+  });
+}
+
+export function useResumeInterruptedAutopilot() {
+  const ctx = useApiContext();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => resumeInterruptedAutopilot(ctx!),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["autopilot"] }),
+    onError: (err: Error) => toast.error(`Resume failed: ${err.message}`),
+  });
+}
+
+export function useClearPersistedAutopilot() {
+  const ctx = useApiContext();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => clearPersistedAutopilot(ctx!),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["autopilot"] }),
+  });
 }
 
 export function usePauseAutopilot(jobId: string | null) {
