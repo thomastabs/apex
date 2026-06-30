@@ -252,7 +252,12 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
                           setSyncBlockedUntil(t + SYNC_COOLDOWN_MS);
                           setRateLimitedUntil(t + RATE_LIMIT_BACKOFF_MS);
                           setNow(t);
-                          toast.warning("Figma is rate-limiting this token — kept your last-synced design context. Repeated retries extend Figma's penalty; wait a few minutes, or reconnect with a fresh Figma token.");
+                          // The backend 429 carries Figma's real reason (plan tier +
+                          // Retry-After). Show it verbatim; your last-synced context is
+                          // untouched. Note: Figma tracks this per Figma ACCOUNT, so a
+                          // new token doesn't reset it.
+                          const why = e instanceof Error && e.message ? e.message : "Figma is rate-limiting this token.";
+                          toast.warning(`${why} Your last-synced design context is kept.`);
                           return;
                         }
                         toast.error(e instanceof Error ? e.message : "Sync failed.");

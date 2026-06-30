@@ -259,6 +259,26 @@ class TestProxyFigmaCatchAll:
         assert r2.json() == {"name": "Good", "document": {}}
         assert mock_http.request.call_count == 2
 
+    def test_429_surfaces_plan_tier_and_retry_after(self, client):
+        # With no stale fallback, the proxy must replace Figma's opaque 429 body with
+        # a structured one explaining the plan-tier cap so the UI stops giving the
+        # misleading "wait a moment / rotate the token" advice.
+        throttled = _mock_upstream(429, {"err": "rate limited"})
+        throttled.headers = {
+            "content-type": "application/json",
+            "retry-after": str(14 * 86_400),  # ~2 weeks → a monthly cap, not a blip
+            "x-figma-plan-tier": "starter",
+            "x-figma-rate-limit-type": "low",
+        }
+        patcher, _ = _patch_client(throttled)
+        with patcher:
+            r = client.get("/api/design/figma/files/STARTER?depth=2", headers={"X-Figma-Token": TOKEN})
+        assert r.status_code == 429
+        detail = r.json()["detail"]
+        assert "starter" in detail.lower()
+        assert "14 day" in detail  # Retry-After rendered as days
+        assert "per month" in detail.lower()  # explains the monthly per-account cap
+
 
 # ---------------------------------------------------------------------------
 # figma_fetch — server-side helper (Autopilot seeding)
