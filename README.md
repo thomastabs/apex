@@ -367,6 +367,10 @@ The **Autopilot** page (`/autopilot`, top nav, Zap icon) runs Phases 1–5 as a 
 
 **Controls** — Pause, Resume, Stop, Take Over (stops the background job and hands control back to the per-phase pages), and New Run (resets the form after a terminal state).
 
+**Reattach + resume** — the run survives a page refresh and a backend restart:
+- The job id is persisted in the session store and the project's job is discovered via `GET /api/autopilot/persisted`, so a **refresh re-shows the live run view** (the pipeline keeps running server-side).
+- The pipeline snapshots itself to `contextspec/<…>/autopilot-job.json` on every phase/epic/story boundary (inputs + a cursor: current phase, completed epic indices, story ids — never the PM/Figma tokens). If the backend restarts mid-run (deploy, nightly scale-down), the job reattaches as **Interrupted** with a **Resume** action: `POST /api/autopilot/persisted/resume` rebuilds it and re-enters at the saved phase, **skipping work already done** (completed epics in Phase 1; stories already at/past their target `phase_status` in Phases 3-5) so nothing is duplicated. New Run clears the snapshot.
+
 **Backend** — `backend/app/services/autopilot_service.py` runs each story through the existing phase-service layer inside a `threading.Thread`, using `contextvars.copy_context().run()` to propagate per-request ContextVars. `threading.Event` objects (`_stop_event` / `_resume_event`) provide cooperative pause/stop. Jobs are held in an in-memory `_JOBS` dict (process-local, not persisted across restarts). Routes: `POST /api/autopilot/start`, `GET /api/autopilot/{id}`, `POST /api/autopilot/{id}/pause|resume|stop|take-over`.
 
 ### Sidebar Workspace
