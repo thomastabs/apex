@@ -351,6 +351,7 @@ The **Trace** page (`/traceability`, top nav) renders the whole project as one i
 The **Autopilot** page (`/autopilot`, top nav, Zap icon) runs Phases 1–5 as a single unattended background pipeline — from a concept description and a list of epics through requirements, design, implementation assist, testing, and deployment artefacts.
 
 **Setup form** — before launching, the user provides:
+- **Start from** — which phase to begin at. Default Phase 1 (from scratch); pick a later phase when the earlier ones are already done in this project (e.g. Phase 2 finished by hand → start Autopilot at Phase 3). Starting later skips the earlier phases and drives the rest from the project's existing story index, so no concept/epics are needed.
 - **Concept** — free-text product brief (seeds Phase 1 story generation)
 - **Epics** — choose **Automatic (AI)** to have the pipeline derive the epic set from the concept (the same `suggest_epics` step Phase 1 uses, run once before story generation), or **Manual** to type one or more epic titles with optional descriptions. A Figma **project** URL overrides both (one epic per file — see below).
 - **Tech stack hint** (optional) — seeds Phase 2 design (and biases automatic epic derivation)
@@ -360,7 +361,8 @@ The **Autopilot** page (`/autopilot`, top nav, Zap icon) runs Phases 1–5 as a 
 - **Phase stepper** — which of the five phases is currently executing
 - **Progress counter** — `N / total stories done`
 - **Current activity** — a live line (spinner + the in-flight step) with an **elapsed timer that ticks every second**, so a 20-30s AI call never makes the view look frozen
-- **Speed** — Phases 3 and 4 are per-story and independent, so they run with **bounded concurrency** (`AUTOPILOT_CONCURRENCY`, default 3) instead of one story at a time; `ai_engine` backs off on a provider 429, so the small fan-out is safe
+- **Phase-aware progress bar** — epics done/total during Phase 1, stories done/total during Phases 3-5 (the per-story counter only moves in 3-5, so the bar tracks epics in Phase 1 instead of sitting at 0)
+- **Speed** — independent units run with **bounded concurrency** (`AUTOPILOT_CONCURRENCY`, default 3): Phase 1 across epics, Phases 3 and 4 across stories. `ai_engine` backs off on a provider 429, so the small fan-out is safe
 - **Steer the AI** — a note you can set/update mid-run; it's injected as `instructions` into every subsequent generative step (Phase 1 stories, Phase 2 design, Phase 3 tasks), so you can nudge the pipeline without stopping it. The active steer is shown; clearing the box and applying removes it.
 - **Live event log** — timestamped events with level indicators (info / success / warning / error / checkpoint), **streamed in real time** (`GET /api/autopilot/{id}/stream`, NDJSON pushed the instant an event fires — a streaming fetch since EventSource can't carry the bearer token; the 1.5s poller remains the reconnect fallback). Grouped into **collapsible per-phase sections**, with an auto-scroll toggle (read history while it keeps running) and a copy-log button. Both the log and artifact panes are vertically resizable.
 - **Artifact viewer** — shows the artifact count, a **Live** chip that pulses while running, and clickable chips for the last few artifacts (labelled by kind — *User stories / Design section / Test plan / Dev pack* …); pin any one or follow the latest. Each is shown under a phase-accented header (kind + source event + time) with a copy button.
