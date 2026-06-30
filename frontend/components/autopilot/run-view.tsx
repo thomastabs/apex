@@ -429,7 +429,7 @@ export function AutopilotRunView({ status, onReset }: Props) {
           <p className="mb-1.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-neutral-600">
             <span>Latest artifact</span>
             <span className="flex items-center gap-2 font-normal normal-case text-neutral-700">
-              <span>drag ↕ to resize</span>
+              <span>drag to resize</span>
               {lastArtifact ? <CopyButton getText={() => lastArtifact.artifact} label="artifact" /> : null}
             </span>
           </p>
