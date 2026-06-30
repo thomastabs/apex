@@ -601,7 +601,9 @@ export function useSyncFigmaContext() {
     mutationFn: async () => {
       if (!ctx || !figma) throw new Error("Not connected to Figma.");
       const { fetchFigmaContextMd } = await import("@/lib/api/figma");
-      const md = await fetchFigmaContextMd(figma.token, figma.fileKey);
+      // force=true: an explicit Sync click must bypass the proxy 429 cooldown that
+      // background fan-out (thumbnails/drift) may have tripped, exactly like Connect.
+      const md = await fetchFigmaContextMd(figma.token, figma.fileKey, true);
       const { updateContextFile } = await import("@/lib/api/workspace");
       return updateContextFile(ctx, "figma-context.md", md);
     },

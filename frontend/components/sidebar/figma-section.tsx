@@ -7,12 +7,10 @@ import { useSessionStore, useFigmaContext } from "@/lib/stores/session-store";
 import {
   figmaVerifyFile,
   figmaGetFile,
-  deriveFrameFingerprints,
   parseFigmaUrl,
   parseFigmaProjectUrl,
   figmaGetProjectFiles,
   type FigmaProjectFile,
-  type FigmaFile,
 } from "@/lib/api/figma";
 import { cn } from "@/lib/utils";
 import { PanelHeader, type DragSectionProps } from "./shared";
@@ -51,38 +49,24 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
       const keys = Array.from(new Set(links.map((l) => l.figma_file_key ?? "")));
       const hasPerFile = keys.some((k) => k);
 
-      // Per-frame drift (#2): fetch each linked file at depth 3 once, capturing both
-      // its lastModified AND a fingerprint per frame, so a changed file only flags
-      // frames whose structure actually moved. hashByNode is keyed "<file_key>#<node_id>"
-      // to match the backend, using the SAME file key the link stored.
-      const buildHashes = (fileKey: string, file: FigmaFile, hashByNode: Record<string, string>) => {
-        const fps = deriveFrameFingerprints(file);
-        for (const l of links) {
-          if ((l.figma_file_key ?? "") !== fileKey) continue;
-          const fp = fps[l.figma_node_id];
-          if (fp) hashByNode[`${fileKey}#${l.figma_node_id}`] = fp;
-        }
-      };
-
+      // File-level drift: fetch each linked file at depth 1 (cheapest — just its
+      // lastModified) and flag stories whose file changed since they were linked.
+      // (Per-frame fingerprint precision was dropped: the depth-3 fetch it required
+      // blew Figma's cost-based files budget; an empty hashByNode tells the backend
+      // to fall back to file-level drift.)
       let changed_story_ids: number[];
       if (hasPerFile) {
-        // Per-file drift: each linked file scanned against its own lastModified.
         const modifiedByFile: Record<string, string> = {};
-        const hashByNode: Record<string, string> = {};
         await Promise.all(
           keys.map(async (k) => {
-            const file = await figmaGetFile(figma.token, k || figma.fileKey, 3);
+            const file = await figmaGetFile(figma.token, k || figma.fileKey, 1);
             modifiedByFile[k] = file.lastModified;
-            buildHashes(k, file, hashByNode);
           }),
         );
-        ({ changed_story_ids } = await scanChanges.mutateAsync({ modifiedByFile, hashByNode }));
+        ({ changed_story_ids } = await scanChanges.mutateAsync({ modifiedByFile, hashByNode: {} }));
       } else {
-        // Legacy single-file scan (no link carries a file key) — still per-frame precise.
-        const file = await figmaGetFile(figma.token, figma.fileKey, 3);
-        const hashByNode: Record<string, string> = {};
-        buildHashes("", file, hashByNode);
-        ({ changed_story_ids } = await scanChanges.mutateAsync({ modifiedByFile: { "": file.lastModified }, hashByNode }));
+        const file = await figmaGetFile(figma.token, figma.fileKey, 1);
+        ({ changed_story_ids } = await scanChanges.mutateAsync({ modifiedByFile: { "": file.lastModified }, hashByNode: {} }));
       }
 
       toast[changed_story_ids.length ? "warning" : "success"](

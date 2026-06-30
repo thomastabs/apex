@@ -136,8 +136,8 @@ export async function figmaVerifyFile(token: string, fileKey: string, force = fa
 }
 
 /** Fetch the file document tree, bounded by depth (default 2 = pages + top-level frames). */
-export function figmaGetFile(token: string, fileKey: string, depth = 2): Promise<FigmaFile> {
-  return figmaGet<FigmaFile>(`/api/design/figma/files/${fileKey}?depth=${depth}`, token);
+export function figmaGetFile(token: string, fileKey: string, depth = 2, force = false): Promise<FigmaFile> {
+  return figmaGet<FigmaFile>(`/api/design/figma/files/${fileKey}?depth=${depth}`, token, force);
 }
 
 /**
@@ -151,8 +151,8 @@ export async function figmaGetProjectFiles(token: string, projectId: string, for
 }
 
 /** Top-level comments on the file (for design-review context). */
-export async function figmaGetComments(token: string, fileKey: string): Promise<FigmaComment[]> {
-  const data = await figmaGet<{ comments?: FigmaComment[] }>(`/api/design/figma/files/${fileKey}/comments`, token);
+export async function figmaGetComments(token: string, fileKey: string, force = false): Promise<FigmaComment[]> {
+  const data = await figmaGet<{ comments?: FigmaComment[] }>(`/api/design/figma/files/${fileKey}/comments`, token, force);
   return data.comments ?? [];
 }
 
@@ -204,27 +204,29 @@ interface FigmaComponentMeta {
 }
 
 /** Published local styles (color/text/effect) — names + node ids. Empty when no library. */
-export async function figmaGetPublishedStyles(token: string, fileKey: string): Promise<FigmaStyleMeta[]> {
-  const data = await figmaGet<{ meta?: { styles?: FigmaStyleMeta[] } }>(`/api/design/figma/files/${fileKey}/styles`, token);
+export async function figmaGetPublishedStyles(token: string, fileKey: string, force = false): Promise<FigmaStyleMeta[]> {
+  const data = await figmaGet<{ meta?: { styles?: FigmaStyleMeta[] } }>(`/api/design/figma/files/${fileKey}/styles`, token, force);
   return data.meta?.styles ?? [];
 }
 
 /** Published components — the component inventory (names). */
-export async function figmaGetPublishedComponents(token: string, fileKey: string): Promise<FigmaComponentMeta[]> {
+export async function figmaGetPublishedComponents(token: string, fileKey: string, force = false): Promise<FigmaComponentMeta[]> {
   const data = await figmaGet<{ meta?: { components?: FigmaComponentMeta[] } }>(
     `/api/design/figma/files/${fileKey}/components`,
     token,
+    force,
   );
   return data.meta?.components ?? [];
 }
 
 /** Resolve the given node ids → their documents (used to read color-style hex values). */
-export async function figmaGetNodes(token: string, fileKey: string, ids: string[]): Promise<Record<string, FigmaNode>> {
+export async function figmaGetNodes(token: string, fileKey: string, ids: string[], force = false): Promise<Record<string, FigmaNode>> {
   if (!ids.length) return {};
   const q = encodeURIComponent(ids.join(","));
   const data = await figmaGet<{ nodes?: Record<string, { document?: FigmaNode }> }>(
     `/api/design/figma/files/${fileKey}/nodes?ids=${q}&depth=0`,
     token,
+    force,
   );
   const out: Record<string, FigmaNode> = {};
   for (const [id, payload] of Object.entries(data.nodes ?? {})) {
@@ -257,7 +259,7 @@ function solidHex(node: { fills?: SolidFill[] } | undefined): string {
  * on the file response. Color tokens are enriched to hex via a single `/nodes` call.
  * All calls are advisory: a failure yields empty arrays, never throws.
  */
-export async function extractDesignTokens(token: string, fileKey: string, file?: FigmaFile): Promise<FigmaDesignTokens> {
+export async function extractDesignTokens(token: string, fileKey: string, file?: FigmaFile, force = false): Promise<FigmaDesignTokens> {
   const colors = new Map<string, string>(); // name -> node_id
   const textStyles: string[] = [];
   const effects: string[] = [];
@@ -279,7 +281,7 @@ export async function extractDesignTokens(token: string, fileKey: string, file?:
     }
   };
 
-  const published = await figmaGetPublishedStyles(token, fileKey).catch(() => [] as FigmaStyleMeta[]);
+  const published = await figmaGetPublishedStyles(token, fileKey, force).catch(() => [] as FigmaStyleMeta[]);
   for (const s of published) addStyle(s.name ?? "", s.style_type ?? "", s.node_id ?? "");
   // Local styles map on the file response: { styleId: { name, styleType } }.
   const localStyles = (file as unknown as { styles?: Record<string, { name?: string; styleType?: string }> })?.styles ?? {};
@@ -289,7 +291,7 @@ export async function extractDesignTokens(token: string, fileKey: string, file?:
   const colorHex = new Map<string, string>();
   const colorNodeIds = [...colors.values()].filter(Boolean).slice(0, TOKEN_CAPS.hexNodes);
   if (colorNodeIds.length) {
-    const nodes = await figmaGetNodes(token, fileKey, colorNodeIds).catch(() => ({} as Record<string, FigmaNode>));
+    const nodes = await figmaGetNodes(token, fileKey, colorNodeIds, force).catch(() => ({} as Record<string, FigmaNode>));
     const nidToName = new Map([...colors.entries()].filter(([, nid]) => nid).map(([name, nid]) => [nid, name]));
     for (const [nid, doc] of Object.entries(nodes)) {
       const hex = solidHex(doc as { fills?: SolidFill[] });
@@ -304,7 +306,7 @@ export async function extractDesignTokens(token: string, fileKey: string, file?:
   // Components: published endpoint + local file.components map. Names only.
   const compNames: string[] = [];
   const seenComp = new Set<string>();
-  const publishedComps = await figmaGetPublishedComponents(token, fileKey).catch(() => [] as FigmaComponentMeta[]);
+  const publishedComps = await figmaGetPublishedComponents(token, fileKey, force).catch(() => [] as FigmaComponentMeta[]);
   for (const c of publishedComps) {
     const n = (c.name ?? "").trim();
     if (n && !seenComp.has(n)) { seenComp.add(n); compNames.push(n); }
@@ -533,9 +535,12 @@ export function buildFigmaContextMarkdown(file: FigmaFile, comments: FigmaCommen
 }
 
 /** Connect (verify) + assemble the context markdown in one call (sidebar Sync). */
-export async function fetchFigmaContextMd(token: string, fileKey: string): Promise<string> {
-  const file = await figmaGetFile(token, fileKey, 2);
-  const comments = await figmaGetComments(token, fileKey).catch(() => [] as FigmaComment[]);
-  const tokens = await extractDesignTokens(token, fileKey, file).catch(() => undefined);
+// force=true marks an explicit user Sync: the file fetch must bypass the proxy's
+// 429 cooldown (set by background fan-out like board thumbnails) so the deliberate
+// action reaches Figma — or serves last-known-good — instead of being short-circuited.
+export async function fetchFigmaContextMd(token: string, fileKey: string, force = false): Promise<string> {
+  const file = await figmaGetFile(token, fileKey, 2, force);
+  const comments = await figmaGetComments(token, fileKey, force).catch(() => [] as FigmaComment[]);
+  const tokens = await extractDesignTokens(token, fileKey, file, force).catch(() => undefined);
   return buildFigmaContextMarkdown(file, comments, tokens);
 }

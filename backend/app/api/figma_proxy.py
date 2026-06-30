@@ -240,13 +240,15 @@ async def proxy_figma(
     elif is_get and resp.status_code == 429:
         # Start a cooldown so the next identical GET skips Figma and lets the
         # bucket refill; if we have recent data, serve it stale instead of erroring.
+        # This applies to forced GETs too: an explicit user Sync bypasses the
+        # *inbound* cooldown to reach Figma, but if Figma itself is genuinely
+        # throttling we still return last-known-good rather than failing the Sync.
         ra = resp.headers.get("retry-after", "").strip()
         _set_cooldown(cache_key, float(ra) if ra.isdigit() else None)
-        if not force:
-            stale = _cache_get(cache_key, allow_stale=True)
-            if stale is not None:
-                code, content, media = stale
-                return Response(content=content, status_code=code, media_type=media)
+        stale = _cache_get(cache_key, allow_stale=True)
+        if stale is not None:
+            code, content, media = stale
+            return Response(content=content, status_code=code, media_type=media)
 
     return Response(
         content=resp.content,

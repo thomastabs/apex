@@ -28,7 +28,7 @@ import { useAcknowledgeRegression } from "@/lib/hooks/use-phase6";
 import { getPmAdapter } from "@/lib/api/pm-factory";
 import { toPmCtx, type ApexPhaseStatus } from "@/lib/api/workspace";
 import { getAnalyticsSummary, type StoryRisk } from "@/lib/api/analytics";
-import { figmaGetFile, deriveFramesAndFlows, deriveFrameFingerprints, figmaNodeUrl, figmaThumbnails, suggestFrameForStory } from "@/lib/api/figma";
+import { figmaGetFile, deriveFramesAndFlows, figmaNodeUrl, figmaThumbnails, suggestFrameForStory } from "@/lib/api/figma";
 import { useApiContext, useFigmaContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
@@ -159,7 +159,6 @@ function FigmaLinkField({ storyId, storySubject, figmaNodeId, figmaFileKey = "",
   const setLink = useSetStoryFigmaLink();
   const [frames, setFrames] = useState<{ node_id: string; name: string }[]>([]);
   const [fileModified, setFileModified] = useState("");
-  const [fingerprints, setFingerprints] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [thumbUrl, setThumbUrl] = useState("");
 
@@ -183,7 +182,7 @@ function FigmaLinkField({ storyId, storySubject, figmaNodeId, figmaFileKey = "",
 
   function linkFrame(nodeId: string) {
     setLink.mutate(
-      { storyId, figmaNodeId: nodeId, figmaModified: fileModified, figmaFileKey: figma!.fileKey, figmaFrameHash: fingerprints[nodeId] ?? "" },
+      { storyId, figmaNodeId: nodeId, figmaModified: fileModified, figmaFileKey: figma!.fileKey, figmaFrameHash: "" },
       {
         onSuccess: () => toast.success("Linked Figma frame."),
         onError: () => toast.error("Could not update Figma link."),
@@ -195,12 +194,11 @@ function FigmaLinkField({ storyId, storySubject, figmaNodeId, figmaFileKey = "",
     if (frames.length || loading || !figma) return;
     setLoading(true);
     try {
-      // depth 3 so each frame carries its direct children → a baseline fingerprint
-      // can be captured for per-frame drift detection (#2).
-      const file = await figmaGetFile(figma.token, figma.fileKey, 3);
+      // depth 2 = pages + top-level frames (enough to list/link). Per-frame drift
+      // fingerprinting (which needed depth 3) was dropped to stay within Figma's budget.
+      const file = await figmaGetFile(figma.token, figma.fileKey, 2);
       setFileModified(file.lastModified);
       setFrames(deriveFramesAndFlows(file).frames.map((f) => ({ node_id: f.node_id, name: f.name })));
-      setFingerprints(deriveFrameFingerprints(file));
     } catch {
       toast.error("Could not load Figma frames.");
     } finally {
@@ -221,7 +219,7 @@ function FigmaLinkField({ storyId, storySubject, figmaNodeId, figmaFileKey = "",
           disabled={setLink.isPending}
           onChange={(e) =>
             setLink.mutate(
-              { storyId, figmaNodeId: e.target.value, figmaModified: fileModified, figmaFileKey: e.target.value ? figma.fileKey : "", figmaFrameHash: e.target.value ? (fingerprints[e.target.value] ?? "") : "" },
+              { storyId, figmaNodeId: e.target.value, figmaModified: fileModified, figmaFileKey: e.target.value ? figma.fileKey : "", figmaFrameHash: "" },
               {
                 onSuccess: () => toast.success(e.target.value ? "Linked Figma frame." : "Unlinked."),
                 onError: () => toast.error("Could not update Figma link."),
@@ -289,20 +287,17 @@ function StoryDialog({ story, drifted = false, regressed = false, trace = null, 
 
   async function acknowledgeFigmaChange() {
     let modified = "";
-    let frameHash = "";
     if (figma) {
       const ackFileKey = figmaFileKey || figma.fileKey;
       try {
-        // Re-baseline against the acknowledged design state: fetch depth 3 so the
-        // linked frame's current fingerprint is captured too (#2), otherwise a later
-        // edit elsewhere would re-flag this frame against its stale pre-change hash.
-        const file = await figmaGetFile(figma.token, ackFileKey, 3);
+        // Re-baseline against the acknowledged design state: depth 1 is enough now
+        // that drift is file-level (lastModified) rather than per-frame fingerprint.
+        const file = await figmaGetFile(figma.token, ackFileKey, 1);
         modified = file.lastModified;
-        if (figmaNodeId) frameHash = deriveFrameFingerprints(file)[figmaNodeId] ?? "";
       } catch { /* re-baseline best-effort */ }
     }
     ackFigmaChange.mutate(
-      { storyId: story.id, currentModified: modified, figmaFrameHash: frameHash },
+      { storyId: story.id, currentModified: modified, figmaFrameHash: "" },
       { onSuccess: () => toast.success("Design change acknowledged."), onError: () => toast.error("Could not acknowledge.") },
     );
   }

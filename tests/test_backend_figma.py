@@ -235,6 +235,30 @@ class TestProxyFigmaCatchAll:
         assert r2.json() == {"name": "Good", "document": {}}
         assert mock_http.request.call_count == 2
 
+    def test_forced_429_serves_stale_so_sync_never_fails(self, client):
+        # An explicit Sync forces past the cooldown to reach Figma; if Figma itself
+        # 429s, the forced call must still return last-known-good rather than error.
+        ok = _mock_upstream(200, {"name": "Good", "document": {}})
+        throttled = _mock_upstream(429, {"err": "rate limited"})
+        throttled.headers = {"content-type": "application/json", "retry-after": "300"}
+        from backend.app.api import figma_proxy
+
+        mock_http = MagicMock()
+        mock_http.request = AsyncMock(side_effect=[ok, throttled])
+        with patch("backend.app.api.figma_proxy._get_client", return_value=mock_http):
+            r1 = client.get("/api/design/figma/files/FSTALE?depth=2", headers={"X-Figma-Token": TOKEN})
+            for k in list(figma_proxy._cache):
+                stored, code, content, media = figma_proxy._cache[k]
+                figma_proxy._cache[k] = (stored - figma_proxy._CACHE_TTL - 1, code, content, media)
+            r2 = client.get(
+                "/api/design/figma/files/FSTALE?depth=2",
+                headers={"X-Figma-Token": TOKEN, "X-Figma-Force": "1"},
+            )
+        assert r1.status_code == 200
+        assert r2.status_code == 200  # forced reached Figma, 429'd, then served stale
+        assert r2.json() == {"name": "Good", "document": {}}
+        assert mock_http.request.call_count == 2
+
 
 # ---------------------------------------------------------------------------
 # figma_fetch — server-side helper (Autopilot seeding)
