@@ -72,10 +72,15 @@ class AutopilotStatusResponse(BaseModel):
     story_count: int = 0
     stories_done: int = 0
     checkpoint_phase: str | None = None
+    steer_note: str = ""
 
 
 class AutopilotStartResponse(BaseModel):
     job_id: str
+
+
+class AutopilotSteerRequest(BaseModel):
+    note: str = Field("", max_length=2_000)
 
 
 class AutopilotControlResponse(BaseModel):

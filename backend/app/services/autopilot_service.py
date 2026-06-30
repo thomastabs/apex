@@ -304,6 +304,7 @@ def _run_phase1(job: dict, ctx: RequestContext) -> list[int]:
             epic_subject=epic_title,
             epic_description=epic_description,
             images=epic_images,
+            instructions=job.get("steer_note", ""),
         )
         _emit(job, "info", f"  NL draft ready (~{story_count} stories)", phase="phase1",
               artifact=nl_draft[:2000])
@@ -391,7 +392,7 @@ def _run_phase2(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> Non
         if _check_stop(job):
             return
         _emit(job, "info", f"  Generating design section: {section}…", phase="phase2")
-        result = p2.generate_design_section(ctx, section=section, prior_sections=prior_sections)
+        result = p2.generate_design_section(ctx, section=section, prior_sections=prior_sections, instructions=job.get("steer_note", ""))
         prior_sections[section] = result["content"]
         _emit(job, "info", f"  Section {section!r} ready", phase="phase2",
               artifact=result["content"][:2000])
@@ -436,7 +437,7 @@ def _run_phase3(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> Non
         job["current_story_id"] = story_id
         _emit(job, "info", f"  Story {story_id}: generating tasks…", phase="phase3")
 
-        tasks = p3.generate_tasks(ctx, story_id)
+        tasks = p3.generate_tasks(ctx, story_id, instructions=job.get("steer_note", ""))
         _emit(job, "info", f"  Story {story_id}: {len(tasks)} tasks", phase="phase3")
 
         for task in tasks:
@@ -635,6 +636,10 @@ def start_job(
         "figma_token": figma_token.strip(),
         "figma_project_id": figma_project_id.strip(),
         "settings": settings,
+        # Live steer: a note the user can set/update mid-run; injected as `instructions`
+        # into every subsequent generative step (Phase 1 stories, Phase 2 design,
+        # Phase 3 tasks) so they can nudge the AI without stopping the pipeline.
+        "steer_note": "",
         "state": "running",
         "current_phase": "init",
         "current_epic_idx": None,
@@ -697,6 +702,19 @@ def stop_job(job_id: str) -> bool:
     return True
 
 
+def steer_job(job_id: str, note: str) -> bool:
+    """Set/clear the live steer note. Applied to every subsequent generative step
+    (Phase 1/2/3) as `instructions`. Returns False for an unknown or terminal job."""
+    job = get_job(job_id)
+    if not job or job["state"] in ("done", "error", "stopped"):
+        return False
+    note = (note or "").strip()
+    job["steer_note"] = note
+    _emit(job, "info", f"Steer updated: {note[:120]}" if note else "Steer cleared",
+          phase=job.get("current_phase", ""))
+    return True
+
+
 def serialize_job(job: dict) -> dict:
     """Return a JSON-safe snapshot of a job (no threading objects)."""
     return {
@@ -710,4 +728,5 @@ def serialize_job(job: dict) -> dict:
         "story_count": job.get("story_count", 0),
         "stories_done": job.get("stories_done", 0),
         "checkpoint_phase": job.get("checkpoint_phase"),
+        "steer_note": job.get("steer_note", ""),
     }

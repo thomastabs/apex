@@ -100,6 +100,7 @@ const FAKE_STATUS = {
   story_count: 0,
   stories_done: 0,
   checkpoint_phase: null,
+  steer_note: "",
 };
 
 beforeEach(() => {

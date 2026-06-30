@@ -1,29 +1,69 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   Bot,
+  Check,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
+  Copy,
   Info,
   Loader2,
   Pause,
   Play,
   RotateCcw,
+  Send,
   Square,
   UserCog,
   XCircle,
 } from "lucide-react";
+import { toast } from "sonner";
 import type { AutopilotEvent, AutopilotPhase, AutopilotState, AutopilotStatus } from "@/lib/api/autopilot";
 import {
   usePauseAutopilot,
   useResumeAutopilot,
+  useSteerAutopilot,
   useStopAutopilot,
   useTakeOverAutopilot,
 } from "@/lib/hooks/use-autopilot";
 import { cn } from "@/lib/utils";
+
+const PHASE_LABELS: Record<string, string> = {
+  init: "Init",
+  phase1: "Phase 1 · Requirements",
+  phase2: "Phase 2 · Design",
+  phase3: "Phase 3 · Tasks",
+  phase4: "Phase 4 · Testing",
+  phase5: "Phase 5 · Deploy",
+  done: "Done",
+  "": "General",
+};
+
+function CopyButton({ getText, label }: { getText: () => string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(getText());
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        } catch {
+          toast.error("Copy failed");
+        }
+      }}
+      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-normal normal-case text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300"
+      title={`Copy ${label}`}
+    >
+      {copied ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3" />}
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
+}
 
 const PHASES: { key: AutopilotPhase; label: string }[] = [
   { key: "phase1", label: "Requirements" },
@@ -124,13 +164,18 @@ export function AutopilotRunView({ status, onReset }: Props) {
   const resume = useResumeAutopilot(status.job_id);
   const stop = useStopAutopilot(status.job_id);
   const takeOver = useTakeOverAutopilot(status.job_id);
+  const steer = useSteerAutopilot(status.job_id);
 
-  // Auto-scroll event log
+  const [steerDraft, setSteerDraft] = useState("");
+  const [autoScroll, setAutoScroll] = useState(true);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  // Auto-scroll event log unless the user scrolled up to read history.
   useEffect(() => {
-    if (logRef.current) {
+    if (autoScroll && logRef.current) {
       logRef.current.scrollTop = logRef.current.scrollHeight;
     }
-  }, [status.events.length]);
+  }, [status.events.length, autoScroll]);
 
   const isTerminal = ["done", "stopped", "error"].includes(status.state);
   const isRunning = status.state === "running";
@@ -140,6 +185,31 @@ export function AutopilotRunView({ status, onReset }: Props) {
     await takeOver.mutateAsync();
     router.push("/");
   }
+
+  function applySteer() {
+    const note = steerDraft.trim();
+    steer.mutate(note, { onSuccess: () => toast.success(note ? "Steer applied to next steps" : "Steer cleared") });
+  }
+
+  function togglePhase(key: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  // Group events into contiguous per-phase sections (phases run sequentially).
+  const groups: { phase: string; events: AutopilotEvent[] }[] = [];
+  for (const ev of status.events) {
+    const last = groups[groups.length - 1];
+    if (last && last.phase === ev.phase) last.events.push(ev);
+    else groups.push({ phase: ev.phase, events: [ev] });
+  }
+
+  const logText = status.events
+    .map((e) => `[${new Date(e.ts * 1000).toLocaleTimeString()}] ${e.level.toUpperCase()} ${e.msg}`)
+    .join("\n");
 
   // Checkpoint banner
   const checkpointPhase = status.checkpoint_phase;
@@ -273,21 +343,81 @@ export function AutopilotRunView({ status, onReset }: Props) {
         </div>
       )}
 
+      {/* Steer the AI — inject a note applied to every subsequent generative step */}
+      {!isTerminal && (
+        <div className="rounded-md border border-neutral-700/60 bg-neutral-800/30 p-3">
+          <div className="mb-1.5 flex items-center justify-between">
+            <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+              <Bot className="size-3 text-violet-400" /> Steer the AI
+            </p>
+            {status.steer_note ? (
+              <span className="truncate text-[10px] text-violet-400/90" title={status.steer_note}>
+                active: {status.steer_note.slice(0, 60)}{status.steer_note.length > 60 ? "…" : ""}
+              </span>
+            ) : null}
+          </div>
+          <div className="flex items-start gap-2">
+            <textarea
+              value={steerDraft}
+              onChange={(e) => setSteerDraft(e.target.value)}
+              rows={2}
+              placeholder="e.g. Prefer mobile-first flows; keep stories small; assume an existing auth service. Applied to the next story/design/task the AI generates."
+              className="flex-1 resize-y rounded border border-neutral-700 bg-neutral-900/60 px-2 py-1.5 text-xs text-neutral-200 placeholder-neutral-600 focus:border-violet-500/60 focus:outline-none"
+              onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) applySteer(); }}
+            />
+            <button
+              type="button"
+              onClick={applySteer}
+              disabled={steer.isPending}
+              className="flex items-center gap-1.5 rounded bg-violet-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+            >
+              <Send className="size-3" /> Apply
+            </button>
+          </div>
+          <p className="mt-1 text-[10px] text-neutral-600">Guides Phase 1 stories, Phase 2 design, and Phase 3 tasks generated after you apply it (⌘/Ctrl+Enter). Clear the box and Apply to remove.</p>
+        </div>
+      )}
+
       {/* Event log + artifact preview side by side */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
-        {/* Event log */}
+        {/* Event log — grouped per phase, collapsible */}
         <div className="xl:col-span-3">
           <p className="mb-1.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-neutral-600">
-            <span>Event log</span>
-            <span className="font-normal normal-case text-neutral-700">{status.events.length} events · drag ↕ to resize</span>
+            <span>Event log · {status.events.length} events</span>
+            <span className="flex items-center gap-2">
+              <label className="flex cursor-pointer items-center gap-1 font-normal normal-case text-neutral-600">
+                <input type="checkbox" checked={autoScroll} onChange={(e) => setAutoScroll(e.target.checked)} className="size-3 accent-violet-500" />
+                auto-scroll
+              </label>
+              <CopyButton getText={() => logText} label="log" />
+            </span>
           </p>
           <div
             ref={logRef}
-            className="h-96 min-h-[10rem] max-h-[85vh] resize-y overflow-auto rounded-md border border-neutral-800 bg-neutral-900/60 px-3 py-2 font-mono space-y-0.5"
+            className="h-96 min-h-[10rem] max-h-[85vh] resize-y overflow-auto rounded-md border border-neutral-800 bg-neutral-900/60 px-2 py-2 font-mono"
           >
-            {status.events.map((ev) => (
-              <EventRow key={ev.id} event={ev} />
-            ))}
+            {groups.map((g, gi) => {
+              const key = `${g.phase}-${g.events[0].id}`;
+              const isCollapsed = collapsed.has(key);
+              return (
+                <div key={key} className={cn("rounded", gi > 0 && "mt-1.5 border-t border-neutral-800/70 pt-1.5")}>
+                  <button
+                    type="button"
+                    onClick={() => togglePhase(key)}
+                    className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left text-[10px] font-semibold uppercase tracking-wider text-neutral-500 hover:bg-neutral-800/60"
+                  >
+                    {isCollapsed ? <ChevronRight className="size-3" /> : <ChevronDown className="size-3" />}
+                    {PHASE_LABELS[g.phase] ?? g.phase}
+                    <span className="font-normal normal-case text-neutral-600">· {g.events.length}</span>
+                  </button>
+                  {!isCollapsed && (
+                    <div className="space-y-0.5 pl-1">
+                      {g.events.map((ev) => <EventRow key={ev.id} event={ev} />)}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             {status.events.length === 0 && (
               <p className="text-xs text-neutral-600 pt-2">Waiting for first event…</p>
             )}
@@ -298,7 +428,10 @@ export function AutopilotRunView({ status, onReset }: Props) {
         <div className="xl:col-span-2">
           <p className="mb-1.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-neutral-600">
             <span>Latest artifact</span>
-            <span className="font-normal normal-case text-neutral-700">drag ↕ to resize</span>
+            <span className="flex items-center gap-2 font-normal normal-case text-neutral-700">
+              <span>drag ↕ to resize</span>
+              {lastArtifact ? <CopyButton getText={() => lastArtifact.artifact} label="artifact" /> : null}
+            </span>
           </p>
           <div className="h-96 min-h-[10rem] max-h-[85vh] resize-y overflow-auto rounded-md border border-neutral-800 bg-neutral-900/60 px-3 py-2">
             {lastArtifact ? (

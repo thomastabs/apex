@@ -47,6 +47,7 @@ export type AutopilotStatus = {
   story_count: number;
   stories_done: number;
   checkpoint_phase: string | null;
+  steer_note: string;
 };
 
 export function startAutopilot(ctx: RequestContext, body: AutopilotStartRequest): Promise<{ job_id: string }> {
@@ -71,4 +72,8 @@ export function stopAutopilot(ctx: RequestContext, jobId: string): Promise<{ ok:
 
 export function takeOverAutopilot(ctx: RequestContext, jobId: string): Promise<{ ok: boolean; state: AutopilotState }> {
   return apiRequest(`/api/autopilot/${jobId}/take-over`, { method: "POST", context: ctx });
+}
+
+export function steerAutopilot(ctx: RequestContext, jobId: string, note: string): Promise<{ ok: boolean; state: AutopilotState }> {
+  return apiRequest(`/api/autopilot/${jobId}/steer`, { method: "POST", context: ctx, body: { note } });
 }

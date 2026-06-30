@@ -10,6 +10,7 @@ from backend.app.schemas.autopilot import (
     AutopilotStartRequest,
     AutopilotStartResponse,
     AutopilotStatusResponse,
+    AutopilotSteerRequest,
 )
 from backend.app.services import autopilot_service
 
@@ -84,6 +85,20 @@ def autopilot_stop(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Job {job_id} not found.")
     autopilot_service.stop_job(job_id)
     return AutopilotControlResponse(ok=True, state="stopped")
+
+
+@router.post("/{job_id}/steer", response_model=AutopilotControlResponse)
+def autopilot_steer(
+    job_id: str,
+    payload: AutopilotSteerRequest,
+    ctx: RequestContext = Depends(get_request_context),
+) -> AutopilotControlResponse:
+    """Set/clear a live steer note applied to every subsequent generative step."""
+    job = autopilot_service.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Job {job_id} not found.")
+    autopilot_service.steer_job(job_id, payload.note)
+    return AutopilotControlResponse(ok=True, state=autopilot_service.get_job(job_id)["state"])
 
 
 @router.post("/{job_id}/take-over", response_model=AutopilotControlResponse)

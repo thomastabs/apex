@@ -606,7 +606,7 @@ class TestAutoEpics:
                 suggest_calls.append(hint)
                 return [{"title": "Authentication", "description": "logins"}, {"title": "Billing", "description": ""}]
 
-            def generate_nl_stories(self, ctx, *, epic_subject, epic_description, images=None):
+            def generate_nl_stories(self, ctx, *, epic_subject, epic_description, images=None, instructions=""):
                 return ("draft", 1)
 
             def compile_gherkin(self, *, nl_draft):
@@ -642,7 +642,7 @@ class TestAutoEpics:
             def suggest_epics(self, ctx, *, hint=""):
                 raise AssertionError("suggest_epics must not run when epics are supplied")
 
-            def generate_nl_stories(self, ctx, *, epic_subject, epic_description, images=None):
+            def generate_nl_stories(self, ctx, *, epic_subject, epic_description, images=None, instructions=""):
                 return ("draft", 1)
 
             def compile_gherkin(self, *, nl_draft):
@@ -693,7 +693,7 @@ class TestPhase1TaigaPush:
         monkeypatch.setattr(svc, "_taiga_post", _fake_post)
 
         class _StubP1:
-            def generate_nl_stories(self, ctx, *, epic_subject, epic_description, images=None):
+            def generate_nl_stories(self, ctx, *, epic_subject, epic_description, images=None, instructions=""):
                 return ("draft", 1)
 
             def compile_gherkin(self, *, nl_draft):
@@ -725,3 +725,62 @@ class TestPhase1TaigaPush:
         assert link_posts == [("https://taiga.example/api/v1/epics/555/related_userstories", {"epic": 555, "user_story": 1001})]
         # The real Taiga id (not a synthetic one) is threaded into the story index.
         assert story_ids == [1001]
+
+
+# ---------------------------------------------------------------------------
+# Live steer — a note injected into subsequent generative steps
+# ---------------------------------------------------------------------------
+
+class TestSteer:
+    def test_steer_job_sets_note_and_emits(self, monkeypatch):
+        job = _make_job(state="running")
+        monkeypatch.setitem(svc._JOBS, job["job_id"], job)
+        assert svc.steer_job(job["job_id"], "  prefer mobile-first  ") is True
+        assert job["steer_note"] == "prefer mobile-first"
+        assert any("Steer updated" in e["msg"] for e in job["events"])
+
+    def test_steer_job_clears_with_empty_note(self, monkeypatch):
+        job = _make_job(state="running")
+        job["steer_note"] = "old"
+        monkeypatch.setitem(svc._JOBS, job["job_id"], job)
+        assert svc.steer_job(job["job_id"], "") is True
+        assert job["steer_note"] == ""
+
+    def test_steer_job_rejects_terminal(self, monkeypatch):
+        job = _make_job(state="done")
+        monkeypatch.setitem(svc._JOBS, job["job_id"], job)
+        assert svc.steer_job(job["job_id"], "x") is False
+
+    def test_steer_note_flows_into_phase1_instructions(self, monkeypatch):
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_taiga": False, "auto_epics": False})
+        job["epics"] = [{"title": "Auth", "description": ""}]
+        job["steer_note"] = "keep stories tiny"
+
+        seen = {}
+
+        class _StubP1:
+            def generate_nl_stories(self, ctx, *, epic_subject, epic_description, images=None, instructions=""):
+                seen["instructions"] = instructions
+                return ("draft", 1)
+
+            def compile_gherkin(self, *, nl_draft):
+                return [{"title": "S", "gherkin": "Scenario: x"}]
+
+            def finalize_stories(self, ctx, *, epic_id, epic_subject, stories):
+                return {"story_ids": [s["id"] for s in stories]}
+
+        class _StubCS:
+            def set_active(self, ctx):
+                pass
+
+            def init_context(self):
+                pass
+
+            def write_context_file(self, name, content):
+                pass
+
+        monkeypatch.setattr(svc, "Phase1Service", _StubP1)
+        monkeypatch.setattr(svc, "ContextService", _StubCS)
+
+        svc._run_phase1(job, _ctx())
+        assert seen["instructions"] == "keep stories tiny"

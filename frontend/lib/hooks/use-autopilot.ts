@@ -6,6 +6,7 @@ import {
   pauseAutopilot,
   resumeAutopilot,
   startAutopilot,
+  steerAutopilot,
   stopAutopilot,
   takeOverAutopilot,
 } from "@/lib/api/autopilot";
@@ -79,5 +80,15 @@ export function useTakeOverAutopilot(jobId: string | null) {
     mutationFn: () => takeOverAutopilot(ctx!, jobId!),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["autopilot", jobId] }),
     onError: (err: Error) => toast.error(`Take-over failed: ${err.message}`),
+  });
+}
+
+export function useSteerAutopilot(jobId: string | null) {
+  const ctx = useApiContext();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (note: string) => steerAutopilot(ctx!, jobId!, note),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["autopilot", jobId] }),
+    onError: (err: Error) => toast.error(`Steer failed: ${err.message}`),
   });
 }
