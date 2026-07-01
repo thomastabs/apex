@@ -104,7 +104,7 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
   );
 
   return (
-    <div {...dragHandlers} className={shellClass}>
+    <div {...(dragHandlers ?? {})} className={shellClass}>
       <section className={cn("border-b", dark ? "border-neutral-800" : "border-slate-300")}>
         <PanelHeader
           icon={<Rocket className="size-4" />}

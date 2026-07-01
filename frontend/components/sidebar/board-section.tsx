@@ -814,7 +814,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
   const bodyTextClass = dark ? "text-neutral-300" : "text-slate-700";
 
   return (
-    <div {...dragHandlers} className={shellClass}>
+    <div {...(dragHandlers ?? {})} className={shellClass}>
       {typeof document !== "undefined" ? createPortal(
         <>
           {dialogEpic ? <EpicDialog epic={dialogEpic} onClose={() => setDialogEpic(null)} /> : null}

@@ -4,14 +4,14 @@ import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
 
 export type DragSectionProps = {
-  dragHandlers: {
+  dragHandlers?: {
     onDragOver: (e: React.DragEvent) => void;
     onDragLeave: (e: React.DragEvent) => void;
     onDrop: (e: React.DragEvent) => void;
     onDragEnd: () => void;
   };
-  shellClass: string;
-  onDragStart: (e: React.DragEvent) => void;
+  shellClass?: string;
+  onDragStart?: (e: React.DragEvent) => void;
 };
 
 export function PanelHeader({

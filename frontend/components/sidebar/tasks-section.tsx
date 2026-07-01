@@ -426,7 +426,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
   );
 
   return (
-    <div {...dragHandlers} className={shellClass}>
+    <div {...(dragHandlers ?? {})} className={shellClass}>
       {typeof document !== "undefined" && pendingDelete ? createPortal(
         <DeleteTaskDialog
           task={pendingDelete}

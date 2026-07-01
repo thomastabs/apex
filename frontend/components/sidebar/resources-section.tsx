@@ -36,7 +36,7 @@ export function ResourcesSection({ dark, pmWebUrl, pmTool, shellClass, dragHandl
   const instanceLabel = pmTool === "jira" ? "Open Jira" : "Open Taiga";
 
   return (
-    <div {...dragHandlers} className={shellClass}>
+    <div {...(dragHandlers ?? {})} className={shellClass}>
       <section className={cn("border-b", sectionBorderClass)}>
         <PanelHeader
           icon={<BookOpen className="size-4" />}

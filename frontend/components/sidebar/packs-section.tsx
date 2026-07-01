@@ -130,7 +130,7 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
   );
 
   return (
-    <div {...dragHandlers} className={shellClass}>
+    <div {...(dragHandlers ?? {})} className={shellClass}>
       <section className={cn("border-b", dark ? "border-neutral-800" : "border-slate-300")}>
         <PanelHeader
           icon={<FileCode2 className="size-4" />}

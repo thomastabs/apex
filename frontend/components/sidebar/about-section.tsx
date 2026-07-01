@@ -24,7 +24,7 @@ export function AboutSection({ dark, shellClass, dragHandlers, onDragStart }: Ab
   const textClass = dark ? "text-neutral-300" : "text-slate-700";
 
   return (
-    <div {...dragHandlers} className={shellClass}>
+    <div {...(dragHandlers ?? {})} className={shellClass}>
       <section className={cn("border-b", sectionBorderClass)}>
         <PanelHeader
           icon={<Info className="size-4" />}

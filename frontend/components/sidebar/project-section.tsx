@@ -58,7 +58,7 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
   const expandedPanelClass = dark ? "bg-[#20232b]" : "bg-white";
 
   return (
-    <div {...dragHandlers} className={shellClass}>
+    <div {...(dragHandlers ?? {})} className={shellClass}>
       <section className={cn("border-b", sectionBorderClass)}>
         <PanelHeader
           icon={<FolderOpen className="size-4" />}

@@ -185,7 +185,7 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
   const fileUrl = figma ? `https://www.figma.com/design/${figma.fileKey}` : "#";
 
   return (
-    <div {...dragHandlers} className={shellClass}>
+    <div {...(dragHandlers ?? {})} className={shellClass}>
       <section className={cn("border-b", sectionBorderClass)}>
         <PanelHeader
           icon={<Figma className="size-4" />}

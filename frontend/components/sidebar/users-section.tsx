@@ -38,7 +38,7 @@ export function UsersSection({ dark, projectId: _projectId, confirm, shellClass,
   const strongTextClass = dark ? "text-white" : "text-slate-950";
 
   return (
-    <div {...dragHandlers} className={shellClass}>
+    <div {...(dragHandlers ?? {})} className={shellClass}>
       <section className={cn("border-b", sectionBorderClass)}>
         <PanelHeader
           icon={<Users className="size-4" />}
