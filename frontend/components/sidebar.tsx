@@ -5,14 +5,15 @@ import { usePathname, useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
-  BarChart3, Bot, CheckCircle2, Code2, Compass, Eye, EyeOff,
-  ExternalLink, FileText, Home, Moon, Network, PanelLeftOpen,
+  BarChart3, Bot, CheckCircle2, ChevronDown, Code2, Compass, Eye, EyeOff,
+  ExternalLink, FileText, FolderOpen, Home, Moon, Network, PanelLeftOpen,
   Rocket, Send, Settings, Sun, UserPlus, Wrench, Zap,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  useAiConfig, useMe, useProjects, useServerConfig, useStoryIndexStats,
+  useAiConfig, useMe, useProjects, useSaveServerConfig, useServerConfig, useStoryIndexStats,
 } from "@/lib/hooks/use-workspace";
+import { useTechStackStatus } from "@/lib/hooks/use-phase2";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { usePhase2Store } from "@/lib/stores/phase2-store";
@@ -23,18 +24,18 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ApiError, apiRequest, getApiBaseUrl } from "@/lib/api/client";
 import { clearJiraProjectTypeCache } from "@/lib/api/jira-adapter";
-import { BoardSection } from "./sidebar/board-section";
 import { ProjectSection } from "./sidebar/project-section";
-import { UsersSection } from "./sidebar/users-section";
+import { BoardSection } from "./sidebar/board-section";
 import { ContextSection } from "./sidebar/context-section";
+import { FigmaSection } from "./sidebar/figma-section";
+import { PacksSection } from "./sidebar/packs-section";
+import { TasksSection } from "./sidebar/tasks-section";
+import { TestPlansSection } from "./sidebar/test-plans-section";
+import { DeployPacksSection } from "./sidebar/deploy-packs-section";
+import { UsersSection } from "./sidebar/users-section";
 import { AiSection } from "./sidebar/ai-section";
 import { ResourcesSection } from "./sidebar/resources-section";
 import { GitHubSection } from "./sidebar/github-section";
-import { FigmaSection } from "./sidebar/figma-section";
-import { TasksSection } from "./sidebar/tasks-section";
-import { PacksSection } from "./sidebar/packs-section";
-import { TestPlansSection } from "./sidebar/test-plans-section";
-import { DeployPacksSection } from "./sidebar/deploy-packs-section";
 import { AboutSection } from "./sidebar/about-section";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -153,9 +154,171 @@ function NavDivider({ label, dark }: { label: string; dark: boolean }) {
   );
 }
 
-// ── ContextPanel ──────────────────────────────────────────────────────────────
+// ── SlimProjectPicker ─────────────────────────────────────────────────────────
 
-function ContextPanel({
+function SlimProjectPicker({ dark }: { dark: boolean }) {
+  const projectId   = useSessionStore((s) => s.projectId);
+  const projectName = useSessionStore((s) => s.projectName);
+  const setProject  = useSessionStore((s) => s.setProject);
+  const { data: projects, isLoading } = useProjects();
+  const saveConfig = useSaveServerConfig();
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+
+  async function select(p: { id: number; name: string }) {
+    setProject({ projectId: p.id, projectName: p.name });
+    queryClient.clear();
+    setOpen(false);
+    saveConfig.mutate(p.id);
+  }
+
+  return (
+    <div className={cn("shrink-0 border-b px-3 py-2", dark ? "border-neutral-800" : "border-slate-200")}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs transition-colors",
+          dark ? "text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200" : "text-slate-500 hover:bg-slate-100 hover:text-slate-700",
+        )}
+      >
+        <FolderOpen className="size-3.5 shrink-0 text-violet-400/80" />
+        <span className="flex-1 truncate text-left font-medium">{projectName || "Select project…"}</span>
+        <ChevronDown className={cn("size-3 shrink-0 transition-transform duration-150", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className={cn(
+          "mt-1 overflow-hidden rounded border text-xs",
+          dark ? "border-neutral-800 bg-neutral-950" : "border-slate-200 bg-white shadow-sm",
+        )}>
+          {isLoading && <p className={cn("px-3 py-2", dark ? "text-neutral-600" : "text-slate-400")}>Loading…</p>}
+          {projects?.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => select(p)}
+              className={cn(
+                "flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors",
+                p.id === projectId
+                  ? "text-violet-400"
+                  : dark ? "text-neutral-400 hover:bg-neutral-800" : "text-slate-600 hover:bg-slate-50",
+              )}
+            >
+              {p.id === projectId && <span className="size-1.5 shrink-0 rounded-full bg-violet-400" />}
+              <span className="truncate">{p.name}</span>
+            </button>
+          ))}
+          {!isLoading && !projects?.length && (
+            <p className={cn("px-3 py-2", dark ? "text-neutral-600" : "text-slate-400")}>No projects found</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── PhaseGuide ────────────────────────────────────────────────────────────────
+
+function PhaseGuide({
+  pathname, dark, serverConfig,
+}: {
+  pathname: string;
+  dark: boolean;
+  serverConfig: ReturnType<typeof useServerConfig>["data"];
+}) {
+  const { data: stats } = useStoryIndexStats();
+  const { data: techStack } = useTechStackStatus();
+  const total = stats?.total ?? 0;
+  const figmaConnected = Boolean(serverConfig?.figma_file_key);
+
+  function Row({ label, value, accent = false }: { label: string; value: string | number; accent?: boolean }) {
+    return (
+      <div className="flex items-center justify-between gap-2 py-0.5">
+        <span className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-400")}>{label}</span>
+        <span className={cn("shrink-0 text-xs font-medium tabular-nums", accent ? "text-violet-400" : dark ? "text-neutral-300" : "text-slate-700")}>
+          {value}
+        </span>
+      </div>
+    );
+  }
+
+  function Guide({ heading, children }: { heading: string; children: React.ReactNode }) {
+    return (
+      <div className="px-4 py-3">
+        <p className={cn("mb-2 text-[10px] font-bold uppercase tracking-widest", dark ? "text-neutral-600" : "text-slate-400")}>
+          {heading}
+        </p>
+        <div className="space-y-0.5">{children}</div>
+      </div>
+    );
+  }
+
+  if (pathname === "/" || pathname.startsWith("/phase1")) {
+    return (
+      <Guide heading="Story index">
+        <Row label="Stories indexed" value={total || "—"} />
+        {total > 0 && <Row label="Phase 2 design" value={`${stats!.phase2_designed}/${total}`} accent={stats!.phase2_designed === total} />}
+        {total > 0 && stats!.phase3_proposed > 0 && <Row label="Phase 3 packs" value={`${stats!.phase3_proposed}/${total}`} />}
+      </Guide>
+    );
+  }
+
+  if (pathname.startsWith("/phase2")) {
+    return (
+      <Guide heading="Design">
+        <Row label="Tech stack" value={techStack?.defined ? "Defined ✓" : "Pending"} accent={Boolean(techStack?.defined)} />
+        {total > 0 && <Row label="Designed" value={`${stats!.phase2_designed}/${total}`} accent={stats!.phase2_designed === total} />}
+        <Row label="Figma" value={figmaConnected ? "Connected" : "Not linked"} accent={figmaConnected} />
+      </Guide>
+    );
+  }
+
+  if (pathname.startsWith("/phase3")) {
+    return (
+      <Guide heading="Implementation">
+        <Row label="Packs generated" value={total ? `${stats!.phase3_proposed}/${total}` : "—"} accent={total > 0 && stats!.phase3_proposed === total} />
+      </Guide>
+    );
+  }
+
+  if (pathname.startsWith("/phase4")) {
+    return (
+      <Guide heading="Testing">
+        <Row label="Test plans" value={total ? `${stats!.phase4_tested}/${total}` : "—"} accent={total > 0 && stats!.phase4_tested === total} />
+      </Guide>
+    );
+  }
+
+  if (pathname.startsWith("/phase5")) {
+    return (
+      <Guide heading="Deployment">
+        <Row label="Deployed" value={total ? `${stats!.phase5_deployed}/${total}` : "—"} accent={total > 0 && stats!.phase5_deployed === total} />
+      </Guide>
+    );
+  }
+
+  if (pathname.startsWith("/phase6")) {
+    return (
+      <Guide heading="Maintenance">
+        <Row label="Stories in system" value={total || "—"} />
+      </Guide>
+    );
+  }
+
+  // Tool routes — brief hint only
+  if (pathname.startsWith("/autopilot")) {
+    return (
+      <Guide heading="Autopilot">
+        <Row label="Stories in index" value={total || "—"} />
+      </Guide>
+    );
+  }
+
+  return null;
+}
+
+// ── TaigaSections ─────────────────────────────────────────────────────────────
+// Phase-aware collapsed sections. All start closed — users expand on demand.
+
+function TaigaSections({
   pathname, dark, projectId, confirm, serverConfig,
 }: {
   pathname: string;
@@ -164,12 +327,18 @@ function ContextPanel({
   confirm: (msg: string, fn: () => void) => void;
   serverConfig: ReturnType<typeof useServerConfig>["data"];
 }) {
-  if (pathname.startsWith("/phase1")) {
-    return <BoardSection dark={dark} projectId={projectId} confirm={confirm} />;
+  if (pathname === "/" || pathname.startsWith("/phase1")) {
+    return (
+      <>
+        <BoardSection dark={dark} projectId={projectId} confirm={confirm} />
+        <ContextSection dark={dark} projectId={projectId} confirm={confirm} />
+      </>
+    );
   }
   if (pathname.startsWith("/phase2")) {
     return (
       <>
+        <BoardSection dark={dark} projectId={projectId} confirm={confirm} />
         <ContextSection dark={dark} projectId={projectId} confirm={confirm} />
         <FigmaSection dark={dark} figmaFileKey={serverConfig?.figma_file_key ?? ""} />
       </>
@@ -180,6 +349,7 @@ function ContextPanel({
       <>
         <PacksSection dark={dark} confirm={confirm} />
         <TasksSection dark={dark} />
+        <BoardSection dark={dark} projectId={projectId} confirm={confirm} />
       </>
     );
   }
@@ -192,21 +362,71 @@ function ContextPanel({
   if (pathname.startsWith("/phase6")) {
     return (
       <>
-        <ResourcesSection
-          dark={dark}
-          pmWebUrl={serverConfig?.pm_web_url ?? serverConfig?.taiga_web_url ?? "https://tree.taiga.io"}
-          pmTool={serverConfig?.pm_tool === "jira" ? "jira" : "taiga"}
-        />
         <UsersSection dark={dark} projectId={projectId} confirm={confirm} />
+        <BoardSection dark={dark} projectId={projectId} confirm={confirm} />
       </>
     );
   }
-  if (pathname.startsWith("/autopilot") || pathname.startsWith("/fix-bolt") ||
-      pathname.startsWith("/traceability") || pathname.startsWith("/analytics")) {
-    return null;
-  }
-  // Home or other: show board overview
   return <BoardSection dark={dark} projectId={projectId} confirm={confirm} />;
+}
+
+// ── SettingsModal ─────────────────────────────────────────────────────────────
+
+function SettingsModal({
+  open, onClose, dark, taigaToken, serverConfig, pmWebUrl, confirm,
+}: {
+  open: boolean;
+  onClose: () => void;
+  dark: boolean;
+  taigaToken: string;
+  serverConfig: ReturnType<typeof useServerConfig>["data"];
+  pmWebUrl: string;
+  confirm: (msg: string, fn: () => void) => void;
+}) {
+  if (!open) return null;
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 px-4 py-12"
+      onClick={onClose}
+    >
+      <div
+        className={cn(
+          "w-full max-w-lg rounded-xl border shadow-2xl",
+          dark ? "border-neutral-700 bg-neutral-900" : "border-slate-200 bg-white",
+        )}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className={cn("flex items-center justify-between border-b px-5 py-3.5", dark ? "border-neutral-800" : "border-slate-200")}>
+          <div className="flex items-center gap-2">
+            <Settings className="size-4 text-violet-400" />
+            <span className={cn("text-sm font-semibold", dark ? "text-neutral-100" : "text-slate-900")}>Settings</span>
+          </div>
+          <button
+            onClick={onClose}
+            className={cn("grid size-6 place-items-center rounded text-sm transition-colors", dark ? "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200" : "text-slate-400 hover:bg-slate-100 hover:text-slate-700")}
+          >
+            ✕
+          </button>
+        </div>
+        {/* Content */}
+        <div className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
+          <ProjectSection dark={dark} confirm={confirm} />
+          <AiSection dark={dark} taigaToken={taigaToken} />
+          <GitHubSection dark={dark} githubRepo={serverConfig?.github_repo ?? ""} />
+          <ResourcesSection
+            dark={dark}
+            pmWebUrl={pmWebUrl}
+            pmTool={serverConfig?.pm_tool === "jira" ? "jira" : "taiga"}
+          />
+          <AboutSection dark={dark} />
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
 }
 
 // ── LoginSection ──────────────────────────────────────────────────────────────
@@ -608,26 +828,24 @@ export function Sidebar() {
             ))}
           </nav>
 
-          {/* ── Zone 4: Context panel (phase-aware, scrollable) ── */}
-          {projectId ? (
-            <div className={cn("min-h-0 flex-1 overflow-y-auto border-t", dark ? "border-neutral-800" : "border-slate-200")}>
-              <ProjectSection dark={dark} confirm={confirm} />
-              <ContextPanel
-                pathname={pathname}
-                dark={dark}
-                projectId={projectId}
-                confirm={confirm}
-                serverConfig={serverConfig.data}
-              />
-            </div>
-          ) : (
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <ProjectSection dark={dark} confirm={confirm} />
-              <p className={cn("px-4 py-4 text-xs leading-5", dark ? "text-neutral-600" : "text-slate-400")}>
-                Select a project above to unlock the phase workflows.
-              </p>
-            </div>
-          )}
+          {/* ── Zone 4: Project picker + phase guide + Taiga sections ── */}
+          <div className={cn("min-h-0 flex-1 overflow-y-auto border-t", dark ? "border-neutral-800" : "border-slate-200")}>
+            <SlimProjectPicker dark={dark} />
+            {projectId ? (
+              <>
+                <PhaseGuide pathname={pathname} dark={dark} serverConfig={serverConfig.data} />
+                <TaigaSections
+                  pathname={pathname}
+                  dark={dark}
+                  projectId={projectId}
+                  confirm={confirm}
+                  serverConfig={serverConfig.data}
+                />
+              </>
+            ) : (
+              <p className={cn("px-4 py-3 text-xs", dark ? "text-neutral-600" : "text-slate-400")}>Select a project above to unlock the phase workflows.</p>
+            )}
+          </div>
         </>
       ) : (
         /* No nav when not signed in — login form is the focus */
@@ -636,31 +854,27 @@ export function Sidebar() {
 
       {/* ── Zone 5: Footer ── */}
       <div className={cn("shrink-0 border-t", dark ? "border-neutral-800" : "border-slate-200")}>
-        {settingsOpen && (
-          <div className={cn("max-h-72 overflow-y-auto border-b", dark ? "border-neutral-800" : "border-slate-200")}>
-            <AiSection dark={dark} taigaToken={taigaToken ?? ""} />
-            <GitHubSection dark={dark} githubRepo={serverConfig.data?.github_repo ?? ""} />
-            <ResourcesSection
-              dark={dark}
-              pmWebUrl={pmWebUrl}
-              pmTool={serverConfig.data?.pm_tool === "jira" ? "jira" : "taiga"}
-            />
-            <AboutSection dark={dark} />
-          </div>
-        )}
         <button
-          onClick={() => setSettingsOpen((v) => !v)}
+          onClick={() => setSettingsOpen(true)}
           className={cn(
             "flex h-10 w-full items-center gap-2 px-4 text-xs transition-colors",
-            settingsOpen
-              ? dark ? "text-violet-400" : "text-violet-600"
-              : dark ? "text-neutral-500 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600",
+            dark ? "text-neutral-500 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600",
           )}
         >
           <Settings className="size-3.5" />
           <span>Settings</span>
         </button>
       </div>
+
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        dark={dark}
+        taigaToken={taigaToken ?? ""}
+        serverConfig={serverConfig.data}
+        pmWebUrl={pmWebUrl}
+        confirm={confirm}
+      />
     </aside>
   );
 }

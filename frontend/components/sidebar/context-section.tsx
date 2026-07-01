@@ -296,7 +296,7 @@ type ContextSectionProps = DragSectionProps & {
 };
 
 export function ContextSection({ dark, projectId: _projectId, confirm, shellClass, dragHandlers, onDragStart }: ContextSectionProps) {
-  const [contextOpen, setContextOpen] = useState(true);
+  const [contextOpen, setContextOpen] = useState(false);
   const [expandedContext, setExpandedContext] = useState<string | null>(null);
 
   const context = useApiContext();
