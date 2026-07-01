@@ -2,7 +2,10 @@
 import { useEffect, useState } from "react";
 import { Bot, ExternalLink, KeyRound } from "lucide-react";
 import { toast } from "sonner";
-import { useAiConfig, useDeleteAiKey, useSaveAiConfig, useSaveAiKey } from "@/lib/hooks/use-workspace";
+import {
+  useAiConfig, useDeleteAiKey, useSaveAiConfig, useSaveAiKey, useSetAiKeySource,
+} from "@/lib/hooks/use-workspace";
+import type { AiKeySource } from "@/lib/api/workspace";
 import { cn } from "@/lib/utils";
 import { PanelHeader, type DragSectionProps } from "./shared";
 
@@ -40,26 +43,122 @@ function modelProvider(m: ModelEntry): ProviderKey {
   return (m.provider ?? "anthropic") as ProviderKey;
 }
 
-/** Bring-your-own-key input for a provider that isn't configured server-side.
- *  Saved server-side, encrypted, tied to your Taiga/Jira account — it's there
- *  next time you sign in from anywhere, unlike the model selection above
- *  (a deployment-wide setting) or the GitHub PAT/Figma token (session-only). */
-function ProviderKeyPanel({ provider, dark, hasPersonalKey }: { provider: ProviderKey; dark: boolean; hasPersonalKey: boolean }) {
+/** Small text input + Save, used both for the first-time "add your own key"
+ *  form and for replacing an already-saved key. */
+function AddKeyForm({ provider, dark, onSaved }: { provider: ProviderKey; dark: boolean; onSaved?: () => void }) {
   const [input, setInput] = useState("");
   const saveAiKeyMutation = useSaveAiKey();
-  const deleteAiKeyMutation = useDeleteAiKey();
   const meta = PROVIDER_KEY_META[provider];
 
   function save() {
     const apiKey = input.trim();
     if (!apiKey) return;
     saveAiKeyMutation.mutate({ provider, apiKey }, {
-      onSuccess: () => { setInput(""); toast.success("Personal API key saved to your account."); },
+      onSuccess: () => { setInput(""); toast.success("Personal API key saved to your account."); onSaved?.(); },
       onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to save API key."),
     });
   }
 
-  if (hasPersonalKey) {
+  return (
+    <div className="space-y-1">
+      <div className="flex gap-1.5">
+        <input
+          type="password"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder={meta.placeholder}
+          autoComplete="off"
+          autoFocus
+          className={cn("h-8 min-w-0 flex-1 rounded border px-2 text-xs outline-none focus:border-violet-500", dark ? "border-neutral-700 bg-neutral-950 text-white placeholder:text-neutral-600" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400")}
+          onKeyDown={(e) => { if (e.key === "Enter") save(); }}
+        />
+        <button
+          className="h-8 shrink-0 rounded bg-neutral-800 px-2.5 text-xs font-semibold text-white hover:bg-neutral-700 disabled:opacity-50"
+          disabled={!input.trim() || saveAiKeyMutation.isPending}
+          onClick={save}
+        >
+          {saveAiKeyMutation.isPending ? "Saving…" : "Save"}
+        </button>
+      </div>
+      <a href={meta.getKeyUrl} target="_blank" rel="noopener noreferrer" className={cn("inline-flex items-center gap-1 text-[11px] hover:underline", dark ? "text-violet-400" : "text-violet-600")}>
+        Get an API key <ExternalLink className="size-2.5" />
+      </a>
+    </div>
+  );
+}
+
+/** Lets each provider be backed by either the deployment's own key (set once
+ *  in the Azure/backend env — "system") or a personal key saved to *your*
+ *  Taiga/Jira account ("personal"), encrypted server-side so it follows you
+ *  across sessions. Switching sources never deletes the saved key — it's
+ *  just deactivated — so flipping back to the shared key is always one click. */
+function KeySourcePanel({
+  provider, dark, systemAvailable, personalSaved, source,
+}: {
+  provider: ProviderKey; dark: boolean; systemAvailable: boolean; personalSaved: boolean; source: AiKeySource;
+}) {
+  const [addingKey, setAddingKey] = useState(false);
+  const setSourceMutation = useSetAiKeySource();
+  const deleteAiKeyMutation = useDeleteAiKey();
+  const meta = PROVIDER_KEY_META[provider];
+
+  function selectSource(next: AiKeySource) {
+    if (next === source) return;
+    setSourceMutation.mutate({ provider, source: next }, {
+      onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to switch key."),
+    });
+  }
+
+  // Neither a system key nor a personal key — must add one to use this provider.
+  if (!systemAvailable && !personalSaved) {
+    return (
+      <div className="mt-1.5 space-y-1">
+        <p className={cn("text-xs", dark ? "text-amber-400" : "text-amber-600")}>
+          Requires {meta.envVar} in the backend env, or save your own key below.
+        </p>
+        <AddKeyForm provider={provider} dark={dark} />
+      </div>
+    );
+  }
+
+  // Both options exist — the toggle this feature is for.
+  if (systemAvailable && personalSaved) {
+    return (
+      <div className="mt-1.5 space-y-1">
+        <div className={cn("grid grid-cols-2 rounded-md p-0.5", dark ? "bg-neutral-800" : "bg-slate-100")}>
+          {(["system", "personal"] as AiKeySource[]).map((s) => (
+            <button
+              key={s}
+              disabled={setSourceMutation.isPending}
+              className={cn(
+                "flex items-center justify-center gap-1 rounded py-1 text-xs font-semibold transition-colors disabled:opacity-50",
+                source === s
+                  ? "bg-violet-700 text-white"
+                  : dark ? "text-neutral-400 hover:bg-neutral-700" : "text-slate-500 hover:bg-slate-200",
+              )}
+              onClick={() => selectSource(s)}
+            >
+              {s === "personal" && <KeyRound className="size-3" />}
+              {s === "system" ? "System key" : "My key"}
+            </button>
+          ))}
+        </div>
+        <button
+          className={cn("text-[11px] transition-colors hover:underline disabled:opacity-50", dark ? "text-neutral-500 hover:text-red-400" : "text-slate-400 hover:text-red-500")}
+          disabled={deleteAiKeyMutation.isPending}
+          onClick={() => deleteAiKeyMutation.mutate(provider, {
+            onSuccess: () => toast.info("Personal API key removed."),
+            onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to remove API key."),
+          })}
+        >
+          {deleteAiKeyMutation.isPending ? "Removing saved key…" : "Forget my saved key"}
+        </button>
+      </div>
+    );
+  }
+
+  // Only a personal key exists — nothing to switch to.
+  if (personalSaved) {
     return (
       <div className={cn("mt-1.5 flex items-center justify-between gap-2 rounded border px-2 py-1.5 text-xs", dark ? "border-emerald-900/60 bg-emerald-950/30 text-emerald-400" : "border-emerald-200 bg-emerald-50 text-emerald-700")}>
         <span className="flex items-center gap-1.5"><KeyRound className="size-3" /> Using your saved key</span>
@@ -77,32 +176,18 @@ function ProviderKeyPanel({ provider, dark, hasPersonalKey }: { provider: Provid
     );
   }
 
+  // Only a system key exists — using it, with the option to add a personal one.
   return (
     <div className="mt-1.5 space-y-1">
-      <p className={cn("text-xs", dark ? "text-amber-400" : "text-amber-600")}>
-        Requires {meta.envVar} in the backend env, or save your own key below.
-      </p>
-      <div className="flex gap-1.5">
-        <input
-          type="password"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={meta.placeholder}
-          autoComplete="off"
-          className={cn("h-8 min-w-0 flex-1 rounded border px-2 text-xs outline-none focus:border-violet-500", dark ? "border-neutral-700 bg-neutral-950 text-white placeholder:text-neutral-600" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400")}
-          onKeyDown={(e) => { if (e.key === "Enter") save(); }}
-        />
-        <button
-          className="h-8 shrink-0 rounded bg-neutral-800 px-2.5 text-xs font-semibold text-white hover:bg-neutral-700 disabled:opacity-50"
-          disabled={!input.trim() || saveAiKeyMutation.isPending}
-          onClick={save}
-        >
-          {saveAiKeyMutation.isPending ? "Saving…" : "Save"}
-        </button>
+      <div className={cn("flex items-center justify-between gap-2 text-xs", dark ? "text-neutral-500" : "text-slate-500")}>
+        <span>Using the deployment&apos;s shared key.</span>
+        {!addingKey && (
+          <button className={cn("font-semibold hover:underline", dark ? "text-violet-400" : "text-violet-600")} onClick={() => setAddingKey(true)}>
+            + Use my own key
+          </button>
+        )}
       </div>
-      <a href={meta.getKeyUrl} target="_blank" rel="noopener noreferrer" className={cn("inline-flex items-center gap-1 text-[11px] hover:underline", dark ? "text-violet-400" : "text-violet-600")}>
-        Get an API key <ExternalLink className="size-2.5" />
-      </a>
+      {addingKey && <AddKeyForm provider={provider} dark={dark} onSaved={() => setAddingKey(false)} />}
     </div>
   );
 }
@@ -135,8 +220,9 @@ export function AiSection({ dark, taigaToken, shellClass, dragHandlers, onDragSt
   const saveAiConfigMutation = useSaveAiConfig();
 
   const availableModels = aiConfig.data?.available_models ?? FALLBACK_MODELS;
-  const configuredProviders = aiConfig.data?.configured_providers ?? [];
+  const systemProviders = aiConfig.data?.system_providers ?? [];
   const personalProviders = aiConfig.data?.personal_providers ?? [];
+  const keySource = aiConfig.data?.key_source ?? {};
 
   useEffect(() => {
     if (aiConfig.data) {
@@ -184,9 +270,13 @@ export function AiSection({ dark, taigaToken, shellClass, dragHandlers, onDragSt
                   </button>
                 ))}
               </div>
-              {!configuredProviders.includes(localProvider) || personalProviders.includes(localProvider) ? (
-                <ProviderKeyPanel provider={localProvider} dark={dark} hasPersonalKey={personalProviders.includes(localProvider)} />
-              ) : null}
+              <KeySourcePanel
+                provider={localProvider}
+                dark={dark}
+                systemAvailable={systemProviders.includes(localProvider)}
+                personalSaved={personalProviders.includes(localProvider)}
+                source={keySource[localProvider] ?? "personal"}
+              />
             </div>
             {(() => {
               const providerModels = availableModels.filter((m) => modelProvider(m) === localProvider);

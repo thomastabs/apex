@@ -62,7 +62,7 @@ class TestSaveAndLoad:
     def test_stored_at_rest_is_not_plaintext(self):
         ai_key_store.save_key("api_taiga_io", "42", "openai", "sk-plaintext-marker")
         raw = ai_key_store._read_all("api_taiga_io")
-        assert "sk-plaintext-marker" not in raw["42"]["openai"]
+        assert "sk-plaintext-marker" not in raw["42"]["keys"]["openai"]
 
     def test_unknown_provider_rejected(self):
         with pytest.raises(ValueError):
@@ -133,3 +133,72 @@ class TestSavedProviders:
 
     def test_unknown_account_returns_empty_list(self):
         assert ai_key_store.saved_providers("api_taiga_io", "nobody") == []
+
+
+class TestLegacyFlatShape:
+    """Data saved before the "keys"/"prefer_system" wrapper existed must keep working."""
+
+    def test_saved_providers_reads_legacy_flat_entry(self):
+        ai_key_store._write_all("api_taiga_io", {"42": {"openai": "sometoken"}})
+        assert ai_key_store.saved_providers("api_taiga_io", "42") == ["openai"]
+
+    def test_load_keys_decrypts_legacy_flat_entry(self):
+        ai_key_store.save_key("api_taiga_io", "42", "openai", "sk-legacy")
+        # Downgrade what save_key just wrote into the old flat shape.
+        raw = ai_key_store._read_all("api_taiga_io")
+        flat = {"42": raw["42"]["keys"]}
+        ai_key_store._write_all("api_taiga_io", flat)
+        ai_key_store._decrypted_cache.clear()
+        assert ai_key_store.load_keys("api_taiga_io", "42") == {"openai": "sk-legacy"}
+
+    def test_legacy_entry_defaults_to_personal_source(self):
+        ai_key_store._write_all("api_taiga_io", {"42": {"openai": "sometoken"}})
+        assert ai_key_store.get_key_source("api_taiga_io", "42", "openai") == "personal"
+
+
+class TestKeySource:
+    def test_new_key_defaults_to_personal(self):
+        ai_key_store.save_key("api_taiga_io", "42", "openai", "sk-x")
+        assert ai_key_store.get_key_source("api_taiga_io", "42", "openai") == "personal"
+
+    def test_switch_to_system_keeps_key_but_excludes_from_load(self):
+        ai_key_store.save_key("api_taiga_io", "42", "openai", "sk-x")
+        ai_key_store.set_key_source("api_taiga_io", "42", "openai", "system")
+        assert ai_key_store.get_key_source("api_taiga_io", "42", "openai") == "system"
+        assert ai_key_store.saved_providers("api_taiga_io", "42") == ["openai"]  # still saved
+        assert ai_key_store.load_keys("api_taiga_io", "42") == {}  # but not active
+
+    def test_switch_back_to_personal_reactivates(self):
+        ai_key_store.save_key("api_taiga_io", "42", "openai", "sk-x")
+        ai_key_store.set_key_source("api_taiga_io", "42", "openai", "system")
+        ai_key_store.set_key_source("api_taiga_io", "42", "openai", "personal")
+        assert ai_key_store.get_key_source("api_taiga_io", "42", "openai") == "personal"
+        assert ai_key_store.load_keys("api_taiga_io", "42") == {"openai": "sk-x"}
+
+    def test_source_is_per_provider(self):
+        ai_key_store.save_key("api_taiga_io", "42", "openai", "sk-openai")
+        ai_key_store.save_key("api_taiga_io", "42", "google", "AIza-google")
+        ai_key_store.set_key_source("api_taiga_io", "42", "openai", "system")
+        assert ai_key_store.load_keys("api_taiga_io", "42") == {"google": "AIza-google"}
+
+    def test_switching_without_saved_key_raises(self):
+        with pytest.raises(ValueError):
+            ai_key_store.set_key_source("api_taiga_io", "42", "openai", "system")
+
+    def test_resaving_after_switch_to_system_reactivates_personal(self):
+        # Re-saving (e.g. rotating the key) should make it active again, same as
+        # a brand-new save — the user just told us "use this key".
+        ai_key_store.save_key("api_taiga_io", "42", "openai", "sk-old")
+        ai_key_store.set_key_source("api_taiga_io", "42", "openai", "system")
+        ai_key_store.save_key("api_taiga_io", "42", "openai", "sk-new")
+        assert ai_key_store.get_key_source("api_taiga_io", "42", "openai") == "personal"
+        assert ai_key_store.load_keys("api_taiga_io", "42") == {"openai": "sk-new"}
+
+    def test_deleting_key_clears_source_preference(self):
+        ai_key_store.save_key("api_taiga_io", "42", "openai", "sk-x")
+        ai_key_store.set_key_source("api_taiga_io", "42", "openai", "system")
+        ai_key_store.delete_key("api_taiga_io", "42", "openai")
+        ai_key_store.save_key("api_taiga_io", "42", "openai", "sk-fresh")
+        # A freshly re-added key after full deletion must not silently inherit
+        # a stale "prefer system" flag from before it was deleted.
+        assert ai_key_store.get_key_source("api_taiga_io", "42", "openai") == "personal"

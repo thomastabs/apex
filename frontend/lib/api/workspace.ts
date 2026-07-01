@@ -53,13 +53,20 @@ export function getServerConfig(context: AuthContext) {
   return apiRequest<ServerConfig>("/api/workspace/config", { context });
 }
 
+export type AiKeySource = "system" | "personal";
+
 export type AiConfigResponse = {
   model: string;
   available_models: Array<{ id: string; label: string; role: string; provider?: string; note?: string }>;
+  // Usable right now (system env var set, or an active personal key).
   configured_providers: string[];
-  // Subset of configured_providers backed by a key saved to *your* Taiga/Jira
-  // account (as opposed to the deployment's env var) — see saveAiKey below.
+  // Deployment-wide key set via *_API_KEY env var on the backend — the "system key".
+  system_providers: string[];
+  // Has a personal key saved to *your* Taiga/Jira account, regardless of
+  // whether it's the active one right now — see key_source.
   personal_providers: string[];
+  // Per provider in personal_providers: which credential is currently active.
+  key_source: Record<string, AiKeySource>;
 };
 
 export function getAiConfig(context: AuthContext) {
@@ -90,6 +97,16 @@ export function deleteAiKey(context: AuthContext, provider: string) {
   return apiRequest<AiKeyStatusResponse>(`/api/workspace/ai-keys/${encodeURIComponent(provider)}`, {
     method: "DELETE",
     context,
+  });
+}
+
+/** Switch a provider between the account's saved personal key and the
+ * deployment's system key, without deleting the saved key either way. */
+export function setAiKeySource(context: AuthContext, provider: string, source: AiKeySource) {
+  return apiRequest<AiKeyStatusResponse>(`/api/workspace/ai-keys/${encodeURIComponent(provider)}/source`, {
+    method: "POST",
+    context,
+    body: { source },
   });
 }
 
