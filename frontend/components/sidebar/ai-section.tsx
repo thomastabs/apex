@@ -89,7 +89,7 @@ function AddKeyForm({ provider, dark, onSaved }: { provider: ProviderKey; dark: 
  *  Taiga/Jira account, encrypted server-side so it follows you across
  *  sessions. A saved personal key is ALWAYS used once it exists — it takes
  *  priority over the system key unconditionally; removing it is the only way
- *  back to the shared key, which keeps the choice unambiguous. */
+ *  back to the system key, which keeps the choice unambiguous. */
 function KeySourcePanel({
   provider, dark, systemAvailable, personalSaved,
 }: {
@@ -108,7 +108,7 @@ function KeySourcePanel({
           className="font-semibold underline-offset-2 hover:underline disabled:opacity-50"
           disabled={deleteAiKeyMutation.isPending}
           onClick={() => deleteAiKeyMutation.mutate(provider, {
-            onSuccess: () => toast.info(systemAvailable ? "Personal API key removed — using the shared key again." : "Personal API key removed."),
+            onSuccess: () => toast.info(systemAvailable ? "Personal API key removed — using the system key again." : "Personal API key removed."),
             onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to remove API key."),
           })}
         >
@@ -124,7 +124,7 @@ function KeySourcePanel({
     return (
       <div className="mt-1.5 space-y-1">
         <div className={cn("flex items-center justify-between gap-2 text-xs", dark ? "text-neutral-500" : "text-slate-500")}>
-          <span>Using the deployment&apos;s shared key.</span>
+          <span>Using the system key.</span>
           {!addingKey && (
             <button className={cn("font-semibold hover:underline", dark ? "text-violet-400" : "text-violet-600")} onClick={() => setAddingKey(true)}>
               + Use my own key
