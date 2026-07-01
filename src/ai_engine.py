@@ -18,6 +18,8 @@ Phase 1 pipeline (two-step):
   Step 2 — compile_gherkin()      : NL draft → Gherkin acceptance criteria (on approval)
 """
 
+import contextvars
+import hashlib
 import json
 import logging
 import os
@@ -60,6 +62,29 @@ class AITimeoutError(AIError):
 
 _logger = logging.getLogger("apex.ai_engine")
 _llm_cache: dict = {}
+
+# Per-request user-supplied provider API keys (bring-your-own-key). Populated by
+# the backend's `_ai_user_keys` middleware from X-<Provider>-Api-Key headers —
+# never persisted to disk. Falls back to the deployment-wide *_API_KEY env vars
+# when a provider has no user-supplied key for the current request. A plain
+# ContextVar (not a request object) so every ai_engine call site — several
+# layers deep in the phase services — picks it up without threading a
+# parameter through the whole call chain, mirroring context_manager's
+# _active_project_id/_active_instance_id pattern.
+_user_api_keys: contextvars.ContextVar[dict[str, str]] = contextvars.ContextVar(
+    "ai_engine_user_api_keys", default={}
+)
+
+_PROVIDER_ENV_VARS = {"openai": "OPENAI_API_KEY", "google": "GOOGLE_API_KEY", "anthropic": "ANTHROPIC_API_KEY"}
+
+
+def set_user_api_keys(keys: dict[str, str]) -> None:
+    """Set the current request's user-supplied API keys, keyed by provider name."""
+    _user_api_keys.set(dict(keys))
+
+
+def _user_api_key(provider: str) -> str:
+    return _user_api_keys.get().get(provider, "")
 
 
 def _reclassify_llm_exc(exc: Exception, *, reraise_unrecognized: bool = True) -> None:
@@ -139,21 +164,16 @@ def _provider_supports_vision(model: str) -> bool:
 
 
 def check_api_key(model: str | None = None) -> None:
-    """Raise EnvironmentError if the required API key for *model* is not set."""
+    """Raise EnvironmentError if no API key — user-supplied or deployment env — is available for *model*."""
     provider = _get_provider(model) if model else "anthropic"
-    if provider == "openai":
-        if not os.getenv("OPENAI_API_KEY"):
-            raise EnvironmentError(
-                "OPENAI_API_KEY is not set. Add it to your .env file or set it as an environment variable."
-            )
-    elif provider == "google":
-        if not os.getenv("GOOGLE_API_KEY"):
-            raise EnvironmentError(
-                "GOOGLE_API_KEY is not set. Add it to your .env file or set it as an environment variable."
-            )
-    else:
-        if not os.getenv("ANTHROPIC_API_KEY"):
-            raise EnvironmentError("ANTHROPIC_API_KEY is not set. Add it to your .env file.")
+    if _user_api_key(provider):
+        return
+    env_var = _PROVIDER_ENV_VARS[provider]
+    if not os.getenv(env_var):
+        raise EnvironmentError(
+            f"{env_var} is not set. Add your own key in Settings → AI Model, "
+            f"or add {env_var} to the backend .env file."
+        )
 
 
 AVAILABLE_MODELS: list[dict] = [
@@ -271,10 +291,18 @@ def _get_llm(
 ) -> ChatAnthropic | ChatOpenAI | ChatGoogleGenerativeAI:
     # temperature defaults to 0.0: structured/extraction calls want determinism.
     # The few creative long-form generators pass temperature=0.2 explicitly.
-    key = f"{model}:{max_tokens}:{timeout}:{temperature}"
+    provider = _get_provider(model)
+    user_key = _user_api_key(provider)
+    # The cache is process-global, so the key MUST include which credential backs
+    # it — otherwise one user's personal key would get cached and silently reused
+    # for every other user/request asking for the same model+params (cross-tenant
+    # key leakage). Only a hash of the key is used as the cache discriminator;
+    # the raw key is never part of the cache dict's key material.
+    key_marker = hashlib.sha256(user_key.encode()).hexdigest()[:16] if user_key else "env"
+    key = f"{model}:{max_tokens}:{timeout}:{temperature}:{key_marker}"
     if key not in _llm_cache:
         check_api_key(model)
-        provider = _get_provider(model)
+        key_kwargs = {"api_key": user_key} if user_key else {}
         if provider == "openai":
             _llm_cache[key] = ChatOpenAI(
                 model=model,
@@ -282,6 +310,7 @@ def _get_llm(
                 max_tokens=max_tokens,
                 max_retries=2,
                 timeout=timeout,
+                **key_kwargs,
             )
         elif provider == "google":
             _llm_cache[key] = ChatGoogleGenerativeAI(
@@ -290,6 +319,7 @@ def _get_llm(
                 max_output_tokens=max_tokens,
                 max_retries=2,
                 timeout=timeout,
+                **key_kwargs,
             )
         else:
             _llm_cache[key] = ChatAnthropic(
@@ -298,6 +328,7 @@ def _get_llm(
                 max_tokens=max_tokens,
                 max_retries=2,
                 timeout=timeout,
+                **key_kwargs,
             )
     return _llm_cache[key]
 

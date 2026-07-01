@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Bot } from "lucide-react";
+import { Bot, ExternalLink, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { useAiConfig, useSaveAiConfig } from "@/lib/hooks/use-workspace";
+import { useSessionStore } from "@/lib/stores/session-store";
 import { cn } from "@/lib/utils";
 import { PanelHeader, type DragSectionProps } from "./shared";
 
@@ -30,8 +31,78 @@ const PROVIDER_LABELS: Record<ProviderKey, string> = {
   google:    "Google (Gemini)",
 };
 
+const PROVIDER_KEY_META: Record<ProviderKey, { envVar: string; getKeyUrl: string; placeholder: string }> = {
+  anthropic: { envVar: "ANTHROPIC_API_KEY", getKeyUrl: "https://console.anthropic.com/settings/keys", placeholder: "sk-ant-…" },
+  openai:    { envVar: "OPENAI_API_KEY",    getKeyUrl: "https://platform.openai.com/api-keys",         placeholder: "sk-…" },
+  google:    { envVar: "GOOGLE_API_KEY",    getKeyUrl: "https://aistudio.google.com/apikey",            placeholder: "AIza…" },
+};
+
 function modelProvider(m: ModelEntry): ProviderKey {
   return (m.provider ?? "anthropic") as ProviderKey;
+}
+
+/** Bring-your-own-key input for a provider that isn't configured server-side.
+ *  The key never leaves the browser except as an X-<Provider>-Api-Key header on
+ *  each AI request (see contextHeaders) — it is not persisted, not saved via
+ *  /ai-config, and is cleared on sign-out, same treatment as the GitHub PAT and
+ *  Figma token. */
+function ProviderKeyPanel({ provider, dark, hasPersonalKey }: { provider: ProviderKey; dark: boolean; hasPersonalKey: boolean }) {
+  const [input, setInput] = useState("");
+  const setAiApiKeys = useSessionStore((s) => s.setAiApiKeys);
+  const meta = PROVIDER_KEY_META[provider];
+
+  if (hasPersonalKey) {
+    return (
+      <div className={cn("mt-1.5 flex items-center justify-between gap-2 rounded border px-2 py-1.5 text-xs", dark ? "border-emerald-900/60 bg-emerald-950/30 text-emerald-400" : "border-emerald-200 bg-emerald-50 text-emerald-700")}>
+        <span className="flex items-center gap-1.5"><KeyRound className="size-3" /> Using your personal key</span>
+        <button
+          className="font-semibold underline-offset-2 hover:underline"
+          onClick={() => { setAiApiKeys({ [provider]: "" }); toast.info("Personal API key removed."); }}
+        >
+          Remove
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-1.5 space-y-1">
+      <p className={cn("text-xs", dark ? "text-amber-400" : "text-amber-600")}>
+        Requires {meta.envVar} in the backend env, or add your own key below.
+      </p>
+      <div className="flex gap-1.5">
+        <input
+          type="password"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder={meta.placeholder}
+          autoComplete="off"
+          className={cn("h-8 min-w-0 flex-1 rounded border px-2 text-xs outline-none focus:border-violet-500", dark ? "border-neutral-700 bg-neutral-950 text-white placeholder:text-neutral-600" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && input.trim()) {
+              setAiApiKeys({ [provider]: input.trim() });
+              setInput("");
+              toast.success("Personal API key saved for this session.");
+            }
+          }}
+        />
+        <button
+          className="h-8 shrink-0 rounded bg-neutral-800 px-2.5 text-xs font-semibold text-white hover:bg-neutral-700 disabled:opacity-50"
+          disabled={!input.trim()}
+          onClick={() => {
+            setAiApiKeys({ [provider]: input.trim() });
+            setInput("");
+            toast.success("Personal API key saved for this session.");
+          }}
+        >
+          Save
+        </button>
+      </div>
+      <a href={meta.getKeyUrl} target="_blank" rel="noopener noreferrer" className={cn("inline-flex items-center gap-1 text-[11px] hover:underline", dark ? "text-violet-400" : "text-violet-600")}>
+        Get an API key <ExternalLink className="size-2.5" />
+      </a>
+    </div>
+  );
 }
 
 function ModelSelect({ models, value, onChange, dark }: { models: ModelEntry[]; value: string; onChange: (v: string) => void; dark: boolean }) {
@@ -60,6 +131,10 @@ export function AiSection({ dark, taigaToken, shellClass, dragHandlers, onDragSt
 
   const aiConfig = useAiConfig();
   const saveAiConfigMutation = useSaveAiConfig();
+  const anthropicApiKey = useSessionStore((s) => s.anthropicApiKey);
+  const openaiApiKey = useSessionStore((s) => s.openaiApiKey);
+  const googleApiKey = useSessionStore((s) => s.googleApiKey);
+  const personalKeys: Record<ProviderKey, string> = { anthropic: anthropicApiKey, openai: openaiApiKey, google: googleApiKey };
 
   const availableModels = aiConfig.data?.available_models ?? FALLBACK_MODELS;
   const configuredProviders = aiConfig.data?.configured_providers ?? [];
@@ -110,12 +185,9 @@ export function AiSection({ dark, taigaToken, shellClass, dragHandlers, onDragSt
                   </button>
                 ))}
               </div>
-              {localProvider === "openai" && !configuredProviders.includes("openai") && (
-                <p className={cn("mt-1.5 text-xs", dark ? "text-amber-400" : "text-amber-600")}>Requires OPENAI_API_KEY set in backend env.</p>
-              )}
-              {localProvider === "google" && !configuredProviders.includes("google") && (
-                <p className={cn("mt-1.5 text-xs", dark ? "text-amber-400" : "text-amber-600")}>Requires GOOGLE_API_KEY set in backend env.</p>
-              )}
+              {!configuredProviders.includes(localProvider) || personalKeys[localProvider] ? (
+                <ProviderKeyPanel provider={localProvider} dark={dark} hasPersonalKey={Boolean(personalKeys[localProvider])} />
+              ) : null}
             </div>
             {(() => {
               const providerModels = availableModels.filter((m) => modelProvider(m) === localProvider);

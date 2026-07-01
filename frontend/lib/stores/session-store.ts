@@ -25,6 +25,12 @@ type SessionState = {
   // Cached verified file name for figmaFileKey — lets the sidebar skip a
   // /files?depth=1 verify on every navigation (that call is rate-limited).
   figmaFileName: string;
+  // Bring-your-own AI provider keys (NOT persisted — re-entered each session,
+  // like githubPat/figmaToken). Sent as X-<Provider>-Api-Key headers on every
+  // request so a user's own key is used instead of the deployment's env var.
+  openaiApiKey: string;
+  googleApiKey: string;
+  anthropicApiKey: string;
   // Persisted so an Autopilot run can be re-attached after a refresh (the run keeps
   // going server-side). Cleared on New Run / sign-out.
   autopilotJobId: string | null;
@@ -34,6 +40,7 @@ type SessionState = {
   setProject: (project: { projectId: number; projectName?: string; pmProjectSlug?: string }) => void;
   setGithub: (opts: { pat?: string; repo?: string }) => void;
   setFigma: (opts: { token?: string; fileKey?: string; fileName?: string }) => void;
+  setAiApiKeys: (opts: { openai?: string; google?: string; anthropic?: string }) => void;
   clearSession: () => void;
 };
 
@@ -53,6 +60,9 @@ export const useSessionStore = create<SessionState>()(
       figmaToken: "",
       figmaFileKey: "",
       figmaFileName: "",
+      openaiApiKey: "",
+      googleApiKey: "",
+      anthropicApiKey: "",
       autopilotJobId: null,
       setAutopilotJobId: (jobId) => set({ autopilotJobId: jobId }),
       setSession: ({ taigaToken, taigaApiUrl, projectId, projectName = "", pmTool, jiraEmail }) =>
@@ -86,7 +96,12 @@ export const useSessionStore = create<SessionState>()(
         ...(fileKey !== undefined ? { figmaFileKey: fileKey, figmaFileName: fileName ?? "" } : {}),
         ...(fileKey === undefined && fileName !== undefined ? { figmaFileName: fileName } : {}),
       }),
-      clearSession: () => set((s) => ({ pmTool: s.pmTool, taigaToken: "", taigaApiUrl: "", jiraEmail: "", projectId: null, projectName: "", pmProjectSlug: "", projectInstanceUrl: "", githubPat: "", githubRepo: "", figmaToken: "", figmaFileKey: "", figmaFileName: "", autopilotJobId: null })),
+      setAiApiKeys: ({ openai, google, anthropic }) => set({
+        ...(openai !== undefined ? { openaiApiKey: openai } : {}),
+        ...(google !== undefined ? { googleApiKey: google } : {}),
+        ...(anthropic !== undefined ? { anthropicApiKey: anthropic } : {}),
+      }),
+      clearSession: () => set((s) => ({ pmTool: s.pmTool, taigaToken: "", taigaApiUrl: "", jiraEmail: "", projectId: null, projectName: "", pmProjectSlug: "", projectInstanceUrl: "", githubPat: "", githubRepo: "", figmaToken: "", figmaFileKey: "", figmaFileName: "", openaiApiKey: "", googleApiKey: "", anthropicApiKey: "", autopilotJobId: null })),
     }),
     {
       name: "apex-session",
@@ -121,8 +136,8 @@ export const useSessionStore = create<SessionState>()(
           figmaFileName: (state.figmaFileName as string) ?? "",
         };
       },
-      // githubPat / figmaToken intentionally excluded — these credentials are not
-      // persisted anywhere. Users must re-enter them each session.
+      // githubPat / figmaToken / *ApiKey intentionally excluded — these credentials
+      // are not persisted anywhere. Users must re-enter them each session.
       partialize: (state) => ({
         pmTool: state.pmTool,
         taigaToken: state.taigaToken,
@@ -148,6 +163,9 @@ export function useApiContext() {
   const pmTool = useSessionStore((state) => state.pmTool);
   const pmProjectSlug = useSessionStore((state) => state.pmProjectSlug);
   const projectInstanceUrl = useSessionStore((state) => state.projectInstanceUrl);
+  const openaiApiKey = useSessionStore((state) => state.openaiApiKey);
+  const googleApiKey = useSessionStore((state) => state.googleApiKey);
+  const anthropicApiKey = useSessionStore((state) => state.anthropicApiKey);
 
   if (!taigaToken || !projectId) {
     return null;
@@ -158,7 +176,10 @@ export function useApiContext() {
     return null;
   }
 
-  return { taigaToken, taigaApiUrl, projectId, pmTool, pmProjectId: pmProjectSlug || undefined };
+  return {
+    taigaToken, taigaApiUrl, projectId, pmTool, pmProjectId: pmProjectSlug || undefined,
+    openaiApiKey, googleApiKey, anthropicApiKey,
+  };
 }
 
 export function useGithubContext() {
@@ -181,5 +202,8 @@ export function useAuthContext() {
   const taigaToken = useSessionStore((state) => state.taigaToken);
   const taigaApiUrl = useSessionStore((state) => state.taigaApiUrl);
   const pmTool = useSessionStore((state) => state.pmTool);
-  return taigaToken ? { taigaToken, taigaApiUrl, pmTool } : null;
+  const openaiApiKey = useSessionStore((state) => state.openaiApiKey);
+  const googleApiKey = useSessionStore((state) => state.googleApiKey);
+  const anthropicApiKey = useSessionStore((state) => state.anthropicApiKey);
+  return taigaToken ? { taigaToken, taigaApiUrl, pmTool, openaiApiKey, googleApiKey, anthropicApiKey } : null;
 }

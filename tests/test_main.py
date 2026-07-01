@@ -33,6 +33,51 @@ class TestCorsPreflight:
         assert "x-figma-token" in allowed
 
 
+class TestAiUserKeysMiddleware:
+    def test_cors_allows_ai_key_headers(self):
+        # Custom headers must be preflight-allowlisted or the browser blocks the
+        # request before it ever reaches the middleware that reads them.
+        resp = client.options(
+            "/api/workspace/ai-config",
+            headers={
+                "Origin": "http://localhost:3000",
+                "Access-Control-Request-Method": "GET",
+                "Access-Control-Request-Headers": "x-openai-api-key,x-google-api-key,x-anthropic-api-key",
+            },
+        )
+        assert resp.status_code == 200
+        allowed = resp.headers.get("access-control-allow-headers", "").lower()
+        assert "x-openai-api-key" in allowed
+        assert "x-google-api-key" in allowed
+        assert "x-anthropic-api-key" in allowed
+
+    def test_provider_key_headers_reach_ai_engine(self, monkeypatch):
+        calls: list[dict] = []
+        monkeypatch.setattr("src.ai_engine.set_user_api_keys", calls.append)
+        resp = client.get("/api/health", headers={
+            "X-Openai-Api-Key": "sk-test-key",
+            "X-Google-Api-Key": "   ",  # blank after strip → excluded
+        })
+        assert resp.status_code == 200
+        assert calls[-1] == {"openai": "sk-test-key"}
+
+    def test_oversized_key_header_is_dropped(self, monkeypatch):
+        calls: list[dict] = []
+        monkeypatch.setattr("src.ai_engine.set_user_api_keys", calls.append)
+        resp = client.get("/api/health", headers={"X-Openai-Api-Key": "x" * 600})
+        assert resp.status_code == 200
+        assert calls[-1] == {}
+
+    def test_no_key_headers_still_calls_set_with_empty_dict(self, monkeypatch):
+        # Confirms every request resets the ContextVar (even to {}), so a prior
+        # request's key can never leak into a request that supplies none.
+        calls: list[dict] = []
+        monkeypatch.setattr("src.ai_engine.set_user_api_keys", calls.append)
+        resp = client.get("/api/health")
+        assert resp.status_code == 200
+        assert calls == [{}]
+
+
 class TestBodySizeLimit:
     def test_oversized_content_length_rejected_with_413(self):
         # Body over the limit with a Content-Length header → rejected before routing.

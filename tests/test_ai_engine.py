@@ -1696,3 +1696,81 @@ class TestFindCrossEpicDuplicates:
         # "configure notification" shared (2/3 tokens) → ~0.5 Jaccard, below 0.72 default
         assert ai_engine.find_cross_epic_duplicates(stories) == []
         assert len(ai_engine.find_cross_epic_duplicates(stories, threshold=0.4)) == 1
+
+
+# ---------------------------------------------------------------------------
+# Bring-your-own-key (per-request user API keys)
+# ---------------------------------------------------------------------------
+
+class TestUserApiKeys:
+    @pytest.fixture(autouse=True)
+    def _reset_state(self, monkeypatch):
+        """Isolate every test from real env vars, the module-level LLM cache,
+        and the ContextVar (which otherwise leaks between tests in the same
+        thread — ContextVars are not reset automatically by pytest)."""
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        ai_engine._llm_cache.clear()
+        ai_engine.set_user_api_keys({})
+        yield
+        ai_engine._llm_cache.clear()
+        ai_engine.set_user_api_keys({})
+
+    def test_check_api_key_raises_without_env_or_user_key(self):
+        with pytest.raises(EnvironmentError):
+            ai_engine.check_api_key("gpt-4o")
+
+    def test_check_api_key_passes_with_env_var(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-env-key")
+        ai_engine.check_api_key("gpt-4o")  # does not raise
+
+    def test_check_api_key_passes_with_user_key_and_no_env(self):
+        ai_engine.set_user_api_keys({"openai": "sk-personal-key"})
+        ai_engine.check_api_key("gpt-4o")  # does not raise
+
+    def test_user_key_takes_a_different_llm_client_than_env(self, monkeypatch):
+        """Regression guard for cross-user key leakage: a request carrying a
+        personal key must not reuse (or populate) the cache entry used by
+        requests relying on the deployment env key, and vice versa."""
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-env-key")
+
+        captured: list[dict] = []
+
+        class FakeChatAnthropic:
+            def __init__(self, **kwargs):
+                captured.append(kwargs)
+
+        monkeypatch.setattr(ai_engine, "ChatAnthropic", FakeChatAnthropic)
+
+        ai_engine.set_user_api_keys({})
+        env_llm = ai_engine._get_llm("claude-sonnet-4-6", 1024)
+
+        ai_engine.set_user_api_keys({"anthropic": "sk-alice-personal-key"})
+        alice_llm = ai_engine._get_llm("claude-sonnet-4-6", 1024)
+
+        ai_engine.set_user_api_keys({"anthropic": "sk-bob-personal-key"})
+        bob_llm = ai_engine._get_llm("claude-sonnet-4-6", 1024)
+
+        # Three distinct clients — one per credential source — not one shared instance.
+        assert len({id(env_llm), id(alice_llm), id(bob_llm)}) == 3
+        assert len(captured) == 3
+        assert "api_key" not in captured[0]  # env path leaves the client to read the env var itself
+        assert captured[1]["api_key"] == "sk-alice-personal-key"
+        assert captured[2]["api_key"] == "sk-bob-personal-key"
+
+    def test_repeated_calls_with_same_user_key_reuse_the_cached_client(self, monkeypatch):
+        captured: list[dict] = []
+
+        class FakeChatOpenAI:
+            def __init__(self, **kwargs):
+                captured.append(kwargs)
+
+        monkeypatch.setattr(ai_engine, "ChatOpenAI", FakeChatOpenAI)
+        ai_engine.set_user_api_keys({"openai": "sk-same-key"})
+
+        first = ai_engine._get_llm("gpt-4o", 1024)
+        second = ai_engine._get_llm("gpt-4o", 1024)
+
+        assert first is second
+        assert len(captured) == 1

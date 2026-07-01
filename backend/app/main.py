@@ -84,6 +84,35 @@ async def _body_size_limit(request: Request, call_next) -> Response:
         return JSONResponse({"detail": "Internal server error"}, status_code=500)
 
 
+_AI_KEY_HEADERS = {
+    "anthropic": "x-anthropic-api-key",
+    "openai": "x-openai-api-key",
+    "google": "x-google-api-key",
+}
+_MAX_AI_KEY_LEN = 512  # generous upper bound for any provider's key format
+
+
+@app.middleware("http")
+async def _ai_user_keys(request: Request, call_next) -> Response:
+    """Pick up bring-your-own AI provider keys from request headers.
+
+    Populates ai_engine's per-request ContextVar so every AI call in this
+    request's call chain prefers the user's own key over the deployment-wide
+    env var, without threading it through every phase service function. Never
+    persisted — the browser resends it on every request (see contextHeaders
+    in the frontend), same pattern as the Taiga/Jira Authorization header.
+    """
+    from src.ai_engine import set_user_api_keys
+
+    keys = {
+        provider: value
+        for provider, header in _AI_KEY_HEADERS.items()
+        if (value := request.headers.get(header, "").strip()) and len(value) <= _MAX_AI_KEY_LEN
+    }
+    set_user_api_keys(keys)
+    return await call_next(request)
+
+
 @app.middleware("http")
 async def _security_headers(request: Request, call_next) -> Response:
     """Baseline hardening headers on every backend (JSON API) response (audit M10).
@@ -105,7 +134,7 @@ app.add_middleware(
     allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Project-Id", "X-Taiga-Project-Id", "X-Jira-Base-Url", "X-Taiga-Url", "X-Figma-Token", "X-Figma-Force"],
+    allow_headers=["Authorization", "Content-Type", "X-Project-Id", "X-Taiga-Project-Id", "X-Jira-Base-Url", "X-Taiga-Url", "X-Figma-Token", "X-Figma-Force", "X-Anthropic-Api-Key", "X-Openai-Api-Key", "X-Google-Api-Key"],
 )
 
 

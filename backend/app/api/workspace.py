@@ -83,13 +83,13 @@ def get_config(
 
 def _configured_providers() -> list[str]:
     import os
+
+    from src.ai_engine import _user_api_key
+
     providers = []
-    if os.getenv("ANTHROPIC_API_KEY"):
-        providers.append("anthropic")
-    if os.getenv("OPENAI_API_KEY"):
-        providers.append("openai")
-    if os.getenv("GOOGLE_API_KEY"):
-        providers.append("google")
+    for provider, env_var in (("anthropic", "ANTHROPIC_API_KEY"), ("openai", "OPENAI_API_KEY"), ("google", "GOOGLE_API_KEY")):
+        if os.getenv(env_var) or _user_api_key(provider):
+            providers.append(provider)
     return providers
 
 

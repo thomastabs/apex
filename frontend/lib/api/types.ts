@@ -4,12 +4,18 @@ export type RequestContext = {
   taigaApiUrl?: string;
   pmTool?: "taiga" | "jira";
   pmProjectId?: string;
+  openaiApiKey?: string;
+  googleApiKey?: string;
+  anthropicApiKey?: string;
 };
 
 export type AuthContext = {
   taigaToken: string;
   taigaApiUrl?: string;
   pmTool?: "taiga" | "jira";
+  openaiApiKey?: string;
+  googleApiKey?: string;
+  anthropicApiKey?: string;
 };
 
 export type Me = {
