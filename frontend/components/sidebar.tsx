@@ -214,95 +214,56 @@ function SlimProjectPicker({ dark }: { dark: boolean }) {
   );
 }
 
-// ── SpecCoverage ──────────────────────────────────────────────────────────────
-// Always-visible cross-phase spec health widget. Replaces PhaseGuide.
 
-const SPEC_PHASES = [
-  { href: "/phase1", label: "Requirements", key: "total"          as const, color: "bg-sky-500"     },
-  { href: "/phase2", label: "Design",       key: "phase2_designed" as const, color: "bg-violet-500"  },
-  { href: "/phase3", label: "Implementation",key: "phase3_proposed"as const, color: "bg-amber-500"   },
-  { href: "/phase4", label: "Testing",      key: "phase4_tested"   as const, color: "bg-emerald-500" },
-  { href: "/phase5", label: "Deployment",   key: "phase5_deployed" as const, color: "bg-pink-500"    },
-] as const;
+// ── TaigaSections ─────────────────────────────────────────────────────────────
+// Phase-gated sections — only show what's relevant to the current route.
 
-function SpecCoverage({ dark }: { dark: boolean }) {
-  const { data: stats } = useStoryIndexStats();
-  const total = stats?.total ?? 0;
-
-  return (
-    <div className={cn("border-b px-4 py-3", dark ? "border-neutral-800" : "border-slate-200")}>
-      <div className="mb-2.5 flex items-center justify-between">
-        <p className={cn("text-[10px] font-bold uppercase tracking-widest", dark ? "text-violet-500" : "text-violet-600")}>
-          Spec Coverage
-        </p>
-        <span className={cn("text-[10px] tabular-nums", dark ? "text-neutral-600" : "text-slate-400")}>
-          {total > 0 ? `${total} stories` : "no stories yet"}
-        </span>
-      </div>
-
-      {total === 0 ? (
-        <p className={cn("text-xs", dark ? "text-neutral-700" : "text-slate-300")}>
-          Run Phase 1 to index stories.
-        </p>
-      ) : (
-        <div className="space-y-1.5">
-          {SPEC_PHASES.map(({ href, label, key, color }) => {
-            const done = key === "total" ? total : (stats?.[key] ?? 0);
-            const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-            const complete = done === total;
-            return (
-              <Link key={href} href={href} className="group flex items-center gap-2">
-                <span className={cn(
-                  "w-[84px] shrink-0 text-[10px] transition-colors group-hover:text-violet-400",
-                  complete
-                    ? dark ? "text-emerald-400" : "text-emerald-600"
-                    : dark ? "text-neutral-500" : "text-slate-400",
-                )}>
-                  {label}
-                </span>
-                <div className={cn("h-1 flex-1 overflow-hidden rounded-full", dark ? "bg-neutral-800" : "bg-slate-200")}>
-                  <div
-                    className={cn("h-full rounded-full transition-all duration-500", complete ? "bg-emerald-500" : color)}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-                <span className={cn(
-                  "w-7 shrink-0 text-right text-[10px] tabular-nums",
-                  complete
-                    ? dark ? "text-emerald-400" : "text-emerald-600"
-                    : dark ? "text-neutral-600" : "text-slate-400",
-                )}>
-                  {done}/{total}
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── AllSections ───────────────────────────────────────────────────────────────
-// All workflow sections, always available from any page. All start collapsed.
-
-function AllSections({
-  dark, projectId, confirm, serverConfig,
+function TaigaSections({
+  pathname, dark, projectId, confirm, serverConfig,
 }: {
+  pathname: string;
   dark: boolean;
   projectId: number;
   confirm: (msg: string, fn: () => void) => void;
   serverConfig: ReturnType<typeof useServerConfig>["data"];
 }) {
+  if (pathname.startsWith("/phase2")) {
+    return (
+      <>
+        <BoardSection dark={dark} projectId={projectId} confirm={confirm} />
+        <ContextSection dark={dark} projectId={projectId} confirm={confirm} />
+        <FigmaSection dark={dark} figmaFileKey={serverConfig?.figma_file_key ?? ""} />
+      </>
+    );
+  }
+  if (pathname.startsWith("/phase3")) {
+    return (
+      <>
+        <PacksSection dark={dark} confirm={confirm} />
+        <TasksSection dark={dark} />
+        <BoardSection dark={dark} projectId={projectId} confirm={confirm} />
+      </>
+    );
+  }
+  if (pathname.startsWith("/phase4")) {
+    return <TestPlansSection dark={dark} confirm={confirm} />;
+  }
+  if (pathname.startsWith("/phase5")) {
+    return <DeployPacksSection dark={dark} confirm={confirm} />;
+  }
+  if (pathname.startsWith("/phase6")) {
+    return (
+      <>
+        <UsersSection dark={dark} projectId={projectId} confirm={confirm} />
+        <BoardSection dark={dark} projectId={projectId} confirm={confirm} />
+      </>
+    );
+  }
+  // Home, Phase 1, tool routes
   return (
     <>
       <BoardSection dark={dark} projectId={projectId} confirm={confirm} />
       <ContextSection dark={dark} projectId={projectId} confirm={confirm} />
-      <PacksSection dark={dark} confirm={confirm} />
-      <TasksSection dark={dark} />
-      <TestPlansSection dark={dark} confirm={confirm} />
-      <DeployPacksSection dark={dark} confirm={confirm} />
-      <UsersSection dark={dark} projectId={projectId} confirm={confirm} />
     </>
   );
 }
@@ -766,19 +727,17 @@ export function Sidebar() {
             ))}
           </nav>
 
-          {/* ── Zone 4: Project picker + spec coverage + all sections ── */}
-          <div className={cn("min-h-0 flex-1 overflow-y-auto border-t", dark ? "border-neutral-800" : "border-slate-200")}>
+          {/* ── Zone 4: Project picker + phase-gated sections ── */}
+          <div className={cn("min-h-0 flex-1 border-t", dark ? "border-neutral-800" : "border-slate-200")}>
             <SlimProjectPicker dark={dark} />
             {projectId ? (
-              <>
-                <SpecCoverage dark={dark} />
-                <AllSections
-                  dark={dark}
-                  projectId={projectId}
-                  confirm={confirm}
-                  serverConfig={serverConfig.data}
-                />
-              </>
+              <TaigaSections
+                pathname={pathname}
+                dark={dark}
+                projectId={projectId}
+                confirm={confirm}
+                serverConfig={serverConfig.data}
+              />
             ) : (
               <p className={cn("px-4 py-3 text-xs", dark ? "text-neutral-600" : "text-slate-400")}>Select a project above to unlock the phase workflows.</p>
             )}
