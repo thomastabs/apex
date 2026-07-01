@@ -628,6 +628,12 @@ OPENAI_API_KEY=
 # Optional — only needed if using Google Gemini models in the AI model selector.
 GOOGLE_API_KEY=
 
+# Optional. Any string; required for users to save their own personal AI
+# provider key in Settings -> AI Model (encrypted at rest, tied to their
+# Taiga/Jira account — see src/ai_key_store.py). Without it, only the
+# deployment-wide keys above are usable and personal-key saves 503.
+AI_KEY_ENCRYPTION_SECRET=
+
 # Optional. Set to use the Azure File Share (same source as the deployment);
 # leave blank for local contextspec/ disk storage. storage.py reads these from .env.
 AZURE_STORAGE_CONNECTION_STRING=

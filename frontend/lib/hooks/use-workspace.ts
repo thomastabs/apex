@@ -12,6 +12,7 @@ import {
   listProjectTemplates,
   updateProject,
   createStory,
+  deleteAiKey,
   deleteEpic,
   deleteProject,
   deleteStory,
@@ -37,6 +38,7 @@ import {
   resetAllContextFiles,
   resetContextFile,
   saveAiConfig,
+  saveAiKey,
   saveGithubConfig,
   saveFigmaConfig,
   saveServerConfig,
@@ -547,6 +549,28 @@ export function useSaveAiConfig() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ model }: { model: string }) => saveAiConfig(auth!, model),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "ai-config"] });
+    },
+  });
+}
+
+export function useSaveAiKey() {
+  const auth = useAuthContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ provider, apiKey }: { provider: string; apiKey: string }) => saveAiKey(auth!, provider, apiKey),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "ai-config"] });
+    },
+  });
+}
+
+export function useDeleteAiKey() {
+  const auth = useAuthContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (provider: string) => deleteAiKey(auth!, provider),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "ai-config"] });
     },

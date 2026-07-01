@@ -5,6 +5,8 @@ from fastapi import HTTPException
 
 from backend.app.api.deps import AuthContext
 from backend.app.api.workspace import (
+    delete_ai_key,
+    get_ai_config,
     get_config,
     get_context_files,
     get_story_phase_status,
@@ -14,6 +16,7 @@ from backend.app.api.workspace import (
     remove_story_from_story_index,
     reset_context_file,
     save_ai_config_endpoint,
+    save_ai_key,
     save_config,
     set_story_phase_status,
     story_index_stats,
@@ -22,6 +25,7 @@ from backend.app.api.workspace import (
 from backend.app.schemas.workspace import (
     LogDecisionRequest,
     SaveAiConfigRequest,
+    SaveAiKeyRequest,
     SaveConfigRequest,
     SetPhaseStatusRequest,
     UpdateContextFileRequest,
@@ -29,6 +33,7 @@ from backend.app.schemas.workspace import (
 from backend.app.services.request_context import RequestContext
 
 _AUTH = AuthContext(pm_token="tok")
+_AUTH_WITH_ACCOUNT = AuthContext(pm_token="tok", account_id="42")
 
 
 def test_story_index_stats_deployed_counts_only_explicit_deployed(monkeypatch):
@@ -207,6 +212,109 @@ def test_save_ai_config_rejects_unknown_model(monkeypatch):
         save_ai_config_endpoint(SaveAiConfigRequest(model="gpt-nonexistent"), _AUTH)
 
     assert exc_info.value.status_code == 400
+
+
+# ── ai-config / ai-keys (bring-your-own AI provider key, per PM account) ──────
+
+
+def test_get_ai_config_reports_env_and_personal_providers(monkeypatch):
+    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-env")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    monkeypatch.setattr(
+        "src.ai_key_store.saved_providers", lambda instance_id, account_id: ["openai"]
+    )
+
+    response = get_ai_config(_AUTH_WITH_ACCOUNT)
+
+    assert set(response["configured_providers"]) == {"anthropic", "openai"}
+    assert response["personal_providers"] == ["openai"]
+
+
+def test_get_ai_config_no_account_id_reports_env_only(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-env")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+
+    response = get_ai_config(_AUTH)  # account_id="" — never resolved this request
+
+    assert response["configured_providers"] == ["anthropic"]
+    assert response["personal_providers"] == []
+
+
+def test_save_ai_key_persists_and_clears_llm_cache(monkeypatch):
+    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
+    saved: list[tuple] = []
+    monkeypatch.setattr(
+        "src.ai_key_store.save_key",
+        lambda instance_id, account_id, provider, api_key: saved.append((instance_id, account_id, provider, api_key)),
+    )
+    monkeypatch.setattr("src.ai_key_store.saved_providers", lambda instance_id, account_id: ["openai"])
+    monkeypatch.setattr("src.ai_engine._llm_cache", {"stale": object()})
+
+    response = save_ai_key(SaveAiKeyRequest(provider="openai", api_key="sk-my-key"), _AUTH_WITH_ACCOUNT)
+
+    assert response == {"ok": True, "personal_providers": ["openai"]}
+    assert saved == [("api_taiga_io", "42", "openai", "sk-my-key")]
+
+
+def test_save_ai_key_rejects_unknown_provider(monkeypatch):
+    with pytest.raises(HTTPException) as exc_info:
+        save_ai_key(SaveAiKeyRequest(provider="not-a-provider", api_key="sk-x"), _AUTH_WITH_ACCOUNT)
+    assert exc_info.value.status_code == 400
+
+
+def test_save_ai_key_without_account_id_returns_503():
+    with pytest.raises(HTTPException) as exc_info:
+        save_ai_key(SaveAiKeyRequest(provider="openai", api_key="sk-x"), _AUTH)
+    assert exc_info.value.status_code == 503
+
+
+def test_save_ai_key_without_encryption_secret_returns_503(monkeypatch):
+    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
+
+    def _boom(instance_id, account_id, provider, api_key):
+        raise RuntimeError("AI_KEY_ENCRYPTION_SECRET is not configured on this deployment.")
+
+    monkeypatch.setattr("src.ai_key_store.save_key", _boom)
+
+    with pytest.raises(HTTPException) as exc_info:
+        save_ai_key(SaveAiKeyRequest(provider="openai", api_key="sk-x"), _AUTH_WITH_ACCOUNT)
+    assert exc_info.value.status_code == 503
+
+
+def test_delete_ai_key_removes_and_clears_llm_cache(monkeypatch):
+    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
+    deleted: list[tuple] = []
+    monkeypatch.setattr(
+        "src.ai_key_store.delete_key",
+        lambda instance_id, account_id, provider: deleted.append((instance_id, account_id, provider)),
+    )
+    monkeypatch.setattr("src.ai_key_store.saved_providers", lambda instance_id, account_id: [])
+    monkeypatch.setattr("src.ai_engine._llm_cache", {"stale": object()})
+
+    response = delete_ai_key("openai", _AUTH_WITH_ACCOUNT)
+
+    assert response == {"ok": True, "personal_providers": []}
+    assert deleted == [("api_taiga_io", "42", "openai")]
+
+
+def test_delete_ai_key_rejects_unknown_provider():
+    with pytest.raises(HTTPException) as exc_info:
+        delete_ai_key("not-a-provider", _AUTH_WITH_ACCOUNT)
+    assert exc_info.value.status_code == 400
+
+
+def test_delete_ai_key_without_account_id_is_a_noop(monkeypatch):
+    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
+    called = []
+    monkeypatch.setattr("src.ai_key_store.delete_key", lambda *a: called.append(a))
+
+    response = delete_ai_key("openai", _AUTH)
+
+    assert response == {"ok": True, "personal_providers": []}
+    assert called == []
 
 
 # ── save_config ─────────────────────────────────────────────────────────────

@@ -40,6 +40,11 @@ def _bypass_pm_auth(request, monkeypatch):
     # which runs SSRF/DNS validation. Stub it so bypassed tests stay offline and the
     # namespace is deterministic ("api_taiga_io").
     monkeypatch.setattr(deps, "_resolve_anchor_base", lambda override="": ("taiga", "https://api.taiga.io/api/v1"))
+    # get_auth_context also resolves a PM account id (to load persisted AI keys)
+    # by dialing the PM's identity endpoint on cache-miss — stub it too so
+    # bypassed tests never hit the network. Tests of that resolution itself
+    # opt out with @pytest.mark.real_auth same as the token/project checks.
+    monkeypatch.setattr(deps, "resolve_account_id", lambda token, taiga_url_override="": "")
     yield
 
 

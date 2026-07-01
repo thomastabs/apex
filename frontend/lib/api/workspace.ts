@@ -57,6 +57,9 @@ export type AiConfigResponse = {
   model: string;
   available_models: Array<{ id: string; label: string; role: string; provider?: string; note?: string }>;
   configured_providers: string[];
+  // Subset of configured_providers backed by a key saved to *your* Taiga/Jira
+  // account (as opposed to the deployment's env var) — see saveAiKey below.
+  personal_providers: string[];
 };
 
 export function getAiConfig(context: AuthContext) {
@@ -68,6 +71,25 @@ export function saveAiConfig(context: AuthContext, model: string) {
     method: "POST",
     context,
     body: { model },
+  });
+}
+
+export type AiKeyStatusResponse = { ok: boolean; personal_providers: string[] };
+
+/** Save a personal AI provider API key, tied to your Taiga/Jira account —
+ * encrypted server-side, remembered next time you sign in from anywhere. */
+export function saveAiKey(context: AuthContext, provider: string, apiKey: string) {
+  return apiRequest<AiKeyStatusResponse>("/api/workspace/ai-keys", {
+    method: "POST",
+    context,
+    body: { provider, api_key: apiKey },
+  });
+}
+
+export function deleteAiKey(context: AuthContext, provider: string) {
+  return apiRequest<AiKeyStatusResponse>(`/api/workspace/ai-keys/${encodeURIComponent(provider)}`, {
+    method: "DELETE",
+    context,
   });
 }
 

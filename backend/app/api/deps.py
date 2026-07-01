@@ -31,6 +31,11 @@ _logger = logging.getLogger("apex.deps")
 @dataclass(frozen=True)
 class AuthContext:
     pm_token: str
+    # Stable PM account id (Taiga numeric `id` / Jira `accountId`) for the
+    # validated token, resolved best-effort in get_auth_context. "" when it
+    # could not be determined. Used ONLY to namespace persisted per-account
+    # data (saved AI provider keys, src/ai_key_store.py) — never for authz.
+    account_id: str = ""
 
 
 _MAX_TOKEN_LEN = 2_000
@@ -213,6 +218,116 @@ def _pm_get(url: str, scheme: str, token: str) -> bool:
     return resp.is_success
 
 
+def _pm_get_json(url: str, scheme: str, token: str) -> dict | None:
+    """Best-effort GET returning the parsed JSON body, or None on any failure
+    (network error, non-2xx, non-JSON). Mirrors _pm_get's relay/DNS-pin routing
+    so it works wherever _pm_get does, but never raises — callers use this only
+    for optional identity lookups where a miss just means "skip personalising
+    this request", not an auth failure."""
+    from backend.app.api.taiga_proxy import _egress, _pin_unless_relayed
+
+    request_url, headers = _egress(
+        url, {"Authorization": f"{scheme} {token}", "Accept": "application/json"}
+    )
+    request_url, headers, ext = _pin_unless_relayed(request_url, headers)
+    try:
+        resp = _get_verify_client().request(
+            "GET", request_url, headers=headers, **({"extensions": ext} if ext else {})
+        )
+    except httpx.RequestError as exc:
+        _logger.debug("_pm_get_json failed to reach %s: %s", url, exc)
+        return None
+    if not resp.is_success:
+        return None
+    try:
+        return resp.json()
+    except ValueError:
+        return None
+
+
+_ACCOUNT_CACHE_TTL = 60.0  # matches _VALID_TTL — namespacing data only, not a security boundary
+_account_id_cache: "OrderedDict[tuple[str, str], tuple[float, str]]" = OrderedDict()
+
+
+def _redis_account_key(key: tuple[str, str]) -> str:
+    return "authacct:" + key[0] + ":" + key[1]
+
+
+def resolve_account_id(token: str, taiga_url_override: str = "") -> str:
+    """Best-effort stable PM account id (Taiga numeric `id` / Jira `accountId`)
+    for *token*. Used ONLY to namespace persisted per-account data — never for
+    authorization, so a miss (network hiccup, unrecognised response shape)
+    degrades to "" rather than raising; callers must treat that as "no
+    personalisation this request", not an error.
+
+    Separate cache from _token_cache/_verify_pm_token by design: keeping this
+    fully self-contained (its own dial, its own cache) means it can never
+    change the behaviour or risk profile of the security-critical token/project
+    validation above, at the cost of one extra identity-endpoint dial per
+    _ACCOUNT_CACHE_TTL window per user — negligible next to a user's actual
+    request volume in an interactive tool like this.
+    """
+    scheme, identity_url, _ = _pm_endpoints(taiga_url_override)
+    key = (_token_key(token), identity_url)
+
+    client = distributed.redis_client()
+    if client is not None:
+        cached = client.get(_redis_account_key(key))
+        if cached is not None:
+            return cached
+    else:
+        with _cache_lock:
+            hit = _account_id_cache.get(key)
+            if hit is not None and hit[0] > time.monotonic():
+                _account_id_cache.move_to_end(key)
+                return hit[1]
+
+    body = _pm_get_json(identity_url, scheme, token)
+    account_id = ""
+    if body:
+        account_id = (
+            str(body.get("accountId") or "").strip()
+            if scheme == "Basic"
+            else str(body.get("id") or "").strip()
+        )
+    if not account_id:
+        return ""  # don't cache a miss — a transient dial failure shouldn't stick for the full TTL
+
+    if client is not None:
+        client.setex(_redis_account_key(key), int(_ACCOUNT_CACHE_TTL), account_id)
+    else:
+        with _cache_lock:
+            if len(_account_id_cache) >= _CACHE_MAX_ENTRIES and key not in _account_id_cache:
+                now = time.monotonic()
+                for k in [k for k, (exp, _) in _account_id_cache.items() if exp <= now]:
+                    del _account_id_cache[k]
+                while len(_account_id_cache) >= _CACHE_MAX_ENTRIES:
+                    _account_id_cache.popitem(last=False)
+            _account_id_cache[key] = (time.monotonic() + _ACCOUNT_CACHE_TTL, account_id)
+            _account_id_cache.move_to_end(key)
+    return account_id
+
+
+def _load_personal_ai_keys(account_id: str, taiga_url_override: str) -> None:
+    """Populate ai_engine's per-request key ContextVar from persisted
+    per-account storage (src/ai_key_store.py). Best-effort and non-fatal: any
+    failure here must not break the request — AI calls simply fall back to the
+    deployment's env-var keys. Always called (even with account_id="") so a
+    prior request's keys can never leak into one that has none.
+    """
+    from src.ai_engine import set_user_api_keys
+
+    keys: dict[str, str] = {}
+    if account_id:
+        try:
+            from src import ai_key_store
+
+            keys = ai_key_store.load_keys(anchor_instance_id(taiga_url_override), account_id)
+        except Exception:
+            _logger.debug("_load_personal_ai_keys: lookup failed", exc_info=True)
+    set_user_api_keys(keys)
+
+
 def _verify_pm_token(token: str, taiga_url_override: str = "") -> None:
     """Raise 401 unless the anchored PM accepts this token as a valid login."""
     scheme, identity_url, _ = _pm_endpoints(taiga_url_override)
@@ -270,7 +385,9 @@ def get_auth_context(
             detail="Invalid authorization token.",
         )
     _verify_pm_token(token, x_taiga_url)
-    return AuthContext(pm_token=token)
+    account_id = resolve_account_id(token, x_taiga_url)
+    _load_personal_ai_keys(account_id, x_taiga_url)
+    return AuthContext(pm_token=token, account_id=account_id)
 
 
 def get_request_context(

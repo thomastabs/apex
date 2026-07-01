@@ -63,10 +63,11 @@ class AITimeoutError(AIError):
 _logger = logging.getLogger("apex.ai_engine")
 _llm_cache: dict = {}
 
-# Per-request user-supplied provider API keys (bring-your-own-key). Populated by
-# the backend's `_ai_user_keys` middleware from X-<Provider>-Api-Key headers —
-# never persisted to disk. Falls back to the deployment-wide *_API_KEY env vars
-# when a provider has no user-supplied key for the current request. A plain
+# Per-request user-supplied provider API keys (bring-your-own-key). Populated
+# by backend/app/api/deps.py's get_auth_context, which loads them from
+# src/ai_key_store.py's encrypted per-(PM instance, PM account) storage once
+# it has resolved the caller's account id. Falls back to the deployment-wide
+# *_API_KEY env vars when a provider has no personal key saved. A plain
 # ContextVar (not a request object) so every ai_engine call site — several
 # layers deep in the phase services — picks it up without threading a
 # parameter through the whole call chain, mirroring context_manager's

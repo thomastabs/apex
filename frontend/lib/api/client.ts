@@ -47,9 +47,6 @@ export function contextHeaders(context?: RequestContext | AuthContext | null): R
     headers["X-Project-Id"] = String(context.projectId);
     headers["X-Taiga-Project-Id"] = String(context.projectId);
   }
-  if (context?.anthropicApiKey) headers["X-Anthropic-Api-Key"] = context.anthropicApiKey;
-  if (context?.openaiApiKey) headers["X-Openai-Api-Key"] = context.openaiApiKey;
-  if (context?.googleApiKey) headers["X-Google-Api-Key"] = context.googleApiKey;
   return headers;
 }
 

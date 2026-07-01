@@ -58,6 +58,16 @@ class SaveAiConfigRequest(BaseModel):
     model: str | None = Field(None, max_length=200)
 
 
+class SaveAiKeyRequest(BaseModel):
+    provider: str = Field(..., max_length=20)
+    api_key: str = Field(..., min_length=1, max_length=2_000)
+
+
+class AiKeyStatusResponse(BaseModel):
+    ok: bool = True
+    personal_providers: list[str] = Field(default_factory=list)
+
+
 class SaveConfigRequest(BaseModel):
     project_id: int | None = None
     pm_tool: str | None = Field(None, max_length=20)
@@ -92,6 +102,10 @@ class AiConfigResponse(BaseModel):
     model: str
     available_models: list[AiConfigModel] = Field(default_factory=list)
     configured_providers: list[str] = Field(default_factory=list)
+    # Subset of configured_providers backed by a personal key saved to *your*
+    # Taiga/Jira account (src/ai_key_store.py), as opposed to the deployment's
+    # env var — lets the UI show "your key" vs "server key".
+    personal_providers: list[str] = Field(default_factory=list)
 
 
 class TraceFlagInfo(BaseModel):

@@ -21,6 +21,7 @@ def _fresh_caches(monkeypatch):
     # OrderedDict to match the production caches (LRU eviction, audit M8).
     monkeypatch.setattr(deps, "_token_cache", OrderedDict())
     monkeypatch.setattr(deps, "_project_cache", OrderedDict())
+    monkeypatch.setattr(deps, "_account_id_cache", OrderedDict())
 
 
 @pytest.fixture(autouse=True)
@@ -38,10 +39,17 @@ def _deterministic_dns():
 
 
 def _mock_pm(status_code: int):
-    """Patch the verify client to return status_code for every GET."""
+    """Patch the verify client to return status_code for every GET.
+
+    get_auth_context now also calls resolve_account_id (real_auth tests only —
+    the global bypass fixture stubs it everywhere else), which parses the same
+    response body for a Taiga `id` / Jira `accountId`; a deterministic body
+    keeps that resolution (and its own dial) predictable here too.
+    """
     resp = MagicMock()
     resp.is_success = 200 <= status_code < 300
     resp.status_code = status_code
+    resp.json.return_value = {"id": 1, "username": "testuser"}
     client = MagicMock()
     client.request = MagicMock(return_value=resp)
     return patch.object(deps, "_get_verify_client", return_value=client), client
@@ -135,7 +143,9 @@ def test_successful_validation_is_cached():
     with pm, _taiga_config():
         deps.get_auth_context("Bearer goodtoken")
         deps.get_auth_context("Bearer goodtoken")
-    assert client.request.call_count == 1
+    # 1 identity dial (_verify_pm_token) + 1 identity dial (resolve_account_id,
+    # its own independent cache) on the first call; both cached on the second.
+    assert client.request.call_count == 2
 
 
 def test_failed_validation_is_negatively_cached():
@@ -181,9 +191,12 @@ def test_project_access_denied_raises_403():
     """Token valid on the PM, but the project is not visible to it —
     the cross-tenant case the audit flagged."""
     identity_resp = MagicMock(is_success=True, status_code=200)
+    identity_resp.json.return_value = {"id": 1}
     project_resp = MagicMock(is_success=False, status_code=404)
     client = MagicMock()
-    client.request = MagicMock(side_effect=[identity_resp, project_resp])
+    # _verify_pm_token's identity dial, resolve_account_id's identity dial, then
+    # the project-access dial.
+    client.request = MagicMock(side_effect=[identity_resp, identity_resp, project_resp])
     with patch.object(deps, "_get_verify_client", return_value=client), _taiga_config():
         with pytest.raises(HTTPException) as exc:
             deps.get_request_context("Bearer goodtoken", 42, None)
@@ -195,8 +208,9 @@ def test_project_access_is_cached_per_token_and_project():
     with pm, _taiga_config():
         deps.get_request_context("Bearer goodtoken", 42, None)
         deps.get_request_context("Bearer goodtoken", 42, None)
-    # 1 identity check + 1 project check, both cached on the second call
-    assert client.request.call_count == 2
+    # 1 identity check (_verify_pm_token) + 1 identity check (resolve_account_id)
+    # + 1 project check, all cached on the second call.
+    assert client.request.call_count == 3
 
 
 def test_different_project_revalidates():
@@ -204,7 +218,9 @@ def test_different_project_revalidates():
     with pm, _taiga_config():
         deps.get_request_context("Bearer goodtoken", 42, None)
         deps.get_request_context("Bearer goodtoken", 43, None)
-    assert client.request.call_count == 3  # identity once, projects 42 and 43
+    # Both identity checks cached across calls (same token); projects 42 and 43
+    # each dial once since they're not cached yet.
+    assert client.request.call_count == 4
 
 
 # ---------------------------------------------------------------------------
@@ -315,9 +331,16 @@ def test_token_cache_is_scoped_to_identity_anchor(monkeypatch):
     with pm, _taiga_config(), _no_dns():
         deps.get_auth_context("Bearer same-token", "https://one.example.org")
         deps.get_auth_context("Bearer same-token", "https://two.example.org")
+    # Each anchor is dialled twice on first sight: once by _verify_pm_token
+    # (bool cache) and once by resolve_account_id (its own, separate cache) —
+    # see resolve_account_id's docstring for why that cache is intentionally
+    # independent. The invariant under test is still that neither anchor's
+    # dials leak into/reuse the other's cache.
     urls = [call.args[1] for call in client.request.call_args_list]
     assert urls == [
         "https://one.example.org/api/v1/users/me",
+        "https://one.example.org/api/v1/users/me",
+        "https://two.example.org/api/v1/users/me",
         "https://two.example.org/api/v1/users/me",
     ]
 
@@ -338,3 +361,115 @@ def test_private_anchor_url_rejected(monkeypatch):
         with pytest.raises(HTTPException) as exc:
             deps.get_auth_context("Bearer sometoken")
     assert exc.value.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# resolve_account_id / _pm_get_json (bring-your-own AI key account resolution)
+# ---------------------------------------------------------------------------
+
+def _mock_pm_json(status_code: int, body: dict | None = None):
+    resp = MagicMock()
+    resp.is_success = 200 <= status_code < 300
+    resp.status_code = status_code
+    resp.json.return_value = body if body is not None else {}
+    client = MagicMock()
+    client.request = MagicMock(return_value=resp)
+    return patch.object(deps, "_get_verify_client", return_value=client), client
+
+
+class TestResolveAccountId:
+    def test_taiga_uses_numeric_id(self, monkeypatch):
+        monkeypatch.delenv("TAIGA_API_URL", raising=False)
+        pm, client = _mock_pm_json(200, {"id": 42, "username": "alice"})
+        with pm, _taiga_config(), _no_dns():
+            account_id = deps.resolve_account_id("Bearer tok")
+        assert account_id == "42"
+
+    def test_jira_uses_account_id_field(self, monkeypatch):
+        config = {"pm_tool": "jira", "jira_base_url": "https://acme.atlassian.net"}
+        pm, client = _mock_pm_json(200, {"accountId": "5b10a2844c20", "emailAddress": "a@acme.com"})
+        with pm, patch("src.context_manager.load_config", return_value=config), _no_dns():
+            account_id = deps.resolve_account_id("Basic tok")
+        assert account_id == "5b10a2844c20"
+
+    def test_rejected_credentials_yield_empty_string(self, monkeypatch):
+        monkeypatch.delenv("TAIGA_API_URL", raising=False)
+        pm, client = _mock_pm_json(401)
+        with pm, _taiga_config(), _no_dns():
+            assert deps.resolve_account_id("Bearer badtoken") == ""
+
+    def test_network_error_yields_empty_string_not_raise(self, monkeypatch):
+        monkeypatch.delenv("TAIGA_API_URL", raising=False)
+        client = MagicMock()
+        client.request = MagicMock(side_effect=httpx.ConnectError("boom"))
+        with patch.object(deps, "_get_verify_client", return_value=client), _taiga_config(), _no_dns():
+            assert deps.resolve_account_id("Bearer sometoken") == ""
+
+    def test_missing_id_field_yields_empty_string(self, monkeypatch):
+        monkeypatch.delenv("TAIGA_API_URL", raising=False)
+        pm, client = _mock_pm_json(200, {"username": "alice"})  # no "id" key
+        with pm, _taiga_config(), _no_dns():
+            assert deps.resolve_account_id("Bearer tok") == ""
+
+    def test_result_is_cached_across_calls(self, monkeypatch):
+        monkeypatch.delenv("TAIGA_API_URL", raising=False)
+        pm, client = _mock_pm_json(200, {"id": 7})
+        with pm, _taiga_config(), _no_dns():
+            first = deps.resolve_account_id("Bearer tok")
+            second = deps.resolve_account_id("Bearer tok")
+        assert first == second == "7"
+        assert client.request.call_count == 1  # second call served from cache, no dial
+
+    def test_failed_lookup_is_not_cached(self, monkeypatch):
+        # A transient failure must not stick for the full TTL — retried next call.
+        monkeypatch.delenv("TAIGA_API_URL", raising=False)
+        pm, client = _mock_pm_json(401)
+        with pm, _taiga_config(), _no_dns():
+            deps.resolve_account_id("Bearer tok")
+            deps.resolve_account_id("Bearer tok")
+        assert client.request.call_count == 2
+
+    def test_uses_redis_when_configured(self, monkeypatch):
+        import fakeredis
+        from src import distributed
+
+        fake = fakeredis.FakeRedis(decode_responses=True)
+        monkeypatch.setattr(distributed, "redis_client", lambda: fake)
+        monkeypatch.delenv("TAIGA_API_URL", raising=False)
+        pm, client = _mock_pm_json(200, {"id": 99})
+        with pm, _taiga_config(), _no_dns():
+            first = deps.resolve_account_id("Bearer tok")
+            second = deps.resolve_account_id("Bearer tok")
+        assert first == second == "99"
+        assert client.request.call_count == 1  # second call served from Redis
+
+
+class TestLoadPersonalAiKeys:
+    def test_populates_context_var_from_store(self, monkeypatch, tmp_path):
+        from src import ai_key_store, ai_engine
+        from src.storage import StoragePath
+
+        monkeypatch.setattr(ai_key_store, "_BASE_CONTEXTSPEC", StoragePath(str(tmp_path / "contextspec")))
+        monkeypatch.setenv("AI_KEY_ENCRYPTION_SECRET", "test-secret")
+        monkeypatch.setattr(deps, "anchor_instance_id", lambda override="": "api_taiga_io")
+        ai_key_store.save_key("api_taiga_io", "42", "openai", "sk-personal-key")
+
+        deps._load_personal_ai_keys("42", "")
+        assert ai_engine._user_api_key("openai") == "sk-personal-key"
+
+    def test_empty_account_id_clears_context_var(self, monkeypatch):
+        from src import ai_engine
+
+        ai_engine.set_user_api_keys({"openai": "sk-stale-from-a-previous-request"})
+        deps._load_personal_ai_keys("", "")
+        assert ai_engine._user_api_key("openai") == ""
+
+    def test_store_lookup_failure_is_swallowed(self, monkeypatch):
+        # A broken key store must degrade to "no personal key", not break the request.
+        from src import ai_engine, ai_key_store
+
+        monkeypatch.setattr(deps, "anchor_instance_id", lambda override="": "api_taiga_io")
+        monkeypatch.setattr(ai_key_store, "load_keys", MagicMock(side_effect=RuntimeError("disk on fire")))
+        ai_engine.set_user_api_keys({"openai": "sk-stale-from-a-previous-request"})
+        deps._load_personal_ai_keys("42", "")  # must not raise
+        assert ai_engine._user_api_key("openai") == ""

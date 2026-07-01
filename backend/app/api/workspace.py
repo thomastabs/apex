@@ -14,6 +14,7 @@ from backend.app.api.deps import (
 )
 from backend.app.schemas.workspace import (
     AiConfigResponse,
+    AiKeyStatusResponse,
     AmendmentsResponse,
     ConfigResponse,
     ContextFilesResponse,
@@ -23,6 +24,7 @@ from backend.app.schemas.workspace import (
     OkResponse,
     PhaseStatusResponse,
     SaveAiConfigRequest,
+    SaveAiKeyRequest,
     AcknowledgeFigmaChangeRequest,
     SaveConfigRequest,
     ScanFigmaChangesRequest,
@@ -81,30 +83,48 @@ def get_config(
     }
 
 
-def _configured_providers() -> list[str]:
+_AI_KEY_ENV_VARS = (("anthropic", "ANTHROPIC_API_KEY"), ("openai", "OPENAI_API_KEY"), ("google", "GOOGLE_API_KEY"))
+
+
+def _personal_providers(auth: AuthContext, x_taiga_url: str) -> list[str]:
+    """Providers with a key saved to *this* PM account (src/ai_key_store.py).
+    [] when the account id couldn't be resolved this request — see
+    deps.resolve_account_id."""
+    if not auth.account_id:
+        return []
+    from src import ai_key_store
+
+    return ai_key_store.saved_providers(anchor_instance_id(x_taiga_url), auth.account_id)
+
+
+def _configured_providers(personal: list[str]) -> list[str]:
     import os
 
-    from src.ai_engine import _user_api_key
-
-    providers = []
-    for provider, env_var in (("anthropic", "ANTHROPIC_API_KEY"), ("openai", "OPENAI_API_KEY"), ("google", "GOOGLE_API_KEY")):
-        if os.getenv(env_var) or _user_api_key(provider):
-            providers.append(provider)
-    return providers
+    personal_set = set(personal)
+    return [provider for provider, env_var in _AI_KEY_ENV_VARS if os.getenv(env_var) or provider in personal_set]
 
 
 @router.get("/ai-config", response_model=AiConfigResponse)
-def get_ai_config(auth: AuthContext = Depends(get_auth_context)):
+def get_ai_config(
+    auth: AuthContext = Depends(get_auth_context),
+    x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+):
     from src.ai_engine import AVAILABLE_MODELS, get_model
+    personal = _personal_providers(auth, x_taiga_url)
     return {
         "model": get_model(),
         "available_models": AVAILABLE_MODELS,
-        "configured_providers": _configured_providers(),
+        "configured_providers": _configured_providers(personal),
+        "personal_providers": personal,
     }
 
 
 @router.post("/ai-config", response_model=AiConfigResponse)
-def save_ai_config_endpoint(payload: SaveAiConfigRequest, auth: AuthContext = Depends(get_auth_context)):
+def save_ai_config_endpoint(
+    payload: SaveAiConfigRequest,
+    auth: AuthContext = Depends(get_auth_context),
+    x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+):
     from src import ai_engine, context_manager
     from src.ai_engine import AVAILABLE_MODELS, get_model
     valid_ids = {m["id"] for m in AVAILABLE_MODELS}
@@ -113,7 +133,58 @@ def save_ai_config_endpoint(payload: SaveAiConfigRequest, auth: AuthContext = De
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid model ID.")
     context_manager.save_ai_config(model)
     ai_engine._llm_cache.clear()
-    return {"model": model, "available_models": AVAILABLE_MODELS, "configured_providers": _configured_providers()}
+    personal = _personal_providers(auth, x_taiga_url)
+    return {
+        "model": model,
+        "available_models": AVAILABLE_MODELS,
+        "configured_providers": _configured_providers(personal),
+        "personal_providers": personal,
+    }
+
+
+@router.post("/ai-keys", response_model=AiKeyStatusResponse)
+def save_ai_key(
+    payload: SaveAiKeyRequest,
+    auth: AuthContext = Depends(get_auth_context),
+    x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+):
+    """Save *your* personal AI provider key, tied to your Taiga/Jira account —
+    it will be there next time you sign in from anywhere, unlike the AI model
+    selection above which is a deployment-wide setting."""
+    from src import ai_engine, ai_key_store
+
+    if payload.provider not in ai_key_store.PROVIDERS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown provider.")
+    if not auth.account_id:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Could not determine your PM account — try signing in again.",
+        )
+    instance_id = anchor_instance_id(x_taiga_url)
+    try:
+        ai_key_store.save_key(instance_id, auth.account_id, payload.provider, payload.api_key.strip())
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    ai_engine._llm_cache.clear()  # drop any cached client so the new key takes effect immediately
+    return {"ok": True, "personal_providers": ai_key_store.saved_providers(instance_id, auth.account_id)}
+
+
+@router.delete("/ai-keys/{provider}", response_model=AiKeyStatusResponse)
+def delete_ai_key(
+    provider: str,
+    auth: AuthContext = Depends(get_auth_context),
+    x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+):
+    from src import ai_engine, ai_key_store
+
+    if provider not in ai_key_store.PROVIDERS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown provider.")
+    instance_id = anchor_instance_id(x_taiga_url)
+    if auth.account_id:
+        ai_key_store.delete_key(instance_id, auth.account_id, provider)
+        ai_engine._llm_cache.clear()
+    personal = ai_key_store.saved_providers(instance_id, auth.account_id) if auth.account_id else []
+    return {"ok": True, "personal_providers": personal}
 
 
 @router.post("/config", response_model=OkResponse)
