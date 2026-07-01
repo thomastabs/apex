@@ -227,6 +227,14 @@ function TaigaSections({
   confirm: (msg: string, fn: () => void) => void;
   serverConfig: ReturnType<typeof useServerConfig>["data"];
 }) {
+  if (pathname.startsWith("/phase1")) {
+    return (
+      <>
+        <BoardSection dark={dark} projectId={projectId} confirm={confirm} />
+        <FigmaSection dark={dark} figmaFileKey={serverConfig?.figma_file_key ?? ""} />
+      </>
+    );
+  }
   if (pathname.startsWith("/phase2")) {
     return (
       <>
