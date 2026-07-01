@@ -239,6 +239,8 @@ def test_get_ai_config_personal_key_configured_even_alongside_system_key(monkeyp
     # personal key; ai_engine actually calling it is covered in test_ai_engine.py).
     monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-system-env")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
     monkeypatch.setattr("src.ai_key_store.saved_providers", lambda instance_id, account_id: ["openai"])
 
     response = get_ai_config(_AUTH_WITH_ACCOUNT)
