@@ -204,6 +204,7 @@ function SettingsModal({
 // ── LoginSection ──────────────────────────────────────────────────────────────
 
 function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
+  const dark = useUiStore((s) => s.theme) === "dark";
   const setAuth = useSessionStore((s) => s.setAuth);
   const clearSession = useSessionStore((s) => s.clearSession);
   const taigaToken = useSessionStore((s) => s.taigaToken);
@@ -298,20 +299,20 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
       : "border-violet-500/30 bg-violet-500/10 text-violet-400";
     return (
       <div className="flex items-center gap-2.5 px-4 py-3">
-        <div className="grid size-7 shrink-0 place-items-center rounded-md bg-violet-950 text-[11px] font-bold text-violet-300">
+        <div className={cn("grid size-7 shrink-0 place-items-center rounded-md text-[11px] font-bold", dark ? "bg-violet-950 text-violet-300" : "bg-violet-100 text-violet-700")}>
           {initials(displayName)}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold text-white">{displayName || "User"}</div>
+          <div className={cn("truncate text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>{displayName || "User"}</div>
           <div className="flex items-center gap-1.5 mt-0.5">
             <span className={cn("rounded border px-1 py-px text-[10px] font-semibold", pmColor)}>{pmLabel}</span>
-            {email && <span className="truncate text-[11px] text-neutral-500">{email}</span>}
+            {email && <span className={cn("truncate text-[11px]", dark ? "text-neutral-500" : "text-slate-500")}>{email}</span>}
           </div>
           {storedPmTool === "taiga" && storedTaigaApiUrl && storedTaigaApiUrl !== "https://api.taiga.io" && (
-            <div className="truncate text-[10px] text-neutral-600 mt-0.5">{storedTaigaApiUrl}</div>
+            <div className={cn("truncate text-[10px] mt-0.5", dark ? "text-neutral-600" : "text-slate-400")}>{storedTaigaApiUrl}</div>
           )}
         </div>
-        <button className="shrink-0 text-[11px] text-neutral-500 hover:text-red-400 transition-colors" onClick={signOut}>
+        <button className={cn("shrink-0 text-[11px] transition-colors hover:text-red-400", dark ? "text-neutral-500" : "text-slate-500")} onClick={signOut}>
           Sign out
         </button>
       </div>
@@ -325,23 +326,23 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
 
       {pmTool === "taiga" ? (
         <>
-          <div className="grid grid-cols-2 rounded-md bg-neutral-800 p-1">
-            <button className={cn("h-8 rounded text-xs text-neutral-300", mode === "password" && "bg-neutral-700 text-white")} onClick={() => setMode("password")}>Password</button>
-            <button className={cn("h-8 rounded text-xs text-neutral-300", mode === "token" && "bg-neutral-700 text-white")} onClick={() => setMode("token")}>Auth Token</button>
+          <div className={cn("grid grid-cols-2 rounded-md p-1", dark ? "bg-neutral-800" : "bg-slate-100")}>
+            <button className={cn("h-8 rounded text-xs", dark ? "text-neutral-300" : "text-slate-500", mode === "password" && (dark ? "bg-neutral-700 text-white" : "bg-white text-slate-900 shadow-sm"))} onClick={() => setMode("password")}>Password</button>
+            <button className={cn("h-8 rounded text-xs", dark ? "text-neutral-300" : "text-slate-500", mode === "token" && (dark ? "bg-neutral-700 text-white" : "bg-white text-slate-900 shadow-sm"))} onClick={() => setMode("token")}>Auth Token</button>
           </div>
-          <input value={taigaInstanceUrl} onChange={(e) => setTaigaInstanceUrl(e.target.value)} className="h-8 w-full rounded border border-neutral-700 bg-neutral-950 px-3 text-xs text-white outline-none placeholder:text-neutral-600 focus:border-violet-500/70" placeholder="Instance URL (blank = Taiga Cloud)" autoComplete="off" />
+          <input value={taigaInstanceUrl} onChange={(e) => setTaigaInstanceUrl(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white placeholder:text-neutral-600 focus:border-violet-500/70" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder="Instance URL (blank = Taiga Cloud)" autoComplete="off" />
           {mode === "password" ? (
             <>
-              <input value={username} onChange={(e) => setUsername(e.target.value)} className="h-8 w-full rounded border border-neutral-700 bg-neutral-950 px-3 text-xs text-white outline-none focus:border-violet-500" placeholder="Username" />
+              <input value={username} onChange={(e) => setUsername(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder="Username" />
               <div className="relative">
-                <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className="h-8 w-full rounded border border-neutral-700 bg-neutral-950 px-3 pr-8 text-xs text-white outline-none focus:border-violet-500" placeholder="Password" onKeyDown={(e) => { if (e.key === "Enter") handlePasswordLogin(); }} />
-                <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute inset-y-0 right-2 text-neutral-500 hover:text-neutral-300 transition-colors" tabIndex={-1}>
+                <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className={cn("h-8 w-full rounded border px-3 pr-8 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder="Password" onKeyDown={(e) => { if (e.key === "Enter") handlePasswordLogin(); }} />
+                <button type="button" onClick={() => setShowPassword((v) => !v)} className={cn("absolute inset-y-0 right-2 transition-colors", dark ? "text-neutral-500 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600")} tabIndex={-1}>
                   {showPassword ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
                 </button>
               </div>
             </>
           ) : (
-            <input value={tokenInput} onChange={(e) => setTokenInput(e.target.value)} className="h-8 w-full rounded border border-neutral-700 bg-neutral-950 px-3 text-xs text-white outline-none focus:border-violet-500" placeholder="Taiga auth token" />
+            <input value={tokenInput} onChange={(e) => setTokenInput(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder="Taiga auth token" />
           )}
           {loginError && <p className="text-xs text-red-400">{loginError}</p>}
           <button
@@ -359,7 +360,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
             <Send className="size-3" />
             {isPending ? "Signing in..." : "Sign in to Taiga"}
           </button>
-          <a href={pmWebUrl || "https://tree.taiga.io"} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1 text-[11px] text-neutral-500 hover:text-violet-400 transition-colors">
+          <a href={pmWebUrl || "https://tree.taiga.io"} target="_blank" rel="noopener noreferrer" className={cn("flex items-center justify-center gap-1 text-[11px] transition-colors hover:text-violet-400", dark ? "text-neutral-500" : "text-slate-500")}>
             <UserPlus className="size-3" /> Create account
           </a>
         </>
