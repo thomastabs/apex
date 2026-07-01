@@ -124,25 +124,19 @@ function NavDivider({ label, dark }: { label: string; dark: boolean }) {
 }
 
 // ── TaigaSections ─────────────────────────────────────────────────────────────
-// What's left in the left sidebar's context zone — Figma (design phases) and
-// Users & Roles (maintenance) — everything else moved to the workspace panel.
+// What's left in the left sidebar's context zone — Users & Roles (maintenance)
+// only. Figma config lives solely in Settings; everything else (Epics &
+// Stories, Task Board, Active Context, Developer/Test/Deploy Packs, project
+// picker) lives in the right-hand workspace sidebar (see right-sidebar.tsx).
 
 function TaigaSections({
-  pathname, dark, projectId, confirm, serverConfig,
+  pathname, dark, projectId, confirm,
 }: {
   pathname: string;
   dark: boolean;
   projectId: number;
   confirm: (msg: string, fn: () => void) => void;
-  serverConfig: ReturnType<typeof useServerConfig>["data"];
 }) {
-  // Epics & Stories, Task Board, Active Context, Developer/Test/Deploy Packs
-  // and the project picker live in the right-hand workspace sidebar now (see
-  // right-sidebar.tsx) so they stay reachable from every phase instead of
-  // being phase-gated here.
-  if (pathname.startsWith("/phase1") || pathname.startsWith("/phase2")) {
-    return <FigmaSection dark={dark} figmaFileKey={serverConfig?.figma_file_key ?? ""} />;
-  }
   if (pathname.startsWith("/phase6")) {
     return <UsersSection dark={dark} projectId={projectId} confirm={confirm} />;
   }
@@ -614,7 +608,6 @@ export function Sidebar() {
                 dark={dark}
                 projectId={projectId}
                 confirm={confirm}
-                serverConfig={serverConfig.data}
               />
             </div>
           ) : (
@@ -639,7 +632,7 @@ export function Sidebar() {
             dark ? "text-neutral-500 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600",
           )}
         >
-          <Settings className="size-3.5" />
+          <Settings className="size-5" />
           <span>Settings</span>
         </button>
       </div>

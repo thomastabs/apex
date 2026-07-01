@@ -15,7 +15,7 @@ import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
 import { SignInRequired } from "@/components/sign-in-required";
-import { PanelHeader, type DragSectionProps } from "./shared";
+import { MarkdownPreview, PanelHeader, type DragSectionProps } from "./shared";
 
 // ── utilities ─────────────────────────────────────────────────────────────────
 
@@ -160,27 +160,6 @@ function downloadContextZip(files: Array<{ filename: string; content: string }>)
   const a = document.createElement("a");
   a.href = url; a.download = "apex-context-files.zip"; a.click();
   URL.revokeObjectURL(url);
-}
-
-function MarkdownPreview({ content }: { content: string }) {
-  const [html, setHtml] = useState("");
-  const dark = useUiStore((state) => state.theme) === "dark";
-  useEffect(() => {
-    async function render() {
-      const { marked } = await import("marked");
-      const DOMPurify = (await import("dompurify")).default;
-      const raw = await marked.parse(content || "");
-      setHtml(DOMPurify.sanitize(raw));
-    }
-    void render();
-  }, [content]);
-  return (
-    <div
-      className={cn("prose prose-sm max-w-none overflow-auto p-3 text-xs leading-5", dark ? "prose-invert" : "prose-slate")}
-      // eslint-disable-next-line react/no-danger
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  );
 }
 
 function ContextEditor({

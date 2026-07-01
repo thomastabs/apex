@@ -146,23 +146,24 @@ export default function HomePage() {
     <section className="px-6 py-6 lg:px-8 lg:py-8">
 
       {/* Page header */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between">
-          <h1 className={cn("text-lg font-semibold", dark ? "text-neutral-100" : "text-slate-900")}>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Apex</p>
+          <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
             Overview
           </h1>
-          {hasProject && (
-            <span className={cn(
-              "rounded border px-2 py-0.5 text-xs font-medium",
-              dark ? "border-violet-500/30 bg-violet-500/10 text-violet-400" : "border-violet-300 bg-violet-50 text-violet-600",
-            )}>
-              {projectName || `Project #${projectId}`}
-            </span>
-          )}
+          <p className={cn("mt-2", dark ? "text-neutral-500" : "text-slate-400")}>
+            Spec-anchored human-AI collaboration for the full SDLC
+          </p>
         </div>
-        <p className={cn("mt-0.5 text-sm", dark ? "text-neutral-500" : "text-slate-400")}>
-          Spec-anchored human-AI collaboration for the full SDLC
-        </p>
+        {hasProject && (
+          <span className={cn(
+            "mt-2 rounded border px-2 py-0.5 text-xs font-medium",
+            dark ? "border-violet-500/30 bg-violet-500/10 text-violet-400" : "border-violet-300 bg-violet-50 text-violet-600",
+          )}>
+            {projectName || `Project #${projectId}`}
+          </span>
+        )}
       </div>
 
       {/* Auth banner — shown only when not signed in */}
