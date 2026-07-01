@@ -232,8 +232,8 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
     router.push("/");
   };
 
-  const [pmTool, setPmTool] = useState<"taiga" | "jira">(storedPmTool);
-  useEffect(() => { setPmTool(storedPmTool); }, [storedPmTool]);
+  // Jira login is deactivated for now (backlog) — sign-in form is Taiga-only.
+  const [pmTool] = useState<"taiga" | "jira">("taiga");
   const [mode, setMode] = useState<"password" | "token">("token");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -329,10 +329,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
   // ── Sign-in form ──
   return (
     <div className="space-y-3 px-4 py-4">
-      <div className="grid grid-cols-2 rounded-md bg-neutral-800 p-1">
-        <button className={cn("h-8 rounded text-xs text-neutral-300", pmTool === "taiga" && "bg-violet-600 text-white")} onClick={() => { setPmTool("taiga"); setLoginError(""); }}>Taiga</button>
-        <button className={cn("h-8 rounded text-xs text-neutral-300", pmTool === "jira" && "bg-violet-600 text-white")} onClick={() => { setPmTool("jira"); setLoginError(""); }}>Jira Cloud</button>
-      </div>
+      {/* Jira Cloud login deactivated for now (backlog) — Taiga-only tab bar hidden. */}
 
       {pmTool === "taiga" ? (
         <>
