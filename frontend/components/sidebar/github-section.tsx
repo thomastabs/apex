@@ -83,7 +83,7 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
   }
 
   return (
-    <div {...dragHandlers} className={shellClass}>
+    <div {...(dragHandlers ?? {})} className={shellClass}>
       <section className={cn("border-b", sectionBorderClass)}>
         <PanelHeader
           icon={<Github className="size-4" />}

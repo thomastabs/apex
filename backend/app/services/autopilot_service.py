@@ -510,6 +510,7 @@ def _run_phase3(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> Non
         _emit(job, "info", f"  Story {story_id}: generating tasks…", phase="phase3")
         tasks = p3.generate_tasks(ctx, story_id, instructions=job.get("steer_note", ""))
         _emit(job, "info", f"  Story {story_id}: {len(tasks)} tasks", phase="phase3")
+        proposals: list[str] = []
         for task in tasks:
             if _check_stop(job):
                 return
@@ -519,10 +520,39 @@ def _run_phase3(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> Non
                 all_tasks=tasks,
             )
             p3.save_proposal(ctx, story_id, task["id"], proposal_md)
+            proposals.append(f"### Task {task['id']}: {task['subject']}\n{proposal_md}")
         p3.lock_story(ctx, story_id, [t["id"] for t in tasks])
+
+        # Push tasks to Taiga when we have a real Taiga story ID (< 9M = not synthetic).
+        can_push = (
+            job.get("taiga_base") and job.get("taiga_token") and story_id < 9_000_000
+        )
+        if can_push:
+            for task in tasks:
+                if _check_stop(job):
+                    return
+                try:
+                    _taiga_post(
+                        f"{job['taiga_base']}/tasks",
+                        job["taiga_token"],
+                        {
+                            "project": ctx.project_id,
+                            "user_story": story_id,
+                            "subject": task["subject"],
+                            "description": task.get("description", ""),
+                        },
+                    )
+                except Exception as exc:
+                    _emit(job, "warning",
+                          f"    Story {story_id} · task '{task['subject'][:40]}': Taiga push failed ({exc})",
+                          phase="phase3")
+
         with _progress_lock:
             job["stories_done"] += 1
-        _emit(job, "success", f"  Story {story_id}: implementation plan locked", phase="phase3")
+        dev_pack_preview = "\n\n".join(proposals)[:2000]
+        push_note = " · tasks pushed to Taiga" if can_push else ""
+        _emit(job, "success", f"  Story {story_id}: implementation plan locked{push_note}", phase="phase3",
+              artifact=dev_pack_preview)
         _persist(job)
 
     _process_stories(job, all_story_ids, _PHASE3_DONE, _worker)

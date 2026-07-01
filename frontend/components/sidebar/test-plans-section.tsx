@@ -104,7 +104,7 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
   );
 
   return (
-    <div {...dragHandlers} className={shellClass}>
+    <div {...(dragHandlers ?? {})} className={shellClass}>
       <section className={cn("border-b", dark ? "border-neutral-800" : "border-slate-300")}>
         <PanelHeader
           icon={<ClipboardCheck className="size-4" />}

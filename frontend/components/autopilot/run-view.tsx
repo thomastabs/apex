@@ -44,13 +44,13 @@ const PHASE_LABELS: Record<string, string> = {
 
 // Left-accent + chip colour per phase, for the artifact viewer.
 const PHASE_ACCENT: Record<string, string> = {
-  phase1: "border-sky-500/70 bg-sky-500/10 text-sky-300",
-  phase2: "border-violet-500/70 bg-violet-500/10 text-violet-300",
-  phase3: "border-emerald-500/70 bg-emerald-500/10 text-emerald-300",
-  phase4: "border-amber-500/70 bg-amber-500/10 text-amber-300",
-  phase5: "border-pink-500/70 bg-pink-500/10 text-pink-300",
-  init: "border-neutral-600 bg-neutral-700/20 text-neutral-300",
-  "": "border-neutral-600 bg-neutral-700/20 text-neutral-300",
+  phase1: "border-sky-500/70 bg-sky-500/10 text-sky-600 dark:text-sky-300",
+  phase2: "border-violet-500/70 bg-violet-500/10 text-violet-600 dark:text-violet-300",
+  phase3: "border-emerald-500/70 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
+  phase4: "border-amber-500/70 bg-amber-500/10 text-amber-600 dark:text-amber-300",
+  phase5: "border-pink-500/70 bg-pink-500/10 text-pink-600 dark:text-pink-300",
+  init: "border-neutral-400 bg-neutral-100 text-neutral-600 dark:border-neutral-600 dark:bg-neutral-700/20 dark:text-neutral-300",
+  "": "border-neutral-400 bg-neutral-100 text-neutral-600 dark:border-neutral-600 dark:bg-neutral-700/20 dark:text-neutral-300",
 };
 
 /** Short human label for an artifact, inferred from the emitting event. */
@@ -62,7 +62,7 @@ function artifactKind(ev: AutopilotEvent): string {
   if (m.includes("section")) return "Design section";
   if (m.includes("test plan")) return "Test plan";
   if (m.includes("figma")) return "Figma context";
-  if (m.includes("pack") || m.includes("proposal")) return "Dev pack";
+  if (m.includes("pack") || m.includes("proposal") || m.includes("implementation plan")) return "Dev pack";
   return PHASE_LABELS[ev.phase]?.split("·").pop()?.trim() ?? "Artifact";
 }
 
@@ -80,7 +80,7 @@ function CopyButton({ getText, label }: { getText: () => string; label: string }
           toast.error("Copy failed");
         }
       }}
-      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-normal normal-case text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300"
+      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-normal normal-case text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
       title={`Copy ${label}`}
     >
       {copied ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3" />}
@@ -131,15 +131,15 @@ function EventIcon({ level }: { level: AutopilotEvent["level"] }) {
 function EventRow({ event }: { event: AutopilotEvent }) {
   const ts = new Date(event.ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const textColor =
-    event.level === "success" ? "text-emerald-300"
-    : event.level === "error" ? "text-red-300"
-    : event.level === "warning" ? "text-amber-300"
-    : event.level === "checkpoint" ? "text-violet-300"
-    : "text-neutral-400";
+    event.level === "success" ? "text-emerald-600 dark:text-emerald-300"
+    : event.level === "error" ? "text-red-600 dark:text-red-300"
+    : event.level === "warning" ? "text-amber-600 dark:text-amber-300"
+    : event.level === "checkpoint" ? "text-violet-600 dark:text-violet-300"
+    : "text-neutral-600 dark:text-neutral-400";
 
   return (
     <div className="flex items-start gap-2 py-0.5">
-      <span className="shrink-0 text-[10px] text-neutral-600 font-mono mt-0.5 w-16">{ts}</span>
+      <span className="shrink-0 text-[10px] text-neutral-400 dark:text-neutral-600 font-mono mt-0.5 w-16">{ts}</span>
       <EventIcon level={event.level} />
       <span className={cn("text-xs leading-relaxed", textColor)}>{event.msg}</span>
     </div>
@@ -159,9 +159,9 @@ function PhaseProgress({ currentPhase, state }: { currentPhase: AutopilotPhase; 
             <div
               className={cn(
                 "flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors",
-                done ? "bg-emerald-500/20 text-emerald-400"
-                : active ? (state === "paused" ? "bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/40" : "bg-violet-500/20 text-violet-300 ring-1 ring-violet-500/40")
-                : "bg-neutral-800 text-neutral-600",
+                done ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                : active ? (state === "paused" ? "bg-amber-500/20 text-amber-600 dark:text-amber-300 ring-1 ring-amber-500/40" : "bg-violet-500/20 text-violet-600 dark:text-violet-300 ring-1 ring-violet-500/40")
+                : "bg-neutral-200 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-600",
               )}
             >
               {done ? <CheckCircle2 className="size-3" /> : active && state === "running" ? <Loader2 className="size-3 animate-spin" /> : <span className="size-3 flex items-center justify-center text-[9px]">{i + 1}</span>}
@@ -271,7 +271,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming }: Props)
             <Bot className="size-4 text-violet-400" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-neutral-100">Autopilot running</h2>
+            <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Autopilot running</h2>
             <p className="text-xs text-neutral-500">
               {status.story_count > 0
                 ? `${status.stories_done}/${status.story_count} stories processed`
@@ -285,7 +285,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming }: Props)
             <button
               onClick={() => pause.mutate()}
               disabled={pause.isPending}
-              className="flex items-center gap-1.5 rounded border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs text-neutral-300 hover:bg-neutral-700 disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded border border-neutral-300 bg-white px-2.5 py-1 text-xs text-neutral-600 hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
             >
               <Pause className="size-3" /> Pause
             </button>
@@ -304,7 +304,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming }: Props)
               <button
                 onClick={() => stop.mutate()}
                 disabled={stop.isPending}
-                className="flex items-center gap-1.5 rounded border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs text-neutral-400 hover:bg-neutral-700 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded border border-neutral-300 bg-white px-2.5 py-1 text-xs text-neutral-500 hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700"
               >
                 <Square className="size-3" /> Stop
               </button>
@@ -329,7 +329,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming }: Props)
           {(isTerminal || isInterrupted) && (
             <button
               onClick={onReset}
-              className="flex items-center gap-1.5 rounded border border-neutral-700 bg-neutral-800 px-2.5 py-1 text-xs text-neutral-300 hover:bg-neutral-700"
+              className="flex items-center gap-1.5 rounded border border-neutral-300 bg-white px-2.5 py-1 text-xs text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
             >
               <RotateCcw className="size-3" /> New run
             </button>
@@ -365,7 +365,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming }: Props)
               <span>{label}</span>
               <span>{doneN}/{totalN}</span>
             </div>
-            <div className="h-1 w-full rounded-full bg-neutral-800">
+            <div className="h-1 w-full rounded-full bg-neutral-200 dark:bg-neutral-800">
               <div
                 className="h-1 rounded-full bg-violet-500 transition-all duration-500"
                 style={{ width: `${Math.min(100, (doneN / totalN) * 100)}%` }}
@@ -442,7 +442,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming }: Props)
 
       {/* Steer the AI — inject a note applied to every subsequent generative step */}
       {!isTerminal && !isInterrupted && (
-        <div className="rounded-md border border-neutral-700/60 bg-neutral-800/30 p-3">
+        <div className="rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-700/60 dark:bg-neutral-800/30">
           <div className="mb-1.5 flex items-center justify-between">
             <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
               <Bot className="size-3 text-violet-400" /> Steer the AI
@@ -459,7 +459,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming }: Props)
               onChange={(e) => setSteerDraft(e.target.value)}
               rows={2}
               placeholder="e.g. Prefer mobile-first flows; keep stories small; assume an existing auth service. Applied to the next story/design/task the AI generates."
-              className="flex-1 resize-y rounded border border-neutral-700 bg-neutral-900/60 px-2 py-1.5 text-xs text-neutral-200 placeholder-neutral-600 focus:border-violet-500/60 focus:outline-none"
+              className="flex-1 resize-y rounded border border-neutral-200 bg-white px-2 py-1.5 text-xs text-neutral-800 placeholder-neutral-400 focus:border-violet-500/60 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900/60 dark:text-neutral-200 dark:placeholder-neutral-600"
               onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) applySteer(); }}
             />
             <button
@@ -471,7 +471,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming }: Props)
               <Send className="size-3" /> Apply
             </button>
           </div>
-          <p className="mt-1 text-[10px] text-neutral-600">Guides Phase 1 stories, Phase 2 design, and Phase 3 tasks generated after you apply it (⌘/Ctrl+Enter). Clear the box and Apply to remove.</p>
+          <p className="mt-1 text-[10px] text-neutral-500 dark:text-neutral-600">Guides Phase 1 stories, Phase 2 design, and Phase 3 tasks generated after you apply it (⌘/Ctrl+Enter). Clear the box and Apply to remove.</p>
         </div>
       )}
 
@@ -491,17 +491,17 @@ export function AutopilotRunView({ status, onReset, onResume, resuming }: Props)
           </p>
           <div
             ref={logRef}
-            className="h-96 min-h-[10rem] max-h-[85vh] resize-y overflow-auto rounded-md border border-neutral-800 bg-neutral-900/60 px-2 py-2 font-mono"
+            className="h-96 min-h-[10rem] max-h-[85vh] resize-y overflow-auto rounded-md border border-neutral-200 bg-neutral-50 px-2 py-2 font-mono dark:border-neutral-800 dark:bg-neutral-900/60"
           >
             {groups.map((g, gi) => {
               const key = `${g.phase}-${g.events[0].id}`;
               const isCollapsed = collapsed.has(key);
               return (
-                <div key={key} className={cn("rounded", gi > 0 && "mt-1.5 border-t border-neutral-800/70 pt-1.5")}>
+                <div key={key} className={cn("rounded", gi > 0 && "mt-1.5 border-t border-neutral-200 pt-1.5 dark:border-neutral-800/70")}>
                   <button
                     type="button"
                     onClick={() => togglePhase(key)}
-                    className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left text-[10px] font-semibold uppercase tracking-wider text-neutral-500 hover:bg-neutral-800/60"
+                    className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left text-[10px] font-semibold uppercase tracking-wider text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800/60"
                   >
                     {isCollapsed ? <ChevronRight className="size-3" /> : <ChevronDown className="size-3" />}
                     {PHASE_LABELS[g.phase] ?? g.phase}
@@ -538,7 +538,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming }: Props)
                 onClick={() => setPinnedArtifactId(null)}
                 className={cn(
                   "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-colors",
-                  following ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300" : "border-neutral-700 text-neutral-500 hover:text-neutral-300",
+                  following ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-600 dark:text-emerald-300" : "border-neutral-300 text-neutral-500 hover:text-neutral-700 dark:border-neutral-700 dark:hover:text-neutral-300",
                 )}
               >
                 <span className={cn("size-1.5 rounded-full", following && isRunning ? "animate-pulse bg-emerald-400" : "bg-neutral-600")} />
@@ -551,7 +551,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming }: Props)
                   onClick={() => setPinnedArtifactId(a.id)}
                   className={cn(
                     "rounded-full border px-2 py-0.5 text-[10px] transition-colors",
-                    !following && selectedArtifact?.id === a.id ? "border-violet-500/50 bg-violet-500/15 text-violet-200" : "border-neutral-700 text-neutral-500 hover:text-neutral-300",
+                    !following && selectedArtifact?.id === a.id ? "border-violet-500/50 bg-violet-500/15 text-violet-600 dark:text-violet-200" : "border-neutral-300 text-neutral-500 hover:text-neutral-700 dark:border-neutral-700 dark:hover:text-neutral-300",
                   )}
                 >
                   {artifactKind(a)}
@@ -560,25 +560,25 @@ export function AutopilotRunView({ status, onReset, onResume, resuming }: Props)
             </div>
           )}
 
-          <div className="h-96 min-h-[10rem] max-h-[85vh] resize-y overflow-auto rounded-md border border-neutral-800 bg-neutral-900/60 p-2">
+          <div className="h-96 min-h-[10rem] max-h-[85vh] resize-y overflow-auto rounded-md border border-neutral-200 bg-neutral-50 p-2 dark:border-neutral-800 dark:bg-neutral-900/60">
             {selectedArtifact ? (
               <div>
                 <div className={cn("mb-2 flex items-start justify-between gap-2 rounded border-l-2 px-2 py-1.5", PHASE_ACCENT[selectedArtifact.phase] ?? PHASE_ACCENT[""])}>
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-semibold uppercase tracking-wider">{artifactKind(selectedArtifact)}</p>
-                    <p className="truncate text-[10px] text-neutral-400">{selectedArtifact.msg}</p>
+                    <p className="truncate text-[10px] text-neutral-500 dark:text-neutral-400">{selectedArtifact.msg}</p>
                   </div>
                   <span className="shrink-0 font-mono text-[9px] text-neutral-500">
                     {new Date(selectedArtifact.ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                   </span>
                 </div>
-                <pre className="whitespace-pre-wrap break-words px-1 text-[11px] leading-relaxed text-neutral-300 font-mono">
+                <pre className="whitespace-pre-wrap break-words px-1 text-[11px] leading-relaxed text-neutral-700 font-mono dark:text-neutral-300">
                   {selectedArtifact.artifact}
                 </pre>
               </div>
             ) : (
               <div className="flex h-full flex-col items-center justify-center gap-1 text-center">
-                <Bot className="size-5 text-neutral-700" />
+                <Bot className="size-5 text-neutral-400 dark:text-neutral-700" />
                 <p className="text-xs text-neutral-600">Artifacts appear here as each phase generates them.</p>
               </div>
             )}

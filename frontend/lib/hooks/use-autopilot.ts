@@ -162,8 +162,19 @@ export function useStopAutopilot(jobId: string | null) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => stopAutopilot(ctx!, jobId!),
+    onMutate: () => {
+      // Freeze the UI immediately — disables the stream and polling before the
+      // server round-trip completes (otherwise the in-flight stream keeps pushing
+      // events for up to ~10s while a long AI call finishes).
+      qc.setQueryData<AutopilotStatus>(["autopilot", jobId], (old) =>
+        old ? { ...old, state: "stopped" } : old,
+      );
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["autopilot", jobId] }),
-    onError: (err: Error) => toast.error(`Stop failed: ${err.message}`),
+    onError: (err: Error) => {
+      qc.invalidateQueries({ queryKey: ["autopilot", jobId] });
+      toast.error(`Stop failed: ${err.message}`);
+    },
   });
 }
 

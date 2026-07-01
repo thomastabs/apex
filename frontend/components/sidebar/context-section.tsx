@@ -296,7 +296,7 @@ type ContextSectionProps = DragSectionProps & {
 };
 
 export function ContextSection({ dark, projectId: _projectId, confirm, shellClass, dragHandlers, onDragStart }: ContextSectionProps) {
-  const [contextOpen, setContextOpen] = useState(true);
+  const [contextOpen, setContextOpen] = useState(false);
   const [expandedContext, setExpandedContext] = useState<string | null>(null);
 
   const context = useApiContext();
@@ -324,7 +324,7 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
   const expandedPanelClass = dark ? "bg-[#20232b]" : "bg-white";
 
   return (
-    <div {...dragHandlers} className={shellClass}>
+    <div {...(dragHandlers ?? {})} className={shellClass}>
       <section className={cn("border-b", sectionBorderClass)}>
         <PanelHeader
           icon={<FileText className="size-4" />}
