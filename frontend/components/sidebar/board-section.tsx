@@ -879,7 +879,10 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                   <Plus className="size-3" /> Create New Epic
                 </button>
                 <button
-                  className="flex items-center gap-1 rounded border border-neutral-600 px-2 py-1.5 text-neutral-300 transition-colors hover:border-violet-500/50 hover:text-violet-300"
+                  className={cn(
+                    "flex items-center gap-1 rounded border px-2 py-1.5 transition-colors hover:border-violet-500/50",
+                    dark ? "border-neutral-600 text-neutral-300 hover:text-violet-300" : "border-slate-300 text-slate-600 hover:text-violet-600",
+                  )}
                   onClick={() => toast.promise(board.refetch(), { loading: "Refreshing…", success: "Board refreshed", error: "Failed to refresh board" })}
                 >
                   <RefreshCw className="size-3" />

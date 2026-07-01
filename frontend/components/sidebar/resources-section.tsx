@@ -55,7 +55,7 @@ export function ResourcesSection({ dark, pmWebUrl, pmTool, shellClass, dragHandl
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 rounded px-2 py-1.5 text-sm text-violet-300 transition-colors hover:bg-violet-500/10 hover:text-violet-200"
+                  className={cn("flex items-center gap-2 rounded px-2 py-1.5 text-sm transition-colors hover:bg-violet-500/10", dark ? "text-violet-300 hover:text-violet-200" : "text-violet-700 hover:text-violet-600")}
                 >
                   <ExternalLink className="size-3 shrink-0" />
                   {label}
@@ -69,7 +69,7 @@ export function ResourcesSection({ dark, pmWebUrl, pmTool, shellClass, dragHandl
                   href={pmWebUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 rounded px-2 py-1.5 text-sm text-violet-300 transition-colors hover:bg-violet-500/10 hover:text-violet-200"
+                  className={cn("flex items-center gap-2 rounded px-2 py-1.5 text-sm transition-colors hover:bg-violet-500/10", dark ? "text-violet-300 hover:text-violet-200" : "text-violet-700 hover:text-violet-600")}
                 >
                   <ExternalLink className="size-3 shrink-0" />
                   {instanceLabel}

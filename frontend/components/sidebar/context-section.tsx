@@ -370,7 +370,10 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
             </div>
             <div className="space-y-2">
               <button
-                className="flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm text-violet-300 transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 hover:text-violet-200 disabled:opacity-40"
+                className={cn(
+                  "flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 disabled:opacity-40",
+                  dark ? "text-violet-300 hover:text-violet-200" : "text-violet-700 hover:text-violet-800",
+                )}
                 disabled={contextFiles.isFetching}
                 onClick={() => { contextFiles.refetch(); toast.info("Context reloaded"); }}
               >
@@ -378,7 +381,10 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                 <RefreshCw className="size-4 text-violet-400" />
               </button>
               <button
-                className="flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm text-violet-300 transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 hover:text-violet-200 disabled:opacity-40"
+                className={cn(
+                  "flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 disabled:opacity-40",
+                  dark ? "text-violet-300 hover:text-violet-200" : "text-violet-700 hover:text-violet-800",
+                )}
                 disabled={!contextFiles.data?.files.length}
                 onClick={() => { downloadContextZip(contextFiles.data?.files ?? []); toast.success("Context ZIP downloaded"); }}
               >
@@ -386,7 +392,10 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                 <Download className="size-4 text-violet-400" />
               </button>
               <button
-                className="flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm text-violet-300 transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 hover:text-violet-200 disabled:opacity-40"
+                className={cn(
+                  "flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 disabled:opacity-40",
+                  dark ? "text-violet-300 hover:text-violet-200" : "text-violet-700 hover:text-violet-800",
+                )}
                 disabled={rebuildIndex.isPending}
                 onClick={() => rebuildIndex.mutate(undefined, {
                   onSuccess: () => toast.success("Story index rebuilt"),
@@ -397,7 +406,10 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                 <RefreshCw className="size-4 text-violet-400" />
               </button>
               <button
-                className="flex h-9 w-full items-center justify-between rounded border border-red-500/30 px-3 text-sm text-red-400 transition-colors hover:border-red-500/60 hover:bg-red-500/15 hover:text-red-300 disabled:opacity-40"
+                className={cn(
+                  "flex h-9 w-full items-center justify-between rounded border border-red-500/30 px-3 text-sm transition-colors hover:border-red-500/60 hover:bg-red-500/15 disabled:opacity-40",
+                  dark ? "text-red-400 hover:text-red-300" : "text-red-600 hover:text-red-700",
+                )}
                 disabled={resetAll.isPending}
                 onClick={() => confirm("Reset ALL context files to defaults? This cannot be undone.", () => resetAll.mutate(undefined, { onSuccess: () => toast.success("All context files reset"), onError: () => toast.error("Failed to reset context files") }))}
               >

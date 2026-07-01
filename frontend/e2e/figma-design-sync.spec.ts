@@ -1,13 +1,15 @@
 import { test, expect } from "./fixtures";
 
-// End-to-end: connect a Figma file from the sidebar, then sync its design context.
-// Exercises the #1 design-token path through the proxy (file + comments + styles +
-// components + nodes) — the same calls extractDesignTokens makes — and asserts the
-// connect/sync happy path the user sees.
-test("Figma sidebar: connect a file then sync design-system context", async ({ page }) => {
+// End-to-end: connect a Figma file from the Settings modal, then sync its design
+// context. Exercises the #1 design-token path through the proxy (file + comments +
+// styles + components + nodes) — the same calls extractDesignTokens makes — and
+// asserts the connect/sync happy path the user sees. Figma config lives only in
+// Settings now (not the sidebar) — see sidebar.tsx TaigaSections.
+test("Figma settings: connect a file then sync design-system context", async ({ page }) => {
   await page.goto("/phase2");
 
-  // Open the collapsed Figma panel in the sidebar.
+  // Open Settings, then the collapsed Figma panel inside it.
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
   const figmaHeader = page.getByRole("button", { name: "Figma", exact: true });
   await expect(figmaHeader).toBeVisible({ timeout: 10_000 });
   await figmaHeader.click();

@@ -119,7 +119,10 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
             ) : null}
             <div className="grid grid-cols-2 gap-2">
               <button
-                className="flex h-8 items-center justify-center gap-1 rounded border border-neutral-600 text-sm text-neutral-300 transition-colors hover:border-violet-500/50 hover:text-violet-300"
+                className={cn(
+                  "flex h-8 items-center justify-center gap-1 rounded border text-sm transition-colors hover:border-violet-500/50",
+                  dark ? "border-neutral-600 text-neutral-300 hover:text-violet-300" : "border-slate-300 text-slate-600 hover:text-violet-600",
+                )}
                 onClick={() => projects.refetch()}
               >
                 <RefreshCw className="size-3" /> Refresh
