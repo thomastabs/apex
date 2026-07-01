@@ -5,7 +5,7 @@ import { test, expect } from "./fixtures";
 // components + nodes) — the same calls extractDesignTokens makes — and asserts the
 // connect/sync happy path the user sees.
 test("Figma sidebar: connect a file then sync design-system context", async ({ page }) => {
-  await page.goto("/phase1");
+  await page.goto("/phase2");
 
   // Open the collapsed Figma panel in the sidebar.
   const figmaHeader = page.getByRole("button", { name: "Figma", exact: true });
