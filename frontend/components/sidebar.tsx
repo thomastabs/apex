@@ -722,7 +722,7 @@ export function Sidebar() {
           </nav>
 
           {/* ── Zone 4: Project picker + phase-gated sections ── */}
-          <div className={cn("min-h-0 flex-1 border-t", dark ? "border-neutral-800" : "border-slate-200")}>
+          <div className={cn("min-h-0 flex-1 overflow-y-auto border-t", dark ? "border-neutral-800" : "border-slate-200")}>
             <SlimProjectPicker dark={dark} />
             {projectId ? (
               <>
