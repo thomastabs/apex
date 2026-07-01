@@ -13,7 +13,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useAiConfig, useMe, useProjects, useSaveServerConfig, useServerConfig, useStoryIndexStats,
 } from "@/lib/hooks/use-workspace";
-import { useTechStackStatus } from "@/lib/hooks/use-phase2";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { usePhase2Store } from "@/lib/stores/phase2-store";
@@ -215,159 +214,97 @@ function SlimProjectPicker({ dark }: { dark: boolean }) {
   );
 }
 
-// ── PhaseGuide ────────────────────────────────────────────────────────────────
+// ── SpecCoverage ──────────────────────────────────────────────────────────────
+// Always-visible cross-phase spec health widget. Replaces PhaseGuide.
 
-function PhaseGuide({
-  pathname, dark, serverConfig,
-}: {
-  pathname: string;
-  dark: boolean;
-  serverConfig: ReturnType<typeof useServerConfig>["data"];
-}) {
+const SPEC_PHASES = [
+  { href: "/phase1", label: "Requirements", key: "total"          as const, color: "bg-sky-500"     },
+  { href: "/phase2", label: "Design",       key: "phase2_designed" as const, color: "bg-violet-500"  },
+  { href: "/phase3", label: "Implementation",key: "phase3_proposed"as const, color: "bg-amber-500"   },
+  { href: "/phase4", label: "Testing",      key: "phase4_tested"   as const, color: "bg-emerald-500" },
+  { href: "/phase5", label: "Deployment",   key: "phase5_deployed" as const, color: "bg-pink-500"    },
+] as const;
+
+function SpecCoverage({ dark }: { dark: boolean }) {
   const { data: stats } = useStoryIndexStats();
-  const { data: techStack } = useTechStackStatus();
   const total = stats?.total ?? 0;
-  const figmaConnected = Boolean(serverConfig?.figma_file_key);
 
-  function Row({ label, value, accent = false }: { label: string; value: string | number; accent?: boolean }) {
-    return (
-      <div className="flex items-center justify-between gap-2 py-0.5">
-        <span className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-400")}>{label}</span>
-        <span className={cn("shrink-0 text-xs font-medium tabular-nums", accent ? "text-violet-400" : dark ? "text-neutral-300" : "text-slate-700")}>
-          {value}
+  return (
+    <div className={cn("border-b px-4 py-3", dark ? "border-neutral-800" : "border-slate-200")}>
+      <div className="mb-2.5 flex items-center justify-between">
+        <p className={cn("text-[10px] font-bold uppercase tracking-widest", dark ? "text-violet-500" : "text-violet-600")}>
+          Spec Coverage
+        </p>
+        <span className={cn("text-[10px] tabular-nums", dark ? "text-neutral-600" : "text-slate-400")}>
+          {total > 0 ? `${total} stories` : "no stories yet"}
         </span>
       </div>
-    );
-  }
 
-  function Guide({ heading, children }: { heading: string; children: React.ReactNode }) {
-    return (
-      <div className="px-4 py-3">
-        <p className={cn("mb-2 text-[10px] font-bold uppercase tracking-widest", dark ? "text-neutral-600" : "text-slate-400")}>
-          {heading}
+      {total === 0 ? (
+        <p className={cn("text-xs", dark ? "text-neutral-700" : "text-slate-300")}>
+          Run Phase 1 to index stories.
         </p>
-        <div className="space-y-0.5">{children}</div>
-      </div>
-    );
-  }
-
-  if (pathname === "/" || pathname.startsWith("/phase1")) {
-    return (
-      <Guide heading="Story index">
-        <Row label="Stories indexed" value={total || "—"} />
-        {total > 0 && <Row label="Phase 2 design" value={`${stats!.phase2_designed}/${total}`} accent={stats!.phase2_designed === total} />}
-        {total > 0 && stats!.phase3_proposed > 0 && <Row label="Phase 3 packs" value={`${stats!.phase3_proposed}/${total}`} />}
-      </Guide>
-    );
-  }
-
-  if (pathname.startsWith("/phase2")) {
-    return (
-      <Guide heading="Design">
-        <Row label="Tech stack" value={techStack?.defined ? "Defined ✓" : "Pending"} accent={Boolean(techStack?.defined)} />
-        {total > 0 && <Row label="Designed" value={`${stats!.phase2_designed}/${total}`} accent={stats!.phase2_designed === total} />}
-        <Row label="Figma" value={figmaConnected ? "Connected" : "Not linked"} accent={figmaConnected} />
-      </Guide>
-    );
-  }
-
-  if (pathname.startsWith("/phase3")) {
-    return (
-      <Guide heading="Implementation">
-        <Row label="Packs generated" value={total ? `${stats!.phase3_proposed}/${total}` : "—"} accent={total > 0 && stats!.phase3_proposed === total} />
-      </Guide>
-    );
-  }
-
-  if (pathname.startsWith("/phase4")) {
-    return (
-      <Guide heading="Testing">
-        <Row label="Test plans" value={total ? `${stats!.phase4_tested}/${total}` : "—"} accent={total > 0 && stats!.phase4_tested === total} />
-      </Guide>
-    );
-  }
-
-  if (pathname.startsWith("/phase5")) {
-    return (
-      <Guide heading="Deployment">
-        <Row label="Deployed" value={total ? `${stats!.phase5_deployed}/${total}` : "—"} accent={total > 0 && stats!.phase5_deployed === total} />
-      </Guide>
-    );
-  }
-
-  if (pathname.startsWith("/phase6")) {
-    return (
-      <Guide heading="Maintenance">
-        <Row label="Stories in system" value={total || "—"} />
-      </Guide>
-    );
-  }
-
-  // Tool routes — brief hint only
-  if (pathname.startsWith("/autopilot")) {
-    return (
-      <Guide heading="Autopilot">
-        <Row label="Stories in index" value={total || "—"} />
-      </Guide>
-    );
-  }
-
-  return null;
+      ) : (
+        <div className="space-y-1.5">
+          {SPEC_PHASES.map(({ href, label, key, color }) => {
+            const done = key === "total" ? total : (stats?.[key] ?? 0);
+            const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+            const complete = done === total;
+            return (
+              <Link key={href} href={href} className="group flex items-center gap-2">
+                <span className={cn(
+                  "w-[84px] shrink-0 text-[10px] transition-colors group-hover:text-violet-400",
+                  complete
+                    ? dark ? "text-emerald-400" : "text-emerald-600"
+                    : dark ? "text-neutral-500" : "text-slate-400",
+                )}>
+                  {label}
+                </span>
+                <div className={cn("h-1 flex-1 overflow-hidden rounded-full", dark ? "bg-neutral-800" : "bg-slate-200")}>
+                  <div
+                    className={cn("h-full rounded-full transition-all duration-500", complete ? "bg-emerald-500" : color)}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <span className={cn(
+                  "w-7 shrink-0 text-right text-[10px] tabular-nums",
+                  complete
+                    ? dark ? "text-emerald-400" : "text-emerald-600"
+                    : dark ? "text-neutral-600" : "text-slate-400",
+                )}>
+                  {done}/{total}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
-// ── TaigaSections ─────────────────────────────────────────────────────────────
-// Phase-aware collapsed sections. All start closed — users expand on demand.
+// ── AllSections ───────────────────────────────────────────────────────────────
+// All workflow sections, always available from any page. All start collapsed.
 
-function TaigaSections({
-  pathname, dark, projectId, confirm, serverConfig,
+function AllSections({
+  dark, projectId, confirm, serverConfig,
 }: {
-  pathname: string;
   dark: boolean;
   projectId: number;
   confirm: (msg: string, fn: () => void) => void;
   serverConfig: ReturnType<typeof useServerConfig>["data"];
 }) {
-  if (pathname === "/" || pathname.startsWith("/phase1")) {
-    return (
-      <>
-        <BoardSection dark={dark} projectId={projectId} confirm={confirm} />
-        <ContextSection dark={dark} projectId={projectId} confirm={confirm} />
-      </>
-    );
-  }
-  if (pathname.startsWith("/phase2")) {
-    return (
-      <>
-        <BoardSection dark={dark} projectId={projectId} confirm={confirm} />
-        <ContextSection dark={dark} projectId={projectId} confirm={confirm} />
-        <FigmaSection dark={dark} figmaFileKey={serverConfig?.figma_file_key ?? ""} />
-      </>
-    );
-  }
-  if (pathname.startsWith("/phase3")) {
-    return (
-      <>
-        <PacksSection dark={dark} confirm={confirm} />
-        <TasksSection dark={dark} />
-        <BoardSection dark={dark} projectId={projectId} confirm={confirm} />
-      </>
-    );
-  }
-  if (pathname.startsWith("/phase4")) {
-    return <TestPlansSection dark={dark} confirm={confirm} />;
-  }
-  if (pathname.startsWith("/phase5")) {
-    return <DeployPacksSection dark={dark} confirm={confirm} />;
-  }
-  if (pathname.startsWith("/phase6")) {
-    return (
-      <>
-        <UsersSection dark={dark} projectId={projectId} confirm={confirm} />
-        <BoardSection dark={dark} projectId={projectId} confirm={confirm} />
-      </>
-    );
-  }
-  return <BoardSection dark={dark} projectId={projectId} confirm={confirm} />;
+  return (
+    <>
+      <BoardSection dark={dark} projectId={projectId} confirm={confirm} />
+      <ContextSection dark={dark} projectId={projectId} confirm={confirm} />
+      <PacksSection dark={dark} confirm={confirm} />
+      <TasksSection dark={dark} />
+      <TestPlansSection dark={dark} confirm={confirm} />
+      <DeployPacksSection dark={dark} confirm={confirm} />
+      <UsersSection dark={dark} projectId={projectId} confirm={confirm} />
+    </>
+  );
 }
 
 // ── SettingsModal ─────────────────────────────────────────────────────────────
@@ -829,14 +766,13 @@ export function Sidebar() {
             ))}
           </nav>
 
-          {/* ── Zone 4: Project picker + phase guide + Taiga sections ── */}
+          {/* ── Zone 4: Project picker + spec coverage + all sections ── */}
           <div className={cn("min-h-0 flex-1 overflow-y-auto border-t", dark ? "border-neutral-800" : "border-slate-200")}>
             <SlimProjectPicker dark={dark} />
             {projectId ? (
               <>
-                <PhaseGuide pathname={pathname} dark={dark} serverConfig={serverConfig.data} />
-                <TaigaSections
-                  pathname={pathname}
+                <SpecCoverage dark={dark} />
+                <AllSections
                   dark={dark}
                   projectId={projectId}
                   confirm={confirm}
