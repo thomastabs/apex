@@ -415,6 +415,7 @@ function SettingsModal({
         <div className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
           <ProjectSection dark={dark} confirm={confirm} />
           <AiSection dark={dark} taigaToken={taigaToken} />
+          <FigmaSection dark={dark} figmaFileKey={serverConfig?.figma_file_key ?? ""} />
           <GitHubSection dark={dark} githubRepo={serverConfig?.github_repo ?? ""} />
           <ResourcesSection
             dark={dark}

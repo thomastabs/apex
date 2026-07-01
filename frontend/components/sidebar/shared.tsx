@@ -39,22 +39,22 @@ export function PanelHeader({
           onDragStart={onDragStart}
           onClickCapture={(e) => e.stopPropagation()}
           className={cn(
-            "flex h-14 w-8 shrink-0 cursor-grab items-center justify-center pl-2 transition-colors active:cursor-grabbing",
+            "flex h-10 w-8 shrink-0 cursor-grab items-center justify-center pl-2 transition-colors active:cursor-grabbing",
             dark ? "text-neutral-600 hover:text-neutral-400" : "text-slate-400 hover:text-slate-600",
           )}
           title="Drag to reorder"
         >
-          <GripVertical className="size-3.5" />
+          <GripVertical className="size-3" />
         </div>
       ) : null}
-      <button className="flex h-14 flex-1 items-center gap-2 px-4 text-left" onClick={onClick}>
+      <button className="flex h-10 flex-1 items-center gap-2 px-4 text-left" onClick={onClick}>
         {open ? (
           <ChevronDown className={cn("size-3", dark ? "text-neutral-500" : "text-slate-400")} />
         ) : (
           <ChevronRight className={cn("size-3", dark ? "text-neutral-500" : "text-slate-400")} />
         )}
-        <span className="text-violet-400">{icon}</span>
-        <span className={cn("flex-1 text-sm font-semibold", dark ? "text-neutral-100" : "text-slate-950")}>
+        <span className={cn("shrink-0", dark ? "text-neutral-500" : "text-slate-400")}>{icon}</span>
+        <span className={cn("flex-1 text-sm font-medium", dark ? "text-neutral-300" : "text-slate-700")}>
           {title}
         </span>
         {badge ? (
