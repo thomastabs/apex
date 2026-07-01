@@ -25,7 +25,6 @@ from backend.app.schemas.workspace import (
     PhaseStatusResponse,
     SaveAiConfigRequest,
     SaveAiKeyRequest,
-    SetAiKeySourceRequest,
     AcknowledgeFigmaChangeRequest,
     SaveConfigRequest,
     ScanFigmaChangesRequest,
@@ -94,26 +93,23 @@ def _system_providers() -> list[str]:
 
 
 def _ai_key_status(auth: AuthContext, x_taiga_url: str) -> dict:
-    """(personal_providers, key_source, configured_providers) for the current
-    account — the three fields every ai-config/ai-keys response shares."""
+    """(personal_providers, configured_providers) for the current account.
+
+    A saved personal key is ALWAYS the active credential for that provider —
+    it overrides the deployment's system key unconditionally (src/ai_key_store.py),
+    so a provider is "configured" if it has a personal key OR a system env var.
+    """
     system = _system_providers()
     personal: list[str] = []
-    key_source: dict[str, str] = {}
     if auth.account_id:
         from src import ai_key_store
 
-        instance_id = anchor_instance_id(x_taiga_url)
-        personal = ai_key_store.saved_providers(instance_id, auth.account_id)
-        key_source = {p: ai_key_store.get_key_source(instance_id, auth.account_id, p) for p in personal}
-    # "Active" per provider: personal only counts if it's the chosen source;
-    # a provider switched back to "system" needs the env var to still work.
-    active_personal = {p for p in personal if key_source.get(p) == "personal"}
-    configured = sorted(set(system) | active_personal)
+        personal = ai_key_store.saved_providers(anchor_instance_id(x_taiga_url), auth.account_id)
+    configured = sorted(set(system) | set(personal))
     return {
         "configured_providers": configured,
         "system_providers": system,
         "personal_providers": personal,
-        "key_source": key_source,
     }
 
 
@@ -160,8 +156,8 @@ def save_ai_key(
     """Save *your* personal AI provider key, tied to your Taiga/Jira account —
     it will be there next time you sign in from anywhere, unlike the AI model
     selection above which is a deployment-wide setting. Does not touch the
-    deployment's own *_API_KEY env var — the two can coexist; saving makes
-    the personal key active immediately (see set_ai_key_source to switch back)."""
+    deployment's own *_API_KEY env var — the personal key simply takes
+    priority over it unconditionally once saved (src/ai_key_store.py)."""
     from src import ai_engine, ai_key_store
 
     if payload.provider not in ai_key_store.PROVIDERS:
@@ -196,34 +192,6 @@ def delete_ai_key(
         ai_engine._llm_cache.clear()
     personal = ai_key_store.saved_providers(instance_id, auth.account_id) if auth.account_id else []
     return {"ok": True, "personal_providers": personal}
-
-
-@router.post("/ai-keys/{provider}/source", response_model=AiKeyStatusResponse)
-def set_ai_key_source(
-    provider: str,
-    payload: SetAiKeySourceRequest,
-    auth: AuthContext = Depends(get_auth_context),
-    x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
-):
-    """Switch *provider* between the account's saved personal key and the
-    deployment's system key, without deleting the saved key either way — this
-    is what lets someone go back to the shared/system key on demand."""
-    from src import ai_engine, ai_key_store
-
-    if provider not in ai_key_store.PROVIDERS:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown provider.")
-    if not auth.account_id:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Could not determine your PM account — try signing in again.",
-        )
-    instance_id = anchor_instance_id(x_taiga_url)
-    try:
-        ai_key_store.set_key_source(instance_id, auth.account_id, provider, payload.source)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    ai_engine._llm_cache.clear()
-    return {"ok": True, "personal_providers": ai_key_store.saved_providers(instance_id, auth.account_id)}
 
 
 @router.post("/config", response_model=OkResponse)

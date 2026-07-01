@@ -40,7 +40,6 @@ import {
   saveAiConfig,
   saveAiKey,
   saveGithubConfig,
-  setAiKeySource,
   saveFigmaConfig,
   saveServerConfig,
   setStoryPhaseStatus,
@@ -572,18 +571,6 @@ export function useDeleteAiKey() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (provider: string) => deleteAiKey(auth!, provider),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["workspace", "ai-config"] });
-    },
-  });
-}
-
-export function useSetAiKeySource() {
-  const auth = useAuthContext();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ provider, source }: { provider: string; source: "system" | "personal" }) =>
-      setAiKeySource(auth!, provider, source),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "ai-config"] });
     },

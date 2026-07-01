@@ -63,10 +63,6 @@ class SaveAiKeyRequest(BaseModel):
     api_key: str = Field(..., min_length=1, max_length=2_000)
 
 
-class SetAiKeySourceRequest(BaseModel):
-    source: Literal["system", "personal"]
-
-
 class AiKeyStatusResponse(BaseModel):
     ok: bool = True
     personal_providers: list[str] = Field(default_factory=list)
@@ -105,16 +101,14 @@ class AiConfigModel(BaseModel):
 class AiConfigResponse(BaseModel):
     model: str
     available_models: list[AiConfigModel] = Field(default_factory=list)
-    # Usable at all right now (system env var set, or an active personal key).
+    # Usable at all right now (system env var set, or a personal key saved).
     configured_providers: list[str] = Field(default_factory=list)
     # Deployment-wide key set via *_API_KEY env var — the "system key".
     system_providers: list[str] = Field(default_factory=list)
-    # Has a personal key saved to *your* Taiga/Jira account (src/ai_key_store.py),
-    # regardless of whether it's the currently active one — see key_source.
+    # Has a personal key saved to *your* Taiga/Jira account (src/ai_key_store.py).
+    # Always the active credential for that provider once saved — it takes
+    # priority over the system key unconditionally.
     personal_providers: list[str] = Field(default_factory=list)
-    # Per provider in personal_providers: which credential is currently active,
-    # "system" or "personal" — lets the UI render the System/My Key toggle.
-    key_source: dict[str, str] = Field(default_factory=dict)
 
 
 class TraceFlagInfo(BaseModel):

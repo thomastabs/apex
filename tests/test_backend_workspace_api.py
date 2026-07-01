@@ -18,7 +18,6 @@ from backend.app.api.workspace import (
     save_ai_config_endpoint,
     save_ai_key,
     save_config,
-    set_ai_key_source,
     set_story_phase_status,
     story_index_stats,
     update_context_file,
@@ -28,7 +27,6 @@ from backend.app.schemas.workspace import (
     SaveAiConfigRequest,
     SaveAiKeyRequest,
     SaveConfigRequest,
-    SetAiKeySourceRequest,
     SetPhaseStatusRequest,
     UpdateContextFileRequest,
 )
@@ -227,31 +225,27 @@ def test_get_ai_config_reports_env_and_personal_providers(monkeypatch):
     monkeypatch.setattr(
         "src.ai_key_store.saved_providers", lambda instance_id, account_id: ["openai"]
     )
-    monkeypatch.setattr(
-        "src.ai_key_store.get_key_source", lambda instance_id, account_id, provider: "personal"
-    )
 
     response = get_ai_config(_AUTH_WITH_ACCOUNT)
 
     assert set(response["configured_providers"]) == {"anthropic", "openai"}
     assert response["system_providers"] == ["anthropic"]
     assert response["personal_providers"] == ["openai"]
-    assert response["key_source"] == {"openai": "personal"}
 
 
-def test_get_ai_config_provider_switched_to_system_excluded_from_configured(monkeypatch):
-    # A provider with no system key AND its saved personal key switched off
-    # must not be reported as usable — nothing would actually answer for it.
+def test_get_ai_config_personal_key_configured_even_alongside_system_key(monkeypatch):
+    # A saved personal key is always active — a provider with BOTH a system
+    # env var and a personal key must still report as configured (via the
+    # personal key; ai_engine actually calling it is covered in test_ai_engine.py).
     monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-system-env")
     monkeypatch.setattr("src.ai_key_store.saved_providers", lambda instance_id, account_id: ["openai"])
-    monkeypatch.setattr("src.ai_key_store.get_key_source", lambda instance_id, account_id, provider: "system")
 
     response = get_ai_config(_AUTH_WITH_ACCOUNT)
 
-    assert "openai" not in response["configured_providers"]
+    assert "openai" in response["configured_providers"]
+    assert response["system_providers"] == ["openai"]
     assert response["personal_providers"] == ["openai"]
-    assert response["key_source"] == {"openai": "system"}
 
 
 def test_get_ai_config_no_account_id_reports_env_only(monkeypatch):
@@ -264,7 +258,6 @@ def test_get_ai_config_no_account_id_reports_env_only(monkeypatch):
     assert response["configured_providers"] == ["anthropic"]
     assert response["system_providers"] == ["anthropic"]
     assert response["personal_providers"] == []
-    assert response["key_source"] == {}
 
 
 def test_save_ai_key_persists_and_clears_llm_cache(monkeypatch):
@@ -339,47 +332,6 @@ def test_delete_ai_key_without_account_id_is_a_noop(monkeypatch):
 
     assert response == {"ok": True, "personal_providers": []}
     assert called == []
-
-
-def test_set_ai_key_source_switches_and_clears_llm_cache(monkeypatch):
-    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
-    calls: list[tuple] = []
-    monkeypatch.setattr(
-        "src.ai_key_store.set_key_source",
-        lambda instance_id, account_id, provider, source: calls.append((instance_id, account_id, provider, source)),
-    )
-    monkeypatch.setattr("src.ai_key_store.saved_providers", lambda instance_id, account_id: ["openai"])
-    monkeypatch.setattr("src.ai_engine._llm_cache", {"stale": object()})
-
-    response = set_ai_key_source("openai", SetAiKeySourceRequest(source="system"), _AUTH_WITH_ACCOUNT)
-
-    assert response == {"ok": True, "personal_providers": ["openai"]}
-    assert calls == [("api_taiga_io", "42", "openai", "system")]
-
-
-def test_set_ai_key_source_rejects_unknown_provider():
-    with pytest.raises(HTTPException) as exc_info:
-        set_ai_key_source("not-a-provider", SetAiKeySourceRequest(source="system"), _AUTH_WITH_ACCOUNT)
-    assert exc_info.value.status_code == 400
-
-
-def test_set_ai_key_source_without_account_id_returns_503():
-    with pytest.raises(HTTPException) as exc_info:
-        set_ai_key_source("openai", SetAiKeySourceRequest(source="system"), _AUTH)
-    assert exc_info.value.status_code == 503
-
-
-def test_set_ai_key_source_without_saved_key_returns_400(monkeypatch):
-    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
-
-    def _boom(instance_id, account_id, provider, source):
-        raise ValueError(f"No personal key saved for provider {provider!r}.")
-
-    monkeypatch.setattr("src.ai_key_store.set_key_source", _boom)
-
-    with pytest.raises(HTTPException) as exc_info:
-        set_ai_key_source("openai", SetAiKeySourceRequest(source="personal"), _AUTH_WITH_ACCOUNT)
-    assert exc_info.value.status_code == 400
 
 
 # ── save_config ─────────────────────────────────────────────────────────────
