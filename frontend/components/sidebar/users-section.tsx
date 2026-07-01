@@ -78,7 +78,7 @@ export function UsersSection({ dark, projectId: _projectId, confirm, shellClass,
                 {editingMemberRole === member.id ? (
                   <div className="mt-2 flex gap-2">
                     <select
-                      className="h-7 flex-1 rounded border border-neutral-600 bg-neutral-950 px-2 text-xs text-white"
+                      className={cn("h-7 flex-1 rounded border px-2 text-xs", dark ? "border-neutral-600 bg-neutral-950 text-white" : "border-slate-300 bg-white text-slate-900")}
                       value={memberRoleValue || member.role || 0}
                       onChange={(e) => setMemberRoleValue(Number(e.target.value))}
                     >
@@ -96,7 +96,10 @@ export function UsersSection({ dark, projectId: _projectId, confirm, shellClass,
                     >
                       {updateMemberRole.isPending ? "Saving…" : "Save"}
                     </button>
-                    <button className="rounded bg-neutral-700 px-2 py-1 text-xs text-neutral-300" onClick={() => setEditingMemberRole(null)}>
+                    <button
+                      className={cn("rounded px-2 py-1 text-xs", dark ? "bg-neutral-700 text-neutral-300" : "bg-slate-200 text-slate-700")}
+                      onClick={() => setEditingMemberRole(null)}
+                    >
                       ✕
                     </button>
                   </div>
@@ -115,13 +118,13 @@ export function UsersSection({ dark, projectId: _projectId, confirm, shellClass,
               <input
                 value={inviteValue}
                 onChange={(e) => setInviteValue(e.target.value)}
-                className="h-8 w-full rounded border border-violet-700 bg-neutral-950 px-2 text-sm text-white"
+                className={cn("h-8 w-full rounded border border-violet-700 px-2 text-sm", dark ? "bg-neutral-950 text-white" : "bg-white text-slate-900")}
                 placeholder="Username or email"
               />
               <select
                 value={defaultRoleId}
                 onChange={(e) => setRoleId(Number(e.target.value))}
-                className="h-8 w-full rounded border border-neutral-600 bg-neutral-950 px-2 text-sm text-white"
+                className={cn("h-8 w-full rounded border px-2 text-sm", dark ? "border-neutral-600 bg-neutral-950 text-white" : "border-slate-300 bg-white text-slate-900")}
               >
                 <option value={0}>Role</option>
                 {users.data?.roles.map((r) => (

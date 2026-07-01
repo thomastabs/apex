@@ -34,10 +34,10 @@ function modelProvider(m: ModelEntry): ProviderKey {
   return (m.provider ?? "anthropic") as ProviderKey;
 }
 
-function ModelSelect({ models, value, onChange }: { models: ModelEntry[]; value: string; onChange: (v: string) => void }) {
+function ModelSelect({ models, value, onChange, dark }: { models: ModelEntry[]; value: string; onChange: (v: string) => void; dark: boolean }) {
   return (
     <select
-      className="h-9 w-full rounded border border-neutral-600 bg-neutral-950 px-2 text-sm text-white"
+      className={cn("h-9 w-full rounded border px-2 text-sm", dark ? "border-neutral-600 bg-neutral-950 text-white" : "border-slate-300 bg-white text-slate-900")}
       value={value}
       onChange={(e) => onChange(e.target.value)}
     >
@@ -89,14 +89,16 @@ export function AiSection({ dark, taigaToken, shellClass, dragHandlers, onDragSt
         {aiOpen ? (
           <div className={cn("space-y-4 px-4 py-4 text-sm", expandedPanelClass)}>
             <div>
-              <p className="mb-2 text-xs text-neutral-500">Provider</p>
-              <div className="flex overflow-hidden rounded border border-neutral-700">
+              <p className={cn("mb-2 text-xs", dark ? "text-neutral-500" : "text-slate-500")}>Provider</p>
+              <div className={cn("flex overflow-hidden rounded border", dark ? "border-neutral-700" : "border-slate-300")}>
                 {(["anthropic", "openai", "google"] as ProviderKey[]).map((p) => (
                   <button
                     key={p}
                     className={cn(
                       "flex-1 py-1.5 text-xs font-semibold transition-colors",
-                      localProvider === p ? "bg-violet-700 text-white" : "bg-neutral-900 text-neutral-400 hover:bg-neutral-800",
+                      localProvider === p
+                        ? "bg-violet-700 text-white"
+                        : dark ? "bg-neutral-900 text-neutral-400 hover:bg-neutral-800" : "bg-slate-100 text-slate-500 hover:bg-slate-200",
                     )}
                     onClick={() => {
                       setLocalProvider(p);
@@ -109,10 +111,10 @@ export function AiSection({ dark, taigaToken, shellClass, dragHandlers, onDragSt
                 ))}
               </div>
               {localProvider === "openai" && !configuredProviders.includes("openai") && (
-                <p className="mt-1.5 text-xs text-amber-400">Requires OPENAI_API_KEY set in backend env.</p>
+                <p className={cn("mt-1.5 text-xs", dark ? "text-amber-400" : "text-amber-600")}>Requires OPENAI_API_KEY set in backend env.</p>
               )}
               {localProvider === "google" && !configuredProviders.includes("google") && (
-                <p className="mt-1.5 text-xs text-amber-400">Requires GOOGLE_API_KEY set in backend env.</p>
+                <p className={cn("mt-1.5 text-xs", dark ? "text-amber-400" : "text-amber-600")}>Requires GOOGLE_API_KEY set in backend env.</p>
               )}
             </div>
             {(() => {
@@ -123,8 +125,8 @@ export function AiSection({ dark, taigaToken, shellClass, dragHandlers, onDragSt
               return (
                 <>
                   <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-neutral-400">Model</label>
-                    <ModelSelect models={providerModels} value={effectiveModel} onChange={setLocalModel} />
+                    <label className={cn("mb-1.5 block text-xs font-semibold", dark ? "text-neutral-400" : "text-slate-600")}>Model</label>
+                    <ModelSelect models={providerModels} value={effectiveModel} onChange={setLocalModel} dark={dark} />
                   </div>
                   <button
                     className="h-8 w-full rounded bg-violet-700 text-sm font-semibold text-white transition-colors hover:bg-violet-600 disabled:opacity-50"
@@ -140,7 +142,7 @@ export function AiSection({ dark, taigaToken, shellClass, dragHandlers, onDragSt
               );
             })()}
             {saveAiConfigMutation.isSuccess ? (
-              <p className="text-center text-xs text-emerald-400">Model config saved.</p>
+              <p className={cn("text-center text-xs", dark ? "text-emerald-400" : "text-emerald-600")}>Model config saved.</p>
             ) : null}
           </div>
         ) : null}
