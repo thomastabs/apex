@@ -216,7 +216,7 @@ function SlimProjectPicker({ dark }: { dark: boolean }) {
 
 
 // ── TaigaSections ─────────────────────────────────────────────────────────────
-// Phase-gated sections — only show what's relevant to the current route.
+// Phase-gated sections below the always-visible ContextSection.
 
 function TaigaSections({
   pathname, dark, projectId, confirm, serverConfig,
@@ -231,7 +231,6 @@ function TaigaSections({
     return (
       <>
         <BoardSection dark={dark} projectId={projectId} confirm={confirm} />
-        <ContextSection dark={dark} projectId={projectId} confirm={confirm} />
         <FigmaSection dark={dark} figmaFileKey={serverConfig?.figma_file_key ?? ""} />
       </>
     );
@@ -260,12 +259,7 @@ function TaigaSections({
     );
   }
   // Home, Phase 1, tool routes
-  return (
-    <>
-      <BoardSection dark={dark} projectId={projectId} confirm={confirm} />
-      <ContextSection dark={dark} projectId={projectId} confirm={confirm} />
-    </>
-  );
+  return <BoardSection dark={dark} projectId={projectId} confirm={confirm} />;
 }
 
 // ── SettingsModal ─────────────────────────────────────────────────────────────
@@ -731,13 +725,16 @@ export function Sidebar() {
           <div className={cn("min-h-0 flex-1 border-t", dark ? "border-neutral-800" : "border-slate-200")}>
             <SlimProjectPicker dark={dark} />
             {projectId ? (
-              <TaigaSections
-                pathname={pathname}
-                dark={dark}
-                projectId={projectId}
-                confirm={confirm}
-                serverConfig={serverConfig.data}
-              />
+              <>
+                <ContextSection dark={dark} projectId={projectId} confirm={confirm} />
+                <TaigaSections
+                  pathname={pathname}
+                  dark={dark}
+                  projectId={projectId}
+                  confirm={confirm}
+                  serverConfig={serverConfig.data}
+                />
+              </>
             ) : (
               <p className={cn("px-4 py-3 text-xs", dark ? "text-neutral-600" : "text-slate-400")}>Select a project above to unlock the phase workflows.</p>
             )}
