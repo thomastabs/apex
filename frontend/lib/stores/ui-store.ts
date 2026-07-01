@@ -12,11 +12,15 @@ type UiState = {
   sidebarWidth: number;
   sidebarCollapsed: boolean;
   sidebarSectionOrder: string[];
+  rightSidebarWidth: number;
+  rightSidebarCollapsed: boolean;
   setTheme: (theme: UiTheme) => void;
   toggleTheme: () => void;
   setSidebarWidth: (width: number) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   setSidebarSectionOrder: (order: string[]) => void;
+  setRightSidebarWidth: (width: number) => void;
+  setRightSidebarCollapsed: (collapsed: boolean) => void;
 };
 
 export const useUiStore = create<UiState>()(
@@ -26,11 +30,15 @@ export const useUiStore = create<UiState>()(
       sidebarWidth: 450,
       sidebarCollapsed: false,
       sidebarSectionOrder: DEFAULT_SECTION_ORDER,
+      rightSidebarWidth: 420,
+      rightSidebarCollapsed: false,
       setTheme: (theme) => set({ theme }),
       toggleTheme: () => set({ theme: get().theme === "dark" ? "light" : "dark" }),
       setSidebarWidth: (width) => set({ sidebarWidth: Math.min(900, Math.max(280, width)) }),
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
       setSidebarSectionOrder: (order) => set({ sidebarSectionOrder: order }),
+      setRightSidebarWidth: (width) => set({ rightSidebarWidth: Math.min(900, Math.max(280, width)) }),
+      setRightSidebarCollapsed: (rightSidebarCollapsed) => set({ rightSidebarCollapsed }),
     }),
     {
       name: "apex-ui",

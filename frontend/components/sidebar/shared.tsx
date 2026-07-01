@@ -3,6 +3,28 @@ import { ChevronDown, ChevronRight, GripVertical } from "lucide-react";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
 
+export function ConfirmDialog({
+  open, message, onConfirm, onCancel,
+}: {
+  open: boolean; message: string; onConfirm: () => void; onCancel: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/80" onClick={onCancel}>
+      <div
+        className="w-80 rounded-lg border border-neutral-700 bg-neutral-900 p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="mb-5 text-sm text-neutral-200">{message}</p>
+        <div className="flex gap-3">
+          <button className="flex-1 rounded bg-red-700 py-2 text-sm font-semibold text-white hover:bg-red-600" onClick={onConfirm}>Confirm</button>
+          <button className="flex-1 rounded bg-neutral-800 py-2 text-sm text-neutral-300 hover:bg-neutral-700" onClick={onCancel}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export type DragSectionProps = {
   dragHandlers?: {
     onDragOver: (e: React.DragEvent) => void;

@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect, useRef } from "react";
 import { Sidebar } from "./sidebar";
+import { RightSidebar } from "./right-sidebar";
 import { CommandPalette } from "./command-palette";
 import { DiffModal } from "./ui/diff-modal";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -65,6 +66,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <main className={theme === "dark" ? "min-w-0 flex-1" : "apex-main-light min-w-0 flex-1"}>
           {children}
         </main>
+        <RightSidebar />
       </div>
     </div>
   );

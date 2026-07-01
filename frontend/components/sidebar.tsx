@@ -5,13 +5,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
-  BarChart3, Bot, CheckCircle2, ChevronDown, Code2, Compass, Eye, EyeOff,
-  ExternalLink, FileText, FolderOpen, Home, Moon, Network, PanelLeftOpen,
+  BarChart3, Bot, CheckCircle2, Code2, Compass, Eye, EyeOff,
+  ExternalLink, FileText, Home, Moon, Network, PanelLeftOpen,
   Rocket, Send, Settings, Sun, UserPlus, Wrench, Zap,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  useAiConfig, useMe, useProjects, useSaveServerConfig, useServerConfig, useStoryIndexStats,
+  useAiConfig, useMe, useProjects, useServerConfig, useStoryIndexStats,
 } from "@/lib/hooks/use-workspace";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -23,19 +23,13 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ApiError, apiRequest, getApiBaseUrl } from "@/lib/api/client";
 import { clearJiraProjectTypeCache } from "@/lib/api/jira-adapter";
-import { ProjectSection } from "./sidebar/project-section";
-import { BoardSection } from "./sidebar/board-section";
-import { ContextSection } from "./sidebar/context-section";
-import { FigmaSection } from "./sidebar/figma-section";
-import { PacksSection } from "./sidebar/packs-section";
-import { TasksSection } from "./sidebar/tasks-section";
-import { TestPlansSection } from "./sidebar/test-plans-section";
-import { DeployPacksSection } from "./sidebar/deploy-packs-section";
 import { UsersSection } from "./sidebar/users-section";
 import { AiSection } from "./sidebar/ai-section";
 import { ResourcesSection } from "./sidebar/resources-section";
 import { GitHubSection } from "./sidebar/github-section";
+import { FigmaSection } from "./sidebar/figma-section";
 import { AboutSection } from "./sidebar/about-section";
+import { ConfirmDialog } from "./sidebar/shared";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -57,30 +51,6 @@ function phaseBadge(
   if (phase === 4 && stats.phase4_tested > 0) return `${stats.phase4_tested}/${t}`;
   if (phase === 5 && stats.phase5_deployed > 0) return `${stats.phase5_deployed}/${t}`;
   return undefined;
-}
-
-// ── ConfirmDialog ─────────────────────────────────────────────────────────────
-
-function ConfirmDialog({
-  open, message, onConfirm, onCancel,
-}: {
-  open: boolean; message: string; onConfirm: () => void; onCancel: () => void;
-}) {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/80" onClick={onCancel}>
-      <div
-        className="w-80 rounded-lg border border-neutral-700 bg-neutral-900 p-5 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <p className="mb-5 text-sm text-neutral-200">{message}</p>
-        <div className="flex gap-3">
-          <button className="flex-1 rounded bg-red-700 py-2 text-sm font-semibold text-white hover:bg-red-600" onClick={onConfirm}>Confirm</button>
-          <button className="flex-1 rounded bg-neutral-800 py-2 text-sm text-neutral-300 hover:bg-neutral-700" onClick={onCancel}>Cancel</button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // ── NavItem ───────────────────────────────────────────────────────────────────
@@ -153,70 +123,9 @@ function NavDivider({ label, dark }: { label: string; dark: boolean }) {
   );
 }
 
-// ── SlimProjectPicker ─────────────────────────────────────────────────────────
-
-function SlimProjectPicker({ dark }: { dark: boolean }) {
-  const projectId   = useSessionStore((s) => s.projectId);
-  const projectName = useSessionStore((s) => s.projectName);
-  const setProject  = useSessionStore((s) => s.setProject);
-  const { data: projects, isLoading } = useProjects();
-  const saveConfig = useSaveServerConfig();
-  const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
-
-  async function select(p: { id: number; name: string }) {
-    setProject({ projectId: p.id, projectName: p.name });
-    queryClient.clear();
-    setOpen(false);
-    saveConfig.mutate(p.id);
-  }
-
-  return (
-    <div className={cn("shrink-0 border-b px-3 py-2", dark ? "border-neutral-800" : "border-slate-200")}>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className={cn(
-          "flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs transition-colors",
-          dark ? "text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200" : "text-slate-500 hover:bg-slate-100 hover:text-slate-700",
-        )}
-      >
-        <FolderOpen className="size-3.5 shrink-0 text-violet-400/80" />
-        <span className="flex-1 truncate text-left font-medium">{projectName || "Select project…"}</span>
-        <ChevronDown className={cn("size-3 shrink-0 transition-transform duration-150", open && "rotate-180")} />
-      </button>
-      {open && (
-        <div className={cn(
-          "mt-1 overflow-hidden rounded border text-xs",
-          dark ? "border-neutral-800 bg-neutral-950" : "border-slate-200 bg-white shadow-sm",
-        )}>
-          {isLoading && <p className={cn("px-3 py-2", dark ? "text-neutral-600" : "text-slate-400")}>Loading…</p>}
-          {projects?.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => select(p)}
-              className={cn(
-                "flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors",
-                p.id === projectId
-                  ? "text-violet-400"
-                  : dark ? "text-neutral-400 hover:bg-neutral-800" : "text-slate-600 hover:bg-slate-50",
-              )}
-            >
-              {p.id === projectId && <span className="size-1.5 shrink-0 rounded-full bg-violet-400" />}
-              <span className="truncate">{p.name}</span>
-            </button>
-          ))}
-          {!isLoading && !projects?.length && (
-            <p className={cn("px-3 py-2", dark ? "text-neutral-600" : "text-slate-400")}>No projects found</p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-
 // ── TaigaSections ─────────────────────────────────────────────────────────────
-// Phase-gated sections below the always-visible ContextSection.
+// What's left in the left sidebar's context zone — Figma (design phases) and
+// Users & Roles (maintenance) — everything else moved to the workspace panel.
 
 function TaigaSections({
   pathname, dark, projectId, confirm, serverConfig,
@@ -227,53 +136,23 @@ function TaigaSections({
   confirm: (msg: string, fn: () => void) => void;
   serverConfig: ReturnType<typeof useServerConfig>["data"];
 }) {
-  if (pathname.startsWith("/phase1")) {
-    return (
-      <>
-        <BoardSection dark={dark} projectId={projectId} confirm={confirm} />
-        <FigmaSection dark={dark} figmaFileKey={serverConfig?.figma_file_key ?? ""} />
-      </>
-    );
-  }
-  if (pathname.startsWith("/phase2")) {
-    return (
-      <>
-        <BoardSection dark={dark} projectId={projectId} confirm={confirm} />
-        <FigmaSection dark={dark} figmaFileKey={serverConfig?.figma_file_key ?? ""} />
-      </>
-    );
-  }
-  if (pathname.startsWith("/phase3")) {
-    return (
-      <>
-        <PacksSection dark={dark} confirm={confirm} />
-        <TasksSection dark={dark} />
-        <BoardSection dark={dark} projectId={projectId} confirm={confirm} />
-      </>
-    );
-  }
-  if (pathname.startsWith("/phase4")) {
-    return <TestPlansSection dark={dark} confirm={confirm} />;
-  }
-  if (pathname.startsWith("/phase5")) {
-    return <DeployPacksSection dark={dark} confirm={confirm} />;
+  // Epics & Stories, Task Board, Active Context, Developer/Test/Deploy Packs
+  // and the project picker live in the right-hand workspace sidebar now (see
+  // right-sidebar.tsx) so they stay reachable from every phase instead of
+  // being phase-gated here.
+  if (pathname.startsWith("/phase1") || pathname.startsWith("/phase2")) {
+    return <FigmaSection dark={dark} figmaFileKey={serverConfig?.figma_file_key ?? ""} />;
   }
   if (pathname.startsWith("/phase6")) {
-    return (
-      <>
-        <UsersSection dark={dark} projectId={projectId} confirm={confirm} />
-        <BoardSection dark={dark} projectId={projectId} confirm={confirm} />
-      </>
-    );
+    return <UsersSection dark={dark} projectId={projectId} confirm={confirm} />;
   }
-  // Home, Phase 1, tool routes
-  return <BoardSection dark={dark} projectId={projectId} confirm={confirm} />;
+  return null;
 }
 
 // ── SettingsModal ─────────────────────────────────────────────────────────────
 
 function SettingsModal({
-  open, onClose, dark, taigaToken, serverConfig, pmWebUrl, confirm,
+  open, onClose, dark, taigaToken, serverConfig, pmWebUrl,
 }: {
   open: boolean;
   onClose: () => void;
@@ -281,7 +160,6 @@ function SettingsModal({
   taigaToken: string;
   serverConfig: ReturnType<typeof useServerConfig>["data"];
   pmWebUrl: string;
-  confirm: (msg: string, fn: () => void) => void;
 }) {
   if (!open) return null;
   if (typeof document === "undefined") return null;
@@ -313,7 +191,6 @@ function SettingsModal({
         </div>
         {/* Content */}
         <div className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
-          <ProjectSection dark={dark} confirm={confirm} />
           <AiSection dark={dark} taigaToken={taigaToken} />
           <FigmaSection dark={dark} figmaFileKey={serverConfig?.figma_file_key ?? ""} />
           <GitHubSection dark={dark} githubRepo={serverConfig?.github_repo ?? ""} />
@@ -729,24 +606,24 @@ export function Sidebar() {
             ))}
           </nav>
 
-          {/* ── Zone 4: Project picker + phase-gated sections ── */}
-          <div className={cn("min-h-0 flex-1 overflow-y-auto border-t", dark ? "border-neutral-800" : "border-slate-200")}>
-            <SlimProjectPicker dark={dark} />
-            {projectId ? (
-              <>
-                <ContextSection dark={dark} projectId={projectId} confirm={confirm} />
-                <TaigaSections
-                  pathname={pathname}
-                  dark={dark}
-                  projectId={projectId}
-                  confirm={confirm}
-                  serverConfig={serverConfig.data}
-                />
-              </>
-            ) : (
-              <p className={cn("px-4 py-3 text-xs", dark ? "text-neutral-600" : "text-slate-400")}>Select a project above to unlock the phase workflows.</p>
-            )}
-          </div>
+          {/* ── Zone 4: Context panel (phase-aware, scrollable) ── */}
+          {projectId ? (
+            <div className={cn("min-h-0 flex-1 overflow-y-auto border-t", dark ? "border-neutral-800" : "border-slate-200")}>
+              <TaigaSections
+                pathname={pathname}
+                dark={dark}
+                projectId={projectId}
+                confirm={confirm}
+                serverConfig={serverConfig.data}
+              />
+            </div>
+          ) : (
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <p className={cn("px-4 py-4 text-xs leading-5", dark ? "text-neutral-600" : "text-slate-400")}>
+                Pick a project in the Workspace panel on the right to unlock the phase workflows.
+              </p>
+            </div>
+          )}
         </>
       ) : (
         /* No nav when not signed in — login form is the focus */
@@ -774,7 +651,6 @@ export function Sidebar() {
         taigaToken={taigaToken ?? ""}
         serverConfig={serverConfig.data}
         pmWebUrl={pmWebUrl}
-        confirm={confirm}
       />
     </aside>
   );

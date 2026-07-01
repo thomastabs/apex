@@ -1157,7 +1157,7 @@ function StageC({ storyId }: { storyId: number }) {
                       <EffortBadge estimate={selectedTask.effort_estimate} />
                     </div>
                   </div>
-                  <div className="flex gap-2 flex-wrap shrink-0">
+                  <div className="flex min-w-0 flex-wrap gap-2">
                   <Button
                     variant="secondary"
                     onClick={() => void handleGenerate(selectedTask.id, hints[selectedTask.id])}
