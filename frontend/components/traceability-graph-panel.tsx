@@ -16,7 +16,7 @@ import {
   type Node,
   type Edge,
 } from "@xyflow/react";
-import Dagre from "@dagrejs/dagre";
+import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation } from "d3-force";
 import { toPng } from "html-to-image";
 import { AlertTriangle, Download, GitFork, LayoutDashboard, Loader2, RefreshCw, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -37,6 +37,7 @@ type NodeData = {
   verified?: boolean | null;
   flags: Record<string, boolean>;
   dark: boolean;
+  degree: number;
 };
 
 // Type → accent colour (header strip + minimap).
@@ -63,64 +64,96 @@ const STATUS_TINT: Record<string, string> = {
   deployed: "#10b981",
 };
 
-function applyDagre(nodes: Node<NodeData>[], edges: Edge[]): Node<NodeData>[] {
-  const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: "LR", nodesep: 36, ranksep: 110 });
-  for (const n of nodes) g.setNode(n.id, { width: 168, height: 56 });
-  for (const e of edges) g.setEdge(e.source, e.target);
-  Dagre.layout(g);
-  return nodes.map((n) => {
-    const { x, y, width, height } = g.node(n.id);
-    return { ...n, position: { x: x - width / 2, y: y - height / 2 } };
-  });
+// Obsidian-graph-style circle diameter: bigger for more-connected nodes.
+function nodeDiameter(degree: number): number {
+  return Math.max(20, Math.min(48, 16 + degree * 4));
 }
 
+type SimNode = { id: string; degree: number; x?: number; y?: number; vx?: number; vy?: number };
+type SimLink = { source: string; target: string };
+
+// Continuous force simulation, pre-computed to a static layout (matches the
+// previous Dagre call's one-shot semantics — position once, then let React
+// Flow's own drag/pan take over) rather than an animated live simulation,
+// so it's a drop-in replacement for applyDagre with no interaction changes.
+function applyForceLayout(nodes: Node<NodeData>[], edges: Edge[]): Node<NodeData>[] {
+  const degree = new Map<string, number>();
+  for (const e of edges) {
+    degree.set(e.source, (degree.get(e.source) ?? 0) + 1);
+    degree.set(e.target, (degree.get(e.target) ?? 0) + 1);
+  }
+  const simNodes: SimNode[] = nodes.map((n) => ({ id: n.id, degree: degree.get(n.id) ?? 0 }));
+  const simLinks: SimLink[] = edges.map((e) => ({ source: e.source, target: e.target }));
+
+  const simulation = forceSimulation(simNodes)
+    .force("link", forceLink<SimNode, SimLink>(simLinks).id((d) => d.id).distance(85).strength(0.5))
+    .force("charge", forceManyBody().strength(-300))
+    .force("center", forceCenter(0, 0))
+    .force("collide", forceCollide<SimNode>((d) => nodeDiameter(d.degree) / 2 + 28))
+    .stop();
+
+  for (let i = 0; i < 300; i += 1) simulation.tick();
+
+  const posById = new Map(simNodes.map((n) => [n.id, { x: n.x ?? 0, y: n.y ?? 0 }]));
+  return nodes.map((n) => ({ ...n, position: posById.get(n.id) ?? { x: 0, y: 0 } }));
+}
+
+// Obsidian-style node: a plain circle sized by connection count, label +
+// flags rendered below as overflow content (outside the node's declared
+// box) so edges anchor exactly at the circle's center regardless of label
+// length — the node's logical width/height is the circle only.
 function TraceFlowNode({ data }: { data: NodeData }) {
   const accent = TYPE_COLOR[data.ntype];
   const conflict = data.flags.conflict;
   const trace = data.flags.trace;
+  const bug = data.flags.bug;
+  const size = nodeDiameter(data.degree);
+  const ring = conflict ? "#f59e0b" : trace ? "#8b5cf6" : bug ? "#ef4444" : null;
+
   return (
-    <div
-      className={cn(
-        "w-[168px] overflow-hidden rounded-md border shadow-sm",
-        data.dark ? "bg-neutral-900 text-neutral-200" : "bg-white text-slate-700",
-        conflict ? "border-amber-500" : trace ? "border-violet-500" : data.dark ? "border-neutral-700" : "border-slate-200",
-      )}
-      style={conflict || trace ? { borderWidth: 2 } : undefined}
-    >
-      <Handle type="target" position={Position.Left} className="!h-2 !w-2" style={{ background: accent }} />
-      <div className="flex items-center justify-between px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white" style={{ background: accent }}>
-        <span>{data.ntype}</span>
-        <span className="flex items-center gap-1">
-          {conflict ? <GitFork className="size-3" /> : null}
-          {trace ? <Undo2 className="size-3" /> : null}
-          {data.flags.bug ? <AlertTriangle className="size-3" /> : null}
-        </span>
+    <div style={{ width: size, height: size, position: "relative" }}>
+      <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
+      <div
+        className="rounded-full transition-transform duration-150 hover:scale-110"
+        style={{
+          width: size,
+          height: size,
+          background: accent,
+          boxShadow: ring
+            ? `0 0 0 3px ${ring}`
+            : data.dark ? "0 0 0 1px rgba(255,255,255,0.12)" : "0 0 0 1px rgba(0,0,0,0.08)",
+        }}
+      />
+      <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
+      <div
+        className="absolute left-1/2 top-full mt-1.5 -translate-x-1/2 text-center"
+        style={{ width: 140 }}
+      >
+        {(conflict || trace || bug) && (
+          <div className="mb-0.5 flex items-center justify-center gap-0.5">
+            {conflict ? <GitFork className="size-2.5 rounded-full bg-amber-500 p-0.5 text-white" /> : null}
+            {trace ? <Undo2 className="size-2.5 rounded-full bg-violet-500 p-0.5 text-white" /> : null}
+            {bug ? <AlertTriangle className="size-2.5 rounded-full bg-red-500 p-0.5 text-white" /> : null}
+          </div>
+        )}
+        <p className={cn("truncate text-[11px] font-medium leading-tight", data.dark ? "text-neutral-300" : "text-slate-700")} title={data.label}>
+          {data.label}
+        </p>
+        {data.phaseStatus ? (
+          <p className="mt-0.5 inline-flex items-center gap-1 text-[9px]" style={{ color: STATUS_TINT[data.phaseStatus] ?? "#9ca3af" }}>
+            <span className="size-1 rounded-full" style={{ background: STATUS_TINT[data.phaseStatus] ?? "#9ca3af" }} />
+            {data.phaseStatus}
+          </p>
+        ) : null}
+        {data.ntype === "scenario" ? (
+          <p className={cn("text-[9px]", data.verified ? "text-emerald-500" : data.flags.gap ? "text-red-500" : data.dark ? "text-neutral-600" : "text-slate-400")}>
+            {data.verified ? "✓ verified" : data.flags.gap ? "✗ gap" : "untested"}
+          </p>
+        ) : null}
+        {typeof data.scenarioCount === "number" && data.scenarioCount > 0 ? (
+          <p className={data.dark ? "text-neutral-600" : "text-slate-400"} style={{ fontSize: 9 }}>{data.scenarioCount} scenarios</p>
+        ) : null}
       </div>
-      <div className="px-2 py-1.5">
-        <p className="truncate text-xs font-medium" title={data.label}>{data.label}</p>
-        <div className="mt-0.5 flex items-center gap-1.5 text-[10px]">
-          {data.phaseStatus ? (
-            <span className="inline-flex items-center gap-1">
-              <span className="size-1.5 rounded-full" style={{ background: STATUS_TINT[data.phaseStatus] ?? "#9ca3af" }} />
-              {data.phaseStatus}
-            </span>
-          ) : null}
-          {typeof data.scenarioCount === "number" && data.scenarioCount > 0 ? (
-            <span className={data.dark ? "text-neutral-500" : "text-slate-400"}>{data.scenarioCount} scenarios</span>
-          ) : null}
-          {data.ntype === "scenario" ? (
-            data.verified ? (
-              <span className="text-emerald-500">✓ verified</span>
-            ) : data.flags.gap ? (
-              <span className="text-red-500">✗ gap</span>
-            ) : (
-              <span className={data.dark ? "text-neutral-500" : "text-slate-400"}>untested</span>
-            )
-          ) : null}
-        </div>
-      </div>
-      <Handle type="source" position={Position.Right} className="!h-2 !w-2" style={{ background: accent }} />
     </div>
   );
 }
@@ -193,28 +226,41 @@ export function TraceabilityGraphPanel() {
     const visible = data.nodes.filter(nodeVisible);
     const visibleIds = new Set(visible.map((n) => n.id));
 
-    const rfNodes: Node<NodeData>[] = visible.map((n) => ({
-      id: n.id,
-      type: "trace",
-      position: { x: 0, y: 0 },
-      data: {
-        label: n.label,
-        ntype: n.type,
-        phase: n.phase,
-        phaseStatus: n.phase_status,
-        scenarioCount: n.scenario_count,
-        verified: n.verified,
-        flags: n.flags ?? {},
-        dark,
-      },
-    }));
     const rfEdges: Edge[] = data.edges
       .filter((e) => visibleIds.has(e.source) && visibleIds.has(e.target))
-      .map((e) => ({ id: e.id, source: e.source, target: e.target, ...edgeStyle(e.kind, dark) }));
+      .map((e) => ({ id: e.id, source: e.source, target: e.target, type: "straight", ...edgeStyle(e.kind, dark) }));
 
-    // Dagre-layout, then override with any saved manual positions (id-keyed).
+    const degree = new Map<string, number>();
+    for (const e of rfEdges) {
+      degree.set(e.source, (degree.get(e.source) ?? 0) + 1);
+      degree.set(e.target, (degree.get(e.target) ?? 0) + 1);
+    }
+
+    const rfNodes: Node<NodeData>[] = visible.map((n) => {
+      const size = nodeDiameter(degree.get(n.id) ?? 0);
+      return {
+        id: n.id,
+        type: "trace",
+        position: { x: 0, y: 0 },
+        width: size,
+        height: size,
+        data: {
+          label: n.label,
+          ntype: n.type,
+          phase: n.phase,
+          phaseStatus: n.phase_status,
+          scenarioCount: n.scenario_count,
+          verified: n.verified,
+          flags: n.flags ?? {},
+          dark,
+          degree: degree.get(n.id) ?? 0,
+        },
+      };
+    });
+
+    // Force-layout, then override with any saved manual positions (id-keyed).
     const savedPos = new Map(visible.filter((n) => n.position).map((n) => [n.id, n.position!]));
-    const laid = applyDagre(rfNodes, rfEdges).map((n) => {
+    const laid = applyForceLayout(rfNodes, rfEdges).map((n) => {
       const p = savedPos.get(n.id);
       return p ? { ...n, position: { x: p.x, y: p.y } } : n;
     });
@@ -244,7 +290,7 @@ export function TraceabilityGraphPanel() {
   );
 
   const handleRelayout = useCallback(() => {
-    const laid = applyDagre(nodes as Node<NodeData>[], edges);
+    const laid = applyForceLayout(nodes as Node<NodeData>[], edges);
     setNodes(laid);
     persist(laid);
   }, [nodes, edges, setNodes, persist]);
@@ -281,7 +327,7 @@ export function TraceabilityGraphPanel() {
         <h1 className={cn("text-4xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>Living Graph</h1>
         <p className={cn("mt-1.5 text-sm", mutedClass)}>
           The whole project as one derivation graph — epic → story → Gherkin → design → tasks → tests → deploy.
-          Amber = design conflict, violet dashed = backward-trace. Click any node to jump to its phase.
+          Amber = design conflict, violet dashed = backward-trace, red dashed = regression loop-back. Click any node to jump to its phase.
         </p>
       </div>
 
@@ -364,6 +410,7 @@ export function TraceabilityGraphPanel() {
               onNodeDragStop={onNodeDragStop}
               nodeTypes={NODE_TYPES}
               fitView
+              fitViewOptions={{ padding: 0.3 }}
               proOptions={{ hideAttribution: true }}
               minZoom={0.2}
             >

@@ -25,12 +25,8 @@ vi.mock("@xyflow/react", () => ({
     return [e, setE, vi.fn()];
   },
 }));
-vi.mock("@dagrejs/dagre", () => ({
-  default: {
-    graphlib: { Graph: class { setDefaultEdgeLabel() { return this; } setGraph() {} setNode() {} setEdge() {} node() { return { x: 0, y: 0, width: 168, height: 56 }; } } },
-    layout: () => {},
-  },
-}));
+// Layout is real d3-force now (pure math, no DOM/browser deps) — no mock
+// needed; none of these tests assert exact node positions.
 const toPngMock = vi.fn().mockResolvedValue("data:image/png;base64,xxx");
 vi.mock("html-to-image", () => ({ toPng: (...a: unknown[]) => toPngMock(...a) }));
 vi.mock("@/lib/stores/ui-store", () => ({ useUiStore: () => "light" }));
