@@ -1152,25 +1152,6 @@ Remaining open items are minor:
 Deferred graph v1.1 extras (already partly shipped) — none outstanding. The
 **Autopilot** end-to-end pipeline is also now shipped (see [Autopilot](#autopilot)).
 
-**Interview feedback response (semver + "the framework reads as linear/Waterfall"):**
-- **AI usage/cost tracking + prompt-cache fix + cheap-model tiering** — see
-  [AI Usage & Cost Tracking](#ai-usage--cost-tracking).
-- **Spec semantic versioning** — see [Controlled spec co-evolution](#controlled-spec-co-evolution).
-- **Traceability graph regression edges + GitHub webhook auto-scan** — the
-  Fix-Bolt/regression loop-back already existed in `story-index.json`
-  (`route_lane()`'s Secure Lane genuinely pushes `deployed` → `implementation`);
-  it just wasn't drawn as a graph edge and never ran without a human clicking
-  "Scan for regressions". Both fixed — see
-  [Living Traceability Graph](#living-traceability-graph) and the GitHub
-  webhook paragraph in [Phase 6 · Maintenance & Traceability](#phase-6--maintenance--traceability).
-- **Overview page reframe** — Phase 6 previously had no real status signal on
-  the home page (always fell through to a hard-coded "pending", regardless of
-  actual maintenance activity) and the Traceability graph was a same-weight
-  card alongside Analytics/Autopilot in "Tools & Insights". Phase 6 now shows
-  real open-maintenance-item / regressed-story counts and is never marked
-  "done" (maintenance is a loop, not a completable step); the Traceability
-  graph got its own "Live Traceability" section above the phase grid.
-
 ---
 
 ## Architecture Note — Browser-Side vs Proxied API Calls
