@@ -11,6 +11,7 @@ import { ImportPanel } from "@/components/import-panel";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useStoryIndexStats } from "@/lib/hooks/use-workspace";
 import { useTechStackStatus } from "@/lib/hooks/use-phase2";
+import { useMaintenanceItems } from "@/lib/hooks/use-phase6";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
 
@@ -75,13 +76,6 @@ const tools = [
     icon: Bug,
   },
   {
-    href: "/traceability",
-    phase: "Traceability",
-    title: "Trace Graph",
-    description: "Live graph mapping requirements → design → tasks → tests → deployment",
-    icon: GitGraph,
-  },
-  {
     href: "/analytics",
     phase: "Insights",
     title: "Analytics",
@@ -102,6 +96,7 @@ export default function HomePage() {
 
   const storyStats = useStoryIndexStats();
   const techStack = useTechStackStatus();
+  const maintenanceItems = useMaintenanceItems();
 
   const [importOpen, setImportOpen] = useState(false);
 
@@ -109,6 +104,9 @@ export default function HomePage() {
   const stackDefined = Boolean(techStack.data?.defined);
   const phase1Done = Boolean(stats && stats.total > 0);
   const phase2Done = Boolean(stats && stats.total > 0 && stats.phase2_designed === stats.total);
+  const openMaintenanceCount = maintenanceItems.data?.items.filter((i) => i.status !== "resolved").length ?? 0;
+  const regressedCount = stats?.conformance_regressed ?? 0;
+  const loopSignalCount = (stats?.trace_flagged ?? 0) + (stats?.conformance_regressed ?? 0) + (stats?.design_conflict ?? 0);
 
   type PhaseInfo = { badge?: string; status: "done" | "active" | "pending" };
 
@@ -121,13 +119,13 @@ export default function HomePage() {
         : { badge: "no stories yet", status: "active" };
     }
     if (phaseHref === "/phase2") {
-      if (!phase1Done) return { badge: "waiting for Phase 1", status: "pending" };
+      if (!phase1Done) return { badge: "needs Phase 1", status: "pending" };
       if (phase2Done)  return { badge: "design locked ✓", status: "done" };
       if (stackDefined) return { badge: "stack ✓ · design pending", status: "active" };
       return { badge: "stack pending", status: "active" };
     }
     if (phaseHref === "/phase3") {
-      if (!phase2Done) return { badge: "waiting for Phase 2", status: "pending" };
+      if (!phase2Done) return { badge: "needs Phase 2", status: "pending" };
       if (stats && stats.phase3_proposed > 0) return { badge: `${stats.phase3_proposed}/${stats.total} proposed`, status: "active" };
       return { badge: "ready to start", status: "active" };
     }
@@ -138,6 +136,18 @@ export default function HomePage() {
     if (phaseHref === "/phase5") {
       if (stats && stats.phase5_deployed > 0) return { badge: `${stats.phase5_deployed}/${stats.total} deployed`, status: "active" };
       return { status: "pending" };
+    }
+    if (phaseHref === "/phase6") {
+      // Maintenance is a loop, not a completable step — never "done" here, only
+      // "pending" (no project yet) or "active" (the loop is always live once a
+      // project exists, whether or not anything is currently flagged).
+      if (openMaintenanceCount > 0 || regressedCount > 0) {
+        const parts = [];
+        if (openMaintenanceCount > 0) parts.push(`${openMaintenanceCount} open`);
+        if (regressedCount > 0) parts.push(`${regressedCount} regressed`);
+        return { badge: parts.join(" · "), status: "active" };
+      }
+      return { badge: "no active issues", status: "active" };
     }
     return { status: "pending" };
   }
@@ -250,6 +260,27 @@ export default function HomePage() {
           </Link>
         );
       })() : null}
+
+      {/* Live Traceability — promoted out of Tools & Insights so the loop-aware
+          view carries equal weight to the phase grid, not a secondary utility. */}
+      <div className="mb-6">
+        <h2 className={cn(
+          "mb-3 text-[11px] font-bold uppercase tracking-[0.1em]",
+          dark ? "text-neutral-600" : "text-slate-400",
+        )}>
+          Live Traceability
+        </h2>
+        <PhaseCard
+          href="/traceability"
+          phase="Loop"
+          title="Trace Graph"
+          description="Every story's epic → design → tasks → tests → deploy chain, live — plus cross-story conflicts and regression loop-backs as they happen, not just forward progress."
+          icon={GitGraph}
+          badge={!hasProject ? undefined : loopSignalCount > 0 ? `${loopSignalCount} loop${loopSignalCount === 1 ? "" : "s"} active` : "steady"}
+          status={!hasProject ? "pending" : loopSignalCount > 0 ? "active" : "done"}
+          dark={dark}
+        />
+      </div>
 
       {/* SDLC Phases */}
       <div>

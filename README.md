@@ -312,9 +312,13 @@ Phase 6 (`/phase6`) is tabbed: **Maintenance** and **Traceability**.
 
 **Backward trace propagation:** the spec flows downstream (each phase grounds in the previous), but a downstream failure used to be a dead end. Now a failing signal points back at the **source spec** it derived from and suggests the phase to re-open: a low/regressed Phase 6 conformance row, or an uncovered/untested scenario in the Phase 5 verification matrix, raises a `trace_flag` that names the source — a failing **scenario** → its Gherkin (Phase 1); a failing **endpoint/constraint** → the technical-spec/constraints (Phase 2), choosing the earliest source phase. It surfaces as a violet board badge + a StoryDialog banner with a **"Re-open Phase N"** link and **Acknowledge**, plus a predictive-risk reason. **Suggest-only** — it never rolls back `phase_status`; the human decides. The mapping is a pure code function (`ai_engine.derive_trace_targets`/`summarize_trace`), never an LLM.
 
+**GitHub webhook — auto regression scan on push:** the regression scan above is on-demand (a human clicks "Scan for regressions"). A repo can instead register `POST /api/webhooks/github/{instance_id}/{project_id}` as its push webhook (payload URL + HMAC secret generated per instance, shown in the sidebar GitHub panel under "Auto regression scan on push") so every push closes the loop itself: the handler matches the push's touched files against each story's saved developer-pack "Files to Change" (pure string overlap, no AI), then re-verifies conformance for just the affected stories as a background task (the webhook response returns immediately — GitHub's 10s delivery timeout would otherwise kill an AI call mid-flight). Capped at 10 stories per push with a 5-minute per-project cooldown so a burst of pushes can't trigger unbounded AI spend. Requests are rejected unless the `X-Hub-Signature-256` HMAC matches the per-instance secret (`backend/app/api/github_webhook.py`) — unauthenticated by necessity (GitHub can't send a bearer token) but never trusted without it.
+
 ### Controlled spec co-evolution
 
 Editing a **locked** spec artifact (e.g. `functional-spec.md` after `gherkin_locked`, `technical-spec.md`/`design-bundle.md`/`constraints.md` after `design_locked`) via the sidebar is no longer silent: the edit is logged to `amendments.md` as a dated **amendment** and raises a `spec_drift` flag on every affected downstream story (status at/after that file's lock). Drift surfaces as a board badge with an Acknowledge action, clears automatically when a story's developer pack is regenerated, and is counted in analytics — the framework's answer to the Twin Peaks requirement↔architecture co-evolution problem (roadmap #4).
+
+**Semantic versioning.** Every lockable artifact carries a real version number so humans can consult "has this actually changed since I last read it" without diffing markdown by eye: `0.0.0` while still a pre-lock draft, `1.0.0` the moment it locks, and `+1` MAJOR on every post-lock amendment (an amendment is already, by the mechanic above, a breaking change — every affected downstream story gets flagged — so there's no invented MINOR/PATCH distinction pretending the system can tell a "safe" edit from a breaking one; it can't, yet). Versions persist in `spec-versions.json` and show as a badge next to each locked file in the sidebar's Active Context panel.
 
 ### Human-in-the-loop guardrails
 
@@ -337,14 +341,27 @@ The `/analytics` page computes the framework's Core Governance Metrics on demand
 
 A dedicated **Fix Bolt** page (top nav, left of Analytics) lists every per-story Fix-Bolt bug report (view/edit/download/delete) and the permanent Fix Log — the management surface for the artifacts produced by Phase 4 QA fails and Phase 6 maintenance.
 
+### AI Usage & Cost Tracking
+
+Every AI call — across all three providers — reports real token/cache usage (not the configured `max_tokens` cap) to a **Usage** section in Settings (below AI Model), backed by `GET /api/usage/summary`:
+
+- **Real per-call telemetry.** `ai_engine._invoke()`/`_invoke_structured_with_progress()` wrap their LangChain calls in `get_usage_metadata_callback()`, which captures usage regardless of which of the three structured-output fallback tiers actually served the response — no per-call-site plumbing needed. The caller's function name (`suggest_epics`, `generate_coding_proposal`, …) is captured via a stack lookup, so every one of the ~30 generator functions is attributed automatically.
+- **Cost estimate.** `AVAILABLE_MODELS` carries `input_per_mtok`/`output_per_mtok` for all Anthropic/OpenAI/Google models (Anthropic prices are exact; OpenAI/Google are approximate public pricing that drifts — re-check periodically).
+- **Storage.** One JSONL file per PM instance per UTC day (`contextspec/<instance_id>/usage/<yyyy-mm-dd>.jsonl`), append-only under a dedicated lock — same pattern as the config-write lock.
+- **Dashboard.** 30-day summary: total cost/tokens/calls, broken down by model and by call name, so "where is the spend actually going" is answerable without guessing.
+- **Cheap-model tiering.** Fix-Bolt's `triage_feedback`/`suggest_severity_lane` calls (small classification-shaped tasks) no longer ride whatever model the user selected for real generation work — they use the cheapest model **in the user's currently-configured provider** (`claude-haiku-4-5` / `gpt-4.1-nano` / `gemini-2.5-flash-lite`), so an OpenAI-only or Gemini-only deployment (no `ANTHROPIC_API_KEY`) doesn't break.
+- **Prompt-cache hygiene.** `generate_coding_proposal` (one call per Phase 3 task) had a cache-fragmentation bug: per-task-varying content (`other_tasks`, sibling pack digests) was appended into the same `system` string that carries the cache breakpoint, so its differing tail invalidated cache reuse of the identical tech-stack/design-bundle/technical-spec header across sibling tasks in the same story. Fixed by moving the per-task content into the `human` turn — `system` is now byte-identical across sibling-task calls, so Anthropic prompt caching actually hits.
+- Default model is `claude-sonnet-5` (bumped from `claude-sonnet-4-6` — same tier, cheaper).
+
 ### Living Traceability Graph
 
 The **Trace** page (`/traceability`, top nav) renders the whole project as one interactive derivation graph — **epic → story → Gherkin → design → tasks → tests → deploy** — so the spec lineage is visible at a glance and any node is one click away from its phase. It is **pure-derived** (no AI): set arithmetic over the story index + context files, the same approach as the design-drift detector.
 
-- **Nodes** (bounded): project, one per epic, one per story (tinted by phase status), the present phase-artifact nodes of each story (Gherkin / Tasks / Tests / Deploy), and one project-level Design node. Bug/fix state folds onto the story node.
-- **Edges & overlays:** the derivation chain, story↔design links, **cross-story design-conflict** edges (amber, reusing `detect_design_conflicts`), and **backward-trace** edges (violet dashed, from a downstream gap back to the flagged source phase). Conflict / trace / bug badges on the nodes.
+- **Nodes** (bounded): project, one per epic, one per story (tinted by phase status), the present phase-artifact nodes of each story (Gherkin / Tasks / Tests / Deploy), and one project-level Design node.
+- **Edges & overlays:** the derivation chain, story↔design links, **cross-story design-conflict** edges (amber, reusing `detect_design_conflicts`), **backward-trace** edges (violet dashed, from a downstream gap back to the flagged source phase), and **regression** edges (red dashed, animated — from wherever a story last reached (deploy/tests/tasks) back to Tasks, drawn whenever `has_bug_report`/`conformance_regressed`/`fix_bolt_count` is set). The regression edge exists because the underlying loop-back was already real — `maintenance_service.route_lane()`'s Secure Lane genuinely pushes `phase_status` from `deployed` back to `implementation` — it just wasn't drawn; a bug/fix badge alone doesn't read as a *loop* the way an edge does. Conflict / trace / bug badges also still show on the nodes.
 - **Scenario layer (toggle):** drill into per-story Gherkin scenarios with `verify` edges and ✓verified / ✗gap flags sourced from the Phase 4 verification matrix. Off by default (node-count guard).
-- **Interactions:** click a node → jump to its phase; filter by epic or "flagged stories only"; React Flow + Dagre auto-layout with a MiniMap; **drag to rearrange** (layout persists to `trace-layout.json`) + **Re-layout**; **Refresh** (also refetches on tab focus); **Export PNG** of the whole graph for reports.
+- **Interactions:** click a node → jump to its phase; filter by epic or "flagged stories only" (now includes bug/regression-flagged stories, not just conflict/trace); React Flow + Dagre auto-layout with a MiniMap; **drag to rearrange** (layout persists to `trace-layout.json`) + **Re-layout**; **Refresh** (also refetches on tab focus); **Export PNG** of the whole graph for reports.
+- **Promoted on the Overview page** — the graph gets its own "Live Traceability" section above the SDLC-phase grid (not buried in Tools & Insights alongside Analytics/Autopilot), with a live badge (open trace/regression/conflict count) so the loop-aware view carries equal visual weight to the phase-by-phase one instead of reading as a secondary utility.
 
 ### Autopilot
 
@@ -493,8 +510,10 @@ Apex stores workflow state in context files under `contextspec/<instance_id>/<pr
 | `maintenance_items.json` | Phase 6 maintenance triage items (source, classification, status, diagnosis, lane) |
 | `maintenance-log.md` | Append-only log of maintenance triage events (classification, routing, resolution) |
 | `amendments.md` | Append-only log of post-lock spec edits (which file, affected stories) — the spec co-evolution audit trail |
+| `spec-versions.json` | Semver (`MAJOR.MINOR.PATCH`) per lockable artifact — `1.0.0` on lock, `+1` MAJOR per post-lock amendment |
 | `fix-log.md` | Appended with each Fix-Bolt record — bug isolation log for future reference |
 | `story-index.json` | Machine-readable story phase state |
+| `usage/<yyyy-mm-dd>.jsonl` *(instance-level, not per-project)* | Per-day AI usage log at `contextspec/<instance_id>/usage/` (model, call name, tokens, cache hits, estimated cost) — powers the Settings Usage panel |
 
 ### Multiple users & multiple Taiga instances
 
@@ -1090,6 +1109,9 @@ gh variable set APEX_NIGHT_MODE --body on    # re-enable (default)
 | Governance Analytics | Implemented |
 | Living Traceability Graph | Implemented |
 | Autopilot (Phases 1–5 pipeline) | Implemented |
+| AI Usage & Cost Tracking | Implemented |
+| GitHub Webhook Auto Regression Scan | Implemented |
+| Spec Semantic Versioning | Implemented |
 
 ---
 
@@ -1129,6 +1151,25 @@ Remaining open items are minor:
 
 Deferred graph v1.1 extras (already partly shipped) — none outstanding. The
 **Autopilot** end-to-end pipeline is also now shipped (see [Autopilot](#autopilot)).
+
+**Interview feedback response (semver + "the framework reads as linear/Waterfall"):**
+- **AI usage/cost tracking + prompt-cache fix + cheap-model tiering** — see
+  [AI Usage & Cost Tracking](#ai-usage--cost-tracking).
+- **Spec semantic versioning** — see [Controlled spec co-evolution](#controlled-spec-co-evolution).
+- **Traceability graph regression edges + GitHub webhook auto-scan** — the
+  Fix-Bolt/regression loop-back already existed in `story-index.json`
+  (`route_lane()`'s Secure Lane genuinely pushes `deployed` → `implementation`);
+  it just wasn't drawn as a graph edge and never ran without a human clicking
+  "Scan for regressions". Both fixed — see
+  [Living Traceability Graph](#living-traceability-graph) and the GitHub
+  webhook paragraph in [Phase 6 · Maintenance & Traceability](#phase-6--maintenance--traceability).
+- **Overview page reframe** — Phase 6 previously had no real status signal on
+  the home page (always fell through to a hard-coded "pending", regardless of
+  actual maintenance activity) and the Traceability graph was a same-weight
+  card alongside Analytics/Autopilot in "Tools & Insights". Phase 6 now shows
+  real open-maintenance-item / regressed-story counts and is never marked
+  "done" (maintenance is a loop, not a completable step); the Traceability
+  graph got its own "Live Traceability" section above the phase grid.
 
 ---
 
