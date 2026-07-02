@@ -17,6 +17,7 @@ from backend.app.api.phase4 import router as phase4_router
 from backend.app.api.phase5 import router as phase5_router
 from backend.app.api.phase6 import router as phase6_router
 from backend.app.api.analytics import router as analytics_router
+from backend.app.api.usage import router as usage_router
 from backend.app.api.workspace import router as workspace_router
 from backend.app.api.autopilot import router as autopilot_router
 
@@ -121,6 +122,7 @@ app.include_router(phase4_router, prefix="/api/phase4", tags=["phase4"])
 app.include_router(phase5_router, prefix="/api/phase5", tags=["phase5"])
 app.include_router(phase6_router, prefix="/api/phase6", tags=["phase6"])
 app.include_router(analytics_router, prefix="/api/analytics", tags=["analytics"])
+app.include_router(usage_router, prefix="/api/usage", tags=["usage"])
 app.include_router(workspace_router, prefix="/api/workspace", tags=["workspace"])
 app.include_router(autopilot_router, prefix="/api/autopilot", tags=["autopilot"])
 app.include_router(jira_proxy_router, prefix="/api/pm/jira", tags=["jira-proxy"])

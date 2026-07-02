@@ -44,6 +44,11 @@ def _config_write_lock():
     cross-replica distributed lock when REDIS_URL is set (src/distributed)."""
     return distributed.reentrant_lock("apex:config-write")
 
+
+def _usage_lock():
+    """Serialise AI usage-log read-modify-write, same pattern as _config_write_lock."""
+    return distributed.reentrant_lock("apex:usage-write")
+
 # Per-request active project. Uses ContextVar so concurrent FastAPI requests on different projects are isolated.
 _active_project_id: contextvars.ContextVar[int] = contextvars.ContextVar(
     "context_manager_project_id",
@@ -293,6 +298,61 @@ def set_active_project(project_id: int) -> None:
 def is_project_selected() -> bool:
     """Return True when a real PM project is active."""
     return _get_project_id() != 0
+
+
+def get_active_instance_id() -> str:
+    """Public read of the active PM-instance namespace (see instance_key())."""
+    return _get_instance_id()
+
+
+def get_active_project_id() -> int | None:
+    """Public read of the active project ID, or None when no project is selected."""
+    return _get_project_id() if is_project_selected() else None
+
+
+# ---------------------------------------------------------------------------
+# AI usage log — token/cost telemetry for the Usage dashboard (backend/app/
+# services/usage_service.py). One JSONL file per instance per UTC day at
+# contextspec/<instance_id>/usage/<yyyy-mm-dd>.jsonl. Read-modify-write under
+# _usage_lock() like the config file — daily files keep each read/write small.
+# ---------------------------------------------------------------------------
+
+def _usage_file(instance_id: str, day: str) -> Path:
+    return _BASE_CONTEXTSPEC / instance_id / "usage" / f"{day}.jsonl"
+
+
+def append_usage_event(event: dict) -> None:
+    """Append one usage event (see ai_engine.set_usage_sink for the shape)."""
+    instance_id = _get_instance_id()
+    day = datetime.now(timezone.utc).date().isoformat()
+    entry = {"ts": datetime.now(timezone.utc).isoformat(), **event}
+    path = _usage_file(instance_id, day)
+    with _usage_lock():
+        existing = path.read_text() if path.exists() else ""
+        path.write_text(existing + json.dumps(entry) + "\n")
+
+
+def load_usage_events(days: int = 30) -> list[dict]:
+    """Load usage events for the active instance from the last *days* UTC days."""
+    from datetime import timedelta
+
+    instance_id = _get_instance_id()
+    today = datetime.now(timezone.utc).date()
+    events: list[dict] = []
+    for offset in range(days):
+        day = (today - timedelta(days=offset)).isoformat()
+        path = _usage_file(instance_id, day)
+        if not path.exists():
+            continue
+        for line in path.read_text().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                events.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return events
 
 
 def _read_config_file() -> dict:

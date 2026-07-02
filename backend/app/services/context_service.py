@@ -7,6 +7,21 @@ class ContextService:
     def set_project(self, project_id: int) -> None:
         context_manager.set_active_project(project_id)
 
+    def set_active_instance(self, instance_id: str) -> None:
+        context_manager.set_active_instance(instance_id)
+
+    def active_instance_id(self) -> str:
+        return context_manager.get_active_instance_id()
+
+    def active_project_id(self) -> int | None:
+        return context_manager.get_active_project_id()
+
+    def append_usage_event(self, event: dict) -> None:
+        context_manager.append_usage_event(event)
+
+    def load_usage_events(self, days: int = 30) -> list[dict]:
+        return context_manager.load_usage_events(days)
+
     def set_active(self, ctx) -> None:
         """Set both the PM-instance namespace and the project from a RequestContext.
 

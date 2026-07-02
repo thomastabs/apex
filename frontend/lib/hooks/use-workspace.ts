@@ -49,6 +49,7 @@ import {
   updateStory,
   type ApexPhaseStatus,
 } from "@/lib/api/workspace";
+import { getUsageSummary } from "@/lib/api/usage";
 import { useApiContext, useAuthContext, useGithubContext, useFigmaContext } from "@/lib/stores/session-store";
 import { toast } from "sonner";
 
@@ -574,6 +575,16 @@ export function useDeleteAiKey() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "ai-config"] });
     },
+  });
+}
+
+export function useUsageSummary(days = 30) {
+  const auth = useAuthContext();
+  return useQuery({
+    queryKey: ["workspace", "usage-summary", days],
+    queryFn: () => getUsageSummary(auth!, days),
+    enabled: Boolean(auth),
+    staleTime: 30 * 1000,
   });
 }
 

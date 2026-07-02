@@ -20,6 +20,7 @@ Phase 1 pipeline (two-step):
 
 import contextvars
 import hashlib
+import inspect
 import json
 import logging
 import os
@@ -30,6 +31,7 @@ from typing import Literal
 
 from dotenv import load_dotenv
 from langchain_anthropic import ChatAnthropic
+from langchain_core.callbacks.usage import get_usage_metadata_callback
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
@@ -40,7 +42,8 @@ from pydantic import BaseModel, Field, field_validator
 
 load_dotenv()
 
-_DEFAULT_MODEL = "claude-sonnet-4-6"
+# claude-sonnet-5 is same tier as 4.6 at a lower (intro) price — see AVAILABLE_MODELS.
+_DEFAULT_MODEL = "claude-sonnet-5"
 
 
 # ---------------------------------------------------------------------------
@@ -177,6 +180,10 @@ def check_api_key(model: str | None = None) -> None:
         )
 
 
+# $/1M tokens (input, output). Anthropic prices are current list prices; OpenAI
+# and Google prices are approximate public pricing and drift — re-check against
+# each provider's pricing page periodically rather than trusting these forever.
+# claude-sonnet-5 carries its introductory rate (reverts to $3/$15 after 2026-08-31).
 AVAILABLE_MODELS: list[dict] = [
     # ── Anthropic (Claude) ───────────────────────────────────────────────────
     {
@@ -185,13 +192,26 @@ AVAILABLE_MODELS: list[dict] = [
         "role":     "Fast",
         "provider": "anthropic",
         "note":     "Fastest & cheapest — good for simple tasks and tight budgets",
+        "input_per_mtok":  1.00,
+        "output_per_mtok": 5.00,
+    },
+    {
+        "id":       "claude-sonnet-5",
+        "label":    "Claude Sonnet 5",
+        "role":     "Balanced",
+        "provider": "anthropic",
+        "note":     "Best quality-to-cost ratio — recommended for most projects",
+        "input_per_mtok":  2.00,
+        "output_per_mtok": 10.00,
     },
     {
         "id":       "claude-sonnet-4-6",
         "label":    "Claude Sonnet 4.6",
         "role":     "Balanced",
         "provider": "anthropic",
-        "note":     "Best quality-to-cost ratio — recommended for most projects",
+        "note":     "Previous generation — see Claude Sonnet 5",
+        "input_per_mtok":  3.00,
+        "output_per_mtok": 15.00,
     },
     {
         "id":       "claude-opus-4-8",
@@ -199,6 +219,8 @@ AVAILABLE_MODELS: list[dict] = [
         "role":     "Premium",
         "provider": "anthropic",
         "note":     "Most capable Opus — best for complex architecture and large projects",
+        "input_per_mtok":  5.00,
+        "output_per_mtok": 25.00,
     },
     {
         "id":       "claude-fable-5",
@@ -206,6 +228,8 @@ AVAILABLE_MODELS: list[dict] = [
         "role":     "Flagship",
         "provider": "anthropic",
         "note":     "Most powerful Claude model — highest quality at premium cost",
+        "input_per_mtok":  10.00,
+        "output_per_mtok": 50.00,
     },
     # ── OpenAI (GPT) — requires OPENAI_API_KEY ───────────────────────────────
     {
@@ -214,6 +238,8 @@ AVAILABLE_MODELS: list[dict] = [
         "role":     "Budget",
         "provider": "openai",
         "note":     "Cheapest OpenAI model — good for simple tasks",
+        "input_per_mtok":  0.10,
+        "output_per_mtok": 0.40,
     },
     {
         "id":       "gpt-4.1-mini",
@@ -221,6 +247,8 @@ AVAILABLE_MODELS: list[dict] = [
         "role":     "Economy",
         "provider": "openai",
         "note":     "Low cost with strong capability",
+        "input_per_mtok":  0.40,
+        "output_per_mtok": 1.60,
     },
     {
         "id":       "gpt-4o-mini",
@@ -228,6 +256,8 @@ AVAILABLE_MODELS: list[dict] = [
         "role":     "Economy",
         "provider": "openai",
         "note":     "Reliable low-cost option",
+        "input_per_mtok":  0.15,
+        "output_per_mtok": 0.60,
     },
     {
         "id":       "gpt-4.1",
@@ -235,6 +265,8 @@ AVAILABLE_MODELS: list[dict] = [
         "role":     "Standard",
         "provider": "openai",
         "note":     "Latest GPT-4.1 — strong and efficient",
+        "input_per_mtok":  2.00,
+        "output_per_mtok": 8.00,
     },
     {
         "id":       "gpt-4o",
@@ -242,6 +274,8 @@ AVAILABLE_MODELS: list[dict] = [
         "role":     "Standard",
         "provider": "openai",
         "note":     "GPT-4o flagship",
+        "input_per_mtok":  2.50,
+        "output_per_mtok": 10.00,
     },
     # ── Google (Gemini) — requires GOOGLE_API_KEY ────────────────────────────
     {
@@ -250,6 +284,8 @@ AVAILABLE_MODELS: list[dict] = [
         "role":     "Budget",
         "provider": "google",
         "note":     "Cheapest Gemini model — ideal for simple tasks",
+        "input_per_mtok":  0.10,
+        "output_per_mtok": 0.40,
     },
     {
         "id":       "gemini-2.5-flash",
@@ -257,6 +293,8 @@ AVAILABLE_MODELS: list[dict] = [
         "role":     "Standard",
         "provider": "google",
         "note":     "Best Gemini balance of quality and cost",
+        "input_per_mtok":  0.30,
+        "output_per_mtok": 2.50,
     },
     {
         "id":       "gemini-2.5-pro",
@@ -264,8 +302,22 @@ AVAILABLE_MODELS: list[dict] = [
         "role":     "Premium",
         "provider": "google",
         "note":     "Most capable Gemini model",
+        "input_per_mtok":  1.25,
+        "output_per_mtok": 10.00,
     },
 ]
+
+_PRICING: dict[str, tuple[float, float]] = {
+    m["id"]: (m["input_per_mtok"], m["output_per_mtok"]) for m in AVAILABLE_MODELS
+}
+
+
+def _estimate_cost_usd(model: str, input_tokens: int, output_tokens: int) -> float:
+    prices = _PRICING.get(model)
+    if not prices:
+        return 0.0
+    in_price, out_price = prices
+    return (input_tokens / 1_000_000) * in_price + (output_tokens / 1_000_000) * out_price
 
 
 def get_model() -> str:
@@ -282,6 +334,21 @@ def get_model() -> str:
     except Exception:
         pass
     return os.getenv("AI_MODEL", _DEFAULT_MODEL)
+
+
+# Cheapest model per provider — used for small classification-shaped calls
+# (triage, severity routing) instead of the user's selected ai_model. Picking
+# by the user's current provider (not hardcoding Anthropic) means this still
+# works for OpenAI-only/Google-only setups that never set ANTHROPIC_API_KEY.
+_UTILITY_MODEL_BY_PROVIDER = {
+    "anthropic": "claude-haiku-4-5",
+    "openai": "gpt-4.1-nano",
+    "google": "gemini-2.5-flash-lite",
+}
+
+
+def _utility_model() -> str:
+    return _UTILITY_MODEL_BY_PROVIDER.get(_get_provider(get_model()), "claude-haiku-4-5")
 
 
 def _get_llm(
@@ -332,6 +399,63 @@ def _get_llm(
                 **key_kwargs,
             )
     return _llm_cache[key]
+
+
+# ---------------------------------------------------------------------------
+# Usage tracking — every _invoke()/_invoke_structured_with_progress() call
+# reports real token usage (not the max_tokens cap) to an optional sink, so a
+# "Usage" dashboard can be built on top without ai_engine knowing about
+# storage/instances/projects. Registered by backend/app/services/usage_service.
+# ---------------------------------------------------------------------------
+
+_usage_sink: Callable[[dict], None] | None = None
+
+
+def set_usage_sink(fn: Callable[[dict], None] | None) -> None:
+    """Register a callback invoked with a usage event after every AI call.
+
+    Event shape: {call, model, provider, input_tokens, output_tokens,
+    cache_read_tokens, cache_creation_tokens, cost_usd, duration_s}.
+    Pass None to unregister (mainly for tests).
+    """
+    global _usage_sink
+    _usage_sink = fn
+
+
+def _record_usage(call_name: str, model: str, usage_by_model: dict, duration_s: float) -> None:
+    """Aggregate get_usage_metadata_callback() output (keyed by model) and report it.
+
+    Usage tracking must never break an AI call — any failure here is swallowed
+    after a warning log.
+    """
+    try:
+        input_tokens = sum(u.get("input_tokens", 0) for u in usage_by_model.values())
+        output_tokens = sum(u.get("output_tokens", 0) for u in usage_by_model.values())
+        cache_read = 0
+        cache_creation = 0
+        for u in usage_by_model.values():
+            details = u.get("input_token_details") or {}
+            cache_read += details.get("cache_read", 0) or 0
+            cache_creation += details.get("cache_creation", 0) or 0
+        cost_usd = _estimate_cost_usd(model, input_tokens, output_tokens)
+        _logger.info(
+            "ai_call model=%s call=%s in=%d out=%d cache_read=%d cost_usd=%.4f duration_s=%.2f status=ok",
+            model, call_name, input_tokens, output_tokens, cache_read, cost_usd, duration_s,
+        )
+        if _usage_sink is not None:
+            _usage_sink({
+                "call": call_name,
+                "model": model,
+                "provider": _get_provider(model),
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "cache_read_tokens": cache_read,
+                "cache_creation_tokens": cache_creation,
+                "cost_usd": round(cost_usd, 6),
+                "duration_s": round(duration_s, 2),
+            })
+    except Exception:
+        _logger.warning("ai_usage_tracking_failed call=%s model=%s", call_name, model, exc_info=True)
 
 
 _FENCE_TAG = "user_content"
@@ -409,11 +533,12 @@ def _make_messages(system: str, human: str, *, model: str = "", images: list[dic
 def _invoke(system: str, human: str, model: str, max_tokens: int = 2048, timeout: float | None = None,
             temperature: float = 0.0, images: list[dict] | None = None) -> str:
     llm = _get_llm(model, max_tokens, timeout, temperature)
+    call_name = inspect.currentframe().f_back.f_code.co_name
     t0 = time.monotonic()
     try:
-        response = llm.invoke(_make_messages(system, human, model=model, images=images))
-        _logger.info("ai_call model=%s tokens=%s duration_s=%.2f status=ok",
-                     model, max_tokens, time.monotonic() - t0)
+        with get_usage_metadata_callback() as cb:
+            response = llm.invoke(_make_messages(system, human, model=model, images=images))
+        _record_usage(call_name, model, cb.usage_metadata, time.monotonic() - t0)
         return response.content.strip()
     except AIError:
         raise
@@ -453,48 +578,57 @@ def _invoke_structured_with_progress(
     messages = _make_messages(system, human, model=model, images=images)
     last = None
     seen = 0
+    call_name = inspect.currentframe().f_back.f_code.co_name
+    t0 = time.monotonic()
 
-    # Tier 1 — streaming
-    try:
-        for chunk in chain.stream(messages):
-            last = chunk
-            if on_item is not None:
-                if isinstance(chunk, dict):
-                    items = chunk.get(item_field) or []
-                    n = sum(1 for item in items if isinstance(item, dict) and item)
-                else:
-                    items = getattr(chunk, item_field, None) or []
-                    n = sum(1 for item in items if item is not None)
-                if n > seen:
-                    seen = n
-                    on_item(n)
-    except AIError:
-        raise
-    except Exception as exc:
-        _reclassify_llm_exc(exc, reraise_unrecognized=False)
-        last = None
+    # Wraps all three tiers (including the nested _invoke_json_fallback call in
+    # tier 3) so usage is captured once for the whole attempt — tokens spent on
+    # a failed tier 1/2 attempt before falling back to tier 3 are real spend.
+    with get_usage_metadata_callback() as cb:
+        try:
+            # Tier 1 — streaming
+            try:
+                for chunk in chain.stream(messages):
+                    last = chunk
+                    if on_item is not None:
+                        if isinstance(chunk, dict):
+                            items = chunk.get(item_field) or []
+                            n = sum(1 for item in items if isinstance(item, dict) and item)
+                        else:
+                            items = getattr(chunk, item_field, None) or []
+                            n = sum(1 for item in items if item is not None)
+                        if n > seen:
+                            seen = n
+                            on_item(n)
+            except AIError:
+                raise
+            except Exception as exc:
+                _reclassify_llm_exc(exc, reraise_unrecognized=False)
+                last = None
 
-    if isinstance(last, schema):
-        return last
+            if isinstance(last, schema):
+                return last
 
-    # Tier 2 — non-streaming invoke
-    try:
-        result = chain.invoke(messages)
-        if isinstance(result, schema):
-            return result
-        if isinstance(result, dict):
-            return schema.model_validate(result)
-    except AIError:
-        raise
-    except Exception as exc:
-        _reclassify_llm_exc(exc, reraise_unrecognized=False)
+            # Tier 2 — non-streaming invoke
+            try:
+                result = chain.invoke(messages)
+                if isinstance(result, schema):
+                    return result
+                if isinstance(result, dict):
+                    return schema.model_validate(result)
+            except AIError:
+                raise
+            except Exception as exc:
+                _reclassify_llm_exc(exc, reraise_unrecognized=False)
 
-    # Tier 3 — raw JSON fallback (bypasses with_structured_output entirely)
-    return _invoke_json_fallback(
-        system, human, model, schema, max_tokens,
-        timeout=timeout, temperature=temperature, on_item=on_item, item_field=item_field,
-        images=images,
-    )
+            # Tier 3 — raw JSON fallback (bypasses with_structured_output entirely)
+            return _invoke_json_fallback(
+                system, human, model, schema, max_tokens,
+                timeout=timeout, temperature=temperature, on_item=on_item, item_field=item_field,
+                images=images,
+            )
+        finally:
+            _record_usage(call_name, model, cb.usage_metadata, time.monotonic() - t0)
 
 
 def _repair_truncated_json(content: str) -> str:
@@ -2091,28 +2225,20 @@ def generate_coding_proposal(
     figma_context: str = "",
     images: list[dict] | None = None,
 ) -> str:
+    # Only stable, per-story content goes in `system` (tech_stack/design_bundle/
+    # technical_spec/constraints/decisions/figma/github/commits are identical for
+    # every task decomposed from the same story) — this is one call per task, so
+    # keeping `system` byte-identical across sibling-task calls in the same story
+    # lets prompt caching actually hit (see _make_messages' cache_control on the
+    # system turn). `other_tasks`/`sibling_digests` are genuinely per-task (they
+    # exclude the current task / grow as siblings finish) — those go in `human`
+    # instead of being appended to `system`, or every task's differing tail would
+    # invalidate the cache for the identical header that precedes it.
     system = _GENERATE_PROPOSAL_SYSTEM.format(
         tech_stack=fence_user_content(tech_stack.strip() or "Not specified"),
         design_bundle=fence_user_content(design_bundle.strip() or "Not specified"),
         technical_spec=fence_user_content(technical_spec.strip() or "Not specified"),
     )
-    if other_tasks:
-        lines = []
-        for i, t in enumerate(other_tasks, 1):
-            desc = t.get("description", "").strip()
-            line = f"  {i}. {t['subject']}"
-            if desc:
-                line += f" — {desc[:120]}"
-            lines.append(line)
-        system += "\n\nOther tasks in this story (do NOT duplicate their work — assume they are implemented separately):\n" + "\n".join(lines)
-    sibling_digests = _format_pack_digests(sibling_packs)
-    if sibling_digests:
-        system += (
-            "\n\nDeveloper packs already generated for sibling tasks in this story (digests — Context "
-            "+ Files to Change). Stay consistent with the file paths, entities, and endpoints they "
-            "define: reuse the same names, never redefine or contradict them, and do not duplicate "
-            "their work:\n" + fence_user_content(sibling_digests)
-        )
     if constraints.strip():
         system += (
             "\n\nConstraints (EARS) the implementation MUST satisfy. Honour them "
@@ -2126,7 +2252,25 @@ def generate_coding_proposal(
         system += "\n\nExisting Codebase (GitHub):\n" + fence_user_content(github_context)
     if recent_commits.strip():
         system += "\n\nRecent Related Commits:\n" + fence_user_content(recent_commits)
-    human = (
+    human = ""
+    if other_tasks:
+        lines = []
+        for i, t in enumerate(other_tasks, 1):
+            desc = t.get("description", "").strip()
+            line = f"  {i}. {t['subject']}"
+            if desc:
+                line += f" — {desc[:120]}"
+            lines.append(line)
+        human += "Other tasks in this story (do NOT duplicate their work — assume they are implemented separately):\n" + "\n".join(lines) + "\n\n"
+    sibling_digests = _format_pack_digests(sibling_packs)
+    if sibling_digests:
+        human += (
+            "Developer packs already generated for sibling tasks in this story (digests — Context "
+            "+ Files to Change). Stay consistent with the file paths, entities, and endpoints they "
+            "define: reuse the same names, never redefine or contradict them, and do not duplicate "
+            "their work:\n" + fence_user_content(sibling_digests) + "\n\n"
+        )
+    human += (
         "Task: " + fence_user_content(task_subject) + "\n\n"
         + "Task Description: " + fence_user_content(task_description) + "\n\n"
         + "Acceptance Criteria (Gherkin):\n" + fence_user_content(gherkin) + "\n\n"
@@ -2899,7 +3043,7 @@ def triage_feedback(subject: str, description: str, spec_excerpt: str = "") -> T
         human += "Relevant approved spec (Gherkin / contract) for the linked story:\n" + fence_user_content(spec_excerpt) + "\n\n"
     human += "Classify this feedback."
     return _ai_retry(lambda: _invoke_structured_with_progress(
-        _TRIAGE_SYSTEM, human, get_model(), TriageResult, max_tokens=800, temperature=0.0,
+        _TRIAGE_SYSTEM, human, _utility_model(), TriageResult, max_tokens=800, temperature=0.0,
         item_field="rationale",
     ))
 
@@ -3031,7 +3175,7 @@ def suggest_severity_lane(diagnosis_md: str, patch_scope: str = "") -> SeverityR
         + "Recommend the deployment lane."
     )
     return _ai_retry(lambda: _invoke_structured_with_progress(
-        _SEVERITY_SYSTEM, human, get_model(), SeverityRouting, max_tokens=600, temperature=0.0,
+        _SEVERITY_SYSTEM, human, _utility_model(), SeverityRouting, max_tokens=600, temperature=0.0,
         item_field="rationale",
     ))
 
