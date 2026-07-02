@@ -29,6 +29,7 @@ class ContextFileSchema(BaseModel):
     content: str
     chars: int
     last_modified: str | None = None
+    version: str = "0.0.0"
 
 
 class SpecDriftInfo(BaseModel):
@@ -79,6 +80,12 @@ class SaveConfigRequest(BaseModel):
 
 class OkResponse(BaseModel):
     ok: bool = True
+
+
+class GithubWebhookConfigResponse(BaseModel):
+    instance_id: str
+    secret: str
+    configured: bool = False
 
 
 class ConfigResponse(BaseModel):

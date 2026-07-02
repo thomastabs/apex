@@ -57,6 +57,7 @@ export type ContextFile = {
   content: string;
   chars: number;
   last_modified?: string | null;
+  version?: string;
 };
 
 export type SpecDriftInfo = {

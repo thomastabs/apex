@@ -131,12 +131,13 @@ class TraceabilityService:
             if entry.get("has_tech_spec"):
                 add_edge(story_node, "design", "design")
 
+            tasks_node = None
             if entry.get("has_proposal"):
-                tk_node = f"tasks:{sid}"
-                nodes.append({"id": tk_node, "type": "tasks", "label": "Tasks",
+                tasks_node = f"tasks:{sid}"
+                nodes.append({"id": tasks_node, "type": "tasks", "label": "Tasks",
                               "story_id": entry.get("story_id"), "phase": 3})
-                add_edge(prev, tk_node, "derive")
-                prev = tk_node
+                add_edge(prev, tasks_node, "derive")
+                prev = tasks_node
 
             if entry.get("has_bdd"):
                 ts_node = f"tests:{sid}"
@@ -145,11 +146,24 @@ class TraceabilityService:
                 add_edge(prev, ts_node, "derive")
                 prev = ts_node
 
+            deploy_node = None
             if entry.get("has_deploy_pack") or entry.get("has_infra_delta"):
-                dp_node = f"deploy:{sid}"
-                nodes.append({"id": dp_node, "type": "deploy", "label": "Deploy",
+                deploy_node = f"deploy:{sid}"
+                nodes.append({"id": deploy_node, "type": "deploy", "label": "Deploy",
                               "story_id": entry.get("story_id"), "phase": 5})
-                add_edge(prev, dp_node, "derive")
+                add_edge(prev, deploy_node, "derive")
+
+            # Regression loop-back: maintenance_service.route_lane() (Secure Lane)
+            # and phase6_service.scan_regressions() both push phase_status backward
+            # (deployed -> implementation) in story-index — a real state transition,
+            # not just a badge. Previously that only showed up as flags.bug on the
+            # story node; draw the actual edge from wherever work last reached back
+            # to Tasks, so the loop this system genuinely performs is visible.
+            if entry.get("has_bug_report") or entry.get("conformance_regressed") or entry.get("fix_bolt_count"):
+                target = tasks_node or story_node
+                source = deploy_node or prev
+                if source != target:
+                    add_edge(source, target, "regression")
 
         # Cross-story conflict edges (amber).
         for sid, info in conflicts.items():

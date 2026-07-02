@@ -19,6 +19,15 @@ class ContextService:
     def append_usage_event(self, event: dict) -> None:
         context_manager.append_usage_event(event)
 
+    def spec_version(self, filename: str) -> str:
+        return context_manager.get_spec_version(filename)
+
+    def github_webhook_secret(self) -> str:
+        return context_manager.get_or_create_instance_github_webhook_secret()
+
+    def github_repo(self) -> str:
+        return context_manager.get_instance_github_repo()
+
     def load_usage_events(self, days: int = 30) -> list[dict]:
         return context_manager.load_usage_events(days)
 

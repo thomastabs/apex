@@ -473,6 +473,30 @@ def save_instance_github_repo(repo: str | None) -> None:
     p.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
+def get_or_create_instance_github_webhook_secret() -> str:
+    """Webhook secret for the active instance (GitHub push -> auto regression
+    scan). Generated once on first read and persisted — the same secret is
+    shown to the user (to paste into GitHub's webhook config) and used to
+    verify the X-Hub-Signature-256 header on incoming webhook deliveries."""
+    inst = _instance_dir()
+    p = inst / _INSTANCE_CONFIG_FILE
+    data: dict = {}
+    if p.exists():
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            data = {}
+    secret = data.get("github_webhook_secret")
+    if isinstance(secret, str) and secret:
+        return secret
+    import secrets as _secrets
+    secret = _secrets.token_urlsafe(32)
+    inst.mkdir(parents=True, exist_ok=True)
+    data["github_webhook_secret"] = secret
+    p.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    return secret
+
+
 def get_instance_figma_file_key() -> str:
     """Figma file key for the active instance (the linked Figma design file)."""
     p = _instance_dir() / _INSTANCE_CONFIG_FILE
@@ -2282,6 +2306,62 @@ def _phase_at_or_after(status: str, lock: str) -> bool:
         return False
 
 
+# ---------------------------------------------------------------------------
+# Semver for lockable spec artifacts. "1.0.0" the moment a file first locks
+# (lazily reported — no write needed until something actually changes); every
+# post-lock amendment bumps MAJOR, since record_amendment() already treats
+# every amendment as breaking (it flags ALL affected stories with spec_drift,
+# unconditionally). MINOR/PATCH are reserved: nothing in the current data
+# model distinguishes a "safe" edit from a breaking one, so faking that
+# distinction here would just be noise — bump MAJOR honestly instead of
+# inventing granularity the system can't actually detect.
+# ---------------------------------------------------------------------------
+
+_SPEC_VERSION_FILE = "spec-versions.json"
+
+
+def _versions_lock():
+    """Serialise spec-versions.json read-modify-write, same pattern as _index_lock."""
+    return distributed.reentrant_lock("apex:spec-versions-write")
+
+
+def get_spec_version(filename: str) -> str:
+    """Current semver for a lockable spec artifact.
+
+    "0.0.0" — not a versioned artifact, or still pre-lock (draft).
+    "1.0.0" — locked, never amended since (lazily implied, not persisted).
+    "N.0.0" — locked and amended N-1 times since.
+    """
+    if filename not in _SPEC_LOCK_PHASE:
+        return "0.0.0"
+    p = _path(_SPEC_VERSION_FILE)
+    stored = None
+    if p.exists():
+        try:
+            stored = json.loads(p.read_text(encoding="utf-8")).get(filename)
+        except json.JSONDecodeError:
+            stored = None
+    if stored:
+        return stored
+    return "1.0.0" if affected_stories_for_spec(filename) else "0.0.0"
+
+
+def _bump_spec_version(filename: str) -> str:
+    """Bump filename's MAJOR version by one, persist, return the new version."""
+    with _versions_lock():
+        p = _path(_SPEC_VERSION_FILE)
+        try:
+            data = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+        except json.JSONDecodeError:
+            data = {}
+        current = data.get(filename) or get_spec_version(filename)
+        major = int(current.split(".")[0])
+        new = f"{major + 1}.0.0"
+        data[filename] = new
+        p.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    return new
+
+
 def affected_stories_for_spec(filename: str) -> list[int]:
     """Story ids past the lock phase for a spec file (empty if not a spec file)."""
     lock = _SPEC_LOCK_PHASE.get(filename)
@@ -2296,14 +2376,16 @@ def affected_stories_for_spec(filename: str) -> list[int]:
 
 
 def record_amendment(filename: str, note: str, story_ids: list[int]) -> None:
-    """Append a dated amendment entry to amendments.md and flag the affected
-    stories with spec_drift so downstream artifacts get re-derived."""
+    """Append a dated amendment entry to amendments.md, bump the artifact's
+    semver MAJOR version, and flag the affected stories with spec_drift so
+    downstream artifacts get re-derived."""
     init_context()
+    new_version = _bump_spec_version(filename)
     am = _path("amendments.md")
     header = am.read_text(encoding="utf-8") if am.exists() else _AMENDMENTS_TEMPLATE
     ids = ", ".join(f"#{s}" for s in story_ids) or "(none)"
     block = (
-        f"\n## {_now_iso()} — {filename}\n\n"
+        f"\n## {_now_iso()} — {filename} (→ v{new_version})\n\n"
         f"- **Affected stories:** {ids}\n"
         f"- **Note:** {note.strip() or '(none)'}\n"
     )

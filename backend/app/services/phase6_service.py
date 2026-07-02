@@ -129,6 +129,36 @@ class Phase6Service:
         self.configure_request(ctx)
         return self.context.load_conformance(story_id)
 
+    def _check_one_regression(self, ctx: RequestContext, story_id: int, title: str, *, panel: bool = False) -> dict:
+        """Re-verify one story's conformance and flag/clear conformance_regressed.
+
+        Shared by scan_regressions (all eligible stories, human-triggered) and
+        scan_regressions_for_stories (a specific subset, e.g. webhook-triggered
+        for only the stories whose files a push touched).
+        """
+        from src import ai_engine
+
+        old = self.context.load_conformance(story_id) or {}
+        new = self.verify_conformance(ctx, story_id, ai=True, panel=panel)
+        diff = ai_engine.diff_conformance(old, new)
+        if diff["regressed"]:
+            reason = (
+                f"score {old.get('score', 0)}→{new.get('score', 0)}, "
+                f"{len(diff['worsened_rows'])} row(s) worsened"
+            )
+            self.context.set_conformance_regressed(story_id, reason)
+        else:
+            # Recovery (or steady): clear any stale flag.
+            self.context.clear_conformance_regressed(story_id)
+        return {
+            "story_id": story_id,
+            "title": title,
+            "old_score": old.get("score"),
+            "new_score": new.get("score", 0),
+            "regressed": diff["regressed"],
+            "worsened_rows": diff["worsened_rows"],
+        }
+
     def scan_regressions(self, ctx: RequestContext, *, panel: bool = False) -> dict:
         """Re-verify every story that already has a conformance report against the
         freshly-synced code and flag any whose conformance regressed.
@@ -140,38 +170,34 @@ class Phase6Service:
         previously-flagged story that recovered is cleared automatically.
         On-demand, sequential (single-writer safe).
         """
-        from src import ai_engine
-
         self.configure_request(ctx)
         eligible = self.get_eligible_stories(ctx)
-        results: list[dict] = []
-        regressed_ids: list[int] = []
-        for s in eligible:
-            if not s["has_conformance"]:
-                continue
-            story_id = s["story_id"]
-            old = self.context.load_conformance(story_id) or {}
-            new = self.verify_conformance(ctx, story_id, ai=True, panel=panel)
-            diff = ai_engine.diff_conformance(old, new)
-            if diff["regressed"]:
-                reason = (
-                    f"score {old.get('score', 0)}→{new.get('score', 0)}, "
-                    f"{len(diff['worsened_rows'])} row(s) worsened"
-                )
-                self.context.set_conformance_regressed(story_id, reason)
-                regressed_ids.append(story_id)
-            else:
-                # Recovery (or steady): clear any stale flag.
-                self.context.clear_conformance_regressed(story_id)
-            results.append({
-                "story_id": story_id,
-                "title": s["title"],
-                "old_score": old.get("score"),
-                "new_score": new.get("score", 0),
-                "regressed": diff["regressed"],
-                "worsened_rows": diff["worsened_rows"],
-            })
-        return {"results": results, "regressed_ids": sorted(regressed_ids)}
+        results = [
+            self._check_one_regression(ctx, s["story_id"], s["title"], panel=panel)
+            for s in eligible if s["has_conformance"]
+        ]
+        regressed_ids = sorted(r["story_id"] for r in results if r["regressed"])
+        return {"results": results, "regressed_ids": regressed_ids}
+
+    # Cap how many stories one push can trigger AI re-verification for — a push
+    # touching many files (a big refactor, a vendored-dep bump) must not turn
+    # into an unbounded AI bill from a single webhook delivery.
+    MAX_WEBHOOK_REGRESSION_STORIES = 10
+
+    def scan_regressions_for_stories(self, ctx: RequestContext, story_ids: list[int], *, panel: bool = False) -> dict:
+        """Re-verify a specific subset of stories (already has_conformance only —
+        same eligibility as scan_regressions). Used by the GitHub webhook handler
+        to re-check only the stories whose dev-pack files a push touched, instead
+        of the whole project."""
+        self.configure_request(ctx)
+        by_id = {s["story_id"]: s for s in self.get_eligible_stories(ctx) if s["has_conformance"]}
+        targets = [sid for sid in story_ids if sid in by_id][: self.MAX_WEBHOOK_REGRESSION_STORIES]
+        results = [
+            self._check_one_regression(ctx, sid, by_id[sid]["title"], panel=panel)
+            for sid in targets
+        ]
+        regressed_ids = sorted(r["story_id"] for r in results if r["regressed"])
+        return {"results": results, "regressed_ids": regressed_ids}
 
     def acknowledge_regression(self, ctx: RequestContext, story_id: int) -> None:
         self.configure_request(ctx)

@@ -41,6 +41,16 @@ export function saveGithubConfig(context: AuthContext, repo: string) {
   });
 }
 
+export type GithubWebhookConfig = {
+  instance_id: string;
+  secret: string;
+  configured: boolean;
+};
+
+export function getGithubWebhookConfig(context: AuthContext) {
+  return apiRequest<GithubWebhookConfig>("/api/workspace/github-webhook", { context });
+}
+
 export function saveFigmaConfig(context: AuthContext, fileKey: string) {
   return apiRequest<{ ok: boolean }>("/api/workspace/config", {
     method: "POST",
@@ -403,7 +413,7 @@ export type TraceEdge = {
   id: string;
   source: string;
   target: string;
-  kind: "derive" | "design" | "conflict" | "trace" | "verify";
+  kind: "derive" | "design" | "conflict" | "trace" | "verify" | "regression";
 };
 
 export type TraceabilityGraph = { nodes: TraceNode[]; edges: TraceEdge[] };

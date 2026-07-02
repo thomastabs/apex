@@ -1,12 +1,79 @@
 "use client";
 import { useEffect, useState } from "react";
-import { ExternalLink, GitBranch, Github, Lock, RefreshCw, Star } from "lucide-react";
+import { Copy, ExternalLink, GitBranch, Github, Lock, RefreshCw, Star, Webhook } from "lucide-react";
 import { toast } from "sonner";
-import { useSaveGithubConfig, useSyncGithubContext, useContextFiles } from "@/lib/hooks/use-workspace";
+import { useGithubWebhookConfig, useSaveGithubConfig, useSyncGithubContext, useContextFiles } from "@/lib/hooks/use-workspace";
 import { useSessionStore, useGithubContext } from "@/lib/stores/session-store";
 import { verifyGithubRepo, type RepoMeta } from "@/lib/api/github-browser";
+import { getApiBaseUrl } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 import { PanelHeader, type DragSectionProps } from "./shared";
+
+function copyToClipboard(value: string, label: string) {
+  navigator.clipboard.writeText(value)
+    .then(() => toast.success(`${label} copied.`))
+    .catch(() => toast.error(`Could not copy ${label.toLowerCase()}.`));
+}
+
+function WebhookSetup({ dark }: { dark: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  const projectId = useSessionStore((s) => s.projectId);
+  const webhook = useGithubWebhookConfig(expanded);
+  const url = webhook.data && projectId
+    ? `${getApiBaseUrl()}/api/webhooks/github/${webhook.data.instance_id}/${projectId}`
+    : "";
+
+  return (
+    <div className={cn("rounded border text-xs", dark ? "border-neutral-700" : "border-slate-200")}>
+      <button
+        className={cn("flex h-8 w-full items-center gap-2 px-2.5 text-left", dark ? "text-neutral-400 hover:text-neutral-200" : "text-slate-600 hover:text-slate-800")}
+        onClick={() => setExpanded(!expanded)}
+      >
+        <Webhook className="size-3.5" />
+        <span className="flex-1 font-medium">Auto regression scan on push</span>
+        <span className={dark ? "text-neutral-600" : "text-slate-400"}>{expanded ? "Hide" : "Set up"}</span>
+      </button>
+      {expanded ? (
+        <div className={cn("space-y-2 border-t px-2.5 py-2.5", dark ? "border-neutral-700" : "border-slate-200")}>
+          <p className={cn("leading-snug", dark ? "text-neutral-500" : "text-slate-500")}>
+            Add this as a GitHub webhook (repo Settings → Webhooks → Add webhook, content type{" "}
+            <code>application/json</code>, event <code>push</code>) and every push re-checks spec↔code
+            conformance for the stories it touched — no need to click &quot;Scan for regressions&quot; by hand.
+          </p>
+          {webhook.isLoading ? (
+            <p className={cn(dark ? "text-neutral-600" : "text-slate-400")}>Loading…</p>
+          ) : !projectId ? (
+            <p className={cn(dark ? "text-neutral-600" : "text-slate-400")}>Pick a project first.</p>
+          ) : webhook.data ? (
+            <>
+              <div className="space-y-1">
+                <label className={cn("block", dark ? "text-neutral-500" : "text-slate-500")}>Payload URL</label>
+                <div className="flex gap-1.5">
+                  <input readOnly value={url} className={cn("h-7 min-w-0 flex-1 rounded border px-2 font-mono text-[11px]", dark ? "border-neutral-700 bg-neutral-950 text-neutral-300" : "border-slate-300 bg-white text-slate-700")} />
+                  <button className={cn("grid size-7 shrink-0 place-items-center rounded border", dark ? "border-neutral-700 text-neutral-400 hover:text-violet-300" : "border-slate-300 text-slate-500 hover:text-violet-600")} onClick={() => copyToClipboard(url, "Webhook URL")}>
+                    <Copy className="size-3" />
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className={cn("block", dark ? "text-neutral-500" : "text-slate-500")}>Secret</label>
+                <div className="flex gap-1.5">
+                  <input readOnly type="password" value={webhook.data.secret} className={cn("h-7 min-w-0 flex-1 rounded border px-2 font-mono text-[11px]", dark ? "border-neutral-700 bg-neutral-950 text-neutral-300" : "border-slate-300 bg-white text-slate-700")} />
+                  <button className={cn("grid size-7 shrink-0 place-items-center rounded border", dark ? "border-neutral-700 text-neutral-400 hover:text-violet-300" : "border-slate-300 text-slate-500 hover:text-violet-600")} onClick={() => copyToClipboard(webhook.data!.secret, "Secret")}>
+                    <Copy className="size-3" />
+                  </button>
+                </div>
+              </div>
+              <p className={cn(dark ? "text-neutral-600" : "text-slate-400")}>
+                Only re-checks stories that already have a conformance report, capped at 10 per push, with a 5-minute cooldown per project.
+              </p>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 type GitHubSectionProps = DragSectionProps & {
   dark: boolean;
@@ -205,6 +272,8 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
                 <p className={cn("text-[11px]", dark ? "text-neutral-600" : "text-slate-400")}>
                   Synced context is injected into Phase 2 and Phase 3 AI prompts automatically.
                 </p>
+
+                <WebhookSetup dark={dark} />
               </>
             ) : (
               <>

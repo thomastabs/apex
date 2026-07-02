@@ -19,6 +19,7 @@ import {
   getAiConfig,
   getBoard,
   getContextFiles,
+  getGithubWebhookConfig,
   getMe,
   getServerConfig,
   acknowledgeFigmaChange,
@@ -596,6 +597,16 @@ export function useSaveGithubConfig() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "server-config"] });
     },
+  });
+}
+
+export function useGithubWebhookConfig(enabled: boolean) {
+  const auth = useAuthContext();
+  return useQuery({
+    queryKey: ["workspace", "github-webhook"],
+    queryFn: () => getGithubWebhookConfig(auth!),
+    enabled: Boolean(auth) && enabled,
+    staleTime: 60 * 1000,
   });
 }
 

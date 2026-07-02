@@ -75,7 +75,7 @@ const CONTEXT_FILE_PHASES: Record<string, string[]> = {
 };
 
 function useVisibleContextFiles(
-  files: Array<{ filename: string; label: string; content: string; chars: number; last_modified?: string | null }> | undefined,
+  files: Array<{ filename: string; label: string; content: string; chars: number; last_modified?: string | null; version?: string }> | undefined,
 ) {
   const pathname = usePathname();
   return useMemo(() => {
@@ -355,6 +355,17 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                     <span className={cn("flex-1 text-sm font-medium transition-colors duration-200", dark ? "text-white group-hover:text-violet-100" : "text-slate-950 group-hover:text-violet-900")}>
                       {file.label}
                     </span>
+                    {file.version && file.version !== "0.0.0" ? (
+                      <span
+                        className={cn(
+                          "rounded border px-1.5 py-0.5 text-[10px] font-semibold tabular-nums",
+                          dark ? "border-violet-500/30 bg-violet-500/10 text-violet-400" : "border-violet-300 bg-violet-50 text-violet-600",
+                        )}
+                        title="Semver: MAJOR bumps on every post-lock amendment"
+                      >
+                        v{file.version}
+                      </span>
+                    ) : null}
                     <span className={cn("text-xs transition-colors duration-200", dark ? "text-neutral-500 group-hover:text-violet-300" : "text-slate-500 group-hover:text-violet-600")}>
                       {file.chars} ch
                       {relativeTime(file.last_modified) ? (

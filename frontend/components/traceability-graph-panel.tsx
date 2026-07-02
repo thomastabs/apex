@@ -133,6 +133,8 @@ function edgeStyle(kind: ApiEdge["kind"], dark: boolean) {
       return { animated: false, style: { stroke: "#f59e0b", strokeWidth: 1.5 } };
     case "trace":
       return { animated: true, style: { stroke: "#8b5cf6", strokeWidth: 1.5, strokeDasharray: "5 4" } };
+    case "regression":
+      return { animated: true, style: { stroke: "#ef4444", strokeWidth: 1.5, strokeDasharray: "2 3" } };
     case "design":
       return { animated: false, style: { stroke: "#14b8a6", strokeWidth: 1.25, strokeDasharray: "4 3" } };
     case "verify":
@@ -176,7 +178,7 @@ export function TraceabilityGraphPanel() {
     }
 
     const flaggedStoryIds = new Set(
-      data.nodes.filter((n) => n.type === "story" && (n.flags?.conflict || n.flags?.trace)).map((n) => n.id.slice("story:".length)),
+      data.nodes.filter((n) => n.type === "story" && (n.flags?.conflict || n.flags?.trace || n.flags?.bug)).map((n) => n.id.slice("story:".length)),
     );
 
     function nodeVisible(n: ApiNode): boolean {

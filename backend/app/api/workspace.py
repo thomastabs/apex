@@ -18,6 +18,7 @@ from backend.app.schemas.workspace import (
     AmendmentsResponse,
     ConfigResponse,
     ContextFilesResponse,
+    GithubWebhookConfigResponse,
     ImportBootstrapResponse,
     ImportReconstructResponse,
     LogDecisionRequest,
@@ -228,6 +229,25 @@ def save_config(
     return {"ok": True}
 
 
+@router.get("/github-webhook", response_model=GithubWebhookConfigResponse)
+def get_github_webhook_config(
+    auth: AuthContext = Depends(get_auth_context),
+    x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+):
+    """Secret + instance id for wiring up POST /api/webhooks/github/{instance_id}/{project_id}
+    as this instance's GitHub push webhook (auto regression re-scan on push —
+    see backend/app/api/github_webhook.py). The frontend builds the full URL
+    with the active project_id, since one instance can have multiple projects."""
+    from src import context_manager
+    instance_id = anchor_instance_id(x_taiga_url)
+    context_manager.set_active_instance(instance_id)
+    return {
+        "instance_id": instance_id,
+        "secret": context_manager.get_or_create_instance_github_webhook_secret(),
+        "configured": bool(context_manager.get_instance_github_repo().strip()),
+    }
+
+
 @router.get("/context-files", response_model=ContextFilesResponse)
 def get_context_files(ctx: RequestContext = Depends(get_request_context)):
     import datetime
@@ -250,6 +270,7 @@ def get_context_files(ctx: RequestContext = Depends(get_request_context)):
             "content": content,
             "chars": len(content),
             "last_modified": last_modified,
+            "version": context.spec_version(filename),
         })
     return {"files": files, "total_chars": sum(file["chars"] for file in files)}
 
