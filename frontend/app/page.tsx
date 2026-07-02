@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  AlertCircle, ArrowRight, BarChart2, Bot, Bug,
+  AlertCircle, AlertTriangle, ArrowRight, BarChart2, Bot, Bug,
   CheckCircle2, Code2, Compass, FileText, GitGraph, Rocket, Wrench,
 } from "lucide-react";
 import { PhaseCard } from "@/components/phase-card";
@@ -107,6 +107,10 @@ export default function HomePage() {
   const openMaintenanceCount = maintenanceItems.data?.items.filter((i) => i.status !== "resolved").length ?? 0;
   const regressedCount = stats?.conformance_regressed ?? 0;
   const loopSignalCount = (stats?.trace_flagged ?? 0) + (stats?.conformance_regressed ?? 0) + (stats?.design_conflict ?? 0);
+  // Not strictly "N stories" — a story can carry >1 flag, and a maintenance
+  // item isn't guaranteed linked to a story — so this is a signal count, not
+  // a story count. Worded as such below rather than overclaiming precision.
+  const attentionCount = loopSignalCount + openMaintenanceCount;
 
   type PhaseInfo = { badge?: string; status: "done" | "active" | "pending" };
 
@@ -224,6 +228,39 @@ export default function HomePage() {
             Re-import stories from Taiga
           </button>
         </div>
+      ) : null}
+
+      {/* Needs-attention callout — loop signal, placed above the forward "next
+          step" banner (not subordinate to it) so the DevOps-loop side of the
+          project is never a lower priority than the sequential-progress side. */}
+      {hasProject && attentionCount > 0 ? (
+        <Link
+          href="/traceability"
+          className={cn(
+            "mb-4 flex items-center justify-between gap-4 rounded-lg border px-4 py-3 text-sm transition-colors",
+            dark
+              ? "border-red-600/40 bg-red-500/8 hover:border-red-500/60"
+              : "border-red-400/50 bg-red-50 hover:border-red-400",
+          )}
+        >
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="size-4 shrink-0 text-red-400" />
+            <div>
+              <p className={cn("font-semibold", dark ? "text-red-300" : "text-red-700")}>
+                {attentionCount} open loop signal{attentionCount === 1 ? "" : "s"}
+              </p>
+              <p className={cn("text-xs", dark ? "text-red-500/80" : "text-red-600/80")}>
+                {[
+                  regressedCount > 0 ? `${regressedCount} regressed` : null,
+                  (stats?.trace_flagged ?? 0) > 0 ? `${stats?.trace_flagged} trace-flagged` : null,
+                  (stats?.design_conflict ?? 0) > 0 ? `${stats?.design_conflict} conflicted` : null,
+                  openMaintenanceCount > 0 ? `${openMaintenanceCount} open maintenance item${openMaintenanceCount === 1 ? "" : "s"}` : null,
+                ].filter(Boolean).join(" · ")}
+              </p>
+            </div>
+          </div>
+          <ArrowRight className="size-4 shrink-0 text-red-400" />
+        </Link>
       ) : null}
 
       {/* Next-step callout */}
