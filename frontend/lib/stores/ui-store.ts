@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 type UiTheme = "dark" | "light";
+type TraceabilityView = "flowchart" | "cluster";
 
 const DEFAULT_SECTION_ORDER = ["project", "board", "users", "context", "ai", "resources", "tasks", "packs", "testplans", "deploypacks", "about"];
 
@@ -14,6 +15,7 @@ type UiState = {
   sidebarSectionOrder: string[];
   rightSidebarWidth: number;
   rightSidebarCollapsed: boolean;
+  traceabilityView: TraceabilityView;
   setTheme: (theme: UiTheme) => void;
   toggleTheme: () => void;
   setSidebarWidth: (width: number) => void;
@@ -21,6 +23,7 @@ type UiState = {
   setSidebarSectionOrder: (order: string[]) => void;
   setRightSidebarWidth: (width: number) => void;
   setRightSidebarCollapsed: (collapsed: boolean) => void;
+  setTraceabilityView: (view: TraceabilityView) => void;
 };
 
 export const useUiStore = create<UiState>()(
@@ -32,6 +35,7 @@ export const useUiStore = create<UiState>()(
       sidebarSectionOrder: DEFAULT_SECTION_ORDER,
       rightSidebarWidth: 420,
       rightSidebarCollapsed: false,
+      traceabilityView: "flowchart",
       setTheme: (theme) => set({ theme }),
       toggleTheme: () => set({ theme: get().theme === "dark" ? "light" : "dark" }),
       setSidebarWidth: (width) => set({ sidebarWidth: Math.min(900, Math.max(280, width)) }),
@@ -39,6 +43,7 @@ export const useUiStore = create<UiState>()(
       setSidebarSectionOrder: (order) => set({ sidebarSectionOrder: order }),
       setRightSidebarWidth: (width) => set({ rightSidebarWidth: Math.min(900, Math.max(280, width)) }),
       setRightSidebarCollapsed: (rightSidebarCollapsed) => set({ rightSidebarCollapsed }),
+      setTraceabilityView: (traceabilityView) => set({ traceabilityView }),
     }),
     {
       name: "apex-ui",
