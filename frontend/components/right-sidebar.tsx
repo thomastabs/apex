@@ -1,16 +1,16 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import {
   ClipboardCheck, ClipboardList, FileCode2, FileText, FolderOpen,
-  Layers3, PanelRightClose, PanelRightOpen, Rocket,
+  Layers3, PanelRightClose, PanelRightOpen, Rocket, Users,
 } from "lucide-react";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
+import { useAiConfig } from "@/lib/hooks/use-workspace";
 import { cn } from "@/lib/utils";
-import { ConfirmDialog } from "./sidebar/shared";
+import { ConfirmDialog, type DragSectionProps } from "./sidebar/shared";
 import { ProjectSection } from "./sidebar/project-section";
 import { ContextSection } from "./sidebar/context-section";
 import { BoardSection } from "./sidebar/board-section";
@@ -18,13 +18,14 @@ import { TasksSection } from "./sidebar/tasks-section";
 import { PacksSection } from "./sidebar/packs-section";
 import { TestPlansSection } from "./sidebar/test-plans-section";
 import { DeployPacksSection } from "./sidebar/deploy-packs-section";
+import { UsersSection } from "./sidebar/users-section";
 
-// Pages that are their own full-screen workspace (no Taiga board/pack/plan
-// context applies) — the Epics/Tasks/Packs sections stay out of the way
-// there, same as the left sidebar's context zone did before them.
-const HIDDEN_PREFIXES = ["/autopilot", "/fix-bolt", "/traceability", "/analytics"];
+type SectionId = "project" | "context" | "board" | "tasks" | "packs" | "testplans" | "deploypacks" | "users";
 
-const RAIL_ICONS = [FolderOpen, FileText, Layers3, ClipboardList, FileCode2, ClipboardCheck, Rocket];
+const SECTION_ICONS: Record<SectionId, typeof FolderOpen> = {
+  project: FolderOpen, context: FileText, board: Layers3, tasks: ClipboardList,
+  packs: FileCode2, testplans: ClipboardCheck, deploypacks: Rocket, users: Users,
+};
 
 export function RightSidebar() {
   const theme = useUiStore((s) => s.theme);
@@ -36,14 +37,59 @@ export function RightSidebar() {
 
   const taigaToken = useSessionStore((s) => s.taigaToken);
   const projectId = useSessionStore((s) => s.projectId);
-  const pathname = usePathname();
+  const aiConfig = useAiConfig();
+
+  const sectionOrder = useUiStore((s) => s.workspaceSectionOrder);
+  const setSectionOrder = useUiStore((s) => s.setWorkspaceSectionOrder);
 
   const [confirmState, setConfirmState] = useState<{ message: string; onConfirm: () => void } | null>(null);
+  const [draggedId, setDraggedId] = useState<SectionId | null>(null);
+  const [dragOverId, setDragOverId] = useState<SectionId | null>(null);
   const resizeStartXRef = useRef(0);
   const resizeStartWidthRef = useRef(0);
 
   function confirm(message: string, onConfirm: () => void) {
     setConfirmState({ message, onConfirm });
+  }
+
+  function reorder(fromId: SectionId, toId: SectionId) {
+    const current = orderedIds.filter((id) => id !== fromId);
+    const insertAt = current.indexOf(toId);
+    current.splice(insertAt, 0, fromId);
+    setSectionOrder(current);
+  }
+
+  function dragProps(id: SectionId): DragSectionProps {
+    return {
+      shellClass: cn(
+        `ws-section-${id}`,
+        draggedId === id
+          ? "opacity-40"
+          : dragOverId === id
+            ? cn("border-t-2", dark ? "border-t-violet-400 bg-violet-500/10" : "border-t-violet-500 bg-violet-50")
+            : "",
+      ),
+      onDragStart: (e) => {
+        setDraggedId(id);
+        e.dataTransfer.effectAllowed = "move";
+        // Native drag ghost defaults to just the small grip handle — point it
+        // at the whole section row instead so the entire section being
+        // moved is visible under the cursor while dragging.
+        const shellEl = (e.currentTarget as HTMLElement).closest(`.ws-section-${id}`) as HTMLElement | null;
+        if (shellEl) e.dataTransfer.setDragImage(shellEl, 24, 20);
+      },
+      dragHandlers: {
+        onDragOver: (e) => { e.preventDefault(); if (draggedId && draggedId !== id) setDragOverId(id); },
+        onDragLeave: () => setDragOverId((cur) => (cur === id ? null : cur)),
+        onDrop: (e) => {
+          e.preventDefault();
+          if (draggedId && draggedId !== id) reorder(draggedId, id);
+          setDraggedId(null);
+          setDragOverId(null);
+        },
+        onDragEnd: () => { setDraggedId(null); setDragOverId(null); },
+      },
+    };
   }
 
   function startResize(e: React.PointerEvent<HTMLDivElement>) {
@@ -66,8 +112,14 @@ export function RightSidebar() {
 
   if (!taigaToken) return null;
 
-  const showTaigaSections = Boolean(projectId) && !HIDDEN_PREFIXES.some((p) => pathname.startsWith(p));
+  const showTaigaSections = Boolean(projectId);
   const sidebarBg = dark ? "bg-[#111112] border-neutral-800" : "bg-[#f5f5f7] border-slate-200";
+  const currentModel = aiConfig.data?.available_models.find((m) => m.id === aiConfig.data?.model)?.label ?? aiConfig.data?.model;
+
+  const knownIds = Object.keys(SECTION_ICONS) as SectionId[];
+  const orderedIds = sectionOrder.filter((id): id is SectionId => (knownIds as string[]).includes(id));
+  for (const id of knownIds) if (!orderedIds.includes(id)) orderedIds.push(id);
+  const visibleIds = orderedIds.filter((id) => id === "project" || showTaigaSections);
 
   // ── collapsed state — mirrors the left sidebar's icon rail ──
   if (collapsed) {
@@ -77,15 +129,18 @@ export function RightSidebar() {
           <PanelRightOpen className="size-4" />
         </button>
         <div className="flex flex-1 flex-col items-center gap-1 py-2">
-          {RAIL_ICONS.map((Icon, i) => (
+          {visibleIds.map((id) => {
+            const Icon = SECTION_ICONS[id];
+            return (
             <button
-              key={i}
+              key={id}
               onClick={() => setCollapsed(false)}
               className={cn("grid size-9 place-items-center rounded transition-colors", dark ? "text-neutral-600 hover:text-neutral-300" : "text-slate-300 hover:text-slate-600")}
             >
               <Icon className="size-4" />
             </button>
-          ))}
+            );
+          })}
         </div>
       </aside>
     );
@@ -120,6 +175,17 @@ export function RightSidebar() {
         <span className={cn("min-w-0 flex-1 truncate text-sm font-semibold", dark ? "text-neutral-200" : "text-slate-800")}>
           Workspace
         </span>
+        {currentModel ? (
+          <span
+            className={cn(
+              "shrink-0 truncate rounded border px-2 py-0.5 text-xs font-medium",
+              dark ? "border-violet-500/30 bg-violet-500/10 text-violet-400" : "border-violet-300 bg-violet-50 text-violet-600",
+            )}
+            title="Active AI model (Settings → AI Model to change)"
+          >
+            {currentModel}
+          </span>
+        ) : null}
         <button
           onClick={() => setCollapsed(true)}
           className={cn("grid size-7 shrink-0 place-items-center rounded transition-colors", dark ? "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200" : "text-slate-400 hover:bg-slate-200 hover:text-slate-700")}
@@ -130,17 +196,30 @@ export function RightSidebar() {
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <ProjectSection dark={dark} confirm={confirm} />
-        {showTaigaSections ? (
-          <>
-            <ContextSection dark={dark} projectId={projectId!} confirm={confirm} />
-            <BoardSection dark={dark} projectId={projectId!} confirm={confirm} />
-            <TasksSection dark={dark} />
-            <PacksSection dark={dark} confirm={confirm} />
-            <TestPlansSection dark={dark} confirm={confirm} />
-            <DeployPacksSection dark={dark} confirm={confirm} />
-          </>
-        ) : !projectId ? (
+        {visibleIds.map((id) => {
+          const drag = dragProps(id);
+          switch (id) {
+            case "project":
+              return <ProjectSection key={id} dark={dark} confirm={confirm} {...drag} />;
+            case "context":
+              return <ContextSection key={id} dark={dark} projectId={projectId!} confirm={confirm} {...drag} />;
+            case "board":
+              return <BoardSection key={id} dark={dark} projectId={projectId!} confirm={confirm} {...drag} />;
+            case "tasks":
+              return <TasksSection key={id} dark={dark} {...drag} />;
+            case "packs":
+              return <PacksSection key={id} dark={dark} confirm={confirm} {...drag} />;
+            case "testplans":
+              return <TestPlansSection key={id} dark={dark} confirm={confirm} {...drag} />;
+            case "deploypacks":
+              return <DeployPacksSection key={id} dark={dark} confirm={confirm} {...drag} />;
+            case "users":
+              return <UsersSection key={id} dark={dark} projectId={projectId!} confirm={confirm} {...drag} />;
+            default:
+              return null;
+          }
+        })}
+        {!showTaigaSections && !projectId ? (
           <p className={cn("px-4 py-4 text-xs leading-5", dark ? "text-neutral-600" : "text-slate-400")}>
             Select a project above to unlock the phase workflows.
           </p>

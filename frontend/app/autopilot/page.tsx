@@ -13,9 +13,12 @@ import {
   useClearPersistedAutopilot,
 } from "@/lib/hooks/use-autopilot";
 import { useSessionStore, useFigmaContext } from "@/lib/stores/session-store";
+import { useUiStore } from "@/lib/stores/ui-store";
+import { cn } from "@/lib/utils";
 import type { AutopilotStartRequest } from "@/lib/api/autopilot";
 
 export default function AutopilotPage() {
+  const dark = useUiStore((s) => s.theme) === "dark";
   const hasProject = useSessionStore((s) => Boolean(s.taigaToken && s.projectId));
   const figma = useFigmaContext();
   const figmaToken = useSessionStore((s) => s.figmaToken);
@@ -82,15 +85,15 @@ export default function AutopilotPage() {
 
   return (
     <section className="px-8 py-8">
-      <div className="mb-6 border-b border-neutral-800 pb-6">
-        <h1 className="text-2xl font-bold text-neutral-100">Autopilot</h1>
-        <p className="mt-1 text-sm text-neutral-500">
+      <div className={cn("mb-6 border-b pb-6", dark ? "border-neutral-800" : "border-slate-200")}>
+        <h1 className={cn("text-2xl font-bold", dark ? "text-neutral-100" : "text-slate-900")}>Autopilot</h1>
+        <p className={cn("mt-1 text-sm", dark ? "text-neutral-500" : "text-slate-500")}>
           AI-driven full SDLC pipeline — Phases 1 through 5, fully automated with human-in-the-loop checkpoints.
         </p>
       </div>
 
       {!status ? (
-        <AutopilotSetupForm onStart={handleStart} isPending={start.isPending} />
+        <AutopilotSetupForm onStart={handleStart} isPending={start.isPending} dark={dark} />
       ) : (
         <AutopilotRunView
           status={status}

@@ -23,14 +23,12 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ApiError, apiRequest, getApiBaseUrl } from "@/lib/api/client";
 import { clearJiraProjectTypeCache } from "@/lib/api/jira-adapter";
-import { UsersSection } from "./sidebar/users-section";
 import { AiSection } from "./sidebar/ai-section";
 import { UsageSection } from "./sidebar/usage-section";
 import { ResourcesSection } from "./sidebar/resources-section";
 import { GitHubSection } from "./sidebar/github-section";
 import { FigmaSection } from "./sidebar/figma-section";
 import { AboutSection } from "./sidebar/about-section";
-import { ConfirmDialog } from "./sidebar/shared";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -122,26 +120,6 @@ function NavDivider({ label, dark }: { label: string; dark: boolean }) {
       <div className={cn("h-px flex-1", dark ? "bg-neutral-800" : "bg-slate-200")} />
     </div>
   );
-}
-
-// ── TaigaSections ─────────────────────────────────────────────────────────────
-// What's left in the left sidebar's context zone — Users & Roles (maintenance)
-// only. Figma config lives solely in Settings; everything else (Epics &
-// Stories, Task Board, Active Context, Developer/Test/Deploy Packs, project
-// picker) lives in the right-hand workspace sidebar (see right-sidebar.tsx).
-
-function TaigaSections({
-  pathname, dark, projectId, confirm,
-}: {
-  pathname: string;
-  dark: boolean;
-  projectId: number;
-  confirm: (msg: string, fn: () => void) => void;
-}) {
-  if (pathname.startsWith("/phase6")) {
-    return <UsersSection dark={dark} projectId={projectId} confirm={confirm} />;
-  }
-  return null;
 }
 
 // ── SettingsModal ─────────────────────────────────────────────────────────────
@@ -471,7 +449,6 @@ export function Sidebar() {
   useRestoreSession();
   useRestoreProjectConfig();
 
-  const [confirmState, setConfirmState] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const resizeStartXRef = useRef(0);
   const resizeStartWidthRef = useRef(0);
@@ -481,10 +458,6 @@ export function Sidebar() {
   const pmWebUrl = serverConfig.data?.pm_web_url ?? serverConfig.data?.taiga_web_url ?? "https://tree.taiga.io";
   const dark = theme === "dark";
   const pathname = usePathname();
-
-  function confirm(message: string, onConfirm: () => void) {
-    setConfirmState({ message, onConfirm });
-  }
 
   function startSidebarResize(e: React.PointerEvent<HTMLDivElement>) {
     e.preventDefault(); e.stopPropagation();
@@ -537,17 +510,6 @@ export function Sidebar() {
       >
         <div className="h-full w-px bg-transparent transition-colors group-hover:bg-violet-500/60" />
       </div>
-
-      {/* Confirm dialog */}
-      {typeof document !== "undefined" ? createPortal(
-        <ConfirmDialog
-          open={Boolean(confirmState)}
-          message={confirmState?.message ?? ""}
-          onConfirm={() => { confirmState?.onConfirm(); setConfirmState(null); }}
-          onCancel={() => setConfirmState(null)}
-        />,
-        document.body,
-      ) : null}
 
       {/* ── Zone 1: Header ── */}
       <header className={cn("flex h-[52px] shrink-0 items-center gap-2 border-b px-4", dark ? "border-neutral-800" : "border-slate-200")}>
@@ -603,16 +565,10 @@ export function Sidebar() {
             ))}
           </nav>
 
-          {/* ── Zone 4: Context panel (phase-aware, scrollable) ── */}
+          {/* ── Zone 4: spacer — context sections all live in the right-hand
+               Workspace sidebar now (see right-sidebar.tsx) ── */}
           {projectId ? (
-            <div className={cn("min-h-0 flex-1 overflow-y-auto border-t", dark ? "border-neutral-800" : "border-slate-200")}>
-              <TaigaSections
-                pathname={pathname}
-                dark={dark}
-                projectId={projectId}
-                confirm={confirm}
-              />
-            </div>
+            <div className={cn("min-h-0 flex-1 border-t", dark ? "border-neutral-800" : "border-slate-200")} />
           ) : (
             <div className="min-h-0 flex-1 overflow-y-auto">
               <p className={cn("px-4 py-4 text-xs leading-5", dark ? "text-neutral-600" : "text-slate-400")}>

@@ -6,13 +6,15 @@ import { persist } from "zustand/middleware";
 type UiTheme = "dark" | "light";
 type TraceabilityView = "flowchart" | "cluster";
 
-const DEFAULT_SECTION_ORDER = ["project", "board", "users", "context", "ai", "resources", "tasks", "packs", "testplans", "deploypacks", "about"];
+// The right-hand Workspace sidebar's sections, in default order — drag to
+// reorder there, persisted per user (see components/right-sidebar.tsx).
+const DEFAULT_WORKSPACE_SECTION_ORDER = ["project", "context", "board", "tasks", "packs", "testplans", "deploypacks", "users"];
 
 type UiState = {
   theme: UiTheme;
   sidebarWidth: number;
   sidebarCollapsed: boolean;
-  sidebarSectionOrder: string[];
+  workspaceSectionOrder: string[];
   rightSidebarWidth: number;
   rightSidebarCollapsed: boolean;
   traceabilityView: TraceabilityView;
@@ -20,7 +22,7 @@ type UiState = {
   toggleTheme: () => void;
   setSidebarWidth: (width: number) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
-  setSidebarSectionOrder: (order: string[]) => void;
+  setWorkspaceSectionOrder: (order: string[]) => void;
   setRightSidebarWidth: (width: number) => void;
   setRightSidebarCollapsed: (collapsed: boolean) => void;
   setTraceabilityView: (view: TraceabilityView) => void;
@@ -32,7 +34,7 @@ export const useUiStore = create<UiState>()(
       theme: "dark",
       sidebarWidth: 450,
       sidebarCollapsed: false,
-      sidebarSectionOrder: DEFAULT_SECTION_ORDER,
+      workspaceSectionOrder: DEFAULT_WORKSPACE_SECTION_ORDER,
       rightSidebarWidth: 420,
       rightSidebarCollapsed: false,
       traceabilityView: "flowchart",
@@ -40,7 +42,7 @@ export const useUiStore = create<UiState>()(
       toggleTheme: () => set({ theme: get().theme === "dark" ? "light" : "dark" }),
       setSidebarWidth: (width) => set({ sidebarWidth: Math.min(900, Math.max(280, width)) }),
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
-      setSidebarSectionOrder: (order) => set({ sidebarSectionOrder: order }),
+      setWorkspaceSectionOrder: (order) => set({ workspaceSectionOrder: order }),
       setRightSidebarWidth: (width) => set({ rightSidebarWidth: Math.min(900, Math.max(280, width)) }),
       setRightSidebarCollapsed: (rightSidebarCollapsed) => set({ rightSidebarCollapsed }),
       setTraceabilityView: (traceabilityView) => set({ traceabilityView }),
@@ -48,13 +50,13 @@ export const useUiStore = create<UiState>()(
     {
       name: "apex-ui",
       merge: (persisted, current) => {
-        const stored = (persisted as Partial<UiState>)?.sidebarSectionOrder;
-        const base = stored ?? DEFAULT_SECTION_ORDER;
-        const missing = DEFAULT_SECTION_ORDER.filter((id) => !base.includes(id));
+        const stored = (persisted as Partial<UiState>)?.workspaceSectionOrder;
+        const base = (stored ?? DEFAULT_WORKSPACE_SECTION_ORDER).filter((id) => DEFAULT_WORKSPACE_SECTION_ORDER.includes(id));
+        const missing = DEFAULT_WORKSPACE_SECTION_ORDER.filter((id) => !base.includes(id));
         return {
           ...(current as UiState),
           ...(persisted as Partial<UiState>),
-          sidebarSectionOrder: missing.length ? [...base, ...missing] : base,
+          workspaceSectionOrder: missing.length ? [...base, ...missing] : base,
         };
       },
     },
