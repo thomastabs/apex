@@ -128,7 +128,7 @@ export function RightSidebar() {
         <button className="grid size-12 shrink-0 place-items-center text-violet-400 hover:text-violet-300" onClick={() => setCollapsed(false)} aria-label="Expand workspace panel">
           <PanelRightOpen className="size-4" />
         </button>
-        <div className="flex flex-1 flex-col items-center gap-1 py-2">
+        <div className="flex shrink-0 flex-col items-center gap-1 py-2">
           {visibleIds.map((id) => {
             const Icon = SECTION_ICONS[id];
             return (
@@ -141,6 +141,11 @@ export function RightSidebar() {
             </button>
             );
           })}
+        </div>
+        <div className="flex min-h-0 flex-1 items-center justify-center pb-4">
+          <span className={cn("rotate-180 select-none text-xs font-bold uppercase tracking-[0.2em] [writing-mode:vertical-rl]", dark ? "text-neutral-700" : "text-slate-300")}>
+            Workspace
+          </span>
         </div>
       </aside>
     );

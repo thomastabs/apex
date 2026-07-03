@@ -484,12 +484,17 @@ export function Sidebar() {
         <button className="grid size-12 shrink-0 place-items-center text-violet-400 hover:text-violet-300" onClick={() => setSidebarCollapsed(false)}>
           <PanelLeftOpen className="size-4" />
         </button>
-        <div className="flex flex-1 flex-col items-center gap-1 py-2">
+        <div className="flex shrink-0 flex-col items-center gap-1 py-2">
           {[{ href: "/", icon: Home }, ...PHASE_ITEMS, ...TOOL_ITEMS].map(({ href, icon: Icon }) => (
             <Link key={href} href={href} className={cn("grid size-9 place-items-center rounded transition-colors", pathname === href ? "text-violet-400" : dark ? "text-neutral-600 hover:text-neutral-300" : "text-slate-300 hover:text-slate-600")}>
               <Icon className="size-4" />
             </Link>
           ))}
+        </div>
+        <div className="flex min-h-0 flex-1 items-center justify-center pb-4">
+          <span className={cn("rotate-180 select-none text-xs font-bold uppercase tracking-[0.2em] [writing-mode:vertical-rl]", dark ? "text-neutral-700" : "text-slate-300")}>
+            Navigation
+          </span>
         </div>
       </aside>
     );
