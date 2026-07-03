@@ -97,6 +97,7 @@ export default function AutopilotPage() {
       ) : (
         <AutopilotRunView
           status={status}
+          dark={dark}
           onReset={handleReset}
           onResume={status.state === "interrupted" ? handleResume : undefined}
           resuming={resumeInterrupted.isPending}

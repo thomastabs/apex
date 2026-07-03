@@ -35,6 +35,9 @@ class FakeContextService:
     def list_all_proposals(self):
         return self.proposals
 
+    def load_all_proposals(self):
+        return [dict(p) for p in self.proposals]
+
     def story_gherkin(self, story_id):
         return self.gherkin
 
@@ -106,6 +109,22 @@ def test_conflict_pairs_become_conflict_edges(monkeypatch):
         "2": {"story_id": 2, "epic_id": 1, "title": "B", "phase_status": "implementation", "design_conflict": True},
     }
     g = _graph(index, proposals=[{"story_id": 1}, {"story_id": 2}])
+    assert ("story:1", "story:2", "conflict") in {(e["source"], e["target"], e["kind"]) for e in g["edges"]}
+
+
+def test_conflict_detection_runs_for_real_against_saved_proposals():
+    """Regression: build_graph must call load_all_proposals (has proposal_md),
+    not list_all_proposals (metadata only) — the latter silently made
+    detect_design_conflicts always see empty markdown and never flag anything."""
+    index = {
+        "1": {"story_id": 1, "epic_id": 1, "title": "A", "phase_status": "implementation"},
+        "2": {"story_id": 2, "epic_id": 1, "title": "B", "phase_status": "implementation"},
+    }
+    shared_pack = "## Files to Change\n- `backend/app/api/foo.py`\n"
+    g = _graph(index, proposals=[
+        {"story_id": 1, "task_id": 1, "proposal_md": shared_pack},
+        {"story_id": 2, "task_id": 1, "proposal_md": shared_pack},
+    ])
     assert ("story:1", "story:2", "conflict") in {(e["source"], e["target"], e["kind"]) for e in g["edges"]}
 
 

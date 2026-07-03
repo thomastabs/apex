@@ -38,8 +38,15 @@ class TraceabilityService:
         index = context.story_index()
 
         # Cross-story conflict pairs (pure) — reuse the design-conflict detector.
+        # Needs load_all_proposals (has proposal_md); list_all_proposals is
+        # metadata-only and silently yields zero conflicts (see phase3_service's
+        # _refresh_design_conflicts for the same load+enrich pattern).
         try:
-            conflicts = ai_engine.detect_design_conflicts(context.list_all_proposals())
+            packs = context.load_all_proposals()
+            for p in packs:
+                entry = index.get(str(p["story_id"])) or {}
+                p["story_title"] = entry.get("title", "")
+            conflicts = ai_engine.detect_design_conflicts(packs)
         except Exception:
             conflicts = {}
 
