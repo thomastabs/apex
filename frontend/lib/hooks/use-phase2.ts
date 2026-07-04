@@ -5,19 +5,23 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   buildScreenFlowFromFigma,
   crossCheckEndpoints,
+  generateDesignDelta,
   generateDesignSection,
   generateDiagram,
   generateScreenFlow,
   getDesign,
+  getDesignDeltaStatus,
   getTechStackStatus,
   loadDiagram,
   loadScreenFlow,
   lockDesign,
   lockTechStack,
+  persistDesignDelta,
   proposeTechStack,
   refreshStoryIndex,
   saveDiagramPositions,
   saveScreenFlowPositions,
+  type PersistDesignDeltaRequest,
 } from "@/lib/api/phase2";
 import type {
   DesignSectionKey,
@@ -73,6 +77,41 @@ export function useLockTechStack() {
     onError: () => toast.error("Failed to lock tech stack."),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["phase2", "tech-stack-status", context?.projectId] });
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
+    },
+  });
+}
+
+export function useDesignDeltaStatus() {
+  const context = useApiContext();
+
+  return useQuery({
+    queryKey: ["phase2", "design-delta-status", context?.projectId],
+    queryFn: () => getDesignDeltaStatus(context!),
+    enabled: Boolean(context),
+    staleTime: 30_000,
+  });
+}
+
+export function useGenerateDesignDelta() {
+  const context = useApiContext();
+  return useCancellableMutation(
+    ({ storyIds = [], instructions = "" }: { storyIds?: number[]; instructions?: string }, signal) =>
+      generateDesignDelta(context!, storyIds, instructions, signal),
+    { onError: (e: Error) => toast.error(`Design delta generation failed: ${e.message}`) },
+  );
+}
+
+export function usePersistDesignDelta() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: PersistDesignDeltaRequest) => persistDesignDelta(context!, body),
+    onError: (e: Error) => toast.error(`Failed to append design delta: ${e.message}`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["phase2", "design-delta-status", context?.projectId] });
+      void queryClient.invalidateQueries({ queryKey: ["phase2", "design-bundle", context?.projectId] });
       void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },
   });

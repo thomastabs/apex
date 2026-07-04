@@ -1,6 +1,7 @@
 """Phase 2 architectural and UX design workflow service."""
 
 import logging
+import re
 
 from backend.app.services.ai_service import AiService
 from backend.app.services.context_service import ContextService
@@ -205,9 +206,119 @@ class Phase2Service:
         if not story_ids:
             raise Phase2ValidationError("At least one story_id is required.")
         self.configure_request(ctx)
+        # Re-persisting over an already-locked design is a full rewrite of a
+        # locked contract — record it as an amendment (MAJOR bump + spec_drift
+        # on the previously designed stories) instead of silently replacing the
+        # files, which would leave versions stale and downstream artifacts
+        # unaware. Affected ids are captured BEFORE the write so the stories
+        # newly locked by this persist are not flagged against their own design.
+        relock = self._design_locked()
+        affected = self.context.affected_stories_for_spec("technical-spec.md") if relock else []
         self.context.write_project_design_bundle(ux_brief)
         self.context.write_project_technical_spec(story_ids, endpoints, data_model)
+        if affected:
+            note = "Full project design re-generated and persisted over the locked design."
+            self.context.record_amendment("technical-spec.md", note, affected)
+            self.context.record_amendment("design-bundle.md", note, affected)
         return {"ok": True, "story_ids": story_ids, "taiga_failures": []}
+
+    def _design_locked(self) -> bool:
+        return bool(re.search(r"^## Project Design\b",
+                              self.context.read_context_file("technical-spec.md"), re.MULTILINE))
+
+    def design_delta_status(self, ctx: RequestContext) -> dict:
+        """Which gherkin-locked stories the locked design does not cover yet."""
+        self.configure_request(ctx)
+        locked = self._design_locked()
+        pending = [
+            {k: s[k] for k in ("story_id", "epic_id", "epic_title", "title")}
+            for s in self._all_eligible_stories()
+            if self.context.story_index().get(str(s["story_id"]), {}).get("phase_status") == "gherkin_locked"
+        ] if locked else []
+        return {"design_locked": locked, "pending": pending}
+
+    def generate_design_delta(
+        self,
+        ctx: RequestContext,
+        *,
+        story_ids: list[int] | None = None,
+        instructions: str = "",
+    ) -> dict:
+        """Additive design pass for stories that arrived after the design lock.
+
+        The locked design (technical-spec.md incl. prior deltas + the UX brief)
+        is injected read-only; the AI returns only the additions the new
+        stories need, plus a `touches_existing` honesty list.
+        """
+        self.configure_request(ctx)
+        status = self.design_delta_status(ctx)
+        if not status["design_locked"]:
+            raise Phase2ValidationError("No locked project design yet — use the full design flow first.")
+        pending = status["pending"]
+        if story_ids:
+            wanted = set(story_ids)
+            pending = [p for p in pending if p["story_id"] in wanted]
+        if not pending:
+            raise Phase2ValidationError("No pending gherkin-locked stories to design.")
+        pending_ids = {p["story_id"] for p in pending}
+        new_stories = [s for s in self._all_eligible_stories() if s["story_id"] in pending_ids]
+        tech_stack = self.context.read_tech_stack()
+        constrained_context = self._build_constrained_context(self.context.read_project_concept(), tech_stack)
+        existing_design = (
+            f"{self.context.read_context_file('technical-spec.md').strip()}\n\n"
+            f"## UX Brief (design-bundle.md)\n\n"
+            f"{self.context.read_project_design_bundle().get('ux_brief', '')}"
+        )
+        delta = self.ai.generate_design_delta(
+            new_stories, constrained_context, existing_design, instructions=instructions,
+        )
+        return {**delta, "story_ids": sorted(pending_ids)}
+
+    def persist_design_delta(
+        self,
+        ctx: RequestContext,
+        *,
+        story_ids: list[int],
+        ux_brief_addendum: str,
+        endpoints_delta: str,
+        data_model_delta: str,
+        touches_existing: list[str] | None = None,
+        note: str = "",
+    ) -> dict:
+        """Append the reviewed delta. Purely additive → MINOR bump; when the
+        delta touches existing design (`touches_existing`), the previously
+        designed stories get a real amendment (MAJOR + spec_drift) on top."""
+        if not story_ids:
+            raise Phase2ValidationError("At least one story_id is required.")
+        if not (ux_brief_addendum.strip() or endpoints_delta.strip() or data_model_delta.strip()):
+            raise Phase2ValidationError("An empty delta cannot be persisted.")
+        self.configure_request(ctx)
+        if not self._design_locked():
+            raise Phase2ValidationError("No locked project design yet — use the full design flow first.")
+        touches = [t for t in (touches_existing or []) if t.strip()]
+        # Previously designed stories, captured before the append promotes the
+        # delta's own stories to design_locked.
+        affected = [
+            sid for sid in self.context.affected_stories_for_spec("technical-spec.md")
+            if sid not in set(story_ids)
+        ] if touches else []
+        result = self.context.append_design_delta(
+            story_ids, ux_brief_addendum, endpoints_delta, data_model_delta,
+        )
+        amended = False
+        if touches and affected:
+            amendment_note = "Design delta touches existing design: " + "; ".join(touches)
+            if note.strip():
+                amendment_note += f" — {note.strip()}"
+            self.context.record_amendment("technical-spec.md", amendment_note, affected)
+            amended = True
+        return {
+            "ok": True,
+            "story_ids": result["story_ids"],
+            "versions": result["versions"],
+            "amended": amended,
+            "affected_story_ids": affected if amended else [],
+        }
 
     def load_design(self, ctx: RequestContext) -> dict[str, str]:
         """Re-hydrate the locked project design (UX brief / endpoints / data

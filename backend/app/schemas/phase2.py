@@ -70,6 +70,52 @@ class LockDesignResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Design Delta schemas — additive design for stories pushed after the lock
+# ---------------------------------------------------------------------------
+
+class PendingDeltaStory(BaseModel):
+    story_id: int
+    epic_id: int | None = None
+    epic_title: str = ""
+    title: str = ""
+
+
+class DesignDeltaStatusResponse(BaseModel):
+    design_locked: bool
+    pending: list[PendingDeltaStory] = Field(default_factory=list)
+
+
+class GenerateDesignDeltaRequest(BaseModel):
+    story_ids: list[int] = Field(default_factory=list)
+    instructions: str = Field("", max_length=2_000)
+
+
+class DesignDeltaResponse(BaseModel):
+    ux_brief_addendum: str = ""
+    endpoints_delta: str = ""
+    data_model_delta: str = ""
+    touches_existing: list[str] = Field(default_factory=list)
+    story_ids: list[int] = Field(default_factory=list)
+
+
+class PersistDesignDeltaRequest(BaseModel):
+    story_ids: list[int] = Field(min_length=1)
+    ux_brief_addendum: str = Field("", max_length=100_000)
+    endpoints_delta: str = Field("", max_length=100_000)
+    data_model_delta: str = Field("", max_length=100_000)
+    touches_existing: list[str] = Field(default_factory=list)
+    note: str = Field("", max_length=2_000)
+
+
+class PersistDesignDeltaResponse(BaseModel):
+    ok: bool
+    story_ids: list[int] = Field(default_factory=list)
+    versions: dict[str, str] = Field(default_factory=dict)
+    amended: bool = False
+    affected_story_ids: list[int] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
 # ER Diagram schemas
 # ---------------------------------------------------------------------------
 

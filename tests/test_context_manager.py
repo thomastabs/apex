@@ -1433,3 +1433,90 @@ class TestProjectDesignBundle:
         ctx.write_project_technical_spec([101], "GET /api/login", "Session { token }")
         spec = ctx.get_story_technical_spec(101)
         assert "GET /api/login" in spec and "Session { token }" in spec
+
+
+# ---------------------------------------------------------------------------
+# Design delta — additive design for post-lock stories
+# ---------------------------------------------------------------------------
+
+class TestDesignDelta:
+    GHERKIN = "Feature: X\n\n  Scenario: s\n    Given x\n    When y\n    Then z\n"
+
+    def _lock_project_design(self, ctx, story_ids):
+        ctx.write_project_technical_spec(story_ids, "- `GET /api/x` — list (Story 10)", "### User\n- Fields: id:int")
+
+    def test_project_design_records_story_ids(self, ctx):
+        ctx.init_context()
+        self._lock_project_design(ctx, [10, 11])
+        tech = ctx._path("technical-spec.md").read_text(encoding="utf-8")
+        assert "**Stories:** #10, #11" in tech
+
+    def test_rebuild_keeps_late_story_gherkin_locked(self, ctx):
+        # THE bug this feature fixes: a story pushed after the design lock used
+        # to be silently swept to design_locked by the '## Project Design'
+        # mark-all branch, skipping design entirely.
+        ctx.init_context()
+        ctx.append_gherkin(10, "Designed", self.GHERKIN)
+        self._lock_project_design(ctx, [10])
+        ctx.append_gherkin(20, "Late Arrival", self.GHERKIN)
+        index = ctx.rebuild_story_index()
+        assert index["10"]["phase_status"] == "design_locked"
+        assert index["20"]["phase_status"] == "gherkin_locked"
+        assert index["20"].get("has_tech_spec") is False
+
+    def test_rebuild_legacy_spec_without_stories_line_marks_all(self, ctx):
+        # Pre-delta technical-spec.md files carry no '**Stories:**' line; they
+        # must keep the old mark-all behaviour so existing projects don't regress.
+        ctx.init_context()
+        ctx.append_gherkin(10, "Old A", self.GHERKIN)
+        ctx.append_gherkin(20, "Old B", self.GHERKIN)
+        ts = ctx._path("technical-spec.md")
+        ts.write_text("# Technical Specification\n\n## Project Design\n\n### Endpoints\n\n- `GET /x`\n", encoding="utf-8")
+        index = ctx.rebuild_story_index()
+        assert index["10"]["phase_status"] == "design_locked"
+        assert index["20"]["phase_status"] == "design_locked"
+
+    def test_append_design_delta_covers_story_and_survives_rebuild(self, ctx):
+        ctx.init_context()
+        ctx.append_gherkin(10, "Designed", self.GHERKIN)
+        self._lock_project_design(ctx, [10])
+        ctx.append_gherkin(20, "Late Arrival", self.GHERKIN)
+        result = ctx.append_design_delta(
+            [20], "New screen: Reports", "- `GET /api/reports` — list (Story 20)", "### Report\n- Fields: id:int",
+        )
+        assert result["story_ids"] == [20]
+        index = ctx.rebuild_story_index()
+        assert index["20"]["phase_status"] == "design_locked"
+        tech = ctx._path("technical-spec.md").read_text(encoding="utf-8")
+        assert "## Design Delta" in tech and "**Stories:** #20" in tech
+        bundle = ctx._path("design-bundle.md").read_text(encoding="utf-8")
+        assert "New screen: Reports" in bundle
+
+    def test_delta_reaches_phase3_contract(self, ctx):
+        # get_story_technical_spec must include delta blocks — a delta-covered
+        # story's endpoints live ONLY there.
+        ctx.init_context()
+        ctx.append_gherkin(10, "Designed", self.GHERKIN)
+        self._lock_project_design(ctx, [10])
+        ctx.append_design_delta([20], "", "- `GET /api/reports` — list (Story 20)", "")
+        spec = ctx.get_story_technical_spec(20)
+        assert "GET /api/x" in spec          # original contract
+        assert "GET /api/reports" in spec    # delta contract
+
+    def test_delta_bumps_minor_and_amendment_bumps_major(self, ctx):
+        ctx.init_context()
+        ctx.append_gherkin(10, "Designed", self.GHERKIN)
+        self._lock_project_design(ctx, [10])
+        assert ctx.get_spec_version("technical-spec.md") == "1.0.0"
+        result = ctx.append_design_delta([20], "", "- `GET /api/reports` (Story 20)", "")
+        assert result["versions"]["technical-spec.md"] == "1.1.0"
+        assert ctx.get_spec_version("technical-spec.md") == "1.1.0"
+        ctx.record_amendment("technical-spec.md", "breaking change", [10])
+        assert ctx.get_spec_version("technical-spec.md") == "2.0.0"
+
+    def test_delta_without_ux_addendum_leaves_design_bundle_unversioned(self, ctx):
+        ctx.init_context()
+        ctx.append_gherkin(10, "Designed", self.GHERKIN)
+        self._lock_project_design(ctx, [10])
+        result = ctx.append_design_delta([20], "", "- `GET /api/reports` (Story 20)", "")
+        assert "design-bundle.md" not in result["versions"]

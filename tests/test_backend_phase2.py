@@ -21,6 +21,13 @@ class FakeAiService:
     def __init__(self):
         self.tech_stack_args = None
         self.section_args: list[tuple] = []
+        self.delta_args = None
+        self.delta_result = {
+            "ux_brief_addendum": "New screen: Reports",
+            "endpoints_delta": "- `GET /api/reports` — list (Story 10)",
+            "data_model_delta": "### Report\n- Fields: id:int",
+            "touches_existing": [],
+        }
 
     def suggest_tech_stack(self, all_stories, context, hint):
         self.tech_stack_args = (all_stories, context, hint)
@@ -29,6 +36,10 @@ class FakeAiService:
     def generate_design_section(self, all_stories, context, section, prior_sections, instructions="") -> str:
         self.section_args.append((all_stories, context, section, prior_sections))
         return _FAKE_SECTION_CONTENT[section]
+
+    def generate_design_delta(self, new_stories, context, existing_design, instructions=""):
+        self.delta_args = (new_stories, context, existing_design, instructions)
+        return dict(self.delta_result)
 
 
 class FakeContextService:
@@ -69,7 +80,25 @@ class FakeContextService:
         self.written_tech_spec = (story_ids, endpoints, data_model)
 
     def read_context_file(self, filename: str) -> str:
-        return ""
+        return getattr(self, "files", {}).get(filename, "")
+
+    def read_project_design_bundle(self):
+        return {"ux_brief": "UX brief body", "endpoints": "", "data_model": ""}
+
+    def append_design_delta(self, story_ids, ux_brief_addendum, endpoints_delta, data_model_delta):
+        self.appended_delta = (story_ids, ux_brief_addendum, endpoints_delta, data_model_delta)
+        return {
+            "locked_at": "now",
+            "story_ids": sorted(story_ids),
+            "versions": {"technical-spec.md": "1.1.0"},
+        }
+
+    def record_amendment(self, filename, note, story_ids):
+        self.amendments = getattr(self, "amendments", [])
+        self.amendments.append((filename, note, story_ids))
+
+    def affected_stories_for_spec(self, filename):
+        return getattr(self, "affected", [])
 
     def save_screen_flow(self, diagram) -> None:
         self.saved_screen_flow = diagram
@@ -382,3 +411,119 @@ def test_tech_stack_status_multiline_content():
     result = service.tech_stack_status(_ctx())["tech_stack"]
     assert "Next.js" in result
     assert "PostgreSQL" in result
+
+
+# ---------------------------------------------------------------------------
+# Design delta — additive design for post-lock stories
+# ---------------------------------------------------------------------------
+
+_LOCKED_SPEC = "# Technical Specification\n\n## Project Design\n\n**Stories:** #11\n\n### Endpoints\n\n- `GET /x`\n"
+
+
+class TestDesignDelta:
+    def _locked_context(self):
+        context = FakeContextService()
+        context.files = {"technical-spec.md": _LOCKED_SPEC}
+        return context
+
+    def test_status_unlocked_project_has_no_pending(self):
+        service, _, _ = _service()  # read_context_file("technical-spec.md") == ""
+        status = service.design_delta_status(_ctx())
+        assert status == {"design_locked": False, "pending": []}
+
+    def test_status_lists_only_gherkin_locked_stories(self):
+        service, _, _ = _service(self._locked_context())
+        status = service.design_delta_status(_ctx())
+        assert status["design_locked"] is True
+        # story 10 is gherkin_locked, 11 design_locked, 12 pending (no gherkin)
+        assert [p["story_id"] for p in status["pending"]] == [10]
+        assert status["pending"][0]["title"] == "Login"
+
+    def test_generate_requires_locked_design(self):
+        service, _, _ = _service()
+        with pytest.raises(Phase2ValidationError, match="No locked project design"):
+            service.generate_design_delta(_ctx())
+
+    def test_generate_requires_pending_stories(self):
+        context = self._locked_context()
+        context.index["10"]["phase_status"] = "design_locked"
+        service, _, _ = _service(context)
+        with pytest.raises(Phase2ValidationError, match="No pending"):
+            service.generate_design_delta(_ctx())
+
+    def test_generate_passes_new_stories_and_existing_design_readonly(self):
+        service, ai, _ = _service(self._locked_context())
+        result = service.generate_design_delta(_ctx(), instructions="reuse auth")
+        new_stories, context_str, existing_design, instructions = ai.delta_args
+        assert [s["story_id"] for s in new_stories] == [10]
+        assert "## Project Design" in existing_design      # locked spec injected
+        assert "UX brief body" in existing_design          # UX brief injected
+        assert instructions == "reuse auth"
+        assert result["story_ids"] == [10]
+        assert result["endpoints_delta"].startswith("- `GET /api/reports`")
+
+    def test_generate_honours_story_subset(self):
+        context = self._locked_context()
+        context.index["13"] = {
+            "story_id": 13, "epic_id": 7, "epic_title": "Authentication",
+            "title": "Reset password", "phase_status": "gherkin_locked", "has_gherkin": True,
+        }
+        service, ai, _ = _service(context)
+        result = service.generate_design_delta(_ctx(), story_ids=[13])
+        assert [s["story_id"] for s in ai.delta_args[0]] == [13]
+        assert result["story_ids"] == [13]
+
+    def test_persist_requires_nonempty_delta(self):
+        service, _, _ = _service(self._locked_context())
+        with pytest.raises(Phase2ValidationError, match="empty delta"):
+            service.persist_design_delta(
+                _ctx(), story_ids=[10], ux_brief_addendum=" ", endpoints_delta="", data_model_delta="",
+            )
+
+    def test_persist_pure_additive_appends_without_amendment(self):
+        context = self._locked_context()
+        context.affected = [10, 11]
+        service, _, _ = _service(context)
+        result = service.persist_design_delta(
+            _ctx(), story_ids=[10], ux_brief_addendum="", endpoints_delta="- `GET /r`", data_model_delta="",
+        )
+        assert context.appended_delta[0] == [10]
+        assert not getattr(context, "amendments", [])
+        assert result["amended"] is False
+        assert result["versions"] == {"technical-spec.md": "1.1.0"}
+
+    def test_persist_touching_delta_records_amendment_on_old_stories_only(self):
+        context = self._locked_context()
+        context.affected = [10, 11]  # includes the delta's own story 10
+        service, _, _ = _service(context)
+        result = service.persist_design_delta(
+            _ctx(), story_ids=[10], ux_brief_addendum="", endpoints_delta="- `GET /r`",
+            data_model_delta="", touches_existing=["GET /x — response shape changes"], note="reviewed",
+        )
+        assert result["amended"] is True
+        assert result["affected_story_ids"] == [11]  # 10 excluded: it IS the delta
+        filename, note, story_ids = context.amendments[0]
+        assert filename == "technical-spec.md"
+        assert "GET /x — response shape changes" in note and "reviewed" in note
+        assert story_ids == [11]
+
+    def test_persist_design_over_locked_design_records_amendment(self):
+        # Closes the bypass: a full re-persist over a locked design used to
+        # silently replace the contract with no amendment/version/drift.
+        context = self._locked_context()
+        context.affected = [11]
+        service, _, _ = _service(context)
+        service.persist_design(
+            _ctx(), story_ids=[10, 11], ux_brief="ux", endpoints="e", data_model="d",
+        )
+        files = sorted(a[0] for a in context.amendments)
+        assert files == ["design-bundle.md", "technical-spec.md"]
+        assert all(a[2] == [11] for a in context.amendments)
+
+    def test_persist_design_first_lock_records_no_amendment(self):
+        context = FakeContextService()  # nothing locked yet
+        service, _, _ = _service(context)
+        service.persist_design(
+            _ctx(), story_ids=[10], ux_brief="ux", endpoints="e", data_model="d",
+        )
+        assert not getattr(context, "amendments", [])

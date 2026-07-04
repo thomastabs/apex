@@ -383,3 +383,14 @@ class AiService:
                 instructions=instructions,
             )
         raise ValueError(f"Unknown design section: {section!r}")
+
+    def generate_design_delta(
+        self,
+        new_stories: list[dict],
+        context: str,
+        existing_design: str,
+        instructions: str = "",
+    ) -> dict:
+        return ai_engine.generate_design_delta(
+            new_stories, context, existing_design, instructions=instructions,
+        )

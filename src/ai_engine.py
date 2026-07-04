@@ -1734,6 +1734,90 @@ def generate_design_data_model(all_stories: list[dict], context: str, *, endpoin
                                      max_tokens=3000, timeout=180))
 
 
+class DesignDelta(BaseModel):
+    """Additive design covering stories that arrived after the design lock."""
+    ux_brief_addendum: str = Field(
+        default="",
+        description="Markdown UX-brief additions (new screens / navigation paths) needed by the new stories; empty string when none",
+    )
+    endpoints_delta: str = Field(
+        default="",
+        description="Markdown bullet list of NEW endpoints only, same format as the Endpoints section; empty string when none",
+    )
+    data_model_delta: str = Field(
+        default="",
+        description="Markdown entity blocks for NEW entities (or new fields on existing entities, stated explicitly) only; empty string when none",
+    )
+    touches_existing: list[str] = Field(
+        default_factory=list,
+        description="Existing endpoints/entities the new stories force a change to, one '<identifier> — <reason>' entry each; empty when the delta is purely additive",
+    )
+
+
+_DESIGN_DELTA_SYSTEM = """\
+You are a Software Architect extending an ALREADY LOCKED project design with a
+small set of new user stories. The existing design has been approved and built
+against — it is binding and read-only.
+
+**Project Context (binding constraints — ONLY use technologies from the Tech Stack):**
+{context}
+
+{anti_hallucination}
+
+**Existing locked design (READ-ONLY — do not restate, rename, or redesign anything in it):**
+{existing_design}
+
+Produce ONLY the additions the new stories require:
+
+- `ux_brief_addendum` — new screens and navigation paths, in the same format as
+  the existing UX Brief. Reuse existing screens by their exact names; never
+  re-describe them.
+- `endpoints_delta` — new endpoints only, format:
+  - `METHOD /path/to/resource` — purpose (Story <ID>) · auth:<none|bearer|role:admin> · in:<field:type,...> · out:<field:type,...>
+  Group under `### <Epic Title>` subsections matching the new stories' epics.
+  Keep the existing design's path prefix and auth conventions. Never emit an
+  endpoint whose METHOD+path already exists.
+- `data_model_delta` — new entities only, format:
+  `### <EntityName>` + `- Fields: ...` + optional `- Relations: ...`.
+  Relations may reference existing entities by their exact names. If a new
+  story only needs a new FIELD on an existing entity, express it as
+  `### <ExistingEntityName> (existing — add fields)` with just the new fields.
+- `touches_existing` — every existing endpoint or entity the new stories force
+  a behavioural or schema change to (an added field on an existing entity
+  counts), one `<identifier> — <reason>` entry each. Empty when the delta is
+  purely additive. Be honest: an empty list is a claim that nothing existing
+  needs to change.
+
+Rules:
+- Every new story ID must appear on at least one endpoint line.
+- Prefer reusing an existing endpoint/entity over inventing a near-duplicate.
+- Any of the three markdown fields may be an empty string when nothing is needed.
+- No code blocks, no SQL, no commentary outside the required formats.
+"""
+
+
+def generate_design_delta(
+    new_stories: list[dict],
+    context: str,
+    existing_design: str,
+    instructions: str = "",
+) -> dict:
+    """Additive design pass for post-lock stories: returns ux/endpoints/data-model
+    additions plus a `touches_existing` honesty list. Never asked to regenerate
+    the locked design — it is injected read-only."""
+    grouped = _group_stories_by_epic(new_stories)
+    system = _DESIGN_DELTA_SYSTEM.format(
+        context=fence_user_content(context),
+        existing_design=fence_user_content(existing_design),
+        anti_hallucination=_ANTI_HALLUCINATION,
+    ) + _guidance_block(instructions)
+    result = _ai_retry(lambda: _invoke_structured_with_progress(
+        system, _format_stories_human(grouped), get_model(), DesignDelta,
+        max_tokens=6000, timeout=300,
+    ))
+    return result.model_dump()
+
+
 # ---------------------------------------------------------------------------
 # 3. Implementation Phase — Phase 3
 # ---------------------------------------------------------------------------

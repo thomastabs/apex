@@ -106,6 +106,81 @@ export async function lockDesign(context: RequestContext, body: LockDesignReques
   };
 }
 
+export interface PendingDeltaStory {
+  story_id: number;
+  epic_id: number | null;
+  epic_title: string;
+  title: string;
+}
+
+export interface DesignDeltaStatus {
+  design_locked: boolean;
+  pending: PendingDeltaStory[];
+}
+
+export interface DesignDeltaResult {
+  ux_brief_addendum: string;
+  endpoints_delta: string;
+  data_model_delta: string;
+  touches_existing: string[];
+  story_ids: number[];
+}
+
+export interface PersistDesignDeltaRequest {
+  story_ids: number[];
+  ux_brief_addendum: string;
+  endpoints_delta: string;
+  data_model_delta: string;
+  touches_existing: string[];
+  note?: string;
+}
+
+export interface PersistDesignDeltaResult {
+  ok: boolean;
+  story_ids: number[];
+  versions: Record<string, string>;
+  amended: boolean;
+  affected_story_ids: number[];
+  taiga_failures: Array<{ story_id: number; error: string }>;
+}
+
+export function getDesignDeltaStatus(context: RequestContext) {
+  return apiRequest<DesignDeltaStatus>("/api/phase2/design-delta-status", { context });
+}
+
+export function generateDesignDelta(
+  context: RequestContext,
+  storyIds: number[] = [],
+  instructions = "",
+  signal?: AbortSignal,
+) {
+  return apiRequest<DesignDeltaResult>("/api/phase2/generate-design-delta", {
+    method: "POST",
+    context,
+    body: { story_ids: storyIds, instructions },
+    timeoutMs: PHASE2_AI_TIMEOUT_MS,
+    signal,
+  });
+}
+
+export async function persistDesignDelta(
+  context: RequestContext,
+  body: PersistDesignDeltaRequest,
+): Promise<PersistDesignDeltaResult> {
+  // Same ordering contract as lockDesign: backend persist first, PM second.
+  const persisted = await apiRequest<Omit<PersistDesignDeltaResult, "taiga_failures">>(
+    "/api/phase2/persist-design-delta",
+    { method: "POST", context, body, timeoutMs: 120_000 },
+  );
+  let pm_failures: Array<{ story_id: number; error: string }> = [];
+  try {
+    pm_failures = await transitionDesignLockedStories(context, body.story_ids);
+  } catch {
+    pm_failures = body.story_ids.map((id) => ({ story_id: id, error: "PM transition failed unexpectedly" }));
+  }
+  return { ...persisted, taiga_failures: pm_failures };
+}
+
 export function loadDiagram(context: RequestContext) {
   return apiRequest<DiagramResponse | null>("/api/phase2/diagram", { context });
 }

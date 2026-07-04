@@ -10,13 +10,18 @@ from backend.app.schemas.phase1 import CrossCheckResponse
 from backend.app.schemas.phase2 import (
     CrossCheckEndpointsRequest,
     DesignBundleResponse,
+    DesignDeltaResponse,
+    DesignDeltaStatusResponse,
     DesignSectionRequest,
     DesignSectionResponse,
     DiagramResponse,
+    GenerateDesignDeltaRequest,
     GenerateDiagramRequest,
     GenerateScreenFlowRequest,
     LockDesignRequest,
     LockDesignResponse,
+    PersistDesignDeltaRequest,
+    PersistDesignDeltaResponse,
     LockTechStackRequest,
     ProposeTechStackRequest,
     ProposeTechStackResponse,
@@ -144,6 +149,53 @@ def persist_design(
             ux_brief=payload.ux_brief,
             endpoints=payload.endpoints,
             data_model=payload.data_model,
+        )
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.get("/design-delta-status", response_model=DesignDeltaStatusResponse)
+def design_delta_status(
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase2Service = Depends(get_phase2_service),
+):
+    """Gherkin-locked stories not yet covered by the locked project design."""
+    try:
+        return service.design_delta_status(ctx)
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/generate-design-delta", response_model=DesignDeltaResponse)
+def generate_design_delta(
+    payload: GenerateDesignDeltaRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase2Service = Depends(get_phase2_service),
+    _rl: None = Depends(ai_rate_limit),
+):
+    try:
+        return service.generate_design_delta(
+            ctx, story_ids=payload.story_ids, instructions=payload.instructions,
+        )
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/persist-design-delta", response_model=PersistDesignDeltaResponse)
+def persist_design_delta(
+    payload: PersistDesignDeltaRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase2Service = Depends(get_phase2_service),
+):
+    try:
+        return service.persist_design_delta(
+            ctx,
+            story_ids=payload.story_ids,
+            ux_brief_addendum=payload.ux_brief_addendum,
+            endpoints_delta=payload.endpoints_delta,
+            data_model_delta=payload.data_model_delta,
+            touches_existing=payload.touches_existing,
+            note=payload.note,
         )
     except Exception as exc:
         _handle_error(exc)

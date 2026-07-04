@@ -45,6 +45,7 @@ import { useDiffStore } from "@/lib/stores/diff-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
+import { DesignDeltaPanel } from "@/components/design-delta-panel";
 import { ERDiagramPanel } from "@/components/er-diagram-panel";
 import { ScreenFlowPanel } from "@/components/screen-flow-panel";
 import { EndpointTable } from "@/components/endpoint-table";
@@ -414,6 +415,9 @@ export function Phase2Workflow() {
           </div>
         </div>
       ) : null}
+
+      {/* Post-lock stories → additive design delta, no full regeneration. */}
+      {!noContext ? <DesignDeltaPanel dark={dark} /> : null}
 
       <div className={cn("space-y-6 border-t pt-6", sectionBorderClass)}>
         {/* Stepper */}

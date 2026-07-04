@@ -167,6 +167,23 @@ class ContextService:
     def write_project_technical_spec(self, story_ids: list[int], endpoints: str, data_model: str) -> None:
         context_manager.write_project_technical_spec(story_ids, endpoints, data_model)
 
+    def append_design_delta(
+        self,
+        story_ids: list[int],
+        ux_brief_addendum: str,
+        endpoints_delta: str,
+        data_model_delta: str,
+    ) -> dict:
+        return context_manager.append_design_delta(
+            story_ids, ux_brief_addendum, endpoints_delta, data_model_delta,
+        )
+
+    def record_amendment(self, filename: str, note: str, story_ids: list[int]) -> None:
+        context_manager.record_amendment(filename, note, story_ids)
+
+    def affected_stories_for_spec(self, filename: str) -> list[int]:
+        return context_manager.affected_stories_for_spec(filename)
+
     def append_gherkin(
         self,
         story_id: int,

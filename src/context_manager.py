@@ -902,11 +902,16 @@ def get_story_technical_spec(story_id: int) -> str:
     if match:
         return match.group(0).strip()
     # Unified project-level format (write_project_technical_spec): no per-story
-    # block, so fall back to the whole '## Project Design' contract (endpoints +
+    # block, so fall back to the '## Project Design' contract (endpoints +
     # data model) — mirrors get_story_design_bundle. Without this the unified
-    # technical spec never reaches Phase 3–6 prompts.
+    # technical spec never reaches Phase 3–6 prompts. Appended '## Design
+    # Delta' blocks are part of the contract (a delta-covered story's endpoints
+    # live ONLY there), so they are collected too.
     unified = re.search(r"\n## Project Design\b.*?(?=\n## (?!Project Design)|\Z)", content, re.DOTALL)
-    return unified.group(0).strip() if unified else ""
+    if not unified:
+        return ""
+    deltas = re.findall(r"\n## Design Delta\b.*?(?=\n## (?!Design Delta)|\Z)", content, re.DOTALL)
+    return "\n\n".join([unified.group(0).strip(), *(d.strip() for d in deltas)])
 
 
 def get_context_sizes() -> dict[str, int]:
@@ -1275,9 +1280,18 @@ def rebuild_story_index() -> dict[str, dict]:
     ts = _path("technical-spec.md")
     if ts.exists():
         tech = ts.read_text(encoding="utf-8")
-        # Unified project design block (write_project_technical_spec): marks ALL stories.
+        # Unified project design block (write_project_technical_spec). Modern
+        # specs carry '**Stories:**' id lines (on the Project Design block and
+        # on each appended '## Design Delta' block) — only those stories are
+        # marked, so a story pushed AFTER the design lock stays gherkin_locked
+        # until a delta covers it. Legacy specs without any Stories line keep
+        # the old behaviour (mark all) so existing projects don't regress.
         if re.search(r"^## Project Design\b", tech, re.MULTILINE):
+            stories_lines = re.findall(r"^\*\*Stories:\*\* (.+)$", tech, re.MULTILINE)
+            designed_ids = {m for line in stories_lines for m in re.findall(r"#(\d+)", line)}
             for sid, entry in index.items():
+                if stories_lines and sid not in designed_ids:
+                    continue
                 entry["has_tech_spec"] = True
                 if entry["phase_status"] == "gherkin_locked":
                     entry["phase_status"] = "design_locked"
@@ -2171,17 +2185,21 @@ def write_project_technical_spec(story_ids: list[int], endpoints: str, data_mode
     Phases 3–6 as `technical_spec`. design-bundle.md holds the human UX doc; the
     two no longer share content.
 
-    Writes a '## Project Design' section (detected by rebuild_story_index to mark
-    all stories design_locked) and transitions all story_ids to design_locked.
+    Writes a '## Project Design' section with a '**Stories:**' id line, so
+    rebuild_story_index marks exactly the designed stories design_locked —
+    stories pushed AFTER the lock stay gherkin_locked until a design delta
+    covers them (legacy specs without the Stories line still mark all).
     """
     init_context()
     ts = _path("technical-spec.md")
+    ids_line = ", ".join(f"#{s}" for s in sorted(story_ids))
     content = (
         "# Technical Specification\n\n"
         "> Project API + data contracts (endpoints + data model).\n"
         "> Written automatically by apex after human approval.\n\n"
         "## Project Design\n\n"
         f"**Locked at:** {_now()}\n\n"
+        f"**Stories:** {ids_line}\n\n"
         "### Endpoints\n\n"
         f"{endpoints.strip()}\n\n"
         "### Data Model\n\n"
@@ -2190,6 +2208,50 @@ def write_project_technical_spec(story_ids: list[int], endpoints: str, data_mode
     ts.write_text(content, encoding="utf-8")
     for story_id in story_ids:
         upsert_story_index(story_id, phase_status="design_locked", has_tech_spec=True)
+
+
+def append_design_delta(
+    story_ids: list[int],
+    ux_brief_addendum: str,
+    endpoints_delta: str,
+    data_model_delta: str,
+) -> dict:
+    """Append a dated additive design block for post-lock stories.
+
+    Appends a '## Design Delta' block (with its own '**Stories:**' line, parsed
+    by rebuild_story_index) to technical-spec.md — get_story_technical_spec
+    includes these blocks in the Phase 3–6 contract — and, when a UX addendum
+    exists, a matching block to design-bundle.md (injected whole by
+    get_story_design_bundle's unified fallback). Transitions the covered
+    stories to design_locked and bumps both artifacts' semver MINOR: a delta is
+    the one edit the system can PROVE is additive, so it earns the non-breaking
+    bump that ordinary amendments (always MAJOR) cannot.
+    """
+    init_context()
+    ids_line = ", ".join(f"#{s}" for s in sorted(story_ids))
+    stamp = _now()
+
+    ts = _path("technical-spec.md")
+    ts_block = f"\n## Design Delta — {stamp}\n\n**Stories:** {ids_line}\n"
+    if endpoints_delta.strip():
+        ts_block += f"\n### Endpoints (delta)\n\n{endpoints_delta.strip()}\n"
+    if data_model_delta.strip():
+        ts_block += f"\n### Data Model (delta)\n\n{data_model_delta.strip()}\n"
+    ts.write_text((ts.read_text(encoding="utf-8") if ts.exists() else "").rstrip() + "\n" + ts_block, encoding="utf-8")
+    versions = {"technical-spec.md": _bump_spec_version("technical-spec.md", part="minor")}
+
+    if ux_brief_addendum.strip():
+        db = _path("design-bundle.md")
+        db_block = (
+            f"\n## Design Delta — {stamp}\n\n**Stories:** {ids_line}\n\n"
+            f"{ux_brief_addendum.strip()}\n"
+        )
+        db.write_text((db.read_text(encoding="utf-8") if db.exists() else "").rstrip() + "\n" + db_block, encoding="utf-8")
+        versions["design-bundle.md"] = _bump_spec_version("design-bundle.md", part="minor")
+
+    for story_id in story_ids:
+        upsert_story_index(story_id, phase_status="design_locked", has_tech_spec=True)
+    return {"locked_at": stamp, "story_ids": sorted(story_ids), "versions": versions}
 
 
 def append_epic_design_bundle(
@@ -2346,8 +2408,14 @@ def get_spec_version(filename: str) -> str:
     return "1.0.0" if affected_stories_for_spec(filename) else "0.0.0"
 
 
-def _bump_spec_version(filename: str) -> str:
-    """Bump filename's MAJOR version by one, persist, return the new version."""
+def _bump_spec_version(filename: str, part: str = "major") -> str:
+    """Bump filename's version, persist, return the new version.
+
+    part="major" (the default) is every amendment — record_amendment() treats
+    all post-lock edits as breaking. part="minor" is reserved for the one edit
+    the system can PROVE is additive: a design delta appended for new stories
+    (nothing existing changed, so nothing downstream drifts).
+    """
     with _versions_lock():
         p = _path(_SPEC_VERSION_FILE)
         try:
@@ -2355,8 +2423,8 @@ def _bump_spec_version(filename: str) -> str:
         except json.JSONDecodeError:
             data = {}
         current = data.get(filename) or get_spec_version(filename)
-        major = int(current.split(".")[0])
-        new = f"{major + 1}.0.0"
+        major, minor = (int(x) for x in current.split(".")[:2])
+        new = f"{major}.{minor + 1}.0" if part == "minor" else f"{major + 1}.0.0"
         data[filename] = new
         p.write_text(json.dumps(data, indent=2), encoding="utf-8")
     return new
