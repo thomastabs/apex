@@ -1476,8 +1476,11 @@ class TestDesignDelta:
         assert index["10"]["phase_status"] == "design_locked"
         assert index["20"]["phase_status"] == "design_locked"
 
-    def test_append_design_delta_covers_story_and_survives_rebuild(self, ctx):
+    def test_append_design_delta_merges_in_place_and_survives_rebuild(self, ctx):
+        # The delta merges INTO the locked sections — no separate delta block —
+        # so the file reads as if everything was designed from the start.
         ctx.init_context()
+        ctx.write_project_design_bundle("## Screens\n- Login screen")
         ctx.append_gherkin(10, "Designed", self.GHERKIN)
         self._lock_project_design(ctx, [10])
         ctx.append_gherkin(20, "Late Arrival", self.GHERKIN)
@@ -1488,13 +1491,58 @@ class TestDesignDelta:
         index = ctx.rebuild_story_index()
         assert index["20"]["phase_status"] == "design_locked"
         tech = ctx._path("technical-spec.md").read_text(encoding="utf-8")
-        assert "## Design Delta" in tech and "**Stories:** #20" in tech
+        assert "## Design Delta" not in tech
+        assert "**Stories:** #10, #20" in tech  # covered ids extended in place
+        # New endpoint landed INSIDE the Endpoints section (before Data Model);
+        # new entity landed in the Data Model section.
+        assert tech.index("GET /api/reports") < tech.index("\n### Data Model")
+        assert tech.index("### Report") > tech.index("\n### Data Model")
         bundle = ctx._path("design-bundle.md").read_text(encoding="utf-8")
+        assert "## Design Delta" not in bundle
         assert "New screen: Reports" in bundle
+        # The merged sections hydrate back as one design (Phase 2 UI + screen flow).
+        sections = ctx.read_project_design_bundle()
+        assert "GET /api/reports" in sections["endpoints"]
+        assert "### Report" in sections["data_model"]
+        assert "Login screen" in sections["ux_brief"] and "New screen: Reports" in sections["ux_brief"]
+
+    def test_append_design_delta_folds_legacy_delta_blocks(self, ctx):
+        # Files written during the brief append-block era self-heal on the next
+        # delta: old '## Design Delta' blocks fold into the sections.
+        ctx.init_context()
+        ctx.append_gherkin(10, "Designed", self.GHERKIN)
+        self._lock_project_design(ctx, [10])
+        ts = ctx._path("technical-spec.md")
+        ts.write_text(
+            ts.read_text(encoding="utf-8").rstrip()
+            + "\n\n## Design Delta — 2026-07-04\n\n**Stories:** #15\n"
+            + "\n### Endpoints (delta)\n\n- `GET /api/old-delta` — legacy (Story 15)\n"
+            + "\n### Data Model (delta)\n\n### LegacyThing\n- Fields: id:int\n",
+            encoding="utf-8",
+        )
+        ctx.append_design_delta([20], "", "- `GET /api/new` — new (Story 20)", "")
+        tech = ts.read_text(encoding="utf-8")
+        assert "## Design Delta" not in tech
+        assert "**Stories:** #10, #15, #20" in tech
+        assert tech.index("GET /api/old-delta") < tech.index("\n### Data Model")
+        assert tech.index("### LegacyThing") > tech.index("\n### Data Model")
+
+    def test_read_project_design_bundle_tolerates_content_headings(self, ctx):
+        # Real generated section content starts with its own '## Endpoints' /
+        # '## Data Model' headings — the reader must not truncate on them.
+        ctx.init_context()
+        ctx.write_project_technical_spec(
+            [10],
+            "## Endpoints\n### Auth (epic)\n- `POST /auth/login` — login (Story 10)",
+            "## Data Model\n### User\n- Fields: id:int",
+        )
+        sections = ctx.read_project_design_bundle()
+        assert "POST /auth/login" in sections["endpoints"]
+        assert "### User" in sections["data_model"]
 
     def test_delta_reaches_phase3_contract(self, ctx):
-        # get_story_technical_spec must include delta blocks — a delta-covered
-        # story's endpoints live ONLY there.
+        # get_story_technical_spec must include merged delta content — a
+        # delta-covered story's endpoints live only in the merged sections.
         ctx.init_context()
         ctx.append_gherkin(10, "Designed", self.GHERKIN)
         self._lock_project_design(ctx, [10])

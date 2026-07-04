@@ -15,9 +15,11 @@ import { cn } from "@/lib/utils";
 
 // Additive design for stories pushed after the project design locked: the
 // locked design stays read-only, the AI proposes only what the new stories
-// need, and the human reviews/edits before appending. Purely additive deltas
-// bump the spec MINOR version; a delta that touches existing design records a
-// real amendment (MAJOR + spec_drift) on the previously designed stories.
+// need, and the human reviews/edits before merging. The delta merges INTO the
+// locked sections in place (no separate delta block), so the artifacts read as
+// if designed from the start. Purely additive deltas bump the spec MINOR
+// version; a delta that touches existing design records a real amendment
+// (MAJOR + spec_drift) on the previously designed stories.
 export function DesignDeltaPanel({ dark }: { dark: boolean }) {
   const status = useDesignDeltaStatus();
   const generate = useGenerateDesignDelta();
@@ -134,7 +136,7 @@ export function DesignDeltaPanel({ dark }: { dark: boolean }) {
                 )}>
                   <p className="flex items-center gap-1.5 font-semibold">
                     <AlertTriangle className="size-3.5" />
-                    This delta touches the existing design — appending will record an amendment
+                    This delta touches the existing design — merging will record an amendment
                     (MAJOR version bump + drift flags on previously designed stories):
                   </p>
                   <ul className="list-disc pl-5">
@@ -143,7 +145,7 @@ export function DesignDeltaPanel({ dark }: { dark: boolean }) {
                 </div>
               ) : (
                 <p className={cn("text-xs", dark ? "text-emerald-400" : "text-emerald-600")}>
-                  Purely additive — appending bumps the spec MINOR version, nothing existing drifts.
+                  Purely additive — merging bumps the spec MINOR version, nothing existing drifts.
                 </p>
               )}
 
@@ -182,8 +184,8 @@ export function DesignDeltaPanel({ dark }: { dark: boolean }) {
                         const version = data.versions["technical-spec.md"];
                         toast.success(
                           data.amended
-                            ? `Delta appended (spec v${version}); amendment recorded for ${data.affected_story_ids.length} existing stories`
-                            : `Delta appended — spec v${version}, ${data.story_ids.length} stor${data.story_ids.length === 1 ? "y" : "ies"} design-locked`,
+                            ? `Delta merged (spec v${version}); amendment recorded for ${data.affected_story_ids.length} existing stories`
+                            : `Delta merged into the design — spec v${version}, ${data.story_ids.length} stor${data.story_ids.length === 1 ? "y" : "ies"} design-locked`,
                         );
                         if (data.taiga_failures.length > 0) {
                           toast.warning(`${data.taiga_failures.length} PM transition(s) failed — update story status manually.`);
@@ -197,7 +199,7 @@ export function DesignDeltaPanel({ dark }: { dark: boolean }) {
                 }
               >
                 {persist.isPending ? <Loader2 className="size-4 animate-spin" /> : <PlusCircle className="size-4" />}
-                {persist.isPending ? "Appending…" : "Append to locked design"}
+                {persist.isPending ? "Merging…" : "Merge into locked design"}
               </Button>
             </div>
           ) : null}

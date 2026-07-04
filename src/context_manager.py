@@ -902,16 +902,14 @@ def get_story_technical_spec(story_id: int) -> str:
     if match:
         return match.group(0).strip()
     # Unified project-level format (write_project_technical_spec): no per-story
-    # block, so fall back to the '## Project Design' contract (endpoints +
-    # data model) — mirrors get_story_design_bundle. Without this the unified
-    # technical spec never reaches Phase 3–6 prompts. Appended '## Design
-    # Delta' blocks are part of the contract (a delta-covered story's endpoints
-    # live ONLY there), so they are collected too.
-    unified = re.search(r"\n## Project Design\b.*?(?=\n## (?!Project Design)|\Z)", content, re.DOTALL)
-    if not unified:
-        return ""
-    deltas = re.findall(r"\n## Design Delta\b.*?(?=\n## (?!Design Delta)|\Z)", content, re.DOTALL)
-    return "\n\n".join([unified.group(0).strip(), *(d.strip() for d in deltas)])
+    # block, so fall back to the '## Project Design' contract — mirrors
+    # get_story_design_bundle. Without this the unified technical spec never
+    # reaches Phase 3–6 prompts. Everything from the block to EOF is the
+    # contract: the section content carries its own '## Endpoints'/'## Data
+    # Model' headings (so a heading-bounded regex truncates after the block
+    # header), and any old-style '## Design Delta' blocks belong in it too.
+    m = re.search(r"^## Project Design\b", content, re.MULTILINE)
+    return content[m.start():].strip() if m else ""
 
 
 def get_context_sizes() -> dict[str, int]:
@@ -2158,23 +2156,31 @@ def read_project_design_bundle() -> dict[str, str]:
     """
     init_context()
 
-    def _section(path_name: str, header: str, level: str = "## ") -> str:
+    # Anchor on the writer's exact marker lines, not heading-level regexes: the
+    # section CONTENT routinely carries its own markdown headings ('## Endpoints',
+    # '### <Epic>' …), which a heading-based end-detector mistakes for the next
+    # section and truncates. Old-style '## Design Delta' blocks (pre in-place
+    # merge) still terminate a section.
+    def _read(path_name: str) -> str:
         p = _path(path_name)
-        if not p.exists():
-            return ""
-        content = p.read_text(encoding="utf-8")
-        m = re.search(
-            rf"\n{re.escape(level)}{re.escape(header)}\n+(.*?)(?=\n#{{2,3}} |\Z)",
-            content,
-            flags=re.DOTALL,
-        )
-        return m.group(1).strip() if m else ""
+        return p.read_text(encoding="utf-8") if p.exists() else ""
 
-    # UX Brief lives in design-bundle.md; the API + data contracts in technical-spec.md.
+    def _span(content: str, start_mark: str, end_mark: str | None) -> str:
+        i = content.find(start_mark)
+        if i == -1:
+            return ""
+        i += len(start_mark)
+        end = content.find(end_mark, i) if end_mark else -1
+        legacy = content.find("\n## Design Delta — ", i)
+        cut = min(x for x in (end, legacy, len(content)) if x != -1)
+        return content[i:cut].strip()
+
+    tech = _read("technical-spec.md")
+    bundle = _read("design-bundle.md")
     return {
-        "ux_brief": _section("design-bundle.md", "UX Brief", "## "),
-        "endpoints": _section("technical-spec.md", "Endpoints", "### "),
-        "data_model": _section("technical-spec.md", "Data Model", "### "),
+        "ux_brief": _span(bundle, _UX_BRIEF_MARK, None),
+        "endpoints": _span(tech, _TS_ENDPOINTS_MARK, _TS_DATA_MODEL_MARK),
+        "data_model": _span(tech, _TS_DATA_MODEL_MARK, None),
     }
 
 
@@ -2210,43 +2216,115 @@ def write_project_technical_spec(story_ids: list[int], endpoints: str, data_mode
         upsert_story_index(story_id, phase_status="design_locked", has_tech_spec=True)
 
 
+# The unified writer's literal section markers. Section CONTENT routinely
+# carries its own markdown headings ('## Endpoints', '### <Epic>' …), so
+# heading-level regexes mis-detect section ends — these exact writer-emitted
+# lines are the only reliable anchors.
+_TS_ENDPOINTS_MARK = "\n### Endpoints\n"
+_TS_DATA_MODEL_MARK = "\n### Data Model\n"
+_UX_BRIEF_MARK = "\n## UX Brief\n"
+# Old-style appended delta blocks (shipped briefly before in-place merging).
+_LEGACY_DELTA_RE = re.compile(r"\n## Design Delta — .*?(?=\n## Design Delta — |\Z)", re.DOTALL)
+
+
+def _pop_legacy_delta_blocks(content: str) -> tuple[str, list[str]]:
+    """Strip old-style '## Design Delta' blocks, returning (content, blocks)."""
+    blocks = _LEGACY_DELTA_RE.findall(content)
+    return (_LEGACY_DELTA_RE.sub("", content).rstrip() + "\n", blocks) if blocks else (content, [])
+
+
+def _legacy_delta_parts(block: str) -> tuple[set[str], str, str, str]:
+    """Parse one old-style delta block → (story ids, ux body, endpoints, data model)."""
+    ids = set(re.findall(r"#(\d+)", re.search(r"^\*\*Stories:\*\* (.+)$", block, re.MULTILINE).group(1))) \
+        if re.search(r"^\*\*Stories:\*\* ", block, re.MULTILINE) else set()
+
+    def _sub(header: str) -> str:
+        m = re.search(rf"\n### {header} \(delta\)\n+(.*?)(?=\n### \w[^\n]*\(delta\)|\Z)", block, re.DOTALL)
+        return m.group(1).strip() if m else ""
+
+    # Bundle-side legacy blocks have no (delta) subsections — the body after the
+    # Stories line IS the UX addendum.
+    ux = ""
+    if "(delta)" not in block:
+        body = re.sub(r"^## Design Delta — [^\n]*\n+(\*\*Stories:\*\*[^\n]*\n+)?", "", block.strip())
+        ux = body.strip()
+    return ids, ux, _sub("Endpoints"), _sub("Data Model")
+
+
+def _merge_into_section(content: str, insert_at: int, addition: str) -> str:
+    return content[:insert_at].rstrip() + f"\n\n{addition.strip()}\n" + content[insert_at:]
+
+
 def append_design_delta(
     story_ids: list[int],
     ux_brief_addendum: str,
     endpoints_delta: str,
     data_model_delta: str,
 ) -> dict:
-    """Append a dated additive design block for post-lock stories.
+    """Merge an additive design delta for post-lock stories INTO the locked
+    sections in place — endpoints into '### Endpoints', entities into
+    '### Data Model' (technical-spec.md), the UX addendum into '## UX Brief'
+    (design-bundle.md) — so the result reads exactly as if it had been designed
+    from the start (and downstream consumers that parse the sections, like the
+    screen-flow builder, pick it up for free). No separate delta section is
+    written; the audit trail is the '**Stories:**' id line, the MINOR semver
+    bump, and (when the delta touches existing design) the amendment record.
+    Any old-style '## Design Delta' blocks found are folded into the sections
+    first, so files from the brief append-block era self-heal.
 
-    Appends a '## Design Delta' block (with its own '**Stories:**' line, parsed
-    by rebuild_story_index) to technical-spec.md — get_story_technical_spec
-    includes these blocks in the Phase 3–6 contract — and, when a UX addendum
-    exists, a matching block to design-bundle.md (injected whole by
-    get_story_design_bundle's unified fallback). Transitions the covered
-    stories to design_locked and bumps both artifacts' semver MINOR: a delta is
-    the one edit the system can PROVE is additive, so it earns the non-breaking
-    bump that ordinary amendments (always MAJOR) cannot.
+    Transitions the covered stories to design_locked and bumps the touched
+    artifacts' semver MINOR: a delta is the one edit the system can PROVE is
+    additive, so it earns the non-breaking bump that ordinary amendments
+    (always MAJOR) cannot.
     """
     init_context()
-    ids_line = ", ".join(f"#{s}" for s in sorted(story_ids))
     stamp = _now()
+    new_ids = {str(s) for s in story_ids}
 
+    # ── technical-spec.md ────────────────────────────────────────────────
     ts = _path("technical-spec.md")
-    ts_block = f"\n## Design Delta — {stamp}\n\n**Stories:** {ids_line}\n"
-    if endpoints_delta.strip():
-        ts_block += f"\n### Endpoints (delta)\n\n{endpoints_delta.strip()}\n"
-    if data_model_delta.strip():
-        ts_block += f"\n### Data Model (delta)\n\n{data_model_delta.strip()}\n"
-    ts.write_text((ts.read_text(encoding="utf-8") if ts.exists() else "").rstrip() + "\n" + ts_block, encoding="utf-8")
+    content = ts.read_text(encoding="utf-8") if ts.exists() else ""
+    if _TS_ENDPOINTS_MARK not in content or _TS_DATA_MODEL_MARK not in content:
+        raise ValueError("technical-spec.md has no unified Project Design sections to merge into.")
+    content, legacy_blocks = _pop_legacy_delta_blocks(content)
+    ep_additions = [endpoints_delta.strip()] if endpoints_delta.strip() else []
+    dm_additions = [data_model_delta.strip()] if data_model_delta.strip() else []
+    for block in legacy_blocks:
+        ids, _, ep, dm = _legacy_delta_parts(block)
+        new_ids |= ids
+        if ep:
+            ep_additions.insert(0, ep)
+        if dm:
+            dm_additions.insert(0, dm)
+    # Endpoints section ends where the writer's Data Model marker begins;
+    # Data Model runs to EOF once legacy blocks are folded away.
+    for addition in ep_additions:
+        content = _merge_into_section(content, content.index(_TS_DATA_MODEL_MARK), addition)
+    for addition in dm_additions:
+        content = content.rstrip() + f"\n\n{addition}\n"
+    # Extend the Project Design '**Stories:**' line so rebuild_story_index
+    # marks the newly covered stories (legacy specs without the line mark all).
+    m = re.search(r"^\*\*Stories:\*\* (.+)$", content, re.MULTILINE)
+    if m:
+        all_ids = {i for i in re.findall(r"#(\d+)", m.group(1))} | new_ids
+        ids_line = ", ".join(f"#{i}" for i in sorted(all_ids, key=int))
+        content = content[:m.start()] + f"**Stories:** {ids_line}" + content[m.end():]
+    ts.write_text(content, encoding="utf-8")
     versions = {"technical-spec.md": _bump_spec_version("technical-spec.md", part="minor")}
 
+    # ── design-bundle.md ─────────────────────────────────────────────────
+    db = _path("design-bundle.md")
+    db_content = db.read_text(encoding="utf-8") if db.exists() else ""
+    db_content, db_legacy = _pop_legacy_delta_blocks(db_content)
+    ux_additions = [_legacy_delta_parts(b)[1] for b in db_legacy]
+    ux_additions = [u for u in ux_additions if u]
     if ux_brief_addendum.strip():
-        db = _path("design-bundle.md")
-        db_block = (
-            f"\n## Design Delta — {stamp}\n\n**Stories:** {ids_line}\n\n"
-            f"{ux_brief_addendum.strip()}\n"
-        )
-        db.write_text((db.read_text(encoding="utf-8") if db.exists() else "").rstrip() + "\n" + db_block, encoding="utf-8")
+        ux_additions.append(ux_brief_addendum.strip())
+    if ux_additions and _UX_BRIEF_MARK in db_content:
+        # UX Brief runs to EOF once legacy blocks are folded away.
+        for addition in ux_additions:
+            db_content = db_content.rstrip() + f"\n\n{addition}\n"
+        db.write_text(db_content, encoding="utf-8")
         versions["design-bundle.md"] = _bump_spec_version("design-bundle.md", part="minor")
 
     for story_id in story_ids:

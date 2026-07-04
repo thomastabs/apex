@@ -285,9 +285,10 @@ class Phase2Service:
         touches_existing: list[str] | None = None,
         note: str = "",
     ) -> dict:
-        """Append the reviewed delta. Purely additive → MINOR bump; when the
-        delta touches existing design (`touches_existing`), the previously
-        designed stories get a real amendment (MAJOR + spec_drift) on top."""
+        """Merge the reviewed delta into the locked sections in place. Purely
+        additive → MINOR bump; when the delta touches existing design
+        (`touches_existing`), the previously designed stories get a real
+        amendment (MAJOR + spec_drift) on top."""
         if not story_ids:
             raise Phase2ValidationError("At least one story_id is required.")
         if not (ux_brief_addendum.strip() or endpoints_delta.strip() or data_model_delta.strip()):
