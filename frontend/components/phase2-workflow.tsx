@@ -416,9 +416,6 @@ export function Phase2Workflow() {
         </div>
       ) : null}
 
-      {/* Post-lock stories → additive design delta, no full regeneration. */}
-      {!noContext ? <DesignDeltaPanel dark={dark} /> : null}
-
       <div className={cn("space-y-6 border-t pt-6", sectionBorderClass)}>
         {/* Stepper */}
         <div className={cn("rounded-xl border px-6 py-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
@@ -627,6 +624,10 @@ export function Phase2Workflow() {
                 Read each section carefully, edit the content as needed, and only lock once both leads have signed off.
               </p>
             </div>
+
+            {/* Post-lock stories → additive design delta, no full regeneration.
+                Lives inside Stage B — it IS project design work, not a side task. */}
+            <DesignDeltaPanel dark={dark} />
 
             <div className="space-y-2">
               <GuideTheAI

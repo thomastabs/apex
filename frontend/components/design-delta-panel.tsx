@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AlertTriangle, ChevronRight, GitBranchPlus, Loader2, PlusCircle } from "lucide-react";
 import { toast } from "sonner";
+import { AIProgressIndicator } from "@/components/ai-progress-indicator";
 import { Button, Textarea } from "@/components/ui/primitives";
 import {
   useDesignDeltaStatus,
@@ -53,7 +54,7 @@ export function DesignDeltaPanel({ dark }: { dark: boolean }) {
 
   return (
     <div className={cn(
-      "mb-6 rounded-md border",
+      "rounded-md border",
       dark ? "border-violet-700/50 bg-violet-950/20" : "border-violet-300 bg-violet-50/60",
     )}>
       <button
@@ -111,6 +112,18 @@ export function DesignDeltaPanel({ dark }: { dark: boolean }) {
             {generate.isPending ? <Loader2 className="size-4 animate-spin" /> : <GitBranchPlus className="size-4" />}
             {generate.isPending ? "Generating delta…" : draft ? "Regenerate delta" : "Generate design delta"}
           </Button>
+
+          {generate.isPending ? (
+            <AIProgressIndicator
+              steps={[
+                "Reading the locked design",
+                "Deriving additions for the new stories",
+                "Checking impact on the existing design",
+              ]}
+              isPending={generate.isPending}
+              dark={dark}
+            />
+          ) : null}
 
           {draft ? (
             <div className="space-y-4">
