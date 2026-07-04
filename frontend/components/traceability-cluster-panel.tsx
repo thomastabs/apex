@@ -66,6 +66,13 @@ function nodeRadius(degree: number): number {
   return Math.max(4, Math.min(14, 3 + degree * 1.2));
 }
 
+// react-force-graph has no MiniMap (unlike React Flow in the Flowchart view),
+// so this panel draws its own: an overlay canvas with every node as a dot plus
+// the current viewport as a rectangle; clicking it pans the graph there.
+const MINIMAP_W = 180;
+const MINIMAP_H = 132;
+const MINIMAP_PAD = 10;
+
 type ClusterNodeData = {
   label: string;
   ntype: TraceNodeType;
@@ -206,6 +213,65 @@ export function TraceabilityClusterPanel() {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => persist(graphData.nodes), 1500);
   }, [graphData, persist]);
+
+  const minimapRef = useRef<HTMLCanvasElement>(null);
+  // Graph→minimap transform of the last draw, kept for click mapping.
+  const minimapView = useRef<{ s: number; ox: number; oy: number } | null>(null);
+
+  const drawMinimap = useCallback(() => {
+    const canvas = minimapRef.current;
+    const fg = fgRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !fg || !ctx || !graphData) return;
+
+    const placed = graphData.nodes.filter((n) => typeof n.x === "number" && typeof n.y === "number");
+    if (placed.length === 0) return;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const n of placed) {
+      if (n.x! < minX) minX = n.x!;
+      if (n.x! > maxX) maxX = n.x!;
+      if (n.y! < minY) minY = n.y!;
+      if (n.y! > maxY) maxY = n.y!;
+    }
+    const s = Math.min(
+      (MINIMAP_W - MINIMAP_PAD * 2) / Math.max(1, maxX - minX),
+      (MINIMAP_H - MINIMAP_PAD * 2) / Math.max(1, maxY - minY),
+    );
+    const ox = (MINIMAP_W - (maxX - minX) * s) / 2 - minX * s;
+    const oy = (MINIMAP_H - (maxY - minY) * s) / 2 - minY * s;
+    minimapView.current = { s, ox, oy };
+
+    ctx.clearRect(0, 0, MINIMAP_W, MINIMAP_H);
+    for (const n of placed) {
+      ctx.beginPath();
+      ctx.arc(n.x! * s + ox, n.y! * s + oy, 1.5, 0, 2 * Math.PI);
+      ctx.fillStyle = TYPE_COLOR[n.ntype as TraceNodeType] ?? "#8b5cf6";
+      ctx.fill();
+    }
+
+    const tl = fg.screen2GraphCoords(0, 0);
+    const br = fg.screen2GraphCoords(size.width, size.height);
+    ctx.strokeStyle = "#8b5cf6";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(tl.x * s + ox, tl.y * s + oy, (br.x - tl.x) * s, (br.y - tl.y) * s);
+  }, [graphData, size]);
+
+  // Ticks stop once the simulation cools, so filter/theme changes need an
+  // explicit redraw too.
+  useEffect(() => {
+    drawMinimap();
+  }, [drawMinimap, dark]);
+
+  const onMinimapClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const view = minimapView.current;
+    const rect = minimapRef.current?.getBoundingClientRect();
+    if (!view || !rect) return;
+    fgRef.current?.centerAt(
+      (e.clientX - rect.left - view.ox) / view.s,
+      (e.clientY - rect.top - view.oy) / view.s,
+      400,
+    );
+  }, []);
 
   const handleExport = useCallback(() => {
     const canvas = containerRef.current?.querySelector("canvas");
@@ -351,28 +417,43 @@ export function TraceabilityClusterPanel() {
           </div>
           <div
             ref={containerRef}
-            className={cn("min-h-0 flex-1 overflow-hidden rounded-lg border", dark ? "border-neutral-800 bg-neutral-950" : "border-slate-200 bg-white")}
+            className={cn("relative min-h-0 flex-1 overflow-hidden rounded-lg border", dark ? "border-neutral-800 bg-neutral-950" : "border-slate-200 bg-white")}
           >
             {graphData && size.width > 0 ? (
-              <ForceGraph2D<ClusterNodeData, ClusterLinkData>
-                ref={fgRef}
-                graphData={graphData}
-                width={size.width}
-                height={size.height}
-                backgroundColor={dark ? "#0a0a0a" : "#ffffff"}
-                nodeCanvasObject={drawNode}
-                nodeCanvasObjectMode={() => "replace"}
-                nodePointerAreaPaint={paintNodePointerArea}
-                linkColor={(l) => linkColor((l as GLink).kind, dark)}
-                linkLineDash={(l) => linkDash((l as GLink).kind)}
-                linkWidth={1.25}
-                linkDirectionalArrowLength={0}
-                onNodeClick={onNodeClick}
-                onNodeDragEnd={onNodeDragEnd}
-                cooldownTicks={200}
-                minZoom={0.3}
-                maxZoom={8}
-              />
+              <>
+                <ForceGraph2D<ClusterNodeData, ClusterLinkData>
+                  ref={fgRef}
+                  graphData={graphData}
+                  width={size.width}
+                  height={size.height}
+                  backgroundColor={dark ? "#0a0a0a" : "#ffffff"}
+                  nodeCanvasObject={drawNode}
+                  nodeCanvasObjectMode={() => "replace"}
+                  nodePointerAreaPaint={paintNodePointerArea}
+                  linkColor={(l) => linkColor((l as GLink).kind, dark)}
+                  linkLineDash={(l) => linkDash((l as GLink).kind)}
+                  linkWidth={1.25}
+                  linkDirectionalArrowLength={0}
+                  onNodeClick={onNodeClick}
+                  onNodeDragEnd={onNodeDragEnd}
+                  onEngineTick={drawMinimap}
+                  onZoom={drawMinimap}
+                  cooldownTicks={200}
+                  minZoom={0.3}
+                  maxZoom={8}
+                />
+                <canvas
+                  ref={minimapRef}
+                  width={MINIMAP_W}
+                  height={MINIMAP_H}
+                  onClick={onMinimapClick}
+                  aria-label="Graph minimap"
+                  className={cn(
+                    "absolute bottom-3 right-3 z-10 cursor-pointer rounded-md border",
+                    dark ? "border-neutral-700 bg-neutral-900/85" : "border-slate-300 bg-white/90",
+                  )}
+                />
+              </>
             ) : null}
           </div>
         </>

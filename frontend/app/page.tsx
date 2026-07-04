@@ -319,7 +319,9 @@ export default function HomePage() {
         />
       </div>
 
-      {/* SDLC Phases */}
+      {/* SDLC Phases — a compact strip, not a card grid: the phases are the
+          route INTO the loop, not the headline of the page. Full descriptions
+          live on each phase page (and in the title tooltip here). */}
       <div>
         <h2 className={cn(
           "mb-3 text-[11px] font-bold uppercase tracking-[0.1em]",
@@ -327,10 +329,59 @@ export default function HomePage() {
         )}>
           SDLC Phases
         </h2>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {/* flex-wrap + min tile width (not viewport grid breakpoints): the
+            content column's real width depends on the two sidebars, so tiles
+            must size to their container — one row when open, wrapping when
+            squeezed. */}
+        <div className="flex flex-wrap gap-2">
           {phases.map((phase) => {
             const { badge, status } = phaseInfo(phase.href);
-            return <PhaseCard key={phase.href} {...phase} badge={badge} status={status} dark={dark} />;
+            const Icon = phase.icon;
+            return (
+              <Link
+                key={phase.href}
+                href={phase.href}
+                title={phase.description}
+                className={cn(
+                  "group flex min-w-[10.5rem] flex-1 basis-44 items-center gap-2.5 rounded-lg border px-3 py-2.5 transition-all duration-150",
+                  dark
+                    ? "border-neutral-800 bg-neutral-900/40 hover:border-violet-500/40 hover:bg-neutral-800/60"
+                    : "border-slate-200 bg-white shadow-sm hover:border-violet-300 hover:bg-violet-50/40",
+                )}
+              >
+                <div className={cn(
+                  "grid size-7 shrink-0 place-items-center rounded-md",
+                  dark ? "bg-neutral-800" : "bg-slate-100",
+                )}>
+                  <Icon className={cn(
+                    "size-3.5",
+                    status === "pending"
+                      ? dark ? "text-neutral-600" : "text-slate-300"
+                      : "text-violet-400",
+                  )} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className={cn(
+                      "truncate text-xs font-semibold transition-colors",
+                      status === "pending"
+                        ? dark ? "text-neutral-500" : "text-slate-400"
+                        : dark ? "text-neutral-100 group-hover:text-violet-300" : "text-slate-900 group-hover:text-violet-600",
+                    )}>
+                      {phase.title}
+                    </span>
+                    {status === "done" ? (
+                      <CheckCircle2 className="size-3 shrink-0 text-emerald-400" />
+                    ) : status === "active" ? (
+                      <span className="block size-1.5 shrink-0 rounded-full bg-violet-400" />
+                    ) : null}
+                  </div>
+                  <div className={cn("truncate text-[10px]", dark ? "text-neutral-600" : "text-slate-400")}>
+                    {badge ? `${phase.phase} · ${badge}` : phase.phase}
+                  </div>
+                </div>
+              </Link>
+            );
           })}
         </div>
       </div>

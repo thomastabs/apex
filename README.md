@@ -361,7 +361,8 @@ The **Trace** page (`/traceability`, top nav) renders the whole project as one i
 - **Edges & overlays:** the derivation chain, story↔design links, **cross-story design-conflict** edges (amber, reusing `detect_design_conflicts`), **backward-trace** edges (violet dashed, from a downstream gap back to the flagged source phase), and **regression** edges (red dashed, animated — from wherever a story last reached (deploy/tests/tasks) back to Tasks, drawn whenever `has_bug_report`/`conformance_regressed`/`fix_bolt_count` is set). The regression edge exists because the underlying loop-back was already real — `maintenance_service.route_lane()`'s Secure Lane genuinely pushes `phase_status` from `deployed` back to `implementation` — it just wasn't drawn; a bug/fix badge alone doesn't read as a *loop* the way an edge does. Conflict / trace / bug badges also still show on the nodes.
 - **Scenario layer (toggle):** drill into per-story Gherkin scenarios with `verify` edges and ✓verified / ✗gap flags sourced from the Phase 4 verification matrix. Off by default (node-count guard).
 - **Interactions:** click a node → jump to its phase; filter by epic or "flagged stories only" (now includes bug/regression-flagged stories, not just conflict/trace); React Flow + Dagre auto-layout with a MiniMap; **drag to rearrange** (layout persists to `trace-layout.json`) + **Re-layout**; **Refresh** (also refetches on tab focus); **Export PNG** of the whole graph for reports.
-- **Promoted on the Overview page** — the graph gets its own "Live Traceability" section above the SDLC-phase grid (not buried in Tools & Insights alongside Analytics/Autopilot), with a live badge (open trace/regression/conflict count) so the loop-aware view carries equal visual weight to the phase-by-phase one instead of reading as a secondary utility.
+- **Two views, one switch:** the **Flowchart** view (the default — React Flow + Dagre layered layout, described above) and an Obsidian-style **Cluster** view (`react-force-graph-2d`): a canvas-rendered continuous force simulation where circles grow with connection count so hubs stand out, coloured rings mark conflict (amber) / trace (violet) / bug (red) stories, edge kinds keep the same colour/dash language, and labels fade in past a zoom threshold so a several-hundred-node graph stays legible at fit-to-view. The cluster view draws its own clickable **MiniMap** (node dots + a live viewport rectangle; click to pan) since the canvas library doesn't ship one. The toggle sits on the Trace page and the choice persists per user; both views share the saved layout (`trace-layout.json`), the epic/flagged filters, the scenario layer, click-to-phase navigation, and PNG export.
+- **Promoted on the Overview page** — the graph gets its own "Live Traceability" section at the top of the page (not buried in Tools & Insights alongside Analytics/Autopilot), with a live badge (open trace/regression/conflict count); a red **"needs attention" banner** (regressions + trace flags + design conflicts + open maintenance items) sits above the green next-step banner and deep-links to the graph; and the six SDLC phase cards are demoted to a compact strip (icon + title + status/badge line, full description on hover) so the loop-aware view leads the page instead of the phase sequence.
 
 ### Autopilot
 
@@ -396,7 +397,7 @@ The **Autopilot** page (`/autopilot`, top nav, Zap icon) runs Phases 1–5 as a 
 
 ### Sidebar Workspace
 
-The sidebar is the operational shell for the app.
+Two sidebars — both collapsible and resizable — form the operational shell for the app: the **left** sidebar carries navigation, the account panel, and Settings (a modal hosting the Figma / AI / GitHub / Resources configuration); the **right** "Workspace" sidebar carries the project-and-artifact sections (project selector, active context, epics & stories, task board, developer packs, test plans, deploy packs, users & roles) on **every** page, each section drag-reorderable, with the active AI model shown in the panel header.
 
 Implemented:
 
@@ -462,7 +463,7 @@ Implemented:
 | `src/storage.py` | Storage abstraction over local disk or Azure File Share SDK |
 | `src/taiga_adapter.py` | Taiga web URL derivation for the config endpoint (minimal stub; all Taiga REST calls go through `taiga_proxy.py`) |
 | `frontend/app/` | Next.js routes |
-| `frontend/components/` | App shell, sidebar, Phase 1–6 workflow components (incl. `phase6-workflow.tsx`, `maintenance-triage.tsx`), the traceability graph (`traceability-graph-panel.tsx`), shared cross-check + guide-the-AI panels, UI primitives |
+| `frontend/components/` | App shell, sidebar, Phase 1–6 workflow components (incl. `phase6-workflow.tsx`, `maintenance-triage.tsx`), the traceability graph views (`traceability-graph-panel.tsx` flowchart + `traceability-cluster-panel.tsx` cluster), shared cross-check + guide-the-AI panels, UI primitives |
 | `frontend/lib/api/taiga-direct.ts` | Taiga REST client — all CRUD, auth, and story transitions; sends requests to the FastAPI Taiga proxy with `X-Taiga-Url` header |
 | `frontend/lib/api/pm-types.ts` | `ProjectManagementAdapter` interface and shared PM types |
 | `frontend/lib/api/pm-factory.ts` | `getPmAdapter(pmTool)` dispatcher — returns Taiga or Jira adapter |
