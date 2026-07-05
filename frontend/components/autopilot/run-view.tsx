@@ -66,16 +66,26 @@ function phaseAccent(phase: string, dark: boolean): string {
   return map[phase] ?? map[""];
 }
 
-/** Short human label for an artifact, inferred from the emitting event. */
+/**
+ * Short human label for an artifact, inferred from the emitting event. Autopilot
+ * emits many design sections and many per-story dev packs / test plans in a single
+ * run — fold in the section name / story id so the artifact list and pills stay
+ * distinguishable instead of repeating "Design section" or "Dev pack".
+ */
 function artifactKind(ev: AutopilotEvent): string {
-  const m = ev.msg.toLowerCase();
+  const raw = ev.msg;
+  const m = raw.toLowerCase();
+  const storyId = raw.match(/Story (\d+)/)?.[1];
+  const storyTag = storyId ? ` · #${storyId}` : "";
+
   if (m.includes("nl draft")) return "User stories";
   if (m.includes("epics")) return "Epics";
   if (m.includes("tech stack")) return "Tech stack";
-  if (m.includes("section")) return "Design section";
-  if (m.includes("test plan")) return "Test plan";
+  const section = raw.match(/Section ['"]([\w-]+)['"]/i)?.[1];
+  if (section) return `Design · ${section.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}`;
+  if (m.includes("test plan")) return `Test plan${storyTag}`;
   if (m.includes("figma")) return "Figma context";
-  if (m.includes("pack") || m.includes("proposal") || m.includes("implementation plan")) return "Dev pack";
+  if (m.includes("pack") || m.includes("proposal") || m.includes("implementation plan")) return `Dev pack${storyTag}`;
   return PHASE_LABELS[ev.phase]?.split("·").pop()?.trim() ?? "Artifact";
 }
 
