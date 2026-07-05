@@ -1153,8 +1153,11 @@ documented above):
 - **Living traceability graph** *(the differentiator)* — project-wide derivation
   graph with cross-story conflict + backward-trace overlays, scenario drill-down,
   saved layout, and PNG export (see [Living Traceability Graph](#living-traceability-graph)).
-- **Cross-story design-drift detector** — `detect_design_conflicts` flags packs
-  sharing a file/endpoint across distinct stories (amber board badge + Phase-3 scan).
+- **Cross-story design-drift detector** — `detect_design_conflicts` flags an
+  endpoint collision (same method+path) across any two stories, or a shared
+  file specifically across *different epics* — same-epic siblings sharing a
+  file (e.g. several endpoints in one router) is expected, not flagged
+  (amber board badge + Phase-3 scan).
 - **Multi-model cross-check** — Phases 1/2/3, with an alt-model picker (see
   [Human-in-the-loop guardrails](#human-in-the-loop-guardrails)).
 - **Backward trace propagation**, **diff-on-regenerate**, **decision log**,
