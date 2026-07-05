@@ -132,11 +132,23 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
     try {
       const [owner, repoName] = repo.split("/");
       const meta = await verifyGithubRepo({ owner, repo: repoName, pat });
-      await saveGithubConfig.mutateAsync({ repo, pat });
+      // The browser session connects on verify alone — persisting server-side
+      // (so it survives tab close) is best-effort and must never block or
+      // undo a successful connect (e.g. AI_KEY_ENCRYPTION_SECRET unset on this
+      // deployment must not make GitHub unusable for the current session).
       setGithub({ pat, repo });
       setRepoMeta(meta);
       toast.success(`Connected to ${repo}`);
       setPatInput("");
+      try {
+        await saveGithubConfig.mutateAsync({ repo, pat });
+      } catch (persistErr) {
+        toast.warning(
+          persistErr instanceof Error
+            ? `Connected, but didn't save server-side: ${persistErr.message}`
+            : "Connected, but couldn't save the connection server-side — you'll need to reconnect next session.",
+        );
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not connect to GitHub.");
     } finally {

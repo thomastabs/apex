@@ -116,11 +116,23 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
   async function connectFile(token: string, fileKey: string, knownName?: string) {
     // force=true: a deliberate Connect must reach Figma even if a prior 429 set a cooldown.
     const name = knownName ?? (await figmaVerifyFile(token, fileKey, true)).name;
-    await saveFigmaConfig.mutateAsync({ fileKey, token });
+    // The browser session connects on verify alone — persisting server-side
+    // (so it survives tab close) is best-effort and must never block or undo
+    // a successful connect (e.g. AI_KEY_ENCRYPTION_SECRET unset on this
+    // deployment must not make Figma unusable for the current session).
     setFigma({ token, fileKey, fileName: name });
     setFileName(name);
     setProjectFiles(null);
     toast.success(`Connected to ${name}`);
+    try {
+      await saveFigmaConfig.mutateAsync({ fileKey, token });
+    } catch (persistErr) {
+      toast.warning(
+        persistErr instanceof Error
+          ? `Connected, but didn't save server-side: ${persistErr.message}`
+          : "Connected, but couldn't save the connection server-side — you'll need to reconnect next session.",
+      );
+    }
   }
 
   async function handleConnect() {

@@ -388,6 +388,30 @@ def test_save_config_omits_credentials_when_not_provided(monkeypatch):
     assert called == []
 
 
+def test_save_config_github_pat_encryption_unset_returns_503_not_500(monkeypatch):
+    # Real prod incident: AI_KEY_ENCRYPTION_SECRET unconfigured made this a raw
+    # 500 with no message — encrypt_value()'s RuntimeError must map to 503.
+    def _boom(pat):
+        raise RuntimeError("AI_KEY_ENCRYPTION_SECRET is not configured on this deployment.")
+
+    monkeypatch.setattr("src.context_manager.save_instance_github_pat", _boom)
+
+    with pytest.raises(HTTPException) as exc_info:
+        save_config(SaveConfigRequest(github_pat="ghp_abc123"), _AUTH)
+    assert exc_info.value.status_code == 503
+
+
+def test_save_config_figma_token_encryption_unset_returns_503_not_500(monkeypatch):
+    def _boom(token):
+        raise RuntimeError("AI_KEY_ENCRYPTION_SECRET is not configured on this deployment.")
+
+    monkeypatch.setattr("src.context_manager.save_instance_figma_token", _boom)
+
+    with pytest.raises(HTTPException) as exc_info:
+        save_config(SaveConfigRequest(figma_token="figd_xyz789"), _AUTH)
+    assert exc_info.value.status_code == 503
+
+
 def test_get_config_reports_credential_configured_flags(monkeypatch):
     monkeypatch.setattr("src.context_manager.load_config", lambda: {})
     monkeypatch.setattr("src.taiga_adapter.get_web_base_url", lambda: "https://taiga.example")

@@ -231,12 +231,23 @@ def save_config(
         # Per-instance: the Figma file belongs to the Taiga instance this request is for.
         context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
         context_manager.save_instance_figma_file_key(payload.figma_file_key)
+    # github_pat/figma_token are encrypted at rest (AI_KEY_ENCRYPTION_SECRET) —
+    # if that secret isn't configured on this deployment, encrypt_value() raises
+    # RuntimeError. Must not surface as a raw 500: the client still needs its
+    # own connect attempt (setGithub/setFigma in the browser session) to
+    # succeed regardless of whether server-side persistence is available.
     if payload.github_pat is not None:
         context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
-        context_manager.save_instance_github_pat(payload.github_pat)
+        try:
+            context_manager.save_instance_github_pat(payload.github_pat)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     if payload.figma_token is not None:
         context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
-        context_manager.save_instance_figma_token(payload.figma_token)
+        try:
+            context_manager.save_instance_figma_token(payload.figma_token)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     return {"ok": True}
 
 
