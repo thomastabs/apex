@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Copy, ExternalLink, GitBranch, Github, Lock, RefreshCw, Star, Webhook } from "lucide-react";
 import { toast } from "sonner";
-import { useGithubWebhookConfig, useSaveGithubConfig, useSyncGithubContext, useGithubSyncStatus, useContextFiles } from "@/lib/hooks/use-workspace";
+import { useGithubWebhookConfig, useSaveGithubConfig, useSyncGithubContext, useGithubSyncStatus, useGithubPat, useServerConfig, useContextFiles } from "@/lib/hooks/use-workspace";
 import { useSessionStore, useGithubContext } from "@/lib/stores/session-store";
 import { verifyGithubRepo, type RepoMeta } from "@/lib/api/github-browser";
 import { getApiBaseUrl } from "@/lib/api/client";
@@ -132,7 +132,7 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
     try {
       const [owner, repoName] = repo.split("/");
       const meta = await verifyGithubRepo({ owner, repo: repoName, pat });
-      await saveGithubConfig.mutateAsync(repo);
+      await saveGithubConfig.mutateAsync({ repo, pat });
       setGithub({ pat, repo });
       setRepoMeta(meta);
       toast.success(`Connected to ${repo}`);
@@ -147,7 +147,7 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
   function handleDisconnect() {
     setGithub({ pat: "", repo: "" });
     setRepoMeta(null);
-    saveGithubConfig.mutate("");
+    saveGithubConfig.mutate({ repo: "", pat: "" });
     toast.info("GitHub disconnected.");
   }
 
@@ -349,6 +349,20 @@ export function GithubAutoSync() {
   const syncContext = useSyncGithubContext();
   const syncStatus = useGithubSyncStatus();
   const autoSyncedForPush = useRef<string | null>(null);
+
+  // Restore the PAT saved server-side (encrypted) so the browser-direct
+  // GitHub session survives a tab close / new device without retyping it.
+  // The repo name already persists to sessionStorage; only the PAT doesn't.
+  const setGithub = useSessionStore((s) => s.setGithub);
+  const serverConfig = useServerConfig();
+  const shouldRestore = !isConnected
+    && Boolean(serverConfig.data?.github_repo)
+    && Boolean(serverConfig.data?.github_pat_configured);
+  const patQuery = useGithubPat(shouldRestore);
+  useEffect(() => {
+    if (!patQuery.data?.pat || !serverConfig.data?.github_repo) return;
+    setGithub({ pat: patQuery.data.pat, repo: serverConfig.data.github_repo });
+  }, [patQuery.data, serverConfig.data, setGithub]);
 
   useEffect(() => {
     const pushedAt = syncStatus.data?.last_push_at;

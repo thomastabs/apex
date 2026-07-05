@@ -31,14 +31,22 @@ export type ServerConfig = {
   pm_web_url: string;
   github_repo: string;
   figma_file_key: string;
+  github_pat_configured: boolean;
+  figma_token_configured: boolean;
 };
 
-export function saveGithubConfig(context: AuthContext, repo: string) {
+export function saveGithubConfig(context: AuthContext, repo: string, pat?: string) {
   return apiRequest<{ ok: boolean }>("/api/workspace/config", {
     method: "POST",
     context,
-    body: { github_repo: repo },
+    body: { github_repo: repo, ...(pat !== undefined ? { github_pat: pat } : {}) },
   });
+}
+
+/** Decrypted PAT saved server-side, for restoring the browser-direct GitHub
+ * session on load — never part of the general config response. */
+export function getGithubPat(context: AuthContext) {
+  return apiRequest<{ pat: string }>("/api/workspace/github-pat", { context });
 }
 
 export type GithubWebhookConfig = {
@@ -60,12 +68,18 @@ export function getGithubSyncStatus(context: RequestContext) {
   return apiRequest<GithubSyncStatus>("/api/workspace/github/sync-status", { context });
 }
 
-export function saveFigmaConfig(context: AuthContext, fileKey: string) {
+export function saveFigmaConfig(context: AuthContext, fileKey: string, token?: string) {
   return apiRequest<{ ok: boolean }>("/api/workspace/config", {
     method: "POST",
     context,
-    body: { figma_file_key: fileKey },
+    body: { figma_file_key: fileKey, ...(token !== undefined ? { figma_token: token } : {}) },
   });
+}
+
+/** Decrypted token saved server-side, for restoring the Figma session on load
+ * — never part of the general config response. */
+export function getFigmaToken(context: AuthContext) {
+  return apiRequest<{ token: string }>("/api/workspace/figma-token", { context });
 }
 
 export function getServerConfig(context: AuthContext) {

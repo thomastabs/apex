@@ -76,6 +76,10 @@ class SaveConfigRequest(BaseModel):
     jira_base_url: str | None = Field(None, max_length=2_048)
     github_repo: str | None = Field(None, max_length=255)
     figma_file_key: str | None = Field(None, max_length=255)
+    # Encrypted at rest (AI_KEY_ENCRYPTION_SECRET) — "" clears the saved value.
+    # Never echoed back in ConfigResponse; see GithubPatResponse/FigmaTokenResponse.
+    github_pat: str | None = Field(None, max_length=512)
+    figma_token: str | None = Field(None, max_length=512)
 
 
 class OkResponse(BaseModel):
@@ -104,6 +108,17 @@ class ConfigResponse(BaseModel):
     pm_web_url: str = ""
     github_repo: str = ""
     figma_file_key: str = ""
+    # Whether a PAT/token is saved server-side — never the credential itself.
+    github_pat_configured: bool = False
+    figma_token_configured: bool = False
+
+
+class GithubPatResponse(BaseModel):
+    pat: str = ""
+
+
+class FigmaTokenResponse(BaseModel):
+    token: str = ""
 
 
 class AiConfigModel(BaseModel):

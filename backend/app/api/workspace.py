@@ -18,6 +18,8 @@ from backend.app.schemas.workspace import (
     AmendmentsResponse,
     ConfigResponse,
     ContextFilesResponse,
+    FigmaTokenResponse,
+    GithubPatResponse,
     GithubSyncStatusResponse,
     GithubWebhookConfigResponse,
     ImportBootstrapResponse,
@@ -82,6 +84,8 @@ def get_config(
         "pm_web_url": pm_web_url,
         "github_repo": context_manager.get_instance_github_repo(),
         "figma_file_key": context_manager.get_instance_figma_file_key(),
+        "github_pat_configured": context_manager.has_instance_github_pat(),
+        "figma_token_configured": context_manager.has_instance_figma_token(),
     }
 
 
@@ -227,7 +231,37 @@ def save_config(
         # Per-instance: the Figma file belongs to the Taiga instance this request is for.
         context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
         context_manager.save_instance_figma_file_key(payload.figma_file_key)
+    if payload.github_pat is not None:
+        context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
+        context_manager.save_instance_github_pat(payload.github_pat)
+    if payload.figma_token is not None:
+        context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
+        context_manager.save_instance_figma_token(payload.figma_token)
     return {"ok": True}
+
+
+@router.get("/github-pat", response_model=GithubPatResponse)
+def get_github_pat(
+    auth: AuthContext = Depends(get_auth_context),
+    x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+):
+    """Dedicated reveal endpoint — the decrypted PAT, for the client to restore
+    its browser-direct GitHub session on load. Deliberately NOT part of the
+    general /config response (called once on restore, not on every poll)."""
+    from src import context_manager
+    context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
+    return {"pat": context_manager.get_instance_github_pat()}
+
+
+@router.get("/figma-token", response_model=FigmaTokenResponse)
+def get_figma_token(
+    auth: AuthContext = Depends(get_auth_context),
+    x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+):
+    """Dedicated reveal endpoint — see get_github_pat."""
+    from src import context_manager
+    context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
+    return {"token": context_manager.get_instance_figma_token()}
 
 
 @router.get("/github-webhook", response_model=GithubWebhookConfigResponse)

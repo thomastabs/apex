@@ -27,7 +27,7 @@ import { AiSection } from "./sidebar/ai-section";
 import { UsageSection } from "./sidebar/usage-section";
 import { ResourcesSection } from "./sidebar/resources-section";
 import { GitHubSection, GithubAutoSync } from "./sidebar/github-section";
-import { FigmaSection } from "./sidebar/figma-section";
+import { FigmaSection, FigmaAutoRestore } from "./sidebar/figma-section";
 import { AboutSection } from "./sidebar/about-section";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -512,6 +512,7 @@ export function Sidebar() {
           pmWebUrl={pmWebUrl}
         />
         <GithubAutoSync />
+        <FigmaAutoRestore />
       </aside>
     );
   }
@@ -626,6 +627,7 @@ export function Sidebar() {
         pmWebUrl={pmWebUrl}
       />
       <GithubAutoSync />
+      <FigmaAutoRestore />
     </aside>
   );
 }

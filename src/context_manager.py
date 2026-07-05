@@ -473,6 +473,91 @@ def save_instance_github_repo(repo: str | None) -> None:
     p.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
+def _save_instance_secret(key: str, value: str | None) -> None:
+    """Encrypt and persist an arbitrary credential under .instance-config.json.
+
+    Raises RuntimeError if AI_KEY_ENCRYPTION_SECRET is unset — a credential
+    must never be written in plaintext (mirrors ai_key_store's guarantee).
+    value=None/"" clears the saved credential instead.
+    """
+    from src import ai_key_store
+
+    inst = _instance_dir()
+    inst.mkdir(parents=True, exist_ok=True)
+    p = inst / _INSTANCE_CONFIG_FILE
+    data: dict = {}
+    if p.exists():
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            data = {}
+    if not value:
+        data.pop(key, None)
+    else:
+        data[key] = ai_key_store.encrypt_value(value)
+    p.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def _get_instance_secret(key: str) -> str:
+    """Decrypt and return a credential saved by _save_instance_secret, or ''
+    if none saved / undecryptable / encryption not configured."""
+    from src import ai_key_store
+
+    p = _instance_dir() / _INSTANCE_CONFIG_FILE
+    if not p.exists():
+        return ""
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return ""
+    token = data.get(key)
+    if not isinstance(token, str) or not token:
+        return ""
+    return ai_key_store.decrypt_value(token) or ""
+
+
+def _has_instance_secret(key: str) -> bool:
+    """Cheap existence check (no decryption) for a UI "configured" badge."""
+    p = _instance_dir() / _INSTANCE_CONFIG_FILE
+    if not p.exists():
+        return False
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return False
+    return bool(data.get(key))
+
+
+# GitHub PAT / Figma token: browser-direct GitHub/Figma-serving code needs the
+# raw credential client-side, so — unlike AI provider keys, which never leave
+# the backend — saving these means a client can fetch the decrypted value back
+# (a dedicated backend endpoint, not the general /config response). Users asked
+# to not have to re-enter these every session; encrypting at rest is the same
+# guarantee ai_key_store gives AI provider keys.
+def save_instance_github_pat(pat: str | None) -> None:
+    _save_instance_secret("github_pat_encrypted", pat)
+
+
+def get_instance_github_pat() -> str:
+    return _get_instance_secret("github_pat_encrypted")
+
+
+def has_instance_github_pat() -> bool:
+    return _has_instance_secret("github_pat_encrypted")
+
+
+def save_instance_figma_token(token: str | None) -> None:
+    _save_instance_secret("figma_token_encrypted", token)
+
+
+def get_instance_figma_token() -> str:
+    return _get_instance_secret("figma_token_encrypted")
+
+
+def has_instance_figma_token() -> bool:
+    return _has_instance_secret("figma_token_encrypted")
+
+
 def get_or_create_instance_github_webhook_secret() -> str:
     """Webhook secret for the active instance (GitHub push -> auto regression
     scan). Generated once on first read and persisted — the same secret is

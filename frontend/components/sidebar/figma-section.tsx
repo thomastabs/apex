@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { ExternalLink, Figma, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { useSaveFigmaConfig, useSyncFigmaContext, useScanFigmaChanges, useContextFiles, useStoryIndexStats } from "@/lib/hooks/use-workspace";
+import { useSaveFigmaConfig, useSyncFigmaContext, useScanFigmaChanges, useContextFiles, useStoryIndexStats, useServerConfig, useFigmaToken } from "@/lib/hooks/use-workspace";
 import { useSessionStore, useFigmaContext } from "@/lib/stores/session-store";
 import {
   figmaVerifyFile,
@@ -116,7 +116,7 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
   async function connectFile(token: string, fileKey: string, knownName?: string) {
     // force=true: a deliberate Connect must reach Figma even if a prior 429 set a cooldown.
     const name = knownName ?? (await figmaVerifyFile(token, fileKey, true)).name;
-    await saveFigmaConfig.mutateAsync(fileKey);
+    await saveFigmaConfig.mutateAsync({ fileKey, token });
     setFigma({ token, fileKey, fileName: name });
     setFileName(name);
     setProjectFiles(null);
@@ -178,7 +178,7 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
     setFigma({ token: "", fileKey: "" });
     setFileName(null);
     setProjectFiles(null);
-    saveFigmaConfig.mutate("");
+    saveFigmaConfig.mutate({ fileKey: "", token: "" });
     toast.info("Figma disconnected.");
   }
 
@@ -385,4 +385,27 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
       </section>
     </div>
   );
+}
+
+/**
+ * Restores the Figma token saved server-side (encrypted) on load, so the
+ * session survives a tab close / new device without retyping it. Mounted
+ * unconditionally in the app shell (see GithubAutoSync — same reasoning).
+ * The file key already persists to sessionStorage; only the token doesn't.
+ */
+export function FigmaAutoRestore() {
+  const figma = useFigmaContext();
+  const setFigma = useSessionStore((s) => s.setFigma);
+  const serverConfig = useServerConfig();
+  const shouldRestore = !figma
+    && Boolean(serverConfig.data?.figma_file_key)
+    && Boolean(serverConfig.data?.figma_token_configured);
+  const tokenQuery = useFigmaToken(shouldRestore);
+
+  useEffect(() => {
+    if (!tokenQuery.data?.token || !serverConfig.data?.figma_file_key) return;
+    setFigma({ token: tokenQuery.data.token, fileKey: serverConfig.data.figma_file_key });
+  }, [tokenQuery.data, serverConfig.data, setFigma]);
+
+  return null;
 }

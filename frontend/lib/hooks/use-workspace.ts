@@ -19,6 +19,8 @@ import {
   getAiConfig,
   getBoard,
   getContextFiles,
+  getFigmaToken,
+  getGithubPat,
   getGithubSyncStatus,
   getGithubWebhookConfig,
   getMe,
@@ -594,10 +596,24 @@ export function useSaveGithubConfig() {
   const auth = useAuthContext();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (repo: string) => saveGithubConfig(auth!, repo),
+    mutationFn: ({ repo, pat }: { repo: string; pat?: string }) => saveGithubConfig(auth!, repo, pat),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "server-config"] });
     },
+  });
+}
+
+/** One-shot restore fetch — the decrypted PAT saved server-side, so the
+ * browser-direct GitHub session doesn't need retyping every tab/session.
+ * `enabled` should gate this on "server says configured, session has none yet"
+ * so it's fetched once, not polled. */
+export function useGithubPat(enabled: boolean) {
+  const auth = useAuthContext();
+  return useQuery({
+    queryKey: ["workspace", "github-pat"],
+    queryFn: () => getGithubPat(auth!),
+    enabled: Boolean(auth) && enabled,
+    staleTime: Infinity,
   });
 }
 
@@ -653,10 +669,21 @@ export function useSaveFigmaConfig() {
   const auth = useAuthContext();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (fileKey: string) => saveFigmaConfig(auth!, fileKey),
+    mutationFn: ({ fileKey, token }: { fileKey: string; token?: string }) => saveFigmaConfig(auth!, fileKey, token),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "server-config"] });
     },
+  });
+}
+
+/** One-shot restore fetch — see useGithubPat. */
+export function useFigmaToken(enabled: boolean) {
+  const auth = useAuthContext();
+  return useQuery({
+    queryKey: ["workspace", "figma-token"],
+    queryFn: () => getFigmaToken(auth!),
+    enabled: Boolean(auth) && enabled,
+    staleTime: Infinity,
   });
 }
 

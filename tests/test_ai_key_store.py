@@ -161,3 +161,35 @@ class TestLegacyWrapperShape:
         ai_key_store._write_all("api_taiga_io", wrapped)
         ai_key_store._decrypted_cache.clear()
         assert ai_key_store.load_keys("api_taiga_io", "42") == {"openai": "sk-legacy"}
+
+
+class TestEncryptDecryptValue:
+    """encrypt_value/decrypt_value — the shared generic-secret cipher other
+    per-instance credential stores (GitHub PAT, Figma token) reuse instead of
+    each needing their own configured secret."""
+
+    def test_round_trips(self):
+        token = ai_key_store.encrypt_value("ghp_supersecret")
+        assert ai_key_store.decrypt_value(token) == "ghp_supersecret"
+
+    def test_encrypted_value_is_not_plaintext(self):
+        token = ai_key_store.encrypt_value("ghp_supersecret")
+        assert "ghp_supersecret" not in token
+
+    def test_encrypt_raises_when_secret_unset(self, monkeypatch):
+        monkeypatch.delenv("AI_KEY_ENCRYPTION_SECRET", raising=False)
+        with pytest.raises(RuntimeError):
+            ai_key_store.encrypt_value("x")
+
+    def test_decrypt_returns_none_when_secret_unset(self, monkeypatch):
+        token = ai_key_store.encrypt_value("x")
+        monkeypatch.delenv("AI_KEY_ENCRYPTION_SECRET", raising=False)
+        assert ai_key_store.decrypt_value(token) is None
+
+    def test_decrypt_returns_none_for_garbage_token(self):
+        assert ai_key_store.decrypt_value("not-a-real-token") is None
+
+    def test_decrypt_returns_none_after_secret_rotation(self, monkeypatch):
+        token = ai_key_store.encrypt_value("x")
+        monkeypatch.setenv("AI_KEY_ENCRYPTION_SECRET", "a-different-secret")
+        assert ai_key_store.decrypt_value(token) is None

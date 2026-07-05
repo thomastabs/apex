@@ -28,6 +28,24 @@ class ContextService:
     def github_repo(self) -> str:
         return context_manager.get_instance_github_repo()
 
+    def save_github_pat(self, pat: str | None) -> None:
+        context_manager.save_instance_github_pat(pat)
+
+    def github_pat(self) -> str:
+        return context_manager.get_instance_github_pat()
+
+    def has_github_pat(self) -> bool:
+        return context_manager.has_instance_github_pat()
+
+    def save_figma_token(self, token: str | None) -> None:
+        context_manager.save_instance_figma_token(token)
+
+    def figma_token(self) -> str:
+        return context_manager.get_instance_figma_token()
+
+    def has_figma_token(self) -> bool:
+        return context_manager.has_instance_figma_token()
+
     def record_github_push(self) -> None:
         context_manager.record_github_push()
 

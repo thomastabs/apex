@@ -5,10 +5,17 @@ Encrypted, per-PM-account storage for user-supplied AI provider API keys
 
 A key saved here follows the user across browser sessions and devices — it is
 keyed by (PM instance, PM account id), never by browser session, so signing
-into the same Taiga/Jira account from anywhere finds the same saved key. This
-is the opposite tradeoff from the GitHub PAT / Figma token, which are
-deliberately kept client-side-only; AI provider keys are persisted because
-users asked to not have to re-enter them.
+into the same Taiga/Jira account from anywhere finds the same saved key.
+
+The GitHub PAT and Figma token (context_manager.save_instance_github_pat/
+save_instance_figma_token) reuse this module's encrypt_value/decrypt_value for
+the same "don't make users re-enter it every session" reason, but are scoped
+one level coarser — by PM INSTANCE only (the host, e.g. api.taiga.io), not by
+account like AI keys here. That matches how github_repo/figma_file_key were
+already scoped, but means a real multi-tenant deployment (multiple distinct
+PM accounts on the same PM host) would share one saved PAT/token across all of
+them — fine for a single-tenant deployment, a real gap worth account-scoping
+before opening this deployment to a second real user.
 
 A personal key, once saved, is ALWAYS the active credential for that provider
 — it takes priority over the deployment's own *_API_KEY env var ("the system
@@ -73,6 +80,31 @@ def _fernet():
 
 def encryption_configured() -> bool:
     return _fernet() is not None
+
+
+def encrypt_value(value: str) -> str:
+    """Encrypt an arbitrary secret with the same AI_KEY_ENCRYPTION_SECRET-derived
+    cipher used for AI provider keys — shared so other per-instance credentials
+    (the GitHub PAT, the Figma token) don't need their own separately-configured
+    secret. Raises RuntimeError if the secret is unset — a credential must never
+    be written to disk in plaintext."""
+    fernet = _fernet()
+    if fernet is None:
+        raise RuntimeError("AI_KEY_ENCRYPTION_SECRET is not configured on this deployment.")
+    return fernet.encrypt(value.encode("utf-8")).decode("ascii")
+
+
+def decrypt_value(token: str) -> str | None:
+    """Decrypt a value encrypted by encrypt_value(). None (not raised) if
+    undecryptable — the secret was rotated since, the token is corrupted, or
+    encryption isn't configured — callers should treat that as "nothing saved"."""
+    fernet = _fernet()
+    if fernet is None:
+        return None
+    try:
+        return fernet.decrypt(token.encode("ascii")).decode("utf-8")
+    except Exception:  # noqa: BLE001 — corrupted/foreign/rotated-secret token
+        return None
 
 
 def _path(instance_id: str) -> Path:

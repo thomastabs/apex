@@ -9,6 +9,8 @@ from backend.app.api.workspace import (
     get_ai_config,
     get_config,
     get_context_files,
+    get_figma_token,
+    get_github_pat,
     get_story_phase_status,
     github_sync_status,
     log_decision,
@@ -166,6 +168,8 @@ def test_get_config_taiga_uses_taiga_web_url(monkeypatch):
         "pm_web_url": "https://taiga.example",
         "github_repo": "owner/repo",
         "figma_file_key": "FIGKEY",
+        "github_pat_configured": False,
+        "figma_token_configured": False,
     }
 
 
@@ -354,6 +358,63 @@ def test_save_config_persists_project_and_per_instance_github(monkeypatch):
 
     assert response == {"ok": True}
     assert calls == [("project", 42), ("github", "owner/repo")]
+
+
+def test_save_config_persists_github_pat_and_figma_token(monkeypatch):
+    calls: list[tuple] = []
+    monkeypatch.setattr(
+        "src.context_manager.save_instance_github_pat", lambda pat: calls.append(("github_pat", pat))
+    )
+    monkeypatch.setattr(
+        "src.context_manager.save_instance_figma_token", lambda token: calls.append(("figma_token", token))
+    )
+
+    response = save_config(
+        SaveConfigRequest(github_pat="ghp_abc123", figma_token="figd_xyz789"), _AUTH
+    )
+
+    assert response == {"ok": True}
+    assert ("github_pat", "ghp_abc123") in calls
+    assert ("figma_token", "figd_xyz789") in calls
+
+
+def test_save_config_omits_credentials_when_not_provided(monkeypatch):
+    called = []
+    monkeypatch.setattr("src.context_manager.save_instance_github_pat", lambda pat: called.append("github_pat"))
+    monkeypatch.setattr("src.context_manager.save_instance_figma_token", lambda token: called.append("figma_token"))
+
+    save_config(SaveConfigRequest(project_id=1), _AUTH)
+
+    assert called == []
+
+
+def test_get_config_reports_credential_configured_flags(monkeypatch):
+    monkeypatch.setattr("src.context_manager.load_config", lambda: {})
+    monkeypatch.setattr("src.taiga_adapter.get_web_base_url", lambda: "https://taiga.example")
+    monkeypatch.setattr("src.context_manager.get_instance_github_repo", lambda: "")
+    monkeypatch.setattr("src.context_manager.get_instance_figma_file_key", lambda: "")
+    monkeypatch.setattr("src.context_manager.has_instance_github_pat", lambda: True)
+    monkeypatch.setattr("src.context_manager.has_instance_figma_token", lambda: False)
+
+    response = get_config(_AUTH)
+
+    assert response["github_pat_configured"] is True
+    assert response["figma_token_configured"] is False
+
+
+def test_get_github_pat_returns_decrypted_value(monkeypatch):
+    monkeypatch.setattr("src.context_manager.get_instance_github_pat", lambda: "ghp_decrypted")
+    assert get_github_pat(_AUTH) == {"pat": "ghp_decrypted"}
+
+
+def test_get_github_pat_empty_when_none_saved(monkeypatch):
+    monkeypatch.setattr("src.context_manager.get_instance_github_pat", lambda: "")
+    assert get_github_pat(_AUTH) == {"pat": ""}
+
+
+def test_get_figma_token_returns_decrypted_value(monkeypatch):
+    monkeypatch.setattr("src.context_manager.get_instance_figma_token", lambda: "figd_decrypted")
+    assert get_figma_token(_AUTH) == {"token": "figd_decrypted"}
 
 
 def test_save_config_validates_jira_base_url_against_ssrf(monkeypatch):

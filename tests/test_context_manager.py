@@ -3,6 +3,8 @@
 import datetime
 import json
 
+import pytest
+
 
 # ---------------------------------------------------------------------------
 # init_context
@@ -1643,3 +1645,54 @@ class TestGithubPushTracking:
         ctx.record_github_push()
         ctx.set_active_project(2)
         assert ctx.get_last_github_push() is None
+
+
+class TestInstanceSecretStorage:
+    """Encrypted per-instance credential storage (github_pat, figma_token) —
+    users asked to not have to re-enter these every session, same tradeoff
+    ai_key_store already made for AI provider keys."""
+
+    @pytest.fixture(autouse=True)
+    def _encryption_secret(self, monkeypatch):
+        monkeypatch.setenv("AI_KEY_ENCRYPTION_SECRET", "test-secret-do-not-use-in-prod")
+
+    def test_no_pat_saved_returns_empty_string(self, ctx):
+        assert ctx.get_instance_github_pat() == ""
+        assert ctx.has_instance_github_pat() is False
+
+    def test_save_and_get_pat_round_trips(self, ctx):
+        ctx.save_instance_github_pat("ghp_abc123")
+        assert ctx.get_instance_github_pat() == "ghp_abc123"
+        assert ctx.has_instance_github_pat() is True
+
+    def test_pat_encrypted_at_rest(self, ctx):
+        ctx.save_instance_github_pat("ghp_supersecret")
+        raw = (ctx._instance_dir() / ctx._INSTANCE_CONFIG_FILE).read_text(encoding="utf-8")
+        assert "ghp_supersecret" not in raw
+
+    def test_saving_empty_clears_the_pat(self, ctx):
+        ctx.save_instance_github_pat("ghp_abc123")
+        ctx.save_instance_github_pat("")
+        assert ctx.get_instance_github_pat() == ""
+        assert ctx.has_instance_github_pat() is False
+
+    def test_pat_scoped_per_instance(self, ctx):
+        ctx.set_active_instance("api_taiga_io")
+        ctx.save_instance_github_pat("ghp_instance_a")
+        ctx.set_active_instance("acme_atlassian_net")
+        assert ctx.get_instance_github_pat() == ""
+
+    def test_saved_pat_survives_without_encryption_secret_being_readable(self, ctx, monkeypatch):
+        # Rotating/removing the secret must not raise on read — just yields "".
+        ctx.save_instance_github_pat("ghp_abc123")
+        monkeypatch.delenv("AI_KEY_ENCRYPTION_SECRET", raising=False)
+        assert ctx.get_instance_github_pat() == ""
+        assert ctx.has_instance_github_pat() is True  # existence check needs no decryption
+
+    def test_figma_token_independent_of_github_pat(self, ctx):
+        ctx.save_instance_github_pat("ghp_abc123")
+        ctx.save_instance_figma_token("figd_xyz789")
+        assert ctx.get_instance_github_pat() == "ghp_abc123"
+        assert ctx.get_instance_figma_token() == "figd_xyz789"
+        assert ctx.has_instance_github_pat() is True
+        assert ctx.has_instance_figma_token() is True
