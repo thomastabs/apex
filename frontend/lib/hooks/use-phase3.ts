@@ -307,7 +307,7 @@ export function useLockStory() {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
       toast.success("Story locked as implementation-ready.");
     },
-    onError: () => toast.error("Failed to lock story."),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to lock story."),
   });
 }
 
