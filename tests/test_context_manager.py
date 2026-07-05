@@ -1571,6 +1571,52 @@ class TestDesignDelta:
         assert "design-bundle.md" not in result["versions"]
 
 
+class TestAutopilotJobArchive:
+    """save_autopilot_job/delete_autopilot_job must never silently erase a past
+    run's event history — a new job (or an explicit New Run) archives whatever
+    was there first (found via a real prod incident: a "start at phase3" job
+    overwrote the Phase 1 job that had actually created a story, and its event
+    log — the only record of what happened — was gone with no trace)."""
+
+    def _job(self, job_id: str, msg: str) -> dict:
+        return {"job_id": job_id, "state": "running", "events": [{"id": 1, "ts": 1.0, "msg": msg, "phase": "phase1", "level": "info", "artifact": ""}]}
+
+    def test_save_same_job_id_does_not_archive(self, ctx):
+        ctx.save_autopilot_job(self._job("job-a", "first"))
+        ctx.save_autopilot_job(self._job("job-a", "updated"))
+        assert ctx.load_autopilot_job_history() == []
+        assert ctx.load_autopilot_job()["events"][0]["msg"] == "updated"
+
+    def test_save_different_job_id_archives_the_previous_one(self, ctx):
+        ctx.save_autopilot_job(self._job("job-a", "phase1 run"))
+        ctx.save_autopilot_job(self._job("job-b", "phase3-only run"))
+        history = ctx.load_autopilot_job_history()
+        assert len(history) == 1
+        assert history[0]["job_id"] == "job-a"
+        assert history[0]["events"][0]["msg"] == "phase1 run"
+        assert ctx.load_autopilot_job()["job_id"] == "job-b"
+
+    def test_delete_archives_before_removing(self, ctx):
+        ctx.save_autopilot_job(self._job("job-a", "phase1 run"))
+        ctx.delete_autopilot_job()
+        assert ctx.load_autopilot_job() is None
+        history = ctx.load_autopilot_job_history()
+        assert len(history) == 1
+        assert history[0]["job_id"] == "job-a"
+
+    def test_no_prior_job_nothing_to_archive(self, ctx):
+        ctx.save_autopilot_job(self._job("job-a", "first ever run"))
+        assert ctx.load_autopilot_job_history() == []
+
+    def test_history_survives_multiple_replacements(self, ctx):
+        ctx.save_autopilot_job(self._job("job-a", "run a"))
+        ctx.save_autopilot_job(self._job("job-b", "run b"))
+        ctx.save_autopilot_job(self._job("job-c", "run c"))
+        history = ctx.load_autopilot_job_history()
+        assert {j["job_id"] for j in history} == {"job-a", "job-b"}
+        assert ctx.load_autopilot_job()["job_id"] == "job-c"
+
+
 class TestGithubPushTracking:
     """record_github_push / get_last_github_push — the push webhook has no PAT
     to resync github-context.md itself, so it just timestamps the push; the

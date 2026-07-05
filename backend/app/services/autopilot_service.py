@@ -901,10 +901,22 @@ def load_persisted_status(ctx: RequestContext) -> dict | None:
 
 
 def clear_persisted_job(ctx: RequestContext) -> None:
-    """Drop the persisted job (New Run). Also forgets it in-memory if terminal."""
+    """Drop the persisted job (New Run). Also forgets it in-memory if terminal.
+    Archives the job first (see context_manager.save_autopilot_job) — it's not lost."""
     cs = ContextService()
     cs.set_active(ctx)
     cs.delete_autopilot_job()
+
+
+def load_job_history(ctx: RequestContext) -> list[dict]:
+    """Past jobs for the active project, oldest first — each one a previously
+    persisted job that got replaced or explicitly cleared."""
+    cs = ContextService()
+    cs.set_active(ctx)
+    return [
+        {k: v for k, v in snap.items() if k != "_resume"}
+        for snap in cs.load_autopilot_job_history()
+    ]
 
 
 def resume_interrupted_job(ctx: RequestContext) -> str | None:

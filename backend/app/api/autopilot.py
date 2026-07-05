@@ -73,9 +73,19 @@ def autopilot_resume_interrupted(
 def autopilot_clear_persisted(
     ctx: RequestContext = Depends(get_request_context),
 ) -> AutopilotControlResponse:
-    """Forget the persisted job (New Run)."""
+    """Forget the persisted job (New Run) — archived first, see /persisted/history."""
     autopilot_service.clear_persisted_job(ctx)
     return AutopilotControlResponse(ok=True, state="stopped")
+
+
+@router.get("/persisted/history", response_model=list[AutopilotStatusResponse])
+def autopilot_persisted_history(
+    ctx: RequestContext = Depends(get_request_context),
+) -> list[AutopilotStatusResponse]:
+    """Past jobs for this project, oldest first. A new job (or New Run) archives
+    whatever was previously at /persisted rather than erasing it — this is the
+    only way to see a completed/replaced run's full event log afterward."""
+    return [AutopilotStatusResponse(**snap) for snap in autopilot_service.load_job_history(ctx)]
 
 
 @router.get("/{job_id}", response_model=AutopilotStatusResponse)

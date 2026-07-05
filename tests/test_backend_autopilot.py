@@ -9,6 +9,7 @@ from fastapi import HTTPException
 
 from backend.app.api.autopilot import (
     autopilot_pause,
+    autopilot_persisted_history,
     autopilot_resume,
     autopilot_start,
     autopilot_status,
@@ -981,6 +982,33 @@ class TestResume:
         self._save_snapshot()
         svc.clear_persisted_job(_ctx())
         assert svc.load_persisted_status(_ctx()) is None
+
+    def test_clear_persisted_archives_instead_of_erasing(self, ctx):
+        # New Run must not lose the run's event log — it's the only record of
+        # what actually happened (found via a real incident: a replaced job's
+        # log was the only way to see a story had silently gone untracked).
+        self._save_snapshot()
+        svc.clear_persisted_job(_ctx())
+        history = svc.load_job_history(_ctx())
+        assert len(history) == 1
+        assert history[0]["job_id"] == "rj"
+        assert "_resume" not in history[0]
+        assert history[0]["events"][0]["msg"] == "x"
+
+    def test_starting_a_new_job_id_archives_the_previous_snapshot(self, ctx):
+        self._save_snapshot()
+        self._save_snapshot(job_id="rj2", events=[{"id": 1, "ts": 2.0, "level": "info", "msg": "y", "phase": "phase1", "artifact": ""}])
+        history = svc.load_job_history(_ctx())
+        assert [h["job_id"] for h in history] == ["rj"]
+        assert svc.load_persisted_status(_ctx())["job_id"] == "rj2"
+
+    def test_persisted_history_route_returns_archived_jobs(self, ctx):
+        self._save_snapshot()
+        svc.clear_persisted_job(_ctx())
+        results = autopilot_persisted_history(_ctx())
+        assert len(results) == 1
+        assert results[0].job_id == "rj"
+        assert results[0].state == "running"
 
 
 # ---------------------------------------------------------------------------

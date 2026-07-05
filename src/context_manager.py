@@ -973,16 +973,59 @@ def _save_story_index(index: dict[str, dict]) -> None:
 # ---------------------------------------------------------------------------
 # Autopilot job persistence (one in-flight job per project, for resume-after-
 # restart). Stored alongside the story index in the active project's dir.
+#
+# autopilot-job.json holds only the CURRENT/latest job — that's all resume-
+# after-restart needs. But starting a new job (e.g. a "start at phase3" run
+# after Phase 1/2 already finished) or hitting "New Run" both replace/clear
+# that file, and its event log is the only record of what actually happened
+# during that run (which stories got created, which epic a story came from,
+# any warnings). Losing it silently made a real story-creation gap
+# undiagnosable after the fact — so the previous job is now archived to
+# autopilot-history/<job_id>.json before it's ever replaced or cleared.
 # ---------------------------------------------------------------------------
 
 _AUTOPILOT_JOB_FILE = "autopilot-job.json"
+_AUTOPILOT_HISTORY_DIR = "autopilot-history"
+
+
+def _archive_current_autopilot_job() -> None:
+    """Move whatever's currently at autopilot-job.json into autopilot-history/,
+    keyed by its own job_id. No-op if there's nothing there, or it's already
+    archived (e.g. save_autopilot_job archived it moments ago and now
+    delete_autopilot_job runs too)."""
+    p = _path(_AUTOPILOT_JOB_FILE)
+    if not p.exists():
+        return
+    try:
+        prev = json.loads(p.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return
+    prev_id = prev.get("job_id")
+    if not prev_id:
+        return
+    hist = _path(f"{_AUTOPILOT_HISTORY_DIR}/{prev_id}.json")
+    if hist.exists():
+        return
+    hist.write_text(json.dumps(prev, ensure_ascii=False), encoding="utf-8")
 
 
 def save_autopilot_job(snapshot: dict) -> None:
-    """Persist the autopilot job snapshot for the active project."""
-    _path(_AUTOPILOT_JOB_FILE).write_text(
-        json.dumps(snapshot, ensure_ascii=False), encoding="utf-8",
-    )
+    """Persist the autopilot job snapshot for the active project.
+
+    Archives the previously-persisted job first if it's a DIFFERENT job_id —
+    a new job replacing an old one must not erase the old one's history. Same
+    job_id (the common case: periodic progress persists during one run) skips
+    the archive and just overwrites, as before.
+    """
+    p = _path(_AUTOPILOT_JOB_FILE)
+    if p.exists():
+        try:
+            prev = json.loads(p.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            prev = None
+        if prev and prev.get("job_id") != snapshot.get("job_id"):
+            _archive_current_autopilot_job()
+    p.write_text(json.dumps(snapshot, ensure_ascii=False), encoding="utf-8")
 
 
 def load_autopilot_job() -> dict | None:
@@ -996,8 +1039,32 @@ def load_autopilot_job() -> dict | None:
         return None
 
 
+def load_autopilot_job_history() -> list[dict]:
+    """Archived past autopilot jobs for the active project, oldest first."""
+    d = _path(_AUTOPILOT_HISTORY_DIR)
+    if not d.exists():
+        return []
+    jobs = []
+    for f in d.iterdir():
+        if f.suffix != ".json":
+            continue
+        try:
+            jobs.append(json.loads(f.read_text(encoding="utf-8")))
+        except (ValueError, OSError):
+            continue
+
+    def _started_at(j: dict) -> float:
+        events = j.get("events") or []
+        return events[0].get("ts", 0) if events else 0
+
+    jobs.sort(key=_started_at)
+    return jobs
+
+
 def delete_autopilot_job() -> None:
-    """Remove the persisted autopilot job for the active project (New Run)."""
+    """Remove the persisted autopilot job for the active project (New Run) —
+    archives it first so the run's history isn't lost."""
+    _archive_current_autopilot_job()
     _path(_AUTOPILOT_JOB_FILE).unlink(missing_ok=True)
 
 

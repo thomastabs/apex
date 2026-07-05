@@ -161,6 +161,9 @@ class ContextService:
     def delete_autopilot_job(self) -> None:
         context_manager.delete_autopilot_job()
 
+    def load_autopilot_job_history(self) -> list[dict]:
+        return context_manager.load_autopilot_job_history()
+
     def story_gherkin(self, story_id: int) -> str:
         return context_manager.get_story_gherkin(story_id)
 
