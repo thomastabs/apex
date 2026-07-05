@@ -61,6 +61,7 @@ import { GuideTheAI } from "@/components/guide-the-ai";
 import type { CrossCheckResult } from "@/lib/api/phase1";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
+import { downloadZip } from "@/lib/utils/zip";
 import { createGithubIssue, fetchRecentCommitsContext } from "@/lib/api/github-browser";
 import type { DesignConflictReport, EffortEstimate, Phase3StoryContext, Phase3Task } from "@/lib/api/types";
 import { toPmCtx } from "@/lib/api/workspace";
@@ -158,14 +159,16 @@ function downloadPack(taskSubject: string, packMd: string, ctx: Phase3StoryConte
 }
 
 function downloadAllPacks(
-  packs: Array<{ taskSubject: string; packMd: string }>,
+  packs: Array<{ taskId: number; taskSubject: string; packMd: string }>,
   storyId: number,
   ctx: Phase3StoryContext,
 ) {
-  const parts = packs.map(({ taskSubject, packMd }) =>
-    [`# Developer Pack — ${taskSubject}`, `## Story: US#${ctx.story_id} — ${ctx.title}`, "", packMd].join("\n"),
-  );
-  blobDownload(parts.join("\n\n---\n\n"), `story-${storyId}-packs.md`);
+  const files = packs.map(({ taskId, taskSubject, packMd }) => {
+    const full = [`# Developer Pack — ${taskSubject}`, `## Story: US#${ctx.story_id} — ${ctx.title}`, "", packMd].join("\n");
+    const slug = taskSubject.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+    return { filename: `pack-${taskId}-${slug}.md`, content: full };
+  });
+  downloadZip(files, `story-${storyId}-packs.zip`);
 }
 
 function blobDownload(content: string, filename: string) {
@@ -1452,7 +1455,7 @@ function StageD({ storyId, onLocked, onChooseNewStory, onBack }: { storyId: numb
 
   const handleExportAll = () => {
     if (!ctx) return;
-    const packs = generatedTasks.map((t) => ({ taskSubject: t.subject, packMd: packDrafts[t.id] }));
+    const packs = generatedTasks.map((t) => ({ taskId: t.id, taskSubject: t.subject, packMd: packDrafts[t.id] }));
     downloadAllPacks(packs, storyId, ctx);
   };
 
