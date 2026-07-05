@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   CheckCircle2,
@@ -39,9 +40,11 @@ import {
   useTraceabilityMatrix,
 } from "@/lib/hooks/use-phase5";
 import { useUpdatePmStoryStatus } from "@/lib/hooks/use-phase4";
+import { getDeployPack } from "@/lib/api/phase5";
 import { usePhase5Store } from "@/lib/stores/phase5-store";
 import { useDiffStore } from "@/lib/stores/diff-store";
 import { useLogDecision } from "@/lib/hooks/use-workspace";
+import { downloadZip } from "@/lib/utils/zip";
 import { SignInRequired } from "@/components/sign-in-required";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -189,11 +192,24 @@ const EMPTY_ITEM: InfraDeltaItem = { category: "iac", title: "", detail: "", ris
 
 function StageA({ onSelect }: { onSelect: (id: number) => void }) {
   const dark = useUiStore((s) => s.theme) === "dark";
+  const ctx = useApiContext();
   const { data, isLoading, error } = useEligibleStories();
   const [activeEpic, setActiveEpic] = useState<string | null>(null);
   const [page, setPage] = useState(0);
 
   const PAGE_SIZE = 4;
+
+  const readyStories = (data?.stories ?? []).filter((s) => s.has_deploy_pack);
+  const downloadAllMut = useMutation({
+    mutationFn: async () => {
+      const contents = await Promise.all(
+        readyStories.map((s) => getDeployPack(ctx!, s.story_id).then((r) => r.deploy_pack_md ?? "")),
+      );
+      return contents.map((content, i) => ({ filename: `deploy_pack_story_${readyStories[i].story_id}.md`, content }));
+    },
+    onSuccess: (files) => downloadZip(files, "apex-deploy-packs.zip"),
+    onError: (err: Error) => toast.error(`Download failed: ${err.message}`),
+  });
 
   if (isLoading) {
     return (
@@ -227,11 +243,24 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
 
   return (
     <div className="space-y-5">
-      <div>
-        <SectionHeading>Select a story to deploy</SectionHeading>
-        <p className={cn("mt-1 text-sm", dark ? "text-neutral-400" : "text-slate-500")}>
-          Choose a QA-passed user story to take through the Deployment Gate.
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <SectionHeading>Select a story to deploy</SectionHeading>
+          <p className={cn("mt-1 text-sm", dark ? "text-neutral-400" : "text-slate-500")}>
+            Choose a QA-passed user story to take through the Deployment Gate.
+          </p>
+        </div>
+        {readyStories.length > 0 && (
+          <Button
+            variant="secondary"
+            className="shrink-0 gap-1.5"
+            disabled={downloadAllMut.isPending}
+            onClick={() => downloadAllMut.mutate()}
+          >
+            {downloadAllMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            Download all as zip
+          </Button>
+        )}
       </div>
 
       {epics.length > 1 && (

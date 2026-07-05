@@ -38,7 +38,9 @@ import {
   useUpdatePmStoryStatus,
 } from "@/lib/hooks/use-phase4";
 import { pmTaskWebUrl } from "@/lib/hooks/use-phase3";
+import { getTestPlan } from "@/lib/api/phase4";
 import { useServerConfig, useLogDecision } from "@/lib/hooks/use-workspace";
+import { downloadZip } from "@/lib/utils/zip";
 import { usePhase4Store } from "@/lib/stores/phase4-store";
 import { useDiffStore } from "@/lib/stores/diff-store";
 import { useApiContext } from "@/lib/stores/session-store";
@@ -126,9 +128,22 @@ function MarkdownPreview({ content, dark, className }: { content: string; dark: 
 
 function StageA({ onSelect }: { onSelect: (id: number) => void }) {
   const dark = useUiStore((s) => s.theme) === "dark";
+  const ctx = useApiContext();
   const { data, isLoading, error } = useEligibleStories();
   const [activeEpic, setActiveEpic] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+
+  const readyStories = (data?.stories ?? []).filter((s) => s.has_bdd);
+  const downloadAllMut = useMutation({
+    mutationFn: async () => {
+      const contents = await Promise.all(
+        readyStories.map((s) => getTestPlan(ctx!, s.story_id).then((r) => r.test_plan_md ?? "")),
+      );
+      return contents.map((content, i) => ({ filename: `test_plan_story_${readyStories[i].story_id}.md`, content }));
+    },
+    onSuccess: (files) => downloadZip(files, "apex-test-plans.zip"),
+    onError: (err: Error) => toast.error(`Download failed: ${err.message}`),
+  });
 
   const PAGE_SIZE = 4;
 
@@ -165,10 +180,25 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
   return (
     <div className="space-y-5">
       <div>
-        <SectionHeading>Select a story to test</SectionHeading>
-        <p className={cn("mt-1 text-sm", dark ? "text-neutral-400" : "text-slate-500")}>
-          Choose an implementation-locked user story to generate a QA test plan for.
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <SectionHeading>Select a story to test</SectionHeading>
+            <p className={cn("mt-1 text-sm", dark ? "text-neutral-400" : "text-slate-500")}>
+              Choose an implementation-locked user story to generate a QA test plan for.
+            </p>
+          </div>
+          {readyStories.length > 0 && (
+            <Button
+              variant="secondary"
+              className="shrink-0 gap-1.5"
+              disabled={downloadAllMut.isPending}
+              onClick={() => downloadAllMut.mutate()}
+            >
+              {downloadAllMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              Download all as zip
+            </Button>
+          )}
+        </div>
       </div>
 
       {epics.length > 1 && (
