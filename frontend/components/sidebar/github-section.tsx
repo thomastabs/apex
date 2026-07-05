@@ -371,6 +371,27 @@ export function GithubAutoSync() {
     && Boolean(serverConfig.data?.github_repo)
     && Boolean(serverConfig.data?.github_pat_configured);
   const patQuery = useGithubPat(shouldRestore);
+
+  // Loading toast while the restore fetch is in flight — otherwise a
+  // multi-hundred-ms reconnect (sign-in, fresh tab, project switch) happens
+  // silently and the user has no idea GitHub is about to come back.
+  const restoreToastId = useRef<string | number | null>(null);
+  useEffect(() => {
+    if (shouldRestore && patQuery.isFetching && restoreToastId.current === null) {
+      restoreToastId.current = toast.loading("Connecting GitHub…");
+      return;
+    }
+    if (!patQuery.isFetching && restoreToastId.current !== null) {
+      const id = restoreToastId.current;
+      restoreToastId.current = null;
+      if (patQuery.data?.pat) {
+        toast.success(`GitHub connected: ${serverConfig.data?.github_repo}`, { id });
+      } else {
+        toast.dismiss(id);
+      }
+    }
+  }, [shouldRestore, patQuery.isFetching, patQuery.data, serverConfig.data]);
+
   useEffect(() => {
     if (!patQuery.data?.pat || !serverConfig.data?.github_repo) return;
     setGithub({ pat: patQuery.data.pat, repo: serverConfig.data.github_repo });
