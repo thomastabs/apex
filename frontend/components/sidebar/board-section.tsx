@@ -336,28 +336,40 @@ function StoryDialog({ story, drifted = false, regressed = false, trace = null, 
 
   function save() {
     const version = detail.data?.version ?? story.version;
-    if (!version) return;
     const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
     const apexChanged = apexStatus !== "" && apexStatus !== (phaseQuery.data?.phase_status ?? "");
+
+    // Apex status lives entirely in the story index — independent of the PM
+    // (Taiga/Jira) story fields below, which need a version for optimistic
+    // concurrency. Firing it unconditionally means it's never silently
+    // skipped by a missing version or a failed PM save (previously nested
+    // inside the PM update's onSuccess — both had no onError, so either
+    // failure mode looked identical to "nothing happened").
+    if (apexChanged) {
+      setApexStatus.mutate(
+        { storyId: story.id, phaseStatus: apexStatus as ApexPhaseStatus },
+        {
+          onSuccess: () => toast.success("Apex status updated."),
+          onError: () => toast.error("Failed to update Apex status."),
+        },
+      );
+    }
+
+    if (!version) {
+      if (!apexChanged) toast.error("Story details haven't loaded yet — try again in a moment.");
+      else onClose();
+      return;
+    }
+
     update.mutate(
       {
         storyId: story.id,
         version,
         fields: { subject, description, tags, ...(statusId ? { status: statusId } : {}) },
       },
-      {
-        onSuccess: () => {
-          if (!apexChanged) { onClose(); return; }
-          setApexStatus.mutate(
-            { storyId: story.id, phaseStatus: apexStatus as ApexPhaseStatus },
-            {
-              onSuccess: () => { toast.success("Apex status updated."); onClose(); },
-              onError: () => { toast.error("Story saved, but Apex status update failed."); onClose(); },
-            },
-          );
-        },
-      },
+      { onError: () => toast.error("Failed to save story.") },
     );
+    onClose();
   }
 
   const inputClass = cn(

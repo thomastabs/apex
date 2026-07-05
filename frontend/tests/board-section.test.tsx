@@ -2,6 +2,7 @@ import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { toast } from "sonner";
 
 const STORY = { id: 101, ref: 1, subject: "User Login", description: "", status: 1, version: 1, tags: [] };
 const EPIC = { id: 10, ref: 1, subject: "Authentication", description: "", version: 1, tags: [], stories: [STORY] };
@@ -21,18 +22,20 @@ const pushMock = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: pushMock }) }));
 
 const idleMut = { mutate: vi.fn(), isPending: false };
+const updateStoryMut = { mutate: vi.fn(), isPending: false };
+const setApexStatusMut = { mutate: vi.fn(), isPending: false };
 vi.mock("@/lib/hooks/use-workspace", () => ({
   useBoard: () => ({ data: [EPIC], isLoading: false, refetch: vi.fn() }),
   useDeleteEpic: () => idleMut,
   useDeleteStory: () => idleMut,
   useRebuildStoryIndex: () => idleMut,
   useUpdateEpic: () => idleMut,
-  useUpdateStory: () => idleMut,
+  useUpdateStory: () => updateStoryMut,
   useCreateEpic: () => idleMut,
   useCreateStory: () => idleMut,
   useStoryStatuses: () => ({ data: [{ id: 1, name: "New" }, { id: 2, name: "Done" }] }),
   useStoryPhaseStatus: () => ({ data: { phase_status: "implementation" }, isLoading: false }),
-  useSetStoryPhaseStatus: () => idleMut,
+  useSetStoryPhaseStatus: () => setApexStatusMut,
   useAcknowledgeSpecDrift: () => idleMut,
   useAcknowledgeBacktrace: () => idleMut,
   useAcknowledgeConflict: () => idleMut,
@@ -115,5 +118,28 @@ describe("BoardSection edit dialog", () => {
     expect(screen.getByText(/scenario untested/i)).toBeInTheDocument();
     fireEvent.click(reopen);
     expect(pushMock).toHaveBeenCalledWith("/phase1");
+  });
+
+  it("updates Apex status independently even when the PM story save fails (no more silent no-op)", async () => {
+    updateStoryMut.mutate.mockImplementation((_vars, opts) => opts?.onError?.(new Error("network down")));
+    setApexStatusMut.mutate.mockImplementation((_vars, opts) => opts?.onSuccess?.());
+
+    renderBoard();
+    fireEvent.click(screen.getByRole("button", { name: /Epics & Stories/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Authentication/i }));
+    fireEvent.click(screen.getByTitle("Edit story"));
+    await screen.findByPlaceholderText(/Describe the story/i);
+
+    const apexSelect = screen.getByText("Deployed").closest("select") as HTMLSelectElement;
+    fireEvent.change(apexSelect, { target: { value: "deployed" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(setApexStatusMut.mutate).toHaveBeenCalledWith(
+      { storyId: 101, phaseStatus: "deployed" },
+      expect.objectContaining({ onSuccess: expect.any(Function), onError: expect.any(Function) }),
+    );
+    expect(updateStoryMut.mutate).toHaveBeenCalled();
+    expect(toast.success).toHaveBeenCalledWith("Apex status updated.");
+    expect(toast.error).toHaveBeenCalledWith("Failed to save story.");
   });
 });
