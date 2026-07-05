@@ -346,12 +346,25 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                         : "border-slate-200 bg-white hover:border-violet-400 hover:bg-violet-50/50 shadow-sm hover:shadow-md",
                     )}
                   >
-                    <span className={cn(
-                      "mb-3 inline-flex w-fit items-center rounded-md px-2 py-0.5 text-[11px] font-mono font-semibold",
-                      dark ? "bg-neutral-800 text-violet-400 ring-1 ring-neutral-700" : "bg-violet-50 text-violet-700 ring-1 ring-violet-200",
-                    )}>
-                      US#{story.story_id}
-                    </span>
+                    <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                      <span className={cn(
+                        "inline-flex w-fit items-center rounded-md px-2 py-0.5 text-[11px] font-mono font-semibold",
+                        dark ? "bg-neutral-800 text-violet-400 ring-1 ring-neutral-700" : "bg-violet-50 text-violet-700 ring-1 ring-violet-200",
+                      )}>
+                        US#{story.story_id}
+                      </span>
+                      {story.phase_status !== "design_locked" && (
+                        <span
+                          title="Already locked as implementation-ready — dev packs exist; opening it reviews/regenerates them."
+                          className={cn(
+                            "inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold",
+                            dark ? "bg-emerald-900/40 text-emerald-300 ring-1 ring-emerald-800" : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+                          )}
+                        >
+                          <Lock className="h-3 w-3" /> Locked · packs generated
+                        </span>
+                      )}
+                    </div>
                     <p className={cn("text-base font-bold leading-snug", dark ? "text-neutral-100" : "text-slate-800")}>
                       {story.title}
                     </p>

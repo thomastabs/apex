@@ -53,6 +53,7 @@ class Phase3Service:
                 "epic_title": entry.get("epic_title", ""),
                 "gherkin_preview": gherkin[:_PREVIEW_CHARS].strip(),
                 "tech_spec_preview": tech_spec[:_PREVIEW_CHARS].strip(),
+                "phase_status": entry.get("phase_status", "design_locked"),
             })
         return sorted(stories, key=lambda s: s["story_id"])
 

@@ -283,6 +283,7 @@ export type Phase3StoryPreview = {
   epic_title: string;
   gherkin_preview: string;
   tech_spec_preview: string;
+  phase_status: string;
 };
 
 export type Phase3EligibleStoriesResponse = {

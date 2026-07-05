@@ -179,6 +179,10 @@ def test_eligible_stories_open_through_testing_excludes_pre_design_and_deployed(
     stories = svc.get_eligible_stories(_ctx())
     # design_locked, implementation, qa, qa_passed listed; gherkin_locked + deployed excluded
     assert [s["story_id"] for s in stories] == [2, 3, 4, 5]
+    # phase_status is exposed so the picker can badge already-locked stories
+    # (Autopilot or a prior manual lock may have already decomposed them).
+    by_id = {s["story_id"]: s["phase_status"] for s in stories}
+    assert by_id == {2: "implementation", 3: "design_locked", 4: "qa", 5: "qa_passed"}
 
 
 # ---------------------------------------------------------------------------

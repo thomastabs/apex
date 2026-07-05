@@ -31,6 +31,9 @@ class StoryPreview(BaseModel):
     epic_title: str
     gherkin_preview: str
     tech_spec_preview: str
+    # "design_locked" = not yet decomposed; anything later (implementation, qa,
+    # qa_passed) means Phase 3 already ran and packs exist for it.
+    phase_status: str = "design_locked"
 
 
 class EligibleStoriesResponse(BaseModel):
