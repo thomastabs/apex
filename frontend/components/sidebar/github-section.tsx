@@ -95,7 +95,6 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
   const saveGithubConfig = useSaveGithubConfig();
   const syncContext = useSyncGithubContext();
   const contextFiles = useContextFiles();
-  const syncStatus = useGithubSyncStatus();
 
   const isConnected = Boolean(github);
   const sectionBorderClass = dark ? "border-neutral-800" : "border-slate-300";
@@ -116,28 +115,6 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
       .catch(() => {/* PAT may have expired — fail silently */})
       .finally(() => setMetaLoading(false));
   }, [open, isConnected]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Auto-resync: the push webhook only timestamps the push (it has no PAT to
-  // call GitHub with), so when polling turns up a push newer than the last
-  // sync, re-run the existing client-side sync automatically — no button
-  // click needed. autoSyncedForPush guards against re-triggering for the same
-  // push while its own sync is in flight or after the interval refetches.
-  const autoSyncedForPush = useRef<string | null>(null);
-  useEffect(() => {
-    const pushedAt = syncStatus.data?.last_push_at;
-    if (!isConnected || !pushedAt) return;
-    const syncedAt = syncStatus.data?.context_synced_at;
-    const stale = !syncedAt || new Date(pushedAt).getTime() > new Date(syncedAt).getTime();
-    if (!stale || autoSyncedForPush.current === pushedAt || syncContext.isPending) return;
-    autoSyncedForPush.current = pushedAt;
-    syncContext.mutate(undefined, {
-      onSuccess: () => toast.success("GitHub context auto-synced after push."),
-      // PAT may have expired since it was stored — leave the "Pending" badge
-      // showing and let the user resync by hand; don't toast an error for a
-      // background action they didn't trigger.
-      onError: () => {},
-    });
-  }, [syncStatus.data, isConnected]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const lastSynced = contextFiles.data?.files.find((f) => f.filename === "github-context.md")?.last_modified;
   const lastSyncedLabel = lastSynced
@@ -355,4 +332,39 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
       </section>
     </div>
   );
+}
+
+/**
+ * Watches for a GitHub push and auto-resyncs context. Mounted unconditionally
+ * in the app shell (not inside GitHubSection, which only renders while the
+ * Settings modal is open) — otherwise "auto" sync only ever fired while the
+ * user happened to have the GitHub settings panel open, defeating the point.
+ * The push webhook has no PAT to call GitHub with itself, so it only
+ * timestamps the push; this polls that timestamp and re-runs the existing
+ * client-side sync when it's newer than the last one.
+ */
+export function GithubAutoSync() {
+  const github = useGithubContext();
+  const isConnected = Boolean(github);
+  const syncContext = useSyncGithubContext();
+  const syncStatus = useGithubSyncStatus();
+  const autoSyncedForPush = useRef<string | null>(null);
+
+  useEffect(() => {
+    const pushedAt = syncStatus.data?.last_push_at;
+    if (!isConnected || !pushedAt) return;
+    const syncedAt = syncStatus.data?.context_synced_at;
+    const stale = !syncedAt || new Date(pushedAt).getTime() > new Date(syncedAt).getTime();
+    if (!stale || autoSyncedForPush.current === pushedAt || syncContext.isPending) return;
+    autoSyncedForPush.current = pushedAt;
+    syncContext.mutate(undefined, {
+      onSuccess: () => toast.success("GitHub context auto-synced after push."),
+      // PAT may have expired since it was stored — leave the "Pending" badge
+      // showing and let the user resync by hand; don't toast an error for a
+      // background action they didn't trigger.
+      onError: () => {},
+    });
+  }, [syncStatus.data, isConnected]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return null;
 }

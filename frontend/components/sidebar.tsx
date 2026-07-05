@@ -26,7 +26,7 @@ import { clearJiraProjectTypeCache } from "@/lib/api/jira-adapter";
 import { AiSection } from "./sidebar/ai-section";
 import { UsageSection } from "./sidebar/usage-section";
 import { ResourcesSection } from "./sidebar/resources-section";
-import { GitHubSection } from "./sidebar/github-section";
+import { GitHubSection, GithubAutoSync } from "./sidebar/github-section";
 import { FigmaSection } from "./sidebar/figma-section";
 import { AboutSection } from "./sidebar/about-section";
 
@@ -496,6 +496,22 @@ export function Sidebar() {
             Navigation
           </span>
         </div>
+        <button
+          onClick={() => setSettingsOpen(true)}
+          className={cn("grid size-9 shrink-0 place-items-center self-center mb-2 rounded transition-colors", dark ? "text-neutral-600 hover:text-neutral-300" : "text-slate-300 hover:text-slate-600")}
+          aria-label="Settings"
+        >
+          <Settings className="size-4" />
+        </button>
+        <SettingsModal
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          dark={dark}
+          taigaToken={taigaToken ?? ""}
+          serverConfig={serverConfig.data}
+          pmWebUrl={pmWebUrl}
+        />
+        <GithubAutoSync />
       </aside>
     );
   }
@@ -609,6 +625,7 @@ export function Sidebar() {
         serverConfig={serverConfig.data}
         pmWebUrl={pmWebUrl}
       />
+      <GithubAutoSync />
     </aside>
   );
 }
