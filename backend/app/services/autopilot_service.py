@@ -268,8 +268,20 @@ def _run_phase1(job: dict, ctx: RequestContext) -> list[int]:
     cs = ContextService()
     cs.set_active(ctx)
     cs.init_context()
-    cs.write_context_file("project-concept.md", job["concept"])
-    _emit(job, "info", "Project concept saved", phase="phase1")
+    if job.get("use_existing_concept"):
+        # Use the project's existing concept file as-is — never overwrite it. The
+        # reader returns "" for a missing file or the untouched blank template.
+        existing = cs.read_project_concept()
+        if not existing:
+            _emit(job, "error",
+                  "project-concept.md is empty — write a concept in the form or fill the file first.",
+                  phase="phase1")
+            raise RuntimeError("use_existing_concept is set but project-concept.md has no content")
+        job["concept"] = existing
+        _emit(job, "info", f"Using existing project concept ({len(existing)} chars)", phase="phase1")
+    else:
+        cs.write_context_file("project-concept.md", job["concept"])
+        _emit(job, "info", "Project concept saved", phase="phase1")
     _seed_figma(job, cs)
 
     # Automatic epics: when enabled and the user gave no manual epics (and we're not
@@ -756,6 +768,7 @@ def start_job(
     ctx: RequestContext,
     *,
     concept: str,
+    use_existing_concept: bool = False,
     epics: list[dict],
     tech_stack_hint: str,
     settings: dict,
@@ -775,6 +788,7 @@ def start_job(
         "taiga_base": taiga_base,
         "taiga_token": ctx.pm_token,
         "concept": concept,
+        "use_existing_concept": use_existing_concept,
         "epics": epics,
         "tech_stack_hint": tech_stack_hint,
         "figma_file_key": figma_file_key.strip(),
@@ -918,6 +932,7 @@ def resume_interrupted_job(ctx: RequestContext) -> str | None:
         "taiga_base": r.get("taiga_base", ""),
         "taiga_token": ctx.pm_token,
         "concept": r.get("concept", ""),
+        "use_existing_concept": r.get("use_existing_concept", False),
         "epics": r.get("epics", []),
         "tech_stack_hint": r.get("tech_stack_hint", ""),
         "figma_file_key": r.get("figma_file_key", ""),
@@ -983,6 +998,7 @@ def _descriptor(job: dict) -> dict:
         **serialize_job(job),
         "_resume": {
             "concept": job.get("concept", ""),
+            "use_existing_concept": job.get("use_existing_concept", False),
             "epics": job.get("epics", []),
             "tech_stack_hint": job.get("tech_stack_hint", ""),
             "settings": job.get("settings", {}),

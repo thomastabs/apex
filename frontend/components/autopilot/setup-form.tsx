@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, Bot, Loader2 } from "lucide-react";
+import { Plus, Trash2, Bot, Loader2, FileText } from "lucide-react";
 import type { AutopilotEpic, AutopilotPhaseKey, AutopilotSettings, AutopilotStartRequest } from "@/lib/api/autopilot";
 import { parseFigmaProjectUrl } from "@/lib/api/figma";
+import { useContextFiles } from "@/lib/hooks/use-workspace";
 import { cn } from "@/lib/utils";
 
 const START_PHASES: { key: AutopilotPhaseKey; label: string }[] = [
@@ -27,8 +28,24 @@ const DEFAULT_SETTINGS: AutopilotSettings = {
   dedup_stories: true,
 };
 
+/** Mirror of the backend's get_project_concept(): strip the template heading and
+ *  placeholder comment so an untouched blank template counts as "no concept". */
+function strippedConcept(raw: string | undefined): string {
+  if (!raw) return "";
+  const text = raw.replace(/^#\s+Project\s+Concept[^\n]*\n/i, "").trim();
+  return !text || text.startsWith("<!--") ? "" : text;
+}
+
 export function AutopilotSetupForm({ onStart, isPending, dark }: Props) {
   const [concept, setConcept] = useState("");
+  // Use the project's existing project-concept.md instead of writing a new one.
+  const [useExistingConcept, setUseExistingConcept] = useState(false);
+  const { data: contextFiles } = useContextFiles();
+  const existingConcept = strippedConcept(
+    contextFiles?.files.find((f) => f.filename === "project-concept.md")?.content,
+  );
+  const hasExistingConcept = existingConcept.length > 0;
+  const useExisting = useExistingConcept && hasExistingConcept;
   const [epics, setEpics] = useState<AutopilotEpic[]>([{ title: "", description: "" }]);
   const [techStackHint, setTechStackHint] = useState("");
   const [figmaProjectUrl, setFigmaProjectUrl] = useState("");
@@ -69,9 +86,10 @@ export function AutopilotSetupForm({ onStart, isPending, dark }: Props) {
     // Epics come from the manual list only; in project mode they're derived from the
     // Figma files and in auto mode the AI derives them from the concept (both server-side).
     const manualNeeded = !inProjectMode && !autoEpics;
-    if (!concept.trim() || (manualNeeded && validEpics.length === 0)) return;
+    if ((!useExisting && !concept.trim()) || (manualNeeded && validEpics.length === 0)) return;
     onStart({
-      concept,
+      concept: useExisting ? "" : concept,
+      ...(useExisting ? { use_existing_concept: true } : {}),
       epics: manualNeeded ? validEpics : [],
       tech_stack_hint: techStackHint,
       settings,
@@ -82,7 +100,7 @@ export function AutopilotSetupForm({ onStart, isPending, dark }: Props) {
 
   const canStart = !fromScratch
     ? true
-    : concept.trim().length > 0 && (inProjectMode || autoEpics || epics.some((e) => e.title.trim()));
+    : (useExisting || concept.trim().length > 0) && (inProjectMode || autoEpics || epics.some((e) => e.title.trim()));
 
   const labelClass = cn("block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-500");
   const inputClass = cn(
@@ -127,16 +145,56 @@ export function AutopilotSetupForm({ onStart, isPending, dark }: Props) {
       {/* Project Concept + Figma + Epics (Phase 1 only) */}
       {fromScratch && (<>
       <div className="space-y-1.5">
-        <label className={labelClass}>
-          Project concept <span className="text-red-500">*</span>
-        </label>
-        <textarea
-          value={concept}
-          onChange={(e) => setConcept(e.target.value)}
-          rows={4}
-          placeholder="Describe what the project is: its purpose, target users, and key goals. The AI uses this as the anchor for all generated specs."
-          className={cn("resize-none", inputClass)}
-        />
+        <div className="flex items-center justify-between">
+          <label className={labelClass}>
+            Project concept {!useExisting && <span className="text-red-500">*</span>}
+          </label>
+          {/* Write new / Use existing switch — only when project-concept.md has content. */}
+          {hasExistingConcept && (
+            <div className={cn("inline-flex rounded-md border p-0.5 text-xs", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-300 bg-slate-100")}>
+              <button
+                type="button"
+                onClick={() => setUseExistingConcept(false)}
+                className={cn(
+                  "rounded px-2 py-1 transition-colors",
+                  !useExisting ? "bg-violet-600 text-white" : dark ? "text-neutral-400 hover:text-neutral-200" : "text-slate-500 hover:text-slate-800",
+                )}
+              >
+                Write new
+              </button>
+              <button
+                type="button"
+                onClick={() => setUseExistingConcept(true)}
+                className={cn(
+                  "rounded px-2 py-1 transition-colors",
+                  useExisting ? "bg-violet-600 text-white" : dark ? "text-neutral-400 hover:text-neutral-200" : "text-slate-500 hover:text-slate-800",
+                )}
+              >
+                Use existing file
+              </button>
+            </div>
+          )}
+        </div>
+        {useExisting ? (
+          <div className={cn("rounded-md border", dark ? "border-violet-500/30 bg-violet-500/10" : "border-violet-300 bg-violet-50")}>
+            <div className={cn("flex items-center gap-1.5 border-b px-3 py-1.5 text-xs", dark ? "border-violet-500/20 text-violet-300" : "border-violet-200 text-violet-700")}>
+              <FileText className="size-3.5" />
+              <span className="font-medium">project-concept.md</span>
+              <span className={dark ? "text-neutral-500" : "text-slate-400"}>· {existingConcept.length} chars — used as-is, the file is not overwritten</span>
+            </div>
+            <pre className={cn("max-h-40 overflow-y-auto whitespace-pre-wrap px-3 py-2 font-sans text-xs", dark ? "text-neutral-300" : "text-slate-600")}>
+              {existingConcept}
+            </pre>
+          </div>
+        ) : (
+          <textarea
+            value={concept}
+            onChange={(e) => setConcept(e.target.value)}
+            rows={4}
+            placeholder="Describe what the project is: its purpose, target users, and key goals. The AI uses this as the anchor for all generated specs."
+            className={cn("resize-none", inputClass)}
+          />
+        )}
       </div>
 
       {/* Figma project (file-as-epic) */}

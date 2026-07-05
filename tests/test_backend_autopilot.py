@@ -672,6 +672,93 @@ class TestAutoEpics:
 
 
 # ---------------------------------------------------------------------------
+# use_existing_concept — Phase 1 reads project-concept.md instead of writing it
+# ---------------------------------------------------------------------------
+
+class TestUseExistingConcept:
+    def test_request_allows_empty_concept_when_using_existing(self):
+        req = AutopilotStartRequest(
+            concept="",
+            use_existing_concept=True,
+            epics=[{"title": "Auth", "description": ""}],
+        )
+        assert req.use_existing_concept is True
+
+    def test_request_rejects_empty_concept_without_flag(self):
+        with pytest.raises(ValueError):
+            AutopilotStartRequest(concept="", epics=[{"title": "Auth", "description": ""}])
+
+    @staticmethod
+    def _stub_p1():
+        class _StubP1:
+            def generate_nl_stories(self, ctx, *, epic_subject, epic_description, images=None, instructions=""):
+                return ("draft", 1)
+
+            def compile_gherkin(self, *, nl_draft):
+                return [{"title": "Story"}]
+
+            def finalize_stories(self, ctx, *, epic_id, epic_subject, stories):
+                return {"story_ids": [epic_id]}
+
+        return _StubP1
+
+    def test_run_phase1_reads_existing_concept_and_skips_write(self, monkeypatch):
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_taiga": False})
+        job["use_existing_concept"] = True
+        job["concept"] = ""
+        job["epics"] = [{"title": "Auth", "description": ""}]
+
+        writes = []
+
+        class _StubCS:
+            def set_active(self, ctx):
+                pass
+
+            def init_context(self):
+                pass
+
+            def read_project_concept(self):
+                return "Existing concept from file"
+
+            def write_context_file(self, name, content):
+                writes.append(name)
+
+        monkeypatch.setattr(svc, "Phase1Service", self._stub_p1())
+        monkeypatch.setattr(svc, "ContextService", _StubCS)
+
+        svc._run_phase1(job, _ctx())
+
+        assert job["concept"] == "Existing concept from file"
+        assert "project-concept.md" not in writes  # file used as-is, never overwritten
+
+    def test_run_phase1_errors_when_existing_concept_empty(self, monkeypatch):
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_taiga": False})
+        job["use_existing_concept"] = True
+        job["concept"] = ""
+        job["epics"] = [{"title": "Auth", "description": ""}]
+
+        class _StubCS:
+            def set_active(self, ctx):
+                pass
+
+            def init_context(self):
+                pass
+
+            def read_project_concept(self):
+                return ""  # missing file or untouched blank template
+
+            def write_context_file(self, name, content):
+                raise AssertionError("must not write the concept file")
+
+        monkeypatch.setattr(svc, "Phase1Service", self._stub_p1())
+        monkeypatch.setattr(svc, "ContextService", _StubCS)
+
+        with pytest.raises(RuntimeError, match="project-concept.md"):
+            svc._run_phase1(job, _ctx())
+        assert any(e["level"] == "error" for e in job["events"])
+
+
+# ---------------------------------------------------------------------------
 # Phase 1 Taiga push — story carries the Gherkin as description AND is linked to
 # its epic via the related-userstories endpoint (not an ignored `epic` field).
 # ---------------------------------------------------------------------------

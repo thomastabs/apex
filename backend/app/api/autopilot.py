@@ -31,6 +31,7 @@ def autopilot_start(
     job_id = autopilot_service.start_job(
         ctx,
         concept=body.concept,
+        use_existing_concept=body.use_existing_concept,
         epics=[e.model_dump() for e in body.epics],
         tech_stack_hint=body.tech_stack_hint,
         settings=body.settings.model_dump(),

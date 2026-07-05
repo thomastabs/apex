@@ -34,6 +34,10 @@ class AutopilotSettings(BaseModel):
 
 class AutopilotStartRequest(BaseModel):
     concept: str = ""
+    # When true, Phase 1 uses the project's existing project-concept.md as the concept
+    # instead of `concept` (which is then ignored). The run fails early if the file is
+    # empty or still the blank template.
+    use_existing_concept: bool = False
     # Epics are required UNLESS a Figma project is supplied — in project mode the
     # pipeline derives one epic per project file (file-as-epic).
     epics: list[AutopilotEpic] = Field(default_factory=list)
@@ -56,7 +60,7 @@ class AutopilotStartRequest(BaseModel):
         # later, the project's existing stories drive the pipeline.
         if self.start_phase != "phase1":
             return self
-        if not self.concept.strip():
+        if not self.concept.strip() and not self.use_existing_concept:
             raise ValueError("concept is required when starting at Phase 1")
         if not self.epics and not self.figma_project_id.strip() and not self.settings.auto_epics:
             raise ValueError("epics is required unless figma_project_id is set or auto_epics is enabled")

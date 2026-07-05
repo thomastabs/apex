@@ -20,6 +20,8 @@ export type AutopilotPhaseKey = "phase1" | "phase2" | "phase3" | "phase4" | "pha
 
 export type AutopilotStartRequest = {
   concept: string;
+  // Phase 1 uses the project's existing project-concept.md instead of `concept`.
+  use_existing_concept?: boolean;
   epics: AutopilotEpic[];
   tech_stack_hint: string;
   settings: AutopilotSettings;

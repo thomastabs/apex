@@ -377,7 +377,7 @@ The **Autopilot** page (`/autopilot`, top nav, Zap icon) runs Phases 1–5 as a 
 
 **Setup form** — before launching, the user provides:
 - **Start from** — which phase to begin at. Default Phase 1 (from scratch); pick a later phase when the earlier ones are already done in this project (e.g. Phase 2 finished by hand → start Autopilot at Phase 3). Starting later skips the earlier phases and drives the rest from the project's existing story index, so no concept/epics are needed.
-- **Concept** — free-text product brief (seeds Phase 1 story generation)
+- **Concept** — free-text product brief (seeds Phase 1 story generation). When the project's `project-concept.md` already has content, a **Write new / Use existing file** switch appears: *Use existing file* shows the file read-only and the run uses it as-is (never overwriting it) instead of a typed concept
 - **Epics** — choose **Automatic (AI)** to have the pipeline derive the epic set from the concept (the same `suggest_epics` step Phase 1 uses, run once before story generation), or **Manual** to type one or more epic titles with optional descriptions. A Figma **project** URL overrides both (one epic per file — see below).
 - **Tech stack hint** (optional) — seeds Phase 2 design (and biases automatic epic derivation)
 - **Settings** — *Pause at checkpoints* (human-in-the-loop handoffs after each phase), *Create epics in Taiga* (push generated epics to the PM tool), and *De-duplicate stories across epics* (after Phase 1, a pure no-AI Jaccard pass drops near-duplicate stories that different epics independently produced — keeps the backlog concise; deletes the Taiga story + index entry before any downstream work exists)
