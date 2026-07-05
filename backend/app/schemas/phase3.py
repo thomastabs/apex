@@ -32,8 +32,13 @@ class StoryPreview(BaseModel):
     gherkin_preview: str
     tech_spec_preview: str
     # "design_locked" = not yet decomposed; anything later (implementation, qa,
-    # qa_passed) means Phase 3 already ran and packs exist for it.
+    # qa_passed) means the story is locked as implementation-ready.
     phase_status: str = "design_locked"
+    # True as soon as ANY task has a saved dev pack — independent of phase_status:
+    # a story can have packs generated (tasks decomposed, some/all packs written)
+    # without yet being locked (Stage D's "Lock Story" not clicked), so this and
+    # phase_status can and do disagree.
+    has_proposal: bool = False
 
 
 class EligibleStoriesResponse(BaseModel):

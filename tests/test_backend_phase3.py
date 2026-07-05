@@ -185,6 +185,19 @@ def test_eligible_stories_open_through_testing_excludes_pre_design_and_deployed(
     assert by_id == {2: "implementation", 3: "design_locked", 4: "qa", 5: "qa_passed"}
 
 
+def test_eligible_stories_exposes_has_proposal_independent_of_phase_status():
+    # A story can have packs generated (tasks decomposed) without being locked
+    # yet — has_proposal and phase_status must not be conflated by the picker.
+    index = {
+        "1": {"story_id": 1, "title": "A", "phase_status": "design_locked", "epic_title": "X", "has_proposal": True},
+        "2": {"story_id": 2, "title": "B", "phase_status": "design_locked", "epic_title": "X", "has_proposal": False},
+    }
+    svc = Phase3Service(ai=FakeAiService(), context=FakeContextService(index=index))
+    stories = svc.get_eligible_stories(_ctx())
+    by_id = {s["story_id"]: s["has_proposal"] for s in stories}
+    assert by_id == {1: True, 2: False}
+
+
 # ---------------------------------------------------------------------------
 # get_story_context
 # ---------------------------------------------------------------------------

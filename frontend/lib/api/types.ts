@@ -284,6 +284,7 @@ export type Phase3StoryPreview = {
   gherkin_preview: string;
   tech_spec_preview: string;
   phase_status: string;
+  has_proposal: boolean;
 };
 
 export type Phase3EligibleStoriesResponse = {

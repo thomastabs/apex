@@ -19,6 +19,7 @@ import {
   Info,
   Loader2,
   Lock,
+  Package,
   Plus,
   RefreshCw,
   Sparkles,
@@ -98,6 +99,11 @@ function MarkdownPreview({ content, dark, className }: { content: string; dark: 
 // ---------------------------------------------------------------------------
 // Effort badge
 // ---------------------------------------------------------------------------
+
+// Story is locked as implementation-ready once phase_status reaches any of
+// these — a strict allow-list, not "!== design_locked" (gherkin_locked is
+// EARLIER than design_locked, not later, and must never read as locked).
+const LOCKED_PHASE_STATUSES = new Set(["implementation", "qa", "qa_passed", "deployed"]);
 
 const EFFORT_COLORS: Record<string, string> = {
   XS: "bg-emerald-500/15 text-emerald-400 ring-emerald-500/30",
@@ -356,17 +362,42 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                       )}>
                         US#{story.story_id}
                       </span>
-                      {story.phase_status !== "design_locked" && (
-                        <span
-                          title="Already locked as implementation-ready — dev packs exist; opening it reviews/regenerates them."
-                          className={cn(
-                            "inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold",
-                            dark ? "bg-emerald-900/40 text-emerald-300 ring-1 ring-emerald-800" : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
-                          )}
-                        >
-                          <Lock className="h-3 w-3" /> Locked · packs generated
-                        </span>
-                      )}
+                      {(() => {
+                        // phase_status and has_proposal are independent signals — a
+                        // story can have packs generated (tasks decomposed, some/all
+                        // packs written) without being locked yet (Stage D's "Lock
+                        // Story" not clicked), so "locked" must never be inferred
+                        // from anything other than phase_status actually reaching
+                        // implementation-or-later.
+                        const isLocked = LOCKED_PHASE_STATUSES.has(story.phase_status);
+                        if (isLocked) {
+                          return (
+                            <span
+                              title="Already locked as implementation-ready — dev packs exist; opening it reviews/regenerates them."
+                              className={cn(
+                                "inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold",
+                                dark ? "bg-emerald-900/40 text-emerald-300 ring-1 ring-emerald-800" : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+                              )}
+                            >
+                              <Lock className="h-3 w-3" /> Locked · packs generated
+                            </span>
+                          );
+                        }
+                        if (story.has_proposal) {
+                          return (
+                            <span
+                              title="Some/all developer packs already generated for this story, but it hasn't been locked yet (Stage D)."
+                              className={cn(
+                                "inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold",
+                                dark ? "bg-amber-900/40 text-amber-300 ring-1 ring-amber-800" : "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+                              )}
+                            >
+                              <Package className="h-3 w-3" /> Packs generated
+                            </span>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
                     <p className={cn("text-base font-bold leading-snug", dark ? "text-neutral-100" : "text-slate-800")}>
                       {story.title}
