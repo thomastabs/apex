@@ -16,7 +16,7 @@ import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
 import { SignInRequired } from "@/components/sign-in-required";
 import { MarkdownPreview, PanelHeader, type DragSectionProps } from "./shared";
-import { ContextFileHint, ContextGuideDialog } from "./context-guide";
+import { ContextGuideDialog } from "./context-guide";
 
 // ── utilities ─────────────────────────────────────────────────────────────────
 
@@ -216,7 +216,6 @@ function ContextEditor({
 
   return (
     <div className={cn("border-t", dark ? "border-neutral-800" : "border-slate-200")}>
-      <ContextFileHint filename={file.filename} dark={dark} />
       <div className={cn("flex items-center gap-2 border-b px-3 py-1", dark ? "border-neutral-800" : "border-slate-200")}>
         <span className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-500")}>{value.length} ch</span>
         {statusLabel ? <span className={cn("text-xs", statusColor)}>{statusLabel}</span> : null}

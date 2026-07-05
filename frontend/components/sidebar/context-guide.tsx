@@ -168,29 +168,6 @@ function writerChip(writer: Writer, note: string, dark: boolean) {
   );
 }
 
-// Compact strip shown above the file editor — the rules the user must follow
-// while editing THIS file.
-export function ContextFileHint({ filename, dark }: { filename: string; dark: boolean }) {
-  const guide = CONTEXT_FILE_GUIDE[filename];
-  if (!guide) return null;
-  return (
-    <div className={cn("space-y-1.5 border-b px-3 py-2 text-xs", dark ? "border-neutral-800 bg-neutral-900/60 text-neutral-400" : "border-slate-200 bg-slate-50 text-slate-600")}>
-      <div className="flex flex-wrap items-center gap-1.5">
-        {writerChip(guide.writer, guide.writerNote, dark)}
-        {guide.lock ? (
-          <span className={cn("rounded border px-1.5 py-0.5 text-[10px] font-medium", dark ? "border-amber-500/40 bg-amber-500/10 text-amber-400" : "border-amber-300 bg-amber-50 text-amber-700")}>
-            Locks at {guide.lock} — later edits record an amendment (MAJOR + drift)
-          </span>
-        ) : null}
-      </div>
-      <p>{guide.purpose}</p>
-      <ul className="list-disc space-y-0.5 pl-4">
-        {guide.rules.map((r) => <li key={r}>{r}</li>)}
-      </ul>
-    </div>
-  );
-}
-
 // Full guide dialog — general semantics + every file's entry.
 export function ContextGuideDialog({ open, onClose, dark }: { open: boolean; onClose: () => void; dark: boolean }) {
   if (!open) return null;
