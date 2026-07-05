@@ -2508,6 +2508,33 @@ def _bump_spec_version(filename: str, part: str = "major") -> str:
     return new
 
 
+# ---------------------------------------------------------------------------
+# GitHub push tracking, for auto-resyncing github-context.md. The push webhook
+# (backend/app/api/github_webhook.py) has no PAT to call GitHub with itself —
+# context.md is fetched browser-direct with the user's PAT — so it just records
+# *when* a push last landed; the frontend compares that against
+# github-context.md's own mtime and re-runs the existing client-side sync when
+# the push is newer, no button click needed.
+# ---------------------------------------------------------------------------
+
+_GITHUB_PUSH_FILE = "github-push-state.json"
+
+
+def record_github_push() -> None:
+    p = _path(_GITHUB_PUSH_FILE)
+    p.write_text(json.dumps({"last_push_at": _now_iso()}), encoding="utf-8")
+
+
+def get_last_github_push() -> str | None:
+    p = _path(_GITHUB_PUSH_FILE)
+    if not p.exists():
+        return None
+    try:
+        return json.loads(p.read_text(encoding="utf-8")).get("last_push_at")
+    except json.JSONDecodeError:
+        return None
+
+
 def affected_stories_for_spec(filename: str) -> list[int]:
     """Story ids past the lock phase for a spec file (empty if not a spec file)."""
     lock = _SPEC_LOCK_PHASE.get(filename)

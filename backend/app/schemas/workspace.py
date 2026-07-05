@@ -88,6 +88,15 @@ class GithubWebhookConfigResponse(BaseModel):
     configured: bool = False
 
 
+class GithubSyncStatusResponse(BaseModel):
+    # When the push webhook last fired for this project (None = never, or no
+    # webhook configured). Compared against context_synced_at by the frontend
+    # to decide whether to auto-resync github-context.md.
+    last_push_at: str | None = None
+    # mtime of the saved github-context.md (None = never synced).
+    context_synced_at: str | None = None
+
+
 class ConfigResponse(BaseModel):
     project_id: int | None = None
     taiga_web_url: str = ""

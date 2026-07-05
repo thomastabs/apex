@@ -1,8 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Copy, ExternalLink, GitBranch, Github, Lock, RefreshCw, Star, Webhook } from "lucide-react";
 import { toast } from "sonner";
-import { useGithubWebhookConfig, useSaveGithubConfig, useSyncGithubContext, useContextFiles } from "@/lib/hooks/use-workspace";
+import { useGithubWebhookConfig, useSaveGithubConfig, useSyncGithubContext, useGithubSyncStatus, useContextFiles } from "@/lib/hooks/use-workspace";
 import { useSessionStore, useGithubContext } from "@/lib/stores/session-store";
 import { verifyGithubRepo, type RepoMeta } from "@/lib/api/github-browser";
 import { getApiBaseUrl } from "@/lib/api/client";
@@ -30,7 +30,7 @@ function WebhookSetup({ dark }: { dark: boolean }) {
         onClick={() => setExpanded(!expanded)}
       >
         <Webhook className="size-3.5" />
-        <span className="flex-1 font-medium">Auto regression scan on push</span>
+        <span className="flex-1 font-medium">Auto regression scan &amp; context sync on push</span>
         <span className={dark ? "text-neutral-600" : "text-slate-400"}>{expanded ? "Hide" : "Set up"}</span>
       </button>
       {expanded ? (
@@ -39,6 +39,8 @@ function WebhookSetup({ dark }: { dark: boolean }) {
             Add this as a GitHub webhook (repo Settings → Webhooks → Add webhook, content type{" "}
             <code>application/json</code>, event <code>push</code>) and every push re-checks spec↔code
             conformance for the stories it touched — no need to click &quot;Scan for regressions&quot; by hand.
+            While this tab is open with GitHub connected, a push also auto-triggers &quot;Sync Context&quot;
+            for you.
           </p>
           {webhook.isLoading ? (
             <p className={cn(dark ? "text-neutral-600" : "text-slate-400")}>Loading…</p>
@@ -93,6 +95,7 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
   const saveGithubConfig = useSaveGithubConfig();
   const syncContext = useSyncGithubContext();
   const contextFiles = useContextFiles();
+  const syncStatus = useGithubSyncStatus();
 
   const isConnected = Boolean(github);
   const sectionBorderClass = dark ? "border-neutral-800" : "border-slate-300";
@@ -113,6 +116,28 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
       .catch(() => {/* PAT may have expired — fail silently */})
       .finally(() => setMetaLoading(false));
   }, [open, isConnected]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-resync: the push webhook only timestamps the push (it has no PAT to
+  // call GitHub with), so when polling turns up a push newer than the last
+  // sync, re-run the existing client-side sync automatically — no button
+  // click needed. autoSyncedForPush guards against re-triggering for the same
+  // push while its own sync is in flight or after the interval refetches.
+  const autoSyncedForPush = useRef<string | null>(null);
+  useEffect(() => {
+    const pushedAt = syncStatus.data?.last_push_at;
+    if (!isConnected || !pushedAt) return;
+    const syncedAt = syncStatus.data?.context_synced_at;
+    const stale = !syncedAt || new Date(pushedAt).getTime() > new Date(syncedAt).getTime();
+    if (!stale || autoSyncedForPush.current === pushedAt || syncContext.isPending) return;
+    autoSyncedForPush.current = pushedAt;
+    syncContext.mutate(undefined, {
+      onSuccess: () => toast.success("GitHub context auto-synced after push."),
+      // PAT may have expired since it was stored — leave the "Pending" badge
+      // showing and let the user resync by hand; don't toast an error for a
+      // background action they didn't trigger.
+      onError: () => {},
+    });
+  }, [syncStatus.data, isConnected]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const lastSynced = contextFiles.data?.files.find((f) => f.filename === "github-context.md")?.last_modified;
   const lastSyncedLabel = lastSynced

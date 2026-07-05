@@ -28,6 +28,12 @@ class ContextService:
     def github_repo(self) -> str:
         return context_manager.get_instance_github_repo()
 
+    def record_github_push(self) -> None:
+        context_manager.record_github_push()
+
+    def last_github_push(self) -> str | None:
+        return context_manager.get_last_github_push()
+
     def load_usage_events(self, days: int = 30) -> list[dict]:
         return context_manager.load_usage_events(days)
 

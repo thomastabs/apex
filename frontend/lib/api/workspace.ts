@@ -51,6 +51,15 @@ export function getGithubWebhookConfig(context: AuthContext) {
   return apiRequest<GithubWebhookConfig>("/api/workspace/github-webhook", { context });
 }
 
+export type GithubSyncStatus = {
+  last_push_at: string | null;
+  context_synced_at: string | null;
+};
+
+export function getGithubSyncStatus(context: RequestContext) {
+  return apiRequest<GithubSyncStatus>("/api/workspace/github/sync-status", { context });
+}
+
 export function saveFigmaConfig(context: AuthContext, fileKey: string) {
   return apiRequest<{ ok: boolean }>("/api/workspace/config", {
     method: "POST",

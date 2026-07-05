@@ -1,5 +1,6 @@
 """Unit tests for context_manager.py — all storage and index operations."""
 
+import datetime
 import json
 
 
@@ -1568,3 +1569,31 @@ class TestDesignDelta:
         self._lock_project_design(ctx, [10])
         result = ctx.append_design_delta([20], "", "- `GET /api/reports` (Story 20)", "")
         assert "design-bundle.md" not in result["versions"]
+
+
+class TestGithubPushTracking:
+    """record_github_push / get_last_github_push — the push webhook has no PAT
+    to resync github-context.md itself, so it just timestamps the push; the
+    frontend compares that against the file's own mtime to auto-resync."""
+
+    def test_no_push_recorded_returns_none(self, ctx):
+        assert ctx.get_last_github_push() is None
+
+    def test_record_push_is_readable_and_iso_formatted(self, ctx):
+        ctx.record_github_push()
+        recorded = ctx.get_last_github_push()
+        assert recorded is not None
+        datetime.datetime.fromisoformat(recorded)  # raises if not valid ISO-8601
+
+    def test_second_push_overwrites_the_first(self, ctx):
+        ctx.record_github_push()
+        first = ctx.get_last_github_push()
+        ctx.record_github_push()
+        second = ctx.get_last_github_push()
+        assert second >= first
+
+    def test_push_tracking_is_per_project(self, ctx):
+        ctx.set_active_project(1)
+        ctx.record_github_push()
+        ctx.set_active_project(2)
+        assert ctx.get_last_github_push() is None

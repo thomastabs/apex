@@ -1,10 +1,15 @@
-"""GitHub push webhook -> auto regression re-scan for the stories it touched.
+"""GitHub push webhook -> auto regression re-scan + auto context resync.
 
-Loop-closing counterpart to the manual "Scan for regressions" button
-(phase6_service.scan_regressions): instead of a human clicking Scan after
-every deploy, GitHub calls this endpoint on every push and Apex works out
-which stories' saved dev-pack files were touched, then re-verifies just
-those (phase6_service.scan_regressions_for_stories) — no CI, no polling.
+Loop-closing counterpart to two manual actions: the "Scan for regressions"
+button (phase6_service.scan_regressions) and the "Sync Context" button.
+Instead of a human clicking Scan after every deploy, GitHub calls this
+endpoint on every push and Apex works out which stories' saved dev-pack files
+were touched, then re-verifies just those
+(phase6_service.scan_regressions_for_stories) — no CI, no polling. Every push
+also records a timestamp (record_github_push) so the frontend can compare it
+against github-context.md's own mtime and auto-resync — the sync itself still
+runs client-side with the user's PAT (this webhook has no PAT to call GitHub
+with), see GithubSyncStatusResponse / useGithubSyncStatus.
 
 Unauthenticated by design (GitHub can't send a Bearer token) — gated instead
 by HMAC-SHA256 signature verification against a per-instance secret
@@ -121,6 +126,7 @@ async def github_push_webhook(
         return {"ok": True, "ignored": f"repo mismatch ({pushed_repo} != {configured_repo})"}
 
     context.set_project(project_id)
+    context.record_github_push()
     touched = _touched_files(payload)
     story_ids = _matched_story_ids(context, touched)
     if not story_ids:

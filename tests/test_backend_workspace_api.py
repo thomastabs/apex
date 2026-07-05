@@ -10,6 +10,7 @@ from backend.app.api.workspace import (
     get_config,
     get_context_files,
     get_story_phase_status,
+    github_sync_status,
     log_decision,
     rebuild_story_index,
     remove_epic_from_story_index,
@@ -415,6 +416,27 @@ def test_reset_context_file_rejects_unknown_filename():
         reset_context_file("unknown.md", RequestContext(pm_token="tok", project_id=42))
 
     assert exc_info.value.status_code == 404
+
+
+# ── github sync-status: cheap poll target for auto-resync ─────────────────────
+
+def test_github_sync_status_defaults_to_both_none(ctx):
+    resp = github_sync_status(RequestContext(pm_token="tok", project_id=ctx._get_project_id()))
+    assert resp == {"last_push_at": None, "context_synced_at": None}
+
+
+def test_github_sync_status_reports_recorded_push(ctx):
+    ctx.record_github_push()
+    resp = github_sync_status(RequestContext(pm_token="tok", project_id=ctx._get_project_id()))
+    assert resp["last_push_at"] is not None
+    assert resp["context_synced_at"] is None
+
+
+def test_github_sync_status_reports_synced_file_mtime(ctx):
+    ctx.init_context()
+    ctx.write_context_file("github-context.md", "# repo tree")
+    resp = github_sync_status(RequestContext(pm_token="tok", project_id=ctx._get_project_id()))
+    assert resp["context_synced_at"] is not None
 
 
 # --- Controlled spec co-evolution (roadmap #4) -----------------------------

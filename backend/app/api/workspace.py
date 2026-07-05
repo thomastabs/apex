@@ -18,6 +18,7 @@ from backend.app.schemas.workspace import (
     AmendmentsResponse,
     ConfigResponse,
     ContextFilesResponse,
+    GithubSyncStatusResponse,
     GithubWebhookConfigResponse,
     ImportBootstrapResponse,
     ImportReconstructResponse,
@@ -246,6 +247,24 @@ def get_github_webhook_config(
         "secret": context_manager.get_or_create_instance_github_webhook_secret(),
         "configured": bool(context_manager.get_instance_github_repo().strip()),
     }
+
+
+@router.get("/github/sync-status", response_model=GithubSyncStatusResponse)
+def github_sync_status(ctx: RequestContext = Depends(get_request_context)):
+    """Cheap poll target for auto-resync: just the two timestamps, never the
+    (potentially huge) file content — contrast with /context-files."""
+    import datetime
+    context = ContextService()
+    context.set_active(ctx)
+    context_synced_at: str | None = None
+    fpath = context.file_path("github-context.md")
+    try:
+        if fpath.exists():
+            mtime = fpath.stat().st_mtime
+            context_synced_at = datetime.datetime.fromtimestamp(mtime, tz=datetime.timezone.utc).isoformat()
+    except Exception as _stat_exc:
+        _logger.debug("github sync-status: could not read github-context.md mtime: %s", _stat_exc)
+    return {"last_push_at": context.last_github_push(), "context_synced_at": context_synced_at}
 
 
 @router.get("/context-files", response_model=ContextFilesResponse)

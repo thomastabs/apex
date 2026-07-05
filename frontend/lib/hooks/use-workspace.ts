@@ -19,6 +19,7 @@ import {
   getAiConfig,
   getBoard,
   getContextFiles,
+  getGithubSyncStatus,
   getGithubWebhookConfig,
   getMe,
   getServerConfig,
@@ -624,7 +625,27 @@ export function useSyncGithubContext() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "context-files"] });
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "github-sync-status"] });
     },
+  });
+}
+
+/**
+ * Poll target for auto-resync: the push webhook (backend/app/api/github_webhook.py)
+ * has no PAT to call GitHub with, so it only timestamps the push. This compares
+ * that timestamp against github-context.md's own mtime — when the repo was
+ * connected via a webhook and a push landed after the last sync, the caller
+ * (GitHubSection) re-runs the existing client-side sync automatically.
+ */
+export function useGithubSyncStatus() {
+  const ctx = useApiContext();
+  const github = useGithubContext();
+  return useQuery({
+    queryKey: ["workspace", "github-sync-status", ctx?.projectId],
+    queryFn: () => getGithubSyncStatus(ctx!),
+    enabled: Boolean(ctx) && Boolean(github),
+    staleTime: 20 * 1000,
+    refetchInterval: 30 * 1000,
   });
 }
 
