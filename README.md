@@ -419,7 +419,7 @@ Implemented:
 - **Developer Packs** — every saved Phase 3 pack grouped by story; view, **edit inline**, download, delete one or all packs for a story
 - **Test Plans** — every saved Phase 4 test plan listed per story; view, **edit inline**, download, delete
 - Users and roles management
-- Active context file viewer/editor
+- Active context file viewer/editor — each file opens with a hint strip (who writes it, when it locks, format rules to preserve), and a **Context guide** dialog explains the full semantics: injection per phase, locking/amendments, version badges, size budget (see [Context Files](#context-files))
 - Individual context file download
 - ZIP download of all context files
 - **Automatic story-index sync** — every epic/story/task create/edit/delete, plus sign-in and project switch, silently rebuilds the story index and refreshes nav badges; the manual rebuild button (with out-of-sync warning) remains as a fallback
@@ -522,6 +522,28 @@ Apex stores workflow state in context files under `contextspec/<instance_id>/<pr
 | `fix-log.md` | Appended with each Fix-Bolt record — bug isolation log for future reference |
 | `story-index.json` | Machine-readable story phase state |
 | `usage/<yyyy-mm-dd>.jsonl` *(instance-level, not per-project)* | Per-day AI usage log at `contextspec/<instance_id>/usage/` (model, call name, tokens, cache hits, estimated cost) — powers the Settings Usage panel |
+
+### Semantics & editing rules
+
+The same guidance is available in-app: **Context guide** button in the sidebar's Active Context panel, plus a per-file hint strip above each file editor.
+
+- **Context files are the AI's ground truth.** Every generative step reads a subset of them (the Active Context panel lists exactly the files the current phase injects — the map mirrors what each phase service actually reads). What's written in these files *is* what the AI knows about the project; edits take effect on the next generation.
+- **Who writes what.** Three kinds of files: **yours** (`project-concept.md`, `constraints.md`, `decisions.md` records, pre-lock `tech-stack.md`) — free-form input the AI grounds on; **Apex-written** (`functional-spec.md`, `technical-spec.md`, `design-bundle.md`, logs) — generated at phase locks, hand-editable within their format contracts; **synced** (`github-context.md`, `figma-context.md`) — machine-assembled by Sync Context, so hand edits are overwritten on the next sync (durable guidance belongs in concept/constraints/decisions instead).
+- **Locking & amendments.** Spec files lock with their phase: `project-concept.md` + `functional-spec.md` at the Phase 1 Gherkin lock; `tech-stack.md`, `technical-spec.md`, `design-bundle.md`, `constraints.md` at the Phase 2 design lock. Editing a locked file is allowed but never silent: the edit is recorded in `amendments.md`, the file's MAJOR version bumps, and every downstream story is flagged with `spec_drift` so its artifacts get re-derived.
+- **Version badges.** No badge = pre-lock draft (`0.0.0`). `1.0.0` = locked, untouched since. MINOR (`1.1.0`) = an additive [design delta](#phase-2--design) was merged — provably non-breaking, nothing drifts. MAJOR (`2.0.0`) = a post-lock amendment — downstream stories were flagged.
+- **Size budget.** The sidebar counter tracks total context size; past ~150k characters AI calls degrade and past ~200k they fail. Synced GitHub/Figma context are the usual culprits — trim or reset those first.
+- **Machine state.** `story-index.json`, `spec-versions.json`, `amendments.md`, and the diagram/layout JSON files are maintained by Apex — use **Rebuild story index** rather than hand-editing them.
+
+**Format contracts** — the structural lines Apex parses; hand edits must preserve them:
+
+| File | Contract |
+|---|---|
+| `functional-spec.md` | `## <Epic>` and `### Story <id>: <title>` headings with ` ```gherkin ` fences — the story-index rebuild parses these; renaming or removing a story heading orphans that story. Scenario text is free to edit. |
+| `technical-spec.md` | The `## Project Design` block with its `**Stories:** #id, …` line and the `### Endpoints` / `### Data Model` markers — index rebuild, design-delta merging, and Phase 3–6 injection anchor on them. Edit the endpoint/entity bullets freely; keep the markers and the Stories line (stories missing from it count as design-pending and surface in the Design Delta banner). |
+| `design-bundle.md` | The `## UX Brief` marker — the Phase 2 editors and screen-flow builder read everything under it. |
+| `constraints.md` | One EARS-shaped constraint per line (`WHEN <trigger>, THE SYSTEM SHALL <response>.`) — Phase 6 conformance matches against these lines. |
+| `decisions.md` | One `## <date> — <scope>` heading per record — only real `## ` records are injected into Phase 3 as negative constraints; hand-added records work the same as captured ones. |
+| `project-concept.md`, `tech-stack.md` | No structural contract — plain markdown. |
 
 ### Multiple users & multiple Taiga instances
 

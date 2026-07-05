@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { ChevronRight, Download, FileText, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { BookOpen, ChevronRight, Download, FileText, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   useContextFiles,
@@ -16,6 +16,7 @@ import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
 import { SignInRequired } from "@/components/sign-in-required";
 import { MarkdownPreview, PanelHeader, type DragSectionProps } from "./shared";
+import { ContextFileHint, ContextGuideDialog } from "./context-guide";
 
 // ── utilities ─────────────────────────────────────────────────────────────────
 
@@ -215,6 +216,7 @@ function ContextEditor({
 
   return (
     <div className={cn("border-t", dark ? "border-neutral-800" : "border-slate-200")}>
+      <ContextFileHint filename={file.filename} dark={dark} />
       <div className={cn("flex items-center gap-2 border-b px-3 py-1", dark ? "border-neutral-800" : "border-slate-200")}>
         <span className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-500")}>{value.length} ch</span>
         {statusLabel ? <span className={cn("text-xs", statusColor)}>{statusLabel}</span> : null}
@@ -277,6 +279,7 @@ type ContextSectionProps = DragSectionProps & {
 export function ContextSection({ dark, projectId: _projectId, confirm, shellClass, dragHandlers, onDragStart }: ContextSectionProps) {
   const [contextOpen, setContextOpen] = useState(false);
   const [expandedContext, setExpandedContext] = useState<string | null>(null);
+  const [guideOpen, setGuideOpen] = useState(false);
 
   const context = useApiContext();
   const contextFiles = useContextFiles();
@@ -382,6 +385,16 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
             <div className="space-y-2">
               <button
                 className={cn(
+                  "flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm transition-colors hover:border-violet-500/60 hover:bg-violet-500/15",
+                  dark ? "text-violet-300 hover:text-violet-200" : "text-violet-700 hover:text-violet-800",
+                )}
+                onClick={() => setGuideOpen(true)}
+              >
+                <span>Context guide — rules &amp; format</span>
+                <BookOpen className="size-4 text-violet-400" />
+              </button>
+              <button
+                className={cn(
                   "flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 disabled:opacity-40",
                   dark ? "text-violet-300 hover:text-violet-200" : "text-violet-700 hover:text-violet-800",
                 )}
@@ -433,6 +446,7 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
           </div>
         ) : null}
       </section>
+      <ContextGuideDialog open={guideOpen} onClose={() => setGuideOpen(false)} dark={dark} />
     </div>
   );
 }
