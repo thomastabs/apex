@@ -23,6 +23,7 @@ import {
   RefreshCw,
   Sparkles,
   Trash2,
+  Undo2,
   Upload,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -1182,7 +1183,7 @@ function StageC({ storyId }: { storyId: number }) {
                         );
                       }}
                     >
-                      ↩ Restore
+                      <Undo2 className="h-4 w-4" /> Restore
                     </Button>
                   )}
                   {packMd && (
