@@ -21,9 +21,9 @@ vi.mock("@/lib/api/workspace", () => ({ toPmCtx: () => ({ projectId: "7" }) }));
 const pushMock = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: pushMock }) }));
 
-const idleMut = { mutate: vi.fn(), isPending: false };
-const updateStoryMut = { mutate: vi.fn(), isPending: false };
-const setApexStatusMut = { mutate: vi.fn(), isPending: false };
+const idleMut = { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false };
+const updateStoryMut = { mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false };
+const setApexStatusMut = { mutate: vi.fn(), mutateAsync: vi.fn().mockResolvedValue(undefined), isPending: false };
 vi.mock("@/lib/hooks/use-workspace", () => ({
   useBoard: () => ({ data: [EPIC], isLoading: false, refetch: vi.fn() }),
   useDeleteEpic: () => idleMut,
@@ -121,8 +121,8 @@ describe("BoardSection edit dialog", () => {
   });
 
   it("updates Apex status independently even when the PM story save fails (no more silent no-op)", async () => {
-    updateStoryMut.mutate.mockImplementation((_vars, opts) => opts?.onError?.(new Error("network down")));
-    setApexStatusMut.mutate.mockImplementation((_vars, opts) => opts?.onSuccess?.());
+    updateStoryMut.mutateAsync.mockRejectedValueOnce(new Error("network down"));
+    setApexStatusMut.mutateAsync.mockResolvedValueOnce(undefined);
 
     renderBoard();
     fireEvent.click(screen.getByRole("button", { name: /Epics & Stories/i }));
@@ -134,12 +134,9 @@ describe("BoardSection edit dialog", () => {
     fireEvent.change(apexSelect, { target: { value: "deployed" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    expect(setApexStatusMut.mutate).toHaveBeenCalledWith(
-      { storyId: 101, phaseStatus: "deployed" },
-      expect.objectContaining({ onSuccess: expect.any(Function), onError: expect.any(Function) }),
-    );
-    expect(updateStoryMut.mutate).toHaveBeenCalled();
-    expect(toast.success).toHaveBeenCalledWith("Apex status updated.");
-    expect(toast.error).toHaveBeenCalledWith("Failed to save story.");
+    expect(setApexStatusMut.mutateAsync).toHaveBeenCalledWith({ storyId: 101, phaseStatus: "deployed" });
+    await waitFor(() => expect(updateStoryMut.mutateAsync).toHaveBeenCalled());
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Apex status updated."));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Failed to save story."));
   });
 });

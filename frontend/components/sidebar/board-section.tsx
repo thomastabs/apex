@@ -334,7 +334,7 @@ function StoryDialog({ story, drifted = false, regressed = false, trace = null, 
     }
   }, [detail.data]);
 
-  function save() {
+  async function save() {
     const version = detail.data?.version ?? story.version;
     const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
     const apexChanged = apexStatus !== "" && apexStatus !== (phaseQuery.data?.phase_status ?? "");
@@ -342,33 +342,35 @@ function StoryDialog({ story, drifted = false, regressed = false, trace = null, 
     // Apex status lives entirely in the story index — independent of the PM
     // (Taiga/Jira) story fields below, which need a version for optimistic
     // concurrency. Firing it unconditionally means it's never silently
-    // skipped by a missing version or a failed PM save (previously nested
-    // inside the PM update's onSuccess — both had no onError, so either
-    // failure mode looked identical to "nothing happened").
+    // skipped by a missing version or a failed PM save. Awaited here (rather
+    // than fire-and-forget .mutate() + immediate onClose()) because closing
+    // the dialog unmounts it — TanStack Query drops per-call onSuccess/
+    // onError callbacks once the component that called .mutate() is gone, so
+    // the save was completing server-side with zero visible confirmation.
     if (apexChanged) {
-      setApexStatus.mutate(
-        { storyId: story.id, phaseStatus: apexStatus as ApexPhaseStatus },
-        {
-          onSuccess: () => toast.success("Apex status updated."),
-          onError: () => toast.error("Failed to update Apex status."),
-        },
-      );
+      try {
+        await setApexStatus.mutateAsync({ storyId: story.id, phaseStatus: apexStatus as ApexPhaseStatus });
+        toast.success("Apex status updated.");
+      } catch {
+        toast.error("Failed to update Apex status.");
+      }
     }
 
     if (!version) {
       if (!apexChanged) toast.error("Story details haven't loaded yet — try again in a moment.");
-      else onClose();
+      onClose();
       return;
     }
 
-    update.mutate(
-      {
+    try {
+      await update.mutateAsync({
         storyId: story.id,
         version,
         fields: { subject, description, tags, ...(statusId ? { status: statusId } : {}) },
-      },
-      { onError: () => toast.error("Failed to save story.") },
-    );
+      });
+    } catch {
+      toast.error("Failed to save story.");
+    }
     onClose();
   }
 
@@ -566,10 +568,10 @@ function StoryDialog({ story, drifted = false, regressed = false, trace = null, 
         <div className="mt-5 flex gap-3">
           <button
             className="flex-1 rounded bg-violet-700 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-600 disabled:opacity-50"
-            disabled={update.isPending || detail.isLoading || !subject.trim()}
+            disabled={update.isPending || setApexStatus.isPending || detail.isLoading || !subject.trim()}
             onClick={save}
           >
-            {update.isPending ? "Saving…" : detail.isLoading ? "Loading…" : "Save"}
+            {update.isPending || setApexStatus.isPending ? "Saving…" : detail.isLoading ? "Loading…" : "Save"}
           </button>
           <button
             className={cn("flex-1 rounded py-2 text-sm transition-colors", dark ? "bg-neutral-800 text-neutral-300 hover:bg-neutral-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200")}
