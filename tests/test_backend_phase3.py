@@ -416,11 +416,13 @@ def test_generate_proposal_empty_hint_passes_through():
 
 
 def _conflict_index():
-    base = lambda sid, title: {  # noqa: E731
-        "story_id": sid, "epic_id": 1, "title": title, "phase_status": "design_locked",
+    # Different epics: a shared file is only a conflict signal across epics —
+    # same-epic siblings sharing a file (e.g. one router) is expected.
+    base = lambda sid, epic_id, title: {  # noqa: E731
+        "story_id": sid, "epic_id": epic_id, "title": title, "phase_status": "design_locked",
         "has_gherkin": True, "has_proposal": True,
     }
-    return {"1": base(1, "Auth"), "5": base(5, "Profile")}
+    return {"1": base(1, 1, "Auth"), "5": base(5, 2, "Profile")}
 
 
 def _pack_md(files):

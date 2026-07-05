@@ -2217,40 +2217,58 @@ def find_cross_epic_duplicates(stories: list[dict], threshold: float = 0.72) -> 
 def detect_design_conflicts(packs: list[dict]) -> dict[int, dict]:
     """Find cross-story overlaps among saved developer packs (pure, no AI).
 
-    `packs`: [{story_id, task_id, story_title, proposal_md}]. Flags a file or
-    endpoint declared by packs from ≥2 DISTINCT stories (same-story sibling
-    sharing is expected and excluded). Returns {story_id: {reason, files: [...],
-    endpoints: [...], conflicts_with: [story_id,...]}} for each involved story.
+    `packs`: [{story_id, task_id, story_title, epic_id, proposal_md}]. An
+    ENDPOINT collision (two stories declaring the exact same method+path) is
+    always flagged — that's genuinely duplicate work regardless of epic. A
+    merely SHARED FILE is only flagged across DIFFERENT epics: same-epic
+    siblings adding separate endpoints to one shared file (a router, a model
+    module) is the expected, common shape of an epic's stories, not a
+    conflict — flagging it just trained users to ignore the banner. Same-story
+    sibling sharing (same story_id) is excluded either way.
+    Returns {story_id: {reason, files: [...], endpoints: [...],
+    conflicts_with: [story_id,...]}} for each involved story.
     """
     file_owners: dict[str, set[int]] = {}
     endpoint_owners: dict[str, set[int]] = {}
     titles: dict[int, str] = {}
+    epics: dict[int, object] = {}
     for p in packs or []:
         sid = p.get("story_id")
         if sid is None:
             continue
         titles[sid] = p.get("story_title", "") or titles.get(sid, "")
+        if sid not in epics:
+            epics[sid] = p.get("epic_id")
         md = p.get("proposal_md") or ""
         for f in parse_pack_files(md):
             file_owners.setdefault(f, set()).add(sid)
         for method, path in parse_spec_endpoints(md):
             endpoint_owners.setdefault(f"{method} {path}", set()).add(sid)
 
+    def _same_epic(a: int, b: int) -> bool:
+        ea, eb = epics.get(a), epics.get(b)
+        return ea is not None and ea == eb
+
     # story_id -> {files: {artifact: others}, endpoints: {artifact: others}}
     per_story: dict[int, dict] = {}
 
-    def _record(kind: str, artifact: str, owners: set[int]) -> None:
+    def _record(kind: str, artifact: str, owners: set[int], *, cross_epic_only: bool) -> None:
         if len(owners) < 2:
             return
         for sid in owners:
-            others = sorted(o for o in owners if o != sid)
+            others = sorted(
+                o for o in owners
+                if o != sid and not (cross_epic_only and _same_epic(sid, o))
+            )
+            if not others:
+                continue
             entry = per_story.setdefault(sid, {"files": {}, "endpoints": {}})
             entry[kind][artifact] = others
 
     for f, owners in file_owners.items():
-        _record("files", f, owners)
+        _record("files", f, owners, cross_epic_only=True)
     for ep, owners in endpoint_owners.items():
-        _record("endpoints", ep, owners)
+        _record("endpoints", ep, owners, cross_epic_only=False)
 
     out: dict[int, dict] = {}
     for sid, e in per_story.items():

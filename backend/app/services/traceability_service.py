@@ -46,6 +46,7 @@ class TraceabilityService:
             for p in packs:
                 entry = index.get(str(p["story_id"])) or {}
                 p["story_title"] = entry.get("title", "")
+                p["epic_id"] = entry.get("epic_id")
             conflicts = ai_engine.detect_design_conflicts(packs)
         except Exception:
             conflicts = {}

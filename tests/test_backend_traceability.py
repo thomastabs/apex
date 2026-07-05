@@ -116,9 +116,10 @@ def test_conflict_detection_runs_for_real_against_saved_proposals():
     """Regression: build_graph must call load_all_proposals (has proposal_md),
     not list_all_proposals (metadata only) — the latter silently made
     detect_design_conflicts always see empty markdown and never flag anything."""
+    # Different epics: a shared file is only a conflict signal across epics.
     index = {
         "1": {"story_id": 1, "epic_id": 1, "title": "A", "phase_status": "implementation"},
-        "2": {"story_id": 2, "epic_id": 1, "title": "B", "phase_status": "implementation"},
+        "2": {"story_id": 2, "epic_id": 2, "title": "B", "phase_status": "implementation"},
     }
     shared_pack = "## Files to Change\n- `backend/app/api/foo.py`\n"
     g = _graph(index, proposals=[

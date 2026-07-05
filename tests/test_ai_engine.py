@@ -1251,11 +1251,11 @@ class TestMultiModelCrossCheck:
 class TestDesignConflictDetector:
     """Cross-story design-drift detector (pure, no AI)."""
 
-    def _pack(self, sid, tid, files=(), endpoints=(), title=""):
+    def _pack(self, sid, tid, files=(), endpoints=(), title="", epic_id=None):
         files_md = "\n".join(f"- `{f}` — change" for f in files)
         ep_md = "\n".join(f"`{m} {p}`" for m, p in endpoints)
         md = f"## Files to Change\n{files_md}\n\n## Context\n{ep_md}"
-        return {"story_id": sid, "task_id": tid, "story_title": title, "proposal_md": md}
+        return {"story_id": sid, "task_id": tid, "story_title": title, "epic_id": epic_id, "proposal_md": md}
 
     def test_parse_pack_files(self):
         import src.ai_engine as ai
@@ -1298,6 +1298,39 @@ class TestDesignConflictDetector:
             self._pack(2, 1, files=["b.py"]),
         ]
         assert ai.detect_design_conflicts(packs) == {}
+
+    def test_same_epic_shared_file_not_flagged(self):
+        # Sibling stories in the same epic commonly add separate endpoints to
+        # one shared file (a router, a model module) — expected, not a
+        # conflict. Found via a real false positive: two "Student Profiling"
+        # epic stories both touching profiling.py, each adding its own
+        # distinct endpoint.
+        import src.ai_engine as ai
+        packs = [
+            self._pack(1, 1, files=["api/profiling.py"], title="Interests", epic_id=361769),
+            self._pack(2, 1, files=["api/profiling.py"], title="Strengths", epic_id=361769),
+        ]
+        assert ai.detect_design_conflicts(packs) == {}
+
+    def test_cross_epic_shared_file_still_flagged(self):
+        import src.ai_engine as ai
+        packs = [
+            self._pack(1, 1, files=["api/profiling.py"], title="Interests", epic_id=361769),
+            self._pack(2, 1, files=["api/profiling.py"], title="Billing", epic_id=999),
+        ]
+        c = ai.detect_design_conflicts(packs)
+        assert set(c) == {1, 2}
+
+    def test_same_epic_duplicate_endpoint_still_flagged(self):
+        # An endpoint collision is real duplicate work regardless of epic.
+        import src.ai_engine as ai
+        packs = [
+            self._pack(1, 1, endpoints=[("POST", "/api/orders")], epic_id=5),
+            self._pack(2, 1, endpoints=[("POST", "/api/orders")], epic_id=5),
+        ]
+        c = ai.detect_design_conflicts(packs)
+        assert set(c) == {1, 2}
+        assert "POST /api/orders" in c[1]["endpoints"]
 
 
 class TestBackwardTrace:
