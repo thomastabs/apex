@@ -5,6 +5,7 @@ import { Download, Eye, Loader2, Pencil, Rocket, Save, Trash2, X } from "lucide-
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { downloadZip } from "@/lib/utils/zip";
 import { deleteDeployPack, getDeployPack, listDeployPacks, saveDeployPack } from "@/lib/api/phase5";
 import { useEscapeKey } from "@/lib/hooks/use-escape-key";
 import { useAutoSyncStoryIndex } from "@/lib/hooks/use-workspace";
@@ -67,6 +68,15 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
     onError: (err: Error) => toast.error(`Download failed: ${err.message}`),
   });
 
+  const downloadAllMut = useMutation({
+    mutationFn: async () => {
+      const contents = await Promise.all(packs.map((p) => fetchPackContent(p.story_id)));
+      return contents.map((content, i) => ({ filename: `deploy_pack_story_${packs[i].story_id}.md`, content }));
+    },
+    onSuccess: (files) => downloadZip(files, "apex-deploy-packs.zip"),
+    onError: (err: Error) => toast.error(`Download failed: ${err.message}`),
+  });
+
   const saveMut = useMutation({
     mutationFn: ({ storyId, md }: { storyId: number; md: string }) => saveDeployPack(context!, storyId, md),
     onSuccess: (_, { storyId, md }) => {
@@ -125,6 +135,18 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
                 No deploy packs saved. Phase 5 writes one per story with an infra delta.
               </p>
             ) : (
+              <>
+              <button
+                className={cn(
+                  "mb-2 flex h-8 w-full items-center justify-center gap-1.5 rounded border text-xs font-medium transition-colors disabled:opacity-50",
+                  dark ? "border-neutral-700 text-neutral-300 hover:border-violet-500/60 hover:text-violet-300" : "border-slate-300 text-slate-600 hover:border-violet-400 hover:text-violet-700",
+                )}
+                disabled={downloadAllMut.isPending}
+                onClick={() => downloadAllMut.mutate()}
+              >
+                {downloadAllMut.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+                Download all as zip
+              </button>
               <ul className={cn("divide-y rounded border", dark ? "divide-neutral-800 border-neutral-800" : "divide-slate-100 border-slate-200")}>
                 {packs.map((p) => (
                   <li key={p.story_id} className="flex items-center gap-2 px-2.5 py-1.5">
@@ -172,6 +194,7 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
                   </li>
                 ))}
               </ul>
+              </>
             )}
           </div>
         ) : null}

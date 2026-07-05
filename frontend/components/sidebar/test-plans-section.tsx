@@ -5,6 +5,7 @@ import { ClipboardCheck, Download, Eye, Loader2, Pencil, Save, Trash2, X } from 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { downloadZip } from "@/lib/utils/zip";
 import { useEscapeKey } from "@/lib/hooks/use-escape-key";
 import { deleteTestPlan, getTestPlan, listTestPlans, saveTestPlan } from "@/lib/api/phase4";
 import { useAutoSyncStoryIndex } from "@/lib/hooks/use-workspace";
@@ -67,6 +68,15 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
     onError: (err: Error) => toast.error(`Download failed: ${err.message}`),
   });
 
+  const downloadAllMut = useMutation({
+    mutationFn: async () => {
+      const contents = await Promise.all(plans.map((p) => fetchPlanContent(p.story_id)));
+      return contents.map((content, i) => ({ filename: `test_plan_story_${plans[i].story_id}.md`, content }));
+    },
+    onSuccess: (files) => downloadZip(files, "apex-test-plans.zip"),
+    onError: (err: Error) => toast.error(`Download failed: ${err.message}`),
+  });
+
   const saveMut = useMutation({
     mutationFn: ({ storyId, md }: { storyId: number; md: string }) => saveTestPlan(context!, storyId, md),
     onSuccess: (_, { storyId, md }) => {
@@ -125,6 +135,18 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
                 No test plans saved. Phase 4 writes one per story.
               </p>
             ) : (
+              <>
+              <button
+                className={cn(
+                  "mb-2 flex h-8 w-full items-center justify-center gap-1.5 rounded border text-xs font-medium transition-colors disabled:opacity-50",
+                  dark ? "border-neutral-700 text-neutral-300 hover:border-violet-500/60 hover:text-violet-300" : "border-slate-300 text-slate-600 hover:border-violet-400 hover:text-violet-700",
+                )}
+                disabled={downloadAllMut.isPending}
+                onClick={() => downloadAllMut.mutate()}
+              >
+                {downloadAllMut.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+                Download all as zip
+              </button>
               <ul className={cn("divide-y rounded border", dark ? "divide-neutral-800 border-neutral-800" : "divide-slate-100 border-slate-200")}>
                 {plans.map((p) => (
                   <li key={p.story_id} className="flex items-center gap-2 px-2.5 py-1.5">
@@ -172,6 +194,7 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
                   </li>
                 ))}
               </ul>
+              </>
             )}
           </div>
         ) : null}
