@@ -163,7 +163,13 @@ async def github_push_webhook(
     # story_ids being non-empty, so this check runs before that branch, not after.
     cache_key = (instance_id, project_id)
     now = time.monotonic()
-    if now - _last_run.get(cache_key, 0.0) < _COOLDOWN_SECONDS:
+    last = _last_run.get(cache_key)
+    # Presence-based, not a 0.0 default: time.monotonic()'s epoch is undefined
+    # (often since-boot on Linux) — on a freshly-booted host with uptime under
+    # _COOLDOWN_SECONDS, `now - 0.0 < _COOLDOWN_SECONDS` would be true even for
+    # a cache_key that has never run, falsely reporting "cooldown" on the very
+    # first push.
+    if last is not None and now - last < _COOLDOWN_SECONDS:
         return {"ok": True, "matched_stories": story_ids, "skipped": "cooldown"}
     _last_run[cache_key] = now
 
