@@ -54,6 +54,9 @@ class TestCloneAndPack:
         md = gf.clone_and_pack("ghp_test_pat_value", "acme", "widgets", "main")
         assert "real file contents here" in md
         assert len(fake_run.calls) == 2  # clone, then pack
+        # Default pack is full function bodies — --compress is a fallback
+        # only, not used when the pack fits the budget on the first try.
+        assert "--compress" not in fake_run.calls[1]["args"]
 
     def test_clone_auth_failure_maps_to_401(self, monkeypatch):
         fake_run = _fake_run_factory(clone_returncode=128, clone_stderr="fatal: Authentication failed for 'https://github.com/...'")
@@ -86,9 +89,38 @@ class TestCloneAndPack:
         # repomix must never have been invoked once the size cap rejected the clone
         assert len(fake_run.calls) == 1
 
-    def test_repomix_token_budget_exceeded(self, monkeypatch):
+    def test_repomix_falls_back_to_compress_when_full_pack_exceeds_budget(self, monkeypatch):
+        # First (uncompressed) attempt fails with a budget error; the
+        # compressed retry succeeds — must return the compressed content,
+        # not raise, and the second call must carry --compress.
+        calls = {"n": 0}
+
+        def _run(args, **kw):
+            bin_name = Path(args[0]).name
+            if bin_name == gf._GIT_BIN or args[0] == gf._GIT_BIN:
+                dest = Path(args[-1])
+                dest.mkdir(parents=True, exist_ok=True)
+                (dest / "README.md").write_text("hi")
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            calls["n"] += 1
+            out_idx = args.index("-o") + 1
+            out_path = Path(args[out_idx])
+            if calls["n"] == 1:
+                assert "--compress" not in args
+                return subprocess.CompletedProcess(args, 1, stdout="Error: token budget exceeded", stderr="")
+            assert "--compress" in args
+            out_path.write_text("# compressed fallback content")
+            return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+        monkeypatch.setattr(gf.subprocess, "run", _run)
+        md = gf.clone_and_pack("pat", "acme", "widgets", "main")
+        assert md == "# compressed fallback content"
+        assert calls["n"] == 2
+
+    def test_repomix_token_budget_exceeded_even_compressed(self, monkeypatch):
         fake_run = _fake_run_factory(repomix_returncode=1)
-        # Simulate repomix's stderr mentioning the budget in its failure message.
+        # Simulate repomix's stderr mentioning the budget on BOTH attempts —
+        # even the compressed fallback doesn't fit.
         def _fake_run_with_budget_error(args, **kw):
             result = fake_run(args, **kw)
             if Path(args[0]).name == gf._REPOMIX_BIN or args[0] == gf._REPOMIX_BIN:
@@ -96,14 +128,18 @@ class TestCloneAndPack:
             return result
 
         monkeypatch.setattr(gf.subprocess, "run", _fake_run_with_budget_error)
-        with pytest.raises(gf.GithubFetchError, match="token budget"):
+        with pytest.raises(gf.GithubFetchError, match="even compressed"):
             gf.clone_and_pack("pat", "acme", "widgets", "main")
+        # clone + uncompressed attempt + compressed retry
+        assert len(fake_run.calls) == 3
 
     def test_repomix_generic_failure(self, monkeypatch):
         fake_run = _fake_run_factory(repomix_returncode=1)
         monkeypatch.setattr(gf.subprocess, "run", fake_run)
         with pytest.raises(gf.GithubFetchError, match="repomix failed"):
             gf.clone_and_pack("pat", "acme", "widgets", "main")
+        # A non-budget repomix failure must not retry — only clone + 1 pack attempt.
+        assert len(fake_run.calls) == 2
 
     def test_repomix_timeout_raises_clean_error(self, monkeypatch):
         calls = {"n": 0}

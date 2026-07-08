@@ -4,11 +4,19 @@ Clones the configured repo (server-side PAT, auth passed via GIT_CONFIG_*
 env vars so the token never appears in argv or a URL) into a scoped temp
 dir, then packs it with the pinned `repomix` CLI (the real tool:
 https://github.com/yamadashy/repomix) rather than a from-scratch walker —
-gets its mature .gitignore/ignore-glob handling and --compress signature
-extraction for free. We do the clone ourselves (not repomix's own --remote
-mode, whose private-repo auth story is undocumented and which silently
-falls back to treating an unreachable remote as a local path) so we keep
-full control over auth, size limits, and timeouts.
+gets its mature .gitignore/ignore-glob handling for free. We do the clone
+ourselves (not repomix's own --remote mode, whose private-repo auth story
+is undocumented and which silently falls back to treating an unreachable
+remote as a local path) so we keep full control over auth, size limits,
+and timeouts.
+
+Packs with REAL function bodies by default, not --compress'd signatures —
+the whole point of moving off the old browser-side tree+README fetch was
+giving Phase 2-6 actual implementation code to reason about, and --compress
+strips exactly that (tree-sitter signature extraction only). `--compress`
+is used only as a fallback: if the full-body pack blows `token_budget`,
+one retry with `--compress` gets *something* useful (signatures/structure)
+instead of a hard failure.
 
 SSRF-pinned to api.github.com (metadata) and github.com (clone); both hosts
 are hardcoded, never user-supplied, but still pinned for parity with the
@@ -44,9 +52,10 @@ _PACK_TIMEOUT = 180.0
 _MAX_CLONE_BYTES = 200_000_000
 
 # Repomix's own hard ceiling on packed output (fails fast rather than
-# silently truncating). A judgment-call starting point — tune against real
-# repos, not a validated number.
-_DEFAULT_TOKEN_BUDGET = 45_000
+# silently truncating). Higher than a signature-only pack would need, since
+# the default pack now carries full function bodies. A judgment-call
+# starting point — tune against real repos, not a validated number.
+_DEFAULT_TOKEN_BUDGET = 120_000
 
 # Same exclude set as the browser-side tree fetch this replaces
 # (frontend/lib/api/github-browser.ts), for parity.
@@ -202,33 +211,50 @@ def clone_and_pack(
         _strip_repomix_configs(dest)
 
         output_path = Path(tmp) / "repomix-output.md"
-        try:
-            result = subprocess.run(
-                [
-                    _REPOMIX_BIN, str(dest),
-                    "--style", "markdown",
-                    "--compress",
-                    "--ignore", _IGNORE_GLOBS,
-                    "--token-budget", str(token_budget),
-                    "-o", str(output_path),
-                ],
-                cwd=str(dest),
-                timeout=_PACK_TIMEOUT,
-                capture_output=True,
-                text=True,
-            )
-        except subprocess.TimeoutExpired as exc:
-            raise GithubFetchError("Timed out packing the repository.") from exc
+        result = _run_repomix(dest, output_path, token_budget, compress=False)
         if result.returncode != 0:
-            combined = f"{result.stdout or ''}\n{result.stderr or ''}".lower()
-            if "token" in combined and "budget" in combined:
-                raise GithubFetchError(
-                    "Repository is too large to pack within the token budget — "
-                    "narrow the ignore patterns or raise the budget."
-                )
-            trimmed = (result.stderr or result.stdout or "").strip()[-2000:]
-            raise GithubFetchError(f"repomix failed: {trimmed or 'unknown error'}")
+            if not _is_token_budget_error(result):
+                trimmed = (result.stderr or result.stdout or "").strip()[-2000:]
+                raise GithubFetchError(f"repomix failed: {trimmed or 'unknown error'}")
+            # Full-body pack blew the budget — retry compressed (signatures/
+            # structure only) rather than failing outright; still more useful
+            # than nothing, and closer to what fit in the old ~14KB tree+README.
+            _logger.info("github_fetch token budget exceeded, retrying with --compress")
+            result = _run_repomix(dest, output_path, token_budget, compress=True)
+            if result.returncode != 0:
+                if _is_token_budget_error(result):
+                    raise GithubFetchError(
+                        "Repository is too large to pack even compressed — "
+                        "narrow the ignore patterns or raise the token budget."
+                    )
+                trimmed = (result.stderr or result.stdout or "").strip()[-2000:]
+                raise GithubFetchError(f"repomix failed: {trimmed or 'unknown error'}")
 
         if not output_path.exists():
             raise GithubFetchError("repomix did not produce an output file.")
         return output_path.read_text(encoding="utf-8")
+
+
+def _is_token_budget_error(result: subprocess.CompletedProcess) -> bool:
+    combined = f"{result.stdout or ''}\n{result.stderr or ''}".lower()
+    return "token" in combined and "budget" in combined
+
+
+def _run_repomix(
+    dest: Path, output_path: Path, token_budget: int, compress: bool
+) -> subprocess.CompletedProcess:
+    args = [
+        _REPOMIX_BIN, str(dest),
+        "--style", "markdown",
+        "--ignore", _IGNORE_GLOBS,
+        "--token-budget", str(token_budget),
+        "-o", str(output_path),
+    ]
+    if compress:
+        args.insert(3, "--compress")
+    try:
+        return subprocess.run(
+            args, cwd=str(dest), timeout=_PACK_TIMEOUT, capture_output=True, text=True,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise GithubFetchError("Timed out packing the repository.") from exc
