@@ -582,6 +582,100 @@ def get_or_create_instance_github_webhook_secret() -> str:
     return secret
 
 
+# ── Per-project GitHub config (github_repo / github_pat) ───────────────────────
+# Was instance-scoped above (github_repo/github_pat) — every project under one
+# PM tenant silently shared the same GitHub connection. Moved here to be
+# per-project, inside each project's own dir (via _context_dir), dot-prefixed so
+# it never shows up in the generic context-files UI. The webhook SECRET stays
+# instance-scoped (its URL already embeds project_id, so it isn't the same
+# leakage bug, and moving it would invalidate every already-configured GitHub
+# webhook). Figma's token also stays instance-scoped — out of scope here.
+_PROJECT_GITHUB_CONFIG_FILE = ".project-github-config.json"
+
+
+def _project_github_config_path(project_id: int | None = None) -> Path:
+    return _context_dir(project_id) / _PROJECT_GITHUB_CONFIG_FILE
+
+
+def _write_project_github_config(data: dict, project_id: int | None = None) -> None:
+    p = _project_github_config_path(project_id)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def _migrate_instance_github_config_once(project_id: int | None = None) -> dict:
+    """One-time migration for the single project that was active when GitHub
+    config moved from instance-scoped to project-scoped: it inherits whatever
+    was connected instance-wide. Every other project has no way to know which
+    project an instance-wide connection "belonged" to, so no guess is made —
+    they start disconnected. Runs at most once per project: this always writes
+    the per-project file (even {} when there's nothing to migrate), so later
+    reads see the file already exists and skip straight past this."""
+    pid = project_id if project_id is not None else _get_project_id()
+    last_active = load_config().get("project_id")
+    data: dict = {}
+    if last_active is not None and pid is not None and int(last_active) == int(pid):
+        repo = get_instance_github_repo()
+        if repo:
+            data["github_repo"] = repo
+        pat = get_instance_github_pat()
+        if pat:
+            from src import ai_key_store
+            try:
+                data["github_pat_encrypted"] = ai_key_store.encrypt_value(pat)
+            except RuntimeError:
+                pass  # encryption unavailable — migrate the repo only
+    _write_project_github_config(data, project_id)
+    return data
+
+
+def _project_github_data(project_id: int | None = None) -> dict:
+    p = _project_github_config_path(project_id)
+    if not p.exists():
+        return _migrate_instance_github_config_once(project_id)
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def get_project_github_repo(project_id: int | None = None) -> str:
+    repo = _project_github_data(project_id).get("github_repo")
+    return repo if isinstance(repo, str) else ""
+
+
+def save_project_github_repo(repo: str | None, project_id: int | None = None) -> None:
+    if repo is None:
+        return
+    data = _project_github_data(project_id)
+    data["github_repo"] = repo or ""
+    _write_project_github_config(data, project_id)
+
+
+def save_project_github_pat(pat: str | None, project_id: int | None = None) -> None:
+    from src import ai_key_store
+
+    data = _project_github_data(project_id)
+    if not pat:
+        data.pop("github_pat_encrypted", None)
+    else:
+        data["github_pat_encrypted"] = ai_key_store.encrypt_value(pat)
+    _write_project_github_config(data, project_id)
+
+
+def get_project_github_pat(project_id: int | None = None) -> str:
+    from src import ai_key_store
+
+    token = _project_github_data(project_id).get("github_pat_encrypted")
+    if not isinstance(token, str) or not token:
+        return ""
+    return ai_key_store.decrypt_value(token) or ""
+
+
+def has_project_github_pat(project_id: int | None = None) -> bool:
+    return bool(_project_github_data(project_id).get("github_pat_encrypted"))
+
+
 def get_instance_figma_file_key() -> str:
     """Figma file key for the active instance (the linked Figma design file)."""
     p = _instance_dir() / _INSTANCE_CONFIG_FILE

@@ -68,6 +68,45 @@ class TestSignatureAuth:
         assert resp.json()["ignored"] == "ping"
 
 
+class TestRepoMismatchIsProjectScoped:
+    """github_repo is per-project now — the mismatch check must read the repo
+    configured for THIS push's project_id, not some other project active from
+    a prior request on this worker. Regression test for the set_project-before-
+    github_repo() ordering fix in github_push_webhook."""
+
+    def test_mismatch_check_uses_this_projects_repo_not_a_different_ones(self, client, monkeypatch):
+        from backend.app.services.context_service import ContextService
+
+        instance_id = "test_instance_repo_scope"
+        monkeypatch.setattr(gw, "_run_repack", lambda iid, pid: None)
+        monkeypatch.setattr(gw, "_run_scan", lambda iid, pid, sids: None)
+        monkeypatch.setattr(gw, "_matched_story_ids", lambda context, touched: [])
+
+        def fake_github_repo(self):
+            # Project 42 is configured for "acme/widgets"; any other project
+            # (e.g. 99) is configured for something else entirely.
+            pid = ContextService().active_project_id()
+            return "acme/widgets" if pid == 42 else "someone-else/other-repo"
+
+        monkeypatch.setattr(ContextService, "github_repo", fake_github_repo)
+
+        secret = _secret_for(instance_id)
+        body = json.dumps(_push_payload(repo_full_name="acme/widgets")).encode()
+        headers = {"X-Hub-Signature-256": _sign(secret, body), "X-GitHub-Event": "push"}
+
+        # Push claims to be for "acme/widgets" against project 42's URL — repo
+        # matches project 42's config, must NOT be flagged as a mismatch.
+        resp = client.post(f"/api/webhooks/github/{instance_id}/42", content=body, headers=headers)
+        assert "ignored" not in resp.json()
+
+        # Same repo claim against project 99's URL — project 99 is configured
+        # for a DIFFERENT repo, so this must be flagged as a mismatch. (Before
+        # the ordering fix, github_repo() was read before set_project() ran,
+        # so this would have wrongly reused whatever project was last active.)
+        resp2 = client.post(f"/api/webhooks/github/{instance_id}/99", content=body, headers=headers)
+        assert resp2.json().get("ignored", "").startswith("repo mismatch")
+
+
 class TestRepackAndScanOrchestration:
     def test_repack_scheduled_on_every_push_even_with_no_matched_stories(self, client, monkeypatch):
         instance_id = "test_instance_repack_only"

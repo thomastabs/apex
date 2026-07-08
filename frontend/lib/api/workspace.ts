@@ -35,18 +35,22 @@ export type ServerConfig = {
   figma_token_configured: boolean;
 };
 
-export function saveGithubConfig(context: AuthContext, repo: string, pat?: string) {
+/** github_repo/github_pat are per-project — projectId is required to save them
+ * (the backend 400s otherwise; there's no instance-wide slot to fall back to). */
+export function saveGithubConfig(context: AuthContext, repo: string, projectId: number, pat?: string) {
   return apiRequest<{ ok: boolean }>("/api/workspace/config", {
     method: "POST",
     context,
-    body: { github_repo: repo, ...(pat !== undefined ? { github_pat: pat } : {}) },
+    body: { github_repo: repo, project_id: projectId, ...(pat !== undefined ? { github_pat: pat } : {}) },
   });
 }
 
 /** Decrypted PAT saved server-side, for restoring the browser-direct GitHub
- * session on load — never part of the general config response. */
-export function getGithubPat(context: AuthContext) {
-  return apiRequest<{ pat: string }>("/api/workspace/github-pat", { context });
+ * session on load — never part of the general config response. github_pat is
+ * per-project; omitting projectId returns "" (nothing to restore yet). */
+export function getGithubPat(context: AuthContext, projectId?: number | null) {
+  const qs = projectId != null ? `?project_id=${projectId}` : "";
+  return apiRequest<{ pat: string }>(`/api/workspace/github-pat${qs}`, { context });
 }
 
 export type GithubWebhookConfig = {
@@ -55,8 +59,9 @@ export type GithubWebhookConfig = {
   configured: boolean;
 };
 
-export function getGithubWebhookConfig(context: AuthContext) {
-  return apiRequest<GithubWebhookConfig>("/api/workspace/github-webhook", { context });
+export function getGithubWebhookConfig(context: AuthContext, projectId?: number | null) {
+  const qs = projectId != null ? `?project_id=${projectId}` : "";
+  return apiRequest<GithubWebhookConfig>(`/api/workspace/github-webhook${qs}`, { context });
 }
 
 export type GithubSyncStatus = {
@@ -82,8 +87,11 @@ export function getFigmaToken(context: AuthContext) {
   return apiRequest<{ token: string }>("/api/workspace/figma-token", { context });
 }
 
-export function getServerConfig(context: AuthContext) {
-  return apiRequest<ServerConfig>("/api/workspace/config", { context });
+/** github_repo/github_pat_configured in the response are per-project — omitting
+ * projectId returns them empty/false (no project selected, nothing to report). */
+export function getServerConfig(context: AuthContext, projectId?: number | null) {
+  const qs = projectId != null ? `?project_id=${projectId}` : "";
+  return apiRequest<ServerConfig>(`/api/workspace/config${qs}`, { context });
 }
 
 export type AiConfigResponse = {

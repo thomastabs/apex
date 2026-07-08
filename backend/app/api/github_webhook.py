@@ -146,6 +146,12 @@ async def github_push_webhook(
     except json.JSONDecodeError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON payload.")
 
+    # github_repo is per-project — the project must be active BEFORE reading it,
+    # not after (it used to be read here while only the instance was set, back
+    # when github_repo was itself instance-scoped; now that would silently read
+    # some other project's repo, or none).
+    context.set_project(project_id)
+
     configured_repo = context.github_repo().strip()
     pushed_repo = ((payload.get("repository") or {}).get("full_name") or "").strip()
     if configured_repo and pushed_repo and configured_repo != pushed_repo:
@@ -153,7 +159,6 @@ async def github_push_webhook(
         # the same secret accidentally being reused across a second repo.
         return {"ok": True, "ignored": f"repo mismatch ({pushed_repo} != {configured_repo})"}
 
-    context.set_project(project_id)
     context.record_github_push()
     touched = _touched_files(payload)
     story_ids = _matched_story_ids(context, touched)

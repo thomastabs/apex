@@ -68,6 +68,7 @@ _ALLOWED_CONTEXT_FILES = {filename for filename, _ in _CONTEXT_FILES}
 def get_config(
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+    project_id: int | None = None,
 ):
     from src import context_manager, taiga_adapter
     config = context_manager.load_config()
@@ -77,16 +78,24 @@ def get_config(
         pm_web_url = jira_adapter.get_web_base_url(config.get("jira_base_url", ""))
     else:
         pm_web_url = taiga_adapter.get_web_base_url()
-    # github_repo is per-instance (see context_manager); anchor it on the request.
     context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
+    # github_repo/github_pat are per-project — no project_id means no project is
+    # selected yet, so there's nothing to scope the read to; report disconnected
+    # rather than falling back to some other project's connection.
+    github_repo = ""
+    github_pat_configured = False
+    if project_id is not None:
+        context_manager.set_active_project(project_id)
+        github_repo = context_manager.get_project_github_repo(project_id)
+        github_pat_configured = context_manager.has_project_github_pat(project_id)
     return {
         "project_id": config.get("project_id"),
         "taiga_web_url": pm_web_url,
         "pm_tool": pm_tool,
         "pm_web_url": pm_web_url,
-        "github_repo": context_manager.get_instance_github_repo(),
+        "github_repo": github_repo,
         "figma_file_key": context_manager.get_instance_figma_file_key(),
-        "github_pat_configured": context_manager.has_instance_github_pat(),
+        "github_pat_configured": github_pat_configured,
         "figma_token_configured": context_manager.has_instance_figma_token(),
     }
 
@@ -225,10 +234,15 @@ def save_config(
             jira_base_url=payload.jira_base_url,
             taiga_url=payload.taiga_url,
         )
+    if (payload.github_repo is not None or payload.github_pat is not None) and payload.project_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="project_id required to save GitHub config (per-project, not per-instance).",
+        )
     if payload.github_repo is not None:
-        # Per-instance: the repo belongs to the Taiga instance this request is for.
         context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
-        context_manager.save_instance_github_repo(payload.github_repo)
+        context_manager.set_active_project(payload.project_id)
+        context_manager.save_project_github_repo(payload.github_repo)
     if payload.figma_file_key is not None:
         # Per-instance: the Figma file belongs to the Taiga instance this request is for.
         context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
@@ -240,8 +254,9 @@ def save_config(
     # succeed regardless of whether server-side persistence is available.
     if payload.github_pat is not None:
         context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
+        context_manager.set_active_project(payload.project_id)
         try:
-            context_manager.save_instance_github_pat(payload.github_pat)
+            context_manager.save_project_github_pat(payload.github_pat)
         except RuntimeError as exc:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     if payload.figma_token is not None:
@@ -257,13 +272,18 @@ def save_config(
 def get_github_pat(
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+    project_id: int | None = None,
 ):
     """Dedicated reveal endpoint — the decrypted PAT, for the client to restore
     its browser-direct GitHub session on load. Deliberately NOT part of the
-    general /config response (called once on restore, not on every poll)."""
+    general /config response (called once on restore, not on every poll).
+    github_pat is per-project; no project_id means nothing to restore yet."""
     from src import context_manager
+    if project_id is None:
+        return {"pat": ""}
     context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
-    return {"pat": context_manager.get_instance_github_pat()}
+    context_manager.set_active_project(project_id)
+    return {"pat": context_manager.get_project_github_pat(project_id)}
 
 
 @router.get("/figma-token", response_model=FigmaTokenResponse)
@@ -281,18 +301,27 @@ def get_figma_token(
 def get_github_webhook_config(
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+    project_id: int | None = None,
 ):
     """Secret + instance id for wiring up POST /api/webhooks/github/{instance_id}/{project_id}
     as this instance's GitHub push webhook (auto regression re-scan on push —
     see backend/app/api/github_webhook.py). The frontend builds the full URL
-    with the active project_id, since one instance can have multiple projects."""
+    with the active project_id, since one instance can have multiple projects.
+    The webhook secret itself stays instance-scoped (its URL already embeds
+    project_id, so a shared secret isn't the same leakage bug that github_repo/
+    github_pat had, and rotating it would break every already-configured GitHub
+    webhook) — only the "configured" flag below is project-scoped."""
     from src import context_manager
     instance_id = anchor_instance_id(x_taiga_url)
     context_manager.set_active_instance(instance_id)
+    configured = False
+    if project_id is not None:
+        context_manager.set_active_project(project_id)
+        configured = bool(context_manager.get_project_github_repo(project_id).strip())
     return {
         "instance_id": instance_id,
         "secret": context_manager.get_or_create_instance_github_webhook_secret(),
-        "configured": bool(context_manager.get_instance_github_repo().strip()),
+        "configured": configured,
     }
 
 

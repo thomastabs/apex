@@ -68,9 +68,13 @@ export function useMe() {
 
 export function useServerConfig() {
   const auth = useAuthContext();
+  const ctx = useApiContext();
   return useQuery({
-    queryKey: ["workspace", "server-config"],
-    queryFn: () => getServerConfig(auth!),
+    // github_repo/github_pat_configured are per-project now — key on projectId
+    // so switching projects actually refetches instead of reusing a stale
+    // cached response from whichever project was active before.
+    queryKey: ["workspace", "server-config", ctx?.projectId],
+    queryFn: () => getServerConfig(auth!, ctx?.projectId),
     enabled: Boolean(auth),
     staleTime: Infinity,
   });
@@ -592,11 +596,17 @@ export function useUsageSummary(days = 30) {
   });
 }
 
+/** github_repo/github_pat are per-project — saves into whichever project is
+ * currently active (there's no other project to reasonably guess). */
 export function useSaveGithubConfig() {
   const auth = useAuthContext();
+  const ctx = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ repo, pat }: { repo: string; pat?: string }) => saveGithubConfig(auth!, repo, pat),
+    mutationFn: ({ repo, pat }: { repo: string; pat?: string }) => {
+      if (!ctx?.projectId) throw new Error("No project selected.");
+      return saveGithubConfig(auth!, repo, ctx.projectId, pat);
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "server-config"] });
     },
@@ -606,12 +616,14 @@ export function useSaveGithubConfig() {
 /** One-shot restore fetch — the decrypted PAT saved server-side, so the
  * browser-direct GitHub session doesn't need retyping every tab/session.
  * `enabled` should gate this on "server says configured, session has none yet"
- * so it's fetched once, not polled. */
+ * so it's fetched once, not polled. Per-project — keyed + parameterized on
+ * projectId so switching projects restores the RIGHT project's PAT. */
 export function useGithubPat(enabled: boolean) {
   const auth = useAuthContext();
+  const ctx = useApiContext();
   return useQuery({
-    queryKey: ["workspace", "github-pat"],
-    queryFn: () => getGithubPat(auth!),
+    queryKey: ["workspace", "github-pat", ctx?.projectId],
+    queryFn: () => getGithubPat(auth!, ctx?.projectId),
     enabled: Boolean(auth) && enabled,
     staleTime: Infinity,
   });
@@ -619,9 +631,10 @@ export function useGithubPat(enabled: boolean) {
 
 export function useGithubWebhookConfig(enabled: boolean) {
   const auth = useAuthContext();
+  const ctx = useApiContext();
   return useQuery({
-    queryKey: ["workspace", "github-webhook"],
-    queryFn: () => getGithubWebhookConfig(auth!),
+    queryKey: ["workspace", "github-webhook", ctx?.projectId],
+    queryFn: () => getGithubWebhookConfig(auth!, ctx?.projectId),
     enabled: Boolean(auth) && enabled,
     staleTime: 60 * 1000,
   });

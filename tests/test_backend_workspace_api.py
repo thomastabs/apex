@@ -155,11 +155,12 @@ def test_get_config_taiga_uses_taiga_web_url(monkeypatch):
         lambda: {"project_id": 42, "pm_tool": "taiga", "github_repo": "owner/repo"},
     )
     monkeypatch.setattr("src.taiga_adapter.get_web_base_url", lambda: "https://taiga.example")
-    # github_repo / figma_file_key are per-instance now — stub the instance lookups.
-    monkeypatch.setattr("src.context_manager.get_instance_github_repo", lambda: "owner/repo")
+    # github_repo is per-project now (figma_file_key stays per-instance) — stub
+    # the project-scoped lookup, passing project_id through the route call.
+    monkeypatch.setattr("src.context_manager.get_project_github_repo", lambda pid: "owner/repo")
     monkeypatch.setattr("src.context_manager.get_instance_figma_file_key", lambda: "FIGKEY")
 
-    response = get_config(_AUTH)
+    response = get_config(_AUTH, project_id=42)
 
     assert response == {
         "project_id": 42,
@@ -344,12 +345,13 @@ def test_delete_ai_key_without_account_id_is_a_noop(monkeypatch):
 # ── save_config ─────────────────────────────────────────────────────────────
 
 
-def test_save_config_persists_project_and_per_instance_github(monkeypatch):
+def test_save_config_persists_project_and_per_project_github(monkeypatch):
     calls: list[tuple] = []
     monkeypatch.setattr("src.context_manager.save_config", lambda pid: calls.append(("project", pid)))
-    # github_repo is now saved per-instance (not the legacy global save_github_config).
+    monkeypatch.setattr("src.context_manager.set_active_project", lambda pid: None)
+    # github_repo is per-project now (not the legacy per-instance/global storage).
     monkeypatch.setattr(
-        "src.context_manager.save_instance_github_repo", lambda repo: calls.append(("github", repo))
+        "src.context_manager.save_project_github_repo", lambda repo: calls.append(("github", repo))
     )
 
     response = save_config(
@@ -360,17 +362,28 @@ def test_save_config_persists_project_and_per_instance_github(monkeypatch):
     assert calls == [("project", 42), ("github", "owner/repo")]
 
 
+def test_save_config_requires_project_id_for_github_fields(monkeypatch):
+    with pytest.raises(HTTPException) as exc_info:
+        save_config(SaveConfigRequest(github_repo="owner/repo"), _AUTH)
+    assert exc_info.value.status_code == 400
+
+    with pytest.raises(HTTPException) as exc_info:
+        save_config(SaveConfigRequest(github_pat="ghp_abc123"), _AUTH)
+    assert exc_info.value.status_code == 400
+
+
 def test_save_config_persists_github_pat_and_figma_token(monkeypatch):
     calls: list[tuple] = []
+    monkeypatch.setattr("src.context_manager.set_active_project", lambda pid: None)
     monkeypatch.setattr(
-        "src.context_manager.save_instance_github_pat", lambda pat: calls.append(("github_pat", pat))
+        "src.context_manager.save_project_github_pat", lambda pat: calls.append(("github_pat", pat))
     )
     monkeypatch.setattr(
         "src.context_manager.save_instance_figma_token", lambda token: calls.append(("figma_token", token))
     )
 
     response = save_config(
-        SaveConfigRequest(github_pat="ghp_abc123", figma_token="figd_xyz789"), _AUTH
+        SaveConfigRequest(project_id=42, github_pat="ghp_abc123", figma_token="figd_xyz789"), _AUTH
     )
 
     assert response == {"ok": True}
@@ -394,10 +407,11 @@ def test_save_config_github_pat_encryption_unset_returns_503_not_500(monkeypatch
     def _boom(pat):
         raise RuntimeError("AI_KEY_ENCRYPTION_SECRET is not configured on this deployment.")
 
-    monkeypatch.setattr("src.context_manager.save_instance_github_pat", _boom)
+    monkeypatch.setattr("src.context_manager.set_active_project", lambda pid: None)
+    monkeypatch.setattr("src.context_manager.save_project_github_pat", _boom)
 
     with pytest.raises(HTTPException) as exc_info:
-        save_config(SaveConfigRequest(github_pat="ghp_abc123"), _AUTH)
+        save_config(SaveConfigRequest(project_id=42, github_pat="ghp_abc123"), _AUTH)
     assert exc_info.value.status_code == 503
 
 
@@ -415,24 +429,28 @@ def test_save_config_figma_token_encryption_unset_returns_503_not_500(monkeypatc
 def test_get_config_reports_credential_configured_flags(monkeypatch):
     monkeypatch.setattr("src.context_manager.load_config", lambda: {})
     monkeypatch.setattr("src.taiga_adapter.get_web_base_url", lambda: "https://taiga.example")
-    monkeypatch.setattr("src.context_manager.get_instance_github_repo", lambda: "")
+    monkeypatch.setattr("src.context_manager.get_project_github_repo", lambda pid: "")
     monkeypatch.setattr("src.context_manager.get_instance_figma_file_key", lambda: "")
-    monkeypatch.setattr("src.context_manager.has_instance_github_pat", lambda: True)
+    monkeypatch.setattr("src.context_manager.has_project_github_pat", lambda pid: True)
     monkeypatch.setattr("src.context_manager.has_instance_figma_token", lambda: False)
 
-    response = get_config(_AUTH)
+    response = get_config(_AUTH, project_id=42)
 
     assert response["github_pat_configured"] is True
     assert response["figma_token_configured"] is False
 
 
 def test_get_github_pat_returns_decrypted_value(monkeypatch):
-    monkeypatch.setattr("src.context_manager.get_instance_github_pat", lambda: "ghp_decrypted")
-    assert get_github_pat(_AUTH) == {"pat": "ghp_decrypted"}
+    monkeypatch.setattr("src.context_manager.get_project_github_pat", lambda pid: "ghp_decrypted")
+    assert get_github_pat(_AUTH, project_id=42) == {"pat": "ghp_decrypted"}
 
 
 def test_get_github_pat_empty_when_none_saved(monkeypatch):
-    monkeypatch.setattr("src.context_manager.get_instance_github_pat", lambda: "")
+    monkeypatch.setattr("src.context_manager.get_project_github_pat", lambda pid: "")
+    assert get_github_pat(_AUTH, project_id=42) == {"pat": ""}
+
+
+def test_get_github_pat_empty_when_no_project_selected():
     assert get_github_pat(_AUTH) == {"pat": ""}
 
 

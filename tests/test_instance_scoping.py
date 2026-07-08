@@ -174,6 +174,81 @@ class TestPerInstanceGithub:
         assert ctx.get_instance_figma_file_key() == "FIGKEY"
 
 
+class TestPerProjectGithub:
+    """github_repo/github_pat moved from per-instance to per-project — connecting
+    GitHub on one project must not silently connect it on every other project
+    under the same PM instance. The webhook secret stays per-instance (out of
+    scope — see context_manager.py's per-project GitHub section docstring)."""
+
+    def test_github_repo_isolated_per_project(self, ctx):
+        ctx.set_active_instance("api_taiga_io")
+        ctx.set_active_project(1)
+        ctx.save_project_github_repo("repo-one/repo")
+
+        ctx.set_active_project(2)
+        assert ctx.get_project_github_repo() != "repo-one/repo"
+        ctx.save_project_github_repo("repo-two/repo")
+
+        ctx.set_active_project(1)
+        assert ctx.get_project_github_repo() == "repo-one/repo"
+
+    def test_github_pat_isolated_per_project(self, ctx, monkeypatch):
+        monkeypatch.setenv("AI_KEY_ENCRYPTION_SECRET", "test-secret")
+        ctx.set_active_instance("api_taiga_io")
+        ctx.set_active_project(1)
+        ctx.save_project_github_pat("pat-one")
+
+        ctx.set_active_project(2)
+        assert ctx.get_project_github_pat() == ""
+        assert ctx.has_project_github_pat() is False
+
+        ctx.set_active_project(1)
+        assert ctx.get_project_github_pat() == "pat-one"
+        assert ctx.has_project_github_pat() is True
+
+    def test_migration_only_inherits_into_the_last_active_project(self, ctx, monkeypatch):
+        # Simulate a pre-existing instance-wide connection (the old behavior)
+        # and a shared config.json recording project 1 as "last active" —
+        # exactly the state that existed before this scoping change shipped.
+        monkeypatch.setenv("AI_KEY_ENCRYPTION_SECRET", "test-secret")
+        ctx.set_active_instance("api_taiga_io")
+        ctx.save_instance_github_repo("legacy/repo")
+        ctx.save_instance_github_pat("legacy-pat")
+        monkeypatch.setattr("src.context_manager.load_config", lambda: {"project_id": 1})
+
+        ctx.set_active_project(1)
+        assert ctx.get_project_github_repo() == "legacy/repo"
+        assert ctx.get_project_github_pat() == "legacy-pat"
+
+        # A different project has no way to know the instance-wide connection
+        # "belonged" to it — starts disconnected, no guess made.
+        ctx.set_active_project(2)
+        assert ctx.get_project_github_repo() == ""
+        assert ctx.get_project_github_pat() == ""
+
+    def test_migration_runs_at_most_once_per_project(self, ctx, monkeypatch):
+        monkeypatch.setattr("src.context_manager.load_config", lambda: {"project_id": 1})
+        ctx.set_active_instance("api_taiga_io")
+        ctx.set_active_project(1)
+        ctx.save_instance_github_repo("legacy/repo")
+
+        assert ctx.get_project_github_repo() == "legacy/repo"  # first read: migrates
+
+        # Instance-level value changes AFTER migration already ran for this
+        # project — the per-project file is now the source of truth, must not
+        # re-migrate and pick up the new instance-level value.
+        ctx.save_instance_github_repo("changed/repo")
+        assert ctx.get_project_github_repo() == "legacy/repo"
+
+    def test_no_migration_when_last_active_project_unset(self, ctx):
+        ctx.set_active_instance("api_taiga_io")
+        ctx.save_instance_github_repo("legacy/repo")
+        # load_config() has no "project_id" recorded at all → no target project
+        # to migrate into; every project starts clean.
+        ctx.set_active_project(1)
+        assert ctx.get_project_github_repo() == ""
+
+
 class TestMultiInstanceIntegration:
     """Full plumbing: deps.get_request_context → ContextService.set_active →
     context_manager storage. Two instances with the SAME project_id must stay

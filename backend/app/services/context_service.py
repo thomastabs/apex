@@ -26,16 +26,19 @@ class ContextService:
         return context_manager.get_or_create_instance_github_webhook_secret()
 
     def github_repo(self) -> str:
-        return context_manager.get_instance_github_repo()
+        return context_manager.get_project_github_repo()
+
+    def save_github_repo(self, repo: str | None) -> None:
+        context_manager.save_project_github_repo(repo)
 
     def save_github_pat(self, pat: str | None) -> None:
-        context_manager.save_instance_github_pat(pat)
+        context_manager.save_project_github_pat(pat)
 
     def github_pat(self) -> str:
-        return context_manager.get_instance_github_pat()
+        return context_manager.get_project_github_pat()
 
     def has_github_pat(self) -> bool:
-        return context_manager.has_instance_github_pat()
+        return context_manager.has_project_github_pat()
 
     def save_figma_token(self, token: str | None) -> None:
         context_manager.save_instance_figma_token(token)

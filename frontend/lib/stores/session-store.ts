@@ -75,7 +75,14 @@ export const useSessionStore = create<SessionState>()(
           projectInstanceUrl: "",
         }),
       setProject: ({ projectId, projectName = "", pmProjectSlug = "" }) =>
-        set((s) => ({ projectId, projectName, pmProjectSlug, projectInstanceUrl: s.taigaApiUrl })),
+        // github_repo/github_pat are per-project (server-side) — clear the stale
+        // previous project's values immediately on switch so they don't visibly
+        // "stick" for a moment (or longer, if the new project's restore fetch
+        // fails) before GithubAutoSync repopulates them for the new project.
+        set((s) => ({
+          projectId, projectName, pmProjectSlug, projectInstanceUrl: s.taigaApiUrl,
+          githubPat: "", githubRepo: "",
+        })),
       setGithub: ({ pat, repo }) => set({
         ...(pat !== undefined ? { githubPat: pat } : {}),
         ...(repo !== undefined ? { githubRepo: repo } : {}),
