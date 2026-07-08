@@ -7,6 +7,19 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
+# git: server-side repo clone for github_fetch.py (GitHub context packing).
+# Node/npm + repomix: pinned CLI that packs the cloned repo into github-context.md.
+# curl/gnupg only needed to add the NodeSource repo; purged after install.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      git ca-certificates curl gnupg \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update && apt-get install -y --no-install-recommends nodejs \
+    && npm install -g repomix@1.16.0 \
+    && apt-get purge -y curl gnupg && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/* /etc/apt/sources.list.d/nodesource.list
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

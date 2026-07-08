@@ -662,3 +662,85 @@ def test_rebuild_story_index_maps_failure_to_500(monkeypatch):
         rebuild_story_index(RequestContext(pm_token="tok", project_id=42))
 
     assert exc_info.value.status_code == 500
+
+
+# ── github/sync-context: server-side clone + repomix pack ─────────────────────
+
+class TestSyncGithubContextRoute:
+    def _ctx(self):
+        return RequestContext(pm_token="tok", project_id=42)
+
+    def test_writes_packed_context_and_flags_drift(self, monkeypatch):
+        from backend.app.api import workspace as ws
+        from backend.app.services import github_fetch
+
+        monkeypatch.setattr(github_fetch, "fetch_default_branch", lambda pat, owner, repo: "main")
+        monkeypatch.setattr(github_fetch, "clone_and_pack", lambda pat, owner, repo, ref: "# GitHub Repository Context\n\nreal file contents")
+        monkeypatch.setattr(ws.ContextService, "set_active", lambda self, ctx: None)
+        monkeypatch.setattr(ws.ContextService, "github_pat", lambda self: "ghp_test")
+        monkeypatch.setattr(ws.ContextService, "github_repo", lambda self: "acme/widgets")
+        written: dict[str, str] = {}
+        amend_calls = []
+        monkeypatch.setattr(ws.ContextService, "write_context_file", lambda self, name, content: written.update({name: content}))
+        monkeypatch.setattr(ws.ContextService, "amend_locked_spec", lambda self, name, note="": amend_calls.append((name, note)))
+        monkeypatch.setattr(ws, "get_context_files", lambda ctx: {"files": []})
+
+        resp = ws.sync_github_context(ctx=self._ctx())
+
+        assert written["github-context.md"] == "# GitHub Repository Context\n\nreal file contents"
+        assert amend_calls == [("github-context.md", "Server-side GitHub sync")]
+        assert resp == {"files": []}
+
+    def test_requires_pat(self, monkeypatch):
+        from backend.app.api import workspace as ws
+
+        monkeypatch.setattr(ws.ContextService, "set_active", lambda self, ctx: None)
+        monkeypatch.setattr(ws.ContextService, "github_pat", lambda self: "")
+        monkeypatch.setattr(ws.ContextService, "github_repo", lambda self: "acme/widgets")
+
+        with pytest.raises(HTTPException) as exc:
+            ws.sync_github_context(ctx=self._ctx())
+        assert exc.value.status_code == 400
+
+    def test_requires_repo(self, monkeypatch):
+        from backend.app.api import workspace as ws
+
+        monkeypatch.setattr(ws.ContextService, "set_active", lambda self, ctx: None)
+        monkeypatch.setattr(ws.ContextService, "github_pat", lambda self: "ghp_test")
+        monkeypatch.setattr(ws.ContextService, "github_repo", lambda self: "")
+
+        with pytest.raises(HTTPException) as exc:
+            ws.sync_github_context(ctx=self._ctx())
+        assert exc.value.status_code == 400
+
+    def test_maps_fetch_error_status_code_through(self, monkeypatch):
+        from backend.app.api import workspace as ws
+        from backend.app.services import github_fetch
+
+        def boom(pat, owner, repo):
+            raise github_fetch.GithubFetchError("GitHub rejected the token.", status_code=401)
+
+        monkeypatch.setattr(github_fetch, "fetch_default_branch", boom)
+        monkeypatch.setattr(ws.ContextService, "set_active", lambda self, ctx: None)
+        monkeypatch.setattr(ws.ContextService, "github_pat", lambda self: "bad_pat")
+        monkeypatch.setattr(ws.ContextService, "github_repo", lambda self: "acme/widgets")
+
+        with pytest.raises(HTTPException) as exc:
+            ws.sync_github_context(ctx=self._ctx())
+        assert exc.value.status_code == 401
+
+    def test_maps_unrecognized_status_code_to_502(self, monkeypatch):
+        from backend.app.api import workspace as ws
+        from backend.app.services import github_fetch
+
+        def boom(pat, owner, repo):
+            raise github_fetch.GithubFetchError("Timed out cloning the repository.")
+
+        monkeypatch.setattr(github_fetch, "fetch_default_branch", boom)
+        monkeypatch.setattr(ws.ContextService, "set_active", lambda self, ctx: None)
+        monkeypatch.setattr(ws.ContextService, "github_pat", lambda self: "pat")
+        monkeypatch.setattr(ws.ContextService, "github_repo", lambda self: "acme/widgets")
+
+        with pytest.raises(HTTPException) as exc:
+            ws.sync_github_context(ctx=self._ctx())
+        assert exc.value.status_code == 502

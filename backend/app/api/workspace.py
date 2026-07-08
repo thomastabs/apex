@@ -41,7 +41,9 @@ from backend.app.schemas.workspace import (
     TraceabilityGraphResponse,
     UpdateContextFileRequest,
 )
+from backend.app.api.rate_limit import ai_rate_limit
 from backend.app.services.context_service import ContextService
+from backend.app.services import github_fetch
 
 _logger = logging.getLogger("apex.workspace")
 
@@ -610,6 +612,42 @@ def sync_figma_context(
     context = ContextService()
     context.set_active(ctx)
     context.write_context_file("figma-context.md", md)
+    return get_context_files(ctx)
+
+
+@router.post("/github/sync-context", response_model=ContextFilesResponse)
+def sync_github_context(
+    ctx: RequestContext = Depends(get_request_context),
+    _rl: None = Depends(ai_rate_limit),
+):
+    """Clone the configured repo server-side and pack it into github-context.md.
+
+    Unlike Figma's sync (browser sends a per-request token), the GitHub PAT and
+    repo are already persisted server-side, so this route takes no body — it
+    reads context.github_pat()/github_repo() directly. Replaces the browser-side
+    fetchGithubContextMd (tree + README + one config file, ~14KB cap) with a real
+    clone + repomix pack, so Phase 2-6 AI prompts see actual file contents."""
+    context = ContextService()
+    context.set_active(ctx)
+    pat = context.github_pat()
+    repo_full = (context.github_repo() or "").strip()
+    if not pat:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No GitHub PAT configured.")
+    if not repo_full or "/" not in repo_full:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No GitHub repo configured.")
+    owner, _, repo = repo_full.partition("/")
+    try:
+        ref = github_fetch.fetch_default_branch(pat, owner, repo)
+        md = github_fetch.clone_and_pack(pat, owner, repo, ref)
+    except github_fetch.GithubFetchError as exc:
+        code = exc.status_code if exc.status_code in (401, 403, 429) else status.HTTP_502_BAD_GATEWAY
+        raise HTTPException(status_code=code, detail=str(exc)) from exc
+    context.write_context_file("github-context.md", md)
+    # Controlled co-evolution: preserve drift-flagging parity with the generic
+    # PUT /context-files/{filename} route (sync_figma_context does not call this,
+    # but github-context.md's server-side repack should flag downstream stories
+    # for re-derivation the same way a manual edit would).
+    context.amend_locked_spec("github-context.md", "Server-side GitHub sync")
     return get_context_files(ctx)
 
 

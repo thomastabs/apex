@@ -2661,12 +2661,10 @@ def _bump_spec_version(filename: str, part: str = "major") -> str:
 
 
 # ---------------------------------------------------------------------------
-# GitHub push tracking, for auto-resyncing github-context.md. The push webhook
-# (backend/app/api/github_webhook.py) has no PAT to call GitHub with itself —
-# context.md is fetched browser-direct with the user's PAT — so it just records
-# *when* a push last landed; the frontend compares that against
-# github-context.md's own mtime and re-runs the existing client-side sync when
-# the push is newer, no button click needed.
+# GitHub push tracking. The push webhook (backend/app/api/github_webhook.py)
+# repacks github-context.md itself now (server-side clone+repomix, same PAT
+# the manual sync route uses), but still records *when* a push last landed —
+# `github_sync_status` uses this timestamp for the "last synced"/"Pending" UI.
 # ---------------------------------------------------------------------------
 
 _GITHUB_PUSH_FILE = "github-push-state.json"

@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Copy, ExternalLink, GitBranch, Github, Lock, RefreshCw, Star, Webhook } from "lucide-react";
 import { toast } from "sonner";
-import { useGithubWebhookConfig, useSaveGithubConfig, useSyncGithubContext, useGithubSyncStatus, useGithubPat, useServerConfig, useContextFiles } from "@/lib/hooks/use-workspace";
+import { useGithubWebhookConfig, useSaveGithubConfig, useSyncGithubContext, useGithubPat, useServerConfig, useContextFiles } from "@/lib/hooks/use-workspace";
 import { useSessionStore, useGithubContext } from "@/lib/stores/session-store";
 import { verifyGithubRepo, type RepoMeta } from "@/lib/api/github-browser";
 import { getApiBaseUrl } from "@/lib/api/client";
@@ -347,20 +347,15 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
 }
 
 /**
- * Watches for a GitHub push and auto-resyncs context. Mounted unconditionally
- * in the app shell (not inside GitHubSection, which only renders while the
- * Settings modal is open) — otherwise "auto" sync only ever fired while the
- * user happened to have the GitHub settings panel open, defeating the point.
- * The push webhook has no PAT to call GitHub with itself, so it only
- * timestamps the push; this polls that timestamp and re-runs the existing
- * client-side sync when it's newer than the last one.
+ * Restores the GitHub session from the server-side encrypted PAT. Mounted
+ * unconditionally in the app shell (not inside GitHubSection, which only
+ * renders while the Settings modal is open). Context resync-on-push is now
+ * handled entirely server-side (backend/app/api/github_webhook.py repacks
+ * github-context.md itself on every push) — this component no longer needs
+ * to poll and re-trigger a client-side sync itself.
  */
 export function GithubAutoSync() {
-  const github = useGithubContext();
-  const isConnected = Boolean(github);
-  const syncContext = useSyncGithubContext();
-  const syncStatus = useGithubSyncStatus();
-  const autoSyncedForPush = useRef<string | null>(null);
+  const isConnected = Boolean(useGithubContext());
 
   // Restore the PAT saved server-side (encrypted) so the browser-direct
   // GitHub session survives a tab close / new device without retyping it.
@@ -396,22 +391,6 @@ export function GithubAutoSync() {
     if (!patQuery.data?.pat || !serverConfig.data?.github_repo) return;
     setGithub({ pat: patQuery.data.pat, repo: serverConfig.data.github_repo });
   }, [patQuery.data, serverConfig.data, setGithub]);
-
-  useEffect(() => {
-    const pushedAt = syncStatus.data?.last_push_at;
-    if (!isConnected || !pushedAt) return;
-    const syncedAt = syncStatus.data?.context_synced_at;
-    const stale = !syncedAt || new Date(pushedAt).getTime() > new Date(syncedAt).getTime();
-    if (!stale || autoSyncedForPush.current === pushedAt || syncContext.isPending) return;
-    autoSyncedForPush.current = pushedAt;
-    syncContext.mutate(undefined, {
-      onSuccess: () => toast.success("GitHub context auto-synced after push."),
-      // PAT may have expired since it was stored — leave the "Pending" badge
-      // showing and let the user resync by hand; don't toast an error for a
-      // background action they didn't trigger.
-      onError: () => {},
-    });
-  }, [syncStatus.data, isConnected]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return null;
 }

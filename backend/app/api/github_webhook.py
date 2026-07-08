@@ -1,15 +1,14 @@
-"""GitHub push webhook -> auto regression re-scan + auto context resync.
+"""GitHub push webhook -> auto context repack + auto regression re-scan.
 
-Loop-closing counterpart to two manual actions: the "Scan for regressions"
-button (phase6_service.scan_regressions) and the "Sync Context" button.
-Instead of a human clicking Scan after every deploy, GitHub calls this
-endpoint on every push and Apex works out which stories' saved dev-pack files
-were touched, then re-verifies just those
-(phase6_service.scan_regressions_for_stories) — no CI, no polling. Every push
-also records a timestamp (record_github_push) so the frontend can compare it
-against github-context.md's own mtime and auto-resync — the sync itself still
-runs client-side with the user's PAT (this webhook has no PAT to call GitHub
-with), see GithubSyncStatusResponse / useGithubSyncStatus.
+Loop-closing counterpart to three manual actions: the "Sync Context" button,
+the "Scan for regressions" button (phase6_service.scan_regressions), and (as
+of the server-side clone+repomix pack) github-context.md's own freshness.
+GitHub calls this endpoint on every push; Apex re-clones and repacks
+github-context.md unconditionally (github_fetch.clone_and_pack, same PAT the
+manual sync route uses — the webhook now has full server-side PAT access,
+same as any other request), and additionally works out which stories' saved
+dev-pack files were touched to re-verify just those
+(phase6_service.scan_regressions_for_stories) — no CI, no polling.
 
 Unauthenticated by design (GitHub can't send a Bearer token) — gated instead
 by HMAC-SHA256 signature verification against a per-instance secret
@@ -27,6 +26,7 @@ import time
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request, status
 
+from backend.app.services import github_fetch
 from backend.app.services.context_service import ContextService
 from backend.app.services.phase6_service import Phase6Service
 from backend.app.services.request_context import RequestContext
@@ -36,10 +36,11 @@ router = APIRouter()
 _logger = logging.getLogger("apex.github_webhook")
 
 # Per-(instance, project) cooldown so a burst of pushes (a rebase-and-force-push,
-# a squash-merge series) can't fire N full AI re-verifications back to back.
-# Process-local — matches deps.py's token/project caches; a restart just resets
-# the cooldown, which is a fine failure mode for a rate limit (not a security
-# control) on a backend pinned to a single replica/worker.
+# a squash-merge series) can't fire N full clone+repack / AI re-verification
+# cycles back to back. Shared by both the repack and the scan below — one gate,
+# not two independent cooldowns. Process-local — matches deps.py's token/project
+# caches; a restart just resets the cooldown, which is a fine failure mode for a
+# rate limit (not a security control) on a backend pinned to a single replica/worker.
 _COOLDOWN_SECONDS = 300.0
 _last_run: dict[tuple[str, int], float] = {}
 
@@ -71,6 +72,33 @@ def _matched_story_ids(context: ContextService, touched: set[str]) -> list[int]:
         if pack_files & touched:
             matched.add(pack["story_id"])
     return sorted(matched)
+
+
+def _run_repack(instance_id: str, project_id: int) -> None:
+    """Runs as a FastAPI BackgroundTask: re-clone + repack github-context.md.
+
+    Own try/except, never raises — the webhook's 200 was already sent by the
+    time this runs, and a repack failure must not affect the scan task or the
+    response GitHub already got."""
+    try:
+        ctx = RequestContext(pm_token="", project_id=project_id, instance_id=instance_id)
+        context = ContextService()
+        context.set_active(ctx)
+        pat = context.github_pat()
+        repo_full = (context.github_repo() or "").strip()
+        if not pat or "/" not in repo_full:
+            return
+        owner, _, repo = repo_full.partition("/")
+        ref = github_fetch.fetch_default_branch(pat, owner, repo)
+        md = github_fetch.clone_and_pack(pat, owner, repo, ref)
+        context.write_context_file("github-context.md", md)
+        context.amend_locked_spec("github-context.md", "Server-side GitHub sync (auto, push webhook)")
+        _logger.info("github_webhook_repack instance=%s project=%s chars=%s", instance_id, project_id, len(md))
+    except Exception:
+        _logger.warning(
+            "github_webhook_repack_failed instance=%s project=%s",
+            instance_id, project_id, exc_info=True,
+        )
 
 
 def _run_scan(instance_id: str, project_id: int, story_ids: list[int]) -> None:
@@ -129,14 +157,19 @@ async def github_push_webhook(
     context.record_github_push()
     touched = _touched_files(payload)
     story_ids = _matched_story_ids(context, touched)
-    if not story_ids:
-        return {"ok": True, "matched_stories": []}
 
+    # One shared cooldown gate for both the repack (every push) and the scan
+    # (only pushes touching a tracked story) — repacking must not wait on
+    # story_ids being non-empty, so this check runs before that branch, not after.
     cache_key = (instance_id, project_id)
     now = time.monotonic()
     if now - _last_run.get(cache_key, 0.0) < _COOLDOWN_SECONDS:
         return {"ok": True, "matched_stories": story_ids, "skipped": "cooldown"}
     _last_run[cache_key] = now
 
+    background_tasks.add_task(_run_repack, instance_id, project_id)
+    if not story_ids:
+        return {"ok": True, "matched_stories": [], "repacking": True}
+
     background_tasks.add_task(_run_scan, instance_id, project_id, story_ids)
-    return {"ok": True, "matched_stories": story_ids, "scanning": True}
+    return {"ok": True, "matched_stories": story_ids, "scanning": True, "repacking": True}

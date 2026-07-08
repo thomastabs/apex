@@ -627,17 +627,15 @@ export function useGithubWebhookConfig(enabled: boolean) {
   });
 }
 
+/** Server-side clone + repomix pack — see lib/api/workspace.ts syncGithubContext. */
 export function useSyncGithubContext() {
   const ctx = useApiContext();
-  const github = useGithubContext();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      if (!ctx || !github) throw new Error("Not connected to GitHub.");
-      const { fetchGithubContextMd } = await import("@/lib/api/github-browser");
-      const md = await fetchGithubContextMd(github);
-      const { updateContextFile } = await import("@/lib/api/workspace");
-      return updateContextFile(ctx, "github-context.md", md);
+      if (!ctx) throw new Error("Not connected.");
+      const { syncGithubContext } = await import("@/lib/api/workspace");
+      return syncGithubContext(ctx);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "context-files"] });
@@ -647,11 +645,10 @@ export function useSyncGithubContext() {
 }
 
 /**
- * Poll target for auto-resync: the push webhook (backend/app/api/github_webhook.py)
- * has no PAT to call GitHub with, so it only timestamps the push. This compares
- * that timestamp against github-context.md's own mtime — when the repo was
- * connected via a webhook and a push landed after the last sync, the caller
- * (GitHubSection) re-runs the existing client-side sync automatically.
+ * Poll target: shows "last synced at" in the UI. The push webhook now repacks
+ * github-context.md server-side on its own (backend/app/api/github_webhook.py),
+ * so this no longer needs to drive a client-side auto-resync — it's read-only
+ * status display.
  */
 export function useGithubSyncStatus() {
   const ctx = useApiContext();

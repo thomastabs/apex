@@ -1,0 +1,156 @@
+"""Unit tests for github_fetch.py's clone+pack pipeline.
+
+The `git clone` and `repomix` calls are mocked at the subprocess.run boundary
+(same spirit as test_taiga_proxy.py's monkeypatch on the http client, applied
+to subprocess here) — no real network, no real git/repomix binaries needed to
+run this suite. A dedicated test asserts the PAT never appears in subprocess
+argv (only in the env dict), which is the whole point of the GIT_CONFIG_*
+auth design over a URL-embedded token.
+"""
+
+import subprocess
+from pathlib import Path
+
+import pytest
+
+from backend.app.services import github_fetch as gf
+
+
+def _fake_run_factory(clone_files=None, repomix_content="# packed\n", repomix_returncode=0, clone_returncode=0, clone_stderr=""):
+    """Builds a fake subprocess.run that mimics `git clone` then `repomix`.
+
+    Records every call's argv + env so tests can assert on them afterwards.
+    """
+    calls = []
+
+    def _fake_run(args, env=None, timeout=None, cwd=None, capture_output=None, text=None):
+        calls.append({"args": list(args), "env": dict(env or {}), "cwd": cwd})
+        bin_name = Path(args[0]).name
+        if bin_name == gf._GIT_BIN or args[0] == gf._GIT_BIN:
+            dest = Path(args[-1])
+            if clone_returncode == 0:
+                dest.mkdir(parents=True, exist_ok=True)
+                for rel, content in (clone_files or {"README.md": "hello"}).items():
+                    p = dest / rel
+                    p.parent.mkdir(parents=True, exist_ok=True)
+                    p.write_text(content)
+            return subprocess.CompletedProcess(args, clone_returncode, stdout="", stderr=clone_stderr)
+        if bin_name == gf._REPOMIX_BIN or args[0] == gf._REPOMIX_BIN:
+            out_idx = args.index("-o") + 1
+            out_path = Path(args[out_idx])
+            if repomix_returncode == 0:
+                out_path.write_text(repomix_content)
+            return subprocess.CompletedProcess(args, repomix_returncode, stdout="", stderr="")
+        raise AssertionError(f"unexpected subprocess call: {args}")
+
+    _fake_run.calls = calls
+    return _fake_run
+
+
+class TestCloneAndPack:
+    def test_happy_path_returns_packed_markdown(self, monkeypatch):
+        fake_run = _fake_run_factory(repomix_content="# GitHub Repository Context\n\nreal file contents here")
+        monkeypatch.setattr(gf.subprocess, "run", fake_run)
+        md = gf.clone_and_pack("ghp_test_pat_value", "acme", "widgets", "main")
+        assert "real file contents here" in md
+        assert len(fake_run.calls) == 2  # clone, then pack
+
+    def test_clone_auth_failure_maps_to_401(self, monkeypatch):
+        fake_run = _fake_run_factory(clone_returncode=128, clone_stderr="fatal: Authentication failed for 'https://github.com/...'")
+        monkeypatch.setattr(gf.subprocess, "run", fake_run)
+        with pytest.raises(gf.GithubFetchError) as exc_info:
+            gf.clone_and_pack("bad_pat", "acme", "widgets", "main")
+        assert exc_info.value.status_code == 401
+
+    def test_clone_generic_failure_status_zero(self, monkeypatch):
+        fake_run = _fake_run_factory(clone_returncode=128, clone_stderr="fatal: repository not found")
+        monkeypatch.setattr(gf.subprocess, "run", fake_run)
+        with pytest.raises(gf.GithubFetchError) as exc_info:
+            gf.clone_and_pack("pat", "acme", "ghost-repo", "main")
+        assert exc_info.value.status_code == 0
+
+    def test_clone_timeout_raises_clean_error(self, monkeypatch):
+        def _timeout(*a, **kw):
+            raise subprocess.TimeoutExpired(cmd="git", timeout=1)
+
+        monkeypatch.setattr(gf.subprocess, "run", _timeout)
+        with pytest.raises(gf.GithubFetchError, match="Timed out cloning"):
+            gf.clone_and_pack("pat", "acme", "widgets", "main")
+
+    def test_oversized_working_tree_rejected(self, monkeypatch):
+        fake_run = _fake_run_factory(clone_files={"big.bin": "x" * 1000})
+        monkeypatch.setattr(gf.subprocess, "run", fake_run)
+        monkeypatch.setattr(gf, "_MAX_CLONE_BYTES", 10)
+        with pytest.raises(gf.GithubFetchError, match="over the"):
+            gf.clone_and_pack("pat", "acme", "widgets", "main")
+        # repomix must never have been invoked once the size cap rejected the clone
+        assert len(fake_run.calls) == 1
+
+    def test_repomix_token_budget_exceeded(self, monkeypatch):
+        fake_run = _fake_run_factory(repomix_returncode=1)
+        # Simulate repomix's stderr mentioning the budget in its failure message.
+        def _fake_run_with_budget_error(args, **kw):
+            result = fake_run(args, **kw)
+            if Path(args[0]).name == gf._REPOMIX_BIN or args[0] == gf._REPOMIX_BIN:
+                return subprocess.CompletedProcess(args, 1, stdout="Error: token budget exceeded", stderr="")
+            return result
+
+        monkeypatch.setattr(gf.subprocess, "run", _fake_run_with_budget_error)
+        with pytest.raises(gf.GithubFetchError, match="token budget"):
+            gf.clone_and_pack("pat", "acme", "widgets", "main")
+
+    def test_repomix_generic_failure(self, monkeypatch):
+        fake_run = _fake_run_factory(repomix_returncode=1)
+        monkeypatch.setattr(gf.subprocess, "run", fake_run)
+        with pytest.raises(gf.GithubFetchError, match="repomix failed"):
+            gf.clone_and_pack("pat", "acme", "widgets", "main")
+
+    def test_repomix_timeout_raises_clean_error(self, monkeypatch):
+        calls = {"n": 0}
+
+        def _run(args, **kw):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                dest = Path(args[-1])
+                dest.mkdir(parents=True, exist_ok=True)
+                (dest / "README.md").write_text("hi")
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            raise subprocess.TimeoutExpired(cmd="repomix", timeout=1)
+
+        monkeypatch.setattr(gf.subprocess, "run", _run)
+        with pytest.raises(gf.GithubFetchError, match="Timed out packing"):
+            gf.clone_and_pack("pat", "acme", "widgets", "main")
+
+    def test_strips_repomix_config_before_packing(self, monkeypatch):
+        fake_run = _fake_run_factory(clone_files={
+            "README.md": "hi",
+            "repomix.config.json": '{"malicious": true}',
+        })
+        monkeypatch.setattr(gf.subprocess, "run", fake_run)
+        gf.clone_and_pack("pat", "acme", "widgets", "main")
+        pack_call = fake_run.calls[1]
+        cwd = Path(pack_call["cwd"])
+        assert not (cwd / "repomix.config.json").exists()
+
+    def test_pat_never_appears_in_any_subprocess_argv(self, monkeypatch):
+        pat = "ghp_super_secret_token_value"
+        fake_run = _fake_run_factory()
+        monkeypatch.setattr(gf.subprocess, "run", fake_run)
+        gf.clone_and_pack(pat, "acme", "widgets", "main")
+        for call in fake_run.calls:
+            joined = " ".join(call["args"])
+            assert pat not in joined, "PAT must never be passed via argv"
+        # It should, however, be present (base64-encoded) in the clone call's env.
+        clone_call = fake_run.calls[0]
+        assert "GIT_CONFIG_VALUE_0" in clone_call["env"]
+        assert clone_call["env"]["GIT_CONFIG_KEY_0"] == "http.extraHeader"
+
+
+class TestFetchDefaultBranch:
+    def test_returns_default_branch_from_repo_metadata(self, monkeypatch):
+        monkeypatch.setattr(gf, "_get", lambda path, pat: {"default_branch": "develop"})
+        assert gf.fetch_default_branch("pat", "acme", "widgets") == "develop"
+
+    def test_falls_back_to_main_when_missing(self, monkeypatch):
+        monkeypatch.setattr(gf, "_get", lambda path, pat: {})
+        assert gf.fetch_default_branch("pat", "acme", "widgets") == "main"

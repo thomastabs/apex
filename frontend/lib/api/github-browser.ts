@@ -6,27 +6,6 @@
 
 const GITHUB_API = "https://api.github.com";
 
-const CHAR_LIMITS = {
-  tree: 5_000,
-  readme: 5_000,
-  configFile: 2_000,
-} as const;
-
-const CONFIG_FILE_CANDIDATES = [
-  "package.json",
-  "requirements.txt",
-  "pyproject.toml",
-];
-
-const API_SPEC_CANDIDATES = [
-  "openapi.yaml",
-  "openapi.json",
-  "openapi.yml",
-  "swagger.yaml",
-  "swagger.json",
-  "swagger.yml",
-];
-
 function ghHeaders(pat: string): HeadersInit {
   return {
     Authorization: `token ${pat}`,
@@ -55,11 +34,6 @@ async function ghPost<T>(path: string, pat: string, body: unknown): Promise<T> {
     throw new Error((msg.message as string) || `GitHub ${res.status}`);
   }
   return res.json() as Promise<T>;
-}
-
-function truncate(text: string, limit: number): string {
-  if (text.length <= limit) return text;
-  return text.slice(0, limit) + `\n\n... [truncated at ${limit} chars]`;
 }
 
 export interface GithubSyncContext {
@@ -92,106 +66,6 @@ export async function verifyGithubRepo(ctx: GithubSyncContext): Promise<RepoMeta
     htmlUrl: (raw.html_url as string) || `https://github.com/${ctx.owner}/${ctx.repo}`,
     isPrivate: Boolean(raw.private),
   };
-}
-
-/** Fetch repo context and return assembled markdown for github-context.md. */
-export async function fetchGithubContextMd(ctx: GithubSyncContext): Promise<string> {
-  const { owner, repo, pat } = ctx;
-
-  // 1. Repo metadata
-  const repoRaw = await ghFetch<Record<string, unknown>>(`/repos/${owner}/${repo}`, pat);
-  const repoName = (repoRaw.full_name as string) || `${owner}/${repo}`;
-  const repoDesc = (repoRaw.description as string) || "";
-  const defaultBranch = (repoRaw.default_branch as string) || "main";
-  const language = (repoRaw.language as string) || "";
-  const stars = (repoRaw.stargazers_count as number) ?? 0;
-
-  const sections: string[] = [];
-
-  sections.push(
-    `# GitHub Repository Context\n\n` +
-    `**Repo:** ${repoName}  \n` +
-    (repoDesc ? `**Description:** ${repoDesc}  \n` : "") +
-    (language ? `**Primary language:** ${language}  \n` : "") +
-    `**Default branch:** ${defaultBranch}  \n` +
-    `**Stars:** ${stars}  \n` +
-    `**Synced:** ${new Date().toISOString().slice(0, 10)}`
-  );
-
-  // 2. File tree (recursive)
-  try {
-    const treeRaw = await ghFetch<{ tree: Array<{ path: string; type: string }> }>(
-      `/repos/${owner}/${repo}/git/trees/${defaultBranch}?recursive=1`,
-      pat,
-    );
-    const paths = (treeRaw.tree ?? [])
-      .filter((n) => n.type === "blob")
-      .map((n) => n.path)
-      .filter((p) => !p.startsWith("node_modules/") && !p.startsWith(".git/") && !p.startsWith("dist/") && !p.startsWith("build/") && !p.startsWith(".next/"))
-      .join("\n");
-    if (paths) {
-      sections.push(`## File Tree\n\n\`\`\`\n${truncate(paths, CHAR_LIMITS.tree)}\n\`\`\``);
-    }
-  } catch {
-    // tree fetch failed — skip silently
-  }
-
-  // 3. README
-  try {
-    const readmeRaw = await ghFetch<{ content: string; encoding: string }>(
-      `/repos/${owner}/${repo}/readme`,
-      pat,
-    );
-    if (readmeRaw.content && readmeRaw.encoding === "base64") {
-      const decoded = atob(readmeRaw.content.replace(/\n/g, ""));
-      sections.push(`## README\n\n${truncate(decoded, CHAR_LIMITS.readme)}`);
-    }
-  } catch {
-    // no README — skip
-  }
-
-  // 4. Key config files (first match from each candidate list)
-  const treeRaw2 = await ghFetch<{ tree: Array<{ path: string; type: string }> }>(
-    `/repos/${owner}/${repo}/git/trees/${defaultBranch}?recursive=1`,
-    pat,
-  ).catch(() => ({ tree: [] as Array<{ path: string; type: string }> }));
-  const allPaths = new Set((treeRaw2.tree ?? []).map((n) => n.path));
-
-  for (const candidate of CONFIG_FILE_CANDIDATES) {
-    if (!allPaths.has(candidate)) continue;
-    try {
-      const raw = await ghFetch<{ content: string; encoding: string }>(
-        `/repos/${owner}/${repo}/contents/${candidate}`,
-        pat,
-      );
-      if (raw.content && raw.encoding === "base64") {
-        const decoded = atob(raw.content.replace(/\n/g, ""));
-        sections.push(`## \`${candidate}\`\n\n\`\`\`\n${truncate(decoded, CHAR_LIMITS.configFile)}\n\`\`\``);
-      }
-    } catch {
-      // skip
-    }
-    break;
-  }
-
-  for (const candidate of API_SPEC_CANDIDATES) {
-    if (!allPaths.has(candidate)) continue;
-    try {
-      const raw = await ghFetch<{ content: string; encoding: string }>(
-        `/repos/${owner}/${repo}/contents/${candidate}`,
-        pat,
-      );
-      if (raw.content && raw.encoding === "base64") {
-        const decoded = atob(raw.content.replace(/\n/g, ""));
-        sections.push(`## \`${candidate}\` (API Spec)\n\n\`\`\`\n${truncate(decoded, CHAR_LIMITS.configFile)}\n\`\`\``);
-      }
-    } catch {
-      // skip
-    }
-    break;
-  }
-
-  return sections.join("\n\n");
 }
 
 /** Fetch recent commits and return those whose messages match task subject keywords as markdown. */

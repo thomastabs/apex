@@ -197,6 +197,20 @@ export function syncFigmaContext(context: RequestContext, figmaToken: string, fi
   });
 }
 
+/**
+ * Sync github-context.md server-side: the backend clones the configured repo
+ * (server-side PAT, already persisted) and packs it with `repomix` into real
+ * file contents — no PAT round-trips through the browser, and there's nothing
+ * to pass in the body (repo + PAT are resolved server-side). Returns the
+ * refreshed context-files listing.
+ */
+export function syncGithubContext(context: RequestContext) {
+  return apiRequest<ContextFilesResponse>("/api/workspace/github/sync-context", {
+    method: "POST",
+    context,
+  });
+}
+
 export function acknowledgeSpecDrift(context: RequestContext, storyId: number) {
   return apiRequest<{ ok: boolean }>(
     `/api/workspace/context-files/story-index/stories/${storyId}/acknowledge-drift`,
