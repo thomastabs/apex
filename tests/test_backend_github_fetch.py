@@ -109,6 +109,10 @@ class TestCloneAndPack:
                 assert "--compress" not in args
                 return subprocess.CompletedProcess(args, 1, stdout="Error: token budget exceeded", stderr="")
             assert "--compress" in args
+            # Regression: appending --compress must not corrupt --style's
+            # "markdown" value pairing (a prior fixed-index insert did).
+            style_idx = args.index("--style")
+            assert args[style_idx + 1] == "markdown"
             out_path.write_text("# compressed fallback content")
             return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
 
@@ -167,6 +171,21 @@ class TestCloneAndPack:
         pack_call = fake_run.calls[1]
         cwd = Path(pack_call["cwd"])
         assert not (cwd / "repomix.config.json").exists()
+
+    def test_repomix_args_include_size_reduction_flags_and_style_pairing_intact(self, monkeypatch):
+        fake_run = _fake_run_factory()
+        monkeypatch.setattr(gf.subprocess, "run", fake_run)
+        gf.clone_and_pack("pat", "acme", "widgets", "main")
+        pack_args = fake_run.calls[1]["args"]
+        for flag in ("--no-file-summary", "--no-directory-structure", "--remove-comments", "--remove-empty-lines"):
+            assert flag in pack_args
+        # Regression: --compress used to be inserted at a fixed index and
+        # landed BETWEEN --style and its "markdown" value, corrupting the
+        # pair. Not exercised here (compress=False), but --style must still
+        # be immediately followed by "markdown" regardless of what else was
+        # appended around it.
+        style_idx = pack_args.index("--style")
+        assert pack_args[style_idx + 1] == "markdown"
 
     def test_pat_never_appears_in_any_subprocess_argv(self, monkeypatch):
         pat = "ghp_super_secret_token_value"

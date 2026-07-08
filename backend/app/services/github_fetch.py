@@ -52,14 +52,23 @@ _PACK_TIMEOUT = 180.0
 _MAX_CLONE_BYTES = 200_000_000
 
 # Repomix's own hard ceiling on packed output (fails fast rather than
-# silently truncating). Higher than a signature-only pack would need, since
-# the default pack now carries full function bodies. A judgment-call
-# starting point — tune against real repos, not a validated number.
-_DEFAULT_TOKEN_BUDGET = 120_000
+# silently truncating). github-context.md is one of several context files
+# sharing Apex's own ~150-200k-char total-context budget (see README "Size
+# budget") — this needs to leave room for the others, not use the whole
+# thing itself. A judgment-call starting point — tune against real repos.
+_DEFAULT_TOKEN_BUDGET = 30_000
 
-# Same exclude set as the browser-side tree fetch this replaces
-# (frontend/lib/api/github-browser.ts), for parity.
-_IGNORE_GLOBS = "node_modules/**,.git/**,dist/**,build/**,.next/**"
+# Excludes entire files (the biggest lever on size) on top of the automatic
+# .gitignore respect: build output, tests, docs, migrations, CI configs, and
+# lockfiles are rarely useful for Phase 2-6 grounding and often dominate a
+# repo's line count without carrying implementation logic.
+_IGNORE_GLOBS = (
+    "node_modules/**,.git/**,dist/**,build/**,.next/**,coverage/**,"
+    "**/*.test.*,**/*.spec.*,**/__tests__/**,**/test/**,**/tests/**,"
+    "docs/**,**/migrations/**,**/migration/**,.github/**,"
+    "package-lock.json,yarn.lock,pnpm-lock.yaml,poetry.lock,Pipfile.lock,"
+    "*.min.js,*.map"
+)
 
 # An untrusted cloned repo could ship its own repomix.config.* to smuggle
 # config-driven behavior into a "local" repomix run (repomix's docs only
@@ -248,10 +257,17 @@ def _run_repomix(
         "--style", "markdown",
         "--ignore", _IGNORE_GLOBS,
         "--token-budget", str(token_budget),
+        # Boilerplate/formatting cuts — none of these drop a file's real
+        # content, just the summary preamble, directory tree (redundant with
+        # each file's own "## path" header), comments, and blank lines.
+        "--no-file-summary",
+        "--no-directory-structure",
+        "--remove-comments",
+        "--remove-empty-lines",
         "-o", str(output_path),
     ]
     if compress:
-        args.insert(3, "--compress")
+        args.append("--compress")
     try:
         return subprocess.run(
             args, cwd=str(dest), timeout=_PACK_TIMEOUT, capture_output=True, text=True,
