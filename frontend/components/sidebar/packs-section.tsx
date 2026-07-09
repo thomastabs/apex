@@ -9,6 +9,7 @@ import { useEscapeKey } from "@/lib/hooks/use-escape-key";
 import { deleteProposal, getProposals, listPacks, saveProposal } from "@/lib/api/phase3";
 import { useAutoSyncStoryIndex } from "@/lib/hooks/use-workspace";
 import { useApiContext } from "@/lib/stores/session-store";
+import { downloadZip } from "@/lib/utils/zip";
 import { PanelHeader, type DragSectionProps } from "./shared";
 
 type PacksSectionProps = DragSectionProps & {
@@ -109,6 +110,21 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
     onError: (err: Error) => toast.error(`Delete failed: ${err.message}`),
   });
 
+  const downloadStoryPacksMut = useMutation({
+    mutationFn: async (storyId: number) => {
+      const res = await getProposals(context!, storyId);
+      return { storyId, proposals: res.proposals };
+    },
+    onSuccess: ({ storyId, proposals }) => {
+      if (!proposals.length) { toast.error("No packs to download for this story."); return; }
+      downloadZip(
+        proposals.map((p) => ({ filename: `task_${p.task_id}.md`, content: p.proposal_md })),
+        `dev_packs_story_${storyId}.zip`,
+      );
+    },
+    onError: (err: Error) => toast.error(`Download failed: ${err.message}`),
+  });
+
   const deleteStoryPacksMut = useMutation({
     mutationFn: async (storyId: number) => {
       for (const p of packs.filter((x) => x.story_id === storyId)) {
@@ -164,6 +180,14 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
                       <span className={cn("min-w-0 flex-1 truncate text-xs font-medium", dark ? "text-neutral-300" : "text-slate-600")}>
                         {group.title || "(story not in index)"}
                       </span>
+                      <button
+                        className={rowBtn}
+                        title="Download all packs for this story"
+                        disabled={downloadStoryPacksMut.isPending}
+                        onClick={() => downloadStoryPacksMut.mutate(storyId)}
+                      >
+                        <Download className="size-3.5" />
+                      </button>
                       <button
                         className={cn(rowBtn, "hover:!text-red-400")}
                         title="Delete all packs for this story"
