@@ -2232,6 +2232,15 @@ def find_cross_epic_duplicates(stories: list[dict], threshold: float = 0.72) -> 
     return drops
 
 
+# Package-marker/route-registration boilerplate: nearly every task that adds
+# an endpoint lists its __init__.py as "changed" (one import + router.include
+# line), regardless of what the endpoint actually does — so sharing it is
+# mechanical, not a real design overlap. Flagging it just trained users to
+# ignore the banner, the same problem the same-epic exclusion solved for
+# router/model modules. Matched by basename, any directory.
+_NOISY_SHARED_FILENAMES = {"__init__.py"}
+
+
 def detect_design_conflicts(packs: list[dict]) -> dict[int, dict]:
     """Find cross-story overlaps among saved developer packs (pure, no AI).
 
@@ -2242,7 +2251,9 @@ def detect_design_conflicts(packs: list[dict]) -> dict[int, dict]:
     siblings adding separate endpoints to one shared file (a router, a model
     module) is the expected, common shape of an epic's stories, not a
     conflict — flagging it just trained users to ignore the banner. Same-story
-    sibling sharing (same story_id) is excluded either way.
+    sibling sharing (same story_id) is excluded either way. Files matching
+    _NOISY_SHARED_FILENAMES (e.g. __init__.py) are never file-conflict
+    candidates, in or across epics — see that constant's docstring.
     Returns {story_id: {reason, files: [...], endpoints: [...],
     conflicts_with: [story_id,...]}} for each involved story.
     """
@@ -2259,6 +2270,8 @@ def detect_design_conflicts(packs: list[dict]) -> dict[int, dict]:
             epics[sid] = p.get("epic_id")
         md = p.get("proposal_md") or ""
         for f in parse_pack_files(md):
+            if f.rsplit("/", 1)[-1] in _NOISY_SHARED_FILENAMES:
+                continue
             file_owners.setdefault(f, set()).add(sid)
         for method, path in parse_spec_endpoints(md):
             endpoint_owners.setdefault(f"{method} {path}", set()).add(sid)

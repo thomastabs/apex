@@ -1321,6 +1321,19 @@ class TestDesignConflictDetector:
         c = ai.detect_design_conflicts(packs)
         assert set(c) == {1, 2}
 
+    def test_shared_init_py_not_flagged_even_cross_epic(self):
+        # __init__.py is router-registration boilerplate every endpoint task
+        # touches (one import + include_router line) — sharing it isn't a
+        # real design overlap, unlike a shared model/router module. Real
+        # false positive: two unrelated stories in different epics both
+        # listing backend/api/__init__.py.
+        import src.ai_engine as ai
+        packs = [
+            self._pack(1, 1, files=["backend/api/__init__.py"], title="A", epic_id=1),
+            self._pack(2, 1, files=["backend/api/__init__.py"], title="B", epic_id=2),
+        ]
+        assert ai.detect_design_conflicts(packs) == {}
+
     def test_same_epic_duplicate_endpoint_still_flagged(self):
         # An endpoint collision is real duplicate work regardless of epic.
         import src.ai_engine as ai
