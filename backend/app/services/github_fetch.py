@@ -58,6 +58,13 @@ _MAX_CLONE_BYTES = 200_000_000
 # thing itself. A judgment-call starting point — tune against real repos.
 _DEFAULT_TOKEN_BUDGET = 30_000
 
+# Applied only to the --compress retry, not the full-body pack above. Signatures
+# carry far fewer chars per token than full function bodies, so a larger token
+# allowance here still lands well under the shared char ceiling — this is what
+# actually lets big repos (e.g. Possibilista, ~500k+ chars full-body) succeed
+# on the compressed fallback instead of failing outright (real prod incident).
+_COMPRESS_TOKEN_BUDGET = 80_000
+
 # Excludes entire files (the biggest lever on size) on top of the automatic
 # .gitignore respect: build output, tests, docs, migrations, CI configs, and
 # lockfiles are rarely useful for Phase 2-6 grounding and often dominate a
@@ -229,12 +236,13 @@ def clone_and_pack(
             # structure only) rather than failing outright; still more useful
             # than nothing, and closer to what fit in the old ~14KB tree+README.
             _logger.info("github_fetch token budget exceeded, retrying with --compress")
-            result = _run_repomix(dest, output_path, token_budget, compress=True)
+            result = _run_repomix(dest, output_path, _COMPRESS_TOKEN_BUDGET, compress=True)
             if result.returncode != 0:
                 if _is_token_budget_error(result):
                     raise GithubFetchError(
-                        "Repository is too large to pack even compressed — "
-                        "narrow the ignore patterns or raise the token budget."
+                        "Repository is too large to pack even compressed. "
+                        "Trim large generated/vendored files from the repo, or "
+                        "add them to .gitignore, and sync again."
                     )
                 trimmed = (result.stderr or result.stdout or "").strip()[-2000:]
                 raise GithubFetchError(f"repomix failed: {trimmed or 'unknown error'}")
