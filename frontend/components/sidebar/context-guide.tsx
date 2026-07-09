@@ -110,9 +110,10 @@ export const CONTEXT_FILE_GUIDE: Record<string, FileGuide> = {
     writer: "synced",
     writerNote: "Synced from GitHub",
     purpose:
-      "Repo file tree, README, primary config, and OpenAPI spec pulled by Sync Context. Grounds Phase 2 design and Phase 3 packs in the real codebase.",
+      "The repo's real source, packed by Sync Context: a server-side shallow clone piped through repomix (real file contents by default, not just a tree/README) — the same tool a full-body pack falls back to signature-only `--compress` output for if the repo is too large to fit its token budget. Grounds Phase 2 design and Phase 3 packs in actual implementation code, not just structure.",
     rules: [
       "Machine-written: hand edits are overwritten by the next Sync — put durable guidance in the concept, constraints, or decisions files instead.",
+      "Sized against whatever char headroom is left after your other context files, for the AI model configured in Settings — a large repo on top of an already-large spec can still get compressed down or, rarely, fail to pack at all (trim vendored/generated files or add them to .gitignore).",
     ],
   },
   "figma-context.md": {
@@ -145,7 +146,7 @@ const GENERAL_RULES: Array<{ title: string; body: string }> = [
   {
     title: "Size budget",
     body:
-      "The header counter tracks total context size. Past ~150k characters AI calls degrade and past ~200k they fail — trim or reset the biggest files (synced GitHub/Figma context are the usual culprits).",
+      "The header counter tracks total context size against the AI model configured in Settings — a small-window model (e.g. GPT-4o Mini, 128k tokens) degrades/fails at a much smaller char count than a large one (e.g. GPT-4.1, Gemini 2.5, ~1M tokens). The warning banner names the active model and its real threshold. Trim or reset the biggest files first — synced GitHub/Figma context are the usual culprits.",
   },
   {
     title: "Machine files",
