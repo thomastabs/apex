@@ -127,6 +127,7 @@ class AiConfigModel(BaseModel):
     role: str = ""
     provider: str = "anthropic"
     note: str = ""
+    context_window_tokens: int = 0
 
 
 class AiConfigResponse(BaseModel):

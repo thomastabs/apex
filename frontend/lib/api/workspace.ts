@@ -96,7 +96,7 @@ export function getServerConfig(context: AuthContext, projectId?: number | null)
 
 export type AiConfigResponse = {
   model: string;
-  available_models: Array<{ id: string; label: string; role: string; provider?: string; note?: string }>;
+  available_models: Array<{ id: string; label: string; role: string; provider?: string; note?: string; context_window_tokens?: number }>;
   // Usable right now (system env var set, or a personal key saved).
   configured_providers: string[];
   // Deployment-wide key set via *_API_KEY env var on the backend — the "system key".

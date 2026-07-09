@@ -65,6 +65,32 @@ _DEFAULT_TOKEN_BUDGET = 30_000
 # on the compressed fallback instead of failing outright (real prod incident).
 _COMPRESS_TOKEN_BUDGET = 80_000
 
+# Floor so a project with a huge functional/technical spec doesn't squeeze
+# github-context.md down to something useless — always pack at least this much.
+_MIN_TOKEN_BUDGET = 8_000
+
+# Rough chars-per-token density used only to translate a char headroom target
+# into a --token-budget value. Full-body code (incl. whitespace/punctuation
+# tokens) runs closer to 4 chars/token; --compress output is signatures only
+# (short, keyword-dense) — the 139_972-char/≤80_000-token real incident this
+# was tuned against implies well under 2 chars/token, so 1.75 is conservative.
+_CHARS_PER_TOKEN_FULL = 4.0
+_CHARS_PER_TOKEN_COMPRESSED = 1.75
+
+
+def scale_token_budgets(remaining_chars: int) -> tuple[int, int]:
+    """Shrink the full-body/compress token budgets to fit whatever char
+    headroom `remaining_chars` gives, without ever exceeding the normal
+    ceilings (so a small repo in a project with a small spec is unaffected).
+
+    Called by the sync-context route with headroom computed from the other
+    context files' current size, so github-context.md stops unilaterally
+    claiming the whole shared context budget for itself.
+    """
+    full = max(_MIN_TOKEN_BUDGET, min(_DEFAULT_TOKEN_BUDGET, int(remaining_chars / _CHARS_PER_TOKEN_FULL)))
+    compress = max(_MIN_TOKEN_BUDGET, min(_COMPRESS_TOKEN_BUDGET, int(remaining_chars / _CHARS_PER_TOKEN_COMPRESSED)))
+    return full, compress
+
 # Excludes entire files (the biggest lever on size) on top of the automatic
 # .gitignore respect: build output, tests, docs, migrations, CI configs, and
 # lockfiles are rarely useful for Phase 2-6 grounding and often dominate a
@@ -184,6 +210,7 @@ def clone_and_pack(
     repo: str,
     ref: str,
     token_budget: int = _DEFAULT_TOKEN_BUDGET,
+    compress_token_budget: int = _COMPRESS_TOKEN_BUDGET,
 ) -> str:
     """Shallow-clone the repo and pack it into markdown via the `repomix` CLI.
 
@@ -236,7 +263,7 @@ def clone_and_pack(
             # structure only) rather than failing outright; still more useful
             # than nothing, and closer to what fit in the old ~14KB tree+README.
             _logger.info("github_fetch token budget exceeded, retrying with --compress")
-            result = _run_repomix(dest, output_path, _COMPRESS_TOKEN_BUDGET, compress=True)
+            result = _run_repomix(dest, output_path, compress_token_budget, compress=True)
             if result.returncode != 0:
                 if _is_token_budget_error(result):
                     raise GithubFetchError(

@@ -184,6 +184,11 @@ def check_api_key(model: str | None = None) -> None:
 # and Google prices are approximate public pricing and drift — re-check against
 # each provider's pricing page periodically rather than trusting these forever.
 # claude-sonnet-5 carries its introductory rate (reverts to $3/$15 after 2026-08-31).
+#
+# context_window_tokens: published max input context, default (non-beta) tier.
+# Drives the frontend's context-size warning (frontend/components/sidebar/
+# context-section.tsx) — the warning used to hardcode "Claude's limit" 200k/150k
+# chars regardless of which model was actually configured; now it's per-model.
 AVAILABLE_MODELS: list[dict] = [
     # ── Anthropic (Claude) ───────────────────────────────────────────────────
     {
@@ -194,6 +199,7 @@ AVAILABLE_MODELS: list[dict] = [
         "note":     "Fastest & cheapest — good for simple tasks and tight budgets",
         "input_per_mtok":  1.00,
         "output_per_mtok": 5.00,
+        "context_window_tokens": 200_000,
     },
     {
         "id":       "claude-sonnet-5",
@@ -203,6 +209,7 @@ AVAILABLE_MODELS: list[dict] = [
         "note":     "Best quality-to-cost ratio — recommended for most projects",
         "input_per_mtok":  2.00,
         "output_per_mtok": 10.00,
+        "context_window_tokens": 200_000,
     },
     {
         "id":       "claude-sonnet-4-6",
@@ -212,6 +219,7 @@ AVAILABLE_MODELS: list[dict] = [
         "note":     "Previous generation — see Claude Sonnet 5",
         "input_per_mtok":  3.00,
         "output_per_mtok": 15.00,
+        "context_window_tokens": 200_000,
     },
     {
         "id":       "claude-opus-4-8",
@@ -221,6 +229,7 @@ AVAILABLE_MODELS: list[dict] = [
         "note":     "Most capable Opus — best for complex architecture and large projects",
         "input_per_mtok":  5.00,
         "output_per_mtok": 25.00,
+        "context_window_tokens": 200_000,
     },
     {
         "id":       "claude-fable-5",
@@ -230,6 +239,7 @@ AVAILABLE_MODELS: list[dict] = [
         "note":     "Most powerful Claude model — highest quality at premium cost",
         "input_per_mtok":  10.00,
         "output_per_mtok": 50.00,
+        "context_window_tokens": 200_000,
     },
     # ── OpenAI (GPT) — requires OPENAI_API_KEY ───────────────────────────────
     {
@@ -240,6 +250,7 @@ AVAILABLE_MODELS: list[dict] = [
         "note":     "Cheapest OpenAI model — good for simple tasks",
         "input_per_mtok":  0.10,
         "output_per_mtok": 0.40,
+        "context_window_tokens": 1_047_576,
     },
     {
         "id":       "gpt-4.1-mini",
@@ -249,6 +260,7 @@ AVAILABLE_MODELS: list[dict] = [
         "note":     "Low cost with strong capability",
         "input_per_mtok":  0.40,
         "output_per_mtok": 1.60,
+        "context_window_tokens": 1_047_576,
     },
     {
         "id":       "gpt-4o-mini",
@@ -258,6 +270,7 @@ AVAILABLE_MODELS: list[dict] = [
         "note":     "Reliable low-cost option",
         "input_per_mtok":  0.15,
         "output_per_mtok": 0.60,
+        "context_window_tokens": 128_000,
     },
     {
         "id":       "gpt-4.1",
@@ -267,6 +280,7 @@ AVAILABLE_MODELS: list[dict] = [
         "note":     "Latest GPT-4.1 — strong and efficient",
         "input_per_mtok":  2.00,
         "output_per_mtok": 8.00,
+        "context_window_tokens": 1_047_576,
     },
     {
         "id":       "gpt-4o",
@@ -276,6 +290,7 @@ AVAILABLE_MODELS: list[dict] = [
         "note":     "GPT-4o flagship",
         "input_per_mtok":  2.50,
         "output_per_mtok": 10.00,
+        "context_window_tokens": 128_000,
     },
     # ── Google (Gemini) — requires GOOGLE_API_KEY ────────────────────────────
     {
@@ -286,6 +301,7 @@ AVAILABLE_MODELS: list[dict] = [
         "note":     "Cheapest Gemini model — ideal for simple tasks",
         "input_per_mtok":  0.10,
         "output_per_mtok": 0.40,
+        "context_window_tokens": 1_048_576,
     },
     {
         "id":       "gemini-2.5-flash",
@@ -295,6 +311,7 @@ AVAILABLE_MODELS: list[dict] = [
         "note":     "Best Gemini balance of quality and cost",
         "input_per_mtok":  0.30,
         "output_per_mtok": 2.50,
+        "context_window_tokens": 1_048_576,
     },
     {
         "id":       "gemini-2.5-pro",
@@ -304,6 +321,7 @@ AVAILABLE_MODELS: list[dict] = [
         "note":     "Most capable Gemini model",
         "input_per_mtok":  1.25,
         "output_per_mtok": 10.00,
+        "context_window_tokens": 1_048_576,
     },
 ]
 

@@ -688,15 +688,22 @@ class TestSyncGithubContextRoute:
     def _ctx(self):
         return RequestContext(pm_token="tok", project_id=42)
 
+    def _stub_budgets(self, monkeypatch, ws):
+        # Isolates these route tests from ai_engine.get_model()/AVAILABLE_MODELS
+        # and ContextService.read_context_file — covered separately by
+        # TestGithubPackTokenBudgets below.
+        monkeypatch.setattr(ws, "_github_pack_token_budgets", lambda context: (30_000, 80_000))
+
     def test_writes_packed_context_and_flags_drift(self, monkeypatch):
         from backend.app.api import workspace as ws
         from backend.app.services import github_fetch
 
         monkeypatch.setattr(github_fetch, "fetch_default_branch", lambda pat, owner, repo: "main")
-        monkeypatch.setattr(github_fetch, "clone_and_pack", lambda pat, owner, repo, ref: "# GitHub Repository Context\n\nreal file contents")
+        monkeypatch.setattr(github_fetch, "clone_and_pack", lambda pat, owner, repo, ref, full_budget, compress_budget: "# GitHub Repository Context\n\nreal file contents")
         monkeypatch.setattr(ws.ContextService, "set_active", lambda self, ctx: None)
         monkeypatch.setattr(ws.ContextService, "github_pat", lambda self: "ghp_test")
         monkeypatch.setattr(ws.ContextService, "github_repo", lambda self: "acme/widgets")
+        self._stub_budgets(monkeypatch, ws)
         written: dict[str, str] = {}
         amend_calls = []
         monkeypatch.setattr(ws.ContextService, "write_context_file", lambda self, name, content: written.update({name: content}))
@@ -742,6 +749,7 @@ class TestSyncGithubContextRoute:
         monkeypatch.setattr(ws.ContextService, "set_active", lambda self, ctx: None)
         monkeypatch.setattr(ws.ContextService, "github_pat", lambda self: "bad_pat")
         monkeypatch.setattr(ws.ContextService, "github_repo", lambda self: "acme/widgets")
+        self._stub_budgets(monkeypatch, ws)
 
         with pytest.raises(HTTPException) as exc:
             ws.sync_github_context(ctx=self._ctx())
@@ -758,7 +766,53 @@ class TestSyncGithubContextRoute:
         monkeypatch.setattr(ws.ContextService, "set_active", lambda self, ctx: None)
         monkeypatch.setattr(ws.ContextService, "github_pat", lambda self: "pat")
         monkeypatch.setattr(ws.ContextService, "github_repo", lambda self: "acme/widgets")
+        self._stub_budgets(monkeypatch, ws)
 
         with pytest.raises(HTTPException) as exc:
             ws.sync_github_context(ctx=self._ctx())
         assert exc.value.status_code == 502
+
+
+class TestGithubPackTokenBudgets:
+    """_github_pack_token_budgets: scales the repomix pack budget to the
+    configured AI model's real context window minus what the other context
+    files already use, so github-context.md stops unilaterally claiming the
+    whole shared context budget (real prod incident: 139_972-char pack on a
+    project whose other files already totalled ~63k chars)."""
+
+    def test_scales_down_for_small_model_and_large_other_files(self, monkeypatch):
+        from backend.app.api import workspace as ws
+        from backend.app.services.context_service import ContextService
+
+        import src.ai_engine as ai_engine
+        monkeypatch.setattr(ai_engine, "get_model", lambda: "gpt-4o-mini")
+
+        context = ContextService.__new__(ContextService)
+        # 100k chars already used by the other 8 context files.
+        monkeypatch.setattr(ContextService, "read_context_file", lambda self, name: "x" * 100_000)
+
+        full, compress = ws._github_pack_token_budgets(context)
+        # gpt-4o-mini: 128_000-token window * 1.0 char/token * 0.75 warn
+        # fraction = 96_000 char target, minus 100_000 already used -> 0
+        # remaining -> both budgets clamp to the floor, not zero.
+        assert full == github_fetch_min_token_budget()
+        assert compress == github_fetch_min_token_budget()
+
+    def test_uses_full_ceiling_when_other_files_are_small(self, monkeypatch):
+        from backend.app.api import workspace as ws
+        import src.ai_engine as ai_engine
+        from backend.app.services.context_service import ContextService
+
+        monkeypatch.setattr(ai_engine, "get_model", lambda: "claude-sonnet-5")
+        context = ContextService.__new__(ContextService)
+        monkeypatch.setattr(ContextService, "read_context_file", lambda self, name: "")
+
+        full, compress = ws._github_pack_token_budgets(context)
+        from backend.app.services import github_fetch
+        assert full == github_fetch._DEFAULT_TOKEN_BUDGET
+        assert compress == github_fetch._COMPRESS_TOKEN_BUDGET
+
+
+def github_fetch_min_token_budget() -> int:
+    from backend.app.services import github_fetch
+    return github_fetch._MIN_TOKEN_BUDGET

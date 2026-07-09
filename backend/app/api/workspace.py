@@ -644,6 +644,38 @@ def sync_figma_context(
     return get_context_files(ctx)
 
 
+# Mirrors the frontend's warning-threshold formula (context-section.tsx
+# ContextSizeWarning) so github-context.md targets landing under the *warn*
+# line, not the hard-fail line — leaves real headroom, not just barely fitting.
+_FALLBACK_CONTEXT_WINDOW_TOKENS = 200_000
+_CONTEXT_CHAR_BUDGET_PER_WINDOW_TOKEN = 1.0
+_WARN_FRACTION = 0.75
+
+
+def _github_pack_token_budgets(context: ContextService) -> tuple[int, int]:
+    """Size the GitHub repomix pack against whatever char headroom is left
+    after the *other* context files, for the AI model actually configured on
+    this project — not a fixed guess. Real prod incident: github-context.md
+    alone was hitting 139_972 chars on a project whose other 8 context files
+    already totalled ~63k chars, pushing the combined total over budget and
+    leaving nothing for Phase 2-6's other inputs."""
+    from src.ai_engine import AVAILABLE_MODELS, get_model
+
+    other_chars = 0
+    for filename, _label in _CONTEXT_FILES:
+        if filename == "github-context.md":
+            continue
+        other_chars += len(context.read_context_file(filename))
+
+    model_id = get_model()
+    model = next((m for m in AVAILABLE_MODELS if m["id"] == model_id), None)
+    window_tokens = (model or {}).get("context_window_tokens") or _FALLBACK_CONTEXT_WINDOW_TOKENS
+    hard_limit_chars = window_tokens * _CONTEXT_CHAR_BUDGET_PER_WINDOW_TOKEN
+    target_chars = hard_limit_chars * _WARN_FRACTION
+    remaining_chars = max(0, int(target_chars - other_chars))
+    return github_fetch.scale_token_budgets(remaining_chars)
+
+
 @router.post("/github/sync-context", response_model=ContextFilesResponse)
 def sync_github_context(
     ctx: RequestContext = Depends(get_request_context),
@@ -665,9 +697,10 @@ def sync_github_context(
     if not repo_full or "/" not in repo_full:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No GitHub repo configured.")
     owner, _, repo = repo_full.partition("/")
+    full_budget, compress_budget = _github_pack_token_budgets(context)
     try:
         ref = github_fetch.fetch_default_branch(pat, owner, repo)
-        md = github_fetch.clone_and_pack(pat, owner, repo, ref)
+        md = github_fetch.clone_and_pack(pat, owner, repo, ref, full_budget, compress_budget)
     except github_fetch.GithubFetchError as exc:
         code = exc.status_code if exc.status_code in (401, 403, 429) else status.HTTP_502_BAD_GATEWAY
         raise HTTPException(status_code=code, detail=str(exc)) from exc

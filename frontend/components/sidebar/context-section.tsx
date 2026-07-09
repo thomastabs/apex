@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { BookOpen, ChevronRight, Download, FileText, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
+  useAiConfig,
   useContextFiles,
   useRebuildStoryIndex,
   useResetAllContextFiles,
@@ -27,18 +28,43 @@ function contextSizeColor(totalChars: number): string {
   return "#f87171";
 }
 
-function ContextSizeWarning({ totalChars }: { totalChars: number }) {
-  if (totalChars >= 200_000) {
+// Fallback used while /ai-config hasn't loaded yet, or for a model missing
+// context_window_tokens — Claude's 200k window was the number these were
+// originally (silently) tuned against, so it's the safest default.
+const _FALLBACK_CONTEXT_WINDOW_TOKENS = 200_000;
+
+// Chars-per-raw-context-token: at ~4 chars/token, reserving ~75% of the
+// window for system prompt + phase instructions + schemas + output (only
+// ~25% left for the injected context files) works out to ~1 char of context
+// budget per token of window — this reproduces the original hardcoded
+// 200k/150k Claude thresholds exactly when context_window_tokens is 200k,
+// so it's a drop-in generalization, not a re-tune.
+const _CONTEXT_CHAR_BUDGET_PER_WINDOW_TOKEN = 1.0;
+const _WARN_FRACTION = 0.75;
+
+function ContextSizeWarning({
+  totalChars,
+  modelLabel,
+  contextWindowTokens,
+}: {
+  totalChars: number;
+  modelLabel: string;
+  contextWindowTokens: number;
+}) {
+  const windowTokens = contextWindowTokens || _FALLBACK_CONTEXT_WINDOW_TOKENS;
+  const hardLimit = windowTokens * _CONTEXT_CHAR_BUDGET_PER_WINDOW_TOKEN;
+  const warnLimit = hardLimit * _WARN_FRACTION;
+  if (totalChars >= hardLimit) {
     return (
       <div className="mb-3 rounded border border-red-600 bg-red-950/50 px-3 py-2 text-xs text-red-300">
-        <strong>Context at {Math.round(totalChars / 1000)}k chars</strong> — exceeds Claude&apos;s limit. AI calls will fail. Delete or reset context files.
+        <strong>Context at {Math.round(totalChars / 1000)}k chars</strong> — exceeds {modelLabel}&apos;s ~{Math.round(hardLimit / 1000)}k char budget for this project. AI calls will fail. Delete or reset context files.
       </div>
     );
   }
-  if (totalChars >= 150_000) {
+  if (totalChars >= warnLimit) {
     return (
       <div className="mb-3 rounded border border-orange-700 bg-orange-950/30 px-3 py-2 text-xs text-orange-300">
-        <strong>Context at {Math.round(totalChars / 1000)}k chars</strong> — approaching Claude&apos;s limit. Consider trimming context files.
+        <strong>Context at {Math.round(totalChars / 1000)}k chars</strong> — approaching {modelLabel}&apos;s ~{Math.round(hardLimit / 1000)}k char budget. Consider trimming context files.
       </div>
     );
   }
@@ -222,6 +248,7 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
 
   const context = useApiContext();
   const contextFiles = useContextFiles();
+  const aiConfig = useAiConfig();
   const rebuildIndex = useRebuildStoryIndex();
   const resetAll = useResetAllContextFiles();
 
@@ -234,6 +261,10 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
   const totalChars = contextFiles.data?.total_chars ?? 0;
   const sizeColor = contextSizeColor(totalChars);
   const visibleFiles = useVisibleContextFiles(contextFiles.data?.files);
+
+  const activeModel = aiConfig.data?.available_models.find((m) => m.id === aiConfig.data?.model);
+  const activeModelLabel = activeModel?.label ?? aiConfig.data?.model ?? "the current model";
+  const activeModelContextWindow = activeModel?.context_window_tokens ?? 0;
 
   const projectConcept = contextFiles.data?.files.find((f) => f.filename === "project-concept.md")?.content ?? "";
   const hasProjectConcept = useMemo(() => {
@@ -267,7 +298,7 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                 {totalChars} chars
               </span>
             </div>
-            <ContextSizeWarning totalChars={totalChars} />
+            <ContextSizeWarning totalChars={totalChars} modelLabel={activeModelLabel} contextWindowTokens={activeModelContextWindow} />
             {!hasProjectConcept && contextFiles.data ? (
               <div className="mb-3 rounded border border-amber-700 bg-amber-950/30 px-3 py-2 text-sm text-amber-300">
                 Project Concept file is empty. Fill it in for best AI results.
