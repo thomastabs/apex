@@ -15,6 +15,14 @@ type Phase3State = {
   lockedTaskIds: number[];
   currentStoryMeta: { title: string; epicTitle: string };
   pushedStoryIds: number[];               // persisted across story switches
+  // Which epic + page the Stage A story picker is showing — persisted so it
+  // survives navigating into Decompose/Developer Packs and back, instead of
+  // resetting to the first epic every time (real UX complaint: browsing a
+  // later epic, implementing one story, then losing the epic on return).
+  browsingEpic: string | null;
+  browsingPage: number;
+  setBrowsingEpic: (epic: string | null) => void;
+  setBrowsingPage: (page: number) => void;
   setSelectedStoryId: (id: number | null) => void;
   setTaskList: (tasks: Phase3Task[]) => void;
   hydrateTasks: (tasks: Phase3Task[]) => void;
@@ -44,6 +52,10 @@ export const usePhase3Store = create<Phase3State>()(
       lockedTaskIds: [],
       currentStoryMeta: { title: "", epicTitle: "" },
       pushedStoryIds: [],
+      browsingEpic: null,
+      browsingPage: 0,
+      setBrowsingEpic: (browsingEpic) => set({ browsingEpic, browsingPage: 0 }),
+      setBrowsingPage: (browsingPage) => set({ browsingPage }),
       setSelectedStoryId: (id) =>
         set((state) => {
           if (id === state.selectedStoryId) return {};
@@ -156,6 +168,8 @@ export const usePhase3Store = create<Phase3State>()(
         tasksPushed: state.tasksPushed,
         currentStoryMeta: state.currentStoryMeta,
         pushedStoryIds: state.pushedStoryIds,
+        browsingEpic: state.browsingEpic,
+        browsingPage: state.browsingPage,
       }),
     },
   ),

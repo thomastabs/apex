@@ -255,8 +255,10 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
     return map;
   }, [pmTasksAll]);
 
-  const [activeEpic, setActiveEpic] = useState<string | null>(null);
-  const [page, setPage] = useState(0);
+  const activeEpic = usePhase3Store((s) => s.browsingEpic);
+  const setActiveEpic = usePhase3Store((s) => s.setBrowsingEpic);
+  const page = usePhase3Store((s) => s.browsingPage);
+  const setPage = usePhase3Store((s) => s.setBrowsingPage);
 
   if (isLoading) {
     return (
@@ -285,7 +287,10 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
     byEpic.get(epic)!.push(s);
   }
   const epics = [...byEpic.keys()];
-  const currentEpic = activeEpic ?? epics[0];
+  // Fall back to the first epic if nothing was browsed yet, or the persisted
+  // epic no longer has eligible stories (e.g. all got implemented, or a
+  // different project loaded) — otherwise the picker would render empty.
+  const currentEpic = activeEpic && epics.includes(activeEpic) ? activeEpic : epics[0];
   const epicStories = byEpic.get(currentEpic) ?? [];
 
   return (
@@ -305,7 +310,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
         <div className="relative flex-1 max-w-sm">
           <select
             value={currentEpic}
-            onChange={(e) => { setActiveEpic(e.target.value); setPage(0); }}
+            onChange={(e) => setActiveEpic(e.target.value)}
             className={cn(
               "w-full appearance-none rounded-lg border px-4 py-2.5 pr-9 text-sm font-medium transition cursor-pointer",
               dark
@@ -450,7 +455,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
             {pageCount > 1 && (
               <div className="flex items-center justify-between">
                 <button
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  onClick={() => setPage(Math.max(0, safePage - 1))}
                   disabled={safePage === 0}
                   className={cn(
                     "flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-medium transition disabled:opacity-30",
@@ -463,7 +468,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                   Page {safePage + 1} of {pageCount} · {epicStories.length} stories
                 </span>
                 <button
-                  onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                  onClick={() => setPage(Math.min(pageCount - 1, safePage + 1))}
                   disabled={safePage === pageCount - 1}
                   className={cn(
                     "flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-medium transition disabled:opacity-30",
