@@ -249,6 +249,73 @@ class TestPerProjectGithub:
         assert ctx.get_project_github_repo() == ""
 
 
+class TestProjectGithubPackConfig:
+    """pack_detail_mode/pack_max_tokens/pack_extra_ignore (Settings → GitHub →
+    Pack settings) — stored in the same per-project file as github_repo, so
+    isolated per project the same way."""
+
+    def test_defaults_when_unset(self, ctx):
+        ctx.set_active_instance("api_taiga_io")
+        ctx.set_active_project(1)
+        assert ctx.get_project_github_pack_config() == {
+            "pack_detail_mode": "auto", "pack_max_tokens": None, "pack_extra_ignore": "",
+        }
+
+    def test_save_and_read_round_trip(self, ctx):
+        ctx.set_active_instance("api_taiga_io")
+        ctx.set_active_project(1)
+        ctx.save_project_github_pack_config(
+            pack_detail_mode="compress", pack_max_tokens=50_000, pack_extra_ignore="assets/**,*.svg",
+        )
+        assert ctx.get_project_github_pack_config() == {
+            "pack_detail_mode": "compress", "pack_max_tokens": 50_000, "pack_extra_ignore": "assets/**,*.svg",
+        }
+
+    def test_zero_or_negative_max_tokens_clears_override(self, ctx):
+        ctx.set_active_instance("api_taiga_io")
+        ctx.set_active_project(1)
+        ctx.save_project_github_pack_config(pack_max_tokens=50_000)
+        assert ctx.get_project_github_pack_config()["pack_max_tokens"] == 50_000
+        ctx.save_project_github_pack_config(pack_max_tokens=0)
+        assert ctx.get_project_github_pack_config()["pack_max_tokens"] is None
+
+    def test_invalid_mode_falls_back_to_auto(self, ctx):
+        ctx.set_active_instance("api_taiga_io")
+        ctx.set_active_project(1)
+        ctx.save_project_github_pack_config(pack_detail_mode="bogus")
+        assert ctx.get_project_github_pack_config()["pack_detail_mode"] == "auto"
+
+    def test_unset_fields_left_untouched(self, ctx):
+        ctx.set_active_instance("api_taiga_io")
+        ctx.set_active_project(1)
+        ctx.save_project_github_pack_config(pack_detail_mode="full")
+        ctx.save_project_github_pack_config(pack_extra_ignore="*.svg")
+        cfg = ctx.get_project_github_pack_config()
+        assert cfg["pack_detail_mode"] == "full"
+        assert cfg["pack_extra_ignore"] == "*.svg"
+
+    def test_isolated_per_project(self, ctx):
+        ctx.set_active_instance("api_taiga_io")
+        ctx.set_active_project(1)
+        ctx.save_project_github_pack_config(pack_detail_mode="compress")
+
+        ctx.set_active_project(2)
+        assert ctx.get_project_github_pack_config()["pack_detail_mode"] == "auto"
+
+        ctx.set_active_project(1)
+        assert ctx.get_project_github_pack_config()["pack_detail_mode"] == "compress"
+
+    def test_does_not_disturb_saved_repo_and_pat(self, ctx, monkeypatch):
+        monkeypatch.setenv("AI_KEY_ENCRYPTION_SECRET", "test-secret")
+        ctx.set_active_instance("api_taiga_io")
+        ctx.set_active_project(1)
+        ctx.save_project_github_repo("acme/widgets")
+        ctx.save_project_github_pat("ghp_test")
+        ctx.save_project_github_pack_config(pack_detail_mode="full", pack_max_tokens=20_000)
+        assert ctx.get_project_github_repo() == "acme/widgets"
+        assert ctx.get_project_github_pat() == "ghp_test"
+
+
 class TestMultiInstanceIntegration:
     """Full plumbing: deps.get_request_context → ContextService.set_active →
     context_manager storage. Two instances with the SAME project_id must stay

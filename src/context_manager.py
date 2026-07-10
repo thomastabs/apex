@@ -676,6 +676,54 @@ def has_project_github_pat(project_id: int | None = None) -> bool:
     return bool(_project_github_data(project_id).get("github_pat_encrypted"))
 
 
+# ── Per-project GitHub pack settings (Settings → GitHub → Pack settings) ───────
+# User control over the repomix pack backend/app/services/github_fetch.py builds:
+# how much implementation detail to keep vs. compress away, an optional manual
+# token-budget ceiling (overriding the automatic sizing against remaining
+# context headroom), and extra --ignore globs on top of the built-in exclude
+# list. Stored in the same per-project file as github_repo/github_pat (none of
+# these three are secrets, so no encryption needed).
+_PACK_DETAIL_MODES = {"auto", "full", "compress"}
+
+
+def get_project_github_pack_config(project_id: int | None = None) -> dict:
+    data = _project_github_data(project_id)
+    mode = data.get("pack_detail_mode")
+    if mode not in _PACK_DETAIL_MODES:
+        mode = "auto"
+    max_tokens = data.get("pack_max_tokens")
+    if not isinstance(max_tokens, int) or max_tokens <= 0:
+        max_tokens = None
+    return {
+        "pack_detail_mode": mode,
+        "pack_max_tokens": max_tokens,
+        "pack_extra_ignore": data.get("pack_extra_ignore") or "",
+    }
+
+
+def save_project_github_pack_config(
+    *,
+    pack_detail_mode: str | None = None,
+    pack_max_tokens: int | None = None,
+    pack_extra_ignore: str | None = None,
+    project_id: int | None = None,
+) -> None:
+    """Each field only touches the stored value if explicitly passed (None =
+    leave as-is), except pack_max_tokens where <= 0 explicitly CLEARS the
+    override back to automatic sizing — the frontend sends 0 for "Auto"."""
+    data = _project_github_data(project_id)
+    if pack_detail_mode is not None:
+        data["pack_detail_mode"] = pack_detail_mode if pack_detail_mode in _PACK_DETAIL_MODES else "auto"
+    if pack_max_tokens is not None:
+        if pack_max_tokens <= 0:
+            data.pop("pack_max_tokens", None)
+        else:
+            data["pack_max_tokens"] = int(pack_max_tokens)
+    if pack_extra_ignore is not None:
+        data["pack_extra_ignore"] = pack_extra_ignore.strip()
+    _write_project_github_config(data, project_id)
+
+
 def get_instance_figma_file_key() -> str:
     """Figma file key for the active instance (the linked Figma design file)."""
     p = _instance_dir() / _INSTANCE_CONFIG_FILE

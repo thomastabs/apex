@@ -114,6 +114,7 @@ export const CONTEXT_FILE_GUIDE: Record<string, FileGuide> = {
     rules: [
       "Machine-written: hand edits are overwritten by the next Sync — put durable guidance in the concept, constraints, or decisions files instead.",
       "Sized against whatever char headroom is left after your other context files, for the AI model configured in Settings — a large repo on top of an already-large spec can still get compressed down or, rarely, fail to pack at all (trim vendored/generated files or add them to .gitignore).",
+      "Settings → GitHub → Repo pack settings gives direct control over that: force full detail or always-compressed, set a fixed token ceiling instead of the automatic sizing, and add extra ignore globs on top of the built-in exclude list.",
     ],
   },
   "figma-context.md": {

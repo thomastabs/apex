@@ -691,15 +691,22 @@ class TestSyncGithubContextRoute:
     def _stub_budgets(self, monkeypatch, ws):
         # Isolates these route tests from ai_engine.get_model()/AVAILABLE_MODELS
         # and ContextService.read_context_file — covered separately by
-        # TestGithubPackTokenBudgets below.
-        monkeypatch.setattr(ws, "_github_pack_token_budgets", lambda context: (30_000, 80_000))
+        # TestGithubPackSettings below.
+        monkeypatch.setattr(
+            ws, "_github_pack_settings",
+            lambda context: {"mode": "auto", "full_budget": 30_000, "compress_budget": 80_000, "extra_ignore": ""},
+        )
 
     def test_writes_packed_context_and_flags_drift(self, monkeypatch):
         from backend.app.api import workspace as ws
         from backend.app.services import github_fetch
 
         monkeypatch.setattr(github_fetch, "fetch_default_branch", lambda pat, owner, repo: "main")
-        monkeypatch.setattr(github_fetch, "clone_and_pack", lambda pat, owner, repo, ref, full_budget, compress_budget: "# GitHub Repository Context\n\nreal file contents")
+        monkeypatch.setattr(
+            github_fetch, "clone_and_pack",
+            lambda pat, owner, repo, ref, full_budget, compress_budget, mode="auto", extra_ignore="":
+                "# GitHub Repository Context\n\nreal file contents",
+        )
         monkeypatch.setattr(ws.ContextService, "set_active", lambda self, ctx: None)
         monkeypatch.setattr(ws.ContextService, "github_pat", lambda self: "ghp_test")
         monkeypatch.setattr(ws.ContextService, "github_repo", lambda self: "acme/widgets")
@@ -773,44 +780,124 @@ class TestSyncGithubContextRoute:
         assert exc.value.status_code == 502
 
 
-class TestGithubPackTokenBudgets:
-    """_github_pack_token_budgets: scales the repomix pack budget to the
-    configured AI model's real context window minus what the other context
-    files already use, so github-context.md stops unilaterally claiming the
-    whole shared context budget (real prod incident: 139_972-char pack on a
-    project whose other files already totalled ~63k chars)."""
+class TestGithubPackConfigRoute:
+    def _ctx(self):
+        return RequestContext(pm_token="tok", project_id=42)
+
+    def test_get_returns_saved_config(self, monkeypatch):
+        from backend.app.api import workspace as ws
+
+        monkeypatch.setattr(ws.ContextService, "set_active", lambda self, ctx: None)
+        monkeypatch.setattr(
+            ws.ContextService, "github_pack_config",
+            lambda self: {"pack_detail_mode": "compress", "pack_max_tokens": 40_000, "pack_extra_ignore": "*.svg"},
+        )
+        resp = ws.get_github_pack_config(ctx=self._ctx())
+        assert resp == {"pack_detail_mode": "compress", "pack_max_tokens": 40_000, "pack_extra_ignore": "*.svg"}
+
+    def test_save_forwards_fields_and_returns_updated_config(self, monkeypatch):
+        from backend.app.api import workspace as ws
+        from backend.app.schemas.workspace import SaveGithubPackConfigRequest
+
+        saved = {}
+        monkeypatch.setattr(ws.ContextService, "set_active", lambda self, ctx: None)
+        def _save(self, *, pack_detail_mode=None, pack_max_tokens=None, pack_extra_ignore=None):
+            saved.update(pack_detail_mode=pack_detail_mode, pack_max_tokens=pack_max_tokens, pack_extra_ignore=pack_extra_ignore)
+        monkeypatch.setattr(ws.ContextService, "save_github_pack_config", _save)
+        monkeypatch.setattr(
+            ws.ContextService, "github_pack_config",
+            lambda self: {"pack_detail_mode": "full", "pack_max_tokens": 0, "pack_extra_ignore": ""},
+        )
+
+        payload = SaveGithubPackConfigRequest(pack_detail_mode="full", pack_max_tokens=0, pack_extra_ignore="")
+        resp = ws.save_github_pack_config(payload, ctx=self._ctx())
+
+        assert saved == {"pack_detail_mode": "full", "pack_max_tokens": 0, "pack_extra_ignore": ""}
+        assert resp["pack_detail_mode"] == "full"
+
+
+class TestGithubPackSettings:
+    """_github_pack_settings: scales the repomix pack budget to the configured
+    AI model's real context window minus what the other context files already
+    use, so github-context.md stops unilaterally claiming the whole shared
+    context budget (real prod incident: 139_972-char pack on a project whose
+    other files already totalled ~63k chars) — unless the user has set a
+    manual override in Settings → GitHub → Pack settings, which wins outright."""
+
+    def _context(self, monkeypatch, *, pack_config, other_chars):
+        from backend.app.services.context_service import ContextService
+
+        context = ContextService.__new__(ContextService)
+        monkeypatch.setattr(ContextService, "github_pack_config", lambda self: pack_config)
+        monkeypatch.setattr(ContextService, "read_context_file", lambda self, name: "x" * other_chars)
+        return context
 
     def test_scales_down_for_small_model_and_large_other_files(self, monkeypatch):
         from backend.app.api import workspace as ws
-        from backend.app.services.context_service import ContextService
 
         import src.ai_engine as ai_engine
         monkeypatch.setattr(ai_engine, "get_model", lambda: "gpt-4o-mini")
 
-        context = ContextService.__new__(ContextService)
         # 100k chars already used by the other 8 context files.
-        monkeypatch.setattr(ContextService, "read_context_file", lambda self, name: "x" * 100_000)
+        context = self._context(
+            monkeypatch,
+            pack_config={"pack_detail_mode": "auto", "pack_max_tokens": None, "pack_extra_ignore": ""},
+            other_chars=100_000,
+        )
 
-        full, compress = ws._github_pack_token_budgets(context)
+        settings = ws._github_pack_settings(context)
         # gpt-4o-mini: 128_000-token window * 1.0 char/token * 0.75 warn
         # fraction = 96_000 char target, minus 100_000 already used -> 0
         # remaining -> both budgets clamp to the floor, not zero.
-        assert full == github_fetch_min_token_budget()
-        assert compress == github_fetch_min_token_budget()
+        assert settings["mode"] == "auto"
+        assert settings["full_budget"] == github_fetch_min_token_budget()
+        assert settings["compress_budget"] == github_fetch_min_token_budget()
 
     def test_uses_full_ceiling_when_other_files_are_small(self, monkeypatch):
         from backend.app.api import workspace as ws
         import src.ai_engine as ai_engine
-        from backend.app.services.context_service import ContextService
 
         monkeypatch.setattr(ai_engine, "get_model", lambda: "claude-sonnet-5")
-        context = ContextService.__new__(ContextService)
-        monkeypatch.setattr(ContextService, "read_context_file", lambda self, name: "")
+        context = self._context(
+            monkeypatch,
+            pack_config={"pack_detail_mode": "compress", "pack_max_tokens": None, "pack_extra_ignore": "*.svg"},
+            other_chars=0,
+        )
 
-        full, compress = ws._github_pack_token_budgets(context)
+        settings = ws._github_pack_settings(context)
         from backend.app.services import github_fetch
-        assert full == github_fetch._DEFAULT_TOKEN_BUDGET
-        assert compress == github_fetch._COMPRESS_TOKEN_BUDGET
+        assert settings["full_budget"] == github_fetch._DEFAULT_TOKEN_BUDGET
+        assert settings["compress_budget"] == github_fetch._COMPRESS_TOKEN_BUDGET
+        assert settings["mode"] == "compress"
+        assert settings["extra_ignore"] == "*.svg"
+
+    def test_manual_override_replaces_automatic_sizing(self, monkeypatch):
+        # A manual pack_max_tokens wins outright — doesn't even look at the
+        # other context files or the configured model.
+        from backend.app.api import workspace as ws
+
+        context = self._context(
+            monkeypatch,
+            pack_config={"pack_detail_mode": "full", "pack_max_tokens": 50_000, "pack_extra_ignore": ""},
+            other_chars=999_999,
+        )
+
+        settings = ws._github_pack_settings(context)
+        assert settings == {"mode": "full", "full_budget": 50_000, "compress_budget": 50_000, "extra_ignore": ""}
+
+    def test_manual_override_clamped_to_max(self, monkeypatch):
+        from backend.app.api import workspace as ws
+        from backend.app.services import github_fetch
+
+        context = self._context(
+            monkeypatch,
+            pack_config={"pack_detail_mode": "auto", "pack_max_tokens": 10_000_000, "pack_extra_ignore": ""},
+            other_chars=0,
+        )
+
+        settings = ws._github_pack_settings(context)
+        assert settings["full_budget"] == github_fetch.MAX_MANUAL_TOKEN_BUDGET
+        assert settings["compress_budget"] == github_fetch.MAX_MANUAL_TOKEN_BUDGET
 
 
 def github_fetch_min_token_budget() -> int:

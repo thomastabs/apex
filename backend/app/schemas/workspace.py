@@ -117,6 +117,23 @@ class GithubPatResponse(BaseModel):
     pat: str = ""
 
 
+class GithubPackConfigResponse(BaseModel):
+    pack_detail_mode: Literal["auto", "full", "compress"] = "auto"
+    # None = automatic sizing (scaled to remaining context headroom + the
+    # configured AI model's window). A positive value overrides that sizing.
+    pack_max_tokens: int | None = None
+    # Extra --ignore globs (comma-separated), appended to the built-in list.
+    pack_extra_ignore: str = ""
+
+
+class SaveGithubPackConfigRequest(BaseModel):
+    pack_detail_mode: Literal["auto", "full", "compress"] | None = None
+    # <= 0 clears the override back to automatic sizing; omit the field
+    # entirely (None) to leave whatever is currently saved untouched.
+    pack_max_tokens: int | None = Field(None, ge=0, le=300_000)
+    pack_extra_ignore: str | None = Field(None, max_length=4_000)
+
+
 class FigmaTokenResponse(BaseModel):
     token: str = ""
 

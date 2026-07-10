@@ -1,8 +1,11 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Copy, ExternalLink, GitBranch, Github, Lock, RefreshCw, Star, Webhook } from "lucide-react";
+import { Copy, ExternalLink, GitBranch, Github, Lock, RefreshCw, Settings2, Star, Webhook } from "lucide-react";
 import { toast } from "sonner";
-import { useGithubWebhookConfig, useSaveGithubConfig, useSyncGithubContext, useGithubPat, useServerConfig, useContextFiles } from "@/lib/hooks/use-workspace";
+import {
+  useGithubWebhookConfig, useSaveGithubConfig, useSyncGithubContext, useGithubPat,
+  useServerConfig, useContextFiles, useGithubPackConfig, useSaveGithubPackConfig,
+} from "@/lib/hooks/use-workspace";
 import { useSessionStore, useGithubContext } from "@/lib/stores/session-store";
 import { verifyGithubRepo, type RepoMeta } from "@/lib/api/github-browser";
 import { getApiBaseUrl } from "@/lib/api/client";
@@ -71,6 +74,160 @@ function WebhookSetup({ dark }: { dark: boolean }) {
               </p>
             </>
           ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+const PACK_DETAIL_OPTIONS: Array<{ value: "auto" | "full" | "compress"; label: string; blurb: string }> = [
+  {
+    value: "auto",
+    label: "Auto (recommended)",
+    blurb: "Packs full function bodies. If the repo is too large for the token budget, automatically retries as a compressed (signatures-only) pack instead of failing outright.",
+  },
+  {
+    value: "full",
+    label: "Full detail",
+    blurb: "Always packs full function bodies, never falls back to compressed. Fails with a clear error if it doesn't fit — so you know to raise the budget or add ignore patterns, rather than silently losing detail.",
+  },
+  {
+    value: "compress",
+    label: "Compressed",
+    blurb: "Always packs signatures and structure only (repomix --compress), skipping full function bodies entirely — maximizes headroom for your other context files (spec, design, constraints) at the cost of implementation detail.",
+  },
+];
+
+function PackSettings({ dark }: { dark: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  const [mode, setMode] = useState<"auto" | "full" | "compress">("auto");
+  const [maxTokens, setMaxTokens] = useState("");
+  const [extraIgnore, setExtraIgnore] = useState("");
+  const seeded = useRef(false);
+
+  const packConfig = useGithubPackConfig();
+  const save = useSaveGithubPackConfig();
+
+  useEffect(() => {
+    if (!packConfig.data || seeded.current) return;
+    seeded.current = true;
+    setMode(packConfig.data.pack_detail_mode);
+    setMaxTokens(packConfig.data.pack_max_tokens ? String(packConfig.data.pack_max_tokens) : "");
+    setExtraIgnore(packConfig.data.pack_extra_ignore);
+  }, [packConfig.data]);
+
+  const inputClass = cn(
+    "h-8 w-full rounded border px-2 text-xs outline-none focus:border-violet-500",
+    dark ? "border-neutral-600 bg-neutral-950 text-white" : "border-slate-300 bg-white text-slate-800",
+  );
+  const labelClass = cn("block font-medium", dark ? "text-neutral-300" : "text-slate-700");
+  const helpClass = cn("mt-1 leading-snug", dark ? "text-neutral-500" : "text-slate-500");
+
+  function handleSave() {
+    const tokens = maxTokens.trim() === "" ? 0 : Math.max(0, parseInt(maxTokens, 10) || 0);
+    save.mutate(
+      { pack_detail_mode: mode, pack_max_tokens: tokens, pack_extra_ignore: extraIgnore.trim() },
+      {
+        onSuccess: () => toast.success("Pack settings saved. Sync Context to apply."),
+        onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to save pack settings."),
+      },
+    );
+  }
+
+  return (
+    <div className={cn("rounded border text-xs", dark ? "border-neutral-700" : "border-slate-200")}>
+      <button
+        className={cn("flex h-8 w-full items-center gap-2 px-2.5 text-left", dark ? "text-neutral-400 hover:text-neutral-200" : "text-slate-600 hover:text-slate-800")}
+        onClick={() => setExpanded(!expanded)}
+      >
+        <Settings2 className="size-3.5" />
+        <span className="flex-1 font-medium">Repo pack settings</span>
+        <span className={dark ? "text-neutral-600" : "text-slate-400"}>{expanded ? "Hide" : "Configure"}</span>
+      </button>
+      {expanded ? (
+        <div className={cn("space-y-3 border-t px-2.5 py-2.5", dark ? "border-neutral-700" : "border-slate-200")}>
+          <p className={cn("leading-snug", dark ? "text-neutral-500" : "text-slate-500")}>
+            Controls how much of the repo Sync Context packs into <code>github-context.md</code>, and how it trades
+            implementation detail for room to fit alongside your other context files.
+          </p>
+
+          {packConfig.isLoading ? (
+            <p className={dark ? "text-neutral-600" : "text-slate-400"}>Loading…</p>
+          ) : (
+            <>
+              <div className="space-y-1.5">
+                <label className={labelClass}>Pack detail</label>
+                <div className="space-y-1.5">
+                  {PACK_DETAIL_OPTIONS.map((opt) => (
+                    <label
+                      key={opt.value}
+                      className={cn(
+                        "flex cursor-pointer items-start gap-2 rounded border p-2",
+                        mode === opt.value
+                          ? dark ? "border-violet-500/60 bg-violet-500/10" : "border-violet-300 bg-violet-50"
+                          : dark ? "border-neutral-700" : "border-slate-200",
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="pack-detail-mode"
+                        className="mt-0.5"
+                        checked={mode === opt.value}
+                        onChange={() => setMode(opt.value)}
+                      />
+                      <span>
+                        <span className={cn("block font-medium", dark ? "text-neutral-200" : "text-slate-800")}>{opt.label}</span>
+                        <span className={cn("block leading-snug", dark ? "text-neutral-500" : "text-slate-500")}>{opt.blurb}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className={labelClass}>Max pack size (tokens)</label>
+                <input
+                  value={maxTokens}
+                  onChange={(e) => setMaxTokens(e.target.value.replace(/[^0-9]/g, ""))}
+                  className={inputClass}
+                  placeholder="Auto"
+                  inputMode="numeric"
+                />
+                <p className={helpClass}>
+                  Leave blank for Auto: the pack is sized to whatever room is left after your other context files,
+                  against the AI model&apos;s context window (Settings → AI Model). Set a number to use a fixed
+                  ceiling instead, ignoring that calculation. Roughly ~4 characters per token at full detail, ~1.75
+                  at compressed — e.g. 50,000 tokens ≈ 200k characters full detail, ≈ 88k characters compressed.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <label className={labelClass}>Extra ignore patterns</label>
+                <textarea
+                  value={extraIgnore}
+                  onChange={(e) => setExtraIgnore(e.target.value)}
+                  className={cn(inputClass, "h-16 resize-y py-1.5 font-mono")}
+                  placeholder="assets/**, *.svg, locales/**"
+                />
+                <p className={helpClass}>
+                  Comma-separated glob patterns, appended to the built-in exclude list. Always excluded already:{" "}
+                  <code>node_modules</code>, <code>.git</code>, <code>dist</code>, <code>build</code>,{" "}
+                  <code>.next</code>, <code>coverage</code>, test/spec files, <code>docs/</code>,{" "}
+                  <code>migrations/</code>, <code>.github/</code>, lockfiles, minified JS, source maps — plus
+                  anything already in the repo&apos;s own <code>.gitignore</code>. Add repo-specific bulk here (large
+                  data/, generated code, locale files, images).
+                </p>
+              </div>
+
+              <button
+                className="inline-flex h-8 w-full items-center justify-center rounded bg-violet-700 text-xs font-semibold text-white hover:bg-violet-600 disabled:opacity-50"
+                disabled={save.isPending}
+                onClick={handleSave}
+              >
+                {save.isPending ? "Saving…" : "Save pack settings"}
+              </button>
+            </>
+          )}
         </div>
       ) : null}
     </div>
@@ -287,6 +444,7 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
                   Synced context is injected into Phase 2 and Phase 3 AI prompts automatically.
                 </p>
 
+                <PackSettings dark={dark} />
                 <WebhookSetup dark={dark} />
               </>
             ) : (

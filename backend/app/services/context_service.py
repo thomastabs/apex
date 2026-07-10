@@ -40,6 +40,22 @@ class ContextService:
     def has_github_pat(self) -> bool:
         return context_manager.has_project_github_pat()
 
+    def github_pack_config(self) -> dict:
+        return context_manager.get_project_github_pack_config()
+
+    def save_github_pack_config(
+        self,
+        *,
+        pack_detail_mode: str | None = None,
+        pack_max_tokens: int | None = None,
+        pack_extra_ignore: str | None = None,
+    ) -> None:
+        context_manager.save_project_github_pack_config(
+            pack_detail_mode=pack_detail_mode,
+            pack_max_tokens=pack_max_tokens,
+            pack_extra_ignore=pack_extra_ignore,
+        )
+
     def save_figma_token(self, token: str | None) -> None:
         context_manager.save_instance_figma_token(token)
 

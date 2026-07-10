@@ -19,6 +19,7 @@ from backend.app.schemas.workspace import (
     ConfigResponse,
     ContextFilesResponse,
     FigmaTokenResponse,
+    GithubPackConfigResponse,
     GithubPatResponse,
     GithubSyncStatusResponse,
     GithubWebhookConfigResponse,
@@ -31,6 +32,7 @@ from backend.app.schemas.workspace import (
     SaveAiKeyRequest,
     AcknowledgeFigmaChangeRequest,
     SaveConfigRequest,
+    SaveGithubPackConfigRequest,
     ScanFigmaChangesRequest,
     ScanFigmaChangesResponse,
     SetPhaseStatusRequest,
@@ -652,13 +654,28 @@ _CONTEXT_CHAR_BUDGET_PER_WINDOW_TOKEN = 1.0
 _WARN_FRACTION = 0.75
 
 
-def _github_pack_token_budgets(context: ContextService) -> tuple[int, int]:
-    """Size the GitHub repomix pack against whatever char headroom is left
-    after the *other* context files, for the AI model actually configured on
-    this project — not a fixed guess. Real prod incident: github-context.md
-    alone was hitting 139_972 chars on a project whose other 8 context files
-    already totalled ~63k chars, pushing the combined total over budget and
-    leaving nothing for Phase 2-6's other inputs."""
+def _github_pack_settings(context: ContextService) -> dict:
+    """Resolve the repomix pack settings (Settings → GitHub → Pack settings)
+    for the sync-context call: mode ("auto"/"full"/"compress"), the extra
+    --ignore globs, and the full/compress token budgets.
+
+    A manual pack_max_tokens override replaces the automatic sizing entirely
+    (both budgets become that one number, clamped). Otherwise the pack is
+    sized against whatever char headroom is left after the *other* context
+    files, for the AI model actually configured on this project — not a
+    fixed guess. Real prod incident: github-context.md alone was hitting
+    139_972 chars on a project whose other 8 context files already totalled
+    ~63k chars, pushing the combined total over budget and leaving nothing
+    for Phase 2-6's other inputs."""
+    pack_cfg = context.github_pack_config()
+    mode = pack_cfg.get("pack_detail_mode") or "auto"
+    extra_ignore = pack_cfg.get("pack_extra_ignore") or ""
+    manual_tokens = pack_cfg.get("pack_max_tokens")
+
+    if manual_tokens:
+        budget = max(github_fetch._MIN_TOKEN_BUDGET, min(github_fetch.MAX_MANUAL_TOKEN_BUDGET, int(manual_tokens)))
+        return {"mode": mode, "full_budget": budget, "compress_budget": budget, "extra_ignore": extra_ignore}
+
     from src.ai_engine import AVAILABLE_MODELS, get_model
 
     other_chars = 0
@@ -673,7 +690,30 @@ def _github_pack_token_budgets(context: ContextService) -> tuple[int, int]:
     hard_limit_chars = window_tokens * _CONTEXT_CHAR_BUDGET_PER_WINDOW_TOKEN
     target_chars = hard_limit_chars * _WARN_FRACTION
     remaining_chars = max(0, int(target_chars - other_chars))
-    return github_fetch.scale_token_budgets(remaining_chars)
+    full_budget, compress_budget = github_fetch.scale_token_budgets(remaining_chars)
+    return {"mode": mode, "full_budget": full_budget, "compress_budget": compress_budget, "extra_ignore": extra_ignore}
+
+
+@router.get("/github/pack-config", response_model=GithubPackConfigResponse)
+def get_github_pack_config(ctx: RequestContext = Depends(get_request_context)):
+    context = ContextService()
+    context.set_active(ctx)
+    return context.github_pack_config()
+
+
+@router.post("/github/pack-config", response_model=GithubPackConfigResponse)
+def save_github_pack_config(
+    payload: SaveGithubPackConfigRequest,
+    ctx: RequestContext = Depends(get_request_context),
+):
+    context = ContextService()
+    context.set_active(ctx)
+    context.save_github_pack_config(
+        pack_detail_mode=payload.pack_detail_mode,
+        pack_max_tokens=payload.pack_max_tokens,
+        pack_extra_ignore=payload.pack_extra_ignore,
+    )
+    return context.github_pack_config()
 
 
 @router.post("/github/sync-context", response_model=ContextFilesResponse)
@@ -697,10 +737,14 @@ def sync_github_context(
     if not repo_full or "/" not in repo_full:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No GitHub repo configured.")
     owner, _, repo = repo_full.partition("/")
-    full_budget, compress_budget = _github_pack_token_budgets(context)
+    settings = _github_pack_settings(context)
     try:
         ref = github_fetch.fetch_default_branch(pat, owner, repo)
-        md = github_fetch.clone_and_pack(pat, owner, repo, ref, full_budget, compress_budget)
+        md = github_fetch.clone_and_pack(
+            pat, owner, repo, ref,
+            settings["full_budget"], settings["compress_budget"],
+            mode=settings["mode"], extra_ignore=settings["extra_ignore"],
+        )
     except github_fetch.GithubFetchError as exc:
         code = exc.status_code if exc.status_code in (401, 403, 429) else status.HTTP_502_BAD_GATEWAY
         raise HTTPException(status_code=code, detail=str(exc)) from exc

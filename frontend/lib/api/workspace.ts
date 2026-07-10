@@ -219,6 +219,32 @@ export function syncGithubContext(context: RequestContext) {
   });
 }
 
+export type GithubPackConfig = {
+  pack_detail_mode: "auto" | "full" | "compress";
+  // null = automatic sizing (scaled to remaining context headroom + the
+  // configured AI model's window). A positive value overrides that sizing.
+  pack_max_tokens: number | null;
+  // Extra --ignore globs (comma-separated), appended to the built-in list.
+  pack_extra_ignore: string;
+};
+
+export function getGithubPackConfig(context: RequestContext) {
+  return apiRequest<GithubPackConfig>("/api/workspace/github/pack-config", { context });
+}
+
+/** pack_max_tokens: 0 clears a manual override back to Auto sizing; omit a
+ * field entirely to leave whatever's saved untouched. */
+export function saveGithubPackConfig(
+  context: RequestContext,
+  payload: Partial<GithubPackConfig>,
+) {
+  return apiRequest<GithubPackConfig>("/api/workspace/github/pack-config", {
+    method: "POST",
+    context,
+    body: payload,
+  });
+}
+
 export function acknowledgeSpecDrift(context: RequestContext, storyId: number) {
   return apiRequest<{ ok: boolean }>(
     `/api/workspace/context-files/story-index/stories/${storyId}/acknowledge-drift`,

@@ -103,6 +103,22 @@ _IGNORE_GLOBS = (
     "*.min.js,*.map"
 )
 
+# User-settable in Settings → GitHub → Pack settings (per project, stored via
+# context_manager.save_project_github_pack_config). "auto" is the original
+# behaviour: full-body pack, --compress retry only if it blows the budget.
+PACK_DETAIL_MODES = {"auto", "full", "compress"}
+
+# A manual pack_max_tokens override (Settings → GitHub) is still clamped —
+# stops a fat-fingered huge number from making repomix hang or, on a model
+# with a modest context window, single-handedly blowing the shared budget
+# the dynamic sizing (scale_token_budgets) exists to protect.
+MAX_MANUAL_TOKEN_BUDGET = 300_000
+
+# Free-text extra --ignore globs a user adds in Settings — capped defensively
+# (passed as a single argv element via subprocess's list form, never a shell,
+# so there's no injection risk; this is just sanity, not a security guard).
+MAX_EXTRA_IGNORE_LEN = 4_000
+
 # An untrusted cloned repo could ship its own repomix.config.* to smuggle
 # config-driven behavior into a "local" repomix run (repomix's docs only
 # document skipping config auto-load for --remote, not local directories).
@@ -211,12 +227,28 @@ def clone_and_pack(
     ref: str,
     token_budget: int = _DEFAULT_TOKEN_BUDGET,
     compress_token_budget: int = _COMPRESS_TOKEN_BUDGET,
+    mode: str = "auto",
+    extra_ignore: str = "",
 ) -> str:
     """Shallow-clone the repo and pack it into markdown via the `repomix` CLI.
 
+    `mode` (Settings → GitHub → Pack detail):
+      - "auto" (default): full-body pack; if it blows `token_budget`, one
+        retry with `--compress` (signatures only) rather than failing outright.
+      - "full": full-body pack only — no compress fallback. Fails with a
+        token-budget error rather than silently degrading detail; the caller
+        chose this to mean "give me real code or tell me it doesn't fit".
+      - "compress": always `--compress`, skipping the full-body attempt
+        entirely — for repos where the user has already decided they want
+        maximum headroom for other context files over implementation detail.
+    `extra_ignore`: user-supplied --ignore globs (Settings), appended to the
+    built-in `_IGNORE_GLOBS`.
+
     Raises GithubFetchError on clone failure, an oversized working tree, a
-    repomix failure (including going over `token_budget`), or a timeout.
+    repomix failure (including going over budget), or a timeout.
     """
+    if mode not in PACK_DETAIL_MODES:
+        mode = "auto"
     if is_blocked_host(_GITHUB_CLONE_HOST) or not egress_host_allowed(_GITHUB_CLONE_HOST):
         raise GithubFetchError("GitHub clone host is blocked or not in the egress allowlist.")
 
@@ -254,25 +286,50 @@ def clone_and_pack(
         _strip_repomix_configs(dest)
 
         output_path = Path(tmp) / "repomix-output.md"
-        result = _run_repomix(dest, output_path, token_budget, compress=False)
-        if result.returncode != 0:
-            if not _is_token_budget_error(result):
-                trimmed = (result.stderr or result.stdout or "").strip()[-2000:]
-                raise GithubFetchError(f"repomix failed: {trimmed or 'unknown error'}")
-            # Full-body pack blew the budget — retry compressed (signatures/
-            # structure only) rather than failing outright; still more useful
-            # than nothing, and closer to what fit in the old ~14KB tree+README.
-            _logger.info("github_fetch token budget exceeded, retrying with --compress")
-            result = _run_repomix(dest, output_path, compress_token_budget, compress=True)
+
+        if mode == "compress":
+            result = _run_repomix(dest, output_path, compress_token_budget, compress=True, extra_ignore=extra_ignore)
             if result.returncode != 0:
                 if _is_token_budget_error(result):
                     raise GithubFetchError(
-                        "Repository is too large to pack even compressed. "
-                        "Trim large generated/vendored files from the repo, or "
-                        "add them to .gitignore, and sync again."
+                        f"Repository is too large to pack even compressed at a "
+                        f"{compress_token_budget}-token budget. Raise the pack token "
+                        "budget in Settings → GitHub, or add ignore patterns to trim it."
                     )
                 trimmed = (result.stderr or result.stdout or "").strip()[-2000:]
                 raise GithubFetchError(f"repomix failed: {trimmed or 'unknown error'}")
+        elif mode == "full":
+            result = _run_repomix(dest, output_path, token_budget, compress=False, extra_ignore=extra_ignore)
+            if result.returncode != 0:
+                if _is_token_budget_error(result):
+                    raise GithubFetchError(
+                        f"Repository doesn't fit a {token_budget}-token full-detail pack. "
+                        "Raise the pack token budget, switch Pack detail to Compressed, "
+                        "or add ignore patterns in Settings → GitHub."
+                    )
+                trimmed = (result.stderr or result.stdout or "").strip()[-2000:]
+                raise GithubFetchError(f"repomix failed: {trimmed or 'unknown error'}")
+        else:
+            result = _run_repomix(dest, output_path, token_budget, compress=False, extra_ignore=extra_ignore)
+            if result.returncode != 0:
+                if not _is_token_budget_error(result):
+                    trimmed = (result.stderr or result.stdout or "").strip()[-2000:]
+                    raise GithubFetchError(f"repomix failed: {trimmed or 'unknown error'}")
+                # Full-body pack blew the budget — retry compressed (signatures/
+                # structure only) rather than failing outright; still more useful
+                # than nothing, and closer to what fit in the old ~14KB tree+README.
+                _logger.info("github_fetch token budget exceeded, retrying with --compress")
+                result = _run_repomix(dest, output_path, compress_token_budget, compress=True, extra_ignore=extra_ignore)
+                if result.returncode != 0:
+                    if _is_token_budget_error(result):
+                        raise GithubFetchError(
+                            "Repository is too large to pack even compressed. "
+                            "Raise the pack token budget in Settings → GitHub, trim "
+                            "large generated/vendored files from the repo, or "
+                            "add ignore patterns and sync again."
+                        )
+                    trimmed = (result.stderr or result.stdout or "").strip()[-2000:]
+                    raise GithubFetchError(f"repomix failed: {trimmed or 'unknown error'}")
 
         if not output_path.exists():
             raise GithubFetchError("repomix did not produce an output file.")
@@ -285,12 +342,16 @@ def _is_token_budget_error(result: subprocess.CompletedProcess) -> bool:
 
 
 def _run_repomix(
-    dest: Path, output_path: Path, token_budget: int, compress: bool
+    dest: Path, output_path: Path, token_budget: int, compress: bool, extra_ignore: str = ""
 ) -> subprocess.CompletedProcess:
+    ignore_globs = _IGNORE_GLOBS
+    extra_ignore = (extra_ignore or "").strip()[:MAX_EXTRA_IGNORE_LEN]
+    if extra_ignore:
+        ignore_globs = f"{ignore_globs},{extra_ignore}"
     args = [
         _REPOMIX_BIN, str(dest),
         "--style", "markdown",
-        "--ignore", _IGNORE_GLOBS,
+        "--ignore", ignore_globs,
         "--token-budget", str(token_budget),
         # Boilerplate/formatting cuts — none of these drop a file's real
         # content, just the summary preamble, directory tree (redundant with

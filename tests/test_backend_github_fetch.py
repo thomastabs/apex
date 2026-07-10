@@ -187,6 +187,57 @@ class TestCloneAndPack:
         style_idx = pack_args.index("--style")
         assert pack_args[style_idx + 1] == "markdown"
 
+    def test_extra_ignore_appended_to_built_in_globs(self, monkeypatch):
+        fake_run = _fake_run_factory()
+        monkeypatch.setattr(gf.subprocess, "run", fake_run)
+        gf.clone_and_pack("pat", "acme", "widgets", "main", extra_ignore="assets/**,*.svg")
+        pack_args = fake_run.calls[1]["args"]
+        ignore_idx = pack_args.index("--ignore") + 1
+        assert pack_args[ignore_idx] == f"{gf._IGNORE_GLOBS},assets/**,*.svg"
+
+    def test_mode_compress_skips_full_body_attempt_entirely(self, monkeypatch):
+        fake_run = _fake_run_factory()
+        monkeypatch.setattr(gf.subprocess, "run", fake_run)
+        gf.clone_and_pack("pat", "acme", "widgets", "main", mode="compress")
+        assert len(fake_run.calls) == 2  # clone + one pack attempt, no fallback retry
+        assert "--compress" in fake_run.calls[1]["args"]
+
+    def test_mode_compress_budget_error_names_the_budget(self, monkeypatch):
+        fake_run = _fake_run_factory(repomix_returncode=1)
+
+        def _run(args, **kw):
+            result = fake_run(args, **kw)
+            if Path(args[0]).name == gf._REPOMIX_BIN or args[0] == gf._REPOMIX_BIN:
+                return subprocess.CompletedProcess(args, 1, stdout="Error: token budget exceeded", stderr="")
+            return result
+
+        monkeypatch.setattr(gf.subprocess, "run", _run)
+        with pytest.raises(gf.GithubFetchError, match="even compressed at a 42000-token budget"):
+            gf.clone_and_pack("pat", "acme", "widgets", "main", compress_token_budget=42_000, mode="compress")
+        assert len(fake_run.calls) == 2  # no retry for an already-compressed attempt
+
+    def test_mode_full_never_falls_back_to_compress(self, monkeypatch):
+        fake_run = _fake_run_factory(repomix_returncode=1)
+
+        def _run(args, **kw):
+            result = fake_run(args, **kw)
+            if Path(args[0]).name == gf._REPOMIX_BIN or args[0] == gf._REPOMIX_BIN:
+                return subprocess.CompletedProcess(args, 1, stdout="Error: token budget exceeded", stderr="")
+            return result
+
+        monkeypatch.setattr(gf.subprocess, "run", _run)
+        with pytest.raises(gf.GithubFetchError, match="doesn't fit a 30000-token full-detail pack"):
+            gf.clone_and_pack("pat", "acme", "widgets", "main", mode="full")
+        assert len(fake_run.calls) == 2  # clone + one pack attempt, no --compress retry
+        assert "--compress" not in fake_run.calls[1]["args"]
+
+    def test_unknown_mode_falls_back_to_auto(self, monkeypatch):
+        fake_run = _fake_run_factory()
+        monkeypatch.setattr(gf.subprocess, "run", fake_run)
+        md = gf.clone_and_pack("pat", "acme", "widgets", "main", mode="bogus")
+        assert md == "# packed\n"
+        assert "--compress" not in fake_run.calls[1]["args"]
+
     def test_pat_never_appears_in_any_subprocess_argv(self, monkeypatch):
         pat = "ghp_super_secret_token_value"
         fake_run = _fake_run_factory()

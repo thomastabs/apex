@@ -640,6 +640,35 @@ export function useGithubWebhookConfig(enabled: boolean) {
   });
 }
 
+/** Settings → GitHub → Pack settings (detail mode, token budget, extra ignore globs). */
+export function useGithubPackConfig() {
+  const ctx = useApiContext();
+  return useQuery({
+    queryKey: ["workspace", "github-pack-config", ctx?.projectId],
+    queryFn: async () => {
+      const { getGithubPackConfig } = await import("@/lib/api/workspace");
+      return getGithubPackConfig(ctx!);
+    },
+    enabled: Boolean(ctx),
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useSaveGithubPackConfig() {
+  const ctx = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: Partial<import("@/lib/api/workspace").GithubPackConfig>) => {
+      if (!ctx) throw new Error("Not connected.");
+      const { saveGithubPackConfig } = await import("@/lib/api/workspace");
+      return saveGithubPackConfig(ctx, payload);
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["workspace", "github-pack-config", ctx?.projectId], data);
+    },
+  });
+}
+
 /** Server-side clone + repomix pack — see lib/api/workspace.ts syncGithubContext. */
 export function useSyncGithubContext() {
   const ctx = useApiContext();
