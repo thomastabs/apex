@@ -291,8 +291,19 @@ class Phase2Service:
         amendment (MAJOR + spec_drift) on top."""
         if not story_ids:
             raise Phase2ValidationError("At least one story_id is required.")
-        if not (ux_brief_addendum.strip() or endpoints_delta.strip() or data_model_delta.strip()):
-            raise Phase2ValidationError("An empty delta cannot be persisted.")
+        # A genuinely empty delta is legitimate — some stories (infra/tooling/
+        # docs work, e.g. "add a local Docker dev environment") need no new
+        # UI, endpoints, or data model at all. What must never be silent is
+        # an accidental blank submit, so a delta with no content requires an
+        # explanatory note instead — that note becomes the record of "why
+        # nothing changed" (real gap: these stories previously had no way to
+        # ever reach design_locked, so they never appeared in Phase 3).
+        if not (ux_brief_addendum.strip() or endpoints_delta.strip() or data_model_delta.strip() or note.strip()):
+            raise Phase2ValidationError(
+                "An empty delta cannot be persisted without a note — if these stories genuinely "
+                "need no design changes, say so in the note (e.g. \"pure infra/tooling, no new "
+                "UI/endpoints/data model\")."
+            )
         self.configure_request(ctx)
         if not self._design_locked():
             raise Phase2ValidationError("No locked project design yet — use the full design flow first.")

@@ -29,6 +29,7 @@ export function DesignDeltaPanel({ dark }: { dark: boolean }) {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [instructions, setInstructions] = useState("");
   const [draft, setDraft] = useState<DesignDeltaResult | null>(null);
+  const [note, setNote] = useState("");
 
   const pending = status.data?.design_locked ? status.data.pending : [];
   if (pending.length === 0) return null;
@@ -50,6 +51,10 @@ export function DesignDeltaPanel({ dark }: { dark: boolean }) {
   const hasContent = Boolean(
     draft && (draft.ux_brief_addendum.trim() || draft.endpoints_delta.trim() || draft.data_model_delta.trim()),
   );
+  // A genuinely empty delta is legitimate (e.g. pure infra/tooling stories
+  // that need no new UI, endpoints, or data model) — but an accidental blank
+  // submit shouldn't be silent, so it requires an explanatory note instead.
+  const canMerge = hasContent || note.trim().length > 0;
 
   const mutedClass = dark ? "text-neutral-400" : "text-slate-500";
   const boxClass = dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-white";
@@ -167,9 +172,24 @@ export function DesignDeltaPanel({ dark }: { dark: boolean }) {
                 </div>
               ))}
 
+              {!hasContent ? (
+                <div className={cn("rounded-md border p-3", boxClass)}>
+                  <p className={cn("mb-1.5 text-xs font-semibold uppercase tracking-wider", mutedClass)}>
+                    Note <span className="normal-case">(required — no UI/endpoint/data-model additions above)</span>
+                  </p>
+                  <Textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    rows={2}
+                    placeholder='e.g. "Pure infra/tooling — no new UI, endpoints, or data model needed"'
+                    disabled={busy}
+                  />
+                </div>
+              ) : null}
+
               <Button
                 className="gap-1.5"
-                disabled={busy || !hasContent}
+                disabled={busy || !canMerge}
                 onClick={() =>
                   persist.mutate(
                     {
@@ -178,6 +198,7 @@ export function DesignDeltaPanel({ dark }: { dark: boolean }) {
                       endpoints_delta: draft.endpoints_delta,
                       data_model_delta: draft.data_model_delta,
                       touches_existing: draft.touches_existing,
+                      note,
                     },
                     {
                       onSuccess: (data) => {
@@ -193,6 +214,7 @@ export function DesignDeltaPanel({ dark }: { dark: boolean }) {
                         setDraft(null);
                         setSelected(new Set());
                         setInstructions("");
+                        setNote("");
                       },
                     },
                   )

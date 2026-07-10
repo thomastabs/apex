@@ -480,6 +480,30 @@ class TestDesignDelta:
                 _ctx(), story_ids=[10], ux_brief_addendum=" ", endpoints_delta="", data_model_delta="",
             )
 
+    def test_persist_empty_delta_with_note_allowed(self):
+        # Real gap: infra/tooling stories (e.g. "add a local Docker dev
+        # environment") genuinely need no new UI, endpoints, or data model —
+        # they were permanently stuck at gherkin_locked with no way to ever
+        # reach design_locked, so they never appeared in Phase 3's eligible
+        # list. A note explaining "no design changes needed" now unblocks it.
+        context = self._locked_context()
+        service, _, _ = _service(context)
+        result = service.persist_design_delta(
+            _ctx(), story_ids=[10], ux_brief_addendum="", endpoints_delta="", data_model_delta="",
+            note="Pure infra/tooling — no new UI, endpoints, or data model needed.",
+        )
+        assert context.appended_delta[0] == [10]
+        assert context.appended_delta[1:] == ("", "", "")
+        assert result["story_ids"] == [10]
+
+    def test_persist_empty_delta_without_note_still_rejected(self):
+        # Whitespace-only note must not silently bypass the guard either.
+        service, _, _ = _service(self._locked_context())
+        with pytest.raises(Phase2ValidationError, match="empty delta"):
+            service.persist_design_delta(
+                _ctx(), story_ids=[10], ux_brief_addendum="", endpoints_delta="", data_model_delta="", note="   ",
+            )
+
     def test_persist_pure_additive_appends_without_amendment(self):
         context = self._locked_context()
         context.affected = [10, 11]
