@@ -1433,28 +1433,26 @@ def _fake_pack():
 class TestDeterministicPack:
     """Pack wrappers are rendered in code, never AI-regenerated."""
 
-    def test_render_pack_md_has_all_seven_headings_in_order(self):
+    def test_render_pack_md_has_all_six_headings_in_order(self):
         from src.ai_engine import render_pack_md
         md = render_pack_md(
             _fake_pack(), task_subject="Login", task_description="Build login.",
             story_ref="Story 1", tech_stack="FastAPI", gherkin="Scenario: x\n  Then y")
         headings = [
             "## Context", "## Implementation Steps", "## Files to Change",
-            "## Test Assertions", "## Agentic Brief", "## Chat Prompt", "## CLAUDE.md Snippet",
+            "## Test Assertions", "## Agentic Brief", "## Chat Prompt",
         ]
         positions = [md.find(h) for h in headings]
         assert all(p != -1 for p in positions)
         assert positions == sorted(positions)  # in order
+        # No provider-specific export — Apex is multi-model (Claude/GPT/Gemini).
+        assert "CLAUDE.md" not in md
 
-    def test_wrappers_cite_the_same_files_no_drift(self):
-        from src.ai_engine import render_agentic_brief, render_claude_md
-        pack = _fake_pack()
-        brief = render_agentic_brief(pack)
-        claude = render_claude_md(pack, story_ref="Story 1", task_subject="Login")
-        # Both wrappers cite the exact same file set — drift is structurally impossible.
+    def test_agentic_brief_cites_files_to_change(self):
+        from src.ai_engine import render_agentic_brief
+        brief = render_agentic_brief(_fake_pack())
         for f in ("`backend/api/auth.py`", "`backend/models/user.py`"):
             assert f in brief
-            assert f in claude
 
     def test_agentic_brief_format(self):
         from src.ai_engine import render_agentic_brief
@@ -1475,20 +1473,13 @@ class TestDeterministicPack:
         assert "1. Create models/user.py" in p
         assert "POST /auth/login with valid creds returns 200 + token" in p
 
-    def test_claude_md_format(self):
-        from src.ai_engine import render_claude_md
-        c = render_claude_md(_fake_pack(), story_ref="Story 1", task_subject="Login")
-        assert c.startswith("### Active Task: Login")
-        assert "**Goal**: Users can sign in" in c
-        assert "*Delete this section once the task is complete.*" in c
-
     def test_generate_coding_proposal_renders_from_structured(self, monkeypatch):
         import src.ai_engine as ai
         monkeypatch.setattr(ai, "_invoke_structured_with_progress", lambda *a, **k: _fake_pack())
         md = ai.generate_coding_proposal(
             "Login", "Build login.", "Scenario: x\n  Then y", _TECH_SPEC_FIXTURE,
             tech_stack="FastAPI", story_ref="Story 1")
-        assert "## Agentic Brief" in md and "## CLAUDE.md Snippet" in md
+        assert "## Agentic Brief" in md and "## Chat Prompt" in md
         assert "`backend/api/auth.py`" in md
         # _pack_digest still parses the rendered output
         assert "## Context" in ai._pack_digest(md)

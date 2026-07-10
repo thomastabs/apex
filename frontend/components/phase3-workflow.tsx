@@ -204,10 +204,6 @@ function extractAgenticBrief(packMd: string): string {
   return extractSection(packMd, "## Agentic Brief");
 }
 
-function extractClaudeMdSnippet(packMd: string): string {
-  return extractSection(packMd, "## CLAUDE.md Snippet");
-}
-
 function getBranchName(storyId: number, taskSubject: string): string {
   const slug = taskSubject
     .toLowerCase()
@@ -1092,12 +1088,6 @@ function StageC({ storyId }: { storyId: number }) {
     if (!brief) { toast.error("No Agentic Brief found — regenerate pack."); return; }
     void copyToClipboard(brief, "Agentic Brief");
   };
-  const handleCopyClaudeMd = () => {
-    const snippet = extractClaudeMdSnippet(packMd);
-    if (!snippet) { toast.error("No CLAUDE.md Snippet found — regenerate pack."); return; }
-    void copyToClipboard(snippet, "CLAUDE.md Snippet");
-  };
-
   if (taskList.length === 0) {
     return <Callout>Generate and finalise tasks in Stage B first.</Callout>;
   }
@@ -1245,9 +1235,6 @@ function StageC({ storyId }: { storyId: number }) {
                       </Button>
                       <Button variant="secondary" onClick={() => void handleCopyPrompt()} title="Copy full prompt for Claude.ai / ChatGPT / Cursor">
                         <Clipboard className="h-4 w-4" /> Chat Prompt
-                      </Button>
-                      <Button variant="secondary" onClick={handleCopyClaudeMd} title="Copy snippet for CLAUDE.md">
-                        <Clipboard className="h-4 w-4" /> CLAUDE.md
                       </Button>
                       <Button
                         variant="secondary"

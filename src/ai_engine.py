@@ -1994,9 +1994,11 @@ class PackFile(BaseModel):
 
 class Phase3Pack(BaseModel):
     """Structured Developer Pack. The genuine content is produced ONCE by the AI;
-    the agent-export wrappers (Agentic Brief / Chat Prompt / CLAUDE.md Snippet)
-    are rendered deterministically in code — see render_pack_md. This makes
-    multi-target compilation a real transform, not four stochastic restatements."""
+    the agent-export wrappers (Agentic Brief / Chat Prompt) are rendered
+    deterministically in code — see render_pack_md. This makes multi-target
+    compilation a real transform, not stochastic restatements. Apex is
+    multi-model (Claude/GPT/Gemini), so wrappers stay tool-shaped, not
+    provider-specific — no CLAUDE.md-only export."""
     context: str = Field(description="One paragraph: tech stack, the story this task belongs to, what this task does. Reference relevant endpoint(s)/UI component(s) from the design bundle.")
     implementation_steps: list[str] = Field(
         description="5-10 file-level, action-oriented steps. Reference exact endpoint signatures (method/path/auth/fields) from the Technical Spec and exact entity names/fields from the Data Model. Never vague — say what to do and where.",
@@ -2064,26 +2066,15 @@ def render_chat_prompt(
     )
 
 
-def render_claude_md(pack: Phase3Pack, *, story_ref: str, task_subject: str) -> str:
-    """Compact block for a project's CLAUDE.md (persistent task context)."""
-    return (
-        f"### Active Task: {task_subject}\n"
-        f"**Story**: {story_ref}\n"
-        f"**Goal**: {pack.goal}\n"
-        f"**Key files**: {_fmt_file_list(pack.files_to_change)}\n"
-        f"**Done when**: {pack.done_when}\n"
-        "*Delete this section once the task is complete.*"
-    )
-
-
 def render_pack_md(
     pack: Phase3Pack, *, task_subject: str, task_description: str,
     story_ref: str, tech_stack: str, gherkin: str,
 ) -> str:
-    """Assemble the full seven-section Developer Pack markdown. Headings are
+    """Assemble the full six-section Developer Pack markdown. Headings are
     byte-identical to the legacy format (frontend, _pack_digest, and the Phase-6
     conformance parser key off them). Content sections come from the structured
-    fields; the last three sections delegate to the pure wrapper renderers."""
+    fields; the last two sections delegate to the pure wrapper renderers. No
+    CLAUDE.md-specific export — Apex is multi-model (Claude/GPT/Gemini)."""
     steps = "\n".join(f"{i}. {s}" for i, s in enumerate(pack.implementation_steps, 1))
     files = "\n".join(f"- `{f.path}` — {f.change}" for f in pack.files_to_change)
     assertions = "\n".join(f"- {a}" for a in pack.test_assertions)
@@ -2093,8 +2084,7 @@ def render_pack_md(
         f"## Files to Change\n{files}\n\n"
         f"## Test Assertions\n{assertions}\n\n"
         f"## Agentic Brief\n{render_agentic_brief(pack)}\n\n"
-        f"## Chat Prompt\n{render_chat_prompt(pack, tech_stack=tech_stack, story_ref=story_ref, gherkin=gherkin, task_subject=task_subject, task_description=task_description)}\n\n"
-        f"## CLAUDE.md Snippet\n{render_claude_md(pack, story_ref=story_ref, task_subject=task_subject)}\n"
+        f"## Chat Prompt\n{render_chat_prompt(pack, tech_stack=tech_stack, story_ref=story_ref, gherkin=gherkin, task_subject=task_subject, task_description=task_description)}\n"
     )
 
 
@@ -2103,7 +2093,7 @@ You are a Senior Developer operating within the Apex Framework.
 Given a specific implementation task within a user story, produce a structured Developer Pack —
 the genuine, grounded content a developer hands to an AI coding assistant. Produce ONLY the
 structured fields requested (the agent-export wrappers are assembled separately): do not write
-"Agentic Brief", "Chat Prompt", or "CLAUDE.md" prose.
+"Agentic Brief" or "Chat Prompt" prose.
 
 Rules:
 - Ground everything ONLY in the provided spec. Never invent endpoints, entities, or components
@@ -2132,7 +2122,7 @@ def _pack_digest(md: str, *, max_chars: int = 700, max_context_chars: int = 600)
     Returns the Context + Files to Change sections (the shared file/entity/
     endpoint surface that sibling packs must agree on) rather than the full
     pack — keeps the cross-awareness signal without dumping Implementation
-    Steps / Chat Prompt / CLAUDE.md into every other generation.
+    Steps / Chat Prompt into every other generation.
 
     Only the prose Context is length-bounded (at a word boundary). The Files to
     Change list is NEVER truncated: it is the consistency signal, and a hard

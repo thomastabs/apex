@@ -29,8 +29,7 @@ _FAKE_PROPOSAL = (
     "## Files to Change\n- auth.py\n\n"
     "## Test Assertions\n- POST /auth/login returns 200.\n\n"
     "## Agentic Brief\nTask: Implement login.\n\n"
-    "## Chat Prompt\nYou are implementing...\n\n"
-    "## CLAUDE.md Snippet\n### Active Task\n- Implement login."
+    "## Chat Prompt\nYou are implementing..."
 )
 
 _FAKE_TASKS = [
@@ -177,7 +176,7 @@ def test_generate_proposal_route_basic():
     )
     assert "## Context" in result["proposal_md"]
     assert "## Agentic Brief" in result["proposal_md"]
-    assert "## CLAUDE.md Snippet" in result["proposal_md"]
+    assert "## Chat Prompt" in result["proposal_md"]
 
 
 def test_generate_proposal_passes_hint():

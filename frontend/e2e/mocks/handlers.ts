@@ -110,11 +110,6 @@ Done-when: login endpoint passes all tests
 
 ## Chat Prompt
 You are implementing a login endpoint. The endpoint should accept email and password, validate credentials, and return a JWT token.
-
-## CLAUDE.md Snippet
-### Active Task
-- Implement POST /auth/login endpoint
-- Files: backend/app/api/auth.py
 `;
 
 const FAKE_TASKS = [
