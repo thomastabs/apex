@@ -567,6 +567,24 @@ def test_update_context_file_pre_lock_edit_is_not_an_amendment(ctx):
     assert "design-bundle.md" not in get_amendments(rc)["amendments_md"]
 
 
+# --- Spec index (stable ids for endpoints/entities/screens/scenarios) ------
+
+def test_get_spec_index_empty_when_nothing_written(ctx):
+    from backend.app.api.workspace import get_spec_index
+    rc = RequestContext(pm_token="tok", project_id=ctx._get_project_id())
+    assert get_spec_index(rc) == {"items": {}}
+
+
+def test_get_spec_index_reflects_written_endpoints(ctx):
+    from backend.app.api.workspace import get_spec_index
+    ctx.write_project_technical_spec(
+        [1], "- **EP-1** `POST /api/v1/x` — x (Story 1) · auth:none · out:x:str", "",
+    )
+    rc = RequestContext(pm_token="tok", project_id=ctx._get_project_id())
+    resp = get_spec_index(rc)
+    assert resp["items"]["EP-1"] == {"kind": "endpoint", "label": "POST /api/v1/x"}
+
+
 def test_stats_lists_regressed_story_ids(ctx):
     ctx.upsert_story_index(1, phase_status="implementation")
     ctx.upsert_story_index(2, phase_status="qa")

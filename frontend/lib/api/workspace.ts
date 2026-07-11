@@ -393,6 +393,20 @@ export function getStoryIndexStats(context: RequestContext) {
   return apiRequest<StoryIndexStats>("/api/workspace/context-files/story-index-stats", { context });
 }
 
+export type SpecIndexEntry = {
+  kind: "endpoint" | "entity" | "screen" | "scenario" | "constraint";
+  label: string;
+  story_id?: number | null;
+};
+
+export type SpecIndexResponse = {
+  items: Record<string, SpecIndexEntry>;
+};
+
+export function getSpecIndex(context: RequestContext) {
+  return apiRequest<SpecIndexResponse>("/api/workspace/spec-index", { context });
+}
+
 export function setStoryFigmaLink(
   context: RequestContext, storyId: number, figmaNodeId: string, figmaModified = "", figmaFileKey = "",
 ) {

@@ -24,6 +24,7 @@ import {
   getMe,
   getServerConfig,
   acknowledgeFigmaChange,
+  getSpecIndex,
   getStoryIndexStats,
   scanFigmaChanges,
   scanFigmaChangesMulti,
@@ -474,6 +475,16 @@ export function useStoryIndexStats() {
   return useQuery({
     queryKey: ["workspace", "story-index-stats", context?.projectId],
     queryFn: () => getStoryIndexStats(context!),
+    enabled: Boolean(context),
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useSpecIndex() {
+  const context = useApiContext();
+  return useQuery({
+    queryKey: ["workspace", "spec-index", context?.projectId],
+    queryFn: () => getSpecIndex(context!),
     enabled: Boolean(context),
     staleTime: 30 * 1000,
   });

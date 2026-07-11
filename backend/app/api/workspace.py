@@ -16,6 +16,7 @@ from backend.app.schemas.workspace import (
     AiConfigResponse,
     AiKeyStatusResponse,
     AmendmentsResponse,
+    SpecIndexResponse,
     ConfigResponse,
     ContextFilesResponse,
     FigmaTokenResponse,
@@ -769,6 +770,13 @@ def get_amendments(ctx: RequestContext = Depends(get_request_context)):
     context = ContextService()
     context.set_active(ctx)
     return {"amendments_md": context.get_amendments()}
+
+
+@router.get("/spec-index", response_model=SpecIndexResponse)
+def get_spec_index(ctx: RequestContext = Depends(get_request_context)):
+    context = ContextService()
+    context.set_active(ctx)
+    return {"items": context.load_spec_index()}
 
 
 @router.post("/context-files/reset-all", response_model=ContextFilesResponse)

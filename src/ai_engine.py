@@ -780,6 +780,7 @@ class NLStoryList(BaseModel):
 
 
 class GherkinScenario(BaseModel):
+    id: str = Field(default="", description="Stable id, e.g. SC-1, SC-2, unique within this story, in output order")
     title: str = Field(description="Scenario title")
     given: list[str] = Field(
         description="Precondition steps — each item is one step text without the 'Given'/'And' keyword"
@@ -1111,7 +1112,7 @@ def diff_endpoint_sets(primary_md: str, alt_md: str) -> dict:
 # Phase 1 · Step 2 — Gherkin Compilation (GL Compiler persona)
 # ---------------------------------------------------------------------------
 
-_GL_COMPILATION_VERSION = "1.1"
+_GL_COMPILATION_VERSION = "1.2"
 _GL_COMPILATION_SYSTEM = """\
 You are a strict Gherkin Language (GL) compiler operating within the Apex Framework.
 Your ONLY job is to take a human-reviewed Natural Language story draft and compile it
@@ -1127,6 +1128,7 @@ Rules you MUST follow:
 - Given steps: preconditions only (who the user is, what state the system is in).
 - When steps: user's action in business terms — never UI mechanics ("submits the form" not "clicks the blue Submit button").
 - Then steps: observable business outcomes only — never server internals ("the task shows the new owner" not "the database record is updated").
+- Assign each scenario a stable id SC-1, SC-2, … in output order, unique within this story.
 
 --- FEW-SHOT EXAMPLE ---
 
@@ -1144,7 +1146,8 @@ CORRECT OUTPUT:
   title: "Task Assignment to Teammate"
   size: XS
   scenarios:
-    - title: "Assign to an active member"
+    - id: "SC-1"
+      title: "Assign to an active member"
       given:
         - "the member is viewing an unassigned task"
         - "the task belongs to a project the member is part of"
@@ -1155,7 +1158,8 @@ CORRECT OUTPUT:
         - "the task displays the selected teammate as its owner"
         - "the assignment change is visible to all project members"
 
-    - title: "Assign to someone not on the project"
+    - id: "SC-2"
+      title: "Assign to someone not on the project"
       given:
         - "the member is viewing a task"
         - "there are people in the system who are not members of this project"
@@ -1171,6 +1175,7 @@ KEY RULES ILLUSTRATED:
 - When: business action ("selects a teammate", "confirms the assignment") — not "clicks button".
 - Then: observable outcome ("task displays the selected teammate") — not "record saved to DB".
 - Each step is a single atomic statement — one concept per list item.
+- Each scenario has a unique, sequential id (SC-1, SC-2, ...) in output order.
 --- END EXAMPLE ---
 """
 
@@ -1199,6 +1204,8 @@ def format_gherkin_story(story: GherkinStory) -> str:
     """Render a single GherkinStory as a Gherkin feature block."""
     lines = [f"Feature: {story.title}", ""]
     for sc in story.scenarios:
+        if sc.id:
+            lines.append(f"  @{sc.id}")
         lines.append(f"  Scenario: {sc.title}")
         if sc.given:
             lines.append(f"    Given {sc.given[0]}")
@@ -1635,13 +1642,14 @@ Output exactly two sections — nothing else, no introduction, no commentary.
 One `### <Epic Title>` subsection per epic. The subsection heading MUST be copied verbatim from the `## <heading>` in the story list — do not rename, shorten, or merge.
 Format:
 ### <Epic Title — exact copy from story list>
-- **<Screen Name>** [Story <ID>]: <entry point — one phrase>. Actions: <action1>, <action2>, <action3>.
+- **<Screen Name>** {SCR-1} [Story <ID>]: <entry point — one phrase>. Actions: <action1>, <action2>, <action3>.
 
 Rules for Screens:
 - One bullet per screen. Maximum 25 words per bullet.
 - 2–4 actions per screen maximum.
 - If a screen serves multiple stories list all IDs.
 - Only screens a real user navigates to.
+- Assign each screen a stable id SCR-1, SCR-2, … in output order, unique across the whole document.
 
 ## Navigation Paths
 
@@ -1674,7 +1682,7 @@ Output exactly one section — nothing else, no introduction, no commentary.
 One `### <Epic Title>` subsection per epic. The subsection heading MUST be copied verbatim from the `## <heading>` in the story list — do not rename, shorten, or merge.
 Format:
 ### <Epic Title — exact copy from story list>
-- `METHOD /path/to/resource` — purpose (Story <ID>) · auth:<none|bearer|role:admin> · in:<field:type,...> · out:<field:type,...>
+- **EP-1** `METHOD /path/to/resource` — purpose (Story <ID>) · auth:<none|bearer|role:admin> · in:<field:type,...> · out:<field:type,...>
 
 Rules:
 - One bullet per endpoint.
@@ -1687,6 +1695,7 @@ Rules:
 - Every story ID in the story list must appear on at least one endpoint line.
 - Derive route names from screen names in the UX Brief above.
 - Cover ALL epics — do not stop early.
+- Assign each endpoint a stable id EP-1, EP-2, … in output order, unique across the whole document.
 """
 
 _DATA_MODEL_SYSTEM = """\
@@ -1705,7 +1714,7 @@ Output exactly one section — nothing else, no introduction, no commentary.
 ## Data Model
 
 For each entity:
-### <EntityName>
+### <EntityName> [ENT-1]
 - Fields: `field_name: type`, `field_name: type`, …
 - Relations: one line (e.g. belongs to User, has many Orders) — omit if none.
 
@@ -1717,6 +1726,7 @@ Rules:
 - Relations must only name entities defined within this Data Model — never invent external entities.
 - Use consistent field naming (snake_case or camelCase — pick one, never mix).
 - Cover all entities implied by the endpoint list — do not stop early.
+- Assign each entity a stable id ENT-1, ENT-2, … in output order, unique across the whole document.
 """
 
 
@@ -1785,21 +1795,24 @@ against — it is binding and read-only.
 **Existing locked design (READ-ONLY — do not restate, rename, or redesign anything in it):**
 {existing_design}
 
+**ID continuation (binding):** {id_continuation}
+
 Produce ONLY the additions the new stories require:
 
 - `ux_brief_addendum` — new screens and navigation paths, in the same format as
-  the existing UX Brief. Reuse existing screens by their exact names; never
-  re-describe them.
+  the existing UX Brief (`- **<Screen Name>** {{SCR-n}} [Story <ID>]: ...`).
+  Reuse existing screens by their exact names; never re-describe them.
 - `endpoints_delta` — new endpoints only, format:
-  - `METHOD /path/to/resource` — purpose (Story <ID>) · auth:<none|bearer|role:admin> · in:<field:type,...> · out:<field:type,...>
+  - **EP-n** `METHOD /path/to/resource` — purpose (Story <ID>) · auth:<none|bearer|role:admin> · in:<field:type,...> · out:<field:type,...>
   Group under `### <Epic Title>` subsections matching the new stories' epics.
   Keep the existing design's path prefix and auth conventions. Never emit an
   endpoint whose METHOD+path already exists.
 - `data_model_delta` — new entities only, format:
-  `### <EntityName>` + `- Fields: ...` + optional `- Relations: ...`.
+  `### <EntityName> [ENT-n]` + `- Fields: ...` + optional `- Relations: ...`.
   Relations may reference existing entities by their exact names. If a new
   story only needs a new FIELD on an existing entity, express it as
-  `### <ExistingEntityName> (existing — add fields)` with just the new fields.
+  `### <ExistingEntityName> (existing — add fields)` with just the new fields
+  and no new id (it already has one).
 - `touches_existing` — every existing endpoint or entity the new stories force
   a behavioural or schema change to (an added field on an existing entity
   counts), one `<identifier> — <reason>` entry each. Empty when the delta is
@@ -1811,6 +1824,7 @@ Rules:
 - Prefer reusing an existing endpoint/entity over inventing a near-duplicate.
 - Any of the three markdown fields may be an empty string when nothing is needed.
 - No code blocks, no SQL, no commentary outside the required formats.
+- Follow the ID continuation instruction exactly — never reuse an id already used in the existing locked design.
 """
 
 
@@ -1819,15 +1833,27 @@ def generate_design_delta(
     context: str,
     existing_design: str,
     instructions: str = "",
+    next_ids: dict[str, int] | None = None,
 ) -> dict:
     """Additive design pass for post-lock stories: returns ux/endpoints/data-model
     additions plus a `touches_existing` honesty list. Never asked to regenerate
-    the locked design — it is injected read-only."""
+    the locked design — it is injected read-only.
+
+    `next_ids` (e.g. {"EP": 4, "ENT": 3, "SCR": 2}) tells the model where to
+    continue id numbering from, computed by the caller from the existing
+    locked design — new ids must never collide with ones already assigned."""
     grouped = _group_stories_by_epic(new_stories)
+    next_ids = next_ids or {}
+    id_continuation = (
+        f"new endpoints start at EP-{next_ids.get('EP', 1)}, "
+        f"new entities start at ENT-{next_ids.get('ENT', 1)}, "
+        f"new screens start at SCR-{next_ids.get('SCR', 1)}."
+    )
     system = _DESIGN_DELTA_SYSTEM.format(
         context=fence_user_content(context),
         existing_design=fence_user_content(existing_design),
         anti_hallucination=_ANTI_HALLUCINATION,
+        id_continuation=id_continuation,
     ) + _guidance_block(instructions)
     result = _ai_retry(lambda: _invoke_structured_with_progress(
         system, _format_stories_human(grouped), get_model(), DesignDelta,
@@ -3424,6 +3450,15 @@ _SPEC_ENDPOINT_RE = re.compile(
 )
 # NFR line in constraints.md: "- **NFR-1** _(event-driven)_: text".
 _CONSTRAINT_ID_RE = re.compile(r"^\s*-\s*\*\*(NFR-\d+)\*\*.*?:\s*(.+)$", re.MULTILINE)
+# Endpoint bullet in technical-spec.md: "- **EP-1** `METHOD /path` — purpose ...".
+_ENDPOINT_ID_RE = re.compile(
+    r"^\s*-\s*\*\*(EP-\d+)\*\*\s*`\s*(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+(/[^\s`]*)\s*`",
+    re.IGNORECASE | re.MULTILINE,
+)
+# Entity heading in technical-spec.md: "### <EntityName> [ENT-1]".
+_ENTITY_ID_RE = re.compile(r"^###\s+(.+?)\s*\[(ENT-\d+)\]\s*$", re.MULTILINE)
+# Screen bullet in design-bundle.md: "- **<Screen Name>** {SCR-1} [Story <ID>]: ...".
+_SCREEN_ID_RE = re.compile(r"^\s*-\s*\*\*(.+?)\*\*\s*\{(SCR-\d+)\}", re.MULTILINE)
 
 
 def parse_spec_endpoints(technical_spec: str) -> list[tuple[str, str]]:
@@ -3448,6 +3483,54 @@ def parse_constraint_ids(constraints_md: str) -> list[tuple[str, str]]:
     """Extract (id, text) for each NFR line in constraints.md."""
     return [(m.group(1), m.group(2).strip())
             for m in _CONSTRAINT_ID_RE.finditer(constraints_md or "")]
+
+
+def parse_endpoint_ids(technical_spec: str) -> list[tuple[str, str, str]]:
+    """Extract (id, METHOD, path) for each id-tagged endpoint bullet.
+
+    Separate from parse_spec_endpoints() (whose (method, path) tuple shape is
+    relied on unchanged by diff_endpoint_sets()/build_layer_a_report()) — this
+    is the id-aware sibling for the spec index."""
+    return [(m.group(1), m.group(2).upper(), (m.group(3).rstrip("/") or "/").lower())
+            for m in _ENDPOINT_ID_RE.finditer(technical_spec or "")]
+
+
+def parse_entity_ids(technical_spec: str) -> list[tuple[str, str]]:
+    """Extract (id, entity name) for each id-tagged entity heading."""
+    return [(m.group(2), m.group(1).strip())
+            for m in _ENTITY_ID_RE.finditer(technical_spec or "")]
+
+
+def parse_screen_ids(design_bundle: str) -> list[tuple[str, str]]:
+    """Extract (id, screen name) for each id-tagged screen bullet."""
+    return [(m.group(2), m.group(1).strip())
+            for m in _SCREEN_ID_RE.finditer(design_bundle or "")]
+
+
+_FS_STORY_HEADING_RE = re.compile(r"^#{2,3} Story (\d+):")
+_GHERKIN_TAG_RE = re.compile(r"^\s*@(SC-\d+)\s*$")
+_GHERKIN_SCENARIO_LINE_RE = re.compile(r"^\s*Scenario(?:\s+Outline)?:\s*(.+)$")
+
+
+def parse_gherkin_scenario_ids(functional_spec_md: str) -> list[tuple[int, str, str]]:
+    """Extract (story_id, scenario_id, title) for each @SC-n tagged scenario
+    in functional-spec.md. Scenario ids are scoped per story (SC-1, SC-2, ...
+    reset for each story, same as Phase3Task.id) — story_id disambiguates
+    them for a project-wide index."""
+    out: list[tuple[int, str, str]] = []
+    current_story_id: int | None = None
+    lines = (functional_spec_md or "").splitlines()
+    for i, line in enumerate(lines):
+        story_m = _FS_STORY_HEADING_RE.match(line)
+        if story_m:
+            current_story_id = int(story_m.group(1))
+            continue
+        tag_m = _GHERKIN_TAG_RE.match(line)
+        if tag_m and current_story_id is not None and i + 1 < len(lines):
+            title_m = _GHERKIN_SCENARIO_LINE_RE.match(lines[i + 1])
+            if title_m:
+                out.append((current_story_id, tag_m.group(1), title_m.group(1).strip()))
+    return out
 
 
 # --- GitHub-context probes (deterministic) ---------------------------------

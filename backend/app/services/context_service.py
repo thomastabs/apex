@@ -286,6 +286,9 @@ class ContextService:
     def load_design_system(self) -> dict | None:
         return context_manager.load_design_system()
 
+    def load_spec_index(self) -> dict:
+        return context_manager.load_spec_index()
+
     def upsert_story_index(self, story_id: int, **updates) -> None:
         context_manager.upsert_story_index(story_id, **updates)
 

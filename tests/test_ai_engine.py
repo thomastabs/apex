@@ -836,6 +836,120 @@ class TestConformanceParsers:
         assert ("PUT", "/flask") in routes and ("DELETE", "/flask") in routes
 
 
+class TestSpecIdParsers:
+    """Stable id parsers for the spec index (endpoints/entities/screens/scenarios)."""
+
+    _TECH_SPEC_WITH_IDS = (
+        "### Auth\n"
+        "- **EP-1** `POST /api/v1/auth/login` — login (Story 1) · auth:none · in:email:str · out:token:str\n"
+        "- **EP-2** `GET /api/v1/me` — current user (Story 1) · auth:bearer · out:id:str\n\n"
+        "### Data Model\n"
+        "### User [ENT-1]\n"
+        "- Fields: `id: str`, `email: str`\n"
+        "- Relations: has many Order\n\n"
+        "### Order [ENT-2]\n"
+        "- Fields: `id: str`\n"
+    )
+
+    _DESIGN_BUNDLE_WITH_IDS = (
+        "### Auth\n"
+        "- **Login Screen** {SCR-1} [Story 1]: entry point. Actions: submit.\n"
+        "- **Dashboard** {SCR-2} [Story 1]: landing. Actions: view.\n"
+    )
+
+    _FUNCTIONAL_SPEC_WITH_IDS = (
+        "## Epic 1: Auth\n\n"
+        "### Story 1: User Login\n\n"
+        "**Status:** Gherkin Locked\n\n"
+        "```gherkin\n"
+        "Feature: User Login\n\n"
+        "  @SC-1\n"
+        "  Scenario: Successful login\n"
+        "    Given a\n    When b\n    Then c\n\n"
+        "  @SC-2\n"
+        "  Scenario: Failed login\n"
+        "    Given a\n    When b\n    Then c\n"
+        "```\n\n"
+        "### Story 2: Logout\n\n"
+        "```gherkin\n"
+        "Feature: Logout\n\n"
+        "  @SC-1\n"
+        "  Scenario: Successful logout\n"
+        "    Given a\n    When b\n    Then c\n"
+        "```\n"
+    )
+
+    def test_parse_endpoint_ids(self):
+        from src.ai_engine import parse_endpoint_ids
+        eps = parse_endpoint_ids(self._TECH_SPEC_WITH_IDS)
+        assert eps == [
+            ("EP-1", "POST", "/api/v1/auth/login"),
+            ("EP-2", "GET", "/api/v1/me"),
+        ]
+
+    def test_parse_entity_ids(self):
+        from src.ai_engine import parse_entity_ids
+        ents = parse_entity_ids(self._TECH_SPEC_WITH_IDS)
+        assert ents == [("ENT-1", "User"), ("ENT-2", "Order")]
+
+    def test_parse_screen_ids(self):
+        from src.ai_engine import parse_screen_ids
+        scrs = parse_screen_ids(self._DESIGN_BUNDLE_WITH_IDS)
+        assert scrs == [("SCR-1", "Login Screen"), ("SCR-2", "Dashboard")]
+
+    def test_parse_gherkin_scenario_ids_scoped_per_story(self):
+        from src.ai_engine import parse_gherkin_scenario_ids
+        scenarios = parse_gherkin_scenario_ids(self._FUNCTIONAL_SPEC_WITH_IDS)
+        assert scenarios == [
+            (1, "SC-1", "Successful login"),
+            (1, "SC-2", "Failed login"),
+            (2, "SC-1", "Successful logout"),
+        ]
+
+    def test_id_parsers_empty_input(self):
+        from src.ai_engine import (
+            parse_endpoint_ids, parse_entity_ids, parse_screen_ids, parse_gherkin_scenario_ids,
+        )
+        assert parse_endpoint_ids("") == []
+        assert parse_entity_ids("") == []
+        assert parse_screen_ids("") == []
+        assert parse_gherkin_scenario_ids("") == []
+
+
+class TestGherkinScenarioId:
+    """GherkinScenario carries a self-assigned id, rendered as a Gherkin tag."""
+
+    def test_id_defaults_to_empty_string(self):
+        from src.ai_engine import GherkinScenario
+        sc = GherkinScenario(title="T", given=["g"], when=["w"], then=["t"])
+        assert sc.id == ""
+
+    def test_id_round_trips(self):
+        from src.ai_engine import GherkinScenario
+        sc = GherkinScenario(id="SC-1", title="T", given=["g"], when=["w"], then=["t"])
+        assert sc.id == "SC-1"
+
+    def test_format_gherkin_story_renders_tag_above_scenario(self):
+        from src.ai_engine import GherkinScenario, GherkinStory, format_gherkin_story
+        story = GherkinStory(
+            title="Task Assignment",
+            size="XS",
+            scenarios=[GherkinScenario(id="SC-1", title="Assign", given=["g"], when=["w"], then=["t"])],
+        )
+        result = format_gherkin_story(story)
+        assert "@SC-1\n  Scenario: Assign" in result
+
+    def test_format_gherkin_story_omits_tag_when_id_empty(self):
+        from src.ai_engine import GherkinScenario, GherkinStory, format_gherkin_story
+        story = GherkinStory(
+            title="Task Assignment",
+            size="XS",
+            scenarios=[GherkinScenario(title="Assign", given=["g"], when=["w"], then=["t"])],
+        )
+        result = format_gherkin_story(story)
+        assert "@" not in result
+
+
 class TestPathMatching:
     """Suffix/wildcard path matching."""
 

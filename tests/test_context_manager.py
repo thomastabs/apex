@@ -1279,6 +1279,60 @@ class TestStoryDesignBundle:
 # version bump) but no longer flags any story for required review.
 # ---------------------------------------------------------------------------
 
+class TestRebuildSpecIndex:
+    """Stable-id registry (endpoints/entities/screens/scenarios/constraints)."""
+
+    ENDPOINTS = "### Auth\n- **EP-1** `POST /api/v1/auth/login` — login (Story 1) · auth:none · out:token:str\n"
+    DATA_MODEL = "### User [ENT-1]\n- Fields: `id: str`\n"
+    UX_BRIEF = "### Auth\n- **Login Screen** {SCR-1} [Story 1]: entry point. Actions: submit.\n"
+    GHERKIN_WITH_ID = "Feature: X\n\n  @SC-1\n  Scenario: s\n    Given x\n    When y\n    Then z\n"
+
+    def test_endpoints_and_entities_indexed(self, ctx):
+        ctx.init_context()
+        ctx.write_project_technical_spec([1], self.ENDPOINTS, self.DATA_MODEL)
+        index = ctx.load_spec_index()
+        assert index["EP-1"] == {"kind": "endpoint", "label": "POST /api/v1/auth/login"}
+        assert index["ENT-1"] == {"kind": "entity", "label": "User"}
+
+    def test_screens_indexed(self, ctx):
+        ctx.init_context()
+        ctx.write_project_design_bundle(self.UX_BRIEF)
+        index = ctx.load_spec_index()
+        assert index["SCR-1"] == {"kind": "screen", "label": "Login Screen"}
+
+    def test_scenarios_indexed_per_story(self, ctx):
+        ctx.init_context()
+        ctx.append_gherkin(10, "Story Ten", self.GHERKIN_WITH_ID)
+        index = ctx.load_spec_index()
+        assert index["10:SC-1"] == {"kind": "scenario", "label": "s", "story_id": 10}
+
+    def test_constraints_indexed(self, ctx):
+        ctx.init_context()
+        ctx.write_context_file("constraints.md", "- **NFR-1** _(event-driven)_: rate-limit auth attempts\n")
+        index = ctx.rebuild_spec_index()
+        assert index["NFR-1"]["kind"] == "constraint"
+        assert "rate-limit" in index["NFR-1"]["label"]
+
+    def test_writers_auto_rebuild_without_explicit_call(self, ctx):
+        ctx.init_context()
+        ctx.write_project_technical_spec([1], self.ENDPOINTS, self.DATA_MODEL)
+        # load_spec_index() alone (no rebuild_spec_index() call) must already
+        # reflect the write — the writer triggers the rebuild internally.
+        assert "EP-1" in ctx.load_spec_index()
+
+    def test_rebuild_replaces_index_entirely(self, ctx):
+        ctx.init_context()
+        ctx.write_project_technical_spec([1], self.ENDPOINTS, self.DATA_MODEL)
+        ctx.write_project_technical_spec([1], "### Auth\n- **EP-1** `GET /api/v1/other` — x (Story 1) · auth:none · out:x:str\n", "")
+        index = ctx.load_spec_index()
+        assert index["EP-1"]["label"] == "GET /api/v1/other"
+        assert "ENT-1" not in index
+
+    def test_empty_project_gives_empty_index(self, ctx):
+        ctx.init_context()
+        assert ctx.rebuild_spec_index() == {}
+
+
 class TestSpecCoEvolution:
     GHERKIN = "Feature: X\n\n  Scenario: S\n    Given a\n    When b\n    Then c\n"
 

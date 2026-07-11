@@ -38,8 +38,9 @@ class FakeAiService:
         self.section_args.append((all_stories, context, section, prior_sections))
         return _FAKE_SECTION_CONTENT[section]
 
-    def generate_design_delta(self, new_stories, context, existing_design, instructions=""):
+    def generate_design_delta(self, new_stories, context, existing_design, instructions="", next_ids=None):
         self.delta_args = (new_stories, context, existing_design, instructions)
+        self.delta_next_ids = next_ids
         return dict(self.delta_result)
 
     def generate_design_system(self, ux_brief_md):
@@ -495,6 +496,26 @@ class TestDesignDelta:
         result = service.generate_design_delta(_ctx(), story_ids=[13])
         assert [s["story_id"] for s in ai.delta_args[0]] == [13]
         assert result["story_ids"] == [13]
+
+    def test_generate_next_ids_default_to_1_when_no_existing_ids(self):
+        # _LOCKED_SPEC's "- `GET /x`" has no **EP-n**/[ENT-n]/{SCR-n} tags.
+        service, ai, _ = _service(self._locked_context())
+        service.generate_design_delta(_ctx())
+        assert ai.delta_next_ids == {"EP": 1, "ENT": 1, "SCR": 1}
+
+    def test_generate_next_ids_continue_past_existing_max(self):
+        context = self._locked_context()
+        context.files["technical-spec.md"] = (
+            "# Technical Specification\n\n## Project Design\n\n**Stories:** #11\n\n"
+            "### Endpoints\n\n"
+            "- **EP-1** `GET /x` — x (Story 11) · auth:none · out:x:str\n"
+            "- **EP-3** `GET /y` — y (Story 11) · auth:none · out:y:str\n\n"
+            "### Data Model\n\n"
+            "### User [ENT-2]\n- Fields: `id: str`\n"
+        )
+        service, ai, _ = _service(context)
+        service.generate_design_delta(_ctx())
+        assert ai.delta_next_ids == {"EP": 4, "ENT": 3, "SCR": 1}
 
     def test_persist_requires_nonempty_delta(self):
         service, _, _ = _service(self._locked_context())

@@ -46,6 +46,16 @@ class AmendmentsResponse(BaseModel):
     amendments_md: str = ""
 
 
+class SpecIndexEntry(BaseModel):
+    kind: Literal["endpoint", "entity", "screen", "scenario", "constraint"]
+    label: str
+    story_id: int | None = None
+
+
+class SpecIndexResponse(BaseModel):
+    items: dict[str, SpecIndexEntry] = Field(default_factory=dict)
+
+
 class SaveAiConfigRequest(BaseModel):
     model: str | None = Field(None, max_length=200)
 

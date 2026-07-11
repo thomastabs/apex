@@ -1747,6 +1747,7 @@ def append_gherkin(
         has_gherkin=True,
         phase_status="gherkin_locked",
     )
+    rebuild_spec_index()
 
 
 def append_technical_spec(
@@ -1946,6 +1947,67 @@ def load_design_system() -> dict | None:
         return json.loads(p.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return None
+
+
+def save_spec_index(index: dict) -> None:
+    """Persist the spec-item registry (endpoints/entities/screens/scenarios/
+    constraints, keyed by stable id) for the current project."""
+    cd = _context_dir()
+    cd.mkdir(parents=True, exist_ok=True)
+    _path("spec-index.json").write_text(
+        json.dumps(index, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+def load_spec_index() -> dict:
+    """Return the spec-item registry, or {} if never rebuilt."""
+    p = _path("spec-index.json")
+    if not p.exists():
+        return {}
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def rebuild_spec_index() -> dict:
+    """Rebuild the spec-item index from scratch by scanning the id-tagged
+    markdown (technical-spec.md, functional-spec.md, design-bundle.md,
+    constraints.md). Mirrors rebuild_story_index() at a finer grain — purely
+    derived, safe to call at any time, replaces the index entirely.
+
+    Endpoints/entities/screens/constraints are project-global; Gherkin
+    scenario ids are scoped per story (reset per story like Phase3Task.id),
+    so their registry key is "{story_id}:SC-n" to stay globally unique.
+    """
+    from src import ai_engine  # lazy: ai_engine imports context_manager lazily too
+
+    index: dict[str, dict] = {}
+
+    tech = _path("technical-spec.md")
+    tech_content = tech.read_text(encoding="utf-8") if tech.exists() else ""
+    for eid, method, path in ai_engine.parse_endpoint_ids(tech_content):
+        index[eid] = {"kind": "endpoint", "label": f"{method} {path}"}
+    for ent_id, name in ai_engine.parse_entity_ids(tech_content):
+        index[ent_id] = {"kind": "entity", "label": name}
+
+    bundle = _path("design-bundle.md")
+    bundle_content = bundle.read_text(encoding="utf-8") if bundle.exists() else ""
+    for scr_id, name in ai_engine.parse_screen_ids(bundle_content):
+        index[scr_id] = {"kind": "screen", "label": name}
+
+    constraints = _path("constraints.md")
+    constraints_content = constraints.read_text(encoding="utf-8") if constraints.exists() else ""
+    for nfr_id, text in ai_engine.parse_constraint_ids(constraints_content):
+        index[nfr_id] = {"kind": "constraint", "label": text[:80]}
+
+    fs = _path("functional-spec.md")
+    fs_content = fs.read_text(encoding="utf-8") if fs.exists() else ""
+    for story_id, sc_id, title in ai_engine.parse_gherkin_scenario_ids(fs_content):
+        index[f"{story_id}:{sc_id}"] = {"kind": "scenario", "label": title, "story_id": story_id}
+
+    save_spec_index(index)
+    return index
 
 
 def save_bdd_tests(story_id: int, test_script: str) -> Path:
@@ -2449,6 +2511,7 @@ def write_project_design_bundle(ux_brief: str) -> None:
         f"{ux_brief.strip()}\n"
     )
     db.write_text(content, encoding="utf-8")
+    rebuild_spec_index()
 
 
 def read_project_design_bundle() -> dict[str, str]:
@@ -2520,6 +2583,7 @@ def write_project_technical_spec(story_ids: list[int], endpoints: str, data_mode
     ts.write_text(content, encoding="utf-8")
     for story_id in story_ids:
         upsert_story_index(story_id, phase_status="design_locked", has_tech_spec=True)
+    rebuild_spec_index()
 
 
 # The unified writer's literal section markers. Section CONTENT routinely
@@ -2635,6 +2699,7 @@ def append_design_delta(
 
     for story_id in story_ids:
         upsert_story_index(story_id, phase_status="design_locked", has_tech_spec=True)
+    rebuild_spec_index()
     return {"locked_at": stamp, "story_ids": sorted(story_ids), "versions": versions}
 
 

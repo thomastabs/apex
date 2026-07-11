@@ -6,6 +6,7 @@ import re
 from backend.app.services.ai_service import AiService
 from backend.app.services.context_service import ContextService
 from backend.app.services.request_context import RequestContext
+from src import ai_engine
 
 _logger = logging.getLogger("apex.phase2_service")
 
@@ -149,8 +150,6 @@ class Phase2Service:
     def cross_check_endpoints(self, ctx: RequestContext, *, ux_brief: str, alt_model: str = "") -> dict:
         """Derive design endpoints with the active model AND a second configured
         provider (same UX brief), returning the contract diff."""
-        from src import ai_engine
-
         self.configure_request(ctx)
         tech_stack = self.context.read_tech_stack()
         if not tech_stack:
@@ -269,8 +268,16 @@ class Phase2Service:
             f"## UX Brief (design-bundle.md)\n\n"
             f"{self.context.read_project_design_bundle().get('ux_brief', '')}"
         )
+        # Endpoints/entities/screens are one shared, project-global id space —
+        # the delta must continue numbering past whatever's already used, never
+        # restart at 1 (that would collide with the locked design's ids).
+        next_ids = {
+            "EP": max((int(i.split("-")[1]) for i, _, _ in ai_engine.parse_endpoint_ids(existing_design)), default=0) + 1,
+            "ENT": max((int(i.split("-")[1]) for i, _ in ai_engine.parse_entity_ids(existing_design)), default=0) + 1,
+            "SCR": max((int(i.split("-")[1]) for i, _ in ai_engine.parse_screen_ids(existing_design)), default=0) + 1,
+        }
         delta = self.ai.generate_design_delta(
-            new_stories, constrained_context, existing_design, instructions=instructions,
+            new_stories, constrained_context, existing_design, instructions=instructions, next_ids=next_ids,
         )
         return {**delta, "story_ids": sorted(pending_ids)}
 

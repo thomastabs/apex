@@ -13,6 +13,7 @@ type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTION
 interface ParsedEndpoint {
   method: HttpMethod;
   path: string;
+  id?: string;
   auth?: string;
   input?: string;
   output?: string;
@@ -25,6 +26,7 @@ interface EndpointGroup {
 
 const METHOD_RE = /\b(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\b/;
 const PATH_RE = /(?:^|\s)(\/[^\s·|`\n]+)/;
+const EP_ID_RE = /\*\*(EP-\d+)\*\*/;
 
 function parseEndpoints(markdown: string): EndpointGroup[] {
   const lines = markdown.split("\n");
@@ -47,6 +49,7 @@ function parseEndpoints(markdown: string): EndpointGroup[] {
 
     const method = methodMatch[1] as HttpMethod;
     const path = pathMatch[1].replace(/[*`]/g, "");
+    const idMatch = line.match(EP_ID_RE);
 
     const parts = line.split("·").map((p) => p.trim());
     const auth = parts.length > 1 ? parts[1].replace(/[*`]/g, "").trim() : undefined;
@@ -57,6 +60,7 @@ function parseEndpoints(markdown: string): EndpointGroup[] {
     current.endpoints.push({
       method,
       path,
+      id: idMatch?.[1],
       auth: auth && auth !== path ? auth : undefined,
       input: inMatch?.[1]?.trim(),
       output: outMatch?.[1]?.trim(),
@@ -368,6 +372,16 @@ export function EndpointTable({
                             >
                               {ep.method}
                             </span>
+                            {ep.id && (
+                              <span
+                                className={cn(
+                                  "shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold",
+                                  dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-500",
+                                )}
+                              >
+                                {ep.id}
+                              </span>
+                            )}
                             <span className={cn("flex-1 break-all", dark ? "text-neutral-200" : "text-slate-700")}>
                               {ep.path}
                             </span>

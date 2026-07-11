@@ -393,7 +393,8 @@ class AiService:
         context: str,
         existing_design: str,
         instructions: str = "",
+        next_ids: dict[str, int] | None = None,
     ) -> dict:
         return ai_engine.generate_design_delta(
-            new_stories, context, existing_design, instructions=instructions,
+            new_stories, context, existing_design, instructions=instructions, next_ids=next_ids,
         )
