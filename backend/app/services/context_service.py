@@ -106,9 +106,6 @@ class ContextService:
     def amend_locked_spec(self, filename: str, note: str = "") -> dict:
         return context_manager.amend_locked_spec(filename, note)
 
-    def clear_spec_drift(self, story_id: int) -> None:
-        context_manager.clear_spec_drift(story_id)
-
     def set_conformance_regressed(self, story_id: int, reason: str = "") -> None:
         context_manager.set_conformance_regressed(story_id, reason)
 

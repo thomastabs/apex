@@ -40,7 +40,7 @@ export const CONTEXT_FILE_GUIDE: Record<string, FileGuide> = {
       "The locked technology choices. Injected as a BINDING constraint — design, tasks, and packs must not introduce technologies outside it.",
     rules: [
       "Plain markdown list; be specific (frameworks + database + hosting).",
-      "Change it here after the lock only for real stack changes — the amendment flags every designed story as drifted.",
+      "Change it here after the lock only for real stack changes — the edit is logged as an amendment and bumps the file's version.",
     ],
   },
   "functional-spec.md": {
@@ -137,12 +137,12 @@ const GENERAL_RULES: Array<{ title: string; body: string }> = [
   {
     title: "Locking & amendments",
     body:
-      "Spec files lock with their phase: concept + functional spec at the Phase 1 Gherkin lock; tech stack, technical spec, design bundle, and constraints at the Phase 2 design lock. Editing a locked file is allowed but never silent — it records an amendment, bumps the file's MAJOR version, and flags every downstream story with spec drift so its artifacts get re-derived.",
+      "Spec files lock with their phase: concept + functional spec at the Phase 1 Gherkin lock; tech stack, technical spec, design bundle, and constraints at the Phase 2 design lock. Locking gates which AI workflows are ready for the next phase — it never freezes the file itself. Specs stay live and editable at any time; editing a locked file is never silent, though — it records an amendment in amendments.md and bumps the file's MAJOR version, so there's always a history of what changed and when.",
   },
   {
     title: "Version badges",
     body:
-      "No badge = still a pre-lock draft (v0.0.0). v1.0.0 = locked, untouched since. MINOR (v1.1.0) = an additive design delta was merged — provably non-breaking, nothing drifts. MAJOR (v2.0.0) = a post-lock amendment — downstream stories were flagged.",
+      "No badge = still a pre-lock draft (v0.0.0). v1.0.0 = locked, untouched since. MINOR (v1.1.0) = an additive design delta was merged — provably non-breaking. MAJOR (v2.0.0) = a post-lock amendment was recorded.",
   },
   {
     title: "Size budget",

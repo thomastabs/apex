@@ -5,7 +5,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   acknowledgeBacktrace,
   logDecision,
-  acknowledgeSpecDrift,
   createEpic,
   createProject,
   listProjectTemplates,
@@ -156,27 +155,8 @@ export function useUpdateContextFile() {
   return useMutation({
     mutationFn: ({ filename, content, note }: { filename: string; content: string; note?: string }) =>
       updateContextFile(context!, filename, content, note),
-    onSuccess: (res) => {
-      void queryClient.invalidateQueries({ queryKey: ["workspace", "context-files"] });
-      // Controlled co-evolution: a post-lock spec edit is never silent.
-      if (res.drift?.amended) {
-        const n = res.drift.affected_story_ids.length;
-        toast.warning(
-          `Spec changed after lock — ${n} downstream ${n === 1 ? "story" : "stories"} flagged for review.`,
-        );
-        void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
-      }
-    },
-  });
-}
-
-export function useAcknowledgeSpecDrift() {
-  const context = useApiContext();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (storyId: number) => acknowledgeSpecDrift(context!, storyId),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "context-files"] });
     },
   });
 }

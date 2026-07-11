@@ -38,13 +38,13 @@ def test_conformance_uses_index_score_without_reading_files():
 
 def test_story_risk_scores_from_logged_signals():
     svc = AnalyticsService(context=None)
-    # 2 fix-bolts (+2) + spec_drift (+2) + low conformance (+2) = 6 → high
-    high = svc._story_risk(
-        {"fix_bolt_count": 2, "spec_drift": True, "conformance_score": 60, "phase_status": "qa"},
+    # 2 fix-bolts (+2) + low conformance (+2) = 4 → medium
+    medium = svc._story_risk(
+        {"fix_bolt_count": 2, "conformance_score": 60, "phase_status": "qa"},
         total_hours=None, cycle_threshold=None,
     )
-    assert high["level"] == "high" and high["score"] == 6
-    assert any("Fix-Bolt" in r for r in high["reasons"])
+    assert medium["level"] == "medium" and medium["score"] == 4
+    assert any("Fix-Bolt" in r for r in medium["reasons"])
 
     # 1 fix-bolt (+1) only → low
     low = svc._story_risk({"fix_bolt_count": 1, "phase_status": "qa"}, None, None)

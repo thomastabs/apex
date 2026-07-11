@@ -19,7 +19,8 @@ import { cn } from "@/lib/utils";
 // locked sections in place (no separate delta block), so the artifacts read as
 // if designed from the start. Purely additive deltas bump the spec MINOR
 // version; a delta that touches existing design records a real amendment
-// (MAJOR + spec_drift) on the previously designed stories.
+// (MAJOR bump, logged in amendments.md) against the previously designed
+// stories — informational, not a required review.
 export function DesignDeltaPanel({ dark }: { dark: boolean }) {
   const status = useDesignDeltaStatus();
   const generate = useGenerateDesignDelta();
@@ -142,7 +143,7 @@ export function DesignDeltaPanel({ dark }: { dark: boolean }) {
                   <p className="flex items-center gap-1.5 font-semibold">
                     <AlertTriangle className="size-3.5" />
                     This delta touches the existing design — merging will record an amendment
-                    (MAJOR version bump + drift flags on previously designed stories):
+                    (MAJOR version bump, logged in amendments.md):
                   </p>
                   <ul className="list-disc pl-5">
                     {draft.touches_existing.map((t) => <li key={t}>{t}</li>)}

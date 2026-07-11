@@ -207,11 +207,11 @@ class Phase2Service:
             raise Phase2ValidationError("At least one story_id is required.")
         self.configure_request(ctx)
         # Re-persisting over an already-locked design is a full rewrite of a
-        # locked contract — record it as an amendment (MAJOR bump + spec_drift
-        # on the previously designed stories) instead of silently replacing the
-        # files, which would leave versions stale and downstream artifacts
-        # unaware. Affected ids are captured BEFORE the write so the stories
-        # newly locked by this persist are not flagged against their own design.
+        # locked contract — record it as an amendment (MAJOR bump, logged
+        # against the previously designed stories) instead of silently
+        # replacing the files, which would leave versions stale. Affected ids
+        # are captured BEFORE the write so the stories newly locked by this
+        # persist aren't logged against their own design.
         relock = self._design_locked()
         affected = self.context.affected_stories_for_spec("technical-spec.md") if relock else []
         self.context.write_project_design_bundle(ux_brief)
@@ -288,7 +288,7 @@ class Phase2Service:
         """Merge the reviewed delta into the locked sections in place. Purely
         additive → MINOR bump; when the delta touches existing design
         (`touches_existing`), the previously designed stories get a real
-        amendment (MAJOR + spec_drift) on top."""
+        amendment (MAJOR bump, logged) on top."""
         if not story_ids:
             raise Phase2ValidationError("At least one story_id is required.")
         # A genuinely empty delta is legitimate — some stories (infra/tooling/

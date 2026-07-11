@@ -36,7 +36,6 @@ vi.mock("@/lib/hooks/use-workspace", () => ({
   useStoryStatuses: () => ({ data: [{ id: 1, name: "New" }, { id: 2, name: "Done" }] }),
   useStoryPhaseStatus: () => ({ data: { phase_status: "implementation" }, isLoading: false }),
   useSetStoryPhaseStatus: () => setApexStatusMut,
-  useAcknowledgeSpecDrift: () => idleMut,
   useAcknowledgeBacktrace: () => idleMut,
   useSetStoryFigmaLink: () => idleMut,
   useAcknowledgeFigmaChange: () => idleMut,
@@ -44,7 +43,7 @@ vi.mock("@/lib/hooks/use-workspace", () => ({
     refetch: vi.fn(),
     data: {
       total: 1, phase2_designed: 0, phase3_proposed: 0, phase4_tested: 0, phase4_passed: 0,
-      phase5_deployed: 0, spec_drift: 0, drifted_story_ids: [],
+      phase5_deployed: 0,
       conformance_regressed: 1, regressed_story_ids: [101],
       trace_flagged: 1, trace_story_ids: [101],
       trace_flags: [{ story_id: 101, phase: "gherkin_locked", phase_label: "Phase 1", reason: "scenario untested — re-examine its Gherkin" }],

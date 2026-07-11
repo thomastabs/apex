@@ -32,18 +32,9 @@ class ContextFileSchema(BaseModel):
     version: str = "0.0.0"
 
 
-class SpecDriftInfo(BaseModel):
-    amended: bool = False
-    filename: str = ""
-    affected_story_ids: list[int] = Field(default_factory=list)
-    note: str = ""
-
-
 class ContextFilesResponse(BaseModel):
     files: list[ContextFileSchema]
     total_chars: int
-    # Set only by update_context_file when a post-lock spec edit raises drift.
-    drift: SpecDriftInfo | None = None
 
 
 class UpdateContextFileRequest(BaseModel):
@@ -207,8 +198,6 @@ class StoryIndexStatsResponse(BaseModel):
     phase4_tested: int = 0
     phase4_passed: int = 0
     phase5_deployed: int = 0
-    spec_drift: int = 0
-    drifted_story_ids: list[int] = Field(default_factory=list)
     conformance_regressed: int = 0
     regressed_story_ids: list[int] = Field(default_factory=list)
     trace_flagged: int = 0

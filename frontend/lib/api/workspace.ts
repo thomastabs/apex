@@ -245,13 +245,6 @@ export function saveGithubPackConfig(
   });
 }
 
-export function acknowledgeSpecDrift(context: RequestContext, storyId: number) {
-  return apiRequest<{ ok: boolean }>(
-    `/api/workspace/context-files/story-index/stories/${storyId}/acknowledge-drift`,
-    { method: "POST", context },
-  );
-}
-
 export function acknowledgeBacktrace(context: RequestContext, storyId: number) {
   return apiRequest<{ ok: boolean }>(
     `/api/workspace/context-files/story-index/stories/${storyId}/acknowledge-trace`,
@@ -373,8 +366,6 @@ export type StoryIndexStats = {
   phase4_tested: number;
   phase4_passed: number;
   phase5_deployed: number;
-  spec_drift: number;
-  drifted_story_ids: number[];
   conformance_regressed: number;
   regressed_story_ids: number[];
   trace_flagged: number;

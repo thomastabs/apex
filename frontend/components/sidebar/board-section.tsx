@@ -2,12 +2,11 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ChevronDown, ChevronRight, ExternalLink, Figma, Info, Layers3, Plus, RefreshCw, Trash2, TrendingDown, Undo2, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ExternalLink, Figma, Info, Layers3, Plus, RefreshCw, Trash2, TrendingDown, Undo2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   useAcknowledgeBacktrace,
-  useAcknowledgeSpecDrift,
   useBoard,
   useCreateEpic,
   useCreateStory,
@@ -273,12 +272,11 @@ function FigmaLinkField({ storyId, storySubject, figmaNodeId, figmaFileKey = "",
   );
 }
 
-function StoryDialog({ story, drifted = false, regressed = false, trace = null, figmaNodeId = "", figmaFileKey = "", figmaChanged = false, onClose }: { story: Story; drifted?: boolean; regressed?: boolean; trace?: TracePrompt | null; figmaNodeId?: string; figmaFileKey?: string; figmaChanged?: boolean; onClose: () => void }) {
+function StoryDialog({ story, regressed = false, trace = null, figmaNodeId = "", figmaFileKey = "", figmaChanged = false, onClose }: { story: Story; regressed?: boolean; trace?: TracePrompt | null; figmaNodeId?: string; figmaFileKey?: string; figmaChanged?: boolean; onClose: () => void }) {
   const dark = useUiStore((state) => state.theme === "dark");
   const context = useApiContext();
   const figma = useFigmaContext();
   const router = useRouter();
-  const ackDrift = useAcknowledgeSpecDrift();
   const ackRegression = useAcknowledgeRegression();
   const ackTrace = useAcknowledgeBacktrace();
   const ackFigmaChange = useAcknowledgeFigmaChange();
@@ -389,31 +387,6 @@ function StoryDialog({ story, drifted = false, regressed = false, trace = null, 
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>Story #{story.ref}</h3>
-        {drifted ? (
-          <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-600 dark:text-amber-400">
-            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-            <div className="flex-1">
-              <p className="font-semibold">Spec drift</p>
-              <p className="mt-0.5">
-                A locked spec artifact was edited after this story passed its gate. Re-derive its
-                downstream artifacts (regenerating a dev pack clears this automatically), or
-                acknowledge if the change doesn&apos;t affect it.
-              </p>
-              <button
-                className="mt-2 rounded bg-amber-500/20 px-2 py-1 font-semibold transition-colors hover:bg-amber-500/30 disabled:opacity-50"
-                disabled={ackDrift.isPending}
-                onClick={() =>
-                  ackDrift.mutate(story.id, {
-                    onSuccess: () => toast.success("Spec drift acknowledged."),
-                    onError: () => toast.error("Could not acknowledge drift."),
-                  })
-                }
-              >
-                {ackDrift.isPending ? "Acknowledging…" : "Acknowledge"}
-              </button>
-            </div>
-          </div>
-        ) : null}
         {regressed ? (
           <div className="mb-4 flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-600 dark:text-red-400">
             <TrendingDown className="mt-0.5 size-4 shrink-0" />
@@ -755,7 +728,6 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
       void storyStats.refetch();
     }
   }, [boardOpen]); // eslint-disable-line react-hooks/exhaustive-deps
-  const driftedIds = new Set(storyStats.data?.drifted_story_ids ?? []);
   const regressedIds = new Set(storyStats.data?.regressed_story_ids ?? []);
   const tracedIds = new Set(storyStats.data?.trace_story_ids ?? []);
   const TRACE_ROUTE: Record<string, string> = { gherkin_locked: "/phase1", design_locked: "/phase2" };
@@ -806,7 +778,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
       {typeof document !== "undefined" ? createPortal(
         <>
           {dialogEpic ? <EpicDialog epic={dialogEpic} onClose={() => setDialogEpic(null)} /> : null}
-          {dialogStory ? <StoryDialog story={dialogStory} drifted={driftedIds.has(dialogStory.id)} regressed={regressedIds.has(dialogStory.id)} trace={traceById.get(dialogStory.id) ?? null} figmaNodeId={figmaById.get(dialogStory.id)?.nodeId ?? ""} figmaFileKey={figmaById.get(dialogStory.id)?.fileKey ?? ""} figmaChanged={figmaChangedIds.has(dialogStory.id)} onClose={() => setDialogStory(null)} /> : null}
+          {dialogStory ? <StoryDialog story={dialogStory} regressed={regressedIds.has(dialogStory.id)} trace={traceById.get(dialogStory.id) ?? null} figmaNodeId={figmaById.get(dialogStory.id)?.nodeId ?? ""} figmaFileKey={figmaById.get(dialogStory.id)?.fileKey ?? ""} figmaChanged={figmaChangedIds.has(dialogStory.id)} onClose={() => setDialogStory(null)} /> : null}
           {createEpicOpen ? <CreateEpicDialog onClose={() => setCreateEpicOpen(false)} /> : null}
           {createStoryEpicId !== null ? (
             <CreateStoryDialog epicId={createStoryEpicId} onClose={() => setCreateStoryEpicId(null)} />
@@ -991,12 +963,6 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                               />
                             ) : null;
                           })()}
-                          {driftedIds.has(story.id) ? (
-                            <AlertTriangle
-                              className="size-3 shrink-0 text-amber-500"
-                              aria-label="Spec drift — locked spec changed after this story passed its gate"
-                            />
-                          ) : null}
                           {regressedIds.has(story.id) ? (
                             <TrendingDown
                               className="size-3 shrink-0 text-red-500"

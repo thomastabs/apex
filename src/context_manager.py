@@ -1313,7 +1313,6 @@ def upsert_story_index(story_id: int, **updates) -> None:
     Valid fields: epic_id, title, phase_status, has_gherkin, has_tech_spec,
                   has_proposal, has_bdd, has_bug_report, has_infra_delta,
                   has_deploy_pack, deploy_bypass, fix_bolt_count,
-                  spec_drift, drift_reason,
                   conformance_regressed, regression_reason,
                   trace_flag, trace_phase, trace_reason.
 
@@ -1346,8 +1345,6 @@ def upsert_story_index(story_id: int, **updates) -> None:
             "has_deploy_pack": False,
             "deploy_bypass":   False,
             "fix_bolt_count":  0,
-            "spec_drift":      False,
-            "drift_reason":    "",
             "conformance_regressed": False,
             "regression_reason":     "",
             "trace_flag":      False,
@@ -1845,9 +1842,6 @@ def save_proposal(story_id: int, task_id: int, proposal: str) -> Path:
     p = cd / f"proposal_story_{story_id}_task_{task_id}.md"
     p.write_text(proposal, encoding="utf-8")
     upsert_story_index(story_id, has_proposal=True)
-    # Regenerating a dev pack means the story was re-derived from the current
-    # spec — any post-lock drift has been addressed, so clear the flag.
-    clear_spec_drift(story_id)
     return p
 
 
@@ -2761,9 +2755,8 @@ def _phase_at_or_after(status: str, lock: str) -> bool:
 # ---------------------------------------------------------------------------
 # Semver for lockable spec artifacts. "1.0.0" the moment a file first locks
 # (lazily reported — no write needed until something actually changes); every
-# post-lock amendment bumps MAJOR, since record_amendment() already treats
-# every amendment as breaking (it flags ALL affected stories with spec_drift,
-# unconditionally). MINOR/PATCH are reserved: nothing in the current data
+# post-lock amendment bumps MAJOR, since record_amendment() treats every
+# amendment as breaking. MINOR/PATCH are reserved: nothing in the current data
 # model distinguishes a "safe" edit from a breaking one, so faking that
 # distinction here would just be noise — bump MAJOR honestly instead of
 # inventing granularity the system can't actually detect.
@@ -2859,9 +2852,9 @@ def affected_stories_for_spec(filename: str) -> list[int]:
 
 
 def record_amendment(filename: str, note: str, story_ids: list[int]) -> None:
-    """Append a dated amendment entry to amendments.md, bump the artifact's
-    semver MAJOR version, and flag the affected stories with spec_drift so
-    downstream artifacts get re-derived."""
+    """Append a dated amendment entry to amendments.md and bump the artifact's
+    semver MAJOR version. Specs stay live and editable at any time — this is
+    an audit-trail record, not a per-story review requirement."""
     init_context()
     new_version = _bump_spec_version(filename)
     am = _path("amendments.md")
@@ -2873,37 +2866,18 @@ def record_amendment(filename: str, note: str, story_ids: list[int]) -> None:
         f"- **Note:** {note.strip() or '(none)'}\n"
     )
     am.write_text(header.rstrip() + "\n" + block, encoding="utf-8")
-    with _index_lock():
-        index = get_story_index()
-        for sid in story_ids:
-            entry = index.get(str(sid))
-            if entry is not None:
-                entry["spec_drift"] = True
-                entry["drift_reason"] = filename
-        _save_story_index(index)
 
 
 def amend_locked_spec(filename: str, note: str = "") -> dict:
-    """Record a post-lock edit to a spec file. Returns the drift outcome.
+    """Record a post-lock edit to a spec file. Returns the amendment outcome.
 
-    `amended` is False (no log, no drift) when the file is not a lockable spec
+    `amended` is False (no log entry) when the file is not a lockable spec
     artifact or no story has passed its lock yet (a normal pre-lock edit)."""
     story_ids = affected_stories_for_spec(filename)
     if not story_ids:
         return {"amended": False, "filename": filename, "affected_story_ids": [], "note": note}
     record_amendment(filename, note, story_ids)
     return {"amended": True, "filename": filename, "affected_story_ids": story_ids, "note": note}
-
-
-def clear_spec_drift(story_id: int) -> None:
-    """Clear the drift flag once a story has been re-derived from the new spec."""
-    with _index_lock():
-        index = get_story_index()
-        entry = index.get(str(story_id))
-        if entry is not None and entry.get("spec_drift"):
-            entry["spec_drift"] = False
-            entry["drift_reason"] = ""
-            _save_story_index(index)
 
 
 def get_amendments() -> str:
@@ -2916,8 +2890,9 @@ def get_amendments() -> str:
 def set_conformance_regressed(story_id: int, reason: str = "") -> None:
     """Flag a story whose spec↔code conformance regressed after a code change.
 
-    Distinct from spec_drift (a post-lock SPEC edit): this fires when the CODE
-    changed and a re-scan found a lower conformance score or a worsened row."""
+    Distinct from a spec amendment (a post-lock SPEC edit): this fires when
+    the CODE changed and a re-scan found a lower conformance score or a
+    worsened row."""
     with _index_lock():
         index = get_story_index()
         entry = index.get(str(story_id))

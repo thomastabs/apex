@@ -61,8 +61,6 @@ def test_story_index_stats_deployed_counts_only_explicit_deployed(monkeypatch):
         "phase4_tested": 1,
         "phase4_passed": 1,
         "phase5_deployed": 1,
-        "spec_drift": 0,
-        "drifted_story_ids": [],
         "conformance_regressed": 0,
         "regressed_story_ids": [],
         "trace_flagged": 0,
@@ -540,48 +538,33 @@ def test_github_sync_status_reports_synced_file_mtime(ctx):
 
 
 # --- Controlled spec co-evolution (roadmap #4) -----------------------------
+# Specs stay live and editable at any time. A post-lock edit still records an
+# amendment (audit log + version bump) but no longer flags any story.
 
-def test_update_context_file_returns_drift_on_post_lock_edit(ctx):
+def test_update_context_file_post_lock_edit_amends_without_flagging_story(ctx):
+    from backend.app.api.workspace import get_amendments
     ctx.upsert_story_index(1, phase_status="implementation")
+    rc = RequestContext(pm_token="tok", project_id=ctx._get_project_id())
     resp = update_context_file(
         "technical-spec.md",
         UpdateContextFileRequest(content="# edited spec", note="tighten auth"),
-        RequestContext(pm_token="tok", project_id=ctx._get_project_id()),
+        rc,
     )
-    assert resp["drift"]["amended"] is True
-    assert resp["drift"]["affected_story_ids"] == [1]
-    assert ctx.get_story_index()["1"]["spec_drift"] is True
+    assert "drift" not in resp
+    assert "technical-spec.md" in get_amendments(rc)["amendments_md"]
+    assert "spec_drift" not in ctx.get_story_index()["1"]
 
 
-def test_update_context_file_no_drift_pre_lock(ctx):
+def test_update_context_file_pre_lock_edit_is_not_an_amendment(ctx):
+    from backend.app.api.workspace import get_amendments
     ctx.upsert_story_index(1, phase_status="gherkin_locked")
-    resp = update_context_file(
+    rc = RequestContext(pm_token="tok", project_id=ctx._get_project_id())
+    update_context_file(
         "design-bundle.md",
         UpdateContextFileRequest(content="# edited"),
-        RequestContext(pm_token="tok", project_id=ctx._get_project_id()),
+        rc,
     )
-    assert resp.get("drift") is None
-
-
-def test_acknowledge_drift_clears_flag(ctx):
-    from backend.app.api.workspace import acknowledge_spec_drift, get_amendments
-    ctx.upsert_story_index(1, phase_status="implementation")
-    ctx.amend_locked_spec("technical-spec.md", note="x")
-    rc = RequestContext(pm_token="tok", project_id=ctx._get_project_id())
-    assert acknowledge_spec_drift(1, rc) == {"ok": True}
-    assert ctx.get_story_index()["1"]["spec_drift"] is False
-    # amendment log still readable
-    assert "technical-spec.md" in get_amendments(rc)["amendments_md"]
-
-
-def test_stats_lists_drifted_story_ids(ctx):
-    ctx.upsert_story_index(1, phase_status="implementation")
-    ctx.upsert_story_index(2, phase_status="qa")
-    ctx.upsert_story_index(3, phase_status="gherkin_locked")  # pre-lock, not flagged
-    ctx.amend_locked_spec("technical-spec.md")  # flags 1 and 2 (design_locked+)
-    stats = story_index_stats(RequestContext(pm_token="tok", project_id=ctx._get_project_id()))
-    assert stats["spec_drift"] == 2
-    assert stats["drifted_story_ids"] == [1, 2]
+    assert "design-bundle.md" not in get_amendments(rc)["amendments_md"]
 
 
 def test_stats_lists_regressed_story_ids(ctx):

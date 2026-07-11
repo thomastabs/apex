@@ -509,10 +509,6 @@ def story_index_stats(ctx: RequestContext = Depends(get_request_context)):
         "phase4_tested":   sum(1 for s in stories if s.get("has_bdd")),
         "phase4_passed":   sum(1 for s in stories if s.get("phase_status") in ("qa_passed", "deployed")),
         "phase5_deployed": sum(1 for s in stories if s.get("phase_status") == "deployed"),
-        "spec_drift":      sum(1 for s in stories if s.get("spec_drift")),
-        "drifted_story_ids": sorted(
-            s["story_id"] for s in stories if s.get("spec_drift") and s.get("story_id") is not None
-        ),
         "conformance_regressed": sum(1 for s in stories if s.get("conformance_regressed")),
         "regressed_story_ids": sorted(
             s["story_id"] for s in stories
@@ -550,17 +546,6 @@ def story_index_stats(ctx: RequestContext = Depends(get_request_context)):
             s["story_id"] for s in stories if s.get("figma_changed") and s.get("story_id") is not None
         ),
     }
-
-
-@router.post(
-    "/context-files/story-index/stories/{story_id}/acknowledge-drift",
-    response_model=OkResponse,
-)
-def acknowledge_spec_drift(story_id: int, ctx: RequestContext = Depends(get_request_context)):
-    context = ContextService()
-    context.set_active(ctx)
-    context.clear_spec_drift(story_id)
-    return {"ok": True}
 
 
 @router.post(
@@ -807,13 +792,11 @@ def update_context_file(
     context = ContextService()
     context.set_active(ctx)
     context.write_context_file(filename, payload.content)
-    # Controlled co-evolution: a post-lock edit to a spec artifact is logged as
-    # an amendment and flags downstream stories for re-derivation (never silent).
-    drift = context.amend_locked_spec(filename, payload.note)
-    response = get_context_files(ctx)
-    if drift.get("amended"):
-        response["drift"] = drift
-    return response
+    # Specs stay live and editable at any time. A post-lock edit is still
+    # logged as an amendment (audit trail + version bump) — never silent —
+    # but it's informational only, not a required per-story review.
+    context.amend_locked_spec(filename, payload.note)
+    return get_context_files(ctx)
 
 
 @router.post("/context-files/{filename}/reset", response_model=ContextFilesResponse)

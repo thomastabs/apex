@@ -186,7 +186,7 @@ class AnalyticsService:
     def _story_risk(self, entry: dict, total_hours: float | None,
                     cycle_threshold: float | None) -> dict:
         """Deterministic, explainable risk score from already-logged signals —
-        a forecast of QA-failure / spec-drift likelihood, not an AI guess."""
+        a forecast of QA-failure likelihood, not an AI guess."""
         score = 0
         reasons: list[str] = []
 
@@ -197,10 +197,6 @@ class AnalyticsService:
         elif fb == 1:
             score += 1
             reasons.append("1 Fix-Bolt logged")
-
-        if entry.get("spec_drift"):
-            score += 2
-            reasons.append("spec drifted after lock")
 
         if entry.get("conformance_regressed"):
             score += 2

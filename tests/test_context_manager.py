@@ -1274,23 +1274,21 @@ class TestStoryDesignBundle:
 
 
 # ---------------------------------------------------------------------------
-# Controlled spec co-evolution — amendments + drift flag (roadmap #4)
+# Controlled spec co-evolution — amendments (roadmap #4). Specs stay live and
+# editable at any time; a post-lock edit records an amendment (audit log +
+# version bump) but no longer flags any story for required review.
 # ---------------------------------------------------------------------------
 
 class TestSpecCoEvolution:
     GHERKIN = "Feature: X\n\n  Scenario: S\n    Given a\n    When b\n    Then c\n"
 
-    def test_post_lock_edit_flags_only_affected_stories(self, ctx):
+    def test_post_lock_edit_reports_only_affected_stories(self, ctx):
         ctx.init_context()
         ctx.upsert_story_index(1, phase_status="implementation")  # past design_locked
         ctx.upsert_story_index(2, phase_status="gherkin_locked")  # before design_locked
         result = ctx.amend_locked_spec("technical-spec.md", note="tighten auth")
         assert result["amended"] is True
         assert result["affected_story_ids"] == [1]
-        index = ctx.get_story_index()
-        assert index["1"]["spec_drift"] is True
-        assert index["1"]["drift_reason"] == "technical-spec.md"
-        assert index["2"]["spec_drift"] is False
 
     def test_functional_spec_locks_at_gherkin_locked(self, ctx):
         ctx.init_context()
@@ -1303,9 +1301,8 @@ class TestSpecCoEvolution:
         ctx.upsert_story_index(1, phase_status="gherkin_locked")  # before design_locked
         result = ctx.amend_locked_spec("design-bundle.md")
         assert result["amended"] is False
-        assert ctx.get_story_index()["1"]["spec_drift"] is False
 
-    def test_non_spec_file_never_drifts(self, ctx):
+    def test_non_spec_file_never_amends(self, ctx):
         ctx.init_context()
         ctx.upsert_story_index(1, phase_status="deployed")
         assert ctx.amend_locked_spec("github-context.md")["amended"] is False
@@ -1319,22 +1316,6 @@ class TestSpecCoEvolution:
         assert "constraints.md" in log
         assert "raise rate limit" in log
         assert "#1" in log
-
-    def test_clear_spec_drift(self, ctx):
-        ctx.init_context()
-        ctx.upsert_story_index(1, phase_status="implementation")
-        ctx.amend_locked_spec("technical-spec.md")
-        ctx.clear_spec_drift(1)
-        assert ctx.get_story_index()["1"]["spec_drift"] is False
-        assert ctx.get_story_index()["1"]["drift_reason"] == ""
-
-    def test_save_proposal_auto_clears_drift(self, ctx):
-        ctx.init_context()
-        ctx.upsert_story_index(1, phase_status="implementation")
-        ctx.amend_locked_spec("technical-spec.md")
-        assert ctx.get_story_index()["1"]["spec_drift"] is True
-        ctx.save_proposal(1, 1, "## Context\nre-derived\n")
-        assert ctx.get_story_index()["1"]["spec_drift"] is False
 
 
 # ---------------------------------------------------------------------------
