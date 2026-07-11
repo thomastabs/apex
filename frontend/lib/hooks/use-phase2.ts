@@ -7,11 +7,13 @@ import {
   crossCheckEndpoints,
   generateDesignDelta,
   generateDesignSection,
+  generateDesignSystem,
   generateDiagram,
   generateScreenFlow,
   getDesign,
   getDesignDeltaStatus,
   getTechStackStatus,
+  loadDesignSystem,
   loadDiagram,
   loadScreenFlow,
   lockDesign,
@@ -25,6 +27,7 @@ import {
 } from "@/lib/api/phase2";
 import type {
   DesignSectionKey,
+  DesignSystemResponse,
   DiagramNode,
   DiagramResponse,
   LockDesignRequest,
@@ -299,6 +302,30 @@ export function useBuildScreenFlowFromFigma() {
     },
     onError: () => toast.error("Failed to build screen flow from Figma. Try again."),
   });
+}
+
+export function useLoadDesignSystem() {
+  const context = useApiContext();
+  return useQuery({
+    queryKey: ["phase2", "design-system", context?.projectId],
+    queryFn: () => loadDesignSystem(context!),
+    enabled: Boolean(context),
+    staleTime: Infinity,
+  });
+}
+
+export function useGenerateDesignSystem() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useCancellableMutation(
+    (ux_brief_md: string, signal) => generateDesignSystem(context!, ux_brief_md, signal),
+    {
+      onSuccess: (data: DesignSystemResponse) => {
+        queryClient.setQueryData(["phase2", "design-system", context?.projectId], data);
+      },
+      onError: () => toast.error("Failed to generate design system. Try again."),
+    },
+  );
 }
 
 export function useRefreshStoryIndex() {

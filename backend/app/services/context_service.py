@@ -283,6 +283,12 @@ class ContextService:
     def load_screen_flow(self) -> dict | None:
         return context_manager.load_screen_flow()
 
+    def save_design_system(self, design_system: dict) -> None:
+        context_manager.save_design_system(design_system)
+
+    def load_design_system(self) -> dict | None:
+        return context_manager.load_design_system()
+
     def upsert_story_index(self, story_id: int, **updates) -> None:
         context_manager.upsert_story_index(story_id, **updates)
 

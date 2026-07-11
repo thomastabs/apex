@@ -259,6 +259,68 @@ export type ScreenFlowResponse = {
   edges: ScreenFlowEdge[];
 };
 
+export type DesignSystemColor = {
+  name: string;
+  hex: string;
+  usage: string;
+};
+
+export type TypographyStyle = {
+  role: string;
+  size_px: number;
+  weight: number;
+  line_height: number;
+};
+
+export type TypographyScale = {
+  font_family: string;
+  styles: TypographyStyle[];
+};
+
+export type NavigationPattern = {
+  pattern: "topbar" | "sidebar" | "tabs" | "bottom_nav";
+  items: string[];
+  justification: string;
+};
+
+export type ScreenBlock = {
+  kind: string;
+  label: string;
+  variant: string;
+  children: ScreenBlock[];
+};
+
+export type DesignSystemScreen = {
+  id: string;
+  label: string;
+  archetype: string;
+  blocks: ScreenBlock[];
+};
+
+export type ComponentStateStyle = {
+  background: string;
+  text_color: string;
+  border: string;
+  opacity: number;
+  note: string;
+};
+
+export type ComponentStates = {
+  component: "button" | "input" | "card";
+  default: ComponentStateStyle;
+  hover: ComponentStateStyle;
+  disabled: ComponentStateStyle;
+  error: ComponentStateStyle;
+};
+
+export type DesignSystemResponse = {
+  colors: DesignSystemColor[];
+  typography: TypographyScale;
+  navigation: NavigationPattern;
+  screens: DesignSystemScreen[];
+  component_states: ComponentStates[];
+};
+
 // ---------------------------------------------------------------------------
 // Phase 3 — Implementation Assist
 // ---------------------------------------------------------------------------

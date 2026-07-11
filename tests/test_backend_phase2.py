@@ -8,6 +8,7 @@ from backend.app.services.phase2_service import (
     build_screen_flow_diagram,
 )
 from backend.app.services.request_context import RequestContext
+from src.ai_engine import DesignSystemData
 
 
 _FAKE_SECTION_CONTENT = {
@@ -40,6 +41,22 @@ class FakeAiService:
     def generate_design_delta(self, new_stories, context, existing_design, instructions=""):
         self.delta_args = (new_stories, context, existing_design, instructions)
         return dict(self.delta_result)
+
+    def generate_design_system(self, ux_brief_md):
+        self.design_system_args = ux_brief_md
+        state = {"background": "#4F46E5", "text_color": "#FFFFFF"}
+        return DesignSystemData(
+            colors=[{"name": "primary", "hex": "#4F46E5", "usage": "Buttons"}],
+            typography={"font_family": "Inter, sans-serif", "styles": [{"role": "body", "size_px": 15, "weight": 400}]},
+            navigation={"pattern": "topbar", "items": ["Home"], "justification": "Simple product"},
+            screens=[
+                {"id": "dashboard", "label": "Dashboard", "archetype": "dashboard", "blocks": []},
+                {"id": "detail", "label": "Detail", "archetype": "detail", "blocks": []},
+            ],
+            component_states=[
+                {"component": "button", "default": state, "hover": state, "disabled": state, "error": state},
+            ],
+        )
 
 
 class FakeContextService:
@@ -102,6 +119,12 @@ class FakeContextService:
 
     def save_screen_flow(self, diagram) -> None:
         self.saved_screen_flow = diagram
+
+    def save_design_system(self, design_system) -> None:
+        self.saved_design_system = design_system
+
+    def load_design_system(self):
+        return getattr(self, "saved_design_system", None)
 
 
 def _tech_stack_with_content():
@@ -551,3 +574,19 @@ class TestDesignDelta:
             _ctx(), story_ids=[10], ux_brief="ux", endpoints="e", data_model="d",
         )
         assert not getattr(context, "amendments", [])
+
+
+class TestDesignSystem:
+    def test_generate_design_system_persists_and_returns(self):
+        service, ai, context = _service()
+        result = service.generate_design_system(_ctx(), ux_brief_md="## Login screen")
+        assert ai.design_system_args == "## Login screen"
+        assert result["colors"][0]["name"] == "primary"
+        assert result["screens"][0]["id"] == "dashboard"
+        assert context.saved_design_system == result
+
+    def test_load_design_system_delegates_to_context(self):
+        service, _, context = _service()
+        assert service.load_design_system(_ctx()) is None
+        service.generate_design_system(_ctx(), ux_brief_md="## Login screen")
+        assert service.load_design_system(_ctx())["colors"][0]["name"] == "primary"

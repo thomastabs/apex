@@ -6,8 +6,10 @@ from fastapi import HTTPException
 from backend.app.api.deps import get_request_context
 from backend.app.api.phase2 import (
     generate_design_section,
+    generate_design_system,
     generate_diagram,
     generate_screen_flow,
+    get_design_system,
     get_diagram,
     get_screen_flow,
     lock_tech_stack,
@@ -19,6 +21,7 @@ from backend.app.api.phase2 import (
 )
 from backend.app.schemas.phase2 import (
     DesignSectionRequest,
+    GenerateDesignSystemRequest,
     GenerateDiagramRequest,
     GenerateScreenFlowRequest,
     LockDesignRequest,
@@ -84,6 +87,27 @@ class StubPhase2Service:
 
     def save_screen_flow_positions(self, ctx, *, nodes):
         pass
+
+    def load_design_system(self, ctx):
+        return None
+
+    def generate_design_system(self, ctx, *, ux_brief_md):
+        state = {"background": "#4F46E5", "text_color": "#FFFFFF", "border": "", "opacity": 1.0, "note": ""}
+        return {
+            "colors": [{"name": "primary", "hex": "#4F46E5", "usage": "Buttons"}],
+            "typography": {
+                "font_family": "Inter, sans-serif",
+                "styles": [{"role": "body", "size_px": 15, "weight": 400, "line_height": 1.5}],
+            },
+            "navigation": {"pattern": "topbar", "items": ["Home"], "justification": "Simple product"},
+            "screens": [
+                {"id": "dashboard", "label": "Dashboard", "archetype": "dashboard", "blocks": []},
+                {"id": "detail", "label": "Detail", "archetype": "detail", "blocks": []},
+            ],
+            "component_states": [
+                {"component": "button", "default": state, "hover": state, "disabled": state, "error": state},
+            ],
+        }
 
 
 def _ctx():
@@ -262,6 +286,22 @@ def test_save_screen_flow_positions_route():
         service=StubPhase2Service(),
     )
     assert result == {"ok": True}
+
+
+def test_get_design_system_returns_none_when_missing():
+    assert get_design_system(ctx=_ctx(), service=StubPhase2Service()) is None
+
+
+def test_generate_design_system_route():
+    result = generate_design_system(
+        GenerateDesignSystemRequest(ux_brief_md="## Login screen\nUser enters email and password."),
+        ctx=_ctx(),
+        service=StubPhase2Service(),
+    )
+    assert len(result["colors"]) == 1
+    assert result["colors"][0]["name"] == "primary"
+    assert len(result["screens"]) == 2
+    assert result["component_states"][0]["component"] == "button"
 
 
 def test_unknown_errors_bubble_up():

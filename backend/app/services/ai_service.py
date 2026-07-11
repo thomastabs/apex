@@ -246,6 +246,9 @@ class AiService:
     def generate_screen_flow(self, ux_brief_md: str):
         return ai_engine.extract_screen_flow(ux_brief_md)
 
+    def generate_design_system(self, ux_brief_md: str):
+        return ai_engine.extract_design_system(ux_brief_md)
+
     def generate_test_plan(
         self,
         story_subject: str,

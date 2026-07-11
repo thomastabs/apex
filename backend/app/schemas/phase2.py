@@ -203,3 +203,76 @@ class FigmaScreenFlowEdge(BaseModel):
 class ScreenFlowFromFigmaRequest(BaseModel):
     frames: list[FigmaScreenFrame] = Field(default_factory=list, max_length=300)
     flows: list[FigmaScreenFlowEdge] = Field(default_factory=list, max_length=600)
+
+
+# ---------------------------------------------------------------------------
+# Design System schemas
+# ---------------------------------------------------------------------------
+
+class GenerateDesignSystemRequest(BaseModel):
+    ux_brief_md: str = Field(min_length=1, max_length=100_000)
+
+
+class DesignSystemColorOut(BaseModel):
+    name: str
+    hex: str
+    usage: str = ""
+
+
+class TypographyStyleOut(BaseModel):
+    role: str
+    size_px: int
+    weight: int
+    line_height: float = 1.4
+
+
+class TypographyScaleOut(BaseModel):
+    font_family: str
+    styles: list[TypographyStyleOut]
+
+
+class NavigationPatternOut(BaseModel):
+    pattern: Literal["topbar", "sidebar", "tabs", "bottom_nav"]
+    items: list[str]
+    justification: str
+
+
+class ScreenBlockOut(BaseModel):
+    kind: str
+    label: str = ""
+    variant: str = ""
+    children: list["ScreenBlockOut"] = Field(default_factory=list)
+
+
+ScreenBlockOut.model_rebuild()
+
+
+class DesignSystemScreenOut(BaseModel):
+    id: str
+    label: str
+    archetype: str
+    blocks: list[ScreenBlockOut]
+
+
+class ComponentStateStyleOut(BaseModel):
+    background: str
+    text_color: str
+    border: str = ""
+    opacity: float = 1.0
+    note: str = ""
+
+
+class ComponentStatesOut(BaseModel):
+    component: Literal["button", "input", "card"]
+    default: ComponentStateStyleOut
+    hover: ComponentStateStyleOut
+    disabled: ComponentStateStyleOut
+    error: ComponentStateStyleOut
+
+
+class DesignSystemResponse(BaseModel):
+    colors: list[DesignSystemColorOut]
+    typography: TypographyScaleOut
+    navigation: NavigationPatternOut
+    screens: list[DesignSystemScreenOut]
+    component_states: list[ComponentStatesOut]

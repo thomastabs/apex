@@ -5,6 +5,7 @@ import type { CrossCheckResult } from "./phase1";
 import type {
   DesignSectionKey,
   DesignSectionResponse,
+  DesignSystemResponse,
   DiagramNode,
   DiagramResponse,
   LockDesignRequest,
@@ -222,6 +223,20 @@ export function saveScreenFlowPositions(context: RequestContext, nodes: ScreenFl
     method: "PUT",
     context,
     body: { nodes },
+  });
+}
+
+export function loadDesignSystem(context: RequestContext) {
+  return apiRequest<DesignSystemResponse | null>("/api/phase2/design-system", { context });
+}
+
+export function generateDesignSystem(context: RequestContext, ux_brief_md: string, signal?: AbortSignal) {
+  return apiRequest<DesignSystemResponse>("/api/phase2/generate-design-system", {
+    method: "POST",
+    context,
+    body: { ux_brief_md },
+    timeoutMs: PHASE2_AI_TIMEOUT_MS,
+    signal,
   });
 }
 

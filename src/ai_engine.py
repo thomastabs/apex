@@ -2441,6 +2441,155 @@ def extract_screen_flow(ux_brief_md: str) -> ScreenFlowData:
 
 
 # ---------------------------------------------------------------------------
+# Design System extraction — Phase 2 UX Brief visualization
+# ---------------------------------------------------------------------------
+
+_HEX_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
+_HEX_FALLBACK = "#94A3B8"  # neutral slate — used when the model emits a non-hex value
+
+
+def _normalize_hex_required(v: object) -> str:
+    s = str(v).strip()
+    if s and not s.startswith("#"):
+        s = "#" + s
+    return s if _HEX_RE.match(s) else _HEX_FALLBACK
+
+
+def _normalize_hex_optional(v: object) -> str:
+    s = str(v).strip()
+    if not s:
+        return ""
+    if not s.startswith("#"):
+        s = "#" + s
+    return s if _HEX_RE.match(s) else ""
+
+
+class DesignSystemColor(BaseModel):
+    name: str = Field(description="Semantic token name, e.g. 'primary', 'secondary', 'accent', "
+                                   "'background', 'surface', 'text', 'text-muted', 'border', "
+                                   "'error', 'success', 'warning'")
+    hex: str = Field(description="6-digit hex color, e.g. '#4F46E5'")
+    usage: str = Field(default="", description="Short usage note, e.g. 'Primary buttons and active nav items'")
+
+    @field_validator("hex", mode="before")
+    @classmethod
+    def _norm(cls, v: object) -> str:
+        return _normalize_hex_required(v)
+
+
+class TypographyStyle(BaseModel):
+    role: str = Field(description="Typography role: h1, h2, h3, body, caption, or button")
+    size_px: int = Field(description="Font size in pixels (h1 28-40, body 14-16, caption 11-13)")
+    weight: int = Field(description="Font weight: 400, 500, 600, or 700")
+    line_height: float = Field(default=1.4, description="Unitless line-height multiplier")
+
+
+class TypographyScale(BaseModel):
+    font_family: str = Field(description="Font family stack with fallbacks, e.g. 'Inter, system-ui, sans-serif'")
+    styles: list[TypographyStyle] = Field(description="Scale covering at least h1, h2, h3, body, caption")
+
+
+class NavigationPattern(BaseModel):
+    pattern: Literal["topbar", "sidebar", "tabs", "bottom_nav"] = Field(
+        description="Primary navigation pattern for this product")
+    items: list[str] = Field(description="3-6 top-level nav item labels drawn from the brief")
+    justification: str = Field(description="One-sentence rationale for this pattern given the product")
+
+
+class ScreenBlock(BaseModel):
+    kind: Literal[
+        "header", "nav", "hero", "card_grid", "form", "list", "table",
+        "text", "button", "image_placeholder", "stat_group", "container",
+    ] = Field(description="Block type — determines layout. 'container' groups children with no own styling.")
+    label: str = Field(default="", description="Visible text: heading, button label, list item text, etc.")
+    variant: str = Field(default="", description="Free-form style hint, e.g. 'primary' for a button, "
+                                                   "'3' for a card_grid's column count. '' if not needed.")
+    children: list["ScreenBlock"] = Field(default_factory=list, description="Nested child blocks, ordered")
+
+
+ScreenBlock.model_rebuild()
+
+
+class DesignSystemScreen(BaseModel):
+    id: str = Field(description="Snake_case screen id, e.g. 'dashboard', 'project_detail'")
+    label: str = Field(description="Human-readable screen name")
+    archetype: str = Field(description="Screen archetype, e.g. 'dashboard', 'list', 'detail', 'form', 'login'")
+    blocks: list[ScreenBlock] = Field(description="Top-level ordered blocks composing the screen")
+
+
+class ComponentStateStyle(BaseModel):
+    background: str = Field(description="Hex background for this state")
+    text_color: str = Field(description="Hex text color for this state")
+    border: str = Field(default="", description="Hex border color, or '' if no border")
+    opacity: float = Field(default=1.0, description="0-1 opacity, e.g. 0.5 for disabled")
+    note: str = Field(default="", description="One-phrase visual delta from default, "
+                                                "e.g. 'darker background', 'red outline'")
+
+    @field_validator("background", "text_color", mode="before")
+    @classmethod
+    def _norm_req(cls, v: object) -> str:
+        return _normalize_hex_required(v)
+
+    @field_validator("border", mode="before")
+    @classmethod
+    def _norm_opt(cls, v: object) -> str:
+        return _normalize_hex_optional(v)
+
+
+class ComponentStates(BaseModel):
+    component: Literal["button", "input", "card"] = Field(description="Component name")
+    default: ComponentStateStyle
+    hover: ComponentStateStyle
+    disabled: ComponentStateStyle
+    error: ComponentStateStyle
+
+
+class DesignSystemData(BaseModel):
+    colors: list[DesignSystemColor] = Field(description="8-12 semantic color tokens")
+    typography: TypographyScale
+    navigation: NavigationPattern
+    screens: list[DesignSystemScreen] = Field(description="Exactly 2 screens, visually distinct archetypes")
+    component_states: list[ComponentStates] = Field(description="Exactly 3 entries: button, input, card")
+
+
+_DESIGN_SYSTEM_SYSTEM = """\
+You are a senior product designer. Derive a complete design system from the UX Brief below,
+expressed as design tokens and two composed screen mockups — not prose.
+
+Rules:
+- Colors: 8-12 semantic tokens. Prefer including primary, secondary, accent, background, surface,
+  text, text-muted, border, error, success, warning. Hex values must be valid 6-digit hex codes.
+  "usage" is one short phrase, e.g. "Primary buttons and active nav items".
+- Typography: one font_family stack with sensible system-font fallbacks, and a scale covering at
+  least h1, h2, h3, body, caption. Sizes must be realistic (h1 28-40px, body 14-16px, caption 11-13px).
+- Navigation: pick exactly one pattern (topbar/sidebar/tabs/bottom_nav) that fits the product
+  described in the brief, list 3-6 item labels drawn from real screens/features in the brief, and
+  give a one-sentence justification.
+- Screens: produce EXACTLY 2 screens that are visually distinct archetypes drawn from the brief
+  (e.g. one dashboard/hero-style screen and one list/detail-or-form-style screen). Each screen is a
+  shallow tree of blocks (kind + label + variant + children); a top-level "nav" block should match
+  the chosen navigation pattern. Keep trees to at most 3 levels deep and at most 6 children per
+  block. Only use these kinds: header, nav, hero, card_grid, form, list, table, text, button,
+  image_placeholder, stat_group, container. "variant" is a free-form style hint (e.g. "primary" for
+  a button, "3" for a card_grid's column count) — use "" if not needed.
+- Component states: produce EXACTLY 3 entries — button, input, card — each with default, hover,
+  disabled, and error states. Every state needs its own background/text_color hex (reuse color
+  tokens where sensible) plus a one-phrase "note" describing the visual change from default (e.g.
+  "slightly darker background", "50% opacity", "red border + red-tinted background").
+- Only describe screens, nav items, and content explicitly present in the brief — do not invent
+  unrelated product features, but do use this brief's own terminology.
+"""
+
+
+def extract_design_system(ux_brief_md: str) -> DesignSystemData:
+    """Extract a design system (colors, typography, nav, 2 screens, component states) from a UX Brief."""
+    return _ai_retry(lambda: _invoke_structured_with_progress(
+        _DESIGN_SYSTEM_SYSTEM, fence_user_content(ux_brief_md), get_model(), DesignSystemData,
+        max_tokens=6000,
+    ))
+
+
+# ---------------------------------------------------------------------------
 # 4. Testing Phase — Phase 4
 # ---------------------------------------------------------------------------
 

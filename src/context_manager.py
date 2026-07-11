@@ -1934,6 +1934,26 @@ def load_screen_flow() -> dict | None:
         return None
 
 
+def save_design_system(design_system: dict) -> None:
+    """Persist the AI-generated visual design system JSON for the current project."""
+    cd = _context_dir()
+    cd.mkdir(parents=True, exist_ok=True)
+    _path("design-system.json").write_text(
+        json.dumps(design_system, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+def load_design_system() -> dict | None:
+    """Return the design system JSON, or None if not yet generated."""
+    p = _path("design-system.json")
+    if not p.exists():
+        return None
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
 def save_bdd_tests(story_id: int, test_script: str) -> Path:
     """Save BDD test plan to contextspec/bdd_story_<id>.feature and return the path."""
     cd = _context_dir()

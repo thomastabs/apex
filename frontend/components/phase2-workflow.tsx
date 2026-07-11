@@ -46,6 +46,7 @@ import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
 import { DesignDeltaPanel } from "@/components/design-delta-panel";
+import { DesignSystemPanel } from "@/components/design-system-panel";
 import { ERDiagramPanel } from "@/components/er-diagram-panel";
 import { ScreenFlowPanel } from "@/components/screen-flow-panel";
 import { EndpointTable } from "@/components/endpoint-table";
@@ -790,7 +791,10 @@ export function Phase2Workflow() {
                     {(section === "ux_brief" || section === "endpoints" || section === "data_model") && (
                       <div className={cn("border-t px-4 py-3", dark ? "border-neutral-800" : "border-slate-100")}>
                         {section === "ux_brief" && (
-                          <ScreenFlowPanel uxBriefContent={content} dark={dark} />
+                          <>
+                            <ScreenFlowPanel uxBriefContent={content} dark={dark} />
+                            <DesignSystemPanel uxBriefContent={content} dark={dark} />
+                          </>
                         )}
                         {section === "endpoints" && (
                           <EndpointTable endpointsContent={content} dark={dark} />

@@ -420,6 +420,17 @@ class Phase2Service:
                 node["position"] = pos_map[node["id"]]
         self.context.save_screen_flow(diagram)
 
+    def generate_design_system(self, ctx: RequestContext, *, ux_brief_md: str) -> dict:
+        self.configure_request(ctx)
+        result = self.ai.generate_design_system(ux_brief_md)
+        design_system = result.model_dump()
+        self.context.save_design_system(design_system)
+        return design_system
+
+    def load_design_system(self, ctx: RequestContext) -> dict | None:
+        self.configure_request(ctx)
+        return self.context.load_design_system()
+
     def _all_eligible_stories(self) -> list[dict]:
         """Return all stories with locked Gherkin, sorted by story_id."""
         stories = []

@@ -14,8 +14,10 @@ from backend.app.schemas.phase2 import (
     DesignDeltaStatusResponse,
     DesignSectionRequest,
     DesignSectionResponse,
+    DesignSystemResponse,
     DiagramResponse,
     GenerateDesignDeltaRequest,
+    GenerateDesignSystemRequest,
     GenerateDiagramRequest,
     GenerateScreenFlowRequest,
     LockDesignRequest,
@@ -287,6 +289,30 @@ def save_screen_flow_positions(
     try:
         service.save_screen_flow_positions(ctx, nodes=payload.nodes)
         return {"ok": True}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.get("/design-system", response_model=DesignSystemResponse | None)
+def get_design_system(
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase2Service = Depends(get_phase2_service),
+):
+    try:
+        return service.load_design_system(ctx)
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/generate-design-system", response_model=DesignSystemResponse)
+def generate_design_system(
+    payload: GenerateDesignSystemRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase2Service = Depends(get_phase2_service),
+    _rl: None = Depends(ai_rate_limit),
+):
+    try:
+        return service.generate_design_system(ctx, ux_brief_md=payload.ux_brief_md)
     except Exception as exc:
         _handle_error(exc)
 

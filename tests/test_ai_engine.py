@@ -632,6 +632,30 @@ class TestPruneDanglingEdges:
         assert len(kept) == 1
 
 
+class TestDesignSystemHexValidation:
+    """DesignSystemData coerces AI-fuzzy hex values instead of failing validation."""
+
+    def test_valid_hex_passes_through(self):
+        from src.ai_engine import DesignSystemColor
+        c = DesignSystemColor(name="primary", hex="#4F46E5", usage="Buttons")
+        assert c.hex == "#4F46E5"
+
+    def test_hex_missing_leading_hash_is_normalized(self):
+        from src.ai_engine import DesignSystemColor
+        c = DesignSystemColor(name="primary", hex="4F46E5", usage="")
+        assert c.hex == "#4F46E5"
+
+    def test_invalid_hex_falls_back_to_neutral(self):
+        from src.ai_engine import DesignSystemColor, _HEX_FALLBACK
+        c = DesignSystemColor(name="primary", hex="royalblue", usage="")
+        assert c.hex == _HEX_FALLBACK
+
+    def test_component_state_style_border_invalid_clears_to_empty(self):
+        from src.ai_engine import ComponentStateStyle
+        s = ComponentStateStyle(background="#4F46E5", text_color="#FFFFFF", border="not-a-color")
+        assert s.border == ""
+
+
 class TestPackDigest:
     """Compact pack digest fed into sibling-pack / test-plan context."""
 
