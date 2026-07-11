@@ -115,20 +115,6 @@ class FakeContextService:
     def load_all_proposals(self) -> list[dict]:
         return getattr(self, "all_proposals", [])
 
-    def set_design_conflict(self, story_id: int, reason: str = "") -> None:
-        self.conflicts = getattr(self, "conflicts", {})
-        self.conflicts[story_id] = reason
-        entry = self.index.get(str(story_id))
-        if entry is not None:
-            entry["design_conflict"] = True
-
-    def clear_design_conflict(self, story_id: int) -> None:
-        self.cleared_conflicts = getattr(self, "cleared_conflicts", [])
-        self.cleared_conflicts.append(story_id)
-        entry = self.index.get(str(story_id))
-        if entry is not None:
-            entry["design_conflict"] = False
-
     def upsert_story_index(self, story_id: int, **updates) -> None:
         self.upserted.append((story_id, updates))
 
@@ -432,54 +418,3 @@ def test_generate_proposal_empty_hint_passes_through():
     assert ai.generate_proposal_kwargs["hint"] == ""
 
 
-def _conflict_index():
-    # Different epics: a shared file is only a conflict signal across epics —
-    # same-epic siblings sharing a file (e.g. one router) is expected.
-    base = lambda sid, epic_id, title: {  # noqa: E731
-        "story_id": sid, "epic_id": epic_id, "title": title, "phase_status": "design_locked",
-        "has_gherkin": True, "has_proposal": True,
-    }
-    return {"1": base(1, 1, "Auth"), "5": base(5, 2, "Profile")}
-
-
-def _pack_md(files):
-    return "## Files to Change\n" + "\n".join(f"- `{f}` — change" for f in files)
-
-
-def test_scan_design_conflicts_flags_cross_story_overlap():
-    ctx_svc = FakeContextService(index=_conflict_index())
-    ctx_svc.all_proposals = [
-        {"story_id": 1, "task_id": 1, "proposal_md": _pack_md(["models/user.py"])},
-        {"story_id": 5, "task_id": 1, "proposal_md": _pack_md(["models/user.py"])},
-    ]
-    svc = Phase3Service(ai=FakeAiService(), context=ctx_svc)
-    report = svc.scan_design_conflicts(_ctx())
-    assert report["conflicted_ids"] == [1, 5]
-    assert ctx_svc.conflicts[1] and ctx_svc.conflicts[5]
-    assert "models/user.py" in report["results"][0]["files"]
-
-
-def test_scan_design_conflicts_clears_when_no_overlap():
-    idx = _conflict_index()
-    idx["1"]["design_conflict"] = True  # previously flagged
-    ctx_svc = FakeContextService(index=idx)
-    ctx_svc.all_proposals = [
-        {"story_id": 1, "task_id": 1, "proposal_md": _pack_md(["a.py"])},
-        {"story_id": 5, "task_id": 1, "proposal_md": _pack_md(["b.py"])},
-    ]
-    svc = Phase3Service(ai=FakeAiService(), context=ctx_svc)
-    report = svc.scan_design_conflicts(_ctx())
-    assert report["conflicted_ids"] == []
-    assert 1 in ctx_svc.cleared_conflicts
-
-
-def test_save_proposal_refreshes_conflicts():
-    ctx_svc = FakeContextService(index=_conflict_index())
-    # story 5 already has an overlapping pack on disk; saving story 1's triggers refresh
-    ctx_svc.all_proposals = [
-        {"story_id": 1, "task_id": 1, "proposal_md": _pack_md(["shared.py"])},
-        {"story_id": 5, "task_id": 1, "proposal_md": _pack_md(["shared.py"])},
-    ]
-    svc = Phase3Service(ai=FakeAiService(), context=ctx_svc)
-    svc.save_proposal(_ctx(), 1, 1, _pack_md(["shared.py"]))
-    assert getattr(ctx_svc, "conflicts", {}).get(1)

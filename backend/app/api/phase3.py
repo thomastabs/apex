@@ -9,7 +9,6 @@ from backend.app.api.rate_limit import ai_rate_limit
 from backend.app.schemas.phase1 import CrossCheckResponse
 from backend.app.schemas.phase3 import (
     CrossCheckTasksRequest,
-    DesignConflictReportResponse,
     PacksResponse,
     EligibleStoriesResponse,
     GenerateProposalRequest,
@@ -141,17 +140,6 @@ def cross_check_tasks(
 ):
     try:
         return service.cross_check_tasks(ctx, payload.story_id, payload.alt_model)
-    except Exception as exc:
-        _handle_error(exc)
-
-
-@router.post("/scan-design-conflicts", response_model=DesignConflictReportResponse)
-def scan_design_conflicts(
-    ctx: RequestContext = Depends(get_request_context),
-    service: Phase3Service = Depends(get_phase3_service),
-):
-    try:
-        return service.scan_design_conflicts(ctx)
     except Exception as exc:
         _handle_error(exc)
 

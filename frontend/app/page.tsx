@@ -106,7 +106,7 @@ export default function HomePage() {
   const phase2Done = Boolean(stats && stats.total > 0 && stats.phase2_designed === stats.total);
   const openMaintenanceCount = maintenanceItems.data?.items.filter((i) => i.status !== "resolved").length ?? 0;
   const regressedCount = stats?.conformance_regressed ?? 0;
-  const loopSignalCount = (stats?.trace_flagged ?? 0) + (stats?.conformance_regressed ?? 0) + (stats?.design_conflict ?? 0);
+  const loopSignalCount = (stats?.trace_flagged ?? 0) + (stats?.conformance_regressed ?? 0);
   // Not strictly "N stories" — a story can carry >1 flag, and a maintenance
   // item isn't guaranteed linked to a story — so this is a signal count, not
   // a story count. Worded as such below rather than overclaiming precision.
@@ -253,7 +253,6 @@ export default function HomePage() {
                 {[
                   regressedCount > 0 ? `${regressedCount} regressed` : null,
                   (stats?.trace_flagged ?? 0) > 0 ? `${stats?.trace_flagged} trace-flagged` : null,
-                  (stats?.design_conflict ?? 0) > 0 ? `${stats?.design_conflict} conflicted` : null,
                   openMaintenanceCount > 0 ? `${openMaintenanceCount} open maintenance item${openMaintenanceCount === 1 ? "" : "s"}` : null,
                 ].filter(Boolean).join(" · ")}
               </p>
@@ -311,7 +310,7 @@ export default function HomePage() {
           href="/traceability"
           phase="Loop"
           title="Trace Graph"
-          description="Every story's epic → design → tasks → tests → deploy chain, live — plus cross-story conflicts and regression loop-backs as they happen, not just forward progress."
+          description="Every story's epic → design → tasks → tests → deploy chain, live — plus regression loop-backs as they happen, not just forward progress."
           icon={GitGraph}
           badge={!hasProject ? undefined : loopSignalCount > 0 ? `${loopSignalCount} loop${loopSignalCount === 1 ? "" : "s"} active` : "steady"}
           status={!hasProject ? "pending" : loopSignalCount > 0 ? "active" : "done"}

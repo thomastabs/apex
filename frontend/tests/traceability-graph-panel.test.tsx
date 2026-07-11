@@ -42,7 +42,7 @@ const GRAPH = {
   nodes: [
     { id: "project", type: "project", label: "Project" },
     { id: "epic:10", type: "epic", label: "Epic 10", phase: 1 },
-    { id: "story:1", type: "story", label: "Login", phase: 5, phase_status: "deployed", flags: { conflict: false, trace: true } },
+    { id: "story:1", type: "story", label: "Login", phase: 5, phase_status: "deployed", flags: { trace: true } },
     { id: "gherkin:1", type: "gherkin", label: "Gherkin", phase: 1, scenario_count: 2, flags: {} },
   ],
   edges: [

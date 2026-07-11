@@ -68,9 +68,6 @@ def test_story_index_stats_deployed_counts_only_explicit_deployed(monkeypatch):
         "trace_flagged": 0,
         "trace_story_ids": [],
         "trace_flags": [],
-        "design_conflict": 0,
-        "conflicted_story_ids": [],
-        "conflict_flags": [],
         "figma_links": [],
         "figma_changed": 0,
         "figma_changed_story_ids": [],
@@ -614,22 +611,6 @@ def test_log_decision_appends_and_lists_in_context_files(ctx):
     assert decisions["label"] == "Decision Log"
     assert "Discarded regen" in decisions["content"]
     assert "Kept previous" in decisions["content"]
-
-
-def test_stats_lists_conflict_flags_and_acknowledge(ctx):
-    from backend.app.api.workspace import acknowledge_design_conflict
-    ctx.upsert_story_index(1, phase_status="design_locked")
-    ctx.upsert_story_index(2, phase_status="implementation")
-    ctx.set_design_conflict(1, "shares models/user.py with #2")
-    ctx.set_design_conflict(2, "shares models/user.py with #1")
-    rc = RequestContext(pm_token="tok", project_id=ctx._get_project_id())
-    stats = story_index_stats(rc)
-    assert stats["design_conflict"] == 2
-    assert stats["conflicted_story_ids"] == [1, 2]
-    info = {c["story_id"]: c["reason"] for c in stats["conflict_flags"]}
-    assert "models/user.py" in info[1]
-    assert acknowledge_design_conflict(1, rc) == {"ok": True}
-    assert story_index_stats(rc)["conflicted_story_ids"] == [2]
 
 
 def test_stats_lists_trace_flags(ctx):

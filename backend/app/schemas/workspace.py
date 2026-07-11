@@ -167,11 +167,6 @@ class TraceFlagInfo(BaseModel):
     reason: str = ""
 
 
-class ConflictFlagInfo(BaseModel):
-    story_id: int
-    reason: str = ""
-
-
 class FigmaLinkInfo(BaseModel):
     story_id: int
     figma_node_id: str = ""
@@ -219,9 +214,6 @@ class StoryIndexStatsResponse(BaseModel):
     trace_flagged: int = 0
     trace_story_ids: list[int] = Field(default_factory=list)
     trace_flags: list["TraceFlagInfo"] = Field(default_factory=list)
-    design_conflict: int = 0
-    conflicted_story_ids: list[int] = Field(default_factory=list)
-    conflict_flags: list["ConflictFlagInfo"] = Field(default_factory=list)
     figma_links: list["FigmaLinkInfo"] = Field(default_factory=list)
     figma_changed: int = 0
     figma_changed_story_ids: list[int] = Field(default_factory=list)
@@ -275,7 +267,7 @@ class TraceEdge(BaseModel):
     id: str
     source: str
     target: str
-    kind: Literal["derive", "design", "conflict", "trace", "verify"]
+    kind: Literal["derive", "design", "trace", "verify"]
 
 
 class TraceabilityGraphResponse(BaseModel):

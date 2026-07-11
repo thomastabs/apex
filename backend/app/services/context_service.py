@@ -121,12 +121,6 @@ class ContextService:
     def clear_trace_flag(self, story_id: int) -> None:
         context_manager.clear_trace_flag(story_id)
 
-    def set_design_conflict(self, story_id: int, reason: str = "") -> None:
-        context_manager.set_design_conflict(story_id, reason)
-
-    def clear_design_conflict(self, story_id: int) -> None:
-        context_manager.clear_design_conflict(story_id)
-
     def set_story_figma_link(
         self, story_id: int, figma_node_id: str, figma_modified: str = "",
         figma_file_key: str = "",

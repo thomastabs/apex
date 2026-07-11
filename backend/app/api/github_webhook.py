@@ -62,8 +62,7 @@ def _touched_files(payload: dict) -> set[str]:
 
 def _matched_story_ids(context: ContextService, touched: set[str]) -> list[int]:
     """Stories whose saved dev-pack ('Files to Change') overlaps the push's
-    touched files — pure string matching, no AI (mirrors detect_design_conflicts'
-    file-overlap approach)."""
+    touched files — pure string matching, no AI."""
     if not touched:
         return []
     matched: set[int] = set()

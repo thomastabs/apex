@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import ForceGraph2D, { type ForceGraphMethods, type NodeObject, type LinkObject } from "react-force-graph-2d";
-import { AlertTriangle, Download, GitFork, LayoutDashboard, Loader2, RefreshCw, Undo2 } from "lucide-react";
+import { AlertTriangle, Download, LayoutDashboard, Loader2, RefreshCw, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -42,7 +42,6 @@ const STATUS_TINT: Record<string, string> = {
 
 function linkColor(kind: ApiEdge["kind"], dark: boolean): string {
   switch (kind) {
-    case "conflict": return "#f59e0b";
     case "trace": return "#8b5cf6";
     case "regression": return "#ef4444";
     case "design": return "#14b8a6";
@@ -133,7 +132,7 @@ export function TraceabilityClusterPanel() {
       }
     }
     const flaggedStoryIds = new Set(
-      data.nodes.filter((n) => n.type === "story" && (n.flags?.conflict || n.flags?.trace || n.flags?.bug)).map((n) => n.id.slice("story:".length)),
+      data.nodes.filter((n) => n.type === "story" && (n.flags?.trace || n.flags?.bug)).map((n) => n.id.slice("story:".length)),
     );
     function nodeVisible(n: ApiNode): boolean {
       if (n.id === "project" || n.type === "design") return true;
@@ -287,7 +286,7 @@ export function TraceabilityClusterPanel() {
     const y = node.y ?? 0;
     const accent = TYPE_COLOR[node.ntype as TraceNodeType] ?? "#8b5cf6";
     const flags = node.flags ?? {};
-    const ring = flags.conflict ? "#f59e0b" : flags.trace ? "#8b5cf6" : flags.bug ? "#ef4444" : null;
+    const ring = flags.trace ? "#8b5cf6" : flags.bug ? "#ef4444" : null;
     const r = nodeRadius(node.degree ?? 0);
 
     if (ring) {
@@ -340,7 +339,7 @@ export function TraceabilityClusterPanel() {
         <h1 className={cn("text-4xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>Living Graph</h1>
         <p className={cn("mt-1.5 text-sm", mutedClass)}>
           The whole project as one derivation graph — epic → story → Gherkin → design → tasks → tests → deploy.
-          Amber = design conflict, violet dashed = backward-trace, red dashed = regression loop-back. Click any node to jump to its phase.
+          Violet dashed = backward-trace, red dashed = regression loop-back. Click any node to jump to its phase.
         </p>
       </div>
 

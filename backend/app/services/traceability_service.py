@@ -2,9 +2,8 @@
 
 Reads the story-index + context files (no AI) and emits {nodes, edges} spanning
 epic → story → Gherkin → tasks → tests → deploy, plus a project-level Design
-node and the cross-story conflict / backward-trace overlays. Mirrors the
-design-conflict detector: set arithmetic over data Apex already persists. All
-access goes through ContextService for project isolation.
+node and the backward-trace overlay: set arithmetic over data Apex already
+persists. All access goes through ContextService for project isolation.
 """
 
 from __future__ import annotations
@@ -36,20 +35,6 @@ class TraceabilityService:
         context = self.context
         context.set_active(ctx)
         index = context.story_index()
-
-        # Cross-story conflict pairs (pure) — reuse the design-conflict detector.
-        # Needs load_all_proposals (has proposal_md); list_all_proposals is
-        # metadata-only and silently yields zero conflicts (see phase3_service's
-        # _refresh_design_conflicts for the same load+enrich pattern).
-        try:
-            packs = context.load_all_proposals()
-            for p in packs:
-                entry = index.get(str(p["story_id"])) or {}
-                p["story_title"] = entry.get("title", "")
-                p["epic_id"] = entry.get("epic_id")
-            conflicts = ai_engine.detect_design_conflicts(packs)
-        except Exception:
-            conflicts = {}
 
         nodes: list[dict] = []
         edges: list[dict] = []
@@ -88,7 +73,6 @@ class TraceabilityService:
                 "phase_status": status,
                 "phase": _phase_for_status(status),
                 "flags": {
-                    "conflict": bool(entry.get("design_conflict")),
                     "trace": bool(entry.get("trace_flag")),
                     "bug": bool(entry.get("has_bug_report")) or bool(entry.get("fix_bolt_count")),
                 },
@@ -172,11 +156,6 @@ class TraceabilityService:
                 source = deploy_node or prev
                 if source != target:
                     add_edge(source, target, "regression")
-
-        # Cross-story conflict edges (amber).
-        for sid, info in conflicts.items():
-            for other in info.get("conflicts_with", []):
-                add_edge(f"story:{sid}", f"story:{other}", "conflict")
 
         # Backward-trace edges (violet, dashed): downstream gap → source artifact.
         for sid, entry in index.items():

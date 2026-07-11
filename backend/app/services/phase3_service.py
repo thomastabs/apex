@@ -218,43 +218,6 @@ class Phase3Service:
     ) -> None:
         self.configure_request(ctx)
         self.context.save_proposal(story_id, task_id, proposal_md)
-        # Keep cross-story design-conflict flags live as packs land (no AI).
-        self._refresh_design_conflicts()
-
-    def _refresh_design_conflicts(self) -> dict:
-        """Re-run the cross-story design-drift detector over every saved pack and
-        set/clear each story's design_conflict flag. Returns the report."""
-        from src import ai_engine
-
-        index = self.context.story_index()
-        packs = self.context.load_all_proposals()
-        for p in packs:
-            entry = index.get(str(p["story_id"])) or {}
-            p["story_title"] = entry.get("title", "")
-            p["epic_id"] = entry.get("epic_id")
-        conflicts = ai_engine.detect_design_conflicts(packs)
-
-        flagged_ids = set(conflicts)
-        # Clear stories that previously had a flag but no longer conflict.
-        for sid_str, entry in index.items():
-            if entry.get("design_conflict") and int(sid_str) not in flagged_ids:
-                self.context.clear_design_conflict(int(sid_str))
-        results = []
-        for sid, info in sorted(conflicts.items()):
-            self.context.set_design_conflict(sid, info["reason"])
-            results.append({
-                "story_id": sid,
-                "title": (index.get(str(sid)) or {}).get("title", ""),
-                "reason": info["reason"],
-                "files": info["files"],
-                "endpoints": info["endpoints"],
-            })
-        return {"results": results, "conflicted_ids": sorted(flagged_ids)}
-
-    def scan_design_conflicts(self, ctx: RequestContext) -> dict:
-        """On-demand project-wide cross-story design-conflict scan (no AI)."""
-        self.configure_request(ctx)
-        return self._refresh_design_conflicts()
 
     def _require_story(self, story_id: int) -> None:
         """Raise Phase3ValidationError if story_id is not in the project index."""

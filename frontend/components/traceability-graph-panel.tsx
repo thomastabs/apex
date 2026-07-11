@@ -18,7 +18,7 @@ import {
 } from "@xyflow/react";
 import Dagre from "@dagrejs/dagre";
 import { toPng } from "html-to-image";
-import { AlertTriangle, Download, GitFork, LayoutDashboard, Loader2, RefreshCw, Undo2 } from "lucide-react";
+import { AlertTriangle, Download, LayoutDashboard, Loader2, RefreshCw, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -77,22 +77,20 @@ function applyDagre(nodes: Node<NodeData>[], edges: Edge[]): Node<NodeData>[] {
 
 function TraceFlowNode({ data }: { data: NodeData }) {
   const accent = TYPE_COLOR[data.ntype];
-  const conflict = data.flags.conflict;
   const trace = data.flags.trace;
   return (
     <div
       className={cn(
         "w-[168px] overflow-hidden rounded-md border shadow-sm",
         data.dark ? "bg-neutral-900 text-neutral-200" : "bg-white text-slate-700",
-        conflict ? "border-amber-500" : trace ? "border-violet-500" : data.dark ? "border-neutral-700" : "border-slate-200",
+        trace ? "border-violet-500" : data.dark ? "border-neutral-700" : "border-slate-200",
       )}
-      style={conflict || trace ? { borderWidth: 2 } : undefined}
+      style={trace ? { borderWidth: 2 } : undefined}
     >
       <Handle type="target" position={Position.Left} className="!h-2 !w-2" style={{ background: accent }} />
       <div className="flex items-center justify-between px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white" style={{ background: accent }}>
         <span>{data.ntype}</span>
         <span className="flex items-center gap-1">
-          {conflict ? <GitFork className="size-3" /> : null}
           {trace ? <Undo2 className="size-3" /> : null}
           {data.flags.bug ? <AlertTriangle className="size-3" /> : null}
         </span>
@@ -129,8 +127,6 @@ const NODE_TYPES = { trace: TraceFlowNode };
 
 function edgeStyle(kind: ApiEdge["kind"], dark: boolean) {
   switch (kind) {
-    case "conflict":
-      return { animated: false, style: { stroke: "#f59e0b", strokeWidth: 1.5 } };
     case "trace":
       return { animated: true, style: { stroke: "#8b5cf6", strokeWidth: 1.5, strokeDasharray: "5 4" } };
     case "regression":
@@ -178,7 +174,7 @@ export function TraceabilityGraphPanel() {
     }
 
     const flaggedStoryIds = new Set(
-      data.nodes.filter((n) => n.type === "story" && (n.flags?.conflict || n.flags?.trace || n.flags?.bug)).map((n) => n.id.slice("story:".length)),
+      data.nodes.filter((n) => n.type === "story" && (n.flags?.trace || n.flags?.bug)).map((n) => n.id.slice("story:".length)),
     );
 
     function nodeVisible(n: ApiNode): boolean {
@@ -281,7 +277,7 @@ export function TraceabilityGraphPanel() {
         <h1 className={cn("text-4xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>Living Graph</h1>
         <p className={cn("mt-1.5 text-sm", mutedClass)}>
           The whole project as one derivation graph — epic → story → Gherkin → design → tasks → tests → deploy.
-          Amber = design conflict, violet dashed = backward-trace. Click any node to jump to its phase.
+          Violet dashed = backward-trace. Click any node to jump to its phase.
         </p>
       </div>
 

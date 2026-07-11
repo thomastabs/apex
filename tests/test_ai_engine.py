@@ -1248,102 +1248,10 @@ class TestMultiModelCrossCheck:
         assert [s["title"] for s in d["only_alt"]] == ["GET /api/me"]
 
 
-class TestDesignConflictDetector:
-    """Cross-story design-drift detector (pure, no AI)."""
-
-    def _pack(self, sid, tid, files=(), endpoints=(), title="", epic_id=None):
-        files_md = "\n".join(f"- `{f}` — change" for f in files)
-        ep_md = "\n".join(f"`{m} {p}`" for m, p in endpoints)
-        md = f"## Files to Change\n{files_md}\n\n## Context\n{ep_md}"
-        return {"story_id": sid, "task_id": tid, "story_title": title, "epic_id": epic_id, "proposal_md": md}
-
-    def test_parse_pack_files(self):
-        import src.ai_engine as ai
-        md = "## Files to Change\n- `models/user.py` — add\n- `api/auth.py` — login\n\n## Context\nprose `not/a/file`"
-        assert ai.parse_pack_files(md) == ["models/user.py", "api/auth.py"]
-
-    def test_cross_story_shared_file_flags_both(self):
-        import src.ai_engine as ai
-        packs = [
-            self._pack(1, 1, files=["models/user.py"], title="Auth"),
-            self._pack(5, 1, files=["models/user.py"], title="Profile"),
-        ]
-        c = ai.detect_design_conflicts(packs)
-        assert set(c) == {1, 5}
-        assert c[1]["conflicts_with"] == [5] and "models/user.py" in c[1]["files"]
-        assert "#5" in c[1]["reason"] and "Profile" in c[1]["reason"]
-
-    def test_same_story_overlap_not_flagged(self):
-        import src.ai_engine as ai
-        packs = [
-            self._pack(1, 1, files=["models/user.py"]),
-            self._pack(1, 2, files=["models/user.py"]),  # sibling, same story
-        ]
-        assert ai.detect_design_conflicts(packs) == {}
-
-    def test_duplicate_endpoint_across_stories(self):
-        import src.ai_engine as ai
-        packs = [
-            self._pack(1, 1, endpoints=[("POST", "/api/orders")]),
-            self._pack(7, 1, endpoints=[("POST", "/api/orders")]),
-        ]
-        c = ai.detect_design_conflicts(packs)
-        assert set(c) == {1, 7}
-        assert "POST /api/orders" in c[1]["endpoints"]
-
-    def test_no_overlap_empty(self):
-        import src.ai_engine as ai
-        packs = [
-            self._pack(1, 1, files=["a.py"]),
-            self._pack(2, 1, files=["b.py"]),
-        ]
-        assert ai.detect_design_conflicts(packs) == {}
-
-    def test_same_epic_shared_file_not_flagged(self):
-        # Sibling stories in the same epic commonly add separate endpoints to
-        # one shared file (a router, a model module) — expected, not a
-        # conflict. Found via a real false positive: two "Student Profiling"
-        # epic stories both touching profiling.py, each adding its own
-        # distinct endpoint.
-        import src.ai_engine as ai
-        packs = [
-            self._pack(1, 1, files=["api/profiling.py"], title="Interests", epic_id=361769),
-            self._pack(2, 1, files=["api/profiling.py"], title="Strengths", epic_id=361769),
-        ]
-        assert ai.detect_design_conflicts(packs) == {}
-
-    def test_cross_epic_shared_file_still_flagged(self):
-        import src.ai_engine as ai
-        packs = [
-            self._pack(1, 1, files=["api/profiling.py"], title="Interests", epic_id=361769),
-            self._pack(2, 1, files=["api/profiling.py"], title="Billing", epic_id=999),
-        ]
-        c = ai.detect_design_conflicts(packs)
-        assert set(c) == {1, 2}
-
-    def test_shared_init_py_not_flagged_even_cross_epic(self):
-        # __init__.py is router-registration boilerplate every endpoint task
-        # touches (one import + include_router line) — sharing it isn't a
-        # real design overlap, unlike a shared model/router module. Real
-        # false positive: two unrelated stories in different epics both
-        # listing backend/api/__init__.py.
-        import src.ai_engine as ai
-        packs = [
-            self._pack(1, 1, files=["backend/api/__init__.py"], title="A", epic_id=1),
-            self._pack(2, 1, files=["backend/api/__init__.py"], title="B", epic_id=2),
-        ]
-        assert ai.detect_design_conflicts(packs) == {}
-
-    def test_same_epic_duplicate_endpoint_still_flagged(self):
-        # An endpoint collision is real duplicate work regardless of epic.
-        import src.ai_engine as ai
-        packs = [
-            self._pack(1, 1, endpoints=[("POST", "/api/orders")], epic_id=5),
-            self._pack(2, 1, endpoints=[("POST", "/api/orders")], epic_id=5),
-        ]
-        c = ai.detect_design_conflicts(packs)
-        assert set(c) == {1, 2}
-        assert "POST /api/orders" in c[1]["endpoints"]
+def test_parse_pack_files():
+    import src.ai_engine as ai
+    md = "## Files to Change\n- `models/user.py` — add\n- `api/auth.py` — login\n\n## Context\nprose `not/a/file`"
+    assert ai.parse_pack_files(md) == ["models/user.py", "api/auth.py"]
 
 
 class TestBackwardTrace:

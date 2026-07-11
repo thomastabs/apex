@@ -1315,8 +1315,7 @@ def upsert_story_index(story_id: int, **updates) -> None:
                   has_deploy_pack, deploy_bypass, fix_bolt_count,
                   spec_drift, drift_reason,
                   conformance_regressed, regression_reason,
-                  trace_flag, trace_phase, trace_reason,
-                  design_conflict, conflict_reason.
+                  trace_flag, trace_phase, trace_reason.
 
     Whenever phase_status changes (including the initial status of a new
     entry) a UTC timestamp is appended to entry["status_history"][status] —
@@ -1354,8 +1353,6 @@ def upsert_story_index(story_id: int, **updates) -> None:
             "trace_flag":      False,
             "trace_phase":     "",
             "trace_reason":    "",
-            "design_conflict": False,
-            "conflict_reason": "",
             "figma_node_id":   "",
             "figma_file_key":  "",
             "figma_synced_at": "",
@@ -1986,8 +1983,9 @@ def list_all_proposals() -> list[dict]:
 
 def load_all_proposals() -> list[dict]:
     """Every developer pack in the project WITH its markdown:
-    [{story_id, task_id, proposal_md}]. Cross-story enumeration for the
-    design-conflict detector (list_all_proposals omits the markdown)."""
+    [{story_id, task_id, proposal_md}]. Cross-story enumeration used by the
+    traceability graph and the GitHub webhook regression scan
+    (list_all_proposals omits the markdown)."""
     cd = _context_dir()
     out: list[dict] = []
     if not cd.exists():
@@ -2943,29 +2941,6 @@ def clear_trace_flag(story_id: int) -> None:
             entry["trace_flag"] = False
             entry["trace_phase"] = ""
             entry["trace_reason"] = ""
-            _save_story_index(index)
-
-
-def set_design_conflict(story_id: int, reason: str = "") -> None:
-    """Flag a story whose developer pack overlaps another story's (shared file or
-    duplicate endpoint) — a cross-story design-drift warning."""
-    with _index_lock():
-        index = get_story_index()
-        entry = index.get(str(story_id))
-        if entry is not None:
-            entry["design_conflict"] = True
-            entry["conflict_reason"] = reason
-            _save_story_index(index)
-
-
-def clear_design_conflict(story_id: int) -> None:
-    """Clear the design-conflict flag (acknowledged, or a later scan found no overlap)."""
-    with _index_lock():
-        index = get_story_index()
-        entry = index.get(str(story_id))
-        if entry is not None and entry.get("design_conflict"):
-            entry["design_conflict"] = False
-            entry["conflict_reason"] = ""
             _save_story_index(index)
 
 

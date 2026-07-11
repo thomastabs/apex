@@ -38,7 +38,6 @@ vi.mock("@/lib/hooks/use-workspace", () => ({
   useSetStoryPhaseStatus: () => setApexStatusMut,
   useAcknowledgeSpecDrift: () => idleMut,
   useAcknowledgeBacktrace: () => idleMut,
-  useAcknowledgeConflict: () => idleMut,
   useSetStoryFigmaLink: () => idleMut,
   useAcknowledgeFigmaChange: () => idleMut,
   useStoryIndexStats: () => ({
@@ -49,8 +48,6 @@ vi.mock("@/lib/hooks/use-workspace", () => ({
       conformance_regressed: 1, regressed_story_ids: [101],
       trace_flagged: 1, trace_story_ids: [101],
       trace_flags: [{ story_id: 101, phase: "gherkin_locked", phase_label: "Phase 1", reason: "scenario untested — re-examine its Gherkin" }],
-      design_conflict: 1, conflicted_story_ids: [101],
-      conflict_flags: [{ story_id: 101, reason: "shares file(s) models/user.py with #5 (Profile)" }],
     },
   }),
 }));
@@ -97,15 +94,6 @@ describe("BoardSection edit dialog", () => {
     await waitFor(() =>
       expect(screen.getByLabelText(/Conformance regressed/i)).toBeInTheDocument(),
     );
-  });
-
-  it("shows a design-conflict badge and the dialog names the conflict", async () => {
-    renderBoard();
-    fireEvent.click(screen.getByRole("button", { name: /Epics & Stories/i }));
-    fireEvent.click(screen.getByRole("button", { name: /Authentication/i }));
-    await waitFor(() => expect(screen.getByLabelText(/Design conflict/i)).toBeInTheDocument());
-    fireEvent.click(screen.getByTitle("Edit story"));
-    await waitFor(() => expect(screen.getByText(/shares file\(s\) models\/user.py with #5/i)).toBeInTheDocument());
   });
 
   it("shows a backward-trace badge and the dialog re-opens the source phase", async () => {

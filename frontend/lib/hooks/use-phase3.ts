@@ -11,7 +11,6 @@ import {
   crossCheckTasks,
   lockStory,
   saveProposal,
-  scanDesignConflicts,
 } from "@/lib/api/phase3";
 import { getPmAdapter } from "@/lib/api/pm-factory";
 import { toPmCtx } from "@/lib/api/workspace";
@@ -249,18 +248,6 @@ export function usePushTasksToTaiga() {
       }
     },
     onError: () => toast.error("Failed to push tasks. Check your connection and try again."),
-  });
-}
-
-export function useScanDesignConflicts() {
-  const context = useApiContext();
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () => scanDesignConflicts(context!),
-    onSuccess: () => {
-      // Refresh board/analytics flags (the scan set/cleared design_conflict).
-      void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
-    },
   });
 }
 
