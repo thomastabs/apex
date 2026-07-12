@@ -26,6 +26,7 @@ import {
   useGenerateDiagram,
   useGenerateScreenFlow,
   useGenerateDesignSections,
+  useLoadDesignSystem,
   useLockDesign,
   useLockTechStack,
   useDesignBundle,
@@ -180,6 +181,7 @@ export function Phase2Workflow() {
   const proposeStack = useProposeTechStack();
   const lockStack = useLockTechStack();
   const generateSections = useGenerateDesignSections();
+  const designSystemQuery = useLoadDesignSystem();
   const generateDiagramMut = useGenerateDiagram();
   const generateScreenFlowMut = useGenerateScreenFlow();
   const lockDesign = useLockDesign();
@@ -796,10 +798,7 @@ export function Phase2Workflow() {
                     {(section === "ux_brief" || section === "endpoints" || section === "data_model") && (
                       <div className={cn("border-t px-4 py-3", dark ? "border-neutral-800" : "border-slate-100")}>
                         {section === "ux_brief" && (
-                          <>
-                            <ScreenFlowPanel uxBriefContent={content} dark={dark} />
-                            <DesignSystemPanel uxBriefContent={content} dark={dark} />
-                          </>
+                          <ScreenFlowPanel uxBriefContent={content} dark={dark} />
                         )}
                         {section === "endpoints" && (
                           <EndpointTable endpointsContent={content} dark={dark} />
@@ -898,6 +897,35 @@ export function Phase2Workflow() {
                   </div>
                 );
               })}
+
+              <div className={cn("overflow-hidden rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}>
+                <div className={cn("flex items-center justify-between px-4 py-3", dark ? "bg-neutral-900" : "bg-slate-50")}>
+                  <div className="flex items-center gap-3">
+                    <span className={cn(
+                      "inline-flex h-5 items-center justify-center rounded px-2 text-xs font-bold",
+                      dark ? "bg-violet-900/60 text-violet-300" : "bg-violet-100 text-violet-700",
+                    )}>
+                      Step 4
+                    </span>
+                    <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>
+                      Visual Design System
+                    </span>
+                  </div>
+                  {designSystemQuery.data ? (
+                    <span className={cn("flex items-center gap-1 text-xs", dark ? "text-emerald-400" : "text-emerald-600")}>
+                      <CheckCircle2 className="size-3" /> Generated
+                    </span>
+                  ) : (
+                    <span className={cn("text-xs", mutedClass)}>Not generated</span>
+                  )}
+                </div>
+                <div className={cn("border-t px-4 py-2 text-xs", dark ? "border-neutral-800 text-neutral-500" : "border-slate-100 text-slate-500")}>
+                  Color palette, typography, navigation pattern, and screen mockups — derived from the UX Brief above.
+                </div>
+                <div className={cn("border-t px-4 py-3", dark ? "border-neutral-800" : "border-slate-100")}>
+                  <DesignSystemPanel uxBriefContent={activeBundle?.ux_brief ?? ""} dark={dark} standalone />
+                </div>
+              </div>
             </div>
 
             {allSectionsPopulated && !generateSections.isPending ? (

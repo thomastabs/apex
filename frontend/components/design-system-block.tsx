@@ -81,7 +81,7 @@ export function ScreenBlockView({
           className="flex items-center justify-between gap-3 px-4 py-3 border-b"
           style={{ borderColor: t.border, background: t.surface }}
         >
-          <span style={typeStyle(typography, "h3")}>{block.label}</span>
+          <span style={{ ...typeStyle(typography, "h3"), color: t.text }}>{block.label}</span>
           <div className="flex items-center gap-3">{children}</div>
         </div>
       );

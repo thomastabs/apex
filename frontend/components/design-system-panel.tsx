@@ -49,22 +49,22 @@ function NavSchematic({ navigation, dark }: { navigation: DesignSystemResponse["
 
   if (navigation.pattern === "sidebar") {
     return (
-      <div className={cn(frame, "flex gap-2 h-32")}>
-        <div className="flex flex-col gap-1 w-20">
+      <div className={cn(frame, "flex gap-2")}>
+        <div className="flex max-h-40 w-20 flex-col gap-1 overflow-y-auto">
           {navigation.items.map((item) => (
             <span key={item} className={chip}>{item}</span>
           ))}
         </div>
-        <div className={cn("flex-1 rounded", dark ? "bg-neutral-800" : "bg-white")} />
+        <div className={cn("min-h-32 flex-1 rounded", dark ? "bg-neutral-800" : "bg-white")} />
       </div>
     );
   }
 
   if (navigation.pattern === "bottom_nav") {
     return (
-      <div className={cn(frame, "flex flex-col justify-between h-32")}>
+      <div className={cn(frame, "flex min-h-32 flex-col justify-between")}>
         <div className={cn("flex-1 rounded mb-2", dark ? "bg-neutral-800" : "bg-white")} />
-        <div className="flex justify-around">
+        <div className="flex flex-wrap justify-center gap-2">
           {navigation.items.map((item) => (
             <span key={item} className={chip}>{item}</span>
           ))}
@@ -76,7 +76,7 @@ function NavSchematic({ navigation, dark }: { navigation: DesignSystemResponse["
   if (navigation.pattern === "tabs") {
     return (
       <div className={frame}>
-        <div className="flex gap-2 mb-2">
+        <div className="flex flex-wrap gap-2 mb-2">
           {navigation.items.map((item, i) => (
             <span key={item} className={cn(chip, i === 0 && "ring-1 ring-indigo-500")}>{item}</span>
           ))}
@@ -281,11 +281,18 @@ function AccessibilityTab({ data, dark }: { data: DesignSystemResponse; dark: bo
 export function DesignSystemPanel({
   uxBriefContent,
   dark,
+  standalone = false,
 }: {
   uxBriefContent: string;
   dark: boolean;
+  /** Rendered as a peer step card's content (phase2-workflow.tsx "Step 4")
+   * rather than its own collapsible accordion — skips the outer border and
+   * header/toggle, always expanded, since the parent card already provides
+   * the chrome. */
+  standalone?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const isOpen = standalone || open;
   const [tab, setTab] = useState<Tab>("Overview");
   const [data, setData] = useState<DesignSystemResponse | null>(null);
 
@@ -310,6 +317,94 @@ export function DesignSystemPanel({
       },
     });
   }, [canGenerate, uxBriefContent, generateMut]);
+
+  const body = (
+    <>
+      {standalone && hasData && (
+        <div className="mb-3 flex justify-end">
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={generateMut.isPending || !canGenerate}
+            className={cn(
+              "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+              dark
+                ? "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700"
+                : "text-slate-500 hover:text-slate-700 hover:bg-slate-200",
+              (generateMut.isPending || !canGenerate) && "opacity-50 cursor-not-allowed",
+            )}
+          >
+            {generateMut.isPending ? <Loader2 className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}
+            Regenerate
+          </button>
+        </div>
+      )}
+      {generateMut.isPending && !hasData ? (
+        <div className="flex flex-col items-center gap-3 py-8 text-center">
+          <Loader2 className="size-8 animate-spin text-indigo-500" />
+          <p className={cn("text-sm font-medium", dark ? "text-neutral-300" : "text-slate-600")}>
+            Generating design system…
+          </p>
+          <div className="w-full max-w-md">
+            <AIProgressIndicator steps={DESIGN_SYSTEM_STEPS} isPending={generateMut.isPending} dark={dark} />
+          </div>
+          <CancelButton onCancel={() => generateMut.cancel()} />
+        </div>
+      ) : !hasData ? (
+        <div className="flex flex-col items-center gap-3 py-6 text-center">
+          <Palette className={cn("size-8", dark ? "text-neutral-600" : "text-slate-300")} />
+          <p className={cn("text-sm", dark ? "text-neutral-400" : "text-slate-500")}>
+            {canGenerate
+              ? "Generate a color palette, typography, navigation pattern, and screen mockups from the UX Brief above."
+              : "Generate the UX Brief section first."}
+          </p>
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={generateMut.isPending || !canGenerate}
+            className={cn(
+              "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors",
+              canGenerate && !generateMut.isPending
+                ? "bg-indigo-600 hover:bg-indigo-700"
+                : "bg-indigo-300 cursor-not-allowed dark:bg-indigo-900",
+            )}
+          >
+            <Palette className="size-4" />Generate Design System
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <div className="flex gap-1 border-b pb-2" style={{ borderColor: dark ? "#404040" : "#e2e8f0" }}>
+            {TABS.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTab(t)}
+                className={cn(
+                  "rounded px-3 py-1.5 text-xs font-medium transition-colors",
+                  tab === t
+                    ? "bg-indigo-600 text-white"
+                    : dark
+                      ? "text-neutral-400 hover:bg-neutral-800"
+                      : "text-slate-500 hover:bg-slate-200",
+                )}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          {tab === "Overview" && <OverviewTab data={data!} dark={dark} />}
+          {tab === "Screens" && <ScreensTab data={data!} dark={dark} />}
+          {tab === "Components" && <ComponentsTab data={data!} dark={dark} />}
+          {tab === "Accessibility" && <AccessibilityTab data={data!} dark={dark} />}
+        </div>
+      )}
+    </>
+  );
+
+  if (standalone) {
+    return <div>{body}</div>;
+  }
 
   return (
     <div
@@ -362,68 +457,9 @@ export function DesignSystemPanel({
       </button>
 
       {/* Body */}
-      {open && (
+      {isOpen && (
         <div className={cn("border-t px-4 py-4", dark ? "border-neutral-700" : "border-slate-200")}>
-          {generateMut.isPending && !hasData ? (
-            <div className="flex flex-col items-center gap-3 py-8 text-center">
-              <Loader2 className="size-8 animate-spin text-indigo-500" />
-              <p className={cn("text-sm font-medium", dark ? "text-neutral-300" : "text-slate-600")}>
-                Generating design system…
-              </p>
-              <div className="w-full max-w-md">
-                <AIProgressIndicator steps={DESIGN_SYSTEM_STEPS} isPending={generateMut.isPending} dark={dark} />
-              </div>
-              <CancelButton onCancel={() => generateMut.cancel()} />
-            </div>
-          ) : !hasData ? (
-            <div className="flex flex-col items-center gap-3 py-6 text-center">
-              <Palette className={cn("size-8", dark ? "text-neutral-600" : "text-slate-300")} />
-              <p className={cn("text-sm", dark ? "text-neutral-400" : "text-slate-500")}>
-                {canGenerate
-                  ? "Generate a color palette, typography, navigation pattern, and screen mockups from the UX Brief above."
-                  : "Generate the UX Brief section first."}
-              </p>
-              <button
-                type="button"
-                onClick={handleGenerate}
-                disabled={generateMut.isPending || !canGenerate}
-                className={cn(
-                  "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors",
-                  canGenerate && !generateMut.isPending
-                    ? "bg-indigo-600 hover:bg-indigo-700"
-                    : "bg-indigo-300 cursor-not-allowed dark:bg-indigo-900",
-                )}
-              >
-                <Palette className="size-4" />Generate Design System
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-4">
-              <div className="flex gap-1 border-b pb-2" style={{ borderColor: dark ? "#404040" : "#e2e8f0" }}>
-                {TABS.map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setTab(t)}
-                    className={cn(
-                      "rounded px-3 py-1.5 text-xs font-medium transition-colors",
-                      tab === t
-                        ? "bg-indigo-600 text-white"
-                        : dark
-                          ? "text-neutral-400 hover:bg-neutral-800"
-                          : "text-slate-500 hover:bg-slate-200",
-                    )}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-              {tab === "Overview" && <OverviewTab data={data!} dark={dark} />}
-              {tab === "Screens" && <ScreensTab data={data!} dark={dark} />}
-              {tab === "Components" && <ComponentsTab data={data!} dark={dark} />}
-              {tab === "Accessibility" && <AccessibilityTab data={data!} dark={dark} />}
-            </div>
-          )}
+          {body}
         </div>
       )}
     </div>
