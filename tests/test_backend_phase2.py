@@ -8,7 +8,7 @@ from backend.app.services.phase2_service import (
     build_screen_flow_diagram,
 )
 from backend.app.services.request_context import RequestContext
-from src.ai_engine import DesignSystemData
+from src.ai_engine import DesignSystemData, DesignSystemScreen
 
 
 _FAKE_SECTION_CONTENT = {
@@ -43,8 +43,9 @@ class FakeAiService:
         self.delta_next_ids = next_ids
         return dict(self.delta_result)
 
-    def generate_design_system(self, ux_brief_md):
+    def generate_design_system(self, ux_brief_md, instructions=""):
         self.design_system_args = ux_brief_md
+        self.design_system_instructions = instructions
         state = {"background": "#4F46E5", "text_color": "#FFFFFF"}
         return DesignSystemData(
             colors=[{"name": "primary", "hex": "#4F46E5", "usage": "Buttons"}],
@@ -57,6 +58,23 @@ class FakeAiService:
             component_states=[
                 {"component": "button", "default": state, "hover": state, "disabled": state, "error": state},
             ],
+        )
+
+    def generate_design_system_screen(
+        self, ux_brief_md, *, colors, typography, navigation, existing_screens, screen_id=None, instructions="",
+    ):
+        # Snapshot existing_screens — the service mutates that same list object
+        # in place right after this call returns (splice/append), so capturing
+        # the live reference would show post-mutation state, not what was
+        # actually passed at call time.
+        self.screen_args = {
+            "ux_brief_md": ux_brief_md, "colors": colors, "typography": typography,
+            "navigation": navigation, "existing_screens": list(existing_screens),
+            "screen_id": screen_id, "instructions": instructions,
+        }
+        from src.ai_engine import DesignSystemScreen
+        return self.screen_result if hasattr(self, "screen_result") else DesignSystemScreen(
+            id="ai-picked-id", label="Regenerated", archetype="form", blocks=[],
         )
 
 
@@ -637,3 +655,87 @@ class TestDesignSystem:
         assert service.load_design_system(_ctx()) is None
         service.generate_design_system(_ctx(), ux_brief_md="## Login screen")
         assert service.load_design_system(_ctx())["colors"][0]["name"] == "primary"
+
+    def test_generate_design_system_threads_instructions(self):
+        service, ai, _ = _service()
+        service.generate_design_system(_ctx(), ux_brief_md="## Login screen", instructions="Dark palette")
+        assert ai.design_system_instructions == "Dark palette"
+
+    def test_save_design_system_persists_verbatim_no_ai(self):
+        service, ai, context = _service()
+        edited = {"colors": [{"name": "primary", "hex": "#000000", "usage": "edited by hand"}]}
+        result = service.save_design_system(_ctx(), design_system=edited)
+        assert result == edited
+        assert context.saved_design_system == edited
+        assert not hasattr(ai, "design_system_args")  # no AI call made
+
+
+class TestGenerateDesignSystemScreen:
+    def _seeded_context(self):
+        context = FakeContextService()
+        context.saved_design_system = {
+            "colors": [], "typography": {}, "navigation": {},
+            "screens": [
+                {"id": "dashboard", "label": "Dashboard", "archetype": "dashboard", "blocks": []},
+                {"id": "detail", "label": "Detail", "archetype": "detail", "blocks": []},
+            ],
+            "component_states": [],
+        }
+        return context
+
+    def test_requires_existing_design_system(self):
+        service, _, _ = _service()
+        with pytest.raises(Phase2ValidationError, match="Generate the full design system first"):
+            service.generate_design_system_screen(_ctx(), ux_brief_md="## Brief", screen_id="dashboard")
+
+    def test_regenerate_replaces_screen_in_place_keeps_id(self):
+        context = self._seeded_context()
+        service, ai, _ = _service(context)
+        result = service.generate_design_system_screen(_ctx(), ux_brief_md="## Brief", screen_id="dashboard")
+        ids = [s["id"] for s in result["screens"]]
+        assert ids == ["dashboard", "detail"]  # position + id preserved
+        assert result["screens"][0]["label"] == "Regenerated"  # new content
+        assert ai.screen_args["screen_id"] == "dashboard"
+        # Phase2Service passes the full list through; ai_engine.extract_design_system_screen
+        # is the layer that filters out the target screen itself (tested separately).
+        assert len(ai.screen_args["existing_screens"]) == 2
+
+    def test_add_new_screen_appends(self):
+        context = self._seeded_context()
+        service, ai, _ = _service(context)
+        result = service.generate_design_system_screen(_ctx(), ux_brief_md="## Brief", screen_id=None)
+        ids = [s["id"] for s in result["screens"]]
+        assert ids == ["dashboard", "detail", "ai-picked-id"]
+        assert ai.screen_args["screen_id"] is None
+        assert len(ai.screen_args["existing_screens"]) == 2  # both existing screens as context
+
+    def test_add_new_screen_dedupes_colliding_id(self):
+        context = self._seeded_context()
+        service, ai, _ = _service(context)
+        ai.screen_result = DesignSystemScreen(
+            id="dashboard", label="Another Dashboard", archetype="dashboard", blocks=[],
+        )
+        result = service.generate_design_system_screen(_ctx(), ux_brief_md="## Brief", screen_id=None)
+        ids = [s["id"] for s in result["screens"]]
+        assert ids == ["dashboard", "detail", "dashboard_2"]
+
+    def test_regenerate_appends_when_screen_id_not_found(self):
+        context = self._seeded_context()
+        service, ai, _ = _service(context)
+        result = service.generate_design_system_screen(_ctx(), ux_brief_md="## Brief", screen_id="nonexistent")
+        ids = [s["id"] for s in result["screens"]]
+        assert ids == ["dashboard", "detail", "nonexistent"]
+
+    def test_threads_instructions(self):
+        context = self._seeded_context()
+        service, ai, _ = _service(context)
+        service.generate_design_system_screen(
+            _ctx(), ux_brief_md="## Brief", screen_id="dashboard", instructions="More whitespace",
+        )
+        assert ai.screen_args["instructions"] == "More whitespace"
+
+    def test_saves_spliced_result(self):
+        context = self._seeded_context()
+        service, _, _ = _service(context)
+        result = service.generate_design_system_screen(_ctx(), ux_brief_md="## Brief", screen_id="dashboard")
+        assert context.saved_design_system == result

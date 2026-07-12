@@ -923,7 +923,7 @@ export function Phase2Workflow() {
                   Color palette, typography, navigation pattern, and screen mockups — derived from the UX Brief above.
                 </div>
                 <div className={cn("border-t px-4 py-3", dark ? "border-neutral-800" : "border-slate-100")}>
-                  <DesignSystemPanel uxBriefContent={activeBundle?.ux_brief ?? ""} dark={dark} standalone />
+                  <DesignSystemPanel uxBriefContent={activeBundle?.ux_brief ?? ""} dark={dark} standalone guidance={designGuidance} />
                 </div>
               </div>
             </div>

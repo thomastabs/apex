@@ -8,6 +8,8 @@ import {
   generateDesignDelta,
   generateDesignSection,
   generateDesignSystem,
+  generateDesignSystemScreen,
+  saveDesignSystem,
   generateDiagram,
   generateScreenFlow,
   getDesign,
@@ -321,12 +323,40 @@ export function useGenerateDesignSystem() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useCancellableMutation(
-    (ux_brief_md: string, signal) => generateDesignSystem(context!, ux_brief_md, signal),
+    ({ ux_brief_md, instructions = "" }: { ux_brief_md: string; instructions?: string }, signal) =>
+      generateDesignSystem(context!, ux_brief_md, instructions, signal),
     {
       onSuccess: (data: DesignSystemResponse) => {
         queryClient.setQueryData(["phase2", "design-system", context?.projectId], data);
       },
       onError: () => toast.error("Failed to generate design system. Try again."),
+    },
+  );
+}
+
+export function useSaveDesignSystem() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (designSystem: DesignSystemResponse) => saveDesignSystem(context!, designSystem),
+    onSuccess: (data: DesignSystemResponse) => {
+      queryClient.setQueryData(["phase2", "design-system", context?.projectId], data);
+    },
+    onError: () => toast.error("Failed to save design system. Try again."),
+  });
+}
+
+export function useGenerateDesignSystemScreen() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useCancellableMutation(
+    (body: { ux_brief_md: string; screen_id?: string; instructions?: string }, signal) =>
+      generateDesignSystemScreen(context!, body, signal),
+    {
+      onSuccess: (data: DesignSystemResponse) => {
+        queryClient.setQueryData(["phase2", "design-system", context?.projectId], data);
+      },
+      onError: () => toast.error("Failed to generate screen. Try again."),
     },
   );
 }

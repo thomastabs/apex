@@ -2645,11 +2645,85 @@ Rules:
 """
 
 
-def extract_design_system(ux_brief_md: str) -> DesignSystemData:
+def extract_design_system(ux_brief_md: str, instructions: str = "") -> DesignSystemData:
     """Extract a design system (colors, typography, nav, 2 screens, component states) from a UX Brief."""
+    system = _DESIGN_SYSTEM_SYSTEM + _guidance_block(instructions)
     return _ai_retry(lambda: _invoke_structured_with_progress(
-        _DESIGN_SYSTEM_SYSTEM, fence_user_content(ux_brief_md), get_model(), DesignSystemData,
+        system, fence_user_content(ux_brief_md), get_model(), DesignSystemData,
         max_tokens=6000,
+    ))
+
+
+_DESIGN_SYSTEM_SCREEN_SYSTEM = """\
+You are a senior product designer. You already produced a design system for this product —
+its color tokens, typography scale, and navigation pattern are locked below. Your ONLY job now
+is to produce ONE screen mockup that fits that existing system.
+
+**UX Brief:**
+{ux_brief}
+
+**Existing color tokens (reuse these exact names/hex — do not invent new tokens):**
+{colors}
+
+**Existing typography scale:**
+{typography}
+
+**Existing navigation pattern:**
+{navigation}
+
+**Other screens already in this design system (stay visually distinct from these — do not duplicate their archetype or content):**
+{existing_screens}
+
+{screen_instruction}
+
+Rules:
+- The screen is a shallow tree of blocks (kind + label + variant + children); a top-level "nav"
+  block should match the navigation pattern above. Keep trees to at most 3 levels deep and at
+  most 6 children per block. Only use these kinds: header, nav, hero, card_grid, form, list,
+  table, text, button, image_placeholder, stat_group, container. "variant" is a free-form style
+  hint (e.g. "primary" for a button, "3" for a card_grid's column count) — use "" if not needed.
+- Reference the existing color token names in "variant" where relevant — do not introduce colors
+  that aren't in the token list above.
+- Only describe content explicitly present in the brief — do not invent unrelated product features.
+"""
+
+
+def extract_design_system_screen(
+    ux_brief_md: str,
+    *,
+    colors: list[dict],
+    typography: dict,
+    navigation: dict,
+    existing_screens: list[dict],
+    screen_id: str | None = None,
+    instructions: str = "",
+) -> DesignSystemScreen:
+    """Extract ONE screen for an already-generated design system — either a
+    replacement for `screen_id` (regenerate) or a brand new screen (add)."""
+    if screen_id:
+        current = next((s for s in existing_screens if s.get("id") == screen_id), None)
+        label = current.get("label", screen_id) if current else screen_id
+        screen_instruction = (
+            f'Regenerate the screen currently called "{label}" (id "{screen_id}") — produce a '
+            "fresh take on the same role in the product, still distinct from the other screens above."
+        )
+        context_screens = [s for s in existing_screens if s.get("id") != screen_id]
+    else:
+        screen_instruction = "Produce ONE brand new screen — a distinct archetype not already covered above."
+        context_screens = existing_screens
+
+    system = _DESIGN_SYSTEM_SCREEN_SYSTEM.format(
+        ux_brief=fence_user_content(ux_brief_md),
+        colors=fence_user_content(json.dumps(colors, indent=2)),
+        typography=fence_user_content(json.dumps(typography, indent=2)),
+        navigation=fence_user_content(json.dumps(navigation, indent=2)),
+        existing_screens=fence_user_content(json.dumps(context_screens, indent=2)) if context_screens else "(none)",
+        screen_instruction=screen_instruction,
+    ) + _guidance_block(instructions)
+
+    return _ai_retry(lambda: _invoke_structured_with_progress(
+        system, fence_user_content(ux_brief_md), get_model(), DesignSystemScreen,
+        max_tokens=2500,
     ))
 
 

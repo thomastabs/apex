@@ -18,6 +18,7 @@ from backend.app.schemas.phase2 import (
     DiagramResponse,
     GenerateDesignDeltaRequest,
     GenerateDesignSystemRequest,
+    GenerateDesignSystemScreenRequest,
     GenerateDiagramRequest,
     GenerateScreenFlowRequest,
     LockDesignRequest,
@@ -312,7 +313,34 @@ def generate_design_system(
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
-        return service.generate_design_system(ctx, ux_brief_md=payload.ux_brief_md)
+        return service.generate_design_system(ctx, ux_brief_md=payload.ux_brief_md, instructions=payload.instructions)
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.put("/design-system", response_model=DesignSystemResponse)
+def save_design_system(
+    payload: DesignSystemResponse,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase2Service = Depends(get_phase2_service),
+):
+    try:
+        return service.save_design_system(ctx, design_system=payload.model_dump())
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/generate-design-system/screen", response_model=DesignSystemResponse)
+def generate_design_system_screen(
+    payload: GenerateDesignSystemScreenRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase2Service = Depends(get_phase2_service),
+    _rl: None = Depends(ai_rate_limit),
+):
+    try:
+        return service.generate_design_system_screen(
+            ctx, ux_brief_md=payload.ux_brief_md, screen_id=payload.screen_id, instructions=payload.instructions,
+        )
     except Exception as exc:
         _handle_error(exc)
 

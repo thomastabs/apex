@@ -249,8 +249,25 @@ class AiService:
     def generate_screen_flow(self, ux_brief_md: str):
         return ai_engine.extract_screen_flow(ux_brief_md)
 
-    def generate_design_system(self, ux_brief_md: str):
-        return ai_engine.extract_design_system(ux_brief_md)
+    def generate_design_system(self, ux_brief_md: str, instructions: str = ""):
+        return ai_engine.extract_design_system(ux_brief_md, instructions=instructions)
+
+    def generate_design_system_screen(
+        self,
+        ux_brief_md: str,
+        *,
+        colors: list[dict],
+        typography: dict,
+        navigation: dict,
+        existing_screens: list[dict],
+        screen_id: str | None = None,
+        instructions: str = "",
+    ):
+        return ai_engine.extract_design_system_screen(
+            ux_brief_md,
+            colors=colors, typography=typography, navigation=navigation,
+            existing_screens=existing_screens, screen_id=screen_id, instructions=instructions,
+        )
 
     def generate_test_plan(
         self,

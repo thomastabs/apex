@@ -217,6 +217,13 @@ class ScreenFlowFromFigmaRequest(BaseModel):
 
 class GenerateDesignSystemRequest(BaseModel):
     ux_brief_md: str = Field(min_length=1, max_length=100_000)
+    instructions: str = Field("", max_length=2_000)
+
+
+class GenerateDesignSystemScreenRequest(BaseModel):
+    ux_brief_md: str = Field(min_length=1, max_length=100_000)
+    screen_id: str | None = Field(default=None, max_length=100)
+    instructions: str = Field("", max_length=2_000)
 
 
 class DesignSystemColorOut(BaseModel):

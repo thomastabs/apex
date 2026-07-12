@@ -1454,6 +1454,76 @@ class TestMultiModelCrossCheck:
         ai.generate_tasks("S", "Feature: F\n  Scenario: s", "spec", instructions="Keep tasks small")
         assert "Keep tasks small" in captured["system"]
 
+    def test_extract_design_system_threads_instructions(self, monkeypatch):
+        import src.ai_engine as ai
+        captured = {}
+        def fake(system, human, model, schema, *a, **k):
+            captured["system"] = system
+            return ai.DesignSystemData(
+                colors=[], typography={"font_family": "Inter", "styles": []},
+                navigation={"pattern": "topbar", "items": [], "justification": ""},
+                screens=[], component_states=[],
+            )
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress", fake)
+        ai.extract_design_system("## Brief", instructions="Favour a dark palette")
+        assert "Favour a dark palette" in captured["system"]
+
+    def test_extract_design_system_screen_regenerate_keeps_id(self, monkeypatch):
+        import src.ai_engine as ai
+        def fake(system, human, model, schema, *a, **k):
+            return ai.DesignSystemScreen(id="whatever-ai-picks", label="New", archetype="form", blocks=[])
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress", fake)
+        result = ai.extract_design_system_screen(
+            "## Brief", colors=[], typography={}, navigation={},
+            existing_screens=[{"id": "dashboard", "label": "Dashboard"}],
+            screen_id="dashboard",
+        )
+        # extract_design_system_screen itself doesn't force the id (that's the
+        # service layer's job) — it just returns whatever the AI produced.
+        assert result.label == "New"
+
+    def test_extract_design_system_screen_prompt_names_regenerate_target(self, monkeypatch):
+        import src.ai_engine as ai
+        captured = {}
+        def fake(system, human, model, schema, *a, **k):
+            captured["system"] = system
+            return ai.DesignSystemScreen(id="x", label="X", archetype="form", blocks=[])
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress", fake)
+        ai.extract_design_system_screen(
+            "## Brief", colors=[], typography={}, navigation={},
+            existing_screens=[{"id": "dashboard", "label": "Dashboard"}],
+            screen_id="dashboard",
+        )
+        assert "Regenerate the screen currently called" in captured["system"]
+        assert "Dashboard" in captured["system"]
+
+    def test_extract_design_system_screen_prompt_names_add_new(self, monkeypatch):
+        import src.ai_engine as ai
+        captured = {}
+        def fake(system, human, model, schema, *a, **k):
+            captured["system"] = system
+            return ai.DesignSystemScreen(id="x", label="X", archetype="form", blocks=[])
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress", fake)
+        ai.extract_design_system_screen(
+            "## Brief", colors=[], typography={}, navigation={},
+            existing_screens=[{"id": "dashboard", "label": "Dashboard"}],
+            screen_id=None,
+        )
+        assert "brand new screen" in captured["system"]
+
+    def test_extract_design_system_screen_threads_instructions(self, monkeypatch):
+        import src.ai_engine as ai
+        captured = {}
+        def fake(system, human, model, schema, *a, **k):
+            captured["system"] = system
+            return ai.DesignSystemScreen(id="x", label="X", archetype="form", blocks=[])
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress", fake)
+        ai.extract_design_system_screen(
+            "## Brief", colors=[], typography={}, navigation={}, existing_screens=[],
+            instructions="Make it playful",
+        )
+        assert "Make it playful" in captured["system"]
+
     def test_diff_task_lists(self):
         import src.ai_engine as ai
         p = {"tasks": [{"id": 1, "subject": "Add login route", "description": "x",

@@ -230,11 +230,35 @@ export function loadDesignSystem(context: RequestContext) {
   return apiRequest<DesignSystemResponse | null>("/api/phase2/design-system", { context });
 }
 
-export function generateDesignSystem(context: RequestContext, ux_brief_md: string, signal?: AbortSignal) {
+export function generateDesignSystem(
+  context: RequestContext, ux_brief_md: string, instructions = "", signal?: AbortSignal,
+) {
   return apiRequest<DesignSystemResponse>("/api/phase2/generate-design-system", {
     method: "POST",
     context,
-    body: { ux_brief_md },
+    body: { ux_brief_md, instructions },
+    timeoutMs: PHASE2_AI_TIMEOUT_MS,
+    signal,
+  });
+}
+
+export function saveDesignSystem(context: RequestContext, designSystem: DesignSystemResponse) {
+  return apiRequest<DesignSystemResponse>("/api/phase2/design-system", {
+    method: "PUT",
+    context,
+    body: designSystem,
+  });
+}
+
+export function generateDesignSystemScreen(
+  context: RequestContext,
+  body: { ux_brief_md: string; screen_id?: string; instructions?: string },
+  signal?: AbortSignal,
+) {
+  return apiRequest<DesignSystemResponse>("/api/phase2/generate-design-system/screen", {
+    method: "POST",
+    context,
+    body,
     timeoutMs: PHASE2_AI_TIMEOUT_MS,
     signal,
   });

@@ -7,6 +7,7 @@ from backend.app.api.deps import get_request_context
 from backend.app.api.phase2 import (
     generate_design_section,
     generate_design_system,
+    generate_design_system_screen,
     generate_diagram,
     generate_screen_flow,
     get_design_system,
@@ -15,13 +16,16 @@ from backend.app.api.phase2 import (
     lock_tech_stack,
     persist_design,
     propose_tech_stack,
+    save_design_system,
     save_diagram_positions,
     save_screen_flow_positions,
     tech_stack_status,
 )
 from backend.app.schemas.phase2 import (
     DesignSectionRequest,
+    DesignSystemResponse,
     GenerateDesignSystemRequest,
+    GenerateDesignSystemScreenRequest,
     GenerateDiagramRequest,
     GenerateScreenFlowRequest,
     LockDesignRequest,
@@ -91,7 +95,7 @@ class StubPhase2Service:
     def load_design_system(self, ctx):
         return None
 
-    def generate_design_system(self, ctx, *, ux_brief_md):
+    def generate_design_system(self, ctx, *, ux_brief_md, instructions=""):
         state = {"background": "#4F46E5", "text_color": "#FFFFFF", "border": "", "opacity": 1.0, "note": ""}
         return {
             "colors": [{"name": "primary", "hex": "#4F46E5", "usage": "Buttons"}],
@@ -103,6 +107,23 @@ class StubPhase2Service:
             "screens": [
                 {"id": "dashboard", "label": "Dashboard", "archetype": "dashboard", "blocks": []},
                 {"id": "detail", "label": "Detail", "archetype": "detail", "blocks": []},
+            ],
+            "component_states": [
+                {"component": "button", "default": state, "hover": state, "disabled": state, "error": state},
+            ],
+        }
+
+    def save_design_system(self, ctx, *, design_system):
+        return design_system
+
+    def generate_design_system_screen(self, ctx, *, ux_brief_md, screen_id=None, instructions=""):
+        state = {"background": "#000000", "text_color": "#FFFFFF", "border": "", "opacity": 1.0, "note": ""}
+        return {
+            "colors": [],
+            "typography": {"font_family": "Inter, sans-serif", "styles": []},
+            "navigation": {"pattern": "topbar", "items": [], "justification": ""},
+            "screens": [
+                {"id": screen_id or "new-screen", "label": "Regenerated", "archetype": "form", "blocks": []},
             ],
             "component_states": [
                 {"component": "button", "default": state, "hover": state, "disabled": state, "error": state},
@@ -321,6 +342,52 @@ def test_generate_design_system_route():
     assert result["colors"][0]["name"] == "primary"
     assert len(result["screens"]) == 2
     assert result["component_states"][0]["component"] == "button"
+
+
+def test_generate_design_system_route_forwards_instructions():
+    class CapturingStub(StubPhase2Service):
+        def generate_design_system(self, ctx, *, ux_brief_md, instructions=""):
+            self.captured_instructions = instructions
+            return super().generate_design_system(ctx, ux_brief_md=ux_brief_md, instructions=instructions)
+
+    service = CapturingStub()
+    generate_design_system(
+        GenerateDesignSystemRequest(ux_brief_md="## Login screen", instructions="Dark palette"),
+        ctx=_ctx(),
+        service=service,
+    )
+    assert service.captured_instructions == "Dark palette"
+
+
+def test_save_design_system_route():
+    payload = DesignSystemResponse(
+        colors=[{"name": "primary", "hex": "#000000", "usage": "edited"}],
+        typography={"font_family": "Inter", "styles": []},
+        navigation={"pattern": "topbar", "items": [], "justification": ""},
+        screens=[],
+        component_states=[],
+    )
+    result = save_design_system(payload, ctx=_ctx(), service=StubPhase2Service())
+    assert result["colors"][0]["hex"] == "#000000"
+
+
+def test_generate_design_system_screen_route_regenerate():
+    result = generate_design_system_screen(
+        GenerateDesignSystemScreenRequest(ux_brief_md="## Brief", screen_id="dashboard"),
+        ctx=_ctx(),
+        service=StubPhase2Service(),
+    )
+    assert result["screens"][0]["id"] == "dashboard"
+    assert result["screens"][0]["label"] == "Regenerated"
+
+
+def test_generate_design_system_screen_route_add_new():
+    result = generate_design_system_screen(
+        GenerateDesignSystemScreenRequest(ux_brief_md="## Brief"),
+        ctx=_ctx(),
+        service=StubPhase2Service(),
+    )
+    assert result["screens"][0]["id"] == "new-screen"
 
 
 def test_unknown_errors_bubble_up():

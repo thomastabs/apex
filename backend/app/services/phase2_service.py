@@ -430,9 +430,9 @@ class Phase2Service:
                 node["position"] = pos_map[node["id"]]
         self.context.save_screen_flow(diagram)
 
-    def generate_design_system(self, ctx: RequestContext, *, ux_brief_md: str) -> dict:
+    def generate_design_system(self, ctx: RequestContext, *, ux_brief_md: str, instructions: str = "") -> dict:
         self.configure_request(ctx)
-        result = self.ai.generate_design_system(ux_brief_md)
+        result = self.ai.generate_design_system(ux_brief_md, instructions=instructions)
         design_system = result.model_dump()
         self.context.save_design_system(design_system)
         return design_system
@@ -440,6 +440,54 @@ class Phase2Service:
     def load_design_system(self, ctx: RequestContext) -> dict | None:
         self.configure_request(ctx)
         return self.context.load_design_system()
+
+    def save_design_system(self, ctx: RequestContext, *, design_system: dict) -> dict:
+        """Persist a human-edited design system directly — no AI call."""
+        self.configure_request(ctx)
+        self.context.save_design_system(design_system)
+        return design_system
+
+    def generate_design_system_screen(
+        self, ctx: RequestContext, *, ux_brief_md: str, screen_id: str | None = None, instructions: str = "",
+    ) -> dict:
+        """Regenerate one screen (screen_id given) or add a brand new one
+        (screen_id omitted), server-side spliced into the saved bundle so the
+        caller can just wholesale-replace its local copy with the response."""
+        self.configure_request(ctx)
+        existing = self.context.load_design_system()
+        if not existing:
+            raise Phase2ValidationError("Generate the full design system first.")
+        result = self.ai.generate_design_system_screen(
+            ux_brief_md,
+            colors=existing.get("colors", []),
+            typography=existing.get("typography", {}),
+            navigation=existing.get("navigation", {}),
+            existing_screens=existing.get("screens", []),
+            screen_id=screen_id,
+            instructions=instructions,
+        )
+        new_screen = result.model_dump()
+        screens = existing.setdefault("screens", [])
+        if screen_id:
+            new_screen["id"] = screen_id  # keep identity stable across a regenerate
+            for i, s in enumerate(screens):
+                if s.get("id") == screen_id:
+                    screens[i] = new_screen
+                    break
+            else:
+                screens.append(new_screen)
+        else:
+            existing_ids = {s.get("id") for s in screens}
+            base_id = new_screen.get("id") or "screen"
+            candidate = base_id
+            suffix = 2
+            while candidate in existing_ids:
+                candidate = f"{base_id}_{suffix}"
+                suffix += 1
+            new_screen["id"] = candidate
+            screens.append(new_screen)
+        self.context.save_design_system(existing)
+        return existing
 
     def _all_eligible_stories(self) -> list[dict]:
         """Return all stories with locked Gherkin, sorted by story_id."""
