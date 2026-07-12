@@ -20,10 +20,10 @@ test("Phase 2: propose architecture → save tech stack → generate design → 
   await page.getByRole("button", { name: /Save Technology Choices/i }).click();
 
   // Step 2 — "Generate Design" is now visible
-  await expect(page.getByRole("button", { name: /Generate Design/i })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("button", { name: "Generate Design", exact: true })).toBeVisible({ timeout: 15_000 });
 
   // Click "Generate Design"
-  await page.getByRole("button", { name: /Generate Design/i }).click();
+  await page.getByRole("button", { name: "Generate Design", exact: true }).click();
 
   // Design sections should populate — wait for "Continue to Sign-off" button
   await expect(page.getByRole("button", { name: /Continue to Sign-off/i })).toBeVisible({ timeout: 15_000 });
