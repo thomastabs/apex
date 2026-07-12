@@ -96,10 +96,12 @@ function relativeTime(iso: string | null | undefined): string | null {
 const CONTEXT_FILE_PHASES: Record<string, string[]> = {
   // phase1_service: project_concept, tech-stack, constraints, figma-context; authors functional-spec
   "/phase1": ["project-concept.md", "tech-stack.md", "functional-spec.md", "constraints.md", "figma-context.md"],
-  // phase2_service: project_concept, tech-stack, github-context, figma-context, design-bundle, per-story functional-spec
-  "/phase2": ["project-concept.md", "tech-stack.md", "functional-spec.md", "design-bundle.md", "github-context.md", "figma-context.md"],
-  // phase3_service (task decomposition): project_concept, tech-stack, design-bundle, github-context, constraints, decisions, per-story functional-spec
-  "/phase3": ["project-concept.md", "tech-stack.md", "functional-spec.md", "design-bundle.md", "github-context.md", "constraints.md", "decisions.md"],
+  // phase2_service: project_concept, tech-stack, github-context, figma-context, design-bundle, per-story functional-spec;
+  // authors + reads back technical-spec (delta dedup/relock checks against the locked design)
+  "/phase2": ["project-concept.md", "tech-stack.md", "functional-spec.md", "technical-spec.md", "design-bundle.md", "github-context.md", "figma-context.md"],
+  // phase3_service (task decomposition): project_concept, tech-stack, design-bundle, github-context, constraints, decisions,
+  // per-story functional-spec + technical-spec (story_technical_spec grounds task/pack generation)
+  "/phase3": ["project-concept.md", "tech-stack.md", "functional-spec.md", "technical-spec.md", "design-bundle.md", "github-context.md", "constraints.md", "decisions.md"],
   // phase4_service (QA test plan): tech-stack, constraints, figma-context, per-story functional-spec
   "/phase4": ["tech-stack.md", "functional-spec.md", "constraints.md", "figma-context.md"],
   // phase5_service (deploy/infra): tech-stack, technical-spec, github-context, per-story functional-spec
