@@ -241,7 +241,7 @@ Implemented — 4-stage stepper workflow:
 - Implementation Tasks list — each task shows effort estimate badge (XS–XL), subject, and description (read from the PM detail endpoint so descriptions/effort are accurate)
 - AI generates a full per-scenario test plan: Test Steps, Expected Results, Edge Cases, Risk Areas, plus a **BDD Mapping** (framework-agnostic Given/When/Then + endpoints/entities/fixtures/assertions) for each Gherkin scenario
 - The plan ends with agent-handoff sections like a Developer Pack — **Agentic Test Brief** (inferred BDD framework + test-file paths + run command + constraints) and **Chat Prompt** — so a dev/QA exports the plan and an AI agent writes the automated tests
-- The plan is **grounded in the story's developer packs** (Context + Files-to-Change digests), so Test Steps and BDD Mappings reference the real implementation; still strictly bounded to the Gherkin (no invented scenarios)
+- The plan is **grounded in the story's developer packs** (Context + Files-to-Change digests) and, when GitHub is synced, the real repository content (`github-context.md`) — Test Steps and Edge Cases can cite the actual implementation (error handling, validation, existing tests); still strictly bounded to the Gherkin (no invented scenarios)
 - When a Figma file is synced, the **design context** (screens + prototype flows) also grounds the plan, so navigation / screen-transition checks reference the real designed screens and intended flow (advisory; never adds scenarios absent from the Gherkin)
 - Edit the generated test plan in a monospace textarea before saving
 - Download `.md` / Copy / **Clear Plan** actions — Clear deletes the saved plan server-side, wipes the local execution draft, and rolls the story from `qa` back to `implementation` (never demotes `qa_passed`); Regenerate replaces the plan in place
@@ -287,7 +287,7 @@ Implemented — 4-stage stepper workflow:
 **Stage C — Deploy Pack (or Routine Bypass)**
 
 - Routine verdict → bypass banner, straight to the gate
-- Changes flagged → AI generates a **Deploy Pack**: per-item scripts (env diffs, migration SQL with rollback, IaC/CI fragments, secret provisioning instructions — never values) plus a Rollback Plan; editable split-pane editor; saved to `deploy_pack_story_<id>.md`
+- Changes flagged → AI generates a **Deploy Pack**: per-item scripts (env diffs, migration SQL with rollback, IaC/CI fragments, secret provisioning instructions — never values) plus a Rollback Plan, grounded in GitHub context when synced (same repo pack as the Pre-Flight delta check); editable split-pane editor; saved to `deploy_pack_story_<id>.md`
 
 **Stage D — Deployment Gate**
 
@@ -380,10 +380,11 @@ The **Trace** page (`/traceability`, top nav) renders the whole project as one i
 The **Autopilot** page (`/autopilot`, top nav, Zap icon) runs Phases 1–5 as a single unattended background pipeline — from a concept description and a list of epics through requirements, design, implementation assist, testing, and deployment artefacts.
 
 **Setup form** — before launching, the user provides:
-- **Start from** — which phase to begin at. Default Phase 1 (from scratch); pick a later phase when the earlier ones are already done in this project (e.g. Phase 2 finished by hand → start Autopilot at Phase 3). Starting later skips the earlier phases and drives the rest from the project's existing story index, so no concept/epics are needed.
+- **Start from** / **End at** — which phase range to run. Default Phase 1 → Phase 5 (from scratch, full pipeline). Pick a later **Start from** when earlier phases are already done in this project (e.g. Phase 2 finished by hand → start Autopilot at Phase 3) — it skips the earlier phases and drives the rest from the project's existing story index, so no concept/epics are needed. Pick an earlier **End at** to stop the run after a chosen phase and leave the rest for manual work (e.g. stop after Phase 2 so the design can be reviewed before Implementation runs) — the run finishes cleanly (`state: "done"`) at that point instead of pausing forever waiting for a resume that was never coming; an interrupted bounded run resumes with the same end phase.
 - **Concept** — free-text product brief (seeds Phase 1 story generation). When the project's `project-concept.md` already has content, a **Write new / Use existing file** switch appears: *Use existing file* shows the file read-only and the run uses it as-is (never overwriting it) instead of a typed concept
 - **Epics** — choose **Automatic (AI)** to have the pipeline derive the epic set from the concept (the same `suggest_epics` step Phase 1 uses, run once before story generation), or **Manual** to type one or more epic titles with optional descriptions. A Figma **project** URL overrides both (one epic per file — see below).
-- **Tech stack hint** (optional) — seeds Phase 2 design (and biases automatic epic derivation)
+- **Tech stack hint** (optional; shown only when **Start from** is Phase 1 or 2 — it's consumed exactly once, while Phase 2 locks the tech stack, so it's a no-op past that point and stays hidden) — seeds Phase 2 design (and biases automatic epic derivation)
+- **Guide the AI** (optional) — an initial steering note applied as `instructions` to every generative step from the first phase the run touches, shown for every **Start from** choice. Once the run is underway, the live **Steer the AI** control below carries and can update the same note.
 - **Settings** — *Pause at checkpoints* (human-in-the-loop handoffs after each phase), *Create epics in Taiga* (push generated epics to the PM tool), and *De-duplicate stories across epics* (after Phase 1, a pure no-AI Jaccard pass drops near-duplicate stories that different epics independently produced — keeps the backlog concise; deletes the Taiga story + index entry before any downstream work exists)
 
 **Run view** — once launched, the page switches to a live, interactive run view showing:
@@ -392,11 +393,12 @@ The **Autopilot** page (`/autopilot`, top nav, Zap icon) runs Phases 1–5 as a 
 - **Current activity** — a live line (spinner + the in-flight step) with an **elapsed timer that ticks every second**, so a 20-30s AI call never makes the view look frozen
 - **Phase-aware progress bar** — epics done/total during Phase 1, stories done/total during Phases 3-5 (the per-story counter only moves in 3-5, so the bar tracks epics in Phase 1 instead of sitting at 0)
 - **Speed** — independent units run with **bounded concurrency** (`AUTOPILOT_CONCURRENCY`, default 3): Phase 1 across epics, Phases 3 and 4 across stories. `ai_engine` backs off on a provider 429, so the small fan-out is safe
-- **Steer the AI** — a note you can set/update mid-run; it's injected as `instructions` into every subsequent generative step (Phase 1 stories, Phase 2 design, Phase 3 tasks), so you can nudge the pipeline without stopping it. The active steer is shown; clearing the box and applying removes it.
+- **Phase 4 never fabricates a QA pass** — Autopilot drafts and saves each story's test plan but does not execute or verify it, so it cannot know whether QA actually passes; a `warning`-level event says so explicitly, and stories land at `qa` (not `qa_passed`) for a human to review and pass or fail manually. Phase 5 only deploys stories that were actually passed — any story still at `qa` is skipped with its own warning rather than deployed unverified; pass its gate by hand, then resume or re-run Autopilot to pick it up. The completion event reports both counts (`N deployed, M awaiting manual QA gate`) rather than overclaiming.
+- **Steer the AI** — a note you can set/update mid-run; it's injected as `instructions` into every subsequent generative step (Phase 1 stories, Phase 2 design, Phase 3 tasks), so you can nudge the pipeline without stopping it. Pre-seeded from the setup form's **Guide the AI** field if one was given; the active steer is shown, and clearing the box and applying removes it.
 - **Live event log** — timestamped events with level indicators (info / success / warning / error / checkpoint), **streamed in real time** (`GET /api/autopilot/{id}/stream`, NDJSON pushed the instant an event fires — a streaming fetch since EventSource can't carry the bearer token; the 1.5s poller remains the reconnect fallback). Grouped into **collapsible per-phase sections**, with an auto-scroll toggle (read history while it keeps running) and a copy-log button. Both the log and artifact panes are vertically resizable.
 - **Artifact viewer** — shows the artifact count, a **Live** chip that pulses while running, and clickable chips for the last few artifacts (labelled by kind — *User stories / Design section / Test plan / Dev pack* …); pin any one or follow the latest. Each is shown under a phase-accented header (kind + source event + time) with a copy button.
-- **Checkpoint banner** — when *pause at checkpoints* is enabled, a banner appears after each phase completes and waits for the user to resume
-- **Completion banner** — `Autopilot complete — N stories through full SDLC pipeline`
+- **Checkpoint banner** — when *pause at checkpoints* is enabled, a banner appears after each phase completes (before the chosen **End at** phase) and waits for the user to resume
+- **Completion banner** — `Autopilot complete — N stories through full SDLC pipeline`, or when **End at** stopped the run early, `Autopilot complete — stopped after Phase K as requested (N stories)`
 
 **Controls** — Pause, Resume, Stop, Take Over (stops the background job and hands control back to the per-phase pages), and New Run (resets the form after a terminal state).
 
@@ -408,7 +410,7 @@ The **Autopilot** page (`/autopilot`, top nav, Zap icon) runs Phases 1–5 as a 
 
 ### Sidebar Workspace
 
-Two sidebars — both collapsible and resizable — form the operational shell for the app: the **left** sidebar carries navigation, the account panel, and Settings (a modal hosting the Figma / AI / GitHub / Resources configuration); the **right** "Workspace" sidebar carries the project-and-artifact sections (project selector, active context, epics & stories, task board, developer packs, test plans, deploy packs, users & roles) on **every** page, each section drag-reorderable, with the active AI model shown in the panel header.
+Two sidebars — both collapsible and resizable — form the operational shell for the app: the **left** sidebar carries navigation, the account panel, and Settings (a modal hosting the Figma / AI / GitHub / Resources / Admin configuration); the **right** "Workspace" sidebar carries the project-and-artifact sections (project selector, active context, epics & stories, task board, developer packs, test plans, deploy packs, users & roles) on **every** page, each section drag-reorderable, with the active AI model shown in the panel header.
 
 Implemented:
 
@@ -421,7 +423,7 @@ Implemented:
 - Epic/story create, edit, delete — edit dialogs hydrate the description from the PM detail endpoint (list responses omit it); the story dialog includes an inline **Status** selector (PM status) and an **Apex Status** selector to override the workflow phase (`new` → `deployed`) independent of the PM status
 - **Task Board** — view implementation tasks grouped by story; tasks are fetched from Taiga (or Jira); filter by epic/story; **Refresh** button to refetch on demand; add, edit, and delete tasks inline; effort badges (XS → XL); deleting a task also deletes its developer pack so "proposed" counts stay truthful
 - **Developer Packs** — every saved Phase 3 pack grouped by story; view, **edit inline**, download, delete one or all packs for a story
-- **Test Plans** — every saved Phase 4 test plan listed per story; view, **edit inline**, download, delete
+- **Test Plans** — every saved Phase 4 test plan listed per story; view, **edit inline**, download, delete one or **delete all**
 - Users and roles management
 - Active context file viewer/editor — each file opens with a hint strip (who writes it, when it locks, format rules to preserve), and a **Context guide** dialog explains the full semantics: injection per phase, locking/amendments, version badges, size budget (see [Context Files](#context-files))
 - Individual context file download
@@ -443,6 +445,7 @@ Implemented:
 - Maintenance intake from **GitHub Issues, Taiga Issues, Jira issues, and Figma comments** (Phase 6 triage)
 - Draggable sidebar sections — each panel can be reordered by drag-and-drop; order is persisted per session
 - Light/dark mode
+- **Admin (Settings, testing convenience)** — password-gated (checked server-side on `POST /api/workspace/admin/set-all-story-status`, not a real access-control boundary — the project is already gated by PM auth) bulk override that forces every story in the project to a chosen `phase_status` in one call, to skip through phases quickly while testing
 
 ---
 
@@ -503,15 +506,15 @@ Apex stores workflow state in context files under `contextspec/<instance_id>/<pr
 |---|---|
 | `project-concept.md` | Project purpose, target users, and core value proposition |
 | `tech-stack.md` | Tech stack, architecture principles, and design decisions |
-| `functional-spec.md` | Locked Gherkin acceptance criteria from Phase 1 |
-| `constraints.md` | Project-wide constraints (EARS notation) from Phase 1; injected into Phase 3 packs and Phase 4 test plans |
+| `functional-spec.md` | Locked Gherkin acceptance criteria from Phase 1; read per-story by every later phase (`story_gherkin`) to ground their AI calls |
+| `constraints.md` | Project-wide constraints (EARS notation) from Phase 1; injected into Phase 3 packs, Phase 4 test plans, and Phase 6 conformance checks |
 | `technical-spec.md` | Locked machine contract from Phase 2 — Endpoints + Data Model (injected into Phases 3–6) |
 | `design-bundle.md` | Locked human UX design from Phase 2 — UX Brief (injected into Phase 3) |
 | `diagram-screens.json` | React Flow screen flow diagram generated from Phase 2 UX Brief (includes saved layout positions) |
 | `diagram-er.json` | React Flow ER diagram generated from Phase 2 Data Model (includes saved layout positions) |
 | `design-system.json` | Visual Design System generated from Phase 2's UX Brief — palette, typography, navigation pattern, screens, component states (see [Phase 2](#phase-2--design)) |
 | `spec-index.json` | Flat registry of stable requirement ids (`EP-N`/`ENT-N`/`SCR-N`/`SC-N`) → `{kind, label, assumptions}`, rebuilt automatically on every spec write (see "Stable spec ids") |
-| `github-context.md` | Real repo file contents (not just a tree) packed server-side by cloning the repo and running it through `repomix`; injected into Phase 2 and Phase 3 AI prompts |
+| `github-context.md` | Real repo file contents (not just a tree) packed server-side by cloning the repo and running it through `repomix`; injected into Phase 2, Phase 3, Phase 4 test plans, Phase 5 infra-delta check + deploy pack, and Phase 6 conformance checks — every phase but Phase 1 |
 | `figma-context.md` | File name, pages, top-level frame names, prototype flows, design-system tokens (named colour/text/effect styles + component inventory, colours with hex), and comments synced from a linked Figma file (assembled server-side; interactive Sync and Autopilot produce identical content); injected into Phase 1 story generation, Phase 2 design, Phase 3 task decomposition + developer packs, and Phase 4 test plans |
 | `proposal_story_<id>_task_<id>.md` | Developer pack generated by Phase 3 for each task |
 | `bdd_story_<id>.feature` | Test plan generated by Phase 4 for each story |
