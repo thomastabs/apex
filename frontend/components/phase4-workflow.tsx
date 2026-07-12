@@ -217,7 +217,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
             )}
           >
             {epics.map((epic) => (
-              <option key={epic} value={epic}>{epic}</option>
+              <option key={epic} value={epic}>{epic} ({byEpic.get(epic)!.length})</option>
             ))}
           </select>
         </div>
