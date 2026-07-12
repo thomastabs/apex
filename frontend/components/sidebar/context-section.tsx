@@ -93,6 +93,11 @@ function relativeTime(iso: string | null | undefined): string | null {
 // context.story_gherkin(story_id) — Phase 2 (design), Phase 3 (task packs),
 // Phase 4 (test plans), Phase 5 (deploy gate), and Phase 6 (maintenance) all
 // ground their AI calls on the story's locked acceptance criteria.
+//
+// technical-spec.md follows the same pattern from Phase 2 onward: Phase 2
+// authors it (persist_design) and reads it back for delta/relock checks;
+// Phases 3-6 each read it per-story via context.story_technical_spec(story_id)
+// to ground task packs, test plans, the deploy gate, and maintenance triage.
 const CONTEXT_FILE_PHASES: Record<string, string[]> = {
   // phase1_service: project_concept, tech-stack, constraints, figma-context; authors functional-spec
   "/phase1": ["project-concept.md", "tech-stack.md", "functional-spec.md", "constraints.md", "figma-context.md"],
@@ -102,12 +107,12 @@ const CONTEXT_FILE_PHASES: Record<string, string[]> = {
   // phase3_service (task decomposition): project_concept, tech-stack, design-bundle, github-context, constraints, decisions,
   // per-story functional-spec + technical-spec (story_technical_spec grounds task/pack generation)
   "/phase3": ["project-concept.md", "tech-stack.md", "functional-spec.md", "technical-spec.md", "design-bundle.md", "github-context.md", "constraints.md", "decisions.md"],
-  // phase4_service (QA test plan): tech-stack, constraints, figma-context, per-story functional-spec
-  "/phase4": ["tech-stack.md", "functional-spec.md", "constraints.md", "figma-context.md"],
-  // phase5_service (deploy/infra): tech-stack, technical-spec, github-context, per-story functional-spec
+  // phase4_service (QA test plan): tech-stack, constraints, figma-context, per-story functional-spec + technical-spec
+  "/phase4": ["tech-stack.md", "functional-spec.md", "technical-spec.md", "constraints.md", "figma-context.md"],
+  // phase5_service (deploy/infra): tech-stack, github-context, per-story functional-spec + technical-spec
   "/phase5": ["tech-stack.md", "functional-spec.md", "technical-spec.md", "github-context.md"],
-  // phase6_service (maintenance): tech-stack, constraints, github-context (+ Figma comments sync), per-story functional-spec
-  "/phase6": ["tech-stack.md", "functional-spec.md", "constraints.md", "github-context.md", "figma-context.md"],
+  // phase6_service (maintenance): tech-stack, constraints, github-context (+ Figma comments sync), per-story functional-spec + technical-spec
+  "/phase6": ["tech-stack.md", "functional-spec.md", "technical-spec.md", "constraints.md", "github-context.md", "figma-context.md"],
 };
 
 function useVisibleContextFiles(
