@@ -11,6 +11,8 @@ AutopilotState = Literal["running", "paused", "stopped", "done", "error", "inter
 AutopilotPhase = Literal["init", "phase1", "phase2", "phase3", "phase4", "phase5", "done"]
 EventLevel = Literal["info", "success", "warning", "error", "checkpoint"]
 
+_PHASE_ORDER = ["phase1", "phase2", "phase3", "phase4", "phase5"]
+
 
 class AutopilotEpic(BaseModel):
     title: str = Field(min_length=1)
@@ -42,6 +44,11 @@ class AutopilotStartRequest(BaseModel):
     # pipeline derives one epic per project file (file-as-epic).
     epics: list[AutopilotEpic] = Field(default_factory=list)
     tech_stack_hint: str = ""
+    # Optional steering note applied as `instructions` to every generative step from
+    # the very first phase — the setup-time equivalent of the live steer endpoint
+    # (POST /{job_id}/steer), which takes over carrying it (as steer_note) once the
+    # run is underway and the user can update or clear it.
+    instructions: str = Field("", max_length=2_000)
     settings: AutopilotSettings = Field(default_factory=AutopilotSettings)
     # Optional Figma seeding: design context injected into Phase 1/2 + a real
     # screen-flow built from frames. The token is held in-memory for the job only.
@@ -53,6 +60,9 @@ class AutopilotStartRequest(BaseModel):
     # project (e.g. Phase 2 finished manually → start Autopilot at Phase 3). Phases
     # before it are skipped and the existing story index drives the rest.
     start_phase: Literal["phase1", "phase2", "phase3", "phase4", "phase5"] = "phase1"
+    # Stop the pipeline once this phase completes instead of running through Phase 5 —
+    # e.g. start at Phase 1, end at Phase 2, then take the design over manually.
+    end_phase: Literal["phase1", "phase2", "phase3", "phase4", "phase5"] = "phase5"
 
     @model_validator(mode="after")
     def _epics_required_for_phase1(self) -> "AutopilotStartRequest":
@@ -64,6 +74,12 @@ class AutopilotStartRequest(BaseModel):
             raise ValueError("concept is required when starting at Phase 1")
         if not self.epics and not self.figma_project_id.strip() and not self.settings.auto_epics:
             raise ValueError("epics is required unless figma_project_id is set or auto_epics is enabled")
+        return self
+
+    @model_validator(mode="after")
+    def _end_not_before_start(self) -> "AutopilotStartRequest":
+        if _PHASE_ORDER.index(self.end_phase) < _PHASE_ORDER.index(self.start_phase):
+            raise ValueError("end_phase cannot be before start_phase")
         return self
 
 

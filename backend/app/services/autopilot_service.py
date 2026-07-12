@@ -58,6 +58,7 @@ _persist_lock = threading.Lock()
 # artifacts are already on disk. Per-unit idempotent skips (completed epics in
 # Phase 1, story phase_status in Phases 3-5) make re-entering a phase safe.
 _PHASE_KEYS = ["phase1", "phase2", "phase3", "phase4", "phase5"]
+_PHASE_LABELS = ["Phase 1", "Phase 2", "Phase 3", "Phase 4", "Phase 5"]
 _RESUMABLE_STATES = ("running", "paused", "interrupted")
 # A story already at/past these statuses is skipped when its phase re-runs.
 _PHASE3_DONE = {"implementation", "qa", "qa_passed", "deployed"}
@@ -645,6 +646,7 @@ def _run_pipeline(job_id: str) -> None:
     # (earlier phases' artifacts are on disk, the re-entered phase skips done units).
     all_story_ids: list[int] = list(job.get("_all_story_ids", []))
     start = _PHASE_KEYS.index(job["current_phase"]) if job.get("current_phase") in _PHASE_KEYS else 0
+    end = _PHASE_KEYS.index(job["end_phase"]) if job.get("end_phase") in _PHASE_KEYS else 4
 
     try:
         job["state"] = "running"
@@ -668,7 +670,7 @@ def _run_pipeline(job_id: str) -> None:
         _persist(job)
 
         # Phase 1
-        if start <= 0:
+        if start <= 0 <= end:
             if _check_stop(job):
                 raise StopIteration
             job["current_phase"] = "phase1"
@@ -685,11 +687,11 @@ def _run_pipeline(job_id: str) -> None:
                   f"Phase 1 complete — {len(all_story_ids)} stories across {len(job['epics'])} epic(s)",
                   phase="phase1")
             _persist(job)
-            if _maybe_checkpoint(job, "Phase 1"):
+            if end > 0 and _maybe_checkpoint(job, "Phase 1"):
                 raise StopIteration
 
         # Phase 2
-        if start <= 1:
+        if start <= 1 <= end:
             if _check_stop(job):
                 raise StopIteration
             job["current_phase"] = "phase2"
@@ -698,11 +700,11 @@ def _run_pipeline(job_id: str) -> None:
                 raise StopIteration
             _emit(job, "success", "Phase 2 complete — design locked", phase="phase2")
             _persist(job)
-            if _maybe_checkpoint(job, "Phase 2"):
+            if end > 1 and _maybe_checkpoint(job, "Phase 2"):
                 raise StopIteration
 
         # Phase 3
-        if start <= 2:
+        if start <= 2 <= end:
             if _check_stop(job):
                 raise StopIteration
             job["current_phase"] = "phase3"
@@ -712,11 +714,11 @@ def _run_pipeline(job_id: str) -> None:
                 raise StopIteration
             _emit(job, "success", f"Phase 3 complete — {len(all_story_ids)} implementation plans", phase="phase3")
             _persist(job)
-            if _maybe_checkpoint(job, "Phase 3"):
+            if end > 2 and _maybe_checkpoint(job, "Phase 3"):
                 raise StopIteration
 
         # Phase 4
-        if start <= 3:
+        if start <= 3 <= end:
             if _check_stop(job):
                 raise StopIteration
             job["current_phase"] = "phase4"
@@ -725,11 +727,11 @@ def _run_pipeline(job_id: str) -> None:
                 raise StopIteration
             _emit(job, "success", f"Phase 4 complete — {len(all_story_ids)} test plans, all QA passed", phase="phase4")
             _persist(job)
-            if _maybe_checkpoint(job, "Phase 4"):
+            if end > 3 and _maybe_checkpoint(job, "Phase 4"):
                 raise StopIteration
 
         # Phase 5
-        if start <= 4:
+        if start <= 4 <= end:
             if _check_stop(job):
                 raise StopIteration
             job["current_phase"] = "phase5"
@@ -742,9 +744,14 @@ def _run_pipeline(job_id: str) -> None:
         job["current_phase"] = "done"
         job["state"] = "done"
         total = len(all_story_ids)
-        _emit(job, "success",
-              f"Autopilot complete — {total} stories through full SDLC pipeline",
-              phase="done")
+        if end < 4:
+            _emit(job, "success",
+                  f"Autopilot complete — stopped after {_PHASE_LABELS[end]} as requested ({total} stories)",
+                  phase="done")
+        else:
+            _emit(job, "success",
+                  f"Autopilot complete — {total} stories through full SDLC pipeline",
+                  phase="done")
         _persist(job)
 
     except StopIteration:
@@ -777,6 +784,8 @@ def start_job(
     figma_token: str = "",
     figma_project_id: str = "",
     start_phase: str = "phase1",
+    end_phase: str = "phase5",
+    instructions: str = "",
 ) -> str:
     job_id = str(uuid.uuid4())
     stop_event = threading.Event()
@@ -797,12 +806,16 @@ def start_job(
         "settings": settings,
         # Live steer: a note the user can set/update mid-run; injected as `instructions`
         # into every subsequent generative step (Phase 1 stories, Phase 2 design,
-        # Phase 3 tasks) so they can nudge the AI without stopping the pipeline.
-        "steer_note": "",
+        # Phase 3 tasks) so they can nudge the AI without stopping the pipeline. Seeded
+        # from the setup-time `instructions` field so steering starts on Phase 1, not
+        # only once the user first touches the live steer control.
+        "steer_note": (instructions or "").strip(),
         "state": "running",
         # current_phase seeds where the pipeline starts; "phase1" runs from scratch,
         # a later phase skips earlier ones (their work is assumed already in the project).
         "current_phase": start_phase if start_phase in _PHASE_KEYS else "phase1",
+        # end_phase stops the pipeline after that phase completes instead of Phase 5.
+        "end_phase": end_phase if end_phase in _PHASE_KEYS else "phase5",
         "current_epic_idx": None,
         "current_story_id": None,
         "checkpoint_phase": None,
@@ -954,6 +967,7 @@ def resume_interrupted_job(ctx: RequestContext) -> str | None:
         "steer_note": snap.get("steer_note", ""),
         "state": "running",
         "current_phase": snap.get("current_phase", "phase1"),
+        "end_phase": r.get("end_phase", "phase5"),
         "current_epic_idx": snap.get("current_epic_idx"),
         "current_story_id": None,
         "checkpoint_phase": None,
@@ -1019,6 +1033,7 @@ def _descriptor(job: dict) -> dict:
             "taiga_base": job.get("taiga_base", ""),
             "figma_file_key": job.get("figma_file_key", ""),
             "figma_project_id": job.get("figma_project_id", ""),
+            "end_phase": job.get("end_phase", "phase5"),
         },
     }
 

@@ -24,11 +24,15 @@ export type AutopilotStartRequest = {
   use_existing_concept?: boolean;
   epics: AutopilotEpic[];
   tech_stack_hint: string;
+  // Optional steering note applied from Phase 1 onward — the setup-time equivalent
+  // of the live steer control, which takes over carrying it once the run starts.
+  instructions?: string;
   settings: AutopilotSettings;
   figma_file_key?: string;
   figma_token?: string;
   figma_project_id?: string;  // project mode: derive one epic per file (file-as-epic)
   start_phase?: AutopilotPhaseKey;  // skip earlier phases already done in the project
+  end_phase?: AutopilotPhaseKey;  // stop the pipeline after this phase instead of Phase 5
 };
 
 export type AutopilotEvent = {

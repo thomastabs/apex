@@ -34,12 +34,14 @@ def autopilot_start(
         use_existing_concept=body.use_existing_concept,
         epics=[e.model_dump() for e in body.epics],
         tech_stack_hint=body.tech_stack_hint,
+        instructions=body.instructions,
         settings=body.settings.model_dump(),
         taiga_base=taiga_base,
         figma_file_key=body.figma_file_key,
         figma_token=body.figma_token,
         figma_project_id=body.figma_project_id,
         start_phase=body.start_phase,
+        end_phase=body.end_phase,
     )
     return AutopilotStartResponse(job_id=job_id)
 

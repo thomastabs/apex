@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Trash2, Bot, Loader2, FileText } from "lucide-react";
 import type { AutopilotEpic, AutopilotPhaseKey, AutopilotSettings, AutopilotStartRequest } from "@/lib/api/autopilot";
 import { parseFigmaProjectUrl } from "@/lib/api/figma";
 import { useContextFiles } from "@/lib/hooks/use-workspace";
+import { GuideTheAI } from "@/components/guide-the-ai";
 import { cn } from "@/lib/utils";
 
 const START_PHASES: { key: AutopilotPhaseKey; label: string }[] = [
@@ -14,6 +15,12 @@ const START_PHASES: { key: AutopilotPhaseKey; label: string }[] = [
   { key: "phase4", label: "Phase 4 — Testing" },
   { key: "phase5", label: "Phase 5 — Deployment" },
 ];
+
+const PHASE_ORDER: AutopilotPhaseKey[] = START_PHASES.map((p) => p.key);
+
+function phaseLabel(key: AutopilotPhaseKey): string {
+  return START_PHASES.find((p) => p.key === key)!.label.replace(" (from scratch)", "");
+}
 
 type Props = {
   onStart: (req: AutopilotStartRequest) => void;
@@ -53,6 +60,19 @@ export function AutopilotSetupForm({ onStart, isPending, dark }: Props) {
   // Start at a later phase when earlier ones are already done in this project.
   const [startPhase, setStartPhase] = useState<AutopilotPhaseKey>("phase1");
   const fromScratch = startPhase === "phase1";
+  // Stop the pipeline after this phase instead of running through Phase 5.
+  const [endPhase, setEndPhase] = useState<AutopilotPhaseKey>("phase5");
+  // Initial steering note applied from the first phase onward (setup-time "Guide the AI").
+  const [instructions, setInstructions] = useState("");
+
+  // endPhase can never be before startPhase — bump it up when the user moves the
+  // start later than the previously-selected end.
+  useEffect(() => {
+    if (PHASE_ORDER.indexOf(endPhase) < PHASE_ORDER.indexOf(startPhase)) {
+      setEndPhase(startPhase);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startPhase]);
 
   // Project mode (file-as-epic): a valid Figma project URL → epics are derived from
   // the project's files, so the manual epics list becomes optional.
@@ -79,7 +99,10 @@ export function AutopilotSetupForm({ onStart, isPending, dark }: Props) {
     // Starting past Phase 1: the project's existing stories drive the run, so concept/
     // epics are not needed — just hand over the start phase.
     if (!fromScratch) {
-      onStart({ concept: "", epics: [], tech_stack_hint: techStackHint, settings, start_phase: startPhase });
+      onStart({
+        concept: "", epics: [], tech_stack_hint: techStackHint, instructions,
+        settings, start_phase: startPhase, end_phase: endPhase,
+      });
       return;
     }
     const validEpics = epics.filter((e) => e.title.trim());
@@ -92,8 +115,10 @@ export function AutopilotSetupForm({ onStart, isPending, dark }: Props) {
       ...(useExisting ? { use_existing_concept: true } : {}),
       epics: manualNeeded ? validEpics : [],
       tech_stack_hint: techStackHint,
+      instructions,
       settings,
       start_phase: "phase1",
+      end_phase: endPhase,
       ...(figmaProjectId ? { figma_project_id: figmaProjectId } : {}),
     });
   }
@@ -138,6 +163,25 @@ export function AutopilotSetupForm({ onStart, isPending, dark }: Props) {
         {!fromScratch && (
           <p className={cn("rounded-md border px-3 py-2 text-xs", dark ? "border-violet-500/30 bg-violet-500/10 text-violet-300" : "border-violet-300 bg-violet-50 text-violet-700")}>
             Phases before {START_PHASES.find((p) => p.key === startPhase)?.label.split("—")[0].trim()} are assumed already complete in this project — Autopilot uses the project&apos;s existing stories and runs from there. No concept or epics needed.
+          </p>
+        )}
+      </div>
+
+      {/* End phase */}
+      <div className="space-y-1.5">
+        <label className={labelClass}>End at</label>
+        <select
+          value={endPhase}
+          onChange={(e) => setEndPhase(e.target.value as AutopilotPhaseKey)}
+          className={inputClass}
+        >
+          {PHASE_ORDER.filter((p) => PHASE_ORDER.indexOf(p) >= PHASE_ORDER.indexOf(startPhase)).map((p) => (
+            <option key={p} value={p}>{phaseLabel(p)}</option>
+          ))}
+        </select>
+        {endPhase !== "phase5" && (
+          <p className={cn("rounded-md border px-3 py-2 text-xs", dark ? "border-violet-500/30 bg-violet-500/10 text-violet-300" : "border-violet-300 bg-violet-50 text-violet-700")}>
+            Autopilot stops once {phaseLabel(endPhase)} completes — later phases are left for you to run manually.
           </p>
         )}
       </div>
@@ -309,19 +353,24 @@ export function AutopilotSetupForm({ onStart, isPending, dark }: Props) {
       </div>
       </>)}
 
-      {/* Tech stack hint */}
-      <div className="space-y-1.5">
-        <label className={labelClass}>
-          Tech stack hint <span className={dark ? "text-neutral-600" : "text-slate-400"}>(optional — AI picks if blank)</span>
-        </label>
-        <input
-          type="text"
-          value={techStackHint}
-          onChange={(e) => setTechStackHint(e.target.value)}
-          placeholder="e.g. React · FastAPI · PostgreSQL · Docker"
-          className={inputClass}
-        />
-      </div>
+      {/* Tech stack hint — only meaningful when Autopilot itself runs Phase 2 (it's
+          consumed once, while locking the tech stack there); starting at Phase 3+
+          means the tech stack is already locked in the project, so the hint would
+          be silently ignored. */}
+      {(startPhase === "phase1" || startPhase === "phase2") && (
+        <div className="space-y-1.5">
+          <label className={labelClass}>
+            Tech stack hint <span className={dark ? "text-neutral-600" : "text-slate-400"}>(optional — AI picks if blank)</span>
+          </label>
+          <input
+            type="text"
+            value={techStackHint}
+            onChange={(e) => setTechStackHint(e.target.value)}
+            placeholder="e.g. React · FastAPI · PostgreSQL · Docker"
+            className={inputClass}
+          />
+        </div>
+      )}
 
       {/* Settings */}
       <div className={cn("space-y-3 rounded-md border p-4", dark ? "border-neutral-700/50 bg-neutral-800/20" : "border-slate-200 bg-slate-50")}>
@@ -363,6 +412,17 @@ export function AutopilotSetupForm({ onStart, isPending, dark }: Props) {
           </div>
         </label>
       </div>
+
+      {/* Guide the AI — initial steering applied from the first phase run, whatever
+          "Start from" is set to. Once the run is underway this is superseded by the
+          live steer control, which carries and can update the same note. */}
+      <GuideTheAI
+        value={instructions}
+        onChange={setInstructions}
+        dark={dark}
+        disabled={isPending}
+        placeholder="Optional notes to steer the whole run from the start — conventions, priorities, things to favour or avoid. Applies to every phase Autopilot runs; you can still adjust it live once the run is underway."
+      />
 
       {/* Submit */}
       <button

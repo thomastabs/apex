@@ -1148,6 +1148,102 @@ class TestStartPhase:
 
 
 # ---------------------------------------------------------------------------
+# end_phase (stop the pipeline early) + setup-time instructions
+# ---------------------------------------------------------------------------
+
+class TestEndPhase:
+    def test_request_rejects_end_before_start(self):
+        with pytest.raises(ValueError):
+            AutopilotStartRequest(start_phase="phase3", end_phase="phase2")
+
+    def test_request_allows_end_equal_start(self):
+        req = AutopilotStartRequest(start_phase="phase3", end_phase="phase3")
+        assert req.end_phase == "phase3"
+
+    def test_request_defaults_end_to_phase5(self):
+        req = AutopilotStartRequest(start_phase="phase1", concept="c", epics=[AutopilotEpic(title="E")])
+        assert req.end_phase == "phase5"
+
+    def test_start_job_seeds_end_phase(self, monkeypatch):
+        class _FakeThread:
+            def __init__(self, *a, **kw):
+                pass
+
+            def start(self):
+                pass
+
+        monkeypatch.setattr(threading, "Thread", _FakeThread)
+        job_id = svc.start_job(
+            _ctx(), concept="", epics=[], tech_stack_hint="",
+            settings={"pause_at_checkpoints": False, "create_epics_in_taiga": False},
+            start_phase="phase1", end_phase="phase2",
+        )
+        assert svc.get_job(job_id)["end_phase"] == "phase2"
+
+    def test_start_job_seeds_steer_note_from_instructions(self, monkeypatch):
+        class _FakeThread:
+            def __init__(self, *a, **kw):
+                pass
+
+            def start(self):
+                pass
+
+        monkeypatch.setattr(threading, "Thread", _FakeThread)
+        job_id = svc.start_job(
+            _ctx(), concept="", epics=[], tech_stack_hint="",
+            settings={"pause_at_checkpoints": False, "create_epics_in_taiga": False},
+            instructions="  keep it lean  ",
+        )
+        assert svc.get_job(job_id)["steer_note"] == "keep it lean"
+
+    def test_descriptor_persists_end_phase_for_resume(self):
+        job = _make_job()
+        job["end_phase"] = "phase3"
+        assert svc._descriptor(job)["_resume"]["end_phase"] == "phase3"
+
+    def test_pipeline_stops_after_requested_end_phase(self, monkeypatch):
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_taiga": False})
+        job["end_phase"] = "phase2"
+        calls: list[str] = []
+
+        monkeypatch.setattr(svc, "_run_phase1", lambda job, ctx: (calls.append("phase1"), [1, 2])[1])
+        monkeypatch.setattr(svc, "_run_phase2", lambda job, ctx, ids: calls.append("phase2"))
+        monkeypatch.setattr(svc, "_run_phase3", lambda job, ctx, ids: calls.append("phase3"))
+        monkeypatch.setattr(svc, "_run_phase4", lambda job, ctx, ids: calls.append("phase4"))
+        monkeypatch.setattr(svc, "_run_phase5", lambda job, ctx, ids: calls.append("phase5"))
+        with svc._JOBS_LOCK:
+            svc._JOBS[job["job_id"]] = job
+
+        svc._run_pipeline(job["job_id"])
+
+        assert calls == ["phase1", "phase2"]
+        assert job["state"] == "done"
+        assert job["current_phase"] == "done"
+        assert any("stopped after Phase 2" in e["msg"] for e in job["events"])
+
+    def test_pipeline_runs_all_phases_when_end_phase_is_default(self, monkeypatch):
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_taiga": False})
+        # No "end_phase" key at all — exercises the backward-compat default (phase5)
+        # for jobs persisted before this field existed.
+        assert "end_phase" not in job
+        calls: list[str] = []
+
+        monkeypatch.setattr(svc, "_run_phase1", lambda job, ctx: (calls.append("phase1"), [1])[1])
+        monkeypatch.setattr(svc, "_run_phase2", lambda job, ctx, ids: calls.append("phase2"))
+        monkeypatch.setattr(svc, "_run_phase3", lambda job, ctx, ids: calls.append("phase3"))
+        monkeypatch.setattr(svc, "_run_phase4", lambda job, ctx, ids: calls.append("phase4"))
+        monkeypatch.setattr(svc, "_run_phase5", lambda job, ctx, ids: calls.append("phase5"))
+        with svc._JOBS_LOCK:
+            svc._JOBS[job["job_id"]] = job
+
+        svc._run_pipeline(job["job_id"])
+
+        assert calls == ["phase1", "phase2", "phase3", "phase4", "phase5"]
+        assert job["state"] == "done"
+        assert any("full SDLC pipeline" in e["msg"] for e in job["events"])
+
+
+# ---------------------------------------------------------------------------
 # Cross-epic dedup pass (after Phase 1)
 # ---------------------------------------------------------------------------
 
