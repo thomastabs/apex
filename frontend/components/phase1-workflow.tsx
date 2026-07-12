@@ -1161,6 +1161,22 @@ export function Phase1Workflow() {
                       )
                     }
                   />
+                  {story.assumptions && story.assumptions.length > 0 && (
+                    <div
+                      className={cn(
+                        "mt-2 space-y-1 rounded-md border px-3 py-2.5 text-xs",
+                        dark ? "border-amber-600/40 bg-amber-500/10 text-amber-300" : "border-amber-300 bg-amber-50 text-amber-700",
+                      )}
+                    >
+                      <p className="flex items-center gap-1.5 font-semibold">
+                        <AlertCircle className="size-3.5" />
+                        Assumptions the AI made — review before publishing:
+                      </p>
+                      <ul className="list-disc pl-5">
+                        {story.assumptions.map((a, i) => <li key={i}>{a}</li>)}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

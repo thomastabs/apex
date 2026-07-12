@@ -950,6 +950,93 @@ class TestGherkinScenarioId:
         assert "@" not in result
 
 
+class TestAssumptions:
+    """Assumptions per requirement: Gherkin scenarios (structured field) and
+    endpoints/entities/screens (markdown {ID}: text convention)."""
+
+    def test_scenario_assumptions_default_to_empty_list(self):
+        from src.ai_engine import GherkinScenario
+        sc = GherkinScenario(title="T", given=["g"], when=["w"], then=["t"])
+        assert sc.assumptions == []
+
+    def test_format_gherkin_story_renders_assumption_comment(self):
+        from src.ai_engine import GherkinScenario, GherkinStory, format_gherkin_story
+        story = GherkinStory(
+            title="Auth", size="XS",
+            scenarios=[GherkinScenario(
+                id="SC-1", title="Login", given=["g"], when=["w"], then=["t"],
+                assumptions=["assumed session lasts 24h"],
+            )],
+        )
+        result = format_gherkin_story(story)
+        assert "<!-- assumes: assumed session lasts 24h -->" in result
+
+    def test_format_gherkin_story_omits_comment_when_no_assumptions(self):
+        from src.ai_engine import GherkinScenario, GherkinStory, format_gherkin_story
+        story = GherkinStory(
+            title="Auth", size="XS",
+            scenarios=[GherkinScenario(id="SC-1", title="Login", given=["g"], when=["w"], then=["t"])],
+        )
+        result = format_gherkin_story(story)
+        assert "<!--" not in result
+
+    def test_multiple_assumptions_render_as_separate_comment_lines(self):
+        from src.ai_engine import GherkinScenario, GherkinStory, format_gherkin_story
+        story = GherkinStory(
+            title="Auth", size="XS",
+            scenarios=[GherkinScenario(
+                id="SC-1", title="Login", given=["g"], when=["w"], then=["t"],
+                assumptions=["assumed X", "assumed Y"],
+            )],
+        )
+        result = format_gherkin_story(story)
+        assert "<!-- assumes: assumed X -->" in result
+        assert "<!-- assumes: assumed Y -->" in result
+
+    def test_parse_gherkin_scenario_assumptions_keyed_by_story_and_scenario(self):
+        from src.ai_engine import (
+            GherkinScenario, GherkinStory, format_gherkin_story, parse_gherkin_scenario_assumptions,
+        )
+        gherkin = format_gherkin_story(GherkinStory(
+            title="Auth", size="XS",
+            scenarios=[
+                GherkinScenario(id="SC-1", title="Login", given=["g"], when=["w"], then=["t"],
+                                 assumptions=["assumed session lasts 24h"]),
+                GherkinScenario(id="SC-2", title="Logout", given=["g"], when=["w"], then=["t"]),
+            ],
+        ))
+        fs = f"### Story 5: Auth\n\n```gherkin\n{gherkin}\n```\n"
+        result = parse_gherkin_scenario_assumptions(fs)
+        assert result == {(5, "SC-1"): ["assumed session lasts 24h"]}
+
+    def test_parse_gherkin_scenario_assumptions_empty_input(self):
+        from src.ai_engine import parse_gherkin_scenario_assumptions
+        assert parse_gherkin_scenario_assumptions("") == {}
+
+    def test_parse_assumptions_extracts_id_text_pairs(self):
+        from src.ai_engine import parse_assumptions
+        md = (
+            "### Auth\n- **EP-1** `POST /x` — x (Story 1)\n\n"
+            "## Assumptions\n\n"
+            "- {EP-1}: assumed bearer auth since none was specified\n"
+            "- {ENT-2}: assumed soft-delete via a deleted_at field\n"
+        )
+        assert parse_assumptions(md) == [
+            ("EP-1", "assumed bearer auth since none was specified"),
+            ("ENT-2", "assumed soft-delete via a deleted_at field"),
+        ]
+
+    def test_parse_assumptions_empty_input(self):
+        from src.ai_engine import parse_assumptions
+        assert parse_assumptions("") == []
+        assert parse_assumptions("no assumptions here") == []
+
+    def test_parse_assumptions_multiple_lines_same_id(self):
+        from src.ai_engine import parse_assumptions
+        md = "## Assumptions\n\n- {SCR-1}: assumed X\n- {SCR-1}: assumed Y\n"
+        assert parse_assumptions(md) == [("SCR-1", "assumed X"), ("SCR-1", "assumed Y")]
+
+
 class TestPathMatching:
     """Suffix/wildcard path matching."""
 

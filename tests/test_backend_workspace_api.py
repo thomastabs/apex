@@ -582,7 +582,7 @@ def test_get_spec_index_reflects_written_endpoints(ctx):
     )
     rc = RequestContext(pm_token="tok", project_id=ctx._get_project_id())
     resp = get_spec_index(rc)
-    assert resp["items"]["EP-1"] == {"kind": "endpoint", "label": "POST /api/v1/x"}
+    assert resp["items"]["EP-1"] == {"kind": "endpoint", "label": "POST /api/v1/x", "assumptions": []}
 
 
 def test_stats_lists_regressed_story_ids(ctx):

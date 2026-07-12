@@ -39,10 +39,16 @@ class CrossCheckEndpointsRequest(BaseModel):
     alt_model: str = Field("", max_length=100)
 
 
+class AssumptionEntry(BaseModel):
+    id: str
+    text: str
+
+
 class DesignSectionResponse(BaseModel):
     section: str
     content: str
     story_ids: list[int] = Field(default_factory=list)
+    assumptions: list[AssumptionEntry] = Field(default_factory=list)
 
 
 class DesignBundleResponse(BaseModel):

@@ -26,6 +26,7 @@ import {
   type PersistDesignDeltaRequest,
 } from "@/lib/api/phase2";
 import type {
+  AssumptionEntry,
   DesignSectionKey,
   DesignSystemResponse,
   DiagramNode,
@@ -123,7 +124,9 @@ export function usePersistDesignDelta() {
 export const DESIGN_SECTION_ORDER: DesignSectionKey[] = ["ux_brief", "endpoints", "data_model"];
 
 export type DesignSectionCallbacks = {
-  onSection: (section: DesignSectionKey, content: string, storyIds: number[]) => void;
+  onSection: (
+    section: DesignSectionKey, content: string, storyIds: number[], assumptions: AssumptionEntry[],
+  ) => void;
   onDone: () => void;
 };
 
@@ -157,7 +160,7 @@ export function useGenerateDesignSections() {
             context, section, prior, instructions, abortRef.current.signal,
           );
           prior[section] = result.content;
-          callbacks.onSection(section, result.content, result.story_ids);
+          callbacks.onSection(section, result.content, result.story_ids, result.assumptions);
         }
         callbacks.onDone();
       } catch (err) {
@@ -190,7 +193,7 @@ export function useGenerateDesignSections() {
         const result = await generateDesignSection(
           context, targetSection, priorSections, instructions, abortRef.current.signal,
         );
-        callbacks.onSection(targetSection, result.content, result.story_ids);
+        callbacks.onSection(targetSection, result.content, result.story_ids, result.assumptions);
         callbacks.onDone();
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;

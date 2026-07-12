@@ -117,6 +117,22 @@ def test_compile_gherkin_route_does_not_need_request_context():
     assert response["stories"][0]["title"] == "Story A"
 
 
+def test_compile_gherkin_route_carries_assumptions():
+    class AssumptionStub(StubPhase1Service):
+        def compile_gherkin(self, *, nl_draft):
+            return [{
+                "title": "Story A", "size": "S", "gherkin": "Feature: A",
+                "assumptions": ["Login: assumed session lasts 24h"],
+            }]
+
+    response = compile_gherkin(
+        CompileGherkinRequest(nl_draft="Draft"),
+        service=AssumptionStub(),
+    )
+
+    assert response["stories"][0]["assumptions"] == ["Login: assumed session lasts 24h"]
+
+
 def test_finalize_stories_route():
     response = finalize_stories(
         FinalizeStoriesRequest(

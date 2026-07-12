@@ -38,7 +38,7 @@ import { useAiConfig, useLogDecision } from "@/lib/hooks/use-workspace";
 import { CrossCheckPanel, AltModelSelect } from "@/components/cross-check-panel";
 import { GuideTheAI } from "@/components/guide-the-ai";
 import type { CrossCheckResult } from "@/lib/api/phase1";
-import type { DesignSectionKey } from "@/lib/api/types";
+import type { AssumptionEntry, DesignSectionKey } from "@/lib/api/types";
 import { usePhase2Store } from "@/lib/stores/phase2-store";
 import { TECH_STACK_PRESETS } from "@/lib/tech-stack-presets";
 import { useDiffStore } from "@/lib/stores/diff-store";
@@ -147,6 +147,7 @@ export function Phase2Workflow() {
   const [diagramOpen, setDiagramOpen] = useState(false);
   const [partial, setPartial] = useState<Partial<Record<DesignSectionKey, string>>>({});
   const [partialStoryIds, setPartialStoryIds] = useState<number[]>([]);
+  const [sectionAssumptions, setSectionAssumptions] = useState<Partial<Record<DesignSectionKey, AssumptionEntry[]>>>({});
   const {
     alternatives,
     selectedAlternativeIndex,
@@ -269,12 +270,14 @@ export function Phase2Workflow() {
     const accumulated: Partial<Record<DesignSectionKey, string>> = {};
     let accStoryIds: number[] = [];
     setPartial({});
+    setSectionAssumptions({});
     generateSections.generate({
-      onSection: (section, content, storyIds) => {
+      onSection: (section, content, storyIds, assumptions) => {
         accumulated[section] = content;
         accStoryIds = storyIds;
         setPartial({ ...accumulated });
         setPartialStoryIds(storyIds);
+        setSectionAssumptions((prev) => ({ ...prev, [section]: assumptions }));
         if (section === "data_model" && content.trim()) {
           generateDiagramMut.mutate(content);
         }
@@ -301,6 +304,7 @@ export function Phase2Workflow() {
     setTechLeadApproved(false);
     setPartial({});
     setPartialStoryIds([]);
+    setSectionAssumptions((prev) => ({ ...prev, [targetSection]: undefined }));
 
     const idx = DESIGN_SECTION_ORDER.indexOf(targetSection);
     const downstreamHasContent = DESIGN_SECTION_ORDER.slice(idx + 1).some((s) => existingBundle?.[s as DesignSectionKey]);
@@ -321,11 +325,12 @@ export function Phase2Workflow() {
     let latestContent = "";
     let latestStoryIds: number[] = [];
     generateSections.generateSection(targetSection, prior, {
-      onSection: (section, content, storyIds) => {
+      onSection: (section, content, storyIds, assumptions) => {
         latestContent = content;
         latestStoryIds = storyIds;
         setPartial({ [section]: content });
         setPartialStoryIds(storyIds);
+        setSectionAssumptions((prev) => ({ ...prev, [section]: assumptions }));
       },
       onDone: () => {
         const commit = () => {
@@ -841,6 +846,27 @@ export function Phase2Workflow() {
                         {section === "data_model" && (
                           <ERDiagramPanel dataModelContent={content} dark={dark} />
                         )}
+                      </div>
+                    )}
+
+                    {hasContent && (sectionAssumptions[section]?.length ?? 0) > 0 && (
+                      <div
+                        className={cn(
+                          "space-y-1 border-t px-4 py-2.5 text-xs",
+                          dark ? "border-neutral-800 bg-amber-500/10 text-amber-300" : "border-slate-100 bg-amber-50 text-amber-700",
+                        )}
+                      >
+                        <p className="flex items-center gap-1.5 font-semibold">
+                          <AlertCircle className="size-3.5" />
+                          Assumptions the AI made — review before locking:
+                        </p>
+                        <ul className="list-disc pl-5">
+                          {sectionAssumptions[section]!.map((a) => (
+                            <li key={a.id}>
+                              <span className="font-mono text-[10px]">{a.id}</span>: {a.text}
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     )}
 

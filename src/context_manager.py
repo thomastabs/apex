@@ -1987,24 +1987,36 @@ def rebuild_spec_index() -> dict:
     tech = _path("technical-spec.md")
     tech_content = tech.read_text(encoding="utf-8") if tech.exists() else ""
     for eid, method, path in ai_engine.parse_endpoint_ids(tech_content):
-        index[eid] = {"kind": "endpoint", "label": f"{method} {path}"}
+        index[eid] = {"kind": "endpoint", "label": f"{method} {path}", "assumptions": []}
     for ent_id, name in ai_engine.parse_entity_ids(tech_content):
-        index[ent_id] = {"kind": "entity", "label": name}
+        index[ent_id] = {"kind": "entity", "label": name, "assumptions": []}
+    for aid, text in ai_engine.parse_assumptions(tech_content):
+        if aid in index:
+            index[aid]["assumptions"].append(text)
 
     bundle = _path("design-bundle.md")
     bundle_content = bundle.read_text(encoding="utf-8") if bundle.exists() else ""
     for scr_id, name in ai_engine.parse_screen_ids(bundle_content):
-        index[scr_id] = {"kind": "screen", "label": name}
+        index[scr_id] = {"kind": "screen", "label": name, "assumptions": []}
+    for aid, text in ai_engine.parse_assumptions(bundle_content):
+        if aid in index:
+            index[aid]["assumptions"].append(text)
 
     constraints = _path("constraints.md")
     constraints_content = constraints.read_text(encoding="utf-8") if constraints.exists() else ""
     for nfr_id, text in ai_engine.parse_constraint_ids(constraints_content):
-        index[nfr_id] = {"kind": "constraint", "label": text[:80]}
+        index[nfr_id] = {"kind": "constraint", "label": text[:80], "assumptions": []}
 
     fs = _path("functional-spec.md")
     fs_content = fs.read_text(encoding="utf-8") if fs.exists() else ""
+    scenario_assumptions = ai_engine.parse_gherkin_scenario_assumptions(fs_content)
     for story_id, sc_id, title in ai_engine.parse_gherkin_scenario_ids(fs_content):
-        index[f"{story_id}:{sc_id}"] = {"kind": "scenario", "label": title, "story_id": story_id}
+        index[f"{story_id}:{sc_id}"] = {
+            "kind": "scenario",
+            "label": title,
+            "story_id": story_id,
+            "assumptions": scenario_assumptions.get((story_id, sc_id), []),
+        }
 
     save_spec_index(index)
     return index

@@ -336,6 +336,32 @@ def test_generate_design_section_ux_brief_returns_content_and_story_ids():
     assert sorted(result["story_ids"]) == [10, 11]
 
 
+def test_generate_design_section_parses_assumptions_from_content():
+    class AssumptionAiService(FakeAiService):
+        def generate_design_section(self, all_stories, context, section, prior_sections, instructions="") -> str:
+            return (
+                "## Endpoints\n### Auth\n- **EP-1** `POST /auth/login` — login (Story 10)\n\n"
+                "## Assumptions\n\n- {EP-1}: assumed bearer auth since none was specified\n"
+            )
+
+    service, _, _ = _service()
+    service.ai = AssumptionAiService()
+
+    result = service.generate_design_section(_ctx(), section="endpoints")
+
+    assert result["assumptions"] == [
+        {"id": "EP-1", "text": "assumed bearer auth since none was specified"}
+    ]
+
+
+def test_generate_design_section_empty_assumptions_when_none_present():
+    service, _, _ = _service()
+
+    result = service.generate_design_section(_ctx(), section="ux_brief")
+
+    assert result["assumptions"] == []
+
+
 def test_generate_design_section_passes_constrained_context():
     service, ai, _ = _service()
 

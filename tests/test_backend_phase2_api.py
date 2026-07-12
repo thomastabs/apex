@@ -153,6 +153,25 @@ def test_generate_design_section_route_ux_brief():
     assert response["story_ids"] == [10]
 
 
+def test_generate_design_section_route_carries_assumptions():
+    class AssumptionStub(StubPhase2Service):
+        def generate_design_section(self, ctx, *, section, prior_sections=None, instructions=""):
+            return {
+                "section": section,
+                "content": "## Endpoints\n- POST /auth",
+                "story_ids": [10],
+                "assumptions": [{"id": "EP-1", "text": "assumed bearer auth"}],
+            }
+
+    response = generate_design_section(
+        DesignSectionRequest(section="endpoints"),
+        ctx=_ctx(),
+        service=AssumptionStub(),
+    )
+
+    assert response["assumptions"] == [{"id": "EP-1", "text": "assumed bearer auth"}]
+
+
 def test_generate_design_section_route_with_prior():
     response = generate_design_section(
         DesignSectionRequest(section="data_model", prior={"endpoints": "## Endpoints\n- POST /auth"}),

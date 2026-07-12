@@ -101,6 +101,7 @@ class CompiledStorySchema(BaseModel):
     title: str
     size: str
     gherkin: str
+    assumptions: list[str] = Field(default_factory=list)
 
 
 class CompileGherkinResponse(BaseModel):

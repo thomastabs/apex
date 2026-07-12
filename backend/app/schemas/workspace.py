@@ -50,6 +50,7 @@ class SpecIndexEntry(BaseModel):
     kind: Literal["endpoint", "entity", "screen", "scenario", "constraint"]
     label: str
     story_id: int | None = None
+    assumptions: list[str] = Field(default_factory=list)
 
 
 class SpecIndexResponse(BaseModel):

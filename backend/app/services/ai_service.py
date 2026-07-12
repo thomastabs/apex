@@ -166,6 +166,9 @@ class AiService:
                 "title": story.title,
                 "size": story.size,
                 "gherkin": ai_engine.format_gherkin_story(story),
+                "assumptions": [
+                    f"{sc.title}: {a}" for sc in story.scenarios for a in sc.assumptions
+                ],
             }
             for story in result.stories
         ]

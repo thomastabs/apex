@@ -108,6 +108,7 @@ export type CompiledStory = {
   title: string;
   size: string;
   gherkin: string;
+  assumptions?: string[];
 };
 
 export type Phase1GenerateNlStoriesRequest = {
@@ -167,10 +168,16 @@ export type LockTechStackRequest = {
 
 export type DesignSectionKey = "ux_brief" | "endpoints" | "data_model";
 
+export type AssumptionEntry = {
+  id: string;
+  text: string;
+};
+
 export type DesignSectionResponse = {
   section: DesignSectionKey;
   content: string;
   story_ids: number[];
+  assumptions: AssumptionEntry[];
 };
 
 export type DesignBundle = {

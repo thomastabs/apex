@@ -145,6 +145,9 @@ class Phase2Service:
             "section": section,
             "content": content,
             "story_ids": [s["story_id"] for s in all_stories],
+            "assumptions": [
+                {"id": i, "text": t} for i, t in ai_engine.parse_assumptions(content)
+            ],
         }
 
     def cross_check_endpoints(self, ctx: RequestContext, *, ux_brief: str, alt_model: str = "") -> dict:

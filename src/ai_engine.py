@@ -791,6 +791,10 @@ class GherkinScenario(BaseModel):
     then: list[str] = Field(
         description="Outcome steps — each item is one step text without the 'Then'/'And' keyword"
     )
+    assumptions: list[str] = Field(
+        default_factory=list,
+        description="Assumptions made that weren't explicitly stated in the NL draft, one per item; empty when none",
+    )
 
 
 class GherkinStory(BaseModel):
@@ -1112,7 +1116,7 @@ def diff_endpoint_sets(primary_md: str, alt_md: str) -> dict:
 # Phase 1 · Step 2 — Gherkin Compilation (GL Compiler persona)
 # ---------------------------------------------------------------------------
 
-_GL_COMPILATION_VERSION = "1.2"
+_GL_COMPILATION_VERSION = "1.3"
 _GL_COMPILATION_SYSTEM = """\
 You are a strict Gherkin Language (GL) compiler operating within the Apex Framework.
 Your ONLY job is to take a human-reviewed Natural Language story draft and compile it
@@ -1129,6 +1133,10 @@ Rules you MUST follow:
 - When steps: user's action in business terms — never UI mechanics ("submits the form" not "clicks the blue Submit button").
 - Then steps: observable business outcomes only — never server internals ("the task shows the new owner" not "the database record is updated").
 - Assign each scenario a stable id SC-1, SC-2, … in output order, unique within this story.
+- If the NL draft left a detail unstated and you had to infer it to write a concrete
+  Given/When/Then (e.g. a timeout, a retry limit, an error message, an edge-case
+  behavior), name that inference in `assumptions` — one short sentence each. Empty
+  list when the scenario needed no inference beyond what the draft stated.
 
 --- FEW-SHOT EXAMPLE ---
 
@@ -1157,6 +1165,7 @@ CORRECT OUTPUT:
       then:
         - "the task displays the selected teammate as its owner"
         - "the assignment change is visible to all project members"
+      assumptions: []
 
     - id: "SC-2"
       title: "Assign to someone not on the project"
@@ -1168,6 +1177,8 @@ CORRECT OUTPUT:
       then:
         - "only current project members appear in the assignee list"
         - "the non-member cannot be selected"
+      assumptions:
+        - "assumed non-members are simply excluded from the search results, not shown disabled — the draft didn't specify"
 
 KEY RULES ILLUSTRATED:
 - Title "Task Assignment to Teammate" is noun-phrase, title case, 4 words. NOT "As a project member...".
@@ -1176,6 +1187,7 @@ KEY RULES ILLUSTRATED:
 - Then: observable outcome ("task displays the selected teammate") — not "record saved to DB".
 - Each step is a single atomic statement — one concept per list item.
 - Each scenario has a unique, sequential id (SC-1, SC-2, ...) in output order.
+- SC-2 names its inference (non-members excluded vs. shown disabled) as an assumption; SC-1 needed none.
 --- END EXAMPLE ---
 """
 
@@ -1219,6 +1231,8 @@ def format_gherkin_story(story: GherkinStory) -> str:
             lines.append(f"    Then {sc.then[0]}")
             for step in sc.then[1:]:
                 lines.append(f"    And {step}")
+        for assumption in sc.assumptions:
+            lines.append(f"  <!-- assumes: {assumption} -->")
         lines.append("")
     return "\n".join(lines).rstrip()
 
@@ -1635,7 +1649,7 @@ You are a UX Designer writing a concise screen inventory and navigation overview
 
 {anti_hallucination}
 
-Output exactly two sections — nothing else, no introduction, no commentary.
+Output exactly three sections — nothing else, no introduction, no commentary.
 
 ## Screens
 
@@ -1662,6 +1676,13 @@ Rules for Navigation Paths:
 - No screen name may appear as the start of more than one path.
 - Use exact screen names from the Screens section above.
 - No ASCII art, no diagrams, no code.
+
+## Assumptions
+
+Format: `- {SCR-1}: <what you inferred and why>`. One bullet per screen/path where
+you had to infer something the story list left unstated (e.g. an entry-point
+detail, a navigation trigger). Omit the section body (leave it empty) when
+nothing needed inference.
 """
 
 _ENDPOINTS_SYSTEM = """\
@@ -1675,7 +1696,7 @@ You are a Software Architect defining the REST endpoint list for this project.
 **UX Brief (screens and navigation — derive route names from screen names):**
 {ux_brief}
 
-Output exactly one section — nothing else, no introduction, no commentary.
+Output exactly two sections — nothing else, no introduction, no commentary.
 
 ## Endpoints
 
@@ -1696,6 +1717,13 @@ Rules:
 - Derive route names from screen names in the UX Brief above.
 - Cover ALL epics — do not stop early.
 - Assign each endpoint a stable id EP-1, EP-2, … in output order, unique across the whole document.
+
+## Assumptions
+
+Format: `- {EP-1}: <what you inferred and why>`. One bullet per endpoint where
+you had to infer something not given (an auth mechanism, a field type, a
+status code). Omit the section body (leave it empty) when nothing needed
+inference.
 """
 
 _DATA_MODEL_SYSTEM = """\
@@ -1709,7 +1737,7 @@ You are a Software Architect defining the data model for this project.
 **Endpoint List (derive entities from the routes and fields defined here):**
 {endpoints}
 
-Output exactly one section — nothing else, no introduction, no commentary.
+Output exactly two sections — nothing else, no introduction, no commentary.
 
 ## Data Model
 
@@ -1727,6 +1755,12 @@ Rules:
 - Use consistent field naming (snake_case or camelCase — pick one, never mix).
 - Cover all entities implied by the endpoint list — do not stop early.
 - Assign each entity a stable id ENT-1, ENT-2, … in output order, unique across the whole document.
+
+## Assumptions
+
+Format: `- {ENT-1}: <what you inferred and why>`. One bullet per entity where
+you had to infer something not given (a field type, a relation cardinality).
+Omit the section body (leave it empty) when nothing needed inference.
 """
 
 
@@ -1825,6 +1859,10 @@ Rules:
 - Any of the three markdown fields may be an empty string when nothing is needed.
 - No code blocks, no SQL, no commentary outside the required formats.
 - Follow the ID continuation instruction exactly — never reuse an id already used in the existing locked design.
+- Where you had to infer something not given for a NEW screen/endpoint/entity,
+  append a bullet `- {{ID}}: <what you inferred and why>` at the end of the
+  relevant field's content (same convention as the full design generators).
+  Omit when nothing needed inference.
 """
 
 
@@ -3507,6 +3545,19 @@ def parse_screen_ids(design_bundle: str) -> list[tuple[str, str]]:
             for m in _SCREEN_ID_RE.finditer(design_bundle or "")]
 
 
+# Assumption bullet, generic across UX Brief / Endpoints / Data Model / Design
+# Delta: "- {EP-1}: assumed bearer auth since none was specified."
+_ASSUMPTION_RE = re.compile(r"^\s*-\s*\{((?:EP|ENT|SCR)-\d+)\}:\s*(.+)$", re.MULTILINE)
+
+
+def parse_assumptions(markdown: str) -> list[tuple[str, str]]:
+    """Extract (id, assumption text) for each {ID}: bullet in a design-section
+    markdown blob (ux_brief / endpoints / data_model, or a merged Design Delta
+    field). One id can have multiple assumption lines."""
+    return [(m.group(1), m.group(2).strip())
+            for m in _ASSUMPTION_RE.finditer(markdown or "")]
+
+
 _FS_STORY_HEADING_RE = re.compile(r"^#{2,3} Story (\d+):")
 _GHERKIN_TAG_RE = re.compile(r"^\s*@(SC-\d+)\s*$")
 _GHERKIN_SCENARIO_LINE_RE = re.compile(r"^\s*Scenario(?:\s+Outline)?:\s*(.+)$")
@@ -3530,6 +3581,33 @@ def parse_gherkin_scenario_ids(functional_spec_md: str) -> list[tuple[int, str, 
             title_m = _GHERKIN_SCENARIO_LINE_RE.match(lines[i + 1])
             if title_m:
                 out.append((current_story_id, tag_m.group(1), title_m.group(1).strip()))
+    return out
+
+
+_GHERKIN_ASSUMPTION_RE = re.compile(r"^\s*<!--\s*assumes:\s*(.+?)\s*-->\s*$")
+
+
+def parse_gherkin_scenario_assumptions(functional_spec_md: str) -> dict[tuple[int, str], list[str]]:
+    """Extract assumptions for each @SC-n tagged scenario, keyed by
+    (story_id, scenario_id). Assumption lines render as HTML comments right
+    after a scenario's Then steps (see format_gherkin_story) — inert to
+    Gherkin tooling, but recoverable here for the spec index."""
+    out: dict[tuple[int, str], list[str]] = {}
+    current_story_id: int | None = None
+    current_scenario_id: str | None = None
+    for line in (functional_spec_md or "").splitlines():
+        story_m = _FS_STORY_HEADING_RE.match(line)
+        if story_m:
+            current_story_id = int(story_m.group(1))
+            current_scenario_id = None
+            continue
+        tag_m = _GHERKIN_TAG_RE.match(line)
+        if tag_m:
+            current_scenario_id = tag_m.group(1)
+            continue
+        assume_m = _GHERKIN_ASSUMPTION_RE.match(line)
+        if assume_m and current_story_id is not None and current_scenario_id is not None:
+            out.setdefault((current_story_id, current_scenario_id), []).append(assume_m.group(1).strip())
     return out
 
 

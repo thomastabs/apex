@@ -397,6 +397,7 @@ export type SpecIndexEntry = {
   kind: "endpoint" | "entity" | "screen" | "scenario" | "constraint";
   label: string;
   story_id?: number | null;
+  assumptions: string[];
 };
 
 export type SpecIndexResponse = {

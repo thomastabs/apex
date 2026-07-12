@@ -1291,20 +1291,45 @@ class TestRebuildSpecIndex:
         ctx.init_context()
         ctx.write_project_technical_spec([1], self.ENDPOINTS, self.DATA_MODEL)
         index = ctx.load_spec_index()
-        assert index["EP-1"] == {"kind": "endpoint", "label": "POST /api/v1/auth/login"}
-        assert index["ENT-1"] == {"kind": "entity", "label": "User"}
+        assert index["EP-1"] == {"kind": "endpoint", "label": "POST /api/v1/auth/login", "assumptions": []}
+        assert index["ENT-1"] == {"kind": "entity", "label": "User", "assumptions": []}
 
     def test_screens_indexed(self, ctx):
         ctx.init_context()
         ctx.write_project_design_bundle(self.UX_BRIEF)
         index = ctx.load_spec_index()
-        assert index["SCR-1"] == {"kind": "screen", "label": "Login Screen"}
+        assert index["SCR-1"] == {"kind": "screen", "label": "Login Screen", "assumptions": []}
 
     def test_scenarios_indexed_per_story(self, ctx):
         ctx.init_context()
         ctx.append_gherkin(10, "Story Ten", self.GHERKIN_WITH_ID)
         index = ctx.load_spec_index()
-        assert index["10:SC-1"] == {"kind": "scenario", "label": "s", "story_id": 10}
+        assert index["10:SC-1"] == {"kind": "scenario", "label": "s", "story_id": 10, "assumptions": []}
+
+    def test_endpoint_assumptions_merged_into_entry(self, ctx):
+        ctx.init_context()
+        endpoints = self.ENDPOINTS + "\n## Assumptions\n\n- {EP-1}: assumed bearer auth since none was specified\n"
+        ctx.write_project_technical_spec([1], endpoints, self.DATA_MODEL)
+        index = ctx.load_spec_index()
+        assert index["EP-1"]["assumptions"] == ["assumed bearer auth since none was specified"]
+        assert index["ENT-1"]["assumptions"] == []
+
+    def test_screen_assumptions_merged_into_entry(self, ctx):
+        ctx.init_context()
+        bundle = self.UX_BRIEF + "\n## Assumptions\n\n- {SCR-1}: assumed a modal, not a full page\n"
+        ctx.write_project_design_bundle(bundle)
+        index = ctx.load_spec_index()
+        assert index["SCR-1"]["assumptions"] == ["assumed a modal, not a full page"]
+
+    def test_scenario_assumptions_merged_into_entry(self, ctx):
+        ctx.init_context()
+        gherkin = (
+            "Feature: X\n\n  @SC-1\n  Scenario: s\n    Given x\n    When y\n    Then z\n"
+            "  <!-- assumes: assumed session lasts 24h -->\n"
+        )
+        ctx.append_gherkin(10, "Story Ten", gherkin)
+        index = ctx.load_spec_index()
+        assert index["10:SC-1"]["assumptions"] == ["assumed session lasts 24h"]
 
     def test_constraints_indexed(self, ctx):
         ctx.init_context()
