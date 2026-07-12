@@ -2874,6 +2874,7 @@ def generate_test_plan(
     instructions: str = "",
     emphasis: list[str] | None = None,
     figma_context: str = "",
+    github_context: str = "",
 ) -> str:
     """Generate a structured QA test plan for all Gherkin scenarios in a User Story.
 
@@ -2885,6 +2886,11 @@ def generate_test_plan(
     `figma_context` (the synced Figma design markdown — screens + prototype flows)
     is advisory grounding so Test Steps and navigation/flow checks reference the
     real designed screens; it never adds scenarios absent from the Gherkin.
+
+    `github_context` (the synced repository pack — real file tree, endpoints, configs
+    from `repomix`) is advisory grounding, same role as the developer-pack digests but
+    from the actual repo rather than a summary; it never adds scenarios absent from
+    the Gherkin.
     """
     system = _GENERATE_TEST_PLAN_SYSTEM.format(
         tech_stack=fence_user_content(tech_stack.strip() or "Not specified"),
@@ -2904,6 +2910,13 @@ def generate_test_plan(
             "(Context + Files to Change: real files and endpoints). Use them so Test Steps and BDD "
             "Mappings reference the actual implementation, but never test behaviour absent from the "
             "Gherkin:\n" + fence_user_content(pack_digests)
+        )
+    if github_context.strip() and not github_context.strip().startswith("<!--"):
+        system += (
+            "\n\nSynced Repository Context (real file tree, endpoints, configs from the connected "
+            "GitHub repo). Use it to ground Test Steps in the actual implementation and to spot "
+            "edge cases the code surfaces (error handling, validation, existing tests); never test "
+            "behaviour absent from the Gherkin:\n" + fence_user_content(github_context)
         )
     if figma_context.strip() and not figma_context.strip().startswith("<!--"):
         system += (

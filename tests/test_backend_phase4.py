@@ -33,13 +33,14 @@ class FakeAiService:
 
     def generate_test_plan(self, story_subject, gherkin, technical_spec, tech_stack="",
                            developer_packs=None, constraints="", instructions="", emphasis=None,
-                           figma_context=""):
+                           figma_context="", github_context=""):
         self.test_plan_args = (story_subject, gherkin, technical_spec, tech_stack)
         self.test_plan_developer_packs = developer_packs
         self.test_plan_constraints = constraints
         self.test_plan_instructions = instructions
         self.test_plan_emphasis = emphasis
         self.test_plan_figma_context = figma_context
+        self.test_plan_github_context = github_context
         return _FAKE_TEST_PLAN
 
     def generate_bug_report(self, story_subject, gherkin, technical_spec, failed_scenario, qa_notes):
@@ -348,6 +349,23 @@ def test_generate_test_plan_figma_context_empty_by_default():
     svc = Phase4Service(ai=ai, context=FakeContextService())
     svc.generate_test_plan(_ctx(), 10)
     assert ai.test_plan_figma_context == ""
+
+
+def test_generate_test_plan_injects_github_context():
+    # The synced repo pack (real file tree, endpoints, configs) grounds the QA test plan.
+    ai = FakeAiService()
+    ctx_svc = FakeContextService()
+    ctx_svc.context_files = {"github-context.md": "## File Tree\n- backend/app/api/auth.py"}
+    svc = Phase4Service(ai=ai, context=ctx_svc)
+    svc.generate_test_plan(_ctx(), 10)
+    assert "auth.py" in ai.test_plan_github_context
+
+
+def test_generate_test_plan_github_context_empty_by_default():
+    ai = FakeAiService()
+    svc = Phase4Service(ai=ai, context=FakeContextService())
+    svc.generate_test_plan(_ctx(), 10)
+    assert ai.test_plan_github_context == ""
 
 
 def test_generate_test_plan_rejects_ineligible_status():

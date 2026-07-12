@@ -107,8 +107,8 @@ const CONTEXT_FILE_PHASES: Record<string, string[]> = {
   // phase3_service (task decomposition): project_concept, tech-stack, design-bundle, github-context, constraints, decisions,
   // per-story functional-spec + technical-spec (story_technical_spec grounds task/pack generation)
   "/phase3": ["project-concept.md", "tech-stack.md", "functional-spec.md", "technical-spec.md", "design-bundle.md", "github-context.md", "constraints.md", "decisions.md"],
-  // phase4_service (QA test plan): tech-stack, constraints, figma-context, per-story functional-spec + technical-spec
-  "/phase4": ["tech-stack.md", "functional-spec.md", "technical-spec.md", "constraints.md", "figma-context.md"],
+  // phase4_service (QA test plan): tech-stack, constraints, figma-context, github-context, per-story functional-spec + technical-spec
+  "/phase4": ["tech-stack.md", "functional-spec.md", "technical-spec.md", "constraints.md", "figma-context.md", "github-context.md"],
   // phase5_service (deploy/infra): tech-stack, github-context, per-story functional-spec + technical-spec
   "/phase5": ["tech-stack.md", "functional-spec.md", "technical-spec.md", "github-context.md"],
   // phase6_service (maintenance): tech-stack, constraints, github-context (+ Figma comments sync), per-story functional-spec + technical-spec

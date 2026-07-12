@@ -96,8 +96,10 @@ class Phase4Service:
         tech_stack = self.context.read_tech_stack()
         constraints = self.context.read_context_file("constraints.md")
         figma_context = self.context.read_context_file("figma-context.md")
+        github_context = self.context.read_context_file("github-context.md")
         # Ground the test plan in how the story was actually built — the saved
-        # developer packs (digested to Context + Files to Change downstream).
+        # developer packs (digested to Context + Files to Change downstream) plus
+        # the synced repo pack itself (real file tree, endpoints, configs).
         developer_packs = [
             {"subject": f"Task {p['task_id']}", "proposal_md": p.get("proposal_md", "")}
             for p in self.context.load_proposals(story_id)
@@ -106,7 +108,7 @@ class Phase4Service:
             story_title, gherkin, technical_spec, tech_stack=tech_stack,
             developer_packs=developer_packs, constraints=constraints,
             instructions=instructions, emphasis=emphasis or [],
-            figma_context=figma_context,
+            figma_context=figma_context, github_context=github_context,
         )
 
     def save_test_plan(self, ctx: RequestContext, story_id: int, test_plan_md: str) -> None:
