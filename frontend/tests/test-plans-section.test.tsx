@@ -85,6 +85,20 @@ describe("TestPlansSection", () => {
     );
   });
 
+  it("deleting all plans calls delete for every story and invalidates the cache", async () => {
+    const { invalidateSpy, confirm } = renderPlans();
+    fireEvent.click(screen.getByRole("button", { name: /Test Plans/i }));
+    await waitFor(() => expect(screen.getByText("User Login")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: /Delete all/i }));
+
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("Delete all 2"), expect.any(Function));
+    await waitFor(() => expect(vi.mocked(deleteTestPlan)).toHaveBeenCalledWith(expect.anything(), 10));
+    await waitFor(() => expect(vi.mocked(deleteTestPlan)).toHaveBeenCalledWith(expect.anything(), 11));
+    const keys = invalidateSpy.mock.calls.map((c) => c[0]?.queryKey);
+    expect(keys).toContainEqual(["phase4", "test-plans", 7]);
+  });
+
   it("shows an empty state when there are no test plans", async () => {
     const { listTestPlans } = await import("@/lib/api/phase4");
     vi.mocked(listTestPlans).mockResolvedValueOnce({ test_plans: [] });

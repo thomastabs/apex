@@ -1116,6 +1116,116 @@ class TestConcurrency:
 
 
 # ---------------------------------------------------------------------------
+# Phase 4 drafts test plans only — never fabricates a QA pass
+# ---------------------------------------------------------------------------
+
+class TestPhase4DoesNotAutoPassGate:
+    def test_worker_saves_plan_but_never_calls_pass_gate(self, monkeypatch):
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_taiga": False})
+        monkeypatch.setattr(svc, "_status_snapshot", lambda j: {})
+        calls: list[tuple] = []
+
+        class _StubP4:
+            def generate_test_plan(self, ctx, story_id, instructions="", emphasis=None):
+                calls.append(("generate", story_id))
+                return "## Test Plan"
+
+            def save_test_plan(self, ctx, story_id, test_plan_md):
+                calls.append(("save", story_id))
+
+            def pass_gate(self, ctx, story_id, scenario_results=None):
+                calls.append(("pass_gate", story_id))  # would fail the test if ever reached
+
+        monkeypatch.setattr(svc, "Phase4Service", _StubP4)
+        svc._run_phase4(job, _ctx(), [1, 2])
+
+        assert ("save", 1) in calls and ("save", 2) in calls
+        assert not any(c[0] == "pass_gate" for c in calls)
+        assert job["stories_done"] == 2
+
+    def test_emits_warning_that_qa_is_not_verified(self, monkeypatch):
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_taiga": False})
+        monkeypatch.setattr(svc, "_status_snapshot", lambda j: {})
+
+        class _StubP4:
+            def generate_test_plan(self, ctx, story_id, instructions="", emphasis=None):
+                return "## Test Plan"
+
+            def save_test_plan(self, ctx, story_id, test_plan_md):
+                pass
+
+        monkeypatch.setattr(svc, "Phase4Service", _StubP4)
+        svc._run_phase4(job, _ctx(), [1])
+
+        warnings = [e["msg"] for e in job["events"] if e["level"] == "warning"]
+        assert any("does NOT execute or verify" in msg for msg in warnings)
+
+    def test_resume_skips_stories_already_at_qa(self, monkeypatch):
+        # "qa" (test plan saved, gate not yet decided) now counts as Phase 4 done —
+        # Autopilot's part of the work is finished, a human owns the rest.
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_taiga": False})
+        monkeypatch.setattr(svc, "_status_snapshot", lambda j: {"1": "qa", "2": "implementation"})
+        generated: list[int] = []
+
+        class _StubP4:
+            def generate_test_plan(self, ctx, story_id, instructions="", emphasis=None):
+                generated.append(story_id)
+                return "## Test Plan"
+
+            def save_test_plan(self, ctx, story_id, test_plan_md):
+                pass
+
+        monkeypatch.setattr(svc, "Phase4Service", _StubP4)
+        svc._run_phase4(job, _ctx(), [1, 2])
+        assert generated == [2]  # story 1 (already "qa") skipped
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 skips stories whose QA gate was never (manually) passed
+# ---------------------------------------------------------------------------
+
+class TestPhase5SkipsUnpassedQA:
+    def test_deploys_only_qa_passed_stories(self, monkeypatch):
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_taiga": False})
+        monkeypatch.setattr(svc, "_status_snapshot", lambda j: {"1": "qa_passed", "2": "qa"})
+        deployed_ids: list[int] = []
+
+        class _StubP5:
+            def save_infra_delta(self, ctx, story_id, delta):
+                pass
+
+            def pass_deployment_gate(self, ctx, story_id, **kw):
+                deployed_ids.append(story_id)
+
+        monkeypatch.setattr(svc, "Phase5Service", _StubP5)
+        deployed, skipped = svc._run_phase5(job, _ctx(), [1, 2])
+
+        assert deployed_ids == [1]
+        assert deployed == 1
+        assert skipped == 1
+        warnings = [e["msg"] for e in job["events"] if e["level"] == "warning"]
+        assert any("Story 2" in msg and "QA gate not passed" in msg for msg in warnings)
+
+    def test_does_not_raise_when_no_story_is_qa_passed(self, monkeypatch):
+        # Regression guard: before this fix, calling pass_deployment_gate on a
+        # non-qa_passed story raised Phase5ValidationError and crashed the job.
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_taiga": False})
+        monkeypatch.setattr(svc, "_status_snapshot", lambda j: {"1": "qa", "2": "implementation"})
+
+        class _StubP5:
+            def save_infra_delta(self, ctx, story_id, delta):
+                raise AssertionError("should never be called for an unpassed story")
+
+            def pass_deployment_gate(self, ctx, story_id, **kw):
+                raise AssertionError("should never be called for an unpassed story")
+
+        monkeypatch.setattr(svc, "Phase5Service", _StubP5)
+        deployed, skipped = svc._run_phase5(job, _ctx(), [1, 2])
+        assert deployed == 0
+        assert skipped == 2
+
+
+# ---------------------------------------------------------------------------
 # Start at a chosen phase (Phases before it already done in the project)
 # ---------------------------------------------------------------------------
 
@@ -1210,7 +1320,7 @@ class TestEndPhase:
         monkeypatch.setattr(svc, "_run_phase2", lambda job, ctx, ids: calls.append("phase2"))
         monkeypatch.setattr(svc, "_run_phase3", lambda job, ctx, ids: calls.append("phase3"))
         monkeypatch.setattr(svc, "_run_phase4", lambda job, ctx, ids: calls.append("phase4"))
-        monkeypatch.setattr(svc, "_run_phase5", lambda job, ctx, ids: calls.append("phase5"))
+        monkeypatch.setattr(svc, "_run_phase5", lambda job, ctx, ids: (calls.append("phase5"), (0, 0))[1])
         with svc._JOBS_LOCK:
             svc._JOBS[job["job_id"]] = job
 
@@ -1232,7 +1342,7 @@ class TestEndPhase:
         monkeypatch.setattr(svc, "_run_phase2", lambda job, ctx, ids: calls.append("phase2"))
         monkeypatch.setattr(svc, "_run_phase3", lambda job, ctx, ids: calls.append("phase3"))
         monkeypatch.setattr(svc, "_run_phase4", lambda job, ctx, ids: calls.append("phase4"))
-        monkeypatch.setattr(svc, "_run_phase5", lambda job, ctx, ids: calls.append("phase5"))
+        monkeypatch.setattr(svc, "_run_phase5", lambda job, ctx, ids: (calls.append("phase5"), (0, 0))[1])
         with svc._JOBS_LOCK:
             svc._JOBS[job["job_id"]] = job
 

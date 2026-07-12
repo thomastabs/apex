@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   acknowledgeBacktrace,
+  adminSetAllStoryStatus,
   logDecision,
   createEpic,
   createProject,
@@ -50,6 +51,7 @@ import {
   updateEpic,
   updateMemberRole,
   updateStory,
+  type AdminPhaseStatus,
   type ApexPhaseStatus,
 } from "@/lib/api/workspace";
 import { getUsageSummary } from "@/lib/api/usage";
@@ -303,6 +305,27 @@ export function useSetStoryPhaseStatus() {
     onSuccess: (_, { storyId }) => {
       const pid = context?.projectId;
       void queryClient.invalidateQueries({ queryKey: ["workspace", "story-phase-status", pid, storyId] });
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", pid] });
+      void queryClient.invalidateQueries({ queryKey: ["phase2", "eligible-epics"] });
+      for (const phase of ["phase3", "phase4", "phase5"]) {
+        void queryClient.invalidateQueries({ queryKey: [phase, "eligible-stories", pid] });
+      }
+    },
+  });
+}
+
+// Testing convenience — bulk-override every story's phase_status. Password
+// checked server-side (see adminSetAllStoryStatus); invalidates the same
+// queries as a single-story override so every nav badge / phase list catches up.
+export function useAdminSetAllStoryStatus() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ phaseStatus, password }: { phaseStatus: AdminPhaseStatus; password: string }) =>
+      adminSetAllStoryStatus(context!, phaseStatus, password),
+    onSuccess: () => {
+      const pid = context?.projectId;
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-phase-status", pid] });
       void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", pid] });
       void queryClient.invalidateQueries({ queryKey: ["phase2", "eligible-epics"] });
       for (const phase of ["phase3", "phase4", "phase5"]) {

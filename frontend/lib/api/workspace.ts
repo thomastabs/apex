@@ -510,6 +510,20 @@ export function setStoryPhaseStatus(context: RequestContext, storyId: number, ph
   );
 }
 
+// Excludes "new" — not a real upsert_story_index status, see backend AdminPhaseStatus.
+export type AdminPhaseStatus = Exclude<ApexPhaseStatus, "new">;
+
+// Testing convenience (see backend/app/api/workspace.py `admin_set_all_story_status`)
+// — bulk-overrides every indexed story's phase_status, bypassing all phase gates.
+// Password-gated server-side; not a real access-control boundary.
+export function adminSetAllStoryStatus(context: RequestContext, phaseStatus: AdminPhaseStatus, password: string) {
+  return apiRequest<{ ok: boolean; updated: number }>("/api/workspace/admin/set-all-story-status", {
+    method: "POST",
+    context,
+    body: { phase_status: phaseStatus, password },
+  });
+}
+
 export function resetAllContextFiles(context: RequestContext) {
   return apiRequest<ContextFilesResponse>("/api/workspace/context-files/reset-all", {
     method: "POST",

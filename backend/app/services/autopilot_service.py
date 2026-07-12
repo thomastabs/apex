@@ -572,8 +572,19 @@ def _run_phase3(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> Non
 
 
 def _run_phase4(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> None:
-    """Run Phase 4: test plan generation + auto QA pass (stories run concurrently)."""
+    """Run Phase 4: test plan generation only (stories run concurrently).
+
+    Autopilot drafts each story's test plan but never executes or verifies its
+    scenarios, so it CANNOT know whether QA actually passes — auto-passing the
+    gate here would be a fabricated result. Stories land at "qa" (test plan
+    saved, gate untouched); a human must run/verify the plan and pass or fail
+    the gate manually in Phase 4 before Phase 5 will deploy that story.
+    """
     job["stories_done"] = 0
+    _emit(job, "warning",
+          "Phase 4 drafts test plans only — it does NOT execute or verify scenarios, "
+          "so the QA gate is left for a human to pass or fail manually. Stories "
+          "without a passed gate are skipped in Phase 5.", phase="phase4")
     _emit(job, "info",
           f"Phase 4 · Test plans for {len(all_story_ids)} stories "
           f"(up to {_AUTOPILOT_CONCURRENCY} at a time)…", phase="phase4")
@@ -586,28 +597,48 @@ def _run_phase4(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> Non
         _emit(job, "info", f"  Story {story_id}: generating test plan…", phase="phase4")
         test_plan = p4.generate_test_plan(ctx, story_id)
         p4.save_test_plan(ctx, story_id, test_plan)
-        p4.pass_gate(ctx, story_id)
         with _progress_lock:
             job["stories_done"] += 1
-        _emit(job, "success", f"  Story {story_id}: QA passed (test plan saved)", phase="phase4",
+        _emit(job, "success",
+              f"  Story {story_id}: test plan saved — awaiting manual QA review", phase="phase4",
               artifact=test_plan[:2000])
         _persist(job)
 
-    _process_stories(job, all_story_ids, _PHASE4_DONE, _worker)
+    # "qa" now counts as done for resume purposes too — Autopilot's part (drafting
+    # the plan) is finished; re-running it wouldn't change that a human still owns
+    # the gate decision.
+    _process_stories(job, all_story_ids, _PHASE4_DONE | {"qa"}, _worker)
 
 
-def _run_phase5(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> None:
-    """Run Phase 5: infra delta bypass + auto deployment gate."""
+def _run_phase5(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> tuple[int, int]:
+    """Run Phase 5: infra delta bypass + auto deployment gate.
+
+    Only stories whose QA gate was actually passed (manually — see _run_phase4)
+    are deployed. A story still sitting at "qa" is skipped with a warning rather
+    than deployed sight-unseen; re-run/resume Autopilot after passing its gate
+    to pick it up. Returns (deployed_count, skipped_count).
+    """
     p5 = Phase5Service()
     job["stories_done"] = 0
     _emit(job, "info", f"Phase 5 · Deployment gate for {len(all_story_ids)} stories…", phase="phase5")
 
+    deployed = 0
+    skipped = 0
     done = _status_snapshot(job)
     for story_id in all_story_ids:
         if _check_stop(job):
-            return
-        if done.get(str(story_id), "") in _PHASE5_DONE:
+            return deployed, skipped
+        status = done.get(str(story_id), "")
+        if status in _PHASE5_DONE:
             job["stories_done"] += 1
+            deployed += 1
+            continue
+        if status != "qa_passed":
+            skipped += 1
+            _emit(job, "warning",
+                  f"  Story {story_id}: skipped — QA gate not passed yet (status: {status or 'unknown'}). "
+                  "Review its test plan and pass the gate manually in Phase 4, then re-run or resume "
+                  "Autopilot to deploy it.", phase="phase5")
             continue
 
         job["current_story_id"] = story_id
@@ -626,8 +657,11 @@ def _run_phase5(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> Non
             notes="Autopilot auto-approved",
         )
         job["stories_done"] += 1
+        deployed += 1
         _emit(job, "success", f"  Story {story_id}: deployed", phase="phase5")
         _persist(job)
+
+    return deployed, skipped
 
 
 # ---------------------------------------------------------------------------
@@ -735,10 +769,11 @@ def _run_pipeline(job_id: str) -> None:
             if _check_stop(job):
                 raise StopIteration
             job["current_phase"] = "phase5"
-            _run_phase5(job, ctx, all_story_ids)
+            deployed, skipped = _run_phase5(job, ctx, all_story_ids)
             if _check_stop(job):
                 raise StopIteration
-            _emit(job, "success", f"Phase 5 complete — {len(all_story_ids)} stories deployed", phase="phase5")
+            skip_note = f", {skipped} awaiting manual QA gate" if skipped else ""
+            _emit(job, "success", f"Phase 5 complete — {deployed} stories deployed{skip_note}", phase="phase5")
 
         # Done
         job["current_phase"] = "done"

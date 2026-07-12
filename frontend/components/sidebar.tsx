@@ -29,6 +29,7 @@ import { ResourcesSection } from "./sidebar/resources-section";
 import { GitHubSection, GithubAutoSync } from "./sidebar/github-section";
 import { FigmaSection, FigmaAutoRestore } from "./sidebar/figma-section";
 import { AboutSection } from "./sidebar/about-section";
+import { AdminSection } from "./sidebar/admin-section";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -174,6 +175,7 @@ function SettingsModal({
             pmTool={serverConfig?.pm_tool === "jira" ? "jira" : "taiga"}
           />
           <AboutSection dark={dark} />
+          <AdminSection dark={dark} />
         </div>
       </div>
     </div>,

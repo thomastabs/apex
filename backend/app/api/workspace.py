@@ -13,6 +13,8 @@ from backend.app.api.deps import (
     resolve_taiga_base,
 )
 from backend.app.schemas.workspace import (
+    AdminSetAllStatusRequest,
+    AdminSetAllStatusResponse,
     AiConfigResponse,
     AiKeyStatusResponse,
     AmendmentsResponse,
@@ -488,6 +490,28 @@ def set_story_phase_status(
             detail="Failed to update story phase status.",
         ) from exc
     return {"ok": True}
+
+
+# Testing convenience only (Tomás, local/manual QA) — NOT a real access-control
+# boundary. The project is already gated by PM auth; this just avoids a stray
+# click bulk-rewriting every story's status. Never treat this as authorization.
+_ADMIN_PASSWORD = "admin2026!"
+
+
+@router.post("/admin/set-all-story-status", response_model=AdminSetAllStatusResponse)
+def admin_set_all_story_status(
+    payload: AdminSetAllStatusRequest,
+    ctx: RequestContext = Depends(get_request_context),
+):
+    if payload.password != _ADMIN_PASSWORD:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Incorrect admin password.")
+    context = ContextService()
+    context.set_active(ctx)
+    story_ids = [int(sid) for sid in context.story_index().keys()]
+    for story_id in story_ids:
+        context.upsert_story_index(story_id, phase_status=payload.phase_status)
+    _logger.info("Admin bulk status override: %d stories -> %s", len(story_ids), payload.phase_status)
+    return {"ok": True, "updated": len(story_ids)}
 
 
 @router.get("/context-files/story-index-stats", response_model=StoryIndexStatsResponse)

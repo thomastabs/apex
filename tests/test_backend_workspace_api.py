@@ -5,6 +5,7 @@ from fastapi import HTTPException
 
 from backend.app.api.deps import AuthContext
 from backend.app.api.workspace import (
+    admin_set_all_story_status,
     delete_ai_key,
     get_ai_config,
     get_config,
@@ -26,6 +27,7 @@ from backend.app.api.workspace import (
     update_context_file,
 )
 from backend.app.schemas.workspace import (
+    AdminSetAllStatusRequest,
     LogDecisionRequest,
     SaveAiConfigRequest,
     SaveAiKeyRequest,
@@ -139,6 +141,44 @@ def test_set_story_phase_status_404_when_not_in_index(monkeypatch):
     with pytest.raises(HTTPException) as ei:
         set_story_phase_status(9, SetPhaseStatusRequest(phase_status="qa"), RequestContext(pm_token="tok", project_id=42))
     assert ei.value.status_code == 404
+
+
+def test_admin_set_all_story_status_rejects_wrong_password(monkeypatch):
+    monkeypatch.setattr("src.context_manager.set_active_project", lambda pid: None)
+    monkeypatch.setattr("src.context_manager.get_story_index", lambda: {"1": {}, "2": {}})
+    monkeypatch.setattr("src.context_manager.upsert_story_index", lambda *a, **k: pytest.fail("should not upsert"))
+    with pytest.raises(HTTPException) as ei:
+        admin_set_all_story_status(
+            AdminSetAllStatusRequest(phase_status="qa_passed", password="wrong"),
+            RequestContext(pm_token="tok", project_id=42),
+        )
+    assert ei.value.status_code == 403
+
+
+def test_admin_set_all_story_status_updates_every_indexed_story(monkeypatch):
+    calls: list[tuple[int, dict]] = []
+    monkeypatch.setattr("src.context_manager.set_active_project", lambda pid: None)
+    monkeypatch.setattr(
+        "src.context_manager.get_story_index",
+        lambda: {"1": {"phase_status": "implementation"}, "2": {"phase_status": "qa"}},
+    )
+    monkeypatch.setattr("src.context_manager.upsert_story_index", lambda sid, **kw: calls.append((sid, kw)))
+    res = admin_set_all_story_status(
+        AdminSetAllStatusRequest(phase_status="qa_passed", password="admin2026!"),
+        RequestContext(pm_token="tok", project_id=42),
+    )
+    assert res == {"ok": True, "updated": 2}
+    assert sorted(calls) == [(1, {"phase_status": "qa_passed"}), (2, {"phase_status": "qa_passed"})]
+
+
+def test_admin_set_all_story_status_empty_index(monkeypatch):
+    monkeypatch.setattr("src.context_manager.set_active_project", lambda pid: None)
+    monkeypatch.setattr("src.context_manager.get_story_index", lambda: {})
+    res = admin_set_all_story_status(
+        AdminSetAllStatusRequest(phase_status="deployed", password="admin2026!"),
+        RequestContext(pm_token="tok", project_id=42),
+    )
+    assert res == {"ok": True, "updated": 0}
 
 
 # ── get_config ──────────────────────────────────────────────────────────────

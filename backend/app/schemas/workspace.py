@@ -23,6 +23,24 @@ class SetPhaseStatusRequest(BaseModel):
     phase_status: PhaseStatus
 
 
+# Excludes "new" — that state means "not in the story index yet" and isn't a
+# status upsert_story_index can actually set (it's not in context_manager's
+# PHASE_STATUSES; every indexed story already has one of the other six).
+AdminPhaseStatus = Literal[
+    "gherkin_locked", "design_locked", "implementation", "qa", "qa_passed", "deployed",
+]
+
+
+class AdminSetAllStatusRequest(BaseModel):
+    phase_status: AdminPhaseStatus
+    password: str = Field(max_length=200)
+
+
+class AdminSetAllStatusResponse(BaseModel):
+    ok: bool
+    updated: int
+
+
 class ContextFileSchema(BaseModel):
     filename: str
     label: str

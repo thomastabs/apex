@@ -101,6 +101,21 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
     onError: (err: Error) => toast.error(`Delete failed: ${err.message}`),
   });
 
+  const deleteAllMut = useMutation({
+    mutationFn: async () => {
+      for (const p of plans) {
+        await deleteTestPlan(context!, p.story_id);
+      }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: PLANS_KEY });
+      void queryClient.invalidateQueries({ queryKey: ["phase4"] });
+      autoSync();
+      toast.success("All test plans deleted.");
+    },
+    onError: (err: Error) => toast.error(`Delete all failed: ${err.message}`),
+  });
+
   const closeModal = () => {
     setViewing(null);
     setEditing(false);
@@ -136,17 +151,35 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
               </p>
             ) : (
               <>
-              <button
-                className={cn(
-                  "mb-2 flex h-8 w-full items-center justify-center gap-1.5 rounded border text-xs font-medium transition-colors disabled:opacity-50",
-                  dark ? "border-neutral-700 text-neutral-300 hover:border-violet-500/60 hover:text-violet-300" : "border-slate-300 text-slate-600 hover:border-violet-400 hover:text-violet-700",
-                )}
-                disabled={downloadAllMut.isPending}
-                onClick={() => downloadAllMut.mutate()}
-              >
-                {downloadAllMut.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
-                Download all as zip
-              </button>
+              <div className="mb-2 flex gap-1.5">
+                <button
+                  className={cn(
+                    "flex h-8 flex-1 items-center justify-center gap-1.5 rounded border text-xs font-medium transition-colors disabled:opacity-50",
+                    dark ? "border-neutral-700 text-neutral-300 hover:border-violet-500/60 hover:text-violet-300" : "border-slate-300 text-slate-600 hover:border-violet-400 hover:text-violet-700",
+                  )}
+                  disabled={downloadAllMut.isPending}
+                  onClick={() => downloadAllMut.mutate()}
+                >
+                  {downloadAllMut.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+                  Download all
+                </button>
+                <button
+                  className={cn(
+                    "flex h-8 flex-1 items-center justify-center gap-1.5 rounded border text-xs font-medium transition-colors disabled:opacity-50",
+                    dark ? "border-neutral-700 text-red-400 hover:border-red-500/60 hover:text-red-300" : "border-slate-300 text-red-600 hover:border-red-400 hover:text-red-700",
+                  )}
+                  disabled={deleteAllMut.isPending}
+                  onClick={() =>
+                    confirm(
+                      `Delete all ${plans.length} test plan(s)? This rolls each story's status back from qa to implementation. This cannot be undone.`,
+                      () => deleteAllMut.mutate(),
+                    )
+                  }
+                >
+                  {deleteAllMut.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+                  Delete all
+                </button>
+              </div>
               <ul className={cn("divide-y rounded border", dark ? "divide-neutral-800 border-neutral-800" : "divide-slate-100 border-slate-200")}>
                 {plans.map((p) => (
                   <li key={p.story_id} className="flex items-center gap-2 px-2.5 py-1.5">
