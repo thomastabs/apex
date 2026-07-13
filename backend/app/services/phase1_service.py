@@ -149,10 +149,28 @@ class Phase1Service:
             **diff,
         }
 
-    def compile_gherkin(self, *, nl_draft: str) -> list[dict]:
+    def generate_clarifying_questions(
+        self,
+        ctx: RequestContext,
+        *,
+        epic_subject: str,
+        epic_description: str = "",
+        nl_draft: str,
+        hint: str = "",
+    ) -> list[dict]:
+        self.configure_request(ctx)
         if not nl_draft.strip():
             raise Phase1ValidationError("nl_draft is required.")
-        return self.ai.compile_gherkin(nl_draft)
+        concept = self.context.project_concept()
+        return self.ai.generate_clarifying_questions(
+            epic_subject, epic_description, nl_draft,
+            project_concept=concept, hint=hint,
+        )
+
+    def compile_gherkin(self, *, nl_draft: str, clarifications: list[dict] | None = None) -> list[dict]:
+        if not nl_draft.strip():
+            raise Phase1ValidationError("nl_draft is required.")
+        return self.ai.compile_gherkin(nl_draft, clarifications)
 
     def _all_stories(self) -> list[dict]:
         """Epic + story titles from the index — scope signal for constraint sizing."""
@@ -184,6 +202,7 @@ class Phase1Service:
         epic_id: int,
         epic_subject: str,
         stories: list[dict],
+        clarifications: list[dict] | None = None,
     ) -> dict:
         self.context.set_active(ctx)
         self.context.init_context()
@@ -204,6 +223,8 @@ class Phase1Service:
                 epic_title=epic_subject,
             )
             story_ids.append(story_id)
+        if epic_id and clarifications:
+            self.context.save_epic_clarifications(epic_id, epic_subject, clarifications)
         return {
             "ok": True,
             "epic_id": epic_id,

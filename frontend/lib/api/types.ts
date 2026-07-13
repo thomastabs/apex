@@ -127,11 +127,34 @@ export type Phase1CompileGherkinResponse = {
   stories: CompiledStory[];
 };
 
+export type ClarifyingQuestion = {
+  id: string;
+  question: string;
+  rationale: string;
+};
+
+export type QaPair = {
+  question: string;
+  answer: string;
+};
+
+export type Phase1GenerateClarifyingQuestionsRequest = {
+  epic_subject: string;
+  epic_description?: string;
+  nl_draft: string;
+  hint?: string;
+};
+
+export type Phase1GenerateClarifyingQuestionsResponse = {
+  questions: ClarifyingQuestion[];
+};
+
 export type Phase1PushStoriesRequest = {
   epic_subject?: string;
   epic_description?: string;
   epic_id?: number | null;
   stories: CompiledStory[];
+  clarifications?: QaPair[];
 };
 
 export type Phase1PushStoriesResponse = {

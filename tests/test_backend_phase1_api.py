@@ -8,6 +8,7 @@ from backend.app.api.phase1 import (
     analyze_gaps,
     compile_gherkin,
     finalize_stories,
+    generate_clarifying_questions,
     generate_nl_stories,
 )
 from backend.app.main import health
@@ -15,6 +16,7 @@ from backend.app.schemas.phase1 import (
     AnalyzeGapsRequest,
     CompileGherkinRequest,
     FinalizeStoriesRequest,
+    GenerateClarifyingQuestionsRequest,
     GenerateNlStoriesRequest,
 )
 
@@ -28,8 +30,13 @@ class StubPhase1Service:
         self.last_figma_token = figma_token
         return f"[S] {epic_subject}", 1
 
-    def compile_gherkin(self, *, nl_draft):
+    def compile_gherkin(self, *, nl_draft, clarifications=None):
+        self.last_clarifications = clarifications
         return [{"title": "Story A", "size": "S", "gherkin": "Feature: A"}]
+
+    def generate_clarifying_questions(self, ctx, *, epic_subject, epic_description="", nl_draft, hint=""):
+        self.last_ctx = ctx
+        return [{"id": "Q1", "question": "What happens on timeout?", "rationale": "Unclear."}]
 
     def analyze_gaps(self, ctx, *, existing_epics, hint=""):
         self.last_ctx = ctx
@@ -38,8 +45,9 @@ class StubPhase1Service:
              "rationale": "r", "suggested_stories": ["s"]},
         ]}
 
-    def finalize_stories(self, ctx, *, epic_id, epic_subject, stories):
+    def finalize_stories(self, ctx, *, epic_id, epic_subject, stories, clarifications=None):
         self.last_ctx = ctx
+        self.last_clarifications = clarifications
         return {
             "ok": True,
             "epic_id": epic_id,
@@ -108,6 +116,19 @@ def test_analyze_gaps_route():
     assert response["gaps"][0]["importance"] == "critical"
 
 
+def test_generate_clarifying_questions_route():
+    service = StubPhase1Service()
+    response = generate_clarifying_questions(
+        GenerateClarifyingQuestionsRequest(epic_subject="Login", nl_draft="Draft"),
+        ctx=_ctx(),
+        service=service,
+        _rl=None,
+    )
+
+    assert response["questions"][0]["question"] == "What happens on timeout?"
+    assert service.last_ctx is not None
+
+
 def test_compile_gherkin_route_does_not_need_request_context():
     response = compile_gherkin(
         CompileGherkinRequest(nl_draft="Draft"),
@@ -117,9 +138,19 @@ def test_compile_gherkin_route_does_not_need_request_context():
     assert response["stories"][0]["title"] == "Story A"
 
 
+def test_compile_gherkin_route_forwards_clarifications():
+    service = StubPhase1Service()
+    compile_gherkin(
+        CompileGherkinRequest(nl_draft="Draft", clarifications=[{"question": "Q", "answer": "A"}]),
+        service=service,
+    )
+
+    assert service.last_clarifications == [{"question": "Q", "answer": "A"}]
+
+
 def test_compile_gherkin_route_carries_assumptions():
     class AssumptionStub(StubPhase1Service):
-        def compile_gherkin(self, *, nl_draft):
+        def compile_gherkin(self, *, nl_draft, clarifications=None):
             return [{
                 "title": "Story A", "size": "S", "gherkin": "Feature: A",
                 "assumptions": ["Login: assumed session lasts 24h"],
@@ -146,3 +177,19 @@ def test_finalize_stories_route():
 
     assert response["epic_id"] == 10
     assert response["story_ids"] == [100]
+
+
+def test_finalize_stories_route_forwards_clarifications():
+    service = StubPhase1Service()
+    finalize_stories(
+        FinalizeStoriesRequest(
+            epic_id=10,
+            epic_subject="Epic",
+            stories=[{"id": 100, "title": "Story", "gherkin": "Feature: Story"}],
+            clarifications=[{"question": "Q", "answer": "A"}],
+        ),
+        ctx=_ctx(),
+        service=service,
+    )
+
+    assert service.last_clarifications == [{"question": "Q", "answer": "A"}]

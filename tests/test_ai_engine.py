@@ -1482,6 +1482,62 @@ class TestMultiModelCrossCheck:
         # service layer's job) — it just returns whatever the AI produced.
         assert result.label == "New"
 
+    def test_clarifications_block_empty_by_default(self):
+        import src.ai_engine as ai
+        assert ai._clarifications_block([]) == ""
+        assert ai._clarifications_block([{"question": "Q", "answer": ""}]) == ""
+        assert ai._clarifications_block([{"question": "Q", "answer": "   "}]) == ""
+
+    def test_clarifications_block_skips_unanswered_pairs(self):
+        import src.ai_engine as ai
+        block = ai._clarifications_block([
+            {"question": "Answered?", "answer": "Yes"},
+            {"question": "Unanswered?", "answer": ""},
+        ])
+        assert "Answered?" in block
+        assert "Yes" in block
+        assert "Unanswered?" not in block
+
+    def test_clarifications_block_frames_as_authoritative(self):
+        import src.ai_engine as ai
+        block = ai._clarifications_block([{"question": "Q", "answer": "A"}])
+        assert "authoritative" in block.lower()
+
+    def test_generate_clarifying_questions_calls_structured_extraction(self, monkeypatch):
+        import src.ai_engine as ai
+        captured = {}
+        def fake(system, human, model, schema, *a, **k):
+            captured["human"] = human
+            return ai.ClarifyingQuestionList(questions=[
+                ai.ClarifyingQuestion(id="Q1", question="What happens on timeout?", rationale="Unstated."),
+            ])
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress", fake)
+        result = ai.generate_clarifying_questions("Epic", "Desc", "[XS] a story", project_concept="Concept")
+        assert result.questions[0].id == "Q1"
+        assert "a story" in captured["human"]
+        assert "Concept" in captured["human"]
+
+    def test_compile_gherkin_stories_folds_clarifications_into_human_turn(self, monkeypatch):
+        import src.ai_engine as ai
+        captured = {}
+        def fake(system, human, model, schema, *a, **k):
+            captured["human"] = human
+            return ai.GherkinStoryList(stories=[])
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress", fake)
+        ai.compile_gherkin_stories("Draft", clarifications=[{"question": "Q", "answer": "A"}])
+        assert "Q" in captured["human"]
+        assert "A" in captured["human"]
+
+    def test_compile_gherkin_stories_unchanged_without_clarifications(self, monkeypatch):
+        import src.ai_engine as ai
+        captured = {}
+        def fake(system, human, model, schema, *a, **k):
+            captured["human"] = human
+            return ai.GherkinStoryList(stories=[])
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress", fake)
+        ai.compile_gherkin_stories("Draft")
+        assert "Clarifying Q&A" not in captured["human"]
+
     def test_extract_design_system_screen_prompt_names_regenerate_target(self, monkeypatch):
         import src.ai_engine as ai
         captured = {}

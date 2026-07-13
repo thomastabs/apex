@@ -5,10 +5,13 @@ import { toPmCtx } from "./workspace";
 import type {
   CompiledStory,
   EpicSuggestion,
+  Phase1GenerateClarifyingQuestionsRequest,
+  Phase1GenerateClarifyingQuestionsResponse,
   Phase1GenerateNlStoriesRequest,
   Phase1GenerateNlStoriesResponse,
   Phase1PushStoriesRequest,
   Phase1PushStoriesResponse,
+  QaPair,
   RequestContext,
   RequirementGapReport,
 } from "./types";
@@ -139,11 +142,30 @@ export function generateConstraints(context: RequestContext, signal?: AbortSigna
   );
 }
 
-export function compileGherkin(context: RequestContext, nlDraft: string, signal?: AbortSignal) {
+export function generateClarifyingQuestions(
+  context: RequestContext,
+  body: Phase1GenerateClarifyingQuestionsRequest,
+  signal?: AbortSignal,
+) {
+  return apiRequest<Phase1GenerateClarifyingQuestionsResponse>("/api/phase1/generate-clarifying-questions", {
+    method: "POST",
+    context,
+    body,
+    timeoutMs: 120_000,
+    signal,
+  });
+}
+
+export function compileGherkin(
+  context: RequestContext,
+  nlDraft: string,
+  clarifications: QaPair[] = [],
+  signal?: AbortSignal,
+) {
   return apiRequest<{ stories: CompiledStory[] }>("/api/phase1/compile-gherkin", {
     method: "POST",
     context,
-    body: { nl_draft: nlDraft },
+    body: { nl_draft: nlDraft, clarifications },
     timeoutMs: 180_000,
     signal,
   });
@@ -163,6 +185,23 @@ async function pushPhase1StoriesDirect(
   const epic = body.epic_id
     ? await adapter.getEpic(ctx, String(body.epic_id))
     : await adapter.createEpic(ctx, body.epic_subject ?? "", body.epic_description ?? "", []);
+
+  // Best-effort: fold answered Phase 1 clarifying Q&A into the epic description so
+  // the richer detail reaches the team in the PM tool, not just functional-spec.md.
+  // Never fails the push over this — same posture as the story-URL fetch below.
+  if (body.clarifications?.length) {
+    try {
+      const block = [
+        "**Clarifications (Phase 1 Q&A):**",
+        ...body.clarifications.map((qa) => `- Q: ${qa.question}\n  A: ${qa.answer}`),
+      ].join("\n");
+      await adapter.updateEpic(ctx, String(epic.id), epic.version ?? 1, {
+        description: `${epic.description ?? ""}\n\n${block}`.trim(),
+      });
+    } catch {
+      // Write-back failed; clarifications still land in functional-spec.md via finalize-stories.
+    }
+  }
 
   let readyStatus: { id: string; name: string } | undefined;
   try {
@@ -230,6 +269,7 @@ async function pushPhase1StoriesDirect(
         title: story.title,
         gherkin: story.gherkin,
       })),
+      clarifications: body.clarifications ?? [],
     },
     timeoutMs: 120_000,
   });

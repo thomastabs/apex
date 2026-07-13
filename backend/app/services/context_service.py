@@ -238,6 +238,14 @@ class ContextService:
             epic_title=epic_title,
         )
 
+    def save_epic_clarifications(
+        self,
+        epic_id: int,
+        epic_title: str,
+        qa_pairs: list[dict],
+    ) -> None:
+        context_manager.save_epic_clarifications(epic_id, epic_title, qa_pairs)
+
     def append_epic_technical_spec(
         self,
         epic_id: int,

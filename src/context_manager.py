@@ -1750,6 +1750,43 @@ def append_gherkin(
     rebuild_spec_index()
 
 
+_CLARIFICATIONS_RE = re.compile(r"^\n?\*\*Clarifications:\*\*\n(?:- Q: .*\n  A: .*\n)+")
+
+
+def save_epic_clarifications(epic_id: int, epic_title: str, qa_pairs: list[dict]) -> None:
+    """Write/replace the answered Phase 1 clarifying Q&A for an epic in functional-spec.md.
+
+    Placed directly under the epic's `## Epic N: Title` heading, before its story
+    blocks. Idempotent — re-finalizing the same epic replaces the previous block
+    rather than duplicating it. No-op when there are no answered pairs (unanswered
+    questions are never persisted). Assumes the epic section already exists
+    (finalize_stories always runs append_gherkin for at least one story first).
+    """
+    answered = [p for p in qa_pairs if str(p.get("answer", "")).strip()]
+    if not answered:
+        return
+    init_context()
+    fs = _path("functional-spec.md")
+    content = fs.read_text(encoding="utf-8")
+
+    epic_pattern = rf"\n## Epic {epic_id}:.*?(?=\n## |\Z)"
+    epic_match = re.search(epic_pattern, content, re.DOTALL)
+    if not epic_match:
+        return
+
+    section = epic_match.group(0)
+    heading_end = section.index("\n", 1) + 1
+    heading = section[:heading_end]
+    rest = _CLARIFICATIONS_RE.sub("", section[heading_end:], count=1)
+
+    clar_text = "\n**Clarifications:**\n" + "".join(
+        f"- Q: {p['question']}\n  A: {p['answer'].strip()}\n" for p in answered
+    )
+    new_section = heading + clar_text + rest
+    content = content[:epic_match.start()] + new_section + content[epic_match.end():]
+    fs.write_text(content, encoding="utf-8")
+
+
 def append_technical_spec(
     story_id: int,
     spec: str,

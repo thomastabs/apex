@@ -42,8 +42,15 @@ class FakeAiService:
         self.images = images
         return "[S] Login Story", len(frames)
 
-    def compile_gherkin(self, nl_draft: str) -> list[dict]:
+    def compile_gherkin(self, nl_draft: str, clarifications: list[dict] | None = None) -> list[dict]:
+        self.compile_args = (nl_draft, clarifications)
         return [{"title": "Story A", "size": "S", "gherkin": "Feature: A\n\n  Scenario: s"}]
+
+    def generate_clarifying_questions(
+        self, epic_subject: str, epic_description: str, nl_draft: str, *, project_concept: str = "", hint: str = "",
+    ) -> list[dict]:
+        self.clarify_args = (epic_subject, epic_description, nl_draft, project_concept, hint)
+        return [{"id": "Q1", "question": "What happens on timeout?", "rationale": "Draft doesn't say."}]
 
     # Multi-model cross-check
     alt = "gpt-4o"
@@ -110,6 +117,9 @@ class FakeContextService:
             "epic_id": epic_id,
             "epic_title": epic_title,
         })
+
+    def save_epic_clarifications(self, epic_id, epic_title, qa_pairs) -> None:
+        self.saved_clarifications = (epic_id, epic_title, qa_pairs)
 
 
 def _service():
@@ -302,6 +312,32 @@ def test_compile_gherkin_requires_draft():
         service.compile_gherkin(nl_draft="")
 
 
+def test_compile_gherkin_forwards_clarifications():
+    service, ai, _ = _service()
+
+    service.compile_gherkin(nl_draft="Draft", clarifications=[{"question": "Q", "answer": "A"}])
+
+    assert ai.compile_args == ("Draft", [{"question": "Q", "answer": "A"}])
+
+
+def test_generate_clarifying_questions_requires_draft():
+    service, _, _ = _service()
+
+    with pytest.raises(Phase1ValidationError, match="nl_draft"):
+        service.generate_clarifying_questions(_ctx(), epic_subject="Epic", nl_draft="")
+
+
+def test_generate_clarifying_questions_forwards_concept():
+    service, ai, _ = _service()
+
+    questions = service.generate_clarifying_questions(
+        _ctx(), epic_subject="Epic", epic_description="Desc", nl_draft="Draft", hint="mobile",
+    )
+
+    assert questions == [{"id": "Q1", "question": "What happens on timeout?", "rationale": "Draft doesn't say."}]
+    assert ai.clarify_args == ("Epic", "Desc", "Draft", "Project concept", "mobile")
+
+
 def test_finalize_stories_writes_context_entries():
     service, _, context = _service()
 
@@ -318,6 +354,35 @@ def test_finalize_stories_writes_context_entries():
     assert context.appended[0]["epic_id"] == 20
     assert context.appended[0]["epic_title"] == "New Epic"
     assert context.appended[0]["story_title"] == "Story A"
+    assert not hasattr(context, "saved_clarifications")
+
+
+def test_finalize_stories_saves_clarifications_when_given():
+    service, _, context = _service()
+
+    service.finalize_stories(
+        _ctx(),
+        epic_id=20,
+        epic_subject="New Epic",
+        stories=[{"id": 100, "title": "Story A", "gherkin": "Feature: Story A\n  Scenario: basic\n    Given a state\n    When action\n    Then outcome"}],
+        clarifications=[{"question": "Q", "answer": "A"}],
+    )
+
+    assert context.saved_clarifications == (20, "New Epic", [{"question": "Q", "answer": "A"}])
+
+
+def test_finalize_stories_skips_clarifications_when_empty():
+    service, _, context = _service()
+
+    service.finalize_stories(
+        _ctx(),
+        epic_id=20,
+        epic_subject="New Epic",
+        stories=[{"id": 100, "title": "Story A", "gherkin": "Feature: Story A\n  Scenario: basic\n    Given a state\n    When action\n    Then outcome"}],
+        clarifications=[],
+    )
+
+    assert not hasattr(context, "saved_clarifications")
 
 
 def test_generate_constraints_grounds_in_concept_stack_and_stories():

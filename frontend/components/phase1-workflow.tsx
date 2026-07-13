@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, FilePlus2, GitCompare, Info, Loader2, Plus, RefreshCw, RotateCcw, ScanSearch, Sparkles, Trash2, Upload } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, FilePlus2, GitCompare, HelpCircle, Info, Loader2, Plus, RefreshCw, RotateCcw, ScanSearch, Sparkles, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button, Callout, Input, Skeleton, Textarea } from "@/components/ui/primitives";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
@@ -10,6 +10,7 @@ import { CancelButton } from "@/components/ui/cancel-button";
 import {
   useAnalyzeGaps,
   useCompileGherkin,
+  useGenerateClarifyingQuestions,
   useGenerateConstraints,
   useCrossCheckStories,
   useGenerateNlStories,
@@ -23,7 +24,7 @@ import { CrossCheckPanel, AltModelSelect } from "@/components/cross-check-panel"
 import { GuideTheAI } from "@/components/guide-the-ai";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
-import type { CompiledStory, EpicSuggestion, RequirementGapReport } from "@/lib/api/types";
+import type { ClarifyingQuestion, CompiledStory, EpicSuggestion, QaPair, RequirementGapReport } from "@/lib/api/types";
 import { cn, errMsg } from "@/lib/utils";
 import { FigmaStoryPanel } from "@/components/figma-story-panel";
 
@@ -100,6 +101,11 @@ const COMPILE_STEPS = [
   "Validating Feature blocks…",
   "Finalizing acceptance criteria…",
 ];
+const CLARIFY_STEPS = [
+  "Reading the draft…",
+  "Checking for ambiguous points…",
+  "Ranking by impact on acceptance criteria…",
+];
 const PUSH_STEPS = [
   "Validating Gherkin stories…",
   "Creating PM stories…",
@@ -162,6 +168,10 @@ export function Phase1Workflow() {
   const aiConfig = useAiConfig();
   const crossEnabled = (aiConfig.data?.configured_providers?.length ?? 0) >= 2;
   const compile = useCompileGherkin();
+  const clarify = useGenerateClarifyingQuestions();
+  const [qaQuestions, setQaQuestions] = useState<ClarifyingQuestion[]>([]);
+  const [qaAnswers, setQaAnswers] = useState<Record<string, string>>({});
+  const [clarifications, setClarifications] = useState<QaPair[]>([]);
   const push = usePushPhase1Stories();
   const genConstraints = useGenerateConstraints();
   const updateContextFile = useUpdateContextFile();
@@ -219,7 +229,7 @@ export function Phase1Workflow() {
     [epics.data, epicId],
   );
   const canGenerate = mode === "load" ? Boolean(activeEpic) : Boolean(epicTitle.trim());
-  const busy = generate.isPending || compile.isPending || push.isPending || suggestEpics.isPending || analyzeGaps.isPending;
+  const busy = generate.isPending || compile.isPending || clarify.isPending || push.isPending || suggestEpics.isPending || analyzeGaps.isPending;
   const noContext = !context;
   const hasUnsaved = Boolean(nlDraft || compiledStories.length);
   const hasWorkInProgress = Boolean(epicTitle || epicDescription || epicId || nlDraft || compiledStories.length || suggestions.length);
@@ -1070,18 +1080,80 @@ export function Phase1Workflow() {
               </div>
             ) : null}
 
+            <div className="space-y-2">
+              <Button
+                variant="secondary"
+                className="w-full"
+                disabled={busy || noContext || !nlDraft.trim()}
+                onClick={() =>
+                  clarify.mutate(
+                    { epic_subject: epicTitle, epic_description: epicDescription, nl_draft: nlDraft, hint: generateHint },
+                    {
+                      onSuccess: (data) => {
+                        setQaQuestions(data.questions);
+                        setQaAnswers({});
+                        if (data.questions.length === 0) {
+                          toast.info("Draft looks unambiguous — no clarifying questions.");
+                        }
+                      },
+                    },
+                  )
+                }
+              >
+                {clarify.isPending
+                  ? <><Loader2 className="size-4 animate-spin" /> Checking for ambiguity…</>
+                  : <><HelpCircle className="size-4" /> Clarify Ambiguities</>}
+              </Button>
+              <AIProgressIndicator steps={CLARIFY_STEPS} isPending={clarify.isPending} dark={dark} />
+              {clarify.isPending && <CancelButton onCancel={() => clarify.cancel()} className="w-full" />}
+              {qaQuestions.length > 0 ? (
+                <div className={cn("space-y-3 rounded-md border p-3", dark ? "border-neutral-700 bg-neutral-800/50" : "border-slate-200 bg-slate-50")}>
+                  <div className="flex items-center justify-between">
+                    <p className={cn("text-xs font-medium", dark ? "text-neutral-300" : "text-slate-600")}>
+                      Optional — answers sharpen the Acceptance Criteria below and get saved to your PM tool.
+                    </p>
+                    <button
+                      className={cn("shrink-0 rounded p-1", dark ? "text-neutral-500 hover:bg-neutral-700" : "text-slate-400 hover:bg-slate-200")}
+                      onClick={() => { setQaQuestions([]); setQaAnswers({}); }}
+                      title="Dismiss"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                  {qaQuestions.map((q) => (
+                    <div key={q.id} className="space-y-1">
+                      <p className={cn("text-sm font-medium", dark ? "text-neutral-100" : "text-slate-800")}>{q.question}</p>
+                      <p className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-400")}>{q.rationale}</p>
+                      <Input
+                        placeholder="Your answer (optional)…"
+                        value={qaAnswers[q.id] ?? ""}
+                        onChange={(event) => setQaAnswers((a) => ({ ...a, [q.id]: event.target.value }))}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
             <Button
               className="w-full"
               disabled={busy || noContext}
-              onClick={() =>
-                compile.mutate(nlDraft, {
-                  onSuccess: (data) => {
-                    setCompiledStories(data.stories);
-                    setStep(4);
-                    toast.success(`${data.stories.length} stories converted to Acceptance Criteria`);
+              onClick={() => {
+                const answered = qaQuestions
+                  .map((q) => ({ question: q.question, answer: (qaAnswers[q.id] ?? "").trim() }))
+                  .filter((p) => p.answer);
+                setClarifications(answered);
+                compile.mutate(
+                  { nlDraft, clarifications: answered },
+                  {
+                    onSuccess: (data) => {
+                      setCompiledStories(data.stories);
+                      setStep(4);
+                      toast.success(`${data.stories.length} stories converted to Acceptance Criteria`);
+                    },
                   },
-                })
-              }
+                );
+              }}
             >
               {compile.isPending
                 ? <><Loader2 className="size-4 animate-spin" /> Converting…</>
@@ -1303,6 +1375,7 @@ export function Phase1Workflow() {
                         epic_description: epicDescription,
                         epic_id: epicId,
                         stories: compiledStories,
+                        clarifications,
                       },
                       {
                         onSuccess: (data) => {

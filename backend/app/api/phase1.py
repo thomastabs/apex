@@ -15,6 +15,8 @@ from backend.app.schemas.phase1 import (
     CrossCheckResponse,
     FinalizeStoriesRequest,
     FinalizeStoriesResponse,
+    GenerateClarifyingQuestionsRequest,
+    GenerateClarifyingQuestionsResponse,
     GenerateConstraintsResponse,
     GenerateNlStoriesRequest,
     GenerateNlStoriesResponse,
@@ -122,6 +124,27 @@ def generate_stories_from_figma(
         _handle_error(exc)
 
 
+@router.post("/generate-clarifying-questions", response_model=GenerateClarifyingQuestionsResponse)
+def generate_clarifying_questions(
+    payload: GenerateClarifyingQuestionsRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase1Service = Depends(get_phase1_service),
+    _rl: None = Depends(ai_rate_limit),
+):
+    try:
+        return {
+            "questions": service.generate_clarifying_questions(
+                ctx,
+                epic_subject=payload.epic_subject,
+                epic_description=payload.epic_description,
+                nl_draft=payload.nl_draft,
+                hint=payload.hint,
+            )
+        }
+    except Exception as exc:
+        _handle_error(exc)
+
+
 @router.post("/cross-check-stories", response_model=CrossCheckResponse)
 def cross_check_stories(
     payload: CrossCheckRequest,
@@ -149,7 +172,12 @@ def compile_gherkin(
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
-        return {"stories": service.compile_gherkin(nl_draft=payload.nl_draft)}
+        return {
+            "stories": service.compile_gherkin(
+                nl_draft=payload.nl_draft,
+                clarifications=[c.model_dump() for c in payload.clarifications],
+            )
+        }
     except Exception as exc:
         _handle_error(exc)
 
@@ -166,6 +194,7 @@ def finalize_stories(
             epic_id=payload.epic_id,
             epic_subject=payload.epic_subject,
             stories=[story.model_dump() for story in payload.stories],
+            clarifications=[c.model_dump() for c in payload.clarifications],
         )
     except Exception as exc:
         _handle_error(exc)

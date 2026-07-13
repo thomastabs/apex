@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   analyzeRequirementGaps,
   compileGherkin,
+  generateClarifyingQuestions,
   generateConstraints,
   crossCheckStories,
   generateNlStories,
@@ -15,7 +16,12 @@ import {
   type ExistingEpicInput,
 } from "@/lib/api/phase1";
 import { refreshStoryIndex } from "@/lib/api/phase2";
-import type { Phase1GenerateNlStoriesRequest, Phase1PushStoriesRequest } from "@/lib/api/types";
+import type {
+  Phase1GenerateClarifyingQuestionsRequest,
+  Phase1GenerateNlStoriesRequest,
+  Phase1PushStoriesRequest,
+  QaPair,
+} from "@/lib/api/types";
 import { useApiContext, useFigmaContext } from "@/lib/stores/session-store";
 import { useCancellableMutation } from "@/lib/hooks/use-cancellable-mutation";
 import { toast } from "sonner";
@@ -92,11 +98,22 @@ export function useCrossCheckStories() {
   );
 }
 
+export function useGenerateClarifyingQuestions() {
+  const context = useApiContext();
+
+  return useCancellableMutation(
+    (body: Phase1GenerateClarifyingQuestionsRequest, signal) =>
+      generateClarifyingQuestions(context!, body, signal),
+    { onError: () => toast.error("Clarifying-question generation failed. The AI may be busy — try again shortly.") },
+  );
+}
+
 export function useCompileGherkin() {
   const context = useApiContext();
 
   return useCancellableMutation(
-    (nlDraft: string, signal) => compileGherkin(context!, nlDraft, signal),
+    ({ nlDraft, clarifications = [] }: { nlDraft: string; clarifications?: QaPair[] }, signal) =>
+      compileGherkin(context!, nlDraft, clarifications, signal),
     { onError: () => toast.error("Gherkin compilation failed. The AI may be busy — try again shortly.") },
   );
 }

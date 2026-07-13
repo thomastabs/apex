@@ -93,8 +93,31 @@ class CrossCheckResponse(BaseModel):
     only_alt: list[CrossCheckScenario] = Field(default_factory=list)
 
 
+class ClarifyingQuestionSchema(BaseModel):
+    id: str
+    question: str
+    rationale: str = ""
+
+
+class GenerateClarifyingQuestionsRequest(BaseModel):
+    epic_subject: str = Field(..., max_length=500)
+    epic_description: str = Field("", max_length=5_000)
+    nl_draft: str = Field(..., max_length=50_000)
+    hint: str = Field("", max_length=2_000)
+
+
+class GenerateClarifyingQuestionsResponse(BaseModel):
+    questions: list[ClarifyingQuestionSchema]
+
+
+class QaPairSchema(BaseModel):
+    question: str = Field(..., max_length=1_000)
+    answer: str = Field("", max_length=4_000)
+
+
 class CompileGherkinRequest(BaseModel):
     nl_draft: str = Field(..., max_length=50_000)
+    clarifications: list[QaPairSchema] = Field(default_factory=list, max_length=20)
 
 
 class CompiledStorySchema(BaseModel):
@@ -118,6 +141,7 @@ class FinalizeStoriesRequest(BaseModel):
     epic_id: int
     epic_subject: str = ""
     stories: list[FinalizedStorySchema]
+    clarifications: list[QaPairSchema] = Field(default_factory=list, max_length=20)
 
 
 class FinalizeStoriesResponse(BaseModel):

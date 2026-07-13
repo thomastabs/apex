@@ -817,6 +817,20 @@ class GherkinStoryList(BaseModel):
     )
 
 
+class ClarifyingQuestion(BaseModel):
+    id: str = Field(description="Stable id, e.g. Q1, Q2, unique within this batch, in output order")
+    question: str = Field(description="One genuinely ambiguous point in the NL draft, phrased as a direct question")
+    rationale: str = Field(
+        description="One short sentence on why this is ambiguous and what it would change in the acceptance criteria"
+    )
+
+
+class ClarifyingQuestionList(BaseModel):
+    questions: list[ClarifyingQuestion] = Field(
+        description="Up to 5 genuinely ambiguous points; empty when the draft is already unambiguous"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Phase 1 · Step 1 — NL Story Generation (Product Owner persona)
 # ---------------------------------------------------------------------------
@@ -914,6 +928,26 @@ def _guidance_block(instructions: str) -> str:
         "honour where it fits the inputs above, never invent requirements that are "
         "not grounded in them):\n"
         + fence_user_content(instructions)
+    )
+
+
+def _clarifications_block(qa_pairs: list[dict]) -> str:
+    """Render answered clarifying Q&A into a prompt block.
+
+    Unlike `_guidance_block`, these are AUTHORITATIVE FACTS from the requirements
+    author, not stylistic preference — resolve ambiguity with them directly rather
+    than treating them as advisory nudges. Unanswered pairs (empty `answer`) are
+    skipped; empty string when nothing was answered so default behaviour is
+    unchanged (byte-identical prompt).
+    """
+    answered = [p for p in qa_pairs if str(p.get("answer", "")).strip()]
+    if not answered:
+        return ""
+    lines = "\n".join(f"Q: {p['question']}\nA: {p['answer'].strip()}" for p in answered)
+    return (
+        "\n\nClarifying Q&A — authoritative answers from the requirements author, "
+        "resolving ambiguity in the draft above. Use these as facts, not suggestions:\n"
+        + fence_user_content(lines)
     )
 
 
@@ -1113,10 +1147,75 @@ def diff_endpoint_sets(primary_md: str, alt_md: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Phase 1 · Step 1.5 — Clarifying Questions (ambiguity check before compiling)
+# ---------------------------------------------------------------------------
+
+_CLARIFY_VERSION = "1.0"
+_CLARIFY_SYSTEM = """\
+You are a meticulous Business Analyst operating within the Apex Framework, reviewing a
+human-reviewed Natural Language story draft before it is compiled into formal Gherkin
+acceptance criteria.
+
+Your ONLY job: surface points in the draft that are genuinely AMBIGUOUS — ambiguous
+enough that a Gherkin compiler would have to GUESS a concrete Given/When/Then, and a
+different guess would produce materially different acceptance criteria (a different
+error message, a different limit, a different fallback behavior, a different actor).
+
+Rules you MUST follow:
+- Return UP TO 5 questions, ranked by how much the answer would change the compiled
+  acceptance criteria. Fewer is fine.
+- If the draft is already unambiguous enough to compile as-is, return an EMPTY list.
+  Do NOT manufacture busywork questions just to have something to ask — that defeats
+  the purpose and wastes the author's time.
+- Never ask about things the draft already states, and never ask generic questions
+  that apply to any project ("what tech stack?", "who are the users?") — ground every
+  question in a SPECIFIC gap in THIS draft.
+- Phrase each question so a short, direct answer resolves it (avoid open-ended
+  "tell me more about X").
+- `rationale` is one short sentence: what's ambiguous, and what it would change in
+  the acceptance criteria if answered one way vs. another.
+- Assign each question a stable id Q1, Q2, … in output order.
+"""
+
+
+def _build_clarify_human(
+    epic_subject: str, epic_description: str, nl_draft: str, project_concept: str = "", hint: str = "",
+) -> str:
+    parts = []
+    if project_concept.strip():
+        parts.append("Project Concept:\n" + fence_user_content(project_concept))
+    parts.append("Epic:\n" + fence_user_content(f"{epic_subject}\n\n{epic_description}".strip()))
+    parts.append("Natural Language Draft (human-reviewed):\n\n" + fence_user_content(nl_draft))
+    if hint.strip():
+        parts.append("Team guidance / constraints:\n" + fence_user_content(hint))
+    parts.append(
+        "Identify any points in the draft above that are genuinely ambiguous enough to "
+        "change the compiled acceptance criteria. Return an empty list if none."
+    )
+    return "\n\n".join(parts)
+
+
+def generate_clarifying_questions(
+    epic_subject: str,
+    epic_description: str,
+    nl_draft: str,
+    project_concept: str = "",
+    hint: str = "",
+    model: str = "",
+) -> ClarifyingQuestionList:
+    human = _build_clarify_human(epic_subject, epic_description, nl_draft, project_concept, hint)
+    _logger.debug("generate_clarifying_questions prompt_version=%s", _CLARIFY_VERSION)
+    return _invoke_structured_with_progress(
+        _CLARIFY_SYSTEM, human, model or get_model(), ClarifyingQuestionList,
+        max_tokens=2048, temperature=0.2,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Phase 1 · Step 2 — Gherkin Compilation (GL Compiler persona)
 # ---------------------------------------------------------------------------
 
-_GL_COMPILATION_VERSION = "1.3"
+_GL_COMPILATION_VERSION = "1.4"
 _GL_COMPILATION_SYSTEM = """\
 You are a strict Gherkin Language (GL) compiler operating within the Apex Framework.
 Your ONLY job is to take a human-reviewed Natural Language story draft and compile it
@@ -1192,19 +1291,21 @@ KEY RULES ILLUSTRATED:
 """
 
 
-def _build_gherkin_human(nl_draft: str) -> str:
+def _build_gherkin_human(nl_draft: str, clarifications: list[dict] | None = None) -> str:
     return (
         "Natural Language Draft (human-reviewed):\n\n"
         + fence_user_content(nl_draft)
+        + _clarifications_block(clarifications or [])
         + "\n\nCompile every story and scenario into formal Gherkin Language."
     )
 
 
 def compile_gherkin_stories(
     nl_draft: str,
+    clarifications: list[dict] | None = None,
     on_story: Callable[[int], None] | None = None,
 ) -> GherkinStoryList:
-    human = _build_gherkin_human(nl_draft)
+    human = _build_gherkin_human(nl_draft, clarifications)
     _logger.debug("compile_gherkin_stories prompt_version=%s", _GL_COMPILATION_VERSION)
     return _invoke_structured_with_progress(
         _GL_COMPILATION_SYSTEM, human, get_model(), GherkinStoryList,

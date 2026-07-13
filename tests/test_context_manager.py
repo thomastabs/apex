@@ -136,6 +136,64 @@ class TestAppendGherkin:
 
 
 # ---------------------------------------------------------------------------
+# save_epic_clarifications
+# ---------------------------------------------------------------------------
+
+class TestSaveEpicClarifications:
+    GHERKIN = (
+        "Feature: User Login\n\n"
+        "  Scenario: Successful login\n"
+        "    Given the user is on the login page\n"
+        "    When they submit valid credentials\n"
+        "    Then they see the dashboard\n"
+    )
+
+    def test_writes_block_under_epic_heading(self, ctx):
+        ctx.init_context()
+        ctx.append_gherkin(101, "User Login", self.GHERKIN, epic_id=5, epic_title="Authentication")
+        ctx.save_epic_clarifications(5, "Authentication", [{"question": "Timeout?", "answer": "30s"}])
+        content = ctx.FUNCTIONAL_SPEC_FILE.read_text(encoding="utf-8")
+        assert "**Clarifications:**" in content
+        assert "Timeout?" in content
+        assert "30s" in content
+        # Block sits before the story, right under the epic heading.
+        assert content.index("**Clarifications:**") < content.index("### Story 101")
+
+    def test_skips_unanswered_pairs(self, ctx):
+        ctx.init_context()
+        ctx.append_gherkin(101, "User Login", self.GHERKIN, epic_id=5, epic_title="Authentication")
+        ctx.save_epic_clarifications(5, "Authentication", [{"question": "Unanswered?", "answer": ""}])
+        content = ctx.FUNCTIONAL_SPEC_FILE.read_text(encoding="utf-8")
+        assert "**Clarifications:**" not in content
+
+    def test_noop_when_no_qa_pairs(self, ctx):
+        ctx.init_context()
+        ctx.append_gherkin(101, "User Login", self.GHERKIN, epic_id=5, epic_title="Authentication")
+        before = ctx.FUNCTIONAL_SPEC_FILE.read_text(encoding="utf-8")
+        ctx.save_epic_clarifications(5, "Authentication", [])
+        assert ctx.FUNCTIONAL_SPEC_FILE.read_text(encoding="utf-8") == before
+
+    def test_idempotent_replace_on_second_call(self, ctx):
+        ctx.init_context()
+        ctx.append_gherkin(101, "User Login", self.GHERKIN, epic_id=5, epic_title="Authentication")
+        ctx.save_epic_clarifications(5, "Authentication", [{"question": "Old?", "answer": "Old answer"}])
+        ctx.save_epic_clarifications(5, "Authentication", [{"question": "New?", "answer": "New answer"}])
+        content = ctx.FUNCTIONAL_SPEC_FILE.read_text(encoding="utf-8")
+        assert content.count("**Clarifications:**") == 1
+        assert "New?" in content
+        assert "Old?" not in content
+
+    def test_does_not_disturb_story_blocks(self, ctx):
+        ctx.init_context()
+        ctx.append_gherkin(101, "Story A", self.GHERKIN, epic_id=5, epic_title="Authentication")
+        ctx.append_gherkin(102, "Story B", self.GHERKIN, epic_id=5, epic_title="Authentication")
+        ctx.save_epic_clarifications(5, "Authentication", [{"question": "Q", "answer": "A"}])
+        content = ctx.FUNCTIONAL_SPEC_FILE.read_text(encoding="utf-8")
+        assert "### Story 101: Story A" in content
+        assert "### Story 102: Story B" in content
+
+
+# ---------------------------------------------------------------------------
 # append_technical_spec
 # ---------------------------------------------------------------------------
 

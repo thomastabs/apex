@@ -22,7 +22,7 @@ class TestCompileGherkinAssumptions:
         )
         monkeypatch.setattr(
             ai_engine, "compile_gherkin_stories",
-            lambda nl_draft: GherkinStoryList(stories=[story]),
+            lambda nl_draft, clarifications=None: GherkinStoryList(stories=[story]),
         )
 
         result = AiService().compile_gherkin("some NL draft")
@@ -39,7 +39,7 @@ class TestCompileGherkinAssumptions:
         )
         monkeypatch.setattr(
             ai_engine, "compile_gherkin_stories",
-            lambda nl_draft: GherkinStoryList(stories=[story]),
+            lambda nl_draft, clarifications=None: GherkinStoryList(stories=[story]),
         )
 
         result = AiService().compile_gherkin("some NL draft")

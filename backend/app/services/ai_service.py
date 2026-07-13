@@ -159,8 +159,23 @@ class AiService:
     def suggest_severity_lane(self, diagnosis_md: str, patch_scope: str = "") -> dict:
         return ai_engine.suggest_severity_lane(diagnosis_md, patch_scope).model_dump()
 
-    def compile_gherkin(self, nl_draft: str) -> list[dict]:
-        result = ai_engine.compile_gherkin_stories(nl_draft)
+    def generate_clarifying_questions(
+        self,
+        epic_subject: str,
+        epic_description: str,
+        nl_draft: str,
+        *,
+        project_concept: str = "",
+        hint: str = "",
+    ) -> list[dict]:
+        result = ai_engine.generate_clarifying_questions(
+            epic_subject, epic_description, nl_draft,
+            project_concept=project_concept, hint=hint,
+        )
+        return [q.model_dump() for q in result.questions]
+
+    def compile_gherkin(self, nl_draft: str, clarifications: list[dict] | None = None) -> list[dict]:
+        result = ai_engine.compile_gherkin_stories(nl_draft, clarifications)
         return [
             {
                 "title": story.title,
