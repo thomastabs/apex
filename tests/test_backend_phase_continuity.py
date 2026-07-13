@@ -93,7 +93,8 @@ def _to_design_locked(ctx, story_id):
     p2 = Phase2Service(ai=FakeAi())
     p2.lock_tech_stack(ctx, tech_stack="Python · FastAPI")
     p2.persist_design(
-        ctx, story_ids=[story_id], ux_brief="UX", endpoints="GET /x", data_model="User"
+        ctx, story_ids=[story_id], ux_brief="UX", endpoints="GET /x", data_model="User",
+        runtime_spec="## Runtime Contract\n- **app root** {RT-1}: frontend/app",
     )
 
 
@@ -134,7 +135,10 @@ def test_story_walks_phase1_through_deployment(ctx):
     # Phase 2 — project-wide design locked.
     p2 = Phase2Service(ai=FakeAi())
     p2.lock_tech_stack(rc, tech_stack="Python · FastAPI")
-    p2.persist_design(rc, story_ids=[sid], ux_brief="UX", endpoints="GET /x", data_model="User")
+    p2.persist_design(
+        rc, story_ids=[sid], ux_brief="UX", endpoints="GET /x", data_model="User",
+        runtime_spec="## Runtime Contract\n- **app root** {RT-1}: frontend/app",
+    )
     assert status_of(rc, sid) == "design_locked"
 
     # Phase 3 — tasks + packs → implementation.
@@ -193,7 +197,8 @@ def test_phase2_rejects_empty_story_ids(ctx):
     Phase2Service(ai=FakeAi()).lock_tech_stack(rc, tech_stack="Python")
     with pytest.raises(Phase2ValidationError):
         Phase2Service(ai=FakeAi()).persist_design(
-            rc, story_ids=[], ux_brief="UX", endpoints="e", data_model="d"
+            rc, story_ids=[], ux_brief="UX", endpoints="e", data_model="d",
+            runtime_spec="## Runtime Contract\n- **app root** {RT-1}: frontend/app",
         )
 
 

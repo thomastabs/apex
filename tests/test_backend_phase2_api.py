@@ -232,6 +232,7 @@ def test_persist_design_route():
             ux_brief="## Screens\n- Login",
             endpoints="## Endpoints\n- POST /auth",
             data_model="## Data Model\n### User",
+            runtime_spec="## Runtime Contract\n- **app root** {RT-1}: frontend/app",
         ),
         ctx=_ctx(),
         service=service,

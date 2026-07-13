@@ -63,11 +63,7 @@ class LockDesignRequest(BaseModel):
     ux_brief: str = Field(min_length=1, max_length=100_000)
     endpoints: str = Field(min_length=1, max_length=100_000)
     data_model: str = Field(min_length=1, max_length=100_000)
-    # Optional (not min_length=1): projects that locked a design before the
-    # Runtime section existed, and relocks that intentionally skip it, must
-    # still be able to persist — the Traceability/conformance side treats a
-    # missing runtime-spec.md as "not generated yet", never as an error.
-    runtime_spec: str = Field("", max_length=100_000)
+    runtime_spec: str = Field(min_length=1, max_length=100_000)
 
 
 class TaigaTransitionFailure(BaseModel):

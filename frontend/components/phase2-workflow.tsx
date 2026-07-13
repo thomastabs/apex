@@ -71,9 +71,14 @@ type SectionCfg = {
   title: string;
   description: string;
   dependsOn: DesignSectionKey[];
-  optional?: boolean;
 };
 
+// Step 2 ("Project Design") is organised into two groups rather than one flat
+// list: Visual Design (UX Brief + the Visual Design System card below) and
+// Technical Design (Endpoints, Data Model, Runtime Contract). Step numbering
+// on each card restarts per group so it reads as a sequence within its own
+// group instead of a single 1-5 run that would look out of order once the
+// groups are visually separated.
 const SECTION_CONFIG: Record<DesignSectionKey, SectionCfg> = {
   ux_brief: {
     stepLabel:   "Step 1",
@@ -82,27 +87,29 @@ const SECTION_CONFIG: Record<DesignSectionKey, SectionCfg> = {
     dependsOn:   [],
   },
   endpoints: {
-    stepLabel:   "Step 2",
+    stepLabel:   "Step 1",
     title:       "Endpoints",
     description: "REST endpoint list grouped by epic — method, path, auth, request fields, and response fields per story.",
     dependsOn:   ["ux_brief"],
   },
   data_model: {
-    stepLabel:   "Step 3",
+    stepLabel:   "Step 2",
     title:       "Data Model",
     description: "Core entities, fields, and relations derived from the endpoint list.",
     dependsOn:   ["endpoints"],
   },
   runtime: {
-    stepLabel:   "Step 4",
+    stepLabel:   "Step 3",
     title:       "Runtime Contract",
-    description: "How the pieces become one running prototype — app shell paths, migration command, session bootstrap, and a First Prototype Path demo walkthrough. Optional: locking without it is allowed, but Phase 3+ won't have a scaffold contract to check packs against.",
+    description: "How the pieces become one running prototype — app shell paths, migration command, session bootstrap, and a First Prototype Path demo walkthrough.",
     dependsOn:   ["endpoints", "data_model"],
-    optional:    true,
   },
 };
 
-function downloadDesignBundle(bundle: { ux_brief: string; endpoints: string; data_model: string; runtime?: string }) {
+const VISUAL_DESIGN_SECTIONS: DesignSectionKey[] = ["ux_brief"];
+const TECHNICAL_DESIGN_SECTIONS: DesignSectionKey[] = ["endpoints", "data_model", "runtime"];
+
+function downloadDesignBundle(bundle: { ux_brief: string; endpoints: string; data_model: string; runtime: string }) {
   const content = [
     "# Project Design Bundle",
     "",
@@ -114,7 +121,9 @@ function downloadDesignBundle(bundle: { ux_brief: string; endpoints: string; dat
     "",
     "## Data Model",
     bundle.data_model,
-    ...(bundle.runtime?.trim() ? ["", "## Runtime Contract", bundle.runtime] : []),
+    "",
+    "## Runtime Contract",
+    bundle.runtime,
   ].join("\n");
   const blob = new Blob([content], { type: "text/markdown" });
   const url = URL.createObjectURL(blob);
@@ -147,12 +156,12 @@ function loadBundleDraft(projectId: number | null): object | null {
   }
 }
 
-const STEP_LABELS = ["Tech Stack", "Project Design", "Sign-off"] as const;
+const STEP_LABELS = ["Tech Stack", "Project Design"] as const;
 
 export function Phase2Workflow() {
   const dark = useUiStore((state) => state.theme) === "dark";
   const context = useApiContext();
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2>(1);
   const [stackHint, setStackHint] = useState("");
   const [stackReopened, setStackReopened] = useState(false);
   const [diagramOpen, setDiagramOpen] = useState(false);
@@ -164,14 +173,10 @@ export function Phase2Workflow() {
     selectedAlternativeIndex,
     techStackDraft,
     designBundle,
-    designLeadApproved,
-    techLeadApproved,
     setAlternatives,
     setSelectedAlternativeIndex,
     setTechStackDraft,
     setDesignBundle,
-    setDesignLeadApproved,
-    setTechLeadApproved,
   } = usePhase2Store();
   const requestDiff = useDiffStore((s) => s.requestDiff);
   const logDecision = useLogDecision();
@@ -252,22 +257,19 @@ export function Phase2Workflow() {
       }
     : designBundle;
 
-  const allSectionsPopulated = Boolean(activeBundle?.ux_brief && activeBundle?.endpoints && activeBundle?.data_model);
-  const canSave = Boolean(activeBundle && !generateSections.isPending && allSectionsPopulated && designLeadApproved && techLeadApproved);
+  const allSectionsPopulated = Boolean(
+    activeBundle?.ux_brief && activeBundle?.endpoints && activeBundle?.data_model && activeBundle?.runtime,
+  );
+  const canSave = Boolean(activeBundle && !generateSections.isPending && allSectionsPopulated);
 
   const activeStepIdx = generateSections.currentSection
     ? DESIGN_SECTION_ORDER.indexOf(generateSections.currentSection)
     : undefined;
 
-  const maxUnlockedStep: 1 | 2 | 3 =
-    (stackDefined && allSectionsPopulated) ? 3 :
-    stackDefined ? 2 :
-    1;
+  const maxUnlockedStep: 1 | 2 = stackDefined ? 2 : 1;
 
   function clearDesign() {
     setDesignBundle(null);
-    setDesignLeadApproved(false);
-    setTechLeadApproved(false);
     setPartial({});
     toast.info("Design cleared");
   }
@@ -279,8 +281,6 @@ export function Phase2Workflow() {
   }
 
   function doGenerate() {
-    setDesignLeadApproved(false);
-    setTechLeadApproved(false);
     const accumulated: Partial<Record<DesignSectionKey, string>> = {};
     let accStoryIds: number[] = [];
     setPartial({});
@@ -322,8 +322,6 @@ export function Phase2Workflow() {
 
   function doGenerateSection(targetSection: DesignSectionKey) {
     const existingBundle = designBundle;
-    setDesignLeadApproved(false);
-    setTechLeadApproved(false);
     setPartial({});
     setPartialStoryIds([]);
     setSectionAssumptions((prev) => ({ ...prev, [targetSection]: undefined }));
@@ -411,13 +409,184 @@ export function Phase2Workflow() {
     ? "border-neutral-700 text-neutral-300 hover:bg-neutral-800"
     : "border-slate-300 text-slate-600 hover:bg-slate-100";
 
+  function renderSectionCard(section: DesignSectionKey) {
+    const cfg = SECTION_CONFIG[section];
+    const content = activeBundle?.[section] ?? "";
+    const isThisGenerating = generateSections.isPending && generateSections.currentSection === section;
+    const hasContent = Boolean(content);
+    const depsOk = cfg.dependsOn.every((dep) => Boolean(activeBundle?.[dep]));
+    const canGenerate = !busy && !noContext && depsOk;
+
+    return (
+      <div
+        key={section}
+        className={cn("overflow-hidden rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}
+      >
+        <div className={cn("flex items-center justify-between px-4 py-3", dark ? "bg-neutral-900" : "bg-slate-50")}>
+          <div className="flex items-center gap-3">
+            <span className={cn(
+              "inline-flex h-5 items-center justify-center rounded px-2 text-xs font-bold",
+              dark ? "bg-violet-900/60 text-violet-300" : "bg-violet-100 text-violet-700",
+            )}>
+              {cfg.stepLabel}
+            </span>
+            <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>
+              {cfg.title}
+            </span>
+          </div>
+          {isThisGenerating ? (
+            <span className="animate-pulse text-xs text-violet-400">Generating…</span>
+          ) : hasContent ? (
+            <span className={cn("flex items-center gap-1 text-xs", dark ? "text-emerald-400" : "text-emerald-600")}>
+              <CheckCircle2 className="size-3" /> Generated
+            </span>
+          ) : (
+            <span className={cn("text-xs", mutedClass)}>Not generated</span>
+          )}
+        </div>
+
+        <div className={cn("border-t px-4 py-2 text-xs", dark ? "border-neutral-800 text-neutral-500" : "border-slate-100 text-slate-500")}>
+          {cfg.description}
+        </div>
+
+        {isThisGenerating ? (
+          <div className={cn("border-t px-4 py-4", dark ? "border-neutral-800" : "border-slate-100")}>
+            <Skeleton className="h-48 w-full" />
+          </div>
+        ) : hasContent ? (
+          <textarea
+            className={cn(
+              "w-full resize-y border-t p-4 font-mono text-xs leading-5 outline-none",
+              dark
+                ? "border-neutral-800 bg-neutral-950 text-neutral-200 placeholder-neutral-600"
+                : "border-slate-200 bg-slate-50 text-slate-800 placeholder-slate-400",
+            )}
+            style={{ minHeight: "8rem", height: "20rem" }}
+            value={content}
+            onChange={(e) => {
+              if (!designBundle) return;
+              setDesignBundle({ ...designBundle, [section]: e.target.value });
+            }}
+            spellCheck={false}
+          />
+        ) : (
+          <div className={cn("border-t px-4 py-8 text-center text-sm", dark ? "border-neutral-800 text-neutral-700" : "border-slate-100 text-slate-400")}>
+            {!depsOk
+              ? `Generate ${cfg.dependsOn.map((d) => SECTION_CONFIG[d].title).join(" and ")} first.`
+              : "Not generated yet."}
+          </div>
+        )}
+
+        {(section === "ux_brief" || section === "endpoints" || section === "data_model") && (
+          <div className={cn("border-t px-4 py-3", dark ? "border-neutral-800" : "border-slate-100")}>
+            {section === "ux_brief" && (
+              <ScreenFlowPanel uxBriefContent={content} dark={dark} />
+            )}
+            {section === "endpoints" && (
+              <EndpointTable endpointsContent={content} dark={dark} />
+            )}
+            {section === "endpoints" && hasContent && crossEnabled && (
+              <div className="mt-3 space-y-2">
+                <div className="flex gap-2">
+                  <AltModelSelect aiConfig={aiConfig.data} value={altModel} onChange={setAltModel} dark={dark} disabled={crossCheckEndpointsMut.isPending} />
+                  <button
+                    className={cn("flex flex-1 items-center justify-center gap-2 rounded border px-3 py-1.5 text-sm transition-colors", outlineButtonClass)}
+                    disabled={crossCheckEndpointsMut.isPending}
+                    onClick={() =>
+                      crossCheckEndpointsMut.mutate({ uxBrief: activeBundle?.ux_brief ?? "", altModel }, {
+                        onSuccess: (r) => {
+                          setEndpointsCross(r);
+                          toast.success(
+                            r.only_alt.length
+                              ? `${r.alt_label} proposed ${r.only_alt.length} endpoint(s) yours missed`
+                              : `${r.alt_label} agreed — no extra endpoints`,
+                          );
+                        },
+                      })
+                    }
+                  >
+                    <GitCompare className="size-3.5" /> {crossCheckEndpointsMut.isPending ? "Cross-checking…" : "Cross-check endpoints"}
+                  </button>
+                </div>
+                {crossCheckEndpointsMut.isPending && <CancelButton onCancel={() => crossCheckEndpointsMut.cancel()} className="w-full" />}
+                {endpointsCross ? (
+                  <CrossCheckPanel
+                    result={endpointsCross}
+                    dark={dark}
+                    noun="endpoint"
+                    onDismiss={() => setEndpointsCross(null)}
+                    onAdd={(s) => {
+                      if (!designBundle) return;
+                      setDesignBundle({ ...designBundle, endpoints: `${(designBundle.endpoints ?? "").trimEnd()}\n- \`${s.title}\`` });
+                      toast.success("Endpoint added");
+                    }}
+                  />
+                ) : null}
+              </div>
+            )}
+            {section === "data_model" && (
+              <ERDiagramPanel dataModelContent={content} dark={dark} />
+            )}
+          </div>
+        )}
+
+        {hasContent && (sectionAssumptions[section]?.length ?? 0) > 0 && (
+          <div
+            className={cn(
+              "space-y-1 border-t px-4 py-2.5 text-xs",
+              dark ? "border-neutral-800 bg-amber-500/10 text-amber-300" : "border-slate-100 bg-amber-50 text-amber-700",
+            )}
+          >
+            <p className="flex items-center gap-1.5 font-semibold">
+              <AlertCircle className="size-3.5" />
+              Assumptions the AI made — review before locking:
+            </p>
+            <ul className="list-disc pl-5">
+              {sectionAssumptions[section]!.map((a) => (
+                <li key={a.id}>
+                  <span className="font-mono text-[10px]">{a.id}</span>: {a.text}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className={cn("border-t px-4 py-3", dark ? "border-neutral-800" : "border-slate-100")}>
+          {isThisGenerating ? (
+            <button
+              className={cn("flex w-full items-center justify-center gap-2 rounded border px-3 py-1.5 text-sm transition-colors", outlineButtonClass)}
+              onClick={() => generateSections.cancel()}
+            >
+              <StopCircle className="size-3.5 text-red-400" />
+              Cancel
+            </button>
+          ) : (
+            <button
+              className={cn(
+                "flex w-full items-center justify-center gap-2 rounded px-3 py-1.5 text-sm font-medium transition-colors",
+                canGenerate
+                  ? "bg-violet-700 text-white hover:bg-violet-600"
+                  : cn("cursor-not-allowed opacity-40", dark ? "bg-neutral-800 text-neutral-500" : "bg-slate-100 text-slate-400"),
+              )}
+              disabled={!canGenerate}
+              onClick={() => doGenerateSection(section)}
+            >
+              <Sparkles className="size-3.5" />
+              {hasContent ? `Regenerate ${cfg.title}` : `Generate ${cfg.title}`}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <section className="px-8 py-8">
       <div className="mb-7">
         <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Phase 2</p>
         <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>Design</h1>
         <p className={cn("mt-2", mutedClass)}>
-          Two-gate approval process: your Design Lead and Tech Lead review and lock the project design before implementation begins.
+          Generate, review, and lock the project&apos;s design — UX, API surface, data model, and runtime contract — before implementation begins.
         </p>
       </div>
 
@@ -441,6 +610,13 @@ export function Phase2Workflow() {
         ) : null}
       </div>
 
+      {/* Post-lock stories → additive design delta, no full regeneration.
+          Lives here, not tied to either stepper step — it applies regardless
+          of which step is active. */}
+      <div className="mb-6">
+        <DesignDeltaPanel dark={dark} />
+      </div>
+
       {noContext ? (
         <div className="mb-6 flex items-start gap-3 rounded-md border border-amber-600/50 bg-amber-500/10 px-4 py-4">
           <AlertCircle className="mt-0.5 size-4 shrink-0 text-amber-400" />
@@ -456,7 +632,7 @@ export function Phase2Workflow() {
         <div className={cn("rounded-xl border px-6 py-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
           <div className="flex w-full items-center">
             {STEP_LABELS.map((label, i) => {
-              const stepNum = (i + 1) as 1 | 2 | 3;
+              const stepNum = (i + 1) as 1 | 2;
               const isActive = step === stepNum;
               const isDone = step > stepNum;
               const canNav = stepNum <= maxUnlockedStep;
@@ -527,7 +703,7 @@ export function Phase2Workflow() {
               <Callout>Choose and lock in the technologies your team will use. This guides the AI when generating your project design.</Callout>
             )}
             <label className={cn("block text-sm font-medium", labelClass)}>
-              Tech Lead Notes <span className={mutedClass}>Optional</span>
+              Notes <span className={mutedClass}>Optional</span>
               <Input value={stackHint} onChange={(event) => setStackHint(event.target.value)} placeholder="e.g. prefer Python backend, PostgreSQL, simple deployment" />
             </label>
             {!stackDefined ? (
@@ -650,19 +826,15 @@ export function Phase2Workflow() {
           <section className="space-y-5">
             <SectionHeading>Stage B · Project Design</SectionHeading>
             <p className={cn("text-sm", mutedClass)}>
-              Generate a concise UX Brief and API Surface covering all your project stories.
+              Generate the UX Brief, API surface, data model, and runtime contract covering all your project stories.
             </p>
             <div className={cn("flex items-start gap-3 rounded-md border px-4 py-3 text-sm", dark ? "border-amber-600/30 bg-amber-500/8" : "border-amber-400/50 bg-amber-50")}>
               <Info className={cn("mt-0.5 size-4 shrink-0", dark ? "text-amber-400" : "text-amber-600")} />
               <p className={dark ? "text-amber-300/90" : "text-amber-700"}>
-                <span className="font-semibold">These are AI-generated drafts</span> — starting points for team review, not final deliverables.
-                Read each section carefully, edit the content as needed, and only lock once both leads have signed off.
+                <span className="font-semibold">These are AI-generated drafts</span> — starting points for review, not final deliverables.
+                Read each section carefully and edit the content as needed before locking.
               </p>
             </div>
-
-            {/* Post-lock stories → additive design delta, no full regeneration.
-                Lives inside Stage B — it IS project design work, not a side task. */}
-            <DesignDeltaPanel dark={dark} />
 
             <div className="space-y-2">
               <GuideTheAI
@@ -753,249 +925,63 @@ export function Phase2Workflow() {
               </div>
             ) : null}
 
-            <div className="space-y-4">
-              {DESIGN_SECTION_ORDER.map((section) => {
-                const cfg = SECTION_CONFIG[section];
-                const content = activeBundle?.[section] ?? "";
-                const isThisGenerating = generateSections.isPending && generateSections.currentSection === section;
-                const hasContent = Boolean(content);
-                const depsOk = cfg.dependsOn.every((dep) => Boolean(activeBundle?.[dep]));
-                const canGenerate = !busy && !noContext && depsOk;
+            {/* Visual Design — UX Brief + the derived Visual Design System */}
+            <div className="space-y-3">
+              <h3 className={cn("text-xs font-bold uppercase tracking-widest", dark ? "text-neutral-500" : "text-slate-400")}>
+                Visual Design
+              </h3>
+              <div className="space-y-4">
+                {VISUAL_DESIGN_SECTIONS.map((section) => renderSectionCard(section))}
 
-                return (
-                  <div
-                    key={section}
-                    className={cn("overflow-hidden rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}
-                  >
-                    <div className={cn("flex items-center justify-between px-4 py-3", dark ? "bg-neutral-900" : "bg-slate-50")}>
-                      <div className="flex items-center gap-3">
-                        <span className={cn(
-                          "inline-flex h-5 items-center justify-center rounded px-2 text-xs font-bold",
-                          dark ? "bg-violet-900/60 text-violet-300" : "bg-violet-100 text-violet-700",
-                        )}>
-                          {cfg.stepLabel}
-                        </span>
-                        <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>
-                          {cfg.title}
-                        </span>
-                        {cfg.optional ? (
-                          <span className={cn("text-xs", mutedClass)}>Optional</span>
-                        ) : null}
-                      </div>
-                      {isThisGenerating ? (
-                        <span className="animate-pulse text-xs text-violet-400">Generating…</span>
-                      ) : hasContent ? (
-                        <span className={cn("flex items-center gap-1 text-xs", dark ? "text-emerald-400" : "text-emerald-600")}>
-                          <CheckCircle2 className="size-3" /> Generated
-                        </span>
-                      ) : (
-                        <span className={cn("text-xs", mutedClass)}>Not generated</span>
-                      )}
+                <div className={cn("overflow-hidden rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}>
+                  <div className={cn("flex items-center justify-between px-4 py-3", dark ? "bg-neutral-900" : "bg-slate-50")}>
+                    <div className="flex items-center gap-3">
+                      <span className={cn(
+                        "inline-flex h-5 items-center justify-center rounded px-2 text-xs font-bold",
+                        dark ? "bg-violet-900/60 text-violet-300" : "bg-violet-100 text-violet-700",
+                      )}>
+                        Step 2
+                      </span>
+                      <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>
+                        Visual Design System
+                      </span>
                     </div>
-
-                    <div className={cn("border-t px-4 py-2 text-xs", dark ? "border-neutral-800 text-neutral-500" : "border-slate-100 text-slate-500")}>
-                      {cfg.description}
-                    </div>
-
-                    {isThisGenerating ? (
-                      <div className={cn("border-t px-4 py-4", dark ? "border-neutral-800" : "border-slate-100")}>
-                        <Skeleton className="h-48 w-full" />
-                      </div>
-                    ) : hasContent ? (
-                      <textarea
-                        className={cn(
-                          "w-full resize-y border-t p-4 font-mono text-xs leading-5 outline-none",
-                          dark
-                            ? "border-neutral-800 bg-neutral-950 text-neutral-200 placeholder-neutral-600"
-                            : "border-slate-200 bg-slate-50 text-slate-800 placeholder-slate-400",
-                        )}
-                        style={{ minHeight: "8rem", height: "20rem" }}
-                        value={content}
-                        onChange={(e) => {
-                          if (!designBundle) return;
-                          setDesignBundle({ ...designBundle, [section]: e.target.value });
-                        }}
-                        spellCheck={false}
-                      />
+                    {designSystemQuery.data ? (
+                      <span className={cn("flex items-center gap-1 text-xs", dark ? "text-emerald-400" : "text-emerald-600")}>
+                        <CheckCircle2 className="size-3" /> Generated
+                      </span>
                     ) : (
-                      <div className={cn("border-t px-4 py-8 text-center text-sm", dark ? "border-neutral-800 text-neutral-700" : "border-slate-100 text-slate-400")}>
-                        {!depsOk
-                          ? `Generate ${cfg.dependsOn.map((d) => SECTION_CONFIG[d].title).join(" and ")} first.`
-                          : "Not generated yet."}
-                      </div>
+                      <span className={cn("text-xs", mutedClass)}>Not generated</span>
                     )}
-
-                    {(section === "ux_brief" || section === "endpoints" || section === "data_model") && (
-                      <div className={cn("border-t px-4 py-3", dark ? "border-neutral-800" : "border-slate-100")}>
-                        {section === "ux_brief" && (
-                          <ScreenFlowPanel uxBriefContent={content} dark={dark} />
-                        )}
-                        {section === "endpoints" && (
-                          <EndpointTable endpointsContent={content} dark={dark} />
-                        )}
-                        {section === "endpoints" && hasContent && crossEnabled && (
-                          <div className="mt-3 space-y-2">
-                            <div className="flex gap-2">
-                              <AltModelSelect aiConfig={aiConfig.data} value={altModel} onChange={setAltModel} dark={dark} disabled={crossCheckEndpointsMut.isPending} />
-                              <button
-                                className={cn("flex flex-1 items-center justify-center gap-2 rounded border px-3 py-1.5 text-sm transition-colors", outlineButtonClass)}
-                                disabled={crossCheckEndpointsMut.isPending}
-                                onClick={() =>
-                                  crossCheckEndpointsMut.mutate({ uxBrief: activeBundle?.ux_brief ?? "", altModel }, {
-                                    onSuccess: (r) => {
-                                      setEndpointsCross(r);
-                                      toast.success(
-                                        r.only_alt.length
-                                          ? `${r.alt_label} proposed ${r.only_alt.length} endpoint(s) yours missed`
-                                          : `${r.alt_label} agreed — no extra endpoints`,
-                                      );
-                                    },
-                                  })
-                                }
-                              >
-                                <GitCompare className="size-3.5" /> {crossCheckEndpointsMut.isPending ? "Cross-checking…" : "Cross-check endpoints"}
-                              </button>
-                            </div>
-                            {crossCheckEndpointsMut.isPending && <CancelButton onCancel={() => crossCheckEndpointsMut.cancel()} className="w-full" />}
-                            {endpointsCross ? (
-                              <CrossCheckPanel
-                                result={endpointsCross}
-                                dark={dark}
-                                noun="endpoint"
-                                onDismiss={() => setEndpointsCross(null)}
-                                onAdd={(s) => {
-                                  if (!designBundle) return;
-                                  setDesignBundle({ ...designBundle, endpoints: `${(designBundle.endpoints ?? "").trimEnd()}\n- \`${s.title}\`` });
-                                  toast.success("Endpoint added");
-                                }}
-                              />
-                            ) : null}
-                          </div>
-                        )}
-                        {section === "data_model" && (
-                          <ERDiagramPanel dataModelContent={content} dark={dark} />
-                        )}
-                      </div>
-                    )}
-
-                    {hasContent && (sectionAssumptions[section]?.length ?? 0) > 0 && (
-                      <div
-                        className={cn(
-                          "space-y-1 border-t px-4 py-2.5 text-xs",
-                          dark ? "border-neutral-800 bg-amber-500/10 text-amber-300" : "border-slate-100 bg-amber-50 text-amber-700",
-                        )}
-                      >
-                        <p className="flex items-center gap-1.5 font-semibold">
-                          <AlertCircle className="size-3.5" />
-                          Assumptions the AI made — review before locking:
-                        </p>
-                        <ul className="list-disc pl-5">
-                          {sectionAssumptions[section]!.map((a) => (
-                            <li key={a.id}>
-                              <span className="font-mono text-[10px]">{a.id}</span>: {a.text}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    <div className={cn("border-t px-4 py-3", dark ? "border-neutral-800" : "border-slate-100")}>
-                      {isThisGenerating ? (
-                        <button
-                          className={cn("flex w-full items-center justify-center gap-2 rounded border px-3 py-1.5 text-sm transition-colors", outlineButtonClass)}
-                          onClick={() => generateSections.cancel()}
-                        >
-                          <StopCircle className="size-3.5 text-red-400" />
-                          Cancel
-                        </button>
-                      ) : (
-                        <button
-                          className={cn(
-                            "flex w-full items-center justify-center gap-2 rounded px-3 py-1.5 text-sm font-medium transition-colors",
-                            canGenerate
-                              ? "bg-violet-700 text-white hover:bg-violet-600"
-                              : cn("cursor-not-allowed opacity-40", dark ? "bg-neutral-800 text-neutral-500" : "bg-slate-100 text-slate-400"),
-                          )}
-                          disabled={!canGenerate}
-                          onClick={() => doGenerateSection(section)}
-                        >
-                          <Sparkles className="size-3.5" />
-                          {hasContent ? `Regenerate ${cfg.title}` : `Generate ${cfg.title}`}
-                        </button>
-                      )}
-                    </div>
                   </div>
-                );
-              })}
-
-              <div className={cn("overflow-hidden rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}>
-                <div className={cn("flex items-center justify-between px-4 py-3", dark ? "bg-neutral-900" : "bg-slate-50")}>
-                  <div className="flex items-center gap-3">
-                    <span className={cn(
-                      "inline-flex h-5 items-center justify-center rounded px-2 text-xs font-bold",
-                      dark ? "bg-violet-900/60 text-violet-300" : "bg-violet-100 text-violet-700",
-                    )}>
-                      Step 5
-                    </span>
-                    <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>
-                      Visual Design System
-                    </span>
+                  <div className={cn("border-t px-4 py-2 text-xs", dark ? "border-neutral-800 text-neutral-500" : "border-slate-100 text-slate-500")}>
+                    Color palette, typography, navigation pattern, and screen mockups — derived from the UX Brief above.
                   </div>
-                  {designSystemQuery.data ? (
-                    <span className={cn("flex items-center gap-1 text-xs", dark ? "text-emerald-400" : "text-emerald-600")}>
-                      <CheckCircle2 className="size-3" /> Generated
-                    </span>
-                  ) : (
-                    <span className={cn("text-xs", mutedClass)}>Not generated</span>
-                  )}
-                </div>
-                <div className={cn("border-t px-4 py-2 text-xs", dark ? "border-neutral-800 text-neutral-500" : "border-slate-100 text-slate-500")}>
-                  Color palette, typography, navigation pattern, and screen mockups — derived from the UX Brief above.
-                </div>
-                <div className={cn("border-t px-4 py-3", dark ? "border-neutral-800" : "border-slate-100")}>
-                  <DesignSystemPanel uxBriefContent={activeBundle?.ux_brief ?? ""} dark={dark} standalone guidance={designGuidance} />
+                  <div className={cn("border-t px-4 py-3", dark ? "border-neutral-800" : "border-slate-100")}>
+                    <DesignSystemPanel uxBriefContent={activeBundle?.ux_brief ?? ""} dark={dark} standalone guidance={designGuidance} />
+                  </div>
                 </div>
               </div>
             </div>
 
-            {allSectionsPopulated && !generateSections.isPending ? (
-              <div className="flex gap-2">
-                <Button variant="secondary" className="gap-1.5" onClick={() => setStep(1)} disabled={busy}>
-                  <ChevronLeft className="size-4" /> Back
-                </Button>
-                <Button className="flex-1" onClick={() => setStep(3)}>
-                  Continue to Sign-off
-                  <ChevronRight className="size-4" />
-                </Button>
+            {/* Technical Design — Endpoints, Data Model, Runtime Contract */}
+            <div className="space-y-3">
+              <h3 className={cn("text-xs font-bold uppercase tracking-widest", dark ? "text-neutral-500" : "text-slate-400")}>
+                Technical Design
+              </h3>
+              <div className="space-y-4">
+                {TECHNICAL_DESIGN_SECTIONS.map((section) => renderSectionCard(section))}
               </div>
-            ) : null}
-          </section>
-        )}
+            </div>
 
-        {/* ── Step 3: Sign-off & Lock ───────────────────────────────────── */}
-        {step === 3 && (
-          <section className="space-y-4">
-            <SectionHeading>Stage C · Sign-off &amp; Lock</SectionHeading>
-            {!activeBundle ? (
-              <Callout>Generate all design sections first, then return here to sign off.</Callout>
-            ) : (
-              <div className={cn("space-y-4 rounded-md border p-4", cardClass)}>
-                <div className="flex flex-wrap gap-4">
-                  <label className={cn("inline-flex items-center gap-2 text-sm", labelClass)}>
-                    <input type="checkbox" checked={designLeadApproved} disabled={busy} onChange={(event) => setDesignLeadApproved(event.target.checked)} />
-                    Design Lead Sign-off (UX Brief)
-                  </label>
-                  <label className={cn("inline-flex items-center gap-2 text-sm", labelClass)}>
-                    <input type="checkbox" checked={techLeadApproved} disabled={busy} onChange={(event) => setTechLeadApproved(event.target.checked)} />
-                    Tech Lead Sign-off (Endpoints &amp; Data Model)
-                  </label>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="secondary" className="gap-1.5" onClick={() => setStep(2)} disabled={busy}>
-                    <ChevronLeft className="size-4" /> Back
-                  </Button>
+            {/* Save & Lock — the last thing on the step, saves everything above */}
+            <div className={cn("space-y-4 rounded-md border p-4", cardClass)}>
+              {!activeBundle ? (
+                <Callout>Generate all design sections above, then save and lock here.</Callout>
+              ) : (
+                <>
                   <Button
-                    className="flex-1"
+                    className="w-full"
                     disabled={!canSave || busy}
                     onClick={() =>
                       lockDesign.mutate(
@@ -1004,7 +990,7 @@ export function Phase2Workflow() {
                           ux_brief:     activeBundle.ux_brief,
                           endpoints:    activeBundle.endpoints,
                           data_model:   activeBundle.data_model,
-                          runtime_spec: activeBundle.runtime ?? "",
+                          runtime_spec: activeBundle.runtime,
                         },
                         {
                           onSuccess: (data) => toast.success(`Design locked for ${data.story_ids.length} stories`),
@@ -1019,32 +1005,37 @@ export function Phase2Workflow() {
                     )}
                     {lockDesign.isPending ? "Saving…" : "Save & Lock Design"}
                   </Button>
+                  {!canSave && !busy ? (
+                    <p className={cn("text-xs", mutedClass)}>
+                      Generate every section above (including the Runtime Contract) before locking.
+                    </p>
+                  ) : null}
+                  {lockDesign.isPending ? (
+                    <div className={cn("space-y-1 rounded-md border px-4 py-3 text-xs", dark ? "border-violet-800/40 bg-violet-950/30 text-violet-300" : "border-violet-200 bg-violet-50 text-violet-700")}>
+                      <p className="flex items-center gap-2 font-medium">
+                        <Loader2 className="size-3 animate-spin" />
+                        Saving design bundle to context files…
+                      </p>
+                      <p className={dark ? "text-violet-400/70" : "text-violet-500"}>
+                        PM story transitions will run after the bundle is saved.
+                        {activeBundle.story_ids.length > 0 && ` ${activeBundle.story_ids.length} stories to update.`}
+                      </p>
+                    </div>
+                  ) : null}
+                </>
+              )}
+              {lockDesign.data ? (
+                <Callout>
+                  Design locked for {lockDesign.data.story_ids.length} stories.
+                  {lockDesign.data.taiga_failures?.length ? ` ${lockDesign.data.taiga_failures.length} PM transition(s) failed.` : ""}
+                </Callout>
+              ) : null}
+              {lockDesign.isError ? (
+                <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
+                  Save failed: {errMsg(lockDesign.error)}
                 </div>
-                {lockDesign.isPending ? (
-                  <div className={cn("space-y-1 rounded-md border px-4 py-3 text-xs", dark ? "border-violet-800/40 bg-violet-950/30 text-violet-300" : "border-violet-200 bg-violet-50 text-violet-700")}>
-                    <p className="flex items-center gap-2 font-medium">
-                      <Loader2 className="size-3 animate-spin" />
-                      Saving design bundle to context files…
-                    </p>
-                    <p className={dark ? "text-violet-400/70" : "text-violet-500"}>
-                      PM story transitions will run after the bundle is saved.
-                      {activeBundle.story_ids.length > 0 && ` ${activeBundle.story_ids.length} stories to update.`}
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-            )}
-            {lockDesign.data ? (
-              <Callout>
-                Design locked for {lockDesign.data.story_ids.length} stories.
-                {lockDesign.data.taiga_failures?.length ? ` ${lockDesign.data.taiga_failures.length} PM transition(s) failed.` : ""}
-              </Callout>
-            ) : null}
-            {lockDesign.isError ? (
-              <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-                Save failed: {errMsg(lockDesign.error)}
-              </div>
-            ) : null}
+              ) : null}
+            </div>
           </section>
         )}
       </div>

@@ -665,6 +665,7 @@ class TestDesignDelta:
         service, _, _ = _service(context)
         service.persist_design(
             _ctx(), story_ids=[10, 11], ux_brief="ux", endpoints="e", data_model="d",
+            runtime_spec="## Runtime Contract\n- **app root** {RT-1}: frontend/app",
         )
         files = sorted(a[0] for a in context.amendments)
         assert files == ["design-bundle.md", "technical-spec.md"]
@@ -675,8 +676,16 @@ class TestDesignDelta:
         service, _, _ = _service(context)
         service.persist_design(
             _ctx(), story_ids=[10], ux_brief="ux", endpoints="e", data_model="d",
+            runtime_spec="## Runtime Contract\n- **app root** {RT-1}: frontend/app",
         )
         assert not getattr(context, "amendments", [])
+
+    def test_persist_design_requires_runtime_spec(self):
+        service, _, _ = _service(FakeContextService())
+        with pytest.raises(Phase2ValidationError, match="Runtime Contract is required"):
+            service.persist_design(
+                _ctx(), story_ids=[10], ux_brief="ux", endpoints="e", data_model="d", runtime_spec="",
+            )
 
     def test_persist_design_runtime_spec_covers_all_stories_not_just_story_ids(self):
         # story_ids (narrower — the set still eligible for a fresh design lock)

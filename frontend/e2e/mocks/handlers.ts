@@ -613,6 +613,7 @@ export async function applyMocks(page: Page) {
       ux_brief: "## Screens\n- Login screen with email/password form\n- Dashboard after login",
       endpoints: "## Endpoints\n- POST /auth/login · in:{email,password} · out:{token}",
       data_model: "## Data Model\n### User\n- id: UUID (PK)\n- email: varchar\n- password_hash: varchar",
+      runtime: "## Runtime Contract\n- **app root** {RT-1}: frontend/app\n\n## First Prototype Path\n1. Open the app.",
     };
     return route.fulfill({
       status: 200,

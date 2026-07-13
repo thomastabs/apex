@@ -102,11 +102,11 @@ describe("computeActiveBundle — merge logic", () => {
 // ---------------------------------------------------------------------------
 
 function allSectionsPopulated(bundle: DesignBundle | null): boolean {
-  return Boolean(bundle?.ux_brief && bundle?.endpoints && bundle?.data_model);
+  return Boolean(bundle?.ux_brief && bundle?.endpoints && bundle?.data_model && bundle?.runtime);
 }
 
 describe("allSectionsPopulated", () => {
-  it("returns true when all three sections have content", () => {
+  it("returns true when all four sections have content", () => {
     expect(allSectionsPopulated(FULL_BUNDLE)).toBe(true);
   });
 
@@ -114,6 +114,7 @@ describe("allSectionsPopulated", () => {
     expect(allSectionsPopulated({ ...FULL_BUNDLE, ux_brief: "" })).toBe(false);
     expect(allSectionsPopulated({ ...FULL_BUNDLE, endpoints: "" })).toBe(false);
     expect(allSectionsPopulated({ ...FULL_BUNDLE, data_model: "" })).toBe(false);
+    expect(allSectionsPopulated({ ...FULL_BUNDLE, runtime: "" })).toBe(false);
   });
 
   it("returns false when bundle is null", () => {

@@ -25,19 +25,15 @@ test("Phase 2: propose architecture → save tech stack → generate design → 
   // Click "Generate Design"
   await page.getByRole("button", { name: "Generate Design", exact: true }).click();
 
-  // Design sections should populate — wait for "Continue to Sign-off" button
-  await expect(page.getByRole("button", { name: /Continue to Sign-off/i })).toBeVisible({ timeout: 15_000 });
-
-  // Proceed to Step 3
-  await page.getByRole("button", { name: /Continue to Sign-off/i }).click();
-
-  // Step 3 — sign-off section appears
-  await expect(page.getByText(/Design Lead Sign-off/i)).toBeVisible({ timeout: 5_000 });
-  await page.getByText(/Design Lead Sign-off/i).click();
-  await page.getByText(/Tech Lead Sign-off/i).click();
+  // All four sections (including the now-mandatory Runtime Contract) generate
+  // in place — no separate sign-off step. Wait for the Save & Lock Design
+  // button to become enabled once every section has content.
+  const lockButton = page.getByRole("button", { name: /Save & Lock Design/i });
+  await expect(lockButton).toBeVisible({ timeout: 15_000 });
+  await expect(lockButton).toBeEnabled({ timeout: 15_000 });
 
   // Click "Save & Lock Design"
-  await page.getByRole("button", { name: /Save & Lock Design/i }).click();
+  await lockButton.click();
 
   // Toast: "Design locked for N stories" — first() disambiguates toast vs callout
   await expect(page.getByText(/Design locked for/i).first()).toBeVisible({ timeout: 5_000 });

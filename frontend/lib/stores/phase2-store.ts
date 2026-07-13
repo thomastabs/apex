@@ -9,14 +9,10 @@ type Phase2State = {
   alternatives: ArchitectureAlternative[];
   techStackDraft: string;
   designBundle: DesignBundle | null;
-  designLeadApproved: boolean;
-  techLeadApproved: boolean;
   setAlternatives: (alternatives: ArchitectureAlternative[]) => void;
   setSelectedAlternativeIndex: (index: number) => void;
   setTechStackDraft: (value: string) => void;
   setDesignBundle: (bundle: DesignBundle | null) => void;
-  setDesignLeadApproved: (approved: boolean) => void;
-  setTechLeadApproved: (approved: boolean) => void;
   clearPhase2Draft: () => void;
 };
 
@@ -27,27 +23,16 @@ export const usePhase2Store = create<Phase2State>()(
       alternatives: [],
       techStackDraft: "",
       designBundle: null,
-      designLeadApproved: false,
-      techLeadApproved: false,
       setAlternatives: (alternatives) => set({ alternatives }),
       setSelectedAlternativeIndex: (selectedAlternativeIndex) => set({ selectedAlternativeIndex }),
       setTechStackDraft: (techStackDraft) => set({ techStackDraft }),
-      setDesignBundle: (designBundle) =>
-        set({
-          designBundle,
-          designLeadApproved: false,
-          techLeadApproved: false,
-        }),
-      setDesignLeadApproved: (designLeadApproved) => set({ designLeadApproved }),
-      setTechLeadApproved: (techLeadApproved) => set({ techLeadApproved }),
+      setDesignBundle: (designBundle) => set({ designBundle }),
       clearPhase2Draft: () =>
         set({
           selectedAlternativeIndex: -1,
           alternatives: [],
           techStackDraft: "",
           designBundle: null,
-          designLeadApproved: false,
-          techLeadApproved: false,
         }),
     }),
     {

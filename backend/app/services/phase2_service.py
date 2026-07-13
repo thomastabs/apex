@@ -209,10 +209,12 @@ class Phase2Service:
         ux_brief: str,
         endpoints: str,
         data_model: str,
-        runtime_spec: str = "",
+        runtime_spec: str,
     ) -> dict:
         if not story_ids:
             raise Phase2ValidationError("At least one story_id is required.")
+        if not runtime_spec.strip():
+            raise Phase2ValidationError("Runtime Contract is required.")
         self.configure_request(ctx)
         # Re-persisting over an already-locked design is a full rewrite of a
         # locked contract — record it as an amendment (MAJOR bump, logged
@@ -232,19 +234,18 @@ class Phase2Service:
 
         self.context.write_project_design_bundle(ux_brief)
         self.context.write_project_technical_spec(story_ids, endpoints, data_model)
-        if runtime_spec.strip():
-            # Independent of `story_ids` (which may be the narrower set still
-            # eligible for a fresh design lock): every story with locked
-            # Gherkin gets has_runtime_spec, since the contract is project-
-            # wide infra, not scoped to whichever stories this call happens
-            # to be (re)locking the core design for.
-            runtime_story_ids = [s["story_id"] for s in self._all_stories_for_runtime()]
-            self.context.write_project_runtime_spec(runtime_story_ids, runtime_spec)
+        # Independent of `story_ids` (which may be the narrower set still
+        # eligible for a fresh design lock): every story with locked Gherkin
+        # gets has_runtime_spec, since the contract is project-wide infra,
+        # not scoped to whichever stories this call happens to be (re)locking
+        # the core design for.
+        runtime_story_ids = [s["story_id"] for s in self._all_stories_for_runtime()]
+        self.context.write_project_runtime_spec(runtime_story_ids, runtime_spec)
         if affected:
             note = "Full project design re-generated and persisted over the locked design."
             self.context.record_amendment("technical-spec.md", note, affected)
             self.context.record_amendment("design-bundle.md", note, affected)
-        if runtime_spec.strip() and runtime_affected:
+        if runtime_affected:
             self.context.record_amendment(
                 "runtime-spec.md",
                 "Runtime Contract re-generated and persisted over the locked contract.",

@@ -78,13 +78,13 @@ export const CONTEXT_FILE_GUIDE: Record<string, FileGuide> = {
   },
   "runtime-spec.md": {
     writer: "apex",
-    writerNote: "Phase 2 writes it (optional)",
+    writerNote: "Phase 2 writes it",
     lock: "Phase 2 (design lock)",
     purpose:
-      "The Runtime Contract — how the independently-built story packs become one running prototype: app/source paths, migration tool + command, session bootstrap, container topology, and a First Prototype Path demo walkthrough. Injected into Phase 3 task/pack generation and probed by Phase 6 conformance. Optional — locking the design without it is allowed, but Phase 3+ has no scaffold contract to ground packs in.",
+      "The Runtime Contract — how the independently-built story packs become one running prototype: app/source paths, migration tool + command, session bootstrap, container topology, and a First Prototype Path demo walkthrough. Required at every design lock, same as UX Brief/Endpoints/Data Model. Injected into Phase 3 task/pack generation and probed by Phase 6 conformance.",
     rules: [
       "Format contract: '- **<label>** {RT-n}: <value>' bullets under '### Frontend' / '### Backend' / '### Database' / '### Containers', plus a '## First Prototype Path' section — the RT-n ids feed the spec index and the Phase 6 conformance probe.",
-      "Unlike the other three design sections it can lock/relock on its own schedule, independent of technical-spec.md — adding it long after the core design already locked is the normal case for an existing project.",
+      "It can still lock/relock on its own schedule, independent of technical-spec.md's own lock marker — a project locked before this section existed can add it later without that counting as touching the rest of the design.",
     ],
   },
   "constraints.md": {
