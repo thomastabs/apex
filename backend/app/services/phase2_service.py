@@ -116,7 +116,7 @@ class Phase2Service:
         self.context.write_tech_stack(clean)
         return {"defined": True, "tech_stack": clean}
 
-    DESIGN_SECTION_ORDER = ("ux_brief", "endpoints", "data_model")
+    DESIGN_SECTION_ORDER = ("ux_brief", "endpoints", "data_model", "runtime")
 
     def generate_design_section(
         self,
@@ -204,6 +204,7 @@ class Phase2Service:
         ux_brief: str,
         endpoints: str,
         data_model: str,
+        runtime_spec: str = "",
     ) -> dict:
         if not story_ids:
             raise Phase2ValidationError("At least one story_id is required.")
@@ -218,10 +219,14 @@ class Phase2Service:
         affected = self.context.affected_stories_for_spec("technical-spec.md") if relock else []
         self.context.write_project_design_bundle(ux_brief)
         self.context.write_project_technical_spec(story_ids, endpoints, data_model)
+        if runtime_spec.strip():
+            self.context.write_project_runtime_spec(story_ids, runtime_spec)
         if affected:
             note = "Full project design re-generated and persisted over the locked design."
             self.context.record_amendment("technical-spec.md", note, affected)
             self.context.record_amendment("design-bundle.md", note, affected)
+            if runtime_spec.strip():
+                self.context.record_amendment("runtime-spec.md", note, affected)
         return {"ok": True, "story_ids": story_ids, "taiga_failures": []}
 
     def _design_locked(self) -> bool:

@@ -184,6 +184,17 @@ def test_eligible_stories_exposes_has_proposal_independent_of_phase_status():
     assert by_id == {1: True, 2: False}
 
 
+def test_eligible_stories_exposes_is_scaffold():
+    index = {
+        "1": {"story_id": 1, "title": "A", "phase_status": "design_locked", "epic_title": "X", "is_scaffold": True},
+        "2": {"story_id": 2, "title": "B", "phase_status": "design_locked", "epic_title": "X", "is_scaffold": False},
+    }
+    svc = Phase3Service(ai=FakeAiService(), context=FakeContextService(index=index))
+    stories = svc.get_eligible_stories(_ctx())
+    by_id = {s["story_id"]: s["is_scaffold"] for s in stories}
+    assert by_id == {1: True, 2: False}
+
+
 # ---------------------------------------------------------------------------
 # get_story_context
 # ---------------------------------------------------------------------------

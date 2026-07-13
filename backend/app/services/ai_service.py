@@ -102,10 +102,11 @@ class AiService:
         technical_spec: str,
         github_context: str,
         constraints: str = "",
+        runtime_spec: str = "",
     ) -> dict:
         """Deterministic Layer-A conformance baseline (no AI). Returns report dict."""
         return ai_engine.build_layer_a_report(
-            gherkin, technical_spec, github_context, constraints
+            gherkin, technical_spec, github_context, constraints, runtime_spec
         ).model_dump()
 
     def verify_conformance(
@@ -420,6 +421,13 @@ class AiService:
             return ai_engine.generate_design_data_model(
                 all_stories, context,
                 endpoints=prior_sections.get("endpoints", ""),
+                instructions=instructions,
+            )
+        if section == "runtime":
+            return ai_engine.generate_design_runtime_spec(
+                all_stories, context,
+                endpoints=prior_sections.get("endpoints", ""),
+                data_model=prior_sections.get("data_model", ""),
                 instructions=instructions,
             )
         raise ValueError(f"Unknown design section: {section!r}")

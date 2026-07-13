@@ -1311,8 +1311,9 @@ def upsert_story_index(story_id: int, **updates) -> None:
     retain their current values.  Missing entries are created with defaults.
 
     Valid fields: epic_id, title, phase_status, has_gherkin, has_tech_spec,
-                  has_proposal, has_bdd, has_bug_report, has_infra_delta,
-                  has_deploy_pack, deploy_bypass, fix_bolt_count,
+                  has_runtime_spec, is_scaffold, has_proposal, has_bdd,
+                  has_bug_report, has_infra_delta, has_deploy_pack,
+                  deploy_bypass, fix_bolt_count,
                   conformance_regressed, regression_reason,
                   trace_flag, trace_phase, trace_reason.
 
@@ -1338,6 +1339,8 @@ def upsert_story_index(story_id: int, **updates) -> None:
             "phase_status": updates.get("phase_status", "gherkin_locked"),
             "has_gherkin":     False,
             "has_tech_spec":   False,
+            "has_runtime_spec": False,
+            "is_scaffold":     False,
             "has_proposal":    False,
             "has_bdd":         False,
             "has_bug_report":  False,
@@ -1540,6 +1543,8 @@ def rebuild_story_index() -> dict[str, dict]:
                     "phase_status": "gherkin_locked",
                     "has_gherkin":    True,
                     "has_tech_spec":  False,
+                    "has_runtime_spec": False,
+                    "is_scaffold":    False,
                     "has_proposal":   False,
                     "has_bdd":        False,
                     "has_bug_report": False,
@@ -1557,6 +1562,8 @@ def rebuild_story_index() -> dict[str, dict]:
                         "phase_status":  "gherkin_locked",
                         "has_gherkin":    True,
                         "has_tech_spec":  False,
+                        "has_runtime_spec": False,
+                        "is_scaffold":    False,
                         "has_proposal":   False,
                         "has_bdd":        False,
                         "has_bug_report": False,
@@ -1664,6 +1671,13 @@ def rebuild_story_index() -> dict[str, dict]:
             entry["status_history"] = old["status_history"]
         if old.get("fix_bolt_count"):
             entry["fix_bolt_count"] = old["fix_bolt_count"]
+        # has_runtime_spec has no file counterpart (runtime-spec.md isn't
+        # per-story-id-scoped in its own content); is_scaffold is pure manual
+        # state — both would otherwise be silently wiped by a rebuild.
+        if old.get("has_runtime_spec"):
+            entry["has_runtime_spec"] = old["has_runtime_spec"]
+        if old.get("is_scaffold"):
+            entry["is_scaffold"] = old["is_scaffold"]
         if old.get("phase_status") in ("qa_passed", "deployed") and entry["phase_status"] == "qa":
             entry["phase_status"] = old["phase_status"]
 
@@ -2036,6 +2050,14 @@ def rebuild_spec_index() -> dict:
     for scr_id, name in ai_engine.parse_screen_ids(bundle_content):
         index[scr_id] = {"kind": "screen", "label": name, "assumptions": []}
     for aid, text in ai_engine.parse_assumptions(bundle_content):
+        if aid in index:
+            index[aid]["assumptions"].append(text)
+
+    runtime = _path("runtime-spec.md")
+    runtime_content = runtime.read_text(encoding="utf-8") if runtime.exists() else ""
+    for rt_id, label, value in ai_engine.parse_runtime_ids(runtime_content):
+        index[rt_id] = {"kind": "runtime", "label": f"{label}: {value}", "assumptions": []}
+    for aid, text in ai_engine.parse_assumptions(runtime_content):
         if aid in index:
             index[aid]["assumptions"].append(text)
 
@@ -2595,10 +2617,13 @@ def read_project_design_bundle() -> dict[str, str]:
 
     tech = _read("technical-spec.md")
     bundle = _read("design-bundle.md")
+    runtime = _read("runtime-spec.md")
+    runtime_body = re.sub(r"^# Runtime Spec\n\n\*\*Locked at:\*\*[^\n]*\n\n", "", runtime).strip()
     return {
         "ux_brief": _span(bundle, _UX_BRIEF_MARK, None),
         "endpoints": _span(tech, _TS_ENDPOINTS_MARK, _TS_DATA_MODEL_MARK),
         "data_model": _span(tech, _TS_DATA_MODEL_MARK, None),
+        "runtime_spec": runtime_body,
     }
 
 
@@ -2632,6 +2657,27 @@ def write_project_technical_spec(story_ids: list[int], endpoints: str, data_mode
     ts.write_text(content, encoding="utf-8")
     for story_id in story_ids:
         upsert_story_index(story_id, phase_status="design_locked", has_tech_spec=True)
+    rebuild_spec_index()
+
+
+def write_project_runtime_spec(story_ids: list[int], runtime_spec: str) -> None:
+    """Overwrite runtime-spec.md with the Runtime Contract + First Prototype Path.
+
+    Independent file from technical-spec.md (a project can be tested without a
+    runtime contract having ever locked), but story-scoped the same way:
+    marks the designed stories has_runtime_spec so Phase 3+ can tell whether
+    the scaffold contract exists for a given story.
+    """
+    init_context()
+    rs = _path("runtime-spec.md")
+    content = (
+        "# Runtime Spec\n\n"
+        f"**Locked at:** {_now()}\n\n"
+        f"{runtime_spec.strip()}\n"
+    )
+    rs.write_text(content, encoding="utf-8")
+    for story_id in story_ids:
+        upsert_story_index(story_id, has_runtime_spec=True)
     rebuild_spec_index()
 
 
@@ -2854,6 +2900,7 @@ _SPEC_LOCK_PHASE: dict[str, str] = {
     "tech-stack.md":      "design_locked",
     "technical-spec.md":  "design_locked",
     "design-bundle.md":   "design_locked",
+    "runtime-spec.md":    "design_locked",
     "constraints.md":     "design_locked",
 }
 

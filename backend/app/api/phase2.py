@@ -152,6 +152,7 @@ def persist_design(
             ux_brief=payload.ux_brief,
             endpoints=payload.endpoints,
             data_model=payload.data_model,
+            runtime_spec=payload.runtime_spec,
         )
     except Exception as exc:
         _handle_error(exc)

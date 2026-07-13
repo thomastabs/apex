@@ -39,6 +39,9 @@ class StoryPreview(BaseModel):
     # without yet being locked (Stage D's "Lock Story" not clicked), so this and
     # phase_status can and do disagree.
     has_proposal: bool = False
+    # Manually flagged (see set_story_scaffold) as the epic's scaffold story —
+    # the one carrying shared runtime plumbing the rest of the epic builds on.
+    is_scaffold: bool = False
 
 
 class EligibleStoriesResponse(BaseModel):

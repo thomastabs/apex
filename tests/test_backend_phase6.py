@@ -25,10 +25,10 @@ class FakeAiService:
         self.verify_calls = 0
         self.last_precheck = None
 
-    def layer_a_conformance(self, gherkin, technical_spec, github_context, constraints=""):
+    def layer_a_conformance(self, gherkin, technical_spec, github_context, constraints="", runtime_spec=""):
         self.layer_a_calls += 1
         self.last_github_context = github_context
-        return {"endpoints": [], "scenarios": [], "constraints": [], "summary": "layerA", "score": 40}
+        return {"endpoints": [], "scenarios": [], "constraints": [], "runtime": [], "summary": "layerA", "score": 40}
 
     def verify_conformance(self, story_subject, gherkin, technical_spec, github_context,
                            constraints="", tech_stack="", precheck=None):
@@ -236,7 +236,7 @@ def test_unsynced_github_blanked(ctx):
     svc, ai, context = _service()
     context.context_files["github-context.md"] = "# GitHub Repository Context\n\n<!-- not synced -->"
     captured = {}
-    ai.layer_a_conformance = lambda g, t, gh, c="": captured.setdefault("gh", gh) or {"score": 0}
+    ai.layer_a_conformance = lambda g, t, gh, c="", r="": captured.setdefault("gh", gh) or {"score": 0}
     svc.verify_conformance(ctx, 1, ai=False)
     assert captured["gh"] == ""  # template treated as not synced
 

@@ -1108,16 +1108,36 @@ def _run_parallel(job: dict, items: list, worker) -> None:
                 raise exc
 
 
+def _scaffold_snapshot(job: dict) -> set[str]:
+    """story_id(str) set with is_scaffold=True, for scaffold-first ordering below."""
+    try:
+        cs = ContextService()
+        cs.set_active(job["ctx"])
+        return {sid for sid, entry in cs.story_index().items() if (entry or {}).get("is_scaffold")}
+    except Exception:  # noqa: BLE001 — best-effort; missing snapshot just means no reordering
+        return set()
+
+
 def _process_stories(job: dict, story_ids: list[int], done_statuses: set[str], worker) -> None:
     """Run worker(story_id) across stories with bounded concurrency, skipping those
-    already at/past a done status (resume) and honouring stop."""
+    already at/past a done status (resume) and honouring stop.
+
+    Scaffold-flagged stories (the manual per-epic "scaffold story" toggle —
+    the one carrying shared runtime plumbing the rest of the epic builds on)
+    run first and are fully awaited before the rest of the batch starts, so a
+    dependent story's worker never races the scaffold story's."""
     done = _status_snapshot(job)
     todo = [sid for sid in story_ids if done.get(str(sid), "") not in done_statuses]
     skipped = len(story_ids) - len(todo)
     if skipped:
         with _progress_lock:
             job["stories_done"] += skipped  # keep the progress bar honest on resume
-    _run_parallel(job, todo, worker)
+    scaffold_ids = _scaffold_snapshot(job)
+    scaffold_todo = [sid for sid in todo if str(sid) in scaffold_ids]
+    rest_todo = [sid for sid in todo if str(sid) not in scaffold_ids]
+    if scaffold_todo:
+        _run_parallel(job, scaffold_todo, worker)
+    _run_parallel(job, rest_todo, worker)
 
 
 def _status_snapshot(job: dict) -> dict[str, str]:

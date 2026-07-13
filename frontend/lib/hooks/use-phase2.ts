@@ -123,7 +123,7 @@ export function usePersistDesignDelta() {
   });
 }
 
-export const DESIGN_SECTION_ORDER: DesignSectionKey[] = ["ux_brief", "endpoints", "data_model"];
+export const DESIGN_SECTION_ORDER: DesignSectionKey[] = ["ux_brief", "endpoints", "data_model", "runtime"];
 
 export type DesignSectionCallbacks = {
   onSection: (

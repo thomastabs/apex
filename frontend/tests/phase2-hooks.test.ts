@@ -9,6 +9,7 @@ type DesignBundle = {
   ux_brief: string;
   endpoints: string;
   data_model: string;
+  runtime: string;
   story_ids: number[];
 };
 
@@ -23,6 +24,7 @@ function computeActiveBundle(
       ux_brief:   partial.ux_brief   ?? designBundle?.ux_brief   ?? "",
       endpoints:  partial.endpoints  ?? designBundle?.endpoints  ?? "",
       data_model: partial.data_model ?? designBundle?.data_model ?? "",
+      runtime:    partial.runtime    ?? designBundle?.runtime    ?? "",
       story_ids:  partialStoryIds.length ? partialStoryIds : (designBundle?.story_ids ?? []),
     };
   }
@@ -33,6 +35,7 @@ const FULL_BUNDLE: DesignBundle = {
   ux_brief:   "## Screens\n- Login",
   endpoints:  "## Endpoints\n- POST /auth",
   data_model: "## Data Model\n### User",
+  runtime:    "## Runtime Contract\n- app root: frontend/app",
   story_ids:  [1, 2],
 };
 
@@ -57,6 +60,7 @@ describe("computeActiveBundle — merge logic", () => {
       ux_brief:   "updated UX",
       endpoints:  "## Endpoints\n- POST /auth",
       data_model: "## Data Model\n### User",
+      runtime:    "## Runtime Contract\n- app root: frontend/app",
       story_ids:  [3],
     });
   });
@@ -67,6 +71,7 @@ describe("computeActiveBundle — merge logic", () => {
       ux_brief:   "UX",
       endpoints:  "",
       data_model: "",
+      runtime:    "",
       story_ids:  [],
     });
   });
@@ -81,14 +86,14 @@ describe("computeActiveBundle — merge logic", () => {
     expect(result?.story_ids).toEqual([1, 2]);
   });
 
-  it("merges all three partial sections simultaneously", () => {
+  it("merges all four partial sections simultaneously", () => {
     const result = computeActiveBundle(
       true,
-      { ux_brief: "UX", endpoints: "EP", data_model: "DM" },
+      { ux_brief: "UX", endpoints: "EP", data_model: "DM", runtime: "RT" },
       [7],
       FULL_BUNDLE,
     );
-    expect(result).toEqual({ ux_brief: "UX", endpoints: "EP", data_model: "DM", story_ids: [7] });
+    expect(result).toEqual({ ux_brief: "UX", endpoints: "EP", data_model: "DM", runtime: "RT", story_ids: [7] });
   });
 });
 
@@ -192,7 +197,7 @@ describe("sequential generation sequencing", () => {
 describe("single-section regeneration prior building", () => {
   it("builds prior from ux_brief + endpoints when regenerating data_model", () => {
     const existingBundle: DesignBundle = {
-      ux_brief: "UX", endpoints: "EP", data_model: "DM", story_ids: [1],
+      ux_brief: "UX", endpoints: "EP", data_model: "DM", runtime: "RT", story_ids: [1],
     };
     const targetSection: DesignSectionKey = "data_model";
     const sectionsBefore = SECTION_ORDER.slice(0, SECTION_ORDER.indexOf(targetSection));
@@ -208,7 +213,7 @@ describe("single-section regeneration prior building", () => {
 
   it("prior is empty when regenerating the first section", () => {
     const existingBundle: DesignBundle = {
-      ux_brief: "UX", endpoints: "EP", data_model: "DM", story_ids: [1],
+      ux_brief: "UX", endpoints: "EP", data_model: "DM", runtime: "RT", story_ids: [1],
     };
     const targetSection: DesignSectionKey = "ux_brief";
     const sectionsBefore = SECTION_ORDER.slice(0, SECTION_ORDER.indexOf(targetSection));

@@ -510,6 +510,16 @@ export function setStoryPhaseStatus(context: RequestContext, storyId: number, ph
   );
 }
 
+// Marks a story as the epic's "scaffold" story — the one carrying shared
+// runtime plumbing (app shell, migrations, session bootstrap, ...) other
+// stories in the epic build on. One per epic; setting true clears any other.
+export function setStoryScaffold(context: RequestContext, storyId: number, isScaffold: boolean) {
+  return apiRequest<{ ok: boolean }>(
+    `/api/workspace/context-files/story-index/stories/${storyId}/scaffold`,
+    { method: "POST", context, body: { is_scaffold: isScaffold } },
+  );
+}
+
 // Excludes "new" — not a real upsert_story_index status, see backend AdminPhaseStatus.
 export type AdminPhaseStatus = Exclude<ApexPhaseStatus, "new">;
 

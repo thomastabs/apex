@@ -1116,6 +1116,73 @@ class TestLayerAReport:
         assert r.endpoints == [] and r.scenarios == []
         assert r.score == 0
 
+    def test_empty_runtime_spec_gives_empty_runtime_rows(self):
+        r = self._report()  # no runtime_spec passed → defaults to ""
+        assert r.runtime == []
+
+
+_RUNTIME_SPEC_FIXTURE = (
+    "## Runtime Contract\n\n### Backend\n"
+    "- **health endpoint** {RT-1}: GET /health\n"
+    "- **login endpoint** {RT-2}: POST /login\n"
+    "### Frontend\n"
+    "- **entry file** {RT-3}: frontend/index.tsx\n"
+    "- **app source** {RT-4}: backend/app/api/auth.py\n"
+    "- **db url** {RT-5}: DATABASE_URL\n"
+)
+
+
+class TestLayerARuntimeConformance:
+    """Deterministic Runtime Contract probing (RT-n items from runtime-spec.md)."""
+
+    def _report(self):
+        from src.ai_engine import build_layer_a_report
+        return build_layer_a_report(
+            _GHERKIN_FIXTURE, _TECH_SPEC_FIXTURE, _GITHUB_CONTEXT_FIXTURE, _CONSTRAINTS_FIXTURE,
+            _RUNTIME_SPEC_FIXTURE,
+        )
+
+    def test_method_path_value_present(self):
+        r = self._report()
+        by = {x.item: x for x in r.runtime}
+        assert by["login endpoint: POST /login"].status == "present"
+
+    def test_method_path_value_missing(self):
+        r = self._report()
+        by = {x.item: x for x in r.runtime}
+        assert by["health endpoint: GET /health"].status == "missing"
+
+    def test_file_heading_path_value_present(self):
+        r = self._report()
+        by = {x.item: x for x in r.runtime}
+        row = by["app source: backend/app/api/auth.py"]
+        assert row.status == "present"
+        assert row.location == "backend/app/api/auth.py"
+
+    def test_path_value_found_via_text_fallback(self):
+        # "frontend/index.tsx" is only in the File Tree fenced block, not a
+        # per-file heading — must still resolve via the substring fallback.
+        r = self._report()
+        by = {x.item: x for x in r.runtime}
+        assert by["entry file: frontend/index.tsx"].status == "present"
+
+    def test_keyword_value_with_no_evidence_is_missing(self):
+        r = self._report()
+        by = {x.item: x for x in r.runtime}
+        assert by["db url: DATABASE_URL"].status == "missing"
+
+    def test_runtime_rows_included_in_score(self):
+        from src.ai_engine import build_layer_a_report
+        without = build_layer_a_report(
+            _GHERKIN_FIXTURE, _TECH_SPEC_FIXTURE, _GITHUB_CONTEXT_FIXTURE, _CONSTRAINTS_FIXTURE)
+        assert self._report().score != without.score
+
+    def test_no_synced_code_reads_unknown_not_missing(self):
+        from src.ai_engine import build_layer_a_report
+        r = build_layer_a_report(
+            _GHERKIN_FIXTURE, _TECH_SPEC_FIXTURE, "", _CONSTRAINTS_FIXTURE, _RUNTIME_SPEC_FIXTURE)
+        assert all(x.status == "unknown" for x in r.runtime)
+
 
 class TestVerifyConformance:
     """Layer-B AI semantic verification (LLM mocked)."""

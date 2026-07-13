@@ -566,6 +566,17 @@ class TestRebuildStoryIndex:
         assert index["10"]["deploy_bypass"] is True
         assert index["10"]["has_deploy_pack"] is True
 
+    def test_rebuild_preserves_scaffold_flag_and_has_runtime_spec(self, ctx):
+        # Neither field has a file counterpart to re-derive from — a rebuild
+        # must carry them over from the previous index or the manual scaffold
+        # toggle would be silently wiped every time the index is rebuilt.
+        ctx.init_context()
+        ctx.append_gherkin(10, "Story Ten", self.GHERKIN)
+        ctx.upsert_story_index(10, is_scaffold=True, has_runtime_spec=True)
+        index = ctx.rebuild_story_index()
+        assert index["10"]["is_scaffold"] is True
+        assert index["10"]["has_runtime_spec"] is True
+
 
 # ---------------------------------------------------------------------------
 # save_proposal
@@ -1415,6 +1426,53 @@ class TestRebuildSpecIndex:
         ctx.init_context()
         assert ctx.rebuild_spec_index() == {}
 
+    RUNTIME_SPEC = (
+        "## Runtime Contract\n\n### Frontend\n"
+        "- **app root** {RT-1}: frontend/app\n"
+    )
+
+    def test_runtime_items_indexed(self, ctx):
+        ctx.init_context()
+        ctx.write_project_runtime_spec([1], self.RUNTIME_SPEC)
+        index = ctx.load_spec_index()
+        assert index["RT-1"] == {"kind": "runtime", "label": "app root: frontend/app", "assumptions": []}
+
+    def test_runtime_assumptions_merged_into_entry(self, ctx):
+        ctx.init_context()
+        runtime = self.RUNTIME_SPEC + "\n## Assumptions\n\n- {RT-1}: assumed Next.js App Router\n"
+        ctx.write_project_runtime_spec([1], runtime)
+        index = ctx.load_spec_index()
+        assert index["RT-1"]["assumptions"] == ["assumed Next.js App Router"]
+
+
+class TestProjectRuntimeSpec:
+    RUNTIME_SPEC = (
+        "## Runtime Contract\n\n### Frontend\n"
+        "- **app root** {RT-1}: frontend/app\n"
+        "\n## First Prototype Path\n\n1. Open the app.\n"
+    )
+
+    def test_write_marks_story_has_runtime_spec(self, ctx):
+        ctx.init_context()
+        ctx.write_project_runtime_spec([1, 2], self.RUNTIME_SPEC)
+        index = ctx.get_story_index()
+        assert index["1"]["has_runtime_spec"] is True
+        assert index["2"]["has_runtime_spec"] is True
+
+    def test_write_then_read_round_trips(self, ctx):
+        ctx.init_context()
+        ctx.write_project_runtime_spec([1], self.RUNTIME_SPEC)
+        bundle = ctx.read_project_design_bundle()
+        assert "app root" in bundle["runtime_spec"]
+        assert "First Prototype Path" in bundle["runtime_spec"]
+
+    def test_relock_after_design_locked_records_amendment(self, ctx):
+        ctx.init_context()
+        ctx.write_project_technical_spec([1], "- `GET /api/x` — list (Story 1)", "### User\n- Fields: id:int")
+        ctx.write_project_runtime_spec([1], self.RUNTIME_SPEC)
+        affected = ctx.affected_stories_for_spec("runtime-spec.md")
+        assert affected == [1]
+
 
 class TestSpecCoEvolution:
     GHERKIN = "Feature: X\n\n  Scenario: S\n    Given a\n    When b\n    Then c\n"
@@ -1525,6 +1583,7 @@ class TestProjectDesignBundle:
             "ux_brief": "",
             "endpoints": "",
             "data_model": "",
+            "runtime_spec": "",
         }
 
     def test_write_then_read_round_trips_sections(self, ctx):
@@ -1535,6 +1594,7 @@ class TestProjectDesignBundle:
             "ux_brief": "UX brief body\nsecond line",
             "endpoints": "GET /api/x — list",
             "data_model": "User { id, name }",
+            "runtime_spec": "",
         }
 
     def test_design_bundle_and_technical_spec_do_not_overlap(self, ctx):

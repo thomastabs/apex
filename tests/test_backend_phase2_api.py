@@ -62,7 +62,7 @@ class StubPhase2Service:
             "story_ids": [10],
         }
 
-    def persist_design(self, ctx, *, story_ids, ux_brief, endpoints, data_model):
+    def persist_design(self, ctx, *, story_ids, ux_brief, endpoints, data_model, runtime_spec=""):
         self.configure_request(ctx)
         self.context.write_project_design_bundle(ux_brief)
         self.context.write_project_technical_spec(story_ids, endpoints, data_model)

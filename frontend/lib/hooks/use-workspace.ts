@@ -47,6 +47,7 @@ import {
   saveFigmaConfig,
   saveServerConfig,
   setStoryPhaseStatus,
+  setStoryScaffold,
   updateContextFile,
   updateEpic,
   updateMemberRole,
@@ -310,6 +311,21 @@ export function useSetStoryPhaseStatus() {
       for (const phase of ["phase3", "phase4", "phase5"]) {
         void queryClient.invalidateQueries({ queryKey: [phase, "eligible-stories", pid] });
       }
+    },
+  });
+}
+
+// Mark a story as its epic's scaffold story (or unmark it). Invalidates the
+// Phase 3 eligible-stories list so the badge/sort in the picker catches up
+// immediately, including on the OTHER story the backend silently unflagged.
+export function useSetStoryScaffold() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ storyId, isScaffold }: { storyId: number; isScaffold: boolean }) =>
+      setStoryScaffold(context!, storyId, isScaffold),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["phase3", "eligible-stories", context?.projectId] });
     },
   });
 }

@@ -13,6 +13,7 @@ import {
   Clipboard,
   Download,
   ExternalLink,
+  Flag,
   GitBranch,
   GitCompare,
   Info,
@@ -54,7 +55,7 @@ import { usePhase3Store } from "@/lib/stores/phase3-store";
 import { useDiffStore } from "@/lib/stores/diff-store";
 import { useApiContext, useGithubContext } from "@/lib/stores/session-store";
 import { SignInRequired } from "@/components/sign-in-required";
-import { useAiConfig, useServerConfig, useLogDecision } from "@/lib/hooks/use-workspace";
+import { useAiConfig, useServerConfig, useLogDecision, useSetStoryScaffold } from "@/lib/hooks/use-workspace";
 import { CrossCheckPanel, AltModelSelect } from "@/components/cross-check-panel";
 import { GuideTheAI } from "@/components/guide-the-ai";
 import type { CrossCheckResult } from "@/lib/api/phase1";
@@ -253,6 +254,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
   const setActiveEpic = usePhase3Store((s) => s.setBrowsingEpic);
   const page = usePhase3Store((s) => s.browsingPage);
   const setPage = usePhase3Store((s) => s.setBrowsingPage);
+  const setScaffold = useSetStoryScaffold();
 
   if (isLoading) {
     return (
@@ -279,6 +281,12 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
     const epic = s.epic_title || "Ungrouped";
     if (!byEpic.has(epic)) byEpic.set(epic, []);
     byEpic.get(epic)!.push(s);
+  }
+  // Scaffold story (the one carrying shared runtime plumbing the rest of the
+  // epic builds on) sorts to the front of its epic — build it first. Stable
+  // sort preserves the existing story_id order within each group otherwise.
+  for (const arr of byEpic.values()) {
+    arr.sort((a, b) => Number(b.is_scaffold) - Number(a.is_scaffold));
   }
   const epics = [...byEpic.keys()];
   // Fall back to the first epic if nothing was browsed yet, or the persisted
@@ -344,11 +352,20 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                 story === null ? (
                   <div key={`empty-${si}`} />
                 ) : (
-                  <button
+                  // A real nested <button> (the scaffold toggle) can't live inside
+                  // another <button> — this card is a div+role=button instead,
+                  // same click/keyboard behaviour, so the toggle can be a genuine
+                  // interactive control instead of a second layer of onClick tricks.
+                  <div
                     key={story.story_id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => onSelect(story.story_id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(story.story_id); }
+                    }}
                     className={cn(
-                      "group flex h-full flex-col rounded-xl border p-5 text-left transition-all duration-150",
+                      "group flex h-full cursor-pointer flex-col rounded-xl border p-5 text-left transition-all duration-150",
                       dark
                         ? "border-neutral-700 bg-neutral-900 hover:border-violet-500 hover:bg-neutral-800/80 hover:shadow-lg hover:shadow-violet-900/20"
                         : "border-slate-200 bg-white hover:border-violet-400 hover:bg-violet-50/50 shadow-sm hover:shadow-md",
@@ -361,6 +378,31 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                       )}>
                         US#{story.story_id}
                       </span>
+                      <button
+                        type="button"
+                        title={story.is_scaffold
+                          ? "Scaffold story — build first. Click to unmark."
+                          : "Mark as this epic's scaffold story — the one carrying shared runtime plumbing (app shell, migrations, session bootstrap) the rest of the epic builds on. Only one per epic."}
+                        disabled={setScaffold.isPending}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setScaffold.mutate(
+                            { storyId: story.story_id, isScaffold: !story.is_scaffold },
+                            {
+                              onSuccess: () => toast.success(story.is_scaffold ? "Unmarked as scaffold story" : "Marked as scaffold story — builds first"),
+                              onError: () => toast.error("Failed to update scaffold flag."),
+                            },
+                          );
+                        }}
+                        className={cn(
+                          "inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold transition disabled:opacity-50",
+                          story.is_scaffold
+                            ? dark ? "bg-sky-900/40 text-sky-300 ring-1 ring-sky-800" : "bg-sky-50 text-sky-700 ring-1 ring-sky-200"
+                            : dark ? "text-neutral-600 ring-1 ring-neutral-800 hover:text-sky-400 hover:ring-sky-800" : "text-slate-400 ring-1 ring-slate-200 hover:text-sky-600 hover:ring-sky-300",
+                        )}
+                      >
+                        <Flag className="h-3 w-3" /> {story.is_scaffold ? "Scaffold — build first" : "Mark as scaffold"}
+                      </button>
                       {(() => {
                         // phase_status and has_proposal are independent signals — a
                         // story can have packs generated (tasks decomposed, some/all
@@ -442,7 +484,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                         Implement <ChevronRight className="h-3 w-3" />
                       </span>
                     </div>
-                  </button>
+                  </div>
                 )
               )}
             </div>

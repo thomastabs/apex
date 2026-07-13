@@ -55,6 +55,7 @@ class Phase3Service:
                 "tech_spec_preview": tech_spec[:_PREVIEW_CHARS].strip(),
                 "phase_status": entry.get("phase_status", "design_locked"),
                 "has_proposal": bool(entry.get("has_proposal")),
+                "is_scaffold": bool(entry.get("is_scaffold")),
             })
         return sorted(stories, key=lambda s: s["story_id"])
 

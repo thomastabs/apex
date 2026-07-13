@@ -204,6 +204,9 @@ class ContextService:
     def write_project_technical_spec(self, story_ids: list[int], endpoints: str, data_model: str) -> None:
         context_manager.write_project_technical_spec(story_ids, endpoints, data_model)
 
+    def write_project_runtime_spec(self, story_ids: list[int], runtime_spec: str) -> None:
+        context_manager.write_project_runtime_spec(story_ids, runtime_spec)
+
     def append_design_delta(
         self,
         story_ids: list[int],

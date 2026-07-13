@@ -35,6 +35,7 @@ export interface DesignBundleResponse {
   ux_brief: string;
   endpoints: string;
   data_model: string;
+  runtime_spec: string;
 }
 
 export function getDesign(context: RequestContext) {

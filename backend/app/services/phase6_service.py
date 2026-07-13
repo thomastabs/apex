@@ -72,6 +72,7 @@ class Phase6Service:
             "gherkin": self.context.story_gherkin(story_id),
             "technical_spec": self.context.story_technical_spec(story_id),
             "constraints": self.context.read_context_file("constraints.md"),
+            "runtime_spec": self.context.read_context_file("runtime-spec.md"),
             "tech_stack": self.context.read_tech_stack(),
             "github_context": github_context,
         }
@@ -96,7 +97,7 @@ class Phase6Service:
             if path and content:
                 github_context += f"\n\n## `{path}`\n\n```\n{content}\n```\n"
         precheck = self.ai.layer_a_conformance(
-            inp["gherkin"], inp["technical_spec"], github_context, inp["constraints"]
+            inp["gherkin"], inp["technical_spec"], github_context, inp["constraints"], inp["runtime_spec"],
         )
         if ai:
             verify = self.ai.verify_conformance_panel if panel else self.ai.verify_conformance
@@ -105,6 +106,17 @@ class Phase6Service:
                 constraints=inp["constraints"], tech_stack=inp["tech_stack"], precheck=precheck,
             )
             report["layer"] = "panel" if panel else "ai"
+            # Runtime rows are Layer-A only (deterministic file/route probes, no
+            # semantic judgement needed) — Layer B's AI report never computes
+            # them, so carry the precheck's rows through instead of losing them.
+            # Only recompute the score when there's actually a runtime dimension
+            # to fold in (no runtime-spec.md locked yet is the common/legacy
+            # case) — leaves the AI's own score untouched otherwise.
+            runtime_rows = precheck.get("runtime", [])
+            report["runtime"] = runtime_rows
+            if runtime_rows:
+                from src import ai_engine
+                report["score"] = ai_engine.compute_conformance_score(ai_engine.ConformanceReport.model_validate(report))
         else:
             report = precheck
             report["layer"] = "deterministic"

@@ -54,6 +54,13 @@ class TraceabilityService:
             nodes.append({"id": "design", "type": "design", "label": "Design", "phase": 2})
             add_edge("project", "design", "derive")
 
+        # Project-level, same altitude as "design" — runtime-spec.md's contract
+        # items aren't individually node-ed any more than endpoints/entities are.
+        has_runtime = any(e.get("has_runtime_spec") for e in index.values())
+        if has_runtime:
+            nodes.append({"id": "runtime", "type": "runtime", "label": "Runtime Contract", "phase": 2})
+            add_edge("project", "runtime", "derive")
+
         seen_epics: set[str] = set()
         for sid, entry in index.items():
             epic_id = entry.get("epic_id")
@@ -122,6 +129,9 @@ class TraceabilityService:
 
             if entry.get("has_tech_spec"):
                 add_edge(story_node, "design", "design")
+
+            if entry.get("has_runtime_spec"):
+                add_edge(story_node, "runtime", "design")
 
             tasks_node = None
             if entry.get("has_proposal"):

@@ -23,6 +23,7 @@ from backend.app.api.workspace import (
     save_ai_key,
     save_config,
     set_story_phase_status,
+    set_story_scaffold,
     story_index_stats,
     update_context_file,
 )
@@ -33,6 +34,7 @@ from backend.app.schemas.workspace import (
     SaveAiKeyRequest,
     SaveConfigRequest,
     SetPhaseStatusRequest,
+    SetScaffoldRequest,
     UpdateContextFileRequest,
 )
 from backend.app.services.request_context import RequestContext
@@ -140,6 +142,39 @@ def test_set_story_phase_status_404_when_not_in_index(monkeypatch):
     monkeypatch.setattr("src.context_manager.upsert_story_index", lambda *a, **k: pytest.fail("should not upsert"))
     with pytest.raises(HTTPException) as ei:
         set_story_phase_status(9, SetPhaseStatusRequest(phase_status="qa"), RequestContext(pm_token="tok", project_id=42))
+    assert ei.value.status_code == 404
+
+
+def test_set_story_scaffold_clears_other_scaffold_in_same_epic(monkeypatch):
+    calls: list[tuple[int, dict]] = []
+    monkeypatch.setattr("src.context_manager.set_active_project", lambda pid: None)
+    monkeypatch.setattr("src.context_manager.get_story_index", lambda: {
+        "5": {"epic_id": 1, "is_scaffold": False},
+        "6": {"epic_id": 1, "is_scaffold": True},
+        "7": {"epic_id": 2, "is_scaffold": True},  # different epic — must stay untouched
+    })
+    monkeypatch.setattr("src.context_manager.upsert_story_index", lambda sid, **kw: calls.append((sid, kw)))
+    res = set_story_scaffold(5, SetScaffoldRequest(is_scaffold=True), RequestContext(pm_token="tok", project_id=42))
+    assert res == {"ok": True}
+    assert calls == [(6, {"is_scaffold": False}), (5, {"is_scaffold": True})]
+
+
+def test_set_story_scaffold_false_does_not_touch_siblings(monkeypatch):
+    calls: list[tuple[int, dict]] = []
+    monkeypatch.setattr("src.context_manager.set_active_project", lambda pid: None)
+    monkeypatch.setattr("src.context_manager.get_story_index", lambda: {"5": {"epic_id": 1, "is_scaffold": True}})
+    monkeypatch.setattr("src.context_manager.upsert_story_index", lambda sid, **kw: calls.append((sid, kw)))
+    res = set_story_scaffold(5, SetScaffoldRequest(is_scaffold=False), RequestContext(pm_token="tok", project_id=42))
+    assert res == {"ok": True}
+    assert calls == [(5, {"is_scaffold": False})]
+
+
+def test_set_story_scaffold_404_when_not_in_index(monkeypatch):
+    monkeypatch.setattr("src.context_manager.set_active_project", lambda pid: None)
+    monkeypatch.setattr("src.context_manager.get_story_index", lambda: {})
+    monkeypatch.setattr("src.context_manager.upsert_story_index", lambda *a, **k: pytest.fail("should not upsert"))
+    with pytest.raises(HTTPException) as ei:
+        set_story_scaffold(9, SetScaffoldRequest(is_scaffold=True), RequestContext(pm_token="tok", project_id=42))
     assert ei.value.status_code == 404
 
 

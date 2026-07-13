@@ -1116,6 +1116,67 @@ class TestConcurrency:
 
 
 # ---------------------------------------------------------------------------
+# Scaffold-flagged stories run first and are awaited before the rest
+# ---------------------------------------------------------------------------
+
+class TestScaffoldOrdering:
+    def test_scaffold_story_completes_before_the_rest_start(self, monkeypatch):
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_taiga": False, "auto_epics": False})
+        monkeypatch.setattr(svc, "_status_snapshot", lambda j: {})
+        monkeypatch.setattr(svc, "_scaffold_snapshot", lambda j: {"2"})  # story 2 is the scaffold story
+        monkeypatch.setattr(svc, "ContextService", _NoopCS)
+        order: list[int] = []
+        lock = threading.Lock()
+
+        class _StubP3:
+            def generate_tasks(self, ctx, story_id, instructions=""):
+                with lock:
+                    order.append(story_id)
+                return [{"id": 1, "subject": "t", "description": ""}]
+
+            def generate_proposal(self, *a, **k):
+                return "pack"
+
+            def save_proposal(self, *a, **k):
+                pass
+
+            def lock_story(self, *a, **k):
+                pass
+
+        monkeypatch.setattr(svc, "Phase3Service", _StubP3)
+        svc._run_phase3(job, _ctx(), [1, 2, 3, 4, 5])
+        assert sorted(order) == [1, 2, 3, 4, 5]
+        assert order[0] == 2  # scaffold story's batch is fully awaited first
+
+    def test_no_scaffold_story_runs_everything_in_one_batch(self, monkeypatch):
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_taiga": False, "auto_epics": False})
+        monkeypatch.setattr(svc, "_status_snapshot", lambda j: {})
+        monkeypatch.setattr(svc, "_scaffold_snapshot", lambda j: set())
+        monkeypatch.setattr(svc, "ContextService", _NoopCS)
+        planned: list[int] = []
+        lock = threading.Lock()
+
+        class _StubP3:
+            def generate_tasks(self, ctx, story_id, instructions=""):
+                with lock:
+                    planned.append(story_id)
+                return [{"id": 1, "subject": "t", "description": ""}]
+
+            def generate_proposal(self, *a, **k):
+                return "pack"
+
+            def save_proposal(self, *a, **k):
+                pass
+
+            def lock_story(self, *a, **k):
+                pass
+
+        monkeypatch.setattr(svc, "Phase3Service", _StubP3)
+        svc._run_phase3(job, _ctx(), [1, 2, 3])
+        assert sorted(planned) == [1, 2, 3]
+
+
+# ---------------------------------------------------------------------------
 # Phase 4 drafts test plans only — never fabricates a QA pass
 # ---------------------------------------------------------------------------
 

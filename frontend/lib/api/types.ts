@@ -189,7 +189,7 @@ export type LockTechStackRequest = {
   tech_stack: string;
 };
 
-export type DesignSectionKey = "ux_brief" | "endpoints" | "data_model";
+export type DesignSectionKey = "ux_brief" | "endpoints" | "data_model" | "runtime";
 
 export type AssumptionEntry = {
   id: string;
@@ -207,6 +207,11 @@ export type DesignBundle = {
   ux_brief: string;
   endpoints: string;
   data_model: string;
+  // Frontend-side field name matches the "runtime" section key (like the
+  // other three) so the generic per-section render loop needs no special
+  // case; the backend's field is `runtime_spec` — translated at the API
+  // boundary (getDesign response, lockDesign request), not here.
+  runtime: string;
   story_ids: number[];
 };
 
@@ -215,6 +220,7 @@ export type LockDesignRequest = {
   ux_brief: string;
   endpoints: string;
   data_model: string;
+  runtime_spec: string;
 };
 
 export type LockDesignResponse = {
@@ -369,6 +375,7 @@ export type Phase3StoryPreview = {
   tech_spec_preview: string;
   phase_status: string;
   has_proposal: boolean;
+  is_scaffold: boolean;
 };
 
 export type Phase3EligibleStoriesResponse = {

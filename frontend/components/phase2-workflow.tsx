@@ -63,6 +63,7 @@ const DESIGN_STEPS: Record<DesignSectionKey, string> = {
   ux_brief:   "Writing UX Brief…",
   endpoints:  "Defining Endpoints…",
   data_model: "Building Data Model…",
+  runtime:    "Defining Runtime Contract…",
 };
 
 type SectionCfg = {
@@ -70,6 +71,7 @@ type SectionCfg = {
   title: string;
   description: string;
   dependsOn: DesignSectionKey[];
+  optional?: boolean;
 };
 
 const SECTION_CONFIG: Record<DesignSectionKey, SectionCfg> = {
@@ -91,9 +93,16 @@ const SECTION_CONFIG: Record<DesignSectionKey, SectionCfg> = {
     description: "Core entities, fields, and relations derived from the endpoint list.",
     dependsOn:   ["endpoints"],
   },
+  runtime: {
+    stepLabel:   "Step 4",
+    title:       "Runtime Contract",
+    description: "How the pieces become one running prototype — app shell paths, migration command, session bootstrap, and a First Prototype Path demo walkthrough. Optional: locking without it is allowed, but Phase 3+ won't have a scaffold contract to check packs against.",
+    dependsOn:   ["endpoints", "data_model"],
+    optional:    true,
+  },
 };
 
-function downloadDesignBundle(bundle: { ux_brief: string; endpoints: string; data_model: string }) {
+function downloadDesignBundle(bundle: { ux_brief: string; endpoints: string; data_model: string; runtime?: string }) {
   const content = [
     "# Project Design Bundle",
     "",
@@ -105,6 +114,7 @@ function downloadDesignBundle(bundle: { ux_brief: string; endpoints: string; dat
     "",
     "## Data Model",
     bundle.data_model,
+    ...(bundle.runtime?.trim() ? ["", "## Runtime Contract", bundle.runtime] : []),
   ].join("\n");
   const blob = new Blob([content], { type: "text/markdown" });
   const url = URL.createObjectURL(blob);
@@ -213,6 +223,7 @@ export function Phase2Workflow() {
         ux_brief: d.ux_brief,
         endpoints: d.endpoints,
         data_model: d.data_model,
+        runtime: d.runtime_spec,
         story_ids: [],
       });
     }
@@ -236,6 +247,7 @@ export function Phase2Workflow() {
         ux_brief:   partial.ux_brief   ?? designBundle?.ux_brief   ?? "",
         endpoints:  partial.endpoints  ?? designBundle?.endpoints  ?? "",
         data_model: partial.data_model ?? designBundle?.data_model ?? "",
+        runtime:    partial.runtime    ?? designBundle?.runtime    ?? "",
         story_ids:  partialStoryIds.length ? partialStoryIds : (designBundle?.story_ids ?? []),
       }
     : designBundle;
@@ -292,6 +304,7 @@ export function Phase2Workflow() {
           ux_brief:   accumulated.ux_brief   ?? "",
           endpoints:  accumulated.endpoints  ?? "",
           data_model: accumulated.data_model ?? "",
+          runtime:    accumulated.runtime    ?? "",
           story_ids:  accStoryIds,
         });
         setPartial({});
@@ -340,6 +353,7 @@ export function Phase2Workflow() {
             ux_brief:   existingBundle?.ux_brief   ?? "",
             endpoints:  existingBundle?.endpoints  ?? "",
             data_model: existingBundle?.data_model ?? "",
+            runtime:    existingBundle?.runtime    ?? "",
             story_ids:  latestStoryIds.length ? latestStoryIds : (existingBundle?.story_ids ?? []),
             [targetSection]: latestContent,
           });
@@ -751,6 +765,9 @@ export function Phase2Workflow() {
                         <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>
                           {cfg.title}
                         </span>
+                        {cfg.optional ? (
+                          <span className={cn("text-xs", mutedClass)}>Optional</span>
+                        ) : null}
                       </div>
                       {isThisGenerating ? (
                         <span className="animate-pulse text-xs text-violet-400">Generating…</span>
@@ -905,7 +922,7 @@ export function Phase2Workflow() {
                       "inline-flex h-5 items-center justify-center rounded px-2 text-xs font-bold",
                       dark ? "bg-violet-900/60 text-violet-300" : "bg-violet-100 text-violet-700",
                     )}>
-                      Step 4
+                      Step 5
                     </span>
                     <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>
                       Visual Design System
@@ -970,10 +987,11 @@ export function Phase2Workflow() {
                     onClick={() =>
                       lockDesign.mutate(
                         {
-                          story_ids:  activeBundle.story_ids,
-                          ux_brief:   activeBundle.ux_brief,
-                          endpoints:  activeBundle.endpoints,
-                          data_model: activeBundle.data_model,
+                          story_ids:    activeBundle.story_ids,
+                          ux_brief:     activeBundle.ux_brief,
+                          endpoints:    activeBundle.endpoints,
+                          data_model:   activeBundle.data_model,
+                          runtime_spec: activeBundle.runtime ?? "",
                         },
                         {
                           onSuccess: (data) => toast.success(`Design locked for ${data.story_ids.length} stories`),

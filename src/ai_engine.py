@@ -1897,6 +1897,79 @@ def generate_design_data_model(all_stories: list[dict], context: str, *, endpoin
                                      max_tokens=3000, timeout=180))
 
 
+_RUNTIME_SPEC_SYSTEM = """\
+You are a Software/DevOps Architect defining the RUNTIME ASSEMBLY contract for
+this project — how the independently-built story packs become one running
+full-stack prototype. This is a DESIGN-level artifact (the scaffold every
+story pack will be built against), not a deployment manifest.
+
+**Project Context (binding constraints — ONLY use technologies from the Tech Stack; may include existing codebase context — DETECT real paths/frameworks from it instead of guessing a fresh-project layout):**
+{context}
+
+{anti_hallucination}
+
+**Endpoint List (for cross-referencing the demo path below):**
+{endpoints}
+
+**Data Model (entities the demo path may create/read):**
+{data_model}
+
+Output exactly three sections — nothing else, no introduction, no commentary.
+
+## Runtime Contract
+
+### Frontend
+- **<label>** {{RT-1}}: <value>   (e.g. framework mode, app root, source root, API strategy, build command)
+
+### Backend
+- **<label>** {{RT-2}}: <value>   (e.g. app import path, health endpoint, required env vars)
+
+### Database
+- **<label>** {{RT-3}}: <value>   (e.g. migration tool, migration command, required extensions, bootstrap/session strategy)
+
+### Containers
+- **<label>** {{RT-4}}: <value>   (e.g. services, internal URLs, exposed ports — omit this whole subsection if the Tech Stack has no container/orchestration layer)
+
+## First Prototype Path
+
+Exactly one explicit, numbered end-to-end demo walkthrough — the smallest
+path that proves the stack is wired, not a feature tour:
+1. <user action> — touches {{EP-n}} if it calls an endpoint from the list above
+2. ...
+
+## Assumptions
+
+Format: `- {{RT-1}}: <what you inferred and why>`. One bullet per Runtime
+Contract line where you had to infer something not given. Omit the section
+body (leave it empty) when nothing needed inference.
+
+Rules:
+- Ground every value in the actual Tech Stack above — never invent a
+  framework, database, or deployment target it doesn't name.
+- Assign each Runtime Contract line a stable id RT-1, RT-2, … in output
+  order, unique across the whole document. Every subsection kept needs at
+  least one id'd line.
+- First Prototype Path steps must be concrete UI/API actions a demo would
+  actually follow, not phase names. Reference {{EP-n}} ids from the Endpoint
+  List above where a step calls an endpoint; never invent new endpoint ids
+  here.
+"""
+
+
+def generate_design_runtime_spec(
+    all_stories: list[dict], context: str, *, endpoints: str, data_model: str, instructions: str = "",
+) -> str:
+    grouped = _group_stories_by_epic(all_stories)
+    system = _RUNTIME_SPEC_SYSTEM.format(
+        context=fence_user_content(context),
+        endpoints=fence_user_content(endpoints),
+        data_model=fence_user_content(data_model),
+        anti_hallucination=_ANTI_HALLUCINATION,
+    ) + _guidance_block(instructions)
+    return _ai_retry(lambda: _invoke(system, _format_stories_human(grouped), get_model(),
+                                     max_tokens=3000, timeout=180))
+
+
 class DesignDelta(BaseModel):
     """Additive design covering stories that arrived after the design lock."""
     ux_brief_addendum: str = Field(
@@ -3640,6 +3713,19 @@ class ConstraintConformance(BaseModel):
     evidence: str = ""
 
 
+class RuntimeConformance(BaseModel):
+    """Layer-A-only row: does a runtime-spec.md Runtime Contract item (app
+    shell path, migration command, session-bootstrap endpoint, ...) actually
+    exist in the synced code? Advisory — never blocks a lock — but flows
+    through score/regression the same way endpoint/scenario rows do, since
+    that's exactly the "spec says X but the prototype doesn't run" gap this
+    dimension exists to surface."""
+    item: str                # "app root: frontend/app" (RT-n label: value)
+    status: Literal["present", "missing", "unknown"]
+    location: str = ""
+    notes: str = ""
+
+
 class RowVerdict(BaseModel):
     """A single row's reconciled verdict from the multi-agent panel (Layer B+)."""
     ref: str                 # the contract / scenario / constraint_id this row is keyed by
@@ -3660,6 +3746,7 @@ class ConformanceReport(BaseModel):
     endpoints: list[EndpointConformance] = Field(default_factory=list)
     scenarios: list[ScenarioConformance] = Field(default_factory=list)
     constraints: list[ConstraintConformance] = Field(default_factory=list)
+    runtime: list[RuntimeConformance] = Field(default_factory=list)
     summary: str = ""        # human-readable drift narrative
     score: int = 0           # 0–100, derived deterministically from the above
     # Present only when the adversarial panel ran (panel verify); None for the
@@ -3685,6 +3772,8 @@ _ENDPOINT_ID_RE = re.compile(
 _ENTITY_ID_RE = re.compile(r"^###\s+(.+?)\s*\[(ENT-\d+)\]\s*$", re.MULTILINE)
 # Screen bullet in design-bundle.md: "- **<Screen Name>** {SCR-1} [Story <ID>]: ...".
 _SCREEN_ID_RE = re.compile(r"^\s*-\s*\*\*(.+?)\*\*\s*\{(SCR-\d+)\}", re.MULTILINE)
+# Runtime Contract line in runtime-spec.md: "- **<label>** {RT-1}: <value>".
+_RUNTIME_ID_RE = re.compile(r"^\s*-\s*\*\*(.+?)\*\*\s*\{(RT-\d+)\}:\s*(.+)$", re.MULTILINE)
 
 
 def parse_spec_endpoints(technical_spec: str) -> list[tuple[str, str]]:
@@ -3733,9 +3822,15 @@ def parse_screen_ids(design_bundle: str) -> list[tuple[str, str]]:
             for m in _SCREEN_ID_RE.finditer(design_bundle or "")]
 
 
+def parse_runtime_ids(runtime_spec: str) -> list[tuple[str, str, str]]:
+    """Extract (id, label, value) for each id-tagged Runtime Contract line."""
+    return [(m.group(2), m.group(1).strip(), m.group(3).strip())
+            for m in _RUNTIME_ID_RE.finditer(runtime_spec or "")]
+
+
 # Assumption bullet, generic across UX Brief / Endpoints / Data Model / Design
-# Delta: "- {EP-1}: assumed bearer auth since none was specified."
-_ASSUMPTION_RE = re.compile(r"^\s*-\s*\{((?:EP|ENT|SCR)-\d+)\}:\s*(.+)$", re.MULTILINE)
+# Delta / Runtime Spec: "- {EP-1}: assumed bearer auth since none was specified."
+_ASSUMPTION_RE = re.compile(r"^\s*-\s*\{((?:EP|ENT|SCR|RT)-\d+)\}:\s*(.+)$", re.MULTILINE)
 
 
 def parse_assumptions(markdown: str) -> list[tuple[str, str]]:
@@ -3972,19 +4067,79 @@ def _match_constraints(constraints, github_context):
     return out
 
 
+# METHOD+path inside a Runtime Contract value, e.g. "GET /health" or
+# "session bootstrap: POST /api/v1/session".
+_VALUE_ROUTE_RE = re.compile(r"\b(GET|POST|PUT|PATCH|DELETE)\s+(/[^\s,]*)", re.IGNORECASE)
+
+
+def _match_runtime(
+    runtime_items: list[tuple[str, str, str]], github_context: str,
+) -> list["RuntimeConformance"]:
+    """Deterministic Layer-A probe for Runtime Contract items.
+
+    A value naming a METHOD+path (e.g. a session-bootstrap endpoint) is
+    checked the same way endpoint contracts are (extract_code_routes +
+    _paths_match). A value that looks like a file/dir path is checked against
+    the synced repo's per-file markdown headings (repomix's per-file header
+    convention). Anything else falls back to the same weak keyword probe
+    constraints use — advisory either way, but present/missing is still a
+    meaningful signal for "does the scaffold this story pack assumes exist."
+    """
+    text = github_context or ""
+    lower = text.lower()
+    file_headings = [m.group(1).strip() for m in _FILE_HEADING_RE.finditer(text)]
+    code_routes = extract_code_routes(text)
+    out: list[RuntimeConformance] = []
+    for _rt_id, label, value in runtime_items:
+        item = f"{label}: {value}"
+        if not text.strip():
+            out.append(RuntimeConformance(item=item, status="unknown", notes="no synced code to check against"))
+            continue
+        route_m = _VALUE_ROUTE_RE.search(value)
+        if route_m:
+            method, path = route_m.group(1).upper(), route_m.group(2)
+            hits = [r for r in code_routes if r[0] == method and _paths_match(path, r[1])]
+            if hits:
+                out.append(RuntimeConformance(item=item, status="present", location=_locate_offset(text, hits[0][2])))
+            else:
+                out.append(RuntimeConformance(item=item, status="missing"))
+            continue
+        path_token = value.strip().strip("`")
+        if "/" in path_token and " " not in path_token:
+            hit = next((h for h in file_headings if path_token.lower() in h.lower()), None)
+            if hit:
+                out.append(RuntimeConformance(item=item, status="present", location=hit))
+            elif path_token.lower() in lower:
+                out.append(RuntimeConformance(item=item, status="present"))
+            else:
+                out.append(RuntimeConformance(item=item, status="missing"))
+            continue
+        kws = _scenario_keywords(value)
+        hits = [k for k in kws if k in lower]
+        if hits:
+            out.append(RuntimeConformance(item=item, status="present", notes=f"keyword(s): {', '.join(hits[:5])}"))
+        else:
+            out.append(RuntimeConformance(item=item, status="missing", notes="no keyword evidence in synced context"))
+    return out
+
+
 _ENDPOINT_WEIGHT = {"present": 1.0, "mismatch": 0.5, "missing": 0.0, "unknown": 0.0}
 _SCENARIO_WEIGHT = {"tested": 1.0, "partial": 0.5, "untested": 0.0, "unknown": 0.0}
+_RUNTIME_WEIGHT = {"present": 1.0, "missing": 0.0, "unknown": 0.0}
 
 
 def compute_conformance_score(report: ConformanceReport) -> int:
-    """Deterministic 0–100 score from endpoint + scenario statuses.
+    """Deterministic 0–100 score from endpoint + scenario + runtime statuses.
 
     Computed in code (never by the AI) so it is reproducible. Constraints are
-    advisory (lossy keyword probe) and excluded from the score. Returns 0 when
-    there is nothing to score.
+    advisory (lossy keyword probe) and excluded from the score; runtime items
+    ARE included — a locked spec whose scaffold doesn't actually run is
+    exactly the gap this dimension exists to surface. Returns 0 when there is
+    nothing to score.
     """
     weights = [_ENDPOINT_WEIGHT[e.status] for e in report.endpoints]
     weights += [_SCENARIO_WEIGHT[s.status] for s in report.scenarios]
+    weights += [_RUNTIME_WEIGHT[r.status] for r in report.runtime]
     if not weights:
         return 0
     return round(100 * sum(weights) / len(weights))
@@ -4024,6 +4179,7 @@ def diff_conformance(
 
     _scan(old.endpoints, new.endpoints, "contract", "endpoint", _ENDPOINT_WEIGHT)
     _scan(old.scenarios, new.scenarios, "scenario", "scenario", _SCENARIO_WEIGHT)
+    _scan(old.runtime, new.runtime, "item", "runtime", _RUNTIME_WEIGHT)
 
     score_delta = new.score - old.score
     regressed = score_delta < 0 or bool(worsened)
@@ -4121,6 +4277,7 @@ def build_layer_a_report(
     technical_spec: str,
     github_context: str,
     constraints: str = "",
+    runtime_spec: str = "",
 ) -> ConformanceReport:
     """Run the deterministic Layer-A conformance pass — no AI, no network.
 
@@ -4128,10 +4285,13 @@ def build_layer_a_report(
     constraints, probes the synced GitHub context for evidence, and returns a
     ConformanceReport with a code-computed score. Degrades gracefully: with no
     synced code everything reads missing/untested rather than erroring.
+    `runtime_spec` (runtime-spec.md, may be "" if never locked) adds the
+    runtime-assembly dimension the same way.
     """
     spec_endpoints = parse_spec_endpoints(technical_spec)
     scenarios = _parse_gherkin_titles(gherkin)
     constraint_ids = parse_constraint_ids(constraints)
+    runtime_items = parse_runtime_ids(runtime_spec)
     code_routes = extract_code_routes(github_context)
     file_tree = _extract_file_tree(github_context)
 
@@ -4139,6 +4299,7 @@ def build_layer_a_report(
         endpoints=_match_endpoints(spec_endpoints, code_routes, github_context),
         scenarios=_match_scenarios(scenarios, github_context, file_tree),
         constraints=_match_constraints(constraint_ids, github_context),
+        runtime=_match_runtime(runtime_items, github_context),
     )
     report.score = compute_conformance_score(report)
 

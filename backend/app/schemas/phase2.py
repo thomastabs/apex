@@ -29,7 +29,7 @@ class LockTechStackRequest(BaseModel):
 
 
 class DesignSectionRequest(BaseModel):
-    section: Literal["ux_brief", "endpoints", "data_model"]
+    section: Literal["ux_brief", "endpoints", "data_model", "runtime"]
     prior: dict[str, str] = Field(default_factory=dict)
     instructions: str = Field("", max_length=2_000)
 
@@ -55,6 +55,7 @@ class DesignBundleResponse(BaseModel):
     ux_brief: str = ""
     endpoints: str = ""
     data_model: str = ""
+    runtime_spec: str = ""
 
 
 class LockDesignRequest(BaseModel):
@@ -62,6 +63,11 @@ class LockDesignRequest(BaseModel):
     ux_brief: str = Field(min_length=1, max_length=100_000)
     endpoints: str = Field(min_length=1, max_length=100_000)
     data_model: str = Field(min_length=1, max_length=100_000)
+    # Optional (not min_length=1): projects that locked a design before the
+    # Runtime section existed, and relocks that intentionally skip it, must
+    # still be able to persist — the Traceability/conformance side treats a
+    # missing runtime-spec.md as "not generated yet", never as an error.
+    runtime_spec: str = Field("", max_length=100_000)
 
 
 class TaigaTransitionFailure(BaseModel):

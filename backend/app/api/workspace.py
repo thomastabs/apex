@@ -39,6 +39,7 @@ from backend.app.schemas.workspace import (
     ScanFigmaChangesRequest,
     ScanFigmaChangesResponse,
     SetPhaseStatusRequest,
+    SetScaffoldRequest,
     SetStoryFigmaLinkRequest,
     SyncFigmaContextRequest,
     SaveTraceLayoutRequest,
@@ -488,6 +489,45 @@ def set_story_phase_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update story phase status.",
+        ) from exc
+    return {"ok": True}
+
+
+@router.post(
+    "/context-files/story-index/stories/{story_id}/scaffold",
+    response_model=OkResponse,
+)
+def set_story_scaffold(
+    story_id: int,
+    payload: SetScaffoldRequest,
+    ctx: RequestContext = Depends(get_request_context),
+):
+    """Manually flag one story per epic as the "scaffold" story — the one
+    Phase 3/Autopilot should generate and lock first, since it's the one
+    that carries the shared runtime plumbing (app shell, migrations, session
+    bootstrap, ...) other stories in the epic build on. Setting True clears
+    the flag on any other story in the same epic, since only one makes sense."""
+    context = ContextService()
+    context.set_active(ctx)
+    index = context.story_index()
+    entry = index.get(str(story_id))
+    if entry is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Story is not in the index — publish it from Phase 1 first.",
+        )
+    try:
+        if payload.is_scaffold:
+            epic_id = entry.get("epic_id")
+            for other_id, other_entry in index.items():
+                if other_entry.get("epic_id") == epic_id and other_entry.get("is_scaffold") and int(other_id) != story_id:
+                    context.upsert_story_index(int(other_id), is_scaffold=False)
+        context.upsert_story_index(story_id, is_scaffold=payload.is_scaffold)
+    except Exception as exc:
+        _logger.exception("set_story_scaffold failed story_id=%s: %s", story_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update scaffold flag.",
         ) from exc
     return {"ok": True}
 
