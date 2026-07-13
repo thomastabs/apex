@@ -76,6 +76,17 @@ export const CONTEXT_FILE_GUIDE: Record<string, FileGuide> = {
       "UX additions from design deltas merge in here; hand-added screens are picked up the same way.",
     ],
   },
+  "runtime-spec.md": {
+    writer: "apex",
+    writerNote: "Phase 2 writes it (optional)",
+    lock: "Phase 2 (design lock)",
+    purpose:
+      "The Runtime Contract — how the independently-built story packs become one running prototype: app/source paths, migration tool + command, session bootstrap, container topology, and a First Prototype Path demo walkthrough. Injected into Phase 3 task/pack generation and probed by Phase 6 conformance. Optional — locking the design without it is allowed, but Phase 3+ has no scaffold contract to ground packs in.",
+    rules: [
+      "Format contract: '- **<label>** {RT-n}: <value>' bullets under '### Frontend' / '### Backend' / '### Database' / '### Containers', plus a '## First Prototype Path' section — the RT-n ids feed the spec index and the Phase 6 conformance probe.",
+      "Unlike the other three design sections it can lock/relock on its own schedule, independent of technical-spec.md — adding it long after the core design already locked is the normal case for an existing project.",
+    ],
+  },
   "constraints.md": {
     writer: "you",
     writerNote: "You write it (or Generate with AI)",

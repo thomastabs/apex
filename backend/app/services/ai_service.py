@@ -210,11 +210,12 @@ class AiService:
         github_context: str = "",
         instructions: str = "",
         figma_context: str = "",
+        runtime_spec: str = "",
     ) -> list[dict]:
         result = ai_engine.generate_tasks(
             story_subject, gherkin, technical_spec,
             tech_stack=tech_stack, design_bundle=design_bundle, github_context=github_context,
-            instructions=instructions, figma_context=figma_context,
+            instructions=instructions, figma_context=figma_context, runtime_spec=runtime_spec,
         )
         return [
             {
@@ -246,6 +247,7 @@ class AiService:
         decisions: str = "",
         figma_context: str = "",
         images: list[dict] | None = None,
+        runtime_spec: str = "",
     ) -> str:
         return ai_engine.generate_coding_proposal(
             task_subject, task_description, gherkin, technical_spec,
@@ -257,6 +259,7 @@ class AiService:
             decisions=decisions,
             figma_context=figma_context,
             images=images,
+            runtime_spec=runtime_spec,
         )
 
     def generate_er_diagram(self, data_model_md: str):

@@ -98,21 +98,31 @@ function relativeTime(iso: string | null | undefined): string | null {
 // authors it (persist_design) and reads it back for delta/relock checks;
 // Phases 3-6 each read it per-story via context.story_technical_spec(story_id)
 // to ground task packs, test plans, the deploy gate, and maintenance triage.
+//
+// runtime-spec.md (optional — only present once generated in Phase 2's Runtime
+// Contract section) is project-wide, not per-story: Phase 2 authors + relocks
+// it; Phase 3 injects it whole into task decomposition and developer-pack
+// generation (generate_tasks / generate_proposal) so packs are grounded in the
+// actual scaffold (paths, migration command, session bootstrap) instead of
+// guessing; Phase 6 probes it deterministically against synced code for the
+// RuntimeConformance dimension. Not read by Phase 4 (test plans) or Phase 5
+// (deploy gate) yet.
 const CONTEXT_FILE_PHASES: Record<string, string[]> = {
   // phase1_service: project_concept, tech-stack, constraints, figma-context; authors functional-spec
   "/phase1": ["project-concept.md", "tech-stack.md", "functional-spec.md", "constraints.md", "figma-context.md"],
   // phase2_service: project_concept, tech-stack, github-context, figma-context, design-bundle, per-story functional-spec;
-  // authors + reads back technical-spec (delta dedup/relock checks against the locked design)
-  "/phase2": ["project-concept.md", "tech-stack.md", "functional-spec.md", "technical-spec.md", "design-bundle.md", "github-context.md", "figma-context.md"],
-  // phase3_service (task decomposition): project_concept, tech-stack, design-bundle, github-context, constraints, decisions,
-  // per-story functional-spec + technical-spec (story_technical_spec grounds task/pack generation)
-  "/phase3": ["project-concept.md", "tech-stack.md", "functional-spec.md", "technical-spec.md", "design-bundle.md", "github-context.md", "constraints.md", "decisions.md"],
+  // authors + reads back technical-spec (delta dedup/relock checks) and runtime-spec (independent relock checks)
+  "/phase2": ["project-concept.md", "tech-stack.md", "functional-spec.md", "technical-spec.md", "design-bundle.md", "runtime-spec.md", "github-context.md", "figma-context.md"],
+  // phase3_service (task decomposition + developer packs): project_concept, tech-stack, design-bundle, runtime-spec,
+  // github-context, constraints, decisions, per-story functional-spec + technical-spec
+  "/phase3": ["project-concept.md", "tech-stack.md", "functional-spec.md", "technical-spec.md", "design-bundle.md", "runtime-spec.md", "github-context.md", "constraints.md", "decisions.md"],
   // phase4_service (QA test plan): tech-stack, constraints, figma-context, github-context, per-story functional-spec + technical-spec
   "/phase4": ["tech-stack.md", "functional-spec.md", "technical-spec.md", "constraints.md", "figma-context.md", "github-context.md"],
   // phase5_service (deploy/infra): tech-stack, github-context, per-story functional-spec + technical-spec
   "/phase5": ["tech-stack.md", "functional-spec.md", "technical-spec.md", "github-context.md"],
-  // phase6_service (maintenance): tech-stack, constraints, github-context (+ Figma comments sync), per-story functional-spec + technical-spec
-  "/phase6": ["tech-stack.md", "functional-spec.md", "technical-spec.md", "constraints.md", "github-context.md", "figma-context.md"],
+  // phase6_service (maintenance + conformance): tech-stack, constraints, runtime-spec (RuntimeConformance probe),
+  // github-context (+ Figma comments sync), per-story functional-spec + technical-spec
+  "/phase6": ["tech-stack.md", "functional-spec.md", "technical-spec.md", "constraints.md", "runtime-spec.md", "github-context.md", "figma-context.md"],
 };
 
 function useVisibleContextFiles(

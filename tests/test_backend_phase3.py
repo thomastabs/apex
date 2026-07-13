@@ -33,9 +33,10 @@ class FakeAiService:
         self.generate_proposal_args = None
         self.generate_proposal_kwargs: dict = {}
 
-    def generate_tasks(self, story_subject, gherkin, technical_spec, tech_stack="", design_bundle="", github_context="", instructions="", figma_context=""):
+    def generate_tasks(self, story_subject, gherkin, technical_spec, tech_stack="", design_bundle="", github_context="", instructions="", figma_context="", runtime_spec=""):
         self.generate_tasks_args = (story_subject, gherkin, technical_spec, tech_stack, design_bundle)
         self.generate_tasks_figma_context = figma_context
+        self.generate_tasks_runtime_spec = runtime_spec
         return _FAKE_TASKS
 
     def generate_proposal(
@@ -56,6 +57,7 @@ class FakeAiService:
         decisions="",
         figma_context="",
         images=None,
+        runtime_spec="",
     ):
         self.generate_proposal_args = (task_subject, task_description, gherkin, technical_spec,
                                        tech_stack, design_bundle, story_ref)
@@ -68,6 +70,7 @@ class FakeAiService:
             "decisions": decisions,
             "figma_context": figma_context,
             "images": images,
+            "runtime_spec": runtime_spec,
         }
         return _FAKE_PROPOSAL
 
@@ -260,6 +263,26 @@ def test_generate_tasks_injects_figma_context():
     assert "Button, Card" in ai.generate_tasks_figma_context
 
 
+def test_generate_tasks_injects_runtime_spec():
+    # Task decomposition grounds itself in the locked Runtime Contract (app
+    # paths, migration command, ...) when one exists.
+    ai = FakeAiService()
+    ctx_svc = FakeContextService()
+    ctx_svc.context_files = {"runtime-spec.md": "## Runtime Contract\n- **app root** {RT-1}: frontend/app"}
+    svc = Phase3Service(ai=ai, context=ctx_svc)
+    svc.generate_tasks(_ctx(), 10)
+    assert "app root" in ai.generate_tasks_runtime_spec
+
+
+def test_generate_tasks_runtime_spec_empty_when_never_generated():
+    ai = FakeAiService()
+    ctx_svc = FakeContextService()
+    ctx_svc.read_context_file = lambda filename: ""  # runtime-spec.md never generated
+    svc = Phase3Service(ai=ai, context=ctx_svc)
+    svc.generate_tasks(_ctx(), 10)
+    assert ai.generate_tasks_runtime_spec == ""
+
+
 # ---------------------------------------------------------------------------
 # generate_proposal
 # ---------------------------------------------------------------------------
@@ -286,6 +309,24 @@ def test_generate_proposal_rejects_pre_design_status():
     svc = Phase3Service(ai=FakeAiService(), context=ctx_svc)
     with pytest.raises(Phase3ValidationError, match="not ready for developer packs"):
         svc.generate_proposal(_ctx(), 10, 1, "Implement endpoint", "Create the login route.")
+
+
+def test_generate_proposal_injects_runtime_spec():
+    ai = FakeAiService()
+    ctx_svc = FakeContextService()
+    ctx_svc.context_files = {"runtime-spec.md": "## Runtime Contract\n- **health endpoint** {RT-1}: GET /health"}
+    svc = Phase3Service(ai=ai, context=ctx_svc)
+    svc.generate_proposal(_ctx(), 10, 1, "Implement endpoint", "Create the login route.")
+    assert "health endpoint" in ai.generate_proposal_kwargs["runtime_spec"]
+
+
+def test_generate_proposal_runtime_spec_empty_when_never_generated():
+    ai = FakeAiService()
+    ctx_svc = FakeContextService()
+    ctx_svc.read_context_file = lambda filename: ""
+    svc = Phase3Service(ai=ai, context=ctx_svc)
+    svc.generate_proposal(_ctx(), 10, 1, "Implement endpoint", "Create the login route.")
+    assert ai.generate_proposal_kwargs["runtime_spec"] == ""
 
 
 def test_generate_proposal_injects_figma_context():

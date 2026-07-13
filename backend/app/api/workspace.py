@@ -64,6 +64,7 @@ _CONTEXT_FILES = [
     ("fix-log.md", "Fix Log"),
     ("decisions.md", "Decision Log"),
     ("design-bundle.md", "Design Bundle"),
+    ("runtime-spec.md", "Runtime Spec"),
     ("github-context.md", "GitHub Context"),
     ("figma-context.md", "Figma Context"),
 ]

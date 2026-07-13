@@ -2193,6 +2193,25 @@ def _figma_design_block(figma_context: str) -> str:
     )
 
 
+def _runtime_contract_block(runtime_spec: str) -> str:
+    """Advisory Runtime Contract block (app/source paths, migration tool +
+    command, session/bootstrap strategy, container topology, First Prototype
+    Path). Grounds task/pack generation in the actual locked scaffold instead
+    of a fresh-project guess. Empty when runtime-spec.md was never generated
+    (common — it's optional) — must not change the prompt in that case."""
+    if not runtime_spec.strip():
+        return ""
+    return (
+        "\n\nRuntime Contract — the locked scaffold this project runs on (app "
+        "root/source paths, API routing strategy, migration tool + command, "
+        "session/bootstrap strategy, container topology, and the First "
+        "Prototype Path demo walkthrough). Use these EXACT paths/commands/"
+        "conventions when creating or wiring files — never invent a different "
+        "app structure or migration approach than what's declared here:\n"
+        + fence_user_content(runtime_spec)
+    )
+
+
 def generate_tasks(
     story_subject: str,
     gherkin: str,
@@ -2203,12 +2222,14 @@ def generate_tasks(
     model: str = "",
     instructions: str = "",
     figma_context: str = "",
+    runtime_spec: str = "",
 ) -> Phase3TaskList:
     system = _GENERATE_TASKS_SYSTEM.format(
         tech_stack=fence_user_content(tech_stack.strip() or "Not specified"),
         design_bundle=fence_user_content(design_bundle.strip() or "Not specified"),
         technical_spec=fence_user_content(technical_spec.strip() or "Not specified"),
     )
+    system += _runtime_contract_block(runtime_spec)
     if github_context.strip() and not github_context.strip().startswith("<!--"):
         system += "\n\nExisting Codebase (GitHub):\n" + fence_user_content(github_context)
     system += _figma_design_block(figma_context)
@@ -2490,6 +2511,7 @@ def generate_coding_proposal(
     decisions: str = "",
     figma_context: str = "",
     images: list[dict] | None = None,
+    runtime_spec: str = "",
 ) -> str:
     # Only stable, per-story content goes in `system` (tech_stack/design_bundle/
     # technical_spec/constraints/decisions/figma/github/commits are identical for
@@ -2513,6 +2535,7 @@ def generate_coding_proposal(
             + fence_user_content(constraints)
         )
     system += _decisions_block(decisions)
+    system += _runtime_contract_block(runtime_spec)
     system += _figma_design_block(figma_context)
     if github_context.strip() and not github_context.strip().startswith("<!--"):
         system += "\n\nExisting Codebase (GitHub):\n" + fence_user_content(github_context)

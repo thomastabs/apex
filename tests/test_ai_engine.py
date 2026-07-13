@@ -506,6 +506,21 @@ class TestFigmaDesignBlock:
         assert _figma_design_block("<!-- not synced yet -->") == ""
 
 
+class TestRuntimeContractBlock:
+    """_runtime_contract_block — Phase 3 task/pack grounding in runtime-spec.md."""
+
+    def test_renders_when_present(self):
+        from src.ai_engine import _runtime_contract_block
+        out = _runtime_contract_block("## Runtime Contract\n- **app root** {RT-1}: frontend/app")
+        assert "Runtime Contract" in out
+        assert "frontend/app" in out
+
+    def test_empty_when_blank(self):
+        from src.ai_engine import _runtime_contract_block
+        assert _runtime_contract_block("") == ""
+        assert _runtime_contract_block("   ") == ""
+
+
 class TestPromptFencing:
     """fence_user_content + the standing system rule (audit H2)."""
 
@@ -1521,6 +1536,20 @@ class TestMultiModelCrossCheck:
         ai.generate_tasks("S", "Feature: F\n  Scenario: s", "spec", instructions="Keep tasks small")
         assert "Keep tasks small" in captured["system"]
 
+    def test_generate_tasks_threads_runtime_spec(self, monkeypatch):
+        import src.ai_engine as ai
+        captured = {}
+        def fake(system, human, model, schema, *a, **k):
+            captured["system"] = system
+            return ai.Phase3TaskList(tasks=[])
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress", fake)
+        monkeypatch.setattr(ai, "_reconcile_task_list", lambda r, g: r)
+        ai.generate_tasks(
+            "S", "Feature: F\n  Scenario: s", "spec",
+            runtime_spec="## Runtime Contract\n- **app root** {RT-1}: frontend/app",
+        )
+        assert "frontend/app" in captured["system"]
+
     def test_extract_design_system_threads_instructions(self, monkeypatch):
         import src.ai_engine as ai
         captured = {}
@@ -1809,6 +1838,20 @@ class TestDeterministicPack:
         assert "`backend/api/auth.py`" in md
         # _pack_digest still parses the rendered output
         assert "## Context" in ai._pack_digest(md)
+
+    def test_generate_coding_proposal_threads_runtime_spec(self, monkeypatch):
+        import src.ai_engine as ai
+        captured = {}
+        def fake(system, human, model, schema, *a, **k):
+            captured["system"] = system
+            return _fake_pack()
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress", fake)
+        ai.generate_coding_proposal(
+            "Login", "Build login.", "Scenario: x\n  Then y", _TECH_SPEC_FIXTURE,
+            tech_stack="FastAPI", story_ref="Story 1",
+            runtime_spec="## Runtime Contract\n- **health endpoint** {RT-1}: GET /health",
+        )
+        assert "GET /health" in captured["system"]
 
 
 _PLAN_PROSE = """\

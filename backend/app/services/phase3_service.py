@@ -93,10 +93,11 @@ class Phase3Service:
         design_bundle = self.context.story_design_bundle(story_id)
         github_context = self.context.read_context_file("github-context.md")
         figma_context = self.context.read_context_file("figma-context.md")
+        runtime_spec = self.context.read_context_file("runtime-spec.md")
         return self.ai.generate_tasks(
             story_title, gherkin, technical_spec,
             tech_stack=tech_stack, design_bundle=design_bundle, github_context=github_context,
-            instructions=instructions, figma_context=figma_context,
+            instructions=instructions, figma_context=figma_context, runtime_spec=runtime_spec,
         )
 
     def cross_check_tasks(self, ctx: RequestContext, story_id: int, alt_model: str = "") -> dict:
@@ -166,6 +167,7 @@ class Phase3Service:
         github_context = self.context.read_context_file("github-context.md")
         constraints = self.context.read_context_file("constraints.md")
         figma_context = self.context.read_context_file("figma-context.md")
+        runtime_spec = self.context.read_context_file("runtime-spec.md")
         # B (multimodal): if this story is linked to a Figma frame and a token is
         # supplied, render that ONE frame to a PNG so the developer pack is grounded
         # in the literal designed screen. Advisory — the fetch helper never raises,
@@ -208,6 +210,7 @@ class Phase3Service:
             github_context=github_context, hint=hint, recent_commits=recent_commits_context,
             other_tasks=other_tasks, sibling_packs=sibling_packs, constraints=constraints,
             decisions=decisions, figma_context=figma_context, images=images or None,
+            runtime_spec=runtime_spec,
         )
 
     def save_proposal(
