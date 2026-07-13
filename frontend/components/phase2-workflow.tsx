@@ -288,9 +288,16 @@ export function Phase2Workflow() {
     generateSections.generate({
       onSection: (section, content, storyIds, assumptions) => {
         accumulated[section] = content;
-        accStoryIds = storyIds;
+        // Runtime Contract generates over ALL stories regardless of phase_status
+        // (it's project-wide infra, meaningful after implementation started —
+        // see Phase2Service._all_stories_for_runtime), while the design lock
+        // itself must only ever cover the narrower design-eligible set. Never
+        // let its broader story list become "the stories this lock covers".
+        if (section !== "runtime") {
+          accStoryIds = storyIds;
+          setPartialStoryIds(storyIds);
+        }
         setPartial({ ...accumulated });
-        setPartialStoryIds(storyIds);
         setSectionAssumptions((prev) => ({ ...prev, [section]: assumptions }));
         if (section === "data_model" && content.trim()) {
           generateDiagramMut.mutate(content);
@@ -342,9 +349,13 @@ export function Phase2Workflow() {
     generateSections.generateSection(targetSection, prior, {
       onSection: (section, content, storyIds, assumptions) => {
         latestContent = content;
-        latestStoryIds = storyIds;
         setPartial({ [section]: content });
-        setPartialStoryIds(storyIds);
+        // See doGenerate's onSection: Runtime Contract's broader story list
+        // must never become the design lock's story_ids.
+        if (section !== "runtime") {
+          latestStoryIds = storyIds;
+          setPartialStoryIds(storyIds);
+        }
         setSectionAssumptions((prev) => ({ ...prev, [section]: assumptions }));
       },
       onDone: () => {
@@ -354,7 +365,9 @@ export function Phase2Workflow() {
             endpoints:  existingBundle?.endpoints  ?? "",
             data_model: existingBundle?.data_model ?? "",
             runtime:    existingBundle?.runtime    ?? "",
-            story_ids:  latestStoryIds.length ? latestStoryIds : (existingBundle?.story_ids ?? []),
+            story_ids:  targetSection === "runtime"
+              ? (existingBundle?.story_ids ?? [])
+              : (latestStoryIds.length ? latestStoryIds : (existingBundle?.story_ids ?? [])),
             [targetSection]: latestContent,
           });
           setPartial({});

@@ -132,7 +132,12 @@ class Phase2Service:
         tech_stack = self.context.read_tech_stack()
         if not tech_stack:
             raise Phase2ValidationError("A locked Tech Stack is required before generating designs.")
-        all_stories = self._all_eligible_stories()
+        # Runtime Contract is project-wide infra, not a pre-implementation design
+        # artifact — unlike ux_brief/endpoints/data_model it must stay generatable
+        # after stories have moved past design_locked (a team retrofitting a
+        # scaffold contract onto a project that's already deep in implementation/
+        # testing is exactly the case this section exists for).
+        all_stories = self._all_stories_for_runtime() if section == "runtime" else self._all_eligible_stories()
         if not all_stories:
             raise Phase2ValidationError("No Phase 1 locked Gherkin stories found.")
         project_concept = self.context.read_project_concept()
@@ -217,16 +222,34 @@ class Phase2Service:
         # persist aren't logged against their own design.
         relock = self._design_locked()
         affected = self.context.affected_stories_for_spec("technical-spec.md") if relock else []
+        # Runtime Contract locks/relocks independently of technical-spec.md — a
+        # team can add it long after the core design already locked (exactly
+        # the "already deep in implementation" case _all_stories_for_runtime()
+        # exists for), so its own relock/affected detection must not piggyback
+        # on `relock` (which reflects technical-spec.md's own lock marker).
+        runtime_relock = bool(self.context.read_context_file("runtime-spec.md").strip())
+        runtime_affected = self.context.affected_stories_for_spec("runtime-spec.md") if runtime_relock else []
+
         self.context.write_project_design_bundle(ux_brief)
         self.context.write_project_technical_spec(story_ids, endpoints, data_model)
         if runtime_spec.strip():
-            self.context.write_project_runtime_spec(story_ids, runtime_spec)
+            # Independent of `story_ids` (which may be the narrower set still
+            # eligible for a fresh design lock): every story with locked
+            # Gherkin gets has_runtime_spec, since the contract is project-
+            # wide infra, not scoped to whichever stories this call happens
+            # to be (re)locking the core design for.
+            runtime_story_ids = [s["story_id"] for s in self._all_stories_for_runtime()]
+            self.context.write_project_runtime_spec(runtime_story_ids, runtime_spec)
         if affected:
             note = "Full project design re-generated and persisted over the locked design."
             self.context.record_amendment("technical-spec.md", note, affected)
             self.context.record_amendment("design-bundle.md", note, affected)
-            if runtime_spec.strip():
-                self.context.record_amendment("runtime-spec.md", note, affected)
+        if runtime_spec.strip() and runtime_affected:
+            self.context.record_amendment(
+                "runtime-spec.md",
+                "Runtime Contract re-generated and persisted over the locked contract.",
+                runtime_affected,
+            )
         return {"ok": True, "story_ids": story_ids, "taiga_failures": []}
 
     def _design_locked(self) -> bool:
@@ -506,6 +529,28 @@ class Phase2Service:
             gherkin = self.context.story_gherkin(story_id)
             if not gherkin:
                 _logger.warning("_all_eligible_stories: story %s has empty gherkin file — skipping", story_id)
+                continue
+            epic_id = entry.get("epic_id")
+            epic_title = entry.get("epic_title") or (f"Epic {epic_id}" if epic_id else "")
+            stories.append({
+                "story_id": story_id,
+                "epic_id": epic_id,
+                "epic_title": epic_title,
+                "title": entry.get("title", ""),
+                "gherkin": gherkin,
+            })
+        return sorted(stories, key=lambda s: s["story_id"])
+
+    def _all_stories_for_runtime(self) -> list[dict]:
+        """Same shape as _all_eligible_stories(), but every story with locked
+        Gherkin regardless of phase_status — see generate_design_section()."""
+        stories = []
+        for entry in self.context.story_index().values():
+            story_id = entry.get("story_id")
+            if not story_id:
+                continue
+            gherkin = self.context.story_gherkin(story_id)
+            if not gherkin:
                 continue
             epic_id = entry.get("epic_id")
             epic_title = entry.get("epic_title") or (f"Epic {epic_id}" if epic_id else "")

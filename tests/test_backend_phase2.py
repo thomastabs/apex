@@ -15,6 +15,7 @@ _FAKE_SECTION_CONTENT = {
     "ux_brief":   "## Screens\n- Login\n## Navigation Paths\n- Login → Dashboard",
     "endpoints":  "## Endpoints\n### Auth\n- `POST /auth/login` — login (Story 10)",
     "data_model": "## Data Model\n### User\n- Fields: id:int, email:str",
+    "runtime":    "## Runtime Contract\n- **app root** {RT-1}: frontend/app",
 }
 
 
@@ -114,6 +115,9 @@ class FakeContextService:
 
     def write_project_technical_spec(self, story_ids, endpoints, data_model):
         self.written_tech_spec = (story_ids, endpoints, data_model)
+
+    def write_project_runtime_spec(self, story_ids, runtime_spec):
+        self.written_runtime_spec = (story_ids, runtime_spec)
 
     def read_context_file(self, filename: str) -> str:
         return getattr(self, "files", {}).get(filename, "")
@@ -335,6 +339,40 @@ def test_generate_design_section_requires_eligible_stories():
 
     with pytest.raises(Phase2ValidationError, match="No Phase 1 locked"):
         service.generate_design_section(_ctx(), section="endpoints")
+
+
+def test_generate_design_section_runtime_includes_stories_past_design_locked():
+    # ux_brief/endpoints/data_model stay pre-implementation-only (gherkin_locked/
+    # design_locked); Runtime Contract is project-wide infra and must still be
+    # generatable for a project that's already deep in implementation/testing —
+    # this is the exact "No Phase 1 locked Gherkin stories found" bug report.
+    index = {
+        **_story_index(),
+        "20": {
+            "story_id": 20, "epic_id": 7, "epic_title": "Authentication", "title": "MFA",
+            "phase_status": "qa_passed", "has_gherkin": True,
+        },
+    }
+    service, ai, _ = _service(context=FakeContextService(index=index))
+
+    ux_result = service.generate_design_section(_ctx(), section="ux_brief")
+    assert sorted(ux_result["story_ids"]) == [10, 11]  # story 20 excluded — past design_locked
+
+    runtime_result = service.generate_design_section(_ctx(), section="runtime")
+    # Includes story 20 (past design_locked) AND story 12 (the fake's default
+    # index has has_gherkin=False, but _all_stories_for_runtime() doesn't
+    # gate on phase_status/has_gherkin flags — only on story_gherkin() content,
+    # which the fake always returns non-empty for).
+    assert sorted(runtime_result["story_ids"]) == [10, 11, 12, 20]
+
+
+def test_generate_design_section_runtime_requires_at_least_one_story_with_gherkin():
+    empty_index = {"1": {"story_id": 1, "epic_id": 7, "phase_status": "deployed", "has_gherkin": False}}
+    service, _, context = _service(context=FakeContextService(index=empty_index))
+    context.story_gherkin = lambda story_id: ""  # override the fake's always-truthy default
+
+    with pytest.raises(Phase2ValidationError, match="No Phase 1 locked"):
+        service.generate_design_section(_ctx(), section="runtime")
 
 
 def test_generate_design_section_rejects_unknown_section():
@@ -639,6 +677,37 @@ class TestDesignDelta:
             _ctx(), story_ids=[10], ux_brief="ux", endpoints="e", data_model="d",
         )
         assert not getattr(context, "amendments", [])
+
+    def test_persist_design_runtime_spec_covers_all_stories_not_just_story_ids(self):
+        # story_ids (narrower — the set still eligible for a fresh design lock)
+        # must not limit which stories get has_runtime_spec: the contract is
+        # project-wide infra, so every indexed story with Gherkin gets it,
+        # independent of what this particular lock call covers.
+        context = FakeContextService()  # index has stories 10, 11, 12
+        service, _, _ = _service(context)
+        service.persist_design(
+            _ctx(), story_ids=[10], ux_brief="ux", endpoints="e", data_model="d",
+            runtime_spec="## Runtime Contract\n- **app root** {RT-1}: frontend/app",
+        )
+        written_ids, written_spec = context.written_runtime_spec
+        assert sorted(written_ids) == [10, 11, 12]
+        assert "app root" in written_spec
+
+    def test_persist_design_runtime_spec_relocks_independently_of_technical_spec(self):
+        # runtime-spec.md can lock/relock on its own schedule (added long after
+        # the core design already locked) — its amendment detection must not
+        # piggyback on technical-spec.md's own lock marker.
+        context = FakeContextService()
+        context.files = {"runtime-spec.md": "already locked content"}  # technical-spec.md NOT locked yet
+        context.affected = [10, 11]  # what affected_stories_for_spec("runtime-spec.md") returns
+        service, _, _ = _service(context)
+        service.persist_design(
+            _ctx(), story_ids=[10], ux_brief="ux", endpoints="e", data_model="d",
+            runtime_spec="## Runtime Contract\n- **app root** {RT-1}: frontend/app",
+        )
+        files = [a[0] for a in context.amendments]
+        assert files == ["runtime-spec.md"]  # technical-spec.md/design-bundle.md: first lock, no amendment
+        assert context.amendments[0][2] == [10, 11]
 
 
 class TestDesignSystem:
