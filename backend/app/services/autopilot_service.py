@@ -491,6 +491,7 @@ def _run_phase2(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> Non
         ux_brief=prior_sections.get("ux_brief", ""),
         endpoints=prior_sections.get("endpoints", ""),
         data_model=prior_sections.get("data_model", ""),
+        runtime_spec=prior_sections.get("runtime", ""),
     )
     _emit(job, "success", f"  Design locked for {len(all_story_ids)} stories", phase="phase2")
 

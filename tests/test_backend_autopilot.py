@@ -1116,6 +1116,49 @@ class TestConcurrency:
 
 
 # ---------------------------------------------------------------------------
+# _run_phase2 — every generated design section reaches persist_design
+# ---------------------------------------------------------------------------
+
+class TestPhase2Persistence:
+    def test_persist_design_receives_every_generated_section(self, monkeypatch):
+        # _run_phase2 iterates Phase2Service.DESIGN_SECTION_ORDER generically to
+        # generate sections, but used to hardcode only ux_brief/endpoints/
+        # data_model into the persist_design call — a 4th (or nth) section
+        # would generate (burning an AI call, showing in the log) and then be
+        # silently discarded on lock. Assert every section that was generated
+        # is what gets persisted, keyed generically off DESIGN_SECTION_ORDER
+        # rather than a hand-maintained list that can drift from it again.
+        calls: list[tuple] = []
+
+        class _StubP2:
+            DESIGN_SECTION_ORDER = ("ux_brief", "endpoints", "data_model", "runtime")
+
+            def propose_tech_stack(self, ctx):
+                return []
+
+            def lock_tech_stack(self, ctx, *, tech_stack):
+                return {"defined": True, "tech_stack": tech_stack}
+
+            def generate_design_section(self, ctx, *, section, prior_sections, instructions=""):
+                return {"content": f"content-{section}", "story_ids": [10]}
+
+            def persist_design(self, ctx, **kwargs):
+                calls.append(kwargs)
+                return {"ok": True}
+
+        monkeypatch.setattr(svc, "Phase2Service", _StubP2)
+        job = _make_job(settings={"pause_at_checkpoints": False}, )
+        job["tech_stack_hint"] = "FastAPI + Next.js"
+        svc._run_phase2(job, _ctx(), [10])
+
+        assert len(calls) == 1
+        persisted = calls[0]
+        for section in _StubP2.DESIGN_SECTION_ORDER:
+            key = "runtime_spec" if section == "runtime" else section
+            assert persisted.get(key) == f"content-{section}", f"section {section!r} was not persisted"
+
+
+# ---------------------------------------------------------------------------
 # Scaffold-flagged stories run first and are awaited before the rest
 # ---------------------------------------------------------------------------
 
