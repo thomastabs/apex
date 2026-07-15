@@ -1757,7 +1757,7 @@ Output exactly three sections — nothing else, no introduction, no commentary.
 One `### <Epic Title>` subsection per epic. The subsection heading MUST be copied verbatim from the `## <heading>` in the story list — do not rename, shorten, or merge.
 Format:
 ### <Epic Title — exact copy from story list>
-- **<Screen Name>** {SCR-1} [Story <ID>]: <entry point — one phrase>. Actions: <action1>, <action2>, <action3>.
+- **<Screen Name>** {{SCR-1}} [Story <ID>]: <entry point — one phrase>. Actions: <action1>, <action2>, <action3>.
 
 Rules for Screens:
 - One bullet per screen. Maximum 25 words per bullet.
@@ -1780,7 +1780,7 @@ Rules for Navigation Paths:
 
 ## Assumptions
 
-Format: `- {SCR-1}: <what you inferred and why>`. One bullet per screen/path where
+Format: `- {{SCR-1}}: <what you inferred and why>`. One bullet per screen/path where
 you had to infer something the story list left unstated (e.g. an entry-point
 detail, a navigation trigger). Omit the section body (leave it empty) when
 nothing needed inference.
@@ -1821,7 +1821,7 @@ Rules:
 
 ## Assumptions
 
-Format: `- {EP-1}: <what you inferred and why>`. One bullet per endpoint where
+Format: `- {{EP-1}}: <what you inferred and why>`. One bullet per endpoint where
 you had to infer something not given (an auth mechanism, a field type, a
 status code). Omit the section body (leave it empty) when nothing needed
 inference.
@@ -1859,7 +1859,7 @@ Rules:
 
 ## Assumptions
 
-Format: `- {ENT-1}: <what you inferred and why>`. One bullet per entity where
+Format: `- {{ENT-1}}: <what you inferred and why>`. One bullet per entity where
 you had to infer something not given (a field type, a relation cardinality).
 Omit the section body (leave it empty) when nothing needed inference.
 """
