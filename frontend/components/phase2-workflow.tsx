@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   CheckCircle2,
@@ -156,12 +157,13 @@ function loadBundleDraft(projectId: number | null): object | null {
   }
 }
 
-const STEP_LABELS = ["Tech Stack", "Project Design"] as const;
+const STEP_LABELS = ["Tech Stack", "Visual Design", "Technical Design"] as const;
 
 export function Phase2Workflow() {
   const dark = useUiStore((state) => state.theme) === "dark";
+  const router = useRouter();
   const context = useApiContext();
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [stackHint, setStackHint] = useState("");
   const [stackReopened, setStackReopened] = useState(false);
   const [diagramOpen, setDiagramOpen] = useState(false);
@@ -266,7 +268,7 @@ export function Phase2Workflow() {
     ? DESIGN_SECTION_ORDER.indexOf(generateSections.currentSection)
     : undefined;
 
-  const maxUnlockedStep: 1 | 2 = stackDefined ? 2 : 1;
+  const maxUnlockedStep: 1 | 2 | 3 = stackDefined ? 3 : 1;
 
   function clearDesign() {
     setDesignBundle(null);
@@ -632,7 +634,7 @@ export function Phase2Workflow() {
         <div className={cn("rounded-xl border px-6 py-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
           <div className="flex w-full items-center">
             {STEP_LABELS.map((label, i) => {
-              const stepNum = (i + 1) as 1 | 2;
+              const stepNum = (i + 1) as 1 | 2 | 3;
               const isActive = step === stepNum;
               const isDone = step > stepNum;
               const canNav = stepNum <= maxUnlockedStep;
@@ -821,12 +823,12 @@ export function Phase2Workflow() {
           </section>
         )}
 
-        {/* ── Step 2: Project Design ────────────────────────────────────── */}
+        {/* ── Step 2: Visual Design ─────────────────────────────────────── */}
         {step === 2 && (
           <section className="space-y-5">
-            <SectionHeading>Stage B · Project Design</SectionHeading>
+            <SectionHeading>Stage B · Visual Design</SectionHeading>
             <p className={cn("text-sm", mutedClass)}>
-              Generate the UX Brief, API surface, data model, and runtime contract covering all your project stories.
+              Generate the UX Brief and the Visual Design System derived from it — screens, navigation, colors, typography, and mockups.
             </p>
             <div className={cn("flex items-start gap-3 rounded-md border px-4 py-3 text-sm", dark ? "border-amber-600/30 bg-amber-500/8" : "border-amber-400/50 bg-amber-50")}>
               <Info className={cn("mt-0.5 size-4 shrink-0", dark ? "text-amber-400" : "text-amber-600")} />
@@ -926,52 +928,63 @@ export function Phase2Workflow() {
             ) : null}
 
             {/* Visual Design — UX Brief + the derived Visual Design System */}
-            <div className="space-y-3">
-              <h3 className={cn("text-xs font-bold uppercase tracking-widest", dark ? "text-neutral-500" : "text-slate-400")}>
-                Visual Design
-              </h3>
-              <div className="space-y-4">
-                {VISUAL_DESIGN_SECTIONS.map((section) => renderSectionCard(section))}
+            <div className="space-y-4">
+              {VISUAL_DESIGN_SECTIONS.map((section) => renderSectionCard(section))}
 
-                <div className={cn("overflow-hidden rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}>
-                  <div className={cn("flex items-center justify-between px-4 py-3", dark ? "bg-neutral-900" : "bg-slate-50")}>
-                    <div className="flex items-center gap-3">
-                      <span className={cn(
-                        "inline-flex h-5 items-center justify-center rounded px-2 text-xs font-bold",
-                        dark ? "bg-violet-900/60 text-violet-300" : "bg-violet-100 text-violet-700",
-                      )}>
-                        Step 2
-                      </span>
-                      <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>
-                        Visual Design System
-                      </span>
-                    </div>
-                    {designSystemQuery.data ? (
-                      <span className={cn("flex items-center gap-1 text-xs", dark ? "text-emerald-400" : "text-emerald-600")}>
-                        <CheckCircle2 className="size-3" /> Generated
-                      </span>
-                    ) : (
-                      <span className={cn("text-xs", mutedClass)}>Not generated</span>
-                    )}
+              <div className={cn("overflow-hidden rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}>
+                <div className={cn("flex items-center justify-between px-4 py-3", dark ? "bg-neutral-900" : "bg-slate-50")}>
+                  <div className="flex items-center gap-3">
+                    <span className={cn(
+                      "inline-flex h-5 items-center justify-center rounded px-2 text-xs font-bold",
+                      dark ? "bg-violet-900/60 text-violet-300" : "bg-violet-100 text-violet-700",
+                    )}>
+                      Step 2
+                    </span>
+                    <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>
+                      Visual Design System
+                    </span>
                   </div>
-                  <div className={cn("border-t px-4 py-2 text-xs", dark ? "border-neutral-800 text-neutral-500" : "border-slate-100 text-slate-500")}>
-                    Color palette, typography, navigation pattern, and screen mockups — derived from the UX Brief above.
-                  </div>
-                  <div className={cn("border-t px-4 py-3", dark ? "border-neutral-800" : "border-slate-100")}>
-                    <DesignSystemPanel uxBriefContent={activeBundle?.ux_brief ?? ""} dark={dark} standalone guidance={designGuidance} />
-                  </div>
+                  {designSystemQuery.data ? (
+                    <span className={cn("flex items-center gap-1 text-xs", dark ? "text-emerald-400" : "text-emerald-600")}>
+                      <CheckCircle2 className="size-3" /> Generated
+                    </span>
+                  ) : (
+                    <span className={cn("text-xs", mutedClass)}>Not generated</span>
+                  )}
+                </div>
+                <div className={cn("border-t px-4 py-2 text-xs", dark ? "border-neutral-800 text-neutral-500" : "border-slate-100 text-slate-500")}>
+                  Color palette, typography, navigation pattern, and screen mockups — derived from the UX Brief above.
+                </div>
+                <div className={cn("border-t px-4 py-3", dark ? "border-neutral-800" : "border-slate-100")}>
+                  <DesignSystemPanel uxBriefContent={activeBundle?.ux_brief ?? ""} dark={dark} standalone guidance={designGuidance} />
                 </div>
               </div>
             </div>
 
-            {/* Technical Design — Endpoints, Data Model, Runtime Contract */}
-            <div className="space-y-3">
-              <h3 className={cn("text-xs font-bold uppercase tracking-widest", dark ? "text-neutral-500" : "text-slate-400")}>
-                Technical Design
-              </h3>
-              <div className="space-y-4">
-                {TECHNICAL_DESIGN_SECTIONS.map((section) => renderSectionCard(section))}
-              </div>
+            <div className="flex gap-2">
+              <Button variant="secondary" className="gap-1.5" onClick={() => setStep(1)} disabled={busy}>
+                <ChevronLeft className="size-4" /> Back
+              </Button>
+              <Button className="flex-1" onClick={() => setStep(3)} disabled={busy}>
+                Continue to Technical Design <ChevronRight className="size-4" />
+              </Button>
+            </div>
+          </section>
+        )}
+
+        {/* ── Step 3: Technical Design ──────────────────────────────────── */}
+        {step === 3 && (
+          <section className="space-y-5">
+            <SectionHeading>Stage B · Technical Design</SectionHeading>
+            <p className={cn("text-sm", mutedClass)}>
+              Endpoints, data model, and the Runtime Contract — then save and lock the whole project design.
+            </p>
+            <Button variant="secondary" className="gap-1.5" onClick={() => setStep(2)} disabled={busy}>
+              <ChevronLeft className="size-4" /> Back to Visual Design
+            </Button>
+
+            <div className="space-y-4">
+              {TECHNICAL_DESIGN_SECTIONS.map((section) => renderSectionCard(section))}
             </div>
 
             {/* Save & Lock — the last thing on the step, saves everything above */}
@@ -1025,10 +1038,15 @@ export function Phase2Workflow() {
                 </>
               )}
               {lockDesign.data ? (
-                <Callout>
-                  Design locked for {lockDesign.data.story_ids.length} stories.
-                  {lockDesign.data.taiga_failures?.length ? ` ${lockDesign.data.taiga_failures.length} PM transition(s) failed.` : ""}
-                </Callout>
+                <>
+                  <Callout>
+                    Design locked for {lockDesign.data.story_ids.length} stories.
+                    {lockDesign.data.taiga_failures?.length ? ` ${lockDesign.data.taiga_failures.length} PM transition(s) failed.` : ""}
+                  </Callout>
+                  <Button className="w-full" onClick={() => router.push("/phase3")}>
+                    Continue to Phase 3 — Implementation <ChevronRight className="size-4" />
+                  </Button>
+                </>
               ) : null}
               {lockDesign.isError ? (
                 <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
