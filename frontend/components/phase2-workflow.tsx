@@ -101,7 +101,7 @@ const SECTION_CONFIG: Record<DesignSectionKey, SectionCfg> = {
   runtime: {
     stepLabel:   "Step 3",
     title:       "Runtime Contract",
-    description: "How the pieces become one running prototype — app shell paths, migration command, session bootstrap, and a First Prototype Path demo walkthrough.",
+    description: "How the pieces become one running prototype — app shell paths, migration command, session bootstrap, and a First Prototype Path demo walkthrough. Once locked, mark the story that implements this contract as its epic's scaffold story in Phase 3 — Autopilot builds it first.",
     dependsOn:   ["endpoints", "data_model"],
   },
 };

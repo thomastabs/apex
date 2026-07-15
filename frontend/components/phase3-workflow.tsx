@@ -302,6 +302,12 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
         <p className={cn("mt-1 text-sm", dark ? "text-neutral-400" : "text-slate-500")}>
           Choose a design-locked user story to decompose and build developer packs for.
         </p>
+        <p className={cn("mt-1.5 flex items-start gap-1.5 text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
+          <Flag className="mt-0.5 h-3 w-3 shrink-0" />
+          <span>
+            Use the <span className="font-semibold">Flag</span> button on a card to mark one story per epic as its <span className="font-semibold">scaffold</span> — the story that builds the shared runtime plumbing (app shell, migrations, session bootstrap — see the locked Runtime Contract) the rest of the epic depends on. Autopilot always builds and locks it first.
+          </span>
+        </p>
       </div>
 
       {/* Epic dropdown */}
