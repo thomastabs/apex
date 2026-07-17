@@ -47,7 +47,7 @@ export function AboutSection({ dark, shellClass, dragHandlers, onDragStart }: Ab
               <div className="space-y-2">
                 {PHASES.map(({ n, label, desc }) => (
                   <div key={n} className="flex items-start gap-2">
-                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-violet-600 text-[9px] font-bold text-white">
+	                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-violet-600 text-xs font-bold text-white">
                       {n}
                     </span>
                     <div>

@@ -59,9 +59,9 @@ function toDagreNodes(diagram: ScreenFlowResponse): ScreenFlowNode[] {
 
 function ScreenNode({ data }: { data: { label: string; description: string; thumb?: string } }) {
   return (
-    <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 shadow-sm bg-white dark:bg-neutral-900 min-w-[140px] text-center overflow-hidden">
-      <Handle type="target" position={Position.Left} className="!bg-indigo-500 !w-2 !h-2" />
-      <div className="bg-indigo-600 text-white font-semibold px-3 py-2 text-xs tracking-wide">
+    <div className="rounded-xl border border-violet-200 dark:border-violet-800 shadow-sm bg-white dark:bg-neutral-900 min-w-[140px] text-center overflow-hidden">
+      <Handle type="target" position={Position.Left} className="!bg-violet-500 !w-2 !h-2" />
+      <div className="bg-violet-600 text-white font-semibold px-3 py-2 text-xs tracking-wide">
         {data.label}
       </div>
       {data.thumb && (
@@ -74,7 +74,7 @@ function ScreenNode({ data }: { data: { label: string; description: string; thum
           {data.description}
         </div>
       )}
-      <Handle type="source" position={Position.Right} className="!bg-indigo-500 !w-2 !h-2" />
+      <Handle type="source" position={Position.Right} className="!bg-violet-500 !w-2 !h-2" />
     </div>
   );
 }
@@ -184,7 +184,7 @@ export function ScreenFlowPanel({
         // Inferred cross-file links (project mode) render dashed + amber, labelled,
         // so they're not mistaken for real prototype flows.
         const crossFile = (e as ScreenFlowEdge).data?.kind === "cross_file";
-        const color = crossFile ? "#d97706" : dark ? "#4f46e5" : "#6366f1";
+        const color = crossFile ? "#d97706" : dark ? "#7c3aed" : "#8b5cf6";
         return {
           ...e,
           type: "smoothstep",
@@ -213,10 +213,10 @@ export function ScreenFlowPanel({
         onClick={() => setOpen((v) => !v)}
       >
         <div className="flex items-center gap-2">
-          <Monitor className="size-4 text-indigo-500" />
+          <Monitor className="size-4 text-violet-500" />
           <span className={dark ? "text-neutral-100" : "text-slate-800"}>Screen Flow</span>
           {hasDiagram && (
-            <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+            <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
               {nodes.length} {nodes.length === 1 ? "screen" : "screens"}
             </span>
           )}
@@ -286,7 +286,7 @@ export function ScreenFlowPanel({
         <div className={cn("border-t px-4 py-4", dark ? "border-neutral-700" : "border-slate-200")}>
           {generateMut.isPending && !hasDiagram ? (
             <div className="flex flex-col items-center gap-3 py-8 text-center">
-              <Loader2 className="size-8 animate-spin text-indigo-500" />
+              <Loader2 className="size-8 animate-spin text-violet-500" />
               <p className={cn("text-sm font-medium", dark ? "text-neutral-300" : "text-slate-600")}>
                 Generating screen flow…
               </p>
@@ -346,8 +346,8 @@ export function ScreenFlowPanel({
                     className={cn(
                       "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors",
                       canGenerate && !generateMut.isPending
-                        ? "bg-indigo-600 hover:bg-indigo-700"
-                        : "bg-indigo-300 cursor-not-allowed dark:bg-indigo-900",
+                        ? "bg-violet-600 hover:bg-violet-700"
+                        : "bg-violet-300 cursor-not-allowed dark:bg-violet-900",
                     )}
                   >
                     <Monitor className="size-4" />Generate Screen Flow
@@ -372,10 +372,10 @@ export function ScreenFlowPanel({
                 colorMode={dark ? "dark" : "light"}
                 style={{ height: "100%" }}
               >
-                <Background color={dark ? "#404040" : "#e0e7ff"} gap={16} />
+                <Background color={dark ? "#404040" : "#ede9fe"} gap={16} />
                 <Controls />
                 <MiniMap
-                  nodeColor={() => "#4f46e5"}
+                  nodeColor={() => "#7c3aed"}
                   maskColor={dark ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.6)"}
                 />
               </ReactFlow>

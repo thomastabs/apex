@@ -41,7 +41,7 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
 
   const PACKS_KEY = ["phase3", "packs", context?.projectId];
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: PACKS_KEY,
     queryFn: () => listPacks(context!),
     enabled: Boolean(context) && open,
@@ -162,6 +162,11 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
               <div className="flex items-center gap-2 text-xs text-neutral-500">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading packs…
               </div>
+            ) : isError ? (
+              <div className={cn("flex items-center justify-between gap-2 rounded border px-2.5 py-2 text-xs", dark ? "border-red-900/50 text-red-400" : "border-red-200 text-red-600")}>
+                <span>Failed to load developer packs.</span>
+                <button onClick={() => refetch()} className="shrink-0 font-semibold underline">Retry</button>
+              </div>
             ) : packs.length === 0 ? (
               <p className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
                 No developer packs saved. Phase 3 writes one per task.
@@ -206,7 +211,7 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
                       {group.items.map((p) => (
                         <li key={p.task_id} className="flex items-center gap-2 px-2.5 py-1.5">
                           <span className={cn("flex-1 text-xs", dark ? "text-neutral-300" : "text-slate-600")}>
-                            Task {p.task_id}
+                            Task <span className="font-mono">{p.task_id}</span>
                             <span className={cn("ml-2", dark ? "text-neutral-600" : "text-slate-400")}>
                               {Math.round(p.chars / 100) / 10}k chars
                             </span>

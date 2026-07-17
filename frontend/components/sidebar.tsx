@@ -30,6 +30,7 @@ import { GitHubSection, GithubAutoSync } from "./sidebar/github-section";
 import { FigmaSection, FigmaAutoRestore } from "./sidebar/figma-section";
 import { AboutSection } from "./sidebar/about-section";
 import { AdminSection } from "./sidebar/admin-section";
+import { ConfirmDialog } from "./sidebar/shared";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -75,7 +76,7 @@ function NavItem({
         active
           ? cn(
               "border-violet-500 font-medium",
-              dark ? "bg-violet-500/10 text-neutral-100" : "bg-violet-50 text-slate-900",
+              dark ? "bg-violet-500/10 text-violet-100" : "bg-violet-50 text-violet-900",
             )
           : muted
             ? cn("border-transparent cursor-default", dark ? "text-neutral-700" : "text-slate-300")
@@ -98,7 +99,7 @@ function NavItem({
       <span className="flex-1 truncate">{label}</span>
       {badge && (
         <span className={cn(
-          "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium tabular-nums",
+          "shrink-0 rounded px-1.5 py-0.5 text-xs font-medium tabular-nums",
           active
             ? dark ? "bg-violet-900/60 text-violet-300" : "bg-violet-100 text-violet-600"
             : dark ? "bg-neutral-800 text-neutral-500" : "bg-slate-100 text-slate-400",
@@ -115,7 +116,7 @@ function NavItem({
 function NavDivider({ label, dark }: { label: string; dark: boolean }) {
   return (
     <div className="flex items-center gap-2 px-4 py-2">
-      <span className={cn("text-[10px] font-semibold uppercase tracking-widest", dark ? "text-neutral-600" : "text-slate-400")}>
+      <span className={cn("text-xs font-semibold uppercase tracking-widest", dark ? "text-neutral-600" : "text-slate-400")}>
         {label}
       </span>
       <div className={cn("h-px flex-1", dark ? "bg-neutral-800" : "bg-slate-200")} />
@@ -135,6 +136,23 @@ function SettingsModal({
   serverConfig: ReturnType<typeof useServerConfig>["data"];
   pmWebUrl: string;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<Element | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    triggerRef.current = document.activeElement;
+    dialogRef.current?.focus();
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      if (triggerRef.current instanceof HTMLElement) triggerRef.current.focus();
+    };
+  }, [open, onClose]);
+
   if (!open) return null;
   if (typeof document === "undefined") return null;
 
@@ -144,8 +162,13 @@ function SettingsModal({
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Settings"
+        tabIndex={-1}
         className={cn(
-          "w-full max-w-lg rounded-xl border shadow-2xl",
+          "w-full max-w-lg rounded-xl border shadow-2xl outline-none",
           dark ? "border-neutral-700 bg-neutral-900" : "border-slate-200 bg-white",
         )}
         onClick={(e) => e.stopPropagation()}
@@ -158,6 +181,7 @@ function SettingsModal({
           </div>
           <button
             onClick={onClose}
+            aria-label="Close settings"
             className={cn("grid size-6 place-items-center rounded text-sm transition-colors", dark ? "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200" : "text-slate-400 hover:bg-slate-100 hover:text-slate-700")}
           >
             ✕
@@ -199,8 +223,14 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
   const queryClient = useQueryClient();
   const router = useRouter();
   const me = useMe();
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
 
   const signOut = () => {
+    setConfirmSignOut(true);
+  };
+
+  const confirmSignOutAction = () => {
+    setConfirmSignOut(false);
     clearJiraProjectTypeCache();
     clearSession(); clearPhase2Draft(); clearPhase3Draft(); clearPhase4Draft(); clearPhase5Draft();
     queryClient.clear();
@@ -276,28 +306,39 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
   // ── Signed-in card ──
   if (taigaToken) {
     const pmLabel = storedPmTool === "jira" ? "Jira Cloud" : "Taiga";
-    const pmColor = storedPmTool === "jira"
-      ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
-      : "border-violet-500/30 bg-violet-500/10 text-violet-400";
+    // Violet is the app's only meaning-carrying accent (One-Signal Rule) — the
+    // PM tool is distinguished by label text, not a second accent color.
+    const pmColor = "border-violet-500/30 bg-violet-500/10 text-violet-400";
     return (
-      <div className="flex items-center gap-2.5 px-4 py-3">
-        <div className={cn("grid size-7 shrink-0 place-items-center rounded-md text-[11px] font-bold", dark ? "bg-violet-950 text-violet-300" : "bg-violet-100 text-violet-700")}>
-          {initials(displayName)}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className={cn("truncate text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>{displayName || "User"}</div>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <span className={cn("rounded border px-1 py-px text-[10px] font-semibold", pmColor)}>{pmLabel}</span>
-            {email && <span className={cn("truncate text-[11px]", dark ? "text-neutral-500" : "text-slate-500")}>{email}</span>}
+      <>
+        {typeof document !== "undefined" ? createPortal(
+          <ConfirmDialog
+            open={confirmSignOut}
+            message="Sign out and clear unsaved phase drafts?"
+            onConfirm={confirmSignOutAction}
+            onCancel={() => setConfirmSignOut(false)}
+          />,
+          document.body,
+        ) : null}
+        <div className="flex items-center gap-2.5 px-4 py-3">
+          <div className={cn("grid size-7 shrink-0 place-items-center rounded-md text-[11px] font-bold", dark ? "bg-violet-950 text-violet-300" : "bg-violet-100 text-violet-700")}>
+            {initials(displayName)}
           </div>
-          {storedPmTool === "taiga" && storedTaigaApiUrl && storedTaigaApiUrl !== "https://api.taiga.io" && (
-            <div className={cn("truncate text-[10px] mt-0.5", dark ? "text-neutral-600" : "text-slate-400")}>{storedTaigaApiUrl}</div>
-          )}
+          <div className="min-w-0 flex-1">
+            <div className={cn("truncate text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>{displayName || "User"}</div>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className={cn("rounded border px-1 py-px text-xs font-semibold", pmColor)}>{pmLabel}</span>
+              {email && <span className={cn("truncate text-[11px]", dark ? "text-neutral-500" : "text-slate-500")}>{email}</span>}
+            </div>
+            {storedPmTool === "taiga" && storedTaigaApiUrl && storedTaigaApiUrl !== "https://api.taiga.io" && (
+              <div className={cn("truncate text-xs mt-0.5", dark ? "text-neutral-600" : "text-slate-400")}>{storedTaigaApiUrl}</div>
+            )}
+          </div>
+          <button className={cn("shrink-0 text-[11px] transition-colors hover:text-violet-400", dark ? "text-neutral-500" : "text-slate-500")} onClick={signOut}>
+            Sign out
+          </button>
         </div>
-        <button className={cn("shrink-0 text-[11px] transition-colors hover:text-red-400", dark ? "text-neutral-500" : "text-slate-500")} onClick={signOut}>
-          Sign out
-        </button>
-      </div>
+      </>
     );
   }
 
@@ -342,7 +383,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
             <Send className="size-3" />
             {isPending ? "Signing in..." : "Sign in to Taiga"}
           </button>
-          <a href={pmWebUrl || "https://tree.taiga.io"} target="_blank" rel="noopener noreferrer" className={cn("flex items-center justify-center gap-1 text-[11px] transition-colors hover:text-violet-400", dark ? "text-neutral-500" : "text-slate-500")}>
+          <a href={pmWebUrl || "https://tree.taiga.io"} target="_blank" rel="noopener noreferrer" className={cn("flex items-center justify-center gap-1 text-[11px] transition-colors hover:text-violet-400", dark ? "text-neutral-500" : "text-slate-600")}>
             <UserPlus className="size-3" /> Create account
           </a>
         </>
@@ -455,6 +496,19 @@ export function Sidebar() {
   const resizeStartXRef = useRef(0);
   const resizeStartWidthRef = useRef(0);
 
+  // Force the icon rail below the width where this sidebar plus the
+  // right-hand Workspace panel would exceed the viewport (confirmed via
+  // live measurement: both panels expanded overflow at 375px and 768px).
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    function apply(e: { matches: boolean }) {
+      if (e.matches) setSidebarCollapsed(true);
+    }
+    apply(mq);
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, [setSidebarCollapsed]);
+
   const serverConfig = useServerConfig();
   const { data: stats } = useStoryIndexStats();
   const pmWebUrl = serverConfig.data?.pm_web_url ?? serverConfig.data?.taiga_web_url ?? "https://tree.taiga.io";
@@ -528,9 +582,19 @@ export function Sidebar() {
     >
       {/* Resize handle */}
       <div
-        className="group absolute right-0 top-0 z-50 flex h-full w-4 translate-x-1/2 cursor-col-resize touch-none items-center justify-center"
+        className="group absolute right-0 top-0 z-50 flex h-full w-4 translate-x-1/2 cursor-col-resize touch-none items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
         onPointerDown={startSidebarResize}
-        role="separator" aria-orientation="vertical" aria-label="Resize sidebar"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize sidebar"
+        aria-valuenow={sidebarWidth}
+        aria-valuemin={280}
+        aria-valuemax={900}
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowLeft") setSidebarWidth(sidebarWidth - 20);
+          else if (e.key === "ArrowRight") setSidebarWidth(sidebarWidth + 20);
+        }}
       >
         <div className="h-full w-px bg-transparent transition-colors group-hover:bg-violet-500/60" />
       </div>
@@ -538,7 +602,7 @@ export function Sidebar() {
       {/* ── Zone 1: Header ── */}
       <header className={cn("flex h-[52px] shrink-0 items-center gap-2 border-b px-4", dark ? "border-neutral-800" : "border-slate-200")}>
         <Link href="/" className="flex min-w-0 flex-1 items-baseline gap-1.5">
-          <span className="text-xl font-bold text-violet-400">Apex</span>
+          <span className={cn("text-xl font-bold", dark ? "text-violet-400" : "text-violet-700")}>Apex</span>
           {projectName && (
             <span className={cn("truncate text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
               · {projectName}
@@ -548,7 +612,16 @@ export function Sidebar() {
         <button onClick={toggleTheme} className={cn("grid size-7 shrink-0 place-items-center rounded transition-colors", dark ? "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200" : "text-slate-400 hover:bg-slate-200 hover:text-slate-700")} aria-label="Toggle theme">
           {dark ? <Moon className="size-3.5" /> : <Sun className="size-3.5" />}
         </button>
-        <button onClick={() => setSidebarCollapsed(true)} className={cn("grid size-7 shrink-0 place-items-center rounded transition-colors", dark ? "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200" : "text-slate-400 hover:bg-slate-200 hover:text-slate-700")} aria-label="Collapse sidebar">
+        <button
+          onClick={() => {
+            setSidebarCollapsed(true);
+            // Collapsing narrows the page — the old scroll offset can leave
+            // the viewport shifted left with nothing to scroll back to.
+            requestAnimationFrame(() => window.scrollTo({ left: 0 }));
+          }}
+          className={cn("grid size-7 shrink-0 place-items-center rounded transition-colors", dark ? "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200" : "text-slate-400 hover:bg-slate-200 hover:text-slate-700")}
+          aria-label="Collapse sidebar"
+        >
           <span className="text-base leading-none">↤</span>
         </button>
       </header>
@@ -612,7 +685,7 @@ export function Sidebar() {
           onClick={() => setSettingsOpen(true)}
           className={cn(
             "flex h-10 w-full items-center gap-2 px-4 text-xs transition-colors",
-            dark ? "text-neutral-500 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600",
+            dark ? "text-neutral-500 hover:text-neutral-300" : "text-slate-600 hover:text-slate-800",
           )}
         >
           <Settings className="size-5" />

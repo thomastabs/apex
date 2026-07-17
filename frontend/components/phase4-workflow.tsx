@@ -154,7 +154,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
       </div>
     );
   }
-  if (error) return <Callout>Failed to load stories: {errMsg(error)}</Callout>;
+  if (error) return <Callout variant="danger">Failed to load stories: {errMsg(error)}</Callout>;
 
   const stories = data?.stories ?? [];
   if (stories.length === 0) {
@@ -231,8 +231,8 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
             className={cn(
               "relative rounded-xl border p-4 text-left transition-all",
               dark
-                ? "border-neutral-700 bg-neutral-900 hover:border-emerald-500 hover:bg-neutral-800"
-                : "border-slate-200 bg-white hover:border-emerald-400 hover:shadow-md shadow-sm",
+                ? "border-neutral-700 bg-neutral-900 hover:border-violet-500 hover:bg-neutral-800"
+                : "border-slate-200 bg-white hover:border-violet-400 hover:bg-violet-50/50",
             )}
           >
             {story.is_regression_bypass && (
@@ -246,14 +246,14 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
             <div className="flex items-start gap-2 mb-2">
               <span className={cn(
                 "rounded text-xs font-mono font-bold px-1.5 py-0.5 shrink-0",
-                dark ? "bg-emerald-900/40 text-emerald-400" : "bg-emerald-100 text-emerald-700",
+                dark ? "bg-neutral-800 text-violet-400" : "bg-violet-50 text-violet-700",
               )}>
                 US#{story.story_id}
               </span>
               {story.has_bdd && (
                 <span className={cn(
                   "rounded text-xs px-1.5 py-0.5",
-                  dark ? "bg-sky-900/40 text-sky-400" : "bg-sky-100 text-sky-700",
+                  dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-100 text-slate-500",
                 )}>
                   Plan ready
                 </span>
@@ -483,7 +483,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
             <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform", !showGuidance && "-rotate-90")} />
             Guide the AI <span className={cn("font-normal", dark ? "text-neutral-500" : "text-slate-400")}>(optional)</span>
             {(guidance.trim() || emphasis.length > 0) && !showGuidance ? (
-              <span className={cn("ml-auto rounded px-1.5 py-0.5 text-[10px]", dark ? "bg-violet-900/40 text-violet-400" : "bg-violet-100 text-violet-700")}>
+              <span className={cn("ml-auto rounded px-1.5 py-0.5 text-xs", dark ? "bg-violet-900/40 text-violet-400" : "bg-violet-100 text-violet-700")}>
                 {emphasis.length > 0 ? `${emphasis.length} emphasis${guidance.trim() ? " + notes" : ""}` : "notes added"}
               </span>
             ) : null}
@@ -608,12 +608,9 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
       <SectionHeading>Execute Tests</SectionHeading>
 
       {isRegressionBypass && (
-        <div className={cn(
-          "rounded-lg border px-4 py-3 text-sm font-medium",
-          dark ? "border-amber-700 bg-amber-900/20 text-amber-300" : "border-amber-300 bg-amber-50 text-amber-800",
-        )}>
+        <Callout variant="warning">
           Regression Bypass mode — previously failed scenarios highlighted. Re-test those before proceeding.
-        </div>
+        </Callout>
       )}
 
       {/* Progress bar */}
@@ -678,7 +675,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                       "rounded-lg px-3 py-1 text-xs font-semibold transition",
                       result === "pass"
                         ? "bg-emerald-500 text-white"
-                        : dark ? "bg-neutral-800 text-neutral-400 hover:bg-emerald-900/40 hover:text-emerald-400" : "bg-slate-100 text-slate-500 hover:bg-emerald-100 hover:text-emerald-700",
+                        : dark ? "bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-emerald-400" : "bg-slate-100 text-slate-600 hover:bg-white hover:text-emerald-700",
                     )}
                   >
                     Pass
@@ -689,7 +686,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                       "rounded-lg px-3 py-1 text-xs font-semibold transition",
                       result === "fail"
                         ? "bg-red-500 text-white"
-                        : dark ? "bg-neutral-800 text-neutral-400 hover:bg-red-900/40 hover:text-red-400" : "bg-slate-100 text-slate-500 hover:bg-red-100 hover:text-red-700",
+                        : dark ? "bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-red-400" : "bg-slate-100 text-slate-600 hover:bg-white hover:text-red-700",
                     )}
                   >
                     Fail
@@ -755,7 +752,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                 {edgeCases[name] && (
                   <div className="mt-2 space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className={cn("font-semibold uppercase tracking-wider text-[10px]", dark ? "text-neutral-500" : "text-slate-400")}>
+                      <span className={cn("font-semibold uppercase tracking-wider text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
                         Edge-case probes — test manually
                       </span>
                       <button
@@ -850,6 +847,7 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
     }));
 
   const handlePass = () => {
+    if (!window.confirm("Mark this story qa_passed? This is a team-visible signal that testing is complete and it's ready for deployment.")) return;
     passGateMut.mutate({ storyId, scenarioResults: gateScenarioResults }, {
       onSuccess: () => {
         setRegressionBypass(false, []);
@@ -989,29 +987,21 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
       <SectionHeading>Testing Gate</SectionHeading>
 
       {/* Summary */}
-      <div className={cn(
-        "rounded-xl border p-4 space-y-2",
-        allPassed
-          ? dark ? "border-emerald-700/60 bg-emerald-900/10" : "border-emerald-200 bg-emerald-50"
-          : dark ? "border-red-700/60 bg-red-900/10" : "border-red-200 bg-red-50",
-      )}>
+      <Callout variant={allPassed ? "success" : "danger"}>
         <div className="flex items-center gap-2">
           {allPassed
-            ? <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-            : <XCircle className="h-4 w-4 text-red-500" />}
-          <span className={cn("font-semibold text-sm", allPassed
-            ? dark ? "text-emerald-300" : "text-emerald-800"
-            : dark ? "text-red-300" : "text-red-800",
-          )}>
+            ? <CheckCircle2 className="h-4 w-4" />
+            : <XCircle className="h-4 w-4" />}
+          <span className="font-semibold text-sm">
             {allPassed ? `All ${scenarios.length} scenarios passed` : `${failedScenarios.length} of ${scenarios.length} scenarios failed`}
           </span>
         </div>
         {!allPassed && (
-          <ul className={cn("text-xs list-disc list-inside space-y-0.5", dark ? "text-red-400" : "text-red-700")}>
+          <ul className="mt-2 text-xs list-disc list-inside space-y-0.5">
             {failedScenarios.map((n) => <li key={n}>{n}</li>)}
           </ul>
         )}
-      </div>
+      </Callout>
 
       {/* Pass path */}
       {allPassed && (
@@ -1131,7 +1121,7 @@ export function Phase4Workflow() {
   const setSelectedStoryId = usePhase4Store((s) => s.setSelectedStoryId);
   const clearPhase4Draft = usePhase4Store((s) => s.clearPhase4Draft);
 
-  const mutedClass = dark ? "text-neutral-500" : "text-slate-400";
+  const mutedClass = dark ? "text-neutral-400" : "text-slate-600";
 
   const handleSelect = (id: number) => {
     setSelectedStoryId(id);
@@ -1144,6 +1134,7 @@ export function Phase4Workflow() {
   };
 
   const handleStepperGoA = () => {
+    if (stage !== "A" && !window.confirm("Go back to Stories? This discards all test-execution progress for this story (test plan run, pass/fail marks, notes, bug drafts).")) return;
     clearPhase4Draft();
     setStage("A");
   };
@@ -1156,7 +1147,7 @@ export function Phase4Workflow() {
     <section className="px-8 py-8">
       {/* Phase header */}
       <div className="mb-7">
-        <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Phase 4</p>
+        <p className={cn("mb-1 text-xs font-bold uppercase tracking-widest", dark ? "text-violet-400" : "text-violet-600")}>Phase 4</p>
         <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
           Testing
         </h1>
@@ -1227,11 +1218,9 @@ export function Phase4Workflow() {
                       </span>
                       <span className={cn(
                         "text-xs font-semibold whitespace-nowrap",
-                        isActive
-                          ? "text-violet-500"
-                          : isDone
-                            ? dark ? "text-violet-400" : "text-violet-500"
-                            : dark ? "text-neutral-500" : "text-slate-400",
+                        isActive || isDone
+                          ? dark ? "text-violet-400" : "text-violet-600"
+                          : dark ? "text-neutral-500" : "text-slate-400",
                       )}>
                         {STAGE_LABELS[s]}
                       </span>

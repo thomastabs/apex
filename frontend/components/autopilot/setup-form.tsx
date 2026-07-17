@@ -132,6 +132,10 @@ export function AutopilotSetupForm({ onStart, isPending, dark }: Props) {
     "w-full rounded-md border px-3 py-2 text-sm focus:border-violet-500/60 focus:outline-none focus:ring-1 focus:ring-violet-500/30",
     dark ? "border-neutral-700 bg-neutral-800/60 text-neutral-200 placeholder-neutral-600" : "border-slate-300 bg-white text-slate-800 placeholder-slate-400",
   );
+  const selectedSegmentClass = "bg-violet-600 text-white";
+  const idleSegmentClass = dark
+    ? "text-neutral-400 hover:text-neutral-200"
+    : "text-slate-500 hover:text-slate-800";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -201,7 +205,7 @@ export function AutopilotSetupForm({ onStart, isPending, dark }: Props) {
                 onClick={() => setUseExistingConcept(false)}
                 className={cn(
                   "rounded px-2 py-1 transition-colors",
-                  !useExisting ? "bg-violet-600 text-white" : dark ? "text-neutral-400 hover:text-neutral-200" : "text-slate-500 hover:text-slate-800",
+                  !useExisting ? selectedSegmentClass : idleSegmentClass,
                 )}
               >
                 Write new
@@ -211,7 +215,7 @@ export function AutopilotSetupForm({ onStart, isPending, dark }: Props) {
                 onClick={() => setUseExistingConcept(true)}
                 className={cn(
                   "rounded px-2 py-1 transition-colors",
-                  useExisting ? "bg-violet-600 text-white" : dark ? "text-neutral-400 hover:text-neutral-200" : "text-slate-500 hover:text-slate-800",
+                  useExisting ? selectedSegmentClass : idleSegmentClass,
                 )}
               >
                 Use existing file
@@ -276,7 +280,7 @@ export function AutopilotSetupForm({ onStart, isPending, dark }: Props) {
                 onClick={() => setSettings((s) => ({ ...s, auto_epics: true }))}
                 className={cn(
                   "rounded px-2 py-1 transition-colors",
-                  autoEpics ? "bg-violet-600 text-white" : dark ? "text-neutral-400 hover:text-neutral-200" : "text-slate-500 hover:text-slate-800",
+                  autoEpics ? selectedSegmentClass : idleSegmentClass,
                 )}
               >
                 Automatic (AI)
@@ -286,7 +290,7 @@ export function AutopilotSetupForm({ onStart, isPending, dark }: Props) {
                 onClick={() => setSettings((s) => ({ ...s, auto_epics: false }))}
                 className={cn(
                   "rounded px-2 py-1 transition-colors",
-                  !autoEpics ? "bg-violet-600 text-white" : dark ? "text-neutral-400 hover:text-neutral-200" : "text-slate-500 hover:text-slate-800",
+                  !autoEpics ? selectedSegmentClass : idleSegmentClass,
                 )}
               >
                 Manual

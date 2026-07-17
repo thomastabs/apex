@@ -12,6 +12,7 @@ import { useApiContext } from "@/lib/stores/session-store";
 import { SignInRequired } from "@/components/sign-in-required";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/sidebar/shared";
 
 function bugReportDownload(content: string, storyId: number) {
   const blob = new Blob([content], { type: "text/markdown" });
@@ -31,6 +32,7 @@ export function FixBoltDashboard() {
   const [viewing, setViewing] = useState<{ storyId: number; content: string } | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
 
   const REPORTS_KEY = ["phase4", "bug-reports", context?.projectId];
   const FIXLOG_KEY = ["phase4", "fix-log", context?.projectId];
@@ -87,6 +89,7 @@ export function FixBoltDashboard() {
     mutationFn: (storyId: number) => deleteBugReport(context!, storyId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: REPORTS_KEY });
+      setDeleteConfirm(null);
       toast.success("Bug report deleted (story stays flagged for Regression Bypass).");
     },
     onError: (err: Error) => toast.error(`Delete failed: ${err.message}`),
@@ -106,10 +109,10 @@ export function FixBoltDashboard() {
   );
 
   return (
-    <section className="px-8 py-8">
+    <section className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <div className="mb-7">
         <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Governance</p>
-        <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
+        <h1 className={cn("text-2xl font-bold tracking-tight", dark ? "text-white" : "text-slate-900")}>
           Fix Bolt
         </h1>
         <p className={cn("mt-2", mutedClass)}>
@@ -156,7 +159,7 @@ export function FixBoltDashboard() {
                 dark ? "divide-neutral-800 border-neutral-800" : "divide-slate-100 border-slate-200",
               )}>
                 {reports.map((r) => (
-                  <li key={r.story_id} className="flex items-center gap-3 px-4 py-2.5">
+                  <li key={r.story_id} className="flex flex-wrap items-center gap-3 px-4 py-2.5 sm:flex-nowrap">
                     <span className={cn(
                       "rounded px-1.5 py-0.5 text-xs font-mono font-bold",
                       dark ? "bg-violet-900/40 text-violet-400" : "bg-violet-100 text-violet-700",
@@ -180,11 +183,7 @@ export function FixBoltDashboard() {
                       title="Delete bug report"
                       aria-label={`Delete bug report for US#${r.story_id}`}
                       disabled={deleteMut.isPending}
-                      onClick={() => {
-                        if (window.confirm(`Delete the bug report for US#${r.story_id}? The story stays flagged so its Regression Bypass is preserved.`)) {
-                          deleteMut.mutate(r.story_id);
-                        }
-                      }}
+                      onClick={() => setDeleteConfirm(r.story_id)}
                     >
                       <Trash2 className="size-4" />
                     </button>
@@ -222,6 +221,16 @@ export function FixBoltDashboard() {
           </div>
         </div>
       )}
+
+      {typeof document !== "undefined" ? createPortal(
+        <ConfirmDialog
+          open={deleteConfirm !== null}
+          message={deleteConfirm === null ? "" : `Delete the bug report for US#${deleteConfirm}? The story stays flagged so its Regression Bypass is preserved.`}
+          onConfirm={() => { if (deleteConfirm !== null) deleteMut.mutate(deleteConfirm); }}
+          onCancel={() => setDeleteConfirm(null)}
+        />,
+        document.body,
+      ) : null}
 
       {viewing &&
         createPortal(

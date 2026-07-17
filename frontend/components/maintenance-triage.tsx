@@ -33,10 +33,10 @@ const STATUS_LABEL: Record<string, string> = {
 function StatusChip({ item, dark }: { item: MaintenanceItem; dark: boolean }) {
   const tone =
     item.status === "resolved" ? "bg-emerald-500/15 text-emerald-500"
-    : item.classification === "change_request" ? "bg-sky-500/15 text-sky-500"
+    : item.classification === "change_request" ? (dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-500")
     : item.classification === "bug" ? "bg-amber-500/15 text-amber-500"
     : dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-500";
-  return <span className={cn("rounded px-2 py-0.5 text-[11px] font-semibold", tone)}>{STATUS_LABEL[item.status] ?? item.status}</span>;
+  return <span className={cn("rounded px-2 py-0.5 text-xs font-semibold", tone)}>{STATUS_LABEL[item.status] ?? item.status}</span>;
 }
 
 export function MaintenanceTriage() {
@@ -79,7 +79,7 @@ export function MaintenanceTriage() {
   }, [items, selectedId]);
 
   if (!context) {
-    return <div className="p-8"><Callout>Sign in and select a project to triage maintenance feedback.</Callout></div>;
+    return <div className="p-8"><Callout variant="warning">Sign in and select a project to triage maintenance feedback.</Callout></div>;
   }
 
   function submitNew() {
@@ -225,8 +225,8 @@ export function MaintenanceTriage() {
                 )}
               >
                 <span className="min-w-0">
-                  <span className={cn("block truncate", dark ? "text-neutral-200" : "text-slate-800")}>#{it.id} {it.subject}</span>
-                  <span className={cn("block truncate text-[11px]", muted)}>{it.source}{it.ext_ref ? ` · ${it.ext_ref}` : ""}{it.linked_story_id ? ` · story #${it.linked_story_id}` : ""}</span>
+                  <span className={cn("block truncate", dark ? "text-neutral-200" : "text-slate-800")}><span className="font-mono">#{it.id}</span> {it.subject}</span>
+                  <span className={cn("block truncate text-xs", muted)}>{it.source}{it.ext_ref ? ` · ${it.ext_ref}` : ""}{it.linked_story_id ? <> · story <span className="font-mono">#{it.linked_story_id}</span></> : ""}</span>
                 </span>
                 <StatusChip item={it} dark={dark} />
               </button>
@@ -238,7 +238,7 @@ export function MaintenanceTriage() {
             <div className="space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h3 className={cn("text-base font-bold", dark ? "text-white" : "text-slate-900")}>#{selected.id} {selected.subject}</h3>
+                  <h3 className={cn("text-base font-bold", dark ? "text-white" : "text-slate-900")}><span className="font-mono">#{selected.id}</span> {selected.subject}</h3>
                   {selected.description ? <p className={cn("mt-1 text-sm", dark ? "text-neutral-400" : "text-slate-600")}>{selected.description}</p> : null}
                 </div>
                 <Button
@@ -265,7 +265,7 @@ export function MaintenanceTriage() {
 
               {selected.ai_rationale?.classify ? (
                 <div className={cn("rounded-lg border p-3 text-sm", cardBorder)}>
-                  <span className="font-semibold">{selected.classification === "change_request" ? "Path A — Change Request" : "Path B — Bug"}:</span>{" "}
+                  <span className="font-semibold">{selected.classification === "change_request" ? "Change Request" : "Bug"}:</span>{" "}
                   {selected.ai_rationale.classify}
                 </div>
               ) : null}
@@ -332,11 +332,25 @@ export function MaintenanceTriage() {
                     <p className={cn("text-xs", muted)}>AI suggests <b>{laneHint.lane}</b>: {laneHint.rationale}</p>
                   )}
                   <div className="flex gap-2">
-                    <Button variant="secondary" onClick={() => route.mutate({ itemId: selected.id, lane: "fast" }, { onSuccess: () => toast.success("Fast Lane — deploy record"), onError: (e) => toast.error(errMsg(e)) })} disabled={route.isPending}>
-                      <Zap className="h-4 w-4" /> Fast Lane
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        if (!window.confirm("Route to Fast Lane? This skips QA entirely and deploys the fix directly to production.")) return;
+                        route.mutate({ itemId: selected.id, lane: "fast" }, { onSuccess: () => toast.success("Fast Lane — deploy record"), onError: (e) => toast.error(errMsg(e)) });
+                      }}
+                      disabled={route.isPending}
+                    >
+                      {route.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />} Fast Lane
                     </Button>
-                    <Button onClick={() => route.mutate({ itemId: selected.id, lane: "secure" }, { onSuccess: () => toast.success("Secure Lane — QA Regression Bypass"), onError: (e) => toast.error(errMsg(e)) })} disabled={route.isPending}>
-                      <ShieldCheck className="h-4 w-4" /> Secure Lane
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        if (!window.confirm("Route to Secure Lane? This deploys with a QA regression bypass — only previously-failed scenarios get re-tested.")) return;
+                        route.mutate({ itemId: selected.id, lane: "secure" }, { onSuccess: () => toast.success("Secure Lane — QA Regression Bypass"), onError: (e) => toast.error(errMsg(e)) });
+                      }}
+                      disabled={route.isPending}
+                    >
+                      {route.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} Secure Lane
                     </Button>
                   </div>
                   {selected.lane ? <p className={cn("text-xs", muted)}>Routed: <b>{selected.lane}</b> lane.</p> : null}
@@ -345,11 +359,18 @@ export function MaintenanceTriage() {
 
               {/* resolve (Fix Log) */}
               {selected.status !== "resolved" && selected.classification === "bug" ? (
-                <Button variant="secondary" onClick={() => resolve.mutate({ itemId: selected.id }, { onSuccess: () => toast.success("Resolved — fix logged"), onError: (e) => toast.error(errMsg(e)) })} disabled={resolve.isPending}>
-                  Resolve (record fix)
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    if (!window.confirm("Mark this item resolved? This writes a permanent record to fix-log.md.")) return;
+                    resolve.mutate({ itemId: selected.id }, { onSuccess: () => toast.success("Resolved — fix logged"), onError: (e) => toast.error(errMsg(e)) });
+                  }}
+                  disabled={resolve.isPending}
+                >
+                  {resolve.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Resolve (record fix)
                 </Button>
               ) : null}
-              {selected.status === "resolved" ? <Callout>Resolved — fix recorded in fix-log.md.</Callout> : null}
+              {selected.status === "resolved" ? <Callout variant="success">Resolved — fix recorded in fix-log.md.</Callout> : null}
             </div>
           ) : null}
         </div>

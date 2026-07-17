@@ -21,6 +21,7 @@ const TYPE_COLOR: Record<TraceNodeType, string> = {
   project: "#0ea5e9",
   epic: "#8b5cf6",
   design: "#14b8a6",
+  runtime: "#06b6d4",
   story: "#6366f1",
   gherkin: "#a855f7",
   scenario: "#c084fc",
@@ -333,10 +334,10 @@ export function TraceabilityClusterPanel() {
   const hasGraph = (data?.nodes.length ?? 0) > 1;
 
   return (
-    <section className="flex h-[calc(100vh-58px)] flex-col px-8 py-6">
+    <section className="flex h-[calc(100vh-58px)] min-w-0 flex-col px-4 py-6 sm:px-6 lg:px-8">
       <div className="mb-4">
         <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Traceability</p>
-        <h1 className={cn("text-4xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>Living Graph</h1>
+        <h1 className={cn("text-2xl font-bold tracking-tight", dark ? "text-white" : "text-slate-900")}>Living Graph</h1>
         <p className={cn("mt-1.5 text-sm", mutedClass)}>
           The whole project as one derivation graph — epic → story → Gherkin → design → tasks → tests → deploy.
           Violet dashed = backward-trace, red dashed = regression loop-back. Click any node to jump to its phase.
@@ -361,7 +362,7 @@ export function TraceabilityClusterPanel() {
 
       {context && hasGraph ? (
         <>
-          <div className="mb-3 flex flex-wrap items-center gap-3">
+          <div className="mb-3 flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
             <select
               aria-label="Filter by epic"
               value={epicFilter}
@@ -410,7 +411,7 @@ export function TraceabilityClusterPanel() {
             >
               <Download className="size-3.5" /> Export PNG
             </button>
-            <span className={cn("ml-auto text-xs", mutedClass)}>
+            <span className={cn("text-xs sm:ml-auto", mutedClass)}>
               {graphData?.nodes.length ?? 0} nodes · {graphData?.links.length ?? 0} edges
             </span>
           </div>

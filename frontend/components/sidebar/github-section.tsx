@@ -402,13 +402,13 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
                   )}>
                     <span>{lastSyncedLabel ? `Last synced ${lastSyncedLabel}` : "Not synced yet"}</span>
                     {lastSyncedLabel ? (
-                      <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+	                      <span className={cn("rounded-full px-1.5 py-0.5 text-xs font-semibold",
                         dark ? "bg-emerald-900/40 text-emerald-400" : "bg-emerald-50 text-emerald-700"
                       )}>
                         Synced
                       </span>
                     ) : (
-                      <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+	                      <span className={cn("rounded-full px-1.5 py-0.5 text-xs font-semibold",
                         dark ? "bg-yellow-900/40 text-yellow-400" : "bg-yellow-50 text-yellow-700"
                       )}>
                         Pending

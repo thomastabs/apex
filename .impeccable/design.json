@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-15T16:56:54Z",
+  "title": "Design System: Apex",
+  "extensions": {
+    "colorMeta": {
+      "primary": { "role": "primary", "displayName": "Signal Violet", "canonical": "oklch(58% 0.22 293)", "tonalRamp": ["#2e1065", "#4c1d95", "#5b21b6", "#6d28d9", "#7c3aed", "#8b5cf6", "#a78bfa", "#ddd6fe"] },
+      "success": { "role": "secondary", "displayName": "Ledger Green", "canonical": "oklch(72% 0.15 162)", "tonalRamp": ["#022c22", "#064e3b", "#065f46", "#047857", "#059669", "#10b981", "#34d399", "#a7f3d0"] },
+      "warning": { "role": "tertiary", "displayName": "Caution Amber", "canonical": "oklch(76% 0.16 70)", "tonalRamp": ["#451a03", "#78350f", "#92400e", "#b45309", "#d97706", "#f59e0b", "#fbbf24", "#fde68a"] },
+      "danger": { "role": "tertiary", "displayName": "Ledger Red", "canonical": "oklch(55% 0.22 27)", "tonalRamp": ["#450a0a", "#7f1d1d", "#991b1b", "#b91c1c", "#dc2626", "#ef4444", "#f87171", "#fecaca"] },
+      "bg-dark": { "role": "neutral", "displayName": "Ledger Black", "canonical": "oklch(20% 0.002 286)", "tonalRamp": ["#0a0a0a", "#121113", "#171717", "#1b1b1c", "#1f1f21", "#262626", "#404040", "#525252"] },
+      "bg-light": { "role": "neutral", "displayName": "Paper White", "canonical": "oklch(99% 0 0)", "tonalRamp": ["#e5e7f0", "#f1f3f8", "#f8f9fc", "#fbfbfd", "#ffffff", "#ffffff", "#ffffff", "#ffffff"] },
+      "muted": { "role": "neutral", "displayName": "Ledger Gray", "canonical": "oklch(58% 0.02 280)", "tonalRamp": ["#3a3d4a", "#565a6b", "#7c8194", "#9599a8", "#adb1bd", "#c5c8d1", "#dde0e6", "#eef0f3"] },
+      "sidebar-light": { "role": "neutral", "displayName": "Sidebar Mist", "canonical": "oklch(93% 0.02 270)", "tonalRamp": ["#c7cee6", "#d3d9ec", "#e0e5f4", "#e8edf8", "#eef1fa", "#f2f5fb", "#f7f9fd", "#fbfcfe"] }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "Headline", "purpose": "Section/page titles — rare, only 2 uses across the codebase." },
+      "body": { "displayName": "Body", "purpose": "Default prose, descriptions, form labels." },
+      "label": { "displayName": "Label", "purpose": "The dominant size (text-xs) — table cells, badges, nav labels, metadata." },
+      "mono": { "displayName": "Mono / Identifier", "purpose": "Spec IDs, file paths, keyboard shortcuts — never prose." }
+    },
+    "shadows": [
+      { "name": "overlay", "value": "shadow-2xl", "purpose": "Command palette, confirmation modals, fix-bolt dialog — true stacked overlays only." },
+      { "name": "ambient-light", "value": "shadow-sm", "purpose": "Light-mode card surface separation only; dark mode uses border+tint instead." }
+    ],
+    "motion": [
+      { "name": "transition-standard", "value": "transition-all duration-150", "purpose": "Default hover/state transition on cards and nav." },
+      { "name": "transition-colors", "value": "transition-colors", "purpose": "Text/border color shifts on hover for links and nav items." }
+    ],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Default call-to-action button — Signal Violet, used sparingly.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Lock Design</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 4px; font-size: 14px; font-weight: 600; border: none; cursor: pointer; transition: background-color 0.15s; } .ds-btn-primary { background: #7c3aed; color: #ffffff; } .ds-btn-primary:hover { background: #8b5cf6; } .ds-btn-primary:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary-dark",
+      "description": "Neutral action button — dark-mode variant shown.",
+      "html": "<button class=\"ds-btn ds-btn-secondary\">Cancel</button>",
+      "css": ".ds-btn-secondary { background: #262626; color: #e5e5e5; height: 40px; padding: 0 16px; border-radius: 4px; font-size: 14px; font-weight: 600; border: none; cursor: pointer; transition: background-color 0.15s; } .ds-btn-secondary:hover { background: #404040; }"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Text input, dark-mode variant — two-stage hover-then-focus affordance.",
+      "html": "<input class=\"ds-input\" placeholder=\"Search stories…\" />",
+      "css": ".ds-input { width: 100%; height: 40px; padding: 0 12px; border-radius: 4px; border: 1px solid #404040; background: #0a0a0a; color: #ffffff; font-size: 14px; outline: none; transition: border-color 0.15s; } .ds-input::placeholder { color: #7c8194; } .ds-input:hover { border-color: #737373; } .ds-input:focus-visible { border-color: #8b5cf6; }"
+    },
+    {
+      "name": "Phase Card",
+      "kind": "card",
+      "refersTo": "card-phase",
+      "description": "Console-tile card for each SDLC phase, with a status dot and hover border-brighten (no shadow lift, dark mode).",
+      "html": "<a class=\"ds-card\" href=\"#\"><span class=\"ds-card-dot ds-card-dot-active\"></span><div class=\"ds-card-icon\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#a78bfa\" stroke-width=\"2\"><path d=\"M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z\"/></svg></div><div class=\"ds-card-title\">Design</div><div class=\"ds-card-desc\">Runtime contract + visual/technical design</div></a>",
+      "css": ".ds-card { position: relative; display: block; border-radius: 8px; border: 1px solid #262626; background: rgba(23,23,23,0.4); padding: 16px; text-decoration: none; transition: border-color 0.15s, background-color 0.15s; } .ds-card:hover { border-color: rgba(139,92,246,0.4); background: rgba(38,38,38,0.6); } .ds-card-dot { position: absolute; top: 12px; right: 12px; width: 8px; height: 8px; border-radius: 9999px; display: block; } .ds-card-dot-active { background: #a78bfa; } .ds-card-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 6px; background: #262626; margin-bottom: 12px; } .ds-card-title { color: #ffffff; font-size: 14px; font-weight: 600; margin-bottom: 4px; } .ds-card-desc { color: #7c8194; font-size: 12px; }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "mono",
+      "description": "Spec-ID / count badge — always monospace, per The Identifier-Is-Mono Rule.",
+      "html": "<span class=\"ds-badge\">SCR-3 · 3/8</span>",
+      "css": ".ds-badge { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: #7c8194; background: #1b1b1c; border: 1px solid #262626; border-radius: 4px; padding: 2px 6px; }"
+    },
+    {
+      "name": "Phase Nav",
+      "kind": "nav",
+      "refersTo": "button-primary",
+      "description": "Sticky 48px console strip — six phase tabs, active tab in Signal Violet with inline badge counts.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-tab ds-nav-tab-active\" href=\"#\">Design <span class=\"ds-nav-badge\">3/8</span></a><a class=\"ds-nav-tab\" href=\"#\">Implementation</a><a class=\"ds-nav-tab\" href=\"#\">Testing</a></nav>",
+      "css": ".ds-nav { display: flex; align-items: stretch; height: 48px; border-bottom: 1px solid #262626; background: #1b1b1c; } .ds-nav-tab { display: flex; align-items: center; gap: 6px; padding: 0 16px; color: #7c8194; font-size: 13px; font-weight: 500; text-decoration: none; border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s; } .ds-nav-tab:hover { color: #ddd6fe; } .ds-nav-tab-active { color: #a78bfa; border-bottom-color: #7c3aed; } .ds-nav-badge { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: inherit; opacity: 0.8; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Spec Ledger",
+    "overview": "Apex reads like an audit trail, not a product page. The interface exists to be inspected line by line — spec IDs in monospace, statuses as small dots and badges, phases as a console strip rather than a marketing nav. `text-xs` is the dominant type size across the codebase (488 uses against 315 `text-sm`), and that density is not an oversight: it's the tell of a tool built for someone cross-referencing a Gherkin scenario against a task pack, not scrolling a feed. Structure earns the trust; nothing here persuades.\n\nAgainst that neutral, dense backdrop, Signal Violet is the one warm signal — active phase, active tab, AI-touched state, primary action. It appears sparingly enough that its presence *means something* every time it shows up. This directly enforces PRODUCT.md's positioning: spec-anchored traceability, not spec-anchored decoration.\n\nThe system explicitly rejects the generic SaaS dashboard look (gradient heroes, hero-metric tiles, cream/paper body backgrounds) and the enterprise-PM-tool skin (Jira-clone chrome) named in PRODUCT.md's anti-references. Apex sits above Taiga/Jira as the reasoning layer; it should never be mistaken for another ticket tracker.",
+    "keyCharacteristics": [
+      "Dark-first (neutral-900/#121113/#1b1b1c base), with a fully-mirrored light mode swapped via .apex-sidebar-light / .apex-main-light override classes rather than a separate token set.",
+      "One accent color (violet) carries all active/selected/AI meaning; status color (emerald/amber/red) is reserved strictly for state, never decoration.",
+      "Monospace for anything that's an identifier — spec IDs, file paths, keyboard shortcuts — never for prose.",
+      "Flat by default: 1px borders and background-tint layering do the work shadows would do elsewhere; shadows appear only on true overlays."
+    ],
+    "rules": [
+      { "name": "The One-Signal Rule", "body": "Violet is the only color allowed to mean \"this is active or AI-touched.\" Status colors (emerald/amber/red) mean state, never selection. Don't reach for a second brand hue to add visual interest — that's what the neutral ramp and monospace are for.", "section": "colors" },
+      { "name": "The Identifier-Is-Mono Rule", "body": "Any string that functions as an ID, path, or shortcut renders in monospace, unconditionally. If it's typed into a URL, a story-index.json, or a Gherkin tag, it's mono on screen too — the typography itself signals \"this is machine-addressable.\"", "section": "typography" },
+      { "name": "The Flat-by-Default Rule", "body": "Surfaces are flat at rest. Shadows appear only as a response to true stacking (a modal/overlay), never as ambient decoration on a card or button. If a shadow doesn't correspond to something rendering above the page, remove it.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep violet as the only color that signals \"active / selected / AI-touched\" (The One-Signal Rule) — status colors stay semantic-only.",
+      "Do render every spec ID, file path, and keyboard shortcut in monospace (The Identifier-Is-Mono Rule).",
+      "Do keep depth flat-by-default; reserve shadows for genuine overlays (command palette, modals) per The Flat-by-Default Rule.",
+      "Do mirror dark/light via the existing .apex-sidebar-light / .apex-main-light override classes rather than introducing a parallel light-mode token set."
+    ],
+    "donts": [
+      "Don't build a generic SaaS marketing dashboard — no gradient hero, no hero-metric-tile template, no cream/paper body background (per PRODUCT.md's anti-references).",
+      "Don't let Apex's chrome converge toward looking like Taiga/Jira — density is fine, but Apex is the reasoning layer above the PM tool, not a reskin of it (per PRODUCT.md).",
+      "Don't use border-left/border-right greater than 1px as a colored side-stripe accent. SectionHeading and Callout in components/ui/primitives.tsx currently do this — flagged as a known violation to fix in a future /impeccable polish pass, not an accepted pattern to replicate elsewhere.",
+      "Don't introduce a second brand hue alongside violet \"for visual interest\" — variety comes from the neutral ramp and typography, not from more color.",
+      "Don't add ambient shadow to cards or buttons at rest; if it's not an overlay, it stays flat."
+    ]
+  }
+}

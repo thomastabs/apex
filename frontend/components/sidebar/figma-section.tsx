@@ -233,7 +233,7 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
                     dark ? "border-neutral-700 text-neutral-500" : "border-slate-200 text-slate-400",
                   )}>
                     <span>{lastSyncedLabel ? `Last synced ${lastSyncedLabel}` : "Not synced yet"}</span>
-                    <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+	                    <span className={cn("rounded-full px-1.5 py-0.5 text-xs font-semibold",
                       lastSyncedLabel
                         ? (dark ? "bg-emerald-900/40 text-emerald-400" : "bg-emerald-50 text-emerald-700")
                         : (dark ? "bg-yellow-900/40 text-yellow-400" : "bg-yellow-50 text-yellow-700"),
@@ -330,7 +330,7 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
                       <span className="min-w-0 flex-1">
                         <span className={cn("block truncate text-sm", dark ? "text-neutral-200" : "text-slate-700")}>{f.name}</span>
                         {f.last_modified ? (
-                          <span className={cn("block text-[10px]", dark ? "text-neutral-500" : "text-slate-400")}>
+	                          <span className={cn("block text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
                             {new Date(f.last_modified).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
                           </span>
                         ) : null}

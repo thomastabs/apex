@@ -43,13 +43,13 @@ export function UsageSection({ dark, shellClass, dragHandlers, onDragStart }: Us
               <>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <p className={cn("text-[10px] uppercase tracking-wide", mutedText)}>Last 30 days</p>
+	                    <p className={cn("text-xs uppercase tracking-wide", mutedText)}>Last 30 days</p>
                     <p className={cn("text-lg font-semibold", dark ? "text-white" : "text-slate-900")}>
                       {fmtUsd(usage.data.total_cost_usd)}
                     </p>
                   </div>
                   <div>
-                    <p className={cn("text-[10px] uppercase tracking-wide", mutedText)}>AI calls</p>
+	                    <p className={cn("text-xs uppercase tracking-wide", mutedText)}>AI calls</p>
                     <p className={cn("text-lg font-semibold", dark ? "text-white" : "text-slate-900")}>
                       {usage.data.total_calls}
                     </p>

@@ -98,7 +98,7 @@ function ReportTables({ report, dark }: { report: ConformanceReport; dark: boole
             <span
               title={v.rationale || "Reconciled by the panel"}
               className={cn(
-                "mt-1 block w-fit rounded px-1 text-[10px] font-semibold",
+                "mt-1 block w-fit rounded px-1 text-xs font-semibold",
                 v.agreement === "unanimous"
                   ? "bg-emerald-500/15 text-emerald-500"
                   : "bg-amber-500/15 text-amber-500",
@@ -111,13 +111,13 @@ function ReportTables({ report, dark }: { report: ConformanceReport; dark: boole
         <td className="px-3 py-2 align-top">
           <div className={dark ? "text-neutral-200" : "text-slate-800"}>{label}</div>
           {loc ? (
-            <div className={cn("mt-0.5 font-mono text-[11px]", muted)}>{loc}</div>
+            <div className={cn("mt-0.5 font-mono text-xs", muted)}>{loc}</div>
           ) : null}
           {detail ? (
-            <div className={cn("mt-0.5 text-[11px]", muted)}>{detail}</div>
+            <div className={cn("mt-0.5 text-xs", muted)}>{detail}</div>
           ) : null}
           {v?.rationale ? (
-            <div className={cn("mt-0.5 text-[11px] italic", muted)}>Judge: {v.rationale}</div>
+            <div className={cn("mt-0.5 text-xs italic", muted)}>Judge: {v.rationale}</div>
           ) : null}
         </td>
       </tr>
@@ -180,7 +180,7 @@ function ScanResults({ report, dark }: { report: ScanReport; dark: boolean }) {
                     </span>
                   </div>
                   {r.worsened_rows.length > 0 ? (
-                    <ul className={cn("mt-0.5 text-[11px]", muted)}>
+                    <ul className={cn("mt-0.5 text-xs", muted)}>
                       {r.worsened_rows.map((w, i) => (
                         <li key={i}>
                           {w.kind} <span className="font-mono">{w.ref}</span>: {w.old_status}→{w.new_status}
@@ -224,7 +224,7 @@ function TraceabilityPanel() {
   if (!context) {
     return (
       <div className="p-8">
-        <Callout>Sign in and select a project to run a conformance check.</Callout>
+        <Callout variant="warning">Sign in and select a project to run a conformance check.</Callout>
       </div>
     );
   }
@@ -321,7 +321,7 @@ function TraceabilityPanel() {
                   <span className={cn("block truncate", dark ? "text-neutral-200" : "text-slate-800")}>
                     #{s.story_id} {s.title}
                   </span>
-                  <span className={cn("block truncate text-[11px]", dark ? "text-neutral-500" : "text-slate-400")}>
+                  <span className={cn("block truncate text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
                     {s.epic_title} · {s.phase_status}
                   </span>
                 </span>
@@ -351,7 +351,7 @@ function TraceabilityPanel() {
                   </span>
                 )}
                 {report?.generated_at ? (
-                  <div className={cn("text-[11px]", dark ? "text-neutral-600" : "text-slate-400")}>
+                  <div className={cn("text-xs", dark ? "text-neutral-600" : "text-slate-400")}>
                     {report.layer === "panel"
                       ? `Panel-verified${report.panel_meta ? ` · ${report.panel_meta.escalated} row(s) escalated` : ""}`
                       : report.layer === "ai"
@@ -482,9 +482,9 @@ export function Phase6Workflow() {
     <section className="px-8 py-8">
       {/* Phase header */}
       <div className="mb-7">
-        <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Phase 6</p>
+        <p className={cn("mb-1 text-xs font-bold uppercase tracking-widest", dark ? "text-violet-400" : "text-violet-600")}>Phase 6</p>
         <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
-          Maintenance
+          {tab === "traceability" ? "Traceability" : "Maintenance"}
         </h1>
         <p className={cn("mt-2", mutedClass)}>
           Triage post-deployment feedback into governed fixes, and verify shipped code against the locked spec.
@@ -531,13 +531,23 @@ export function Phase6Workflow() {
           return (
             <button
               key={s.key}
+              id={`phase6-tab-${s.key}`}
               role="tab"
               aria-selected={isActive}
+              aria-controls={isActive ? `phase6-panel-${tab}` : undefined}
+              tabIndex={isActive ? 0 : -1}
               onClick={() => setTab(s.key)}
+              onKeyDown={(e) => {
+                if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+                const idx = steps.findIndex((step) => step.key === s.key);
+                const next = e.key === "ArrowRight" ? (idx + 1) % steps.length : (idx - 1 + steps.length) % steps.length;
+                setTab(steps[next].key);
+                document.getElementById(`phase6-tab-${steps[next].key}`)?.focus();
+              }}
               className={cn(
                 "rounded-lg px-5 py-2 text-sm font-semibold transition",
                 isActive
-                  ? "bg-violet-600 text-white shadow-sm"
+                  ? "bg-violet-600 text-white"
                   : dark
                     ? "text-neutral-400 hover:text-neutral-200"
                     : "text-slate-500 hover:text-slate-800",
@@ -550,7 +560,12 @@ export function Phase6Workflow() {
       </div>
 
       {/* Section content */}
-      <div className="mt-6">
+      <div
+        id={`phase6-panel-${tab}`}
+        role="tabpanel"
+        aria-labelledby={`phase6-tab-${tab}`}
+        className="mt-6"
+      >
         {tab === "maintenance" ? <MaintenanceTriage /> : <TraceabilityPanel />}
       </div>
     </section>

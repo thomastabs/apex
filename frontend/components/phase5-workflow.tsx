@@ -218,7 +218,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
       </div>
     );
   }
-  if (error) return <Callout>Failed to load stories: {errMsg(error)}</Callout>;
+  if (error) return <Callout variant="danger">Failed to load stories: {errMsg(error)}</Callout>;
 
   const stories = data?.stories ?? [];
   if (stories.length === 0) {
@@ -293,14 +293,14 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
             className={cn(
               "relative rounded-xl border p-4 text-left transition-all",
               dark
-                ? "border-neutral-700 bg-neutral-900 hover:border-emerald-500 hover:bg-neutral-800"
-                : "border-slate-200 bg-white hover:border-emerald-400 hover:shadow-md shadow-sm",
+                ? "border-neutral-700 bg-neutral-900 hover:border-violet-500 hover:bg-neutral-800"
+                : "border-slate-200 bg-white hover:border-violet-400 hover:bg-violet-50/50",
             )}
           >
             {story.deploy_bypass && (
               <span className={cn(
                 "absolute top-2 right-2 rounded text-xs font-semibold px-1.5 py-0.5",
-                dark ? "bg-sky-900/40 text-sky-400" : "bg-sky-100 text-sky-700",
+                dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-100 text-slate-500",
               )}>
                 Routine
               </span>
@@ -308,7 +308,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
             <div className="flex items-start gap-2 mb-2">
               <span className={cn(
                 "rounded text-xs font-mono font-bold px-1.5 py-0.5 shrink-0",
-                dark ? "bg-emerald-900/40 text-emerald-400" : "bg-emerald-100 text-emerald-700",
+                dark ? "bg-neutral-800 text-violet-400" : "bg-violet-50 text-violet-700",
               )}>
                 US#{story.story_id}
               </span>
@@ -323,7 +323,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
               {story.has_deploy_pack && (
                 <span className={cn(
                   "rounded text-xs px-1.5 py-0.5",
-                  dark ? "bg-amber-900/40 text-amber-400" : "bg-amber-100 text-amber-700",
+                  dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-100 text-slate-500",
                 )}>
                   Pack ready
                 </span>
@@ -450,7 +450,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
             <div className="mb-1 flex flex-wrap items-center gap-2">
               <span className={cn("font-semibold uppercase tracking-wider", dark ? "text-neutral-400" : "text-slate-600")}>AI recommendation</span>
               <span className={cn(
-                "rounded px-1.5 py-0.5 text-[10px] font-semibold capitalize",
+                "rounded px-1.5 py-0.5 text-xs font-semibold capitalize",
                 infraDelta.confidence === "high" ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
                   : infraDelta.confidence === "low" ? "bg-red-500/20 text-red-700 dark:text-red-400"
                   : "bg-amber-500/20 text-amber-700 dark:text-amber-400",
@@ -461,7 +461,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                 "ml-auto font-semibold",
                 infraDelta.needs_infra_change
                   ? "text-amber-700 dark:text-amber-400"
-                  : "text-sky-700 dark:text-sky-400",
+                  : dark ? "text-neutral-400" : "text-slate-600",
               )}>
                 {infraDelta.needs_infra_change ? "Infra changes required" : "Routine deployment"}
               </span>
@@ -501,8 +501,8 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                 className={cn(
                   "flex-1 rounded-lg border px-4 py-2.5 text-sm font-semibold transition",
                   !infraDelta.needs_infra_change
-                    ? "border-sky-500 bg-sky-600 text-white"
-                    : dark ? "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-sky-600" : "border-slate-300 bg-white text-slate-500 hover:border-sky-400",
+                    ? "border-violet-500 bg-violet-600 text-white"
+                    : dark ? "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-violet-600" : "border-slate-300 bg-white text-slate-500 hover:border-violet-400",
                 )}
               >
                 Routine deployment — no infra changes
@@ -695,13 +695,13 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
         <SectionHeading>Deploy Pack</SectionHeading>
         <div className={cn(
           "rounded-xl border px-6 py-8 text-center space-y-3",
-          dark ? "border-sky-700 bg-sky-900/20" : "border-sky-200 bg-sky-50",
+          dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50",
         )}>
-          <Rocket className="h-10 w-10 text-sky-500 mx-auto" />
-          <h3 className={cn("text-lg font-semibold", dark ? "text-sky-300" : "text-sky-800")}>
+          <Rocket className={cn("h-10 w-10 mx-auto", dark ? "text-neutral-400" : "text-slate-500")} />
+          <h3 className={cn("text-lg font-semibold", dark ? "text-neutral-200" : "text-slate-800")}>
             Routine Deployment
           </h3>
-          <p className={cn("text-sm", dark ? "text-sky-400" : "text-sky-700")}>
+          <p className={cn("text-sm", dark ? "text-neutral-400" : "text-slate-600")}>
             The delta check found no infrastructure changes — this story rides the existing
             automated CI/CD pipeline. No deploy pack is needed.
           </p>
@@ -728,7 +728,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
       <SectionHeading>Deploy Pack</SectionHeading>
       <p className={cn("text-sm -mt-3", dark ? "text-neutral-400" : "text-slate-500")}>
         Concrete scripts for the flagged delta items — env diffs, migrations, IaC and pipeline
-        fragments. A security reviewer security-reviews this pack at the gate.
+        fragments. This pack gets reviewed for security at the gate.
       </p>
 
       <div className={cn("rounded-xl border", dark ? "border-neutral-700 bg-neutral-950/50" : "border-slate-200 bg-slate-50")}>
@@ -977,7 +977,10 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
           setRejectionFeedback("");
           setRejecting(false);
           setDeployPackMd(data.deploy_pack_md, false);
-          toast.success("Deploy pack revised — review and save it again.");
+          // The revised pack is materially different from what was reviewed —
+          // both sign-offs must be re-verified against the new content.
+          setSignOffs(false, false);
+          toast.success("Deploy pack revised — review and sign off again.");
           onRevise();
         },
       },
@@ -1032,7 +1035,7 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
         <div className={cn("rounded-lg border p-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
           <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1">Infra delta verdict</p>
           {infraDelta ? (
-            <p className={cn("text-sm font-semibold", bypass ? "text-sky-500" : "text-amber-500")}>
+            <p className={cn("text-sm font-semibold", bypass ? (dark ? "text-neutral-300" : "text-slate-600") : "text-amber-500")}>
               {bypass ? "Routine deployment (bypass)" : `${infraDelta.deltas.length} change(s) required`}
             </p>
           ) : (
@@ -1047,7 +1050,7 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
         <div className={cn("rounded-lg border p-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
           <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1">Deploy pack</p>
           {bypass ? (
-            <p className="text-sm text-sky-500 font-semibold">Not required (routine)</p>
+            <p className={cn("text-sm font-semibold", dark ? "text-neutral-300" : "text-slate-600")}>Not required (routine)</p>
           ) : packOk ? (
             <>
               <p className={cn("text-sm font-semibold leading-snug", dark ? "text-neutral-100" : "text-slate-800")}>
@@ -1095,7 +1098,7 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
             onChange={(e) => setSignOffs(e.target.checked, devopsApproved)}
             className="mt-0.5 h-4 w-4 accent-emerald-600"
           />
-          <span><strong>Tech Lead</strong> — the delta verdict and deploy pack were reviewed for correctness and completeness.</span>
+          <span>The delta verdict and deploy pack were reviewed for correctness and completeness.</span>
         </label>
         <label className={cn("flex items-start gap-2.5 text-sm cursor-pointer", dark ? "text-neutral-300" : "text-slate-600")}>
           <input
@@ -1104,7 +1107,7 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
             onChange={(e) => setSignOffs(techLeadApproved, e.target.checked)}
             className="mt-0.5 h-4 w-4 accent-emerald-600"
           />
-          <span><strong>Security Reviewer</strong> — the security review passed: no vulnerable configuration, policy violation, or scalability risk.</span>
+          <span>The security review passed: no vulnerable configuration, policy violation, or scalability risk.</span>
         </label>
       </div>
 
@@ -1166,21 +1169,30 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
           <ChevronLeft className="h-4 w-4" /> Back
         </Button>
         <Button
-          onClick={() => gateMut.mutate({ storyId, techLeadApproved, devopsApproved })}
+          onClick={() => {
+            if (!window.confirm(`Approve and deploy US#${storyId}? This writes a permanent record to deployment-log.md and marks the story deployed.`)) return;
+            gateMut.mutate({ storyId, techLeadApproved, devopsApproved });
+          }}
           disabled={!canApprove || gateMut.isPending}
-          className="flex-1 justify-center"
+          className="flex-1 justify-center gap-1.5"
         >
           {gateMut.isPending
             ? <><Loader2 className="h-4 w-4 animate-spin" /> Recording…</>
-            : "Approve & Deploy"}
+            : <><Rocket className="h-4 w-4" /> Approve & Deploy</>}
         </Button>
       </div>
 
       {viewingPack && deployPackMd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={() => setViewingPack(false)}>
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Deploy Pack — US#${storyId}`}
+            tabIndex={-1}
+            ref={(el) => el?.focus()}
+            onKeyDown={(e) => { if (e.key === "Escape") setViewingPack(false); }}
             className={cn(
-              "flex h-[85vh] w-full max-w-3xl flex-col rounded-xl border shadow-2xl",
+              "flex h-[85vh] w-full max-w-3xl flex-col rounded-xl border shadow-2xl outline-none",
               dark ? "border-neutral-700 bg-[#1b1b1c]" : "border-slate-200 bg-white",
             )}
             onClick={(e) => e.stopPropagation()}
@@ -1245,7 +1257,7 @@ export function Phase5Workflow() {
   const setSelectedStoryId = usePhase5Store((s) => s.setSelectedStoryId);
   const clearPhase5Draft = usePhase5Store((s) => s.clearPhase5Draft);
 
-  const mutedClass = dark ? "text-neutral-500" : "text-slate-400";
+  const mutedClass = dark ? "text-neutral-400" : "text-slate-600";
 
   const handleSelect = (id: number) => {
     setSelectedStoryId(id);
@@ -1258,6 +1270,7 @@ export function Phase5Workflow() {
   };
 
   const handleStepperGoA = () => {
+    if (stage !== "A" && !window.confirm("Go back to Stories? This discards all deployment-gate progress for this story (infra delta verdict, deploy pack, sign-offs).")) return;
     clearPhase5Draft();
     setStage("A");
   };
@@ -1270,7 +1283,7 @@ export function Phase5Workflow() {
     <section className="px-8 py-8">
       {/* Phase header */}
       <div className="mb-7">
-        <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Phase 5</p>
+        <p className={cn("mb-1 text-xs font-bold uppercase tracking-widest", dark ? "text-violet-400" : "text-violet-600")}>Phase 5</p>
         <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
           Deployment
         </h1>
@@ -1307,10 +1320,6 @@ export function Phase5Workflow() {
         )}
       </div>
 
-      {!context && (
-        <Callout>Log in and select a project to use Phase 5.</Callout>
-      )}
-
       <div className={cn("space-y-6 border-t pt-6", dark ? "border-neutral-700" : "border-slate-200")}>
         <div className="space-y-6">
 
@@ -1346,11 +1355,9 @@ export function Phase5Workflow() {
                       </span>
                       <span className={cn(
                         "text-xs font-semibold whitespace-nowrap",
-                        isActive
-                          ? "text-violet-500"
-                          : isDone
-                            ? dark ? "text-violet-400" : "text-violet-500"
-                            : dark ? "text-neutral-500" : "text-slate-400",
+                        isActive || isDone
+                          ? dark ? "text-violet-400" : "text-violet-600"
+                          : dark ? "text-neutral-500" : "text-slate-400",
                       )}>
                         {STAGE_LABELS[s]}
                       </span>
@@ -1401,7 +1408,7 @@ export function Phase5Workflow() {
 
           {/* Stage content */}
           <div>
-            {stage === "A" && <StageA onSelect={handleSelect} />}
+            {stage === "A" && context && <StageA onSelect={handleSelect} />}
             {stage === "B" && selectedStoryId !== null && (
               <StageB storyId={selectedStoryId} onBack={handleStepperGoA} onContinue={() => setStage("C")} />
             )}

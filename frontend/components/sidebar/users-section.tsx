@@ -50,6 +50,14 @@ export function UsersSection({ dark, projectId: _projectId, confirm, shellClass,
         />
         {usersOpen ? (
           <div className={cn("space-y-3 p-3 text-sm", expandedPanelClass)}>
+            {users.isLoading ? (
+              <p className={cn("text-xs", subduedTextClass)}>Loading…</p>
+            ) : users.isError ? (
+              <div className={cn("flex items-center justify-between gap-2 rounded border px-2.5 py-2 text-xs", dark ? "border-red-900/50 text-red-400" : "border-red-200 text-red-600")}>
+                <span>Failed to load users.</span>
+                <button onClick={() => users.refetch()} className="shrink-0 font-semibold underline">Retry</button>
+              </div>
+            ) : null}
             {users.data?.memberships.map((member) => (
               <div key={member.id} className="border-b border-neutral-700 pb-3">
                 <div className="flex items-start justify-between gap-2">

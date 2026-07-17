@@ -37,7 +37,7 @@ export function PhaseCard({
       {/* Status indicator — top right */}
       <div className="absolute right-3 top-3">
         {status === "done" ? (
-          <CheckCircle2 className="size-4 text-emerald-400" />
+          <CheckCircle2 className="size-4 text-violet-400" />
         ) : status === "active" ? (
           <span className="block size-2 rounded-full bg-violet-400" />
         ) : (
@@ -66,9 +66,9 @@ export function PhaseCard({
         </span>
         {badge && (
           <span className={cn(
-            "ml-auto rounded border px-1.5 py-0.5 text-[10px] font-medium",
+            "ml-auto rounded border px-1.5 py-0.5 text-xs font-medium",
             status === "done"
-              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+              ? "border-violet-500/40 bg-violet-500/10 text-violet-400"
               : "border-violet-500/30 bg-violet-500/10 text-violet-400",
           )}>
             {badge}

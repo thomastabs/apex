@@ -126,7 +126,7 @@ const IMPORTANCE_RANK: Record<string, number> = { critical: 0, high: 1, medium: 
 const IMPORTANCE_STYLE: Record<string, string> = {
   critical: "border-red-500/40 text-red-500",
   high: "border-amber-500/40 text-amber-500",
-  medium: "border-sky-500/40 text-sky-500",
+  medium: "border-neutral-500/40 text-neutral-500",
   low: "border-slate-400/40 text-slate-400",
 };
 
@@ -363,7 +363,7 @@ export function Phase1Workflow() {
     : "border-slate-200 bg-slate-50 hover:border-slate-300";
   const labelClass = dark ? "text-neutral-200" : "text-slate-700";
   const sectionBorderClass = dark ? "border-neutral-700" : "border-slate-200";
-  const mutedClass = dark ? "text-neutral-500" : "text-slate-400";
+  const mutedClass = dark ? "text-neutral-400" : "text-slate-600";
 
   return (
     <section
@@ -373,7 +373,7 @@ export function Phase1Workflow() {
     >
       <div className="mb-7 flex items-start justify-between">
         <div>
-          <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Phase 1</p>
+          <p className={cn("mb-1 text-xs font-bold uppercase tracking-widest", dark ? "text-violet-400" : "text-violet-600")}>Phase 1</p>
           <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
             Requirements
           </h1>
@@ -386,8 +386,8 @@ export function Phase1Workflow() {
             className={cn(
               "mt-2 flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm transition-colors",
               dark
-                ? "border-neutral-700 text-neutral-400 hover:border-red-800 hover:bg-red-950/30 hover:text-red-300"
-                : "border-slate-300 text-slate-500 hover:border-red-300 hover:bg-red-50 hover:text-red-600",
+                ? "border-neutral-700 text-neutral-400 hover:border-red-800 hover:bg-neutral-800 hover:text-red-300"
+                : "border-slate-300 text-slate-600 hover:border-red-300 hover:bg-white hover:text-red-600",
             )}
             onClick={() => {
               toast.warning("Start over? All draft content will be cleared.", {
@@ -425,25 +425,20 @@ export function Phase1Workflow() {
       </div>
 
       {!context ? (
-        <div className="mb-6 flex items-start gap-3 rounded-md border border-amber-600/50 bg-amber-500/10 px-4 py-4">
-          <AlertCircle className="mt-0.5 size-4 shrink-0 text-amber-400" />
-          <div>
-            <p className="text-sm font-semibold text-amber-300">Sign in required</p>
-            <p className="mt-0.5 text-xs text-amber-400/80">Sign in and select a project in the sidebar to unlock AI generation features.</p>
-          </div>
+        <div className="mb-6">
+          <Callout variant="warning">
+            <p className="font-semibold">Sign in required</p>
+            <p className="mt-0.5">Sign in and select a project in the sidebar to unlock AI generation features.</p>
+          </Callout>
         </div>
       ) : null}
 
       {!hasProjectConcept && contextFiles.data ? (
-        <div className="mb-4 rounded-md border border-amber-700 bg-amber-950/40 px-4 py-2 text-sm text-amber-300">
-          Project Concept is empty. Fill it in for best AI results.
-        </div>
+        <div className="mb-4"><Callout variant="warning">Project Concept is empty. Fill it in for best AI results.</Callout></div>
       ) : null}
 
       {hasUnsaved && (
-        <div className="mb-4 rounded-md border border-amber-700 bg-amber-950/40 px-4 py-2 text-sm text-amber-300">
-          Draft saved locally — work restored on refresh.
-        </div>
+        <div className="mb-4"><Callout variant="info">Draft saved locally — work restored on refresh.</Callout></div>
       )}
 
       <div className={cn("space-y-6 border-t pt-6", sectionBorderClass)}>
@@ -458,9 +453,10 @@ export function Phase1Workflow() {
               return (
                 <Fragment key={label}>
                   <button
-                    onClick={() => setStep(stepNum)}
-                    disabled={!canNav}
-                    className={cn("group flex shrink-0 flex-col items-center gap-1.5 transition disabled:pointer-events-none", !canNav && "opacity-35")}
+                    onClick={() => { if (canNav) setStep(stepNum); }}
+                    aria-disabled={!canNav}
+                    aria-label={!canNav ? `${label} — locked, complete earlier steps first` : label}
+                    className={cn("group flex shrink-0 flex-col items-center gap-1.5 transition", !canNav && "cursor-not-allowed opacity-35")}
                   >
                     <span className={cn(
                       "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ring-2 transition",
@@ -476,11 +472,9 @@ export function Phase1Workflow() {
                     </span>
                     <span className={cn(
                       "text-xs font-semibold whitespace-nowrap",
-                      isActive
-                        ? "text-violet-500"
-                        : isDone
-                          ? dark ? "text-violet-400" : "text-violet-500"
-                          : dark ? "text-neutral-500" : "text-slate-400",
+                      isActive || isDone
+                        ? dark ? "text-violet-400" : "text-violet-600"
+                        : dark ? "text-neutral-500" : "text-slate-400",
                     )}>
                       {label}
                     </span>
@@ -529,12 +523,21 @@ export function Phase1Workflow() {
               <div className="space-y-4">
                 <div className="grid grid-cols-[1fr_340px] gap-4">
                   <label className={cn("text-sm font-medium", labelClass)}>
-                    Epic Title <span className="block text-xs text-red-400">Required</span>
+                    Epic Title <span className={cn("block text-xs", dark ? "text-neutral-500" : "text-slate-400")}>Required</span>
                     <Input value={epicTitle} onChange={(event) => setEpicTitle(event.target.value)} placeholder="e.g. User Authentication" />
                   </label>
                   <label className={cn("text-sm font-medium", labelClass)}>
                     Epic ID <span className={cn("block text-xs", dark ? "text-neutral-500" : "text-slate-400")}>Optional — leave blank to create new</span>
-                    <Input value={epicId ?? ""} onChange={(event) => setEpicId(event.target.value ? Number(event.target.value) : null)} placeholder="e.g. 42" />
+                    <Input
+                      value={epicId ?? ""}
+                      onChange={(event) => {
+                        const raw = event.target.value.trim();
+                        if (!raw) { setEpicId(null); return; }
+                        const num = Number(raw);
+                        if (!Number.isNaN(num)) setEpicId(num);
+                      }}
+                      placeholder="e.g. 42"
+                    />
                   </label>
                 </div>
                 <label className={cn("block text-sm font-medium", labelClass)}>
@@ -554,7 +557,7 @@ export function Phase1Workflow() {
                 <div className={cn("flex items-center justify-between text-sm", dark ? "text-neutral-500" : "text-slate-500")}>
                   <span>{epics.data?.length ?? 0} epic(s) in this project</span>
                   <button
-                    className="text-violet-400 transition-colors hover:text-violet-300"
+                    className={cn("transition-colors", dark ? "text-violet-400 hover:text-violet-300" : "text-violet-600 hover:text-violet-700")}
                     onClick={() => { epics.refetch(); toast.info("Epics refreshed"); }}
                   >
                     <RefreshCw className="mr-1 inline size-3" />
@@ -585,8 +588,8 @@ export function Phase1Workflow() {
                         onClick={() => setExpandedLoadEpic(isExpanded ? null : epic.id)}
                       >
                         <ChevronRight className={cn("size-4 shrink-0 transition-transform duration-200", dark ? "text-neutral-500" : "text-slate-400", isExpanded && "rotate-90")} />
-                        <span className={cn("rounded border px-2 py-0.5 text-xs", isSelected ? "border-emerald-500/40 text-emerald-400" : "border-violet-700 text-violet-200")}>
-                          #{epic.ref}
+                        <span className={cn("rounded border px-2 py-0.5 text-xs", isSelected ? "border-emerald-500/40 text-emerald-400" : dark ? "border-violet-700 text-violet-200" : "border-violet-300 text-violet-700")}>
+                          <span className="font-mono">#{epic.ref}</span>
                         </span>
                         <span className={cn("flex-1 font-semibold", isSelected ? "text-emerald-300" : dark ? "text-white" : "text-slate-800")}>
                           {epic.subject}
@@ -631,8 +634,8 @@ export function Phase1Workflow() {
                               isSelected
                                 ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
                                 : dark
-                                  ? "border-neutral-600 bg-neutral-800 text-neutral-200 hover:border-violet-500/50 hover:bg-violet-500/10 hover:text-violet-300"
-                                  : "border-slate-300 bg-white text-slate-700 hover:border-violet-400 hover:bg-violet-50 hover:text-violet-700",
+                                  ? "border-neutral-600 bg-neutral-800 text-neutral-200 hover:border-violet-500/50 hover:bg-neutral-700 hover:text-violet-300"
+                                  : "border-slate-300 bg-white text-slate-700 hover:border-violet-400 hover:bg-white hover:text-violet-700",
                             )}
                             onClick={() => {
                               setSelectedLoadEpicId(epic.id);
@@ -736,8 +739,8 @@ export function Phase1Workflow() {
                                   isApplied
                                     ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
                                     : dark
-                                      ? "border-neutral-600 bg-neutral-800 text-neutral-200 hover:border-violet-500/50 hover:bg-violet-500/10 hover:text-violet-300"
-                                      : "border-slate-300 bg-white text-slate-700 hover:border-violet-400 hover:bg-violet-50 hover:text-violet-700",
+                                      ? "border-neutral-600 bg-neutral-800 text-neutral-200 hover:border-violet-500/50 hover:bg-neutral-700 hover:text-violet-300"
+                                      : "border-slate-300 bg-white text-slate-700 hover:border-violet-400 hover:bg-white hover:text-violet-700",
                                 )}
                                 onClick={() => {
                                   applySuggestion(suggestion, index);
@@ -755,9 +758,7 @@ export function Phase1Workflow() {
                   </div>
                 ) : null}
                 {suggestEpics.isError ? (
-                  <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-                    Suggestion failed: {errMsg(suggestEpics.error)}
-                  </div>
+                  <Callout variant="danger">Suggestion failed: {errMsg(suggestEpics.error)}</Callout>
                 ) : null}
 
                 {/* ── Coverage gap analysis ─────────────────────────────── */}
@@ -811,22 +812,22 @@ export function Phase1Workflow() {
                             <div key={`${gap.title}-${index}`} className={cn("rounded-md border p-3", isApplied ? "border-emerald-500/50 bg-emerald-500/10" : cardClass)}>
                               <div className="flex items-start gap-2">
                                 <span className={cn(
-                                  "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold tabular-nums",
+                                  "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-xs font-bold tabular-nums",
                                   dark ? "bg-neutral-700 text-neutral-200" : "bg-slate-300 text-slate-700",
                                 )} title={`Priority rank #${index + 1}`}>
                                   {index + 1}
                                 </span>
                                 <span className={cn(
-                                  "mt-0.5 shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                                  "mt-0.5 shrink-0 rounded border px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide",
                                   IMPORTANCE_STYLE[importance],
                                 )}>
                                   {importance}
                                 </span>
                                 <span className={cn(
-                                  "mt-0.5 shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                                  "mt-0.5 shrink-0 rounded border px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide",
                                   missing
                                     ? "border-amber-500/40 text-amber-500"
-                                    : "border-sky-500/40 text-sky-500",
+                                    : "border-neutral-500/40 text-neutral-500",
                                 )}>
                                   {missing ? "Missing epic" : "Incomplete"}
                                 </span>
@@ -853,8 +854,8 @@ export function Phase1Workflow() {
                                   isApplied
                                     ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
                                     : dark
-                                      ? "border-neutral-600 bg-neutral-800 text-neutral-200 hover:border-violet-500/50 hover:bg-violet-500/10 hover:text-violet-300"
-                                      : "border-slate-300 bg-white text-slate-700 hover:border-violet-400 hover:bg-violet-50 hover:text-violet-700",
+                                      ? "border-neutral-600 bg-neutral-800 text-neutral-200 hover:border-violet-500/50 hover:bg-neutral-700 hover:text-violet-300"
+                                      : "border-slate-300 bg-white text-slate-700 hover:border-violet-400 hover:bg-white hover:text-violet-700",
                                 )}
                                 onClick={() => applyGap(gap, index)}
                               >
@@ -869,9 +870,7 @@ export function Phase1Workflow() {
                   ) : null}
 
                   {analyzeGaps.isError ? (
-                    <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-                      Gap analysis failed: {errMsg(analyzeGaps.error)}
-                    </div>
+                    <Callout variant="danger">Gap analysis failed: {errMsg(analyzeGaps.error)}</Callout>
                   ) : null}
                 </div>
 
@@ -879,7 +878,7 @@ export function Phase1Workflow() {
                 <div className={cn("rounded-lg border p-4", dark ? "border-neutral-800 bg-neutral-900/40" : "border-slate-200 bg-slate-50")}>
                   <div className="flex items-center gap-2">
                     <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>Constraints</span>
-                    <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide", dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-500")}>Optional</span>
+                    <span className={cn("rounded px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide", dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-500")}>Optional</span>
                   </div>
                   <p className={cn("mt-1 text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
                     EARS quality constraints (performance, security, reliability…) saved to <code>constraints.md</code> and injected into Phase 3 developer packs &amp; Phase 4 test plans. Editable anytime in the sidebar.
@@ -1012,9 +1011,7 @@ export function Phase1Workflow() {
             <AIProgressIndicator steps={GENERATE_STEPS} isPending={generate.isPending} dark={dark} />
             {generate.isPending && <CancelButton onCancel={() => generate.cancel()} className="w-full" />}
             {generate.isError ? (
-              <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-                Generation failed: {errMsg(generate.error)}
-              </div>
+              <Callout variant="danger">Generation failed: {errMsg(generate.error)}</Callout>
             ) : null}
           </div>
         )}
@@ -1162,9 +1159,7 @@ export function Phase1Workflow() {
             <AIProgressIndicator steps={COMPILE_STEPS} isPending={compile.isPending} dark={dark} />
             {compile.isPending && <CancelButton onCancel={() => compile.cancel()} className="w-full" />}
             {compile.isError ? (
-              <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-                Compile failed: {errMsg(compile.error)}
-              </div>
+              <Callout variant="danger">Compile failed: {errMsg(compile.error)}</Callout>
             ) : null}
           </div>
         )}
@@ -1186,12 +1181,12 @@ export function Phase1Workflow() {
             </p>
 
             {validationErrors.length > 0 ? (
-              <div className="rounded-md border border-red-800 bg-red-950/30 p-3 text-sm text-red-300">
+              <Callout variant="danger">
                 <div className="mb-1 font-semibold">Fix before pushing:</div>
                 <ul className="list-disc pl-4">
                   {validationErrors.map((err) => <li key={err}>{err}</li>)}
                 </ul>
-              </div>
+              </Callout>
             ) : null}
 
             <div className="space-y-4">
@@ -1220,6 +1215,7 @@ export function Phase1Workflow() {
                     <button
                       className="grid size-8 shrink-0 place-items-center rounded text-red-400 transition-colors hover:bg-red-950"
                       onClick={() => setCompiledStories((s) => s.filter((_, i) => i !== index))}
+                      aria-label="Delete story"
                     >
                       <Trash2 className="size-4" />
                     </button>
@@ -1256,8 +1252,8 @@ export function Phase1Workflow() {
               className={cn(
                 "flex items-center gap-2 rounded border px-3 py-2 text-sm transition-colors",
                 dark
-                  ? "border-neutral-700 text-neutral-300 hover:border-violet-500/50 hover:bg-violet-500/10 hover:text-violet-300"
-                  : "border-slate-300 text-slate-600 hover:border-violet-400 hover:bg-violet-50 hover:text-violet-700",
+                  ? "border-neutral-700 text-neutral-300 hover:border-violet-500/50 hover:bg-neutral-800 hover:text-violet-300"
+                  : "border-slate-300 text-slate-600 hover:border-violet-400 hover:bg-white hover:text-violet-700",
               )}
               onClick={() => setCompiledStories((s) => [...s, { title: "New Story", size: "XS", gherkin: "Feature: \n\nScenario: \n  Given \n  When \n  Then " }])}
             >
@@ -1266,7 +1262,7 @@ export function Phase1Workflow() {
 
             {pushSuccess ? (
               <div className="space-y-4">
-                <Callout>{push.data?.count ?? 0} stories pushed and locked in the functional spec.</Callout>
+                <Callout variant="success">{push.data?.count ?? 0} stories pushed and locked in the functional spec.</Callout>
                 {push.data?.story_urls?.length ? (
                   <div className="space-y-1">
                     <div className={cn("text-xs font-medium", dark ? "text-neutral-400" : "text-slate-500")}>Created stories:</div>
@@ -1276,10 +1272,10 @@ export function Phase1Workflow() {
                         href={url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-sm text-violet-400 transition-colors hover:text-violet-300"
+                        className={cn("flex items-center gap-1 text-sm transition-colors", dark ? "text-violet-400 hover:text-violet-300" : "text-violet-600 hover:text-violet-700")}
                       >
                         <ExternalLink className="size-3" />
-                        {url}
+                        <span className="font-mono">{url}</span>
                       </a>
                     ))}
                   </div>
@@ -1288,7 +1284,7 @@ export function Phase1Workflow() {
                 <div className={cn("rounded-lg border p-4", dark ? "border-neutral-800 bg-neutral-900/40" : "border-slate-200 bg-slate-50")}>
                   <div className="flex items-center gap-2">
                     <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>Constraints</span>
-                    <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide", dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-500")}>Optional</span>
+                    <span className={cn("rounded px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide", dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-500")}>Optional</span>
                   </div>
                   <p className={cn("mt-1 text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
                     EARS quality constraints (performance, security, reliability…) saved to <code>constraints.md</code> and injected into Phase 3 developer packs &amp; Phase 4 test plans. Editable anytime in the sidebar.
@@ -1368,7 +1364,8 @@ export function Phase1Workflow() {
                 <Button
                   className="w-full"
                   disabled={!canPush}
-                  onClick={() =>
+                  onClick={() => {
+                    if (!window.confirm(`Push ${compiledStories.length} stories to the PM tool? This creates real, teammate-visible records.`)) return;
                     push.mutate(
                       {
                         epic_subject: epicTitle,
@@ -1383,8 +1380,8 @@ export function Phase1Workflow() {
                           toast.success(`${data.count} stories pushed`);
                         },
                       },
-                    )
-                  }
+                    );
+                  }}
                 >
                   {push.isPending
                     ? <><Loader2 className="size-4 animate-spin" /> Pushing…</>
@@ -1392,9 +1389,7 @@ export function Phase1Workflow() {
                 </Button>
                 <AIProgressIndicator steps={PUSH_STEPS} isPending={push.isPending} dark={dark} />
                 {push.isError ? (
-                  <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-                    Push failed: {errMsg(push.error)}
-                  </div>
+                  <Callout variant="danger">Push failed: {errMsg(push.error)}</Callout>
                 ) : null}
               </>
             )}

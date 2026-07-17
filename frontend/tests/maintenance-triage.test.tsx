@@ -46,7 +46,11 @@ function renderTriage() {
   render(<QueryClientProvider client={qc}><MaintenanceTriage /></QueryClientProvider>);
 }
 
-beforeEach(() => { vi.clearAllMocks(); push.mockClear(); });
+beforeEach(() => {
+  vi.clearAllMocks();
+  push.mockClear();
+  vi.stubGlobal("confirm", vi.fn(() => true));
+});
 
 describe("MaintenanceTriage", () => {
   it("lists maintenance items", async () => {

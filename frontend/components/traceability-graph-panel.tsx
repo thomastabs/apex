@@ -44,6 +44,7 @@ const TYPE_COLOR: Record<TraceNodeType, string> = {
   project: "#0ea5e9",
   epic: "#8b5cf6",
   design: "#14b8a6",
+  runtime: "#06b6d4",
   story: "#6366f1",
   gherkin: "#a855f7",
   scenario: "#c084fc",
@@ -88,7 +89,7 @@ function TraceFlowNode({ data }: { data: NodeData }) {
       style={trace ? { borderWidth: 2 } : undefined}
     >
       <Handle type="target" position={Position.Left} className="!h-2 !w-2" style={{ background: accent }} />
-      <div className="flex items-center justify-between px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white" style={{ background: accent }}>
+      <div className="flex items-center justify-between px-2 py-1 text-xs font-semibold uppercase tracking-wide text-white" style={{ background: accent }}>
         <span>{data.ntype}</span>
         <span className="flex items-center gap-1">
           {trace ? <Undo2 className="size-3" /> : null}
@@ -97,7 +98,7 @@ function TraceFlowNode({ data }: { data: NodeData }) {
       </div>
       <div className="px-2 py-1.5">
         <p className="truncate text-xs font-medium" title={data.label}>{data.label}</p>
-        <div className="mt-0.5 flex items-center gap-1.5 text-[10px]">
+        <div className="mt-0.5 flex items-center gap-1.5 text-xs">
           {data.phaseStatus ? (
             <span className="inline-flex items-center gap-1">
               <span className="size-1.5 rounded-full" style={{ background: STATUS_TINT[data.phaseStatus] ?? "#9ca3af" }} />
@@ -271,10 +272,10 @@ export function TraceabilityGraphPanel() {
   const hasGraph = (data?.nodes.length ?? 0) > 1;
 
   return (
-    <section className="flex h-[calc(100vh-58px)] flex-col px-8 py-6">
+    <section className="flex h-[calc(100vh-58px)] min-w-0 flex-col px-4 py-6 sm:px-6 lg:px-8">
       <div className="mb-4">
         <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Traceability</p>
-        <h1 className={cn("text-4xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>Living Graph</h1>
+        <h1 className={cn("text-2xl font-bold tracking-tight", dark ? "text-white" : "text-slate-900")}>Living Graph</h1>
         <p className={cn("mt-1.5 text-sm", mutedClass)}>
           The whole project as one derivation graph — epic → story → Gherkin → design → tasks → tests → deploy.
           Violet dashed = backward-trace. Click any node to jump to its phase.
@@ -299,7 +300,7 @@ export function TraceabilityGraphPanel() {
 
       {context && hasGraph ? (
         <>
-          <div className="mb-3 flex flex-wrap items-center gap-3">
+          <div className="mb-3 flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
             <select
               aria-label="Filter by epic"
               value={epicFilter}
@@ -348,7 +349,7 @@ export function TraceabilityGraphPanel() {
             >
               <Download className="size-3.5" /> Export PNG
             </button>
-            <span className={cn("ml-auto text-xs", mutedClass)}>{nodes.length} nodes · {edges.length} edges</span>
+            <span className={cn("text-xs sm:ml-auto", mutedClass)}>{nodes.length} nodes · {edges.length} edges</span>
           </div>
           <div className={cn("min-h-0 flex-1 overflow-hidden rounded-lg border", dark ? "border-neutral-800" : "border-slate-200")}>
             <ReactFlow

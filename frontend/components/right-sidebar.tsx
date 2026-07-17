@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ClipboardCheck, ClipboardList, FileCode2, FileText, FolderOpen,
@@ -25,6 +25,11 @@ type SectionId = "project" | "context" | "board" | "tasks" | "packs" | "testplan
 const SECTION_ICONS: Record<SectionId, typeof FolderOpen> = {
   project: FolderOpen, context: FileText, board: Layers3, tasks: ClipboardList,
   packs: FileCode2, testplans: ClipboardCheck, deploypacks: Rocket, users: Users,
+};
+
+const SECTION_LABELS: Record<SectionId, string> = {
+  project: "Project", context: "Context", board: "Board", tasks: "Tasks",
+  packs: "Packs", testplans: "Test Plans", deploypacks: "Deploy Packs", users: "Users",
 };
 
 export function RightSidebar() {
@@ -92,6 +97,19 @@ export function RightSidebar() {
     };
   }
 
+  // Force the icon rail below the width where this panel plus the left
+  // sidebar would exceed the viewport (confirmed via live measurement: with
+  // both expanded, <main> collapses to 0px at both 375px and 768px).
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    function apply(e: { matches: boolean }) {
+      if (e.matches) setCollapsed(true);
+    }
+    apply(mq);
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, [setCollapsed]);
+
   function startResize(e: React.PointerEvent<HTMLDivElement>) {
     e.preventDefault(); e.stopPropagation();
     resizeStartXRef.current = e.clientX;
@@ -135,6 +153,7 @@ export function RightSidebar() {
             <button
               key={id}
               onClick={() => setCollapsed(false)}
+              aria-label={`Expand ${SECTION_LABELS[id]} panel`}
               className={cn("grid size-9 place-items-center rounded transition-colors", dark ? "text-neutral-600 hover:text-neutral-300" : "text-slate-300 hover:text-slate-600")}
             >
               <Icon className="size-4" />
@@ -158,9 +177,19 @@ export function RightSidebar() {
     >
       {/* Resize handle */}
       <div
-        className="group absolute left-0 top-0 z-50 flex h-full w-4 -translate-x-1/2 cursor-col-resize touch-none items-center justify-center"
+        className="group absolute left-0 top-0 z-50 flex h-full w-4 -translate-x-1/2 cursor-col-resize touch-none items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
         onPointerDown={startResize}
-        role="separator" aria-orientation="vertical" aria-label="Resize workspace panel"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize workspace panel"
+        aria-valuenow={width}
+        aria-valuemin={280}
+        aria-valuemax={900}
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowLeft") setWidth(width + 20);
+          else if (e.key === "ArrowRight") setWidth(width - 20);
+        }}
       >
         <div className="h-full w-px bg-transparent transition-colors group-hover:bg-violet-500/60" />
       </div>

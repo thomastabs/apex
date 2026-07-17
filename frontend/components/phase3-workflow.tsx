@@ -58,6 +58,7 @@ import { SignInRequired } from "@/components/sign-in-required";
 import { useAiConfig, useServerConfig, useLogDecision, useSetStoryScaffold } from "@/lib/hooks/use-workspace";
 import { CrossCheckPanel, AltModelSelect } from "@/components/cross-check-panel";
 import { GuideTheAI } from "@/components/guide-the-ai";
+import { EFFORT_COLORS } from "@/lib/effort-colors";
 import type { CrossCheckResult } from "@/lib/api/phase1";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
@@ -104,19 +105,11 @@ function MarkdownPreview({ content, dark, className }: { content: string; dark: 
 // EARLIER than design_locked, not later, and must never read as locked).
 const LOCKED_PHASE_STATUSES = new Set(["implementation", "qa", "qa_passed", "deployed"]);
 
-const EFFORT_COLORS: Record<string, string> = {
-  XS: "bg-emerald-500/15 text-emerald-400 ring-emerald-500/30",
-  S:  "bg-blue-500/15 text-blue-400 ring-blue-500/30",
-  M:  "bg-yellow-500/15 text-yellow-400 ring-yellow-500/30",
-  L:  "bg-orange-500/15 text-orange-400 ring-orange-500/30",
-  XL: "bg-red-500/15 text-red-400 ring-red-500/30",
-};
-
 function EffortBadge({ estimate, onDark = false }: { estimate?: string; onDark?: boolean }) {
   if (!estimate) return null;
   return (
     <span className={cn(
-      "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold ring-1",
+      "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-bold ring-1",
       onDark
         ? "bg-white/20 text-white ring-white/30"
         : EFFORT_COLORS[estimate] ?? "bg-neutral-500/15 text-neutral-400 ring-neutral-500/30",
@@ -264,7 +257,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
     );
   }
   if (error) {
-    return <Callout>Failed to load stories: {errMsg(error)}</Callout>;
+    return <Callout variant="danger">Failed to load stories: {errMsg(error)}</Callout>;
   }
 
   const stories = data?.stories ?? [];
@@ -312,11 +305,12 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
 
       {/* Epic dropdown */}
       <div className="flex items-center gap-3">
-        <label className="text-xs font-semibold uppercase tracking-wider text-neutral-500 shrink-0">
+        <label htmlFor="phase3-epic-select" className="text-xs font-semibold uppercase tracking-wider text-neutral-500 shrink-0">
           Epic
         </label>
         <div className="relative flex-1 max-w-sm">
           <select
+            id="phase3-epic-select"
             value={currentEpic}
             onChange={(e) => setActiveEpic(e.target.value)}
             className={cn(
@@ -373,8 +367,8 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                     className={cn(
                       "group flex h-full cursor-pointer flex-col rounded-xl border p-5 text-left transition-all duration-150",
                       dark
-                        ? "border-neutral-700 bg-neutral-900 hover:border-violet-500 hover:bg-neutral-800/80 hover:shadow-lg hover:shadow-violet-900/20"
-                        : "border-slate-200 bg-white hover:border-violet-400 hover:bg-violet-50/50 shadow-sm hover:shadow-md",
+                        ? "border-neutral-700 bg-neutral-900 hover:border-violet-500 hover:bg-neutral-800/80"
+                        : "border-slate-200 bg-white hover:border-violet-400 hover:bg-violet-50/50",
                     )}
                   >
                     <div className="mb-3 flex flex-wrap items-center gap-1.5">
@@ -403,8 +397,8 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                         className={cn(
                           "inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold transition disabled:opacity-50",
                           story.is_scaffold
-                            ? dark ? "bg-sky-900/40 text-sky-300 ring-1 ring-sky-800" : "bg-sky-50 text-sky-700 ring-1 ring-sky-200"
-                            : dark ? "text-neutral-600 ring-1 ring-neutral-800 hover:text-sky-400 hover:ring-sky-800" : "text-slate-400 ring-1 ring-slate-200 hover:text-sky-600 hover:ring-sky-300",
+                            ? dark ? "bg-amber-900/40 text-amber-300 ring-1 ring-amber-800" : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                            : dark ? "text-neutral-600 ring-1 ring-neutral-800 hover:text-amber-400 hover:ring-amber-800" : "text-slate-400 ring-1 ring-slate-200 hover:text-amber-600 hover:ring-amber-300",
                         )}
                       >
                         <Flag className="h-3 w-3" /> {story.is_scaffold ? "Scaffold — build first" : "Mark as scaffold"}
@@ -455,7 +449,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                         <div className="mt-2.5 flex flex-wrap gap-1.5">
                           {scenarios.map((sc, i) => (
                             <span key={i} className={cn(
-                              "rounded-md px-2 py-0.5 text-[10px] font-medium leading-snug",
+                              "rounded-md px-2 py-0.5 text-xs font-medium leading-snug",
                               dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-100 text-slate-500",
                             )}>
                               {sc}
@@ -471,14 +465,14 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                           <span
                             title="Tasks in PM board"
                             className={cn(
-                              "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold",
+                              "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold",
                               dark ? "bg-violet-900/40 text-violet-300" : "bg-violet-100 text-violet-700",
                             )}
                           >
                             {count} task{count > 1 ? "s" : ""}
                           </span>
                         ) : (
-                          <span className={cn("text-[10px]", dark ? "text-neutral-700" : "text-slate-300")}>
+                          <span className={cn("text-xs", dark ? "text-neutral-700" : "text-slate-300")}>
                             No tasks yet
                           </span>
                         );
@@ -825,8 +819,8 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                   <div className="space-y-2 p-4">
                     <input
                       className={cn(
-                        "w-full rounded-lg border px-3 py-1.5 text-sm font-medium",
-                        dark ? "border-neutral-600 bg-neutral-800 text-white" : "border-slate-300 bg-white text-slate-900",
+                        "w-full rounded-lg border px-3 py-1.5 text-sm font-medium outline-none",
+                        dark ? "border-neutral-600 bg-neutral-800 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 focus:border-violet-500",
                       )}
                       value={task.subject}
                       onChange={(e) => updateTask(task.id, { subject: e.target.value })}
@@ -844,15 +838,15 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                     )}
                     {/* Effort selector */}
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-neutral-500 w-14 shrink-0">Effort</span>
+                      <label htmlFor={`effort-${task.id}`} className="text-xs text-neutral-500 w-14 shrink-0">Effort</label>
                       <select
+                        id={`effort-${task.id}`}
                         value={task.effort_estimate ?? "M"}
                         onChange={(e) => updateTask(task.id, { effort_estimate: e.target.value as EffortEstimate })}
                         className={cn(
                           "rounded-lg border px-2 py-1 text-xs",
                           dark ? "border-neutral-700 bg-neutral-900 text-white" : "border-slate-300 bg-white text-slate-900",
                         )}
-
                       >
                         {(["XS", "S", "M", "L", "XL"] as EffortEstimate[]).map((e) => (
                           <option key={e} value={e}>{e}</option>
@@ -929,6 +923,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                           <button
                             onClick={() => reorderTasks(idx, idx - 1)}
                             disabled={idx === 0}
+                            aria-label="Move task up"
                             className={cn(
                               "rounded p-1 transition disabled:opacity-20",
                               dark ? "text-neutral-500 hover:text-neutral-200" : "text-slate-400 hover:text-slate-600",
@@ -939,6 +934,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                           <button
                             onClick={() => reorderTasks(idx, idx + 1)}
                             disabled={idx === taskList.length - 1}
+                            aria-label="Move task down"
                             className={cn(
                               "rounded p-1 transition disabled:opacity-20",
                               dark ? "text-neutral-500 hover:text-neutral-200" : "text-slate-400 hover:text-slate-600",
@@ -977,6 +973,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                       {!tasksPushed && (
                         <button
                           onClick={() => removeTask(task.id)}
+                          aria-label="Delete task"
                           className="rounded px-2 py-1 text-xs text-red-500 hover:text-red-400"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -993,10 +990,10 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
           <div className="flex gap-2">
             <input
               className={cn(
-                "flex-1 rounded-lg border px-3 py-2 text-sm",
+                "flex-1 rounded-lg border px-3 py-2 text-sm outline-none",
                 dark
-                  ? "border-neutral-700 bg-neutral-900 text-white placeholder:text-neutral-600"
-                  : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400",
+                  ? "border-neutral-700 bg-neutral-900 text-white placeholder:text-neutral-600 focus:border-violet-500"
+                  : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500",
               )}
               placeholder={tasksPushed ? "Add task to PM board…" : "Add a task manually…"}
               value={newSubject}
@@ -1020,7 +1017,10 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
           {!tasksPushed && (
             <Button
               className="w-full justify-center"
-              onClick={() => pushToTaiga.mutate(storyId)}
+              onClick={() => {
+                if (!window.confirm(`Push ${taskList.length} task(s) to the PM tool? This creates real, teammate-visible records.`)) return;
+                pushToTaiga.mutate(storyId);
+              }}
               disabled={pushToTaiga.isPending || taskList.length === 0}
               variant="secondary"
             >
@@ -1189,7 +1189,7 @@ function StageC({ storyId }: { storyId: number }) {
                 className={cn(
                   "flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left transition-all",
                   isSelected
-                    ? "bg-violet-600 text-white shadow-md shadow-violet-900/30"
+                    ? "bg-violet-600 text-white"
                     : dark
                       ? "hover:bg-neutral-800 text-neutral-300"
                       : "hover:bg-slate-100 text-slate-700",
@@ -1205,7 +1205,7 @@ function StageC({ storyId }: { storyId: number }) {
                 </span>
                 <div className="min-w-0 flex-1">
                   {taigaRef && (
-                    <p className={cn("text-[10px] font-mono mb-0.5", isSelected ? "text-violet-200" : "text-neutral-500")}>
+                    <p className={cn("text-xs font-mono mb-0.5", isSelected ? "text-violet-200" : "text-neutral-500")}>
                       #{taigaRef}
                     </p>
                   )}
@@ -1441,7 +1441,7 @@ function ScenarioCoveragePanel({
           <span className="ml-2 normal-case font-normal italic text-neutral-500">· AI-asserted</span>
         </p>
         <span
-          className={cn("text-xs font-medium", uncovered.length > 0 ? "text-amber-500" : "text-emerald-500")}
+          className={cn("text-xs font-medium", uncovered.length > 0 ? (dark ? "text-amber-400" : "text-amber-600") : (dark ? "text-emerald-400" : "text-emerald-600"))}
           title="Self-reported by the AI during decomposition — not an independent check that the tasks implement the scenarios."
         >
           {allScenarios.length - uncovered.length}/{allScenarios.length} covered
@@ -1449,7 +1449,7 @@ function ScenarioCoveragePanel({
       </div>
       <div className={cn("px-5 py-3 space-y-1.5", dark ? "bg-neutral-900/50" : "bg-white")}>
         {!hasCoverageData && (
-          <p className="text-xs text-amber-500 mb-2">
+          <p className={cn("text-xs mb-2", dark ? "text-amber-400" : "text-amber-600")}>
             Coverage data not available — re-generate tasks to populate.
           </p>
         )}
@@ -1458,13 +1458,13 @@ function ScenarioCoveragePanel({
           return (
             <div key={sc} className="flex items-center gap-2">
               {covered
-                ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                : <span className="h-3.5 w-3.5 shrink-0 rounded-full border-2 border-amber-400 inline-block" />}
+                ? <CheckCircle2 className={cn("h-3.5 w-3.5 shrink-0", dark ? "text-emerald-400" : "text-emerald-600")} />
+                : <span className={cn("h-3.5 w-3.5 shrink-0 rounded-full border-2 inline-block", dark ? "border-amber-400" : "border-amber-600")} />}
               <span className={cn(
                 "text-xs",
                 covered
                   ? (dark ? "text-neutral-300" : "text-slate-700")
-                  : "text-amber-500 font-medium",
+                  : (dark ? "text-amber-400 font-medium" : "text-amber-700 font-medium"),
               )}>
                 {sc}
               </span>
@@ -1472,7 +1472,7 @@ function ScenarioCoveragePanel({
           );
         })}
         {uncovered.length > 0 && (
-          <p className="mt-2 text-xs text-amber-500">
+          <p className={cn("mt-2 text-xs", dark ? "text-amber-400" : "text-amber-600")}>
             {uncovered.length} scenario{uncovered.length > 1 ? "s" : ""} uncovered — add tasks or re-generate.
           </p>
         )}
@@ -1511,6 +1511,7 @@ function StageD({ storyId, onLocked, onChooseNewStory, onBack }: { storyId: numb
   const canLock = generatedTasks.length > 0 && (coverageOk || overrideCoverage);
 
   const handleLock = () => {
+    if (!window.confirm("Lock this story as implementation-ready? This is visible to the team and treats the AI-asserted scenario coverage as the record the pipeline trusts.")) return;
     lockStoryMut.mutate(
       { story_id: storyId, task_ids: generatedTasks.map((t) => t.id) },
       {
@@ -1664,7 +1665,7 @@ function StageD({ storyId, onLocked, onChooseNewStory, onBack }: { storyId: numb
       )}
 
       {generatedTasks.length === 0 && (
-        <Callout>Generate at least one developer pack before locking.</Callout>
+        <Callout variant="warning">Generate at least one developer pack before locking.</Callout>
       )}
 
       <div className="flex flex-col gap-2">
@@ -1720,7 +1721,7 @@ export function Phase3Workflow() {
   useLoadTaskList(selectedStoryId);
   useLoadProposals(selectedStoryId);
 
-  const mutedClass = dark ? "text-neutral-500" : "text-slate-400";
+  const mutedClass = dark ? "text-neutral-400" : "text-slate-600";
 
   const handleSelectStory = (id: number) => {
     setSelectedStoryId(id);
@@ -1743,7 +1744,7 @@ export function Phase3Workflow() {
     <section className="px-8 py-8">
       {/* Phase header */}
       <div className="mb-7">
-        <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Phase 3</p>
+        <p className={cn("mb-1 text-xs font-bold uppercase tracking-widest", dark ? "text-violet-400" : "text-violet-600")}>Phase 3</p>
         <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
           Implementation
         </h1>
@@ -1774,10 +1775,6 @@ export function Phase3Workflow() {
           </div>
         )}
       </div>
-
-      {!context && (
-        <Callout>Log in and select a project to use Phase 3.</Callout>
-      )}
 
     <div className={cn("space-y-6 border-t pt-6", dark ? "border-neutral-700" : "border-slate-200")}>
       <div className="space-y-6">
@@ -1818,11 +1815,9 @@ export function Phase3Workflow() {
                       </span>
                       <span className={cn(
                         "text-xs font-semibold whitespace-nowrap",
-                        isActive
-                          ? "text-violet-500"
-                          : isDone
-                            ? dark ? "text-violet-400" : "text-violet-500"
-                            : dark ? "text-neutral-500" : "text-slate-400",
+                        isActive || isDone
+                          ? dark ? "text-violet-400" : "text-violet-600"
+                          : dark ? "text-neutral-500" : "text-slate-400",
                       )}>
                         {STAGE_LABELS[s]}
                       </span>
@@ -1845,7 +1840,7 @@ export function Phase3Workflow() {
 
       {/* Stage content */}
       <div>
-        {stage === "A" && <StageA onSelect={handleSelectStory} />}
+        {stage === "A" && context && <StageA onSelect={handleSelectStory} />}
         {stage === "B" && selectedStoryId !== null && (
           <StageB storyId={selectedStoryId} onBack={handleBackToStories} onContinue={() => setStage("C")} />
         )}

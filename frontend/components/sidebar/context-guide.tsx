@@ -171,11 +171,11 @@ function writerChip(writer: Writer, note: string, dark: boolean) {
   const styles: Record<Writer, string> = {
     you: dark ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400" : "border-emerald-300 bg-emerald-50 text-emerald-700",
     apex: dark ? "border-violet-500/40 bg-violet-500/10 text-violet-400" : "border-violet-300 bg-violet-50 text-violet-700",
-    synced: dark ? "border-sky-500/40 bg-sky-500/10 text-sky-400" : "border-sky-300 bg-sky-50 text-sky-700",
+	    synced: dark ? "border-neutral-600 bg-neutral-800 text-neutral-300" : "border-slate-300 bg-white text-slate-700",
   };
   const Icon = writer === "you" ? PencilLine : writer === "synced" ? RefreshCw : Sparkles;
   return (
-    <span className={cn("inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-medium", styles[writer])}>
+	    <span className={cn("inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs font-medium", styles[writer])}>
       <Icon className="size-2.5" /> {note}
     </span>
   );
@@ -223,7 +223,7 @@ export function ContextGuideDialog({ open, onClose, dark }: { open: boolean; onC
                   <code className={cn("text-xs font-semibold", dark ? "text-violet-300" : "text-violet-700")}>{filename}</code>
                   {writerChip(guide.writer, guide.writerNote, dark)}
                   {guide.lock ? (
-                    <span className={cn("rounded border px-1.5 py-0.5 text-[10px] font-medium", dark ? "border-amber-500/40 bg-amber-500/10 text-amber-400" : "border-amber-300 bg-amber-50 text-amber-700")}>
+	                    <span className={cn("rounded border px-1.5 py-0.5 text-xs font-medium", dark ? "border-amber-500/40 bg-amber-500/10 text-amber-400" : "border-amber-300 bg-amber-50 text-amber-700")}>
                       locks at {guide.lock}
                     </span>
                   ) : null}

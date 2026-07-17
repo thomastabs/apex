@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, GripVertical } from "lucide-react";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
@@ -9,11 +9,33 @@ export function ConfirmDialog({
 }: {
   open: boolean; message: string; onConfirm: () => void; onCancel: () => void;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<Element | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    triggerRef.current = document.activeElement;
+    dialogRef.current?.focus();
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onCancel();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      if (triggerRef.current instanceof HTMLElement) triggerRef.current.focus();
+    };
+  }, [open, onCancel]);
+
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/80" onClick={onCancel}>
       <div
-        className="w-80 rounded-lg border border-neutral-700 bg-neutral-900 p-5 shadow-2xl"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Confirm"
+        tabIndex={-1}
+        className="w-80 rounded-lg border border-neutral-700 bg-neutral-900 p-5 shadow-2xl outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <p className="mb-5 text-sm text-neutral-200">{message}</p>
@@ -91,7 +113,7 @@ export function PanelHeader({
           <GripVertical className="size-3" />
         </div>
       ) : null}
-      <button className="flex h-10 flex-1 items-center gap-2 px-4 text-left" onClick={onClick}>
+      <button className="flex h-10 flex-1 items-center gap-2 px-4 text-left" onClick={onClick} aria-expanded={open}>
         {open ? (
           <ChevronDown className={cn("size-3", dark ? "text-neutral-500" : "text-slate-400")} />
         ) : (
@@ -102,7 +124,7 @@ export function PanelHeader({
           {title}
         </span>
         {badge ? (
-          <span className="rounded border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-xs text-violet-400">
+          <span className={cn("rounded border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-xs", dark ? "text-violet-400" : "text-violet-700")}>
             {badge}
           </span>
         ) : null}

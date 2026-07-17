@@ -12,6 +12,7 @@ import {
   useUpdateContextFile,
 } from "@/lib/hooks/use-workspace";
 import { useGenerateConstraints } from "@/lib/hooks/use-phase1";
+import { Callout } from "@/components/ui/primitives";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
@@ -22,10 +23,12 @@ import { ContextGuideDialog } from "./context-guide";
 
 // ── utilities ─────────────────────────────────────────────────────────────────
 
-function contextSizeColor(totalChars: number): string {
-  if (totalChars < 30_000) return "#4ade80";
-  if (totalChars < 80_000) return "#facc15";
-  return "#f87171";
+// DESIGN.md canonical status tokens (Ledger Green/Caution Amber/Ledger Red),
+// not decorative — this is a real safe/caution/danger size gauge.
+function contextSizeColor(totalChars: number, dark: boolean): string {
+  if (totalChars < 30_000) return dark ? "#34d399" : "#10b981";
+  if (totalChars < 80_000) return dark ? "#fbbf24" : "#f59e0b";
+  return dark ? "#f87171" : "#dc2626";
 }
 
 // Fallback used while /ai-config hasn't loaded yet, or for a model missing
@@ -56,15 +59,19 @@ function ContextSizeWarning({
   const warnLimit = hardLimit * _WARN_FRACTION;
   if (totalChars >= hardLimit) {
     return (
-      <div className="mb-3 rounded border border-red-600 bg-red-950/50 px-3 py-2 text-xs text-red-300">
-        <strong>Context at {Math.round(totalChars / 1000)}k chars</strong> — exceeds {modelLabel}&apos;s ~{Math.round(hardLimit / 1000)}k char budget for this project. AI calls will fail. Delete or reset context files.
+      <div className="mb-3">
+        <Callout variant="danger">
+          <strong>Context at {Math.round(totalChars / 1000)}k chars</strong> — exceeds {modelLabel}&apos;s ~{Math.round(hardLimit / 1000)}k char budget for this project. AI calls will fail. Delete or reset context files.
+        </Callout>
       </div>
     );
   }
   if (totalChars >= warnLimit) {
     return (
-      <div className="mb-3 rounded border border-orange-700 bg-orange-950/30 px-3 py-2 text-xs text-orange-300">
-        <strong>Context at {Math.round(totalChars / 1000)}k chars</strong> — approaching {modelLabel}&apos;s ~{Math.round(hardLimit / 1000)}k char budget. Consider trimming context files.
+      <div className="mb-3">
+        <Callout variant="warning">
+          <strong>Context at {Math.round(totalChars / 1000)}k chars</strong> — approaching {modelLabel}&apos;s ~{Math.round(hardLimit / 1000)}k char budget. Consider trimming context files.
+        </Callout>
       </div>
     );
   }
@@ -219,7 +226,14 @@ function ContextEditor({
           </button>
         ) : null}
         <button
-          className={cn("rounded px-2 py-0.5 text-xs", mdPreview ? "bg-violet-800 text-violet-100" : dark ? "text-neutral-400 hover:bg-neutral-800" : "text-slate-500 hover:bg-slate-100")}
+          className={cn(
+            "rounded px-2 py-0.5 text-xs",
+            mdPreview
+              ? "bg-violet-800 text-white"
+              : dark
+                ? "text-neutral-400 hover:bg-neutral-800"
+                : "text-slate-600 hover:bg-slate-100",
+          )}
           onClick={() => setMdPreview(!mdPreview)}
         >
           {mdPreview ? "Raw" : "Preview"}
@@ -282,7 +296,7 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
   }, [contextFiles.isLoading]);
 
   const totalChars = contextFiles.data?.total_chars ?? 0;
-  const sizeColor = contextSizeColor(totalChars);
+  const sizeColor = contextSizeColor(totalChars, dark);
   const visibleFiles = useVisibleContextFiles(contextFiles.data?.files);
 
   const activeModel = aiConfig.data?.available_models.find((m) => m.id === aiConfig.data?.model);
@@ -354,7 +368,7 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                     {file.version && file.version !== "0.0.0" ? (
                       <span
                         className={cn(
-                          "rounded border px-1.5 py-0.5 text-[10px] font-semibold tabular-nums",
+                          "rounded border px-1.5 py-0.5 text-xs font-semibold tabular-nums",
                           dark ? "border-violet-500/30 bg-violet-500/10 text-violet-400" : "border-violet-300 bg-violet-50 text-violet-600",
                         )}
                         title="Semver: MAJOR bumps on every post-lock amendment"

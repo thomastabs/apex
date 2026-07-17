@@ -546,7 +546,7 @@ export function Phase2Workflow() {
             <ul className="list-disc pl-5">
               {sectionAssumptions[section]!.map((a) => (
                 <li key={a.id}>
-                  <span className="font-mono text-[10px]">{a.id}</span>: {a.text}
+	                  <span className="font-mono text-xs">{a.id}</span>: {a.text}
                 </li>
               ))}
             </ul>
@@ -586,7 +586,7 @@ export function Phase2Workflow() {
     <section className="px-8 py-8">
       <div className="mb-7">
         <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Phase 2</p>
-        <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>Design</h1>
+        <SectionHeading>Design</SectionHeading>
         <p className={cn("mt-2", mutedClass)}>
           Generate, review, and lock the project&apos;s design — UX, API surface, data model, and runtime contract — before implementation begins.
         </p>
@@ -624,7 +624,7 @@ export function Phase2Workflow() {
           <AlertCircle className="mt-0.5 size-4 shrink-0 text-amber-400" />
           <div>
             <p className="text-sm font-semibold text-amber-300">Sign in required</p>
-            <p className="mt-0.5 text-xs text-amber-400/80">Sign in and select a project in the sidebar to unlock Phase 2 design tools.</p>
+            <p className="mt-0.5 text-xs text-amber-300">Sign in and select a project in the sidebar to unlock Phase 2 design tools.</p>
           </div>
         </div>
       ) : null}
@@ -659,11 +659,9 @@ export function Phase2Workflow() {
                     </span>
                     <span className={cn(
                       "text-xs font-semibold whitespace-nowrap",
-                      isActive
-                        ? "text-violet-500"
-                        : isDone
-                          ? dark ? "text-violet-400" : "text-violet-500"
-                          : dark ? "text-neutral-500" : "text-slate-400",
+                      isActive || isDone
+                        ? dark ? "text-violet-400" : "text-violet-600"
+                        : dark ? "text-neutral-500" : "text-slate-400",
                     )}>
                       {label}
                     </span>
@@ -760,9 +758,7 @@ export function Phase2Workflow() {
             <AIProgressIndicator steps={PROPOSE_STEPS} isPending={proposeStack.isPending} dark={dark} />
             {proposeStack.isPending && <CancelButton onCancel={() => proposeStack.cancel()} className="w-full" />}
             {proposeStack.isError ? (
-              <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-                Proposal failed: {errMsg(proposeStack.error)}
-              </div>
+              <Callout variant="danger">Proposal failed: {errMsg(proposeStack.error)}</Callout>
             ) : null}
 
             {alternatives.length ? (
@@ -816,9 +812,7 @@ export function Phase2Workflow() {
               Save Technology Choices
             </Button>
             {lockStack.isError ? (
-              <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-                Lock failed: {errMsg(lockStack.error)}
-              </div>
+              <Callout variant="danger">Lock failed: {errMsg(lockStack.error)}</Callout>
             ) : null}
           </section>
         )}
@@ -922,9 +916,7 @@ export function Phase2Workflow() {
               activeStep={activeStepIdx}
             />
             {generateSections.error ? (
-              <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-                Generation failed: {generateSections.error}
-              </div>
+              <Callout variant="danger">Generation failed: {generateSections.error}</Callout>
             ) : null}
 
             {/* Visual Design — UX Brief + the derived Visual Design System */}
@@ -1039,7 +1031,7 @@ export function Phase2Workflow() {
               )}
               {lockDesign.data ? (
                 <>
-                  <Callout>
+                  <Callout variant="success">
                     Design locked for {lockDesign.data.story_ids.length} stories.
                     {lockDesign.data.taiga_failures?.length ? ` ${lockDesign.data.taiga_failures.length} PM transition(s) failed.` : ""}
                   </Callout>
@@ -1049,9 +1041,7 @@ export function Phase2Workflow() {
                 </>
               ) : null}
               {lockDesign.isError ? (
-                <div className="rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-                  Save failed: {errMsg(lockDesign.error)}
-                </div>
+                <Callout variant="danger">Save failed: {errMsg(lockDesign.error)}</Callout>
               ) : null}
             </div>
           </section>

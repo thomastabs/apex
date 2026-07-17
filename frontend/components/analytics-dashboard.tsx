@@ -92,9 +92,9 @@ function toMarkdown(data: AnalyticsSummary): string {
 
 function MetricCard({ label, value, hint, dark }: { label: string; value: string; hint?: string; dark: boolean }) {
   return (
-    <div className={cn("rounded-xl border p-5", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-white shadow-sm")}>
+    <div className={cn("rounded-lg border p-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-white shadow-sm")}>
       <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">{label}</p>
-      <p className={cn("mt-1 text-3xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>{value}</p>
+      <p className={cn("mt-1 text-2xl font-bold tracking-tight", dark ? "text-white" : "text-slate-900")}>{value}</p>
       {hint && <p className={cn("mt-1 text-xs", dark ? "text-neutral-500" : "text-slate-400")}>{hint}</p>}
     </div>
   );
@@ -108,10 +108,10 @@ export function AnalyticsDashboard() {
   const mutedClass = dark ? "text-neutral-500" : "text-slate-400";
 
   return (
-    <section className="px-8 py-8">
+    <section className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <div className="mb-7">
         <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Governance</p>
-        <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
+        <h1 className={cn("text-2xl font-bold tracking-tight", dark ? "text-white" : "text-slate-900")}>
           Analytics
         </h1>
         <p className={cn("mt-2", mutedClass)}>
@@ -192,8 +192,8 @@ export function AnalyticsDashboard() {
                 No transitions recorded yet — timestamps accrue as stories move through the gates.
               </p>
             ) : (
-              <div className={cn("mt-3 overflow-hidden rounded-lg border", dark ? "border-neutral-700" : "border-slate-200")}>
-                <table className="w-full text-sm">
+              <div className={cn("mt-3 overflow-x-auto rounded-lg border", dark ? "border-neutral-700" : "border-slate-200")}>
+                <table className="min-w-[40rem] w-full text-sm">
                   <thead>
                     <tr className={cn("text-left text-xs uppercase tracking-wider", dark ? "bg-neutral-900 text-neutral-500" : "bg-slate-50 text-slate-400")}>
                       <th className="px-4 py-2.5 font-semibold">Transition</th>
@@ -220,8 +220,8 @@ export function AnalyticsDashboard() {
           {/* Story drill-down */}
           <div>
             <SectionHeading>Per-story drill-down</SectionHeading>
-            <div className={cn("mt-3 overflow-hidden rounded-lg border", dark ? "border-neutral-700" : "border-slate-200")}>
-              <table className="w-full text-sm">
+            <div className={cn("mt-3 overflow-x-auto rounded-lg border", dark ? "border-neutral-700" : "border-slate-200")}>
+              <table className="min-w-[58rem] w-full text-sm">
                 <thead>
                   <tr className={cn("text-left text-xs uppercase tracking-wider", dark ? "bg-neutral-900 text-neutral-500" : "bg-slate-50 text-slate-400")}>
                     <th className="px-4 py-2.5 font-semibold">Story</th>

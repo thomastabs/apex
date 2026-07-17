@@ -157,13 +157,13 @@ export default function HomePage() {
   }
 
   return (
-    <section className="px-6 py-6 lg:px-8 lg:py-8">
+    <section className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
 
       {/* Page header */}
-      <div className="mb-6 flex items-start justify-between">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Apex</p>
-          <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
+          <h1 className={cn("text-2xl font-bold tracking-tight", dark ? "text-white" : "text-slate-900")}>
             Overview
           </h1>
           <p className={cn("mt-2", dark ? "text-neutral-500" : "text-slate-400")}>
@@ -172,7 +172,7 @@ export default function HomePage() {
         </div>
         {hasProject && (
           <span className={cn(
-            "mt-2 rounded border px-2 py-0.5 text-xs font-medium",
+            "rounded border px-2 py-0.5 text-xs font-medium sm:mt-2",
             dark ? "border-violet-500/30 bg-violet-500/10 text-violet-400" : "border-violet-300 bg-violet-50 text-violet-600",
           )}>
             {projectName || `Project #${projectId}`}
@@ -281,18 +281,18 @@ export default function HomePage() {
             className={cn(
               "mb-6 flex items-center justify-between gap-4 rounded-lg border px-4 py-3 text-sm transition-colors",
               dark
-                ? "border-emerald-600/40 bg-emerald-500/8 hover:border-emerald-500/60"
-                : "border-emerald-400/50 bg-emerald-50 hover:border-emerald-400",
+                ? "border-violet-500/30 bg-violet-500/8 hover:border-violet-500/60"
+                : "border-violet-300 bg-violet-50 hover:border-violet-400",
             )}
           >
             <div className="flex items-center gap-3">
-              <CheckCircle2 className="size-4 shrink-0 text-emerald-400" />
+              <CheckCircle2 className="size-4 shrink-0 text-violet-400" />
               <div>
-                <p className={cn("font-semibold", dark ? "text-emerald-300" : "text-emerald-700")}>{next.title}</p>
-                <p className={cn("text-xs", dark ? "text-emerald-500/80" : "text-emerald-600/80")}>{next.body}</p>
+                <p className={cn("font-semibold", dark ? "text-violet-300" : "text-violet-700")}>{next.title}</p>
+                <p className={cn("text-xs", dark ? "text-violet-400/80" : "text-violet-600/80")}>{next.body}</p>
               </div>
             </div>
-            <ArrowRight className="size-4 shrink-0 text-emerald-400" />
+            <ArrowRight className="size-4 shrink-0 text-violet-400" />
           </Link>
         );
       })() : null}

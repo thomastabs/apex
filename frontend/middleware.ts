@@ -34,7 +34,9 @@ export function middleware(request: NextRequest) {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://s3-alpha.figma.com https://s3-alpha-sig.figma.com https://figma-alpha-api.s3.us-west-2.amazonaws.com",
     "font-src 'self' data:",
-    "connect-src 'self' http://localhost:8000 https:",
+    isProd
+      ? "connect-src 'self' http://localhost:8000 https:"
+      : "connect-src 'self' http://localhost:8000 http://localhost:8400 https:",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "object-src 'none'",

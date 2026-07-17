@@ -25,14 +25,7 @@ import { usePhase3Store } from "@/lib/stores/phase3-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { PanelHeader, type DragSectionProps } from "./shared";
-
-const EFFORT_COLORS: Record<string, string> = {
-  XS: "bg-emerald-500/15 text-emerald-400 ring-emerald-500/30",
-  S:  "bg-blue-500/15 text-blue-400 ring-blue-500/30",
-  M:  "bg-yellow-500/15 text-yellow-400 ring-yellow-500/30",
-  L:  "bg-orange-500/15 text-orange-400 ring-orange-500/30",
-  XL: "bg-red-500/15 text-red-400 ring-red-500/30",
-};
+import { EFFORT_COLORS } from "@/lib/effort-colors";
 
 type TasksSectionProps = DragSectionProps & { dark: boolean };
 
@@ -227,7 +220,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
   const adapter = getPmAdapter(context?.pmTool);
   const adapterCtx = context ? toPmCtx(context) : null;
 
-  const { data: pmTasks = [], isLoading, isFetching } = useQuery({
+  const { data: pmTasks = [], isLoading, isFetching, isError, refetch } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: () => adapter.getProjectTasks(adapterCtx!),
     enabled: Boolean(context),
@@ -417,7 +410,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
           "rounded px-2 py-1 text-xs font-medium transition-colors",
           filterOpen || filter
             ? "bg-violet-500/20 text-violet-400"
-            : dark ? "text-neutral-600 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600",
+            : dark ? "text-neutral-400 hover:text-neutral-300" : "text-slate-600 hover:text-slate-700",
         )}
       >
         Filter
@@ -490,6 +483,11 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
               <div className="flex items-center gap-2 px-4 py-3 text-xs text-neutral-500">
                 <Loader2 className="h-3 w-3 animate-spin" /> Loading…
               </div>
+            ) : isError ? (
+              <div className={cn("mx-4 my-3 flex items-center justify-between gap-2 rounded border px-2.5 py-2 text-xs", dark ? "border-red-900/50 text-red-400" : "border-red-200 text-red-600")}>
+                <span>Failed to load tasks.</span>
+                <button onClick={() => refetch()} className="shrink-0 font-semibold underline">Retry</button>
+              </div>
             ) : storyGroups.length === 0 ? (
               <p className={cn("px-4 py-3 text-sm", subduedTextClass)}>
                 {q ? "No tasks match your filter." : "No tasks pushed yet."}
@@ -538,7 +536,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
                                 {task.subject}
                               </span>
                               {effort && (
-                                <span className={cn("inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[10px] font-bold ring-1",
+                                <span className={cn("inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-xs font-bold ring-1",
                                   EFFORT_COLORS[effort] ?? "bg-neutral-500/15 text-neutral-400 ring-neutral-500/30")}>
                                   {effort}
                                 </span>
@@ -548,7 +546,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
                                   <button
                                     onClick={() => loadForEditMut.mutate(task.id)}
                                     disabled={loadForEditMut.isPending}
-                                    className={cn("shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors disabled:opacity-40", dark ? "text-neutral-500 hover:text-neutral-200" : "text-slate-400 hover:text-slate-700")}
+                                    className={cn("shrink-0 rounded px-1.5 py-0.5 text-xs font-medium transition-colors disabled:opacity-40", dark ? "text-neutral-500 hover:text-neutral-200" : "text-slate-400 hover:text-slate-700")}
                                   >
                                     {loadForEditMut.isPending && loadForEditMut.variables === task.id ? "…" : "Edit"}
                                   </button>

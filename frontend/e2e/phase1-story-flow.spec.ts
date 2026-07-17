@@ -1,10 +1,13 @@
 import { test, expect } from "./fixtures";
 
 test("Phase 1: generate NL stories → convert to Gherkin → push to PM", async ({ page }) => {
+  // "Push Stories" gates on window.confirm() — auto-accept for the flow.
+  page.on("dialog", (d) => d.accept());
   await page.goto("/phase1");
 
   // Step 1 — fill epic title, then proceed
   await page.getByPlaceholder("e.g. User Authentication").fill("User Authentication");
+  await page.getByPlaceholder(/Describe the epic in detail/i).fill("Users need a secure authentication flow with login and password recovery.");
   await page.getByRole("button", { name: /Continue to Generate/i }).click();
 
   // Step 2 — generate stories

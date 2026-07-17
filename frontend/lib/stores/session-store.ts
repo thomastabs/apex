@@ -37,6 +37,12 @@ type SessionState = {
   clearSession: () => void;
 };
 
+const noopStorage = {
+  getItem: () => null,
+  setItem: () => {},
+  removeItem: () => {},
+};
+
 export const useSessionStore = create<SessionState>()(
   persist(
     (set) => ({
@@ -101,10 +107,10 @@ export const useSessionStore = create<SessionState>()(
       // Tokens are not persisted to localStorage — localStorage is cleared of the old
       // key on first load via the migrate function.
       storage: createJSONStorage(() => {
-        if (typeof window === "undefined") return localStorage;
+        if (typeof window === "undefined") return noopStorage;
         // Remove stale localStorage entry from older versions
         try { localStorage.removeItem("apex-session"); } catch { /* ignore */ }
-        return sessionStorage;
+        return window.sessionStorage;
       }),
       version: 9,
       migrate: (persisted: unknown) => {

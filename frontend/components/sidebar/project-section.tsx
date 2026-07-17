@@ -70,6 +70,7 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
         {projectOpen ? (
           <div className={cn("space-y-2 p-3", expandedPanelClass)}>
             <select
+              aria-label="Switch project"
               className={cn(
                 "h-9 w-full rounded border px-2 text-sm disabled:opacity-50",
                 dark ? "border-neutral-600 bg-neutral-950 text-white" : "border-slate-300 bg-white text-slate-900",
@@ -98,13 +99,22 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
+            {projects.isError ? (
+              <div className={cn("flex items-center justify-between gap-2 rounded border px-2.5 py-2 text-xs", dark ? "border-red-900/50 text-red-400" : "border-red-200 text-red-600")}>
+                <span>Failed to load projects.</span>
+                <button onClick={() => projects.refetch()} className="shrink-0 font-semibold underline">Retry</button>
+              </div>
+            ) : null}
             {selectedProject ? (
               <div className={cn("space-y-1.5 rounded border p-2.5 text-xs", dark ? "border-neutral-700 bg-neutral-950" : "border-slate-200 bg-slate-50")}>
                 <div className="flex items-center justify-between gap-2">
                   <span className={cn("font-semibold", dark ? "text-neutral-200" : "text-slate-800")}>{selectedProject.name}</span>
                   {!isJira ? (
                     <button
-                      className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold text-violet-400 transition-colors hover:bg-violet-500/15"
+                      className={cn(
+                        "flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold transition-colors hover:bg-violet-500/15",
+                        dark ? "text-violet-400" : "text-violet-700",
+                      )}
                       onClick={() => setShowEdit(true)}
                       title="Edit project name & description"
                     >
@@ -112,7 +122,7 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
                     </button>
                   ) : null}
                 </div>
-                <div className={cn(dark ? "text-neutral-500" : "text-slate-500")}>
+                <div className={cn("font-mono", dark ? "text-neutral-500" : "text-slate-500")}>
                   ID {selectedProject.id}{selectedProject.slug ? ` · ${selectedProject.slug}` : ""}
                 </div>
                 <p className={cn("whitespace-pre-wrap leading-5", dark ? "text-neutral-400" : "text-slate-600")}>
@@ -132,7 +142,10 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
               </button>
               {!isJira ? (
                 <button
-                  className="flex h-8 items-center justify-center gap-1 rounded border border-violet-500/40 bg-violet-500/10 text-sm font-semibold text-violet-400 transition-colors hover:bg-violet-500/20"
+                  className={cn(
+                    "flex h-8 items-center justify-center gap-1 rounded border border-violet-500/40 bg-violet-500/10 text-sm font-semibold transition-colors hover:bg-violet-500/20",
+                    dark ? "text-violet-400" : "text-violet-700",
+                  )}
                   onClick={() => setShowCreate(true)}
                 >
                   <Plus className="size-3" /> Create New
@@ -145,7 +158,10 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
             </div>
             {projectId ? (
               <button
-                className="flex h-8 w-full items-center justify-center gap-2 rounded border border-red-500/40 bg-red-500/10 text-sm font-semibold text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50"
+                className={cn(
+                  "flex h-8 w-full items-center justify-center gap-2 rounded border border-red-500/40 bg-red-500/10 text-sm font-semibold transition-colors hover:bg-red-500/20 disabled:opacity-50",
+                  dark ? "text-red-400" : "text-red-700",
+                )}
                 disabled={deleteProject.isPending}
                 onClick={() => confirm("Delete this project and all its data?", () => deleteProject.mutate(projectId, {
                   onSuccess: () => toast.success("Project deleted"),
@@ -321,24 +337,32 @@ function ProjectDialog({
                   Visibility
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsPrivate(false)}
-                    className={cn(
-                      "h-9 rounded border text-sm font-semibold transition-colors",
-                      !isPrivate ? "border-violet-500 bg-violet-500/15 text-violet-300" : dark ? "border-neutral-700 text-neutral-400 hover:border-neutral-600" : "border-slate-300 text-slate-500 hover:border-slate-400",
-                    )}
-                  >
+	                  <button
+	                    type="button"
+	                    onClick={() => setIsPrivate(false)}
+	                    className={cn(
+	                      "h-9 rounded border text-sm font-semibold transition-colors",
+	                      !isPrivate
+	                        ? "border-violet-500 bg-violet-500/15 text-violet-200"
+	                        : dark
+	                          ? "border-neutral-700 text-neutral-400 hover:border-neutral-600"
+	                          : "border-slate-300 text-slate-600 hover:border-slate-400",
+	                    )}
+	                  >
                     Public
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsPrivate(true)}
-                    className={cn(
-                      "h-9 rounded border text-sm font-semibold transition-colors",
-                      isPrivate ? "border-violet-500 bg-violet-500/15 text-violet-300" : dark ? "border-neutral-700 text-neutral-400 hover:border-neutral-600" : "border-slate-300 text-slate-500 hover:border-slate-400",
-                    )}
-                  >
+	                  <button
+	                    type="button"
+	                    onClick={() => setIsPrivate(true)}
+	                    className={cn(
+	                      "h-9 rounded border text-sm font-semibold transition-colors",
+	                      isPrivate
+	                        ? "border-violet-500 bg-violet-500/15 text-violet-200"
+	                        : dark
+	                          ? "border-neutral-700 text-neutral-400 hover:border-neutral-600"
+	                          : "border-slate-300 text-slate-600 hover:border-slate-400",
+	                    )}
+	                  >
                     Private
                   </button>
                 </div>

@@ -845,7 +845,7 @@ export const SESSION_STORAGE = JSON.stringify({
     githubPat: "",
     githubRepo: "",
   },
-  version: 6,
+  version: 9,
 });
 
 export const PHASE4_STORE_RESET = JSON.stringify({

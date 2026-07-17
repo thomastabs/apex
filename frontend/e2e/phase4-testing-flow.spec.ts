@@ -10,6 +10,8 @@ async function waitForToastsGone(page: import("@playwright/test").Page) {
 }
 
 test("Phase 4 pass: select story → generate test plan → mark all pass → pass gate", async ({ page }) => {
+  // "Pass Testing Gate" gates on window.confirm() — auto-accept for the flow.
+  page.on("dialog", (d) => d.accept());
   await page.goto("/phase4");
 
   // Stage A — story card visible

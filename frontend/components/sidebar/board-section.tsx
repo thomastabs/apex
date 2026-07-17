@@ -103,7 +103,7 @@ function EpicDialog({ epic, onClose }: { epic: Epic; onClose: () => void }) {
         className={cn("w-full max-w-2xl rounded-xl border p-6 shadow-2xl", dark ? "border-neutral-700 bg-neutral-900" : "border-slate-300 bg-white")}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>Epic #{epic.ref}</h3>
+        <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>Epic <span className="font-mono">#{epic.ref}</span></h3>
         <div className="space-y-3">
           <div>
             <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Title</label>
@@ -386,7 +386,7 @@ function StoryDialog({ story, regressed = false, trace = null, figmaNodeId = "",
         className={cn("w-full max-w-2xl rounded-xl border p-6 shadow-2xl", dark ? "border-neutral-700 bg-neutral-900" : "border-slate-300 bg-white")}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>Story #{story.ref}</h3>
+        <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>Story <span className="font-mono">#{story.ref}</span></h3>
         {regressed ? (
           <div className="mb-4 flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-600 dark:text-red-400">
             <TrendingDown className="mt-0.5 size-4 shrink-0" />
@@ -801,7 +801,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                 "rounded px-2 py-1 text-xs font-medium transition-colors",
                 filterOpen || filter
                   ? "bg-violet-500/20 text-violet-400"
-                  : dark ? "text-neutral-600 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600",
+                  : dark ? "text-neutral-400 hover:text-neutral-300" : "text-slate-600 hover:text-slate-700",
               )}
             >
               Filter
@@ -823,7 +823,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                   onChange={(e) => setFilter(e.target.value)}
                 />
                 {filter && (
-                  <button onClick={() => setFilter("")} className={cn("absolute right-2 top-1/2 -translate-y-1/2", subduedTextClass)}>
+                  <button onClick={() => setFilter("")} aria-label="Clear filter" className={cn("absolute right-2 top-1/2 -translate-y-1/2", subduedTextClass)}>
                     <X className="h-3 w-3" />
                   </button>
                 )}
@@ -844,6 +844,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                     dark ? "border-neutral-600 text-neutral-300 hover:text-violet-300" : "border-slate-300 text-slate-600 hover:text-violet-600",
                   )}
                   onClick={() => toast.promise(board.refetch(), { loading: "Refreshing…", success: "Board refreshed", error: "Failed to refresh board" })}
+                  aria-label="Refresh board"
                 >
                   <RefreshCw className="size-3" />
                 </button>
@@ -854,7 +855,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                 <div className="mb-1.5 flex items-center justify-between">
                   <div className={cn("text-xs font-semibold uppercase tracking-wide", dark ? "text-neutral-500" : "text-slate-500")}>Story Progress</div>
                   {storyIndexSyncedAt ? (
-                    <div className={cn("text-[10px]", dark ? "text-neutral-600" : "text-slate-400")}>
+                    <div className={cn("text-xs", dark ? "text-neutral-600" : "text-slate-400")}>
                       synced {storyIndexSyncedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </div>
                   ) : null}
@@ -910,10 +911,16 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                 <Skeleton className="h-6 w-4/5" />
               </div>
             ) : null}
-            {!board.isLoading && q && filteredBoard.length === 0 && (
+            {board.isError ? (
+              <div className={cn("flex items-center justify-between gap-2 rounded border px-2.5 py-2 text-xs", dark ? "border-red-900/50 text-red-400" : "border-red-200 text-red-600")}>
+                <span>Failed to load the board.</span>
+                <button onClick={() => board.refetch()} className="shrink-0 font-semibold underline">Retry</button>
+              </div>
+            ) : null}
+            {!board.isLoading && !board.isError && q && filteredBoard.length === 0 && (
               <div className={subduedTextClass}>No matches.</div>
             )}
-            {!board.isLoading && filteredBoard.map((epic) => (
+            {!board.isLoading && !board.isError && filteredBoard.map((epic) => (
               <div key={epic.id}>
                 <div className="flex w-full items-center gap-1">
                   <button
@@ -921,10 +928,10 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                     onClick={() => setExpandedEpic(expandedEpic === epic.id ? null : epic.id)}
                   >
                     {expandedEpic === epic.id ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
-                    #{epic.ref} {epic.subject}
+                    <span className="font-mono">#{epic.ref}</span> {epic.subject}
                   </button>
                   <button
-                    className="grid size-6 place-items-center rounded text-neutral-400 transition-colors hover:bg-violet-500/20 hover:text-violet-300"
+                    className="grid size-6 place-items-center rounded text-violet-400 transition-colors hover:bg-violet-500/20 hover:text-violet-300"
                     onClick={() => setDialogEpic(epic)}
                     title="Edit epic"
                   >
@@ -949,7 +956,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                     {epic.stories.map((story) => (
                       <div key={story.id}>
                         <div className="flex items-center gap-1">
-                          <span className="min-w-0 flex-1 truncate text-xs">#{story.ref} {story.subject}</span>
+                          <span className="min-w-0 flex-1 truncate text-xs"><span className="font-mono">#{story.ref}</span> {story.subject}</span>
                           {(() => {
                             const r = riskById.get(story.id);
                             return r && (r.level === "high" || r.level === "medium") ? (
@@ -982,7 +989,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                             />
                           ) : null}
                           <button
-                            className="grid size-5 place-items-center rounded text-neutral-400 transition-colors hover:bg-violet-500/20 hover:text-violet-300"
+                            className="grid size-5 place-items-center rounded text-violet-400 transition-colors hover:bg-violet-500/20 hover:text-violet-300"
                             onClick={() => setDialogStory(story)}
                             title="Edit story"
                           >
@@ -1002,7 +1009,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                 ) : null}
               </div>
             ))}
-            {!board.isLoading && !board.data?.length ? <div className={subduedTextClass}>No epics yet.</div> : null}
+            {!board.isLoading && !board.isError && !board.data?.length ? <div className={subduedTextClass}>No epics yet.</div> : null}
 
           </div>
         ) : null}

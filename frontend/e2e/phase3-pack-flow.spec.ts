@@ -1,6 +1,8 @@
 import { test, expect } from "./fixtures";
 
 test("Phase 3: select story → generate tasks → generate pack → copy agentic brief → lock", async ({ page }) => {
+  // "Push Tasks" / "Lock Story" gate on window.confirm() — auto-accept for the flow.
+  page.on("dialog", (d) => d.accept());
   await page.goto("/phase3");
 
   // Stage A — story card should be visible

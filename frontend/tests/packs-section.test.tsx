@@ -48,6 +48,11 @@ function renderPacks() {
 
 beforeEach(() => vi.clearAllMocks());
 
+const taskRow = (taskId: number) =>
+  screen
+    .getAllByText((_, element) => element?.textContent?.replace(/\s+/g, " ").trim().startsWith(`Task ${taskId}`) ?? false)
+    .find((element) => element.tagName === "SPAN" && element.className.includes("flex-1"));
+
 describe("PacksSection", () => {
   it("groups developer packs by story when expanded", async () => {
     renderPacks();
@@ -56,15 +61,15 @@ describe("PacksSection", () => {
     await waitFor(() => expect(screen.getByText("User Login")).toBeInTheDocument());
     // Two stories grouped; US#10 has two task rows, US#11 one.
     expect(screen.getByText("Logout")).toBeInTheDocument();
-    expect(screen.getByText("Task 1")).toBeInTheDocument();
-    expect(screen.getByText("Task 2")).toBeInTheDocument();
-    expect(screen.getByText("Task 3")).toBeInTheDocument();
+    expect(taskRow(1)).toBeInTheDocument();
+    expect(taskRow(2)).toBeInTheDocument();
+    expect(taskRow(3)).toBeInTheDocument();
   });
 
   it("deleting a pack scopes the packs-cache invalidation to the project", async () => {
     const { invalidateSpy } = renderPacks();
     fireEvent.click(screen.getByRole("button", { name: /Developer Packs/i }));
-    await waitFor(() => expect(screen.getByText("Task 1")).toBeInTheDocument());
+    await waitFor(() => expect(taskRow(1)).toBeInTheDocument());
 
     // The per-row delete button (title "Delete pack").
     fireEvent.click(screen.getAllByTitle("Delete pack")[0]);
@@ -77,7 +82,7 @@ describe("PacksSection", () => {
   it("edits a pack in the view modal and saves it", async () => {
     renderPacks();
     fireEvent.click(screen.getByRole("button", { name: /Developer Packs/i }));
-    await waitFor(() => expect(screen.getByText("Task 1")).toBeInTheDocument());
+    await waitFor(() => expect(taskRow(1)).toBeInTheDocument());
 
     fireEvent.click(screen.getAllByTitle("View pack")[0]);
     await waitFor(() => expect(screen.getByTitle("Edit")).toBeInTheDocument());

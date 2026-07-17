@@ -39,7 +39,7 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
 
   const PACKS_KEY = ["phase5", "deploy-packs", context?.projectId];
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: PACKS_KEY,
     queryFn: () => listDeployPacks(context!),
     enabled: Boolean(context) && open,
@@ -129,6 +129,11 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
             {isLoading ? (
               <div className="flex items-center gap-2 text-xs text-neutral-500">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading deploy packs…
+              </div>
+            ) : isError ? (
+              <div className={cn("flex items-center justify-between gap-2 rounded border px-2.5 py-2 text-xs", dark ? "border-red-900/50 text-red-400" : "border-red-200 text-red-600")}>
+                <span>Failed to load deploy packs.</span>
+                <button onClick={() => refetch()} className="shrink-0 font-semibold underline">Retry</button>
               </div>
             ) : packs.length === 0 ? (
               <p className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-400")}>

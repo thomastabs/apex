@@ -11,6 +11,8 @@ async function waitForToastsGone(page: import("@playwright/test").Page) {
 }
 
 test("Phase 5 routine: delta check says bypass → no pack → pass deployment gate", async ({ page }) => {
+  // "Approve & Deploy" gates on window.confirm() — auto-accept for the flow.
+  page.on("dialog", (d) => d.accept());
   await page.goto("/phase5");
 
   // Stage A — story card visible
@@ -49,6 +51,8 @@ test("Phase 5 routine: delta check says bypass → no pack → pass deployment g
 });
 
 test("Phase 5 changes: delta flags infra → deploy pack → reject/revise → pass gate", async ({ page }) => {
+  // "Approve & Deploy" gates on window.confirm() — auto-accept for the flow.
+  page.on("dialog", (d) => d.accept());
   // Override the default bypass verdict — last-registered route wins.
   await page.route(`${API}/api/phase5/generate-infra-delta`, (route) =>
     route.fulfill({

@@ -106,7 +106,7 @@ function NavSchematic({ navigation, dark }: { navigation: DesignSystemResponse["
       <div className={frame}>
         <div className="flex flex-wrap gap-2 mb-2">
           {navigation.items.map((item, i) => (
-            <span key={`${item}-${i}`} className={cn(chip, i === 0 && "ring-1 ring-indigo-500")}>{item}</span>
+            <span key={`${item}-${i}`} className={cn(chip, i === 0 && "ring-1 ring-violet-500")}>{item}</span>
           ))}
         </div>
         <div className={cn("h-16 rounded", dark ? "bg-neutral-800" : "bg-white")} />
@@ -348,7 +348,7 @@ function ScreensTab({
           onClick={() => setScreensDark(false)}
           className={cn(
             "rounded px-2 py-1 text-xs font-medium",
-            !screensDark ? "bg-indigo-600 text-white" : dark ? "text-neutral-400 hover:bg-neutral-800" : "text-slate-500 hover:bg-slate-200",
+            !screensDark ? "bg-violet-600 text-white" : dark ? "text-neutral-400 hover:bg-neutral-800" : "text-slate-500 hover:bg-slate-200",
           )}
         >
           Light
@@ -358,7 +358,7 @@ function ScreensTab({
           onClick={() => setScreensDark(true)}
           className={cn(
             "rounded px-2 py-1 text-xs font-medium",
-            screensDark ? "bg-indigo-600 text-white" : dark ? "text-neutral-400 hover:bg-neutral-800" : "text-slate-500 hover:bg-slate-200",
+            screensDark ? "bg-violet-600 text-white" : dark ? "text-neutral-400 hover:bg-neutral-800" : "text-slate-500 hover:bg-slate-200",
           )}
         >
           Dark
@@ -443,7 +443,7 @@ function ScreensTab({
               disabled={screenBusy || !canGenerate}
               className={cn(
                 "flex items-center gap-1 self-start rounded px-3 py-1.5 text-xs font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-                "bg-indigo-600 hover:bg-indigo-700",
+                "bg-violet-600 hover:bg-violet-500",
               )}
             >
               <Plus className="size-3.5" /> Add screen
@@ -718,7 +718,7 @@ export function DesignSystemPanel({
       )}
       {generateMut.isPending && !hasData ? (
         <div className="flex flex-col items-center gap-3 py-8 text-center">
-          <Loader2 className="size-8 animate-spin text-indigo-500" />
+          <Loader2 className="size-8 animate-spin text-violet-500" />
           <p className={cn("text-sm font-medium", dark ? "text-neutral-300" : "text-slate-600")}>
             Generating design system…
           </p>
@@ -742,8 +742,8 @@ export function DesignSystemPanel({
             className={cn(
               "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors",
               canGenerate && !generateMut.isPending
-                ? "bg-indigo-600 hover:bg-indigo-700"
-                : "bg-indigo-300 cursor-not-allowed dark:bg-indigo-900",
+                ? "bg-violet-600 hover:bg-violet-500"
+                : "bg-violet-300 cursor-not-allowed dark:bg-violet-900",
             )}
           >
             <Palette className="size-4" />Generate Design System
@@ -760,7 +760,7 @@ export function DesignSystemPanel({
                 className={cn(
                   "rounded px-3 py-1.5 text-xs font-medium transition-colors",
                   tab === t
-                    ? "bg-indigo-600 text-white"
+                    ? "bg-violet-600 text-white"
                     : dark
                       ? "text-neutral-400 hover:bg-neutral-800"
                       : "text-slate-500 hover:bg-slate-200",
@@ -807,10 +807,10 @@ export function DesignSystemPanel({
         onClick={() => setOpen((v) => !v)}
       >
         <div className="flex items-center gap-2">
-          <Palette className="size-4 text-indigo-500" />
+          <Palette className="size-4 text-violet-500" />
           <span className={dark ? "text-neutral-100" : "text-slate-800"}>Visual Design System</span>
           {hasData && (
-            <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+            <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
               {data!.colors.length} colors · {data!.screens.length} screens
             </span>
           )}

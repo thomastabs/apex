@@ -15,6 +15,7 @@ import Dagre from "@dagrejs/dagre";
 import { CheckCircle2, ChevronRight, GitBranch, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Phase3Task } from "@/lib/api/types";
+import { EFFORT_COLORS } from "@/lib/effort-colors";
 
 import "@xyflow/react/dist/style.css";
 
@@ -61,18 +62,6 @@ function applyDagreLayout(nodes: TaskFlowNode[], edges: TaskFlowEdge[]): TaskFlo
 }
 
 // ---------------------------------------------------------------------------
-// Effort badge colors (duplicated here to avoid cross-component coupling)
-// ---------------------------------------------------------------------------
-
-const EFFORT_COLORS: Record<string, string> = {
-  XS: "bg-emerald-500/15 text-emerald-400 ring-emerald-500/30",
-  S:  "bg-blue-500/15 text-blue-400 ring-blue-500/30",
-  M:  "bg-yellow-500/15 text-yellow-400 ring-yellow-500/30",
-  L:  "bg-orange-500/15 text-orange-400 ring-orange-500/30",
-  XL: "bg-red-500/15 text-red-400 ring-red-500/30",
-};
-
-// ---------------------------------------------------------------------------
 // Custom task node
 // ---------------------------------------------------------------------------
 
@@ -87,7 +76,7 @@ function TaskNode({ data }: { data: TaskNodeData }) {
       <div className="px-3 py-2 flex items-center justify-between gap-2">
         {data.effort ? (
           <span className={cn(
-            "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold ring-1",
+            "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-bold ring-1",
             EFFORT_COLORS[data.effort] ?? "bg-neutral-500/15 text-neutral-400 ring-neutral-500/30",
           )}>
             {data.effort}
@@ -193,7 +182,7 @@ export function TaskDagPanel({
           <GitBranch className="size-4 text-violet-500" />
           <span className={dark ? "text-neutral-100" : "text-slate-800"}>Task Dependency Graph</span>
           {hasEdges && (
-            <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
+            <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
               {edges.length} {edges.length === 1 ? "dependency" : "dependencies"}
             </span>
           )}
