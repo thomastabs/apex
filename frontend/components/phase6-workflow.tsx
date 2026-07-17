@@ -484,7 +484,7 @@ export function Phase6Workflow() {
       <div className="mb-7">
         <p className={cn("mb-1 text-xs font-bold uppercase tracking-widest", dark ? "text-violet-400" : "text-violet-600")}>Phase 6</p>
         <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
-          {tab === "traceability" ? "Traceability" : "Maintenance"}
+          Maintenance
         </h1>
         <p className={cn("mt-2", mutedClass)}>
           Triage post-deployment feedback into governed fixes, and verify shipped code against the locked spec.

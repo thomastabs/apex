@@ -585,8 +585,10 @@ export function Phase2Workflow() {
   return (
     <section className="px-8 py-8">
       <div className="mb-7">
-        <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Phase 2</p>
-        <SectionHeading>Design</SectionHeading>
+        <p className={cn("mb-1 text-xs font-bold uppercase tracking-widest", dark ? "text-violet-400" : "text-violet-600")}>Phase 2</p>
+        <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
+          Design
+        </h1>
         <p className={cn("mt-2", mutedClass)}>
           Generate, review, and lock the project&apos;s design — UX, API surface, data model, and runtime contract — before implementation begins.
         </p>
