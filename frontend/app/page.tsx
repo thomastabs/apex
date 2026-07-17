@@ -163,7 +163,7 @@ export default function HomePage() {
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Apex</p>
-          <h1 className={cn("text-2xl font-bold tracking-tight", dark ? "text-white" : "text-slate-900")}>
+          <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
             Overview
           </h1>
           <p className={cn("mt-2", dark ? "text-neutral-500" : "text-slate-400")}>
