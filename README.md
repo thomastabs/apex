@@ -8,6 +8,7 @@ The current migrated version is a split full-stack web app:
 - **Frontend:** Next.js 15 App Router, TypeScript, React Query 5, Zustand, Tailwind CSS
 - **Storage:** `contextspec/` folder in Azure File Share in deployment
 - **Deployment:** GitHub Actions builds Docker images and deploys to Azure Container Apps
+- **Frontend review:** [Impeccable](https://github.com/pbakaus/impeccable) design critique/detector snapshots live under `.impeccable/` and help keep the product UI consistent, responsive, and free of common AI-generated interface tells
 
 Phases 1–6 are implemented, plus a governance analytics dashboard, a **living traceability graph** (project-wide spec→code derivation view), and an **Autopilot** mode that runs the full Phases 1–5 pipeline end-to-end in the background. The spec-model upgrade roadmap is fully shipped: EARS constraints, spec↔code conformance, deterministic agent-target compilation, controlled spec co-evolution, and per-epic context slicing. Human-in-the-loop guardrails layer on top — multi-model cross-check, diff-on-regenerate, a decision log, and an optional "Guide the AI" steer on every generative step.
 
@@ -964,6 +965,16 @@ npm run build
 ```
 
 Coverage: React Query hooks, Taiga direct API calls, session store, API client utilities.
+
+### Frontend UI Review (Impeccable)
+
+The repo includes project-local [Impeccable](https://github.com/pbakaus/impeccable) artifacts for UI critique, detector checks, and design-system context. The committed snapshots in `.impeccable/critique/` document recent reviews of Phases 1–6, the sidebars, Home, Autopilot, Trace Graph, Fix Bolt, and Analytics.
+
+Run the detector manually from the repository root:
+
+```bash
+node .github/skills/impeccable/scripts/detect.mjs --json frontend/app frontend/components
+```
 
 ### Frontend E2E (Playwright)
 
