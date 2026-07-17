@@ -273,7 +273,7 @@ class ImportReconstructResponse(BaseModel):
 
 class TraceNode(BaseModel):
     id: str
-    type: Literal["project", "epic", "design", "story", "gherkin", "scenario", "tasks", "tests", "deploy", "figma"]
+    type: Literal["project", "epic", "design", "runtime", "story", "gherkin", "scenario", "tasks", "tests", "deploy", "figma"]
     label: str
     phase: int | None = None
     story_id: int | None = None
@@ -289,7 +289,7 @@ class TraceEdge(BaseModel):
     id: str
     source: str
     target: str
-    kind: Literal["derive", "design", "trace", "verify"]
+    kind: Literal["derive", "design", "trace", "verify", "regression"]
 
 
 class TraceabilityGraphResponse(BaseModel):

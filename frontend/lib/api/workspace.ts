@@ -455,7 +455,7 @@ export function acknowledgeFigmaChange(
   );
 }
 
-export type TraceNodeType = "project" | "epic" | "design" | "story" | "gherkin" | "scenario" | "tasks" | "tests" | "deploy" | "figma";
+export type TraceNodeType = "project" | "epic" | "design" | "runtime" | "story" | "gherkin" | "scenario" | "tasks" | "tests" | "deploy" | "figma";
 
 export type TraceNode = {
   id: string;

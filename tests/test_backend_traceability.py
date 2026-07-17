@@ -3,6 +3,7 @@
 import pytest
 from fastapi import HTTPException
 
+from backend.app.schemas.workspace import TraceabilityGraphResponse
 from backend.app.services.request_context import RequestContext
 from backend.app.services.traceability_service import TraceabilityService
 
@@ -141,6 +142,17 @@ def test_save_layout_persists_id_keyed_positions():
         _ctx(), [{"id": "story:1", "x": 10.0, "y": 20.0}],
     )
     assert fake.saved_layout == {"story:1": {"x": 10.0, "y": 20.0}}
+
+
+def test_api_response_schema_accepts_runtime_and_regression_edges():
+    index = {"1": {"story_id": 1, "epic_id": 1, "title": "S", "phase_status": "implementation",
+                   "has_runtime_spec": True, "has_proposal": True, "has_bdd": True,
+                   "has_deploy_pack": True, "has_bug_report": True}}
+    g = _graph(index)
+
+    assert "runtime" in {n["type"] for n in g["nodes"]}
+    assert "regression" in {e["kind"] for e in g["edges"]}
+    TraceabilityGraphResponse.model_validate(g)
 
 
 def test_route_maps_failure_to_500(monkeypatch):
