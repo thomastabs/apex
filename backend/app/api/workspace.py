@@ -144,7 +144,10 @@ def _local_context_file_labels(context: ContextService) -> list[tuple[str, str]]
     labels = list(_CONTEXT_FILES)
     known = {filename for filename, _label in labels}
     try:
-        for path in sorted(context.file_path("project-concept.md").parent.glob("*.md")):
+        base = context.file_path("project-concept.md").parent
+        if not base.exists():
+            return labels
+        for path in sorted(base.iterdir()):
             filename = path.name
             if filename in known or filename in _INTERNAL_CONTEXT_FILES or filename.startswith("."):
                 continue
