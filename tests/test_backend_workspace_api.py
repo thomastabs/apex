@@ -7,6 +7,7 @@ from backend.app.api.deps import AuthContext
 from backend.app.api.workspace import (
     admin_set_all_story_status,
     delete_ai_key,
+    get_agent_files,
     get_ai_config,
     get_config,
     get_context_files,
@@ -25,6 +26,7 @@ from backend.app.api.workspace import (
     set_story_phase_status,
     set_story_scaffold,
     story_index_stats,
+    update_agent_file,
     update_context_file,
 )
 from backend.app.schemas.workspace import (
@@ -35,6 +37,7 @@ from backend.app.schemas.workspace import (
     SaveConfigRequest,
     SetPhaseStatusRequest,
     SetScaffoldRequest,
+    UpdateAgentFileRequest,
     UpdateContextFileRequest,
 )
 from backend.app.services.request_context import RequestContext
@@ -617,6 +620,40 @@ def test_update_context_file_rejects_unknown_filename():
 def test_reset_context_file_rejects_unknown_filename():
     with pytest.raises(HTTPException) as exc_info:
         reset_context_file("unknown.md", RequestContext(pm_token="tok", project_id=42))
+
+    assert exc_info.value.status_code == 404
+
+
+def test_agent_files_list_and_update_safe_repo_root(tmp_path, monkeypatch):
+    import backend.app.api.workspace as ws
+
+    monkeypatch.setattr(ws, "_REPO_ROOT", tmp_path)
+    (tmp_path / ".gitignore").write_text("AGENTS.md\n", encoding="utf-8")
+    (tmp_path / "CLAUDE.md").write_text("# Claude\n", encoding="utf-8")
+
+    listed = get_agent_files(RequestContext(pm_token="tok", project_id=42))
+    agents = next(file for file in listed["files"] if file["filename"] == "AGENTS.md")
+    claude = next(file for file in listed["files"] if file["filename"] == "CLAUDE.md")
+    assert agents["ignored"] is True
+    assert claude["content"] == "# Claude\n"
+
+    updated = update_agent_file(
+        "AGENTS.md",
+        UpdateAgentFileRequest(content="# Agents\n"),
+        RequestContext(pm_token="tok", project_id=42),
+    )
+
+    assert (tmp_path / "AGENTS.md").read_text(encoding="utf-8") == "# Agents\n"
+    assert next(file for file in updated["files"] if file["filename"] == "AGENTS.md")["exists"] is True
+
+
+def test_update_agent_file_rejects_unknown_filename():
+    with pytest.raises(HTTPException) as exc_info:
+        update_agent_file(
+            "../README.md",
+            UpdateAgentFileRequest(content="x"),
+            RequestContext(pm_token="tok", project_id=42),
+        )
 
     assert exc_info.value.status_code == 404
 

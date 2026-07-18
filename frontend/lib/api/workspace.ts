@@ -192,6 +192,31 @@ export function getContextFiles(context: RequestContext) {
   return apiRequest<ContextFilesResponse>("/api/workspace/context-files", { context });
 }
 
+export type AgentFile = {
+  filename: string;
+  label: string;
+  content: string;
+  chars: number;
+  exists: boolean;
+  ignored: boolean;
+};
+
+export type AgentFilesResponse = {
+  files: AgentFile[];
+};
+
+export function getAgentFiles(context: RequestContext) {
+  return apiRequest<AgentFilesResponse>("/api/workspace/agent-files", { context });
+}
+
+export function updateAgentFile(context: RequestContext, filename: string, content: string) {
+  return apiRequest<AgentFilesResponse>(`/api/workspace/agent-files/${encodeURIComponent(filename)}`, {
+    method: "PUT",
+    context,
+    body: { content },
+  });
+}
+
 export function updateContextFile(context: RequestContext, filename: string, content: string, note = "") {
   return apiRequest<ContextFilesResponse>(`/api/workspace/context-files/${filename}`, {
     method: "PUT",

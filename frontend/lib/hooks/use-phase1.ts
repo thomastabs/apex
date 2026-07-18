@@ -41,7 +41,8 @@ export function useSuggestPhase1Epics() {
   const context = useApiContext();
 
   return useCancellableMutation(
-    (hint: string, signal) => suggestPhase1Epics(context!, hint, signal),
+    ({ hint, extraContextFiles = [] }: { hint: string; extraContextFiles?: string[] }, signal) =>
+      suggestPhase1Epics(context!, hint, signal, extraContextFiles),
     { onError: () => toast.error("Failed to suggest epics. Check your connection and try again.") },
   );
 }
@@ -50,8 +51,8 @@ export function useAnalyzeGaps() {
   const context = useApiContext();
 
   return useCancellableMutation(
-    ({ existingEpics, hint }: { existingEpics: ExistingEpicInput[]; hint: string }, signal) =>
-      analyzeRequirementGaps(context!, existingEpics, hint, signal),
+    ({ existingEpics, hint, extraContextFiles = [] }: { existingEpics: ExistingEpicInput[]; hint: string; extraContextFiles?: string[] }, signal) =>
+      analyzeRequirementGaps(context!, existingEpics, hint, signal, extraContextFiles),
     { onError: () => toast.error("Gap analysis failed. The AI may be busy — try again shortly.") },
   );
 }
@@ -80,6 +81,7 @@ export function useGenerateStoriesFromFigma() {
         flows: Array<{ from_name: string; to_name: string }>;
         instructions?: string;
         file_key?: string;
+        extra_context_files?: string[];
         figmaToken?: string;
       },
       signal,
@@ -122,7 +124,7 @@ export function useGenerateConstraints() {
   const context = useApiContext();
 
   return useCancellableMutation(
-    (_: void, signal) => generateConstraints(context!, signal),
+    (extraContextFiles: string[] | undefined, signal) => generateConstraints(context!, signal, extraContextFiles ?? []),
     { onError: () => toast.error("Constraint generation failed. The AI may be busy — try again shortly.") },
   );
 }

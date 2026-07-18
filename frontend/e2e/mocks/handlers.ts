@@ -296,6 +296,19 @@ export async function applyMocks(page: Page) {
     }),
   );
 
+  await page.route(`${api}/api/workspace/agent-files**`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        files: [
+          { filename: "AGENTS.md", label: "Codex / Agent Instructions", content: "# Agents\n", chars: 9, exists: true, ignored: true },
+          { filename: "CLAUDE.md", label: "Claude Code Instructions", content: "# Claude\n", chars: 9, exists: true, ignored: false },
+        ],
+      }),
+    }),
+  );
+
   await page.route(`${api}/api/workspace/board**`, (route) =>
     route.fulfill({
       status: 200,

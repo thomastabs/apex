@@ -22,6 +22,10 @@ export type ExistingEpicInput = {
   stories: string[];
 };
 
+export type ExtraContextPayload = {
+  extra_context_files?: string[];
+};
+
 // Project context for PM adapters. Delegates to the shared toPmCtx so Taiga
 // gets the numeric projectId — using pmProjectId (the slug) here made the
 // adapter send project=NaN→null and Taiga rejected epic/story creates with 400.
@@ -33,11 +37,11 @@ export function listPhase1Epics(context: RequestContext) {
   return getPmAdapter(context.pmTool).getBoard(pmCtx(context));
 }
 
-export function suggestPhase1Epics(context: RequestContext, hint = "", signal?: AbortSignal) {
+export function suggestPhase1Epics(context: RequestContext, hint = "", signal?: AbortSignal, extraContextFiles: string[] = []) {
   return apiRequest<{ epics: EpicSuggestion[] }>("/api/phase1/suggest-epics", {
     method: "POST",
     context,
-    body: { hint },
+    body: { hint, extra_context_files: extraContextFiles },
     timeoutMs: 120_000,
     signal,
   });
@@ -48,11 +52,12 @@ export function analyzeRequirementGaps(
   existingEpics: ExistingEpicInput[],
   hint = "",
   signal?: AbortSignal,
+  extraContextFiles: string[] = [],
 ) {
   return apiRequest<RequirementGapReport>("/api/phase1/analyze-gaps", {
     method: "POST",
     context,
-    body: { existing_epics: existingEpics, hint },
+    body: { existing_epics: existingEpics, hint, extra_context_files: extraContextFiles },
     timeoutMs: 180_000,
     signal,
   });
@@ -84,6 +89,7 @@ export function generateStoriesFromFigma(
     flows: Array<{ from_name: string; to_name: string }>;
     instructions?: string;
     file_key?: string;
+    extra_context_files?: string[];
   },
   // Token + file_key let the backend render the frames to PNGs for multimodal
   // grounding (U1). Optional — omit and generation falls back to frame names.
@@ -135,10 +141,10 @@ export interface Phase1Constraint {
   rationale: string;
 }
 
-export function generateConstraints(context: RequestContext, signal?: AbortSignal) {
+export function generateConstraints(context: RequestContext, signal?: AbortSignal, extraContextFiles: string[] = []) {
   return apiRequest<{ constraints: Phase1Constraint[]; constraints_md: string }>(
     "/api/phase1/generate-constraints",
-    { method: "POST", context, timeoutMs: 120_000, signal },
+    { method: "POST", context, body: { extra_context_files: extraContextFiles }, timeoutMs: 120_000, signal },
   );
 }
 

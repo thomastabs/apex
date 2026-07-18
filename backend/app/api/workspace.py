@@ -1,6 +1,7 @@
 """Workspace APIs used by the Next.js app shell/sidebar."""
 
 import logging
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 
@@ -15,6 +16,7 @@ from backend.app.api.deps import (
 from backend.app.schemas.workspace import (
     AdminSetAllStatusRequest,
     AdminSetAllStatusResponse,
+    AgentFilesResponse,
     AiConfigResponse,
     AiKeyStatusResponse,
     AmendmentsResponse,
@@ -44,6 +46,7 @@ from backend.app.schemas.workspace import (
     SyncFigmaContextRequest,
     SaveTraceLayoutRequest,
     StoryIndexStatsResponse,
+    UpdateAgentFileRequest,
     TraceabilityGraphResponse,
     UpdateContextFileRequest,
 )
@@ -69,6 +72,51 @@ _CONTEXT_FILES = [
     ("figma-context.md", "Figma Context"),
 ]
 _ALLOWED_CONTEXT_FILES = {filename for filename, _ in _CONTEXT_FILES}
+
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_AGENT_FILES = [
+    ("AGENTS.md", "Codex / Agent Instructions"),
+    ("CLAUDE.md", "Claude Code Instructions"),
+    ("CODEX.md", "Codex Instructions"),
+    ("GEMINI.md", "Gemini Instructions"),
+]
+_ALLOWED_AGENT_FILES = {filename for filename, _label in _AGENT_FILES}
+
+
+def _gitignore_ignores(filename: str) -> bool:
+    try:
+        lines = (_REPO_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return False
+    return any(line.strip() == filename for line in lines)
+
+
+def _agent_file_path(filename: str) -> Path:
+    if filename not in _ALLOWED_AGENT_FILES:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown agent file.")
+    path = (_REPO_ROOT / filename).resolve()
+    if path.parent != _REPO_ROOT:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid agent file path.")
+    return path
+
+
+def _agent_file_payload(filename: str, label: str) -> dict:
+    path = _agent_file_path(filename)
+    content = ""
+    exists = path.exists()
+    if exists:
+        try:
+            content = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError as exc:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Agent file must be UTF-8 text.") from exc
+    return {
+        "filename": filename,
+        "label": label,
+        "content": content,
+        "chars": len(content),
+        "exists": exists,
+        "ignored": _gitignore_ignores(filename),
+    }
 
 
 @router.get("/config", response_model=ConfigResponse)
@@ -383,6 +431,22 @@ def get_context_files(ctx: RequestContext = Depends(get_request_context)):
             "version": context.spec_version(filename),
         })
     return {"files": files, "total_chars": sum(file["chars"] for file in files)}
+
+
+@router.get("/agent-files", response_model=AgentFilesResponse)
+def get_agent_files(_ctx: RequestContext = Depends(get_request_context)):
+    return {"files": [_agent_file_payload(filename, label) for filename, label in _AGENT_FILES]}
+
+
+@router.put("/agent-files/{filename}", response_model=AgentFilesResponse)
+def update_agent_file(
+    filename: str,
+    payload: UpdateAgentFileRequest,
+    _ctx: RequestContext = Depends(get_request_context),
+):
+    path = _agent_file_path(filename)
+    path.write_text(payload.content, encoding="utf-8")
+    return get_agent_files(_ctx)
 
 
 @router.get("/traceability-graph", response_model=TraceabilityGraphResponse)

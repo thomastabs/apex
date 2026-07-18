@@ -174,6 +174,11 @@ export function Phase1Workflow() {
   const [selectedLoadEpicId, setSelectedLoadEpicId] = useState<number | null>(null);
   const [pushSuccess, setPushSuccess] = useState(false);
   const [constraintsGenerated, setConstraintsGenerated] = useState(false);
+  const [suggestExtraContext, setSuggestExtraContext] = useState<string[]>([]);
+  const [gapExtraContext, setGapExtraContext] = useState<string[]>([]);
+  const [generateExtraContext, setGenerateExtraContext] = useState<string[]>([]);
+  const [reviewExtraContext, setReviewExtraContext] = useState<string[]>([]);
+  const [constraintsExtraContext, setConstraintsExtraContext] = useState<string[]>([]);
   const [diagramOpen, setDiagramOpen] = useState(false);
   const [earsOpen, setEarsOpen] = useState(false);
   const [onboardingDraft, setOnboardingDraft] = useState<Phase1OnboardingDraft>(EMPTY_ONBOARDING);
@@ -320,7 +325,7 @@ export function Phase1Workflow() {
     }));
     setAppliedGapIndex(null);
     analyzeGaps.mutate(
-      { existingEpics, hint: suggestHint },
+      { existingEpics, hint: suggestHint, extraContextFiles: gapExtraContext },
       {
         onSuccess: (report) => {
           setGapReport(report);
@@ -789,7 +794,7 @@ export function Phase1Workflow() {
                   onClick={() => {
                     setEditedDescriptions({});
                     setAppliedSuggestionIndex(null);
-                    suggestEpics.mutate(suggestHint, {
+                    suggestEpics.mutate({ hint: suggestHint, extraContextFiles: suggestExtraContext }, {
                       onSuccess: (data) => {
                         setSuggestions(data.epics);
                         toast.success(t("phase1.toast.suggestionsReady"));
@@ -801,7 +806,13 @@ export function Phase1Workflow() {
                   <Sparkles className="size-4" />
                   {suggestEpics.isPending ? t("common.generating") : t("phase1.mode.aiSuggests")}
                 </Button>
-                <AiGroundingNote files={AI_GROUNDING.phase1SuggestEpics} dark={dark} />
+                <AiGroundingNote
+                  files={AI_GROUNDING.phase1SuggestEpics}
+                  dark={dark}
+                  availableFiles={contextFiles.data?.files}
+                  selectedExtraFiles={suggestExtraContext}
+                  onSelectedExtraFilesChange={setSuggestExtraContext}
+                />
                 <AIProgressIndicator steps={SUGGEST_STEPS} isPending={suggestEpics.isPending} dark={dark} />
                 {suggestEpics.isPending && <CancelButton onCancel={() => suggestEpics.cancel()} className="mt-2" />}
                 {suggestions.length && !suggestEpics.isPending ? (
@@ -892,7 +903,13 @@ export function Phase1Workflow() {
                     <ScanSearch className="size-4" />
                     {analyzeGaps.isPending ? t("common.analyzing") : t("phase1.analyzeCoverageGaps")}
                   </Button>
-                  <AiGroundingNote files={AI_GROUNDING.phase1GapAnalysis} dark={dark} />
+                  <AiGroundingNote
+                    files={AI_GROUNDING.phase1GapAnalysis}
+                    dark={dark}
+                    availableFiles={contextFiles.data?.files}
+                    selectedExtraFiles={gapExtraContext}
+                    onSelectedExtraFilesChange={setGapExtraContext}
+                  />
                   {!hasProjectConcept ? (
                     <p className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
                       {t("phase1.gapNeedsConcept")}
@@ -1036,7 +1053,7 @@ export function Phase1Workflow() {
                 disabled={!canGenerate || busy || noContext}
                 onClick={() =>
                   generate.mutate(
-                    { epic_subject: epicTitle, epic_description: epicDescription, hint: generateHint },
+                    { epic_subject: epicTitle, epic_description: epicDescription, hint: generateHint, extra_context_files: generateExtraContext },
                     {
                       onSuccess: (data) => {
                         setNlDraft(data.nl_draft);
@@ -1052,7 +1069,13 @@ export function Phase1Workflow() {
                 {generate.isPending ? t("common.generating") : t("phase1.generateStories")}
               </Button>
             </div>
-            <AiGroundingNote files={AI_GROUNDING.phase1GenerateStories} dark={dark} />
+            <AiGroundingNote
+              files={AI_GROUNDING.phase1GenerateStories}
+              dark={dark}
+              availableFiles={contextFiles.data?.files}
+              selectedExtraFiles={generateExtraContext}
+              onSelectedExtraFilesChange={setGenerateExtraContext}
+            />
             <AIProgressIndicator steps={GENERATE_STEPS} isPending={generate.isPending} dark={dark} />
             {generate.isPending && <CancelButton onCancel={() => generate.cancel()} className="w-full" />}
             {generate.isError ? (
@@ -1088,7 +1111,7 @@ export function Phase1Workflow() {
                     disabled={busy || noContext || !epicTitle.trim()}
                     onClick={() =>
                       crossCheck.mutate(
-                        { epic_subject: epicTitle, epic_description: epicDescription, altModel },
+                        { epic_subject: epicTitle, epic_description: epicDescription, altModel, extra_context_files: generateExtraContext },
                         {
                           onSuccess: (r) => {
                             setCrossResult(r);
@@ -1106,7 +1129,13 @@ export function Phase1Workflow() {
                   </Button>
                 </div>
                 <AIProgressIndicator steps={GENERATE_STEPS} isPending={crossCheck.isPending} dark={dark} />
-                <AiGroundingNote files={AI_GROUNDING.phase1GenerateStories} dark={dark} />
+                <AiGroundingNote
+                  files={AI_GROUNDING.phase1GenerateStories}
+                  dark={dark}
+                  availableFiles={contextFiles.data?.files}
+                  selectedExtraFiles={generateExtraContext}
+                  onSelectedExtraFilesChange={setGenerateExtraContext}
+                />
                 {crossCheck.isPending && <CancelButton onCancel={() => crossCheck.cancel()} className="w-full" />}
                 {crossResult ? (
                   <CrossCheckPanel
@@ -1130,7 +1159,7 @@ export function Phase1Workflow() {
                 disabled={busy || noContext || !nlDraft.trim()}
                 onClick={() =>
                   clarify.mutate(
-                    { epic_subject: epicTitle, epic_description: epicDescription, nl_draft: nlDraft, hint: generateHint },
+                    { epic_subject: epicTitle, epic_description: epicDescription, nl_draft: nlDraft, hint: generateHint, extra_context_files: reviewExtraContext },
                     {
                       onSuccess: (data) => {
                         setQaQuestions(data.questions);
@@ -1148,7 +1177,13 @@ export function Phase1Workflow() {
                   : <><HelpCircle className="size-4" /> {t("phase1.clarifyAmbiguities")}</>}
               </Button>
               <AIProgressIndicator steps={CLARIFY_STEPS} isPending={clarify.isPending} dark={dark} />
-              <AiGroundingNote files={AI_GROUNDING.phase1ReviewDraft} dark={dark} />
+              <AiGroundingNote
+                files={AI_GROUNDING.phase1ReviewDraft}
+                dark={dark}
+                availableFiles={contextFiles.data?.files}
+                selectedExtraFiles={reviewExtraContext}
+                onSelectedExtraFilesChange={setReviewExtraContext}
+              />
               {clarify.isPending && <CancelButton onCancel={() => clarify.cancel()} className="w-full" />}
               {qaQuestions.length > 0 ? (
                 <div className={cn("space-y-3 rounded-md border p-3", dark ? "border-neutral-700 bg-neutral-800/50" : "border-slate-200 bg-slate-50")}>
@@ -1373,7 +1408,7 @@ export function Phase1Workflow() {
                         className="mt-3 w-full"
                         disabled={genConstraints.isPending || updateContextFile.isPending}
                         onClick={() =>
-                          genConstraints.mutate(undefined, {
+                          genConstraints.mutate(constraintsExtraContext, {
                             onSuccess: (res) => {
                               updateContextFile.mutate({ filename: "constraints.md", content: res.constraints_md });
                               setConstraintsGenerated(true);
@@ -1386,7 +1421,13 @@ export function Phase1Workflow() {
                           ? <><Loader2 className="size-4 animate-spin" /> {t("common.generating")}</>
                           : t(hasExistingConstraints || constraintsGenerated ? "phase1.updateConstraints" : "phase1.generateConstraints")}
                       </Button>
-                      <AiGroundingNote files={AI_GROUNDING.phase1Constraints} dark={dark} />
+                      <AiGroundingNote
+                        files={AI_GROUNDING.phase1Constraints}
+                        dark={dark}
+                        availableFiles={contextFiles.data?.files}
+                        selectedExtraFiles={constraintsExtraContext}
+                        onSelectedExtraFilesChange={setConstraintsExtraContext}
+                      />
                       <AIProgressIndicator steps={CONSTRAINT_STEPS} isPending={genConstraints.isPending} dark={dark} />
                       {genConstraints.isPending && <CancelButton onCancel={() => genConstraints.cancel()} className="mt-2" />}
                     </>

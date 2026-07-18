@@ -59,6 +59,23 @@ class ContextFilesResponse(BaseModel):
     total_chars: int
 
 
+class AgentFileSchema(BaseModel):
+    filename: str
+    label: str
+    content: str = ""
+    chars: int = 0
+    exists: bool = False
+    ignored: bool = False
+
+
+class AgentFilesResponse(BaseModel):
+    files: list[AgentFileSchema]
+
+
+class UpdateAgentFileRequest(BaseModel):
+    content: str = Field(..., max_length=200_000)
+
+
 class UpdateContextFileRequest(BaseModel):
     content: str = Field(..., max_length=5_242_880)  # 5 MB
     note: str = Field("", max_length=500)

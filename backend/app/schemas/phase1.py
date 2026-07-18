@@ -3,12 +3,16 @@
 from pydantic import BaseModel, Field
 
 
+class ExtraContextMixin(BaseModel):
+    extra_context_files: list[str] = Field(default_factory=list, max_length=12)
+
+
 class EpicSuggestionSchema(BaseModel):
     title: str
     description: str
 
 
-class SuggestEpicsRequest(BaseModel):
+class SuggestEpicsRequest(ExtraContextMixin):
     hint: str = Field("", max_length=2_000)
 
 
@@ -22,7 +26,7 @@ class ExistingEpicSchema(BaseModel):
     stories: list[str] = Field(default_factory=list, max_length=200)
 
 
-class AnalyzeGapsRequest(BaseModel):
+class AnalyzeGapsRequest(ExtraContextMixin):
     existing_epics: list[ExistingEpicSchema] = Field(default_factory=list, max_length=200)
     hint: str = Field("", max_length=2_000)
 
@@ -40,7 +44,7 @@ class AnalyzeGapsResponse(BaseModel):
     gaps: list[RequirementGapSchema]
 
 
-class GenerateNlStoriesRequest(BaseModel):
+class GenerateNlStoriesRequest(ExtraContextMixin):
     epic_subject: str = Field(..., max_length=500)
     epic_description: str = Field("", max_length=5_000)
     hint: str = Field("", max_length=2_000)
@@ -63,14 +67,14 @@ class FigmaFlowSchema(BaseModel):
     to_name: str = Field(..., max_length=300)
 
 
-class GenerateStoriesFromFigmaRequest(BaseModel):
+class GenerateStoriesFromFigmaRequest(ExtraContextMixin):
     frames: list[FigmaFrameSchema] = Field(default_factory=list, max_length=200)
     flows: list[FigmaFlowSchema] = Field(default_factory=list, max_length=400)
     instructions: str = Field("", max_length=2_000)
     file_key: str = Field("", max_length=128)  # enables server-side frame rendering (U1)
 
 
-class CrossCheckRequest(BaseModel):
+class CrossCheckRequest(ExtraContextMixin):
     epic_subject: str = Field(..., max_length=500)
     epic_description: str = Field("", max_length=5_000)
     hint: str = Field("", max_length=2_000)
@@ -99,7 +103,7 @@ class ClarifyingQuestionSchema(BaseModel):
     rationale: str = ""
 
 
-class GenerateClarifyingQuestionsRequest(BaseModel):
+class GenerateClarifyingQuestionsRequest(ExtraContextMixin):
     epic_subject: str = Field(..., max_length=500)
     epic_description: str = Field("", max_length=5_000)
     nl_draft: str = Field(..., max_length=50_000)
@@ -162,6 +166,10 @@ class ConstraintSchema(BaseModel):
 class GenerateConstraintsResponse(BaseModel):
     constraints: list[ConstraintSchema]
     constraints_md: str
+
+
+class GenerateConstraintsRequest(ExtraContextMixin):
+    pass
 
 
 class SaveConstraintsRequest(BaseModel):

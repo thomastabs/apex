@@ -16,6 +16,7 @@ import {
   deleteProject,
   deleteStory,
   getAiConfig,
+  getAgentFiles,
   getBoard,
   getContextFiles,
   getFigmaToken,
@@ -49,6 +50,7 @@ import {
   saveServerConfig,
   setStoryPhaseStatus,
   setStoryScaffold,
+  updateAgentFile,
   updateContextFile,
   updateEpic,
   updateMemberRole,
@@ -153,6 +155,28 @@ export function useContextFiles() {
     queryFn: () => getContextFiles(context!),
     enabled: Boolean(context),
     staleTime: 30 * 1000,
+  });
+}
+
+export function useAgentFiles() {
+  const context = useApiContext();
+  return useQuery({
+    queryKey: ["workspace", "agent-files", context?.projectId],
+    queryFn: () => getAgentFiles(context!),
+    enabled: Boolean(context),
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useUpdateAgentFile() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ filename, content }: { filename: string; content: string }) =>
+      updateAgentFile(context!, filename, content),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "agent-files"] });
+    },
   });
 }
 

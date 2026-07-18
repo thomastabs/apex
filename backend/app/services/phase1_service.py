@@ -4,6 +4,22 @@ from backend.app.services.ai_service import AiService
 from backend.app.services.context_service import ContextService
 from backend.app.services.request_context import RequestContext
 
+_EXTRA_CONTEXT_MAX_CHARS_PER_FILE = 20_000
+_EXTRA_CONTEXT_MAX_TOTAL_CHARS = 60_000
+_EXTRA_CONTEXT_FILES = {
+    "project-concept.md",
+    "tech-stack.md",
+    "functional-spec.md",
+    "technical-spec.md",
+    "constraints.md",
+    "fix-log.md",
+    "decisions.md",
+    "design-bundle.md",
+    "runtime-spec.md",
+    "github-context.md",
+    "figma-context.md",
+}
+
 
 class Phase1ValidationError(ValueError):
     """Raised when a Phase 1 request is structurally invalid."""
@@ -22,17 +38,47 @@ class Phase1Service:
     def configure_request(self, ctx: RequestContext) -> None:
         self.context.set_active(ctx)
 
-    def suggest_epics(self, ctx: RequestContext, *, hint: str = "") -> list[dict]:
+    def _extra_context_block(self, filenames: list[str] | None) -> str:
+        if not filenames:
+            return ""
+        seen: set[str] = set()
+        total = 0
+        sections: list[str] = []
+        for filename in filenames:
+            name = filename.strip()
+            if not name or name in seen:
+                continue
+            seen.add(name)
+            if name not in _EXTRA_CONTEXT_FILES:
+                raise Phase1ValidationError(f"Unknown extra context file: {name}")
+            content = self.context.read_context_file(name).strip()
+            if not content:
+                continue
+            remaining = _EXTRA_CONTEXT_MAX_TOTAL_CHARS - total
+            if remaining <= 0:
+                break
+            clipped = content[: min(len(content), _EXTRA_CONTEXT_MAX_CHARS_PER_FILE, remaining)]
+            total += len(clipped)
+            suffix = "\n\n[truncated]" if len(clipped) < len(content) else ""
+            sections.append(f"### {name}\n\n{clipped}{suffix}")
+        if not sections:
+            return ""
+        return "\n\n## Additional Apex Context Files\n\n" + "\n\n".join(sections)
+
+    def _with_extra_context(self, text: str, filenames: list[str] | None) -> str:
+        return (text or "") + self._extra_context_block(filenames)
+
+    def suggest_epics(self, ctx: RequestContext, *, hint: str = "", extra_context_files: list[str] | None = None) -> list[dict]:
         self.configure_request(ctx)
-        concept = self.context.project_concept()
+        concept = self._with_extra_context(self.context.project_concept(), extra_context_files)
         return self.ai.suggest_epics(concept, hint)
 
     def analyze_gaps(
-        self, ctx: RequestContext, *, existing_epics: list[dict], hint: str = "",
+        self, ctx: RequestContext, *, existing_epics: list[dict], hint: str = "", extra_context_files: list[str] | None = None,
     ) -> dict:
         """Audit current epics/stories against the concept; report coverage gaps."""
         self.configure_request(ctx)
-        concept = self.context.project_concept()
+        concept = self._with_extra_context(self.context.project_concept(), extra_context_files)
         if not concept.strip():
             raise Phase1ValidationError(
                 "A project concept is required before analysing requirement gaps."
@@ -49,12 +95,13 @@ class Phase1Service:
         instructions: str = "",
         images: list[dict] | None = None,
         figma_token: str = "",
+        extra_context_files: list[str] | None = None,
     ) -> tuple[str, int]:
         self.configure_request(ctx)
         subject = epic_subject.strip()
         if not subject:
             raise Phase1ValidationError("epic_subject is required.")
-        concept = self.context.project_concept()
+        concept = self._with_extra_context(self.context.project_concept(), extra_context_files)
         figma_context = self.context.read_context_file("figma-context.md")
         # U1 parity: when a Figma token is supplied and a file is configured for
         # this instance, ground generation on the designed screens that match the
@@ -87,11 +134,12 @@ class Phase1Service:
         instructions: str = "",
         figma_token: str = "",
         file_key: str = "",
+        extra_context_files: list[str] | None = None,
     ) -> tuple[str, int]:
         self.configure_request(ctx)
         if not frames:
             raise Phase1ValidationError("At least one Figma frame is required.")
-        concept = self.context.project_concept()
+        concept = self._with_extra_context(self.context.project_concept(), extra_context_files)
         # U1: when a token + file key are supplied, render the frames to PNGs and
         # attach them for multimodal grounding. Advisory — the fetch helpers never
         # raise, so a bad token simply falls back to the text-only (names) prompt.
@@ -120,6 +168,7 @@ class Phase1Service:
         epic_description: str,
         hint: str = "",
         alt_model: str = "",
+        extra_context_files: list[str] | None = None,
     ) -> dict:
         """Run story generation through the active model AND a second configured
         provider, returning the scenario-level diff (agreed / only-in-each)."""
@@ -138,7 +187,7 @@ class Phase1Service:
         labels = {m["id"]: m.get("label", m["id"]) for m in ai_engine.AVAILABLE_MODELS}
         diff = self.ai.cross_check_nl_stories(
             subject, epic_description,
-            hint=hint, project_concept=self.context.project_concept(),
+            hint=hint, project_concept=self._with_extra_context(self.context.project_concept(), extra_context_files),
             primary_model=primary, alt_model=alt,
         )
         return {
@@ -157,11 +206,12 @@ class Phase1Service:
         epic_description: str = "",
         nl_draft: str,
         hint: str = "",
+        extra_context_files: list[str] | None = None,
     ) -> list[dict]:
         self.configure_request(ctx)
         if not nl_draft.strip():
             raise Phase1ValidationError("nl_draft is required.")
-        concept = self.context.project_concept()
+        concept = self._with_extra_context(self.context.project_concept(), extra_context_files)
         return self.ai.generate_clarifying_questions(
             epic_subject, epic_description, nl_draft,
             project_concept=concept, hint=hint,
@@ -179,10 +229,10 @@ class Phase1Service:
             for e in self.context.story_index().values()
         ]
 
-    def generate_constraints(self, ctx: RequestContext) -> tuple[list[dict], str]:
+    def generate_constraints(self, ctx: RequestContext, *, extra_context_files: list[str] | None = None) -> tuple[list[dict], str]:
         """Generate or update EARS constraints for the whole project."""
         self.configure_request(ctx)
-        concept = self.context.project_concept()
+        concept = self._with_extra_context(self.context.project_concept(), extra_context_files)
         tech_stack = self.context.read_tech_stack()
         existing_constraints = self.context.read_context_file("constraints.md")
         return self.ai.generate_constraints(

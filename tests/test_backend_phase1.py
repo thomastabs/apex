@@ -11,6 +11,7 @@ class FakeAiService:
         self.generated_args = None
 
     def suggest_epics(self, project_concept: str, hint: str) -> list[dict]:
+        self.suggest_args = (project_concept, hint)
         return [{"title": "Account Access", "description": f"{project_concept}|{hint}"}]
 
     def analyze_requirement_gaps(self, project_concept, existing_epics, hint="") -> dict:
@@ -398,6 +399,18 @@ def test_generate_constraints_grounds_in_concept_stack_and_stories():
     assert all(set(s) == {"epic_title", "title"} for s in all_stories)
     assert items[0]["id"] == "NFR-1"
     assert md.startswith("# Constraints")
+
+
+def test_suggest_epics_appends_selected_extra_context_file():
+    service, ai, context = _service()
+    context.files = {"decisions.md": "# Decisions\n\n- Prefer OAuth."}
+
+    service.suggest_epics(_ctx(), hint="", extra_context_files=["decisions.md"])
+
+    concept, _hint = ai.suggest_args
+    assert "## Additional Apex Context Files" in concept
+    assert "### decisions.md" in concept
+    assert "Prefer OAuth" in concept
 
 
 def test_save_and_get_constraints_roundtrip():

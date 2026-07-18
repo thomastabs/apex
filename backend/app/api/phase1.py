@@ -17,6 +17,7 @@ from backend.app.schemas.phase1 import (
     FinalizeStoriesResponse,
     GenerateClarifyingQuestionsRequest,
     GenerateClarifyingQuestionsResponse,
+    GenerateConstraintsRequest,
     GenerateConstraintsResponse,
     GenerateNlStoriesRequest,
     GenerateNlStoriesResponse,
@@ -58,7 +59,11 @@ def suggest_epics(
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
-        return {"epics": service.suggest_epics(ctx, hint=payload.hint)}
+        return {"epics": service.suggest_epics(
+            ctx,
+            hint=payload.hint,
+            extra_context_files=payload.extra_context_files,
+        )}
     except Exception as exc:
         _handle_error(exc)
 
@@ -75,6 +80,7 @@ def analyze_gaps(
             ctx,
             existing_epics=[e.model_dump() for e in payload.existing_epics],
             hint=payload.hint,
+            extra_context_files=payload.extra_context_files,
         )
     except Exception as exc:
         _handle_error(exc)
@@ -96,6 +102,7 @@ def generate_nl_stories(
             hint=payload.hint,
             instructions=payload.instructions,
             figma_token=x_figma_token.strip(),
+            extra_context_files=payload.extra_context_files,
         )
         return {"nl_draft": nl_draft, "story_count": story_count}
     except Exception as exc:
@@ -118,6 +125,7 @@ def generate_stories_from_figma(
             instructions=payload.instructions,
             figma_token=x_figma_token.strip(),
             file_key=payload.file_key.strip(),
+            extra_context_files=payload.extra_context_files,
         )
         return {"nl_draft": nl_draft, "story_count": story_count}
     except Exception as exc:
@@ -139,6 +147,7 @@ def generate_clarifying_questions(
                 epic_description=payload.epic_description,
                 nl_draft=payload.nl_draft,
                 hint=payload.hint,
+                extra_context_files=payload.extra_context_files,
             )
         }
     except Exception as exc:
@@ -159,6 +168,7 @@ def cross_check_stories(
             epic_description=payload.epic_description,
             hint=payload.hint,
             alt_model=payload.alt_model,
+            extra_context_files=payload.extra_context_files,
         )
     except Exception as exc:
         _handle_error(exc)
@@ -202,12 +212,16 @@ def finalize_stories(
 
 @router.post("/generate-constraints", response_model=GenerateConstraintsResponse)
 def generate_constraints(
+    payload: GenerateConstraintsRequest | None = None,
     ctx: RequestContext = Depends(get_request_context),
     service: Phase1Service = Depends(get_phase1_service),
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
-        constraints, constraints_md = service.generate_constraints(ctx)
+        constraints, constraints_md = service.generate_constraints(
+            ctx,
+            extra_context_files=payload.extra_context_files if payload else [],
+        )
         return {"constraints": constraints, "constraints_md": constraints_md}
     except Exception as exc:
         _handle_error(exc)

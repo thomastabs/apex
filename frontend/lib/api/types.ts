@@ -65,6 +65,10 @@ export type ContextFilesResponse = {
   total_chars: number;
 };
 
+export type ExtraContextRequest = {
+  extra_context_files?: string[];
+};
+
 export type Membership = {
   id: number;
   user?: number | null;
@@ -111,7 +115,7 @@ export type CompiledStory = {
   assumptions?: string[];
 };
 
-export type Phase1GenerateNlStoriesRequest = {
+export type Phase1GenerateNlStoriesRequest = ExtraContextRequest & {
   epic_subject: string;
   epic_description?: string;
   hint?: string;
@@ -138,7 +142,7 @@ export type QaPair = {
   answer: string;
 };
 
-export type Phase1GenerateClarifyingQuestionsRequest = {
+export type Phase1GenerateClarifyingQuestionsRequest = ExtraContextRequest & {
   epic_subject: string;
   epic_description?: string;
   nl_draft: string;

@@ -1,15 +1,17 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { BookOpen, ChevronRight, Download, FileText, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { BookOpen, Bot, ChevronRight, Download, FileText, RefreshCw, Save, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   useAiConfig,
+  useAgentFiles,
   useContextFiles,
   useRebuildStoryIndex,
   useResetAllContextFiles,
   useResetContextFile,
   useUpdateContextFile,
+  useUpdateAgentFile,
 } from "@/lib/hooks/use-workspace";
 import { useGenerateConstraints } from "@/lib/hooks/use-phase1";
 import { Callout } from "@/components/ui/primitives";
@@ -161,6 +163,60 @@ function downloadContextZip(files: Array<{ filename: string; content: string }>,
   downloadZip(files, "apex-context-files.zip");
 }
 
+function AgentFileEditor({
+  file,
+  dark,
+}: {
+  file: { filename: string; label: string; content: string; chars: number; exists: boolean; ignored: boolean };
+  dark: boolean;
+}) {
+  const t = useT();
+  const [value, setValue] = useState(file.content);
+  const update = useUpdateAgentFile();
+
+  useEffect(() => {
+    setValue(file.content);
+  }, [file.content, file.filename]);
+
+  return (
+    <div className={cn("border-t", dark ? "border-neutral-800" : "border-slate-200")}>
+      <div className={cn("flex flex-wrap items-center gap-2 px-3 py-2 text-xs", dark ? "text-neutral-500" : "text-slate-500")}>
+        <span>{value.length} ch</span>
+        <span className={cn("rounded border px-1.5 py-0.5", file.ignored ? "border-amber-500/40 text-amber-400" : dark ? "border-neutral-700 text-neutral-400" : "border-slate-300 text-slate-500")}>
+          {file.ignored ? t("agentFiles.localOnly") : t("agentFiles.repoVisible")}
+        </span>
+        {!file.exists ? <span>{t("agentFiles.notCreated")}</span> : null}
+      </div>
+      <textarea
+        className={cn("h-48 w-full resize-y border-y p-3 font-mono text-xs leading-5 outline-none", dark ? "border-neutral-800 bg-neutral-950 text-neutral-200" : "border-slate-200 bg-white text-slate-800")}
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+      />
+      <div className="grid grid-cols-2 gap-2 p-2">
+        <button
+          className={cn("flex h-8 items-center justify-center gap-1 rounded text-xs", dark ? "bg-violet-700 text-violet-50 hover:bg-violet-600" : "bg-violet-600 text-white hover:bg-violet-700")}
+          disabled={update.isPending}
+          onClick={() => update.mutate(
+            { filename: file.filename, content: value },
+            {
+              onSuccess: () => toast.success(t("agentFiles.saved", { file: file.filename })),
+              onError: () => toast.error(t("agentFiles.saveFailed", { file: file.filename })),
+            },
+          )}
+        >
+          <Save className="size-3" /> {update.isPending ? t("common.saving") : t("common.save")}
+        </button>
+        <button
+          className={cn("flex h-8 items-center justify-center gap-1 rounded text-xs", dark ? "bg-neutral-700 text-neutral-200 hover:bg-neutral-600" : "bg-slate-100 text-slate-700 hover:bg-slate-200")}
+          onClick={() => downloadFile(file.filename, value)}
+        >
+          <Download className="size-3" /> {t("common.download")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ContextEditor({
   file,
   onConfirm,
@@ -284,11 +340,14 @@ type ContextSectionProps = DragSectionProps & {
 export function ContextSection({ dark, projectId: _projectId, confirm, shellClass, dragHandlers, onDragStart }: ContextSectionProps) {
   const t = useT();
   const [contextOpen, setContextOpen] = useState(false);
+  const [agentOpen, setAgentOpen] = useState(false);
   const [expandedContext, setExpandedContext] = useState<string | null>(null);
+  const [expandedAgentFile, setExpandedAgentFile] = useState<string | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
 
   const context = useApiContext();
   const contextFiles = useContextFiles();
+  const agentFiles = useAgentFiles();
   const aiConfig = useAiConfig();
   const rebuildIndex = useRebuildStoryIndex();
   const resetAll = useResetAllContextFiles();
@@ -465,6 +524,87 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
               </button>
             </div>
             </>
+            )}
+          </div>
+        ) : null}
+      </section>
+      <section className={cn("border-b", sectionBorderClass)}>
+        <PanelHeader
+          icon={<Bot className="size-4" />}
+          title={t("agentFiles.panelTitle")}
+          badge={context ? `${agentFiles.data?.files?.filter((file) => file.exists).length ?? 0}` : "—"}
+          open={agentOpen}
+          onClick={() => setAgentOpen(!agentOpen)}
+          onDragStart={onDragStart}
+        />
+        {agentOpen ? (
+          <div className={cn("px-4 py-4", expandedPanelClass)}>
+            {!context ? (
+              <SignInRequired unlocks={t("agentFiles.unlocks")} />
+            ) : (
+              <>
+                <p className={cn("mb-3 text-sm", dark ? "text-neutral-500" : "text-slate-500")}>
+                  {t("agentFiles.desc")}
+                </p>
+                <div className="mb-4 space-y-3">
+                  {(agentFiles.data?.files ?? []).map((file) => (
+                    <div
+                      key={file.filename}
+                      className={cn(
+                        "group rounded-md border transition-all duration-200 ease-out",
+                        dark
+                          ? "border-neutral-700 bg-[#17181d] hover:border-violet-500/60 hover:bg-[#232638]"
+                          : "border-slate-200 bg-white hover:border-violet-300 hover:bg-violet-50/70",
+                      )}
+                    >
+                      <button
+                        className="flex h-10 w-full items-center gap-3 px-4 text-left transition-colors duration-200"
+                        onClick={() => setExpandedAgentFile(expandedAgentFile === file.filename ? null : file.filename)}
+                      >
+                        <ChevronRight className={cn("size-3 transition-all duration-200 group-hover:text-violet-400", dark ? "text-neutral-500" : "text-slate-400", expandedAgentFile === file.filename && "rotate-90 text-violet-400")} />
+                        <FileText className="size-4 text-violet-400" />
+                        <span className={cn("min-w-0 flex-1 truncate text-sm font-medium", dark ? "text-white" : "text-slate-950")}>
+                          {file.label}
+                        </span>
+                        <span className="font-mono text-xs opacity-70">{file.filename}</span>
+                      </button>
+                      {expandedAgentFile === file.filename ? (
+                        <AgentFileEditor file={file} dark={dark} />
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-2">
+                  <button
+                    className={cn(
+                      "flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 disabled:opacity-40",
+                      dark ? "text-violet-300 hover:text-violet-200" : "text-violet-700 hover:text-violet-800",
+                    )}
+                    disabled={agentFiles.isFetching}
+                    onClick={() => { agentFiles.refetch(); toast.info(t("agentFiles.reloaded")); }}
+                  >
+                    <span>{t("agentFiles.reload")}</span>
+                    <RefreshCw className="size-4 text-violet-400" />
+                  </button>
+                  <button
+                    className={cn(
+                      "flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 disabled:opacity-40",
+                      dark ? "text-violet-300 hover:text-violet-200" : "text-violet-700 hover:text-violet-800",
+                    )}
+                    disabled={!agentFiles.data?.files.length}
+                    onClick={() => {
+                      downloadZip(
+                        (agentFiles.data?.files ?? []).map((file) => ({ filename: file.filename, content: file.content })),
+                        "apex-agent-files.zip",
+                      );
+                      toast.success(t("agentFiles.downloaded"));
+                    }}
+                  >
+                    <span>{t("agentFiles.downloadAll")}</span>
+                    <Download className="size-4 text-violet-400" />
+                  </button>
+                </div>
+              </>
             )}
           </div>
         ) : null}

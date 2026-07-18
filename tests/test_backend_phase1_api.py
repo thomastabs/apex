@@ -25,21 +25,26 @@ class StubPhase1Service:
     def __init__(self):
         self.last_ctx = None
 
-    def generate_nl_stories(self, ctx, *, epic_subject, epic_description, hint="", instructions="", figma_token=""):
+    def generate_nl_stories(
+        self, ctx, *, epic_subject, epic_description, hint="", instructions="", figma_token="", extra_context_files=None,
+    ):
         self.last_ctx = ctx
         self.last_figma_token = figma_token
+        self.last_extra_context_files = extra_context_files
         return f"[S] {epic_subject}", 1
 
     def compile_gherkin(self, *, nl_draft, clarifications=None):
         self.last_clarifications = clarifications
         return [{"title": "Story A", "size": "S", "gherkin": "Feature: A"}]
 
-    def generate_clarifying_questions(self, ctx, *, epic_subject, epic_description="", nl_draft, hint=""):
+    def generate_clarifying_questions(self, ctx, *, epic_subject, epic_description="", nl_draft, hint="", extra_context_files=None):
         self.last_ctx = ctx
+        self.last_extra_context_files = extra_context_files
         return [{"id": "Q1", "question": "What happens on timeout?", "rationale": "Unclear."}]
 
-    def analyze_gaps(self, ctx, *, existing_epics, hint=""):
+    def analyze_gaps(self, ctx, *, existing_epics, hint="", extra_context_files=None):
         self.last_ctx = ctx
+        self.last_extra_context_files = extra_context_files
         return {"assessment": "ok", "gaps": [
             {"title": "Notifications", "kind": "missing_epic", "importance": "critical",
              "rationale": "r", "suggested_stories": ["s"]},
@@ -90,14 +95,16 @@ def test_request_context_parses_headers():
 
 
 def test_generate_nl_stories_route():
+    service = StubPhase1Service()
     response = generate_nl_stories(
-        GenerateNlStoriesRequest(epic_subject="Login", epic_description="Scope", hint=""),
+        GenerateNlStoriesRequest(epic_subject="Login", epic_description="Scope", hint="", extra_context_files=["decisions.md"]),
         ctx=_ctx(),
-        service=StubPhase1Service(),
+        service=service,
         x_figma_token="",
     )
 
     assert response == {"nl_draft": "[S] Login", "story_count": 1}
+    assert service.last_extra_context_files == ["decisions.md"]
 
 
 def test_analyze_gaps_route():
