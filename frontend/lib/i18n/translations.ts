@@ -1109,6 +1109,18 @@ export const translations = {
     "about.phase6Desc": "Monitoring, incident response, iteration",
     "about.author": "Author",
     "about.thesisLine": "MEIC-T MSc Thesis · Human–AI Collaboration in Software Development",
+
+    // ── usage section ──
+    "usage.panelTitle": "Usage",
+    "usage.failedLoad": "Failed to load usage.",
+    "usage.last30Days": "Last 30 days",
+    "usage.aiCalls": "AI calls",
+    "usage.tokensInOut": "{in} in · {out} out",
+    "usage.cachedSuffix": " · {cached} cached",
+    "usage.byModel": "By model",
+    "usage.byCall": "By call",
+    "usage.noCallsYet": "No AI calls recorded yet.",
+    "usage.callsCost": "{n}× · {cost}",
   },
   pt: {
     "nav.home": "Início",
@@ -2191,6 +2203,17 @@ export const translations = {
     "about.phase6Desc": "Monitorização, resposta a incidentes, iteração",
     "about.author": "Autor",
     "about.thesisLine": "Tese de Mestrado MEIC-T · Colaboração Humano–IA no Desenvolvimento de Software",
+
+    "usage.panelTitle": "Utilização",
+    "usage.failedLoad": "Falha ao carregar a utilização.",
+    "usage.last30Days": "Últimos 30 dias",
+    "usage.aiCalls": "Chamadas de IA",
+    "usage.tokensInOut": "{in} entrada · {out} saída",
+    "usage.cachedSuffix": " · {cached} em cache",
+    "usage.byModel": "Por modelo",
+    "usage.byCall": "Por chamada",
+    "usage.noCallsYet": "Ainda não há chamadas de IA registadas.",
+    "usage.callsCost": "{n}× · {cost}",
   },
 } as const;
 
