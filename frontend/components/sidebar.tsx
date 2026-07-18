@@ -163,6 +163,7 @@ function SettingsModal({
   serverConfig: ReturnType<typeof useServerConfig>["data"];
   pmWebUrl: string;
 }) {
+  const t = useT();
   const dialogRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<Element | null>(null);
 
@@ -192,7 +193,7 @@ function SettingsModal({
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Settings"
+        aria-label={t("sidebar.settings")}
         tabIndex={-1}
         className={cn(
           "w-full max-w-lg rounded-xl border shadow-2xl outline-none",
@@ -204,11 +205,11 @@ function SettingsModal({
         <div className={cn("flex items-center justify-between border-b px-5 py-3.5", dark ? "border-neutral-800" : "border-slate-200")}>
           <div className="flex items-center gap-2">
             <Settings className="size-4 text-violet-400" />
-            <span className={cn("text-sm font-semibold", dark ? "text-neutral-100" : "text-slate-900")}>Settings</span>
+            <span className={cn("text-sm font-semibold", dark ? "text-neutral-100" : "text-slate-900")}>{t("sidebar.settings")}</span>
           </div>
           <button
             onClick={onClose}
-            aria-label="Close settings"
+            aria-label={t("sidebar.closeSettings")}
             className={cn("grid size-6 place-items-center rounded text-sm transition-colors", dark ? "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200" : "text-slate-400 hover:bg-slate-100 hover:text-slate-700")}
           >
             ✕
@@ -294,7 +295,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
       });
       const data = await res.json().catch(() => ({})) as Record<string, unknown>;
       if (!res.ok) {
-        setLoginError((data.detail as string) ?? (res.status === 401 ? "Invalid username or password." : `Login failed — ${res.status}.`));
+        setLoginError((data.detail as string) ?? (res.status === 401 ? t("login.invalidCredentials") : t("login.loginFailedStatus", { status: res.status })));
         return;
       }
       const token = data.auth_token as string;
@@ -302,7 +303,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
       setPassword(""); setUsername("");
       await apiRequest("/api/workspace/config", { method: "POST", context: { taigaToken: token, taigaApiUrl: effectiveTaigaApiUrl, pmTool: "taiga" }, body: { pm_tool: "taiga", taiga_url: effectiveTaigaApiUrl, jira_base_url: "" } }).catch(() => undefined);
       setAuth({ taigaToken: token, taigaApiUrl: effectiveTaigaApiUrl, pmTool: "taiga" });
-    } catch { setLoginError("Cannot reach Apex backend — check your network."); }
+    } catch { setLoginError(t("login.cannotReachBackend")); }
     finally { setIsPending(false); }
   }
 
@@ -328,7 +329,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
     finally { setIsPending(false); }
   }
 
-  const displayName = me.data?.full_name || me.data?.username || (taigaToken ? "User" : "");
+  const displayName = me.data?.full_name || me.data?.username || (taigaToken ? t("login.userFallback") : "");
   const email = me.data?.email || "";
 
   // ── Signed-in card ──
@@ -342,7 +343,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
         {typeof document !== "undefined" ? createPortal(
           <ConfirmDialog
             open={confirmSignOut}
-            message="Sign out and clear unsaved phase drafts?"
+            message={t("login.signOutConfirm")}
             onConfirm={confirmSignOutAction}
             onCancel={() => setConfirmSignOut(false)}
           />,
@@ -353,7 +354,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
             {initials(displayName)}
           </div>
           <div className="min-w-0 flex-1">
-            <div className={cn("truncate text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>{displayName || "User"}</div>
+            <div className={cn("truncate text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>{displayName || t("login.userFallback")}</div>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className={cn("rounded border px-1 py-px text-xs font-semibold", pmColor)}>{pmLabel}</span>
               {email && <span className={cn("truncate text-[11px]", dark ? "text-neutral-500" : "text-slate-500")}>{email}</span>}
@@ -381,19 +382,19 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
             <button className={cn("h-8 rounded text-xs", dark ? "text-neutral-300" : "text-slate-500", mode === "password" && (dark ? "bg-neutral-700 text-white" : "bg-white text-slate-900 shadow-sm"))} onClick={() => setMode("password")}>{t("login.password")}</button>
             <button className={cn("h-8 rounded text-xs", dark ? "text-neutral-300" : "text-slate-500", mode === "token" && (dark ? "bg-neutral-700 text-white" : "bg-white text-slate-900 shadow-sm"))} onClick={() => setMode("token")}>{t("login.authToken")}</button>
           </div>
-          <input value={taigaInstanceUrl} onChange={(e) => setTaigaInstanceUrl(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white placeholder:text-neutral-600 focus:border-violet-500/70" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder="Instance URL (blank = Taiga Cloud)" autoComplete="off" />
+          <input value={taigaInstanceUrl} onChange={(e) => setTaigaInstanceUrl(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white placeholder:text-neutral-600 focus:border-violet-500/70" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.instanceUrlPlaceholder")} autoComplete="off" />
           {mode === "password" ? (
             <>
-              <input value={username} onChange={(e) => setUsername(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder="Username" />
+              <input value={username} onChange={(e) => setUsername(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.usernamePlaceholder")} />
               <div className="relative">
-                <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className={cn("h-8 w-full rounded border px-3 pr-8 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder="Password" onKeyDown={(e) => { if (e.key === "Enter") handlePasswordLogin(); }} />
+                <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className={cn("h-8 w-full rounded border px-3 pr-8 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.passwordPlaceholder")} onKeyDown={(e) => { if (e.key === "Enter") handlePasswordLogin(); }} />
                 <button type="button" onClick={() => setShowPassword((v) => !v)} className={cn("absolute inset-y-0 right-2 transition-colors", dark ? "text-neutral-500 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600")} tabIndex={-1}>
                   {showPassword ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
                 </button>
               </div>
             </>
           ) : (
-            <input value={tokenInput} onChange={(e) => setTokenInput(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder="Taiga auth token" />
+            <input value={tokenInput} onChange={(e) => setTokenInput(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.tokenPlaceholder")} />
           )}
           {loginError && <p className="text-xs text-red-400">{loginError}</p>}
           <button
@@ -409,7 +410,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
             }}
           >
             <Send className="size-3" />
-            {isPending ? "Signing in..." : t("login.signInToTaiga")}
+            {isPending ? t("login.signingIn") : t("login.signInToTaiga")}
           </button>
           <a href={pmWebUrl || "https://tree.taiga.io"} target="_blank" rel="noopener noreferrer" className={cn("flex items-center justify-center gap-1 text-[11px] transition-colors hover:text-violet-400", dark ? "text-neutral-500" : "text-slate-600")}>
             <UserPlus className="size-3" /> {t("login.createAccount")}
@@ -446,6 +447,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
 // ── session hooks ─────────────────────────────────────────────────────────────
 
 function useRestoreSession() {
+  const t = useT();
   const taigaToken = useSessionStore((s) => s.taigaToken);
   const clearSession = useSessionStore((s) => s.clearSession);
   const clearPhase2Draft = usePhase2Store((s) => s.clearPhase2Draft);
@@ -459,11 +461,12 @@ function useRestoreSession() {
   useEffect(() => {
     if (!taigaToken) return;
     if (me.isError && me.error instanceof ApiError && me.error.status === 401) {
-      toast.error("Session expired — please sign in again.");
+      toast.error(t("login.sessionExpired"));
       clearSession(); clearPhase2Draft(); clearPhase3Draft(); clearPhase4Draft(); clearPhase5Draft();
       queryClient.clear();
       router.push("/");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taigaToken, me.isError, me.error, clearSession, clearPhase2Draft, clearPhase3Draft, clearPhase4Draft, clearPhase5Draft, queryClient, router]);
 }
 
@@ -578,13 +581,13 @@ export function Sidebar() {
         </div>
         <div className="flex min-h-0 flex-1 items-center justify-center pb-4">
           <span className={cn("rotate-180 select-none text-xs font-bold uppercase tracking-[0.2em] [writing-mode:vertical-rl]", dark ? "text-neutral-700" : "text-slate-300")}>
-            Navigation
+            {t("sidebar.navigationVertical")}
           </span>
         </div>
         <button
           onClick={() => setSettingsOpen(true)}
           className={cn("grid size-9 shrink-0 place-items-center self-center mb-2 rounded transition-colors", dark ? "text-neutral-600 hover:text-neutral-300" : "text-slate-300 hover:text-slate-600")}
-          aria-label="Settings"
+          aria-label={t("sidebar.settings")}
         >
           <Settings className="size-4" />
         </button>
@@ -615,7 +618,7 @@ export function Sidebar() {
         onPointerDown={startSidebarResize}
         role="separator"
         aria-orientation="vertical"
-        aria-label="Resize sidebar"
+        aria-label={t("sidebar.resizeSidebar")}
         aria-valuenow={sidebarWidth}
         aria-valuemin={280}
         aria-valuemax={900}
@@ -638,7 +641,7 @@ export function Sidebar() {
             </span>
           )}
         </Link>
-        <button onClick={toggleTheme} className={cn("grid size-7 shrink-0 place-items-center rounded transition-colors", dark ? "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200" : "text-slate-400 hover:bg-slate-200 hover:text-slate-700")} aria-label="Toggle theme">
+        <button onClick={toggleTheme} className={cn("grid size-7 shrink-0 place-items-center rounded transition-colors", dark ? "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200" : "text-slate-400 hover:bg-slate-200 hover:text-slate-700")} aria-label={t("sidebar.toggleTheme")}>
           {dark ? <Moon className="size-3.5" /> : <Sun className="size-3.5" />}
         </button>
         <button
@@ -649,7 +652,7 @@ export function Sidebar() {
             requestAnimationFrame(() => window.scrollTo({ left: 0 }));
           }}
           className={cn("grid size-7 shrink-0 place-items-center rounded transition-colors", dark ? "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200" : "text-slate-400 hover:bg-slate-200 hover:text-slate-700")}
-          aria-label="Collapse sidebar"
+          aria-label={t("sidebar.collapseSidebar")}
         >
           <span className="text-base leading-none">↤</span>
         </button>

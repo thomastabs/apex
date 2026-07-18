@@ -149,7 +149,7 @@ export function RightSidebar() {
   if (collapsed) {
     return (
       <aside className={cn("sticky top-0 h-screen w-12 shrink-0 border-l flex flex-col", sidebarBg)}>
-        <button className="grid size-12 shrink-0 place-items-center text-violet-400 hover:text-violet-300" onClick={() => setCollapsed(false)} aria-label="Expand workspace panel">
+        <button className="grid size-12 shrink-0 place-items-center text-violet-400 hover:text-violet-300" onClick={() => setCollapsed(false)} aria-label={t("workspace.expandPanel")}>
           <PanelRightOpen className="size-4" />
         </button>
         <button
@@ -194,7 +194,7 @@ export function RightSidebar() {
         onPointerDown={startResize}
         role="separator"
         aria-orientation="vertical"
-        aria-label="Resize workspace panel"
+        aria-label={t("workspace.resizePanel")}
         aria-valuenow={width}
         aria-valuemin={280}
         aria-valuemax={900}
@@ -228,7 +228,7 @@ export function RightSidebar() {
               "shrink-0 truncate rounded border px-2 py-0.5 text-xs font-medium",
               dark ? "border-violet-500/30 bg-violet-500/10 text-violet-400" : "border-violet-300 bg-violet-50 text-violet-600",
             )}
-            title="Active AI model (Settings → AI Model to change)"
+            title={t("workspace.activeModelTitle")}
           >
             {currentModel}
           </span>
@@ -237,14 +237,14 @@ export function RightSidebar() {
           onClick={() => setCommandPaletteOpen(true)}
           className={cn("grid size-7 shrink-0 place-items-center rounded transition-colors", dark ? "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200" : "text-slate-400 hover:bg-slate-200 hover:text-slate-700")}
           aria-label={t("workspace.search")}
-          title="Search (⌘K)"
+          title={t("workspace.searchShortcutTitle")}
         >
           <Search className="size-3.5" />
         </button>
         <button
           onClick={() => setCollapsed(true)}
           className={cn("grid size-7 shrink-0 place-items-center rounded transition-colors", dark ? "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200" : "text-slate-400 hover:bg-slate-200 hover:text-slate-700")}
-          aria-label="Collapse workspace panel"
+          aria-label={t("workspace.collapsePanel")}
         >
           <PanelRightClose className="size-3.5" />
         </button>
