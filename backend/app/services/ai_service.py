@@ -90,9 +90,16 @@ class AiService:
         project_concept: str,
         tech_stack: str,
         all_stories: list[dict],
+        *,
+        existing_constraints: str = "",
     ) -> tuple[list[dict], str]:
         """Return (structured constraints, rendered constraints.md markdown)."""
-        result = ai_engine.generate_constraints(project_concept, tech_stack, all_stories)
+        result = ai_engine.generate_constraints(
+            project_concept,
+            tech_stack,
+            all_stories,
+            existing_constraints=existing_constraints,
+        )
         items = [c.model_dump() for c in result.constraints]
         return items, ai_engine.format_constraints(result)
 

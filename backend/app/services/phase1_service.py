@@ -180,11 +180,17 @@ class Phase1Service:
         ]
 
     def generate_constraints(self, ctx: RequestContext) -> tuple[list[dict], str]:
-        """Generate EARS constraints for the whole project."""
+        """Generate or update EARS constraints for the whole project."""
         self.configure_request(ctx)
         concept = self.context.project_concept()
         tech_stack = self.context.read_tech_stack()
-        return self.ai.generate_constraints(concept, tech_stack, self._all_stories())
+        existing_constraints = self.context.read_context_file("constraints.md")
+        return self.ai.generate_constraints(
+            concept,
+            tech_stack,
+            self._all_stories(),
+            existing_constraints=existing_constraints,
+        )
 
     def save_constraints(self, ctx: RequestContext, *, constraints_md: str) -> None:
         self.configure_request(ctx)

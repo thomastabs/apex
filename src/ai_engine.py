@@ -1605,7 +1605,10 @@ Rules you MUST follow:
 - Numeric targets: include them only when the context implies a reasonable value; append
   "(target — confirm)" so the team knows to validate it. Never fabricate precise SLAs.
 - Each statement must be atomic, testable, and a single EARS clause. No compound "and also" lists.
-- Assign a stable id NFR-1, NFR-2, … in output order.
+- When Existing Constraints are provided, treat them as the baseline:
+  preserve valid constraints and their IDs, revise only stale/duplicated constraints, and add
+  new constraints for newly visible project scope using the next available NFR number.
+- If Existing Constraints are empty, assign stable ids NFR-1, NFR-2, … in output order.
 - Produce 6–15 constraints for a typical project. Quality over quantity; omit rather than pad.
 """
 
@@ -1614,8 +1617,10 @@ def generate_constraints(
     project_concept: str,
     tech_stack: str,
     all_stories: list[dict],
+    *,
+    existing_constraints: str = "",
 ) -> ConstraintList:
-    """Generate EARS-structured constraints for the whole project.
+    """Generate or update EARS-structured constraints for the whole project.
 
     all_stories: [{"epic_title": str, "title": str}, ...] — titles only; scope signal,
     not behaviour (behaviour lives in the Gherkin).
@@ -1628,6 +1633,8 @@ def generate_constraints(
     parts = [
         "Project Concept:\n" + fence_user_content(project_concept.strip() or "Not specified"),
         "\nTech Stack:\n" + fence_user_content(tech_stack.strip() or "Not specified"),
+        "\nExisting Constraints (preserve and update iteratively; do not discard valid prior constraints):\n"
+        + fence_user_content(existing_constraints.strip() or "None yet"),
         "\nProject Scope (epics and story titles — for sizing the quality needs):",
     ]
     for epic, titles in grouped.items():

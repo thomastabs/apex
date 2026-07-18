@@ -750,6 +750,43 @@ class TestConstraints:
         from src.ai_engine import ConstraintList, format_constraints
         assert "_No constraints defined yet._" in format_constraints(ConstraintList())
 
+    def test_generate_constraints_includes_existing_constraints_for_iteration(self, monkeypatch):
+        import src.ai_engine as ai
+
+        captured = {}
+
+        def fake(system, human, *args, **kwargs):
+            captured["system"] = system
+            captured["human"] = human
+            return ai.ConstraintList(constraints=[
+                ai.Constraint(
+                    id="NFR-1",
+                    category="security",
+                    ears_type="event-driven",
+                    text="When a user signs in, the system shall rate-limit attempts.",
+                ),
+                ai.Constraint(
+                    id="NFR-2",
+                    category="observability",
+                    ears_type="ubiquitous",
+                    text="The system shall emit audit logs for sensitive actions.",
+                ),
+            ])
+
+        monkeypatch.setattr(ai, "_invoke_structured_with_progress", fake)
+
+        ai.generate_constraints(
+            "Project concept",
+            "FastAPI + React",
+            [{"epic_title": "Auth", "title": "Reset Password"}],
+            existing_constraints="- **NFR-1** _(event-driven)_: When a user signs in, the system shall rate-limit attempts.",
+        )
+
+        assert "preserve valid constraints and their IDs" in captured["system"]
+        assert "Existing Constraints" in captured["human"]
+        assert "NFR-1" in captured["human"]
+        assert "Reset Password" in captured["human"]
+
 
 # ---------------------------------------------------------------------------
 # Phase 6 · Spec↔Code Conformance — Layer A (deterministic, no LLM)

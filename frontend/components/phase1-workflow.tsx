@@ -27,7 +27,6 @@ import { useUiStore } from "@/lib/stores/ui-store";
 import { useT } from "@/lib/i18n/use-translation";
 import type { ClarifyingQuestion, CompiledStory, EpicSuggestion, QaPair, RequirementGapReport } from "@/lib/api/types";
 import { cn, errMsg } from "@/lib/utils";
-import { FigmaStoryPanel } from "@/components/figma-story-panel";
 import { AiGroundingNote } from "@/components/ai-grounding-note";
 import { AI_GROUNDING } from "@/lib/ai-grounding";
 import {
@@ -244,6 +243,8 @@ export function Phase1Workflow() {
   }, [context?.projectId, nlDraft, compiledStories, mode, epicTitle, epicDescription, epicId, suggestions]);
 
   const projectConcept = contextFiles.data?.files.find((f) => f.filename === "project-concept.md")?.content ?? "";
+  const existingConstraintsMd = contextFiles.data?.files.find((f) => f.filename === "constraints.md")?.content ?? "";
+  const hasExistingConstraints = Boolean(existingConstraintsMd.trim());
   const hasProjectConcept = useMemo(() => hasMeaningfulProjectConcept(projectConcept), [projectConcept]);
 
   const activeEpic = useMemo(
@@ -777,13 +778,6 @@ export function Phase1Workflow() {
 
             {mode === "suggest" ? (
               <div className="space-y-4">
-                <FigmaStoryPanel
-                  dark={dark}
-                  onGenerated={(draft) => {
-                    setNlDraft(draft);
-                    setStep(3);
-                  }}
-                />
                 <GuideTheAI
                   value={suggestHint}
                   onChange={setSuggestHint}
@@ -991,67 +985,6 @@ export function Phase1Workflow() {
                   ) : null}
                 </div>
 
-                {/* ── Constraints (EARS) — available here so you don't need to push stories first ── */}
-                <div className={cn("rounded-lg border p-4", dark ? "border-neutral-800 bg-neutral-900/40" : "border-slate-200 bg-slate-50")}>
-                  <div className="flex items-center gap-2">
-                    <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>{t("common.constraints")}</span>
-                    <span className={cn("rounded px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide", dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-500")}>{t("common.optional")}</span>
-                  </div>
-                  <p className={cn("mt-1 text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
-                    {t("phase1.earsDescPre")} <code>constraints.md</code> {t("phase1.earsDescPost")}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setEarsOpen((v) => !v)}
-                    className={cn("mt-2 flex items-center gap-1.5 text-xs font-medium transition-colors", dark ? "text-violet-400 hover:text-violet-300" : "text-violet-600 hover:text-violet-700")}
-                  >
-                    <Info className="size-3.5" />
-                    {t("phase1.whatIsEars")}
-                    <ChevronRight className={cn("size-3.5 transition-transform", earsOpen && "rotate-90")} />
-                  </button>
-                  {earsOpen ? (
-                    <div className={cn("mt-2 space-y-2 rounded-md border p-3 text-xs leading-5", dark ? "border-neutral-800 bg-neutral-950 text-neutral-400" : "border-slate-200 bg-white text-slate-600")}>
-                      <p>{t("phase1.earsExplain1")}</p>
-                      <p>{t("phase1.earsExplain2")}</p>
-                      <ul className="list-disc space-y-0.5 pl-4">
-                        <li><strong>{t("phase1.earsUbiquitous")}</strong> — {t("phase1.earsUbiquitousPattern")}</li>
-                        <li><strong>{t("phase1.earsEventDriven")}</strong> — {t("phase1.earsEventDrivenPattern")}</li>
-                        <li><strong>{t("phase1.earsStateDriven")}</strong> — {t("phase1.earsStateDrivenPattern")}</li>
-                        <li><strong>{t("phase1.earsUnwanted")}</strong> — {t("phase1.earsUnwantedPattern")}</li>
-                      </ul>
-                      <p>{t("phase1.earsExplain3")}</p>
-                    </div>
-                  ) : null}
-                  {constraintsGenerated ? (
-                    <div className="mt-3 flex items-center gap-2 text-sm text-emerald-400">
-                      <CheckCircle2 className="size-4" /> {t("phase1.savedToConstraints")}
-                    </div>
-                  ) : (
-                    <>
-                      <Button
-                        variant="secondary"
-                        className="mt-3 w-full"
-                        disabled={genConstraints.isPending || updateContextFile.isPending}
-                        onClick={() =>
-                          genConstraints.mutate(undefined, {
-                            onSuccess: (res) => {
-                              updateContextFile.mutate({ filename: "constraints.md", content: res.constraints_md });
-                              setConstraintsGenerated(true);
-                              toast.success(t(res.constraints.length === 1 ? "phase1.toast.constraintsGeneratedOne" : "phase1.toast.constraintsGeneratedOther", { n: res.constraints.length }));
-                            },
-                          })
-                        }
-                      >
-                        {genConstraints.isPending
-                          ? <><Loader2 className="size-4 animate-spin" /> {t("common.generating")}</>
-                          : t("phase1.generateConstraints")}
-                      </Button>
-                      <AiGroundingNote files={AI_GROUNDING.phase1Constraints} dark={dark} />
-                      <AIProgressIndicator steps={CONSTRAINT_STEPS} isPending={genConstraints.isPending} dark={dark} />
-                      {genConstraints.isPending && <CancelButton onCancel={() => genConstraints.cancel()} className="mt-2" />}
-                    </>
-                  )}
-                </div>
               </div>
             ) : null}
 
@@ -1451,7 +1384,7 @@ export function Phase1Workflow() {
                       >
                         {genConstraints.isPending
                           ? <><Loader2 className="size-4 animate-spin" /> {t("common.generating")}</>
-                          : t("phase1.generateConstraints")}
+                          : t(hasExistingConstraints || constraintsGenerated ? "phase1.updateConstraints" : "phase1.generateConstraints")}
                       </Button>
                       <AiGroundingNote files={AI_GROUNDING.phase1Constraints} dark={dark} />
                       <AIProgressIndicator steps={CONSTRAINT_STEPS} isPending={genConstraints.isPending} dark={dark} />

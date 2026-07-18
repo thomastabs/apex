@@ -67,8 +67,8 @@ class FakeAiService:
                 "only_primary": [],
                 "only_alt": [{"story_title": "Login", "title": "Locked account", "description": "lock"}]}
 
-    def generate_constraints(self, project_concept, tech_stack, all_stories):
-        self.constraints_args = (project_concept, tech_stack, all_stories)
+    def generate_constraints(self, project_concept, tech_stack, all_stories, *, existing_constraints=""):
+        self.constraints_args = (project_concept, tech_stack, all_stories, existing_constraints)
         items = [{"id": "NFR-1", "category": "security", "ears_type": "event-driven",
                   "text": "When a user signs in, the system shall rate-limit attempts.",
                   "rationale": "brute-force"}]
@@ -386,11 +386,13 @@ def test_finalize_stories_skips_clarifications_when_empty():
 
 
 def test_generate_constraints_grounds_in_concept_stack_and_stories():
-    service, ai, _ = _service()
+    service, ai, context = _service()
+    context.files = {"constraints.md": "- **NFR-1** _(security)_: The system shall preserve existing controls.\n"}
     items, md = service.generate_constraints(_ctx())
-    concept, tech_stack, all_stories = ai.constraints_args
+    concept, tech_stack, all_stories, existing_constraints = ai.constraints_args
     assert concept == "Project concept"
     assert tech_stack == "FastAPI + React"
+    assert "preserve existing controls" in existing_constraints
     # All index stories passed as scope signal (titles + epic), not behaviour.
     assert {s["title"] for s in all_stories} == {"Sign In", "Reset Password"}
     assert all(set(s) == {"epic_title", "title"} for s in all_stories)
