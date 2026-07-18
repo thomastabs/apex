@@ -11,6 +11,7 @@ import { useEscapeKey } from "@/lib/hooks/use-escape-key";
 import { useAutoSyncStoryIndex } from "@/lib/hooks/use-workspace";
 import { useApiContext } from "@/lib/stores/session-store";
 import { PanelHeader, type DragSectionProps } from "./shared";
+import { useT } from "@/lib/i18n/use-translation";
 
 type DeployPacksSectionProps = DragSectionProps & {
   dark: boolean;
@@ -28,6 +29,7 @@ function packDownload(content: string, storyId: number) {
 }
 
 export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, onDragStart }: DeployPacksSectionProps) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [viewing, setViewing] = useState<{ storyId: number; content: string } | null>(null);
   const [editing, setEditing] = useState(false);
@@ -59,13 +61,13 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
       setEditing(false);
       setDraft(content);
     },
-    onError: (err: Error) => toast.error(`Load deploy pack failed: ${err.message}`),
+    onError: (err: Error) => toast.error(t("deploypacks.toast.loadFailed", { err: err.message })),
   });
 
   const downloadMut = useMutation({
     mutationFn: fetchPackContent,
     onSuccess: (content, storyId) => packDownload(content, storyId),
-    onError: (err: Error) => toast.error(`Download failed: ${err.message}`),
+    onError: (err: Error) => toast.error(t("deploypacks.toast.downloadFailed", { err: err.message })),
   });
 
   const downloadAllMut = useMutation({
@@ -74,7 +76,7 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
       return contents.map((content, i) => ({ filename: `deploy_pack_story_${packs[i].story_id}.md`, content }));
     },
     onSuccess: (files) => downloadZip(files, "apex-deploy-packs.zip"),
-    onError: (err: Error) => toast.error(`Download failed: ${err.message}`),
+    onError: (err: Error) => toast.error(t("deploypacks.toast.downloadFailed", { err: err.message })),
   });
 
   const saveMut = useMutation({
@@ -85,9 +87,9 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
       autoSync();
       setViewing({ storyId, content: md });
       setEditing(false);
-      toast.success("Deploy pack saved.");
+      toast.success(t("deploypacks.toast.deployPackSaved"));
     },
-    onError: (err: Error) => toast.error(`Save failed: ${err.message}`),
+    onError: (err: Error) => toast.error(t("deploypacks.toast.saveFailed", { err: err.message })),
   });
 
   const deleteMut = useMutation({
@@ -96,9 +98,9 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
       void queryClient.invalidateQueries({ queryKey: PACKS_KEY });
       void queryClient.invalidateQueries({ queryKey: ["phase5"] });
       autoSync();
-      toast.success("Deploy pack deleted.");
+      toast.success(t("deploypacks.toast.deployPackDeleted"));
     },
-    onError: (err: Error) => toast.error(`Delete failed: ${err.message}`),
+    onError: (err: Error) => toast.error(t("deploypacks.toast.deleteFailed", { err: err.message })),
   });
 
   const closeModal = () => {
@@ -118,7 +120,7 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
       <section className={cn("border-b", dark ? "border-neutral-800" : "border-slate-300")}>
         <PanelHeader
           icon={<Rocket className="size-4" />}
-          title="Deploy Packs"
+          title={t("deploypacks.panelTitle")}
           badge={open && packs.length > 0 ? String(packs.length) : undefined}
           open={open}
           onClick={() => setOpen(!open)}
@@ -128,16 +130,16 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
           <div className={cn("px-4 py-3 text-sm", dark ? "bg-[#20232b]" : "bg-white")}>
             {isLoading ? (
               <div className="flex items-center gap-2 text-xs text-neutral-500">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading deploy packs…
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t("deploypacks.loading")}
               </div>
             ) : isError ? (
               <div className={cn("flex items-center justify-between gap-2 rounded border px-2.5 py-2 text-xs", dark ? "border-red-900/50 text-red-400" : "border-red-200 text-red-600")}>
-                <span>Failed to load deploy packs.</span>
-                <button onClick={() => refetch()} className="shrink-0 font-semibold underline">Retry</button>
+                <span>{t("deploypacks.failedLoad")}</span>
+                <button onClick={() => refetch()} className="shrink-0 font-semibold underline">{t("common.retry")}</button>
               </div>
             ) : packs.length === 0 ? (
               <p className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
-                No deploy packs saved. Phase 5 writes one per story with an infra delta.
+                {t("deploypacks.none")}
               </p>
             ) : (
               <>
@@ -150,7 +152,7 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
                 onClick={() => downloadAllMut.mutate()}
               >
                 {downloadAllMut.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
-                Download all as zip
+                {t("common.downloadAll")}
               </button>
               <ul className={cn("divide-y rounded border", dark ? "divide-neutral-800 border-neutral-800" : "divide-slate-100 border-slate-200")}>
                 {packs.map((p) => (
@@ -162,14 +164,14 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
                       US#{p.story_id}
                     </span>
                     <span className={cn("min-w-0 flex-1 truncate text-xs", dark ? "text-neutral-300" : "text-slate-600")}>
-                      {p.title || "(story not in index)"}
+                      {p.title || t("deploypacks.storyNotInIndex")}
                       <span className={cn("ml-2", dark ? "text-neutral-600" : "text-slate-400")}>
-                        {Math.round(p.chars / 100) / 10}k chars
+                        {t("deploypacks.charsK", { k: Math.round(p.chars / 100) / 10 })}
                       </span>
                     </span>
                     <button
                       className={rowBtn}
-                      title="View / edit deploy pack"
+                      title={t("deploypacks.viewEditDeployPack")}
                       disabled={viewMut.isPending}
                       onClick={() => viewMut.mutate(p.story_id)}
                     >
@@ -177,7 +179,7 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
                     </button>
                     <button
                       className={rowBtn}
-                      title="Download deploy pack"
+                      title={t("deploypacks.downloadDeployPack")}
                       disabled={downloadMut.isPending}
                       onClick={() => downloadMut.mutate(p.story_id)}
                     >
@@ -185,11 +187,11 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
                     </button>
                     <button
                       className={cn(rowBtn, "hover:!text-red-400")}
-                      title="Delete deploy pack"
+                      title={t("deploypacks.deleteDeployPack")}
                       disabled={deleteMut.isPending}
                       onClick={() =>
                         confirm(
-                          `Delete the deploy pack for US#${p.story_id}?`,
+                          t("deploypacks.deleteConfirm", { storyId: p.story_id }),
                           () => deleteMut.mutate(p.story_id),
                         )
                       }
@@ -211,7 +213,7 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
             <div
               role="dialog"
               aria-modal="true"
-              aria-label={`Deploy pack for US#${viewing.storyId}`}
+              aria-label={t("deploypacks.dialogAria", { storyId: viewing.storyId })}
               className={cn(
                 "flex h-[85vh] w-full max-w-3xl flex-col rounded-xl border shadow-2xl",
                 dark ? "border-neutral-700 bg-[#1b1b1c]" : "border-slate-200 bg-white",
@@ -221,30 +223,30 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
               <div className={cn("flex items-center gap-3 border-b px-5 py-3", dark ? "border-neutral-800" : "border-slate-200")}>
                 <Rocket className="size-4 text-violet-400" />
                 <span className={cn("flex-1 text-sm font-semibold", dark ? "text-neutral-100" : "text-slate-800")}>
-                  Deploy Pack — US#{viewing.storyId}
+                  {t("deploypacks.dialogTitle", { storyId: viewing.storyId })}
                 </span>
                 {editing ? (
                   <button
                     className={rowBtn}
-                    title="Save changes"
+                    title={t("deploypacks.saveChanges")}
                     disabled={saveMut.isPending || !draft.trim()}
                     onClick={() => saveMut.mutate({ storyId: viewing.storyId, md: draft })}
                   >
                     {saveMut.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
                   </button>
                 ) : (
-                  <button className={rowBtn} title="Edit" onClick={() => { setEditing(true); setDraft(viewing.content); }}>
+                  <button className={rowBtn} title={t("common.edit")} onClick={() => { setEditing(true); setDraft(viewing.content); }}>
                     <Pencil className="size-4" />
                   </button>
                 )}
                 <button
                   className={rowBtn}
-                  title="Download"
+                  title={t("common.download")}
                   onClick={() => packDownload(editing ? draft : viewing.content, viewing.storyId)}
                 >
                   <Download className="size-4" />
                 </button>
-                <button className={rowBtn} title="Close" onClick={closeModal}>
+                <button className={rowBtn} title={t("common.close")} onClick={closeModal}>
                   <X className="size-4" />
                 </button>
               </div>
@@ -262,7 +264,7 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
                   "min-h-0 flex-1 overflow-auto whitespace-pre-wrap p-5 font-mono text-xs leading-relaxed",
                   dark ? "text-neutral-300" : "text-slate-700",
                 )}>
-                  {viewing.content || "(empty deploy pack)"}
+                  {viewing.content || t("deploypacks.emptyDeployPack")}
                 </pre>
               )}
             </div>
