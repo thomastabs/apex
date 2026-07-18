@@ -24,6 +24,8 @@ import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
 import type { ExternalIssue } from "@/lib/api/github-browser";
 import type { MaintenanceItem } from "@/lib/api/types";
+import { AiGroundingNote } from "@/components/ai-grounding-note";
+import { AI_GROUNDING } from "@/lib/ai-grounding";
 
 const STATUS_LABEL: Record<string, string> = {
   new: "New", routed_to_discovery: "→ Discovery", diagnosed: "Diagnosed",
@@ -255,12 +257,15 @@ export function MaintenanceTriage() {
 
               {/* F1 classify */}
               {selected.classification === "unclassified" ? (
-                <div className="flex gap-2">
-                  <Button onClick={() => classify.mutate(selected.id, { onSuccess: () => toast.success("Triage complete."), onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
-                    {classify.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Classify (Triage)
-                  </Button>
-                  {classify.isPending && <CancelButton onCancel={() => classify.cancel()} />}
-                </div>
+                <>
+                  <div className="flex gap-2">
+                    <Button onClick={() => classify.mutate(selected.id, { onSuccess: () => toast.success("Triage complete."), onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
+                      {classify.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Classify (Triage)
+                    </Button>
+                    {classify.isPending && <CancelButton onCancel={() => classify.cancel()} />}
+                  </div>
+                  <AiGroundingNote files={AI_GROUNDING.maintenanceTriage} dark={dark} />
+                </>
               ) : null}
 
               {selected.ai_rationale?.classify ? (
@@ -291,6 +296,7 @@ export function MaintenanceTriage() {
                     </Button>
                     {diagnose.isPending && <CancelButton onCancel={() => diagnose.cancel()} />}
                   </div>
+                  <AiGroundingNote files={AI_GROUNDING.maintenanceDiagnosis} dark={dark} />
                 </div>
               ) : null}
 
@@ -302,12 +308,15 @@ export function MaintenanceTriage() {
 
               {/* F2: fix brief */}
               {selected.status === "diagnosed" ? (
-                <div className="flex gap-2">
-                  <Button onClick={() => fixBrief.mutate(selected.id, { onSuccess: () => toast.success("Fix-Bolt brief generated."), onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
-                    {fixBrief.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Generate Fix-Bolt Brief
-                  </Button>
-                  {fixBrief.isPending && <CancelButton onCancel={() => fixBrief.cancel()} />}
-                </div>
+                <>
+                  <div className="flex gap-2">
+                    <Button onClick={() => fixBrief.mutate(selected.id, { onSuccess: () => toast.success("Fix-Bolt brief generated."), onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
+                      {fixBrief.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Generate Fix-Bolt Brief
+                    </Button>
+                    {fixBrief.isPending && <CancelButton onCancel={() => fixBrief.cancel()} />}
+                  </div>
+                  <AiGroundingNote files={AI_GROUNDING.maintenanceFixBrief} dark={dark} />
+                </>
               ) : null}
 
               {selected.fix_brief_md ? (
@@ -324,10 +333,13 @@ export function MaintenanceTriage() {
                 <div className={cn("space-y-2 rounded-lg border p-3", cardBorder)}>
                   <p className="text-sm font-semibold">Severity routing</p>
                   {!laneHint ? (
-                    <button className="text-xs font-semibold text-violet-500 hover:underline"
-                      onClick={async () => { try { setLaneHint(await suggestLane(context, selected.id)); } catch (e) { toast.error(errMsg(e)); } }}>
-                      Suggest lane (AI)
-                    </button>
+                    <>
+                      <button className="text-xs font-semibold text-violet-500 hover:underline"
+                        onClick={async () => { try { setLaneHint(await suggestLane(context, selected.id)); } catch (e) { toast.error(errMsg(e)); } }}>
+                        Suggest lane (AI)
+                      </button>
+                      <AiGroundingNote files={AI_GROUNDING.maintenanceFixBrief} dark={dark} className="mt-1" />
+                    </>
                   ) : (
                     <p className={cn("text-xs", muted)}>AI suggests <b>{laneHint.lane}</b>: {laneHint.rationale}</p>
                   )}

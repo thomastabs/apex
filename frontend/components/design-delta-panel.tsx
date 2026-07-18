@@ -12,6 +12,8 @@ import {
 } from "@/lib/hooks/use-phase2";
 import type { DesignDeltaResult } from "@/lib/api/phase2";
 import { cn } from "@/lib/utils";
+import { AiGroundingNote } from "@/components/ai-grounding-note";
+import { AI_GROUNDING } from "@/lib/ai-grounding";
 
 // Additive design for stories pushed after the project design locked: the
 // locked design stays read-only, the AI proposes only what the new stories
@@ -120,6 +122,7 @@ export function DesignDeltaPanel({ dark }: { dark: boolean }) {
             {generate.isPending ? <Loader2 className="size-4 animate-spin" /> : <GitBranchPlus className="size-4" />}
             {generate.isPending ? "Generating delta…" : draft ? "Regenerate delta" : "Generate design delta"}
           </Button>
+          <AiGroundingNote files={AI_GROUNDING.phase2DesignDelta} dark={dark} />
 
           {generate.isPending ? (
             <AIProgressIndicator

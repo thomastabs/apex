@@ -9,6 +9,8 @@ import { GuideTheAI } from "@/components/guide-the-ai";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n/use-translation";
 import type { TranslationKey } from "@/lib/i18n/translations";
+import { AiGroundingNote } from "@/components/ai-grounding-note";
+import { AI_GROUNDING } from "@/lib/ai-grounding";
 
 const START_PHASE_META: { key: AutopilotPhaseKey; n: number; navKey: TranslationKey; fromScratch?: boolean }[] = [
   { key: "phase1", n: 1, navKey: "nav.phase1", fromScratch: true },
@@ -438,6 +440,7 @@ export function AutopilotSetupForm({ onStart, isPending, dark }: Props) {
         disabled={isPending}
         placeholder={t("autopilotsetup.guideThePlaceholder")}
       />
+      <AiGroundingNote files={AI_GROUNDING.autopilotSetup} dark={dark} />
 
       {/* Submit */}
       <button

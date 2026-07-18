@@ -17,10 +17,12 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
 import { CancelButton } from "@/components/ui/cancel-button";
+import { AiGroundingNote } from "@/components/ai-grounding-note";
 import { useBuildScreenFlowFromFigma, useGenerateScreenFlow, useLoadScreenFlow, useSaveScreenFlowPositions } from "@/lib/hooks/use-phase2";
 import { useFigmaContext } from "@/lib/stores/session-store";
 import { figmaGetFile, deriveFramesAndFlows, figmaThumbnails } from "@/lib/api/figma";
 import type { ScreenFlowEdge, ScreenFlowNode, ScreenFlowResponse } from "@/lib/api/types";
+import { AI_GROUNDING } from "@/lib/ai-grounding";
 
 import "@xyflow/react/dist/style.css";
 
@@ -331,6 +333,7 @@ export function ScreenFlowPanel({
                       or generate with AI from the UX Brief
                     </button>
                   )}
+                  {canGenerate ? <AiGroundingNote files={AI_GROUNDING.phase2VisualSystem} dark={dark} /> : null}
                 </>
               ) : (
                 <>
@@ -352,6 +355,7 @@ export function ScreenFlowPanel({
                   >
                     <Monitor className="size-4" />Generate Screen Flow
                   </button>
+                  <AiGroundingNote files={AI_GROUNDING.phase2VisualSystem} dark={dark} />
                 </>
               )}
             </div>

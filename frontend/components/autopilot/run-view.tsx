@@ -32,6 +32,8 @@ import {
 import { useT } from "@/lib/i18n/use-translation";
 import type { TranslationKey } from "@/lib/i18n/translations";
 import { cn } from "@/lib/utils";
+import { AiGroundingNote } from "@/components/ai-grounding-note";
+import { AI_GROUNDING } from "@/lib/ai-grounding";
 
 const PHASE_LABEL_KEYS: Record<string, TranslationKey> = {
   init: "autopilotrun.phase.init",
@@ -391,6 +393,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
 
       {/* Phase progress */}
       <PhaseProgress currentPhase={status.current_phase} state={status.state} dark={dark} />
+      <AiGroundingNote files={AI_GROUNDING.autopilotRun} dark={dark} />
 
       {/* Current activity — live line with a ticking elapsed timer so a long AI call
           never makes the view look frozen (the elapsed counts up every second). */}

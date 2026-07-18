@@ -69,6 +69,8 @@ import { createGithubIssue, fetchRecentCommitsContext } from "@/lib/api/github-b
 import type { EffortEstimate, Phase3StoryContext, Phase3Task } from "@/lib/api/types";
 import { toPmCtx } from "@/lib/api/workspace";
 import { TaskDagPanel } from "@/components/task-dag-panel";
+import { AiGroundingNote } from "@/components/ai-grounding-note";
+import { AI_GROUNDING } from "@/lib/ai-grounding";
 
 // ---------------------------------------------------------------------------
 // Markdown preview
@@ -730,6 +732,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
           </Button>
         </div>
       </div>
+      <AiGroundingNote files={AI_GROUNDING.phase3Tasks} dark={dark} />
       {tasksPushed && (
         <div className="flex items-center justify-center">
           <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
@@ -1176,6 +1179,7 @@ function StageC({ storyId }: { storyId: number }) {
             style={{ width: taskList.length > 0 ? `${(generatedCount / taskList.length) * 100}%` : "0%" }}
           />
         </div>
+        <AiGroundingNote files={AI_GROUNDING.phase3Packs} dark={dark} className="mt-2" />
       </div>
 
       <div className="flex gap-5">
@@ -1297,6 +1301,7 @@ function StageC({ storyId }: { storyId: number }) {
                   )}
                   </div>
                 </div>
+                <AiGroundingNote files={AI_GROUNDING.phase3Packs} dark={dark} />
                 {/* Row 2: branch chip (GitHub optional) + hint input */}
                 <div className="flex items-center gap-2">
                   {githubCtx && (

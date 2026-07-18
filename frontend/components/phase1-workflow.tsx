@@ -28,6 +28,8 @@ import { useT } from "@/lib/i18n/use-translation";
 import type { ClarifyingQuestion, CompiledStory, EpicSuggestion, QaPair, RequirementGapReport } from "@/lib/api/types";
 import { cn, errMsg } from "@/lib/utils";
 import { FigmaStoryPanel } from "@/components/figma-story-panel";
+import { AiGroundingNote } from "@/components/ai-grounding-note";
+import { AI_GROUNDING } from "@/lib/ai-grounding";
 
 type Mode = "create" | "load" | "suggest";
 
@@ -698,6 +700,7 @@ export function Phase1Workflow() {
                   <Sparkles className="size-4" />
                   {suggestEpics.isPending ? t("common.generating") : t("phase1.mode.aiSuggests")}
                 </Button>
+                <AiGroundingNote files={AI_GROUNDING.phase1SuggestEpics} dark={dark} />
                 <AIProgressIndicator steps={SUGGEST_STEPS} isPending={suggestEpics.isPending} dark={dark} />
                 {suggestEpics.isPending && <CancelButton onCancel={() => suggestEpics.cancel()} className="mt-2" />}
                 {suggestions.length && !suggestEpics.isPending ? (
@@ -788,6 +791,7 @@ export function Phase1Workflow() {
                     <ScanSearch className="size-4" />
                     {analyzeGaps.isPending ? t("common.analyzing") : t("phase1.analyzeCoverageGaps")}
                   </Button>
+                  <AiGroundingNote files={AI_GROUNDING.phase1GapAnalysis} dark={dark} />
                   {!hasProjectConcept ? (
                     <p className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
                       {t("phase1.gapNeedsConcept")}
@@ -935,6 +939,7 @@ export function Phase1Workflow() {
                           ? <><Loader2 className="size-4 animate-spin" /> {t("common.generating")}</>
                           : t("phase1.generateConstraints")}
                       </Button>
+                      <AiGroundingNote files={AI_GROUNDING.phase1Constraints} dark={dark} />
                       <AIProgressIndicator steps={CONSTRAINT_STEPS} isPending={genConstraints.isPending} dark={dark} />
                       {genConstraints.isPending && <CancelButton onCancel={() => genConstraints.cancel()} className="mt-2" />}
                     </>
@@ -1007,6 +1012,7 @@ export function Phase1Workflow() {
                 {generate.isPending ? t("common.generating") : t("phase1.generateStories")}
               </Button>
             </div>
+            <AiGroundingNote files={AI_GROUNDING.phase1GenerateStories} dark={dark} />
             <AIProgressIndicator steps={GENERATE_STEPS} isPending={generate.isPending} dark={dark} />
             {generate.isPending && <CancelButton onCancel={() => generate.cancel()} className="w-full" />}
             {generate.isError ? (
@@ -1060,6 +1066,7 @@ export function Phase1Workflow() {
                   </Button>
                 </div>
                 <AIProgressIndicator steps={GENERATE_STEPS} isPending={crossCheck.isPending} dark={dark} />
+                <AiGroundingNote files={AI_GROUNDING.phase1GenerateStories} dark={dark} />
                 {crossCheck.isPending && <CancelButton onCancel={() => crossCheck.cancel()} className="w-full" />}
                 {crossResult ? (
                   <CrossCheckPanel
@@ -1101,6 +1108,7 @@ export function Phase1Workflow() {
                   : <><HelpCircle className="size-4" /> {t("phase1.clarifyAmbiguities")}</>}
               </Button>
               <AIProgressIndicator steps={CLARIFY_STEPS} isPending={clarify.isPending} dark={dark} />
+              <AiGroundingNote files={AI_GROUNDING.phase1ReviewDraft} dark={dark} />
               {clarify.isPending && <CancelButton onCancel={() => clarify.cancel()} className="w-full" />}
               {qaQuestions.length > 0 ? (
                 <div className={cn("space-y-3 rounded-md border p-3", dark ? "border-neutral-700 bg-neutral-800/50" : "border-slate-200 bg-slate-50")}>
@@ -1156,6 +1164,7 @@ export function Phase1Workflow() {
                 : <><Sparkles className="size-4" /> {t("phase1.convertToAc")}</>}
             </Button>
             <AIProgressIndicator steps={COMPILE_STEPS} isPending={compile.isPending} dark={dark} />
+            <AiGroundingNote files={AI_GROUNDING.phase1ReviewDraft} dark={dark} />
             {compile.isPending && <CancelButton onCancel={() => compile.cancel()} className="w-full" />}
             {compile.isError ? (
               <Callout variant="danger">{t("phase1.compileFailed", { err: errMsg(compile.error) })}</Callout>
@@ -1337,6 +1346,7 @@ export function Phase1Workflow() {
                           ? <><Loader2 className="size-4 animate-spin" /> {t("common.generating")}</>
                           : t("phase1.generateConstraints")}
                       </Button>
+                      <AiGroundingNote files={AI_GROUNDING.phase1Constraints} dark={dark} />
                       <AIProgressIndicator steps={CONSTRAINT_STEPS} isPending={genConstraints.isPending} dark={dark} />
                       {genConstraints.isPending && <CancelButton onCancel={() => genConstraints.cancel()} className="mt-2" />}
                     </>

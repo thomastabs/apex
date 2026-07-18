@@ -123,6 +123,7 @@ export const translations = {
     "common.preview": "Preview",
     "common.copy": "Copy",
     "common.copied": "Copied.",
+    "grounding.label": "Grounded by",
 
     // ── phase1 (Requirements) ──
     "phase1.heading": "Requirements",
@@ -1585,6 +1586,7 @@ export const translations = {
     "common.preview": "Pré-visualização",
     "common.copy": "Copiar",
     "common.copied": "Copiado.",
+    "grounding.label": "Baseado em",
 
     "phase1.heading": "Requisitos",
     "phase1.subtitle": "Transforme as ideias do seu projeto em especificações de comportamento claras e testáveis, prontas para partilhar com a equipa.",

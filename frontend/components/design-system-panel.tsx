@@ -26,6 +26,8 @@ import type {
   NavigationPattern,
   TypographyStyle,
 } from "@/lib/api/types";
+import { AiGroundingNote } from "@/components/ai-grounding-note";
+import { AI_GROUNDING } from "@/lib/ai-grounding";
 
 const DESIGN_SYSTEM_STEPS = [
   "Reading the UX brief…",
@@ -416,6 +418,7 @@ function ScreensTab({
                     <RefreshCw className="size-3" /> Regenerate this screen
                   </button>
                 )}
+                <AiGroundingNote files={AI_GROUNDING.phase2VisualSystem} dark={dark} />
               </div>
             </div>
           );
@@ -449,6 +452,7 @@ function ScreensTab({
               <Plus className="size-3.5" /> Add screen
             </button>
           )}
+          <AiGroundingNote files={AI_GROUNDING.phase2VisualSystem} dark={dark} />
         </div>
       </div>
     </div>
@@ -748,6 +752,7 @@ export function DesignSystemPanel({
           >
             <Palette className="size-4" />Generate Design System
           </button>
+          <AiGroundingNote files={AI_GROUNDING.phase2VisualSystem} dark={dark} />
         </div>
       ) : (
         <div className="flex flex-col gap-4">

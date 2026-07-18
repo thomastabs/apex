@@ -52,6 +52,8 @@ import { useT } from "@/lib/i18n/use-translation";
 import type { TranslationKey } from "@/lib/i18n/translations";
 import { cn, errMsg } from "@/lib/utils";
 import type { DeployPackEmphasis, DeployPackOptions, InfraDelta, InfraDeltaCategory, InfraDeltaItem, Phase5StoryPreview } from "@/lib/api/types";
+import { AiGroundingNote } from "@/components/ai-grounding-note";
+import { AI_GROUNDING } from "@/lib/ai-grounding";
 
 // ---------------------------------------------------------------------------
 // Utilities
@@ -620,6 +622,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
           </Button>
         )}
       </div>
+      <AiGroundingNote files={AI_GROUNDING.phase5InfraDelta} dark={dark} />
     </div>
   );
 }
@@ -907,6 +910,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
           </Button>
         )}
       </div>
+      <AiGroundingNote files={AI_GROUNDING.phase5DeployPack} dark={dark} />
     </div>
   );
 }

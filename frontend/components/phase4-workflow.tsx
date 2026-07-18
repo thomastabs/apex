@@ -50,6 +50,8 @@ import { useT } from "@/lib/i18n/use-translation";
 import type { TranslationKey } from "@/lib/i18n/translations";
 import { cn, errMsg } from "@/lib/utils";
 import type { Phase4StoryPreview } from "@/lib/api/types";
+import { AiGroundingNote } from "@/components/ai-grounding-note";
+import { AI_GROUNDING } from "@/lib/ai-grounding";
 
 const TEST_PLAN_EMPHASIS: { key: string; labelKey: TranslationKey }[] = [
   { key: "edge_cases", labelKey: "phase4.emphasis.edgeCases" },
@@ -565,6 +567,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
           </Button>
         )}
       </div>
+      <AiGroundingNote files={AI_GROUNDING.phase4TestPlan} dark={dark} />
     </div>
   );
 }
@@ -735,6 +738,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                     ? <><Loader2 className="h-3 w-3 animate-spin" /> {t("phase4.exploring")}</>
                     : <><Sparkles className="h-3 w-3" /> {t("phase4.exploreEdgeCases")}</>}
                 </button>
+                <AiGroundingNote files={AI_GROUNDING.phase4EdgeCases} dark={dark} className="mt-1" />
                 {edgeLoading === name && (
                   <button
                     className={cn(
@@ -1051,6 +1055,7 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
               {combinedBugReport ? t("phase4.regenerateBugReport") : t("phase4.generateFixBoltArtifact")}
             </Button>
           )}
+          <AiGroundingNote files={AI_GROUNDING.phase4FixBolt} dark={dark} />
 
           {bugReportMut.isPending && (
             <AIProgressIndicator

@@ -54,6 +54,8 @@ import { DesignSystemPanel } from "@/components/design-system-panel";
 import { ERDiagramPanel } from "@/components/er-diagram-panel";
 import { ScreenFlowPanel } from "@/components/screen-flow-panel";
 import { EndpointTable } from "@/components/endpoint-table";
+import { AiGroundingNote } from "@/components/ai-grounding-note";
+import { AI_GROUNDING } from "@/lib/ai-grounding";
 
 const PROPOSE_STEP_KEYS = [
   "phase2.propose.step1", "phase2.propose.step2", "phase2.propose.step3", "phase2.propose.step4",
@@ -578,6 +580,7 @@ export function Phase2Workflow() {
               {t(hasContent ? "phase2.regenerateSection" : "phase2.generateSection", { title: t(cfg.titleKey) })}
             </button>
           )}
+          <AiGroundingNote files={AI_GROUNDING.phase2Design} dark={dark} className="mt-2" />
         </div>
       </div>
     );
@@ -757,6 +760,7 @@ export function Phase2Workflow() {
                   <Sparkles className="size-4" />
                   {t("phase2.proposeArchitecture")}
                 </Button>
+                <AiGroundingNote files={AI_GROUNDING.phase2TechStack} dark={dark} />
               </>
             ) : null}
             <AIProgressIndicator steps={PROPOSE_STEP_KEYS.map((k) => t(k))} isPending={proposeStack.isPending} dark={dark} />
@@ -875,6 +879,7 @@ export function Phase2Workflow() {
                   </Button>
                 </div>
               )}
+              <AiGroundingNote files={AI_GROUNDING.phase2Design} dark={dark} />
               <div className="flex flex-wrap gap-2">
                 <button
                   className={cn("flex items-center gap-1 rounded border px-3 py-2 text-sm transition-colors disabled:opacity-40", outlineButtonClass)}

@@ -23,6 +23,8 @@ import type {
   ConformanceReport,
   ScanReport,
 } from "@/lib/api/types";
+import { AiGroundingNote } from "@/components/ai-grounding-note";
+import { AI_GROUNDING } from "@/lib/ai-grounding";
 
 const STATUS_STYLE: Record<string, string> = {
   present: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
@@ -420,6 +422,7 @@ function TraceabilityPanel() {
                 {scan.isPending && <CancelButton onCancel={() => scan.cancel()} />}
               </div>
             </div>
+            <AiGroundingNote files={AI_GROUNDING.phase6Conformance} dark={dark} />
 
             {scan.isPending ? (
               <AIProgressIndicator

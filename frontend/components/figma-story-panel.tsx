@@ -14,6 +14,8 @@ import {
   figmaThumbnails,
   type FigmaFlowEdge,
 } from "@/lib/api/figma";
+import { AiGroundingNote } from "@/components/ai-grounding-note";
+import { AI_GROUNDING } from "@/lib/ai-grounding";
 
 type Props = {
   dark: boolean;
@@ -261,6 +263,7 @@ export function FigmaStoryPanel({ dark, onGenerated }: Props) {
             {generate.isPending ? <Loader2 className="size-4 animate-spin" /> : <Figma className="size-4" />}
             {generate.isPending ? "Generating…" : `Generate stories from ${selected.size} screen${selected.size === 1 ? "" : "s"}`}
           </button>
+          <AiGroundingNote files={AI_GROUNDING.phase1FigmaStories} dark={dark} />
         </>
       ) : loadedOnce ? (
         <p className={cn("text-xs", dark ? "text-neutral-600" : "text-slate-400")}>No frames found in this file.</p>
