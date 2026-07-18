@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   ChevronDown,
@@ -228,6 +228,19 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+
+  // Search-result jump target (set by the command palette) — see SearchFocus
+  // in ui-store.ts. Consumed once, then cleared.
+  const searchFocus = useUiStore((s) => s.searchFocus);
+  const clearSearchFocus = useUiStore((s) => s.clearSearchFocus);
+  useEffect(() => {
+    if (searchFocus?.kind !== "task") return;
+    const task = pmTasks.find((t) => t.id === searchFocus.id);
+    if (!task) return;
+    setOpen(true);
+    setExpandedStories((prev) => new Set(prev).add(Number(task.user_story)));
+    clearSearchFocus();
+  }, [searchFocus, pmTasks, clearSearchFocus]);
 
   const loadForEditMut = useMutation({
     mutationFn: (taskId: string) => adapter.getTask(adapterCtx!, taskId),

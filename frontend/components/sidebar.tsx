@@ -7,7 +7,7 @@ import Link from "next/link";
 import {
   BarChart3, Bot, CheckCircle2, Code2, Compass, Eye, EyeOff,
   ExternalLink, FileText, Home, Moon, Network, PanelLeftOpen,
-  Rocket, Send, Settings, Sun, UserPlus, Wrench, Zap,
+  Rocket, Search, Send, Settings, Sun, UserPlus, Wrench, Zap,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -108,6 +108,31 @@ function NavItem({
         </span>
       )}
     </Link>
+  );
+}
+
+// ── SearchTrigger ─────────────────────────────────────────────────────────────
+// Visible entry point into the command palette's search (epics/stories/tasks/
+// files) — the palette is otherwise only reachable via Ctrl/Cmd+K.
+
+function SearchTrigger({ dark }: { dark: boolean }) {
+  const setCommandPaletteOpen = useUiStore((s) => s.setCommandPaletteOpen);
+  return (
+    <button
+      onClick={() => setCommandPaletteOpen(true)}
+      className={cn(
+        "mx-4 mb-2 flex h-8 items-center gap-2 rounded border px-2.5 text-xs transition-colors",
+        dark
+          ? "border-neutral-800 text-neutral-500 hover:border-neutral-700 hover:text-neutral-300"
+          : "border-slate-200 text-slate-400 hover:border-slate-300 hover:text-slate-600",
+      )}
+    >
+      <Search className="size-3.5 shrink-0" />
+      <span className="flex-1 text-left">Search…</span>
+      <kbd className={cn("rounded border px-1 font-mono text-xs", dark ? "border-neutral-700 text-neutral-600" : "border-slate-300 text-slate-400")}>
+        ⌘K
+      </kbd>
+    </button>
   );
 }
 
@@ -635,6 +660,7 @@ export function Sidebar() {
         <>
           {/* ── Zone 3: Navigation ── */}
           <nav className="shrink-0 py-2">
+            {projectId ? <SearchTrigger dark={dark} /> : null}
             <NavItem href="/" icon={Home} label="Home" active={pathname === "/"} dark={dark} />
             <NavDivider label="Phases" dark={dark} />
             {PHASE_ITEMS.map((item) => (

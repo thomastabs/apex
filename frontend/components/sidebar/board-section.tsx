@@ -728,6 +728,22 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
       void storyStats.refetch();
     }
   }, [boardOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Search-result jump target (set by the command palette) — see SearchFocus
+  // in ui-store.ts. Consumed once: expand this section and open the matching
+  // dialog, then clear so it doesn't re-fire on remount.
+  const searchFocus = useUiStore((s) => s.searchFocus);
+  const clearSearchFocus = useUiStore((s) => s.clearSearchFocus);
+  useEffect(() => {
+    if (!searchFocus || !board.data) return;
+    if (searchFocus.kind === "epic") {
+      const epic = board.data.find((e) => e.id === searchFocus.id);
+      if (epic) { setBoardOpen(true); setDialogEpic(epic); clearSearchFocus(); }
+    } else if (searchFocus.kind === "story") {
+      const story = board.data.flatMap((e) => e.stories).find((s) => s.id === searchFocus.id);
+      if (story) { setBoardOpen(true); setDialogStory(story); clearSearchFocus(); }
+    }
+  }, [searchFocus, board.data, clearSearchFocus]);
   const regressedIds = new Set(storyStats.data?.regressed_story_ids ?? []);
   const tracedIds = new Set(storyStats.data?.trace_story_ids ?? []);
   const TRACE_ROUTE: Record<string, string> = { gherkin_locked: "/phase1", design_locked: "/phase2" };

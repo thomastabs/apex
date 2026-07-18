@@ -54,7 +54,9 @@ import {
   updateStory,
   type AdminPhaseStatus,
   type ApexPhaseStatus,
+  toPmCtx,
 } from "@/lib/api/workspace";
+import { getPmAdapter } from "@/lib/api/pm-factory";
 import { getUsageSummary } from "@/lib/api/usage";
 import { useApiContext, useAuthContext, useGithubContext, useFigmaContext } from "@/lib/stores/session-store";
 import { toast } from "sonner";
@@ -248,6 +250,21 @@ export function useBoard() {
     queryFn: () => getBoard(context!),
     enabled: Boolean(context),
     staleTime: 30 * 1000,
+  });
+}
+
+// Same queryKey as tasks-section.tsx's inline query — shares its cache entry
+// rather than double-fetching when both are mounted (the common case, since
+// the right-sidebar Tasks section is always mounted once a project is
+// selected).
+export function useProjectTasks() {
+  const context = useApiContext();
+  const adapter = getPmAdapter(context?.pmTool);
+  return useQuery({
+    queryKey: ["pm", "project-tasks", context?.projectId],
+    queryFn: () => adapter.getProjectTasks(toPmCtx(context!)),
+    enabled: Boolean(context),
+    staleTime: 60 * 1000,
   });
 }
 

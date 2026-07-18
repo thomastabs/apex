@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ClipboardCheck, ClipboardList, FileCode2, FileText, FolderOpen,
-  Layers3, PanelRightClose, PanelRightOpen, Rocket, Users,
+  Layers3, PanelRightClose, PanelRightOpen, Rocket, Search, Users,
 } from "lucide-react";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -39,6 +39,7 @@ export function RightSidebar() {
   const setWidth = useUiStore((s) => s.setRightSidebarWidth);
   const collapsed = useUiStore((s) => s.rightSidebarCollapsed);
   const setCollapsed = useUiStore((s) => s.setRightSidebarCollapsed);
+  const setCommandPaletteOpen = useUiStore((s) => s.setCommandPaletteOpen);
 
   const taigaToken = useSessionStore((s) => s.taigaToken);
   const projectId = useSessionStore((s) => s.projectId);
@@ -146,6 +147,13 @@ export function RightSidebar() {
         <button className="grid size-12 shrink-0 place-items-center text-violet-400 hover:text-violet-300" onClick={() => setCollapsed(false)} aria-label="Expand workspace panel">
           <PanelRightOpen className="size-4" />
         </button>
+        <button
+          onClick={() => setCommandPaletteOpen(true)}
+          aria-label="Search"
+          className={cn("grid size-9 shrink-0 place-items-center self-center rounded transition-colors", dark ? "text-neutral-600 hover:text-neutral-300" : "text-slate-300 hover:text-slate-600")}
+        >
+          <Search className="size-4" />
+        </button>
         <div className="flex shrink-0 flex-col items-center gap-1 py-2">
           {visibleIds.map((id) => {
             const Icon = SECTION_ICONS[id];
@@ -220,6 +228,14 @@ export function RightSidebar() {
             {currentModel}
           </span>
         ) : null}
+        <button
+          onClick={() => setCommandPaletteOpen(true)}
+          className={cn("grid size-7 shrink-0 place-items-center rounded transition-colors", dark ? "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200" : "text-slate-400 hover:bg-slate-200 hover:text-slate-700")}
+          aria-label="Search"
+          title="Search (⌘K)"
+        >
+          <Search className="size-3.5" />
+        </button>
         <button
           onClick={() => setCollapsed(true)}
           className={cn("grid size-7 shrink-0 place-items-center rounded transition-colors", dark ? "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200" : "text-slate-400 hover:bg-slate-200 hover:text-slate-700")}

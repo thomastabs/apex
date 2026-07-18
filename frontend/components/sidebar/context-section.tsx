@@ -289,6 +289,18 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
   const rebuildIndex = useRebuildStoryIndex();
   const resetAll = useResetAllContextFiles();
 
+  // Search-result jump target (set by the command palette) — see SearchFocus
+  // in ui-store.ts. Consumed once, then cleared.
+  const searchFocus = useUiStore((s) => s.searchFocus);
+  const clearSearchFocus = useUiStore((s) => s.clearSearchFocus);
+  useEffect(() => {
+    if (searchFocus?.kind === "file") {
+      setContextOpen(true);
+      setExpandedContext(searchFocus.filename);
+      clearSearchFocus();
+    }
+  }, [searchFocus, clearSearchFocus]);
+
   useEffect(() => {
     if (!contextFiles.isLoading) return;
     const id = toast.loading("Loading project context…");

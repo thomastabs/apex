@@ -10,6 +10,17 @@ type TraceabilityView = "flowchart" | "cluster";
 // reorder there, persisted per user (see components/right-sidebar.tsx).
 const DEFAULT_WORKSPACE_SECTION_ORDER = ["project", "context", "board", "tasks", "packs", "testplans", "deploypacks", "users"];
 
+// A search-result jump target — set by the command palette, consumed once by
+// whichever right-sidebar section owns that kind (board-section.tsx for
+// epic/story, tasks-section.tsx for task, context-section.tsx for file), then
+// cleared. Deliberately not persisted (see partialize below) — a stale jump
+// target reappearing after reload would pop a dialog with no user action.
+export type SearchFocus =
+  | { kind: "epic"; id: number }
+  | { kind: "story"; id: number }
+  | { kind: "task"; id: string }
+  | { kind: "file"; filename: string };
+
 type UiState = {
   theme: UiTheme;
   sidebarWidth: number;
@@ -18,6 +29,8 @@ type UiState = {
   rightSidebarWidth: number;
   rightSidebarCollapsed: boolean;
   traceabilityView: TraceabilityView;
+  commandPaletteOpen: boolean;
+  searchFocus: SearchFocus | null;
   setTheme: (theme: UiTheme) => void;
   toggleTheme: () => void;
   setSidebarWidth: (width: number) => void;
@@ -26,6 +39,9 @@ type UiState = {
   setRightSidebarWidth: (width: number) => void;
   setRightSidebarCollapsed: (collapsed: boolean) => void;
   setTraceabilityView: (view: TraceabilityView) => void;
+  setCommandPaletteOpen: (open: boolean) => void;
+  setSearchFocus: (focus: SearchFocus) => void;
+  clearSearchFocus: () => void;
 };
 
 export const useUiStore = create<UiState>()(
@@ -38,6 +54,8 @@ export const useUiStore = create<UiState>()(
       rightSidebarWidth: 420,
       rightSidebarCollapsed: false,
       traceabilityView: "flowchart",
+      commandPaletteOpen: false,
+      searchFocus: null,
       setTheme: (theme) => set({ theme }),
       toggleTheme: () => set({ theme: get().theme === "dark" ? "light" : "dark" }),
       setSidebarWidth: (width) => set({ sidebarWidth: Math.min(900, Math.max(280, width)) }),
@@ -46,9 +64,18 @@ export const useUiStore = create<UiState>()(
       setRightSidebarWidth: (width) => set({ rightSidebarWidth: Math.min(900, Math.max(280, width)) }),
       setRightSidebarCollapsed: (rightSidebarCollapsed) => set({ rightSidebarCollapsed }),
       setTraceabilityView: (traceabilityView) => set({ traceabilityView }),
+      setCommandPaletteOpen: (commandPaletteOpen) => set({ commandPaletteOpen }),
+      setSearchFocus: (searchFocus) => set({ searchFocus }),
+      clearSearchFocus: () => set({ searchFocus: null }),
     }),
     {
       name: "apex-ui",
+      // commandPaletteOpen/searchFocus are ephemeral UI/navigation signals,
+      // not persisted preferences — see SearchFocus doc comment above.
+      partialize: (state) => {
+        const { commandPaletteOpen: _open, searchFocus: _focus, ...rest } = state;
+        return rest;
+      },
       merge: (persisted, current) => {
         const stored = (persisted as Partial<UiState>)?.workspaceSectionOrder;
         const base = (stored ?? DEFAULT_WORKSPACE_SECTION_ORDER).filter((id) => DEFAULT_WORKSPACE_SECTION_ORDER.includes(id));
