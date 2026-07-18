@@ -383,8 +383,9 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
   const activeModel = aiConfig.data?.available_models.find((m) => m.id === aiConfig.data?.model);
   const activeModelLabel = activeModel?.label ?? aiConfig.data?.model ?? t("context.currentModelFallback");
   const activeModelContextWindow = activeModel?.context_window_tokens ?? 0;
-  const wikiPageCount = wikiStatus.data?.pages.filter((page) => page.exists).length ?? 0;
-  const wikiTotalCount = wikiStatus.data?.pages.length ?? visibleFiles.length;
+  const wikiPages = wikiStatus.data?.pages ?? [];
+  const wikiPageCount = wikiPages.filter((page) => page.exists).length;
+  const wikiTotalCount = wikiPages.length || visibleFiles.length;
 
   const projectConcept = contextFiles.data?.files.find((f) => f.filename === "project-concept.md")?.content ?? "";
   const hasProjectConcept = useMemo(() => {
