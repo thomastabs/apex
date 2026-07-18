@@ -1365,6 +1365,8 @@ export const translations = {
     "tracegraph.relayout": "Re-layout",
     "tracegraph.exportPng": "Export PNG",
     "tracegraph.nodesEdgesCount": "{nodes} nodes · {edges} edges",
+    "tracegraph.subtitleCluster": "The whole project as one derivation graph — epic → story → Gherkin → design → tasks → tests → deploy. Violet dashed = backward-trace, red dashed = regression loop-back. Click any node to jump to its phase.",
+    "tracegraph.minimapAria": "Graph minimap",
   },
   pt: {
     "nav.home": "Início",
@@ -2694,6 +2696,8 @@ export const translations = {
     "tracegraph.relayout": "Reorganizar",
     "tracegraph.exportPng": "Exportar PNG",
     "tracegraph.nodesEdgesCount": "{nodes} nós · {edges} arestas",
+    "tracegraph.subtitleCluster": "Todo o projeto como um único grafo de derivação — épico → história → Gherkin → design → tarefas → testes → implantação. Tracejado violeta = rastreamento inverso, tracejado vermelho = retrocesso de regressão. Clique em qualquer nó para ir para a sua fase.",
+    "tracegraph.minimapAria": "Minimapa do grafo",
   },
 } as const;
 
