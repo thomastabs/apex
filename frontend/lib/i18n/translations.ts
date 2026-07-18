@@ -49,7 +49,7 @@ export const translations = {
     "workspace.collapsePanel": "Collapse workspace panel",
     "workspace.resizePanel": "Resize workspace panel",
     "workspace.activeModelTitle": "Active AI model (Settings → AI Model to change)",
-    "workspace.searchShortcutTitle": "Search (⌘K)",
+    "workspace.searchShortcutTitle": "Search (Ctrl + K)",
 
     // ── command palette ──
     "palette.placeholder": "Type a command or search…",
