@@ -11,6 +11,7 @@ import { deleteTestPlan, getTestPlan, listTestPlans, saveTestPlan } from "@/lib/
 import { useAutoSyncStoryIndex } from "@/lib/hooks/use-workspace";
 import { useApiContext } from "@/lib/stores/session-store";
 import { PanelHeader, type DragSectionProps } from "./shared";
+import { useT } from "@/lib/i18n/use-translation";
 
 type TestPlansSectionProps = DragSectionProps & {
   dark: boolean;
@@ -28,6 +29,7 @@ function planDownload(content: string, storyId: number) {
 }
 
 export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDragStart }: TestPlansSectionProps) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [viewing, setViewing] = useState<{ storyId: number; content: string } | null>(null);
   const [editing, setEditing] = useState(false);
@@ -59,13 +61,13 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
       setEditing(false);
       setDraft(content);
     },
-    onError: (err: Error) => toast.error(`Load test plan failed: ${err.message}`),
+    onError: (err: Error) => toast.error(t("testplans.toast.loadFailed", { err: err.message })),
   });
 
   const downloadMut = useMutation({
     mutationFn: fetchPlanContent,
     onSuccess: (content, storyId) => planDownload(content, storyId),
-    onError: (err: Error) => toast.error(`Download failed: ${err.message}`),
+    onError: (err: Error) => toast.error(t("testplans.toast.downloadFailed", { err: err.message })),
   });
 
   const downloadAllMut = useMutation({
@@ -74,7 +76,7 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
       return contents.map((content, i) => ({ filename: `test_plan_story_${plans[i].story_id}.md`, content }));
     },
     onSuccess: (files) => downloadZip(files, "apex-test-plans.zip"),
-    onError: (err: Error) => toast.error(`Download failed: ${err.message}`),
+    onError: (err: Error) => toast.error(t("testplans.toast.downloadFailed", { err: err.message })),
   });
 
   const saveMut = useMutation({
@@ -85,9 +87,9 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
       autoSync();
       setViewing({ storyId, content: md });
       setEditing(false);
-      toast.success("Test plan saved.");
+      toast.success(t("testplans.toast.testPlanSaved"));
     },
-    onError: (err: Error) => toast.error(`Save failed: ${err.message}`),
+    onError: (err: Error) => toast.error(t("testplans.toast.saveFailed", { err: err.message })),
   });
 
   const deleteMut = useMutation({
@@ -96,9 +98,9 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
       void queryClient.invalidateQueries({ queryKey: PLANS_KEY });
       void queryClient.invalidateQueries({ queryKey: ["phase4"] });
       autoSync();
-      toast.success("Test plan deleted.");
+      toast.success(t("testplans.toast.testPlanDeleted"));
     },
-    onError: (err: Error) => toast.error(`Delete failed: ${err.message}`),
+    onError: (err: Error) => toast.error(t("testplans.toast.deleteFailed", { err: err.message })),
   });
 
   const deleteAllMut = useMutation({
@@ -111,9 +113,9 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
       void queryClient.invalidateQueries({ queryKey: PLANS_KEY });
       void queryClient.invalidateQueries({ queryKey: ["phase4"] });
       autoSync();
-      toast.success("All test plans deleted.");
+      toast.success(t("testplans.toast.allDeleted"));
     },
-    onError: (err: Error) => toast.error(`Delete all failed: ${err.message}`),
+    onError: (err: Error) => toast.error(t("testplans.toast.deleteAllFailed", { err: err.message })),
   });
 
   const closeModal = () => {
@@ -133,7 +135,7 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
       <section className={cn("border-b", dark ? "border-neutral-800" : "border-slate-300")}>
         <PanelHeader
           icon={<ClipboardCheck className="size-4" />}
-          title="Test Plans"
+          title={t("testplans.panelTitle")}
           badge={open && plans.length > 0 ? String(plans.length) : undefined}
           open={open}
           onClick={() => setOpen(!open)}
@@ -143,16 +145,16 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
           <div className={cn("px-4 py-3 text-sm", dark ? "bg-[#20232b]" : "bg-white")}>
             {isLoading ? (
               <div className="flex items-center gap-2 text-xs text-neutral-500">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading test plans…
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t("testplans.loading")}
               </div>
             ) : isError ? (
               <div className={cn("flex items-center justify-between gap-2 rounded border px-2.5 py-2 text-xs", dark ? "border-red-900/50 text-red-400" : "border-red-200 text-red-600")}>
-                <span>Failed to load test plans.</span>
-                <button onClick={() => refetch()} className="shrink-0 font-semibold underline">Retry</button>
+                <span>{t("testplans.failedLoad")}</span>
+                <button onClick={() => refetch()} className="shrink-0 font-semibold underline">{t("common.retry")}</button>
               </div>
             ) : plans.length === 0 ? (
               <p className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
-                No test plans saved. Phase 4 writes one per story.
+                {t("testplans.none")}
               </p>
             ) : (
               <>
@@ -166,7 +168,7 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
                   onClick={() => downloadAllMut.mutate()}
                 >
                   {downloadAllMut.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
-                  Download all
+                  {t("testplans.downloadAll")}
                 </button>
                 <button
                   className={cn(
@@ -176,13 +178,13 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
                   disabled={deleteAllMut.isPending}
                   onClick={() =>
                     confirm(
-                      `Delete all ${plans.length} test plan(s)? This rolls each story's status back from qa to implementation. This cannot be undone.`,
+                      t("testplans.deleteAllConfirm", { n: plans.length }),
                       () => deleteAllMut.mutate(),
                     )
                   }
                 >
                   {deleteAllMut.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
-                  Delete all
+                  {t("testplans.deleteAll")}
                 </button>
               </div>
               <ul className={cn("divide-y rounded border", dark ? "divide-neutral-800 border-neutral-800" : "divide-slate-100 border-slate-200")}>
@@ -195,14 +197,14 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
                       US#{p.story_id}
                     </span>
                     <span className={cn("min-w-0 flex-1 truncate text-xs", dark ? "text-neutral-300" : "text-slate-600")}>
-                      {p.title || "(story not in index)"}
+                      {p.title || t("testplans.storyNotInIndex")}
                       <span className={cn("ml-2", dark ? "text-neutral-600" : "text-slate-400")}>
-                        {Math.round(p.chars / 100) / 10}k chars
+                        {t("testplans.charsK", { k: Math.round(p.chars / 100) / 10 })}
                       </span>
                     </span>
                     <button
                       className={rowBtn}
-                      title="View / edit test plan"
+                      title={t("testplans.viewEditTestPlan")}
                       disabled={viewMut.isPending}
                       onClick={() => viewMut.mutate(p.story_id)}
                     >
@@ -210,7 +212,7 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
                     </button>
                     <button
                       className={rowBtn}
-                      title="Download test plan"
+                      title={t("testplans.downloadTestPlan")}
                       disabled={downloadMut.isPending}
                       onClick={() => downloadMut.mutate(p.story_id)}
                     >
@@ -218,11 +220,11 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
                     </button>
                     <button
                       className={cn(rowBtn, "hover:!text-red-400")}
-                      title="Delete test plan"
+                      title={t("testplans.deleteTestPlan")}
                       disabled={deleteMut.isPending}
                       onClick={() =>
                         confirm(
-                          `Delete the test plan for US#${p.story_id}? This rolls the story's status back from qa to implementation.`,
+                          t("testplans.deleteConfirm", { storyId: p.story_id }),
                           () => deleteMut.mutate(p.story_id),
                         )
                       }
@@ -248,36 +250,36 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
               )}
               role="dialog"
               aria-modal="true"
-              aria-label={`Test plan for US#${viewing.storyId}`}
+              aria-label={t("testplans.dialogAria", { storyId: viewing.storyId })}
               onClick={(e) => e.stopPropagation()}
             >
               <div className={cn("flex items-center gap-3 border-b px-5 py-3", dark ? "border-neutral-800" : "border-slate-200")}>
                 <ClipboardCheck className="size-4 text-violet-400" />
                 <span className={cn("flex-1 text-sm font-semibold", dark ? "text-neutral-100" : "text-slate-800")}>
-                  Test Plan — US#{viewing.storyId}
+                  {t("testplans.dialogTitle", { storyId: viewing.storyId })}
                 </span>
                 {editing ? (
                   <button
                     className={rowBtn}
-                    title="Save changes"
+                    title={t("testplans.saveChanges")}
                     disabled={saveMut.isPending || !draft.trim()}
                     onClick={() => saveMut.mutate({ storyId: viewing.storyId, md: draft })}
                   >
                     {saveMut.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
                   </button>
                 ) : (
-                  <button className={rowBtn} title="Edit" onClick={() => { setEditing(true); setDraft(viewing.content); }}>
+                  <button className={rowBtn} title={t("common.edit")} onClick={() => { setEditing(true); setDraft(viewing.content); }}>
                     <Pencil className="size-4" />
                   </button>
                 )}
                 <button
                   className={rowBtn}
-                  title="Download"
+                  title={t("common.download")}
                   onClick={() => planDownload(editing ? draft : viewing.content, viewing.storyId)}
                 >
                   <Download className="size-4" />
                 </button>
-                <button className={rowBtn} title="Close" onClick={closeModal}>
+                <button className={rowBtn} title={t("common.close")} onClick={closeModal}>
                   <X className="size-4" />
                 </button>
               </div>
@@ -295,12 +297,12 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
                   "min-h-0 flex-1 overflow-auto whitespace-pre-wrap p-5 font-mono text-xs leading-relaxed",
                   dark ? "text-neutral-300" : "text-slate-700",
                 )}>
-                  {viewing.content || "(empty test plan)"}
+                  {viewing.content || t("testplans.emptyTestPlan")}
                 </pre>
               )}
               {editing ? (
                 <div className={cn("border-t px-5 py-2 text-xs", dark ? "border-neutral-800 text-neutral-500" : "border-slate-200 text-slate-400")}>
-                  Saving keeps the story at <span className="font-mono">qa</span> status.
+                  {t("testplans.savingKeepsQa", { status: "qa" })}
                 </div>
               ) : null}
             </div>
