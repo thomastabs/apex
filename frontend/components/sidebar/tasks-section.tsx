@@ -26,6 +26,8 @@ import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { PanelHeader, type DragSectionProps } from "./shared";
 import { EFFORT_COLORS } from "@/lib/effort-colors";
+import { useT } from "@/lib/i18n/use-translation";
+import type { TranslationKey } from "@/lib/i18n/translations";
 
 type TasksSectionProps = DragSectionProps & { dark: boolean };
 
@@ -49,6 +51,7 @@ function DeleteTaskDialog({
   onCancel: () => void;
   isPending: boolean;
 }) {
+  const t = useT();
   return (
     <div
       className={cn("fixed inset-0 z-50 grid place-items-center p-4", dark ? "bg-black/75" : "bg-slate-950/35 backdrop-blur-sm")}
@@ -59,10 +62,10 @@ function DeleteTaskDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <p className={cn("mb-1 text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>
-          Delete task #{task.ref}?
+          {t("tasks.deleteTaskTitle", { ref: task.ref })}
         </p>
         <p className={cn("mb-4 text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
-          &ldquo;{task.subject}&rdquo; will be permanently deleted.
+          {t("tasks.deleteTaskDesc", { subject: task.subject })}
         </p>
         <div className="flex gap-2">
           <button
@@ -70,13 +73,13 @@ function DeleteTaskDialog({
             onClick={onConfirm}
             disabled={isPending}
           >
-            {isPending ? "Deleting…" : "Delete"}
+            {isPending ? t("common.deleting") : t("common.delete")}
           </button>
           <button
             className={cn("flex-1 rounded py-2 text-sm transition-colors", dark ? "bg-neutral-800 text-neutral-300 hover:bg-neutral-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200")}
             onClick={onCancel}
           >
-            Cancel
+            {t("common.cancel")}
           </button>
         </div>
       </div>
@@ -85,7 +88,7 @@ function DeleteTaskDialog({
 }
 
 const EFFORT_OPTIONS: EffortEstimate[] = ["XS", "S", "M", "L", "XL"];
-const EFFORT_LABELS_DIALOG: Record<EffortEstimate, string> = { XS: "XS (1 pt)", S: "S (2 pts)", M: "M (3 pts)", L: "L (5 pts)", XL: "XL (8 pts)" };
+const EFFORT_LABEL_KEYS: Record<EffortEstimate, TranslationKey> = { XS: "tasks.effort.xs", S: "tasks.effort.s", M: "tasks.effort.m", L: "tasks.effort.l", XL: "tasks.effort.xl" };
 
 function TaskEditDialog({
   task,
@@ -106,6 +109,7 @@ function TaskEditDialog({
   isPending: boolean;
   validTaskIds?: number[];
 }) {
+  const t = useT();
   const [subject, setSubject] = useState(task.subject);
   const [description, setDescription] = useState(task.description);
   const [effort, setEffort] = useState<EffortEstimate>(task.effort_estimate);
@@ -137,43 +141,43 @@ function TaskEditDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>
-          {task.ref ? `Task #${task.ref}` : "Edit Task"}
+          {task.ref ? t("tasks.editTaskTitle", { ref: task.ref }) : t("tasks.editTaskFallback")}
         </h3>
         <div className="space-y-3">
           <div>
-            <label className={labelClass}>Subject</label>
-            <input className={cn("h-9", inputClass)} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Task subject" autoFocus />
+            <label className={labelClass}>{t("tasks.subjectLabel")}</label>
+            <input className={cn("h-9", inputClass)} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={t("tasks.taskSubjectPlaceholder")} autoFocus />
           </div>
           <div>
-            <label className={labelClass}>Description</label>
-            <textarea className={cn("h-32 resize-none py-2", inputClass)} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe this task…" />
+            <label className={labelClass}>{t("common.description")}</label>
+            <textarea className={cn("h-32 resize-none py-2", inputClass)} value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("tasks.describeTaskPlaceholder")} />
           </div>
           <div className="flex gap-4">
             <div className="flex-shrink-0">
-              <label className={labelClass}>Effort</label>
+              <label className={labelClass}>{t("tasks.effortLabel")}</label>
               <select
                 value={effort}
                 onChange={(e) => setEffort(e.target.value as EffortEstimate)}
                 className={cn("rounded border px-2 py-1.5 text-xs", dark ? "border-neutral-700 bg-neutral-950 text-white" : "border-slate-300 bg-white text-slate-900")}
               >
-                {EFFORT_OPTIONS.map((e) => <option key={e} value={e}>{EFFORT_LABELS_DIALOG[e]}</option>)}
+                {EFFORT_OPTIONS.map((e) => <option key={e} value={e}>{t(EFFORT_LABEL_KEYS[e])}</option>)}
               </select>
             </div>
             <div className="flex-1 min-w-0">
               <label className={labelClass}>
-                Depends on tasks{" "}
+                {t("tasks.dependsOnTasks")}{" "}
                 <span className={cn("font-normal", dark ? "text-neutral-600" : "text-slate-400")}>
                   {validTaskIds && validTaskIds.length > 0
-                    ? `(valid: ${validTaskIds.join(", ")})`
-                    : "(Phase 3 task numbers, comma-separated)"}
+                    ? t("tasks.validDeps", { ids: validTaskIds.join(", ") })
+                    : t("tasks.depsHint")}
                 </span>
               </label>
-              <input className={cn("h-8", inputClass)} value={depsText} onChange={(e) => setDepsText(e.target.value)} placeholder="e.g. 1, 2" />
+              <input className={cn("h-8", inputClass)} value={depsText} onChange={(e) => setDepsText(e.target.value)} placeholder={t("tasks.depsPlaceholder")} />
             </div>
           </div>
           <div>
-            <label className={labelClass}>Covered scenarios <span className={cn("font-normal", dark ? "text-neutral-600" : "text-slate-400")}>(one per line)</span></label>
-            <textarea className={cn("h-20 resize-none py-2", inputClass)} value={scenariosText} onChange={(e) => setScenariosText(e.target.value)} placeholder="Scenario: …&#10;Scenario: …" />
+            <label className={labelClass}>{t("tasks.coveredScenarios")} <span className={cn("font-normal", dark ? "text-neutral-600" : "text-slate-400")}>{t("tasks.onePerLine")}</span></label>
+            <textarea className={cn("h-20 resize-none py-2", inputClass)} value={scenariosText} onChange={(e) => setScenariosText(e.target.value)} placeholder={t("tasks.scenariosPlaceholder")} />
           </div>
         </div>
         <div className="mt-5 flex gap-3">
@@ -182,13 +186,13 @@ function TaskEditDialog({
             disabled={isPending || !subject.trim()}
             onClick={handleSave}
           >
-            {isPending ? "Saving…" : "Save"}
+            {isPending ? t("common.saving") : t("common.save")}
           </button>
           <button
             className={cn("flex-1 rounded py-2 text-sm transition-colors", dark ? "bg-neutral-800 text-neutral-300 hover:bg-neutral-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200")}
             onClick={onClose}
           >
-            Cancel
+            {t("common.cancel")}
           </button>
         </div>
       </div>
@@ -197,6 +201,7 @@ function TaskEditDialog({
 }
 
 export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: TasksSectionProps) {
+  const t = useT();
   const darkTheme = useUiStore((s) => s.theme) === "dark";
   const [open, setOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -294,7 +299,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
       void invalidate();
       void queryClient.invalidateQueries({ queryKey: ["phase3", "task-board"] });
       void queryClient.invalidateQueries({ queryKey: ["phase3", "task-list", context?.projectId, v.storyId] });
-      toast.success(local ? "Task saved and synced to Phase 3." : "Task saved.");
+      toast.success(local ? t("tasks.toast.taskSavedSynced") : t("tasks.toast.taskSaved"));
     },
     onError: (err) => toast.error(adapter.errMsg(err, "Update task")),
   });
@@ -332,7 +337,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
         ? deleteProposal(context, storyId, apexTaskId).catch(() => undefined)
         : Promise.resolve();
       void cleanup.then(() => autoSync());
-      toast.success("Task deleted.");
+      toast.success(t("tasks.toast.taskDeleted"));
     },
     onError: (err) => { setPendingDelete(null); toast.error(adapter.errMsg(err, "Delete task")); },
   });
@@ -340,7 +345,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
   const addMut = useMutation({
     mutationFn: (v: { storyId: number; subject: string }) =>
       adapter.createTask(adapterCtx!, String(v.storyId), v.subject, ""),
-    onSuccess: () => { setAddingToStory(null); setNewTaskSubject(""); void invalidate(); autoSync(); toast.success("Task added."); },
+    onSuccess: () => { setAddingToStory(null); setNewTaskSubject(""); void invalidate(); autoSync(); toast.success(t("tasks.toast.taskAdded")); },
     onError: (err) => toast.error(adapter.errMsg(err, "Add task")),
   });
 
@@ -409,7 +414,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
       <button
         onClick={(e) => { e.stopPropagation(); if (context) void invalidate(); }}
         disabled={!context || isFetching}
-        title="Refresh task list from the PM tool"
+        title={t("tasks.refreshTaskListTitle")}
         className={cn(
           "rounded p-1 transition-colors disabled:opacity-40",
           dark ? "text-neutral-600 hover:text-violet-400" : "text-slate-400 hover:text-violet-600",
@@ -426,7 +431,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
             : dark ? "text-neutral-400 hover:text-neutral-300" : "text-slate-600 hover:text-slate-700",
         )}
       >
-        Filter
+        {t("board.filter")}
       </button>
     </div>
   );
@@ -465,7 +470,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
       <section className={cn("border-b", sectionBorderClass)}>
         <PanelHeader
           icon={<ClipboardList className="size-4" />}
-          title="Task Board"
+          title={t("tasks.panelTitle")}
           badge={totalTasks > 0 ? String(totalTasks) : undefined}
           open={open}
           onClick={() => setOpen(!open)}
@@ -480,7 +485,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
                 <input
                   autoFocus
                   className={inputClass}
-                  placeholder="Filter stories or tasks…"
+                  placeholder={t("tasks.filterPlaceholder")}
                   value={filter}
                   onChange={(e) => setFilter(e.target.value)}
                 />
@@ -494,16 +499,16 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
 
             {isLoading ? (
               <div className="flex items-center gap-2 px-4 py-3 text-xs text-neutral-500">
-                <Loader2 className="h-3 w-3 animate-spin" /> Loading…
+                <Loader2 className="h-3 w-3 animate-spin" /> {t("common.loading")}
               </div>
             ) : isError ? (
               <div className={cn("mx-4 my-3 flex items-center justify-between gap-2 rounded border px-2.5 py-2 text-xs", dark ? "border-red-900/50 text-red-400" : "border-red-200 text-red-600")}>
-                <span>Failed to load tasks.</span>
-                <button onClick={() => refetch()} className="shrink-0 font-semibold underline">Retry</button>
+                <span>{t("tasks.failedLoadTasks")}</span>
+                <button onClick={() => refetch()} className="shrink-0 font-semibold underline">{t("common.retry")}</button>
               </div>
             ) : storyGroups.length === 0 ? (
               <p className={cn("px-4 py-3 text-sm", subduedTextClass)}>
-                {q ? "No tasks match your filter." : "No tasks pushed yet."}
+                {q ? t("tasks.noTasksFiltered") : t("tasks.noTasksYet")}
               </p>
             ) : storyGroups.map((group) => {
               const isExpanded = expandedStories.has(group.story_id);
@@ -561,12 +566,12 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
                                     disabled={loadForEditMut.isPending}
                                     className={cn("shrink-0 rounded px-1.5 py-0.5 text-xs font-medium transition-colors disabled:opacity-40", dark ? "text-neutral-500 hover:text-neutral-200" : "text-slate-400 hover:text-slate-700")}
                                   >
-                                    {loadForEditMut.isPending && loadForEditMut.variables === task.id ? "…" : "Edit"}
+                                    {loadForEditMut.isPending && loadForEditMut.variables === task.id ? "…" : t("tasks.editShort")}
                                   </button>
                                   <button
                                     onClick={() => setPendingDelete({ id: task.id, ref: task.ref, subject: task.subject })}
                                     className={cn("shrink-0 rounded p-1 transition-colors", dark ? "text-neutral-600 hover:text-red-400" : "text-slate-400 hover:text-red-500")}
-                                    title="Delete task"
+                                    title={t("tasks.deleteTaskAria")}
                                   >
                                     <Trash2 className="h-3 w-3" />
                                   </button>
@@ -581,7 +586,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
                         <div className="mx-2 mt-1 space-y-1.5">
                           <input autoFocus className={inputClass} value={newTaskSubject}
                             onChange={(e) => setNewTaskSubject(e.target.value)}
-                            placeholder="New task subject…"
+                            placeholder={t("tasks.newTaskPlaceholder")}
                             onKeyDown={(e) => {
                               if (e.key === "Enter" && newTaskSubject.trim()) addMut.mutate({ storyId: group.story_id, subject: newTaskSubject.trim() });
                               if (e.key === "Escape") { setAddingToStory(null); setNewTaskSubject(""); }
@@ -592,11 +597,11 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
                               disabled={addMut.isPending || !newTaskSubject.trim()}
                               className="flex items-center gap-1 rounded bg-violet-600 px-2 py-1 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
                             >
-                              {addMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />} Add
+                              {addMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />} {t("tasks.add")}
                             </button>
                             <button onClick={() => { setAddingToStory(null); setNewTaskSubject(""); }}
                               className={cn("rounded px-2 py-1 text-xs", dark ? "text-neutral-400 hover:text-neutral-200" : "text-slate-500")}>
-                              Cancel
+                              {t("common.cancel")}
                             </button>
                           </div>
                         </div>
@@ -606,7 +611,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
                           className={cn("mx-2 mt-0.5 flex w-[calc(100%-1rem)] items-center gap-1.5 rounded px-2.5 py-1.5 text-xs transition-colors",
                             dark ? "text-neutral-600 hover:text-violet-400 hover:bg-neutral-800" : "text-slate-400 hover:text-violet-600 hover:bg-slate-100")}
                         >
-                          <Plus className="h-3.5 w-3.5" /> Add task
+                          <Plus className="h-3.5 w-3.5" /> {t("tasks.addTask")}
                         </button>
                       )}
                     </div>
