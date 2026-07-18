@@ -9,7 +9,11 @@ import { useApiContext } from "@/lib/stores/session-store";
 import { SignInRequired } from "@/components/sign-in-required";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
+import { useT } from "@/lib/i18n/use-translation";
+import type { TranslationKey } from "@/lib/i18n/translations";
 
+// English-only status labels for exported CSV/Markdown — data artifacts stay
+// locale-independent, same boundary as dev-pack/test-plan content elsewhere.
 const STATUS_LABELS: Record<string, string> = {
   gherkin_locked: "Gherkin locked",
   design_locked: "Design locked",
@@ -17,6 +21,15 @@ const STATUS_LABELS: Record<string, string> = {
   qa: "QA",
   qa_passed: "QA passed",
   deployed: "Deployed",
+};
+
+const STATUS_LABEL_KEYS: Record<string, TranslationKey> = {
+  gherkin_locked: "analytics.status.gherkinLocked",
+  design_locked: "analytics.status.designLocked",
+  implementation: "analytics.status.implementation",
+  qa: "analytics.status.qa",
+  qa_passed: "analytics.status.qaPassed",
+  deployed: "analytics.status.deployed",
 };
 
 function useAnalyticsSummary() {
@@ -101,6 +114,7 @@ function MetricCard({ label, value, hint, dark }: { label: string; value: string
 }
 
 export function AnalyticsDashboard() {
+  const t = useT();
   const dark = useUiStore((s) => s.theme) === "dark";
   const context = useApiContext();
   const { data, isLoading, error } = useAnalyticsSummary();
@@ -110,23 +124,23 @@ export function AnalyticsDashboard() {
   return (
     <section className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <div className="mb-7">
-        <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Governance</p>
+        <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">{t("fixbolt.governanceEyebrow")}</p>
         <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
-          Analytics
+          {t("analytics.heading")}
         </h1>
         <p className={cn("mt-2", mutedClass)}>
-          Core governance metrics: cycle time per gate, context traceability rate, and the Fix-Bolt defect proxy.
+          {t("analytics.subtitle")}
         </p>
       </div>
 
-      {!context && <SignInRequired unlocks="the governance analytics" />}
+      {!context && <SignInRequired unlocks={t("analytics.unlocksAnalytics")} />}
 
       {isLoading && (
         <div className="flex items-center gap-3 text-sm text-neutral-400">
-          <Loader2 className="h-4 w-4 animate-spin" /> Computing metrics…
+          <Loader2 className="h-4 w-4 animate-spin" /> {t("analytics.computingMetrics")}
         </div>
       )}
-      {error != null && <Callout>Failed to load analytics: {errMsg(error)}</Callout>}
+      {error != null && <Callout>{t("analytics.failedLoad", { err: errMsg(error) })}</Callout>}
 
       {data && (
         <div className="space-y-8">
@@ -134,40 +148,40 @@ export function AnalyticsDashboard() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <MetricCard
               dark={dark}
-              label="Context Traceability Rate"
+              label={t("analytics.contextTraceabilityRate")}
               value={data.traceability.deployed > 0 ? `${Math.round(data.traceability.rate * 100)}%` : "—"}
-              hint={`${data.traceability.complete}/${data.traceability.deployed} deployed stories with a complete artifact chain`}
+              hint={t("analytics.traceabilityHint", { complete: data.traceability.complete, deployed: data.traceability.deployed })}
             />
             <MetricCard
               dark={dark}
-              label="Spec Conformance Rate"
+              label={t("analytics.specConformanceRate")}
               value={data.conformance.checked > 0 ? `${Math.round(data.conformance.avg_score)}%` : "—"}
-              hint={`${data.conformance.checked}/${data.conformance.eligible} implemented stories checked against spec`}
+              hint={t("analytics.conformanceHint", { checked: data.conformance.checked, eligible: data.conformance.eligible })}
             />
             <MetricCard
               dark={dark}
-              label="Fix-Bolts (defect proxy)"
+              label={t("analytics.fixBoltsDefectProxy")}
               value={String(data.defects.total_fix_bolts)}
-              hint={`${data.defects.stories_affected} stories affected · ${data.defects.avg_per_story} avg/story`}
+              hint={t("analytics.fixBoltsHint", { affected: data.defects.stories_affected, avg: data.defects.avg_per_story })}
             />
             <MetricCard
               dark={dark}
-              label="Stories tracked"
+              label={t("analytics.storiesTracked")}
               value={String(data.stories.length)}
-              hint={`${data.funnel.deployed ?? 0} deployed`}
+              hint={t("analytics.storiesTrackedHint", { n: data.funnel.deployed ?? 0 })}
             />
           </div>
 
           {/* Funnel */}
           <div>
-            <SectionHeading>Phase funnel</SectionHeading>
+            <SectionHeading>{t("analytics.phaseFunnel")}</SectionHeading>
             <div className="mt-3 space-y-2">
               {Object.entries(data.funnel).map(([status, count]) => {
                 const max = Math.max(1, ...Object.values(data.funnel));
                 return (
                   <div key={status} className="flex items-center gap-3">
                     <span className={cn("w-36 shrink-0 text-xs font-medium", dark ? "text-neutral-400" : "text-slate-500")}>
-                      {STATUS_LABELS[status] ?? status}
+                      {STATUS_LABEL_KEYS[status] ? t(STATUS_LABEL_KEYS[status]) : status}
                     </span>
                     <div className={cn("h-5 flex-1 rounded", dark ? "bg-neutral-900" : "bg-slate-100")}>
                       <div
@@ -186,20 +200,20 @@ export function AnalyticsDashboard() {
 
           {/* Cycle times */}
           <div>
-            <SectionHeading>Cycle time per gate transition</SectionHeading>
+            <SectionHeading>{t("analytics.cycleTimePerGate")}</SectionHeading>
             {data.cycle_times.length === 0 ? (
               <p className={cn("mt-2 text-sm", mutedClass)}>
-                No transitions recorded yet — timestamps accrue as stories move through the gates.
+                {t("analytics.noTransitionsYet")}
               </p>
             ) : (
               <div className={cn("mt-3 overflow-x-auto rounded-lg border", dark ? "border-neutral-700" : "border-slate-200")}>
                 <table className="min-w-[40rem] w-full text-sm">
                   <thead>
                     <tr className={cn("text-left text-xs uppercase tracking-wider", dark ? "bg-neutral-900 text-neutral-500" : "bg-slate-50 text-slate-400")}>
-                      <th className="px-4 py-2.5 font-semibold">Transition</th>
-                      <th className="px-4 py-2.5 font-semibold">Median (h)</th>
-                      <th className="px-4 py-2.5 font-semibold">p90 (h)</th>
-                      <th className="px-4 py-2.5 font-semibold">Samples</th>
+                      <th className="px-4 py-2.5 font-semibold">{t("analytics.transition")}</th>
+                      <th className="px-4 py-2.5 font-semibold">{t("analytics.medianH")}</th>
+                      <th className="px-4 py-2.5 font-semibold">{t("analytics.p90H")}</th>
+                      <th className="px-4 py-2.5 font-semibold">{t("analytics.samples")}</th>
                     </tr>
                   </thead>
                   <tbody className={cn("divide-y", dark ? "divide-neutral-800" : "divide-slate-100")}>
@@ -219,17 +233,17 @@ export function AnalyticsDashboard() {
 
           {/* Story drill-down */}
           <div>
-            <SectionHeading>Per-story drill-down</SectionHeading>
+            <SectionHeading>{t("analytics.perStoryDrilldown")}</SectionHeading>
             <div className={cn("mt-3 overflow-x-auto rounded-lg border", dark ? "border-neutral-700" : "border-slate-200")}>
               <table className="min-w-[58rem] w-full text-sm">
                 <thead>
                   <tr className={cn("text-left text-xs uppercase tracking-wider", dark ? "bg-neutral-900 text-neutral-500" : "bg-slate-50 text-slate-400")}>
-                    <th className="px-4 py-2.5 font-semibold">Story</th>
-                    <th className="px-4 py-2.5 font-semibold">Risk</th>
-                    <th className="px-4 py-2.5 font-semibold">Status</th>
-                    <th className="px-4 py-2.5 font-semibold">Fix-Bolts</th>
-                    <th className="px-4 py-2.5 font-semibold">Cycle (h)</th>
-                    <th className="px-4 py-2.5 font-semibold">Artifacts</th>
+                    <th className="px-4 py-2.5 font-semibold">{t("analytics.story")}</th>
+                    <th className="px-4 py-2.5 font-semibold">{t("analytics.risk")}</th>
+                    <th className="px-4 py-2.5 font-semibold">{t("analytics.status")}</th>
+                    <th className="px-4 py-2.5 font-semibold">{t("analytics.fixBolts")}</th>
+                    <th className="px-4 py-2.5 font-semibold">{t("analytics.cycleH")}</th>
+                    <th className="px-4 py-2.5 font-semibold">{t("analytics.artifacts")}</th>
                   </tr>
                 </thead>
                 <tbody className={cn("divide-y", dark ? "divide-neutral-800" : "divide-slate-100")}>
@@ -263,7 +277,7 @@ export function AnalyticsDashboard() {
                         )}
                       </td>
                       <td className={cn("px-4 py-2.5 text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
-                        {STATUS_LABELS[s.phase_status] ?? s.phase_status}
+                        {STATUS_LABEL_KEYS[s.phase_status] ? t(STATUS_LABEL_KEYS[s.phase_status]) : s.phase_status}
                       </td>
                       <td className={cn("px-4 py-2.5", s.fix_bolt_count > 0 ? "text-amber-500 font-semibold" : mutedClass)}>
                         {s.fix_bolt_count}
@@ -279,7 +293,7 @@ export function AnalyticsDashboard() {
                               ? dark ? "bg-emerald-900/40 text-emerald-400" : "bg-emerald-100 text-emerald-700"
                               : dark ? "bg-amber-900/40 text-amber-400" : "bg-amber-100 text-amber-700",
                           )}>
-                            {s.artifact_complete ? "complete" : "incomplete"}
+                            {s.artifact_complete ? t("analytics.complete") : t("analytics.incomplete")}
                           </span>
                         ) : (
                           <span className={mutedClass}>—</span>
@@ -297,15 +311,15 @@ export function AnalyticsDashboard() {
             <Button
               variant="secondary"
               className="gap-1.5"
-              onClick={() => { blobDownload(toCsv(data), "apex-analytics.csv", "text/csv"); toast.success("CSV exported."); }}
+              onClick={() => { blobDownload(toCsv(data), "apex-analytics.csv", "text/csv"); toast.success(t("analytics.toast.csvExported")); }}
             >
-              <BarChart3 className="h-4 w-4" /> Export CSV
+              <BarChart3 className="h-4 w-4" /> {t("analytics.exportCsv")}
             </Button>
             <Button
               variant="secondary"
-              onClick={() => { blobDownload(toMarkdown(data), "apex-analytics.md", "text/markdown"); toast.success("Markdown exported."); }}
+              onClick={() => { blobDownload(toMarkdown(data), "apex-analytics.md", "text/markdown"); toast.success(t("analytics.toast.markdownExported")); }}
             >
-              Export Markdown
+              {t("analytics.exportMarkdown")}
             </Button>
           </div>
         </div>
