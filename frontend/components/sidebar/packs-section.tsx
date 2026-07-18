@@ -11,6 +11,7 @@ import { useAutoSyncStoryIndex } from "@/lib/hooks/use-workspace";
 import { useApiContext } from "@/lib/stores/session-store";
 import { downloadZip } from "@/lib/utils/zip";
 import { PanelHeader, type DragSectionProps } from "./shared";
+import { useT } from "@/lib/i18n/use-translation";
 
 type PacksSectionProps = DragSectionProps & {
   dark: boolean;
@@ -30,6 +31,7 @@ function packDownload(content: string, storyId: number, taskId: number) {
 }
 
 export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragStart }: PacksSectionProps) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [viewing, setViewing] = useState<(PackRef & { content: string }) | null>(null);
   const [editing, setEditing] = useState(false);
@@ -70,7 +72,7 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
       setEditing(false);
       setDraft(content);
     },
-    onError: (err: Error) => toast.error(`Load pack failed: ${err.message}`),
+    onError: (err: Error) => toast.error(t("packs.toast.loadFailed", { err: err.message })),
   });
 
   const saveMut = useMutation({
@@ -81,9 +83,9 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
       void queryClient.invalidateQueries({ queryKey: ["phase3", "proposals"] });
       setViewing({ storyId, taskId, content: md });
       setEditing(false);
-      toast.success("Pack saved.");
+      toast.success(t("packs.toast.packSaved"));
     },
-    onError: (err: Error) => toast.error(`Save failed: ${err.message}`),
+    onError: (err: Error) => toast.error(t("packs.toast.saveFailed", { err: err.message })),
   });
 
   const closeModal = () => {
@@ -96,7 +98,7 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
   const downloadMut = useMutation({
     mutationFn: fetchPackContent,
     onSuccess: (content, ref) => packDownload(content, ref.storyId, ref.taskId),
-    onError: (err: Error) => toast.error(`Download failed: ${err.message}`),
+    onError: (err: Error) => toast.error(t("packs.toast.downloadFailed", { err: err.message })),
   });
 
   const deleteMut = useMutation({
@@ -105,9 +107,9 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
       void queryClient.invalidateQueries({ queryKey: PACKS_KEY });
       void queryClient.invalidateQueries({ queryKey: ["phase3", "proposals"] });
       autoSync();
-      toast.success("Pack deleted.");
+      toast.success(t("packs.toast.packDeleted"));
     },
-    onError: (err: Error) => toast.error(`Delete failed: ${err.message}`),
+    onError: (err: Error) => toast.error(t("packs.toast.deleteFailed", { err: err.message })),
   });
 
   const downloadStoryPacksMut = useMutation({
@@ -116,13 +118,13 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
       return { storyId, proposals: res.proposals };
     },
     onSuccess: ({ storyId, proposals }) => {
-      if (!proposals.length) { toast.error("No packs to download for this story."); return; }
+      if (!proposals.length) { toast.error(t("packs.toast.noPacksToDownload")); return; }
       downloadZip(
         proposals.map((p) => ({ filename: `task_${p.task_id}.md`, content: p.proposal_md })),
         `dev_packs_story_${storyId}.zip`,
       );
     },
-    onError: (err: Error) => toast.error(`Download failed: ${err.message}`),
+    onError: (err: Error) => toast.error(t("packs.toast.downloadFailed", { err: err.message })),
   });
 
   const deleteStoryPacksMut = useMutation({
@@ -135,9 +137,9 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
       void queryClient.invalidateQueries({ queryKey: PACKS_KEY });
       void queryClient.invalidateQueries({ queryKey: ["phase3", "proposals"] });
       autoSync();
-      toast.success(`All packs for US#${storyId} deleted.`);
+      toast.success(t("packs.toast.allPacksDeleted", { storyId }));
     },
-    onError: (err: Error) => toast.error(`Delete failed: ${err.message}`),
+    onError: (err: Error) => toast.error(t("packs.toast.deleteFailed", { err: err.message })),
   });
 
   const rowBtn = cn(
@@ -150,7 +152,7 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
       <section className={cn("border-b", dark ? "border-neutral-800" : "border-slate-300")}>
         <PanelHeader
           icon={<FileCode2 className="size-4" />}
-          title="Developer Packs"
+          title={t("packs.panelTitle")}
           badge={open && packs.length > 0 ? String(packs.length) : undefined}
           open={open}
           onClick={() => setOpen(!open)}
@@ -160,16 +162,16 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
           <div className={cn("px-4 py-3 text-sm", dark ? "bg-[#20232b]" : "bg-white")}>
             {isLoading ? (
               <div className="flex items-center gap-2 text-xs text-neutral-500">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading packs…
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t("packs.loading")}
               </div>
             ) : isError ? (
               <div className={cn("flex items-center justify-between gap-2 rounded border px-2.5 py-2 text-xs", dark ? "border-red-900/50 text-red-400" : "border-red-200 text-red-600")}>
-                <span>Failed to load developer packs.</span>
-                <button onClick={() => refetch()} className="shrink-0 font-semibold underline">Retry</button>
+                <span>{t("packs.failedLoad")}</span>
+                <button onClick={() => refetch()} className="shrink-0 font-semibold underline">{t("common.retry")}</button>
               </div>
             ) : packs.length === 0 ? (
               <p className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
-                No developer packs saved. Phase 3 writes one per task.
+                {t("packs.none")}
               </p>
             ) : (
               <div className="space-y-3">
@@ -183,11 +185,11 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
                         US#{storyId}
                       </span>
                       <span className={cn("min-w-0 flex-1 truncate text-xs font-medium", dark ? "text-neutral-300" : "text-slate-600")}>
-                        {group.title || "(story not in index)"}
+                        {group.title || t("packs.storyNotInIndex")}
                       </span>
                       <button
                         className={rowBtn}
-                        title="Download all packs for this story"
+                        title={t("packs.downloadAllForStory")}
                         disabled={downloadStoryPacksMut.isPending}
                         onClick={() => downloadStoryPacksMut.mutate(storyId)}
                       >
@@ -195,11 +197,11 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
                       </button>
                       <button
                         className={cn(rowBtn, "hover:!text-red-400")}
-                        title="Delete all packs for this story"
+                        title={t("packs.deleteAllForStory")}
                         disabled={deleteStoryPacksMut.isPending}
                         onClick={() =>
                           confirm(
-                            `Delete all ${group.items.length} pack(s) for US#${storyId}? The story will no longer count as proposed.`,
+                            t("packs.deleteAllConfirm", { n: group.items.length, storyId }),
                             () => deleteStoryPacksMut.mutate(storyId),
                           )
                         }
@@ -211,14 +213,14 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
                       {group.items.map((p) => (
                         <li key={p.task_id} className="flex items-center gap-2 px-2.5 py-1.5">
                           <span className={cn("flex-1 text-xs", dark ? "text-neutral-300" : "text-slate-600")}>
-                            Task <span className="font-mono">{p.task_id}</span>
+                            {t("packs.taskLabel")} <span className="font-mono">{p.task_id}</span>
                             <span className={cn("ml-2", dark ? "text-neutral-600" : "text-slate-400")}>
-                              {Math.round(p.chars / 100) / 10}k chars
+                              {t("packs.charsK", { k: Math.round(p.chars / 100) / 10 })}
                             </span>
                           </span>
                           <button
                             className={rowBtn}
-                            title="View pack"
+                            title={t("packs.viewPack")}
                             disabled={viewMut.isPending}
                             onClick={() => viewMut.mutate({ storyId: p.story_id, taskId: p.task_id })}
                           >
@@ -226,7 +228,7 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
                           </button>
                           <button
                             className={rowBtn}
-                            title="Download pack"
+                            title={t("packs.downloadPack")}
                             disabled={downloadMut.isPending}
                             onClick={() => downloadMut.mutate({ storyId: p.story_id, taskId: p.task_id })}
                           >
@@ -234,11 +236,11 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
                           </button>
                           <button
                             className={cn(rowBtn, "hover:!text-red-400")}
-                            title="Delete pack"
+                            title={t("packs.deletePack")}
                             disabled={deleteMut.isPending}
                             onClick={() =>
                               confirm(
-                                `Delete the pack for US#${storyId} task ${p.task_id}?`,
+                                t("packs.deletePackConfirm", { storyId, taskId: p.task_id }),
                                 () => deleteMut.mutate({ storyId: p.story_id, taskId: p.task_id }),
                               )
                             }
@@ -266,36 +268,36 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
               )}
               role="dialog"
               aria-modal="true"
-              aria-label={`Developer pack for US#${viewing.storyId}, task ${viewing.taskId}`}
+              aria-label={t("packs.dialogAria", { storyId: viewing.storyId, taskId: viewing.taskId })}
               onClick={(e) => e.stopPropagation()}
             >
               <div className={cn("flex items-center gap-3 border-b px-5 py-3", dark ? "border-neutral-800" : "border-slate-200")}>
                 <FileCode2 className="size-4 text-violet-400" />
                 <span className={cn("flex-1 text-sm font-semibold", dark ? "text-neutral-100" : "text-slate-800")}>
-                  Developer Pack — US#{viewing.storyId} · Task {viewing.taskId}
+                  {t("packs.dialogTitle", { storyId: viewing.storyId, taskId: viewing.taskId })}
                 </span>
                 {editing ? (
                   <button
                     className={rowBtn}
-                    title="Save changes"
+                    title={t("packs.saveChanges")}
                     disabled={saveMut.isPending || !draft.trim()}
                     onClick={() => saveMut.mutate({ storyId: viewing.storyId, taskId: viewing.taskId, md: draft })}
                   >
                     {saveMut.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
                   </button>
                 ) : (
-                  <button className={rowBtn} title="Edit" onClick={() => { setEditing(true); setDraft(viewing.content); }}>
+                  <button className={rowBtn} title={t("common.edit")} onClick={() => { setEditing(true); setDraft(viewing.content); }}>
                     <Pencil className="size-4" />
                   </button>
                 )}
                 <button
                   className={rowBtn}
-                  title="Download"
+                  title={t("common.download")}
                   onClick={() => packDownload(editing ? draft : viewing.content, viewing.storyId, viewing.taskId)}
                 >
                   <Download className="size-4" />
                 </button>
-                <button className={rowBtn} title="Close" onClick={closeModal}>
+                <button className={rowBtn} title={t("common.close")} onClick={closeModal}>
                   <X className="size-4" />
                 </button>
               </div>
@@ -313,7 +315,7 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
                   "min-h-0 flex-1 overflow-auto whitespace-pre-wrap p-5 font-mono text-xs leading-relaxed",
                   dark ? "text-neutral-300" : "text-slate-700",
                 )}>
-                  {viewing.content || "(empty pack)"}
+                  {viewing.content || t("packs.emptyPack")}
                 </pre>
               )}
             </div>
