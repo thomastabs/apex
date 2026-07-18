@@ -25,6 +25,8 @@ import { useUiStore } from "@/lib/stores/ui-store";
 import { SignInRequired } from "@/components/sign-in-required";
 import { useSaveTraceLayout, useTraceabilityGraph } from "@/lib/hooks/use-workspace";
 import type { TraceNode as ApiNode, TraceEdge as ApiEdge, TraceNodeType } from "@/lib/api/workspace";
+import { useT } from "@/lib/i18n/use-translation";
+import type { TranslationKey } from "@/lib/i18n/translations";
 
 import "@xyflow/react/dist/style.css";
 
@@ -64,6 +66,16 @@ const STATUS_TINT: Record<string, string> = {
   deployed: "#10b981",
 };
 
+const STATUS_LABEL_KEYS: Record<string, TranslationKey> = {
+  new: "board.apexStatus.new",
+  gherkin_locked: "board.apexStatus.gherkinLocked",
+  design_locked: "board.apexStatus.designLocked",
+  implementation: "board.apexStatus.implementation",
+  qa: "board.apexStatus.qa",
+  qa_passed: "board.apexStatus.qaPassed",
+  deployed: "board.apexStatus.deployed",
+};
+
 function applyDagre(nodes: Node<NodeData>[], edges: Edge[]): Node<NodeData>[] {
   const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
   g.setGraph({ rankdir: "LR", nodesep: 36, ranksep: 110 });
@@ -77,6 +89,7 @@ function applyDagre(nodes: Node<NodeData>[], edges: Edge[]): Node<NodeData>[] {
 }
 
 function TraceFlowNode({ data }: { data: NodeData }) {
+  const t = useT();
   const accent = TYPE_COLOR[data.ntype];
   const trace = data.flags.trace;
   return (
@@ -102,19 +115,19 @@ function TraceFlowNode({ data }: { data: NodeData }) {
           {data.phaseStatus ? (
             <span className="inline-flex items-center gap-1">
               <span className="size-1.5 rounded-full" style={{ background: STATUS_TINT[data.phaseStatus] ?? "#9ca3af" }} />
-              {data.phaseStatus}
+              {STATUS_LABEL_KEYS[data.phaseStatus] ? t(STATUS_LABEL_KEYS[data.phaseStatus]) : data.phaseStatus}
             </span>
           ) : null}
           {typeof data.scenarioCount === "number" && data.scenarioCount > 0 ? (
-            <span className={data.dark ? "text-neutral-500" : "text-slate-400"}>{data.scenarioCount} scenarios</span>
+            <span className={data.dark ? "text-neutral-500" : "text-slate-400"}>{t("tracegraph.scenariosCount", { n: data.scenarioCount })}</span>
           ) : null}
           {data.ntype === "scenario" ? (
             data.verified ? (
-              <span className="text-emerald-500">✓ verified</span>
+              <span className="text-emerald-500">{t("tracegraph.verified")}</span>
             ) : data.flags.gap ? (
-              <span className="text-red-500">✗ gap</span>
+              <span className="text-red-500">{t("tracegraph.gap")}</span>
             ) : (
-              <span className={data.dark ? "text-neutral-500" : "text-slate-400"}>untested</span>
+              <span className={data.dark ? "text-neutral-500" : "text-slate-400"}>{t("tracegraph.untested")}</span>
             )
           ) : null}
         </div>
@@ -142,6 +155,7 @@ function edgeStyle(kind: ApiEdge["kind"], dark: boolean) {
 }
 
 export function TraceabilityGraphPanel() {
+  const t = useT();
   const dark = useUiStore((s) => s.theme) === "dark";
   const context = useApiContext();
   const router = useRouter();
@@ -274,35 +288,34 @@ export function TraceabilityGraphPanel() {
   return (
     <section className="flex h-[calc(100vh-58px)] min-w-0 flex-col px-4 py-6 sm:px-6 lg:px-8">
       <div className="mb-4">
-        <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Traceability</p>
-        <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>Living Graph</h1>
+        <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">{t("tracegraph.eyebrow")}</p>
+        <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>{t("tracegraph.heading")}</h1>
         <p className={cn("mt-1.5 text-sm", mutedClass)}>
-          The whole project as one derivation graph — epic → story → Gherkin → design → tasks → tests → deploy.
-          Violet dashed = backward-trace. Click any node to jump to its phase.
+          {t("tracegraph.subtitle")}
         </p>
       </div>
 
-      {!context && <SignInRequired unlocks="the living traceability graph" />}
+      {!context && <SignInRequired unlocks={t("tracegraph.unlocksGraph")} />}
 
       {context && isLoading && (
         <div className="flex items-center gap-3 text-sm text-neutral-400">
-          <Loader2 className="size-4 animate-spin" /> Building the graph…
+          <Loader2 className="size-4 animate-spin" /> {t("tracegraph.buildingGraph")}
         </div>
       )}
 
       {context && error ? (
-        <p className="text-sm text-red-400">Failed to load the traceability graph.</p>
+        <p className="text-sm text-red-400">{t("tracegraph.failedLoad")}</p>
       ) : null}
 
       {context && !isLoading && !error && !hasGraph ? (
-        <p className={cn("text-sm", mutedClass)}>No stories yet — push stories in Phase 1 to populate the graph.</p>
+        <p className={cn("text-sm", mutedClass)}>{t("tracegraph.noStoriesYet")}</p>
       ) : null}
 
       {context && hasGraph ? (
         <>
           <div className="mb-3 flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
             <select
-              aria-label="Filter by epic"
+              aria-label={t("tracegraph.filterByEpicAria")}
               value={epicFilter}
               onChange={(e) => setEpicFilter(e.target.value)}
               className={cn(
@@ -310,16 +323,16 @@ export function TraceabilityGraphPanel() {
                 dark ? "border-neutral-700 bg-neutral-950 text-neutral-200" : "border-slate-300 bg-white text-slate-900",
               )}
             >
-              <option value="all">All epics</option>
+              <option value="all">{t("tracegraph.allEpics")}</option>
               {epics.map((ep) => <option key={ep.id} value={ep.id}>{ep.label}</option>)}
             </select>
             <label className={cn("flex items-center gap-1.5 text-sm", dark ? "text-neutral-300" : "text-slate-600")}>
               <input type="checkbox" checked={flaggedOnly} onChange={(e) => setFlaggedOnly(e.target.checked)} className="accent-violet-500" />
-              Flagged stories only
+              {t("tracegraph.flaggedStoriesOnly")}
             </label>
             <label className={cn("flex items-center gap-1.5 text-sm", dark ? "text-neutral-300" : "text-slate-600")}>
               <input type="checkbox" checked={showScenarios} onChange={(e) => setShowScenarios(e.target.checked)} className="accent-violet-500" />
-              Show scenarios
+              {t("tracegraph.showScenarios")}
             </label>
             <button
               onClick={handleRelayout}
@@ -328,7 +341,7 @@ export function TraceabilityGraphPanel() {
                 dark ? "border-neutral-700 text-neutral-300 hover:bg-neutral-800" : "border-slate-300 text-slate-600 hover:bg-slate-100",
               )}
             >
-              <LayoutDashboard className="size-3.5" /> Re-layout
+              <LayoutDashboard className="size-3.5" /> {t("tracegraph.relayout")}
             </button>
             <button
               onClick={() => refetch()}
@@ -338,7 +351,7 @@ export function TraceabilityGraphPanel() {
                 dark ? "border-neutral-700 text-neutral-300 hover:bg-neutral-800" : "border-slate-300 text-slate-600 hover:bg-slate-100",
               )}
             >
-              <RefreshCw className={cn("size-3.5", isFetching && "animate-spin")} /> Refresh
+              <RefreshCw className={cn("size-3.5", isFetching && "animate-spin")} /> {t("common.refresh")}
             </button>
             <button
               onClick={handleExport}
@@ -347,9 +360,9 @@ export function TraceabilityGraphPanel() {
                 dark ? "border-neutral-700 text-neutral-300 hover:bg-neutral-800" : "border-slate-300 text-slate-600 hover:bg-slate-100",
               )}
             >
-              <Download className="size-3.5" /> Export PNG
+              <Download className="size-3.5" /> {t("tracegraph.exportPng")}
             </button>
-            <span className={cn("text-xs sm:ml-auto", mutedClass)}>{nodes.length} nodes · {edges.length} edges</span>
+            <span className={cn("text-xs sm:ml-auto", mutedClass)}>{t("tracegraph.nodesEdgesCount", { nodes: nodes.length, edges: edges.length })}</span>
           </div>
           <div className={cn("min-h-0 flex-1 overflow-hidden rounded-lg border", dark ? "border-neutral-800" : "border-slate-200")}>
             <ReactFlow
