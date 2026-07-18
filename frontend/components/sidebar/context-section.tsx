@@ -20,6 +20,7 @@ import { downloadZip } from "@/lib/utils/zip";
 import { SignInRequired } from "@/components/sign-in-required";
 import { MarkdownPreview, PanelHeader, type DragSectionProps } from "./shared";
 import { ContextGuideDialog } from "./context-guide";
+import { useT } from "@/lib/i18n/use-translation";
 
 // ── utilities ─────────────────────────────────────────────────────────────────
 
@@ -54,6 +55,7 @@ function ContextSizeWarning({
   modelLabel: string;
   contextWindowTokens: number;
 }) {
+  const t = useT();
   const windowTokens = contextWindowTokens || _FALLBACK_CONTEXT_WINDOW_TOKENS;
   const hardLimit = windowTokens * _CONTEXT_CHAR_BUDGET_PER_WINDOW_TOKEN;
   const warnLimit = hardLimit * _WARN_FRACTION;
@@ -61,7 +63,7 @@ function ContextSizeWarning({
     return (
       <div className="mb-3">
         <Callout variant="danger">
-          <strong>Context at {Math.round(totalChars / 1000)}k chars</strong> — exceeds {modelLabel}&apos;s ~{Math.round(hardLimit / 1000)}k char budget for this project. AI calls will fail. Delete or reset context files.
+          {t("context.exceedsBudget", { k: Math.round(totalChars / 1000), model: modelLabel, limit: Math.round(hardLimit / 1000) })}
         </Callout>
       </div>
     );
@@ -70,7 +72,7 @@ function ContextSizeWarning({
     return (
       <div className="mb-3">
         <Callout variant="warning">
-          <strong>Context at {Math.round(totalChars / 1000)}k chars</strong> — approaching {modelLabel}&apos;s ~{Math.round(hardLimit / 1000)}k char budget. Consider trimming context files.
+          {t("context.approachingBudget", { k: Math.round(totalChars / 1000), model: modelLabel, limit: Math.round(hardLimit / 1000) })}
         </Callout>
       </div>
     );
@@ -78,16 +80,16 @@ function ContextSizeWarning({
   return null;
 }
 
-function relativeTime(iso: string | null | undefined): string | null {
+function relativeTime(iso: string | null | undefined, t: ReturnType<typeof useT>): string | null {
   if (!iso) return null;
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.round(diff / 60_000);
-  if (mins < 2) return "just now";
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 2) return t("context.relativeJustNow");
+  if (mins < 60) return t("context.relativeMinsAgo", { n: mins });
   const hrs = Math.round(diff / 3_600_000);
-  if (hrs < 24) return `${hrs}h ago`;
+  if (hrs < 24) return t("context.relativeHoursAgo", { n: hrs });
   const days = Math.round(diff / 86_400_000);
-  return `${days}d ago`;
+  return t("context.relativeDaysAgo", { n: days });
 }
 
 // Each entry lists the context files the corresponding phase service actually
@@ -154,8 +156,8 @@ function downloadFile(filename: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
-function downloadContextZip(files: Array<{ filename: string; content: string }>) {
-  if (!files.length) { toast.error("No context files to download"); return; }
+function downloadContextZip(files: Array<{ filename: string; content: string }>, t: ReturnType<typeof useT>) {
+  if (!files.length) { toast.error(t("context.noFilesToDownload")); return; }
   downloadZip(files, "apex-context-files.zip");
 }
 
@@ -166,6 +168,7 @@ function ContextEditor({
   file: { filename: string; label: string; content: string };
   onConfirm: (msg: string, cb: () => void) => void;
 }) {
+  const t = useT();
   const [value, setValue] = useState(file.content);
   const [mdPreview, setMdPreview] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -181,11 +184,11 @@ function ContextEditor({
         setValue(res.constraints_md);
         update.mutate(
           { filename: file.filename, content: res.constraints_md },
-          { onError: () => toast.error(`Failed to save ${file.label}`) },
+          { onError: () => toast.error(t("context.saveFailed", { label: file.label })) },
         );
-        toast.success(`Generated ${res.constraints.length} constraints`);
+        toast.success(t("context.constraintsGenerated", { n: res.constraints.length }));
       },
-      onError: () => toast.error("Failed to generate constraints. Try again."),
+      onError: () => toast.error(t("context.generateConstraintsFailed")),
     });
   }
 
@@ -202,12 +205,12 @@ function ContextEditor({
       timerRef.current = null;
       update.mutate(
         { filename: file.filename, content: newValue },
-        { onError: () => toast.error(`Failed to save ${file.label}`) },
+        { onError: () => toast.error(t("context.saveFailed", { label: file.label })) },
       );
     }, 700);
   }
 
-  const statusLabel = update.isPending ? "Saving…" : update.isError ? "Error" : update.isSuccess ? "Saved" : "";
+  const statusLabel = update.isPending ? t("common.saving") : update.isError ? t("context.errorStatus") : update.isSuccess ? t("context.savedStatus") : "";
   const statusColor = update.isError ? "text-red-400" : dark ? "text-neutral-500" : "text-slate-500";
 
   return (
@@ -222,7 +225,7 @@ function ContextEditor({
             disabled={genConstraints.isPending}
             onClick={handleGenerateConstraints}
           >
-            <Sparkles className="size-3" /> {genConstraints.isPending ? "Generating…" : "Generate with AI"}
+            <Sparkles className="size-3" /> {genConstraints.isPending ? t("common.generating") : t("context.generateWithAI")}
           </button>
         ) : null}
         <button
@@ -236,7 +239,7 @@ function ContextEditor({
           )}
           onClick={() => setMdPreview(!mdPreview)}
         >
-          {mdPreview ? "Raw" : "Preview"}
+          {mdPreview ? t("context.raw") : t("common.preview")}
         </button>
       </div>
       {mdPreview ? (
@@ -253,17 +256,17 @@ function ContextEditor({
           className={cn("flex h-8 items-center justify-center gap-1 rounded text-xs", dark ? "bg-neutral-700 text-neutral-200 hover:bg-neutral-600" : "bg-slate-100 text-slate-700 hover:bg-slate-200")}
           onClick={() => downloadFile(file.filename, value)}
         >
-          <Download className="size-3" /> Download
+          <Download className="size-3" /> {t("common.download")}
         </button>
         <button
           className="h-8 rounded bg-red-950/70 text-xs font-semibold text-red-300 disabled:opacity-50"
           disabled={reset.isPending}
-          onClick={() => onConfirm(`Reset ${file.label} to default?`, () => reset.mutate(file.filename, {
-            onSuccess: () => toast.success(`${file.label} reset to default`),
-            onError: () => toast.error(`Failed to reset ${file.label}`),
+          onClick={() => onConfirm(t("context.resetFileConfirm", { label: file.label }), () => reset.mutate(file.filename, {
+            onSuccess: () => toast.success(t("context.fileResetSuccess", { label: file.label })),
+            onError: () => toast.error(t("context.fileResetFailed", { label: file.label })),
           }))}
         >
-          Reset to default
+          {t("context.resetToDefault")}
         </button>
       </div>
     </div>
@@ -279,6 +282,7 @@ type ContextSectionProps = DragSectionProps & {
 };
 
 export function ContextSection({ dark, projectId: _projectId, confirm, shellClass, dragHandlers, onDragStart }: ContextSectionProps) {
+  const t = useT();
   const [contextOpen, setContextOpen] = useState(false);
   const [expandedContext, setExpandedContext] = useState<string | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
@@ -303,16 +307,16 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
 
   useEffect(() => {
     if (!contextFiles.isLoading) return;
-    const id = toast.loading("Loading project context…");
+    const id = toast.loading(t("context.loadingContext"));
     return () => { toast.dismiss(id); };
-  }, [contextFiles.isLoading]);
+  }, [contextFiles.isLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalChars = contextFiles.data?.total_chars ?? 0;
   const sizeColor = contextSizeColor(totalChars, dark);
   const visibleFiles = useVisibleContextFiles(contextFiles.data?.files);
 
   const activeModel = aiConfig.data?.available_models.find((m) => m.id === aiConfig.data?.model);
-  const activeModelLabel = activeModel?.label ?? aiConfig.data?.model ?? "the current model";
+  const activeModelLabel = activeModel?.label ?? aiConfig.data?.model ?? t("context.currentModelFallback");
   const activeModelContextWindow = activeModel?.context_window_tokens ?? 0;
 
   const projectConcept = contextFiles.data?.files.find((f) => f.filename === "project-concept.md")?.content ?? "";
@@ -329,7 +333,7 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
       <section className={cn("border-b", sectionBorderClass)}>
         <PanelHeader
           icon={<FileText className="size-4" />}
-          title="Active Context"
+          title={t("context.panelTitle")}
           badge={context ? `${totalChars} ch` : "—"}
           open={contextOpen}
           onClick={() => setContextOpen(!contextOpen)}
@@ -338,19 +342,19 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
         {contextOpen ? (
           <div className={cn("px-4 py-4", expandedPanelClass)}>
             {!context ? (
-              <SignInRequired unlocks="the project context" />
+              <SignInRequired unlocks={t("context.unlocksContext")} />
             ) : (
             <>
             <div className={cn("mb-3 text-sm", dark ? "text-neutral-500" : "text-slate-500")}>
-              context:{" "}
+              {t("context.contextLabel")}{" "}
               <span className="font-bold" style={{ color: sizeColor }}>
-                {totalChars} chars
+                {t("context.charsSuffix", { n: totalChars })}
               </span>
             </div>
             <ContextSizeWarning totalChars={totalChars} modelLabel={activeModelLabel} contextWindowTokens={activeModelContextWindow} />
             {!hasProjectConcept && contextFiles.data ? (
               <div className="mb-3 rounded border border-amber-700 bg-amber-950/30 px-3 py-2 text-sm text-amber-300">
-                Project Concept file is empty. Fill it in for best AI results.
+                {t("context.emptyProjectConcept")}
               </div>
             ) : null}
             <div className="mb-4 space-y-3">
@@ -383,15 +387,15 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                           "rounded border px-1.5 py-0.5 text-xs font-semibold tabular-nums",
                           dark ? "border-violet-500/30 bg-violet-500/10 text-violet-400" : "border-violet-300 bg-violet-50 text-violet-600",
                         )}
-                        title="Semver: MAJOR bumps on every post-lock amendment"
+                        title={t("context.semverTooltip")}
                       >
                         v{file.version}
                       </span>
                     ) : null}
                     <span className={cn("text-xs transition-colors duration-200", dark ? "text-neutral-500 group-hover:text-violet-300" : "text-slate-500 group-hover:text-violet-600")}>
                       {file.chars} ch
-                      {relativeTime(file.last_modified) ? (
-                        <span className="ml-1.5 opacity-60">· {relativeTime(file.last_modified)}</span>
+                      {relativeTime(file.last_modified, t) ? (
+                        <span className="ml-1.5 opacity-60">· {relativeTime(file.last_modified, t)}</span>
                       ) : null}
                     </span>
                   </button>
@@ -409,7 +413,7 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                 )}
                 onClick={() => setGuideOpen(true)}
               >
-                <span>Context guide — rules &amp; format</span>
+                <span>{t("context.contextGuide")}</span>
                 <BookOpen className="size-4 text-violet-400" />
               </button>
               <button
@@ -418,9 +422,9 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                   dark ? "text-violet-300 hover:text-violet-200" : "text-violet-700 hover:text-violet-800",
                 )}
                 disabled={contextFiles.isFetching}
-                onClick={() => { contextFiles.refetch(); toast.info("Context reloaded"); }}
+                onClick={() => { contextFiles.refetch(); toast.info(t("context.contextReloaded")); }}
               >
-                <span>Reload context</span>
+                <span>{t("context.reloadContext")}</span>
                 <RefreshCw className="size-4 text-violet-400" />
               </button>
               <button
@@ -429,9 +433,9 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                   dark ? "text-violet-300 hover:text-violet-200" : "text-violet-700 hover:text-violet-800",
                 )}
                 disabled={!contextFiles.data?.files.length}
-                onClick={() => { downloadContextZip(contextFiles.data?.files ?? []); toast.success("Context ZIP downloaded"); }}
+                onClick={() => { downloadContextZip(contextFiles.data?.files ?? [], t); toast.success(t("context.contextZipDownloaded")); }}
               >
-                <span>Download all context files</span>
+                <span>{t("context.downloadAllContextFiles")}</span>
                 <Download className="size-4 text-violet-400" />
               </button>
               <button
@@ -441,11 +445,11 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                 )}
                 disabled={rebuildIndex.isPending}
                 onClick={() => rebuildIndex.mutate(undefined, {
-                  onSuccess: () => toast.success("Story index rebuilt"),
-                  onError: () => toast.error("Failed to rebuild story index"),
+                  onSuccess: () => toast.success(t("board.storyIndexRebuilt")),
+                  onError: () => toast.error(t("board.storyIndexRebuildFailed")),
                 })}
               >
-                <span>Rebuild story index</span>
+                <span>{t("context.rebuildStoryIndex")}</span>
                 <RefreshCw className="size-4 text-violet-400" />
               </button>
               <button
@@ -454,9 +458,9 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                   dark ? "text-red-400 hover:text-red-300" : "text-red-600 hover:text-red-700",
                 )}
                 disabled={resetAll.isPending}
-                onClick={() => confirm("Reset ALL context files to defaults? This cannot be undone.", () => resetAll.mutate(undefined, { onSuccess: () => toast.success("All context files reset"), onError: () => toast.error("Failed to reset context files") }))}
+                onClick={() => confirm(t("context.resetAllConfirm"), () => resetAll.mutate(undefined, { onSuccess: () => toast.success(t("context.allContextFilesReset")), onError: () => toast.error(t("context.resetContextFilesFailed")) }))}
               >
-                <span>Reset all context files</span>
+                <span>{t("context.resetAllContextFiles")}</span>
                 <Trash2 className="size-4" />
               </button>
             </div>
