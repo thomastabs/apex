@@ -123,13 +123,13 @@ function SearchTrigger({ dark }: { dark: boolean }) {
     <button
       onClick={() => setCommandPaletteOpen(true)}
       className={cn(
-        "mx-4 mb-2 flex h-8 items-center gap-2 rounded border px-2.5 text-xs transition-colors",
+        "mb-1 flex h-9 w-full items-center gap-2.5 border-l-2 border-transparent px-4 text-sm transition-colors",
         dark
-          ? "border-neutral-800 text-neutral-500 hover:border-neutral-700 hover:text-neutral-300"
-          : "border-slate-200 text-slate-400 hover:border-slate-300 hover:text-slate-600",
+          ? "text-neutral-400 hover:bg-neutral-800/60 hover:text-neutral-200"
+          : "text-slate-500 hover:bg-slate-100 hover:text-slate-700",
       )}
     >
-      <Search className="size-3.5 shrink-0" />
+      <Search className="size-4 shrink-0" />
       <span className="flex-1 text-left">{t("sidebar.search")}</span>
       <kbd className={cn("rounded border px-1 font-mono text-xs", dark ? "border-neutral-700 text-neutral-600" : "border-slate-300 text-slate-400")}>
         ⌘K

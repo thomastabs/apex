@@ -24,6 +24,7 @@ import { CrossCheckPanel, AltModelSelect } from "@/components/cross-check-panel"
 import { GuideTheAI } from "@/components/guide-the-ai";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
+import { useT } from "@/lib/i18n/use-translation";
 import type { ClarifyingQuestion, CompiledStory, EpicSuggestion, QaPair, RequirementGapReport } from "@/lib/api/types";
 import { cn, errMsg } from "@/lib/utils";
 import { FigmaStoryPanel } from "@/components/figma-story-panel";
@@ -65,14 +66,14 @@ function saveDraft(projectId: number | null, draft: Draft) {
   }
 }
 
-function validateStories(stories: CompiledStory[]): string[] {
+function validateStories(stories: CompiledStory[], t: ReturnType<typeof useT>): string[] {
   const errors: string[] = [];
   for (let i = 0; i < stories.length; i++) {
     const { title, gherkin } = stories[i];
-    const label = title.trim() ? `"${title.trim()}"` : `Story ${i + 1}`;
-    if (!title.trim()) errors.push(`Story ${i + 1} has no title.`);
-    if (!gherkin.includes("Feature:")) errors.push(`${label} is missing a Feature: header.`);
-    if (!gherkin.includes("Scenario")) errors.push(`${label} is missing a Scenario block.`);
+    const label = title.trim() ? `"${title.trim()}"` : t("phase1.validation.storyLabel", { n: i + 1 });
+    if (!title.trim()) errors.push(t("phase1.validation.noTitle", { n: i + 1 }));
+    if (!gherkin.includes("Feature:")) errors.push(t("phase1.validation.missingFeature", { label }));
+    if (!gherkin.includes("Scenario")) errors.push(t("phase1.validation.missingScenario", { label }));
   }
   return errors;
 }
@@ -119,7 +120,7 @@ const CONSTRAINT_STEPS = [
   "Saving constraints.md…",
 ];
 
-const STEP_LABELS = ["Define Epic", "Generate", "Review Draft", "Publish"] as const;
+const STEP_LABEL_KEYS = ["phase1.step.defineEpic", "phase1.step.generate", "phase1.step.reviewDraft", "phase1.step.publish"] as const;
 
 // Lower number = ranked first. Drives both the gap sort order and the rank badge.
 const IMPORTANCE_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
@@ -129,8 +130,13 @@ const IMPORTANCE_STYLE: Record<string, string> = {
   medium: "border-neutral-500/40 text-neutral-500",
   low: "border-slate-400/40 text-slate-400",
 };
+const IMPORTANCE_LABEL_KEYS = {
+  critical: "phase1.importance.critical", high: "phase1.importance.high",
+  medium: "phase1.importance.medium", low: "phase1.importance.low",
+} as const;
 
 export function Phase1Workflow() {
+  const t = useT();
   const dark = useUiStore((state) => state.theme) === "dark";
   const router = useRouter();
   const context = useApiContext();
@@ -201,7 +207,7 @@ export function Phase1Workflow() {
   useEffect(() => {
     if (!draftRestored.current || !epics.data || epicId === null) return;
     if (!epics.data.find((e) => e.id === epicId)) {
-      toast.warning("Restored epic no longer exists in this project. Please select a new epic.");
+      toast.warning(t("phase1.toast.restoredEpicGone"));
       setEpicId(null);
       setEpicTitle("");
       setEpicDescription("");
@@ -233,7 +239,7 @@ export function Phase1Workflow() {
   const noContext = !context;
   const hasUnsaved = Boolean(nlDraft || compiledStories.length);
   const hasWorkInProgress = Boolean(epicTitle || epicDescription || epicId || nlDraft || compiledStories.length || suggestions.length);
-  const validationErrors = compiledStories.length ? validateStories(compiledStories) : [];
+  const validationErrors = compiledStories.length ? validateStories(compiledStories, t) : [];
   const canPush = !busy && !noContext && compiledStories.length > 0 && validationErrors.length === 0;
 
   const maxUnlockedStep: 1 | 2 | 3 | 4 =
@@ -244,8 +250,8 @@ export function Phase1Workflow() {
 
   function requestModeSwitch(next: Mode) {
     if (hasUnsaved && mode !== next) {
-      toast.info("Draft cleared — switching mode.", {
-        action: { label: "Undo", onClick: () => setMode(mode) },
+      toast.info(t("phase1.toast.modeSwitch"), {
+        action: { label: t("phase1.undo"), onClick: () => setMode(mode) },
       });
       setNlDraft("");
       setCompiledStories([]);
@@ -279,8 +285,8 @@ export function Phase1Workflow() {
           setGapReport(report);
           toast.success(
             report.gaps.length
-              ? `${report.gaps.length} requirement gap${report.gaps.length === 1 ? "" : "s"} found`
-              : "Coverage looks strong — no gaps found",
+              ? t(report.gaps.length === 1 ? "phase1.toast.gapsFoundOne" : "phase1.toast.gapsFoundOther", { n: report.gaps.length })
+              : t("phase1.toast.gapsNone"),
           );
         },
       },
@@ -297,7 +303,7 @@ export function Phase1Workflow() {
     setEpicDescription(`${gap.rationale}${storyHints}`);
     setEpicId(null);
     setMode("create");
-    toast.success(`"${gap.title}" loaded — refine it under Create New`);
+    toast.success(t("phase1.toast.gapLoaded", { title: gap.title }));
   }
 
   function cycleSize(index: number) {
@@ -344,7 +350,7 @@ export function Phase1Workflow() {
     setAppliedSuggestionIndex(null);
     setSelectedSuggestion(null);
     setEditedDescriptions({});
-    toast.info("Suggestions cleared");
+    toast.info(t("phase1.toast.suggestionsCleared"));
   }
 
   function clearEpicInputs() {
@@ -373,12 +379,12 @@ export function Phase1Workflow() {
     >
       <div className="mb-7 flex items-start justify-between">
         <div>
-          <p className={cn("mb-1 text-xs font-bold uppercase tracking-widest", dark ? "text-violet-400" : "text-violet-600")}>Phase 1</p>
+          <p className={cn("mb-1 text-xs font-bold uppercase tracking-widest", dark ? "text-violet-400" : "text-violet-600")}>{t("common.phaseEyebrow", { n: 1 })}</p>
           <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
-            Requirements
+            {t("phase1.heading")}
           </h1>
           <p className="mt-2 text-neutral-500">
-            Turn your project ideas into clear, testable behaviour specifications, ready to be shared with the team.
+            {t("phase1.subtitle")}
           </p>
         </div>
         {hasWorkInProgress && !pushSuccess ? (
@@ -390,16 +396,16 @@ export function Phase1Workflow() {
                 : "border-slate-300 text-slate-600 hover:border-red-300 hover:bg-white hover:text-red-600",
             )}
             onClick={() => {
-              toast.warning("Start over? All draft content will be cleared.", {
+              toast.warning(t("phase1.toast.startOverConfirm"), {
                 action: {
-                  label: "Start Over",
-                  onClick: () => { startNewEpic(); toast.info("Started over — all draft cleared"); },
+                  label: t("phase1.startOver"),
+                  onClick: () => { startNewEpic(); toast.info(t("phase1.toast.startedOver")); },
                 },
               });
             }}
           >
             <RotateCcw className="size-3.5" />
-            Start Over
+            {t("phase1.startOver")}
           </button>
         ) : null}
       </div>
@@ -414,12 +420,12 @@ export function Phase1Workflow() {
         >
           <ChevronRight className={cn("size-4 transition-transform", diagramOpen && "rotate-90")} />
           <Info className="size-4" />
-          <span>View Process Diagram (How this works)</span>
+          <span>{t("common.viewProcessDiagram")}</span>
         </button>
         {diagramOpen ? (
           <div className={cn("border-t p-4", dark ? "border-neutral-800" : "border-slate-200")}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/requirements.svg" alt="Phase 1 requirements process diagram" className="mx-auto max-w-full" />
+            <img src="/images/requirements.svg" alt={t("phase1.diagramAlt")} className="mx-auto max-w-full" />
           </div>
         ) : null}
       </div>
@@ -427,25 +433,26 @@ export function Phase1Workflow() {
       {!context ? (
         <div className="mb-6">
           <Callout variant="warning">
-            <p className="font-semibold">Sign in required</p>
-            <p className="mt-0.5">Sign in and select a project in the sidebar to unlock AI generation features.</p>
+            <p className="font-semibold">{t("common.signInRequired")}</p>
+            <p className="mt-0.5">{t("phase1.signInBody")}</p>
           </Callout>
         </div>
       ) : null}
 
       {!hasProjectConcept && contextFiles.data ? (
-        <div className="mb-4"><Callout variant="warning">Project Concept is empty. Fill it in for best AI results.</Callout></div>
+        <div className="mb-4"><Callout variant="warning">{t("phase1.emptyConceptWarning")}</Callout></div>
       ) : null}
 
       {hasUnsaved && (
-        <div className="mb-4"><Callout variant="info">Draft saved locally — work restored on refresh.</Callout></div>
+        <div className="mb-4"><Callout variant="info">{t("common.draftSavedLocally")}</Callout></div>
       )}
 
       <div className={cn("space-y-6 border-t pt-6", sectionBorderClass)}>
         {/* Stepper */}
         <div className={cn("rounded-xl border px-6 py-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
           <div className="flex w-full items-center">
-            {STEP_LABELS.map((label, i) => {
+            {STEP_LABEL_KEYS.map((labelKey, i) => {
+              const label = t(labelKey);
               const stepNum = (i + 1) as 1 | 2 | 3 | 4;
               const isActive = step === stepNum;
               const isDone = step > stepNum;
@@ -455,7 +462,7 @@ export function Phase1Workflow() {
                   <button
                     onClick={() => { if (canNav) setStep(stepNum); }}
                     aria-disabled={!canNav}
-                    aria-label={!canNav ? `${label} — locked, complete earlier steps first` : label}
+                    aria-label={!canNav ? t("phase1.stepLockedAria", { label }) : label}
                     className={cn("group flex shrink-0 flex-col items-center gap-1.5 transition", !canNav && "cursor-not-allowed opacity-35")}
                   >
                     <span className={cn(
@@ -479,7 +486,7 @@ export function Phase1Workflow() {
                       {label}
                     </span>
                   </button>
-                  {i < STEP_LABELS.length - 1 && (
+                  {i < STEP_LABEL_KEYS.length - 1 && (
                     <div className={cn(
                       "mx-2 mb-5 h-0.5 flex-1 rounded-full transition-all",
                       isDone
@@ -498,9 +505,9 @@ export function Phase1Workflow() {
           <div className="space-y-4">
             <div className={cn("grid grid-cols-3 rounded-md p-1", dark ? "bg-neutral-800" : "bg-slate-200")}>
               {[
-                { value: "create", Icon: FilePlus2, label: "Create New" },
-                { value: "load", Icon: Download, label: "Load from PM" },
-                { value: "suggest", Icon: Sparkles, label: "AI Suggests" },
+                { value: "create", Icon: FilePlus2, label: t("phase1.mode.createNew") },
+                { value: "load", Icon: Download, label: t("phase1.mode.loadFromPm") },
+                { value: "suggest", Icon: Sparkles, label: t("phase1.mode.aiSuggests") },
               ].map(({ value, Icon, label }) => (
                 <button
                   key={String(value)}
@@ -523,11 +530,11 @@ export function Phase1Workflow() {
               <div className="space-y-4">
                 <div className="grid grid-cols-[1fr_340px] gap-4">
                   <label className={cn("text-sm font-medium", labelClass)}>
-                    Epic Title <span className={cn("block text-xs", dark ? "text-neutral-500" : "text-slate-400")}>Required</span>
-                    <Input value={epicTitle} onChange={(event) => setEpicTitle(event.target.value)} placeholder="e.g. User Authentication" />
+                    {t("phase1.epicTitleLabel")} <span className={cn("block text-xs", dark ? "text-neutral-500" : "text-slate-400")}>{t("common.required")}</span>
+                    <Input value={epicTitle} onChange={(event) => setEpicTitle(event.target.value)} placeholder={t("phase1.epicTitlePlaceholder")} />
                   </label>
                   <label className={cn("text-sm font-medium", labelClass)}>
-                    Epic ID <span className={cn("block text-xs", dark ? "text-neutral-500" : "text-slate-400")}>Optional — leave blank to create new</span>
+                    {t("phase1.epicIdLabel")} <span className={cn("block text-xs", dark ? "text-neutral-500" : "text-slate-400")}>{t("phase1.epicIdHint")}</span>
                     <Input
                       value={epicId ?? ""}
                       onChange={(event) => {
@@ -536,17 +543,17 @@ export function Phase1Workflow() {
                         const num = Number(raw);
                         if (!Number.isNaN(num)) setEpicId(num);
                       }}
-                      placeholder="e.g. 42"
+                      placeholder={t("phase1.epicIdPlaceholder")}
                     />
                   </label>
                 </div>
                 <label className={cn("block text-sm font-medium", labelClass)}>
-                  Description
-                  <Textarea rows={5} value={epicDescription} onChange={(event) => setEpicDescription(event.target.value)} placeholder="Describe the epic in detail — context helps the AI generate better stories..." />
+                  {t("common.description")}
+                  <Textarea rows={5} value={epicDescription} onChange={(event) => setEpicDescription(event.target.value)} placeholder={t("phase1.epicDescPlaceholder")} />
                 </label>
                 {(epicTitle || epicDescription || epicId) && (
                   <Button variant="secondary" className="gap-2" onClick={clearEpicInputs}>
-                    <RotateCcw className="size-3.5" /> Clear Fields
+                    <RotateCcw className="size-3.5" /> {t("phase1.clearFields")}
                   </Button>
                 )}
               </div>
@@ -555,13 +562,13 @@ export function Phase1Workflow() {
             {mode === "load" ? (
               <div className="space-y-3">
                 <div className={cn("flex items-center justify-between text-sm", dark ? "text-neutral-500" : "text-slate-500")}>
-                  <span>{epics.data?.length ?? 0} epic(s) in this project</span>
+                  <span>{t("phase1.epicsCountInProject", { n: epics.data?.length ?? 0 })}</span>
                   <button
                     className={cn("transition-colors", dark ? "text-violet-400 hover:text-violet-300" : "text-violet-600 hover:text-violet-700")}
-                    onClick={() => { epics.refetch(); toast.info("Epics refreshed"); }}
+                    onClick={() => { epics.refetch(); toast.info(t("phase1.toast.epicsRefreshed")); }}
                   >
                     <RefreshCw className="mr-1 inline size-3" />
-                    Refresh
+                    {t("common.refresh")}
                   </button>
                 </div>
                 {epics.isLoading ? (
@@ -597,18 +604,18 @@ export function Phase1Workflow() {
                         <div className="flex shrink-0 items-center gap-1">
                           {epic.stories.length > 0 ? (
                             <span className={cn("rounded border px-1.5 py-0.5 text-xs", dark ? "border-neutral-700 text-neutral-600" : "border-slate-300 text-slate-400")}>
-                              {epic.stories.length} {epic.stories.length === 1 ? "story" : "stories"}
+                              {epic.stories.length === 1 ? t("phase1.storiesCountOne", { n: epic.stories.length }) : t("phase1.storiesCountOther", { n: epic.stories.length })}
                             </span>
                           ) : null}
                           {pushedCount > 0 ? (
                             <span className="rounded border border-emerald-700/50 bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-400">
-                              {pushedCount} pushed
+                              {t("phase1.pushedBadge", { n: pushedCount })}
                             </span>
                           ) : null}
                         </div>
                         {isSelected ? (
                           <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-emerald-400">
-                            <CheckCircle2 className="size-3.5" /> Selected
+                            <CheckCircle2 className="size-3.5" /> {t("common.selected")}
                           </span>
                         ) : null}
                       </button>
@@ -617,7 +624,7 @@ export function Phase1Workflow() {
                           {epic.description ? (
                             <p className={cn("text-sm leading-6", dark ? "text-neutral-400" : "text-slate-600")}>{epic.description}</p>
                           ) : (
-                            <p className={cn("text-sm italic", dark ? "text-neutral-600" : "text-slate-400")}>No description provided.</p>
+                            <p className={cn("text-sm italic", dark ? "text-neutral-600" : "text-slate-400")}>{t("phase1.noDescription")}</p>
                           )}
                           {epic.tags?.length ? (
                             <div className="flex flex-wrap gap-1">
@@ -642,11 +649,11 @@ export function Phase1Workflow() {
                               setEpicId(epic.id);
                               setEpicTitle(epic.subject);
                               setEpicDescription(epic.description);
-                              toast.success(`Epic "${epic.subject}" loaded`);
+                              toast.success(t("phase1.toast.epicLoaded", { title: epic.subject }));
                             }}
                           >
                             <CheckCircle2 className="size-4" />
-                            {isSelected ? "Selected" : "Use Epic"}
+                            {isSelected ? t("common.selected") : t("phase1.useEpic")}
                           </button>
                         </div>
                       ) : null}
@@ -654,7 +661,7 @@ export function Phase1Workflow() {
                   );
                 })}
                 {!epics.isLoading && !epics.data?.length ? (
-                  <div className={cn("py-4 text-center text-sm", dark ? "text-neutral-500" : "text-slate-400")}>No epics found in this project.</div>
+                  <div className={cn("py-4 text-center text-sm", dark ? "text-neutral-500" : "text-slate-400")}>{t("phase1.noEpicsFound")}</div>
                 ) : null}
               </div>
             ) : null}
@@ -671,7 +678,7 @@ export function Phase1Workflow() {
                 <GuideTheAI
                   value={suggestHint}
                   onChange={setSuggestHint}
-                  placeholder="e.g. focus on mobile-first flows, B2B enterprise context…"
+                  placeholder={t("phase1.suggestHintPlaceholder")}
                   dark={dark}
                 />
                 <Button
@@ -682,14 +689,14 @@ export function Phase1Workflow() {
                     suggestEpics.mutate(suggestHint, {
                       onSuccess: (data) => {
                         setSuggestions(data.epics);
-                        toast.success("Epic suggestions ready");
+                        toast.success(t("phase1.toast.suggestionsReady"));
                       },
                     });
                   }}
                   disabled={suggestEpics.isPending || noContext}
                 >
                   <Sparkles className="size-4" />
-                  {suggestEpics.isPending ? "Generating…" : "AI Suggests"}
+                  {suggestEpics.isPending ? t("common.generating") : t("phase1.mode.aiSuggests")}
                 </Button>
                 <AIProgressIndicator steps={SUGGEST_STEPS} isPending={suggestEpics.isPending} dark={dark} />
                 {suggestEpics.isPending && <CancelButton onCancel={() => suggestEpics.cancel()} className="mt-2" />}
@@ -697,13 +704,13 @@ export function Phase1Workflow() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className={cn("text-sm", dark ? "text-neutral-500" : "text-slate-500")}>
-                        {suggestions.length} suggestions — click to expand, then select one
+                        {t("phase1.suggestionsCount", { n: suggestions.length })}
                       </span>
                       <button
                         className={cn("text-sm transition-colors", dark ? "text-red-400 hover:text-red-300" : "text-red-500 hover:text-red-700")}
                         onClick={clearSuggestions}
                       >
-                        Clear suggestions
+                        {t("phase1.clearSuggestions")}
                       </button>
                     </div>
                     {suggestions.map((suggestion, index) => {
@@ -722,7 +729,7 @@ export function Phase1Workflow() {
                             </span>
                             {isApplied ? (
                               <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-emerald-400">
-                                <CheckCircle2 className="size-3.5" /> Selected
+                                <CheckCircle2 className="size-3.5" /> {t("common.selected")}
                               </span>
                             ) : null}
                           </button>
@@ -744,11 +751,11 @@ export function Phase1Workflow() {
                                 )}
                                 onClick={() => {
                                   applySuggestion(suggestion, index);
-                                  toast.success(`"${suggestion.title}" selected as epic`);
+                                  toast.success(t("phase1.toast.suggestionSelected", { title: suggestion.title }));
                                 }}
                               >
                                 <CheckCircle2 className="size-4" />
-                                {isApplied ? "Selected" : "Use Suggestion"}
+                                {isApplied ? t("common.selected") : t("phase1.useSuggestion")}
                               </button>
                             </div>
                           ) : null}
@@ -758,7 +765,7 @@ export function Phase1Workflow() {
                   </div>
                 ) : null}
                 {suggestEpics.isError ? (
-                  <Callout variant="danger">Suggestion failed: {errMsg(suggestEpics.error)}</Callout>
+                  <Callout variant="danger">{t("phase1.suggestionFailed", { err: errMsg(suggestEpics.error) })}</Callout>
                 ) : null}
 
                 {/* ── Coverage gap analysis ─────────────────────────────── */}
@@ -766,10 +773,9 @@ export function Phase1Workflow() {
                   <div className="flex items-start gap-3">
                     <ScanSearch className={cn("mt-0.5 size-5 shrink-0", dark ? "text-violet-400" : "text-violet-600")} />
                     <div className="space-y-0.5">
-                      <p className={cn("text-sm font-semibold", dark ? "text-neutral-100" : "text-slate-800")}>Analyze coverage gaps</p>
+                      <p className={cn("text-sm font-semibold", dark ? "text-neutral-100" : "text-slate-800")}>{t("phase1.gapAnalysisTitle")}</p>
                       <p className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-500")}>
-                        Audit your current epics &amp; stories ({epics.data?.length ?? 0} epic{(epics.data?.length ?? 0) === 1 ? "" : "s"}) against the
-                        project concept and surface what is still missing to make the requirements strong.
+                        {t((epics.data?.length ?? 0) === 1 ? "phase1.gapAnalysisDescOne" : "phase1.gapAnalysisDescOther", { n: epics.data?.length ?? 0 })}
                       </p>
                     </div>
                   </div>
@@ -780,11 +786,11 @@ export function Phase1Workflow() {
                     disabled={analyzeGaps.isPending || noContext || !hasProjectConcept}
                   >
                     <ScanSearch className="size-4" />
-                    {analyzeGaps.isPending ? "Analyzing…" : "Analyze Coverage Gaps"}
+                    {analyzeGaps.isPending ? t("common.analyzing") : t("phase1.analyzeCoverageGaps")}
                   </Button>
                   {!hasProjectConcept ? (
                     <p className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
-                      Define the project concept (Active Context) first — gap analysis needs it as the baseline.
+                      {t("phase1.gapNeedsConcept")}
                     </p>
                   ) : null}
                   <AIProgressIndicator steps={GAP_STEPS} isPending={analyzeGaps.isPending} dark={dark} />
@@ -799,7 +805,7 @@ export function Phase1Workflow() {
                       ) : null}
                       {gapReport.gaps.length === 0 ? (
                         <div className={cn("flex items-center gap-2 text-sm", dark ? "text-emerald-400" : "text-emerald-600")}>
-                          <CheckCircle2 className="size-4" /> Coverage looks strong — no gaps found.
+                          <CheckCircle2 className="size-4" /> {t("phase1.coverageStrong")}
                         </div>
                       ) : (
                         [...gapReport.gaps]
@@ -814,14 +820,14 @@ export function Phase1Workflow() {
                                 <span className={cn(
                                   "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-xs font-bold tabular-nums",
                                   dark ? "bg-neutral-700 text-neutral-200" : "bg-slate-300 text-slate-700",
-                                )} title={`Priority rank #${index + 1}`}>
+                                )} title={t("phase1.priorityRank", { n: index + 1 })}>
                                   {index + 1}
                                 </span>
                                 <span className={cn(
                                   "mt-0.5 shrink-0 rounded border px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide",
                                   IMPORTANCE_STYLE[importance],
                                 )}>
-                                  {importance}
+                                  {t(IMPORTANCE_LABEL_KEYS[importance as keyof typeof IMPORTANCE_LABEL_KEYS] ?? "phase1.importance.medium")}
                                 </span>
                                 <span className={cn(
                                   "mt-0.5 shrink-0 rounded border px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide",
@@ -829,12 +835,12 @@ export function Phase1Workflow() {
                                     ? "border-amber-500/40 text-amber-500"
                                     : "border-neutral-500/40 text-neutral-500",
                                 )}>
-                                  {missing ? "Missing epic" : "Incomplete"}
+                                  {missing ? t("phase1.missingEpic") : t("phase1.incomplete")}
                                 </span>
                                 <span className={cn("flex-1 font-semibold", dark ? "text-white" : "text-slate-800")}>{gap.title}</span>
                                 {isApplied ? (
                                   <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-emerald-400">
-                                    <CheckCircle2 className="size-3.5" /> Loaded
+                                    <CheckCircle2 className="size-3.5" /> {t("common.loaded")}
                                   </span>
                                 ) : null}
                               </div>
@@ -860,7 +866,7 @@ export function Phase1Workflow() {
                                 onClick={() => applyGap(gap, index)}
                               >
                                 <Plus className="size-4" />
-                                {isApplied ? "Loaded into Create New" : "Use as Epic"}
+                                {isApplied ? t("phase1.loadedIntoCreateNew") : t("phase1.useAsEpic")}
                               </button>
                             </div>
                           );
@@ -870,18 +876,18 @@ export function Phase1Workflow() {
                   ) : null}
 
                   {analyzeGaps.isError ? (
-                    <Callout variant="danger">Gap analysis failed: {errMsg(analyzeGaps.error)}</Callout>
+                    <Callout variant="danger">{t("phase1.gapAnalysisFailed", { err: errMsg(analyzeGaps.error) })}</Callout>
                   ) : null}
                 </div>
 
                 {/* ── Constraints (EARS) — available here so you don't need to push stories first ── */}
                 <div className={cn("rounded-lg border p-4", dark ? "border-neutral-800 bg-neutral-900/40" : "border-slate-200 bg-slate-50")}>
                   <div className="flex items-center gap-2">
-                    <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>Constraints</span>
-                    <span className={cn("rounded px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide", dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-500")}>Optional</span>
+                    <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>{t("common.constraints")}</span>
+                    <span className={cn("rounded px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide", dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-500")}>{t("common.optional")}</span>
                   </div>
                   <p className={cn("mt-1 text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
-                    EARS quality constraints (performance, security, reliability…) saved to <code>constraints.md</code> and injected into Phase 3 developer packs &amp; Phase 4 test plans. Editable anytime in the sidebar.
+                    {t("phase1.earsDescPre")} <code>constraints.md</code> {t("phase1.earsDescPost")}
                   </p>
                   <button
                     type="button"
@@ -889,32 +895,25 @@ export function Phase1Workflow() {
                     className={cn("mt-2 flex items-center gap-1.5 text-xs font-medium transition-colors", dark ? "text-violet-400 hover:text-violet-300" : "text-violet-600 hover:text-violet-700")}
                   >
                     <Info className="size-3.5" />
-                    What is EARS?
+                    {t("phase1.whatIsEars")}
                     <ChevronRight className={cn("size-3.5 transition-transform", earsOpen && "rotate-90")} />
                   </button>
                   {earsOpen ? (
                     <div className={cn("mt-2 space-y-2 rounded-md border p-3 text-xs leading-5", dark ? "border-neutral-800 bg-neutral-950 text-neutral-400" : "border-slate-200 bg-white text-slate-600")}>
-                      <p>
-                        <strong>EARS</strong> (Easy Approach to Requirements Syntax) is a constrained-natural-language template for writing
-                        unambiguous requirements. Gherkin captures <em>behaviour</em>; EARS captures the cross-cutting
-                        <em> quality attributes</em> scenarios can&apos;t express (performance, security, reliability, availability…).
-                      </p>
-                      <p>Each constraint follows one of a few &quot;shall&quot; patterns:</p>
+                      <p>{t("phase1.earsExplain1")}</p>
+                      <p>{t("phase1.earsExplain2")}</p>
                       <ul className="list-disc space-y-0.5 pl-4">
-                        <li><strong>Ubiquitous</strong> — &quot;The system shall &lt;requirement&gt;.&quot;</li>
-                        <li><strong>Event-driven</strong> — &quot;When &lt;trigger&gt;, the system shall &lt;response&gt;.&quot;</li>
-                        <li><strong>State-driven</strong> — &quot;While &lt;state&gt;, the system shall &lt;response&gt;.&quot;</li>
-                        <li><strong>Unwanted</strong> — &quot;If &lt;condition&gt;, then the system shall &lt;response&gt;.&quot;</li>
+                        <li><strong>{t("phase1.earsUbiquitous")}</strong> — {t("phase1.earsUbiquitousPattern")}</li>
+                        <li><strong>{t("phase1.earsEventDriven")}</strong> — {t("phase1.earsEventDrivenPattern")}</li>
+                        <li><strong>{t("phase1.earsStateDriven")}</strong> — {t("phase1.earsStateDrivenPattern")}</li>
+                        <li><strong>{t("phase1.earsUnwanted")}</strong> — {t("phase1.earsUnwantedPattern")}</li>
                       </ul>
-                      <p>
-                        Apex generates these grounded in your project concept, tech stack, and story scope — categorised
-                        (security, performance…) with a rationale each — so downstream packs and test plans inherit testable quality bars.
-                      </p>
+                      <p>{t("phase1.earsExplain3")}</p>
                     </div>
                   ) : null}
                   {constraintsGenerated ? (
                     <div className="mt-3 flex items-center gap-2 text-sm text-emerald-400">
-                      <CheckCircle2 className="size-4" /> Saved to constraints.md
+                      <CheckCircle2 className="size-4" /> {t("phase1.savedToConstraints")}
                     </div>
                   ) : (
                     <>
@@ -927,14 +926,14 @@ export function Phase1Workflow() {
                             onSuccess: (res) => {
                               updateContextFile.mutate({ filename: "constraints.md", content: res.constraints_md });
                               setConstraintsGenerated(true);
-                              toast.success(`Generated ${res.constraints.length} constraints`);
+                              toast.success(t(res.constraints.length === 1 ? "phase1.toast.constraintsGeneratedOne" : "phase1.toast.constraintsGeneratedOther", { n: res.constraints.length }));
                             },
                           })
                         }
                       >
                         {genConstraints.isPending
-                          ? <><Loader2 className="size-4 animate-spin" /> Generating…</>
-                          : "Generate constraints"}
+                          ? <><Loader2 className="size-4 animate-spin" /> {t("common.generating")}</>
+                          : t("phase1.generateConstraints")}
                       </Button>
                       <AIProgressIndicator steps={CONSTRAINT_STEPS} isPending={genConstraints.isPending} dark={dark} />
                       {genConstraints.isPending && <CancelButton onCancel={() => genConstraints.cancel()} className="mt-2" />}
@@ -949,7 +948,7 @@ export function Phase1Workflow() {
               disabled={!canGenerate}
               onClick={() => setStep(2)}
             >
-              Continue to Generate
+              {t("phase1.continueToGenerate")}
               <ChevronRight className="size-4" />
             </Button>
           </div>
@@ -961,7 +960,7 @@ export function Phase1Workflow() {
             {epicTitle ? (
               <div className={cn("flex items-start justify-between rounded-md border px-4 py-3", dark ? "border-neutral-700 bg-neutral-800/50" : "border-slate-200 bg-slate-50")}>
                 <div>
-                  <p className={cn("text-xs font-medium uppercase tracking-wider", dark ? "text-neutral-500" : "text-slate-400")}>Epic</p>
+                  <p className={cn("text-xs font-medium uppercase tracking-wider", dark ? "text-neutral-500" : "text-slate-400")}>{t("common.epic")}</p>
                   <p className={cn("mt-0.5 text-base font-semibold", dark ? "text-neutral-100" : "text-slate-800")}>{epicTitle}</p>
                   {epicDescription && (
                     <p className={cn("mt-1 text-sm", dark ? "text-neutral-400" : "text-slate-500")}>{epicDescription}</p>
@@ -971,21 +970,21 @@ export function Phase1Workflow() {
                   onClick={() => setStep(1)}
                   className={cn("ml-4 shrink-0 text-xs font-medium transition", dark ? "text-neutral-400 hover:text-violet-400" : "text-slate-400 hover:text-violet-600")}
                 >
-                  Change
+                  {t("common.change")}
                 </button>
               </div>
             ) : null}
-            {!canGenerate ? <Callout>Fill in your Epic above, then click Generate to create Natural Language user stories.</Callout> : null}
+            {!canGenerate ? <Callout>{t("phase1.fillEpicHint")}</Callout> : null}
             <GuideTheAI
               value={generateHint}
               onChange={setGenerateHint}
               dark={dark}
               disabled={busy}
-              placeholder="Optional notes to steer story generation — emphases, conventions, edge cases to favour. The Epic still drives what stories exist."
+              placeholder={t("phase1.generateHintPlaceholder")}
             />
             <div className="flex gap-2">
               <Button variant="secondary" className="gap-1.5" onClick={() => setStep(1)} disabled={busy}>
-                <ChevronLeft className="size-4" /> Back
+                <ChevronLeft className="size-4" /> {t("common.back")}
               </Button>
               <Button
                 className="flex-1"
@@ -998,20 +997,20 @@ export function Phase1Workflow() {
                         setNlDraft(data.nl_draft);
                         setCompiledStories([]);
                         setStep(3);
-                        toast.success("Stories generated — review the draft below");
+                        toast.success(t("phase1.toast.storiesGenerated"));
                       },
                     },
                   )
                 }
               >
                 <Sparkles className="size-4" />
-                {generate.isPending ? "Generating…" : "Generate Stories"}
+                {generate.isPending ? t("common.generating") : t("phase1.generateStories")}
               </Button>
             </div>
             <AIProgressIndicator steps={GENERATE_STEPS} isPending={generate.isPending} dark={dark} />
             {generate.isPending && <CancelButton onCancel={() => generate.cancel()} className="w-full" />}
             {generate.isError ? (
-              <Callout variant="danger">Generation failed: {errMsg(generate.error)}</Callout>
+              <Callout variant="danger">{t("phase1.generationFailed", { err: errMsg(generate.error) })}</Callout>
             ) : null}
           </div>
         )}
@@ -1021,7 +1020,7 @@ export function Phase1Workflow() {
           <div className="space-y-4">
             {epicTitle ? (
               <div className={cn("rounded-md border px-4 py-3", dark ? "border-neutral-700 bg-neutral-800/50" : "border-slate-200 bg-slate-50")}>
-                <p className={cn("text-xs font-medium uppercase tracking-wider", dark ? "text-neutral-500" : "text-slate-400")}>Epic</p>
+                <p className={cn("text-xs font-medium uppercase tracking-wider", dark ? "text-neutral-500" : "text-slate-400")}>{t("common.epic")}</p>
                 <p className={cn("mt-0.5 text-base font-semibold", dark ? "text-neutral-100" : "text-slate-800")}>{epicTitle}</p>
                 {epicDescription && (
                   <p className={cn("mt-1 text-sm", dark ? "text-neutral-400" : "text-slate-500")}>{epicDescription}</p>
@@ -1029,7 +1028,7 @@ export function Phase1Workflow() {
               </div>
             ) : null}
             <p className={cn("text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
-              The AI has written plain descriptions of each user story. Read them, adjust any that don&apos;t match your intent, then convert them to Acceptance Criteria.
+              {t("phase1.reviewDraftHint")}
             </p>
             <Textarea rows={14} value={nlDraft} onChange={(event) => setNlDraft(event.target.value)} />
 
@@ -1049,15 +1048,15 @@ export function Phase1Workflow() {
                             setCrossResult(r);
                             toast.success(
                               r.only_alt.length
-                                ? `${r.alt_label} surfaced ${r.only_alt.length} scenario(s) yours missed`
-                                : `${r.alt_label} agreed — no extra scenarios`,
+                                ? t(r.only_alt.length === 1 ? "phase1.toast.crossCheckFoundOne" : "phase1.toast.crossCheckFoundOther", { altLabel: r.alt_label, n: r.only_alt.length })
+                                : t("phase1.toast.crossCheckAgreed", { altLabel: r.alt_label }),
                             );
                           },
                         },
                       )
                     }
                   >
-                    <GitCompare className="size-4" /> {crossCheck.isPending ? "Cross-checking…" : "Cross-check"}
+                    <GitCompare className="size-4" /> {crossCheck.isPending ? t("phase1.crossChecking") : t("phase1.crossCheck")}
                   </Button>
                 </div>
                 <AIProgressIndicator steps={GENERATE_STEPS} isPending={crossCheck.isPending} dark={dark} />
@@ -1070,7 +1069,7 @@ export function Phase1Workflow() {
                     onDismiss={() => setCrossResult(null)}
                     onAdd={(s) => {
                       setNlDraft((d) => `${d.trimEnd()}\n\n  Scenario: ${s.title}\n  ${s.description}`);
-                      toast.success("Added to draft");
+                      toast.success(t("phase1.toast.addedToDraft"));
                     }}
                   />
                 ) : null}
@@ -1090,7 +1089,7 @@ export function Phase1Workflow() {
                         setQaQuestions(data.questions);
                         setQaAnswers({});
                         if (data.questions.length === 0) {
-                          toast.info("Draft looks unambiguous — no clarifying questions.");
+                          toast.info(t("phase1.toast.noAmbiguity"));
                         }
                       },
                     },
@@ -1098,8 +1097,8 @@ export function Phase1Workflow() {
                 }
               >
                 {clarify.isPending
-                  ? <><Loader2 className="size-4 animate-spin" /> Checking for ambiguity…</>
-                  : <><HelpCircle className="size-4" /> Clarify Ambiguities</>}
+                  ? <><Loader2 className="size-4 animate-spin" /> {t("phase1.checkingAmbiguity")}</>
+                  : <><HelpCircle className="size-4" /> {t("phase1.clarifyAmbiguities")}</>}
               </Button>
               <AIProgressIndicator steps={CLARIFY_STEPS} isPending={clarify.isPending} dark={dark} />
               {clarify.isPending && <CancelButton onCancel={() => clarify.cancel()} className="w-full" />}
@@ -1107,12 +1106,12 @@ export function Phase1Workflow() {
                 <div className={cn("space-y-3 rounded-md border p-3", dark ? "border-neutral-700 bg-neutral-800/50" : "border-slate-200 bg-slate-50")}>
                   <div className="flex items-center justify-between">
                     <p className={cn("text-xs font-medium", dark ? "text-neutral-300" : "text-slate-600")}>
-                      Optional — answers sharpen the Acceptance Criteria below and get saved to your PM tool.
+                      {t("phase1.clarifyHint")}
                     </p>
                     <button
                       className={cn("shrink-0 rounded p-1", dark ? "text-neutral-500 hover:bg-neutral-700" : "text-slate-400 hover:bg-slate-200")}
                       onClick={() => { setQaQuestions([]); setQaAnswers({}); }}
-                      title="Dismiss"
+                      title={t("phase1.dismiss")}
                     >
                       <X className="size-3.5" />
                     </button>
@@ -1122,7 +1121,7 @@ export function Phase1Workflow() {
                       <p className={cn("text-sm font-medium", dark ? "text-neutral-100" : "text-slate-800")}>{q.question}</p>
                       <p className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-400")}>{q.rationale}</p>
                       <Input
-                        placeholder="Your answer (optional)…"
+                        placeholder={t("phase1.answerPlaceholder")}
                         value={qaAnswers[q.id] ?? ""}
                         onChange={(event) => setQaAnswers((a) => ({ ...a, [q.id]: event.target.value }))}
                       />
@@ -1146,20 +1145,20 @@ export function Phase1Workflow() {
                     onSuccess: (data) => {
                       setCompiledStories(data.stories);
                       setStep(4);
-                      toast.success(`${data.stories.length} stories converted to Acceptance Criteria`);
+                      toast.success(t("phase1.toast.storiesConverted", { n: data.stories.length }));
                     },
                   },
                 );
               }}
             >
               {compile.isPending
-                ? <><Loader2 className="size-4 animate-spin" /> Converting…</>
-                : <><Sparkles className="size-4" /> Convert to Acceptance Criteria</>}
+                ? <><Loader2 className="size-4 animate-spin" /> {t("phase1.converting")}</>
+                : <><Sparkles className="size-4" /> {t("phase1.convertToAc")}</>}
             </Button>
             <AIProgressIndicator steps={COMPILE_STEPS} isPending={compile.isPending} dark={dark} />
             {compile.isPending && <CancelButton onCancel={() => compile.cancel()} className="w-full" />}
             {compile.isError ? (
-              <Callout variant="danger">Compile failed: {errMsg(compile.error)}</Callout>
+              <Callout variant="danger">{t("phase1.compileFailed", { err: errMsg(compile.error) })}</Callout>
             ) : null}
           </div>
         )}
@@ -1169,7 +1168,7 @@ export function Phase1Workflow() {
           <div className="space-y-4">
             {epicTitle ? (
               <div className={cn("rounded-md border px-4 py-3", dark ? "border-neutral-700 bg-neutral-800/50" : "border-slate-200 bg-slate-50")}>
-                <p className={cn("text-xs font-medium uppercase tracking-wider", dark ? "text-neutral-500" : "text-slate-400")}>Epic</p>
+                <p className={cn("text-xs font-medium uppercase tracking-wider", dark ? "text-neutral-500" : "text-slate-400")}>{t("common.epic")}</p>
                 <p className={cn("mt-0.5 text-base font-semibold", dark ? "text-neutral-100" : "text-slate-800")}>{epicTitle}</p>
                 {epicDescription && (
                   <p className={cn("mt-1 text-sm", dark ? "text-neutral-400" : "text-slate-500")}>{epicDescription}</p>
@@ -1177,12 +1176,12 @@ export function Phase1Workflow() {
               </div>
             ) : null}
             <p className={cn("text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
-              Acceptance Criteria are structured conditions that must be true for a story to be complete. Review them, then publish to your PM board.
+              {t("phase1.acHint")}
             </p>
 
             {validationErrors.length > 0 ? (
               <Callout variant="danger">
-                <div className="mb-1 font-semibold">Fix before pushing:</div>
+                <div className="mb-1 font-semibold">{t("phase1.fixBeforePushing")}</div>
                 <ul className="list-disc pl-4">
                   {validationErrors.map((err) => <li key={err}>{err}</li>)}
                 </ul>
@@ -1207,7 +1206,7 @@ export function Phase1Workflow() {
                     />
                     <button
                       className="shrink-0 rounded border border-violet-700 bg-violet-950 px-3 py-1.5 text-xs font-bold text-violet-200 transition-colors hover:bg-violet-900"
-                      title="Click to cycle size: XS → S"
+                      title={t("phase1.cycleSizeTitle")}
                       onClick={() => cycleSize(index)}
                     >
                       {story.size || "XS"}
@@ -1215,7 +1214,7 @@ export function Phase1Workflow() {
                     <button
                       className="grid size-8 shrink-0 place-items-center rounded text-red-400 transition-colors hover:bg-red-950"
                       onClick={() => setCompiledStories((s) => s.filter((_, i) => i !== index))}
-                      aria-label="Delete story"
+                      aria-label={t("phase1.deleteStory")}
                     >
                       <Trash2 className="size-4" />
                     </button>
@@ -1238,7 +1237,7 @@ export function Phase1Workflow() {
                     >
                       <p className="flex items-center gap-1.5 font-semibold">
                         <AlertCircle className="size-3.5" />
-                        Assumptions the AI made — review before publishing:
+                        {t("phase1.assumptionsWarning")}
                       </p>
                       <ul className="list-disc pl-5">
                         {story.assumptions.map((a, i) => <li key={i}>{a}</li>)}
@@ -1255,17 +1254,17 @@ export function Phase1Workflow() {
                   ? "border-neutral-700 text-neutral-300 hover:border-violet-500/50 hover:bg-neutral-800 hover:text-violet-300"
                   : "border-slate-300 text-slate-600 hover:border-violet-400 hover:bg-white hover:text-violet-700",
               )}
-              onClick={() => setCompiledStories((s) => [...s, { title: "New Story", size: "XS", gherkin: "Feature: \n\nScenario: \n  Given \n  When \n  Then " }])}
+              onClick={() => setCompiledStories((s) => [...s, { title: t("phase1.newStoryTitle"), size: "XS", gherkin: "Feature: \n\nScenario: \n  Given \n  When \n  Then " }])}
             >
-              <Plus className="size-4" /> Add Story
+              <Plus className="size-4" /> {t("phase1.addStory")}
             </button>
 
             {pushSuccess ? (
               <div className="space-y-4">
-                <Callout variant="success">{push.data?.count ?? 0} stories pushed and locked in the functional spec.</Callout>
+                <Callout variant="success">{t("phase1.pushedAndLocked", { n: push.data?.count ?? 0 })}</Callout>
                 {push.data?.story_urls?.length ? (
                   <div className="space-y-1">
-                    <div className={cn("text-xs font-medium", dark ? "text-neutral-400" : "text-slate-500")}>Created stories:</div>
+                    <div className={cn("text-xs font-medium", dark ? "text-neutral-400" : "text-slate-500")}>{t("phase1.createdStories")}</div>
                     {push.data.story_urls.map((url) => (
                       <a
                         key={url}
@@ -1283,11 +1282,11 @@ export function Phase1Workflow() {
                 {/* Optional: project-wide constraints (EARS). */}
                 <div className={cn("rounded-lg border p-4", dark ? "border-neutral-800 bg-neutral-900/40" : "border-slate-200 bg-slate-50")}>
                   <div className="flex items-center gap-2">
-                    <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>Constraints</span>
-                    <span className={cn("rounded px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide", dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-500")}>Optional</span>
+                    <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>{t("common.constraints")}</span>
+                    <span className={cn("rounded px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide", dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-500")}>{t("common.optional")}</span>
                   </div>
                   <p className={cn("mt-1 text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
-                    EARS quality constraints (performance, security, reliability…) saved to <code>constraints.md</code> and injected into Phase 3 developer packs &amp; Phase 4 test plans. Editable anytime in the sidebar.
+                    {t("phase1.earsDescPre")} <code>constraints.md</code> {t("phase1.earsDescPost")}
                   </p>
 
                   {/* What is EARS? — disclosure explaining the notation + what gets generated. */}
@@ -1297,33 +1296,26 @@ export function Phase1Workflow() {
                     className={cn("mt-2 flex items-center gap-1.5 text-xs font-medium transition-colors", dark ? "text-violet-400 hover:text-violet-300" : "text-violet-600 hover:text-violet-700")}
                   >
                     <Info className="size-3.5" />
-                    What is EARS?
+                    {t("phase1.whatIsEars")}
                     <ChevronRight className={cn("size-3.5 transition-transform", earsOpen && "rotate-90")} />
                   </button>
                   {earsOpen ? (
                     <div className={cn("mt-2 space-y-2 rounded-md border p-3 text-xs leading-5", dark ? "border-neutral-800 bg-neutral-950 text-neutral-400" : "border-slate-200 bg-white text-slate-600")}>
-                      <p>
-                        <strong>EARS</strong> (Easy Approach to Requirements Syntax) is a constrained-natural-language template for writing
-                        unambiguous requirements. Gherkin captures <em>behaviour</em>; EARS captures the cross-cutting
-                        <em> quality attributes</em> scenarios can&apos;t express (performance, security, reliability, availability…).
-                      </p>
-                      <p>Each constraint follows one of a few &quot;shall&quot; patterns:</p>
+                      <p>{t("phase1.earsExplain1")}</p>
+                      <p>{t("phase1.earsExplain2")}</p>
                       <ul className="list-disc space-y-0.5 pl-4">
-                        <li><strong>Ubiquitous</strong> — &quot;The system shall &lt;requirement&gt;.&quot;</li>
-                        <li><strong>Event-driven</strong> — &quot;When &lt;trigger&gt;, the system shall &lt;response&gt;.&quot;</li>
-                        <li><strong>State-driven</strong> — &quot;While &lt;state&gt;, the system shall &lt;response&gt;.&quot;</li>
-                        <li><strong>Unwanted</strong> — &quot;If &lt;condition&gt;, then the system shall &lt;response&gt;.&quot;</li>
+                        <li><strong>{t("phase1.earsUbiquitous")}</strong> — {t("phase1.earsUbiquitousPattern")}</li>
+                        <li><strong>{t("phase1.earsEventDriven")}</strong> — {t("phase1.earsEventDrivenPattern")}</li>
+                        <li><strong>{t("phase1.earsStateDriven")}</strong> — {t("phase1.earsStateDrivenPattern")}</li>
+                        <li><strong>{t("phase1.earsUnwanted")}</strong> — {t("phase1.earsUnwantedPattern")}</li>
                       </ul>
-                      <p>
-                        Apex generates these grounded in your project concept, tech stack, and story scope — categorised
-                        (security, performance…) with a rationale each — so downstream packs and test plans inherit testable quality bars.
-                      </p>
+                      <p>{t("phase1.earsExplain3")}</p>
                     </div>
                   ) : null}
 
                   {constraintsGenerated ? (
                     <div className="mt-3 flex items-center gap-2 text-sm text-emerald-400">
-                      <CheckCircle2 className="size-4" /> Saved to constraints.md
+                      <CheckCircle2 className="size-4" /> {t("phase1.savedToConstraints")}
                     </div>
                   ) : (
                     <>
@@ -1336,14 +1328,14 @@ export function Phase1Workflow() {
                             onSuccess: (res) => {
                               updateContextFile.mutate({ filename: "constraints.md", content: res.constraints_md });
                               setConstraintsGenerated(true);
-                              toast.success(`Generated ${res.constraints.length} constraints`);
+                              toast.success(t(res.constraints.length === 1 ? "phase1.toast.constraintsGeneratedOne" : "phase1.toast.constraintsGeneratedOther", { n: res.constraints.length }));
                             },
                           })
                         }
                       >
                         {genConstraints.isPending
-                          ? <><Loader2 className="size-4 animate-spin" /> Generating…</>
-                          : "Generate constraints"}
+                          ? <><Loader2 className="size-4 animate-spin" /> {t("common.generating")}</>
+                          : t("phase1.generateConstraints")}
                       </Button>
                       <AIProgressIndicator steps={CONSTRAINT_STEPS} isPending={genConstraints.isPending} dark={dark} />
                       {genConstraints.isPending && <CancelButton onCancel={() => genConstraints.cancel()} className="mt-2" />}
@@ -1352,10 +1344,10 @@ export function Phase1Workflow() {
                 </div>
                 <div className="flex flex-col gap-3">
                   <Button onClick={() => router.push("/phase2")} className="w-full">
-                    <ChevronRight className="size-4" /> Move to Phase 2
+                    <ChevronRight className="size-4" /> {t("phase1.moveToPhase2")}
                   </Button>
-                  <Button variant="secondary" className="w-full" onClick={() => { startNewEpic(true); toast.info("Ready for next epic — suggestions kept"); }}>
-                    <RefreshCw className="size-4" /> Start New Epic
+                  <Button variant="secondary" className="w-full" onClick={() => { startNewEpic(true); toast.info(t("phase1.toast.readyForNextEpic")); }}>
+                    <RefreshCw className="size-4" /> {t("phase1.startNewEpic")}
                   </Button>
                 </div>
               </div>
@@ -1365,7 +1357,7 @@ export function Phase1Workflow() {
                   className="w-full"
                   disabled={!canPush}
                   onClick={() => {
-                    if (!window.confirm(`Push ${compiledStories.length} stories to the PM tool? This creates real, teammate-visible records.`)) return;
+                    if (!window.confirm(t("phase1.pushConfirm", { n: compiledStories.length }))) return;
                     push.mutate(
                       {
                         epic_subject: epicTitle,
@@ -1377,19 +1369,19 @@ export function Phase1Workflow() {
                       {
                         onSuccess: (data) => {
                           setPushSuccess(true);
-                          toast.success(`${data.count} stories pushed`);
+                          toast.success(t("phase1.toast.storiesPushed", { n: data.count }));
                         },
                       },
                     );
                   }}
                 >
                   {push.isPending
-                    ? <><Loader2 className="size-4 animate-spin" /> Pushing…</>
-                    : <><Upload className="size-4" /> Push Stories</>}
+                    ? <><Loader2 className="size-4 animate-spin" /> {t("phase1.pushing")}</>
+                    : <><Upload className="size-4" /> {t("phase1.pushStories")}</>}
                 </Button>
                 <AIProgressIndicator steps={PUSH_STEPS} isPending={push.isPending} dark={dark} />
                 {push.isError ? (
-                  <Callout variant="danger">Push failed: {errMsg(push.error)}</Callout>
+                  <Callout variant="danger">{t("phase1.pushFailed", { err: errMsg(push.error) })}</Callout>
                 ) : null}
               </>
             )}

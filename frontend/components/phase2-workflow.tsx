@@ -46,6 +46,8 @@ import { TECH_STACK_PRESETS } from "@/lib/tech-stack-presets";
 import { useDiffStore } from "@/lib/stores/diff-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
+import { useT } from "@/lib/i18n/use-translation";
+import type { TranslationKey } from "@/lib/i18n/translations";
 import { cn, errMsg } from "@/lib/utils";
 import { DesignDeltaPanel } from "@/components/design-delta-panel";
 import { DesignSystemPanel } from "@/components/design-system-panel";
@@ -53,24 +55,21 @@ import { ERDiagramPanel } from "@/components/er-diagram-panel";
 import { ScreenFlowPanel } from "@/components/screen-flow-panel";
 import { EndpointTable } from "@/components/endpoint-table";
 
-const PROPOSE_STEPS = [
-  "Loading project information…",
-  "Analysing all stories and requirements…",
-  "Evaluating technology options…",
-  "Ranking alternatives by project fit…",
-];
+const PROPOSE_STEP_KEYS = [
+  "phase2.propose.step1", "phase2.propose.step2", "phase2.propose.step3", "phase2.propose.step4",
+] as const;
 
-const DESIGN_STEPS: Record<DesignSectionKey, string> = {
-  ux_brief:   "Writing UX Brief…",
-  endpoints:  "Defining Endpoints…",
-  data_model: "Building Data Model…",
-  runtime:    "Defining Runtime Contract…",
+const DESIGN_STEP_KEYS: Record<DesignSectionKey, TranslationKey> = {
+  ux_brief:   "phase2.step.uxBrief",
+  endpoints:  "phase2.step.endpoints",
+  data_model: "phase2.step.dataModel",
+  runtime:    "phase2.step.runtime",
 };
 
 type SectionCfg = {
-  stepLabel: string;
-  title: string;
-  description: string;
+  stepNum: number;
+  titleKey: TranslationKey;
+  descriptionKey: TranslationKey;
   dependsOn: DesignSectionKey[];
 };
 
@@ -82,48 +81,48 @@ type SectionCfg = {
 // groups are visually separated.
 const SECTION_CONFIG: Record<DesignSectionKey, SectionCfg> = {
   ux_brief: {
-    stepLabel:   "Step 1",
-    title:       "UX Brief",
-    description: "Screen inventory and navigation paths — every screen grouped by epic, plus the key navigation flows.",
-    dependsOn:   [],
+    stepNum:        1,
+    titleKey:       "phase2.section.uxBrief.title",
+    descriptionKey: "phase2.section.uxBrief.desc",
+    dependsOn:      [],
   },
   endpoints: {
-    stepLabel:   "Step 1",
-    title:       "Endpoints",
-    description: "REST endpoint list grouped by epic — method, path, auth, request fields, and response fields per story.",
-    dependsOn:   ["ux_brief"],
+    stepNum:        1,
+    titleKey:       "phase2.section.endpoints.title",
+    descriptionKey: "phase2.section.endpoints.desc",
+    dependsOn:      ["ux_brief"],
   },
   data_model: {
-    stepLabel:   "Step 2",
-    title:       "Data Model",
-    description: "Core entities, fields, and relations derived from the endpoint list.",
-    dependsOn:   ["endpoints"],
+    stepNum:        2,
+    titleKey:       "phase2.section.dataModel.title",
+    descriptionKey: "phase2.section.dataModel.desc",
+    dependsOn:      ["endpoints"],
   },
   runtime: {
-    stepLabel:   "Step 3",
-    title:       "Runtime Contract",
-    description: "How the pieces become one running prototype — app shell paths, migration command, session bootstrap, and a First Prototype Path demo walkthrough. Once locked, mark the story that implements this contract as its epic's scaffold story in Phase 3 — Autopilot builds it first.",
-    dependsOn:   ["endpoints", "data_model"],
+    stepNum:        3,
+    titleKey:       "phase2.section.runtime.title",
+    descriptionKey: "phase2.section.runtime.desc",
+    dependsOn:      ["endpoints", "data_model"],
   },
 };
 
 const VISUAL_DESIGN_SECTIONS: DesignSectionKey[] = ["ux_brief"];
 const TECHNICAL_DESIGN_SECTIONS: DesignSectionKey[] = ["endpoints", "data_model", "runtime"];
 
-function downloadDesignBundle(bundle: { ux_brief: string; endpoints: string; data_model: string; runtime: string }) {
+function downloadDesignBundle(bundle: { ux_brief: string; endpoints: string; data_model: string; runtime: string }, t: ReturnType<typeof useT>) {
   const content = [
     "# Project Design Bundle",
     "",
-    "## UX Brief",
+    `## ${t("phase2.section.uxBrief.title")}`,
     bundle.ux_brief,
     "",
-    "## Endpoints",
+    `## ${t("phase2.section.endpoints.title")}`,
     bundle.endpoints,
     "",
-    "## Data Model",
+    `## ${t("phase2.section.dataModel.title")}`,
     bundle.data_model,
     "",
-    "## Runtime Contract",
+    `## ${t("phase2.section.runtime.title")}`,
     bundle.runtime,
   ].join("\n");
   const blob = new Blob([content], { type: "text/markdown" });
@@ -157,9 +156,10 @@ function loadBundleDraft(projectId: number | null): object | null {
   }
 }
 
-const STEP_LABELS = ["Tech Stack", "Visual Design", "Technical Design"] as const;
+const STEP_LABEL_KEYS = ["phase2.step.techStack", "phase2.step.visualDesign", "phase2.step.technicalDesign"] as const;
 
 export function Phase2Workflow() {
+  const t = useT();
   const dark = useUiStore((state) => state.theme) === "dark";
   const router = useRouter();
   const context = useApiContext();
@@ -273,7 +273,7 @@ export function Phase2Workflow() {
   function clearDesign() {
     setDesignBundle(null);
     setPartial({});
-    toast.info("Design cleared");
+    toast.info(t("phase2.toast.designCleared"));
   }
 
   function reopenStack() {
@@ -317,7 +317,7 @@ export function Phase2Workflow() {
           story_ids:  accStoryIds,
         });
         setPartial({});
-        toast.success("Project design generated");
+        toast.success(t("phase2.toast.designGenerated"));
       },
     }, designGuidance);
   }
@@ -332,7 +332,7 @@ export function Phase2Workflow() {
     const downstreamHasContent = DESIGN_SECTION_ORDER.slice(idx + 1).some((s) => existingBundle?.[s as DesignSectionKey]);
     if (downstreamHasContent) {
       toast.warning(
-        `Regenerating "${SECTION_CONFIG[targetSection].title}" may make later sections inconsistent — regenerate them afterwards.`,
+        t("phase2.toast.regenerateWarning", { title: t(SECTION_CONFIG[targetSection].titleKey) }),
         { duration: 6000 },
       );
     }
@@ -371,7 +371,7 @@ export function Phase2Workflow() {
             [targetSection]: latestContent,
           });
           setPartial({});
-          toast.success(`${SECTION_CONFIG[targetSection].title} generated`);
+          toast.success(t("phase2.toast.sectionGenerated", { title: t(SECTION_CONFIG[targetSection].titleKey) }));
           if (targetSection === "data_model" && latestContent.trim()) {
             generateDiagramMut.mutate(latestContent);
           }
@@ -382,17 +382,18 @@ export function Phase2Workflow() {
         // Regenerate over an existing section → show the diff before replacing.
         const priorContent = existingBundle?.[targetSection] ?? "";
         if (priorContent.trim() && priorContent !== latestContent) {
+          const sectionTitle = t(SECTION_CONFIG[targetSection].titleKey);
           requestDiff({
-            title: `Design — ${SECTION_CONFIG[targetSection].title}`,
+            title: t("phase2.diffTitle", { title: sectionTitle }),
             oldText: priorContent,
             newText: latestContent,
             onAccept: commit,
             onDiscard: () => {
               setPartial({});
               logDecision.mutate({
-                scope: `Phase 2 design · ${SECTION_CONFIG[targetSection].title}`,
-                summary: `Discarded a regenerated "${SECTION_CONFIG[targetSection].title}" section — kept the previous one.`,
-                reason: "The AI's regeneration was rejected in favour of the existing design.",
+                scope: t("phase2.logDecisionScope", { title: sectionTitle }),
+                summary: t("phase2.logDecisionSummary", { title: sectionTitle }),
+                reason: t("phase2.logDecisionReason"),
               });
             },
           });
@@ -430,25 +431,25 @@ export function Phase2Workflow() {
               "inline-flex h-5 items-center justify-center rounded px-2 text-xs font-bold",
               dark ? "bg-violet-900/60 text-violet-300" : "bg-violet-100 text-violet-700",
             )}>
-              {cfg.stepLabel}
+              {t("common.stepLabel", { n: cfg.stepNum })}
             </span>
             <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>
-              {cfg.title}
+              {t(cfg.titleKey)}
             </span>
           </div>
           {isThisGenerating ? (
-            <span className="animate-pulse text-xs text-violet-400">Generating…</span>
+            <span className="animate-pulse text-xs text-violet-400">{t("common.generating")}</span>
           ) : hasContent ? (
             <span className={cn("flex items-center gap-1 text-xs", dark ? "text-emerald-400" : "text-emerald-600")}>
-              <CheckCircle2 className="size-3" /> Generated
+              <CheckCircle2 className="size-3" /> {t("common.generated")}
             </span>
           ) : (
-            <span className={cn("text-xs", mutedClass)}>Not generated</span>
+            <span className={cn("text-xs", mutedClass)}>{t("common.notGenerated")}</span>
           )}
         </div>
 
         <div className={cn("border-t px-4 py-2 text-xs", dark ? "border-neutral-800 text-neutral-500" : "border-slate-100 text-slate-500")}>
-          {cfg.description}
+          {t(cfg.descriptionKey)}
         </div>
 
         {isThisGenerating ? (
@@ -474,8 +475,8 @@ export function Phase2Workflow() {
         ) : (
           <div className={cn("border-t px-4 py-8 text-center text-sm", dark ? "border-neutral-800 text-neutral-700" : "border-slate-100 text-slate-400")}>
             {!depsOk
-              ? `Generate ${cfg.dependsOn.map((d) => SECTION_CONFIG[d].title).join(" and ")} first.`
-              : "Not generated yet."}
+              ? t("phase2.generateFirst", { deps: cfg.dependsOn.map((d) => t(SECTION_CONFIG[d].titleKey)).join(` ${t("common.and")} `) })
+              : t("phase2.notGeneratedYet")}
           </div>
         )}
 
@@ -500,14 +501,14 @@ export function Phase2Workflow() {
                           setEndpointsCross(r);
                           toast.success(
                             r.only_alt.length
-                              ? `${r.alt_label} proposed ${r.only_alt.length} endpoint(s) yours missed`
-                              : `${r.alt_label} agreed — no extra endpoints`,
+                              ? t(r.only_alt.length === 1 ? "phase2.toast.crossCheckEndpointsFoundOne" : "phase2.toast.crossCheckEndpointsFoundOther", { altLabel: r.alt_label, n: r.only_alt.length })
+                              : t("phase2.toast.crossCheckEndpointsAgreed", { altLabel: r.alt_label }),
                           );
                         },
                       })
                     }
                   >
-                    <GitCompare className="size-3.5" /> {crossCheckEndpointsMut.isPending ? "Cross-checking…" : "Cross-check endpoints"}
+                    <GitCompare className="size-3.5" /> {crossCheckEndpointsMut.isPending ? t("phase1.crossChecking") : t("phase2.crossCheckEndpoints")}
                   </button>
                 </div>
                 {crossCheckEndpointsMut.isPending && <CancelButton onCancel={() => crossCheckEndpointsMut.cancel()} className="w-full" />}
@@ -520,7 +521,7 @@ export function Phase2Workflow() {
                     onAdd={(s) => {
                       if (!designBundle) return;
                       setDesignBundle({ ...designBundle, endpoints: `${(designBundle.endpoints ?? "").trimEnd()}\n- \`${s.title}\`` });
-                      toast.success("Endpoint added");
+                      toast.success(t("phase2.toast.endpointAdded"));
                     }}
                   />
                 ) : null}
@@ -541,7 +542,7 @@ export function Phase2Workflow() {
           >
             <p className="flex items-center gap-1.5 font-semibold">
               <AlertCircle className="size-3.5" />
-              Assumptions the AI made — review before locking:
+              {t("phase2.assumptionsWarning")}
             </p>
             <ul className="list-disc pl-5">
               {sectionAssumptions[section]!.map((a) => (
@@ -560,7 +561,7 @@ export function Phase2Workflow() {
               onClick={() => generateSections.cancel()}
             >
               <StopCircle className="size-3.5 text-red-400" />
-              Cancel
+              {t("common.cancel")}
             </button>
           ) : (
             <button
@@ -574,7 +575,7 @@ export function Phase2Workflow() {
               onClick={() => doGenerateSection(section)}
             >
               <Sparkles className="size-3.5" />
-              {hasContent ? `Regenerate ${cfg.title}` : `Generate ${cfg.title}`}
+              {t(hasContent ? "phase2.regenerateSection" : "phase2.generateSection", { title: t(cfg.titleKey) })}
             </button>
           )}
         </div>
@@ -585,12 +586,12 @@ export function Phase2Workflow() {
   return (
     <section className="px-8 py-8">
       <div className="mb-7">
-        <p className={cn("mb-1 text-xs font-bold uppercase tracking-widest", dark ? "text-violet-400" : "text-violet-600")}>Phase 2</p>
+        <p className={cn("mb-1 text-xs font-bold uppercase tracking-widest", dark ? "text-violet-400" : "text-violet-600")}>{t("common.phaseEyebrow", { n: 2 })}</p>
         <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
-          Design
+          {t("phase2.heading")}
         </h1>
         <p className={cn("mt-2", mutedClass)}>
-          Generate, review, and lock the project&apos;s design — UX, API surface, data model, and runtime contract — before implementation begins.
+          {t("phase2.subtitle")}
         </p>
       </div>
 
@@ -604,12 +605,12 @@ export function Phase2Workflow() {
         >
           <ChevronRight className={cn("size-4 transition-transform", diagramOpen && "rotate-90")} />
           <Info className="size-4" />
-          <span>View Process Diagram (How this works)</span>
+          <span>{t("common.viewProcessDiagram")}</span>
         </button>
         {diagramOpen ? (
           <div className={cn("border-t p-4", dark ? "border-neutral-800" : "border-slate-200")}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/design.svg" alt="Phase 2 design process diagram" className="mx-auto max-w-full" />
+            <img src="/images/design.svg" alt={t("phase2.diagramAlt")} className="mx-auto max-w-full" />
           </div>
         ) : null}
       </div>
@@ -625,8 +626,8 @@ export function Phase2Workflow() {
         <div className="mb-6 flex items-start gap-3 rounded-md border border-amber-600/50 bg-amber-500/10 px-4 py-4">
           <AlertCircle className="mt-0.5 size-4 shrink-0 text-amber-400" />
           <div>
-            <p className="text-sm font-semibold text-amber-300">Sign in required</p>
-            <p className="mt-0.5 text-xs text-amber-300">Sign in and select a project in the sidebar to unlock Phase 2 design tools.</p>
+            <p className="text-sm font-semibold text-amber-300">{t("common.signInRequired")}</p>
+            <p className="mt-0.5 text-xs text-amber-300">{t("phase2.signInBody")}</p>
           </div>
         </div>
       ) : null}
@@ -635,7 +636,8 @@ export function Phase2Workflow() {
         {/* Stepper */}
         <div className={cn("rounded-xl border px-6 py-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
           <div className="flex w-full items-center">
-            {STEP_LABELS.map((label, i) => {
+            {STEP_LABEL_KEYS.map((labelKey, i) => {
+              const label = t(labelKey);
               const stepNum = (i + 1) as 1 | 2 | 3;
               const isActive = step === stepNum;
               const isDone = step > stepNum;
@@ -668,7 +670,7 @@ export function Phase2Workflow() {
                       {label}
                     </span>
                   </button>
-                  {i < STEP_LABELS.length - 1 && (
+                  {i < STEP_LABEL_KEYS.length - 1 && (
                     <div className={cn(
                       "mx-2 mb-5 h-0.5 flex-1 rounded-full transition-all",
                       isDone
@@ -685,35 +687,35 @@ export function Phase2Workflow() {
         {/* ── Step 1: Technology Choices ────────────────────────────────── */}
         {step === 1 && (
           <section className="space-y-4">
-            <SectionHeading>Stage A · Technology Choices</SectionHeading>
+            <SectionHeading>{t("phase2.stageA")}</SectionHeading>
             <p className={cn("text-xs", dark ? "text-neutral-400" : "text-slate-500")}>
-              Example: React frontend, FastAPI backend, PostgreSQL database, hosted on Azure.
+              {t("phase2.stackExample")}
             </p>
             {stackDefined ? (
               <div className="flex items-start justify-between gap-4">
-                <Callout>Technology choices are locked for this project. You can review them below before generating the design.</Callout>
+                <Callout>{t("phase2.stackLocked")}</Callout>
                 <button
                   className={cn("flex shrink-0 items-center gap-1 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
-                  title="Reopen technology choices for editing"
+                  title={t("phase2.reopenTitle")}
                   onClick={reopenStack}
                 >
                   <Unlock className="size-3" />
-                  Reopen
+                  {t("phase2.reopen")}
                 </button>
               </div>
             ) : (
-              <Callout>Choose and lock in the technologies your team will use. This guides the AI when generating your project design.</Callout>
+              <Callout>{t("phase2.stackUnlockedHint")}</Callout>
             )}
             <label className={cn("block text-sm font-medium", labelClass)}>
-              Notes <span className={mutedClass}>Optional</span>
-              <Input value={stackHint} onChange={(event) => setStackHint(event.target.value)} placeholder="e.g. prefer Python backend, PostgreSQL, simple deployment" />
+              {t("phase2.notesLabel")} <span className={mutedClass}>{t("common.optional")}</span>
+              <Input value={stackHint} onChange={(event) => setStackHint(event.target.value)} placeholder={t("phase2.notesPlaceholder")} />
             </label>
             {!stackDefined ? (
               <>
                 <label className={cn("block text-sm font-medium", labelClass)}>
-                  Start from a preset <span className={mutedClass}>Optional — seeds the draft, no AI</span>
+                  {t("phase2.presetLabel")} <span className={mutedClass}>{t("phase2.presetHint")}</span>
                   <select
-                    aria-label="Tech stack preset"
+                    aria-label={t("phase2.techStackPresetAria")}
                     defaultValue=""
                     disabled={busy || noContext}
                     onChange={(event) => {
@@ -721,7 +723,7 @@ export function Phase2Workflow() {
                       if (preset) {
                         setTechStackDraft(preset.body);
                         setSelectedAlternativeIndex(-1);
-                        toast.success(`Seeded draft from "${preset.label}"`);
+                        toast.success(t("phase2.toast.presetSeeded", { label: preset.label }));
                       }
                       event.target.value = "";
                     }}
@@ -730,7 +732,7 @@ export function Phase2Workflow() {
                       dark ? "border-neutral-800 bg-[#1f1f21] text-neutral-200" : "border-slate-200 bg-white text-slate-900",
                     )}
                   >
-                    <option value="" disabled>Pick a common stack…</option>
+                    <option value="" disabled>{t("phase2.presetPick")}</option>
                     {TECH_STACK_PRESETS.map((p) => (
                       <option key={p.label} value={p.label}>{p.label}</option>
                     ))}
@@ -746,21 +748,21 @@ export function Phase2Workflow() {
                         onSuccess: (data) => {
                           setAlternatives(data.alternatives);
                           setSelectedAlternativeIndex(-1);
-                          toast.success("Architecture alternatives proposed");
+                          toast.success(t("phase2.toast.alternativesProposed"));
                         },
                       },
                     )
                   }
                 >
                   <Sparkles className="size-4" />
-                  Propose Architecture
+                  {t("phase2.proposeArchitecture")}
                 </Button>
               </>
             ) : null}
-            <AIProgressIndicator steps={PROPOSE_STEPS} isPending={proposeStack.isPending} dark={dark} />
+            <AIProgressIndicator steps={PROPOSE_STEP_KEYS.map((k) => t(k))} isPending={proposeStack.isPending} dark={dark} />
             {proposeStack.isPending && <CancelButton onCancel={() => proposeStack.cancel()} className="w-full" />}
             {proposeStack.isError ? (
-              <Callout variant="danger">Proposal failed: {errMsg(proposeStack.error)}</Callout>
+              <Callout variant="danger">{t("phase2.proposalFailed", { err: errMsg(proposeStack.error) })}</Callout>
             ) : null}
 
             {alternatives.length ? (
@@ -781,7 +783,7 @@ export function Phase2Workflow() {
                     )}
                   >
                     <div className={cn("mb-2 font-semibold", dark ? "text-white" : "text-slate-900")}>
-                      Option {index + 1}: {alt.name}
+                      {t("phase2.option", { n: index + 1, name: alt.name })}
                     </div>
                     <p className={cn("mb-3 text-sm leading-6", dark ? "text-neutral-400" : "text-slate-600")}>{alt.description}</p>
                     <pre className={cn("whitespace-pre-wrap text-xs", dark ? "text-neutral-500" : "text-slate-400")}>{alt.trade_offs}</pre>
@@ -791,7 +793,7 @@ export function Phase2Workflow() {
             ) : null}
 
             <label className={cn("block text-sm font-medium", labelClass)}>
-              Technology Choices Draft
+              {t("phase2.techStackDraftLabel")}
               <Textarea rows={8} value={techStackDraft} onChange={(event) => setTechStackDraft(event.target.value)} />
             </label>
             <Button
@@ -804,17 +806,17 @@ export function Phase2Workflow() {
                     onSuccess: () => {
                       setStackReopened(false);
                       setStep(2);
-                      toast.success("Technology choices saved");
+                      toast.success(t("phase2.toast.techStackSaved"));
                     },
                   },
                 );
               }}
             >
               <Save className="size-4" />
-              Save Technology Choices
+              {t("phase2.saveTechStack")}
             </Button>
             {lockStack.isError ? (
-              <Callout variant="danger">Lock failed: {errMsg(lockStack.error)}</Callout>
+              <Callout variant="danger">{t("phase2.lockFailed", { err: errMsg(lockStack.error) })}</Callout>
             ) : null}
           </section>
         )}
@@ -822,15 +824,14 @@ export function Phase2Workflow() {
         {/* ── Step 2: Visual Design ─────────────────────────────────────── */}
         {step === 2 && (
           <section className="space-y-5">
-            <SectionHeading>Stage B · Visual Design</SectionHeading>
+            <SectionHeading>{t("phase2.stageB.visual")}</SectionHeading>
             <p className={cn("text-sm", mutedClass)}>
-              Generate the UX Brief and the Visual Design System derived from it — screens, navigation, colors, typography, and mockups.
+              {t("phase2.visualDesignDesc")}
             </p>
             <div className={cn("flex items-start gap-3 rounded-md border px-4 py-3 text-sm", dark ? "border-amber-600/30 bg-amber-500/8" : "border-amber-400/50 bg-amber-50")}>
               <Info className={cn("mt-0.5 size-4 shrink-0", dark ? "text-amber-400" : "text-amber-600")} />
               <p className={dark ? "text-amber-300/90" : "text-amber-700"}>
-                <span className="font-semibold">These are AI-generated drafts</span> — starting points for review, not final deliverables.
-                Read each section carefully and edit the content as needed before locking.
+                <span className="font-semibold">{t("phase2.aiDraftsWarningTitle")}</span> {t("phase2.aiDraftsWarningBody")}
               </p>
             </div>
 
@@ -840,7 +841,7 @@ export function Phase2Workflow() {
                 onChange={setDesignGuidance}
                 dark={dark}
                 disabled={generateSections.isPending}
-                placeholder="Optional notes to steer the design — API conventions, naming, patterns to favour or avoid, things to keep consistent across sections. The stories still drive the scope."
+                placeholder={t("phase2.guideThePlaceholder")}
               />
               {generateSections.isPending ? (
                 <button
@@ -848,20 +849,20 @@ export function Phase2Workflow() {
                   onClick={() => generateSections.cancel()}
                 >
                   <StopCircle className="size-4 text-red-400" />
-                  Cancel Generation
+                  {t("phase2.cancelGeneration")}
                 </button>
               ) : (
                 <div className="flex gap-2">
                   <Button variant="secondary" className="gap-1.5" onClick={() => setStep(1)} disabled={busy}>
-                    <ChevronLeft className="size-4" /> Back
+                    <ChevronLeft className="size-4" /> {t("common.back")}
                   </Button>
                   <Button
                     className="flex-1"
                     disabled={busy || noContext}
                     onClick={() => {
                       if (designBundle) {
-                        toast.warning("A design already exists. Regenerating all sections will overwrite it.", {
-                          action: { label: "Regenerate All", onClick: doGenerate },
+                        toast.warning(t("phase2.toast.designExistsWarning"), {
+                          action: { label: t("phase2.regenerateAll"), onClick: doGenerate },
                           duration: 8000,
                         });
                       } else {
@@ -870,7 +871,7 @@ export function Phase2Workflow() {
                     }}
                   >
                     <Sparkles className="size-4" />
-                    Generate Design
+                    {t("phase2.generateDesign")}
                   </Button>
                 </div>
               )}
@@ -878,33 +879,33 @@ export function Phase2Workflow() {
                 <button
                   className={cn("flex items-center gap-1 rounded border px-3 py-2 text-sm transition-colors disabled:opacity-40", outlineButtonClass)}
                   disabled={busy}
-                  title="Refresh story index"
+                  title={t("phase2.refreshIndexTitle")}
                   onClick={() =>
                     refreshIndex.mutate(undefined, {
-                      onSuccess: () => toast.success("Story index refreshed"),
+                      onSuccess: () => toast.success(t("phase2.toast.indexRefreshed")),
                     })
                   }
                 >
                   <RefreshCw className="size-3" />
-                  Refresh Index
+                  {t("phase2.refreshIndex")}
                 </button>
                 {activeBundle && !generateSections.isPending ? (
                   <>
                     <button
                       className={cn("flex items-center gap-1 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
-                      title="Download design bundle as Markdown"
-                      onClick={() => downloadDesignBundle(activeBundle)}
+                      title={t("phase2.exportTitle")}
+                      onClick={() => downloadDesignBundle(activeBundle, t)}
                     >
                       <Download className="size-3" />
-                      Export
+                      {t("phase2.export")}
                     </button>
                     <button
                       className={cn("flex items-center gap-1 rounded border px-3 py-2 text-sm transition-colors", outlineButtonClass)}
-                      title="Clear current design"
+                      title={t("phase2.clearTitle")}
                       onClick={clearDesign}
                     >
                       <RotateCcw className="size-3" />
-                      Clear
+                      {t("phase2.clear")}
                     </button>
                   </>
                 ) : null}
@@ -912,13 +913,13 @@ export function Phase2Workflow() {
             </div>
 
             <AIProgressIndicator
-              steps={DESIGN_SECTION_ORDER.map((s) => DESIGN_STEPS[s])}
+              steps={DESIGN_SECTION_ORDER.map((s) => t(DESIGN_STEP_KEYS[s]))}
               isPending={generateSections.isPending}
               dark={dark}
               activeStep={activeStepIdx}
             />
             {generateSections.error ? (
-              <Callout variant="danger">Generation failed: {generateSections.error}</Callout>
+              <Callout variant="danger">{t("phase2.generationFailed", { err: generateSections.error })}</Callout>
             ) : null}
 
             {/* Visual Design — UX Brief + the derived Visual Design System */}
@@ -932,22 +933,22 @@ export function Phase2Workflow() {
                       "inline-flex h-5 items-center justify-center rounded px-2 text-xs font-bold",
                       dark ? "bg-violet-900/60 text-violet-300" : "bg-violet-100 text-violet-700",
                     )}>
-                      Step 2
+                      {t("common.stepLabel", { n: 2 })}
                     </span>
                     <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>
-                      Visual Design System
+                      {t("phase2.visualDesignSystem")}
                     </span>
                   </div>
                   {designSystemQuery.data ? (
                     <span className={cn("flex items-center gap-1 text-xs", dark ? "text-emerald-400" : "text-emerald-600")}>
-                      <CheckCircle2 className="size-3" /> Generated
+                      <CheckCircle2 className="size-3" /> {t("common.generated")}
                     </span>
                   ) : (
-                    <span className={cn("text-xs", mutedClass)}>Not generated</span>
+                    <span className={cn("text-xs", mutedClass)}>{t("common.notGenerated")}</span>
                   )}
                 </div>
                 <div className={cn("border-t px-4 py-2 text-xs", dark ? "border-neutral-800 text-neutral-500" : "border-slate-100 text-slate-500")}>
-                  Color palette, typography, navigation pattern, and screen mockups — derived from the UX Brief above.
+                  {t("phase2.visualDesignSystemDesc")}
                 </div>
                 <div className={cn("border-t px-4 py-3", dark ? "border-neutral-800" : "border-slate-100")}>
                   <DesignSystemPanel uxBriefContent={activeBundle?.ux_brief ?? ""} dark={dark} standalone guidance={designGuidance} />
@@ -957,10 +958,10 @@ export function Phase2Workflow() {
 
             <div className="flex gap-2">
               <Button variant="secondary" className="gap-1.5" onClick={() => setStep(1)} disabled={busy}>
-                <ChevronLeft className="size-4" /> Back
+                <ChevronLeft className="size-4" /> {t("common.back")}
               </Button>
               <Button className="flex-1" onClick={() => setStep(3)} disabled={busy}>
-                Continue to Technical Design <ChevronRight className="size-4" />
+                {t("phase2.continueToTechnical")} <ChevronRight className="size-4" />
               </Button>
             </div>
           </section>
@@ -969,12 +970,12 @@ export function Phase2Workflow() {
         {/* ── Step 3: Technical Design ──────────────────────────────────── */}
         {step === 3 && (
           <section className="space-y-5">
-            <SectionHeading>Stage B · Technical Design</SectionHeading>
+            <SectionHeading>{t("phase2.stageB.technical")}</SectionHeading>
             <p className={cn("text-sm", mutedClass)}>
-              Endpoints, data model, and the Runtime Contract — then save and lock the whole project design.
+              {t("phase2.technicalDesignDesc")}
             </p>
             <Button variant="secondary" className="gap-1.5" onClick={() => setStep(2)} disabled={busy}>
-              <ChevronLeft className="size-4" /> Back to Visual Design
+              <ChevronLeft className="size-4" /> {t("phase2.backToVisual")}
             </Button>
 
             <div className="space-y-4">
@@ -984,7 +985,7 @@ export function Phase2Workflow() {
             {/* Save & Lock — the last thing on the step, saves everything above */}
             <div className={cn("space-y-4 rounded-md border p-4", cardClass)}>
               {!activeBundle ? (
-                <Callout>Generate all design sections above, then save and lock here.</Callout>
+                <Callout>{t("phase2.generateSectionsFirst")}</Callout>
               ) : (
                 <>
                   <Button
@@ -1000,7 +1001,7 @@ export function Phase2Workflow() {
                           runtime_spec: activeBundle.runtime,
                         },
                         {
-                          onSuccess: (data) => toast.success(`Design locked for ${data.story_ids.length} stories`),
+                          onSuccess: (data) => toast.success(t("phase2.toast.designLocked", { n: data.story_ids.length })),
                         },
                       )
                     }
@@ -1010,22 +1011,22 @@ export function Phase2Workflow() {
                     ) : (
                       <CheckCircle2 className="size-4" />
                     )}
-                    {lockDesign.isPending ? "Saving…" : "Save & Lock Design"}
+                    {lockDesign.isPending ? t("phase2.saving") : t("phase2.saveAndLock")}
                   </Button>
                   {!canSave && !busy ? (
                     <p className={cn("text-xs", mutedClass)}>
-                      Generate every section above (including the Runtime Contract) before locking.
+                      {t("phase2.generateEverySection")}
                     </p>
                   ) : null}
                   {lockDesign.isPending ? (
                     <div className={cn("space-y-1 rounded-md border px-4 py-3 text-xs", dark ? "border-violet-800/40 bg-violet-950/30 text-violet-300" : "border-violet-200 bg-violet-50 text-violet-700")}>
                       <p className="flex items-center gap-2 font-medium">
                         <Loader2 className="size-3 animate-spin" />
-                        Saving design bundle to context files…
+                        {t("phase2.savingBundle")}
                       </p>
                       <p className={dark ? "text-violet-400/70" : "text-violet-500"}>
-                        PM story transitions will run after the bundle is saved.
-                        {activeBundle.story_ids.length > 0 && ` ${activeBundle.story_ids.length} stories to update.`}
+                        {t("phase2.pmTransitionsNote")}
+                        {activeBundle.story_ids.length > 0 && t("phase2.storiesToUpdate", { n: activeBundle.story_ids.length })}
                       </p>
                     </div>
                   ) : null}
@@ -1034,16 +1035,16 @@ export function Phase2Workflow() {
               {lockDesign.data ? (
                 <>
                   <Callout variant="success">
-                    Design locked for {lockDesign.data.story_ids.length} stories.
-                    {lockDesign.data.taiga_failures?.length ? ` ${lockDesign.data.taiga_failures.length} PM transition(s) failed.` : ""}
+                    {t("phase2.designLockedFor", { n: lockDesign.data.story_ids.length })}
+                    {lockDesign.data.taiga_failures?.length ? t("phase2.taigaFailures", { n: lockDesign.data.taiga_failures.length }) : ""}
                   </Callout>
                   <Button className="w-full" onClick={() => router.push("/phase3")}>
-                    Continue to Phase 3 — Implementation <ChevronRight className="size-4" />
+                    {t("phase2.continueToPhase3")} <ChevronRight className="size-4" />
                   </Button>
                 </>
               ) : null}
               {lockDesign.isError ? (
-                <Callout variant="danger">Save failed: {errMsg(lockDesign.error)}</Callout>
+                <Callout variant="danger">{t("phase2.saveFailed", { err: errMsg(lockDesign.error) })}</Callout>
               ) : null}
             </div>
           </section>
