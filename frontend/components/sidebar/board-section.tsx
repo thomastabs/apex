@@ -33,6 +33,8 @@ import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/primitives";
 import type { Epic, Story } from "@/lib/api/types";
 import { PanelHeader, type DragSectionProps } from "./shared";
+import { useT } from "@/lib/i18n/use-translation";
+import type { TranslationKey } from "@/lib/i18n/translations";
 
 // ── dialogs ───────────────────────────────────────────────────────────────────
 
@@ -64,6 +66,7 @@ function useDetailHydration<T extends { description?: string; version?: number |
 }
 
 function EpicDialog({ epic, onClose }: { epic: Epic; onClose: () => void }) {
+  const t = useT();
   const dark = useUiStore((state) => state.theme === "dark");
   const context = useApiContext();
   const [subject, setSubject] = useState(epic.subject);
@@ -103,21 +106,21 @@ function EpicDialog({ epic, onClose }: { epic: Epic; onClose: () => void }) {
         className={cn("w-full max-w-2xl rounded-xl border p-6 shadow-2xl", dark ? "border-neutral-700 bg-neutral-900" : "border-slate-300 bg-white")}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>Epic <span className="font-mono">#{epic.ref}</span></h3>
+        <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>{t("common.epic")} <span className="font-mono">#{epic.ref}</span></h3>
         <div className="space-y-3">
           <div>
-            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Title</label>
-            <input className={cn("h-9 border-violet-700", inputClass)} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Epic title" autoFocus />
+            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>{t("board.titleLabel")}</label>
+            <input className={cn("h-9 border-violet-700", inputClass)} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={t("board.epicTitlePlaceholder")} autoFocus />
           </div>
           <div>
-            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Description</label>
-            <textarea className={cn("h-52 resize-none py-2", inputClass)} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe the epic…" />
+            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>{t("common.description")}</label>
+            <textarea className={cn("h-52 resize-none py-2", inputClass)} value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("board.describeEpicPlaceholder")} />
           </div>
           <div>
             <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
-              Tags <span className={dark ? "text-neutral-600" : "text-slate-400"}>(comma-separated)</span>
+              {t("board.tagsLabel")} <span className={dark ? "text-neutral-600" : "text-slate-400"}>{t("board.tagsHint")}</span>
             </label>
-            <input className={cn("h-8 text-xs", inputClass)} value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="e.g. backend, auth, v2" />
+            <input className={cn("h-8 text-xs", inputClass)} value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder={t("board.tagsEpicPlaceholder")} />
           </div>
         </div>
         <div className="mt-5 flex gap-3">
@@ -126,13 +129,13 @@ function EpicDialog({ epic, onClose }: { epic: Epic; onClose: () => void }) {
             disabled={update.isPending || detail.isLoading || !subject.trim()}
             onClick={save}
           >
-            {update.isPending ? "Saving…" : detail.isLoading ? "Loading…" : "Save"}
+            {update.isPending ? t("common.saving") : detail.isLoading ? t("common.loading") : t("common.save")}
           </button>
           <button
             className={cn("flex-1 rounded py-2 text-sm transition-colors", dark ? "bg-neutral-800 text-neutral-300 hover:bg-neutral-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200")}
             onClick={onClose}
           >
-            Cancel
+            {t("common.cancel")}
           </button>
         </div>
       </div>
@@ -140,19 +143,20 @@ function EpicDialog({ epic, onClose }: { epic: Epic; onClose: () => void }) {
   );
 }
 
-const APEX_STATUS_OPTIONS: [ApexPhaseStatus, string][] = [
-  ["new", "New"],
-  ["gherkin_locked", "Gherkin Locked"],
-  ["design_locked", "Design Locked"],
-  ["implementation", "Implementation"],
-  ["qa", "QA / Testing"],
-  ["qa_passed", "QA Passed"],
-  ["deployed", "Deployed"],
+const APEX_STATUS_OPTION_KEYS: [ApexPhaseStatus, TranslationKey][] = [
+  ["new", "board.apexStatus.new"],
+  ["gherkin_locked", "board.apexStatus.gherkinLocked"],
+  ["design_locked", "board.apexStatus.designLocked"],
+  ["implementation", "board.apexStatus.implementation"],
+  ["qa", "board.apexStatus.qa"],
+  ["qa_passed", "board.apexStatus.qaPassed"],
+  ["deployed", "board.apexStatus.deployed"],
 ];
 
 type TracePrompt = { phase_label: string; route: string; reason: string };
 
 function FigmaLinkField({ storyId, storySubject, figmaNodeId, figmaFileKey = "", dark, inputClass }: { storyId: number; storySubject: string; figmaNodeId: string; figmaFileKey?: string; dark: boolean; inputClass: string }) {
+  const t = useT();
   const figma = useFigmaContext();
   const setLink = useSetStoryFigmaLink();
   const [frames, setFrames] = useState<{ node_id: string; name: string }[]>([]);
@@ -182,8 +186,8 @@ function FigmaLinkField({ storyId, storySubject, figmaNodeId, figmaFileKey = "",
     setLink.mutate(
       { storyId, figmaNodeId: nodeId, figmaModified: fileModified, figmaFileKey: figma!.fileKey },
       {
-        onSuccess: () => toast.success("Linked Figma frame."),
-        onError: () => toast.error("Could not update Figma link."),
+        onSuccess: () => toast.success(t("board.toast.linkedFigmaFrame")),
+        onError: () => toast.error(t("board.toast.couldNotUpdateFigmaLink")),
       },
     );
   }
@@ -198,7 +202,7 @@ function FigmaLinkField({ storyId, storySubject, figmaNodeId, figmaFileKey = "",
       setFileModified(file.lastModified);
       setFrames(deriveFramesAndFlows(file).frames.map((f) => ({ node_id: f.node_id, name: f.name })));
     } catch {
-      toast.error("Could not load Figma frames.");
+      toast.error(t("board.toast.couldNotLoadFigmaFrames"));
     } finally {
       setLoading(false);
     }
@@ -207,7 +211,7 @@ function FigmaLinkField({ storyId, storySubject, figmaNodeId, figmaFileKey = "",
   return (
     <div>
       <label className={cn("mb-1 flex items-center gap-1.5 text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
-        <Figma className="size-3.5" /> Figma frame
+        <Figma className="size-3.5" /> {t("board.figmaFrameLabel")}
       </label>
       <div className="flex items-center gap-2">
         <select
@@ -219,15 +223,15 @@ function FigmaLinkField({ storyId, storySubject, figmaNodeId, figmaFileKey = "",
             setLink.mutate(
               { storyId, figmaNodeId: e.target.value, figmaModified: fileModified, figmaFileKey: e.target.value ? figma.fileKey : "" },
               {
-                onSuccess: () => toast.success(e.target.value ? "Linked Figma frame." : "Unlinked."),
-                onError: () => toast.error("Could not update Figma link."),
+                onSuccess: () => toast.success(e.target.value ? t("board.toast.linkedFigmaFrame") : t("board.toast.unlinked")),
+                onError: () => toast.error(t("board.toast.couldNotUpdateFigmaLink")),
               },
             )
           }
         >
-          <option value="">{loading ? "Loading frames…" : "Not linked"}</option>
+          <option value="">{loading ? t("board.figmaLoadingFrames") : t("board.figmaNotLinked")}</option>
           {figmaNodeId && !frames.some((f) => f.node_id === figmaNodeId) && (
-            <option value={figmaNodeId}>Linked frame ({figmaNodeId})</option>
+            <option value={figmaNodeId}>{t("board.figmaLinkedFrame", { id: figmaNodeId })}</option>
           )}
           {frames.map((f) => (
             <option key={f.node_id} value={f.node_id}>{f.name}</option>
@@ -240,7 +244,7 @@ function FigmaLinkField({ storyId, storySubject, figmaNodeId, figmaFileKey = "",
             rel="noopener noreferrer"
             className={cn("inline-flex items-center gap-1 text-xs", dark ? "text-violet-300 hover:text-violet-200" : "text-violet-600 hover:text-violet-500")}
           >
-            <ExternalLink className="size-3.5" /> View
+            <ExternalLink className="size-3.5" /> {t("common.view")}
           </a>
         )}
       </div>
@@ -254,7 +258,7 @@ function FigmaLinkField({ storyId, storySubject, figmaNodeId, figmaFileKey = "",
             dark ? "text-violet-300 hover:text-violet-200" : "text-violet-600 hover:text-violet-500",
           )}
         >
-          <Figma className="size-3.5" /> Suggested: link “{suggestion.frame.name}”
+          <Figma className="size-3.5" /> {t("board.figmaSuggested", { name: suggestion.frame.name })}
         </button>
       )}
       {figmaNodeId && thumbUrl && (
@@ -265,7 +269,7 @@ function FigmaLinkField({ storyId, storySubject, figmaNodeId, figmaFileKey = "",
           className={cn("mt-2 block overflow-hidden rounded-lg border", dark ? "border-neutral-700" : "border-slate-200")}
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- short-lived Figma S3 URL, not a static asset */}
-          <img src={thumbUrl} alt="Linked Figma frame" className="max-h-44 w-full object-cover object-top" />
+          <img src={thumbUrl} alt={t("board.figmaThumbAlt")} className="max-h-44 w-full object-cover object-top" />
         </a>
       )}
     </div>
@@ -273,6 +277,7 @@ function FigmaLinkField({ storyId, storySubject, figmaNodeId, figmaFileKey = "",
 }
 
 function StoryDialog({ story, regressed = false, trace = null, figmaNodeId = "", figmaFileKey = "", figmaChanged = false, onClose }: { story: Story; regressed?: boolean; trace?: TracePrompt | null; figmaNodeId?: string; figmaFileKey?: string; figmaChanged?: boolean; onClose: () => void }) {
+  const t = useT();
   const dark = useUiStore((state) => state.theme === "dark");
   const context = useApiContext();
   const figma = useFigmaContext();
@@ -294,7 +299,7 @@ function StoryDialog({ story, regressed = false, trace = null, figmaNodeId = "",
     }
     ackFigmaChange.mutate(
       { storyId: story.id, currentModified: modified },
-      { onSuccess: () => toast.success("Design change acknowledged."), onError: () => toast.error("Could not acknowledge.") },
+      { onSuccess: () => toast.success(t("board.toast.designAcknowledged")), onError: () => toast.error(t("board.toast.couldNotAcknowledge")) },
     );
   }
   const [subject, setSubject] = useState(story.subject);
@@ -346,14 +351,14 @@ function StoryDialog({ story, regressed = false, trace = null, figmaNodeId = "",
     if (apexChanged) {
       try {
         await setApexStatus.mutateAsync({ storyId: story.id, phaseStatus: apexStatus as ApexPhaseStatus });
-        toast.success("Apex status updated.");
+        toast.success(t("board.toast.apexStatusUpdated"));
       } catch {
-        toast.error("Failed to update Apex status.");
+        toast.error(t("board.toast.failedApexStatusUpdate"));
       }
     }
 
     if (!version) {
-      if (!apexChanged) toast.error("Story details haven't loaded yet — try again in a moment.");
+      if (!apexChanged) toast.error(t("board.toast.storyNotLoadedYet"));
       onClose();
       return;
     }
@@ -365,7 +370,7 @@ function StoryDialog({ story, regressed = false, trace = null, figmaNodeId = "",
         fields: { subject, description, tags, ...(statusId ? { status: statusId } : {}) },
       });
     } catch {
-      toast.error("Failed to save story.");
+      toast.error(t("board.toast.failedSaveStory"));
     }
     onClose();
   }
@@ -386,28 +391,26 @@ function StoryDialog({ story, regressed = false, trace = null, figmaNodeId = "",
         className={cn("w-full max-w-2xl rounded-xl border p-6 shadow-2xl", dark ? "border-neutral-700 bg-neutral-900" : "border-slate-300 bg-white")}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>Story <span className="font-mono">#{story.ref}</span></h3>
+        <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>{t("common.story")} <span className="font-mono">#{story.ref}</span></h3>
         {regressed ? (
           <div className="mb-4 flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-600 dark:text-red-400">
             <TrendingDown className="mt-0.5 size-4 shrink-0" />
             <div className="flex-1">
-              <p className="font-semibold">Conformance regressed</p>
+              <p className="font-semibold">{t("board.conformanceRegressedTitle")}</p>
               <p className="mt-0.5">
-                A regression scan found this story&apos;s spec↔code conformance dropped after a code
-                change. Re-verify in Phase 6 (a recovered scan clears this automatically), or
-                acknowledge if the drop is expected.
+                {t("board.conformanceRegressedDesc")}
               </p>
               <button
                 className="mt-2 rounded bg-red-500/20 px-2 py-1 font-semibold transition-colors hover:bg-red-500/30 disabled:opacity-50"
                 disabled={ackRegression.isPending}
                 onClick={() =>
                   ackRegression.mutate(story.id, {
-                    onSuccess: () => toast.success("Regression acknowledged."),
-                    onError: () => toast.error("Could not acknowledge regression."),
+                    onSuccess: () => toast.success(t("board.toast.regressionAcknowledged")),
+                    onError: () => toast.error(t("board.toast.couldNotAcknowledgeRegression")),
                   })
                 }
               >
-                {ackRegression.isPending ? "Acknowledging…" : "Acknowledge"}
+                {ackRegression.isPending ? t("board.acknowledging") : t("board.acknowledge")}
               </button>
             </div>
           </div>
@@ -416,26 +419,26 @@ function StoryDialog({ story, regressed = false, trace = null, figmaNodeId = "",
           <div className="mb-4 flex items-start gap-2 rounded-lg border border-violet-500/40 bg-violet-500/10 p-3 text-xs text-violet-600 dark:text-violet-400">
             <Undo2 className="mt-0.5 size-4 shrink-0" />
             <div className="flex-1">
-              <p className="font-semibold">Backward trace — re-open {trace.phase_label}</p>
+              <p className="font-semibold">{t("board.backwardTraceTitle", { phase: trace.phase_label })}</p>
               <p className="mt-0.5">{trace.reason}</p>
               <div className="mt-2 flex gap-2">
                 <button
                   className="rounded bg-violet-500/20 px-2 py-1 font-semibold transition-colors hover:bg-violet-500/30"
                   onClick={() => { router.push(trace.route); onClose(); }}
                 >
-                  Re-open {trace.phase_label}
+                  {t("board.reopenPhase", { phase: trace.phase_label })}
                 </button>
                 <button
                   className="rounded px-2 py-1 font-semibold transition-colors hover:bg-violet-500/20 disabled:opacity-50"
                   disabled={ackTrace.isPending}
                   onClick={() =>
                     ackTrace.mutate(story.id, {
-                      onSuccess: () => toast.success("Backward trace acknowledged."),
-                      onError: () => toast.error("Could not acknowledge."),
+                      onSuccess: () => toast.success(t("board.toast.backwardTraceAcknowledged")),
+                      onError: () => toast.error(t("board.toast.couldNotAcknowledge")),
                     })
                   }
                 >
-                  {ackTrace.isPending ? "Acknowledging…" : "Acknowledge"}
+                  {ackTrace.isPending ? t("board.acknowledging") : t("board.acknowledge")}
                 </button>
               </div>
             </div>
@@ -445,40 +448,40 @@ function StoryDialog({ story, regressed = false, trace = null, figmaNodeId = "",
           <div className="mb-4 flex items-start gap-2 rounded-lg border border-violet-500/40 bg-violet-500/10 p-3 text-xs text-violet-600 dark:text-violet-400">
             <Figma className="mt-0.5 size-4 shrink-0" />
             <div className="flex-1">
-              <p className="font-semibold">Design changed in Figma</p>
-              <p className="mt-0.5">The linked Figma file was modified after this story was linked. The stories and screen flow may be out of date — review the design and re-generate if needed.</p>
+              <p className="font-semibold">{t("board.designChangedTitle")}</p>
+              <p className="mt-0.5">{t("board.designChangedDesc")}</p>
               <button
                 className="mt-2 rounded bg-violet-500/20 px-2 py-1 font-semibold transition-colors hover:bg-violet-500/30 disabled:opacity-50"
                 disabled={ackFigmaChange.isPending}
                 onClick={acknowledgeFigmaChange}
               >
-                {ackFigmaChange.isPending ? "Acknowledging…" : "Acknowledge"}
+                {ackFigmaChange.isPending ? t("board.acknowledging") : t("board.acknowledge")}
               </button>
             </div>
           </div>
         ) : null}
         <div className="space-y-3">
           <div>
-            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Title</label>
-            <input className={cn("h-9 border-violet-700", inputClass)} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Story title" autoFocus />
+            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>{t("board.titleLabel")}</label>
+            <input className={cn("h-9 border-violet-700", inputClass)} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={t("board.storyTitlePlaceholder")} autoFocus />
           </div>
           <div>
-            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Description</label>
+            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>{t("common.description")}</label>
             <textarea
               className={cn("h-52 resize-none py-2", inputClass)}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder={detail.isLoading ? "Loading description…" : "Describe the story…"}
+              placeholder={detail.isLoading ? t("board.loadingDescription") : t("board.describeStoryPlaceholder")}
             />
           </div>
           <div>
-            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Status</label>
+            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>{t("board.statusLabel")}</label>
             <select
               className={cn("h-9 cursor-pointer", inputClass)}
               value={statusId}
               onChange={(e) => setStatusId(e.target.value)}
             >
-              {statusId === "" && <option value="">(unchanged)</option>}
+              {statusId === "" && <option value="">{t("board.statusUnchanged")}</option>}
               {statuses.map((s) => (
                 <option key={s.id} value={String(s.id)}>{s.name}</option>
               ))}
@@ -486,13 +489,13 @@ function StoryDialog({ story, regressed = false, trace = null, figmaNodeId = "",
           </div>
           <div>
             <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
-              Apex Status <span className={dark ? "text-neutral-600" : "text-slate-400"}>(workflow phase)</span>
+              {t("board.apexStatusLabel")} <span className={dark ? "text-neutral-600" : "text-slate-400"}>{t("board.apexStatusHint")}</span>
             </label>
             {phaseQuery.isLoading ? (
-              <p className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-400")}>Loading…</p>
+              <p className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-400")}>{t("common.loading")}</p>
             ) : phaseQuery.data?.phase_status == null ? (
               <p className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
-                Not in the story index — publish from Phase 1 first.
+                {t("board.apexStatusNotIndexed")}
               </p>
             ) : (
               <select
@@ -500,17 +503,17 @@ function StoryDialog({ story, regressed = false, trace = null, figmaNodeId = "",
                 value={apexStatus}
                 onChange={(e) => setApexStatus_(e.target.value as ApexPhaseStatus)}
               >
-                {APEX_STATUS_OPTIONS.map(([v, label]) => (
-                  <option key={v} value={v}>{label}</option>
+                {APEX_STATUS_OPTION_KEYS.map(([v, labelKey]) => (
+                  <option key={v} value={v}>{t(labelKey)}</option>
                 ))}
               </select>
             )}
           </div>
           <div>
             <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
-              Tags <span className={dark ? "text-neutral-600" : "text-slate-400"}>(comma-separated)</span>
+              {t("board.tagsLabel")} <span className={dark ? "text-neutral-600" : "text-slate-400"}>{t("board.tagsHint")}</span>
             </label>
-            <input className={cn("h-8 text-xs", inputClass)} value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="e.g. frontend, ui, sprint-1" />
+            <input className={cn("h-8 text-xs", inputClass)} value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder={t("board.tagsStoryEditPlaceholder")} />
           </div>
           <FigmaLinkField storyId={story.id} storySubject={story.subject} figmaNodeId={figmaNodeId} figmaFileKey={figmaFileKey} dark={dark} inputClass={inputClass} />
         </div>
@@ -520,13 +523,13 @@ function StoryDialog({ story, regressed = false, trace = null, figmaNodeId = "",
             disabled={update.isPending || setApexStatus.isPending || detail.isLoading || !subject.trim()}
             onClick={save}
           >
-            {update.isPending || setApexStatus.isPending ? "Saving…" : detail.isLoading ? "Loading…" : "Save"}
+            {update.isPending || setApexStatus.isPending ? t("common.saving") : detail.isLoading ? t("common.loading") : t("common.save")}
           </button>
           <button
             className={cn("flex-1 rounded py-2 text-sm transition-colors", dark ? "bg-neutral-800 text-neutral-300 hover:bg-neutral-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200")}
             onClick={onClose}
           >
-            Cancel
+            {t("common.cancel")}
           </button>
         </div>
       </div>
@@ -535,6 +538,7 @@ function StoryDialog({ story, regressed = false, trace = null, figmaNodeId = "",
 }
 
 function CreateEpicDialog({ onClose }: { onClose: () => void }) {
+  const t = useT();
   const dark = useUiStore((state) => state.theme === "dark");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
@@ -563,30 +567,30 @@ function CreateEpicDialog({ onClose }: { onClose: () => void }) {
         className={cn("w-full max-w-2xl rounded-xl border p-6 shadow-2xl", dark ? "border-neutral-700 bg-neutral-900" : "border-slate-300 bg-white")}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>Create New Epic</h3>
+        <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>{t("board.createEpicTitle")}</h3>
         <div className="space-y-3">
           <div>
             <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
-              Title <span className="text-red-400">*</span>
+              {t("board.titleLabel")} <span className="text-red-400">*</span>
             </label>
             <input
               className={cn("h-9 border-violet-700", inputClass)}
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              placeholder="Epic title"
+              placeholder={t("board.epicTitlePlaceholder")}
               autoFocus
               onKeyDown={(e) => e.key === "Enter" && submit()}
             />
           </div>
           <div>
-            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Description</label>
-            <textarea className={cn("h-48 resize-none py-2", inputClass)} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe this epic…" />
+            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>{t("common.description")}</label>
+            <textarea className={cn("h-48 resize-none py-2", inputClass)} value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("board.describeEpicPlaceholder")} />
           </div>
           <div>
             <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
-              Tags <span className={dark ? "text-neutral-600" : "text-slate-400"}>(comma-separated)</span>
+              {t("board.tagsLabel")} <span className={dark ? "text-neutral-600" : "text-slate-400"}>{t("board.tagsHint")}</span>
             </label>
-            <input className={cn("h-8 text-xs", inputClass)} value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="e.g. backend, auth, v2" />
+            <input className={cn("h-8 text-xs", inputClass)} value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder={t("board.tagsEpicPlaceholder")} />
           </div>
         </div>
         <div className="mt-5 flex gap-3">
@@ -595,13 +599,13 @@ function CreateEpicDialog({ onClose }: { onClose: () => void }) {
             disabled={create.isPending || !subject.trim()}
             onClick={submit}
           >
-            {create.isPending ? "Creating…" : "Create Epic"}
+            {create.isPending ? t("board.creating") : t("board.createEpicButton")}
           </button>
           <button
             className={cn("flex-1 rounded py-2 text-sm transition-colors", dark ? "bg-neutral-800 text-neutral-300 hover:bg-neutral-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200")}
             onClick={onClose}
           >
-            Cancel
+            {t("common.cancel")}
           </button>
         </div>
       </div>
@@ -610,6 +614,7 @@ function CreateEpicDialog({ onClose }: { onClose: () => void }) {
 }
 
 function CreateStoryDialog({ epicId, onClose }: { epicId: number; onClose: () => void }) {
+  const t = useT();
   const dark = useUiStore((state) => state.theme === "dark");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
@@ -640,39 +645,39 @@ function CreateStoryDialog({ epicId, onClose }: { epicId: number; onClose: () =>
         className={cn("w-full max-w-2xl rounded-xl border p-6 shadow-2xl", dark ? "border-neutral-700 bg-neutral-900" : "border-slate-300 bg-white")}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>Create New Story</h3>
+        <h3 className={cn("mb-4 text-base font-bold", dark ? "text-white" : "text-slate-950")}>{t("board.createStoryTitle")}</h3>
         <div className="space-y-3">
           <div>
             <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
-              Title <span className="text-red-400">*</span>
+              {t("board.titleLabel")} <span className="text-red-400">*</span>
             </label>
             <input
               className={cn("h-9 border-violet-700", inputClass)}
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              placeholder="Story title"
+              placeholder={t("board.storyTitlePlaceholder")}
               autoFocus
               onKeyDown={(e) => e.key === "Enter" && submit()}
             />
           </div>
           <div>
-            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Description</label>
-            <textarea className={cn("h-40 resize-none py-2", inputClass)} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe this story…" />
+            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>{t("common.description")}</label>
+            <textarea className={cn("h-40 resize-none py-2", inputClass)} value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("board.describeStoryPlaceholder")} />
           </div>
           <div>
             <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
-              Tags <span className={dark ? "text-neutral-600" : "text-slate-400"}>(comma-separated)</span>
+              {t("board.tagsLabel")} <span className={dark ? "text-neutral-600" : "text-slate-400"}>{t("board.tagsHint")}</span>
             </label>
-            <input className={cn("h-8 text-xs", inputClass)} value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="e.g. frontend, sprint-1" />
+            <input className={cn("h-8 text-xs", inputClass)} value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder={t("board.tagsStoryCreatePlaceholder")} />
           </div>
           <div>
-            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>Status</label>
+            <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>{t("board.statusLabel")}</label>
             <select
               className={cn("h-8 w-full rounded border px-2 text-xs outline-none focus:border-violet-500", dark ? "border-neutral-700 bg-neutral-950 text-neutral-200" : "border-slate-300 bg-white text-slate-950")}
               value={statusId ?? ""}
               onChange={(e) => setStatusId(e.target.value ? Number(e.target.value) : undefined)}
             >
-              <option value="">Default</option>
+              <option value="">{t("board.statusDefault")}</option>
               {statuses.data?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
@@ -683,13 +688,13 @@ function CreateStoryDialog({ epicId, onClose }: { epicId: number; onClose: () =>
             disabled={create.isPending || !subject.trim()}
             onClick={submit}
           >
-            {create.isPending ? "Creating…" : "Create Story"}
+            {create.isPending ? t("board.creating") : t("board.createStoryButton")}
           </button>
           <button
             className={cn("flex-1 rounded py-2 text-sm transition-colors", dark ? "bg-neutral-800 text-neutral-300 hover:bg-neutral-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200")}
             onClick={onClose}
           >
-            Cancel
+            {t("common.cancel")}
           </button>
         </div>
       </div>
@@ -706,6 +711,7 @@ type BoardSectionProps = DragSectionProps & {
 };
 
 export function BoardSection({ dark, projectId, confirm, shellClass, dragHandlers, onDragStart }: BoardSectionProps) {
+  const t = useT();
   const [boardOpen, setBoardOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [filter, setFilter] = useState("");
@@ -805,7 +811,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
       <section className={cn("border-b", sectionBorderClass)}>
         <PanelHeader
           icon={<Layers3 className="size-4" />}
-          title="Epics & Stories"
+          title={t("board.panelTitle")}
           badge={`${epicCount}`}
           open={boardOpen}
           onClick={() => setBoardOpen(!boardOpen)}
@@ -820,7 +826,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                   : dark ? "text-neutral-400 hover:text-neutral-300" : "text-slate-600 hover:text-slate-700",
               )}
             >
-              Filter
+              {t("board.filter")}
             </button>
           }
         />
@@ -834,33 +840,33 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                     "w-full rounded border py-1 pl-2 pr-7 text-xs outline-none focus:border-violet-500",
                     dark ? "border-neutral-700 bg-neutral-900 text-white placeholder:text-neutral-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400",
                   )}
-                  placeholder="Filter epics & stories…"
+                  placeholder={t("board.filterPlaceholder")}
                   value={filter}
                   onChange={(e) => setFilter(e.target.value)}
                 />
                 {filter && (
-                  <button onClick={() => setFilter("")} aria-label="Clear filter" className={cn("absolute right-2 top-1/2 -translate-y-1/2", subduedTextClass)}>
+                  <button onClick={() => setFilter("")} aria-label={t("board.clearFilter")} className={cn("absolute right-2 top-1/2 -translate-y-1/2", subduedTextClass)}>
                     <X className="h-3 w-3" />
                   </button>
                 )}
               </div>
             )}
             <div className={cn("flex items-center justify-between", subduedTextClass)}>
-              <span>{epicCount} epic(s)</span>
+              <span>{t("board.epicsCount", { n: epicCount })}</span>
               <div className="flex gap-2">
                 <button
                   className="flex items-center gap-1 rounded border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-400 transition-colors hover:bg-violet-500/20"
                   onClick={() => setCreateEpicOpen(true)}
                 >
-                  <Plus className="size-3" /> Create New Epic
+                  <Plus className="size-3" /> {t("board.createEpicTitle")}
                 </button>
                 <button
                   className={cn(
                     "flex items-center gap-1 rounded border px-2 py-1.5 transition-colors hover:border-violet-500/50",
                     dark ? "border-neutral-600 text-neutral-300 hover:text-violet-300" : "border-slate-300 text-slate-600 hover:text-violet-600",
                   )}
-                  onClick={() => toast.promise(board.refetch(), { loading: "Refreshing…", success: "Board refreshed", error: "Failed to refresh board" })}
-                  aria-label="Refresh board"
+                  onClick={() => toast.promise(board.refetch(), { loading: t("board.refreshing"), success: t("board.boardRefreshed"), error: t("board.boardRefreshFailed") })}
+                  aria-label={t("board.refreshBoardAria")}
                 >
                   <RefreshCw className="size-3" />
                 </button>
@@ -869,24 +875,24 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
             {storyStats.data && storyStats.data.total > 0 ? (
               <div className={cn("rounded border p-2", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
                 <div className="mb-1.5 flex items-center justify-between">
-                  <div className={cn("text-xs font-semibold uppercase tracking-wide", dark ? "text-neutral-500" : "text-slate-500")}>Story Progress</div>
+                  <div className={cn("text-xs font-semibold uppercase tracking-wide", dark ? "text-neutral-500" : "text-slate-500")}>{t("board.storyProgress")}</div>
                   {storyIndexSyncedAt ? (
                     <div className={cn("text-xs", dark ? "text-neutral-600" : "text-slate-400")}>
-                      synced {storyIndexSyncedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      {t("board.syncedAt", { time: storyIndexSyncedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) })}
                     </div>
                   ) : null}
                 </div>
                 <div className="space-y-1">
                   {(
                     [
-                      { label: "Phase 2 Designed", count: storyStats.data.phase2_designed },
-                      { label: "Phase 3 Proposed", count: storyStats.data.phase3_proposed },
-                      { label: "Phase 4 Tested",   count: storyStats.data.phase4_tested },
-                      { label: "Phase 5 Deployed", count: storyStats.data.phase5_deployed },
+                      { labelKey: "board.phase2Designed" as const, count: storyStats.data.phase2_designed },
+                      { labelKey: "board.phase3Proposed" as const, count: storyStats.data.phase3_proposed },
+                      { labelKey: "board.phase4Tested" as const,   count: storyStats.data.phase4_tested },
+                      { labelKey: "board.phase5Deployed" as const, count: storyStats.data.phase5_deployed },
                     ] as const
-                  ).map(({ label, count }) => (
-                    <div key={label} className="flex items-center gap-2">
-                      <div className={cn("w-24 shrink-0 text-xs", dark ? "text-neutral-400" : "text-slate-600")}>{label}</div>
+                  ).map(({ labelKey, count }) => (
+                    <div key={labelKey} className="flex items-center gap-2">
+                      <div className={cn("w-24 shrink-0 text-xs", dark ? "text-neutral-400" : "text-slate-600")}>{t(labelKey)}</div>
                       <div className={cn("relative h-1.5 flex-1 rounded-full", dark ? "bg-neutral-700" : "bg-slate-200")}>
                         <div
                           className="absolute inset-y-0 left-0 rounded-full bg-violet-500"
@@ -906,16 +912,16 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
               if (boardTotal === indexTotal) return null;
               return (
                 <div className={cn("flex items-center justify-between rounded border px-2 py-1.5 text-xs", dark ? "border-amber-700/50 bg-amber-950/30 text-amber-300" : "border-amber-400/50 bg-amber-50 text-amber-700")}>
-                  <span>Story index out of sync — {boardTotal} on board, {indexTotal} indexed</span>
+                  <span>{t("board.storyIndexOutOfSync", { board: boardTotal, indexed: indexTotal })}</span>
                   <button
                     className="ml-2 shrink-0 rounded px-1.5 py-0.5 font-semibold underline hover:no-underline disabled:opacity-50"
                     disabled={rebuildIndex.isPending}
                     onClick={() => rebuildIndex.mutate(undefined, {
-                      onSuccess: () => { setStoryIndexSyncedAt(new Date()); toast.success("Story index rebuilt"); },
-                      onError: () => toast.error("Failed to rebuild story index"),
+                      onSuccess: () => { setStoryIndexSyncedAt(new Date()); toast.success(t("board.storyIndexRebuilt")); },
+                      onError: () => toast.error(t("board.storyIndexRebuildFailed")),
                     })}
                   >
-                    {rebuildIndex.isPending ? "Rebuilding…" : "Rebuild"}
+                    {rebuildIndex.isPending ? t("board.rebuilding") : t("board.rebuild")}
                   </button>
                 </div>
               );
@@ -929,12 +935,12 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
             ) : null}
             {board.isError ? (
               <div className={cn("flex items-center justify-between gap-2 rounded border px-2.5 py-2 text-xs", dark ? "border-red-900/50 text-red-400" : "border-red-200 text-red-600")}>
-                <span>Failed to load the board.</span>
-                <button onClick={() => board.refetch()} className="shrink-0 font-semibold underline">Retry</button>
+                <span>{t("board.failedLoadBoard")}</span>
+                <button onClick={() => board.refetch()} className="shrink-0 font-semibold underline">{t("common.retry")}</button>
               </div>
             ) : null}
             {!board.isLoading && !board.isError && q && filteredBoard.length === 0 && (
-              <div className={subduedTextClass}>No matches.</div>
+              <div className={subduedTextClass}>{t("board.noMatches")}</div>
             )}
             {!board.isLoading && !board.isError && filteredBoard.map((epic) => (
               <div key={epic.id}>
@@ -949,14 +955,14 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                   <button
                     className="grid size-6 place-items-center rounded text-violet-400 transition-colors hover:bg-violet-500/20 hover:text-violet-300"
                     onClick={() => setDialogEpic(epic)}
-                    title="Edit epic"
+                    title={t("board.editEpic")}
                   >
                     <Info className="size-3" />
                   </button>
                   <button
                     className="grid size-6 place-items-center rounded text-red-400 transition-colors hover:bg-red-500/20"
-                    onClick={() => confirm(`Delete epic "${epic.subject}" and all its stories?`, () => deleteEpic.mutate(epic.id))}
-                    title="Delete epic"
+                    onClick={() => confirm(t("board.deleteEpicConfirm", { subject: epic.subject }), () => deleteEpic.mutate(epic.id))}
+                    title={t("board.deleteEpic")}
                   >
                     <Trash2 className="size-3" />
                   </button>
@@ -967,7 +973,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                       className="flex items-center gap-1 rounded border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-xs font-semibold text-violet-400 transition-colors hover:bg-violet-500/20"
                       onClick={() => setCreateStoryEpicId(epic.id)}
                     >
-                      <Plus className="size-3" /> Story
+                      <Plus className="size-3" /> {t("board.storyButton")}
                     </button>
                     {epic.stories.map((story) => (
                       <div key={story.id}>
@@ -977,8 +983,8 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                             const r = riskById.get(story.id);
                             return r && (r.level === "high" || r.level === "medium") ? (
                               <span
-                                title={`Risk: ${r.level} — ${r.reasons.join("; ")}`}
-                                aria-label={`Predicted risk: ${r.level}`}
+                                title={t("board.riskTitle", { level: r.level, reasons: r.reasons.join("; ") })}
+                                aria-label={t("board.predictedRiskAria", { level: r.level })}
                                 className={cn(
                                   "size-2 shrink-0 rounded-full",
                                   r.level === "high" ? "bg-red-500" : "bg-amber-500",
@@ -989,32 +995,32 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                           {regressedIds.has(story.id) ? (
                             <TrendingDown
                               className="size-3 shrink-0 text-red-500"
-                              aria-label="Conformance regressed — a code change lowered this story's spec↔code conformance"
+                              aria-label={t("board.regressedAria")}
                             />
                           ) : null}
                           {tracedIds.has(story.id) ? (
                             <Undo2
                               className="size-3 shrink-0 text-violet-500"
-                              aria-label="Backward trace — a downstream gap points back at this story's source spec; consider re-opening an earlier phase"
+                              aria-label={t("board.tracedAria")}
                             />
                           ) : null}
                           {figmaById.has(story.id) ? (
                             <Figma
                               className={cn("size-3 shrink-0", figmaChangedIds.has(story.id) ? "text-amber-500" : "text-violet-400")}
-                              aria-label={figmaChangedIds.has(story.id) ? "Linked Figma frame — design changed since linked" : "Linked to a Figma frame"}
+                              aria-label={figmaChangedIds.has(story.id) ? t("board.figmaChangedAria") : t("board.figmaLinkedAria")}
                             />
                           ) : null}
                           <button
                             className="grid size-5 place-items-center rounded text-violet-400 transition-colors hover:bg-violet-500/20 hover:text-violet-300"
                             onClick={() => setDialogStory(story)}
-                            title="Edit story"
+                            title={t("board.editStory")}
                           >
                             <Info className="size-3" />
                           </button>
                           <button
                             className="grid size-5 place-items-center rounded text-red-400 transition-colors hover:bg-red-500/20"
-                            onClick={() => confirm(`Delete story "${story.subject}"?`, () => deleteStory.mutate(story.id))}
-                            title="Delete story"
+                            onClick={() => confirm(t("board.deleteStoryConfirm", { subject: story.subject }), () => deleteStory.mutate(story.id))}
+                            title={t("board.deleteStory")}
                           >
                             <Trash2 className="size-3" />
                           </button>
@@ -1025,7 +1031,7 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                 ) : null}
               </div>
             ))}
-            {!board.isLoading && !board.isError && !board.data?.length ? <div className={subduedTextClass}>No epics yet.</div> : null}
+            {!board.isLoading && !board.isError && !board.data?.length ? <div className={subduedTextClass}>{t("board.noEpicsYet")}</div> : null}
 
           </div>
         ) : null}
