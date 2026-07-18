@@ -129,9 +129,9 @@ sign-off before it locks.
 
 ### Project Context, Wiki, And Agent Files
 
-The right sidebar's Active Context panel shows the Markdown files Apex uses to ground AI calls, with size/budget signals and phase-specific visibility. From there, a Taiga project can publish those context files into deterministic `apex-*` Taiga Wiki pages, or pull matching wiki pages back into Apex when documentation was edited in Taiga.
+The right sidebar's Active Context panel shows the Markdown files Apex uses to ground AI calls, with size/budget signals and phase-specific visibility. From there, a Taiga project can publish those context files into deterministic `apex-*` Taiga Wiki pages, or pull matching wiki pages back into Apex when documentation was edited in Taiga. Taiga-only custom Wiki pages are kept behind a collapsed disclosure, show only non-empty pages by default, and must be selected explicitly before Apex imports them as AI grounding files.
 
-The same sidebar also manages repo-root agent instruction files (`AGENTS.md`, `CLAUDE.md`, `CODEX.md`, `GEMINI.md`) through safe allowlisted routes, so teams can keep model-specific coding-agent guidance close to the project and export it for external agent sessions.
+The same sidebar also manages repo-root agent instruction files (`AGENTS.md`, `CLAUDE.md`, `CODEX.md`, `GEMINI.md`) through safe allowlisted routes, so teams can keep model-specific coding-agent guidance close to the project and export it for external agent sessions. Each agent file can be imported from a local Markdown file or drafted from selected Apex context files through the same grounding picker model.
 
 ### PM Status Mapping
 

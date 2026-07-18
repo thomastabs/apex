@@ -467,6 +467,7 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
   const [expandedContext, setExpandedContext] = useState<string | null>(null);
   const [expandedAgentFile, setExpandedAgentFile] = useState<string | null>(null);
   const [selectedWikiFiles, setSelectedWikiFiles] = useState<string[]>([]);
+  const [customWikiOpen, setCustomWikiOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
 
   const context = useApiContext();
@@ -522,11 +523,15 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
   const activeModelLabel = activeModel?.label ?? aiConfig.data?.model ?? t("context.currentModelFallback");
   const activeModelContextWindow = activeModel?.context_window_tokens ?? 0;
   const wikiPages = useMemo(() => wikiStatus.data?.pages ?? [], [wikiStatus.data?.pages]);
-  const wikiPageCount = wikiPages.filter((page) => page.exists).length;
-  const wikiTotalCount = wikiPages.length || visibleFiles.length;
-  const customWikiCount = wikiPages.filter((page) => page.is_custom).length;
+  const managedWikiPages = useMemo(() => wikiPages.filter((page) => !page.is_custom), [wikiPages]);
+  const customWikiPages = useMemo(() => wikiPages.filter((page) => page.is_custom), [wikiPages]);
+  const nonEmptyCustomWikiPages = useMemo(() => customWikiPages.filter((page) => page.chars > 0), [customWikiPages]);
+  const wikiPageCount = managedWikiPages.filter((page) => page.exists).length;
+  const wikiTotalCount = managedWikiPages.length || visibleFiles.length;
+  const customWikiCount = customWikiPages.length;
+  const emptyCustomWikiCount = customWikiCount - nonEmptyCustomWikiPages.length;
   const selectedWikiSet = useMemo(() => new Set(selectedWikiFiles), [selectedWikiFiles]);
-  const wikiPullSelection = selectedWikiFiles.length ? selectedWikiFiles : [];
+  const wikiPullSelection = selectedWikiFiles.length ? selectedWikiFiles : managedWikiPages.map((page) => page.filename);
 
   const projectConcept = contextFiles.data?.files.find((f) => f.filename === "project-concept.md")?.content ?? "";
   const hasProjectConcept = useMemo(() => {
@@ -637,9 +642,9 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                       {wikiStatus.isFetching ? t("common.loading") : t("context.taigaWikiCount", { existing: wikiPageCount, total: wikiTotalCount })}
                     </span>
                   </div>
-                  {wikiPages.length ? (
+                  {managedWikiPages.length ? (
                     <div className={cn("mb-2 max-h-36 overflow-auto rounded border", dark ? "border-neutral-800 bg-neutral-950/60" : "border-slate-200 bg-white")}>
-                      {wikiPages.map((page) => {
+                      {managedWikiPages.map((page) => {
                         const checked = selectedWikiSet.has(page.filename);
                         return (
                           <button
@@ -659,11 +664,6 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                               <span className="font-medium">{page.label}</span>
                               <span className="ml-2 font-mono opacity-70">{page.filename}</span>
                             </span>
-                            {page.is_custom ? (
-                              <span className={cn("rounded border px-1 py-0.5", dark ? "border-cyan-500/30 text-cyan-300" : "border-cyan-200 text-cyan-700")}>
-                                {t("context.taigaWikiCustom")}
-                              </span>
-                            ) : null}
                             <span className="shrink-0 opacity-70">{page.chars} ch</span>
                           </button>
                         );
@@ -671,8 +671,67 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                     </div>
                   ) : null}
                   {customWikiCount ? (
-                    <div className={cn("mb-2 text-xs", dark ? "text-neutral-500" : "text-slate-500")}>
-                      {t("context.taigaWikiCustomHint", { n: customWikiCount })}
+                    <div className={cn("mb-2 rounded border px-2 py-2", dark ? "border-amber-500/20 bg-amber-950/20" : "border-amber-200 bg-amber-50")}>
+                      <button
+                        type="button"
+                        className={cn("flex w-full items-center justify-between text-xs font-semibold", dark ? "text-amber-300" : "text-amber-800")}
+                        onClick={() => setCustomWikiOpen((open) => !open)}
+                      >
+                        <span>{t("context.taigaWikiCustomTitle", { n: customWikiCount })}</span>
+                        <span className="flex items-center gap-1">
+                          {nonEmptyCustomWikiPages.length ? (
+                            <span>{t("context.taigaWikiNonEmptyCount", { n: nonEmptyCustomWikiPages.length })}</span>
+                          ) : null}
+                          <ChevronRight className={cn("size-3 transition-transform", customWikiOpen && "rotate-90")} />
+                        </span>
+                      </button>
+                      <div className={cn("mt-1 text-xs leading-5", dark ? "text-amber-200/75" : "text-amber-900/75")}>
+                        {t("context.taigaWikiCustomWarning")}
+                      </div>
+                      {customWikiOpen ? (
+                        <div className="mt-2">
+                          {nonEmptyCustomWikiPages.length ? (
+                            <div className={cn("max-h-32 overflow-auto rounded border", dark ? "border-neutral-800 bg-neutral-950/60" : "border-amber-200 bg-white")}>
+                              {nonEmptyCustomWikiPages.map((page) => {
+                                const checked = selectedWikiSet.has(page.filename);
+                                return (
+                                  <button
+                                    key={page.filename}
+                                    type="button"
+                                    className={cn(
+                                      "flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs",
+                                      dark ? "hover:bg-neutral-900" : "hover:bg-slate-50",
+                                      checked && (dark ? "bg-violet-500/10 text-violet-300" : "bg-violet-50 text-violet-700"),
+                                    )}
+                                    onClick={() => toggleWikiFile(page.filename)}
+                                  >
+                                    <span className={cn("grid size-4 shrink-0 place-items-center rounded border", checked ? "border-violet-400" : dark ? "border-neutral-700" : "border-slate-300")}>
+                                      {checked ? <Check className="size-3" /> : null}
+                                    </span>
+                                    <span className="min-w-0 flex-1 truncate">
+                                      <span className="font-medium">{page.label}</span>
+                                      <span className="ml-2 font-mono opacity-70">{page.filename}</span>
+                                    </span>
+                                    <span className={cn("rounded border px-1 py-0.5", dark ? "border-cyan-500/30 text-cyan-300" : "border-cyan-200 text-cyan-700")}>
+                                      {t("context.taigaWikiCustom")}
+                                    </span>
+                                    <span className="shrink-0 opacity-70">{page.chars} ch</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className={cn("rounded border px-2 py-1.5 text-xs", dark ? "border-neutral-800 text-neutral-500" : "border-amber-200 text-amber-900/70")}>
+                              {t("context.taigaWikiNoNonEmptyCustom")}
+                            </div>
+                          )}
+                          {emptyCustomWikiCount > 0 ? (
+                            <div className={cn("mt-1 text-xs", dark ? "text-amber-200/60" : "text-amber-900/60")}>
+                              {t("context.taigaWikiEmptyHidden", { n: emptyCustomWikiCount })}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
                   <div className="grid grid-cols-2 gap-2">
