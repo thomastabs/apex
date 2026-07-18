@@ -10,7 +10,7 @@ import re
 from typing import Iterable
 
 import httpx
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status as http_status
 
 _TIMEOUT = 20.0
 _PAGE_SIZE = 100
@@ -54,7 +54,7 @@ def _request(method: str, url: str, token: str, *, params: dict | None = None, j
             detail = f"{detail[:500]}..."
         target = resp.request.headers.get("X-Relay-Target") or str(resp.request.url)
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
+            status_code=http_status.HTTP_502_BAD_GATEWAY,
             detail=f"Taiga returned {resp.status_code} for {method} {target}: {detail or resp.reason_phrase}",
         ) from exc
     if resp.status_code == 204 or not resp.content:
