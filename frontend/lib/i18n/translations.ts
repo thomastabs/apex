@@ -1035,6 +1035,20 @@ export const translations = {
     "deploypacks.toast.saveFailed": "Save failed: {err}",
     "deploypacks.toast.deployPackDeleted": "Deploy pack deleted.",
     "deploypacks.toast.deleteFailed": "Delete failed: {err}",
+
+    // ── users section (Users & Roles panel) ──
+    "users.panelTitle": "Users & Roles",
+    "users.failedLoadUsers": "Failed to load users.",
+    "users.removeMember": "Remove member",
+    "users.removeConfirm": "Remove {name} from project?",
+    "users.memberRemoved": "{name} removed",
+    "users.failedRemoveMember": "Failed to remove member",
+    "users.memberFallback": "Member",
+    "users.inviteMember": "Invite member",
+    "users.usernameOrEmail": "Username or email",
+    "users.role": "Role",
+    "users.sendInvite": "Send invite",
+    "users.inviteSent": "Invite sent to {value}",
   },
   pt: {
     "nav.home": "Início",
@@ -2047,6 +2061,19 @@ export const translations = {
     "deploypacks.toast.saveFailed": "Falha ao guardar: {err}",
     "deploypacks.toast.deployPackDeleted": "Pacote de implantação eliminado.",
     "deploypacks.toast.deleteFailed": "Falha ao eliminar: {err}",
+
+    "users.panelTitle": "Utilizadores e Funções",
+    "users.failedLoadUsers": "Falha ao carregar os utilizadores.",
+    "users.removeMember": "Remover membro",
+    "users.removeConfirm": "Remover {name} do projeto?",
+    "users.memberRemoved": "{name} removido",
+    "users.failedRemoveMember": "Falha ao remover o membro",
+    "users.memberFallback": "Membro",
+    "users.inviteMember": "Convidar membro",
+    "users.usernameOrEmail": "Nome de utilizador ou email",
+    "users.role": "Função",
+    "users.sendInvite": "Enviar convite",
+    "users.inviteSent": "Convite enviado para {value}",
   },
 } as const;
 
