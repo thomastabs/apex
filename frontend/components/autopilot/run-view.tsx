@@ -29,17 +29,19 @@ import {
   useStopAutopilot,
   useTakeOverAutopilot,
 } from "@/lib/hooks/use-autopilot";
+import { useT } from "@/lib/i18n/use-translation";
+import type { TranslationKey } from "@/lib/i18n/translations";
 import { cn } from "@/lib/utils";
 
-const PHASE_LABELS: Record<string, string> = {
-  init: "Init",
-  phase1: "Phase 1 · Requirements",
-  phase2: "Phase 2 · Design",
-  phase3: "Phase 3 · Tasks",
-  phase4: "Phase 4 · Testing",
-  phase5: "Phase 5 · Deploy",
-  done: "Done",
-  "": "General",
+const PHASE_LABEL_KEYS: Record<string, TranslationKey> = {
+  init: "autopilotrun.phase.init",
+  phase1: "autopilotrun.phase.phase1",
+  phase2: "autopilotrun.phase.phase2",
+  phase3: "autopilotrun.phase.phase3",
+  phase4: "autopilotrun.phase.phase4",
+  phase5: "autopilotrun.phase.phase5",
+  done: "autopilotrun.phase.done",
+  "": "autopilotrun.phase.general",
 };
 
 // Left-accent + chip colour per phase, for the artifact viewer.
@@ -72,24 +74,25 @@ function phaseAccent(phase: string, dark: boolean): string {
  * run — fold in the section name / story id so the artifact list and pills stay
  * distinguishable instead of repeating "Design section" or "Dev pack".
  */
-function artifactKind(ev: AutopilotEvent): string {
+function artifactKind(ev: AutopilotEvent, t: ReturnType<typeof useT>): string {
   const raw = ev.msg;
   const m = raw.toLowerCase();
   const storyId = raw.match(/Story (\d+)/)?.[1];
   const storyTag = storyId ? ` · #${storyId}` : "";
 
-  if (m.includes("nl draft")) return "User stories";
-  if (m.includes("epics")) return "Epics";
-  if (m.includes("tech stack")) return "Tech stack";
+  if (m.includes("nl draft")) return t("autopilotrun.artifact.userStories");
+  if (m.includes("epics")) return t("autopilotrun.artifact.epics");
+  if (m.includes("tech stack")) return t("autopilotrun.artifact.techStack");
   const section = raw.match(/Section ['"]([\w-]+)['"]/i)?.[1];
-  if (section) return `Design · ${section.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}`;
-  if (m.includes("test plan")) return `Test plan${storyTag}`;
-  if (m.includes("figma")) return "Figma context";
-  if (m.includes("pack") || m.includes("proposal") || m.includes("implementation plan")) return `Dev pack${storyTag}`;
-  return PHASE_LABELS[ev.phase]?.split("·").pop()?.trim() ?? "Artifact";
+  if (section) return t("autopilotrun.artifact.designSection", { section: section.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) });
+  if (m.includes("test plan")) return t("autopilotrun.artifact.testPlan", { storyTag });
+  if (m.includes("figma")) return t("autopilotrun.artifact.figmaContext");
+  if (m.includes("pack") || m.includes("proposal") || m.includes("implementation plan")) return t("autopilotrun.artifact.devPack", { storyTag });
+  return t(PHASE_LABEL_KEYS[ev.phase] ?? "autopilotrun.artifact.default").split("·").pop()?.trim() ?? t("autopilotrun.artifact.default");
 }
 
 function CopyButton({ getText, label, dark }: { getText: () => string; label: string; dark: boolean }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -100,27 +103,27 @@ function CopyButton({ getText, label, dark }: { getText: () => string; label: st
           setCopied(true);
           setTimeout(() => setCopied(false), 1500);
         } catch {
-          toast.error("Copy failed");
+          toast.error(t("autopilotrun.toast.copyFailed"));
         }
       }}
       className={cn(
         "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-normal normal-case",
         dark ? "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300" : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700",
       )}
-      title={`Copy ${label}`}
+      title={t("autopilotrun.copyTitle", { label })}
     >
       {copied ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3" />}
-      {copied ? "Copied" : "Copy"}
+      {copied ? t("common.copied") : t("common.copy")}
     </button>
   );
 }
 
-const PHASES: { key: AutopilotPhase; label: string }[] = [
-  { key: "phase1", label: "Requirements" },
-  { key: "phase2", label: "Design" },
-  { key: "phase3", label: "Tasks" },
-  { key: "phase4", label: "Testing" },
-  { key: "phase5", label: "Deploy" },
+const PHASES: { key: AutopilotPhase; labelKey: TranslationKey }[] = [
+  { key: "phase1", labelKey: "nav.phase1" },
+  { key: "phase2", labelKey: "nav.phase2" },
+  { key: "phase3", labelKey: "autopilotrun.phase.tasks" },
+  { key: "phase4", labelKey: "nav.phase4" },
+  { key: "phase5", labelKey: "autopilotrun.phase.deploy" },
 ];
 
 const PHASE_ORDER: AutopilotPhase[] = ["init", "phase1", "phase2", "phase3", "phase4", "phase5", "done"];
@@ -130,13 +133,14 @@ function phaseIndex(phase: AutopilotPhase): number {
 }
 
 function StateBadge({ state }: { state: AutopilotState }) {
+  const t = useT();
   const cfg = {
-    running: { color: "text-emerald-400 bg-emerald-500/15 border-emerald-500/30", icon: <Loader2 className="size-3 animate-spin" />, label: "Running" },
-    paused:  { color: "text-amber-400 bg-amber-500/15 border-amber-500/30", icon: <Pause className="size-3" />, label: "Paused" },
-    stopped: { color: "text-neutral-400 bg-neutral-500/15 border-neutral-500/30", icon: <Square className="size-3" />, label: "Stopped" },
-    done:    { color: "text-violet-400 bg-violet-500/15 border-violet-500/30", icon: <CheckCircle2 className="size-3" />, label: "Complete" },
-    error:   { color: "text-red-400 bg-red-500/15 border-red-500/30", icon: <XCircle className="size-3" />, label: "Error" },
-    interrupted: { color: "text-orange-400 bg-orange-500/15 border-orange-500/30", icon: <AlertTriangle className="size-3" />, label: "Interrupted" },
+    running: { color: "text-emerald-400 bg-emerald-500/15 border-emerald-500/30", icon: <Loader2 className="size-3 animate-spin" />, label: t("autopilotrun.state.running") },
+    paused:  { color: "text-amber-400 bg-amber-500/15 border-amber-500/30", icon: <Pause className="size-3" />, label: t("autopilotrun.state.paused") },
+    stopped: { color: "text-neutral-400 bg-neutral-500/15 border-neutral-500/30", icon: <Square className="size-3" />, label: t("autopilotrun.state.stopped") },
+    done:    { color: "text-violet-400 bg-violet-500/15 border-violet-500/30", icon: <CheckCircle2 className="size-3" />, label: t("autopilotrun.state.complete") },
+    error:   { color: "text-red-400 bg-red-500/15 border-red-500/30", icon: <XCircle className="size-3" />, label: t("autopilotrun.state.error") },
+    interrupted: { color: "text-orange-400 bg-orange-500/15 border-orange-500/30", icon: <AlertTriangle className="size-3" />, label: t("autopilotrun.state.interrupted") },
   }[state];
   return (
     <span className={cn("inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-xs font-medium", cfg.color)}>
@@ -178,6 +182,7 @@ function EventRow({ event, dark }: { event: AutopilotEvent; dark: boolean }) {
 }
 
 function PhaseProgress({ currentPhase, state, dark }: { currentPhase: AutopilotPhase; state: AutopilotState; dark: boolean }) {
+  const t = useT();
   const currentIdx = phaseIndex(currentPhase);
   return (
     <div className="flex items-center gap-1 overflow-x-auto pb-1">
@@ -196,7 +201,7 @@ function PhaseProgress({ currentPhase, state, dark }: { currentPhase: AutopilotP
               )}
             >
               {done ? <CheckCircle2 className="size-3" /> : active && state === "running" ? <Loader2 className="size-3 animate-spin" /> : <span className="size-3 flex items-center justify-center text-xs">{i + 1}</span>}
-              {p.label}
+              {t(p.labelKey)}
             </div>
             {i < PHASES.length - 1 && (
               <ChevronRight className={cn("size-3 shrink-0", done ? "text-emerald-600" : "text-neutral-700")} />
@@ -217,6 +222,7 @@ type Props = {
 };
 
 export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: Props) {
+  const t = useT();
   const router = useRouter();
   const logRef = useRef<HTMLDivElement>(null);
   const pause = usePauseAutopilot(status.job_id);
@@ -260,7 +266,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
 
   function applySteer() {
     const note = steerDraft.trim();
-    steer.mutate(note, { onSuccess: () => toast.success(note ? "Steer applied to next steps" : "Steer cleared") });
+    steer.mutate(note, { onSuccess: () => toast.success(note ? t("autopilotrun.toast.steerApplied") : t("autopilotrun.toast.steerCleared")) });
   }
 
   function togglePhase(key: string) {
@@ -303,11 +309,11 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
             <Bot className="size-4 text-violet-400" />
           </div>
           <div>
-            <h2 className={cn("text-sm font-semibold", dark ? "text-neutral-100" : "text-neutral-900")}>Autopilot running</h2>
+            <h2 className={cn("text-sm font-semibold", dark ? "text-neutral-100" : "text-neutral-900")}>{t("autopilotrun.runningHeading")}</h2>
             <p className="text-xs text-neutral-500">
               {status.story_count > 0
-                ? `${status.stories_done}/${status.story_count} stories processed`
-                : "Generating specs…"}
+                ? t("autopilotrun.storiesProcessed", { done: status.stories_done, total: status.story_count })
+                : t("autopilotrun.generatingSpecs")}
             </p>
           </div>
         </div>
@@ -322,7 +328,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
                 dark ? "border-neutral-700 bg-neutral-800 text-neutral-300 hover:bg-neutral-700" : "border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-100",
               )}
             >
-              <Pause className="size-3" /> Pause
+              <Pause className="size-3" /> {t("autopilotrun.pause")}
             </button>
           )}
           {isPaused && (
@@ -331,7 +337,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
               disabled={resume.isPending}
               className="flex items-center gap-1.5 rounded border border-violet-600/50 bg-violet-600/20 px-2.5 py-1 text-xs text-violet-300 hover:bg-violet-600/30 disabled:opacity-50"
             >
-              <Play className="size-3" /> Resume
+              <Play className="size-3" /> {t("autopilotrun.resume")}
             </button>
           )}
           {!isTerminal && !isInterrupted && (
@@ -344,14 +350,14 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
                   dark ? "border-neutral-700 bg-neutral-800 text-neutral-400 hover:bg-neutral-700" : "border-neutral-300 bg-white text-neutral-500 hover:bg-neutral-100",
                 )}
               >
-                <Square className="size-3" /> Stop
+                <Square className="size-3" /> {t("autopilotrun.stop")}
               </button>
               <button
                 onClick={handleTakeOver}
                 disabled={takeOver.isPending}
                 className="flex items-center gap-1.5 rounded border border-amber-600/40 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-300 hover:bg-amber-500/20 disabled:opacity-50"
               >
-                <UserCog className="size-3" /> Take Over
+                <UserCog className="size-3" /> {t("autopilotrun.takeOver")}
               </button>
             </>
           )}
@@ -361,7 +367,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
               disabled={resuming}
               className="flex items-center gap-1.5 rounded border border-orange-600/50 bg-orange-500/15 px-2.5 py-1 text-xs font-medium text-orange-300 hover:bg-orange-500/25 disabled:opacity-50"
             >
-              <Play className="size-3" /> {resuming ? "Resuming…" : "Resume run"}
+              <Play className="size-3" /> {resuming ? t("autopilotrun.resuming") : t("autopilotrun.resumeRun")}
             </button>
           )}
           {(isTerminal || isInterrupted) && (
@@ -372,7 +378,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
                 dark ? "border-neutral-700 bg-neutral-800 text-neutral-300 hover:bg-neutral-700" : "border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-100",
               )}
             >
-              <RotateCcw className="size-3" /> New run
+              <RotateCcw className="size-3" /> {t("autopilotrun.newRun")}
             </button>
           )}
         </div>
@@ -396,7 +402,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
           epics instead of showing a stuck 0/N. */}
       {(() => {
         const inPhase1 = status.current_phase === "phase1";
-        const label = inPhase1 ? "Epics" : "Stories";
+        const label = inPhase1 ? t("autopilotsetup.epics") : t("autopilotrun.stories");
         const doneN = inPhase1 ? status.epics_done : status.stories_done;
         const totalN = inPhase1 ? status.epic_count : status.story_count;
         if (totalN <= 0) return null;
@@ -422,8 +428,8 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
           <div className="flex items-center gap-2">
             <Pause className="size-4 text-violet-400 shrink-0" />
             <div>
-              <p className="text-sm font-semibold text-violet-300">Checkpoint — {checkpointPhase} complete</p>
-              <p className="text-xs text-violet-500">Review the generated artifacts, then resume when ready.</p>
+              <p className="text-sm font-semibold text-violet-300">{t("autopilotrun.checkpointComplete", { phase: t(PHASE_LABEL_KEYS[checkpointPhase] ?? "autopilotrun.phase.general") })}</p>
+              <p className="text-xs text-violet-500">{t("autopilotrun.checkpointDesc")}</p>
             </div>
           </div>
           <button
@@ -431,7 +437,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
             disabled={resume.isPending}
             className="flex items-center gap-1.5 rounded bg-violet-600/30 px-3 py-1.5 text-xs font-medium text-violet-300 hover:bg-violet-600/40"
           >
-            <Play className="size-3" /> Resume
+            <Play className="size-3" /> {t("autopilotrun.resume")}
           </button>
         </div>
       )}
@@ -442,9 +448,9 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
           <div className="flex items-center gap-2">
             <AlertTriangle className="size-4 shrink-0 text-orange-400" />
             <div>
-              <p className="text-sm font-semibold text-orange-300">Run interrupted</p>
+              <p className="text-sm font-semibold text-orange-300">{t("autopilotrun.interruptedHeading")}</p>
               <p className="text-xs text-orange-400/80">
-                This Autopilot run stopped (a refresh, sign-out, or backend restart). Generated artifacts are saved — resume to continue from {PHASE_LABELS[status.current_phase] ?? status.current_phase}, skipping work already done.
+                {t("autopilotrun.interruptedDesc", { phase: t(PHASE_LABEL_KEYS[status.current_phase] ?? "autopilotrun.phase.general") })}
               </p>
             </div>
           </div>
@@ -454,7 +460,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
               disabled={resuming}
               className="flex shrink-0 items-center gap-1.5 rounded bg-orange-600/30 px-3 py-1.5 text-xs font-medium text-orange-200 hover:bg-orange-600/40 disabled:opacity-50"
             >
-              <Play className="size-3" /> {resuming ? "Resuming…" : "Resume"}
+              <Play className="size-3" /> {resuming ? t("autopilotrun.resuming") : t("autopilotrun.resume")}
             </button>
           )}
         </div>
@@ -463,7 +469,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
       {/* Error banner */}
       {status.state === "error" && status.error && (
         <div className="rounded-md border border-red-600/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          <p className="font-semibold">Error</p>
+          <p className="font-semibold">{t("autopilotrun.state.error")}</p>
           <p className="mt-0.5 text-xs text-red-400/80">{status.error}</p>
         </div>
       )}
@@ -473,9 +479,9 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
         <div className="flex items-center gap-3 rounded-md border border-emerald-600/40 bg-emerald-500/10 px-4 py-3">
           <CheckCircle2 className="size-5 shrink-0 text-emerald-400" />
           <div>
-            <p className="text-sm font-semibold text-emerald-300">Autopilot complete</p>
+            <p className="text-sm font-semibold text-emerald-300">{t("autopilotrun.completeHeading")}</p>
             <p className="text-xs text-emerald-500/80">
-              Full SDLC pipeline finished for {status.story_count} stories. Navigate to any phase to review the artifacts.
+              {t("autopilotrun.completeDesc", { n: status.story_count })}
             </p>
           </div>
         </div>
@@ -486,11 +492,11 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
         <div className={cn("rounded-md border p-3", dark ? "border-neutral-700/60 bg-neutral-800/30" : "border-neutral-200 bg-neutral-50")}>
           <div className="mb-1.5 flex items-center justify-between">
             <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-neutral-500">
-              <Bot className="size-3 text-violet-400" /> Steer the AI
+              <Bot className="size-3 text-violet-400" /> {t("autopilotrun.steerHeading")}
             </p>
             {status.steer_note ? (
               <span className="truncate text-xs text-violet-400/90" title={status.steer_note}>
-                active: {status.steer_note.slice(0, 60)}{status.steer_note.length > 60 ? "…" : ""}
+                {t("autopilotrun.activeSteer", { note: `${status.steer_note.slice(0, 60)}${status.steer_note.length > 60 ? "…" : ""}` })}
               </span>
             ) : null}
           </div>
@@ -499,7 +505,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
               value={steerDraft}
               onChange={(e) => setSteerDraft(e.target.value)}
               rows={2}
-              placeholder="e.g. Prefer mobile-first flows; keep stories small; assume an existing auth service. Applied to the next story/design/task the AI generates."
+              placeholder={t("autopilotrun.steerPlaceholder")}
               className={cn(
                 "flex-1 resize-y rounded border px-2 py-1.5 text-xs focus:border-violet-500/60 focus:outline-none",
                 dark ? "border-neutral-700 bg-neutral-900/60 text-neutral-200 placeholder-neutral-600" : "border-neutral-200 bg-white text-neutral-800 placeholder-neutral-400",
@@ -512,10 +518,10 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
               disabled={steer.isPending}
               className="flex items-center gap-1.5 rounded bg-violet-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-violet-500 disabled:opacity-50"
             >
-              <Send className="size-3" /> Apply
+              <Send className="size-3" /> {t("autopilotrun.apply")}
             </button>
           </div>
-          <p className={cn("mt-1 text-xs", dark ? "text-neutral-600" : "text-neutral-500")}>Guides Phase 1 stories, Phase 2 design, and Phase 3 tasks generated after you apply it (⌘/Ctrl+Enter). Clear the box and Apply to remove.</p>
+          <p className={cn("mt-1 text-xs", dark ? "text-neutral-600" : "text-neutral-500")}>{t("autopilotrun.steerDesc")}</p>
         </div>
       )}
 
@@ -524,13 +530,13 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
         {/* Event log — grouped per phase, collapsible */}
         <div className="xl:col-span-3">
           <p className="mb-1.5 flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-neutral-600">
-            <span>Event log · {status.events.length} events</span>
+            <span>{t("autopilotrun.eventLogCount", { n: status.events.length })}</span>
             <span className="flex items-center gap-2">
               <label className="flex cursor-pointer items-center gap-1 font-normal normal-case text-neutral-600">
                 <input type="checkbox" checked={autoScroll} onChange={(e) => setAutoScroll(e.target.checked)} className="size-3 accent-violet-500" />
-                auto-scroll
+                {t("autopilotrun.autoScroll")}
               </label>
-              <CopyButton getText={() => logText} label="log" dark={dark} />
+              <CopyButton getText={() => logText} label={t("autopilotrun.log")} dark={dark} />
             </span>
           </p>
           <div
@@ -554,7 +560,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
                     )}
                   >
                     {isCollapsed ? <ChevronRight className="size-3" /> : <ChevronDown className="size-3" />}
-                    {PHASE_LABELS[g.phase] ?? g.phase}
+                    {t(PHASE_LABEL_KEYS[g.phase] ?? "autopilotrun.phase.general")}
                     <span className="font-normal normal-case text-neutral-600">· {g.events.length}</span>
                   </button>
                   {!isCollapsed && (
@@ -566,7 +572,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
               );
             })}
             {status.events.length === 0 && (
-              <p className="text-xs text-neutral-600 pt-2">Waiting for first event…</p>
+              <p className="text-xs text-neutral-600 pt-2">{t("autopilotrun.waitingFirstEvent")}</p>
             )}
           </div>
         </div>
@@ -574,10 +580,10 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
         {/* Artifact viewer — pick from recent artifacts, follow the latest live */}
         <div className="xl:col-span-2">
           <p className="mb-1.5 flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-neutral-600">
-            <span>Artifacts · {artifacts.length}</span>
+            <span>{t("autopilotrun.artifactsCount", { n: artifacts.length })}</span>
             <span className="flex items-center gap-2 font-normal normal-case text-neutral-700">
-              <span>drag to resize</span>
-              {selectedArtifact ? <CopyButton getText={() => selectedArtifact.artifact} label="artifact" dark={dark} /> : null}
+              <span>{t("autopilotrun.dragToResize")}</span>
+              {selectedArtifact ? <CopyButton getText={() => selectedArtifact.artifact} label={t("autopilotrun.artifactLabel")} dark={dark} /> : null}
             </span>
           </p>
 
@@ -594,7 +600,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
                 )}
               >
                 <span className={cn("size-1.5 rounded-full", following && isRunning ? "animate-pulse bg-emerald-400" : "bg-neutral-600")} />
-                Live
+                {t("autopilotrun.live")}
               </button>
               {artifacts.slice(-6).reverse().map((a) => (
                 <button
@@ -608,7 +614,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
                       : dark ? "border-neutral-700 text-neutral-500 hover:text-neutral-300" : "border-neutral-300 text-neutral-500 hover:text-neutral-700",
                   )}
                 >
-                  {artifactKind(a)}
+                  {artifactKind(a, t)}
                 </button>
               ))}
             </div>
@@ -622,7 +628,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
               <div>
                 <div className={cn("mb-2 flex items-start justify-between gap-2 rounded border px-2 py-1.5", phaseAccent(selectedArtifact.phase, dark))}>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold uppercase tracking-wider">{artifactKind(selectedArtifact)}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider">{artifactKind(selectedArtifact, t)}</p>
                     <p className={cn("truncate text-xs", dark ? "text-neutral-400" : "text-neutral-500")}>{selectedArtifact.msg}</p>
                   </div>
                   <span className="shrink-0 font-mono text-xs text-neutral-500">
@@ -636,7 +642,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
             ) : (
               <div className="flex h-full flex-col items-center justify-center gap-1 text-center">
                 <Bot className={cn("size-5", dark ? "text-neutral-700" : "text-neutral-400")} />
-                <p className="text-xs text-neutral-600">Artifacts appear here as each phase generates them.</p>
+                <p className="text-xs text-neutral-600">{t("autopilotrun.artifactsEmpty")}</p>
               </div>
             )}
           </div>

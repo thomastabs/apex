@@ -16,8 +16,10 @@ import { useSessionStore, useFigmaContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
 import type { AutopilotStartRequest } from "@/lib/api/autopilot";
+import { useT } from "@/lib/i18n/use-translation";
 
 export default function AutopilotPage() {
+  const t = useT();
   const dark = useUiStore((s) => s.theme) === "dark";
   const hasProject = useSessionStore((s) => Boolean(s.taigaToken && s.projectId));
   const figma = useFigmaContext();
@@ -75,8 +77,8 @@ export default function AutopilotPage() {
         <div className="flex items-start gap-3 rounded-md border border-amber-600/50 bg-amber-500/10 px-4 py-3 text-sm">
           <AlertCircle className="mt-0.5 size-4 shrink-0 text-amber-500" />
           <div>
-            <p className="font-semibold text-amber-400">Sign in required</p>
-            <p className="mt-0.5 text-amber-500/80">Sign in and select a project via the sidebar to use Autopilot.</p>
+            <p className="font-semibold text-amber-400">{t("common.signInRequired")}</p>
+            <p className="mt-0.5 text-amber-500/80">{t("autopilot.signInHint")}</p>
           </div>
         </div>
       </section>
@@ -86,9 +88,9 @@ export default function AutopilotPage() {
   return (
     <section className="px-8 py-8">
       <div className={cn("mb-6 border-b pb-6", dark ? "border-neutral-800" : "border-slate-200")}>
-        <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>Autopilot</h1>
+        <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>{t("autopilot.heading")}</h1>
         <p className={cn("mt-1 text-sm", dark ? "text-neutral-500" : "text-slate-500")}>
-          AI-driven full SDLC pipeline — Phases 1 through 5, fully automated with human-in-the-loop checkpoints.
+          {t("autopilot.subtitle")}
         </p>
       </div>
 
