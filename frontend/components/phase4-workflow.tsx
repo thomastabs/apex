@@ -46,15 +46,17 @@ import { useDiffStore } from "@/lib/stores/diff-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { SignInRequired } from "@/components/sign-in-required";
 import { useUiStore } from "@/lib/stores/ui-store";
+import { useT } from "@/lib/i18n/use-translation";
+import type { TranslationKey } from "@/lib/i18n/translations";
 import { cn, errMsg } from "@/lib/utils";
 import type { Phase4StoryPreview } from "@/lib/api/types";
 
-const TEST_PLAN_EMPHASIS: { key: string; label: string }[] = [
-  { key: "edge_cases", label: "Edge cases" },
-  { key: "negative_paths", label: "Negative paths" },
-  { key: "security", label: "Security" },
-  { key: "performance", label: "Performance" },
-  { key: "data_integrity", label: "Data integrity" },
+const TEST_PLAN_EMPHASIS: { key: string; labelKey: TranslationKey }[] = [
+  { key: "edge_cases", labelKey: "phase4.emphasis.edgeCases" },
+  { key: "negative_paths", labelKey: "phase4.emphasis.negativePaths" },
+  { key: "security", labelKey: "phase4.emphasis.security" },
+  { key: "performance", labelKey: "phase4.emphasis.performance" },
+  { key: "data_integrity", labelKey: "phase4.emphasis.dataIntegrity" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -127,6 +129,7 @@ function MarkdownPreview({ content, dark, className }: { content: string; dark: 
 // ---------------------------------------------------------------------------
 
 function StageA({ onSelect }: { onSelect: (id: number) => void }) {
+  const t = useT();
   const dark = useUiStore((s) => s.theme) === "dark";
   const ctx = useApiContext();
   const { data, isLoading, error } = useEligibleStories();
@@ -142,7 +145,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
       return contents.map((content, i) => ({ filename: `test_plan_story_${readyStories[i].story_id}.md`, content }));
     },
     onSuccess: (files) => downloadZip(files, "apex-test-plans.zip"),
-    onError: (err: Error) => toast.error(`Download failed: ${err.message}`),
+    onError: (err: Error) => toast.error(t("phase4.toast.downloadFailed", { err: err.message })),
   });
 
   const PAGE_SIZE = 4;
@@ -150,17 +153,17 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
   if (isLoading) {
     return (
       <div className="flex items-center gap-3 text-sm text-neutral-400">
-        <Loader2 className="h-4 w-4 animate-spin" /> Loading stories…
+        <Loader2 className="h-4 w-4 animate-spin" /> {t("common.loadingStories")}
       </div>
     );
   }
-  if (error) return <Callout variant="danger">Failed to load stories: {errMsg(error)}</Callout>;
+  if (error) return <Callout variant="danger">{t("common.failedLoadStories", { err: errMsg(error) })}</Callout>;
 
   const stories = data?.stories ?? [];
   if (stories.length === 0) {
     return (
       <Callout>
-        No implementation-locked stories found. Complete Phase 3 for at least one story first.
+        {t("phase4.noEligibleStories")}
       </Callout>
     );
   }
@@ -182,9 +185,9 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
       <div>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <SectionHeading>Select a story to test</SectionHeading>
+            <SectionHeading>{t("phase4.selectStoryTitle")}</SectionHeading>
             <p className={cn("mt-1 text-sm", dark ? "text-neutral-400" : "text-slate-500")}>
-              Choose an implementation-locked user story to generate a QA test plan for.
+              {t("phase4.selectStoryDesc")}
             </p>
           </div>
           {readyStories.length > 0 && (
@@ -195,7 +198,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
               onClick={() => downloadAllMut.mutate()}
             >
               {downloadAllMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              Download all as zip
+              {t("common.downloadAll")}
             </Button>
           )}
         </div>
@@ -204,7 +207,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
       {epics.length > 1 && (
         <div className="flex items-center gap-3">
           <label className="text-xs font-semibold uppercase tracking-wider text-neutral-500 shrink-0">
-            Epic
+            {t("phase3.epicLabel")}
           </label>
           <select
             value={currentEpic}
@@ -240,7 +243,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                 "absolute top-2 right-2 rounded text-xs font-semibold px-1.5 py-0.5",
                 dark ? "bg-amber-900/40 text-amber-400" : "bg-amber-100 text-amber-700",
               )}>
-                Regression Bypass
+                {t("phase4.regressionBypassBadge")}
               </span>
             )}
             <div className="flex items-start gap-2 mb-2">
@@ -255,7 +258,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                   "rounded text-xs px-1.5 py-0.5",
                   dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-100 text-slate-500",
                 )}>
-                  Plan ready
+                  {t("phase4.planReadyBadge")}
                 </span>
               )}
             </div>
@@ -272,13 +275,13 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-3">
           <Button variant="secondary" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>
-            ‹ Prev
+            {t("phase4.prev")}
           </Button>
           <span className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
-            {page + 1} / {totalPages}
+            {t("phase4.pageOfSimple", { page: page + 1, count: totalPages })}
           </span>
           <Button variant="secondary" onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}>
-            Next ›
+            {t("phase4.next")}
           </Button>
         </div>
       )}
@@ -291,6 +294,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
 // ---------------------------------------------------------------------------
 
 function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () => void; onContinue: () => void }) {
+  const t = useT();
   const dark = useUiStore((s) => s.theme) === "dark";
   const linkCtx = useApiContext();
   const pmWebUrl = useServerConfig().data?.pm_web_url;
@@ -334,14 +338,14 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
         onSuccess: (data) => {
           if (prev.trim() && prev !== data.test_plan_md) {
             requestDiff({
-              title: `Test plan — story #${storyId}`,
+              title: t("phase4.diffTitle", { storyId }),
               oldText: prev,
               newText: data.test_plan_md,
               onAccept: () => setTestPlanMd(data.test_plan_md),
               onDiscard: () => logDecision.mutate({
-                scope: `Phase 4 test plan · story #${storyId}`,
-                summary: "Discarded a regenerated test plan — kept the previous one.",
-                reason: "The AI's regeneration was rejected in favour of the existing test plan.",
+                scope: t("phase4.logDecisionScope", { storyId }),
+                summary: t("phase4.logDecisionSummary"),
+                reason: t("phase4.logDecisionReason"),
               }),
             });
           } else {
@@ -362,12 +366,12 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
   return (
     <div className="space-y-5">
-      <SectionHeading>Test Plan</SectionHeading>
+      <SectionHeading>{t("phase4.testPlanHeading")}</SectionHeading>
 
       {ctx && (
         <details open className={cn("rounded-lg border text-sm", dark ? "border-neutral-700" : "border-slate-200")}>
           <summary className={cn("cursor-pointer px-4 py-2.5 font-medium", dark ? "text-neutral-300" : "text-slate-700")}>
-            Acceptance Criteria (Gherkin)
+            {t("phase4.acceptanceCriteriaGherkin")}
           </summary>
           <pre className={cn("p-4 text-xs overflow-x-auto whitespace-pre-wrap font-mono", dark ? "text-neutral-400" : "text-slate-600")}>
             {ctx.gherkin}
@@ -378,7 +382,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
       {storyTasks.length > 0 && (
         <div className={cn("rounded-lg border text-sm", dark ? "border-neutral-700" : "border-slate-200")}>
           <div className={cn("px-4 py-2.5 font-medium border-b", dark ? "text-neutral-300 border-neutral-700" : "text-slate-700 border-slate-200")}>
-            Implementation Tasks
+            {t("phase4.implementationTasks")}
           </div>
           <ul className="divide-y divide-inherit">
             {storyTasks.map((task) => {
@@ -398,7 +402,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                       <p className={cn("mt-0.5 text-xs", dark ? "text-neutral-500" : "text-slate-400")}>{displayDesc}</p>
                     ) : scenarios.length > 0 ? (
                       <p className={cn("mt-0.5 text-xs italic", dark ? "text-neutral-600" : "text-slate-400")}>
-                        Covers: {scenarios.join(" · ")}
+                        {t("phase4.covers", { scenarios: scenarios.join(" · ") })}
                       </p>
                     ) : null}
                   </div>
@@ -407,8 +411,8 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                       href={taskUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      title="Open task in the PM tool"
-                      aria-label={`Open task "${task.subject}" in the PM tool`}
+                      title={t("phase3.openInPmTool")}
+                      aria-label={t("phase4.openTaskAria", { subject: task.subject })}
                       className={cn(
                         "mt-0.5 shrink-0 rounded p-1 transition",
                         dark ? "text-neutral-500 hover:text-violet-400" : "text-slate-400 hover:text-violet-600",
@@ -426,7 +430,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
       {generateMut.isPending && (
         <AIProgressIndicator
-          steps={["Analysing Gherkin…", "Mapping test steps…", "Writing edge cases…"]}
+          steps={[t("phase4.step.analysingGherkin"), t("phase4.step.mappingSteps"), t("phase4.step.writingEdgeCases")]}
           isPending={generateMut.isPending}
           dark={dark}
         />
@@ -436,7 +440,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
         <div className="space-y-2">
           <div className="grid gap-4 lg:grid-cols-2">
             <div>
-              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Edit</p>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">{t("phase3.editLabel")}</p>
               <Textarea
                 value={displayMd}
                 onChange={(e) => setTestPlanMd(e.target.value)}
@@ -444,16 +448,16 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
               />
             </div>
             <div>
-              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Preview</p>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">{t("common.preview")}</p>
               <MarkdownPreview content={displayMd} dark={dark} className="h-[34rem] resize-y" />
             </div>
           </div>
           <div className="flex gap-2">
             <Button variant="secondary" className="gap-1.5" onClick={() => blobDownload(displayMd, `test-plan-us${storyId}.md`)}>
-              <Download className="h-4 w-4" /> Download .md
+              <Download className="h-4 w-4" /> {t("phase4.downloadMd")}
             </Button>
-            <Button variant="secondary" className="gap-1.5" onClick={() => { void navigator.clipboard.writeText(displayMd); toast.success("Copied."); }}>
-              <Copy className="h-4 w-4" /> Copy
+            <Button variant="secondary" className="gap-1.5" onClick={() => { void navigator.clipboard.writeText(displayMd); toast.success(t("common.copied")); }}>
+              <Copy className="h-4 w-4" /> {t("common.copy")}
             </Button>
             <Button
               variant="secondary"
@@ -462,8 +466,8 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
               onClick={() => clearMut.mutate(storyId)}
             >
               {clearMut.isPending
-                ? <><Loader2 className="h-4 w-4 animate-spin" /> Clearing…</>
-                : "Clear Plan"}
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("phase4.clearing")}</>
+                : t("phase4.clearPlan")}
             </Button>
           </div>
         </div>
@@ -481,17 +485,21 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
             )}
           >
             <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform", !showGuidance && "-rotate-90")} />
-            Guide the AI <span className={cn("font-normal", dark ? "text-neutral-500" : "text-slate-400")}>(optional)</span>
+            {t("phase4.guideTheAi")} <span className={cn("font-normal", dark ? "text-neutral-500" : "text-slate-400")}>{t("phase4.optionalParen")}</span>
             {(guidance.trim() || emphasis.length > 0) && !showGuidance ? (
               <span className={cn("ml-auto rounded px-1.5 py-0.5 text-xs", dark ? "bg-violet-900/40 text-violet-400" : "bg-violet-100 text-violet-700")}>
-                {emphasis.length > 0 ? `${emphasis.length} emphasis${guidance.trim() ? " + notes" : ""}` : "notes added"}
+                {emphasis.length > 0
+                  ? t(guidance.trim()
+                      ? (emphasis.length === 1 ? "phase4.emphasisNotesOne" : "phase4.emphasisNotesOther")
+                      : (emphasis.length === 1 ? "phase4.emphasisOnlyOne" : "phase4.emphasisOnlyOther"), { n: emphasis.length })
+                  : t("phase4.notesAdded")}
               </span>
             ) : null}
           </button>
           {showGuidance && (
             <div className={cn("border-t px-4 py-3", dark ? "border-neutral-700" : "border-slate-200")}>
               <p className={cn("mb-1.5 text-[11px] font-semibold uppercase tracking-wider", dark ? "text-neutral-500" : "text-slate-400")}>
-                Emphasis
+                {t("phase4.emphasisLabel")}
               </p>
               <div className="mb-3 flex flex-wrap gap-1.5">
                 {TEST_PLAN_EMPHASIS.map((opt) => {
@@ -511,7 +519,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                             : "border-slate-200 text-slate-500 hover:border-slate-300",
                       )}
                     >
-                      {opt.label}
+                      {t(opt.labelKey)}
                     </button>
                   );
                 })}
@@ -520,11 +528,11 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                 value={guidance}
                 onChange={(e) => setGuidance(e.target.value)}
                 maxLength={2000}
-                placeholder="Optional notes to steer the test plan — environments to favour, risk areas to probe, data edge cases, etc. The Gherkin still drives which scenarios exist."
+                placeholder={t("phase4.guidancePlaceholder")}
                 className="h-28 resize-y text-xs"
               />
               <p className={cn("mt-1 text-[11px]", dark ? "text-neutral-500" : "text-slate-400")}>
-                Advisory only — never adds scenarios absent from the Gherkin. {guidance.length}/2000
+                {t("phase4.advisoryOnly", { n: guidance.length })}
               </p>
             </div>
           )}
@@ -533,7 +541,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
       <div className="flex gap-3">
         <Button variant="secondary" className="gap-1.5" onClick={onBack} disabled={generateMut.isPending || saveMut.isPending}>
-          <ChevronLeft className="h-4 w-4" /> Back
+          <ChevronLeft className="h-4 w-4" /> {t("common.back")}
         </Button>
         <Button
           onClick={handleGenerate}
@@ -541,8 +549,8 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
           className="flex-1 justify-center"
         >
           {generateMut.isPending
-            ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
-            : (displayMd ? "Regenerate" : "Generate Test Plan")}
+            ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("common.generating")}</>
+            : (displayMd ? t("phase3.regenerate") : t("phase4.generateTestPlan"))}
         </Button>
         {generateMut.isPending && <CancelButton onCancel={() => generateMut.cancel()} />}
         {displayMd && (
@@ -552,8 +560,8 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
             className="flex-1 justify-center"
           >
             {saveMut.isPending
-              ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
-              : "Save & Continue"}
+              ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("phase3.saving")}</>
+              : t("phase4.saveAndContinue")}
           </Button>
         )}
       </div>
@@ -566,6 +574,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 // ---------------------------------------------------------------------------
 
 function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () => void; onContinue: () => void }) {
+  const t = useT();
   const dark = useUiStore((s) => s.theme) === "dark";
   const { data: ctx } = useStoryContext(storyId);
   // Load the saved plan into the store even when the user jumps straight here
@@ -591,33 +600,33 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const allMarked = markedCount === scenarios.length && scenarios.length > 0;
 
   if (planLoading && !testPlanMd) {
-    return <Callout>Loading the saved test plan…</Callout>;
+    return <Callout>{t("phase4.loadingSavedPlan")}</Callout>;
   }
 
   if (!testPlanMd || scenarios.length === 0) {
     return (
       <Callout>
-        No test plan found. Go back and generate one first.
-        <Button variant="secondary" onClick={onBack} className="mt-2 text-sm">← Back</Button>
+        {t("phase4.noPlanFound")}
+        <Button variant="secondary" onClick={onBack} className="mt-2 text-sm">{t("phase4.backSimple")}</Button>
       </Callout>
     );
   }
 
   return (
     <div className="space-y-5">
-      <SectionHeading>Execute Tests</SectionHeading>
+      <SectionHeading>{t("phase4.executeTests")}</SectionHeading>
 
       {isRegressionBypass && (
         <Callout variant="warning">
-          Regression Bypass mode — previously failed scenarios highlighted. Re-test those before proceeding.
+          {t("phase4.regressionBypassWarning")}
         </Callout>
       )}
 
       {/* Progress bar */}
       <div className="space-y-1.5">
         <div className="flex justify-between text-xs text-neutral-500">
-          <span>{markedCount}/{scenarios.length} scenarios tested</span>
-          {failCount > 0 && <span className="text-red-500">{failCount} failed</span>}
+          <span>{t("phase4.scenariosTestedOf", { marked: markedCount, total: scenarios.length })}</span>
+          {failCount > 0 && <span className="text-red-500">{t("phase4.failedCount", { n: failCount })}</span>}
         </div>
         <div className={cn("h-1.5 rounded-full overflow-hidden", dark ? "bg-neutral-800" : "bg-slate-200")}>
           <div
@@ -662,7 +671,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                     <p className={cn("font-medium text-sm", dark ? "text-neutral-100" : "text-slate-800")}>{name}</p>
                     {isRegFailed && (
                       <span className={cn("text-xs rounded px-1.5 py-0.5", dark ? "bg-amber-900/40 text-amber-400" : "bg-amber-100 text-amber-700")}>
-                        Previously failed
+                        {t("phase4.previouslyFailed")}
                       </span>
                     )}
                   </div>
@@ -678,7 +687,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                         : dark ? "bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-emerald-400" : "bg-slate-100 text-slate-600 hover:bg-white hover:text-emerald-700",
                     )}
                   >
-                    Pass
+                    {t("phase4.pass")}
                   </button>
                   <button
                     onClick={() => setScenarioResult(name, "fail")}
@@ -689,7 +698,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                         : dark ? "bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-red-400" : "bg-slate-100 text-slate-600 hover:bg-white hover:text-red-700",
                     )}
                   >
-                    Fail
+                    {t("phase4.fail")}
                   </button>
                 </div>
               </div>
@@ -697,7 +706,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
               {/* Test plan section preview */}
               {sectionMd && (
                 <details className={cn("text-xs rounded", dark ? "text-neutral-400" : "text-slate-500")}>
-                  <summary className="cursor-pointer font-medium">View test steps</summary>
+                  <summary className="cursor-pointer font-medium">{t("phase4.viewTestSteps")}</summary>
                   <pre className="mt-2 whitespace-pre-wrap font-mono">{sectionMd}</pre>
                 </details>
               )}
@@ -723,8 +732,8 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                   }}
                 >
                   {edgeLoading === name
-                    ? <><Loader2 className="h-3 w-3 animate-spin" /> Exploring…</>
-                    : <><Sparkles className="h-3 w-3" /> Explore edge cases</>}
+                    ? <><Loader2 className="h-3 w-3 animate-spin" /> {t("phase4.exploring")}</>
+                    : <><Sparkles className="h-3 w-3" /> {t("phase4.exploreEdgeCases")}</>}
                 </button>
                 {edgeLoading === name && (
                   <button
@@ -734,32 +743,31 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                     )}
                     onClick={() => { edgeCasesMut.cancel(); setEdgeLoading(null); }}
                   >
-                    <StopCircle className="h-3 w-3" /> Cancel
+                    <StopCircle className="h-3 w-3" /> {t("common.cancel")}
                   </button>
                 )}
                 {!edgeCases[name] && edgeLoading !== name && (
                   <p className={cn("mt-1 leading-4", dark ? "text-neutral-500" : "text-slate-400")}>
-                    AI probes for non-obvious boundary, error, and abuse cases this scenario doesn&apos;t cover yet —
-                    grounded in the technical spec. Use them as a manual checklist: try each one and mark the scenario{" "}
-                    <b>Fail</b> (with notes) if any breaks, or fold them into a new scenario back in Phase 1.
+                    {t("phase4.edgeCaseHint")}{" "}
+                    <b>{t("phase4.fail")}</b> {t("phase4.edgeCaseHintSuffix")}
                   </p>
                 )}
                 {edgeLoading === name && (
                   <p className={cn("mt-1 leading-4", dark ? "text-neutral-500" : "text-slate-400")}>
-                    Generating edge-case probes from the spec…
+                    {t("phase4.generatingEdgeCases")}
                   </p>
                 )}
                 {edgeCases[name] && (
                   <div className="mt-2 space-y-1">
                     <div className="flex items-center justify-between">
                       <span className={cn("font-semibold uppercase tracking-wider text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
-                        Edge-case probes — test manually
+                        {t("phase4.edgeCaseProbesLabel")}
                       </span>
                       <button
                         className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 transition", dark ? "text-neutral-400 hover:bg-neutral-800" : "text-slate-500 hover:bg-slate-100")}
-                        onClick={() => { void navigator.clipboard.writeText(edgeCases[name]); toast.success("Edge cases copied."); }}
+                        onClick={() => { void navigator.clipboard.writeText(edgeCases[name]); toast.success(t("phase4.toast.edgeCasesCopied")); }}
                       >
-                        <Copy className="h-3 w-3" /> Copy
+                        <Copy className="h-3 w-3" /> {t("common.copy")}
                       </button>
                     </div>
                     <pre className={cn("whitespace-pre-wrap rounded-lg border p-2 font-mono", dark ? "border-neutral-700 bg-neutral-950 text-neutral-300" : "border-slate-200 bg-slate-50 text-slate-700")}>
@@ -772,7 +780,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
               {/* Notes on fail */}
               {result === "fail" && (
                 <Textarea
-                  placeholder="Describe what failed — reproduction steps, error messages, observed vs expected…"
+                  placeholder={t("phase4.failNotesPlaceholder")}
                   value={notes}
                   onChange={(e) => setScenarioNotes(name, e.target.value)}
                   className={cn(
@@ -788,19 +796,19 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
       <div className="flex gap-2">
         <Button variant="secondary" className="gap-1.5" onClick={onBack}>
-          <ChevronLeft className="h-4 w-4" /> Back
+          <ChevronLeft className="h-4 w-4" /> {t("common.back")}
         </Button>
         <Button
           className="flex-1 justify-center"
           onClick={onContinue}
           disabled={!allMarked}
         >
-          Testing Gate <ChevronRight className="h-4 w-4" />
+          {t("phase4.testingGateLink")} <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
       {!allMarked && (
         <p className={cn("text-xs text-center", dark ? "text-neutral-500" : "text-slate-400")}>
-          Mark all {scenarios.length} scenarios before proceeding.
+          {t("phase4.markAllScenarios", { n: scenarios.length })}
         </p>
       )}
     </div>
@@ -812,6 +820,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 // ---------------------------------------------------------------------------
 
 function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () => void; onNewStory: () => void }) {
+  const t = useT();
   const dark = useUiStore((s) => s.theme) === "dark";
   const router = useRouter();
   const apiCtx = useApiContext();
@@ -847,7 +856,7 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
     }));
 
   const handlePass = () => {
-    if (!window.confirm("Mark this story qa_passed? This is a team-visible signal that testing is complete and it's ready for deployment.")) return;
+    if (!window.confirm(t("phase4.confirmPassGate"))) return;
     passGateMut.mutate({ storyId, scenarioResults: gateScenarioResults }, {
       onSuccess: () => {
         setRegressionBypass(false, []);
@@ -857,7 +866,7 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
 
   const handleFail = () => {
     if (!combinedBugReport.trim()) {
-      toast.error("Generate the bug report first.");
+      toast.error(t("phase4.toast.generateBugReportFirst"));
       return;
     }
     const primaryBug = combinedBugReport;
@@ -902,10 +911,10 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
         )}>
           <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto" />
           <h3 className={cn("text-lg font-semibold", dark ? "text-emerald-300" : "text-emerald-800")}>
-            Testing Gate Passed
+            {t("phase4.testingGatePassed")}
           </h3>
           <p className={cn("text-sm", dark ? "text-emerald-400" : "text-emerald-700")}>
-            US#{storyId} is ready for production deployment.
+            {t("phase4.readyForProd", { storyId })}
           </p>
         </div>
         <div className="flex flex-col gap-2">
@@ -913,7 +922,7 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
             className="w-full justify-center"
             onClick={() => router.push("/phase5")}
           >
-            <Rocket className="h-4 w-4" /> Continue to Phase 5 — Deployment
+            <Rocket className="h-4 w-4" /> {t("phase4.continueToPhase5")}
           </Button>
           {ctx && (
             <>
@@ -924,18 +933,16 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
                 onClick={() => pmStatusMut.mutate({ pmStoryId: String(storyId) })}
               >
                 {pmStatusMut.isPending
-                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Updating PM…</>
-                  : "Update PM Story Status"}
+                  ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("phase4.updatingPm")}</>
+                  : t("phase4.updatePmStatus")}
               </Button>
               <p className={cn("px-1 text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
-                Moves the linked {apiCtx?.pmTool === "jira" ? "Jira" : "Taiga"} story to a done / deploy-ready
-                status on the board (tries Production → Deployed → Done → Closed → Ready for test). Optional —
-                it only mirrors Apex&apos;s state onto your PM tool; skip it if your board has no such column.
+                {t("phase4.pmStatusNote", { pmTool: apiCtx?.pmTool === "jira" ? "Jira" : "Taiga" })}
               </p>
             </>
           )}
           <Button variant="secondary" className="w-full justify-center" onClick={() => { clearPhase4Draft(); onNewStory(); }}>
-            Test Another Story
+            {t("phase4.testAnotherStory")}
           </Button>
         </div>
       </div>
@@ -952,11 +959,11 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
           <div className="flex items-center gap-3">
             <ShieldAlert className="h-6 w-6 text-amber-500 shrink-0" />
             <h3 className={cn("font-semibold", dark ? "text-amber-300" : "text-amber-800")}>
-              Fix-Bolt Triggered — US#{storyId}
+              {t("phase4.fixBoltTriggered", { storyId })}
             </h3>
           </div>
           <p className={cn("text-sm", dark ? "text-amber-400" : "text-amber-700")}>
-            Bug report saved. Fix Log entry appended. Hand the Fix-Bolt artifact to the developer.
+            {t("phase4.bugReportSaved")}
           </p>
         </div>
         <div className="flex flex-col gap-2">
@@ -965,17 +972,17 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
             className="w-full justify-center gap-1.5"
             onClick={() => blobDownload(combinedBugReport, `fix-bolt-us${storyId}.md`)}
           >
-            <Download className="h-4 w-4" /> Download Fix-Bolt Artifact
+            <Download className="h-4 w-4" /> {t("phase4.downloadFixBoltArtifact")}
           </Button>
           <Button
             variant="secondary"
             className="w-full justify-center gap-1.5"
-            onClick={() => { void navigator.clipboard.writeText(combinedBugReport); toast.success("Copied."); }}
+            onClick={() => { void navigator.clipboard.writeText(combinedBugReport); toast.success(t("common.copied")); }}
           >
-            <Copy className="h-4 w-4" /> Copy Fix-Bolt Brief
+            <Copy className="h-4 w-4" /> {t("phase4.copyFixBoltBrief")}
           </Button>
           <Button className="w-full justify-center" onClick={() => { clearPhase4Draft(); onNewStory(); }}>
-            Test Another Story
+            {t("phase4.testAnotherStory")}
           </Button>
         </div>
       </div>
@@ -984,7 +991,7 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
 
   return (
     <div className="space-y-5">
-      <SectionHeading>Testing Gate</SectionHeading>
+      <SectionHeading>{t("phase4.stage.testingGate")}</SectionHeading>
 
       {/* Summary */}
       <Callout variant={allPassed ? "success" : "danger"}>
@@ -993,7 +1000,7 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
             ? <CheckCircle2 className="h-4 w-4" />
             : <XCircle className="h-4 w-4" />}
           <span className="font-semibold text-sm">
-            {allPassed ? `All ${scenarios.length} scenarios passed` : `${failedScenarios.length} of ${scenarios.length} scenarios failed`}
+            {allPassed ? t("phase4.allScenariosPassed", { n: scenarios.length }) : t("phase4.scenariosFailedOf", { failed: failedScenarios.length, total: scenarios.length })}
           </span>
         </div>
         {!allPassed && (
@@ -1007,7 +1014,7 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
       {allPassed && (
         <div className="flex gap-2">
           <Button variant="secondary" className="gap-1.5" onClick={onBack} disabled={passGateMut.isPending}>
-            <ChevronLeft className="h-4 w-4" /> Back
+            <ChevronLeft className="h-4 w-4" /> {t("common.back")}
           </Button>
           <Button
             className="flex-1 justify-center"
@@ -1015,8 +1022,8 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
             disabled={passGateMut.isPending}
           >
             {passGateMut.isPending
-              ? <><Loader2 className="h-4 w-4 animate-spin" /> Passing gate…</>
-              : "Pass Testing Gate"}
+              ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("phase4.passingGate")}</>
+              : t("phase4.passTestingGate")}
           </Button>
         </div>
       )}
@@ -1026,28 +1033,28 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
         <div className="space-y-4">
           <div>
             <h3 className={cn("font-semibold text-sm mb-1", dark ? "text-neutral-200" : "text-slate-800")}>
-              Bug Isolation Wizard
+              {t("phase4.bugIsolationWizard")}
             </h3>
             <p className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-500")}>
-              AI analyses the failed scenarios + QA notes to generate a Fix-Bolt artifact for the developer.
+              {t("phase4.bugWizardDesc")}
             </p>
           </div>
 
           {bugReportMut.isPending ? (
-            <CancelButton onCancel={() => bugReportMut.cancel()} label="Cancel analysis" className="w-full" />
+            <CancelButton onCancel={() => bugReportMut.cancel()} label={t("phase4.cancelAnalysis")} className="w-full" />
           ) : (
             <Button
               variant="secondary"
               className="w-full justify-center"
               onClick={handleGenerateBugReport}
             >
-              {combinedBugReport ? "Regenerate Bug Report" : "Generate Fix-Bolt Artifact"}
+              {combinedBugReport ? t("phase4.regenerateBugReport") : t("phase4.generateFixBoltArtifact")}
             </Button>
           )}
 
           {bugReportMut.isPending && (
             <AIProgressIndicator
-              steps={["Analysing failures…", "Forming root cause hypothesis…", "Writing Fix-Bolt artifact…"]}
+              steps={[t("phase4.step.analysingFailures"), t("phase4.step.formingHypothesis"), t("phase4.step.writingArtifact")]}
               isPending={bugReportMut.isPending}
               dark={dark}
             />
@@ -1063,10 +1070,10 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
               </pre>
               <div className="flex gap-2">
                 <Button variant="secondary" className="gap-1.5" onClick={() => blobDownload(combinedBugReport, `fix-bolt-us${storyId}.md`)}>
-                  <Download className="h-4 w-4" /> Download .md
+                  <Download className="h-4 w-4" /> {t("phase4.downloadMd")}
                 </Button>
-                <Button variant="secondary" className="gap-1.5" onClick={() => { void navigator.clipboard.writeText(extractSection(combinedBugReport, "## Fix-Bolt Brief") || combinedBugReport); toast.success("Copied."); }}>
-                  <Copy className="h-4 w-4" /> Copy Fix-Bolt Brief
+                <Button variant="secondary" className="gap-1.5" onClick={() => { void navigator.clipboard.writeText(extractSection(combinedBugReport, "## Fix-Bolt Brief") || combinedBugReport); toast.success(t("common.copied")); }}>
+                  <Copy className="h-4 w-4" /> {t("phase4.copyFixBoltBrief")}
                 </Button>
               </div>
             </div>
@@ -1074,7 +1081,7 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
 
           <div className="flex gap-2">
             <Button variant="secondary" className="gap-1.5" onClick={onBack} disabled={failGateMut.isPending}>
-              <ChevronLeft className="h-4 w-4" /> Back
+              <ChevronLeft className="h-4 w-4" /> {t("common.back")}
             </Button>
             <Button
               className="flex-1 justify-center"
@@ -1083,13 +1090,13 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
               variant="danger"
             >
               {failGateMut.isPending
-                ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
-                : "Trigger Fix-Bolt"}
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("phase3.saving")}</>
+                : t("phase4.triggerFixBolt")}
             </Button>
           </div>
           {!combinedBugReport && (
             <p className={cn("text-xs text-center", dark ? "text-neutral-500" : "text-slate-400")}>
-              Generate the Fix-Bolt artifact first.
+              {t("phase4.generateArtifactFirst")}
             </p>
           )}
         </div>
@@ -1104,14 +1111,15 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
 
 type Stage = "A" | "B" | "C" | "D";
 
-const STAGE_LABELS: Record<Stage, string> = {
-  A: "Select Story",
-  B: "Test Plan",
-  C: "Execute",
-  D: "Testing Gate",
+const STAGE_LABEL_KEYS: Record<Stage, TranslationKey> = {
+  A: "phase4.stage.selectStory",
+  B: "phase4.stage.testPlan",
+  C: "phase4.stage.execute",
+  D: "phase4.stage.testingGate",
 };
 
 export function Phase4Workflow() {
+  const t = useT();
   const dark = useUiStore((s) => s.theme) === "dark";
   const context = useApiContext();
   const [stage, setStage] = useState<Stage>("A");
@@ -1134,7 +1142,7 @@ export function Phase4Workflow() {
   };
 
   const handleStepperGoA = () => {
-    if (stage !== "A" && !window.confirm("Go back to Stories? This discards all test-execution progress for this story (test plan run, pass/fail marks, notes, bug drafts).")) return;
+    if (stage !== "A" && !window.confirm(t("phase4.confirmGoStories"))) return;
     clearPhase4Draft();
     setStage("A");
   };
@@ -1147,16 +1155,16 @@ export function Phase4Workflow() {
     <section className="px-8 py-8">
       {/* Phase header */}
       <div className="mb-7">
-        <p className={cn("mb-1 text-xs font-bold uppercase tracking-widest", dark ? "text-violet-400" : "text-violet-600")}>Phase 4</p>
+        <p className={cn("mb-1 text-xs font-bold uppercase tracking-widest", dark ? "text-violet-400" : "text-violet-600")}>{t("common.phaseEyebrow", { n: 4 })}</p>
         <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
-          Testing
+          {t("phase4.heading")}
         </h1>
         <p className={cn("mt-2", mutedClass)}>
-          Generate AI-assisted test plans, track scenario execution, and isolate bugs with the Fix-Bolt wizard.
+          {t("phase4.subtitle")}
         </p>
       </div>
 
-      {!context ? <SignInRequired unlocks="Phase 4 testing tools" /> : null}
+      {!context ? <SignInRequired unlocks={t("phase4.signInUnlocks")} /> : null}
 
       {/* Diagram collapsible */}
       <div className={cn("mb-6 rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}>
@@ -1169,18 +1177,18 @@ export function Phase4Workflow() {
         >
           <ChevronRight className={cn("size-4 transition-transform", diagramOpen && "rotate-90")} />
           <Info className="size-4" />
-          <span>View Process Diagram (How this works)</span>
+          <span>{t("common.viewProcessDiagram")}</span>
         </button>
         {diagramOpen && (
           <div className={cn("border-t p-4", dark ? "border-neutral-800" : "border-slate-200")}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/testing.svg" alt="Phase 4 testing process diagram" className="mx-auto max-w-full" />
+            <img src="/images/testing.svg" alt={t("phase4.diagramAlt")} className="mx-auto max-w-full" />
           </div>
         )}
       </div>
 
       {!context && (
-        <Callout>Log in and select a project to use Phase 4.</Callout>
+        <Callout>{t("phase4.loginHint")}</Callout>
       )}
 
       <div className={cn("space-y-6 border-t pt-6", dark ? "border-neutral-700" : "border-slate-200")}>
@@ -1222,7 +1230,7 @@ export function Phase4Workflow() {
                           ? dark ? "text-violet-400" : "text-violet-600"
                           : dark ? "text-neutral-500" : "text-slate-400",
                       )}>
-                        {STAGE_LABELS[s]}
+                        {t(STAGE_LABEL_KEYS[s])}
                       </span>
                     </button>
                     {i < stages.length - 1 && (
@@ -1249,7 +1257,7 @@ export function Phase4Workflow() {
                 onClick={handleStepperGoA}
                 className={cn("shrink-0 text-xs font-medium transition", dark ? "text-neutral-400 hover:text-violet-400" : "text-slate-500 hover:text-violet-600")}
               >
-                ← Stories
+                {t("phase3.backToStories")}
               </button>
               {currentStoryMeta.epicTitle && (
                 <>
