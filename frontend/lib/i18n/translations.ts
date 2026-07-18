@@ -77,7 +77,7 @@ export const translations = {
     "settings.language": "Language",
     "settings.language.en": "English",
     "settings.language.pt": "Portuguese",
-    "settings.language.hint": "Also sets the language AI-generated content (Gherkin, specs) is written in.",
+    "settings.language.hint": "Sets the Apex interface language and the language AI-generated content (Gherkin, specs) is written in.",
 
     // ── common: reused across phase workflows ──
     "common.selected": "Selected",
@@ -1572,7 +1572,7 @@ export const translations = {
     "settings.language": "Idioma",
     "settings.language.en": "Inglês",
     "settings.language.pt": "Português",
-    "settings.language.hint": "Também define o idioma em que o conteúdo gerado por IA (Gherkin, specs) é escrito.",
+    "settings.language.hint": "Define o idioma da interface do Apex e do conteúdo gerado por IA (Gherkin, specs).",
 
     "common.selected": "Selecionado",
     "common.refresh": "Atualizar",

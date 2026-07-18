@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { ApiError, apiRequest, getApiBaseUrl } from "@/lib/api/client";
 import { clearJiraProjectTypeCache } from "@/lib/api/jira-adapter";
 import { AiSection } from "./sidebar/ai-section";
+import { LanguageSection } from "./sidebar/language-section";
 import { UsageSection } from "./sidebar/usage-section";
 import { ResourcesSection } from "./sidebar/resources-section";
 import { GitHubSection, GithubAutoSync } from "./sidebar/github-section";
@@ -132,7 +133,7 @@ function SearchTrigger({ dark }: { dark: boolean }) {
       <Search className="size-4 shrink-0" />
       <span className="flex-1 text-left">{t("sidebar.search")}</span>
       <kbd className={cn("rounded border px-1 font-mono text-xs", dark ? "border-neutral-700 text-neutral-600" : "border-slate-300 text-slate-400")}>
-        ⌘K
+        Ctrl + K
       </kbd>
     </button>
   );
@@ -218,6 +219,7 @@ function SettingsModal({
         {/* Content */}
         <div className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
           <AiSection dark={dark} taigaToken={taigaToken} />
+          <LanguageSection dark={dark} />
           <UsageSection dark={dark} />
           <FigmaSection dark={dark} figmaFileKey={serverConfig?.figma_file_key ?? ""} />
           <GitHubSection dark={dark} githubRepo={serverConfig?.github_repo ?? ""} />
