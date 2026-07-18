@@ -13,6 +13,7 @@ import { SignInRequired } from "@/components/sign-in-required";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn, errMsg } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/sidebar/shared";
+import { useT } from "@/lib/i18n/use-translation";
 
 function bugReportDownload(content: string, storyId: number) {
   const blob = new Blob([content], { type: "text/markdown" });
@@ -25,6 +26,7 @@ function bugReportDownload(content: string, storyId: number) {
 }
 
 export function FixBoltDashboard() {
+  const t = useT();
   const dark = useUiStore((s) => s.theme) === "dark";
   const context = useApiContext();
   const queryClient = useQueryClient();
@@ -65,13 +67,13 @@ export function FixBoltDashboard() {
       setEditing(false);
       setDraft(content);
     },
-    onError: (err: Error) => toast.error(`Load bug report failed: ${err.message}`),
+    onError: (err: Error) => toast.error(t("fixbolt.toast.loadFailed", { err: err.message })),
   });
 
   const downloadMut = useMutation({
     mutationFn: fetchContent,
     onSuccess: (content, storyId) => bugReportDownload(content, storyId),
-    onError: (err: Error) => toast.error(`Download failed: ${err.message}`),
+    onError: (err: Error) => toast.error(t("packs.toast.downloadFailed", { err: err.message })),
   });
 
   const saveMut = useMutation({
@@ -80,9 +82,9 @@ export function FixBoltDashboard() {
       void queryClient.invalidateQueries({ queryKey: REPORTS_KEY });
       setViewing({ storyId, content: md });
       setEditing(false);
-      toast.success("Bug report saved.");
+      toast.success(t("fixbolt.toast.bugReportSaved"));
     },
-    onError: (err: Error) => toast.error(`Save failed: ${err.message}`),
+    onError: (err: Error) => toast.error(t("packs.toast.saveFailed", { err: err.message })),
   });
 
   const deleteMut = useMutation({
@@ -90,9 +92,9 @@ export function FixBoltDashboard() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: REPORTS_KEY });
       setDeleteConfirm(null);
-      toast.success("Bug report deleted (story stays flagged for Regression Bypass).");
+      toast.success(t("fixbolt.toast.bugReportDeleted"));
     },
-    onError: (err: Error) => toast.error(`Delete failed: ${err.message}`),
+    onError: (err: Error) => toast.error(t("packs.toast.deleteFailed", { err: err.message })),
   });
 
   const closeModal = () => {
@@ -111,17 +113,16 @@ export function FixBoltDashboard() {
   return (
     <section className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <div className="mb-7">
-        <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Governance</p>
+        <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">{t("fixbolt.governanceEyebrow")}</p>
         <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
-          Fix Bolt
+          {t("fixbolt.heading")}
         </h1>
         <p className={cn("mt-2", mutedClass)}>
-          Manage Fix-Bolt artifacts: per-story bug reports (Phase 4 QA fails &amp; Phase 6 maintenance) and the
-          permanent Fix Log of resolved defects.
+          {t("fixbolt.subtitle")}
         </p>
       </div>
 
-      {!context && <SignInRequired unlocks="the Fix-Bolt dashboard" />}
+      {!context && <SignInRequired unlocks={t("fixbolt.unlocksFixBolt")} />}
 
       {context && (
         <div className="space-y-10">
@@ -130,7 +131,7 @@ export function FixBoltDashboard() {
             <div className="mb-3 flex items-center gap-2">
               <Zap className="size-4 text-violet-400" />
               <h2 className={cn("text-lg font-bold", dark ? "text-neutral-100" : "text-slate-800")}>
-                Bug Reports
+                {t("fixbolt.bugReports")}
               </h2>
               {reports.length > 0 && (
                 <span className={cn(
@@ -144,14 +145,13 @@ export function FixBoltDashboard() {
 
             {reportsLoading ? (
               <div className="flex items-center gap-2 text-sm text-neutral-400">
-                <Loader2 className="h-4 w-4 animate-spin" /> Loading bug reports…
+                <Loader2 className="h-4 w-4 animate-spin" /> {t("fixbolt.loadingBugReports")}
               </div>
             ) : reportsError != null ? (
-              <Callout>Failed to load bug reports: {errMsg(reportsError)}</Callout>
+              <Callout>{t("fixbolt.failedLoadBugReports", { err: errMsg(reportsError) })}</Callout>
             ) : reports.length === 0 ? (
               <p className={cn("text-sm", mutedClass)}>
-                No bug reports saved. A Fix-Bolt artifact is written per story when a Phase 4 QA gate fails or a
-                Phase 6 maintenance bug is resolved.
+                {t("fixbolt.noBugReports")}
               </p>
             ) : (
               <ul className={cn(
@@ -167,21 +167,21 @@ export function FixBoltDashboard() {
                       US#{r.story_id}
                     </span>
                     <span className={cn("min-w-0 flex-1 truncate text-sm", dark ? "text-neutral-300" : "text-slate-600")}>
-                      {r.title || "(story not in index)"}
+                      {r.title || t("packs.storyNotInIndex")}
                       <span className={cn("ml-2 text-xs", mutedClass)}>
-                        {Math.round(r.chars / 100) / 10}k chars
+                        {t("packs.charsK", { k: Math.round(r.chars / 100) / 10 })}
                       </span>
                     </span>
-                    <button className={rowBtn} title="View / edit bug report" aria-label={`View or edit bug report for US#${r.story_id}`} disabled={viewMut.isPending} onClick={() => viewMut.mutate(r.story_id)}>
+                    <button className={rowBtn} title={t("fixbolt.viewEditBugReport")} aria-label={t("fixbolt.viewEditBugReportAria", { storyId: r.story_id })} disabled={viewMut.isPending} onClick={() => viewMut.mutate(r.story_id)}>
                       <Eye className="size-4" />
                     </button>
-                    <button className={rowBtn} title="Download bug report" aria-label={`Download bug report for US#${r.story_id}`} disabled={downloadMut.isPending} onClick={() => downloadMut.mutate(r.story_id)}>
+                    <button className={rowBtn} title={t("fixbolt.downloadBugReport")} aria-label={t("fixbolt.downloadBugReportAria", { storyId: r.story_id })} disabled={downloadMut.isPending} onClick={() => downloadMut.mutate(r.story_id)}>
                       <Download className="size-4" />
                     </button>
                     <button
                       className={cn(rowBtn, "hover:!text-red-400")}
-                      title="Delete bug report"
-                      aria-label={`Delete bug report for US#${r.story_id}`}
+                      title={t("fixbolt.deleteBugReport")}
+                      aria-label={t("fixbolt.deleteBugReportAria", { storyId: r.story_id })}
                       disabled={deleteMut.isPending}
                       onClick={() => setDeleteConfirm(r.story_id)}
                     >
@@ -198,17 +198,17 @@ export function FixBoltDashboard() {
             <div className="mb-3 flex items-center gap-2">
               <ScrollText className="size-4 text-violet-400" />
               <h2 className={cn("text-lg font-bold", dark ? "text-neutral-100" : "text-slate-800")}>
-                Fix Log
+                {t("fixbolt.fixLog")}
               </h2>
-              <span className={cn("text-xs", mutedClass)}>read-only · permanent record</span>
+              <span className={cn("text-xs", mutedClass)}>{t("fixbolt.readOnlyPermanent")}</span>
             </div>
             {fixLogLoading ? (
               <div className="flex items-center gap-2 text-sm text-neutral-400">
-                <Loader2 className="h-4 w-4 animate-spin" /> Loading fix log…
+                <Loader2 className="h-4 w-4 animate-spin" /> {t("fixbolt.loadingFixLog")}
               </div>
             ) : !fixLog ? (
               <p className={cn("text-sm", mutedClass)}>
-                No fix-log entries yet. A record is appended each time a defect is resolved.
+                {t("fixbolt.noFixLogEntries")}
               </p>
             ) : (
               <pre className={cn(
@@ -225,7 +225,7 @@ export function FixBoltDashboard() {
       {typeof document !== "undefined" ? createPortal(
         <ConfirmDialog
           open={deleteConfirm !== null}
-          message={deleteConfirm === null ? "" : `Delete the bug report for US#${deleteConfirm}? The story stays flagged so its Regression Bypass is preserved.`}
+          message={deleteConfirm === null ? "" : t("fixbolt.deleteConfirm", { storyId: deleteConfirm })}
           onConfirm={() => { if (deleteConfirm !== null) deleteMut.mutate(deleteConfirm); }}
           onCancel={() => setDeleteConfirm(null)}
         />,
@@ -238,7 +238,7 @@ export function FixBoltDashboard() {
             <div
               role="dialog"
               aria-modal="true"
-              aria-label={`Bug report for US#${viewing.storyId}`}
+              aria-label={t("fixbolt.dialogAria", { storyId: viewing.storyId })}
               className={cn(
                 "flex h-[85vh] w-full max-w-3xl flex-col rounded-xl border shadow-2xl",
                 dark ? "border-neutral-700 bg-[#1b1b1c]" : "border-slate-200 bg-white",
@@ -248,32 +248,32 @@ export function FixBoltDashboard() {
               <div className={cn("flex items-center gap-3 border-b px-5 py-3", dark ? "border-neutral-800" : "border-slate-200")}>
                 <Zap className="size-4 text-violet-400" />
                 <span className={cn("flex-1 text-sm font-semibold", dark ? "text-neutral-100" : "text-slate-800")}>
-                  Bug Report — US#{viewing.storyId}
+                  {t("fixbolt.dialogTitle", { storyId: viewing.storyId })}
                 </span>
                 {editing ? (
                   <button
                     className={rowBtn}
-                    title="Save changes"
-                    aria-label="Save changes"
+                    title={t("packs.saveChanges")}
+                    aria-label={t("packs.saveChanges")}
                     disabled={saveMut.isPending || !draft.trim()}
                     onClick={() => saveMut.mutate({ storyId: viewing.storyId, md: draft })}
                   >
                     {saveMut.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
                   </button>
                 ) : (
-                  <button className={rowBtn} title="Edit" aria-label="Edit bug report" onClick={() => { setEditing(true); setDraft(viewing.content); }}>
+                  <button className={rowBtn} title={t("common.edit")} aria-label={t("fixbolt.editBugReportAria")} onClick={() => { setEditing(true); setDraft(viewing.content); }}>
                     <Pencil className="size-4" />
                   </button>
                 )}
                 <button
                   className={rowBtn}
-                  title="Download"
-                  aria-label="Download bug report"
+                  title={t("common.download")}
+                  aria-label={t("fixbolt.downloadBugReport")}
                   onClick={() => bugReportDownload(editing ? draft : viewing.content, viewing.storyId)}
                 >
                   <Download className="size-4" />
                 </button>
-                <button className={rowBtn} title="Close" aria-label="Close dialog" onClick={closeModal}>
+                <button className={rowBtn} title={t("common.close")} aria-label={t("fixbolt.closeDialogAria")} onClick={closeModal}>
                   <X className="size-4" />
                 </button>
               </div>
@@ -291,7 +291,7 @@ export function FixBoltDashboard() {
                   "min-h-0 flex-1 overflow-auto whitespace-pre-wrap p-5 font-mono text-xs leading-relaxed",
                   dark ? "text-neutral-300" : "text-slate-700",
                 )}>
-                  {viewing.content || "(empty bug report)"}
+                  {viewing.content || t("fixbolt.emptyBugReport")}
                 </pre>
               )}
             </div>
