@@ -201,6 +201,8 @@ export type ContextWikiPage = {
   wiki_id?: number | string | null;
   chars: number;
   last_modified?: string | null;
+  source?: "apex" | "taiga";
+  is_custom?: boolean;
 };
 
 export type ContextWikiStatusResponse = {

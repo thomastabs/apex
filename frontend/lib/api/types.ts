@@ -58,6 +58,8 @@ export type ContextFile = {
   chars: number;
   last_modified?: string | null;
   version?: string;
+  source?: "apex" | "taiga";
+  is_custom?: boolean;
 };
 
 export type ContextFilesResponse = {

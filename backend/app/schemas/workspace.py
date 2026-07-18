@@ -72,6 +72,8 @@ class ContextFileSchema(BaseModel):
     chars: int
     last_modified: str | None = None
     version: str = "0.0.0"
+    source: Literal["apex", "taiga"] = "apex"
+    is_custom: bool = False
 
 
 class ContextFilesResponse(BaseModel):
@@ -88,6 +90,8 @@ class ContextWikiPageSchema(BaseModel):
     wiki_id: int | str | None = None
     chars: int = 0
     last_modified: str | None = None
+    source: Literal["apex", "taiga"] = "apex"
+    is_custom: bool = False
 
 
 class ContextWikiStatusResponse(BaseModel):

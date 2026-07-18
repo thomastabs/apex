@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { BookOpen, Bot, ChevronRight, Download, FileText, RefreshCw, Save, Sparkles, Trash2, Upload } from "lucide-react";
+import { BookOpen, Bot, Check, ChevronRight, Download, FileText, RefreshCw, Save, Sparkles, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import {
   useAiConfig,
@@ -346,6 +346,7 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
   const [agentOpen, setAgentOpen] = useState(false);
   const [expandedContext, setExpandedContext] = useState<string | null>(null);
   const [expandedAgentFile, setExpandedAgentFile] = useState<string | null>(null);
+  const [selectedWikiFiles, setSelectedWikiFiles] = useState<string[]>([]);
   const [guideOpen, setGuideOpen] = useState(false);
 
   const context = useApiContext();
@@ -383,9 +384,12 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
   const activeModel = aiConfig.data?.available_models.find((m) => m.id === aiConfig.data?.model);
   const activeModelLabel = activeModel?.label ?? aiConfig.data?.model ?? t("context.currentModelFallback");
   const activeModelContextWindow = activeModel?.context_window_tokens ?? 0;
-  const wikiPages = wikiStatus.data?.pages ?? [];
+  const wikiPages = useMemo(() => wikiStatus.data?.pages ?? [], [wikiStatus.data?.pages]);
   const wikiPageCount = wikiPages.filter((page) => page.exists).length;
   const wikiTotalCount = wikiPages.length || visibleFiles.length;
+  const customWikiCount = wikiPages.filter((page) => page.is_custom).length;
+  const selectedWikiSet = useMemo(() => new Set(selectedWikiFiles), [selectedWikiFiles]);
+  const wikiPullSelection = selectedWikiFiles.length ? selectedWikiFiles : [];
 
   const projectConcept = contextFiles.data?.files.find((f) => f.filename === "project-concept.md")?.content ?? "";
   const hasProjectConcept = useMemo(() => {
@@ -395,6 +399,20 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
 
   const sectionBorderClass = dark ? "border-neutral-800" : "border-slate-300";
   const expandedPanelClass = dark ? "bg-[#20232b]" : "bg-white";
+
+  useEffect(() => {
+    if (!wikiPages.length || !selectedWikiFiles.length) return;
+    const valid = new Set(wikiPages.map((page) => page.filename));
+    const next = selectedWikiFiles.filter((filename) => valid.has(filename));
+    if (next.length !== selectedWikiFiles.length) setSelectedWikiFiles(next);
+  }, [selectedWikiFiles, wikiPages]);
+
+  function toggleWikiFile(filename: string) {
+    const next = new Set(selectedWikiFiles);
+    if (next.has(filename)) next.delete(filename);
+    else next.add(filename);
+    setSelectedWikiFiles([...next]);
+  }
 
   return (
     <div {...(dragHandlers ?? {})} className={shellClass}>
@@ -482,6 +500,44 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                       {wikiStatus.isFetching ? t("common.loading") : t("context.taigaWikiCount", { existing: wikiPageCount, total: wikiTotalCount })}
                     </span>
                   </div>
+                  {wikiPages.length ? (
+                    <div className={cn("mb-2 max-h-36 overflow-auto rounded border", dark ? "border-neutral-800 bg-neutral-950/60" : "border-slate-200 bg-white")}>
+                      {wikiPages.map((page) => {
+                        const checked = selectedWikiSet.has(page.filename);
+                        return (
+                          <button
+                            key={page.filename}
+                            type="button"
+                            className={cn(
+                              "flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs",
+                              dark ? "hover:bg-neutral-900" : "hover:bg-slate-50",
+                              checked && (dark ? "bg-violet-500/10 text-violet-300" : "bg-violet-50 text-violet-700"),
+                            )}
+                            onClick={() => toggleWikiFile(page.filename)}
+                          >
+                            <span className={cn("grid size-4 shrink-0 place-items-center rounded border", checked ? "border-violet-400" : dark ? "border-neutral-700" : "border-slate-300")}>
+                              {checked ? <Check className="size-3" /> : null}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate">
+                              <span className="font-medium">{page.label}</span>
+                              <span className="ml-2 font-mono opacity-70">{page.filename}</span>
+                            </span>
+                            {page.is_custom ? (
+                              <span className={cn("rounded border px-1 py-0.5", dark ? "border-cyan-500/30 text-cyan-300" : "border-cyan-200 text-cyan-700")}>
+                                {t("context.taigaWikiCustom")}
+                              </span>
+                            ) : null}
+                            <span className="shrink-0 opacity-70">{page.chars} ch</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                  {customWikiCount ? (
+                    <div className={cn("mb-2 text-xs", dark ? "text-neutral-500" : "text-slate-500")}>
+                      {t("context.taigaWikiCustomHint", { n: customWikiCount })}
+                    </div>
+                  ) : null}
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       className={cn(
@@ -502,8 +558,11 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                         dark ? "bg-neutral-800 text-neutral-200 hover:bg-neutral-700" : "bg-white text-slate-700 hover:bg-slate-100",
                       )}
                       disabled={pullWiki.isPending}
-                      onClick={() => confirm(t("context.taigaWikiPullConfirm"), () => pullWiki.mutate([], {
-                        onSuccess: () => toast.success(t("context.taigaWikiPulled")),
+                      onClick={() => confirm(t("context.taigaWikiPullConfirm"), () => pullWiki.mutate(wikiPullSelection, {
+                        onSuccess: () => {
+                          setSelectedWikiFiles([]);
+                          toast.success(t("context.taigaWikiPulled"));
+                        },
                         onError: (e) => toast.error(e instanceof Error ? e.message : t("context.taigaWikiPullFailed")),
                       }))}
                     >

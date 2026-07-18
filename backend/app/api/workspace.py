@@ -77,6 +77,7 @@ _CONTEXT_FILES = [
     ("figma-context.md", "Figma Context"),
 ]
 _ALLOWED_CONTEXT_FILES = {filename for filename, _ in _CONTEXT_FILES}
+_INTERNAL_CONTEXT_FILES = {"amendments.md", "maintenance-log.md"}
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _AGENT_FILES = [
@@ -122,6 +123,36 @@ def _agent_file_payload(filename: str, label: str) -> dict:
         "exists": exists,
         "ignored": _gitignore_ignores(filename),
     }
+
+
+def _is_custom_context_filename(filename: str) -> bool:
+    return (
+        filename.startswith("wiki-")
+        and filename.endswith(".md")
+        and "/" not in filename
+        and "\\" not in filename
+        and filename not in _ALLOWED_CONTEXT_FILES
+    )
+
+
+def _custom_context_label(filename: str) -> str:
+    stem = filename.removeprefix("wiki-").removesuffix(".md")
+    return stem.replace("-", " ").strip().title() or filename
+
+
+def _local_context_file_labels(context: ContextService) -> list[tuple[str, str]]:
+    labels = list(_CONTEXT_FILES)
+    known = {filename for filename, _label in labels}
+    try:
+        for path in sorted(context.file_path("project-concept.md").parent.glob("*.md")):
+            filename = path.name
+            if filename in known or filename in _INTERNAL_CONTEXT_FILES or filename.startswith("."):
+                continue
+            if _is_custom_context_filename(filename):
+                labels.append((filename, _custom_context_label(filename)))
+    except OSError as exc:
+        _logger.debug("context-files: could not list custom context files: %s", exc)
+    return labels
 
 
 @router.get("/config", response_model=ConfigResponse)
@@ -417,7 +448,7 @@ def get_context_files(ctx: RequestContext = Depends(get_request_context)):
     context = ContextService()
     context.set_active(ctx)
     files = []
-    for filename, label in _CONTEXT_FILES:
+    for filename, label in _local_context_file_labels(context):
         content = context.read_context_file(filename)
         fpath = context.file_path(filename)
         last_modified: str | None = None
@@ -434,18 +465,37 @@ def get_context_files(ctx: RequestContext = Depends(get_request_context)):
             "chars": len(content),
             "last_modified": last_modified,
             "version": context.spec_version(filename),
+            "source": "taiga" if _is_custom_context_filename(filename) else "apex",
+            "is_custom": _is_custom_context_filename(filename),
         })
     return {"files": files, "total_chars": sum(file["chars"] for file in files)}
 
 
-def _selected_context_file_labels(filenames: list[str] | None = None) -> list[tuple[str, str]]:
+def _selected_context_file_labels(context: ContextService, filenames: list[str] | None = None) -> list[tuple[str, str]]:
+    available = _local_context_file_labels(context)
+    allowed = {filename for filename, _label in available}
     selected = set(filenames or [])
     if not selected:
-        return list(_CONTEXT_FILES)
-    unknown = selected - _ALLOWED_CONTEXT_FILES
+        return available
+    unknown = selected - allowed
     if unknown:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Unknown context file: {sorted(unknown)[0]}")
-    return [(filename, label) for filename, label in _CONTEXT_FILES if filename in selected]
+    return [(filename, label) for filename, label in available if filename in selected]
+
+
+def _selected_wiki_file_labels(pages: list[dict], filenames: list[str] | None = None) -> list[tuple[str, str, str]]:
+    selected = set(filenames or [])
+    by_filename = {str(page["filename"]): page for page in pages}
+    if not selected:
+        selected = set(by_filename)
+    unknown = selected - set(by_filename)
+    if unknown:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Unknown Taiga Wiki file: {sorted(unknown)[0]}")
+    return [
+        (str(page["filename"]), str(page["label"]), str(page["slug"]))
+        for page in pages
+        if str(page["filename"]) in selected
+    ]
 
 
 def _require_taiga_workspace(x_taiga_url: str) -> str:
@@ -484,9 +534,9 @@ def publish_context_to_wiki(
     from backend.app.services import taiga_wiki_service
 
     taiga_base = _require_taiga_workspace(x_taiga_url)
-    selected = _selected_context_file_labels(payload.filenames if payload else [])
     context = ContextService()
     context.set_active(ctx)
+    selected = _selected_context_file_labels(context, payload.filenames if payload else [])
     context_files = [(filename, label, context.read_context_file(filename)) for filename, label in selected]
     try:
         results = taiga_wiki_service.publish(taiga_base, ctx.pm_token, ctx.project_id, context_files)
@@ -508,10 +558,11 @@ def pull_context_from_wiki(
     from backend.app.services import taiga_wiki_service
 
     taiga_base = _require_taiga_workspace(x_taiga_url)
-    selected = _selected_context_file_labels(payload.filenames if payload else [])
     context = ContextService()
     context.set_active(ctx)
     try:
+        pages = taiga_wiki_service.status(taiga_base, ctx.pm_token, ctx.project_id, _CONTEXT_FILES)
+        selected = _selected_wiki_file_labels(pages, payload.filenames if payload else [])
         results, contents = taiga_wiki_service.pull(taiga_base, ctx.pm_token, ctx.project_id, selected)
     except HTTPException:
         raise
@@ -1076,7 +1127,7 @@ def update_context_file(
     payload: UpdateContextFileRequest,
     ctx: RequestContext = Depends(get_request_context),
 ):
-    if filename not in _ALLOWED_CONTEXT_FILES:
+    if filename not in _ALLOWED_CONTEXT_FILES and not _is_custom_context_filename(filename):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown context file.")
     context = ContextService()
     context.set_active(ctx)
@@ -1090,11 +1141,19 @@ def update_context_file(
 
 @router.post("/context-files/{filename}/reset", response_model=ContextFilesResponse)
 def reset_context_file(filename: str, ctx: RequestContext = Depends(get_request_context)):
-    if filename not in _ALLOWED_CONTEXT_FILES:
+    if filename not in _ALLOWED_CONTEXT_FILES and not _is_custom_context_filename(filename):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown context file.")
     context = ContextService()
     context.set_active(ctx)
-    context.reset_context_file(filename)
+    if _is_custom_context_filename(filename):
+        path = context.file_path(filename)
+        try:
+            if path.exists():
+                path.unlink()
+        except OSError as exc:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to remove context file: {filename}") from exc
+    else:
+        context.reset_context_file(filename)
     return get_context_files(ctx)
 
 

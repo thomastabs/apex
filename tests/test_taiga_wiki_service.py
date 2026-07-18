@@ -6,7 +6,10 @@ from backend.app.services import taiga_wiki_service as svc
 def test_status_reports_existing_wiki_pages(monkeypatch):
     def fake_request(method, url, token, *, params=None, json=None):
         assert method == "GET"
-        return [{"id": 10, "slug": "apex-project-concept", "content": "hello", "modified_date": "2026-07-18T10:00:00Z"}]
+        return [
+            {"id": 10, "slug": "apex-project-concept", "content": "hello", "modified_date": "2026-07-18T10:00:00Z"},
+            {"id": 11, "slug": "research-notes", "content": "market", "modified_date": "2026-07-18T11:00:00Z"},
+        ]
 
     monkeypatch.setattr(svc, "_request", fake_request)
 
@@ -22,15 +25,24 @@ def test_status_reports_existing_wiki_pages(monkeypatch):
     assert pages[0]["chars"] == 5
     assert pages[1]["exists"] is False
     assert pages[1]["slug"] == "apex-tech-stack"
+    assert pages[2]["filename"] == "wiki-research-notes.md"
+    assert pages[2]["slug"] == "research-notes"
+    assert pages[2]["is_custom"] is True
+    assert pages[2]["source"] == "taiga"
 
 
 def test_publish_updates_existing_and_creates_missing(monkeypatch):
     calls = []
 
-    def fake_request(method, url, token, *, params=None, json=None):
-        calls.append((method, url, json))
+    def fake_request(method, url, token, *, params=None, json=None, data=None, files=None):
+        calls.append((method, url, json, data, files))
         if method == "GET":
+            if url.endswith("/wiki/attachments"):
+                object_id = params.get("object_id") if params else None
+                return [{"id": 99, "name": "project-concept.md"}] if object_id == 10 else []
             return [{"id": 10, "slug": "apex-project-concept", "content": "", "version": 7}]
+        if method == "POST" and url.endswith("/wiki"):
+            return {"id": 11}
         return {"ok": True}
 
     monkeypatch.setattr(svc, "_request", fake_request)
@@ -48,14 +60,24 @@ def test_publish_updates_existing_and_creates_missing(monkeypatch):
     ]
     assert calls[1][0] == "PATCH"
     assert calls[1][2] == {"content": "concept", "version": 7}
-    assert calls[2][0] == "POST"
-    assert calls[2][2] == {"project": 42, "slug": "apex-tech-stack", "content": "stack", "watchers": []}
+    assert calls[2][0] == "GET"
+    assert calls[2][1].endswith("/wiki/attachments")
+    assert calls[3][0] == "DELETE"
+    assert calls[4][0] == "POST"
+    assert calls[4][1].endswith("/wiki/attachments")
+    assert calls[4][4]["attached_file"][0] == "project-concept.md"
+    assert calls[5][0] == "POST"
+    assert calls[5][2] == {"project": 42, "slug": "apex-tech-stack", "content": "stack", "watchers": []}
+    assert calls[6][0] == "GET"
+    assert calls[6][1].endswith("/wiki/attachments")
+    assert calls[7][0] == "POST"
+    assert calls[7][4]["attached_file"][0] == "tech-stack.md"
 
 
 def test_publish_skips_empty_context_files(monkeypatch):
     calls = []
 
-    def fake_request(method, url, token, *, params=None, json=None):
+    def fake_request(method, url, token, *, params=None, json=None, data=None, files=None):
         calls.append((method, url, json))
         if method == "GET":
             return []
@@ -94,3 +116,23 @@ def test_pull_returns_matching_contents(monkeypatch):
     assert results[0]["action"] == "pulled"
     assert results[1]["action"] == "missing"
     assert results[1]["ok"] is False
+
+
+def test_pull_custom_wiki_page_by_slug(monkeypatch):
+    def fake_request(method, url, token, *, params=None, json=None):
+        assert method == "GET"
+        return [{"id": 12, "slug": "architecture-notes", "content": "custom doc"}]
+
+    monkeypatch.setattr(svc, "_request", fake_request)
+
+    results, contents = svc.pull(
+        "https://api.taiga.io/api/v1",
+        "tok",
+        42,
+        [("wiki-architecture-notes.md", "Architecture Notes", "architecture-notes")],
+    )
+
+    assert contents == {"wiki-architecture-notes.md": "custom doc"}
+    assert results == [
+        {"filename": "wiki-architecture-notes.md", "slug": "architecture-notes", "action": "pulled", "ok": True, "detail": ""},
+    ]

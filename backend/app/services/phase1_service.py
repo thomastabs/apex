@@ -1,5 +1,6 @@
 """Phase 1 requirements workflow service."""
 
+import re
 from pathlib import Path
 
 from backend.app.services.ai_service import AiService
@@ -30,6 +31,16 @@ _AGENT_CONTEXT_FILES = {
 }
 
 
+def _is_custom_context_file(filename: str) -> bool:
+    return (
+        filename.startswith("wiki-")
+        and filename.endswith(".md")
+        and "/" not in filename
+        and "\\" not in filename
+        and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*\.md", filename) is not None
+    )
+
+
 class Phase1ValidationError(ValueError):
     """Raised when a Phase 1 request is structurally invalid."""
 
@@ -58,7 +69,7 @@ class Phase1Service:
             if not name or name in seen:
                 continue
             seen.add(name)
-            if name in _EXTRA_CONTEXT_FILES:
+            if name in _EXTRA_CONTEXT_FILES or _is_custom_context_file(name):
                 content = self.context.read_context_file(name).strip()
             elif name in _AGENT_CONTEXT_FILES:
                 content = self._read_agent_context_file(name).strip()
