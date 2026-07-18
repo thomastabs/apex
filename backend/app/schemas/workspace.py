@@ -81,6 +81,9 @@ class SpecIndexResponse(BaseModel):
 
 class SaveAiConfigRequest(BaseModel):
     model: str | None = Field(None, max_length=200)
+    # "en" | "pt" — output language for AI-generated content (Gherkin, specs,
+    # etc.), independent of the model choice above.
+    language: str | None = Field(None, max_length=8)
 
 
 class SaveAiKeyRequest(BaseModel):
@@ -173,6 +176,7 @@ class AiConfigModel(BaseModel):
 
 class AiConfigResponse(BaseModel):
     model: str
+    language: str = "en"
     available_models: list[AiConfigModel] = Field(default_factory=list)
     # Usable at all right now (system env var set, or a personal key saved).
     configured_providers: list[str] = Field(default_factory=list)

@@ -142,9 +142,10 @@ def get_ai_config(
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
 ):
-    from src.ai_engine import AVAILABLE_MODELS, get_model
+    from src.ai_engine import AVAILABLE_MODELS, get_ai_language, get_model
     return {
         "model": get_model(),
+        "language": get_ai_language(),
         "available_models": AVAILABLE_MODELS,
         **_ai_key_status(auth, x_taiga_url),
     }
@@ -157,15 +158,22 @@ def save_ai_config_endpoint(
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
 ):
     from src import ai_engine, context_manager
-    from src.ai_engine import AVAILABLE_MODELS, get_model
+    from src.ai_engine import AVAILABLE_MODELS, get_ai_language, get_model
     valid_ids = {m["id"] for m in AVAILABLE_MODELS}
     model = payload.model or get_model()
     if model not in valid_ids:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid model ID.")
     context_manager.save_ai_config(model)
     ai_engine._llm_cache.clear()
+    language = get_ai_language()
+    if payload.language is not None:
+        if payload.language not in ("en", "pt"):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid language.")
+        context_manager.save_ai_language(payload.language)
+        language = payload.language
     return {
         "model": model,
+        "language": language,
         "available_models": AVAILABLE_MODELS,
         **_ai_key_status(auth, x_taiga_url),
     }

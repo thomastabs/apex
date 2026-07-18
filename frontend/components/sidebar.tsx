@@ -15,6 +15,7 @@ import {
 } from "@/lib/hooks/use-workspace";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
+import { useT } from "@/lib/i18n/use-translation";
 import { usePhase2Store } from "@/lib/stores/phase2-store";
 import { usePhase3Store } from "@/lib/stores/phase3-store";
 import { usePhase4Store } from "@/lib/stores/phase4-store";
@@ -116,6 +117,7 @@ function NavItem({
 // files) — the palette is otherwise only reachable via Ctrl/Cmd+K.
 
 function SearchTrigger({ dark }: { dark: boolean }) {
+  const t = useT();
   const setCommandPaletteOpen = useUiStore((s) => s.setCommandPaletteOpen);
   return (
     <button
@@ -128,7 +130,7 @@ function SearchTrigger({ dark }: { dark: boolean }) {
       )}
     >
       <Search className="size-3.5 shrink-0" />
-      <span className="flex-1 text-left">Search…</span>
+      <span className="flex-1 text-left">{t("sidebar.search")}</span>
       <kbd className={cn("rounded border px-1 font-mono text-xs", dark ? "border-neutral-700 text-neutral-600" : "border-slate-300 text-slate-400")}>
         ⌘K
       </kbd>
@@ -235,6 +237,7 @@ function SettingsModal({
 // ── LoginSection ──────────────────────────────────────────────────────────────
 
 function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
+  const t = useT();
   const dark = useUiStore((s) => s.theme) === "dark";
   const setAuth = useSessionStore((s) => s.setAuth);
   const clearSession = useSessionStore((s) => s.clearSession);
@@ -360,7 +363,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
             )}
           </div>
           <button className={cn("shrink-0 text-[11px] transition-colors hover:text-violet-400", dark ? "text-neutral-500" : "text-slate-500")} onClick={signOut}>
-            Sign out
+            {t("sidebar.signOut")}
           </button>
         </div>
       </>
@@ -375,8 +378,8 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
       {pmTool === "taiga" ? (
         <>
           <div className={cn("grid grid-cols-2 rounded-md p-1", dark ? "bg-neutral-800" : "bg-slate-100")}>
-            <button className={cn("h-8 rounded text-xs", dark ? "text-neutral-300" : "text-slate-500", mode === "password" && (dark ? "bg-neutral-700 text-white" : "bg-white text-slate-900 shadow-sm"))} onClick={() => setMode("password")}>Password</button>
-            <button className={cn("h-8 rounded text-xs", dark ? "text-neutral-300" : "text-slate-500", mode === "token" && (dark ? "bg-neutral-700 text-white" : "bg-white text-slate-900 shadow-sm"))} onClick={() => setMode("token")}>Auth Token</button>
+            <button className={cn("h-8 rounded text-xs", dark ? "text-neutral-300" : "text-slate-500", mode === "password" && (dark ? "bg-neutral-700 text-white" : "bg-white text-slate-900 shadow-sm"))} onClick={() => setMode("password")}>{t("login.password")}</button>
+            <button className={cn("h-8 rounded text-xs", dark ? "text-neutral-300" : "text-slate-500", mode === "token" && (dark ? "bg-neutral-700 text-white" : "bg-white text-slate-900 shadow-sm"))} onClick={() => setMode("token")}>{t("login.authToken")}</button>
           </div>
           <input value={taigaInstanceUrl} onChange={(e) => setTaigaInstanceUrl(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white placeholder:text-neutral-600 focus:border-violet-500/70" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder="Instance URL (blank = Taiga Cloud)" autoComplete="off" />
           {mode === "password" ? (
@@ -406,10 +409,10 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
             }}
           >
             <Send className="size-3" />
-            {isPending ? "Signing in..." : "Sign in to Taiga"}
+            {isPending ? "Signing in..." : t("login.signInToTaiga")}
           </button>
           <a href={pmWebUrl || "https://tree.taiga.io"} target="_blank" rel="noopener noreferrer" className={cn("flex items-center justify-center gap-1 text-[11px] transition-colors hover:text-violet-400", dark ? "text-neutral-500" : "text-slate-600")}>
-            <UserPlus className="size-3" /> Create account
+            <UserPlus className="size-3" /> {t("login.createAccount")}
           </a>
         </>
       ) : (
@@ -487,22 +490,23 @@ function useRestoreProjectConfig() {
 // ── main Sidebar ──────────────────────────────────────────────────────────────
 
 const PHASE_ITEMS = [
-  { href: "/phase1", icon: FileText,     label: "Requirements",   phase: 1 },
-  { href: "/phase2", icon: Compass,      label: "Design",         phase: 2 },
-  { href: "/phase3", icon: Code2,        label: "Implementation", phase: 3 },
-  { href: "/phase4", icon: CheckCircle2, label: "Testing",        phase: 4 },
-  { href: "/phase5", icon: Rocket,       label: "Deployment",     phase: 5 },
-  { href: "/phase6", icon: Wrench,       label: "Maintenance",    phase: 6 },
+  { href: "/phase1", icon: FileText,     labelKey: "nav.phase1" as const, phase: 1 },
+  { href: "/phase2", icon: Compass,      labelKey: "nav.phase2" as const, phase: 2 },
+  { href: "/phase3", icon: Code2,        labelKey: "nav.phase3" as const, phase: 3 },
+  { href: "/phase4", icon: CheckCircle2, labelKey: "nav.phase4" as const, phase: 4 },
+  { href: "/phase5", icon: Rocket,       labelKey: "nav.phase5" as const, phase: 5 },
+  { href: "/phase6", icon: Wrench,       labelKey: "nav.phase6" as const, phase: 6 },
 ] as const;
 
 const TOOL_ITEMS = [
-  { href: "/autopilot",    icon: Bot,      label: "Autopilot"   },
-  { href: "/fix-bolt",     icon: Zap,      label: "Fix Bolt"    },
-  { href: "/traceability", icon: Network,  label: "Trace Graph" },
-  { href: "/analytics",    icon: BarChart3, label: "Analytics"  },
+  { href: "/autopilot",    icon: Bot,       labelKey: "nav.autopilot" as const },
+  { href: "/fix-bolt",     icon: Zap,       labelKey: "nav.fixBolt" as const },
+  { href: "/traceability", icon: Network,   labelKey: "nav.traceGraph" as const },
+  { href: "/analytics",    icon: BarChart3, labelKey: "nav.analytics" as const },
 ] as const;
 
 export function Sidebar() {
+  const t = useT();
   const theme = useUiStore((s) => s.theme);
   const toggleTheme = useUiStore((s) => s.toggleTheme);
   const sidebarWidth = useUiStore((s) => s.sidebarWidth);
@@ -661,27 +665,27 @@ export function Sidebar() {
           {/* ── Zone 3: Navigation ── */}
           <nav className="shrink-0 py-2">
             {projectId ? <SearchTrigger dark={dark} /> : null}
-            <NavItem href="/" icon={Home} label="Home" active={pathname === "/"} dark={dark} />
-            <NavDivider label="Phases" dark={dark} />
+            <NavItem href="/" icon={Home} label={t("nav.home")} active={pathname === "/"} dark={dark} />
+            <NavDivider label={t("nav.dividerPhases")} dark={dark} />
             {PHASE_ITEMS.map((item) => (
               <NavItem
                 key={item.href}
                 href={item.href}
                 icon={item.icon}
-                label={item.label}
+                label={t(item.labelKey)}
                 badge={phaseBadge(stats, item.phase)}
                 active={pathname === item.href || pathname.startsWith(item.href + "/")}
                 dark={dark}
                 muted={!projectId}
               />
             ))}
-            <NavDivider label="Tools" dark={dark} />
+            <NavDivider label={t("nav.dividerTools")} dark={dark} />
             {TOOL_ITEMS.map((item) => (
               <NavItem
                 key={item.href}
                 href={item.href}
                 icon={item.icon}
-                label={item.label}
+                label={t(item.labelKey)}
                 active={pathname === item.href || pathname.startsWith(item.href + "/")}
                 dark={dark}
               />
@@ -695,7 +699,7 @@ export function Sidebar() {
           ) : (
             <div className="min-h-0 flex-1 overflow-y-auto">
               <p className={cn("px-4 py-4 text-xs leading-5", dark ? "text-neutral-600" : "text-slate-400")}>
-                Pick a project in the Workspace panel on the right to unlock the phase workflows.
+                {t("sidebar.noProjectHint")}
               </p>
             </div>
           )}
@@ -715,7 +719,7 @@ export function Sidebar() {
           )}
         >
           <Settings className="size-5" />
-          <span>Settings</span>
+          <span>{t("sidebar.settings")}</span>
         </button>
       </div>
 

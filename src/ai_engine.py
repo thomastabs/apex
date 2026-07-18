@@ -354,6 +354,18 @@ def get_model() -> str:
     return os.getenv("AI_MODEL", _DEFAULT_MODEL)
 
 
+def get_ai_language() -> str:
+    """"en" (default) or "pt" — output language for AI-generated content."""
+    try:
+        from src.context_manager import load_config  # lazy to avoid circular at module level
+        cfg = load_config()
+        if cfg.get("ai_language") in ("en", "pt"):
+            return cfg["ai_language"]
+    except Exception:
+        pass
+    return "en"
+
+
 # Cheapest model per provider — used for small classification-shaped calls
 # (triage, severity routing) instead of the user's selected ai_model. Picking
 # by the user's current provider (not hardcoding Anthropic) means this still
@@ -476,6 +488,16 @@ def _record_usage(call_name: str, model: str, usage_by_model: dict, duration_s: 
         _logger.warning("ai_usage_tracking_failed call=%s model=%s", call_name, model, exc_info=True)
 
 
+_LANGUAGE_DIRECTIVES = {
+    "pt": """
+
+---
+Language: write all natural-language prose (titles, descriptions, Gherkin step
+text, UX copy, review notes, comments) in European Portuguese (pt-PT). Keep
+code, identifiers, file paths, JSON/schema field names, and endpoint paths in
+English as usual — only human-readable prose content is translated.""",
+}
+
 _FENCE_TAG = "user_content"
 
 _FENCE_SYSTEM_RULE = """
@@ -527,8 +549,9 @@ def _image_content_blocks(images: list[dict] | None) -> list[dict]:
 def _make_messages(system: str, human: str, *, model: str = "", images: list[dict] | None = None) -> list:
     """Build [SystemMessage, HumanMessage].
 
-    The fence security rule is appended to every system prompt here — the single
-    funnel both _invoke and _invoke_structured_with_progress pass through.
+    The fence security rule and the language directive are appended to every
+    system prompt here — the single funnel both _invoke and
+    _invoke_structured_with_progress pass through.
 
     Anthropic models: cache_control=ephemeral on the system turn (5-min cache, ~10% cost on hits).
     OpenAI and Google models: plain text — cache_control is not supported.
@@ -537,7 +560,7 @@ def _make_messages(system: str, human: str, *, model: str = "", images: list[dic
     image content blocks on the human turn (U1). Otherwise the human turn stays a
     plain string — byte-for-byte the previous behaviour.
     """
-    system = system + _FENCE_SYSTEM_RULE
+    system = system + _LANGUAGE_DIRECTIVES.get(get_ai_language(), "") + _FENCE_SYSTEM_RULE
     img_blocks = _image_content_blocks(images) if (images and _provider_supports_vision(model)) else []
     human_content = [{"type": "text", "text": human}, *img_blocks] if img_blocks else human
     if _get_provider(model) == "anthropic":

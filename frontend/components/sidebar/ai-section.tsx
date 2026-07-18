@@ -2,7 +2,9 @@
 import { useEffect, useState } from "react";
 import { Bot, ExternalLink, KeyRound } from "lucide-react";
 import { toast } from "sonner";
-import { useAiConfig, useDeleteAiKey, useSaveAiConfig, useSaveAiKey } from "@/lib/hooks/use-workspace";
+import { useAiConfig, useDeleteAiKey, useSaveAiConfig, useSaveAiKey, useSaveAiLanguage } from "@/lib/hooks/use-workspace";
+import { useUiStore, type Locale } from "@/lib/stores/ui-store";
+import { useT } from "@/lib/i18n/use-translation";
 import { cn } from "@/lib/utils";
 import { PanelHeader, type DragSectionProps } from "./shared";
 
@@ -168,12 +170,23 @@ type AiSectionProps = DragSectionProps & {
 };
 
 export function AiSection({ dark, taigaToken, shellClass, dragHandlers, onDragStart }: AiSectionProps) {
+  const t = useT();
   const [aiOpen, setAiOpen] = useState(false);
   const [localModel, setLocalModel] = useState("");
   const [localProvider, setLocalProvider] = useState<ProviderKey>("anthropic");
 
   const aiConfig = useAiConfig();
   const saveAiConfigMutation = useSaveAiConfig();
+  const saveAiLanguageMutation = useSaveAiLanguage();
+  const locale = useUiStore((s) => s.locale);
+  const setLocale = useUiStore((s) => s.setLocale);
+
+  function changeLanguage(lang: Locale) {
+    setLocale(lang);
+    saveAiLanguageMutation.mutate(lang, {
+      onError: () => toast.error("Failed to save language."),
+    });
+  }
 
   const availableModels = aiConfig.data?.available_models ?? FALLBACK_MODELS;
   const systemProviders = aiConfig.data?.system_providers ?? [];
@@ -259,6 +272,26 @@ export function AiSection({ dark, taigaToken, shellClass, dragHandlers, onDragSt
             {saveAiConfigMutation.isSuccess ? (
               <p className={cn("text-center text-xs", dark ? "text-emerald-400" : "text-emerald-600")}>Model config saved.</p>
             ) : null}
+            <div>
+              <p className={cn("mb-2 text-xs", dark ? "text-neutral-500" : "text-slate-500")}>{t("settings.language")}</p>
+              <div className={cn("flex overflow-hidden rounded border", dark ? "border-neutral-700" : "border-slate-300")}>
+                {(["en", "pt"] as Locale[]).map((lang) => (
+                  <button
+                    key={lang}
+                    className={cn(
+                      "flex-1 py-1.5 text-xs font-semibold transition-colors",
+                      locale === lang
+                        ? "bg-violet-700 text-white"
+                        : dark ? "bg-neutral-900 text-neutral-400 hover:bg-neutral-800" : "bg-slate-100 text-slate-500 hover:bg-slate-200",
+                    )}
+                    onClick={() => changeLanguage(lang)}
+                  >
+                    {lang === "en" ? t("settings.language.en") : t("settings.language.pt")}
+                  </button>
+                ))}
+              </div>
+              <p className={cn("mt-1.5 text-xs", dark ? "text-neutral-500" : "text-slate-500")}>{t("settings.language.hint")}</p>
+            </div>
           </div>
         ) : null}
       </section>

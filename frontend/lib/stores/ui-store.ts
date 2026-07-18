@@ -5,6 +5,7 @@ import { persist } from "zustand/middleware";
 
 type UiTheme = "dark" | "light";
 type TraceabilityView = "flowchart" | "cluster";
+export type Locale = "en" | "pt";
 
 // The right-hand Workspace sidebar's sections, in default order — drag to
 // reorder there, persisted per user (see components/right-sidebar.tsx).
@@ -31,6 +32,7 @@ type UiState = {
   traceabilityView: TraceabilityView;
   commandPaletteOpen: boolean;
   searchFocus: SearchFocus | null;
+  locale: Locale;
   setTheme: (theme: UiTheme) => void;
   toggleTheme: () => void;
   setSidebarWidth: (width: number) => void;
@@ -42,6 +44,7 @@ type UiState = {
   setCommandPaletteOpen: (open: boolean) => void;
   setSearchFocus: (focus: SearchFocus) => void;
   clearSearchFocus: () => void;
+  setLocale: (locale: Locale) => void;
 };
 
 export const useUiStore = create<UiState>()(
@@ -56,6 +59,7 @@ export const useUiStore = create<UiState>()(
       traceabilityView: "flowchart",
       commandPaletteOpen: false,
       searchFocus: null,
+      locale: "en",
       setTheme: (theme) => set({ theme }),
       toggleTheme: () => set({ theme: get().theme === "dark" ? "light" : "dark" }),
       setSidebarWidth: (width) => set({ sidebarWidth: Math.min(900, Math.max(280, width)) }),
@@ -67,6 +71,7 @@ export const useUiStore = create<UiState>()(
       setCommandPaletteOpen: (commandPaletteOpen) => set({ commandPaletteOpen }),
       setSearchFocus: (searchFocus) => set({ searchFocus }),
       clearSearchFocus: () => set({ searchFocus: null }),
+      setLocale: (locale) => set({ locale }),
     }),
     {
       name: "apex-ui",

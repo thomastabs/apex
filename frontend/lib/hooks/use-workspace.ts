@@ -42,6 +42,7 @@ import {
   resetAllContextFiles,
   resetContextFile,
   saveAiConfig,
+  saveAiLanguage,
   saveAiKey,
   saveGithubConfig,
   saveFigmaConfig,
@@ -593,6 +594,17 @@ export function useSaveAiConfig() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ model }: { model: string }) => saveAiConfig(auth!, model),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "ai-config"] });
+    },
+  });
+}
+
+export function useSaveAiLanguage() {
+  const auth = useAuthContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (language: string) => saveAiLanguage(auth!, language),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "ai-config"] });
     },

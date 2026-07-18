@@ -290,6 +290,36 @@ def test_save_ai_config_rejects_unknown_model(monkeypatch):
     assert exc_info.value.status_code == 400
 
 
+def test_save_ai_config_persists_valid_language(monkeypatch):
+    saved_language: list[str] = []
+    monkeypatch.setattr(
+        "src.ai_engine.AVAILABLE_MODELS",
+        [{"id": "claude-fable-5", "label": "Fable 5"}],
+    )
+    monkeypatch.setattr("src.context_manager.save_ai_config", lambda model: None)
+    monkeypatch.setattr("src.context_manager.save_ai_language", lambda lang: saved_language.append(lang))
+    monkeypatch.setattr("src.ai_engine._llm_cache", {})
+
+    response = save_ai_config_endpoint(SaveAiConfigRequest(model="claude-fable-5", language="pt"), _AUTH)
+
+    assert response["language"] == "pt"
+    assert saved_language == ["pt"]
+
+
+def test_save_ai_config_rejects_unknown_language(monkeypatch):
+    monkeypatch.setattr(
+        "src.ai_engine.AVAILABLE_MODELS",
+        [{"id": "claude-fable-5", "label": "Fable 5"}],
+    )
+    monkeypatch.setattr("src.context_manager.save_ai_config", lambda model: None)
+    monkeypatch.setattr("src.ai_engine._llm_cache", {})
+
+    with pytest.raises(HTTPException) as exc_info:
+        save_ai_config_endpoint(SaveAiConfigRequest(model="claude-fable-5", language="fr"), _AUTH)
+
+    assert exc_info.value.status_code == 400
+
+
 # ── ai-config / ai-keys (bring-your-own AI provider key, per PM account) ──────
 
 

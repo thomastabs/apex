@@ -407,6 +407,11 @@ def save_ai_config(model: str) -> None:
     _update_config(lambda data: data.__setitem__("ai_model", model), log_label="save_ai_config")
 
 
+def save_ai_language(language: str) -> None:
+    """Persist the AI output language ("en"/"pt") to the shared config file."""
+    _update_config(lambda data: data.__setitem__("ai_language", language), log_label="save_ai_language")
+
+
 def save_config(project_id: int) -> None:
     """Persist the active project ID to the file share root so it survives container restarts."""
     def _mutate(data: dict) -> None:

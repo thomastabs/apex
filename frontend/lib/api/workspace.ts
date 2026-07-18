@@ -96,6 +96,8 @@ export function getServerConfig(context: AuthContext, projectId?: number | null)
 
 export type AiConfigResponse = {
   model: string;
+  // "en" | "pt" — output language for AI-generated content (Gherkin, specs, etc.).
+  language: string;
   available_models: Array<{ id: string; label: string; role: string; provider?: string; note?: string; context_window_tokens?: number }>;
   // Usable right now (system env var set, or a personal key saved).
   configured_providers: string[];
@@ -111,10 +113,19 @@ export function getAiConfig(context: AuthContext) {
 }
 
 export function saveAiConfig(context: AuthContext, model: string) {
-  return apiRequest<{ model: string }>("/api/workspace/ai-config", {
+  return apiRequest<AiConfigResponse>("/api/workspace/ai-config", {
     method: "POST",
     context,
     body: { model },
+  });
+}
+
+// Backend keeps the current model when `model` is omitted from the payload.
+export function saveAiLanguage(context: AuthContext, language: string) {
+  return apiRequest<AiConfigResponse>("/api/workspace/ai-config", {
+    method: "POST",
+    context,
+    body: { language },
   });
 }
 

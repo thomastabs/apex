@@ -551,6 +551,18 @@ class TestPromptFencing:
         msgs = _make_messages("You are a tester.", "hello", model="claude-sonnet-4-6")
         assert "Security rule" in msgs[0].content[0]["text"]
 
+    def test_language_directive_appended_when_pt_configured(self, monkeypatch):
+        from src import ai_engine
+        monkeypatch.setattr(ai_engine, "get_ai_language", lambda: "pt")
+        msgs = ai_engine._make_messages("You are a tester.", "hello", model="gpt-4.1")
+        assert "European Portuguese" in msgs[0].content
+
+    def test_no_language_directive_when_english_default(self, monkeypatch):
+        from src import ai_engine
+        monkeypatch.setattr(ai_engine, "get_ai_language", lambda: "en")
+        msgs = ai_engine._make_messages("You are a tester.", "hello", model="gpt-4.1")
+        assert "European Portuguese" not in msgs[0].content
+
     def test_pm_sourced_fields_are_fenced_in_prompts(self, monkeypatch):
         from src import ai_engine
         captured = {}

@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
+import { useT } from "@/lib/i18n/use-translation";
+import type { TranslationKey } from "@/lib/i18n/translations";
 import { useAiConfig } from "@/lib/hooks/use-workspace";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog, type DragSectionProps } from "./sidebar/shared";
@@ -27,12 +29,15 @@ const SECTION_ICONS: Record<SectionId, typeof FolderOpen> = {
   packs: FileCode2, testplans: ClipboardCheck, deploypacks: Rocket, users: Users,
 };
 
-const SECTION_LABELS: Record<SectionId, string> = {
-  project: "Project", context: "Context", board: "Board", tasks: "Tasks",
-  packs: "Packs", testplans: "Test Plans", deploypacks: "Deploy Packs", users: "Users",
+const SECTION_LABEL_KEYS: Record<SectionId, TranslationKey> = {
+  project: "workspace.section.project", context: "workspace.section.context",
+  board: "workspace.section.board", tasks: "workspace.section.tasks",
+  packs: "workspace.section.packs", testplans: "workspace.section.testplans",
+  deploypacks: "workspace.section.deploypacks", users: "workspace.section.users",
 };
 
 export function RightSidebar() {
+  const t = useT();
   const theme = useUiStore((s) => s.theme);
   const dark = theme === "dark";
   const width = useUiStore((s) => s.rightSidebarWidth);
@@ -149,7 +154,7 @@ export function RightSidebar() {
         </button>
         <button
           onClick={() => setCommandPaletteOpen(true)}
-          aria-label="Search"
+          aria-label={t("workspace.search")}
           className={cn("grid size-9 shrink-0 place-items-center self-center rounded transition-colors", dark ? "text-neutral-600 hover:text-neutral-300" : "text-slate-300 hover:text-slate-600")}
         >
           <Search className="size-4" />
@@ -161,7 +166,7 @@ export function RightSidebar() {
             <button
               key={id}
               onClick={() => setCollapsed(false)}
-              aria-label={`Expand ${SECTION_LABELS[id]} panel`}
+              aria-label={`Expand ${t(SECTION_LABEL_KEYS[id])} panel`}
               className={cn("grid size-9 place-items-center rounded transition-colors", dark ? "text-neutral-600 hover:text-neutral-300" : "text-slate-300 hover:text-slate-600")}
             >
               <Icon className="size-4" />
@@ -171,7 +176,7 @@ export function RightSidebar() {
         </div>
         <div className="flex min-h-0 flex-1 items-center justify-center pb-4">
           <span className={cn("rotate-180 select-none text-xs font-bold uppercase tracking-[0.2em] [writing-mode:vertical-rl]", dark ? "text-neutral-700" : "text-slate-300")}>
-            Workspace
+            {t("workspace.title")}
           </span>
         </div>
       </aside>
@@ -215,7 +220,7 @@ export function RightSidebar() {
       {/* ── Header — matches the left sidebar's zone 1 ── */}
       <header className={cn("flex h-[52px] shrink-0 items-center gap-2 border-b px-4", dark ? "border-neutral-800" : "border-slate-200")}>
         <span className={cn("min-w-0 flex-1 truncate text-sm font-semibold", dark ? "text-neutral-200" : "text-slate-800")}>
-          Workspace
+          {t("workspace.title")}
         </span>
         {currentModel ? (
           <span
@@ -231,7 +236,7 @@ export function RightSidebar() {
         <button
           onClick={() => setCommandPaletteOpen(true)}
           className={cn("grid size-7 shrink-0 place-items-center rounded transition-colors", dark ? "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200" : "text-slate-400 hover:bg-slate-200 hover:text-slate-700")}
-          aria-label="Search"
+          aria-label={t("workspace.search")}
           title="Search (⌘K)"
         >
           <Search className="size-3.5" />
@@ -271,7 +276,7 @@ export function RightSidebar() {
         })}
         {!showTaigaSections && !projectId ? (
           <p className={cn("px-4 py-4 text-xs leading-5", dark ? "text-neutral-600" : "text-slate-400")}>
-            Select a project above to unlock the phase workflows.
+            {t("workspace.selectProjectHint")}
           </p>
         ) : null}
       </div>

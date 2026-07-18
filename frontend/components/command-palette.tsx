@@ -7,9 +7,16 @@ import { Command, FileText, Layers3, ListChecks, Moon, RefreshCw, Sun } from "lu
 import { toast } from "sonner";
 import { useBoard, useContextFiles, useProjectTasks, useRebuildStoryIndex } from "@/lib/hooks/use-workspace";
 import { useUiStore } from "@/lib/stores/ui-store";
+import { useT } from "@/lib/i18n/use-translation";
+import type { TranslationKey } from "@/lib/i18n/translations";
 import { cn } from "@/lib/utils";
 
-type CmdGroup = "Commands" | "Epics" | "Stories" | "Tasks" | "Files";
+type CmdGroup = "commands" | "epics" | "stories" | "tasks" | "files";
+
+const GROUP_LABEL_KEYS: Record<CmdGroup, TranslationKey> = {
+  commands: "palette.group.commands", epics: "palette.group.epics", stories: "palette.group.stories",
+  tasks: "palette.group.tasks", files: "palette.group.files",
+};
 
 type CmdItem = {
   id: string;
@@ -24,40 +31,42 @@ type CmdItem = {
 const MAX_RESULTS_PER_GROUP = 6;
 
 function useCommands() {
+  const t = useT();
+  const locale = useUiStore((s) => s.locale);
   const router = useRouter();
   const toggleTheme = useUiStore((s) => s.toggleTheme);
   const theme = useUiStore((s) => s.theme);
   const rebuildIndex = useRebuildStoryIndex();
 
   return useMemo<CmdItem[]>(() => [
-    { id: "home",   label: "Go to Home",    keywords: "home dashboard",  icon: <Command className="size-3.5" />, group: "Commands", action: () => router.push("/") },
-    { id: "phase1", label: "Go to Phase 1 — Requirements", keywords: "phase1 requirements gherkin stories epics", icon: <Command className="size-3.5" />, group: "Commands", action: () => router.push("/phase1") },
-    { id: "phase2", label: "Go to Phase 2 — Design",       keywords: "phase2 design tech stack architecture",   icon: <Command className="size-3.5" />, group: "Commands", action: () => router.push("/phase2") },
-    { id: "phase3", label: "Go to Phase 3 — Implementation", keywords: "phase3 implementation code",           icon: <Command className="size-3.5" />, group: "Commands", action: () => router.push("/phase3") },
-    { id: "phase4", label: "Go to Phase 4 — Testing",      keywords: "phase4 testing qa bdd",                  icon: <Command className="size-3.5" />, group: "Commands", action: () => router.push("/phase4") },
-    { id: "phase5", label: "Go to Phase 5 — Deployment",   keywords: "phase5 deployment deploy",               icon: <Command className="size-3.5" />, group: "Commands", action: () => router.push("/phase5") },
-    { id: "phase6", label: "Go to Phase 6 — Traceability", keywords: "phase6 maintenance traceability conformance spec code", icon: <Command className="size-3.5" />, group: "Commands", action: () => router.push("/phase6") },
+    { id: "home",   label: t("palette.cmd.home"),   keywords: "home dashboard",  icon: <Command className="size-3.5" />, group: "commands", action: () => router.push("/") },
+    { id: "phase1", label: t("palette.cmd.phase1"), keywords: "phase1 requirements gherkin stories epics", icon: <Command className="size-3.5" />, group: "commands", action: () => router.push("/phase1") },
+    { id: "phase2", label: t("palette.cmd.phase2"), keywords: "phase2 design tech stack architecture",   icon: <Command className="size-3.5" />, group: "commands", action: () => router.push("/phase2") },
+    { id: "phase3", label: t("palette.cmd.phase3"), keywords: "phase3 implementation code",           icon: <Command className="size-3.5" />, group: "commands", action: () => router.push("/phase3") },
+    { id: "phase4", label: t("palette.cmd.phase4"), keywords: "phase4 testing qa bdd",                  icon: <Command className="size-3.5" />, group: "commands", action: () => router.push("/phase4") },
+    { id: "phase5", label: t("palette.cmd.phase5"), keywords: "phase5 deployment deploy",               icon: <Command className="size-3.5" />, group: "commands", action: () => router.push("/phase5") },
+    { id: "phase6", label: t("palette.cmd.phase6"), keywords: "phase6 maintenance traceability conformance spec code", icon: <Command className="size-3.5" />, group: "commands", action: () => router.push("/phase6") },
     {
       id: "theme",
-      label: `Switch to ${theme === "dark" ? "Light" : "Dark"} Mode`,
+      label: theme === "dark" ? t("palette.cmd.themeLight") : t("palette.cmd.themeDark"),
       keywords: "theme dark light mode toggle",
       icon: theme === "dark" ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />,
-      group: "Commands",
+      group: "commands",
       action: toggleTheme,
     },
     {
       id: "rebuild",
-      label: "Rebuild Story Index",
+      label: t("palette.cmd.rebuildIndex"),
       keywords: "rebuild index story sync",
       icon: <RefreshCw className="size-3.5" />,
-      group: "Commands",
+      group: "commands",
       action: () => rebuildIndex.mutate(undefined, {
         onSuccess: () => toast.success("Story index rebuilt"),
         onError:   () => toast.error("Failed to rebuild story index"),
       }),
     },
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [theme]);
+  ], [theme, locale]);
 }
 
 // Epics/stories/context files/PM tasks — searched by title/subject/content,
@@ -88,7 +97,7 @@ function useSearchResults(query: string): CmdItem[] {
       if (epic.subject.toLowerCase().includes(q) || epic.description?.toLowerCase().includes(q) || `#${epic.ref}`.includes(q)) {
         epicItems.push({
           id: `epic-${epic.id}`, label: epic.subject, sublabel: `#${epic.ref}`,
-          keywords: epic.subject.toLowerCase(), icon: <Layers3 className="size-3.5" />, group: "Epics",
+          keywords: epic.subject.toLowerCase(), icon: <Layers3 className="size-3.5" />, group: "epics",
           action: () => reveal({ kind: "epic", id: epic.id }),
         });
       }
@@ -96,7 +105,7 @@ function useSearchResults(query: string): CmdItem[] {
         if (story.subject.toLowerCase().includes(q) || story.description?.toLowerCase().includes(q) || `#${story.ref}`.includes(q)) {
           storyItems.push({
             id: `story-${story.id}`, label: story.subject, sublabel: `#${story.ref} · ${epic.subject}`,
-            keywords: story.subject.toLowerCase(), icon: <Layers3 className="size-3.5" />, group: "Stories",
+            keywords: story.subject.toLowerCase(), icon: <Layers3 className="size-3.5" />, group: "stories",
             action: () => reveal({ kind: "story", id: story.id }),
           });
         }
@@ -107,7 +116,7 @@ function useSearchResults(query: string): CmdItem[] {
       .filter((t) => t.subject.toLowerCase().includes(q) || `#${t.ref}`.includes(q))
       .map((t) => ({
         id: `task-${t.id}`, label: t.subject, sublabel: `#${t.ref} · ${t.user_story_subject}`,
-        keywords: t.subject.toLowerCase(), icon: <ListChecks className="size-3.5" />, group: "Tasks" as const,
+        keywords: t.subject.toLowerCase(), icon: <ListChecks className="size-3.5" />, group: "tasks" as const,
         action: () => reveal({ kind: "task", id: t.id }),
       }));
 
@@ -115,7 +124,7 @@ function useSearchResults(query: string): CmdItem[] {
       .filter((f) => f.label.toLowerCase().includes(q) || f.filename.toLowerCase().includes(q) || f.content.toLowerCase().includes(q))
       .map((f) => ({
         id: `file-${f.filename}`, label: f.label, sublabel: f.filename,
-        keywords: f.label.toLowerCase(), icon: <FileText className="size-3.5" />, group: "Files" as const,
+        keywords: f.label.toLowerCase(), icon: <FileText className="size-3.5" />, group: "files" as const,
         action: () => reveal({ kind: "file", filename: f.filename }),
       }));
 
@@ -130,6 +139,7 @@ function useSearchResults(query: string): CmdItem[] {
 }
 
 export function CommandPalette() {
+  const t = useT();
   const open = useUiStore((s) => s.commandPaletteOpen);
   const setOpen = useUiStore((s) => s.setCommandPaletteOpen);
   const [query, setQuery] = useState("");
@@ -210,7 +220,7 @@ export function CommandPalette() {
               "h-12 flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-500",
               dark ? "text-white" : "text-slate-950",
             )}
-            placeholder="Type a command or search…"
+            placeholder={t("palette.placeholder")}
             value={query}
             onChange={(e) => { setQuery(e.target.value); setActiveIdx(0); }}
           />
@@ -221,7 +231,7 @@ export function CommandPalette() {
         <div className="max-h-96 overflow-y-auto py-1">
           {filtered.length === 0 ? (
             <div className={cn("px-4 py-8 text-center text-sm", dark ? "text-neutral-500" : "text-slate-400")}>
-              No results
+              {t("palette.noResults")}
             </div>
           ) : (
             filtered.map((item, i) => {
@@ -231,7 +241,7 @@ export function CommandPalette() {
                 <div key={item.id}>
                   {showHeader ? (
                     <div className={cn("px-4 pb-1 pt-2.5 text-xs font-semibold uppercase tracking-widest", dark ? "text-neutral-600" : "text-slate-400")}>
-                      {item.group}
+                      {t(GROUP_LABEL_KEYS[item.group])}
                     </div>
                   ) : null}
                   <button
@@ -258,9 +268,9 @@ export function CommandPalette() {
           )}
         </div>
         <div className={cn("border-t px-4 py-2 text-xs", dark ? "border-neutral-800 text-neutral-600" : "border-slate-200 text-slate-400")}>
-          <span className="mr-3"><kbd className="font-mono">↑↓</kbd> navigate</span>
-          <span className="mr-3"><kbd className="font-mono">↵</kbd> run</span>
-          <span><kbd className="font-mono">esc</kbd> close</span>
+          <span className="mr-3"><kbd className="font-mono">↑↓</kbd> {t("palette.navigate")}</span>
+          <span className="mr-3"><kbd className="font-mono">↵</kbd> {t("palette.run")}</span>
+          <span><kbd className="font-mono">esc</kbd> {t("palette.close")}</span>
         </div>
       </div>
     </div>,
