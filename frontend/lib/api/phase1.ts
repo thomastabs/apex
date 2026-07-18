@@ -175,6 +175,48 @@ export function pushPhase1Stories(context: RequestContext, body: Phase1PushStori
   return pushPhase1StoriesDirect(context, body);
 }
 
+function buildPhase1StoryDescription(
+  epicSubject: string,
+  story: CompiledStory,
+  clarifications: QaPair[] = [],
+) {
+  const sections = [
+    "## Apex Requirement Spec",
+    "",
+    "### Epic",
+    epicSubject || "General",
+    "",
+    "### User Story",
+    story.title,
+    "",
+    "### Size",
+    story.size || "Unspecified",
+    "",
+    "### Acceptance Criteria (Gherkin)",
+    "```gherkin",
+    story.gherkin.trim(),
+    "```",
+  ];
+
+  if (clarifications.length > 0) {
+    sections.push(
+      "",
+      "### Clarifications",
+      ...clarifications.map((qa) => `- **Q:** ${qa.question}\n  **A:** ${qa.answer}`),
+    );
+  }
+
+  sections.push(
+    "",
+    "### Traceability",
+    "- Source phase: Apex Phase 1 Requirements",
+    "- Locked artifact: `functional-spec.md`",
+    "- PM tags: `apex`, `gherkin`, story size",
+  );
+
+  return sections.join("\n");
+}
+
 async function pushPhase1StoriesDirect(
   context: RequestContext,
   body: Phase1PushStoriesRequest,
@@ -220,7 +262,7 @@ async function pushPhase1StoriesDirect(
         ctx,
         String(epic.id),
         story.title,
-        boldGherkinKeywords(story.gherkin),
+        buildPhase1StoryDescription(epic.subject, story, body.clarifications ?? []),
         ["apex", "gherkin", story.size].filter(Boolean),
         undefined,
       );
@@ -279,11 +321,4 @@ async function pushPhase1StoriesDirect(
     story_urls: storyUrls,
     push_failures: pushFailures.length > 0 ? pushFailures : undefined,
   };
-}
-
-function boldGherkinKeywords(gherkin: string) {
-  return gherkin.replace(
-    /^(Feature:|Background:|Scenario(?: Outline)?:|Examples:|Given|When|Then|And|But)\b/gm,
-    "**$1**",
-  );
 }

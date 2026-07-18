@@ -44,6 +44,31 @@ describe("phase1 push PM context", () => {
     expect(ctx.projectId).not.toBe("phase5");
   });
 
+  it("pushes structured requirement spec sections to PM story descriptions", async () => {
+    await pushPhase1Stories(CONTEXT, {
+      epic_subject: "Core Text Editor Interface",
+      epic_description: "desc",
+      stories: [{
+        title: "Story A",
+        gherkin: "Feature: Text editing\n\n  Scenario: Type text\n    Given an empty document\n    When I type hello\n    Then the document shows hello",
+        size: "S",
+      }],
+      clarifications: [{ question: "Offline mode?", answer: "Autosave locally." }],
+    } as never);
+
+    const [, epicId, title, description, tags] = createStory.mock.calls[0];
+    expect(epicId).toBe("99");
+    expect(title).toBe("Story A");
+    expect(description).toContain("## Apex Requirement Spec");
+    expect(description).toContain("### Acceptance Criteria (Gherkin)");
+    expect(description).toContain("```gherkin");
+    expect(description).toContain("Feature: Text editing");
+    expect(description).toContain("### Clarifications");
+    expect(description).toContain("Offline mode?");
+    expect(description).toContain("`functional-spec.md`");
+    expect(tags).toEqual(["apex", "gherkin", "S"]);
+  });
+
   it("writes answered clarifications to the epic description via updateEpic", async () => {
     await pushPhase1Stories(CONTEXT, {
       epic_subject: "Core Text Editor Interface",

@@ -73,6 +73,25 @@ def test_extract_epic_id_none_when_no_epic():
     assert svc._extract_epic_id({}) is None
 
 
+def test_format_reconstruction_story_input_preserves_structured_pm_spec():
+    raw = {
+        "description": (
+            "## Apex Requirement Spec\n\n"
+            "### Acceptance Criteria (Gherkin)\n"
+            "```gherkin\nFeature: Login\n```\n\n"
+            "### Clarifications\n- **Q:** MFA?\n  **A:** Required"
+        )
+    }
+
+    text = svc._format_reconstruction_story_input(100, "Login", raw)
+
+    assert "## PM Story" in text
+    assert "### Existing PM Description" in text
+    assert "## Apex Requirement Spec" in text
+    assert "### Clarifications" in text
+    assert "functional-spec.md" in text
+
+
 # ---------------------------------------------------------------------------
 # _taiga_get_all — pagination
 # ---------------------------------------------------------------------------
@@ -217,16 +236,20 @@ def test_reconstruct_writes_gherkin_and_advances(ctx, monkeypatch):
         {"id": 101, "subject": "Logout", "description": "user logs out"},
     ])
     # AI returns Gherkin for 100 only; 101 gets nothing → skipped.
-    monkeypatch.setattr(
-        "src.ai_engine.reconstruct_gherkin_batch",
-        lambda title, items: {100: "Feature: Login\n  Scenario: ok", 101: "   "},
-    )
+    captured = {}
+    def fake_ai(title, items):
+        captured["items"] = items
+        return {100: "Feature: Login\n  Scenario: ok", 101: "   "}
+    monkeypatch.setattr("src.ai_engine.reconstruct_gherkin_batch", fake_ai)
 
     out = svc.reconstruct_epic(10, "https://api.taiga.io/api/v1", "tok", 42)
 
     by_id = {r["story_id"]: r for r in out["results"]}
     assert by_id[100]["status"] == "ok"
     assert by_id[101]["status"] == "skipped"
+    assert captured["items"][0]["description"].startswith("## PM Story")
+    assert "### Existing PM Description" in captured["items"][0]["description"]
+    assert "user logs in" in captured["items"][0]["description"]
     # the written story now has gherkin recorded in the index
     assert ctx.get_story_index()["100"]["has_gherkin"] is True
 

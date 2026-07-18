@@ -102,6 +102,36 @@ def _extract_epic_id(story: dict) -> int | None:
     return None
 
 
+def _description_text(raw: dict) -> str:
+    """Return the best plain PM description field available for reconstruction."""
+    for key in ("description", "description_diff", "description_html"):
+        value = raw.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _format_reconstruction_story_input(story_id: int, title: str, raw: dict) -> str:
+    """Shape PM story data as explicit requirements context for Gherkin rebuilds."""
+    description = _description_text(raw)
+    sections = [
+        "## PM Story",
+        "",
+        "### Story ID",
+        str(story_id),
+        "",
+        "### Title",
+        title,
+        "",
+        "### Existing PM Description",
+        description or "(empty)",
+        "",
+        "### Reconstruction Instructions",
+        "Use the existing PM description as the requirement source. Preserve any Apex Requirement Spec, clarifications, and acceptance criteria sections when present, then produce clean Gherkin for functional-spec.md.",
+    ]
+    return "\n".join(sections)
+
+
 # ---------------------------------------------------------------------------
 # Public service methods
 # ---------------------------------------------------------------------------
@@ -220,10 +250,11 @@ def reconstruct_epic(epic_id: int, taiga_base: str, token: str, project_id: int)
     for entry in epic_stories:
         sid = entry["story_id"]
         raw = raw_map.get(sid, {})
+        title = entry.get("title") or raw.get("subject", f"Story {sid}")
         ai_input.append({
             "id": sid,
-            "title": entry.get("title") or raw.get("subject", f"Story {sid}"),
-            "description": raw.get("description") or "",
+            "title": title,
+            "description": _format_reconstruction_story_input(sid, title, raw),
         })
 
     # One AI call for the whole epic
