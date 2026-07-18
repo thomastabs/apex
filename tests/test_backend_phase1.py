@@ -2,6 +2,7 @@
 
 import pytest
 
+import backend.app.services.phase1_service as phase1_service
 from backend.app.services.phase1_service import Phase1Service, Phase1ValidationError
 from backend.app.services.request_context import RequestContext
 
@@ -408,9 +409,22 @@ def test_suggest_epics_appends_selected_extra_context_file():
     service.suggest_epics(_ctx(), hint="", extra_context_files=["decisions.md"])
 
     concept, _hint = ai.suggest_args
-    assert "## Additional Apex Context Files" in concept
+    assert "## Additional Grounding Files" in concept
     assert "### decisions.md" in concept
     assert "Prefer OAuth" in concept
+
+
+def test_suggest_epics_appends_selected_agent_file(monkeypatch, tmp_path):
+    monkeypatch.setattr(phase1_service, "_REPO_ROOT", tmp_path)
+    (tmp_path / "AGENTS.md").write_text("# Agents\n\n- Keep commits user-authored.", encoding="utf-8")
+    service, ai, _context = _service()
+
+    service.suggest_epics(_ctx(), hint="", extra_context_files=["AGENTS.md"])
+
+    concept, _hint = ai.suggest_args
+    assert "## Additional Grounding Files" in concept
+    assert "### AGENTS.md" in concept
+    assert "Keep commits user-authored" in concept
 
 
 def test_save_and_get_constraints_roundtrip():

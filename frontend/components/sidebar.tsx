@@ -11,10 +11,10 @@ import {
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  useAiConfig, useMe, useProjects, useServerConfig, useStoryIndexStats,
+  useMe, useProjects, useSaveAiLanguage, useServerConfig, useStoryIndexStats,
 } from "@/lib/hooks/use-workspace";
 import { useSessionStore } from "@/lib/stores/session-store";
-import { useUiStore } from "@/lib/stores/ui-store";
+import { useUiStore, type Locale } from "@/lib/stores/ui-store";
 import { useT } from "@/lib/i18n/use-translation";
 import { usePhase2Store } from "@/lib/stores/phase2-store";
 import { usePhase3Store } from "@/lib/stores/phase3-store";
@@ -136,6 +136,45 @@ function SearchTrigger({ dark }: { dark: boolean }) {
         Ctrl + K
       </kbd>
     </button>
+  );
+}
+
+function LanguageQuickSwitch({ dark, taigaToken }: { dark: boolean; taigaToken: string }) {
+  const t = useT();
+  const locale = useUiStore((s) => s.locale);
+  const setLocale = useUiStore((s) => s.setLocale);
+  const saveAiLanguageMutation = useSaveAiLanguage();
+
+  function changeLanguage(lang: Locale) {
+    setLocale(lang);
+    if (!taigaToken) return;
+    saveAiLanguageMutation.mutate(lang, {
+      onError: () => toast.error(t("ai.toast.failedSaveLanguage")),
+    });
+  }
+
+  return (
+    <div
+      className={cn("flex h-7 shrink-0 overflow-hidden rounded border", dark ? "border-neutral-800" : "border-slate-300")}
+      aria-label={t("settings.language")}
+    >
+      {(["en", "pt"] as Locale[]).map((lang, index) => (
+        <button
+          key={lang}
+          type="button"
+          onClick={() => changeLanguage(lang)}
+          className={cn(
+            "w-8 text-[11px] font-bold uppercase transition-colors",
+            index > 0 && (dark ? "border-l border-neutral-800" : "border-l border-slate-300"),
+            locale === lang
+              ? "bg-violet-700 text-white"
+              : dark ? "bg-neutral-950 text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200" : "bg-white text-slate-500 hover:bg-slate-200 hover:text-slate-700",
+          )}
+        >
+          {lang}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -643,6 +682,7 @@ export function Sidebar() {
             </span>
           )}
         </Link>
+        <LanguageQuickSwitch dark={dark} taigaToken={taigaToken ?? ""} />
         <button onClick={toggleTheme} className={cn("grid size-7 shrink-0 place-items-center rounded transition-colors", dark ? "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200" : "text-slate-400 hover:bg-slate-200 hover:text-slate-700")} aria-label={t("sidebar.toggleTheme")}>
           {dark ? <Moon className="size-3.5" /> : <Sun className="size-3.5" />}
         </button>

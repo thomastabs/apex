@@ -97,6 +97,9 @@ export function AiGroundingNote({
                 </span>
                 <span className="min-w-0 flex-1 truncate">
                   <span className="font-mono">{file.filename}</span>
+                  {file.label && file.label !== file.filename ? (
+                    <span className="ml-2 opacity-70">{file.label}</span>
+                  ) : null}
                   <span className="ml-2 opacity-70">{file.chars} ch</span>
                 </span>
               </button>

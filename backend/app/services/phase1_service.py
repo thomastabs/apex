@@ -1,5 +1,7 @@
 """Phase 1 requirements workflow service."""
 
+from pathlib import Path
+
 from backend.app.services.ai_service import AiService
 from backend.app.services.context_service import ContextService
 from backend.app.services.request_context import RequestContext
@@ -18,6 +20,13 @@ _EXTRA_CONTEXT_FILES = {
     "runtime-spec.md",
     "github-context.md",
     "figma-context.md",
+}
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_AGENT_CONTEXT_FILES = {
+    "AGENTS.md",
+    "CLAUDE.md",
+    "CODEX.md",
+    "GEMINI.md",
 }
 
 
@@ -49,9 +58,12 @@ class Phase1Service:
             if not name or name in seen:
                 continue
             seen.add(name)
-            if name not in _EXTRA_CONTEXT_FILES:
+            if name in _EXTRA_CONTEXT_FILES:
+                content = self.context.read_context_file(name).strip()
+            elif name in _AGENT_CONTEXT_FILES:
+                content = self._read_agent_context_file(name).strip()
+            else:
                 raise Phase1ValidationError(f"Unknown extra context file: {name}")
-            content = self.context.read_context_file(name).strip()
             if not content:
                 continue
             remaining = _EXTRA_CONTEXT_MAX_TOTAL_CHARS - total
@@ -63,7 +75,18 @@ class Phase1Service:
             sections.append(f"### {name}\n\n{clipped}{suffix}")
         if not sections:
             return ""
-        return "\n\n## Additional Apex Context Files\n\n" + "\n\n".join(sections)
+        return "\n\n## Additional Grounding Files\n\n" + "\n\n".join(sections)
+
+    def _read_agent_context_file(self, filename: str) -> str:
+        path = (_REPO_ROOT / filename).resolve()
+        if path.parent != _REPO_ROOT:
+            raise Phase1ValidationError(f"Invalid extra context file: {filename}")
+        if not path.exists():
+            return ""
+        try:
+            return path.read_text(encoding="utf-8")
+        except UnicodeDecodeError as exc:
+            raise Phase1ValidationError(f"Agent context file must be UTF-8 text: {filename}") from exc
 
     def _with_extra_context(self, text: str, filenames: list[str] | None) -> str:
         return (text or "") + self._extra_context_block(filenames)

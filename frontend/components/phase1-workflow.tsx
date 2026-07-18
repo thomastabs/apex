@@ -18,7 +18,7 @@ import {
   usePushPhase1Stories,
   useSuggestPhase1Epics,
 } from "@/lib/hooks/use-phase1";
-import { useAiConfig, useContextFiles, useUpdateContextFile } from "@/lib/hooks/use-workspace";
+import { useAgentFiles, useAiConfig, useContextFiles, useUpdateContextFile } from "@/lib/hooks/use-workspace";
 import type { CrossCheckResult } from "@/lib/api/phase1";
 import { CrossCheckPanel, AltModelSelect } from "@/components/cross-check-panel";
 import { GuideTheAI } from "@/components/guide-the-ai";
@@ -187,6 +187,7 @@ export function Phase1Workflow() {
 
   const epics = usePhase1Epics();
   const contextFiles = useContextFiles();
+  const agentFiles = useAgentFiles();
   const suggestEpics = useSuggestPhase1Epics();
   const analyzeGaps = useAnalyzeGaps();
   const generate = useGenerateNlStories();
@@ -203,6 +204,16 @@ export function Phase1Workflow() {
   const push = usePushPhase1Stories();
   const genConstraints = useGenerateConstraints();
   const updateContextFile = useUpdateContextFile();
+  const availableGroundingFiles = useMemo(
+    () => [
+      ...(contextFiles.data?.files ?? []),
+      ...(agentFiles.data?.files ?? []).map((file) => ({
+        ...file,
+        label: `${file.label} (${file.filename})`,
+      })),
+    ],
+    [agentFiles.data?.files, contextFiles.data?.files],
+  );
 
   useEffect(() => {
     draftRestored.current = false;
@@ -809,7 +820,7 @@ export function Phase1Workflow() {
                 <AiGroundingNote
                   files={AI_GROUNDING.phase1SuggestEpics}
                   dark={dark}
-                  availableFiles={contextFiles.data?.files}
+                  availableFiles={availableGroundingFiles}
                   selectedExtraFiles={suggestExtraContext}
                   onSelectedExtraFilesChange={setSuggestExtraContext}
                 />
@@ -906,7 +917,7 @@ export function Phase1Workflow() {
                   <AiGroundingNote
                     files={AI_GROUNDING.phase1GapAnalysis}
                     dark={dark}
-                    availableFiles={contextFiles.data?.files}
+                    availableFiles={availableGroundingFiles}
                     selectedExtraFiles={gapExtraContext}
                     onSelectedExtraFilesChange={setGapExtraContext}
                   />
@@ -1072,7 +1083,7 @@ export function Phase1Workflow() {
             <AiGroundingNote
               files={AI_GROUNDING.phase1GenerateStories}
               dark={dark}
-              availableFiles={contextFiles.data?.files}
+              availableFiles={availableGroundingFiles}
               selectedExtraFiles={generateExtraContext}
               onSelectedExtraFilesChange={setGenerateExtraContext}
             />
@@ -1132,7 +1143,7 @@ export function Phase1Workflow() {
                 <AiGroundingNote
                   files={AI_GROUNDING.phase1GenerateStories}
                   dark={dark}
-                  availableFiles={contextFiles.data?.files}
+                  availableFiles={availableGroundingFiles}
                   selectedExtraFiles={generateExtraContext}
                   onSelectedExtraFilesChange={setGenerateExtraContext}
                 />
@@ -1180,7 +1191,7 @@ export function Phase1Workflow() {
               <AiGroundingNote
                 files={AI_GROUNDING.phase1ReviewDraft}
                 dark={dark}
-                availableFiles={contextFiles.data?.files}
+                availableFiles={availableGroundingFiles}
                 selectedExtraFiles={reviewExtraContext}
                 onSelectedExtraFilesChange={setReviewExtraContext}
               />
@@ -1424,7 +1435,7 @@ export function Phase1Workflow() {
                       <AiGroundingNote
                         files={AI_GROUNDING.phase1Constraints}
                         dark={dark}
-                        availableFiles={contextFiles.data?.files}
+                        availableFiles={availableGroundingFiles}
                         selectedExtraFiles={constraintsExtraContext}
                         onSelectedExtraFilesChange={setConstraintsExtraContext}
                       />
