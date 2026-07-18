@@ -134,6 +134,16 @@ class UpdateAgentFileRequest(BaseModel):
     content: str = Field(..., max_length=200_000)
 
 
+class GenerateAgentFileRequest(BaseModel):
+    grounding_files: list[str] = Field(default_factory=list, max_length=25)
+
+
+class GenerateAgentFileResponse(BaseModel):
+    filename: str
+    content: str
+    grounding_files: list[str] = Field(default_factory=list)
+
+
 class UpdateContextFileRequest(BaseModel):
     content: str = Field(..., max_length=5_242_880)  # 5 MB
     note: str = Field("", max_length=500)

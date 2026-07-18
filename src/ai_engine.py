@@ -1070,6 +1070,48 @@ def format_nl_draft(story_list: NLStoryList) -> str:
     return "\n".join(lines).rstrip()
 
 
+def generate_agent_instructions(
+    filename: str,
+    label: str,
+    grounding_files: list[tuple[str, str]],
+    *,
+    existing_content: str = "",
+) -> str:
+    """Draft a repo-root instruction file for a coding agent.
+
+    The caller supplies validated grounding filenames + UTF-8 content. This
+    only returns a draft; saving stays an explicit user action in the UI.
+    """
+    context_blocks = []
+    for context_filename, content in grounding_files:
+        if content.strip():
+            context_blocks.append(f"### {context_filename}\n{fence_user_content(content[:40_000])}")
+    context_md = "\n\n".join(context_blocks) or "No grounding files were selected."
+
+    system = f"""You are a senior engineering lead drafting {label} ({filename}) for a repository.
+
+Write a practical Markdown instruction file for coding agents working in this project.
+Ground it only in the provided files and existing draft. Do not invent credentials,
+URLs, deployment secrets, or policies that are not supported by the inputs.
+
+The draft should be directly usable at the repository root. Include:
+- project purpose and current state when grounded by the files;
+- architecture and workflow notes that matter to coding agents;
+- coding, testing, verification, and commit rules when grounded by the files;
+- current backlog or next work when grounded by the files;
+- file-specific guidance for the target agent when useful.
+
+Return only the Markdown file content. Do not wrap it in code fences."""
+    human = (
+        f"Target file: {filename}\n"
+        f"Target label: {label}\n\n"
+        f"Existing draft/content for this target file:\n{fence_user_content(existing_content or '(empty)')}\n\n"
+        f"Selected grounding files:\n{context_md}\n\n"
+        "Generate the complete revised draft for the target file."
+    )
+    return _ai_retry(lambda: _invoke(system, human, get_model(), max_tokens=6000, timeout=300, temperature=0.2))
+
+
 # --- Multi-model cross-check (Phase 1) -------------------------------------
 # Run story generation through the active model AND a second configured provider,
 # then diff the scenario sets so the human sees what one model surfaced and the

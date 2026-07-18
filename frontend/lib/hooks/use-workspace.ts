@@ -17,6 +17,7 @@ import {
   deleteStory,
   getAiConfig,
   getAgentFiles,
+  generateAgentFile,
   getBoard,
   getContextFiles,
   getContextWikiStatus,
@@ -183,6 +184,14 @@ export function useUpdateAgentFile() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "agent-files"] });
     },
+  });
+}
+
+export function useGenerateAgentFile() {
+  const context = useApiContext();
+  return useMutation({
+    mutationFn: ({ filename, groundingFiles }: { filename: string; groundingFiles: string[] }) =>
+      generateAgentFile(context!, filename, groundingFiles),
   });
 }
 

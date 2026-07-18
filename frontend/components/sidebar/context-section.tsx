@@ -8,6 +8,7 @@ import {
   useAgentFiles,
   useContextFiles,
   useContextWikiStatus,
+  useGenerateAgentFile,
   usePublishContextToWiki,
   usePullContextFromWiki,
   useRebuildStoryIndex,
@@ -166,20 +167,109 @@ function downloadContextZip(files: Array<{ filename: string; content: string }>,
   downloadZip(files, "apex-context-files.zip");
 }
 
-function AgentFileEditor({
-  file,
+function AgentGroundingPicker({
+  files,
+  selected,
+  onChange,
   dark,
 }: {
-  file: { filename: string; label: string; content: string; chars: number; exists: boolean; ignored: boolean };
+  files: Array<{ filename: string; label: string; chars: number; content: string }>;
+  selected: string[];
+  onChange: (files: string[]) => void;
   dark: boolean;
 }) {
   const t = useT();
+  const [open, setOpen] = useState(false);
+  const selectedSet = useMemo(() => new Set(selected), [selected]);
+  const selectable = files.filter((file) => file.content.trim());
+
+  function toggle(filename: string) {
+    const next = new Set(selected);
+    if (next.has(filename)) next.delete(filename);
+    else next.add(filename);
+    onChange([...next]);
+  }
+
+  return (
+    <div className={cn("border-t px-3 py-2 text-xs", dark ? "border-neutral-800 text-neutral-500" : "border-slate-200 text-slate-500")}>
+      <button
+        type="button"
+        className={cn("flex w-full items-center justify-between rounded border px-2 py-1.5", dark ? "border-neutral-700 text-neutral-300 hover:border-violet-500/50" : "border-slate-300 text-slate-700 hover:border-violet-300")}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span>{t("agentFiles.grounding")}</span>
+        <span className="flex items-center gap-1">
+          <span>{selected.length}</span>
+          <ChevronRight className={cn("size-3 transition-transform", open && "rotate-90")} />
+        </span>
+      </button>
+      {open ? (
+        <div className={cn("mt-2 max-h-44 overflow-auto rounded border p-2", dark ? "border-neutral-800 bg-neutral-950" : "border-slate-200 bg-white")}>
+          {selectable.length ? selectable.map((file) => {
+            const checked = selectedSet.has(file.filename);
+            return (
+              <button
+                key={file.filename}
+                type="button"
+                className={cn(
+                  "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left",
+                  dark ? "hover:bg-neutral-900" : "hover:bg-slate-50",
+                  checked && (dark ? "bg-violet-500/10 text-violet-300" : "bg-violet-50 text-violet-700"),
+                )}
+                onClick={() => toggle(file.filename)}
+              >
+                <span className={cn("grid size-4 shrink-0 place-items-center rounded border", checked ? "border-violet-400" : dark ? "border-neutral-700" : "border-slate-300")}>
+                  {checked ? <Check className="size-3" /> : null}
+                </span>
+                <span className="min-w-0 flex-1 truncate">
+                  <span className="font-mono">{file.filename}</span>
+                  {file.label && file.label !== file.filename ? <span className="ml-2 opacity-70">{file.label}</span> : null}
+                  <span className="ml-2 opacity-70">{file.chars} ch</span>
+                </span>
+              </button>
+            );
+          }) : (
+            <div className="px-2 py-1.5 opacity-70">{t("agentFiles.noGroundingFiles")}</div>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function AgentFileEditor({
+  file,
+  dark,
+  groundingFiles,
+}: {
+  file: { filename: string; label: string; content: string; chars: number; exists: boolean; ignored: boolean };
+  dark: boolean;
+  groundingFiles: Array<{ filename: string; label: string; chars: number; content: string }>;
+}) {
+  const t = useT();
   const [value, setValue] = useState(file.content);
+  const [selectedGrounding, setSelectedGrounding] = useState<string[]>([]);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
   const update = useUpdateAgentFile();
+  const generate = useGenerateAgentFile();
 
   useEffect(() => {
     setValue(file.content);
   }, [file.content, file.filename]);
+
+  function importAgentFile(files: FileList | null) {
+    const selectedFile = files?.[0];
+    if (!selectedFile) return;
+    selectedFile.text()
+      .then((content) => {
+        setValue(content);
+        toast.success(t("agentFiles.imported", { file: file.filename }));
+      })
+      .catch(() => toast.error(t("agentFiles.importFailed", { file: file.filename })))
+      .finally(() => {
+        if (importInputRef.current) importInputRef.current.value = "";
+      });
+  }
 
   return (
     <div className={cn("border-t", dark ? "border-neutral-800" : "border-slate-200")}>
@@ -195,7 +285,37 @@ function AgentFileEditor({
         value={value}
         onChange={(event) => setValue(event.target.value)}
       />
+      <AgentGroundingPicker files={groundingFiles} selected={selectedGrounding} onChange={setSelectedGrounding} dark={dark} />
+      <input
+        ref={importInputRef}
+        type="file"
+        accept=".md,.markdown,text/markdown,text/plain"
+        className="hidden"
+        onChange={(event) => importAgentFile(event.target.files)}
+      />
       <div className="grid grid-cols-2 gap-2 p-2">
+        <button
+          className={cn("flex h-8 items-center justify-center gap-1 rounded text-xs disabled:opacity-50", dark ? "bg-neutral-800 text-violet-200 hover:bg-neutral-700" : "bg-violet-50 text-violet-700 hover:bg-violet-100")}
+          disabled={generate.isPending}
+          onClick={() => generate.mutate(
+            { filename: file.filename, groundingFiles: selectedGrounding },
+            {
+              onSuccess: (draft) => {
+                setValue(draft.content);
+                toast.success(t("agentFiles.generated", { file: file.filename }));
+              },
+              onError: (e) => toast.error(e instanceof Error ? e.message : t("agentFiles.generateFailed", { file: file.filename })),
+            },
+          )}
+        >
+          <Sparkles className="size-3" /> {generate.isPending ? t("common.generating") : t("agentFiles.generateDraft")}
+        </button>
+        <button
+          className={cn("flex h-8 items-center justify-center gap-1 rounded text-xs", dark ? "bg-neutral-700 text-neutral-200 hover:bg-neutral-600" : "bg-slate-100 text-slate-700 hover:bg-slate-200")}
+          onClick={() => importInputRef.current?.click()}
+        >
+          <Upload className="size-3" /> {t("agentFiles.importFile")}
+        </button>
         <button
           className={cn("flex h-8 items-center justify-center gap-1 rounded text-xs", dark ? "bg-violet-700 text-violet-50 hover:bg-violet-600" : "bg-violet-600 text-white hover:bg-violet-700")}
           disabled={update.isPending}
@@ -380,6 +500,23 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
   const totalChars = contextFiles.data?.total_chars ?? 0;
   const sizeColor = contextSizeColor(totalChars, dark);
   const visibleFiles = useVisibleContextFiles(contextFiles.data?.files);
+  const agentGroundingFiles = useMemo(
+    () => [
+      ...(contextFiles.data?.files ?? []).map((file) => ({
+        filename: file.filename,
+        label: file.label,
+        chars: file.chars,
+        content: file.content,
+      })),
+      ...(agentFiles.data?.files ?? []).map((file) => ({
+        filename: file.filename,
+        label: file.label,
+        chars: file.chars,
+        content: file.content,
+      })),
+    ],
+    [agentFiles.data?.files, contextFiles.data?.files],
+  );
 
   const activeModel = aiConfig.data?.available_models.find((m) => m.id === aiConfig.data?.model);
   const activeModelLabel = activeModel?.label ?? aiConfig.data?.model ?? t("context.currentModelFallback");
@@ -675,7 +812,11 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                         <span className="font-mono text-xs opacity-70">{file.filename}</span>
                       </button>
                       {expandedAgentFile === file.filename ? (
-                        <AgentFileEditor file={file} dark={dark} />
+                        <AgentFileEditor
+                          file={file}
+                          dark={dark}
+                          groundingFiles={agentGroundingFiles.filter((groundingFile) => groundingFile.filename !== file.filename)}
+                        />
                       ) : null}
                     </div>
                   ))}

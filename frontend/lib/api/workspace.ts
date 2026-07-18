@@ -255,8 +255,22 @@ export type AgentFilesResponse = {
   files: AgentFile[];
 };
 
+export type GenerateAgentFileResponse = {
+  filename: string;
+  content: string;
+  grounding_files: string[];
+};
+
 export function getAgentFiles(context: RequestContext) {
   return apiRequest<AgentFilesResponse>("/api/workspace/agent-files", { context });
+}
+
+export function generateAgentFile(context: RequestContext, filename: string, groundingFiles: string[]) {
+  return apiRequest<GenerateAgentFileResponse>(`/api/workspace/agent-files/${encodeURIComponent(filename)}/generate`, {
+    method: "POST",
+    context,
+    body: { grounding_files: groundingFiles },
+  });
 }
 
 export function updateAgentFile(context: RequestContext, filename: string, content: string) {

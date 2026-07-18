@@ -30,6 +30,8 @@ from backend.app.schemas.workspace import (
     GithubPackConfigResponse,
     GithubPatResponse,
     GithubSyncStatusResponse,
+    GenerateAgentFileRequest,
+    GenerateAgentFileResponse,
     GithubWebhookConfigResponse,
     ImportBootstrapResponse,
     ImportReconstructResponse,
@@ -123,6 +125,13 @@ def _agent_file_payload(filename: str, label: str) -> dict:
         "exists": exists,
         "ignored": _gitignore_ignores(filename),
     }
+
+
+def _agent_file_label(filename: str) -> str:
+    for allowed_filename, label in _AGENT_FILES:
+        if allowed_filename == filename:
+            return label
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown agent file.")
 
 
 def _is_custom_context_filename(filename: str) -> bool:
@@ -634,6 +643,66 @@ def save_status_mapping(
 @router.get("/agent-files", response_model=AgentFilesResponse)
 def get_agent_files(_ctx: RequestContext = Depends(get_request_context)):
     return {"files": [_agent_file_payload(filename, label) for filename, label in _AGENT_FILES]}
+
+
+def _agent_generation_grounding(ctx: RequestContext, filenames: list[str]) -> list[tuple[str, str]]:
+    context = ContextService()
+    context.set_active(ctx)
+    available_context = {filename for filename, _label in _local_context_file_labels(context)}
+    result: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for filename in filenames:
+        if filename in seen:
+            continue
+        seen.add(filename)
+        if filename in available_context:
+            result.append((filename, context.read_context_file(filename)[:60_000]))
+            continue
+        if filename in _ALLOWED_AGENT_FILES:
+            path = _agent_file_path(filename)
+            if path.exists():
+                try:
+                    result.append((filename, path.read_text(encoding="utf-8")[:60_000]))
+                except UnicodeDecodeError as exc:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                        detail=f"{filename} must be UTF-8 text.",
+                    ) from exc
+            continue
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Unknown grounding file: {filename}")
+    return result
+
+
+@router.post(
+    "/agent-files/{filename}/generate",
+    response_model=GenerateAgentFileResponse,
+    dependencies=[Depends(ai_rate_limit)],
+)
+def generate_agent_file(
+    filename: str,
+    payload: GenerateAgentFileRequest,
+    ctx: RequestContext = Depends(get_request_context),
+):
+    from src import ai_engine
+    from src.ai_engine import AIError, AIRateLimitError, AITimeoutError
+
+    label = _agent_file_label(filename)
+    existing = _agent_file_payload(filename, label)["content"]
+    grounding = _agent_generation_grounding(ctx, payload.grounding_files)
+    try:
+        content = ai_engine.generate_agent_instructions(
+            filename,
+            label,
+            grounding,
+            existing_content=existing,
+        )
+    except AIRateLimitError as exc:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
+    except AITimeoutError as exc:
+        raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail=str(exc)) from exc
+    except (AIError, EnvironmentError) as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+    return {"filename": filename, "content": content, "grounding_files": [name for name, _content in grounding]}
 
 
 @router.put("/agent-files/{filename}", response_model=AgentFilesResponse)

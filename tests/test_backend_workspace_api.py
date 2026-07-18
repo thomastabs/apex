@@ -12,6 +12,7 @@ from backend.app.api.workspace import (
     get_config,
     get_context_files,
     get_figma_token,
+    generate_agent_file,
     get_github_pat,
     get_story_phase_status,
     github_sync_status,
@@ -37,6 +38,7 @@ from backend.app.schemas.workspace import (
     SaveConfigRequest,
     SetPhaseStatusRequest,
     SetScaffoldRequest,
+    GenerateAgentFileRequest,
     UpdateAgentFileRequest,
     UpdateContextFileRequest,
 )
@@ -647,11 +649,69 @@ def test_agent_files_list_and_update_safe_repo_root(tmp_path, monkeypatch):
     assert next(file for file in updated["files"] if file["filename"] == "AGENTS.md")["exists"] is True
 
 
+def test_generate_agent_file_uses_selected_grounding(tmp_path, monkeypatch):
+    import backend.app.api.workspace as ws
+    from src import ai_engine
+
+    monkeypatch.setattr(ws, "_REPO_ROOT", tmp_path)
+    (tmp_path / "CLAUDE.md").write_text("# Claude\nExisting Claude guidance.", encoding="utf-8")
+
+    seen = {}
+
+    def fake_generate(filename, label, grounding_files, *, existing_content=""):
+        seen["filename"] = filename
+        seen["label"] = label
+        seen["grounding_files"] = grounding_files
+        seen["existing_content"] = existing_content
+        return "# Agents\nDrafted from selected files."
+
+    monkeypatch.setattr(ai_engine, "generate_agent_instructions", fake_generate)
+
+    response = generate_agent_file(
+        "AGENTS.md",
+        GenerateAgentFileRequest(grounding_files=["project-concept.md", "CLAUDE.md"]),
+        RequestContext(pm_token="tok", project_id=42),
+    )
+
+    assert response == {
+        "filename": "AGENTS.md",
+        "content": "# Agents\nDrafted from selected files.",
+        "grounding_files": ["project-concept.md", "CLAUDE.md"],
+    }
+    assert seen["filename"] == "AGENTS.md"
+    assert seen["label"] == "Codex / Agent Instructions"
+    assert [name for name, _content in seen["grounding_files"]] == ["project-concept.md", "CLAUDE.md"]
+    assert "Project Concept" in seen["grounding_files"][0][1]
+    assert seen["grounding_files"][1][1] == "# Claude\nExisting Claude guidance."
+
+
+def test_generate_agent_file_rejects_unknown_grounding_file():
+    with pytest.raises(HTTPException) as exc_info:
+        generate_agent_file(
+            "AGENTS.md",
+            GenerateAgentFileRequest(grounding_files=["../../secret.md"]),
+            RequestContext(pm_token="tok", project_id=42),
+        )
+
+    assert exc_info.value.status_code == 404
+
+
 def test_update_agent_file_rejects_unknown_filename():
     with pytest.raises(HTTPException) as exc_info:
         update_agent_file(
             "../README.md",
             UpdateAgentFileRequest(content="x"),
+            RequestContext(pm_token="tok", project_id=42),
+        )
+
+    assert exc_info.value.status_code == 404
+
+
+def test_generate_agent_file_rejects_unknown_filename():
+    with pytest.raises(HTTPException) as exc_info:
+        generate_agent_file(
+            "../README.md",
+            GenerateAgentFileRequest(grounding_files=[]),
             RequestContext(pm_token="tok", project_id=42),
         )
 
