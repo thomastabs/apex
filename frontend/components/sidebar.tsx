@@ -26,6 +26,7 @@ import { ApiError, apiRequest, getApiBaseUrl } from "@/lib/api/client";
 import { clearJiraProjectTypeCache } from "@/lib/api/jira-adapter";
 import { AiSection } from "./sidebar/ai-section";
 import { LanguageSection } from "./sidebar/language-section";
+import { StatusMappingSection } from "./sidebar/status-mapping-section";
 import { UsageSection } from "./sidebar/usage-section";
 import { ResourcesSection } from "./sidebar/resources-section";
 import { GitHubSection, GithubAutoSync } from "./sidebar/github-section";
@@ -259,6 +260,7 @@ function SettingsModal({
         <div className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
           <AiSection dark={dark} taigaToken={taigaToken} />
           <LanguageSection dark={dark} />
+          <StatusMappingSection dark={dark} />
           <UsageSection dark={dark} />
           <FigmaSection dark={dark} figmaFileKey={serverConfig?.figma_file_key ?? ""} />
           <GitHubSection dark={dark} githubRepo={serverConfig?.github_repo ?? ""} />

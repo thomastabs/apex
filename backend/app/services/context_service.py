@@ -43,6 +43,12 @@ class ContextService:
     def github_pack_config(self) -> dict:
         return context_manager.get_project_github_pack_config()
 
+    def status_mapping(self) -> dict[str, str]:
+        return context_manager.get_project_status_mapping()
+
+    def save_status_mapping(self, mapping: dict[str, str]) -> None:
+        context_manager.save_project_status_mapping(mapping)
+
     def save_github_pack_config(
         self,
         *,
@@ -435,4 +441,3 @@ class ContextService:
 
     def reset_cache(self) -> None:
         context_manager.reset_cache()
-

@@ -23,6 +23,9 @@ from backend.app.schemas.workspace import (
     SpecIndexResponse,
     ConfigResponse,
     ContextFilesResponse,
+    ContextWikiStatusResponse,
+    ContextWikiSyncRequest,
+    ContextWikiSyncResponse,
     FigmaTokenResponse,
     GithubPackConfigResponse,
     GithubPatResponse,
@@ -38,10 +41,12 @@ from backend.app.schemas.workspace import (
     AcknowledgeFigmaChangeRequest,
     SaveConfigRequest,
     SaveGithubPackConfigRequest,
+    SaveStatusMappingRequest,
     ScanFigmaChangesRequest,
     ScanFigmaChangesResponse,
     SetPhaseStatusRequest,
     SetScaffoldRequest,
+    StatusMappingResponse,
     SetStoryFigmaLinkRequest,
     SyncFigmaContextRequest,
     SaveTraceLayoutRequest,
@@ -431,6 +436,141 @@ def get_context_files(ctx: RequestContext = Depends(get_request_context)):
             "version": context.spec_version(filename),
         })
     return {"files": files, "total_chars": sum(file["chars"] for file in files)}
+
+
+def _selected_context_file_labels(filenames: list[str] | None = None) -> list[tuple[str, str]]:
+    selected = set(filenames or [])
+    if not selected:
+        return list(_CONTEXT_FILES)
+    unknown = selected - _ALLOWED_CONTEXT_FILES
+    if unknown:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Unknown context file: {sorted(unknown)[0]}")
+    return [(filename, label) for filename, label in _CONTEXT_FILES if filename in selected]
+
+
+def _require_taiga_workspace(x_taiga_url: str) -> str:
+    from src import context_manager
+
+    pm_tool = context_manager.load_config().get("pm_tool", "taiga")
+    if pm_tool != "taiga":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Taiga Wiki sync is only available for Taiga projects.")
+    return resolve_taiga_base(x_taiga_url)
+
+
+@router.get("/context-files/wiki-status", response_model=ContextWikiStatusResponse)
+def get_context_wiki_status(
+    ctx: RequestContext = Depends(get_request_context),
+    x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+):
+    from backend.app.services import taiga_wiki_service
+
+    taiga_base = _require_taiga_workspace(x_taiga_url)
+    context = ContextService()
+    context.set_active(ctx)
+    try:
+        pages = taiga_wiki_service.status(taiga_base, ctx.pm_token, ctx.project_id, _CONTEXT_FILES)
+    except Exception as exc:
+        _logger.error("context wiki-status failed: %s", exc)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Failed to read Taiga Wiki: {exc}") from exc
+    return {"pages": pages}
+
+
+@router.post("/context-files/wiki/publish", response_model=ContextWikiSyncResponse)
+def publish_context_to_wiki(
+    payload: ContextWikiSyncRequest | None = None,
+    ctx: RequestContext = Depends(get_request_context),
+    x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+):
+    from backend.app.services import taiga_wiki_service
+
+    taiga_base = _require_taiga_workspace(x_taiga_url)
+    selected = _selected_context_file_labels(payload.filenames if payload else [])
+    context = ContextService()
+    context.set_active(ctx)
+    context_files = [(filename, label, context.read_context_file(filename)) for filename, label in selected]
+    try:
+        results = taiga_wiki_service.publish(taiga_base, ctx.pm_token, ctx.project_id, context_files)
+    except Exception as exc:
+        _logger.error("context wiki publish failed: %s", exc)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Failed to publish Taiga Wiki pages: {exc}") from exc
+    refreshed = get_context_files(ctx)
+    return {"ok": all(result.get("ok") for result in results), "results": results, **refreshed}
+
+
+@router.post("/context-files/wiki/pull", response_model=ContextWikiSyncResponse)
+def pull_context_from_wiki(
+    payload: ContextWikiSyncRequest | None = None,
+    ctx: RequestContext = Depends(get_request_context),
+    x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+):
+    from backend.app.services import taiga_wiki_service
+
+    taiga_base = _require_taiga_workspace(x_taiga_url)
+    selected = _selected_context_file_labels(payload.filenames if payload else [])
+    context = ContextService()
+    context.set_active(ctx)
+    try:
+        results, contents = taiga_wiki_service.pull(taiga_base, ctx.pm_token, ctx.project_id, selected)
+    except Exception as exc:
+        _logger.error("context wiki pull failed: %s", exc)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Failed to pull Taiga Wiki pages: {exc}") from exc
+    for filename, content in contents.items():
+        context.write_context_file(filename, content)
+        context.amend_locked_spec(filename, "Pulled from Taiga Wiki")
+    refreshed = get_context_files(ctx)
+    return {"ok": all(result.get("ok") for result in results), "results": results, **refreshed}
+
+
+@router.get("/status-mapping", response_model=StatusMappingResponse)
+def get_status_mapping(
+    ctx: RequestContext = Depends(get_request_context),
+    x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+):
+    from backend.app.services import import_service
+    from src import context_manager
+
+    context = ContextService()
+    context.set_active(ctx)
+    saved = context.status_mapping()
+    pm_tool = context_manager.load_config().get("pm_tool", "taiga")
+    entries: list[dict] = []
+    if pm_tool == "taiga":
+        taiga_base = resolve_taiga_base(x_taiga_url)
+        try:
+            statuses_raw = import_service._taiga_get(f"{taiga_base}/userstories/statuses", ctx.pm_token, {"project": ctx.project_id})
+        except Exception as exc:
+            _logger.error("status mapping fetch failed: %s", exc)
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Failed to fetch Taiga statuses: {exc}") from exc
+        if not isinstance(statuses_raw, list):
+            statuses_raw = statuses_raw.get("objects", []) if isinstance(statuses_raw, dict) else []
+        for item in statuses_raw:
+            status_id = str(item.get("id", ""))
+            if not status_id:
+                continue
+            default_status = import_service._map_taiga_status(item)
+            mapped_status = saved.get(status_id, default_status)
+            entries.append({
+                "id": status_id,
+                "name": item.get("name", f"Status {status_id}"),
+                "slug": item.get("slug", ""),
+                "mapped_status": mapped_status,
+                "default_status": default_status,
+                "source": "configured" if status_id in saved else "default",
+                "is_closed": bool(item.get("is_closed")),
+            })
+    return {"pm_tool": pm_tool, "statuses": entries, "mapping": saved}
+
+
+@router.post("/status-mapping", response_model=StatusMappingResponse)
+def save_status_mapping(
+    payload: SaveStatusMappingRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+):
+    context = ContextService()
+    context.set_active(ctx)
+    context.save_status_mapping(payload.mapping)
+    return get_status_mapping(ctx, x_taiga_url)
 
 
 @router.get("/agent-files", response_model=AgentFilesResponse)

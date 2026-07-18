@@ -19,6 +19,7 @@ import {
   getAgentFiles,
   getBoard,
   getContextFiles,
+  getContextWikiStatus,
   getFigmaToken,
   getGithubPat,
   getGithubSyncStatus,
@@ -38,6 +39,9 @@ import {
   inviteUser,
   listProjects,
   listStoryStatuses,
+  getStatusMapping,
+  publishContextToWiki,
+  pullContextFromWiki,
   rebuildStoryIndex,
   removeMember,
   resetAllContextFiles,
@@ -48,6 +52,7 @@ import {
   saveGithubConfig,
   saveFigmaConfig,
   saveServerConfig,
+  saveStatusMapping,
   setStoryPhaseStatus,
   setStoryScaffold,
   updateAgentFile,
@@ -57,6 +62,7 @@ import {
   updateStory,
   type AdminPhaseStatus,
   type ApexPhaseStatus,
+  type StatusMappingResponse,
   toPmCtx,
 } from "@/lib/api/workspace";
 import { getPmAdapter } from "@/lib/api/pm-factory";
@@ -192,6 +198,40 @@ export function useUpdateContextFile() {
   });
 }
 
+export function useContextWikiStatus() {
+  const context = useApiContext();
+  return useQuery({
+    queryKey: ["workspace", "context-wiki-status", context?.projectId],
+    queryFn: () => getContextWikiStatus(context!),
+    enabled: Boolean(context) && context?.pmTool === "taiga",
+    staleTime: 30 * 1000,
+  });
+}
+
+export function usePublishContextToWiki() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (filenames: string[] = []) => publishContextToWiki(context!, filenames),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "context-wiki-status", context?.projectId] });
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "context-files", context?.projectId] });
+    },
+  });
+}
+
+export function usePullContextFromWiki() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (filenames: string[] = []) => pullContextFromWiki(context!, filenames),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "context-wiki-status", context?.projectId] });
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "context-files", context?.projectId] });
+    },
+  });
+}
+
 export function useAcknowledgeBacktrace() {
   const context = useApiContext();
   const queryClient = useQueryClient();
@@ -300,6 +340,28 @@ export function useStoryStatuses() {
     queryFn: () => listStoryStatuses(context!),
     enabled: Boolean(context),
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useStatusMapping() {
+  const context = useApiContext();
+  return useQuery<StatusMappingResponse>({
+    queryKey: ["workspace", "status-mapping", context?.projectId],
+    queryFn: () => getStatusMapping(context!),
+    enabled: Boolean(context),
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useSaveStatusMapping() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (mapping: Record<string, ApexPhaseStatus>) => saveStatusMapping(context!, mapping),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "status-mapping", context?.projectId] });
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "story-statuses", context?.projectId] });
+    },
   });
 }
 

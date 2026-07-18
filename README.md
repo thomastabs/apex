@@ -10,7 +10,9 @@ The current migrated version is a split full-stack web app:
 - **Deployment:** GitHub Actions builds Docker images and deploys to Azure Container Apps
 - **Frontend review:** [Impeccable](https://github.com/pbakaus/impeccable) design critique/detector snapshots live under `.impeccable/` and help keep the product UI consistent, responsive, and free of common AI-generated interface tells
 
-Phases 1–6 are implemented, plus a governance analytics dashboard, a **living traceability graph** (project-wide spec→code derivation view), and an **Autopilot** mode that runs the full Phases 1–5 pipeline end-to-end in the background. The spec-model upgrade roadmap is fully shipped: EARS constraints, spec↔code conformance, deterministic agent-target compilation, controlled spec co-evolution, and per-epic context slicing. Human-in-the-loop guardrails layer on top — multi-model cross-check, diff-on-regenerate, a decision log, and an optional "Guide the AI" steer on every generative step.
+Phases 1–6 are implemented, plus a governance analytics dashboard, a **living traceability graph** (project-wide spec→code derivation view), and an **Autopilot** mode that runs the full Phases 1–5 pipeline end-to-end in the background. The spec-model upgrade roadmap is fully shipped: EARS constraints, spec↔code conformance, deterministic agent-target compilation, controlled spec co-evolution, and per-epic context slicing. Human-in-the-loop guardrails layer on top — multi-model cross-check, diff-on-regenerate, a decision log, extensible AI grounding file pickers, and an optional "Guide the AI" steer on every generative step.
+
+Apex also exposes the operational context around that workflow: EN/PT can be switched globally from the sidebar or Settings, context files can be mirrored to Taiga Wiki pages, repo-root agent instruction files can be edited/exported inside the app, and project-specific PM status mappings let teams map their own Taiga board states onto Apex phases.
 
 <img width="1908" height="991" alt="image" src="https://github.com/user-attachments/assets/818d2d66-add0-40c4-883f-c558a8445183" />
 
@@ -124,6 +126,16 @@ versioned spec store (`contextspec/`) — the single source of truth. Bold arrow
 dashed arrows (`persist`) are the phase locking its artefacts back into the store
 and advancing `story-index.json`. Everything is gated by a human review or
 sign-off before it locks.
+
+### Project Context, Wiki, And Agent Files
+
+The right sidebar's Active Context panel shows the Markdown files Apex uses to ground AI calls, with size/budget signals and phase-specific visibility. From there, a Taiga project can publish those context files into deterministic `apex-*` Taiga Wiki pages, or pull matching wiki pages back into Apex when documentation was edited in Taiga.
+
+The same sidebar also manages repo-root agent instruction files (`AGENTS.md`, `CLAUDE.md`, `CODEX.md`, `GEMINI.md`) through safe allowlisted routes, so teams can keep model-specific coding-agent guidance close to the project and export it for external agent sessions.
+
+### PM Status Mapping
+
+Apex keeps its internal phase states stable (`gherkin_locked`, `design_locked`, `implementation`, `qa`, `qa_passed`, `deployed`), but real boards vary by team. Settings includes a Status Mapping section that maps Taiga story statuses to Apex workflow phases per project. Imports use the saved mapping first and fall back to the default Taiga status heuristic when no explicit mapping exists.
 
 ### Phase 1 · Requirements
 

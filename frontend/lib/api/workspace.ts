@@ -192,6 +192,54 @@ export function getContextFiles(context: RequestContext) {
   return apiRequest<ContextFilesResponse>("/api/workspace/context-files", { context });
 }
 
+export type ContextWikiPage = {
+  filename: string;
+  label: string;
+  slug: string;
+  title: string;
+  exists: boolean;
+  wiki_id?: number | string | null;
+  chars: number;
+  last_modified?: string | null;
+};
+
+export type ContextWikiStatusResponse = {
+  pages: ContextWikiPage[];
+};
+
+export type ContextWikiSyncResult = {
+  filename: string;
+  slug: string;
+  action: string;
+  ok: boolean;
+  detail: string;
+};
+
+export type ContextWikiSyncResponse = ContextFilesResponse & {
+  ok: boolean;
+  results: ContextWikiSyncResult[];
+};
+
+export function getContextWikiStatus(context: RequestContext) {
+  return apiRequest<ContextWikiStatusResponse>("/api/workspace/context-files/wiki-status", { context });
+}
+
+export function publishContextToWiki(context: RequestContext, filenames: string[] = []) {
+  return apiRequest<ContextWikiSyncResponse>("/api/workspace/context-files/wiki/publish", {
+    method: "POST",
+    context,
+    body: { filenames },
+  });
+}
+
+export function pullContextFromWiki(context: RequestContext, filenames: string[] = []) {
+  return apiRequest<ContextWikiSyncResponse>("/api/workspace/context-files/wiki/pull", {
+    method: "POST",
+    context,
+    body: { filenames },
+  });
+}
+
 export type AgentFile = {
   filename: string;
   label: string;
@@ -531,6 +579,34 @@ export function saveTraceabilityLayout(context: RequestContext, nodes: Array<{ i
 
 export type ApexPhaseStatus =
   | "new" | "gherkin_locked" | "design_locked" | "implementation" | "qa" | "qa_passed" | "deployed";
+
+export type StatusMappingEntry = {
+  id: string;
+  name: string;
+  slug: string;
+  mapped_status: ApexPhaseStatus;
+  default_status: ApexPhaseStatus;
+  source: "configured" | "default";
+  is_closed: boolean;
+};
+
+export type StatusMappingResponse = {
+  pm_tool: string;
+  statuses: StatusMappingEntry[];
+  mapping: Record<string, ApexPhaseStatus>;
+};
+
+export function getStatusMapping(context: RequestContext) {
+  return apiRequest<StatusMappingResponse>("/api/workspace/status-mapping", { context });
+}
+
+export function saveStatusMapping(context: RequestContext, mapping: Record<string, ApexPhaseStatus>) {
+  return apiRequest<StatusMappingResponse>("/api/workspace/status-mapping", {
+    method: "POST",
+    context,
+    body: { mapping },
+  });
+}
 
 export function getStoryPhaseStatus(context: RequestContext, storyId: number) {
   return apiRequest<{ phase_status: ApexPhaseStatus | null }>(

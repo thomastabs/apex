@@ -188,6 +188,21 @@ def test_bootstrap_imports_maps_and_groups(ctx, monkeypatch):
     assert counts == {10: 2, svc._GENERAL_EPIC_ID: 1}
 
 
+def test_bootstrap_uses_configured_status_mapping(ctx, monkeypatch):
+    ctx.save_project_status_mapping({"2": "qa_passed"}, 42)
+    _wire_taiga(
+        monkeypatch,
+        statuses=[{"id": 2, "name": "In progress"}],
+        epics=[],
+        stories=[{"id": 100, "subject": "Login", "status": 2, "epic": None}],
+    )
+
+    report = svc.bootstrap("https://api.taiga.io/api/v1", "tok", 42)
+
+    assert ctx.get_story_index()["100"]["phase_status"] == "qa_passed"
+    assert report["status_mapping"] == [{"taiga_name": "In progress", "apex_status": "qa_passed", "source": "configured"}]
+
+
 def test_bootstrap_skips_existing_and_is_idempotent(ctx, monkeypatch):
     args = dict(
         statuses=[{"id": 1, "name": "New"}],

@@ -596,6 +596,7 @@ def get_or_create_instance_github_webhook_secret() -> str:
 # leakage bug, and moving it would invalidate every already-configured GitHub
 # webhook). Figma's token also stays instance-scoped — out of scope here.
 _PROJECT_GITHUB_CONFIG_FILE = ".project-github-config.json"
+_PROJECT_STATUS_MAPPING_FILE = ".project-status-mapping.json"
 
 
 def _project_github_config_path(project_id: int | None = None) -> Path:
@@ -606,6 +607,35 @@ def _write_project_github_config(data: dict, project_id: int | None = None) -> N
     p = _project_github_config_path(project_id)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def _project_status_mapping_path(project_id: int | None = None) -> Path:
+    return _context_dir(project_id) / _PROJECT_STATUS_MAPPING_FILE
+
+
+def get_project_status_mapping(project_id: int | None = None) -> dict[str, str]:
+    """Saved PM status-id -> Apex phase_status mapping for the active project."""
+    p = _project_status_mapping_path(project_id)
+    if not p.exists():
+        return {}
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+    raw = data.get("mapping") if isinstance(data, dict) else {}
+    if not isinstance(raw, dict):
+        return {}
+    valid = set(PHASE_STATUSES)
+    return {str(k): v for k, v in raw.items() if isinstance(v, str) and v in valid}
+
+
+def save_project_status_mapping(mapping: dict[str, str], project_id: int | None = None) -> None:
+    """Persist a sanitized PM status-id -> Apex phase_status mapping."""
+    valid = set(PHASE_STATUSES)
+    clean = {str(k): v for k, v in mapping.items() if isinstance(v, str) and v in valid}
+    p = _project_status_mapping_path(project_id)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps({"mapping": clean}, indent=2), encoding="utf-8")
 
 
 def _migrate_instance_github_config_once(project_id: int | None = None) -> dict:

@@ -148,12 +148,19 @@ def bootstrap(taiga_base: str, token: str, project_id: int) -> dict:
     statuses_raw = _taiga_get(f"{taiga_base}/userstories/statuses", token, {"project": project_id})
     if not isinstance(statuses_raw, list):
         statuses_raw = statuses_raw.get("objects", []) if isinstance(statuses_raw, dict) else []
+    configured_status_mapping = context_manager.get_project_status_mapping(project_id)
     status_id_map: dict[int, str] = {}
     status_mapping: list[dict] = []
     for s in statuses_raw:
-        apex = _map_taiga_status(s)
+        status_id = s["id"]
+        default_apex = _map_taiga_status(s)
+        apex = configured_status_mapping.get(str(status_id), default_apex)
         status_id_map[s["id"]] = apex
-        status_mapping.append({"taiga_name": s.get("name", ""), "apex_status": apex})
+        status_mapping.append({
+            "taiga_name": s.get("name", ""),
+            "apex_status": apex,
+            "source": "configured" if str(status_id) in configured_status_mapping else "default",
+        })
 
     # 2. Fetch all epics → id→title map (paginated)
     epics_raw = _taiga_get_all(f"{taiga_base}/epics", token, {"project": project_id})

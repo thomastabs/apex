@@ -23,6 +23,26 @@ class SetPhaseStatusRequest(BaseModel):
     phase_status: PhaseStatus
 
 
+class StatusMappingEntry(BaseModel):
+    id: str
+    name: str
+    slug: str = ""
+    mapped_status: PhaseStatus
+    default_status: PhaseStatus
+    source: Literal["configured", "default"] = "default"
+    is_closed: bool = False
+
+
+class StatusMappingResponse(BaseModel):
+    pm_tool: str = "taiga"
+    statuses: list[StatusMappingEntry] = Field(default_factory=list)
+    mapping: dict[str, PhaseStatus] = Field(default_factory=dict)
+
+
+class SaveStatusMappingRequest(BaseModel):
+    mapping: dict[str, PhaseStatus] = Field(default_factory=dict)
+
+
 class SetScaffoldRequest(BaseModel):
     is_scaffold: bool
 
@@ -57,6 +77,40 @@ class ContextFileSchema(BaseModel):
 class ContextFilesResponse(BaseModel):
     files: list[ContextFileSchema]
     total_chars: int
+
+
+class ContextWikiPageSchema(BaseModel):
+    filename: str
+    label: str
+    slug: str
+    title: str
+    exists: bool = False
+    wiki_id: int | str | None = None
+    chars: int = 0
+    last_modified: str | None = None
+
+
+class ContextWikiStatusResponse(BaseModel):
+    pages: list[ContextWikiPageSchema] = Field(default_factory=list)
+
+
+class ContextWikiSyncRequest(BaseModel):
+    filenames: list[str] = Field(default_factory=list, max_length=50)
+
+
+class ContextWikiSyncResult(BaseModel):
+    filename: str
+    slug: str
+    action: str
+    ok: bool = True
+    detail: str = ""
+
+
+class ContextWikiSyncResponse(BaseModel):
+    ok: bool = True
+    results: list[ContextWikiSyncResult] = Field(default_factory=list)
+    files: list[ContextFileSchema] = Field(default_factory=list)
+    total_chars: int = 0
 
 
 class AgentFileSchema(BaseModel):
@@ -271,6 +325,7 @@ class ImportEpicSummary(BaseModel):
 class ImportStatusMapping(BaseModel):
     taiga_name: str
     apex_status: str
+    source: Literal["configured", "default"] = "default"
 
 
 class ImportBootstrapResponse(BaseModel):

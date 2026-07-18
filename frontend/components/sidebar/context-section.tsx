@@ -1,12 +1,15 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { BookOpen, Bot, ChevronRight, Download, FileText, RefreshCw, Save, Sparkles, Trash2 } from "lucide-react";
+import { BookOpen, Bot, ChevronRight, Download, FileText, RefreshCw, Save, Sparkles, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import {
   useAiConfig,
   useAgentFiles,
   useContextFiles,
+  useContextWikiStatus,
+  usePublishContextToWiki,
+  usePullContextFromWiki,
   useRebuildStoryIndex,
   useResetAllContextFiles,
   useResetContextFile,
@@ -347,8 +350,11 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
 
   const context = useApiContext();
   const contextFiles = useContextFiles();
+  const wikiStatus = useContextWikiStatus();
   const agentFiles = useAgentFiles();
   const aiConfig = useAiConfig();
+  const publishWiki = usePublishContextToWiki();
+  const pullWiki = usePullContextFromWiki();
   const rebuildIndex = useRebuildStoryIndex();
   const resetAll = useResetAllContextFiles();
 
@@ -377,6 +383,8 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
   const activeModel = aiConfig.data?.available_models.find((m) => m.id === aiConfig.data?.model);
   const activeModelLabel = activeModel?.label ?? aiConfig.data?.model ?? t("context.currentModelFallback");
   const activeModelContextWindow = activeModel?.context_window_tokens ?? 0;
+  const wikiPageCount = wikiStatus.data?.pages.filter((page) => page.exists).length ?? 0;
+  const wikiTotalCount = wikiStatus.data?.pages.length ?? visibleFiles.length;
 
   const projectConcept = contextFiles.data?.files.find((f) => f.filename === "project-concept.md")?.content ?? "";
   const hasProjectConcept = useMemo(() => {
@@ -497,6 +505,44 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                 <span>{t("context.downloadAllContextFiles")}</span>
                 <Download className="size-4 text-violet-400" />
               </button>
+              {context?.pmTool === "taiga" ? (
+                <div className={cn("rounded border px-3 py-2", dark ? "border-neutral-700 bg-neutral-950/40" : "border-slate-200 bg-slate-50")}>
+                  <div className={cn("mb-2 flex items-center justify-between text-xs", dark ? "text-neutral-500" : "text-slate-500")}>
+                    <span>{t("context.taigaWikiStatus")}</span>
+                    <span className={cn("font-semibold", dark ? "text-neutral-300" : "text-slate-700")}>
+                      {wikiStatus.isFetching ? t("common.loading") : t("context.taigaWikiCount", { existing: wikiPageCount, total: wikiTotalCount })}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      className={cn(
+                        "flex h-8 items-center justify-center gap-1 rounded text-xs font-semibold disabled:opacity-40",
+                        dark ? "bg-neutral-800 text-neutral-200 hover:bg-neutral-700" : "bg-white text-slate-700 hover:bg-slate-100",
+                      )}
+                      disabled={publishWiki.isPending || !contextFiles.data?.files.length}
+                      onClick={() => publishWiki.mutate([], {
+                        onSuccess: () => toast.success(t("context.taigaWikiPublished")),
+                        onError: (e) => toast.error(e instanceof Error ? e.message : t("context.taigaWikiPublishFailed")),
+                      })}
+                    >
+                      <Upload className="size-3" /> {publishWiki.isPending ? t("common.saving") : t("context.publishToTaigaWiki")}
+                    </button>
+                    <button
+                      className={cn(
+                        "flex h-8 items-center justify-center gap-1 rounded text-xs font-semibold disabled:opacity-40",
+                        dark ? "bg-neutral-800 text-neutral-200 hover:bg-neutral-700" : "bg-white text-slate-700 hover:bg-slate-100",
+                      )}
+                      disabled={pullWiki.isPending}
+                      onClick={() => confirm(t("context.taigaWikiPullConfirm"), () => pullWiki.mutate([], {
+                        onSuccess: () => toast.success(t("context.taigaWikiPulled")),
+                        onError: (e) => toast.error(e instanceof Error ? e.message : t("context.taigaWikiPullFailed")),
+                      }))}
+                    >
+                      <Download className="size-3" /> {pullWiki.isPending ? t("common.loading") : t("context.pullFromTaigaWiki")}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
               <button
                 className={cn(
                   "flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 disabled:opacity-40",
