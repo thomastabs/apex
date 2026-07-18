@@ -6,14 +6,16 @@ import { cn } from "@/lib/utils";
 import type { AdminPhaseStatus } from "@/lib/api/workspace";
 import { useAdminSetAllStoryStatus } from "@/lib/hooks/use-workspace";
 import { PanelHeader, type DragSectionProps } from "./shared";
+import { useT } from "@/lib/i18n/use-translation";
+import type { TranslationKey } from "@/lib/i18n/translations";
 
-const STATUSES: { value: AdminPhaseStatus; label: string }[] = [
-  { value: "gherkin_locked", label: "Gherkin Locked (Phase 1)" },
-  { value: "design_locked", label: "Design Locked (Phase 2)" },
-  { value: "implementation", label: "Implementation (Phase 3)" },
-  { value: "qa", label: "QA (Phase 4 — test plan saved)" },
-  { value: "qa_passed", label: "QA Passed (Phase 4 gate)" },
-  { value: "deployed", label: "Deployed (Phase 5)" },
+const STATUSES: { value: AdminPhaseStatus; labelKey: TranslationKey }[] = [
+  { value: "gherkin_locked", labelKey: "admin.status.gherkinLocked" },
+  { value: "design_locked", labelKey: "admin.status.designLocked" },
+  { value: "implementation", labelKey: "admin.status.implementation" },
+  { value: "qa", labelKey: "admin.status.qa" },
+  { value: "qa_passed", labelKey: "admin.status.qaPassed" },
+  { value: "deployed", labelKey: "admin.status.deployed" },
 ];
 
 type AdminSectionProps = DragSectionProps & {
@@ -27,6 +29,7 @@ type AdminSectionProps = DragSectionProps & {
  * click. Never use on a real project.
  */
 export function AdminSection({ dark, shellClass, dragHandlers, onDragStart }: AdminSectionProps) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [targetStatus, setTargetStatus] = useState<AdminPhaseStatus>("qa_passed");
@@ -41,10 +44,9 @@ export function AdminSection({ dark, shellClass, dragHandlers, onDragStart }: Ad
 
   function handleApply() {
     if (!password.trim()) return;
-    const statusLabel = STATUSES.find((s) => s.value === targetStatus)?.label ?? targetStatus;
-    if (!window.confirm(
-      `Force EVERY story in this project to "${statusLabel}"? This bypasses all phase gates and cannot be undone.`,
-    )) {
+    const statusLabelKey = STATUSES.find((s) => s.value === targetStatus)?.labelKey;
+    const statusLabel = statusLabelKey ? t(statusLabelKey) : targetStatus;
+    if (!window.confirm(t("admin.confirmForce", { status: statusLabel }))) {
       return;
     }
     setAll.mutate(
@@ -52,9 +54,9 @@ export function AdminSection({ dark, shellClass, dragHandlers, onDragStart }: Ad
       {
         onSuccess: (res) => {
           setPassword("");
-          toast.success(`${res.updated} stor${res.updated === 1 ? "y" : "ies"} set to ${statusLabel}.`);
+          toast.success(t(res.updated === 1 ? "admin.toast.updatedOne" : "admin.toast.updatedOther", { n: res.updated, status: statusLabel }));
         },
-        onError: (err: Error) => toast.error(err.message || "Failed to update story statuses."),
+        onError: (err: Error) => toast.error(err.message || t("admin.toast.failedUpdate")),
       },
     );
   }
@@ -64,7 +66,7 @@ export function AdminSection({ dark, shellClass, dragHandlers, onDragStart }: Ad
       <section className={cn("border-b", sectionBorderClass)}>
         <PanelHeader
           icon={<ShieldAlert className="size-4" />}
-          title="Admin — Testing Tools"
+          title={t("admin.panelTitle")}
           open={open}
           onClick={() => setOpen(!open)}
           onDragStart={onDragStart}
@@ -75,25 +77,24 @@ export function AdminSection({ dark, shellClass, dragHandlers, onDragStart }: Ad
               "rounded-md border px-3 py-2 text-xs leading-relaxed",
               dark ? "border-red-900/50 bg-red-950/30 text-red-300" : "border-red-300 bg-red-50 text-red-700",
             )}>
-              Bypasses every phase gate for every story in this project — for local/manual testing only.
-              Never use this on a real project.
+              {t("admin.bypassWarning")}
             </div>
             <div className="space-y-1.5">
               <label className={cn("block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-500")}>
-                Admin password
+                {t("admin.adminPassword")}
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
+                placeholder={t("admin.passwordPlaceholder")}
                 autoComplete="off"
                 className={inputClass}
               />
             </div>
             <div className="space-y-1.5">
               <label className={cn("block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-500")}>
-                Set ALL stories to
+                {t("admin.setAllStoriesTo")}
               </label>
               <select
                 value={targetStatus}
@@ -101,7 +102,7 @@ export function AdminSection({ dark, shellClass, dragHandlers, onDragStart }: Ad
                 className={inputClass}
               >
                 {STATUSES.map((s) => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
+                  <option key={s.value} value={s.value}>{t(s.labelKey)}</option>
                 ))}
               </select>
             </div>
@@ -112,7 +113,7 @@ export function AdminSection({ dark, shellClass, dragHandlers, onDragStart }: Ad
               className="flex h-9 w-full items-center justify-center gap-2 rounded-md bg-red-600 text-sm font-semibold text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {setAll.isPending ? <Loader2 className="size-4 animate-spin" /> : <ShieldAlert className="size-4" />}
-              Apply to ALL stories
+              {t("admin.applyToAll")}
             </button>
           </div>
         )}
