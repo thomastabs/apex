@@ -14,6 +14,7 @@ import {
 } from "@/lib/api/figma";
 import { cn } from "@/lib/utils";
 import { PanelHeader, type DragSectionProps } from "./shared";
+import { useT } from "@/lib/i18n/use-translation";
 
 type FigmaSectionProps = DragSectionProps & {
   dark: boolean;
@@ -21,6 +22,7 @@ type FigmaSectionProps = DragSectionProps & {
 };
 
 export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onDragStart }: FigmaSectionProps) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [tokenInput, setTokenInput] = useState("");
   const [urlInput, setUrlInput] = useState("");
@@ -38,8 +40,8 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
   const syncBlockedSecs = Math.max(0, Math.ceil((syncBlockedUntil - now) / 1000));
   useEffect(() => {
     if (syncBlockedUntil <= now) return;
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
+    const intervalId = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(intervalId);
   }, [syncBlockedUntil, now]);
 
   const setFigma = useSessionStore((s) => s.setFigma);
@@ -80,11 +82,11 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
 
       toast[changed_story_ids.length ? "warning" : "success"](
         changed_story_ids.length
-          ? `${changed_story_ids.length} linked stor${changed_story_ids.length === 1 ? "y has" : "ies have"} design changes`
-          : "No design changes since last link.",
+          ? t(changed_story_ids.length === 1 ? "figma.toast.designChangesOne" : "figma.toast.designChangesOther", { n: changed_story_ids.length })
+          : t("figma.toast.noDesignChanges"),
       );
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Scan failed.");
+      toast.error(err instanceof Error ? err.message : t("figma.toast.scanFailed"));
     }
   }
 
@@ -123,14 +125,14 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
     setFigma({ token, fileKey, fileName: name });
     setFileName(name);
     setProjectFiles(null);
-    toast.success(`Connected to ${name}`);
+    toast.success(t("figma.toast.connected", { name }));
     try {
       await saveFigmaConfig.mutateAsync({ fileKey, token });
     } catch (persistErr) {
       toast.warning(
         persistErr instanceof Error
-          ? `Connected, but didn't save server-side: ${persistErr.message}`
-          : "Connected, but couldn't save the connection server-side — you'll need to reconnect next session.",
+          ? t("figma.toast.connectedNoServerSaveErr", { err: persistErr.message })
+          : t("figma.toast.connectedNoServerSaveGeneric"),
       );
     }
   }
@@ -139,7 +141,7 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
     const token = tokenInput.trim();
     const url = urlInput.trim();
     if (!token || !url) {
-      toast.error("Enter a valid Figma token and file or project URL.");
+      toast.error(t("figma.toast.enterValidTokenUrl"));
       return;
     }
     setConnecting(true);
@@ -150,24 +152,24 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
         try {
           const files = await figmaGetProjectFiles(token, project.projectId, true);
           if (!files.length) {
-            toast.info("No files found in this Figma project.");
+            toast.info(t("figma.toast.noFilesInProject"));
           }
           setProjectFiles(files);
         } catch {
-          toast.error("Could not list this project. Re-generate your Figma token with the projects:read scope.");
+          toast.error(t("figma.toast.couldNotListProject"));
         }
         return;
       }
       // File URL → connect directly, exactly as before.
       const { fileKey } = parseFigmaUrl(url);
       if (!fileKey) {
-        toast.error("Enter a valid Figma file or project URL.");
+        toast.error(t("figma.toast.enterValidFileProjectUrl"));
         return;
       }
       await connectFile(token, fileKey);
       setTokenInput("");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not connect to Figma.");
+      toast.error(err instanceof Error ? err.message : t("figma.toast.couldNotConnect"));
     } finally {
       setConnecting(false);
     }
@@ -180,7 +182,7 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
       await connectFile(tokenInput.trim(), file.key, file.name);
       setTokenInput("");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not connect to that file.");
+      toast.error(err instanceof Error ? err.message : t("figma.toast.couldNotConnectToFile"));
     } finally {
       setConnecting(false);
     }
@@ -191,7 +193,7 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
     setFileName(null);
     setProjectFiles(null);
     saveFigmaConfig.mutate({ fileKey: "", token: "" });
-    toast.info("Figma disconnected.");
+    toast.info(t("figma.toast.disconnected"));
   }
 
   const fileUrl = figma ? `https://www.figma.com/design/${figma.fileKey}` : "#";
@@ -201,7 +203,7 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
       <section className={cn("border-b", sectionBorderClass)}>
         <PanelHeader
           icon={<Figma className="size-4" />}
-          title="Figma"
+          title={t("figma.panelTitle")}
           badge={isConnected ? (displayName ?? figma!.fileKey) : undefined}
           open={open}
           onClick={() => setOpen(!open)}
@@ -232,13 +234,13 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
                   <div className={cn("pt-1 border-t text-xs flex items-center justify-between",
                     dark ? "border-neutral-700 text-neutral-500" : "border-slate-200 text-slate-400",
                   )}>
-                    <span>{lastSyncedLabel ? `Last synced ${lastSyncedLabel}` : "Not synced yet"}</span>
+                    <span>{lastSyncedLabel ? t("figma.lastSynced", { date: lastSyncedLabel }) : t("figma.notSyncedYet")}</span>
 	                    <span className={cn("rounded-full px-1.5 py-0.5 text-xs font-semibold",
                       lastSyncedLabel
                         ? (dark ? "bg-emerald-900/40 text-emerald-400" : "bg-emerald-50 text-emerald-700")
                         : (dark ? "bg-yellow-900/40 text-yellow-400" : "bg-yellow-50 text-yellow-700"),
                     )}>
-                      {lastSyncedLabel ? "Synced" : "Pending"}
+                      {lastSyncedLabel ? t("figma.synced") : t("figma.pending")}
                     </span>
                   </div>
                 </div>
@@ -248,7 +250,7 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
                     className="inline-flex h-9 items-center justify-center gap-2 rounded bg-violet-700 text-sm font-semibold text-white hover:bg-violet-600 disabled:opacity-50"
                     disabled={syncContext.isPending || syncBlockedSecs > 0}
                     onClick={() => syncContext.mutate(undefined, {
-                      onSuccess: () => toast.success("Figma context synced."),
+                      onSuccess: () => toast.success(t("figma.toast.figmaContextSynced")),
                       onError: (e) => {
                         // A 429 means Figma is rate-limiting this account. The previous
                         // figma-context.md on disk is untouched, so this is a soft "try
@@ -257,19 +259,19 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
                         // (plan tier + Retry-After) — show it verbatim. Note: Figma tracks
                         // this per Figma ACCOUNT, so a new token does not reset it.
                         if ((e as { status?: number })?.status === 429) {
-                          const t = Date.now();
-                          setSyncBlockedUntil(t + SYNC_COOLDOWN_MS);
-                          setNow(t);
-                          const why = e instanceof Error && e.message ? e.message : "Figma is rate-limiting this account.";
-                          toast.warning(`${why} Your last-synced design context is kept.`);
+                          const nowTs = Date.now();
+                          setSyncBlockedUntil(nowTs + SYNC_COOLDOWN_MS);
+                          setNow(nowTs);
+                          const why = e instanceof Error && e.message ? e.message : t("figma.toast.rateLimitGeneric");
+                          toast.warning(`${why}${t("figma.toast.rateLimitKeptSuffix")}`);
                           return;
                         }
-                        toast.error(e instanceof Error ? e.message : "Sync failed.");
+                        toast.error(e instanceof Error ? e.message : t("figma.toast.syncFailed"));
                       },
                     })}
                   >
                     <RefreshCw className={cn("size-3.5", syncContext.isPending && "animate-spin")} />
-                    {syncContext.isPending ? "Syncing…" : syncBlockedSecs > 0 ? `Wait ${syncBlockedSecs}s` : "Sync Context"}
+                    {syncContext.isPending ? t("figma.syncing") : syncBlockedSecs > 0 ? t("figma.waitSeconds", { n: syncBlockedSecs }) : t("figma.syncContext")}
                   </button>
                   <button
                     className={cn("inline-flex h-9 items-center justify-center rounded border text-sm transition-colors",
@@ -277,7 +279,7 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
                     )}
                     onClick={handleDisconnect}
                   >
-                    Disconnect
+                    {t("figma.disconnect")}
                   </button>
                 </div>
 
@@ -289,24 +291,24 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
                   onClick={handleScanChanges}
                 >
                   <RefreshCw className={cn("size-3.5", scanChanges.isPending && "animate-spin")} />
-                  {scanChanges.isPending ? "Scanning…" : "Scan for design changes"}
+                  {scanChanges.isPending ? t("figma.scanning") : t("figma.scanForChanges")}
                 </button>
 
                 <p className={cn("text-[11px]", dark ? "text-neutral-600" : "text-slate-400")}>
-                  Synced screens are injected into Phase 1 story generation and Phase 2 design automatically.
+                  {t("figma.syncedScreensNote")}
                 </p>
               </>
             ) : projectFiles !== null ? (
               <>
                 <div className="flex items-center justify-between">
                   <p className={cn("text-xs font-semibold", dark ? "text-neutral-300" : "text-slate-700")}>
-                    Pick a file ({projectFiles.length})
+                    {t("figma.pickFile", { n: projectFiles.length })}
                   </p>
                   <button
                     className={cn("text-xs hover:underline", dark ? "text-neutral-400" : "text-slate-500")}
                     onClick={() => setProjectFiles(null)}
                   >
-                    Back
+                    {t("common.back")}
                   </button>
                 </div>
                 <div className="max-h-64 space-y-1 overflow-y-auto">
@@ -344,29 +346,29 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
                 <div className={cn("rounded border px-3 py-2 text-xs space-y-0.5",
                   dark ? "border-neutral-700 text-neutral-400" : "border-slate-200 bg-slate-50 text-slate-600",
                 )}>
-                  <p className={cn("font-semibold", dark ? "text-neutral-300" : "text-slate-700")}>Link your designs</p>
-                  <p>AI will reference your real screens and flows when generating stories and designs.</p>
+                  <p className={cn("font-semibold", dark ? "text-neutral-300" : "text-slate-700")}>{t("figma.linkYourDesigns")}</p>
+                  <p>{t("figma.aiReferenceNote")}</p>
                 </div>
                 <div className="space-y-1">
-                  <label className={labelClass}>Figma file or project URL</label>
+                  <label className={labelClass}>{t("figma.fileOrProjectUrl")}</label>
                   <input
                     value={urlInput}
                     onChange={(e) => setUrlInput(e.target.value)}
                     className={inputClass}
-                    placeholder="https://www.figma.com/design/… or /files/project/…"
+                    placeholder={t("figma.urlPlaceholder")}
                     autoComplete="off"
                   />
                 </div>
                 <div className="space-y-1">
                   <label className="flex items-center justify-between text-xs text-neutral-500">
-                    <span>Personal Access Token</span>
+                    <span>{t("figma.personalAccessToken")}</span>
                     <a
                       href="https://www.figma.com/developers/api#access-tokens"
                       target="_blank"
                       rel="noopener noreferrer"
                       className={cn("hover:underline", dark ? "text-violet-400 hover:text-violet-300" : "text-violet-600 hover:text-violet-500")}
                     >
-                      Generate token
+                      {t("figma.generateToken")}
                     </a>
                   </label>
                   <input
@@ -380,7 +382,7 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
                   />
                 </div>
                 <p className={cn("text-[11px]", dark ? "text-neutral-600" : "text-slate-400")}>
-                  A project URL lists its files to pick from (token needs the <code>projects:read</code> scope).
+                  {t("figma.projectUrlHint", { scope: "projects:read" })}
                 </p>
                 <button
                   className="inline-flex h-9 w-full items-center justify-center gap-2 rounded bg-neutral-800 text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-50"
@@ -388,7 +390,7 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
                   onClick={handleConnect}
                 >
                   <Figma className="size-4" />
-                  {connecting ? "Connecting…" : "Connect Figma"}
+                  {connecting ? t("figma.connecting") : t("figma.connectFigma")}
                 </button>
               </>
             )}
