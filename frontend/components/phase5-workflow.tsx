@@ -48,6 +48,8 @@ import { downloadZip } from "@/lib/utils/zip";
 import { SignInRequired } from "@/components/sign-in-required";
 import { useApiContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
+import { useT } from "@/lib/i18n/use-translation";
+import type { TranslationKey } from "@/lib/i18n/translations";
 import { cn, errMsg } from "@/lib/utils";
 import type { DeployPackEmphasis, DeployPackOptions, InfraDelta, InfraDeltaCategory, InfraDeltaItem, Phase5StoryPreview } from "@/lib/api/types";
 
@@ -93,28 +95,29 @@ function MarkdownPreview({ content, dark, className }: { content: string; dark: 
 // Traceability matrix panel (Feature B — zero AI, assembled from artifacts)
 // ---------------------------------------------------------------------------
 
-const GAP_LABELS: Record<string, string> = {
-  NO_COVERING_TASK: "no covering task",
-  TASK_WITHOUT_PACK: "task without pack",
-  NOT_TESTED: "not tested",
-  ORPHAN_COVERS: "covers unknown scenario",
+const GAP_LABEL_KEYS: Record<string, TranslationKey> = {
+  NO_COVERING_TASK: "phase5.gap.noCoveringTask",
+  TASK_WITHOUT_PACK: "phase5.gap.taskWithoutPack",
+  NOT_TESTED: "phase5.gap.notTested",
+  ORPHAN_COVERS: "phase5.gap.orphanCovers",
 };
 
 function TraceabilityPanel({ storyId }: { storyId: number }) {
+  const t = useT();
   const dark = useUiStore((s) => s.theme) === "dark";
   const { matrix, isLoading } = useTraceabilityMatrix(storyId);
 
   if (isLoading) {
     return (
       <div className={cn("rounded-lg border px-4 py-3 text-sm flex items-center gap-2", dark ? "border-neutral-700 text-neutral-400" : "border-slate-200 text-slate-500")}>
-        <Loader2 className="h-4 w-4 animate-spin" /> Assembling traceability matrix…
+        <Loader2 className="h-4 w-4 animate-spin" /> {t("phase5.assemblingMatrix")}
       </div>
     );
   }
   if (!matrix) {
     return (
       <div className={cn("rounded-lg border px-4 py-3 text-sm", dark ? "border-neutral-700 text-neutral-500" : "border-slate-200 text-slate-400")}>
-        No Gherkin scenarios found for this story — nothing to trace.
+        {t("phase5.noScenariosToTrace")}
       </div>
     );
   }
@@ -124,7 +127,7 @@ function TraceabilityPanel({ storyId }: { storyId: number }) {
     <div className={cn("rounded-lg border text-sm", dark ? "border-neutral-700" : "border-slate-200")}>
       <div className={cn("flex items-center justify-between px-4 py-2.5 border-b", dark ? "border-neutral-700" : "border-slate-200")}>
         <span className={cn("font-medium", dark ? "text-neutral-300" : "text-slate-700")}>
-          Traceability Matrix
+          {t("phase5.traceabilityMatrix")}
         </span>
         <span className={cn(
           "rounded px-2 py-0.5 text-xs font-semibold",
@@ -132,11 +135,11 @@ function TraceabilityPanel({ storyId }: { storyId: number }) {
             ? dark ? "bg-emerald-900/40 text-emerald-400" : "bg-emerald-100 text-emerald-700"
             : dark ? "bg-amber-900/40 text-amber-400" : "bg-amber-100 text-amber-700",
         )}>
-          {matrix.complete ? "Complete" : `${summary.gap_count} gap(s)`}
+          {matrix.complete ? t("phase5.matrixComplete") : t(summary.gap_count === 1 ? "phase5.matrixGapsOne" : "phase5.matrixGapsOther", { n: summary.gap_count })}
         </span>
       </div>
       <p className={cn("px-4 py-2 text-xs border-b", dark ? "text-neutral-500 border-neutral-800" : "text-slate-400 border-slate-100")}>
-        {summary.covered}/{summary.total} scenarios covered by tasks · {summary.with_pack}/{summary.total} fully packed · {summary.tested}/{summary.total} QA-tested
+        {t("phase5.matrixSummary", { covered: summary.covered, total: summary.total, withPack: summary.with_pack, tested: summary.tested })}
       </p>
       <ul className={cn("divide-y", dark ? "divide-neutral-800" : "divide-slate-100")}>
         {matrix.scenarios.map((row) => (
@@ -160,11 +163,11 @@ function TraceabilityPanel({ storyId }: { storyId: number }) {
             <div className="min-w-0">
               <p className={cn("leading-snug", dark ? "text-neutral-200" : "text-slate-700")}>{row.scenario}</p>
               <p className={cn("mt-0.5 text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
-                {row.tasks.length > 0 ? `Tasks ${row.tasks.join(", ")}` : "No covering task"}
-                {row.tasks.length > 0 && ` · packs: ${row.tasks_with_pack.length}/${row.tasks.length}`}
+                {row.tasks.length > 0 ? t("phase5.tasksList", { list: row.tasks.join(", ") }) : t("phase5.noCoveringTask")}
+                {row.tasks.length > 0 && t("phase5.packsOf", { have: row.tasks_with_pack.length, total: row.tasks.length })}
                 {row.gaps.length > 0 && (
                   <span className={dark ? "text-amber-400" : "text-amber-600"}>
-                    {" "}— {row.gaps.map((g) => GAP_LABELS[g] ?? g).join(", ")}
+                    {" "}— {row.gaps.map((g) => (GAP_LABEL_KEYS[g] ? t(GAP_LABEL_KEYS[g]) : g)).join(", ")}
                   </span>
                 )}
               </p>
@@ -176,12 +179,12 @@ function TraceabilityPanel({ storyId }: { storyId: number }) {
   );
 }
 
-const CATEGORY_LABELS: Record<InfraDeltaCategory, string> = {
-  env_var: "Env var",
-  migration: "Migration",
-  iac: "IaC",
-  ci_config: "CI config",
-  secret: "Secret",
+const CATEGORY_LABEL_KEYS: Record<InfraDeltaCategory, TranslationKey> = {
+  env_var: "phase5.category.envVar",
+  migration: "phase5.category.migration",
+  iac: "phase5.category.iac",
+  ci_config: "phase5.category.ciConfig",
+  secret: "phase5.category.secret",
 };
 
 const EMPTY_ITEM: InfraDeltaItem = { category: "iac", title: "", detail: "", risk: "low" };
@@ -191,6 +194,7 @@ const EMPTY_ITEM: InfraDeltaItem = { category: "iac", title: "", detail: "", ris
 // ---------------------------------------------------------------------------
 
 function StageA({ onSelect }: { onSelect: (id: number) => void }) {
+  const t = useT();
   const dark = useUiStore((s) => s.theme) === "dark";
   const ctx = useApiContext();
   const { data, isLoading, error } = useEligibleStories();
@@ -208,23 +212,23 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
       return contents.map((content, i) => ({ filename: `deploy_pack_story_${readyStories[i].story_id}.md`, content }));
     },
     onSuccess: (files) => downloadZip(files, "apex-deploy-packs.zip"),
-    onError: (err: Error) => toast.error(`Download failed: ${err.message}`),
+    onError: (err: Error) => toast.error(t("phase4.toast.downloadFailed", { err: err.message })),
   });
 
   if (isLoading) {
     return (
       <div className="flex items-center gap-3 text-sm text-neutral-400">
-        <Loader2 className="h-4 w-4 animate-spin" /> Loading stories…
+        <Loader2 className="h-4 w-4 animate-spin" /> {t("common.loadingStories")}
       </div>
     );
   }
-  if (error) return <Callout variant="danger">Failed to load stories: {errMsg(error)}</Callout>;
+  if (error) return <Callout variant="danger">{t("common.failedLoadStories", { err: errMsg(error) })}</Callout>;
 
   const stories = data?.stories ?? [];
   if (stories.length === 0) {
     return (
       <Callout>
-        No QA-passed stories found. A story must pass the Phase 4 Testing Gate before it can be deployed.
+        {t("phase5.noEligibleStories")}
       </Callout>
     );
   }
@@ -245,9 +249,9 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <SectionHeading>Select a story to deploy</SectionHeading>
+          <SectionHeading>{t("phase5.selectStoryTitle")}</SectionHeading>
           <p className={cn("mt-1 text-sm", dark ? "text-neutral-400" : "text-slate-500")}>
-            Choose a QA-passed user story to take through the Deployment Gate.
+            {t("phase5.selectStoryDesc")}
           </p>
         </div>
         {readyStories.length > 0 && (
@@ -258,7 +262,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
             onClick={() => downloadAllMut.mutate()}
           >
             {downloadAllMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            Download all as zip
+            {t("common.downloadAll")}
           </Button>
         )}
       </div>
@@ -266,7 +270,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
       {epics.length > 1 && (
         <div className="flex items-center gap-3">
           <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 shrink-0">
-            Epic
+            {t("phase3.epicLabel")}
           </label>
           <select
             value={currentEpic}
@@ -302,7 +306,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                 "absolute top-2 right-2 rounded text-xs font-semibold px-1.5 py-0.5",
                 dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-100 text-slate-500",
               )}>
-                Routine
+                {t("phase5.routineBadge")}
               </span>
             )}
             <div className="flex items-start gap-2 mb-2">
@@ -317,7 +321,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                   "rounded text-xs px-1.5 py-0.5",
                   dark ? "bg-violet-900/40 text-violet-400" : "bg-violet-100 text-violet-700",
                 )}>
-                  Delta ready
+                  {t("phase5.deltaReadyBadge")}
                 </span>
               )}
               {story.has_deploy_pack && (
@@ -325,7 +329,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                   "rounded text-xs px-1.5 py-0.5",
                   dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-100 text-slate-500",
                 )}>
-                  Pack ready
+                  {t("phase5.packReadyBadge")}
                 </span>
               )}
             </div>
@@ -342,13 +346,13 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-3">
           <Button variant="secondary" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>
-            ‹ Prev
+            {t("phase4.prev")}
           </Button>
           <span className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
-            {page + 1} / {totalPages}
+            {t("phase4.pageOfSimple", { page: page + 1, count: totalPages })}
           </span>
           <Button variant="secondary" onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}>
-            Next ›
+            {t("phase4.next")}
           </Button>
         </div>
       )}
@@ -361,6 +365,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
 // ---------------------------------------------------------------------------
 
 function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () => void; onContinue: () => void }) {
+  const t = useT();
   const dark = useUiStore((s) => s.theme) === "dark";
   const { data: ctx } = useStoryContext(storyId);
 
@@ -408,16 +413,15 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
   return (
     <div className="space-y-5">
-      <SectionHeading>Pre-Flight — Infrastructure Delta Check</SectionHeading>
+      <SectionHeading>{t("phase5.preFlightHeading")}</SectionHeading>
       <p className={cn("text-sm -mt-3", dark ? "text-neutral-400" : "text-slate-500")}>
-        One question: does deploying this story need new infra, env vars, secrets, migrations,
-        or pipeline changes — or is it a routine deployment on the existing pipeline?
+        {t("phase5.preFlightDesc")}
       </p>
 
       {ctx && (
         <details className={cn("rounded-lg border text-sm", dark ? "border-neutral-700" : "border-slate-200")}>
           <summary className={cn("cursor-pointer px-4 py-2.5 font-medium", dark ? "text-neutral-300" : "text-slate-700")}>
-            Acceptance Criteria (Gherkin)
+            {t("phase4.acceptanceCriteriaGherkin")}
           </summary>
           <pre className={cn("p-4 text-xs overflow-x-auto whitespace-pre-wrap font-mono", dark ? "text-neutral-400" : "text-slate-600")}>
             {ctx.gherkin}
@@ -427,8 +431,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
       {ctx && !ctx.github_context_synced && (
         <Callout>
-          No GitHub context synced — the delta check runs on specs only. Sync the repo in the
-          sidebar for pipeline-aware verdicts.
+          {t("phase5.noGithubSynced")}
         </Callout>
       )}
 
@@ -437,7 +440,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
       {generateMut.isPending && (
         <AIProgressIndicator
-          steps={["Reading story spec…", "Checking infra surface…", "Writing verdict…"]}
+          steps={[t("phase5.step.readingSpec"), t("phase5.step.checkingInfra"), t("phase5.step.writingVerdict")]}
           isPending={generateMut.isPending}
           dark={dark}
         />
@@ -448,14 +451,14 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
           {/* AI recommendation — advisory; the human sets the final verdict below. */}
           <div className={cn("rounded-lg border p-3 text-xs", dark ? "border-neutral-700 bg-neutral-950" : "border-slate-300 bg-white")}>
             <div className="mb-1 flex flex-wrap items-center gap-2">
-              <span className={cn("font-semibold uppercase tracking-wider", dark ? "text-neutral-400" : "text-slate-600")}>AI recommendation</span>
+              <span className={cn("font-semibold uppercase tracking-wider", dark ? "text-neutral-400" : "text-slate-600")}>{t("phase5.aiRecommendation")}</span>
               <span className={cn(
                 "rounded px-1.5 py-0.5 text-xs font-semibold capitalize",
                 infraDelta.confidence === "high" ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
                   : infraDelta.confidence === "low" ? "bg-red-500/20 text-red-700 dark:text-red-400"
                   : "bg-amber-500/20 text-amber-700 dark:text-amber-400",
               )}>
-                {infraDelta.confidence} confidence
+                {t("phase5.confidenceLabel", { level: infraDelta.confidence })}
               </span>
               <span className={cn(
                 "ml-auto font-semibold",
@@ -463,7 +466,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                   ? "text-amber-700 dark:text-amber-400"
                   : dark ? "text-neutral-400" : "text-slate-600",
               )}>
-                {infraDelta.needs_infra_change ? "Infra changes required" : "Routine deployment"}
+                {infraDelta.needs_infra_change ? t("phase5.infraChangesRequired") : t("phase5.routineDeployment")}
               </span>
               <button
                 onClick={clearInfraDelta}
@@ -471,30 +474,29 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                   "inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-medium transition",
                   dark ? "text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200" : "text-slate-500 hover:bg-slate-100 hover:text-slate-700",
                 )}
-                title="Discard the AI recommendation and re-run from scratch"
+                title={t("phase5.clearRecommendationTitle")}
               >
-                <XCircle className="size-3.5" /> Clear
+                <XCircle className="size-3.5" /> {t("phase3.clear")}
               </button>
             </div>
             {infraDelta.evidence && (
               <p className={cn(dark ? "text-neutral-300" : "text-slate-700")}>
-                <span className="font-semibold">Evidence: </span>{infraDelta.evidence}
+                <span className="font-semibold">{t("phase5.evidenceLabel")}</span>{infraDelta.evidence}
               </p>
             )}
             {infraDelta.confidence === "low" && (
               <p className="mt-1.5 flex items-start gap-1.5 text-amber-700 dark:text-amber-400">
                 <Info className="mt-0.5 size-3.5 shrink-0" />
-                Low confidence — the pipeline state couldn&apos;t be confirmed (sync the GitHub repo for a
-                grounded check). Verify the verdict below before continuing.
+                {t("phase5.lowConfidenceWarning")}
               </p>
             )}
             <p className={cn("mt-1.5", dark ? "text-neutral-500" : "text-slate-500")}>
-              This is advisory — you set the final verdict and rationale below.
+              {t("phase5.advisoryVerdictNote")}
             </p>
           </div>
 
           <div>
-            <p className={cn("mb-2 text-[11px] font-semibold uppercase tracking-wider", dark ? "text-neutral-400" : "text-slate-600")}>Verdict</p>
+            <p className={cn("mb-2 text-[11px] font-semibold uppercase tracking-wider", dark ? "text-neutral-400" : "text-slate-600")}>{t("phase5.verdictLabel")}</p>
             <div className="flex gap-2">
               <button
                 onClick={() => patchDelta({ needs_infra_change: false, deltas: [] })}
@@ -505,7 +507,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                     : dark ? "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-violet-600" : "border-slate-300 bg-white text-slate-500 hover:border-violet-400",
                 )}
               >
-                Routine deployment — no infra changes
+                {t("phase5.routineDeploymentButton")}
               </button>
               <button
                 onClick={() => patchDelta({
@@ -524,13 +526,13 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                     : dark ? "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-amber-600" : "border-slate-300 bg-white text-slate-500 hover:border-amber-400",
                 )}
               >
-                Infra changes required
+                {t("phase5.infraChangesRequiredButton")}
               </button>
             </div>
           </div>
 
           <div>
-            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">Rationale</p>
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">{t("phase5.rationaleLabel")}</p>
             <Textarea
               value={infraDelta.rationale}
               onChange={(e) => patchDelta({ rationale: e.target.value })}
@@ -541,7 +543,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
           {infraDelta.needs_infra_change && (
             <div className="space-y-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">Delta items</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">{t("phase5.deltaItemsLabel")}</p>
               {infraDelta.deltas.map((item, idx) => (
                 <div key={idx} className={cn("rounded-lg border p-3 space-y-2", dark ? "border-neutral-700 bg-neutral-950" : "border-slate-200 bg-white")}>
                   <div className="flex gap-2">
@@ -550,14 +552,14 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                       onChange={(e) => patchItem(idx, { category: e.target.value as InfraDeltaCategory })}
                       className={cn(inputClass, "w-36 shrink-0")}
                     >
-                      {(Object.keys(CATEGORY_LABELS) as InfraDeltaCategory[]).map((c) => (
-                        <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
+                      {(Object.keys(CATEGORY_LABEL_KEYS) as InfraDeltaCategory[]).map((c) => (
+                        <option key={c} value={c}>{t(CATEGORY_LABEL_KEYS[c])}</option>
                       ))}
                     </select>
                     <input
                       value={item.title}
                       onChange={(e) => patchItem(idx, { title: e.target.value })}
-                      placeholder="Short imperative title"
+                      placeholder={t("phase5.itemTitlePlaceholder")}
                       className={inputClass}
                     />
                     <select
@@ -574,7 +576,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                     <button
                       onClick={() => patchDelta({ deltas: infraDelta.deltas.filter((_, i) => i !== idx) })}
                       className={cn("shrink-0 rounded-lg border px-2.5 transition", dark ? "border-neutral-700 text-neutral-500 hover:text-red-400 hover:border-red-700" : "border-slate-300 text-slate-400 hover:text-red-500 hover:border-red-300")}
-                      aria-label="Remove delta item"
+                      aria-label={t("phase5.removeItemAria")}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -582,7 +584,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                   <Textarea
                     value={item.detail}
                     onChange={(e) => patchItem(idx, { detail: e.target.value })}
-                    placeholder="What must change and why this story requires it"
+                    placeholder={t("phase5.itemDetailPlaceholder")}
                     rows={2}
                     className="text-xs"
                   />
@@ -593,7 +595,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                 className="gap-1.5"
                 onClick={() => patchDelta({ deltas: [...infraDelta.deltas, { ...EMPTY_ITEM }] })}
               >
-                <Plus className="h-4 w-4" /> Add item
+                <Plus className="h-4 w-4" /> {t("phase5.addItem")}
               </Button>
             </div>
           )}
@@ -602,19 +604,19 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
       <div className="flex gap-3">
         <Button variant="secondary" className="gap-1.5" onClick={onBack} disabled={generateMut.isPending || saveMut.isPending}>
-          <ChevronLeft className="h-4 w-4" /> Back
+          <ChevronLeft className="h-4 w-4" /> {t("common.back")}
         </Button>
         <Button onClick={() => generateMut.mutate(storyId)} disabled={generateMut.isPending} className="flex-1 justify-center">
           {generateMut.isPending
-            ? <><Loader2 className="h-4 w-4 animate-spin" /> Checking…</>
-            : (infraDelta ? "Re-run Delta Check" : "Run Infra Delta Check")}
+            ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("phase5.checking")}</>
+            : (infraDelta ? t("phase5.rerunDeltaCheck") : t("phase5.runDeltaCheck"))}
         </Button>
         {generateMut.isPending && <CancelButton onCancel={() => generateMut.cancel()} />}
         {infraDelta && (
           <Button onClick={handleSave} disabled={!canSave || saveMut.isPending} className="flex-1 justify-center">
             {saveMut.isPending
-              ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
-              : "Save & Continue"}
+              ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("phase3.saving")}</>
+              : t("phase4.saveAndContinue")}
           </Button>
         )}
       </div>
@@ -626,31 +628,32 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 // Stage C — Deploy Pack (or routine bypass)
 // ---------------------------------------------------------------------------
 
-const DEPLOY_ENV_OPTIONS: { value: DeployPackOptions["target_env"]; label: string }[] = [
-  { value: "", label: "Auto (infer from project)" },
-  { value: "production", label: "Production" },
-  { value: "staging", label: "Staging" },
-  { value: "both", label: "Staging → Production" },
+const DEPLOY_ENV_OPTIONS: { value: DeployPackOptions["target_env"]; labelKey: TranslationKey }[] = [
+  { value: "", labelKey: "phase5.env.auto" },
+  { value: "production", labelKey: "phase5.env.production" },
+  { value: "staging", labelKey: "phase5.env.staging" },
+  { value: "both", labelKey: "phase5.env.both" },
 ];
 
-const DEPLOY_IAC_OPTIONS: { value: DeployPackOptions["iac_format"]; label: string }[] = [
-  { value: "", label: "Auto (match tech stack)" },
-  { value: "terraform", label: "Terraform" },
-  { value: "compose", label: "Docker Compose" },
-  { value: "kubernetes", label: "Kubernetes" },
-  { value: "bicep", label: "Azure Bicep" },
-  { value: "shell", label: "Shell scripts" },
+const DEPLOY_IAC_OPTIONS: { value: DeployPackOptions["iac_format"]; labelKey: TranslationKey }[] = [
+  { value: "", labelKey: "phase5.iac.auto" },
+  { value: "terraform", labelKey: "phase5.iac.terraform" },
+  { value: "compose", labelKey: "phase5.iac.compose" },
+  { value: "kubernetes", labelKey: "phase5.iac.kubernetes" },
+  { value: "bicep", labelKey: "phase5.iac.bicep" },
+  { value: "shell", labelKey: "phase5.iac.shell" },
 ];
 
-const DEPLOY_EMPHASIS_OPTIONS: { value: DeployPackEmphasis; label: string }[] = [
-  { value: "zero_downtime", label: "Zero-downtime" },
-  { value: "rollback_depth", label: "Deep rollback" },
-  { value: "secrets", label: "Secrets hardening" },
-  { value: "db_safety", label: "DB migration safety" },
-  { value: "observability", label: "Observability" },
+const DEPLOY_EMPHASIS_OPTIONS: { value: DeployPackEmphasis; labelKey: TranslationKey }[] = [
+  { value: "zero_downtime", labelKey: "phase5.emphasis.zeroDowntime" },
+  { value: "rollback_depth", labelKey: "phase5.emphasis.rollbackDepth" },
+  { value: "secrets", labelKey: "phase5.emphasis.secrets" },
+  { value: "db_safety", labelKey: "phase5.emphasis.dbSafety" },
+  { value: "observability", labelKey: "phase5.emphasis.observability" },
 ];
 
 function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () => void; onContinue: () => void }) {
+  const t = useT();
   const dark = useUiStore((s) => s.theme) === "dark";
 
   const infraDelta = usePhase5Store((s) => s.infraDelta);
@@ -692,26 +695,25 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   if (bypass) {
     return (
       <div className="space-y-5">
-        <SectionHeading>Deploy Pack</SectionHeading>
+        <SectionHeading>{t("phase5.deployPackHeading")}</SectionHeading>
         <div className={cn(
           "rounded-xl border px-6 py-8 text-center space-y-3",
           dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50",
         )}>
           <Rocket className={cn("h-10 w-10 mx-auto", dark ? "text-neutral-400" : "text-slate-500")} />
           <h3 className={cn("text-lg font-semibold", dark ? "text-neutral-200" : "text-slate-800")}>
-            Routine Deployment
+            {t("phase5.routineDeploymentHeading")}
           </h3>
           <p className={cn("text-sm", dark ? "text-neutral-400" : "text-slate-600")}>
-            The delta check found no infrastructure changes — this story rides the existing
-            automated CI/CD pipeline. No deploy pack is needed.
+            {t("phase5.routineDeploymentBody")}
           </p>
         </div>
         <div className="flex gap-3">
           <Button variant="secondary" className="gap-1.5" onClick={onBack}>
-            <ChevronLeft className="h-4 w-4" /> Back
+            <ChevronLeft className="h-4 w-4" /> {t("common.back")}
           </Button>
           <Button onClick={onContinue} className="flex-1 justify-center">
-            Continue to Deployment Gate
+            {t("phase5.continueToDeploymentGate")}
           </Button>
         </div>
       </div>
@@ -725,10 +727,9 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
   return (
     <div className="space-y-5">
-      <SectionHeading>Deploy Pack</SectionHeading>
+      <SectionHeading>{t("phase5.deployPackHeading")}</SectionHeading>
       <p className={cn("text-sm -mt-3", dark ? "text-neutral-400" : "text-slate-500")}>
-        Concrete scripts for the flagged delta items — env diffs, migrations, IaC and pipeline
-        fragments. This pack gets reviewed for security at the gate.
+        {t("phase5.deployPackDesc")}
       </p>
 
       <div className={cn("rounded-xl border", dark ? "border-neutral-700 bg-neutral-950/50" : "border-slate-200 bg-slate-50")}>
@@ -742,7 +743,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
         >
           <span className="flex items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-emerald-500" />
-            Guide the AI <span className={cn("font-normal", dark ? "text-neutral-500" : "text-slate-400")}>(optional)</span>
+            {t("phase4.guideTheAi")} <span className={cn("font-normal", dark ? "text-neutral-500" : "text-slate-400")}>{t("phase4.optionalParen")}</span>
           </span>
           <ChevronDown className={cn("h-4 w-4 transition-transform", optionsOpen && "rotate-180")} />
         </button>
@@ -752,7 +753,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block space-y-1.5">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">
-                  Target environment
+                  {t("phase5.targetEnvLabel")}
                 </span>
                 <select
                   value={options.target_env}
@@ -760,13 +761,13 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                   className={cn(inputClass, "w-full")}
                 >
                   {DEPLOY_ENV_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
                   ))}
                 </select>
               </label>
               <label className="block space-y-1.5">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">
-                  IaC / tooling
+                  {t("phase5.iacToolingLabel")}
                 </span>
                 <select
                   value={options.iac_format}
@@ -774,7 +775,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                   className={cn(inputClass, "w-full")}
                 >
                   {DEPLOY_IAC_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
                   ))}
                 </select>
               </label>
@@ -782,7 +783,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
             <div className="space-y-1.5">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">
-                Emphasis
+                {t("phase4.emphasisLabel")}
               </span>
               <div className="flex flex-wrap gap-2">
                 {DEPLOY_EMPHASIS_OPTIONS.map((opt) => {
@@ -802,7 +803,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                             : "border-slate-300 text-slate-500 hover:border-slate-400",
                       )}
                     >
-                      {opt.label}
+                      {t(opt.labelKey)}
                     </button>
                   );
                 })}
@@ -811,13 +812,13 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
             <label className="block space-y-1.5">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">
-                Extra instructions
+                {t("phase5.extraInstructionsLabel")}
               </span>
               <Textarea
                 value={options.instructions}
                 onChange={(e) => setOptions((o) => ({ ...o, instructions: e.target.value.slice(0, 2000) }))}
                 rows={3}
-                placeholder="e.g. deploy region eu-west-1, gate behind a feature flag, notify #ops on completion…"
+                placeholder={t("phase5.extraInstructionsPlaceholder")}
                 className="text-sm"
               />
             </label>
@@ -827,7 +828,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
       {generateMut.isPending && (
         <AIProgressIndicator
-          steps={["Reading delta items…", "Writing scripts…", "Adding rollback plan…"]}
+          steps={[t("phase5.step.readingDeltaItems"), t("phase5.step.writingScripts"), t("phase5.step.addingRollback")]}
           isPending={generateMut.isPending}
           dark={dark}
         />
@@ -837,7 +838,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
         <div className="space-y-2">
           <div className="grid gap-4 lg:grid-cols-2">
             <div>
-              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">Edit</p>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">{t("phase3.editLabel")}</p>
               <Textarea
                 value={deployPackMd}
                 onChange={(e) => setDeployPackMd(e.target.value, false)}
@@ -845,16 +846,16 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
               />
             </div>
             <div>
-              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">Preview</p>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">{t("common.preview")}</p>
               <MarkdownPreview content={deployPackMd} dark={dark} className="h-[34rem] resize-y" />
             </div>
           </div>
           <div className="flex gap-2">
             <Button variant="secondary" className="gap-1.5" onClick={() => blobDownload(deployPackMd, `deploy-pack-us${storyId}.md`)}>
-              <Download className="h-4 w-4" /> Download .md
+              <Download className="h-4 w-4" /> {t("phase4.downloadMd")}
             </Button>
-            <Button variant="secondary" className="gap-1.5" onClick={() => { void navigator.clipboard.writeText(deployPackMd); toast.success("Copied."); }}>
-              <Copy className="h-4 w-4" /> Copy
+            <Button variant="secondary" className="gap-1.5" onClick={() => { void navigator.clipboard.writeText(deployPackMd); toast.success(t("common.copied")); }}>
+              <Copy className="h-4 w-4" /> {t("common.copy")}
             </Button>
           </div>
         </div>
@@ -862,7 +863,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
       <div className="flex gap-3">
         <Button variant="secondary" className="gap-1.5" onClick={onBack} disabled={generateMut.isPending || saveMut.isPending}>
-          <ChevronLeft className="h-4 w-4" /> Back
+          <ChevronLeft className="h-4 w-4" /> {t("common.back")}
         </Button>
         <Button
           onClick={() => {
@@ -873,14 +874,14 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                 onSuccess: (data) => {
                   if (prev.trim() && prev !== data.deploy_pack_md) {
                     requestDiff({
-                      title: `Deploy pack — story #${storyId}`,
+                      title: t("phase5.diffTitle", { storyId }),
                       oldText: prev,
                       newText: data.deploy_pack_md,
                       onAccept: () => setDeployPackMd(data.deploy_pack_md, false),
                       onDiscard: () => logDecision.mutate({
-                        scope: `Phase 5 deploy pack · story #${storyId}`,
-                        summary: "Discarded a regenerated deploy pack — kept the previous one.",
-                        reason: "The AI's regeneration was rejected in favour of the existing deploy pack.",
+                        scope: t("phase5.logDecisionScope", { storyId }),
+                        summary: t("phase5.logDecisionDiscardSummary"),
+                        reason: t("phase5.logDecisionDiscardReason"),
                       }),
                     });
                   } else {
@@ -894,15 +895,15 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
           className="flex-1 justify-center"
         >
           {generateMut.isPending
-            ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
-            : (deployPackMd ? "Regenerate Pack" : "Generate Deploy Pack")}
+            ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("common.generating")}</>
+            : (deployPackMd ? t("phase5.regeneratePack") : t("phase5.generateDeployPack"))}
         </Button>
         {generateMut.isPending && <CancelButton onCancel={() => generateMut.cancel()} />}
         {deployPackMd && (
           <Button onClick={handleSave} disabled={saveMut.isPending} className="flex-1 justify-center">
             {saveMut.isPending
-              ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
-              : "Save & Continue"}
+              ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("phase3.saving")}</>
+              : t("phase4.saveAndContinue")}
           </Button>
         )}
       </div>
@@ -920,6 +921,7 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
   onRevise: () => void;
   onNewStory: () => void;
 }) {
+  const t = useT();
   const dark = useUiStore((s) => s.theme) === "dark";
   const router = useRouter();
   const { data: ctx } = useStoryContext(storyId);
@@ -966,8 +968,8 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
     // decision) — record it and commit the revision directly. The diff gate is
     // reserved for blind regenerations, not deliberate revisions.
     logDecision.mutate({
-      scope: `Phase 5 deploy pack · story #${storyId}`,
-      summary: "Rejected the deploy pack at the gate and requested a revision.",
+      scope: t("phase5.logDecisionScope", { storyId }),
+      summary: t("phase5.logDecisionRejectSummary"),
       reason: rejectionFeedback,
     });
     reviseMut.mutate(
@@ -980,7 +982,7 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
           // The revised pack is materially different from what was reviewed —
           // both sign-offs must be re-verified against the new content.
           setSignOffs(false, false);
-          toast.success("Deploy pack revised — review and sign off again.");
+          toast.success(t("phase5.toast.packRevised"));
           onRevise();
         },
       },
@@ -996,10 +998,10 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
         )}>
           <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto" />
           <h3 className={cn("text-lg font-semibold", dark ? "text-emerald-300" : "text-emerald-800")}>
-            Deployment Gate Passed
+            {t("phase5.deploymentGatePassed")}
           </h3>
           <p className={cn("text-sm", dark ? "text-emerald-400" : "text-emerald-700")}>
-            US#{storyId} is deployed. The gate decision was recorded in deployment-log.md.
+            {t("phase5.deployedNote", { storyId })}
           </p>
         </div>
         <div className="flex flex-col gap-2">
@@ -1011,15 +1013,15 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
               onClick={() => pmStatusMut.mutate({ pmStoryId: String(storyId), statusName: "done" })}
             >
               {pmStatusMut.isPending
-                ? <><Loader2 className="h-4 w-4 animate-spin" /> Updating PM…</>
-                : "Update PM Story Status"}
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("phase4.updatingPm")}</>
+                : t("phase4.updatePmStatus")}
             </Button>
           )}
           <Button className="w-full justify-center gap-1.5" onClick={() => router.push("/phase6")}>
-            <Rocket className="h-4 w-4" /> Continue to Phase 6 — Maintenance
+            <Rocket className="h-4 w-4" /> {t("phase5.continueToPhase6")}
           </Button>
           <Button variant="secondary" className="w-full justify-center" onClick={() => { clearPhase5Draft(); onNewStory(); }}>
-            Deploy Another Story
+            {t("phase5.deployAnotherStory")}
           </Button>
         </div>
       </div>
@@ -1028,18 +1030,18 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
 
   return (
     <div className="space-y-5">
-      <SectionHeading>Deployment Gate</SectionHeading>
+      <SectionHeading>{t("phase5.deploymentGateHeading")}</SectionHeading>
 
       {/* Evidence summary */}
       <div className="grid gap-3 sm:grid-cols-2">
         <div className={cn("rounded-lg border p-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1">Infra delta verdict</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1">{t("phase5.infraDeltaVerdictLabel")}</p>
           {infraDelta ? (
             <p className={cn("text-sm font-semibold", bypass ? (dark ? "text-neutral-300" : "text-slate-600") : "text-amber-500")}>
-              {bypass ? "Routine deployment (bypass)" : `${infraDelta.deltas.length} change(s) required`}
+              {bypass ? t("phase5.routineDeploymentBypass") : t(infraDelta.deltas.length === 1 ? "phase5.changesRequiredOne" : "phase5.changesRequiredOther", { n: infraDelta.deltas.length })}
             </p>
           ) : (
-            <p className="text-sm text-red-500">Missing — run the Pre-Flight check.</p>
+            <p className="text-sm text-red-500">{t("phase5.missingPreFlight")}</p>
           )}
           {infraDelta?.rationale && (
             <p className={cn("mt-1 text-xs line-clamp-3", dark ? "text-neutral-500" : "text-slate-400")}>
@@ -1048,20 +1050,20 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
           )}
         </div>
         <div className={cn("rounded-lg border p-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1">Deploy pack</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mb-1">{t("phase5.deployPackLabel")}</p>
           {bypass ? (
-            <p className={cn("text-sm font-semibold", dark ? "text-neutral-300" : "text-slate-600")}>Not required (routine)</p>
+            <p className={cn("text-sm font-semibold", dark ? "text-neutral-300" : "text-slate-600")}>{t("phase5.notRequiredRoutine")}</p>
           ) : packOk ? (
             <>
               <p className={cn("text-sm font-semibold leading-snug", dark ? "text-neutral-100" : "text-slate-800")}>
-                Deploy Pack — US#{storyId}{ctx?.title ? `: ${ctx.title}` : ""}
+                {t("phase5.deployPackTitle", { storyId, titleSuffix: ctx?.title ? `: ${ctx.title}` : "" })}
               </p>
               <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-emerald-500">
-                <CheckCircle2 className="h-3.5 w-3.5" /> Saved and ready for review
+                <CheckCircle2 className="h-3.5 w-3.5" /> {t("phase5.savedReadyForReview")}
               </p>
               <p className={cn("mt-1 text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
-                {infraDelta ? `${infraDelta.deltas.length} delta section(s)` : "—"}
-                {deployPackMd ? ` · ${Math.round((deployPackMd.length / 100)) / 10}k chars` : ""}
+                {infraDelta ? t(infraDelta.deltas.length === 1 ? "phase5.deltaSectionsOne" : "phase5.deltaSectionsOther", { n: infraDelta.deltas.length }) : "—"}
+                {deployPackMd ? t("phase5.kCharsSuffix", { k: Math.round((deployPackMd.length / 100)) / 10 }) : ""}
               </p>
               {deployPackMd && (
                 <button
@@ -1073,12 +1075,12 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
                       : "border-slate-300 text-slate-600 hover:border-emerald-500 hover:text-emerald-600",
                   )}
                 >
-                  <Eye className="h-3.5 w-3.5" /> View pack
+                  <Eye className="h-3.5 w-3.5" /> {t("phase5.viewPack")}
                 </button>
               )}
             </>
           ) : (
-            <p className="text-sm text-red-500">Missing — generate and save the pack first.</p>
+            <p className="text-sm text-red-500">{t("phase5.missingGeneratePack")}</p>
           )}
         </div>
       </div>
@@ -1089,7 +1091,7 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
       {/* Sign-offs */}
       <div className={cn("rounded-xl border p-5 space-y-3", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
         <p className={cn("flex items-center gap-2 text-sm font-semibold", dark ? "text-neutral-200" : "text-slate-700")}>
-          <ShieldCheck className="h-4 w-4 text-emerald-500" /> Human gatekeeper sign-offs
+          <ShieldCheck className="h-4 w-4 text-emerald-500" /> {t("phase5.gatekeeperSignOffs")}
         </p>
         <label className={cn("flex items-start gap-2.5 text-sm cursor-pointer", dark ? "text-neutral-300" : "text-slate-600")}>
           <input
@@ -1098,7 +1100,7 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
             onChange={(e) => setSignOffs(e.target.checked, devopsApproved)}
             className="mt-0.5 h-4 w-4 accent-emerald-600"
           />
-          <span>The delta verdict and deploy pack were reviewed for correctness and completeness.</span>
+          <span>{t("phase5.signOff.techLead")}</span>
         </label>
         <label className={cn("flex items-start gap-2.5 text-sm cursor-pointer", dark ? "text-neutral-300" : "text-slate-600")}>
           <input
@@ -1107,7 +1109,7 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
             onChange={(e) => setSignOffs(techLeadApproved, e.target.checked)}
             className="mt-0.5 h-4 w-4 accent-emerald-600"
           />
-          <span>The security review passed: no vulnerable configuration, policy violation, or scalability risk.</span>
+          <span>{t("phase5.signOff.devops")}</span>
         </label>
       </div>
 
@@ -1118,19 +1120,17 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
             onClick={() => setRejecting(!rejecting)}
             className={cn("text-sm font-medium transition", dark ? "text-neutral-400 hover:text-red-400" : "text-slate-500 hover:text-red-500")}
           >
-            {rejecting ? "Cancel rejection" : "Reject pack — request AI revision with security feedback"}
+            {rejecting ? t("phase5.cancelRejection") : t("phase5.rejectPack")}
           </button>
           {rejecting && (
             <>
               <p className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-500")}>
-                The pack returns to the Deploy Pack step where the AI rewrites the flagged sections
-                to address your feedback — grounded in the same infra delta, headings preserved.
-                You then re-review and re-run the gate.
+                {t("phase5.rejectExplainer")}
               </p>
               <Textarea
                 value={rejectionFeedback}
                 onChange={(e) => setRejectionFeedback(e.target.value)}
-                placeholder="Security review findings the revised pack must address…"
+                placeholder={t("phase5.feedbackPlaceholder")}
                 rows={4}
                 className="text-sm"
                 disabled={reviseMut.isPending}
@@ -1138,17 +1138,17 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
               {reviseMut.isPending && (
                 <AIProgressIndicator
                   steps={[
-                    "Reading security feedback…",
-                    "Rewriting flagged sections…",
-                    "Re-checking rollback plan…",
-                    "Finalising revised pack…",
+                    t("phase5.step.readingFeedback"),
+                    t("phase5.step.rewritingSections"),
+                    t("phase5.step.recheckingRollback"),
+                    t("phase5.step.finalisingPack"),
                   ]}
                   isPending={reviseMut.isPending}
                   dark={dark}
                 />
               )}
               {reviseMut.isPending ? (
-                <CancelButton onCancel={() => reviseMut.cancel()} label="Cancel revision" className="w-full" />
+                <CancelButton onCancel={() => reviseMut.cancel()} label={t("phase5.cancelRevision")} className="w-full" />
               ) : (
                 <Button
                   variant="secondary"
@@ -1156,7 +1156,7 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
                   disabled={!rejectionFeedback.trim()}
                   className="w-full justify-center gap-1.5"
                 >
-                  Send feedback & revise pack
+                  {t("phase5.sendFeedbackRevise")}
                 </Button>
               )}
             </>
@@ -1166,19 +1166,19 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
 
       <div className="flex gap-3">
         <Button variant="secondary" className="gap-1.5" onClick={onBack} disabled={gateMut.isPending}>
-          <ChevronLeft className="h-4 w-4" /> Back
+          <ChevronLeft className="h-4 w-4" /> {t("common.back")}
         </Button>
         <Button
           onClick={() => {
-            if (!window.confirm(`Approve and deploy US#${storyId}? This writes a permanent record to deployment-log.md and marks the story deployed.`)) return;
+            if (!window.confirm(t("phase5.confirmApproveDeploy", { storyId }))) return;
             gateMut.mutate({ storyId, techLeadApproved, devopsApproved });
           }}
           disabled={!canApprove || gateMut.isPending}
           className="flex-1 justify-center gap-1.5"
         >
           {gateMut.isPending
-            ? <><Loader2 className="h-4 w-4 animate-spin" /> Recording…</>
-            : <><Rocket className="h-4 w-4" /> Approve & Deploy</>}
+            ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("phase5.recording")}</>
+            : <><Rocket className="h-4 w-4" /> {t("phase5.approveAndDeploy")}</>}
         </Button>
       </div>
 
@@ -1187,7 +1187,7 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
           <div
             role="dialog"
             aria-modal="true"
-            aria-label={`Deploy Pack — US#${storyId}`}
+            aria-label={t("phase5.deployPackTitle", { storyId, titleSuffix: "" })}
             tabIndex={-1}
             ref={(el) => el?.focus()}
             onKeyDown={(e) => { if (e.key === "Escape") setViewingPack(false); }}
@@ -1200,25 +1200,25 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
             <div className={cn("flex items-center gap-3 border-b px-5 py-3", dark ? "border-neutral-800" : "border-slate-200")}>
               <Rocket className="size-4 text-emerald-400" />
               <span className={cn("flex-1 text-sm font-semibold", dark ? "text-neutral-100" : "text-slate-800")}>
-                Deploy Pack — US#{storyId}{ctx?.title ? `: ${ctx.title}` : ""}
+                {t("phase5.deployPackTitle", { storyId, titleSuffix: ctx?.title ? `: ${ctx.title}` : "" })}
               </span>
               <button
                 className={cn("rounded p-1 transition-colors", dark ? "text-neutral-500 hover:text-emerald-400" : "text-slate-400 hover:text-emerald-600")}
-                title="Download"
+                title={t("phase5.download")}
                 onClick={() => blobDownload(deployPackMd, `deploy-pack-us${storyId}.md`)}
               >
                 <Download className="size-4" />
               </button>
               <button
                 className={cn("rounded p-1 transition-colors", dark ? "text-neutral-500 hover:text-emerald-400" : "text-slate-400 hover:text-emerald-600")}
-                title="Copy"
-                onClick={() => { void navigator.clipboard.writeText(deployPackMd); toast.success("Copied."); }}
+                title={t("common.copy")}
+                onClick={() => { void navigator.clipboard.writeText(deployPackMd); toast.success(t("common.copied")); }}
               >
                 <Copy className="size-4" />
               </button>
               <button
                 className={cn("rounded p-1 transition-colors", dark ? "text-neutral-500 hover:text-red-400" : "text-slate-400 hover:text-red-500")}
-                title="Close"
+                title={t("phase5.close")}
                 onClick={() => setViewingPack(false)}
               >
                 <X className="size-4" />
@@ -1240,14 +1240,15 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
 
 type Stage = "A" | "B" | "C" | "D";
 
-const STAGE_LABELS: Record<Stage, string> = {
-  A: "Select Story",
-  B: "Pre-Flight",
-  C: "Deploy Pack",
-  D: "Deployment Gate",
+const STAGE_LABEL_KEYS: Record<Stage, TranslationKey> = {
+  A: "phase5.stage.selectStory",
+  B: "phase5.stage.preFlight",
+  C: "phase5.stage.deployPack",
+  D: "phase5.stage.deploymentGate",
 };
 
 export function Phase5Workflow() {
+  const t = useT();
   const dark = useUiStore((s) => s.theme) === "dark";
   const context = useApiContext();
   const [stage, setStage] = useState<Stage>("A");
@@ -1270,7 +1271,7 @@ export function Phase5Workflow() {
   };
 
   const handleStepperGoA = () => {
-    if (stage !== "A" && !window.confirm("Go back to Stories? This discards all deployment-gate progress for this story (infra delta verdict, deploy pack, sign-offs).")) return;
+    if (stage !== "A" && !window.confirm(t("phase5.confirmGoStories"))) return;
     clearPhase5Draft();
     setStage("A");
   };
@@ -1283,16 +1284,16 @@ export function Phase5Workflow() {
     <section className="px-8 py-8">
       {/* Phase header */}
       <div className="mb-7">
-        <p className={cn("mb-1 text-xs font-bold uppercase tracking-widest", dark ? "text-violet-400" : "text-violet-600")}>Phase 5</p>
+        <p className={cn("mb-1 text-xs font-bold uppercase tracking-widest", dark ? "text-violet-400" : "text-violet-600")}>{t("common.phaseEyebrow", { n: 5 })}</p>
         <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
-          Deployment
+          {t("phase5.heading")}
         </h1>
         <p className={cn("mt-2", mutedClass)}>
-          Run the AI infra delta check, prepare deploy packs, and pass the human-gated Deployment Gate.
+          {t("phase5.subtitle")}
         </p>
       </div>
 
-      {!context ? <SignInRequired unlocks="Phase 5 deployment tools" /> : null}
+      {!context ? <SignInRequired unlocks={t("phase5.signInUnlocks")} /> : null}
 
       {/* Diagram collapsible */}
       <div className={cn("mb-6 rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}>
@@ -1305,14 +1306,14 @@ export function Phase5Workflow() {
         >
           <ChevronRight className={cn("size-4 transition-transform", diagramOpen && "rotate-90")} />
           <Info className="size-4" />
-          <span>View Process Diagram (How this works)</span>
+          <span>{t("common.viewProcessDiagram")}</span>
         </button>
         {diagramOpen && (
           <div className={cn("border-t p-4", dark ? "border-neutral-800" : "border-slate-200")}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/images/deployment.svg"
-              alt="Phase 5 deployment process diagram"
+              alt={t("phase5.diagramAlt")}
               className="mx-auto max-w-full"
               onError={(e) => { e.currentTarget.style.display = "none"; }}
             />
@@ -1359,7 +1360,7 @@ export function Phase5Workflow() {
                           ? dark ? "text-violet-400" : "text-violet-600"
                           : dark ? "text-neutral-500" : "text-slate-400",
                       )}>
-                        {STAGE_LABELS[s]}
+                        {t(STAGE_LABEL_KEYS[s])}
                       </span>
                     </button>
                     {i < stages.length - 1 && (
@@ -1386,7 +1387,7 @@ export function Phase5Workflow() {
                 onClick={handleStepperGoA}
                 className={cn("shrink-0 text-xs font-medium transition", dark ? "text-neutral-400 hover:text-violet-400" : "text-slate-500 hover:text-violet-600")}
               >
-                ← Stories
+                {t("phase3.backToStories")}
               </button>
               {currentStoryMeta.epicTitle && (
                 <>
