@@ -11,14 +11,17 @@ import { verifyGithubRepo, type RepoMeta } from "@/lib/api/github-browser";
 import { getApiBaseUrl } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 import { PanelHeader, type DragSectionProps } from "./shared";
+import { useT } from "@/lib/i18n/use-translation";
+import type { TranslationKey } from "@/lib/i18n/translations";
 
-function copyToClipboard(value: string, label: string) {
+function copyToClipboard(value: string, label: string, t: ReturnType<typeof useT>) {
   navigator.clipboard.writeText(value)
-    .then(() => toast.success(`${label} copied.`))
-    .catch(() => toast.error(`Could not copy ${label.toLowerCase()}.`));
+    .then(() => toast.success(t("github.copySuccess", { label })))
+    .catch(() => toast.error(t("github.copyFailed", { label: label.toLowerCase() })));
 }
 
 function WebhookSetup({ dark }: { dark: boolean }) {
+  const t = useT();
   const [expanded, setExpanded] = useState(false);
   const projectId = useSessionStore((s) => s.projectId);
   const webhook = useGithubWebhookConfig(expanded);
@@ -33,44 +36,40 @@ function WebhookSetup({ dark }: { dark: boolean }) {
         onClick={() => setExpanded(!expanded)}
       >
         <Webhook className="size-3.5" />
-        <span className="flex-1 font-medium">Auto regression scan &amp; context sync on push</span>
-        <span className={dark ? "text-neutral-600" : "text-slate-400"}>{expanded ? "Hide" : "Set up"}</span>
+        <span className="flex-1 font-medium">{t("github.webhook.title")}</span>
+        <span className={dark ? "text-neutral-600" : "text-slate-400"}>{expanded ? t("github.webhook.hide") : t("github.webhook.setUp")}</span>
       </button>
       {expanded ? (
         <div className={cn("space-y-2 border-t px-2.5 py-2.5", dark ? "border-neutral-700" : "border-slate-200")}>
           <p className={cn("leading-snug", dark ? "text-neutral-500" : "text-slate-500")}>
-            Add this as a GitHub webhook (repo Settings → Webhooks → Add webhook, content type{" "}
-            <code>application/json</code>, event <code>push</code>) and every push re-checks spec↔code
-            conformance for the stories it touched — no need to click &quot;Scan for regressions&quot; by hand.
-            While this tab is open with GitHub connected, a push also auto-triggers &quot;Sync Context&quot;
-            for you.
+            {t("github.webhook.description")}
           </p>
           {webhook.isLoading ? (
-            <p className={cn(dark ? "text-neutral-600" : "text-slate-400")}>Loading…</p>
+            <p className={cn(dark ? "text-neutral-600" : "text-slate-400")}>{t("common.loading")}</p>
           ) : !projectId ? (
-            <p className={cn(dark ? "text-neutral-600" : "text-slate-400")}>Pick a project first.</p>
+            <p className={cn(dark ? "text-neutral-600" : "text-slate-400")}>{t("github.webhook.pickProjectFirst")}</p>
           ) : webhook.data ? (
             <>
               <div className="space-y-1">
-                <label className={cn("block", dark ? "text-neutral-500" : "text-slate-500")}>Payload URL</label>
+                <label className={cn("block", dark ? "text-neutral-500" : "text-slate-500")}>{t("github.webhook.payloadUrl")}</label>
                 <div className="flex gap-1.5">
                   <input readOnly value={url} className={cn("h-7 min-w-0 flex-1 rounded border px-2 font-mono text-[11px]", dark ? "border-neutral-700 bg-neutral-950 text-neutral-300" : "border-slate-300 bg-white text-slate-700")} />
-                  <button className={cn("grid size-7 shrink-0 place-items-center rounded border", dark ? "border-neutral-700 text-neutral-400 hover:text-violet-300" : "border-slate-300 text-slate-500 hover:text-violet-600")} onClick={() => copyToClipboard(url, "Webhook URL")}>
+                  <button className={cn("grid size-7 shrink-0 place-items-center rounded border", dark ? "border-neutral-700 text-neutral-400 hover:text-violet-300" : "border-slate-300 text-slate-500 hover:text-violet-600")} onClick={() => copyToClipboard(url, t("github.webhook.webhookUrlLabel"), t)}>
                     <Copy className="size-3" />
                   </button>
                 </div>
               </div>
               <div className="space-y-1">
-                <label className={cn("block", dark ? "text-neutral-500" : "text-slate-500")}>Secret</label>
+                <label className={cn("block", dark ? "text-neutral-500" : "text-slate-500")}>{t("github.webhook.secret")}</label>
                 <div className="flex gap-1.5">
                   <input readOnly type="password" value={webhook.data.secret} className={cn("h-7 min-w-0 flex-1 rounded border px-2 font-mono text-[11px]", dark ? "border-neutral-700 bg-neutral-950 text-neutral-300" : "border-slate-300 bg-white text-slate-700")} />
-                  <button className={cn("grid size-7 shrink-0 place-items-center rounded border", dark ? "border-neutral-700 text-neutral-400 hover:text-violet-300" : "border-slate-300 text-slate-500 hover:text-violet-600")} onClick={() => copyToClipboard(webhook.data!.secret, "Secret")}>
+                  <button className={cn("grid size-7 shrink-0 place-items-center rounded border", dark ? "border-neutral-700 text-neutral-400 hover:text-violet-300" : "border-slate-300 text-slate-500 hover:text-violet-600")} onClick={() => copyToClipboard(webhook.data!.secret, t("github.webhook.secret"), t)}>
                     <Copy className="size-3" />
                   </button>
                 </div>
               </div>
               <p className={cn(dark ? "text-neutral-600" : "text-slate-400")}>
-                Only re-checks stories that already have a conformance report, capped at 10 per push, with a 5-minute cooldown per project.
+                {t("github.webhook.rateLimitNote")}
               </p>
             </>
           ) : null}
@@ -80,25 +79,14 @@ function WebhookSetup({ dark }: { dark: boolean }) {
   );
 }
 
-const PACK_DETAIL_OPTIONS: Array<{ value: "auto" | "full" | "compress"; label: string; blurb: string }> = [
-  {
-    value: "auto",
-    label: "Auto (recommended)",
-    blurb: "Packs full function bodies. If the repo is too large for the token budget, automatically retries as a compressed (signatures-only) pack instead of failing outright.",
-  },
-  {
-    value: "full",
-    label: "Full detail",
-    blurb: "Always packs full function bodies, never falls back to compressed. Fails with a clear error if it doesn't fit — so you know to raise the budget or add ignore patterns, rather than silently losing detail.",
-  },
-  {
-    value: "compress",
-    label: "Compressed",
-    blurb: "Always packs signatures and structure only (repomix --compress), skipping full function bodies entirely — maximizes headroom for your other context files (spec, design, constraints) at the cost of implementation detail.",
-  },
+const PACK_DETAIL_OPTIONS: Array<{ value: "auto" | "full" | "compress"; labelKey: TranslationKey; blurbKey: TranslationKey }> = [
+  { value: "auto", labelKey: "github.pack.auto.label", blurbKey: "github.pack.auto.blurb" },
+  { value: "full", labelKey: "github.pack.full.label", blurbKey: "github.pack.full.blurb" },
+  { value: "compress", labelKey: "github.pack.compress.label", blurbKey: "github.pack.compress.blurb" },
 ];
 
 function PackSettings({ dark }: { dark: boolean }) {
+  const t = useT();
   const [expanded, setExpanded] = useState(false);
   const [mode, setMode] = useState<"auto" | "full" | "compress">("auto");
   const [maxTokens, setMaxTokens] = useState("");
@@ -128,8 +116,8 @@ function PackSettings({ dark }: { dark: boolean }) {
     save.mutate(
       { pack_detail_mode: mode, pack_max_tokens: tokens, pack_extra_ignore: extraIgnore.trim() },
       {
-        onSuccess: () => toast.success("Pack settings saved. Sync Context to apply."),
-        onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to save pack settings."),
+        onSuccess: () => toast.success(t("github.pack.toast.saved")),
+        onError: (e) => toast.error(e instanceof Error ? e.message : t("github.pack.toast.saveFailed")),
       },
     );
   }
@@ -141,22 +129,21 @@ function PackSettings({ dark }: { dark: boolean }) {
         onClick={() => setExpanded(!expanded)}
       >
         <Settings2 className="size-3.5" />
-        <span className="flex-1 font-medium">Repo pack settings</span>
-        <span className={dark ? "text-neutral-600" : "text-slate-400"}>{expanded ? "Hide" : "Configure"}</span>
+        <span className="flex-1 font-medium">{t("github.pack.title")}</span>
+        <span className={dark ? "text-neutral-600" : "text-slate-400"}>{expanded ? t("github.webhook.hide") : t("github.pack.configure")}</span>
       </button>
       {expanded ? (
         <div className={cn("space-y-3 border-t px-2.5 py-2.5", dark ? "border-neutral-700" : "border-slate-200")}>
           <p className={cn("leading-snug", dark ? "text-neutral-500" : "text-slate-500")}>
-            Controls how much of the repo Sync Context packs into <code>github-context.md</code>, and how it trades
-            implementation detail for room to fit alongside your other context files.
+            {t("github.pack.description")}
           </p>
 
           {packConfig.isLoading ? (
-            <p className={dark ? "text-neutral-600" : "text-slate-400"}>Loading…</p>
+            <p className={dark ? "text-neutral-600" : "text-slate-400"}>{t("common.loading")}</p>
           ) : (
             <>
               <div className="space-y-1.5">
-                <label className={labelClass}>Pack detail</label>
+                <label className={labelClass}>{t("github.pack.detailLabel")}</label>
                 <div className="space-y-1.5">
                   {PACK_DETAIL_OPTIONS.map((opt) => (
                     <label
@@ -176,8 +163,8 @@ function PackSettings({ dark }: { dark: boolean }) {
                         onChange={() => setMode(opt.value)}
                       />
                       <span>
-                        <span className={cn("block font-medium", dark ? "text-neutral-200" : "text-slate-800")}>{opt.label}</span>
-                        <span className={cn("block leading-snug", dark ? "text-neutral-500" : "text-slate-500")}>{opt.blurb}</span>
+                        <span className={cn("block font-medium", dark ? "text-neutral-200" : "text-slate-800")}>{t(opt.labelKey)}</span>
+                        <span className={cn("block leading-snug", dark ? "text-neutral-500" : "text-slate-500")}>{t(opt.blurbKey)}</span>
                       </span>
                     </label>
                   ))}
@@ -185,37 +172,29 @@ function PackSettings({ dark }: { dark: boolean }) {
               </div>
 
               <div className="space-y-1">
-                <label className={labelClass}>Max pack size (tokens)</label>
+                <label className={labelClass}>{t("github.pack.maxTokensLabel")}</label>
                 <input
                   value={maxTokens}
                   onChange={(e) => setMaxTokens(e.target.value.replace(/[^0-9]/g, ""))}
                   className={inputClass}
-                  placeholder="Auto"
+                  placeholder={t("github.pack.autoPlaceholder")}
                   inputMode="numeric"
                 />
                 <p className={helpClass}>
-                  Leave blank for Auto: the pack is sized to whatever room is left after your other context files,
-                  against the AI model&apos;s context window (Settings → AI Model). Set a number to use a fixed
-                  ceiling instead, ignoring that calculation. Roughly ~4 characters per token at full detail, ~1.75
-                  at compressed — e.g. 50,000 tokens ≈ 200k characters full detail, ≈ 88k characters compressed.
+                  {t("github.pack.maxTokensHelp")}
                 </p>
               </div>
 
               <div className="space-y-1">
-                <label className={labelClass}>Extra ignore patterns</label>
+                <label className={labelClass}>{t("github.pack.extraIgnoreLabel")}</label>
                 <textarea
                   value={extraIgnore}
                   onChange={(e) => setExtraIgnore(e.target.value)}
                   className={cn(inputClass, "h-16 resize-y py-1.5 font-mono")}
-                  placeholder="assets/**, *.svg, locales/**"
+                  placeholder={t("github.pack.extraIgnorePlaceholder")}
                 />
                 <p className={helpClass}>
-                  Comma-separated glob patterns, appended to the built-in exclude list. Always excluded already:{" "}
-                  <code>node_modules</code>, <code>.git</code>, <code>dist</code>, <code>build</code>,{" "}
-                  <code>.next</code>, <code>coverage</code>, test/spec files, <code>docs/</code>,{" "}
-                  <code>migrations/</code>, <code>.github/</code>, lockfiles, minified JS, source maps — plus
-                  anything already in the repo&apos;s own <code>.gitignore</code>. Add repo-specific bulk here (large
-                  data/, generated code, locale files, images).
+                  {t("github.pack.extraIgnoreHelp")}
                 </p>
               </div>
 
@@ -224,7 +203,7 @@ function PackSettings({ dark }: { dark: boolean }) {
                 disabled={save.isPending}
                 onClick={handleSave}
               >
-                {save.isPending ? "Saving…" : "Save pack settings"}
+                {save.isPending ? t("common.saving") : t("github.pack.savePackSettings")}
               </button>
             </>
           )}
@@ -240,6 +219,7 @@ type GitHubSectionProps = DragSectionProps & {
 };
 
 export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDragStart }: GitHubSectionProps) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [patInput, setPatInput] = useState("");
   const [repoInput, setRepoInput] = useState(githubRepo);
@@ -282,7 +262,7 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
     const pat = patInput.trim();
     const repo = repoInput.trim().replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, "");
     if (!pat || !repo || !repo.includes("/")) {
-      toast.error("Enter a valid PAT and repo (owner/repo).");
+      toast.error(t("github.toast.enterValidPatRepo"));
       return;
     }
     setConnecting(true);
@@ -295,19 +275,19 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
       // deployment must not make GitHub unusable for the current session).
       setGithub({ pat, repo });
       setRepoMeta(meta);
-      toast.success(`Connected to ${repo}`);
+      toast.success(t("github.toast.connected", { repo }));
       setPatInput("");
       try {
         await saveGithubConfig.mutateAsync({ repo, pat });
       } catch (persistErr) {
         toast.warning(
           persistErr instanceof Error
-            ? `Connected, but didn't save server-side: ${persistErr.message}`
-            : "Connected, but couldn't save the connection server-side — you'll need to reconnect next session.",
+            ? t("figma.toast.connectedNoServerSaveErr", { err: persistErr.message })
+            : t("figma.toast.connectedNoServerSaveGeneric"),
         );
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not connect to GitHub.");
+      toast.error(err instanceof Error ? err.message : t("github.toast.couldNotConnect"));
     } finally {
       setConnecting(false);
     }
@@ -317,7 +297,7 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
     setGithub({ pat: "", repo: "" });
     setRepoMeta(null);
     saveGithubConfig.mutate({ repo: "", pat: "" });
-    toast.info("GitHub disconnected.");
+    toast.info(t("github.toast.disconnected"));
   }
 
   return (
@@ -325,7 +305,7 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
       <section className={cn("border-b", sectionBorderClass)}>
         <PanelHeader
           icon={<Github className="size-4" />}
-          title="GitHub"
+          title={t("github.panelTitle")}
           badge={isConnected ? `${github!.owner}/${github!.repo}` : undefined}
           open={open}
           onClick={() => setOpen(!open)}
@@ -341,7 +321,7 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
                 )}>
                   {metaLoading ? (
                     <div className={cn("text-xs animate-pulse", dark ? "text-neutral-500" : "text-slate-400")}>
-                      Loading repo info…
+                      {t("github.loadingRepoInfo")}
                     </div>
                   ) : repoMeta ? (
                     <>
@@ -400,18 +380,18 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
                   <div className={cn("pt-1 border-t text-xs flex items-center justify-between",
                     dark ? "border-neutral-700 text-neutral-500" : "border-slate-200 text-slate-400"
                   )}>
-                    <span>{lastSyncedLabel ? `Last synced ${lastSyncedLabel}` : "Not synced yet"}</span>
+                    <span>{lastSyncedLabel ? t("figma.lastSynced", { date: lastSyncedLabel }) : t("figma.notSyncedYet")}</span>
                     {lastSyncedLabel ? (
 	                      <span className={cn("rounded-full px-1.5 py-0.5 text-xs font-semibold",
                         dark ? "bg-emerald-900/40 text-emerald-400" : "bg-emerald-50 text-emerald-700"
                       )}>
-                        Synced
+                        {t("figma.synced")}
                       </span>
                     ) : (
 	                      <span className={cn("rounded-full px-1.5 py-0.5 text-xs font-semibold",
                         dark ? "bg-yellow-900/40 text-yellow-400" : "bg-yellow-50 text-yellow-700"
                       )}>
-                        Pending
+                        {t("figma.pending")}
                       </span>
                     )}
                   </div>
@@ -423,12 +403,12 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
                     className="inline-flex h-9 items-center justify-center gap-2 rounded bg-violet-700 text-sm font-semibold text-white hover:bg-violet-600 disabled:opacity-50"
                     disabled={syncContext.isPending}
                     onClick={() => syncContext.mutate(undefined, {
-                      onSuccess: () => toast.success("GitHub context synced."),
-                      onError: (e) => toast.error(e instanceof Error ? e.message : "Sync failed."),
+                      onSuccess: () => toast.success(t("github.toast.contextSynced")),
+                      onError: (e) => toast.error(e instanceof Error ? e.message : t("figma.toast.syncFailed")),
                     })}
                   >
                     <RefreshCw className={cn("size-3.5", syncContext.isPending && "animate-spin")} />
-                    {syncContext.isPending ? "Syncing…" : "Sync Context"}
+                    {syncContext.isPending ? t("figma.syncing") : t("figma.syncContext")}
                   </button>
                   <button
                     className={cn("inline-flex h-9 items-center justify-center rounded border text-sm transition-colors",
@@ -436,12 +416,12 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
                     )}
                     onClick={handleDisconnect}
                   >
-                    Disconnect
+                    {t("figma.disconnect")}
                   </button>
                 </div>
 
                 <p className={cn("text-[11px]", dark ? "text-neutral-600" : "text-slate-400")}>
-                  Synced context is injected into Phase 2 and Phase 3 AI prompts automatically.
+                  {t("github.syncedContextNote")}
                 </p>
 
                 <PackSettings dark={dark} />
@@ -452,29 +432,29 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
                 <div className={cn("rounded border px-3 py-2 text-xs space-y-0.5",
                   dark ? "border-neutral-700 text-neutral-400" : "border-slate-200 bg-slate-50 text-slate-600"
                 )}>
-                  <p className={cn("font-semibold", dark ? "text-neutral-300" : "text-slate-700")}>Connect your codebase</p>
-                  <p>AI will reference your repo structure, README, and config files when generating designs and tasks.</p>
+                  <p className={cn("font-semibold", dark ? "text-neutral-300" : "text-slate-700")}>{t("github.connectYourCodebase")}</p>
+                  <p>{t("github.aiReferenceNote")}</p>
                 </div>
                 <div className="space-y-1">
-                  <label className={labelClass}>Repository <span className="text-neutral-400">(owner/repo)</span></label>
+                  <label className={labelClass}>{t("github.repositoryLabel")} <span className="text-neutral-400">{t("github.ownerRepoHint")}</span></label>
                   <input
                     value={repoInput}
                     onChange={(e) => setRepoInput(e.target.value)}
                     className={inputClass}
-                    placeholder="myorg/my-repo"
+                    placeholder={t("github.repoPlaceholder")}
                     autoComplete="off"
                   />
                 </div>
                 <div className="space-y-1">
                   <label className="flex items-center justify-between text-xs text-neutral-500">
-                    <span>Personal Access Token</span>
+                    <span>{t("figma.personalAccessToken")}</span>
                     <a
                       href="https://github.com/settings/tokens/new?scopes=repo&description=Apex"
                       target="_blank"
                       rel="noopener noreferrer"
                       className={cn("hover:underline", dark ? "text-violet-400 hover:text-violet-300" : "text-violet-600 hover:text-violet-500")}
                     >
-                      Generate PAT
+                      {t("github.generatePat")}
                     </a>
                   </label>
                   <input
@@ -493,7 +473,7 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
                   onClick={handleConnect}
                 >
                   <Github className="size-4" />
-                  {connecting ? "Connecting…" : "Connect GitHub"}
+                  {connecting ? t("figma.connecting") : t("github.connectGithub")}
                 </button>
               </>
             )}
@@ -513,6 +493,7 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
  * to poll and re-trigger a client-side sync itself.
  */
 export function GithubAutoSync() {
+  const t = useT();
   const isConnected = Boolean(useGithubContext());
 
   // Restore the PAT saved server-side (encrypted) so the browser-direct
@@ -531,19 +512,19 @@ export function GithubAutoSync() {
   const restoreToastId = useRef<string | number | null>(null);
   useEffect(() => {
     if (shouldRestore && patQuery.isFetching && restoreToastId.current === null) {
-      restoreToastId.current = toast.loading("Connecting GitHub…");
+      restoreToastId.current = toast.loading(t("github.toast.connectingGithub"));
       return;
     }
     if (!patQuery.isFetching && restoreToastId.current !== null) {
       const id = restoreToastId.current;
       restoreToastId.current = null;
       if (patQuery.data?.pat) {
-        toast.success(`GitHub connected: ${serverConfig.data?.github_repo}`, { id });
+        toast.success(t("github.toast.githubConnected", { repo: serverConfig.data?.github_repo ?? "" }), { id });
       } else {
         toast.dismiss(id);
       }
     }
-  }, [shouldRestore, patQuery.isFetching, patQuery.data, serverConfig.data]);
+  }, [shouldRestore, patQuery.isFetching, patQuery.data, serverConfig.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!patQuery.data?.pat || !serverConfig.data?.github_repo) return;
