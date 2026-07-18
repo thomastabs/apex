@@ -61,6 +61,8 @@ import { GuideTheAI } from "@/components/guide-the-ai";
 import { EFFORT_COLORS } from "@/lib/effort-colors";
 import type { CrossCheckResult } from "@/lib/api/phase1";
 import { useUiStore } from "@/lib/stores/ui-store";
+import { useT } from "@/lib/i18n/use-translation";
+import type { TranslationKey } from "@/lib/i18n/translations";
 import { cn, errMsg } from "@/lib/utils";
 import { downloadZip } from "@/lib/utils/zip";
 import { createGithubIssue, fetchRecentCommitsContext } from "@/lib/api/github-browser";
@@ -225,6 +227,7 @@ function cleanGherkinPreview(raw: string): string[] {
 // ---------------------------------------------------------------------------
 
 function StageA({ onSelect }: { onSelect: (id: number) => void }) {
+  const t = useT();
   const dark = useUiStore((s) => s.theme) === "dark";
   const context = useApiContext();
   const { data, isLoading, error } = useEligibleStories();
@@ -252,19 +255,19 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
   if (isLoading) {
     return (
       <div className="flex items-center gap-3 text-sm text-neutral-400">
-        <Loader2 className="h-4 w-4 animate-spin" /> Loading stories…
+        <Loader2 className="h-4 w-4 animate-spin" /> {t("phase3.loadingStories")}
       </div>
     );
   }
   if (error) {
-    return <Callout variant="danger">Failed to load stories: {errMsg(error)}</Callout>;
+    return <Callout variant="danger">{t("phase3.failedLoadStories", { err: errMsg(error) })}</Callout>;
   }
 
   const stories = data?.stories ?? [];
   if (stories.length === 0) {
     return (
       <Callout>
-        No design-locked stories found. Complete Phase 2 for at least one story first.
+        {t("phase3.noEligibleStories")}
       </Callout>
     );
   }
@@ -291,14 +294,14 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
   return (
     <div className="space-y-5">
       <div>
-        <SectionHeading>Select a story to implement</SectionHeading>
+        <SectionHeading>{t("phase3.selectStoryTitle")}</SectionHeading>
         <p className={cn("mt-1 text-sm", dark ? "text-neutral-400" : "text-slate-500")}>
-          Choose a design-locked user story to decompose and build developer packs for.
+          {t("phase3.selectStoryDesc")}
         </p>
         <p className={cn("mt-1.5 flex items-start gap-1.5 text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
           <Flag className="mt-0.5 h-3 w-3 shrink-0" />
           <span>
-            Use the <span className="font-semibold">Flag</span> button on a card to mark one story per epic as its <span className="font-semibold">scaffold</span> — the story that builds the shared runtime plumbing (app shell, migrations, session bootstrap — see the locked Runtime Contract) the rest of the epic depends on. Autopilot always builds and locks it first.
+            {t("phase3.scaffoldHint")}
           </span>
         </p>
       </div>
@@ -306,7 +309,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
       {/* Epic dropdown */}
       <div className="flex items-center gap-3">
         <label htmlFor="phase3-epic-select" className="text-xs font-semibold uppercase tracking-wider text-neutral-500 shrink-0">
-          Epic
+          {t("phase3.epicLabel")}
         </label>
         <div className="relative flex-1 max-w-sm">
           <select
@@ -381,16 +384,16 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                       <button
                         type="button"
                         title={story.is_scaffold
-                          ? "Scaffold story — build first. Click to unmark."
-                          : "Mark as this epic's scaffold story — the one carrying shared runtime plumbing (app shell, migrations, session bootstrap) the rest of the epic builds on. Only one per epic."}
+                          ? t("phase3.scaffoldUnmarkTitle")
+                          : t("phase3.scaffoldMarkTitle")}
                         disabled={setScaffold.isPending}
                         onClick={(e) => {
                           e.stopPropagation();
                           setScaffold.mutate(
                             { storyId: story.story_id, isScaffold: !story.is_scaffold },
                             {
-                              onSuccess: () => toast.success(story.is_scaffold ? "Unmarked as scaffold story" : "Marked as scaffold story — builds first"),
-                              onError: () => toast.error("Failed to update scaffold flag."),
+                              onSuccess: () => toast.success(story.is_scaffold ? t("phase3.toast.scaffoldUnmarked") : t("phase3.toast.scaffoldMarked")),
+                              onError: () => toast.error(t("phase3.toast.scaffoldFailed")),
                             },
                           );
                         }}
@@ -401,7 +404,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                             : dark ? "text-neutral-600 ring-1 ring-neutral-800 hover:text-amber-400 hover:ring-amber-800" : "text-slate-400 ring-1 ring-slate-200 hover:text-amber-600 hover:ring-amber-300",
                         )}
                       >
-                        <Flag className="h-3 w-3" /> {story.is_scaffold ? "Scaffold — build first" : "Mark as scaffold"}
+                        <Flag className="h-3 w-3" /> {story.is_scaffold ? t("phase3.scaffoldBadgeMarked") : t("phase3.scaffoldBadgeUnmarked")}
                       </button>
                       {(() => {
                         // phase_status and has_proposal are independent signals — a
@@ -414,26 +417,26 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                         if (isLocked) {
                           return (
                             <span
-                              title="Already locked as implementation-ready — dev packs exist; opening it reviews/regenerates them."
+                              title={t("phase3.lockedTitle")}
                               className={cn(
                                 "inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold",
                                 dark ? "bg-emerald-900/40 text-emerald-300 ring-1 ring-emerald-800" : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
                               )}
                             >
-                              <Lock className="h-3 w-3" /> Locked · packs generated
+                              <Lock className="h-3 w-3" /> {t("phase3.lockedBadge")}
                             </span>
                           );
                         }
                         if (story.has_proposal) {
                           return (
                             <span
-                              title="Some/all developer packs already generated for this story, but it hasn't been locked yet (Stage D)."
+                              title={t("phase3.packsGeneratedTitle")}
                               className={cn(
                                 "inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold",
                                 dark ? "bg-amber-900/40 text-amber-300 ring-1 ring-amber-800" : "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
                               )}
                             >
-                              <Package className="h-3 w-3" /> Packs generated
+                              <Package className="h-3 w-3" /> {t("phase3.packsGeneratedBadge")}
                             </span>
                           );
                         }
@@ -463,17 +466,17 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                         const count = taskCountByStory.get(story.story_id) ?? 0;
                         return count > 0 ? (
                           <span
-                            title="Tasks in PM board"
+                            title={t("phase3.tasksInPmBoard")}
                             className={cn(
                               "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold",
                               dark ? "bg-violet-900/40 text-violet-300" : "bg-violet-100 text-violet-700",
                             )}
                           >
-                            {count} task{count > 1 ? "s" : ""}
+                            {t(count === 1 ? "phase3.tasksCountOne" : "phase3.tasksCountOther", { n: count })}
                           </span>
                         ) : (
                           <span className={cn("text-xs", dark ? "text-neutral-700" : "text-slate-300")}>
-                            No tasks yet
+                            {t("phase3.noTasksYet")}
                           </span>
                         );
                       })()}
@@ -481,7 +484,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                         "flex items-center gap-1 text-[11px] font-medium transition",
                         dark ? "text-neutral-600 group-hover:text-violet-400" : "text-slate-400 group-hover:text-violet-600",
                       )}>
-                        Implement <ChevronRight className="h-3 w-3" />
+                        {t("phase3.implement")} <ChevronRight className="h-3 w-3" />
                       </span>
                     </div>
                   </div>
@@ -498,10 +501,10 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                     dark ? "border-neutral-700 bg-neutral-900 text-neutral-300 hover:bg-neutral-800" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 shadow-sm",
                   )}
                 >
-                  ← Prev
+                  {t("phase3.prev")}
                 </button>
                 <span className="text-xs text-neutral-500">
-                  Page {safePage + 1} of {pageCount} · {epicStories.length} stories
+                  {t("phase3.pageOf", { page: safePage + 1, count: pageCount, stories: epicStories.length })}
                 </span>
                 <button
                   onClick={() => setPage(Math.min(pageCount - 1, safePage + 1))}
@@ -511,7 +514,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                     dark ? "border-neutral-700 bg-neutral-900 text-neutral-300 hover:bg-neutral-800" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 shadow-sm",
                   )}
                 >
-                  Next →
+                  {t("phase3.next")}
                 </button>
               </div>
             )}
@@ -527,6 +530,7 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
 // ---------------------------------------------------------------------------
 
 function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () => void; onContinue: () => void }) {
+  const t = useT();
   const dark = useUiStore((s) => s.theme) === "dark";
   const context = useApiContext();
   const pmWebUrl = useServerConfig().data?.pm_web_url;
@@ -623,7 +627,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   if (ctxLoading) {
     return (
       <div className="flex items-center gap-3 text-sm text-neutral-400">
-        <Loader2 className="h-4 w-4 animate-spin" /> Loading story context…
+        <Loader2 className="h-4 w-4 animate-spin" /> {t("phase3.loadingStoryContext")}
       </div>
     );
   }
@@ -639,7 +643,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
           onClick={onBack}
           className={cn("shrink-0 text-xs font-medium transition", dark ? "text-neutral-400 hover:text-violet-400" : "text-slate-500 hover:text-violet-600")}
         >
-          ← Stories
+          {t("phase3.backToStories")}
         </button>
         {ctx?.epic_title && (
           <>
@@ -673,7 +677,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
           <div className={cn("rounded-xl border overflow-hidden", dark ? "border-neutral-700" : "border-slate-200")}>
             <div className={cn("px-4 py-2.5 flex items-center gap-2", dark ? "bg-neutral-800 border-b border-neutral-700" : "bg-slate-50 border-b border-slate-200")}>
               <span className={cn("text-xs font-semibold uppercase tracking-wider", dark ? "text-neutral-400" : "text-slate-500")}>
-                Acceptance Criteria
+                {t("phase3.acceptanceCriteria")}
               </span>
             </div>
             <pre
@@ -694,7 +698,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
         onChange={setTaskGuidance}
         dark={dark}
         disabled={generateTasksMut.isPending}
-        placeholder="Optional notes to steer task decomposition — granularity, ordering, conventions, things to favour or avoid. The Gherkin + design still drive the work."
+        placeholder={t("phase3.taskGuidancePlaceholder")}
       />
       <div className="grid grid-cols-2 gap-3">
         <Button
@@ -707,36 +711,36 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
           disabled={generateTasksMut.isPending || (tasksPushed && taskList.length > 0)}
         >
           {generateTasksMut.isPending
-            ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
-            : <><Sparkles className="h-4 w-4" /> Generate Tasks</>}
+            ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("common.generating")}</>
+            : <><Sparkles className="h-4 w-4" /> {t("phase3.generateTasks")}</>}
         </Button>
         {generateTasksMut.isPending && (
           <CancelButton onCancel={() => generateTasksMut.cancel()} className="w-full" />
         )}
         <div className="flex gap-2">
           <Button variant="secondary" className="gap-1.5" onClick={onBack}>
-            <ChevronLeft className="h-4 w-4" /> Back
+            <ChevronLeft className="h-4 w-4" /> {t("common.back")}
           </Button>
           <Button
             className="flex-1 justify-center"
             variant="secondary"
             onClick={onContinue}
           >
-            Developer Packs <ChevronRight className="h-4 w-4" />
+            {t("phase3.developerPacksLink")} <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
       {tasksPushed && (
         <div className="flex items-center justify-center">
           <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
-            <CheckCircle2 className="h-3.5 w-3.5" /> Pushed
+            <CheckCircle2 className="h-3.5 w-3.5" /> {t("phase3.pushed")}
           </div>
         </div>
       )}
 
       {generateTasksMut.isPending && (
         <AIProgressIndicator
-          steps={["Analysing story…", "Reviewing design bundle…", "Decomposing into tasks…"]}
+          steps={[t("phase3.step.analysingStory"), t("phase3.step.reviewingDesign"), t("phase3.step.decomposing")]}
           isPending={generateTasksMut.isPending}
           dark={dark}
         />
@@ -756,14 +760,14 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                     setCrossResult(r);
                     toast.success(
                       r.only_alt.length
-                        ? `${r.alt_label} suggested ${r.only_alt.length} task(s) yours missed`
-                        : `${r.alt_label} agreed — no extra tasks`,
+                        ? t(r.only_alt.length === 1 ? "phase3.toast.crossCheckTasksFoundOne" : "phase3.toast.crossCheckTasksFoundOther", { altLabel: r.alt_label, n: r.only_alt.length })
+                        : t("phase3.toast.crossCheckTasksAgreed", { altLabel: r.alt_label }),
                     );
                   },
                 })
               }
             >
-              <GitCompare className="h-4 w-4" /> {crossCheckTasksMut.isPending ? "Cross-checking…" : "Cross-check tasks"}
+              <GitCompare className="h-4 w-4" /> {crossCheckTasksMut.isPending ? t("phase1.crossChecking") : t("phase3.crossCheckTasks")}
             </Button>
           </div>
           {crossCheckTasksMut.isPending && <CancelButton onCancel={() => crossCheckTasksMut.cancel()} className="w-full" />}
@@ -779,7 +783,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                   id: nid, subject: s.title, description: s.description,
                   effort_estimate: "M", covered_scenarios: [], predecessor_task_ids: [],
                 }]);
-                toast.success("Task added");
+                toast.success(t("phase3.toast.taskAdded"));
               }}
             />
           ) : null}
@@ -790,7 +794,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
       {taskList.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <SectionHeading>Tasks ({taskList.length})</SectionHeading>
+            <SectionHeading>{t("phase3.tasksHeading", { n: taskList.length })}</SectionHeading>
             <button
               onClick={() => {
                 setTaskList([]);
@@ -802,7 +806,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                 dark ? "text-neutral-500 hover:text-red-400" : "text-slate-400 hover:text-red-500",
               )}
             >
-              Clear
+              {t("phase3.clear")}
             </button>
           </div>
 
@@ -827,7 +831,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                     />
                     {descFetching && editingId === task.id ? (
                       <div className="flex items-center gap-2 text-xs text-neutral-400 py-2">
-                        <Loader2 className="h-3 w-3 animate-spin" /> Loading…
+                        <Loader2 className="h-3 w-3 animate-spin" /> {t("phase3.loading")}
                       </div>
                     ) : (
                       <Textarea
@@ -838,7 +842,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                     )}
                     {/* Effort selector */}
                     <div className="flex items-center gap-2">
-                      <label htmlFor={`effort-${task.id}`} className="text-xs text-neutral-500 w-14 shrink-0">Effort</label>
+                      <label htmlFor={`effort-${task.id}`} className="text-xs text-neutral-500 w-14 shrink-0">{t("phase3.effortLabel")}</label>
                       <select
                         id={`effort-${task.id}`}
                         value={task.effort_estimate ?? "M"}
@@ -856,7 +860,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                     {/* Predecessor checkboxes */}
                     {taskList.length > 1 && (
                       <div className="space-y-1">
-                        <span className="text-xs text-neutral-500">Depends on</span>
+                        <span className="text-xs text-neutral-500">{t("phase3.dependsOn")}</span>
                         <div className="space-y-0.5 pl-1">
                           {taskList.filter((t) => t.id !== task.id).map((other) => (
                             <label key={other.id} className="flex items-center gap-2 cursor-pointer">
@@ -874,7 +878,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                                 className="accent-violet-600"
                               />
                               <span className={cn("text-xs", dark ? "text-neutral-300" : "text-slate-700")}>
-                                Task {taskList.findIndex((t) => t.id === other.id) + 1}: {other.subject}
+                                {t("phase3.taskDependency", { n: taskList.findIndex((t) => t.id === other.id) + 1, subject: other.subject })}
                               </span>
                             </label>
                           ))}
@@ -883,7 +887,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                     )}
                     <div className="flex items-center gap-2">
                       <Button variant="secondary" className="gap-1.5" onClick={() => setEditingId(null)}>
-                        <CheckCircle2 className="h-4 w-4" /> Done
+                        <CheckCircle2 className="h-4 w-4" /> {t("phase3.done")}
                       </Button>
                       {(task.pm_task_id ?? task.taiga_task_id) && (
                         <Button
@@ -893,8 +897,8 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                           disabled={updateInTaigaMut.isPending}
                         >
                           {updateInTaigaMut.isPending
-                            ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
-                            : <><CheckCircle2 className="h-4 w-4" /> Save</>}
+                            ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("phase3.saving")}</>
+                            : <><CheckCircle2 className="h-4 w-4" /> {t("phase3.save")}</>}
                         </Button>
                       )}
                     </div>
@@ -923,7 +927,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                           <button
                             onClick={() => reorderTasks(idx, idx - 1)}
                             disabled={idx === 0}
-                            aria-label="Move task up"
+                            aria-label={t("phase3.moveTaskUp")}
                             className={cn(
                               "rounded p-1 transition disabled:opacity-20",
                               dark ? "text-neutral-500 hover:text-neutral-200" : "text-slate-400 hover:text-slate-600",
@@ -934,7 +938,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                           <button
                             onClick={() => reorderTasks(idx, idx + 1)}
                             disabled={idx === taskList.length - 1}
-                            aria-label="Move task down"
+                            aria-label={t("phase3.moveTaskDown")}
                             className={cn(
                               "rounded p-1 transition disabled:opacity-20",
                               dark ? "text-neutral-500 hover:text-neutral-200" : "text-slate-400 hover:text-slate-600",
@@ -951,7 +955,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                             href={url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            title="Open task in the PM tool"
+                            title={t("phase3.openInPmTool")}
                             className={cn(
                               "rounded p-1 transition",
                               dark ? "text-neutral-500 hover:text-violet-400" : "text-slate-400 hover:text-violet-600",
@@ -968,12 +972,12 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                           dark ? "text-neutral-400 hover:text-neutral-200" : "text-slate-500 hover:text-slate-700",
                         )}
                       >
-                        Edit
+                        {t("phase3.edit")}
                       </button>
                       {!tasksPushed && (
                         <button
                           onClick={() => removeTask(task.id)}
-                          aria-label="Delete task"
+                          aria-label={t("phase3.deleteTask")}
                           className="rounded px-2 py-1 text-xs text-red-500 hover:text-red-400"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -995,7 +999,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                   ? "border-neutral-700 bg-neutral-900 text-white placeholder:text-neutral-600 focus:border-violet-500"
                   : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500",
               )}
-              placeholder={tasksPushed ? "Add task to PM board…" : "Add a task manually…"}
+              placeholder={tasksPushed ? t("phase3.addTaskPmPlaceholder") : t("phase3.addTaskManualPlaceholder")}
               value={newSubject}
               onChange={(e) => setNewSubject(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleAddTask(); }}
@@ -1018,15 +1022,15 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
             <Button
               className="w-full justify-center"
               onClick={() => {
-                if (!window.confirm(`Push ${taskList.length} task(s) to the PM tool? This creates real, teammate-visible records.`)) return;
+                if (!window.confirm(t("phase3.pushTasksConfirm", { n: taskList.length }))) return;
                 pushToTaiga.mutate(storyId);
               }}
               disabled={pushToTaiga.isPending || taskList.length === 0}
               variant="secondary"
             >
               {pushToTaiga.isPending
-                ? <><Loader2 className="h-4 w-4 animate-spin" /> Pushing…</>
-                : <><Upload className="h-4 w-4" /> Push Tasks</>}
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("phase3.pushing")}</>
+                : <><Upload className="h-4 w-4" /> {t("phase3.pushTasks")}</>}
             </Button>
           )}
         </div>
@@ -1040,6 +1044,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 // ---------------------------------------------------------------------------
 
 function StageC({ storyId }: { storyId: number }) {
+  const t = useT();
   const dark = useUiStore((s) => s.theme) === "dark";
   const githubCtx = useGithubContext();
   const { data: ctx } = useStoryContext(storyId);
@@ -1063,7 +1068,7 @@ function StageC({ storyId }: { storyId: number }) {
     setPackDraft(taskId, proposalMd);
     saveProposalMut.mutate(
       { story_id: storyId, task_id: taskId, proposal_md: proposalMd },
-      { onError: () => toast.error("Pack generated but failed to save — regenerate or try again.") },
+      { onError: () => toast.error(t("phase3.toast.packSaveFailed")) },
     );
   };
 
@@ -1092,14 +1097,14 @@ function StageC({ storyId }: { storyId: number }) {
           // accept/discard. First generation (or bulk) commits directly.
           if (opts?.gate !== false && prev.trim() && prev !== data.proposal_md) {
             requestDiff({
-              title: `Dev pack — task #${taskId}`,
+              title: t("phase3.diffTitle", { id: taskId }),
               oldText: prev,
               newText: data.proposal_md,
               onAccept: () => commitPack(taskId, data.proposal_md),
               onDiscard: () => logDecision.mutate({
-                scope: `Phase 3 dev pack · task #${taskId}`,
-                summary: "Discarded a regenerated developer pack — kept the previous one.",
-                reason: "The AI's regeneration was rejected in favour of the existing pack.",
+                scope: t("phase3.logDecisionScope", { id: taskId }),
+                summary: t("phase3.logDecisionSummary"),
+                reason: t("phase3.logDecisionReason"),
               }),
             });
           } else {
@@ -1122,20 +1127,20 @@ function StageC({ storyId }: { storyId: number }) {
   const copyToClipboard = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      toast.success(`${label} copied.`);
+      toast.success(t("phase3.toast.copied", { label }));
     } catch {
-      toast.error("Clipboard access denied.");
+      toast.error(t("phase3.toast.clipboardDenied"));
     }
   };
 
-  const handleCopyPrompt = () => copyToClipboard(extractAiPrompt(packMd), "Chat Prompt");
+  const handleCopyPrompt = () => copyToClipboard(extractAiPrompt(packMd), t("phase3.chatPrompt"));
   const handleCopyAgenticBrief = () => {
     const brief = extractAgenticBrief(packMd);
-    if (!brief) { toast.error("No Agentic Brief found — regenerate pack."); return; }
-    void copyToClipboard(brief, "Agentic Brief");
+    if (!brief) { toast.error(t("phase3.toast.noAgenticBrief")); return; }
+    void copyToClipboard(brief, t("phase3.agenticBrief"));
   };
   if (taskList.length === 0) {
-    return <Callout>Generate and finalise tasks in Stage B first.</Callout>;
+    return <Callout>{t("phase3.finalizeTasksFirst")}</Callout>;
   }
 
   return (
@@ -1143,7 +1148,7 @@ function StageC({ storyId }: { storyId: number }) {
       {/* Progress bar + Generate All */}
       <div className={cn("rounded-xl border p-4", dark ? "border-neutral-700 bg-neutral-900" : "border-slate-200 bg-slate-50")}>
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Packs generated</span>
+          <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">{t("phase3.packsGeneratedLabel")}</span>
           <div className="flex items-center gap-3">
             <span className={cn("text-sm font-bold", dark ? "text-neutral-200" : "text-slate-800")}>
               {generatedCount} / {taskList.length}
@@ -1160,8 +1165,8 @@ function StageC({ storyId }: { storyId: number }) {
               )}
             >
               {bulkQueue.length > 0
-                ? <><Loader2 className="h-3 w-3 animate-spin" /> {bulkQueue.length} left…</>
-                : <><Sparkles className="h-3 w-3" /> Generate All</>}
+                ? <><Loader2 className="h-3 w-3 animate-spin" /> {t("phase3.tasksLeft", { n: bulkQueue.length })}</>
+                : <><Sparkles className="h-3 w-3" /> {t("phase3.generateAll")}</>}
             </button>
           </div>
         </div>
@@ -1176,7 +1181,7 @@ function StageC({ storyId }: { storyId: number }) {
       <div className="flex gap-5">
         {/* Task list sidebar */}
         <div className="w-60 shrink-0 space-y-1.5">
-          <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Tasks</p>
+          <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">{t("phase3.tasksSidebarLabel")}</p>
           {taskList.map((task, idx) => {
             const hasPack = Boolean(packDrafts[task.id]);
             const isGenerating = generatingTaskId === task.id;
@@ -1237,7 +1242,7 @@ function StageC({ storyId }: { storyId: number }) {
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div className="min-w-0">
                     <p className="text-xs font-mono text-neutral-500 mb-0.5">
-                      US#{storyId} · Task {taskList.findIndex(t => t.id === selectedTask.id) + 1}
+                      {t("phase3.storyTaskLabel", { storyId, n: taskList.findIndex((tt) => tt.id === selectedTask.id) + 1 })}
                     </p>
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className={cn("text-sm font-semibold leading-snug", dark ? "text-neutral-100" : "text-slate-800")}>
@@ -1253,8 +1258,8 @@ function StageC({ storyId }: { storyId: number }) {
                     disabled={generatingTaskId !== null}
                   >
                     {generatingTaskId === selectedTask.id
-                      ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
-                      : <><Sparkles className="h-4 w-4" /> {packMd ? "Regenerate" : "Generate Pack"}</>}
+                      ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("common.generating")}</>
+                      : <><Sparkles className="h-4 w-4" /> {packMd ? t("phase3.regenerate") : t("phase3.generatePack")}</>}
                   </Button>
                   {generatingTaskId === selectedTask.id && (
                     <CancelButton onCancel={() => { generateProposal.cancel(); setGeneratingTaskId(null); setBulkQueue([]); }} />
@@ -1262,25 +1267,25 @@ function StageC({ storyId }: { storyId: number }) {
                   {prevPackDrafts[selectedTask.id] && (
                     <Button
                       variant="secondary"
-                      title="Undo last regeneration"
+                      title={t("phase3.undoRegenerationTitle")}
                       onClick={() => {
                         restorePackDraft(selectedTask.id);
                         saveProposalMut.mutate(
                           { story_id: storyId, task_id: selectedTask.id, proposal_md: prevPackDrafts[selectedTask.id] },
-                          { onError: () => toast.error("Restore failed to save.") },
+                          { onError: () => toast.error(t("phase3.toast.restoreFailed")) },
                         );
                       }}
                     >
-                      <Undo2 className="h-4 w-4" /> Restore
+                      <Undo2 className="h-4 w-4" /> {t("phase3.restore")}
                     </Button>
                   )}
                   {packMd && (
                     <>
-                      <Button variant="secondary" onClick={handleCopyAgenticBrief} title="Copy terse brief for Claude Code / Codex">
-                        <Clipboard className="h-4 w-4" /> Agentic Brief
+                      <Button variant="secondary" onClick={handleCopyAgenticBrief} title={t("phase3.copyAgenticBriefTitle")}>
+                        <Clipboard className="h-4 w-4" /> {t("phase3.agenticBrief")}
                       </Button>
-                      <Button variant="secondary" onClick={() => void handleCopyPrompt()} title="Copy full prompt for Claude.ai / ChatGPT / Cursor">
-                        <Clipboard className="h-4 w-4" /> Chat Prompt
+                      <Button variant="secondary" onClick={() => void handleCopyPrompt()} title={t("phase3.copyChatPromptTitle")}>
+                        <Clipboard className="h-4 w-4" /> {t("phase3.chatPrompt")}
                       </Button>
                       <Button
                         variant="secondary"
@@ -1299,9 +1304,9 @@ function StageC({ storyId }: { storyId: number }) {
                       onClick={async () => {
                         const name = getBranchName(storyId, selectedTask.subject);
                         await navigator.clipboard.writeText(name).catch(() => {});
-                        toast.success("Branch name copied.");
+                        toast.success(t("phase3.toast.branchCopied"));
                       }}
-                      title="Copy branch name"
+                      title={t("phase3.copyBranchTitle")}
                       className={cn(
                         "flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1 font-mono text-[11px] transition",
                         dark
@@ -1315,7 +1320,7 @@ function StageC({ storyId }: { storyId: number }) {
                   )}
                   <input
                     type="text"
-                    placeholder="Optional hint for AI (e.g. use Redis, focus on validation)…"
+                    placeholder={t("phase3.hintPlaceholder")}
                     value={hints[selectedTask.id] ?? ""}
                     onChange={(e) => setHints((h) => ({ ...h, [selectedTask.id]: e.target.value }))}
                     className={cn(
@@ -1333,13 +1338,13 @@ function StageC({ storyId }: { storyId: number }) {
                 {generatingTaskId === selectedTask.id && (
                   <AIProgressIndicator
                     steps={[
-                      "Reading story context…",
-                      "Analysing design bundle…",
-                      "Writing implementation steps…",
-                      "Mapping files to change…",
-                      "Generating test assertions…",
-                      "Building agentic brief…",
-                      "Assembling chat prompt…",
+                      t("phase3.step.readingStory"),
+                      t("phase3.step.analysingDesign"),
+                      t("phase3.step.writingSteps"),
+                      t("phase3.step.mappingFiles"),
+                      t("phase3.step.generatingAssertions"),
+                      t("phase3.step.buildingBrief"),
+                      t("phase3.step.assemblingPrompt"),
                     ]}
                     isPending={generatingTaskId === selectedTask.id}
                     dark={dark}
@@ -1349,7 +1354,7 @@ function StageC({ storyId }: { storyId: number }) {
                 {packMd ? (
                   <div className="grid gap-4 lg:grid-cols-2">
                     <div>
-                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Edit</p>
+                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">{t("phase3.editLabel")}</p>
                       <Textarea
                         value={packMd}
                         onChange={(e) => {
@@ -1365,7 +1370,7 @@ function StageC({ storyId }: { storyId: number }) {
                       />
                     </div>
                     <div>
-                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Preview</p>
+                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">{t("phase3.previewLabel")}</p>
                       <MarkdownPreview content={packMd} dark={dark} className="h-[34rem] resize-y" />
                     </div>
                   </div>
@@ -1376,10 +1381,10 @@ function StageC({ storyId }: { storyId: number }) {
                   )}>
                     <Sparkles className={cn("mb-3 h-8 w-8", dark ? "text-neutral-600" : "text-slate-300")} />
                     <p className={cn("text-sm font-medium", dark ? "text-neutral-400" : "text-slate-500")}>
-                      No pack generated yet
+                      {t("phase3.noPackYet")}
                     </p>
                     <p className="mt-1 text-xs text-neutral-500">
-                      Click &ldquo;Generate Pack&rdquo; to create a developer context pack for this task.
+                      {t("phase3.noPackHint")}
                     </p>
                   </div>
                 )}
@@ -1396,7 +1401,7 @@ function StageC({ storyId }: { storyId: number }) {
                 <Sparkles className={cn("h-6 w-6", dark ? "text-neutral-500" : "text-slate-400")} />
               </div>
               <p className={cn("text-sm font-medium", dark ? "text-neutral-400" : "text-slate-500")}>
-                Select a task to generate its developer pack
+                {t("phase3.selectTaskHint")}
               </p>
             </div>
           )}
@@ -1423,6 +1428,7 @@ function ScenarioCoveragePanel({
   taskList: Phase3Task[];
   dark: boolean;
 }) {
+  const t = useT();
   const allScenarios = parseGherkinScenarios(gherkin);
   if (allScenarios.length === 0) return null;
   const hasCoverageData = taskList.some((t) => (t.covered_scenarios?.length ?? 0) > 0);
@@ -1437,20 +1443,20 @@ function ScenarioCoveragePanel({
         dark ? "border-neutral-700 bg-neutral-900" : "border-slate-200 bg-slate-50",
       )}>
         <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
-          Gherkin Scenario Coverage
-          <span className="ml-2 normal-case font-normal italic text-neutral-500">· AI-asserted</span>
+          {t("phase3.coverageTitle")}
+          <span className="ml-2 normal-case font-normal italic text-neutral-500">{t("phase3.coverageAiAsserted")}</span>
         </p>
         <span
           className={cn("text-xs font-medium", uncovered.length > 0 ? (dark ? "text-amber-400" : "text-amber-600") : (dark ? "text-emerald-400" : "text-emerald-600"))}
-          title="Self-reported by the AI during decomposition — not an independent check that the tasks implement the scenarios."
+          title={t("phase3.coverageSelfReportedTitle")}
         >
-          {allScenarios.length - uncovered.length}/{allScenarios.length} covered
+          {t("phase3.coverageRatio", { covered: allScenarios.length - uncovered.length, total: allScenarios.length })}
         </span>
       </div>
       <div className={cn("px-5 py-3 space-y-1.5", dark ? "bg-neutral-900/50" : "bg-white")}>
         {!hasCoverageData && (
           <p className={cn("text-xs mb-2", dark ? "text-amber-400" : "text-amber-600")}>
-            Coverage data not available — re-generate tasks to populate.
+            {t("phase3.coverageDataMissing")}
           </p>
         )}
         {allScenarios.map((sc) => {
@@ -1473,12 +1479,11 @@ function ScenarioCoveragePanel({
         })}
         {uncovered.length > 0 && (
           <p className={cn("mt-2 text-xs", dark ? "text-amber-400" : "text-amber-600")}>
-            {uncovered.length} scenario{uncovered.length > 1 ? "s" : ""} uncovered — add tasks or re-generate.
+            {t(uncovered.length === 1 ? "phase3.uncoveredOne" : "phase3.uncoveredOther", { n: uncovered.length })}
           </p>
         )}
         <p className={cn("mt-2 text-[11px] leading-snug", dark ? "text-neutral-600" : "text-slate-400")}>
-          Coverage is self-reported by the AI when it decomposes the story — it confirms each scenario is
-          claimed by a task, not that the task actually implements it.
+          {t("phase3.coverageFooter")}
         </p>
       </div>
     </div>
@@ -1490,6 +1495,7 @@ function ScenarioCoveragePanel({
 // ---------------------------------------------------------------------------
 
 function StageD({ storyId, onLocked, onChooseNewStory, onBack }: { storyId: number; onLocked: () => void; onChooseNewStory: () => void; onBack: () => void }) {
+  const t = useT();
   const dark = useUiStore((s) => s.theme) === "dark";
   const githubCtx = useGithubContext();
   const { data: ctx } = useStoryContext(storyId);
@@ -1511,7 +1517,7 @@ function StageD({ storyId, onLocked, onChooseNewStory, onBack }: { storyId: numb
   const canLock = generatedTasks.length > 0 && (coverageOk || overrideCoverage);
 
   const handleLock = () => {
-    if (!window.confirm("Lock this story as implementation-ready? This is visible to the team and treats the AI-asserted scenario coverage as the record the pipeline trusts.")) return;
+    if (!window.confirm(t("phase3.lockConfirm"))) return;
     lockStoryMut.mutate(
       { story_id: storyId, task_ids: generatedTasks.map((t) => t.id) },
       {
@@ -1532,18 +1538,18 @@ function StageD({ storyId, onLocked, onChooseNewStory, onBack }: { storyId: numb
   const handleCreateIssue = async () => {
     if (!githubCtx || !ctx) return;
     setCreatingIssue(true);
-    const title = `US#${storyId} Implementation: ${ctx.title}`;
-    const taskLines = generatedTasks.map((t, i) => {
-      const summary = extractContext(packDrafts[t.id] ?? "");
-      return `- [ ] **Task ${i + 1}: ${t.subject}** (${t.effort_estimate ?? "M"})${summary ? `\n  > ${summary}` : ""}`;
+    const title = t("phase3.githubIssueTitle", { storyId, title: ctx.title });
+    const taskLines = generatedTasks.map((gt, i) => {
+      const summary = extractContext(packDrafts[gt.id] ?? "");
+      return `- [ ] **Task ${i + 1}: ${gt.subject}** (${gt.effort_estimate ?? "M"})${summary ? `\n  > ${summary}` : ""}`;
     }).join("\n");
-    const body = `## Implementation Plan\n\nThis story has been locked for implementation in Apex.\n\n### Tasks\n\n${taskLines}\n\n---\n*Generated by Apex*`;
+    const body = t("phase3.githubIssueBody", { taskLines });
     try {
       const { url } = await createGithubIssue(githubCtx, title, body);
       setIssueUrl(url);
-      toast.success("GitHub Issue created.");
+      toast.success(t("phase3.toast.issueCreated"));
     } catch (err) {
-      toast.error(`Failed to create issue: ${err instanceof Error ? err.message : "Unknown error"}`);
+      toast.error(t("phase3.toast.issueFailed", { err: err instanceof Error ? err.message : "Unknown error" }));
     } finally {
       setCreatingIssue(false);
     }
@@ -1561,22 +1567,22 @@ function StageD({ storyId, onLocked, onChooseNewStory, onBack }: { storyId: numb
           <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" />
           <div>
             <p className={cn("text-sm font-semibold", dark ? "text-emerald-400" : "text-emerald-700")}>
-              Story locked as implementation-ready
+              {t("phase3.storyLocked")}
             </p>
             <p className={cn("text-xs mt-0.5", dark ? "text-emerald-600" : "text-emerald-600")}>
-              {generatedTasks.length} developer pack{generatedTasks.length !== 1 ? "s" : ""} ready
+              {t(generatedTasks.length === 1 ? "phase3.packsReadyOne" : "phase3.packsReadyOther", { n: generatedTasks.length })}
             </p>
           </div>
         </div>
         <div className="flex flex-col gap-2">
           <Button className="w-full justify-center" variant="secondary" onClick={handleExportAll}>
-            <Download className="h-4 w-4" /> Export All Packs
+            <Download className="h-4 w-4" /> {t("phase3.exportAllPacks")}
           </Button>
           {githubCtx && !issueUrl && (
             <Button className="w-full justify-center" variant="secondary" onClick={() => void handleCreateIssue()} disabled={creatingIssue}>
               {creatingIssue
-                ? <><Loader2 className="h-4 w-4 animate-spin" /> Creating issue…</>
-                : <><GitBranch className="h-4 w-4" /> Create GitHub Issue</>}
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("phase3.creatingIssue")}</>
+                : <><GitBranch className="h-4 w-4" /> {t("phase3.createGithubIssue")}</>}
             </Button>
           )}
           {issueUrl && (
@@ -1589,11 +1595,11 @@ function StageD({ storyId, onLocked, onChooseNewStory, onBack }: { storyId: numb
                 dark ? "border-emerald-700 text-emerald-400 hover:bg-emerald-900/30" : "border-emerald-300 text-emerald-700 hover:bg-emerald-50",
               )}
             >
-              <ExternalLink className="h-4 w-4" /> View GitHub Issue
+              <ExternalLink className="h-4 w-4" /> {t("phase3.viewGithubIssue")}
             </a>
           )}
           <Button className="w-full justify-center gap-1.5" variant="secondary" onClick={handleChooseNew}>
-            <RefreshCw className="h-4 w-4" /> Choose New Story
+            <RefreshCw className="h-4 w-4" /> {t("phase3.chooseNewStory")}
           </Button>
         </div>
       </div>
@@ -1603,20 +1609,20 @@ function StageD({ storyId, onLocked, onChooseNewStory, onBack }: { storyId: numb
   return (
     <div className="space-y-5">
       <div>
-        <SectionHeading>Lock &amp; Export</SectionHeading>
+        <SectionHeading>{t("phase3.lockExportHeading")}</SectionHeading>
         <p className={cn("mt-1 text-sm", dark ? "text-neutral-400" : "text-slate-500")}>
-          Lock this story as implementation-ready and export the developer packs.
+          {t("phase3.lockExportDesc")}
         </p>
       </div>
 
       {/* Summary card */}
       <div className={cn("rounded-xl border overflow-hidden", dark ? "border-neutral-700" : "border-slate-200")}>
         <div className={cn("px-5 py-4 border-b", dark ? "border-neutral-700 bg-neutral-900" : "border-slate-200 bg-slate-50")}>
-          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Summary</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">{t("phase3.summary")}</p>
         </div>
         <div className={cn("px-5 py-4 space-y-3", dark ? "bg-neutral-900/50" : "bg-white")}>
           <div className="flex items-center justify-between text-sm">
-            <span className="text-neutral-500">Packs ready</span>
+            <span className="text-neutral-500">{t("phase3.packsReadyLabel")}</span>
             <span className={cn("font-bold", dark ? "text-neutral-100" : "text-slate-800")}>
               {generatedTasks.length} / {taskList.length}
             </span>
@@ -1630,7 +1636,7 @@ function StageD({ storyId, onLocked, onChooseNewStory, onBack }: { storyId: numb
           {skippedTasks.length > 0 && (
             <div className="space-y-1">
               <p className="text-xs font-semibold text-amber-500">
-                {skippedTasks.length} task{skippedTasks.length > 1 ? "s" : ""} without packs will be skipped on lock:
+                {t(skippedTasks.length === 1 ? "phase3.skippedTasksOne" : "phase3.skippedTasksOther", { n: skippedTasks.length })}
               </p>
               <ul className={cn(
                 "space-y-0.5 rounded-lg border px-3 py-2",
@@ -1659,19 +1665,19 @@ function StageD({ storyId, onLocked, onChooseNewStory, onBack }: { storyId: numb
             className="accent-amber-500"
           />
           <span className="text-xs text-amber-500">
-            I acknowledge {uncoveredScenarios.length} scenario{uncoveredScenarios.length > 1 ? "s are" : " is"} uncovered — lock anyway
+            {t(uncoveredScenarios.length === 1 ? "phase3.acknowledgeUncoveredOne" : "phase3.acknowledgeUncoveredOther", { n: uncoveredScenarios.length })}
           </span>
         </label>
       )}
 
       {generatedTasks.length === 0 && (
-        <Callout variant="warning">Generate at least one developer pack before locking.</Callout>
+        <Callout variant="warning">{t("phase3.generatePackFirst")}</Callout>
       )}
 
       <div className="flex flex-col gap-2">
         <div className="flex gap-2">
           <Button variant="secondary" className="gap-1.5" onClick={onBack} disabled={lockStoryMut.isPending}>
-            <ChevronLeft className="h-4 w-4" /> Back
+            <ChevronLeft className="h-4 w-4" /> {t("common.back")}
           </Button>
           <Button
             className="flex-1 justify-center"
@@ -1679,17 +1685,17 @@ function StageD({ storyId, onLocked, onChooseNewStory, onBack }: { storyId: numb
             disabled={!canLock || lockStoryMut.isPending}
           >
             {lockStoryMut.isPending
-              ? <><Loader2 className="h-4 w-4 animate-spin" /> Locking…</>
-              : <><Lock className="h-4 w-4" /> Lock Story</>}
+              ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("phase3.locking")}</>
+              : <><Lock className="h-4 w-4" /> {t("phase3.lockStory")}</>}
           </Button>
         </div>
         {canLock && (
           <Button className="w-full justify-center" variant="secondary" onClick={handleExportAll}>
-            <Download className="h-4 w-4" /> Export All Packs
+            <Download className="h-4 w-4" /> {t("phase3.exportAllPacks")}
           </Button>
         )}
         <Button className="w-full justify-center" variant="secondary" onClick={handleChooseNew}>
-          Choose New Story
+          {t("phase3.chooseNewStory")}
         </Button>
       </div>
     </div>
@@ -1702,14 +1708,15 @@ function StageD({ storyId, onLocked, onChooseNewStory, onBack }: { storyId: numb
 
 type Stage = "A" | "B" | "C" | "D";
 
-const STAGE_LABELS: Record<Stage, string> = {
-  A: "Select Story",
-  B: "Decompose",
-  C: "Developer Packs",
-  D: "Lock & Export",
+const STAGE_LABEL_KEYS: Record<Stage, TranslationKey> = {
+  A: "phase3.stage.selectStory",
+  B: "phase3.stage.decompose",
+  C: "phase3.stage.developerPacks",
+  D: "phase3.stage.lockExport",
 };
 
 export function Phase3Workflow() {
+  const t = useT();
   const dark = useUiStore((s) => s.theme) === "dark";
   const context = useApiContext();
   const { selectedStoryId, setSelectedStoryId, clearPhase3Draft } = usePhase3Store();
@@ -1744,16 +1751,16 @@ export function Phase3Workflow() {
     <section className="px-8 py-8">
       {/* Phase header */}
       <div className="mb-7">
-        <p className={cn("mb-1 text-xs font-bold uppercase tracking-widest", dark ? "text-violet-400" : "text-violet-600")}>Phase 3</p>
+        <p className={cn("mb-1 text-xs font-bold uppercase tracking-widest", dark ? "text-violet-400" : "text-violet-600")}>{t("common.phaseEyebrow", { n: 3 })}</p>
         <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
-          Implementation
+          {t("phase3.heading")}
         </h1>
         <p className={cn("mt-2", mutedClass)}>
-          Decompose design-locked stories into atomic developer tasks, generate implementation packs, and push to Taiga.
+          {t("phase3.subtitle")}
         </p>
       </div>
 
-      {!context ? <SignInRequired unlocks="Phase 3 implementation tools" /> : null}
+      {!context ? <SignInRequired unlocks={t("phase3.signInUnlocks")} /> : null}
 
       {/* Diagram collapsible */}
       <div className={cn("mb-6 rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}>
@@ -1766,12 +1773,12 @@ export function Phase3Workflow() {
         >
           <ChevronRight className={cn("size-4 transition-transform", diagramOpen && "rotate-90")} />
           <Info className="size-4" />
-          <span>View Process Diagram (How this works)</span>
+          <span>{t("common.viewProcessDiagram")}</span>
         </button>
         {diagramOpen && (
           <div className={cn("border-t p-4", dark ? "border-neutral-800" : "border-slate-200")}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/implementation.svg" alt="Phase 3 implementation process diagram" className="mx-auto max-w-full" />
+            <img src="/images/implementation.svg" alt={t("phase3.diagramAlt")} className="mx-auto max-w-full" />
           </div>
         )}
       </div>
@@ -1819,7 +1826,7 @@ export function Phase3Workflow() {
                           ? dark ? "text-violet-400" : "text-violet-600"
                           : dark ? "text-neutral-500" : "text-slate-400",
                       )}>
-                        {STAGE_LABELS[s]}
+                        {t(STAGE_LABEL_KEYS[s])}
                       </span>
                     </button>
                     {i < stages.length - 1 && (
@@ -1849,10 +1856,10 @@ export function Phase3Workflow() {
             <StageC storyId={selectedStoryId} />
             <div className="flex gap-2">
               <Button variant="secondary" className="gap-1.5" onClick={() => setStage("B")}>
-                <ChevronLeft className="h-4 w-4" /> Back
+                <ChevronLeft className="h-4 w-4" /> {t("common.back")}
               </Button>
               <Button className="flex-1 justify-center gap-1.5" onClick={() => setStage("D")}>
-                Continue to Lock &amp; Export <ChevronRight className="h-4 w-4" />
+                {t("phase3.continueToLockExport")} <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </div>
