@@ -46,6 +46,7 @@ function modelProvider(m: ModelEntry): ProviderKey {
 /** Small text input + Save, used both for the first-time "add your own key"
  *  form and for replacing an already-saved key. */
 function AddKeyForm({ provider, dark, onSaved }: { provider: ProviderKey; dark: boolean; onSaved?: () => void }) {
+  const t = useT();
   const [input, setInput] = useState("");
   const saveAiKeyMutation = useSaveAiKey();
   const meta = PROVIDER_KEY_META[provider];
@@ -54,8 +55,8 @@ function AddKeyForm({ provider, dark, onSaved }: { provider: ProviderKey; dark: 
     const apiKey = input.trim();
     if (!apiKey) return;
     saveAiKeyMutation.mutate({ provider, apiKey }, {
-      onSuccess: () => { setInput(""); toast.success("Personal API key saved to your account."); onSaved?.(); },
-      onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to save API key."),
+      onSuccess: () => { setInput(""); toast.success(t("ai.toast.personalKeySaved")); onSaved?.(); },
+      onError: (e) => toast.error(e instanceof Error ? e.message : t("ai.toast.failedSaveApiKey")),
     });
   }
 
@@ -77,11 +78,11 @@ function AddKeyForm({ provider, dark, onSaved }: { provider: ProviderKey; dark: 
           disabled={!input.trim() || saveAiKeyMutation.isPending}
           onClick={save}
         >
-          {saveAiKeyMutation.isPending ? "Saving…" : "Save"}
+          {saveAiKeyMutation.isPending ? t("common.saving") : t("common.save")}
         </button>
       </div>
       <a href={meta.getKeyUrl} target="_blank" rel="noopener noreferrer" className={cn("inline-flex items-center gap-1 text-[11px] hover:underline", dark ? "text-violet-400" : "text-violet-600")}>
-        Get an API key <ExternalLink className="size-2.5" />
+        {t("ai.getApiKey")} <ExternalLink className="size-2.5" />
       </a>
     </div>
   );
@@ -98,6 +99,7 @@ function KeySourcePanel({
 }: {
   provider: ProviderKey; dark: boolean; systemAvailable: boolean; personalSaved: boolean;
 }) {
+  const t = useT();
   const [addingKey, setAddingKey] = useState(false);
   const deleteAiKeyMutation = useDeleteAiKey();
   const meta = PROVIDER_KEY_META[provider];
@@ -106,16 +108,16 @@ function KeySourcePanel({
   if (personalSaved) {
     return (
       <div className={cn("mt-1.5 flex items-center justify-between gap-2 rounded border px-2 py-1.5 text-xs", dark ? "border-emerald-900/60 bg-emerald-950/30 text-emerald-400" : "border-emerald-200 bg-emerald-50 text-emerald-700")}>
-        <span className="flex items-center gap-1.5"><KeyRound className="size-3" /> Using your saved key</span>
+        <span className="flex items-center gap-1.5"><KeyRound className="size-3" /> {t("ai.usingYourSavedKey")}</span>
         <button
           className="font-semibold underline-offset-2 hover:underline disabled:opacity-50"
           disabled={deleteAiKeyMutation.isPending}
           onClick={() => deleteAiKeyMutation.mutate(provider, {
-            onSuccess: () => toast.info(systemAvailable ? "Personal API key removed — using the system key again." : "Personal API key removed."),
-            onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to remove API key."),
+            onSuccess: () => toast.info(systemAvailable ? t("ai.toast.personalKeyRemovedFallback") : t("ai.toast.personalKeyRemoved")),
+            onError: (e) => toast.error(e instanceof Error ? e.message : t("ai.toast.failedRemoveApiKey")),
           })}
         >
-          {deleteAiKeyMutation.isPending ? "Removing…" : "Remove"}
+          {deleteAiKeyMutation.isPending ? t("ai.removing") : t("ai.remove")}
         </button>
       </div>
     );
@@ -127,10 +129,10 @@ function KeySourcePanel({
     return (
       <div className="mt-1.5 space-y-1">
         <div className={cn("flex items-center justify-between gap-2 text-xs", dark ? "text-neutral-500" : "text-slate-500")}>
-          <span>Using the system key.</span>
+          <span>{t("ai.usingSystemKey")}</span>
           {!addingKey && (
             <button className={cn("font-semibold hover:underline", dark ? "text-violet-400" : "text-violet-600")} onClick={() => setAddingKey(true)}>
-              + Use my own key
+              {t("ai.useMyOwnKey")}
             </button>
           )}
         </div>
@@ -143,7 +145,7 @@ function KeySourcePanel({
   return (
     <div className="mt-1.5 space-y-1">
       <p className={cn("text-xs", dark ? "text-amber-400" : "text-amber-600")}>
-        Requires {meta.envVar} in the backend env, or save your own key below.
+        {t("ai.requiresEnvVar", { envVar: meta.envVar })}
       </p>
       <AddKeyForm provider={provider} dark={dark} />
     </div>
@@ -184,7 +186,7 @@ export function AiSection({ dark, taigaToken, shellClass, dragHandlers, onDragSt
   function changeLanguage(lang: Locale) {
     setLocale(lang);
     saveAiLanguageMutation.mutate(lang, {
-      onError: () => toast.error("Failed to save language."),
+      onError: () => toast.error(t("ai.toast.failedSaveLanguage")),
     });
   }
 
@@ -209,7 +211,7 @@ export function AiSection({ dark, taigaToken, shellClass, dragHandlers, onDragSt
       <section className={cn("border-b", sectionBorderClass)}>
         <PanelHeader
           icon={<Bot className="size-4" />}
-          title="AI Model"
+          title={t("ai.panelTitle")}
           open={aiOpen}
           onClick={() => setAiOpen(!aiOpen)}
           onDragStart={onDragStart}
@@ -217,7 +219,7 @@ export function AiSection({ dark, taigaToken, shellClass, dragHandlers, onDragSt
         {aiOpen ? (
           <div className={cn("space-y-4 px-4 py-4 text-sm", expandedPanelClass)}>
             <div>
-              <p className={cn("mb-2 text-xs", dark ? "text-neutral-500" : "text-slate-500")}>Provider</p>
+              <p className={cn("mb-2 text-xs", dark ? "text-neutral-500" : "text-slate-500")}>{t("ai.provider")}</p>
               <div className={cn("flex overflow-hidden rounded border", dark ? "border-neutral-700" : "border-slate-300")}>
                 {(["anthropic", "openai", "google"] as ProviderKey[]).map((p) => (
                   <button
@@ -253,24 +255,24 @@ export function AiSection({ dark, taigaToken, shellClass, dragHandlers, onDragSt
               return (
                 <>
                   <div>
-                    <label className={cn("mb-1.5 block text-xs font-semibold", dark ? "text-neutral-400" : "text-slate-600")}>Model</label>
+                    <label className={cn("mb-1.5 block text-xs font-semibold", dark ? "text-neutral-400" : "text-slate-600")}>{t("ai.model")}</label>
                     <ModelSelect models={providerModels} value={effectiveModel} onChange={setLocalModel} dark={dark} />
                   </div>
                   <button
                     className="h-8 w-full rounded bg-violet-700 text-sm font-semibold text-white transition-colors hover:bg-violet-600 disabled:opacity-50"
                     disabled={saveAiConfigMutation.isPending || !taigaToken}
                     onClick={() => saveAiConfigMutation.mutate({ model: effectiveModel }, {
-                      onSuccess: () => toast.success("AI model saved."),
-                      onError: () => toast.error("Failed to save AI model."),
+                      onSuccess: () => toast.success(t("ai.toast.aiModelSaved")),
+                      onError: () => toast.error(t("ai.toast.failedSaveAiModel")),
                     })}
                   >
-                    {!taigaToken ? "Sign in to save" : saveAiConfigMutation.isPending ? "Saving…" : "Save"}
+                    {!taigaToken ? t("ai.signInToSave") : saveAiConfigMutation.isPending ? t("common.saving") : t("common.save")}
                   </button>
                 </>
               );
             })()}
             {saveAiConfigMutation.isSuccess ? (
-              <p className={cn("text-center text-xs", dark ? "text-emerald-400" : "text-emerald-600")}>Model config saved.</p>
+              <p className={cn("text-center text-xs", dark ? "text-emerald-400" : "text-emerald-600")}>{t("ai.modelConfigSaved")}</p>
             ) : null}
             <div>
               <p className={cn("mb-2 text-xs", dark ? "text-neutral-500" : "text-slate-500")}>{t("settings.language")}</p>
