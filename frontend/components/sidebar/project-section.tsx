@@ -19,6 +19,7 @@ import { usePhase4Store } from "@/lib/stores/phase4-store";
 import { usePhase5Store } from "@/lib/stores/phase5-store";
 import { cn, errMsg } from "@/lib/utils";
 import { PanelHeader, type DragSectionProps } from "./shared";
+import { useT } from "@/lib/i18n/use-translation";
 
 type ProjectSectionProps = DragSectionProps & {
   dark: boolean;
@@ -26,6 +27,7 @@ type ProjectSectionProps = DragSectionProps & {
 };
 
 export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDragStart }: ProjectSectionProps) {
+  const t = useT();
   const [projectOpen, setProjectOpen] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -52,7 +54,7 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
   const activeProjectName =
     projectOptions.find((p) => p.id === projectId)?.name ??
     projectName ??
-    (projectId ? `Project ${projectId}` : "No project selected");
+    (projectId ? t("project.projectFallback", { id: projectId }) : t("project.noProjectSelected"));
 
   const sectionBorderClass = dark ? "border-neutral-800" : "border-slate-300";
   const expandedPanelClass = dark ? "bg-[#20232b]" : "bg-white";
@@ -70,7 +72,7 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
         {projectOpen ? (
           <div className={cn("space-y-2 p-3", expandedPanelClass)}>
             <select
-              aria-label="Switch project"
+              aria-label={t("project.switchProjectAria")}
               className={cn(
                 "h-9 w-full rounded border px-2 text-sm disabled:opacity-50",
                 dark ? "border-neutral-600 bg-neutral-950 text-white" : "border-slate-300 bg-white text-slate-900",
@@ -82,7 +84,7 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
                 if (selected && selected.id !== projectId) {
                   setProject({ projectId: selected.id, projectName: selected.name, pmProjectSlug: selected.slug ?? undefined });
                   saveServerConfig.mutate(selected.id, {
-                    onError: () => toast.error("Switched locally, but saving the active project failed."),
+                    onError: () => toast.error(t("project.toast.switchedLocallyFailed")),
                   });
                   // All phase drafts are project-scoped — stale story IDs from
                   // the previous project would collide with the new one.
@@ -90,19 +92,19 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
                   clearPhase3Draft();
                   clearPhase4Draft();
                   clearPhase5Draft();
-                  toast.info(`Switched to ${selected.name} — phase drafts cleared`);
+                  toast.info(t("project.toast.switchedTo", { name: selected.name }));
                 }
               }}
             >
-              <option value="">{projects.isLoading ? "Loading..." : "Select project"}</option>
+              <option value="">{projects.isLoading ? t("project.loadingEllipsis") : t("project.selectProject")}</option>
               {projectOptions.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
             {projects.isError ? (
               <div className={cn("flex items-center justify-between gap-2 rounded border px-2.5 py-2 text-xs", dark ? "border-red-900/50 text-red-400" : "border-red-200 text-red-600")}>
-                <span>Failed to load projects.</span>
-                <button onClick={() => projects.refetch()} className="shrink-0 font-semibold underline">Retry</button>
+                <span>{t("project.failedLoadProjects")}</span>
+                <button onClick={() => projects.refetch()} className="shrink-0 font-semibold underline">{t("common.retry")}</button>
               </div>
             ) : null}
             {selectedProject ? (
@@ -116,17 +118,17 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
                         dark ? "text-violet-400" : "text-violet-700",
                       )}
                       onClick={() => setShowEdit(true)}
-                      title="Edit project name & description"
+                      title={t("project.editNameDesc")}
                     >
-                      <Pencil className="size-3" /> Edit
+                      <Pencil className="size-3" /> {t("common.edit")}
                     </button>
                   ) : null}
                 </div>
                 <div className={cn("font-mono", dark ? "text-neutral-500" : "text-slate-500")}>
-                  ID {selectedProject.id}{selectedProject.slug ? ` · ${selectedProject.slug}` : ""}
+                  {t("project.idLine", { id: selectedProject.id })}{selectedProject.slug ? ` · ${selectedProject.slug}` : ""}
                 </div>
                 <p className={cn("whitespace-pre-wrap leading-5", dark ? "text-neutral-400" : "text-slate-600")}>
-                  {selectedProject.description?.trim() || "No description."}
+                  {selectedProject.description?.trim() || t("project.noDescription")}
                 </p>
               </div>
             ) : null}
@@ -138,7 +140,7 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
                 )}
                 onClick={() => projects.refetch()}
               >
-                <RefreshCw className="size-3" /> Refresh
+                <RefreshCw className="size-3" /> {t("common.refresh")}
               </button>
               {!isJira ? (
                 <button
@@ -148,11 +150,11 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
                   )}
                   onClick={() => setShowCreate(true)}
                 >
-                  <Plus className="size-3" /> Create New
+                  <Plus className="size-3" /> {t("project.createNew")}
                 </button>
               ) : (
                 <div className="flex h-8 items-center justify-center rounded border border-neutral-700 px-2 text-xs text-neutral-500">
-                  Create in Jira UI
+                  {t("project.createInJiraUi")}
                 </div>
               )}
             </div>
@@ -163,13 +165,13 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
                   dark ? "text-red-400" : "text-red-700",
                 )}
                 disabled={deleteProject.isPending}
-                onClick={() => confirm("Delete this project and all its data?", () => deleteProject.mutate(projectId, {
-                  onSuccess: () => toast.success("Project deleted"),
-                  onError: () => toast.error("Failed to delete project"),
+                onClick={() => confirm(t("project.deleteConfirm"), () => deleteProject.mutate(projectId, {
+                  onSuccess: () => toast.success(t("project.toast.projectDeleted")),
+                  onError: () => toast.error(t("project.toast.failedDeleteProject")),
                 }))}
               >
                 <Trash2 className="size-3" />
-                Delete Project
+                {t("project.deleteProject")}
               </button>
             ) : null}
           </div>
@@ -181,9 +183,9 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
         <ProjectDialog
           dark={dark}
           pending={createProject.isPending}
-          title="Create New Project"
-          submitLabel="Create Project"
-          pendingLabel="Creating…"
+          title={t("project.createNewProjectTitle")}
+          submitLabel={t("project.createProjectButton")}
+          pendingLabel={t("board.creating")}
           templates={projectTemplates.data ?? []}
           onClose={() => setShowCreate(false)}
           onSubmit={(name, description, opts) =>
@@ -195,7 +197,7 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
                 clearPhase3Draft();
                 clearPhase4Draft();
                 clearPhase5Draft();
-                toast.success(`Project "${name}" created`);
+                toast.success(t("project.toast.projectCreated", { name }));
               },
               onError: (e) => toast.error(errMsg(e)),
             })
@@ -206,9 +208,9 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
         <ProjectDialog
           dark={dark}
           pending={updateProject.isPending}
-          title="Edit Project"
-          submitLabel="Save Changes"
-          pendingLabel="Saving…"
+          title={t("project.editProjectTitle")}
+          submitLabel={t("project.saveChangesButton")}
+          pendingLabel={t("common.saving")}
           initialName={selectedProject.name}
           initialDescription={selectedProject.description ?? ""}
           onClose={() => setShowEdit(false)}
@@ -217,9 +219,9 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
               onSuccess: (p) => {
                 setShowEdit(false);
                 setProject({ projectId: p.id, projectName: p.name, pmProjectSlug: p.slug ?? undefined });
-                toast.success("Project updated");
+                toast.success(t("project.toast.projectUpdated"));
               },
-              onError: () => toast.error("Failed to update project"),
+              onError: () => toast.error(t("project.toast.failedUpdateProject")),
             })
           }
         />
@@ -255,6 +257,7 @@ function ProjectDialog({
   onClose: () => void;
   onSubmit: (name: string, description: string, opts: { isPrivate: boolean; templateId: number | null }) => void;
 }) {
+  const t = useT();
   const [name, setName] = useState(initialName);
   const [description, setDescription] = useState(initialDescription);
   const [isPrivate, setIsPrivate] = useState(false);
@@ -263,7 +266,7 @@ function ProjectDialog({
   // Default the template to Scrum (or the first available) once templates load.
   useEffect(() => {
     if (templates && templates.length && templateId === null) {
-      setTemplateId((templates.find((t) => t.slug === "scrum") ?? templates[0]).id);
+      setTemplateId((templates.find((tpl) => tpl.slug === "scrum") ?? templates[0]).id);
     }
   }, [templates, templateId]);
 
@@ -294,47 +297,47 @@ function ProjectDialog({
         <div className="space-y-3">
           <div>
             <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
-              Name <span className="text-red-400">*</span>
+              {t("project.nameLabel")} <span className="text-red-400">*</span>
             </label>
             <input
               className={cn("h-9 border-violet-700", inputClass)}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Project name"
+              placeholder={t("project.projectNamePlaceholder")}
               autoFocus
               onKeyDown={(e) => e.key === "Enter" && submit()}
             />
           </div>
           <div>
             <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
-              Description <span className="text-red-400">*</span>
+              {t("common.description")} <span className="text-red-400">*</span>
             </label>
             <textarea
               className={cn("h-28 resize-none py-2", inputClass)}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe this project…"
+              placeholder={t("project.describeProjectPlaceholder")}
             />
           </div>
           {templates ? (
             <>
               <div>
                 <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
-                  Template
+                  {t("project.templateLabel")}
                 </label>
                 <select
                   className={cn("h-9", inputClass)}
                   value={templateId ?? ""}
                   onChange={(e) => setTemplateId(e.target.value ? Number(e.target.value) : null)}
                 >
-                  {templates.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
+                  {templates.map((tpl) => (
+                    <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
                   ))}
                 </select>
               </div>
               <div>
                 <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
-                  Visibility
+                  {t("project.visibilityLabel")}
                 </label>
                 <div className="grid grid-cols-2 gap-2">
 	                  <button
@@ -349,7 +352,7 @@ function ProjectDialog({
 	                          : "border-slate-300 text-slate-600 hover:border-slate-400",
 	                    )}
 	                  >
-                    Public
+                    {t("project.public")}
                   </button>
 	                  <button
 	                    type="button"
@@ -363,11 +366,11 @@ function ProjectDialog({
 	                          : "border-slate-300 text-slate-600 hover:border-slate-400",
 	                    )}
 	                  >
-                    Private
+                    {t("project.private")}
                   </button>
                 </div>
                 <p className={cn("mt-1 text-[11px]", dark ? "text-neutral-500" : "text-slate-500")}>
-                  Taiga free tier caps private projects — use Public if you hit the limit.
+                  {t("project.privateTierHint")}
                 </p>
               </div>
             </>
@@ -385,7 +388,7 @@ function ProjectDialog({
             className={cn("flex-1 rounded py-2 text-sm transition-colors", dark ? "bg-neutral-800 text-neutral-300 hover:bg-neutral-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200")}
             onClick={onClose}
           >
-            Cancel
+            {t("common.cancel")}
           </button>
         </div>
       </div>
