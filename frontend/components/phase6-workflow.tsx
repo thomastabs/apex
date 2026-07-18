@@ -15,6 +15,8 @@ import {
 } from "@/lib/hooks/use-phase6";
 import { useApiContext, useGithubContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
+import { useT } from "@/lib/i18n/use-translation";
+import type { TranslationKey } from "@/lib/i18n/translations";
 import { cn, errMsg } from "@/lib/utils";
 import type {
   ConformanceEligibleStory,
@@ -34,7 +36,20 @@ const STATUS_STYLE: Record<string, string> = {
   unknown: "bg-slate-500/15 text-slate-500 dark:text-slate-400",
 };
 
+const STATUS_LABEL_KEYS: Record<string, TranslationKey> = {
+  present: "phase6.status.present",
+  tested: "phase6.status.tested",
+  addressed: "phase6.status.addressed",
+  mismatch: "phase6.status.mismatch",
+  partial: "phase6.status.partial",
+  missing: "phase6.status.missing",
+  untested: "phase6.status.untested",
+  not_found: "phase6.status.notFound",
+  unknown: "phase6.status.unknown",
+};
+
 function StatusPill({ status }: { status: string }) {
+  const t = useT();
   return (
     <span
       className={cn(
@@ -42,7 +57,7 @@ function StatusPill({ status }: { status: string }) {
         STATUS_STYLE[status] ?? STATUS_STYLE.unknown,
       )}
     >
-      {status.replace(/_/g, " ")}
+      {STATUS_LABEL_KEYS[status] ? t(STATUS_LABEL_KEYS[status]) : status.replace(/_/g, " ")}
     </span>
   );
 }
@@ -59,6 +74,7 @@ function ScoreBadge({ score, dark }: { score: number; dark: boolean }) {
 }
 
 function ReportTables({ report, dark }: { report: ConformanceReport; dark: boolean }) {
+  const t = useT();
   const cellBorder = dark ? "border-neutral-800" : "border-slate-200";
   const muted = dark ? "text-neutral-500" : "text-slate-400";
 
@@ -68,7 +84,7 @@ function ReportTables({ report, dark }: { report: ConformanceReport; dark: boole
         {title} <span className={muted}>({count})</span>
       </h4>
       {count === 0 ? (
-        <p className={cn("text-xs italic", muted)}>None in spec.</p>
+        <p className={cn("text-xs italic", muted)}>{t("phase6.noneInSpec")}</p>
       ) : (
         <div className={cn("overflow-hidden rounded-lg border", cellBorder)}>
           <table className="w-full text-left text-xs">
@@ -96,7 +112,7 @@ function ReportTables({ report, dark }: { report: ConformanceReport; dark: boole
           <StatusPill status={status} />
           {v ? (
             <span
-              title={v.rationale || "Reconciled by the panel"}
+              title={v.rationale || t("phase6.reconciledByPanel")}
               className={cn(
                 "mt-1 block w-fit rounded px-1 text-xs font-semibold",
                 v.agreement === "unanimous"
@@ -104,7 +120,7 @@ function ReportTables({ report, dark }: { report: ConformanceReport; dark: boole
                   : "bg-amber-500/15 text-amber-500",
               )}
             >
-              {v.agreement === "unanimous" ? "✓ unanimous" : "⚠ split"}
+              {v.agreement === "unanimous" ? t("phase6.unanimous") : t("phase6.split")}
             </span>
           ) : null}
         </td>
@@ -117,7 +133,7 @@ function ReportTables({ report, dark }: { report: ConformanceReport; dark: boole
             <div className={cn("mt-0.5 text-xs", muted)}>{detail}</div>
           ) : null}
           {v?.rationale ? (
-            <div className={cn("mt-0.5 text-xs italic", muted)}>Judge: {v.rationale}</div>
+            <div className={cn("mt-0.5 text-xs italic", muted)}>{t("phase6.judgePrefix")}{v.rationale}</div>
           ) : null}
         </td>
       </tr>
@@ -127,21 +143,21 @@ function ReportTables({ report, dark }: { report: ConformanceReport; dark: boole
   return (
     <div className="space-y-5">
       {section(
-        "Endpoint contracts",
+        t("phase6.endpointContracts"),
         report.endpoints.map((e, i) =>
           row(`e${i}`, "endpoint", e.contract, e.status, e.notes, e.location),
         ),
         report.endpoints.length,
       )}
       {section(
-        "Behavioural scenarios",
+        t("phase6.behaviouralScenarios"),
         report.scenarios.map((s, i) =>
           row(`s${i}`, "scenario", s.scenario, s.status, s.notes, s.test_location),
         ),
         report.scenarios.length,
       )}
       {section(
-        "Constraints (advisory)",
+        t("phase6.constraintsAdvisory"),
         report.constraints.map((c, i) =>
           row(`c${i}`, "constraint", c.constraint_id, c.status, c.evidence, ""),
         ),
@@ -152,13 +168,14 @@ function ReportTables({ report, dark }: { report: ConformanceReport; dark: boole
 }
 
 function ScanResults({ report, dark }: { report: ScanReport; dark: boolean }) {
+  const t = useT();
   const border = dark ? "border-neutral-800" : "border-slate-200";
   const muted = dark ? "text-neutral-500" : "text-slate-400";
   return (
     <div className={cn("space-y-2 rounded-lg border p-3", border)}>
       <div className="flex items-center gap-2 text-sm font-semibold">
         <TrendingDown className={cn("h-4 w-4", report.regressed_ids.length ? "text-red-500" : muted)} />
-        Regression scan — {report.regressed_ids.length} regressed / {report.results.length} checked
+        {t("phase6.regressionScan", { regressed: report.regressed_ids.length, checked: report.results.length })}
       </div>
       <div className={cn("overflow-hidden rounded-lg border", border)}>
         <table className="w-full text-left text-xs">
@@ -167,9 +184,9 @@ function ScanResults({ report, dark }: { report: ScanReport; dark: boolean }) {
               <tr key={r.story_id} className={cn("border-b last:border-0", border)}>
                 <td className="w-16 px-3 py-2 align-top">
                   {r.regressed ? (
-                    <span className="rounded bg-red-500/15 px-1.5 py-0.5 font-semibold text-red-500">⚠ regressed</span>
+                    <span className="rounded bg-red-500/15 px-1.5 py-0.5 font-semibold text-red-500">{t("phase6.regressed")}</span>
                   ) : (
-                    <span className={cn("rounded px-1.5 py-0.5 font-semibold", muted)}>✓ ok</span>
+                    <span className={cn("rounded px-1.5 py-0.5 font-semibold", muted)}>{t("phase6.ok")}</span>
                   )}
                 </td>
                 <td className="px-3 py-2 align-top">
@@ -199,6 +216,7 @@ function ScanResults({ report, dark }: { report: ScanReport; dark: boolean }) {
 }
 
 function TraceabilityPanel() {
+  const t = useT();
   const context = useApiContext();
   const github = useGithubContext();
   const dark = useUiStore((s) => s.theme) === "dark";
@@ -224,7 +242,7 @@ function TraceabilityPanel() {
   if (!context) {
     return (
       <div className="p-8">
-        <Callout variant="warning">Sign in and select a project to run a conformance check.</Callout>
+        <Callout variant="warning">{t("phase6.signInForConformance")}</Callout>
       </div>
     );
   }
@@ -240,10 +258,10 @@ function TraceabilityPanel() {
         onSuccess: () =>
           toast.success(
             panel
-              ? "Conformance verified by panel"
+              ? t("phase6.toast.verifiedByPanel")
               : ai
-                ? "Conformance verified"
-                : "Quick check computed (no AI)",
+                ? t("phase6.toast.verified")
+                : t("phase6.toast.quickCheckComputed"),
           ),
       },
     );
@@ -258,8 +276,13 @@ function TraceabilityPanel() {
           setScanReport(report);
           toast.success(
             report.regressed_ids.length > 0
-              ? `${report.regressed_ids.length} regression(s) found`
-              : "No regressions — all stories steady",
+              ? t(
+                  report.regressed_ids.length === 1
+                    ? "phase6.toast.regressionsFoundOne"
+                    : "phase6.toast.regressionsFoundOther",
+                  { n: report.regressed_ids.length },
+                )
+              : t("phase6.toast.noRegressions"),
           );
         },
       },
@@ -273,12 +296,12 @@ function TraceabilityPanel() {
     try {
       const { fetchGithubFile } = await import("@/lib/api/github-browser");
       const content = await fetchGithubFile(github, supPath.trim());
-      if (!content) { toast.error("File empty or not found."); return; }
+      if (!content) { toast.error(t("phase6.toast.fileEmpty")); return; }
       verify.mutate(
         { storyId: selectedId, ai: true, extraFiles: [{ path: supPath.trim(), content }] },
         {
           onError: (err) => toast.error(errMsg(err)),
-          onSuccess: () => { toast.success(`Re-verified with ${supPath.trim()}`); setSupPath(""); },
+          onSuccess: () => { toast.success(t("phase6.toast.reverifiedWith", { path: supPath.trim() })); setSupPath(""); },
         },
       );
     } catch (e) { toast.error(errMsg(e)); } finally { setFetching(false); }
@@ -286,20 +309,15 @@ function TraceabilityPanel() {
 
   return (
     <div className="space-y-6">
-      <SectionHeading>Traceability Explorer — Spec / Code Conformance</SectionHeading>
+      <SectionHeading>{t("phase6.explorerHeading")}</SectionHeading>
       <p className={cn("text-sm", dark ? "text-neutral-400" : "text-slate-600")}>
-        Verify shipped code against the locked spec. A deterministic quick check (no AI) locates
-        endpoints and tests; the AI layer confirms each contract is honoured and flags drift.
-        The score is computed from the findings — never by the AI.
+        {t("phase6.explorerDesc")}
       </p>
 
       {eligible.isLoading ? (
-        <Callout>Loading stories…</Callout>
+        <Callout>{t("common.loadingStories")}</Callout>
       ) : stories.length === 0 ? (
-        <Callout>
-          No stories are at <code>implementation</code> or later yet. Implement a story to run a
-          conformance check.
-        </Callout>
+        <Callout>{t("phase6.noConformanceStories")}</Callout>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-[16rem_1fr]">
           {/* Story list */}
@@ -347,16 +365,16 @@ function TraceabilityPanel() {
                   <ScoreBadge score={report.score} dark={dark} />
                 ) : (
                   <span className={cn("text-sm", dark ? "text-neutral-500" : "text-slate-400")}>
-                    No report yet.
+                    {t("phase6.noReportYet")}
                   </span>
                 )}
                 {report?.generated_at ? (
                   <div className={cn("text-xs", dark ? "text-neutral-600" : "text-slate-400")}>
                     {report.layer === "panel"
-                      ? `Panel-verified${report.panel_meta ? ` · ${report.panel_meta.escalated} row(s) escalated` : ""}`
+                      ? `${t("phase6.panelVerified")}${report.panel_meta ? t(report.panel_meta.escalated === 1 ? "phase6.rowsEscalatedOne" : "phase6.rowsEscalatedOther", { n: report.panel_meta.escalated }) : ""}`
                       : report.layer === "ai"
-                        ? "AI-verified"
-                        : "Quick check only"}{" "}
+                        ? t("phase6.aiVerified")
+                        : t("phase6.quickCheckOnly")}{" "}
                     · {report.generated_at.slice(0, 16).replace("T", " ")}
                   </div>
                 ) : null}
@@ -366,9 +384,9 @@ function TraceabilityPanel() {
                   variant="secondary"
                   onClick={() => runVerify(false)}
                   disabled={verify.isPending || selectedId === null}
-                  title="Deterministic baseline — no AI"
+                  title={t("phase6.quickCheckTitle")}
                 >
-                  <Zap className="h-4 w-4" /> Quick Check (no AI)
+                  <Zap className="h-4 w-4" /> {t("phase6.quickCheckButton")}
                 </Button>
                 <Button
                   onClick={() => runVerify(true)}
@@ -379,24 +397,24 @@ function TraceabilityPanel() {
                   ) : (
                     <RefreshCw className="h-4 w-4" />
                   )}
-                  {report ? "Re-verify" : "Verify"}
+                  {report ? t("phase6.reverify") : t("phase6.verify")}
                 </Button>
                 <Button
                   variant="secondary"
                   onClick={() => runVerify(true, true)}
                   disabled={verify.isPending || selectedId === null}
-                  title="Adversarial multi-agent panel — escalates contested rows to a Prosecutor, Defender & Judge"
+                  title={t("phase6.deepVerifyTitle")}
                 >
-                  <Scale className="h-4 w-4" /> Deep verify (panel)
+                  <Scale className="h-4 w-4" /> {t("phase6.deepVerifyButton")}
                 </Button>
                 <Button
                   variant="secondary"
                   onClick={runScan}
                   disabled={scan.isPending || verify.isPending}
-                  title="Re-verify every story with a prior report against the synced code and flag any whose conformance dropped"
+                  title={t("phase6.scanTitle")}
                 >
                   {scan.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <TrendingDown className="h-4 w-4" />}
-                  Scan for regressions
+                  {t("phase6.scanButton")}
                 </Button>
                 {verify.isPending && <CancelButton onCancel={() => verify.cancel()} />}
                 {scan.isPending && <CancelButton onCancel={() => scan.cancel()} />}
@@ -405,7 +423,11 @@ function TraceabilityPanel() {
 
             {scan.isPending ? (
               <AIProgressIndicator
-                steps={["Re-verifying stories", "Comparing to last report", "Flagging regressions"]}
+                steps={[
+                  t("phase6.step.reverifyingStories"),
+                  t("phase6.step.comparingToLast"),
+                  t("phase6.step.flaggingRegressions"),
+                ]}
                 isPending={scan.isPending}
                 dark={dark}
               />
@@ -415,7 +437,12 @@ function TraceabilityPanel() {
 
             {verify.isPending ? (
               <AIProgressIndicator
-                steps={["Parsing spec", "Probing code", "Semantic verification", "Scoring"]}
+                steps={[
+                  t("phase6.step.parsingSpec"),
+                  t("phase6.step.probingCode"),
+                  t("phase6.step.semanticVerification"),
+                  t("phase6.step.scoring"),
+                ]}
                 isPending={verify.isPending}
                 dark={dark}
               />
@@ -433,22 +460,22 @@ function TraceabilityPanel() {
             ) : null}
 
             {reportQuery.isLoading ? (
-              <Callout>Loading report…</Callout>
+              <Callout>{t("phase6.loadingReport")}</Callout>
             ) : report ? (
               <>
                 <ReportTables report={report} dark={dark} />
                 {github && [...report.endpoints, ...report.scenarios].some((r) => r.status === "unknown") ? (
                   <div className={cn("space-y-2 rounded-lg border p-3", dark ? "border-neutral-800" : "border-slate-200")}>
-                    <p className="text-xs font-semibold">Resolve <code>unknown</code> rows — fetch a file & re-verify</p>
+                    <p className="text-xs font-semibold">{t("phase6.resolveUnknownRows")}</p>
                     <div className="flex gap-2">
                       <Input
-                        placeholder="path/to/implicated/file.py"
+                        placeholder={t("phase6.filePathPlaceholder")}
                         value={supPath}
                         onChange={(e) => setSupPath(e.target.value)}
                         className="flex-1"
                       />
                       <Button onClick={fetchAndReverify} disabled={fetching || verify.isPending || !supPath.trim()}>
-                        {fetching ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Fetch & re-verify
+                        {fetching ? <Loader2 className="h-4 w-4 animate-spin" /> : null} {t("phase6.fetchAndReverify")}
                       </Button>
                     </div>
                   </div>
@@ -456,8 +483,7 @@ function TraceabilityPanel() {
               </>
             ) : (
               <Callout>
-                Run a check to compare story #{selectedId} against its spec. Tip: sync GitHub first
-                so there is code to check against.
+                {t("phase6.runCheckTip", { storyId: selectedId ?? "" })}
               </Callout>
             )}
           </div>
@@ -468,26 +494,27 @@ function TraceabilityPanel() {
 }
 
 export function Phase6Workflow() {
+  const t = useT();
   const dark = useUiStore((s) => s.theme) === "dark";
   const [tab, setTab] = useState<"maintenance" | "traceability">("maintenance");
   const [diagramOpen, setDiagramOpen] = useState(false);
   const mutedClass = dark ? "text-neutral-400" : "text-slate-500";
 
-  const steps: { key: "maintenance" | "traceability"; label: string }[] = [
-    { key: "maintenance", label: "Maintenance" },
-    { key: "traceability", label: "Traceability" },
+  const steps: { key: "maintenance" | "traceability"; labelKey: TranslationKey }[] = [
+    { key: "maintenance", labelKey: "phase6.tab.maintenance" },
+    { key: "traceability", labelKey: "phase6.tab.traceability" },
   ];
 
   return (
     <section className="px-8 py-8">
       {/* Phase header */}
       <div className="mb-7">
-        <p className={cn("mb-1 text-xs font-bold uppercase tracking-widest", dark ? "text-violet-400" : "text-violet-600")}>Phase 6</p>
+        <p className={cn("mb-1 text-xs font-bold uppercase tracking-widest", dark ? "text-violet-400" : "text-violet-600")}>{t("common.phaseEyebrow", { n: 6 })}</p>
         <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
-          Maintenance
+          {t("phase6.heading")}
         </h1>
         <p className={cn("mt-2", mutedClass)}>
-          Triage post-deployment feedback into governed fixes, and verify shipped code against the locked spec.
+          {t("phase6.subtitle")}
         </p>
       </div>
 
@@ -502,14 +529,14 @@ export function Phase6Workflow() {
         >
           <ChevronRight className={cn("size-4 transition-transform", diagramOpen && "rotate-90")} />
           <Info className="size-4" />
-          <span>View Process Diagram (How this works)</span>
+          <span>{t("common.viewProcessDiagram")}</span>
         </button>
         {diagramOpen && (
           <div className={cn("border-t p-4", dark ? "border-neutral-800" : "border-slate-200")}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/images/maintenance.svg"
-              alt="Phase 6 maintenance process diagram"
+              alt={t("phase6.diagramAlt")}
               className="mx-auto max-w-full"
               onError={(e) => { e.currentTarget.style.display = "none"; }}
             />
@@ -520,7 +547,7 @@ export function Phase6Workflow() {
       {/* Section tabs — Phase 6 is two parallel workspaces, not a step-by-step flow */}
       <div
         role="tablist"
-        aria-label="Phase 6 sections"
+        aria-label={t("phase6.tabsAria")}
         className={cn(
           "inline-flex gap-1 rounded-xl border p-1",
           dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-100",
@@ -553,7 +580,7 @@ export function Phase6Workflow() {
                     : "text-slate-500 hover:text-slate-800",
               )}
             >
-              {s.label}
+              {t(s.labelKey)}
             </button>
           );
         })}
