@@ -112,7 +112,7 @@ export function FixBoltDashboard() {
     <section className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <div className="mb-7">
         <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Governance</p>
-        <h1 className={cn("text-2xl font-bold tracking-tight", dark ? "text-white" : "text-slate-900")}>
+        <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
           Fix Bolt
         </h1>
         <p className={cn("mt-2", mutedClass)}>

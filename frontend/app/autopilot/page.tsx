@@ -86,7 +86,7 @@ export default function AutopilotPage() {
   return (
     <section className="px-8 py-8">
       <div className={cn("mb-6 border-b pb-6", dark ? "border-neutral-800" : "border-slate-200")}>
-        <h1 className={cn("text-2xl font-bold", dark ? "text-neutral-100" : "text-slate-900")}>Autopilot</h1>
+        <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>Autopilot</h1>
         <p className={cn("mt-1 text-sm", dark ? "text-neutral-500" : "text-slate-500")}>
           AI-driven full SDLC pipeline — Phases 1 through 5, fully automated with human-in-the-loop checkpoints.
         </p>

@@ -337,7 +337,7 @@ export function TraceabilityClusterPanel() {
     <section className="flex h-[calc(100vh-58px)] min-w-0 flex-col px-4 py-6 sm:px-6 lg:px-8">
       <div className="mb-4">
         <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Traceability</p>
-        <h1 className={cn("text-2xl font-bold tracking-tight", dark ? "text-white" : "text-slate-900")}>Living Graph</h1>
+        <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>Living Graph</h1>
         <p className={cn("mt-1.5 text-sm", mutedClass)}>
           The whole project as one derivation graph — epic → story → Gherkin → design → tasks → tests → deploy.
           Violet dashed = backward-trace, red dashed = regression loop-back. Click any node to jump to its phase.
