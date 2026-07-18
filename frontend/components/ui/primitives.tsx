@@ -77,25 +77,29 @@ const CALLOUT_VARIANTS = {
     icon: Info,
     dark: "bg-violet-950/60 text-violet-100",
     light: "bg-violet-50 text-violet-800",
-    iconColor: "text-violet-400",
+    iconColorDark: "text-violet-400",
+    iconColorLight: "text-violet-700",
   },
   success: {
     icon: CheckCircle2,
     dark: "bg-emerald-950/60 text-emerald-100",
     light: "bg-emerald-50 text-emerald-800",
-    iconColor: "text-emerald-400",
+    iconColorDark: "text-emerald-400",
+    iconColorLight: "text-emerald-700",
   },
   warning: {
     icon: TriangleAlert,
     dark: "bg-amber-950/40 text-amber-100",
     light: "bg-amber-50 text-amber-800",
-    iconColor: "text-amber-400",
+    iconColorDark: "text-amber-400",
+    iconColorLight: "text-amber-700",
   },
   danger: {
     icon: XCircle,
     dark: "bg-red-950/50 text-red-100",
     light: "bg-red-50 text-red-800",
-    iconColor: "text-red-400",
+    iconColorDark: "text-red-400",
+    iconColorLight: "text-red-700",
   },
 } as const;
 
@@ -107,10 +111,10 @@ export function Callout({
   variant?: keyof typeof CALLOUT_VARIANTS;
 }) {
   const dark = useUiStore((s) => s.theme) === "dark";
-  const { icon: Icon, iconColor, ...tone } = CALLOUT_VARIANTS[variant];
+  const { icon: Icon, iconColorDark, iconColorLight, ...tone } = CALLOUT_VARIANTS[variant];
   return (
     <div className={cn("flex gap-2.5 rounded px-4 py-3 text-sm", dark ? tone.dark : tone.light)}>
-      <Icon className={cn("mt-0.5 size-4 shrink-0", iconColor)} aria-hidden="true" />
+      <Icon className={cn("mt-0.5 size-4 shrink-0", dark ? iconColorDark : iconColorLight)} aria-hidden="true" />
       <div>{children}</div>
     </div>
   );
