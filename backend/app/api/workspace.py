@@ -490,6 +490,8 @@ def publish_context_to_wiki(
     context_files = [(filename, label, context.read_context_file(filename)) for filename, label in selected]
     try:
         results = taiga_wiki_service.publish(taiga_base, ctx.pm_token, ctx.project_id, context_files)
+    except HTTPException:
+        raise
     except Exception as exc:
         _logger.error("context wiki publish failed: %s", exc)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Failed to publish Taiga Wiki pages: {exc}") from exc
@@ -511,6 +513,8 @@ def pull_context_from_wiki(
     context.set_active(ctx)
     try:
         results, contents = taiga_wiki_service.pull(taiga_base, ctx.pm_token, ctx.project_id, selected)
+    except HTTPException:
+        raise
     except Exception as exc:
         _logger.error("context wiki pull failed: %s", exc)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Failed to pull Taiga Wiki pages: {exc}") from exc

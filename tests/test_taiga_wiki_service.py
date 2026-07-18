@@ -47,9 +47,33 @@ def test_publish_updates_existing_and_creates_missing(monkeypatch):
         {"filename": "tech-stack.md", "slug": "apex-tech-stack", "action": "created", "ok": True, "detail": ""},
     ]
     assert calls[1][0] == "PATCH"
-    assert calls[1][2]["version"] == 7
+    assert calls[1][2] == {"content": "concept", "version": 7}
     assert calls[2][0] == "POST"
-    assert calls[2][2]["title"] == "Apex: Technology Choices"
+    assert calls[2][2] == {"project": 42, "slug": "apex-tech-stack", "content": "stack", "watchers": []}
+
+
+def test_publish_skips_empty_context_files(monkeypatch):
+    calls = []
+
+    def fake_request(method, url, token, *, params=None, json=None):
+        calls.append((method, url, json))
+        if method == "GET":
+            return []
+        return {"ok": True}
+
+    monkeypatch.setattr(svc, "_request", fake_request)
+
+    results = svc.publish(
+        "https://api.taiga.io/api/v1",
+        "tok",
+        42,
+        [("runtime-spec.md", "Runtime Spec", "   ")],
+    )
+
+    assert results == [
+        {"filename": "runtime-spec.md", "slug": "apex-runtime-spec", "action": "skipped", "ok": True, "detail": "empty context file"},
+    ]
+    assert len(calls) == 1
 
 
 def test_pull_returns_matching_contents(monkeypatch):

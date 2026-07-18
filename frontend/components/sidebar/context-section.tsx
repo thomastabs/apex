@@ -474,38 +474,6 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
               ))}
             </div>
             <div className="space-y-2">
-              <button
-                className={cn(
-                  "flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm transition-colors hover:border-violet-500/60 hover:bg-violet-500/15",
-                  dark ? "text-violet-300 hover:text-violet-200" : "text-violet-700 hover:text-violet-800",
-                )}
-                onClick={() => setGuideOpen(true)}
-              >
-                <span>{t("context.contextGuide")}</span>
-                <BookOpen className="size-4 text-violet-400" />
-              </button>
-              <button
-                className={cn(
-                  "flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 disabled:opacity-40",
-                  dark ? "text-violet-300 hover:text-violet-200" : "text-violet-700 hover:text-violet-800",
-                )}
-                disabled={contextFiles.isFetching}
-                onClick={() => { contextFiles.refetch(); toast.info(t("context.contextReloaded")); }}
-              >
-                <span>{t("context.reloadContext")}</span>
-                <RefreshCw className="size-4 text-violet-400" />
-              </button>
-              <button
-                className={cn(
-                  "flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 disabled:opacity-40",
-                  dark ? "text-violet-300 hover:text-violet-200" : "text-violet-700 hover:text-violet-800",
-                )}
-                disabled={!contextFiles.data?.files.length}
-                onClick={() => { downloadContextZip(contextFiles.data?.files ?? [], t); toast.success(t("context.contextZipDownloaded")); }}
-              >
-                <span>{t("context.downloadAllContextFiles")}</span>
-                <Download className="size-4 text-violet-400" />
-              </button>
               {context?.pmTool === "taiga" ? (
                 <div className={cn("rounded border px-3 py-2", dark ? "border-neutral-700 bg-neutral-950/40" : "border-slate-200 bg-slate-50")}>
                   <div className={cn("mb-2 flex items-center justify-between text-xs", dark ? "text-neutral-500" : "text-slate-500")}>
@@ -544,6 +512,38 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                   </div>
                 </div>
               ) : null}
+              <button
+                className={cn(
+                  "flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm transition-colors hover:border-violet-500/60 hover:bg-violet-500/15",
+                  dark ? "text-violet-300 hover:text-violet-200" : "text-violet-700 hover:text-violet-800",
+                )}
+                onClick={() => setGuideOpen(true)}
+              >
+                <span>{t("context.contextGuide")}</span>
+                <BookOpen className="size-4 text-violet-400" />
+              </button>
+              <button
+                className={cn(
+                  "flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 disabled:opacity-40",
+                  dark ? "text-violet-300 hover:text-violet-200" : "text-violet-700 hover:text-violet-800",
+                )}
+                disabled={contextFiles.isFetching}
+                onClick={() => { contextFiles.refetch(); toast.info(t("context.contextReloaded")); }}
+              >
+                <span>{t("context.reloadContext")}</span>
+                <RefreshCw className="size-4 text-violet-400" />
+              </button>
+              <button
+                className={cn(
+                  "flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 disabled:opacity-40",
+                  dark ? "text-violet-300 hover:text-violet-200" : "text-violet-700 hover:text-violet-800",
+                )}
+                disabled={!contextFiles.data?.files.length}
+                onClick={() => { downloadContextZip(contextFiles.data?.files ?? [], t); toast.success(t("context.contextZipDownloaded")); }}
+              >
+                <span>{t("context.downloadAllContextFiles")}</span>
+                <Download className="size-4 text-violet-400" />
+              </button>
               <button
                 className={cn(
                   "flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 disabled:opacity-40",

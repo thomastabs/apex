@@ -10,6 +10,7 @@ import re
 from typing import Iterable
 
 import httpx
+from fastapi import HTTPException, status
 
 _TIMEOUT = 20.0
 _PAGE_SIZE = 100
@@ -45,7 +46,17 @@ def _request(method: str, url: str, token: str, *, params: dict | None = None, j
     )
     if resp.status_code in (401, 403):
         raise PermissionError(f"Taiga returned {resp.status_code} — check credentials or project access.")
-    resp.raise_for_status()
+    try:
+        resp.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        detail = resp.text.strip()
+        if len(detail) > 500:
+            detail = f"{detail[:500]}..."
+        target = resp.request.headers.get("X-Relay-Target") or str(resp.request.url)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Taiga returned {resp.status_code} for {method} {target}: {detail or resp.reason_phrase}",
+        ) from exc
     if resp.status_code == 204 or not resp.content:
         return {}
     return resp.json()
@@ -132,13 +143,12 @@ def publish(
     for filename, label, content in context_files:
         slug = wiki_slug_for(filename)
         existing = by_slug.get(slug)
-        body = {
-            "project": project_id,
-            "slug": slug,
-            "content": content,
-        }
+        if not content.strip():
+            results.append({"filename": filename, "slug": slug, "action": "skipped", "ok": True, "detail": "empty context file"})
+            continue
         if existing:
             wiki_id = _page_id(existing)
+            body = {"content": content}
             if "version" in existing:
                 body["version"] = existing["version"]
             if wiki_id is None:
@@ -147,8 +157,12 @@ def publish(
             _request("PATCH", _wiki_page_url(taiga_base, wiki_id), token, json=body)
             results.append({"filename": filename, "slug": slug, "action": "updated", "ok": True, "detail": ""})
         else:
-            body["subject"] = wiki_title_for(label)
-            body["title"] = wiki_title_for(label)
+            body = {
+                "project": project_id,
+                "slug": slug,
+                "content": content,
+                "watchers": [],
+            }
             _request("POST", _wiki_pages_url(taiga_base), token, json=body)
             results.append({"filename": filename, "slug": slug, "action": "created", "ok": True, "detail": ""})
     return results
