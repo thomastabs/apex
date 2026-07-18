@@ -30,6 +30,12 @@ import { cn, errMsg } from "@/lib/utils";
 import { FigmaStoryPanel } from "@/components/figma-story-panel";
 import { AiGroundingNote } from "@/components/ai-grounding-note";
 import { AI_GROUNDING } from "@/lib/ai-grounding";
+import {
+  buildOnboardingProjectConcept,
+  hasMeaningfulProjectConcept,
+  shouldShowPhase1Onboarding,
+  type Phase1OnboardingDraft,
+} from "@/lib/phase1-onboarding";
 
 type Mode = "create" | "load" | "suggest";
 
@@ -124,6 +130,14 @@ const CONSTRAINT_STEPS = [
 
 const STEP_LABEL_KEYS = ["phase1.step.defineEpic", "phase1.step.generate", "phase1.step.reviewDraft", "phase1.step.publish"] as const;
 
+const EMPTY_ONBOARDING: Phase1OnboardingDraft = {
+  purpose: "",
+  actors: "",
+  constraints: "",
+  pmContext: "",
+  seedDocs: "",
+};
+
 // Lower number = ranked first. Drives both the gap sort order and the rank badge.
 const IMPORTANCE_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 const IMPORTANCE_STYLE: Record<string, string> = {
@@ -163,6 +177,8 @@ export function Phase1Workflow() {
   const [constraintsGenerated, setConstraintsGenerated] = useState(false);
   const [diagramOpen, setDiagramOpen] = useState(false);
   const [earsOpen, setEarsOpen] = useState(false);
+  const [onboardingDraft, setOnboardingDraft] = useState<Phase1OnboardingDraft>(EMPTY_ONBOARDING);
+  const [onboardingSaved, setOnboardingSaved] = useState(false);
   const draftRestored = useRef(false);
 
   const epics = usePhase1Epics();
@@ -186,6 +202,7 @@ export function Phase1Workflow() {
 
   useEffect(() => {
     draftRestored.current = false;
+    setOnboardingSaved(false);
   }, [context?.projectId]);
 
   useEffect(() => {
@@ -227,10 +244,7 @@ export function Phase1Workflow() {
   }, [context?.projectId, nlDraft, compiledStories, mode, epicTitle, epicDescription, epicId, suggestions]);
 
   const projectConcept = contextFiles.data?.files.find((f) => f.filename === "project-concept.md")?.content ?? "";
-  const hasProjectConcept = useMemo(() => {
-    const text = projectConcept.replace(/^#[^\n]*\n/, "").trim();
-    return Boolean(text) && !text.startsWith("<!--");
-  }, [projectConcept]);
+  const hasProjectConcept = useMemo(() => hasMeaningfulProjectConcept(projectConcept), [projectConcept]);
 
   const activeEpic = useMemo(
     () => epics.data?.find((epic) => epic.id === epicId),
@@ -243,6 +257,8 @@ export function Phase1Workflow() {
   const hasWorkInProgress = Boolean(epicTitle || epicDescription || epicId || nlDraft || compiledStories.length || suggestions.length);
   const validationErrors = compiledStories.length ? validateStories(compiledStories, t) : [];
   const canPush = !busy && !noContext && compiledStories.length > 0 && validationErrors.length === 0;
+  const needsOnboarding = Boolean(context && !onboardingSaved && shouldShowPhase1Onboarding(contextFiles.data?.files, epics.data));
+  const canSaveOnboarding = Boolean(onboardingDraft.purpose.trim() && onboardingDraft.actors.trim());
 
   const maxUnlockedStep: 1 | 2 | 3 | 4 =
     compiledStories.length > 0 ? 4 :
@@ -263,6 +279,28 @@ export function Phase1Workflow() {
     setExpandedLoadEpic(null);
     setAppliedSuggestionIndex(null);
     setSelectedSuggestion(null);
+  }
+
+  function updateOnboardingDraft(field: keyof Phase1OnboardingDraft, value: string) {
+    setOnboardingDraft((draft) => ({ ...draft, [field]: value }));
+  }
+
+  function saveOnboarding() {
+    if (!canSaveOnboarding) return;
+    updateContextFile.mutate(
+      {
+        filename: "project-concept.md",
+        content: buildOnboardingProjectConcept(onboardingDraft),
+        note: "Phase 1 onboarding intake",
+      },
+      {
+        onSuccess: () => {
+          setOnboardingSaved(true);
+          setOnboardingDraft(EMPTY_ONBOARDING);
+          toast.success(t("phase1.onboarding.toastSaved"));
+        },
+      },
+    );
   }
 
   function applySuggestion(suggestion: EpicSuggestion, index: number) {
@@ -441,7 +479,7 @@ export function Phase1Workflow() {
         </div>
       ) : null}
 
-      {!hasProjectConcept && contextFiles.data ? (
+      {!needsOnboarding && !hasProjectConcept && contextFiles.data ? (
         <div className="mb-4"><Callout variant="warning">{t("phase1.emptyConceptWarning")}</Callout></div>
       ) : null}
 
@@ -449,6 +487,75 @@ export function Phase1Workflow() {
         <div className="mb-4"><Callout variant="info">{t("common.draftSavedLocally")}</Callout></div>
       )}
 
+      {needsOnboarding ? (
+        <div className={cn("space-y-5 border-t pt-6", sectionBorderClass)}>
+          <div className={cn("rounded-xl border p-5", dark ? "border-violet-700/50 bg-violet-950/20" : "border-violet-200 bg-violet-50/70")}>
+            <div className="mb-4 flex items-start gap-3">
+              <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-violet-600 text-white">
+                <FilePlus2 className="size-4" />
+              </div>
+              <div>
+                <h2 className={cn("text-base font-semibold", dark ? "text-neutral-100" : "text-slate-900")}>{t("phase1.onboarding.title")}</h2>
+                <p className={cn("mt-1 text-sm", dark ? "text-neutral-400" : "text-slate-600")}>{t("phase1.onboarding.desc")}</p>
+              </div>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <label className={cn("block text-sm font-medium", labelClass)}>
+                {t("phase1.onboarding.purpose")} <span className={cn("block text-xs", dark ? "text-neutral-500" : "text-slate-400")}>{t("common.required")}</span>
+                <Textarea
+                  rows={4}
+                  value={onboardingDraft.purpose}
+                  onChange={(event) => updateOnboardingDraft("purpose", event.target.value)}
+                  placeholder={t("phase1.onboarding.purposePlaceholder")}
+                />
+              </label>
+              <label className={cn("block text-sm font-medium", labelClass)}>
+                {t("phase1.onboarding.actors")} <span className={cn("block text-xs", dark ? "text-neutral-500" : "text-slate-400")}>{t("common.required")}</span>
+                <Textarea
+                  rows={4}
+                  value={onboardingDraft.actors}
+                  onChange={(event) => updateOnboardingDraft("actors", event.target.value)}
+                  placeholder={t("phase1.onboarding.actorsPlaceholder")}
+                />
+              </label>
+              <label className={cn("block text-sm font-medium", labelClass)}>
+                {t("phase1.onboarding.constraints")} <span className={cn("block text-xs", dark ? "text-neutral-500" : "text-slate-400")}>{t("common.optional")}</span>
+                <Textarea
+                  rows={4}
+                  value={onboardingDraft.constraints}
+                  onChange={(event) => updateOnboardingDraft("constraints", event.target.value)}
+                  placeholder={t("phase1.onboarding.constraintsPlaceholder")}
+                />
+              </label>
+              <label className={cn("block text-sm font-medium", labelClass)}>
+                {t("phase1.onboarding.pmContext")} <span className={cn("block text-xs", dark ? "text-neutral-500" : "text-slate-400")}>{t("common.optional")}</span>
+                <Textarea
+                  rows={4}
+                  value={onboardingDraft.pmContext}
+                  onChange={(event) => updateOnboardingDraft("pmContext", event.target.value)}
+                  placeholder={t("phase1.onboarding.pmContextPlaceholder")}
+                />
+              </label>
+            </div>
+            <label className={cn("mt-4 block text-sm font-medium", labelClass)}>
+              {t("phase1.onboarding.seedDocs")} <span className={cn("block text-xs", dark ? "text-neutral-500" : "text-slate-400")}>{t("common.optional")}</span>
+              <Textarea
+                rows={4}
+                value={onboardingDraft.seedDocs}
+                onChange={(event) => updateOnboardingDraft("seedDocs", event.target.value)}
+                placeholder={t("phase1.onboarding.seedDocsPlaceholder")}
+              />
+            </label>
+            <div className="mt-4 flex items-center gap-3">
+              <Button onClick={saveOnboarding} disabled={!canSaveOnboarding || updateContextFile.isPending}>
+                {updateContextFile.isPending ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
+                {updateContextFile.isPending ? t("common.saving") : t("phase1.onboarding.save")}
+              </Button>
+              <p className={cn("text-xs", dark ? "text-neutral-500" : "text-slate-500")}>{t("phase1.onboarding.saveHint")}</p>
+            </div>
+          </div>
+        </div>
+      ) : (
       <div className={cn("space-y-6 border-t pt-6", sectionBorderClass)}>
         {/* Stepper */}
         <div className={cn("rounded-xl border px-6 py-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
@@ -1398,6 +1505,7 @@ export function Phase1Workflow() {
           </div>
         )}
       </div>
+      )}
     </section>
   );
 }
