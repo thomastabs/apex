@@ -10,7 +10,8 @@ import { translations, type TranslationKey } from "./translations";
 export function useT() {
   const locale = useUiStore((s) => s.locale);
   return (key: TranslationKey, vars?: Record<string, string | number>): string => {
-    let str: string = translations[locale][key] ?? translations.en[key] ?? key;
+    const dictionary = translations[locale] ?? translations.en;
+    let str: string = dictionary[key] ?? translations.en[key] ?? key;
     if (vars) {
       for (const [name, value] of Object.entries(vars)) {
         str = str.replaceAll(`{${name}}`, String(value));
