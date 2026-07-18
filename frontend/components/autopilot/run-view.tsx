@@ -44,6 +44,11 @@ const PHASE_LABEL_KEYS: Record<string, TranslationKey> = {
   "": "autopilotrun.phase.general",
 };
 
+function phaseDisplayLabel(t: ReturnType<typeof useT>, phase: string): string {
+  const key = PHASE_LABEL_KEYS[phase];
+  return key ? t(key) : phase || t("autopilotrun.phase.general");
+}
+
 // Left-accent + chip colour per phase, for the artifact viewer.
 function phaseAccent(phase: string, dark: boolean): string {
   const light: Record<string, string> = {
@@ -88,7 +93,7 @@ function artifactKind(ev: AutopilotEvent, t: ReturnType<typeof useT>): string {
   if (m.includes("test plan")) return t("autopilotrun.artifact.testPlan", { storyTag });
   if (m.includes("figma")) return t("autopilotrun.artifact.figmaContext");
   if (m.includes("pack") || m.includes("proposal") || m.includes("implementation plan")) return t("autopilotrun.artifact.devPack", { storyTag });
-  return t(PHASE_LABEL_KEYS[ev.phase] ?? "autopilotrun.artifact.default").split("·").pop()?.trim() ?? t("autopilotrun.artifact.default");
+  return phaseDisplayLabel(t, ev.phase).split("·").pop()?.trim() ?? t("autopilotrun.artifact.default");
 }
 
 function CopyButton({ getText, label, dark }: { getText: () => string; label: string; dark: boolean }) {
@@ -428,7 +433,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
           <div className="flex items-center gap-2">
             <Pause className="size-4 text-violet-400 shrink-0" />
             <div>
-              <p className="text-sm font-semibold text-violet-300">{t("autopilotrun.checkpointComplete", { phase: t(PHASE_LABEL_KEYS[checkpointPhase] ?? "autopilotrun.phase.general") })}</p>
+              <p className="text-sm font-semibold text-violet-300">{t("autopilotrun.checkpointComplete", { phase: phaseDisplayLabel(t, checkpointPhase) })}</p>
               <p className="text-xs text-violet-500">{t("autopilotrun.checkpointDesc")}</p>
             </div>
           </div>
@@ -450,7 +455,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
             <div>
               <p className="text-sm font-semibold text-orange-300">{t("autopilotrun.interruptedHeading")}</p>
               <p className="text-xs text-orange-400/80">
-                {t("autopilotrun.interruptedDesc", { phase: t(PHASE_LABEL_KEYS[status.current_phase] ?? "autopilotrun.phase.general") })}
+                {t("autopilotrun.interruptedDesc", { phase: phaseDisplayLabel(t, status.current_phase) })}
               </p>
             </div>
           </div>
@@ -560,7 +565,7 @@ export function AutopilotRunView({ status, onReset, onResume, resuming, dark }: 
                     )}
                   >
                     {isCollapsed ? <ChevronRight className="size-3" /> : <ChevronDown className="size-3" />}
-                    {t(PHASE_LABEL_KEYS[g.phase] ?? "autopilotrun.phase.general")}
+                    {phaseDisplayLabel(t, g.phase)}
                     <span className="font-normal normal-case text-neutral-600">· {g.events.length}</span>
                   </button>
                   {!isCollapsed && (
