@@ -21,6 +21,7 @@ import {
 import { suggestLane } from "@/lib/api/phase6";
 import { useApiContext, useFigmaContext, useGithubContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
+import { useT } from "@/lib/i18n/use-translation";
 import { cn, errMsg } from "@/lib/utils";
 import type { ExternalIssue } from "@/lib/api/github-browser";
 import type { MaintenanceItem } from "@/lib/api/types";
@@ -43,6 +44,7 @@ function StatusChip({ item, dark }: { item: MaintenanceItem; dark: boolean }) {
 }
 
 export function MaintenanceTriage() {
+  const t = useT();
   const context = useApiContext();
   const github = useGithubContext();
   const figma = useFigmaContext();
@@ -165,11 +167,25 @@ export function MaintenanceTriage() {
 
   return (
     <div className="space-y-5">
-      <SectionHeading>Maintenance Triage — Feedback to Fix-Bolt</SectionHeading>
+      <SectionHeading>{t("phase6.feedbackHeading")}</SectionHeading>
       <p className={cn("text-sm", dark ? "text-neutral-400" : "text-slate-600")}>
-        Classify post-deployment feedback: Change Requests route to discovery; bugs get a narrow,
-        context-isolated diagnosis, a Fix-Bolt brief, a Fix Log entry, and severity routing.
+        {t("phase6.feedbackDesc")}
       </p>
+
+      <div className={cn("grid grid-cols-1 gap-2 text-xs md:grid-cols-3", muted)}>
+        <div className={cn("rounded-md border px-3 py-2", cardBorder)}>
+          <span className="font-semibold text-violet-500">{t("phase6.route.changeRequest")}</span>
+          <span className="mt-0.5 block">{t("phase6.route.changeRequestDesc")}</span>
+        </div>
+        <div className={cn("rounded-md border px-3 py-2", cardBorder)}>
+          <span className="font-semibold text-amber-500">{t("phase6.route.bug")}</span>
+          <span className="mt-0.5 block">{t("phase6.route.bugDesc")}</span>
+        </div>
+        <div className={cn("rounded-md border px-3 py-2", cardBorder)}>
+          <span className="font-semibold text-emerald-500">{t("phase6.route.resolve")}</span>
+          <span className="mt-0.5 block">{t("phase6.route.resolveDesc")}</span>
+        </div>
+      </div>
 
       <div className="flex flex-wrap gap-2">
         <Button onClick={() => setShowForm((v) => !v)}><Plus className="h-4 w-4" /> New item</Button>

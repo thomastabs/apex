@@ -53,7 +53,7 @@ vi.mock("@/lib/api/phase6", () => ({
     regressed_ids: [10],
   }),
   acknowledgeRegression: vi.fn().mockResolvedValue({ story_id: 10, acknowledged: true }),
-  // Maintenance tab is the default; stub its data fetch so the tab mounts cleanly.
+  // Feedback Routing is no longer the default, but keep the stub available if tests switch tabs.
   listMaintenanceItems: vi.fn().mockResolvedValue({ items: [] }),
   PHASE6_AI_TIMEOUT_MS: 1000,
 }));
@@ -72,15 +72,15 @@ function renderWorkflow() {
 
 beforeEach(() => vi.clearAllMocks());
 
-// Phase 6 is tabbed (Maintenance default). Switch to the Traceability tab.
-function openTraceability() {
-  fireEvent.click(screen.getByRole("tab", { name: /Traceability/i }));
+// Phase 6 keeps the Maintenance title, with Spec Drift as the default work surface.
+function openSpecDrift() {
+  fireEvent.click(screen.getByRole("tab", { name: /Spec Drift/i }));
 }
 
 describe("Phase6Workflow", () => {
   it("auto-selects the first story and renders its report tables", async () => {
     renderWorkflow();
-    openTraceability();
+    openSpecDrift();
     await waitFor(() => expect(screen.getByText("POST /api/v1/auth/login")).toBeInTheDocument());
     // score badge rendered from the report
     expect(screen.getByText("DELETE /api/v1/sessions")).toBeInTheDocument();
@@ -91,7 +91,7 @@ describe("Phase6Workflow", () => {
 
   it("Quick Check button runs a deterministic (ai=false) check", async () => {
     renderWorkflow();
-    openTraceability();
+    openSpecDrift();
     await waitFor(() => expect(screen.getByText("POST /api/v1/auth/login")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /Quick Check/i }));
     await waitFor(() =>
@@ -101,7 +101,7 @@ describe("Phase6Workflow", () => {
 
   it("Verify button runs the AI (ai=true) check", async () => {
     renderWorkflow();
-    openTraceability();
+    openSpecDrift();
     await waitFor(() => expect(screen.getByText("POST /api/v1/auth/login")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /^Re-verify$|^Verify$/i }));
     await waitFor(() =>
@@ -111,7 +111,7 @@ describe("Phase6Workflow", () => {
 
   it("Deep verify (panel) button runs the panel (ai=true, panel=true)", async () => {
     renderWorkflow();
-    openTraceability();
+    openSpecDrift();
     await waitFor(() => expect(screen.getByText("POST /api/v1/auth/login")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /Deep verify/i }));
     await waitFor(() =>
@@ -122,7 +122,7 @@ describe("Phase6Workflow", () => {
   it("Scan for regressions posts and renders the inline results", async () => {
     const { scanRegressions } = await import("@/lib/api/phase6");
     renderWorkflow();
-    openTraceability();
+    openSpecDrift();
     await waitFor(() => expect(screen.getByText("POST /api/v1/auth/login")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /Scan for regressions/i }));
     await waitFor(() => expect(vi.mocked(scanRegressions)).toHaveBeenCalled());
@@ -152,7 +152,7 @@ describe("Phase6Workflow", () => {
     const { getConformanceReport } = await import("@/lib/api/phase6");
     vi.mocked(getConformanceReport).mockResolvedValueOnce(panelReport as never);
     renderWorkflow();
-    openTraceability();
+    openSpecDrift();
     await waitFor(() => expect(screen.getByText(/split/i)).toBeInTheDocument());
     expect(screen.getByText(/route exists but auth unconfirmed/i)).toBeInTheDocument();
   });

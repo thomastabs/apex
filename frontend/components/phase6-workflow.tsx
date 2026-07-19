@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ChevronRight, Info, Loader2, RefreshCw, Scale, TrendingDown, Zap } from "lucide-react";
+import { ArrowRight, ChevronRight, GitBranch, Info, Loader2, RefreshCw, Scale, TrendingDown, Zap } from "lucide-react";
 import { CancelButton } from "@/components/ui/cancel-button";
 import { Button, Callout, Input, SectionHeading } from "@/components/ui/primitives";
 import { MaintenanceTriage } from "@/components/maintenance-triage";
@@ -50,6 +50,32 @@ const STATUS_LABEL_KEYS: Record<string, TranslationKey> = {
   not_found: "phase6.status.notFound",
   unknown: "phase6.status.unknown",
 };
+
+const LOOP_CARDS: {
+  icon: typeof TrendingDown;
+  titleKey: TranslationKey;
+  descKey: TranslationKey;
+  metaKey: TranslationKey;
+}[] = [
+  {
+    icon: TrendingDown,
+    titleKey: "phase6.loop.detect.title",
+    descKey: "phase6.loop.detect.desc",
+    metaKey: "phase6.loop.detect.meta",
+  },
+  {
+    icon: Scale,
+    titleKey: "phase6.loop.classify.title",
+    descKey: "phase6.loop.classify.desc",
+    metaKey: "phase6.loop.classify.meta",
+  },
+  {
+    icon: GitBranch,
+    titleKey: "phase6.loop.route.title",
+    descKey: "phase6.loop.route.desc",
+    metaKey: "phase6.loop.route.meta",
+  },
+];
 
 function StatusPill({ status }: { status: string }) {
   const t = useT();
@@ -214,6 +240,41 @@ function ScanResults({ report, dark }: { report: ScanReport; dark: boolean }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function Phase6LoopSummary({ dark }: { dark: boolean }) {
+  const t = useT();
+  return (
+    <div className="mb-6 grid grid-cols-1 gap-3 lg:grid-cols-3">
+      {LOOP_CARDS.map((card) => {
+        const Icon = card.icon;
+        return (
+          <div
+            key={card.titleKey}
+            className={cn(
+              "rounded-md border p-4",
+              dark ? "border-neutral-800 bg-neutral-950/60" : "border-slate-200 bg-white",
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <span className={cn("rounded-md p-1.5", dark ? "bg-violet-500/15 text-violet-300" : "bg-violet-50 text-violet-600")}>
+                <Icon className="h-4 w-4" />
+              </span>
+              <p className={cn("text-sm font-bold", dark ? "text-neutral-100" : "text-slate-900")}>
+                {t(card.titleKey)}
+              </p>
+            </div>
+            <p className={cn("mt-2 text-xs leading-relaxed", dark ? "text-neutral-400" : "text-slate-600")}>
+              {t(card.descKey)}
+            </p>
+            <p className={cn("mt-3 flex items-center gap-1 text-xs font-semibold", dark ? "text-violet-300" : "text-violet-600")}>
+              {t(card.metaKey)} <ArrowRight className="h-3 w-3" />
+            </p>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -513,7 +574,7 @@ function TraceabilityPanel() {
 export function Phase6Workflow() {
   const t = useT();
   const dark = useUiStore((s) => s.theme) === "dark";
-  const [tab, setTab] = useState<"maintenance" | "traceability">("maintenance");
+  const [tab, setTab] = useState<"maintenance" | "traceability">("traceability");
   const [diagramOpen, setDiagramOpen] = useState(false);
   const mutedClass = dark ? "text-neutral-400" : "text-slate-500";
 
@@ -534,6 +595,8 @@ export function Phase6Workflow() {
           {t("phase6.subtitle")}
         </p>
       </div>
+
+      <Phase6LoopSummary dark={dark} />
 
       {/* Diagram collapsible */}
       <div className={cn("mb-6 rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}>

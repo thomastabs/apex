@@ -316,9 +316,11 @@ Implemented — 4-stage stepper workflow:
 
 ### Phase 6 · Maintenance & Traceability
 
-Phase 6 (`/phase6`) is tabbed: **Maintenance** and **Traceability**.
+Phase 6 keeps the product label **Maintenance**, but its purpose is drift control after deployment: detect where shipped code diverges from the locked spec, classify incoming signals, and route each one back to the correct SDLC phase instead of treating every issue as a generic patch.
 
-**Maintenance Triage (F1) + Fix-Bolt & Severity Routing (F2)** — the framework's Maintenance & Evolution playbook:
+Phase 6 (`/phase6`) is organized around **Spec Drift** and **Feedback Routing**.
+
+**Feedback Routing (F1) + Fix-Bolt & Severity Routing (F2)** — the framework's Maintenance & Evolution playbook:
 
 - **Intake** of post-deployment feedback from three sources: a manual in-app form, **GitHub Issues**, and **Taiga Issues** (read-only import; net-new or linked to a deployed story)
 - **AI Triage** classifies each item: **Path A — Change Request** (business deviation) is never patched directly — it is logged and routed to Phase 1 discovery ("Open in Phase 1"); **Path B — Bug** (technical deviation) proceeds to diagnosis
@@ -327,7 +329,7 @@ Phase 6 (`/phase6`) is tabbed: **Maintenance** and **Traceability**.
 - **Severity Routing** (AI suggests, human decides) — **Fast Lane** (low-risk) routes the linked story straight to a deployment record bypassing QA; **Secure Lane** (high-risk) re-enters Phase 4 as a QA Regression Bypass; **Resolve** records a permanent **Fix Log** entry in `fix-log.md`
 - Items persist in `maintenance_items.json`; events are logged to `maintenance-log.md`
 
-**Traceability Explorer (F3) — spec↔code conformance:**
+**Spec Drift (F3) — spec↔code conformance:**
 
 - Verifies shipped code against the locked spec for a story. A deterministic **Layer A** parses the technical-spec endpoint contracts, Gherkin scenarios, and EARS constraints, then locates route declarations and tests in the synced GitHub context (framework-aware patterns) with **per-line citations** (`path:line`)
 - An AI **Layer B** confirms/corrects each row with file citations and returns `unknown` when the code is not in context — never assuming conformance
