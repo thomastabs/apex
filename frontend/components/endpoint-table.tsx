@@ -17,6 +17,7 @@ interface ParsedEndpoint {
   auth?: string;
   input?: string;
   output?: string;
+  errors?: string;
 }
 
 interface EndpointGroup {
@@ -56,6 +57,7 @@ function parseEndpoints(markdown: string): EndpointGroup[] {
 
     const inMatch = line.match(/in[:\s]*\{([^}]*)\}/i);
     const outMatch = line.match(/out[:\s]*\{([^}]*)\}/i);
+    const errorsMatch = line.match(/errors[:\s]*\{([^}]*)\}/i);
 
     current.endpoints.push({
       method,
@@ -64,6 +66,7 @@ function parseEndpoints(markdown: string): EndpointGroup[] {
       auth: auth && auth !== path ? auth : undefined,
       input: inMatch?.[1]?.trim(),
       output: outMatch?.[1]?.trim(),
+      errors: errorsMatch?.[1]?.trim(),
     });
   }
 
@@ -348,9 +351,10 @@ export function EndpointTable({
                     {group.endpoints.map((ep, ei) => {
                       const key = `${gi}-${ei}`;
                       const isExpanded = expandedRows.has(key);
-                      const hasSchema = Boolean(ep.input || ep.output);
+                      const hasSchema = Boolean(ep.input || ep.output || ep.errors);
                       const inputFields = ep.input ? parseFields(ep.input) : [];
                       const outputFields = ep.output ? parseFields(ep.output) : [];
+                      const errorFields = ep.errors ? parseFields(ep.errors) : [];
 
                       return (
                         <div key={ei}>
@@ -425,7 +429,7 @@ export function EndpointTable({
                                 </div>
                               )}
                               {outputFields.length > 0 && (
-                                <div>
+                                <div className={errorFields.length > 0 ? "mb-2" : undefined}>
                                   <p className={cn("text-[9px] font-bold uppercase tracking-wider mb-1.5", dark ? "text-emerald-500" : "text-emerald-600")}>
                                     Response
                                   </p>
@@ -440,6 +444,27 @@ export function EndpointTable({
                                       >
                                         <span className="font-semibold">{f.key}</span>
                                         <span className={dark ? "text-emerald-500" : "text-emerald-400"}>:{f.type}</span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {errorFields.length > 0 && (
+                                <div>
+                                  <p className={cn("text-[9px] font-bold uppercase tracking-wider mb-1.5", dark ? "text-red-500" : "text-red-600")}>
+                                    Errors
+                                  </p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {errorFields.map((f, i) => (
+                                      <span
+                                        key={i}
+                                        className={cn(
+                                          "rounded px-1.5 py-0.5 font-mono text-[10px]",
+                                          dark ? "bg-red-900/40 text-red-300" : "bg-red-50 text-red-700 border border-red-200",
+                                        )}
+                                      >
+                                        <span className="font-semibold">{f.key}</span>
+                                        <span className={dark ? "text-red-500" : "text-red-400"}>:{f.type}</span>
                                       </span>
                                     ))}
                                   </div>

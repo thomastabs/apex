@@ -170,6 +170,7 @@ export function Phase2Workflow() {
   const [stackHint, setStackHint] = useState("");
   const [stackReopened, setStackReopened] = useState(false);
   const [diagramOpen, setDiagramOpen] = useState(false);
+  const [visualDesignSystemOpen, setVisualDesignSystemOpen] = useState(false);
   const [designExtraContext, setDesignExtraContext] = useState<string[]>([]);
   const [partial, setPartial] = useState<Partial<Record<DesignSectionKey, string>>>({});
   const [partialStoryIds, setPartialStoryIds] = useState<number[]>([]);
@@ -943,12 +944,19 @@ export function Phase2Workflow() {
               <Callout variant="danger">{t("phase2.generationFailed", { err: generateSections.error })}</Callout>
             ) : null}
 
-            {/* Visual Design — UX Brief + the derived Visual Design System */}
+            {/* Visual Design — UX Brief + the derived Visual Design System (optional, collapsed by default) */}
             <div className="space-y-4">
               {VISUAL_DESIGN_SECTIONS.map((section) => renderSectionCard(section))}
 
               <div className={cn("overflow-hidden rounded-md border", dark ? "border-neutral-800" : "border-slate-200")}>
-                <div className={cn("flex items-center justify-between px-4 py-3", dark ? "bg-neutral-900" : "bg-slate-50")}>
+                <button
+                  type="button"
+                  onClick={() => setVisualDesignSystemOpen((v) => !v)}
+                  className={cn(
+                    "flex w-full items-center justify-between px-4 py-3 text-left",
+                    dark ? "bg-neutral-900" : "bg-slate-50",
+                  )}
+                >
                   <div className="flex items-center gap-3">
                     <span className={cn(
                       "inline-flex h-5 items-center justify-center rounded px-2 text-xs font-bold",
@@ -959,21 +967,29 @@ export function Phase2Workflow() {
                     <span className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>
                       {t("phase2.visualDesignSystem")}
                     </span>
-                  </div>
-                  {designSystemQuery.data ? (
-                    <span className={cn("flex items-center gap-1 text-xs", dark ? "text-emerald-400" : "text-emerald-600")}>
-                      <CheckCircle2 className="size-3" /> {t("common.generated")}
+                    <span className={cn("rounded px-1.5 py-0.5 text-xs font-medium", dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-500")}>
+                      {t("common.optional")}
                     </span>
-                  ) : (
-                    <span className={cn("text-xs", mutedClass)}>{t("common.notGenerated")}</span>
-                  )}
-                </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {designSystemQuery.data ? (
+                      <span className={cn("flex items-center gap-1 text-xs", dark ? "text-emerald-400" : "text-emerald-600")}>
+                        <CheckCircle2 className="size-3" /> {t("common.generated")}
+                      </span>
+                    ) : (
+                      <span className={cn("text-xs", mutedClass)}>{t("common.notGenerated")}</span>
+                    )}
+                    <ChevronRight className={cn("size-4 transition-transform", mutedClass, visualDesignSystemOpen && "rotate-90")} />
+                  </div>
+                </button>
                 <div className={cn("border-t px-4 py-2 text-xs", dark ? "border-neutral-800 text-neutral-500" : "border-slate-100 text-slate-500")}>
                   {t("phase2.visualDesignSystemDesc")}
                 </div>
-                <div className={cn("border-t px-4 py-3", dark ? "border-neutral-800" : "border-slate-100")}>
-                  <DesignSystemPanel uxBriefContent={activeBundle?.ux_brief ?? ""} dark={dark} standalone guidance={designGuidance} />
-                </div>
+                {visualDesignSystemOpen ? (
+                  <div className={cn("border-t px-4 py-3", dark ? "border-neutral-800" : "border-slate-100")}>
+                    <DesignSystemPanel uxBriefContent={activeBundle?.ux_brief ?? ""} dark={dark} standalone guidance={designGuidance} />
+                  </div>
+                ) : null}
               </div>
             </div>
 

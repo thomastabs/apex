@@ -1876,13 +1876,14 @@ Output exactly two sections — nothing else, no introduction, no commentary.
 One `### <Epic Title>` subsection per epic. The subsection heading MUST be copied verbatim from the `## <heading>` in the story list — do not rename, shorten, or merge.
 Format:
 ### <Epic Title — exact copy from story list>
-- **EP-1** `METHOD /path/to/resource` — purpose (Story <ID>) · auth:<none|bearer|role:admin> · in:<field:type,...> · out:<field:type,...>
+- **EP-1** `METHOD /path/to/resource` — purpose (Story <ID>) · auth:<none|bearer|role:admin> · in:<field:type,...> · out:<field:type,...> · errors:<code:condition,...>
 
 Rules:
 - One bullet per endpoint.
 - `auth:` — always present: none, bearer, or role:admin.
 - `in:` — key request body/query fields only (field:type pairs). Omit for GET with no params.
 - `out:` — key response fields only (field:type pairs). Always present.
+- `errors:` — always present, at least one entry. Status-code:condition pairs (e.g. `404:not_found,409:conflict`) drawn from this shared convention — use only the codes that genuinely apply to this endpoint: `400` malformed/invalid input, `401` missing/invalid auth, `403` authenticated but not permitted, `404` resource not found, `409` conflicting state (duplicate, stale version), `422` semantically invalid input, `500` unexpected failure. Do not invent codes outside this set.
 - ONLY use HTTP methods and path style consistent with the Tech Stack.
 - Use a single consistent path prefix across all epics (e.g. `/api/v1/` — pick one, never mix).
 - No duplicate METHOD+path combinations across the entire output.
@@ -1918,6 +1919,7 @@ For each entity:
 ### <EntityName> [ENT-1]
 - Fields: `field_name: type`, `field_name: type`, …
 - Relations: one line (e.g. belongs to User, has many Orders) — omit if none.
+- Evolution: one line noting a compatibility-relevant fact about this entity's fields — e.g. which fields are nullable/optional vs required, which would need a migration if changed. Omit this line entirely for entities where nothing about the fields is compatibility-relevant (e.g. every field is required and unlikely to change shape).
 
 Rules:
 - Maximum 12 entities.
@@ -1944,7 +1946,7 @@ def generate_design_ux_brief(all_stories: list[dict], context: str, instructions
         anti_hallucination=_ANTI_HALLUCINATION,
     ) + _guidance_block(instructions)
     return _ai_retry(lambda: _invoke(system, _format_stories_human(grouped), get_model(),
-                                     max_tokens=3500, timeout=210, temperature=0.2))
+                                     max_tokens=4500, timeout=240, temperature=0.2))
 
 
 def generate_design_endpoints(all_stories: list[dict], context: str, *, ux_brief: str, model: str = "", instructions: str = "") -> str:
@@ -1955,7 +1957,7 @@ def generate_design_endpoints(all_stories: list[dict], context: str, *, ux_brief
         anti_hallucination=_ANTI_HALLUCINATION,
     ) + _guidance_block(instructions)
     return _ai_retry(lambda: _invoke(system, _format_stories_human(grouped), model or get_model(),
-                                     max_tokens=8000, timeout=300))
+                                     max_tokens=10000, timeout=360))
 
 
 def generate_design_data_model(all_stories: list[dict], context: str, *, endpoints: str, instructions: str = "") -> str:
@@ -1966,7 +1968,7 @@ def generate_design_data_model(all_stories: list[dict], context: str, *, endpoin
         anti_hallucination=_ANTI_HALLUCINATION,
     ) + _guidance_block(instructions)
     return _ai_retry(lambda: _invoke(system, _format_stories_human(grouped), get_model(),
-                                     max_tokens=3000, timeout=180))
+                                     max_tokens=4000, timeout=210))
 
 
 _RUNTIME_SPEC_SYSTEM = """\
@@ -1994,10 +1996,10 @@ Output exactly three sections — nothing else, no introduction, no commentary.
 - **<label>** {{RT-1}}: <value>   (e.g. framework mode, app root, source root, API strategy, build command)
 
 ### Backend
-- **<label>** {{RT-2}}: <value>   (e.g. app import path, health endpoint, required env vars)
+- **<label>** {{RT-2}}: <value>   (e.g. app import path, health endpoint, required env vars, API versioning scheme — e.g. `/v1/` path prefix or a header — stated explicitly even if "none for v1")
 
 ### Database
-- **<label>** {{RT-3}}: <value>   (e.g. migration tool, migration command, required extensions, bootstrap/session strategy)
+- **<label>** {{RT-3}}: <value>   (e.g. migration tool, migration command, required extensions, bootstrap/session strategy, schema-evolution approach — how an additive change ships vs. how a breaking change to an existing entity/field is migrated and rolled back)
 
 ### Containers
 - **<label>** {{RT-4}}: <value>   (e.g. services, internal URLs, exposed ports — omit this whole subsection if the Tech Stack has no container/orchestration layer)
@@ -2039,7 +2041,7 @@ def generate_design_runtime_spec(
         anti_hallucination=_ANTI_HALLUCINATION,
     ) + _guidance_block(instructions)
     return _ai_retry(lambda: _invoke(system, _format_stories_human(grouped), get_model(),
-                                     max_tokens=3000, timeout=180))
+                                     max_tokens=4500, timeout=240))
 
 
 class DesignDelta(BaseModel):
@@ -2083,14 +2085,18 @@ Produce ONLY the additions the new stories require:
   the existing UX Brief (`- **<Screen Name>** {{SCR-n}} [Story <ID>]: ...`).
   Reuse existing screens by their exact names; never re-describe them.
 - `endpoints_delta` — new endpoints only, format:
-  - **EP-n** `METHOD /path/to/resource` — purpose (Story <ID>) · auth:<none|bearer|role:admin> · in:<field:type,...> · out:<field:type,...>
+  - **EP-n** `METHOD /path/to/resource` — purpose (Story <ID>) · auth:<none|bearer|role:admin> · in:<field:type,...> · out:<field:type,...> · errors:<code:condition,...>
   Group under `### <Epic Title>` subsections matching the new stories' epics.
-  Keep the existing design's path prefix and auth conventions. Never emit an
+  Keep the existing design's path prefix and auth conventions. `errors:` always
+  present (see the existing design's own endpoints for the status-code
+  convention already in use — reuse it, never introduce a new one). Never emit an
   endpoint whose METHOD+path already exists.
 - `data_model_delta` — new entities only, format:
-  `### <EntityName> [ENT-n]` + `- Fields: ...` + optional `- Relations: ...`.
-  Relations may reference existing entities by their exact names. If a new
-  story only needs a new FIELD on an existing entity, express it as
+  `### <EntityName> [ENT-n]` + `- Fields: ...` + optional `- Relations: ...` +
+  optional `- Evolution: ...` (only when a field's nullability/compatibility is
+  worth flagging, same rule as the existing Data Model). Relations may
+  reference existing entities by their exact names. If a new story only needs
+  a new FIELD on an existing entity, express it as
   `### <ExistingEntityName> (existing — add fields)` with just the new fields
   and no new id (it already has one).
 - `touches_existing` — every existing endpoint or entity the new stories force
@@ -2141,7 +2147,7 @@ def generate_design_delta(
     ) + _guidance_block(instructions)
     result = _ai_retry(lambda: _invoke_structured_with_progress(
         system, _format_stories_human(grouped), get_model(), DesignDelta,
-        max_tokens=6000, timeout=300,
+        max_tokens=7500, timeout=330,
     ))
     return result.model_dump()
 
