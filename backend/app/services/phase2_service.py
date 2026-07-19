@@ -4,6 +4,7 @@ import logging
 import re
 
 from backend.app.services.ai_service import AiService
+from backend.app.services.ai_grounding import with_extra_context
 from backend.app.services.context_service import ContextService
 from backend.app.services.request_context import RequestContext
 from src import ai_engine
@@ -125,6 +126,7 @@ class Phase2Service:
         section: str,
         prior_sections: dict[str, str] | None = None,
         instructions: str = "",
+        extra_context_files: list[str] | None = None,
     ) -> dict:
         if section not in self.DESIGN_SECTION_ORDER:
             raise Phase2ValidationError(f"Unknown section: {section!r}")
@@ -141,7 +143,10 @@ class Phase2Service:
         if not all_stories:
             raise Phase2ValidationError("No Phase 1 locked Gherkin stories found.")
         project_concept = self.context.read_project_concept()
-        constrained_context = self._build_constrained_context(project_concept, tech_stack)
+        constrained_context = self._with_extra_context(
+            self._build_constrained_context(project_concept, tech_stack),
+            extra_context_files,
+        )
         content = self.ai.generate_design_section(
             all_stories, constrained_context, section, prior_sections or {},
             instructions=instructions,
@@ -274,6 +279,7 @@ class Phase2Service:
         *,
         story_ids: list[int] | None = None,
         instructions: str = "",
+        extra_context_files: list[str] | None = None,
     ) -> dict:
         """Additive design pass for stories that arrived after the design lock.
 
@@ -294,7 +300,10 @@ class Phase2Service:
         pending_ids = {p["story_id"] for p in pending}
         new_stories = [s for s in self._all_eligible_stories() if s["story_id"] in pending_ids]
         tech_stack = self.context.read_tech_stack()
-        constrained_context = self._build_constrained_context(self.context.read_project_concept(), tech_stack)
+        constrained_context = self._with_extra_context(
+            self._build_constrained_context(self.context.read_project_concept(), tech_stack),
+            extra_context_files,
+        )
         existing_design = (
             f"{self.context.read_context_file('technical-spec.md').strip()}\n\n"
             f"## UX Brief (design-bundle.md)\n\n"
@@ -312,6 +321,12 @@ class Phase2Service:
             new_stories, constrained_context, existing_design, instructions=instructions, next_ids=next_ids,
         )
         return {**delta, "story_ids": sorted(pending_ids)}
+
+    def _with_extra_context(self, text: str, filenames: list[str] | None) -> str:
+        try:
+            return with_extra_context(self.context, text, filenames)
+        except ValueError as exc:
+            raise Phase2ValidationError(str(exc)) from exc
 
     def persist_design_delta(
         self,

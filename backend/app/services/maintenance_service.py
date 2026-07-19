@@ -3,6 +3,7 @@
 import logging
 
 from backend.app.services.ai_service import AiService
+from backend.app.services.ai_grounding import extra_context_block
 from backend.app.services.context_service import ContextService
 from backend.app.services.request_context import RequestContext
 
@@ -68,10 +69,14 @@ class MaintenanceService:
 
     # ── F1: classify ─────────────────────────────────────────────────────────
 
-    def classify(self, ctx: RequestContext, item_id: int) -> dict:
+    def classify(
+        self, ctx: RequestContext, item_id: int,
+        extra_context_files: list[str] | None = None,
+    ) -> dict:
         self.configure_request(ctx)
         item = self._require(item_id)
-        result = self.ai.triage_feedback(item["subject"], item["description"], self._spec_excerpt(item))
+        spec_excerpt = self._spec_excerpt_with_extra(item, extra_context_files)
+        result = self.ai.triage_feedback(item["subject"], item["description"], spec_excerpt)
         rationale = {**item.get("ai_rationale", {}), "classify": result["rationale"],
                      "severity_hint": result.get("severity_hint", "unknown")}
         classification = result["classification"]
@@ -97,14 +102,17 @@ class MaintenanceService:
 
     # ── F1 Path B: narrow diagnosis (Context Isolation) ──────────────────────
 
-    def diagnose(self, ctx: RequestContext, item_id: int, code_snippet: str = "") -> dict:
+    def diagnose(
+        self, ctx: RequestContext, item_id: int, code_snippet: str = "",
+        extra_context_files: list[str] | None = None,
+    ) -> dict:
         self.configure_request(ctx)
         item = self._require(item_id)
         if item.get("classification") != "bug":
             raise MaintenanceValidationError("Only items classified as a bug can be diagnosed.")
         diagnosis = self.ai.diagnose_bug(
             item["subject"], item["description"], evidence=item.get("evidence", ""),
-            code_snippet=code_snippet, spec_excerpt=self._spec_excerpt(item),
+            code_snippet=code_snippet, spec_excerpt=self._spec_excerpt_with_extra(item, extra_context_files),
         )
         updated = self.context.update_maintenance_item(item_id, diagnosis_md=diagnosis, status="diagnosed")
         self.context.append_maintenance_log(item_id, item["subject"], "diagnosed (narrow, human to verify)")
@@ -112,12 +120,17 @@ class MaintenanceService:
 
     # ── F2: fix-bolt brief ────────────────────────────────────────────────────
 
-    def generate_fix_brief(self, ctx: RequestContext, item_id: int) -> dict:
+    def generate_fix_brief(
+        self, ctx: RequestContext, item_id: int,
+        extra_context_files: list[str] | None = None,
+    ) -> dict:
         self.configure_request(ctx)
         item = self._require(item_id)
         if not item.get("diagnosis_md", "").strip():
             raise MaintenanceValidationError("Diagnose the bug (and verify it) before generating a fix brief.")
-        brief = self.ai.fix_bolt_brief(item["diagnosis_md"], self._spec_excerpt(item))
+        brief = self.ai.fix_bolt_brief(
+            item["diagnosis_md"], self._spec_excerpt_with_extra(item, extra_context_files),
+        )
         updated = self.context.update_maintenance_item(item_id, fix_brief_md=brief, status="fix_ready")
         self.context.append_maintenance_log(item_id, item["subject"], "fix-bolt brief generated")
         return updated
@@ -174,3 +187,9 @@ class MaintenanceService:
     def get_log(self, ctx: RequestContext) -> str:
         self.configure_request(ctx)
         return self.context.get_maintenance_log()
+
+    def _spec_excerpt_with_extra(self, item: dict, filenames: list[str] | None) -> str:
+        try:
+            return self._spec_excerpt(item) + extra_context_block(self.context, filenames)
+        except ValueError as exc:
+            raise MaintenanceValidationError(str(exc)) from exc

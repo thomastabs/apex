@@ -4,6 +4,8 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
+from backend.app.schemas.grounding import ExtraContextMixin
+
 
 class EligibleConformanceStory(BaseModel):
     story_id: int
@@ -72,7 +74,7 @@ class SupplementalFile(BaseModel):
     content: str = Field(max_length=100_000)
 
 
-class VerifyConformanceRequest(BaseModel):
+class VerifyConformanceRequest(ExtraContextMixin):
     story_id: int
     # ai=False runs the deterministic Layer-A baseline only (no LLM call).
     ai: bool = True
@@ -83,7 +85,7 @@ class VerifyConformanceRequest(BaseModel):
     extra_files: list[SupplementalFile] = Field(default_factory=list)
 
 
-class ScanRegressionsRequest(BaseModel):
+class ScanRegressionsRequest(ExtraContextMixin):
     # panel=True deep-verifies each story through the adversarial panel during the scan.
     panel: bool = False
 
@@ -144,8 +146,12 @@ class CreateMaintenanceItemRequest(BaseModel):
     linked_story_id: Optional[int] = None
 
 
-class DiagnoseRequest(BaseModel):
+class DiagnoseRequest(ExtraContextMixin):
     code_snippet: str = Field("", max_length=20_000)
+
+
+class ExtraContextRequest(ExtraContextMixin):
+    pass
 
 
 class RouteLaneRequest(BaseModel):

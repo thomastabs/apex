@@ -76,7 +76,11 @@ def generate_tasks(
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
-        tasks = service.generate_tasks(ctx, payload.story_id, payload.instructions)
+        extra_kwargs = {"extra_context_files": payload.extra_context_files} if payload.extra_context_files else {}
+        tasks = service.generate_tasks(
+            ctx, payload.story_id, payload.instructions,
+            **extra_kwargs,
+        )
         return {"story_id": payload.story_id, "tasks": tasks}
     except Exception as exc:
         _handle_error(exc)
@@ -91,6 +95,7 @@ def generate_proposal(
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
+        extra_kwargs = {"extra_context_files": payload.extra_context_files} if payload.extra_context_files else {}
         md = service.generate_proposal(
             ctx,
             payload.story_id,
@@ -101,6 +106,7 @@ def generate_proposal(
             recent_commits_context=payload.recent_commits_context,
             all_tasks=[t.model_dump() for t in payload.all_tasks],
             figma_token=x_figma_token.strip(),
+            **extra_kwargs,
         )
         return {"proposal_md": md}
     except Exception as exc:

@@ -2,9 +2,7 @@
 
 from pydantic import BaseModel, Field
 
-
-class ExtraContextMixin(BaseModel):
-    extra_context_files: list[str] = Field(default_factory=list, max_length=12)
+from backend.app.schemas.grounding import ExtraContextMixin
 
 
 class EpicSuggestionSchema(BaseModel):

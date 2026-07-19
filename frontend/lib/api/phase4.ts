@@ -27,7 +27,7 @@ export function getStoryContext(context: RequestContext, storyId: number) {
 
 export function generateTestPlan(
   context: RequestContext, storyId: number, signal?: AbortSignal,
-  instructions?: string, emphasis?: string[],
+  instructions?: string, emphasis?: string[], extraContextFiles: string[] = [],
 ) {
   return apiRequest<Phase4GenerateTestPlanResponse>("/api/phase4/generate-test-plan", {
     method: "POST",
@@ -36,17 +36,24 @@ export function generateTestPlan(
       story_id: storyId,
       ...(instructions?.trim() ? { instructions } : {}),
       ...(emphasis?.length ? { emphasis } : {}),
+      ...(extraContextFiles.length ? { extra_context_files: extraContextFiles } : {}),
     },
     timeoutMs: PHASE4_AI_TIMEOUT_MS,
     signal,
   });
 }
 
-export function generateEdgeCases(context: RequestContext, storyId: number, scenarioText: string, signal?: AbortSignal) {
+export function generateEdgeCases(
+  context: RequestContext,
+  storyId: number,
+  scenarioText: string,
+  signal?: AbortSignal,
+  extraContextFiles: string[] = [],
+) {
   return apiRequest<{ story_id: number; edge_cases_md: string }>("/api/phase4/generate-edge-cases", {
     method: "POST",
     context,
-    body: { story_id: storyId, scenario_text: scenarioText },
+    body: { story_id: storyId, scenario_text: scenarioText, ...(extraContextFiles.length ? { extra_context_files: extraContextFiles } : {}) },
     timeoutMs: PHASE4_AI_TIMEOUT_MS,
     signal,
   });

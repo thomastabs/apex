@@ -11,6 +11,7 @@ from backend.app.schemas.phase6 import (
     CreateMaintenanceItemRequest,
     DiagnoseRequest,
     EligibleConformanceStoriesResponse,
+    ExtraContextRequest,
     MaintenanceItem,
     MaintenanceItemsResponse,
     MaintenanceLogResponse,
@@ -72,8 +73,11 @@ def verify_conformance(
 ):
     try:
         extra = [f.model_dump() for f in payload.extra_files]
+        extra_kwargs = {"extra_context_files": payload.extra_context_files} if payload.extra_context_files else {}
         return service.verify_conformance(
-            ctx, payload.story_id, ai=payload.ai, panel=payload.panel, extra_files=extra)
+            ctx, payload.story_id, ai=payload.ai, panel=payload.panel, extra_files=extra,
+            **extra_kwargs,
+        )
     except Exception as exc:
         _handle_error(exc)
 
@@ -106,7 +110,10 @@ def scan_regressions(
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
-        return service.scan_regressions(ctx, panel=payload.panel)
+        extra_kwargs = {"extra_context_files": payload.extra_context_files} if payload.extra_context_files else {}
+        return service.scan_regressions(
+            ctx, panel=payload.panel, **extra_kwargs,
+        )
     except Exception as exc:
         _handle_error(exc)
 
@@ -171,12 +178,15 @@ def delete_maintenance_item(
 @router.post("/maintenance/items/{item_id}/classify", response_model=MaintenanceItem)
 def classify_maintenance_item(
     item_id: int,
+    payload: ExtraContextRequest | None = None,
     ctx: RequestContext = Depends(get_request_context),
     service: MaintenanceService = Depends(get_maintenance_service),
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
-        return service.classify(ctx, item_id)
+        extra_files = payload.extra_context_files if payload else []
+        extra_kwargs = {"extra_context_files": extra_files} if extra_files else {}
+        return service.classify(ctx, item_id, **extra_kwargs)
     except Exception as exc:
         _handle_error(exc)
 
@@ -190,7 +200,10 @@ def diagnose_maintenance_item(
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
-        return service.diagnose(ctx, item_id, code_snippet=payload.code_snippet)
+        return service.diagnose(
+            ctx, item_id, code_snippet=payload.code_snippet,
+            extra_context_files=payload.extra_context_files,
+        )
     except Exception as exc:
         _handle_error(exc)
 
@@ -198,12 +211,15 @@ def diagnose_maintenance_item(
 @router.post("/maintenance/items/{item_id}/fix-brief", response_model=MaintenanceItem)
 def fix_brief_maintenance_item(
     item_id: int,
+    payload: ExtraContextRequest | None = None,
     ctx: RequestContext = Depends(get_request_context),
     service: MaintenanceService = Depends(get_maintenance_service),
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
-        return service.generate_fix_brief(ctx, item_id)
+        extra_files = payload.extra_context_files if payload else []
+        extra_kwargs = {"extra_context_files": extra_files} if extra_files else {}
+        return service.generate_fix_brief(ctx, item_id, **extra_kwargs)
     except Exception as exc:
         _handle_error(exc)
 

@@ -1,44 +1,9 @@
 """Phase 1 requirements workflow service."""
 
-import re
-from pathlib import Path
-
 from backend.app.services.ai_service import AiService
+from backend.app.services.ai_grounding import with_extra_context
 from backend.app.services.context_service import ContextService
 from backend.app.services.request_context import RequestContext
-
-_EXTRA_CONTEXT_MAX_CHARS_PER_FILE = 20_000
-_EXTRA_CONTEXT_MAX_TOTAL_CHARS = 60_000
-_EXTRA_CONTEXT_FILES = {
-    "project-concept.md",
-    "tech-stack.md",
-    "functional-spec.md",
-    "technical-spec.md",
-    "constraints.md",
-    "fix-log.md",
-    "decisions.md",
-    "design-bundle.md",
-    "runtime-spec.md",
-    "github-context.md",
-    "figma-context.md",
-}
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-_AGENT_CONTEXT_FILES = {
-    "AGENTS.md",
-    "CLAUDE.md",
-    "CODEX.md",
-    "GEMINI.md",
-}
-
-
-def _is_custom_context_file(filename: str) -> bool:
-    return (
-        filename.startswith("wiki-")
-        and filename.endswith(".md")
-        and "/" not in filename
-        and "\\" not in filename
-        and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*\.md", filename) is not None
-    )
 
 
 class Phase1ValidationError(ValueError):
@@ -58,49 +23,11 @@ class Phase1Service:
     def configure_request(self, ctx: RequestContext) -> None:
         self.context.set_active(ctx)
 
-    def _extra_context_block(self, filenames: list[str] | None) -> str:
-        if not filenames:
-            return ""
-        seen: set[str] = set()
-        total = 0
-        sections: list[str] = []
-        for filename in filenames:
-            name = filename.strip()
-            if not name or name in seen:
-                continue
-            seen.add(name)
-            if name in _EXTRA_CONTEXT_FILES or _is_custom_context_file(name):
-                content = self.context.read_context_file(name).strip()
-            elif name in _AGENT_CONTEXT_FILES:
-                content = self._read_agent_context_file(name).strip()
-            else:
-                raise Phase1ValidationError(f"Unknown extra context file: {name}")
-            if not content:
-                continue
-            remaining = _EXTRA_CONTEXT_MAX_TOTAL_CHARS - total
-            if remaining <= 0:
-                break
-            clipped = content[: min(len(content), _EXTRA_CONTEXT_MAX_CHARS_PER_FILE, remaining)]
-            total += len(clipped)
-            suffix = "\n\n[truncated]" if len(clipped) < len(content) else ""
-            sections.append(f"### {name}\n\n{clipped}{suffix}")
-        if not sections:
-            return ""
-        return "\n\n## Additional Grounding Files\n\n" + "\n\n".join(sections)
-
-    def _read_agent_context_file(self, filename: str) -> str:
-        path = (_REPO_ROOT / filename).resolve()
-        if path.parent != _REPO_ROOT:
-            raise Phase1ValidationError(f"Invalid extra context file: {filename}")
-        if not path.exists():
-            return ""
-        try:
-            return path.read_text(encoding="utf-8")
-        except UnicodeDecodeError as exc:
-            raise Phase1ValidationError(f"Agent context file must be UTF-8 text: {filename}") from exc
-
     def _with_extra_context(self, text: str, filenames: list[str] | None) -> str:
-        return (text or "") + self._extra_context_block(filenames)
+        try:
+            return with_extra_context(self.context, text, filenames)
+        except ValueError as exc:
+            raise Phase1ValidationError(str(exc)) from exc
 
     def suggest_epics(self, ctx: RequestContext, *, hint: str = "", extra_context_files: list[str] | None = None) -> list[dict]:
         self.configure_request(ctx)

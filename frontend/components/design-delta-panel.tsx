@@ -14,6 +14,7 @@ import type { DesignDeltaResult } from "@/lib/api/phase2";
 import { cn } from "@/lib/utils";
 import { AiGroundingNote } from "@/components/ai-grounding-note";
 import { AI_GROUNDING } from "@/lib/ai-grounding";
+import { useGroundingFiles } from "@/lib/hooks/use-grounding-files";
 
 // Additive design for stories pushed after the project design locked: the
 // locked design stays read-only, the AI proposes only what the new stories
@@ -33,6 +34,8 @@ export function DesignDeltaPanel({ dark }: { dark: boolean }) {
   const [instructions, setInstructions] = useState("");
   const [draft, setDraft] = useState<DesignDeltaResult | null>(null);
   const [note, setNote] = useState("");
+  const [extraContext, setExtraContext] = useState<string[]>([]);
+  const availableGroundingFiles = useGroundingFiles();
 
   const pending = status.data?.design_locked ? status.data.pending : [];
   if (pending.length === 0) return null;
@@ -114,7 +117,7 @@ export function DesignDeltaPanel({ dark }: { dark: boolean }) {
             disabled={busy || chosenIds.length === 0}
             onClick={() =>
               generate.mutate(
-                { storyIds: chosenIds, instructions },
+                { storyIds: chosenIds, instructions, extraContextFiles: extraContext },
                 { onSuccess: (data) => setDraft(data) },
               )
             }
@@ -122,7 +125,13 @@ export function DesignDeltaPanel({ dark }: { dark: boolean }) {
             {generate.isPending ? <Loader2 className="size-4 animate-spin" /> : <GitBranchPlus className="size-4" />}
             {generate.isPending ? "Generating delta…" : draft ? "Regenerate delta" : "Generate design delta"}
           </Button>
-          <AiGroundingNote files={AI_GROUNDING.phase2DesignDelta} dark={dark} />
+          <AiGroundingNote
+            files={AI_GROUNDING.phase2DesignDelta}
+            dark={dark}
+            availableFiles={availableGroundingFiles}
+            selectedExtraFiles={extraContext}
+            onSelectedExtraFilesChange={setExtraContext}
+          />
 
           {generate.isPending ? (
             <AIProgressIndicator

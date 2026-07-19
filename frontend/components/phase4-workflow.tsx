@@ -52,6 +52,7 @@ import { cn, errMsg } from "@/lib/utils";
 import type { Phase4StoryPreview } from "@/lib/api/types";
 import { AiGroundingNote } from "@/components/ai-grounding-note";
 import { AI_GROUNDING } from "@/lib/ai-grounding";
+import { useGroundingFiles } from "@/lib/hooks/use-grounding-files";
 
 const TEST_PLAN_EMPHASIS: { key: string; labelKey: TranslationKey }[] = [
   { key: "edge_cases", labelKey: "phase4.emphasis.edgeCases" },
@@ -319,6 +320,8 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const [guidance, setGuidance] = useState("");
   const [emphasis, setEmphasis] = useState<string[]>([]);
   const [showGuidance, setShowGuidance] = useState(false);
+  const [testPlanExtraContext, setTestPlanExtraContext] = useState<string[]>([]);
+  const availableGroundingFiles = useGroundingFiles();
   const toggleEmphasis = (key: string) =>
     setEmphasis((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
 
@@ -335,7 +338,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const handleGenerate = () => {
     const prev = displayMd;
     generateMut.mutate(
-      { storyId, instructions: guidance, emphasis },
+      { storyId, instructions: guidance, emphasis, extraContextFiles: testPlanExtraContext },
       {
         onSuccess: (data) => {
           if (prev.trim() && prev !== data.test_plan_md) {
@@ -567,7 +570,13 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
           </Button>
         )}
       </div>
-      <AiGroundingNote files={AI_GROUNDING.phase4TestPlan} dark={dark} />
+      <AiGroundingNote
+        files={AI_GROUNDING.phase4TestPlan}
+        dark={dark}
+        availableFiles={availableGroundingFiles}
+        selectedExtraFiles={testPlanExtraContext}
+        onSelectedExtraFilesChange={setTestPlanExtraContext}
+      />
     </div>
   );
 }
@@ -595,6 +604,8 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const edgeCasesMut = useGenerateEdgeCases();
   const [edgeCases, setEdgeCases] = useState<Record<string, string>>({});
   const [edgeLoading, setEdgeLoading] = useState<string | null>(null);
+  const [edgeExtraContext, setEdgeExtraContext] = useState<string[]>([]);
+  const availableGroundingFiles = useGroundingFiles();
 
   const scenarios = useMemo(() => parseScenarioNames(testPlanMd ?? ""), [testPlanMd]);
 
@@ -725,7 +736,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                   onClick={() => {
                     setEdgeLoading(name);
                     edgeCasesMut.mutate(
-                      { storyId, scenarioText: sectionMd || name },
+                      { storyId, scenarioText: sectionMd || name, extraContextFiles: edgeExtraContext },
                       {
                         onSuccess: (d) => setEdgeCases((prev) => ({ ...prev, [name]: d.edge_cases_md })),
                         onError: (e) => toast.error(errMsg(e)),
@@ -738,7 +749,14 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                     ? <><Loader2 className="h-3 w-3 animate-spin" /> {t("phase4.exploring")}</>
                     : <><Sparkles className="h-3 w-3" /> {t("phase4.exploreEdgeCases")}</>}
                 </button>
-                <AiGroundingNote files={AI_GROUNDING.phase4EdgeCases} dark={dark} className="mt-1" />
+                <AiGroundingNote
+                  files={AI_GROUNDING.phase4EdgeCases}
+                  dark={dark}
+                  className="mt-1"
+                  availableFiles={availableGroundingFiles}
+                  selectedExtraFiles={edgeExtraContext}
+                  onSelectedExtraFilesChange={setEdgeExtraContext}
+                />
                 {edgeLoading === name && (
                   <button
                     className={cn(

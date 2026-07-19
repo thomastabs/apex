@@ -78,7 +78,11 @@ def generate_infra_delta(
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
-        delta = service.generate_infra_delta(ctx, payload.story_id)
+        extra_kwargs = {"extra_context_files": payload.extra_context_files} if payload.extra_context_files else {}
+        delta = service.generate_infra_delta(
+            ctx, payload.story_id,
+            **extra_kwargs,
+        )
         return {"story_id": payload.story_id, "delta": delta}
     except Exception as exc:
         _handle_error(exc)
@@ -117,7 +121,11 @@ def generate_deploy_pack(
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
-        md = service.generate_deploy_pack(ctx, payload.story_id, payload.options)
+        extra_kwargs = {"extra_context_files": payload.extra_context_files} if payload.extra_context_files else {}
+        md = service.generate_deploy_pack(
+            ctx, payload.story_id, payload.options,
+            **extra_kwargs,
+        )
         return {"story_id": payload.story_id, "deploy_pack_md": md}
     except Exception as exc:
         _handle_error(exc)

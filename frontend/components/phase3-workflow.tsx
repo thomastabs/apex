@@ -71,6 +71,7 @@ import { toPmCtx } from "@/lib/api/workspace";
 import { TaskDagPanel } from "@/components/task-dag-panel";
 import { AiGroundingNote } from "@/components/ai-grounding-note";
 import { AI_GROUNDING } from "@/lib/ai-grounding";
+import { useGroundingFiles } from "@/lib/hooks/use-grounding-files";
 
 // ---------------------------------------------------------------------------
 // Markdown preview
@@ -543,6 +544,8 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
   const [crossResult, setCrossResult] = useState<CrossCheckResult | null>(null);
   const [altModel, setAltModel] = useState("");
   const [taskGuidance, setTaskGuidance] = useState("");
+  const [taskExtraContext, setTaskExtraContext] = useState<string[]>([]);
+  const availableGroundingFiles = useGroundingFiles();
   const aiConfig = useAiConfig();
   const crossEnabled = (aiConfig.data?.configured_providers?.length ?? 0) >= 2;
   const { addTask, removeTask, updateTask, reorderTasks } = useUpdateTaskList();
@@ -709,7 +712,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
           // (use Clear first to avoid diverging from the PM board). When the list
           // is empty there is nothing to diverge from, so always allow generating
           // — otherwise a previously-pushed story with no loaded tasks deadlocks.
-          onClick={() => generateTasksMut.mutate({ storyId, instructions: taskGuidance })}
+          onClick={() => generateTasksMut.mutate({ storyId, instructions: taskGuidance, extraContextFiles: taskExtraContext })}
           disabled={generateTasksMut.isPending || (tasksPushed && taskList.length > 0)}
         >
           {generateTasksMut.isPending
@@ -732,7 +735,13 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
           </Button>
         </div>
       </div>
-      <AiGroundingNote files={AI_GROUNDING.phase3Tasks} dark={dark} />
+      <AiGroundingNote
+        files={AI_GROUNDING.phase3Tasks}
+        dark={dark}
+        availableFiles={availableGroundingFiles}
+        selectedExtraFiles={taskExtraContext}
+        onSelectedExtraFilesChange={setTaskExtraContext}
+      />
       {tasksPushed && (
         <div className="flex items-center justify-center">
           <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
@@ -1061,6 +1070,8 @@ function StageC({ storyId }: { storyId: number }) {
   const [generatingTaskId, setGeneratingTaskId] = useState<number | null>(null);
   const [hints, setHints] = useState<Record<number, string>>({});
   const [bulkQueue, setBulkQueue] = useState<number[]>([]);
+  const [packExtraContext, setPackExtraContext] = useState<string[]>([]);
+  const availableGroundingFiles = useGroundingFiles();
   const packSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectedTask = taskList.find((t) => t.id === selectedTaskId) ?? null;
@@ -1092,6 +1103,7 @@ function StageC({ storyId }: { storyId: number }) {
         hint: hint?.trim() || undefined,
         recent_commits_context: recentCommitsContext || undefined,
         all_tasks: taskList.map((t) => ({ id: t.id, subject: t.subject, description: t.description })),
+        extra_context_files: packExtraContext,
       },
       {
         onSettled: () => setGeneratingTaskId(null),
@@ -1179,7 +1191,14 @@ function StageC({ storyId }: { storyId: number }) {
             style={{ width: taskList.length > 0 ? `${(generatedCount / taskList.length) * 100}%` : "0%" }}
           />
         </div>
-        <AiGroundingNote files={AI_GROUNDING.phase3Packs} dark={dark} className="mt-2" />
+        <AiGroundingNote
+          files={AI_GROUNDING.phase3Packs}
+          dark={dark}
+          className="mt-2"
+          availableFiles={availableGroundingFiles}
+          selectedExtraFiles={packExtraContext}
+          onSelectedExtraFilesChange={setPackExtraContext}
+        />
       </div>
 
       <div className="flex gap-5">
@@ -1301,7 +1320,13 @@ function StageC({ storyId }: { storyId: number }) {
                   )}
                   </div>
                 </div>
-                <AiGroundingNote files={AI_GROUNDING.phase3Packs} dark={dark} />
+                <AiGroundingNote
+                  files={AI_GROUNDING.phase3Packs}
+                  dark={dark}
+                  availableFiles={availableGroundingFiles}
+                  selectedExtraFiles={packExtraContext}
+                  onSelectedExtraFilesChange={setPackExtraContext}
+                />
                 {/* Row 2: branch chip (GitHub optional) + hint input */}
                 <div className="flex items-center gap-2">
                   {githubCtx && (

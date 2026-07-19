@@ -118,9 +118,11 @@ def generate_design_section(
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
+        extra_kwargs = {"extra_context_files": payload.extra_context_files} if payload.extra_context_files else {}
         return service.generate_design_section(
             ctx, section=payload.section, prior_sections=payload.prior,
             instructions=payload.instructions,
+            **extra_kwargs,
         )
     except Exception as exc:
         _handle_error(exc)
@@ -178,8 +180,10 @@ def generate_design_delta(
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
+        extra_kwargs = {"extra_context_files": payload.extra_context_files} if payload.extra_context_files else {}
         return service.generate_design_delta(
             ctx, story_ids=payload.story_ids, instructions=payload.instructions,
+            **extra_kwargs,
         )
     except Exception as exc:
         _handle_error(exc)

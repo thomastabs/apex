@@ -108,8 +108,8 @@ export function useGenerateTestPlan() {
   // Result is committed by the caller (phase4-workflow handleGenerate) so a
   // regenerate-over-existing plan can be routed through the diff gate first.
   return useCancellableMutation(
-    ({ storyId, instructions, emphasis }: { storyId: number; instructions?: string; emphasis?: string[] }, signal) =>
-      generateTestPlan(context!, storyId, signal, instructions, emphasis),
+    ({ storyId, instructions, emphasis, extraContextFiles = [] }: { storyId: number; instructions?: string; emphasis?: string[]; extraContextFiles?: string[] }, signal) =>
+      generateTestPlan(context!, storyId, signal, instructions, emphasis, extraContextFiles),
     {
       onSuccess: (_data, { storyId }) => {
         void qc.invalidateQueries({ queryKey: ["phase4", "test-plan", context?.projectId, storyId] });
@@ -122,8 +122,8 @@ export function useGenerateTestPlan() {
 export function useGenerateEdgeCases() {
   const context = useApiContext();
   return useCancellableMutation(
-    ({ storyId, scenarioText }: { storyId: number; scenarioText: string }, signal) =>
-      generateEdgeCases(context!, storyId, scenarioText, signal),
+    ({ storyId, scenarioText, extraContextFiles = [] }: { storyId: number; scenarioText: string; extraContextFiles?: string[] }, signal) =>
+      generateEdgeCases(context!, storyId, scenarioText, signal, extraContextFiles),
     { onError: (err: Error) => toast.error(`Edge-case exploration failed: ${err.message}`) },
   );
 }

@@ -26,6 +26,7 @@ import type { ExternalIssue } from "@/lib/api/github-browser";
 import type { MaintenanceItem } from "@/lib/api/types";
 import { AiGroundingNote } from "@/components/ai-grounding-note";
 import { AI_GROUNDING } from "@/lib/ai-grounding";
+import { useGroundingFiles } from "@/lib/hooks/use-grounding-files";
 
 const STATUS_LABEL: Record<string, string> = {
   new: "New", routed_to_discovery: "→ Discovery", diagnosed: "Diagnosed",
@@ -71,6 +72,10 @@ export function MaintenanceTriage() {
   // diagnosis input + lane suggestion
   const [snippet, setSnippet] = useState("");
   const [laneHint, setLaneHint] = useState<{ lane: string; rationale: string } | null>(null);
+  const [triageExtraContext, setTriageExtraContext] = useState<string[]>([]);
+  const [diagnosisExtraContext, setDiagnosisExtraContext] = useState<string[]>([]);
+  const [fixBriefExtraContext, setFixBriefExtraContext] = useState<string[]>([]);
+  const availableGroundingFiles = useGroundingFiles();
 
   // issue import
   const [issues, setIssues] = useState<{ source: "github" | "taiga" | "jira" | "figma"; list: ExternalIssue[] } | null>(null);
@@ -259,12 +264,18 @@ export function MaintenanceTriage() {
               {selected.classification === "unclassified" ? (
                 <>
                   <div className="flex gap-2">
-                    <Button onClick={() => classify.mutate(selected.id, { onSuccess: () => toast.success("Triage complete."), onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
+                    <Button onClick={() => classify.mutate({ itemId: selected.id, extraContextFiles: triageExtraContext }, { onSuccess: () => toast.success("Triage complete."), onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
                       {classify.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Classify (Triage)
                     </Button>
                     {classify.isPending && <CancelButton onCancel={() => classify.cancel()} />}
                   </div>
-                  <AiGroundingNote files={AI_GROUNDING.maintenanceTriage} dark={dark} />
+                  <AiGroundingNote
+                    files={AI_GROUNDING.maintenanceTriage}
+                    dark={dark}
+                    availableFiles={availableGroundingFiles}
+                    selectedExtraFiles={triageExtraContext}
+                    onSelectedExtraFilesChange={setTriageExtraContext}
+                  />
                 </>
               ) : null}
 
@@ -291,12 +302,18 @@ export function MaintenanceTriage() {
                   <p className={cn("text-xs", muted)}>Narrow diagnosis (Context Isolation): paste ONLY the implicated code snippet.</p>
                   <Textarea placeholder="Isolated code snippet" rows={4} value={snippet} onChange={(e) => setSnippet(e.target.value)} />
                   <div className="flex gap-2">
-                    <Button onClick={() => diagnose.mutate({ itemId: selected.id, codeSnippet: snippet }, { onSuccess: () => toast.success("Diagnosis ready."), onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
+                    <Button onClick={() => diagnose.mutate({ itemId: selected.id, codeSnippet: snippet, extraContextFiles: diagnosisExtraContext }, { onSuccess: () => toast.success("Diagnosis ready."), onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
                       {diagnose.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Diagnose
                     </Button>
                     {diagnose.isPending && <CancelButton onCancel={() => diagnose.cancel()} />}
                   </div>
-                  <AiGroundingNote files={AI_GROUNDING.maintenanceDiagnosis} dark={dark} />
+                  <AiGroundingNote
+                    files={AI_GROUNDING.maintenanceDiagnosis}
+                    dark={dark}
+                    availableFiles={availableGroundingFiles}
+                    selectedExtraFiles={diagnosisExtraContext}
+                    onSelectedExtraFilesChange={setDiagnosisExtraContext}
+                  />
                 </div>
               ) : null}
 
@@ -310,12 +327,18 @@ export function MaintenanceTriage() {
               {selected.status === "diagnosed" ? (
                 <>
                   <div className="flex gap-2">
-                    <Button onClick={() => fixBrief.mutate(selected.id, { onSuccess: () => toast.success("Fix-Bolt brief generated."), onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
+                    <Button onClick={() => fixBrief.mutate({ itemId: selected.id, extraContextFiles: fixBriefExtraContext }, { onSuccess: () => toast.success("Fix-Bolt brief generated."), onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
                       {fixBrief.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Generate Fix-Bolt Brief
                     </Button>
                     {fixBrief.isPending && <CancelButton onCancel={() => fixBrief.cancel()} />}
                   </div>
-                  <AiGroundingNote files={AI_GROUNDING.maintenanceFixBrief} dark={dark} />
+                  <AiGroundingNote
+                    files={AI_GROUNDING.maintenanceFixBrief}
+                    dark={dark}
+                    availableFiles={availableGroundingFiles}
+                    selectedExtraFiles={fixBriefExtraContext}
+                    onSelectedExtraFilesChange={setFixBriefExtraContext}
+                  />
                 </>
               ) : null}
 

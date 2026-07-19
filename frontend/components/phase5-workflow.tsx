@@ -54,6 +54,7 @@ import { cn, errMsg } from "@/lib/utils";
 import type { DeployPackEmphasis, DeployPackOptions, InfraDelta, InfraDeltaCategory, InfraDeltaItem, Phase5StoryPreview } from "@/lib/api/types";
 import { AiGroundingNote } from "@/components/ai-grounding-note";
 import { AI_GROUNDING } from "@/lib/ai-grounding";
+import { useGroundingFiles } from "@/lib/hooks/use-grounding-files";
 
 // ---------------------------------------------------------------------------
 // Utilities
@@ -382,6 +383,8 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
   const generateMut = useGenerateInfraDelta();
   const saveMut = useSaveInfraDelta();
+  const [infraExtraContext, setInfraExtraContext] = useState<string[]>([]);
+  const availableGroundingFiles = useGroundingFiles();
 
   useEffect(() => {
     if (ctx) setCurrentStoryMeta(ctx.title, ctx.epic_title);
@@ -608,7 +611,11 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
         <Button variant="secondary" className="gap-1.5" onClick={onBack} disabled={generateMut.isPending || saveMut.isPending}>
           <ChevronLeft className="h-4 w-4" /> {t("common.back")}
         </Button>
-        <Button onClick={() => generateMut.mutate(storyId)} disabled={generateMut.isPending} className="flex-1 justify-center">
+        <Button
+          onClick={() => generateMut.mutate({ storyId, extraContextFiles: infraExtraContext })}
+          disabled={generateMut.isPending}
+          className="flex-1 justify-center"
+        >
           {generateMut.isPending
             ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("phase5.checking")}</>
             : (infraDelta ? t("phase5.rerunDeltaCheck") : t("phase5.runDeltaCheck"))}
@@ -622,7 +629,13 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
           </Button>
         )}
       </div>
-      <AiGroundingNote files={AI_GROUNDING.phase5InfraDelta} dark={dark} />
+      <AiGroundingNote
+        files={AI_GROUNDING.phase5InfraDelta}
+        dark={dark}
+        availableFiles={availableGroundingFiles}
+        selectedExtraFiles={infraExtraContext}
+        onSelectedExtraFilesChange={setInfraExtraContext}
+      />
     </div>
   );
 }
@@ -672,6 +685,8 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
     instructions: "",
   });
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [deployExtraContext, setDeployExtraContext] = useState<string[]>([]);
+  const availableGroundingFiles = useGroundingFiles();
 
   const toggleEmphasis = (value: DeployPackEmphasis) =>
     setOptions((o) => ({
@@ -872,7 +887,7 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
           onClick={() => {
             const prev = deployPackMd ?? "";
             generateMut.mutate(
-              { storyId, options },
+              { storyId, options, extraContextFiles: deployExtraContext },
               {
                 onSuccess: (data) => {
                   if (prev.trim() && prev !== data.deploy_pack_md) {
@@ -910,7 +925,13 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
           </Button>
         )}
       </div>
-      <AiGroundingNote files={AI_GROUNDING.phase5DeployPack} dark={dark} />
+      <AiGroundingNote
+        files={AI_GROUNDING.phase5DeployPack}
+        dark={dark}
+        availableFiles={availableGroundingFiles}
+        selectedExtraFiles={deployExtraContext}
+        onSelectedExtraFilesChange={setDeployExtraContext}
+      />
     </div>
   );
 }

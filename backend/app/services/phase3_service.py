@@ -3,6 +3,7 @@
 import logging
 
 from backend.app.services.ai_service import AiService
+from backend.app.services.ai_grounding import extra_context_block
 from backend.app.services.context_service import ContextService
 from backend.app.services.request_context import RequestContext
 
@@ -76,7 +77,10 @@ class Phase3Service:
             "design_bundle": self.context.read_context_file("design-bundle.md"),
         }
 
-    def generate_tasks(self, ctx: RequestContext, story_id: int, instructions: str = "") -> list[dict]:
+    def generate_tasks(
+        self, ctx: RequestContext, story_id: int, instructions: str = "",
+        extra_context_files: list[str] | None = None,
+    ) -> list[dict]:
         self.configure_request(ctx)
         index = self.context.story_index()
         entry = index.get(str(story_id)) or {}
@@ -94,6 +98,10 @@ class Phase3Service:
         github_context = self.context.read_context_file("github-context.md")
         figma_context = self.context.read_context_file("figma-context.md")
         runtime_spec = self.context.read_context_file("runtime-spec.md")
+        try:
+            technical_spec += extra_context_block(self.context, extra_context_files)
+        except ValueError as exc:
+            raise Phase3ValidationError(str(exc)) from exc
         return self.ai.generate_tasks(
             story_title, gherkin, technical_spec,
             tech_stack=tech_stack, design_bundle=design_bundle, github_context=github_context,
@@ -146,6 +154,7 @@ class Phase3Service:
         recent_commits_context: str = "",
         all_tasks: list[dict] | None = None,
         figma_token: str = "",
+        extra_context_files: list[str] | None = None,
     ) -> str:
         self.configure_request(ctx)
         index = self.context.story_index()
@@ -204,6 +213,10 @@ class Phase3Service:
             for p in self.context.load_proposals(story_id)
             if int(p["task_id"]) != int(task_id)
         ]
+        try:
+            technical_spec += extra_context_block(self.context, extra_context_files)
+        except ValueError as exc:
+            raise Phase3ValidationError(str(exc)) from exc
         return self.ai.generate_proposal(
             task_subject, task_description, gherkin, technical_spec,
             tech_stack=tech_stack, design_bundle=design_bundle, story_ref=story_ref,

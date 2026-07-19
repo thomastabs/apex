@@ -81,7 +81,11 @@ def generate_test_plan(
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
-        md = service.generate_test_plan(ctx, payload.story_id, payload.instructions, payload.emphasis)
+        extra_kwargs = {"extra_context_files": payload.extra_context_files} if payload.extra_context_files else {}
+        md = service.generate_test_plan(
+            ctx, payload.story_id, payload.instructions, payload.emphasis,
+            **extra_kwargs,
+        )
         return {"story_id": payload.story_id, "test_plan_md": md}
     except Exception as exc:
         _handle_error(exc)
@@ -95,7 +99,11 @@ def generate_edge_cases(
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
-        md = service.generate_edge_cases(ctx, payload.story_id, payload.scenario_text)
+        extra_kwargs = {"extra_context_files": payload.extra_context_files} if payload.extra_context_files else {}
+        md = service.generate_edge_cases(
+            ctx, payload.story_id, payload.scenario_text,
+            **extra_kwargs,
+        )
         return {"story_id": payload.story_id, "edge_cases_md": md}
     except Exception as exc:
         _handle_error(exc)

@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from backend.app.schemas.grounding import ExtraContextMixin
+
 
 class Phase5StoryPreview(BaseModel):
     story_id: int
@@ -49,7 +51,7 @@ class InfraDeltaModel(BaseModel):
     deltas: list[InfraDeltaItemModel] = Field(default_factory=list)
 
 
-class GenerateInfraDeltaRequest(BaseModel):
+class GenerateInfraDeltaRequest(ExtraContextMixin):
     story_id: int
 
 
@@ -74,7 +76,7 @@ class DeployPackOptions(BaseModel):
     instructions: str = Field(default="", max_length=2_000)
 
 
-class GenerateDeployPackRequest(BaseModel):
+class GenerateDeployPackRequest(ExtraContextMixin):
     story_id: int
     options: DeployPackOptions = Field(default_factory=DeployPackOptions)
 

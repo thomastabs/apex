@@ -25,6 +25,7 @@ import type {
 } from "@/lib/api/types";
 import { AiGroundingNote } from "@/components/ai-grounding-note";
 import { AI_GROUNDING } from "@/lib/ai-grounding";
+import { useGroundingFiles } from "@/lib/hooks/use-grounding-files";
 
 const STATUS_STYLE: Record<string, string> = {
   present: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
@@ -231,6 +232,8 @@ function TraceabilityPanel() {
   const verify = useVerifyConformance();
   const scan = useScanRegressions();
   const [scanReport, setScanReport] = useState<ScanReport | null>(null);
+  const [conformanceExtraContext, setConformanceExtraContext] = useState<string[]>([]);
+  const availableGroundingFiles = useGroundingFiles();
 
   const stories = useMemo(() => eligible.data?.stories ?? [], [eligible.data]);
 
@@ -254,7 +257,7 @@ function TraceabilityPanel() {
   function runVerify(ai: boolean, panel = false) {
     if (selectedId === null) return;
     verify.mutate(
-      { storyId: selectedId, ai, panel },
+      { storyId: selectedId, ai, panel, extraContextFiles: conformanceExtraContext },
       {
         onError: (err) => toast.error(errMsg(err)),
         onSuccess: () =>
@@ -271,7 +274,7 @@ function TraceabilityPanel() {
 
   function runScan() {
     scan.mutate(
-      { panel: false },
+      { panel: false, extraContextFiles: conformanceExtraContext },
       {
         onError: (err) => toast.error(errMsg(err)),
         onSuccess: (report: ScanReport) => {
@@ -300,7 +303,12 @@ function TraceabilityPanel() {
       const content = await fetchGithubFile(github, supPath.trim());
       if (!content) { toast.error(t("phase6.toast.fileEmpty")); return; }
       verify.mutate(
-        { storyId: selectedId, ai: true, extraFiles: [{ path: supPath.trim(), content }] },
+        {
+          storyId: selectedId,
+          ai: true,
+          extraFiles: [{ path: supPath.trim(), content }],
+          extraContextFiles: conformanceExtraContext,
+        },
         {
           onError: (err) => toast.error(errMsg(err)),
           onSuccess: () => { toast.success(t("phase6.toast.reverifiedWith", { path: supPath.trim() })); setSupPath(""); },
@@ -422,7 +430,13 @@ function TraceabilityPanel() {
                 {scan.isPending && <CancelButton onCancel={() => scan.cancel()} />}
               </div>
             </div>
-            <AiGroundingNote files={AI_GROUNDING.phase6Conformance} dark={dark} />
+            <AiGroundingNote
+              files={AI_GROUNDING.phase6Conformance}
+              dark={dark}
+              availableFiles={availableGroundingFiles}
+              selectedExtraFiles={conformanceExtraContext}
+              onSelectedExtraFilesChange={setConformanceExtraContext}
+            />
 
             {scan.isPending ? (
               <AIProgressIndicator

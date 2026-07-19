@@ -23,11 +23,12 @@ export function verifyConformance(
   extraFiles: { path: string; content: string }[] = [],
   signal?: AbortSignal,
   panel = false,
+  extraContextFiles: string[] = [],
 ) {
   return apiRequest<ConformanceReport>("/api/phase6/conformance", {
     method: "POST",
     context,
-    body: { story_id: storyId, ai, panel, extra_files: extraFiles },
+    body: { story_id: storyId, ai, panel, extra_files: extraFiles, ...(extraContextFiles.length ? { extra_context_files: extraContextFiles } : {}) },
     timeoutMs: ai ? PHASE6_AI_TIMEOUT_MS : undefined,
     signal,
   });
@@ -47,11 +48,11 @@ export async function getConformanceReport(
 }
 
 // Re-verifies every story with a prior report — a full re-verify each, so allow the long timeout.
-export function scanRegressions(context: RequestContext, panel = false, signal?: AbortSignal) {
+export function scanRegressions(context: RequestContext, panel = false, signal?: AbortSignal, extraContextFiles: string[] = []) {
   return apiRequest<ScanReport>("/api/phase6/scan-regressions", {
     method: "POST",
     context,
-    body: { panel },
+    body: { panel, ...(extraContextFiles.length ? { extra_context_files: extraContextFiles } : {}) },
     timeoutMs: PHASE6_AI_TIMEOUT_MS,
     signal,
   });
@@ -86,21 +87,27 @@ export function deleteMaintenanceItem(context: RequestContext, itemId: number) {
   return apiRequest<MaintenanceItemsResponse>(`${M}/items/${itemId}`, { method: "DELETE", context });
 }
 
-export function classifyMaintenanceItem(context: RequestContext, itemId: number, signal?: AbortSignal) {
+export function classifyMaintenanceItem(context: RequestContext, itemId: number, signal?: AbortSignal, extraContextFiles: string[] = []) {
   return apiRequest<MaintenanceItem>(`${M}/items/${itemId}/classify`, {
-    method: "POST", context, timeoutMs: PHASE6_AI_TIMEOUT_MS, signal,
+    method: "POST", context, body: extraContextFiles.length ? { extra_context_files: extraContextFiles } : undefined, timeoutMs: PHASE6_AI_TIMEOUT_MS, signal,
   });
 }
 
-export function diagnoseMaintenanceItem(context: RequestContext, itemId: number, codeSnippet: string, signal?: AbortSignal) {
+export function diagnoseMaintenanceItem(
+  context: RequestContext,
+  itemId: number,
+  codeSnippet: string,
+  signal?: AbortSignal,
+  extraContextFiles: string[] = [],
+) {
   return apiRequest<MaintenanceItem>(`${M}/items/${itemId}/diagnose`, {
-    method: "POST", context, body: { code_snippet: codeSnippet }, timeoutMs: PHASE6_AI_TIMEOUT_MS, signal,
+    method: "POST", context, body: { code_snippet: codeSnippet, ...(extraContextFiles.length ? { extra_context_files: extraContextFiles } : {}) }, timeoutMs: PHASE6_AI_TIMEOUT_MS, signal,
   });
 }
 
-export function fixBriefMaintenanceItem(context: RequestContext, itemId: number, signal?: AbortSignal) {
+export function fixBriefMaintenanceItem(context: RequestContext, itemId: number, signal?: AbortSignal, extraContextFiles: string[] = []) {
   return apiRequest<MaintenanceItem>(`${M}/items/${itemId}/fix-brief`, {
-    method: "POST", context, timeoutMs: PHASE6_AI_TIMEOUT_MS, signal,
+    method: "POST", context, body: extraContextFiles.length ? { extra_context_files: extraContextFiles } : undefined, timeoutMs: PHASE6_AI_TIMEOUT_MS, signal,
   });
 }
 

@@ -404,7 +404,7 @@ export type Phase3GenerateTasksResponse = {
   tasks: Phase3Task[];
 };
 
-export type Phase3GenerateProposalRequest = {
+export type Phase3GenerateProposalRequest = ExtraContextRequest & {
   story_id: number;
   task_id: number;
   task_subject: string;

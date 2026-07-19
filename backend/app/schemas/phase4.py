@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from backend.app.schemas.grounding import ExtraContextMixin
+
 
 class EligibleStoryPreview(BaseModel):
     story_id: int
@@ -28,7 +30,7 @@ class StoryContextResponse(BaseModel):
     tech_stack: str
 
 
-class GenerateTestPlanRequest(BaseModel):
+class GenerateTestPlanRequest(ExtraContextMixin):
     story_id: int
     instructions: str = Field("", max_length=2_000)
     emphasis: list[
@@ -41,7 +43,7 @@ class GenerateTestPlanResponse(BaseModel):
     test_plan_md: str
 
 
-class GenerateEdgeCasesRequest(BaseModel):
+class GenerateEdgeCasesRequest(ExtraContextMixin):
     story_id: int
     scenario_text: str = Field(min_length=1, max_length=20_000)
 

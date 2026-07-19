@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from backend.app.schemas.grounding import ExtraContextMixin
+
 
 class TechStackStatusResponse(BaseModel):
     defined: bool
@@ -28,7 +30,7 @@ class LockTechStackRequest(BaseModel):
     tech_stack: str = Field(..., max_length=10_000)
 
 
-class DesignSectionRequest(BaseModel):
+class DesignSectionRequest(ExtraContextMixin):
     section: Literal["ux_brief", "endpoints", "data_model", "runtime"]
     prior: dict[str, str] = Field(default_factory=dict)
     instructions: str = Field("", max_length=2_000)
@@ -93,7 +95,7 @@ class DesignDeltaStatusResponse(BaseModel):
     pending: list[PendingDeltaStory] = Field(default_factory=list)
 
 
-class GenerateDesignDeltaRequest(BaseModel):
+class GenerateDesignDeltaRequest(ExtraContextMixin):
     story_ids: list[int] = Field(default_factory=list)
     instructions: str = Field("", max_length=2_000)
 

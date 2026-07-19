@@ -4,8 +4,10 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from backend.app.schemas.grounding import ExtraContextMixin
 
-class GenerateTasksRequest(BaseModel):
+
+class GenerateTasksRequest(ExtraContextMixin):
     story_id: int
     instructions: str = Field("", max_length=2_000)
 
@@ -65,7 +67,7 @@ class TaskSummary(BaseModel):
     description: str = ""
 
 
-class GenerateProposalRequest(BaseModel):
+class GenerateProposalRequest(ExtraContextMixin):
     story_id: int
     task_id: int
     task_subject: str = Field(..., max_length=2_000)
@@ -114,5 +116,4 @@ class PacksResponse(BaseModel):
 class CrossCheckTasksRequest(BaseModel):
     story_id: int
     alt_model: str = Field("", max_length=100)
-
 

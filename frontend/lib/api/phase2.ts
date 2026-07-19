@@ -66,11 +66,12 @@ export function generateDesignSection(
   prior: Record<string, string>,
   instructions = "",
   signal?: AbortSignal,
+  extraContextFiles: string[] = [],
 ): Promise<DesignSectionResponse> {
   return apiRequest<DesignSectionResponse>("/api/phase2/generate-design-section", {
     method: "POST",
     context,
-    body: { section, prior, instructions },
+    body: { section, prior, instructions, ...(extraContextFiles.length ? { extra_context_files: extraContextFiles } : {}) },
     timeoutMs: PHASE2_AI_TIMEOUT_MS,
     signal,
   });
@@ -155,11 +156,12 @@ export function generateDesignDelta(
   storyIds: number[] = [],
   instructions = "",
   signal?: AbortSignal,
+  extraContextFiles: string[] = [],
 ) {
   return apiRequest<DesignDeltaResult>("/api/phase2/generate-design-delta", {
     method: "POST",
     context,
-    body: { story_ids: storyIds, instructions },
+    body: { story_ids: storyIds, instructions, ...(extraContextFiles.length ? { extra_context_files: extraContextFiles } : {}) },
     timeoutMs: PHASE2_AI_TIMEOUT_MS,
     signal,
   });

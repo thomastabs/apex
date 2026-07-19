@@ -3,6 +3,7 @@
 import logging
 
 from backend.app.services.ai_service import AiService
+from backend.app.services.ai_grounding import extra_context_block
 from backend.app.services.context_service import ContextService
 from backend.app.services.request_context import RequestContext
 
@@ -79,6 +80,7 @@ class Phase4Service:
     def generate_test_plan(
         self, ctx: RequestContext, story_id: int, instructions: str = "",
         emphasis: list[str] | None = None,
+        extra_context_files: list[str] | None = None,
     ) -> str:
         self.configure_request(ctx)
         index = self.context.story_index()
@@ -104,6 +106,10 @@ class Phase4Service:
             {"subject": f"Task {p['task_id']}", "proposal_md": p.get("proposal_md", "")}
             for p in self.context.load_proposals(story_id)
         ]
+        try:
+            technical_spec += extra_context_block(self.context, extra_context_files)
+        except ValueError as exc:
+            raise Phase4ValidationError(str(exc)) from exc
         return self.ai.generate_test_plan(
             story_title, gherkin, technical_spec, tech_stack=tech_stack,
             developer_packs=developer_packs, constraints=constraints,
@@ -202,13 +208,20 @@ class Phase4Service:
             qa_notes=failed_text,
         )
 
-    def generate_edge_cases(self, ctx: RequestContext, story_id: int, scenario_text: str) -> str:
+    def generate_edge_cases(
+        self, ctx: RequestContext, story_id: int, scenario_text: str,
+        extra_context_files: list[str] | None = None,
+    ) -> str:
         self.configure_request(ctx)
         if not scenario_text.strip():
             raise Phase4ValidationError("A scenario is required to explore edge cases.")
         if str(story_id) not in self.context.story_index():
             raise Phase4ValidationError(f"Story {story_id} not found in index.")
         technical_spec = self.context.story_technical_spec(story_id)
+        try:
+            technical_spec += extra_context_block(self.context, extra_context_files)
+        except ValueError as exc:
+            raise Phase4ValidationError(str(exc)) from exc
         return self.ai.generate_edge_cases(scenario_text, technical_spec)
 
     def pass_gate(

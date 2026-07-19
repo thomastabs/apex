@@ -43,8 +43,10 @@ export function useVerifyConformance() {
   const context = useApiContext();
   const qc = useQueryClient();
   return useCancellableMutation(
-    ({ storyId, ai = true, extraFiles = [], panel = false }: { storyId: number; ai?: boolean; extraFiles?: { path: string; content: string }[]; panel?: boolean }, signal) =>
-      verifyConformance(context!, storyId, ai, extraFiles, signal, panel),
+    ({ storyId, ai = true, extraFiles = [], panel = false, extraContextFiles = [] }: { storyId: number; ai?: boolean; extraFiles?: { path: string; content: string }[]; panel?: boolean; extraContextFiles?: string[] }, signal) =>
+      extraContextFiles.length
+        ? verifyConformance(context!, storyId, ai, extraFiles, signal, panel, extraContextFiles)
+        : verifyConformance(context!, storyId, ai, extraFiles, signal, panel),
     {
       onSuccess: (report: ConformanceReport) => {
         qc.setQueryData(
@@ -61,7 +63,10 @@ export function useScanRegressions() {
   const context = useApiContext();
   const qc = useQueryClient();
   return useCancellableMutation(
-    ({ panel = false }: { panel?: boolean }, signal) => scanRegressions(context!, panel, signal),
+    ({ panel = false, extraContextFiles = [] }: { panel?: boolean; extraContextFiles?: string[] }, signal) =>
+      extraContextFiles.length
+        ? scanRegressions(context!, panel, signal, extraContextFiles)
+        : scanRegressions(context!, panel, signal),
     {
       onSuccess: (report: ScanReport) => {
         // Refresh per-story reports (each was re-verified) + board/analytics flags.
@@ -96,11 +101,24 @@ export function useMaintenanceItems() {
   });
 }
 
-function useItemMutation(fn: (ctx: NonNullable<ReturnType<typeof useApiContext>>, id: number, signal: AbortSignal) => Promise<MaintenanceItem>) {
+type ItemMutationInput = number | { itemId: number; extraContextFiles?: string[] };
+
+function normalizeItemMutationInput(input: ItemMutationInput) {
+  return typeof input === "number" ? { itemId: input, extraContextFiles: [] } : { extraContextFiles: [], ...input };
+}
+
+function useItemMutation(
+  fn: (ctx: NonNullable<ReturnType<typeof useApiContext>>, id: number, signal: AbortSignal, extraContextFiles?: string[]) => Promise<MaintenanceItem>,
+) {
   const context = useApiContext();
   const qc = useQueryClient();
   return useCancellableMutation(
-    (itemId: number, signal) => fn(context!, itemId, signal),
+    (input: ItemMutationInput, signal) => {
+      const { itemId, extraContextFiles } = normalizeItemMutationInput(input);
+      return extraContextFiles.length
+        ? fn(context!, itemId, signal, extraContextFiles)
+        : fn(context!, itemId, signal);
+    },
     { onSuccess: () => qc.invalidateQueries({ queryKey: ["phase6", "maintenance", context?.projectId] }) },
   );
 }
@@ -115,7 +133,11 @@ export function useCreateMaintenanceItem() {
 }
 
 export function useClassifyItem() {
-  return useItemMutation((ctx, id, signal) => classifyMaintenanceItem(ctx, id, signal));
+  return useItemMutation((ctx, id, signal, extraContextFiles) =>
+    extraContextFiles?.length
+      ? classifyMaintenanceItem(ctx, id, signal, extraContextFiles)
+      : classifyMaintenanceItem(ctx, id, signal),
+  );
 }
 
 export function useDeleteMaintenanceItem() {
@@ -131,14 +153,20 @@ export function useDiagnoseItem() {
   const context = useApiContext();
   const qc = useQueryClient();
   return useCancellableMutation(
-    ({ itemId, codeSnippet }: { itemId: number; codeSnippet: string }, signal) =>
-      diagnoseMaintenanceItem(context!, itemId, codeSnippet, signal),
+    ({ itemId, codeSnippet, extraContextFiles = [] }: { itemId: number; codeSnippet: string; extraContextFiles?: string[] }, signal) =>
+      extraContextFiles.length
+        ? diagnoseMaintenanceItem(context!, itemId, codeSnippet, signal, extraContextFiles)
+        : diagnoseMaintenanceItem(context!, itemId, codeSnippet, signal),
     { onSuccess: () => qc.invalidateQueries({ queryKey: ["phase6", "maintenance", context?.projectId] }) },
   );
 }
 
 export function useFixBriefItem() {
-  return useItemMutation((ctx, id, signal) => fixBriefMaintenanceItem(ctx, id, signal));
+  return useItemMutation((ctx, id, signal, extraContextFiles) =>
+    extraContextFiles?.length
+      ? fixBriefMaintenanceItem(ctx, id, signal, extraContextFiles)
+      : fixBriefMaintenanceItem(ctx, id, signal),
+  );
 }
 
 export function useRouteItem() {

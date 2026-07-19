@@ -68,7 +68,8 @@ export function useGenerateInfraDelta() {
   const context = useApiContext();
   const setInfraDelta = usePhase5Store((s) => s.setInfraDelta);
   return useCancellableMutation(
-    (storyId: number, signal) => generateInfraDelta(context!, storyId, signal),
+    ({ storyId, extraContextFiles = [] }: { storyId: number; extraContextFiles?: string[] }, signal) =>
+      generateInfraDelta(context!, storyId, signal, extraContextFiles),
     {
       onSuccess: (data) => setInfraDelta(data.delta, false, true),
       onError: (err: Error) => toast.error(`Infra delta check failed: ${err.message}`),
@@ -113,8 +114,8 @@ export function useGenerateDeployPack() {
   // Result committed by the caller (phase5-workflow) so a regenerate-over-existing
   // pack can be routed through the diff gate first.
   return useCancellableMutation(
-    ({ storyId, options }: { storyId: number; options?: DeployPackOptions }, signal) =>
-      generateDeployPack(context!, storyId, options, signal),
+    ({ storyId, options, extraContextFiles = [] }: { storyId: number; options?: DeployPackOptions; extraContextFiles?: string[] }, signal) =>
+      generateDeployPack(context!, storyId, options, signal, extraContextFiles),
     {
       onError: (err: Error) => toast.error(`Deploy pack generation failed: ${err.message}`),
     },

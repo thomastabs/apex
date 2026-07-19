@@ -3,6 +3,7 @@
 import logging
 
 from backend.app.services.ai_service import AiService
+from backend.app.services.ai_grounding import extra_context_block
 from backend.app.services.context_service import ContextService
 from backend.app.services.request_context import RequestContext
 
@@ -80,6 +81,7 @@ class Phase6Service:
     def verify_conformance(
         self, ctx: RequestContext, story_id: int, *, ai: bool = True,
         panel: bool = False, extra_files: list[dict] | None = None,
+        extra_context_files: list[str] | None = None,
     ) -> dict:
         """Run a conformance check and persist it. ai=False → Layer-A only (no LLM).
 
@@ -96,6 +98,10 @@ class Phase6Service:
             path, content = f.get("path", ""), f.get("content", "")
             if path and content:
                 github_context += f"\n\n## `{path}`\n\n```\n{content}\n```\n"
+        try:
+            github_context += extra_context_block(self.context, extra_context_files)
+        except ValueError as exc:
+            raise Phase6ValidationError(str(exc)) from exc
         precheck = self.ai.layer_a_conformance(
             inp["gherkin"], inp["technical_spec"], github_context, inp["constraints"], inp["runtime_spec"],
         )
@@ -141,7 +147,10 @@ class Phase6Service:
         self.configure_request(ctx)
         return self.context.load_conformance(story_id)
 
-    def _check_one_regression(self, ctx: RequestContext, story_id: int, title: str, *, panel: bool = False) -> dict:
+    def _check_one_regression(
+        self, ctx: RequestContext, story_id: int, title: str, *, panel: bool = False,
+        extra_context_files: list[str] | None = None,
+    ) -> dict:
         """Re-verify one story's conformance and flag/clear conformance_regressed.
 
         Shared by scan_regressions (all eligible stories, human-triggered) and
@@ -151,7 +160,9 @@ class Phase6Service:
         from src import ai_engine
 
         old = self.context.load_conformance(story_id) or {}
-        new = self.verify_conformance(ctx, story_id, ai=True, panel=panel)
+        new = self.verify_conformance(
+            ctx, story_id, ai=True, panel=panel, extra_context_files=extra_context_files,
+        )
         diff = ai_engine.diff_conformance(old, new)
         if diff["regressed"]:
             reason = (
@@ -171,7 +182,10 @@ class Phase6Service:
             "worsened_rows": diff["worsened_rows"],
         }
 
-    def scan_regressions(self, ctx: RequestContext, *, panel: bool = False) -> dict:
+    def scan_regressions(
+        self, ctx: RequestContext, *, panel: bool = False,
+        extra_context_files: list[str] | None = None,
+    ) -> dict:
         """Re-verify every story that already has a conformance report against the
         freshly-synced code and flag any whose conformance regressed.
 
@@ -185,7 +199,10 @@ class Phase6Service:
         self.configure_request(ctx)
         eligible = self.get_eligible_stories(ctx)
         results = [
-            self._check_one_regression(ctx, s["story_id"], s["title"], panel=panel)
+            self._check_one_regression(
+                ctx, s["story_id"], s["title"], panel=panel,
+                extra_context_files=extra_context_files,
+            )
             for s in eligible if s["has_conformance"]
         ]
         regressed_ids = sorted(r["story_id"] for r in results if r["regressed"])

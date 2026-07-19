@@ -2,6 +2,7 @@
 
 import pytest
 
+import backend.app.services.ai_grounding as ai_grounding
 import backend.app.services.phase1_service as phase1_service
 from backend.app.services.phase1_service import Phase1Service, Phase1ValidationError
 from backend.app.services.request_context import RequestContext
@@ -415,7 +416,7 @@ def test_suggest_epics_appends_selected_extra_context_file():
 
 
 def test_suggest_epics_appends_selected_agent_file(monkeypatch, tmp_path):
-    monkeypatch.setattr(phase1_service, "_REPO_ROOT", tmp_path)
+    monkeypatch.setattr(ai_grounding, "REPO_ROOT", tmp_path)
     (tmp_path / "AGENTS.md").write_text("# Agents\n\n- Keep commits user-authored.", encoding="utf-8")
     service, ai, _context = _service()
 

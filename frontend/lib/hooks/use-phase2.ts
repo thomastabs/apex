@@ -102,8 +102,8 @@ export function useDesignDeltaStatus() {
 export function useGenerateDesignDelta() {
   const context = useApiContext();
   return useCancellableMutation(
-    ({ storyIds = [], instructions = "" }: { storyIds?: number[]; instructions?: string }, signal) =>
-      generateDesignDelta(context!, storyIds, instructions, signal),
+    ({ storyIds = [], instructions = "", extraContextFiles = [] }: { storyIds?: number[]; instructions?: string; extraContextFiles?: string[] }, signal) =>
+      generateDesignDelta(context!, storyIds, instructions, signal, extraContextFiles),
     { onError: (e: Error) => toast.error(`Design delta generation failed: ${e.message}`) },
   );
 }
@@ -149,7 +149,7 @@ export function useGenerateDesignSections() {
   const abortRef = useRef<AbortController | null>(null);
 
   const generate = useCallback(
-    async (callbacks: DesignSectionCallbacks, instructions = "") => {
+    async (callbacks: DesignSectionCallbacks, instructions = "", extraContextFiles: string[] = []) => {
       if (!context) return;
       abortRef.current = new AbortController();
       setIsPending(true);
@@ -159,7 +159,7 @@ export function useGenerateDesignSections() {
         for (const section of DESIGN_SECTION_ORDER) {
           setCurrentSection(section);
           const result = await generateDesignSection(
-            context, section, prior, instructions, abortRef.current.signal,
+            context, section, prior, instructions, abortRef.current.signal, extraContextFiles,
           );
           prior[section] = result.content;
           callbacks.onSection(section, result.content, result.story_ids, result.assumptions);
@@ -185,6 +185,7 @@ export function useGenerateDesignSections() {
       priorSections: Record<string, string>,
       callbacks: DesignSectionCallbacks,
       instructions = "",
+      extraContextFiles: string[] = [],
     ) => {
       if (!context) return;
       abortRef.current = new AbortController();
@@ -193,7 +194,7 @@ export function useGenerateDesignSections() {
       setCurrentSection(targetSection);
       try {
         const result = await generateDesignSection(
-          context, targetSection, priorSections, instructions, abortRef.current.signal,
+          context, targetSection, priorSections, instructions, abortRef.current.signal, extraContextFiles,
         );
         callbacks.onSection(targetSection, result.content, result.story_ids, result.assumptions);
         callbacks.onDone();

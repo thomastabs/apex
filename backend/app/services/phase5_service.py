@@ -9,6 +9,7 @@ trigger real deployments.
 import logging
 
 from backend.app.services.ai_service import AiService
+from backend.app.services.ai_grounding import extra_context_block
 from backend.app.services.context_service import ContextService
 from backend.app.services.request_context import RequestContext
 
@@ -120,7 +121,10 @@ class Phase5Service:
 
     # ── Step 1: infra delta check ───────────────────────────────────────────
 
-    def generate_infra_delta(self, ctx: RequestContext, story_id: int) -> dict:
+    def generate_infra_delta(
+        self, ctx: RequestContext, story_id: int,
+        extra_context_files: list[str] | None = None,
+    ) -> dict:
         self.configure_request(ctx)
         entry = self._eligible_entry(story_id)
         story_title = entry.get("title", f"Story {story_id}")
@@ -128,6 +132,10 @@ class Phase5Service:
         if not gherkin.strip():
             raise Phase5ValidationError(f"Story {story_id} has no Gherkin content.")
         github_context = self.context.read_context_file("github-context.md")
+        try:
+            github_context += extra_context_block(self.context, extra_context_files)
+        except ValueError as exc:
+            raise Phase5ValidationError(str(exc)) from exc
         return self.ai.generate_infra_delta(
             story_title,
             gherkin,
@@ -170,16 +178,24 @@ class Phase5Service:
             )
         return delta
 
-    def generate_deploy_pack(self, ctx: RequestContext, story_id: int, options=None) -> str:
+    def generate_deploy_pack(
+        self, ctx: RequestContext, story_id: int, options=None,
+        extra_context_files: list[str] | None = None,
+    ) -> str:
         self.configure_request(ctx)
         entry = self._eligible_entry(story_id)
         delta = self._require_delta_with_changes(story_id)
+        github_context = self.context.read_context_file("github-context.md")
+        try:
+            github_context += extra_context_block(self.context, extra_context_files)
+        except ValueError as exc:
+            raise Phase5ValidationError(str(exc)) from exc
         return self.ai.generate_deploy_pack(
             entry.get("title", f"Story {story_id}"),
             self.context.render_infra_delta_md(story_id, delta),
             self.context.story_technical_spec(story_id),
             tech_stack=self.context.read_tech_stack(),
-            github_context=self.context.read_context_file("github-context.md"),
+            github_context=github_context,
             target_env=getattr(options, "target_env", "") or "",
             iac_format=getattr(options, "iac_format", "") or "",
             emphasis=list(getattr(options, "emphasis", []) or []),
