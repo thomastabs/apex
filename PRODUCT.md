@@ -20,6 +20,17 @@ Apex keeps a team's SDLC artifacts — Gherkin scenarios, design bundles, task b
 
 Spec-anchored traceability: every artifact the AI generates — from Gherkin scenario to deployed code — carries a stable ID back to its originating requirement, so nothing drifts out of sync without being flagged. Other AI dev tools generate code; Apex generates and *keeps track of* the whole chain.
 
+**Why this over a raw coding agent.** A coding agent session optimizes one exchange: prompt in, diff out. Nothing in that loop stops a change from skipping the spec, losing its link back to the requirement it satisfies, or drifting from an already-locked design once the session ends. That's fine for a single change; it breaks down across many sessions, many contributors, and months of a project's life, once nobody but the code itself remembers why a line exists or whether it still satisfies what was agreed.
+
+Apex is a process layer that sits on top of any model and adds what a bare agent loop doesn't have:
+
+- **Stable spec IDs** (epics, scenarios, entities) link every artifact — spec, design, code, tests, PM ticket — back to one source of truth, instead of prose that can silently diverge.
+- **Phase gates enforced on content, not a checklist**: a story cannot reach implementation without a locked Gherkin spec, and cannot reach `deployed` without a passed QA sign-off (or, on the stricter path, a green CI/CD run) — enforced server-side.
+- **Drift detection after the fact**: deployed code is compared against the locked spec and runtime contract; findings are classified (implementation bug vs. business change vs. spec gap) and routed back to the phase that should own the fix, rather than patched forward in place.
+- **State that outlives any one session**: the story index and context files, not a chat transcript, are the source of truth — whoever (or whatever agent) picks up a story later inherits the same grounding.
+
+The short version: a coding agent accelerates writing code; Apex governs whether that code is still answering the right question.
+
 ## Brand Personality
 
 Precise, rigorous, calm. The interface should read like a spec tool, not a hype tool — exacting under scrutiny, low-drama, the kind of surface that earns trust from someone auditing its output line by line. No urgency theater, no gamification, no "AI magic" framing. Confidence comes from visible structure (IDs, statuses, gates) rather than from persuasive copy.

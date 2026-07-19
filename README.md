@@ -14,6 +14,19 @@ Phases 1–6 are implemented, plus a governance analytics dashboard, a **living 
 
 Apex also exposes the operational context around that workflow: EN/PT can be switched globally from the sidebar or Settings, context files can be mirrored to Taiga Wiki pages, repo-root agent instruction files can be edited/exported inside the app, project-specific PM status mappings let teams map their own Taiga board states onto Apex phases, and Phase 5 can optionally dispatch an existing GitHub Actions deployment workflow after the human deployment gate.
 
+### Why Apex over a raw coding agent
+
+A coding agent session optimizes one exchange: prompt in, diff out. Nothing in that loop stops a change from skipping the spec, losing its link back to the requirement it satisfies, or drifting from an already-locked design once the session ends.
+
+Apex is a process layer on top of any model:
+
+- Every artifact — spec, design, code, tests, PM ticket — carries a stable spec ID (epic/scenario/entity) back to its source, instead of prose that can silently diverge.
+- Phase transitions are gated on content, not a checklist: a story can't reach implementation without a locked Gherkin spec, and can't reach `deployed` without a passed QA sign-off or a green CI/CD run, enforced server-side.
+- Phase 6 compares deployed code against the locked spec/runtime contract, classifies drift (bug vs. business change vs. spec gap), and routes it back to the phase that owns the fix.
+- The story index and context files, not a chat transcript, are the source of truth — anyone picking up a story later inherits the same grounding.
+
+A coding agent accelerates writing code; Apex governs whether that code still answers the right question.
+
 <img width="1908" height="991" alt="image" src="https://github.com/user-attachments/assets/818d2d66-add0-40c4-883f-c558a8445183" />
 
 <img width="1908" height="991" alt="image" src="https://github.com/user-attachments/assets/da6d3f52-a4d3-45ef-bad1-e9749519b657" />
