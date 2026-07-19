@@ -11,7 +11,7 @@ async function waitForToastsGone(page: import("@playwright/test").Page) {
 }
 
 test("Phase 5 routine: delta check says bypass → no pack → pass deployment gate", async ({ page }) => {
-  // "Approve & Deploy" gates on window.confirm() — auto-accept for the flow.
+  // Manual deployment recording gates on window.confirm() — auto-accept for the flow.
   page.on("dialog", (d) => d.accept());
   await page.goto("/phase5");
 
@@ -36,7 +36,7 @@ test("Phase 5 routine: delta check says bypass → no pack → pass deployment g
   await expect(page.getByText(/Routine deployment \(bypass\)/i)).toBeVisible();
 
   // Both sign-offs required before the approve button enables
-  const approveBtn = page.getByRole("button", { name: /Approve & Deploy/i });
+  const approveBtn = page.getByRole("button", { name: /Record Manual Deployment/i });
   await expect(approveBtn).toBeDisabled();
   await page.getByRole("checkbox").first().check();
   await page.getByRole("checkbox").nth(1).check();
@@ -51,7 +51,7 @@ test("Phase 5 routine: delta check says bypass → no pack → pass deployment g
 });
 
 test("Phase 5 changes: delta flags infra → deploy pack → reject/revise → pass gate", async ({ page }) => {
-  // "Approve & Deploy" gates on window.confirm() — auto-accept for the flow.
+  // Manual deployment recording gates on window.confirm() — auto-accept for the flow.
   page.on("dialog", (d) => d.accept());
   // Override the default bypass verdict — last-registered route wins.
   await page.route(`${API}/api/phase5/generate-infra-delta`, (route) =>
@@ -102,7 +102,7 @@ test("Phase 5 changes: delta flags infra → deploy pack → reject/revise → p
   await page.getByRole("checkbox").first().check();
   await page.getByRole("checkbox").nth(1).check();
   await waitForToastsGone(page);
-  await page.getByRole("button", { name: /Approve & Deploy/i }).click();
+  await page.getByRole("button", { name: /Record Manual Deployment/i }).click();
 
   await expect(page.getByRole("heading", { name: /Deployment Gate Passed/i })).toBeVisible({ timeout: 10_000 });
 });

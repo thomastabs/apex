@@ -12,7 +12,7 @@ The current migrated version is a split full-stack web app:
 
 Phases 1–6 are implemented, plus a governance analytics dashboard, a **living traceability graph** (project-wide spec→code derivation view), and an **Autopilot** mode that runs the full Phases 1–5 pipeline end-to-end in the background. The spec-model upgrade roadmap is fully shipped: EARS constraints, spec↔code conformance, deterministic agent-target compilation, controlled spec co-evolution, and per-epic context slicing. Human-in-the-loop guardrails layer on top — multi-model cross-check, diff-on-regenerate, a decision log, extensible AI grounding file pickers, and an optional "Guide the AI" steer on every generative step.
 
-Apex also exposes the operational context around that workflow: EN/PT can be switched globally from the sidebar or Settings, context files can be mirrored to Taiga Wiki pages, repo-root agent instruction files can be edited/exported inside the app, and project-specific PM status mappings let teams map their own Taiga board states onto Apex phases.
+Apex also exposes the operational context around that workflow: EN/PT can be switched globally from the sidebar or Settings, context files can be mirrored to Taiga Wiki pages, repo-root agent instruction files can be edited/exported inside the app, project-specific PM status mappings let teams map their own Taiga board states onto Apex phases, and Phase 5 can optionally dispatch an existing GitHub Actions deployment workflow after the human deployment gate.
 
 <img width="1908" height="991" alt="image" src="https://github.com/user-attachments/assets/818d2d66-add0-40c4-883f-c558a8445183" />
 
@@ -285,7 +285,7 @@ Implemented — 4-stage stepper workflow:
 
 ### Phase 5 · Deployment
 
-Phase 5 implements the framework's Deployment & Release playbook as a governance layer: Apex records gate decisions and artifacts; it does not trigger real deployments. It operates story-by-story on `qa_passed` stories.
+Phase 5 implements the framework's Deployment & Release playbook as a governance layer. By default it records gate decisions and artifacts as a human-run deployment pack; when a project has a GitHub PAT/repo and an existing deployment workflow, it can also trigger that workflow through an explicit, confirm-gated GitHub Actions dispatch. It operates story-by-story on `qa_passed` stories.
 
 Implemented — 4-stage stepper workflow:
 
@@ -310,7 +310,8 @@ Implemented — 4-stage stepper workflow:
 
 - Evidence summary: delta verdict, pack status, traceability matrix (auto-persisted to `verification_story_<id>.json` as gate evidence)
 - Two human sign-offs required: **Tech Lead** (pack reviewed) and **Security Reviewer** (security review passed)
-- **Approve:** story locks to `deployed`, a machine-parseable record (route, sign-offs, traceability summary) is appended to `deployment-log.md`, optional PM story status update
+- **Record Manual Deployment:** story locks to `deployed`, a machine-parseable record (route, sign-offs, traceability summary) is appended to `deployment-log.md`, optional PM story status update
+- **GitHub Actions Deployment:** choose a server-verified workflow from the connected repo, set the ref/environment and optional workflow inputs, then dispatch with confirmation. Apex records the dispatch, deploy-pack hash, run URL/status/conclusion, and webhook or sync evidence in `story-index.json` and `deployment-log.md`. The story moves to `deployed` only after GitHub reports a completed successful run; failed, cancelled, timed-out, or still-running jobs remain visible but do not pass the deployment gate.
 - **Reject:** security feedback is fed to the AI, which revises the pack → back to Stage C
 
 ### Phase 6 · Maintenance & Traceability
@@ -543,7 +544,8 @@ Apex stores workflow state in context files under `contextspec/<instance_id>/<pr
 | `deploy_pack_story_<id>.md` | Phase 5 deploy pack — scripts and rollback plan for flagged infra changes |
 | `verification_story_<id>.json` / `.md` | Traceability matrix persisted as Deployment Gate evidence |
 | `trace-layout.json` | Saved manual node positions for the living traceability graph |
-| `deployment-log.md` | Append-only log of Deployment Gate decisions (route, sign-offs, traceability summary) |
+| `.project-deployment-config.json` | Per-project Phase 5 GitHub Actions deployment configuration: selected workflow, ref, environment, workflow inputs, and whether Apex metadata inputs should be sent |
+| `deployment-log.md` | Append-only log of Deployment Gate decisions and GitHub Actions dispatch/run evidence (route, sign-offs, traceability summary, run URL/status/conclusion when available) |
 | `conformance_story_<id>.json` | Phase 6 spec↔code conformance report (endpoints/scenarios/constraints + code-computed score) |
 | `maintenance_items.json` | Phase 6 maintenance triage items (source, classification, status, diagnosis, lane) |
 | `maintenance-log.md` | Append-only log of maintenance triage events (classification, routing, resolution) |

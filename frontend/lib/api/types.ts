@@ -620,6 +620,52 @@ export type Phase5QaResultsResponse = {
   qa_results: { story_id: number; attempts: Phase5QaAttempt[] } | null;
 };
 
+export type GithubDeploymentConfig = {
+  workflow_id: string;
+  ref: string;
+  environment: string;
+  inputs: Record<string, string>;
+  include_apex_inputs: boolean;
+};
+
+export type GithubWorkflow = {
+  id?: number | string;
+  name?: string;
+  path?: string;
+  state?: string;
+};
+
+export type GithubDeploymentRun = {
+  status?: string;
+  conclusion?: string;
+  workflow_id?: string;
+  workflow_name?: string;
+  run_id?: number | null;
+  run_url?: string;
+  ref?: string;
+  environment?: string;
+  deploy_pack_hash?: string;
+  dispatched_at?: string;
+  completed_at?: string;
+};
+
+export type GithubDeploymentStatusResponse = {
+  github_connected: boolean;
+  repo: string;
+  config: Partial<GithubDeploymentConfig>;
+  workflow_configured: boolean;
+  workflow_exists: boolean;
+  workflow: GithubWorkflow | null;
+  workflows: GithubWorkflow[];
+  latest_run: GithubDeploymentRun | null;
+  error: string;
+};
+
+export type GithubDeploymentRunResponse = {
+  story_id: number;
+  deployment: GithubDeploymentRun;
+};
+
 export type TraceabilityGap =
   | "NO_COVERING_TASK"
   | "TASK_WITHOUT_PACK"

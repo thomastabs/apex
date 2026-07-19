@@ -71,6 +71,8 @@ class FakeContextService:
         self.index = index if index is not None else _story_index()
         self.saved_delta = None
         self.saved_pack = None
+        self.deployment_config_data = {}
+        self.github_deployment_records = []
         self.deployment_records = []
 
     def set_active(self, ctx):
@@ -139,6 +141,8 @@ class FakeContextService:
     def upsert_story_index(self, story_id: int, **updates) -> None:
         self.index_updates = getattr(self, "index_updates", [])
         self.index_updates.append((story_id, updates))
+        entry = self.index.setdefault(str(story_id), {"story_id": story_id})
+        entry.update(updates)
 
     def append_deployment_record(self, story_id, title, *, bypass, pack_present,
                                  sign_offs, notes=""):
@@ -146,6 +150,25 @@ class FakeContextService:
             "story_id": story_id, "title": title, "bypass": bypass,
             "pack_present": pack_present, "sign_offs": sign_offs, "notes": notes,
         })
+
+    def github_pat(self):
+        return "ghp_test"
+
+    def github_repo(self):
+        return "acme/widgets"
+
+    def has_github_pat(self):
+        return True
+
+    def deployment_config(self):
+        return dict(self.deployment_config_data)
+
+    def save_deployment_config(self, config: dict) -> dict:
+        self.deployment_config_data = dict(config)
+        return self.deployment_config_data
+
+    def append_github_deployment_record(self, story_id, title, **kwargs):
+        self.github_deployment_records.append({"story_id": story_id, "title": title, **kwargs})
 
 
 def _story_index(status: str = "qa_passed", **extra) -> dict:
@@ -496,6 +519,157 @@ def test_gate_records_missing_matrix():
     svc.save_infra_delta(_ctx(), 10, _FAKE_DELTA_BYPASS)
     svc.pass_deployment_gate(_ctx(), 10, tech_lead_approved=True, devops_approved=True)
     assert "traceability matrix: not saved" in ctx_service.deployment_records[0]["notes"]
+
+
+# ---------------------------------------------------------------------------
+# GitHub Actions deployment automation
+# ---------------------------------------------------------------------------
+
+
+class FakeGithubActionsClient:
+    dispatched = []
+    runs = [{
+        "id": 123,
+        "html_url": "https://github.com/acme/widgets/actions/runs/123",
+        "status": "queued",
+        "conclusion": None,
+    }]
+    run_detail = {
+        "id": 123,
+        "html_url": "https://github.com/acme/widgets/actions/runs/123",
+        "status": "completed",
+        "conclusion": "success",
+        "updated_at": "2026-07-19T12:00:00Z",
+    }
+
+    def __init__(self, pat, repo):
+        self.pat = pat
+        self.repo = repo
+
+    def list_workflows(self):
+        return [{"id": 7, "name": "Deploy", "path": ".github/workflows/deploy.yml"}]
+
+    def workflow(self, workflow_id):
+        return {"id": 7, "name": "Deploy", "path": ".github/workflows/deploy.yml"} if workflow_id else None
+
+    def dispatch(self, workflow_id, *, ref, inputs):
+        self.dispatched.append((workflow_id, ref, inputs))
+
+    def list_runs(self, workflow_id, *, branch="", event="workflow_dispatch", per_page=10):
+        return list(self.runs)
+
+    def run(self, run_id):
+        return dict(self.run_detail)
+
+
+def test_github_deployment_status_reports_ready_workflow(monkeypatch):
+    import backend.app.services.phase5_service as p5
+
+    monkeypatch.setattr(p5, "GithubActionsClient", FakeGithubActionsClient)
+    ctx_service = FakeContextService()
+    ctx_service.save_deployment_config({"workflow_id": ".github/workflows/deploy.yml", "ref": "main"})
+    status = _svc(context=ctx_service).github_deployment_status(_ctx(), 10)
+    assert status["github_connected"] is True
+    assert status["workflow_exists"] is True
+    assert status["workflows"][0]["name"] == "Deploy"
+
+
+def test_dispatch_github_deployment_records_queued_run(monkeypatch):
+    import backend.app.services.phase5_service as p5
+
+    FakeGithubActionsClient.dispatched = []
+    monkeypatch.setattr(p5, "GithubActionsClient", FakeGithubActionsClient)
+    ctx_service = FakeContextService()
+    ctx_service.save_deployment_config({
+        "workflow_id": ".github/workflows/deploy.yml",
+        "ref": "main",
+        "environment": "production",
+        "inputs": {"environment": "production"},
+        "include_apex_inputs": True,
+    })
+    svc = _svc(context=ctx_service)
+    svc.save_infra_delta(_ctx(), 10, _FAKE_DELTA_CHANGES)
+    svc.save_deploy_pack(_ctx(), 10, _FAKE_PACK)
+
+    deployment = svc.dispatch_github_deployment(_ctx(), 10, confirmed=True)
+
+    assert deployment["run_id"] == 123
+    assert deployment["status"] == "queued"
+    workflow_id, ref, inputs = FakeGithubActionsClient.dispatched[0]
+    assert workflow_id == ".github/workflows/deploy.yml"
+    assert ref == "main"
+    assert inputs["environment"] == "production"
+    assert inputs["story_id"] == "10"
+    assert inputs["deploy_pack_hash"].startswith("sha256:")
+    assert ctx_service.index["10"]["deployment"]["run_id"] == 123
+    assert ctx_service.github_deployment_records[0]["status"] == "queued"
+
+
+def test_dispatch_github_deployment_requires_confirmation():
+    ctx_service = FakeContextService()
+    ctx_service.save_deployment_config({"workflow_id": "deploy.yml", "ref": "main"})
+    svc = _svc(context=ctx_service)
+    svc.save_infra_delta(_ctx(), 10, _FAKE_DELTA_BYPASS)
+    with pytest.raises(Phase5ValidationError, match="Confirm"):
+        svc.dispatch_github_deployment(_ctx(), 10, confirmed=False)
+
+
+def test_sync_successful_github_run_marks_story_deployed(monkeypatch):
+    import backend.app.services.phase5_service as p5
+
+    monkeypatch.setattr(p5, "GithubActionsClient", FakeGithubActionsClient)
+    ctx_service = FakeContextService(index=_story_index(deployment={
+        "workflow_id": "deploy.yml",
+        "run_id": 123,
+        "run_url": "",
+        "ref": "main",
+        "environment": "production",
+        "deploy_pack_hash": "sha256:abc",
+    }))
+    result = _svc(context=ctx_service).sync_github_deployment_run(_ctx(), 10)
+    assert result["matched"] is True
+    assert ctx_service.index["10"]["phase_status"] == "deployed"
+    assert ctx_service.index["10"]["deployment"]["conclusion"] == "success"
+
+
+def test_sync_can_attach_run_id_when_dispatch_was_pending(monkeypatch):
+    import backend.app.services.phase5_service as p5
+
+    monkeypatch.setattr(p5, "GithubActionsClient", FakeGithubActionsClient)
+    ctx_service = FakeContextService(index=_story_index(deployment={
+        "workflow_id": "deploy.yml",
+        "run_id": None,
+        "run_url": "",
+        "ref": "main",
+        "environment": "production",
+        "deploy_pack_hash": "sha256:abc",
+    }))
+    result = _svc(context=ctx_service).sync_github_deployment_run(_ctx(), 10)
+    assert result["matched"] is True
+    assert ctx_service.index["10"]["deployment"]["run_id"] == 123
+    assert ctx_service.index["10"]["phase_status"] == "deployed"
+
+
+def test_failed_github_run_does_not_mark_story_deployed():
+    ctx_service = FakeContextService(index=_story_index(deployment={
+        "workflow_id": "deploy.yml",
+        "run_id": 123,
+        "run_url": "",
+        "ref": "main",
+        "environment": "production",
+        "deploy_pack_hash": "sha256:abc",
+    }))
+    run = {
+        "id": 123,
+        "html_url": "https://github.com/acme/widgets/actions/runs/123",
+        "status": "completed",
+        "conclusion": "failure",
+        "updated_at": "2026-07-19T12:00:00Z",
+    }
+    result = _svc(context=ctx_service).record_github_deployment_run(_ctx(), run)
+    assert result["matched"] is True
+    assert ctx_service.index["10"]["phase_status"] == "qa_passed"
+    assert ctx_service.index["10"]["deployment"]["conclusion"] == "failure"
 
 
 def test_deployment_log_appends(ctx):

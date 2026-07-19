@@ -2,15 +2,19 @@
 
 Implements the framework's "Deployment & Release" playbook as a governance
 layer: infra delta check → deploy pack or routine bypass → human-gated
-deployment decision. Apex records artifacts and gate decisions; it does not
-trigger real deployments.
+deployment decision. The default gate records artifacts and decisions; the
+opt-in GitHub Actions path can dispatch an existing workflow and only marks a
+story deployed after a matching successful run.
 """
 
+import hashlib
+import json
 import logging
 
 from backend.app.services.ai_service import AiService
 from backend.app.services.ai_grounding import extra_context_block
 from backend.app.services.context_service import ContextService
+from backend.app.services.github_actions import GithubActionsClient, GithubActionsError, utc_now_iso
 from backend.app.services.request_context import RequestContext
 
 _logger = logging.getLogger("apex.phase5_service")
@@ -309,3 +313,198 @@ class Phase5Service:
         )
         self.context.upsert_story_index(story_id, phase_status="deployed")
         _logger.info("Phase 5 deployment gate passed for story %s (bypass=%s)", story_id, bypass)
+
+    # ── GitHub Actions deployment automation ────────────────────────────────
+
+    def _github_client(self) -> GithubActionsClient:
+        return GithubActionsClient(self.context.github_pat(), self.context.github_repo())
+
+    def _deploy_pack_hash(self, story_id: int) -> str:
+        pack = self.context.load_deploy_pack(story_id)
+        if pack.strip():
+            content = pack
+        else:
+            delta = self.context.load_infra_delta(story_id) or {}
+            content = json.dumps(delta, sort_keys=True)
+        return f"sha256:{hashlib.sha256(content.encode('utf-8')).hexdigest()}"
+
+    @staticmethod
+    def _deployment_from_entry(entry: dict) -> dict:
+        deployment = entry.get("deployment")
+        return deployment if isinstance(deployment, dict) else {}
+
+    def save_github_deployment_config(self, ctx: RequestContext, config: dict) -> dict:
+        self.configure_request(ctx)
+        return self.context.save_deployment_config(config)
+
+    def github_deployment_status(self, ctx: RequestContext, story_id: int | None = None) -> dict:
+        self.configure_request(ctx)
+        config = self.context.deployment_config()
+        repo = self.context.github_repo().strip()
+        pat_configured = self.context.has_github_pat()
+        workflows: list[dict] = []
+        workflow = None
+        error = ""
+        if repo and pat_configured:
+            try:
+                client = self._github_client()
+                workflows = client.list_workflows()
+                if config.get("workflow_id"):
+                    workflow = client.workflow(config["workflow_id"])
+            except GithubActionsError as exc:
+                error = str(exc)
+        latest = None
+        if story_id is not None:
+            entry = (self.context.story_index().get(str(story_id)) or {})
+            latest = self._deployment_from_entry(entry) or None
+        return {
+            "github_connected": bool(repo and pat_configured),
+            "repo": repo,
+            "config": config,
+            "workflow_configured": bool(config.get("workflow_id")),
+            "workflow_exists": workflow is not None,
+            "workflow": workflow,
+            "workflows": workflows,
+            "latest_run": latest,
+            "error": error,
+        }
+
+    def dispatch_github_deployment(self, ctx: RequestContext, story_id: int, *, confirmed: bool) -> dict:
+        self.configure_request(ctx)
+        if not confirmed:
+            raise Phase5ValidationError("Confirm before triggering a real GitHub Actions deployment.")
+        entry = self._eligible_entry(story_id)
+        delta = self.context.load_infra_delta(story_id)
+        if delta is None:
+            raise Phase5ValidationError(f"Run and save the infra delta check for story {story_id} before deploying.")
+        bypass = not delta.get("needs_infra_change")
+        pack = self.context.load_deploy_pack(story_id)
+        if not bypass and not pack.strip():
+            raise Phase5ValidationError("A saved deploy pack is required before dispatching a deployment workflow.")
+        config = self.context.deployment_config()
+        workflow_id = str(config.get("workflow_id", "") or "").strip()
+        if not workflow_id:
+            raise Phase5ValidationError("Configure a GitHub Actions workflow before dispatching deployment.")
+        ref = str(config.get("ref", "") or "").strip() or "main"
+        environment = str(config.get("environment", "") or "").strip()
+        deploy_hash = self._deploy_pack_hash(story_id)
+        inputs = dict(config.get("inputs") or {})
+        if environment and "environment" not in inputs:
+            inputs["environment"] = environment
+        if config.get("include_apex_inputs"):
+            inputs.update({
+                "story_id": str(story_id),
+                "apex_project_id": str(ctx.project_id),
+                "deploy_pack_hash": deploy_hash,
+            })
+        client = self._github_client()
+        workflow = client.workflow(workflow_id)
+        if workflow is None:
+            raise Phase5ValidationError("Configured GitHub Actions workflow was not found.")
+        dispatched_at = utc_now_iso()
+        client.dispatch(workflow_id, ref=ref, inputs=inputs)
+        run = self._latest_dispatch_run(client, workflow_id, ref=ref)
+        deployment = {
+            "status": (run or {}).get("status") or "queued",
+            "conclusion": (run or {}).get("conclusion") or "",
+            "workflow_id": workflow_id,
+            "workflow_name": workflow.get("name") or "",
+            "run_id": (run or {}).get("id"),
+            "run_url": (run or {}).get("html_url") or "",
+            "ref": ref,
+            "environment": environment,
+            "deploy_pack_hash": deploy_hash,
+            "dispatched_at": dispatched_at,
+            "completed_at": "",
+        }
+        self.context.upsert_story_index(story_id, deployment=deployment)
+        self.context.append_github_deployment_record(
+            story_id,
+            entry.get("title", f"Story {story_id}"),
+            workflow_id=workflow_id,
+            run_id=deployment.get("run_id"),
+            run_url=deployment.get("run_url", ""),
+            ref=ref,
+            environment=environment,
+            status=deployment["status"],
+            conclusion=deployment["conclusion"],
+            deploy_pack_hash=deploy_hash,
+            notes="Dispatched from Phase 5 Approve & Deploy.",
+        )
+        return deployment
+
+    def _latest_dispatch_run(self, client: GithubActionsClient, workflow_id: str, *, ref: str) -> dict | None:
+        runs = client.list_runs(workflow_id, branch=ref, event="workflow_dispatch", per_page=10)
+        return runs[0] if runs else None
+
+    def sync_github_deployment_run(self, ctx: RequestContext, story_id: int, run_id: int | None = None) -> dict:
+        self.configure_request(ctx)
+        entry = self.context.story_index().get(str(story_id)) or {}
+        deployment = self._deployment_from_entry(entry)
+        selected_run_id = run_id or deployment.get("run_id")
+        if not selected_run_id:
+            config = self.context.deployment_config()
+            workflow_id = str(deployment.get("workflow_id") or config.get("workflow_id") or "")
+            if not workflow_id:
+                raise Phase5ValidationError("No GitHub Actions run is associated with this story.")
+            run = self._latest_dispatch_run(self._github_client(), workflow_id, ref=str(deployment.get("ref") or config.get("ref") or "main"))
+            if run and run.get("id"):
+                deployment = {
+                    **deployment,
+                    "run_id": run.get("id"),
+                    "run_url": run.get("html_url") or deployment.get("run_url", ""),
+                    "status": run.get("status") or deployment.get("status") or "",
+                    "conclusion": run.get("conclusion") or deployment.get("conclusion") or "",
+                }
+                self.context.upsert_story_index(story_id, deployment=deployment)
+                run = self._github_client().run(run.get("id")) or run
+        else:
+            run = self._github_client().run(selected_run_id)
+        if not run:
+            raise Phase5ValidationError("GitHub Actions run was not found.")
+        return self.record_github_deployment_run(ctx, run)
+
+    def record_github_deployment_run(self, ctx: RequestContext, run: dict) -> dict:
+        self.configure_request(ctx)
+        run_id = run.get("id")
+        if not run_id:
+            raise Phase5ValidationError("GitHub workflow_run payload did not include a run id.")
+        index = self.context.story_index()
+        matched_story_id = None
+        matched_entry: dict = {}
+        for raw_id, entry in index.items():
+            deployment = self._deployment_from_entry(entry)
+            if deployment.get("run_id") and int(deployment.get("run_id")) == int(run_id):
+                matched_story_id = int(raw_id)
+                matched_entry = entry
+                break
+        if matched_story_id is None:
+            return {"matched": False, "run_id": run_id}
+        deployment = dict(self._deployment_from_entry(matched_entry))
+        status_value = str(run.get("status") or deployment.get("status") or "")
+        conclusion = str(run.get("conclusion") or "")
+        deployment.update({
+            "status": status_value,
+            "conclusion": conclusion,
+            "run_id": run_id,
+            "run_url": run.get("html_url") or deployment.get("run_url", ""),
+            "completed_at": run.get("updated_at") or run.get("run_updated_at") or (utc_now_iso() if status_value == "completed" else ""),
+        })
+        updates = {"deployment": deployment}
+        if status_value == "completed" and conclusion == "success":
+            updates["phase_status"] = "deployed"
+        self.context.upsert_story_index(matched_story_id, **updates)
+        self.context.append_github_deployment_record(
+            matched_story_id,
+            matched_entry.get("title", f"Story {matched_story_id}"),
+            workflow_id=str(deployment.get("workflow_id") or run.get("workflow_id") or ""),
+            run_id=int(run_id),
+            run_url=deployment.get("run_url", ""),
+            ref=deployment.get("ref", ""),
+            environment=deployment.get("environment", ""),
+            status=status_value,
+            conclusion=conclusion,
+            deploy_pack_hash=deployment.get("deploy_pack_hash", ""),
+            notes="Workflow completion recorded by GitHub webhook." if status_value == "completed" else "Workflow status synced.",
+        )
+        return {"matched": True, "story_id": matched_story_id, "deployment": deployment}

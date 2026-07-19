@@ -67,6 +67,37 @@ class TestSignatureAuth:
         assert resp.status_code == 200
         assert resp.json()["ignored"] == "ping"
 
+    def test_workflow_run_event_records_phase5_completion(self, client, monkeypatch):
+        instance_id = "test_instance_workflow_run"
+        calls = []
+
+        class FakePhase5Service:
+            def __init__(self, context=None):
+                self.context = context
+
+            def record_github_deployment_run(self, ctx, workflow_run):
+                calls.append((ctx.instance_id, ctx.project_id, workflow_run["id"]))
+                return {"matched": True, "story_id": 10, "deployment": {"status": "completed", "conclusion": "success"}}
+
+        monkeypatch.setattr(gw, "Phase5Service", FakePhase5Service)
+        monkeypatch.setattr(gw.ContextService, "set_active", lambda self, ctx: None)
+        monkeypatch.setattr(gw.ContextService, "github_repo", lambda self: "acme/widgets")
+
+        payload = {
+            "repository": {"full_name": "acme/widgets"},
+            "workflow_run": {"id": 123, "status": "completed", "conclusion": "success"},
+        }
+        body = json.dumps(payload).encode()
+        secret = _secret_for(instance_id)
+        resp = client.post(
+            f"/api/webhooks/github/{instance_id}/42",
+            content=body,
+            headers={"X-Hub-Signature-256": _sign(secret, body), "X-GitHub-Event": "workflow_run"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["matched"] is True
+        assert calls == [(instance_id, 42, 123)]
+
 
 class TestRepoMismatchIsProjectScoped:
     """github_repo is per-project now — the mismatch check must read the repo

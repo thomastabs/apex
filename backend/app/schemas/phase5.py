@@ -149,3 +149,42 @@ class VerificationResponse(BaseModel):
 class QaResultsResponse(BaseModel):
     story_id: int
     qa_results: dict | None = None
+
+
+class GithubDeploymentConfig(BaseModel):
+    workflow_id: str = Field("", max_length=300)
+    ref: str = Field("main", max_length=200)
+    environment: str = Field("", max_length=100)
+    inputs: dict[str, str] = Field(default_factory=dict)
+    include_apex_inputs: bool = False
+
+
+class SaveGithubDeploymentConfigRequest(BaseModel):
+    config: GithubDeploymentConfig
+
+
+class GithubDeploymentStatusResponse(BaseModel):
+    github_connected: bool
+    repo: str = ""
+    config: dict = Field(default_factory=dict)
+    workflow_configured: bool = False
+    workflow_exists: bool = False
+    workflow: dict | None = None
+    workflows: list[dict] = Field(default_factory=list)
+    latest_run: dict | None = None
+    error: str = ""
+
+
+class DispatchGithubDeploymentRequest(BaseModel):
+    story_id: int
+    confirmed: bool = False
+
+
+class GithubDeploymentRunResponse(BaseModel):
+    story_id: int
+    deployment: dict
+
+
+class SyncGithubDeploymentRequest(BaseModel):
+    story_id: int
+    run_id: int | None = None

@@ -3,17 +3,21 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  dispatchGithubDeployment,
   generateDeployPack,
   generateInfraDelta,
   getDeployPack,
   getEligibleStories,
+  getGithubDeploymentStatus,
   getInfraDelta,
   getQaResults,
   getStoryContext,
   passDeploymentGate,
   reviseDeployPack,
+  saveGithubDeploymentConfig,
   saveDeployPack,
   saveInfraDelta,
+  syncGithubDeployment,
   saveVerification,
 } from "@/lib/api/phase5";
 import { getProposals } from "@/lib/api/phase3";
@@ -24,6 +28,7 @@ import { useCancellableMutation } from "@/lib/hooks/use-cancellable-mutation";
 import { toast } from "sonner";
 import type {
   DeployPackOptions,
+  GithubDeploymentConfig,
   InfraDelta,
   VerificationMatrixPayload,
   VerificationScenarioRow,
@@ -290,5 +295,61 @@ export function usePassDeploymentGate() {
       void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },
     onError: (err: Error) => toast.error(`Gate failed: ${err.message}`),
+  });
+}
+
+export function useGithubDeploymentStatus(storyId: number | null) {
+  const context = useApiContext();
+  return useQuery({
+    queryKey: ["phase5", "github-deployment", "status", context?.projectId, storyId],
+    queryFn: () => getGithubDeploymentStatus(context!, storyId),
+    enabled: Boolean(context) && storyId !== null,
+    refetchInterval: (query) => {
+      const status = query.state.data?.latest_run?.status;
+      return status && !["completed", "success", "failure", "cancelled", "timed_out"].includes(status) ? 10_000 : false;
+    },
+  });
+}
+
+export function useSaveGithubDeploymentConfig() {
+  const context = useApiContext();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (config: GithubDeploymentConfig) => saveGithubDeploymentConfig(context!, config),
+    onSuccess: () => {
+      toast.success("GitHub deployment workflow saved.");
+      void qc.invalidateQueries({ queryKey: ["phase5", "github-deployment", "status", context?.projectId] });
+    },
+    onError: (err: Error) => toast.error(`Deployment workflow save failed: ${err.message}`),
+  });
+}
+
+export function useDispatchGithubDeployment() {
+  const context = useApiContext();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ storyId }: { storyId: number }) => dispatchGithubDeployment(context!, storyId),
+    onSuccess: (_, { storyId }) => {
+      toast.success("GitHub Actions deployment dispatched.");
+      void qc.invalidateQueries({ queryKey: ["phase5", "github-deployment", "status", context?.projectId, storyId] });
+      void qc.invalidateQueries({ queryKey: ["phase5", "eligible-stories", context?.projectId] });
+    },
+    onError: (err: Error) => toast.error(`Deployment dispatch failed: ${err.message}`),
+  });
+}
+
+export function useSyncGithubDeployment() {
+  const context = useApiContext();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ storyId, runId }: { storyId: number; runId?: number | null }) =>
+      syncGithubDeployment(context!, storyId, runId),
+    onSuccess: (_, { storyId }) => {
+      toast.success("GitHub deployment status synced.");
+      void qc.invalidateQueries({ queryKey: ["phase5", "github-deployment", "status", context?.projectId, storyId] });
+      void qc.invalidateQueries({ queryKey: ["phase5", "eligible-stories", context?.projectId] });
+      void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
+    },
+    onError: (err: Error) => toast.error(`Deployment sync failed: ${err.message}`),
   });
 }

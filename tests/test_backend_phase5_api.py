@@ -5,29 +5,37 @@ from fastapi import HTTPException
 
 from backend.app.api.deps import get_request_context
 from backend.app.api.phase5 import (
+    dispatch_github_deployment,
     eligible_stories,
     generate_deploy_pack,
     generate_infra_delta,
     get_deploy_pack,
     get_infra_delta,
+    github_deployment_status,
     get_verification,
     pass_deployment_gate,
     qa_results,
     revise_deploy_pack,
+    save_github_deployment_config,
     save_deploy_pack,
     save_infra_delta,
+    sync_github_deployment,
     save_verification,
     story_context,
 )
 from backend.app.schemas.phase5 import (
+    DispatchGithubDeploymentRequest,
     GenerateDeployPackRequest,
+    GithubDeploymentConfig,
     GenerateInfraDeltaRequest,
     InfraDeltaItemModel,
     InfraDeltaModel,
     PassDeploymentGateRequest,
     ReviseDeployPackRequest,
+    SaveGithubDeploymentConfigRequest,
     SaveDeployPackRequest,
     SaveInfraDeltaRequest,
+    SyncGithubDeploymentRequest,
     SaveVerificationRequest,
     VerificationMatrix,
     VerificationScenarioRow,
@@ -54,6 +62,8 @@ class StubPhase5Service:
         self.saved_pack = None
         self.gate_args = None
         self.revise_args = None
+        self.github_config = None
+        self.github_dispatch_args = None
 
     def configure_request(self, ctx):
         pass
@@ -119,6 +129,30 @@ class StubPhase5Service:
 
     def load_verification(self, ctx, story_id):
         return {"story_id": story_id, "summary": {"total": 1}}
+
+    def github_deployment_status(self, ctx, story_id=None):
+        return {
+            "github_connected": True,
+            "repo": "acme/widgets",
+            "config": {"workflow_id": "deploy.yml", "ref": "main"},
+            "workflow_configured": True,
+            "workflow_exists": True,
+            "workflow": {"id": 7, "name": "Deploy"},
+            "workflows": [{"id": 7, "name": "Deploy"}],
+            "latest_run": None,
+            "error": "",
+        }
+
+    def save_github_deployment_config(self, ctx, config):
+        self.github_config = config
+        return config
+
+    def dispatch_github_deployment(self, ctx, story_id, *, confirmed):
+        self.github_dispatch_args = (story_id, confirmed)
+        return {"run_id": 123, "status": "queued", "conclusion": ""}
+
+    def sync_github_deployment_run(self, ctx, story_id, run_id=None):
+        return {"matched": True, "story_id": story_id, "deployment": {"run_id": run_id or 123, "status": "completed", "conclusion": "success"}}
 
 
 def _ctx():
@@ -238,6 +272,51 @@ def test_save_verification_route():
 def test_get_verification_route():
     result = get_verification(story_id=10, ctx=_ctx(), service=StubPhase5Service())
     assert result["matrix"]["summary"]["total"] == 1
+
+
+def test_github_deployment_status_route():
+    result = github_deployment_status(story_id=10, ctx=_ctx(), service=StubPhase5Service())
+    assert result["workflow_exists"] is True
+    assert result["workflows"][0]["name"] == "Deploy"
+
+
+def test_save_github_deployment_config_route():
+    svc = StubPhase5Service()
+    result = save_github_deployment_config(
+        SaveGithubDeploymentConfigRequest(
+            config=GithubDeploymentConfig(
+                workflow_id=".github/workflows/deploy.yml",
+                ref="main",
+                environment="production",
+                inputs={"environment": "production"},
+                include_apex_inputs=True,
+            ),
+        ),
+        ctx=_ctx(),
+        service=svc,
+    )
+    assert result["github_connected"] is True
+    assert svc.github_config["workflow_id"] == ".github/workflows/deploy.yml"
+
+
+def test_dispatch_github_deployment_route():
+    svc = StubPhase5Service()
+    result = dispatch_github_deployment(
+        DispatchGithubDeploymentRequest(story_id=10, confirmed=True),
+        ctx=_ctx(),
+        service=svc,
+    )
+    assert result["deployment"]["run_id"] == 123
+    assert svc.github_dispatch_args == (10, True)
+
+
+def test_sync_github_deployment_route():
+    result = sync_github_deployment(
+        SyncGithubDeploymentRequest(story_id=10, run_id=123),
+        ctx=_ctx(),
+        service=StubPhase5Service(),
+    )
+    assert result["deployment"]["conclusion"] == "success"
 
 
 # ---------------------------------------------------------------------------

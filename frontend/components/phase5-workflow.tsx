@@ -11,10 +11,14 @@ import {
   ChevronRight,
   Copy,
   Download,
+  ExternalLink,
+  GitBranch,
   Eye,
   Info,
   Loader2,
+  Play,
   Plus,
+  RefreshCw,
   Rocket,
   ShieldCheck,
   SlidersHorizontal,
@@ -27,14 +31,18 @@ import { AIProgressIndicator } from "@/components/ai-progress-indicator";
 import { CancelButton } from "@/components/ui/cancel-button";
 import {
   useEligibleStories,
+  useDispatchGithubDeployment,
   useGenerateDeployPack,
   useGenerateInfraDelta,
+  useGithubDeploymentStatus,
   useLoadDeployPack,
   useLoadInfraDelta,
   usePassDeploymentGate,
   useReviseDeployPack,
+  useSaveGithubDeploymentConfig,
   useSaveDeployPack,
   useSaveInfraDelta,
+  useSyncGithubDeployment,
   useSaveVerification,
   useStoryContext,
   useTraceabilityMatrix,
@@ -51,7 +59,7 @@ import { useUiStore } from "@/lib/stores/ui-store";
 import { useT } from "@/lib/i18n/use-translation";
 import type { TranslationKey } from "@/lib/i18n/translations";
 import { cn, errMsg } from "@/lib/utils";
-import type { DeployPackEmphasis, DeployPackOptions, InfraDelta, InfraDeltaCategory, InfraDeltaItem, Phase5StoryPreview } from "@/lib/api/types";
+import type { DeployPackEmphasis, DeployPackOptions, GithubDeploymentConfig, InfraDelta, InfraDeltaCategory, InfraDeltaItem, Phase5StoryPreview } from "@/lib/api/types";
 import { AiGroundingNote } from "@/components/ai-grounding-note";
 import { AI_GROUNDING } from "@/lib/ai-grounding";
 import { useGroundingFiles } from "@/lib/hooks/use-grounding-files";
@@ -191,6 +199,22 @@ const CATEGORY_LABEL_KEYS: Record<InfraDeltaCategory, TranslationKey> = {
 };
 
 const EMPTY_ITEM: InfraDeltaItem = { category: "iac", title: "", detail: "", risk: "low" };
+
+function parseInputLines(value: string): Record<string, string> {
+  const inputs: Record<string, string> = {};
+  for (const raw of value.split("\n")) {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) continue;
+    const idx = line.indexOf("=");
+    if (idx <= 0) continue;
+    inputs[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
+  }
+  return inputs;
+}
+
+function inputLines(inputs: Record<string, string> | undefined): string {
+  return Object.entries(inputs ?? {}).map(([k, v]) => `${k}=${v}`).join("\n");
+}
 
 // ---------------------------------------------------------------------------
 // Stage A — Story selection
@@ -940,6 +964,208 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 // Stage D — Deployment Gate
 // ---------------------------------------------------------------------------
 
+function GithubActionsDeploymentPanel({
+  storyId,
+  canApprove,
+}: {
+  storyId: number;
+  canApprove: boolean;
+}) {
+  const t = useT();
+  const dark = useUiStore((s) => s.theme) === "dark";
+  const { data, isLoading } = useGithubDeploymentStatus(storyId);
+  const saveConfigMut = useSaveGithubDeploymentConfig();
+  const dispatchMut = useDispatchGithubDeployment();
+  const syncMut = useSyncGithubDeployment();
+  const [workflowId, setWorkflowId] = useState("");
+  const [ref, setRef] = useState("main");
+  const [environment, setEnvironment] = useState("production");
+  const [includeApexInputs, setIncludeApexInputs] = useState(false);
+  const [inputsText, setInputsText] = useState("environment=production");
+
+  useEffect(() => {
+    if (!data?.config) return;
+    setWorkflowId(String(data.config.workflow_id ?? ""));
+    setRef(String(data.config.ref ?? "main") || "main");
+    setEnvironment(String(data.config.environment ?? ""));
+    setIncludeApexInputs(Boolean(data.config.include_apex_inputs));
+    setInputsText(inputLines(data.config.inputs));
+  }, [data?.config]);
+
+  const latest = data?.latest_run;
+  const status = latest?.status ?? "";
+  const conclusion = latest?.conclusion ?? "";
+  const running = status && status !== "completed";
+  const workflowReady = Boolean(data?.github_connected && data.workflow_configured && data.workflow_exists);
+  const canDispatch = canApprove && workflowReady && !dispatchMut.isPending;
+  const statusTone =
+    conclusion === "success"
+      ? "text-emerald-500"
+      : conclusion
+        ? "text-red-500"
+        : running
+          ? "text-amber-500"
+          : dark ? "text-neutral-400" : "text-slate-500";
+
+  const saveConfig = () => {
+    const config: GithubDeploymentConfig = {
+      workflow_id: workflowId.trim(),
+      ref: ref.trim() || "main",
+      environment: environment.trim(),
+      inputs: parseInputLines(inputsText),
+      include_apex_inputs: includeApexInputs,
+    };
+    saveConfigMut.mutate(config);
+  };
+
+  const workflowOptions = data?.workflows ?? [];
+
+  return (
+    <div className={cn("rounded-xl border p-5 space-y-4", dark ? "border-neutral-700 bg-neutral-900/60" : "border-slate-200 bg-slate-50")}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className={cn("flex items-center gap-2 text-sm font-semibold", dark ? "text-neutral-200" : "text-slate-700")}>
+            <Rocket className="h-4 w-4 text-violet-500" /> {t("phase5.githubDeployment.heading")}
+          </p>
+          <p className={cn("mt-1 text-xs", dark ? "text-neutral-500" : "text-slate-500")}>
+            {t("phase5.githubDeployment.sub")}
+          </p>
+        </div>
+        <span className={cn("shrink-0 rounded px-2 py-0.5 text-xs font-semibold", statusTone)}>
+          {isLoading
+            ? t("common.loading")
+            : !data?.github_connected
+              ? t("phase5.githubDeployment.disconnected")
+              : workflowReady
+                ? t("phase5.githubDeployment.ready")
+                : t("phase5.githubDeployment.needsConfig")}
+        </span>
+      </div>
+
+      {data?.error && <Callout variant="danger">{data.error}</Callout>}
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <label className="block space-y-1.5 sm:col-span-2">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">
+            {t("phase5.githubDeployment.workflow")}
+          </span>
+          <select
+            value={workflowId}
+            onChange={(e) => setWorkflowId(e.target.value)}
+            className={cn(
+              "w-full rounded-lg border px-3 py-2 text-sm",
+              dark ? "border-neutral-700 bg-neutral-950 text-neutral-100" : "border-slate-300 bg-white text-slate-800",
+            )}
+          >
+            <option value="">{t("phase5.githubDeployment.chooseWorkflow")}</option>
+            {workflowOptions.map((wf) => {
+              const value = String(wf.path || wf.id || "");
+              return <option key={value} value={value}>{wf.name || value} · {wf.path || wf.id}</option>;
+            })}
+          </select>
+        </label>
+        <label className="block space-y-1.5">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">
+            {t("phase5.githubDeployment.ref")}
+          </span>
+          <div className="relative">
+            <GitBranch className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-neutral-500" />
+            <input
+              value={ref}
+              onChange={(e) => setRef(e.target.value)}
+              className={cn(
+                "w-full rounded-lg border py-2 pl-9 pr-3 text-sm",
+                dark ? "border-neutral-700 bg-neutral-950 text-neutral-100" : "border-slate-300 bg-white text-slate-800",
+              )}
+            />
+          </div>
+        </label>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block space-y-1.5">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">
+            {t("phase5.githubDeployment.environment")}
+          </span>
+          <input
+            value={environment}
+            onChange={(e) => setEnvironment(e.target.value)}
+            className={cn(
+              "w-full rounded-lg border px-3 py-2 text-sm",
+              dark ? "border-neutral-700 bg-neutral-950 text-neutral-100" : "border-slate-300 bg-white text-slate-800",
+            )}
+          />
+        </label>
+        <label className={cn("flex items-center gap-2 rounded-lg border px-3 py-2 text-sm", dark ? "border-neutral-700 bg-neutral-950 text-neutral-300" : "border-slate-300 bg-white text-slate-600")}>
+          <input
+            type="checkbox"
+            checked={includeApexInputs}
+            onChange={(e) => setIncludeApexInputs(e.target.checked)}
+            className="h-4 w-4 accent-violet-600"
+          />
+          <span>{t("phase5.githubDeployment.includeApexInputs")}</span>
+        </label>
+      </div>
+
+      <label className="block space-y-1.5">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">
+          {t("phase5.githubDeployment.inputs")}
+        </span>
+        <Textarea
+          value={inputsText}
+          onChange={(e) => setInputsText(e.target.value)}
+          rows={3}
+          className="font-mono text-xs"
+          placeholder="environment=production"
+        />
+      </label>
+
+      {latest && (
+        <div className={cn("rounded-lg border px-3 py-2 text-xs", dark ? "border-neutral-700 bg-neutral-950 text-neutral-400" : "border-slate-200 bg-white text-slate-500")}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={cn("font-semibold", statusTone)}>
+              {status || "unknown"}{conclusion ? ` / ${conclusion}` : ""}
+            </span>
+            {latest.run_url && (
+              <a href={latest.run_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-violet-500 hover:text-violet-400">
+                {t("phase5.githubDeployment.openRun")} <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            )}
+          </div>
+          {latest.deploy_pack_hash && <p className="mt-1 font-mono">{latest.deploy_pack_hash}</p>}
+        </div>
+      )}
+
+      <div className="grid gap-2 sm:grid-cols-3">
+        <Button variant="secondary" onClick={saveConfig} disabled={saveConfigMut.isPending} className="justify-center gap-1.5">
+          {saveConfigMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+          {t("phase5.githubDeployment.saveConfig")}
+        </Button>
+        <Button
+          onClick={() => {
+            if (!window.confirm(t("phase5.githubDeployment.confirm", { storyId }))) return;
+            dispatchMut.mutate({ storyId });
+          }}
+          disabled={!canDispatch}
+          className="justify-center gap-1.5"
+        >
+          {dispatchMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+          {t("phase5.githubDeployment.dispatch")}
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={() => syncMut.mutate({ storyId, runId: latest?.run_id ?? undefined })}
+          disabled={!latest?.run_id || syncMut.isPending}
+          className="justify-center gap-1.5"
+        >
+          {syncMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          {t("phase5.githubDeployment.sync")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function StageD({ storyId, onBack, onRevise, onNewStory }: {
   storyId: number;
   onBack: () => void;
@@ -1138,6 +1364,8 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
         </label>
       </div>
 
+      <GithubActionsDeploymentPanel storyId={storyId} canApprove={canApprove} />
+
       {/* Reject path — only meaningful when a pack exists */}
       {!bypass && deployPackMd && (
         <div className={cn("rounded-xl border p-5 space-y-3", dark ? "border-neutral-800" : "border-slate-200")}>
@@ -1195,15 +1423,16 @@ function StageD({ storyId, onBack, onRevise, onNewStory }: {
         </Button>
         <Button
           onClick={() => {
-            if (!window.confirm(t("phase5.confirmApproveDeploy", { storyId }))) return;
+            if (!window.confirm(t("phase5.confirmRecordManualDeploy", { storyId }))) return;
             gateMut.mutate({ storyId, techLeadApproved, devopsApproved });
           }}
           disabled={!canApprove || gateMut.isPending}
+          variant="secondary"
           className="flex-1 justify-center gap-1.5"
         >
           {gateMut.isPending
             ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("phase5.recording")}</>
-            : <><Rocket className="h-4 w-4" /> {t("phase5.approveAndDeploy")}</>}
+            : <><Rocket className="h-4 w-4" /> {t("phase5.recordManualDeployment")}</>}
         </Button>
       </div>
 

@@ -28,6 +28,7 @@ from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request, 
 
 from backend.app.services import github_fetch
 from backend.app.services.context_service import ContextService
+from backend.app.services.phase5_service import Phase5Service
 from backend.app.services.phase6_service import Phase6Service
 from backend.app.services.request_context import RequestContext
 from src import ai_engine
@@ -118,6 +119,21 @@ def _run_scan(instance_id: str, project_id: int, story_ids: list[int]) -> None:
         )
 
 
+def _handle_workflow_run(instance_id: str, project_id: int, payload: dict) -> dict:
+    ctx = RequestContext(pm_token="", project_id=project_id, instance_id=instance_id)
+    workflow_run = payload.get("workflow_run") or {}
+    if not isinstance(workflow_run, dict):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid workflow_run payload.")
+    context = ContextService()
+    context.set_active(ctx)
+    configured_repo = context.github_repo().strip()
+    run_repo = ((payload.get("repository") or {}).get("full_name") or "").strip()
+    if configured_repo and run_repo and configured_repo != run_repo:
+        return {"ok": True, "ignored": f"repo mismatch ({run_repo} != {configured_repo})"}
+    result = Phase5Service(context=context).record_github_deployment_run(ctx, workflow_run)
+    return {"ok": True, **result}
+
+
 @router.post("/github/{instance_id}/{project_id}")
 async def github_push_webhook(
     instance_id: str,
@@ -134,6 +150,13 @@ async def github_push_webhook(
     secret = context.github_webhook_secret()
     if not _verify_signature(secret, body, x_hub_signature_256):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid webhook signature.")
+
+    if x_github_event == "workflow_run":
+        try:
+            payload = json.loads(body)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON payload.")
+        return _handle_workflow_run(instance_id, project_id, payload)
 
     if x_github_event != "push":
         # "ping" (sent when the webhook is first created) and anything else:

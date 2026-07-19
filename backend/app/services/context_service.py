@@ -49,6 +49,12 @@ class ContextService:
     def save_status_mapping(self, mapping: dict[str, str]) -> None:
         context_manager.save_project_status_mapping(mapping)
 
+    def deployment_config(self) -> dict:
+        return context_manager.get_project_deployment_config()
+
+    def save_deployment_config(self, config: dict) -> dict:
+        return context_manager.save_project_deployment_config(config)
+
     def save_github_pack_config(
         self,
         *,
@@ -389,6 +395,35 @@ class ContextService:
             story_id, title,
             bypass=bypass, pack_present=pack_present,
             sign_offs=sign_offs, notes=notes,
+        )
+
+    def append_github_deployment_record(
+        self,
+        story_id: int,
+        title: str,
+        *,
+        workflow_id: str,
+        run_id: int | None = None,
+        run_url: str = "",
+        ref: str = "",
+        environment: str = "",
+        status: str = "",
+        conclusion: str = "",
+        deploy_pack_hash: str = "",
+        notes: str = "",
+    ) -> None:
+        context_manager.append_github_deployment_record(
+            story_id,
+            title,
+            workflow_id=workflow_id,
+            run_id=run_id,
+            run_url=run_url,
+            ref=ref,
+            environment=environment,
+            status=status,
+            conclusion=conclusion,
+            deploy_pack_hash=deploy_pack_hash,
+            notes=notes,
         )
 
     def append_epic_design_bundle(

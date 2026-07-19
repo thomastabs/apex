@@ -10,19 +10,25 @@ from backend.app.schemas.phase5 import (
     DeployPackResponse,
     DeployPacksResponse,
     EligibleStoriesResponse,
+    DispatchGithubDeploymentRequest,
     GenerateDeployPackRequest,
     GenerateInfraDeltaRequest,
+    GithubDeploymentRunResponse,
+    GithubDeploymentStatusResponse,
     InfraDeltaResponse,
     PassDeploymentGateRequest,
     QaResultsResponse,
     ReviseDeployPackRequest,
+    SaveGithubDeploymentConfigRequest,
     SaveDeployPackRequest,
     SaveInfraDeltaRequest,
+    SyncGithubDeploymentRequest,
     SaveVerificationRequest,
     StoryContextResponse,
     VerificationResponse,
 )
 from backend.app.schemas.workspace import OkResponse
+from backend.app.services.github_actions import GithubActionsError
 from backend.app.services.phase5_service import Phase5Service, Phase5ValidationError
 from src.ai_engine import AIError, AIRateLimitError, AITimeoutError
 
@@ -42,6 +48,9 @@ def _handle_error(exc: Exception) -> NoReturn:
         raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail=str(exc)) from exc
     if isinstance(exc, AIError):
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+    if isinstance(exc, GithubActionsError):
+        code = exc.status_code if exc.status_code in (401, 403, 404, 422, 429) else status.HTTP_502_BAD_GATEWAY
+        raise HTTPException(status_code=code or status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
     if isinstance(exc, EnvironmentError):
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
     raise exc
@@ -246,5 +255,58 @@ def pass_deployment_gate(
             notes=payload.notes,
         )
         return {"ok": True}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.get("/github-deployment/status", response_model=GithubDeploymentStatusResponse)
+def github_deployment_status(
+    story_id: int | None = None,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase5Service = Depends(get_phase5_service),
+):
+    try:
+        return service.github_deployment_status(ctx, story_id)
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/github-deployment/config", response_model=GithubDeploymentStatusResponse)
+def save_github_deployment_config(
+    payload: SaveGithubDeploymentConfigRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase5Service = Depends(get_phase5_service),
+):
+    try:
+        service.save_github_deployment_config(ctx, payload.config.model_dump())
+        return service.github_deployment_status(ctx, None)
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/github-deployment/dispatch", response_model=GithubDeploymentRunResponse)
+def dispatch_github_deployment(
+    payload: DispatchGithubDeploymentRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase5Service = Depends(get_phase5_service),
+):
+    try:
+        deployment = service.dispatch_github_deployment(ctx, payload.story_id, confirmed=payload.confirmed)
+        return {"story_id": payload.story_id, "deployment": deployment}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/github-deployment/sync", response_model=GithubDeploymentRunResponse)
+def sync_github_deployment(
+    payload: SyncGithubDeploymentRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase5Service = Depends(get_phase5_service),
+):
+    try:
+        deployment = service.sync_github_deployment_run(ctx, payload.story_id, payload.run_id)
+        if not deployment.get("matched"):
+            raise Phase5ValidationError("GitHub Actions run is not linked to this story.")
+        return {"story_id": payload.story_id, "deployment": deployment["deployment"]}
     except Exception as exc:
         _handle_error(exc)

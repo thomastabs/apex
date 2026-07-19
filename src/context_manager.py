@@ -597,6 +597,7 @@ def get_or_create_instance_github_webhook_secret() -> str:
 # webhook). Figma's token also stays instance-scoped — out of scope here.
 _PROJECT_GITHUB_CONFIG_FILE = ".project-github-config.json"
 _PROJECT_STATUS_MAPPING_FILE = ".project-status-mapping.json"
+_PROJECT_DEPLOYMENT_CONFIG_FILE = ".project-deployment-config.json"
 
 
 def _project_github_config_path(project_id: int | None = None) -> Path:
@@ -611,6 +612,47 @@ def _write_project_github_config(data: dict, project_id: int | None = None) -> N
 
 def _project_status_mapping_path(project_id: int | None = None) -> Path:
     return _context_dir(project_id) / _PROJECT_STATUS_MAPPING_FILE
+
+
+def _project_deployment_config_path(project_id: int | None = None) -> Path:
+    return _context_dir(project_id) / _PROJECT_DEPLOYMENT_CONFIG_FILE
+
+
+def get_project_deployment_config(project_id: int | None = None) -> dict:
+    """Saved Phase 5 GitHub Actions deployment settings for the active project."""
+    p = _project_deployment_config_path(project_id)
+    if not p.exists():
+        return {}
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def save_project_deployment_config(config: dict, project_id: int | None = None) -> dict:
+    """Persist sanitized Phase 5 GitHub Actions deployment settings."""
+    workflow_id = str(config.get("workflow_id", "") or "").strip()
+    ref = str(config.get("ref", "") or "").strip() or "main"
+    environment = str(config.get("environment", "") or "").strip()
+    raw_inputs = config.get("inputs", {})
+    inputs = {
+        str(k).strip(): str(v)
+        for k, v in (raw_inputs.items() if isinstance(raw_inputs, dict) else [])
+        if str(k).strip()
+    }
+    include_apex_inputs = bool(config.get("include_apex_inputs", False))
+    clean = {
+        "workflow_id": workflow_id,
+        "ref": ref,
+        "environment": environment,
+        "inputs": inputs,
+        "include_apex_inputs": include_apex_inputs,
+    }
+    p = _project_deployment_config_path(project_id)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(clean, indent=2), encoding="utf-8")
+    return clean
 
 
 def get_project_status_mapping(project_id: int | None = None) -> dict[str, str]:
@@ -2393,6 +2435,45 @@ def append_deployment_record(
     entry.append("")
     # Append via read+write — StoragePath (the production base type, local or
     # Azure) has no append-mode open().
+    p.write_text(existing + "\n".join(entry), encoding="utf-8")
+
+
+def append_github_deployment_record(
+    story_id: int,
+    title: str,
+    *,
+    workflow_id: str,
+    run_id: int | None = None,
+    run_url: str = "",
+    ref: str = "",
+    environment: str = "",
+    status: str = "",
+    conclusion: str = "",
+    deploy_pack_hash: str = "",
+    notes: str = "",
+) -> None:
+    """Append a GitHub Actions deployment event to deployment-log.md."""
+    cd = _context_dir()
+    cd.mkdir(parents=True, exist_ok=True)
+    p = cd / "deployment-log.md"
+    existing = p.read_text(encoding="utf-8") if p.exists() else (
+        "# Deployment Log\n\nGate decisions recorded by Phase 5 — one entry per deployment.\n"
+    )
+    entry = [
+        "",
+        f"## GitHub Actions Deployment — Story {story_id} — {_now_iso()}",
+        "",
+        f"- **Story:** {title.strip() or f'Story {story_id}'}",
+        f"- **Workflow:** {workflow_id or 'n/a'}",
+        f"- **Run:** {run_id or 'pending'}{f' — {run_url}' if run_url else ''}",
+        f"- **Ref:** {ref or 'n/a'}",
+        f"- **Environment:** {environment or 'n/a'}",
+        f"- **Deploy pack hash:** {deploy_pack_hash or 'n/a'}",
+        f"- **Status:** {status or 'unknown'}{f' / {conclusion}' if conclusion else ''}",
+    ]
+    if notes.strip():
+        entry.append(f"- **Notes:** {notes.strip()}")
+    entry.append("")
     p.write_text(existing + "\n".join(entry), encoding="utf-8")
 
 
