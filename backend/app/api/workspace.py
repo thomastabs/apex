@@ -112,18 +112,22 @@ def _agent_file_payload(filename: str, label: str) -> dict:
     path = _agent_file_path(filename)
     content = ""
     exists = path.exists()
+    stored_content = ContextService().read_agent_file(filename)
+    stored_exists = bool(stored_content)
     if exists:
         try:
             content = path.read_text(encoding="utf-8")
         except UnicodeDecodeError as exc:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Agent file must be UTF-8 text.") from exc
+    elif stored_exists:
+        content = stored_content
     return {
         "filename": filename,
         "label": label,
         "content": content,
         "chars": len(content),
-        "exists": exists,
-        "ignored": _gitignore_ignores(filename),
+        "exists": exists or stored_exists,
+        "ignored": stored_exists or _gitignore_ignores(filename),
     }
 
 
@@ -642,6 +646,7 @@ def save_status_mapping(
 
 @router.get("/agent-files", response_model=AgentFilesResponse)
 def get_agent_files(_ctx: RequestContext = Depends(get_request_context)):
+    ContextService().set_active(_ctx)
     return {"files": [_agent_file_payload(filename, label) for filename, label in _AGENT_FILES]}
 
 
@@ -659,6 +664,10 @@ def _agent_generation_grounding(ctx: RequestContext, filenames: list[str]) -> li
             result.append((filename, context.read_context_file(filename)[:60_000]))
             continue
         if filename in _ALLOWED_AGENT_FILES:
+            stored_content = context.read_agent_file(filename).strip()
+            if stored_content:
+                result.append((filename, stored_content[:60_000]))
+                continue
             path = _agent_file_path(filename)
             if path.exists():
                 try:
@@ -686,6 +695,7 @@ def generate_agent_file(
     from src import ai_engine
     from src.ai_engine import AIError, AIRateLimitError, AITimeoutError
 
+    ContextService().set_active(ctx)
     label = _agent_file_label(filename)
     existing = _agent_file_payload(filename, label)["content"]
     grounding = _agent_generation_grounding(ctx, payload.grounding_files)
@@ -711,8 +721,13 @@ def update_agent_file(
     payload: UpdateAgentFileRequest,
     _ctx: RequestContext = Depends(get_request_context),
 ):
+    ctx_service = ContextService()
+    ctx_service.set_active(_ctx)
     path = _agent_file_path(filename)
-    path.write_text(payload.content, encoding="utf-8")
+    try:
+        path.write_text(payload.content, encoding="utf-8")
+    except OSError:
+        ctx_service.write_agent_file(filename, payload.content)
     return get_agent_files(_ctx)
 
 

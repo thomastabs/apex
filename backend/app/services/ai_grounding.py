@@ -44,7 +44,10 @@ def is_custom_context_file(filename: str) -> bool:
     )
 
 
-def _read_agent_file(filename: str) -> str:
+def _read_agent_file(context: ContextService, filename: str) -> str:
+    stored = context.read_agent_file(filename).strip()
+    if stored:
+        return stored
     path = (REPO_ROOT / filename).resolve()
     if path.parent != REPO_ROOT:
         raise GroundingValidationError(f"Invalid extra context file: {filename}")
@@ -70,7 +73,7 @@ def extra_context_block(context: ContextService, filenames: list[str] | None) ->
         if name in CONTEXT_GROUNDING_FILES or is_custom_context_file(name):
             content = context.read_context_file(name).strip()
         elif name in AGENT_GROUNDING_FILES:
-            content = _read_agent_file(name).strip()
+            content = _read_agent_file(context, name).strip()
         else:
             raise GroundingValidationError(f"Unknown extra context file: {name}")
         if not content:

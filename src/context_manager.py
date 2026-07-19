@@ -3532,6 +3532,19 @@ def write_context_file(filename: str, content: str) -> None:
     _path(filename).write_text(content, encoding="utf-8")
 
 
+def read_agent_file(filename: str) -> str:
+    """Return a project-scoped agent instruction file override, or '' if missing."""
+    init_context()
+    p = _path(f"agent-files/{filename}")
+    return p.read_text(encoding="utf-8") if p.exists() else ""
+
+
+def write_agent_file(filename: str, content: str) -> None:
+    """Persist a project-scoped agent instruction file override."""
+    init_context()
+    _path(f"agent-files/{filename}").write_text(content, encoding="utf-8")
+
+
 def reset_context_file(filename: str) -> None:
     """Reset a single context file to its blank template."""
     template = _TEMPLATES.get(filename)

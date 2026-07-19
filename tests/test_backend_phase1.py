@@ -3,7 +3,6 @@
 import pytest
 
 import backend.app.services.ai_grounding as ai_grounding
-import backend.app.services.phase1_service as phase1_service
 from backend.app.services.phase1_service import Phase1Service, Phase1ValidationError
 from backend.app.services.request_context import RequestContext
 
@@ -111,6 +110,9 @@ class FakeContextService:
 
     def read_context_file(self, filename: str) -> str:
         return getattr(self, "files", {}).get(filename, "")
+
+    def read_agent_file(self, filename: str) -> str:
+        return getattr(self, "agent_files", {}).get(filename, "")
 
     def append_gherkin(self, story_id, story_title, gherkin, *, epic_id, epic_title) -> None:
         self.appended.append({

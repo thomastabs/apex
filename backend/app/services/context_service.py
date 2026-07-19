@@ -106,6 +106,12 @@ class ContextService:
     def write_context_file(self, filename: str, content: str) -> None:
         context_manager.write_context_file(filename, content)
 
+    def read_agent_file(self, filename: str) -> str:
+        return context_manager.read_agent_file(filename)
+
+    def write_agent_file(self, filename: str, content: str) -> None:
+        context_manager.write_agent_file(filename, content)
+
     def reset_context_file(self, filename: str) -> None:
         context_manager.reset_context_file(filename)
 

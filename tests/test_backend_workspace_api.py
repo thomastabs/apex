@@ -649,6 +649,30 @@ def test_agent_files_list_and_update_safe_repo_root(tmp_path, monkeypatch):
     assert next(file for file in updated["files"] if file["filename"] == "AGENTS.md")["exists"] is True
 
 
+def test_update_agent_file_falls_back_to_project_storage_when_repo_write_fails(ctx, monkeypatch):
+    import backend.app.api.workspace as ws
+
+    class ReadOnlyAgentPath:
+        def exists(self) -> bool:
+            return False
+
+        def write_text(self, content: str, encoding: str = "utf-8") -> None:
+            raise OSError("read-only application filesystem")
+
+    monkeypatch.setattr(ws, "_agent_file_path", lambda filename: ReadOnlyAgentPath())
+
+    updated = update_agent_file(
+        "AGENTS.md",
+        UpdateAgentFileRequest(content="# Agents\n\nStored in project context.\n"),
+        RequestContext(pm_token="tok", project_id=42),
+    )
+
+    agents = next(file for file in updated["files"] if file["filename"] == "AGENTS.md")
+    assert agents["exists"] is True
+    assert agents["ignored"] is True
+    assert agents["content"] == "# Agents\n\nStored in project context.\n"
+
+
 def test_generate_agent_file_uses_selected_grounding(tmp_path, monkeypatch):
     import backend.app.api.workspace as ws
     from src import ai_engine

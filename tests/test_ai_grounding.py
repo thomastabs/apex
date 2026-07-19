@@ -6,11 +6,15 @@ from backend.app.services import ai_grounding
 
 
 class FakeContextService:
-    def __init__(self, files: dict[str, str] | None = None):
+    def __init__(self, files: dict[str, str] | None = None, agent_files: dict[str, str] | None = None):
         self.files = files or {}
+        self.agent_files = agent_files or {}
 
     def read_context_file(self, filename: str) -> str:
         return self.files.get(filename, "")
+
+    def read_agent_file(self, filename: str) -> str:
+        return self.agent_files.get(filename, "")
 
 
 def test_extra_context_block_reads_context_custom_wiki_and_agent_files(monkeypatch, tmp_path):
@@ -49,3 +53,12 @@ def test_extra_context_block_clips_large_files(monkeypatch):
     assert "x" * 20 in block
     assert "x" * 21 not in block
     assert "[truncated]" in block
+
+
+def test_extra_context_block_prefers_stored_agent_file(monkeypatch, tmp_path):
+    monkeypatch.setattr(ai_grounding, "REPO_ROOT", tmp_path)
+    context = FakeContextService(agent_files={"AGENTS.md": "# Stored Agents\n\nUse Apex storage."})
+
+    block = ai_grounding.extra_context_block(context, ["AGENTS.md"])
+
+    assert "Use Apex storage" in block
