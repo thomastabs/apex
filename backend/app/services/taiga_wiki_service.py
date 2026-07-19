@@ -194,6 +194,32 @@ def _attach_markdown_file(taiga_base: str, token: str, project_id: int, wiki_id:
     )
 
 
+def _is_duplicate_slug_error(exc: HTTPException) -> bool:
+    detail = str(exc.detail).lower()
+    return exc.status_code == http_status.HTTP_502_BAD_GATEWAY and "slug already exists" in detail
+
+
+def _update_existing_page(
+    taiga_base: str,
+    token: str,
+    project_id: int,
+    page: dict,
+    *,
+    filename: str,
+    slug: str,
+    content: str,
+) -> dict:
+    wiki_id = _page_id(page)
+    if wiki_id is None:
+        return {"filename": filename, "slug": slug, "action": "skipped", "ok": False, "detail": "missing wiki id"}
+    body = {"content": content}
+    if "version" in page:
+        body["version"] = page["version"]
+    _request("PATCH", _wiki_page_url(taiga_base, wiki_id), token, json=body)
+    _attach_markdown_file(taiga_base, token, project_id, wiki_id, filename, content)
+    return {"filename": filename, "slug": slug, "action": "updated", "ok": True, "detail": ""}
+
+
 def status(taiga_base: str, token: str, project_id: int, context_files: Iterable[tuple[str, str]]) -> list[dict]:
     pages = _list_pages(taiga_base, token, project_id)
     by_slug = {str(page.get("slug", "")): page for page in pages}
@@ -252,16 +278,7 @@ def publish(
             results.append({"filename": filename, "slug": slug, "action": "skipped", "ok": True, "detail": "empty context file"})
             continue
         if existing:
-            wiki_id = _page_id(existing)
-            body = {"content": content}
-            if "version" in existing:
-                body["version"] = existing["version"]
-            if wiki_id is None:
-                results.append({"filename": filename, "slug": slug, "action": "skipped", "ok": False, "detail": "missing wiki id"})
-                continue
-            _request("PATCH", _wiki_page_url(taiga_base, wiki_id), token, json=body)
-            _attach_markdown_file(taiga_base, token, project_id, wiki_id, filename, content)
-            results.append({"filename": filename, "slug": slug, "action": "updated", "ok": True, "detail": ""})
+            results.append(_update_existing_page(taiga_base, token, project_id, existing, filename=filename, slug=slug, content=content))
         else:
             body = {
                 "project": project_id,
@@ -269,7 +286,25 @@ def publish(
                 "content": content,
                 "watchers": [],
             }
-            created = _request("POST", _wiki_pages_url(taiga_base), token, json=body)
+            try:
+                created = _request("POST", _wiki_pages_url(taiga_base), token, json=body)
+            except HTTPException as exc:
+                if not _is_duplicate_slug_error(exc):
+                    raise
+                refreshed = {str(page.get("slug", "")): page for page in _list_pages(taiga_base, token, project_id)}
+                existing_after_conflict = refreshed.get(slug)
+                if not existing_after_conflict:
+                    raise
+                results.append(_update_existing_page(
+                    taiga_base,
+                    token,
+                    project_id,
+                    existing_after_conflict,
+                    filename=filename,
+                    slug=slug,
+                    content=content,
+                ))
+                continue
             wiki_id = _page_id(created) if isinstance(created, dict) else None
             if wiki_id is not None:
                 _attach_markdown_file(taiga_base, token, project_id, wiki_id, filename, content)

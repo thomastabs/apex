@@ -488,7 +488,7 @@ def _selected_context_file_labels(context: ContextService, filenames: list[str] 
     allowed = {filename for filename, _label in available}
     selected = set(filenames or [])
     if not selected:
-        return available
+        return list(_CONTEXT_FILES)
     unknown = selected - allowed
     if unknown:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Unknown context file: {sorted(unknown)[0]}")

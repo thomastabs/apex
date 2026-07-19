@@ -344,7 +344,7 @@ function ContextEditor({
   file,
   onConfirm,
 }: {
-  file: { filename: string; label: string; content: string };
+  file: { filename: string; label: string; content: string; is_custom?: boolean };
   onConfirm: (msg: string, cb: () => void) => void;
 }) {
   const t = useT();
@@ -355,6 +355,7 @@ function ContextEditor({
   const reset = useResetContextFile();
   const genConstraints = useGenerateConstraints();
   const isConstraints = file.filename === "constraints.md";
+  const isCustom = Boolean(file.is_custom);
   const dark = useUiStore((state) => state.theme) === "dark";
 
   function handleGenerateConstraints() {
@@ -438,14 +439,18 @@ function ContextEditor({
           <Download className="size-3" /> {t("common.download")}
         </button>
         <button
-          className="h-8 rounded bg-red-950/70 text-xs font-semibold text-red-300 disabled:opacity-50"
+          className="flex h-8 items-center justify-center gap-1 rounded bg-red-950/70 text-xs font-semibold text-red-300 disabled:opacity-50"
           disabled={reset.isPending}
-          onClick={() => onConfirm(t("context.resetFileConfirm", { label: file.label }), () => reset.mutate(file.filename, {
-            onSuccess: () => toast.success(t("context.fileResetSuccess", { label: file.label })),
-            onError: () => toast.error(t("context.fileResetFailed", { label: file.label })),
-          }))}
+          onClick={() => onConfirm(
+            isCustom ? t("context.deleteCustomFileConfirm", { label: file.label }) : t("context.resetFileConfirm", { label: file.label }),
+            () => reset.mutate(file.filename, {
+              onSuccess: () => toast.success(isCustom ? t("context.customFileDeleted", { label: file.label }) : t("context.fileResetSuccess", { label: file.label })),
+              onError: () => toast.error(isCustom ? t("context.customFileDeleteFailed", { label: file.label }) : t("context.fileResetFailed", { label: file.label })),
+            }),
+          )}
         >
-          {t("context.resetToDefault")}
+          {isCustom ? <Trash2 className="size-3" /> : null}
+          {isCustom ? t("context.deleteCustomFile") : t("context.resetToDefault")}
         </button>
       </div>
     </div>

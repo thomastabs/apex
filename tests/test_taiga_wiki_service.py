@@ -74,6 +74,45 @@ def test_publish_updates_existing_and_creates_missing(monkeypatch):
     assert calls[7][4]["attached_file"][0] == "tech-stack.md"
 
 
+def test_publish_recovers_when_create_reports_duplicate_slug(monkeypatch):
+    calls = []
+    listed_once = False
+
+    def fake_request(method, url, token, *, params=None, json=None, data=None, files=None):
+        nonlocal listed_once
+        calls.append((method, url, json, data, files))
+        if method == "GET" and url.endswith("/wiki"):
+            if not listed_once:
+                listed_once = True
+                return []
+            return [{"id": 44, "slug": "apex-project-concept", "content": "", "version": 3}]
+        if method == "POST" and url.endswith("/wiki"):
+            raise svc.HTTPException(
+                status_code=502,
+                detail='Taiga returned 400 for POST https://api.taiga.io/api/v1/wiki: {"_all_": ["Wiki page with this Project and Slug already exists."]}',
+            )
+        if method == "GET" and url.endswith("/wiki/attachments"):
+            return []
+        return {"ok": True}
+
+    monkeypatch.setattr(svc, "_request", fake_request)
+
+    results = svc.publish(
+        "https://api.taiga.io/api/v1",
+        "tok",
+        42,
+        [("project-concept.md", "Project Concept", "concept")],
+    )
+
+    assert results == [
+        {"filename": "project-concept.md", "slug": "apex-project-concept", "action": "updated", "ok": True, "detail": ""},
+    ]
+    assert [call[0] for call in calls] == ["GET", "POST", "GET", "PATCH", "GET", "POST"]
+    assert calls[3][2] == {"content": "concept", "version": 3}
+    assert calls[5][1].endswith("/wiki/attachments")
+    assert calls[5][4]["attached_file"][0] == "project-concept.md"
+
+
 def test_publish_skips_empty_context_files(monkeypatch):
     calls = []
 
