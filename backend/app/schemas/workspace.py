@@ -48,9 +48,9 @@ class SetScaffoldRequest(BaseModel):
 
 
 class BoltLabels(BaseModel):
-    pack_ready: str = "Pack Ready"
-    pushed: str = "Pushed"
-    done: str = "Done"
+    pack_ready: str = Field("Pack Ready", max_length=60)
+    pushed: str = Field("Pushed", max_length=60)
+    done: str = Field("Done", max_length=60)
 
 
 class BoltConfigResponse(BaseModel):

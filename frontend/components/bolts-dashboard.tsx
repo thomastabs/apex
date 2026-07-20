@@ -50,6 +50,12 @@ export function BoltsDashboard() {
   const configQuery = useBoltConfig();
   const saveConfig = useSaveBoltConfig();
   const boltStatusMut = useUpdateBoltStatus();
+  const [pendingTaskId, setPendingTaskId] = useState<number | null>(null);
+
+  function markBoltDone(storyId: number, taskId: number) {
+    setPendingTaskId(taskId);
+    boltStatusMut.mutate({ storyId, taskId, status: "done" }, { onSettled: () => setPendingTaskId(null) });
+  }
 
   const pmTasksQuery = useQuery({
     queryKey: ["pm", "project-tasks", context?.projectId],
@@ -130,6 +136,23 @@ export function BoltsDashboard() {
       onError: (e) => toast.error(errMsg(e)),
     });
   }
+
+  function restoreDefaults() {
+    setDraftLabels(DEFAULT_LABELS);
+    setDraftThreshold("");
+    saveConfig.mutate(
+      { labels: DEFAULT_LABELS, cycle_time_threshold_hours: null },
+      {
+        onSuccess: () => toast.success(t("bolts.customize.defaultsRestored")),
+        onError: (e) => toast.error(errMsg(e)),
+      },
+    );
+  }
+
+  const customizeChanged = useMemo(() => {
+    const labelsChanged = STATUS_ORDER.some((s) => draftLabels[s] !== DEFAULT_LABELS[s]);
+    return labelsChanged || draftThreshold.trim() !== "";
+  }, [draftLabels, draftThreshold]);
 
   const mutedClass = dark ? "text-neutral-500" : "text-slate-400";
 
@@ -239,11 +262,11 @@ export function BoltsDashboard() {
                                   )}
                                   {status !== "done" && (
                                     <button
-                                      onClick={() => boltStatusMut.mutate({ storyId: row.storyId, taskId: row.taskId, status: "done" })}
-                                      disabled={boltStatusMut.isPending}
-                                      className={cn("text-xs font-semibold hover:underline", dark ? "text-violet-400" : "text-violet-600")}
+                                      onClick={() => markBoltDone(row.storyId, row.taskId)}
+                                      disabled={pendingTaskId === row.taskId}
+                                      className={cn("text-xs font-semibold hover:underline disabled:opacity-50", dark ? "text-violet-400" : "text-violet-600")}
                                     >
-                                      {t("phase3.markBoltDone")}
+                                      {pendingTaskId === row.taskId ? t("common.saving") : t("phase3.markBoltDone")}
                                     </button>
                                   )}
                                 </div>
@@ -303,11 +326,16 @@ export function BoltsDashboard() {
                         onChange={(e) => setDraftThreshold(e.target.value)}
                       />
                     </div>
-                    <Button onClick={saveCustomization} disabled={saveConfig.isPending}>
-                      {saveConfig.isPending
-                        ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("common.saving")}</>
-                        : <><Layers className="h-4 w-4" /> {t("common.save")}</>}
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button onClick={saveCustomization} disabled={saveConfig.isPending}>
+                        {saveConfig.isPending
+                          ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("common.saving")}</>
+                          : <><Layers className="h-4 w-4" /> {t("common.save")}</>}
+                      </Button>
+                      <Button variant="secondary" onClick={restoreDefaults} disabled={saveConfig.isPending || !customizeChanged}>
+                        {t("bolts.customize.restoreDefaults")}
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
