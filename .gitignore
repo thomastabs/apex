@@ -20,6 +20,7 @@ frontend/node_modules/
 frontend/.next/
 frontend/playwright-report/
 frontend/test-results/
+.playwright-mcp/
 *.tsbuildinfo
 *.egg-info/
 .claude/
