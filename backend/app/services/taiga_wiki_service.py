@@ -294,7 +294,15 @@ def publish(
                 refreshed = {str(page.get("slug", "")): page for page in _list_pages(taiga_base, token, project_id)}
                 existing_after_conflict = refreshed.get(slug)
                 if not existing_after_conflict:
-                    raise
+                    raise HTTPException(
+                        status_code=http_status.HTTP_502_BAD_GATEWAY,
+                        detail=(
+                            f"Couldn't publish “{filename}” to Taiga Wiki: Taiga reports a page with "
+                            f"slug “{slug}” already exists in this project, but it couldn't be found to "
+                            "update. It may be a custom (non-Apex-managed) page under a different slug variant, "
+                            "or the page list may be briefly stale — try Pull from Wiki to refresh, then publish again."
+                        ),
+                    ) from exc
                 results.append(_update_existing_page(
                     taiga_base,
                     token,

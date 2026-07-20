@@ -113,6 +113,34 @@ def test_publish_recovers_when_create_reports_duplicate_slug(monkeypatch):
     assert calls[5][4]["attached_file"][0] == "project-concept.md"
 
 
+def test_publish_raises_clean_error_when_conflict_page_never_found(monkeypatch):
+    def fake_request(method, url, token, *, params=None, json=None, data=None, files=None):
+        if method == "GET" and url.endswith("/wiki"):
+            return []
+        if method == "POST" and url.endswith("/wiki"):
+            raise svc.HTTPException(
+                status_code=502,
+                detail='Taiga returned 400 for POST https://api.taiga.io/api/v1/wiki: {"_all_": ["Wiki page with this Project and Slug already exists."]}',
+            )
+        return {"ok": True}
+
+    monkeypatch.setattr(svc, "_request", fake_request)
+
+    try:
+        svc.publish(
+            "https://api.taiga.io/api/v1",
+            "tok",
+            42,
+            [("project-concept.md", "Project Concept", "concept")],
+        )
+        raise AssertionError("expected HTTPException")
+    except svc.HTTPException as exc:
+        assert exc.status_code == 502
+        assert "Taiga returned 400" not in str(exc.detail)
+        assert "project-concept.md" in str(exc.detail)
+        assert "apex-project-concept" in str(exc.detail)
+
+
 def test_publish_skips_empty_context_files(monkeypatch):
     calls = []
 
