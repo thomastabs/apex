@@ -36,7 +36,8 @@ Apex is the reference implementation of a broader process framework for governed
 | `docs/framework/Apex-Framework-v2.docx` | The current framework specification — purpose & scope, design principles, the SDLC × AI interaction mapping, phase descriptions, roles (framed as hats, not fixed people), governance mechanisms & quality gates, work logistics, and the six operational playbooks. Grounded inline in cited industry/academic precedent (AWS AI-DLC, the Spotify Model, Team Topologies, DORA, Thoughtworks) and cross-referenced against Apex's actual shipped mechanisms throughout. Includes the big-picture diagram (below) as Figure 1. |
 | `docs/framework/Apex-Framework-Grounding.docx` | The companion evidence trail: full literature grounding for each framework construct, an explicit not-1:1 mapping table (framework phase → closest precedent → Apex implementation → where it diverges), and the "scientific why" — the framework compared against four named alternatives (no framework, AI-DLC unmodified, Scrum/SAFe with AI bolted on, metrics-only governance), each with cited evidence of a specific failure mode. |
 | `docs/framework/Draft-and-Ideas-v1.docx` | The original working draft, kept for the historical record — the framework's first conceptual scaffold before the v2 rewrite (role model reframed as hats not people, the DevOps Alliance role dropped, Bolt terminology confirmed as a direct AWS AI-DLC borrowing). |
-| `docs/framework/big-picture.puml` / `docs/framework/big-picture.bpmn` | The big-picture diagram in two notations — a PlantUML flow (rendered PNG/SVG in `docs/framework/diagrams/`) and a standards-compliant BPMN 2.0 process (openable in Camunda Modeler, bpmn.io, or any BPMN tool). Both show all seven phases end to end with each phase's input, output, and literature citation, plus the governed Maintenance loop-back (Change Request → Discovery; Secure Lane → Testing) — the framework's explicit answer to being read as linear/Waterfall. |
+| `docs/framework/Apex-Implementation-Report.docx` | Internal + external engineering documentation for the thesis writeup, distinct from the framework specification above — how Apex itself was built, tested, and deployed: the split-stack architecture and its spec-anchored storage, the single-writer concurrency model and its opt-in Redis multi-replica escape hatch, the layered test strategy (1,365+ backend tests, 180 frontend unit tests, 17 E2E specs) and CI gating, and the Docker/Azure Container Apps deployment pipeline with its automatic health-check rollback and day/night cost scaling. |
+| `docs/diagrams/big-picture.puml` / `docs/diagrams/big-picture.bpmn` | The big-picture diagram in two notations — a PlantUML flow and a standards-compliant BPMN 2.0 process (openable in Camunda Modeler, bpmn.io, or any BPMN tool). Both show all seven phases end to end with each phase's input, output, and literature citation, plus the governed Maintenance loop-back (Change Request → Discovery; Secure Lane → Testing) — the framework's explicit answer to being read as linear/Waterfall. Rendered PNG/SVG in `docs/diagrams/Images/`. |
 
 <img width="1908" height="991" alt="image" src="https://github.com/user-attachments/assets/818d2d66-add0-40c4-883f-c558a8445183" />
 
@@ -55,11 +56,13 @@ Apex is the reference implementation of a broader process framework for governed
 ## Implemented Workflow
 
 > UML diagrams (PlantUML sources): the user flow is a sequence diagram in
-> [`docs/user-flow.puml`](docs/user-flow.puml) and the system architecture a
-> component diagram in [`docs/architecture.puml`](docs/architecture.puml).
-> Rendered PNG + SVG live in [`docs/diagrams/`](docs/diagrams). Re-render with
-> `java -jar plantuml.jar -tsvg docs/*.puml` (the component diagram is laid out
-> with Graphviz for orthogonal routing — `sudo apt install graphviz`).
+> [`docs/diagrams/user-flow.puml`](docs/diagrams/user-flow.puml) and the system
+> architecture a component diagram in
+> [`docs/diagrams/architecture.puml`](docs/diagrams/architecture.puml).
+> Rendered PNG + SVG live in [`docs/diagrams/Images/`](docs/diagrams/Images).
+> Re-render with `java -jar plantuml.jar -tsvg docs/diagrams/*.puml` (the
+> component diagram is laid out with Graphviz for orthogonal routing —
+> `sudo apt install graphviz`).
 
 ```mermaid
 flowchart TD
@@ -547,10 +550,11 @@ Implemented:
 | `frontend/lib/stores/` | Zustand stores for session, UI, and per-phase draft state |
 | `.github/workflows/ci.yml` | Test, build, push, and deploy workflow |
 | `.github/workflows/scale-scheduler.yml` | Azure Container Apps scale up/down scheduler |
-| `docs/architecture.puml` | PlantUML component diagram of the system architecture (frontend, backend, AI, PM tools, spec store) — thesis reference |
-| `docs/user-flow.puml` | PlantUML sequence diagram of the user flow across Phase 1–6 (User · Frontend · Backend · AI · PM · spec store) — thesis reference |
-| `docs/diagrams/` | Rendered PNG + SVG of the two UML diagrams |
-| `docs/framework/` | The underlying process framework Apex demonstrates (thesis material, not app documentation) — see [Framework Documentation](#framework-documentation) below |
+| `docs/diagrams/architecture.puml` | PlantUML component diagram of the system architecture (frontend, backend, AI, PM tools, spec store) — thesis reference |
+| `docs/diagrams/user-flow.puml` | PlantUML sequence diagram of the user flow across Phase 1–6 (User · Frontend · Backend · AI · PM · spec store) — thesis reference |
+| `docs/diagrams/big-picture.puml` / `.bpmn` | The framework's big-picture phase/input/output/literature diagram, in PlantUML and BPMN 2.0 — see [Framework Documentation](#framework-documentation) below |
+| `docs/diagrams/Images/` | Rendered PNG + SVG of all diagrams above |
+| `docs/framework/` | The underlying process framework Apex demonstrates, plus Apex's own implementation/testing/deployment report (thesis material, not app documentation) — see [Framework Documentation](#framework-documentation) below |
 
 ---
 

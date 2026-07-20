@@ -22,6 +22,7 @@ frontend/playwright-report/
 frontend/test-results/
 .playwright-mcp/
 *.tsbuildinfo
+.~lock.*#
 *.egg-info/
 .claude/
 CLAUDE.md
