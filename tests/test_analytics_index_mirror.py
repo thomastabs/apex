@@ -2,6 +2,8 @@
 into story-index at save time, so the summary reads the single index file instead
 of an O(stories) fan-out of per-story JSON reads on the File Share."""
 
+import pytest
+
 from backend.app.services.analytics_service import AnalyticsService
 
 
@@ -21,6 +23,80 @@ def test_save_verification_mirrors_complete_into_index(ctx):
     context_manager.upsert_story_index(11, phase_status="deployed", title="S")
     context_manager.save_verification(11, {"complete": True})
     assert context_manager.get_story_index()["11"]["verification_complete"] is True
+
+
+def test_record_task_bolt_status_persists_under_story_entry(ctx):
+    from src import context_manager
+
+    ctx.set_active_project(1)
+    context_manager.upsert_story_index(10, phase_status="implementation", title="S")
+    record = context_manager.record_task_bolt_status(10, 1, "pushed")
+    assert record["status"] == "pushed"
+    assert context_manager.get_story_index()["10"]["bolts"]["1"]["status"] == "pushed"
+
+
+def test_record_task_bolt_status_requires_existing_story(ctx):
+    from src import context_manager
+
+    ctx.set_active_project(1)
+    with pytest.raises(ValueError):
+        context_manager.record_task_bolt_status(999, 1, "pushed")
+
+
+def test_save_proposal_records_pack_ready_bolt_status(ctx):
+    from src import context_manager
+
+    ctx.set_active_project(1)
+    context_manager.upsert_story_index(10, phase_status="implementation", title="S")
+    context_manager.save_proposal(10, 1, "## Context\nHello.")
+    assert context_manager.get_story_index()["10"]["bolts"]["1"]["status"] == "pack_ready"
+
+
+def test_list_all_bolts_enriches_with_story_title_and_epic(ctx):
+    from src import context_manager
+
+    ctx.set_active_project(1)
+    context_manager.upsert_story_index(10, phase_status="implementation", title="Login", epic_title="Auth")
+    context_manager.record_task_bolt_status(10, 1, "pack_ready")
+    context_manager.record_task_bolt_status(10, 1, "done")
+    bolts = context_manager.list_all_bolts()
+    assert len(bolts) == 1
+    assert bolts[0]["story_id"] == 10
+    assert bolts[0]["story_title"] == "Login"
+    assert bolts[0]["epic_title"] == "Auth"
+    assert bolts[0]["task_id"] == 1
+    assert bolts[0]["status"] == "done"
+    assert bolts[0]["cycle_hours"] is not None
+
+
+def test_list_all_bolts_empty_when_no_stories_have_bolts(ctx):
+    from src import context_manager
+
+    ctx.set_active_project(1)
+    context_manager.upsert_story_index(10, phase_status="implementation", title="Login")
+    assert context_manager.list_all_bolts() == []
+
+
+def test_bolt_config_round_trips_and_defaults_blank_labels(ctx):
+    from src import context_manager
+
+    ctx.set_active_project(1)
+    assert context_manager.get_project_bolt_config() == {}
+    saved = context_manager.save_project_bolt_config({
+        "labels": {"pack_ready": "Ready", "pushed": "", "done": "Shipped"},
+        "cycle_time_threshold_hours": 6,
+    })
+    assert saved["labels"] == {"pack_ready": "Ready", "pushed": "Pushed", "done": "Shipped"}
+    assert saved["cycle_time_threshold_hours"] == 6.0
+    assert context_manager.get_project_bolt_config() == saved
+
+
+def test_bolt_config_clears_non_positive_threshold(ctx):
+    from src import context_manager
+
+    ctx.set_active_project(1)
+    saved = context_manager.save_project_bolt_config({"labels": {}, "cycle_time_threshold_hours": -3})
+    assert saved["cycle_time_threshold_hours"] is None
 
 
 def test_conformance_uses_index_score_without_reading_files():

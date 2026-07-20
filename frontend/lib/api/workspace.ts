@@ -624,6 +624,29 @@ export function saveStatusMapping(context: RequestContext, mapping: Record<strin
   });
 }
 
+export type BoltLabels = {
+  pack_ready: string;
+  pushed: string;
+  done: string;
+};
+
+export type BoltConfig = {
+  labels: BoltLabels;
+  cycle_time_threshold_hours: number | null;
+};
+
+export function getBoltConfig(context: RequestContext) {
+  return apiRequest<BoltConfig>("/api/workspace/bolt-config", { context });
+}
+
+export function saveBoltConfig(context: RequestContext, config: BoltConfig) {
+  return apiRequest<BoltConfig>("/api/workspace/bolt-config", {
+    method: "POST",
+    context,
+    body: config,
+  });
+}
+
 export function getStoryPhaseStatus(context: RequestContext, storyId: number) {
   return apiRequest<{ phase_status: ApexPhaseStatus | null }>(
     `/api/workspace/context-files/story-index/stories/${storyId}/phase-status`,

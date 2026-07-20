@@ -275,6 +275,14 @@ PHASE_STATUSES = (
     "deployed",        # Phase 5: Deployed to production
 )
 
+# Bolt status values — the framework's implementation micro-cycle, tracked per
+# Phase 3 task independently of the story's own phase_status.
+BOLT_STATUSES = (
+    "pack_ready",  # Developer pack saved for this task
+    "pushed",      # Task pushed to the PM tool
+    "done",        # Developer marked the Bolt complete
+)
+
 
 # ---------------------------------------------------------------------------
 # Project switching
@@ -598,6 +606,9 @@ def get_or_create_instance_github_webhook_secret() -> str:
 _PROJECT_GITHUB_CONFIG_FILE = ".project-github-config.json"
 _PROJECT_STATUS_MAPPING_FILE = ".project-status-mapping.json"
 _PROJECT_DEPLOYMENT_CONFIG_FILE = ".project-deployment-config.json"
+_PROJECT_BOLT_CONFIG_FILE = ".bolt-config.json"
+
+_DEFAULT_BOLT_LABELS = {"pack_ready": "Pack Ready", "pushed": "Pushed", "done": "Done"}
 
 
 def _project_github_config_path(project_id: int | None = None) -> Path:
@@ -616,6 +627,45 @@ def _project_status_mapping_path(project_id: int | None = None) -> Path:
 
 def _project_deployment_config_path(project_id: int | None = None) -> Path:
     return _context_dir(project_id) / _PROJECT_DEPLOYMENT_CONFIG_FILE
+
+
+def _project_bolt_config_path(project_id: int | None = None) -> Path:
+    return _context_dir(project_id) / _PROJECT_BOLT_CONFIG_FILE
+
+
+def get_project_bolt_config(project_id: int | None = None) -> dict:
+    """Saved Bolts-page settings for the active project: custom status labels
+    and an optional Bolt Cycle Time threshold (hours) used to flag slow bolts."""
+    p = _project_bolt_config_path(project_id)
+    if not p.exists():
+        return {}
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def save_project_bolt_config(config: dict, project_id: int | None = None) -> dict:
+    """Persist sanitized Bolts-page settings. Blank/missing labels fall back
+    to the defaults; an invalid or non-positive threshold clears it (None)."""
+    raw_labels = config.get("labels", {})
+    labels = {
+        key: (str(raw_labels.get(key, "")).strip() or _DEFAULT_BOLT_LABELS[key])
+        for key in _DEFAULT_BOLT_LABELS
+    } if isinstance(raw_labels, dict) else dict(_DEFAULT_BOLT_LABELS)
+    threshold = config.get("cycle_time_threshold_hours")
+    try:
+        threshold = float(threshold) if threshold is not None else None
+        if threshold is not None and threshold <= 0:
+            threshold = None
+    except (TypeError, ValueError):
+        threshold = None
+    clean = {"labels": labels, "cycle_time_threshold_hours": threshold}
+    p = _project_bolt_config_path(project_id)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(clean, indent=2), encoding="utf-8")
+    return clean
 
 
 def get_project_deployment_config(project_id: int | None = None) -> dict:
@@ -1445,6 +1495,65 @@ def upsert_story_index(story_id: int, **updates) -> None:
         _save_story_index(index)
 
 
+def record_task_bolt_status(story_id: int, task_id: int, status: str) -> dict:
+    """Track a Phase 3 task's Bolt lifecycle (pack_ready -> pushed -> done),
+    stored under the story's index entry but independent of the story's own
+    phase_status. Returns the task's updated bolt record.
+
+    Raises ValueError if the story has no index entry yet (a task can't have
+    a Bolt record before its story exists in the index)."""
+    if status not in BOLT_STATUSES:
+        raise ValueError(f"Invalid bolt status {status!r}. Must be one of {BOLT_STATUSES}.")
+    with _index_lock():
+        index = get_story_index()
+        key = str(story_id)
+        entry = index.get(key)
+        if entry is None:
+            raise ValueError(f"No story-index entry for story {story_id}.")
+        bolts = entry.setdefault("bolts", {})
+        record = bolts.setdefault(str(task_id), {"task_id": task_id, "status": status, "status_history": {}})
+        record["status"] = status
+        record.setdefault("status_history", {}).setdefault(status, []).append(_now_iso())
+        index[key] = entry
+        _save_story_index(index)
+        return record
+
+
+def bolt_cycle_hours(record: dict) -> float | None:
+    """Hours from a bolt record's first "pack_ready" timestamp to its first
+    "done" timestamp. None until both exist (or if done precedes pack_ready,
+    which shouldn't happen but is not asserted on read)."""
+    history = record.get("status_history") or {}
+    ready_stamps = history.get("pack_ready") or []
+    done_stamps = history.get("done") or []
+    if not (ready_stamps and done_stamps):
+        return None
+    start = min(datetime.fromisoformat(t) for t in ready_stamps)
+    end = min(datetime.fromisoformat(t) for t in done_stamps)
+    if end < start:
+        return None
+    return round((end - start).total_seconds() / 3600, 2)
+
+
+def list_all_bolts() -> list[dict]:
+    """Every Phase 3 task's Bolt record across the whole project, enriched
+    with its story's title/epic for display. Powers the Bolts page board."""
+    out: list[dict] = []
+    for entry in get_story_index().values():
+        bolts = entry.get("bolts") or {}
+        for task_key, record in bolts.items():
+            out.append({
+                "story_id": entry.get("story_id"),
+                "story_title": entry.get("title", ""),
+                "epic_title": entry.get("epic_title", ""),
+                "task_id": record.get("task_id", int(task_key)),
+                "status": record.get("status", ""),
+                "status_history": record.get("status_history", {}),
+                "cycle_hours": bolt_cycle_hours(record),
+            })
+    return out
+
+
 def increment_story_counter(story_id: int, field: str = "fix_bolt_count") -> int:
     """Atomically increment a numeric counter on a story-index entry.
 
@@ -1971,6 +2080,7 @@ def save_proposal(story_id: int, task_id: int, proposal: str) -> Path:
     p = cd / f"proposal_story_{story_id}_task_{task_id}.md"
     p.write_text(proposal, encoding="utf-8")
     upsert_story_index(story_id, has_proposal=True)
+    record_task_bolt_status(story_id, task_id, "pack_ready")
     return p
 
 

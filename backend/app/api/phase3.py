@@ -8,6 +8,9 @@ from backend.app.api.deps import RequestContext, get_request_context
 from backend.app.api.rate_limit import ai_rate_limit
 from backend.app.schemas.phase1 import CrossCheckResponse
 from backend.app.schemas.phase3 import (
+    BoltListResponse,
+    BoltStatusRequest,
+    BoltStatusResponse,
     CrossCheckTasksRequest,
     PacksResponse,
     EligibleStoriesResponse,
@@ -173,6 +176,29 @@ def get_proposals(
     try:
         proposals = service.get_proposals(ctx, story_id)
         return {"story_id": story_id, "proposals": proposals}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/bolt-status", response_model=BoltStatusResponse)
+def update_bolt_status(
+    payload: BoltStatusRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase3Service = Depends(get_phase3_service),
+):
+    try:
+        return service.update_bolt_status(ctx, payload.story_id, payload.task_id, payload.status)
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.get("/bolts", response_model=BoltListResponse)
+def list_all_bolts(
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase3Service = Depends(get_phase3_service),
+):
+    try:
+        return {"bolts": service.list_all_bolts(ctx)}
     except Exception as exc:
         _handle_error(exc)
 

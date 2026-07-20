@@ -19,6 +19,8 @@ import {
   getAgentFiles,
   generateAgentFile,
   getBoard,
+  getBoltConfig,
+  saveBoltConfig,
   getContextFiles,
   getContextWikiStatus,
   getFigmaToken,
@@ -63,6 +65,7 @@ import {
   updateStory,
   type AdminPhaseStatus,
   type ApexPhaseStatus,
+  type BoltConfig,
   type StatusMappingResponse,
   toPmCtx,
 } from "@/lib/api/workspace";
@@ -370,6 +373,27 @@ export function useSaveStatusMapping() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "status-mapping", context?.projectId] });
       void queryClient.invalidateQueries({ queryKey: ["workspace", "story-statuses", context?.projectId] });
+    },
+  });
+}
+
+export function useBoltConfig() {
+  const context = useApiContext();
+  return useQuery<BoltConfig>({
+    queryKey: ["workspace", "bolt-config", context?.projectId],
+    queryFn: () => getBoltConfig(context!),
+    enabled: Boolean(context),
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useSaveBoltConfig() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (config: BoltConfig) => saveBoltConfig(context!, config),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["workspace", "bolt-config", context?.projectId] });
     },
   });
 }

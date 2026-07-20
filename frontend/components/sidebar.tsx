@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
   BarChart3, Bot, CheckCircle2, Code2, Compass, Eye, EyeOff,
-  ExternalLink, FileText, Home, Moon, Network, PanelLeftOpen,
+  ExternalLink, FileText, Home, Layers, Moon, Network, PanelLeftOpen,
   Rocket, Search, Send, Settings, Sun, UserPlus, Wrench, Zap,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -547,6 +547,7 @@ const PHASE_ITEMS = [
 const TOOL_ITEMS = [
   { href: "/autopilot",    icon: Bot,       labelKey: "nav.autopilot" as const },
   { href: "/fix-bolt",     icon: Zap,       labelKey: "nav.fixBolt" as const },
+  { href: "/bolts",        icon: Layers,    labelKey: "nav.bolts" as const },
   { href: "/traceability", icon: Network,   labelKey: "nav.traceGraph" as const },
   { href: "/analytics",    icon: BarChart3, labelKey: "nav.analytics" as const },
 ] as const;

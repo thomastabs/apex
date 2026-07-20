@@ -67,8 +67,7 @@ flowchart TD
     subgraph P2["Phase 2 · Design"]
         direction TB
         H[Gate 0: Lock Tech Stack] --> I[Generate Design Bundle]
-        I --> J[Gate 1: Design Lead Approval]
-        J --> K[Gate 2: Tech Lead Approval] --> L[Lock Design Artefacts]
+        I --> K[Review &amp; Approve] --> L[Lock Design Artefacts]
     end
 
     subgraph P3["Phase 3 · Implementation Assist"]
@@ -95,7 +94,7 @@ flowchart TD
         AC --> AD
         AD -->|Reject| AF[Security feedback → AI revises pack]
         AF --> AC
-        AD -->|Tech Lead + DevOps sign-off| AE[Lock deployed — deployment-log.md]
+        AD -->|Tech Lead + Security Reviewer sign-off| AE[Lock deployed — deployment-log.md]
     end
 
     subgraph P6["Phase 6 · Maintenance &amp; Traceability"]
@@ -246,6 +245,7 @@ Implemented — 4-stage stepper workflow:
 - **Design-grounded packs** — the synced Figma design system is injected into every pack; and when the story is **linked to a Figma frame**, that frame is rendered to a PNG and attached to the pack so the agentic brief a coding agent consumes is grounded in the *literal designed screen* (layout, components, states), not a text description. Multimodal (vision models only), advisory — an unlinked story or a non-vision model falls back to the text-only pack
 - View and edit packs in an in-browser editor; re-generate any pack if needed
 - Packs are auto-saved to `proposal_story_<id>_task_<id>.md` in `contextspec/`
+- **Bolt tracking** — each task is the framework's Bolt (its implementation micro-cycle), tracked through `pack_ready` (set automatically once its developer pack is saved) → `pushed` (set once pushed to the PM tool) → `done` (a **Mark Bolt Done** action, since Apex has no read-back of a pushed subtask's completion state from Taiga/Jira). Stored per-task under the story's index entry, independent of the story's own `phase_status`. Once done, the pack_ready→done elapsed time shows inline and feeds the Analytics page's **Bolt Cycle Time** metric
 
 **Stage D — Lock**
 
@@ -378,13 +378,23 @@ Spec files are editable at any time, locked or not — "locked" gates which AI w
 The `/analytics` page computes the framework's Core Governance Metrics on demand from the story index and context artifacts:
 
 - **Cycle time per gate transition** — median/p90 hours from `status_history` timestamps recorded at every phase transition (Fix-Bolt re-entries restart the clock)
+- **Bolt Cycle Time** — the framework's actual implementation micro-cycle metric, distinct from the story-level gate transitions above: median/p90 hours from each Phase 3 task's `pack_ready` timestamp to its `done` timestamp (see [Phase 3 · Implementation Assist](#phase-3--implementation-assist)), across every task in every story
 - **Context Traceability Rate** — % of deployed stories with a complete artifact chain (Gherkin + test plan + infra delta + complete matrix + deployment-log entry)
 - **Spec Conformance Rate** — average spec↔code conformance score across implemented stories that have a Phase 6 conformance report
 - **Fix-Bolt defect proxy** — total/avg Fix-Bolt triggers per story (Apex has no production telemetry, so QA-caught defects stand in for the Defect Escape Rate)
 - **Predictive risk** — a deterministic, explainable per-story risk score (`none`/`low`/`medium`/`high`) derived from already-logged signals (Fix-Bolt count, conformance score, active regression bypass, cycle time vs cohort p90) with the contributing reasons; surfaced as a sorted **Risk** column in the drill-down (and a red/amber dot on board story rows) so at-risk stories are flagged before they fail
 - Phase funnel and per-story drill-down table; CSV and Markdown export
 
-A dedicated **Fix Bolt** page (top nav, left of Analytics) lists every per-story Fix-Bolt bug report (view/edit/download/delete) and the permanent Fix Log — the management surface for the artifacts produced by Phase 4 QA fails and Phase 6 maintenance.
+A dedicated **Fix Bolt** page (left sidebar, above Analytics) lists every per-story Fix-Bolt bug report (view/edit/download/delete) and the permanent Fix Log — the management surface for the artifacts produced by Phase 4 QA fails and Phase 6 maintenance.
+
+### Bolts Board
+
+A dedicated **Bolts** page (left sidebar) gives the framework's implementation micro-cycle (see [Phase 3 · Implementation Assist](#phase-3--implementation-assist)) its own explainer and board, rather than leaving it buried inside Phase 3:
+
+- An explainer callout ("What's a Bolt?") for anyone landing on the page cold
+- Every task across the whole project, grouped into three columns — pack ready, pushed, done — filterable by epic. Task subjects are never duplicated server-side: they're merged client-side from the PM tool's own task list (the same `apex-meta` block Phase 3 already round-trips through Taiga/Jira task descriptions), so there's a single source of truth for the text
+- **Mark Bolt Done** directly from the board (same action as Phase 3's)
+- **Customize** — rename the three stages for your team's own vocabulary, and set an optional cycle-time threshold (hours); Bolts running longer than the threshold are flagged amber on the board. Persisted per project in `.bolt-config.json`, same pattern as PM Status Mapping's settings file
 
 ### AI Usage & Cost Tracking
 
@@ -400,7 +410,7 @@ Every AI call — across all three providers — reports real token/cache usage 
 
 ### Living Traceability Graph
 
-The **Trace** page (`/traceability`, top nav) renders the whole project as one interactive derivation graph — **epic → story → Gherkin → design → tasks → tests → deploy** — so the spec lineage is visible at a glance and any node is one click away from its phase. It is **pure-derived** (no AI): set arithmetic over the story index + context files.
+The **Trace** page (`/traceability`, left sidebar) renders the whole project as one interactive derivation graph — **epic → story → Gherkin → design → tasks → tests → deploy** — so the spec lineage is visible at a glance and any node is one click away from its phase. It is **pure-derived** (no AI): set arithmetic over the story index + context files.
 
 - **Nodes** (bounded): project, one per epic, one per story (tinted by phase status), the present phase-artifact nodes of each story (Gherkin / Tasks / Tests / Deploy), one project-level Design node, and — once a Runtime Contract is locked — one project-level Runtime Contract node (same altitude as Design; not one node per `RT-N` item, matching how endpoints/entities aren't individually node'd either).
 - **Edges & overlays:** the derivation chain, story↔design links, **backward-trace** edges (violet dashed, from a downstream gap back to the flagged source phase), and **regression** edges (red dashed, animated — from wherever a story last reached (deploy/tests/tasks) back to Tasks, drawn whenever `has_bug_report`/`conformance_regressed`/`fix_bolt_count` is set). The regression edge exists because the underlying loop-back was already real — `maintenance_service.route_lane()`'s Secure Lane genuinely pushes `phase_status` from `deployed` back to `implementation` — it just wasn't drawn; a bug/fix badge alone doesn't read as a *loop* the way an edge does. Trace / bug badges also still show on the nodes.
@@ -411,7 +421,7 @@ The **Trace** page (`/traceability`, top nav) renders the whole project as one i
 
 ### Autopilot
 
-The **Autopilot** page (`/autopilot`, top nav, Zap icon) runs Phases 1–5 as a single unattended background pipeline — from a concept description and a list of epics through requirements, design, implementation assist, testing, and deployment artefacts.
+The **Autopilot** page (`/autopilot`, left sidebar, Zap icon) runs Phases 1–5 as a single unattended background pipeline — from a concept description and a list of epics through requirements, design, implementation assist, testing, and deployment artefacts.
 
 **Setup form** — before launching, the user provides:
 - **Start from** / **End at** — which phase range to run. Default Phase 1 → Phase 5 (from scratch, full pipeline). Pick a later **Start from** when earlier phases are already done in this project (e.g. Phase 2 finished by hand → start Autopilot at Phase 3) — it skips the earlier phases and drives the rest from the project's existing story index, so no concept/epics are needed. Pick an earlier **End at** to stop the run after a chosen phase and leave the rest for manual work (e.g. stop after Phase 2 so the design can be reviewed before Implementation runs) — the run finishes cleanly (`state: "done"`) at that point instead of pausing forever waiting for a resume that was never coming; an interrupted bounded run resumes with the same end phase.
@@ -1029,14 +1039,12 @@ Five spec files, each exercising one full phase flow against mocked backend and 
 
 1. Navigate to `/phase2`
 2. Click **Propose Architecture** (mocks `/api/phase2/propose-tech-stack`) → two alternatives appear
-3. Click first alternative card → click **Save Technology Choices** (mocks `/api/phase2/lock-tech-stack`, stateful: sets `techStackDefined=true`)
-4. Assert `Technology choices saved` toast
-5. Wait for **Generate Design** to appear (status query refetches and returns `defined: true`)
-6. Click **Generate Design** — three-section cascade (mocks `/api/phase2/generate-design-section` three times sequentially for `ux_brief`, `endpoints`, `data_model`)
-7. Assert `Login screen` text visible in UX Brief section
-8. Wait for sign-off panel → check **Design Lead Sign-off** and **Tech Lead Sign-off** checkboxes
-9. Click **Save & Lock Design** (mocks `/api/phase2/persist-design`)
-10. Assert `Design locked for` toast/callout
+3. Click first alternative card → click **Save Technology Choices** (mocks `/api/phase2/lock-tech-stack`) — auto-advances to Step 2 (Visual Design)
+4. Step 2 (Visual Design): assert only UX Brief + Visual Design System are shown — Endpoints/Runtime Contract must not be visible yet
+5. Click **Generate Design** — cascades all four sections in the background (mocks `/api/phase2/generate-design-section`); assert the UX Brief card reaches "Generated"
+6. Click **Continue to Technical Design** → Step 3; assert Visual Design System is no longer shown
+7. Wait for **Save & Lock Design** to enable — requires every section, including the mandatory Runtime Contract, to have content — then click (mocks `/api/phase2/persist-design`)
+8. Assert `Design locked for` toast, then assert **Continue to Phase 3** appears
 
 **`e2e/phase3-pack-flow.spec.ts`**
 

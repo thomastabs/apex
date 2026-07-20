@@ -321,6 +321,18 @@ class ContextService:
     def upsert_story_index(self, story_id: int, **updates) -> None:
         context_manager.upsert_story_index(story_id, **updates)
 
+    def record_task_bolt_status(self, story_id: int, task_id: int, status: str) -> dict:
+        return context_manager.record_task_bolt_status(story_id, task_id, status)
+
+    def list_all_bolts(self) -> list[dict]:
+        return context_manager.list_all_bolts()
+
+    def bolt_config(self) -> dict:
+        return context_manager.get_project_bolt_config()
+
+    def save_bolt_config(self, config: dict) -> dict:
+        return context_manager.save_project_bolt_config(config)
+
     def load_bdd_tests(self, story_id: int) -> str:
         return context_manager.load_bdd_tests(story_id)
 

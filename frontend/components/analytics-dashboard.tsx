@@ -145,7 +145,13 @@ export function AnalyticsDashboard() {
       {data && (
         <div className="space-y-8">
           {/* Metric cards */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <MetricCard
+              dark={dark}
+              label={t("analytics.boltCycleTime")}
+              value={data.bolt_cycle_time.samples > 0 ? `${data.bolt_cycle_time.median_hours}h` : "—"}
+              hint={t("analytics.boltCycleTimeHint", { p90: data.bolt_cycle_time.p90_hours, samples: data.bolt_cycle_time.samples })}
+            />
             <MetricCard
               dark={dark}
               label={t("analytics.contextTraceabilityRate")}

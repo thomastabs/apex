@@ -117,3 +117,34 @@ class CrossCheckTasksRequest(BaseModel):
     story_id: int
     alt_model: str = Field("", max_length=100)
 
+
+class BoltStatusRequest(BaseModel):
+    story_id: int
+    task_id: int
+    # "pack_ready" is recorded server-side automatically when a pack is saved —
+    # never client-settable.
+    status: Literal["pushed", "done"]
+
+
+class BoltStatusResponse(BaseModel):
+    task_id: int
+    status: str
+    status_history: dict[str, list[str]] = Field(default_factory=dict)
+    # Hours from the first "pack_ready" timestamp to the first "done" timestamp;
+    # only set once the Bolt has actually reached "done".
+    cycle_hours: float | None = None
+
+
+class BoltListItem(BaseModel):
+    story_id: int
+    story_title: str = ""
+    epic_title: str = ""
+    task_id: int
+    status: str
+    status_history: dict[str, list[str]] = Field(default_factory=dict)
+    cycle_hours: float | None = None
+
+
+class BoltListResponse(BaseModel):
+    bolts: list[BoltListItem] = Field(default_factory=list)
+

@@ -9,8 +9,10 @@ import {
   getProposals,
   getStoryContext,
   crossCheckTasks,
+  listAllBolts,
   lockStory,
   saveProposal,
+  updateBoltStatus,
 } from "@/lib/api/phase3";
 import { getPmAdapter } from "@/lib/api/pm-factory";
 import { toPmCtx } from "@/lib/api/workspace";
@@ -233,10 +235,14 @@ export function usePushTasksToTaiga() {
       }
       return { results, failures };
     },
-    onSuccess: ({ results, failures }) => {
+    onSuccess: ({ results, failures }, storyId) => {
       for (const { taskIndex, localTaskId, id, ref } of results) {
         setPmTaskResult(taskIndex, id, ref);
-        patchTask(localTaskId, { pm_task_id: id, pm_task_ref: ref });
+        patchTask(localTaskId, { pm_task_id: id, pm_task_ref: ref, bolt_status: "pushed" });
+        // Best-effort Bolt-status telemetry — a failure here shouldn't undo the push itself.
+        if (context) {
+          updateBoltStatus(context, { story_id: storyId, task_id: localTaskId, status: "pushed" }).catch(() => {});
+        }
       }
       setTasksPushed(true);
       void queryClient.invalidateQueries({ queryKey: ["pm", "project-tasks", context?.projectId] });
@@ -248,6 +254,39 @@ export function usePushTasksToTaiga() {
       }
     },
     onError: () => toast.error("Failed to push tasks. Check your connection and try again."),
+  });
+}
+
+export function useBoltsList() {
+  const context = useApiContext();
+  return useQuery({
+    queryKey: ["phase3", "bolts", context?.projectId],
+    queryFn: () => listAllBolts(context!),
+    enabled: Boolean(context),
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useUpdateBoltStatus() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  const { patchTask } = usePhase3Store();
+
+  return useMutation({
+    mutationFn: ({ storyId, taskId, status }: { storyId: number; taskId: number; status: "pushed" | "done" }) =>
+      updateBoltStatus(context!, { story_id: storyId, task_id: taskId, status }),
+    onSuccess: (result, { taskId }) => {
+      patchTask(taskId, { bolt_status: result.status, bolt_cycle_hours: result.cycle_hours });
+      void queryClient.invalidateQueries({ queryKey: ["phase3", "bolts", context?.projectId] });
+      if (result.status === "done") {
+        toast.success(
+          result.cycle_hours != null
+            ? `Bolt done — ${result.cycle_hours}h cycle time.`
+            : "Bolt done.",
+        );
+      }
+    },
+    onError: () => toast.error("Failed to update Bolt status. Try again."),
   });
 }
 

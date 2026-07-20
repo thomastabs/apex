@@ -8,6 +8,12 @@ export type CycleTimeStat = {
   samples: number;
 };
 
+export type BoltCycleTimeStats = {
+  median_hours: number;
+  p90_hours: number;
+  samples: number;
+};
+
 export type StoryRisk = {
   level: "none" | "low" | "medium" | "high";
   score: number;
@@ -28,6 +34,7 @@ export type StoryAnalyticsRow = {
 export type AnalyticsSummary = {
   funnel: Record<string, number>;
   cycle_times: CycleTimeStat[];
+  bolt_cycle_time: BoltCycleTimeStats;
   traceability: { deployed: number; complete: number; rate: number };
   conformance: { eligible: number; checked: number; avg_score: number };
   defects: { total_fix_bolts: number; stories_affected: number; avg_per_story: number };

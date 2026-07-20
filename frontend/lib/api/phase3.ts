@@ -1,6 +1,9 @@
 import { apiRequest } from "./client";
 import type { CrossCheckResult } from "./phase1";
 import type {
+  BoltListItem,
+  Phase3BoltStatusRequest,
+  Phase3BoltStatusResponse,
   Phase3EligibleStoriesResponse,
   Phase3GenerateProposalRequest,
   Phase3GenerateProposalResponse,
@@ -75,6 +78,18 @@ export function lockStory(context: RequestContext, body: Phase3LockStoryRequest)
     context,
     body,
   });
+}
+
+export function updateBoltStatus(context: RequestContext, body: Phase3BoltStatusRequest) {
+  return apiRequest<Phase3BoltStatusResponse>("/api/phase3/bolt-status", {
+    method: "POST",
+    context,
+    body,
+  });
+}
+
+export function listAllBolts(context: RequestContext) {
+  return apiRequest<{ bolts: BoltListItem[] }>("/api/phase3/bolts", { context });
 }
 
 export function getProposals(context: RequestContext, storyId: number) {

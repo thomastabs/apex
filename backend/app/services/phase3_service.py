@@ -6,6 +6,7 @@ from backend.app.services.ai_service import AiService
 from backend.app.services.ai_grounding import extra_context_block
 from backend.app.services.context_service import ContextService
 from backend.app.services.request_context import RequestContext
+from src.context_manager import bolt_cycle_hours
 
 _logger = logging.getLogger("apex.phase3_service")
 
@@ -235,6 +236,19 @@ class Phase3Service:
     ) -> None:
         self.configure_request(ctx)
         self.context.save_proposal(story_id, task_id, proposal_md)
+
+    def update_bolt_status(self, ctx: RequestContext, story_id: int, task_id: int, status: str) -> dict:
+        """Record a Phase 3 task's Bolt transitioning to "pushed" or "done"
+        ("pack_ready" is recorded automatically by save_proposal). Returns the
+        bolt record plus cycle_hours (pack_ready -> done elapsed) once done."""
+        self.configure_request(ctx)
+        self._require_story(story_id)
+        record = self.context.record_task_bolt_status(story_id, task_id, status)
+        return {**record, "cycle_hours": bolt_cycle_hours(record)}
+
+    def list_all_bolts(self, ctx: RequestContext) -> list[dict]:
+        self.configure_request(ctx)
+        return self.context.list_all_bolts()
 
     def _require_story(self, story_id: int) -> None:
         """Raise Phase3ValidationError if story_id is not in the project index."""

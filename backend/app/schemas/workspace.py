@@ -47,6 +47,22 @@ class SetScaffoldRequest(BaseModel):
     is_scaffold: bool
 
 
+class BoltLabels(BaseModel):
+    pack_ready: str = "Pack Ready"
+    pushed: str = "Pushed"
+    done: str = "Done"
+
+
+class BoltConfigResponse(BaseModel):
+    labels: BoltLabels = Field(default_factory=BoltLabels)
+    cycle_time_threshold_hours: float | None = None
+
+
+class SaveBoltConfigRequest(BaseModel):
+    labels: BoltLabels = Field(default_factory=BoltLabels)
+    cycle_time_threshold_hours: float | None = None
+
+
 # Excludes "new" — that state means "not in the story index yet" and isn't a
 # status upsert_story_index can actually set (it's not in context_manager's
 # PHASE_STATUSES; every indexed story already has one of the other six).

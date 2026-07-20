@@ -26,6 +26,7 @@ import {
   Trash2,
   Undo2,
   Upload,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button, Callout, SectionHeading, Textarea } from "@/components/ui/primitives";
@@ -48,6 +49,7 @@ import {
   usePushTasksToTaiga,
   useSaveProposal,
   useStoryContext,
+  useUpdateBoltStatus,
   useUpdateTaskInTaiga,
   useUpdateTaskList,
 } from "@/lib/hooks/use-phase3";
@@ -1065,6 +1067,7 @@ function StageC({ storyId }: { storyId: number }) {
   const logDecision = useLogDecision();
   const generateProposal = useGenerateProposal();
   const saveProposalMut = useSaveProposal();
+  const boltStatusMut = useUpdateBoltStatus();
 
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [generatingTaskId, setGeneratingTaskId] = useState<number | null>(null);
@@ -1272,6 +1275,19 @@ function StageC({ storyId }: { storyId: number }) {
                         {selectedTask.subject}
                       </p>
                       <EffortBadge estimate={selectedTask.effort_estimate} />
+                      {selectedTask.bolt_status && (
+                        <span className={cn(
+                          "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium",
+                          selectedTask.bolt_status === "done"
+                            ? dark ? "bg-emerald-900/60 text-emerald-300" : "bg-emerald-100 text-emerald-700"
+                            : dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-500",
+                        )}>
+                          <Zap className="h-3 w-3" />
+                          {selectedTask.bolt_status === "done" && selectedTask.bolt_cycle_hours != null
+                            ? t("phase3.boltDoneWithHours", { hours: selectedTask.bolt_cycle_hours })
+                            : t(`phase3.boltStatus.${selectedTask.bolt_status}` as TranslationKey)}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="flex min-w-0 flex-wrap gap-2">
@@ -1316,6 +1332,18 @@ function StageC({ storyId }: { storyId: number }) {
                       >
                         <Download className="h-4 w-4" /> .md
                       </Button>
+                      {selectedTask.bolt_status !== "done" && (
+                        <Button
+                          variant="secondary"
+                          onClick={() => boltStatusMut.mutate({ storyId, taskId: selectedTask.id, status: "done" })}
+                          disabled={boltStatusMut.isPending}
+                        >
+                          {boltStatusMut.isPending
+                            ? <Loader2 className="h-4 w-4 animate-spin" />
+                            : <Zap className="h-4 w-4" />}
+                          {t("phase3.markBoltDone")}
+                        </Button>
+                      )}
                     </>
                   )}
                   </div>

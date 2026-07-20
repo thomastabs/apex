@@ -21,6 +21,7 @@ from backend.app.schemas.workspace import (
     AiKeyStatusResponse,
     AmendmentsResponse,
     SpecIndexResponse,
+    BoltConfigResponse,
     ConfigResponse,
     ContextFilesResponse,
     ContextWikiStatusResponse,
@@ -41,6 +42,7 @@ from backend.app.schemas.workspace import (
     SaveAiConfigRequest,
     SaveAiKeyRequest,
     AcknowledgeFigmaChangeRequest,
+    SaveBoltConfigRequest,
     SaveConfigRequest,
     SaveGithubPackConfigRequest,
     SaveStatusMappingRequest,
@@ -642,6 +644,24 @@ def save_status_mapping(
     context.set_active(ctx)
     context.save_status_mapping(payload.mapping)
     return get_status_mapping(ctx, x_taiga_url)
+
+
+@router.get("/bolt-config", response_model=BoltConfigResponse)
+def get_bolt_config(ctx: RequestContext = Depends(get_request_context)):
+    context = ContextService()
+    context.set_active(ctx)
+    saved = context.bolt_config()
+    return saved or {}
+
+
+@router.post("/bolt-config", response_model=BoltConfigResponse)
+def save_bolt_config(
+    payload: SaveBoltConfigRequest,
+    ctx: RequestContext = Depends(get_request_context),
+):
+    context = ContextService()
+    context.set_active(ctx)
+    return context.save_bolt_config(payload.model_dump())
 
 
 @router.get("/agent-files", response_model=AgentFilesResponse)

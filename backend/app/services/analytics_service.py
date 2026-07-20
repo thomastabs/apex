@@ -1,10 +1,12 @@
 """Governance analytics computed from the story index and context artifacts.
 
 Implements the framework's Core Governance Metrics on the data Apex already
-records: Bolt Cycle Time from status_history timestamps, Context Traceability
-Rate from artifact completeness of deployed stories, and the AI-defect proxy
-from Fix-Bolt counts (Apex has no production telemetry, so QA-caught defects
-are the honest measurable stand-in for the Defect Escape Rate).
+records: Cycle time per story-level gate transition (gherkin_locked through
+deployed) plus the real per-task Bolt Cycle Time (pack_ready -> done, tracked
+independently in each story's `bolts` map), Context Traceability Rate from
+artifact completeness of deployed stories, and the AI-defect proxy from
+Fix-Bolt counts (Apex has no production telemetry, so QA-caught defects are
+the honest measurable stand-in for the Defect Escape Rate).
 
 Computed on demand — project scale is tens of stories, no caching needed.
 """
@@ -64,6 +66,7 @@ class AnalyticsService:
                 funnel[status] += 1
 
         cycle_times = self._cycle_times(entries)
+        bolt_cycle_time = self._bolt_cycle_times(entries)
         deployed_ids = self._deployment_log_story_ids()
 
         # One verification read per deployed story, shared by the traceability
@@ -102,6 +105,7 @@ class AnalyticsService:
         return {
             "funnel": funnel,
             "cycle_times": cycle_times,
+            "bolt_cycle_time": bolt_cycle_time,
             "traceability": traceability,
             "conformance": conformance,
             "defects": defects,
@@ -156,6 +160,27 @@ class AnalyticsService:
                     "samples": len(samples),
                 })
         return out
+
+    def _bolt_cycle_times(self, entries: list[dict]) -> dict:
+        """Real per-task Bolt Cycle Time: earliest "pack_ready" timestamp to
+        earliest "done" timestamp, across every task in every story's `bolts`
+        map. Distinct from _cycle_times, which is the story-level phase-gate
+        cycle time — this is the framework's actual implementation micro-cycle."""
+        samples: list[float] = []
+        for e in entries:
+            for record in (e.get("bolts") or {}).values():
+                history = record.get("status_history") or {}
+                start = _earliest(history, "pack_ready")
+                end = _earliest(history, "done")
+                if start and end and end >= start:
+                    samples.append((end - start).total_seconds() / 3600)
+        if not samples:
+            return {"median_hours": 0.0, "p90_hours": 0.0, "samples": 0}
+        return {
+            "median_hours": round(statistics.median(samples), 2),
+            "p90_hours": round(_p90(samples), 2),
+            "samples": len(samples),
+        }
 
     def _deployment_log_story_ids(self) -> set[int]:
         log = self.context.read_context_file("deployment-log.md")

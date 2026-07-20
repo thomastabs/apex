@@ -9,11 +9,14 @@ from backend.app.api.phase3 import (
     generate_proposal,
     generate_tasks,
     get_proposals,
+    list_all_bolts,
     lock_story,
     save_proposal,
     story_context,
+    update_bolt_status,
 )
 from backend.app.schemas.phase3 import (
+    BoltStatusRequest,
     GenerateProposalRequest,
     GenerateTasksRequest,
     LockStoryRequest,
@@ -107,6 +110,17 @@ class StubPhase3Service:
 
     def save_proposal(self, ctx, story_id, task_id, proposal_md):
         pass
+
+    def update_bolt_status(self, ctx, story_id, task_id, status):
+        return {"task_id": task_id, "status": status, "status_history": {status: ["2026-01-01T00:00:00+00:00"]}, "cycle_hours": None}
+
+    def list_all_bolts(self, ctx):
+        return [{
+            "story_id": 10, "story_title": "User Login", "epic_title": "Auth",
+            "task_id": 1, "status": "done",
+            "status_history": {"pack_ready": ["2026-01-01T00:00:00+00:00"], "done": ["2026-01-01T06:00:00+00:00"]},
+            "cycle_hours": 6.0,
+        }]
 
     def get_proposals(self, ctx, story_id):
         return [{"task_id": 1, "proposal_md": _FAKE_PROPOSAL}]
@@ -253,6 +267,27 @@ def test_save_proposal_route():
         service=StubPhase3Service(),
     )
     assert result == {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# bolt-status
+# ---------------------------------------------------------------------------
+
+def test_update_bolt_status_route():
+    result = update_bolt_status(
+        BoltStatusRequest(story_id=10, task_id=1, status="pushed"),
+        ctx=_ctx(),
+        service=StubPhase3Service(),
+    )
+    assert result["task_id"] == 1
+    assert result["status"] == "pushed"
+
+
+def test_list_all_bolts_route():
+    result = list_all_bolts(ctx=_ctx(), service=StubPhase3Service())
+    assert len(result["bolts"]) == 1
+    assert result["bolts"][0]["story_id"] == 10
+    assert result["bolts"][0]["status"] == "done"
 
 
 # ---------------------------------------------------------------------------

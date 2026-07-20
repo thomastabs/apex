@@ -7,6 +7,8 @@ from backend.app.api.deps import AuthContext
 from backend.app.api.workspace import (
     admin_set_all_story_status,
     delete_ai_key,
+    get_bolt_config,
+    save_bolt_config,
     get_agent_files,
     get_ai_config,
     get_config,
@@ -32,9 +34,11 @@ from backend.app.api.workspace import (
 )
 from backend.app.schemas.workspace import (
     AdminSetAllStatusRequest,
+    BoltLabels,
     LogDecisionRequest,
     SaveAiConfigRequest,
     SaveAiKeyRequest,
+    SaveBoltConfigRequest,
     SaveConfigRequest,
     SetPhaseStatusRequest,
     SetScaffoldRequest,
@@ -743,6 +747,23 @@ def test_generate_agent_file_rejects_unknown_filename():
 
 
 # ── github sync-status: cheap poll target for auto-resync ─────────────────────
+
+def test_get_bolt_config_defaults_when_unset(ctx):
+    resp = get_bolt_config(RequestContext(pm_token="tok", project_id=ctx._get_project_id()))
+    assert resp == {}
+
+
+def test_save_bolt_config_round_trips_through_route(ctx):
+    request_ctx = RequestContext(pm_token="tok", project_id=ctx._get_project_id())
+    payload = SaveBoltConfigRequest(
+        labels=BoltLabels(pack_ready="Ready", pushed="Pushed", done="Shipped"),
+        cycle_time_threshold_hours=4,
+    )
+    saved = save_bolt_config(payload, ctx=request_ctx)
+    assert saved["labels"] == {"pack_ready": "Ready", "pushed": "Pushed", "done": "Shipped"}
+    assert saved["cycle_time_threshold_hours"] == 4.0
+    assert get_bolt_config(request_ctx) == saved
+
 
 def test_github_sync_status_defaults_to_both_none(ctx):
     resp = github_sync_status(RequestContext(pm_token="tok", project_id=ctx._get_project_id()))

@@ -361,6 +361,8 @@ export type DesignSystemResponse = {
 
 export type EffortEstimate = "XS" | "S" | "M" | "L" | "XL";
 
+export type BoltStatus = "pack_ready" | "pushed" | "done";
+
 export type Phase3Task = {
   id: number;
   subject: string;
@@ -371,6 +373,8 @@ export type Phase3Task = {
   taiga_task_id?: number;
   pm_task_id?: string;
   pm_task_ref?: string | number;
+  bolt_status?: BoltStatus;
+  bolt_cycle_hours?: number | null;
 };
 
 export type Phase3StoryPreview = {
@@ -427,6 +431,29 @@ export type Phase3SaveProposalRequest = {
 export type Phase3LockStoryRequest = {
   story_id: number;
   task_ids: number[];
+};
+
+export type Phase3BoltStatusRequest = {
+  story_id: number;
+  task_id: number;
+  status: "pushed" | "done";
+};
+
+export type Phase3BoltStatusResponse = {
+  task_id: number;
+  status: BoltStatus;
+  status_history: Record<string, string[]>;
+  cycle_hours: number | null;
+};
+
+export type BoltListItem = {
+  story_id: number;
+  story_title: string;
+  epic_title: string;
+  task_id: number;
+  status: BoltStatus;
+  status_history: Record<string, string[]>;
+  cycle_hours: number | null;
 };
 
 // ---------------------------------------------------------------------------

@@ -81,6 +81,7 @@ class FakeContextService:
         self.index = index if index is not None else _story_index()
         self.saved_proposals: list[tuple] = []
         self.upserted: list[tuple] = []
+        self.bolt_records: dict[tuple, dict] = {}
 
     def set_active(self, ctx):
         self.set_project(ctx.project_id)
@@ -123,6 +124,14 @@ class FakeContextService:
 
     def proposal_exists(self, story_id: int, task_id: int) -> bool:
         return any(s == story_id and t == task_id for s, t, _ in self.saved_proposals)
+
+    def record_task_bolt_status(self, story_id: int, task_id: int, status: str) -> dict:
+        key = (story_id, task_id)
+        record = self.bolt_records.setdefault(key, {"task_id": task_id, "status": status, "status_history": {}})
+        record["status"] = status
+        # Always later than any preset "2026-01-01..." timestamp a test seeds.
+        record.setdefault("status_history", {}).setdefault(status, []).append("2026-01-02T00:00:00+00:00")
+        return record
 
 
 def _story_index(status: str = "design_locked") -> dict:
@@ -407,6 +416,44 @@ def test_save_proposal_delegates_to_context():
     svc.save_proposal(_ctx(), 10, 1, "## Context\nHello.")
     assert len(ctx_svc.saved_proposals) == 1
     assert ctx_svc.saved_proposals[0] == (10, 1, "## Context\nHello.")
+
+
+# ---------------------------------------------------------------------------
+# update_bolt_status (Bolt Board)
+# ---------------------------------------------------------------------------
+
+def test_update_bolt_status_pushed_has_no_cycle_hours():
+    svc = Phase3Service(ai=FakeAiService(), context=FakeContextService())
+    result = svc.update_bolt_status(_ctx(), 10, 1, "pushed")
+    assert result["status"] == "pushed"
+    assert result["cycle_hours"] is None
+
+
+def test_update_bolt_status_done_computes_cycle_hours_from_pack_ready():
+    ctx_svc = FakeContextService()
+    ctx_svc.bolt_records[(10, 1)] = {
+        "task_id": 1,
+        "status": "pushed",
+        "status_history": {"pack_ready": ["2026-01-01T10:00:00+00:00"]},
+    }
+    svc = Phase3Service(ai=FakeAiService(), context=ctx_svc)
+    result = svc.update_bolt_status(_ctx(), 10, 1, "done")
+    assert result["status"] == "done"
+    assert result["cycle_hours"] is not None
+    assert result["cycle_hours"] >= 0
+
+
+def test_update_bolt_status_done_without_pack_ready_leaves_cycle_hours_none():
+    svc = Phase3Service(ai=FakeAiService(), context=FakeContextService())
+    result = svc.update_bolt_status(_ctx(), 10, 1, "done")
+    assert result["status"] == "done"
+    assert result["cycle_hours"] is None
+
+
+def test_update_bolt_status_requires_known_story():
+    svc = Phase3Service(ai=FakeAiService(), context=FakeContextService())
+    with pytest.raises(Phase3ValidationError):
+        svc.update_bolt_status(_ctx(), 999, 1, "done")
 
 
 # ---------------------------------------------------------------------------

@@ -145,6 +145,30 @@ def test_cycle_times_use_latest_reentry():
     assert stat["median_hours"] == 6.0
 
 
+def test_bolt_cycle_time_median_and_samples():
+    index = {
+        "1": _entry(1, "implementation", bolts={
+            "1": {"status_history": {"pack_ready": ["2026-06-01T00:00:00+00:00"], "done": ["2026-06-01T06:00:00+00:00"]}},  # 6h
+            "2": {"status_history": {"pack_ready": ["2026-06-01T00:00:00+00:00"], "done": ["2026-06-01T12:00:00+00:00"]}},  # 12h
+        }),
+    }
+    summary = AnalyticsService(context=FakeContextService(index=index)).summary(_ctx())
+    stat = summary["bolt_cycle_time"]
+    assert stat["samples"] == 2
+    assert stat["median_hours"] == 9.0
+    assert stat["p90_hours"] == 12.0
+
+
+def test_bolt_cycle_time_ignores_tasks_not_done():
+    index = {
+        "1": _entry(1, "implementation", bolts={
+            "1": {"status_history": {"pack_ready": ["2026-06-01T00:00:00+00:00"]}},
+        }),
+    }
+    summary = AnalyticsService(context=FakeContextService(index=index)).summary(_ctx())
+    assert summary["bolt_cycle_time"] == {"median_hours": 0.0, "p90_hours": 0.0, "samples": 0}
+
+
 def test_traceability_rate_over_deployed():
     log = (
         "# Deployment Log\n\n"

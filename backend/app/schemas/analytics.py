@@ -10,6 +10,12 @@ class CycleTimeStat(BaseModel):
     samples: int
 
 
+class BoltCycleTimeStats(BaseModel):
+    median_hours: float = 0.0
+    p90_hours: float = 0.0
+    samples: int = 0
+
+
 class TraceabilityStats(BaseModel):
     deployed: int = 0
     complete: int = 0
@@ -48,6 +54,7 @@ class StoryAnalyticsRow(BaseModel):
 class AnalyticsSummaryResponse(BaseModel):
     funnel: dict[str, int] = Field(default_factory=dict)
     cycle_times: list[CycleTimeStat] = Field(default_factory=list)
+    bolt_cycle_time: BoltCycleTimeStats = Field(default_factory=BoltCycleTimeStats)
     traceability: TraceabilityStats = Field(default_factory=TraceabilityStats)
     conformance: ConformanceStats = Field(default_factory=ConformanceStats)
     defects: DefectStats = Field(default_factory=DefectStats)
