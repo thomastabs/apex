@@ -18,7 +18,8 @@ def usage_summary(
     days: int = Query(default=30, ge=1, le=90),
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+    x_jira_base_url: str = Header(default="", alias="X-Jira-Base-Url"),
     service: UsageService = Depends(get_usage_service),
 ):
-    service.configure_request(anchor_instance_id(x_taiga_url))
+    service.configure_request(anchor_instance_id(x_taiga_url, x_jira_base_url))
     return service.summary(days)

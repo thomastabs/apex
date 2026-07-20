@@ -40,8 +40,16 @@ export function contextHeaders(context?: RequestContext | AuthContext | null): R
   if (context?.taigaToken) {
     headers.Authorization = `Bearer ${context.taigaToken}`;
   }
-  if (context?.pmTool !== "jira" && context?.taigaApiUrl) {
-    headers["X-Taiga-Url"] = context.taigaApiUrl;
+  if (context?.taigaApiUrl) {
+    // taigaApiUrl doubles as the Jira base URL when pmTool is "jira" (see
+    // sidebar.tsx login flow) — send it as the matching override header so the
+    // backend anchors identity/project checks to the caller's own known base
+    // instead of trusting the shared workspace config alone (audit H4).
+    if (context.pmTool === "jira") {
+      headers["X-Jira-Base-Url"] = context.taigaApiUrl;
+    } else {
+      headers["X-Taiga-Url"] = context.taigaApiUrl;
+    }
   }
   if (context && "projectId" in context && context.projectId) {
     headers["X-Project-Id"] = String(context.projectId);

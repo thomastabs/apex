@@ -34,17 +34,17 @@ def _bypass_pm_auth(request, monkeypatch):
         return
     from backend.app.api import deps
 
-    monkeypatch.setattr(deps, "_verify_pm_token", lambda token, taiga_url_override="": None)
-    monkeypatch.setattr(deps, "_verify_project_access", lambda token, project_id, taiga_url_override="": None)
+    monkeypatch.setattr(deps, "_verify_pm_token", lambda token, taiga_url_override="", jira_base_url_override="": None)
+    monkeypatch.setattr(deps, "_verify_project_access", lambda token, project_id, taiga_url_override="", jira_base_url_override="": None)
     # get_request_context derives the storage instance_id from _resolve_anchor_base,
     # which runs SSRF/DNS validation. Stub it so bypassed tests stay offline and the
     # namespace is deterministic ("api_taiga_io").
-    monkeypatch.setattr(deps, "_resolve_anchor_base", lambda override="": ("taiga", "https://api.taiga.io/api/v1"))
+    monkeypatch.setattr(deps, "_resolve_anchor_base", lambda override="", jira_override="": ("taiga", "https://api.taiga.io/api/v1"))
     # get_auth_context also resolves a PM account id (to load persisted AI keys)
     # by dialing the PM's identity endpoint on cache-miss — stub it too so
     # bypassed tests never hit the network. Tests of that resolution itself
     # opt out with @pytest.mark.real_auth same as the token/project checks.
-    monkeypatch.setattr(deps, "resolve_account_id", lambda token, taiga_url_override="": "")
+    monkeypatch.setattr(deps, "resolve_account_id", lambda token, taiga_url_override="", jira_base_url_override="": "")
     yield
 
 

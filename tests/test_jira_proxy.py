@@ -189,6 +189,45 @@ class TestProxyJiraCatchAll:
         assert resp.status_code == 400
 
 
+class TestProxyResponseSizeCap:
+    """A misbehaving/compromised Jira instance must not be forwarded to the
+    browser unbounded (audit M8)."""
+
+    JIRA_URL = "https://example.atlassian.net"
+    AUTH = "Basic dXNlckBleGFtcGxlLmNvbTp0b2tlbg=="
+
+    def test_oversized_response_rejected(self, client):
+        from backend.app.api.pm_http import MAX_RESPONSE_BYTES
+
+        upstream = MagicMock()
+        upstream.content = b"x" * (MAX_RESPONSE_BYTES + 1)
+        upstream.status_code = 200
+        upstream.headers = {"content-type": "application/json"}
+        patcher, _ = _patch_client(upstream)
+        with patcher:
+            resp = client.get(
+                "/api/pm/jira/search",
+                headers={"Authorization": self.AUTH, "X-Jira-Base-Url": self.JIRA_URL},
+            )
+        assert resp.status_code == 502
+        assert "too large" in resp.json()["detail"].lower()
+
+    def test_response_at_cap_is_forwarded(self, client):
+        from backend.app.api.pm_http import MAX_RESPONSE_BYTES
+
+        upstream = MagicMock()
+        upstream.content = b"x" * MAX_RESPONSE_BYTES
+        upstream.status_code = 200
+        upstream.headers = {"content-type": "application/json"}
+        patcher, _ = _patch_client(upstream)
+        with patcher:
+            resp = client.get(
+                "/api/pm/jira/search",
+                headers={"Authorization": self.AUTH, "X-Jira-Base-Url": self.JIRA_URL},
+            )
+        assert resp.status_code == 200
+
+
 class TestJiraConfigPathSsrf:
     """The persisted jira_base_url is user-writable — the config path must
     enforce the same https + atlassian.net + non-private rules as the

@@ -133,6 +133,81 @@ class TestRequestContextDerivesInstance:
         assert rc.project_id == 5
 
 
+class TestJiraAnchorOverride:
+    """Jira identity anchoring must prefer a per-request override over the
+    shared workspace config, mirroring Taiga's X-Taiga-Url protection — before
+    this fix any PM-authenticated user could flip the global `jira_base_url`
+    and misroute every other Jira user's identity/project checks (audit H4)."""
+
+    def test_override_wins_over_stale_config(self, monkeypatch):
+        from backend.app.api import deps
+
+        monkeypatch.setattr(
+            "src.context_manager.load_config",
+            lambda: {"pm_tool": "jira", "jira_base_url": "https://stale.atlassian.net"},
+        )
+        pm_tool, base = deps._anchor_base(jira_base_url_override="https://current.atlassian.net")
+        assert pm_tool == "jira"
+        assert base == "https://current.atlassian.net"
+
+    def test_falls_back_to_config_when_no_override(self, monkeypatch):
+        from backend.app.api import deps
+
+        monkeypatch.setattr(
+            "src.context_manager.load_config",
+            lambda: {"pm_tool": "jira", "jira_base_url": "https://configured.atlassian.net"},
+        )
+        pm_tool, base = deps._anchor_base()
+        assert pm_tool == "jira"
+        assert base == "https://configured.atlassian.net"
+
+    @pytest.mark.real_auth
+    def test_resolve_anchor_base_validates_jira_override(self, monkeypatch):
+        """The override must pass the same SSRF/domain guard as the config
+        path — an override is just as user-influenced as the stored value."""
+        from fastapi import HTTPException
+        from backend.app.api import deps
+
+        monkeypatch.setattr("src.context_manager.load_config", lambda: {"pm_tool": "jira"})
+        with pytest.raises(HTTPException) as exc:
+            deps._resolve_anchor_base(jira_base_url_override="https://evil.example.com")
+        assert exc.value.status_code == 400
+
+    @pytest.mark.real_auth
+    def test_resolve_anchor_base_validates_configured_jira_base(self, monkeypatch):
+        """Previously the config-sourced Jira base skipped validation entirely
+        at dial time (only checked at config-write time) — now it is always
+        re-validated here too, closing that gap."""
+        from fastapi import HTTPException
+        from backend.app.api import deps
+
+        monkeypatch.setattr(
+            "src.context_manager.load_config",
+            lambda: {"pm_tool": "jira", "jira_base_url": "http://not-https.atlassian.net"},
+        )
+        with pytest.raises(HTTPException) as exc:
+            deps._resolve_anchor_base()
+        assert exc.value.status_code == 400
+
+    @pytest.mark.real_auth
+    def test_instance_id_from_jira_header_override(self, monkeypatch):
+        from src import context_manager
+        from backend.app.api import deps
+
+        monkeypatch.setattr(deps, "_verify_pm_token", lambda *a, **k: None)
+        monkeypatch.setattr(deps, "_verify_project_access", lambda *a, **k: None)
+        monkeypatch.setattr(
+            "src.context_manager.load_config",
+            lambda: {"pm_tool": "jira", "jira_base_url": "https://stale.atlassian.net"},
+        )
+        rc = deps.get_request_context(
+            "Bearer tok", "", 5, None, "https://current.atlassian.net",
+        )
+        assert rc.instance_id == context_manager.instance_key("https://current.atlassian.net")
+        assert rc.instance_id != context_manager.instance_key("https://stale.atlassian.net")
+        assert rc.project_id == 5
+
+
 class TestPerInstanceGithub:
     """github_repo is scoped to the PM instance so Cloud and private users don't
     share one repo."""

@@ -20,7 +20,7 @@ from backend.app.api.rate_limit import (
     record_auth_failure,
     record_username_failure,
 )
-from backend.app.api.pm_http import send_with_retry
+from backend.app.api.pm_http import ResponseTooLarge, check_response_size, send_with_retry
 from backend.app.api.ssrf import egress_host_allowed, is_blocked_host, pinned_target
 
 router = APIRouter()
@@ -269,11 +269,17 @@ async def proxy_taiga(
             content=body or None,
             **({"extensions": ext} if ext else {}),
         )
+        check_response_size(resp, logger=_logger, url=target_url)
     except httpx.RequestError as exc:
         _logger.error("Taiga proxy failed to reach %s: %s", target_url, exc)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Failed to reach Taiga instance.",
+        ) from exc
+    except ResponseTooLarge as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Taiga instance returned a response that was too large.",
         ) from exc
 
     return Response(

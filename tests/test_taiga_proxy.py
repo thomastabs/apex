@@ -227,6 +227,45 @@ def _mock_auth_upstream(status_code: int, body: dict):
     return resp
 
 
+class TestProxyResponseSizeCap:
+    """A misbehaving/compromised Taiga instance must not be forwarded to the
+    browser unbounded (audit M8)."""
+
+    TAIGA_URL = "https://taiga.example.test/api/v1"
+    AUTH = "Bearer mytoken"
+
+    def test_oversized_response_rejected(self, client):
+        from backend.app.api.pm_http import MAX_RESPONSE_BYTES
+
+        upstream = MagicMock()
+        upstream.content = b"x" * (MAX_RESPONSE_BYTES + 1)
+        upstream.status_code = 200
+        upstream.headers = {"content-type": "application/json"}
+        patcher, _ = _patch_client(upstream)
+        with patcher:
+            resp = client.get(
+                "/api/pm/taiga/epics",
+                headers={"Authorization": self.AUTH, "X-Taiga-Url": self.TAIGA_URL},
+            )
+        assert resp.status_code == 502
+        assert "too large" in resp.json()["detail"].lower()
+
+    def test_response_at_cap_is_forwarded(self, client):
+        from backend.app.api.pm_http import MAX_RESPONSE_BYTES
+
+        upstream = MagicMock()
+        upstream.content = b"x" * MAX_RESPONSE_BYTES
+        upstream.status_code = 200
+        upstream.headers = {"content-type": "application/json"}
+        patcher, _ = _patch_client(upstream)
+        with patcher:
+            resp = client.get(
+                "/api/pm/taiga/epics",
+                headers={"Authorization": self.AUTH, "X-Taiga-Url": self.TAIGA_URL},
+            )
+        assert resp.status_code == 200
+
+
 class TestUsernameBruteForce:
     """Per-account credential-stuffing throttle (security gap #2): forging
     X-Forwarded-For must not let an attacker bypass it for one account."""

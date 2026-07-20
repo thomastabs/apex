@@ -333,7 +333,7 @@ def test_save_ai_config_rejects_unknown_language(monkeypatch):
 
 
 def test_get_ai_config_reports_env_and_personal_providers(monkeypatch):
-    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
+    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="", jira_override="": "api_taiga_io")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-env")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
@@ -352,7 +352,7 @@ def test_get_ai_config_personal_key_configured_even_alongside_system_key(monkeyp
     # A saved personal key is always active — a provider with BOTH a system
     # env var and a personal key must still report as configured (via the
     # personal key; ai_engine actually calling it is covered in test_ai_engine.py).
-    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
+    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="", jira_override="": "api_taiga_io")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-system-env")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
@@ -378,7 +378,7 @@ def test_get_ai_config_no_account_id_reports_env_only(monkeypatch):
 
 
 def test_save_ai_key_persists_and_clears_llm_cache(monkeypatch):
-    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
+    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="", jira_override="": "api_taiga_io")
     saved: list[tuple] = []
     monkeypatch.setattr(
         "src.ai_key_store.save_key",
@@ -406,7 +406,7 @@ def test_save_ai_key_without_account_id_returns_503():
 
 
 def test_save_ai_key_without_encryption_secret_returns_503(monkeypatch):
-    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
+    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="", jira_override="": "api_taiga_io")
 
     def _boom(instance_id, account_id, provider, api_key):
         raise RuntimeError("AI_KEY_ENCRYPTION_SECRET is not configured on this deployment.")
@@ -419,7 +419,7 @@ def test_save_ai_key_without_encryption_secret_returns_503(monkeypatch):
 
 
 def test_delete_ai_key_removes_and_clears_llm_cache(monkeypatch):
-    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
+    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="", jira_override="": "api_taiga_io")
     deleted: list[tuple] = []
     monkeypatch.setattr(
         "src.ai_key_store.delete_key",
@@ -441,7 +441,7 @@ def test_delete_ai_key_rejects_unknown_provider():
 
 
 def test_delete_ai_key_without_account_id_is_a_noop(monkeypatch):
-    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
+    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="", jira_override="": "api_taiga_io")
     called = []
     monkeypatch.setattr("src.ai_key_store.delete_key", lambda *a: called.append(a))
 

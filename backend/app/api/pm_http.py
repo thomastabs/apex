@@ -17,6 +17,30 @@ import httpx
 
 CONNECT_ERRORS = (httpx.ConnectError, httpx.ConnectTimeout)
 
+# Generous cap for Taiga/Jira JSON payloads — bounds memory/forwarding cost of a
+# misbehaving or compromised upstream (audit M8). Taiga/Jira are pre-validated,
+# user-configured hosts (not arbitrary attacker-controlled ones), so a post-
+# download check is a proportionate bound here rather than full response
+# streaming: send_with_retry already reads the body fully via httpx's
+# non-streaming request() API before this can run.
+MAX_RESPONSE_BYTES = 15 * 1024 * 1024  # 15 MB
+
+
+class ResponseTooLarge(Exception):
+    """Raised when an upstream PM response exceeds MAX_RESPONSE_BYTES."""
+
+    def __init__(self, size: int) -> None:
+        self.size = size
+        super().__init__(f"upstream response too large: {size} bytes")
+
+
+def check_response_size(resp: httpx.Response, *, logger: logging.Logger, url: str) -> None:
+    """Raise ResponseTooLarge if resp's body exceeds MAX_RESPONSE_BYTES."""
+    size = len(resp.content)
+    if size > MAX_RESPONSE_BYTES:
+        logger.warning("Response from %s too large (%d bytes) — rejecting", url, size)
+        raise ResponseTooLarge(size)
+
 # 1 initial attempt + len(_BACKOFFS) retries. Base delays are jittered so a
 # retry storm doesn't hammer the PM at a fixed interval.
 _BACKOFFS = (0.25, 0.75)
