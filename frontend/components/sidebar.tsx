@@ -13,6 +13,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useMe, useProjects, useSaveAiLanguage, useServerConfig, useStoryIndexStats,
 } from "@/lib/hooks/use-workspace";
+import { useBoltsList } from "@/lib/hooks/use-phase3";
 import { useSessionStore } from "@/lib/stores/session-store";
 import { useUiStore, type Locale } from "@/lib/stores/ui-store";
 import { useT } from "@/lib/i18n/use-translation";
@@ -55,6 +56,12 @@ function phaseBadge(
   if (phase === 4 && stats.phase4_tested > 0) return `${stats.phase4_tested}/${t}`;
   if (phase === 5 && stats.phase5_deployed > 0) return `${stats.phase5_deployed}/${t}`;
   return undefined;
+}
+
+function boltsBadge(bolts: ReturnType<typeof useBoltsList>["data"]): string | undefined {
+  if (!bolts) return undefined;
+  const open = bolts.bolts.filter((b) => b.status !== "done").length;
+  return open > 0 ? `${open}` : undefined;
 }
 
 // ── NavItem ───────────────────────────────────────────────────────────────────
@@ -587,6 +594,7 @@ export function Sidebar() {
 
   const serverConfig = useServerConfig();
   const { data: stats } = useStoryIndexStats();
+  const { data: bolts } = useBoltsList();
   const pmWebUrl = serverConfig.data?.pm_web_url ?? serverConfig.data?.taiga_web_url ?? "https://tree.taiga.io";
   const dark = theme === "dark";
   const pathname = usePathname();
@@ -734,6 +742,7 @@ export function Sidebar() {
                 href={item.href}
                 icon={item.icon}
                 label={t(item.labelKey)}
+                badge={item.href === "/bolts" ? boltsBadge(bolts) : undefined}
                 active={pathname === item.href || pathname.startsWith(item.href + "/")}
                 dark={dark}
               />
