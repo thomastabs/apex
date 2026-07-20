@@ -1,0 +1,121 @@
+@startuml
+title Apex Framework — Big Picture: Phases, Inputs, Outputs, and Literature Grounding
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam componentStyle uml2
+skinparam linetype ortho
+skinparam nodesep 45
+skinparam ranksep 90
+skinparam component {
+  BorderColor #666666
+  BackgroundColor #F5F5F5
+  FontSize 13
+}
+skinparam note {
+  BorderColor #999999
+  BackgroundColor #FFFDF0
+  FontSize 11
+}
+skinparam ArrowColor #333333
+skinparam ArrowFontSize 11
+
+rectangle "Strategic Alignment\n(Pre-Squad)" as P0
+rectangle "Discovery &\nRequirements" as P1
+rectangle "Design &\nPrototyping" as P2
+rectangle "Implementation" as P3
+rectangle "Testing" as P4
+rectangle "Deployment" as P5
+rectangle "Maintenance" as P6
+
+note bottom of P0
+  **In:** market signals, stakeholder ask,
+  business constraints
+  **Out:** approved Unit of Work + OKRs/KPIs
+  **Lit:** single-threaded-leader ownership
+  (Bryar & Carr, 2021) — closer precedent
+  than a Spotify-style pre-Squad role
+end note
+
+note bottom of P1
+  **In:** Unit of Work + OKRs
+  **Out:** locked Gherkin acceptance
+  criteria + stable spec IDs
+  (functional-spec.md)
+  **Lit:** Mob Elaboration (Raja SP,
+  AI-DLC, 2025); epic-organized Gherkin
+  outperforms per-scenario generation
+  (Siddeeq et al., 2026)
+end note
+
+note bottom of P2
+  **In:** locked Gherkin
+  **Out:** locked Technical Spec + UX
+  Brief + Runtime Contract
+  (technical-spec.md, design-bundle.md,
+  runtime-spec.md)
+  **Lit:** "spec-driven development"
+  (Thoughtworks, 2025) — direct precedent
+  for anchoring the spec as the artifact
+end note
+
+note bottom of P3
+  **In:** locked Technical Spec +
+  Runtime Contract
+  **Out:** developer packs; code passing
+  Consistency Factor tests (Bolts done)
+  **Lit:** Bolts / Mob Construction
+  (Raja SP, AI-DLC, 2025); mandatory
+  human validation answers documented
+  AI-code security gaps (Zhao et al. 2025;
+  Veracode, 2025)
+end note
+
+note bottom of P4
+  **In:** implemented code +
+  locked Gherkin
+  **Out:** BDD-verified Story
+  (qa_passed)
+  **Lit:** LLM-generated BDD/Gherkin
+  validated as a pattern, not just
+  plausible (arXiv:2603.04729;
+  arXiv:2508.20744)
+end note
+
+note bottom of P5
+  **In:** qa_passed Story
+  **Out:** deployed code +
+  deployment-log.md
+  **Lit:** DORA capabilities "strong
+  version control" / "small batches"
+  (DORA/Google Cloud, 2025)
+end note
+
+note bottom of P6
+  **In:** deployed code + post-deployment
+  feedback (bug / change request /
+  monitoring signal)
+  **Out:** classified signal routed to the
+  owning phase, or a permanent Fix Log entry
+  **Lit:** "AI is an amplifier" — governance
+  determines which way it amplifies
+  (DORA/Google Cloud, 2025); this phase is
+  framework-original, not adapted from AI-DLC
+  ----
+  Explicit answer to being read as a
+  linear/Waterfall model: Maintenance is
+  not a dead end, and re-opening a phase
+  is always a human decision, never automatic.
+end note
+
+P0 -right-> P1 : Unit of Work
+P1 -right-> P2 : Gherkin
+P2 -right-> P3 : Tech Spec
+P3 -right-> P4 : Story built
+P4 -right-> P5 : qa_passed
+P5 -right-> P6 : deployed
+
+' ---- governed loop-back: one consolidated arrow, not four crossing ones ----
+P6 .up.> P1 : governed loop-back:\na classified signal re-opens the\nflagged phase (never patched blind)
+
+@enduml

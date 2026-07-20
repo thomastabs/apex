@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  id="Definitions_ApexFramework"
+                  targetNamespace="http://apex.framework/bpmn"
+                  exporter="Apex (hand-authored)"
+                  exporterVersion="1.0">
+
+  <bpmn:process id="Process_ApexFramework" name="Apex Framework — Big Picture" isExecutable="false">
+
+    <bpmn:startEvent id="StartEvent_1" name="Unit of Work initiated">
+      <bpmn:outgoing>Flow_Start_Strategic</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:task id="Task_Strategic" name="Strategic Alignment&#10;(Pre-Squad)">
+      <bpmn:documentation>In: market signals, stakeholder ask, business constraints.
+Out: approved Unit of Work + OKRs/KPIs.
+Lit: single-threaded-leader ownership (Bryar &amp; Carr, 2021) — closer precedent than a Spotify-style pre-Squad role.</bpmn:documentation>
+      <bpmn:incoming>Flow_Start_Strategic</bpmn:incoming>
+      <bpmn:outgoing>Flow_Strategic_Discovery</bpmn:outgoing>
+    </bpmn:task>
+
+    <bpmn:task id="Task_Discovery" name="Discovery &amp;&#10;Requirements">
+      <bpmn:documentation>In: Unit of Work + OKRs.
+Out: locked Gherkin acceptance criteria + stable spec IDs (functional-spec.md).
+Lit: Mob Elaboration (Raja SP, AI-DLC, 2025); epic-organized Gherkin outperforms per-scenario generation (Siddeeq et al., 2026).</bpmn:documentation>
+      <bpmn:incoming>Flow_Strategic_Discovery</bpmn:incoming>
+      <bpmn:incoming>Flow_ChangeRequest_Loopback</bpmn:incoming>
+      <bpmn:outgoing>Flow_Discovery_Design</bpmn:outgoing>
+    </bpmn:task>
+
+    <bpmn:task id="Task_Design" name="Design &amp;&#10;Prototyping">
+      <bpmn:documentation>In: locked Gherkin.
+Out: locked Technical Spec + UX Brief + Runtime Contract (technical-spec.md, design-bundle.md, runtime-spec.md).
+Lit: "spec-driven development" (Thoughtworks, 2025) — direct precedent for anchoring the spec as the artifact.</bpmn:documentation>
+      <bpmn:incoming>Flow_Discovery_Design</bpmn:incoming>
+      <bpmn:outgoing>Flow_Design_Implementation</bpmn:outgoing>
+    </bpmn:task>
+
+    <bpmn:task id="Task_Implementation" name="Implementation">
+      <bpmn:documentation>In: locked Technical Spec + Runtime Contract.
+Out: developer packs; code passing Consistency Factor tests (Bolts done).
+Lit: Bolts / Mob Construction (Raja SP, AI-DLC, 2025); mandatory human validation answers documented AI-code security gaps (Zhao et al., 2025; Veracode, 2025).</bpmn:documentation>
+      <bpmn:incoming>Flow_Design_Implementation</bpmn:incoming>
+      <bpmn:outgoing>Flow_Implementation_Testing</bpmn:outgoing>
+    </bpmn:task>
+
+    <bpmn:task id="Task_Testing" name="Testing">
+      <bpmn:documentation>In: implemented code + locked Gherkin.
+Out: BDD-verified Story (qa_passed).
+Lit: LLM-generated BDD/Gherkin validated as a pattern, not just plausible (arXiv:2603.04729; arXiv:2508.20744).</bpmn:documentation>
+      <bpmn:incoming>Flow_Implementation_Testing</bpmn:incoming>
+      <bpmn:incoming>Flow_SecureLane_Loopback</bpmn:incoming>
+      <bpmn:outgoing>Flow_Testing_Deployment</bpmn:outgoing>
+    </bpmn:task>
+
+    <bpmn:task id="Task_Deployment" name="Deployment">
+      <bpmn:documentation>In: qa_passed Story.
+Out: deployed code + deployment-log.md.
+Lit: DORA capabilities "strong version control" / "small batches" (DORA/Google Cloud, 2025).</bpmn:documentation>
+      <bpmn:incoming>Flow_Testing_Deployment</bpmn:incoming>
+      <bpmn:outgoing>Flow_Deployment_Maintenance</bpmn:outgoing>
+    </bpmn:task>
+
+    <bpmn:task id="Task_Maintenance" name="Maintenance —&#10;Feedback Intake &amp; Triage">
+      <bpmn:documentation>In: deployed code + post-deployment feedback (bug / change request / monitoring signal).
+Out: classified signal (never patched blind).
+Lit: "AI is an amplifier" — governance determines which way it amplifies (DORA/Google Cloud, 2025); this phase is framework-original, not adapted from AI-DLC.</bpmn:documentation>
+      <bpmn:incoming>Flow_Deployment_Maintenance</bpmn:incoming>
+      <bpmn:outgoing>Flow_Maintenance_Gateway</bpmn:outgoing>
+    </bpmn:task>
+
+    <bpmn:exclusiveGateway id="Gateway_ChangeOrBug" name="Change request&#10;or bug?">
+      <bpmn:incoming>Flow_Maintenance_Gateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_ChangeRequest_Loopback</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Bug_FixBolt</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:task id="Task_FixBolt" name="Fix-Bolt —&#10;Context Reconstruction &amp; Patch">
+      <bpmn:documentation>In: verified bug report + isolated code snippet (never the whole project — narrow context by design).
+Out: a mathematically constrained patch, verified by a human before it is trusted.
+Lit: narrow-context diagnosis is the direct answer to the same documented failure mode as unconstrained AI review (Zhao et al., 2025).</bpmn:documentation>
+      <bpmn:incoming>Flow_Bug_FixBolt</bpmn:incoming>
+      <bpmn:outgoing>Flow_FixBolt_Severity</bpmn:outgoing>
+    </bpmn:task>
+
+    <bpmn:exclusiveGateway id="Gateway_Severity" name="Severity&#10;routing">
+      <bpmn:incoming>Flow_FixBolt_Severity</bpmn:incoming>
+      <bpmn:outgoing>Flow_FastLane_End</bpmn:outgoing>
+      <bpmn:outgoing>Flow_SecureLane_Loopback</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:endEvent id="EndEvent_FastLane" name="Redeployed&#10;(Fast Lane)">
+      <bpmn:incoming>Flow_FastLane_End</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:sequenceFlow id="Flow_Start_Strategic" sourceRef="StartEvent_1" targetRef="Task_Strategic" />
+    <bpmn:sequenceFlow id="Flow_Strategic_Discovery" sourceRef="Task_Strategic" targetRef="Task_Discovery" />
+    <bpmn:sequenceFlow id="Flow_Discovery_Design" sourceRef="Task_Discovery" targetRef="Task_Design" />
+    <bpmn:sequenceFlow id="Flow_Design_Implementation" sourceRef="Task_Design" targetRef="Task_Implementation" />
+    <bpmn:sequenceFlow id="Flow_Implementation_Testing" sourceRef="Task_Implementation" targetRef="Task_Testing" />
+    <bpmn:sequenceFlow id="Flow_Testing_Deployment" sourceRef="Task_Testing" targetRef="Task_Deployment" />
+    <bpmn:sequenceFlow id="Flow_Deployment_Maintenance" sourceRef="Task_Deployment" targetRef="Task_Maintenance" />
+    <bpmn:sequenceFlow id="Flow_Maintenance_Gateway" sourceRef="Task_Maintenance" targetRef="Gateway_ChangeOrBug" />
+    <bpmn:sequenceFlow id="Flow_ChangeRequest_Loopback" name="Change Request&#10;(business deviation)" sourceRef="Gateway_ChangeOrBug" targetRef="Task_Discovery" />
+    <bpmn:sequenceFlow id="Flow_Bug_FixBolt" name="Bug&#10;(technical deviation)" sourceRef="Gateway_ChangeOrBug" targetRef="Task_FixBolt" />
+    <bpmn:sequenceFlow id="Flow_FixBolt_Severity" sourceRef="Task_FixBolt" targetRef="Gateway_Severity" />
+    <bpmn:sequenceFlow id="Flow_FastLane_End" name="Fast Lane&#10;(low-risk)" sourceRef="Gateway_Severity" targetRef="EndEvent_FastLane" />
+    <bpmn:sequenceFlow id="Flow_SecureLane_Loopback" name="Secure Lane&#10;(Regression Bypass)" sourceRef="Gateway_Severity" targetRef="Task_Testing" />
+
+    <bpmn:textAnnotation id="Annotation_Loopback">
+      <bpmn:text>Governed loop-back: every arrow re-entering an earlier task carries a classified signal — never a raw "just patch it" — and a human decides whether to re-open it. Explicit answer to being read as linear/Waterfall.</bpmn:text>
+    </bpmn:textAnnotation>
+    <bpmn:association id="Association_Loopback" sourceRef="Gateway_ChangeOrBug" targetRef="Annotation_Loopback" />
+
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_ApexFramework">
+
+      <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="StartEvent_1">
+        <dc:Bounds x="100" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_Strategic_di" bpmnElement="Task_Strategic">
+        <dc:Bounds x="180" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_Discovery_di" bpmnElement="Task_Discovery">
+        <dc:Bounds x="340" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_Design_di" bpmnElement="Task_Design">
+        <dc:Bounds x="500" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_Implementation_di" bpmnElement="Task_Implementation">
+        <dc:Bounds x="660" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_Testing_di" bpmnElement="Task_Testing">
+        <dc:Bounds x="820" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_Deployment_di" bpmnElement="Task_Deployment">
+        <dc:Bounds x="980" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_Maintenance_di" bpmnElement="Task_Maintenance">
+        <dc:Bounds x="1140" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Gateway_ChangeOrBug_di" bpmnElement="Gateway_ChangeOrBug" isMarkerVisible="true">
+        <dc:Bounds x="1300" y="95" width="50" height="50" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_FixBolt_di" bpmnElement="Task_FixBolt">
+        <dc:Bounds x="1400" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Gateway_Severity_di" bpmnElement="Gateway_Severity" isMarkerVisible="true">
+        <dc:Bounds x="1560" y="95" width="50" height="50" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="EndEvent_FastLane_di" bpmnElement="EndEvent_FastLane">
+        <dc:Bounds x="1662" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Annotation_Loopback_di" bpmnElement="Annotation_Loopback">
+        <dc:Bounds x="1230" y="260" width="260" height="90" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNEdge id="Flow_Start_Strategic_di" bpmnElement="Flow_Start_Strategic">
+        <di:waypoint x="136" y="120" />
+        <di:waypoint x="180" y="120" />
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Flow_Strategic_Discovery_di" bpmnElement="Flow_Strategic_Discovery">
+        <di:waypoint x="280" y="120" />
+        <di:waypoint x="340" y="120" />
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Flow_Discovery_Design_di" bpmnElement="Flow_Discovery_Design">
+        <di:waypoint x="440" y="120" />
+        <di:waypoint x="500" y="120" />
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Flow_Design_Implementation_di" bpmnElement="Flow_Design_Implementation">
+        <di:waypoint x="600" y="120" />
+        <di:waypoint x="660" y="120" />
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Flow_Implementation_Testing_di" bpmnElement="Flow_Implementation_Testing">
+        <di:waypoint x="760" y="120" />
+        <di:waypoint x="820" y="120" />
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Flow_Testing_Deployment_di" bpmnElement="Flow_Testing_Deployment">
+        <di:waypoint x="920" y="120" />
+        <di:waypoint x="980" y="120" />
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Flow_Deployment_Maintenance_di" bpmnElement="Flow_Deployment_Maintenance">
+        <di:waypoint x="1080" y="120" />
+        <di:waypoint x="1140" y="120" />
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Flow_Maintenance_Gateway_di" bpmnElement="Flow_Maintenance_Gateway">
+        <di:waypoint x="1240" y="120" />
+        <di:waypoint x="1300" y="120" />
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Flow_Bug_FixBolt_di" bpmnElement="Flow_Bug_FixBolt">
+        <di:waypoint x="1350" y="120" />
+        <di:waypoint x="1400" y="120" />
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Flow_FixBolt_Severity_di" bpmnElement="Flow_FixBolt_Severity">
+        <di:waypoint x="1500" y="120" />
+        <di:waypoint x="1560" y="120" />
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Flow_FastLane_End_di" bpmnElement="Flow_FastLane_End">
+        <di:waypoint x="1610" y="120" />
+        <di:waypoint x="1662" y="120" />
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Flow_ChangeRequest_Loopback_di" bpmnElement="Flow_ChangeRequest_Loopback">
+        <di:waypoint x="1325" y="95" />
+        <di:waypoint x="1325" y="20" />
+        <di:waypoint x="390" y="20" />
+        <di:waypoint x="390" y="80" />
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Flow_SecureLane_Loopback_di" bpmnElement="Flow_SecureLane_Loopback">
+        <di:waypoint x="1585" y="95" />
+        <di:waypoint x="1585" y="45" />
+        <di:waypoint x="870" y="45" />
+        <di:waypoint x="870" y="80" />
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Association_Loopback_di" bpmnElement="Association_Loopback">
+        <di:waypoint x="1325" y="145" />
+        <di:waypoint x="1325" y="260" />
+      </bpmndi:BPMNEdge>
+
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+
+</bpmn:definitions>
