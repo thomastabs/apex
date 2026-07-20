@@ -34,6 +34,10 @@ package "Backend (FastAPI · single writer)" as BEP {
   [storage.py\nStoragePath] as STG
   [taiga / jira proxy\nSSRF · _egress] as PROX
   [ai_engine\nprovider routing] as AIE
+  [figma_proxy / figma_fetch\nSSRF-pinned] as FIG
+  [github_fetch\nclone + repomix] as GHF
+  [github_webhook\nHMAC push handler] as GHW
+  [github_actions\nworkflow dispatch] as GHA
 }
 
 package "Spec Store" as SSP {
@@ -57,6 +61,10 @@ package "VCS" as VCSP {
   [GitHub REST API] as GH
 }
 
+package "Design Tools" as DTP {
+  [Figma REST API\napi.figma.com] as FGA
+}
+
 ' ---- frontend internal ----
 UI --> RQ
 UI --> ZS
@@ -72,6 +80,9 @@ API --> RT
 RT --> CS
 RT --> AIE
 RT --> PROX
+RT --> FIG
+RT --> GHF
+RT --> GHA
 CS --> STG
 
 ' ---- spec store: placed to the LEFT of the backend ----
@@ -85,5 +96,11 @@ PROX --> JR
 AIE --> CL
 AIE --> OAI
 AIE --> GEM
+
+' ---- Figma, GitHub server-side fetch/webhook/Actions ----
+FIG --> FGA
+GHF --> GH : shallow clone + repomix
+GH --> GHW : push webhook (HMAC)
+GHA --> GH : dispatch workflow
 
 @enduml
