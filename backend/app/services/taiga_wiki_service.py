@@ -41,6 +41,7 @@ def _request(
     json: dict | None = None,
     data: dict | None = None,
     files: dict | None = None,
+    ignore_status: frozenset[int] = frozenset(),
 ):
     from backend.app.api.taiga_proxy import _egress, _pin_unless_relayed
 
@@ -60,6 +61,8 @@ def _request(
         timeout=_TIMEOUT,
         **({"extensions": ext} if ext else {}),
     )
+    if resp.status_code in ignore_status:
+        return None
     if resp.status_code in (401, 403):
         raise PermissionError(f"Taiga returned {resp.status_code} — check credentials or project access.")
     try:
@@ -199,6 +202,20 @@ def _is_duplicate_slug_error(exc: HTTPException) -> bool:
     return exc.status_code == http_status.HTTP_502_BAD_GATEWAY and "slug already exists" in detail
 
 
+def _get_page_by_slug(taiga_base: str, token: str, project_id: int, slug: str) -> dict | None:
+    """Authoritative single-page lookup, used to recover from a create-time slug
+    conflict — unlike `_list_pages`, this can't miss the page due to pagination
+    or a stale intermediate snapshot, since it asks Taiga for that exact slug."""
+    data = _request(
+        "GET",
+        f"{_wiki_pages_url(taiga_base)}/by_slug",
+        token,
+        params={"project": project_id, "slug": slug},
+        ignore_status=frozenset({404}),
+    )
+    return data if isinstance(data, dict) else None
+
+
 def _update_existing_page(
     taiga_base: str,
     token: str,
@@ -291,16 +308,15 @@ def publish(
             except HTTPException as exc:
                 if not _is_duplicate_slug_error(exc):
                     raise
-                refreshed = {str(page.get("slug", "")): page for page in _list_pages(taiga_base, token, project_id)}
-                existing_after_conflict = refreshed.get(slug)
+                existing_after_conflict = _get_page_by_slug(taiga_base, token, project_id, slug)
                 if not existing_after_conflict:
                     raise HTTPException(
                         status_code=http_status.HTTP_502_BAD_GATEWAY,
                         detail=(
                             f"Couldn't publish “{filename}” to Taiga Wiki: Taiga reports a page with "
-                            f"slug “{slug}” already exists in this project, but it couldn't be found to "
-                            "update. It may be a custom (non-Apex-managed) page under a different slug variant, "
-                            "or the page list may be briefly stale — try Pull from Wiki to refresh, then publish again."
+                            f"slug “{slug}” already exists in this project, but a direct lookup for that "
+                            "exact slug came back empty. This points at a permissions issue (the page exists "
+                            "but this token can't read it) rather than a stale list — check project wiki access."
                         ),
                     ) from exc
                 results.append(_update_existing_page(
