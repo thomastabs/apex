@@ -27,6 +27,16 @@ Apex is a process layer on top of any model:
 
 A coding agent accelerates writing code; Apex governs whether that code still answers the right question.
 
+### Framework Documentation
+
+Apex is the reference implementation of a broader process framework for governed Human–AI collaboration across the SDLC — the framework, not just the app, is the MEIC-T thesis subject. `docs/framework/` holds that material:
+
+| File | Purpose |
+|---|---|
+| `docs/framework/Apex-Framework-v2.docx` | The current framework specification — purpose & scope, design principles, the SDLC × AI interaction mapping, phase descriptions, roles (framed as hats, not fixed people), governance mechanisms & quality gates, work logistics, and the six operational playbooks. Grounded inline in cited industry/academic precedent (AWS AI-DLC, the Spotify Model, Team Topologies, DORA, Thoughtworks) and cross-referenced against Apex's actual shipped mechanisms throughout. |
+| `docs/framework/Apex-Framework-Grounding.docx` | The companion evidence trail: full literature grounding for each framework construct, an explicit not-1:1 mapping table (framework phase → closest precedent → Apex implementation → where it diverges), and the "scientific why" — the framework compared against four named alternatives (no framework, AI-DLC unmodified, Scrum/SAFe with AI bolted on, metrics-only governance), each with cited evidence of a specific failure mode. |
+| `docs/framework/Draft-and-Ideas-v1.docx` | The original working draft, kept for the historical record — the framework's first conceptual scaffold before the v2 rewrite (role model reframed as hats not people, the DevOps Alliance role dropped, Bolt terminology confirmed as a direct AWS AI-DLC borrowing). |
+
 <img width="1908" height="991" alt="image" src="https://github.com/user-attachments/assets/818d2d66-add0-40c4-883f-c558a8445183" />
 
 <img width="1908" height="991" alt="image" src="https://github.com/user-attachments/assets/da6d3f52-a4d3-45ef-bad1-e9749519b657" />
@@ -539,6 +549,7 @@ Implemented:
 | `docs/architecture.puml` | PlantUML component diagram of the system architecture (frontend, backend, AI, PM tools, spec store) — thesis reference |
 | `docs/user-flow.puml` | PlantUML sequence diagram of the user flow across Phase 1–6 (User · Frontend · Backend · AI · PM · spec store) — thesis reference |
 | `docs/diagrams/` | Rendered PNG + SVG of the two UML diagrams |
+| `docs/framework/` | The underlying process framework Apex demonstrates (thesis material, not app documentation) — see [Framework Documentation](#framework-documentation) below |
 
 ---
 
