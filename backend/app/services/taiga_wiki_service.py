@@ -107,7 +107,13 @@ def _list_wiki_link_hrefs(taiga_base: str, token: str, project_id: int) -> set[s
         data = data.get("objects", [])
     if not isinstance(data, list):
         return set()
-    return {str(item.get("href", "")) for item in data if isinstance(item, dict) and item.get("href")}
+    # Same cross-project leak risk as _list_pages (WikiLink uses the same
+    # permission-based filter backend) — re-scope client-side.
+    return {
+        str(item.get("href", ""))
+        for item in data
+        if isinstance(item, dict) and item.get("href") and item.get("project") == project_id
+    }
 
 
 def _ensure_wiki_link(
@@ -154,7 +160,12 @@ def _list_pages(taiga_base: str, token: str, project_id: int) -> list[dict]:
         results.extend([item for item in data if isinstance(item, dict)])
         if len(data) < _PAGE_SIZE:
             break
-    return results
+    # Taiga's wiki-list endpoint filters by permission, not strictly by project:
+    # PermissionBasedFilterBackend ORs in Q(project__public_permissions__contains=
+    # ["view_wiki_pages"]), so a page from ANY project where that permission is
+    # public can be returned regardless of the ?project= query param. Re-scope
+    # client-side so another project's pages can never leak into this listing.
+    return [page for page in results if page.get("project") == project_id]
 
 
 def _page_content(page: dict) -> str:

@@ -7,8 +7,8 @@ def test_status_reports_existing_wiki_pages(monkeypatch):
     def fake_request(method, url, token, *, params=None, json=None):
         assert method == "GET"
         return [
-            {"id": 10, "slug": "apex-project-concept", "content": "hello", "modified_date": "2026-07-18T10:00:00Z"},
-            {"id": 11, "slug": "research-notes", "content": "market", "modified_date": "2026-07-18T11:00:00Z"},
+            {"id": 10, "project": 42, "slug": "apex-project-concept", "content": "hello", "modified_date": "2026-07-18T10:00:00Z"},
+            {"id": 11, "project": 42, "slug": "research-notes", "content": "market", "modified_date": "2026-07-18T11:00:00Z"},
         ]
 
     monkeypatch.setattr(svc, "_request", fake_request)
@@ -31,6 +31,25 @@ def test_status_reports_existing_wiki_pages(monkeypatch):
     assert pages[2]["source"] == "taiga"
 
 
+def test_list_pages_excludes_leaked_cross_project_pages(monkeypatch):
+    # Taiga's wiki-list endpoint ORs in any project with a public "view_wiki_pages"
+    # permission, so a request scoped to project 42 can still come back with pages
+    # belonging to other projects (e.g. their own default "home" page) mixed in.
+    def fake_request(method, url, token, *, params=None, json=None, data=None, files=None, ignore_status=frozenset()):
+        assert method == "GET"
+        return [
+            {"id": 1, "project": 42, "slug": "home", "content": "outfolio's own home page"},
+            {"id": 2, "project": 7, "slug": "home", "content": "a different project's home page"},
+            {"id": 3, "project": 99, "slug": "home", "content": "yet another project's home page"},
+        ]
+
+    monkeypatch.setattr(svc, "_request", fake_request)
+
+    pages = svc._list_pages("https://api.taiga.io/api/v1", "tok", 42)
+
+    assert [p["id"] for p in pages] == [1]
+
+
 def test_publish_updates_existing_and_creates_missing(monkeypatch):
     calls = []
     link_calls = []
@@ -44,7 +63,7 @@ def test_publish_updates_existing_and_creates_missing(monkeypatch):
             if url.endswith("/wiki/attachments"):
                 object_id = params.get("object_id") if params else None
                 return [{"id": 99, "name": "project-concept.md"}] if object_id == 10 else []
-            return [{"id": 10, "slug": "apex-project-concept", "content": "", "version": 7}]
+            return [{"id": 10, "project": 42, "slug": "apex-project-concept", "content": "", "version": 7}]
         if method == "POST" and url.endswith("/wiki"):
             return {"id": 11}
         return {"ok": True}
@@ -212,7 +231,14 @@ def test_list_wiki_link_hrefs_parses_objects_envelope(monkeypatch):
     def fake_request(method, url, token, *, params=None, json=None, data=None, files=None, ignore_status=frozenset()):
         assert url.endswith("/wiki-links")
         assert params == {"project": 42}
-        return {"objects": [{"href": "home"}, {"href": "apex-project-concept"}, {"no_href": True}]}
+        return {
+            "objects": [
+                {"href": "home", "project": 42},
+                {"href": "apex-project-concept", "project": 42},
+                {"project": 42, "no_href": True},
+                {"href": "other-project-home", "project": 7},
+            ]
+        }
 
     monkeypatch.setattr(svc, "_request", fake_request)
 
@@ -250,7 +276,7 @@ def test_publish_skips_empty_context_files(monkeypatch):
 def test_pull_returns_matching_contents(monkeypatch):
     def fake_request(method, url, token, *, params=None, json=None):
         assert method == "GET"
-        return [{"id": 10, "slug": "apex-project-concept", "content": "from wiki"}]
+        return [{"id": 10, "project": 42, "slug": "apex-project-concept", "content": "from wiki"}]
 
     monkeypatch.setattr(svc, "_request", fake_request)
 
@@ -270,7 +296,7 @@ def test_pull_returns_matching_contents(monkeypatch):
 def test_pull_custom_wiki_page_by_slug(monkeypatch):
     def fake_request(method, url, token, *, params=None, json=None):
         assert method == "GET"
-        return [{"id": 12, "slug": "architecture-notes", "content": "custom doc"}]
+        return [{"id": 12, "project": 42, "slug": "architecture-notes", "content": "custom doc"}]
 
     monkeypatch.setattr(svc, "_request", fake_request)
 
