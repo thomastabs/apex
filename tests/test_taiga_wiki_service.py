@@ -33,8 +33,12 @@ def test_status_reports_existing_wiki_pages(monkeypatch):
 
 def test_publish_updates_existing_and_creates_missing(monkeypatch):
     calls = []
+    link_calls = []
 
-    def fake_request(method, url, token, *, params=None, json=None, data=None, files=None):
+    def fake_request(method, url, token, *, params=None, json=None, data=None, files=None, ignore_status=frozenset()):
+        if url.endswith("/wiki-links"):
+            link_calls.append((method, json))
+            return [] if method == "GET" else {"ok": True}
         calls.append((method, url, json, data, files))
         if method == "GET":
             if url.endswith("/wiki/attachments"):
@@ -73,11 +77,17 @@ def test_publish_updates_existing_and_creates_missing(monkeypatch):
     assert calls[7][0] == "POST"
     assert calls[7][4]["attached_file"][0] == "tech-stack.md"
 
+    assert [c[0] for c in link_calls] == ["GET", "POST", "POST"]
+    assert link_calls[1][1] == {"project": 42, "title": "Apex: Project Concept", "href": "apex-project-concept"}
+    assert link_calls[2][1] == {"project": 42, "title": "Apex: Technology Choices", "href": "apex-tech-stack"}
+
 
 def test_publish_recovers_when_create_reports_duplicate_slug(monkeypatch):
     calls = []
 
     def fake_request(method, url, token, *, params=None, json=None, data=None, files=None, ignore_status=frozenset()):
+        if url.endswith("/wiki-links"):
+            return [] if method == "GET" else {"ok": True}
         calls.append((method, url, json, data, files))
         if method == "GET" and url.endswith("/wiki"):
             return []
@@ -114,6 +124,8 @@ def test_publish_recovers_when_create_reports_duplicate_slug(monkeypatch):
 
 def test_publish_raises_clean_error_when_conflict_page_never_found(monkeypatch):
     def fake_request(method, url, token, *, params=None, json=None, data=None, files=None, ignore_status=frozenset()):
+        if url.endswith("/wiki-links"):
+            return [] if method == "GET" else {"ok": True}
         if method == "GET" and url.endswith("/wiki"):
             return []
         if method == "POST" and url.endswith("/wiki"):
@@ -162,10 +174,59 @@ def test_get_page_by_slug_uses_ignore_status_for_404(monkeypatch):
     assert 404 in seen["ignore_status"]
 
 
+def test_ensure_wiki_link_skips_when_already_bookmarked(monkeypatch):
+    calls = []
+
+    def fake_request(method, url, token, *, params=None, json=None, data=None, files=None, ignore_status=frozenset()):
+        calls.append((method, url))
+        return {"ok": True}
+
+    monkeypatch.setattr(svc, "_request", fake_request)
+
+    svc._ensure_wiki_link(
+        "https://api.taiga.io/api/v1", "tok", 42,
+        href="apex-project-concept", title="Apex: Project Concept",
+        existing_hrefs={"apex-project-concept"},
+    )
+
+    assert calls == []
+
+
+def test_ensure_wiki_link_swallows_failure(monkeypatch):
+    def fake_request(method, url, token, *, params=None, json=None, data=None, files=None, ignore_status=frozenset()):
+        raise svc.HTTPException(status_code=502, detail="Taiga returned 400 for POST ...")
+
+    monkeypatch.setattr(svc, "_request", fake_request)
+
+    existing_hrefs: set[str] = set()
+    svc._ensure_wiki_link(
+        "https://api.taiga.io/api/v1", "tok", 42,
+        href="apex-project-concept", title="Apex: Project Concept",
+        existing_hrefs=existing_hrefs,
+    )
+
+    assert existing_hrefs == set()
+
+
+def test_list_wiki_link_hrefs_parses_objects_envelope(monkeypatch):
+    def fake_request(method, url, token, *, params=None, json=None, data=None, files=None, ignore_status=frozenset()):
+        assert url.endswith("/wiki-links")
+        assert params == {"project": 42}
+        return {"objects": [{"href": "home"}, {"href": "apex-project-concept"}, {"no_href": True}]}
+
+    monkeypatch.setattr(svc, "_request", fake_request)
+
+    hrefs = svc._list_wiki_link_hrefs("https://api.taiga.io/api/v1", "tok", 42)
+
+    assert hrefs == {"home", "apex-project-concept"}
+
+
 def test_publish_skips_empty_context_files(monkeypatch):
     calls = []
 
-    def fake_request(method, url, token, *, params=None, json=None, data=None, files=None):
+    def fake_request(method, url, token, *, params=None, json=None, data=None, files=None, ignore_status=frozenset()):
+        if url.endswith("/wiki-links"):
+            return []
         calls.append((method, url, json))
         if method == "GET":
             return []

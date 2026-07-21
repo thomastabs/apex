@@ -97,6 +97,47 @@ def _wiki_attachment_url(taiga_base: str, attachment_id: int | str) -> str:
     return f"{_wiki_attachments_url(taiga_base)}/{attachment_id}"
 
 
+def _wiki_links_url(taiga_base: str) -> str:
+    return f"{taiga_base.rstrip('/')}/wiki-links"
+
+
+def _list_wiki_link_hrefs(taiga_base: str, token: str, project_id: int) -> set[str]:
+    data = _request("GET", _wiki_links_url(taiga_base), token, params={"project": project_id})
+    if isinstance(data, dict):
+        data = data.get("objects", [])
+    if not isinstance(data, list):
+        return set()
+    return {str(item.get("href", "")) for item in data if isinstance(item, dict) and item.get("href")}
+
+
+def _ensure_wiki_link(
+    taiga_base: str,
+    token: str,
+    project_id: int,
+    *,
+    href: str,
+    title: str,
+    existing_hrefs: set[str],
+) -> None:
+    """Bookmark a published page so it shows up under Taiga's own Wiki-home
+    BOOKMARKS list (Taiga's WikiLink resource: project/title/href/order) —
+    without this, a page Apex publishes is real but invisible unless a user
+    already knows its slug or digs through the full page list. Best-effort:
+    a failure here must not fail the publish that already succeeded."""
+    if href in existing_hrefs:
+        return
+    try:
+        _request(
+            "POST",
+            _wiki_links_url(taiga_base),
+            token,
+            json={"project": project_id, "title": title, "href": href},
+        )
+        existing_hrefs.add(href)
+    except (HTTPException, PermissionError):
+        pass
+
+
 def _list_pages(taiga_base: str, token: str, project_id: int) -> list[dict]:
     results: list[dict] = []
     for page in range(1, _MAX_PAGES + 1):
@@ -287,15 +328,17 @@ def publish(
 ) -> list[dict]:
     pages = _list_pages(taiga_base, token, project_id)
     by_slug = {str(page.get("slug", "")): page for page in pages}
+    existing_hrefs = _list_wiki_link_hrefs(taiga_base, token, project_id)
     results: list[dict] = []
     for item in context_files:
-        filename, _label, slug, content = _publish_item(item)
+        filename, label, slug, content = _publish_item(item)
         existing = by_slug.get(slug)
         if not content.strip():
             results.append({"filename": filename, "slug": slug, "action": "skipped", "ok": True, "detail": "empty context file"})
             continue
         if existing:
             results.append(_update_existing_page(taiga_base, token, project_id, existing, filename=filename, slug=slug, content=content))
+            _ensure_wiki_link(taiga_base, token, project_id, href=slug, title=wiki_title_for(label), existing_hrefs=existing_hrefs)
         else:
             body = {
                 "project": project_id,
@@ -328,10 +371,12 @@ def publish(
                     slug=slug,
                     content=content,
                 ))
+                _ensure_wiki_link(taiga_base, token, project_id, href=slug, title=wiki_title_for(label), existing_hrefs=existing_hrefs)
                 continue
             wiki_id = _page_id(created) if isinstance(created, dict) else None
             if wiki_id is not None:
                 _attach_markdown_file(taiga_base, token, project_id, wiki_id, filename, content)
+            _ensure_wiki_link(taiga_base, token, project_id, href=slug, title=wiki_title_for(label), existing_hrefs=existing_hrefs)
             results.append({"filename": filename, "slug": slug, "action": "created", "ok": True, "detail": ""})
     return results
 
