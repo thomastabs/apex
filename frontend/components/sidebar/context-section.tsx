@@ -537,6 +537,11 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
   const emptyCustomWikiCount = customWikiCount - nonEmptyCustomWikiPages.length;
   const selectedWikiSet = useMemo(() => new Set(selectedWikiFiles), [selectedWikiFiles]);
   const wikiPullSelection = selectedWikiFiles.length ? selectedWikiFiles : managedWikiPages.map((page) => page.filename);
+  const wikiPublishSelection = useMemo(() => {
+    const managedFilenames = new Set(managedWikiPages.map((page) => page.filename));
+    const selectedManaged = selectedWikiFiles.filter((filename) => managedFilenames.has(filename));
+    return selectedManaged.length ? selectedManaged : managedWikiPages.map((page) => page.filename);
+  }, [selectedWikiFiles, managedWikiPages]);
 
   const projectConcept = contextFiles.data?.files.find((f) => f.filename === "project-concept.md")?.content ?? "";
   const hasProjectConcept = useMemo(() => {
@@ -746,8 +751,11 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                         dark ? "bg-neutral-800 text-neutral-200 hover:bg-neutral-700" : "bg-white text-slate-700 hover:bg-slate-100",
                       )}
                       disabled={publishWiki.isPending || !contextFiles.data?.files.length}
-                      onClick={() => publishWiki.mutate([], {
-                        onSuccess: () => toast.success(t("context.taigaWikiPublished")),
+                      onClick={() => publishWiki.mutate(wikiPublishSelection, {
+                        onSuccess: () => {
+                          setSelectedWikiFiles([]);
+                          toast.success(t("context.taigaWikiPublished"));
+                        },
                         onError: (e) => toast.error(e instanceof Error ? e.message : t("context.taigaWikiPublishFailed")),
                       })}
                     >
