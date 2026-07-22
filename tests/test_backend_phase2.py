@@ -9,6 +9,7 @@ from backend.app.services.phase2_service import (
 )
 from backend.app.services.request_context import RequestContext
 from src.ai_engine import DesignSystemData, DesignSystemScreen
+from tests.fake_context_service import FakeContextServiceBase
 
 
 _FAKE_SECTION_CONTENT = {
@@ -79,21 +80,14 @@ class FakeAiService:
         )
 
 
-class FakeContextService:
+class FakeContextService(FakeContextServiceBase):
     def __init__(self, tech_stack=None, project_concept=None, index=None):
-        self.project_id = 0
+        super().__init__(index if index is not None else _story_index())
         self.tech_stack = tech_stack if tech_stack is not None else _tech_stack_with_content()
         self.project_concept = project_concept if project_concept is not None else "Test project."
-        self.index = index if index is not None else _story_index()
         self.written_stack = None
         self.written_bundle = None
         self.written_tech_spec = None
-
-    def set_active(self, ctx):
-        self.set_project(ctx.project_id)
-
-    def set_project(self, project_id: int):
-        self.project_id = project_id
 
     def read_tech_stack(self):
         return self.tech_stack

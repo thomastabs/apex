@@ -572,7 +572,7 @@ export function useRemoveMember() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (membershipId: number) => removeMember(context!, membershipId),
+    mutationFn: (membershipId: string) => removeMember(context!, membershipId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "users"] });
     },
@@ -583,7 +583,7 @@ export function useUpdateMemberRole() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ membershipId, roleId }: { membershipId: number; roleId: number }) =>
+    mutationFn: ({ membershipId, roleId }: { membershipId: string; roleId: number }) =>
       updateMemberRole(context!, membershipId, roleId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "users"] });

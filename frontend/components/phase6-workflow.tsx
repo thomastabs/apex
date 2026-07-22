@@ -317,41 +317,13 @@ function TraceabilityPanel() {
 
   function runVerify(ai: boolean, panel = false) {
     if (selectedId === null) return;
-    verify.mutate(
-      { storyId: selectedId, ai, panel, extraContextFiles: conformanceExtraContext },
-      {
-        onError: (err) => toast.error(errMsg(err)),
-        onSuccess: () =>
-          toast.success(
-            panel
-              ? t("phase6.toast.verifiedByPanel")
-              : ai
-                ? t("phase6.toast.verified")
-                : t("phase6.toast.quickCheckComputed"),
-          ),
-      },
-    );
+    verify.mutate({ storyId: selectedId, ai, panel, extraContextFiles: conformanceExtraContext });
   }
 
   function runScan() {
     scan.mutate(
       { panel: false, extraContextFiles: conformanceExtraContext },
-      {
-        onError: (err) => toast.error(errMsg(err)),
-        onSuccess: (report: ScanReport) => {
-          setScanReport(report);
-          toast.success(
-            report.regressed_ids.length > 0
-              ? t(
-                  report.regressed_ids.length === 1
-                    ? "phase6.toast.regressionsFoundOne"
-                    : "phase6.toast.regressionsFoundOther",
-                  { n: report.regressed_ids.length },
-                )
-              : t("phase6.toast.noRegressions"),
-          );
-        },
-      },
+      { onSuccess: (report: ScanReport) => setScanReport(report) },
     );
   }
 
@@ -370,10 +342,7 @@ function TraceabilityPanel() {
           extraFiles: [{ path: supPath.trim(), content }],
           extraContextFiles: conformanceExtraContext,
         },
-        {
-          onError: (err) => toast.error(errMsg(err)),
-          onSuccess: () => { toast.success(t("phase6.toast.reverifiedWith", { path: supPath.trim() })); setSupPath(""); },
-        },
+        { onSuccess: () => setSupPath("") },
       );
     } catch (e) { toast.error(errMsg(e)); } finally { setFetching(false); }
   }
@@ -450,7 +419,7 @@ function TraceabilityPanel() {
                   </div>
                 ) : null}
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   variant="secondary"
                   onClick={() => runVerify(false)}

@@ -220,7 +220,11 @@ export async function applyMocks(page: Page) {
   const taiga = `${api}/api/pm/taiga`;
 
   // Mutable state shared between route handlers (allows stateful mock transitions).
-  const mockState = { techStackDefined: false };
+  const mockState: { techStackDefined: boolean; maintenanceItems: Record<string, unknown>[]; nextMaintenanceId: number } = {
+    techStackDefined: false,
+    maintenanceItems: [],
+    nextMaintenanceId: 1,
+  };
 
   // ── Health check (app-shell on mount) ─────────────────────────────────────
   await page.route(`${api}/api/health`, (route) =>
@@ -518,6 +522,119 @@ export async function applyMocks(page: Page) {
       body: JSON.stringify({ story_id: 10, matrix: null }),
     }),
   );
+
+  // ── Phase 6 ───────────────────────────────────────────────────────────────
+  await page.route(`${api}/api/phase6/eligible-stories`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        stories: [
+          { story_id: 10, title: "User Login", epic_title: "Authentication", phase_status: "deployed", has_conformance: false, score: null },
+        ],
+      }),
+    }),
+  );
+
+  await page.route(`${api}/api/phase6/conformance/**`, (route) =>
+    route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ detail: "No conformance report yet." }) }),
+  );
+
+  await page.route(`${api}/api/phase6/conformance`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        story_id: 10,
+        title: "User Login",
+        epic_title: "Authentication",
+        layer: "single",
+        score: 92,
+        summary: "Login endpoint matches the spec.",
+        endpoints: [{ contract: "POST /auth/login", status: "present", location: "backend/app/api/auth.py", notes: "" }],
+        scenarios: [{ scenario: "Successful login", status: "tested", test_location: "tests/test_auth.py", notes: "" }],
+        constraints: [],
+        generated_at: "2026-07-01T00:00:00Z",
+      }),
+    }),
+  );
+
+  await page.route(`${api}/api/phase6/scan-regressions`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ results: [{ story_id: 10, title: "User Login", old_score: 92, new_score: 92, regressed: false, worsened_rows: [] }], regressed_ids: [] }),
+    }),
+  );
+
+  await page.route(`${api}/api/phase6/maintenance/items`, (route) => {
+    if (route.request().method() === "POST") {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      const item = {
+        id: mockState.nextMaintenanceId++,
+        source: body.source ?? "manual",
+        ext_ref: body.ext_ref ?? "",
+        subject: body.subject,
+        description: body.description ?? "",
+        evidence: body.evidence ?? "",
+        linked_story_id: body.linked_story_id ?? null,
+        classification: "unclassified",
+        status: "new",
+        diagnosis_md: "",
+        fix_brief_md: "",
+        lane: null,
+        ai_rationale: {},
+        created_at: "2026-07-01T00:00:00Z",
+        updated_at: "2026-07-01T00:00:00Z",
+      };
+      mockState.maintenanceItems.push(item);
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(item) });
+    }
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: mockState.maintenanceItems }) });
+  });
+
+  await page.route(`${api}/api/phase6/maintenance/items/*/classify`, (route) => {
+    const id = Number(route.request().url().match(/items\/(\d+)\//)?.[1]);
+    const item = mockState.maintenanceItems.find((it) => it.id === id);
+    if (item) { item.classification = "bug"; item.ai_rationale = { classify: "Reads as a defect report, not a new capability request." }; }
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(item) });
+  });
+
+  await page.route(`${api}/api/phase6/maintenance/items/*/diagnose`, (route) => {
+    const id = Number(route.request().url().match(/items\/(\d+)\//)?.[1]);
+    const item = mockState.maintenanceItems.find((it) => it.id === id);
+    if (item) { item.status = "diagnosed"; item.diagnosis_md = "Root cause: missing null-check in validate_credentials()."; }
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(item) });
+  });
+
+  await page.route(`${api}/api/phase6/maintenance/items/*/fix-brief`, (route) => {
+    const id = Number(route.request().url().match(/items\/(\d+)\//)?.[1]);
+    const item = mockState.maintenanceItems.find((it) => it.id === id);
+    if (item) { item.status = "fix_ready"; item.fix_brief_md = "Task: add null-check to validate_credentials()."; }
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(item) });
+  });
+
+  await page.route(`${api}/api/phase6/maintenance/items/*/route`, (route) => {
+    const id = Number(route.request().url().match(/items\/(\d+)\//)?.[1]);
+    const body = route.request().postDataJSON() as { lane: "fast" | "secure" };
+    const item = mockState.maintenanceItems.find((it) => it.id === id);
+    if (item) item.lane = body.lane;
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(item) });
+  });
+
+  await page.route(`${api}/api/phase6/maintenance/items/*/resolve`, (route) => {
+    const id = Number(route.request().url().match(/items\/(\d+)\//)?.[1]);
+    const item = mockState.maintenanceItems.find((it) => it.id === id);
+    if (item) item.status = "resolved";
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(item) });
+  });
+
+  await page.route(`${api}/api/phase6/maintenance/items/*`, (route) => {
+    if (route.request().method() !== "DELETE") return route.fallback();
+    const id = Number(route.request().url().match(/items\/(\d+)$/)?.[1]);
+    mockState.maintenanceItems = mockState.maintenanceItems.filter((it) => it.id !== id);
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: mockState.maintenanceItems }) });
+  });
 
   // ── Phase 3 ───────────────────────────────────────────────────────────────
   await page.route(`${api}/api/phase3/eligible-stories`, (route) =>

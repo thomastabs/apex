@@ -97,11 +97,14 @@ export async function fetchRecentCommitsContext(ctx: GithubSyncContext, taskSubj
 /** Fetch a single file's decoded text content (for on-demand conformance context). */
 export async function fetchGithubFile(ctx: GithubSyncContext, path: string): Promise<string> {
   const raw = await ghFetch<{ content?: string; encoding?: string }>(
-    `/repos/${ctx.owner}/${ctx.repo}/contents/${path}`,
+    `/repos/${ctx.owner}/${ctx.repo}/contents/${path.split("/").map(encodeURIComponent).join("/")}`,
     ctx.pat,
   );
   if (raw.content && raw.encoding === "base64") {
-    return atob(raw.content.replace(/\n/g, ""));
+    // atob() alone decodes base64 into a byte-per-char Latin-1 string, mangling
+    // any non-ASCII content — re-decode those bytes as UTF-8.
+    const bytes = Uint8Array.from(atob(raw.content.replace(/\n/g, "")), (c) => c.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
   }
   return "";
 }

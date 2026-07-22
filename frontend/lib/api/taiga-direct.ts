@@ -335,7 +335,7 @@ export async function taigaGetUsers(
     taigaFetch<Record<string, unknown>[]>(`/roles?project=${projectId}`, token, apiBaseUrl),
   ]);
   const memberships: Membership[] = (rawMembers ?? []).map((member) => ({
-    id: member.id as number,
+    id: String(member.id),
     user: (member.user as number) ?? null,
     username: (member.username as string) || "",
     full_name: (member.full_name as string) || "",

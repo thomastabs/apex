@@ -4,6 +4,7 @@ import pytest
 
 from backend.app.services.phase5_service import Phase5Service, Phase5ValidationError
 from backend.app.services.request_context import RequestContext
+from tests.fake_context_service import FakeContextServiceBase
 
 
 _FAKE_GHERKIN = "Feature: Login\n  Scenario: Successful login\n    Given a registered user\n    When they submit valid credentials\n    Then they receive a JWT token"
@@ -65,24 +66,14 @@ class FakeAiService:
         return _FAKE_PACK + "\n<!-- revised -->"
 
 
-class FakeContextService:
+class FakeContextService(FakeContextServiceBase):
     def __init__(self, index=None):
-        self.project_id = 0
-        self.index = index if index is not None else _story_index()
+        super().__init__(index if index is not None else _story_index())
         self.saved_delta = None
         self.saved_pack = None
         self.deployment_config_data = {}
         self.github_deployment_records = []
         self.deployment_records = []
-
-    def set_active(self, ctx):
-        self.set_project(ctx.project_id)
-
-    def set_project(self, project_id: int):
-        self.project_id = project_id
-
-    def story_index(self):
-        return self.index
 
     def story_gherkin(self, story_id: int) -> str:
         return _FAKE_GHERKIN

@@ -465,7 +465,7 @@ type ContextSectionProps = DragSectionProps & {
   confirm: (msg: string, cb: () => void) => void;
 };
 
-export function ContextSection({ dark, projectId: _projectId, confirm, shellClass, dragHandlers, onDragStart }: ContextSectionProps) {
+export function ContextSection({ dark, projectId: _projectId, confirm, shellClass, dragHandlers, onDragStart, onMoveUp, onMoveDown }: ContextSectionProps) {
   const t = useT();
   const [contextOpen, setContextOpen] = useState(false);
   const [agentOpen, setAgentOpen] = useState(false);
@@ -576,6 +576,8 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
           open={contextOpen}
           onClick={() => setContextOpen(!contextOpen)}
           onDragStart={onDragStart}
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown}
         />
         {contextOpen ? (
           <div className={cn("px-4 py-4", expandedPanelClass)}>
@@ -851,6 +853,8 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
           open={agentOpen}
           onClick={() => setAgentOpen(!agentOpen)}
           onDragStart={onDragStart}
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown}
         />
         {agentOpen ? (
           <div className={cn("px-4 py-4", expandedPanelClass)}>

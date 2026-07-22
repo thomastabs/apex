@@ -48,10 +48,14 @@ function renderPacks() {
 
 beforeEach(() => vi.clearAllMocks());
 
+// Each task pack renders as its own <li> (packs-section.tsx) — walk up to that
+// structural row rather than matching on a Tailwind class, which is styling,
+// not behavior, and would break the moment the layout classes change.
 const taskRow = (taskId: number) =>
   screen
     .getAllByText((_, element) => element?.textContent?.replace(/\s+/g, " ").trim().startsWith(`Task ${taskId}`) ?? false)
-    .find((element) => element.tagName === "SPAN" && element.className.includes("flex-1"));
+    .map((element) => element.closest("li"))
+    .find((li): li is HTMLLIElement => li !== null);
 
 describe("PacksSection", () => {
   it("groups developer packs by story when expanded", async () => {

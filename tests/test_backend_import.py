@@ -9,6 +9,7 @@ import pytest
 from fastapi import HTTPException
 
 from backend.app.services import import_service as svc
+from backend.app.services.context_service import ContextService
 from backend.app.services.request_context import RequestContext
 
 
@@ -169,7 +170,7 @@ def test_bootstrap_imports_maps_and_groups(ctx, monkeypatch):
         ],
     )
 
-    report = svc.bootstrap("https://api.taiga.io/api/v1", "tok", 42)
+    report = svc.bootstrap("https://api.taiga.io/api/v1", "tok", 42, ContextService())
 
     assert report["imported"] == 3
     assert report["skipped"] == 0
@@ -189,6 +190,10 @@ def test_bootstrap_imports_maps_and_groups(ctx, monkeypatch):
 
 
 def test_bootstrap_uses_configured_status_mapping(ctx, monkeypatch):
+    # bootstrap() now reads the status mapping through ContextService, which is
+    # scoped to the active project ContextVar — set it to match the literal
+    # project_id (42) used below, mirroring what the router does via set_active().
+    ctx._active_project_id.set(42)
     ctx.save_project_status_mapping({"2": "qa_passed"}, 42)
     _wire_taiga(
         monkeypatch,
@@ -197,7 +202,7 @@ def test_bootstrap_uses_configured_status_mapping(ctx, monkeypatch):
         stories=[{"id": 100, "subject": "Login", "status": 2, "epic": None}],
     )
 
-    report = svc.bootstrap("https://api.taiga.io/api/v1", "tok", 42)
+    report = svc.bootstrap("https://api.taiga.io/api/v1", "tok", 42, ContextService())
 
     assert ctx.get_story_index()["100"]["phase_status"] == "qa_passed"
     assert report["status_mapping"] == [{"taiga_name": "In progress", "apex_status": "qa_passed", "source": "configured"}]
@@ -211,11 +216,11 @@ def test_bootstrap_skips_existing_and_is_idempotent(ctx, monkeypatch):
     )
     _wire_taiga(monkeypatch, **args)
 
-    first = svc.bootstrap("https://api.taiga.io/api/v1", "tok", 42)
+    first = svc.bootstrap("https://api.taiga.io/api/v1", "tok", 42, ContextService())
     assert first["imported"] == 1 and first["skipped"] == 0
 
     # Re-run: the story is already in the index → skipped, nothing re-imported.
-    second = svc.bootstrap("https://api.taiga.io/api/v1", "tok", 42)
+    second = svc.bootstrap("https://api.taiga.io/api/v1", "tok", 42, ContextService())
     assert second["imported"] == 0 and second["skipped"] == 1
 
 
@@ -226,7 +231,7 @@ def test_bootstrap_unmapped_status_id_defaults_gherkin_locked(ctx, monkeypatch):
         epics=[],
         stories=[{"id": 100, "subject": "S", "status": 999, "epic": None}],  # status id not in map
     )
-    svc.bootstrap("https://api.taiga.io/api/v1", "tok", 42)
+    svc.bootstrap("https://api.taiga.io/api/v1", "tok", 42, ContextService())
     assert ctx.get_story_index()["100"]["phase_status"] == "gherkin_locked"
 
 
@@ -236,7 +241,7 @@ def test_bootstrap_unmapped_status_id_defaults_gherkin_locked(ctx, monkeypatch):
 
 def test_reconstruct_empty_epic_returns_empty(ctx, monkeypatch):
     monkeypatch.setattr(svc, "_taiga_get_all", lambda *a, **k: [])
-    out = svc.reconstruct_epic(10, "https://api.taiga.io/api/v1", "tok", 42)
+    out = svc.reconstruct_epic(10, "https://api.taiga.io/api/v1", "tok", 42, ContextService())
     assert out == {"epic_id": 10, "epic_title": "Epic 10", "results": []}
 
 
@@ -257,7 +262,7 @@ def test_reconstruct_writes_gherkin_and_advances(ctx, monkeypatch):
         return {100: "Feature: Login\n  Scenario: ok", 101: "   "}
     monkeypatch.setattr("src.ai_engine.reconstruct_gherkin_batch", fake_ai)
 
-    out = svc.reconstruct_epic(10, "https://api.taiga.io/api/v1", "tok", 42)
+    out = svc.reconstruct_epic(10, "https://api.taiga.io/api/v1", "tok", 42, ContextService())
 
     by_id = {r["story_id"]: r for r in out["results"]}
     assert by_id[100]["status"] == "ok"
@@ -285,7 +290,7 @@ def test_reconstruct_general_epic_filters_orphans(ctx, monkeypatch):
         return {102: "Feature: Orphan"}
     monkeypatch.setattr("src.ai_engine.reconstruct_gherkin_batch", fake_ai)
 
-    out = svc.reconstruct_epic(svc._GENERAL_EPIC_ID, "https://api.taiga.io/api/v1", "tok", 42)
+    out = svc.reconstruct_epic(svc._GENERAL_EPIC_ID, "https://api.taiga.io/api/v1", "tok", 42, ContextService())
 
     assert out["epic_title"] == svc._GENERAL_EPIC_TITLE
     assert captured["ids"] == [102]   # only the index entry, story 200 not in this epic
@@ -304,7 +309,7 @@ def test_route_bootstrap_happy(ctx, monkeypatch):
 
     # The route imports import_service lazily, so it's the same module object as svc.
     monkeypatch.setattr(svc, "bootstrap",
-                        lambda base, token, pid: {"imported": 1, "skipped": 0, "epics": [], "status_mapping": []})
+                        lambda base, token, pid, context: {"imported": 1, "skipped": 0, "epics": [], "status_mapping": []})
 
     out = workspace.import_from_pm_bootstrap(ctx=_CTX, x_taiga_url="")
     assert out["imported"] == 1
@@ -326,7 +331,7 @@ def test_route_reconstruct_happy(ctx, monkeypatch):
     from backend.app.api import workspace
 
     monkeypatch.setattr(svc, "reconstruct_epic",
-                        lambda epic_id, base, token, pid: {"epic_id": epic_id, "epic_title": "Auth", "results": []})
+                        lambda epic_id, base, token, pid, context: {"epic_id": epic_id, "epic_title": "Auth", "results": []})
     out = workspace.import_reconstruct_epic(epic_id=10, ctx=_CTX, x_taiga_url="")
     assert out["epic_id"] == 10
 

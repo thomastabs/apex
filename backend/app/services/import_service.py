@@ -12,8 +12,12 @@ with id=0.
 """
 
 import logging
+from typing import TYPE_CHECKING
 
 import httpx
+
+if TYPE_CHECKING:
+    from backend.app.services.context_service import ContextService
 
 _logger = logging.getLogger("apex.import_service")
 
@@ -136,19 +140,20 @@ def _format_reconstruction_story_input(story_id: int, title: str, raw: dict) -> 
 # Public service methods
 # ---------------------------------------------------------------------------
 
-def bootstrap(taiga_base: str, token: str, project_id: int) -> dict:
+def bootstrap(taiga_base: str, token: str, project_id: int, context: "ContextService") -> dict:
     """Step 1: populate story-index from Taiga without AI.
+
+    `context` must already have the target project set active (see caller in
+    workspace.py) — status mapping and story-index reads go through it.
 
     Returns an import report dict with keys:
       imported, skipped, epics, status_mapping
     """
-    from src import context_manager
-
     # 1. Fetch board statuses → build id→phase_status map + human-readable mapping
     statuses_raw = _taiga_get(f"{taiga_base}/userstories/statuses", token, {"project": project_id})
     if not isinstance(statuses_raw, list):
         statuses_raw = statuses_raw.get("objects", []) if isinstance(statuses_raw, dict) else []
-    configured_status_mapping = context_manager.get_project_status_mapping(project_id)
+    configured_status_mapping = context.status_mapping()
     status_id_map: dict[int, str] = {}
     status_mapping: list[dict] = []
     for s in statuses_raw:
@@ -170,7 +175,7 @@ def bootstrap(taiga_base: str, token: str, project_id: int) -> dict:
     stories_raw = _taiga_get_all(f"{taiga_base}/userstories", token, {"project": project_id})
 
     # 4. Get existing story-index to detect already-imported entries
-    existing = context_manager.get_story_index()
+    existing = context.story_index()
 
     # 5. Upsert each new story
     imported = 0
@@ -195,7 +200,7 @@ def bootstrap(taiga_base: str, token: str, project_id: int) -> dict:
         status_id = story.get("status")
         phase_status = status_id_map.get(status_id, "gherkin_locked") if status_id else "gherkin_locked"
 
-        context_manager.upsert_story_index(
+        context.upsert_story_index(
             sid,
             title=story.get("subject", f"Story {sid}"),
             epic_id=epic_id,
@@ -219,16 +224,19 @@ def bootstrap(taiga_base: str, token: str, project_id: int) -> dict:
     }
 
 
-def reconstruct_epic(epic_id: int, taiga_base: str, token: str, project_id: int) -> dict:
+def reconstruct_epic(epic_id: int, taiga_base: str, token: str, project_id: int, context: "ContextService") -> dict:
     """Step 2: generate Gherkin for all stories in one epic via one AI call.
+
+    `context` must already have the target project set active (see caller in
+    workspace.py).
 
     epic_id=0 means the synthetic General epic (orphan stories with no epic in Taiga).
     Returns a report dict with keys: epic_id, epic_title, results (list per story).
     """
-    from src import ai_engine, context_manager
+    from src import ai_engine
 
     # Get story-index entries for this epic
-    index = context_manager.get_story_index()
+    index = context.story_index()
     epic_stories = [e for e in index.values() if e.get("epic_id") == epic_id]
     if not epic_stories:
         return {
@@ -273,7 +281,7 @@ def reconstruct_epic(epic_id: int, taiga_base: str, token: str, project_id: int)
         sid = entry["story_id"]
         gherkin = gherkin_map.get(sid, "")
         if gherkin.strip():
-            context_manager.append_gherkin(
+            context.append_gherkin(
                 sid,
                 entry.get("title", f"Story {sid}"),
                 gherkin,

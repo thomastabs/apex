@@ -30,7 +30,7 @@ function packDownload(content: string, storyId: number, taskId: number) {
   URL.revokeObjectURL(url);
 }
 
-export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragStart }: PacksSectionProps) {
+export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragStart, onMoveUp, onMoveDown }: PacksSectionProps) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const [viewing, setViewing] = useState<(PackRef & { content: string }) | null>(null);
@@ -157,6 +157,8 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
           open={open}
           onClick={() => setOpen(!open)}
           onDragStart={onDragStart}
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown}
         />
         {open ? (
           <div className={cn("px-4 py-3 text-sm", dark ? "bg-[#20232b]" : "bg-white")}>

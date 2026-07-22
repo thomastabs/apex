@@ -123,6 +123,7 @@ def ctx(tmp_path, monkeypatch):
     # Isolated per-test caches (monkeypatch restores originals after each test).
     monkeypatch.setattr(cm, "_initialized_projects", set())
     monkeypatch.setattr(cm, "_story_index_caches", {})
+    monkeypatch.setattr(cm, "_proposal_content_caches", {})
 
     # Set ContextVars (project + instance namespace) for the test's duration.
     token = cm._active_project_id.set(_TEST_PROJECT_ID)

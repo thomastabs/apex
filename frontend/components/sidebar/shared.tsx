@@ -78,10 +78,13 @@ export type DragSectionProps = {
   };
   shellClass?: string;
   onDragStart?: (e: React.DragEvent) => void;
+  /** Keyboard-accessible alternative to dragging — swaps with the adjacent section. */
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 };
 
 export function PanelHeader({
-  icon, title, badge, open, onClick, onDragStart, actions,
+  icon, title, badge, open, onClick, onDragStart, onMoveUp, onMoveDown, actions,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -89,6 +92,8 @@ export function PanelHeader({
   open: boolean;
   onClick: () => void;
   onDragStart?: (e: React.DragEvent) => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
   actions?: React.ReactNode;
 }) {
   const dark = useUiStore((state) => state.theme) === "dark";
@@ -105,10 +110,17 @@ export function PanelHeader({
           onDragStart={onDragStart}
           onClickCapture={(e) => e.stopPropagation()}
           className={cn(
-            "flex h-10 w-8 shrink-0 cursor-grab items-center justify-center pl-2 transition-colors active:cursor-grabbing",
+            "flex h-10 w-8 shrink-0 cursor-grab items-center justify-center pl-2 transition-colors active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500",
             dark ? "text-neutral-600 hover:text-neutral-400" : "text-slate-400 hover:text-slate-600",
           )}
-          title="Drag to reorder"
+          title="Drag to reorder — or focus and press Arrow Up/Down"
+          role="button"
+          tabIndex={0}
+          aria-label="Reorder section — Arrow Up or Down to move"
+          onKeyDown={(e) => {
+            if (e.key === "ArrowUp") { e.preventDefault(); onMoveUp?.(); }
+            else if (e.key === "ArrowDown") { e.preventDefault(); onMoveDown?.(); }
+          }}
         >
           <GripVertical className="size-3" />
         </div>

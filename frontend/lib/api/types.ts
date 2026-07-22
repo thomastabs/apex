@@ -72,7 +72,10 @@ export type ExtraContextRequest = {
 };
 
 export type Membership = {
-  id: number;
+  // Opaque membership key: Taiga's is a stringified numeric id, Jira's is a
+  // synthetic "roleId:accountId" composite (see jira-adapter.ts getUsers) —
+  // callers must treat it as an opaque string, never parse or do arithmetic on it.
+  id: string;
   user?: number | null;
   username: string;
   full_name: string;

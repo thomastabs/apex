@@ -18,12 +18,12 @@ type UsersSectionProps = DragSectionProps & {
   confirm: (msg: string, cb: () => void) => void;
 };
 
-export function UsersSection({ dark, projectId: _projectId, confirm, shellClass, dragHandlers, onDragStart }: UsersSectionProps) {
+export function UsersSection({ dark, projectId: _projectId, confirm, shellClass, dragHandlers, onDragStart, onMoveUp, onMoveDown }: UsersSectionProps) {
   const t = useT();
   const [usersOpen, setUsersOpen] = useState(false);
   const [inviteValue, setInviteValue] = useState("");
   const [roleId, setRoleId] = useState<number | null>(null);
-  const [editingMemberRole, setEditingMemberRole] = useState<number | null>(null);
+  const [editingMemberRole, setEditingMemberRole] = useState<string | null>(null);
   const [memberRoleValue, setMemberRoleValue] = useState<number>(0);
 
   const users = useUsers();
@@ -49,6 +49,8 @@ export function UsersSection({ dark, projectId: _projectId, confirm, shellClass,
           open={usersOpen}
           onClick={() => setUsersOpen(!usersOpen)}
           onDragStart={onDragStart}
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown}
         />
         {usersOpen ? (
           <div className={cn("space-y-3 p-3 text-sm", expandedPanelClass)}>

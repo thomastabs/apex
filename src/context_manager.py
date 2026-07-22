@@ -131,6 +131,12 @@ def _index_lock():
 _story_index_caches:  dict[tuple[str, int], tuple[float, dict]] = {}
 _initialized_projects: set[tuple[str, int]]              = set()
 
+# Per-project cache of proposal (dev-pack) file contents, keyed by filename ->
+# (mtime, proposal_md). Lets load_all_proposals() skip re-reading a pack's full
+# markdown on every call (e.g. every GitHub push webhook) when the file on disk
+# hasn't changed since the last read — only the mtime is re-checked per file.
+_proposal_content_caches: dict[tuple[str, int], dict[str, tuple[float, str]]] = {}
+
 
 
 
@@ -945,6 +951,7 @@ def reset_cache() -> None:
     key = _ctx_key()
     _initialized_projects.discard(key)
     _story_index_caches.pop(key, None)
+    _proposal_content_caches.pop(key, None)
     _invalidate_config_cache()
 
 
@@ -980,6 +987,7 @@ def migrate_to_instance_scoped(instance_id: str) -> int:
         _logger.info("migrate: contextspec/%s -> contextspec/%s/%s", name, instance_id, name)
     if moved:
         _story_index_caches.clear()
+        _proposal_content_caches.clear()
         _initialized_projects.clear()
     return moved
 
@@ -2319,21 +2327,45 @@ def load_all_proposals() -> list[dict]:
     """Every developer pack in the project WITH its markdown:
     [{story_id, task_id, proposal_md}]. Cross-story enumeration used by the
     traceability graph and the GitHub webhook regression scan
-    (list_all_proposals omits the markdown)."""
+    (list_all_proposals omits the markdown).
+
+    Content is cached per file by mtime: a pack whose mtime hasn't changed
+    since the last call is served from memory instead of re-read+re-parsed —
+    callers like the push webhook's regression matcher would otherwise re-read
+    every dev-pack in the project (full content, not just metadata) on every
+    single push, most of which touch none of them.
+    """
     cd = _context_dir()
     out: list[dict] = []
     if not cd.exists():
         return out
+    cache = _proposal_content_caches.setdefault(_ctx_key(), {})
+    seen: set[str] = set()
     for p in cd.iterdir():
         if p.name.startswith("proposal_story_") and p.suffix == ".md":
             try:
                 parts = p.stem.split("_")
                 sid = int(parts[parts.index("story") + 1])
                 tid = int(parts[parts.index("task") + 1])
-                out.append({"story_id": sid, "task_id": tid,
-                            "proposal_md": p.read_text(encoding="utf-8")})
-            except (ValueError, IndexError, OSError):
-                pass
+            except (ValueError, IndexError):
+                continue
+            seen.add(p.name)
+            try:
+                mtime = p.stat().st_mtime
+            except OSError:
+                continue
+            cached = cache.get(p.name)
+            if cached is not None and cached[0] == mtime:
+                proposal_md = cached[1]
+            else:
+                try:
+                    proposal_md = p.read_text(encoding="utf-8")
+                except OSError:
+                    continue
+                cache[p.name] = (mtime, proposal_md)
+            out.append({"story_id": sid, "task_id": tid, "proposal_md": proposal_md})
+    for stale in set(cache) - seen:
+        cache.pop(stale, None)
     return sorted(out, key=lambda x: (x["story_id"], x["task_id"]))
 
 

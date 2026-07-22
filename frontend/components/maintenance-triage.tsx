@@ -280,7 +280,7 @@ export function MaintenanceTriage() {
               {selected.classification === "unclassified" ? (
                 <>
                   <div className="flex gap-2">
-                    <Button onClick={() => classify.mutate({ itemId: selected.id, extraContextFiles: triageExtraContext }, { onSuccess: () => toast.success("Triage complete."), onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
+                    <Button onClick={() => classify.mutate({ itemId: selected.id, extraContextFiles: triageExtraContext })} disabled={busy}>
                       {classify.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Classify (Triage)
                     </Button>
                     {classify.isPending && <CancelButton onCancel={() => classify.cancel()} />}
@@ -318,7 +318,7 @@ export function MaintenanceTriage() {
                   <p className={cn("text-xs", muted)}>Narrow diagnosis (Context Isolation): paste ONLY the implicated code snippet.</p>
                   <Textarea placeholder="Isolated code snippet" rows={4} value={snippet} onChange={(e) => setSnippet(e.target.value)} />
                   <div className="flex gap-2">
-                    <Button onClick={() => diagnose.mutate({ itemId: selected.id, codeSnippet: snippet, extraContextFiles: diagnosisExtraContext }, { onSuccess: () => toast.success("Diagnosis ready."), onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
+                    <Button onClick={() => diagnose.mutate({ itemId: selected.id, codeSnippet: snippet, extraContextFiles: diagnosisExtraContext })} disabled={busy}>
                       {diagnose.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Diagnose
                     </Button>
                     {diagnose.isPending && <CancelButton onCancel={() => diagnose.cancel()} />}
@@ -343,7 +343,7 @@ export function MaintenanceTriage() {
               {selected.status === "diagnosed" ? (
                 <>
                   <div className="flex gap-2">
-                    <Button onClick={() => fixBrief.mutate({ itemId: selected.id, extraContextFiles: fixBriefExtraContext }, { onSuccess: () => toast.success("Fix-Bolt brief generated."), onError: (e) => toast.error(errMsg(e)) })} disabled={busy}>
+                    <Button onClick={() => fixBrief.mutate({ itemId: selected.id, extraContextFiles: fixBriefExtraContext })} disabled={busy}>
                       {fixBrief.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Generate Fix-Bolt Brief
                     </Button>
                     {fixBrief.isPending && <CancelButton onCancel={() => fixBrief.cancel()} />}
@@ -387,7 +387,7 @@ export function MaintenanceTriage() {
                       variant="secondary"
                       onClick={() => {
                         if (!window.confirm("Route to Fast Lane? This skips QA entirely and deploys the fix directly to production.")) return;
-                        route.mutate({ itemId: selected.id, lane: "fast" }, { onSuccess: () => toast.success("Fast Lane — deploy record"), onError: (e) => toast.error(errMsg(e)) });
+                        route.mutate({ itemId: selected.id, lane: "fast" });
                       }}
                       disabled={route.isPending}
                     >
@@ -397,7 +397,7 @@ export function MaintenanceTriage() {
                       variant="secondary"
                       onClick={() => {
                         if (!window.confirm("Route to Secure Lane? This deploys with a QA regression bypass — only previously-failed scenarios get re-tested.")) return;
-                        route.mutate({ itemId: selected.id, lane: "secure" }, { onSuccess: () => toast.success("Secure Lane — QA Regression Bypass"), onError: (e) => toast.error(errMsg(e)) });
+                        route.mutate({ itemId: selected.id, lane: "secure" });
                       }}
                       disabled={route.isPending}
                     >
@@ -414,7 +414,7 @@ export function MaintenanceTriage() {
                   variant="secondary"
                   onClick={() => {
                     if (!window.confirm("Mark this item resolved? This writes a permanent record to fix-log.md.")) return;
-                    resolve.mutate({ itemId: selected.id }, { onSuccess: () => toast.success("Resolved — fix logged"), onError: (e) => toast.error(errMsg(e)) });
+                    resolve.mutate({ itemId: selected.id });
                   }}
                   disabled={resolve.isPending}
                 >

@@ -435,12 +435,15 @@ const jiraAdapter: ProjectManagementAdapter = {
       Object.entries(rolesRaw).map(async ([roleName, roleUrl]) => {
         try {
           const roleId = roleUrl.split("/").pop() ?? "";
-          roles.push({ id: roleId, name: roleName });
           const roleData = await jiraFetch<{ actors: Array<{ id: number; displayName: string; type: string; actorUser?: { accountId: string } }> }>(
             `/rest/api/3/project/${ctx.projectId}/role/${roleId}`,
             ctx.token,
             ctx.baseUrl,
           );
+          // Only list the role once its members fetch has actually succeeded —
+          // pushing it beforehand would leave it in the result with zero
+          // members if the fetch throws, contradicting "skip inaccessible roles".
+          roles.push({ id: roleId, name: roleName });
           for (const actor of roleData.actors ?? []) {
             const accountId = actor.actorUser?.accountId ?? String(actor.id);
             if (seen.has(accountId)) continue;
@@ -448,7 +451,7 @@ const jiraAdapter: ProjectManagementAdapter = {
             // Encode "roleId:accountId" so removeMember/updateMemberRole can split it back
             const membershipKey = `${roleId}:${accountId}`;
             memberships.push({
-              id: membershipKey as unknown as number, // interface uses number; Jira adapter uses encoded string
+              id: membershipKey,
               user: actor.id,
               username: accountId,
               full_name: actor.displayName,

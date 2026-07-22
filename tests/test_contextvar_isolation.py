@@ -6,8 +6,7 @@ never bleed state into each other through the _active_project_id ContextVar.
 
 import concurrent.futures
 import contextvars
-import time
-
+import threading
 
 
 def test_contextvar_project_isolation_concurrent():
@@ -17,11 +16,17 @@ def test_contextvar_project_isolation_concurrent():
     project_ids = list(range(5000, 5020))
     results: dict[int, int] = {}
     errors: list[str] = []
+    # A barrier deterministically forces every thread to set its ContextVar,
+    # then have ALL threads read back simultaneously — a fixed time.sleep()
+    # only widens the race window probabilistically, which risks a false
+    # negative (test passes even though isolation is broken) if the sleep
+    # happens to be long enough to dodge the actual race window.
+    barrier = threading.Barrier(len(project_ids))
 
     def simulate_request(pid: int) -> None:
         token = cm._active_project_id.set(pid)
         try:
-            time.sleep(0.02)  # increase race probability
+            barrier.wait(timeout=5)
             seen = cm._get_project_id()
             results[pid] = seen
         finally:
@@ -57,6 +62,13 @@ def test_contextvar_cache_isolation_concurrent(tmp_path, monkeypatch):
 
     written: dict[int, str] = {}
     read_back: dict[int, str] = {}
+    pids = list(range(7000, 7010))
+    # Force all threads' writes to race against each other before any thread
+    # reads back — a fixed time.sleep() between one thread's own write and its
+    # own read doesn't actually guarantee it overlaps with another thread's
+    # write, so a too-short sleep would false-negative (pass despite a real
+    # cross-project cache bleed).
+    barrier = threading.Barrier(len(pids))
 
     def simulate_write_read(pid: int) -> None:
         token = cm._active_project_id.set(pid)
@@ -65,7 +77,7 @@ def test_contextvar_cache_isolation_concurrent(tmp_path, monkeypatch):
             # Write a unique marker to this project's story index (file + cache)
             marker = f"project-{pid}-marker"
             cm._save_story_index({f"story-{pid}": {"title": marker}})
-            time.sleep(0.01)
+            barrier.wait(timeout=5)
             index = cm.get_story_index()
             read_back[pid] = list(index.values())[0]["title"] if index else ""
             written[pid] = marker
@@ -73,7 +85,6 @@ def test_contextvar_cache_isolation_concurrent(tmp_path, monkeypatch):
             cm._active_project_id.reset(token)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as pool:
-        pids = list(range(7000, 7010))
         futures = [
             pool.submit(contextvars.copy_context().run, simulate_write_read, pid)
             for pid in pids

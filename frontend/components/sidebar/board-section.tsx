@@ -80,14 +80,20 @@ function EpicDialog({ epic, onClose }: { epic: Epic; onClose: () => void }) {
     setDescription,
   );
 
-  function save() {
+  async function save() {
     const version = detail.data?.version ?? epic.version;
     if (!version) return;
     const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
-    update.mutate(
-      { epicId: epic.id, version, fields: { subject, description, tags } },
-      { onSuccess: onClose },
-    );
+    // Awaited (rather than fire-and-forget .mutate() + immediate onClose()):
+    // closing on a call-site onSuccess races the dialog's unmount against the
+    // request, and a failed save previously surfaced no error at all.
+    try {
+      await update.mutateAsync({ epicId: epic.id, version, fields: { subject, description, tags } });
+    } catch {
+      toast.error(t("board.toast.failedSaveEpic"));
+      return;
+    }
+    onClose();
   }
 
   const inputClass = cn(
@@ -552,10 +558,16 @@ function CreateEpicDialog({ onClose }: { onClose: () => void }) {
       : "border-slate-300 bg-white text-slate-950 placeholder:text-slate-400",
   );
 
-  function submit() {
+  async function submit() {
     if (!subject.trim()) return;
     const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
-    create.mutate({ subject: subject.trim(), description, tags }, { onSuccess: onClose });
+    try {
+      await create.mutateAsync({ subject: subject.trim(), description, tags });
+    } catch {
+      toast.error(t("board.toast.failedCreateEpic"));
+      return;
+    }
+    onClose();
   }
 
   return (
@@ -630,10 +642,16 @@ function CreateStoryDialog({ epicId, onClose }: { epicId: number; onClose: () =>
       : "border-slate-300 bg-white text-slate-950 placeholder:text-slate-400",
   );
 
-  function submit() {
+  async function submit() {
     if (!subject.trim()) return;
     const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
-    create.mutate({ epicId, subject: subject.trim(), description, tags, statusId }, { onSuccess: onClose });
+    try {
+      await create.mutateAsync({ epicId, subject: subject.trim(), description, tags, statusId });
+    } catch {
+      toast.error(t("board.toast.failedCreateStory"));
+      return;
+    }
+    onClose();
   }
 
   return (
@@ -710,7 +728,7 @@ type BoardSectionProps = DragSectionProps & {
   confirm: (msg: string, cb: () => void) => void;
 };
 
-export function BoardSection({ dark, projectId, confirm, shellClass, dragHandlers, onDragStart }: BoardSectionProps) {
+export function BoardSection({ dark, projectId, confirm, shellClass, dragHandlers, onDragStart, onMoveUp, onMoveDown }: BoardSectionProps) {
   const t = useT();
   const [boardOpen, setBoardOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -816,6 +834,8 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
           open={boardOpen}
           onClick={() => setBoardOpen(!boardOpen)}
           onDragStart={onDragStart}
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown}
           actions={
             <button
               onClick={(e) => { e.stopPropagation(); setFilterOpen((v) => !v); if (filterOpen) setFilter(""); }}

@@ -28,7 +28,7 @@ function planDownload(content: string, storyId: number) {
   URL.revokeObjectURL(url);
 }
 
-export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDragStart }: TestPlansSectionProps) {
+export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDragStart, onMoveUp, onMoveDown }: TestPlansSectionProps) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const [viewing, setViewing] = useState<{ storyId: number; content: string } | null>(null);
@@ -140,6 +140,8 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
           open={open}
           onClick={() => setOpen(!open)}
           onDragStart={onDragStart}
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown}
         />
         {open ? (
           <div className={cn("px-4 py-3 text-sm", dark ? "bg-[#20232b]" : "bg-white")}>

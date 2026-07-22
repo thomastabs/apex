@@ -60,6 +60,25 @@ _failure_buckets: dict[str, tuple[float, int]] = {}
 # resource under attack and cannot be spoofed, so this closes that gap.
 _username_failure_buckets: dict[str, tuple[float, int]] = {}
 
+# Bound memory under source-rotation abuse (mirrors deps.py's token/project
+# cache cap). Without this, a key that's never revisited — e.g. an attacker
+# hammering the pre-auth login endpoint from a fresh IP every request — never
+# triggers its own lazy expiry check, so the dict grows without bound even
+# though each individual entry is small.
+_MAX_BUCKET_ENTRIES = 10_000
+
+
+def _prune_and_cap(buckets: dict, now: float, window: float) -> None:
+    """Drop expired entries, then cap total size via oldest-first eviction.
+    Caller holds _lock."""
+    expired = [k for k, (ws, _) in buckets.items() if now - ws >= window]
+    for k in expired:
+        del buckets[k]
+    if len(buckets) >= _MAX_BUCKET_ENTRIES:
+        oldest = sorted(buckets.items(), key=lambda kv: kv[1][0])[: len(buckets) // 10 + 1]
+        for k, _ in oldest:
+            buckets.pop(k, None)
+
 
 def _client_ip(request: Request) -> str:
     """Resolve the real client IP from X-Forwarded-For, trusting only the hops
@@ -89,6 +108,7 @@ def _client_ip(request: Request) -> str:
 
 def _check_bucket(key: str, limit: int, now: float, what: str = "AI requests") -> None:
     """Count one request against key; raise 429 when over limit. Caller holds _lock."""
+    _prune_and_cap(_buckets, now, _WINDOW_SECS)
     window_start, count = _buckets[key]
     if now - window_start > _WINDOW_SECS:
         _buckets[key] = (now, 1)
@@ -163,6 +183,7 @@ def record_auth_failure(request: Request) -> None:
         return
     now = time.monotonic()
     with _lock:
+        _prune_and_cap(_failure_buckets, now, _FAILURE_WINDOW_SECS)
         hit = _failure_buckets.get(key)
         if hit is None or now - hit[0] > _FAILURE_WINDOW_SECS:
             _failure_buckets[key] = (now, 1)
@@ -217,6 +238,7 @@ def record_username_failure(username: str) -> None:
         return
     now = time.monotonic()
     with _lock:
+        _prune_and_cap(_username_failure_buckets, now, _FAILURE_WINDOW_SECS)
         hit = _username_failure_buckets.get(key)
         if hit is None or now - hit[0] > _FAILURE_WINDOW_SECS:
             _username_failure_buckets[key] = (now, 1)
@@ -243,9 +265,5 @@ def ai_rate_limit(request: Request, auth: AuthContext = Depends(get_auth_context
         return
     now = time.monotonic()
     with _lock:
-        # Prune expired buckets to prevent unbounded growth
-        expired = [k for k, (ws, _) in _buckets.items() if now - ws >= _WINDOW_SECS]
-        for k in expired:
-            del _buckets[k]
         _check_bucket(token_key, _MAX_AI_REQUESTS, now)
         _check_bucket(ip_key, _MAX_AI_REQUESTS_PER_IP, now)

@@ -70,8 +70,19 @@ export function RightSidebar() {
     setSectionOrder(current);
   }
 
+  function moveSection(id: SectionId, delta: -1 | 1) {
+    const idx = orderedIds.indexOf(id);
+    const swapIdx = idx + delta;
+    if (idx < 0 || swapIdx < 0 || swapIdx >= orderedIds.length) return;
+    const next = [...orderedIds];
+    [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+    setSectionOrder(next);
+  }
+
   function dragProps(id: SectionId): DragSectionProps {
     return {
+      onMoveUp: () => moveSection(id, -1),
+      onMoveDown: () => moveSection(id, 1),
       shellClass: cn(
         `ws-section-${id}`,
         draggedId === id

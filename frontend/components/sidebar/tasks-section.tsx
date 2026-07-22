@@ -200,7 +200,7 @@ function TaskEditDialog({
   );
 }
 
-export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: TasksSectionProps) {
+export function TasksSection({ dark, shellClass, dragHandlers, onDragStart, onMoveUp, onMoveDown }: TasksSectionProps) {
   const t = useT();
   const darkTheme = useUiStore((s) => s.theme) === "dark";
   const [open, setOpen] = useState(false);
@@ -475,6 +475,8 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart }: Ta
           open={open}
           onClick={() => setOpen(!open)}
           onDragStart={onDragStart}
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown}
           actions={filterBtn}
         />
 

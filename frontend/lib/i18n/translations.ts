@@ -33,6 +33,8 @@ export const translations = {
     "login.authToken": "Auth Token",
     "login.signInToTaiga": "Sign in to Taiga",
     "login.createAccount": "Create account",
+    "login.showPassword": "Show password",
+    "login.hidePassword": "Hide password",
 
     // ── right sidebar (Workspace panel) ──
     "workspace.title": "Workspace",
@@ -966,6 +968,9 @@ export const translations = {
     "board.toast.failedApexStatusUpdate": "Failed to update Apex status.",
     "board.toast.storyNotLoadedYet": "Story details haven't loaded yet — try again in a moment.",
     "board.toast.failedSaveStory": "Failed to save story.",
+    "board.toast.failedSaveEpic": "Failed to save epic.",
+    "board.toast.failedCreateEpic": "Failed to create epic.",
+    "board.toast.failedCreateStory": "Failed to create story.",
 
     // ── context section (Active Context panel) ──
     "context.panelTitle": "Active Context",
@@ -1629,6 +1634,8 @@ export const translations = {
     "login.authToken": "Token de Autenticação",
     "login.signInToTaiga": "Iniciar sessão no Taiga",
     "login.createAccount": "Criar conta",
+    "login.showPassword": "Mostrar palavra-passe",
+    "login.hidePassword": "Ocultar palavra-passe",
 
     "workspace.title": "Workspace",
     "workspace.section.project": "Projeto",
@@ -2551,6 +2558,9 @@ export const translations = {
     "board.toast.failedApexStatusUpdate": "Falha ao atualizar o estado Apex.",
     "board.toast.storyNotLoadedYet": "Os detalhes da história ainda não foram carregados — tente novamente daqui a um momento.",
     "board.toast.failedSaveStory": "Falha ao guardar a história.",
+    "board.toast.failedSaveEpic": "Falha ao guardar a epic.",
+    "board.toast.failedCreateEpic": "Falha ao criar a epic.",
+    "board.toast.failedCreateStory": "Falha ao criar a história.",
 
     "context.panelTitle": "Contexto Ativo",
     "context.relativeJustNow": "agora mesmo",

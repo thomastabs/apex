@@ -1094,10 +1094,18 @@ def _persist(job: dict) -> None:
 def _run_parallel(job: dict, items: list, worker) -> None:
     """Run worker(item) over items with bounded concurrency, honouring stop. Each
     worker runs in a copied context so the project ContextVars reach the pool
-    threads. The first worker exception propagates (fails the phase)."""
+    threads. The first worker exception propagates (fails the phase).
+
+    Uses an explicit try/finally instead of the executor's context manager so
+    the failure path can pass cancel_futures=True — the context manager's own
+    __exit__ calls shutdown(wait=True) with no cancellation, which lets every
+    already-submitted-but-not-yet-started item (the rest of the batch) run to
+    completion before the exception surfaces, burning AI calls on work that's
+    going to be discarded anyway."""
     if not items or _check_stop(job):
         return
-    with cf.ThreadPoolExecutor(max_workers=_AUTOPILOT_CONCURRENCY) as ex:
+    ex = cf.ThreadPoolExecutor(max_workers=_AUTOPILOT_CONCURRENCY)
+    try:
         futures = []
         for item in items:
             if _check_stop(job):
@@ -1107,6 +1115,8 @@ def _run_parallel(job: dict, items: list, worker) -> None:
             exc = fut.exception()
             if exc is not None:
                 raise exc
+    finally:
+        ex.shutdown(wait=True, cancel_futures=True)
 
 
 def _scaffold_snapshot(job: dict) -> set[str]:

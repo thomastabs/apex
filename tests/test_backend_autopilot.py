@@ -972,7 +972,12 @@ class TestResume:
         assert job["_all_story_ids"] == [10, 11, 12]
         assert job["steer_note"] == "go small"
         assert job["figma_token"] == ""  # secret not restored
-        time.sleep(0.05)
+        # Poll instead of a fixed sleep — the background thread that calls
+        # _run_pipeline needs to actually get scheduled and run; a flat sleep
+        # risks flaking under a slow/loaded CI runner instead of just being slow.
+        deadline = time.monotonic() + 2.0
+        while not launched and time.monotonic() < deadline:
+            time.sleep(0.01)
         assert launched == ["rj"]
 
     def test_resume_none_when_no_snapshot(self, ctx):

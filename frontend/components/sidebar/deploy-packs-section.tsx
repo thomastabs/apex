@@ -28,7 +28,7 @@ function packDownload(content: string, storyId: number) {
   URL.revokeObjectURL(url);
 }
 
-export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, onDragStart }: DeployPacksSectionProps) {
+export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, onDragStart, onMoveUp, onMoveDown }: DeployPacksSectionProps) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const [viewing, setViewing] = useState<{ storyId: number; content: string } | null>(null);
@@ -125,6 +125,8 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
           open={open}
           onClick={() => setOpen(!open)}
           onDragStart={onDragStart}
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown}
         />
         {open ? (
           <div className={cn("px-4 py-3 text-sm", dark ? "bg-[#20232b]" : "bg-white")}>

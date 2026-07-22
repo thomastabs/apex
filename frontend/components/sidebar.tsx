@@ -438,7 +438,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
               <input value={username} onChange={(e) => setUsername(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.usernamePlaceholder")} />
               <div className="relative">
                 <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className={cn("h-8 w-full rounded border px-3 pr-8 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.passwordPlaceholder")} onKeyDown={(e) => { if (e.key === "Enter") handlePasswordLogin(); }} />
-                <button type="button" onClick={() => setShowPassword((v) => !v)} className={cn("absolute inset-y-0 right-2 transition-colors", dark ? "text-neutral-500 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600")} tabIndex={-1}>
+                <button type="button" onClick={() => setShowPassword((v) => !v)} className={cn("absolute inset-y-0 right-2 transition-colors", dark ? "text-neutral-500 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600")} aria-label={showPassword ? t("login.hidePassword") : t("login.showPassword")}>
                   {showPassword ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
                 </button>
               </div>

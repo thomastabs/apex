@@ -5,6 +5,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 
+from backend.app.api import deps
 from backend.app.api.deps import (
     AuthContext,
     RequestContext,
@@ -195,6 +196,7 @@ def get_config(
     github_repo = ""
     github_pat_configured = False
     if project_id is not None:
+        deps._verify_project_access(auth.pm_token, project_id, x_taiga_url, x_jira_base_url)
         context_manager.set_active_project(project_id)
         github_repo = context_manager.get_project_github_repo(project_id)
         github_pat_configured = context_manager.has_project_github_pat(project_id)
@@ -344,6 +346,7 @@ def save_config(
     from backend.app.api.taiga_proxy import _validate_taiga_url
     from src import context_manager
     if payload.project_id:
+        deps._verify_project_access(auth.pm_token, payload.project_id, x_taiga_url, x_jira_base_url)
         context_manager.save_config(payload.project_id)
     if payload.pm_tool is not None or payload.jira_base_url is not None or payload.taiga_url is not None:
         # Empty string clears the URL (sent when switching back to Taiga);
@@ -363,6 +366,7 @@ def save_config(
             detail="project_id required to save GitHub config (per-project, not per-instance).",
         )
     if payload.github_repo is not None:
+        deps._verify_project_access(auth.pm_token, payload.project_id, x_taiga_url, x_jira_base_url)
         context_manager.set_active_instance(anchor_instance_id(x_taiga_url, x_jira_base_url))
         context_manager.set_active_project(payload.project_id)
         context_manager.save_project_github_repo(payload.github_repo)
@@ -376,6 +380,7 @@ def save_config(
     # own connect attempt (setGithub/setFigma in the browser session) to
     # succeed regardless of whether server-side persistence is available.
     if payload.github_pat is not None:
+        deps._verify_project_access(auth.pm_token, payload.project_id, x_taiga_url, x_jira_base_url)
         context_manager.set_active_instance(anchor_instance_id(x_taiga_url, x_jira_base_url))
         context_manager.set_active_project(payload.project_id)
         try:
@@ -405,6 +410,7 @@ def get_github_pat(
     from src import context_manager
     if project_id is None:
         return {"pat": ""}
+    deps._verify_project_access(auth.pm_token, project_id, x_taiga_url, x_jira_base_url)
     context_manager.set_active_instance(anchor_instance_id(x_taiga_url, x_jira_base_url))
     context_manager.set_active_project(project_id)
     return {"pat": context_manager.get_project_github_pat(project_id)}
@@ -1295,7 +1301,7 @@ def import_from_pm_bootstrap(
     context.init_context()
 
     try:
-        result = import_service.bootstrap(taiga_base, ctx.pm_token, ctx.project_id)
+        result = import_service.bootstrap(taiga_base, ctx.pm_token, ctx.project_id, context)
     except Exception as exc:
         _logger.error("import bootstrap failed: %s", exc)
         raise HTTPException(
@@ -1325,7 +1331,7 @@ def import_reconstruct_epic(
     context.init_context()
 
     try:
-        result = import_service.reconstruct_epic(epic_id, taiga_base, ctx.pm_token, ctx.project_id)
+        result = import_service.reconstruct_epic(epic_id, taiga_base, ctx.pm_token, ctx.project_id, context)
     except Exception as exc:
         _logger.error("import reconstruct epic=%s failed: %s", epic_id, exc)
         raise HTTPException(

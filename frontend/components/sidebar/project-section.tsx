@@ -26,7 +26,7 @@ type ProjectSectionProps = DragSectionProps & {
   confirm: (msg: string, cb: () => void) => void;
 };
 
-export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDragStart }: ProjectSectionProps) {
+export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDragStart, onMoveUp, onMoveDown }: ProjectSectionProps) {
   const t = useT();
   const [projectOpen, setProjectOpen] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -68,6 +68,8 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
           open={projectOpen}
           onClick={() => setProjectOpen(!projectOpen)}
           onDragStart={onDragStart}
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown}
         />
         {projectOpen ? (
           <div className={cn("space-y-2 p-3", expandedPanelClass)}>
