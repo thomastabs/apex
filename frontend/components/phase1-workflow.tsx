@@ -375,6 +375,24 @@ export function Phase1Workflow() {
     );
   }
 
+  // Wipes everything downstream of "which epic" — draft/compiled stories,
+  // clarifying Q&A, cross-check results — so leftover state from a previous
+  // epic never bleeds into the next one, whether that's "Start Over" or
+  // picking a different epic to load.
+  function resetEpicWorkState() {
+    setNlDraft("");
+    setCompiledStories([]);
+    setPushSuccess(false);
+    setConstraintsGenerated(false);
+    setQaQuestions([]);
+    setQaAnswers({});
+    setClarifications([]);
+    clarify.reset();
+    setCrossResult(null);
+    setAltModel("");
+    crossCheck.reset();
+  }
+
   // keepSuggestions preserves the AI suggestion pool so it can be reused for
   // the next epic (e.g. after pushing one to the PM tool). A full "Start Over"
   // passes false to wipe everything.
@@ -384,10 +402,7 @@ export function Phase1Workflow() {
     setEpicId(null);
     setSuggestHint("");
     setGenerateHint("");
-    setNlDraft("");
-    setCompiledStories([]);
-    setPushSuccess(false);
-    setConstraintsGenerated(false);
+    resetEpicWorkState();
     setStep(1);
     setMode("create");
     setSelectedLoadEpicId(null);
@@ -797,6 +812,7 @@ export function Phase1Workflow() {
                                   : "border-slate-300 bg-white text-slate-700 hover:border-violet-400 hover:bg-white hover:text-violet-700",
                             )}
                             onClick={() => {
+                              if (epic.id !== epicId) resetEpicWorkState();
                               setSelectedLoadEpicId(epic.id);
                               setEpicId(epic.id);
                               setEpicTitle(epic.subject);
