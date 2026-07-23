@@ -530,11 +530,13 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
   const wikiPages = useMemo(() => wikiStatus.data?.pages ?? [], [wikiStatus.data?.pages]);
   const managedWikiPages = useMemo(() => wikiPages.filter((page) => !page.is_custom), [wikiPages]);
   const customWikiPages = useMemo(() => wikiPages.filter((page) => page.is_custom), [wikiPages]);
-  const nonEmptyCustomWikiPages = useMemo(() => customWikiPages.filter((page) => page.chars > 0), [customWikiPages]);
+  const nonEmptyCustomWikiPages = useMemo(() => customWikiPages.filter((page) => page.exists && page.chars > 0), [customWikiPages]);
+  // Bookmark-only WikiLinks with no WikiPage behind them yet (see taiga_wiki_service.status).
+  const pendingCustomWikiPages = useMemo(() => customWikiPages.filter((page) => !page.exists), [customWikiPages]);
   const wikiPageCount = managedWikiPages.filter((page) => page.exists).length;
   const wikiTotalCount = managedWikiPages.length || visibleFiles.length;
   const customWikiCount = customWikiPages.length;
-  const emptyCustomWikiCount = customWikiCount - nonEmptyCustomWikiPages.length;
+  const emptyCustomWikiCount = customWikiCount - nonEmptyCustomWikiPages.length - pendingCustomWikiPages.length;
   const selectedWikiSet = useMemo(() => new Set(selectedWikiFiles), [selectedWikiFiles]);
   const wikiPullSelection = selectedWikiFiles.length ? selectedWikiFiles : managedWikiPages.map((page) => page.filename);
   const wikiPublishSelection = useMemo(() => {
@@ -754,6 +756,24 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                           {emptyCustomWikiCount > 0 ? (
                             <div className={cn("mt-1 text-xs", dark ? "text-amber-200/60" : "text-amber-900/60")}>
                               {t("context.taigaWikiEmptyHidden", { n: emptyCustomWikiCount })}
+                            </div>
+                          ) : null}
+                          {pendingCustomWikiPages.length ? (
+                            <div className={cn("mt-2 rounded border border-dashed", dark ? "border-neutral-700" : "border-amber-300")}>
+                              {pendingCustomWikiPages.map((page) => (
+                                <div
+                                  key={page.filename}
+                                  title={t("context.taigaWikiPendingHint")}
+                                  className={cn("flex items-center gap-2 px-2 py-1.5 text-xs", dark ? "text-neutral-500" : "text-amber-900/60")}
+                                >
+                                  <span className="min-w-0 flex-1 truncate">
+                                    <span className="font-medium">{page.label}</span>
+                                  </span>
+                                  <span className={cn("rounded border px-1 py-0.5", dark ? "border-neutral-700 text-neutral-500" : "border-amber-300 text-amber-700")}>
+                                    {t("context.taigaWikiPending")}
+                                  </span>
+                                </div>
+                              ))}
                             </div>
                           ) : null}
                         </div>

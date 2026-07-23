@@ -31,6 +31,52 @@ def test_status_reports_existing_wiki_pages(monkeypatch):
     assert pages[2]["source"] == "taiga"
 
 
+def test_status_surfaces_bookmark_only_link_as_pending_stub(monkeypatch):
+    # A Taiga Wiki "bookmark" (WikiLink) can exist with no WikiPage behind it
+    # yet — created via Wiki home "add link" before anyone opens/saves the
+    # page. It must still show up (as an empty, not-yet-created entry) rather
+    # than silently vanishing.
+    def fake_request(method, url, token, *, params=None, json=None, data=None, files=None, ignore_status=frozenset()):
+        assert method == "GET"
+        if url.endswith("/wiki-links"):
+            return [{"id": 5, "project": 42, "title": "Teste", "href": "teste"}]
+        return [{"id": 10, "project": 42, "slug": "apex-project-concept", "content": "hello", "modified_date": "2026-07-18T10:00:00Z"}]
+
+    monkeypatch.setattr(svc, "_request", fake_request)
+
+    pages = svc.status(
+        "https://api.taiga.io/api/v1",
+        "tok",
+        42,
+        [("project-concept.md", "Project Concept")],
+    )
+
+    stub = next(p for p in pages if p["slug"] == "teste")
+    assert stub["label"] == "Teste"
+    assert stub["exists"] is False
+    assert stub["wiki_id"] is None
+    assert stub["chars"] == 0
+    assert stub["is_custom"] is True
+    assert stub["source"] == "taiga"
+
+
+def test_status_does_not_duplicate_link_for_a_page_that_already_exists(monkeypatch):
+    def fake_request(method, url, token, *, params=None, json=None, data=None, files=None, ignore_status=frozenset()):
+        assert method == "GET"
+        if url.endswith("/wiki-links"):
+            return [{"id": 5, "project": 42, "title": "Research Notes", "href": "research-notes"}]
+        return [{"id": 11, "project": 42, "slug": "research-notes", "content": "market", "modified_date": "2026-07-18T11:00:00Z"}]
+
+    monkeypatch.setattr(svc, "_request", fake_request)
+
+    pages = svc.status("https://api.taiga.io/api/v1", "tok", 42, [])
+
+    matches = [p for p in pages if p["slug"] == "research-notes"]
+    assert len(matches) == 1
+    assert matches[0]["exists"] is True
+    assert matches[0]["chars"] == 6
+
+
 def test_list_pages_excludes_leaked_cross_project_pages(monkeypatch):
     # Taiga's wiki-list endpoint ORs in any project with a public "view_wiki_pages"
     # permission, so a request scoped to project 42 can still come back with pages

@@ -101,18 +101,22 @@ def _wiki_links_url(taiga_base: str) -> str:
     return f"{taiga_base.rstrip('/')}/wiki-links"
 
 
-def _list_wiki_link_hrefs(taiga_base: str, token: str, project_id: int) -> set[str]:
+def _list_wiki_links(taiga_base: str, token: str, project_id: int) -> list[dict]:
     data = _request("GET", _wiki_links_url(taiga_base), token, params={"project": project_id})
     if isinstance(data, dict):
         data = data.get("objects", [])
     if not isinstance(data, list):
-        return set()
+        return []
     # Same cross-project leak risk as _list_pages (WikiLink uses the same
     # permission-based filter backend) — re-scope client-side.
+    return [item for item in data if isinstance(item, dict) and item.get("project") == project_id]
+
+
+def _list_wiki_link_hrefs(taiga_base: str, token: str, project_id: int) -> set[str]:
     return {
-        str(item.get("href", ""))
-        for item in data
-        if isinstance(item, dict) and item.get("href") and item.get("project") == project_id
+        str(link["href"])
+        for link in _list_wiki_links(taiga_base, token, project_id)
+        if link.get("href")
     }
 
 
@@ -310,10 +314,12 @@ def status(taiga_base: str, token: str, project_id: int, context_files: Iterable
             "source": "apex",
             "is_custom": False,
         })
+    seen_slugs = set(managed_slugs)
     for page in pages:
         slug = str(page.get("slug", "")).strip()
-        if not slug or slug in managed_slugs:
+        if not slug or slug in seen_slugs:
             continue
+        seen_slugs.add(slug)
         content = _page_content(page)
         label = _page_label(page, slug)
         out.append({
@@ -325,6 +331,28 @@ def status(taiga_base: str, token: str, project_id: int, context_files: Iterable
             "wiki_id": _page_id(page),
             "chars": len(content),
             "last_modified": _page_modified(page),
+            "source": "taiga",
+            "is_custom": True,
+        })
+    # A Taiga Wiki "bookmark" (WikiLink: project/title/href) can exist without
+    # any WikiPage behind it yet — the page is only created once someone opens
+    # the link and saves content. Surface these as visible-but-empty stubs so
+    # a freshly-bookmarked page doesn't just silently not appear.
+    for link in _list_wiki_links(taiga_base, token, project_id):
+        slug = str(link.get("href", "")).strip()
+        if not slug or slug in seen_slugs:
+            continue
+        seen_slugs.add(slug)
+        label = str(link.get("title") or slug).strip() or slug
+        out.append({
+            "filename": wiki_filename_for_slug(slug),
+            "label": label,
+            "slug": slug,
+            "title": label,
+            "exists": False,
+            "wiki_id": None,
+            "chars": 0,
+            "last_modified": None,
             "source": "taiga",
             "is_custom": True,
         })
