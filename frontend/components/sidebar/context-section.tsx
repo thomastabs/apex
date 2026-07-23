@@ -650,8 +650,22 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                 <div className={cn("rounded border px-3 py-2", dark ? "border-neutral-700 bg-neutral-950/40" : "border-slate-200 bg-slate-50")}>
                   <div className={cn("mb-2 flex items-center justify-between text-xs", dark ? "text-neutral-500" : "text-slate-500")}>
                     <span>{t("context.taigaWikiStatus")}</span>
-                    <span className={cn("font-semibold", dark ? "text-neutral-300" : "text-slate-700")}>
-                      {wikiStatus.isFetching ? t("common.loading") : t("context.taigaWikiCount", { existing: wikiPageCount, total: wikiTotalCount })}
+                    <span className="flex items-center gap-2">
+                      <span className={cn("font-semibold", dark ? "text-neutral-300" : "text-slate-700")}>
+                        {wikiStatus.isFetching ? t("common.loading") : t("context.taigaWikiCount", { existing: wikiPageCount, total: wikiTotalCount })}
+                      </span>
+                      <button
+                        type="button"
+                        title={t("context.taigaWikiRefresh")}
+                        disabled={wikiStatus.isFetching}
+                        onClick={() => wikiStatus.refetch()}
+                        className={cn(
+                          "rounded p-0.5 transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                          dark ? "text-neutral-400 hover:bg-neutral-800 hover:text-violet-300" : "text-slate-500 hover:bg-slate-200 hover:text-violet-600",
+                        )}
+                      >
+                        <RefreshCw className={cn("size-3.5", wikiStatus.isFetching && "animate-spin")} />
+                      </button>
                     </span>
                   </div>
                   {managedWikiPages.length ? (
