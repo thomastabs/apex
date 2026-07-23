@@ -18,6 +18,15 @@ class SuggestEpicsResponse(BaseModel):
     epics: list[EpicSuggestionSchema]
 
 
+class GenerateEpicDescriptionRequest(ExtraContextMixin):
+    title: str = Field(..., min_length=1, max_length=500)
+    draft: str = Field("", max_length=5_000)
+
+
+class GenerateEpicDescriptionResponse(BaseModel):
+    description: str
+
+
 class ExistingEpicSchema(BaseModel):
     title: str = Field("", max_length=500)
     description: str = Field("", max_length=5_000)

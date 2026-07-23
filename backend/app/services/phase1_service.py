@@ -34,6 +34,15 @@ class Phase1Service:
         concept = self._with_extra_context(self.context.project_concept(), extra_context_files)
         return self.ai.suggest_epics(concept, hint)
 
+    def generate_epic_description(
+        self, ctx: RequestContext, *, title: str, draft: str = "", extra_context_files: list[str] | None = None,
+    ) -> str:
+        self.configure_request(ctx)
+        if not title.strip():
+            raise Phase1ValidationError("An epic title is required before generating a description.")
+        concept = self._with_extra_context(self.context.project_concept(), extra_context_files)
+        return self.ai.generate_epic_description(concept, title, draft)
+
     def analyze_gaps(
         self, ctx: RequestContext, *, existing_epics: list[dict], hint: str = "", extra_context_files: list[str] | None = None,
     ) -> dict:

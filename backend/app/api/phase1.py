@@ -19,6 +19,8 @@ from backend.app.schemas.phase1 import (
     GenerateClarifyingQuestionsResponse,
     GenerateConstraintsRequest,
     GenerateConstraintsResponse,
+    GenerateEpicDescriptionRequest,
+    GenerateEpicDescriptionResponse,
     GenerateNlStoriesRequest,
     GenerateNlStoriesResponse,
     GenerateStoriesFromFigmaRequest,
@@ -62,6 +64,24 @@ def suggest_epics(
         return {"epics": service.suggest_epics(
             ctx,
             hint=payload.hint,
+            extra_context_files=payload.extra_context_files,
+        )}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/generate-epic-description", response_model=GenerateEpicDescriptionResponse)
+def generate_epic_description(
+    payload: GenerateEpicDescriptionRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase1Service = Depends(get_phase1_service),
+    _rl: None = Depends(ai_rate_limit),
+):
+    try:
+        return {"description": service.generate_epic_description(
+            ctx,
+            title=payload.title,
+            draft=payload.draft,
             extra_context_files=payload.extra_context_files,
         )}
     except Exception as exc:

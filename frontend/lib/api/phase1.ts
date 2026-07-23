@@ -47,6 +47,22 @@ export function suggestPhase1Epics(context: RequestContext, hint = "", signal?: 
   });
 }
 
+export function generateEpicDescription(
+  context: RequestContext,
+  title: string,
+  draft = "",
+  signal?: AbortSignal,
+  extraContextFiles: string[] = [],
+) {
+  return apiRequest<{ description: string }>("/api/phase1/generate-epic-description", {
+    method: "POST",
+    context,
+    body: { title, draft, extra_context_files: extraContextFiles },
+    timeoutMs: 60_000,
+    signal,
+  });
+}
+
 export function analyzeRequirementGaps(
   context: RequestContext,
   existingEpics: ExistingEpicInput[],

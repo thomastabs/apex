@@ -11,6 +11,10 @@ class AiService:
             for epic in result.epics
         ]
 
+    def generate_epic_description(self, project_concept: str, title: str, draft: str = "") -> str:
+        result = ai_engine.generate_epic_description(project_concept, title, draft)
+        return result.description
+
     def analyze_requirement_gaps(
         self, project_concept: str, existing_epics: list[dict], hint: str = "",
     ) -> dict:

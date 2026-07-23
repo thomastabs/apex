@@ -1469,6 +1469,40 @@ def suggest_epics(
     )
 
 
+class EpicDescriptionSuggestion(BaseModel):
+    description: str = Field(description="Generated epic description, 2-4 sentences")
+
+
+_EPIC_DESCRIPTION_SYSTEM = """\
+You are an experienced Product Owner operating within the Apex Framework.
+Given a project concept and an Epic title (plus optionally a rough draft of its
+description), write a clear, well-scoped Epic description.
+
+Rules you MUST follow:
+- 2-4 sentences covering scope, user value, and any key constraints implied by the concept.
+- Ground the description in the project concept. Do NOT hallucinate capabilities it does not imply.
+- If a draft description is given, treat it as the user's intent and expand/sharpen it rather than
+  replacing it with something unrelated.
+- Plain prose, no markdown formatting, no restating the title verbatim as a sentence.
+"""
+
+
+def generate_epic_description(
+    project_concept: str,
+    title: str,
+    draft: str = "",
+) -> EpicDescriptionSuggestion:
+    human = "Project Concept:\n" + fence_user_content(project_concept) + "\n\n"
+    human += "Epic Title:\n" + fence_user_content(title) + "\n\n"
+    if draft.strip():
+        human += "Draft description to expand/sharpen:\n" + fence_user_content(draft) + "\n\n"
+    human += "Write the Epic description."
+    return _invoke_structured_with_progress(
+        _EPIC_DESCRIPTION_SYSTEM, human, get_model(), EpicDescriptionSuggestion,
+        max_tokens=512, temperature=0.2,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Phase 1 · Requirement Gap Analysis — Requirements Analyst persona
 # ---------------------------------------------------------------------------

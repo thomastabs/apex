@@ -1,5 +1,6 @@
 export const AI_GROUNDING = {
   phase1SuggestEpics: ["project-concept.md", "guide-the-ai note"],
+  phase1EpicDescription: ["project-concept.md"],
   phase1GapAnalysis: ["project-concept.md", "PM epics/stories"],
   phase1Constraints: ["project-concept.md", "tech-stack.md", "selected story scope"],
   phase1GenerateStories: ["project-concept.md", "figma-context.md", "guide-the-ai note"],

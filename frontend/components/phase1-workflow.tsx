@@ -12,6 +12,7 @@ import {
   useCompileGherkin,
   useGenerateClarifyingQuestions,
   useGenerateConstraints,
+  useGenerateEpicDescription,
   useCrossCheckStories,
   useGenerateNlStories,
   usePhase1Epics,
@@ -189,6 +190,7 @@ export function Phase1Workflow() {
   const contextFiles = useContextFiles();
   const agentFiles = useAgentFiles();
   const suggestEpics = useSuggestPhase1Epics();
+  const genEpicDescription = useGenerateEpicDescription();
   const analyzeGaps = useAnalyzeGaps();
   const generate = useGenerateNlStories();
   const crossCheck = useCrossCheckStories();
@@ -675,7 +677,31 @@ export function Phase1Workflow() {
                 </div>
                 <label className={cn("block text-sm font-medium", labelClass)}>
                   {t("common.description")}
-                  <Textarea rows={5} value={epicDescription} onChange={(event) => setEpicDescription(event.target.value)} placeholder={t("phase1.epicDescPlaceholder")} />
+                  <div className="relative">
+                    <Textarea rows={5} value={epicDescription} onChange={(event) => setEpicDescription(event.target.value)} placeholder={t("phase1.epicDescPlaceholder")} />
+                    <button
+                      type="button"
+                      title={t("phase1.generateDescriptionTitle")}
+                      disabled={!epicTitle.trim() || genEpicDescription.isPending}
+                      onClick={() =>
+                        genEpicDescription.mutate(
+                          { title: epicTitle, draft: epicDescription },
+                          { onSuccess: (data) => setEpicDescription(data.description) },
+                        )
+                      }
+                      className={cn(
+                        "absolute top-2 right-2 inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+                        dark
+                          ? "bg-neutral-800 text-violet-400 hover:bg-neutral-700"
+                          : "bg-slate-100 text-violet-600 hover:bg-slate-200",
+                      )}
+                    >
+                      {genEpicDescription.isPending
+                        ? <Loader2 className="size-3.5 animate-spin" />
+                        : <Sparkles className="size-3.5" />}
+                      {genEpicDescription.isPending ? t("common.generating") : t("phase1.generateDescription")}
+                    </button>
+                  </div>
                 </label>
                 {(epicTitle || epicDescription || epicId) && (
                   <Button variant="secondary" className="gap-2" onClick={clearEpicInputs}>

@@ -7,6 +7,7 @@ import {
   compileGherkin,
   generateClarifyingQuestions,
   generateConstraints,
+  generateEpicDescription,
   crossCheckStories,
   generateNlStories,
   generateStoriesFromFigma,
@@ -44,6 +45,16 @@ export function useSuggestPhase1Epics() {
     ({ hint, extraContextFiles = [] }: { hint: string; extraContextFiles?: string[] }, signal) =>
       suggestPhase1Epics(context!, hint, signal, extraContextFiles),
     { onError: () => toast.error("Failed to suggest epics. Check your connection and try again.") },
+  );
+}
+
+export function useGenerateEpicDescription() {
+  const context = useApiContext();
+
+  return useCancellableMutation(
+    ({ title, draft = "", extraContextFiles = [] }: { title: string; draft?: string; extraContextFiles?: string[] }, signal) =>
+      generateEpicDescription(context!, title, draft, signal, extraContextFiles),
+    { onError: () => toast.error("Description generation failed. The AI may be busy — try again shortly.") },
   );
 }
 
