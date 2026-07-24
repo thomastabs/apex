@@ -13,80 +13,28 @@ import { useStoryIndexStats } from "@/lib/hooks/use-workspace";
 import { useTechStackStatus } from "@/lib/hooks/use-phase2";
 import { useMaintenanceItems } from "@/lib/hooks/use-phase6";
 import { useUiStore } from "@/lib/stores/ui-store";
+import { useT } from "@/lib/i18n/use-translation";
 import { cn } from "@/lib/utils";
 
-const phases = [
-  {
-    href: "/phase1",
-    phase: "Phase 1",
-    title: "Requirements",
-    description: "Turn epics into testable Acceptance Criteria and publish to your PM tool",
-    icon: FileText,
-  },
-  {
-    href: "/phase2",
-    phase: "Phase 2",
-    title: "Design",
-    description: "Lock tech choices, generate screens and specs, get Design + Tech sign-off",
-    icon: Compass,
-  },
-  {
-    href: "/phase3",
-    phase: "Phase 3",
-    title: "Implementation",
-    description: "AI-assisted development guided by locked requirements and design specs",
-    icon: Code2,
-  },
-  {
-    href: "/phase4",
-    phase: "Phase 4",
-    title: "Testing",
-    description: "Automated test generation, QA coverage tracking, and fix cycles",
-    icon: CheckCircle2,
-  },
-  {
-    href: "/phase5",
-    phase: "Phase 5",
-    title: "Deployment",
-    description: "Release management, board review, and staging sign-off",
-    icon: Rocket,
-  },
-  {
-    href: "/phase6",
-    phase: "Phase 6",
-    title: "Maintenance",
-    description: "Continuous evolution, bug remediation, and knowledge capture",
-    icon: Wrench,
-  },
-];
+const phaseDefs = [
+  { href: "/phase1", n: 1, titleKey: "nav.phase1", descKey: "home.phase1Desc", icon: FileText },
+  { href: "/phase2", n: 2, titleKey: "nav.phase2", descKey: "home.phase2Desc", icon: Compass },
+  { href: "/phase3", n: 3, titleKey: "nav.phase3", descKey: "home.phase3Desc", icon: Code2 },
+  { href: "/phase4", n: 4, titleKey: "nav.phase4", descKey: "home.phase4Desc", icon: CheckCircle2 },
+  { href: "/phase5", n: 5, titleKey: "nav.phase5", descKey: "home.phase5Desc", icon: Rocket },
+  { href: "/phase6", n: 6, titleKey: "nav.phase6", descKey: "home.phase6Desc", icon: Wrench },
+] as const;
 
-const tools = [
-  {
-    href: "/autopilot",
-    phase: "Automation",
-    title: "Autopilot",
-    description: "AI-driven end-to-end pipeline — generate stories, design, tasks, and tests in one run",
-    icon: Bot,
-  },
-  {
-    href: "/fix-bolt",
-    phase: "Quality",
-    title: "Fix Bolt",
-    description: "Bug-report intake, triage, and fix-log tracking linked back to specs",
-    icon: Bug,
-  },
-  {
-    href: "/analytics",
-    phase: "Insights",
-    title: "Analytics",
-    description: "Phase velocity, coverage gaps, risk heat-map, and spec-conformance trends",
-    icon: BarChart2,
-  },
-];
+const toolDefs = [
+  { href: "/autopilot", eyebrowKey: "home.tool.automation", titleKey: "nav.autopilot", descKey: "home.tool.autopilotDesc", icon: Bot },
+  { href: "/fix-bolt", eyebrowKey: "home.tool.quality", titleKey: "nav.fixBolt", descKey: "home.tool.fixBoltDesc", icon: Bug },
+  { href: "/analytics", eyebrowKey: "home.tool.insights", titleKey: "nav.analytics", descKey: "home.tool.analyticsDesc", icon: BarChart2 },
+] as const;
 
 export default function HomePage() {
   const theme = useUiStore((s) => s.theme);
   const dark = theme === "dark";
+  const t = useT();
 
   const taigaToken = useSessionStore((s) => s.taigaToken);
   const projectId = useSessionStore((s) => s.projectId);
@@ -119,26 +67,26 @@ export default function HomePage() {
     if (phaseHref === "/phase1") {
       if (!stats) return { status: "active" };
       return stats.total > 0
-        ? { badge: `${stats.total} pushed`, status: "done" }
-        : { badge: "no stories yet", status: "active" };
+        ? { badge: t("home.badge.pushed", { n: stats.total }), status: "done" }
+        : { badge: t("home.badge.noStoriesYet"), status: "active" };
     }
     if (phaseHref === "/phase2") {
-      if (!phase1Done) return { badge: "needs Phase 1", status: "pending" };
-      if (phase2Done)  return { badge: "design locked ✓", status: "done" };
-      if (stackDefined) return { badge: "stack ✓ · design pending", status: "active" };
-      return { badge: "stack pending", status: "active" };
+      if (!phase1Done) return { badge: t("home.badge.needsPhase", { n: 1 }), status: "pending" };
+      if (phase2Done)  return { badge: t("home.badge.designLocked"), status: "done" };
+      if (stackDefined) return { badge: t("home.badge.stackDesignPending"), status: "active" };
+      return { badge: t("home.badge.stackPending"), status: "active" };
     }
     if (phaseHref === "/phase3") {
-      if (!phase2Done) return { badge: "needs Phase 2", status: "pending" };
-      if (stats && stats.phase3_proposed > 0) return { badge: `${stats.phase3_proposed}/${stats.total} proposed`, status: "active" };
-      return { badge: "ready to start", status: "active" };
+      if (!phase2Done) return { badge: t("home.badge.needsPhase", { n: 2 }), status: "pending" };
+      if (stats && stats.phase3_proposed > 0) return { badge: t("home.badge.proposed", { n: stats.phase3_proposed, total: stats.total }), status: "active" };
+      return { badge: t("home.badge.readyToStart"), status: "active" };
     }
     if (phaseHref === "/phase4") {
-      if (stats && stats.phase4_tested > 0) return { badge: `${stats.phase4_tested}/${stats.total} tested`, status: "active" };
+      if (stats && stats.phase4_tested > 0) return { badge: t("home.badge.tested", { n: stats.phase4_tested, total: stats.total }), status: "active" };
       return { status: "pending" };
     }
     if (phaseHref === "/phase5") {
-      if (stats && stats.phase5_deployed > 0) return { badge: `${stats.phase5_deployed}/${stats.total} deployed`, status: "active" };
+      if (stats && stats.phase5_deployed > 0) return { badge: t("home.badge.deployed", { n: stats.phase5_deployed, total: stats.total }), status: "active" };
       return { status: "pending" };
     }
     if (phaseHref === "/phase6") {
@@ -147,11 +95,11 @@ export default function HomePage() {
       // project exists, whether or not anything is currently flagged).
       if (openMaintenanceCount > 0 || regressedCount > 0) {
         const parts = [];
-        if (openMaintenanceCount > 0) parts.push(`${openMaintenanceCount} open`);
-        if (regressedCount > 0) parts.push(`${regressedCount} regressed`);
+        if (openMaintenanceCount > 0) parts.push(t("home.badge.openCount", { n: openMaintenanceCount }));
+        if (regressedCount > 0) parts.push(t("home.attention.regressed", { n: regressedCount }));
         return { badge: parts.join(" · "), status: "active" };
       }
-      return { badge: "no active issues", status: "active" };
+      return { badge: t("home.badge.noActiveIssues"), status: "active" };
     }
     return { status: "pending" };
   }
@@ -164,10 +112,10 @@ export default function HomePage() {
         <div>
           <p className="mb-1 text-xs font-bold uppercase tracking-widest text-violet-500">Apex</p>
           <h1 className={cn("text-5xl font-black tracking-tight", dark ? "text-white" : "text-slate-900")}>
-            Overview
+            {t("home.title")}
           </h1>
           <p className={cn("mt-2", dark ? "text-neutral-500" : "text-slate-400")}>
-            Spec-anchored human-AI collaboration for the full SDLC
+            {t("home.tagline")}
           </p>
         </div>
         {hasProject && (
@@ -175,7 +123,7 @@ export default function HomePage() {
             "rounded border px-2 py-0.5 text-xs font-medium sm:mt-2",
             dark ? "border-violet-500/30 bg-violet-500/10 text-violet-400" : "border-violet-300 bg-violet-50 text-violet-600",
           )}>
-            {projectName || `Project #${projectId}`}
+            {projectName || t("home.projectFallback", { id: projectId ?? "" })}
           </span>
         )}
       </div>
@@ -190,9 +138,9 @@ export default function HomePage() {
         )}>
           <AlertCircle className="mt-0.5 size-4 shrink-0" />
           <div>
-            <p className="font-semibold">Not signed in</p>
+            <p className="font-semibold">{t("home.notSignedIn.title")}</p>
             <p className={cn("mt-0.5 text-xs", dark ? "text-amber-500/80" : "text-amber-600/80")}>
-              Sign in via the sidebar to start a session and select a project.
+              {t("home.notSignedIn.desc")}
             </p>
           </div>
         </div>
@@ -207,7 +155,7 @@ export default function HomePage() {
             : "border-amber-300 bg-amber-50 text-amber-700",
         )}>
           <AlertCircle className="size-4 shrink-0" />
-          <p>Select a project in the sidebar to activate phase workflows.</p>
+          <p>{t("home.selectProject")}</p>
         </div>
       )}
 
@@ -225,7 +173,7 @@ export default function HomePage() {
               dark ? "text-neutral-600 hover:text-neutral-400" : "text-slate-400 hover:text-slate-600",
             )}
           >
-            Re-import stories from Taiga
+            {t("home.reimportStories")}
           </button>
         </div>
       ) : null}
@@ -247,13 +195,13 @@ export default function HomePage() {
             <AlertTriangle className="size-4 shrink-0 text-red-400" />
             <div>
               <p className={cn("font-semibold", dark ? "text-red-300" : "text-red-700")}>
-                {attentionCount} open loop signal{attentionCount === 1 ? "" : "s"}
+                {t(attentionCount === 1 ? "home.attention.titleOne" : "home.attention.titleOther", { count: attentionCount })}
               </p>
               <p className={cn("text-xs", dark ? "text-red-500/80" : "text-red-600/80")}>
                 {[
-                  regressedCount > 0 ? `${regressedCount} regressed` : null,
-                  (stats?.trace_flagged ?? 0) > 0 ? `${stats?.trace_flagged} trace-flagged` : null,
-                  openMaintenanceCount > 0 ? `${openMaintenanceCount} open maintenance item${openMaintenanceCount === 1 ? "" : "s"}` : null,
+                  regressedCount > 0 ? t("home.attention.regressed", { n: regressedCount }) : null,
+                  (stats?.trace_flagged ?? 0) > 0 ? t("home.attention.traceFlagged", { n: stats?.trace_flagged ?? 0 }) : null,
+                  openMaintenanceCount > 0 ? t(openMaintenanceCount === 1 ? "home.attention.openMaintenanceOne" : "home.attention.openMaintenanceOther", { n: openMaintenanceCount }) : null,
                 ].filter(Boolean).join(" · ")}
               </p>
             </div>
@@ -269,12 +217,12 @@ export default function HomePage() {
         const anyTested = stats.phase4_tested > 0;
         const anyProposed = stats.phase3_proposed > 0;
         const next = anyDeployed
-          ? { href: "/phase5", title: "Stories in deployment", body: `${stats.phase5_deployed}/${total} deployed — manage releases in Phase 5 and maintenance in Phase 6.` }
+          ? { href: "/phase5", title: t("home.next.deployed.title"), body: t("home.next.deployed.body", { deployed: stats.phase5_deployed, total }) }
           : anyTested
-            ? { href: "/phase4", title: "Testing underway", body: `${stats.phase4_tested}/${total} stories have test plans — continue QA in Phase 4.` }
+            ? { href: "/phase4", title: t("home.next.tested.title"), body: t("home.next.tested.body", { tested: stats.phase4_tested, total }) }
             : anyProposed
-              ? { href: "/phase3", title: "Implementation underway", body: `${stats.phase3_proposed}/${total} stories have developer packs — continue in Phase 3.` }
-              : { href: "/phase3", title: "Phases 1 & 2 complete", body: "Design is locked. Your project is ready for Phase 3 · Implementation." };
+              ? { href: "/phase3", title: t("home.next.proposed.title"), body: t("home.next.proposed.body", { proposed: stats.phase3_proposed, total }) }
+              : { href: "/phase3", title: t("home.next.readyPhase3.title"), body: t("home.next.readyPhase3.body") };
         return (
           <Link
             href={next.href}
@@ -304,15 +252,15 @@ export default function HomePage() {
           "mb-3 text-[11px] font-bold uppercase tracking-[0.1em]",
           dark ? "text-neutral-600" : "text-slate-400",
         )}>
-          Live Traceability
+          {t("home.liveTraceability")}
         </h2>
         <PhaseCard
           href="/traceability"
-          phase="Loop"
-          title="Trace Graph"
-          description="Every story's epic → design → tasks → tests → deploy chain, live — plus regression loop-backs as they happen, not just forward progress."
+          phase={t("home.traceGraph.phase")}
+          title={t("nav.traceGraph")}
+          description={t("home.traceGraph.description")}
           icon={GitGraph}
-          badge={!hasProject ? undefined : loopSignalCount > 0 ? `${loopSignalCount} loop${loopSignalCount === 1 ? "" : "s"} active` : "steady"}
+          badge={!hasProject ? undefined : loopSignalCount > 0 ? t(loopSignalCount === 1 ? "home.traceGraph.badgeActiveOne" : "home.traceGraph.badgeActiveOther", { n: loopSignalCount }) : t("home.traceGraph.badgeSteady")}
           status={!hasProject ? "pending" : loopSignalCount > 0 ? "active" : "done"}
           dark={dark}
         />
@@ -326,12 +274,24 @@ export default function HomePage() {
           "mb-3 text-[11px] font-bold uppercase tracking-[0.1em]",
           dark ? "text-neutral-600" : "text-slate-400",
         )}>
-          SDLC Phases
+          {t("home.sdlcPhases")}
         </h2>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {phases.map((phase) => {
+          {phaseDefs.map((phase) => {
             const { badge, status } = phaseInfo(phase.href);
-            return <PhaseCard key={phase.href} {...phase} badge={badge} status={status} dark={dark} />;
+            return (
+              <PhaseCard
+                key={phase.href}
+                href={phase.href}
+                phase={t("common.phaseEyebrow", { n: phase.n })}
+                title={t(phase.titleKey)}
+                description={t(phase.descKey)}
+                icon={phase.icon}
+                badge={badge}
+                status={status}
+                dark={dark}
+              />
+            );
           })}
         </div>
       </div>
@@ -342,13 +302,17 @@ export default function HomePage() {
           "mb-3 text-[11px] font-bold uppercase tracking-[0.1em]",
           dark ? "text-neutral-600" : "text-slate-400",
         )}>
-          Tools &amp; Insights
+          {t("home.toolsInsights")}
         </h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {tools.map((tool) => (
+          {toolDefs.map((tool) => (
             <PhaseCard
               key={tool.href}
-              {...tool}
+              href={tool.href}
+              phase={t(tool.eyebrowKey)}
+              title={t(tool.titleKey)}
+              description={t(tool.descKey)}
+              icon={tool.icon}
               status={hasProject ? "active" : "pending"}
               dark={dark}
             />
