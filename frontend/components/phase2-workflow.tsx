@@ -11,12 +11,14 @@ import {
   GitCompare,
   Info,
   Loader2,
+  Plus,
   RefreshCw,
   RotateCcw,
   Save,
   Sparkles,
   StopCircle,
   Unlock,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button, Callout, Input, SectionHeading, Skeleton, Textarea } from "@/components/ui/primitives";
@@ -40,7 +42,7 @@ import { useAiConfig, useLogDecision } from "@/lib/hooks/use-workspace";
 import { CrossCheckPanel, AltModelSelect } from "@/components/cross-check-panel";
 import { GuideTheAI } from "@/components/guide-the-ai";
 import type { CrossCheckResult } from "@/lib/api/phase1";
-import type { AssumptionEntry, DesignSectionKey } from "@/lib/api/types";
+import type { AssumptionEntry, DesignSectionKey, TechStackNoteTag } from "@/lib/api/types";
 import { usePhase2Store } from "@/lib/stores/phase2-store";
 import { TECH_STACK_PRESETS } from "@/lib/tech-stack-presets";
 import { useDiffStore } from "@/lib/stores/diff-store";
@@ -61,6 +63,20 @@ import { useGroundingFiles } from "@/lib/hooks/use-grounding-files";
 const PROPOSE_STEP_KEYS = [
   "phase2.propose.step1", "phase2.propose.step2", "phase2.propose.step3", "phase2.propose.step4",
 ] as const;
+
+type StackNoteDraft = { id: string; tag: TechStackNoteTag; text: string };
+
+const STACK_NOTE_TAGS: { value: TechStackNoteTag; labelKey: TranslationKey }[] = [
+  { value: "frontend",   labelKey: "phase2.notesTagFrontend" },
+  { value: "backend",    labelKey: "phase2.notesTagBackend" },
+  { value: "database",   labelKey: "phase2.notesTagDatabase" },
+  { value: "deployment", labelKey: "phase2.notesTagDeployment" },
+  { value: "other",      labelKey: "phase2.notesTagOther" },
+];
+
+function makeStackNote(tag: TechStackNoteTag = "other"): StackNoteDraft {
+  return { id: crypto.randomUUID(), tag, text: "" };
+}
 
 const DESIGN_STEP_KEYS: Record<DesignSectionKey, TranslationKey> = {
   ux_brief:   "phase2.step.uxBrief",
@@ -167,7 +183,7 @@ export function Phase2Workflow() {
   const router = useRouter();
   const context = useApiContext();
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [stackHint, setStackHint] = useState("");
+  const [stackNotes, setStackNotes] = useState<StackNoteDraft[]>(() => [makeStackNote()]);
   const [stackReopened, setStackReopened] = useState(false);
   const [diagramOpen, setDiagramOpen] = useState(false);
   const [visualDesignSystemOpen, setVisualDesignSystemOpen] = useState(false);
@@ -720,10 +736,62 @@ export function Phase2Workflow() {
             ) : (
               <Callout>{t("phase2.stackUnlockedHint")}</Callout>
             )}
-            <label className={cn("block text-sm font-medium", labelClass)}>
-              {t("phase2.notesLabel")} <span className={mutedClass}>{t("common.optional")}</span>
-              <Input value={stackHint} onChange={(event) => setStackHint(event.target.value)} placeholder={t("phase2.notesPlaceholder")} />
-            </label>
+            <div className="space-y-2">
+              <div className={cn("text-sm font-medium", labelClass)}>
+                {t("phase2.notesLabel")} <span className={mutedClass}>{t("common.optional")}</span>
+              </div>
+              {stackNotes.map((note) => (
+                <div key={note.id} className="flex items-center gap-2">
+                  <select
+                    aria-label={t("phase2.notesTagAria")}
+                    value={note.tag}
+                    onChange={(event) => {
+                      const tag = event.target.value as TechStackNoteTag;
+                      setStackNotes((prev) => prev.map((n) => (n.id === note.id ? { ...n, tag } : n)));
+                    }}
+                    className={cn(
+                      "shrink-0 rounded-md border px-2 py-2 text-sm",
+                      dark ? "border-neutral-800 bg-[#1f1f21] text-neutral-200" : "border-slate-200 bg-white text-slate-900",
+                    )}
+                  >
+                    {STACK_NOTE_TAGS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
+                    ))}
+                  </select>
+                  <Input
+                    className="flex-1"
+                    value={note.text}
+                    onChange={(event) => {
+                      const text = event.target.value;
+                      setStackNotes((prev) => prev.map((n) => (n.id === note.id ? { ...n, text } : n)));
+                    }}
+                    placeholder={t("phase2.notesPlaceholder")}
+                  />
+                  <button
+                    type="button"
+                    aria-label={t("phase2.notesRemoveAria")}
+                    onClick={() => setStackNotes((prev) => prev.filter((n) => n.id !== note.id))}
+                    className={cn(
+                      "shrink-0 rounded p-2 transition-colors",
+                      dark ? "text-neutral-500 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600",
+                    )}
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setStackNotes((prev) => [...prev, makeStackNote()])}
+                className={cn(
+                  "flex items-center gap-1 text-xs font-medium transition-colors",
+                  dark ? "text-violet-400 hover:text-violet-300" : "text-violet-600 hover:text-violet-700",
+                )}
+              >
+                <Plus className="size-3" />
+                {t("phase2.notesAddButton")}
+              </button>
+            </div>
             {!stackDefined ? (
               <>
                 <label className={cn("block text-sm font-medium", labelClass)}>
@@ -757,7 +825,11 @@ export function Phase2Workflow() {
                   disabled={busy || noContext}
                   onClick={() =>
                     proposeStack.mutate(
-                      { hint: stackHint },
+                      {
+                        notes: stackNotes
+                          .filter((n) => n.text.trim())
+                          .map(({ tag, text }) => ({ tag, text: text.trim() })),
+                      },
                       {
                         onSuccess: (data) => {
                           setAlternatives(data.alternatives);
@@ -781,7 +853,7 @@ export function Phase2Workflow() {
             ) : null}
 
             {alternatives.length ? (
-              <div className="grid gap-3 xl:grid-cols-2">
+              <div className="flex flex-col gap-3">
                 {alternatives.map((alt, index) => (
                   <button
                     key={alt.name}

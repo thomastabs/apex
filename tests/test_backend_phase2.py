@@ -32,8 +32,8 @@ class FakeAiService:
             "touches_existing": [],
         }
 
-    def suggest_tech_stack(self, all_stories, context, hint):
-        self.tech_stack_args = (all_stories, context, hint)
+    def suggest_tech_stack(self, all_stories, context, notes=None):
+        self.tech_stack_args = (all_stories, context, notes)
         return [{"name": "FastAPI + Next.js", "description": "Good fit.", "trade_offs": "+ simple"}]
 
     def generate_design_section(self, all_stories, context, section, prior_sections, instructions="") -> str:
@@ -302,13 +302,15 @@ def test_propose_tech_stack_requires_locked_stories():
 def test_propose_tech_stack_passes_all_locked_stories_to_ai():
     service, ai, _ = _service()
 
-    alternatives = service.propose_tech_stack(_ctx(), hint="Prefer Python")
+    alternatives = service.propose_tech_stack(
+        _ctx(), notes=[{"tag": "backend", "text": "Prefer Python"}],
+    )
 
     assert alternatives[0]["name"] == "FastAPI + Next.js"
-    stories, tech_stack, hint = ai.tech_stack_args
+    stories, tech_stack, notes = ai.tech_stack_args
     assert len(stories) == 2
     assert "FastAPI" in tech_stack
-    assert hint == "Prefer Python"
+    assert notes == [{"tag": "backend", "text": "Prefer Python"}]
 
 
 def test_lock_tech_stack_saves_tech_stack():

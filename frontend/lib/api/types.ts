@@ -185,8 +185,15 @@ export type ArchitectureAlternative = {
   trade_offs: string;
 };
 
+export type TechStackNoteTag = "frontend" | "backend" | "database" | "deployment" | "other";
+
+export type TechStackNote = {
+  tag: TechStackNoteTag;
+  text: string;
+};
+
 export type ProposeTechStackRequest = {
-  hint?: string;
+  notes?: TechStackNote[];
 };
 
 export type ProposeTechStackResponse = {

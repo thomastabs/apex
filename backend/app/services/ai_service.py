@@ -207,9 +207,9 @@ class AiService:
         self,
         all_stories: list[dict],
         context: str,
-        hint: str,
+        notes: list[dict] | None = None,
     ) -> list[dict]:
-        return ai_engine.suggest_tech_stack(all_stories, context, hint)
+        return ai_engine.suggest_tech_stack(all_stories, context, notes)
 
     def generate_tasks(
         self,

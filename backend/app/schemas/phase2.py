@@ -18,8 +18,13 @@ class ArchitectureAlternativeSchema(BaseModel):
     trade_offs: str
 
 
+class TechStackNoteIn(BaseModel):
+    tag: Literal["frontend", "backend", "database", "deployment", "other"] = "other"
+    text: str = Field("", max_length=2_000)
+
+
 class ProposeTechStackRequest(BaseModel):
-    hint: str = Field("", max_length=2_000)
+    notes: list[TechStackNoteIn] = Field(default_factory=list, max_length=20)
 
 
 class ProposeTechStackResponse(BaseModel):

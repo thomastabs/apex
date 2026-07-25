@@ -45,8 +45,9 @@ class StubPhase2Service:
     def tech_stack_status(self, ctx):
         return {"defined": True, "tech_stack": "FastAPI"}
 
-    def propose_tech_stack(self, ctx, *, hint=""):
-        return [{"name": "FastAPI", "description": hint or "Good", "trade_offs": "+ simple"}]
+    def propose_tech_stack(self, ctx, *, notes=None):
+        text = notes[0]["text"] if notes else "Good"
+        return [{"name": "FastAPI", "description": text, "trade_offs": "+ simple"}]
 
     def lock_tech_stack(self, ctx, *, tech_stack):
         return {"defined": True, "tech_stack": tech_stack}
@@ -144,7 +145,7 @@ def test_tech_stack_status_route():
 
 def test_propose_tech_stack_route():
     response = propose_tech_stack(
-        ProposeTechStackRequest(hint="Python"),
+        ProposeTechStackRequest(notes=[{"tag": "backend", "text": "Python"}]),
         ctx=_ctx(),
         service=StubPhase2Service(),
     )
@@ -258,7 +259,7 @@ def test_phase2_validation_errors_map_to_422():
 
 def test_ai_error_maps_to_502():
     class FailingService(StubPhase2Service):
-        def propose_tech_stack(self, ctx, *, hint=""):
+        def propose_tech_stack(self, ctx, *, notes=None):
             raise AIError("Model overloaded")
 
     with pytest.raises(HTTPException) as exc:

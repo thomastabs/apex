@@ -89,7 +89,7 @@ class Phase2Service:
         tech_stack = (self.context.read_tech_stack() or "").strip()
         return {"defined": bool(tech_stack), "tech_stack": tech_stack or None}
 
-    def propose_tech_stack(self, ctx: RequestContext, *, hint: str = "") -> list[dict]:
+    def propose_tech_stack(self, ctx: RequestContext, *, notes: list[dict] | None = None) -> list[dict]:
         self.configure_request(ctx)
         index = self.context.story_index()
         all_stories = []
@@ -107,7 +107,7 @@ class Phase2Service:
             })
         if not all_stories:
             raise Phase2ValidationError("No Phase 1 locked Gherkin stories are available.")
-        return self.ai.suggest_tech_stack(all_stories, self._build_tech_stack_context(), hint)
+        return self.ai.suggest_tech_stack(all_stories, self._build_tech_stack_context(), notes or [])
 
     def _build_tech_stack_context(self) -> str:
         """Project Concept + any prior Tech Stack + detected existing codebase.

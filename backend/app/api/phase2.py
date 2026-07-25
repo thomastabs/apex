@@ -81,7 +81,8 @@ def propose_tech_stack(
     _rl: None = Depends(ai_rate_limit),
 ):
     try:
-        return {"alternatives": service.propose_tech_stack(ctx, hint=payload.hint)}
+        notes = [n.model_dump() for n in payload.notes]
+        return {"alternatives": service.propose_tech_stack(ctx, notes=notes)}
     except Exception as exc:
         _handle_error(exc)
 

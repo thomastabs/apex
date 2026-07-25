@@ -1835,17 +1835,28 @@ Rules you MUST follow:
 """
 
 
+_TECH_STACK_NOTE_TAGS = ["frontend", "backend", "database", "deployment", "other"]
+_TECH_STACK_NOTE_LABELS = {
+    "frontend": "Frontend",
+    "backend": "Backend",
+    "database": "Database",
+    "deployment": "Deployment",
+    "other": "Other",
+}
+
+
 def suggest_tech_stack(
     all_stories: list[dict],
     context: str,
-    hint: str = "",
+    notes: list[dict] | None = None,
 ) -> list[dict]:
     """Return 5 ranked architectural alternatives for the full project scope.
 
     all_stories: [{"epic_title": str, "title": str, "gherkin": str}, ...]
     context: project context (Project Concept + prior Tech Stack + detected
         existing codebase from github-context.md, when present)
-    hint: optional free-text guidance from the Tech Lead
+    notes: optional Tech Lead guidance, tagged by layer —
+        [{"tag": "frontend"|"backend"|"database"|"deployment"|"other", "text": str}, ...]
     Returns: [{"name": str, "description": str, "trade_offs": str}, ...]
     """
     grouped: dict[str, list[str]] = {}
@@ -1856,8 +1867,18 @@ def suggest_tech_stack(
     for epic, stories in grouped.items():
         human_parts.append(f"\n### {epic}")
         human_parts.extend(stories)
-    if hint and hint.strip():
-        human_parts.append(f"\nTech Lead Guidance:\n{hint.strip()}")
+    grouped_notes: dict[str, list[str]] = {}
+    for note in notes or []:
+        text = (note.get("text") or "").strip()
+        if not text:
+            continue
+        tag = note.get("tag") or "other"
+        grouped_notes.setdefault(tag, []).append(text)
+    for tag in _TECH_STACK_NOTE_TAGS:
+        texts = grouped_notes.get(tag)
+        if texts:
+            label = _TECH_STACK_NOTE_LABELS[tag]
+            human_parts.append(f"\nTech Lead Guidance — {label}:\n" + "\n".join(texts))
     human = "\n".join(human_parts)
     result = _invoke_structured_with_progress(
         _TECH_STACK_SYSTEM, human, get_model(), ArchAlternativeList,
