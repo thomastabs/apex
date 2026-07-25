@@ -243,7 +243,12 @@ class Phase3Service:
         bolt record plus cycle_hours (pack_ready -> done elapsed) once done."""
         self.configure_request(ctx)
         self._require_story(story_id)
-        record = self.context.record_task_bolt_status(story_id, task_id, status)
+        if status == "pack_ready":
+            raise Phase3ValidationError('"pack_ready" is set automatically when a pack is saved — it can\'t be set directly.')
+        try:
+            record = self.context.record_task_bolt_status(story_id, task_id, status)
+        except ValueError as exc:
+            raise Phase3ValidationError(str(exc)) from exc
         return {**record, "cycle_hours": bolt_cycle_hours(record)}
 
     def list_all_bolts(self, ctx: RequestContext) -> list[dict]:

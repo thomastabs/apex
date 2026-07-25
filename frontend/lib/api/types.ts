@@ -364,7 +364,9 @@ export type DesignSystemResponse = {
 
 export type EffortEstimate = "XS" | "S" | "M" | "L" | "XL";
 
-export type BoltStatus = "pack_ready" | "pushed" | "done";
+// Dynamic — "pack_ready"/"done" are fixed anchors, everything else is a
+// project-configurable custom stage (see BoltStage in api/workspace.ts).
+export type BoltStatus = string;
 
 export type Phase3Task = {
   id: number;
@@ -439,7 +441,8 @@ export type Phase3LockStoryRequest = {
 export type Phase3BoltStatusRequest = {
   story_id: number;
   task_id: number;
-  status: "pushed" | "done";
+  // Dynamic — valid keys are project-configurable (see BoltStage in api/workspace.ts).
+  status: string;
 };
 
 export type Phase3BoltStatusResponse = {

@@ -43,6 +43,27 @@ def test_record_task_bolt_status_requires_existing_story(ctx):
         context_manager.record_task_bolt_status(999, 1, "pushed")
 
 
+def test_record_task_bolt_status_accepts_custom_stage(ctx):
+    from src import context_manager
+
+    ctx.set_active_project(1)
+    context_manager.save_project_bolt_config({
+        "stages": [{"key": "pushed", "label": "Pushed"}, {"key": "implementing", "label": "Implementing"}],
+    })
+    context_manager.upsert_story_index(10, phase_status="implementation", title="S")
+    record = context_manager.record_task_bolt_status(10, 1, "implementing")
+    assert record["status"] == "implementing"
+
+
+def test_record_task_bolt_status_rejects_unconfigured_stage(ctx):
+    from src import context_manager
+
+    ctx.set_active_project(1)
+    context_manager.upsert_story_index(10, phase_status="implementation", title="S")
+    with pytest.raises(ValueError, match="reviewing"):
+        context_manager.record_task_bolt_status(10, 1, "reviewing")
+
+
 def test_save_proposal_records_pack_ready_bolt_status(ctx):
     from src import context_manager
 
@@ -83,10 +104,17 @@ def test_bolt_config_round_trips_and_defaults_blank_labels(ctx):
     ctx.set_active_project(1)
     assert context_manager.get_project_bolt_config() == {}
     saved = context_manager.save_project_bolt_config({
-        "labels": {"pack_ready": "Ready", "pushed": "", "done": "Shipped"},
+        "pack_ready_label": "Ready",
+        "done_label": "Shipped",
+        "stages": [{"key": "pushed", "label": ""}],
         "cycle_time_threshold_hours": 6,
     })
-    assert saved["labels"] == {"pack_ready": "Ready", "pushed": "Pushed", "done": "Shipped"}
+    assert saved["pack_ready_label"] == "Ready"
+    assert saved["done_label"] == "Shipped"
+    # A blank label on an existing "pushed" stage falls back to its current
+    # label ("Pushed", the project's first-ever save default) rather than
+    # deleting the stage.
+    assert saved["stages"] == [{"key": "pushed", "label": "Pushed"}]
     assert saved["cycle_time_threshold_hours"] == 6.0
     assert context_manager.get_project_bolt_config() == saved
 
@@ -95,7 +123,10 @@ def test_bolt_config_clears_non_positive_threshold(ctx):
     from src import context_manager
 
     ctx.set_active_project(1)
-    saved = context_manager.save_project_bolt_config({"labels": {}, "cycle_time_threshold_hours": -3})
+    saved = context_manager.save_project_bolt_config({
+        "stages": [{"key": "pushed", "label": "Pushed"}],
+        "cycle_time_threshold_hours": -3,
+    })
     assert saved["cycle_time_threshold_hours"] is None
 
 

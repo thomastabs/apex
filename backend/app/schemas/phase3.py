@@ -121,9 +121,12 @@ class CrossCheckTasksRequest(BaseModel):
 class BoltStatusRequest(BaseModel):
     story_id: int
     task_id: int
-    # "pack_ready" is recorded server-side automatically when a pack is saved —
-    # never client-settable.
-    status: Literal["pushed", "done"]
+    # Dynamic: valid keys are project-configurable (.bolt-config.json custom
+    # stages) — runtime-validated in Phase3Service.update_bolt_status()
+    # instead of a fixed Literal. "pack_ready" is still rejected there (it's
+    # recorded server-side automatically when a pack is saved — never
+    # client-settable).
+    status: str = Field(..., max_length=60)
 
 
 class BoltStatusResponse(BaseModel):

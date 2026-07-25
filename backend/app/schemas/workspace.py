@@ -47,19 +47,25 @@ class SetScaffoldRequest(BaseModel):
     is_scaffold: bool
 
 
-class BoltLabels(BaseModel):
-    pack_ready: str = Field("Pack Ready", max_length=60)
-    pushed: str = Field("Pushed", max_length=60)
-    done: str = Field("Done", max_length=60)
+class BoltStage(BaseModel):
+    # Empty key means "assign one server-side" (new custom stage); an
+    # existing stage's key is echoed back from GET and stays stable across
+    # renames — see save_project_bolt_config() in src/context_manager.py.
+    key: str = ""
+    label: str = Field(..., max_length=60)
 
 
 class BoltConfigResponse(BaseModel):
-    labels: BoltLabels = Field(default_factory=BoltLabels)
+    pack_ready_label: str = Field("Pack Ready", max_length=60)
+    done_label: str = Field("Done", max_length=60)
+    stages: list[BoltStage] = Field(default_factory=lambda: [BoltStage(key="pushed", label="Pushed")])
     cycle_time_threshold_hours: float | None = None
 
 
 class SaveBoltConfigRequest(BaseModel):
-    labels: BoltLabels = Field(default_factory=BoltLabels)
+    pack_ready_label: str = Field("Pack Ready", max_length=60)
+    done_label: str = Field("Done", max_length=60)
+    stages: list[BoltStage] = Field(default_factory=list, max_length=10)
     cycle_time_threshold_hours: float | None = None
 
 

@@ -282,12 +282,9 @@ PHASE_STATUSES = (
 )
 
 # Bolt status values — the framework's implementation micro-cycle, tracked per
-# Phase 3 task independently of the story's own phase_status.
-BOLT_STATUSES = (
-    "pack_ready",  # Developer pack saved for this task
-    "pushed",      # Task pushed to the PM tool
-    "done",        # Developer marked the Bolt complete
-)
+# Phase 3 task independently of the story's own phase_status. "pack_ready" and
+# "done" are fixed anchors (see valid_bolt_statuses() below); everything in
+# between is project-configurable via .bolt-config.json.
 
 
 # ---------------------------------------------------------------------------
@@ -614,7 +611,17 @@ _PROJECT_STATUS_MAPPING_FILE = ".project-status-mapping.json"
 _PROJECT_DEPLOYMENT_CONFIG_FILE = ".project-deployment-config.json"
 _PROJECT_BOLT_CONFIG_FILE = ".bolt-config.json"
 
-_DEFAULT_BOLT_LABELS = {"pack_ready": "Pack Ready", "pushed": "Pushed", "done": "Done"}
+_DEFAULT_PACK_READY_LABEL = "Pack Ready"
+_DEFAULT_DONE_LABEL = "Done"
+_DEFAULT_BOLT_STAGES = [{"key": "pushed", "label": "Pushed"}]
+# Stage keys that always exist and can never be removed via save_project_bolt_config:
+# "pack_ready"/"done" aren't even part of `stages` (they're the fixed first/last
+# columns), "pushed" lives in `stages` but is pinned because the Phase 3 push-to-PM
+# flow sets it automatically (frontend `usePushTasksToPm`), independent of the
+# Bolts page.
+_PROTECTED_BOLT_STAGE_KEYS = ("pushed",)
+_RESERVED_BOLT_STAGE_KEYS = ("pack_ready", "done")
+_MAX_BOLT_STAGES = 10
 
 
 def _project_github_config_path(project_id: int | None = None) -> Path:
@@ -639,9 +646,25 @@ def _project_bolt_config_path(project_id: int | None = None) -> Path:
     return _context_dir(project_id) / _PROJECT_BOLT_CONFIG_FILE
 
 
+def _migrate_bolt_config_shape(old: dict) -> dict:
+    """Lazily upgrade a pre-custom-stages `.bolt-config.json` (fixed
+    {"labels": {pack_ready, pushed, done}}) into the new {"stages": [...]}
+    shape on read — read-only, no rewrite; the next save persists the new
+    shape. Preserves any labels the project already customized."""
+    old_labels = old.get("labels") if isinstance(old.get("labels"), dict) else {}
+    return {
+        "pack_ready_label": str(old_labels.get("pack_ready") or "").strip() or _DEFAULT_PACK_READY_LABEL,
+        "done_label": str(old_labels.get("done") or "").strip() or _DEFAULT_DONE_LABEL,
+        "stages": [{"key": "pushed", "label": str(old_labels.get("pushed") or "").strip() or "Pushed"}],
+        "cycle_time_threshold_hours": old.get("cycle_time_threshold_hours"),
+    }
+
+
 def get_project_bolt_config(project_id: int | None = None) -> dict:
-    """Saved Bolts-page settings for the active project: custom status labels
-    and an optional Bolt Cycle Time threshold (hours) used to flag slow bolts."""
+    """Saved Bolts-page settings for the active project: the fixed Pack
+    Ready/Done labels, the ordered custom-stage list in between (always
+    including "pushed"), and an optional Bolt Cycle Time threshold (hours)
+    used to flag slow bolts."""
     p = _project_bolt_config_path(project_id)
     if not p.exists():
         return {}
@@ -649,17 +672,90 @@ def get_project_bolt_config(project_id: int | None = None) -> dict:
         data = json.loads(p.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return {}
-    return data if isinstance(data, dict) else {}
+    if not isinstance(data, dict):
+        return {}
+    if "stages" not in data and "labels" in data:
+        return _migrate_bolt_config_shape(data)
+    return data
+
+
+def _slugify_bolt_key(label: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "_", label.strip().lower()).strip("_")
+    return slug or "stage"
+
+
+def valid_bolt_statuses(project_id: int | None = None) -> tuple[str, ...]:
+    """The full set of bolt status keys valid for the active project right
+    now: the fixed "pack_ready"/"done" anchors plus whatever custom/"pushed"
+    stages are currently configured."""
+    config = get_project_bolt_config(project_id)
+    stages = config.get("stages") if isinstance(config.get("stages"), list) else _DEFAULT_BOLT_STAGES
+    stage_keys = [s["key"] for s in stages if isinstance(s, dict) and s.get("key")]
+    return ("pack_ready", *stage_keys, "done")
 
 
 def save_project_bolt_config(config: dict, project_id: int | None = None) -> dict:
     """Persist sanitized Bolts-page settings. Blank/missing labels fall back
-    to the defaults; an invalid or non-positive threshold clears it (None)."""
-    raw_labels = config.get("labels", {})
-    labels = {
-        key: (str(raw_labels.get(key, "")).strip() or _DEFAULT_BOLT_LABELS[key])
-        for key in _DEFAULT_BOLT_LABELS
-    } if isinstance(raw_labels, dict) else dict(_DEFAULT_BOLT_LABELS)
+    to the defaults. `stages` is the ordered custom-column list between the
+    fixed Pack Ready/Done anchors — each gets a stable, deduped, slugified
+    key; a payload that omits the protected "pushed" stage is rejected (see
+    below), same as any other attempted removal. An invalid or non-positive
+    threshold clears it (None).
+
+    Raises ValueError if this save would remove a stage that currently has
+    active bolts in it, or the protected "pushed" stage."""
+    pack_ready_label = str(config.get("pack_ready_label") or "").strip() or _DEFAULT_PACK_READY_LABEL
+    done_label = str(config.get("done_label") or "").strip() or _DEFAULT_DONE_LABEL
+
+    raw_stages = config.get("stages")
+    raw_stages = raw_stages if isinstance(raw_stages, list) else []
+
+    existing = get_project_bolt_config(project_id)
+    existing_stages = existing.get("stages") if isinstance(existing.get("stages"), list) else _DEFAULT_BOLT_STAGES
+    existing_stage_keys = {s["key"] for s in existing_stages if isinstance(s, dict) and s.get("key")}
+
+    seen_keys: set[str] = set()
+    stages: list[dict] = []
+    for raw in raw_stages[:_MAX_BOLT_STAGES]:
+        if not isinstance(raw, dict):
+            continue
+        key = str(raw.get("key") or "").strip().lower()
+        label = str(raw.get("label") or "").strip()
+        if not label and key:
+            # Blank label on an existing stage falls back to its current
+            # label — it does NOT delete the stage (that's removed_keys below,
+            # keyed off a stage's absence from the payload, not a blank label).
+            label = next((s["label"] for s in existing_stages if isinstance(s, dict) and s.get("key") == key), "")
+        if not label:
+            continue
+        if not key or key in _RESERVED_BOLT_STAGE_KEYS or key in seen_keys:
+            key = _slugify_bolt_key(label)
+        base_key = key
+        suffix = 2
+        while key in seen_keys or key in _RESERVED_BOLT_STAGE_KEYS:
+            key = f"{base_key}_{suffix}"
+            suffix += 1
+        seen_keys.add(key)
+        stages.append({"key": key, "label": label[:60]})
+
+    removed_keys = existing_stage_keys - seen_keys
+    if removed_keys:
+        bolts_by_status: dict[str, int] = {}
+        for bolt in list_all_bolts():
+            bolts_by_status[bolt["status"]] = bolts_by_status.get(bolt["status"], 0) + 1
+        for removed_key in removed_keys:
+            if removed_key in _PROTECTED_BOLT_STAGE_KEYS:
+                raise ValueError(
+                    'Can\'t remove "Pushed" — it\'s set automatically when tasks are pushed to your PM tool.'
+                )
+            count = bolts_by_status.get(removed_key, 0)
+            if count:
+                removed_label = next(
+                    (s["label"] for s in existing_stages if isinstance(s, dict) and s.get("key") == removed_key),
+                    removed_key,
+                )
+                raise ValueError(f'Can\'t remove "{removed_label}" — {count} bolt(s) are currently in this stage.')
+
     threshold = config.get("cycle_time_threshold_hours")
     try:
         threshold = float(threshold) if threshold is not None else None
@@ -667,7 +763,13 @@ def save_project_bolt_config(config: dict, project_id: int | None = None) -> dic
             threshold = None
     except (TypeError, ValueError):
         threshold = None
-    clean = {"labels": labels, "cycle_time_threshold_hours": threshold}
+
+    clean = {
+        "pack_ready_label": pack_ready_label[:60],
+        "done_label": done_label[:60],
+        "stages": stages,
+        "cycle_time_threshold_hours": threshold,
+    }
     p = _project_bolt_config_path(project_id)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(clean, indent=2), encoding="utf-8")
@@ -1510,8 +1612,9 @@ def record_task_bolt_status(story_id: int, task_id: int, status: str) -> dict:
 
     Raises ValueError if the story has no index entry yet (a task can't have
     a Bolt record before its story exists in the index)."""
-    if status not in BOLT_STATUSES:
-        raise ValueError(f"Invalid bolt status {status!r}. Must be one of {BOLT_STATUSES}.")
+    valid = valid_bolt_statuses()
+    if status not in valid:
+        raise ValueError(f"Invalid bolt status {status!r}. Must be one of {valid}.")
     with _index_lock():
         index = get_story_index()
         key = str(story_id)

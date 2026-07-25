@@ -624,14 +624,18 @@ export function saveStatusMapping(context: RequestContext, mapping: Record<strin
   });
 }
 
-export type BoltLabels = {
-  pack_ready: string;
-  pushed: string;
-  done: string;
+export type BoltStage = {
+  // "" (new stage, server assigns a key) or an existing stage's stable key.
+  key: string;
+  label: string;
 };
 
 export type BoltConfig = {
-  labels: BoltLabels;
+  pack_ready_label: string;
+  done_label: string;
+  // Ordered custom-column list between the fixed Pack Ready/Done anchors.
+  // Always contains one "pushed" entry (protected — see bolts-dashboard.tsx).
+  stages: BoltStage[];
   cycle_time_threshold_hours: number | null;
 };
 

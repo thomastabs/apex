@@ -273,7 +273,7 @@ export function useUpdateBoltStatus() {
   const { patchTask } = usePhase3Store();
 
   return useMutation({
-    mutationFn: ({ storyId, taskId, status }: { storyId: number; taskId: number; status: "pushed" | "done" }) =>
+    mutationFn: ({ storyId, taskId, status }: { storyId: number; taskId: number; status: string }) =>
       updateBoltStatus(context!, { story_id: storyId, task_id: taskId, status }),
     onSuccess: (result, { taskId }) => {
       patchTask(taskId, { bolt_status: result.status, bolt_cycle_hours: result.cycle_hours });

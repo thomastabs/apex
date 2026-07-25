@@ -1,5 +1,7 @@
 """API route tests for migrated workspace FastAPI routes."""
 
+import json
+
 import pytest
 from fastapi import HTTPException
 
@@ -34,7 +36,7 @@ from backend.app.api.workspace import (
 )
 from backend.app.schemas.workspace import (
     AdminSetAllStatusRequest,
-    BoltLabels,
+    BoltStage,
     LogDecisionRequest,
     SaveAiConfigRequest,
     SaveAiKeyRequest,
@@ -756,13 +758,60 @@ def test_get_bolt_config_defaults_when_unset(ctx):
 def test_save_bolt_config_round_trips_through_route(ctx):
     request_ctx = RequestContext(pm_token="tok", project_id=ctx._get_project_id())
     payload = SaveBoltConfigRequest(
-        labels=BoltLabels(pack_ready="Ready", pushed="Pushed", done="Shipped"),
+        pack_ready_label="Ready",
+        done_label="Shipped",
+        stages=[BoltStage(key="pushed", label="Pushed"), BoltStage(label="Implementing")],
         cycle_time_threshold_hours=4,
     )
     saved = save_bolt_config(payload, ctx=request_ctx)
-    assert saved["labels"] == {"pack_ready": "Ready", "pushed": "Pushed", "done": "Shipped"}
+    assert saved["pack_ready_label"] == "Ready"
+    assert saved["done_label"] == "Shipped"
+    assert saved["stages"] == [
+        {"key": "pushed", "label": "Pushed"},
+        {"key": "implementing", "label": "Implementing"},
+    ]
     assert saved["cycle_time_threshold_hours"] == 4.0
     assert get_bolt_config(request_ctx) == saved
+
+
+def test_save_bolt_config_rejects_removing_stage_with_active_bolts(ctx):
+    request_ctx = RequestContext(pm_token="tok", project_id=ctx._get_project_id())
+    save_bolt_config(
+        SaveBoltConfigRequest(stages=[BoltStage(key="pushed", label="Pushed"), BoltStage(label="Implementing")]),
+        ctx=request_ctx,
+    )
+    ctx.upsert_story_index(10, title="Story")
+    ctx.record_task_bolt_status(10, 1, "implementing")
+
+    with pytest.raises(HTTPException) as exc_info:
+        save_bolt_config(SaveBoltConfigRequest(stages=[BoltStage(key="pushed", label="Pushed")]), ctx=request_ctx)
+    assert exc_info.value.status_code == 400
+    assert "Implementing" in exc_info.value.detail
+
+
+def test_save_bolt_config_rejects_removing_pushed(ctx):
+    request_ctx = RequestContext(pm_token="tok", project_id=ctx._get_project_id())
+    with pytest.raises(HTTPException) as exc_info:
+        save_bolt_config(SaveBoltConfigRequest(stages=[]), ctx=request_ctx)
+    assert exc_info.value.status_code == 400
+    assert "Pushed" in exc_info.value.detail
+
+
+def test_get_bolt_config_migrates_old_shape(ctx):
+    request_ctx = RequestContext(pm_token="tok", project_id=ctx._get_project_id())
+    old_shape = {
+        "labels": {"pack_ready": "Ready", "pushed": "Pushed", "done": "Shipped"},
+        "cycle_time_threshold_hours": 2.5,
+    }
+    path = ctx._project_bolt_config_path(ctx._get_project_id())
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(old_shape), encoding="utf-8")
+
+    resp = get_bolt_config(request_ctx)
+    assert resp["pack_ready_label"] == "Ready"
+    assert resp["done_label"] == "Shipped"
+    assert resp["stages"] == [{"key": "pushed", "label": "Pushed"}]
+    assert resp["cycle_time_threshold_hours"] == 2.5
 
 
 def test_github_sync_status_defaults_to_both_none(ctx):

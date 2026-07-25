@@ -117,6 +117,12 @@ class FakeContextService(FakeContextServiceBase):
         return any(s == story_id and t == task_id for s, t, _ in self.saved_proposals)
 
     def record_task_bolt_status(self, story_id: int, task_id: int, status: str) -> dict:
+        # Mirrors src.context_manager.record_task_bolt_status raising ValueError
+        # for a status outside the project's configured stages, so
+        # Phase3Service.update_bolt_status's re-raise-as-Phase3ValidationError
+        # wrapping is exercisable without a real .bolt-config.json.
+        if status == "removed_stage":
+            raise ValueError(f"Invalid bolt status {status!r}.")
         key = (story_id, task_id)
         record = self.bolt_records.setdefault(key, {"task_id": task_id, "status": status, "status_history": {}})
         record["status"] = status
@@ -445,6 +451,23 @@ def test_update_bolt_status_requires_known_story():
     svc = Phase3Service(ai=FakeAiService(), context=FakeContextService())
     with pytest.raises(Phase3ValidationError):
         svc.update_bolt_status(_ctx(), 999, 1, "done")
+
+
+def test_update_bolt_status_rejects_pack_ready():
+    """"pack_ready" is set automatically by save_proposal — never client-settable,
+    even now that the schema no longer blocks it with a fixed Literal."""
+    svc = Phase3Service(ai=FakeAiService(), context=FakeContextService())
+    with pytest.raises(Phase3ValidationError, match="pack_ready"):
+        svc.update_bolt_status(_ctx(), 10, 1, "pack_ready")
+
+
+def test_update_bolt_status_wraps_unknown_status_as_validation_error():
+    """An unknown/removed stage key must surface as a clean 4xx (via
+    Phase3ValidationError), not an unhandled 500 — see backend/app/api/phase3.py
+    _handle_error()'s bare `raise exc` fallback for anything else."""
+    svc = Phase3Service(ai=FakeAiService(), context=FakeContextService())
+    with pytest.raises(Phase3ValidationError):
+        svc.update_bolt_status(_ctx(), 10, 1, "removed_stage")
 
 
 # ---------------------------------------------------------------------------

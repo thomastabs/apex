@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronRight, Layers, Loader2, SlidersHorizontal, TriangleAlert, Zap } from "lucide-react";
+import { ChevronRight, GripVertical, Layers, Loader2, Plus, SlidersHorizontal, TriangleAlert, X, Zap } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Button, Callout, Input, SectionHeading } from "@/components/ui/primitives";
+import { Button, Callout, Input } from "@/components/ui/primitives";
 import { SignInRequired } from "@/components/sign-in-required";
 import { decodeApexMeta, useBoltsList, useUpdateBoltStatus } from "@/lib/hooks/use-phase3";
 import { useBoltConfig, useSaveBoltConfig } from "@/lib/hooks/use-workspace";
@@ -16,21 +16,30 @@ import { useUiStore } from "@/lib/stores/ui-store";
 import { useT } from "@/lib/i18n/use-translation";
 import { cn, errMsg } from "@/lib/utils";
 
-const STATUS_ORDER = ["pack_ready", "pushed", "done"] as const;
-type BoltStatus = (typeof STATUS_ORDER)[number];
+// "pack_ready" and "done" are fixed anchors — always first/last column, never
+// deletable/reorderable (see src/context_manager.py valid_bolt_statuses()).
+// "pushed" is a protected *stage* — always present, renameable and
+// reorderable among the other stages, but never removable (the Phase 3
+// push-to-PM flow sets it automatically, independent of this page).
+const PACK_READY_KEY = "pack_ready";
+const DONE_KEY = "done";
+const PROTECTED_STAGE_KEY = "pushed";
 
-const DEFAULT_LABELS: Record<BoltStatus, string> = {
-  pack_ready: "Pack Ready",
-  pushed: "Pushed",
-  done: "Done",
+const DEFAULT_CONFIG: BoltConfig = {
+  pack_ready_label: "Pack Ready",
+  done_label: "Done",
+  stages: [{ key: "pushed", label: "Pushed" }],
+  cycle_time_threshold_hours: null,
 };
+
+type Column = { key: string; label: string };
 
 type MergedBolt = {
   storyId: number;
   storyTitle: string;
   epicTitle: string;
   taskId: number;
-  status: BoltStatus;
+  status: string;
   subject: string;
   cycleHours: number | null;
   elapsedHours: number | null;
@@ -52,9 +61,26 @@ export function BoltsDashboard() {
   const boltStatusMut = useUpdateBoltStatus();
   const [pendingTaskId, setPendingTaskId] = useState<number | null>(null);
 
-  function markBoltDone(storyId: number, taskId: number) {
+  const config = configQuery.data ?? DEFAULT_CONFIG;
+  const columns: Column[] = useMemo(() => [
+    { key: PACK_READY_KEY, label: config.pack_ready_label },
+    ...config.stages.map((s) => ({ key: s.key, label: s.label })),
+    { key: DONE_KEY, label: config.done_label },
+  ], [config]);
+
+  function nextColumnFor(status: string): Column | null {
+    const idx = columns.findIndex((c) => c.key === status);
+    if (idx < 0 || idx >= columns.length - 1) return null;
+    return columns[idx + 1];
+  }
+
+  function moveBolt(storyId: number, taskId: number, status: string) {
+    if (status === PACK_READY_KEY) {
+      toast.error(t("bolts.dropRejectedPackReady"));
+      return;
+    }
     setPendingTaskId(taskId);
-    boltStatusMut.mutate({ storyId, taskId, status: "done" }, { onSettled: () => setPendingTaskId(null) });
+    boltStatusMut.mutate({ storyId, taskId, status }, { onSettled: () => setPendingTaskId(null) });
   }
 
   const pmTasksQuery = useQuery({
@@ -83,13 +109,13 @@ export function BoltsDashboard() {
       storyTitle: b.story_title,
       epicTitle: b.epic_title || "Ungrouped",
       taskId: b.task_id,
-      status: b.status as BoltStatus,
+      status: b.status,
       subject: subjectById.get(b.task_id) ?? `Task #${b.task_id}`,
       cycleHours: b.cycle_hours,
-      elapsedHours: b.status === "done"
+      elapsedHours: b.status === DONE_KEY
         ? b.cycle_hours
         : (() => {
-            const start = earliestTimestamp(b.status_history, ["pack_ready", "pushed"]);
+            const start = earliestTimestamp(b.status_history, [PACK_READY_KEY, PROTECTED_STAGE_KEY]);
             return start != null ? Math.round(((Date.now() - start) / 3_600_000) * 100) / 100 : null;
           })(),
     }));
@@ -103,56 +129,108 @@ export function BoltsDashboard() {
   }, [rows]);
 
   const filteredRows = epicFilter === "__all__" ? rows : rows.filter((r) => r.epicTitle === epicFilter);
-  const byStatus: Record<BoltStatus, MergedBolt[]> = {
-    pack_ready: filteredRows.filter((r) => r.status === "pack_ready"),
-    pushed: filteredRows.filter((r) => r.status === "pushed"),
-    done: filteredRows.filter((r) => r.status === "done"),
-  };
 
-  const labels = configQuery.data?.labels ?? DEFAULT_LABELS;
-  const threshold = configQuery.data?.cycle_time_threshold_hours ?? null;
+  // Bucketed by the current columns; a bolt whose status matches no current
+  // column (only reachable if the config changed underneath an existing
+  // bolt) falls into "other" instead of silently disappearing.
+  const { byKey, other } = useMemo(() => {
+    const map = new Map<string, MergedBolt[]>();
+    for (const col of columns) map.set(col.key, []);
+    const extra: MergedBolt[] = [];
+    for (const row of filteredRows) {
+      const bucket = map.get(row.status);
+      if (bucket) bucket.push(row);
+      else extra.push(row);
+    }
+    return { byKey: map, other: extra };
+  }, [filteredRows, columns]);
+
+  const threshold = config.cycle_time_threshold_hours;
 
   const [customizeOpen, setCustomizeOpen] = useState(false);
-  const [draftLabels, setDraftLabels] = useState<Record<BoltStatus, string>>(DEFAULT_LABELS);
+  const [draftConfig, setDraftConfig] = useState<BoltConfig>(DEFAULT_CONFIG);
   const [draftThreshold, setDraftThreshold] = useState<string>("");
+  const [newStageLabel, setNewStageLabel] = useState("");
 
   useEffect(() => {
     if (configQuery.data) {
-      setDraftLabels(configQuery.data.labels ?? DEFAULT_LABELS);
+      setDraftConfig(configQuery.data);
       setDraftThreshold(
         configQuery.data.cycle_time_threshold_hours != null ? String(configQuery.data.cycle_time_threshold_hours) : "",
       );
     }
   }, [configQuery.data]);
 
-  function saveCustomization() {
-    const parsedThreshold = draftThreshold.trim() ? Number(draftThreshold) : null;
-    const config: BoltConfig = {
-      labels: draftLabels,
-      cycle_time_threshold_hours: parsedThreshold != null && !Number.isNaN(parsedThreshold) ? parsedThreshold : null,
-    };
-    saveConfig.mutate(config, {
-      onSuccess: () => toast.success(t("bolts.customize.saved")),
+  function persistConfig(next: BoltConfig, successToast?: string) {
+    saveConfig.mutate(next, {
+      onSuccess: (saved) => {
+        setDraftConfig(saved);
+        if (successToast) toast.success(successToast);
+      },
       onError: (e) => toast.error(errMsg(e)),
     });
   }
 
-  function restoreDefaults() {
-    setDraftLabels(DEFAULT_LABELS);
-    setDraftThreshold("");
-    saveConfig.mutate(
-      { labels: DEFAULT_LABELS, cycle_time_threshold_hours: null },
-      {
-        onSuccess: () => toast.success(t("bolts.customize.defaultsRestored")),
-        onError: (e) => toast.error(errMsg(e)),
-      },
+  function saveCustomization() {
+    const parsedThreshold = draftThreshold.trim() ? Number(draftThreshold) : null;
+    persistConfig(
+      { ...draftConfig, cycle_time_threshold_hours: parsedThreshold != null && !Number.isNaN(parsedThreshold) ? parsedThreshold : null },
+      t("bolts.customize.saved"),
     );
   }
 
+  function restoreDefaults() {
+    setDraftThreshold("");
+    persistConfig(DEFAULT_CONFIG, t("bolts.customize.defaultsRestored"));
+  }
+
+  function addStage() {
+    const label = newStageLabel.trim();
+    if (!label) return;
+    setNewStageLabel("");
+    persistConfig({ ...draftConfig, stages: [...draftConfig.stages, { key: "", label }] });
+  }
+
+  function removeStage(key: string) {
+    persistConfig({ ...draftConfig, stages: draftConfig.stages.filter((s) => s.key !== key) });
+  }
+
+  function renameStage(key: string, label: string) {
+    setDraftConfig((prev) => ({ ...prev, stages: prev.stages.map((s) => (s.key === key ? { ...s, label } : s)) }));
+  }
+
+  function moveStage(key: string, delta: -1 | 1) {
+    const idx = draftConfig.stages.findIndex((s) => s.key === key);
+    const swapIdx = idx + delta;
+    if (idx < 0 || swapIdx < 0 || swapIdx >= draftConfig.stages.length) return;
+    const next = [...draftConfig.stages];
+    [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+    persistConfig({ ...draftConfig, stages: next });
+  }
+
+  function reorderStages(fromKey: string, toKey: string) {
+    const stages = draftConfig.stages;
+    const moved = stages.find((s) => s.key === fromKey);
+    const rest = stages.filter((s) => s.key !== fromKey);
+    const insertAt = rest.findIndex((s) => s.key === toKey);
+    if (!moved || insertAt < 0) return;
+    rest.splice(insertAt, 0, moved);
+    persistConfig({ ...draftConfig, stages: rest });
+  }
+
   const customizeChanged = useMemo(() => {
-    const labelsChanged = STATUS_ORDER.some((s) => draftLabels[s] !== DEFAULT_LABELS[s]);
-    return labelsChanged || draftThreshold.trim() !== "";
-  }, [draftLabels, draftThreshold]);
+    const stagesChanged = JSON.stringify(draftConfig.stages) !== JSON.stringify(DEFAULT_CONFIG.stages);
+    const labelsChanged = draftConfig.pack_ready_label !== DEFAULT_CONFIG.pack_ready_label
+      || draftConfig.done_label !== DEFAULT_CONFIG.done_label;
+    return stagesChanged || labelsChanged || draftThreshold.trim() !== "";
+  }, [draftConfig, draftThreshold]);
+
+  // Card drag (moving a bolt between columns).
+  const [draggedBolt, setDraggedBolt] = useState<{ storyId: number; taskId: number } | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+  // Column drag (reordering the custom stages between the fixed anchors).
+  const [draggedStageKey, setDraggedStageKey] = useState<string | null>(null);
+  const [dragOverStageKey, setDragOverStageKey] = useState<string | null>(null);
 
   const mutedClass = dark ? "text-neutral-500" : "text-slate-400";
 
@@ -218,68 +296,140 @@ export function BoltsDashboard() {
                   </div>
 
                   {/* Board */}
-                  <div className="grid gap-4 md:grid-cols-3">
-                    {STATUS_ORDER.map((status) => (
-                      <div key={status} className={cn("rounded-lg border p-3", dark ? "border-neutral-700 bg-neutral-900/40" : "border-slate-200 bg-slate-50")}>
-                        <div className="mb-3 flex items-center justify-between px-1">
-                          <span className={cn("text-xs font-bold uppercase tracking-wider", dark ? "text-neutral-300" : "text-slate-600")}>
-                            {labels[status]}
-                          </span>
-                          <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-500")}>
-                            {byStatus[status].length}
-                          </span>
-                        </div>
-                        <div className="space-y-2">
-                          {byStatus[status].map((row) => {
-                            const overThreshold = threshold != null && row.elapsedHours != null && row.elapsedHours > threshold;
-                            return (
-                              <div
-                                key={`${row.storyId}-${row.taskId}`}
-                                className={cn(
-                                  "rounded-md border p-3 text-sm",
-                                  overThreshold
-                                    ? dark ? "border-amber-700 bg-amber-950/30" : "border-amber-300 bg-amber-50"
-                                    : dark ? "border-neutral-800 bg-neutral-950/40" : "border-slate-200 bg-white",
-                                )}
-                              >
-                                <p className={cn("text-[11px] font-mono", mutedClass)}>
-                                  {t("bolts.storyLabel", { storyId: row.storyId })} · {row.epicTitle}
-                                </p>
-                                <p className={cn("mt-0.5 truncate font-medium", dark ? "text-neutral-100" : "text-slate-800")}>
-                                  {row.subject}
-                                </p>
-                                <div className="mt-1.5 flex items-center gap-2">
-                                  {row.elapsedHours != null && (
-                                    <span className={cn(
-                                      "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium",
-                                      overThreshold
-                                        ? dark ? "bg-amber-900/60 text-amber-300" : "bg-amber-100 text-amber-700"
-                                        : dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-500",
-                                    )}>
-                                      {overThreshold ? <TriangleAlert className="h-3 w-3" /> : <Zap className="h-3 w-3" />}
-                                      {row.elapsedHours}h
-                                    </span>
+                  <div className="overflow-x-auto">
+                    <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(240px, 1fr))` }}>
+                      {columns.map((col) => {
+                        const isAnchor = col.key === PACK_READY_KEY || col.key === DONE_KEY;
+                        const colBolts = byKey.get(col.key) ?? [];
+                        return (
+                          <div
+                            key={col.key}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              if (draggedBolt) setDragOverColumn(col.key);
+                              else if (draggedStageKey && !isAnchor) setDragOverStageKey(col.key);
+                            }}
+                            onDragLeave={() => {
+                              setDragOverColumn((cur) => (cur === col.key ? null : cur));
+                              setDragOverStageKey((cur) => (cur === col.key ? null : cur));
+                            }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              if (draggedBolt) {
+                                moveBolt(draggedBolt.storyId, draggedBolt.taskId, col.key);
+                              } else if (draggedStageKey && !isAnchor && draggedStageKey !== col.key) {
+                                reorderStages(draggedStageKey, col.key);
+                              }
+                              setDraggedBolt(null);
+                              setDragOverColumn(null);
+                              setDraggedStageKey(null);
+                              setDragOverStageKey(null);
+                            }}
+                            className={cn(
+                              "rounded-lg border p-3 transition-colors",
+                              dark ? "border-neutral-700 bg-neutral-900/40" : "border-slate-200 bg-slate-50",
+                              (dragOverColumn === col.key || dragOverStageKey === col.key) && (dark ? "border-violet-500 bg-violet-500/5" : "border-violet-400 bg-violet-50"),
+                            )}
+                          >
+                            <div className="mb-3 flex items-center gap-1.5 px-1">
+                              {!isAnchor && (
+                                <div
+                                  draggable
+                                  onDragStart={(e) => { setDraggedStageKey(col.key); e.dataTransfer.effectAllowed = "move"; }}
+                                  onDragEnd={() => { setDraggedStageKey(null); setDragOverStageKey(null); }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "ArrowLeft") { e.preventDefault(); moveStage(col.key, -1); }
+                                    else if (e.key === "ArrowRight") { e.preventDefault(); moveStage(col.key, 1); }
+                                  }}
+                                  role="button"
+                                  tabIndex={0}
+                                  title={t("bolts.dragToReorderColumn")}
+                                  aria-label={t("bolts.dragToReorderColumn")}
+                                  className={cn(
+                                    "-ml-1 flex size-5 shrink-0 cursor-grab items-center justify-center rounded active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500",
+                                    dark ? "text-neutral-600 hover:text-neutral-400" : "text-slate-400 hover:text-slate-600",
                                   )}
-                                  {status !== "done" && (
-                                    <button
-                                      onClick={() => markBoltDone(row.storyId, row.taskId)}
-                                      disabled={pendingTaskId === row.taskId}
-                                      className={cn("text-xs font-semibold hover:underline disabled:opacity-50", dark ? "text-violet-400" : "text-violet-600")}
-                                    >
-                                      {pendingTaskId === row.taskId ? t("common.saving") : t("phase3.markBoltDone")}
-                                    </button>
-                                  )}
+                                >
+                                  <GripVertical className="h-3.5 w-3.5" />
                                 </div>
-                              </div>
-                            );
-                          })}
-                          {byStatus[status].length === 0 && (
-                            <p className={cn("px-1 text-xs", mutedClass)}>{t("bolts.emptyColumn")}</p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                              )}
+                              <span className={cn("flex-1 truncate text-xs font-bold uppercase tracking-wider", dark ? "text-neutral-300" : "text-slate-600")}>
+                                {col.label}
+                              </span>
+                              <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-500")}>
+                                {colBolts.length}
+                              </span>
+                            </div>
+                            <div className="space-y-2">
+                              {colBolts.map((row) => {
+                                const overThreshold = threshold != null && row.elapsedHours != null && row.elapsedHours > threshold;
+                                const next = nextColumnFor(row.status);
+                                return (
+                                  <div
+                                    key={`${row.storyId}-${row.taskId}`}
+                                    draggable
+                                    onDragStart={() => setDraggedBolt({ storyId: row.storyId, taskId: row.taskId })}
+                                    onDragEnd={() => setDraggedBolt(null)}
+                                    className={cn(
+                                      "cursor-grab rounded-md border p-3 text-sm active:cursor-grabbing",
+                                      overThreshold
+                                        ? dark ? "border-amber-700 bg-amber-950/30" : "border-amber-300 bg-amber-50"
+                                        : dark ? "border-neutral-800 bg-neutral-950/40" : "border-slate-200 bg-white",
+                                    )}
+                                  >
+                                    <p className={cn("text-[11px] font-mono", mutedClass)}>
+                                      {t("bolts.storyLabel", { storyId: row.storyId })} · {row.epicTitle}
+                                    </p>
+                                    <p className={cn("mt-0.5 truncate font-medium", dark ? "text-neutral-100" : "text-slate-800")}>
+                                      {row.subject}
+                                    </p>
+                                    <div className="mt-1.5 flex items-center gap-2">
+                                      {row.elapsedHours != null && (
+                                        <span className={cn(
+                                          "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium",
+                                          overThreshold
+                                            ? dark ? "bg-amber-900/60 text-amber-300" : "bg-amber-100 text-amber-700"
+                                            : dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-500",
+                                        )}>
+                                          {overThreshold ? <TriangleAlert className="h-3 w-3" /> : <Zap className="h-3 w-3" />}
+                                          {row.elapsedHours}h
+                                        </span>
+                                      )}
+                                      {next && (
+                                        <button
+                                          onClick={() => moveBolt(row.storyId, row.taskId, next.key)}
+                                          disabled={pendingTaskId === row.taskId}
+                                          className={cn("text-xs font-semibold hover:underline disabled:opacity-50", dark ? "text-violet-400" : "text-violet-600")}
+                                        >
+                                          {pendingTaskId === row.taskId ? t("common.saving") : t("bolts.moveToNext", { label: next.label })}
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              {colBolts.length === 0 && (
+                                <p className={cn("px-1 text-xs", mutedClass)}>{t("bolts.emptyColumn")}</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
+
+                  {other.length > 0 && (
+                    <Callout variant="warning">
+                      <p className="font-semibold">{t("bolts.otherColumn")} ({other.length})</p>
+                      <div className="mt-2 space-y-1 text-xs opacity-90">
+                        {other.map((row) => (
+                          <p key={`${row.storyId}-${row.taskId}`}>
+                            {t("bolts.storyLabel", { storyId: row.storyId })} · {row.subject} — {row.status}
+                          </p>
+                        ))}
+                      </div>
+                    </Callout>
+                  )}
                 </>
               )}
 
@@ -297,22 +447,97 @@ export function BoltsDashboard() {
                   <ChevronRight className={cn("h-4 w-4 transition-transform", mutedClass, customizeOpen && "rotate-90")} />
                 </button>
                 {customizeOpen && (
-                  <div className={cn("space-y-3 border-t px-4 py-4", dark ? "border-neutral-800" : "border-slate-100")}>
+                  <div className={cn("space-y-4 border-t px-4 py-4", dark ? "border-neutral-800" : "border-slate-100")}>
                     <p className={cn("text-xs", mutedClass)}>{t("bolts.customize.desc")}</p>
-                    <div className="grid gap-2 sm:grid-cols-3">
-                      {STATUS_ORDER.map((status) => (
-                        <div key={status}>
-                          <label className={cn("mb-1 block text-[11px] font-semibold uppercase tracking-wider", mutedClass)}>
-                            {DEFAULT_LABELS[status]}
-                          </label>
-                          <Input
-                            value={draftLabels[status]}
-                            onChange={(e) => setDraftLabels((prev) => ({ ...prev, [status]: e.target.value }))}
-                            maxLength={40}
-                          />
-                        </div>
-                      ))}
+
+                    {/* Pinned anchors — rename only */}
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <div>
+                        <label className={cn("mb-1 block text-[11px] font-semibold uppercase tracking-wider", mutedClass)}>
+                          {DEFAULT_CONFIG.pack_ready_label}
+                        </label>
+                        <Input
+                          value={draftConfig.pack_ready_label}
+                          onChange={(e) => setDraftConfig((prev) => ({ ...prev, pack_ready_label: e.target.value }))}
+                          maxLength={60}
+                        />
+                      </div>
+                      <div>
+                        <label className={cn("mb-1 block text-[11px] font-semibold uppercase tracking-wider", mutedClass)}>
+                          {DEFAULT_CONFIG.done_label}
+                        </label>
+                        <Input
+                          value={draftConfig.done_label}
+                          onChange={(e) => setDraftConfig((prev) => ({ ...prev, done_label: e.target.value }))}
+                          maxLength={60}
+                        />
+                      </div>
                     </div>
+
+                    {/* Custom stages — add / rename / remove / reorder */}
+                    <div>
+                      <label className={cn("mb-1.5 block text-[11px] font-semibold uppercase tracking-wider", mutedClass)}>
+                        {t("bolts.customize.stagesLabel")}
+                      </label>
+                      <div className="space-y-1.5">
+                        {draftConfig.stages.map((stage, i) => {
+                          const protectedStage = stage.key === PROTECTED_STAGE_KEY;
+                          return (
+                            <div key={stage.key || `new-${i}`} className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onKeyDown={(e) => {
+                                  if (e.key === "ArrowUp") { e.preventDefault(); moveStage(stage.key, -1); }
+                                  else if (e.key === "ArrowDown") { e.preventDefault(); moveStage(stage.key, 1); }
+                                }}
+                                aria-label={t("bolts.dragToReorderColumn")}
+                                title={t("bolts.dragToReorderColumn")}
+                                className={cn("flex size-6 shrink-0 items-center justify-center rounded", dark ? "text-neutral-600 hover:text-neutral-400" : "text-slate-400 hover:text-slate-600")}
+                              >
+                                <GripVertical className="h-3.5 w-3.5" />
+                              </button>
+                              <Input
+                                value={stage.label}
+                                onChange={(e) => renameStage(stage.key, e.target.value)}
+                                maxLength={60}
+                                className="flex-1"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => !protectedStage && removeStage(stage.key)}
+                                disabled={protectedStage || saveConfig.isPending}
+                                title={protectedStage ? t("bolts.customize.removeProtected") : t("bolts.customize.removeStage")}
+                                aria-label={protectedStage ? t("bolts.customize.removeProtected") : t("bolts.customize.removeStage")}
+                                className={cn(
+                                  "flex size-8 shrink-0 items-center justify-center rounded disabled:cursor-not-allowed disabled:opacity-30",
+                                  dark ? "text-neutral-500 hover:bg-neutral-800 hover:text-red-400" : "text-slate-400 hover:bg-slate-100 hover:text-red-600",
+                                )}
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="mt-2 flex items-center gap-1.5">
+                        <Input
+                          value={newStageLabel}
+                          onChange={(e) => setNewStageLabel(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addStage(); } }}
+                          placeholder={t("bolts.customize.newStagePlaceholder")}
+                          maxLength={60}
+                          className="flex-1"
+                        />
+                        <Button
+                          variant="secondary"
+                          onClick={addStage}
+                          disabled={!newStageLabel.trim() || saveConfig.isPending || draftConfig.stages.length >= 10}
+                        >
+                          <Plus className="h-4 w-4" /> {t("bolts.customize.addStage")}
+                        </Button>
+                      </div>
+                    </div>
+
                     <div className="max-w-xs">
                       <label className={cn("mb-1 block text-[11px] font-semibold uppercase tracking-wider", mutedClass)}>
                         {t("bolts.customize.thresholdLabel")}

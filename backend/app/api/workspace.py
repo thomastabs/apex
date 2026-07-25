@@ -676,7 +676,10 @@ def save_bolt_config(
 ):
     context = ContextService()
     context.set_active(ctx)
-    return context.save_bolt_config(payload.model_dump())
+    try:
+        return context.save_bolt_config(payload.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
 @router.get("/agent-files", response_model=AgentFilesResponse)
