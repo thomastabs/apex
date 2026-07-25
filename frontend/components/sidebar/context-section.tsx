@@ -670,6 +670,11 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                       </button>
                     </span>
                   </div>
+                  {wikiStatus.isError ? (
+                    <Callout variant="danger">
+                      {t("context.taigaWikiError")}
+                    </Callout>
+                  ) : null}
                   {managedWikiPages.length ? (
                     <div className={cn("mb-2 max-h-36 overflow-auto rounded border", dark ? "border-neutral-800 bg-neutral-950/60" : "border-slate-200 bg-white")}>
                       {managedWikiPages.map((page) => {

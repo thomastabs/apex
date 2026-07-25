@@ -45,9 +45,22 @@ def _request(
 ):
     from backend.app.api.taiga_proxy import _egress, _pin_unless_relayed
 
-    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json",
+        "x-disable-pagination": "True",
+    }
     if json is not None:
         headers["Content-Type"] = "application/json"
+    # Merge query params into the URL BEFORE _egress: when the relay is active
+    # it replaces `url` with the Worker root and moves the real target into
+    # X-Relay-Target, so anything passed via httpx's `params=` after this
+    # point would be appended to the Worker URL instead of the Taiga one and
+    # silently dropped (see taiga_proxy.py's proxy_taiga, which does the same
+    # merge for this exact reason).
+    if params:
+        url = str(httpx.URL(url).copy_merge_params(params))
+        params = None
     url, headers = _egress(url, headers)
     url, headers, ext = _pin_unless_relayed(url, headers)
     resp = httpx.request(

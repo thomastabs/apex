@@ -67,6 +67,17 @@ export default {
       return new Response("target host not allowed", { status: 403 });
     }
 
+    // 2.5. Defense in depth: a caller is expected to bake all query params
+    // into X-Relay-Target (see backend/app/services/taiga_wiki_service.py and
+    // import_service.py, which learned this the hard way — anything left on
+    // the incoming request URL instead is otherwise silently dropped, since
+    // only X-Relay-Target's query string reaches Taiga). Merge any left over
+    // onto the target so a future caller that forgets this doesn't silently
+    // lose scoping (e.g. ?project=).
+    for (const [k, v] of new URL(request.url).searchParams) {
+      if (!target.searchParams.has(k)) target.searchParams.append(k, v);
+    }
+
     // 3. Rebuild outbound headers without the relay-control/hop headers.
     const headers = new Headers(request.headers);
     for (const h of STRIP_HEADERS) headers.delete(h);

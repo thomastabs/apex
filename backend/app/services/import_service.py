@@ -36,7 +36,18 @@ def _taiga_get(url: str, token: str, params: dict | None = None) -> list | dict:
     """Single-page GET to a Taiga API endpoint via relay + SSRF guards."""
     from backend.app.api.taiga_proxy import _egress, _pin_unless_relayed
 
-    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json",
+        "x-disable-pagination": "True",
+    }
+    # Merge params into the URL BEFORE _egress: once the relay is active it
+    # replaces `url` with the Worker root and moves the real target into
+    # X-Relay-Target, so params passed to httpx afterwards would be appended
+    # to the Worker URL instead of the Taiga one and silently dropped.
+    if params:
+        url = str(httpx.URL(url).copy_merge_params(params))
+        params = None
     url, headers = _egress(url, headers)
     url, headers, ext = _pin_unless_relayed(url, headers)
     resp = httpx.get(

@@ -503,7 +503,10 @@ def _selected_wiki_file_labels(pages: list[dict], filenames: list[str] | None = 
     selected = set(filenames or [])
     by_filename = {str(page["filename"]): page for page in pages}
     if not selected:
-        selected = set(by_filename)
+        # No explicit selection must stay scoped to the managed apex-* pages —
+        # Taiga-only custom pages require explicit opt-in before being pulled
+        # in as AI grounding (see CLAUDE.md's Taiga Wiki section).
+        selected = {fn for fn, page in by_filename.items() if not page.get("is_custom")}
     unknown = selected - set(by_filename)
     if unknown:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Unknown Taiga Wiki file: {sorted(unknown)[0]}")
