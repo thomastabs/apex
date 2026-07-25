@@ -750,64 +750,64 @@ export function Phase2Workflow() {
             ) : (
               <Callout>{t("phase2.stackUnlockedHint")}</Callout>
             )}
-            <div className="space-y-2">
-              <div className={cn("text-sm font-medium", labelClass)}>
-                {t("phase2.notesLabel")} <span className={mutedClass}>{t("common.optional")}</span>
-              </div>
-              {stackNotes.map((note) => (
-                <div key={note.id} className="flex items-center gap-2">
-                  <select
-                    aria-label={t("phase2.notesTagAria")}
-                    value={note.tag}
-                    onChange={(event) => {
-                      const tag = event.target.value as TechStackNoteTag;
-                      setStackNotes((prev) => prev.map((n) => (n.id === note.id ? { ...n, tag } : n)));
-                    }}
-                    className={cn(
-                      "shrink-0 rounded-md border px-2 py-2 text-sm",
-                      dark ? "border-neutral-800 bg-[#1f1f21] text-neutral-200" : "border-slate-200 bg-white text-slate-900",
-                    )}
-                  >
-                    {STACK_NOTE_TAGS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
-                    ))}
-                  </select>
-                  <Input
-                    className="flex-1"
-                    value={note.text}
-                    onChange={(event) => {
-                      const text = event.target.value;
-                      setStackNotes((prev) => prev.map((n) => (n.id === note.id ? { ...n, text } : n)));
-                    }}
-                    placeholder={t("phase2.notesPlaceholder")}
-                  />
-                  <button
-                    type="button"
-                    aria-label={t("phase2.notesRemoveAria")}
-                    onClick={() => setStackNotes((prev) => prev.filter((n) => n.id !== note.id))}
-                    className={cn(
-                      "shrink-0 rounded p-2 transition-colors",
-                      dark ? "text-neutral-500 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600",
-                    )}
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => setStackNotes((prev) => [...prev, makeStackNote()])}
-                className={cn(
-                  "flex items-center gap-1 text-xs font-medium transition-colors",
-                  dark ? "text-violet-400 hover:text-violet-300" : "text-violet-600 hover:text-violet-700",
-                )}
-              >
-                <Plus className="size-3" />
-                {t("phase2.notesAddButton")}
-              </button>
-            </div>
             {!stackDefined ? (
               <>
+                <div className="space-y-2">
+                  <div className={cn("text-sm font-medium", labelClass)}>
+                    {t("phase2.notesLabel")} <span className={mutedClass}>{t("common.optional")}</span>
+                  </div>
+                  {stackNotes.map((note) => (
+                    <div key={note.id} className="flex items-center gap-2">
+                      <select
+                        aria-label={t("phase2.notesTagAria")}
+                        value={note.tag}
+                        onChange={(event) => {
+                          const tag = event.target.value as TechStackNoteTag;
+                          setStackNotes((prev) => prev.map((n) => (n.id === note.id ? { ...n, tag } : n)));
+                        }}
+                        className={cn(
+                          "shrink-0 rounded-md border px-2 py-2 text-sm",
+                          dark ? "border-neutral-800 bg-[#1f1f21] text-neutral-200" : "border-slate-200 bg-white text-slate-900",
+                        )}
+                      >
+                        {STACK_NOTE_TAGS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
+                        ))}
+                      </select>
+                      <Input
+                        className="flex-1"
+                        value={note.text}
+                        onChange={(event) => {
+                          const text = event.target.value;
+                          setStackNotes((prev) => prev.map((n) => (n.id === note.id ? { ...n, text } : n)));
+                        }}
+                        placeholder={t("phase2.notesPlaceholder")}
+                      />
+                      <button
+                        type="button"
+                        aria-label={t("phase2.notesRemoveAria")}
+                        onClick={() => setStackNotes((prev) => prev.filter((n) => n.id !== note.id))}
+                        className={cn(
+                          "shrink-0 rounded p-2 transition-colors",
+                          dark ? "text-neutral-500 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600",
+                        )}
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setStackNotes((prev) => [...prev, makeStackNote()])}
+                    className={cn(
+                      "flex items-center gap-1 text-xs font-medium transition-colors",
+                      dark ? "text-violet-400 hover:text-violet-300" : "text-violet-600 hover:text-violet-700",
+                    )}
+                  >
+                    <Plus className="size-3" />
+                    {t("phase2.notesAddButton")}
+                  </button>
+                </div>
                 <label className={cn("block text-sm font-medium", labelClass)}>
                   {t("phase2.presetLabel")} <span className={mutedClass}>{t("phase2.presetHint")}</span>
                   <select
