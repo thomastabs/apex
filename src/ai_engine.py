@@ -1750,8 +1750,18 @@ def format_constraints(cl: ConstraintList) -> str:
 # ---------------------------------------------------------------------------
 
 class ArchAlternative(BaseModel):
-    name: str = Field(description="Short stack name, e.g. 'FastAPI + React + PostgreSQL'")
-    description: str = Field(description="2-3 sentence rationale for this choice")
+    name: str = Field(description=(
+        "Short stack name naming every applicable layer, e.g. "
+        "'TanStack Start (Bun) + Supabase (Postgres/Auth/Storage)' — "
+        "never a vague label like 'modern JS stack'"
+    ))
+    description: str = Field(description=(
+        "2-3 sentence rationale that also explicitly names any layer the "
+        "short name didn't spell out (ORM/data-access, auth mechanism, "
+        "package manager, testing framework, deployment target) — this text "
+        "plus the name becomes the locked tech-stack.md verbatim, so leaving "
+        "a layer unnamed here means it stays unnamed for every later phase."
+    ))
     trade_offs: str = Field(description="Pros and cons as markdown bullet points")
 
 
@@ -1774,11 +1784,52 @@ You are a Senior Solutions Architect operating within the Apex Framework.
 Based on the FULL scope of ALL project stories below and the project context,
 produce EXACTLY 5 ranked architectural alternatives.
 
+**Existing codebase detection (critical — read this first):**
+If the context below includes an "Existing Codebase (GitHub)" section, this is
+NOT a greenfield project — a real stack already exists in the repo. In that
+case:
+- Detect the ACTUAL language, frontend framework, backend framework/runtime,
+  database, ORM/data-access layer, auth mechanism, and package manager from
+  that section (file tree, manifests, imports) — never guess or assume a
+  generic/default stack (e.g. do not default to Next.js+FastAPI+PostgreSQL
+  just because it is common).
+- EVERY alternative must build on top of that exact detected stack. None of
+  the 5 options may propose swapping the language, framework, database, or
+  auth system the repo already uses, unless the Tech Lead Guidance explicitly
+  asks for a migration/rewrite. Rank by how the NEW work is layered onto the
+  existing stack (e.g. which existing modules/conventions to reuse), not by
+  picking a different foundation.
+- If no "Existing Codebase" section is present, treat this as greenfield and
+  choose freely.
+
+**Completeness — every alternative must fully name the stack, no gaps:**
+Vagueness here causes real downstream failures: locked stack text
+under-specifying even one layer leads later phases to invent or guess that
+layer independently, producing generated code/dev packs that contradict each
+other or the real repo. For every alternative, the `name` + `description`
+together MUST explicitly name a concrete technology for EVERY layer that
+applies to this project — do not omit or imply any of:
+- Language(s) and runtime (e.g. TypeScript on Bun, Python 3.12)
+- Frontend framework (if the project has a UI)
+- Backend framework/API layer (if the project has a backend)
+- Database and the ORM/query/data-access layer used with it
+- Authentication/authorization mechanism (e.g. provider-managed auth,
+  hand-rolled JWT, session cookies) — name which one
+- Package manager / build tooling
+- Testing framework(s)
+- Deployment target / hosting model
+Never use vague placeholders ("a modern JS stack", "a relational database",
+"standard testing tools") — name the actual technology. If a layer genuinely
+does not apply to this project (e.g. no frontend), state that explicitly
+rather than leaving it unmentioned.
+
 Rules you MUST follow:
 - Each alternative must be internally self-consistent (no incompatible layer combinations).
 - Rank from Option 1 (simplest/fastest to build) to Option 3 (most scalable/enterprise-grade).
 - Each option must include: the tech stack name, a 2-3 sentence rationale, and honest trade-offs.
-- This suggestion will be locked for the ENTIRE project — do not over-engineer.
+- This suggestion will be locked for the ENTIRE project, verbatim, as the binding
+  contract every later phase and every generated dev pack is checked against —
+  incompleteness here is not caught or filled in later. Do not over-engineer.
 - Consider ALL stories together, not just one feature area.
 - Keep your response professional and formal — no emojis, no casual language.
 """
@@ -1792,7 +1843,8 @@ def suggest_tech_stack(
     """Return 5 ranked architectural alternatives for the full project scope.
 
     all_stories: [{"epic_title": str, "title": str, "gherkin": str}, ...]
-    context: project context (Project Concept + Tech Stack)
+    context: project context (Project Concept + prior Tech Stack + detected
+        existing codebase from github-context.md, when present)
     hint: optional free-text guidance from the Tech Lead
     Returns: [{"name": str, "description": str, "trade_offs": str}, ...]
     """
@@ -2009,7 +2061,9 @@ _RUNTIME_SPEC_SYSTEM = """\
 You are a Software/DevOps Architect defining the RUNTIME ASSEMBLY contract for
 this project — how the independently-built story packs become one running
 full-stack prototype. This is a DESIGN-level artifact (the scaffold every
-story pack will be built against), not a deployment manifest.
+story pack will be built against) — not infra-as-code or CI/CD pipeline YAML.
+It states the target platform/environment shape; Phase 5 owns how a deploy is
+actually dispatched.
 
 **Project Context (binding constraints — ONLY use technologies from the Tech Stack; may include existing codebase context — DETECT real paths/frameworks from it instead of guessing a fresh-project layout):**
 {context}
@@ -2022,7 +2076,7 @@ story pack will be built against), not a deployment manifest.
 **Data Model (entities the demo path may create/read):**
 {data_model}
 
-Output exactly three sections — nothing else, no introduction, no commentary.
+Output exactly four sections — nothing else, no introduction, no commentary.
 
 ## Runtime Contract
 
@@ -2045,18 +2099,30 @@ path that proves the stack is wired, not a feature tour:
 1. <user action> — touches {{EP-n}} if it calls an endpoint from the list above
 2. ...
 
+## Deployment Target
+
+### Platform & Hosting
+- **<label>** {{DT-1}}: <value>   (e.g. hosting platform, region, replica/scaling model — write "not yet decided" if the Tech Stack doesn't name one; never invent)
+
+### CI/CD
+- **<label>** {{DT-2}}: <value>   (e.g. how a change ships — build/push/deploy trigger — described as intent, not workflow YAML)
+
+### Environment & Secrets
+- **<label>** {{DT-3}}: <value>   (e.g. required env vars / secrets by name and purpose, never actual values)
+
 ## Assumptions
 
 Format: `- {{RT-1}}: <what you inferred and why>`. One bullet per Runtime
-Contract line where you had to infer something not given. Omit the section
-body (leave it empty) when nothing needed inference.
+Contract or Deployment Target line where you had to infer something not
+given. Omit the section body (leave it empty) when nothing needed inference.
 
 Rules:
 - Ground every value in the actual Tech Stack above — never invent a
   framework, database, or deployment target it doesn't name.
-- Assign each Runtime Contract line a stable id RT-1, RT-2, … in output
-  order, unique across the whole document. Every subsection kept needs at
-  least one id'd line.
+- Assign each Runtime Contract and Deployment Target line a stable id in its
+  own numbering: RT-1, RT-2, … for Runtime Contract, DT-1, DT-2, … for
+  Deployment Target — in output order, unique within each prefix across the
+  whole document. Every subsection kept needs at least one id'd line.
 - First Prototype Path steps must be concrete UI/API actions a demo would
   actually follow, not phase names. Reference {{EP-n}} ids from the Endpoint
   List above where a step calls an endpoint; never invent new endpoint ids
@@ -3909,6 +3975,11 @@ _ENTITY_ID_RE = re.compile(r"^###\s+(.+?)\s*\[(ENT-\d+)\]\s*$", re.MULTILINE)
 _SCREEN_ID_RE = re.compile(r"^\s*-\s*\*\*(.+?)\*\*\s*\{(SCR-\d+)\}", re.MULTILINE)
 # Runtime Contract line in runtime-spec.md: "- **<label>** {RT-1}: <value>".
 _RUNTIME_ID_RE = re.compile(r"^\s*-\s*\*\*(.+?)\*\*\s*\{(RT-\d+)\}:\s*(.+)$", re.MULTILINE)
+# Deployment Target line in runtime-spec.md: "- **<label>** {DT-1}: <value>".
+# Separate prefix from Runtime Contract on purpose: DT items are deployment
+# facts (platform, CI/CD, secrets shape), not code-verifiable the way a route
+# or file path is, so they must stay out of _match_runtime()'s Layer-A probe.
+_DEPLOYMENT_ID_RE = re.compile(r"^\s*-\s*\*\*(.+?)\*\*\s*\{(DT-\d+)\}:\s*(.+)$", re.MULTILINE)
 
 
 def parse_spec_endpoints(technical_spec: str) -> list[tuple[str, str]]:
@@ -3963,9 +4034,16 @@ def parse_runtime_ids(runtime_spec: str) -> list[tuple[str, str, str]]:
             for m in _RUNTIME_ID_RE.finditer(runtime_spec or "")]
 
 
+def parse_deployment_ids(runtime_spec: str) -> list[tuple[str, str, str]]:
+    """Extract (id, label, value) for each id-tagged Deployment Target line."""
+    return [(m.group(2), m.group(1).strip(), m.group(3).strip())
+            for m in _DEPLOYMENT_ID_RE.finditer(runtime_spec or "")]
+
+
 # Assumption bullet, generic across UX Brief / Endpoints / Data Model / Design
-# Delta / Runtime Spec: "- {EP-1}: assumed bearer auth since none was specified."
-_ASSUMPTION_RE = re.compile(r"^\s*-\s*\{((?:EP|ENT|SCR|RT)-\d+)\}:\s*(.+)$", re.MULTILINE)
+# Delta / Runtime Spec (Runtime Contract + Deployment Target):
+# "- {EP-1}: assumed bearer auth since none was specified."
+_ASSUMPTION_RE = re.compile(r"^\s*-\s*\{((?:EP|ENT|SCR|RT|DT)-\d+)\}:\s*(.+)$", re.MULTILINE)
 
 
 def parse_assumptions(markdown: str) -> list[tuple[str, str]]:

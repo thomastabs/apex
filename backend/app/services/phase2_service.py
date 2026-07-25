@@ -107,7 +107,28 @@ class Phase2Service:
             })
         if not all_stories:
             raise Phase2ValidationError("No Phase 1 locked Gherkin stories are available.")
-        return self.ai.suggest_tech_stack(all_stories, self.context.read_tech_stack(), hint)
+        return self.ai.suggest_tech_stack(all_stories, self._build_tech_stack_context(), hint)
+
+    def _build_tech_stack_context(self) -> str:
+        """Project Concept + any prior Tech Stack + detected existing codebase.
+
+        Stage A (propose_tech_stack) used to see only the (usually still-empty)
+        locked tech-stack.md, so it had no way to notice an already-populated
+        repo and would invent a fresh-project stack that conflicted with the
+        real one. github-context.md gives it the same existing-codebase signal
+        `_build_constrained_context` already provides to Stage B.
+        """
+        parts = []
+        project_concept = self.context.read_project_concept().strip()
+        if project_concept:
+            parts.append(f"## Project Concept\n\n{project_concept}")
+        tech_stack = self.context.read_tech_stack().strip()
+        if tech_stack:
+            parts.append(f"## Previously Proposed/Locked Tech Stack\n\n{tech_stack}")
+        github_context = self.context.read_context_file("github-context.md")
+        if github_context.strip() and not github_context.strip().startswith("<!--"):
+            parts.append(f"## Existing Codebase (GitHub)\n\n{github_context.strip()}")
+        return "\n\n".join(parts)
 
     def lock_tech_stack(self, ctx: RequestContext, *, tech_stack: str) -> dict:
         self.configure_request(ctx)
