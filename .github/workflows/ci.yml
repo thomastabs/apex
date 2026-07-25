@@ -35,7 +35,10 @@ jobs:
       - name: Install dependencies
         # fakeredis + lupa (Lua) back the enabled-mode distributed tests; redis
         # itself is in requirements.txt (optional, imported only when REDIS_URL set).
-        run: pip install -r requirements.txt pytest ruff fakeredis lupa
+        # ruff pinned: an unpinned install jumped 0.15.22 -> 0.16.0 and broadened
+        # ruff's default rule set (added import-sort, blind-except, etc.), which
+        # broke CI on unrelated, already-merged code with no ruff config in the repo.
+        run: pip install -r requirements.txt pytest "ruff==0.15.22" fakeredis lupa
 
       - name: Lint
         run: ruff check .
