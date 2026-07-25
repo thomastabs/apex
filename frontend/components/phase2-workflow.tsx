@@ -191,6 +191,7 @@ export function Phase2Workflow() {
   const [partial, setPartial] = useState<Partial<Record<DesignSectionKey, string>>>({});
   const [partialStoryIds, setPartialStoryIds] = useState<number[]>([]);
   const [sectionAssumptions, setSectionAssumptions] = useState<Partial<Record<DesignSectionKey, AssumptionEntry[]>>>({});
+  const [sectionGuidance, setSectionGuidance] = useState<Partial<Record<DesignSectionKey, string>>>({});
   const {
     alternatives,
     selectedAlternativeIndex,
@@ -366,6 +367,10 @@ export function Phase2Workflow() {
       if (prev) prior[s] = prev;
     }
 
+    const combinedGuidance = [designGuidance, sectionGuidance[targetSection]]
+      .filter((s) => s && s.trim())
+      .join("\n\n");
+
     let latestContent = "";
     let latestStoryIds: number[] = [];
     generateSections.generateSection(targetSection, prior, {
@@ -423,7 +428,7 @@ export function Phase2Workflow() {
           commit();
         }
       },
-    }, designGuidance, designExtraContext);
+    }, combinedGuidance, designExtraContext);
   }
 
   const sectionBorderClass = dark ? "border-neutral-700" : "border-slate-200";
@@ -577,6 +582,15 @@ export function Phase2Workflow() {
         )}
 
         <div className={cn("border-t px-4 py-3", dark ? "border-neutral-800" : "border-slate-100")}>
+          <div className="mb-2">
+            <GuideTheAI
+              value={sectionGuidance[section] ?? ""}
+              onChange={(v) => setSectionGuidance((prev) => ({ ...prev, [section]: v }))}
+              dark={dark}
+              disabled={isThisGenerating}
+              placeholder={t("phase2.guideThisSectionPlaceholder", { title: t(cfg.titleKey) })}
+            />
+          </div>
           {isThisGenerating ? (
             <button
               className={cn("flex w-full items-center justify-center gap-2 rounded border px-3 py-1.5 text-sm transition-colors", outlineButtonClass)}
