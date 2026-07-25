@@ -60,6 +60,7 @@ import { SignInRequired } from "@/components/sign-in-required";
 import { useAiConfig, useServerConfig, useLogDecision, useSetStoryScaffold } from "@/lib/hooks/use-workspace";
 import { CrossCheckPanel, AltModelSelect } from "@/components/cross-check-panel";
 import { GuideTheAI } from "@/components/guide-the-ai";
+import { StoryBreadcrumb } from "@/components/story-breadcrumb";
 import { EFFORT_COLORS } from "@/lib/effort-colors";
 import type { CrossCheckResult } from "@/lib/api/phase1";
 import { useUiStore } from "@/lib/stores/ui-store";
@@ -641,35 +642,6 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
   return (
     <div className="space-y-6">
-      {/* Story breadcrumb */}
-      <div className={cn(
-        "flex items-center gap-2 rounded-lg border px-4 py-3",
-        dark ? "border-neutral-700 bg-neutral-900" : "border-slate-200 bg-slate-50",
-      )}>
-        <button
-          onClick={onBack}
-          className={cn("shrink-0 text-xs font-medium transition", dark ? "text-neutral-400 hover:text-violet-400" : "text-slate-500 hover:text-violet-600")}
-        >
-          {t("phase3.backToStories")}
-        </button>
-        {ctx?.epic_title && (
-          <>
-            <ChevronRight className="h-3 w-3 shrink-0 text-neutral-500" />
-            <span className={cn("shrink-0 text-xs font-medium", dark ? "text-neutral-300" : "text-slate-600")}>
-              {ctx.epic_title}
-            </span>
-          </>
-        )}
-        <ChevronRight className="h-3 w-3 shrink-0 text-neutral-500" />
-        <span className={cn(
-          "shrink-0 inline-flex items-center gap-1.5 text-xs font-mono font-semibold",
-          dark ? "text-violet-400" : "text-violet-700",
-        )}>
-          US#{storyId}
-        </span>
-        <span className="text-sm font-medium truncate">{ctx?.title}</span>
-      </div>
-
       {/* Gherkin preview */}
       {ctx?.gherkin && (() => {
         const rawGherkin = ctx.gherkin;
@@ -1777,7 +1749,7 @@ export function Phase3Workflow() {
   const t = useT();
   const dark = useUiStore((s) => s.theme) === "dark";
   const context = useApiContext();
-  const { selectedStoryId, setSelectedStoryId, clearPhase3Draft } = usePhase3Store();
+  const { selectedStoryId, setSelectedStoryId, clearPhase3Draft, currentStoryMeta } = usePhase3Store();
   const [stage, setStage] = useState<Stage>(selectedStoryId !== null ? "B" : "A");
   const [diagramOpen, setDiagramOpen] = useState(false);
   const [lockedStoryId, setLockedStoryId] = useState<number | null>(null);
@@ -1902,6 +1874,16 @@ export function Phase3Workflow() {
           </div>
         );
       })()}
+
+      {/* Breadcrumb — shown when a story is selected, on every step after selection */}
+      {selectedStoryId !== null && stage !== "A" && (
+        <StoryBreadcrumb
+          onBack={handleBackToStories}
+          epicTitle={currentStoryMeta.epicTitle}
+          storyRef={selectedStoryId}
+          title={currentStoryMeta.title}
+        />
+      )}
 
       {/* Stage content */}
       <div>

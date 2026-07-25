@@ -45,6 +45,7 @@ import { usePhase4Store } from "@/lib/stores/phase4-store";
 import { useDiffStore } from "@/lib/stores/diff-store";
 import { useApiContext } from "@/lib/stores/session-store";
 import { SignInRequired } from "@/components/sign-in-required";
+import { StoryBreadcrumb } from "@/components/story-breadcrumb";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { useT } from "@/lib/i18n/use-translation";
 import type { TranslationKey } from "@/lib/i18n/translations";
@@ -1270,34 +1271,14 @@ export function Phase4Workflow() {
             </div>
           </div>
 
-          {/* Breadcrumb — shown when a story is selected */}
+          {/* Breadcrumb — shown when a story is selected, on every step after selection */}
           {selectedStoryId !== null && stage !== "A" && (
-            <div className={cn(
-              "flex items-center gap-2 rounded-lg border px-4 py-3",
-              dark ? "border-neutral-700 bg-neutral-900" : "border-slate-200 bg-slate-50",
-            )}>
-              <button
-                onClick={handleStepperGoA}
-                className={cn("shrink-0 text-xs font-medium transition", dark ? "text-neutral-400 hover:text-violet-400" : "text-slate-500 hover:text-violet-600")}
-              >
-                {t("phase3.backToStories")}
-              </button>
-              {currentStoryMeta.epicTitle && (
-                <>
-                  <ChevronRight className="h-3 w-3 shrink-0 text-neutral-500" />
-                  <span className={cn("shrink-0 text-xs font-medium", dark ? "text-neutral-300" : "text-slate-600")}>
-                    {currentStoryMeta.epicTitle}
-                  </span>
-                </>
-              )}
-              <ChevronRight className="h-3 w-3 shrink-0 text-neutral-500" />
-              <span className={cn("shrink-0 inline-flex items-center gap-1.5 text-xs font-mono font-semibold", dark ? "text-violet-400" : "text-violet-700")}>
-                US#{selectedStoryId}
-              </span>
-              <span className={cn("text-sm font-medium truncate", dark ? "text-neutral-300" : "text-slate-700")}>
-                {currentStoryMeta.title}
-              </span>
-            </div>
+            <StoryBreadcrumb
+              onBack={handleStepperGoA}
+              epicTitle={currentStoryMeta.epicTitle}
+              storyRef={selectedStoryId}
+              title={currentStoryMeta.title}
+            />
           )}
 
           {/* Stage content */}
