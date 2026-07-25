@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ChevronRight, Loader2, Palette, Plus, RefreshCw, Save, X } from "lucide-react";
+import { ChevronRight, Loader2, Palette, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
@@ -9,6 +9,7 @@ import { CancelButton } from "@/components/ui/cancel-button";
 import { Input, Textarea } from "@/components/ui/primitives";
 import { GuideTheAI } from "@/components/guide-the-ai";
 import {
+  useClearDesignSystem,
   useGenerateDesignSystem,
   useGenerateDesignSystemScreen,
   useLoadDesignSystem,
@@ -624,6 +625,7 @@ export function DesignSystemPanel({
   const loadQuery = useLoadDesignSystem();
   const generateMut = useGenerateDesignSystem();
   const saveMut = useSaveDesignSystem();
+  const clearMut = useClearDesignSystem();
   const screenMut = useGenerateDesignSystemScreen();
 
   const hasData = Boolean(data);
@@ -660,6 +662,20 @@ export function DesignSystemPanel({
       },
     });
   }, [data, saveMut]);
+
+  const handleClear = useCallback(() => {
+    if (!data) return;
+    if (!window.confirm("Clear the generated design system? This deletes the saved colors, typography, navigation pattern, and screens for this project.")) {
+      return;
+    }
+    clearMut.mutate(undefined, {
+      onSuccess: () => {
+        setData(null);
+        setDirty(false);
+        toast.success("Design system cleared.");
+      },
+    });
+  }, [data, clearMut]);
 
   const handleRegenerateScreen = useCallback(
     (screenId: string | undefined, instructions: string) => {
@@ -712,12 +728,25 @@ export function DesignSystemPanel({
     </button>
   );
 
+  const clearButton = hasData && (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); handleClear(); }}
+      disabled={clearMut.isPending}
+      className={cn(iconButtonClass(dark), "text-red-500 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-50")}
+    >
+      {clearMut.isPending ? <Loader2 className="size-3 animate-spin" /> : <Trash2 className="size-3" />}
+      Clear
+    </button>
+  );
+
   const body = (
     <>
       {standalone && hasData && (
         <div className="mb-3 flex justify-end gap-2">
           {saveButton}
           {regenerateButton}
+          {clearButton}
         </div>
       )}
       {generateMut.isPending && !hasData ? (
@@ -823,6 +852,7 @@ export function DesignSystemPanel({
         <div className="flex items-center gap-2">
           {saveButton}
           {regenerateButton}
+          {clearButton}
           <ChevronRight
             className={cn(
               "size-4 transition-transform",

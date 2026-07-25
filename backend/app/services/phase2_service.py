@@ -512,6 +512,10 @@ class Phase2Service:
         self.context.save_design_system(design_system)
         return design_system
 
+    def clear_design_system(self, ctx: RequestContext) -> None:
+        self.configure_request(ctx)
+        self.context.clear_design_system()
+
     def generate_design_system_screen(
         self, ctx: RequestContext, *, ux_brief_md: str, screen_id: str | None = None, instructions: str = "",
     ) -> dict:

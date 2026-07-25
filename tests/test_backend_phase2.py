@@ -143,6 +143,9 @@ class FakeContextService(FakeContextServiceBase):
     def load_design_system(self):
         return getattr(self, "saved_design_system", None)
 
+    def clear_design_system(self) -> None:
+        self.saved_design_system = None
+
 
 def _tech_stack_with_content():
     return "FastAPI + Next.js + PostgreSQL"
@@ -742,6 +745,14 @@ class TestDesignSystem:
         assert result == edited
         assert context.saved_design_system == edited
         assert not hasattr(ai, "design_system_args")  # no AI call made
+
+    def test_clear_design_system_removes_it(self):
+        service, _, context = _service()
+        service.generate_design_system(_ctx(), ux_brief_md="## Login screen")
+        assert service.load_design_system(_ctx()) is not None
+        service.clear_design_system(_ctx())
+        assert context.saved_design_system is None
+        assert service.load_design_system(_ctx()) is None
 
 
 class TestGenerateDesignSystemScreen:

@@ -2295,6 +2295,16 @@ def load_design_system() -> dict | None:
         return None
 
 
+def clear_design_system() -> None:
+    """Delete the generated visual design system so the panel reverts to empty.
+
+    There is no blank template for design-system.json (unlike the markdown
+    context files), so clearing means removing the file outright rather than
+    rewriting it to a template.
+    """
+    _path("design-system.json").unlink(missing_ok=True)
+
+
 def save_spec_index(index: dict) -> None:
     """Persist the spec-item registry (endpoints/entities/screens/scenarios/
     constraints, keyed by stable id) for the current project."""

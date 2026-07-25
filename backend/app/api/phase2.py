@@ -336,6 +336,18 @@ def save_design_system(
         _handle_error(exc)
 
 
+@router.delete("/design-system", response_model=OkResponse)
+def clear_design_system(
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase2Service = Depends(get_phase2_service),
+):
+    try:
+        service.clear_design_system(ctx)
+        return {"ok": True}
+    except Exception as exc:
+        _handle_error(exc)
+
+
 @router.post("/generate-design-system/screen", response_model=DesignSystemResponse)
 def generate_design_system_screen(
     payload: GenerateDesignSystemScreenRequest,

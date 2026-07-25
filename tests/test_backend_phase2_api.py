@@ -5,6 +5,7 @@ from fastapi import HTTPException
 
 from backend.app.api.deps import get_request_context
 from backend.app.api.phase2 import (
+    clear_design_system,
     generate_design_section,
     generate_design_system,
     generate_design_system_screen,
@@ -116,6 +117,9 @@ class StubPhase2Service:
 
     def save_design_system(self, ctx, *, design_system):
         return design_system
+
+    def clear_design_system(self, ctx):
+        self.cleared_design_system = True
 
     def generate_design_system_screen(self, ctx, *, ux_brief_md, screen_id=None, instructions=""):
         state = {"background": "#000000", "text_color": "#FFFFFF", "border": "", "opacity": 1.0, "note": ""}
@@ -332,6 +336,13 @@ def test_save_screen_flow_positions_route():
 
 def test_get_design_system_returns_none_when_missing():
     assert get_design_system(ctx=_ctx(), service=StubPhase2Service()) is None
+
+
+def test_clear_design_system_route():
+    service = StubPhase2Service()
+    result = clear_design_system(ctx=_ctx(), service=service)
+    assert result == {"ok": True}
+    assert service.cleared_design_system is True
 
 
 def test_generate_design_system_route():

@@ -315,6 +315,9 @@ class ContextService:
     def load_design_system(self) -> dict | None:
         return context_manager.load_design_system()
 
+    def clear_design_system(self) -> None:
+        context_manager.clear_design_system()
+
     def load_spec_index(self) -> dict:
         return context_manager.load_spec_index()
 

@@ -253,6 +253,13 @@ export function saveDesignSystem(context: RequestContext, designSystem: DesignSy
   });
 }
 
+export function clearDesignSystem(context: RequestContext) {
+  return apiRequest<{ ok: boolean }>("/api/phase2/design-system", {
+    method: "DELETE",
+    context,
+  });
+}
+
 export function generateDesignSystemScreen(
   context: RequestContext,
   body: { ux_brief_md: string; screen_id?: string; instructions?: string },

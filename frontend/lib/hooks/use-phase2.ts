@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   buildScreenFlowFromFigma,
+  clearDesignSystem,
   crossCheckEndpoints,
   generateDesignDelta,
   generateDesignSection,
@@ -344,6 +345,18 @@ export function useSaveDesignSystem() {
       queryClient.setQueryData(["phase2", "design-system", context?.projectId], data);
     },
     onError: () => toast.error("Failed to save design system. Try again."),
+  });
+}
+
+export function useClearDesignSystem() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => clearDesignSystem(context!),
+    onSuccess: () => {
+      queryClient.setQueryData(["phase2", "design-system", context?.projectId], null);
+    },
+    onError: () => toast.error("Failed to clear design system. Try again."),
   });
 }
 
