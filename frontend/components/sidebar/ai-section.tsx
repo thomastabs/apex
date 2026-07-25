@@ -89,7 +89,7 @@ function AddKeyForm({ provider, dark, onSaved }: { provider: ProviderKey; dark: 
 
 /** Lets each provider be backed by either the deployment's own key (set once
  *  in the Azure/backend env — "system") or a personal key saved to *your*
- *  Taiga/Jira account, encrypted server-side so it follows you across
+ *  Taiga account, encrypted server-side so it follows you across
  *  sessions. A saved personal key is ALWAYS used once it exists — it takes
  *  priority over the system key unconditionally; removing it is the only way
  *  back to the system key, which keeps the choice unambiguous. */

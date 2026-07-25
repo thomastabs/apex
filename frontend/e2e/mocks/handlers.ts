@@ -966,7 +966,6 @@ export const SESSION_STORAGE = JSON.stringify({
     pmTool: "taiga",
     taigaToken: "fake-taiga-token-for-e2e",
     taigaApiUrl: "https://api.taiga.io/api/v1",
-    jiraEmail: "",
     projectId: 1,
     projectName: "Test Project",
     pmProjectSlug: "test-project",
@@ -976,7 +975,7 @@ export const SESSION_STORAGE = JSON.stringify({
     githubPat: "",
     githubRepo: "",
   },
-  version: 9,
+  version: 10,
 });
 
 export const PHASE4_STORE_RESET = JSON.stringify({

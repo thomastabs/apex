@@ -31,10 +31,10 @@ _logger = logging.getLogger("apex.deps")
 @dataclass(frozen=True)
 class AuthContext:
     pm_token: str
-    # Stable PM account id (Taiga numeric `id` / Jira `accountId`) for the
-    # validated token, resolved best-effort in get_auth_context. "" when it
-    # could not be determined. Used ONLY to namespace persisted per-account
-    # data (saved AI provider keys, src/ai_key_store.py) — never for authz.
+    # Stable PM account id (Taiga numeric `id`) for the validated token,
+    # resolved best-effort in get_auth_context. "" when it could not be
+    # determined. Used ONLY to namespace persisted per-account data (saved AI
+    # provider keys, src/ai_key_store.py) — never for authz.
     account_id: str = ""
 
 
@@ -105,7 +105,7 @@ def _cache_put(cache: dict, key, ok: bool) -> None:
         cache.move_to_end(key)
 
 
-def _anchor_base(taiga_url_override: str = "", jira_base_url_override: str = "") -> tuple[str, str]:
+def _anchor_base(taiga_url_override: str = "") -> tuple[str, str]:
     """(pm_tool, base_url) selection WITHOUT SSRF validation.
 
     The base's host is the storage instance namespace
@@ -120,28 +120,12 @@ def _anchor_base(taiga_url_override: str = "", jira_base_url_override: str = "")
     (e.g. a previous Cloudflare tunnel URL), which would validate a current
     private token against the wrong instance and 401. A present X-Taiga-Url also
     forces the Taiga path, so a stale config pm_tool can't misroute it.
-
-    Jira anchor precedence (audit H4): request override (X-Jira-Base-Url) →
-    workspace `jira_base_url` config. Mirrors the Taiga override for the same
-    reason — the frontend already knows its own Jira base URL (set at login,
-    see sidebar.tsx), so trusting the shared config alone would let any
-    PM-authenticated user on this deployment flip `jira_base_url` and
-    silently misroute every other Jira user's identity/project checks.
     """
     import os
 
-    from src import context_manager
-
     override = (taiga_url_override.strip().rstrip("/")
                 if isinstance(taiga_url_override, str) else "")
-    jira_override = (jira_base_url_override.strip().rstrip("/")
-                      if isinstance(jira_base_url_override, str) else "")
     env_taiga = os.getenv("TAIGA_API_URL", "").strip().rstrip("/")
-
-    config = context_manager.load_config()
-    pm_tool = config.get("pm_tool") or "taiga"
-    if pm_tool == "jira" and not override:
-        return "jira", (jira_override or config.get("jira_base_url") or "").rstrip("/")
 
     base = env_taiga or override or "https://api.taiga.io"
     if not base.endswith("/api/v1"):
@@ -149,39 +133,25 @@ def _anchor_base(taiga_url_override: str = "", jira_base_url_override: str = "")
     return "taiga", base
 
 
-def _resolve_anchor_base(taiga_url_override: str = "", jira_base_url_override: str = "") -> tuple[str, str]:
+def _resolve_anchor_base(taiga_url_override: str = "") -> tuple[str, str]:
     """Return (pm_tool, validated_api_base) for the anchored PM — used to dial
-    the PM for credential validation, so the base passes the SSRF validator.
-
-    The Jira base is now validated here on every call regardless of whether it
-    came from the request override or stored config (previously only validated
-    at config-write time — audit H4 residual: an override path must never
-    reach an unvalidated base)."""
-    pm_tool, base = _anchor_base(taiga_url_override, jira_base_url_override)
-    if pm_tool == "jira":
-        if not base:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Workspace is configured for Jira but has no Jira base URL.",
-            )
-        from backend.app.api.jira_proxy import validate_jira_base_url
-        return "jira", validate_jira_base_url(base, source="Jira identity URL")
+    the PM for credential validation, so the base passes the SSRF validator."""
+    pm_tool, base = _anchor_base(taiga_url_override)
     from backend.app.api.taiga_proxy import _validate_taiga_url
     return "taiga", _validate_taiga_url(base, source="Taiga identity URL")
 
 
-def anchor_instance_id(taiga_url_override: str = "", jira_base_url_override: str = "") -> str:
+def anchor_instance_id(taiga_url_override: str = "") -> str:
     """Storage instance namespace for the current anchor — matches the namespace
     get_request_context derives, without the SSRF/DNS dial (folder selection only)."""
     from src import context_manager
-    _, base = _anchor_base(taiga_url_override, jira_base_url_override)
+    _, base = _anchor_base(taiga_url_override)
     return context_manager.instance_key(base)
 
 
 def resolve_taiga_base(taiga_url_override: str = "") -> str:
     """Return the validated Taiga API base URL (e.g. https://api.taiga.io/api/v1).
 
-    Raises 503 when pm_tool is Jira (import only supports Taiga).
     Used by import routes that need to dial Taiga server-side.
     """
     pm_tool, base = _resolve_anchor_base(taiga_url_override)
@@ -193,11 +163,9 @@ def resolve_taiga_base(taiga_url_override: str = "") -> str:
     return base
 
 
-def _pm_endpoints(taiga_url_override: str = "", jira_base_url_override: str = "") -> tuple[str, str, str]:
+def _pm_endpoints(taiga_url_override: str = "") -> tuple[str, str, str]:
     """Return (auth_scheme, identity_url, project_url_template) for the anchored PM."""
-    pm_tool, base = _resolve_anchor_base(taiga_url_override, jira_base_url_override)
-    if pm_tool == "jira":
-        return "Basic", f"{base}/rest/api/3/myself", f"{base}/rest/api/3/project/{{project_id}}"
+    _, base = _resolve_anchor_base(taiga_url_override)
     return "Bearer", f"{base}/users/me", f"{base}/projects/{{project_id}}"
 
 
@@ -268,12 +236,12 @@ def _redis_account_key(key: tuple[str, str]) -> str:
     return "authacct:" + key[0] + ":" + key[1]
 
 
-def resolve_account_id(token: str, taiga_url_override: str = "", jira_base_url_override: str = "") -> str:
-    """Best-effort stable PM account id (Taiga numeric `id` / Jira `accountId`)
-    for *token*. Used ONLY to namespace persisted per-account data — never for
-    authorization, so a miss (network hiccup, unrecognised response shape)
-    degrades to "" rather than raising; callers must treat that as "no
-    personalisation this request", not an error.
+def resolve_account_id(token: str, taiga_url_override: str = "") -> str:
+    """Best-effort stable PM account id (Taiga numeric `id`) for *token*. Used
+    ONLY to namespace persisted per-account data — never for authorization, so
+    a miss (network hiccup, unrecognised response shape) degrades to ""
+    rather than raising; callers must treat that as "no personalisation this
+    request", not an error.
 
     Separate cache from _token_cache/_verify_pm_token by design: keeping this
     fully self-contained (its own dial, its own cache) means it can never
@@ -282,7 +250,7 @@ def resolve_account_id(token: str, taiga_url_override: str = "", jira_base_url_o
     _ACCOUNT_CACHE_TTL window per user — negligible next to a user's actual
     request volume in an interactive tool like this.
     """
-    scheme, identity_url, _ = _pm_endpoints(taiga_url_override, jira_base_url_override)
+    scheme, identity_url, _ = _pm_endpoints(taiga_url_override)
     key = (_token_key(token), identity_url)
 
     client = distributed.redis_client()
@@ -298,13 +266,7 @@ def resolve_account_id(token: str, taiga_url_override: str = "", jira_base_url_o
                 return hit[1]
 
     body = _pm_get_json(identity_url, scheme, token)
-    account_id = ""
-    if body:
-        account_id = (
-            str(body.get("accountId") or "").strip()
-            if scheme == "Basic"
-            else str(body.get("id") or "").strip()
-        )
+    account_id = str(body.get("id") or "").strip() if body else ""
     if not account_id:
         return ""  # don't cache a miss — a transient dial failure shouldn't stick for the full TTL
 
@@ -323,7 +285,7 @@ def resolve_account_id(token: str, taiga_url_override: str = "", jira_base_url_o
     return account_id
 
 
-def _load_personal_ai_keys(account_id: str, taiga_url_override: str, jira_base_url_override: str = "") -> None:
+def _load_personal_ai_keys(account_id: str, taiga_url_override: str) -> None:
     """Populate ai_engine's per-request key ContextVar from persisted
     per-account storage (src/ai_key_store.py). Best-effort and non-fatal: any
     failure here must not break the request — AI calls simply fall back to the
@@ -337,17 +299,15 @@ def _load_personal_ai_keys(account_id: str, taiga_url_override: str, jira_base_u
         try:
             from src import ai_key_store
 
-            keys = ai_key_store.load_keys(
-                anchor_instance_id(taiga_url_override, jira_base_url_override), account_id
-            )
+            keys = ai_key_store.load_keys(anchor_instance_id(taiga_url_override), account_id)
         except Exception:
             _logger.debug("_load_personal_ai_keys: lookup failed", exc_info=True)
     set_user_api_keys(keys)
 
 
-def _verify_pm_token(token: str, taiga_url_override: str = "", jira_base_url_override: str = "") -> None:
+def _verify_pm_token(token: str, taiga_url_override: str = "") -> None:
     """Raise 401 unless the anchored PM accepts this token as a valid login."""
-    scheme, identity_url, _ = _pm_endpoints(taiga_url_override, jira_base_url_override)
+    scheme, identity_url, _ = _pm_endpoints(taiga_url_override)
     key = (_token_key(token), identity_url)
     cached = _cache_get(_token_cache, key)
     if cached is True:
@@ -363,10 +323,10 @@ def _verify_pm_token(token: str, taiga_url_override: str = "", jira_base_url_ove
 
 
 def _verify_project_access(
-    token: str, project_id: int, taiga_url_override: str = "", jira_base_url_override: str = ""
+    token: str, project_id: int, taiga_url_override: str = ""
 ) -> None:
     """Raise 403 unless the token can read the project on the anchored PM."""
-    scheme, _, project_tpl = _pm_endpoints(taiga_url_override, jira_base_url_override)
+    scheme, _, project_tpl = _pm_endpoints(taiga_url_override)
     project_url = project_tpl.format(project_id=project_id)
     key = (_token_key(token), project_url)
     cached = _cache_get(_project_cache, key)
@@ -385,7 +345,6 @@ def _verify_project_access(
 def get_auth_context(
     authorization: str = Header(default="", alias="Authorization"),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
-    x_jira_base_url: str = Header(default="", alias="X-Jira-Base-Url"),
 ) -> AuthContext:
     if "\r" in authorization or "\n" in authorization:
         raise HTTPException(
@@ -404,9 +363,9 @@ def get_auth_context(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid authorization token.",
         )
-    _verify_pm_token(token, x_taiga_url, x_jira_base_url)
-    account_id = resolve_account_id(token, x_taiga_url, x_jira_base_url)
-    _load_personal_ai_keys(account_id, x_taiga_url, x_jira_base_url)
+    _verify_pm_token(token, x_taiga_url)
+    account_id = resolve_account_id(token, x_taiga_url)
+    _load_personal_ai_keys(account_id, x_taiga_url)
     return AuthContext(pm_token=token, account_id=account_id)
 
 
@@ -415,11 +374,7 @@ def get_request_context(
     x_taiga_url: str | int = Header(default="", alias="X-Taiga-Url"),
     project_id_new: int | None = Header(default=None, alias="X-Project-Id"),
     project_id_legacy: int | None = Header(default=None, alias="X-Taiga-Project-Id"),
-    x_jira_base_url: str = Header(default="", alias="X-Jira-Base-Url"),
 ) -> RequestContext:
-    # x_jira_base_url deliberately comes last in the signature (not right after
-    # x_taiga_url) so existing positional calls — (authorization, x_taiga_url,
-    # project_id_new, project_id_legacy) — keep working unchanged.
     # Backward compatibility for direct unit-test calls that predate x_taiga_url
     # and pass (authorization, project_id_new, project_id_legacy) positionally.
     if isinstance(x_taiga_url, int) and not isinstance(project_id_new, int):
@@ -433,13 +388,12 @@ def get_request_context(
             detail="X-Project-Id header is required.",
         )
     override = x_taiga_url if isinstance(x_taiga_url, str) else ""
-    jira_override = x_jira_base_url if isinstance(x_jira_base_url, str) else ""
-    auth = get_auth_context(authorization, override, jira_override)
-    _verify_project_access(auth.pm_token, project_id, override, jira_override)
+    auth = get_auth_context(authorization, override)
+    _verify_project_access(auth.pm_token, project_id, override)
     # Derive the storage instance namespace from the SAME validated anchor the
     # credentials were checked against — so a request can only ever reach the
     # contextspec/<instance>/ of an instance its token is actually valid on.
     from src import context_manager
-    _, base = _resolve_anchor_base(override, jira_override)
+    _, base = _resolve_anchor_base(override)
     instance_id = context_manager.instance_key(base)
     return RequestContext(pm_token=auth.pm_token, project_id=project_id, instance_id=instance_id)

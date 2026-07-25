@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
   BarChart3, Bot, CheckCircle2, Code2, Compass, Eye, EyeOff,
-  ExternalLink, FileText, Home, Layers, Moon, Network, PanelLeftOpen,
+  FileText, Home, Layers, Moon, Network, PanelLeftOpen,
   Rocket, Search, Send, Settings, Sun, UserPlus, Wrench, Zap,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -24,7 +24,6 @@ import { usePhase5Store } from "@/lib/stores/phase5-store";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ApiError, apiRequest, getApiBaseUrl } from "@/lib/api/client";
-import { clearJiraProjectTypeCache } from "@/lib/api/jira-adapter";
 import { AiSection } from "./sidebar/ai-section";
 import { LanguageSection } from "./sidebar/language-section";
 import { StatusMappingSection } from "./sidebar/status-mapping-section";
@@ -274,7 +273,6 @@ function SettingsModal({
           <ResourcesSection
             dark={dark}
             pmWebUrl={pmWebUrl}
-            pmTool={serverConfig?.pm_tool === "jira" ? "jira" : "taiga"}
           />
           <AboutSection dark={dark} />
           <AdminSection dark={dark} />
@@ -293,7 +291,6 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
   const setAuth = useSessionStore((s) => s.setAuth);
   const clearSession = useSessionStore((s) => s.clearSession);
   const taigaToken = useSessionStore((s) => s.taigaToken);
-  const storedPmTool = useSessionStore((s) => s.pmTool);
   const storedTaigaApiUrl = useSessionStore((s) => s.taigaApiUrl);
   const clearPhase2Draft = usePhase2Store((s) => s.clearPhase2Draft);
   const clearPhase3Draft = usePhase3Store((s) => s.clearPhase3Draft);
@@ -310,21 +307,15 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
 
   const confirmSignOutAction = () => {
     setConfirmSignOut(false);
-    clearJiraProjectTypeCache();
     clearSession(); clearPhase2Draft(); clearPhase3Draft(); clearPhase4Draft(); clearPhase5Draft();
     queryClient.clear();
     router.push("/");
   };
 
-  // Jira login is deactivated for now (backlog) — sign-in form is Taiga-only.
-  const [pmTool] = useState<"taiga" | "jira">("taiga");
   const [mode, setMode] = useState<"password" | "token">("token");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [tokenInput, setTokenInput] = useState(pmTool === "taiga" ? taigaToken : "");
-  const [jiraDomain, setJiraDomain] = useState("");
-  const [jiraEmail, setJiraEmail] = useState("");
-  const [jiraApiToken, setJiraApiToken] = useState("");
+  const [tokenInput, setTokenInput] = useState(taigaToken);
   const [taigaInstanceUrl, setTaigaInstanceUrl] = useState("");
   const [loginError, setLoginError] = useState("");
   const [isPending, setIsPending] = useState(false);
@@ -351,31 +342,9 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
       const token = data.auth_token as string;
       queryClient.setQueryData(["workspace", "me"], { id: data.id, username: data.username, full_name: data.full_name, email: data.email });
       setPassword(""); setUsername("");
-      await apiRequest("/api/workspace/config", { method: "POST", context: { taigaToken: token, taigaApiUrl: effectiveTaigaApiUrl, pmTool: "taiga" }, body: { pm_tool: "taiga", taiga_url: effectiveTaigaApiUrl, jira_base_url: "" } }).catch(() => undefined);
+      await apiRequest("/api/workspace/config", { method: "POST", context: { taigaToken: token, taigaApiUrl: effectiveTaigaApiUrl, pmTool: "taiga" }, body: { pm_tool: "taiga", taiga_url: effectiveTaigaApiUrl } }).catch(() => undefined);
       setAuth({ taigaToken: token, taigaApiUrl: effectiveTaigaApiUrl, pmTool: "taiga" });
     } catch { setLoginError(t("login.cannotReachBackend")); }
-    finally { setIsPending(false); }
-  }
-
-  async function handleJiraLogin() {
-    const domain = jiraDomain.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
-    const email = jiraEmail.trim();
-    const apiToken = jiraApiToken.trim();
-    if (!domain || !email || !apiToken) { setLoginError("Domain, email, and API token are required."); return; }
-    setIsPending(true); setLoginError("");
-    try {
-      const jiraBaseUrl = `https://${domain}`;
-      const encodedToken = btoa(`${email}:${apiToken}`);
-      const res = await fetch(`${getApiBaseUrl()}/api/pm/jira/myself`, {
-        headers: { Authorization: `Basic ${encodedToken}`, Accept: "application/json", "X-Jira-Base-Url": jiraBaseUrl },
-      });
-      if (!res.ok) { setLoginError(res.status === 401 || res.status === 403 ? "Authentication failed — check your credentials." : `Authentication failed — ${res.status}.`); return; }
-      const data = await res.json().catch(() => ({})) as Record<string, unknown>;
-      queryClient.setQueryData(["workspace", "me"], { id: undefined, username: (data.emailAddress as string) || (data.displayName as string) || email, full_name: (data.displayName as string) || "", email: (data.emailAddress as string) || email });
-      await apiRequest("/api/workspace/config", { method: "POST", context: { taigaToken: encodedToken, taigaApiUrl: jiraBaseUrl, pmTool: "jira" }, body: { pm_tool: "jira", jira_base_url: jiraBaseUrl } }).catch(() => undefined);
-      setJiraApiToken(""); setJiraEmail("");
-      setAuth({ taigaToken: encodedToken, taigaApiUrl: jiraBaseUrl, pmTool: "jira", jiraEmail: email });
-    } catch { setLoginError("Cannot reach Jira — check your domain and network."); }
     finally { setIsPending(false); }
   }
 
@@ -384,9 +353,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
 
   // ── Signed-in card ──
   if (taigaToken) {
-    const pmLabel = storedPmTool === "jira" ? "Jira Cloud" : "Taiga";
-    // Violet is the app's only meaning-carrying accent (One-Signal Rule) — the
-    // PM tool is distinguished by label text, not a second accent color.
+    const pmLabel = "Taiga";
     const pmColor = "border-violet-500/30 bg-violet-500/10 text-violet-400";
     return (
       <>
@@ -409,7 +376,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
               <span className={cn("rounded border px-1 py-px text-xs font-semibold", pmColor)}>{pmLabel}</span>
               {email && <span className={cn("truncate text-[11px]", dark ? "text-neutral-500" : "text-slate-500")}>{email}</span>}
             </div>
-            {storedPmTool === "taiga" && storedTaigaApiUrl && storedTaigaApiUrl !== "https://api.taiga.io" && (
+            {storedTaigaApiUrl && storedTaigaApiUrl !== "https://api.taiga.io" && (
               <div className={cn("truncate text-xs mt-0.5", dark ? "text-neutral-600" : "text-slate-400")}>{storedTaigaApiUrl}</div>
             )}
           </div>
@@ -424,72 +391,43 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
   // ── Sign-in form ──
   return (
     <div className="space-y-3 px-4 py-4">
-      {/* Jira Cloud login deactivated for now (backlog) — Taiga-only tab bar hidden. */}
-
-      {pmTool === "taiga" ? (
+      <div className={cn("grid grid-cols-2 rounded-md p-1", dark ? "bg-neutral-800" : "bg-slate-100")}>
+        <button className={cn("h-8 rounded text-xs", dark ? "text-neutral-300" : "text-slate-500", mode === "password" && (dark ? "bg-neutral-700 text-white" : "bg-white text-slate-900 shadow-sm"))} onClick={() => setMode("password")}>{t("login.password")}</button>
+        <button className={cn("h-8 rounded text-xs", dark ? "text-neutral-300" : "text-slate-500", mode === "token" && (dark ? "bg-neutral-700 text-white" : "bg-white text-slate-900 shadow-sm"))} onClick={() => setMode("token")}>{t("login.authToken")}</button>
+      </div>
+      <input value={taigaInstanceUrl} onChange={(e) => setTaigaInstanceUrl(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white placeholder:text-neutral-600 focus:border-violet-500/70" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.instanceUrlPlaceholder")} autoComplete="off" />
+      {mode === "password" ? (
         <>
-          <div className={cn("grid grid-cols-2 rounded-md p-1", dark ? "bg-neutral-800" : "bg-slate-100")}>
-            <button className={cn("h-8 rounded text-xs", dark ? "text-neutral-300" : "text-slate-500", mode === "password" && (dark ? "bg-neutral-700 text-white" : "bg-white text-slate-900 shadow-sm"))} onClick={() => setMode("password")}>{t("login.password")}</button>
-            <button className={cn("h-8 rounded text-xs", dark ? "text-neutral-300" : "text-slate-500", mode === "token" && (dark ? "bg-neutral-700 text-white" : "bg-white text-slate-900 shadow-sm"))} onClick={() => setMode("token")}>{t("login.authToken")}</button>
+          <input value={username} onChange={(e) => setUsername(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.usernamePlaceholder")} />
+          <div className="relative">
+            <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className={cn("h-8 w-full rounded border px-3 pr-8 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.passwordPlaceholder")} onKeyDown={(e) => { if (e.key === "Enter") handlePasswordLogin(); }} />
+            <button type="button" onClick={() => setShowPassword((v) => !v)} className={cn("absolute inset-y-0 right-2 transition-colors", dark ? "text-neutral-500 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600")} aria-label={showPassword ? t("login.hidePassword") : t("login.showPassword")}>
+              {showPassword ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+            </button>
           </div>
-          <input value={taigaInstanceUrl} onChange={(e) => setTaigaInstanceUrl(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white placeholder:text-neutral-600 focus:border-violet-500/70" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.instanceUrlPlaceholder")} autoComplete="off" />
-          {mode === "password" ? (
-            <>
-              <input value={username} onChange={(e) => setUsername(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.usernamePlaceholder")} />
-              <div className="relative">
-                <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className={cn("h-8 w-full rounded border px-3 pr-8 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.passwordPlaceholder")} onKeyDown={(e) => { if (e.key === "Enter") handlePasswordLogin(); }} />
-                <button type="button" onClick={() => setShowPassword((v) => !v)} className={cn("absolute inset-y-0 right-2 transition-colors", dark ? "text-neutral-500 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600")} aria-label={showPassword ? t("login.hidePassword") : t("login.showPassword")}>
-                  {showPassword ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-                </button>
-              </div>
-            </>
-          ) : (
-            <input value={tokenInput} onChange={(e) => setTokenInput(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.tokenPlaceholder")} />
-          )}
-          {loginError && <p className="text-xs text-red-400">{loginError}</p>}
-          <button
-            className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded bg-violet-700 text-xs font-semibold text-white hover:bg-violet-600 disabled:opacity-50"
-            disabled={isPending}
-            onClick={() => {
-              if (mode === "password") { handlePasswordLogin(); }
-              else if (tokenInput.trim()) {
-                const token = tokenInput.trim();
-                void apiRequest("/api/workspace/config", { method: "POST", context: { taigaToken: token, taigaApiUrl: effectiveTaigaApiUrl, pmTool: "taiga" }, body: { pm_tool: "taiga", taiga_url: effectiveTaigaApiUrl, jira_base_url: "" } }).catch(() => undefined);
-                setAuth({ taigaToken: token, taigaApiUrl: effectiveTaigaApiUrl, pmTool: "taiga" });
-              }
-            }}
-          >
-            <Send className="size-3" />
-            {isPending ? t("login.signingIn") : t("login.signInToTaiga")}
-          </button>
-          <a href={pmWebUrl || "https://tree.taiga.io"} target="_blank" rel="noopener noreferrer" className={cn("flex items-center justify-center gap-1 text-[11px] transition-colors hover:text-violet-400", dark ? "text-neutral-500" : "text-slate-600")}>
-            <UserPlus className="size-3" /> {t("login.createAccount")}
-          </a>
         </>
       ) : (
-        <>
-          <div className="rounded border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-[11px] text-blue-300/80 space-y-0.5">
-            <p className="font-semibold text-blue-300">How to connect:</p>
-            <p>1. Enter your Jira site domain</p>
-            <p>2. Enter your Atlassian email</p>
-            <p>3. <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer" className="text-blue-400 underline hover:text-blue-200">Generate an API token</a></p>
-          </div>
-          <input value={jiraDomain} onChange={(e) => setJiraDomain(e.target.value)} className="h-8 w-full rounded border border-neutral-700 bg-neutral-950 px-3 text-xs text-white outline-none focus:border-violet-500" placeholder="yourcompany.atlassian.net" autoComplete="off" />
-          <input value={jiraEmail} onChange={(e) => setJiraEmail(e.target.value)} className="h-8 w-full rounded border border-neutral-700 bg-neutral-950 px-3 text-xs text-white outline-none focus:border-violet-500" placeholder="you@example.com" autoComplete="email" />
-          <div className="space-y-0.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] text-neutral-500">API token</span>
-              <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300">Generate <ExternalLink className="size-3" /></a>
-            </div>
-            <input type="password" value={jiraApiToken} onChange={(e) => setJiraApiToken(e.target.value)} className="h-8 w-full rounded border border-neutral-700 bg-neutral-950 px-3 text-xs text-white outline-none focus:border-violet-500" placeholder="ATATT3xFfGF0…" onKeyDown={(e) => { if (e.key === "Enter") handleJiraLogin(); }} autoComplete="off" />
-          </div>
-          {loginError && <p className="text-xs text-red-400">{loginError}</p>}
-          <button className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded bg-blue-700 text-xs font-semibold text-white hover:bg-blue-600 disabled:opacity-50" disabled={isPending} onClick={handleJiraLogin}>
-            <Send className="size-3" />
-            {isPending ? "Connecting…" : "Connect to Jira"}
-          </button>
-        </>
+        <input value={tokenInput} onChange={(e) => setTokenInput(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.tokenPlaceholder")} />
       )}
+      {loginError && <p className="text-xs text-red-400">{loginError}</p>}
+      <button
+        className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded bg-violet-700 text-xs font-semibold text-white hover:bg-violet-600 disabled:opacity-50"
+        disabled={isPending}
+        onClick={() => {
+          if (mode === "password") { handlePasswordLogin(); }
+          else if (tokenInput.trim()) {
+            const token = tokenInput.trim();
+            void apiRequest("/api/workspace/config", { method: "POST", context: { taigaToken: token, taigaApiUrl: effectiveTaigaApiUrl, pmTool: "taiga" }, body: { pm_tool: "taiga", taiga_url: effectiveTaigaApiUrl } }).catch(() => undefined);
+            setAuth({ taigaToken: token, taigaApiUrl: effectiveTaigaApiUrl, pmTool: "taiga" });
+          }
+        }}
+      >
+        <Send className="size-3" />
+        {isPending ? t("login.signingIn") : t("login.signInToTaiga")}
+      </button>
+      <a href={pmWebUrl || "https://tree.taiga.io"} target="_blank" rel="noopener noreferrer" className={cn("flex items-center justify-center gap-1 text-[11px] transition-colors hover:text-violet-400", dark ? "text-neutral-500" : "text-slate-600")}>
+        <UserPlus className="size-3" /> {t("login.createAccount")}
+      </a>
     </div>
   );
 }

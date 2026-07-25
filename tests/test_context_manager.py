@@ -1206,10 +1206,10 @@ class TestConfig:
         from src import context_manager as cm
         monkeypatch.setattr(cm, "_BASE_CONTEXTSPEC", tmp_path)
         monkeypatch.setattr(cm, "_CONFIG_FILE", tmp_path / ".apex-config.json")
-        cm.save_pm_config(pm_tool="jira", jira_base_url="https://acme.atlassian.net")
+        cm.save_pm_config(pm_tool="taiga", taiga_url="https://acme.example.com/api/v1")
         cfg = cm.load_config()
-        assert cfg["pm_tool"] == "jira"
-        assert cfg["jira_base_url"] == "https://acme.atlassian.net"
+        assert cfg["pm_tool"] == "taiga"
+        assert cfg["taiga_url"] == "https://acme.example.com/api/v1"
 
     def test_sequential_saves_preserve_each_others_fields(self, tmp_path, monkeypatch):
         """Serialised read-modify-write: one save must not drop another's field."""
@@ -1218,9 +1218,9 @@ class TestConfig:
         monkeypatch.setattr(cm, "_CONFIG_FILE", tmp_path / ".apex-config.json")
         cm.save_config(42)
         cm.save_pm_config(pm_tool="taiga")
-        cm.save_pm_config(jira_base_url="https://acme.atlassian.net")
+        cm.save_pm_config(taiga_url="https://acme.example.com/api/v1")
         cfg = cm.load_config()
-        assert cfg == {"project_id": 42, "pm_tool": "taiga", "jira_base_url": "https://acme.atlassian.net"}
+        assert cfg == {"project_id": 42, "pm_tool": "taiga", "taiga_url": "https://acme.example.com/api/v1"}
 
 
 # ---------------------------------------------------------------------------

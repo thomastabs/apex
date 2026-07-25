@@ -207,7 +207,6 @@ class SaveConfigRequest(BaseModel):
     project_id: int | None = None
     pm_tool: str | None = Field(None, max_length=20)
     taiga_url: str | None = Field(None, max_length=2_048)
-    jira_base_url: str | None = Field(None, max_length=2_048)
     github_repo: str | None = Field(None, max_length=255)
     figma_file_key: str | None = Field(None, max_length=255)
     # Encrypted at rest (AI_KEY_ENCRYPTION_SECRET) — "" clears the saved value.
@@ -289,7 +288,7 @@ class AiConfigResponse(BaseModel):
     configured_providers: list[str] = Field(default_factory=list)
     # Deployment-wide key set via *_API_KEY env var — the "system key".
     system_providers: list[str] = Field(default_factory=list)
-    # Has a personal key saved to *your* Taiga/Jira account (src/ai_key_store.py).
+    # Has a personal key saved to *your* Taiga account (src/ai_key_store.py).
     # Always the active credential for that provider once saved — it takes
     # priority over the system key unconditionally.
     personal_providers: list[str] = Field(default_factory=list)

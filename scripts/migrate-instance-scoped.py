@@ -39,7 +39,7 @@ def main() -> int:
         url = args.instance_url.strip()
         if not url:
             cfg = cm.load_config()
-            url = (cfg.get("taiga_url") or cfg.get("jira_base_url") or "").strip()
+            url = (cfg.get("taiga_url") or "").strip()
         if not url:
             print(
                 "ERROR: no instance to migrate to. Pass --instance-url / --instance-id, "

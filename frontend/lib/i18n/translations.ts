@@ -1268,7 +1268,6 @@ export const translations = {
     "project.projectFallback": "Project {id}",
     "project.noProjectSelected": "No project selected",
     "project.createNew": "Create New",
-    "project.createInJiraUi": "Create in Jira UI",
     "project.deleteProject": "Delete Project",
     "project.deleteConfirm": "Delete this project and all its data?",
     "project.toast.switchedLocallyFailed": "Switched locally, but saving the active project failed.",
@@ -1294,15 +1293,12 @@ export const translations = {
     // ── resources section ──
     "resources.panelTitle": "Resources",
     "resources.taigaDocs": "Taiga Documentation",
-    "resources.jiraDocs": "Jira Documentation",
     "resources.openTaiga": "Open Taiga",
-    "resources.openJira": "Open Jira",
     "resources.instance": "Instance",
     "resources.userGuide": "User Guide",
     "resources.apiReference": "API Reference",
     "resources.communityForum": "Community Forum",
     "resources.github": "GitHub",
-    "resources.manageApiTokens": "Manage API Tokens",
 
     // ── about section ──
     "about.panelTitle": "About Apex",
@@ -2919,7 +2915,6 @@ export const translations = {
     "project.projectFallback": "Projeto {id}",
     "project.noProjectSelected": "Nenhum projeto selecionado",
     "project.createNew": "Criar Novo",
-    "project.createInJiraUi": "Criar na interface do Jira",
     "project.deleteProject": "Eliminar Projeto",
     "project.deleteConfirm": "Eliminar este projeto e todos os seus dados?",
     "project.toast.switchedLocallyFailed": "Mudança feita localmente, mas falhou ao guardar o projeto ativo.",
@@ -2944,15 +2939,12 @@ export const translations = {
 
     "resources.panelTitle": "Recursos",
     "resources.taigaDocs": "Documentação do Taiga",
-    "resources.jiraDocs": "Documentação do Jira",
     "resources.openTaiga": "Abrir Taiga",
-    "resources.openJira": "Abrir Jira",
     "resources.instance": "Instância",
     "resources.userGuide": "Guia do Utilizador",
     "resources.apiReference": "Referência da API",
     "resources.communityForum": "Fórum da Comunidade",
     "resources.github": "GitHub",
-    "resources.manageApiTokens": "Gerir Tokens de API",
 
     "about.panelTitle": "Sobre o Apex",
     "about.description": "Apex é uma framework de colaboração IA ancorada em especificações para todo o ciclo de vida do desenvolvimento de software. Guia as equipas desde os requisitos até à Deployment com assistência de IA estruturada em cada fase.",

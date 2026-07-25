@@ -23,7 +23,7 @@ package "Frontend (Next.js 15)" as FEP {
   [Web UI / Phase 1–6\nworkflow + sidebar] as UI
   [React Query 5\n(server state)] as RQ
   [Zustand stores\n(session · drafts)] as ZS
-  [PM Adapter\n(Taiga / Jira)] as PMA
+  [PM Adapter\n(Taiga)] as PMA
   [github-browser.ts] as GHB
 }
 
@@ -32,7 +32,7 @@ package "Backend (FastAPI · single writer)" as BEP {
   [Phase routers\nphase1–6 · workspace] as RT
   [ContextService\nisolation seam] as CS
   [storage.py\nStoragePath] as STG
-  [taiga / jira proxy\nSSRF · _egress] as PROX
+  [taiga proxy\nSSRF · _egress] as PROX
   [ai_engine\nprovider routing] as AIE
   [figma_proxy / figma_fetch\nSSRF-pinned] as FIG
   [github_fetch\nclone + repomix] as GHF
@@ -48,7 +48,6 @@ package "Spec Store" as SSP {
 package "PM Tools" as PMP {
   [Cloudflare relay\nnon-Azure IP] as RLY
   [Taiga\napi.taiga.io / private] as TG
-  [Jira Cloud\n*.atlassian.net] as JR
 }
 
 package "AI Providers" as AIP {
@@ -92,7 +91,6 @@ STORE --> FSS
 ' ---- PM tools sit directly below the proxy; AI providers below ai_engine ----
 PROX --> RLY : Azure egress
 RLY --> TG
-PROX --> JR
 AIE --> CL
 AIE --> OAI
 AIE --> GEM

@@ -5,7 +5,7 @@ Encrypted, per-PM-account storage for user-supplied AI provider API keys
 
 A key saved here follows the user across browser sessions and devices — it is
 keyed by (PM instance, PM account id), never by browser session, so signing
-into the same Taiga/Jira account from anywhere finds the same saved key.
+into the same Taiga account from anywhere finds the same saved key.
 
 The GitHub PAT and Figma token (context_manager.save_instance_github_pat/
 save_instance_figma_token) reuse this module's encrypt_value/decrypt_value for

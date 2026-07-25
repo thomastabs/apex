@@ -145,9 +145,10 @@ def auth_rate_limit(request: Request) -> None:
 def check_auth_failures(request: Request) -> None:
     """Raise 429 when this IP accumulated too many upstream credential rejections.
 
-    Unlike auth_rate_limit this also guards the Jira proxy, where every request
-    carries Basic credentials and so any endpoint is a password oracle —
-    throttling only *failures* leaves normal signed-in traffic untouched.
+    Unlike auth_rate_limit this also guards the PM/design proxies, where every
+    request carries the caller's own credentials and so any endpoint is a
+    password oracle — throttling only *failures* leaves normal signed-in
+    traffic untouched.
     """
     key = "authfail:" + _client_ip(request)
     client = distributed.redis_client()

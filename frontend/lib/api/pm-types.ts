@@ -1,5 +1,5 @@
 /**
- * PM adapter abstraction — types shared by taiga-adapter.ts and jira-adapter.ts.
+ * PM adapter abstraction implemented by taiga-adapter.ts.
  */
 import type { Epic, EpicWithStories, Me, Membership, Project, Story } from "./types";
 
@@ -34,7 +34,7 @@ export type PmStoryStatus = {
 };
 
 export interface ProjectManagementAdapter {
-  readonly name: "taiga" | "jira";
+  readonly name: "taiga";
   errMsg(err: unknown, action?: string): string;
   isPmVersionConflict(err: unknown): boolean;
   getWebUrl(baseUrl: string): string;

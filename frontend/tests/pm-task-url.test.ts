@@ -20,10 +20,9 @@ describe("pmTaskWebUrl", () => {
     expect(pmTaskWebUrl(ctx, 5)).toBe("https://taiga.example.com/project/my-project/task/5");
   });
 
-  it("returns null without a ref, slug, context, or for non-Taiga tools", () => {
+  it("returns null without a ref, slug, or context", () => {
     expect(pmTaskWebUrl(taigaCtx, undefined)).toBeNull();
     expect(pmTaskWebUrl(null, 1)).toBeNull();
     expect(pmTaskWebUrl({ ...taigaCtx, pmProjectId: undefined } as unknown as RequestContext, 1)).toBeNull();
-    expect(pmTaskWebUrl({ ...taigaCtx, pmTool: "jira" } as unknown as RequestContext, 1)).toBeNull();
   });
 });

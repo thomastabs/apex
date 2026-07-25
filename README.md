@@ -1,6 +1,6 @@
 # Apex
 
-Apex is an academic AI-guided SDLC tool that combines a **Spec-Anchored workflow**, **AI**, **Taiga or Jira** as project management backend, and optional **GitHub** repository context and **Figma** design context. The app helps a team move from product requirements into design artefacts while keeping the important project context in persistent, human-readable files.
+Apex is an academic AI-guided SDLC tool that combines a **Spec-Anchored workflow**, **AI**, **Taiga** as project management backend, and optional **GitHub** repository context and **Figma** design context. The app helps a team move from product requirements into design artefacts while keeping the important project context in persistent, human-readable files.
 
 The current migrated version is a split full-stack web app:
 
@@ -66,7 +66,7 @@ Apex is the reference implementation of a broader process framework for governed
 
 ```mermaid
 flowchart TD
-    A([PM Epic — Taiga or Jira]):::ext
+    A([PM Epic — Taiga]):::ext
 
     %% ---- The shared, versioned spec store every phase reads from / writes to ----
     G[("contextspec/<br/>&lt;instance&gt;/&lt;project&gt;")]:::store
@@ -165,11 +165,11 @@ Apex keeps its internal phase states stable (`gherkin_locked`, `design_locked`, 
 
 ### Phase 1 · Requirements
 
-Phase 1 turns PM epics into approved user stories and Gherkin acceptance criteria. Works with both Taiga and Jira Cloud via the PM adapter layer.
+Phase 1 turns PM epics into approved user stories and Gherkin acceptance criteria. Works with Taiga via the PM adapter layer.
 
 Implemented:
 
-- Load existing epics from Taiga or Jira
+- Load existing epics from Taiga
 - Create a new epic or use an existing one
 - Ask Claude to suggest epics from the project concept
 - **Generate stories from Figma** — pick designed frames from a linked Figma file and turn them into a user-story draft grounded in the real screens (navigation flows between frames become scenarios; with a vision model the selected frames are rendered to images and sent to the AI, so stories reflect the actual pixels, not just frame names). Paste a **project URL** to span all of the project's files in one combined draft — a multi-file union still renders each frame against its own file for image grounding (the image budget is spread across the selected files). Requires a Figma file connected in the sidebar
@@ -231,7 +231,7 @@ It operates story-by-story and stays open through testing: stories with `design_
 `implementation`, `qa`, or `qa_passed` status are eligible (so you can add/regenerate packs even
 after a story advanced). Task subjects, descriptions, effort and covered-scenario metadata are
 read back from the PM tool's **task detail** endpoint (the list endpoint omits the encoded
-apex-meta block), so they survive a round-trip through Taiga/Jira intact.
+apex-meta block), so they survive a round-trip through Taiga intact.
 
 Implemented — 4-stage stepper workflow:
 
@@ -259,7 +259,7 @@ Implemented — 4-stage stepper workflow:
 - **Design-grounded packs** — the synced Figma design system is injected into every pack; and when the story is **linked to a Figma frame**, that frame is rendered to a PNG and attached to the pack so the agentic brief a coding agent consumes is grounded in the *literal designed screen* (layout, components, states), not a text description. Multimodal (vision models only), advisory — an unlinked story or a non-vision model falls back to the text-only pack
 - View and edit packs in an in-browser editor; re-generate any pack if needed
 - Packs are auto-saved to `proposal_story_<id>_task_<id>.md` in `contextspec/`
-- **Bolt tracking** — each task is the framework's Bolt (its implementation micro-cycle), tracked through `pack_ready` (set automatically once its developer pack is saved) → `pushed` (set once pushed to the PM tool) → `done` (a **Mark Bolt Done** action, since Apex has no read-back of a pushed subtask's completion state from Taiga/Jira). Stored per-task under the story's index entry, independent of the story's own `phase_status`. Once done, the pack_ready→done elapsed time shows inline and feeds the Analytics page's **Bolt Cycle Time** metric
+- **Bolt tracking** — each task is the framework's Bolt (its implementation micro-cycle), tracked through `pack_ready` (set automatically once its developer pack is saved) → `pushed` (set once pushed to the PM tool) → `done` (a **Mark Bolt Done** action, since Apex has no read-back of a pushed subtask's completion state from Taiga). Stored per-task under the story's index entry, independent of the story's own `phase_status`. Once done, the pack_ready→done elapsed time shows inline and feeds the Analytics page's **Bolt Cycle Time** metric
 
 **Stage D — Lock**
 
@@ -406,7 +406,7 @@ A dedicated **Fix Bolt** page (left sidebar, above Analytics) lists every per-st
 A dedicated **Bolts** page (left sidebar) gives the framework's implementation micro-cycle (see [Phase 3 · Implementation Assist](#phase-3--implementation-assist)) its own explainer and board, rather than leaving it buried inside Phase 3:
 
 - An explainer callout ("What's a Bolt?") for anyone landing on the page cold
-- Every task across the whole project, grouped into three columns — pack ready, pushed, done — filterable by epic. Task subjects are never duplicated server-side: they're merged client-side from the PM tool's own task list (the same `apex-meta` block Phase 3 already round-trips through Taiga/Jira task descriptions), so there's a single source of truth for the text
+- Every task across the whole project, grouped into three columns — pack ready, pushed, done — filterable by epic. Task subjects are never duplicated server-side: they're merged client-side from the PM tool's own task list (the same `apex-meta` block Phase 3 already round-trips through Taiga task descriptions), so there's a single source of truth for the text
 - **Mark Bolt Done** directly from the board (same action as Phase 3's)
 - **Customize** — rename the three stages for your team's own vocabulary, and set an optional cycle-time threshold (hours); Bolts running longer than the threshold are flagged amber on the board. Persisted per project in `.bolt-config.json`, same pattern as PM Status Mapping's settings file
 - The left sidebar's **Bolts** nav item carries an open-bolt count badge (`pack_ready` + `pushed`, i.e. not-yet-`done`), sharing the same query/cache as the page itself — no extra fetch on navigation
@@ -473,14 +473,12 @@ Two sidebars — both collapsible and resizable — form the operational shell f
 
 Implemented:
 
-- PM tool selector — toggle between Taiga (violet) and Jira Cloud (blue) before signing in; connected Taiga private cloud URL shown under account when non-default
-- **Taiga login** — username/password or bearer token; all Taiga API calls are proxied through the FastAPI backend (`/api/pm/taiga/{path}`) — supports Taiga Cloud and private/self-hosted instances (e.g. `https://taiga.yourcompany.com`)
-- **Jira Cloud login** — domain, Atlassian account email, and API token; auth is verified through the FastAPI backend proxy before the session is stored
+- **Taiga login** — username/password or bearer token; all Taiga API calls are proxied through the FastAPI backend (`/api/pm/taiga/{path}`) — supports Taiga Cloud and private/self-hosted instances (e.g. `https://taiga.yourcompany.com`); connected instance URL shown under account when non-default
 - Project selector — shows the selected project's **name, ID, slug, and description**
-- Project create (in-app dialog — name + **required** description, since Taiga rejects a blank project description), **edit** (name + description; Taiga-only, via a fetch-version → PATCH), and delete
-- Epics and stories board (fetched directly from Taiga or Jira API in the browser); filter by text across epics and stories
+- Project create (in-app dialog — name + **required** description, since Taiga rejects a blank project description), **edit** (name + description, via a fetch-version → PATCH), and delete
+- Epics and stories board (fetched directly from the Taiga API in the browser); filter by text across epics and stories
 - Epic/story create, edit, delete — edit dialogs hydrate the description from the PM detail endpoint (list responses omit it); the story dialog includes an inline **Status** selector (PM status) and an **Apex Status** selector to override the workflow phase (`new` → `deployed`) independent of the PM status
-- **Task Board** — view implementation tasks grouped by story; tasks are fetched from Taiga (or Jira); filter by epic/story; **Refresh** button to refetch on demand; add, edit, and delete tasks inline; effort badges (XS → XL); deleting a task also deletes its developer pack so "proposed" counts stay truthful
+- **Task Board** — view implementation tasks grouped by story; tasks are fetched from Taiga; filter by epic/story; **Refresh** button to refetch on demand; add, edit, and delete tasks inline; effort badges (XS → XL); deleting a task also deletes its developer pack so "proposed" counts stay truthful
 - **Developer Packs** — every saved Phase 3 pack grouped by story; view, **edit inline**, download, delete one or all packs for a story
 - **Test Plans** — every saved Phase 4 test plan listed per story; view, **edit inline**, download, delete one or **delete all**
 - Users and roles management
@@ -501,7 +499,7 @@ Implemented:
   - **Cross-file flow stitching (inferred)** — Figma's REST API doesn't expose true cross-file prototype links, so the project screen flow infers a handoff edge wherever a screen **name** is shared across files; these render dashed and labelled *cross-file (inferred)* so they're not mistaken for real prototype flows
 - AI model selector — single unified selector used across all phases; supports Anthropic (Claude), OpenAI (GPT), and Google (Gemini); budget-tier to premium options per provider; provider warnings shown when the corresponding API key is absent from the backend
 - **Deploy Packs** — every saved Phase 5 deploy pack listed per story; view, edit inline, download, delete
-- Maintenance intake from **GitHub Issues, Taiga Issues, Jira issues, and Figma comments** (Phase 6 triage)
+- Maintenance intake from **GitHub Issues, Taiga Issues, and Figma comments** (Phase 6 triage)
 - Draggable sidebar sections — each panel can be reordered by drag-and-drop; order is persisted per session
 - Light/dark mode
 - **Admin (Settings, testing convenience)** — password-gated (checked server-side on `POST /api/workspace/admin/set-all-story-status`, not a real access-control boundary — the project is already gated by PM auth) bulk override that forces every story in the project to a chosen `phase_status` in one call, to skip through phases quickly while testing
@@ -526,7 +524,6 @@ Implemented:
 | `backend/app/api/taiga_proxy.py` | FastAPI reverse proxy for all Taiga REST calls — SSRF-guarded, header-injection-safe, forwards `DELETE/GET/PATCH/POST/PUT /api/pm/taiga/{path}` to the configured Taiga instance; `_egress()` optionally routes through the Cloudflare relay (see [Taiga egress relay](#taiga-egress-relay-azure-deployment)) |
 | `infra/cloudflare/taiga-relay/` | Cloudflare Worker that forwards Taiga calls from a non-Azure IP — Taiga Cloud firewall-DROPs Azure Container Apps egress (`worker.js`, `wrangler.toml`, `README.md`) |
 | `backend/app/services/taiga_wiki_service.py` | Publish/pull deterministic `apex-*` Taiga Wiki pages, list Taiga-only custom pages (re-scoped client-side against a Taiga API filter-backend quirk), and auto-bookmark published pages via Taiga's `WikiLink` resource |
-| `backend/app/api/jira_proxy.py` | FastAPI reverse proxy for Jira Cloud REST API v3 (Basic auth, SSRF-guarded to `*.atlassian.net`) |
 | `backend/app/api/figma_proxy.py` | FastAPI reverse proxy for the Figma REST API (`X-Figma-Token`, host-locked to `api.figma.com`, DNS-rebinding pinned) |
 | `backend/app/services/figma_fetch.py` | Server-side Figma fetch (SSRF-pinned, sync) — file/frames/flows + design-token extraction (`/styles`+`/components`+`/nodes`) + `figma-context.md` assembly without a browser, frame-image rendering for multimodal grounding (second egress hop to the Figma image CDN, separately SSRF-guarded), and epic→frame ranking |
 | `backend/app/services/github_fetch.py` | Server-side GitHub clone + pack (SSRF-pinned metadata call, PAT auth via `GIT_CONFIG_*` env vars — never argv) — shallow `git clone`, size cap, `repomix.config.*` stripping, then packs the clone with the pinned `repomix` CLI (`--compress`/`--ignore`/`--token-budget`) into `github-context.md`'s markdown |
@@ -543,9 +540,8 @@ Implemented:
 | `frontend/components/bolts-dashboard.tsx` + `frontend/app/bolts/page.tsx` | Dedicated Bolts page (left sidebar) — explainer, epic-filterable board, per-task Mark Bolt Done, Customize (labels + cycle-time threshold) |
 | `frontend/lib/api/taiga-direct.ts` | Taiga REST client — all CRUD, auth, and story transitions; sends requests to the FastAPI Taiga proxy with `X-Taiga-Url` header |
 | `frontend/lib/api/pm-types.ts` | `ProjectManagementAdapter` interface and shared PM types |
-| `frontend/lib/api/pm-factory.ts` | `getPmAdapter(pmTool)` dispatcher — returns Taiga or Jira adapter |
+| `frontend/lib/api/pm-factory.ts` | `getPmAdapter(pmTool)` dispatcher — returns the Taiga adapter |
 | `frontend/lib/api/taiga-adapter.ts` | Taiga adapter wrapping `taiga-direct.ts` |
-| `frontend/lib/api/jira-adapter.ts` | Jira Cloud adapter — REST v3, ADF, paginated JQL, two-step transitions |
 | `frontend/lib/api/github-browser.ts` | Browser-side GitHub REST client — repo metadata/verification, issues, recent commits, on-demand file fetch (`github-context.md` sync itself is server-side, see `backend/app/services/github_fetch.py`) |
 | `frontend/lib/api/figma.ts` | Figma REST client (via the backend proxy) — file/frames/thumbnails/comments, URL parsing, frame derivation, and story↔frame matching (figma-context.md is assembled server-side, not here) |
 | `frontend/lib/api/` | Typed frontend API clients for all phases |
@@ -625,8 +621,8 @@ The same guidance is available in-app: **Context guide** button in the sidebar's
 ### Multiple users & multiple Taiga instances
 
 Context storage is namespaced by **PM instance**: `contextspec/<instance_id>/<project_id>/`, where
-`instance_id` is derived from the validated Taiga/Jira host (e.g. `api_taiga_io`,
-`taiga_acme_com`, `acme_atlassian_net`). The same `project_id` on different instances therefore
+`instance_id` is derived from the validated Taiga host (e.g. `api_taiga_io`,
+`taiga_acme_com`). The same `project_id` on different instances therefore
 never collides, so **Taiga Cloud users and private-instance users can use the same deployment at
 once**, each fully isolated.
 
@@ -710,8 +706,8 @@ new Azure IP is likely dropped too.
 
 - **Auth = the PM token is your identity.** Every authenticated endpoint validates the bearer token against the anchored PM (`/users/me`), and project-scoped routes additionally confirm the token can read the requested project — closing cross-tenant (IDOR) access to another project's context files. Validations are cached briefly (60s) per `(token-hash, url)` — shared across replicas via Redis when `REDIS_URL` is set, so a revoked token is re-checked coherently. The PM token lives in `sessionStorage` only (cleared on tab close).
 - **GitHub PAT / Figma token — encrypted at rest, opt-in persistence.** Both are used browser-direct for most calls (repo verification, issues, commits, file fetch — GitHub/Figma calls for these never route through a backend proxy) but, unlike the PM token, users asked to not have to re-enter them every session. Saving one now also encrypts and persists it (`AI_KEY_ENCRYPTION_SECRET`-derived Fernet cipher — the same guarantee `ai_key_store.py` gives AI provider keys), and a dedicated reveal endpoint (`GET /api/workspace/github-pat` / `/figma-token`, never the general `/config` response) restores it into the browser session on load. This is a deliberate tradeoff: unlike AI keys, which never leave the backend, these two must reach the browser to be used, so the backend does see the raw credential during save/restore — accepted for the convenience, encrypted at rest to bound a File Share compromise. **Scoping differs between the two:** the GitHub repo/PAT is **per-project** (`contextspec/<instance_id>/<project_id>/.project-github-config.json` — connecting GitHub on one project does not connect it on every other project under the same PM instance); the Figma token remains **per-instance** (`.instance-config.json`, shared across a tenant's projects). The GitHub webhook secret also stays per-instance regardless (its URL already embeds `project_id`).
-- **SSRF guards on every outbound PM call.** All three proxies validate the target before dialing: Taiga must be `https://` + non-private (IP-class blocked, DNS resolved); Jira is hard-locked to `*.atlassian.net`; Figma is host-locked to `api.figma.com`. The same guard applies to header overrides **and** persisted config (both user-influenced).
-- **Response size cap.** Both the Taiga and Jira proxies cap forwarded response bodies at 15MB (`pm_http.check_response_size`) and return 502 rather than relaying an oversized upstream body.
+- **SSRF guards on every outbound PM call.** All proxies validate the target before dialing: Taiga must be `https://` + non-private (IP-class blocked, DNS resolved); Figma is host-locked to `api.figma.com`. The same guard applies to header overrides **and** persisted config (both user-influenced).
+- **Response size cap.** The Taiga proxy caps forwarded response bodies at 15MB (`pm_http.check_response_size`) and returns 502 rather than relaying an oversized upstream body.
 - **Taiga Wiki cross-project leak, re-scoped client-side.** Taiga Cloud's own wiki-list endpoint doesn't strictly filter by the `?project=` query param it accepts — its `PermissionBasedFilterBackend` ORs in `Q(project__public_permissions__contains=["view_wiki_pages"])`, so pages from *any* project where that permission is public can come back mixed into a request scoped to one project (each project's own default "home" page turning up in another project's listing was how this surfaced — verified against `taiga-back`'s own filter source, not guessed). `taiga_wiki_service._list_pages`/`_list_wiki_link_hrefs` now re-filter every returned row by `page["project"] == project_id` before use, closing the gap regardless of what Taiga's own endpoint returns.
 - **DNS-rebinding pin.** The validated host is resolved once and the request connects to that pinned IP with the hostname kept for TLS SNI/`Host` (`ssrf.pinned_target`), closing the check-vs-connect re-resolution gap. A host that now resolves only to blocked IPs is rejected (403). Applied across the Taiga proxy **and** the credential-check egress (`deps._pm_get`) through one shared seam. The Cloudflare relay path is trusted (its real target is allow-listed by the Worker).
 - **Egress allowlist (two layers, default allow-all).** `EGRESS_HOST_ALLOWLIST` (env, comma-separated, `*.wildcards`) restricts egress deployment-wide; a **per-instance** allowlist in `contextspec/<instance>/.instance-config.json` (`egress_allowlist`) layers a per-tenant restriction on top. Both are an ops/deployment concern set on the backend (env / file) — not exposed in the UI. Both empty → no restriction. **If a deployment-wide allowlist is set, include `api.figma.com`** (and the PM hosts) so the Figma proxy is not blocked. **For multimodal frame grounding, also allow Figma's image CDN** (the rendered-PNG download host, e.g. `*.s3.us-west-2.amazonaws.com`) — otherwise image grounding is silently skipped and generation falls back to frame names.
@@ -730,7 +726,7 @@ new Azure IP is likely dropped too.
 - npm
 - Docker, optional
 - Anthropic API key
-- Taiga account (or Jira Cloud account — at least one required)
+- Taiga account
 - GitHub Personal Access Token, optional (for repository context enrichment)
 - `git` + [`repomix`](https://github.com/yamadashy/repomix) (`npm install -g repomix`), only if running the backend **outside Docker** and using GitHub context sync — `backend/Dockerfile` already bakes both in for the containerized backend
 - Figma Personal Access Token, optional (for design context + generating stories from frames)
@@ -760,7 +756,7 @@ GOOGLE_API_KEY=
 
 # Optional. Any string; required for users to save their own personal AI
 # provider key in Settings -> AI Model (encrypted at rest, tied to their
-# Taiga/Jira account — see src/ai_key_store.py). Without it, only the
+# Taiga account — see src/ai_key_store.py). Without it, only the
 # deployment-wide keys above are usable and personal-key saves 503.
 AI_KEY_ENCRYPTION_SECRET=
 
@@ -1008,7 +1004,7 @@ Coverage (~519 tests):
 - `tests/test_ai_engine.py` — AI engine: provider detection, prompt assembly, structured output parsing, error mapping, and the consistency safeguards (per-call temperature, Phase 3 coverage/DAG reconciliation, Phase 2 dangling-edge pruning, pack digests)
 - `tests/test_context_manager.py` — context files, story index, locking and cross-worker cache invalidation
 - `tests/test_contextvar_isolation.py` — per-request project isolation under concurrency
-- `tests/test_taiga_proxy.py` / `test_jira_proxy.py` — proxy routing, SSRF blocking (incl. DNS-resolved private hosts), header injection guard, method forwarding
+- `tests/test_taiga_proxy.py` — proxy routing, SSRF blocking (incl. DNS-resolved private hosts), header injection guard, method forwarding
 - `tests/test_deps.py` / `test_deps_auth.py` — FastAPI dependency utilities and PM-anchored token/project authorization (identity anchor resolution, caching, 401/403 paths)
 
 PM auth is bypassed by an autouse fixture in `conftest.py`; tests that exercise the real validation logic opt out with `@pytest.mark.real_auth`. `AzureFileShareService` is mocked at the service boundary via a `ctx` fixture. No real Azure credentials or live backend needed to run the suite.
@@ -1257,8 +1253,7 @@ documented above):
 
 Remaining open items are minor:
 
-- **Jira issue intake** for Phase 6, plus a handful of accepted cosmetic /
-  low-severity polish items.
+- A handful of accepted cosmetic / low-severity polish items.
 - **Figma, deferred by design:** OAuth "Connect with Figma" (PAT-only for now —
   OAuth needs a one-time operator app registration, so it can't be the in-UI
   zero-config flow; reverted in `5c854c4`); **true cross-file prototype links**
@@ -1277,19 +1272,15 @@ Deferred graph v1.1 extras (already partly shipped) — none outstanding. The
 
 **Why server-side for Taiga:** Private/self-hosted Taiga instances (e.g. `taiga.marsshot.eu`) reject browser CORS preflight requests from third-party origins. Proxying through the backend eliminates this entirely for both self-hosted and Taiga Cloud. The proxy also adds SSRF protection (RFC-1918 / loopback block), `\r\n` header-injection guards, and a consistent place to apply future auth or rate-limit logic.
 
-**Proxy egress self-heal:** both PM proxies use a pooled `httpx.AsyncClient` with a split timeout (8s connect / full read budget). On a connect-level failure the pool is closed, recreated, and the request retried once — this recovers from dead SNAT paths observed on Azure Container Apps (June 2026 incident: api.taiga.io unreachable for ~10 minutes while Jira egress was fine) without a manual revision restart. Read-phase errors are never retried, so mutations can't be duplicated.
+**Proxy egress self-heal:** the Taiga proxy uses a pooled `httpx.AsyncClient` with a split timeout (8s connect / full read budget). On a connect-level failure the pool is closed, recreated, and the request retried once — this recovers from dead SNAT paths observed on Azure Container Apps (June 2026 incident: api.taiga.io unreachable for ~10 minutes) without a manual revision restart. Read-phase errors are never retried, so mutations can't be duplicated.
 
 **Implication:** `src/taiga_adapter.py` is a stub that only derives the Taiga web URL for the `GET /config` endpoint. All Taiga REST traffic goes through `taiga_proxy.py` — do not add browser-direct Taiga calls.
-
-**Jira:** Jira API calls are proxied through the FastAPI backend (`backend/app/api/jira_proxy.py`). The browser sends requests to `/api/pm/jira/*` with `X-Jira-Base-Url` and `Authorization: Basic` headers; the backend forwards them to the Jira Cloud REST API. This is required because Jira Cloud does not allow direct browser requests from arbitrary origins.
-
-**Jira anchor precedence:** identity/project validation and the storage `instance_id` anchor to `X-Jira-Base-Url` when present, falling back to the stored `jira_base_url` workspace config — the same override-wins-over-stale-config pattern Taiga uses (see [Multiple users & multiple Taiga instances](#multiple-users--multiple-taiga-instances) above), closing a gap where any PM-authenticated user flipping the shared config could have misrouted another user's identity/project checks. The config-sourced base URL is also validated (`https://` + `*.atlassian.net`) on every dial now, not only at config-write time.
 
 **GitHub:** most GitHub REST API calls (repo verification, issues, commits, on-demand file fetch) are made directly from the browser via `frontend/lib/api/github-browser.ts` — GitHub returns `Access-Control-Allow-Origin: *` so no backend proxy is needed for these. The deliberate exception is **`github-context.md` sync**: the backend clones the repo and packs it server-side (`backend/app/services/github_fetch.py`, see [GitHub integration](#sidebar-workspace)) using its own encrypted, per-project PAT — the browser sends nothing for this call at all, not even a header, since there's nothing project-specific to send beyond the request's own auth. The PAT is excluded from Zustand session persistence (see below) but, unlike the PM token, IS optionally sent to and stored by the backend (encrypted) so it survives a tab close — see [Security](#security) for the save/restore tradeoff and the per-project vs per-instance scoping split.
 
 **Session security:** The Zustand `apex-session` store (v5) persists to `sessionStorage` so credentials are cleared when the browser tab closes. The GitHub PAT is excluded from the persist partition entirely — it's restored on load instead from the encrypted server-side copy (see above).
 
-**Backend authentication (PM-anchored):** every backend request must carry `Authorization: Bearer <PM token>`. The backend validates the token against a server-side identity anchor (Taiga `/users/me` or Jira `/myself`) and additionally confirms the token can read the project named in `X-Project-Id` before serving any context data — a cross-tenant request gets 403. The anchor URL follows the precedence chain above (env override → per-request header `X-Taiga-Url`/`X-Jira-Base-Url` → stored workspace config → Taiga Cloud) — a client-supplied header is deliberately trusted **over** stored config (which is shared and user-writable, so it can go stale), but every candidate URL, header or config, is still SSRF-validated before the backend dials it; an attacker cannot point validation at an arbitrary internal host. Validation results are briefly cached (60s success / 10s failure), and AI endpoints are rate-limited per token and per IP.
+**Backend authentication (PM-anchored):** every backend request must carry `Authorization: Bearer <PM token>`. The backend validates the token against a server-side identity anchor (Taiga `/users/me`) and additionally confirms the token can read the project named in `X-Project-Id` before serving any context data — a cross-tenant request gets 403. The anchor URL follows the precedence chain above (env override → per-request header `X-Taiga-Url` → stored workspace config → Taiga Cloud) — a client-supplied header is deliberately trusted **over** stored config (which is shared and user-writable, so it can go stale), but every candidate URL, header or config, is still SSRF-validated before the backend dials it; an attacker cannot point validation at an arbitrary internal host. Validation results are briefly cached (60s success / 10s failure), and AI endpoints are rate-limited per token and per IP.
 
 ---
 
@@ -1299,8 +1290,7 @@ Deferred graph v1.1 extras (already partly shipped) — none outstanding. The
 - Keep AI prompt logic in `src/ai_engine.py`. Provider is detected automatically from the model ID prefix (`claude-` → Anthropic, `gpt-`/`o1-`/`o3-` → OpenAI, `gemini-` → Google).
 - **AI consistency safeguards** (in `src/ai_engine.py`): temperature is a per-call arg defaulting to `0.0` — structured/extraction calls stay deterministic; only the creative long-form generators (NL stories, epic suggestions, design UX brief, developer pack, deploy pack) pass `0.2`. Structured outputs that make self-referential claims are reconciled against ground truth, not trusted as returned: Phase 3 `covered_scenarios` are matched (normalised) to the real Gherkin titles and `predecessor_task_ids` are forced into an acyclic graph; Phase 2 ER/screen-flow edges pointing at non-existent nodes are pruned. Cross-context is fed as bounded `_pack_digest`s (Context + Files-to-Change only) so sibling packs stay consistent and the test plan is grounded in the real implementation without blowing the token budget.
 - All Taiga REST calls go through the FastAPI proxy at `/api/pm/taiga/{path}` (`backend/app/api/taiga_proxy.py`). Do not add browser-direct Taiga calls.
-- All Jira REST calls go through the FastAPI proxy at `/api/pm/jira/*`. Do not call Jira Cloud directly from the browser.
-- New PM operations should go through the `ProjectManagementAdapter` interface (`frontend/lib/api/pm-types.ts`) — add to both `taiga-adapter.ts` and `jira-adapter.ts`, then dispatch via `getPmAdapter()` in `pm-factory.ts`.
+- New PM operations should go through the `ProjectManagementAdapter` interface (`frontend/lib/api/pm-types.ts`) — add to `taiga-adapter.ts`, then dispatch via `getPmAdapter()` in `pm-factory.ts`.
 - Treat Markdown context files as human-readable artefacts, and `story-index.json` as the machine-readable workflow index.
 - The backend Docker image currently runs with `--workers 1`; the code is written to tolerate multiple workers (story-index locking + mtime cache invalidation), so avoid module-level mutable singletons regardless.
 - AI errors map to distinct HTTP codes: `AIRateLimitError` → 429, `AITimeoutError` → 504, generic `AIError` → 502.

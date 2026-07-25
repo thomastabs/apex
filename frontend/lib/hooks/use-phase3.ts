@@ -122,8 +122,8 @@ export function decodeApexMeta(rawDescription: string): {
   };
 }
 
-// Web URL for a pushed task in the PM tool's UI (Taiga only — Jira subtasks
-// have no stable standalone URL here). Mirrors the phase-1 story-URL builder.
+// Web URL for a pushed task in the PM tool's UI. Mirrors the phase-1
+// story-URL builder.
 export function pmTaskWebUrl(
   context: RequestContext | null,
   ref: string | number | undefined,
@@ -140,13 +140,6 @@ export function pmTaskWebUrl(
     if (!webBase) return null;
     return `${webBase}/project/${projectId}/task/${ref}`;
   }
-  if (context.pmTool === "jira") {
-    // pmProjectId is the Jira project KEY; the task ref is the numeric tail of
-    // the issue key, so the browse URL is {base}/browse/{KEY}-{ref}.
-    const base = (pmWebUrl ?? "").replace(/\/+$/, "");
-    if (!base) return null;
-    return `${base}/browse/${projectId}-${ref}`;
-  }
   return null;
 }
 
@@ -160,8 +153,7 @@ export function findPmTaskBySubject(
 // Kept for backward compat with phase3-workflow.tsx imports
 export { findPmTaskBySubject as findTaigaTaskBySubject };
 
-// Tool-aware: Jira needs the project KEY (pmProjectId); Taiga needs the numeric
-// id — pmProjectId holds the slug there, which Taiga's REST API rejects (NaN).
+// Taiga's REST API needs the numeric project id, not the slug in pmProjectId.
 const getAdapterCtx = toPmCtx;
 
 // ---------------------------------------------------------------------------

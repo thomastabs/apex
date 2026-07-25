@@ -96,7 +96,7 @@ Apex reads like an audit trail, not a product page. The interface exists to be i
 
 Against that neutral, dense backdrop, **Signal Violet** is the one warm signal — active phase, active tab, AI-touched state, primary action. It appears sparingly enough that its presence *means something* every time it shows up. This directly enforces PRODUCT.md's positioning: spec-anchored traceability, not spec-anchored decoration.
 
-The system explicitly rejects the generic SaaS dashboard look (gradient heroes, hero-metric tiles, cream/paper body backgrounds) and the enterprise-PM-tool skin (Jira-clone chrome) named in PRODUCT.md's anti-references. Apex sits above Taiga/Jira as the reasoning layer; it should never be mistaken for another ticket tracker.
+The system explicitly rejects the generic SaaS dashboard look (gradient heroes, hero-metric tiles, cream/paper body backgrounds) and the enterprise-PM-tool skin (ticket-tracker chrome) named in PRODUCT.md's anti-references. Apex sits above Taiga as the reasoning layer; it should never be mistaken for another ticket tracker.
 
 **Key Characteristics:**
 - Dark-first (`neutral-900`/`#121113`/`#1b1b1c` base), with a fully-mirrored light mode swapped via `.apex-sidebar-light` / `.apex-main-light` class overrides rather than a separate token set.
@@ -188,7 +188,7 @@ Flat-by-default: everyday depth comes from a 1px border plus a background-tint s
 
 ### Don't:
 - **Don't** build a generic SaaS marketing dashboard — no gradient hero, no hero-metric-tile template, no cream/paper body background (per PRODUCT.md's anti-references).
-- **Don't** let Apex's chrome converge toward looking like Taiga/Jira — density is fine, but Apex is the reasoning layer above the PM tool, not a reskin of it (per PRODUCT.md).
+- **Don't** let Apex's chrome converge toward looking like Taiga — density is fine, but Apex is the reasoning layer above the PM tool, not a reskin of it (per PRODUCT.md).
 - **Don't** use `border-left`/`border-right` greater than 1px as a colored side-stripe accent. `SectionHeading` and `Callout` in `components/ui/primitives.tsx` currently do this (`border-l-4 border-violet-500` / `border-l-4 border-violet-400`) — flagged here as a known violation to fix in a future `/impeccable polish` pass, not an accepted pattern to replicate elsewhere.
 - **Don't** introduce a second brand hue alongside violet "for visual interest" — variety comes from the neutral ramp and typography, not from more color.
 - **Don't** add ambient shadow to cards or buttons at rest; if it's not an overlay, it stays flat.

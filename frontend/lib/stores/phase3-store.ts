@@ -7,7 +7,7 @@ import type { Phase3Task } from "@/lib/api/types";
 type Phase3State = {
   selectedStoryId: number | null;
   taskList: Phase3Task[];
-  pmTaskIds: Record<number, string>;      // taskIndex → PM task id (string for Jira compat)
+  pmTaskIds: Record<number, string>;      // taskIndex → PM task id (stringified)
   pmTaskRefs: Record<number, string | number>; // taskIndex → PM task ref
   tasksPushed: boolean;
   packDrafts: Record<number, string>;     // taskId → markdown string

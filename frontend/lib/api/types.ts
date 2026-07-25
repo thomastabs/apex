@@ -2,14 +2,14 @@ export type RequestContext = {
   taigaToken: string;
   projectId: number;
   taigaApiUrl?: string;
-  pmTool?: "taiga" | "jira";
+  pmTool?: "taiga";
   pmProjectId?: string;
 };
 
 export type AuthContext = {
   taigaToken: string;
   taigaApiUrl?: string;
-  pmTool?: "taiga" | "jira";
+  pmTool?: "taiga";
 };
 
 export type Me = {
@@ -72,9 +72,8 @@ export type ExtraContextRequest = {
 };
 
 export type Membership = {
-  // Opaque membership key: Taiga's is a stringified numeric id, Jira's is a
-  // synthetic "roleId:accountId" composite (see jira-adapter.ts getUsers) —
-  // callers must treat it as an opaque string, never parse or do arithmetic on it.
+  // Opaque membership key: a stringified numeric Taiga id — callers must
+  // treat it as an opaque string, never parse or do arithmetic on it.
   id: string;
   user?: number | null;
   username: string;
@@ -816,7 +815,7 @@ export type ScanReport = {
 
 export type MaintenanceItem = {
   id: number;
-  source: "manual" | "github" | "taiga" | "jira" | "figma";
+  source: "manual" | "github" | "taiga" | "figma";
   ext_ref: string;
   subject: string;
   description: string;

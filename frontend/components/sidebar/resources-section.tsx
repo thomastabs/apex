@@ -9,7 +9,6 @@ import type { TranslationKey } from "@/lib/i18n/translations";
 type ResourcesSectionProps = DragSectionProps & {
   dark: boolean;
   pmWebUrl: string;
-  pmTool: "taiga" | "jira";
 };
 
 const TAIGA_DOCS: { href: string; labelKey: TranslationKey }[] = [
@@ -19,14 +18,7 @@ const TAIGA_DOCS: { href: string; labelKey: TranslationKey }[] = [
   { href: "https://github.com/taigaio", labelKey: "resources.github" },
 ];
 
-const JIRA_DOCS: { href: string; labelKey: TranslationKey }[] = [
-  { href: "https://support.atlassian.com/jira-software-cloud/", labelKey: "resources.userGuide" },
-  { href: "https://developer.atlassian.com/cloud/jira/platform/rest/v3/", labelKey: "resources.apiReference" },
-  { href: "https://community.atlassian.com/", labelKey: "resources.communityForum" },
-  { href: "https://id.atlassian.com/manage-profile/security/api-tokens", labelKey: "resources.manageApiTokens" },
-];
-
-export function ResourcesSection({ dark, pmWebUrl, pmTool, shellClass, dragHandlers, onDragStart }: ResourcesSectionProps) {
+export function ResourcesSection({ dark, pmWebUrl, shellClass, dragHandlers, onDragStart }: ResourcesSectionProps) {
   const t = useT();
   const [resourcesOpen, setResourcesOpen] = useState(false);
 
@@ -34,9 +26,9 @@ export function ResourcesSection({ dark, pmWebUrl, pmTool, shellClass, dragHandl
   const expandedPanelClass = dark ? "bg-[#20232b]" : "bg-white";
   const subduedTextClass = dark ? "text-neutral-500" : "text-slate-500";
 
-  const docs = pmTool === "jira" ? JIRA_DOCS : TAIGA_DOCS;
-  const docsLabel = pmTool === "jira" ? t("resources.jiraDocs") : t("resources.taigaDocs");
-  const instanceLabel = pmTool === "jira" ? t("resources.openJira") : t("resources.openTaiga");
+  const docs = TAIGA_DOCS;
+  const docsLabel = t("resources.taigaDocs");
+  const instanceLabel = t("resources.openTaiga");
 
   return (
     <div {...(dragHandlers ?? {})} className={shellClass}>

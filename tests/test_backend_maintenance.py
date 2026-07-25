@@ -108,13 +108,6 @@ def test_create_item_rejects_unknown_linked_story(ctx):
         svc.create_item(ctx, subject="bug", linked_story_id=999)
 
 
-def test_create_item_accepts_jira_source(ctx):
-    svc, _ = _svc()
-    item = svc.create_item(ctx, subject="Jira bug", source="jira", ext_ref="PROJ-12")
-    assert item["source"] == "jira"
-    assert item["ext_ref"] == "PROJ-12"
-
-
 def test_create_item_accepts_figma_source(ctx):
     svc, _ = _svc()
     item = svc.create_item(ctx, subject="Button overlaps on mobile", source="figma", ext_ref="figma#abc123")

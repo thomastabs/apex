@@ -210,8 +210,7 @@ export function useUpdatePmStoryStatus() {
     mutationFn: async ({ pmStoryId, statusName }: { pmStoryId: string; statusName?: string | string[] }) => {
       if (!context) throw new Error("No project context.");
       const adapter = getPmAdapter(context.pmTool);
-      // Tool-aware ctx: Jira needs the project KEY, Taiga the numeric id —
-      // pmProjectId holds the Taiga slug, which the Taiga REST API rejects.
+      // Taiga's REST API needs the numeric project id, not the slug in pmProjectId.
       const pmCtx = toPmCtx(context);
       const statuses = await adapter.listStoryStatuses(pmCtx);
       const candidates = statusName

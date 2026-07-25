@@ -306,19 +306,14 @@ async function pushPhase1StoriesDirect(
   // Build PM web URLs for created stories (best-effort)
   let storyUrls: string[] = [];
   try {
-    if (context.pmTool === "jira") {
-      const domain = (context.taigaApiUrl ?? "").replace(/\/+$/, "");
-      storyUrls = createdStories.filter((s) => s.ref).map((s) => `${domain}/browse/${ctx.projectId}-${s.ref}`);
-    } else {
-      // Taiga: fetch project slug then build tree.taiga.io URLs
-      const { slug } = await taigaGetProject(context.taigaToken, context.projectId, context.taigaApiUrl);
-      if (slug) {
-        const webBase = (context.taigaApiUrl ?? "")
-          .replace("/api/v1", "")
-          .replace("//api.taiga.io", "//tree.taiga.io")
-          .replace(/\/+$/, "");
-        storyUrls = createdStories.filter((s) => s.ref).map((s) => `${webBase}/project/${slug}/us/${s.ref}`);
-      }
+    // Fetch project slug then build tree.taiga.io URLs
+    const { slug } = await taigaGetProject(context.taigaToken, context.projectId, context.taigaApiUrl);
+    if (slug) {
+      const webBase = (context.taigaApiUrl ?? "")
+        .replace("/api/v1", "")
+        .replace("//api.taiga.io", "//tree.taiga.io")
+        .replace(/\/+$/, "");
+      storyUrls = createdStories.filter((s) => s.ref).map((s) => `${webBase}/project/${slug}/us/${s.ref}`);
     }
   } catch { /* skip URLs if fetch fails */ }
 

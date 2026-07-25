@@ -3,13 +3,12 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-type PmTool = "taiga" | "jira";
+type PmTool = "taiga";
 
 type SessionState = {
   pmTool: PmTool;
   taigaToken: string;
   taigaApiUrl: string;
-  jiraEmail: string;
   projectId: number | null;
   projectName: string;
   pmProjectSlug: string;
@@ -29,8 +28,8 @@ type SessionState = {
   // going server-side). Cleared on New Run / sign-out.
   autopilotJobId: string | null;
   setAutopilotJobId: (jobId: string | null) => void;
-  setSession: (session: { taigaToken: string; taigaApiUrl?: string; projectId?: number; projectName?: string; pmTool?: PmTool; jiraEmail?: string }) => void;
-  setAuth: (auth: { taigaToken: string; taigaApiUrl?: string; pmTool?: PmTool; jiraEmail?: string }) => void;
+  setSession: (session: { taigaToken: string; taigaApiUrl?: string; projectId?: number; projectName?: string; pmTool?: PmTool }) => void;
+  setAuth: (auth: { taigaToken: string; taigaApiUrl?: string; pmTool?: PmTool }) => void;
   setProject: (project: { projectId: number; projectName?: string; pmProjectSlug?: string }) => void;
   setGithub: (opts: { pat?: string; repo?: string }) => void;
   setFigma: (opts: { token?: string; fileKey?: string; fileName?: string }) => void;
@@ -49,7 +48,6 @@ export const useSessionStore = create<SessionState>()(
       pmTool: "taiga",
       taigaToken: "",
       taigaApiUrl: "",
-      jiraEmail: "",
       projectId: null,
       projectName: "",
       pmProjectSlug: "",
@@ -61,20 +59,18 @@ export const useSessionStore = create<SessionState>()(
       figmaFileName: "",
       autopilotJobId: null,
       setAutopilotJobId: (jobId) => set({ autopilotJobId: jobId }),
-      setSession: ({ taigaToken, taigaApiUrl, projectId, projectName = "", pmTool, jiraEmail }) =>
+      setSession: ({ taigaToken, taigaApiUrl, projectId, projectName = "", pmTool }) =>
         set({
           taigaToken,
           ...(pmTool != null ? { pmTool } : {}),
           ...(taigaApiUrl != null ? { taigaApiUrl } : {}),
-          ...(jiraEmail != null ? { jiraEmail } : {}),
           ...(projectId != null ? { projectId, projectName } : {}),
         }),
-      setAuth: ({ taigaToken, taigaApiUrl, pmTool, jiraEmail }) =>
+      setAuth: ({ taigaToken, taigaApiUrl, pmTool }) =>
         set({
           taigaToken,
           ...(pmTool != null ? { pmTool } : {}),
           ...(taigaApiUrl != null ? { taigaApiUrl } : {}),
-          ...(jiraEmail != null ? { jiraEmail } : {}),
           projectId: null,
           projectName: "",
           pmProjectSlug: "",
@@ -99,7 +95,7 @@ export const useSessionStore = create<SessionState>()(
         ...(fileKey !== undefined ? { figmaFileKey: fileKey, figmaFileName: fileName ?? "" } : {}),
         ...(fileKey === undefined && fileName !== undefined ? { figmaFileName: fileName } : {}),
       }),
-      clearSession: () => set((s) => ({ pmTool: s.pmTool, taigaToken: "", taigaApiUrl: "", jiraEmail: "", projectId: null, projectName: "", pmProjectSlug: "", projectInstanceUrl: "", githubPat: "", githubRepo: "", figmaToken: "", figmaFileKey: "", figmaFileName: "", autopilotJobId: null })),
+      clearSession: () => set((s) => ({ pmTool: s.pmTool, taigaToken: "", taigaApiUrl: "", projectId: null, projectName: "", pmProjectSlug: "", projectInstanceUrl: "", githubPat: "", githubRepo: "", figmaToken: "", figmaFileKey: "", figmaFileName: "", autopilotJobId: null })),
     }),
     {
       name: "apex-session",
@@ -112,15 +108,17 @@ export const useSessionStore = create<SessionState>()(
         try { localStorage.removeItem("apex-session"); } catch { /* ignore */ }
         return window.sessionStorage;
       }),
-      version: 9,
+      version: 10,
       migrate: (persisted: unknown) => {
         const state = (persisted ?? {}) as Record<string, unknown>;
         return {
           autopilotJobId: (state.autopilotJobId as string | null) ?? null,
-          pmTool: (state.pmTool as PmTool) ?? "taiga",
+          // Jira support was removed — any stale persisted pmTool (including
+          // "jira") collapses to the only remaining tool rather than
+          // crashing a mid-session tab.
+          pmTool: "taiga" as PmTool,
           taigaToken: (state.taigaToken as string) ?? "",
           taigaApiUrl: (state.taigaApiUrl as string) ?? "",
-          jiraEmail: (state.jiraEmail as string) ?? "",
           projectId: (state.projectId as number | null) ?? null,
           projectName: (state.projectName as string) ?? "",
           pmProjectSlug: (state.pmProjectSlug as string) ?? "",
@@ -140,7 +138,6 @@ export const useSessionStore = create<SessionState>()(
         pmTool: state.pmTool,
         taigaToken: state.taigaToken,
         taigaApiUrl: state.taigaApiUrl,
-        jiraEmail: state.jiraEmail,
         projectId: state.projectId,
         projectName: state.projectName,
         pmProjectSlug: state.pmProjectSlug,

@@ -169,7 +169,7 @@ class TestProxyTaigaCatchAll:
         assert resp.status_code == 400
 
     def test_missing_x_taiga_url_with_no_config_returns_400(self, client):
-        with patch("src.context_manager.load_config", return_value={"pm_tool": "jira"}):
+        with patch("src.context_manager.load_config", return_value={"pm_tool": "other"}):
             resp = client.get(
                 "/api/pm/taiga/epics",
                 headers={"Authorization": self.AUTH},

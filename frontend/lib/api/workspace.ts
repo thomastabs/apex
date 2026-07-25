@@ -15,12 +15,9 @@ export function toPmCtx(ctx: RequestContext): PmRequestContext {
   return {
     token: ctx.taigaToken,
     baseUrl: ctx.taigaApiUrl ?? "",
-    // For Jira, pmProjectId is the project KEY (e.g. "TEST") — required.
-    // For Taiga, pmProjectId is the slug (e.g. "test2") — wrong; Taiga REST API
-    // uses numeric IDs, so always fall back to the numeric projectId for Taiga.
-    projectId: ctx.pmTool === "jira"
-      ? (ctx.pmProjectId ?? String(ctx.projectId))
-      : String(ctx.projectId),
+    // pmProjectId (when set) is the project slug (e.g. "test2") — Taiga's REST
+    // API uses numeric IDs, not slugs, so always use the numeric projectId here.
+    projectId: String(ctx.projectId),
   };
 }
 
@@ -103,7 +100,7 @@ export type AiConfigResponse = {
   configured_providers: string[];
   // Deployment-wide key set via *_API_KEY env var on the backend — the "system key".
   system_providers: string[];
-  // Has a personal key saved to *your* Taiga/Jira account — always the active
+  // Has a personal key saved to *your* Taiga account — always the active
   // credential for that provider once saved (takes priority over the system key).
   personal_providers: string[];
 };
@@ -131,7 +128,7 @@ export function saveAiLanguage(context: AuthContext, language: string) {
 
 export type AiKeyStatusResponse = { ok: boolean; personal_providers: string[] };
 
-/** Save a personal AI provider API key, tied to your Taiga/Jira account —
+/** Save a personal AI provider API key, tied to your Taiga account —
  * encrypted server-side, remembered next time you sign in from anywhere. */
 export function saveAiKey(context: AuthContext, provider: string, apiKey: string) {
   return apiRequest<AiKeyStatusResponse>("/api/workspace/ai-keys", {
@@ -156,11 +153,11 @@ export function saveServerConfig(context: AuthContext, projectId: number) {
   });
 }
 
-export function savePmConfig(context: AuthContext, opts: { pmTool: "taiga" | "jira"; taigaUrl?: string; jiraBaseUrl?: string }) {
+export function savePmConfig(context: AuthContext, opts: { pmTool: "taiga"; taigaUrl?: string }) {
   return apiRequest<{ ok: boolean }>("/api/workspace/config", {
     method: "POST",
     context,
-    body: { pm_tool: opts.pmTool, taiga_url: opts.taigaUrl ?? "", jira_base_url: opts.jiraBaseUrl ?? "" },
+    body: { pm_tool: opts.pmTool, taiga_url: opts.taigaUrl ?? "" },
   });
 }
 

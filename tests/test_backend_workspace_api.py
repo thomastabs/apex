@@ -255,22 +255,6 @@ def test_get_config_taiga_uses_taiga_web_url(monkeypatch):
     }
 
 
-def test_get_config_jira_uses_jira_web_url(monkeypatch):
-    monkeypatch.setattr(
-        "src.context_manager.load_config",
-        lambda: {"project_id": 7, "pm_tool": "jira", "jira_base_url": "https://acme.atlassian.net"},
-    )
-    monkeypatch.setattr(
-        "src.jira_adapter.get_web_base_url", lambda base: f"{base}/jira/software"
-    )
-
-    response = get_config(_AUTH)
-
-    assert response["pm_tool"] == "jira"
-    assert response["pm_web_url"] == "https://acme.atlassian.net/jira/software"
-    assert response["taiga_web_url"] == "https://acme.atlassian.net/jira/software"
-
-
 # ── save_ai_config ──────────────────────────────────────────────────────────
 
 
@@ -335,7 +319,7 @@ def test_save_ai_config_rejects_unknown_language(monkeypatch):
 
 
 def test_get_ai_config_reports_env_and_personal_providers(monkeypatch):
-    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="", jira_override="": "api_taiga_io")
+    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-env")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
@@ -354,7 +338,7 @@ def test_get_ai_config_personal_key_configured_even_alongside_system_key(monkeyp
     # A saved personal key is always active — a provider with BOTH a system
     # env var and a personal key must still report as configured (via the
     # personal key; ai_engine actually calling it is covered in test_ai_engine.py).
-    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="", jira_override="": "api_taiga_io")
+    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-system-env")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
@@ -380,7 +364,7 @@ def test_get_ai_config_no_account_id_reports_env_only(monkeypatch):
 
 
 def test_save_ai_key_persists_and_clears_llm_cache(monkeypatch):
-    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="", jira_override="": "api_taiga_io")
+    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
     saved: list[tuple] = []
     monkeypatch.setattr(
         "src.ai_key_store.save_key",
@@ -408,7 +392,7 @@ def test_save_ai_key_without_account_id_returns_503():
 
 
 def test_save_ai_key_without_encryption_secret_returns_503(monkeypatch):
-    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="", jira_override="": "api_taiga_io")
+    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
 
     def _boom(instance_id, account_id, provider, api_key):
         raise RuntimeError("AI_KEY_ENCRYPTION_SECRET is not configured on this deployment.")
@@ -421,7 +405,7 @@ def test_save_ai_key_without_encryption_secret_returns_503(monkeypatch):
 
 
 def test_delete_ai_key_removes_and_clears_llm_cache(monkeypatch):
-    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="", jira_override="": "api_taiga_io")
+    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
     deleted: list[tuple] = []
     monkeypatch.setattr(
         "src.ai_key_store.delete_key",
@@ -443,7 +427,7 @@ def test_delete_ai_key_rejects_unknown_provider():
 
 
 def test_delete_ai_key_without_account_id_is_a_noop(monkeypatch):
-    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="", jira_override="": "api_taiga_io")
+    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
     called = []
     monkeypatch.setattr("src.ai_key_store.delete_key", lambda *a: called.append(a))
 
@@ -570,45 +554,26 @@ def test_get_figma_token_returns_decrypted_value(monkeypatch):
     assert get_figma_token(_AUTH) == {"token": "figd_decrypted"}
 
 
-def test_save_config_validates_jira_base_url_against_ssrf(monkeypatch):
-    validated: list[str] = []
-    monkeypatch.setattr(
-        "backend.app.api.jira_proxy.validate_jira_base_url",
-        lambda url, source: validated.append(url),
-    )
-    monkeypatch.setattr(
-        "src.context_manager.save_pm_config",
-        lambda *, pm_tool, jira_base_url, taiga_url: None,
-    )
-
-    response = save_config(
-        SaveConfigRequest(pm_tool="jira", jira_base_url="https://acme.atlassian.net"), _AUTH
-    )
-
-    assert response == {"ok": True}
-    assert validated == ["https://acme.atlassian.net"]
-
-
 def test_save_config_validates_and_saves_taiga_url(monkeypatch):
     validated: list[str] = []
-    saved: list[tuple[str | None, str | None, str | None]] = []
+    saved: list[tuple[str | None, str | None]] = []
     monkeypatch.setattr(
         "backend.app.api.taiga_proxy._validate_taiga_url",
         lambda url, source: validated.append(url),
     )
     monkeypatch.setattr(
         "src.context_manager.save_pm_config",
-        lambda *, pm_tool, jira_base_url, taiga_url: saved.append((pm_tool, jira_base_url, taiga_url)),
+        lambda *, pm_tool, taiga_url: saved.append((pm_tool, taiga_url)),
     )
 
     response = save_config(
-        SaveConfigRequest(pm_tool="taiga", taiga_url="https://private.example.org/api/v1", jira_base_url=""),
+        SaveConfigRequest(pm_tool="taiga", taiga_url="https://private.example.org/api/v1"),
         _AUTH,
     )
 
     assert response == {"ok": True}
     assert validated == ["https://private.example.org/api/v1"]
-    assert saved == [("taiga", "", "https://private.example.org/api/v1")]
+    assert saved == [("taiga", "https://private.example.org/api/v1")]
 
 
 # ── context-file routes: unknown filename guard ───────────────────────────────

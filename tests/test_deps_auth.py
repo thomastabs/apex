@@ -43,8 +43,8 @@ def _mock_pm(status_code: int):
 
     get_auth_context now also calls resolve_account_id (real_auth tests only —
     the global bypass fixture stubs it everywhere else), which parses the same
-    response body for a Taiga `id` / Jira `accountId`; a deterministic body
-    keeps that resolution (and its own dial) predictable here too.
+    response body for a Taiga `id`; a deterministic body keeps that resolution
+    (and its own dial) predictable here too.
     """
     resp = MagicMock()
     resp.is_success = 200 <= status_code < 300
@@ -155,23 +155,6 @@ def test_failed_validation_is_negatively_cached():
             with pytest.raises(HTTPException):
                 deps.get_auth_context("Bearer badtoken")
     assert client.request.call_count == 1
-
-
-def test_jira_workspace_uses_basic_scheme_and_myself():
-    pm, client = _mock_pm(200)
-    config = {"pm_tool": "jira", "jira_base_url": "https://example.atlassian.net"}
-    with pm, patch("src.context_manager.load_config", return_value=config):
-        deps.get_auth_context("Bearer base64basiccred")
-    url = client.request.call_args.args[1]
-    assert url == "https://example.atlassian.net/rest/api/3/myself"
-    assert client.request.call_args.kwargs["headers"]["Authorization"] == "Basic base64basiccred"
-
-
-def test_jira_workspace_without_base_url_raises_503():
-    with patch("src.context_manager.load_config", return_value={"pm_tool": "jira"}):
-        with pytest.raises(HTTPException) as exc:
-            deps.get_auth_context("Bearer sometoken")
-    assert exc.value.status_code == 503
 
 
 # ---------------------------------------------------------------------------
@@ -304,11 +287,11 @@ def test_request_header_beats_stale_config(monkeypatch):
     assert url == "https://current-tunnel.example.org/api/v1/users/me"
 
 
-def test_header_taiga_url_overrides_stale_jira_pm_tool(monkeypatch):
-    # A present X-Taiga-Url is an unambiguous Taiga request even if shared config
-    # still says jira (stale) — it must not be routed to the Jira anchor.
+def test_header_taiga_url_overrides_stale_pm_tool_config(monkeypatch):
+    # A present X-Taiga-Url is an unambiguous Taiga request even if shared
+    # config's pm_tool is stale/unrecognised — it must still anchor to Taiga.
     monkeypatch.delenv("TAIGA_API_URL", raising=False)
-    config = {"pm_tool": "jira", "jira_base_url": "https://acme.atlassian.net"}
+    config = {"pm_tool": "other", "taiga_url": "https://stale.example.org"}
     pm, client = _mock_pm(200)
     with pm, patch("src.context_manager.load_config", return_value=config), _no_dns():
         deps.get_auth_context("Bearer tok", "https://taiga.example.org")
@@ -385,13 +368,6 @@ class TestResolveAccountId:
             account_id = deps.resolve_account_id("Bearer tok")
         assert account_id == "42"
 
-    def test_jira_uses_account_id_field(self, monkeypatch):
-        config = {"pm_tool": "jira", "jira_base_url": "https://acme.atlassian.net"}
-        pm, client = _mock_pm_json(200, {"accountId": "5b10a2844c20", "emailAddress": "a@acme.com"})
-        with pm, patch("src.context_manager.load_config", return_value=config), _no_dns():
-            account_id = deps.resolve_account_id("Basic tok")
-        assert account_id == "5b10a2844c20"
-
     def test_rejected_credentials_yield_empty_string(self, monkeypatch):
         monkeypatch.delenv("TAIGA_API_URL", raising=False)
         pm, client = _mock_pm_json(401)
@@ -451,7 +427,7 @@ class TestLoadPersonalAiKeys:
 
         monkeypatch.setattr(ai_key_store, "_BASE_CONTEXTSPEC", StoragePath(str(tmp_path / "contextspec")))
         monkeypatch.setenv("AI_KEY_ENCRYPTION_SECRET", "test-secret")
-        monkeypatch.setattr(deps, "anchor_instance_id", lambda override="", jira_override="": "api_taiga_io")
+        monkeypatch.setattr(deps, "anchor_instance_id", lambda override="": "api_taiga_io")
         ai_key_store.save_key("api_taiga_io", "42", "openai", "sk-personal-key")
 
         deps._load_personal_ai_keys("42", "")
@@ -468,7 +444,7 @@ class TestLoadPersonalAiKeys:
         # A broken key store must degrade to "no personal key", not break the request.
         from src import ai_engine, ai_key_store
 
-        monkeypatch.setattr(deps, "anchor_instance_id", lambda override="", jira_override="": "api_taiga_io")
+        monkeypatch.setattr(deps, "anchor_instance_id", lambda override="": "api_taiga_io")
         monkeypatch.setattr(ai_key_store, "load_keys", MagicMock(side_effect=RuntimeError("disk on fire")))
         ai_engine.set_user_api_keys({"openai": "sk-stale-from-a-previous-request"})
         deps._load_personal_ai_keys("42", "")  # must not raise

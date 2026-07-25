@@ -45,11 +45,11 @@ class TestSaveAndLoad:
         assert ai_key_store.load_keys("api_taiga_io", "bob") == {"openai": "sk-bobs-key"}
 
     def test_different_instances_isolated(self):
-        # Same account id, two different Taiga/Jira hosts — must not collide.
+        # Same account id, two different Taiga hosts — must not collide.
         ai_key_store.save_key("api_taiga_io", "42", "openai", "sk-cloud-key")
-        ai_key_store.save_key("acme_atlassian_net", "42", "openai", "sk-jira-key")
+        ai_key_store.save_key("acme_taiga_example_com", "42", "openai", "sk-private-key")
         assert ai_key_store.load_keys("api_taiga_io", "42") == {"openai": "sk-cloud-key"}
-        assert ai_key_store.load_keys("acme_atlassian_net", "42") == {"openai": "sk-jira-key"}
+        assert ai_key_store.load_keys("acme_taiga_example_com", "42") == {"openai": "sk-private-key"}
 
     def test_unknown_account_returns_empty(self):
         assert ai_key_store.load_keys("api_taiga_io", "nobody") == {}

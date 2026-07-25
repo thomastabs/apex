@@ -12,7 +12,7 @@ import {
   useUpdateProject,
 } from "@/lib/hooks/use-workspace";
 import type { ProjectTemplate } from "@/lib/api/pm-types";
-import { useSessionStore, useAuthContext } from "@/lib/stores/session-store";
+import { useSessionStore } from "@/lib/stores/session-store";
 import { usePhase2Store } from "@/lib/stores/phase2-store";
 import { usePhase3Store } from "@/lib/stores/phase3-store";
 import { usePhase4Store } from "@/lib/stores/phase4-store";
@@ -39,8 +39,6 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
   const clearPhase3Draft = usePhase3Store((s) => s.clearPhase3Draft);
   const clearPhase4Draft = usePhase4Store((s) => s.clearPhase4Draft);
   const clearPhase5Draft = usePhase5Store((s) => s.clearPhase5Draft);
-  const auth = useAuthContext();
-  const isJira = auth?.pmTool === "jira";
 
   const projects = useProjects();
   const projectTemplates = useProjectTemplates();
@@ -113,18 +111,16 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
               <div className={cn("space-y-1.5 rounded border p-2.5 text-xs", dark ? "border-neutral-700 bg-neutral-950" : "border-slate-200 bg-slate-50")}>
                 <div className="flex items-center justify-between gap-2">
                   <span className={cn("font-semibold", dark ? "text-neutral-200" : "text-slate-800")}>{selectedProject.name}</span>
-                  {!isJira ? (
-                    <button
-                      className={cn(
-                        "flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold transition-colors hover:bg-violet-500/15",
-                        dark ? "text-violet-400" : "text-violet-700",
-                      )}
-                      onClick={() => setShowEdit(true)}
-                      title={t("project.editNameDesc")}
-                    >
-                      <Pencil className="size-3" /> {t("common.edit")}
-                    </button>
-                  ) : null}
+                  <button
+                    className={cn(
+                      "flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold transition-colors hover:bg-violet-500/15",
+                      dark ? "text-violet-400" : "text-violet-700",
+                    )}
+                    onClick={() => setShowEdit(true)}
+                    title={t("project.editNameDesc")}
+                  >
+                    <Pencil className="size-3" /> {t("common.edit")}
+                  </button>
                 </div>
                 <div className={cn("font-mono", dark ? "text-neutral-500" : "text-slate-500")}>
                   {t("project.idLine", { id: selectedProject.id })}{selectedProject.slug ? ` · ${selectedProject.slug}` : ""}
@@ -144,21 +140,15 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
               >
                 <RefreshCw className="size-3" /> {t("common.refresh")}
               </button>
-              {!isJira ? (
-                <button
-                  className={cn(
-                    "flex h-8 items-center justify-center gap-1 rounded border border-violet-500/40 bg-violet-500/10 text-sm font-semibold transition-colors hover:bg-violet-500/20",
-                    dark ? "text-violet-400" : "text-violet-700",
-                  )}
-                  onClick={() => setShowCreate(true)}
-                >
-                  <Plus className="size-3" /> {t("project.createNew")}
-                </button>
-              ) : (
-                <div className="flex h-8 items-center justify-center rounded border border-neutral-700 px-2 text-xs text-neutral-500">
-                  {t("project.createInJiraUi")}
-                </div>
-              )}
+              <button
+                className={cn(
+                  "flex h-8 items-center justify-center gap-1 rounded border border-violet-500/40 bg-violet-500/10 text-sm font-semibold transition-colors hover:bg-violet-500/20",
+                  dark ? "text-violet-400" : "text-violet-700",
+                )}
+                onClick={() => setShowCreate(true)}
+              >
+                <Plus className="size-3" /> {t("project.createNew")}
+              </button>
             </div>
             {projectId ? (
               <button

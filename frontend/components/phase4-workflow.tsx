@@ -959,7 +959,7 @@ function StageD({ storyId, onBack, onNewStory }: { storyId: number; onBack: () =
                   : t("phase4.updatePmStatus")}
               </Button>
               <p className={cn("px-1 text-xs", dark ? "text-neutral-500" : "text-slate-400")}>
-                {t("phase4.pmStatusNote", { pmTool: apiCtx?.pmTool === "jira" ? "Jira" : "Taiga" })}
+                {t("phase4.pmStatusNote", { pmTool: "Taiga" })}
               </p>
             </>
           )}

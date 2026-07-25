@@ -178,25 +178,20 @@ def _local_context_file_labels(context: ContextService) -> list[tuple[str, str]]
 def get_config(
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
-    x_jira_base_url: str = Header(default="", alias="X-Jira-Base-Url"),
     project_id: int | None = None,
 ):
     from src import context_manager, taiga_adapter
     config = context_manager.load_config()
     pm_tool = config.get("pm_tool", "taiga")
-    if pm_tool == "jira":
-        from src import jira_adapter
-        pm_web_url = jira_adapter.get_web_base_url(config.get("jira_base_url", ""))
-    else:
-        pm_web_url = taiga_adapter.get_web_base_url()
-    context_manager.set_active_instance(anchor_instance_id(x_taiga_url, x_jira_base_url))
+    pm_web_url = taiga_adapter.get_web_base_url()
+    context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
     # github_repo/github_pat are per-project — no project_id means no project is
     # selected yet, so there's nothing to scope the read to; report disconnected
     # rather than falling back to some other project's connection.
     github_repo = ""
     github_pat_configured = False
     if project_id is not None:
-        deps._verify_project_access(auth.pm_token, project_id, x_taiga_url, x_jira_base_url)
+        deps._verify_project_access(auth.pm_token, project_id, x_taiga_url)
         context_manager.set_active_project(project_id)
         github_repo = context_manager.get_project_github_repo(project_id)
         github_pat_configured = context_manager.has_project_github_pat(project_id)
@@ -221,7 +216,7 @@ def _system_providers() -> list[str]:
     return [provider for provider, env_var in _AI_KEY_ENV_VARS if os.getenv(env_var)]
 
 
-def _ai_key_status(auth: AuthContext, x_taiga_url: str, x_jira_base_url: str = "") -> dict:
+def _ai_key_status(auth: AuthContext, x_taiga_url: str) -> dict:
     """(personal_providers, configured_providers) for the current account.
 
     A saved personal key is ALWAYS the active credential for that provider —
@@ -233,7 +228,7 @@ def _ai_key_status(auth: AuthContext, x_taiga_url: str, x_jira_base_url: str = "
     if auth.account_id:
         from src import ai_key_store
 
-        personal = ai_key_store.saved_providers(anchor_instance_id(x_taiga_url, x_jira_base_url), auth.account_id)
+        personal = ai_key_store.saved_providers(anchor_instance_id(x_taiga_url), auth.account_id)
     configured = sorted(set(system) | set(personal))
     return {
         "configured_providers": configured,
@@ -246,14 +241,13 @@ def _ai_key_status(auth: AuthContext, x_taiga_url: str, x_jira_base_url: str = "
 def get_ai_config(
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
-    x_jira_base_url: str = Header(default="", alias="X-Jira-Base-Url"),
 ):
     from src.ai_engine import AVAILABLE_MODELS, get_ai_language, get_model
     return {
         "model": get_model(),
         "language": get_ai_language(),
         "available_models": AVAILABLE_MODELS,
-        **_ai_key_status(auth, x_taiga_url, x_jira_base_url),
+        **_ai_key_status(auth, x_taiga_url),
     }
 
 
@@ -262,7 +256,6 @@ def save_ai_config_endpoint(
     payload: SaveAiConfigRequest,
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
-    x_jira_base_url: str = Header(default="", alias="X-Jira-Base-Url"),
 ):
     from src import ai_engine, context_manager
     from src.ai_engine import AVAILABLE_MODELS, get_ai_language, get_model
@@ -282,7 +275,7 @@ def save_ai_config_endpoint(
         "model": model,
         "language": language,
         "available_models": AVAILABLE_MODELS,
-        **_ai_key_status(auth, x_taiga_url, x_jira_base_url),
+        **_ai_key_status(auth, x_taiga_url),
     }
 
 
@@ -291,9 +284,8 @@ def save_ai_key(
     payload: SaveAiKeyRequest,
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
-    x_jira_base_url: str = Header(default="", alias="X-Jira-Base-Url"),
 ):
-    """Save *your* personal AI provider key, tied to your Taiga/Jira account —
+    """Save *your* personal AI provider key, tied to your Taiga account —
     it will be there next time you sign in from anywhere, unlike the AI model
     selection above which is a deployment-wide setting. Does not touch the
     deployment's own *_API_KEY env var — the personal key simply takes
@@ -307,7 +299,7 @@ def save_ai_key(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Could not determine your PM account — try signing in again.",
         )
-    instance_id = anchor_instance_id(x_taiga_url, x_jira_base_url)
+    instance_id = anchor_instance_id(x_taiga_url)
     try:
         ai_key_store.save_key(instance_id, auth.account_id, payload.provider, payload.api_key.strip())
     except RuntimeError as exc:
@@ -321,13 +313,12 @@ def delete_ai_key(
     provider: str,
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
-    x_jira_base_url: str = Header(default="", alias="X-Jira-Base-Url"),
 ):
     from src import ai_engine, ai_key_store
 
     if provider not in ai_key_store.PROVIDERS:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown provider.")
-    instance_id = anchor_instance_id(x_taiga_url, x_jira_base_url)
+    instance_id = anchor_instance_id(x_taiga_url)
     if auth.account_id:
         ai_key_store.delete_key(instance_id, auth.account_id, provider)
         ai_engine._llm_cache.clear()
@@ -340,24 +331,19 @@ def save_config(
     payload: SaveConfigRequest,
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
-    x_jira_base_url: str = Header(default="", alias="X-Jira-Base-Url"),
 ):
-    from backend.app.api.jira_proxy import validate_jira_base_url
     from backend.app.api.taiga_proxy import _validate_taiga_url
     from src import context_manager
     if payload.project_id:
-        deps._verify_project_access(auth.pm_token, payload.project_id, x_taiga_url, x_jira_base_url)
+        deps._verify_project_access(auth.pm_token, payload.project_id, x_taiga_url)
         context_manager.save_config(payload.project_id)
-    if payload.pm_tool is not None or payload.jira_base_url is not None or payload.taiga_url is not None:
-        # Empty string clears the URL (sent when switching back to Taiga);
-        # anything else must pass the same SSRF guard as the proxy paths.
-        if payload.jira_base_url:
-            validate_jira_base_url(payload.jira_base_url, source="jira_base_url")
+    if payload.pm_tool is not None or payload.taiga_url is not None:
+        # Empty string clears the URL; anything else must pass the same SSRF
+        # guard as the proxy paths.
         if payload.taiga_url:
             _validate_taiga_url(payload.taiga_url, source="taiga_url")
         context_manager.save_pm_config(
             pm_tool=payload.pm_tool,
-            jira_base_url=payload.jira_base_url,
             taiga_url=payload.taiga_url,
         )
     if (payload.github_repo is not None or payload.github_pat is not None) and payload.project_id is None:
@@ -366,13 +352,13 @@ def save_config(
             detail="project_id required to save GitHub config (per-project, not per-instance).",
         )
     if payload.github_repo is not None:
-        deps._verify_project_access(auth.pm_token, payload.project_id, x_taiga_url, x_jira_base_url)
-        context_manager.set_active_instance(anchor_instance_id(x_taiga_url, x_jira_base_url))
+        deps._verify_project_access(auth.pm_token, payload.project_id, x_taiga_url)
+        context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
         context_manager.set_active_project(payload.project_id)
         context_manager.save_project_github_repo(payload.github_repo)
     if payload.figma_file_key is not None:
         # Per-instance: the Figma file belongs to the Taiga instance this request is for.
-        context_manager.set_active_instance(anchor_instance_id(x_taiga_url, x_jira_base_url))
+        context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
         context_manager.save_instance_figma_file_key(payload.figma_file_key)
     # github_pat/figma_token are encrypted at rest (AI_KEY_ENCRYPTION_SECRET) —
     # if that secret isn't configured on this deployment, encrypt_value() raises
@@ -380,15 +366,15 @@ def save_config(
     # own connect attempt (setGithub/setFigma in the browser session) to
     # succeed regardless of whether server-side persistence is available.
     if payload.github_pat is not None:
-        deps._verify_project_access(auth.pm_token, payload.project_id, x_taiga_url, x_jira_base_url)
-        context_manager.set_active_instance(anchor_instance_id(x_taiga_url, x_jira_base_url))
+        deps._verify_project_access(auth.pm_token, payload.project_id, x_taiga_url)
+        context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
         context_manager.set_active_project(payload.project_id)
         try:
             context_manager.save_project_github_pat(payload.github_pat)
         except RuntimeError as exc:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     if payload.figma_token is not None:
-        context_manager.set_active_instance(anchor_instance_id(x_taiga_url, x_jira_base_url))
+        context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
         try:
             context_manager.save_instance_figma_token(payload.figma_token)
         except RuntimeError as exc:
@@ -400,7 +386,6 @@ def save_config(
 def get_github_pat(
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
-    x_jira_base_url: str = Header(default="", alias="X-Jira-Base-Url"),
     project_id: int | None = None,
 ):
     """Dedicated reveal endpoint — the decrypted PAT, for the client to restore
@@ -410,8 +395,8 @@ def get_github_pat(
     from src import context_manager
     if project_id is None:
         return {"pat": ""}
-    deps._verify_project_access(auth.pm_token, project_id, x_taiga_url, x_jira_base_url)
-    context_manager.set_active_instance(anchor_instance_id(x_taiga_url, x_jira_base_url))
+    deps._verify_project_access(auth.pm_token, project_id, x_taiga_url)
+    context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
     context_manager.set_active_project(project_id)
     return {"pat": context_manager.get_project_github_pat(project_id)}
 
@@ -420,11 +405,10 @@ def get_github_pat(
 def get_figma_token(
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
-    x_jira_base_url: str = Header(default="", alias="X-Jira-Base-Url"),
 ):
     """Dedicated reveal endpoint — see get_github_pat."""
     from src import context_manager
-    context_manager.set_active_instance(anchor_instance_id(x_taiga_url, x_jira_base_url))
+    context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
     return {"token": context_manager.get_instance_figma_token()}
 
 
@@ -432,7 +416,6 @@ def get_figma_token(
 def get_github_webhook_config(
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
-    x_jira_base_url: str = Header(default="", alias="X-Jira-Base-Url"),
     project_id: int | None = None,
 ):
     """Secret + instance id for wiring up POST /api/webhooks/github/{instance_id}/{project_id}
@@ -444,7 +427,7 @@ def get_github_webhook_config(
     github_pat had, and rotating it would break every already-configured GitHub
     webhook) — only the "configured" flag below is project-scoped."""
     from src import context_manager
-    instance_id = anchor_instance_id(x_taiga_url, x_jira_base_url)
+    instance_id = anchor_instance_id(x_taiga_url)
     context_manager.set_active_instance(instance_id)
     configured = False
     if project_id is not None:

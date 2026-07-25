@@ -1,4 +1,4 @@
-"""Self-heal HTTP send shared by the PM proxies (Taiga, Jira).
+"""Self-heal HTTP send shared by the PM proxies (Taiga).
 
 Azure Container Apps outbound flows to a single destination can silently die
 (SNAT path drop / upstream throttling) while the pooled httpx client keeps
@@ -17,8 +17,8 @@ import httpx
 
 CONNECT_ERRORS = (httpx.ConnectError, httpx.ConnectTimeout)
 
-# Generous cap for Taiga/Jira JSON payloads — bounds memory/forwarding cost of a
-# misbehaving or compromised upstream (audit M8). Taiga/Jira are pre-validated,
+# Generous cap for Taiga JSON payloads — bounds memory/forwarding cost of a
+# misbehaving or compromised upstream (audit M8). Taiga is a pre-validated,
 # user-configured hosts (not arbitrary attacker-controlled ones), so a post-
 # download check is a proportionate bound here rather than full response
 # streaming: send_with_retry already reads the body fully via httpx's

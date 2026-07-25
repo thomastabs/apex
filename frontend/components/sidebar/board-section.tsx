@@ -347,7 +347,7 @@ function StoryDialog({ story, regressed = false, trace = null, figmaNodeId = "",
     const apexChanged = apexStatus !== "" && apexStatus !== (phaseQuery.data?.phase_status ?? "");
 
     // Apex status lives entirely in the story index — independent of the PM
-    // (Taiga/Jira) story fields below, which need a version for optimistic
+    // (Taiga) story fields below, which need a version for optimistic
     // concurrency. Firing it unconditionally means it's never silently
     // skipped by a missing version or a failed PM save. Awaited here (rather
     // than fire-and-forget .mutate() + immediate onClose()) because closing

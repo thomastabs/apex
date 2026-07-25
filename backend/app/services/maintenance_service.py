@@ -9,7 +9,7 @@ from backend.app.services.request_context import RequestContext
 
 _logger = logging.getLogger("apex.maintenance_service")
 
-_VALID_SOURCES = ("manual", "github", "taiga", "jira", "figma")
+_VALID_SOURCES = ("manual", "github", "taiga", "figma")
 _VALID_LANES = ("fast", "secure")
 
 
