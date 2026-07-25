@@ -333,7 +333,7 @@ export const translations = {
 
     // ── phase2 (Design) ──
     "phase2.heading": "Design",
-    "phase2.subtitle": "Generate, review, and lock the project's design — UX, API surface, data model, and runtime contract — before implementation begins.",
+    "phase2.subtitle": "Generate, review, and lock the project's design — UX, API surface, data model, runtime contract, and deployment target — before implementation begins.",
     "phase2.diagramAlt": "Phase 2 design process diagram",
     "phase2.signInBody": "Sign in and select a project in the sidebar to unlock Phase 2 design tools.",
     "phase2.step.techStack": "Tech Stack",
@@ -404,7 +404,7 @@ export const translations = {
     "phase2.section.dataModel.title": "Data Model",
     "phase2.section.dataModel.desc": "Core entities, fields, and relations derived from the endpoint list.",
     "phase2.section.runtime.title": "Runtime Contract",
-    "phase2.section.runtime.desc": "How the pieces become one running prototype — app shell paths, migration command, session bootstrap, and a First Prototype Path demo walkthrough. Once locked, mark the story that implements this contract as its epic's scaffold story in Phase 3 — Autopilot builds it first.",
+    "phase2.section.runtime.desc": "How the pieces become one running prototype — app shell paths, migration command, session bootstrap, a First Prototype Path demo walkthrough, and the deployment target (hosting platform, CI/CD, env/secrets shape). Once locked, mark the story that implements this contract as its epic's scaffold story in Phase 3 — Autopilot builds it first.",
     "phase2.step.uxBrief": "Writing UX Brief…",
     "phase2.step.endpoints": "Defining Endpoints…",
     "phase2.step.dataModel": "Building Data Model…",
@@ -1987,7 +1987,7 @@ export const translations = {
     "phase1.toast.restoredEpicGone": "O épico restaurado já não existe neste projeto. Selecione um novo épico.",
 
     "phase2.heading": "Design",
-    "phase2.subtitle": "Gere, reveja e bloqueie o design do projeto — UX, superfície da API, modelo de dados e contrato de runtime — antes de iniciar a implementação.",
+    "phase2.subtitle": "Gere, reveja e bloqueie o design do projeto — UX, superfície da API, modelo de dados, contrato de runtime e alvo de deployment — antes de iniciar a implementação.",
     "phase2.diagramAlt": "Diagrama do processo de design da Fase 2",
     "phase2.signInBody": "Inicie sessão e selecione um projeto na barra lateral para desbloquear as ferramentas de design da Fase 2.",
     "phase2.step.techStack": "Stack Tecnológica",
@@ -2058,7 +2058,7 @@ export const translations = {
     "phase2.section.dataModel.title": "Modelo de Dados",
     "phase2.section.dataModel.desc": "Entidades principais, campos e relações derivadas da lista de endpoints.",
     "phase2.section.runtime.title": "Contrato de Runtime",
-    "phase2.section.runtime.desc": "Como as peças se tornam um único protótipo em funcionamento — caminhos da app shell, comando de migração, arranque de sessão e um percurso de demonstração do Caminho do Primeiro Protótipo. Depois de bloqueado, marque a história que implementa este contrato como a história scaffold do seu épico na Fase 3 — o Autopilot constrói-a primeiro.",
+    "phase2.section.runtime.desc": "Como as peças se tornam um único protótipo em funcionamento — caminhos da app shell, comando de migração, arranque de sessão, um percurso de demonstração do Caminho do Primeiro Protótipo, e o alvo de deployment (plataforma de alojamento, CI/CD, forma das variáveis de ambiente/segredos). Depois de bloqueado, marque a história que implementa este contrato como a história scaffold do seu épico na Fase 3 — o Autopilot constrói-a primeiro.",
     "phase2.step.uxBrief": "A escrever o UX Brief…",
     "phase2.step.endpoints": "A definir Endpoints…",
     "phase2.step.dataModel": "A construir o Modelo de Dados…",
