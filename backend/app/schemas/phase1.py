@@ -58,7 +58,8 @@ class AnalyzeGapsResponse(BaseModel):
 
 class GenerateNlStoriesRequest(ExtraContextMixin):
     epic_subject: str = Field(..., max_length=500)
-    epic_description: str = Field("", max_length=5_000)
+    # See ExistingEpicSchema.description above — same unbounded-PM-field issue.
+    epic_description: str = Field("", max_length=20_000)
     hint: str = Field("", max_length=2_000)
     instructions: str = Field("", max_length=2_000)
 
@@ -88,7 +89,8 @@ class GenerateStoriesFromFigmaRequest(ExtraContextMixin):
 
 class CrossCheckRequest(ExtraContextMixin):
     epic_subject: str = Field(..., max_length=500)
-    epic_description: str = Field("", max_length=5_000)
+    # See ExistingEpicSchema.description above — same unbounded-PM-field issue.
+    epic_description: str = Field("", max_length=20_000)
     hint: str = Field("", max_length=2_000)
     alt_model: str = Field("", max_length=100)
 
@@ -117,7 +119,8 @@ class ClarifyingQuestionSchema(BaseModel):
 
 class GenerateClarifyingQuestionsRequest(ExtraContextMixin):
     epic_subject: str = Field(..., max_length=500)
-    epic_description: str = Field("", max_length=5_000)
+    # See ExistingEpicSchema.description above — same unbounded-PM-field issue.
+    epic_description: str = Field("", max_length=20_000)
     nl_draft: str = Field(..., max_length=50_000)
     hint: str = Field("", max_length=2_000)
 

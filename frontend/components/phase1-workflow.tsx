@@ -1111,7 +1111,7 @@ export function Phase1Workflow() {
                 disabled={!canGenerate || busy || noContext}
                 onClick={() =>
                   generate.mutate(
-                    { epic_subject: epicTitle, epic_description: epicDescription, hint: generateHint, extra_context_files: generateExtraContext },
+                    { epic_subject: epicTitle.slice(0, 500), epic_description: epicDescription.slice(0, 20_000), hint: generateHint, extra_context_files: generateExtraContext },
                     {
                       onSuccess: (data) => {
                         setNlDraft(data.nl_draft);
@@ -1169,7 +1169,7 @@ export function Phase1Workflow() {
                     disabled={busy || noContext || !epicTitle.trim()}
                     onClick={() =>
                       crossCheck.mutate(
-                        { epic_subject: epicTitle, epic_description: epicDescription, altModel, extra_context_files: generateExtraContext },
+                        { epic_subject: epicTitle.slice(0, 500), epic_description: epicDescription.slice(0, 20_000), altModel, extra_context_files: generateExtraContext },
                         {
                           onSuccess: (r) => {
                             setCrossResult(r);
@@ -1217,7 +1217,7 @@ export function Phase1Workflow() {
                 disabled={busy || noContext || !nlDraft.trim()}
                 onClick={() =>
                   clarify.mutate(
-                    { epic_subject: epicTitle, epic_description: epicDescription, nl_draft: nlDraft, hint: generateHint, extra_context_files: reviewExtraContext },
+                    { epic_subject: epicTitle.slice(0, 500), epic_description: epicDescription.slice(0, 20_000), nl_draft: nlDraft, hint: generateHint, extra_context_files: reviewExtraContext },
                     {
                       onSuccess: (data) => {
                         setQaQuestions(data.questions);
