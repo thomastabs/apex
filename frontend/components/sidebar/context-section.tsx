@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { BookOpen, Bot, Check, ChevronRight, Download, FileText, RefreshCw, Save, Sparkles, Trash2, Upload } from "lucide-react";
+import { BookOpen, Bot, Check, ChevronRight, Download, FileText, Github, RefreshCw, Save, Sparkles, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import {
   useAiConfig,
@@ -10,10 +10,12 @@ import {
   useContextWikiStatus,
   useGenerateAgentFile,
   usePublishContextToWiki,
+  usePullAgentFilesFromGithub,
   usePullContextFromWiki,
   useRebuildStoryIndex,
   useResetAllContextFiles,
   useResetContextFile,
+  useServerConfig,
   useUpdateContextFile,
   useUpdateAgentFile,
 } from "@/lib/hooks/use-workspace";
@@ -484,6 +486,9 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
   const pullWiki = usePullContextFromWiki();
   const rebuildIndex = useRebuildStoryIndex();
   const resetAll = useResetAllContextFiles();
+  const serverConfig = useServerConfig();
+  const pullAgentFiles = usePullAgentFilesFromGithub();
+  const githubConnected = Boolean(serverConfig.data?.github_repo) && Boolean(serverConfig.data?.github_pat_configured);
 
   // Search-result jump target (set by the command palette) — see SearchFocus
   // in ui-store.ts. Consumed once, then cleared.
@@ -947,6 +952,27 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                   >
                     <span>{t("agentFiles.reload")}</span>
                     <RefreshCw className="size-4 text-violet-400" />
+                  </button>
+                  <button
+                    className={cn(
+                      "flex h-9 w-full items-center justify-between rounded border border-violet-500/30 px-3 text-sm transition-colors hover:border-violet-500/60 hover:bg-violet-500/15 disabled:cursor-not-allowed disabled:opacity-40",
+                      dark ? "text-violet-300 hover:text-violet-200" : "text-violet-700 hover:text-violet-800",
+                    )}
+                    disabled={!githubConnected || pullAgentFiles.isPending}
+                    title={githubConnected ? undefined : t("agentFiles.pullFromGithubNeedsConnection")}
+                    onClick={() => pullAgentFiles.mutate(undefined, {
+                      onSuccess: (data) => {
+                        if (data.pulled.length) {
+                          toast.success(t("agentFiles.pullFromGithubSuccess", { n: data.pulled.length }));
+                        } else {
+                          toast.info(t("agentFiles.pullFromGithubNoneFound"));
+                        }
+                      },
+                      onError: (e) => toast.error(e instanceof Error ? e.message : t("agentFiles.pullFromGithubFailed")),
+                    })}
+                  >
+                    <span>{pullAgentFiles.isPending ? t("common.loading") : t("agentFiles.pullFromGithub")}</span>
+                    <Github className="size-4 text-violet-400" />
                   </button>
                   <button
                     className={cn(

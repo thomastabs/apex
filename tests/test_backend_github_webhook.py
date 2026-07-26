@@ -215,11 +215,46 @@ class TestRunRepackInternals:
         monkeypatch.setattr(gw.ContextService, "amend_locked_spec", lambda self, name, note="": amend_calls.append((name, note)))
         monkeypatch.setattr(gw.github_fetch, "fetch_default_branch", lambda pat, owner, repo: "main")
         monkeypatch.setattr(gw.github_fetch, "clone_and_pack", lambda pat, owner, repo, ref: "# packed content")
+        monkeypatch.setattr(gw.github_fetch, "fetch_file", lambda pat, owner, repo, ref, path: None)
 
         gw._run_repack("inst", 42)
 
         assert written["github-context.md"] == "# packed content"
         assert amend_calls == [("github-context.md", "Server-side GitHub sync (auto, push webhook)")]
+
+    def test_also_pulls_agent_files_found_in_the_repo(self, monkeypatch):
+        monkeypatch.setattr(gw.ContextService, "set_active", lambda self, ctx: None)
+        monkeypatch.setattr(gw.ContextService, "github_pat", lambda self: "ghp_test")
+        monkeypatch.setattr(gw.ContextService, "github_repo", lambda self: "acme/widgets")
+        written: dict[str, str] = {}
+        amend_calls = []
+        monkeypatch.setattr(gw.ContextService, "write_context_file", lambda self, name, content: written.update({name: content}))
+        monkeypatch.setattr(gw.ContextService, "write_agent_file", lambda self, name, content: written.update({name: content}))
+        monkeypatch.setattr(gw.ContextService, "amend_locked_spec", lambda self, name, note="": amend_calls.append((name, note)))
+        monkeypatch.setattr(gw.github_fetch, "fetch_default_branch", lambda pat, owner, repo: "main")
+        monkeypatch.setattr(gw.github_fetch, "clone_and_pack", lambda pat, owner, repo, ref: "# packed content")
+
+        remote = {"CLAUDE.md": "# Claude\n"}
+        monkeypatch.setattr(gw.github_fetch, "fetch_file", lambda pat, owner, repo, ref, path: remote.get(path))
+
+        # Repo-root write must fail (OSError) so pull_agent_files_from_github
+        # falls back to write_agent_file, exactly like update_agent_file does.
+        import backend.app.api.workspace as ws
+
+        class ReadOnlyAgentPath:
+            def exists(self) -> bool:
+                return False
+
+            def write_text(self, content: str, encoding: str = "utf-8") -> None:
+                raise OSError("read-only application filesystem")
+
+        monkeypatch.setattr(ws, "_agent_file_path", lambda filename: ReadOnlyAgentPath())
+
+        gw._run_repack("inst", 42)
+
+        assert written["github-context.md"] == "# packed content"
+        assert written["CLAUDE.md"] == "# Claude\n"
+        assert ("CLAUDE.md", "Pulled from GitHub (auto, push webhook)") in amend_calls
 
     def test_skips_silently_when_no_pat_configured(self, monkeypatch):
         monkeypatch.setattr(gw.ContextService, "set_active", lambda self, ctx: None)

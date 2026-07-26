@@ -166,6 +166,12 @@ class GenerateAgentFileResponse(BaseModel):
     grounding_files: list[str] = Field(default_factory=list)
 
 
+class PullAgentFilesFromGithubResponse(BaseModel):
+    files: list[AgentFileSchema]
+    pulled: list[str] = Field(default_factory=list)
+    not_found: list[str] = Field(default_factory=list)
+
+
 class UpdateContextFileRequest(BaseModel):
     content: str = Field(..., max_length=5_242_880)  # 5 MB
     note: str = Field("", max_length=500)

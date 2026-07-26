@@ -260,3 +260,28 @@ class TestFetchDefaultBranch:
     def test_falls_back_to_main_when_missing(self, monkeypatch):
         monkeypatch.setattr(gf, "_get", lambda path, pat: {})
         assert gf.fetch_default_branch("pat", "acme", "widgets") == "main"
+
+
+class TestFetchFile:
+    def test_returns_decoded_content(self, monkeypatch):
+        import base64
+        encoded = base64.b64encode(b"# CLAUDE.md\n\nHello.").decode()
+        monkeypatch.setattr(gf, "_get", lambda path, pat: {"type": "file", "encoding": "base64", "content": encoded})
+        assert gf.fetch_file("pat", "acme", "widgets", "main", "CLAUDE.md") == "# CLAUDE.md\n\nHello."
+
+    def test_returns_none_on_404(self, monkeypatch):
+        def _raise(path, pat):
+            raise gf.GithubFetchError("not found", status_code=404)
+        monkeypatch.setattr(gf, "_get", _raise)
+        assert gf.fetch_file("pat", "acme", "widgets", "main", "GEMINI.md") is None
+
+    def test_reraises_non_404_errors(self, monkeypatch):
+        def _raise(path, pat):
+            raise gf.GithubFetchError("rate limited", status_code=429)
+        monkeypatch.setattr(gf, "_get", _raise)
+        with pytest.raises(gf.GithubFetchError):
+            gf.fetch_file("pat", "acme", "widgets", "main", "CLAUDE.md")
+
+    def test_returns_none_for_a_directory(self, monkeypatch):
+        monkeypatch.setattr(gf, "_get", lambda path, pat: [{"type": "file", "name": "a.md"}])
+        assert gf.fetch_file("pat", "acme", "widgets", "main", "docs") is None

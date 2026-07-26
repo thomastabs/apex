@@ -186,6 +186,27 @@ def fetch_default_branch(pat: str, owner: str, repo: str) -> str:
     return data.get("default_branch") or "main"
 
 
+def fetch_file(pat: str, owner: str, repo: str, ref: str, path: str) -> str | None:
+    """Fetch one file's raw text content from the repo at `ref`, or None if
+    it doesn't exist at that path (e.g. the repo has no CLAUDE.md).
+
+    A single Contents-API GET — proportionate to one small file, unlike
+    clone_and_pack's full shallow clone + repomix pack of the whole tree.
+    """
+    try:
+        data = _get(f"/repos/{owner}/{repo}/contents/{path}?ref={ref}", pat)
+    except GithubFetchError as exc:
+        if exc.status_code == 404:
+            return None
+        raise
+    if not isinstance(data, dict) or data.get("type") != "file" or data.get("encoding") != "base64":
+        return None
+    try:
+        return base64.b64decode(data.get("content", "")).decode("utf-8", errors="replace")
+    except (ValueError, UnicodeDecodeError):
+        return None
+
+
 def _dir_size_bytes(path: Path) -> int:
     total = 0
     for entry in path.rglob("*"):

@@ -40,6 +40,7 @@ from backend.app.schemas.workspace import (
     LogDecisionRequest,
     OkResponse,
     PhaseStatusResponse,
+    PullAgentFilesFromGithubResponse,
     SaveAiConfigRequest,
     SaveAiKeyRequest,
     AcknowledgeFigmaChangeRequest,
@@ -753,6 +754,65 @@ def update_agent_file(
     except OSError:
         ctx_service.write_agent_file(filename, payload.content)
     return get_agent_files(_ctx)
+
+
+def pull_agent_files_from_github(
+    context: ContextService, pat: str, owner: str, repo: str, ref: str, *, note: str,
+) -> tuple[list[str], list[str]]:
+    """Fetch each allowlisted agent file from the repo at `ref` and write it
+    into the same slot `update_agent_file` (Save) writes to — repo-root file
+    first (local dev, self-managed instance), falling back to project-scoped
+    storage on OSError (prod, where the repo root is Apex's own read-only
+    deployed code, not the target project's checkout).
+
+    Returns (pulled, not_found) filenames. A repo simply not having e.g.
+    GEMINI.md is normal, not an error — only surfaced so the caller can show
+    which of the four were actually found.
+    """
+    pulled: list[str] = []
+    not_found: list[str] = []
+    for filename, _label in _AGENT_FILES:
+        content = github_fetch.fetch_file(pat, owner, repo, ref, filename)
+        if content is None:
+            not_found.append(filename)
+            continue
+        path = _agent_file_path(filename)
+        try:
+            path.write_text(content, encoding="utf-8")
+        except OSError:
+            context.write_agent_file(filename, content)
+        context.amend_locked_spec(filename, note)
+        pulled.append(filename)
+    return pulled, not_found
+
+
+@router.post("/agent-files/pull-from-github", response_model=PullAgentFilesFromGithubResponse)
+def pull_agent_files_from_github_route(
+    ctx: RequestContext = Depends(get_request_context),
+    _rl: None = Depends(ai_rate_limit),
+):
+    """Manual counterpart to the push-webhook auto-refresh: re-fetch AGENTS.md/
+    CLAUDE.md/CODEX.md/GEMINI.md from the connected GitHub repo right now,
+    without waiting for a push."""
+    context = ContextService()
+    context.set_active(ctx)
+    pat = context.github_pat()
+    repo_full = (context.github_repo() or "").strip()
+    if not pat:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No GitHub PAT configured.")
+    if not repo_full or "/" not in repo_full:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No GitHub repo configured.")
+    owner, _, repo = repo_full.partition("/")
+    try:
+        ref = github_fetch.fetch_default_branch(pat, owner, repo)
+        pulled, not_found = pull_agent_files_from_github(
+            context, pat, owner, repo, ref, note="Pulled from GitHub (manual)",
+        )
+    except github_fetch.GithubFetchError as exc:
+        code = exc.status_code if exc.status_code in (401, 403, 429) else status.HTTP_502_BAD_GATEWAY
+        raise HTTPException(status_code=code, detail=str(exc)) from exc
+    refreshed = get_agent_files(ctx)
+    return {**refreshed, "pulled": pulled, "not_found": not_found}
 
 
 @router.get("/traceability-graph", response_model=TraceabilityGraphResponse)

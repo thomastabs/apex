@@ -1023,6 +1023,78 @@ class TestSyncGithubContextRoute:
         assert exc.value.status_code == 502
 
 
+class TestPullAgentFilesFromGithubRoute:
+    def _ctx(self):
+        return RequestContext(pm_token="tok", project_id=42)
+
+    def test_pulls_and_writes_found_files(self, tmp_path, monkeypatch):
+        from backend.app.api import workspace as ws
+        from backend.app.services import github_fetch
+
+        monkeypatch.setattr(ws, "_REPO_ROOT", tmp_path)
+        monkeypatch.setattr(ws.ContextService, "set_active", lambda self, ctx: None)
+        monkeypatch.setattr(ws.ContextService, "github_pat", lambda self: "ghp_test")
+        monkeypatch.setattr(ws.ContextService, "github_repo", lambda self: "acme/widgets")
+        monkeypatch.setattr(github_fetch, "fetch_default_branch", lambda pat, owner, repo: "main")
+
+        remote = {"AGENTS.md": "# Agents\n", "CLAUDE.md": "# Claude\n"}
+        monkeypatch.setattr(
+            github_fetch, "fetch_file",
+            lambda pat, owner, repo, ref, path: remote.get(path),
+        )
+        amend_calls = []
+        monkeypatch.setattr(ws.ContextService, "amend_locked_spec", lambda self, name, note="": amend_calls.append((name, note)))
+
+        resp = ws.pull_agent_files_from_github_route(ctx=self._ctx())
+
+        assert sorted(resp["pulled"]) == ["AGENTS.md", "CLAUDE.md"]
+        assert sorted(resp["not_found"]) == ["CODEX.md", "GEMINI.md"]
+        assert (tmp_path / "AGENTS.md").read_text(encoding="utf-8") == "# Agents\n"
+        assert (tmp_path / "CLAUDE.md").read_text(encoding="utf-8") == "# Claude\n"
+        assert ("AGENTS.md", "Pulled from GitHub (manual)") in amend_calls
+        assert ("CLAUDE.md", "Pulled from GitHub (manual)") in amend_calls
+        claude = next(f for f in resp["files"] if f["filename"] == "CLAUDE.md")
+        assert claude["content"] == "# Claude\n"
+
+    def test_requires_pat(self, monkeypatch):
+        from backend.app.api import workspace as ws
+
+        monkeypatch.setattr(ws.ContextService, "set_active", lambda self, ctx: None)
+        monkeypatch.setattr(ws.ContextService, "github_pat", lambda self: "")
+        monkeypatch.setattr(ws.ContextService, "github_repo", lambda self: "acme/widgets")
+
+        with pytest.raises(HTTPException) as exc:
+            ws.pull_agent_files_from_github_route(ctx=self._ctx())
+        assert exc.value.status_code == 400
+
+    def test_requires_repo(self, monkeypatch):
+        from backend.app.api import workspace as ws
+
+        monkeypatch.setattr(ws.ContextService, "set_active", lambda self, ctx: None)
+        monkeypatch.setattr(ws.ContextService, "github_pat", lambda self: "ghp_test")
+        monkeypatch.setattr(ws.ContextService, "github_repo", lambda self: "")
+
+        with pytest.raises(HTTPException) as exc:
+            ws.pull_agent_files_from_github_route(ctx=self._ctx())
+        assert exc.value.status_code == 400
+
+    def test_maps_fetch_error_status_code_through(self, monkeypatch):
+        from backend.app.api import workspace as ws
+        from backend.app.services import github_fetch
+
+        def boom(pat, owner, repo):
+            raise github_fetch.GithubFetchError("GitHub rejected the token.", status_code=401)
+
+        monkeypatch.setattr(github_fetch, "fetch_default_branch", boom)
+        monkeypatch.setattr(ws.ContextService, "set_active", lambda self, ctx: None)
+        monkeypatch.setattr(ws.ContextService, "github_pat", lambda self: "bad_pat")
+        monkeypatch.setattr(ws.ContextService, "github_repo", lambda self: "acme/widgets")
+
+        with pytest.raises(HTTPException) as exc:
+            ws.pull_agent_files_from_github_route(ctx=self._ctx())
+        assert exc.value.status_code == 401
+
+
 class TestGithubPackConfigRoute:
     def _ctx(self):
         return RequestContext(pm_token="tok", project_id=42)

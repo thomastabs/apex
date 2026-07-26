@@ -252,6 +252,11 @@ export type AgentFilesResponse = {
   files: AgentFile[];
 };
 
+export type PullAgentFilesFromGithubResponse = AgentFilesResponse & {
+  pulled: string[];
+  not_found: string[];
+};
+
 export type GenerateAgentFileResponse = {
   filename: string;
   content: string;
@@ -275,6 +280,14 @@ export function updateAgentFile(context: RequestContext, filename: string, conte
     method: "PUT",
     context,
     body: { content },
+  });
+}
+
+export function pullAgentFilesFromGithub(context: RequestContext) {
+  return apiRequest<PullAgentFilesFromGithubResponse>("/api/workspace/agent-files/pull-from-github", {
+    method: "POST",
+    context,
+    timeoutMs: 30_000,
   });
 }
 

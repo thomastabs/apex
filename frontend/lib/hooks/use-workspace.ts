@@ -58,6 +58,7 @@ import {
   saveStatusMapping,
   setStoryPhaseStatus,
   setStoryScaffold,
+  pullAgentFilesFromGithub,
   updateAgentFile,
   updateContextFile,
   updateEpic,
@@ -195,6 +196,17 @@ export function useGenerateAgentFile() {
   return useMutation({
     mutationFn: ({ filename, groundingFiles }: { filename: string; groundingFiles: string[] }) =>
       generateAgentFile(context!, filename, groundingFiles),
+  });
+}
+
+export function usePullAgentFilesFromGithub() {
+  const context = useApiContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => pullAgentFilesFromGithub(context!),
+    onSuccess: (data) => {
+      queryClient.setQueryData(["workspace", "agent-files", context?.projectId], { files: data.files });
+    },
   });
 }
 

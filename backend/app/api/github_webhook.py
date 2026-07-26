@@ -26,6 +26,7 @@ import time
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request, status
 
+from backend.app.api.workspace import pull_agent_files_from_github
 from backend.app.services import github_fetch
 from backend.app.services.context_service import ContextService
 from backend.app.services.phase5_service import Phase5Service
@@ -94,6 +95,14 @@ def _run_repack(instance_id: str, project_id: int) -> None:
         context.write_context_file("github-context.md", md)
         context.amend_locked_spec("github-context.md", "Server-side GitHub sync (auto, push webhook)")
         _logger.info("github_webhook_repack instance=%s project=%s chars=%s", instance_id, project_id, len(md))
+        # Same PAT/repo/ref already resolved above — one extra Contents-API GET
+        # per allowlisted filename (AGENTS.md/CLAUDE.md/CODEX.md/GEMINI.md),
+        # proportionate to one small file each, unlike the clone+repack above.
+        pulled, _not_found = pull_agent_files_from_github(
+            context, pat, owner, repo, ref, note="Pulled from GitHub (auto, push webhook)",
+        )
+        if pulled:
+            _logger.info("github_webhook_agent_files instance=%s project=%s pulled=%s", instance_id, project_id, pulled)
     except Exception:
         _logger.warning(
             "github_webhook_repack_failed instance=%s project=%s",
