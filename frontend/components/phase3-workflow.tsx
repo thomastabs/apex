@@ -57,7 +57,7 @@ import { usePhase3Store } from "@/lib/stores/phase3-store";
 import { useDiffStore } from "@/lib/stores/diff-store";
 import { useApiContext, useGithubContext } from "@/lib/stores/session-store";
 import { SignInRequired } from "@/components/sign-in-required";
-import { useAiConfig, useServerConfig, useLogDecision, useSetStoryScaffold } from "@/lib/hooks/use-workspace";
+import { useAiConfig, useBoltConfig, useServerConfig, useLogDecision, useSetStoryScaffold } from "@/lib/hooks/use-workspace";
 import { CrossCheckPanel, AltModelSelect } from "@/components/cross-check-panel";
 import { GuideTheAI } from "@/components/guide-the-ai";
 import { StoryBreadcrumb } from "@/components/story-breadcrumb";
@@ -1040,6 +1040,22 @@ function StageC({ storyId }: { storyId: number }) {
   const generateProposal = useGenerateProposal();
   const saveProposalMut = useSaveProposal();
   const boltStatusMut = useUpdateBoltStatus();
+  const boltConfig = useBoltConfig();
+
+  // The Bolts board supports user-defined custom stages beyond the original
+  // fixed pack_ready/pushed/done set — t(`phase3.boltStatus.${status}`) only
+  // has entries for those three, so a task sitting in a custom stage used to
+  // render the raw, untranslated i18n key (e.g. "phase3.boltStatus.review").
+  // Resolve against the actual configured stage label instead.
+  function boltStatusLabel(status: string): string {
+    const config = boltConfig.data;
+    if (status === "pack_ready") return config?.pack_ready_label || t("phase3.boltStatus.pack_ready");
+    if (status === "done") return config?.done_label || t("phase3.boltStatus.done");
+    const stage = config?.stages.find((s) => s.key === status);
+    if (stage) return stage.label;
+    if (status === "pushed") return t("phase3.boltStatus.pushed");
+    return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  }
 
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [generatingTaskId, setGeneratingTaskId] = useState<number | null>(null);
@@ -1257,7 +1273,7 @@ function StageC({ storyId }: { storyId: number }) {
                           <Zap className="h-3 w-3" />
                           {selectedTask.bolt_status === "done" && selectedTask.bolt_cycle_hours != null
                             ? t("phase3.boltDoneWithHours", { hours: selectedTask.bolt_cycle_hours })
-                            : t(`phase3.boltStatus.${selectedTask.bolt_status}` as TranslationKey)}
+                            : boltStatusLabel(selectedTask.bolt_status)}
                         </span>
                       )}
                     </div>

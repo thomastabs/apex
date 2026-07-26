@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronRight, GripVertical, Layers, Loader2, Plus, SlidersHorizontal, TriangleAlert, X, Zap } from "lucide-react";
+import { ChevronLeft, ChevronRight, GripVertical, Layers, Loader2, Plus, SlidersHorizontal, TriangleAlert, X, Zap } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button, Callout, Input } from "@/components/ui/primitives";
@@ -59,7 +59,10 @@ export function BoltsDashboard() {
   const configQuery = useBoltConfig();
   const saveConfig = useSaveBoltConfig();
   const boltStatusMut = useUpdateBoltStatus();
-  const [pendingTaskId, setPendingTaskId] = useState<number | null>(null);
+  // Keyed by "storyId:taskId", not taskId alone — task ids restart at 1 per
+  // story, so a plain task-id key would disable/re-enable the wrong card's
+  // button across different stories sharing the same task number.
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
 
   const config = configQuery.data ?? DEFAULT_CONFIG;
   const columns: Column[] = useMemo(() => [
@@ -74,13 +77,21 @@ export function BoltsDashboard() {
     return columns[idx + 1];
   }
 
-  function moveBolt(storyId: number, taskId: number, status: string) {
+  function prevColumnFor(status: string): Column | null {
+    const idx = columns.findIndex((c) => c.key === status);
+    if (idx <= 0) return null;
+    return columns[idx - 1];
+  }
+
+  function moveBolt(storyId: number, taskId: number, status: string, currentStatus?: string) {
     if (status === PACK_READY_KEY) {
       toast.error(t("bolts.dropRejectedPackReady"));
       return;
     }
-    setPendingTaskId(taskId);
-    boltStatusMut.mutate({ storyId, taskId, status }, { onSettled: () => setPendingTaskId(null) });
+    if (status === currentStatus) return; // no-op move (e.g. dropped back on its own column) — don't pollute status_history
+    const key = `${storyId}:${taskId}`;
+    setPendingKey(key);
+    boltStatusMut.mutate({ storyId, taskId, status }, { onSettled: () => setPendingKey(null) });
   }
 
   const pmTasksQuery = useQuery({
@@ -94,11 +105,14 @@ export function BoltsDashboard() {
   // the subject text (avoids a second, driftable copy of it). The PM task's
   // own description already carries the internal id back via decodeApexMeta,
   // so subjects are merged client-side instead of duplicated server-side.
+  // Keyed by "storyId:taskId", NOT taskId alone — task ids are sequential
+  // PER STORY (Task #1, #2, ...), so two different stories' Task #2 would
+  // otherwise collide and show the same subject text on both cards.
   const subjectById = useMemo(() => {
-    const map = new Map<number, string>();
+    const map = new Map<string, string>();
     for (const task of pmTasksQuery.data ?? []) {
       const { apex_task_id } = decodeApexMeta(task.description);
-      if (apex_task_id != null) map.set(apex_task_id, task.subject);
+      if (apex_task_id != null) map.set(`${Number(task.user_story)}:${apex_task_id}`, task.subject);
     }
     return map;
   }, [pmTasksQuery.data]);
@@ -110,7 +124,7 @@ export function BoltsDashboard() {
       epicTitle: b.epic_title || "Ungrouped",
       taskId: b.task_id,
       status: b.status,
-      subject: subjectById.get(b.task_id) ?? `Task #${b.task_id}`,
+      subject: subjectById.get(`${b.story_id}:${b.task_id}`) ?? `Task #${b.task_id}`,
       cycleHours: b.cycle_hours,
       elapsedHours: b.status === DONE_KEY
         ? b.cycle_hours
@@ -122,13 +136,37 @@ export function BoltsDashboard() {
   }, [boltsQuery.data, subjectById]);
 
   const [epicFilter, setEpicFilter] = useState<string>("__all__");
+  const [storyFilter, setStoryFilter] = useState<number | "__all__">("__all__");
+
+  // Switching projects doesn't remount this component (same route), so a
+  // stale epic/story title from the previous project would otherwise filter
+  // every row out and render a fully empty board with no indication why.
+  useEffect(() => {
+    setEpicFilter("__all__");
+    setStoryFilter("__all__");
+  }, [context?.projectId]);
+
   const epics = useMemo(() => {
     const map = new Map<string, number>();
     for (const r of rows) map.set(r.epicTitle, (map.get(r.epicTitle) ?? 0) + 1);
     return [...map.entries()];
   }, [rows]);
 
-  const filteredRows = epicFilter === "__all__" ? rows : rows.filter((r) => r.epicTitle === epicFilter);
+  const epicScopedRows = epicFilter === "__all__" ? rows : rows.filter((r) => r.epicTitle === epicFilter);
+
+  // Stories available to drill into, scoped to whichever epic is selected —
+  // this is what lets you pick an epic, then a story of that epic, then see
+  // a board of just that story's tasks.
+  const stories = useMemo(() => {
+    const map = new Map<number, { title: string; count: number }>();
+    for (const r of epicScopedRows) {
+      const cur = map.get(r.storyId);
+      map.set(r.storyId, { title: r.storyTitle, count: (cur?.count ?? 0) + 1 });
+    }
+    return [...map.entries()].sort((a, b) => a[0] - b[0]);
+  }, [epicScopedRows]);
+
+  const filteredRows = storyFilter === "__all__" ? epicScopedRows : epicScopedRows.filter((r) => r.storyId === storyFilter);
 
   // Bucketed by the current columns; a bolt whose status matches no current
   // column (only reachable if the config changed underneath an existing
@@ -162,12 +200,21 @@ export function BoltsDashboard() {
   }, [configQuery.data]);
 
   function persistConfig(next: BoltConfig, successToast?: string) {
+    // Optimistic: without this, two structural ops fired in quick succession
+    // (e.g. clicking "Add stage" twice fast) would both read the same
+    // not-yet-confirmed draftConfig/config snapshot and the second call would
+    // silently clobber the first. Roll back on failure since this is now an
+    // optimistic update rather than a no-op until the round trip completes.
+    setDraftConfig(next);
     saveConfig.mutate(next, {
       onSuccess: (saved) => {
         setDraftConfig(saved);
         if (successToast) toast.success(successToast);
       },
-      onError: (e) => toast.error(errMsg(e)),
+      onError: (e) => {
+        toast.error(errMsg(e));
+        if (configQuery.data) setDraftConfig(configQuery.data);
+      },
     });
   }
 
@@ -184,15 +231,24 @@ export function BoltsDashboard() {
     persistConfig(DEFAULT_CONFIG, t("bolts.customize.defaultsRestored"));
   }
 
+  // These four are pure stage-LIST operations and auto-persist immediately
+  // (unlike label/threshold edits, which stay local until "Save"). They
+  // build off `config` (last-confirmed server state) for pack_ready_label/
+  // done_label/threshold — NOT `draftConfig`, which may be holding an
+  // in-progress, not-yet-saved label edit that a structural drag/click
+  // shouldn't silently commit as a side effect. The stage list itself still
+  // reads from `draftConfig.stages`, which persistConfig now updates
+  // optimistically, so rapid consecutive calls (e.g. two fast "Add stage"
+  // clicks) compose on top of each other instead of racing.
   function addStage() {
     const label = newStageLabel.trim();
     if (!label) return;
     setNewStageLabel("");
-    persistConfig({ ...draftConfig, stages: [...draftConfig.stages, { key: "", label }] });
+    persistConfig({ ...config, stages: [...draftConfig.stages, { key: "", label }] });
   }
 
   function removeStage(key: string) {
-    persistConfig({ ...draftConfig, stages: draftConfig.stages.filter((s) => s.key !== key) });
+    persistConfig({ ...config, stages: draftConfig.stages.filter((s) => s.key !== key) });
   }
 
   function renameStage(key: string, label: string) {
@@ -205,7 +261,7 @@ export function BoltsDashboard() {
     if (idx < 0 || swapIdx < 0 || swapIdx >= draftConfig.stages.length) return;
     const next = [...draftConfig.stages];
     [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
-    persistConfig({ ...draftConfig, stages: next });
+    persistConfig({ ...config, stages: next });
   }
 
   function reorderStages(fromKey: string, toKey: string) {
@@ -215,7 +271,7 @@ export function BoltsDashboard() {
     const insertAt = rest.findIndex((s) => s.key === toKey);
     if (!moved || insertAt < 0) return;
     rest.splice(insertAt, 0, moved);
-    persistConfig({ ...draftConfig, stages: rest });
+    persistConfig({ ...config, stages: rest });
   }
 
   const customizeChanged = useMemo(() => {
@@ -226,7 +282,7 @@ export function BoltsDashboard() {
   }, [draftConfig, draftThreshold]);
 
   // Card drag (moving a bolt between columns).
-  const [draggedBolt, setDraggedBolt] = useState<{ storyId: number; taskId: number } | null>(null);
+  const [draggedBolt, setDraggedBolt] = useState<{ storyId: number; taskId: number; status: string } | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   // Column drag (reordering the custom stages between the fixed anchors).
   const [draggedStageKey, setDraggedStageKey] = useState<string | null>(null);
@@ -259,6 +315,7 @@ export function BoltsDashboard() {
             </div>
           )}
           {boltsQuery.error != null && <Callout variant="danger">{errMsg(boltsQuery.error)}</Callout>}
+          {configQuery.error != null && <Callout variant="danger">{errMsg(configQuery.error)}</Callout>}
 
           {boltsQuery.data && (
             <>
@@ -266,8 +323,8 @@ export function BoltsDashboard() {
                 <Callout>{t("bolts.noneYet")}</Callout>
               ) : (
                 <>
-                  {/* Epic filter */}
-                  <div className="flex items-center gap-3">
+                  {/* Epic + story drill-down */}
+                  <div className="flex flex-wrap items-center gap-3">
                     <label htmlFor="bolts-epic-select" className="shrink-0 text-xs font-semibold uppercase tracking-wider text-neutral-500">
                       {t("bolts.epicLabel")}
                     </label>
@@ -275,7 +332,7 @@ export function BoltsDashboard() {
                       <select
                         id="bolts-epic-select"
                         value={epicFilter}
-                        onChange={(e) => setEpicFilter(e.target.value)}
+                        onChange={(e) => { setEpicFilter(e.target.value); setStoryFilter("__all__"); }}
                         className={cn(
                           "w-full appearance-none rounded-lg border px-4 py-2.5 pr-9 text-sm font-medium transition cursor-pointer",
                           dark
@@ -286,6 +343,33 @@ export function BoltsDashboard() {
                         <option value="__all__">{t("bolts.allEpics")} ({rows.length})</option>
                         {epics.map(([epic, count]) => (
                           <option key={epic} value={epic}>{epic} ({count})</option>
+                        ))}
+                      </select>
+                      <ChevronRight className={cn(
+                        "pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90",
+                        dark ? "text-neutral-500" : "text-slate-400",
+                      )} />
+                    </div>
+                    <label htmlFor="bolts-story-select" className="shrink-0 text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                      {t("bolts.storyLabelFilter")}
+                    </label>
+                    <div className="relative max-w-sm flex-1">
+                      <select
+                        id="bolts-story-select"
+                        value={storyFilter}
+                        onChange={(e) => setStoryFilter(e.target.value === "__all__" ? "__all__" : Number(e.target.value))}
+                        className={cn(
+                          "w-full appearance-none rounded-lg border px-4 py-2.5 pr-9 text-sm font-medium transition cursor-pointer",
+                          dark
+                            ? "border-neutral-700 bg-neutral-900 text-neutral-100 hover:border-violet-500 focus:border-violet-500 focus:outline-none"
+                            : "border-slate-300 bg-white text-slate-800 hover:border-violet-400 focus:border-violet-500 focus:outline-none shadow-sm",
+                        )}
+                      >
+                        <option value="__all__">{t("bolts.allStories")} ({epicScopedRows.length})</option>
+                        {stories.map(([storyId, s]) => (
+                          <option key={storyId} value={storyId}>
+                            {t("bolts.storyLabel", { storyId })} · {s.title} ({s.count})
+                          </option>
                         ))}
                       </select>
                       <ChevronRight className={cn(
@@ -316,7 +400,7 @@ export function BoltsDashboard() {
                             onDrop={(e) => {
                               e.preventDefault();
                               if (draggedBolt) {
-                                moveBolt(draggedBolt.storyId, draggedBolt.taskId, col.key);
+                                moveBolt(draggedBolt.storyId, draggedBolt.taskId, col.key, draggedBolt.status);
                               } else if (draggedStageKey && !isAnchor && draggedStageKey !== col.key) {
                                 reorderStages(draggedStageKey, col.key);
                               }
@@ -335,7 +419,12 @@ export function BoltsDashboard() {
                               {!isAnchor && (
                                 <div
                                   draggable
-                                  onDragStart={(e) => { setDraggedStageKey(col.key); e.dataTransfer.effectAllowed = "move"; }}
+                                  onDragStart={(e) => {
+                                    setDraggedStageKey(col.key);
+                                    e.dataTransfer.effectAllowed = "move";
+                                    // Firefox refuses to start an HTML5 drag with no data payload.
+                                    e.dataTransfer.setData("text/plain", col.key);
+                                  }}
                                   onDragEnd={() => { setDraggedStageKey(null); setDragOverStageKey(null); }}
                                   onKeyDown={(e) => {
                                     if (e.key === "ArrowLeft") { e.preventDefault(); moveStage(col.key, -1); }
@@ -364,11 +453,19 @@ export function BoltsDashboard() {
                               {colBolts.map((row) => {
                                 const overThreshold = threshold != null && row.elapsedHours != null && row.elapsedHours > threshold;
                                 const next = nextColumnFor(row.status);
+                                const prev = prevColumnFor(row.status);
+                                const rowKey = `${row.storyId}:${row.taskId}`;
+                                const isPending = pendingKey === rowKey;
                                 return (
                                   <div
                                     key={`${row.storyId}-${row.taskId}`}
                                     draggable
-                                    onDragStart={() => setDraggedBolt({ storyId: row.storyId, taskId: row.taskId })}
+                                    onDragStart={(e) => {
+                                      setDraggedBolt({ storyId: row.storyId, taskId: row.taskId, status: row.status });
+                                      e.dataTransfer.effectAllowed = "move";
+                                      // Firefox refuses to start an HTML5 drag with no data payload.
+                                      e.dataTransfer.setData("text/plain", rowKey);
+                                    }}
                                     onDragEnd={() => setDraggedBolt(null)}
                                     className={cn(
                                       "cursor-grab rounded-md border p-3 text-sm active:cursor-grabbing",
@@ -383,7 +480,7 @@ export function BoltsDashboard() {
                                     <p className={cn("mt-0.5 truncate font-medium", dark ? "text-neutral-100" : "text-slate-800")}>
                                       {row.subject}
                                     </p>
-                                    <div className="mt-1.5 flex items-center gap-2">
+                                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
                                       {row.elapsedHours != null && (
                                         <span className={cn(
                                           "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium",
@@ -395,13 +492,24 @@ export function BoltsDashboard() {
                                           {row.elapsedHours}h
                                         </span>
                                       )}
+                                      {/* Buttons (not just drag) let keyboard/touch/Firefox users move a
+                                          card either direction without relying on HTML5 drag-and-drop. */}
+                                      {prev && (
+                                        <button
+                                          onClick={() => moveBolt(row.storyId, row.taskId, prev.key, row.status)}
+                                          disabled={isPending}
+                                          className={cn("flex items-center gap-0.5 text-xs font-medium hover:underline disabled:opacity-50", mutedClass)}
+                                        >
+                                          <ChevronLeft className="h-3 w-3" /> {t("bolts.moveBack")}
+                                        </button>
+                                      )}
                                       {next && (
                                         <button
-                                          onClick={() => moveBolt(row.storyId, row.taskId, next.key)}
-                                          disabled={pendingTaskId === row.taskId}
+                                          onClick={() => moveBolt(row.storyId, row.taskId, next.key, row.status)}
+                                          disabled={isPending}
                                           className={cn("text-xs font-semibold hover:underline disabled:opacity-50", dark ? "text-violet-400" : "text-violet-600")}
                                         >
-                                          {pendingTaskId === row.taskId ? t("common.saving") : t("bolts.moveToNext", { label: next.label })}
+                                          {isPending ? t("common.saving") : t("bolts.moveToNext", { label: next.label })}
                                         </button>
                                       )}
                                     </div>
@@ -421,12 +529,30 @@ export function BoltsDashboard() {
                   {other.length > 0 && (
                     <Callout variant="warning">
                       <p className="font-semibold">{t("bolts.otherColumn")} ({other.length})</p>
-                      <div className="mt-2 space-y-1 text-xs opacity-90">
-                        {other.map((row) => (
-                          <p key={`${row.storyId}-${row.taskId}`}>
-                            {t("bolts.storyLabel", { storyId: row.storyId })} · {row.subject} — {row.status}
-                          </p>
-                        ))}
+                      <div className="mt-2 space-y-2 text-xs opacity-90">
+                        {other.map((row) => {
+                          const rowKey = `${row.storyId}:${row.taskId}`;
+                          return (
+                            <div key={`${row.storyId}-${row.taskId}`} className="flex flex-wrap items-center gap-2">
+                              <span>{t("bolts.storyLabel", { storyId: row.storyId })} · {row.subject} — {row.status}</span>
+                              <select
+                                aria-label={t("bolts.reassignLabel")}
+                                value=""
+                                disabled={pendingKey === rowKey}
+                                onChange={(e) => { if (e.target.value) moveBolt(row.storyId, row.taskId, e.target.value, row.status); }}
+                                className={cn(
+                                  "rounded border px-2 py-1 text-xs",
+                                  dark ? "border-neutral-700 bg-neutral-900 text-neutral-200" : "border-slate-300 bg-white text-slate-700",
+                                )}
+                              >
+                                <option value="" disabled>{t("bolts.reassignPrompt")}</option>
+                                {columns.map((c) => (
+                                  <option key={c.key} value={c.key}>{c.label}</option>
+                                ))}
+                              </select>
+                            </div>
+                          );
+                        })}
                       </div>
                     </Callout>
                   )}

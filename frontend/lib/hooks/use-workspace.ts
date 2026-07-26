@@ -392,8 +392,14 @@ export function useSaveBoltConfig() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (config: BoltConfig) => saveBoltConfig(context!, config),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["workspace", "bolt-config", context?.projectId] });
+    onSuccess: (saved) => {
+      // Write the server response straight into the cache instead of just
+      // invalidating — callers that read the query synchronously right after
+      // a successful save (e.g. the Bolts board's stage add/remove/reorder,
+      // which bases the next structural change on this cache to avoid
+      // clobbering it with stale unsaved label edits) need it up to date
+      // immediately, not after a refetch round-trip.
+      queryClient.setQueryData(["workspace", "bolt-config", context?.projectId], saved);
     },
   });
 }

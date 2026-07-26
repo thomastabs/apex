@@ -577,6 +577,17 @@ class TestRebuildStoryIndex:
         assert index["10"]["is_scaffold"] is True
         assert index["10"]["has_runtime_spec"] is True
 
+    def test_rebuild_preserves_bolts(self, ctx):
+        # Bolt records have no file counterpart at all — a rebuild used to
+        # silently wipe the entire Bolts board for every story.
+        ctx.init_context()
+        ctx.append_gherkin(10, "Story Ten", self.GHERKIN)
+        ctx.record_task_bolt_status(10, 1, "pack_ready")
+        ctx.record_task_bolt_status(10, 2, "done")
+        index = ctx.rebuild_story_index()
+        assert index["10"]["bolts"]["1"]["status"] == "pack_ready"
+        assert index["10"]["bolts"]["2"]["status"] == "done"
+
 
 # ---------------------------------------------------------------------------
 # save_proposal
@@ -632,6 +643,21 @@ class TestSaveProposal:
         entry = ctx.get_story_index()["10"]
         assert entry["has_proposal"] is False
         assert entry["phase_status"] == "design_locked"
+
+    def test_delete_proposal_removes_bolt_record(self, ctx):
+        # Deleting a task's pack (e.g. the task was deleted in the PM tool)
+        # used to leave its Bolt record behind forever — a phantom card on
+        # the Bolts board with no way to remove it.
+        ctx.init_context()
+        ctx.append_gherkin(10, "Story Ten",
+                           "Feature: X\n\n  Scenario: s\n    Given x\n    When y\n    Then z\n")
+        ctx.save_proposal(story_id=10, task_id=1, proposal="p1")
+        ctx.save_proposal(story_id=10, task_id=2, proposal="p2")
+        ctx.record_task_bolt_status(10, 1, "pack_ready")
+        ctx.record_task_bolt_status(10, 2, "pack_ready")
+        ctx.delete_proposal(10, 1)
+        bolts = ctx.list_all_bolts()
+        assert [b["task_id"] for b in bolts] == [2]
 
 
 # ---------------------------------------------------------------------------

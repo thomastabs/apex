@@ -707,52 +707,6 @@ def save_project_bolt_config(config: dict, project_id: int | None = None) -> dic
     raw_stages = config.get("stages")
     raw_stages = raw_stages if isinstance(raw_stages, list) else []
 
-    existing = get_project_bolt_config(project_id)
-    existing_stages = existing.get("stages") if isinstance(existing.get("stages"), list) else _DEFAULT_BOLT_STAGES
-    existing_stage_keys = {s["key"] for s in existing_stages if isinstance(s, dict) and s.get("key")}
-
-    seen_keys: set[str] = set()
-    stages: list[dict] = []
-    for raw in raw_stages[:_MAX_BOLT_STAGES]:
-        if not isinstance(raw, dict):
-            continue
-        key = str(raw.get("key") or "").strip().lower()
-        label = str(raw.get("label") or "").strip()
-        if not label and key:
-            # Blank label on an existing stage falls back to its current
-            # label — it does NOT delete the stage (that's removed_keys below,
-            # keyed off a stage's absence from the payload, not a blank label).
-            label = next((s["label"] for s in existing_stages if isinstance(s, dict) and s.get("key") == key), "")
-        if not label:
-            continue
-        if not key or key in _RESERVED_BOLT_STAGE_KEYS or key in seen_keys:
-            key = _slugify_bolt_key(label)
-        base_key = key
-        suffix = 2
-        while key in seen_keys or key in _RESERVED_BOLT_STAGE_KEYS:
-            key = f"{base_key}_{suffix}"
-            suffix += 1
-        seen_keys.add(key)
-        stages.append({"key": key, "label": label[:60]})
-
-    removed_keys = existing_stage_keys - seen_keys
-    if removed_keys:
-        bolts_by_status: dict[str, int] = {}
-        for bolt in list_all_bolts():
-            bolts_by_status[bolt["status"]] = bolts_by_status.get(bolt["status"], 0) + 1
-        for removed_key in removed_keys:
-            if removed_key in _PROTECTED_BOLT_STAGE_KEYS:
-                raise ValueError(
-                    'Can\'t remove "Pushed" — it\'s set automatically when tasks are pushed to your PM tool.'
-                )
-            count = bolts_by_status.get(removed_key, 0)
-            if count:
-                removed_label = next(
-                    (s["label"] for s in existing_stages if isinstance(s, dict) and s.get("key") == removed_key),
-                    removed_key,
-                )
-                raise ValueError(f'Can\'t remove "{removed_label}" — {count} bolt(s) are currently in this stage.')
-
     threshold = config.get("cycle_time_threshold_hours")
     try:
         threshold = float(threshold) if threshold is not None else None
@@ -761,16 +715,69 @@ def save_project_bolt_config(config: dict, project_id: int | None = None) -> dic
     except (TypeError, ValueError):
         threshold = None
 
-    clean = {
-        "pack_ready_label": pack_ready_label[:60],
-        "done_label": done_label[:60],
-        "stages": stages,
-        "cycle_time_threshold_hours": threshold,
-    }
-    p = _project_bolt_config_path(project_id)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(clean, indent=2), encoding="utf-8")
-    return clean
+    # Removing a stage is validated against live Bolt records (list_all_bolts,
+    # which reads the story index) — hold the SAME lock record_task_bolt_status
+    # writes under, spanning that read through this file's write, so a bolt
+    # can't be recorded into a stage between the "is it empty" check and the
+    # config actually being pruned (which would orphan it into a stage that no
+    # longer exists).
+    with _index_lock():
+        existing = get_project_bolt_config(project_id)
+        existing_stages = existing.get("stages") if isinstance(existing.get("stages"), list) else _DEFAULT_BOLT_STAGES
+        existing_stage_keys = {s["key"] for s in existing_stages if isinstance(s, dict) and s.get("key")}
+
+        seen_keys: set[str] = set()
+        stages: list[dict] = []
+        for raw in raw_stages[:_MAX_BOLT_STAGES]:
+            if not isinstance(raw, dict):
+                continue
+            key = str(raw.get("key") or "").strip().lower()
+            label = str(raw.get("label") or "").strip()
+            if not label and key:
+                # Blank label on an existing stage falls back to its current
+                # label — it does NOT delete the stage (that's removed_keys below,
+                # keyed off a stage's absence from the payload, not a blank label).
+                label = next((s["label"] for s in existing_stages if isinstance(s, dict) and s.get("key") == key), "")
+            if not label:
+                continue
+            if not key or key in _RESERVED_BOLT_STAGE_KEYS or key in seen_keys:
+                key = _slugify_bolt_key(label)
+            base_key = key
+            suffix = 2
+            while key in seen_keys or key in _RESERVED_BOLT_STAGE_KEYS:
+                key = f"{base_key}_{suffix}"
+                suffix += 1
+            seen_keys.add(key)
+            stages.append({"key": key, "label": label[:60]})
+
+        removed_keys = existing_stage_keys - seen_keys
+        if removed_keys:
+            bolts_by_status: dict[str, int] = {}
+            for bolt in list_all_bolts():
+                bolts_by_status[bolt["status"]] = bolts_by_status.get(bolt["status"], 0) + 1
+            for removed_key in removed_keys:
+                if removed_key in _PROTECTED_BOLT_STAGE_KEYS:
+                    raise ValueError(
+                        'Can\'t remove "Pushed" — it\'s set automatically when tasks are pushed to your PM tool.'
+                    )
+                count = bolts_by_status.get(removed_key, 0)
+                if count:
+                    removed_label = next(
+                        (s["label"] for s in existing_stages if isinstance(s, dict) and s.get("key") == removed_key),
+                        removed_key,
+                    )
+                    raise ValueError(f'Can\'t remove "{removed_label}" — {count} bolt(s) are currently in this stage.')
+
+        clean = {
+            "pack_ready_label": pack_ready_label[:60],
+            "done_label": done_label[:60],
+            "stages": stages,
+            "cycle_time_threshold_hours": threshold,
+        }
+        p = _project_bolt_config_path(project_id)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(clean, indent=2), encoding="utf-8")
+        return clean
 
 
 def get_project_deployment_config(project_id: int | None = None) -> dict:
@@ -1974,6 +1981,11 @@ def rebuild_story_index() -> dict[str, dict]:
             entry["is_scaffold"] = old["is_scaffold"]
         if old.get("phase_status") in ("qa_passed", "deployed") and entry["phase_status"] == "qa":
             entry["phase_status"] = old["phase_status"]
+        # Bolt records (Phase 3 task pack_ready/pushed/.../done tracking) have
+        # no file counterpart at all — a rebuild used to silently wipe the
+        # entire Bolts board for every story.
+        if old.get("bolts"):
+            entry["bolts"] = old["bolts"]
 
     _save_story_index(index)
     return index
@@ -2483,25 +2495,32 @@ def delete_proposal(story_id: int, task_id: int) -> None:
     """Remove one task's developer pack; clear has_proposal when none remain.
 
     Called when the task itself is deleted in the PM tool — an orphaned pack
-    would keep the story counting as "proposed" forever.
+    would keep the story counting as "proposed" forever, and an orphaned Bolt
+    record would leave a phantom card on the Bolts board forever.
     """
     cd = _context_dir()
     (cd / f"proposal_story_{story_id}_task_{task_id}.md").unlink(missing_ok=True)
     remaining = cd.exists() and any(
         p.name.startswith(f"proposal_story_{story_id}_") for p in cd.iterdir()
     )
-    if remaining:
-        return
     with _index_lock():
         index = get_story_index()
         entry = index.get(str(story_id))
         if entry is None:
             return
-        entry["has_proposal"] = False
-        if entry.get("phase_status") == "implementation":
-            entry["phase_status"] = "design_locked" if entry.get("has_tech_spec") else "gherkin_locked"
-            entry.setdefault("status_history", {}).setdefault(entry["phase_status"], []).append(_now_iso())
-        _save_story_index(index)
+        changed = False
+        bolts = entry.get("bolts")
+        if bolts and str(task_id) in bolts:
+            del bolts[str(task_id)]
+            changed = True
+        if not remaining:
+            entry["has_proposal"] = False
+            changed = True
+            if entry.get("phase_status") == "implementation":
+                entry["phase_status"] = "design_locked" if entry.get("has_tech_spec") else "gherkin_locked"
+                entry.setdefault("status_history", {}).setdefault(entry["phase_status"], []).append(_now_iso())
+        if changed:
+            _save_story_index(index)
 
 
 def load_bdd_tests(story_id: int) -> str:

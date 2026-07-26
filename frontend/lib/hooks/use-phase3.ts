@@ -267,8 +267,17 @@ export function useUpdateBoltStatus() {
   return useMutation({
     mutationFn: ({ storyId, taskId, status }: { storyId: number; taskId: number; status: string }) =>
       updateBoltStatus(context!, { story_id: storyId, task_id: taskId, status }),
-    onSuccess: (result, { taskId }) => {
-      patchTask(taskId, { bolt_status: result.status, bolt_cycle_hours: result.cycle_hours });
+    onSuccess: (result, { storyId, taskId }) => {
+      // patchTask matches by task id alone against whichever story's
+      // taskList happens to be loaded in the Phase 3 store — task ids restart
+      // at 1 per story, so patching unconditionally (e.g. from the Bolts
+      // board, which can act on any story) could stamp this status onto a
+      // same-numbered task belonging to a completely different, currently
+      // open story. Only patch when the store is actually showing this bolt's
+      // own story.
+      if (usePhase3Store.getState().selectedStoryId === storyId) {
+        patchTask(taskId, { bolt_status: result.status, bolt_cycle_hours: result.cycle_hours });
+      }
       void queryClient.invalidateQueries({ queryKey: ["phase3", "bolts", context?.projectId] });
       if (result.status === "done") {
         toast.success(
