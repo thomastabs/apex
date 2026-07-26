@@ -95,6 +95,33 @@ class Phase1Service:
             images=images,
         )
 
+    def generate_single_story(
+        self,
+        ctx: RequestContext,
+        *,
+        epic_subject: str,
+        epic_description: str,
+        existing_stories: list[str],
+        hint: str,
+        extra_context_files: list[str] | None = None,
+    ) -> tuple[str, int]:
+        """Add exactly one new story to an epic that already has stories.
+
+        Lighter-weight than generate_nl_stories: hint is required (it's the
+        primary spec for what the new story covers, not just advisory
+        emphasis) since nothing else here identifies which specific gap to fill.
+        """
+        self.configure_request(ctx)
+        subject = epic_subject.strip()
+        if not subject:
+            raise Phase1ValidationError("epic_subject is required.")
+        if not hint.strip():
+            raise Phase1ValidationError("A note describing the new story is required.")
+        concept = self._with_extra_context(self.context.project_concept(), extra_context_files)
+        return self.ai.generate_single_story(
+            subject, epic_description, existing_stories, hint, project_concept=concept,
+        )
+
     def generate_stories_from_figma(
         self,
         ctx: RequestContext,

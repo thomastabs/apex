@@ -39,6 +39,12 @@ class FakeAiService:
         self.images = images
         return "[S] Story A", 1
 
+    def generate_single_story(
+        self, epic_subject: str, epic_description: str, existing_stories: list[str], hint: str, project_concept: str = "",
+    ) -> tuple[str, int]:
+        self.single_story_args = (epic_subject, epic_description, existing_stories, hint, project_concept)
+        return "[XS] Story B", 1
+
     def generate_stories_from_figma(self, frames, flows, *, project_concept, instructions="", images=None):
         self.figma_args = (frames, flows, project_concept)
         self.images = images
@@ -287,6 +293,41 @@ def test_generate_nl_stories_requires_subject():
 
     with pytest.raises(Phase1ValidationError, match="epic_subject"):
         service.generate_nl_stories(_ctx(), epic_subject=" ", epic_description="")
+
+
+def test_generate_single_story_requires_subject():
+    service, _, _ = _service()
+
+    with pytest.raises(Phase1ValidationError, match="epic_subject"):
+        service.generate_single_story(
+            _ctx(), epic_subject=" ", epic_description="", existing_stories=[], hint="Add a story",
+        )
+
+
+def test_generate_single_story_requires_hint():
+    service, _, _ = _service()
+
+    with pytest.raises(Phase1ValidationError, match="note"):
+        service.generate_single_story(
+            _ctx(), epic_subject="Epic", epic_description="", existing_stories=[], hint="   ",
+        )
+
+
+def test_generate_single_story_passes_existing_stories_and_hint():
+    service, ai, context = _service()
+    context.project_concept = lambda: "A concept"  # type: ignore[assignment]
+
+    draft, count = service.generate_single_story(
+        _ctx(),
+        epic_subject="Epic",
+        epic_description="Desc",
+        existing_stories=["Story A", "Story B"],
+        hint="Add password reset",
+    )
+
+    assert draft == "[XS] Story B"
+    assert count == 1
+    assert ai.single_story_args == ("Epic", "Desc", ["Story A", "Story B"], "Add password reset", "A concept")
 
 
 def test_cross_check_stories_returns_diff(monkeypatch):

@@ -47,6 +47,19 @@ class AiService:
         )
         return ai_engine.format_nl_draft(result), len(result.stories)
 
+    def generate_single_story(
+        self,
+        epic_subject: str,
+        epic_description: str,
+        existing_stories: list[str],
+        hint: str,
+        project_concept: str = "",
+    ) -> tuple[str, int]:
+        result = ai_engine.generate_single_nl_story(
+            epic_subject, epic_description, existing_stories, hint, project_concept=project_concept,
+        )
+        return ai_engine.format_nl_draft(result), len(result.stories)
+
     def generate_stories_from_figma(
         self,
         frames: list[dict],

@@ -131,6 +131,13 @@ export type Phase1GenerateNlStoriesResponse = {
   story_count: number;
 };
 
+export type Phase1GenerateSingleStoryRequest = ExtraContextRequest & {
+  epic_subject: string;
+  epic_description?: string;
+  existing_stories?: string[];
+  hint: string;
+};
+
 export type Phase1CompileGherkinResponse = {
   stories: CompiledStory[];
 };

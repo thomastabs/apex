@@ -10,6 +10,7 @@ import {
   generateEpicDescription,
   crossCheckStories,
   generateNlStories,
+  generateSingleStory,
   generateStoriesFromFigma,
   listPhase1Epics,
   pushPhase1Stories,
@@ -20,6 +21,7 @@ import { refreshStoryIndex } from "@/lib/api/phase2";
 import type {
   Phase1GenerateClarifyingQuestionsRequest,
   Phase1GenerateNlStoriesRequest,
+  Phase1GenerateSingleStoryRequest,
   Phase1PushStoriesRequest,
   QaPair,
 } from "@/lib/api/types";
@@ -75,6 +77,16 @@ export function useGenerateNlStories() {
   return useCancellableMutation(
     (body: Phase1GenerateNlStoriesRequest, signal) =>
       generateNlStories(context!, body, signal, figma?.token),
+    { onError: () => toast.error("Story generation failed. The AI may be busy — try again shortly.") },
+  );
+}
+
+export function useGenerateSingleStory() {
+  const context = useApiContext();
+
+  return useCancellableMutation(
+    (body: Phase1GenerateSingleStoryRequest, signal) =>
+      generateSingleStory(context!, body, signal),
     { onError: () => toast.error("Story generation failed. The AI may be busy — try again shortly.") },
   );
 }

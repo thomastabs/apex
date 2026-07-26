@@ -9,6 +9,7 @@ import type {
   Phase1GenerateClarifyingQuestionsResponse,
   Phase1GenerateNlStoriesRequest,
   Phase1GenerateNlStoriesResponse,
+  Phase1GenerateSingleStoryRequest,
   Phase1PushStoriesRequest,
   Phase1PushStoriesResponse,
   QaPair,
@@ -94,6 +95,20 @@ export function generateNlStories(
     body,
     headers: figmaToken ? { "X-Figma-Token": figmaToken } : undefined,
     timeoutMs: 180_000,
+    signal,
+  });
+}
+
+export function generateSingleStory(
+  context: RequestContext,
+  body: Phase1GenerateSingleStoryRequest,
+  signal?: AbortSignal,
+) {
+  return apiRequest<Phase1GenerateNlStoriesResponse>("/api/phase1/generate-single-story", {
+    method: "POST",
+    context,
+    body,
+    timeoutMs: 60_000,
     signal,
   });
 }

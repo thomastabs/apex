@@ -69,6 +69,13 @@ class GenerateNlStoriesResponse(BaseModel):
     story_count: int
 
 
+class GenerateSingleStoryRequest(ExtraContextMixin):
+    epic_subject: str = Field(..., max_length=500)
+    epic_description: str = Field("", max_length=20_000)
+    existing_stories: list[str] = Field(default_factory=list, max_length=300)
+    hint: str = Field(..., min_length=1, max_length=2_000)
+
+
 class FigmaFrameSchema(BaseModel):
     name: str = Field(..., max_length=300)
     description: str = Field("", max_length=2_000)

@@ -15,6 +15,7 @@ import {
   useGenerateEpicDescription,
   useCrossCheckStories,
   useGenerateNlStories,
+  useGenerateSingleStory,
   usePhase1Epics,
   usePushPhase1Stories,
   useSuggestPhase1Epics,
@@ -193,6 +194,7 @@ export function Phase1Workflow() {
   const genEpicDescription = useGenerateEpicDescription();
   const analyzeGaps = useAnalyzeGaps();
   const generate = useGenerateNlStories();
+  const generateSingle = useGenerateSingleStory();
   const crossCheck = useCrossCheckStories();
   const [crossResult, setCrossResult] = useState<CrossCheckResult | null>(null);
   const [altModel, setAltModel] = useState("");
@@ -1127,6 +1129,42 @@ export function Phase1Workflow() {
                 {generate.isPending ? t("common.generating") : t("phase1.generateStories")}
               </Button>
             </div>
+            {epicId !== null ? (
+              <div className="space-y-2">
+                <Button
+                  variant="secondary"
+                  className="w-full gap-1.5"
+                  disabled={!canGenerate || busy || noContext || !generateHint.trim()}
+                  title={generateHint.trim() ? undefined : t("phase1.addSingleStoryNeedsNote")}
+                  onClick={() =>
+                    generateSingle.mutate(
+                      {
+                        epic_subject: epicTitle.slice(0, 500),
+                        epic_description: epicDescription.slice(0, 20_000),
+                        existing_stories: (activeEpic?.stories ?? []).map((s) => s.subject),
+                        hint: generateHint,
+                        extra_context_files: generateExtraContext,
+                      },
+                      {
+                        onSuccess: (data) => {
+                          setNlDraft(data.nl_draft);
+                          setCompiledStories([]);
+                          setStep(3);
+                          toast.success(t("phase1.toast.singleStoryGenerated"));
+                        },
+                      },
+                    )
+                  }
+                >
+                  <Plus className="size-4" />
+                  {generateSingle.isPending ? t("common.generating") : t("phase1.addSingleStory")}
+                </Button>
+                {generateSingle.isPending && <CancelButton onCancel={() => generateSingle.cancel()} className="w-full" />}
+                {generateSingle.isError ? (
+                  <Callout variant="danger">{t("phase1.generationFailed", { err: errMsg(generateSingle.error) })}</Callout>
+                ) : null}
+              </div>
+            ) : null}
             <AiGroundingNote
               files={AI_GROUNDING.phase1GenerateStories}
               dark={dark}

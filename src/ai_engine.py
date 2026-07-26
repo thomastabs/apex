@@ -999,6 +999,71 @@ def generate_nl_stories(
     )
 
 
+_NL_SINGLE_STORY_SYSTEM = _NL_GENERATION_SYSTEM + """\
+
+--- SINGLE-STORY EXTENSION MODE ---
+This epic already has one or more stories in the PM tool. The team is NOT
+asking you to redecompose the whole epic — they want exactly ONE new
+fractional User Story added, based on their request below.
+
+Rules for this mode:
+- Output EXACTLY one story in `stories` — never more, never fewer.
+- Ground it in the Epic AND the team's request below; the request describes
+  what this specific new story must cover.
+- It must NOT duplicate or substantially overlap any of the Existing Stories
+  listed below — if the request looks already covered, pick the closest
+  still-missing angle instead of repeating it.
+"""
+
+
+def _build_single_story_human(
+    epic_subject: str,
+    epic_description: str,
+    existing_stories: list[str],
+    hint: str,
+    project_concept: str = "",
+) -> str:
+    parts: list[str] = []
+    if project_concept.strip():
+        parts.append("Project Concept:\n" + fence_user_content(project_concept))
+    parts.append(
+        "Epic:\n" + fence_user_content(f"Title: {epic_subject}\n\nDescription:\n{epic_description}")
+    )
+    if existing_stories:
+        parts.append(
+            "Existing Stories already in this epic — do not duplicate:\n"
+            + fence_user_content("\n".join(f"- {s}" for s in existing_stories))
+        )
+    parts.append("What this new story must cover (the team's request):\n" + fence_user_content(hint))
+    parts.append("Write exactly ONE new fractional User Story with Natural Language scenarios.")
+    return "\n\n".join(parts)
+
+
+def generate_single_nl_story(
+    epic_subject: str,
+    epic_description: str,
+    existing_stories: list[str],
+    hint: str,
+    project_concept: str = "",
+    model: str = "",
+) -> NLStoryList:
+    """Add exactly one new story to an already-decomposed epic.
+
+    Unlike generate_nl_stories (which redecomposes a whole epic into many
+    stories), this is the lightweight path for adding a single targeted story
+    to an epic that already has stories in the PM tool — hint is the primary
+    spec input here (what the story must cover), not just advisory guidance.
+    """
+    human = _build_single_story_human(epic_subject, epic_description, existing_stories, hint, project_concept)
+    result = _invoke_structured_with_progress(
+        _NL_SINGLE_STORY_SYSTEM, human, model or get_model(),
+        NLStoryList, max_tokens=2048, temperature=0.2,
+    )
+    if len(result.stories) > 1:
+        result = NLStoryList(stories=[result.stories[0]])
+    return result
+
+
 _FIGMA_STORY_SYSTEM = _NL_GENERATION_SYSTEM + """\
 
 --- DESIGN-DRIVEN MODE ---

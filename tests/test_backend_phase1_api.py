@@ -10,6 +10,7 @@ from backend.app.api.phase1 import (
     finalize_stories,
     generate_clarifying_questions,
     generate_nl_stories,
+    generate_single_story,
 )
 from backend.app.main import health
 from backend.app.schemas.phase1 import (
@@ -18,6 +19,7 @@ from backend.app.schemas.phase1 import (
     FinalizeStoriesRequest,
     GenerateClarifyingQuestionsRequest,
     GenerateNlStoriesRequest,
+    GenerateSingleStoryRequest,
 )
 
 
@@ -32,6 +34,14 @@ class StubPhase1Service:
         self.last_figma_token = figma_token
         self.last_extra_context_files = extra_context_files
         return f"[S] {epic_subject}", 1
+
+    def generate_single_story(
+        self, ctx, *, epic_subject, epic_description="", existing_stories=None, hint, extra_context_files=None,
+    ):
+        self.last_ctx = ctx
+        self.last_existing_stories = existing_stories
+        self.last_extra_context_files = extra_context_files
+        return f"[XS] {epic_subject} extra", 1
 
     def compile_gherkin(self, *, nl_draft, clarifications=None):
         self.last_clarifications = clarifications
@@ -104,6 +114,23 @@ def test_generate_nl_stories_route():
     )
 
     assert response == {"nl_draft": "[S] Login", "story_count": 1}
+    assert service.last_extra_context_files == ["decisions.md"]
+
+
+def test_generate_single_story_route():
+    service = StubPhase1Service()
+    response = generate_single_story(
+        GenerateSingleStoryRequest(
+            epic_subject="Login", epic_description="Scope",
+            existing_stories=["Story A"], hint="Add password reset",
+            extra_context_files=["decisions.md"],
+        ),
+        ctx=_ctx(),
+        service=service,
+    )
+
+    assert response == {"nl_draft": "[XS] Login extra", "story_count": 1}
+    assert service.last_existing_stories == ["Story A"]
     assert service.last_extra_context_files == ["decisions.md"]
 
 

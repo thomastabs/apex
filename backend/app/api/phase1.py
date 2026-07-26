@@ -23,6 +23,7 @@ from backend.app.schemas.phase1 import (
     GenerateEpicDescriptionResponse,
     GenerateNlStoriesRequest,
     GenerateNlStoriesResponse,
+    GenerateSingleStoryRequest,
     GenerateStoriesFromFigmaRequest,
     GetConstraintsResponse,
     SaveConstraintsRequest,
@@ -122,6 +123,27 @@ def generate_nl_stories(
             hint=payload.hint,
             instructions=payload.instructions,
             figma_token=x_figma_token.strip(),
+            extra_context_files=payload.extra_context_files,
+        )
+        return {"nl_draft": nl_draft, "story_count": story_count}
+    except Exception as exc:
+        _handle_error(exc)
+
+
+@router.post("/generate-single-story", response_model=GenerateNlStoriesResponse)
+def generate_single_story(
+    payload: GenerateSingleStoryRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    service: Phase1Service = Depends(get_phase1_service),
+    _rl: None = Depends(ai_rate_limit),
+):
+    try:
+        nl_draft, story_count = service.generate_single_story(
+            ctx,
+            epic_subject=payload.epic_subject,
+            epic_description=payload.epic_description,
+            existing_stories=payload.existing_stories,
+            hint=payload.hint,
             extra_context_files=payload.extra_context_files,
         )
         return {"nl_draft": nl_draft, "story_count": story_count}
