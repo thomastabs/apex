@@ -31,6 +31,18 @@ describe("apiRequest", () => {
     await expect(apiRequest("/test")).rejects.toMatchObject({ status: 401 });
   });
 
+  it("surfaces FastAPI's array-shaped validation detail instead of a generic message", async () => {
+    mockFetch.mockResolvedValue(makeResponse(422, {
+      detail: [
+        { loc: ["body", "existing_epics", 2, "description"], msg: "String should have at most 5000 characters", type: "string_too_long" },
+      ],
+    }));
+    await expect(apiRequest("/test")).rejects.toMatchObject({
+      status: 422,
+      message: "existing_epics.2.description: String should have at most 5000 characters",
+    });
+  });
+
   it("throws ApiError on 500", async () => {
     mockFetch.mockResolvedValue(makeResponse(500, { detail: "Server error" }));
     await expect(apiRequest("/test")).rejects.toMatchObject({ status: 500 });

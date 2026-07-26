@@ -13,6 +13,21 @@ export class ApiError extends Error {
 
   private static messageFor(status: number, detail: unknown): string {
     if (typeof detail === "string" && detail) return detail;
+    // FastAPI's own request-validation 422s shape `detail` as a list of
+    // {loc, msg, type} objects rather than a string — surface the actual
+    // field errors instead of falling through to the generic message below.
+    if (Array.isArray(detail)) {
+      const messages = detail
+        .map((d) => {
+          if (!d || typeof d !== "object") return null;
+          const msg = "msg" in d && typeof d.msg === "string" ? d.msg : null;
+          if (!msg) return null;
+          const loc = "loc" in d && Array.isArray(d.loc) ? d.loc.filter((p: unknown) => p !== "body").join(".") : "";
+          return loc ? `${loc}: ${msg}` : msg;
+        })
+        .filter((m): m is string => Boolean(m));
+      if (messages.length) return messages.join("; ");
+    }
     // 429 bodies are often opaque upstream payloads (e.g. Figma's {err:...}) with
     // no `detail` string — show a human message instead of the raw status.
     if (status === 429) return "Too many requests — please wait a moment and try again.";

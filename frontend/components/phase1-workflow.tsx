@@ -330,11 +330,16 @@ export function Phase1Workflow() {
   }
 
   // Build the current epic/story snapshot the AI audits against the concept.
+  // Truncated to the backend's ExistingEpicSchema limits (title 500,
+  // description 20_000, 200 stories) — PM-sourced text is unbounded and Phase
+  // 1 keeps appending clarifications onto epic descriptions on every push, so
+  // an older/heavily-amended epic can otherwise exceed the schema and 422 the
+  // whole request.
   function runGapAnalysis() {
     const existingEpics = (epics.data ?? []).map((epic) => ({
-      title: epic.subject,
-      description: epic.description ?? "",
-      stories: epic.stories.map((s) => s.subject),
+      title: (epic.subject ?? "").slice(0, 500),
+      description: (epic.description ?? "").slice(0, 20_000),
+      stories: epic.stories.slice(0, 200).map((s) => s.subject),
     }));
     setAppliedGapIndex(null);
     analyzeGaps.mutate(

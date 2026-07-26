@@ -29,7 +29,12 @@ class GenerateEpicDescriptionResponse(BaseModel):
 
 class ExistingEpicSchema(BaseModel):
     title: str = Field("", max_length=500)
-    description: str = Field("", max_length=5_000)
+    # PM-sourced epic descriptions are unbounded and grow over time (Phase 1
+    # appends a clarifications block on every story push, see
+    # pushPhase1StoriesDirect) — 5_000 was tight enough that older/heavily
+    # amended epics tripped this validator and 422'd the whole gap-analysis
+    # request. 20_000 gives real headroom without being unbounded.
+    description: str = Field("", max_length=20_000)
     stories: list[str] = Field(default_factory=list, max_length=200)
 
 
