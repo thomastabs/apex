@@ -118,6 +118,12 @@ class ContextService:
     def write_agent_file(self, filename: str, content: str) -> None:
         context_manager.write_agent_file(filename, content)
 
+    def read_agent_file_github_status(self, filename: str) -> bool | None:
+        return context_manager.read_agent_file_github_status(filename)
+
+    def write_agent_file_github_status(self, filename: str, in_github: bool) -> None:
+        context_manager.write_agent_file_github_status(filename, in_github)
+
     def reset_context_file(self, filename: str) -> None:
         context_manager.reset_context_file(filename)
 

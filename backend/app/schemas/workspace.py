@@ -145,7 +145,7 @@ class AgentFileSchema(BaseModel):
     content: str = ""
     chars: int = 0
     exists: bool = False
-    ignored: bool = False
+    in_github: bool | None = None
 
 
 class AgentFilesResponse(BaseModel):

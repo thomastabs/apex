@@ -245,7 +245,7 @@ export type AgentFile = {
   content: string;
   chars: number;
   exists: boolean;
-  ignored: boolean;
+  in_github: boolean | null;
 };
 
 export type AgentFilesResponse = {

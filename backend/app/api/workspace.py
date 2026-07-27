@@ -1,6 +1,8 @@
 """Workspace APIs used by the Next.js app shell/sidebar."""
 
 import logging
+import re
+import subprocess
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
@@ -95,14 +97,6 @@ _AGENT_FILES = [
 _ALLOWED_AGENT_FILES = {filename for filename, _label in _AGENT_FILES}
 
 
-def _gitignore_ignores(filename: str) -> bool:
-    try:
-        lines = (_REPO_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
-    except OSError:
-        return False
-    return any(line.strip() == filename for line in lines)
-
-
 def _agent_file_path(filename: str) -> Path:
     if filename not in _ALLOWED_AGENT_FILES:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown agent file.")
@@ -112,18 +106,59 @@ def _agent_file_path(filename: str) -> Path:
     return path
 
 
+def _apex_own_repo() -> str | None:
+    """Best-effort 'owner/repo' this backend's own checkout is a clone of, so
+    the repo-root disk read/write below is only ever used for the (self-hosting)
+    case where a project's *connected* GitHub repo genuinely is this repo — never
+    for an arbitrary other project, which would otherwise silently read/write
+    Apex's own AGENTS.md/CLAUDE.md/CODEX.md/GEMINI.md on disk. Not cached: this
+    only runs on agent-file panel loads/saves, not a request hot path, and
+    `_REPO_ROOT` can vary per-test — a stale cached value would be worse than a
+    few extra ms per call."""
+    try:
+        proc = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            cwd=_REPO_ROOT, capture_output=True, text=True, timeout=5, check=False,
+        )
+        if proc.returncode == 0:
+            match = re.search(r"[:/]([^/:]+/[^/]+?)(?:\.git)?$", proc.stdout.strip())
+            if match:
+                return match.group(1).lower()
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return None
+
+
+def _repo_root_usable(context: ContextService) -> bool:
+    """Whether it's safe to read/write this backend's own repo-root agent files
+    for the currently active project. True when no GitHub repo is connected
+    (plain local/dev editing of Apex's own instance — the original intent), or
+    when the connected repo IS Apex's own; false for any other connected repo,
+    which must go through project-scoped storage instead."""
+    configured = (context.github_repo() or "").strip().lower()
+    if not configured:
+        return True
+    own = _apex_own_repo()
+    if not own:
+        return True
+    return configured == own
+
+
 def _agent_file_payload(filename: str, label: str) -> dict:
-    path = _agent_file_path(filename)
-    content = ""
-    exists = path.exists()
-    stored_content = ContextService().read_agent_file(filename)
+    context = ContextService()
+    stored_content = context.read_agent_file(filename)
     stored_exists = bool(stored_content)
-    if exists:
-        try:
-            content = path.read_text(encoding="utf-8")
-        except UnicodeDecodeError as exc:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Agent file must be UTF-8 text.") from exc
-    elif stored_exists:
+    exists = False
+    content = ""
+    if _repo_root_usable(context):
+        path = _agent_file_path(filename)
+        exists = path.exists()
+        if exists:
+            try:
+                content = path.read_text(encoding="utf-8")
+            except UnicodeDecodeError as exc:
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Agent file must be UTF-8 text.") from exc
+    if not content and stored_exists:
         content = stored_content
     return {
         "filename": filename,
@@ -131,7 +166,7 @@ def _agent_file_payload(filename: str, label: str) -> dict:
         "content": content,
         "chars": len(content),
         "exists": exists or stored_exists,
-        "ignored": stored_exists or _gitignore_ignores(filename),
+        "in_github": context.read_agent_file_github_status(filename),
     }
 
 
@@ -693,15 +728,16 @@ def _agent_generation_grounding(ctx: RequestContext, filenames: list[str]) -> li
             if stored_content:
                 result.append((filename, stored_content[:60_000]))
                 continue
-            path = _agent_file_path(filename)
-            if path.exists():
-                try:
-                    result.append((filename, path.read_text(encoding="utf-8")[:60_000]))
-                except UnicodeDecodeError as exc:
-                    raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                        detail=f"{filename} must be UTF-8 text.",
-                    ) from exc
+            if _repo_root_usable(context):
+                path = _agent_file_path(filename)
+                if path.exists():
+                    try:
+                        result.append((filename, path.read_text(encoding="utf-8")[:60_000]))
+                    except UnicodeDecodeError as exc:
+                        raise HTTPException(
+                            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                            detail=f"{filename} must be UTF-8 text.",
+                        ) from exc
             continue
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Unknown grounding file: {filename}")
     return result
@@ -748,10 +784,15 @@ def update_agent_file(
 ):
     ctx_service = ContextService()
     ctx_service.set_active(_ctx)
-    path = _agent_file_path(filename)
-    try:
-        path.write_text(payload.content, encoding="utf-8")
-    except OSError:
+    wrote_to_repo_root = False
+    if _repo_root_usable(ctx_service):
+        path = _agent_file_path(filename)
+        try:
+            path.write_text(payload.content, encoding="utf-8")
+            wrote_to_repo_root = True
+        except OSError:
+            pass
+    if not wrote_to_repo_root:
         ctx_service.write_agent_file(filename, payload.content)
     return get_agent_files(_ctx)
 
@@ -760,10 +801,13 @@ def pull_agent_files_from_github(
     context: ContextService, pat: str, owner: str, repo: str, ref: str, *, note: str,
 ) -> tuple[list[str], list[str]]:
     """Fetch each allowlisted agent file from the repo at `ref` and write it
-    into the same slot `update_agent_file` (Save) writes to — repo-root file
-    first (local dev, self-managed instance), falling back to project-scoped
-    storage on OSError (prod, where the repo root is Apex's own read-only
-    deployed code, not the target project's checkout).
+    into the same slot `update_agent_file` (Save) writes to — this backend's
+    own repo-root file only when the connected repo genuinely IS this repo
+    (self-hosting; see `_repo_root_usable`), otherwise project-scoped storage,
+    since `owner/repo` is virtually always a *different* project's checkout
+    that this backend has no filesystem access to. Records a confirmed
+    present/absent status per file so the UI can show real GitHub state
+    instead of guessing from local disk.
 
     Returns (pulled, not_found) filenames. A repo simply not having e.g.
     GEMINI.md is normal, not an error — only surfaced so the caller can show
@@ -771,16 +815,24 @@ def pull_agent_files_from_github(
     """
     pulled: list[str] = []
     not_found: list[str] = []
+    repo_root_usable = _repo_root_usable(context)
     for filename, _label in _AGENT_FILES:
         content = github_fetch.fetch_file(pat, owner, repo, ref, filename)
         if content is None:
             not_found.append(filename)
+            context.write_agent_file_github_status(filename, False)
             continue
-        path = _agent_file_path(filename)
-        try:
-            path.write_text(content, encoding="utf-8")
-        except OSError:
+        wrote_to_repo_root = False
+        if repo_root_usable:
+            path = _agent_file_path(filename)
+            try:
+                path.write_text(content, encoding="utf-8")
+                wrote_to_repo_root = True
+            except OSError:
+                pass
+        if not wrote_to_repo_root:
             context.write_agent_file(filename, content)
+        context.write_agent_file_github_status(filename, True)
         context.amend_locked_spec(filename, note)
         pulled.append(filename)
     return pulled, not_found

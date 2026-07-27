@@ -607,7 +607,7 @@ def test_agent_files_list_and_update_safe_repo_root(tmp_path, monkeypatch):
     listed = get_agent_files(RequestContext(pm_token="tok", project_id=42))
     agents = next(file for file in listed["files"] if file["filename"] == "AGENTS.md")
     claude = next(file for file in listed["files"] if file["filename"] == "CLAUDE.md")
-    assert agents["ignored"] is True
+    assert agents["in_github"] is None
     assert claude["content"] == "# Claude\n"
 
     updated = update_agent_file(
@@ -640,7 +640,7 @@ def test_update_agent_file_falls_back_to_project_storage_when_repo_write_fails(c
 
     agents = next(file for file in updated["files"] if file["filename"] == "AGENTS.md")
     assert agents["exists"] is True
-    assert agents["ignored"] is True
+    assert agents["in_github"] is None
     assert agents["content"] == "# Agents\n\nStored in project context.\n"
 
 
@@ -1093,6 +1093,47 @@ class TestPullAgentFilesFromGithubRoute:
         with pytest.raises(HTTPException) as exc:
             ws.pull_agent_files_from_github_route(ctx=self._ctx())
         assert exc.value.status_code == 401
+
+    def test_never_touches_this_backends_own_repo_root_for_a_different_connected_repo(self, tmp_path, monkeypatch):
+        """Regression test: a project's connected GitHub repo is virtually always
+        a different codebase than the one this backend happens to be running
+        from. Pulling for such a project must go through project-scoped
+        storage only — never this backend's own repo-root AGENTS.md/CLAUDE.md/
+        etc, which would otherwise get silently overwritten by an unrelated
+        project's content (and then get shown as "tracked in repo" for every
+        other project too, since the file simply exists on disk)."""
+        from backend.app.api import workspace as ws
+        from backend.app.services import github_fetch
+
+        monkeypatch.setattr(ws, "_REPO_ROOT", tmp_path)
+        monkeypatch.setattr(ws, "_apex_own_repo", lambda: "thomastabs/apex")
+        monkeypatch.setattr(ws.ContextService, "set_active", lambda self, ctx: None)
+        monkeypatch.setattr(ws.ContextService, "github_pat", lambda self: "ghp_test")
+        monkeypatch.setattr(ws.ContextService, "github_repo", lambda self: "thomastabs/outfolio")
+        monkeypatch.setattr(github_fetch, "fetch_default_branch", lambda pat, owner, repo: "main")
+        monkeypatch.setattr(
+            github_fetch, "fetch_file",
+            lambda pat, owner, repo, ref, path: "# Foreign project content\n" if path == "CLAUDE.md" else None,
+        )
+        monkeypatch.setattr(ws.ContextService, "amend_locked_spec", lambda self, name, note="": None)
+
+        stored: dict[str, str] = {}
+        monkeypatch.setattr(ws.ContextService, "write_agent_file", lambda self, filename, content: stored.__setitem__(filename, content))
+        monkeypatch.setattr(ws.ContextService, "read_agent_file", lambda self, filename: stored.get(filename, ""))
+        statuses: dict[str, bool] = {}
+        monkeypatch.setattr(ws.ContextService, "write_agent_file_github_status", lambda self, filename, in_github: statuses.__setitem__(filename, in_github))
+        monkeypatch.setattr(ws.ContextService, "read_agent_file_github_status", lambda self, filename: statuses.get(filename))
+
+        resp = ws.pull_agent_files_from_github_route(ctx=self._ctx())
+
+        assert resp["pulled"] == ["CLAUDE.md"]
+        assert not (tmp_path / "CLAUDE.md").exists()
+        assert stored["CLAUDE.md"] == "# Foreign project content\n"
+        claude = next(f for f in resp["files"] if f["filename"] == "CLAUDE.md")
+        assert claude["content"] == "# Foreign project content\n"
+        assert claude["in_github"] is True
+        agents = next(f for f in resp["files"] if f["filename"] == "AGENTS.md")
+        assert agents["in_github"] is False
 
 
 class TestGithubPackConfigRoute:

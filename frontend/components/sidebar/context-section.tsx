@@ -244,7 +244,7 @@ function AgentFileEditor({
   dark,
   groundingFiles,
 }: {
-  file: { filename: string; label: string; content: string; chars: number; exists: boolean; ignored: boolean };
+  file: { filename: string; label: string; content: string; chars: number; exists: boolean; in_github: boolean | null };
   dark: boolean;
   groundingFiles: Array<{ filename: string; label: string; chars: number; content: string }>;
 }) {
@@ -278,10 +278,23 @@ function AgentFileEditor({
       <div className={cn("flex flex-wrap items-center gap-2 px-3 py-2 text-xs", dark ? "text-neutral-500" : "text-slate-500")}>
         <span>{value.length} ch</span>
         <span
-          title={file.ignored ? t("agentFiles.notInRepoHint") : t("agentFiles.trackedInRepoHint")}
-          className={cn("rounded border px-1.5 py-0.5", file.ignored ? "border-amber-500/40 text-amber-400" : dark ? "border-neutral-700 text-neutral-400" : "border-slate-300 text-slate-500")}
+          title={
+            file.in_github === true
+              ? t("agentFiles.trackedInRepoHint")
+              : file.in_github === false
+                ? t("agentFiles.notInRepoHint")
+                : t("agentFiles.githubStatusUnknownHint")
+          }
+          className={cn(
+            "rounded border px-1.5 py-0.5",
+            file.in_github === true
+              ? "border-emerald-500/40 text-emerald-400"
+              : file.in_github === false
+                ? "border-amber-500/40 text-amber-400"
+                : dark ? "border-neutral-700 text-neutral-400" : "border-slate-300 text-slate-500",
+          )}
         >
-          {file.ignored ? t("agentFiles.notInRepo") : t("agentFiles.trackedInRepo")}
+          {file.in_github === true ? t("agentFiles.trackedInRepo") : file.in_github === false ? t("agentFiles.notInRepo") : t("agentFiles.githubStatusUnknown")}
         </span>
         {!file.exists ? <span>{t("agentFiles.notCreated")}</span> : null}
       </div>

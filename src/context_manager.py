@@ -3897,6 +3897,31 @@ def write_agent_file(filename: str, content: str) -> None:
     _path(f"agent-files/{filename}").write_text(content, encoding="utf-8")
 
 
+def _read_agent_file_github_status_map() -> dict:
+    init_context()
+    p = _path("agent-files/.github-status.json")
+    if not p.exists():
+        return {}
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def read_agent_file_github_status(filename: str) -> bool | None:
+    """Tri-state: None = never confirmed against this project's connected repo,
+    True/False = whether the file was found there on the last pull attempt."""
+    value = _read_agent_file_github_status_map().get(filename)
+    return bool(value) if value is not None else None
+
+
+def write_agent_file_github_status(filename: str, in_github: bool) -> None:
+    init_context()
+    data = _read_agent_file_github_status_map()
+    data[filename] = in_github
+    _path("agent-files/.github-status.json").write_text(json.dumps(data), encoding="utf-8")
+
+
 def reset_context_file(filename: str) -> None:
     """Reset a single context file to its blank template."""
     template = _TEMPLATES.get(filename)
