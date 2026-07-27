@@ -277,8 +277,11 @@ function AgentFileEditor({
     <div className={cn("border-t", dark ? "border-neutral-800" : "border-slate-200")}>
       <div className={cn("flex flex-wrap items-center gap-2 px-3 py-2 text-xs", dark ? "text-neutral-500" : "text-slate-500")}>
         <span>{value.length} ch</span>
-        <span className={cn("rounded border px-1.5 py-0.5", file.ignored ? "border-amber-500/40 text-amber-400" : dark ? "border-neutral-700 text-neutral-400" : "border-slate-300 text-slate-500")}>
-          {file.ignored ? t("agentFiles.localOnly") : t("agentFiles.repoVisible")}
+        <span
+          title={file.ignored ? t("agentFiles.notInRepoHint") : t("agentFiles.trackedInRepoHint")}
+          className={cn("rounded border px-1.5 py-0.5", file.ignored ? "border-amber-500/40 text-amber-400" : dark ? "border-neutral-700 text-neutral-400" : "border-slate-300 text-slate-500")}
+        >
+          {file.ignored ? t("agentFiles.notInRepo") : t("agentFiles.trackedInRepo")}
         </span>
         {!file.exists ? <span>{t("agentFiles.notCreated")}</span> : null}
       </div>
@@ -909,6 +912,13 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                 <p className={cn("mb-3 text-sm", dark ? "text-neutral-500" : "text-slate-500")}>
                   {t("agentFiles.desc")}
                 </p>
+                <div className="mb-3">
+                  <Callout variant={githubConnected ? "info" : "warning"}>
+                    {githubConnected
+                      ? t("agentFiles.githubConnectedInfo", { repo: serverConfig.data?.github_repo ?? "" })
+                      : t("agentFiles.githubNotConnectedInfo")}
+                  </Callout>
+                </div>
                 <div className="mb-4 space-y-3">
                   {(agentFiles.data?.files ?? []).map((file) => (
                     <div
