@@ -700,7 +700,13 @@ export function Phase1Workflow() {
                 <label className={cn("block text-sm font-medium", labelClass)}>
                   {t("common.description")}
                   <div className="relative">
-                    <Textarea rows={5} value={epicDescription} onChange={(event) => setEpicDescription(event.target.value)} placeholder={t("phase1.epicDescPlaceholder")} />
+                    <Textarea
+                      rows={5}
+                      className="pr-28"
+                      value={epicDescription}
+                      onChange={(event) => setEpicDescription(event.target.value)}
+                      placeholder={t("phase1.epicDescPlaceholder")}
+                    />
                     <button
                       type="button"
                       title={t("phase1.generateDescriptionTitle")}
@@ -725,6 +731,7 @@ export function Phase1Workflow() {
                     </button>
                   </div>
                 </label>
+                <AiGroundingNote files={AI_GROUNDING.phase1EpicDescription} dark={dark} />
                 {(epicTitle || epicDescription || epicId) && (
                   <Button variant="secondary" className="gap-2" onClick={clearEpicInputs}>
                     <RotateCcw className="size-3.5" /> {t("phase1.clearFields")}

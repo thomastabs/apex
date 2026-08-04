@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 import { decodeApexMeta, encodeApexMeta } from "@/lib/hooks/use-phase3";
 import { useAutoSyncStoryIndex } from "@/lib/hooks/use-workspace";
@@ -500,8 +501,10 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart, onMo
             )}
 
             {isLoading ? (
-              <div className="flex items-center gap-2 px-4 py-3 text-xs text-neutral-500">
-                <Loader2 className="h-3 w-3 animate-spin" /> {t("common.loading")}
+              <div className="space-y-2 px-4 py-3">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-4/5" />
               </div>
             ) : isError ? (
               <div className={cn("mx-4 my-3 flex items-center justify-between gap-2 rounded border px-2.5 py-2 text-xs", dark ? "border-red-900/50 text-red-400" : "border-red-200 text-red-600")}>

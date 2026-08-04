@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, GripVertical, Layers, Loader2, Plus, SlidersHorizontal, TriangleAlert, X, Zap } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Button, Callout, Input } from "@/components/ui/primitives";
+import { Button, Callout, Input, SkeletonCardList } from "@/components/ui/primitives";
 import { SignInRequired } from "@/components/sign-in-required";
 import { decodeApexMeta, useBoltsList, useUpdateBoltStatus } from "@/lib/hooks/use-phase3";
 import { useBoltConfig, useSaveBoltConfig } from "@/lib/hooks/use-workspace";
@@ -309,11 +309,7 @@ export function BoltsDashboard() {
             <p className="mt-1 text-sm opacity-90">{t("bolts.explainer.body")}</p>
           </Callout>
 
-          {(boltsQuery.isLoading || pmTasksQuery.isLoading) && (
-            <div className="flex items-center gap-3 text-sm text-neutral-400">
-              <Loader2 className="h-4 w-4 animate-spin" /> {t("common.loading")}
-            </div>
-          )}
+          {(boltsQuery.isLoading || pmTasksQuery.isLoading) && <SkeletonCardList count={3} />}
           {boltsQuery.error != null && <Callout variant="danger">{errMsg(boltsQuery.error)}</Callout>}
           {configQuery.error != null && <Callout variant="danger">{errMsg(configQuery.error)}</Callout>}
 

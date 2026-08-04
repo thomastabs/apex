@@ -1,9 +1,9 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, Loader2 } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 import { toast } from "sonner";
-import { Button, Callout, SectionHeading } from "@/components/ui/primitives";
+import { Button, Callout, SectionHeading, SkeletonCardList } from "@/components/ui/primitives";
 import { getAnalyticsSummary, type AnalyticsSummary } from "@/lib/api/analytics";
 import { useApiContext } from "@/lib/stores/session-store";
 import { SignInRequired } from "@/components/sign-in-required";
@@ -135,11 +135,7 @@ export function AnalyticsDashboard() {
 
       {!context && <SignInRequired unlocks={t("analytics.unlocksAnalytics")} />}
 
-      {isLoading && (
-        <div className="flex items-center gap-3 text-sm text-neutral-400">
-          <Loader2 className="h-4 w-4 animate-spin" /> {t("analytics.computingMetrics")}
-        </div>
-      )}
+      {isLoading && <SkeletonCardList count={3} />}
       {error != null && <Callout>{t("analytics.failedLoad", { err: errMsg(error) })}</Callout>}
 
       {data && (

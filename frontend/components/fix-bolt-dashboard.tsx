@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { Download, Eye, Loader2, Pencil, Save, ScrollText, Trash2, X, Zap } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Callout } from "@/components/ui/primitives";
+import { Callout, Skeleton } from "@/components/ui/primitives";
 import { deleteBugReport, getBugReport, getFixLog, listBugReports, saveBugReport } from "@/lib/api/phase4";
 import { useEscapeKey } from "@/lib/hooks/use-escape-key";
 import { useApiContext } from "@/lib/stores/session-store";
@@ -144,8 +144,10 @@ export function FixBoltDashboard() {
             </div>
 
             {reportsLoading ? (
-              <div className="flex items-center gap-2 text-sm text-neutral-400">
-                <Loader2 className="h-4 w-4 animate-spin" /> {t("fixbolt.loadingBugReports")}
+              <div className="space-y-2 rounded-lg border p-3">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-4/5" />
               </div>
             ) : reportsError != null ? (
               <Callout>{t("fixbolt.failedLoadBugReports", { err: errMsg(reportsError) })}</Callout>
@@ -203,8 +205,10 @@ export function FixBoltDashboard() {
               <span className={cn("text-xs", mutedClass)}>{t("fixbolt.readOnlyPermanent")}</span>
             </div>
             {fixLogLoading ? (
-              <div className="flex items-center gap-2 text-sm text-neutral-400">
-                <Loader2 className="h-4 w-4 animate-spin" /> {t("fixbolt.loadingFixLog")}
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/5" />
               </div>
             ) : !fixLog ? (
               <p className={cn("text-sm", mutedClass)}>

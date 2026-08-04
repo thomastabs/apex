@@ -133,3 +133,35 @@ export function Skeleton({ className }: { className?: string }) {
     />
   );
 }
+
+/** Card-shaped skeleton for list/panel initial loads — a title line + subtitle, then a few body lines. */
+export function SkeletonCard({ className }: { className?: string }) {
+  const dark = useUiStore((s) => s.theme) === "dark";
+  return (
+    <div
+      aria-hidden="true"
+      className={cn("space-y-3 rounded-lg border p-4", dark ? "border-neutral-800" : "border-slate-200", className)}
+    >
+      <div className="space-y-1.5">
+        <Skeleton className="h-3.5 w-3/5" />
+        <Skeleton className="h-3 w-1/6" />
+      </div>
+      <div className="space-y-1.5">
+        <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-3 w-4/5" />
+        <Skeleton className="h-3 w-3/5" />
+      </div>
+    </div>
+  );
+}
+
+/** Stack of SkeletonCards — drop-in replacement for a spinner row while a list's first page loads. */
+export function SkeletonCardList({ count = 3, className }: { count?: number; className?: string }) {
+  return (
+    <div className={cn("space-y-3", className)}>
+      {Array.from({ length: count }, (_, i) => (
+        <SkeletonCard key={i} />
+      ))}
+    </div>
+  );
+}

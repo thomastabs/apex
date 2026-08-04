@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { ClipboardCheck, Download, Eye, Loader2, Pencil, Save, Trash2, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 import { downloadZip } from "@/lib/utils/zip";
 import { useEscapeKey } from "@/lib/hooks/use-escape-key";
@@ -146,8 +147,10 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
         {open ? (
           <div className={cn("px-4 py-3 text-sm", dark ? "bg-[#20232b]" : "bg-white")}>
             {isLoading ? (
-              <div className="flex items-center gap-2 text-xs text-neutral-500">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t("testplans.loading")}
+              <div className="space-y-2">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-4/5" />
               </div>
             ) : isError ? (
               <div className={cn("flex items-center justify-between gap-2 rounded border px-2.5 py-2 text-xs", dark ? "border-red-900/50 text-red-400" : "border-red-200 text-red-600")}>
