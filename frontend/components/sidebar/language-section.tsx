@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Languages } from "lucide-react";
-import { toast } from "sonner";
 import { useSaveAiLanguage } from "@/lib/hooks/use-workspace";
 import { useT } from "@/lib/i18n/use-translation";
 import { useUiStore, type Locale } from "@/lib/stores/ui-store";
@@ -22,9 +21,7 @@ export function LanguageSection({ dark, shellClass, dragHandlers, onDragStart }:
 
   function changeLanguage(lang: Locale) {
     setLocale(lang);
-    saveAiLanguageMutation.mutate(lang, {
-      onError: () => toast.error(t("ai.toast.failedSaveLanguage")),
-    });
+    saveAiLanguageMutation.mutate(lang);
   }
 
   const sectionBorderClass = dark ? "border-neutral-800" : "border-slate-300";

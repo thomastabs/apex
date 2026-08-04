@@ -11,7 +11,10 @@ const getEpic = vi.fn();
 vi.mock("@/lib/api/pm-factory", () => ({
   getPmAdapter: () => ({ createEpic, createStory, updateStory, updateEpic, listStoryStatuses, getEpic }),
 }));
-vi.mock("@/lib/api/client", () => ({ apiRequest: vi.fn().mockResolvedValue({ count: 1 }) }));
+vi.mock("@/lib/api/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api/client")>()),
+  apiRequest: vi.fn().mockResolvedValue({ count: 1 }),
+}));
 vi.mock("@/lib/api/taiga-direct", () => ({ taigaGetProject: vi.fn().mockResolvedValue({ slug: "phase5" }) }));
 
 import { pushPhase1Stories } from "@/lib/api/phase1";

@@ -17,7 +17,7 @@ import { usePhase2Store } from "@/lib/stores/phase2-store";
 import { usePhase3Store } from "@/lib/stores/phase3-store";
 import { usePhase4Store } from "@/lib/stores/phase4-store";
 import { usePhase5Store } from "@/lib/stores/phase5-store";
-import { cn, errMsg } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { PanelHeader, type DragSectionProps } from "./shared";
 import { useT } from "@/lib/i18n/use-translation";
 
@@ -83,9 +83,7 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
                 const selected = projectOptions.find((p) => p.id === Number(e.target.value));
                 if (selected && selected.id !== projectId) {
                   setProject({ projectId: selected.id, projectName: selected.name, pmProjectSlug: selected.slug ?? undefined });
-                  saveServerConfig.mutate(selected.id, {
-                    onError: () => toast.error(t("project.toast.switchedLocallyFailed")),
-                  });
+                  saveServerConfig.mutate(selected.id);
                   // All phase drafts are project-scoped — stale story IDs from
                   // the previous project would collide with the new one.
                   clearPhase2Draft();
@@ -159,7 +157,6 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
                 disabled={deleteProject.isPending}
                 onClick={() => confirm(t("project.deleteConfirm"), () => deleteProject.mutate(projectId, {
                   onSuccess: () => toast.success(t("project.toast.projectDeleted")),
-                  onError: () => toast.error(t("project.toast.failedDeleteProject")),
                 }))}
               >
                 <Trash2 className="size-3" />
@@ -191,7 +188,6 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
                 clearPhase5Draft();
                 toast.success(t("project.toast.projectCreated", { name }));
               },
-              onError: (e) => toast.error(errMsg(e)),
             })
           }
         />
@@ -213,7 +209,6 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
                 setProject({ projectId: p.id, projectName: p.name, pmProjectSlug: p.slug ?? undefined });
                 toast.success(t("project.toast.projectUpdated"));
               },
-              onError: () => toast.error(t("project.toast.failedUpdateProject")),
             })
           }
         />

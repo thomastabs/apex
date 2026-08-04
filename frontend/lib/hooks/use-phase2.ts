@@ -71,7 +71,7 @@ export function useProposeTechStack() {
 
   return useCancellableMutation(
     (body: ProposeTechStackRequest, signal) => proposeTechStack(context!, body, signal),
-    { onError: () => toast.error("Tech stack proposal failed. The AI may be busy — try again shortly.") },
+    { meta: { errorLabel: "op.proposeTechStack" } },
   );
 }
 
@@ -81,7 +81,7 @@ export function useLockTechStack() {
 
   return useMutation({
     mutationFn: (body: LockTechStackRequest) => lockTechStack(context!, body),
-    onError: () => toast.error("Failed to lock tech stack."),
+    meta: { errorLabel: "op.lockTechStack" },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["phase2", "tech-stack-status", context?.projectId] });
       void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
@@ -105,7 +105,7 @@ export function useGenerateDesignDelta() {
   return useCancellableMutation(
     ({ storyIds = [], instructions = "", extraContextFiles = [] }: { storyIds?: number[]; instructions?: string; extraContextFiles?: string[] }, signal) =>
       generateDesignDelta(context!, storyIds, instructions, signal, extraContextFiles),
-    { onError: (e: Error) => toast.error(`Design delta generation failed: ${e.message}`) },
+    { meta: { errorLabel: "op.generateDesignDelta" } },
   );
 }
 
@@ -115,7 +115,7 @@ export function usePersistDesignDelta() {
 
   return useMutation({
     mutationFn: (body: PersistDesignDeltaRequest) => persistDesignDelta(context!, body),
-    onError: (e: Error) => toast.error(`Failed to append design delta: ${e.message}`),
+    meta: { errorLabel: "op.persistDesignDelta" },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["phase2", "design-delta-status", context?.projectId] });
       void queryClient.invalidateQueries({ queryKey: ["phase2", "design-bundle", context?.projectId] });
@@ -138,7 +138,7 @@ export function useCrossCheckEndpoints() {
   return useCancellableMutation(
     ({ uxBrief, altModel = "" }: { uxBrief: string; altModel?: string }, signal) =>
       crossCheckEndpoints(context!, uxBrief, altModel, signal),
-    { onError: (e: Error) => toast.error(`Cross-check failed: ${e.message}`) },
+    { meta: { errorLabel: "op.crossCheck" } },
   );
 }
 
@@ -228,7 +228,7 @@ export function useLockDesign() {
 
   return useMutation({
     mutationFn: (body: LockDesignRequest) => lockDesign(context!, body),
-    onError: () => toast.error("Failed to lock design."),
+    meta: { errorLabel: "op.lockDesign" },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["phase2", "tech-stack-status", context?.projectId] });
       void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
@@ -255,7 +255,7 @@ export function useGenerateDiagram() {
       onSuccess: (data: DiagramResponse) => {
         queryClient.setQueryData(["phase2", "diagram", context?.projectId], data);
       },
-      onError: () => toast.error("Failed to generate diagram. Try again."),
+      meta: { errorLabel: "op.generateDiagram" },
     },
   );
 }
@@ -263,6 +263,7 @@ export function useGenerateDiagram() {
 export function useSaveDiagramPositions() {
   const context = useApiContext();
   return useMutation({
+    meta: { errorLabel: "op.saveDiagram" },
     mutationFn: (nodes: DiagramNode[]) => saveDiagramPositions(context!, nodes),
   });
 }
@@ -286,7 +287,7 @@ export function useGenerateScreenFlow() {
       onSuccess: (data: ScreenFlowResponse) => {
         queryClient.setQueryData(["phase2", "screen-flow", context?.projectId], data);
       },
-      onError: () => toast.error("Failed to generate screen flow. Try again."),
+      meta: { errorLabel: "op.generateScreenFlow" },
     },
   );
 }
@@ -294,6 +295,7 @@ export function useGenerateScreenFlow() {
 export function useSaveScreenFlowPositions() {
   const context = useApiContext();
   return useMutation({
+    meta: { errorLabel: "op.saveScreenFlow" },
     mutationFn: (nodes: ScreenFlowNode[]) => saveScreenFlowPositions(context!, nodes),
   });
 }
@@ -307,7 +309,7 @@ export function useBuildScreenFlowFromFigma() {
     onSuccess: (data: ScreenFlowResponse) => {
       queryClient.setQueryData(["phase2", "screen-flow", context?.projectId], data);
     },
-    onError: () => toast.error("Failed to build screen flow from Figma. Try again."),
+    meta: { errorLabel: "op.screenFlowFromFigma" },
   });
 }
 
@@ -331,7 +333,7 @@ export function useGenerateDesignSystem() {
       onSuccess: (data: DesignSystemResponse) => {
         queryClient.setQueryData(["phase2", "design-system", context?.projectId], data);
       },
-      onError: () => toast.error("Failed to generate design system. Try again."),
+      meta: { errorLabel: "op.generateDesignSystem" },
     },
   );
 }
@@ -344,7 +346,7 @@ export function useSaveDesignSystem() {
     onSuccess: (data: DesignSystemResponse) => {
       queryClient.setQueryData(["phase2", "design-system", context?.projectId], data);
     },
-    onError: () => toast.error("Failed to save design system. Try again."),
+    meta: { errorLabel: "op.saveDesignSystem" },
   });
 }
 
@@ -356,7 +358,7 @@ export function useClearDesignSystem() {
     onSuccess: () => {
       queryClient.setQueryData(["phase2", "design-system", context?.projectId], null);
     },
-    onError: () => toast.error("Failed to clear design system. Try again."),
+    meta: { errorLabel: "op.clearDesignSystem" },
   });
 }
 
@@ -370,7 +372,7 @@ export function useGenerateDesignSystemScreen() {
       onSuccess: (data: DesignSystemResponse) => {
         queryClient.setQueryData(["phase2", "design-system", context?.projectId], data);
       },
-      onError: () => toast.error("Failed to generate screen. Try again."),
+      meta: { errorLabel: "op.generateScreen" },
     },
   );
 }
@@ -380,6 +382,7 @@ export function useRefreshStoryIndex() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { errorLabel: "op.refreshStoryIndex" },
     mutationFn: () => refreshStoryIndex(context!),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["phase2", "tech-stack-status", context?.projectId] });

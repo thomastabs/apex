@@ -117,7 +117,6 @@ function PackSettings({ dark }: { dark: boolean }) {
       { pack_detail_mode: mode, pack_max_tokens: tokens, pack_extra_ignore: extraIgnore.trim() },
       {
         onSuccess: () => toast.success(t("github.pack.toast.saved")),
-        onError: (e) => toast.error(e instanceof Error ? e.message : t("github.pack.toast.saveFailed")),
       },
     );
   }
@@ -404,7 +403,6 @@ export function GitHubSection({ dark, githubRepo, shellClass, dragHandlers, onDr
                     disabled={syncContext.isPending}
                     onClick={() => syncContext.mutate(undefined, {
                       onSuccess: () => toast.success(t("github.toast.contextSynced")),
-                      onError: (e) => toast.error(e instanceof Error ? e.message : t("figma.toast.syncFailed")),
                     })}
                   >
                     <RefreshCw className={cn("size-3.5", syncContext.isPending && "animate-spin")} />

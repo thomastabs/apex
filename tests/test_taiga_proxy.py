@@ -514,7 +514,8 @@ class TestAuthBruteForceProtection:
                 assert _login_as(f"user{i}").status_code == 401
             resp = _login_as("user-final")
         assert resp.status_code == 429
-        assert "sign-in attempts" in resp.json()["detail"]
+        assert "sign-in attempts" in resp.json()["detail"]["message"]
+        assert resp.headers["Retry-After"]
 
     def test_failure_backoff_blocks_before_forwarding(self, client):
         from backend.app.api import rate_limit
@@ -528,7 +529,9 @@ class TestAuthBruteForceProtection:
         with patcher:
             resp = self._login(client)
         assert resp.status_code == 429
-        assert "failed PM sign-in" in resp.json()["detail"]
+        assert resp.json()["detail"]["code"] == "auth_failures_ip"
+        assert "failed PM sign-in" in resp.json()["detail"]["message"]
+        assert resp.headers["Retry-After"]
         mock_http.request.assert_not_called()  # rejected before reaching Taiga
 
     def test_upstream_rejection_recorded(self, client):

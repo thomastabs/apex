@@ -322,7 +322,6 @@ function AgentFileEditor({
                 setValue(draft.content);
                 toast.success(t("agentFiles.generated", { file: file.filename }));
               },
-              onError: (e) => toast.error(e instanceof Error ? e.message : t("agentFiles.generateFailed", { file: file.filename })),
             },
           )}
         >
@@ -341,7 +340,6 @@ function AgentFileEditor({
             { filename: file.filename, content: value },
             {
               onSuccess: () => toast.success(t("agentFiles.saved", { file: file.filename })),
-              onError: () => toast.error(t("agentFiles.saveFailed", { file: file.filename })),
             },
           )}
         >
@@ -380,13 +378,9 @@ function ContextEditor({
     genConstraints.mutate(undefined, {
       onSuccess: (res) => {
         setValue(res.constraints_md);
-        update.mutate(
-          { filename: file.filename, content: res.constraints_md },
-          { onError: () => toast.error(t("context.saveFailed", { label: file.label })) },
-        );
+        update.mutate({ filename: file.filename, content: res.constraints_md });
         toast.success(t("context.constraintsGenerated", { n: res.constraints.length }));
       },
-      onError: () => toast.error(t("context.generateConstraintsFailed")),
     });
   }
 
@@ -401,10 +395,7 @@ function ContextEditor({
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       timerRef.current = null;
-      update.mutate(
-        { filename: file.filename, content: newValue },
-        { onError: () => toast.error(t("context.saveFailed", { label: file.label })) },
-      );
+      update.mutate({ filename: file.filename, content: newValue });
     }, 700);
   }
 
@@ -463,7 +454,6 @@ function ContextEditor({
             isCustom ? t("context.deleteCustomFileConfirm", { label: file.label }) : t("context.resetFileConfirm", { label: file.label }),
             () => reset.mutate(file.filename, {
               onSuccess: () => toast.success(isCustom ? t("context.customFileDeleted", { label: file.label }) : t("context.fileResetSuccess", { label: file.label })),
-              onError: () => toast.error(isCustom ? t("context.customFileDeleteFailed", { label: file.label }) : t("context.fileResetFailed", { label: file.label })),
             }),
           )}
         >
@@ -818,7 +808,6 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                           setSelectedWikiFiles([]);
                           toast.success(t("context.taigaWikiPublished"));
                         },
-                        onError: (e) => toast.error(e instanceof Error ? e.message : t("context.taigaWikiPublishFailed")),
                       })}
                     >
                       <Upload className="size-3" /> {publishWiki.isPending ? t("common.saving") : t("context.publishToTaigaWiki")}
@@ -834,7 +823,6 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                           setSelectedWikiFiles([]);
                           toast.success(t("context.taigaWikiPulled"));
                         },
-                        onError: (e) => toast.error(e instanceof Error ? e.message : t("context.taigaWikiPullFailed")),
                       }))}
                     >
                       <Download className="size-3" /> {pullWiki.isPending ? t("common.loading") : t("context.pullFromTaigaWiki")}
@@ -882,7 +870,6 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                 disabled={rebuildIndex.isPending}
                 onClick={() => rebuildIndex.mutate(undefined, {
                   onSuccess: () => toast.success(t("board.storyIndexRebuilt")),
-                  onError: () => toast.error(t("board.storyIndexRebuildFailed")),
                 })}
               >
                 <span>{t("context.rebuildStoryIndex")}</span>
@@ -894,7 +881,7 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                   dark ? "text-red-400 hover:text-red-300" : "text-red-600 hover:text-red-700",
                 )}
                 disabled={resetAll.isPending}
-                onClick={() => confirm(t("context.resetAllConfirm"), () => resetAll.mutate(undefined, { onSuccess: () => toast.success(t("context.allContextFilesReset")), onError: () => toast.error(t("context.resetContextFilesFailed")) }))}
+                onClick={() => confirm(t("context.resetAllConfirm"), () => resetAll.mutate(undefined, { onSuccess: () => toast.success(t("context.allContextFilesReset")) }))}
               >
                 <span>{t("context.resetAllContextFiles")}</span>
                 <Trash2 className="size-4" />
@@ -991,7 +978,6 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                           toast.info(t("agentFiles.pullFromGithubNoneFound"));
                         }
                       },
-                      onError: (e) => toast.error(e instanceof Error ? e.message : t("agentFiles.pullFromGithubFailed")),
                     })}
                   >
                     <span>{pullAgentFiles.isPending ? t("common.loading") : t("agentFiles.pullFromGithub")}</span>

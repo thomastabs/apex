@@ -7,7 +7,7 @@ vi.mock("@/lib/stores/session-store", () => ({
   useApiContext: () => ({ projectId: 7, pmTool: "taiga", pmToken: "tok" }),
 }));
 vi.mock("@/lib/hooks/use-workspace", () => ({ useAutoSyncStoryIndex: () => vi.fn() }));
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn(), message: vi.fn(), loading: vi.fn(), dismiss: vi.fn() } }));
 vi.mock("@/lib/api/phase3", () => ({
   listPacks: vi.fn().mockResolvedValue({
     packs: [

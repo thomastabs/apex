@@ -62,13 +62,13 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
       setEditing(false);
       setDraft(content);
     },
-    onError: (err: Error) => toast.error(t("testplans.toast.loadFailed", { err: err.message })),
+    meta: { errorLabel: "op.loadTestPlan" },
   });
 
   const downloadMut = useMutation({
     mutationFn: fetchPlanContent,
     onSuccess: (content, storyId) => planDownload(content, storyId),
-    onError: (err: Error) => toast.error(t("testplans.toast.downloadFailed", { err: err.message })),
+    meta: { errorLabel: "op.downloadTestPlan" },
   });
 
   const downloadAllMut = useMutation({
@@ -77,7 +77,7 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
       return contents.map((content, i) => ({ filename: `test_plan_story_${plans[i].story_id}.md`, content }));
     },
     onSuccess: (files) => downloadZip(files, "apex-test-plans.zip"),
-    onError: (err: Error) => toast.error(t("testplans.toast.downloadFailed", { err: err.message })),
+    meta: { errorLabel: "op.downloadTestPlan" },
   });
 
   const saveMut = useMutation({
@@ -90,7 +90,7 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
       setEditing(false);
       toast.success(t("testplans.toast.testPlanSaved"));
     },
-    onError: (err: Error) => toast.error(t("testplans.toast.saveFailed", { err: err.message })),
+    meta: { errorLabel: "op.saveTestPlan" },
   });
 
   const deleteMut = useMutation({
@@ -101,7 +101,7 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
       autoSync();
       toast.success(t("testplans.toast.testPlanDeleted"));
     },
-    onError: (err: Error) => toast.error(t("testplans.toast.deleteFailed", { err: err.message })),
+    meta: { errorLabel: "op.deleteTestPlan" },
   });
 
   const deleteAllMut = useMutation({
@@ -116,7 +116,7 @@ export function TestPlansSection({ dark, confirm, shellClass, dragHandlers, onDr
       autoSync();
       toast.success(t("testplans.toast.allDeleted"));
     },
-    onError: (err: Error) => toast.error(t("testplans.toast.deleteAllFailed", { err: err.message })),
+    meta: { errorLabel: "op.deleteTestPlan" },
   });
 
   const closeModal = () => {

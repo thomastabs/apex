@@ -141,12 +141,37 @@ class GithubFetchError(RuntimeError):
 
     `status_code` carries the upstream HTTP status when there was one (0 for
     a clone/pack/transport failure with no HTTP response), so callers can map
-    a 401/403/429 through distinctly from a generic 502.
+    a 401/403/404/429 through distinctly from a generic 502.
+
+    `code` is the stable machine identifier forwarded to the client as
+    `detail: {"code": ..., "message": ...}` (see lib/errors.ts).
     """
 
-    def __init__(self, message: str, status_code: int = 0):
+    def __init__(self, message: str, status_code: int = 0, code: str = "github_error"):
         super().__init__(message)
         self.status_code = status_code
+        self.code = code
+
+
+def _classify_clone_failure(stderr: str) -> tuple[str, int, str]:
+    """Turn raw `git clone` stderr into (message, status_code, code)."""
+    low = stderr.lower()
+    if "authentication failed" in low or "403" in low or "invalid username or password" in low:
+        return (
+            "GitHub rejected the token when cloning. Check the PAT and its scopes in Settings → GitHub.",
+            401, "github_token_rejected",
+        )
+    if "repository not found" in low or "not found" in low or "404" in low:
+        return (
+            "GitHub could not find that repository. Check the owner/repo value and that "
+            "the token has access to it.",
+            404, "github_repo_not_found",
+        )
+    if "could not resolve host" in low or "connection" in low or "network" in low:
+        return ("Could not reach GitHub while cloning the repository.", 0, "github_unreachable")
+    if "remote branch" in low or "did not match any file" in low:
+        return ("The repository's default branch could not be cloned.", 0, "github_branch_missing")
+    return ("Could not clone the repository from GitHub.", 0, "github_clone_failed")
 
 
 def _get(path: str, pat: str) -> dict:
@@ -166,11 +191,23 @@ def _get(path: str, pat: str) -> dict:
         with httpx.Client(follow_redirects=False, timeout=_API_TIMEOUT) as client:
             resp = client.request("GET", url, headers=headers, **({"extensions": ext} if ext else {}))
     except httpx.RequestError as exc:
-        raise GithubFetchError(f"Failed to reach GitHub: {exc}") from exc
+        raise GithubFetchError(f"Failed to reach GitHub: {exc}", code="github_unreachable") from exc
     if resp.status_code in (401, 403):
-        raise GithubFetchError("GitHub rejected the token (401/403).", status_code=resp.status_code)
+        raise GithubFetchError(
+            "GitHub rejected the token. Check the PAT and its scopes in Settings → GitHub.",
+            status_code=resp.status_code, code="github_token_rejected",
+        )
+    if resp.status_code == 404:
+        raise GithubFetchError(
+            "GitHub could not find that repository. Check the owner/repo value and that "
+            "the token has access to it.",
+            status_code=404, code="github_repo_not_found",
+        )
     if resp.status_code == 429:
-        raise GithubFetchError("GitHub is rate-limiting this token.", status_code=429)
+        raise GithubFetchError(
+            "GitHub is rate-limiting this token. Wait a few minutes and try again.",
+            status_code=429, code="github_rate_limited",
+        )
     if resp.status_code >= 400:
         raise GithubFetchError(f"GitHub returned {resp.status_code}.", status_code=resp.status_code)
     return resp.json()
@@ -291,11 +328,23 @@ def clone_and_pack(
                 text=True,
             )
         except subprocess.TimeoutExpired as exc:
-            raise GithubFetchError("Timed out cloning the repository.") from exc
+            raise GithubFetchError(
+                "Timed out cloning the repository. It may be too large to pack, or GitHub is slow right now.",
+                code="github_clone_timeout",
+            ) from exc
+        except FileNotFoundError as exc:
+            # `git` missing from the image: a deployment problem, not the
+            # user's. Previously escaped uncaught as a bare 500.
+            raise GithubFetchError(
+                "The server is missing the git binary needed to pack a repository.",
+                code="github_git_missing",
+            ) from exc
         if result.returncode != 0:
             stderr = (result.stderr or "").strip()[-2000:]
-            code = 401 if "Authentication failed" in stderr or "403" in stderr else 0
-            raise GithubFetchError(f"git clone failed: {stderr or 'unknown error'}", status_code=code)
+            # Two thousand characters of raw git stderr is not a toast. Classify
+            # it, and keep the raw text in the server log for diagnosis.
+            _logger.error("git_clone_failed owner=%s repo=%s ref=%s stderr=%s", owner, repo, ref, stderr)
+            raise GithubFetchError(*_classify_clone_failure(stderr))
 
         size = _dir_size_bytes(dest)
         if size > _MAX_CLONE_BYTES:
@@ -390,4 +439,13 @@ def _run_repomix(
             args, cwd=str(dest), timeout=_PACK_TIMEOUT, capture_output=True, text=True,
         )
     except subprocess.TimeoutExpired as exc:
-        raise GithubFetchError("Timed out packing the repository.") from exc
+        raise GithubFetchError(
+            "Timed out packing the repository.", code="github_pack_timeout",
+        ) from exc
+    except FileNotFoundError as exc:
+        # `repomix` missing from the image. `_run_repomix` only caught
+        # TimeoutExpired, so this escaped uncaught and became a bare 500.
+        raise GithubFetchError(
+            "The server is missing the repomix tool needed to pack a repository.",
+            code="github_repomix_missing",
+        ) from exc

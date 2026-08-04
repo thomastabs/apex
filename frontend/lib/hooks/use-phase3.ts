@@ -33,6 +33,7 @@ import { usePhase3Store } from "@/lib/stores/phase3-store";
 import { useApiContext, useFigmaContext } from "@/lib/stores/session-store";
 import { useCancellableMutation } from "@/lib/hooks/use-cancellable-mutation";
 import { toast } from "sonner";
+import { translate } from "@/lib/i18n/translate";
 
 // ---------------------------------------------------------------------------
 // Apex metadata encoding / decoding in PM task descriptions
@@ -190,7 +191,7 @@ export function useGenerateTasks() {
         setTaskList(data.tasks);
         toast.success(`${data.tasks.length} tasks generated.`);
       },
-      onError: () => toast.error("Task generation failed. Try again."),
+      meta: { errorLabel: "op.generateTasks" },
     },
   );
 }
@@ -245,7 +246,7 @@ export function usePushTasksToTaiga() {
         toast.success(`${results.length} tasks pushed.`);
       }
     },
-    onError: () => toast.error("Failed to push tasks. Check your connection and try again."),
+    meta: { errorLabel: "op.pushTasks" },
   });
 }
 
@@ -287,7 +288,7 @@ export function useUpdateBoltStatus() {
         );
       }
     },
-    onError: () => toast.error("Failed to update Bolt status. Try again."),
+    meta: { errorLabel: "op.updateBoltStatus" },
   });
 }
 
@@ -296,7 +297,7 @@ export function useCrossCheckTasks() {
   return useCancellableMutation(
     ({ storyId, altModel = "" }: { storyId: number; altModel?: string }, signal) =>
       crossCheckTasks(context!, storyId, altModel, signal),
-    { onError: (e: Error) => toast.error(`Cross-check failed: ${e.message}`) },
+    { meta: { errorLabel: "op.crossCheck" } },
   );
 }
 
@@ -309,7 +310,7 @@ export function useGenerateProposal() {
   return useCancellableMutation(
     (body: Phase3GenerateProposalRequest, signal) => generateProposal(context!, body, signal, figma?.token),
     {
-      onError: () => toast.error("Pack generation failed. Try again."),
+      meta: { errorLabel: "op.generateProposal" },
     },
   );
 }
@@ -319,7 +320,7 @@ export function useSaveProposal() {
 
   return useMutation({
     mutationFn: (body: Phase3SaveProposalRequest) => saveProposal(context!, body),
-    onError: () => toast.error("Failed to save proposal."),
+    meta: { errorLabel: "op.saveProposal" },
   });
 }
 
@@ -334,7 +335,7 @@ export function useLockStory() {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
       toast.success("Story locked as implementation-ready.");
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to lock story."),
+    meta: { errorLabel: "op.lockStory" },
   });
 }
 
@@ -381,16 +382,23 @@ export function useLoadTaskList(storyId: number | null) {
       // Fetch each task's full description from the detail endpoint before
       // decoding — same source the sidebar editor uses. Falls back to the list
       // description if a detail fetch fails.
+      let detailFailures = 0;
       const detailed = await Promise.all(
         storyTasks.map(async (t) => {
           try {
             const full = await adapter.getTask(ctx, String(t.id));
             return { ...t, description: full.description };
           } catch {
+            detailFailures += 1;
             return t;
           }
         }),
       );
+      // Falling back silently would show plausible-looking but wrong effort,
+      // coverage and dependency values. One toast for the batch, not per task.
+      if (detailFailures > 0) {
+        toast.warning(translate("errors.taskMetaUnavailable"), { id: "task-meta-unavailable" });
+      }
       if (cancelled) return;
       // Prefer the encoded Apex task id — predecessor_task_ids reference it, so
       // positional ids would corrupt the DAG after a deletion/reorder in the PM.
@@ -503,10 +511,7 @@ export function useUpdateTaskInTaiga() {
       void queryClient.invalidateQueries({ queryKey: ["pm", "project-tasks", context?.projectId] });
       toast.success("Task saved.");
     },
-    onError: (err) => {
-      const adapter = getPmAdapter(context?.pmTool);
-      toast.error(adapter.errMsg(err, "Save task"));
-    },
+    meta: { errorLabel: "op.updateTask" },
   });
 }
 
@@ -539,9 +544,6 @@ export function usePushSingleTask() {
       void queryClient.invalidateQueries({ queryKey: ["phase3", "task-board"] });
       toast.success("Task added.");
     },
-    onError: (err) => {
-      const adapter = getPmAdapter(context?.pmTool);
-      toast.error(adapter.errMsg(err, "Add task"));
-    },
+    meta: { errorLabel: "op.pushTasks" },
   });
 }

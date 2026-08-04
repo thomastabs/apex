@@ -5,6 +5,7 @@ from typing import NoReturn
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from backend.app.api.deps import RequestContext, get_request_context
+from backend.app.api.ai_errors import handle_ai_error
 from backend.app.api.rate_limit import ai_rate_limit
 from backend.app.schemas.phase1 import CrossCheckResponse
 from backend.app.schemas.phase2 import (
@@ -37,7 +38,6 @@ from backend.app.schemas.phase2 import (
 from backend.app.schemas.workspace import OkResponse
 from backend.app.services.context_service import ContextService
 from backend.app.services.phase2_service import Phase2Service, Phase2ValidationError
-from src.ai_engine import AIError, AIRateLimitError, AITimeoutError
 
 _logger = logging.getLogger("apex.phase2")
 
@@ -51,15 +51,7 @@ def get_phase2_service() -> Phase2Service:
 def _handle_error(exc: Exception) -> NoReturn:
     if isinstance(exc, Phase2ValidationError):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
-    if isinstance(exc, AIRateLimitError):
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
-    if isinstance(exc, AITimeoutError):
-        raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail=str(exc)) from exc
-    if isinstance(exc, AIError):
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
-    if isinstance(exc, EnvironmentError):
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
-    raise exc
+    handle_ai_error(exc)
 
 
 @router.get("/tech-stack-status", response_model=TechStackStatusResponse)

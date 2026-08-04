@@ -18,6 +18,7 @@ import {
 } from "@xyflow/react";
 import Dagre from "@dagrejs/dagre";
 import { toPng } from "html-to-image";
+import { toast } from "sonner";
 import { AlertTriangle, Download, LayoutDashboard, Loader2, RefreshCw, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useApiContext } from "@/lib/stores/session-store";
@@ -279,8 +280,9 @@ export function TraceabilityGraphPanel() {
         a.href = dataUrl;
         a.click();
       })
-      .catch(() => {});
-  }, [nodes, dark]);
+      // No download and no message reads as a dead button.
+      .catch(() => toast.error(t("errors.exportFailed")));
+  }, [nodes, dark, t]);
 
   const mutedClass = dark ? "text-neutral-500" : "text-slate-400";
   const hasGraph = (data?.nodes.length ?? 0) > 1;

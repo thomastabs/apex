@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 
 import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from backend.app.api.rate_limit import (
@@ -192,14 +193,41 @@ async def proxy_taiga_auth(
         if resp.status_code in (400, 401, 403):
             record_auth_failure(request)
             record_username_failure(payload.username)
-        error_msg = (
-            data.get("_error_message")
-            or data.get("detail")
-            or f"Taiga returned {resp.status_code}."
-        )
-        raise HTTPException(status_code=resp.status_code, detail=error_msg)
+        raise HTTPException(status_code=resp.status_code, detail=_upstream_detail(resp))
 
     return data
+
+
+def _upstream_detail(resp: httpx.Response) -> str:
+    """Best readable message out of a Taiga error body.
+
+    Taiga answers with `_error_message`, sometimes `detail`, sometimes a bare
+    list of strings, and sometimes HTML. Callers only ever get a string.
+    """
+    try:
+        data = resp.json()
+    except ValueError:
+        data = None
+    if isinstance(data, dict):
+        for key in ("_error_message", "detail", "error", "message"):
+            value = data.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        non_field = data.get("non_field_errors")
+        if isinstance(non_field, list) and non_field:
+            return "; ".join(str(v) for v in non_field)
+    elif isinstance(data, list) and data:
+        return "; ".join(str(v) for v in data)
+    elif isinstance(data, str) and data.strip():
+        return data.strip()
+    if resp.status_code == 401:
+        return "Taiga rejected the credentials. Sign in again."
+    if resp.status_code == 403:
+        return "Taiga denied access to this resource."
+    if resp.status_code == 404:
+        return "Taiga could not find that resource."
+    return f"Taiga returned {resp.status_code}."
+
 
 
 def _get_taiga_url(x_taiga_url: str = "") -> str:
@@ -281,6 +309,20 @@ async def proxy_taiga(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Taiga instance returned a response that was too large.",
         ) from exc
+
+    if resp.status_code >= 400:
+        # Taiga's error bodies use its own shape (`_error_message`, or a bare
+        # list/string), so an expired token here looked nothing like the same
+        # event coming from deps.py. Normalise to `{"detail": ...}` — the shape
+        # every other Apex error uses — and log it, since upstream 4xx
+        # passthroughs previously left no server-side trace at all.
+        _logger.warning(
+            "taiga_upstream_error status=%d path=%s", resp.status_code, path,
+        )
+        return JSONResponse(
+            {"detail": _upstream_detail(resp)},
+            status_code=resp.status_code,
+        )
 
     return Response(
         content=resp.content,

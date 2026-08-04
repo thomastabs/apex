@@ -67,13 +67,13 @@ export function FixBoltDashboard() {
       setEditing(false);
       setDraft(content);
     },
-    onError: (err: Error) => toast.error(t("fixbolt.toast.loadFailed", { err: err.message })),
+    meta: { errorLabel: "op.loadBugReport" },
   });
 
   const downloadMut = useMutation({
     mutationFn: fetchContent,
     onSuccess: (content, storyId) => bugReportDownload(content, storyId),
-    onError: (err: Error) => toast.error(t("packs.toast.downloadFailed", { err: err.message })),
+    meta: { errorLabel: "op.downloadBugReport" },
   });
 
   const saveMut = useMutation({
@@ -84,7 +84,7 @@ export function FixBoltDashboard() {
       setEditing(false);
       toast.success(t("fixbolt.toast.bugReportSaved"));
     },
-    onError: (err: Error) => toast.error(t("packs.toast.saveFailed", { err: err.message })),
+    meta: { errorLabel: "op.saveBugReport" },
   });
 
   const deleteMut = useMutation({
@@ -94,7 +94,7 @@ export function FixBoltDashboard() {
       setDeleteConfirm(null);
       toast.success(t("fixbolt.toast.bugReportDeleted"));
     },
-    onError: (err: Error) => toast.error(t("packs.toast.deleteFailed", { err: err.message })),
+    meta: { errorLabel: "op.deleteBugReport" },
   });
 
   const closeModal = () => {

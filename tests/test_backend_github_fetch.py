@@ -70,7 +70,46 @@ class TestCloneAndPack:
         monkeypatch.setattr(gf.subprocess, "run", fake_run)
         with pytest.raises(gf.GithubFetchError) as exc_info:
             gf.clone_and_pack("pat", "acme", "ghost-repo", "main")
-        assert exc_info.value.status_code == 0
+        # A missing repo is now reported as such (404) instead of an opaque
+        # generic clone failure carrying raw git stderr.
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.code == "github_repo_not_found"
+
+    def test_clone_auth_failure_is_reported_as_a_token_problem(self, monkeypatch):
+        fake_run = _fake_run_factory(
+            clone_returncode=128,
+            clone_stderr="remote: Support for password authentication was removed.\nfatal: Authentication failed for 'https://github.com/acme/widgets.git/'",
+        )
+        monkeypatch.setattr(gf.subprocess, "run", fake_run)
+        with pytest.raises(gf.GithubFetchError) as exc_info:
+            gf.clone_and_pack("pat", "acme", "widgets", "main")
+        assert exc_info.value.status_code == 401
+        assert exc_info.value.code == "github_token_rejected"
+        # Raw git stderr belongs in the server log, not in a toast.
+        assert "remote:" not in str(exc_info.value)
+
+    def test_missing_git_binary_is_a_clean_error_not_a_500(self, monkeypatch):
+        def _missing(*a, **kw):
+            raise FileNotFoundError(2, "No such file or directory", "git")
+
+        monkeypatch.setattr(gf.subprocess, "run", _missing)
+        with pytest.raises(gf.GithubFetchError) as exc_info:
+            gf.clone_and_pack("pat", "acme", "widgets", "main")
+        assert exc_info.value.code == "github_git_missing"
+
+    def test_missing_repomix_binary_is_a_clean_error_not_a_500(self, monkeypatch):
+        real = _fake_run_factory()
+
+        def _run(args, **kw):
+            # git clone succeeds; repomix is not installed.
+            if Path(args[0]).name == gf._REPOMIX_BIN or args[0] == gf._REPOMIX_BIN:
+                raise FileNotFoundError(2, "No such file or directory", "repomix")
+            return real(args, **kw)
+
+        monkeypatch.setattr(gf.subprocess, "run", _run)
+        with pytest.raises(gf.GithubFetchError) as exc_info:
+            gf.clone_and_pack("pat", "acme", "widgets", "main")
+        assert exc_info.value.code == "github_repomix_missing"
 
     def test_clone_timeout_raises_clean_error(self, monkeypatch):
         def _timeout(*a, **kw):

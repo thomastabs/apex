@@ -73,7 +73,7 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
       setEditing(false);
       setDraft(content);
     },
-    onError: (err: Error) => toast.error(t("packs.toast.loadFailed", { err: err.message })),
+    meta: { errorLabel: "op.loadPack" },
   });
 
   const saveMut = useMutation({
@@ -86,7 +86,7 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
       setEditing(false);
       toast.success(t("packs.toast.packSaved"));
     },
-    onError: (err: Error) => toast.error(t("packs.toast.saveFailed", { err: err.message })),
+    meta: { errorLabel: "op.saveProposal" },
   });
 
   const closeModal = () => {
@@ -99,7 +99,7 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
   const downloadMut = useMutation({
     mutationFn: fetchPackContent,
     onSuccess: (content, ref) => packDownload(content, ref.storyId, ref.taskId),
-    onError: (err: Error) => toast.error(t("packs.toast.downloadFailed", { err: err.message })),
+    meta: { errorLabel: "op.downloadPack" },
   });
 
   const deleteMut = useMutation({
@@ -110,7 +110,7 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
       autoSync();
       toast.success(t("packs.toast.packDeleted"));
     },
-    onError: (err: Error) => toast.error(t("packs.toast.deleteFailed", { err: err.message })),
+    meta: { errorLabel: "op.deletePack" },
   });
 
   const downloadStoryPacksMut = useMutation({
@@ -125,7 +125,7 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
         `dev_packs_story_${storyId}.zip`,
       );
     },
-    onError: (err: Error) => toast.error(t("packs.toast.downloadFailed", { err: err.message })),
+    meta: { errorLabel: "op.downloadPack" },
   });
 
   const deleteStoryPacksMut = useMutation({
@@ -140,7 +140,7 @@ export function PacksSection({ dark, confirm, shellClass, dragHandlers, onDragSt
       autoSync();
       toast.success(t("packs.toast.allPacksDeleted", { storyId }));
     },
-    onError: (err: Error) => toast.error(t("packs.toast.deleteFailed", { err: err.message })),
+    meta: { errorLabel: "op.deletePack" },
   });
 
   const rowBtn = cn(

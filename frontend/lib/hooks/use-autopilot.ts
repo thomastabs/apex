@@ -17,7 +17,6 @@ import {
 import type { AutopilotStartRequest, AutopilotState, AutopilotStatus } from "@/lib/api/autopilot";
 import { contextHeaders, getApiBaseUrl } from "@/lib/api/client";
 import { useApiContext } from "@/lib/stores/session-store";
-import { toast } from "sonner";
 
 const POLL_INTERVAL = 1500;
 
@@ -28,7 +27,7 @@ export function useStartAutopilot() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: AutopilotStartRequest) => startAutopilot(ctx!, body),
-    onError: (err: Error) => toast.error(`Failed to start autopilot: ${err.message}`),
+    meta: { errorLabel: "op.startAutopilot" },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["autopilot"] }),
   });
 }
@@ -124,7 +123,7 @@ export function useResumeInterruptedAutopilot() {
   return useMutation({
     mutationFn: () => resumeInterruptedAutopilot(ctx!),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["autopilot"] }),
-    onError: (err: Error) => toast.error(`Resume failed: ${err.message}`),
+    meta: { errorLabel: "op.resumeAutopilot" },
   });
 }
 
@@ -132,6 +131,7 @@ export function useClearPersistedAutopilot() {
   const ctx = useApiContext();
   const qc = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.clearAutopilot" },
     mutationFn: () => clearPersistedAutopilot(ctx!),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["autopilot"] }),
   });
@@ -143,7 +143,7 @@ export function usePauseAutopilot(jobId: string | null) {
   return useMutation({
     mutationFn: () => pauseAutopilot(ctx!, jobId!),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["autopilot", jobId] }),
-    onError: (err: Error) => toast.error(`Pause failed: ${err.message}`),
+    meta: { errorLabel: "op.pauseAutopilot" },
   });
 }
 
@@ -153,7 +153,7 @@ export function useResumeAutopilot(jobId: string | null) {
   return useMutation({
     mutationFn: () => resumeAutopilot(ctx!, jobId!),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["autopilot", jobId] }),
-    onError: (err: Error) => toast.error(`Resume failed: ${err.message}`),
+    meta: { errorLabel: "op.resumeAutopilot" },
   });
 }
 
@@ -171,10 +171,12 @@ export function useStopAutopilot(jobId: string | null) {
       );
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["autopilot", jobId] }),
-    onError: (err: Error) => {
-      qc.invalidateQueries({ queryKey: ["autopilot", jobId] });
-      toast.error(`Stop failed: ${err.message}`);
+    onError: () => {
+      // Roll back the optimistic "stopping" state; the toast comes from the
+      // global mutation net.
+      void qc.invalidateQueries({ queryKey: ["autopilot", jobId] });
     },
+    meta: { errorLabel: "op.stopAutopilot" },
   });
 }
 
@@ -184,7 +186,7 @@ export function useTakeOverAutopilot(jobId: string | null) {
   return useMutation({
     mutationFn: () => takeOverAutopilot(ctx!, jobId!),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["autopilot", jobId] }),
-    onError: (err: Error) => toast.error(`Take-over failed: ${err.message}`),
+    meta: { errorLabel: "op.takeOverAutopilot" },
   });
 }
 
@@ -194,6 +196,6 @@ export function useSteerAutopilot(jobId: string | null) {
   return useMutation({
     mutationFn: (note: string) => steerAutopilot(ctx!, jobId!, note),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["autopilot", jobId] }),
-    onError: (err: Error) => toast.error(`Steer failed: ${err.message}`),
+    meta: { errorLabel: "op.steerAutopilot" },
   });
 }

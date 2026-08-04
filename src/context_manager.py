@@ -409,8 +409,16 @@ def _update_config(mutate, *, log_label: str) -> None:
             mutate(data)
             _CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
             _prime_config_cache(data)
+    except TimeoutError as exc:
+        # A distributed-lock timeout is an OSError subclass, so it used to be
+        # swallowed by the handler below and reported as a successful save.
+        _logger.error("%s: config write lock timed out: %s", log_label, exc)
+        raise
     except OSError as exc:
-        _logger.warning("%s: failed to persist config: %s", log_label, exc)
+        # Reporting success for a write that did not happen made the user's
+        # saved model/language/Taiga URL vanish with no error anywhere.
+        _logger.error("%s: failed to persist config: %s", log_label, exc)
+        raise
 
 
 def save_ai_config(model: str) -> None:

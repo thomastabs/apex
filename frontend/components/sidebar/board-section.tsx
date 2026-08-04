@@ -193,7 +193,6 @@ function FigmaLinkField({ storyId, storySubject, figmaNodeId, figmaFileKey = "",
       { storyId, figmaNodeId: nodeId, figmaModified: fileModified, figmaFileKey: figma!.fileKey },
       {
         onSuccess: () => toast.success(t("board.toast.linkedFigmaFrame")),
-        onError: () => toast.error(t("board.toast.couldNotUpdateFigmaLink")),
       },
     );
   }
@@ -230,7 +229,6 @@ function FigmaLinkField({ storyId, storySubject, figmaNodeId, figmaFileKey = "",
               { storyId, figmaNodeId: e.target.value, figmaModified: fileModified, figmaFileKey: e.target.value ? figma.fileKey : "" },
               {
                 onSuccess: () => toast.success(e.target.value ? t("board.toast.linkedFigmaFrame") : t("board.toast.unlinked")),
-                onError: () => toast.error(t("board.toast.couldNotUpdateFigmaLink")),
               },
             )
           }
@@ -305,7 +303,7 @@ function StoryDialog({ story, regressed = false, trace = null, figmaNodeId = "",
     }
     ackFigmaChange.mutate(
       { storyId: story.id, currentModified: modified },
-      { onSuccess: () => toast.success(t("board.toast.designAcknowledged")), onError: () => toast.error(t("board.toast.couldNotAcknowledge")) },
+      { onSuccess: () => toast.success(t("board.toast.designAcknowledged")) },
     );
   }
   const [subject, setSubject] = useState(story.subject);
@@ -412,7 +410,6 @@ function StoryDialog({ story, regressed = false, trace = null, figmaNodeId = "",
                 onClick={() =>
                   ackRegression.mutate(story.id, {
                     onSuccess: () => toast.success(t("board.toast.regressionAcknowledged")),
-                    onError: () => toast.error(t("board.toast.couldNotAcknowledgeRegression")),
                   })
                 }
               >
@@ -440,7 +437,6 @@ function StoryDialog({ story, regressed = false, trace = null, figmaNodeId = "",
                   onClick={() =>
                     ackTrace.mutate(story.id, {
                       onSuccess: () => toast.success(t("board.toast.backwardTraceAcknowledged")),
-                      onError: () => toast.error(t("board.toast.couldNotAcknowledge")),
                     })
                   }
                 >
@@ -938,7 +934,6 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                     disabled={rebuildIndex.isPending}
                     onClick={() => rebuildIndex.mutate(undefined, {
                       onSuccess: () => { setStoryIndexSyncedAt(new Date()); toast.success(t("board.storyIndexRebuilt")); },
-                      onError: () => toast.error(t("board.storyIndexRebuildFailed")),
                     })}
                   >
                     {rebuildIndex.isPending ? t("board.rebuilding") : t("board.rebuild")}

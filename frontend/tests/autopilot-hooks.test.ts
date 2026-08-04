@@ -47,12 +47,14 @@ describe("computeRefetchInterval", () => {
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor, act } from "@testing-library/react";
+import { createAppQueryClient } from "@/app/providers";
+import { resetErrorToastThrottle } from "@/lib/error-toast";
 
 vi.mock("@/lib/stores/session-store", () => ({
   useApiContext: () => ({ projectId: 1, pmTool: "taiga", pmToken: "tok" }),
 }));
 
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn(), message: vi.fn(), loading: vi.fn(), dismiss: vi.fn() } }));
 
 vi.mock("@/lib/api/autopilot", () => ({
   startAutopilot: vi.fn(),
@@ -81,9 +83,7 @@ import {
 } from "@/lib/hooks/use-autopilot";
 
 function makeWrapper() {
-  const qc = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
+  const qc = createAppQueryClient({ retryQueries: false });
   return ({ children }: { children: React.ReactNode }) => (
     React.createElement(QueryClientProvider, { client: qc }, children)
   );
@@ -106,6 +106,7 @@ const FAKE_STATUS = {
 };
 
 beforeEach(() => {
+  resetErrorToastThrottle();
   vi.mocked(startAutopilot).mockReset();
   vi.mocked(getAutopilotStatus).mockReset();
   vi.mocked(pauseAutopilot).mockReset();
@@ -154,7 +155,10 @@ describe("useStartAutopilot", () => {
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("server error"));
+    expect(toast.error).toHaveBeenCalledWith(
+      expect.stringContaining("failed"),
+      expect.objectContaining({ description: expect.stringContaining("server error") }),
+    );
   });
 });
 
@@ -210,7 +214,10 @@ describe("usePauseAutopilot", () => {
 
     await act(async () => { result.current.mutate(); });
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("pause failed"));
+    expect(toast.error).toHaveBeenCalledWith(
+      expect.stringContaining("failed"),
+      expect.objectContaining({ description: expect.stringContaining("pause failed") }),
+    );
   });
 });
 
@@ -255,7 +262,10 @@ describe("useStopAutopilot", () => {
 
     await act(async () => { result.current.mutate(); });
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("stop failed"));
+    expect(toast.error).toHaveBeenCalledWith(
+      expect.stringContaining("failed"),
+      expect.objectContaining({ description: expect.stringContaining("stop failed") }),
+    );
   });
 });
 

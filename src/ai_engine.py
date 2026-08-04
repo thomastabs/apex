@@ -51,16 +51,49 @@ _DEFAULT_MODEL = "claude-sonnet-5"
 # ---------------------------------------------------------------------------
 
 class AIError(Exception):
-    """Base class for AI engine errors."""
+    """Base class for AI engine errors.
+
+    `code` is a stable machine identifier the API layer forwards to the client
+    as `detail: {"code": ..., "message": ...}` so the frontend can classify the
+    failure without pattern-matching prose. See lib/errors.ts.
+    """
+
+    code: str = "ai_error"
 
 class AIRateLimitError(AIError):
     """Rate-limit or quota error from the AI API (HTTP 429 / overloaded)."""
 
+    code = "ai_rate_limit"
+
 class AIValidationError(AIError):
     """Structured output failed schema validation after all repair attempts."""
 
+    code = "ai_malformed_output"
+
 class AITimeoutError(AIError):
     """AI API call timed out."""
+
+    code = "ai_timeout"
+
+class AIAuthError(AIError):
+    """The provider rejected the API key in use (deployment env or user-supplied)."""
+
+    code = "ai_key_rejected"
+
+class AIModelError(AIError):
+    """The provider rejected the model id (unknown, deprecated, or no access)."""
+
+    code = "ai_model_rejected"
+
+class AIContextLengthError(AIError):
+    """The prompt exceeded the model's context window."""
+
+    code = "ai_context_length"
+
+class AIContentFilterError(AIError):
+    """The model refused to answer (safety/content filter)."""
+
+    code = "ai_content_filter"
 
 
 _logger = logging.getLogger("apex.ai_engine")
@@ -104,11 +137,38 @@ def _reclassify_llm_exc(exc: Exception, *, reraise_unrecognized: bool = True) ->
         raise AIRateLimitError(str(exc)) from exc
     if exc_type in ("APITimeoutError", "Timeout", "ReadTimeout", "ConnectTimeout"):
         raise AITimeoutError(str(exc)) from exc
+    # A rejected API key is a configuration problem the user can fix; without
+    # this branch it fell through as an unrecognised exception and surfaced as a
+    # bare 500 "Internal server error", which is unactionable — and BYO-key is a
+    # first-class feature, so it happens in normal use.
+    if exc_type in ("AuthenticationError", "PermissionDeniedError"):
+        raise AIAuthError(
+            "The AI provider rejected the API key in use. Check the key in Settings → AI Model."
+        ) from exc
     msg = str(exc).lower()
-    if any(k in msg for k in ("429", "rate_limit", "rate limit", "overloaded", "quota", "resource_exhausted")):
+    if any(k in msg for k in ("429", "rate_limit", "rate limit", "overloaded", "quota", "resource_exhausted", "credit balance", "billing")):
         raise AIRateLimitError(str(exc)) from exc
     if "timeout" in msg or "timed out" in msg:
         raise AITimeoutError(str(exc)) from exc
+    if any(k in msg for k in ("api key", "api_key", "invalid x-api-key", "unauthorized", "authentication")):
+        raise AIAuthError(
+            "The AI provider rejected the API key in use. Check the key in Settings → AI Model."
+        ) from exc
+    # Context overflow reads as a generic 400 from every provider; unmapped it
+    # became a 500 with no hint that deselecting grounding files would fix it.
+    if any(k in msg for k in ("context length", "context_length", "maximum context", "too many tokens", "prompt is too long", "input length")):
+        raise AIContextLengthError(
+            "The request exceeded the model's context window. Deselect some grounding "
+            "files, or switch to a model with a larger context window in Settings → AI Model."
+        ) from exc
+    if any(k in msg for k in ("model not found", "model_not_found", "does not exist", "unknown model", "invalid model")):
+        raise AIModelError(
+            "The AI provider rejected the configured model. Pick a different model in Settings → AI Model."
+        ) from exc
+    if any(k in msg for k in ("content filter", "content_filter", "safety", "blocked_reason", "refusal")):
+        raise AIContentFilterError(
+            "The model declined to answer this request. Rephrase the instructions, or try a different model."
+        ) from exc
     # Google/Gemini errors — ChatGoogleGenerativeAIError wraps all Google API call errors
     if exc_type == "ChatGoogleGenerativeAIError":
         raise AIError(str(exc)) from exc

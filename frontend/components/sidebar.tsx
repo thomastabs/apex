@@ -155,9 +155,7 @@ function LanguageQuickSwitch({ dark, taigaToken }: { dark: boolean; taigaToken: 
   function changeLanguage(lang: Locale) {
     setLocale(lang);
     if (!taigaToken) return;
-    saveAiLanguageMutation.mutate(lang, {
-      onError: () => toast.error(t("ai.toast.failedSaveLanguage")),
-    });
+    saveAiLanguageMutation.mutate(lang);
   }
 
   return (

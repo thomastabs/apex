@@ -259,7 +259,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart, onMo
         predecessor_task_ids: decoded.predecessor_task_ids,
       });
     },
-    onError: (err) => toast.error(adapter.errMsg(err, "Load task")),
+    meta: { errorLabel: "op.loadTask" },
   });
 
   const updateMut = useMutation({
@@ -302,7 +302,7 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart, onMo
       void queryClient.invalidateQueries({ queryKey: ["phase3", "task-list", context?.projectId, v.storyId] });
       toast.success(local ? t("tasks.toast.taskSavedSynced") : t("tasks.toast.taskSaved"));
     },
-    onError: (err) => toast.error(adapter.errMsg(err, "Update task")),
+    meta: { errorLabel: "op.updateTask" },
   });
 
   const autoSync = useAutoSyncStoryIndex();
@@ -340,14 +340,16 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart, onMo
       void cleanup.then(() => autoSync());
       toast.success(t("tasks.toast.taskDeleted"));
     },
-    onError: (err) => { setPendingDelete(null); toast.error(adapter.errMsg(err, "Delete task")); },
+    // Clears the pending-delete row; the toast comes from the global net.
+    onError: () => setPendingDelete(null),
+    meta: { errorLabel: "op.deleteTask" },
   });
 
   const addMut = useMutation({
     mutationFn: (v: { storyId: number; subject: string }) =>
       adapter.createTask(adapterCtx!, String(v.storyId), v.subject, ""),
     onSuccess: () => { setAddingToStory(null); setNewTaskSubject(""); void invalidate(); autoSync(); toast.success(t("tasks.toast.taskAdded")); },
-    onError: (err) => toast.error(adapter.errMsg(err, "Add task")),
+    meta: { errorLabel: "op.addTask" },
   });
 
   const effortByStoryTask = useMemo(() => {

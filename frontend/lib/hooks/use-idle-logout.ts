@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useSessionStore } from "@/lib/stores/session-store";
+import { translate } from "@/lib/i18n/translate";
 
 /** Clear the session token after this much inactivity. The bearer token lives
  *  in sessionStorage (readable by JS), so bounding its lifetime shrinks the
@@ -26,7 +27,7 @@ export function useIdleLogout(): void {
         if (!taigaToken) return; // already signed out — nothing to clear
         clearSession();
         queryClient.clear();
-        toast.message("Signed out after 30 minutes of inactivity.");
+        toast.message(translate("app.idleSignedOut"));
       }, IDLE_MS);
     };
 

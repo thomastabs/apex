@@ -52,11 +52,15 @@ class FigmaFetchError(RuntimeError):
     `status_code` carries the upstream HTTP status when there was one (0 = a
     transport/SSRF failure with no response) so callers can map a 429 through as
     a 429 instead of a generic error.
+
+    `code` is the stable machine identifier forwarded to the client as
+    `detail: {"code": ..., "message": ...}` (see lib/errors.ts).
     """
 
-    def __init__(self, message: str, status_code: int = 0):
+    def __init__(self, message: str, status_code: int = 0, code: str = "figma_error"):
         super().__init__(message)
         self.status_code = status_code
+        self.code = code
 
 
 def _human_duration(secs: int) -> str:

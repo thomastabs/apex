@@ -327,8 +327,11 @@ class TestSyncFigmaContextRoute:
                 SyncFigmaContextRequest(figma_file_key="ABC123"), x_figma_token="figd_x", ctx=self._ctx()
             )
         assert exc.value.status_code == 429
-        assert "starter" in exc.value.detail.lower()
-        assert "per month" in exc.value.detail.lower()
+        # Structured detail: {code, message} so the client can classify without
+        # pattern-matching prose (see lib/errors.ts).
+        assert exc.value.detail["code"] == "figma_error"
+        assert "starter" in exc.value.detail["message"].lower()
+        assert "per month" in exc.value.detail["message"].lower()
 
     def test_requires_token(self):
         from fastapi import HTTPException

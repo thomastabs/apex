@@ -62,7 +62,6 @@ function useCommands() {
       group: "commands",
       action: () => rebuildIndex.mutate(undefined, {
         onSuccess: () => toast.success("Story index rebuilt"),
-        onError:   () => toast.error("Failed to rebuild story index"),
       }),
     },
   // eslint-disable-next-line react-hooks/exhaustive-deps

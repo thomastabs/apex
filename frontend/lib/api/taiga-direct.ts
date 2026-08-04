@@ -4,7 +4,8 @@
  * with self-hosted Taiga instances.
  * All functions throw ApiError on failure for compatibility with existing hooks.
  */
-import { ApiError, getApiBaseUrl } from "./client";
+import { ApiError, ApiNetworkError, getApiBaseUrl } from "./client";
+import { translate } from "@/lib/i18n/translate";
 import type { Epic, EpicWithStories, Me, Membership, Project, Story } from "./types";
 
 const DEFAULT_TAIGA_API = "https://api.taiga.io/api/v1";
@@ -17,10 +18,14 @@ export function isTaiga409(err: unknown): boolean {
   return err instanceof ApiError && err.status === 409;
 }
 
+/** Legacy per-call message builder, kept for the PM adapter contract. Prefer
+ *  letting the error propagate: `notifyError` (lib/error-toast.ts) classifies
+ *  it and produces a translated title, the server's detail, and an actionable
+ *  hint, where this only ever produced English. */
 export function taigaErrMsg(err: unknown, action = "Taiga request"): string {
-  if (isTaiga401(err)) return "Session expired — sign out and sign in again.";
-  if (err instanceof Error) return `${action} failed: ${err.message}`;
-  return `${action} failed.`;
+  if (isTaiga401(err)) return translate("errors.authExpired.hint");
+  if (err instanceof Error) return translate("errors.actionFailed", { action }) + `: ${err.message}`;
+  return translate("errors.actionFailed", { action });
 }
 
 // ---------------------------------------------------------------------------
@@ -46,15 +51,22 @@ async function taigaFetch<T>(
 ): Promise<T> {
   const taigaUrl = getTaigaApiBaseUrl(apiBaseUrl);
   const url = `${getApiBaseUrl()}/api/pm/taiga${path}`;
-  const res = await fetch(url, {
-    method: options?.method ?? "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      "X-Taiga-Url": taigaUrl,
-    },
-    body: options?.body != null ? JSON.stringify(options.body) : undefined,
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: options?.method ?? "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "X-Taiga-Url": taigaUrl,
+      },
+      body: options?.body != null ? JSON.stringify(options.body) : undefined,
+    });
+  } catch (err) {
+    // Offline/DNS/CORS reject as a bare TypeError; classify it like every other
+    // transport failure instead of surfacing "TypeError: Failed to fetch".
+    throw err instanceof TypeError ? new ApiNetworkError(err) : err;
+  }
   if (res.status === 204) return undefined as T;
   let data: Record<string, unknown> = {};
   try {

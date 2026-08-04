@@ -77,7 +77,7 @@ export function useGenerateInfraDelta() {
       generateInfraDelta(context!, storyId, signal, extraContextFiles),
     {
       onSuccess: (data) => setInfraDelta(data.delta, false, true),
-      onError: (err: Error) => toast.error(`Infra delta check failed: ${err.message}`),
+      meta: { errorLabel: "op.generateInfraDelta" },
     },
   );
 }
@@ -95,7 +95,7 @@ export function useSaveInfraDelta() {
       void qc.invalidateQueries({ queryKey: ["phase5", "infra-delta", context?.projectId, storyId] });
       void qc.invalidateQueries({ queryKey: ["phase5", "eligible-stories", context?.projectId] });
     },
-    onError: (err: Error) => toast.error(`Save failed: ${err.message}`),
+    meta: { errorLabel: "op.saveInfraDelta" },
   });
 }
 
@@ -122,7 +122,7 @@ export function useGenerateDeployPack() {
     ({ storyId, options, extraContextFiles = [] }: { storyId: number; options?: DeployPackOptions; extraContextFiles?: string[] }, signal) =>
       generateDeployPack(context!, storyId, options, signal, extraContextFiles),
     {
-      onError: (err: Error) => toast.error(`Deploy pack generation failed: ${err.message}`),
+      meta: { errorLabel: "op.generateDeployPack" },
     },
   );
 }
@@ -140,7 +140,7 @@ export function useSaveDeployPack() {
       void qc.invalidateQueries({ queryKey: ["phase5", "deploy-pack", context?.projectId, storyId] });
       void qc.invalidateQueries({ queryKey: ["phase5", "eligible-stories", context?.projectId] });
     },
-    onError: (err: Error) => toast.error(`Save failed: ${err.message}`),
+    meta: { errorLabel: "op.saveDeployPack" },
   });
 }
 
@@ -155,7 +155,7 @@ export function useReviseDeployPack() {
       feedback: string;
     }, signal) => reviseDeployPack(context!, storyId, deployPackMd, feedback, signal),
     {
-      onError: (err: Error) => toast.error(`Revision failed: ${err.message}`),
+      meta: { errorLabel: "op.reviseDeployPack" },
     },
   );
 }
@@ -253,19 +253,26 @@ export function useTraceabilityMatrix(storyId: number | null) {
     enabled: Boolean(context) && storyId !== null,
   });
 
+  // A failed proposals/QA fetch used to fall through the `?? []` defaults below
+  // and render as "no packs, no QA results" — a wrong answer that looks like a
+  // real one. Report it as an error state instead so the caller can say so.
+  const isError = proposalsQuery.isError || qaQuery.isError;
+
   const matrix: VerificationMatrixPayload | null = useMemo(() => {
-    if (!storyCtx) return null;
+    if (!storyCtx || isError) return null;
     return buildTraceabilityMatrix(
       storyCtx.gherkin,
       tasks,
       new Set((proposalsQuery.data?.proposals ?? []).map((p) => p.task_id)),
       qaQuery.data?.qa_results?.attempts ?? [],
     );
-  }, [storyCtx, tasks, proposalsQuery.data, qaQuery.data]);
+  }, [storyCtx, tasks, proposalsQuery.data, qaQuery.data, isError]);
 
   return {
     matrix,
-    isLoading: !storyCtx || tasksLoading || proposalsQuery.isLoading || qaQuery.isLoading,
+    isLoading: !isError && (!storyCtx || tasksLoading || proposalsQuery.isLoading || qaQuery.isLoading),
+    isError,
+    error: proposalsQuery.error ?? qaQuery.error ?? null,
   };
 }
 
@@ -275,7 +282,7 @@ export function useSaveVerification() {
     mutationFn: ({ storyId, matrix }: { storyId: number; matrix: VerificationMatrixPayload }) =>
       saveVerification(context!, storyId, matrix),
     // Silent on success — auto-saved as gate evidence; failure is advisory only.
-    onError: (err: Error) => toast.error(`Verification save failed: ${err.message}`),
+    meta: { errorLabel: "op.saveVerification" },
   });
 }
 
@@ -294,7 +301,7 @@ export function usePassDeploymentGate() {
       void qc.invalidateQueries({ queryKey: ["phase5", "eligible-stories", context?.projectId] });
       void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },
-    onError: (err: Error) => toast.error(`Gate failed: ${err.message}`),
+    meta: { errorLabel: "op.passDeploymentGate" },
   });
 }
 
@@ -320,7 +327,7 @@ export function useSaveGithubDeploymentConfig() {
       toast.success("GitHub deployment workflow saved.");
       void qc.invalidateQueries({ queryKey: ["phase5", "github-deployment", "status", context?.projectId] });
     },
-    onError: (err: Error) => toast.error(`Deployment workflow save failed: ${err.message}`),
+    meta: { errorLabel: "op.saveDeploymentConfig" },
   });
 }
 
@@ -334,7 +341,7 @@ export function useDispatchGithubDeployment() {
       void qc.invalidateQueries({ queryKey: ["phase5", "github-deployment", "status", context?.projectId, storyId] });
       void qc.invalidateQueries({ queryKey: ["phase5", "eligible-stories", context?.projectId] });
     },
-    onError: (err: Error) => toast.error(`Deployment dispatch failed: ${err.message}`),
+    meta: { errorLabel: "op.dispatchDeployment" },
   });
 }
 
@@ -350,6 +357,6 @@ export function useSyncGithubDeployment() {
       void qc.invalidateQueries({ queryKey: ["phase5", "eligible-stories", context?.projectId] });
       void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },
-    onError: (err: Error) => toast.error(`Deployment sync failed: ${err.message}`),
+    meta: { errorLabel: "op.syncDeployment" },
   });
 }

@@ -29,6 +29,7 @@ import {
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
+import { notifyError } from "@/lib/error-toast";
 import { Button, Callout, SectionHeading, Textarea } from "@/components/ui/primitives";
 import { AIProgressIndicator } from "@/components/ai-progress-indicator";
 import { CancelButton } from "@/components/ui/cancel-button";
@@ -399,7 +400,6 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
                             { storyId: story.story_id, isScaffold: !story.is_scaffold },
                             {
                               onSuccess: () => toast.success(story.is_scaffold ? t("phase3.toast.scaffoldUnmarked") : t("phase3.toast.scaffoldMarked")),
-                              onError: () => toast.error(t("phase3.toast.scaffoldFailed")),
                             },
                           );
                         }}
@@ -603,10 +603,7 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
     setDescFetching(true);
     fetchTaigaTaskFull(context, pmId)
       .then(({ description }) => { patchTask(task.id, { description }); })
-      .catch((err) => {
-        const adapter = getPmAdapter(context.pmTool);
-        toast.error(adapter.errMsg(err, "Load description"));
-      })
+      .catch((err) => notifyError(err, { action: t("op.loadTask") }))
       .finally(() => setDescFetching(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingId, storyId]);
@@ -1071,10 +1068,7 @@ function StageC({ storyId }: { storyId: number }) {
 
   const commitPack = (taskId: number, proposalMd: string) => {
     setPackDraft(taskId, proposalMd);
-    saveProposalMut.mutate(
-      { story_id: storyId, task_id: taskId, proposal_md: proposalMd },
-      { onError: () => toast.error(t("phase3.toast.packSaveFailed")) },
-    );
+    saveProposalMut.mutate({ story_id: storyId, task_id: taskId, proposal_md: proposalMd });
   };
 
   const handleGenerate = async (taskId: number, hint?: string, opts?: { gate?: boolean }) => {
@@ -1082,8 +1076,13 @@ function StageC({ storyId }: { storyId: number }) {
     if (!task) return;
     const prev = packDrafts[taskId] ?? "";
     setGeneratingTaskId(taskId);
+    // Losing the commits context is survivable, but it changes what the AI sees
+    // — generating "successfully" with degraded grounding should not be silent.
     const recentCommitsContext = githubCtx
-      ? await fetchRecentCommitsContext(githubCtx, task.subject).catch(() => "")
+      ? await fetchRecentCommitsContext(githubCtx, task.subject).catch(() => {
+          toast.warning(t("errors.commitsUnavailable"), { id: "commits-unavailable" });
+          return "";
+        })
       : "";
     generateProposal.mutate(
       {
@@ -1299,7 +1298,6 @@ function StageC({ storyId }: { storyId: number }) {
                         restorePackDraft(selectedTask.id);
                         saveProposalMut.mutate(
                           { story_id: storyId, task_id: selectedTask.id, proposal_md: prevPackDrafts[selectedTask.id] },
-                          { onError: () => toast.error(t("phase3.toast.restoreFailed")) },
                         );
                       }}
                     >
@@ -1349,7 +1347,14 @@ function StageC({ storyId }: { storyId: number }) {
                     <button
                       onClick={async () => {
                         const name = getBranchName(storyId, selectedTask.subject);
-                        await navigator.clipboard.writeText(name).catch(() => {});
+                        try {
+                          await navigator.clipboard.writeText(name);
+                        } catch {
+                          // Reporting success after a failed write left the user
+                          // pasting whatever was on the clipboard before.
+                          toast.error(t("errors.clipboardFailed"), { description: name });
+                          return;
+                        }
                         toast.success(t("phase3.toast.branchCopied"));
                       }}
                       title={t("phase3.copyBranchTitle")}

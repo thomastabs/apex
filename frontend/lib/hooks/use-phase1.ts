@@ -46,7 +46,7 @@ export function useSuggestPhase1Epics() {
   return useCancellableMutation(
     ({ hint, extraContextFiles = [] }: { hint: string; extraContextFiles?: string[] }, signal) =>
       suggestPhase1Epics(context!, hint, signal, extraContextFiles),
-    { onError: () => toast.error("Failed to suggest epics. Check your connection and try again.") },
+    { meta: { errorLabel: "op.suggestEpics" } },
   );
 }
 
@@ -56,7 +56,7 @@ export function useGenerateEpicDescription() {
   return useCancellableMutation(
     ({ title, draft = "", extraContextFiles = [] }: { title: string; draft?: string; extraContextFiles?: string[] }, signal) =>
       generateEpicDescription(context!, title, draft, signal, extraContextFiles),
-    { onError: () => toast.error("Description generation failed. The AI may be busy — try again shortly.") },
+    { meta: { errorLabel: "op.generateEpicDescription" } },
   );
 }
 
@@ -66,7 +66,7 @@ export function useAnalyzeGaps() {
   return useCancellableMutation(
     ({ existingEpics, hint, extraContextFiles = [] }: { existingEpics: ExistingEpicInput[]; hint: string; extraContextFiles?: string[] }, signal) =>
       analyzeRequirementGaps(context!, existingEpics, hint, signal, extraContextFiles),
-    { onError: () => toast.error("Gap analysis failed. The AI may be busy — try again shortly.") },
+    { meta: { errorLabel: "op.analyzeGaps" } },
   );
 }
 
@@ -77,7 +77,7 @@ export function useGenerateNlStories() {
   return useCancellableMutation(
     (body: Phase1GenerateNlStoriesRequest, signal) =>
       generateNlStories(context!, body, signal, figma?.token),
-    { onError: () => toast.error("Story generation failed. The AI may be busy — try again shortly.") },
+    { meta: { errorLabel: "op.generateStories" } },
   );
 }
 
@@ -87,7 +87,7 @@ export function useGenerateSingleStory() {
   return useCancellableMutation(
     (body: Phase1GenerateSingleStoryRequest, signal) =>
       generateSingleStory(context!, body, signal),
-    { onError: () => toast.error("Story generation failed. The AI may be busy — try again shortly.") },
+    { meta: { errorLabel: "op.generateStories" } },
   );
 }
 
@@ -109,7 +109,7 @@ export function useGenerateStoriesFromFigma() {
       },
       signal,
     ) => generateStoriesFromFigma(context!, body, figmaToken, signal),
-    { onError: () => toast.error("Figma story generation failed. The AI may be busy — try again shortly.") },
+    { meta: { errorLabel: "op.generateStoriesFromFigma" } },
   );
 }
 
@@ -119,7 +119,7 @@ export function useCrossCheckStories() {
   return useCancellableMutation(
     ({ altModel = "", ...body }: Phase1GenerateNlStoriesRequest & { altModel?: string }, signal) =>
       crossCheckStories(context!, body, altModel, signal),
-    { onError: (e: Error) => toast.error(`Cross-check failed: ${e.message}`) },
+    { meta: { errorLabel: "op.crossCheck" } },
   );
 }
 
@@ -129,7 +129,7 @@ export function useGenerateClarifyingQuestions() {
   return useCancellableMutation(
     (body: Phase1GenerateClarifyingQuestionsRequest, signal) =>
       generateClarifyingQuestions(context!, body, signal),
-    { onError: () => toast.error("Clarifying-question generation failed. The AI may be busy — try again shortly.") },
+    { meta: { errorLabel: "op.clarifyingQuestions" } },
   );
 }
 
@@ -139,7 +139,7 @@ export function useCompileGherkin() {
   return useCancellableMutation(
     ({ nlDraft, clarifications = [] }: { nlDraft: string; clarifications?: QaPair[] }, signal) =>
       compileGherkin(context!, nlDraft, clarifications, signal),
-    { onError: () => toast.error("Gherkin compilation failed. The AI may be busy — try again shortly.") },
+    { meta: { errorLabel: "op.compileGherkin" } },
   );
 }
 
@@ -148,7 +148,7 @@ export function useGenerateConstraints() {
 
   return useCancellableMutation(
     (extraContextFiles: string[] | undefined, signal) => generateConstraints(context!, signal, extraContextFiles ?? []),
-    { onError: () => toast.error("Constraint generation failed. The AI may be busy — try again shortly.") },
+    { meta: { errorLabel: "op.generateConstraints" } },
   );
 }
 
@@ -160,7 +160,7 @@ export function usePushPhase1Stories() {
 
   return useMutation({
     mutationFn: (body: Phase1PushStoriesRequest) => pushPhase1Stories(context!, body),
-    onError: () => toast.error("Failed to push stories. Check your connection and try again."),
+    meta: { errorLabel: "op.pushStories" },
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: ["phase1", "epics", context?.projectId] });
       void queryClient.invalidateQueries({ queryKey: ["phase2", "eligible-epics"] });

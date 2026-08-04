@@ -149,7 +149,6 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
       return contents.map((content, i) => ({ filename: `test_plan_story_${readyStories[i].story_id}.md`, content }));
     },
     onSuccess: (files) => downloadZip(files, "apex-test-plans.zip"),
-    onError: (err: Error) => toast.error(t("phase4.toast.downloadFailed", { err: err.message })),
   });
 
   const PAGE_SIZE = 4;
@@ -740,7 +739,6 @@ function StageC({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
                       { storyId, scenarioText: sectionMd || name, extraContextFiles: edgeExtraContext },
                       {
                         onSuccess: (d) => setEdgeCases((prev) => ({ ...prev, [name]: d.edge_cases_md })),
-                        onError: (e) => toast.error(errMsg(e)),
                         onSettled: () => setEdgeLoading(null),
                       },
                     );

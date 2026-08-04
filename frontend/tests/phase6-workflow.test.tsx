@@ -12,7 +12,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/lib/stores/ui-store", () => ({
   useUiStore: (sel: (s: { theme: string }) => unknown) => sel({ theme: "light" }),
 }));
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn(), message: vi.fn(), loading: vi.fn(), dismiss: vi.fn() } }));
 vi.mock("@/components/ai-progress-indicator", () => ({
   AIProgressIndicator: () => <div data-testid="ai-progress" />,
 }));
@@ -127,7 +127,9 @@ describe("Phase6Workflow", () => {
     fireEvent.click(screen.getByRole("button", { name: /Scan for regressions/i }));
     await waitFor(() => expect(vi.mocked(scanRegressions)).toHaveBeenCalled());
     await waitFor(() => expect(screen.getByText(/1 regressed \/ 1 checked/i)).toBeInTheDocument());
-    expect(screen.getByText(/⚠ regressed/)).toBeInTheDocument();
+    // The per-story badge. Its label used to carry a warning glyph; severity is
+    // now carried by the TrendingDown icon and the red styling instead.
+    expect(screen.getByText("regressed")).toBeInTheDocument();
     expect(screen.getByText(/90→61/)).toBeInTheDocument();
   });
 

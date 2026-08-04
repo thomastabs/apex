@@ -163,18 +163,14 @@ export function ScreenFlowPanel({
   const handleReLayout = useCallback(() => {
     const layouted = applyDagreLayout(nodes as ScreenFlowNode[], edges as ScreenFlowEdge[]);
     setNodes(layouted as ScreenFlowNode[]);
-    savePosMut.mutate(layouted.map((n) => ({ id: n.id, position: n.position })) as ScreenFlowNode[], {
-      onError: () => toast.error("Failed to save screen-flow layout."),
-    });
+    savePosMut.mutate(layouted.map((n) => ({ id: n.id, position: n.position })) as ScreenFlowNode[]);
   }, [nodes, edges, setNodes, savePosMut]);
 
   const handleDragStop = useCallback(
     (_: unknown, __: unknown, allNodes: ScreenFlowNode[]) => {
       if (savePosTimer.current) clearTimeout(savePosTimer.current);
       savePosTimer.current = setTimeout(() => {
-        savePosMut.mutate(allNodes.map((n) => ({ id: n.id, position: n.position })) as ScreenFlowNode[], {
-          onError: () => toast.error("Failed to save screen-flow positions."),
-        });
+        savePosMut.mutate(allNodes.map((n) => ({ id: n.id, position: n.position })) as ScreenFlowNode[]);
       }, 1000);
     },
     [savePosMut],

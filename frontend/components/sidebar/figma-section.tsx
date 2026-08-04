@@ -266,7 +266,6 @@ export function FigmaSection({ dark, figmaFileKey, shellClass, dragHandlers, onD
                           toast.warning(`${why}${t("figma.toast.rateLimitKeptSuffix")}`);
                           return;
                         }
-                        toast.error(e instanceof Error ? e.message : t("figma.toast.syncFailed"));
                       },
                     })}
                   >

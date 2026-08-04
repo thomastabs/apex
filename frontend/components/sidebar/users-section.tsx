@@ -8,7 +8,7 @@ import {
   useUpdateMemberRole,
   useUsers,
 } from "@/lib/hooks/use-workspace";
-import { cn, errMsg } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { PanelHeader, type DragSectionProps } from "./shared";
 import { useT } from "@/lib/i18n/use-translation";
 
@@ -78,7 +78,6 @@ export function UsersSection({ dark, projectId: _projectId, confirm, shellClass,
                           t("users.removeConfirm", { name: member.full_name || member.username }),
                           () => removeMember.mutate(member.id, {
                             onSuccess: () => toast.success(t("users.memberRemoved", { name: member.full_name || member.username })),
-                            onError: () => toast.error(t("users.failedRemoveMember")),
                           }),
                         )
                       }
@@ -150,7 +149,6 @@ export function UsersSection({ dark, projectId: _projectId, confirm, shellClass,
                   { usernameOrEmail: inviteValue, roleId: defaultRoleId },
                   {
                     onSuccess: () => { toast.success(t("users.inviteSent", { value: inviteValue })); setInviteValue(""); },
-                    onError: (err) => toast.error(errMsg(err)),
                   },
                 )}
               >

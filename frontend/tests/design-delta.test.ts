@@ -5,11 +5,14 @@ import { renderHook, waitFor, act } from "@testing-library/react";
 
 // Mock the lowest layer only (HTTP client + PM adapter): the api functions and
 // hooks run for real on top, so one file covers URL building + hook behaviour.
-vi.mock("@/lib/api/client", () => ({ apiRequest: vi.fn() }));
+vi.mock("@/lib/api/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api/client")>()),
+  apiRequest: vi.fn(),
+}));
 vi.mock("@/lib/stores/session-store", () => ({
   useApiContext: () => ({ projectId: 1, pmTool: "taiga", pmToken: "tok" }),
 }));
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn(), message: vi.fn(), loading: vi.fn(), dismiss: vi.fn() } }));
 vi.mock("@/lib/api/pm-factory", () => ({
   getPmAdapter: () => ({
     listStoryStatuses: vi.fn().mockResolvedValue([{ id: "9", name: "design_locked" }]),

@@ -101,7 +101,6 @@ export function MaintenanceTriage() {
           setShowForm(false); setSubject(""); setDescription(""); setEvidence(""); setLinkedStory("");
           setSelectedId(it.id);
         },
-        onError: (e) => toast.error(errMsg(e)),
       },
     );
   }
@@ -131,7 +130,6 @@ export function MaintenanceTriage() {
         toast.success(`Deleted #${it.id}`);
         if (selectedId === it.id) setSelectedId(null);
       },
-      onError: (e) => toast.error(errMsg(e)),
     });
   }
 
@@ -147,7 +145,7 @@ export function MaintenanceTriage() {
   function importIssue(src: "github" | "taiga" | "figma", iss: ExternalIssue) {
     create.mutate(
       { subject: iss.subject, description: iss.description, source: src, ext_ref: iss.ext_ref },
-      { onSuccess: (it) => { toast.success(`Imported ${iss.ext_ref}`); setSelectedId(it.id); }, onError: (e) => toast.error(errMsg(e)) },
+      { onSuccess: (it) => { toast.success(`Imported ${iss.ext_ref}`); setSelectedId(it.id); } },
     );
   }
 

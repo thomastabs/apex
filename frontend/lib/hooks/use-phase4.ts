@@ -20,6 +20,7 @@ import { useApiContext } from "@/lib/stores/session-store";
 import { usePhase4Store } from "@/lib/stores/phase4-store";
 import { useCancellableMutation } from "@/lib/hooks/use-cancellable-mutation";
 import { toast } from "sonner";
+import { translate } from "@/lib/i18n/translate";
 import type {
   Phase4FailGateRequest,
   Phase4FailedScenario,
@@ -60,16 +61,24 @@ export function useStoryTasks(storyId: number | null) {
       // The list endpoint drops the apex-meta block from descriptions, so
       // effort/scenarios/description would decode to defaults. Fetch each
       // task's full description from the detail endpoint before decoding.
-      return Promise.all(
+      let detailFailures = 0;
+      const detailed = await Promise.all(
         storyTasks.map(async (t) => {
           try {
             const full = await adapter.getTask(ctx, String(t.id));
             return { ...t, description: full.description };
           } catch {
+            detailFailures += 1;
             return t;
           }
         }),
       );
+      // Silent fallback would present default effort/coverage as if they were
+      // the real values. One toast for the batch, not per task.
+      if (detailFailures > 0) {
+        toast.warning(translate("errors.taskMetaUnavailable"), { id: "task-meta-unavailable" });
+      }
+      return detailed;
     },
     enabled: Boolean(context) && storyId !== null,
     staleTime: 60_000,
@@ -114,7 +123,7 @@ export function useGenerateTestPlan() {
       onSuccess: (_data, { storyId }) => {
         void qc.invalidateQueries({ queryKey: ["phase4", "test-plan", context?.projectId, storyId] });
       },
-      onError: (err: Error) => toast.error(`Test plan generation failed: ${err.message}`),
+      meta: { errorLabel: "op.generateTestPlan" },
     },
   );
 }
@@ -124,7 +133,7 @@ export function useGenerateEdgeCases() {
   return useCancellableMutation(
     ({ storyId, scenarioText, extraContextFiles = [] }: { storyId: number; scenarioText: string; extraContextFiles?: string[] }, signal) =>
       generateEdgeCases(context!, storyId, scenarioText, signal, extraContextFiles),
-    { onError: (err: Error) => toast.error(`Edge-case exploration failed: ${err.message}`) },
+    { meta: { errorLabel: "op.generateEdgeCases" } },
   );
 }
 
@@ -140,7 +149,7 @@ export function useSaveTestPlan() {
       void qc.invalidateQueries({ queryKey: ["phase4", "eligible-stories", context?.projectId] });
       void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },
-    onError: (err: Error) => toast.error(`Save failed: ${err.message}`),
+    meta: { errorLabel: "op.saveTestPlan" },
   });
 }
 
@@ -157,7 +166,7 @@ export function useClearTestPlan() {
       void qc.invalidateQueries({ queryKey: ["phase4", "eligible-stories", context?.projectId] });
       void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },
-    onError: (err: Error) => toast.error(`Clear failed: ${err.message}`),
+    meta: { errorLabel: "op.clearTestPlan" },
   });
 }
 
@@ -175,7 +184,7 @@ export function useGenerateBugReport() {
         const key = req.failedScenarios[0]?.scenario_name ?? "combined";
         setBugReportDraft(key, data.bug_report_md);
       },
-      onError: (err: Error) => toast.error(`Bug report generation failed: ${err.message}`),
+      meta: { errorLabel: "op.generateBugReport" },
     },
   );
 }
@@ -193,7 +202,7 @@ export function usePassGate() {
       void qc.invalidateQueries({ queryKey: ["phase4", "eligible-stories", context?.projectId] });
       void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },
-    onError: (err: Error) => toast.error(`Gate pass failed: ${err.message}`),
+    meta: { errorLabel: "op.passGate" },
   });
 }
 
@@ -232,7 +241,7 @@ export function useUpdatePmStoryStatus() {
       return target.name;
     },
     onSuccess: (name) => toast.success(`PM story moved to "${name}".`),
-    onError: (err: Error) => toast.error(`PM update failed: ${err.message}`),
+    meta: { errorLabel: "op.updatePmStatus" },
   });
 }
 
@@ -246,6 +255,6 @@ export function useFailGate() {
       void qc.invalidateQueries({ queryKey: ["phase4", "eligible-stories", context?.projectId] });
       void qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
     },
-    onError: (err: Error) => toast.error(`Fail gate save failed: ${err.message}`),
+    meta: { errorLabel: "op.failGate" },
   });
 }

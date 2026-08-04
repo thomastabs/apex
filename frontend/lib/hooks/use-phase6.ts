@@ -18,9 +18,9 @@ import {
   verifyConformance,
 } from "@/lib/api/phase6";
 import { useApiContext } from "@/lib/stores/session-store";
+import type { TranslationKey } from "@/lib/i18n/translations";
 import { useCancellableMutation } from "@/lib/hooks/use-cancellable-mutation";
 import { useT } from "@/lib/i18n/use-translation";
-import { errMsg } from "@/lib/utils";
 import type { ConformanceReport, MaintenanceItem, ScanReport } from "@/lib/api/types";
 
 // Success/error toasts for these long-running AI mutations are set at the
@@ -80,7 +80,7 @@ export function useVerifyConformance() {
           toast.success(t("phase6.toast.quickCheckComputed"));
         }
       },
-      onError: (err) => toast.error(errMsg(err)),
+      meta: { errorLabel: "op.verifyConformance" },
     },
   );
 }
@@ -112,7 +112,7 @@ export function useScanRegressions() {
         );
         return report;
       },
-      onError: (err) => toast.error(errMsg(err)),
+      meta: { errorLabel: "op.scanRegressions" },
     },
   );
 }
@@ -121,6 +121,7 @@ export function useAcknowledgeRegression() {
   const context = useApiContext();
   const qc = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.acknowledgeRegression" },
     mutationFn: (storyId: number) => acknowledgeRegression(context!, storyId),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] }),
@@ -148,6 +149,7 @@ function normalizeItemMutationInput(input: ItemMutationInput) {
 function useItemMutation(
   fn: (ctx: NonNullable<ReturnType<typeof useApiContext>>, id: number, signal: AbortSignal, extraContextFiles?: string[]) => Promise<MaintenanceItem>,
   successMessage: string,
+  errorLabel: TranslationKey,
 ) {
   const context = useApiContext();
   const qc = useQueryClient();
@@ -163,7 +165,7 @@ function useItemMutation(
         qc.invalidateQueries({ queryKey: ["phase6", "maintenance", context?.projectId] });
         toast.success(successMessage);
       },
-      onError: (err) => toast.error(errMsg(err)),
+      meta: { errorLabel },
     },
   );
 }
@@ -172,6 +174,7 @@ export function useCreateMaintenanceItem() {
   const context = useApiContext();
   const qc = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.createMaintenanceItem" },
     mutationFn: (body: Parameters<typeof createMaintenanceItem>[1]) => createMaintenanceItem(context!, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["phase6", "maintenance", context?.projectId] }),
   });
@@ -184,6 +187,7 @@ export function useClassifyItem() {
         ? classifyMaintenanceItem(ctx, id, signal, extraContextFiles)
         : classifyMaintenanceItem(ctx, id, signal),
     "Triage complete.",
+    "op.classifyItem",
   );
 }
 
@@ -191,6 +195,7 @@ export function useDeleteMaintenanceItem() {
   const context = useApiContext();
   const qc = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.deleteMaintenanceItem" },
     mutationFn: (itemId: number) => deleteMaintenanceItem(context!, itemId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["phase6", "maintenance", context?.projectId] }),
   });
@@ -209,7 +214,7 @@ export function useDiagnoseItem() {
         qc.invalidateQueries({ queryKey: ["phase6", "maintenance", context?.projectId] });
         toast.success("Diagnosis ready.");
       },
-      onError: (err) => toast.error(errMsg(err)),
+      meta: { errorLabel: "op.diagnoseItem" },
     },
   );
 }
@@ -221,6 +226,7 @@ export function useFixBriefItem() {
         ? fixBriefMaintenanceItem(ctx, id, signal, extraContextFiles)
         : fixBriefMaintenanceItem(ctx, id, signal),
     "Fix-Bolt brief generated.",
+    "op.fixBriefItem",
   );
 }
 
@@ -237,7 +243,7 @@ export function useRouteItem() {
       qc.invalidateQueries({ queryKey: ["workspace", "board", context?.projectId] });
       toast.success(variables.lane === "fast" ? "Fast Lane — deploy record" : "Secure Lane — QA Regression Bypass");
     },
-    onError: (err) => toast.error(errMsg(err)),
+    meta: { errorLabel: "op.routeItem" },
   });
 }
 
@@ -251,6 +257,6 @@ export function useResolveItem() {
       qc.invalidateQueries({ queryKey: ["phase6", "maintenance", context?.projectId] });
       toast.success("Resolved — fix logged");
     },
-    onError: (err) => toast.error(errMsg(err)),
+    meta: { errorLabel: "op.resolveItem" },
   });
 }

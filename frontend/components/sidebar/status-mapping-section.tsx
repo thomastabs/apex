@@ -51,7 +51,6 @@ export function StatusMappingSection({ dark, shellClass, dragHandlers, onDragSta
   function save() {
     saveStatusMapping.mutate(draft, {
       onSuccess: () => toast.success(t("statusMapping.saved")),
-      onError: (e) => toast.error(e instanceof Error ? e.message : t("statusMapping.saveFailed")),
     });
   }
 
@@ -65,7 +64,6 @@ export function StatusMappingSection({ dark, shellClass, dragHandlers, onDragSta
     setDraft(next);
     saveStatusMapping.mutate({}, {
       onSuccess: () => toast.success(t("statusMapping.defaultsRestored")),
-      onError: (e) => toast.error(e instanceof Error ? e.message : t("statusMapping.saveFailed")),
     });
   }
 

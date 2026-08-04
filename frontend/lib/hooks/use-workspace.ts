@@ -73,7 +73,6 @@ import {
 import { getPmAdapter } from "@/lib/api/pm-factory";
 import { getUsageSummary } from "@/lib/api/usage";
 import { useApiContext, useAuthContext, useGithubContext, useFigmaContext } from "@/lib/stores/session-store";
-import { toast } from "sonner";
 
 export function useMe() {
   const auth = useAuthContext();
@@ -101,6 +100,7 @@ export function useServerConfig() {
 export function useSaveServerConfig() {
   const auth = useAuthContext();
   return useMutation({
+    meta: { errorLabel: "op.saveServerConfig" },
     mutationFn: (projectId: number) => saveServerConfig(auth!, projectId),
   });
 }
@@ -118,6 +118,7 @@ export function useCreateProject() {
   const auth = useAuthContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.createProject" },
     mutationFn: ({ name, description, isPrivate, templateId }: { name: string; description: string; isPrivate?: boolean; templateId?: number | null }) =>
       createProject(auth!, name, description, { isPrivate, templateId }),
     onSuccess: () => {
@@ -140,6 +141,7 @@ export function useUpdateProject() {
   const auth = useAuthContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.updateProject" },
     mutationFn: ({ projectId, name, description }: { projectId: number; name?: string; description?: string }) =>
       updateProject(auth!, projectId, { name, description }),
     onSuccess: () => {
@@ -152,6 +154,7 @@ export function useDeleteProject() {
   const auth = useAuthContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.deleteProject" },
     mutationFn: (projectId: number) => deleteProject(auth!, projectId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "projects"] });
@@ -183,6 +186,7 @@ export function useUpdateAgentFile() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.saveAgentFile" },
     mutationFn: ({ filename, content }: { filename: string; content: string }) =>
       updateAgentFile(context!, filename, content),
     onSuccess: () => {
@@ -194,6 +198,7 @@ export function useUpdateAgentFile() {
 export function useGenerateAgentFile() {
   const context = useApiContext();
   return useMutation({
+    meta: { errorLabel: "op.generateAgentFile" },
     mutationFn: ({ filename, groundingFiles }: { filename: string; groundingFiles: string[] }) =>
       generateAgentFile(context!, filename, groundingFiles),
   });
@@ -203,6 +208,7 @@ export function usePullAgentFilesFromGithub() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.pullAgentFiles" },
     mutationFn: () => pullAgentFilesFromGithub(context!),
     onSuccess: (data) => {
       queryClient.setQueryData(["workspace", "agent-files", context?.projectId], { files: data.files });
@@ -214,6 +220,7 @@ export function useUpdateContextFile() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.saveContextFile" },
     mutationFn: ({ filename, content, note }: { filename: string; content: string; note?: string }) =>
       updateContextFile(context!, filename, content, note),
     onSuccess: () => {
@@ -236,6 +243,7 @@ export function usePublishContextToWiki() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.publishWiki" },
     mutationFn: (filenames: string[] = []) => publishContextToWiki(context!, filenames),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "context-wiki-status", context?.projectId] });
@@ -248,6 +256,7 @@ export function usePullContextFromWiki() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.pullWiki" },
     mutationFn: (filenames: string[] = []) => pullContextFromWiki(context!, filenames),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "context-wiki-status", context?.projectId] });
@@ -260,6 +269,7 @@ export function useAcknowledgeBacktrace() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.acknowledgeBacktrace" },
     mutationFn: (storyId: number) => acknowledgeBacktrace(context!, storyId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "story-index-stats", context?.projectId] });
@@ -271,6 +281,7 @@ export function useSetStoryFigmaLink() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.setStoryFigmaLink" },
     mutationFn: ({ storyId, figmaNodeId, figmaModified = "", figmaFileKey = "" }: { storyId: number; figmaNodeId: string; figmaModified?: string; figmaFileKey?: string }) =>
       setStoryFigmaLink(context!, storyId, figmaNodeId, figmaModified, figmaFileKey),
     onSuccess: () => {
@@ -283,6 +294,7 @@ export function useScanFigmaChanges() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.scanFigmaChanges" },
     // A bare string scans the single configured file (legacy); the object form scans
     // per file (file key → current lastModified).
     mutationFn: (
@@ -301,6 +313,7 @@ export function useAcknowledgeFigmaChange() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.acknowledgeFigmaChange" },
     mutationFn: ({ storyId, currentModified = "" }: { storyId: number; currentModified?: string }) =>
       acknowledgeFigmaChange(context!, storyId, currentModified),
     onSuccess: () => {
@@ -313,6 +326,7 @@ export function useLogDecision() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.logDecision" },
     mutationFn: (body: { scope: string; summary: string; reason?: string }) => logDecision(context!, body),
     onSuccess: () => {
       // Refresh the Active Context sidebar so the new decisions.md entry shows.
@@ -325,6 +339,7 @@ export function useResetContextFile() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.resetContextFile" },
     mutationFn: (filename: string) => resetContextFile(context!, filename),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "context-files"] });
@@ -381,6 +396,7 @@ export function useSaveStatusMapping() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.saveStatusMapping" },
     mutationFn: (mapping: Record<string, ApexPhaseStatus>) => saveStatusMapping(context!, mapping),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "status-mapping", context?.projectId] });
@@ -403,6 +419,7 @@ export function useSaveBoltConfig() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.saveBoltConfig" },
     mutationFn: (config: BoltConfig) => saveBoltConfig(context!, config),
     onSuccess: (saved) => {
       // Write the server response straight into the cache instead of just
@@ -456,6 +473,7 @@ export function useSetStoryPhaseStatus() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.setStoryPhaseStatus" },
     mutationFn: ({ storyId, phaseStatus }: { storyId: number; phaseStatus: ApexPhaseStatus }) =>
       setStoryPhaseStatus(context!, storyId, phaseStatus),
     onSuccess: (_, { storyId }) => {
@@ -477,6 +495,7 @@ export function useSetStoryScaffold() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.setStoryScaffold" },
     mutationFn: ({ storyId, isScaffold }: { storyId: number; isScaffold: boolean }) =>
       setStoryScaffold(context!, storyId, isScaffold),
     onSuccess: () => {
@@ -492,6 +511,7 @@ export function useAdminSetAllStoryStatus() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.adminSetAllStatuses" },
     mutationFn: ({ phaseStatus, password }: { phaseStatus: AdminPhaseStatus; password: string }) =>
       adminSetAllStoryStatus(context!, phaseStatus, password),
     onSuccess: () => {
@@ -511,6 +531,7 @@ export function useCreateEpic() {
   const queryClient = useQueryClient();
   const autoSync = useAutoSyncStoryIndex();
   return useMutation({
+    meta: { errorLabel: "op.createEpic" },
     mutationFn: ({ subject, description, tags }: { subject: string; description: string; tags?: string[] }) =>
       createEpic(context!, subject, description, tags ?? []),
     onSuccess: () => {
@@ -526,6 +547,7 @@ export function useDeleteEpic() {
   const queryClient = useQueryClient();
   const autoSync = useAutoSyncStoryIndex();
   return useMutation({
+    meta: { errorLabel: "op.deleteEpic" },
     mutationFn: (epicId: number) => deleteEpic(context!, epicId),
     onSuccess: () => {
       autoSync();
@@ -540,6 +562,7 @@ export function useCreateStory() {
   const queryClient = useQueryClient();
   const autoSync = useAutoSyncStoryIndex();
   return useMutation({
+    meta: { errorLabel: "op.createStory" },
     mutationFn: ({
       epicId, subject, description, tags, statusId,
     }: { epicId: number; subject: string; description: string; tags?: string[]; statusId?: number }) =>
@@ -556,6 +579,7 @@ export function useDeleteStory() {
   const queryClient = useQueryClient();
   const autoSync = useAutoSyncStoryIndex();
   return useMutation({
+    meta: { errorLabel: "op.deleteStory" },
     mutationFn: (storyId: number) => deleteStory(context!, storyId),
     onSuccess: () => {
       autoSync();
@@ -578,6 +602,7 @@ export function useInviteUser() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.inviteUser" },
     mutationFn: ({ usernameOrEmail, roleId }: { usernameOrEmail: string; roleId: number | string }) =>
       inviteUser(context!, usernameOrEmail, roleId),
     onSuccess: () => {
@@ -590,6 +615,7 @@ export function useRemoveMember() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.removeMember" },
     mutationFn: (membershipId: string) => removeMember(context!, membershipId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "users"] });
@@ -601,6 +627,7 @@ export function useUpdateMemberRole() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.updateMemberRole" },
     mutationFn: ({ membershipId, roleId }: { membershipId: string; roleId: number }) =>
       updateMemberRole(context!, membershipId, roleId),
     onSuccess: () => {
@@ -614,6 +641,7 @@ export function useUpdateEpic() {
   const queryClient = useQueryClient();
   const autoSync = useAutoSyncStoryIndex();
   return useMutation({
+    meta: { errorLabel: "op.updateEpic" },
     mutationFn: ({
       epicId,
       version,
@@ -636,6 +664,7 @@ export function useUpdateStory() {
   const queryClient = useQueryClient();
   const autoSync = useAutoSyncStoryIndex();
   return useMutation({
+    meta: { errorLabel: "op.updateStory" },
     mutationFn: ({
       storyId,
       version,
@@ -656,6 +685,7 @@ export function useRebuildStoryIndex() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.rebuildStoryIndex" },
     mutationFn: () => rebuildStoryIndex(context!),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["phase2", "eligible-epics"] });
@@ -701,7 +731,7 @@ export function useSaveTraceLayout() {
   const context = useApiContext();
   return useMutation({
     mutationFn: (nodes: Array<{ id: string; x: number; y: number }>) => saveTraceabilityLayout(context!, nodes),
-    onError: () => toast.error("Failed to save the graph layout."),
+    meta: { errorLabel: "op.saveTraceLayout" },
   });
 }
 
@@ -709,6 +739,7 @@ export function useResetAllContextFiles() {
   const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.resetAllContextFiles" },
     mutationFn: () => resetAllContextFiles(context!),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "context-files"] });
@@ -730,6 +761,7 @@ export function useSaveAiConfig() {
   const auth = useAuthContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.saveAiConfig" },
     mutationFn: ({ model }: { model: string }) => saveAiConfig(auth!, model),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "ai-config"] });
@@ -741,6 +773,7 @@ export function useSaveAiLanguage() {
   const auth = useAuthContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.saveAiLanguage" },
     mutationFn: (language: string) => saveAiLanguage(auth!, language),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "ai-config"] });
@@ -752,6 +785,7 @@ export function useSaveAiKey() {
   const auth = useAuthContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.saveAiKey" },
     mutationFn: ({ provider, apiKey }: { provider: string; apiKey: string }) => saveAiKey(auth!, provider, apiKey),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "ai-config"] });
@@ -763,6 +797,7 @@ export function useDeleteAiKey() {
   const auth = useAuthContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.deleteAiKey" },
     mutationFn: (provider: string) => deleteAiKey(auth!, provider),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "ai-config"] });
@@ -787,6 +822,7 @@ export function useSaveGithubConfig() {
   const ctx = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.saveGithubConfig" },
     mutationFn: ({ repo, pat }: { repo: string; pat?: string }) => {
       if (!ctx?.projectId) throw new Error("No project selected.");
       return saveGithubConfig(auth!, repo, ctx.projectId, pat);
@@ -842,6 +878,7 @@ export function useSaveGithubPackConfig() {
   const ctx = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.saveGithubPackConfig" },
     mutationFn: async (payload: Partial<import("@/lib/api/workspace").GithubPackConfig>) => {
       if (!ctx) throw new Error("Not connected.");
       const { saveGithubPackConfig } = await import("@/lib/api/workspace");
@@ -858,6 +895,7 @@ export function useSyncGithubContext() {
   const ctx = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.syncGithubContext" },
     mutationFn: async () => {
       if (!ctx) throw new Error("Not connected.");
       const { syncGithubContext } = await import("@/lib/api/workspace");
@@ -892,6 +930,7 @@ export function useSaveFigmaConfig() {
   const auth = useAuthContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.saveFigmaConfig" },
     mutationFn: ({ fileKey, token }: { fileKey: string; token?: string }) => saveFigmaConfig(auth!, fileKey, token),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "server-config"] });
@@ -915,6 +954,7 @@ export function useSyncFigmaContext() {
   const figma = useFigmaContext();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorLabel: "op.syncFigmaContext" },
     // Server-side assembly: one call to our backend, which makes the Figma calls
     // (file + comments + design tokens) and writes figma-context.md. The token is
     // sent once as a header; no client-side fan-out to Figma.

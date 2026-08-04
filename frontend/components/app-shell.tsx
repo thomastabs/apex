@@ -10,6 +10,7 @@ import { useApiContext } from "@/lib/stores/session-store";
 import { useAutoSyncStoryIndex } from "@/lib/hooks/use-workspace";
 import { getApiBaseUrl } from "@/lib/api/client";
 import { toast } from "sonner";
+import { translate } from "@/lib/i18n/translate";
 
 function useServerWakeup() {
   const didCheck = useRef(false);
@@ -20,7 +21,7 @@ function useServerWakeup() {
 
     let toastId: string | number | undefined;
     const timer = setTimeout(() => {
-      toastId = toast.loading("Server is waking up — this may take ~30 seconds…", { duration: Infinity });
+      toastId = toast.loading(translate("app.serverWaking"), { duration: Infinity });
     }, 3_000);
 
     fetch(`${getApiBaseUrl()}/api/health`, { signal: AbortSignal.timeout(45_000) })
@@ -30,7 +31,10 @@ function useServerWakeup() {
       })
       .catch(() => {
         clearTimeout(timer);
+        // Dismissing the "waking up" toast here used to look exactly like
+        // success. The backend never answered — say so.
         if (toastId !== undefined) toast.dismiss(toastId);
+        toast.error(translate("errors.serverWakeFailed"), { id: "server-wake-failed", duration: 10_000 });
       });
   }, []);
 }

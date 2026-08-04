@@ -15,7 +15,7 @@ vi.mock("@/lib/stores/session-store", () => ({
   useApiContext: () => ({ projectId: 7, pmTool: "taiga", pmToken: "tok", pmProjectId: "slug" }),
   useFigmaContext: () => null,
 }));
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn(), message: vi.fn(), loading: vi.fn(), dismiss: vi.fn() } }));
 vi.mock("@/lib/api/pm-factory", () => ({ getPmAdapter: () => ({ getStory, getEpic: vi.fn() }) }));
 vi.mock("@/lib/api/workspace", () => ({ toPmCtx: () => ({ projectId: "7" }) }));
 const pushMock = vi.fn();

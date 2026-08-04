@@ -6,7 +6,15 @@ const STORY_CARD = /US#10.*User Login/;
 /** Sonner toasts overlay the bottom action row; even force-clicks land on the
  *  toast instead of the button. Wait for them to auto-dismiss before clicking. */
 async function waitForToastsGone(page: import("@playwright/test").Page) {
-  await page.locator("[data-sonner-toast]").first().waitFor({ state: "hidden", timeout: 10_000 }).catch(() => {});
+  // Dismiss every visible toast rather than waiting out its timer: error toasts
+  // now stay up for 10s deliberately (a failure that vanishes in 4s is a failure
+  // nobody sees), and up to 5 stack at once, so waiting was slow and flaky.
+  const toasts = page.locator("[data-sonner-toast]");
+  for (let i = 0; i < 12; i += 1) {
+    if ((await toasts.count()) === 0) return;
+    await toasts.locator("button[data-close-button]").first().click({ force: true }).catch(() => {});
+    await page.waitForTimeout(120);
+  }
 }
 
 test("Phase 4 pass: select story → generate test plan → mark all pass → pass gate", async ({ page }) => {

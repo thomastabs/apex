@@ -80,6 +80,20 @@ def _prune_and_cap(buckets: dict, now: float, window: float) -> None:
             buckets.pop(k, None)
 
 
+def _too_many_requests(message: str, code: str, retry_after: int) -> HTTPException:
+    """429 with a machine code and a Retry-After header.
+
+    None of these responses carried Retry-After before, so the client had no way
+    to tell the user how long to wait, and every 429 in the app (there are six
+    distinct sources) looked identical.
+    """
+    return HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail={"code": code, "message": message},
+        headers={"Retry-After": str(retry_after)},
+    )
+
+
 def _client_ip(request: Request) -> str:
     """Resolve the real client IP from X-Forwarded-For, trusting only the hops
     our own infrastructure appended.
@@ -113,9 +127,9 @@ def _check_bucket(key: str, limit: int, now: float, what: str = "AI requests") -
     if now - window_start > _WINDOW_SECS:
         _buckets[key] = (now, 1)
     elif count >= limit:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Rate limit: max {limit} {what} per minute. Try again shortly.",
+        raise _too_many_requests(
+            f"Rate limit: max {limit} {what} per minute. Try again shortly.",
+            "rate_limited", _WINDOW_SECS,
         )
     else:
         _buckets[key] = (window_start, count + 1)
@@ -132,9 +146,9 @@ def auth_rate_limit(request: Request) -> None:
     client = distributed.redis_client()
     if client is not None:
         if _redis_hit_over_limit(client, "rl:" + ip_key, _MAX_AUTH_ATTEMPTS_PER_IP, _WINDOW_SECS):
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"Rate limit: max {_MAX_AUTH_ATTEMPTS_PER_IP} sign-in attempts per minute. Try again shortly.",
+            raise _too_many_requests(
+                f"Rate limit: max {_MAX_AUTH_ATTEMPTS_PER_IP} sign-in attempts per minute. Try again shortly.",
+                "rate_limited_signin", _WINDOW_SECS,
             )
         return
     now = time.monotonic()
@@ -154,9 +168,9 @@ def check_auth_failures(request: Request) -> None:
     client = distributed.redis_client()
     if client is not None:
         if _redis_failure_over_limit(client, "rl:" + key, _MAX_AUTH_FAILURES_PER_IP):
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Too many failed PM sign-in attempts from this address. Try again later.",
+            raise _too_many_requests(
+                "Too many failed PM sign-in attempts from this address. Try again later.",
+                "auth_failures_ip", _FAILURE_WINDOW_SECS,
             )
         return
     now = time.monotonic()
@@ -169,9 +183,9 @@ def check_auth_failures(request: Request) -> None:
             del _failure_buckets[key]
             return
         if count >= _MAX_AUTH_FAILURES_PER_IP:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Too many failed PM sign-in attempts from this address. Try again later.",
+            raise _too_many_requests(
+                "Too many failed PM sign-in attempts from this address. Try again later.",
+                "auth_failures_ip", _FAILURE_WINDOW_SECS,
             )
 
 
@@ -209,9 +223,9 @@ def check_username_failures(username: str) -> None:
     client = distributed.redis_client()
     if client is not None:
         if _redis_failure_over_limit(client, "rl:" + key, _MAX_AUTH_FAILURES_PER_USER):
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Too many failed sign-in attempts for this account. Try again later.",
+            raise _too_many_requests(
+                "Too many failed sign-in attempts for this account. Try again later.",
+                "auth_failures_account", _FAILURE_WINDOW_SECS,
             )
         return
     now = time.monotonic()
@@ -224,9 +238,9 @@ def check_username_failures(username: str) -> None:
             del _username_failure_buckets[key]
             return
         if count >= _MAX_AUTH_FAILURES_PER_USER:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Too many failed sign-in attempts for this account. Try again later.",
+            raise _too_many_requests(
+                "Too many failed sign-in attempts for this account. Try again later.",
+                "auth_failures_account", _FAILURE_WINDOW_SECS,
             )
 
 
@@ -254,14 +268,14 @@ def ai_rate_limit(request: Request, auth: AuthContext = Depends(get_auth_context
     client = distributed.redis_client()
     if client is not None:
         if _redis_hit_over_limit(client, "rl:" + token_key, _MAX_AI_REQUESTS, _WINDOW_SECS):
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"Rate limit: max {_MAX_AI_REQUESTS} AI requests per minute. Try again shortly.",
+            raise _too_many_requests(
+                f"Rate limit: max {_MAX_AI_REQUESTS} AI requests per minute. Try again shortly.",
+                "ai_rate_limit", _WINDOW_SECS,
             )
         if _redis_hit_over_limit(client, "rl:" + ip_key, _MAX_AI_REQUESTS_PER_IP, _WINDOW_SECS):
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"Rate limit: max {_MAX_AI_REQUESTS_PER_IP} AI requests per minute. Try again shortly.",
+            raise _too_many_requests(
+                f"Rate limit: max {_MAX_AI_REQUESTS_PER_IP} AI requests per minute. Try again shortly.",
+                "ai_rate_limit", _WINDOW_SECS,
             )
         return
     now = time.monotonic()

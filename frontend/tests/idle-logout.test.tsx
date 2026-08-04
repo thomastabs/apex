@@ -9,7 +9,7 @@ let token = "tok";
 vi.mock("@/lib/stores/session-store", () => ({
   useSessionStore: { getState: () => ({ taigaToken: token, clearSession }) },
 }));
-vi.mock("sonner", () => ({ toast: { message: vi.fn(), success: vi.fn(), error: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn(), message: vi.fn(), loading: vi.fn(), dismiss: vi.fn() } }));
 
 import { useIdleLogout } from "@/lib/hooks/use-idle-logout";
 

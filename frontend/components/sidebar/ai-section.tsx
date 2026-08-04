@@ -55,7 +55,6 @@ function AddKeyForm({ provider, dark, onSaved }: { provider: ProviderKey; dark: 
     if (!apiKey) return;
     saveAiKeyMutation.mutate({ provider, apiKey }, {
       onSuccess: () => { setInput(""); toast.success(t("ai.toast.personalKeySaved")); onSaved?.(); },
-      onError: (e) => toast.error(e instanceof Error ? e.message : t("ai.toast.failedSaveApiKey")),
     });
   }
 
@@ -113,7 +112,6 @@ function KeySourcePanel({
           disabled={deleteAiKeyMutation.isPending}
           onClick={() => deleteAiKeyMutation.mutate(provider, {
             onSuccess: () => toast.info(systemAvailable ? t("ai.toast.personalKeyRemovedFallback") : t("ai.toast.personalKeyRemoved")),
-            onError: (e) => toast.error(e instanceof Error ? e.message : t("ai.toast.failedRemoveApiKey")),
           })}
         >
           {deleteAiKeyMutation.isPending ? t("ai.removing") : t("ai.remove")}
@@ -252,7 +250,6 @@ export function AiSection({ dark, taigaToken, shellClass, dragHandlers, onDragSt
                     disabled={saveAiConfigMutation.isPending || !taigaToken}
                     onClick={() => saveAiConfigMutation.mutate({ model: effectiveModel }, {
                       onSuccess: () => toast.success(t("ai.toast.aiModelSaved")),
-                      onError: () => toast.error(t("ai.toast.failedSaveAiModel")),
                     })}
                   >
                     {!taigaToken ? t("ai.signInToSave") : saveAiConfigMutation.isPending ? t("common.saving") : t("common.save")}

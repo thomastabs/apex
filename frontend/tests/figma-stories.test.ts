@@ -2,12 +2,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor, act } from "@testing-library/react";
+import { createAppQueryClient } from "@/app/providers";
+import { resetErrorToastThrottle } from "@/lib/error-toast";
 
-vi.mock("@/lib/api/client", () => ({ apiRequest: vi.fn() }));
+vi.mock("@/lib/api/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api/client")>()),
+  apiRequest: vi.fn(),
+}));
 vi.mock("@/lib/stores/session-store", () => ({
   useApiContext: () => ({ projectId: 1, pmTool: "taiga", taigaToken: "tok" }),
 }));
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn(), message: vi.fn(), loading: vi.fn(), dismiss: vi.fn() } }));
 
 import { apiRequest } from "@/lib/api/client";
 import { generateStoriesFromFigma } from "@/lib/api/phase1";
@@ -16,12 +21,13 @@ import { useGenerateStoriesFromFigma } from "@/lib/hooks/use-phase1";
 const CTX = { projectId: 1, pmTool: "taiga", taigaToken: "tok" } as never;
 
 function makeWrapper() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  const qc = createAppQueryClient({ retryQueries: false });
   return ({ children }: { children: React.ReactNode }) =>
     React.createElement(QueryClientProvider, { client: qc }, children);
 }
 
 beforeEach(() => {
+  resetErrorToastThrottle();
   vi.mocked(apiRequest).mockReset();
   vi.mocked(apiRequest).mockResolvedValue({ nl_draft: "[S] Login", story_count: 1 } as never);
 });

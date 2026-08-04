@@ -5,6 +5,7 @@ from typing import NoReturn
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 
 from backend.app.api.deps import RequestContext, get_request_context
+from backend.app.api.ai_errors import handle_ai_error
 from backend.app.api.rate_limit import ai_rate_limit
 from backend.app.schemas.phase1 import CrossCheckResponse
 from backend.app.schemas.phase3 import (
@@ -25,7 +26,6 @@ from backend.app.schemas.phase3 import (
 )
 from backend.app.schemas.workspace import OkResponse
 from backend.app.services.phase3_service import Phase3Service, Phase3ValidationError
-from src.ai_engine import AIError, AIRateLimitError, AITimeoutError
 
 router = APIRouter()
 
@@ -37,15 +37,7 @@ def get_phase3_service() -> Phase3Service:
 def _handle_error(exc: Exception) -> NoReturn:
     if isinstance(exc, Phase3ValidationError):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
-    if isinstance(exc, AIRateLimitError):
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
-    if isinstance(exc, AITimeoutError):
-        raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail=str(exc)) from exc
-    if isinstance(exc, AIError):
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
-    if isinstance(exc, EnvironmentError):
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
-    raise exc
+    handle_ai_error(exc)
 
 
 @router.get("/eligible-stories", response_model=EligibleStoriesResponse)

@@ -56,7 +56,6 @@ export function AdminSection({ dark, shellClass, dragHandlers, onDragStart }: Ad
           setPassword("");
           toast.success(t(res.updated === 1 ? "admin.toast.updatedOne" : "admin.toast.updatedOther", { n: res.updated, status: statusLabel }));
         },
-        onError: (err: Error) => toast.error(err.message || t("admin.toast.failedUpdate")),
       },
     );
   }

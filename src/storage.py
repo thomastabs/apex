@@ -118,7 +118,15 @@ def _az_exists(azure_path: str) -> bool:
 
 
 def _az_read(azure_path: str) -> str:
-    stream = _az_file_client(azure_path).download_file()
+    try:
+        stream = _az_file_client(azure_path).download_file()
+    except _AzResourceNotFoundError as exc:
+        # Azure raises its own not-found type, which no caller catches — the
+        # request died as a bare 500. Callers already handle FileNotFoundError.
+        raise FileNotFoundError(azure_path) from exc
+    except Exception as exc:
+        _logger.error("storage: azure read failed for %s: %s", azure_path, exc)
+        raise
     return stream.readall().decode("utf-8")
 
 
@@ -138,7 +146,13 @@ def _az_ensure_dirs(azure_path: str) -> None:
 
 def _az_write(azure_path: str, content: str) -> None:
     _az_ensure_dirs(azure_path)
-    _az_file_client(azure_path).upload_file(content.encode("utf-8"))
+    try:
+        _az_file_client(azure_path).upload_file(content.encode("utf-8"))
+    except Exception as exc:
+        # Never silently drop a write: a lost save that reports success is the
+        # worst outcome for the user (audit H5, same rationale as _az_exists).
+        _logger.error("storage: azure write failed for %s: %s", azure_path, exc)
+        raise
 
 
 def _az_delete(azure_path: str, missing_ok: bool = False) -> None:

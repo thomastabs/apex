@@ -62,13 +62,13 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
       setEditing(false);
       setDraft(content);
     },
-    onError: (err: Error) => toast.error(t("deploypacks.toast.loadFailed", { err: err.message })),
+    meta: { errorLabel: "op.loadDeployPack" },
   });
 
   const downloadMut = useMutation({
     mutationFn: fetchPackContent,
     onSuccess: (content, storyId) => packDownload(content, storyId),
-    onError: (err: Error) => toast.error(t("deploypacks.toast.downloadFailed", { err: err.message })),
+    meta: { errorLabel: "op.downloadDeployPack" },
   });
 
   const downloadAllMut = useMutation({
@@ -77,7 +77,7 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
       return contents.map((content, i) => ({ filename: `deploy_pack_story_${packs[i].story_id}.md`, content }));
     },
     onSuccess: (files) => downloadZip(files, "apex-deploy-packs.zip"),
-    onError: (err: Error) => toast.error(t("deploypacks.toast.downloadFailed", { err: err.message })),
+    meta: { errorLabel: "op.downloadDeployPack" },
   });
 
   const saveMut = useMutation({
@@ -90,7 +90,7 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
       setEditing(false);
       toast.success(t("deploypacks.toast.deployPackSaved"));
     },
-    onError: (err: Error) => toast.error(t("deploypacks.toast.saveFailed", { err: err.message })),
+    meta: { errorLabel: "op.saveDeployPack" },
   });
 
   const deleteMut = useMutation({
@@ -101,7 +101,7 @@ export function DeployPacksSection({ dark, confirm, shellClass, dragHandlers, on
       autoSync();
       toast.success(t("deploypacks.toast.deployPackDeleted"));
     },
-    onError: (err: Error) => toast.error(t("deploypacks.toast.deleteFailed", { err: err.message })),
+    meta: { errorLabel: "op.deleteDeployPack" },
   });
 
   const closeModal = () => {

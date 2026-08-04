@@ -2,15 +2,20 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor, act } from "@testing-library/react";
+import { createAppQueryClient } from "@/app/providers";
+import { resetErrorToastThrottle } from "@/lib/error-toast";
 
 // Mock the lowest layer only (the HTTP client). The api functions and the
 // hooks both run for real on top of it, so one file covers URL building +
 // hook behaviour without the vi.mock-hoisting clash of mocking the api module.
-vi.mock("@/lib/api/client", () => ({ apiRequest: vi.fn() }));
+vi.mock("@/lib/api/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api/client")>()),
+  apiRequest: vi.fn(),
+}));
 vi.mock("@/lib/stores/session-store", () => ({
   useApiContext: () => ({ projectId: 1, pmTool: "taiga", pmToken: "tok" }),
 }));
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn(), message: vi.fn(), loading: vi.fn(), dismiss: vi.fn() } }));
 
 import { apiRequest } from "@/lib/api/client";
 import { importBootstrap, importReconstructEpic } from "@/lib/api/import";
@@ -19,14 +24,13 @@ import { useImportBootstrap, useImportReconstructEpic } from "@/lib/hooks/use-im
 const CTX = { projectId: 7, pmTool: "taiga", pmToken: "tok" } as never;
 
 function makeWrapper() {
-  const qc = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
+  const qc = createAppQueryClient({ retryQueries: false });
   return ({ children }: { children: React.ReactNode }) =>
     React.createElement(QueryClientProvider, { client: qc }, children);
 }
 
 beforeEach(() => {
+  resetErrorToastThrottle();
   vi.mocked(apiRequest).mockReset();
   vi.mocked(apiRequest).mockResolvedValue({} as never);
 });
@@ -91,7 +95,10 @@ describe("useImportBootstrap", () => {
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("taiga down"));
+    expect(toast.error).toHaveBeenCalledWith(
+      expect.stringContaining("failed"),
+      expect.objectContaining({ description: expect.stringContaining("taiga down") }),
+    );
   });
 });
 
@@ -124,6 +131,9 @@ describe("useImportReconstructEpic", () => {
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("AI failed"));
+    expect(toast.error).toHaveBeenCalledWith(
+      expect.stringContaining("failed"),
+      expect.objectContaining({ description: expect.stringContaining("AI failed") }),
+    );
   });
 });

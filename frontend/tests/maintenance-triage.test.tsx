@@ -12,7 +12,7 @@ vi.mock("@/lib/stores/session-store", () => ({
 vi.mock("@/lib/stores/ui-store", () => ({
   useUiStore: (sel: (s: { theme: string }) => unknown) => sel({ theme: "light" }),
 }));
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn(), message: vi.fn(), loading: vi.fn(), dismiss: vi.fn() } }));
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 

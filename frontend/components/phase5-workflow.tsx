@@ -240,7 +240,6 @@ function StageA({ onSelect }: { onSelect: (id: number) => void }) {
       return contents.map((content, i) => ({ filename: `deploy_pack_story_${readyStories[i].story_id}.md`, content }));
     },
     onSuccess: (files) => downloadZip(files, "apex-deploy-packs.zip"),
-    onError: (err: Error) => toast.error(t("phase4.toast.downloadFailed", { err: err.message })),
   });
 
   if (isLoading) {

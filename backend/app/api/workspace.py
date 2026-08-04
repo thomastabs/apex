@@ -63,6 +63,7 @@ from backend.app.schemas.workspace import (
     TraceabilityGraphResponse,
     UpdateContextFileRequest,
 )
+from backend.app.api.ai_errors import handle_ai_error
 from backend.app.api.rate_limit import ai_rate_limit
 from backend.app.services.context_service import ContextService
 from backend.app.services import github_fetch
@@ -725,8 +726,13 @@ def _maybe_bootstrap_agent_files_from_github(context: ContextService) -> None:
     try:
         ref = github_fetch.fetch_default_branch(pat, owner, repo)
         pull_agent_files_from_github(context, pat, owner, repo, ref, note="Pulled from GitHub (auto, first view)")
-    except github_fetch.GithubFetchError:
-        pass
+    except github_fetch.GithubFetchError as exc:
+        # Best-effort by design (this runs on a plain GET), but silence made a
+        # bad PAT or a missing repo indistinguishable from "no agent files".
+        _logger.warning(
+            "agent_files_bootstrap_failed repo=%s status=%s detail=%s",
+            repo_full, exc.status_code, str(exc)[:300],
+        )
 
 
 @router.get("/agent-files", response_model=AgentFilesResponse)
@@ -782,7 +788,6 @@ def generate_agent_file(
     ctx: RequestContext = Depends(get_request_context),
 ):
     from src import ai_engine
-    from src.ai_engine import AIError, AIRateLimitError, AITimeoutError
 
     context = ContextService()
     context.set_active(ctx)
@@ -797,12 +802,8 @@ def generate_agent_file(
             grounding,
             existing_content=existing,
         )
-    except AIRateLimitError as exc:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
-    except AITimeoutError as exc:
-        raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail=str(exc)) from exc
-    except (AIError, EnvironmentError) as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+    except Exception as exc:
+        handle_ai_error(exc)
     return {"filename": filename, "content": content, "grounding_files": [name for name, _content in grounding]}
 
 
@@ -891,8 +892,8 @@ def pull_agent_files_from_github_route(
             context, pat, owner, repo, ref, note="Pulled from GitHub (manual)",
         )
     except github_fetch.GithubFetchError as exc:
-        code = exc.status_code if exc.status_code in (401, 403, 429) else status.HTTP_502_BAD_GATEWAY
-        raise HTTPException(status_code=code, detail=str(exc)) from exc
+        code = exc.status_code if exc.status_code in (401, 403, 404, 429) else status.HTTP_502_BAD_GATEWAY
+        raise HTTPException(status_code=code, detail={"code": exc.code, "message": str(exc)}) from exc
     refreshed = get_agent_files(ctx)
     return {**refreshed, "pulled": pulled, "not_found": not_found}
 
@@ -1187,8 +1188,8 @@ def sync_figma_context(
     try:
         md, _frames, _flows = figma_fetch.fetch_context_and_frames(token, file_key)
     except figma_fetch.FigmaFetchError as exc:
-        code = exc.status_code if exc.status_code in (401, 403, 429) else status.HTTP_502_BAD_GATEWAY
-        raise HTTPException(status_code=code, detail=str(exc)) from exc
+        code = exc.status_code if exc.status_code in (401, 403, 404, 429) else status.HTTP_502_BAD_GATEWAY
+        raise HTTPException(status_code=code, detail={"code": exc.code, "message": str(exc)}) from exc
     context = ContextService()
     context.set_active(ctx)
     context.write_context_file("figma-context.md", md)
@@ -1295,8 +1296,8 @@ def sync_github_context(
             mode=settings["mode"], extra_ignore=settings["extra_ignore"],
         )
     except github_fetch.GithubFetchError as exc:
-        code = exc.status_code if exc.status_code in (401, 403, 429) else status.HTTP_502_BAD_GATEWAY
-        raise HTTPException(status_code=code, detail=str(exc)) from exc
+        code = exc.status_code if exc.status_code in (401, 403, 404, 429) else status.HTTP_502_BAD_GATEWAY
+        raise HTTPException(status_code=code, detail={"code": exc.code, "message": str(exc)}) from exc
     context.write_context_file("github-context.md", md)
     # Controlled co-evolution: preserve drift-flagging parity with the generic
     # PUT /context-files/{filename} route (sync_figma_context does not call this,

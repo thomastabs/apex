@@ -4,7 +4,24 @@
  * PAT sent as Authorization: token <pat>.
  */
 
+import { ApiError, ApiNetworkError } from "./client";
+
 const GITHUB_API = "https://api.github.com";
+
+/** GitHub's error bodies are `{message, documentation_url}`, not FastAPI's
+ *  `{detail}`. Normalise into ApiError so these failures classify (and toast)
+ *  exactly like every backend failure. */
+async function ghError(res: Response): Promise<ApiError> {
+  const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  const message = typeof body.message === "string" && body.message ? body.message : null;
+  if (res.status === 404) {
+    return new ApiError(404, message ?? "GitHub could not find that repository — check the owner/repo and that the token can see it.");
+  }
+  if (res.status === 401 || res.status === 403) {
+    return new ApiError(res.status, message ?? "GitHub rejected the token. Check the PAT and its scopes in Settings.");
+  }
+  return new ApiError(res.status, message ?? `GitHub returned ${res.status}.`);
+}
 
 function ghHeaders(pat: string): HeadersInit {
   return {
@@ -15,24 +32,28 @@ function ghHeaders(pat: string): HeadersInit {
 }
 
 async function ghFetch<T>(path: string, pat: string): Promise<T> {
-  const res = await fetch(`${GITHUB_API}${path}`, { headers: ghHeaders(pat) });
-  if (!res.ok) {
-    const msg = await res.json().catch(() => ({})) as Record<string, unknown>;
-    throw new Error((msg.message as string) || `GitHub ${res.status}`);
+  let res: Response;
+  try {
+    res = await fetch(`${GITHUB_API}${path}`, { headers: ghHeaders(pat) });
+  } catch (err) {
+    throw err instanceof TypeError ? new ApiNetworkError(err) : err;
   }
+  if (!res.ok) throw await ghError(res);
   return res.json() as Promise<T>;
 }
 
 async function ghPost<T>(path: string, pat: string, body: unknown): Promise<T> {
-  const res = await fetch(`${GITHUB_API}${path}`, {
-    method: "POST",
-    headers: { ...ghHeaders(pat), "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const msg = await res.json().catch(() => ({})) as Record<string, unknown>;
-    throw new Error((msg.message as string) || `GitHub ${res.status}`);
+  let res: Response;
+  try {
+    res = await fetch(`${GITHUB_API}${path}`, {
+      method: "POST",
+      headers: { ...ghHeaders(pat), "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    throw err instanceof TypeError ? new ApiNetworkError(err) : err;
   }
+  if (!res.ok) throw await ghError(res);
   return res.json() as Promise<T>;
 }
 

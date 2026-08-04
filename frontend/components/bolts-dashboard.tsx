@@ -211,8 +211,7 @@ export function BoltsDashboard() {
         setDraftConfig(saved);
         if (successToast) toast.success(successToast);
       },
-      onError: (e) => {
-        toast.error(errMsg(e));
+      onError: () => {
         if (configQuery.data) setDraftConfig(configQuery.data);
       },
     });
