@@ -620,6 +620,46 @@ def test_agent_files_list_and_update_safe_repo_root(tmp_path, monkeypatch):
     assert next(file for file in updated["files"] if file["filename"] == "AGENTS.md")["exists"] is True
 
 
+def test_get_agent_files_bootstraps_from_github_on_first_view_when_configured(tmp_path, monkeypatch):
+    """A project with GitHub connected should show that repo's real agent
+    files on first view, not empty/unconfirmed content until someone
+    remembers to click "Pull from GitHub"."""
+    import backend.app.api.workspace as ws
+    from backend.app.services import github_fetch
+
+    monkeypatch.setattr(ws, "_REPO_ROOT", tmp_path)
+    monkeypatch.setattr(ws, "_apex_own_repo", lambda: "thomastabs/apex")
+    monkeypatch.setattr(ws.ContextService, "set_active", lambda self, ctx: None)
+    monkeypatch.setattr(ws.ContextService, "github_pat", lambda self: "ghp_test")
+    monkeypatch.setattr(ws.ContextService, "github_repo", lambda self: "thomastabs/outfolio")
+    monkeypatch.setattr(github_fetch, "fetch_default_branch", lambda pat, owner, repo: "main")
+    fetch_calls: list[str] = []
+
+    def fake_fetch_file(pat, owner, repo, ref, path):
+        fetch_calls.append(path)
+        return "# Outfolio CLAUDE.md\n" if path == "CLAUDE.md" else None
+
+    monkeypatch.setattr(github_fetch, "fetch_file", fake_fetch_file)
+    monkeypatch.setattr(ws.ContextService, "amend_locked_spec", lambda self, name, note="": None)
+
+    stored: dict[str, str] = {}
+    monkeypatch.setattr(ws.ContextService, "write_agent_file", lambda self, filename, content: stored.__setitem__(filename, content))
+    monkeypatch.setattr(ws.ContextService, "read_agent_file", lambda self, filename: stored.get(filename, ""))
+    statuses: dict[str, bool] = {}
+    monkeypatch.setattr(ws.ContextService, "write_agent_file_github_status", lambda self, filename, in_github: statuses.__setitem__(filename, in_github))
+    monkeypatch.setattr(ws.ContextService, "read_agent_file_github_status", lambda self, filename: statuses.get(filename))
+
+    listed = ws.get_agent_files(RequestContext(pm_token="tok", project_id=42))
+    claude = next(f for f in listed["files"] if f["filename"] == "CLAUDE.md")
+    assert claude["content"] == "# Outfolio CLAUDE.md\n"
+    assert claude["in_github"] is True
+    assert fetch_calls.count("CLAUDE.md") == 1
+
+    # A second view must not re-fetch — every file already has a confirmed status.
+    ws.get_agent_files(RequestContext(pm_token="tok", project_id=42))
+    assert fetch_calls.count("CLAUDE.md") == 1
+
+
 def test_update_agent_file_falls_back_to_project_storage_when_repo_write_fails(ctx, monkeypatch):
     import backend.app.api.workspace as ws
 

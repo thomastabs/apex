@@ -704,15 +704,43 @@ def save_bolt_config(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
+def _maybe_bootstrap_agent_files_from_github(context: ContextService) -> None:
+    """The first time a project's agent files are read after GitHub is
+    connected, pull once automatically instead of showing empty/unconfirmed
+    content until the user notices and clicks "Pull from GitHub" — for a
+    configured project, the connected repo is the source of truth, not
+    whatever happens to be sitting in project storage from before it was
+    connected. Best-effort and silent: any fetch error just leaves files
+    unconfirmed, exactly as if GitHub weren't connected yet, and the manual
+    button/next push webhook will pick it up. Runs at most once — after the
+    first attempt every file has a real True/False status, so this never
+    re-fetches on every panel open."""
+    if any(context.read_agent_file_github_status(filename) is not None for filename, _label in _AGENT_FILES):
+        return
+    pat = context.github_pat()
+    repo_full = (context.github_repo() or "").strip()
+    if not pat or not repo_full or "/" not in repo_full:
+        return
+    owner, _, repo = repo_full.partition("/")
+    try:
+        ref = github_fetch.fetch_default_branch(pat, owner, repo)
+        pull_agent_files_from_github(context, pat, owner, repo, ref, note="Pulled from GitHub (auto, first view)")
+    except github_fetch.GithubFetchError:
+        pass
+
+
 @router.get("/agent-files", response_model=AgentFilesResponse)
 def get_agent_files(_ctx: RequestContext = Depends(get_request_context)):
-    ContextService().set_active(_ctx)
+    context = ContextService()
+    context.set_active(_ctx)
+    _maybe_bootstrap_agent_files_from_github(context)
     return {"files": [_agent_file_payload(filename, label) for filename, label in _AGENT_FILES]}
 
 
 def _agent_generation_grounding(ctx: RequestContext, filenames: list[str]) -> list[tuple[str, str]]:
     context = ContextService()
     context.set_active(ctx)
+    _maybe_bootstrap_agent_files_from_github(context)
     available_context = {filename for filename, _label in _local_context_file_labels(context)}
     result: list[tuple[str, str]] = []
     seen: set[str] = set()
@@ -756,7 +784,9 @@ def generate_agent_file(
     from src import ai_engine
     from src.ai_engine import AIError, AIRateLimitError, AITimeoutError
 
-    ContextService().set_active(ctx)
+    context = ContextService()
+    context.set_active(ctx)
+    _maybe_bootstrap_agent_files_from_github(context)
     label = _agent_file_label(filename)
     existing = _agent_file_payload(filename, label)["content"]
     grounding = _agent_generation_grounding(ctx, payload.grounding_files)
