@@ -1,0 +1,14 @@
+# Ruff configuration.
+#
+# Deliberately minimal: only the exclude list is set, so ruff's default rule
+# selection still applies exactly as it did when the repo had no config at all.
+# Do not add rule selection here without checking the pinned version in
+# .github/workflows/ci.yml — the pin exists because a minor ruff upgrade once
+# broadened the defaults and broke CI on already-merged code.
+
+# docs/ holds LaTeX sources for the dissertation, including template sample
+# files that happen to carry a .py extension (e.g. the IST template's
+# lstlisting example). Those are document assets, not project source: they are
+# never imported, never executed, and editing them to satisfy a linter would
+# corrupt the document they belong to.
+extend-exclude = ["docs/"]
