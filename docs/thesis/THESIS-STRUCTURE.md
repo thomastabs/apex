@@ -112,13 +112,19 @@ cd IST_UL___MEIC_Thesis___Dissertação_final
 pdflatex main && bibtex main && pdflatex main && pdflatex main
 ```
 
-Verified: **0 errors, 0 undefined references or citations, 85 pages.**
+Verified on the committed source, unpatched: **0 errors, 0 undefined references or
+citations, 87 pages, A4.** The Portuguese resumo and Palavras Chave render with
+correct accents and hyphenation, and all `\Cref` cross-references resolve under
+chapter-based numbering (Tables 2.1, 4.1–4.12, 5.1, 9.1; Figures 2.1–2.2, 4.1–4.2).
 
-Two caveats about local builds:
-- This machine lacks `texlive-lang-portuguese`, so `babel` fails on the
-  `portuguese` option. Overleaf has it. Verification here was done on a scratch
-  copy patched to English-only; the committed source is unchanged and correct.
-- This machine also lacks `algorithm2e`. Same story — fine on Overleaf.
+Local builds need two TeX Live packages beyond a base install:
+
+```bash
+sudo apt install texlive-lang-portuguese texlive-science
+```
+
+Without the first, `babel` fails on the `portuguese` option; without the second,
+`algorithm2e` is missing. Overleaf has both.
 
 ## Before submission
 
@@ -127,8 +133,9 @@ Two caveats about local builds:
 - [ ] `Acknowledgments.tex` — still template text.
 - [ ] `Glossary.tex` — still template entries (LaTeX/maths examples).
 - [ ] Disable `todonotes` and `changes` markup for the delivered PDF (see template
-      README §1). Every `\todo` in Chapters 6–10 is a writing prompt and must be
-      gone by then.
+      README §1). The 50 `\todo` prompts in Chapters 6–10 (12/11/9/14/4) are writing
+      instructions, not content, and must all be gone by then — disabling the package
+      hides them but does not mean the chapters are written.
 - [ ] Decide EN vs PT as main language in `Preamble_commands.tex`.
 - [ ] Re-check the recent/preprint citations flagged in the framework document's
       Honest Limitations before final submission — several are 2025–2026 preprints
