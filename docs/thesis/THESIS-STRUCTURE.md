@@ -11,21 +11,38 @@ DSRM prescribes six *activities*, not six chapters. The organisation below keeps
 narrative. The mapping is stated in the thesis itself (Chapter 2,
 `Table: dsrm_chapter_mapping`) so an examiner never has to infer it.
 
+Chapter numbering, titles, and ordering for Chapters 1-6 and 8-10 follow the
+department's DSRM-thesis convention, cross-checked against Leonardo Cruz's
+dissertation (IST, 2025, "Using Artificial Intelligence for Evaluating Student
+Answers") - the reference example for this methodology at IST: Research
+Methodology and Research Background as their own chapters before the review;
+the review chapter titled plainly *Systematic Literature Review*, not "Related
+Work"; a lean *Research Problem* chapter with no subsections; and objectives
+folded into the *Research Proposal* chapter alongside Design & Development
+(DSRM activities 2 and 3 together), rather than into the Problem chapter.
+Chapter 7 (Apex) is this thesis's own addition, not present in that reference -
+see "Two artefacts, not one" below for why it stays a separate chapter rather
+than being folded into Chapter 6 the way the reference folds its single
+artefact's design and implementation plan into one chapter.
+
 | # | Chapter | DSRM activity | Status |
 |---|---------|---------------|--------|
 | 1 | Introduction | framing | **written** |
 | 2 | Research Methodology | (SLR + DSRM description) | **written**, from PIC |
 | 3 | Research Background | - | **written**, from PIC |
-| 4 | Related Work (SLR) | Problem Identification | **written**, from PIC |
-| 5 | Research Problem and Objectives | Problem Identification + Objectives | **written**, from PIC |
-| 6 | The Proposed Framework | Design & Development (method) | outlined |
+| 4 | Systematic Literature Review | Problem Identification | **written**, from PIC |
+| 5 | Research Problem | Problem Identification | **written**, from PIC |
+| 6 | Research Proposal | Objectives + Design & Development (method) | objectives written (from PIC), design outlined |
 | 7 | Apex: The Reference Implementation | Design & Development (instantiation) | outlined |
 | 8 | Demonstration | Demonstration | outlined |
 | 9 | Evaluation | Evaluation | outlined |
 | 10 | Conclusion | Communication + limitations/future work | outlined |
 
 Appendix A - SLR corpus. Appendix B - evaluation instruments (SUS, NASA-TLX,
-interview guides, raw scores).
+interview guides, raw scores). The reference dissertation has only the SLR
+appendix, since its single evaluation instrument was live grading data rather
+than standardised questionnaires; this thesis keeps Appendix B because SUS,
+NASA-TLX, and the interview guides genuinely need to be reproduced.
 
 ### Two artefacts, not one
 
@@ -71,7 +88,7 @@ Practical notes for when you run these:
 
 | Chapter | Draw from |
 |---------|-----------|
-| 6 - Framework | `docs/framework/Apex-Framework-v2.docx` (authoritative; its §numbers are preserved in the chapter comments), `Apex-Framework-Grounding.docx` (citation trail, alternatives argument) |
+| 6 - Research Proposal | `docs/framework/Apex-Framework-v2.docx` (authoritative; its §numbers are preserved in the chapter comments), `Apex-Framework-Grounding.docx` (citation trail, alternatives argument) |
 | 7 - Apex | `Apex-Implementation-Report.docx` (architecture, testing, deployment, incident log), `Apex-Framework-v2.docx` §2, `docs/diagrams/architecture.puml`, `docs/diagrams/user-flow.puml` |
 | 8 - Demonstration | not yet performed |
 | 9 - Evaluation | not yet performed |
@@ -115,7 +132,9 @@ pdflatex main && bibtex main && pdflatex main && pdflatex main
 Verified on the committed source, unpatched: **0 errors, 0 undefined references or
 citations, 87 pages, A4.** The Portuguese resumo and Palavras Chave render with
 correct accents and hyphenation, and all `\Cref` cross-references resolve under
-chapter-based numbering (Tables 2.1, 4.1-4.12, 5.1, 9.1; Figures 2.1-2.2, 4.1-4.2).
+chapter-based numbering (Tables 2.1, 4.1-4.12, 6.1, 9.1; Figures 2.1-2.2, 4.1-4.2).
+`tab:rq_objective_mapping` (the RQ-to-objective mapping) now lives in Chapter 6
+(Table 6.1), not Chapter 5, following the chapter restructuring described above.
 
 Local builds need two TeX Live packages beyond a base install:
 
@@ -133,7 +152,7 @@ Without the first, `babel` fails on the `portuguese` option; without the second,
 - [ ] `Acknowledgments.tex` - still template text.
 - [ ] `Glossary.tex` - still template entries (LaTeX/maths examples).
 - [ ] Disable `todonotes` and `changes` markup for the delivered PDF (see template
-      README §1). The 50 `\todo` prompts in Chapters 6-10 (12/11/9/14/4) are writing
+      README §1). The 51 `\todo` prompts in Chapters 6-10 (12/11/9/15/4) are writing
       instructions, not content, and must all be gone by then - disabling the package
       hides them but does not mean the chapters are written.
 - [ ] Decide EN vs PT as main language in `Preamble_commands.tex`.

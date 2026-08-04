@@ -1,15 +1,71 @@
 % #############################################################################
-% This is Chapter 6 - The Proposed Framework
+% This is Chapter 6 - Research Proposal (the framework, as a method)
 % !TEX root = ../main.tex
 % #############################################################################
 % SOURCE: docs/framework/Apex-Framework-v2.docx is the authoritative
 % specification for this chapter. Its section numbering is preserved below so
 % the two documents stay traceable to each other while writing.
 % #############################################################################
-\fancychapter{The Proposed Framework}
+\fancychapter{Research Proposal}
 \label{chap:proposal}
 
-This chapter presents the artefact designed to address the research problem formalised in \Cref{sec:problem}: a process-oriented framework for governed Human-AI collaboration across the \ac{SDLC}. It corresponds to the Design and Development activity of the \ac{DSRM}. The framework is described here as a methodology, independently of any implementation; its instantiation as a working system is the subject of \Cref{chap:apex}.
+This chapter presents the second and third activities of the \ac{DSRM}: the definition of objectives for a solution to the research problem formalised in \Cref{chap:problem}, and the design of the artefact that satisfies them, a process-oriented framework for governed Human-AI collaboration across the \ac{SDLC}. The framework is described here as a methodology, independently of any implementation; its instantiation as a working system is the subject of \Cref{chap:apex}.
+
+% #############################################################################
+\section{Objectives}
+\label{sec:objectives}
+
+From the systematic literature review conducted in \Cref{chap:slr}, it was possible to gather an overview of the current status of the topic of AI and LLMs usage adoption in regards to Software Development. With the analysis of the consequences and benefits that these tools have, a research problem was defined in \Cref{chap:problem}, namely, the lack of patterned guidance, strict methodologies and standardized evaluation metrics to fully make the most of out of the potential that AI and LLMs can bring to an information rich environment. Therefore, the research objectives of this work are defined to directly address that research problem. This problem, grounded in the findings of the Systematic Literature Review, concerns the lack of structured guidance, methodological rigor, and standardized evaluation practices for integrating AI and LLMs into software development processes. \Cref{tab:rq_objective_mapping} summarises how the research objectives are formulated to resolve this problem, linking the identified gaps to concrete framework objectives.
+
+{\small
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.6cm}
+                  >{\arraybackslash}p{5.3cm}
+                  >{\arraybackslash}p{3.2cm}
+                  >{\arraybackslash}p{5.2cm}}
+\caption{Mapping between Research Questions, Key Findings, Problem Aspects, and Framework Objectives}
+\label{tab:rq_objective_mapping} \\
+
+% Header for the first page
+\toprule
+\textbf{RQ} & \textbf{Key Finding from SLR} & \textbf{Problem Aspect Addressed} & \textbf{Resulting Framework Objective} \\
+\midrule
+\endfirsthead
+
+% Header for continuation pages
+\toprule
+\textbf{RQ} & \textbf{Key Finding from SLR} & \textbf{Problem Aspect Addressed} & \textbf{Resulting Framework Objective} \\
+\midrule
+\endhead
+
+\midrule
+\multicolumn{4}{r}{\textit{Continued on next page}}\\
+\endfoot
+
+\bottomrule
+\endlastfoot
+
+RQ1 &
+The analysis of benefits and usage patterns shows that AI and LLM usage is unevenly distributed across SDLC phases and lacks structured integration. &
+Lack of structured guidance on where and how AI should be applied across the SDLC &
+Define a process framework that explicitly maps AI-supported activities to specific SDLC phases, clarifying where and how AI tools should be applied. \\
+\addlinespace
+
+RQ2 &
+The analysis of consequences and limitations highlights recurring risks related to reliability, validation, security, and insufficient human oversight. &
+Insufficient methodological support for managing risks, quality, and accountability in AI-assisted development &
+Integrate governance mechanisms, human-in-the-loop practices, and quality assurance checkpoints into the framework. \\
+\addlinespace
+
+RQ3 &
+The review of existing methodologies reveals significant variation among approaches and a lack of consensus on how to manage AI adoption in software development. &
+Fragmentation and lack of consensus in existing AI adoption methodologies &
+Consolidate best practices into a unified, process-oriented framework that provides repeatable guidance for managing human-AI collaboration. \\
+\addlinespace
+
+\end{longtable}
+}
+
+Together, these objectives operationalize a solution to the identified research problem by translating observed gaps in current practice into concrete design goals for the proposed framework. By explicitly mapping AI usage to SDLC phases, introducing governance and human-in-the-loop mechanisms, and consolidating fragmented practices into a unified process model, the framework aims to resolve the lack of structured guidance and methodological clarity currently limiting the effective and responsible adoption of AI and LLMs in software development. The remainder of this chapter presents the framework designed to meet these objectives.
 
 % #############################################################################
 \section{Purpose and Scope}
