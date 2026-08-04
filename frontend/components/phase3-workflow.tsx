@@ -1077,7 +1077,7 @@ function StageC({ storyId }: { storyId: number }) {
     const prev = packDrafts[taskId] ?? "";
     setGeneratingTaskId(taskId);
     // Losing the commits context is survivable, but it changes what the AI sees
-    // — generating "successfully" with degraded grounding should not be silent.
+    // - generating "successfully" with degraded grounding should not be silent.
     const recentCommitsContext = githubCtx
       ? await fetchRecentCommitsContext(githubCtx, task.subject).catch(() => {
           toast.warning(t("errors.commitsUnavailable"), { id: "commits-unavailable" });

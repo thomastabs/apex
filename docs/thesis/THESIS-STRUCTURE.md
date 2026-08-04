@@ -2,7 +2,7 @@
 
 Working document for the MEIC-T dissertation. The LaTeX source lives in
 `IST_UL___MEIC_Thesis___Dissertação_final/`; the PIC report it draws on lives in
-`PIC_103641_Tomás_Taborda/` and is now a **source**, not a target — edit the thesis.
+`PIC_103641_Tomás_Taborda/` and is now a **source**, not a target - edit the thesis.
 
 ## Why this structure
 
@@ -15,7 +15,7 @@ narrative. The mapping is stated in the thesis itself (Chapter 2,
 |---|---------|---------------|--------|
 | 1 | Introduction | framing | **written** |
 | 2 | Research Methodology | (SLR + DSRM description) | **written**, from PIC |
-| 3 | Research Background | — | **written**, from PIC |
+| 3 | Research Background | - | **written**, from PIC |
 | 4 | Related Work (SLR) | Problem Identification | **written**, from PIC |
 | 5 | Research Problem and Objectives | Problem Identification + Objectives | **written**, from PIC |
 | 6 | The Proposed Framework | Design & Development (method) | outlined |
@@ -24,7 +24,7 @@ narrative. The mapping is stated in the thesis itself (Chapter 2,
 | 9 | Evaluation | Evaluation | outlined |
 | 10 | Conclusion | Communication + limitations/future work | outlined |
 
-Appendix A — SLR corpus. Appendix B — evaluation instruments (SUS, NASA-TLX,
+Appendix A - SLR corpus. Appendix B - evaluation instruments (SUS, NASA-TLX,
 interview guides, raw scores).
 
 ### Two artefacts, not one
@@ -39,7 +39,7 @@ make the framework look like documentation for a tool, which inverts the contrib
 
 Feedback gathered while building Apex changed the *framework*, not only the tool
 (a role was removed; a mandatory artefact became optional). That is formative
-evaluation feeding back into design — exactly the iteration DSRM's arrows describe.
+evaluation feeding back into design - exactly the iteration DSRM's arrows describe.
 Chapter 7 §Design History should be written that way: each entry as
 *observation → design change → rationale*, including changes rejected or reverted.
 Written as a changelog it is filler; written as iteration it is methodology.
@@ -71,13 +71,13 @@ Practical notes for when you run these:
 
 | Chapter | Draw from |
 |---------|-----------|
-| 6 — Framework | `docs/framework/Apex-Framework-v2.docx` (authoritative; its §numbers are preserved in the chapter comments), `Apex-Framework-Grounding.docx` (citation trail, alternatives argument) |
-| 7 — Apex | `Apex-Implementation-Report.docx` (architecture, testing, deployment, incident log), `Apex-Framework-v2.docx` §2, `docs/diagrams/architecture.puml`, `docs/diagrams/user-flow.puml` |
-| 8 — Demonstration | not yet performed |
-| 9 — Evaluation | not yet performed |
+| 6 - Framework | `docs/framework/Apex-Framework-v2.docx` (authoritative; its §numbers are preserved in the chapter comments), `Apex-Framework-Grounding.docx` (citation trail, alternatives argument) |
+| 7 - Apex | `Apex-Implementation-Report.docx` (architecture, testing, deployment, incident log), `Apex-Framework-v2.docx` §2, `docs/diagrams/architecture.puml`, `docs/diagrams/user-flow.puml` |
+| 8 - Demonstration | not yet performed |
+| 9 - Evaluation | not yet performed |
 
 Diagrams still need rendering to `Images/` (PlantUML → PDF or PNG); the BPMN
-`big-picture.bpmn` has no local renderer — see the verification technique noted in
+`big-picture.bpmn` has no local renderer - see the verification technique noted in
 project memory if it needs to become a figure.
 
 ## What was changed mechanically, and why
@@ -95,14 +95,14 @@ it would have been silently wrong in the thesis:
    `tab:RQs` and `fig:placeholder` were each defined twice. `\Cref` cannot work
    against duplicate or absent labels.
 4. **Figure paths rebased** on `./Images/`, and the five PIC images copied over.
-5. **Bibliographies merged** — 32 SLR entries appended to the template's 62, no key
+5. **Bibliographies merged** - 32 SLR entries appended to the template's 62, no key
    collisions.
 6. **Unescaped `&` in `.bib` journal names fixed** (14 of them, e.g. *ACM
    Transactions on Software Engineering & Methodology*). A bare `&` is an alignment
    tab; with IEEEtran this is a hard compile error. Fixed in both `.bib` files.
 
 The template's lorem-ipsum example chapters are preserved unused in
-`Chapters/Template-Examples/` — the template README recommends keeping them for
+`Chapters/Template-Examples/` - the template README recommends keeping them for
 reference on packages and techniques.
 
 ## Build
@@ -115,7 +115,7 @@ pdflatex main && bibtex main && pdflatex main && pdflatex main
 Verified on the committed source, unpatched: **0 errors, 0 undefined references or
 citations, 87 pages, A4.** The Portuguese resumo and Palavras Chave render with
 correct accents and hyphenation, and all `\Cref` cross-references resolve under
-chapter-based numbering (Tables 2.1, 4.1–4.12, 5.1, 9.1; Figures 2.1–2.2, 4.1–4.2).
+chapter-based numbering (Tables 2.1, 4.1-4.12, 5.1, 9.1; Figures 2.1-2.2, 4.1-4.2).
 
 Local builds need two TeX Live packages beyond a base install:
 
@@ -128,15 +128,15 @@ Without the first, `babel` fails on the `portuguese` option; without the second,
 
 ## Before submission
 
-- [ ] `Front_Cover.tex` — name, title, supervisors, degree, date; set
+- [ ] `Front_Cover.tex` - name, title, supervisors, degree, date; set
       `\finalthesis{true}` and add the committee only after approval.
-- [ ] `Acknowledgments.tex` — still template text.
-- [ ] `Glossary.tex` — still template entries (LaTeX/maths examples).
+- [ ] `Acknowledgments.tex` - still template text.
+- [ ] `Glossary.tex` - still template entries (LaTeX/maths examples).
 - [ ] Disable `todonotes` and `changes` markup for the delivered PDF (see template
-      README §1). The 50 `\todo` prompts in Chapters 6–10 (12/11/9/14/4) are writing
-      instructions, not content, and must all be gone by then — disabling the package
+      README §1). The 50 `\todo` prompts in Chapters 6-10 (12/11/9/14/4) are writing
+      instructions, not content, and must all be gone by then - disabling the package
       hides them but does not mean the chapters are written.
 - [ ] Decide EN vs PT as main language in `Preamble_commands.tex`.
 - [ ] Re-check the recent/preprint citations flagged in the framework document's
-      Honest Limitations before final submission — several are 2025–2026 preprints
+      Honest Limitations before final submission - several are 2025-2026 preprints
       or vendor-reported figures and must be cited as such.

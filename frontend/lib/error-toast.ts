@@ -23,7 +23,7 @@ const KEY_SEGMENT: Record<Exclude<ErrorKind, "cancelled">, string> = {
   unknown: "unknown",
 };
 
-/** Errors stay up far longer than the sonner default (4s) — a failure that
+/** Errors stay up far longer than the sonner default (4s) - a failure that
  *  vanishes before a usability tester can read it is a failure with no
  *  feedback at all. */
 const ERROR_DURATION_MS = 10_000;
@@ -41,13 +41,13 @@ export type NotifyErrorOptions = {
    * Suppress a repeat of the same failure within this window. Needed for polling
    * queries (autopilot status every 1.5s, GitHub sync every 30s): a persistently
    * failing poll must report once, not once per interval. Toast `id` dedupe is
-   * not enough on its own — it only merges toasts that are still on screen.
+   * not enough on its own - it only merges toasts that are still on screen.
    */
   throttleMs?: number;
   /**
    * Throttle bucket, when it should differ from the toast id. The query net uses
    * the query hash here so each query throttles independently, while the toast id
-   * stays keyed on the failure itself — three queries failing the same way show
+   * stays keyed on the failure itself - three queries failing the same way show
    * one toast, not three identical ones.
    */
   throttleKey?: string;
@@ -58,8 +58,8 @@ export type NotifyErrorOptions = {
 const lastReportedAt = new Map<string, number>();
 
 /**
- * The single error-toast entry point. Every failure — global net, hook, or call
- * site — should end up here so the wording, the hint, the duration and the
+ * The single error-toast entry point. Every failure - global net, hook, or call
+ * site - should end up here so the wording, the hint, the duration and the
  * dedupe behaviour stay consistent.
  *
  * Returns the classified error so callers can branch on `kind` without
@@ -68,7 +68,7 @@ const lastReportedAt = new Map<string, number>();
 export function notifyError(err: unknown, options: NotifyErrorOptions = {}) {
   const classified = classifyError(err);
 
-  // A deliberate cancel is not a failure — stay silent.
+  // A deliberate cancel is not a failure - stay silent.
   if (classified.kind === "cancelled") return classified;
 
   const toastId = options.scope ? `${options.scope}:${classified.dedupeKey}` : classified.dedupeKey;
@@ -101,7 +101,7 @@ export function notifyError(err: unknown, options: NotifyErrorOptions = {}) {
   return classified;
 }
 
-/** Test seam — clears the throttle window between cases. */
+/** Test seam - clears the throttle window between cases. */
 export function resetErrorToastThrottle() {
   lastReportedAt.clear();
 }

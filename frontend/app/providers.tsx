@@ -16,7 +16,7 @@ import { translate } from "@/lib/i18n/translate";
  *
  * The default is LOUD: anything that fails toasts. Silence is opt-in, so a
  * newly added query or mutation can never fail invisibly just because whoever
- * wrote it forgot an `onError` — which is exactly how the previous 48 silent
+ * wrote it forgot an `onError` - which is exactly how the previous 48 silent
  * mutations and 32 silent queries accumulated.
  */
 declare module "@tanstack/react-query" {
@@ -27,7 +27,7 @@ declare module "@tanstack/react-query" {
 }
 
 export type ApexMeta = {
-  /** Suppress the automatic toast — for genuinely optional/background calls. */
+  /** Suppress the automatic toast - for genuinely optional/background calls. */
   toastSilent?: boolean;
   /** Translation key naming the operation, e.g. "board.load" -> "<label> failed". */
   errorLabel?: TranslationKey;
@@ -40,7 +40,7 @@ function IdleGuard() {
 }
 
 /**
- * Last-resort net for promises nobody awaited — `mutateAsync` without a catch,
+ * Last-resort net for promises nobody awaited - `mutateAsync` without a catch,
  * fire-and-forget effects. Without this they vanish into the console.
  */
 function UnhandledRejectionGuard() {
@@ -68,7 +68,7 @@ export function createAppQueryClient(overrides?: { retryQueries?: number | false
         notifyError(error, {
           action: meta?.errorLabel ? translate(meta.errorLabel) : undefined,
           // Throttle per query so a failing poll reports once, not once per
-          // interval (autopilot status polls every 1.5s) — but leave the toast
+          // interval (autopilot status polls every 1.5s) - but leave the toast
           // id keyed on the failure, so several queries broken by the same
           // outage collapse into one message.
           throttleKey: query.queryHash,

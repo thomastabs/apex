@@ -139,7 +139,7 @@ def _reclassify_llm_exc(exc: Exception, *, reraise_unrecognized: bool = True) ->
         raise AITimeoutError(str(exc)) from exc
     # A rejected API key is a configuration problem the user can fix; without
     # this branch it fell through as an unrecognised exception and surfaced as a
-    # bare 500 "Internal server error", which is unactionable — and BYO-key is a
+    # bare 500 "Internal server error", which is unactionable - and BYO-key is a
     # first-class feature, so it happens in normal use.
     if exc_type in ("AuthenticationError", "PermissionDeniedError"):
         raise AIAuthError(

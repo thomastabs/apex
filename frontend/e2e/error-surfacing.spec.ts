@@ -4,7 +4,7 @@ const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 /**
  * The behaviour this error-surfacing pass exists for: a failing request must
- * always produce exactly one readable toast — including on code paths whose
+ * always produce exactly one readable toast - including on code paths whose
  * hook never had an `onError` of its own.
  */
 
@@ -70,7 +70,7 @@ test("a query failure is reported even though no component renders its error", a
 
   await page.goto("/phase1");
 
-  // useContextFiles has no error UI at all — before the global query net this
+  // useContextFiles has no error UI at all - before the global query net this
   // failed in complete silence.
   const toasts = page.locator("[data-sonner-toast]");
   await expect(toasts.getByText("The server hit an error").first()).toBeVisible({ timeout: 15_000 });

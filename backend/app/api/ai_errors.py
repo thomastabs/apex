@@ -5,7 +5,7 @@ which is how several failure modes ended up unmapped in every copy at once: an
 invalid model id, a rejected API key and a context-window overflow all fell
 through to a bare 500 "Internal server error".
 
-Responses carry a structured detail — `{"code": ..., "message": ...}` — so the
+Responses carry a structured detail - `{"code": ..., "message": ...}` - so the
 frontend classifies the failure exactly (lib/errors.ts) instead of pattern-
 matching prose. `ApiError.messageFor` still surfaces `message` as the error
 text, so a caller that only reads `.message` keeps working.
@@ -55,7 +55,7 @@ def ai_error_response(exc: AIError) -> HTTPException:
             break
     message = str(exc) or "The AI request failed."
     if isinstance(exc, AIValidationError):
-        # The raw text is a Pydantic validation dump — useless in a toast, and
+        # The raw text is a Pydantic validation dump - useless in a toast, and
         # the actual advice ("retry, or try another model") is not in it.
         message = "The model returned output that did not match the expected format. Retry, or try a different model."
     # These paths raised with no logging at all, so an AI 429/502/504 left no
@@ -70,7 +70,7 @@ def handle_ai_error(exc: Exception) -> NoReturn:
         raise ai_error_response(exc) from exc
     if isinstance(exc, EnvironmentError):
         # check_api_key() raises this with an actionable message naming the env
-        # var and the Settings screen — a config problem, not a gateway failure.
+        # var and the Settings screen - a config problem, not a gateway failure.
         _logger.warning("ai_config_error detail=%s", str(exc)[:500])
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

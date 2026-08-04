@@ -1,7 +1,7 @@
 /**
  * Single place that turns any thrown value into a user-facing error shape.
  *
- * Every failure in the app funnels through here — the global query/mutation
+ * Every failure in the app funnels through here - the global query/mutation
  * nets in `app/providers.tsx`, `useErrorToast`, and the handful of call sites
  * that still need a bespoke message. Keeping classification in one pure module
  * means a new failure mode is covered everywhere at once, instead of needing a

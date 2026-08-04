@@ -121,7 +121,7 @@ def _az_read(azure_path: str) -> str:
     try:
         stream = _az_file_client(azure_path).download_file()
     except _AzResourceNotFoundError as exc:
-        # Azure raises its own not-found type, which no caller catches — the
+        # Azure raises its own not-found type, which no caller catches - the
         # request died as a bare 500. Callers already handle FileNotFoundError.
         raise FileNotFoundError(azure_path) from exc
     except Exception as exc:

@@ -34,7 +34,7 @@ const STILL_WORKING_MS = 45_000;
  *
  * Only a *deliberate* cancel is swallowed. A client-side deadline also aborts
  * the fetch, but apiRequest converts that into an ApiTimeoutError, which must
- * reach the error handlers — swallowing it (as this hook used to, by matching
+ * reach the error handlers - swallowing it (as this hook used to, by matching
  * on the AbortError name) meant a generation that timed out after five minutes
  * produced no feedback whatsoever.
  *
@@ -65,7 +65,7 @@ export function useCancellableMutation<TVars, TData>(
       return mutationFn(vars, abortRef.current.signal);
     },
     onError: (...args) => {
-      // Swallow deliberate cancels only — no error toast, no caller onError.
+      // Swallow deliberate cancels only - no error toast, no caller onError.
       // Everything else (including timeouts) must propagate.
       if (cancelledRef.current) return;
       options?.onError?.(...args);

@@ -3,7 +3,7 @@
 # Deliberately minimal: only the exclude list is set, so ruff's default rule
 # selection still applies exactly as it did when the repo had no config at all.
 # Do not add rule selection here without checking the pinned version in
-# .github/workflows/ci.yml — the pin exists because a minor ruff upgrade once
+# .github/workflows/ci.yml - the pin exists because a minor ruff upgrade once
 # broadened the defaults and broke CI on already-merged code.
 
 # docs/ holds LaTeX sources for the dissertation, including template sample

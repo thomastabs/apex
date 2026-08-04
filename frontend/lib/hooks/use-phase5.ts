@@ -254,7 +254,7 @@ export function useTraceabilityMatrix(storyId: number | null) {
   });
 
   // A failed proposals/QA fetch used to fall through the `?? []` defaults below
-  // and render as "no packs, no QA results" — a wrong answer that looks like a
+  // and render as "no packs, no QA results" - a wrong answer that looks like a
   // real one. Report it as an error state instead so the caller can say so.
   const isError = proposalsQuery.isError || qaQuery.isError;
 

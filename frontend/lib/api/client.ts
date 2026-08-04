@@ -6,7 +6,7 @@ export class ApiError extends Error {
   /** Stable machine code from the backend (`detail: {code, message}`), when it
    *  sent one. Lets the client classify a failure exactly instead of pattern-
    *  matching prose. Absent for the many routes that still return a bare
-   *  string detail — classification falls back to the status code there. */
+   *  string detail - classification falls back to the status code there. */
   code?: string;
 
   constructor(status: number, detail: unknown) {
@@ -53,7 +53,7 @@ export class ApiError extends Error {
   }
 }
 
-/** The request never reached the backend — offline, DNS failure, CORS, backend down. */
+/** The request never reached the backend - offline, DNS failure, CORS, backend down. */
 export class ApiNetworkError extends ApiError {
   constructor(cause?: unknown) {
     super(0, "Could not reach the server.");
@@ -164,7 +164,7 @@ export async function apiRequest<T>(
     if (isTimeoutReason(controller.signal.reason)) {
       throw new ApiTimeoutError(timeoutMs, path);
     }
-    // The caller's own cancel — rethrow untouched so useCancellableMutation
+    // The caller's own cancel - rethrow untouched so useCancellableMutation
     // can recognise and swallow it.
     if (signal?.aborted) throw err;
     // fetch() rejects with a bare TypeError for offline/DNS/CORS failures.
@@ -179,7 +179,7 @@ export async function apiRequest<T>(
   try {
     payload = contentType.includes("application/json") ? await response.json() : await response.text();
   } catch {
-    // A truncated or malformed body must not escape as a raw SyntaxError — the
+    // A truncated or malformed body must not escape as a raw SyntaxError - the
     // status is the useful part, so report it as a normal ApiError.
     if (!response.ok) throw new ApiError(response.status, null);
     throw new ApiError(response.status, "The server returned a malformed response.");

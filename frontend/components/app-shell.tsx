@@ -32,7 +32,7 @@ function useServerWakeup() {
       .catch(() => {
         clearTimeout(timer);
         // Dismissing the "waking up" toast here used to look exactly like
-        // success. The backend never answered — say so.
+        // success. The backend never answered - say so.
         if (toastId !== undefined) toast.dismiss(toastId);
         toast.error(translate("errors.serverWakeFailed"), { id: "server-wake-failed", duration: 10_000 });
       });

@@ -15,7 +15,7 @@ async function ghError(res: Response): Promise<ApiError> {
   const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   const message = typeof body.message === "string" && body.message ? body.message : null;
   if (res.status === 404) {
-    return new ApiError(404, message ?? "GitHub could not find that repository — check the owner/repo and that the token can see it.");
+    return new ApiError(404, message ?? "GitHub could not find that repository - check the owner/repo and that the token can see it.");
   }
   if (res.status === 401 || res.status === 403) {
     return new ApiError(res.status, message ?? "GitHub rejected the token. Check the PAT and its scopes in Settings.");

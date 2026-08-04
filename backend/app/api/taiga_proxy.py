@@ -313,8 +313,8 @@ async def proxy_taiga(
     if resp.status_code >= 400:
         # Taiga's error bodies use its own shape (`_error_message`, or a bare
         # list/string), so an expired token here looked nothing like the same
-        # event coming from deps.py. Normalise to `{"detail": ...}` — the shape
-        # every other Apex error uses — and log it, since upstream 4xx
+        # event coming from deps.py. Normalise to `{"detail": ...}` - the shape
+        # every other Apex error uses - and log it, since upstream 4xx
         # passthroughs previously left no server-side trace at all.
         _logger.warning(
             "taiga_upstream_error status=%d path=%s", resp.status_code, path,
