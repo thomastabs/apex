@@ -1,0 +1,74 @@
+% #############################################################################
+% This is Chapter 1 - Introduction
+% !TEX root = ../main.tex
+% #############################################################################
+\fancychapter{Introduction}
+\label{chap:intro}
+
+The software engineering landscape is undergoing a structural change driven by the rapid evolution of \ac{AI}. The rise of \ac{GenAI} and \acp{LLM} has extended machine assistance beyond classification and retrieval towards the generation of coherent, context-aware artefacts, reshaping problem-solving and creative workflows across the technology sector. Within software engineering specifically, these technologies have introduced intent-driven programming, colloquially termed \emph{Vibe Coding}, in which developers describe desired behaviour in natural language and iteratively refine what a model produces~\cite{Moore:2025vc, Zamfiroiu:2025ec}.
+
+This shift is not confined to writing code. \acp{LLM} now participate in requirements elicitation, architectural exploration, test generation, documentation, and debugging, touching every phase of the \ac{SDLC}~\cite{Ahmed:2025ai, Zhang:2025ea, Hou:2025cl}. The consequence is a change in the nature of the practitioner's work: from manually constructing software towards specifying intent, supervising generated artefacts, and remaining accountable for architectural soundness, correctness, and security.
+
+% #############################################################################
+\section{Motivation}
+\label{sec:motivation}
+
+The economic pull towards adoption is strong and well documented, but the evidence on outcomes is considerably more nuanced than early enthusiasm suggested, and it is this gap between adoption and outcome that motivates this work.
+
+Adoption is close to universal while trust is not. Industry-scale survey evidence reports approximately 90\% adoption of AI tooling among practitioners alongside roughly 30\% reporting low or no trust in the code those tools produce. That distrust is empirically warranted rather than merely cultural: controlled benchmarking of agent-generated code has found that a large majority of functionally correct solutions nonetheless failed security testing, and large-scale assessment across many models reports AI-generated samples introducing common vulnerability classes at several times the rate of human-written code.
+
+Productivity gains are also less automatic than assumed. A randomised controlled trial of experienced open-source developers measured them as slower when using AI assistance, despite those same developers forecasting and self-reporting the opposite. Organisational telemetry across millions of pull requests shows the same pattern at scale: substantially more change volume submitted, substantially longer review times, and delivery metrics that remain flat. The bottleneck moves downstream to validation; it does not disappear.
+
+Taken together, these findings support a single interpretation that frames this dissertation: the value of AI assistance in software engineering is conditional on the process that surrounds it, rather than being a property of the model alone. Capability without governance redistributes effort rather than reducing it, and can degrade quality attributes that are expensive to recover later.
+
+% #############################################################################
+\section{Research Problem}
+\label{sec:intro_problem}
+
+To characterise the state of practice rigorously rather than anecdotally, a \ac{SLR} was conducted following Kitchenham's guidelines, retrieving 646 articles and synthesising the resulting corpus around benefits, consequences, integration methodologies, stakeholder perspectives, and adopting industry sectors. The review is reported in full in \Cref{chap:slr}.
+
+Its central finding is methodological rather than technical. While the literature consistently reports meaningful benefits, it equally consistently reports that organisations lack established, clear methodologies to shape the responsible use of \ac{AI} and \acp{LLM} within professional software development~\cite{Banh:2025cf, Farhanna:2025eu, Hemmat:2025rd, Gao:2025cc}. Proposed approaches remain fragmented across isolated tools and tasks, differ significantly in scope and level of abstraction, and share no common foundation regarding lifecycle integration, oversight practices, or evaluation criteria~\cite{Ahmed:2025ai}.
+
+Established methodologies do not close this gap. Waterfall, Scrum, Kanban, and the Agile Manifesto delivered substantial improvements in adaptability and collaboration, but were designed for development environments in which every contributor is human~\cite{Zhang:2025ea}. They therefore lack explicit structures for governing AI participation, for bounding the context a model is permitted to act upon, for assessing model reliability, and for allocating responsibility over generated artefacts. Their iteration cadence also assumes that implementation is the binding constraint, an assumption the evidence in \Cref{sec:motivation} directly contradicts.
+
+\noindent\textbf{The research problem addressed in this work is therefore the absence of structured, repeatable guidance and standardised evaluation practices for integrating \ac{AI} and \ac{LLM}-based tools across the \ac{SDLC} while preserving human oversight, software quality and security, and organisational accountability.}
+
+% #############################################################################
+\section{Objectives and Research Questions}
+\label{sec:intro_objectives}
+
+The objective of this dissertation is to design, instantiate, demonstrate, and evaluate a process-oriented framework that addresses the problem stated above. This objective is decomposed into the following research questions, which structure the design and evaluation of the artefact:
+
+\begin{enumerate}
+    \item \textbf{RQ-A:} How can AI-supported activities be explicitly mapped to \ac{SDLC} phases so that the point, purpose, and boundary of AI participation are unambiguous?
+    \item \textbf{RQ-B:} Which governance mechanisms, quality gates, and human-in-the-loop practices are required to keep AI contributions traceable, validated, and accountable across the lifecycle?
+    \item \textbf{RQ-C:} Is such a framework implementable as a working software system rather than remaining a descriptive model?
+    \item \textbf{RQ-D:} Does applying the framework, through that implementation, provide practitioners with usable and cognitively sustainable support in a real development setting?
+\end{enumerate}
+
+RQ-A and RQ-B are answered by the framework design in \Cref{chap:proposal}; RQ-C by the reference implementation in \Cref{chap:apex}; and RQ-D by the demonstration and evaluation reported in \Cref{chap:demonstration,chap:evaluation}.
+
+% #############################################################################
+\section{Contributions}
+\label{sec:contributions}
+
+This dissertation makes four contributions:
+
+\begin{enumerate}
+    \item \textbf{A systematic synthesis of the field.} A \ac{SLR} over 646 retrieved articles, organising current evidence on the benefits, consequences, integration methodologies, stakeholder perspectives, and adopting sectors of \ac{AI} and \ac{LLM} use in software development, including a mapping of impacts across individual \ac{SDLC} phases.
+    \item \textbf{A process framework for governed Human--AI collaboration.} A process-oriented framework that treats AI systems as first-class collaborators rather than as passive tooling, defining lifecycle phases, phase-specific quality gates, responsibilities expressed as functions rather than job titles, governance metrics, and a persistent versioned specification that keeps generated artefacts anchored to their originating requirements.
+    \item \textbf{A working reference implementation.} Apex, a split-stack web application that operationalises every phase, gate, and artefact of the framework against a real project management backend, demonstrating that the framework's governance constructs are implementable rather than merely describable.
+    \item \textbf{An empirical evaluation.} Application of the artefact in a real-world project, complemented by standardised measurement of perceived usability and cognitive workload, semi-structured interviews with practitioners and Agile experts, and an analytical assessment against defined success criteria.
+\end{enumerate}
+
+% #############################################################################
+\section{Research Methodology}
+\label{sec:intro_methodology}
+
+Two complementary methodologies are employed. The \ac{SLR}, following Kitchenham's guidelines, establishes the evidence base and grounds the problem statement. The \ac{DSRM} proposed by Peffers et al. structures the design, construction, demonstration, and evaluation of the artefact across its six activities. \Cref{chap:methodology} describes both in detail and maps each \ac{DSRM} activity onto the chapters of this document.
+
+% #############################################################################
+\section{Document Structure}
+\label{sec:structure}
+
+The remainder of this dissertation is organised as follows. \Cref{chap:methodology} details the research methodologies. \Cref{chap:background} presents the theoretical background on \ac{AI}, the \ac{SDLC}, and AI-assisted development practice. \Cref{chap:slr} reports the \ac{SLR} in full. \Cref{chap:problem} formalises the research problem and derives the objectives from the review's findings. \Cref{chap:proposal} presents the proposed framework. \Cref{chap:apex} describes Apex, its reference implementation, including the design iterations driven by practitioner feedback. \Cref{chap:demonstration} reports the demonstration of the artefact in a real-world setting, and \Cref{chap:evaluation} its evaluation. \Cref{chap:conclusion} concludes with contributions, limitations, communication of results, and directions for future work.

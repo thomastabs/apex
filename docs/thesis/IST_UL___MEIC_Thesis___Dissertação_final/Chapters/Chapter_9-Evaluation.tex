@@ -1,0 +1,97 @@
+% #############################################################################
+% This is Chapter 9 - Evaluation
+% !TEX root = ../main.tex
+% #############################################################################
+\fancychapter{Evaluation}
+\label{chap:evaluation}
+
+This chapter reports the Evaluation activity of the \ac{DSRM}. Following Pries-Heje et al.'s distinction between \emph{when} and \emph{how} an artefact is evaluated~\cite{J.Pries-Heje:2008SD}, the evaluation carried out here is \emph{ex post}, since it assesses the artefact after construction and on the basis of its actual use, and \emph{naturalistic}, since it takes place in a real organisational setting with real users rather than in a laboratory.
+
+% #############################################################################
+\section{Evaluation Strategy}
+\label{sec:eval_strategy}
+
+Two artefacts were produced in \Cref{chap:proposal,chap:apex}: a framework and its instantiation. They are not evaluated by the same means, and conflating them would weaken both claims. \Cref{tab:eval_instruments} therefore states which instrument evaluates which artefact, and which research question it addresses.
+
+\begin{table}[H]
+\centering
+\caption{Evaluation instruments, target artefact, and research question addressed}
+\label{tab:eval_instruments}
+\begin{tabular}{p{4.2cm} p{3.0cm} p{2.0cm} p{4.6cm}}
+\toprule
+\textbf{Instrument} & \textbf{Artefact evaluated} & \textbf{RQ} & \textbf{What it establishes} \\
+\midrule
+Demonstration in a real project & Framework and instantiation & RQ-C, RQ-D & That the artefact is applicable and produces the intended artefacts and decisions \\
+\addlinespace
+\ac{SUS} & Instantiation (Apex) & RQ-D & Perceived usability of the supporting tool \\
+\addlinespace
+\ac{NASA-TLX} & Instantiation (Apex) & RQ-D & Perceived cognitive workload imposed on the practitioner \\
+\addlinespace
+Practitioner interviews & Framework & RQ-A, RQ-B & Practicality, feasibility, and perceived value in real workflows \\
+\addlinespace
+Agile and Scrum expert interviews & Framework & RQ-A, RQ-B & Alignment with, and departure from, established delivery methodology \\
+\addlinespace
+Analytical assessment against criteria & Framework & RQ-A, RQ-B & Degree to which stated design criteria are satisfied \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% This distinction is worth defending explicitly in the text, because it is the
+% obvious line of attack: a good SUS score for the tool is NOT evidence that
+% the framework is sound. Say so before an examiner does.
+
+\todo[inline]{State plainly that \ac{SUS} and \ac{NASA-TLX} measure the instantiation, not the methodology, and that the framework's own validity rests on the interviews, the analytical assessment, and the demonstration evidence. Positioning this limitation as a deliberate design of the evaluation is far stronger than conceding it under questioning.}
+
+% #############################################################################
+\section{Participants}
+\label{sec:eval_participants}
+
+\todo[inline]{Report the number of participants, their roles, seniority, sector, and prior exposure to AI-assisted development. Note that \ac{SUS} is generally considered to yield stable results from around twelve respondents, and state honestly what the achieved sample supports and what it does not.}
+
+\todo[inline]{Describe recruitment, informed consent, anonymisation, and data handling.}
+
+% #############################################################################
+\section{Instruments and Procedure}
+\label{sec:eval_instruments_procedure}
+
+\subsection{System Usability Scale}
+\label{sec:sus}
+\todo[inline]{Standard ten-item instrument on a five-point scale, administered after the participant has completed a defined set of tasks in the tool. Report the scoring procedure and state the interpretation scale used, including the adjective ratings and the percentile banding, so that a single number is not left to speak for itself.}
+
+\subsection{NASA Task Load Index}
+\label{sec:tlx}
+\todo[inline]{Six subscales: mental demand, physical demand, temporal demand, performance, effort and frustration. State whether the weighted procedure with pairwise comparisons or the unweighted Raw TLX is used, and justify the choice. Raw TLX is defensible and common in software-tool evaluation; the justification matters more than the choice itself.}
+
+\todo[inline]{Define the task set both instruments are administered against, and keep it identical across participants. Place the full instruments in an appendix and reference them here.}
+
+\subsection{Semi-Structured Interviews}
+\label{sec:interviews}
+\todo[inline]{Describe the interview protocol, the two participant groups (practitioners and Agile experts), the duration, and the analysis method used to derive themes from the transcripts. Place the interview guide in an appendix.}
+
+\subsection{Analytical Assessment}
+\label{sec:analytical}
+\todo[inline]{State the success criteria in advance -- clarity, completeness, alignment with \ac{SDLC} phases, support for human-in-the-loop practice, and governance of AI-enabled activity -- and the three-level ordinal scale used to assess each. Each rating must carry a short qualitative justification grounded in observed usage, artefacts, or interview evidence rather than in the author's judgement alone.}
+
+% #############################################################################
+\section{Results}
+\label{sec:eval_results}
+
+\todo[inline]{Report \ac{SUS} results: per-participant scores, mean, and dispersion. Given the expected sample size, report the distribution rather than the mean alone, and avoid inferential statistics the sample cannot support.}
+
+\todo[inline]{Report \ac{NASA-TLX} results per subscale, not only the aggregate. The subscale profile is the informative part: a tool that raises mental demand while lowering frustration and effort tells a specific and reportable story about where the framework moves the practitioner's burden.}
+
+\todo[inline]{Report the interview findings as themes, with representative anonymised quotations. Report disconfirming evidence explicitly.}
+
+\todo[inline]{Report the analytical assessment as a table of criteria, ratings, and justifications.}
+
+% #############################################################################
+\section{Discussion}
+\label{sec:eval_discussion}
+
+\todo[inline]{Synthesise across instruments. Where they agree, say so; where they disagree -- for instance a favourable usability score alongside interview scepticism about the process overhead -- treat the disagreement as a finding rather than smoothing it over. Relate each outcome back to the research questions in \Cref{sec:intro_objectives}.}
+
+% #############################################################################
+\section{Threats to Validity}
+\label{sec:threats}
+
+\todo[inline]{Address construct, internal, external, and conclusion validity. Name specifically: the author's dual role as designer and participant; the small and non-random sample; the single organisational setting; the short observation window, which precludes any claim about long-term maintainability or organisational change; and the fact that the instruments measure perception rather than delivered software quality. For each threat, state the mitigation applied, or state plainly that none was possible.}

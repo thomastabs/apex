@@ -1,0 +1,126 @@
+\documentclass[a4paper]{article}
+
+\input{Preamble_commands}
+
+\begin{document}
+
+%%%%%%%%%%%%%%%%
+% TITLE & NAME %
+%%%%%%%%%%%%%%%%
+% \selectlanguage{portuguese}  % <-- ACTION: UNCOMMENT for english or portuguese
+\selectlanguage{english}  % <-- ACTION: UNCOMMENT for english or portuguese
+\title{A Process Framework for Human–AI Collaboration in the Software Development Lifecycle} % <-- ACTION: WRITE your project title here
+% A Process Framework for AI adoption in the Software Development Lifecycle
+\author{Tomás dos Santos Taborda} % <-- ACTION: WRITE your complete name here
+\istid{103641} % <-- ACTION: WRITE your student number  here (your student number, not the IST-ID)
+\email{tomassantostaborda@tecnico.ulisboa.pt} % <-- ACTION: WRITE your e-mail here
+\advisors{Miguel Mira da Silva, Hugo de Sousa} % <-- ACTION: WRITE your advisor name here
+
+% To make the title
+\maketitle
+\thispagestyle{empty}
+
+%%%%%%%%%%%%
+% ABSTRACT %
+%%%%%%%%%%%%
+% To remove indentation before abstract
+\setlength{\abstitleskip}{-\absparindent}
+\begin{abstract}
+The rise of Generative Artificial Intelligence (GenAI) and Large Language Models (LLMs) is transforming software engineering by enabling natural-language-driven development and accelerating tasks across the Software Development Life Cycle (SDLC). While these technologies introduce new possibilities for automation, productivity, and early-stage support for the software development workflow, they also raise concerns regarding reliability, security, transparency, and long-term maintainability. A Systematic Literature Review (SLR) done about the use and adoption of AI in Software Development reveals a major problem: despite rapid adoption, organizations lack structured methodologies to integrate AI and LLMs into development workflows in a responsible, value-driven, and accountable manner. This absence of guidance forms the core research problem.
+
+To address this problem within the Software Development environment, the report proposes a new framework inspired by Agile and Scrum principles to support the adoption, collaboration, and governance of AI-assisted development practices. The framework aims to define phases, practices, and oversight mechanisms for integrating AI throughout the SDLC. Its applicability will be explored through a demonstration within a next-generation consultancy, followed by an evaluation involving practitioners, experts, and analytical criteria. Together, these steps establish the foundation for a structured, evidence-based approach to Human–AI collaboration in software engineering.
+\keywords{Vibe Coding, AI, Gen AI, LLM, Software Engineering, Software Development, Software Development Lifecycle, Scrum, Agile,  AI Adoption, Human-AI Collaboration, Benefits, Consequences, Methodologies, Framework} % <--- ACTION: WRITE YOUR KEYWORDS HERE
+\clearpage
+\end{abstract}
+
+%%%%%%%%%%%%%%%%%%%%%
+% TABLE OF CONTENTS %
+%%%%%%%%%%%%%%%%%%%%%
+\tableofcontents
+\thispagestyle{empty}
+\clearpage
+
+
+%% <-- ACTION: ADD/EDIT/REMOVE/COMMENT SECTIONS IF YOU NEED TO
+%%%%%%%%%%%%%%%%
+% INTRODUCTION %
+%%%%%%%%%%%%%%%%
+\input{Sections/Introduction}
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% Research Metodology %
+%%%%%%%%%%%%%%%%%%%%%%%
+\input{Sections/ResearchMetodology}
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% Research Background %
+%%%%%%%%%%%%%%%%%%%%%%%
+\input{Sections/ResearchBackground}
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% Systematic Literature Review %
+%%%%%%%%%%%%%%%%%%%%%%%
+\input{Sections/SystematicLiteratureReview}
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% Research Problem %
+%%%%%%%%%%%%%%%%%%%%%%%
+\input{Sections/ResearchProblem}
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% Research Objective %
+%%%%%%%%%%%%%%%%%%%%%%%
+\input{Sections/ResearchObjective}
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% Research Proposal %
+%%%%%%%%%%%%%%%%%%%%%%%
+\input{Sections/ResearchProposal}
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% Demonstration %
+%%%%%%%%%%%%%%%%%%%%%%%
+\input{Sections/Demonstration}
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% Evaluation %
+%%%%%%%%%%%%%%%%%%%%%%%
+\input{Sections/Evaluation}
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% Communication %
+%%%%%%%%%%%%%%%%%%%%%%%
+\input{Sections/Communication}
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% Conclusion %
+%%%%%%%%%%%%%%%%%%%%%%%
+\input{Sections/Conclusion}
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% Declaration of Use %
+%%%%%%%%%%%%%%%%%%%%%%%
+\input{Sections/Declaration of Use}
+
+%%%%%%%%%%%%%%%%
+% BIBLIOGRAPHY %
+%%%%%%%%%%%%%%%%
+% add Bibliography to TOC
+\addcontentsline{toc}{section}{\refname}
+% The following command resets the 'emphasis' style for bibliography entries
+\normalem
+
+% CHOOSE AND ADD YOUR STYLE HERE
+\bibliographystyle{plain} % Or ieeetr, unsrt, apalike, etc.
+
+% Name of your BiBTeX file
+\bibliography{./Bibliography} % Make sure your file is named "Bibliography.bib"
+
+% The following command modifies the 'emphasis' style for bibliography entries
+\ULforem
+
+%%%%%%%%%%%%%
+%    END    %
+%%%%%%%%%%%%%
+
+\end{document}

@@ -1,0 +1,108 @@
+% #############################################################################
+% This is Chapter 6 - The Proposed Framework
+% !TEX root = ../main.tex
+% #############################################################################
+% SOURCE: docs/framework/Apex-Framework-v2.docx is the authoritative
+% specification for this chapter. Its section numbering is preserved below so
+% the two documents stay traceable to each other while writing.
+% #############################################################################
+\fancychapter{The Proposed Framework}
+\label{chap:proposal}
+
+This chapter presents the artefact designed to address the research problem formalised in \Cref{sec:problem}: a process-oriented framework for governed Human--AI collaboration across the \ac{SDLC}. It corresponds to the Design and Development activity of the \ac{DSRM}. The framework is described here as a methodology, independently of any implementation; its instantiation as a working system is the subject of \Cref{chap:apex}.
+
+% #############################################################################
+\section{Purpose and Scope}
+\label{sec:framework_scope}
+
+% Framework doc §1. State plainly what the framework covers and what it does
+% not. The exclusions matter: they pre-empt the "why is this not MLOps?"
+% question from the committee.
+
+\todo[inline]{Scope in: AI-assisted activities across every SDLC phase; practices for human--AI collaboration, prompt formulation and model selection; human--AI interaction patterns; governance metrics and oversight mechanisms. Scope out: training or fine-tuning of models; model architecture design; infrastructure-level MLOps pipelines; tool-specific implementation detail.}
+
+% #############################################################################
+\section{Design Principles}
+\label{sec:design_principles}
+
+% Framework doc §3. Each principle should be stated and then GROUNDED - the
+% empirical citation is what separates this from an opinion piece, and it is
+% the part an examiner will probe first.
+
+\todo[inline]{Eight principles, each with its grounding: Human-in-the-Loop by Design (grounded in the adoption/trust gap and in security benchmarking of agent-generated code); AI as Augmentation, Not Substitution; Process-Level Governance of AI Usage; SDLC-Wide and Phase-Aware Integration; Hats, Not People; Explicit Responsibility and Accountability; Risk-Proportional Validation and Control; Spec-Anchored Continuity (grounded in spec-driven development as an emerging industry practice, cited with its own stated limitation).}
+
+% #############################################################################
+\section{Lifecycle Phases and the AI Interaction Mapping}
+\label{sec:phases}
+
+% Framework doc §4-§5. This section answers RQ-A. The phase table (input,
+% output, human responsibility, required controls, literature grounding) is the
+% single most important artefact in this chapter - build it as a full-width
+% table or a landscape page.
+
+\todo[inline]{Present the phase model end to end: Strategic Alignment; Discovery \& Requirements; Design, Prototyping \& Architecture; Implementation; Testing; Deployment; Maintenance. For each: what enters, what leaves, what the human is accountable for, and which control is mandatory. State explicitly the deliberate divergence from AI-DLC (a decoupled Testing phase and a distinct Maintenance phase with its own diagnostic firewall) and justify it. Emphasise that Maintenance loops back into a named phase rather than patching in place -- this is the direct answer to any reading of the model as linear or Waterfall.}
+
+% #############################################################################
+\section{Roles and Responsibilities}
+\label{sec:roles}
+
+% Framework doc §6. The "hats, not people" framing is a deliberate design
+% decision and should be argued as one, not merely asserted.
+
+\todo[inline]{Define each hat as a function that must be performed rather than a person who must exist: Project Manager; the Trio (Product Owner, Tech Lead, Design Lead); Bolt Master; Developer; QA. Justify the removal of the DevOps Alliance role. Cite the Spotify Model alongside its own retraction, and Team Topologies as the more rigorous structural vocabulary. Make clear that on a solo or small team the gates still apply, self-checked rather than checked by a second person.}
+
+% #############################################################################
+\section{Governance Mechanisms and Quality Gates}
+\label{sec:governance}
+
+% Framework doc §7. This section answers RQ-B and is the core contribution.
+
+\subsection{Bolts as the Unit of Execution}
+\label{sec:bolts}
+\todo[inline]{The micro-cycle: task breakdown and architectural lock, context alignment and assignment, trigger, Consistency Factor generation, generation and refinement, validation and story completion, and the Fix-Bolt exception.}
+
+\subsection{Spec-Anchored Continuity}
+\label{sec:spec_anchored}
+\todo[inline]{The persistent context artefact, split into a global layer (immutable architectural rules, tech-stack decisions, security policies) and a local layer (the approved functional specification and the formal technical specification). Explain why narrowing the model's working context is a control, not a convenience.}
+
+\subsection{Quality Gates}
+\label{sec:gates}
+\todo[inline]{Discovery, Design, Implementation, Testing and Deployment gates: who signs off, against what evidence, and what happens on failure.}
+
+\subsection{Governance Metrics}
+\label{sec:metrics}
+\todo[inline]{Bolt Cycle Time, Context Traceability Rate, AI Defect Escape Rate. Map these onto the NIST AI RMF functions and ISO/IEC 42001 vocabulary as shared language, explicitly \emph{not} as a compliance claim.}
+
+% #############################################################################
+\section{Work Organisation}
+\label{sec:work_organisation}
+
+% Framework doc §8. The argument for replacing sprint cadence must rest on the
+% measured bottleneck shift, not on preference.
+
+\todo[inline]{Hierarchy of work (Unit of Work, User Stories, Tasks); the Bolt Backlog as a continuous prioritised queue; the Bolt Board. Ground the departure from sprint cadence in the RCT and telemetry evidence introduced in \Cref{sec:motivation}: more change volume, longer review, flat delivery.}
+
+% #############################################################################
+\section{Operational Playbooks}
+\label{sec:playbooks}
+
+% Framework doc §9. Six playbooks, each a step-by-step procedure. Consider
+% presenting these as a table or as algorithm environments rather than prose.
+
+\todo[inline]{Mob Elaboration (requirements); Design \& Prototyping; Maintenance \& Evolution; Fix-Bolt; QA Validation; Deployment \& Release.}
+
+% #############################################################################
+\section{Positioning Against Alternatives}
+\label{sec:alternatives}
+
+% Framework doc §10. A design is only defensible against named alternatives.
+% This section is what makes the artefact a research contribution rather than a
+% proposal, and it is where a committee will press hardest.
+
+\todo[inline]{Engage each alternative honestly, with its documented failure mode: (i) no framework at all; (ii) AI-DLC as published and unmodified; (iii) keeping Scrum or SAFe cadence and treating AI as a faster IDE; (iv) metrics-only governance with no phase structure. State plainly what each does better than this framework, and where the evidence says it falls short.}
+
+% #############################################################################
+\section{Summary}
+\label{sec:proposal_summary}
+
+\todo[inline]{Close by restating how the framework answers RQ-A and RQ-B, and hand over to \Cref{chap:apex}, which demonstrates that these constructs are implementable rather than merely describable.}

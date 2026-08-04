@@ -27,3 +27,23 @@ frontend/test-results/
 .claude/
 CLAUDE.md
 AGENTS.md
+
+# LaTeX build artefacts (docs/thesis)
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.glo
+*.gls
+*.ist
+*.loa
+*.lof
+*.log
+*.lol
+*.lot
+*.maf
+*.mtc*
+*.out
+*.synctex.gz
+*.toc

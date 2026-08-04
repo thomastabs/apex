@@ -1,0 +1,77 @@
+% #############################################################################
+% This is Chapter 7 - Apex: The Reference Implementation
+% !TEX root = ../main.tex
+% #############################################################################
+% SOURCES: docs/framework/Apex-Implementation-Report.docx (architecture,
+% testing, deployment, incident log) and docs/framework/Apex-Framework-v2.docx
+% §2. Diagrams: docs/diagrams/architecture.puml and user-flow.puml render to
+% Figures 2 and 3 referenced by the framework document.
+% #############################################################################
+\fancychapter{Apex: The Reference Implementation}
+\label{chap:apex}
+
+The framework presented in \Cref{chap:proposal} describes a methodology. This chapter presents Apex, the working software system that instantiates it, and which serves both as evidence that the framework's governance constructs are implementable and as the vehicle through which the framework is demonstrated and evaluated in \Cref{chap:demonstration,chap:evaluation}. In \ac{DSRM} terms, the framework and Apex are two artefacts produced by the same Design and Development activity: a method and its instantiation.
+
+This chapter also documents the design iterations that shaped both artefacts. Practitioner feedback gathered during construction did not merely refine the tool; it changed the framework itself. Recording that path is what makes the \ac{DSRM} iteration explicit rather than implied.
+
+% #############################################################################
+\section{Purpose and Positioning}
+\label{sec:apex_purpose}
+
+% The distinction below is the one that most needs stating early and plainly:
+% Apex is not competing with coding agents on convenience.
+
+\todo[inline]{State the positioning directly: a coding agent accelerates the writing of code, whereas Apex governs whether that code still answers the originating question. Every artefact carries a stable specification identifier back to its requirement, so drift is surfaced rather than silent. Note also what Apex deliberately does not do: no model training or fine-tuning, no infrastructure provisioning beyond generating scripts for human or CI execution, and no replacement of the project management tool it sits above.}
+
+% #############################################################################
+\section{Architecture}
+\label{sec:apex_architecture}
+
+% Render docs/diagrams/architecture.puml into ./Images/ and reference it here.
+
+\todo[inline]{Split-stack overview: Next.js frontend, Python/FastAPI backend, and the separation between them. Spec-anchored storage, and how project isolation is enforced. The concurrency model and why it is a deliberate single-writer design. The proxy-first approach to external integrations and the security rationale behind it. The provider abstraction that keeps the system independent of any single model vendor.}
+
+\todo[inline]{Include the architecture figure here, with a caption that explains what the reader should take from it rather than restating the components.}
+
+% #############################################################################
+\section{Operationalising the Framework}
+\label{sec:apex_framework_mapping}
+
+% This is the most important section of the chapter for the committee: it is
+% the evidence for RQ-C. A table mapping each framework construct to the
+% concrete mechanism that implements it is far more convincing than prose.
+
+\todo[inline]{Build a mapping table: framework construct (left) against the implemented mechanism (right), covering each lifecycle phase, each quality gate, Spec-Anchored Continuity as versioned specification files, stable specification identifiers, the phase-status flow, Bolt tracking and its cycle-time metric, spec-drift detection and feedback routing, and the traceability graph. Every row must point at something that exists, not something planned.}
+
+\todo[inline]{Include the user-flow figure here, showing how a practitioner actually walks the phases.}
+
+% #############################################################################
+\section{Design History and Practitioner Feedback}
+\label{sec:apex_history}
+
+% This section is a genuine methodological asset and should not be written as a
+% changelog. Each iteration is formative evaluation feeding back into design,
+% which is exactly what DSRM's iteration arrows describe. Frame it that way.
+
+\todo[inline]{Present the evolution as a sequence of design decisions, each with: the feedback or observation that prompted it, the change made to the framework and/or the tool, and the rationale. Report changes that were considered and rejected, and changes that were made and later reverted, with the reason. Negative results here strengthen the evaluation rather than weakening it.}
+
+\todo[inline]{Record explicitly which framework-level changes originated in this feedback rather than in the tool alone -- for example the removal of a role from the framework, and the demotion of a mandatory artefact to optional. These are the clearest evidence that evaluation fed back into design.}
+
+\todo[inline]{Include a table summarising the interview rounds: date, participant profile (role, seniority, sector), format, and the design changes attributable to each round. Anonymise participants; the interview instrument itself belongs in an appendix.}
+
+% #############################################################################
+\section{Quality Assurance of the Implementation}
+\label{sec:apex_qa}
+
+% Keep this section proportionate. It establishes that the demonstration
+% platform is sound; it is not the contribution itself.
+
+\todo[inline]{Summarise the testing strategy across backend, frontend unit, and end-to-end layers, the CI gating structure, and the deployment pipeline. Report current suite sizes and what each layer is responsible for catching.}
+
+\todo[inline]{Include a short, honest account of defects found and fixed during construction, particularly those with methodological significance -- for example failures of project isolation, or cases where generated output required server-side reconciliation before it could be trusted. These are evidence for the framework's own premise that AI output requires validation.}
+
+% #############################################################################
+\section{Limitations of the Implementation}
+\label{sec:apex_limitations}
+
+\todo[inline]{Separate clearly the limitations of Apex as a system from the limitations of the framework as a methodology. Where a metric is implemented as a proxy rather than the real measurement, say so explicitly and name the substitution.}
