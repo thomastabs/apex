@@ -449,3 +449,75 @@ class TestLoadPersonalAiKeys:
         ai_engine.set_user_api_keys({"openai": "sk-stale-from-a-previous-request"})
         deps._load_personal_ai_keys("42", "")  # must not raise
         assert ai_engine._user_api_key("openai") == ""
+
+
+# ---------------------------------------------------------------------------
+# Plane identity anchor — get_auth_context only (get_request_context stays
+# Taiga-only until a Plane project adapter exists, see plane_integration_plan
+# memory). A present X-Plane-Url anchors the request as Plane instead of Taiga.
+# ---------------------------------------------------------------------------
+
+def _mock_plane_pm(status_code: int):
+    resp = MagicMock()
+    resp.is_success = 200 <= status_code < 300
+    resp.status_code = status_code
+    resp.json.return_value = {"id": "11111111-1111-1111-1111-111111111111", "display_name": "testuser"}
+    client = MagicMock()
+    client.request = MagicMock(return_value=resp)
+    return patch.object(deps, "_get_verify_client", return_value=client), client
+
+
+class TestPlaneIdentityAnchor:
+    PLANE_URL = "https://plane.example.test"
+
+    def test_valid_token_accepted_and_identity_url_correct(self):
+        pm, client = _mock_plane_pm(200)
+        with pm:
+            ctx = deps.get_auth_context("Bearer goodtoken", "", self.PLANE_URL)
+        assert ctx.pm_token == "goodtoken"
+        url = client.request.call_args.args[1]
+        assert url.endswith("/api/v1/users/me/")
+        # Plane's auth header shape: X-Api-Key with no scheme prefix, not
+        # Authorization: Bearer — this is the whole point of _pm_auth_headers.
+        headers = client.request.call_args.kwargs["headers"]
+        assert headers["X-Api-Key"] == "goodtoken"
+        assert "Authorization" not in headers
+
+    def test_rejected_token_raises_401(self):
+        pm, _ = _mock_plane_pm(401)
+        with pm:
+            with pytest.raises(HTTPException) as exc:
+                deps.get_auth_context("Bearer badtoken", "", self.PLANE_URL)
+        assert exc.value.status_code == 401
+
+    def test_pm_unreachable_raises_503(self):
+        client = MagicMock()
+        client.request = MagicMock(side_effect=httpx.ConnectError("refused"))
+        with patch.object(deps, "_get_verify_client", return_value=client):
+            with pytest.raises(HTTPException) as exc:
+                deps.get_auth_context("Bearer sometoken", "", self.PLANE_URL)
+        assert exc.value.status_code == 503
+
+    def test_account_id_resolved_from_plane_uuid(self):
+        pm, _ = _mock_plane_pm(200)
+        with pm:
+            ctx = deps.get_auth_context("Bearer goodtoken", "", self.PLANE_URL)
+        assert ctx.account_id == "11111111-1111-1111-1111-111111111111"
+
+    def test_taiga_and_plane_tokens_cache_independently(self):
+        """Same token string, different anchor — must not share a cache entry
+        (identity_url differs, so the (token_hash, identity_url) cache key
+        already separates them, but this pins the behaviour)."""
+        taiga_pm, taiga_client = _mock_pm(200)
+        plane_pm, plane_client = _mock_plane_pm(200)
+        with taiga_pm, _taiga_config():
+            deps.get_auth_context("Bearer sametoken")
+        with plane_pm:
+            deps.get_auth_context("Bearer sametoken", "", self.PLANE_URL)
+        assert taiga_client.request.call_count == 2  # identity + account-id dial
+        assert plane_client.request.call_count == 2
+
+    def test_ssrf_guard_applies_to_plane_anchor_too(self):
+        with pytest.raises(HTTPException) as exc:
+            deps.get_auth_context("Bearer goodtoken", "", "https://192.168.1.1")
+        assert exc.value.status_code == 400
