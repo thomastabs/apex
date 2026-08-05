@@ -147,8 +147,13 @@ Without the first, `babel` fails on the `portuguese` option; without the second,
 
 ## Before submission
 
-- [ ] `Front_Cover.tex` - name, title, supervisors, degree, date; set
-      `\finalthesis{true}` and add the committee only after approval.
+- [x] `Front_Cover.tex` - title, author and supervisors filled in from the PIC
+      report; decorative cover image removed (IST logo kept, it is required).
+- [ ] `Front_Cover.tex` - `\date{}` is still `Month 20XX`; set the examination
+      month and year. Confirm whether Hugo de Sousa carries an academic title
+      on the cover (currently printed with no prefix, unlike `Prof. Miguel Mira
+      da Silva`). `\finalthesis{false}` is deliberate for the draft - flip it to
+      `true` and fill the committee only after approval.
 - [ ] `Acknowledgments.tex` - still template text.
 - [ ] `Glossary.tex` - still template entries (LaTeX/maths examples).
 - [ ] Disable `todonotes` and `changes` markup for the delivered PDF (see template
