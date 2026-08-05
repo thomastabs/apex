@@ -427,7 +427,7 @@ class TestLoadPersonalAiKeys:
 
         monkeypatch.setattr(ai_key_store, "_BASE_CONTEXTSPEC", StoragePath(str(tmp_path / "contextspec")))
         monkeypatch.setenv("AI_KEY_ENCRYPTION_SECRET", "test-secret")
-        monkeypatch.setattr(deps, "anchor_instance_id", lambda override="": "api_taiga_io")
+        monkeypatch.setattr(deps, "anchor_instance_id", lambda *a, **k: "api_taiga_io")
         ai_key_store.save_key("api_taiga_io", "42", "openai", "sk-personal-key")
 
         deps._load_personal_ai_keys("42", "")
@@ -444,7 +444,7 @@ class TestLoadPersonalAiKeys:
         # A broken key store must degrade to "no personal key", not break the request.
         from src import ai_engine, ai_key_store
 
-        monkeypatch.setattr(deps, "anchor_instance_id", lambda override="": "api_taiga_io")
+        monkeypatch.setattr(deps, "anchor_instance_id", lambda *a, **k: "api_taiga_io")
         monkeypatch.setattr(ai_key_store, "load_keys", MagicMock(side_effect=RuntimeError("disk on fire")))
         ai_engine.set_user_api_keys({"openai": "sk-stale-from-a-previous-request"})
         deps._load_personal_ai_keys("42", "")  # must not raise
