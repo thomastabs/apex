@@ -149,12 +149,16 @@ Without the first, `babel` fails on the `portuguese` option; without the second,
 
 - [x] `Front_Cover.tex` - title, author and supervisors filled in from the PIC
       report; decorative cover image removed (IST logo kept, it is required).
-- [ ] `Front_Cover.tex` - the Examination Committee is printed
-      (`\finalthesis{true}`) but `\chairperson` and `\vogalone` still hold the
-      template's placeholder names; replace them once the committee is known,
-      or set `\finalthesis{false}` to suppress the block for a draft delivery.
-      Confirm whether Hugo de Sousa carries an academic title on the cover
-      (currently printed with no prefix, unlike `Prof. Miguel Mira da Silva`).
+- [ ] `Front_Cover.tex` - the Examination Committee block is suppressed
+      (`\finalthesis{false}`), which is correct while the committee is
+      unassigned. Once it is assigned, fill `\chairperson` and `\vogalone`
+      (they still hold template placeholder names) and flip to
+      `\finalthesis{true}`. Confirm whether Hugo de Sousa carries an academic
+      title on the cover (currently printed with no prefix, unlike `Prof.
+      Miguel Mira da Silva`).
+- [x] `Copyright.tex` - declaration extended with the acknowledgement of AI
+      tool use. The Portuguese variant is translated and kept commented out
+      alongside the English one, so switching language does not lose it.
 - [ ] `Acknowledgments.tex` - still template text.
 - [ ] `Glossary.tex` - still template entries (LaTeX/maths examples).
 - [ ] Disable `todonotes` and `changes` markup for the delivered PDF (see template
