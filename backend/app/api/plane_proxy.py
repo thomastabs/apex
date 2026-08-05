@@ -118,7 +118,10 @@ def _upstream_detail(resp: httpx.Response) -> str:
 
     Plane's DRF-style errors use `detail` most commonly, sometimes a bare
     field-name-keyed dict of message lists — normalise to a single string,
-    mirroring taiga_proxy._upstream_detail.
+    mirroring taiga_proxy._upstream_detail. Confirmed live against a real
+    workspace: the paid-tier gate (e.g. Epics on a free plan) answers
+    402 with `{"error": "Payment required", "error_code": 1999}` — a flat
+    `error` key, not `detail` — hence the explicit check below.
     """
     try:
         data = resp.json()
@@ -128,6 +131,9 @@ def _upstream_detail(resp: httpx.Response) -> str:
         detail = data.get("detail")
         if isinstance(detail, str) and detail.strip():
             return detail.strip()
+        error = data.get("error")
+        if isinstance(error, str) and error.strip():
+            return error.strip()
         # DRF validation-error shape: {"field": ["message", ...], ...}
         messages = [
             str(v) for values in data.values()
@@ -139,6 +145,8 @@ def _upstream_detail(resp: httpx.Response) -> str:
         return data.strip()
     if resp.status_code == 401:
         return "Plane rejected the API key. Sign in again."
+    if resp.status_code == 402:
+        return "Plane rejected this request — the feature isn't available on this workspace's plan."
     if resp.status_code == 403:
         return "Plane denied access to this resource."
     if resp.status_code == 404:
