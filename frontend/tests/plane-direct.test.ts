@@ -67,10 +67,14 @@ describe("plane direct API", () => {
     expect(() => resolveId(999999)).toThrow(/board must be re-fetched/);
   });
 
-  it("listProjects follows next_cursor across pages", async () => {
+  it("listProjects follows pages using next_page_results, not next_cursor's truthiness", async () => {
+    // Real Plane responses always carry a non-null next_cursor string, even on
+    // the last page — next_page_results is the actual continuation signal
+    // (live-confirmed; see planeFetchAllPages's docstring for the bug this
+    // guards against: the old code paginated 20x on a 1-page result).
     mockFetch
-      .mockResolvedValueOnce(makeResponse(200, { results: [{ id: "p1", name: "One", identifier: "ONE" }], next_cursor: "cur2" }))
-      .mockResolvedValueOnce(makeResponse(200, { results: [{ id: "p2", name: "Two", identifier: "TWO" }], next_cursor: null }));
+      .mockResolvedValueOnce(makeResponse(200, { results: [{ id: "p1", name: "One", identifier: "ONE" }], next_cursor: "cur2", next_page_results: true }))
+      .mockResolvedValueOnce(makeResponse(200, { results: [{ id: "p2", name: "Two", identifier: "TWO" }], next_cursor: "cur2-still-non-null", next_page_results: false }));
 
     const projects = await planeListProjects("key", "my-team", "https://api.plane.so");
 
@@ -78,6 +82,19 @@ describe("plane direct API", () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
     expect(mockFetch.mock.calls[0][0]).toContain("/workspaces/my-team/projects/");
     expect(mockFetch.mock.calls[1][0]).toContain("cursor=cur2");
+  });
+
+  it("uses the plain description field on Projects/Modules — they have no description_stripped at all (live-confirmed)", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(200, {
+      results: [{
+        id: "p1", name: "One", identifier: "ONE",
+        description: "Plain description text.",
+        description_html: "<p>Should NOT be used — plain description takes priority.</p>",
+      }],
+      next_cursor: null,
+    }));
+    const [project] = await planeListProjects("key", "my-team", "https://api.plane.so");
+    expect(project.description).toBe("Plain description text.");
   });
 
   it("retries once on 429 using X-RateLimit-Reset, then succeeds", async () => {
@@ -92,10 +109,10 @@ describe("plane direct API", () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
-  it("getBoard falls back to Modules when Epics is gated (403), per the deliberate free-tier substitution", async () => {
+  it("getBoard falls back to Modules when Epics is gated (402, the real Plane Cloud status — live-confirmed against a free-tier workspace, body {error, error_code}, not {detail})", async () => {
     mockFetch
-      // epics probe -> 403 (paid-tier gate)
-      .mockResolvedValueOnce(makeResponse(403, { detail: "not available on this plan" }))
+      // epics probe -> 402 (paid-tier gate, the actual live-confirmed status)
+      .mockResolvedValueOnce(makeResponse(402, { error: "Payment required", error_code: 1999 }))
       // modules list
       .mockResolvedValueOnce(makeResponse(200, { results: [{ id: "mod1", name: "Module One" }], next_cursor: null }))
       // module-issues join
@@ -116,6 +133,14 @@ describe("plane direct API", () => {
     expect(mockFetch.mock.calls[0][0]).toContain("/epics/");
     expect(mockFetch.mock.calls[1][0]).toContain("/modules/");
     expect(mockFetch.mock.calls[2][0]).toContain("/modules/mod1/module-issues/");
+  });
+
+  it("getBoard also falls back on 403/404 — defensive, self-hosted Community Edition's exact status for this gate is unconfirmed", async () => {
+    mockFetch
+      .mockResolvedValueOnce(makeResponse(403, { detail: "not available on this plan" }))
+      .mockResolvedValueOnce(makeResponse(200, { results: [], next_cursor: null }));
+    const board = await planeGetBoard("key", "my-team", "proj-uuid", "https://api.plane.so");
+    expect(board).toEqual([]);
   });
 
   it("getBoard uses native Epics when available (no fallback)", async () => {

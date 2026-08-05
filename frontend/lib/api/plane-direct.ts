@@ -122,10 +122,20 @@ async function planeFetch<T>(
   return data as T;
 }
 
-type PlaneListResponse<T> = { results?: T[]; next_cursor?: string | null };
+type PlaneListResponse<T> = { results?: T[]; next_cursor?: string | null; next_page_results?: boolean };
 
-/** Follow next_cursor until exhausted (capped — a misbehaving upstream or an
- *  unbounded project must not spin forever against a shared 60/min budget). */
+/** Follow pages until exhausted (capped — a misbehaving upstream or an
+ *  unbounded project must not spin forever against a shared 60/min budget).
+ *
+ * Bug this fixes, found live: Plane ALWAYS returns a non-null `next_cursor`
+ * string (e.g. "100:1:0") even on the last page — confirmed against a real
+ * single-page 1-project response. The actual "is there another page" signal
+ * is the separate `next_page_results` boolean. The original version checked
+ * `!resp.next_cursor`, which is essentially never true, so every list call
+ * paginated all the way to MAX_PAGES regardless of how many results existed
+ * — a 3-item Modules list made 20 real requests instead of 1. This was the
+ * real cause of the rate-limit exhaustion hit repeatedly while live-testing
+ * this file, not the manual curl exploration it was first blamed on. */
 async function planeFetchAllPages<T>(
   path: string,
   apiKey: string,
@@ -139,7 +149,7 @@ async function planeFetchAllPages<T>(
     const pageUrl = cursor ? `${path}${sep}per_page=100&cursor=${encodeURIComponent(cursor)}` : `${path}${sep}per_page=100`;
     const resp = await planeFetch<PlaneListResponse<T>>(pageUrl, apiKey, apiBaseUrl);
     out.push(...(resp.results ?? []));
-    if (!resp.next_cursor) break;
+    if (!resp.next_page_results || !resp.next_cursor) break;
     cursor = resp.next_cursor;
   }
   return out;
@@ -156,8 +166,16 @@ function htmlToText(html: unknown): string {
 }
 
 function planeDescription(raw: Record<string, unknown>): string {
+  // description_stripped exists on work items but NOT on Projects/Modules
+  // (confirmed live against a real workspace — those instead carry a plain
+  // `description` string directly, which the original version of this
+  // function ignored entirely, always falling through to an unnecessary
+  // HTML-strip of description_html for both). Check both plain fields before
+  // resorting to the HTML fallback.
   const stripped = raw.description_stripped;
   if (typeof stripped === "string" && stripped) return stripped;
+  const plain = raw.description;
+  if (typeof plain === "string" && plain) return plain;
   return htmlToText(raw.description_html);
 }
 
@@ -257,10 +275,19 @@ export function isPlaneStateClosed(group: string): boolean {
   return _CLOSED_STATE_GROUPS.has(group);
 }
 
-/** Probes the native Epics endpoint; on 403/404 (paid-tier gate — confirmed
- *  in plane_integration_plan §8, not an error condition) falls back to
- *  Modules, the documented free-tier substitute. Returns which path was used
- *  so callers (e.g. a future UI note) can tell the user Modules were
+// The Epics-unavailable status code, live-confirmed against a real free-tier
+// Plane Cloud workspace: 402 Payment Required, body {"error": "Payment
+// required", "error_code": 1999} — NOT 403/404 as originally assumed before
+// a real account was available to check (see plane_integration_plan memory's
+// phase-2 remaining-unknowns; this closes that gap for Cloud). 403/404 are
+// kept as defensive extras since self-hosted Community Edition's exact
+// response shape for this same gate is still unconfirmed.
+const _EPICS_GATED_STATUSES = new Set([402, 403, 404]);
+
+/** Probes the native Epics endpoint; on a gated response (paid-tier — see
+ *  plane_integration_plan §8, not an error condition) falls back to Modules,
+ *  the documented free-tier substitute. Returns which path was used so
+ *  callers (e.g. a future UI note) can tell the user Modules were
  *  substituted. */
 async function fetchEpicsOrModules(
   apiKey: string, workspaceSlug: string, projectUuid: string, apiBaseUrl?: string,
@@ -271,7 +298,7 @@ async function fetchEpicsOrModules(
     );
     return { source: "epics", groups: epics };
   } catch (err) {
-    if (err instanceof ApiError && (err.status === 403 || err.status === 404)) {
+    if (err instanceof ApiError && _EPICS_GATED_STATUSES.has(err.status)) {
       const modules = await planeFetchAllPages<Record<string, unknown>>(
         `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}/modules/`, apiKey, apiBaseUrl,
       );
@@ -312,7 +339,7 @@ export async function planeGetEpic(
     const raw = await planeFetch<Record<string, unknown>>(`${base}/epics/${uuid}/`, apiKey, apiBaseUrl);
     return normalizePlaneEpic(raw);
   } catch (err) {
-    if (err instanceof ApiError && (err.status === 403 || err.status === 404)) {
+    if (err instanceof ApiError && _EPICS_GATED_STATUSES.has(err.status)) {
       const raw = await planeFetch<Record<string, unknown>>(`${base}/modules/${uuid}/`, apiKey, apiBaseUrl);
       return normalizePlaneModuleAsEpic(raw);
     }
