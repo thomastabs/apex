@@ -148,10 +148,29 @@ def _upstream_detail(resp: httpx.Response) -> str:
     return f"Plane returned {resp.status_code}."
 
 
+def _with_api_v1(base: str) -> str:
+    """Append /api/v1 if not already present. Shared by both the header-override
+    and config-fallback paths in _get_plane_url so a caller only ever needs to
+    send the bare instance URL (https://api.plane.so, or a self-hosted domain)
+    and Apex path segments (workspaces/{slug}/projects/{id}/...) with no /api/v1
+    of their own — this normalisation is the only place that contract holds.
+
+    Bug this fixes: earlier, only the config-fallback branch appended /api/v1;
+    the (far more common, since it's the only path callers actually use so
+    far) header-override branch silently built a URL missing /api/v1 entirely,
+    which sent every request to the wrong path and got a real 404 back from
+    Plane instead of the intended resource. Caught by a live manual test
+    against api.plane.so — no unit test asserted the full target URL for the
+    header-override branch, only for the config-fallback one.
+    """
+    base = base.rstrip("/")
+    return base if base.endswith("/api/v1") else f"{base}/api/v1"
+
+
 def _get_plane_url(x_plane_url: str = "") -> str:
     """Resolve Plane API base URL from header override or workspace config."""
     if x_plane_url:
-        return _validate_plane_url(x_plane_url)
+        return _validate_plane_url(_with_api_v1(x_plane_url))
     from src import context_manager
 
     config = context_manager.load_config()
@@ -161,9 +180,7 @@ def _get_plane_url(x_plane_url: str = "") -> str:
             detail="Workspace is not configured for Plane.",
         )
     plane_url = config.get("plane_url", "").rstrip("/") or _DEFAULT_PLANE_URL
-    if not plane_url.endswith("/api/v1"):
-        plane_url = f"{plane_url}/api/v1"
-    return _validate_plane_url(plane_url, source="Configured Plane URL")
+    return _validate_plane_url(_with_api_v1(plane_url), source="Configured Plane URL")
 
 
 @router.api_route("/{path:path}", methods=["GET", "POST", "PATCH", "DELETE"])

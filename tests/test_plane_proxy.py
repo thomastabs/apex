@@ -50,10 +50,28 @@ class TestProxyPlaneCatchAll:
         assert resp.status_code == 200
         call_args = mock_http.request.call_args
         assert call_args.kwargs["method"] == "GET"
-        assert "work-items" in call_args.kwargs["url"]
-        assert "per_page=50" in call_args.kwargs["url"]
+        # Full-URL assertion, not just a substring match — a prior bug had the
+        # header-override branch silently omit /api/v1 (only the config-fallback
+        # branch appended it), which a looser "work-items" in url check would
+        # not have caught. See _with_api_v1's docstring in plane_proxy.py.
+        assert call_args.kwargs["url"] == (
+            f"{self.PLANE_URL}/api/v1/workspaces/my-team/projects/p1/work-items/?per_page=50"
+        )
         assert call_args.kwargs["headers"]["X-Api-Key"] == self.API_KEY
         assert "Authorization" not in call_args.kwargs["headers"]
+
+    def test_header_url_already_ending_api_v1_not_doubled(self, client):
+        upstream = _mock_upstream(200, {"results": []})
+        patcher, mock_http = _patch_client(upstream)
+        with patcher:
+            resp = client.get(
+                "/api/pm/plane/workspaces/my-team/projects/p1/work-items/",
+                headers={"X-Api-Key": self.API_KEY, "X-Plane-Url": f"{self.PLANE_URL}/api/v1"},
+            )
+        assert resp.status_code == 200
+        url = mock_http.request.call_args.kwargs["url"]
+        assert url == f"{self.PLANE_URL}/api/v1/workspaces/my-team/projects/p1/work-items/"
+        assert "/api/v1/api/v1/" not in url
 
     def test_post_body_forwarded(self, client):
         upstream = _mock_upstream(201, {"id": "abc", "name": "Work item"})
