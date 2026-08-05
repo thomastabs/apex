@@ -33,6 +33,11 @@ export type Epic = {
   description: string;
   version?: number | null;
   tags: string[];
+  // Plane's real epic (or Module, on the Epics-unavailable fallback) id — a
+  // UUID, so `id` above is a synthetic int minted by plane-adapter.ts for
+  // this shared type's sake (mirrors PmTask's id/pm_task_id split). Absent
+  // for Taiga, where `id` already IS the PM's real numeric id.
+  pm_epic_id?: string;
 };
 
 export type Story = {
@@ -45,6 +50,8 @@ export type Story = {
   tags: string[];
   epic_id?: number | null;
   epic_subject: string;
+  // See Epic.pm_epic_id — same synthetic-id split, for Plane work items.
+  pm_story_id?: string;
 };
 
 export type EpicWithStories = Epic & {
