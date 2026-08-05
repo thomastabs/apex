@@ -12,6 +12,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from backend.app.api.figma_proxy import router as figma_proxy_router
 from backend.app.api.github_webhook import router as github_webhook_router
 from backend.app.api.taiga_proxy import router as taiga_proxy_router
+from backend.app.api.plane_proxy import router as plane_proxy_router
 from backend.app.api.phase1 import router as phase1_router
 from backend.app.api.phase2 import router as phase2_router
 from backend.app.api.phase3 import router as phase3_router
@@ -118,7 +119,7 @@ app.add_middleware(
     allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Project-Id", "X-Taiga-Project-Id", "X-Taiga-Url", "X-Figma-Token", "X-Figma-Force"],
+    allow_headers=["Authorization", "Content-Type", "X-Project-Id", "X-Taiga-Project-Id", "X-Taiga-Url", "X-Figma-Token", "X-Figma-Force", "X-Api-Key", "X-Plane-Url", "X-Plane-Workspace"],
 )
 
 
@@ -194,5 +195,6 @@ app.include_router(usage_router, prefix="/api/usage", tags=["usage"])
 app.include_router(workspace_router, prefix="/api/workspace", tags=["workspace"])
 app.include_router(autopilot_router, prefix="/api/autopilot", tags=["autopilot"])
 app.include_router(taiga_proxy_router, prefix="/api/pm/taiga", tags=["taiga-proxy"])
+app.include_router(plane_proxy_router, prefix="/api/pm/plane", tags=["plane-proxy"])
 app.include_router(figma_proxy_router, prefix="/api/design/figma", tags=["figma-proxy"])
 app.include_router(github_webhook_router, prefix="/api/webhooks", tags=["webhooks"])
