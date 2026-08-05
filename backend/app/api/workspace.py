@@ -220,6 +220,10 @@ def get_config(
     from src import context_manager, taiga_adapter
     config = context_manager.load_config()
     pm_tool = config.get("pm_tool", "taiga")
+    # Taiga-only for now — no Plane frontend adapter exists yet to consume a
+    # Plane pm_web_url (see plane_integration_plan memory, phase 2+); a Plane
+    # session's stored plane_url/plane_workspace_slug are still returned below
+    # so a later phase's UI has something to restore from.
     pm_web_url = taiga_adapter.get_web_base_url()
     context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
     # github_repo/github_pat are per-project — no project_id means no project is
@@ -237,6 +241,8 @@ def get_config(
         "taiga_web_url": pm_web_url,
         "pm_tool": pm_tool,
         "pm_web_url": pm_web_url,
+        "plane_url": config.get("plane_url", ""),
+        "plane_workspace_slug": config.get("plane_workspace_slug", ""),
         "github_repo": github_repo,
         "figma_file_key": context_manager.get_instance_figma_file_key(),
         "github_pat_configured": github_pat_configured,
@@ -370,18 +376,24 @@ def save_config(
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
 ):
     from backend.app.api.taiga_proxy import _validate_taiga_url
+    from backend.app.api.plane_proxy import _validate_plane_url
     from src import context_manager
     if payload.project_id:
         deps._verify_project_access(auth.pm_token, payload.project_id, x_taiga_url)
         context_manager.save_config(payload.project_id)
-    if payload.pm_tool is not None or payload.taiga_url is not None:
+    if (payload.pm_tool is not None or payload.taiga_url is not None
+            or payload.plane_url is not None or payload.plane_workspace_slug is not None):
         # Empty string clears the URL; anything else must pass the same SSRF
         # guard as the proxy paths.
         if payload.taiga_url:
             _validate_taiga_url(payload.taiga_url, source="taiga_url")
+        if payload.plane_url:
+            _validate_plane_url(payload.plane_url, source="plane_url")
         context_manager.save_pm_config(
             pm_tool=payload.pm_tool,
             taiga_url=payload.taiga_url,
+            plane_url=payload.plane_url,
+            plane_workspace_slug=payload.plane_workspace_slug,
         )
     if (payload.github_repo is not None or payload.github_pat is not None) and payload.project_id is None:
         raise HTTPException(

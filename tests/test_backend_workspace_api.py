@@ -248,6 +248,8 @@ def test_get_config_taiga_uses_taiga_web_url(monkeypatch):
         "taiga_web_url": "https://taiga.example",
         "pm_tool": "taiga",
         "pm_web_url": "https://taiga.example",
+        "plane_url": "",
+        "plane_workspace_slug": "",
         "github_repo": "owner/repo",
         "figma_file_key": "FIGKEY",
         "github_pat_configured": False,
@@ -563,7 +565,7 @@ def test_save_config_validates_and_saves_taiga_url(monkeypatch):
     )
     monkeypatch.setattr(
         "src.context_manager.save_pm_config",
-        lambda *, pm_tool, taiga_url: saved.append((pm_tool, taiga_url)),
+        lambda *, pm_tool, taiga_url, plane_url=None, plane_workspace_slug=None: saved.append((pm_tool, taiga_url)),
     )
 
     response = save_config(
@@ -574,6 +576,31 @@ def test_save_config_validates_and_saves_taiga_url(monkeypatch):
     assert response == {"ok": True}
     assert validated == ["https://private.example.org/api/v1"]
     assert saved == [("taiga", "https://private.example.org/api/v1")]
+
+
+def test_save_config_validates_and_saves_plane_url(monkeypatch):
+    validated: list[str] = []
+    saved: list[dict] = []
+    monkeypatch.setattr(
+        "backend.app.api.plane_proxy._validate_plane_url",
+        lambda url, source: validated.append(url),
+    )
+    monkeypatch.setattr(
+        "src.context_manager.save_pm_config",
+        lambda **kw: saved.append(kw),
+    )
+
+    response = save_config(
+        SaveConfigRequest(pm_tool="plane", plane_url="https://plane.example.org", plane_workspace_slug="my-team"),
+        _AUTH,
+    )
+
+    assert response == {"ok": True}
+    assert validated == ["https://plane.example.org"]
+    assert saved == [{
+        "pm_tool": "plane", "taiga_url": None,
+        "plane_url": "https://plane.example.org", "plane_workspace_slug": "my-team",
+    }]
 
 
 # ── context-file routes: unknown filename guard ───────────────────────────────

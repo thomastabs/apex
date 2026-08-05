@@ -442,13 +442,19 @@ def save_config(project_id: int) -> None:
 def save_pm_config(
     pm_tool: str | None = None,
     taiga_url: str | None = None,
+    plane_url: str | None = None,
+    plane_workspace_slug: str | None = None,
 ) -> None:
-    """Persist PM tool selection and PM base URL to the shared config file."""
+    """Persist PM tool selection and PM base URL(s) to the shared config file."""
     def _mutate(data: dict) -> None:
         if pm_tool is not None:
             data["pm_tool"] = pm_tool
         if taiga_url is not None:
             data["taiga_url"] = taiga_url
+        if plane_url is not None:
+            data["plane_url"] = plane_url
+        if plane_workspace_slug is not None:
+            data["plane_workspace_slug"] = plane_workspace_slug
     _update_config(_mutate, log_label="save_pm_config")
 
 

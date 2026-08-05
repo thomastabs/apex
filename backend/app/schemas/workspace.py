@@ -213,6 +213,11 @@ class SaveConfigRequest(BaseModel):
     project_id: int | None = None
     pm_tool: str | None = Field(None, max_length=20)
     taiga_url: str | None = Field(None, max_length=2_048)
+    plane_url: str | None = Field(None, max_length=2_048)
+    # Plane workspace slug — required to build project-scoped Plane API paths.
+    # No API endpoint can discover this from a key alone (confirmed absent,
+    # see plane_integration_plan memory), so it's always a user-supplied field.
+    plane_workspace_slug: str | None = Field(None, max_length=100)
     github_repo: str | None = Field(None, max_length=255)
     figma_file_key: str | None = Field(None, max_length=255)
     # Encrypted at rest (AI_KEY_ENCRYPTION_SECRET) — "" clears the saved value.
@@ -245,6 +250,8 @@ class ConfigResponse(BaseModel):
     taiga_web_url: str = ""
     pm_tool: str = "taiga"
     pm_web_url: str = ""
+    plane_url: str = ""
+    plane_workspace_slug: str = ""
     github_repo: str = ""
     figma_file_key: str = ""
     # Whether a PAT/token is saved server-side — never the credential itself.
