@@ -29,6 +29,7 @@ export const translations = {
     "sidebar.noProjectHint": "Pick a project in the Workspace panel on the right to unlock the phase workflows.",
 
     // ── left sidebar: login ──
+    "login.pmToolLabel": "PM Tool",
     "login.password": "Password",
     "login.authToken": "Auth Token",
     "login.signInToTaiga": "Sign in to Taiga",
@@ -1904,6 +1905,7 @@ export const translations = {
     "sidebar.search": "Pesquisar…",
     "sidebar.noProjectHint": "Escolha um projeto no painel Workspace à direita para desbloquear os fluxos de fase.",
 
+    "login.pmToolLabel": "Ferramenta de PM",
     "login.password": "Palavra-passe",
     "login.authToken": "Token de Autenticação",
     "login.signInToTaiga": "Iniciar sessão no Taiga",

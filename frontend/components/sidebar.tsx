@@ -416,6 +416,9 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
   // ── Sign-in form ──
   return (
     <div className="space-y-3 px-4 py-4">
+      <span className={cn("block text-[11px] font-semibold uppercase tracking-wide", dark ? "text-neutral-500" : "text-slate-400")}>
+        {t("login.pmToolLabel")}
+      </span>
       <div className={cn("grid grid-cols-2 rounded-md p-1", dark ? "bg-neutral-800" : "bg-slate-100")}>
         <button className={cn("h-8 rounded text-xs font-semibold", dark ? "text-neutral-300" : "text-slate-500", pmToolChoice === "taiga" && (dark ? "bg-neutral-700 text-white" : "bg-white text-slate-900 shadow-sm"))} onClick={() => setPmToolChoice("taiga")}>Taiga</button>
         <button className={cn("h-8 rounded text-xs font-semibold", dark ? "text-neutral-300" : "text-slate-500", pmToolChoice === "plane" && (dark ? "bg-neutral-700 text-white" : "bg-white text-slate-900 shadow-sm"))} onClick={() => setPmToolChoice("plane")}>Plane</button>
