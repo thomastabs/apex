@@ -371,7 +371,10 @@ class ImportEpicSummary(BaseModel):
 
 
 class ImportStatusMapping(BaseModel):
-    taiga_name: str
+    # Renamed from taiga_name (2026-08-06, phase 4c) — this response shape is
+    # now shared with Plane's bootstrap, so a Taiga-specific field name was
+    # misleading for a PM-agnostic status/state name.
+    pm_status_name: str
     apex_status: str
     source: Literal["configured", "default"] = "default"
 
@@ -381,6 +384,26 @@ class ImportBootstrapResponse(BaseModel):
     skipped: int
     epics: list[ImportEpicSummary] = Field(default_factory=list)
     status_mapping: list[ImportStatusMapping] = Field(default_factory=list)
+
+
+class PlaneImportStorySchema(BaseModel):
+    # The frontend's already-fetched planeGetBoard() result, posted here for
+    # bootstrapping — see plane_integration_plan memory phase 4c for why this
+    # doesn't dial Plane for board data itself (avoids a duplicate Python
+    # Plane client; the tested TS adapter is the one true client).
+    pm_story_id: str = Field(..., max_length=200)
+    subject: str = Field("", max_length=500)
+    status: str | None = Field(None, max_length=200)  # Plane state UUID
+
+
+class PlaneImportEpicSchema(BaseModel):
+    pm_epic_id: str = Field(..., max_length=200)
+    subject: str = Field("", max_length=500)
+    stories: list[PlaneImportStorySchema] = Field(default_factory=list, max_length=2_000)
+
+
+class PlaneImportBootstrapRequest(BaseModel):
+    epics: list[PlaneImportEpicSchema] = Field(default_factory=list, max_length=500)
 
 
 class ImportStoryResult(BaseModel):

@@ -5,6 +5,7 @@ import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, Download, Loader2
 import { useImportBootstrap, useImportReconstructEpic } from "@/lib/hooks/use-import";
 import type { ImportBootstrapResult, ImportEpicSummary, ImportReconstructResult } from "@/lib/api/import";
 import { useQueryClient } from "@tanstack/react-query";
+import { useSessionStore } from "@/lib/stores/session-store";
 
 const APEX_STATUS_LABEL: Record<string, string> = {
   gherkin_locked: "Needs Phase 1",
@@ -33,9 +34,15 @@ type EpicRowProps = {
   result: ImportReconstructResult | undefined;
   isReconstructing: boolean;
   onReconstruct: (epicId: number) => void;
+  // AI reconstruction (Step 2) dials the PM's own board API server-side for
+  // story descriptions — only built for Taiga so far (see
+  // plane_integration_plan memory phase 4c's scope note). Hiding the action
+  // for Plane avoids a guaranteed-fail click; the backend would 503 it
+  // anyway, but there's no reason to let a user hit that.
+  reconstructAvailable: boolean;
 };
 
-function EpicRow({ epic, result, isReconstructing, onReconstruct }: EpicRowProps) {
+function EpicRow({ epic, result, isReconstructing, onReconstruct, reconstructAvailable }: EpicRowProps) {
   const [expanded, setExpanded] = useState(false);
   const done = result != null;
   const okCount = result?.results.filter((r) => r.status === "ok").length ?? 0;
@@ -59,7 +66,7 @@ function EpicRow({ epic, result, isReconstructing, onReconstruct }: EpicRowProps
             </span>
           )}
         </button>
-        {!done && (
+        {!done && reconstructAvailable && (
           <button
             onClick={() => onReconstruct(epic.id)}
             disabled={isReconstructing}
@@ -92,6 +99,8 @@ function EpicRow({ epic, result, isReconstructing, onReconstruct }: EpicRowProps
 }
 
 export function ImportPanel({ onStart }: { onStart?: () => void } = {}) {
+  const pmTool = useSessionStore((s) => s.pmTool);
+  const isPlane = pmTool === "plane";
   const bootstrap = useImportBootstrap();
   const reconstruct = useImportReconstructEpic();
   const qc = useQueryClient();
@@ -124,9 +133,11 @@ export function ImportPanel({ onStart }: { onStart?: () => void } = {}) {
         <div className="flex items-start gap-3">
           <Download className="mt-0.5 size-4 shrink-0 text-blue-400" />
           <div className="flex-1">
-            <p className="text-sm font-semibold text-blue-300">Import ongoing project from Taiga</p>
+            <p className="text-sm font-semibold text-blue-300">Import ongoing project from {isPlane ? "Plane" : "Taiga"}</p>
             <p className="mt-0.5 text-xs text-blue-400/80">
-              Pull existing epics and stories into Apex. Optionally reconstruct Gherkin specs per epic using AI.
+              {isPlane
+                ? "Pull existing epics and stories into Apex."
+                : "Pull existing epics and stories into Apex. Optionally reconstruct Gherkin specs per epic using AI."}
             </p>
             <button
               onClick={handleBootstrap}
@@ -138,7 +149,7 @@ export function ImportPanel({ onStart }: { onStart?: () => void } = {}) {
               ) : (
                 <Download className="size-3.5" />
               )}
-              {bootstrap.isPending ? "Fetching from Taiga…" : "Import from Taiga"}
+              {bootstrap.isPending ? `Fetching from ${isPlane ? "Plane" : "Taiga"}…` : `Import from ${isPlane ? "Plane" : "Taiga"}`}
             </button>
           </div>
         </div>
@@ -165,10 +176,10 @@ export function ImportPanel({ onStart }: { onStart?: () => void } = {}) {
 
       {showMapping && report.status_mapping.length > 0 && (
         <div className="rounded border border-neutral-700/40 bg-neutral-900/40 p-2 space-y-1">
-          <p className="text-xs font-medium text-neutral-400 mb-1">Taiga status → Apex phase</p>
+          <p className="text-xs font-medium text-neutral-400 mb-1">{isPlane ? "Plane state" : "Taiga status"} → Apex phase</p>
           {report.status_mapping.map((m, i) => (
             <div key={i} className="flex items-center gap-2 text-xs">
-              <span className="text-neutral-400 min-w-[120px]">{m.taiga_name}</span>
+              <span className="text-neutral-400 min-w-[120px]">{m.pm_status_name}</span>
               <span className="text-neutral-600">→</span>
               <StatusBadge status={m.apex_status} />
             </div>
@@ -181,7 +192,7 @@ export function ImportPanel({ onStart }: { onStart?: () => void } = {}) {
       ) : (
         <div className="space-y-2">
           <p className="text-xs font-medium text-neutral-400 uppercase tracking-wider">
-            Epics — reconstruct Gherkin specs (optional, uses AI)
+            {isPlane ? "Epics" : "Epics — reconstruct Gherkin specs (optional, uses AI)"}
           </p>
           {report.epics.map((epic) => (
             <EpicRow
@@ -190,6 +201,7 @@ export function ImportPanel({ onStart }: { onStart?: () => void } = {}) {
               result={epicResults[epic.id]}
               isReconstructing={reconstructingEpic === epic.id}
               onReconstruct={handleReconstruct}
+              reconstructAvailable={!isPlane}
             />
           ))}
         </div>

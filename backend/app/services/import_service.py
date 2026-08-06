@@ -219,7 +219,7 @@ def bootstrap(taiga_base: str, token: str, project_id: int, context: "ContextSer
         apex = configured_status_mapping.get(str(status_id), default_apex)
         status_id_map[s["id"]] = apex
         status_mapping.append({
-            "taiga_name": s.get("name", ""),
+            "pm_status_name": s.get("name", ""),
             "apex_status": apex,
             "source": "configured" if str(status_id) in configured_status_mapping else "default",
         })
@@ -273,6 +273,89 @@ def bootstrap(taiga_base: str, token: str, project_id: int, context: "ContextSer
         _logger.info("import: story %s → %s (epic %s)", sid, phase_status, epic_id)
 
     _logger.info("import bootstrap done: imported=%s skipped=%s", imported, skipped)
+    return {
+        "imported": imported,
+        "skipped": skipped,
+        "epics": list(epics_summary.values()),
+        "status_mapping": status_mapping,
+    }
+
+
+def plane_bootstrap(
+    plane_base: str, token: str, workspace_slug: str, project_id: str,
+    epics: list[dict], context: "ContextService",
+) -> dict:
+    """Plane counterpart to bootstrap() — same shape, same story-index writes,
+    but the epics/stories come from the CALLER (the frontend's already-fetched,
+    already-live-tested planeGetBoard() result), not a fresh dial here. Only
+    the state list is fetched server-side (small, cheap, mirrors the
+    status-mapping route) to map each story's raw state UUID to a
+    phase_status the same way bootstrap()'s status_id_map does for Taiga.
+    See plane_integration_plan memory phase 4c for the architecture decision
+    behind not building a second Python board-fetching client.
+
+    `context` must already have the target project set active (same
+    precondition as bootstrap()). Uses mint_pm_id (phase 4b) instead of
+    trusting a caller-supplied int — Plane's real ids are UUIDs, and story
+    index entries must be keyed by a durable Apex-minted int.
+    """
+    states_raw = _plane_get_all(plane_base, token, f"workspaces/{workspace_slug}/projects/{project_id}/states/")
+    configured_status_mapping = context.status_mapping()
+    status_id_map: dict[str, str] = {}
+    status_mapping: list[dict] = []
+    for s in states_raw:
+        state_id = str(s.get("id", ""))
+        if not state_id:
+            continue
+        default_apex = _map_plane_status(s)
+        apex = configured_status_mapping.get(state_id, default_apex)
+        status_id_map[state_id] = apex
+        status_mapping.append({
+            "pm_status_name": s.get("name", ""),
+            "apex_status": apex,
+            "source": "configured" if state_id in configured_status_mapping else "default",
+        })
+
+    existing = context.story_index()
+    imported = 0
+    skipped = 0
+    epics_summary: dict[int, dict] = {}
+
+    for epic in epics:
+        pm_epic_id = epic.get("pm_epic_id")
+        if not pm_epic_id:
+            continue
+        epic_id = context.mint_pm_id(pm_epic_id)
+        epic_title = epic.get("subject") or f"Epic {epic_id}"
+
+        for story in epic.get("stories") or []:
+            pm_story_id = story.get("pm_story_id")
+            if not pm_story_id:
+                continue
+            sid = context.mint_pm_id(pm_story_id)
+            if str(sid) in existing:
+                skipped += 1
+                continue
+
+            status_id = story.get("status")
+            phase_status = status_id_map.get(status_id, "gherkin_locked") if status_id else "gherkin_locked"
+
+            context.upsert_story_index(
+                sid,
+                title=story.get("subject") or f"Story {sid}",
+                epic_id=epic_id,
+                epic_title=epic_title,
+                phase_status=phase_status,
+                has_gherkin=False,
+            )
+
+            if epic_id not in epics_summary:
+                epics_summary[epic_id] = {"id": epic_id, "title": epic_title, "story_count": 0}
+            epics_summary[epic_id]["story_count"] += 1
+            imported += 1
+            _logger.info("plane import: story %s (pm=%s) → %s (epic %s)", sid, pm_story_id, phase_status, epic_id)
+
+    _logger.info("plane import bootstrap done: imported=%s skipped=%s", imported, skipped)
     return {
         "imported": imported,
         "skipped": skipped,

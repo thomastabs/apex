@@ -278,7 +278,7 @@ def test_bootstrap_uses_configured_status_mapping(ctx, monkeypatch):
     report = svc.bootstrap("https://api.taiga.io/api/v1", "tok", 42, ContextService())
 
     assert ctx.get_story_index()["100"]["phase_status"] == "qa_passed"
-    assert report["status_mapping"] == [{"taiga_name": "In progress", "apex_status": "qa_passed", "source": "configured"}]
+    assert report["status_mapping"] == [{"pm_status_name": "In progress", "apex_status": "qa_passed", "source": "configured"}]
 
 
 def test_bootstrap_skips_existing_and_is_idempotent(ctx, monkeypatch):
@@ -306,6 +306,105 @@ def test_bootstrap_unmapped_status_id_defaults_gherkin_locked(ctx, monkeypatch):
     )
     svc.bootstrap("https://api.taiga.io/api/v1", "tok", 42, ContextService())
     assert ctx.get_story_index()["100"]["phase_status"] == "gherkin_locked"
+
+
+# ---------------------------------------------------------------------------
+# plane_bootstrap — Plane counterpart, board data comes from the caller
+# (phase 4c, see plane_integration_plan memory)
+# ---------------------------------------------------------------------------
+
+def _fake_plane_states(monkeypatch, states):
+    from backend.app.api import deps
+
+    def fake_get(url, pm_tool, token):
+        return {"results": states, "next_cursor": None, "next_page_results": False}
+
+    monkeypatch.setattr(deps, "_pm_get_json", fake_get)
+
+
+def test_plane_bootstrap_imports_and_maps_status(ctx, monkeypatch):
+    _fake_plane_states(monkeypatch, [
+        {"id": "st1", "name": "Backlog", "group": "backlog"},
+        {"id": "st2", "name": "In Progress", "group": "started"},
+        {"id": "st3", "name": "Done", "group": "completed"},
+    ])
+    epics = [{
+        "pm_epic_id": "epic-uuid-1",
+        "subject": "Auth",
+        "stories": [
+            {"pm_story_id": "story-uuid-1", "subject": "Login", "status": "st2"},
+            {"pm_story_id": "story-uuid-2", "subject": "Logout", "status": "st3"},
+        ],
+    }]
+
+    report = svc.plane_bootstrap("https://api.plane.so/api/v1", "tok", "my-team", "proj-uuid", epics, ContextService())
+
+    assert report["imported"] == 2
+    assert report["skipped"] == 0
+
+    index = ctx.get_story_index()
+    minted_epic = ctx.mint_pm_id("epic-uuid-1")
+    story1_id = ctx.mint_pm_id("story-uuid-1")
+    story2_id = ctx.mint_pm_id("story-uuid-2")
+    assert index[str(story1_id)]["phase_status"] == "implementation"
+    assert index[str(story1_id)]["epic_id"] == minted_epic
+    assert index[str(story2_id)]["phase_status"] == "deployed"
+
+    counts = {e["id"]: e["story_count"] for e in report["epics"]}
+    assert counts == {minted_epic: 2}
+
+
+def test_plane_bootstrap_skips_existing_and_is_idempotent(ctx, monkeypatch):
+    _fake_plane_states(monkeypatch, [{"id": "st1", "name": "Backlog", "group": "backlog"}])
+    epics = [{
+        "pm_epic_id": "epic-uuid-1", "subject": "Auth",
+        "stories": [{"pm_story_id": "story-uuid-1", "subject": "Login", "status": "st1"}],
+    }]
+
+    first = svc.plane_bootstrap("https://api.plane.so/api/v1", "tok", "my-team", "proj-uuid", epics, ContextService())
+    assert first["imported"] == 1 and first["skipped"] == 0
+
+    # Re-run with the SAME real Plane ids: mint_pm_id resolves to the same
+    # Apex ids, already in the index → skipped, nothing duplicated.
+    second = svc.plane_bootstrap("https://api.plane.so/api/v1", "tok", "my-team", "proj-uuid", epics, ContextService())
+    assert second["imported"] == 0 and second["skipped"] == 1
+
+
+def test_plane_bootstrap_uses_configured_status_mapping(ctx, monkeypatch):
+    ctx.save_project_status_mapping({"st1": "qa_passed"})
+    _fake_plane_states(monkeypatch, [{"id": "st1", "name": "Backlog", "group": "backlog"}])
+    epics = [{
+        "pm_epic_id": "epic-uuid-1", "subject": "Auth",
+        "stories": [{"pm_story_id": "story-uuid-1", "subject": "Login", "status": "st1"}],
+    }]
+
+    report = svc.plane_bootstrap("https://api.plane.so/api/v1", "tok", "my-team", "proj-uuid", epics, ContextService())
+
+    story1_id = ctx.mint_pm_id("story-uuid-1")
+    assert ctx.get_story_index()[str(story1_id)]["phase_status"] == "qa_passed"
+    assert report["status_mapping"] == [{"pm_status_name": "Backlog", "apex_status": "qa_passed", "source": "configured"}]
+
+
+def test_plane_bootstrap_ignores_entries_without_pm_ids(ctx, monkeypatch):
+    _fake_plane_states(monkeypatch, [])
+    epics = [
+        {"pm_epic_id": "", "subject": "No id epic", "stories": []},
+        {"pm_epic_id": "epic-uuid-1", "subject": "Auth", "stories": [{"pm_story_id": "", "subject": "No id story", "status": None}]},
+    ]
+    report = svc.plane_bootstrap("https://api.plane.so/api/v1", "tok", "my-team", "proj-uuid", epics, ContextService())
+    assert report["imported"] == 0
+    assert report["epics"] == []
+
+
+def test_plane_bootstrap_unmapped_status_defaults_gherkin_locked(ctx, monkeypatch):
+    _fake_plane_states(monkeypatch, [])  # no states known at all
+    epics = [{
+        "pm_epic_id": "epic-uuid-1", "subject": "Auth",
+        "stories": [{"pm_story_id": "story-uuid-1", "subject": "Login", "status": "unknown-state"}],
+    }]
+    svc.plane_bootstrap("https://api.plane.so/api/v1", "tok", "my-team", "proj-uuid", epics, ContextService())
+    story1_id = ctx.mint_pm_id("story-uuid-1")
+    assert ctx.get_story_index()[str(story1_id)]["phase_status"] == "gherkin_locked"
 
 
 # ---------------------------------------------------------------------------
@@ -398,6 +497,65 @@ def test_route_bootstrap_taiga_failure_is_502(ctx, monkeypatch):
     with pytest.raises(HTTPException) as ei:
         workspace.import_from_pm_bootstrap(ctx=_CTX, x_taiga_url="")
     assert ei.value.status_code == 502
+
+
+_PLANE_CTX = RequestContext(pm_token="tok", project_id="f722d8f5-57a4-4c98-8651-f7e89970c359", instance_id="api_plane_so")
+
+
+def test_route_plane_bootstrap_happy(ctx, monkeypatch):
+    from backend.app.api import workspace
+
+    monkeypatch.setattr(
+        svc, "plane_bootstrap",
+        lambda base, token, slug, pid, epics, context: {"imported": 1, "skipped": 0, "epics": [], "status_mapping": []},
+    )
+    monkeypatch.setattr(workspace, "resolve_plane_base", lambda x_plane_url="": "https://api.plane.so/api/v1")
+
+    payload = workspace.PlaneImportBootstrapRequest(epics=[
+        {"pm_epic_id": "epic-uuid-1", "subject": "Auth", "stories": []},
+    ])
+    out = workspace.import_from_pm_plane_bootstrap(
+        payload, ctx=_PLANE_CTX, x_plane_url="https://api.plane.so", x_plane_workspace="my-team",
+    )
+    assert out["imported"] == 1
+
+
+def test_route_plane_bootstrap_requires_workspace(ctx, monkeypatch):
+    from backend.app.api import workspace
+
+    payload = workspace.PlaneImportBootstrapRequest(epics=[])
+    with pytest.raises(HTTPException) as exc:
+        workspace.import_from_pm_plane_bootstrap(
+            payload, ctx=_PLANE_CTX, x_plane_url="https://api.plane.so", x_plane_workspace="",
+        )
+    assert exc.value.status_code == 400
+
+
+def test_route_plane_bootstrap_rejects_malformed_workspace_slug(ctx, monkeypatch):
+    from backend.app.api import workspace
+
+    payload = workspace.PlaneImportBootstrapRequest(epics=[])
+    with pytest.raises(HTTPException) as exc:
+        workspace.import_from_pm_plane_bootstrap(
+            payload, ctx=_PLANE_CTX, x_plane_url="https://api.plane.so", x_plane_workspace="../evil",
+        )
+    assert exc.value.status_code == 400
+
+
+def test_route_plane_bootstrap_failure_is_502(ctx, monkeypatch):
+    from backend.app.api import workspace
+
+    def boom(*a, **k):
+        raise RuntimeError("plane down")
+    monkeypatch.setattr(svc, "plane_bootstrap", boom)
+    monkeypatch.setattr(workspace, "resolve_plane_base", lambda x_plane_url="": "https://api.plane.so/api/v1")
+
+    payload = workspace.PlaneImportBootstrapRequest(epics=[])
+    with pytest.raises(HTTPException) as exc:
+        workspace.import_from_pm_plane_bootstrap(
+            payload, ctx=_PLANE_CTX, x_plane_url="https://api.plane.so", x_plane_workspace="my-team",
+        )
+    assert exc.value.status_code == 502
 
 
 def test_route_reconstruct_happy(ctx, monkeypatch):

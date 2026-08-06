@@ -43,6 +43,7 @@ from backend.app.schemas.workspace import (
     LogDecisionRequest,
     OkResponse,
     PhaseStatusResponse,
+    PlaneImportBootstrapRequest,
     PullAgentFilesFromGithubResponse,
     SaveAiConfigRequest,
     SaveAiKeyRequest,
@@ -1496,6 +1497,51 @@ def import_from_pm_bootstrap(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Failed to fetch from Taiga: {exc}",
+        ) from exc
+
+    return result
+
+
+@router.post("/import-from-pm/plane-bootstrap", response_model=ImportBootstrapResponse)
+def import_from_pm_plane_bootstrap(
+    payload: PlaneImportBootstrapRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    x_plane_url: str = Header(default="", alias="X-Plane-Url"),
+    x_plane_workspace: str = Header(default="", alias="X-Plane-Workspace"),
+):
+    """Step 1 (no AI), Plane path: the frontend already fetched the board via
+    the tested planeGetBoard adapter (Epics/Modules fallback, pagination,
+    label resolution all handled there) and posts it here — this only mints
+    durable ids (phase 4b) and populates story-index, plus a small server-side
+    dial for the state list (status mapping). Never dials Plane for board
+    data itself — see plane_integration_plan memory phase 4c.
+    """
+    x_plane_workspace = x_plane_workspace.strip()
+    if not x_plane_workspace:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="X-Plane-Workspace header is required.",
+        )
+    deps._validate_plane_workspace_slug(x_plane_workspace)
+    plane_base = resolve_plane_base(x_plane_url)
+
+    from backend.app.services import import_service
+
+    context = ContextService()
+    context.set_active(ctx)
+    context.init_context()
+
+    try:
+        result = import_service.plane_bootstrap(
+            plane_base, ctx.pm_token, x_plane_workspace, str(ctx.project_id),
+            [epic.model_dump() for epic in payload.epics],
+            context,
+        )
+    except Exception as exc:
+        _logger.error("plane import bootstrap failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to bootstrap from Plane data: {exc}",
         ) from exc
 
     return result

@@ -1,13 +1,13 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { importBootstrap, importReconstructEpic } from "@/lib/api/import";
+import { importBootstrap, importPlaneBootstrap, importReconstructEpic } from "@/lib/api/import";
 import { useApiContext } from "@/lib/stores/session-store";
 
 export function useImportBootstrap() {
   const ctx = useApiContext();
   return useMutation({
-    mutationFn: () => importBootstrap(ctx!),
+    mutationFn: () => (ctx?.pmTool === "plane" ? importPlaneBootstrap(ctx) : importBootstrap(ctx!)),
     meta: { errorLabel: "op.import" },
   });
 }
