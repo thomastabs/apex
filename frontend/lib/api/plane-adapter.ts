@@ -1,22 +1,34 @@
 /**
  * Plane.so implementation of ProjectManagementAdapter.
  *
- * Read paths only — Phase 2 of the Plane integration (see
- * plane_integration_plan memory). Write paths (create/update/delete) are a
- * later phase; every method not yet implemented throws a clear
- * "not yet supported for Plane" error rather than being silently missing —
- * per the pm-adapter-sync skill's stub convention, callers get a compile-time
- * presence guarantee and a legible runtime message, not a missing method.
+ * Read + write paths for epic/story/task (Phases 2-3 of the Plane
+ * integration — see plane_integration_plan memory). Project CRUD and
+ * membership management are still unimplemented — every such method throws a
+ * clear "not yet supported for Plane" error rather than being silently
+ * missing, per the pm-adapter-sync skill's stub convention: callers get a
+ * compile-time presence guarantee and a legible runtime message, not a
+ * missing method.
  */
 import {
   isPlane401,
   isPlaneStateClosed,
+  planeCreateEpic,
+  planeCreateStory,
+  planeCreateTask,
+  planeDeleteEpic,
+  planeDeleteStory,
+  planeDeleteTask,
   planeGetBoard,
   planeGetEpic,
   planeGetMe,
+  planeGetProjectTasks,
   planeGetStory,
+  planeGetTask,
   planeListProjects,
   planeListStoryStatuses,
+  planeUpdateEpic,
+  planeUpdateStory,
+  planeUpdateTask,
 } from "./plane-direct";
 import type { PmAuthContext, PmRequestContext, ProjectManagementAdapter } from "./pm-types";
 
@@ -69,16 +81,28 @@ const planeAdapter: ProjectManagementAdapter = {
   getEpic: (ctx: PmRequestContext, epicId: string) =>
     planeGetEpic(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, epicId, ctx.baseUrl),
 
-  createEpic: () => notSupported("Creating an epic"),
-  updateEpic: () => notSupported("Updating an epic"),
-  deleteEpic: () => notSupported("Deleting an epic"),
+  createEpic: (ctx: PmRequestContext, subject: string, description: string, tags: string[]) =>
+    planeCreateEpic(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, subject, description, tags, ctx.baseUrl),
+
+  // version is a documented no-op for Plane — no optimistic-concurrency field
+  // exists on work items/epics/modules (confirmed, see plane_integration_plan).
+  updateEpic: (ctx: PmRequestContext, epicId: string, _version: string | number, fields) =>
+    planeUpdateEpic(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, epicId, fields, ctx.baseUrl),
+
+  deleteEpic: (ctx: PmRequestContext, epicId: string) =>
+    planeDeleteEpic(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, epicId, ctx.baseUrl),
 
   getStory: (ctx: PmRequestContext, storyId: string) =>
     planeGetStory(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, storyId, ctx.baseUrl),
 
-  createStory: () => notSupported("Creating a story"),
-  updateStory: () => notSupported("Updating a story"),
-  deleteStory: () => notSupported("Deleting a story"),
+  createStory: (ctx: PmRequestContext, epicId: string, subject: string, description: string, tags: string[], statusId?: string) =>
+    planeCreateStory(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, epicId, subject, description, tags, statusId, ctx.baseUrl),
+
+  updateStory: (ctx: PmRequestContext, storyId: string, _version: string | number, fields) =>
+    planeUpdateStory(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, storyId, fields, ctx.baseUrl),
+
+  deleteStory: (ctx: PmRequestContext, storyId: string) =>
+    planeDeleteStory(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, storyId, ctx.baseUrl),
 
   listStoryStatuses: async (ctx: PmRequestContext) => {
     const statuses = await planeListStoryStatuses(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, ctx.baseUrl);
@@ -90,11 +114,20 @@ const planeAdapter: ProjectManagementAdapter = {
   removeMember: () => notSupported("Removing a member"),
   updateMemberRole: () => notSupported("Updating a member's role"),
 
-  getProjectTasks: () => notSupported("Listing tasks"),
-  getTask: () => notSupported("Fetching a task"),
-  createTask: () => notSupported("Creating a task"),
-  updateTask: () => notSupported("Updating a task"),
-  deleteTask: () => notSupported("Deleting a task"),
+  getProjectTasks: (ctx: PmRequestContext) =>
+    planeGetProjectTasks(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, ctx.baseUrl),
+
+  getTask: (ctx: PmRequestContext, taskId: string) =>
+    planeGetTask(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, taskId, ctx.baseUrl),
+
+  createTask: (ctx: PmRequestContext, storyId: string, subject: string, description: string, points?: number) =>
+    planeCreateTask(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, storyId, subject, description, ctx.baseUrl, points),
+
+  updateTask: (ctx: PmRequestContext, taskId: string, _version: string | number, updates: { subject?: string; description?: string }) =>
+    planeUpdateTask(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, taskId, updates, ctx.baseUrl),
+
+  deleteTask: (ctx: PmRequestContext, taskId: string) =>
+    planeDeleteTask(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, taskId, ctx.baseUrl),
 };
 
 export { planeAdapter };

@@ -165,6 +165,27 @@ function htmlToText(html: unknown): string {
   return withBreaks.replace(/<[^>]+>/g, "").trim();
 }
 
+/** Plane's `labels` field is shape-inconsistent across responses — live-confirmed
+ *  against a real workspace: a GET on a single work item returns full label
+ *  OBJECTS (`{id, name, ...}`), but the object a POST/PATCH call returns embeds
+ *  only the UUID STRINGS. Handle both so tags survive either code path. */
+function labelNamesFrom(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((l) => (l && typeof l === "object" && "name" in l ? String((l as Record<string, unknown>).name) : ""))
+    .filter(Boolean);
+}
+
+/** Plain text -> minimal HTML, for the description_html field work items and
+ *  epics require on write (confirmed: they have no plain `description` field
+ *  at all, unlike Projects/Modules which take one directly — see
+ *  planeDescription()'s docstring for the read-side half of this asymmetry). */
+function toDescriptionHtml(text: string): string {
+  if (!text) return "";
+  const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return `<p>${escaped.replace(/\n/g, "<br>")}</p>`;
+}
+
 function planeDescription(raw: Record<string, unknown>): string {
   // description_stripped exists on work items but NOT on Projects/Modules
   // (confirmed live against a real workspace — those instead carry a plain
@@ -219,7 +240,10 @@ function normalizePlaneWorkItem(raw: Record<string, unknown>, epic: { id: number
     description: planeDescription(raw),
     version: null,
     status: (raw.state as string) ?? null, // Plane state UUID — resolved against listStoryStatuses separately
-    tags: [], // labels[] would need a separate resolve-by-id call; deferred to the write-path phase
+    // GET responses embed full label objects (name included) — no separate
+    // resolve-by-id call needed after all, unlike what was assumed before a
+    // real response body was available (see labelNamesFrom's docstring).
+    tags: labelNamesFrom(raw.labels),
     epic_id: epic.id,
     epic_subject: epic.subject,
     pm_story_id: uuid,
@@ -284,28 +308,35 @@ export function isPlaneStateClosed(group: string): boolean {
 // response shape for this same gate is still unconfirmed.
 const _EPICS_GATED_STATUSES = new Set([402, 403, 404]);
 
-/** Probes the native Epics endpoint; on a gated response (paid-tier — see
- *  plane_integration_plan §8, not an error condition) falls back to Modules,
- *  the documented free-tier substitute. Returns which path was used so
- *  callers (e.g. a future UI note) can tell the user Modules were
+/** Shared fallback shape for every Epics-gated operation (read AND write):
+ *  try the Epics call, and on a gated response (paid-tier gate — see
+ *  plane_integration_plan §8, not an error condition) fall back to the
+ *  Modules equivalent. The gate is tier-wide, not per-object, so this is
+ *  safe to reuse for update/delete/create alike — a project is never a mix
+ *  of both sources (see plane_integration_plan's phase-3 notes for why). */
+async function tryEpicsThenModules<T>(epicsCall: () => Promise<T>, modulesCall: () => Promise<T>): Promise<T> {
+  try {
+    return await epicsCall();
+  } catch (err) {
+    if (err instanceof ApiError && _EPICS_GATED_STATUSES.has(err.status)) {
+      return await modulesCall();
+    }
+    throw err;
+  }
+}
+
+/** Probes the native Epics endpoint; on a gated response falls back to
+ *  Modules, the documented free-tier substitute. Returns which path was used
+ *  so callers (e.g. a future UI note) can tell the user Modules were
  *  substituted. */
 async function fetchEpicsOrModules(
   apiKey: string, workspaceSlug: string, projectUuid: string, apiBaseUrl?: string,
 ): Promise<{ source: "epics" | "modules"; groups: Record<string, unknown>[] }> {
-  try {
-    const epics = await planeFetchAllPages<Record<string, unknown>>(
-      `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}/epics/`, apiKey, apiBaseUrl,
-    );
-    return { source: "epics", groups: epics };
-  } catch (err) {
-    if (err instanceof ApiError && _EPICS_GATED_STATUSES.has(err.status)) {
-      const modules = await planeFetchAllPages<Record<string, unknown>>(
-        `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}/modules/`, apiKey, apiBaseUrl,
-      );
-      return { source: "modules", groups: modules };
-    }
-    throw err;
-  }
+  const base = `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}`;
+  return tryEpicsThenModules<{ source: "epics" | "modules"; groups: Record<string, unknown>[] }>(
+    async () => ({ source: "epics", groups: await planeFetchAllPages<Record<string, unknown>>(`${base}/epics/`, apiKey, apiBaseUrl) }),
+    async () => ({ source: "modules", groups: await planeFetchAllPages<Record<string, unknown>>(`${base}/modules/`, apiKey, apiBaseUrl) }),
+  );
 }
 
 export async function planeGetBoard(
@@ -335,16 +366,10 @@ export async function planeGetEpic(
 ): Promise<Epic> {
   const uuid = resolveId(mintedEpicId);
   const base = `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}`;
-  try {
-    const raw = await planeFetch<Record<string, unknown>>(`${base}/epics/${uuid}/`, apiKey, apiBaseUrl);
-    return normalizePlaneEpic(raw);
-  } catch (err) {
-    if (err instanceof ApiError && _EPICS_GATED_STATUSES.has(err.status)) {
-      const raw = await planeFetch<Record<string, unknown>>(`${base}/modules/${uuid}/`, apiKey, apiBaseUrl);
-      return normalizePlaneModuleAsEpic(raw);
-    }
-    throw err;
-  }
+  return tryEpicsThenModules(
+    async () => normalizePlaneEpic(await planeFetch<Record<string, unknown>>(`${base}/epics/${uuid}/`, apiKey, apiBaseUrl)),
+    async () => normalizePlaneModuleAsEpic(await planeFetch<Record<string, unknown>>(`${base}/modules/${uuid}/`, apiKey, apiBaseUrl)),
+  );
 }
 
 export async function planeGetStory(
@@ -359,4 +384,282 @@ export async function planeGetStory(
   // getBoard result instead. Mirrors what a single-story fetch can cheaply know.
   const parentUuid = typeof raw.parent === "string" ? raw.parent : "";
   return normalizePlaneWorkItem(raw, { id: parentUuid ? mintId(parentUuid) : null, subject: "" });
+}
+
+// ---------------------------------------------------------------------------
+// Write paths (Phase 3) — labels, epic/story/task CRUD.
+//
+// Field names below are sourced from Plane's developer-docs create/update
+// endpoint specs AND live-confirmed against a real workspace (create ->
+// verify shape -> delete, cleaned up, not committed) before being written
+// here — the discipline established in phases 1-2 (see plane_integration_plan
+// memory: mocks alone caught 0 of the 4 real bugs found so far). Two traps
+// worth flagging inline since they're easy to get wrong by symmetry:
+//   - Work items take `labels` (array of label UUIDs) on write; Epics take
+//     `label_ids` instead — different key name for the same concept.
+//   - Work items/Epics take `description_html` on write (no plain
+//     `description` field exists on either); Modules take a plain
+//     `description` string instead — the mirror image of planeDescription()'s
+//     read-side asymmetry.
+// ---------------------------------------------------------------------------
+
+/** Get-or-create a Label per tag, resolving to Plane's work-item Label ids
+ *  (`.../labels/`, NOT `.../project-labels/` — see plane_integration_plan §3's
+ *  two-kinds-of-Label trap). No documented server-side name filter, so this
+ *  pages the full label list once per call and matches client-side, caching
+ *  across every tag in *tags* rather than re-listing per tag. */
+async function planeResolveLabelIds(
+  apiKey: string, workspaceSlug: string, projectUuid: string, tags: string[], apiBaseUrl?: string,
+): Promise<string[]> {
+  if (!tags.length) return [];
+  const base = `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}`;
+  const existing = await planeFetchAllPages<Record<string, unknown>>(`${base}/labels/`, apiKey, apiBaseUrl);
+  const byName = new Map(existing.map((l) => [String(l.name ?? "").toLowerCase(), String(l.id)]));
+  const ids: string[] = [];
+  for (const tag of tags) {
+    const key = tag.trim().toLowerCase();
+    if (!key) continue;
+    let id = byName.get(key);
+    if (!id) {
+      const created = await planeFetch<Record<string, unknown>>(`${base}/labels/`, apiKey, apiBaseUrl, {
+        method: "POST",
+        body: { name: tag.trim() },
+      });
+      id = String(created.id);
+      byName.set(key, id);
+    }
+    ids.push(id);
+  }
+  return ids;
+}
+
+export async function planeCreateEpic(
+  apiKey: string, workspaceSlug: string, projectUuid: string,
+  subject: string, description: string, tags: string[], apiBaseUrl?: string,
+): Promise<Epic> {
+  const base = `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}`;
+  return tryEpicsThenModules(
+    async () => {
+      const labelIds = await planeResolveLabelIds(apiKey, workspaceSlug, projectUuid, tags, apiBaseUrl);
+      const created = await planeFetch<Record<string, unknown>>(`${base}/epics/`, apiKey, apiBaseUrl, {
+        method: "POST",
+        body: { name: subject, description_html: toDescriptionHtml(description), label_ids: labelIds },
+      });
+      return normalizePlaneEpic(created);
+    },
+    async () => {
+      // Modules have no tags[] concept in Apex's model (Epic.tags[] only maps
+      // to work-item Labels, which Modules don't carry) — tags are silently
+      // dropped on this fallback path, a documented simplification.
+      const created = await planeFetch<Record<string, unknown>>(`${base}/modules/`, apiKey, apiBaseUrl, {
+        method: "POST",
+        body: { name: subject, description },
+      });
+      return normalizePlaneModuleAsEpic(created);
+    },
+  );
+}
+
+export async function planeUpdateEpic(
+  apiKey: string, workspaceSlug: string, projectUuid: string, mintedEpicId: string,
+  fields: { subject?: string; description?: string; tags?: string[] }, apiBaseUrl?: string,
+): Promise<Epic> {
+  const uuid = resolveId(mintedEpicId);
+  const base = `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}`;
+  return tryEpicsThenModules(
+    async () => {
+      const body: Record<string, unknown> = {};
+      if (fields.subject !== undefined) body.name = fields.subject;
+      if (fields.description !== undefined) body.description_html = toDescriptionHtml(fields.description);
+      if (fields.tags !== undefined) body.label_ids = await planeResolveLabelIds(apiKey, workspaceSlug, projectUuid, fields.tags, apiBaseUrl);
+      await planeFetch<unknown>(`${base}/epics/${uuid}/`, apiKey, apiBaseUrl, { method: "PATCH", body });
+      const raw = await planeFetch<Record<string, unknown>>(`${base}/epics/${uuid}/`, apiKey, apiBaseUrl);
+      return normalizePlaneEpic(raw);
+    },
+    async () => {
+      const body: Record<string, unknown> = {};
+      if (fields.subject !== undefined) body.name = fields.subject;
+      if (fields.description !== undefined) body.description = fields.description;
+      await planeFetch<unknown>(`${base}/modules/${uuid}/`, apiKey, apiBaseUrl, { method: "PATCH", body });
+      const raw = await planeFetch<Record<string, unknown>>(`${base}/modules/${uuid}/`, apiKey, apiBaseUrl);
+      return normalizePlaneModuleAsEpic(raw);
+    },
+  );
+}
+
+/** Deletes every member work item first, then the group itself — mirrors
+ *  taigaDeleteEpic's cascade semantics (Taiga parity), since Plane's
+ *  epic/module membership is a join, not ownership: deleting the group alone
+ *  would just orphan its work items, not remove them. */
+async function deleteGroupCascade(
+  apiKey: string, apiBaseUrl: string | undefined, base: string, groupKind: "epics" | "modules", groupUuid: string,
+): Promise<{ ok: boolean; stories_deleted: number; story_failures: Array<{ story_id: string; error: string }> }> {
+  const listPath = groupKind === "epics" ? `${base}/epics/${groupUuid}/issues/` : `${base}/modules/${groupUuid}/module-issues/`;
+  const items = await planeFetchAllPages<Record<string, unknown>>(listPath, apiKey, apiBaseUrl);
+  const failures: Array<{ story_id: string; error: string }> = [];
+  let deleted = 0;
+  for (const item of items) {
+    const id = String(item.id ?? "");
+    if (!id) continue;
+    try {
+      await planeFetch<unknown>(`${base}/work-items/${id}/`, apiKey, apiBaseUrl, { method: "DELETE" });
+      deleted += 1;
+    } catch (err) {
+      failures.push({ story_id: id, error: err instanceof Error ? err.message : "Delete failed" });
+    }
+  }
+  await planeFetch<unknown>(`${base}/${groupKind}/${groupUuid}/`, apiKey, apiBaseUrl, { method: "DELETE" });
+  return { ok: true, stories_deleted: deleted, story_failures: failures };
+}
+
+export async function planeDeleteEpic(
+  apiKey: string, workspaceSlug: string, projectUuid: string, mintedEpicId: string, apiBaseUrl?: string,
+): Promise<{ ok: boolean; stories_deleted: number; story_failures: Array<{ story_id: string; error: string }> }> {
+  const uuid = resolveId(mintedEpicId);
+  const base = `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}`;
+  return tryEpicsThenModules(
+    () => deleteGroupCascade(apiKey, apiBaseUrl, base, "epics", uuid),
+    () => deleteGroupCascade(apiKey, apiBaseUrl, base, "modules", uuid),
+  );
+}
+
+export async function planeCreateStory(
+  apiKey: string, workspaceSlug: string, projectUuid: string, mintedEpicId: string,
+  subject: string, description: string, tags: string[], statusId: string | undefined, apiBaseUrl?: string,
+): Promise<Story> {
+  const epicUuid = resolveId(mintedEpicId);
+  const base = `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}`;
+  const labelIds = await planeResolveLabelIds(apiKey, workspaceSlug, projectUuid, tags, apiBaseUrl);
+  const body: Record<string, unknown> = { name: subject, description_html: toDescriptionHtml(description), labels: labelIds };
+  if (statusId) body.state = statusId;
+  const created = await planeFetch<Record<string, unknown>>(`${base}/work-items/`, apiKey, apiBaseUrl, { method: "POST", body });
+  const workItemUuid = String(created.id);
+  // Epic/module membership is a join, not a field on the work item — the
+  // create call above only makes the bare work item; this attaches it to its
+  // group. On failure, roll back the orphaned work item (mirrors
+  // taigaCreateStory's rollback-on-link-failure).
+  try {
+    await tryEpicsThenModules(
+      () => planeFetch<unknown>(`${base}/epics/${epicUuid}/issues/`, apiKey, apiBaseUrl, { method: "POST", body: { work_item_ids: [workItemUuid] } }),
+      () => planeFetch<unknown>(`${base}/modules/${epicUuid}/module-issues/`, apiKey, apiBaseUrl, { method: "POST", body: { issues: [workItemUuid] } }),
+    );
+  } catch (err) {
+    await planeFetch<unknown>(`${base}/work-items/${workItemUuid}/`, apiKey, apiBaseUrl, { method: "DELETE" }).catch(() => undefined);
+    throw err;
+  }
+  const raw = await planeFetch<Record<string, unknown>>(`${base}/work-items/${workItemUuid}/`, apiKey, apiBaseUrl);
+  // epic_subject isn't cheaply known here (mirrors getStory's own limitation
+  // — callers needing it should read it off the getBoard result instead).
+  return normalizePlaneWorkItem(raw, { id: mintId(epicUuid), subject: "" });
+}
+
+export async function planeUpdateStory(
+  apiKey: string, workspaceSlug: string, projectUuid: string, mintedStoryId: string,
+  fields: { subject?: string; description?: string; tags?: string[]; status?: string }, apiBaseUrl?: string,
+): Promise<Story> {
+  const uuid = resolveId(mintedStoryId);
+  const base = `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}`;
+  const body: Record<string, unknown> = {};
+  if (fields.subject !== undefined) body.name = fields.subject;
+  if (fields.description !== undefined) body.description_html = toDescriptionHtml(fields.description);
+  if (fields.tags !== undefined) body.labels = await planeResolveLabelIds(apiKey, workspaceSlug, projectUuid, fields.tags, apiBaseUrl);
+  if (fields.status !== undefined) body.state = fields.status;
+  await planeFetch<unknown>(`${base}/work-items/${uuid}/`, apiKey, apiBaseUrl, { method: "PATCH", body });
+  const raw = await planeFetch<Record<string, unknown>>(`${base}/work-items/${uuid}/`, apiKey, apiBaseUrl);
+  const parentUuid = typeof raw.parent === "string" ? raw.parent : "";
+  return normalizePlaneWorkItem(raw, { id: parentUuid ? mintId(parentUuid) : null, subject: "" });
+}
+
+export async function planeDeleteStory(
+  apiKey: string, workspaceSlug: string, projectUuid: string, mintedStoryId: string, apiBaseUrl?: string,
+): Promise<void> {
+  const uuid = resolveId(mintedStoryId);
+  await planeFetch<unknown>(
+    `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}/work-items/${uuid}/`, apiKey, apiBaseUrl, { method: "DELETE" },
+  );
+}
+
+export type PlaneTask = {
+  id: string;
+  ref: string | number;
+  subject: string;
+  description: string;
+  version: string | number;
+  user_story: string | number;
+  user_story_ref: string | number;
+  user_story_subject: string;
+};
+
+function normalizePlaneTask(raw: Record<string, unknown>): PlaneTask {
+  const uuid = String(raw.id);
+  const minted = mintId(uuid);
+  const parentUuid = typeof raw.parent === "string" ? raw.parent : "";
+  const parentMinted = parentUuid ? mintId(parentUuid) : minted;
+  return {
+    id: String(minted),
+    ref: (raw.sequence_id as number) ?? minted,
+    subject: (raw.name as string) || "",
+    description: planeDescription(raw),
+    version: "", // no optimistic-concurrency field on Plane — documented gap, same as Epic/Story
+    user_story: parentMinted,
+    user_story_ref: parentMinted,
+    user_story_subject: "", // not cheaply known here; same limitation as getStory's epic_subject
+  };
+}
+
+/** Plane has no separate "task" resource — a Task is just a work item whose
+ *  `parent` points at a Story's work item (sub-issue), matching how PmTask
+ *  already models Taiga's Task-under-Story relationship. Filters the
+ *  project's full work-item list down to those with a parent set. */
+export async function planeGetProjectTasks(
+  apiKey: string, workspaceSlug: string, projectUuid: string, apiBaseUrl?: string,
+): Promise<PlaneTask[]> {
+  const base = `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}`;
+  const raw = await planeFetchAllPages<Record<string, unknown>>(`${base}/work-items/`, apiKey, apiBaseUrl);
+  return raw.filter((t) => typeof t.parent === "string" && t.parent).map(normalizePlaneTask);
+}
+
+export async function planeGetTask(
+  apiKey: string, workspaceSlug: string, projectUuid: string, mintedTaskId: string, apiBaseUrl?: string,
+): Promise<PlaneTask> {
+  const uuid = resolveId(mintedTaskId);
+  const raw = await planeFetch<Record<string, unknown>>(
+    `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}/work-items/${uuid}/`, apiKey, apiBaseUrl,
+  );
+  return normalizePlaneTask(raw);
+}
+
+export async function planeCreateTask(
+  apiKey: string, workspaceSlug: string, projectUuid: string, mintedStoryId: string,
+  subject: string, description: string, apiBaseUrl?: string, points?: number,
+): Promise<{ id: string; ref: string | number; subject: string }> {
+  const parentUuid = resolveId(mintedStoryId);
+  const base = `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}`;
+  const body: Record<string, unknown> = { name: subject, description_html: toDescriptionHtml(description), parent: parentUuid };
+  if (points !== undefined) body.point = points;
+  const created = await planeFetch<Record<string, unknown>>(`${base}/work-items/`, apiKey, apiBaseUrl, { method: "POST", body });
+  const minted = mintId(String(created.id));
+  return { id: String(minted), ref: (created.sequence_id as number) ?? minted, subject: (created.name as string) || subject };
+}
+
+export async function planeUpdateTask(
+  apiKey: string, workspaceSlug: string, projectUuid: string, mintedTaskId: string,
+  updates: { subject?: string; description?: string }, apiBaseUrl?: string,
+): Promise<void> {
+  const uuid = resolveId(mintedTaskId);
+  const body: Record<string, unknown> = {};
+  if (updates.subject !== undefined) body.name = updates.subject;
+  if (updates.description !== undefined) body.description_html = toDescriptionHtml(updates.description);
+  await planeFetch<unknown>(
+    `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}/work-items/${uuid}/`, apiKey, apiBaseUrl, { method: "PATCH", body },
+  );
+}
+
+export async function planeDeleteTask(
+  apiKey: string, workspaceSlug: string, projectUuid: string, mintedTaskId: string, apiBaseUrl?: string,
+): Promise<void> {
+  const uuid = resolveId(mintedTaskId);
+  await planeFetch<unknown>(
+    `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}/work-items/${uuid}/`, apiKey, apiBaseUrl, { method: "DELETE" },
+  );
 }

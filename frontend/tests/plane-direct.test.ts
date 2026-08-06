@@ -3,11 +3,18 @@ import {
   getPlaneApiBaseUrl,
   isPlaneStateClosed,
   mintId,
+  planeCreateEpic,
+  planeCreateStory,
+  planeCreateTask,
+  planeDeleteEpic,
   planeGetBoard,
   planeGetMe,
+  planeGetProjectTasks,
   planeGetStory,
   planeListProjects,
   planeListStoryStatuses,
+  planeUpdateStory,
+  planeUpdateTask,
   resolveId,
 } from "@/lib/api/plane-direct";
 
@@ -176,5 +183,166 @@ describe("plane direct API", () => {
     }));
     const statuses = await planeListStoryStatuses("key", "my-team", "proj-uuid", "https://api.plane.so");
     expect(statuses[0].group).toBe("completed");
+  });
+
+  // -------------------------------------------------------------------------
+  // Write paths (Phase 3). Field names below are live-confirmed against a
+  // real Plane Cloud workspace (create -> verify -> delete, cleaned up) —
+  // see plane_integration_plan memory's phase-3 section for the exact probe.
+  // -------------------------------------------------------------------------
+
+  it("createEpic posts name/description_html/label_ids to the Epics endpoint when available", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(201, { id: "epic-new", name: "E1", sequence_id: 2 }));
+    const epic = await planeCreateEpic("key", "my-team", "proj-uuid", "E1", "desc", [], "https://api.plane.so");
+    expect(epic.subject).toBe("E1");
+    expect(epic.ref).toBe(2);
+    expect(epic.pm_epic_id).toBe("epic-new");
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).toContain("/epics/");
+    expect(JSON.parse(init.body)).toEqual({ name: "E1", description_html: "<p>desc</p>", label_ids: [] });
+  });
+
+  it("createEpic falls back to Modules (plain description, no label_ids) when Epics is gated", async () => {
+    mockFetch
+      .mockResolvedValueOnce(makeResponse(402, { error: "Payment required", error_code: 1999 }))
+      .mockResolvedValueOnce(makeResponse(201, { id: "mod-new", name: "E1" }));
+    const epic = await planeCreateEpic("key", "my-team", "proj-uuid", "E1", "desc", ["tag"], "https://api.plane.so");
+    expect(epic.pm_epic_id).toBe("mod-new");
+    const [url, init] = mockFetch.mock.calls[1];
+    expect(url).toContain("/modules/");
+    // Modules have no Label concept in Apex's model — tags are dropped on this path.
+    expect(JSON.parse(init.body)).toEqual({ name: "E1", description: "desc" });
+  });
+
+  it("deleteEpic deletes every joined work item before the epic itself (Taiga-parity cascade)", async () => {
+    const epicId = String(mintId("epic-cascade-1"));
+    mockFetch
+      .mockResolvedValueOnce(makeResponse(200, { results: [{ id: "wi-a" }, { id: "wi-b" }], next_cursor: null }))
+      .mockResolvedValueOnce(makeResponse(204, {}))
+      .mockResolvedValueOnce(makeResponse(204, {}))
+      .mockResolvedValueOnce(makeResponse(204, {}));
+
+    const result = await planeDeleteEpic("key", "my-team", "proj-uuid", epicId, "https://api.plane.so");
+
+    expect(result).toEqual({ ok: true, stories_deleted: 2, story_failures: [] });
+    expect(mockFetch.mock.calls[0][0]).toContain("/epics/epic-cascade-1/issues/");
+    expect(mockFetch.mock.calls[1][0]).toContain("/work-items/wi-a/");
+    expect(mockFetch.mock.calls[2][0]).toContain("/work-items/wi-b/");
+    expect(mockFetch.mock.calls[3][0]).toContain("/epics/epic-cascade-1/");
+    expect(mockFetch.mock.calls[3][1].method).toBe("DELETE");
+  });
+
+  it("deleteEpic cascade falls back to Modules when the epics list call itself is gated", async () => {
+    const epicId = String(mintId("epic-cascade-2"));
+    mockFetch
+      .mockResolvedValueOnce(makeResponse(402, { error: "Payment required" }))
+      .mockResolvedValueOnce(makeResponse(200, { results: [{ id: "wi-c" }], next_cursor: null }))
+      .mockResolvedValueOnce(makeResponse(204, {}))
+      .mockResolvedValueOnce(makeResponse(204, {}));
+
+    const result = await planeDeleteEpic("key", "my-team", "proj-uuid", epicId, "https://api.plane.so");
+
+    expect(result.stories_deleted).toBe(1);
+    expect(mockFetch.mock.calls[1][0]).toContain("/modules/epic-cascade-2/module-issues/");
+    expect(mockFetch.mock.calls[3][0]).toContain("/modules/epic-cascade-2/");
+  });
+
+  it("createStory creates the work item then joins it to the epic via the epics/{id}/issues/ endpoint", async () => {
+    const epicId = String(mintId("epic-join-1"));
+    mockFetch
+      .mockResolvedValueOnce(makeResponse(201, { id: "wi-new", name: "S1", sequence_id: 5 }))
+      .mockResolvedValueOnce(makeResponse(200, {}))
+      .mockResolvedValueOnce(makeResponse(200, { id: "wi-new", name: "S1", sequence_id: 5, labels: [], state: null, parent: null }));
+
+    const story = await planeCreateStory("key", "my-team", "proj-uuid", epicId, "S1", "d", [], undefined, "https://api.plane.so");
+
+    expect(story.pm_story_id).toBe("wi-new");
+    expect(mockFetch.mock.calls[1][0]).toContain("/epics/epic-join-1/issues/");
+    expect(JSON.parse(mockFetch.mock.calls[1][1].body)).toEqual({ work_item_ids: ["wi-new"] });
+  });
+
+  it("createStory falls back to the module-issues join (different body key: `issues`, not `work_item_ids`) when Epics is gated", async () => {
+    const epicId = String(mintId("epic-join-2"));
+    mockFetch
+      .mockResolvedValueOnce(makeResponse(201, { id: "wi-new2", name: "S2", sequence_id: 6 }))
+      .mockResolvedValueOnce(makeResponse(403, { detail: "gated" }))
+      .mockResolvedValueOnce(makeResponse(200, {}))
+      .mockResolvedValueOnce(makeResponse(200, { id: "wi-new2", name: "S2", sequence_id: 6, labels: [], state: null, parent: null }));
+
+    const story = await planeCreateStory("key", "my-team", "proj-uuid", epicId, "S2", "d", [], undefined, "https://api.plane.so");
+
+    expect(story.pm_story_id).toBe("wi-new2");
+    expect(mockFetch.mock.calls[2][0]).toContain("/modules/epic-join-2/module-issues/");
+    expect(JSON.parse(mockFetch.mock.calls[2][1].body)).toEqual({ issues: ["wi-new2"] });
+  });
+
+  it("createStory rolls back the orphaned work item when the epic/module join fails for a real (non-gated) reason", async () => {
+    const epicId = String(mintId("epic-join-3"));
+    mockFetch
+      .mockResolvedValueOnce(makeResponse(201, { id: "wi-new3", name: "S3", sequence_id: 7 }))
+      .mockResolvedValueOnce(makeResponse(500, { detail: "server error" }))
+      .mockResolvedValueOnce(makeResponse(204, {}));
+
+    await expect(
+      planeCreateStory("key", "my-team", "proj-uuid", epicId, "S3", "d", [], undefined, "https://api.plane.so"),
+    ).rejects.toMatchObject({ status: 500 });
+
+    expect(mockFetch.mock.calls[2][0]).toContain("/work-items/wi-new3/");
+    expect(mockFetch.mock.calls[2][1].method).toBe("DELETE");
+  });
+
+  it("updateStory resolves tags to label ids — reuses an existing label by name, creates a missing one", async () => {
+    const storyId = String(mintId("story-update-1"));
+    mockFetch
+      // full label list, paginated once, matched client-side (no server-side name filter — see plan memory §3)
+      .mockResolvedValueOnce(makeResponse(200, { results: [{ id: "lbl-bug", name: "bug" }], next_cursor: null }))
+      // "feature" not found -> created
+      .mockResolvedValueOnce(makeResponse(201, { id: "lbl-feature", name: "feature" }))
+      .mockResolvedValueOnce(makeResponse(200, {})) // PATCH
+      .mockResolvedValueOnce(makeResponse(200, {
+        id: "story-update-1", name: "Updated", sequence_id: 9, state: "st1",
+        labels: [{ id: "lbl-bug", name: "bug" }, { id: "lbl-feature", name: "feature" }],
+      }));
+
+    const story = await planeUpdateStory(
+      "key", "my-team", "proj-uuid", storyId, { tags: ["bug", "feature"] }, "https://api.plane.so",
+    );
+
+    expect(story.tags).toEqual(["bug", "feature"]);
+    expect(mockFetch.mock.calls[1][0]).toContain("/labels/");
+    expect(JSON.parse(mockFetch.mock.calls[1][1].body)).toEqual({ name: "feature" });
+    expect(JSON.parse(mockFetch.mock.calls[2][1].body)).toEqual({ labels: ["lbl-bug", "lbl-feature"] });
+  });
+
+  it("getProjectTasks filters work items to those with a parent set (Plane has no separate Task resource)", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(200, {
+      results: [
+        { id: "t1", name: "Task 1", parent: "story-uuid-x", sequence_id: 1 },
+        { id: "s1", name: "Story 1", parent: null, sequence_id: 2 },
+      ],
+      next_cursor: null,
+    }));
+    const tasks = await planeGetProjectTasks("key", "my-team", "proj-uuid", "https://api.plane.so");
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].subject).toBe("Task 1");
+  });
+
+  it("createTask sends parent = the resolved story UUID and points as `point`", async () => {
+    const storyId = String(mintId("story-for-task-1"));
+    mockFetch.mockResolvedValueOnce(makeResponse(201, { id: "task-new", name: "T1", sequence_id: 4 }));
+    const task = await planeCreateTask("key", "my-team", "proj-uuid", storyId, "T1", "d", "https://api.plane.so", 3);
+    const [, init] = mockFetch.mock.calls[0];
+    expect(JSON.parse(init.body)).toEqual({ name: "T1", description_html: "<p>d</p>", parent: "story-for-task-1", point: 3 });
+    expect(task.ref).toBe(4);
+  });
+
+  it("updateTask sends only the fields provided, translating description to description_html", async () => {
+    const taskId = String(mintId("task-update-1"));
+    mockFetch.mockResolvedValueOnce(makeResponse(200, {}));
+    await planeUpdateTask("key", "my-team", "proj-uuid", taskId, { description: "new desc" }, "https://api.plane.so");
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).toContain("/work-items/task-update-1/");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body)).toEqual({ description_html: "<p>new desc</p>" });
   });
 });
