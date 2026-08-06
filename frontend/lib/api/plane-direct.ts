@@ -27,7 +27,7 @@
  */
 import { ApiError, ApiNetworkError, getApiBaseUrl } from "./client";
 import { mintId, resolveId } from "./plane-id-shim";
-import type { Epic, EpicWithStories, Me, Project, Story } from "./types";
+import type { Epic, EpicWithStories, Me, Membership, Project, Story } from "./types";
 
 export { mintId, resolveId };
 
@@ -634,5 +634,92 @@ export async function planeDeleteTask(
   const uuid = resolveId(mintedTaskId);
   await planeFetch<unknown>(
     `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}/work-items/${uuid}/`, apiKey, apiBaseUrl, { method: "DELETE" },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Members/roles (phase 4d). Membership.id is already typed `string` in the
+// shared type (no id-shim needed — unlike Story/Epic/Task, Apex never treats
+// a membership id as a number anywhere).
+// ---------------------------------------------------------------------------
+
+// Plane has no "list assignable roles" endpoint — the numeric encoding is
+// fixed and documented (Guest=5, Member=15, Admin=20; Owner has no separate
+// settable value found anywhere, live-confirmed: Owner and Admin both show
+// role:20, only role_slug distinguishes them — see plane_integration_plan
+// memory §2/§4d), so this is hardcoded rather than fetched. Owner excluded
+// deliberately — not something this role-change endpoint can assign to.
+const _PLANE_ASSIGNABLE_ROLES = [{ id: 5, name: "Guest" }, { id: 15, name: "Member" }, { id: 20, name: "Admin" }];
+
+function planeRoleName(raw: Record<string, unknown>): string {
+  const slug = raw.role_slug;
+  if (typeof slug === "string" && slug) return slug.charAt(0).toUpperCase() + slug.slice(1);
+  const byId = _PLANE_ASSIGNABLE_ROLES.find((r) => r.id === Number(raw.role));
+  return byId?.name ?? "";
+}
+
+export async function planeGetUsers(
+  apiKey: string, workspaceSlug: string, projectUuid: string, apiBaseUrl?: string,
+): Promise<{ memberships: Membership[]; roles: Array<{ id: number; name: string }> }> {
+  const raw = await planeFetchAllPages<Record<string, unknown>>(
+    `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}/project-members/`, apiKey, apiBaseUrl,
+  );
+  const memberships: Membership[] = raw.map((m) => ({
+    id: String(m.id),
+    user: null,
+    username: (m.display_name as string) || "",
+    full_name: [m.first_name, m.last_name].filter(Boolean).join(" ") || (m.display_name as string) || "",
+    email: (m.email as string) || "",
+    role: (m.role as number) ?? null,
+    role_name: planeRoleName(m),
+    is_owner: m.role_slug === "owner",
+  }));
+  return { memberships, roles: _PLANE_ASSIGNABLE_ROLES };
+}
+
+/** Plane has no direct "invite by email" at the project level — adding
+ *  someone to a project needs their existing WORKSPACE member id (joining a
+ *  workspace at all is a separate Workspace Invitations flow Apex doesn't
+ *  build — see plane_integration_plan memory). This resolves the given
+ *  email/display-name against the workspace's existing members instead,
+ *  covering the common real case (the org's team is already in the
+ *  workspace) without full invite-a-stranger parity with Taiga. */
+export async function planeInviteUser(
+  apiKey: string, workspaceSlug: string, projectUuid: string,
+  usernameOrEmail: string, roleId: number, apiBaseUrl?: string,
+): Promise<void> {
+  const base = `workspaces/${encodeURIComponent(workspaceSlug)}`;
+  const workspaceMembers = await planeFetchAllPages<Record<string, unknown>>(`${base}/members/`, apiKey, apiBaseUrl);
+  const key = usernameOrEmail.trim().toLowerCase();
+  const match = workspaceMembers.find((m) =>
+    String(m.email ?? "").toLowerCase() === key || String(m.display_name ?? "").toLowerCase() === key,
+  );
+  if (!match) {
+    throw new ApiError(
+      404,
+      `${usernameOrEmail} must already be a member of this Plane workspace — Apex can't invite new people to a Plane workspace yet.`,
+    );
+  }
+  await planeFetch<unknown>(`${base}/projects/${projectUuid}/project-members/`, apiKey, apiBaseUrl, {
+    method: "POST",
+    body: { member: match.id, role: roleId },
+  });
+}
+
+export async function planeRemoveMember(
+  apiKey: string, workspaceSlug: string, projectUuid: string, membershipId: string, apiBaseUrl?: string,
+): Promise<void> {
+  await planeFetch<unknown>(
+    `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}/project-members/${membershipId}/`,
+    apiKey, apiBaseUrl, { method: "DELETE" },
+  );
+}
+
+export async function planeUpdateMemberRole(
+  apiKey: string, workspaceSlug: string, projectUuid: string, membershipId: string, roleId: number, apiBaseUrl?: string,
+): Promise<void> {
+  await planeFetch<unknown>(
+    `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}/project-members/${membershipId}/`,
+    apiKey, apiBaseUrl, { method: "PATCH", body: { role: roleId } },
   );
 }

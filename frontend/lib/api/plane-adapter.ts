@@ -1,13 +1,13 @@
 /**
  * Plane.so implementation of ProjectManagementAdapter.
  *
- * Read + write paths for epic/story/task (Phases 2-3 of the Plane
- * integration — see plane_integration_plan memory). Project CRUD and
- * membership management are still unimplemented — every such method throws a
- * clear "not yet supported for Plane" error rather than being silently
- * missing, per the pm-adapter-sync skill's stub convention: callers get a
- * compile-time presence guarantee and a legible runtime message, not a
- * missing method.
+ * Read + write paths for epic/story/task (phases 2-3), project-scoped
+ * members/roles (phase 4d) — see plane_integration_plan memory. Project CRUD
+ * is still unimplemented (createProject/updateProject/deleteProject) — every
+ * such method throws a clear "not yet supported for Plane" error rather than
+ * being silently missing, per the pm-adapter-sync skill's stub convention:
+ * callers get a compile-time presence guarantee and a legible runtime
+ * message, not a missing method.
  */
 import {
   isPlane401,
@@ -24,9 +24,13 @@ import {
   planeGetProjectTasks,
   planeGetStory,
   planeGetTask,
+  planeGetUsers,
+  planeInviteUser,
   planeListProjects,
   planeListStoryStatuses,
+  planeRemoveMember,
   planeUpdateEpic,
+  planeUpdateMemberRole,
   planeUpdateStory,
   planeUpdateTask,
 } from "./plane-direct";
@@ -109,10 +113,19 @@ const planeAdapter: ProjectManagementAdapter = {
     return statuses.map((s) => ({ id: s.id, name: s.name, color: s.color, is_closed: isPlaneStateClosed(s.group) }));
   },
 
-  getUsers: () => notSupported("Listing members"),
-  inviteUser: () => notSupported("Inviting a member"),
-  removeMember: () => notSupported("Removing a member"),
-  updateMemberRole: () => notSupported("Updating a member's role"),
+  getUsers: async (ctx: PmRequestContext) => {
+    const result = await planeGetUsers(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, ctx.baseUrl);
+    return { memberships: result.memberships, roles: result.roles.map((r) => ({ id: String(r.id), name: r.name })) };
+  },
+
+  inviteUser: (ctx: PmRequestContext, usernameOrEmail: string, roleId: string) =>
+    planeInviteUser(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, usernameOrEmail, Number(roleId), ctx.baseUrl),
+
+  removeMember: (ctx: PmRequestContext, membershipId: string) =>
+    planeRemoveMember(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, membershipId, ctx.baseUrl),
+
+  updateMemberRole: (ctx: PmRequestContext, membershipId: string, roleId: string) =>
+    planeUpdateMemberRole(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, membershipId, Number(roleId), ctx.baseUrl),
 
   getProjectTasks: (ctx: PmRequestContext) =>
     planeGetProjectTasks(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, ctx.baseUrl),

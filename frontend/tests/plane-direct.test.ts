@@ -11,8 +11,12 @@ import {
   planeGetMe,
   planeGetProjectTasks,
   planeGetStory,
+  planeGetUsers,
+  planeInviteUser,
   planeListProjects,
   planeListStoryStatuses,
+  planeRemoveMember,
+  planeUpdateMemberRole,
   planeUpdateStory,
   planeUpdateTask,
   resolveId,
@@ -344,5 +348,80 @@ describe("plane direct API", () => {
     expect(url).toContain("/work-items/task-update-1/");
     expect(init.method).toBe("PATCH");
     expect(JSON.parse(init.body)).toEqual({ description_html: "<p>new desc</p>" });
+  });
+
+  // -------------------------------------------------------------------------
+  // Members/roles (phase 4d). Field shapes live-confirmed against a real
+  // workspace: project-members DOES carry a role field (the documented
+  // example omitting it was stale/wrong) — role:20 is shared by both Owner
+  // and Admin, role_slug is the only field that actually distinguishes them.
+  // -------------------------------------------------------------------------
+
+  it("getUsers maps project-members, prefers role_slug for role_name, and hardcodes the assignable-roles list", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(200, {
+      results: [
+        { id: "m1", first_name: "Tom", last_name: "T", display_name: "tomtom", email: "tom@x.test", role: 20, role_slug: "owner" },
+        { id: "m2", first_name: "Ana", last_name: "", display_name: "ana", email: "ana@x.test", role: 15, role_slug: "member" },
+      ],
+      next_cursor: null,
+    }));
+
+    const { memberships, roles } = await planeGetUsers("key", "my-team", "proj-uuid", "https://api.plane.so");
+
+    expect(memberships).toHaveLength(2);
+    expect(memberships[0]).toMatchObject({ id: "m1", full_name: "Tom T", email: "tom@x.test", role: 20, role_name: "Owner", is_owner: true });
+    expect(memberships[1]).toMatchObject({ id: "m2", role_name: "Member", is_owner: false });
+    // No "list roles" endpoint exists on Plane — this is hardcoded, not fetched.
+    expect(roles).toEqual([{ id: 5, name: "Guest" }, { id: 15, name: "Member" }, { id: 20, name: "Admin" }]);
+    expect(mockFetch.mock.calls[0][0]).toContain("/project-members/");
+  });
+
+  it("inviteUser resolves an existing workspace member by email, then adds them to the project", async () => {
+    mockFetch
+      .mockResolvedValueOnce(makeResponse(200, {
+        results: [{ id: "wm1", email: "ana@x.test", display_name: "ana" }],
+        next_cursor: null,
+      }))
+      .mockResolvedValueOnce(makeResponse(201, {}));
+
+    await planeInviteUser("key", "my-team", "proj-uuid", "ana@x.test", 15, "https://api.plane.so");
+
+    expect(mockFetch.mock.calls[0][0]).toContain("/workspaces/my-team/members/");
+    const [addUrl, addInit] = mockFetch.mock.calls[1];
+    expect(addUrl).toContain("/projects/proj-uuid/project-members/");
+    expect(JSON.parse(addInit.body)).toEqual({ member: "wm1", role: 15 });
+  });
+
+  it("inviteUser matches case-insensitively on display_name too, not just email", async () => {
+    mockFetch
+      .mockResolvedValueOnce(makeResponse(200, { results: [{ id: "wm2", email: "", display_name: "Ana" }], next_cursor: null }))
+      .mockResolvedValueOnce(makeResponse(201, {}));
+    await planeInviteUser("key", "my-team", "proj-uuid", "ANA", 5, "https://api.plane.so");
+    expect(JSON.parse(mockFetch.mock.calls[1][1].body)).toEqual({ member: "wm2", role: 5 });
+  });
+
+  it("inviteUser throws a clear error when no matching workspace member exists — Plane can't invite strangers", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(200, { results: [], next_cursor: null }));
+    await expect(
+      planeInviteUser("key", "my-team", "proj-uuid", "nobody@x.test", 15, "https://api.plane.so"),
+    ).rejects.toThrow(/must already be a member/);
+    expect(mockFetch).toHaveBeenCalledTimes(1); // never attempted the add call
+  });
+
+  it("removeMember DELETEs the project-member", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(204, {}));
+    await planeRemoveMember("key", "my-team", "proj-uuid", "m1", "https://api.plane.so");
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).toContain("/project-members/m1/");
+    expect(init.method).toBe("DELETE");
+  });
+
+  it("updateMemberRole PATCHes just the role field", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(200, {}));
+    await planeUpdateMemberRole("key", "my-team", "proj-uuid", "m1", 20, "https://api.plane.so");
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).toContain("/project-members/m1/");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body)).toEqual({ role: 20 });
   });
 });

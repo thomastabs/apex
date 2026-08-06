@@ -318,19 +318,25 @@ async function pushPhase1StoriesDirect(
     throw new Error(`All story pushes failed. First error: ${pushFailures[0]?.error ?? "unknown"}`);
   }
 
-  // Build PM web URLs for created stories (best-effort)
+  // Build PM web URLs for created stories (best-effort, Taiga only — Plane's
+  // per-story deep-link URL scheme isn't confirmed yet, see
+  // plane_integration_plan memory; skip the dial entirely for Plane rather
+  // than sending Plane's project id/token to Taiga's API, which would just
+  // fail on every call).
   let storyUrls: string[] = [];
-  try {
-    // Fetch project slug then build tree.taiga.io URLs
-    const { slug } = await taigaGetProject(context.taigaToken, context.projectId, context.taigaApiUrl);
-    if (slug) {
-      const webBase = (context.taigaApiUrl ?? "")
-        .replace("/api/v1", "")
-        .replace("//api.taiga.io", "//tree.taiga.io")
-        .replace(/\/+$/, "");
-      storyUrls = createdStories.filter((s) => s.ref).map((s) => `${webBase}/project/${slug}/us/${s.ref}`);
-    }
-  } catch { /* skip URLs if fetch fails */ }
+  if (context.pmTool !== "plane") {
+    try {
+      // Fetch project slug then build tree.taiga.io URLs
+      const { slug } = await taigaGetProject(context.taigaToken, context.projectId, context.taigaApiUrl);
+      if (slug) {
+        const webBase = (context.taigaApiUrl ?? "")
+          .replace("/api/v1", "")
+          .replace("//api.taiga.io", "//tree.taiga.io")
+          .replace(/\/+$/, "");
+        storyUrls = createdStories.filter((s) => s.ref).map((s) => `${webBase}/project/${slug}/us/${s.ref}`);
+      }
+    } catch { /* skip URLs if fetch fails */ }
+  }
 
   const finalized = await apiRequest<Phase1PushStoriesResponse>("/api/phase1/finalize-stories", {
     method: "POST",
