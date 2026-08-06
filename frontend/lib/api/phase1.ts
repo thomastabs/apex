@@ -338,10 +338,16 @@ async function pushPhase1StoriesDirect(
     body: {
       epic_id: epic.id,
       epic_subject: epic.subject,
+      // Plane's real epic/module UUID (undefined for Taiga) — lets the
+      // backend mint its own stable story-index id instead of trusting
+      // epic.id, which for Plane is only a session-local shim value. See
+      // plane_integration_plan memory phase 4b.
+      pm_epic_id: epic.pm_epic_id ?? undefined,
       stories: createdStories.map((story) => ({
         id: story.id,
         title: story.title,
         gherkin: story.gherkin,
+        pm_story_id: story.pm_story_id ?? undefined,
       })),
       clarifications: body.clarifications ?? [],
     },

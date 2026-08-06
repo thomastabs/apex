@@ -521,3 +521,188 @@ class TestPlaneIdentityAnchor:
         with pytest.raises(HTTPException) as exc:
             deps.get_auth_context("Bearer goodtoken", "", "https://192.168.1.1")
         assert exc.value.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Project-id normalisation (phase 4a — Plane's UUID project ids alongside
+# Taiga's numeric ones)
+# ---------------------------------------------------------------------------
+
+class TestParseProjectId:
+    def test_taiga_numeric_string_becomes_int(self):
+        assert deps._parse_project_id("42") == 42
+        assert isinstance(deps._parse_project_id("42"), int)
+
+    def test_raw_int_passes_through(self):
+        assert deps._parse_project_id(42) == 42
+
+    def test_uuid_string_stays_a_string(self):
+        uuid = "f722d8f5-57a4-4c98-8651-f7e89970c359"
+        assert deps._parse_project_id(uuid) == uuid
+        assert isinstance(deps._parse_project_id(uuid), str)
+
+    def test_none_and_empty_and_whitespace_return_none(self):
+        assert deps._parse_project_id(None) is None
+        assert deps._parse_project_id("") is None
+        assert deps._parse_project_id("   ") is None
+
+    def test_zero_and_negative_int_return_none(self):
+        assert deps._parse_project_id(0) is None
+        assert deps._parse_project_id(-1) is None
+        assert deps._parse_project_id("0") is None
+        assert deps._parse_project_id("-1") is None
+
+    # SECURITY REGRESSION (2026-08-06): a crafted non-UUID X-Project-Id used
+    # to sail through unchanged on the assumption the PM access check would
+    # reject it — it didn't (httpx collapses ".." dot-segments building the
+    # outbound request, redirecting the check onto an unrelated always-200
+    # endpoint), and the unvalidated string then reached a filesystem path
+    # join with zero sanitization. Every one of these must now be rejected
+    # right here, before it can reach a URL template or a path join.
+    @pytest.mark.parametrize("payload", [
+        "../users/me",
+        "../../etc/passwd",
+        "..",
+        "a/b",
+        "a\\b",
+        "foo/../bar",
+        "not-a-uuid-at-all",
+        "f722d8f5-57a4-4c98-8651-f7e89970c35",   # one char short of a real UUID
+        "f722d8f5-57a4-4c98-8651-f7e89970c3599",  # one char long
+        "f722d8f5_57a4_4c98_8651_f7e89970c359",  # underscores, not hyphens
+    ])
+    def test_rejects_non_uuid_non_numeric_strings(self, payload):
+        assert deps._parse_project_id(payload) is None
+
+    def test_accepts_a_real_uuid_shape(self):
+        uuid = "f722d8f5-57a4-4c98-8651-f7e89970c359"
+        assert deps._parse_project_id(uuid) == uuid
+
+    def test_accepts_uppercase_uuid_shape(self):
+        # Real Plane UUIDs are lowercase, but the regex itself should not be
+        # needlessly case-sensitive — uppercase hex is still a valid UUID.
+        uuid = "F722D8F5-57A4-4C98-8651-F7E89970C359"
+        assert deps._parse_project_id(uuid) == uuid
+
+
+class TestValidatePlaneWorkspaceSlug:
+    @pytest.mark.parametrize("slug", ["../users/me", "a/b", "a\\b", "..", "", "foo bar"])
+    def test_rejects_malformed_slugs(self, slug):
+        with pytest.raises(HTTPException) as exc:
+            deps._validate_plane_workspace_slug(slug)
+        assert exc.value.status_code == 400
+
+    @pytest.mark.parametrize("slug", ["my-team", "apex-bolt", "team_1", "a"])
+    def test_accepts_real_slug_shapes(self, slug):
+        assert deps._validate_plane_workspace_slug(slug) == slug
+
+
+# ---------------------------------------------------------------------------
+# Project-scoped access check on a Plane anchor (phase 4a)
+# ---------------------------------------------------------------------------
+
+class TestPlaneProjectAccess:
+    PLANE_URL = "https://plane.example.test"
+    UUID = "f722d8f5-57a4-4c98-8651-f7e89970c359"
+
+    def test_builds_the_workspace_scoped_project_url_and_accepts(self):
+        pm, client = _mock_plane_pm(200)
+        with pm:
+            deps._verify_project_access("goodtoken", self.UUID, "", self.PLANE_URL, "my-team")
+        url = client.request.call_args.args[1]
+        assert url == f"{self.PLANE_URL}/api/v1/workspaces/my-team/projects/{self.UUID}/"
+        assert client.request.call_args.kwargs["headers"]["X-Api-Key"] == "goodtoken"
+
+    def test_rejected_by_pm_raises_403(self):
+        pm, _ = _mock_plane_pm(403)
+        with pm:
+            with pytest.raises(HTTPException) as exc:
+                deps._verify_project_access("badtoken", self.UUID, "", self.PLANE_URL, "my-team")
+        assert exc.value.status_code == 403
+
+    def test_missing_workspace_slug_raises_400_before_dialing_anything(self):
+        client = MagicMock()
+        with patch.object(deps, "_get_verify_client", return_value=client):
+            with pytest.raises(HTTPException) as exc:
+                deps._verify_project_access("goodtoken", self.UUID, "", self.PLANE_URL, "")
+        assert exc.value.status_code == 400
+        client.request.assert_not_called()
+
+    def test_get_request_context_end_to_end_with_a_plane_uuid_project_id(self):
+        """Full get_request_context flow (real_auth — not bypassed): a Plane
+        anchor, a UUID project id, and a workspace slug all threaded through
+        correctly to land on RequestContext.project_id as the real UUID."""
+        pm, client = _mock_plane_pm(200)
+        with pm, patch("src.context_manager.instance_key", return_value="plane_example_test"):
+            ctx = deps.get_request_context(
+                authorization="Bearer goodtoken",
+                x_taiga_url="",
+                project_id_new=self.UUID,
+                project_id_legacy=None,
+                x_plane_url=self.PLANE_URL,
+                x_plane_workspace="my-team",
+            )
+        assert ctx.project_id == self.UUID
+        assert isinstance(ctx.project_id, str)
+        assert ctx.instance_id == "plane_example_test"
+        # Two dials on the (mocked) client: identity check + project check —
+        # account-id resolution reuses the identity dial's cached result.
+        urls = [c.args[1] for c in client.request.call_args_list]
+        assert any(u.endswith("/api/v1/users/me/") for u in urls)
+        assert any(u == f"{self.PLANE_URL}/api/v1/workspaces/my-team/projects/{self.UUID}/" for u in urls)
+
+    def test_get_request_context_rejects_missing_workspace_for_a_plane_project(self):
+        pm, _ = _mock_plane_pm(200)
+        with pm:
+            with pytest.raises(HTTPException) as exc:
+                deps.get_request_context(
+                    authorization="Bearer goodtoken",
+                    x_taiga_url="",
+                    project_id_new=self.UUID,
+                    project_id_legacy=None,
+                    x_plane_url=self.PLANE_URL,
+                    x_plane_workspace="",
+                )
+        assert exc.value.status_code == 400
+
+    # SECURITY REGRESSION (2026-08-06) — the actual exploit chain: a crafted
+    # X-Project-Id used to reach _verify_project_access unrejected, whose PM
+    # dial does not itself validate shape (it's an authorization check, not
+    # a validator) — must now be rejected by _parse_project_id before
+    # get_request_context ever calls _verify_project_access at all. The PM
+    # mock below would happily return 200 for ANY dialed URL if this were
+    # broken (proving the old code's implicit trust in "the PM will reject
+    # it" was the actual bug), so a 400 here — not a 403 from a real (if
+    # misdirected) PM dial — is the thing that proves the fix.
+    def test_get_request_context_rejects_a_path_traversal_project_id(self):
+        pm, client = _mock_plane_pm(200)  # would accept ANY URL — the point
+        with pm:
+            with pytest.raises(HTTPException) as exc:
+                deps.get_request_context(
+                    authorization="Bearer goodtoken",
+                    x_taiga_url="",
+                    project_id_new="../users/me",
+                    project_id_legacy=None,
+                    x_plane_url=self.PLANE_URL,
+                    x_plane_workspace="my-team",
+                )
+        assert exc.value.status_code == 400
+        # The PM must never even have been dialed for the project check —
+        # rejection happens before _verify_project_access runs at all.
+        client.request.assert_not_called()
+
+    def test_verify_project_access_also_rejects_a_path_traversal_id_directly(self):
+        # Defense-in-depth: even if some future caller reached
+        # _verify_project_access directly with a bad id (bypassing
+        # get_request_context's own _parse_project_id gate), .format() on
+        # the URL template itself doesn't validate — this pins that
+        # _parse_project_id is the ONLY thing standing between a bad id and
+        # a dial, by showing _verify_project_access alone does NOT reject it
+        # (i.e. the gate must stay upstream, not be assumed here too).
+        pm, client = _mock_plane_pm(200)
+        with pm:
+            deps._verify_project_access("goodtoken", "../users/me", "", self.PLANE_URL, "my-team")
+        # No exception — confirms the traversal payload reaches the PM dial
+        # unless the caller (get_request_context) already rejected it.
+        url = client.request.call_args.args[1]
+        assert "../users/me" in url

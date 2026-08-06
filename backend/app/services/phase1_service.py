@@ -256,12 +256,21 @@ class Phase1Service:
         epic_subject: str,
         stories: list[dict],
         clarifications: list[dict] | None = None,
+        pm_epic_id: str | None = None,
     ) -> dict:
         self.context.set_active(ctx)
         self.context.init_context()
+        # Taiga: epic_id/item["id"] are already the PM's real, stable ids —
+        # reused directly, unchanged behaviour. Plane: those are the
+        # frontend's session-local id-shim values (not stable across a
+        # reload), so when a pm_epic_id/pm_story_id UUID is present, mint
+        # Apex's own durable int instead of trusting the caller-supplied one
+        # — see plane_integration_plan memory phase 4b.
+        resolved_epic_id = self.context.mint_pm_id(pm_epic_id) if pm_epic_id else epic_id
         story_ids: list[int] = []
         for item in stories:
-            story_id = int(item["id"])
+            pm_story_id = item.get("pm_story_id")
+            story_id = self.context.mint_pm_id(pm_story_id) if pm_story_id else int(item["id"])
             title = item["title"].strip()
             gherkin = item["gherkin"].strip()
             if not gherkin or "Scenario" not in gherkin:
@@ -272,15 +281,15 @@ class Phase1Service:
                 story_id,
                 title,
                 gherkin,
-                epic_id=epic_id,
+                epic_id=resolved_epic_id,
                 epic_title=epic_subject,
             )
             story_ids.append(story_id)
-        if epic_id and clarifications:
-            self.context.save_epic_clarifications(epic_id, epic_subject, clarifications)
+        if resolved_epic_id and clarifications:
+            self.context.save_epic_clarifications(resolved_epic_id, epic_subject, clarifications)
         return {
             "ok": True,
-            "epic_id": epic_id,
+            "epic_id": resolved_epic_id,
             "count": len(story_ids),
             "story_ids": story_ids,
         }

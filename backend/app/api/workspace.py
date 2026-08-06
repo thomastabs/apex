@@ -14,6 +14,7 @@ from backend.app.api.deps import (
     anchor_instance_id,
     get_auth_context,
     get_request_context,
+    resolve_plane_base,
     resolve_taiga_base,
 )
 from backend.app.schemas.workspace import (
@@ -648,6 +649,8 @@ def pull_context_from_wiki(
 def get_status_mapping(
     ctx: RequestContext = Depends(get_request_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+    x_plane_url: str = Header(default="", alias="X-Plane-Url"),
+    x_plane_workspace: str = Header(default="", alias="X-Plane-Workspace"),
 ):
     from backend.app.services import import_service
     from src import context_manager
@@ -681,6 +684,46 @@ def get_status_mapping(
                 "source": "configured" if status_id in saved else "default",
                 "is_closed": bool(item.get("is_closed")),
             })
+    elif pm_tool == "plane":
+        x_plane_workspace = x_plane_workspace.strip()
+        if not x_plane_workspace:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="X-Plane-Workspace header is required.",
+            )
+        # SECURITY: validate before interpolating into the URL below — this
+        # builds its own path rather than going through _pm_endpoints, so it
+        # needs its own explicit check (see deps.py's module-level security
+        # note, phase 4a). ctx.project_id is already strict-shape-checked by
+        # get_request_context/_parse_project_id before this route ever runs.
+        # .strip() first, matching _pm_endpoints' own handling of this same
+        # header — the validator itself doesn't strip (2026-08-06 review).
+        deps._validate_plane_workspace_slug(x_plane_workspace)
+        plane_base = resolve_plane_base(x_plane_url)
+        try:
+            states_raw = import_service._plane_get_all(
+                plane_base, ctx.pm_token,
+                f"workspaces/{x_plane_workspace}/projects/{ctx.project_id}/states/",
+            )
+        except Exception as exc:
+            _logger.error("status mapping fetch failed: %s", exc)
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Failed to fetch Plane states: {exc}") from exc
+        for item in states_raw:
+            status_id = str(item.get("id", ""))
+            if not status_id:
+                continue
+            default_status = import_service._map_plane_status(item)
+            mapped_status = saved.get(status_id, default_status)
+            group = item.get("group", "")
+            entries.append({
+                "id": status_id,
+                "name": item.get("name", f"State {status_id}"),
+                "slug": group,
+                "mapped_status": mapped_status,
+                "default_status": default_status,
+                "source": "configured" if status_id in saved else "default",
+                "is_closed": group in ("completed", "cancelled"),
+            })
     return {"pm_tool": pm_tool, "statuses": entries, "mapping": saved}
 
 
@@ -689,11 +732,13 @@ def save_status_mapping(
     payload: SaveStatusMappingRequest,
     ctx: RequestContext = Depends(get_request_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+    x_plane_url: str = Header(default="", alias="X-Plane-Url"),
+    x_plane_workspace: str = Header(default="", alias="X-Plane-Workspace"),
 ):
     context = ContextService()
     context.set_active(ctx)
     context.save_status_mapping(payload.mapping)
-    return get_status_mapping(ctx, x_taiga_url)
+    return get_status_mapping(ctx, x_taiga_url, x_plane_url, x_plane_workspace)
 
 
 @router.get("/bolt-config", response_model=BoltConfigResponse)

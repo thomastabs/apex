@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ApiError, apiRequest, getApiBaseUrl } from "@/lib/api/client";
 import { savePmConfig } from "@/lib/api/workspace";
+import { mintId } from "@/lib/api/plane-id-shim";
 import { AiSection } from "./sidebar/ai-section";
 import { LanguageSection } from "./sidebar/language-section";
 import { StatusMappingSection } from "./sidebar/status-mapping-section";
@@ -515,11 +516,27 @@ function useRestoreSession() {
 function useRestoreProjectConfig() {
   const projectId = useSessionStore((s) => s.projectId);
   const projectName = useSessionStore((s) => s.projectName);
+  const pmTool = useSessionStore((s) => s.pmTool);
+  const planeProjectId = useSessionStore((s) => s.planeProjectId);
   const setProject = useSessionStore((s) => s.setProject);
   const projects = useProjects();
   const serverConfig = useServerConfig();
 
   useEffect(() => {
+    if (pmTool === "plane" && planeProjectId) {
+      // Plane's id-mint table (plane-id-shim.ts) is a module singleton that
+      // resets on every reload — a persisted minted int matches nothing in a
+      // fresh table even for the same real project. mintId() is idempotent
+      // per real UUID within a session, and useProjects() above already
+      // minted every current project, so this recovers the correct int for
+      // THIS session rather than leaving a stale, now-meaningless one set.
+      const freshId = mintId(planeProjectId);
+      if (freshId !== projectId) {
+        const match = projects.data?.find((p) => p.id === freshId);
+        setProject({ projectId: freshId, projectName: match?.name ?? projectName, pmProjectSlug: match?.slug ?? undefined });
+      }
+      return;
+    }
     if (projectId) {
       const match = projects.data?.find((p) => p.id === projectId);
       if (match && projectName !== match.name) setProject({ projectId, projectName: match.name });
@@ -529,7 +546,7 @@ function useRestoreProjectConfig() {
     if (!serverId) return;
     const match = projects.data?.find((p) => p.id === serverId);
     setProject({ projectId: serverId, projectName: match?.name ?? "" });
-  }, [projectId, projectName, serverConfig.data?.project_id, projects.data, setProject]);
+  }, [projectId, projectName, pmTool, planeProjectId, serverConfig.data?.project_id, projects.data, setProject]);
 }
 
 // ── main Sidebar ──────────────────────────────────────────────────────────────

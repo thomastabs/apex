@@ -1900,3 +1900,78 @@ class TestInstanceSecretStorage:
         assert ctx.get_instance_figma_token() == "figd_xyz789"
         assert ctx.has_instance_github_pat() is True
         assert ctx.has_instance_figma_token() is True
+
+
+# ---------------------------------------------------------------------------
+# mint_pm_id / resolve_pm_id — backend-persisted UUID <-> Apex int (phase 4b)
+# ---------------------------------------------------------------------------
+
+class TestMintPmId:
+    UUID_A = "f722d8f5-57a4-4c98-8651-f7e89970c359"
+    UUID_B = "11111111-2222-3333-4444-555555555555"
+
+    def test_mints_a_new_id_and_is_idempotent(self, ctx):
+        a1 = ctx.mint_pm_id(self.UUID_A)
+        a2 = ctx.mint_pm_id(self.UUID_A)
+        assert a1 == a2
+        assert isinstance(a1, int)
+
+    def test_different_uuids_get_different_ids(self, ctx):
+        a = ctx.mint_pm_id(self.UUID_A)
+        b = ctx.mint_pm_id(self.UUID_B)
+        assert a != b
+
+    def test_resolve_pm_id_reverses_the_mint(self, ctx):
+        minted = ctx.mint_pm_id(self.UUID_A)
+        assert ctx.resolve_pm_id(minted) == self.UUID_A
+
+    def test_resolve_pm_id_none_for_never_minted(self, ctx):
+        assert ctx.resolve_pm_id(999999) is None
+
+    def test_survives_the_in_memory_story_index_cache_reset(self, ctx):
+        # Unlike the frontend's session-local plane-id-shim.ts, this must
+        # survive a fresh process (simulated here by clearing the in-memory
+        # story-index caches, which a real reload/new-worker would too) —
+        # it's a real file on disk, not a module-global Map.
+        minted = ctx.mint_pm_id(self.UUID_A)
+        ctx._story_index_caches.clear()
+        assert ctx.mint_pm_id(self.UUID_A) == minted
+
+    def test_scoped_per_project(self, ctx):
+        minted_a = ctx.mint_pm_id(self.UUID_A)
+        ctx.set_active_project(4242)
+        minted_elsewhere = ctx.mint_pm_id(self.UUID_A)
+        # Different project directory -> independent counter/map, may or may
+        # not collide numerically, but must not be assumed shared.
+        ctx.set_active_project(99999)  # back to the fixture's test project
+        assert ctx.resolve_pm_id(minted_a) == self.UUID_A
+        assert minted_elsewhere >= 1
+
+
+# ---------------------------------------------------------------------------
+# _context_dir — path-traversal defense-in-depth (2026-08-06 security review,
+# phase 4a — see deps.py's module-level security note for the full story)
+# ---------------------------------------------------------------------------
+
+class TestContextDirRejectsTraversal:
+    @pytest.mark.parametrize("bad_id", [
+        "../users/me",
+        "../../etc/passwd",
+        "a/b",
+        "a\\b",
+        "..",
+        "foo/../../bar",
+    ])
+    def test_rejects_path_separators_and_dotdot(self, ctx, bad_id):
+        with pytest.raises(ValueError):
+            ctx._context_dir(bad_id)
+
+    def test_accepts_a_real_uuid(self, ctx):
+        # Sanity check the guard isn't over-broad — a legitimate Plane id
+        # must still work.
+        d = ctx._context_dir("f722d8f5-57a4-4c98-8651-f7e89970c359")
+        assert d.name == "f722d8f5-57a4-4c98-8651-f7e89970c359"
+
+    def test_accepts_a_real_int(self, ctx):
+        d = ctx._context_dir(42)
+        assert d.name == "42"

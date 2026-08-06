@@ -49,6 +49,14 @@ class ContextService:
     def save_status_mapping(self, mapping: dict[str, str]) -> None:
         context_manager.save_project_status_mapping(mapping)
 
+    def mint_pm_id(self, pm_uuid: str) -> int:
+        """Get-or-mint a stable Apex int for a PM tool's real UUID (Plane
+        story/epic ids) — see plane_integration_plan memory phase 4b."""
+        return context_manager.mint_pm_id(pm_uuid)
+
+    def resolve_pm_id(self, apex_id: int) -> str | None:
+        return context_manager.resolve_pm_id(apex_id)
+
     def deployment_config(self) -> dict:
         return context_manager.get_project_deployment_config()
 

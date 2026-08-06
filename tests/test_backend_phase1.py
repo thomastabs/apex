@@ -88,6 +88,8 @@ class FakeContextService:
         self.project_id = 0
         self.appended = []
         self.initialized = False
+        self._pm_id_map: dict[str, int] = {}
+        self._next_pm_id = 1000
 
     def set_active(self, ctx):
         self.set_project(ctx.project_id)
@@ -131,6 +133,15 @@ class FakeContextService:
 
     def save_epic_clarifications(self, epic_id, epic_title, qa_pairs) -> None:
         self.saved_clarifications = (epic_id, epic_title, qa_pairs)
+
+    def mint_pm_id(self, pm_uuid: str) -> int:
+        # Mirrors context_manager.mint_pm_id's get-or-mint contract, in-memory.
+        if pm_uuid in self._pm_id_map:
+            return self._pm_id_map[pm_uuid]
+        new_id = self._next_pm_id
+        self._next_pm_id += 1
+        self._pm_id_map[pm_uuid] = new_id
+        return new_id
 
 
 def _service():
@@ -429,6 +440,80 @@ def test_finalize_stories_skips_clarifications_when_empty():
     )
 
     assert not hasattr(context, "saved_clarifications")
+
+
+# ---------------------------------------------------------------------------
+# finalize_stories — Plane path: mint a durable id instead of trusting the
+# caller-supplied one (phase 4b, see plane_integration_plan memory)
+# ---------------------------------------------------------------------------
+
+_GHERKIN = "Feature: Story A\n  Scenario: basic\n    Given a state\n    When action\n    Then outcome"
+
+
+def test_finalize_stories_taiga_path_unchanged_no_pm_ids():
+    # No pm_story_id/pm_epic_id at all -> exactly today's Taiga behaviour,
+    # the caller-supplied ids are trusted directly.
+    service, _, context = _service()
+
+    result = service.finalize_stories(
+        _ctx(), epic_id=20, epic_subject="New Epic",
+        stories=[{"id": 100, "title": "Story A", "gherkin": _GHERKIN}],
+    )
+
+    assert result["epic_id"] == 20
+    assert result["story_ids"] == [100]
+    assert context.appended[0]["story_id"] == 100
+    assert context.appended[0]["epic_id"] == 20
+
+
+def test_finalize_stories_plane_path_mints_instead_of_trusting_caller_id():
+    service, _, context = _service()
+    pm_uuid = "f722d8f5-57a4-4c98-8651-f7e89970c359"
+
+    result = service.finalize_stories(
+        _ctx(), epic_id=999, epic_subject="New Epic",  # 999 is the frontend's
+        # session-local shim value — must be IGNORED once pm_story_id is set.
+        stories=[{"id": 999, "title": "Story A", "gherkin": _GHERKIN, "pm_story_id": pm_uuid}],
+    )
+
+    minted = context.mint_pm_id(pm_uuid)  # idempotent — same id back
+    assert result["story_ids"] == [minted]
+    assert result["story_ids"] != [999]
+    assert context.appended[0]["story_id"] == minted
+
+
+def test_finalize_stories_plane_path_mints_epic_id_too():
+    service, _, context = _service()
+    pm_epic_uuid = "11111111-2222-3333-4444-555555555555"
+    pm_story_uuid = "f722d8f5-57a4-4c98-8651-f7e89970c359"
+
+    result = service.finalize_stories(
+        _ctx(), epic_id=999, epic_subject="New Epic", pm_epic_id=pm_epic_uuid,
+        stories=[{"id": 998, "title": "Story A", "gherkin": _GHERKIN, "pm_story_id": pm_story_uuid}],
+    )
+
+    minted_epic = context.mint_pm_id(pm_epic_uuid)
+    assert result["epic_id"] == minted_epic
+    assert result["epic_id"] != 999
+    assert context.appended[0]["epic_id"] == minted_epic
+
+
+def test_finalize_stories_plane_path_is_stable_across_calls_same_uuid():
+    # The whole point: calling finalize_stories again for the same real
+    # Plane story (e.g. a retry, or two workers racing) must land on the
+    # SAME story-index id, not mint a duplicate.
+    service, _, context = _service()
+    pm_uuid = "f722d8f5-57a4-4c98-8651-f7e89970c359"
+
+    r1 = service.finalize_stories(
+        _ctx(), epic_id=20, epic_subject="Epic",
+        stories=[{"id": 1, "title": "A", "gherkin": _GHERKIN, "pm_story_id": pm_uuid}],
+    )
+    r2 = service.finalize_stories(
+        _ctx(), epic_id=20, epic_subject="Epic",
+        stories=[{"id": 2, "title": "A", "gherkin": _GHERKIN, "pm_story_id": pm_uuid}],
+    )
+    assert r1["story_ids"] == r2["story_ids"]
 
 
 def test_generate_constraints_grounds_in_concept_stack_and_stories():

@@ -60,9 +60,10 @@ class StubPhase1Service:
              "rationale": "r", "suggested_stories": ["s"]},
         ]}
 
-    def finalize_stories(self, ctx, *, epic_id, epic_subject, stories, clarifications=None):
+    def finalize_stories(self, ctx, *, epic_id, epic_subject, stories, clarifications=None, pm_epic_id=None):
         self.last_ctx = ctx
         self.last_clarifications = clarifications
+        self.last_pm_epic_id = pm_epic_id
         return {
             "ok": True,
             "epic_id": epic_id,

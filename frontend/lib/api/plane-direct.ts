@@ -14,54 +14,27 @@
  * widen that shared type (tried; it cascades into 30+ unrelated call sites
  * across board-section.tsx/phase1-workflow.tsx/command-palette.tsx that treat
  * Story.id as a real JS number), this module mints a synthetic per-session int
- * for `id` via mintId()/resolveId() below, uses Plane's own numeric
- * `sequence_id` directly for `ref` (no minting needed there), and carries the
- * real UUID in the new `pm_epic_id`/`pm_story_id` fields for any call that
- * needs to dial Plane again. The mapping is an in-memory module singleton —
- * it does not survive a page reload, so getEpic/getStory/etc. below throw a
- * clear error if asked to resolve an id from a session that never called
- * getBoard/listProjects first. Fine for Phase 2 (read paths, prove the entity
- * mapping); a persistent mapping is a later-phase concern if one ever proves
- * necessary (only the backend story-index shim — a different, still-deferred
- * concern for when Plane stories enter Apex's actual spec workflow — would
- * need one that survives a reload).
+ * for `id` via mintId()/resolveId() (now in ./plane-id-shim — extracted 2026-
+ * 08-06, phase 4a, so client.ts can also use resolveId() without a circular
+ * import), uses Plane's own numeric `sequence_id` directly for `ref` (no
+ * minting needed there), and carries the real UUID in the new `pm_epic_id`/
+ * `pm_story_id` fields for any call that needs to dial Plane again. The
+ * mapping is an in-memory module singleton — it does not survive a page
+ * reload, so getEpic/getStory/etc. below throw a clear error if asked to
+ * resolve an id from a session that never called getBoard/listProjects
+ * first. Fine for the adapter/CRUD layer; story-index.json's OWN id mapping
+ * (phase 4b, backend-persisted, survives reloads) is a separate concern.
  */
 import { ApiError, ApiNetworkError, getApiBaseUrl } from "./client";
+import { mintId, resolveId } from "./plane-id-shim";
 import type { Epic, EpicWithStories, Me, Project, Story } from "./types";
+
+export { mintId, resolveId };
 
 const DEFAULT_PLANE_API = "https://api.plane.so";
 
 export function isPlane401(err: unknown): boolean {
   return err instanceof ApiError && err.status === 401;
-}
-
-// ---------------------------------------------------------------------------
-// Id shim (see module docstring)
-// ---------------------------------------------------------------------------
-
-let _nextMintedId = 1;
-const _uuidToMinted = new Map<string, number>();
-const _mintedToUuid = new Map<number, string>();
-
-export function mintId(realId: string): number {
-  const existing = _uuidToMinted.get(realId);
-  if (existing != null) return existing;
-  const minted = _nextMintedId++;
-  _uuidToMinted.set(realId, minted);
-  _mintedToUuid.set(minted, realId);
-  return minted;
-}
-
-export function resolveId(mintedId: string | number): string {
-  const key = typeof mintedId === "number" ? mintedId : parseInt(mintedId, 10);
-  const uuid = _mintedToUuid.get(key);
-  if (!uuid) {
-    throw new ApiError(
-      404,
-      `Unknown Plane id ${mintedId} — the board must be re-fetched (its id mapping is session-local and does not survive a reload).`,
-    );
-  }
-  return uuid;
 }
 
 // ---------------------------------------------------------------------------

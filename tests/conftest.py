@@ -35,7 +35,10 @@ def _bypass_pm_auth(request, monkeypatch):
     from backend.app.api import deps
 
     monkeypatch.setattr(deps, "_verify_pm_token", lambda token, taiga_url_override="", plane_url_override="": None)
-    monkeypatch.setattr(deps, "_verify_project_access", lambda token, project_id, taiga_url_override="": None)
+    monkeypatch.setattr(
+        deps, "_verify_project_access",
+        lambda token, project_id, taiga_url_override="", plane_url_override="", plane_workspace_override="": None,
+    )
     # get_request_context derives the storage instance_id from _resolve_anchor_base,
     # which runs SSRF/DNS validation. Stub it so bypassed tests stay offline and the
     # namespace is deterministic ("api_taiga_io").

@@ -14,6 +14,7 @@ them server-side.
 
 import hashlib
 import logging
+import re
 import threading
 import time
 from collections import OrderedDict
@@ -26,6 +27,33 @@ from backend.app.services.request_context import RequestContext
 from src import distributed
 
 _logger = logging.getLogger("apex.deps")
+
+# Strict shape checks for Plane's two user-suppliable, URL-interpolated
+# identifiers (SECURITY, see plane_integration_plan memory phase 4a fix —
+# 2026-08-06 security review found that skipping this let a crafted
+# X-Project-Id like "../users/me" survive un-rejected all the way into a URL
+# template AND a filesystem path join, because _verify_project_access's PM
+# dial is an authorization check, not an input validator — httpx collapses
+# ".." dot-segments per RFC 3986 when it builds the outbound request, so a
+# traversal payload silently retargeted the "does this token own this
+# project" check onto Plane's own always-200 identity endpoint, and the same
+# unvalidated string then became a StoragePath component with zero
+# sanitization). Both MUST be validated before being formatted into any URL
+# or path — never rely on the PM's response to catch a malformed identifier.
+_PLANE_UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\Z")
+_PLANE_SLUG_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}\Z")
+
+
+def _validate_plane_workspace_slug(slug: str) -> str:
+    """Raise 400 unless slug is a plausible Plane workspace slug shape.
+    Applied to every X-Plane-Workspace use before it's interpolated into a
+    Plane API URL — see the module-level security note above."""
+    if not isinstance(slug, str) or not _PLANE_SLUG_RE.match(slug):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid X-Plane-Workspace header.",
+        )
+    return slug
 
 
 @dataclass(frozen=True)
@@ -181,6 +209,21 @@ def resolve_taiga_base(taiga_url_override: str = "") -> str:
     return base
 
 
+def resolve_plane_base(plane_url_override: str = "") -> str:
+    """Return the validated Plane API base URL (e.g. https://api.plane.so/api/v1).
+
+    Mirrors resolve_taiga_base's shape — used by routes that need to dial
+    Plane server-side (phase 4a, see plane_integration_plan memory).
+    """
+    pm_tool, base = _resolve_anchor_base("", plane_url_override)
+    if pm_tool != "plane":
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="This operation requires a Plane-anchored request.",
+        )
+    return base
+
+
 def _pm_endpoints(taiga_url_override: str = "", plane_url_override: str = "",
                    plane_workspace_override: str = "") -> tuple[str, str, str]:
     """Return (pm_tool, identity_url, project_url_template) for the anchored PM.
@@ -200,7 +243,8 @@ def _pm_endpoints(taiga_url_override: str = "", plane_url_override: str = "",
     """
     pm_tool, base = _resolve_anchor_base(taiga_url_override, plane_url_override)
     if pm_tool == "plane":
-        slug = plane_workspace_override.strip() if isinstance(plane_workspace_override, str) else ""
+        raw_slug = plane_workspace_override.strip() if isinstance(plane_workspace_override, str) else ""
+        slug = _validate_plane_workspace_slug(raw_slug) if raw_slug else ""
         project_tpl = f"{base}/workspaces/{slug}/projects/{{project_id}}/" if slug else ""
         return "plane", f"{base}/users/me/", project_tpl
     return "taiga", f"{base}/users/me", f"{base}/projects/{{project_id}}"
@@ -369,17 +413,26 @@ def _verify_pm_token(token: str, taiga_url_override: str = "", plane_url_overrid
 
 
 def _verify_project_access(
-    token: str, project_id: int, taiga_url_override: str = ""
+    token: str, project_id: int | str, taiga_url_override: str = "",
+    plane_url_override: str = "", plane_workspace_override: str = "",
 ) -> None:
     """Raise 403 unless the token can read the project on the anchored PM.
 
-    Taiga-only for now — Plane has no project adapter yet (see
-    plane_integration_plan memory, phase 2+), so get_request_context below
-    doesn't accept a Plane anchor and this is never reached with pm_tool
-    "plane" in practice. Signature intentionally left Taiga-only rather than
-    widened ahead of an exerciser.
+    Widened 2026-08-06 (phase 4a, see plane_integration_plan memory) to accept
+    Plane's string UUID project_id alongside Taiga's existing int id — this
+    was previously Taiga-only by design ("never reached with pm_tool 'plane'
+    in practice") until get_request_context grew Plane support, which it now
+    has. Plane's project-scoped URL additionally needs the workspace slug,
+    which Taiga's doesn't — see the 400 below when it's missing.
     """
-    pm_tool, _, project_tpl = _pm_endpoints(taiga_url_override)
+    pm_tool, _, project_tpl = _pm_endpoints(taiga_url_override, plane_url_override, plane_workspace_override)
+    if pm_tool == "plane" and not project_tpl:
+        # _pm_endpoints returns "" for project_tpl when no workspace slug was
+        # supplied — can't build a project-scoped Plane URL at all without it.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="X-Plane-Workspace header is required for project-scoped requests.",
+        )
     project_url = project_tpl.format(project_id=project_id)
     key = (_token_key(token), project_url)
     cached = _cache_get(_project_cache, key)
@@ -432,31 +485,72 @@ def get_auth_context(
     return AuthContext(pm_token=token, account_id=account_id)
 
 
+def _parse_project_id(raw: int | str | None) -> int | str | None:
+    """Normalise X-Project-Id into Taiga's numeric id (as a real int, so every
+    existing `ctx.project_id: int` assumption elsewhere in the backend keeps
+    working unchanged) or Plane's UUID (left as a string, but ONLY if it is
+    actually shaped like one). A numeric string or int always becomes int;
+    a real UUID stays a string; anything else is rejected (returns None, same
+    as "missing") — see plane_integration_plan memory phase 4a.
+
+    SECURITY: a 2026-08-06 review found that letting ANY non-numeric string
+    through here (on the assumption _verify_project_access's PM dial would
+    reject a bad one) was a path-traversal vuln — the PM dial is an
+    authorization check, not an input validator, and can itself be
+    redirected by a crafted string (httpx collapses ".." dot-segments when
+    building the outbound request, so e.g. "../users/me" retargeted the
+    access check onto an always-200 endpoint). The unvalidated string then
+    flowed straight into a filesystem path join in _context_dir with zero
+    sanitization. The strict UUID regex below is the actual fix; never widen
+    this to accept an arbitrary string again without re-adding an equally
+    strict shape check first.
+    """
+    if raw is None:
+        return None
+    if isinstance(raw, int):
+        return raw if raw > 0 else None
+    raw = raw.strip()
+    if not raw:
+        return None
+    try:
+        n = int(raw)
+    except ValueError:
+        return raw if _PLANE_UUID_RE.match(raw) else None
+    return n if n > 0 else None
+
+
 def get_request_context(
     authorization: str = Header(default="", alias="Authorization"),
     x_taiga_url: str | int = Header(default="", alias="X-Taiga-Url"),
-    project_id_new: int | None = Header(default=None, alias="X-Project-Id"),
-    project_id_legacy: int | None = Header(default=None, alias="X-Taiga-Project-Id"),
+    project_id_new: int | str | None = Header(default=None, alias="X-Project-Id"),
+    project_id_legacy: int | str | None = Header(default=None, alias="X-Taiga-Project-Id"),
+    x_plane_url: str = Header(default="", alias="X-Plane-Url"),
+    x_plane_workspace: str = Header(default="", alias="X-Plane-Workspace"),
 ) -> RequestContext:
     # Backward compatibility for direct unit-test calls that predate x_taiga_url
-    # and pass (authorization, project_id_new, project_id_legacy) positionally.
-    if isinstance(x_taiga_url, int) and not isinstance(project_id_new, int):
+    # and pass (authorization, project_id) positionally with a raw int. Direct
+    # Python calls that omit a Header(...) param get FastAPI's sentinel
+    # FieldInfo object back, not None — isinstance(x, (int, str)) is the only
+    # reliable "was this actually provided" check outside real HTTP requests.
+    if isinstance(x_taiga_url, int) and not isinstance(project_id_new, (int, str)):
         project_id_new = x_taiga_url
         x_taiga_url = ""
-    raw = project_id_new if isinstance(project_id_new, int) else (project_id_legacy if isinstance(project_id_legacy, int) else None)
-    project_id: int | None = raw
-    if project_id is None or project_id <= 0:
+    raw = project_id_new if isinstance(project_id_new, (int, str)) else (
+        project_id_legacy if isinstance(project_id_legacy, (int, str)) else None
+    )
+    project_id = _parse_project_id(raw)
+    if project_id is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="X-Project-Id header is required.",
         )
     override = x_taiga_url if isinstance(x_taiga_url, str) else ""
-    auth = get_auth_context(authorization, override)
-    _verify_project_access(auth.pm_token, project_id, override)
+    auth = get_auth_context(authorization, override, x_plane_url)
+    _verify_project_access(auth.pm_token, project_id, override, x_plane_url, x_plane_workspace)
     # Derive the storage instance namespace from the SAME validated anchor the
     # credentials were checked against — so a request can only ever reach the
     # contextspec/<instance>/ of an instance its token is actually valid on.
     from src import context_manager
-    _, base = _resolve_anchor_base(override)
+    _, base = _resolve_anchor_base(override, x_plane_url)
     instance_id = context_manager.instance_key(base)
     return RequestContext(pm_token=auth.pm_token, project_id=project_id, instance_id=instance_id)

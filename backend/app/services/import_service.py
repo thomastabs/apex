@@ -91,6 +91,52 @@ def _map_taiga_status(s: dict) -> str:
     return "gherkin_locked"
 
 
+def _map_plane_status(s: dict) -> str:
+    """Heuristic: Plane state dict -> Apex phase_status.
+
+    Plane's `group` field is a literal-confirmed 5-value enum (backlog,
+    unstarted, started, completed, cancelled — see plane_integration_plan
+    memory), so this is an exact mapping, not the fuzzy name/slug substring
+    matching _map_taiga_status needs (Taiga has no such fixed enum).
+    completed/cancelled both mean "closed" — mirrors _map_taiga_status's own
+    is_closed -> deployed treatment.
+    """
+    group = s.get("group", "")
+    if group in ("completed", "cancelled"):
+        return "deployed"
+    if group == "started":
+        return "implementation"
+    return "gherkin_locked"
+
+
+_PLANE_PAGE_SIZE = 100
+_PLANE_MAX_PAGES = 20  # matches plane-direct.ts's own cap
+
+
+def _plane_get_all(base_url: str, token: str, path: str) -> list[dict]:
+    """Paginate a Plane list endpoint via deps._pm_get_json (already SSRF/DNS-pin
+    guarded through _pm_pin). Follows next_page_results, NOT next_cursor's
+    truthiness — Plane always returns a non-null cursor even on the last page,
+    the same bug already found and fixed in plane-direct.ts (phase 2)."""
+    from backend.app.api import deps
+
+    out: list[dict] = []
+    cursor: str | None = None
+    for _ in range(_PLANE_MAX_PAGES):
+        sep = "&" if "?" in path else "?"
+        page_url = f"{base_url}/{path}{sep}per_page={_PLANE_PAGE_SIZE}"
+        if cursor:
+            page_url += f"&cursor={cursor}"
+        body = deps._pm_get_json(page_url, "plane", token)
+        if not body:
+            break
+        out.extend(body.get("results") or [])
+        if not body.get("next_page_results") or not body.get("next_cursor"):
+            break
+        cursor = body.get("next_cursor")
+    return out
+
+
 def _extract_epic_id(story: dict) -> int | None:
     """Extract numeric epic id from a Taiga user story, mirroring taiga-direct.ts normalizeStory.
 

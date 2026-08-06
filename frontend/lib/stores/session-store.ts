@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { resolveId } from "../api/plane-id-shim";
 
 type PmTool = "taiga" | "plane";
 
@@ -19,6 +20,13 @@ type SessionState = {
   // plane_integration_plan memory). Empty/unused for Taiga.
   workspaceSlug: string;
   projectId: number | null;
+  // Plane-only: the real UUID behind projectId's minted int, captured at
+  // selection time. The mint table (plane-id-shim.ts) is a module singleton
+  // that resets on every reload, so a persisted minted int alone becomes
+  // meaningless after a reload (matches nothing in the fresh table, even
+  // for the same real project) — this is what useRestoreProjectConfig
+  // re-mints from to recover the correct int for the current session.
+  planeProjectId: string;
   projectName: string;
   pmProjectSlug: string;
   // Instance the selected project belongs to. A project picked on one Taiga
@@ -59,6 +67,7 @@ export const useSessionStore = create<SessionState>()(
       taigaApiUrl: "",
       workspaceSlug: "",
       projectId: null,
+      planeProjectId: "",
       projectName: "",
       pmProjectSlug: "",
       projectInstanceUrl: "",
@@ -84,6 +93,7 @@ export const useSessionStore = create<SessionState>()(
           ...(taigaApiUrl != null ? { taigaApiUrl } : {}),
           workspaceSlug: workspaceSlug ?? "",
           projectId: null,
+          planeProjectId: "",
           projectName: "",
           pmProjectSlug: "",
           projectInstanceUrl: "",
@@ -95,6 +105,11 @@ export const useSessionStore = create<SessionState>()(
         // fails) before GithubAutoSync repopulates them for the new project.
         set((s) => ({
           projectId, projectName, pmProjectSlug, projectInstanceUrl: s.taigaApiUrl,
+          // Best-effort: projectId was just minted moments ago from this same
+          // session's listProjects() call, so resolving it back right now
+          // should never fail — wrapped anyway since a store update must
+          // never throw. See planeProjectId's field comment.
+          planeProjectId: s.pmTool === "plane" ? (() => { try { return resolveId(projectId); } catch { return ""; } })() : "",
           githubPat: "", githubRepo: "",
         })),
       setGithub: ({ pat, repo }) => set({
@@ -107,7 +122,7 @@ export const useSessionStore = create<SessionState>()(
         ...(fileKey !== undefined ? { figmaFileKey: fileKey, figmaFileName: fileName ?? "" } : {}),
         ...(fileKey === undefined && fileName !== undefined ? { figmaFileName: fileName } : {}),
       }),
-      clearSession: () => set((s) => ({ pmTool: s.pmTool, taigaToken: "", taigaApiUrl: "", workspaceSlug: "", projectId: null, projectName: "", pmProjectSlug: "", projectInstanceUrl: "", githubPat: "", githubRepo: "", figmaToken: "", figmaFileKey: "", figmaFileName: "", autopilotJobId: null })),
+      clearSession: () => set((s) => ({ pmTool: s.pmTool, taigaToken: "", taigaApiUrl: "", workspaceSlug: "", projectId: null, planeProjectId: "", projectName: "", pmProjectSlug: "", projectInstanceUrl: "", githubPat: "", githubRepo: "", figmaToken: "", figmaFileKey: "", figmaFileName: "", autopilotJobId: null })),
     }),
     {
       name: "apex-session",
@@ -120,7 +135,7 @@ export const useSessionStore = create<SessionState>()(
         try { localStorage.removeItem("apex-session"); } catch { /* ignore */ }
         return window.sessionStorage;
       }),
-      version: 11,
+      version: 12,
       migrate: (persisted: unknown) => {
         const state = (persisted ?? {}) as Record<string, unknown>;
         return {
@@ -135,6 +150,12 @@ export const useSessionStore = create<SessionState>()(
           taigaApiUrl: (state.taigaApiUrl as string) ?? "",
           workspaceSlug: (state.workspaceSlug as string) ?? "",
           projectId: (state.projectId as number | null) ?? null,
+          // New in v12 — a pre-v12 session never had this, so a Plane
+          // project selected before this version reads back as "" and
+          // useRestoreProjectConfig's re-mint correction simply can't run
+          // once (falls through to the plain "no match" branch instead,
+          // same as today's un-fixed behaviour) until reselected once.
+          planeProjectId: (state.planeProjectId as string) ?? "",
           projectName: (state.projectName as string) ?? "",
           pmProjectSlug: (state.pmProjectSlug as string) ?? "",
           // Reset on upgrade so a pre-v6 selection (no instance binding) is
@@ -155,6 +176,7 @@ export const useSessionStore = create<SessionState>()(
         taigaApiUrl: state.taigaApiUrl,
         workspaceSlug: state.workspaceSlug,
         projectId: state.projectId,
+        planeProjectId: state.planeProjectId,
         projectName: state.projectName,
         pmProjectSlug: state.pmProjectSlug,
         projectInstanceUrl: state.projectInstanceUrl,

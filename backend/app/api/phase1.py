@@ -237,6 +237,7 @@ def finalize_stories(
             ctx,
             epic_id=payload.epic_id,
             epic_subject=payload.epic_subject,
+            pm_epic_id=payload.pm_epic_id,
             stories=[story.model_dump() for story in payload.stories],
             clarifications=[c.model_dump() for c in payload.clarifications],
         )

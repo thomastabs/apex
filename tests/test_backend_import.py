@@ -45,6 +45,35 @@ def test_map_status_matches_on_slug():
 
 
 # ---------------------------------------------------------------------------
+# _map_plane_status — Plane's literal 5-value state.group enum → phase_status
+# (phase 4a, see plane_integration_plan memory)
+# ---------------------------------------------------------------------------
+
+def test_map_plane_status_completed_is_deployed():
+    assert svc._map_plane_status({"group": "completed"}) == "deployed"
+
+
+def test_map_plane_status_cancelled_is_also_deployed():
+    # Mirrors _map_taiga_status's is_closed -> deployed treatment.
+    assert svc._map_plane_status({"group": "cancelled"}) == "deployed"
+
+
+def test_map_plane_status_started_is_implementation():
+    assert svc._map_plane_status({"group": "started"}) == "implementation"
+
+
+@pytest.mark.parametrize("group", ["backlog", "unstarted"])
+def test_map_plane_status_not_started_defaults_gherkin_locked(group):
+    assert svc._map_plane_status({"group": group}) == "gherkin_locked"
+
+
+def test_map_plane_status_unknown_group_defaults_gherkin_locked():
+    # No 6th group exists (literal-confirmed 5-value enum), but stay
+    # defensive against an unrecognised value rather than crashing.
+    assert svc._map_plane_status({"group": "something-new"}) == "gherkin_locked"
+
+
+# ---------------------------------------------------------------------------
 # _extract_epic_id — mirrors taiga-direct.ts normalizeStory precedence
 # ---------------------------------------------------------------------------
 
@@ -126,6 +155,50 @@ def test_paginate_honours_max_pages_cap(monkeypatch):
     monkeypatch.setattr(svc, "_taiga_get", lambda url, tok, params=None: [{"id": 0}] * svc._PAGE_SIZE)
     out = svc._taiga_get_all("http://x", "tok")
     assert len(out) == svc._PAGE_SIZE * svc._MAX_PAGES
+
+
+# ---------------------------------------------------------------------------
+# _plane_get_all — pagination via deps._pm_get_json (phase 4a)
+# ---------------------------------------------------------------------------
+
+def test_plane_paginate_follows_next_page_results_not_next_cursor(monkeypatch):
+    # Same bug class already found+fixed in plane-direct.ts (phase 2): Plane
+    # always returns a non-null next_cursor, even on the last page —
+    # next_page_results is the real continuation signal.
+    from backend.app.api import deps
+    pages = [
+        {"results": [{"id": "a"}], "next_cursor": "cur2", "next_page_results": True},
+        {"results": [{"id": "b"}], "next_cursor": "still-non-null", "next_page_results": False},
+    ]
+    calls = []
+
+    def fake_get(url, pm_tool, token):
+        calls.append(url)
+        return pages.pop(0)
+
+    monkeypatch.setattr(deps, "_pm_get_json", fake_get)
+    out = svc._plane_get_all("https://api.plane.so/api/v1", "tok", "workspaces/w/projects/p/states/")
+
+    assert out == [{"id": "a"}, {"id": "b"}]
+    assert len(calls) == 2
+    assert "cursor=cur2" in calls[1]
+
+
+def test_plane_paginate_stops_on_empty_body(monkeypatch):
+    from backend.app.api import deps
+    monkeypatch.setattr(deps, "_pm_get_json", lambda url, pm_tool, token: None)
+    out = svc._plane_get_all("https://api.plane.so/api/v1", "tok", "workspaces/w/projects/p/states/")
+    assert out == []
+
+
+def test_plane_paginate_honours_max_pages_cap(monkeypatch):
+    from backend.app.api import deps
+    monkeypatch.setattr(
+        deps, "_pm_get_json",
+        lambda url, pm_tool, token: {"results": [{"id": "x"}], "next_cursor": "always-non-null", "next_page_results": True},
+    )
+    out = svc._plane_get_all("https://api.plane.so/api/v1", "tok", "workspaces/w/projects/p/states/")
+    assert len(out) == svc._PLANE_MAX_PAGES
 
 
 # ---------------------------------------------------------------------------
