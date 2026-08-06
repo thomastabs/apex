@@ -38,4 +38,20 @@ describe("useSessionStore", () => {
     expect(taigaToken).toBeFalsy();
     expect(projectId).toBeNull();
   });
+
+  it("setAuth stores pmTool=plane and workspaceSlug together", () => {
+    useSessionStore.getState().setAuth({ taigaToken: "pat", taigaApiUrl: "https://api.plane.so", pmTool: "plane", workspaceSlug: "my-team" });
+    const { taigaToken, pmTool, workspaceSlug } = useSessionStore.getState();
+    expect(taigaToken).toBe("pat");
+    expect(pmTool).toBe("plane");
+    expect(workspaceSlug).toBe("my-team");
+  });
+
+  it("clearSession resets workspaceSlug but keeps pmTool", () => {
+    useSessionStore.getState().setAuth({ taigaToken: "pat", pmTool: "plane", workspaceSlug: "my-team" });
+    useSessionStore.getState().clearSession();
+    const { pmTool, workspaceSlug } = useSessionStore.getState();
+    expect(pmTool).toBe("plane");
+    expect(workspaceSlug).toBe("");
+  });
 });

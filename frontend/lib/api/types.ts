@@ -1,15 +1,23 @@
+export type PmTool = "taiga" | "plane";
+
 export type RequestContext = {
   taigaToken: string;
   projectId: number;
   taigaApiUrl?: string;
-  pmTool?: "taiga";
+  pmTool?: PmTool;
   pmProjectId?: string;
+  // Plane-only: workspace slug. No Plane API can discover this from a key
+  // alone (confirmed absent — see plane_integration_plan memory), so it's
+  // always a user-supplied field, carried alongside rather than folded into
+  // taigaApiUrl (which doubles as the generic pm base-url slot for both tools).
+  workspaceSlug?: string;
 };
 
 export type AuthContext = {
   taigaToken: string;
   taigaApiUrl?: string;
-  pmTool?: "taiga";
+  pmTool?: PmTool;
+  workspaceSlug?: string;
 };
 
 export type Me = {

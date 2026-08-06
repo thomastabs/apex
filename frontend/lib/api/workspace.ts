@@ -1,5 +1,6 @@
 import { apiRequest } from "./client";
 import { getPmAdapter } from "./pm-factory";
+import { resolveId } from "./plane-direct";
 import type { PmAuthContext, PmRequestContext } from "./pm-types";
 import type {
   AuthContext,
@@ -8,17 +9,24 @@ import type {
 } from "./types";
 
 function toPmAuth(ctx: AuthContext): PmAuthContext {
-  return { token: ctx.taigaToken, baseUrl: ctx.taigaApiUrl ?? "" };
+  // taigaToken/taigaApiUrl are reused generically for both tools (see
+  // session-store's field comment) — token/baseUrl are already tool-agnostic
+  // at the PmAuthContext layer; workspaceSlug is Plane's one extra field.
+  return { token: ctx.taigaToken, baseUrl: ctx.taigaApiUrl ?? "", workspaceSlug: ctx.workspaceSlug };
 }
 
 export function toPmCtx(ctx: RequestContext): PmRequestContext {
-  return {
-    token: ctx.taigaToken,
-    baseUrl: ctx.taigaApiUrl ?? "",
-    // pmProjectId (when set) is the project slug (e.g. "test2") — Taiga's REST
-    // API uses numeric IDs, not slugs, so always use the numeric projectId here.
-    projectId: String(ctx.projectId),
-  };
+  const base = toPmAuth(ctx);
+  if (ctx.pmTool === "plane") {
+    // ctx.projectId holds the synthetic per-session int minted by
+    // planeListProjects (see plane-direct.ts's id shim) — resolve it back to
+    // Plane's real UUID before it reaches the adapter, per [[pm_adapter_sync]]'s
+    // guidance to branch here rather than assume one ID shape fits both tools.
+    return { ...base, projectId: resolveId(ctx.projectId) };
+  }
+  // pmProjectId (when set) is the project slug (e.g. "test2") — Taiga's REST
+  // API uses numeric IDs, not slugs, so always use the numeric projectId here.
+  return { ...base, projectId: String(ctx.projectId) };
 }
 
 export type ServerConfig = {
@@ -153,12 +161,14 @@ export function saveServerConfig(context: AuthContext, projectId: number) {
   });
 }
 
-export function savePmConfig(context: AuthContext, opts: { pmTool: "taiga"; taigaUrl?: string }) {
-  return apiRequest<{ ok: boolean }>("/api/workspace/config", {
-    method: "POST",
-    context,
-    body: { pm_tool: opts.pmTool, taiga_url: opts.taigaUrl ?? "" },
-  });
+export function savePmConfig(
+  context: AuthContext,
+  opts: { pmTool: "taiga"; taigaUrl?: string } | { pmTool: "plane"; planeUrl?: string; planeWorkspaceSlug: string },
+) {
+  const body = opts.pmTool === "plane"
+    ? { pm_tool: opts.pmTool, plane_url: opts.planeUrl ?? "", plane_workspace_slug: opts.planeWorkspaceSlug }
+    : { pm_tool: opts.pmTool, taiga_url: opts.taigaUrl ?? "" };
+  return apiRequest<{ ok: boolean }>("/api/workspace/config", { method: "POST", context, body });
 }
 
 export function getMe(context: AuthContext) {
