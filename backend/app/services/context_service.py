@@ -4,7 +4,7 @@ from src import context_manager
 
 
 class ContextService:
-    def set_project(self, project_id: int) -> None:
+    def set_project(self, project_id: int | str) -> None:
         context_manager.set_active_project(project_id)
 
     def set_active_instance(self, instance_id: str) -> None:

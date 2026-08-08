@@ -7,6 +7,7 @@ import {
   useServerConfig, useContextFiles, useGithubPackConfig, useSaveGithubPackConfig,
 } from "@/lib/hooks/use-workspace";
 import { useSessionStore, useGithubContext } from "@/lib/stores/session-store";
+import { resolveId } from "@/lib/api/plane-id-shim";
 import { verifyGithubRepo, type RepoMeta } from "@/lib/api/github-browser";
 import { getApiBaseUrl } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
@@ -24,9 +25,28 @@ function WebhookSetup({ dark }: { dark: boolean }) {
   const t = useT();
   const [expanded, setExpanded] = useState(false);
   const projectId = useSessionStore((s) => s.projectId);
+  const pmTool = useSessionStore((s) => s.pmTool);
   const webhook = useGithubWebhookConfig(expanded);
-  const url = webhook.data && projectId
-    ? `${getApiBaseUrl()}/api/webhooks/github/${webhook.data.instance_id}/${projectId}`
+  // Plane: projectId is the session-local id-shim int (see plane-id-shim.ts) —
+  // resolve to the real UUID before it goes in a URL GitHub will actually call
+  // back later (unlike the shim int, the resolved UUID is stable, so a URL
+  // built from it stays correct even after the shim resets on reload).
+  // resolveId() throws if the board hasn't been fetched yet this session
+  // (rare — board fetches happen as soon as a project is selected); treat
+  // that the same as "no project selected" below rather than showing a
+  // broken URL. See github_webhook.py's matching project_id widening
+  // (phase 5g follow-up, plane_integration_plan memory).
+  const resolvedProjectId = (() => {
+    if (!projectId) return null;
+    if (pmTool !== "plane") return projectId;
+    try {
+      return resolveId(projectId);
+    } catch {
+      return null;
+    }
+  })();
+  const url = webhook.data && resolvedProjectId
+    ? `${getApiBaseUrl()}/api/webhooks/github/${webhook.data.instance_id}/${resolvedProjectId}`
     : "";
 
   return (
@@ -48,6 +68,8 @@ function WebhookSetup({ dark }: { dark: boolean }) {
             <p className={cn(dark ? "text-neutral-600" : "text-slate-400")}>{t("common.loading")}</p>
           ) : !projectId ? (
             <p className={cn(dark ? "text-neutral-600" : "text-slate-400")}>{t("github.webhook.pickProjectFirst")}</p>
+          ) : !resolvedProjectId ? (
+            <p className={cn(dark ? "text-neutral-600" : "text-slate-400")}>{t("github.webhook.projectIdUnresolved")}</p>
           ) : webhook.data ? (
             <>
               <div className="space-y-1">

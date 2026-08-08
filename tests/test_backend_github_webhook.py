@@ -99,6 +99,120 @@ class TestSignatureAuth:
         assert calls == [(instance_id, 42, 123)]
 
 
+class TestProjectIdParsing:
+    """project_id path param widened int -> str, now parsed through
+    deps._parse_project_id inside the route itself (was a declared `int`
+    path param before, which made FastAPI 422 a Plane UUID before the
+    handler ever ran)."""
+
+    def test_plane_uuid_project_id_reaches_handler_successfully(self, client, monkeypatch):
+        instance_id = "test_instance_plane_uuid"
+        uuid_project_id = "12345678-1234-5678-1234-567812345678"
+        calls = {"repack": [], "scan": []}
+        monkeypatch.setattr(gw, "_run_repack", lambda iid, pid: calls["repack"].append((iid, pid)))
+        monkeypatch.setattr(gw, "_run_scan", lambda iid, pid, sids: calls["scan"].append((iid, pid, sids)))
+        monkeypatch.setattr(gw, "_matched_story_ids", lambda context, touched: [])
+        monkeypatch.setattr(gw.ContextService, "github_repo", lambda self: "")
+        monkeypatch.setattr(gw.ContextService, "record_github_push", lambda self: None)
+
+        secret = _secret_for(instance_id)
+        body = json.dumps(_push_payload()).encode()
+        resp = client.post(
+            f"/api/webhooks/github/{instance_id}/{uuid_project_id}",
+            content=body,
+            headers={"X-Hub-Signature-256": _sign(secret, body), "X-GitHub-Event": "push"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["repacking"] is True
+        # The UUID string must be preserved (not coerced to int / mangled).
+        assert calls["repack"] == [(instance_id, uuid_project_id)]
+
+    def test_malformed_project_id_rejected_before_signature_or_disk_access(self, client, monkeypatch):
+        instance_id = "test_instance_malformed"
+        malformed = "../etc/passwd"
+
+        # If the malformed value ever reached signature verification or a
+        # project-scoped call, these would be invoked. They must NOT be.
+        set_active_instance_calls = []
+        github_webhook_secret_calls = []
+        monkeypatch.setattr(
+            gw.ContextService, "set_active_instance",
+            lambda self, iid: set_active_instance_calls.append(iid),
+        )
+        monkeypatch.setattr(
+            gw.ContextService, "github_webhook_secret",
+            lambda self: github_webhook_secret_calls.append(True) or "unused-secret",
+        )
+
+        body = json.dumps(_push_payload()).encode()
+        resp = client.post(
+            f"/api/webhooks/github/{instance_id}/{malformed}",
+            content=body,
+            headers={"X-Hub-Signature-256": "sha256=deadbeef", "X-GitHub-Event": "push"},
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Invalid project id."
+        assert set_active_instance_calls == []
+        assert github_webhook_secret_calls == []
+
+    def test_non_numeric_non_uuid_project_id_rejected(self, client):
+        instance_id = "test_instance_bad_shape"
+        body = json.dumps(_push_payload()).encode()
+        resp = client.post(
+            f"/api/webhooks/github/{instance_id}/not-a-valid-id",
+            content=body,
+            headers={"X-Hub-Signature-256": "sha256=deadbeef", "X-GitHub-Event": "push"},
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Invalid project id."
+
+    def test_numeric_project_id_still_parsed_to_int_regression(self, client, monkeypatch):
+        instance_id = "test_instance_numeric_regression"
+        calls = {"repack": [], "scan": []}
+        monkeypatch.setattr(gw, "_run_repack", lambda iid, pid: calls["repack"].append((iid, pid)))
+        monkeypatch.setattr(gw, "_run_scan", lambda iid, pid, sids: calls["scan"].append((iid, pid, sids)))
+        monkeypatch.setattr(gw, "_matched_story_ids", lambda context, touched: [])
+        monkeypatch.setattr(gw.ContextService, "github_repo", lambda self: "")
+        monkeypatch.setattr(gw.ContextService, "record_github_push", lambda self: None)
+
+        secret = _secret_for(instance_id)
+        body = json.dumps(_push_payload()).encode()
+        resp = client.post(
+            f"/api/webhooks/github/{instance_id}/42",
+            content=body,
+            headers={"X-Hub-Signature-256": _sign(secret, body), "X-GitHub-Event": "push"},
+        )
+        assert resp.status_code == 200
+        assert calls["repack"] == [(instance_id, 42)]
+        assert isinstance(calls["repack"][0][1], int)
+
+    def test_cache_key_distinguishes_taiga_int_from_plane_uuid_same_instance(self):
+        """Unit-level check on _parse_project_id feeding the cooldown
+        cache_key: a numeric Taiga id and a same-looking-but-different Plane
+        UUID sharing an instance must produce distinct tuple keys, and in
+        particular a numeric-string id and its int form must collide (same
+        project, same key) while an int and a UUID never do."""
+        from backend.app.api.deps import _parse_project_id
+
+        instance_id = "shared_instance"
+        taiga_pid = _parse_project_id("42")
+        plane_pid = _parse_project_id("12345678-1234-5678-1234-567812345678")
+
+        assert taiga_pid == 42 and isinstance(taiga_pid, int)
+        assert plane_pid == "12345678-1234-5678-1234-567812345678"
+
+        taiga_key = (instance_id, taiga_pid)
+        plane_key = (instance_id, plane_pid)
+        assert taiga_key != plane_key
+        assert len({taiga_key, plane_key}) == 2
+
+        # Re-parsing the same raw numeric string always yields an equal key
+        # (idempotent), confirming the cooldown gate would correctly treat
+        # repeat pushes to the SAME Taiga project as the same bucket.
+        assert (instance_id, _parse_project_id("42")) == taiga_key
+
+
 class TestRepoMismatchIsProjectScoped:
     """github_repo is per-project now — the mismatch check must read the repo
     configured for THIS push's project_id, not some other project active from

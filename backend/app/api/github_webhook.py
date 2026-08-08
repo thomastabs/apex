@@ -26,6 +26,7 @@ import time
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request, status
 
+from backend.app.api.deps import _parse_project_id
 from backend.app.api.workspace import pull_agent_files_from_github
 from backend.app.services import github_fetch
 from backend.app.services.context_service import ContextService
@@ -44,7 +45,7 @@ _logger = logging.getLogger("apex.github_webhook")
 # caches; a restart just resets the cooldown, which is a fine failure mode for a
 # rate limit (not a security control) on a backend pinned to a single replica/worker.
 _COOLDOWN_SECONDS = 300.0
-_last_run: dict[tuple[str, int], float] = {}
+_last_run: dict[tuple[str, int | str], float] = {}
 
 
 def _verify_signature(secret: str, body: bytes, signature: str) -> bool:
@@ -75,7 +76,7 @@ def _matched_story_ids(context: ContextService, touched: set[str]) -> list[int]:
     return sorted(matched)
 
 
-def _run_repack(instance_id: str, project_id: int) -> None:
+def _run_repack(instance_id: str, project_id: int | str) -> None:
     """Runs as a FastAPI BackgroundTask: re-clone + repack github-context.md.
 
     Own try/except, never raises — the webhook's 200 was already sent by the
@@ -110,7 +111,7 @@ def _run_repack(instance_id: str, project_id: int) -> None:
         )
 
 
-def _run_scan(instance_id: str, project_id: int, story_ids: list[int]) -> None:
+def _run_scan(instance_id: str, project_id: int | str, story_ids: list[int]) -> None:
     """Runs as a FastAPI BackgroundTask, after the webhook response is already
     sent — GitHub's webhook delivery times out at 10s; AI re-verification of
     even a couple of stories routinely takes longer than that."""
@@ -128,7 +129,7 @@ def _run_scan(instance_id: str, project_id: int, story_ids: list[int]) -> None:
         )
 
 
-def _handle_workflow_run(instance_id: str, project_id: int, payload: dict) -> dict:
+def _handle_workflow_run(instance_id: str, project_id: int | str, payload: dict) -> dict:
     ctx = RequestContext(pm_token="", project_id=project_id, instance_id=instance_id)
     workflow_run = payload.get("workflow_run") or {}
     if not isinstance(workflow_run, dict):
@@ -146,12 +147,22 @@ def _handle_workflow_run(instance_id: str, project_id: int, payload: dict) -> di
 @router.post("/github/{instance_id}/{project_id}")
 async def github_push_webhook(
     instance_id: str,
-    project_id: int,
+    project_id: str,
     request: Request,
     background_tasks: BackgroundTasks,
     x_hub_signature_256: str = Header(default="", alias="X-Hub-Signature-256"),
     x_github_event: str = Header(default="", alias="X-GitHub-Event"),
 ):
+    # Path param is a raw string now (was `int`, which 422'd outright on a
+    # Plane project's UUID) — validated through the same strict shape gate
+    # every other project_id source uses (see deps.py's module-level security
+    # note) before it reaches any access to disk. Runs before signature
+    # verification below reads anything project-scoped, matching this
+    # route's own existing "instance active before project" ordering.
+    pid: int | str | None = _parse_project_id(project_id)
+    if pid is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid project id.")
+
     body = await request.body()
 
     context = ContextService()
@@ -165,7 +176,7 @@ async def github_push_webhook(
             payload = json.loads(body)
         except json.JSONDecodeError:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON payload.")
-        return _handle_workflow_run(instance_id, project_id, payload)
+        return _handle_workflow_run(instance_id, pid, payload)
 
     if x_github_event != "push":
         # "ping" (sent when the webhook is first created) and anything else:
@@ -181,7 +192,7 @@ async def github_push_webhook(
     # not after (it used to be read here while only the instance was set, back
     # when github_repo was itself instance-scoped; now that would silently read
     # some other project's repo, or none).
-    context.set_project(project_id)
+    context.set_project(pid)
 
     configured_repo = context.github_repo().strip()
     pushed_repo = ((payload.get("repository") or {}).get("full_name") or "").strip()
@@ -197,7 +208,7 @@ async def github_push_webhook(
     # One shared cooldown gate for both the repack (every push) and the scan
     # (only pushes touching a tracked story) — repacking must not wait on
     # story_ids being non-empty, so this check runs before that branch, not after.
-    cache_key = (instance_id, project_id)
+    cache_key = (instance_id, pid)
     now = time.monotonic()
     last = _last_run.get(cache_key)
     # Presence-based, not a 0.0 default: time.monotonic()'s epoch is undefined
@@ -209,9 +220,9 @@ async def github_push_webhook(
         return {"ok": True, "matched_stories": story_ids, "skipped": "cooldown"}
     _last_run[cache_key] = now
 
-    background_tasks.add_task(_run_repack, instance_id, project_id)
+    background_tasks.add_task(_run_repack, instance_id, pid)
     if not story_ids:
         return {"ok": True, "matched_stories": [], "repacking": True}
 
-    background_tasks.add_task(_run_scan, instance_id, project_id, story_ids)
+    background_tasks.add_task(_run_scan, instance_id, pid, story_ids)
     return {"ok": True, "matched_stories": story_ids, "scanning": True, "repacking": True}
