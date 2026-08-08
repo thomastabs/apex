@@ -210,7 +210,11 @@ class AiKeyStatusResponse(BaseModel):
 
 
 class SaveConfigRequest(BaseModel):
-    project_id: int | None = None
+    # int for Taiga's numeric id, str for Plane's UUID — validated through
+    # deps._parse_project_id (same strict shape check as the X-Project-Id
+    # header/get_config's query param) before it reaches any access check or
+    # filesystem path (phase 5a, see plane_integration_plan memory).
+    project_id: int | str | None = None
     pm_tool: str | None = Field(None, max_length=20)
     taiga_url: str | None = Field(None, max_length=2_048)
     plane_url: str | None = Field(None, max_length=2_048)
@@ -404,6 +408,21 @@ class PlaneImportEpicSchema(BaseModel):
 
 class PlaneImportBootstrapRequest(BaseModel):
     epics: list[PlaneImportEpicSchema] = Field(default_factory=list, max_length=500)
+
+
+class ImportReconstructStoryInput(BaseModel):
+    # Plane only (phase 5c, see plane_integration_plan memory) — fresh
+    # descriptions the frontend just re-fetched client-side (no server-side
+    # cache of Step 1's board fetch survives to this later, separate action).
+    # Sent for every story in the project, not just this epic's — cheap (one
+    # board fetch) and lets the backend match against its own story index via
+    # mint_pm_id rather than duplicating that id-mapping client-side.
+    pm_story_id: str = Field(..., max_length=200)
+    description: str = Field("", max_length=20_000)
+
+
+class ImportReconstructRequest(BaseModel):
+    stories: list[ImportReconstructStoryInput] = Field(default_factory=list, max_length=2_000)
 
 
 class ImportStoryResult(BaseModel):

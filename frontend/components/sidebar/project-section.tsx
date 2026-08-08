@@ -55,6 +55,14 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
     projectName ??
     (projectId ? t("project.projectFallback", { id: projectId }) : t("project.noProjectSelected"));
 
+  // Project CRUD (create/edit/delete) has no Plane backend yet — plane-adapter.ts's
+  // createProject/updateProject/deleteProject are still "not yet supported" stubs
+  // (phase 5e, see plane_integration_plan memory: hiding these now closes a real,
+  // currently-live bug — a Plane user clicking any of them got a raw error toast
+  // for an action the UI itself advertised as available). Same treatment 4c already
+  // used for "hide Reconstruct Gherkin rather than show a button that 503s".
+  const isPlane = pmTool === "plane";
+
   const sectionBorderClass = dark ? "border-neutral-800" : "border-slate-300";
   const expandedPanelClass = dark ? "bg-[#20232b]" : "bg-white";
 
@@ -117,16 +125,18 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
               <div className={cn("space-y-1.5 rounded border p-2.5 text-xs", dark ? "border-neutral-700 bg-neutral-950" : "border-slate-200 bg-slate-50")}>
                 <div className="flex items-center justify-between gap-2">
                   <span className={cn("font-semibold", dark ? "text-neutral-200" : "text-slate-800")}>{selectedProject.name}</span>
-                  <button
-                    className={cn(
-                      "flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold transition-colors hover:bg-violet-500/15",
-                      dark ? "text-violet-400" : "text-violet-700",
-                    )}
-                    onClick={() => setShowEdit(true)}
-                    title={t("project.editNameDesc")}
-                  >
-                    <Pencil className="size-3" /> {t("common.edit")}
-                  </button>
+                  {!isPlane ? (
+                    <button
+                      className={cn(
+                        "flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold transition-colors hover:bg-violet-500/15",
+                        dark ? "text-violet-400" : "text-violet-700",
+                      )}
+                      onClick={() => setShowEdit(true)}
+                      title={t("project.editNameDesc")}
+                    >
+                      <Pencil className="size-3" /> {t("common.edit")}
+                    </button>
+                  ) : null}
                 </div>
                 <div className={cn("font-mono", dark ? "text-neutral-500" : "text-slate-500")}>
                   {t("project.idLine", { id: selectedProject.id })}{selectedProject.slug ? ` · ${selectedProject.slug}` : ""}
@@ -136,7 +146,7 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
                 </p>
               </div>
             ) : null}
-            <div className="grid grid-cols-2 gap-2">
+            <div className={cn("grid gap-2", isPlane ? "grid-cols-1" : "grid-cols-2")}>
               <button
                 className={cn(
                   "flex h-8 items-center justify-center gap-1 rounded border text-sm transition-colors hover:border-violet-500/50",
@@ -146,17 +156,24 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
               >
                 <RefreshCw className="size-3" /> {t("common.refresh")}
               </button>
-              <button
-                className={cn(
-                  "flex h-8 items-center justify-center gap-1 rounded border border-violet-500/40 bg-violet-500/10 text-sm font-semibold transition-colors hover:bg-violet-500/20",
-                  dark ? "text-violet-400" : "text-violet-700",
-                )}
-                onClick={() => setShowCreate(true)}
-              >
-                <Plus className="size-3" /> {t("project.createNew")}
-              </button>
+              {!isPlane ? (
+                <button
+                  className={cn(
+                    "flex h-8 items-center justify-center gap-1 rounded border border-violet-500/40 bg-violet-500/10 text-sm font-semibold transition-colors hover:bg-violet-500/20",
+                    dark ? "text-violet-400" : "text-violet-700",
+                  )}
+                  onClick={() => setShowCreate(true)}
+                >
+                  <Plus className="size-3" /> {t("project.createNew")}
+                </button>
+              ) : null}
             </div>
-            {projectId ? (
+            {isPlane ? (
+              <p className={cn("text-[11px] leading-snug", dark ? "text-neutral-500" : "text-slate-500")}>
+                {t("project.planeManageNote")}
+              </p>
+            ) : null}
+            {projectId && !isPlane ? (
               <button
                 className={cn(
                   "flex h-8 w-full items-center justify-center gap-2 rounded border border-red-500/40 bg-red-500/10 text-sm font-semibold transition-colors hover:bg-red-500/20 disabled:opacity-50",

@@ -69,9 +69,19 @@ export async function importPlaneBootstrap(ctx: RequestContext): Promise<ImportB
   });
 }
 
-export function importReconstructEpic(ctx: RequestContext, epicId: number): Promise<ImportReconstructResult> {
+/** stories: Plane only (phase 5c, see plane_integration_plan memory) — fresh
+ *  descriptions fetched client-side just before this call, since the backend
+ *  never dials Plane itself for reconstruction (mirrors the "frontend
+ *  fetches, backend processes" shape phase 4c's bootstrap already used).
+ *  Omitted/undefined for Taiga, which still self-dials for descriptions. */
+export function importReconstructEpic(
+  ctx: RequestContext,
+  epicId: number,
+  stories?: Array<{ pm_story_id: string; description: string }>,
+): Promise<ImportReconstructResult> {
   return apiRequest<ImportReconstructResult>(`/api/workspace/import-from-pm/reconstruct-epic/${epicId}`, {
     method: "POST",
     context: ctx,
+    body: stories ? { stories } : undefined,
   });
 }

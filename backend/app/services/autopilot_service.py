@@ -73,6 +73,19 @@ def _next_synthetic_id() -> int:
         return _SYNTHETIC_BASE + _synthetic_counter
 
 
+def _create_epics_enabled(job: dict) -> bool:
+    """Whether this run should push epics/stories to the connected PM tool
+    (Taiga or Plane) rather than staying index-only. Checks both the current
+    settings key and its pre-rename predecessor (see AutopilotSettings.
+    create_epics_in_pm's docstring) so a job persisted before the phase 5b
+    rename — resumed from its raw, never-revalidated `_resume.settings` dict —
+    keeps working instead of silently reading a now-missing key as False."""
+    settings = job.get("settings") or {}
+    if "create_epics_in_pm" in settings:
+        return bool(settings["create_epics_in_pm"])
+    return bool(settings.get("create_epics_in_taiga", True))
+
+
 # ---------------------------------------------------------------------------
 # Taiga helpers
 # ---------------------------------------------------------------------------
@@ -329,9 +342,13 @@ def _run_phase1(job: dict, ctx: RequestContext) -> list[int]:
         epic_description = epic.get("description", "")
         _emit(job, "info", f"  Epic {epic_idx + 1}/{len(epics)}: {epic_title!r} — generating stories…", phase="phase1")
 
-        # Taiga epic creation
+        # Epic/group creation in the connected PM tool (Taiga epic, or Plane
+        # epic/module — phase 5b, see plane_integration_plan memory).
         epic_taiga_id: int | None = None
-        if job["settings"].get("create_epics_in_taiga") and job.get("taiga_base") and job.get("taiga_token"):
+        plane_group_source = ""  # "epics" or "modules" — see plane_write_client
+        plane_group_uuid = ""
+        epic_id_minted: int | None = None  # Apex-durable id for a real Plane group (mint_pm_id)
+        if _create_epics_enabled(job) and job.get("taiga_base") and job.get("taiga_token"):
             try:
                 result = _taiga_post(
                     f"{job['taiga_base']}/epics",
@@ -342,8 +359,23 @@ def _run_phase1(job: dict, ctx: RequestContext) -> list[int]:
                 _emit(job, "info", f"  Created Taiga epic #{epic_taiga_id} ({epic_title!r})", phase="phase1")
             except Exception as exc:
                 _emit(job, "warning", f"  Taiga epic creation failed: {exc} — using synthetic ID", phase="phase1")
+        elif _create_epics_enabled(job) and job.get("plane_base") and job.get("plane_workspace"):
+            from backend.app.services import plane_write_client
+            try:
+                plane_group_uuid, plane_group_source = plane_write_client.create_epic_or_module(
+                    job["plane_base"], job["plane_workspace"], str(ctx.project_id), ctx.pm_token,
+                    epic_title, epic_description,
+                )
+                pcs = ContextService()
+                pcs.set_active(ctx)
+                epic_id_minted = pcs.mint_pm_id(plane_group_uuid)
+                _emit(job, "info",
+                      f"  Created Plane {plane_group_source[:-1]} ({epic_title!r})", phase="phase1")
+            except Exception as exc:
+                _emit(job, "warning", f"  Plane epic/module creation failed: {exc} — using synthetic ID", phase="phase1")
+                plane_group_source, plane_group_uuid = "", ""
 
-        epic_id = epic_taiga_id if epic_taiga_id else (epic_idx + 1)
+        epic_id = epic_taiga_id or epic_id_minted or (epic_idx + 1)
 
         # Project mode (file-as-epic): ground this epic with its OWN file's images.
         epic_file_key = epic.get("_figma_file_key")
@@ -359,8 +391,10 @@ def _run_phase1(job: dict, ctx: RequestContext) -> list[int]:
             return
         stories = p1w.compile_gherkin(nl_draft=nl_draft)
 
-        # Assign real IDs (Taiga story + epic link, mirroring taigaCreateStory) or synthetic.
-        if job["settings"].get("create_epics_in_taiga") and job.get("taiga_base") and job.get("taiga_token") and epic_taiga_id:
+        # Assign real IDs (Taiga story + epic link, mirroring taigaCreateStory;
+        # or Plane work item + epic/module join, mirroring planeCreateStory —
+        # phase 5b) or synthetic.
+        if _create_epics_enabled(job) and job.get("taiga_base") and job.get("taiga_token") and epic_taiga_id:
             remapped: list[dict] = []
             for s in stories:
                 try:
@@ -381,6 +415,32 @@ def _run_phase1(job: dict, ctx: RequestContext) -> list[int]:
                     remapped.append({**s, "id": us_id})
                 except Exception as exc:
                     _emit(job, "warning", f"  Taiga story creation failed: {exc} — using synthetic ID", phase="phase1")
+                    remapped.append({**s, "id": _next_synthetic_id()})
+            stories = remapped
+        elif (_create_epics_enabled(job) and job.get("plane_base") and job.get("plane_workspace")
+              and plane_group_uuid):
+            from backend.app.services import plane_write_client
+            pcs = ContextService()
+            pcs.set_active(ctx)
+            remapped = []
+            for s in stories:
+                try:
+                    work_item_uuid = plane_write_client.create_work_item(
+                        job["plane_base"], job["plane_workspace"], str(ctx.project_id), ctx.pm_token,
+                        s["title"], s.get("gherkin", ""),
+                    )
+                    try:
+                        plane_write_client.join_work_item(
+                            job["plane_base"], job["plane_workspace"], str(ctx.project_id), ctx.pm_token,
+                            plane_group_source, plane_group_uuid, work_item_uuid,
+                        )
+                    except Exception as link_exc:
+                        _emit(job, "warning",
+                              f"  Story {s['title'][:40]!r} created in Plane but group link failed: {link_exc}",
+                              phase="phase1")
+                    remapped.append({**s, "id": pcs.mint_pm_id(work_item_uuid)})
+                except Exception as exc:
+                    _emit(job, "warning", f"  Plane story creation failed: {exc} — using synthetic ID", phase="phase1")
                     remapped.append({**s, "id": _next_synthetic_id()})
             stories = remapped
         else:
@@ -424,13 +484,26 @@ def _dedup_stories(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> 
         return all_story_ids
 
     drop_ids = [d["drop_id"] for d in drops]
-    if job["settings"].get("create_epics_in_taiga") and job.get("taiga_base") and job.get("taiga_token"):
+    if _create_epics_enabled(job) and job.get("taiga_base") and job.get("taiga_token"):
         for did in drop_ids:
             if did < _SYNTHETIC_BASE:  # real Taiga id (synthetic ids are local-only)
                 try:
                     _taiga_delete(f"{job['taiga_base']}/userstories/{did}", job["taiga_token"])
                 except Exception as exc:  # noqa: BLE001 — best-effort cleanup
                     _emit(job, "warning", f"  Could not delete Taiga story #{did}: {exc}", phase="phase1")
+    elif _create_epics_enabled(job) and job.get("plane_base") and job.get("plane_workspace"):
+        from backend.app.services import plane_write_client
+        for did in drop_ids:
+            if did < _SYNTHETIC_BASE:  # real (minted) Plane id — synthetic ids are local-only
+                work_item_uuid = cs.resolve_pm_id(did)
+                if not work_item_uuid:
+                    continue
+                try:
+                    plane_write_client.delete_work_item(
+                        job["plane_base"], job["plane_workspace"], str(ctx.project_id), ctx.pm_token, work_item_uuid,
+                    )
+                except Exception as exc:  # noqa: BLE001 — best-effort cleanup
+                    _emit(job, "warning", f"  Could not delete Plane work item for story #{did}: {exc}", phase="phase1")
     cs.remove_story_index_entries(drop_ids)
 
     for d in drops:
@@ -537,11 +610,13 @@ def _run_phase3(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> Non
             proposals.append(f"### Task {task['id']}: {task['subject']}\n{proposal_md}")
         p3.lock_story(ctx, story_id, [t["id"] for t in tasks])
 
-        # Push tasks to Taiga when we have a real Taiga story ID (< 9M = not synthetic).
-        can_push = (
-            job.get("taiga_base") and job.get("taiga_token") and story_id < 9_000_000
-        )
-        if can_push:
+        # Push tasks to the connected PM tool when we have a real (non-synthetic)
+        # story ID. Taiga: a real Taiga story id. Plane: a minted Apex id backed
+        # by a real Plane work item (phase 5b, see plane_integration_plan memory)
+        # — resolved back to the UUID via mint_pm_id's reverse map.
+        can_push_taiga = bool(job.get("taiga_base") and job.get("taiga_token") and story_id < _SYNTHETIC_BASE)
+        can_push_plane = bool(job.get("plane_base") and job.get("plane_workspace") and story_id < _SYNTHETIC_BASE)
+        if can_push_taiga:
             for task in tasks:
                 if _check_stop(job):
                     return
@@ -560,11 +635,31 @@ def _run_phase3(job: dict, ctx: RequestContext, all_story_ids: list[int]) -> Non
                     _emit(job, "warning",
                           f"    Story {story_id} · task '{task['subject'][:40]}': Taiga push failed ({exc})",
                           phase="phase3")
+        elif can_push_plane:
+            from backend.app.services import plane_write_client
+            pcs = ContextService()
+            pcs.set_active(ctx)
+            parent_uuid = pcs.resolve_pm_id(story_id)
+            if parent_uuid:
+                for task in tasks:
+                    if _check_stop(job):
+                        return
+                    try:
+                        plane_write_client.create_task(
+                            job["plane_base"], job["plane_workspace"], str(ctx.project_id), ctx.pm_token,
+                            parent_uuid, task["subject"], task.get("description", ""),
+                        )
+                    except Exception as exc:
+                        _emit(job, "warning",
+                              f"    Story {story_id} · task '{task['subject'][:40]}': Plane push failed ({exc})",
+                              phase="phase3")
+            else:
+                can_push_plane = False
 
         with _progress_lock:
             job["stories_done"] += 1
         dev_pack_preview = "\n\n".join(proposals)[:2000]
-        push_note = " · tasks pushed to Taiga" if can_push else ""
+        push_note = " · tasks pushed to Taiga" if can_push_taiga else (" · tasks pushed to Plane" if can_push_plane else "")
         _emit(job, "success", f"  Story {story_id}: implementation plan locked{push_note}", phase="phase3",
               artifact=dev_pack_preview)
         _persist(job)
@@ -816,6 +911,8 @@ def start_job(
     tech_stack_hint: str,
     settings: dict,
     taiga_base: str = "",
+    plane_base: str = "",
+    plane_workspace: str = "",
     figma_file_key: str = "",
     figma_token: str = "",
     figma_project_id: str = "",
@@ -832,6 +929,15 @@ def start_job(
         "ctx": ctx,
         "taiga_base": taiga_base,
         "taiga_token": ctx.pm_token,
+        # Plane write support (phase 5b, see plane_integration_plan memory) —
+        # mirrors taiga_base/taiga_token's role exactly. Mutually exclusive
+        # with taiga_base in practice (a project is anchored to one PM tool),
+        # but both are plain strings here so downstream code just checks
+        # whichever is non-empty rather than branching on a separate pm_tool
+        # field. Reuses ctx.pm_token as the Plane API key too — it's the same
+        # bearer token Apex validated against whichever PM is anchored.
+        "plane_base": plane_base,
+        "plane_workspace": plane_workspace,
         "concept": concept,
         "use_existing_concept": use_existing_concept,
         "epics": epics,
@@ -992,6 +1098,8 @@ def resume_interrupted_job(ctx: RequestContext) -> str | None:
         "ctx": ctx,
         "taiga_base": r.get("taiga_base", ""),
         "taiga_token": ctx.pm_token,
+        "plane_base": r.get("plane_base", ""),
+        "plane_workspace": r.get("plane_workspace", ""),
         "concept": r.get("concept", ""),
         "use_existing_concept": r.get("use_existing_concept", False),
         "epics": r.get("epics", []),
@@ -1067,6 +1175,8 @@ def _descriptor(job: dict) -> dict:
             "completed_epics": job.get("completed_epics", []),
             "all_story_ids": job.get("_all_story_ids", []),
             "taiga_base": job.get("taiga_base", ""),
+            "plane_base": job.get("plane_base", ""),
+            "plane_workspace": job.get("plane_workspace", ""),
             "figma_file_key": job.get("figma_file_key", ""),
             "figma_project_id": job.get("figma_project_id", ""),
             "end_phase": job.get("end_phase", "phase5"),

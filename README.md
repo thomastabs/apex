@@ -1,6 +1,6 @@
 # Apex
 
-Apex is an academic AI-guided SDLC tool that combines a **Spec-Anchored workflow**, **AI**, **Taiga** as project management backend, and optional **GitHub** repository context and **Figma** design context. The app helps a team move from product requirements into design artefacts while keeping the important project context in persistent, human-readable files.
+Apex is an academic AI-guided SDLC tool that combines a **Spec-Anchored workflow**, **AI**, **Taiga or Plane.so** as project management backend, and optional **GitHub** repository context and **Figma** design context. The app helps a team move from product requirements into design artefacts while keeping the important project context in persistent, human-readable files. The sections below describe Apex's workflow primarily in Taiga terms (the original, more fully-featured backend); see [`docs/plane-integration.md`](docs/plane-integration.md) for what differs on Plane — auth model, adapter parity, and a few deliberately deferred capabilities (Project CRUD, workspace invites).
 
 The current migrated version is a split full-stack web app:
 

@@ -482,7 +482,7 @@ class TestAutopilotRoutes:
                 settings=AutopilotSettings(),
             ),
             ctx=_ctx(),
-            taiga_base="https://api.taiga.io/api/v1",
+            x_taiga_url="https://api.taiga.io",
         )
         assert resp.job_id == "fake-uuid-1234"
 
@@ -1515,3 +1515,406 @@ class TestDedup:
 
         monkeypatch.setattr(svc, "ContextService", _CS)
         assert svc._dedup_stories(job, _ctx(), [1, 2]) == [1, 2]
+
+
+# ---------------------------------------------------------------------------
+# _create_epics_enabled — phase 5b rename (create_epics_in_taiga -> _in_pm)
+# ---------------------------------------------------------------------------
+
+class TestCreateEpicsEnabled:
+    def test_reads_new_key(self):
+        assert svc._create_epics_enabled({"settings": {"create_epics_in_pm": False}}) is False
+        assert svc._create_epics_enabled({"settings": {"create_epics_in_pm": True}}) is True
+
+    def test_falls_back_to_old_key_for_a_pre_rename_job(self):
+        assert svc._create_epics_enabled({"settings": {"create_epics_in_taiga": False}}) is False
+        assert svc._create_epics_enabled({"settings": {"create_epics_in_taiga": True}}) is True
+
+    def test_new_key_takes_precedence_over_old(self):
+        job = {"settings": {"create_epics_in_pm": True, "create_epics_in_taiga": False}}
+        assert svc._create_epics_enabled(job) is True
+
+    def test_defaults_true_when_neither_key_present(self):
+        assert svc._create_epics_enabled({"settings": {}}) is True
+        assert svc._create_epics_enabled({}) is True
+
+
+# ---------------------------------------------------------------------------
+# Phase 1 Plane push (phase 5b, see plane_integration_plan memory) — epic/module
+# creation, per-story work item + join, each minting an Apex-durable int id.
+# ---------------------------------------------------------------------------
+
+class TestPhase1PlanePush:
+    def test_epic_and_story_created_and_ids_minted(self, monkeypatch):
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_pm": True, "auto_epics": False})
+        job["epics"] = [{"title": "Auth", "description": "logins"}]
+        job["plane_base"] = "https://plane.example.test/api/v1"
+        job["plane_workspace"] = "my-team"
+
+        from backend.app.services import plane_write_client
+
+        epic_calls = []
+        work_item_calls = []
+        join_calls = []
+
+        def _fake_create_epic_or_module(plane_base, workspace_slug, project_id, token, subject, description):
+            epic_calls.append((plane_base, workspace_slug, project_id, token, subject, description))
+            return "epic-uuid-1", "epics"
+
+        def _fake_create_work_item(plane_base, workspace_slug, project_id, token, subject, description):
+            work_item_calls.append((plane_base, workspace_slug, project_id, token, subject, description))
+            return "story-uuid-1"
+
+        def _fake_join_work_item(plane_base, workspace_slug, project_id, token, group_source, group_id, work_item_id):
+            join_calls.append((plane_base, workspace_slug, project_id, token, group_source, group_id, work_item_id))
+
+        monkeypatch.setattr(plane_write_client, "create_epic_or_module", _fake_create_epic_or_module)
+        monkeypatch.setattr(plane_write_client, "create_work_item", _fake_create_work_item)
+        monkeypatch.setattr(plane_write_client, "join_work_item", _fake_join_work_item)
+
+        minted = []
+
+        class _StubCS:
+            def set_active(self, ctx):
+                pass
+
+            def init_context(self):
+                pass
+
+            def write_context_file(self, name, content):
+                pass
+
+            def mint_pm_id(self, pm_uuid):
+                minted.append(pm_uuid)
+                return 1000 + len(minted)
+
+        class _StubP1:
+            def generate_nl_stories(self, ctx, *, epic_subject, epic_description, images=None, instructions=""):
+                return ("draft", 1)
+
+            def compile_gherkin(self, *, nl_draft):
+                return [{"title": "Sign in", "gherkin": "Scenario: user signs in"}]
+
+            def finalize_stories(self, ctx, *, epic_id, epic_subject, stories):
+                return {"story_ids": [s["id"] for s in stories]}
+
+        monkeypatch.setattr(svc, "Phase1Service", _StubP1)
+        monkeypatch.setattr(svc, "ContextService", _StubCS)
+
+        story_ids = svc._run_phase1(job, _ctx())
+
+        assert epic_calls == [
+            ("https://plane.example.test/api/v1", "my-team", "42", "tok", "Auth", "logins"),
+        ]
+        assert work_item_calls == [
+            ("https://plane.example.test/api/v1", "my-team", "42", "tok", "Sign in", "Scenario: user signs in"),
+        ]
+        assert join_calls == [
+            ("https://plane.example.test/api/v1", "my-team", "42", "tok", "epics", "epic-uuid-1", "story-uuid-1"),
+        ]
+        # mint_pm_id was actually invoked for both the group and the story — not bypassed.
+        assert minted == ["epic-uuid-1", "story-uuid-1"]
+        assert story_ids == [1002]  # the story's minted Apex id (1001 was the epic/module's)
+
+    def test_epic_creation_failure_falls_back_to_synthetic_and_warns(self, monkeypatch):
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_pm": True, "auto_epics": False})
+        job["epics"] = [{"title": "Auth", "description": ""}]
+        job["plane_base"] = "https://plane.example.test/api/v1"
+        job["plane_workspace"] = "my-team"
+
+        from backend.app.services import plane_write_client
+
+        def _boom(*a, **kw):
+            raise RuntimeError("Plane 500")
+
+        monkeypatch.setattr(plane_write_client, "create_epic_or_module", _boom)
+
+        class _StubCS:
+            def set_active(self, ctx):
+                pass
+
+            def init_context(self):
+                pass
+
+            def write_context_file(self, name, content):
+                pass
+
+            def mint_pm_id(self, pm_uuid):
+                raise AssertionError("mint_pm_id must not run when epic/module creation failed")
+
+        class _StubP1:
+            def generate_nl_stories(self, ctx, *, epic_subject, epic_description, images=None, instructions=""):
+                return ("draft", 1)
+
+            def compile_gherkin(self, *, nl_draft):
+                return [{"title": "Sign in", "gherkin": "x"}]
+
+            def finalize_stories(self, ctx, *, epic_id, epic_subject, stories):
+                return {"story_ids": [s["id"] for s in stories]}
+
+        monkeypatch.setattr(svc, "Phase1Service", _StubP1)
+        monkeypatch.setattr(svc, "ContextService", _StubCS)
+
+        story_ids = svc._run_phase1(job, _ctx())  # must not raise / crash the job
+
+        warnings = [e["msg"] for e in job["events"] if e["level"] == "warning"]
+        assert any("Plane epic/module creation failed" in msg for msg in warnings)
+        assert story_ids and story_ids[0] >= svc._SYNTHETIC_BASE
+
+    def test_story_creation_failure_falls_back_to_synthetic_and_warns(self, monkeypatch):
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_pm": True, "auto_epics": False})
+        job["epics"] = [{"title": "Auth", "description": ""}]
+        job["plane_base"] = "https://plane.example.test/api/v1"
+        job["plane_workspace"] = "my-team"
+
+        from backend.app.services import plane_write_client
+
+        monkeypatch.setattr(
+            plane_write_client, "create_epic_or_module", lambda *a, **kw: ("epic-uuid-1", "epics"),
+        )
+
+        def _boom(*a, **kw):
+            raise RuntimeError("Plane 500")
+
+        monkeypatch.setattr(plane_write_client, "create_work_item", _boom)
+
+        minted = []
+
+        class _StubCS:
+            def set_active(self, ctx):
+                pass
+
+            def init_context(self):
+                pass
+
+            def write_context_file(self, name, content):
+                pass
+
+            def mint_pm_id(self, pm_uuid):
+                minted.append(pm_uuid)
+                return 2000 + len(minted)
+
+        class _StubP1:
+            def generate_nl_stories(self, ctx, *, epic_subject, epic_description, images=None, instructions=""):
+                return ("draft", 1)
+
+            def compile_gherkin(self, *, nl_draft):
+                return [{"title": "Sign in", "gherkin": "x"}]
+
+            def finalize_stories(self, ctx, *, epic_id, epic_subject, stories):
+                return {"story_ids": [s["id"] for s in stories]}
+
+        monkeypatch.setattr(svc, "Phase1Service", _StubP1)
+        monkeypatch.setattr(svc, "ContextService", _StubCS)
+
+        story_ids = svc._run_phase1(job, _ctx())  # must not raise / crash the job
+
+        assert minted == ["epic-uuid-1"]  # only the group was minted; the story mint never ran
+        warnings = [e["msg"] for e in job["events"] if e["level"] == "warning"]
+        assert any("Plane story creation failed" in msg for msg in warnings)
+        assert story_ids and story_ids[0] >= svc._SYNTHETIC_BASE
+
+
+# ---------------------------------------------------------------------------
+# Dedup — Plane branch resolves a dropped story's Apex id back to its real
+# Plane work-item uuid and deletes it; synthetic (never-real) ids are skipped.
+# ---------------------------------------------------------------------------
+
+class TestDedupPlane:
+    def test_resolves_apex_id_and_deletes_plane_work_item(self, monkeypatch):
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_pm": True, "auto_epics": False})
+        job["plane_base"] = "https://plane.example.test/api/v1"
+        job["plane_workspace"] = "my-team"
+
+        from backend.app.services import plane_write_client
+
+        deleted = []
+
+        def _fake_delete(plane_base, workspace_slug, project_id, token, work_item_id):
+            deleted.append((plane_base, workspace_slug, project_id, token, work_item_id))
+
+        monkeypatch.setattr(plane_write_client, "delete_work_item", _fake_delete)
+
+        resolved = []
+
+        class _CS:
+            def set_active(self, ctx):
+                pass
+
+            def story_index(self):
+                return {
+                    "1": {"title": "User Login Flow", "epic_id": 1},
+                    "2": {"title": "User Login Flow", "epic_id": 2},  # cross-epic dup of #1
+                    "3": {"title": "Export Monthly Reports", "epic_id": 2},
+                }
+
+            def resolve_pm_id(self, apex_id):
+                resolved.append(apex_id)
+                return "story-uuid-2" if apex_id == 2 else None
+
+            def remove_story_index_entries(self, ids):
+                pass
+
+            def save_autopilot_job(self, snap):
+                pass
+
+        monkeypatch.setattr(svc, "ContextService", _CS)
+        out = svc._dedup_stories(job, _ctx(), [1, 2, 3])
+
+        assert resolved == [2]  # only the dropped (real, non-synthetic) id was resolved
+        assert deleted == [("https://plane.example.test/api/v1", "my-team", "42", "tok", "story-uuid-2")]
+        assert out == [1, 3]
+
+    def test_synthetic_dropped_id_is_skipped_not_resolved(self, monkeypatch):
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_pm": True, "auto_epics": False})
+        job["plane_base"] = "https://plane.example.test/api/v1"
+        job["plane_workspace"] = "my-team"
+
+        from backend.app.services import plane_write_client
+
+        def _must_not_delete(*a, **kw):
+            raise AssertionError("must not delete a synthetic (never-real) work item id")
+
+        monkeypatch.setattr(plane_write_client, "delete_work_item", _must_not_delete)
+
+        synthetic_id = svc._SYNTHETIC_BASE + 5
+        resolved = []
+
+        class _CS:
+            def set_active(self, ctx):
+                pass
+
+            def story_index(self):
+                return {
+                    "1": {"title": "User Login Flow", "epic_id": 1},
+                    str(synthetic_id): {"title": "User Login Flow", "epic_id": 2},
+                }
+
+            def resolve_pm_id(self, apex_id):
+                resolved.append(apex_id)
+                return "should-never-be-used"
+
+            def remove_story_index_entries(self, ids):
+                pass
+
+            def save_autopilot_job(self, snap):
+                pass
+
+        monkeypatch.setattr(svc, "ContextService", _CS)
+        out = svc._dedup_stories(job, _ctx(), [1, synthetic_id])
+
+        assert resolved == []  # synthetic ids are local-only — never looked up
+        assert out == [1]
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 Plane task push — resolves the story's real work-item uuid via
+# resolve_pm_id and creates a Plane sub-issue with it as the parent.
+# ---------------------------------------------------------------------------
+
+class TestPhase3PlanePush:
+    def test_resolves_parent_uuid_and_creates_task(self, monkeypatch):
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_pm": True})
+        job["plane_base"] = "https://plane.example.test/api/v1"
+        job["plane_workspace"] = "my-team"
+        monkeypatch.setattr(svc, "_status_snapshot", lambda j: {})
+
+        from backend.app.services import plane_write_client
+
+        created = []
+
+        def _fake_create_task(plane_base, workspace_slug, project_id, token, parent_work_item_id, subject, description):
+            created.append((plane_base, workspace_slug, project_id, token, parent_work_item_id, subject, description))
+            return "task-uuid-1"
+
+        monkeypatch.setattr(plane_write_client, "create_task", _fake_create_task)
+
+        resolved = []
+
+        class _CS:
+            def set_active(self, ctx):
+                pass
+
+            def story_index(self):
+                return {}
+
+            def resolve_pm_id(self, apex_id):
+                resolved.append(apex_id)
+                return "story-uuid-7"
+
+            def save_autopilot_job(self, snap):
+                pass
+
+        monkeypatch.setattr(svc, "ContextService", _CS)
+
+        story_id = 42  # a real (non-synthetic) minted story id
+
+        class _StubP3:
+            def generate_tasks(self, ctx, story_id, instructions=""):
+                return [{"id": 1, "subject": "Write tests", "description": "desc"}]
+
+            def generate_proposal(self, *a, **k):
+                return "pack"
+
+            def save_proposal(self, *a, **k):
+                pass
+
+            def lock_story(self, *a, **k):
+                pass
+
+        monkeypatch.setattr(svc, "Phase3Service", _StubP3)
+
+        svc._run_phase3(job, _ctx(), [story_id])
+
+        assert resolved == [story_id]
+        assert created == [
+            ("https://plane.example.test/api/v1", "my-team", "42", "tok", "story-uuid-7", "Write tests", "desc"),
+        ]
+
+    def test_unresolvable_parent_skips_task_push_without_crashing(self, monkeypatch):
+        # resolve_pm_id returns None (e.g. the story was created before Plane
+        # support, or the pm-id map was lost) — must not crash the worker.
+        job = _make_job(settings={"pause_at_checkpoints": False, "create_epics_in_pm": True})
+        job["plane_base"] = "https://plane.example.test/api/v1"
+        job["plane_workspace"] = "my-team"
+        monkeypatch.setattr(svc, "_status_snapshot", lambda j: {})
+
+        from backend.app.services import plane_write_client
+
+        monkeypatch.setattr(
+            plane_write_client, "create_task",
+            lambda *a, **kw: (_ for _ in ()).throw(AssertionError("must not be called without a resolved parent")),
+        )
+
+        class _CS:
+            def set_active(self, ctx):
+                pass
+
+            def story_index(self):
+                return {}
+
+            def resolve_pm_id(self, apex_id):
+                return None
+
+            def save_autopilot_job(self, snap):
+                pass
+
+        monkeypatch.setattr(svc, "ContextService", _CS)
+
+        class _StubP3:
+            def generate_tasks(self, ctx, story_id, instructions=""):
+                return [{"id": 1, "subject": "Write tests", "description": "desc"}]
+
+            def generate_proposal(self, *a, **k):
+                return "pack"
+
+            def save_proposal(self, *a, **k):
+                pass
+
+            def lock_story(self, *a, **k):
+                pass
+
+        monkeypatch.setattr(svc, "Phase3Service", _StubP3)
+
+        svc._run_phase3(job, _ctx(), [42])  # must not raise
+        assert job["stories_done"] == 1

@@ -77,7 +77,7 @@ export function createMaintenanceItem(
   context: RequestContext,
   body: {
     subject: string; description?: string; evidence?: string;
-    source?: "manual" | "github" | "taiga" | "figma"; ext_ref?: string; linked_story_id?: number | null;
+    source?: "manual" | "github" | "taiga" | "plane" | "figma"; ext_ref?: string; linked_story_id?: number | null;
   },
 ) {
   return apiRequest<MaintenanceItem>(`${M}/items`, { method: "POST", context, body });

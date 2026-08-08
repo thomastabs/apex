@@ -16,6 +16,7 @@ import {
 } from "@/lib/api/phase3";
 import { getPmAdapter } from "@/lib/api/pm-factory";
 import { toPmCtx } from "@/lib/api/workspace";
+import { planeWorkItemWebUrl } from "@/lib/api/plane-web-url";
 import type { PmTask } from "@/lib/api/pm-types";
 import type {
   EffortEstimate,
@@ -140,6 +141,15 @@ export function pmTaskWebUrl(
       .replace(/\/+$/, "");
     if (!webBase) return null;
     return `${webBase}/project/${projectId}/task/${ref}`;
+  }
+  if (context.pmTool === "plane") {
+    // projectId here is Plane's project `identifier` (populated at sign-in —
+    // see plane-direct.ts's `slug: p.identifier` normalizer), workspaceSlug
+    // is required for any Plane URL, and ref is the work item's sequence_id.
+    // Scheme confirmed against Plane's own frontend source (phase 5d, see
+    // plane_integration_plan memory) — no longer an open unknown.
+    if (!context.workspaceSlug || !context.taigaApiUrl) return null;
+    return planeWorkItemWebUrl(context.taigaApiUrl, context.workspaceSlug, projectId, ref);
   }
   return null;
 }

@@ -34,15 +34,9 @@ type EpicRowProps = {
   result: ImportReconstructResult | undefined;
   isReconstructing: boolean;
   onReconstruct: (epicId: number) => void;
-  // AI reconstruction (Step 2) dials the PM's own board API server-side for
-  // story descriptions — only built for Taiga so far (see
-  // plane_integration_plan memory phase 4c's scope note). Hiding the action
-  // for Plane avoids a guaranteed-fail click; the backend would 503 it
-  // anyway, but there's no reason to let a user hit that.
-  reconstructAvailable: boolean;
 };
 
-function EpicRow({ epic, result, isReconstructing, onReconstruct, reconstructAvailable }: EpicRowProps) {
+function EpicRow({ epic, result, isReconstructing, onReconstruct }: EpicRowProps) {
   const [expanded, setExpanded] = useState(false);
   const done = result != null;
   const okCount = result?.results.filter((r) => r.status === "ok").length ?? 0;
@@ -66,7 +60,7 @@ function EpicRow({ epic, result, isReconstructing, onReconstruct, reconstructAva
             </span>
           )}
         </button>
-        {!done && reconstructAvailable && (
+        {!done && (
           <button
             onClick={() => onReconstruct(epic.id)}
             disabled={isReconstructing}
@@ -135,9 +129,7 @@ export function ImportPanel({ onStart }: { onStart?: () => void } = {}) {
           <div className="flex-1">
             <p className="text-sm font-semibold text-blue-300">Import ongoing project from {isPlane ? "Plane" : "Taiga"}</p>
             <p className="mt-0.5 text-xs text-blue-400/80">
-              {isPlane
-                ? "Pull existing epics and stories into Apex."
-                : "Pull existing epics and stories into Apex. Optionally reconstruct Gherkin specs per epic using AI."}
+              Pull existing epics and stories into Apex. Optionally reconstruct Gherkin specs per epic using AI.
             </p>
             <button
               onClick={handleBootstrap}
@@ -192,7 +184,7 @@ export function ImportPanel({ onStart }: { onStart?: () => void } = {}) {
       ) : (
         <div className="space-y-2">
           <p className="text-xs font-medium text-neutral-400 uppercase tracking-wider">
-            {isPlane ? "Epics" : "Epics — reconstruct Gherkin specs (optional, uses AI)"}
+            Epics — reconstruct Gherkin specs (optional, uses AI)
           </p>
           {report.epics.map((epic) => (
             <EpicRow
@@ -201,7 +193,6 @@ export function ImportPanel({ onStart }: { onStart?: () => void } = {}) {
               result={epicResults[epic.id]}
               isReconstructing={reconstructingEpic === epic.id}
               onReconstruct={handleReconstruct}
-              reconstructAvailable={!isPlane}
             />
           ))}
         </div>

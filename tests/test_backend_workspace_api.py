@@ -5,7 +5,8 @@ import json
 import pytest
 from fastapi import HTTPException
 
-from backend.app.api.deps import AuthContext
+from backend.app.api import deps
+from backend.app.api.deps import AuthContext, anchor_instance_id
 from backend.app.api.workspace import (
     admin_set_all_story_status,
     delete_ai_key,
@@ -321,7 +322,7 @@ def test_save_ai_config_rejects_unknown_language(monkeypatch):
 
 
 def test_get_ai_config_reports_env_and_personal_providers(monkeypatch):
-    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
+    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda *a, **k: "api_taiga_io")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-env")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
@@ -340,7 +341,7 @@ def test_get_ai_config_personal_key_configured_even_alongside_system_key(monkeyp
     # A saved personal key is always active — a provider with BOTH a system
     # env var and a personal key must still report as configured (via the
     # personal key; ai_engine actually calling it is covered in test_ai_engine.py).
-    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
+    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda *a, **k: "api_taiga_io")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-system-env")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
@@ -366,7 +367,7 @@ def test_get_ai_config_no_account_id_reports_env_only(monkeypatch):
 
 
 def test_save_ai_key_persists_and_clears_llm_cache(monkeypatch):
-    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
+    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda *a, **k: "api_taiga_io")
     saved: list[tuple] = []
     monkeypatch.setattr(
         "src.ai_key_store.save_key",
@@ -394,7 +395,7 @@ def test_save_ai_key_without_account_id_returns_503():
 
 
 def test_save_ai_key_without_encryption_secret_returns_503(monkeypatch):
-    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
+    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda *a, **k: "api_taiga_io")
 
     def _boom(instance_id, account_id, provider, api_key):
         raise RuntimeError("AI_KEY_ENCRYPTION_SECRET is not configured on this deployment.")
@@ -407,7 +408,7 @@ def test_save_ai_key_without_encryption_secret_returns_503(monkeypatch):
 
 
 def test_delete_ai_key_removes_and_clears_llm_cache(monkeypatch):
-    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
+    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda *a, **k: "api_taiga_io")
     deleted: list[tuple] = []
     monkeypatch.setattr(
         "src.ai_key_store.delete_key",
@@ -429,7 +430,7 @@ def test_delete_ai_key_rejects_unknown_provider():
 
 
 def test_delete_ai_key_without_account_id_is_a_noop(monkeypatch):
-    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda override="": "api_taiga_io")
+    monkeypatch.setattr("backend.app.api.workspace.anchor_instance_id", lambda *a, **k: "api_taiga_io")
     called = []
     monkeypatch.setattr("src.ai_key_store.delete_key", lambda *a: called.append(a))
 
@@ -1326,3 +1327,248 @@ class TestGithubPackSettings:
 def github_fetch_min_token_budget() -> int:
     from backend.app.services import github_fetch
     return github_fetch._MIN_TOKEN_BUDGET
+
+
+# ── Phase 5a: X-Plane-Url/X-Plane-Workspace threading (see plane_integration_plan
+# memory) — before this fix, these routes called anchor_instance_id/_verify_project_
+# access with only the Taiga-shaped argument count, silently ignoring a Plane-anchored
+# session's headers. Each test below proves the Plane branch resolves a DIFFERENT
+# storage instance_id than a Taiga-anchored request, and (where applicable) that
+# deps._verify_project_access actually receives the Plane project id + workspace slug
+# instead of silently falling through to Taiga defaults.
+
+_PLANE_UUID = "f722d8f5-57a4-4c98-8651-f7e89970c359"
+_PLANE_URL = "https://plane.example.org"
+_PLANE_WORKSPACE = "my-team"
+
+
+def _plane_instance_id() -> str:
+    return anchor_instance_id("", _PLANE_URL)
+
+
+def _taiga_instance_id() -> str:
+    return anchor_instance_id("", "")
+
+
+def test_plane_and_taiga_anchors_resolve_to_different_instance_ids():
+    # Sanity check the premise every test below relies on.
+    assert _plane_instance_id() != _taiga_instance_id()
+
+
+def test_get_config_plane_branch_verifies_plane_project_and_uses_plane_instance(monkeypatch):
+    monkeypatch.setattr("src.context_manager.load_config", lambda: {"project_id": _PLANE_UUID, "pm_tool": "plane"})
+    monkeypatch.setattr("src.taiga_adapter.get_web_base_url", lambda: "https://taiga.example")
+    monkeypatch.setattr("src.context_manager.get_instance_figma_file_key", lambda: "")
+    monkeypatch.setattr("src.context_manager.has_instance_figma_token", lambda: False)
+    monkeypatch.setattr("src.context_manager.get_project_github_repo", lambda pid: "owner/repo" if pid == _PLANE_UUID else "")
+    monkeypatch.setattr("src.context_manager.has_project_github_pat", lambda pid: pid == _PLANE_UUID)
+    instance_calls: list[str] = []
+    monkeypatch.setattr("src.context_manager.set_active_instance", lambda iid: instance_calls.append(iid))
+    monkeypatch.setattr("src.context_manager.set_active_project", lambda pid: None)
+    verify_calls: list[tuple] = []
+    monkeypatch.setattr(
+        deps, "_verify_project_access",
+        lambda token, pid, taiga_url_override="", plane_url_override="", plane_workspace_override="":
+            verify_calls.append((token, pid, taiga_url_override, plane_url_override, plane_workspace_override)),
+    )
+
+    response = get_config(
+        AuthContext(pm_token="tok"),
+        x_taiga_url="", x_plane_url=_PLANE_URL, x_plane_workspace=_PLANE_WORKSPACE, project_id=_PLANE_UUID,
+    )
+
+    assert verify_calls == [("tok", _PLANE_UUID, "", _PLANE_URL, _PLANE_WORKSPACE)]
+    assert instance_calls == [_plane_instance_id()]
+    assert response["github_repo"] == "owner/repo"
+    assert response["github_pat_configured"] is True
+
+
+def test_get_config_rejects_malformed_project_id_before_any_project_scoped_work(monkeypatch):
+    # SECURITY REGRESSION (phase 5a) — project_id is now int|str|None, validated
+    # through deps._parse_project_id before it can reach _verify_project_access,
+    # set_active_project, or a filesystem path join. A path-traversal-shaped
+    # string must never survive to any of those sinks; it must be treated the
+    # same as "no project selected".
+    monkeypatch.setattr("src.context_manager.load_config", lambda: {})
+    monkeypatch.setattr("src.taiga_adapter.get_web_base_url", lambda: "https://taiga.example")
+    monkeypatch.setattr("src.context_manager.get_instance_figma_file_key", lambda: "")
+    monkeypatch.setattr("src.context_manager.has_instance_figma_token", lambda: False)
+    monkeypatch.setattr("src.context_manager.set_active_instance", lambda iid: None)
+    verify_calls: list[tuple] = []
+    monkeypatch.setattr(deps, "_verify_project_access", lambda *a, **k: verify_calls.append((a, k)))
+    set_active_project_calls: list = []
+    monkeypatch.setattr("src.context_manager.set_active_project", lambda pid: set_active_project_calls.append(pid))
+
+    response = get_config(
+        AuthContext(pm_token="tok"),
+        x_plane_url=_PLANE_URL, x_plane_workspace=_PLANE_WORKSPACE,
+        project_id="../users/me",
+    )
+
+    assert response["github_repo"] == ""
+    assert response["github_pat_configured"] is False
+    assert verify_calls == []
+    assert set_active_project_calls == []
+
+
+def test_get_ai_config_plane_branch_scopes_personal_keys_to_plane_instance(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    saved_calls: list[tuple] = []
+    monkeypatch.setattr(
+        "src.ai_key_store.saved_providers",
+        lambda instance_id, account_id: (saved_calls.append((instance_id, account_id)), ["anthropic"])[1],
+    )
+
+    response = get_ai_config(AuthContext(pm_token="tok", account_id="42"), x_plane_url=_PLANE_URL)
+
+    assert saved_calls == [(_plane_instance_id(), "42")]
+    assert response["personal_providers"] == ["anthropic"]
+
+
+def test_save_ai_config_plane_branch_scopes_personal_keys_to_plane_instance(monkeypatch):
+    monkeypatch.setattr("src.ai_engine.AVAILABLE_MODELS", [{"id": "claude-fable-5", "label": "Fable 5"}])
+    monkeypatch.setattr("src.context_manager.save_ai_config", lambda model: None)
+    monkeypatch.setattr("src.ai_engine._llm_cache", {})
+    saved_calls: list[tuple] = []
+    monkeypatch.setattr(
+        "src.ai_key_store.saved_providers",
+        lambda instance_id, account_id: (saved_calls.append((instance_id, account_id)), [])[1],
+    )
+
+    save_ai_config_endpoint(
+        SaveAiConfigRequest(model="claude-fable-5"),
+        AuthContext(pm_token="tok", account_id="42"),
+        x_plane_url=_PLANE_URL,
+    )
+
+    assert saved_calls == [(_plane_instance_id(), "42")]
+
+
+def test_save_ai_key_plane_branch_saves_under_plane_instance(monkeypatch):
+    saved: list[tuple] = []
+    monkeypatch.setattr(
+        "src.ai_key_store.save_key",
+        lambda instance_id, account_id, provider, api_key: saved.append((instance_id, account_id, provider, api_key)),
+    )
+    monkeypatch.setattr("src.ai_key_store.saved_providers", lambda instance_id, account_id: ["openai"])
+    monkeypatch.setattr("src.ai_engine._llm_cache", {})
+
+    response = save_ai_key(
+        SaveAiKeyRequest(provider="openai", api_key="sk-my-key"),
+        AuthContext(pm_token="tok", account_id="42"),
+        x_plane_url=_PLANE_URL,
+    )
+
+    assert saved == [(_plane_instance_id(), "42", "openai", "sk-my-key")]
+    assert response == {"ok": True, "personal_providers": ["openai"]}
+
+
+def test_delete_ai_key_plane_branch_deletes_under_plane_instance(monkeypatch):
+    deleted: list[tuple] = []
+    monkeypatch.setattr(
+        "src.ai_key_store.delete_key",
+        lambda instance_id, account_id, provider: deleted.append((instance_id, account_id, provider)),
+    )
+    monkeypatch.setattr("src.ai_key_store.saved_providers", lambda instance_id, account_id: [])
+    monkeypatch.setattr("src.ai_engine._llm_cache", {})
+
+    delete_ai_key("openai", AuthContext(pm_token="tok", account_id="42"), x_plane_url=_PLANE_URL)
+
+    assert deleted == [(_plane_instance_id(), "42", "openai")]
+
+
+def test_save_config_plane_branch_threads_url_and_workspace_through_every_branch(monkeypatch):
+    verify_calls: list[tuple] = []
+    monkeypatch.setattr(
+        deps, "_verify_project_access",
+        lambda token, pid, taiga_url_override="", plane_url_override="", plane_workspace_override="":
+            verify_calls.append((pid, taiga_url_override, plane_url_override, plane_workspace_override)),
+    )
+    instance_calls: list[str] = []
+    monkeypatch.setattr("src.context_manager.set_active_instance", lambda iid: instance_calls.append(iid))
+    monkeypatch.setattr("src.context_manager.set_active_project", lambda pid: None)
+    monkeypatch.setattr("src.context_manager.save_config", lambda pid: None)
+    monkeypatch.setattr("src.context_manager.save_project_github_repo", lambda repo: None)
+    monkeypatch.setattr("src.context_manager.save_project_github_pat", lambda pat: None)
+    monkeypatch.setattr("src.context_manager.save_instance_figma_file_key", lambda key: None)
+    monkeypatch.setattr("src.context_manager.save_instance_figma_token", lambda token: None)
+
+    response = save_config(
+        SaveConfigRequest(
+            project_id=_PLANE_UUID,
+            github_repo="owner/repo",
+            github_pat="ghp_abc123",
+            figma_file_key="FIGKEY",
+            figma_token="figd_xyz789",
+        ),
+        AuthContext(pm_token="tok"),
+        x_taiga_url="", x_plane_url=_PLANE_URL, x_plane_workspace=_PLANE_WORKSPACE,
+    )
+
+    assert response == {"ok": True}
+    # top-level project_id check + github_repo branch + github_pat branch
+    assert verify_calls == [
+        (_PLANE_UUID, "", _PLANE_URL, _PLANE_WORKSPACE),
+        (_PLANE_UUID, "", _PLANE_URL, _PLANE_WORKSPACE),
+        (_PLANE_UUID, "", _PLANE_URL, _PLANE_WORKSPACE),
+    ]
+    # github_repo + figma_file_key + github_pat + figma_token branches
+    plane_instance = _plane_instance_id()
+    assert instance_calls == [plane_instance] * 4
+    assert plane_instance != _taiga_instance_id()
+
+
+def test_get_github_pat_plane_branch_verifies_plane_project_and_uses_plane_instance(monkeypatch):
+    verify_calls: list[tuple] = []
+    monkeypatch.setattr(
+        deps, "_verify_project_access",
+        lambda token, pid, taiga_url_override="", plane_url_override="", plane_workspace_override="":
+            verify_calls.append((pid, taiga_url_override, plane_url_override, plane_workspace_override)),
+    )
+    instance_calls: list[str] = []
+    monkeypatch.setattr("src.context_manager.set_active_instance", lambda iid: instance_calls.append(iid))
+    monkeypatch.setattr("src.context_manager.set_active_project", lambda pid: None)
+    monkeypatch.setattr("src.context_manager.get_project_github_pat", lambda pid: "ghp_plane_decrypted")
+
+    response = get_github_pat(
+        AuthContext(pm_token="tok"),
+        x_taiga_url="", x_plane_url=_PLANE_URL, x_plane_workspace=_PLANE_WORKSPACE, project_id=_PLANE_UUID,
+    )
+
+    assert response == {"pat": "ghp_plane_decrypted"}
+    assert verify_calls == [(_PLANE_UUID, "", _PLANE_URL, _PLANE_WORKSPACE)]
+    assert instance_calls == [_plane_instance_id()]
+
+
+def test_get_figma_token_plane_branch_uses_plane_instance(monkeypatch):
+    instance_calls: list[str] = []
+    monkeypatch.setattr("src.context_manager.set_active_instance", lambda iid: instance_calls.append(iid))
+    monkeypatch.setattr("src.context_manager.get_instance_figma_token", lambda: "figd_plane_decrypted")
+
+    response = get_figma_token(AuthContext(pm_token="tok"), x_plane_url=_PLANE_URL)
+
+    assert response == {"token": "figd_plane_decrypted"}
+    assert instance_calls == [_plane_instance_id()]
+
+
+def test_get_github_webhook_config_plane_branch_uses_plane_instance(monkeypatch):
+    from backend.app.api.workspace import get_github_webhook_config
+
+    instance_calls: list[str] = []
+    monkeypatch.setattr("src.context_manager.set_active_instance", lambda iid: instance_calls.append(iid))
+    monkeypatch.setattr("src.context_manager.set_active_project", lambda pid: None)
+    monkeypatch.setattr("src.context_manager.get_or_create_instance_github_webhook_secret", lambda: "webhook-secret")
+    monkeypatch.setattr("src.context_manager.get_project_github_repo", lambda pid: "owner/repo" if pid == _PLANE_UUID else "")
+
+    response = get_github_webhook_config(
+        AuthContext(pm_token="tok"), x_plane_url=_PLANE_URL, project_id=_PLANE_UUID,
+    )
+
+    plane_instance = _plane_instance_id()
+    assert response["instance_id"] == plane_instance
+    assert response["configured"] is True
+    assert response["secret"] == "webhook-secret"
+    assert instance_calls == [plane_instance]
+    assert plane_instance != _taiga_instance_id()

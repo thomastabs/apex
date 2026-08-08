@@ -364,7 +364,10 @@ def plane_bootstrap(
     }
 
 
-def reconstruct_epic(epic_id: int, taiga_base: str, token: str, project_id: int, context: "ContextService") -> dict:
+def reconstruct_epic(
+    epic_id: int, taiga_base: str, token: str, project_id: int, context: "ContextService",
+    *, story_descriptions: dict[int, str] | None = None,
+) -> dict:
     """Step 2: generate Gherkin for all stories in one epic via one AI call.
 
     `context` must already have the target project set active (see caller in
@@ -372,7 +375,17 @@ def reconstruct_epic(epic_id: int, taiga_base: str, token: str, project_id: int,
 
     epic_id=0 means the synthetic General epic (orphan stories with no epic in Taiga).
     Returns a report dict with keys: epic_id, epic_title, results (list per story).
-    """
+
+    story_descriptions: Plane only (phase 5c, see plane_integration_plan
+    memory), keyed by Apex story id (already resolved from Plane's real UUID
+    via context.mint_pm_id — the same get-or-create primitive phase 4b's
+    bootstrap used to mint it in the first place, so an id here always
+    matches an existing story-index entry's story_id). When given, this skips
+    the Taiga dial entirely and uses these frontend-supplied descriptions
+    instead — taiga_base/token/project_id are unused in that path but kept as
+    required positional params so this stays one function, not two near-
+    duplicates, matching the "frontend fetches, backend processes" shape
+    phase 4c's bootstrap already established for Plane."""
     from src import ai_engine
 
     # Get story-index entries for this epic
@@ -389,28 +402,32 @@ def reconstruct_epic(epic_id: int, taiga_base: str, token: str, project_id: int,
         _GENERAL_EPIC_TITLE if epic_id == _GENERAL_EPIC_ID else f"Epic {epic_id}"
     )
 
-    # Fetch story descriptions from Taiga
-    if epic_id == _GENERAL_EPIC_ID:
-        # Orphan stories: fetch all project stories, filter to those with no epic
-        all_raw = _taiga_get_all(f"{taiga_base}/userstories", token, {"project": project_id})
-        raw_map = {s["id"]: s for s in all_raw if _extract_epic_id(s) is None}
-    else:
-        epic_raw = _taiga_get_all(
-            f"{taiga_base}/userstories", token, {"project": project_id, "epic": epic_id}
-        )
-        raw_map = {s["id"]: s for s in epic_raw}
+    # Fetch story descriptions — from Taiga (self-dial) unless the caller
+    # already supplied them (Plane).
+    raw_map: dict[int, dict] = {}
+    if story_descriptions is None:
+        if epic_id == _GENERAL_EPIC_ID:
+            # Orphan stories: fetch all project stories, filter to those with no epic
+            all_raw = _taiga_get_all(f"{taiga_base}/userstories", token, {"project": project_id})
+            raw_map = {s["id"]: s for s in all_raw if _extract_epic_id(s) is None}
+        else:
+            epic_raw = _taiga_get_all(
+                f"{taiga_base}/userstories", token, {"project": project_id, "epic": epic_id}
+            )
+            raw_map = {s["id"]: s for s in epic_raw}
 
     # Build input list for AI
     ai_input = []
     for entry in epic_stories:
         sid = entry["story_id"]
-        raw = raw_map.get(sid, {})
-        title = entry.get("title") or raw.get("subject", f"Story {sid}")
-        ai_input.append({
-            "id": sid,
-            "title": title,
-            "description": _format_reconstruction_story_input(sid, title, raw),
-        })
+        if story_descriptions is not None:
+            title = entry.get("title") or f"Story {sid}"
+            description = story_descriptions.get(sid, "") or _format_reconstruction_story_input(sid, title, {})
+        else:
+            raw = raw_map.get(sid, {})
+            title = entry.get("title") or raw.get("subject", f"Story {sid}")
+            description = _format_reconstruction_story_input(sid, title, raw)
+        ai_input.append({"id": sid, "title": title, "description": description})
 
     # One AI call for the whole epic
     gherkin_map = ai_engine.reconstruct_gherkin_batch(epic_title, ai_input)

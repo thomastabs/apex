@@ -2,6 +2,7 @@ import { apiRequest } from "./client";
 import { getPmAdapter } from "./pm-factory";
 import { taigaGetProject } from "./taiga-direct";
 import { toPmCtx } from "./workspace";
+import { planeWorkItemWebUrl } from "./plane-web-url";
 import type {
   CompiledStory,
   EpicSuggestion,
@@ -318,13 +319,20 @@ async function pushPhase1StoriesDirect(
     throw new Error(`All story pushes failed. First error: ${pushFailures[0]?.error ?? "unknown"}`);
   }
 
-  // Build PM web URLs for created stories (best-effort, Taiga only — Plane's
-  // per-story deep-link URL scheme isn't confirmed yet, see
-  // plane_integration_plan memory; skip the dial entirely for Plane rather
-  // than sending Plane's project id/token to Taiga's API, which would just
-  // fail on every call).
+  // Build PM web URLs for created stories (best-effort).
   let storyUrls: string[] = [];
-  if (context.pmTool !== "plane") {
+  if (context.pmTool === "plane") {
+    // No extra network call needed — unlike Taiga's project-slug dial below,
+    // Plane's project `identifier` is already on context.pmProjectId from
+    // sign-in (see plane-direct.ts's `slug: p.identifier` normalizer), and
+    // the deep-link scheme is confirmed against Plane's own frontend source
+    // (phase 5d, see plane_integration_plan memory).
+    if (context.pmProjectId && context.workspaceSlug && context.taigaApiUrl) {
+      storyUrls = createdStories
+        .filter((s) => s.ref)
+        .map((s) => planeWorkItemWebUrl(context.taigaApiUrl!, context.workspaceSlug!, context.pmProjectId!, s.ref));
+    }
+  } else {
     try {
       // Fetch project slug then build tree.taiga.io URLs
       const { slug } = await taigaGetProject(context.taigaToken, context.projectId, context.taigaApiUrl);

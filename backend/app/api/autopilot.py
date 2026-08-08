@@ -4,10 +4,11 @@ import asyncio
 import json
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from fastapi.responses import StreamingResponse
 
-from backend.app.api.deps import RequestContext, get_request_context, resolve_taiga_base
+from backend.app.api import deps
+from backend.app.api.deps import RequestContext, get_request_context
 from backend.app.schemas.autopilot import (
     AutopilotControlResponse,
     AutopilotStartRequest,
@@ -26,8 +27,27 @@ router = APIRouter()
 def autopilot_start(
     body: AutopilotStartRequest,
     ctx: RequestContext = Depends(get_request_context),
-    taiga_base: str = Depends(resolve_taiga_base),
+    x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+    x_plane_url: str = Header(default="", alias="X-Plane-Url"),
+    x_plane_workspace: str = Header(default="", alias="X-Plane-Workspace"),
 ) -> AutopilotStartResponse:
+    # Resolve the anchored PM base directly rather than via FastAPI's
+    # Depends(resolve_taiga_base) — that indirection was a real, previously-
+    # undocumented bug (phase 5a, see plane_integration_plan memory):
+    # resolve_taiga_base's bare `str = ""` parameter has no Header(...)
+    # annotation, so FastAPI reads it as a QUERY param when injected via
+    # Depends(), meaning a self-hosted Taiga's X-Taiga-Url override never
+    # actually reached this route. Reading the real headers here and calling
+    # the resolver directly (same SSRF-validated dial resolve_taiga_base used
+    # internally) sidesteps the Depends()-of-a-non-dependency-shaped-function
+    # trap entirely, and adds Plane support in the same pass.
+    pm_tool, pm_base = deps._resolve_anchor_base(x_taiga_url, x_plane_url)
+    taiga_base = pm_base if pm_tool == "taiga" else ""
+    plane_base = ""
+    plane_workspace = ""
+    if pm_tool == "plane":
+        plane_base = pm_base
+        plane_workspace = deps._validate_plane_workspace_slug(x_plane_workspace.strip())
     job_id = autopilot_service.start_job(
         ctx,
         concept=body.concept,
@@ -37,6 +57,8 @@ def autopilot_start(
         instructions=body.instructions,
         settings=body.settings.model_dump(),
         taiga_base=taiga_base,
+        plane_base=plane_base,
+        plane_workspace=plane_workspace,
         figma_file_key=body.figma_file_key,
         figma_token=body.figma_token,
         figma_project_id=body.figma_project_id,

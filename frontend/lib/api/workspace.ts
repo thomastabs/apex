@@ -29,6 +29,18 @@ export function toPmCtx(ctx: RequestContext): PmRequestContext {
   return { ...base, projectId: String(ctx.projectId) };
 }
 
+/** Resolve a project id for a raw (non-apiRequest) query-string/body slot —
+ * apiRequest's own X-Project-Id header already goes through this same
+ * resolveId() inside contextHeaders(), but a handful of routes ALSO carry
+ * project_id as a plain query param or JSON body field (get_config,
+ * github-pat, github-webhook, save_config's github/figma-pat branches),
+ * built by callers from the raw session-local Plane id-shim int — those need
+ * the same resolve-before-send treatment (phase 5a, see
+ * plane_integration_plan memory). Taiga's numeric id passes through unchanged. */
+function resolvePmProjectId(pmTool: string | undefined, projectId: number): number | string {
+  return pmTool === "plane" ? resolveId(projectId) : projectId;
+}
+
 export type ServerConfig = {
   project_id: number | null;
   taiga_web_url: string;
@@ -41,12 +53,18 @@ export type ServerConfig = {
 };
 
 /** github_repo/github_pat are per-project — projectId is required to save them
- * (the backend 400s otherwise; there's no instance-wide slot to fall back to). */
+ * (the backend 400s otherwise; there's no instance-wide slot to fall back to).
+ * projectId is the raw session-local id (Taiga's real int, or Plane's minted
+ * shim int) — resolved to what the wire actually needs before sending. */
 export function saveGithubConfig(context: AuthContext, repo: string, projectId: number, pat?: string) {
   return apiRequest<{ ok: boolean }>("/api/workspace/config", {
     method: "POST",
     context,
-    body: { github_repo: repo, project_id: projectId, ...(pat !== undefined ? { github_pat: pat } : {}) },
+    body: {
+      github_repo: repo,
+      project_id: resolvePmProjectId(context.pmTool, projectId),
+      ...(pat !== undefined ? { github_pat: pat } : {}),
+    },
   });
 }
 
@@ -54,7 +72,7 @@ export function saveGithubConfig(context: AuthContext, repo: string, projectId: 
  * session on load — never part of the general config response. github_pat is
  * per-project; omitting projectId returns "" (nothing to restore yet). */
 export function getGithubPat(context: AuthContext, projectId?: number | null) {
-  const qs = projectId != null ? `?project_id=${projectId}` : "";
+  const qs = projectId != null ? `?project_id=${resolvePmProjectId(context.pmTool, projectId)}` : "";
   return apiRequest<{ pat: string }>(`/api/workspace/github-pat${qs}`, { context });
 }
 
@@ -65,7 +83,7 @@ export type GithubWebhookConfig = {
 };
 
 export function getGithubWebhookConfig(context: AuthContext, projectId?: number | null) {
-  const qs = projectId != null ? `?project_id=${projectId}` : "";
+  const qs = projectId != null ? `?project_id=${resolvePmProjectId(context.pmTool, projectId)}` : "";
   return apiRequest<GithubWebhookConfig>(`/api/workspace/github-webhook${qs}`, { context });
 }
 
@@ -95,7 +113,7 @@ export function getFigmaToken(context: AuthContext) {
 /** github_repo/github_pat_configured in the response are per-project — omitting
  * projectId returns them empty/false (no project selected, nothing to report). */
 export function getServerConfig(context: AuthContext, projectId?: number | null) {
-  const qs = projectId != null ? `?project_id=${projectId}` : "";
+  const qs = projectId != null ? `?project_id=${resolvePmProjectId(context.pmTool, projectId)}` : "";
   return apiRequest<ServerConfig>(`/api/workspace/config${qs}`, { context });
 }
 

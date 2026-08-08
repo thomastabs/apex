@@ -34,6 +34,7 @@ import {
   planeUpdateStory,
   planeUpdateTask,
 } from "./plane-direct";
+import { planeWebBaseUrl } from "./plane-web-url";
 import type { PmAuthContext, PmRequestContext, ProjectManagementAdapter } from "./pm-types";
 
 function requireWorkspaceSlug(ctx: PmAuthContext): string {
@@ -58,16 +59,11 @@ const planeAdapter: ProjectManagementAdapter = {
   // Plane exposes no optimistic-concurrency field on work items (confirmed —
   // see plane_integration_plan memory), so there is no 409 to detect.
   isPmVersionConflict: () => false,
-  getWebUrl: (baseUrl) => {
-    // Cloud: api.plane.so (API) vs app.plane.so (web UI) — different
-    // subdomains, mirroring Taiga's api./tree. split. Self-hosted uses ONE
-    // domain for both (confirmed — no separate API host is even possible
-    // since PR makeplane/plane#2135), so anything else passes through as-is.
-    // NOT live-verified against a real Plane Cloud account — flagged in the
-    // plane_integration_plan memory's "Remaining unknowns" for phase 2.
-    const stripped = baseUrl.replace(/\/api(?:\/v\d+)?$/, "");
-    return stripped.includes("api.plane.so") ? stripped.replace("api.plane.so", "app.plane.so") : stripped;
-  },
+  // CONFIRMED CORRECT against Plane's actual frontend source and docs
+  // (phase 5d, see plane_integration_plan memory) — no longer an unverified
+  // guess as earlier phases had flagged it. See plane-web-url.ts for the
+  // shared swap logic (also used by the per-task/story deep-link builders).
+  getWebUrl: planeWebBaseUrl,
 
   getMe: (auth: PmAuthContext) => planeGetMe(auth.token, auth.baseUrl),
 

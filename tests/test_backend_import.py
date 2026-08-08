@@ -5,6 +5,8 @@ the no-AI bootstrap, the per-epic Gherkin reconstruction, and the two API
 routes (happy path + 502 on Taiga failure).
 """
 
+from unittest.mock import patch
+
 import pytest
 from fastapi import HTTPException
 
@@ -470,6 +472,104 @@ def test_reconstruct_general_epic_filters_orphans(ctx, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# reconstruct_epic — Plane path (phase 5c): story_descriptions supplied
+# ---------------------------------------------------------------------------
+
+def test_reconstruct_plane_uses_supplied_descriptions_skips_taiga(ctx, monkeypatch):
+    ctx.upsert_story_index(500, title="Login", epic_id=10, epic_title="Auth",
+                           phase_status="gherkin_locked", has_gherkin=False)
+    ctx.upsert_story_index(501, title="Logout", epic_id=10, epic_title="Auth",
+                           phase_status="gherkin_locked", has_gherkin=False)
+
+    def boom(*a, **k):
+        raise AssertionError("Taiga must not be dialed when story_descriptions is supplied")
+    monkeypatch.setattr(svc, "_taiga_get_all", boom)
+
+    captured = {}
+    def fake_ai(title, items):
+        captured["items"] = items
+        return {500: "Feature: Login\n  Scenario: ok", 501: "Feature: Logout\n  Scenario: ok"}
+    monkeypatch.setattr("src.ai_engine.reconstruct_gherkin_batch", fake_ai)
+
+    story_descriptions = {500: "plane description for login", 501: "plane description for logout"}
+    out = svc.reconstruct_epic(
+        10, "", "tok", 0, ContextService(), story_descriptions=story_descriptions,
+    )
+
+    by_id = {r["story_id"]: r for r in out["results"]}
+    assert by_id[500]["status"] == "ok"
+    assert by_id[501]["status"] == "ok"
+    assert out["epic_id"] == 10
+    assert out["epic_title"] == "Auth"
+
+    items_by_id = {i["id"]: i for i in captured["items"]}
+    assert items_by_id[500]["description"] == "plane description for login"
+    assert items_by_id[501]["description"] == "plane description for logout"
+
+    # Written downstream identically to the Taiga path.
+    assert ctx.get_story_index()["500"]["has_gherkin"] is True
+    assert ctx.get_story_index()["501"]["has_gherkin"] is True
+
+
+def test_reconstruct_plane_missing_description_falls_back_to_formatted_input(ctx, monkeypatch):
+    ctx.upsert_story_index(600, title="Signup", epic_id=20, epic_title="Onboarding",
+                           phase_status="gherkin_locked", has_gherkin=False)
+    ctx.upsert_story_index(601, title="Verify email", epic_id=20, epic_title="Onboarding",
+                           phase_status="gherkin_locked", has_gherkin=False)
+
+    def boom(*a, **k):
+        raise AssertionError("Taiga must not be dialed when story_descriptions is supplied")
+    monkeypatch.setattr(svc, "_taiga_get_all", boom)
+
+    captured = {}
+    def fake_ai(title, items):
+        captured["items"] = items
+        return {600: "Feature: Signup", 601: "Feature: Verify"}
+    monkeypatch.setattr("src.ai_engine.reconstruct_gherkin_batch", fake_ai)
+
+    # 601 has no entry in story_descriptions — must still get an AI-input
+    # entry via the _format_reconstruction_story_input fallback, not be
+    # skipped/crashed.
+    story_descriptions = {600: "explicit plane description"}
+    out = svc.reconstruct_epic(
+        20, "", "tok", 0, ContextService(), story_descriptions=story_descriptions,
+    )
+
+    assert {r["story_id"] for r in out["results"]} == {600, 601}
+    assert all(r["status"] == "ok" for r in out["results"])
+
+    items_by_id = {i["id"]: i for i in captured["items"]}
+    assert items_by_id[600]["description"] == "explicit plane description"
+    fallback_expected = svc._format_reconstruction_story_input(601, "Verify email", {})
+    assert items_by_id[601]["description"] == fallback_expected
+
+
+def test_reconstruct_none_story_descriptions_still_dials_taiga(ctx, monkeypatch):
+    """Regression guard: story_descriptions=None (default) preserves the
+    original Taiga self-dial behavior, unchanged by the phase 5c refactor."""
+    ctx.upsert_story_index(700, title="Login", epic_id=10, epic_title="Auth",
+                           phase_status="gherkin_locked", has_gherkin=False)
+
+    called = {}
+    def fake_get_all(url, token, params=None):
+        called["url"] = url
+        called["params"] = params
+        return [{"id": 700, "subject": "Login", "description": "taiga desc"}]
+    monkeypatch.setattr(svc, "_taiga_get_all", fake_get_all)
+
+    def fake_ai(title, items):
+        return {700: "Feature: Login\n  Scenario: ok"}
+    monkeypatch.setattr("src.ai_engine.reconstruct_gherkin_batch", fake_ai)
+
+    out = svc.reconstruct_epic(10, "https://api.taiga.io/api/v1", "tok", 42, ContextService())
+
+    assert called["url"] == "https://api.taiga.io/api/v1/userstories"
+    assert called["params"] == {"project": 42, "epic": 10}
+    assert out["results"][0]["status"] == "ok"
+    assert ctx.get_story_index()["700"]["has_gherkin"] is True
+
+
+# ---------------------------------------------------------------------------
 # API routes
 # ---------------------------------------------------------------------------
 
@@ -577,3 +677,107 @@ def test_route_reconstruct_failure_is_502(ctx, monkeypatch):
     with pytest.raises(HTTPException) as ei:
         workspace.import_reconstruct_epic(epic_id=10, ctx=_CTX, x_taiga_url="")
     assert ei.value.status_code == 502
+
+
+# ---------------------------------------------------------------------------
+# import_reconstruct_epic route — Plane branch (phase 5c)
+# ---------------------------------------------------------------------------
+
+def test_route_reconstruct_plane_branch_mints_ids_and_skips_taiga(ctx, monkeypatch):
+    """pm_tool=plane: the route must mint Apex ids from the payload's real
+    UUIDs via context.mint_pm_id, key story_descriptions by those minted
+    ints, and never touch the Taiga dial path at all."""
+    from backend.app.api import workspace
+
+    minted = {}
+    def fake_mint(self, pm_story_id):
+        apex_id = {"story-uuid-1": 501, "story-uuid-2": 502}[pm_story_id]
+        minted[pm_story_id] = apex_id
+        return apex_id
+    monkeypatch.setattr(workspace.ContextService, "mint_pm_id", fake_mint)
+
+    captured = {}
+    def fake_reconstruct(epic_id, taiga_base, token, project_id, context, *, story_descriptions=None):
+        captured.update(epic_id=epic_id, taiga_base=taiga_base, project_id=project_id,
+                        story_descriptions=story_descriptions)
+        return {"epic_id": epic_id, "epic_title": "Auth", "results": []}
+    monkeypatch.setattr(svc, "reconstruct_epic", fake_reconstruct)
+
+    def boom(*a, **k):
+        raise AssertionError("Taiga must not be dialed on the Plane reconstruct path")
+    monkeypatch.setattr(workspace, "resolve_taiga_base", boom)
+    monkeypatch.setattr(svc, "_taiga_get_all", boom)
+
+    payload = workspace.ImportReconstructRequest(stories=[
+        {"pm_story_id": "story-uuid-1", "description": "desc one"},
+        {"pm_story_id": "story-uuid-2", "description": "desc two"},
+    ])
+
+    with patch("src.context_manager.load_config", return_value={"pm_tool": "plane"}):
+        out = workspace.import_reconstruct_epic(
+            epic_id=10, payload=payload, ctx=_PLANE_CTX, x_taiga_url="",
+        )
+
+    assert minted == {"story-uuid-1": 501, "story-uuid-2": 502}
+    assert captured["story_descriptions"] == {501: "desc one", 502: "desc two"}
+    assert captured["taiga_base"] == ""
+    assert captured["project_id"] == 0
+    assert out["epic_id"] == 10
+
+
+def test_route_reconstruct_plane_branch_ignores_stories_without_pm_id(ctx, monkeypatch):
+    from backend.app.api import workspace
+
+    monkeypatch.setattr(workspace.ContextService, "mint_pm_id", lambda self, pm_story_id: 501)
+
+    captured = {}
+    def fake_reconstruct(epic_id, taiga_base, token, project_id, context, *, story_descriptions=None):
+        captured["story_descriptions"] = story_descriptions
+        return {"epic_id": epic_id, "epic_title": "Auth", "results": []}
+    monkeypatch.setattr(svc, "reconstruct_epic", fake_reconstruct)
+
+    payload = workspace.ImportReconstructRequest(stories=[
+        {"pm_story_id": "", "description": "no id, should be skipped"},
+    ])
+
+    with patch("src.context_manager.load_config", return_value={"pm_tool": "plane"}):
+        workspace.import_reconstruct_epic(epic_id=10, payload=payload, ctx=_PLANE_CTX, x_taiga_url="")
+
+    assert captured["story_descriptions"] == {}
+
+
+def test_route_reconstruct_taiga_branch_unaffected_no_payload(ctx, monkeypatch):
+    """Regression check: payload omitted (as every pre-Plane caller did) and
+    pm_tool defaults/reads as taiga — byte-for-byte the pre-5c behavior."""
+    from backend.app.api import workspace
+
+    captured = {}
+    def fake_reconstruct(epic_id, taiga_base, token, project_id, context):
+        captured.update(epic_id=epic_id, taiga_base=taiga_base, project_id=project_id)
+        return {"epic_id": epic_id, "epic_title": "Auth", "results": []}
+    monkeypatch.setattr(svc, "reconstruct_epic", fake_reconstruct)
+    monkeypatch.setattr(workspace, "resolve_taiga_base", lambda x_taiga_url="": "https://api.taiga.io/api/v1")
+
+    with patch("src.context_manager.load_config", return_value={"pm_tool": "taiga"}):
+        out = workspace.import_reconstruct_epic(epic_id=10, ctx=_CTX, x_taiga_url="")
+
+    assert captured["taiga_base"] == "https://api.taiga.io/api/v1"
+    assert captured["project_id"] == 42
+    assert out["epic_id"] == 10
+
+
+def test_route_reconstruct_taiga_branch_default_pm_tool_when_config_missing(ctx, monkeypatch):
+    """pm_tool absent from saved config (the common pre-Plane case) must
+    still hit the Taiga branch — the route defaults to 'taiga'."""
+    from backend.app.api import workspace
+
+    monkeypatch.setattr(
+        svc, "reconstruct_epic",
+        lambda epic_id, base, token, pid, context: {"epic_id": epic_id, "epic_title": "Auth", "results": []},
+    )
+    monkeypatch.setattr(workspace, "resolve_taiga_base", lambda x_taiga_url="": "https://api.taiga.io/api/v1")
+
+    with patch("src.context_manager.load_config", return_value={}):
+        out = workspace.import_reconstruct_epic(epic_id=10, ctx=_CTX, x_taiga_url="")
+
+    assert out["epic_id"] == 10
