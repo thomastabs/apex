@@ -239,16 +239,64 @@ export async function planeGetMe(apiKey: string, apiBaseUrl?: string): Promise<M
   };
 }
 
+function normalizePlaneProject(raw: Record<string, unknown>): Project {
+  return {
+    id: mintId(String(raw.id)),
+    name: (raw.name as string) || "",
+    slug: (raw.identifier as string) ?? null,
+    description: planeDescription(raw),
+  };
+}
+
 export async function planeListProjects(apiKey: string, workspaceSlug: string, apiBaseUrl?: string): Promise<Project[]> {
   const raw = await planeFetchAllPages<Record<string, unknown>>(
     `workspaces/${encodeURIComponent(workspaceSlug)}/projects/`, apiKey, apiBaseUrl,
   );
-  return raw.map((p) => ({
-    id: mintId(String(p.id)),
-    name: (p.name as string) || "",
-    slug: (p.identifier as string) ?? null,
-    description: planeDescription(p),
-  }));
+  return raw.map(normalizePlaneProject);
+}
+
+// ---------------------------------------------------------------------------
+// Project CRUD (create/update/delete) — unlike every other write path above,
+// this has no adapter-level "gate" fallback (no Modules-style substitute);
+// it's a plain project resource. `identifier` is REQUIRED on create — Plane
+// has no server-derived slug the way Taiga does, so the caller (plane-adapter.ts,
+// sourced from a form field) must always supply one. Field names/shapes
+// confirmed against developers.plane.so's own API reference (2026-08-10, see
+// plane_integration_plan memory) — not guessed.
+// ---------------------------------------------------------------------------
+
+export async function planeCreateProject(
+  apiKey: string, workspaceSlug: string, name: string, description: string, identifier: string, apiBaseUrl?: string,
+): Promise<Project> {
+  const created = await planeFetch<Record<string, unknown>>(
+    `workspaces/${encodeURIComponent(workspaceSlug)}/projects/`, apiKey, apiBaseUrl,
+    { method: "POST", body: { name, identifier, description } },
+  );
+  return normalizePlaneProject(created);
+}
+
+export async function planeUpdateProject(
+  apiKey: string, workspaceSlug: string, mintedProjectId: string,
+  fields: { name?: string; description?: string }, apiBaseUrl?: string,
+): Promise<Project> {
+  const uuid = resolveId(mintedProjectId);
+  const base = `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${uuid}`;
+  const body: Record<string, unknown> = {};
+  if (fields.name !== undefined) body.name = fields.name;
+  if (fields.description !== undefined) body.description = fields.description;
+  await planeFetch<unknown>(`${base}/`, apiKey, apiBaseUrl, { method: "PATCH", body });
+  const raw = await planeFetch<Record<string, unknown>>(`${base}/`, apiKey, apiBaseUrl);
+  return normalizePlaneProject(raw);
+}
+
+export async function planeDeleteProject(
+  apiKey: string, workspaceSlug: string, mintedProjectId: string, apiBaseUrl?: string,
+): Promise<{ ok: boolean }> {
+  const uuid = resolveId(mintedProjectId);
+  await planeFetch<unknown>(
+    `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${uuid}/`, apiKey, apiBaseUrl, { method: "DELETE" },
+  );
+  return { ok: true };
 }
 
 type PlaneStoryStatus = { id: string; name: string; color: string; group: string };

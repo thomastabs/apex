@@ -119,8 +119,8 @@ export function useCreateProject() {
   const queryClient = useQueryClient();
   return useMutation({
     meta: { errorLabel: "op.createProject" },
-    mutationFn: ({ name, description, isPrivate, templateId }: { name: string; description: string; isPrivate?: boolean; templateId?: number | null }) =>
-      createProject(auth!, name, description, { isPrivate, templateId }),
+    mutationFn: ({ name, description, isPrivate, templateId, identifier }: { name: string; description: string; isPrivate?: boolean; templateId?: number | null; identifier?: string }) =>
+      createProject(auth!, name, description, { isPrivate, templateId, identifier }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "projects"] });
     },

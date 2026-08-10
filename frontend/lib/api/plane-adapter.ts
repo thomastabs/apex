@@ -2,20 +2,18 @@
  * Plane.so implementation of ProjectManagementAdapter.
  *
  * Read + write paths for epic/story/task (phases 2-3), project-scoped
- * members/roles (phase 4d) — see plane_integration_plan memory. Project CRUD
- * is still unimplemented (createProject/updateProject/deleteProject) — every
- * such method throws a clear "not yet supported for Plane" error rather than
- * being silently missing, per the pm-adapter-sync skill's stub convention:
- * callers get a compile-time presence guarantee and a legible runtime
- * message, not a missing method.
+ * members/roles (phase 4d), Project CRUD (phase 5h) — see
+ * plane_integration_plan memory.
  */
 import {
   isPlane401,
   isPlaneStateClosed,
   planeCreateEpic,
+  planeCreateProject,
   planeCreateStory,
   planeCreateTask,
   planeDeleteEpic,
+  planeDeleteProject,
   planeDeleteStory,
   planeDeleteTask,
   planeGetBoard,
@@ -31,11 +29,12 @@ import {
   planeRemoveMember,
   planeUpdateEpic,
   planeUpdateMemberRole,
+  planeUpdateProject,
   planeUpdateStory,
   planeUpdateTask,
 } from "./plane-direct";
 import { planeWebBaseUrl } from "./plane-web-url";
-import type { PmAuthContext, PmRequestContext, ProjectManagementAdapter } from "./pm-types";
+import type { CreateProjectOptions, PmAuthContext, PmRequestContext, ProjectManagementAdapter } from "./pm-types";
 
 function requireWorkspaceSlug(ctx: PmAuthContext): string {
   if (!ctx.workspaceSlug) {
@@ -45,7 +44,7 @@ function requireWorkspaceSlug(ctx: PmAuthContext): string {
 }
 
 function notSupported(action: string): never {
-  throw new Error(`${action} is not yet supported for Plane (write paths land in a later phase).`);
+  throw new Error(`${action} is not yet supported for Plane.`);
 }
 
 const planeAdapter: ProjectManagementAdapter = {
@@ -70,9 +69,18 @@ const planeAdapter: ProjectManagementAdapter = {
   listProjects: (auth: PmAuthContext) =>
     planeListProjects(auth.token, requireWorkspaceSlug(auth), auth.baseUrl),
 
-  createProject: () => notSupported("Creating a project"),
-  updateProject: () => notSupported("Updating a project"),
-  deleteProject: () => notSupported("Deleting a project"),
+  // identifier is REQUIRED by Plane's create-project endpoint (no server-derived
+  // slug the way Taiga has) — opts.identifier must be supplied by the caller
+  // (project-section.tsx's create dialog, gated on pmTool === "plane"); a
+  // missing one fails loudly rather than silently omitting the field.
+  createProject: (auth: PmAuthContext, name: string, description: string, opts?: CreateProjectOptions) => {
+    if (!opts?.identifier) return notSupported("Creating a Plane project without an identifier");
+    return planeCreateProject(auth.token, requireWorkspaceSlug(auth), name, description, opts.identifier, auth.baseUrl);
+  },
+  updateProject: (auth: PmAuthContext, projectId: string, fields: { name?: string; description?: string }) =>
+    planeUpdateProject(auth.token, requireWorkspaceSlug(auth), projectId, fields, auth.baseUrl),
+  deleteProject: (auth: PmAuthContext, projectId: string) =>
+    planeDeleteProject(auth.token, requireWorkspaceSlug(auth), projectId, auth.baseUrl),
   listProjectTemplates: async () => [], // confirmed: no list-templates endpoint exists on Plane at all
 
   getBoard: (ctx: PmRequestContext) =>

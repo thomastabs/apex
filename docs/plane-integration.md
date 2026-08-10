@@ -10,11 +10,12 @@ limitations. It complements — not replaces — the Taiga-focused prose in the 
 ## Why a second PM tool
 
 The integration exists because a partner organization already using Apex is
-migrating from Taiga to Plane. Every design decision below optimizes for that
-real migration path over abstract completeness — several Taiga capabilities
-(workspace-wide project creation flows, task-level optimistic concurrency) have
-no Plane equivalent and are documented as deliberate gaps rather than built
-speculatively.
+migrating from Taiga to Plane, and the goal is full parity with the existing
+Taiga integration — every Taiga capability should have a Plane equivalent
+unless Plane's own API genuinely has no such concept (e.g. task-level
+optimistic concurrency, which Plane's work items don't expose at all). Where
+a capability is missing below, it's either not yet built or a real API
+limitation — the two are called out separately.
 
 ## Auth and multi-tenancy model
 
@@ -89,9 +90,9 @@ real path-traversal vector once):
 `frontend/lib/api/plane-adapter.ts` implements the same
 `ProjectManagementAdapter` interface Taiga's adapter does (`pm-types.ts`),
 dispatched via `getPmAdapter(pmTool)`. Read/update/delete paths for
-epics/stories/tasks/members are implemented and live-tested against a real
-Plane Cloud workspace; Project CRUD (create/update/delete) is not — see
-Known limitations below.
+epics/stories/tasks/members/projects are all implemented; epics/stories/
+tasks/members are live-tested against a real Plane Cloud workspace, Project
+CRUD is code-complete but not yet live-tested (see Known limitations below).
 
 Low-level REST calls live in `frontend/lib/api/plane-direct.ts` — pagination,
 field normalization, and two Plane-specific traps worth knowing if you touch
@@ -166,26 +167,51 @@ project-level "invite by email" the way Taiga does; inviting a stranger into
 the workspace itself is a manual, one-time step in Plane's own UI, outside
 Apex's scope.
 
+## Project CRUD
+
+Create/update/delete for Plane projects, matching Taiga's own project
+management flow. The one real design difference: Plane's create-project
+endpoint requires a user-chosen `identifier` (a short, unique, uppercase
+code, e.g. `PROJ`) — Taiga derives its project slug server-side, Plane has no
+equivalent auto-derivation, so this is a genuine extra required field, not a
+backend passthrough. `project-section.tsx`'s create dialog shows it only for
+a Plane session; update/delete don't touch it (Plane's docs don't confirm
+`identifier` is safely mutable post-create, and Taiga has no editable
+equivalent either, so this stays create-only by design, not an oversight).
+
+Field shapes (`POST/PATCH/DELETE workspaces/{slug}/projects/{id}/`) confirmed
+against `developers.plane.so`'s own API reference (2026-08-10) — `name` +
+`identifier` required on create, `description` optional; update accepts a
+partial `{name?, description?}`; delete returns `204 No Content`. All three
+route through the generic `/api/pm/plane/{path}` proxy like every other Plane
+write — no backend changes were needed for this feature.
+
 ## Known, deliberate limitations
 
-These are documented gaps, not oversights — each was scoped out based on
-whether the partner org driving this integration has a confirmed real need,
-not Taiga-parity for its own sake.
+These are gaps not yet closed, not abandoned — the working assumption is full
+Taiga parity (see "Why a second PM tool" above); anything here is either not
+yet built or a genuine Plane API limitation, called out separately.
 
-- **Project create/update/delete** — Plane's project-create endpoint needs a
-  user-chosen `identifier` field Taiga doesn't have an equivalent of, making
-  this a real (if small) UI change, not a backend passthrough. The buttons are
-  hidden for a Plane session rather than left to 503; build only if a real
-  need surfaces.
-- **Workspace invites** — Apex has no "invite a new person into a Plane
-  workspace" flow; `inviteUser` only attaches an *existing* workspace member
-  to a project.
-- **Self-hosted Epics-gate status code** — confirmed `402` on Cloud; untested
-  on self-hosted Community Edition. Code defensively treats 402/403/404 alike
-  either way.
-- **Labels list has no server-side name filter** (undocumented, possibly
-  real) — the current paginate-and-match-client-side approach is correct and
-  live-tested; only a potential optimization for unusually large label sets.
+- **Workspace invites** (not yet built) — Apex has no "invite a new person
+  into a Plane workspace" flow; `inviteUser` only attaches an *existing*
+  workspace member to a project. Plane's API does have a Workspace
+  Invitations resource (confirmed via its own API reference) — this is
+  buildable, just not done yet.
+- **Taiga Wiki sync equivalent** (not yet built) — Plane has its own Pages
+  API (confirmed present); no Plane-side equivalent of
+  `taiga_wiki_service.py`'s publish/pull flow exists yet.
+- **Phase 6 maintenance triage: PM-issue import** (not yet built) —
+  `maintenance-triage.tsx` still gates its "import from PM" action on
+  `pmTool === "taiga"` only; a Plane equivalent (importing Plane work items
+  as maintenance items) isn't built.
+- **Self-hosted Epics-gate status code** (real API-testing gap, not a build
+  gap) — confirmed `402` on Cloud; untested on self-hosted Community Edition.
+  Code defensively treats 402/403/404 alike either way, so this doesn't block
+  anything — just unconfirmed for that deployment shape.
+- **Labels list has no server-side name filter** (real Plane API limitation,
+  not something Apex can build around) — the current paginate-and-match-
+  client-side approach is correct and live-tested; only a potential
+  optimization for unusually large label sets.
 
 ## Key files
 
@@ -199,4 +225,4 @@ not Taiga-parity for its own sake.
 | `frontend/lib/api/plane-adapter.ts` | `ProjectManagementAdapter` implementation for Plane |
 | `frontend/lib/api/plane-id-shim.ts` | Session-local UUID↔int id mapping for shared board types |
 | `frontend/lib/api/plane-web-url.ts` | Web deep-link URL construction (Cloud API↔web swap + browse-route scheme) |
-| `frontend/components/sidebar/project-section.tsx` | Sign-in UI, PM-tool selector; Project CRUD hidden for Plane |
+| `frontend/components/sidebar/project-section.tsx` | Sign-in UI, PM-tool selector, Project CRUD dialogs (identifier field for Plane's create flow) |

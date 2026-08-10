@@ -1,7 +1,7 @@
 import { apiRequest } from "./client";
 import { getPmAdapter } from "./pm-factory";
 import { resolveId } from "./plane-direct";
-import type { PmAuthContext, PmRequestContext } from "./pm-types";
+import type { CreateProjectOptions, PmAuthContext, PmRequestContext } from "./pm-types";
 import type {
   AuthContext,
   ContextFilesResponse,
@@ -197,7 +197,7 @@ export function listProjects(context: AuthContext) {
   return getPmAdapter(context.pmTool).listProjects(toPmAuth(context));
 }
 
-export function createProject(context: AuthContext, name: string, description: string, opts?: { isPrivate?: boolean; templateId?: number | null }) {
+export function createProject(context: AuthContext, name: string, description: string, opts?: CreateProjectOptions) {
   return getPmAdapter(context.pmTool).createProject(toPmAuth(context), name, description, opts);
 }
 

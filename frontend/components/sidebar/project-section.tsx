@@ -55,12 +55,6 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
     projectName ??
     (projectId ? t("project.projectFallback", { id: projectId }) : t("project.noProjectSelected"));
 
-  // Project CRUD (create/edit/delete) has no Plane backend yet — plane-adapter.ts's
-  // createProject/updateProject/deleteProject are still "not yet supported" stubs
-  // (phase 5e, see plane_integration_plan memory: hiding these now closes a real,
-  // currently-live bug — a Plane user clicking any of them got a raw error toast
-  // for an action the UI itself advertised as available). Same treatment 4c already
-  // used for "hide Reconstruct Gherkin rather than show a button that 503s".
   const isPlane = pmTool === "plane";
 
   const sectionBorderClass = dark ? "border-neutral-800" : "border-slate-300";
@@ -125,18 +119,16 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
               <div className={cn("space-y-1.5 rounded border p-2.5 text-xs", dark ? "border-neutral-700 bg-neutral-950" : "border-slate-200 bg-slate-50")}>
                 <div className="flex items-center justify-between gap-2">
                   <span className={cn("font-semibold", dark ? "text-neutral-200" : "text-slate-800")}>{selectedProject.name}</span>
-                  {!isPlane ? (
-                    <button
-                      className={cn(
-                        "flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold transition-colors hover:bg-violet-500/15",
-                        dark ? "text-violet-400" : "text-violet-700",
-                      )}
-                      onClick={() => setShowEdit(true)}
-                      title={t("project.editNameDesc")}
-                    >
-                      <Pencil className="size-3" /> {t("common.edit")}
-                    </button>
-                  ) : null}
+                  <button
+                    className={cn(
+                      "flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold transition-colors hover:bg-violet-500/15",
+                      dark ? "text-violet-400" : "text-violet-700",
+                    )}
+                    onClick={() => setShowEdit(true)}
+                    title={t("project.editNameDesc")}
+                  >
+                    <Pencil className="size-3" /> {t("common.edit")}
+                  </button>
                 </div>
                 <div className={cn("font-mono", dark ? "text-neutral-500" : "text-slate-500")}>
                   {t("project.idLine", { id: selectedProject.id })}{selectedProject.slug ? ` · ${selectedProject.slug}` : ""}
@@ -146,7 +138,7 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
                 </p>
               </div>
             ) : null}
-            <div className={cn("grid gap-2", isPlane ? "grid-cols-1" : "grid-cols-2")}>
+            <div className="grid grid-cols-2 gap-2">
               <button
                 className={cn(
                   "flex h-8 items-center justify-center gap-1 rounded border text-sm transition-colors hover:border-violet-500/50",
@@ -156,24 +148,17 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
               >
                 <RefreshCw className="size-3" /> {t("common.refresh")}
               </button>
-              {!isPlane ? (
-                <button
-                  className={cn(
-                    "flex h-8 items-center justify-center gap-1 rounded border border-violet-500/40 bg-violet-500/10 text-sm font-semibold transition-colors hover:bg-violet-500/20",
-                    dark ? "text-violet-400" : "text-violet-700",
-                  )}
-                  onClick={() => setShowCreate(true)}
-                >
-                  <Plus className="size-3" /> {t("project.createNew")}
-                </button>
-              ) : null}
+              <button
+                className={cn(
+                  "flex h-8 items-center justify-center gap-1 rounded border border-violet-500/40 bg-violet-500/10 text-sm font-semibold transition-colors hover:bg-violet-500/20",
+                  dark ? "text-violet-400" : "text-violet-700",
+                )}
+                onClick={() => setShowCreate(true)}
+              >
+                <Plus className="size-3" /> {t("project.createNew")}
+              </button>
             </div>
-            {isPlane ? (
-              <p className={cn("text-[11px] leading-snug", dark ? "text-neutral-500" : "text-slate-500")}>
-                {t("project.planeManageNote")}
-              </p>
-            ) : null}
-            {projectId && !isPlane ? (
+            {projectId ? (
               <button
                 className={cn(
                   "flex h-8 w-full items-center justify-center gap-2 rounded border border-red-500/40 bg-red-500/10 text-sm font-semibold transition-colors hover:bg-red-500/20 disabled:opacity-50",
@@ -200,10 +185,16 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
           title={t("project.createNewProjectTitle")}
           submitLabel={t("project.createProjectButton")}
           pendingLabel={t("board.creating")}
-          templates={projectTemplates.data ?? []}
+          templates={!isPlane ? (projectTemplates.data ?? []) : undefined}
+          // Plane's create-project endpoint requires a user-chosen identifier
+          // (no server-derived slug the way Taiga has — see plane_integration_plan
+          // memory). Only shown/required for Plane's create dialog, never for edit
+          // (Plane's own docs don't confirm identifier is safely mutable post-create,
+          // and Taiga has no equivalent editable field either).
+          identifierField={isPlane}
           onClose={() => setShowCreate(false)}
           onSubmit={(name, description, opts) =>
-            createProject.mutate({ name, description, isPrivate: opts.isPrivate, templateId: opts.templateId }, {
+            createProject.mutate({ name, description, isPrivate: opts.isPrivate, templateId: opts.templateId, identifier: opts.identifier }, {
               onSuccess: (p) => {
                 setShowCreate(false);
                 setProject({ projectId: p.id, projectName: p.name, pmProjectSlug: p.slug ?? undefined });
@@ -254,6 +245,7 @@ function ProjectDialog({
   initialName = "",
   initialDescription = "",
   templates,
+  identifierField = false,
   onClose,
   onSubmit,
 }: {
@@ -266,14 +258,18 @@ function ProjectDialog({
   initialDescription?: string;
   // When provided, render the create-only Taiga options (template + visibility).
   templates?: ProjectTemplate[];
+  // Plane's create-project endpoint requires a user-chosen identifier — no
+  // server-derived slug the way Taiga has (see plane_integration_plan memory).
+  identifierField?: boolean;
   onClose: () => void;
-  onSubmit: (name: string, description: string, opts: { isPrivate: boolean; templateId: number | null }) => void;
+  onSubmit: (name: string, description: string, opts: { isPrivate: boolean; templateId: number | null; identifier?: string }) => void;
 }) {
   const t = useT();
   const [name, setName] = useState(initialName);
   const [description, setDescription] = useState(initialDescription);
   const [isPrivate, setIsPrivate] = useState(false);
   const [templateId, setTemplateId] = useState<number | null>(null);
+  const [identifier, setIdentifier] = useState("");
 
   // Default the template to Scrum (or the first available) once templates load.
   useEffect(() => {
@@ -289,11 +285,15 @@ function ProjectDialog({
       : "border-slate-300 bg-white text-slate-950 placeholder:text-slate-400",
   );
 
-  const canSubmit = Boolean(name.trim()) && Boolean(description.trim());
+  // Plane's own web UI convention: short, uppercase, alphanumeric (e.g. "PROJ") —
+  // not documented as a hard server-side format, but this keeps it well inside
+  // whatever Plane actually accepts rather than guessing at the edge.
+  const identifierValid = /^[A-Z0-9]{1,12}$/.test(identifier);
+  const canSubmit = Boolean(name.trim()) && Boolean(description.trim()) && (!identifierField || identifierValid);
 
   function submit() {
     if (!canSubmit) return;
-    onSubmit(name.trim(), description.trim(), { isPrivate, templateId });
+    onSubmit(name.trim(), description.trim(), { isPrivate, templateId, identifier: identifierField ? identifier : undefined });
   }
 
   return (
@@ -331,6 +331,23 @@ function ProjectDialog({
               placeholder={t("project.describeProjectPlaceholder")}
             />
           </div>
+          {identifierField ? (
+            <div>
+              <label className={cn("mb-1 block text-xs font-medium", dark ? "text-neutral-400" : "text-slate-600")}>
+                {t("project.identifierLabel")} <span className="text-red-400">*</span>
+              </label>
+              <input
+                className={cn("h-9 font-mono uppercase", inputClass)}
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value.toUpperCase().slice(0, 12).replace(/[^A-Z0-9]/g, ""))}
+                placeholder="PROJ"
+                onKeyDown={(e) => e.key === "Enter" && submit()}
+              />
+              <p className={cn("mt-1 text-[11px]", dark ? "text-neutral-500" : "text-slate-500")}>
+                {t("project.identifierHint")}
+              </p>
+            </div>
+          ) : null}
           {templates ? (
             <>
               <div>

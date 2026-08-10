@@ -4,9 +4,11 @@ import {
   isPlaneStateClosed,
   mintId,
   planeCreateEpic,
+  planeCreateProject,
   planeCreateStory,
   planeCreateTask,
   planeDeleteEpic,
+  planeDeleteProject,
   planeGetBoard,
   planeGetMe,
   planeGetProjectTasks,
@@ -17,6 +19,7 @@ import {
   planeListStoryStatuses,
   planeRemoveMember,
   planeUpdateMemberRole,
+  planeUpdateProject,
   planeUpdateStory,
   planeUpdateTask,
   resolveId,
@@ -106,6 +109,89 @@ describe("plane direct API", () => {
     }));
     const [project] = await planeListProjects("key", "my-team", "https://api.plane.so");
     expect(project.description).toBe("Plain description text.");
+  });
+
+  // -------------------------------------------------------------------------
+  // Project CRUD (phase 5h). Field names/shapes per plane-direct.ts's own
+  // header comment for this section — asserting the exact request body/URL
+  // shape, not just that the promise resolves (mocks alone caught 0 of the 4
+  // real API-shape bugs found historically in this module).
+  // -------------------------------------------------------------------------
+
+  it("planeCreateProject POSTs {name, identifier, description} to the workspace projects endpoint and normalizes the response", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(201, {
+      id: "proj-new-uuid", name: "New Project", identifier: "NEWP", description: "a new project",
+    }));
+
+    const project = await planeCreateProject("key", "my-team", "New Project", "a new project", "NEWP", "https://api.plane.so");
+
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).toContain("/workspaces/my-team/projects/");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body)).toEqual({ name: "New Project", identifier: "NEWP", description: "a new project" });
+    expect(project.name).toBe("New Project");
+    expect(project.slug).toBe("NEWP");
+    expect(project.description).toBe("a new project");
+    expect(resolveId(project.id)).toBe("proj-new-uuid");
+  });
+
+  it("planeUpdateProject resolves the minted id to the real UUID, sends only the provided fields, and re-fetches+normalizes afterward", async () => {
+    const minted = String(mintId("proj-update-uuid"));
+    mockFetch
+      .mockResolvedValueOnce(makeResponse(200, {})) // PATCH response (ignored)
+      .mockResolvedValueOnce(makeResponse(200, {
+        id: "proj-update-uuid", name: "Renamed", identifier: "ORIG", description: "old description",
+      }));
+
+    const project = await planeUpdateProject("key", "my-team", minted, { name: "Renamed" }, "https://api.plane.so");
+
+    const [patchUrl, patchInit] = mockFetch.mock.calls[0];
+    expect(patchUrl).toContain("/workspaces/my-team/projects/proj-update-uuid/");
+    expect(patchInit.method).toBe("PATCH");
+    // Only `name` was passed — `description` must NOT appear in the PATCH body.
+    expect(JSON.parse(patchInit.body)).toEqual({ name: "Renamed" });
+    const [refetchUrl, refetchInit] = mockFetch.mock.calls[1];
+    expect(refetchUrl).toContain("/workspaces/my-team/projects/proj-update-uuid/");
+    expect(refetchInit.method ?? "GET").toBe("GET");
+    expect(project.name).toBe("Renamed");
+    expect(project.description).toBe("old description");
+  });
+
+  it("planeUpdateProject includes description too when both fields are provided", async () => {
+    const minted = String(mintId("proj-update-uuid-2"));
+    mockFetch
+      .mockResolvedValueOnce(makeResponse(200, {}))
+      .mockResolvedValueOnce(makeResponse(200, { id: "proj-update-uuid-2", name: "N", identifier: "X", description: "D" }));
+
+    await planeUpdateProject("key", "my-team", minted, { name: "N", description: "D" }, "https://api.plane.so");
+
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({ name: "N", description: "D" });
+  });
+
+  it("planeUpdateProject throws the 'Unknown Plane id' resolveId error for an id never minted this session, without ever calling fetch", async () => {
+    await expect(
+      planeUpdateProject("key", "my-team", "999999999", { name: "x" }, "https://api.plane.so"),
+    ).rejects.toThrow(/board must be re-fetched/);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("planeDeleteProject resolves the id, DELETEs the right URL, and returns {ok: true}", async () => {
+    const minted = String(mintId("proj-delete-uuid"));
+    mockFetch.mockResolvedValueOnce(makeResponse(204, {}));
+
+    const result = await planeDeleteProject("key", "my-team", minted, "https://api.plane.so");
+
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).toContain("/workspaces/my-team/projects/proj-delete-uuid/");
+    expect(init.method).toBe("DELETE");
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("planeDeleteProject throws the 'Unknown Plane id' resolveId error for a never-minted id, without ever calling fetch", async () => {
+    await expect(
+      planeDeleteProject("key", "my-team", "888888888", "https://api.plane.so"),
+    ).rejects.toThrow(/board must be re-fetched/);
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it("retries once on 429 using X-RateLimit-Reset, then succeeds", async () => {

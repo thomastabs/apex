@@ -19,7 +19,16 @@ export interface PmRequestContext extends PmAuthContext {
 }
 
 export type ProjectTemplate = { id: number; slug: string; name: string };
-export type CreateProjectOptions = { isPrivate?: boolean; templateId?: number | null };
+export type CreateProjectOptions = {
+  // Taiga-only.
+  isPrivate?: boolean;
+  templateId?: number | null;
+  // Plane-only, REQUIRED there (Plane's create-project endpoint 400s without
+  // it — unlike Taiga's slug, which is server-derived from the name, Plane's
+  // identifier is always user-chosen; see plane_integration_plan memory).
+  // Ignored for Taiga.
+  identifier?: string;
+};
 
 export type PmTask = {
   id: string;
