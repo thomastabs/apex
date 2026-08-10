@@ -1,4 +1,5 @@
 import { apiRequest } from "./client";
+import { getBoard } from "./workspace";
 import type { RequestContext } from "./types";
 
 export type ImportEpicSummary = {
@@ -8,7 +9,9 @@ export type ImportEpicSummary = {
 };
 
 export type ImportStatusMapping = {
-  taiga_name: string;
+  // Renamed from taiga_name (2026-08-06, phase 4c) — shared with Plane's
+  // bootstrap now, a Taiga-specific field name was misleading.
+  pm_status_name: string;
   apex_status: string;
 };
 
@@ -38,9 +41,47 @@ export function importBootstrap(ctx: RequestContext): Promise<ImportBootstrapRes
   });
 }
 
-export function importReconstructEpic(ctx: RequestContext, epicId: number): Promise<ImportReconstructResult> {
+/** Plane's bootstrap: fetch the board via the already-tested adapter
+ *  (Epics/Modules fallback, pagination, label resolution all handled
+ *  there — see plane-direct.ts) and post it to the backend, which mints
+ *  durable ids and populates story-index. Never dials Plane for board
+ *  data server-side — see plane_integration_plan memory phase 4c. */
+export async function importPlaneBootstrap(ctx: RequestContext): Promise<ImportBootstrapResult> {
+  const board = await getBoard(ctx);
+  return apiRequest<ImportBootstrapResult>("/api/workspace/import-from-pm/plane-bootstrap", {
+    method: "POST",
+    context: ctx,
+    body: {
+      epics: board
+        .filter((epic) => epic.pm_epic_id)
+        .map((epic) => ({
+          pm_epic_id: epic.pm_epic_id,
+          subject: epic.subject,
+          stories: epic.stories
+            .filter((story) => story.pm_story_id)
+            .map((story) => ({
+              pm_story_id: story.pm_story_id,
+              subject: story.subject,
+              status: story.status,
+            })),
+        })),
+    },
+  });
+}
+
+/** stories: Plane only (phase 5c, see plane_integration_plan memory) — fresh
+ *  descriptions fetched client-side just before this call, since the backend
+ *  never dials Plane itself for reconstruction (mirrors the "frontend
+ *  fetches, backend processes" shape phase 4c's bootstrap already used).
+ *  Omitted/undefined for Taiga, which still self-dials for descriptions. */
+export function importReconstructEpic(
+  ctx: RequestContext,
+  epicId: number,
+  stories?: Array<{ pm_story_id: string; description: string }>,
+): Promise<ImportReconstructResult> {
   return apiRequest<ImportReconstructResult>(`/api/workspace/import-from-pm/reconstruct-epic/${epicId}`, {
     method: "POST",
     context: ctx,
+    body: stories ? { stories } : undefined,
   });
 }

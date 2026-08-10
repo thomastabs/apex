@@ -1,5 +1,6 @@
 import { apiRequest } from "./client";
 import { getPmAdapter } from "./pm-factory";
+import { resolveId } from "./plane-direct";
 import type { PmAuthContext, PmRequestContext } from "./pm-types";
 import type {
   AuthContext,
@@ -8,17 +9,36 @@ import type {
 } from "./types";
 
 function toPmAuth(ctx: AuthContext): PmAuthContext {
-  return { token: ctx.taigaToken, baseUrl: ctx.taigaApiUrl ?? "" };
+  // taigaToken/taigaApiUrl are reused generically for both tools (see
+  // session-store's field comment) — token/baseUrl are already tool-agnostic
+  // at the PmAuthContext layer; workspaceSlug is Plane's one extra field.
+  return { token: ctx.taigaToken, baseUrl: ctx.taigaApiUrl ?? "", workspaceSlug: ctx.workspaceSlug };
 }
 
 export function toPmCtx(ctx: RequestContext): PmRequestContext {
-  return {
-    token: ctx.taigaToken,
-    baseUrl: ctx.taigaApiUrl ?? "",
-    // pmProjectId (when set) is the project slug (e.g. "test2") — Taiga's REST
-    // API uses numeric IDs, not slugs, so always use the numeric projectId here.
-    projectId: String(ctx.projectId),
-  };
+  const base = toPmAuth(ctx);
+  if (ctx.pmTool === "plane") {
+    // ctx.projectId holds the synthetic per-session int minted by
+    // planeListProjects (see plane-direct.ts's id shim) — resolve it back to
+    // Plane's real UUID before it reaches the adapter, per [[pm_adapter_sync]]'s
+    // guidance to branch here rather than assume one ID shape fits both tools.
+    return { ...base, projectId: resolveId(ctx.projectId) };
+  }
+  // pmProjectId (when set) is the project slug (e.g. "test2") — Taiga's REST
+  // API uses numeric IDs, not slugs, so always use the numeric projectId here.
+  return { ...base, projectId: String(ctx.projectId) };
+}
+
+/** Resolve a project id for a raw (non-apiRequest) query-string/body slot —
+ * apiRequest's own X-Project-Id header already goes through this same
+ * resolveId() inside contextHeaders(), but a handful of routes ALSO carry
+ * project_id as a plain query param or JSON body field (get_config,
+ * github-pat, github-webhook, save_config's github/figma-pat branches),
+ * built by callers from the raw session-local Plane id-shim int — those need
+ * the same resolve-before-send treatment (phase 5a, see
+ * plane_integration_plan memory). Taiga's numeric id passes through unchanged. */
+function resolvePmProjectId(pmTool: string | undefined, projectId: number): number | string {
+  return pmTool === "plane" ? resolveId(projectId) : projectId;
 }
 
 export type ServerConfig = {
@@ -33,12 +53,18 @@ export type ServerConfig = {
 };
 
 /** github_repo/github_pat are per-project — projectId is required to save them
- * (the backend 400s otherwise; there's no instance-wide slot to fall back to). */
+ * (the backend 400s otherwise; there's no instance-wide slot to fall back to).
+ * projectId is the raw session-local id (Taiga's real int, or Plane's minted
+ * shim int) — resolved to what the wire actually needs before sending. */
 export function saveGithubConfig(context: AuthContext, repo: string, projectId: number, pat?: string) {
   return apiRequest<{ ok: boolean }>("/api/workspace/config", {
     method: "POST",
     context,
-    body: { github_repo: repo, project_id: projectId, ...(pat !== undefined ? { github_pat: pat } : {}) },
+    body: {
+      github_repo: repo,
+      project_id: resolvePmProjectId(context.pmTool, projectId),
+      ...(pat !== undefined ? { github_pat: pat } : {}),
+    },
   });
 }
 
@@ -46,7 +72,7 @@ export function saveGithubConfig(context: AuthContext, repo: string, projectId: 
  * session on load — never part of the general config response. github_pat is
  * per-project; omitting projectId returns "" (nothing to restore yet). */
 export function getGithubPat(context: AuthContext, projectId?: number | null) {
-  const qs = projectId != null ? `?project_id=${projectId}` : "";
+  const qs = projectId != null ? `?project_id=${resolvePmProjectId(context.pmTool, projectId)}` : "";
   return apiRequest<{ pat: string }>(`/api/workspace/github-pat${qs}`, { context });
 }
 
@@ -57,7 +83,7 @@ export type GithubWebhookConfig = {
 };
 
 export function getGithubWebhookConfig(context: AuthContext, projectId?: number | null) {
-  const qs = projectId != null ? `?project_id=${projectId}` : "";
+  const qs = projectId != null ? `?project_id=${resolvePmProjectId(context.pmTool, projectId)}` : "";
   return apiRequest<GithubWebhookConfig>(`/api/workspace/github-webhook${qs}`, { context });
 }
 
@@ -87,7 +113,7 @@ export function getFigmaToken(context: AuthContext) {
 /** github_repo/github_pat_configured in the response are per-project — omitting
  * projectId returns them empty/false (no project selected, nothing to report). */
 export function getServerConfig(context: AuthContext, projectId?: number | null) {
-  const qs = projectId != null ? `?project_id=${projectId}` : "";
+  const qs = projectId != null ? `?project_id=${resolvePmProjectId(context.pmTool, projectId)}` : "";
   return apiRequest<ServerConfig>(`/api/workspace/config${qs}`, { context });
 }
 
@@ -153,12 +179,14 @@ export function saveServerConfig(context: AuthContext, projectId: number) {
   });
 }
 
-export function savePmConfig(context: AuthContext, opts: { pmTool: "taiga"; taigaUrl?: string }) {
-  return apiRequest<{ ok: boolean }>("/api/workspace/config", {
-    method: "POST",
-    context,
-    body: { pm_tool: opts.pmTool, taiga_url: opts.taigaUrl ?? "" },
-  });
+export function savePmConfig(
+  context: AuthContext,
+  opts: { pmTool: "taiga"; taigaUrl?: string } | { pmTool: "plane"; planeUrl?: string; planeWorkspaceSlug: string },
+) {
+  const body = opts.pmTool === "plane"
+    ? { pm_tool: opts.pmTool, plane_url: opts.planeUrl ?? "", plane_workspace_slug: opts.planeWorkspaceSlug }
+    : { pm_tool: opts.pmTool, taiga_url: opts.taigaUrl ?? "" };
+  return apiRequest<{ ok: boolean }>("/api/workspace/config", { method: "POST", context, body });
 }
 
 export function getMe(context: AuthContext) {

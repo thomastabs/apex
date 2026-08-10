@@ -9,7 +9,12 @@ from backend.app.services.request_context import RequestContext
 
 _logger = logging.getLogger("apex.maintenance_service")
 
-_VALID_SOURCES = ("manual", "github", "taiga", "figma")
+# "plane" added phase 5f (see plane_integration_plan memory) — lets a
+# maintenance item be manually tagged as Plane-sourced. Full Plane-issue-sync
+# into triage (mirroring maintenance-triage.tsx's Taiga-only import flow)
+# stays deferred, no partner-org-confirmed need yet; this is just the
+# record-keeping tag, a ~2-line, zero-risk addition.
+_VALID_SOURCES = ("manual", "github", "taiga", "plane", "figma")
 _VALID_LANES = ("fast", "secure")
 
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AliasChoices, BaseModel, Field, model_validator
 
 
 AutopilotState = Literal["running", "paused", "stopped", "done", "error", "interrupted"]
@@ -23,8 +23,14 @@ class AutopilotSettings(BaseModel):
     pause_at_checkpoints: bool = True
     # Default ON: a fresh Autopilot run should populate the PM board so it matches the
     # story index (index-only runs show as "0 on board / N indexed"). Disable for a
-    # re-run where the epics/stories already exist in Taiga.
-    create_epics_in_taiga: bool = True
+    # re-run where the epics/stories already exist in the connected PM tool.
+    # Renamed from create_epics_in_taiga (phase 5b, see plane_integration_plan
+    # memory) once Autopilot could write to Plane too — accepts either wire key
+    # so an in-flight persisted job's old settings dict (see autopilot_service.py's
+    # _create_epics_enabled) and any stale client build both keep working.
+    create_epics_in_pm: bool = Field(
+        True, validation_alias=AliasChoices("create_epics_in_pm", "create_epics_in_taiga"),
+    )
     # When true, the pipeline derives the epic set from the project concept (AI)
     # instead of requiring a manual epics list. Ignored in Figma project mode
     # (which already creates one epic per file).

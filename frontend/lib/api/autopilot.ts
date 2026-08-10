@@ -8,7 +8,10 @@ export type AutopilotEpic = {
 
 export type AutopilotSettings = {
   pause_at_checkpoints: boolean;
-  create_epics_in_taiga: boolean;
+  // Renamed from create_epics_in_taiga (phase 5b, see plane_integration_plan
+  // memory) once Autopilot could write to Plane too. The backend still
+  // accepts the old key as a fallback for an in-flight persisted job.
+  create_epics_in_pm: boolean;
   // When true, the pipeline derives epics from the project concept (AI) instead of
   // requiring a manual epics list. Ignored in Figma project mode.
   auto_epics: boolean;

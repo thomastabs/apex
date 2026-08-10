@@ -14,6 +14,7 @@ from backend.app.api.deps import (
     anchor_instance_id,
     get_auth_context,
     get_request_context,
+    resolve_plane_base,
     resolve_taiga_base,
 )
 from backend.app.schemas.workspace import (
@@ -38,10 +39,12 @@ from backend.app.schemas.workspace import (
     GenerateAgentFileResponse,
     GithubWebhookConfigResponse,
     ImportBootstrapResponse,
+    ImportReconstructRequest,
     ImportReconstructResponse,
     LogDecisionRequest,
     OkResponse,
     PhaseStatusResponse,
+    PlaneImportBootstrapRequest,
     PullAgentFilesFromGithubResponse,
     SaveAiConfigRequest,
     SaveAiKeyRequest,
@@ -215,28 +218,43 @@ def _local_context_file_labels(context: ContextService) -> list[tuple[str, str]]
 def get_config(
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
-    project_id: int | None = None,
+    x_plane_url: str = Header(default="", alias="X-Plane-Url"),
+    x_plane_workspace: str = Header(default="", alias="X-Plane-Workspace"),
+    project_id: int | str | None = None,
 ):
     from src import context_manager, taiga_adapter
     config = context_manager.load_config()
     pm_tool = config.get("pm_tool", "taiga")
+    # Taiga-only for now — a Plane adapter exists (phase 2+) but computes its
+    # own web URL client-side (plane-adapter.ts's getWebUrl, phase 5d); this
+    # field stays Taiga-only rather than round-tripping a value the frontend
+    # can already derive correctly itself. A Plane session's stored
+    # plane_url/plane_workspace_slug are still returned below so a later
+    # phase's UI has something to restore from.
     pm_web_url = taiga_adapter.get_web_base_url()
-    context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
+    context_manager.set_active_instance(anchor_instance_id(x_taiga_url, x_plane_url))
     # github_repo/github_pat are per-project — no project_id means no project is
     # selected yet, so there's nothing to scope the read to; report disconnected
     # rather than falling back to some other project's connection.
     github_repo = ""
     github_pat_configured = False
-    if project_id is not None:
-        deps._verify_project_access(auth.pm_token, project_id, x_taiga_url)
-        context_manager.set_active_project(project_id)
-        github_repo = context_manager.get_project_github_repo(project_id)
-        github_pat_configured = context_manager.has_project_github_pat(project_id)
+    # SECURITY: same strict UUID-or-int gate _parse_project_id enforces on the
+    # X-Project-Id header (phase 4a) — this is the query-param variant of the
+    # same field, so it needs the same validation before it reaches
+    # _verify_project_access/set_active_project/a filesystem path join.
+    parsed_project_id = deps._parse_project_id(project_id)
+    if parsed_project_id is not None:
+        deps._verify_project_access(auth.pm_token, parsed_project_id, x_taiga_url, x_plane_url, x_plane_workspace)
+        context_manager.set_active_project(parsed_project_id)
+        github_repo = context_manager.get_project_github_repo(parsed_project_id)
+        github_pat_configured = context_manager.has_project_github_pat(parsed_project_id)
     return {
         "project_id": config.get("project_id"),
         "taiga_web_url": pm_web_url,
         "pm_tool": pm_tool,
         "pm_web_url": pm_web_url,
+        "plane_url": config.get("plane_url", ""),
+        "plane_workspace_slug": config.get("plane_workspace_slug", ""),
         "github_repo": github_repo,
         "figma_file_key": context_manager.get_instance_figma_file_key(),
         "github_pat_configured": github_pat_configured,
@@ -253,7 +271,7 @@ def _system_providers() -> list[str]:
     return [provider for provider, env_var in _AI_KEY_ENV_VARS if os.getenv(env_var)]
 
 
-def _ai_key_status(auth: AuthContext, x_taiga_url: str) -> dict:
+def _ai_key_status(auth: AuthContext, x_taiga_url: str, x_plane_url: str = "") -> dict:
     """(personal_providers, configured_providers) for the current account.
 
     A saved personal key is ALWAYS the active credential for that provider —
@@ -265,7 +283,7 @@ def _ai_key_status(auth: AuthContext, x_taiga_url: str) -> dict:
     if auth.account_id:
         from src import ai_key_store
 
-        personal = ai_key_store.saved_providers(anchor_instance_id(x_taiga_url), auth.account_id)
+        personal = ai_key_store.saved_providers(anchor_instance_id(x_taiga_url, x_plane_url), auth.account_id)
     configured = sorted(set(system) | set(personal))
     return {
         "configured_providers": configured,
@@ -278,13 +296,14 @@ def _ai_key_status(auth: AuthContext, x_taiga_url: str) -> dict:
 def get_ai_config(
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+    x_plane_url: str = Header(default="", alias="X-Plane-Url"),
 ):
     from src.ai_engine import AVAILABLE_MODELS, get_ai_language, get_model
     return {
         "model": get_model(),
         "language": get_ai_language(),
         "available_models": AVAILABLE_MODELS,
-        **_ai_key_status(auth, x_taiga_url),
+        **_ai_key_status(auth, x_taiga_url, x_plane_url),
     }
 
 
@@ -293,6 +312,7 @@ def save_ai_config_endpoint(
     payload: SaveAiConfigRequest,
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+    x_plane_url: str = Header(default="", alias="X-Plane-Url"),
 ):
     from src import ai_engine, context_manager
     from src.ai_engine import AVAILABLE_MODELS, get_ai_language, get_model
@@ -312,7 +332,7 @@ def save_ai_config_endpoint(
         "model": model,
         "language": language,
         "available_models": AVAILABLE_MODELS,
-        **_ai_key_status(auth, x_taiga_url),
+        **_ai_key_status(auth, x_taiga_url, x_plane_url),
     }
 
 
@@ -321,6 +341,7 @@ def save_ai_key(
     payload: SaveAiKeyRequest,
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+    x_plane_url: str = Header(default="", alias="X-Plane-Url"),
 ):
     """Save *your* personal AI provider key, tied to your Taiga account —
     it will be there next time you sign in from anywhere, unlike the AI model
@@ -336,7 +357,7 @@ def save_ai_key(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Could not determine your PM account — try signing in again.",
         )
-    instance_id = anchor_instance_id(x_taiga_url)
+    instance_id = anchor_instance_id(x_taiga_url, x_plane_url)
     try:
         ai_key_store.save_key(instance_id, auth.account_id, payload.provider, payload.api_key.strip())
     except RuntimeError as exc:
@@ -350,12 +371,13 @@ def delete_ai_key(
     provider: str,
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+    x_plane_url: str = Header(default="", alias="X-Plane-Url"),
 ):
     from src import ai_engine, ai_key_store
 
     if provider not in ai_key_store.PROVIDERS:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown provider.")
-    instance_id = anchor_instance_id(x_taiga_url)
+    instance_id = anchor_instance_id(x_taiga_url, x_plane_url)
     if auth.account_id:
         ai_key_store.delete_key(instance_id, auth.account_id, provider)
         ai_engine._llm_cache.clear()
@@ -368,34 +390,47 @@ def save_config(
     payload: SaveConfigRequest,
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+    x_plane_url: str = Header(default="", alias="X-Plane-Url"),
+    x_plane_workspace: str = Header(default="", alias="X-Plane-Workspace"),
 ):
     from backend.app.api.taiga_proxy import _validate_taiga_url
+    from backend.app.api.plane_proxy import _validate_plane_url
     from src import context_manager
-    if payload.project_id:
-        deps._verify_project_access(auth.pm_token, payload.project_id, x_taiga_url)
-        context_manager.save_config(payload.project_id)
-    if payload.pm_tool is not None or payload.taiga_url is not None:
+    # SECURITY: same strict UUID-or-int gate as the X-Project-Id header/the
+    # get_config query param (phase 4a/5a) — this project_id arrives in a JSON
+    # body instead, but flows into the exact same _verify_project_access/
+    # set_active_project/filesystem-path sinks, so it needs the same check.
+    project_id = deps._parse_project_id(payload.project_id)
+    if project_id is not None:
+        deps._verify_project_access(auth.pm_token, project_id, x_taiga_url, x_plane_url, x_plane_workspace)
+        context_manager.save_config(project_id)
+    if (payload.pm_tool is not None or payload.taiga_url is not None
+            or payload.plane_url is not None or payload.plane_workspace_slug is not None):
         # Empty string clears the URL; anything else must pass the same SSRF
         # guard as the proxy paths.
         if payload.taiga_url:
             _validate_taiga_url(payload.taiga_url, source="taiga_url")
+        if payload.plane_url:
+            _validate_plane_url(payload.plane_url, source="plane_url")
         context_manager.save_pm_config(
             pm_tool=payload.pm_tool,
             taiga_url=payload.taiga_url,
+            plane_url=payload.plane_url,
+            plane_workspace_slug=payload.plane_workspace_slug,
         )
-    if (payload.github_repo is not None or payload.github_pat is not None) and payload.project_id is None:
+    if (payload.github_repo is not None or payload.github_pat is not None) and project_id is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="project_id required to save GitHub config (per-project, not per-instance).",
         )
     if payload.github_repo is not None:
-        deps._verify_project_access(auth.pm_token, payload.project_id, x_taiga_url)
-        context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
-        context_manager.set_active_project(payload.project_id)
+        deps._verify_project_access(auth.pm_token, project_id, x_taiga_url, x_plane_url, x_plane_workspace)
+        context_manager.set_active_instance(anchor_instance_id(x_taiga_url, x_plane_url))
+        context_manager.set_active_project(project_id)
         context_manager.save_project_github_repo(payload.github_repo)
     if payload.figma_file_key is not None:
-        # Per-instance: the Figma file belongs to the Taiga instance this request is for.
-        context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
+        # Per-instance: the Figma file belongs to the PM instance this request is for.
+        context_manager.set_active_instance(anchor_instance_id(x_taiga_url, x_plane_url))
         context_manager.save_instance_figma_file_key(payload.figma_file_key)
     # github_pat/figma_token are encrypted at rest (AI_KEY_ENCRYPTION_SECRET) —
     # if that secret isn't configured on this deployment, encrypt_value() raises
@@ -403,15 +438,15 @@ def save_config(
     # own connect attempt (setGithub/setFigma in the browser session) to
     # succeed regardless of whether server-side persistence is available.
     if payload.github_pat is not None:
-        deps._verify_project_access(auth.pm_token, payload.project_id, x_taiga_url)
-        context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
-        context_manager.set_active_project(payload.project_id)
+        deps._verify_project_access(auth.pm_token, project_id, x_taiga_url, x_plane_url, x_plane_workspace)
+        context_manager.set_active_instance(anchor_instance_id(x_taiga_url, x_plane_url))
+        context_manager.set_active_project(project_id)
         try:
             context_manager.save_project_github_pat(payload.github_pat)
         except RuntimeError as exc:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     if payload.figma_token is not None:
-        context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
+        context_manager.set_active_instance(anchor_instance_id(x_taiga_url, x_plane_url))
         try:
             context_manager.save_instance_figma_token(payload.figma_token)
         except RuntimeError as exc:
@@ -423,29 +458,33 @@ def save_config(
 def get_github_pat(
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
-    project_id: int | None = None,
+    x_plane_url: str = Header(default="", alias="X-Plane-Url"),
+    x_plane_workspace: str = Header(default="", alias="X-Plane-Workspace"),
+    project_id: int | str | None = None,
 ):
     """Dedicated reveal endpoint — the decrypted PAT, for the client to restore
     its browser-direct GitHub session on load. Deliberately NOT part of the
     general /config response (called once on restore, not on every poll).
     github_pat is per-project; no project_id means nothing to restore yet."""
     from src import context_manager
-    if project_id is None:
+    parsed_project_id = deps._parse_project_id(project_id)
+    if parsed_project_id is None:
         return {"pat": ""}
-    deps._verify_project_access(auth.pm_token, project_id, x_taiga_url)
-    context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
-    context_manager.set_active_project(project_id)
-    return {"pat": context_manager.get_project_github_pat(project_id)}
+    deps._verify_project_access(auth.pm_token, parsed_project_id, x_taiga_url, x_plane_url, x_plane_workspace)
+    context_manager.set_active_instance(anchor_instance_id(x_taiga_url, x_plane_url))
+    context_manager.set_active_project(parsed_project_id)
+    return {"pat": context_manager.get_project_github_pat(parsed_project_id)}
 
 
 @router.get("/figma-token", response_model=FigmaTokenResponse)
 def get_figma_token(
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+    x_plane_url: str = Header(default="", alias="X-Plane-Url"),
 ):
     """Dedicated reveal endpoint — see get_github_pat."""
     from src import context_manager
-    context_manager.set_active_instance(anchor_instance_id(x_taiga_url))
+    context_manager.set_active_instance(anchor_instance_id(x_taiga_url, x_plane_url))
     return {"token": context_manager.get_instance_figma_token()}
 
 
@@ -453,7 +492,8 @@ def get_figma_token(
 def get_github_webhook_config(
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
-    project_id: int | None = None,
+    x_plane_url: str = Header(default="", alias="X-Plane-Url"),
+    project_id: int | str | None = None,
 ):
     """Secret + instance id for wiring up POST /api/webhooks/github/{instance_id}/{project_id}
     as this instance's GitHub push webhook (auto regression re-scan on push —
@@ -464,12 +504,13 @@ def get_github_webhook_config(
     github_pat had, and rotating it would break every already-configured GitHub
     webhook) — only the "configured" flag below is project-scoped."""
     from src import context_manager
-    instance_id = anchor_instance_id(x_taiga_url)
+    instance_id = anchor_instance_id(x_taiga_url, x_plane_url)
     context_manager.set_active_instance(instance_id)
     configured = False
-    if project_id is not None:
-        context_manager.set_active_project(project_id)
-        configured = bool(context_manager.get_project_github_repo(project_id).strip())
+    parsed_project_id = deps._parse_project_id(project_id)
+    if parsed_project_id is not None:
+        context_manager.set_active_project(parsed_project_id)
+        configured = bool(context_manager.get_project_github_repo(parsed_project_id).strip())
     return {
         "instance_id": instance_id,
         "secret": context_manager.get_or_create_instance_github_webhook_secret(),
@@ -636,6 +677,8 @@ def pull_context_from_wiki(
 def get_status_mapping(
     ctx: RequestContext = Depends(get_request_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+    x_plane_url: str = Header(default="", alias="X-Plane-Url"),
+    x_plane_workspace: str = Header(default="", alias="X-Plane-Workspace"),
 ):
     from backend.app.services import import_service
     from src import context_manager
@@ -669,6 +712,46 @@ def get_status_mapping(
                 "source": "configured" if status_id in saved else "default",
                 "is_closed": bool(item.get("is_closed")),
             })
+    elif pm_tool == "plane":
+        x_plane_workspace = x_plane_workspace.strip()
+        if not x_plane_workspace:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="X-Plane-Workspace header is required.",
+            )
+        # SECURITY: validate before interpolating into the URL below — this
+        # builds its own path rather than going through _pm_endpoints, so it
+        # needs its own explicit check (see deps.py's module-level security
+        # note, phase 4a). ctx.project_id is already strict-shape-checked by
+        # get_request_context/_parse_project_id before this route ever runs.
+        # .strip() first, matching _pm_endpoints' own handling of this same
+        # header — the validator itself doesn't strip (2026-08-06 review).
+        deps._validate_plane_workspace_slug(x_plane_workspace)
+        plane_base = resolve_plane_base(x_plane_url)
+        try:
+            states_raw = import_service._plane_get_all(
+                plane_base, ctx.pm_token,
+                f"workspaces/{x_plane_workspace}/projects/{ctx.project_id}/states/",
+            )
+        except Exception as exc:
+            _logger.error("status mapping fetch failed: %s", exc)
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Failed to fetch Plane states: {exc}") from exc
+        for item in states_raw:
+            status_id = str(item.get("id", ""))
+            if not status_id:
+                continue
+            default_status = import_service._map_plane_status(item)
+            mapped_status = saved.get(status_id, default_status)
+            group = item.get("group", "")
+            entries.append({
+                "id": status_id,
+                "name": item.get("name", f"State {status_id}"),
+                "slug": group,
+                "mapped_status": mapped_status,
+                "default_status": default_status,
+                "source": "configured" if status_id in saved else "default",
+                "is_closed": group in ("completed", "cancelled"),
+            })
     return {"pm_tool": pm_tool, "statuses": entries, "mapping": saved}
 
 
@@ -677,11 +760,13 @@ def save_status_mapping(
     payload: SaveStatusMappingRequest,
     ctx: RequestContext = Depends(get_request_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+    x_plane_url: str = Header(default="", alias="X-Plane-Url"),
+    x_plane_workspace: str = Header(default="", alias="X-Plane-Workspace"),
 ):
     context = ContextService()
     context.set_active(ctx)
     context.save_status_mapping(payload.mapping)
-    return get_status_mapping(ctx, x_taiga_url)
+    return get_status_mapping(ctx, x_taiga_url, x_plane_url, x_plane_workspace)
 
 
 @router.get("/bolt-config", response_model=BoltConfigResponse)
@@ -1444,26 +1529,91 @@ def import_from_pm_bootstrap(
     return result
 
 
-@router.post("/import-from-pm/reconstruct-epic/{epic_id}", response_model=ImportReconstructResponse)
-def import_reconstruct_epic(
-    epic_id: int,
+@router.post("/import-from-pm/plane-bootstrap", response_model=ImportBootstrapResponse)
+def import_from_pm_plane_bootstrap(
+    payload: PlaneImportBootstrapRequest,
     ctx: RequestContext = Depends(get_request_context),
-    x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+    x_plane_url: str = Header(default="", alias="X-Plane-Url"),
+    x_plane_workspace: str = Header(default="", alias="X-Plane-Workspace"),
 ):
-    """Step 2 (AI): generate Gherkin for all stories in one epic, one AI call.
-
-    epic_id=0 is the synthetic General epic (orphan stories with no Taiga epic).
-    Writes Gherkin to functional-spec.md and advances stories to gherkin_locked.
+    """Step 1 (no AI), Plane path: the frontend already fetched the board via
+    the tested planeGetBoard adapter (Epics/Modules fallback, pagination,
+    label resolution all handled there) and posts it here — this only mints
+    durable ids (phase 4b) and populates story-index, plus a small server-side
+    dial for the state list (status mapping). Never dials Plane for board
+    data itself — see plane_integration_plan memory phase 4c.
     """
+    x_plane_workspace = x_plane_workspace.strip()
+    if not x_plane_workspace:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="X-Plane-Workspace header is required.",
+        )
+    deps._validate_plane_workspace_slug(x_plane_workspace)
+    plane_base = resolve_plane_base(x_plane_url)
+
     from backend.app.services import import_service
 
-    taiga_base = resolve_taiga_base(x_taiga_url)
     context = ContextService()
     context.set_active(ctx)
     context.init_context()
 
     try:
-        result = import_service.reconstruct_epic(epic_id, taiga_base, ctx.pm_token, ctx.project_id, context)
+        result = import_service.plane_bootstrap(
+            plane_base, ctx.pm_token, x_plane_workspace, str(ctx.project_id),
+            [epic.model_dump() for epic in payload.epics],
+            context,
+        )
+    except Exception as exc:
+        _logger.error("plane import bootstrap failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to bootstrap from Plane data: {exc}",
+        ) from exc
+
+    return result
+
+
+@router.post("/import-from-pm/reconstruct-epic/{epic_id}", response_model=ImportReconstructResponse)
+def import_reconstruct_epic(
+    epic_id: int,
+    payload: ImportReconstructRequest | None = None,
+    ctx: RequestContext = Depends(get_request_context),
+    x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+):
+    """Step 2 (AI): generate Gherkin for all stories in one epic, one AI call.
+
+    epic_id=0 is the synthetic General epic (orphan stories with no epic in the PM).
+    Writes Gherkin to functional-spec.md and advances stories to gherkin_locked.
+
+    Plane (phase 5c, see plane_integration_plan memory): payload.stories carries
+    frontend-supplied descriptions (re-fetched client-side just before this
+    call — no server-side cache of Step 1's board fetch survives to this
+    later, separate action), resolved to Apex story ids via context.mint_pm_id
+    (the same get-or-create primitive that minted them during bootstrap).
+    Taiga is unchanged — it still self-dials for descriptions.
+    """
+    from backend.app.services import import_service
+    from src import context_manager
+
+    context = ContextService()
+    context.set_active(ctx)
+    context.init_context()
+
+    pm_tool = context_manager.load_config().get("pm_tool", "taiga")
+    try:
+        if pm_tool == "plane":
+            story_descriptions = {
+                context.mint_pm_id(s.pm_story_id): s.description
+                for s in (payload.stories if payload else [])
+                if s.pm_story_id
+            }
+            result = import_service.reconstruct_epic(
+                epic_id, "", ctx.pm_token, 0, context, story_descriptions=story_descriptions,
+            )
+        else:
+            taiga_base = resolve_taiga_base(x_taiga_url)
+            result = import_service.reconstruct_epic(epic_id, taiga_base, ctx.pm_token, ctx.project_id, context)
     except Exception as exc:
         _logger.error("import reconstruct epic=%s failed: %s", epic_id, exc)
         raise HTTPException(

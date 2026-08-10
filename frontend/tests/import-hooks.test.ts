@@ -12,16 +12,27 @@ vi.mock("@/lib/api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/client")>()),
   apiRequest: vi.fn(),
 }));
+// getBoard is mocked separately (not just apiRequest) because Plane's real
+// getBoard dials fetch() directly (through the Plane proxy path), not
+// apiRequest — see plane-direct.ts. Mocking it here keeps the Plane
+// bootstrap test hermetic without needing to also stub global fetch.
+vi.mock("@/lib/api/workspace", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api/workspace")>()),
+  getBoard: vi.fn(),
+}));
 vi.mock("@/lib/stores/session-store", () => ({
-  useApiContext: () => ({ projectId: 1, pmTool: "taiga", pmToken: "tok" }),
+  useApiContext: vi.fn(() => ({ projectId: 1, pmTool: "taiga", pmToken: "tok" })),
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn(), message: vi.fn(), loading: vi.fn(), dismiss: vi.fn() } }));
 
 import { apiRequest } from "@/lib/api/client";
-import { importBootstrap, importReconstructEpic } from "@/lib/api/import";
+import { getBoard } from "@/lib/api/workspace";
+import { useApiContext } from "@/lib/stores/session-store";
+import { importBootstrap, importPlaneBootstrap, importReconstructEpic } from "@/lib/api/import";
 import { useImportBootstrap, useImportReconstructEpic } from "@/lib/hooks/use-import";
 
 const CTX = { projectId: 7, pmTool: "taiga", pmToken: "tok" } as never;
+const PLANE_CTX = { projectId: 3, pmTool: "plane", workspaceSlug: "my-team", taigaToken: "pat", taigaApiUrl: "https://api.plane.so" } as never;
 
 function makeWrapper() {
   const qc = createAppQueryClient({ retryQueries: false });
@@ -56,6 +67,41 @@ describe("import api layer", () => {
     );
   });
 
+  it("importPlaneBootstrap fetches the board then posts it to the plane-bootstrap endpoint", async () => {
+    vi.mocked(getBoard).mockResolvedValue([
+      {
+        id: 1, ref: 1, subject: "Epic A", description: "", version: null, tags: [], pm_epic_id: "epic-uuid-1",
+        stories: [
+          { id: 10, ref: 10, subject: "Story A", description: "", version: null, status: "state-uuid-1", tags: [], epic_id: 1, epic_subject: "Epic A", pm_story_id: "story-uuid-1" },
+          // No pm_story_id — must be filtered out, not sent (a Taiga-shaped story would never reach here in practice, but the filter guards it anyway).
+          { id: 11, ref: 11, subject: "No PM id", description: "", version: null, status: null, tags: [], epic_id: 1, epic_subject: "Epic A" },
+        ],
+      } as never,
+      // No pm_epic_id — must be filtered out entirely.
+      { id: 2, ref: 2, subject: "Epic B", description: "", version: null, tags: [], stories: [] } as never,
+    ]);
+
+    await importPlaneBootstrap(PLANE_CTX);
+
+    expect(getBoard).toHaveBeenCalledWith(PLANE_CTX);
+    expect(apiRequest).toHaveBeenCalledWith(
+      "/api/workspace/import-from-pm/plane-bootstrap",
+      expect.objectContaining({
+        method: "POST",
+        context: PLANE_CTX,
+        body: {
+          epics: [
+            {
+              pm_epic_id: "epic-uuid-1",
+              subject: "Epic A",
+              stories: [{ pm_story_id: "story-uuid-1", subject: "Story A", status: "state-uuid-1" }],
+            },
+          ],
+        },
+      }),
+    );
+  });
+
   it("importReconstructEpic handles the synthetic General epic (id 0)", async () => {
     await importReconstructEpic(CTX, 0);
     expect(apiRequest).toHaveBeenCalledWith(
@@ -83,6 +129,24 @@ describe("useImportBootstrap", () => {
 
     expect(apiRequest).toHaveBeenCalledWith("/api/workspace/import-from-pm", expect.objectContaining({ method: "POST" }));
     expect(returned?.imported).toBe(3);
+  });
+
+  it("routes to the Plane bootstrap (board fetch + plane-bootstrap endpoint) when pmTool is plane", async () => {
+    vi.mocked(useApiContext).mockReturnValueOnce(PLANE_CTX);
+    vi.mocked(getBoard).mockResolvedValue([]);
+    const report = { imported: 0, skipped: 0, epics: [], status_mapping: [] };
+    vi.mocked(apiRequest).mockResolvedValue(report as never);
+
+    const { result } = renderHook(() => useImportBootstrap(), { wrapper: makeWrapper() });
+    await act(async () => {
+      await result.current.mutateAsync();
+    });
+
+    expect(getBoard).toHaveBeenCalledWith(PLANE_CTX);
+    expect(apiRequest).toHaveBeenCalledWith(
+      "/api/workspace/import-from-pm/plane-bootstrap",
+      expect.objectContaining({ method: "POST" }),
+    );
   });
 
   it("shows an error toast on failure", async () => {

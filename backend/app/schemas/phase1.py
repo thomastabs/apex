@@ -161,11 +161,20 @@ class FinalizedStorySchema(BaseModel):
     id: int
     title: str
     gherkin: str
+    # Plane's real work-item UUID (frontend resolves it off the just-created
+    # Story's pm_story_id field). When set, the backend mints its own stable
+    # int instead of trusting `id` — see plane_integration_plan memory phase
+    # 4b: `id` here is the frontend's session-local Plane id-shim value for
+    # Plane, which is NOT stable across a reload, so it must never become the
+    # permanent story-index key on its own.
+    pm_story_id: str | None = Field(None, max_length=200)
 
 
 class FinalizeStoriesRequest(BaseModel):
     epic_id: int
     epic_subject: str = ""
+    # Plane's real epic/module UUID, same treatment as pm_story_id above.
+    pm_epic_id: str | None = Field(None, max_length=200)
     stories: list[FinalizedStorySchema]
     clarifications: list[QaPairSchema] = Field(default_factory=list, max_length=20)
 

@@ -91,6 +91,52 @@ def _map_taiga_status(s: dict) -> str:
     return "gherkin_locked"
 
 
+def _map_plane_status(s: dict) -> str:
+    """Heuristic: Plane state dict -> Apex phase_status.
+
+    Plane's `group` field is a literal-confirmed 5-value enum (backlog,
+    unstarted, started, completed, cancelled — see plane_integration_plan
+    memory), so this is an exact mapping, not the fuzzy name/slug substring
+    matching _map_taiga_status needs (Taiga has no such fixed enum).
+    completed/cancelled both mean "closed" — mirrors _map_taiga_status's own
+    is_closed -> deployed treatment.
+    """
+    group = s.get("group", "")
+    if group in ("completed", "cancelled"):
+        return "deployed"
+    if group == "started":
+        return "implementation"
+    return "gherkin_locked"
+
+
+_PLANE_PAGE_SIZE = 100
+_PLANE_MAX_PAGES = 20  # matches plane-direct.ts's own cap
+
+
+def _plane_get_all(base_url: str, token: str, path: str) -> list[dict]:
+    """Paginate a Plane list endpoint via deps._pm_get_json (already SSRF/DNS-pin
+    guarded through _pm_pin). Follows next_page_results, NOT next_cursor's
+    truthiness — Plane always returns a non-null cursor even on the last page,
+    the same bug already found and fixed in plane-direct.ts (phase 2)."""
+    from backend.app.api import deps
+
+    out: list[dict] = []
+    cursor: str | None = None
+    for _ in range(_PLANE_MAX_PAGES):
+        sep = "&" if "?" in path else "?"
+        page_url = f"{base_url}/{path}{sep}per_page={_PLANE_PAGE_SIZE}"
+        if cursor:
+            page_url += f"&cursor={cursor}"
+        body = deps._pm_get_json(page_url, "plane", token)
+        if not body:
+            break
+        out.extend(body.get("results") or [])
+        if not body.get("next_page_results") or not body.get("next_cursor"):
+            break
+        cursor = body.get("next_cursor")
+    return out
+
+
 def _extract_epic_id(story: dict) -> int | None:
     """Extract numeric epic id from a Taiga user story, mirroring taiga-direct.ts normalizeStory.
 
@@ -173,7 +219,7 @@ def bootstrap(taiga_base: str, token: str, project_id: int, context: "ContextSer
         apex = configured_status_mapping.get(str(status_id), default_apex)
         status_id_map[s["id"]] = apex
         status_mapping.append({
-            "taiga_name": s.get("name", ""),
+            "pm_status_name": s.get("name", ""),
             "apex_status": apex,
             "source": "configured" if str(status_id) in configured_status_mapping else "default",
         })
@@ -235,7 +281,93 @@ def bootstrap(taiga_base: str, token: str, project_id: int, context: "ContextSer
     }
 
 
-def reconstruct_epic(epic_id: int, taiga_base: str, token: str, project_id: int, context: "ContextService") -> dict:
+def plane_bootstrap(
+    plane_base: str, token: str, workspace_slug: str, project_id: str,
+    epics: list[dict], context: "ContextService",
+) -> dict:
+    """Plane counterpart to bootstrap() — same shape, same story-index writes,
+    but the epics/stories come from the CALLER (the frontend's already-fetched,
+    already-live-tested planeGetBoard() result), not a fresh dial here. Only
+    the state list is fetched server-side (small, cheap, mirrors the
+    status-mapping route) to map each story's raw state UUID to a
+    phase_status the same way bootstrap()'s status_id_map does for Taiga.
+    See plane_integration_plan memory phase 4c for the architecture decision
+    behind not building a second Python board-fetching client.
+
+    `context` must already have the target project set active (same
+    precondition as bootstrap()). Uses mint_pm_id (phase 4b) instead of
+    trusting a caller-supplied int — Plane's real ids are UUIDs, and story
+    index entries must be keyed by a durable Apex-minted int.
+    """
+    states_raw = _plane_get_all(plane_base, token, f"workspaces/{workspace_slug}/projects/{project_id}/states/")
+    configured_status_mapping = context.status_mapping()
+    status_id_map: dict[str, str] = {}
+    status_mapping: list[dict] = []
+    for s in states_raw:
+        state_id = str(s.get("id", ""))
+        if not state_id:
+            continue
+        default_apex = _map_plane_status(s)
+        apex = configured_status_mapping.get(state_id, default_apex)
+        status_id_map[state_id] = apex
+        status_mapping.append({
+            "pm_status_name": s.get("name", ""),
+            "apex_status": apex,
+            "source": "configured" if state_id in configured_status_mapping else "default",
+        })
+
+    existing = context.story_index()
+    imported = 0
+    skipped = 0
+    epics_summary: dict[int, dict] = {}
+
+    for epic in epics:
+        pm_epic_id = epic.get("pm_epic_id")
+        if not pm_epic_id:
+            continue
+        epic_id = context.mint_pm_id(pm_epic_id)
+        epic_title = epic.get("subject") or f"Epic {epic_id}"
+
+        for story in epic.get("stories") or []:
+            pm_story_id = story.get("pm_story_id")
+            if not pm_story_id:
+                continue
+            sid = context.mint_pm_id(pm_story_id)
+            if str(sid) in existing:
+                skipped += 1
+                continue
+
+            status_id = story.get("status")
+            phase_status = status_id_map.get(status_id, "gherkin_locked") if status_id else "gherkin_locked"
+
+            context.upsert_story_index(
+                sid,
+                title=story.get("subject") or f"Story {sid}",
+                epic_id=epic_id,
+                epic_title=epic_title,
+                phase_status=phase_status,
+                has_gherkin=False,
+            )
+
+            if epic_id not in epics_summary:
+                epics_summary[epic_id] = {"id": epic_id, "title": epic_title, "story_count": 0}
+            epics_summary[epic_id]["story_count"] += 1
+            imported += 1
+            _logger.info("plane import: story %s (pm=%s) → %s (epic %s)", sid, pm_story_id, phase_status, epic_id)
+
+    _logger.info("plane import bootstrap done: imported=%s skipped=%s", imported, skipped)
+    return {
+        "imported": imported,
+        "skipped": skipped,
+        "epics": list(epics_summary.values()),
+        "status_mapping": status_mapping,
+    }
+
+
+def reconstruct_epic(
+    epic_id: int, taiga_base: str, token: str, project_id: int, context: "ContextService",
+    *, story_descriptions: dict[int, str] | None = None,
+) -> dict:
     """Step 2: generate Gherkin for all stories in one epic via one AI call.
 
     `context` must already have the target project set active (see caller in
@@ -243,7 +375,17 @@ def reconstruct_epic(epic_id: int, taiga_base: str, token: str, project_id: int,
 
     epic_id=0 means the synthetic General epic (orphan stories with no epic in Taiga).
     Returns a report dict with keys: epic_id, epic_title, results (list per story).
-    """
+
+    story_descriptions: Plane only (phase 5c, see plane_integration_plan
+    memory), keyed by Apex story id (already resolved from Plane's real UUID
+    via context.mint_pm_id — the same get-or-create primitive phase 4b's
+    bootstrap used to mint it in the first place, so an id here always
+    matches an existing story-index entry's story_id). When given, this skips
+    the Taiga dial entirely and uses these frontend-supplied descriptions
+    instead — taiga_base/token/project_id are unused in that path but kept as
+    required positional params so this stays one function, not two near-
+    duplicates, matching the "frontend fetches, backend processes" shape
+    phase 4c's bootstrap already established for Plane."""
     from src import ai_engine
 
     # Get story-index entries for this epic
@@ -260,28 +402,32 @@ def reconstruct_epic(epic_id: int, taiga_base: str, token: str, project_id: int,
         _GENERAL_EPIC_TITLE if epic_id == _GENERAL_EPIC_ID else f"Epic {epic_id}"
     )
 
-    # Fetch story descriptions from Taiga
-    if epic_id == _GENERAL_EPIC_ID:
-        # Orphan stories: fetch all project stories, filter to those with no epic
-        all_raw = _taiga_get_all(f"{taiga_base}/userstories", token, {"project": project_id})
-        raw_map = {s["id"]: s for s in all_raw if _extract_epic_id(s) is None}
-    else:
-        epic_raw = _taiga_get_all(
-            f"{taiga_base}/userstories", token, {"project": project_id, "epic": epic_id}
-        )
-        raw_map = {s["id"]: s for s in epic_raw}
+    # Fetch story descriptions — from Taiga (self-dial) unless the caller
+    # already supplied them (Plane).
+    raw_map: dict[int, dict] = {}
+    if story_descriptions is None:
+        if epic_id == _GENERAL_EPIC_ID:
+            # Orphan stories: fetch all project stories, filter to those with no epic
+            all_raw = _taiga_get_all(f"{taiga_base}/userstories", token, {"project": project_id})
+            raw_map = {s["id"]: s for s in all_raw if _extract_epic_id(s) is None}
+        else:
+            epic_raw = _taiga_get_all(
+                f"{taiga_base}/userstories", token, {"project": project_id, "epic": epic_id}
+            )
+            raw_map = {s["id"]: s for s in epic_raw}
 
     # Build input list for AI
     ai_input = []
     for entry in epic_stories:
         sid = entry["story_id"]
-        raw = raw_map.get(sid, {})
-        title = entry.get("title") or raw.get("subject", f"Story {sid}")
-        ai_input.append({
-            "id": sid,
-            "title": title,
-            "description": _format_reconstruction_story_input(sid, title, raw),
-        })
+        if story_descriptions is not None:
+            title = entry.get("title") or f"Story {sid}"
+            description = story_descriptions.get(sid, "") or _format_reconstruction_story_input(sid, title, {})
+        else:
+            raw = raw_map.get(sid, {})
+            title = entry.get("title") or raw.get("subject", f"Story {sid}")
+            description = _format_reconstruction_story_input(sid, title, raw)
+        ai_input.append({"id": sid, "title": title, "description": description})
 
     # One AI call for the whole epic
     gherkin_map = ai_engine.reconstruct_gherkin_batch(epic_title, ai_input)

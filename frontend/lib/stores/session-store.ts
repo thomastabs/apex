@@ -2,14 +2,31 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { resolveId } from "../api/plane-id-shim";
 
-type PmTool = "taiga";
+type PmTool = "taiga" | "plane";
 
 type SessionState = {
   pmTool: PmTool;
+  // Reused generically across both tools despite the Taiga-era names — the
+  // backend already treats this as a tool-agnostic "pm_token"/base URL
+  // (AuthContext.pm_token, deps.py's _pm_auth_headers branches on pmTool to
+  // pick the actual header shape). Renaming these fields would touch dozens
+  // of call sites across the frontend for no functional gain; workspaceSlug
+  // below is the one genuinely Plane-only addition.
   taigaToken: string;
   taigaApiUrl: string;
+  // Plane-only: required, no Plane API can discover it from a key alone (see
+  // plane_integration_plan memory). Empty/unused for Taiga.
+  workspaceSlug: string;
   projectId: number | null;
+  // Plane-only: the real UUID behind projectId's minted int, captured at
+  // selection time. The mint table (plane-id-shim.ts) is a module singleton
+  // that resets on every reload, so a persisted minted int alone becomes
+  // meaningless after a reload (matches nothing in the fresh table, even
+  // for the same real project) — this is what useRestoreProjectConfig
+  // re-mints from to recover the correct int for the current session.
+  planeProjectId: string;
   projectName: string;
   pmProjectSlug: string;
   // Instance the selected project belongs to. A project picked on one Taiga
@@ -28,8 +45,8 @@ type SessionState = {
   // going server-side). Cleared on New Run / sign-out.
   autopilotJobId: string | null;
   setAutopilotJobId: (jobId: string | null) => void;
-  setSession: (session: { taigaToken: string; taigaApiUrl?: string; projectId?: number; projectName?: string; pmTool?: PmTool }) => void;
-  setAuth: (auth: { taigaToken: string; taigaApiUrl?: string; pmTool?: PmTool }) => void;
+  setSession: (session: { taigaToken: string; taigaApiUrl?: string; projectId?: number; projectName?: string; pmTool?: PmTool; workspaceSlug?: string }) => void;
+  setAuth: (auth: { taigaToken: string; taigaApiUrl?: string; pmTool?: PmTool; workspaceSlug?: string }) => void;
   setProject: (project: { projectId: number; projectName?: string; pmProjectSlug?: string }) => void;
   setGithub: (opts: { pat?: string; repo?: string }) => void;
   setFigma: (opts: { token?: string; fileKey?: string; fileName?: string }) => void;
@@ -48,7 +65,9 @@ export const useSessionStore = create<SessionState>()(
       pmTool: "taiga",
       taigaToken: "",
       taigaApiUrl: "",
+      workspaceSlug: "",
       projectId: null,
+      planeProjectId: "",
       projectName: "",
       pmProjectSlug: "",
       projectInstanceUrl: "",
@@ -59,19 +78,22 @@ export const useSessionStore = create<SessionState>()(
       figmaFileName: "",
       autopilotJobId: null,
       setAutopilotJobId: (jobId) => set({ autopilotJobId: jobId }),
-      setSession: ({ taigaToken, taigaApiUrl, projectId, projectName = "", pmTool }) =>
+      setSession: ({ taigaToken, taigaApiUrl, projectId, projectName = "", pmTool, workspaceSlug }) =>
         set({
           taigaToken,
           ...(pmTool != null ? { pmTool } : {}),
           ...(taigaApiUrl != null ? { taigaApiUrl } : {}),
+          ...(workspaceSlug != null ? { workspaceSlug } : {}),
           ...(projectId != null ? { projectId, projectName } : {}),
         }),
-      setAuth: ({ taigaToken, taigaApiUrl, pmTool }) =>
+      setAuth: ({ taigaToken, taigaApiUrl, pmTool, workspaceSlug }) =>
         set({
           taigaToken,
           ...(pmTool != null ? { pmTool } : {}),
           ...(taigaApiUrl != null ? { taigaApiUrl } : {}),
+          workspaceSlug: workspaceSlug ?? "",
           projectId: null,
+          planeProjectId: "",
           projectName: "",
           pmProjectSlug: "",
           projectInstanceUrl: "",
@@ -83,6 +105,11 @@ export const useSessionStore = create<SessionState>()(
         // fails) before GithubAutoSync repopulates them for the new project.
         set((s) => ({
           projectId, projectName, pmProjectSlug, projectInstanceUrl: s.taigaApiUrl,
+          // Best-effort: projectId was just minted moments ago from this same
+          // session's listProjects() call, so resolving it back right now
+          // should never fail — wrapped anyway since a store update must
+          // never throw. See planeProjectId's field comment.
+          planeProjectId: s.pmTool === "plane" ? (() => { try { return resolveId(projectId); } catch { return ""; } })() : "",
           githubPat: "", githubRepo: "",
         })),
       setGithub: ({ pat, repo }) => set({
@@ -95,7 +122,7 @@ export const useSessionStore = create<SessionState>()(
         ...(fileKey !== undefined ? { figmaFileKey: fileKey, figmaFileName: fileName ?? "" } : {}),
         ...(fileKey === undefined && fileName !== undefined ? { figmaFileName: fileName } : {}),
       }),
-      clearSession: () => set((s) => ({ pmTool: s.pmTool, taigaToken: "", taigaApiUrl: "", projectId: null, projectName: "", pmProjectSlug: "", projectInstanceUrl: "", githubPat: "", githubRepo: "", figmaToken: "", figmaFileKey: "", figmaFileName: "", autopilotJobId: null })),
+      clearSession: () => set((s) => ({ pmTool: s.pmTool, taigaToken: "", taigaApiUrl: "", workspaceSlug: "", projectId: null, planeProjectId: "", projectName: "", pmProjectSlug: "", projectInstanceUrl: "", githubPat: "", githubRepo: "", figmaToken: "", figmaFileKey: "", figmaFileName: "", autopilotJobId: null })),
     }),
     {
       name: "apex-session",
@@ -108,18 +135,27 @@ export const useSessionStore = create<SessionState>()(
         try { localStorage.removeItem("apex-session"); } catch { /* ignore */ }
         return window.sessionStorage;
       }),
-      version: 10,
+      version: 12,
       migrate: (persisted: unknown) => {
         const state = (persisted ?? {}) as Record<string, unknown>;
         return {
           autopilotJobId: (state.autopilotJobId as string | null) ?? null,
-          // Jira support was removed — any stale persisted pmTool (including
-          // "jira") collapses to the only remaining tool rather than
-          // crashing a mid-session tab.
-          pmTool: "taiga" as PmTool,
+          // Jira support was removed — any stale persisted pmTool other than
+          // "taiga"/"plane" collapses to Taiga rather than crashing a
+          // mid-session tab. A pre-v11 session could only ever have "taiga"
+          // anyway (Plane's login UI didn't exist yet), so this is really
+          // just the Jira-removal guard, unchanged in spirit.
+          pmTool: (state.pmTool === "plane" ? "plane" : "taiga") as PmTool,
           taigaToken: (state.taigaToken as string) ?? "",
           taigaApiUrl: (state.taigaApiUrl as string) ?? "",
+          workspaceSlug: (state.workspaceSlug as string) ?? "",
           projectId: (state.projectId as number | null) ?? null,
+          // New in v12 — a pre-v12 session never had this, so a Plane
+          // project selected before this version reads back as "" and
+          // useRestoreProjectConfig's re-mint correction simply can't run
+          // once (falls through to the plain "no match" branch instead,
+          // same as today's un-fixed behaviour) until reselected once.
+          planeProjectId: (state.planeProjectId as string) ?? "",
           projectName: (state.projectName as string) ?? "",
           pmProjectSlug: (state.pmProjectSlug as string) ?? "",
           // Reset on upgrade so a pre-v6 selection (no instance binding) is
@@ -138,7 +174,9 @@ export const useSessionStore = create<SessionState>()(
         pmTool: state.pmTool,
         taigaToken: state.taigaToken,
         taigaApiUrl: state.taigaApiUrl,
+        workspaceSlug: state.workspaceSlug,
         projectId: state.projectId,
+        planeProjectId: state.planeProjectId,
         projectName: state.projectName,
         pmProjectSlug: state.pmProjectSlug,
         projectInstanceUrl: state.projectInstanceUrl,
@@ -154,6 +192,7 @@ export const useSessionStore = create<SessionState>()(
 export function useApiContext() {
   const taigaToken = useSessionStore((state) => state.taigaToken);
   const taigaApiUrl = useSessionStore((state) => state.taigaApiUrl);
+  const workspaceSlug = useSessionStore((state) => state.workspaceSlug);
   const projectId = useSessionStore((state) => state.projectId);
   const pmTool = useSessionStore((state) => state.pmTool);
   const pmProjectSlug = useSessionStore((state) => state.pmProjectSlug);
@@ -168,7 +207,7 @@ export function useApiContext() {
     return null;
   }
 
-  return { taigaToken, taigaApiUrl, projectId, pmTool, pmProjectId: pmProjectSlug || undefined };
+  return { taigaToken, taigaApiUrl, projectId, pmTool, pmProjectId: pmProjectSlug || undefined, workspaceSlug: workspaceSlug || undefined };
 }
 
 export function useGithubContext() {
@@ -191,5 +230,6 @@ export function useAuthContext() {
   const taigaToken = useSessionStore((state) => state.taigaToken);
   const taigaApiUrl = useSessionStore((state) => state.taigaApiUrl);
   const pmTool = useSessionStore((state) => state.pmTool);
-  return taigaToken ? { taigaToken, taigaApiUrl, pmTool } : null;
+  const workspaceSlug = useSessionStore((state) => state.workspaceSlug);
+  return taigaToken ? { taigaToken, taigaApiUrl, pmTool, workspaceSlug: workspaceSlug || undefined } : null;
 }

@@ -49,8 +49,12 @@ def _usage_lock():
     """Serialise AI usage-log read-modify-write, same pattern as _config_write_lock."""
     return distributed.reentrant_lock("apex:usage-write")
 
-# Per-request active project. Uses ContextVar so concurrent FastAPI requests on different projects are isolated.
-_active_project_id: contextvars.ContextVar[int] = contextvars.ContextVar(
+# Per-request active project. Uses ContextVar so concurrent FastAPI requests on
+# different projects are isolated. Taiga: real int. Plane: real UUID string
+# (widened 2026-08-06, phase 4a — see plane_integration_plan memory). Nothing
+# here does int-specific arithmetic on it; _context_dir just str()-ifies
+# whatever value is set, so both shapes work unchanged.
+_active_project_id: contextvars.ContextVar[int | str] = contextvars.ContextVar(
     "context_manager_project_id",
     default=int(os.getenv("PM_PROJECT_ID") or os.getenv("TAIGA_PROJECT_ID") or "0"),
 )
@@ -65,7 +69,7 @@ _active_instance_id: contextvars.ContextVar[str] = contextvars.ContextVar(
 )
 
 
-def _get_project_id() -> int:
+def _get_project_id() -> int | str:
     return _active_project_id.get()
 
 
@@ -94,22 +98,32 @@ def instance_key(url: str) -> str:
     return re.sub(r"[^a-z0-9]", "_", host)
 
 
-def _ctx_key(pid: int | None = None) -> tuple[str, int]:
+def _ctx_key(pid: int | str | None = None) -> tuple[str, int | str]:
     """Composite per-process cache key: (instance_id, project_id)."""
     return (_get_instance_id(), pid if pid is not None else _get_project_id())
 
 
-def _context_dir(pid: int | None = None) -> Path:
+def _context_dir(pid: int | str | None = None) -> Path:
     p = pid if pid is not None else _get_project_id()
     base = _BASE_CONTEXTSPEC / _get_instance_id()
-    return base / str(p) if p else base / "default"
+    if not p:
+        return base / "default"
+    # SECURITY (2026-08-06, phase 4a review): defense-in-depth — the real
+    # guard is deps._parse_project_id's strict int/UUID shape check upstream,
+    # but this is the actual filesystem sink (a plain path join, no
+    # sanitization of its own), so it must never trust a caller not to have
+    # slipped a path-separator/traversal component past that upstream check.
+    p_str = str(p)
+    if "/" in p_str or "\\" in p_str or ".." in p_str:
+        raise ValueError(f"Invalid project id for storage path: {p_str!r}")
+    return base / p_str
 
 
-def _path(filename: str, pid: int | None = None) -> Path:
+def _path(filename: str, pid: int | str | None = None) -> Path:
     return _context_dir(pid) / filename
 
 
-def get_file_path(filename: str, pid: int | None = None) -> Path:
+def get_file_path(filename: str, pid: int | str | None = None) -> Path:
     """Public accessor for the resolved filesystem path of a context file."""
     return _path(filename, pid)
 
@@ -128,14 +142,14 @@ def _index_lock():
     return distributed.reentrant_lock("apex:story-index")
 
 
-_story_index_caches:  dict[tuple[str, int], tuple[float, dict]] = {}
-_initialized_projects: set[tuple[str, int]]              = set()
+_story_index_caches:  dict[tuple[str, int | str], tuple[float, dict]] = {}
+_initialized_projects: set[tuple[str, int | str]]              = set()
 
 # Per-project cache of proposal (dev-pack) file contents, keyed by filename ->
 # (mtime, proposal_md). Lets load_all_proposals() skip re-reading a pack's full
 # markdown on every call (e.g. every GitHub push webhook) when the file on disk
 # hasn't changed since the last read — only the mtime is re-checked per file.
-_proposal_content_caches: dict[tuple[str, int], dict[str, tuple[float, str]]] = {}
+_proposal_content_caches: dict[tuple[str, int | str], dict[str, tuple[float, str]]] = {}
 
 
 
@@ -291,7 +305,7 @@ PHASE_STATUSES = (
 # Project switching
 # ---------------------------------------------------------------------------
 
-def set_active_project(project_id: int) -> None:
+def set_active_project(project_id: int | str) -> None:
     """Switch the active project for the current request context.
 
     Sets the ContextVar so all subsequent file operations in this request use
@@ -316,7 +330,7 @@ def get_active_instance_id() -> str:
     return _get_instance_id()
 
 
-def get_active_project_id() -> int | None:
+def get_active_project_id() -> int | str | None:
     """Public read of the active project ID, or None when no project is selected."""
     return _get_project_id() if is_project_selected() else None
 
@@ -442,13 +456,19 @@ def save_config(project_id: int) -> None:
 def save_pm_config(
     pm_tool: str | None = None,
     taiga_url: str | None = None,
+    plane_url: str | None = None,
+    plane_workspace_slug: str | None = None,
 ) -> None:
-    """Persist PM tool selection and PM base URL to the shared config file."""
+    """Persist PM tool selection and PM base URL(s) to the shared config file."""
     def _mutate(data: dict) -> None:
         if pm_tool is not None:
             data["pm_tool"] = pm_tool
         if taiga_url is not None:
             data["taiga_url"] = taiga_url
+        if plane_url is not None:
+            data["plane_url"] = plane_url
+        if plane_workspace_slug is not None:
+            data["plane_workspace_slug"] = plane_workspace_slug
     _update_config(_mutate, log_label="save_pm_config")
 
 
@@ -1551,6 +1571,72 @@ def _now_iso() -> str:
     headers (fix-log, locked-at lines) — never swap one for the other.
     """
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+# ---------------------------------------------------------------------------
+# PM id mint — backend-persisted UUID <-> Apex int, per project (phase 4b)
+#
+# story_id/epic_id are used as story-index.json's dict keys AND as a literal
+# in a Markdown-heading regex ("### Story {story_id}:") — both assume small
+# stable ints, which is exactly what Taiga's real ids already are (reused
+# 1:1, no shim needed there). Plane's ids are UUIDs, so Apex mints its own
+# stable int here and remembers the real UUID alongside — same idea as the
+# frontend's plane-id-shim.ts, but persisted (survives reloads, shared across
+# every user touching this project), because story-index.json's story_id
+# keys must stay stable forever once a story exists. See
+# plane_integration_plan memory phase 4b for the full design.
+# ---------------------------------------------------------------------------
+
+_PM_ID_MAP_FILE = "pm-id-map.json"
+
+
+def _load_pm_id_map() -> dict:
+    p = _path(_PM_ID_MAP_FILE)
+    if not p.exists():
+        return {"next_id": 1, "uuid_to_id": {}, "id_to_uuid": {}}
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return {"next_id": 1, "uuid_to_id": {}, "id_to_uuid": {}}
+    data.setdefault("next_id", 1)
+    data.setdefault("uuid_to_id", {})
+    data.setdefault("id_to_uuid", {})
+    return data
+
+
+def _save_pm_id_map(data: dict) -> None:
+    _path(_PM_ID_MAP_FILE).write_text(
+        json.dumps(data, indent=2, ensure_ascii=False, sort_keys=True), encoding="utf-8",
+    )
+
+
+def mint_pm_id(pm_uuid: str) -> int:
+    """Get-or-mint a stable Apex int for a PM tool's real id (a Plane
+    story/epic UUID). Idempotent per uuid within a project: calling this
+    again for the same uuid always returns the same int, across any number
+    of requests/users/reloads — unlike the frontend's session-local
+    plane-id-shim.ts. Reuses the story-index lock: same file family, same
+    project directory, same atomicity requirement (two concurrent requests
+    minting the same uuid must not race into two different ids).
+    """
+    with _index_lock():
+        data = _load_pm_id_map()
+        existing = data["uuid_to_id"].get(pm_uuid)
+        if existing is not None:
+            return existing
+        new_id = data["next_id"]
+        data["next_id"] = new_id + 1
+        data["uuid_to_id"][pm_uuid] = new_id
+        data["id_to_uuid"][str(new_id)] = pm_uuid
+        _save_pm_id_map(data)
+        return new_id
+
+
+def resolve_pm_id(apex_id: int) -> str | None:
+    """Reverse lookup: an Apex-minted int -> the PM's real uuid, or None if
+    this id was never minted here (e.g. a Taiga project's real id, which was
+    never routed through mint_pm_id at all)."""
+    return _load_pm_id_map()["id_to_uuid"].get(str(apex_id))
 
 
 def upsert_story_index(story_id: int, **updates) -> None:

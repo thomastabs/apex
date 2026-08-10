@@ -40,7 +40,7 @@ type Props = {
 
 const DEFAULT_SETTINGS: AutopilotSettings = {
   pause_at_checkpoints: true,
-  create_epics_in_taiga: true,
+  create_epics_in_pm: true,
   auto_epics: false,
   dedup_stories: true,
 };
@@ -407,8 +407,8 @@ export function AutopilotSetupForm({ onStart, isPending, dark }: Props) {
         <label className="flex cursor-pointer items-center gap-3">
           <input
             type="checkbox"
-            checked={settings.create_epics_in_taiga}
-            onChange={(e) => setSettings((s) => ({ ...s, create_epics_in_taiga: e.target.checked }))}
+            checked={settings.create_epics_in_pm}
+            onChange={(e) => setSettings((s) => ({ ...s, create_epics_in_pm: e.target.checked }))}
             className="h-4 w-4 rounded accent-violet-500"
           />
           <div>

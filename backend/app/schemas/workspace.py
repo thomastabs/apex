@@ -210,9 +210,18 @@ class AiKeyStatusResponse(BaseModel):
 
 
 class SaveConfigRequest(BaseModel):
-    project_id: int | None = None
+    # int for Taiga's numeric id, str for Plane's UUID — validated through
+    # deps._parse_project_id (same strict shape check as the X-Project-Id
+    # header/get_config's query param) before it reaches any access check or
+    # filesystem path (phase 5a, see plane_integration_plan memory).
+    project_id: int | str | None = None
     pm_tool: str | None = Field(None, max_length=20)
     taiga_url: str | None = Field(None, max_length=2_048)
+    plane_url: str | None = Field(None, max_length=2_048)
+    # Plane workspace slug — required to build project-scoped Plane API paths.
+    # No API endpoint can discover this from a key alone (confirmed absent,
+    # see plane_integration_plan memory), so it's always a user-supplied field.
+    plane_workspace_slug: str | None = Field(None, max_length=100)
     github_repo: str | None = Field(None, max_length=255)
     figma_file_key: str | None = Field(None, max_length=255)
     # Encrypted at rest (AI_KEY_ENCRYPTION_SECRET) — "" clears the saved value.
@@ -245,6 +254,8 @@ class ConfigResponse(BaseModel):
     taiga_web_url: str = ""
     pm_tool: str = "taiga"
     pm_web_url: str = ""
+    plane_url: str = ""
+    plane_workspace_slug: str = ""
     github_repo: str = ""
     figma_file_key: str = ""
     # Whether a PAT/token is saved server-side — never the credential itself.
@@ -364,7 +375,10 @@ class ImportEpicSummary(BaseModel):
 
 
 class ImportStatusMapping(BaseModel):
-    taiga_name: str
+    # Renamed from taiga_name (2026-08-06, phase 4c) — this response shape is
+    # now shared with Plane's bootstrap, so a Taiga-specific field name was
+    # misleading for a PM-agnostic status/state name.
+    pm_status_name: str
     apex_status: str
     source: Literal["configured", "default"] = "default"
 
@@ -374,6 +388,41 @@ class ImportBootstrapResponse(BaseModel):
     skipped: int
     epics: list[ImportEpicSummary] = Field(default_factory=list)
     status_mapping: list[ImportStatusMapping] = Field(default_factory=list)
+
+
+class PlaneImportStorySchema(BaseModel):
+    # The frontend's already-fetched planeGetBoard() result, posted here for
+    # bootstrapping — see plane_integration_plan memory phase 4c for why this
+    # doesn't dial Plane for board data itself (avoids a duplicate Python
+    # Plane client; the tested TS adapter is the one true client).
+    pm_story_id: str = Field(..., max_length=200)
+    subject: str = Field("", max_length=500)
+    status: str | None = Field(None, max_length=200)  # Plane state UUID
+
+
+class PlaneImportEpicSchema(BaseModel):
+    pm_epic_id: str = Field(..., max_length=200)
+    subject: str = Field("", max_length=500)
+    stories: list[PlaneImportStorySchema] = Field(default_factory=list, max_length=2_000)
+
+
+class PlaneImportBootstrapRequest(BaseModel):
+    epics: list[PlaneImportEpicSchema] = Field(default_factory=list, max_length=500)
+
+
+class ImportReconstructStoryInput(BaseModel):
+    # Plane only (phase 5c, see plane_integration_plan memory) — fresh
+    # descriptions the frontend just re-fetched client-side (no server-side
+    # cache of Step 1's board fetch survives to this later, separate action).
+    # Sent for every story in the project, not just this epic's — cheap (one
+    # board fetch) and lets the backend match against its own story index via
+    # mint_pm_id rather than duplicating that id-mapping client-side.
+    pm_story_id: str = Field(..., max_length=200)
+    description: str = Field("", max_length=20_000)
+
+
+class ImportReconstructRequest(BaseModel):
+    stories: list[ImportReconstructStoryInput] = Field(default_factory=list, max_length=2_000)
 
 
 class ImportStoryResult(BaseModel):

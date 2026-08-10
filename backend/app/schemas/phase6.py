@@ -141,7 +141,7 @@ class CreateMaintenanceItemRequest(BaseModel):
     subject: str = Field(..., max_length=300)
     description: str = Field("", max_length=20_000)
     evidence: str = Field("", max_length=20_000)
-    source: Literal["manual", "github", "taiga", "figma"] = "manual"
+    source: Literal["manual", "github", "taiga", "plane", "figma"] = "manual"
     ext_ref: str = Field("", max_length=200)
     linked_story_id: Optional[int] = None
 

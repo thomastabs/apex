@@ -6,6 +6,12 @@ import type { Epic, EpicWithStories, Me, Membership, Project, Story } from "./ty
 export interface PmAuthContext {
   token: string;
   baseUrl: string;
+  // Plane-only: workspace slug, required to build any workspace-scoped Plane
+  // path (workspaces/{slug}/projects/{id}/...). Undefined for Taiga. No Plane
+  // API endpoint can discover this from a key alone (confirmed absent — see
+  // plane_integration_plan memory), so it's always a user-supplied field,
+  // carried here rather than folded into baseUrl to keep baseUrl a plain host.
+  workspaceSlug?: string;
 }
 
 export interface PmRequestContext extends PmAuthContext {
@@ -34,7 +40,7 @@ export type PmStoryStatus = {
 };
 
 export interface ProjectManagementAdapter {
-  readonly name: "taiga";
+  readonly name: "taiga" | "plane";
   errMsg(err: unknown, action?: string): string;
   isPmVersionConflict(err: unknown): boolean;
   getWebUrl(baseUrl: string): string;

@@ -1,3 +1,4 @@
+import { resolveId } from "./plane-id-shim";
 import type { AuthContext, RequestContext } from "./types";
 
 export class ApiError extends Error {
@@ -97,22 +98,35 @@ export function getApiBaseUrl() {
   return process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 }
 
-/** Auth/context headers for a request (Bearer token + project + Taiga URL). Shared
- *  by apiRequest and the streaming fetch in the autopilot hook. */
+/** Auth/context headers for a request (Bearer token + project + PM anchor). Shared
+ *  by apiRequest and the streaming fetch in the autopilot hook.
+ *
+ *  taigaToken/taigaApiUrl are reused generically for both tools — see
+ *  session-store's field comment. Branches on pmTool (phase 4a, 2026-08-06,
+ *  see plane_integration_plan memory) since Plane needs a different anchor
+ *  header (X-Plane-Url, not X-Taiga-Url) and X-Project-Id must carry the
+ *  REAL Plane UUID, not the frontend's session-local minted int — the
+ *  backend's get_request_context resolves project access against the actual
+ *  PM, it can't use a number that only means something in this browser tab. */
 export function contextHeaders(context?: RequestContext | AuthContext | null): Record<string, string> {
   const headers: Record<string, string> = {};
   if (context?.taigaToken) {
     headers.Authorization = `Bearer ${context.taigaToken}`;
   }
+  const isPlane = context?.pmTool === "plane";
   if (context?.taigaApiUrl) {
-    // Send the caller's own known Taiga base as an override header so the
+    // Send the caller's own known PM base as an override header so the
     // backend anchors identity/project checks to it instead of trusting the
     // shared workspace config alone (audit H4).
-    headers["X-Taiga-Url"] = context.taigaApiUrl;
+    headers[isPlane ? "X-Plane-Url" : "X-Taiga-Url"] = context.taigaApiUrl;
+  }
+  if (isPlane && context?.workspaceSlug) {
+    headers["X-Plane-Workspace"] = context.workspaceSlug;
   }
   if (context && "projectId" in context && context.projectId) {
-    headers["X-Project-Id"] = String(context.projectId);
-    headers["X-Taiga-Project-Id"] = String(context.projectId);
+    const projectIdHeader = isPlane ? resolveId(context.projectId) : String(context.projectId);
+    headers["X-Project-Id"] = projectIdHeader;
+    headers["X-Taiga-Project-Id"] = projectIdHeader;
   }
   return headers;
 }

@@ -24,6 +24,8 @@ import { usePhase5Store } from "@/lib/stores/phase5-store";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ApiError, apiRequest, getApiBaseUrl } from "@/lib/api/client";
+import { savePmConfig } from "@/lib/api/workspace";
+import { mintId } from "@/lib/api/plane-id-shim";
 import { AiSection } from "./sidebar/ai-section";
 import { LanguageSection } from "./sidebar/language-section";
 import { StatusMappingSection } from "./sidebar/status-mapping-section";
@@ -290,6 +292,8 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
   const clearSession = useSessionStore((s) => s.clearSession);
   const taigaToken = useSessionStore((s) => s.taigaToken);
   const storedTaigaApiUrl = useSessionStore((s) => s.taigaApiUrl);
+  const storedPmTool = useSessionStore((s) => s.pmTool);
+  const storedWorkspaceSlug = useSessionStore((s) => s.workspaceSlug);
   const clearPhase2Draft = usePhase2Store((s) => s.clearPhase2Draft);
   const clearPhase3Draft = usePhase3Store((s) => s.clearPhase3Draft);
   const clearPhase4Draft = usePhase4Store((s) => s.clearPhase4Draft);
@@ -310,11 +314,19 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
     router.push("/");
   };
 
+  // Which PM tool the sign-in form itself is showing — independent of
+  // storedPmTool (the last tool actually signed in with) so switching this
+  // toggle before submitting doesn't touch the session until Sign in is
+  // pressed.
+  const [pmToolChoice, setPmToolChoice] = useState<"taiga" | "plane">("taiga");
   const [mode, setMode] = useState<"password" | "token">("token");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [tokenInput, setTokenInput] = useState(taigaToken);
   const [taigaInstanceUrl, setTaigaInstanceUrl] = useState("");
+  const [planeApiKey, setPlaneApiKey] = useState("");
+  const [planeBaseUrlInput, setPlaneBaseUrlInput] = useState("");
+  const [planeWorkspaceSlugInput, setPlaneWorkspaceSlugInput] = useState("");
   const [loginError, setLoginError] = useState("");
   const [isPending, setIsPending] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -322,6 +334,19 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
   const effectiveTaigaApiUrl = taigaInstanceUrl.trim()
     ? taigaInstanceUrl.trim().replace(/\/+$/, "").replace("//tree.", "//api.").replace(/\/api\/v1$/, "")
     : pmWebUrl.includes("taiga") ? pmWebUrl.replace("//tree.", "//api.") : "https://api.taiga.io";
+  // No self-hosted web-vs-API-host split for Plane (confirmed — see
+  // plane_integration_plan memory §4), so this is the one field the proxy needs.
+  const effectivePlaneApiUrl = planeBaseUrlInput.trim().replace(/\/+$/, "") || "https://api.plane.so";
+
+  function handlePlaneSignIn() {
+    const key = planeApiKey.trim();
+    const slug = planeWorkspaceSlugInput.trim();
+    if (!key || !slug) return;
+    const authCtx = { taigaToken: key, taigaApiUrl: effectivePlaneApiUrl, pmTool: "plane" as const, workspaceSlug: slug };
+    void savePmConfig(authCtx, { pmTool: "plane", planeUrl: effectivePlaneApiUrl, planeWorkspaceSlug: slug }).catch(() => undefined);
+    setPlaneApiKey("");
+    setAuth(authCtx);
+  }
 
   async function handlePasswordLogin() {
     if (!username.trim() || !password.trim()) return;
@@ -351,7 +376,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
 
   // ── Signed-in card ──
   if (taigaToken) {
-    const pmLabel = "Taiga";
+    const pmLabel = storedPmTool === "plane" ? "Plane" : "Taiga";
     const pmColor = "border-violet-500/30 bg-violet-500/10 text-violet-400";
     return (
       <>
@@ -374,8 +399,11 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
               <span className={cn("rounded border px-1 py-px text-xs font-semibold", pmColor)}>{pmLabel}</span>
               {email && <span className={cn("truncate text-[11px]", dark ? "text-neutral-500" : "text-slate-500")}>{email}</span>}
             </div>
-            {storedTaigaApiUrl && storedTaigaApiUrl !== "https://api.taiga.io" && (
+            {storedTaigaApiUrl && storedTaigaApiUrl !== "https://api.taiga.io" && storedTaigaApiUrl !== "https://api.plane.so" && (
               <div className={cn("truncate text-xs mt-0.5", dark ? "text-neutral-600" : "text-slate-400")}>{storedTaigaApiUrl}</div>
+            )}
+            {storedPmTool === "plane" && storedWorkspaceSlug && (
+              <div className={cn("truncate text-xs mt-0.5", dark ? "text-neutral-600" : "text-slate-400")}>{storedWorkspaceSlug}</div>
             )}
           </div>
           <button className={cn("shrink-0 text-[11px] transition-colors hover:text-violet-400", dark ? "text-neutral-500" : "text-slate-500")} onClick={signOut}>
@@ -389,29 +417,52 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
   // ── Sign-in form ──
   return (
     <div className="space-y-3 px-4 py-4">
+      <span className={cn("block text-[11px] font-semibold uppercase tracking-wide", dark ? "text-neutral-500" : "text-slate-400")}>
+        {t("login.pmToolLabel")}
+      </span>
       <div className={cn("grid grid-cols-2 rounded-md p-1", dark ? "bg-neutral-800" : "bg-slate-100")}>
-        <button className={cn("h-8 rounded text-xs", dark ? "text-neutral-300" : "text-slate-500", mode === "password" && (dark ? "bg-neutral-700 text-white" : "bg-white text-slate-900 shadow-sm"))} onClick={() => setMode("password")}>{t("login.password")}</button>
-        <button className={cn("h-8 rounded text-xs", dark ? "text-neutral-300" : "text-slate-500", mode === "token" && (dark ? "bg-neutral-700 text-white" : "bg-white text-slate-900 shadow-sm"))} onClick={() => setMode("token")}>{t("login.authToken")}</button>
+        <button className={cn("h-8 rounded text-xs font-semibold", dark ? "text-neutral-300" : "text-slate-500", pmToolChoice === "taiga" && (dark ? "bg-neutral-700 text-white" : "bg-white text-slate-900 shadow-sm"))} onClick={() => setPmToolChoice("taiga")}>Taiga</button>
+        <button className={cn("h-8 rounded text-xs font-semibold", dark ? "text-neutral-300" : "text-slate-500", pmToolChoice === "plane" && (dark ? "bg-neutral-700 text-white" : "bg-white text-slate-900 shadow-sm"))} onClick={() => setPmToolChoice("plane")}>Plane</button>
       </div>
-      <input value={taigaInstanceUrl} onChange={(e) => setTaigaInstanceUrl(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white placeholder:text-neutral-600 focus:border-violet-500/70" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.instanceUrlPlaceholder")} autoComplete="off" />
-      {mode === "password" ? (
+      {pmToolChoice === "taiga" ? (
         <>
-          <input value={username} onChange={(e) => setUsername(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.usernamePlaceholder")} />
-          <div className="relative">
-            <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className={cn("h-8 w-full rounded border px-3 pr-8 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.passwordPlaceholder")} onKeyDown={(e) => { if (e.key === "Enter") handlePasswordLogin(); }} />
-            <button type="button" onClick={() => setShowPassword((v) => !v)} className={cn("absolute inset-y-0 right-2 transition-colors", dark ? "text-neutral-500 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600")} aria-label={showPassword ? t("login.hidePassword") : t("login.showPassword")}>
-              {showPassword ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-            </button>
+          <div className={cn("grid grid-cols-2 rounded-md p-1", dark ? "bg-neutral-800" : "bg-slate-100")}>
+            <button className={cn("h-8 rounded text-xs", dark ? "text-neutral-300" : "text-slate-500", mode === "password" && (dark ? "bg-neutral-700 text-white" : "bg-white text-slate-900 shadow-sm"))} onClick={() => setMode("password")}>{t("login.password")}</button>
+            <button className={cn("h-8 rounded text-xs", dark ? "text-neutral-300" : "text-slate-500", mode === "token" && (dark ? "bg-neutral-700 text-white" : "bg-white text-slate-900 shadow-sm"))} onClick={() => setMode("token")}>{t("login.authToken")}</button>
           </div>
+          <input value={taigaInstanceUrl} onChange={(e) => setTaigaInstanceUrl(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white placeholder:text-neutral-600 focus:border-violet-500/70" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.instanceUrlPlaceholder")} autoComplete="off" />
+          {mode === "password" ? (
+            <>
+              <input value={username} onChange={(e) => setUsername(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.usernamePlaceholder")} />
+              <div className="relative">
+                <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className={cn("h-8 w-full rounded border px-3 pr-8 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.passwordPlaceholder")} onKeyDown={(e) => { if (e.key === "Enter") handlePasswordLogin(); }} />
+                <button type="button" onClick={() => setShowPassword((v) => !v)} className={cn("absolute inset-y-0 right-2 transition-colors", dark ? "text-neutral-500 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600")} aria-label={showPassword ? t("login.hidePassword") : t("login.showPassword")}>
+                  {showPassword ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                </button>
+              </div>
+            </>
+          ) : (
+            <input value={tokenInput} onChange={(e) => setTokenInput(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.tokenPlaceholder")} />
+          )}
         </>
       ) : (
-        <input value={tokenInput} onChange={(e) => setTokenInput(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.tokenPlaceholder")} />
+        // Plane is PAT-only — no password exchange endpoint exists (the token
+        // is generated by the user in Plane's own UI), so there's no
+        // password/token mode toggle here, closer to the Figma-token pattern
+        // than Taiga's login. Workspace slug is always required: no Plane API
+        // can discover it from a key alone (see plane_integration_plan memory).
+        <>
+          <input value={planeWorkspaceSlugInput} onChange={(e) => setPlaneWorkspaceSlugInput(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white placeholder:text-neutral-600 focus:border-violet-500/70" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.planeWorkspaceSlugPlaceholder")} autoComplete="off" />
+          <input value={planeBaseUrlInput} onChange={(e) => setPlaneBaseUrlInput(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white placeholder:text-neutral-600 focus:border-violet-500/70" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.planeUrlPlaceholder")} autoComplete="off" />
+          <input value={planeApiKey} onChange={(e) => setPlaneApiKey(e.target.value)} className={cn("h-8 w-full rounded border px-3 text-xs outline-none", dark ? "border-neutral-700 bg-neutral-950 text-white focus:border-violet-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-violet-500")} placeholder={t("login.planeApiKeyPlaceholder")} onKeyDown={(e) => { if (e.key === "Enter") handlePlaneSignIn(); }} />
+        </>
       )}
       {loginError && <p className="text-xs text-red-400">{loginError}</p>}
       <button
         className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded bg-violet-700 text-xs font-semibold text-white hover:bg-violet-600 disabled:opacity-50"
-        disabled={isPending}
+        disabled={isPending || (pmToolChoice === "plane" && (!planeApiKey.trim() || !planeWorkspaceSlugInput.trim()))}
         onClick={() => {
+          if (pmToolChoice === "plane") { handlePlaneSignIn(); return; }
           if (mode === "password") { handlePasswordLogin(); }
           else if (tokenInput.trim()) {
             const token = tokenInput.trim();
@@ -421,11 +472,17 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
         }}
       >
         <Send className="size-3" />
-        {isPending ? t("login.signingIn") : t("login.signInToTaiga")}
+        {isPending ? t("login.signingIn") : pmToolChoice === "plane" ? t("login.signInToPlane") : t("login.signInToTaiga")}
       </button>
-      <a href={pmWebUrl || "https://tree.taiga.io"} target="_blank" rel="noopener noreferrer" className={cn("flex items-center justify-center gap-1 text-[11px] transition-colors hover:text-violet-400", dark ? "text-neutral-500" : "text-slate-600")}>
-        <UserPlus className="size-3" /> {t("login.createAccount")}
-      </a>
+      {pmToolChoice === "taiga" ? (
+        <a href={pmWebUrl || "https://tree.taiga.io"} target="_blank" rel="noopener noreferrer" className={cn("flex items-center justify-center gap-1 text-[11px] transition-colors hover:text-violet-400", dark ? "text-neutral-500" : "text-slate-600")}>
+          <UserPlus className="size-3" /> {t("login.createAccount")}
+        </a>
+      ) : (
+        <a href="https://plane.so" target="_blank" rel="noopener noreferrer" className={cn("flex items-center justify-center gap-1 text-[11px] transition-colors hover:text-violet-400", dark ? "text-neutral-500" : "text-slate-600")}>
+          <UserPlus className="size-3" /> {t("login.createAccount")}
+        </a>
+      )}
     </div>
   );
 }
@@ -459,11 +516,27 @@ function useRestoreSession() {
 function useRestoreProjectConfig() {
   const projectId = useSessionStore((s) => s.projectId);
   const projectName = useSessionStore((s) => s.projectName);
+  const pmTool = useSessionStore((s) => s.pmTool);
+  const planeProjectId = useSessionStore((s) => s.planeProjectId);
   const setProject = useSessionStore((s) => s.setProject);
   const projects = useProjects();
   const serverConfig = useServerConfig();
 
   useEffect(() => {
+    if (pmTool === "plane" && planeProjectId) {
+      // Plane's id-mint table (plane-id-shim.ts) is a module singleton that
+      // resets on every reload — a persisted minted int matches nothing in a
+      // fresh table even for the same real project. mintId() is idempotent
+      // per real UUID within a session, and useProjects() above already
+      // minted every current project, so this recovers the correct int for
+      // THIS session rather than leaving a stale, now-meaningless one set.
+      const freshId = mintId(planeProjectId);
+      if (freshId !== projectId) {
+        const match = projects.data?.find((p) => p.id === freshId);
+        setProject({ projectId: freshId, projectName: match?.name ?? projectName, pmProjectSlug: match?.slug ?? undefined });
+      }
+      return;
+    }
     if (projectId) {
       const match = projects.data?.find((p) => p.id === projectId);
       if (match && projectName !== match.name) setProject({ projectId, projectName: match.name });
@@ -473,7 +546,7 @@ function useRestoreProjectConfig() {
     if (!serverId) return;
     const match = projects.data?.find((p) => p.id === serverId);
     setProject({ projectId: serverId, projectName: match?.name ?? "" });
-  }, [projectId, projectName, serverConfig.data?.project_id, projects.data, setProject]);
+  }, [projectId, projectName, pmTool, planeProjectId, serverConfig.data?.project_id, projects.data, setProject]);
 }
 
 // ── main Sidebar ──────────────────────────────────────────────────────────────
