@@ -86,14 +86,13 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
                 const selected = projectOptions.find((p) => p.id === Number(e.target.value));
                 if (selected && selected.id !== projectId) {
                   setProject({ projectId: selected.id, projectName: selected.name, pmProjectSlug: selected.slug ?? undefined });
-                  // Server-remembered "last active project" is Taiga-only for
-                  // now (save_config's project_id branch calls
-                  // _verify_project_access, which is hard-typed to Taiga's
-                  // project-access check — see plane_integration_plan memory's
-                  // phase-3 "Scope cut" note). Skipping it for Plane avoids a
-                  // spurious error toast; the known gap is the project must be
-                  // reselected each session rather than auto-restored.
-                  if (pmTool !== "plane") saveServerConfig.mutate(selected.id);
+                  // Server-remembered "last active project" now works for
+                  // Plane too (phase 5a widened save_config's backend
+                  // project_id handling to accept a Plane UUID; saveServerConfig
+                  // itself resolves the shim int to that real UUID before
+                  // sending — see plane_integration_plan memory). Previously
+                  // Taiga-only, with reselection needed every fresh session.
+                  saveServerConfig.mutate(selected.id);
                   // All phase drafts are project-scoped — stale story IDs from
                   // the previous project would collide with the new one.
                   clearPhase2Draft();

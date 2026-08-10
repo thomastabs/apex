@@ -544,8 +544,22 @@ function useRestoreProjectConfig() {
     }
     const serverId = serverConfig.data?.project_id;
     if (!serverId) return;
+    // Fresh session, nothing local at all (no projectId, no planeProjectId —
+    // e.g. a brand-new tab) but the backend remembers the last active project
+    // (phase 5a widened save_config to accept Plane's UUID too — see
+    // plane_integration_plan memory). For Plane, serverId is that real UUID
+    // string; mint it into a valid int for THIS session the same way the
+    // planeProjectId branch above already does, rather than setting the raw
+    // UUID as projectId (every other Plane call site assumes projectId is a
+    // minted int, per plane-id-shim.ts's whole reason for existing).
+    if (pmTool === "plane") {
+      const freshId = mintId(String(serverId));
+      const match = projects.data?.find((p) => p.id === freshId);
+      setProject({ projectId: freshId, projectName: match?.name ?? "", pmProjectSlug: match?.slug ?? undefined });
+      return;
+    }
     const match = projects.data?.find((p) => p.id === serverId);
-    setProject({ projectId: serverId, projectName: match?.name ?? "" });
+    setProject({ projectId: Number(serverId), projectName: match?.name ?? "" });
   }, [projectId, projectName, pmTool, planeProjectId, serverConfig.data?.project_id, projects.data, setProject]);
 }
 

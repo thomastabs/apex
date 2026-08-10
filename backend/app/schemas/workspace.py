@@ -250,7 +250,11 @@ class GithubSyncStatusResponse(BaseModel):
 
 
 class ConfigResponse(BaseModel):
-    project_id: int | None = None
+    # int for Taiga, str (UUID) for Plane — widened alongside SaveConfigRequest
+    # (phase 5a) once save_config actually started persisting a Plane project's
+    # real id here too, instead of silently skipping it (see
+    # plane_integration_plan memory: "save current session project" gap).
+    project_id: int | str | None = None
     taiga_web_url: str = ""
     pm_tool: str = "taiga"
     pm_web_url: str = ""

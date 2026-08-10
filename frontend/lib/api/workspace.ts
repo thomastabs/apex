@@ -42,7 +42,8 @@ function resolvePmProjectId(pmTool: string | undefined, projectId: number): numb
 }
 
 export type ServerConfig = {
-  project_id: number | null;
+  // number for Taiga, string (UUID) for Plane.
+  project_id: number | string | null;
   taiga_web_url: string;
   pm_tool: string;
   pm_web_url: string;
@@ -171,11 +172,17 @@ export function deleteAiKey(context: AuthContext, provider: string) {
   });
 }
 
+// projectId is the raw session-local id (Taiga's real int, or Plane's minted
+// shim int) — resolved to what the backend actually needs (a real UUID for
+// Plane) before sending. Was Taiga-only until phase 5a widened save_config's
+// backend project_id handling to accept a Plane UUID too (see
+// plane_integration_plan memory) — this is the frontend catching up to that,
+// so the active project now survives a session restart for Plane as well.
 export function saveServerConfig(context: AuthContext, projectId: number) {
   return apiRequest<{ ok: boolean }>("/api/workspace/config", {
     method: "POST",
     context,
-    body: { project_id: projectId },
+    body: { project_id: resolvePmProjectId(context.pmTool, projectId) },
   });
 }
 
