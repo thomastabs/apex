@@ -224,12 +224,27 @@ export function TasksSection({ dark, shellClass, dragHandlers, onDragStart, onMo
   const QUERY_KEY = ["pm", "project-tasks", context?.projectId];
 
   const adapter = getPmAdapter(context?.pmTool);
-  const adapterCtx = context ? toPmCtx(context) : null;
+  // toPmCtx() throws for Plane if context.projectId is a minted int with no
+  // entry in this session's id-shim table (plane-id-shim.ts) — expected right
+  // after a reload, before useRestoreProjectConfig's effect (sidebar.tsx) has
+  // re-minted the correct id from the persisted real UUID and corrected the
+  // store. Every other toPmCtx call site defers it inside a queryFn/mutationFn
+  // closure, so React Query catches the throw; this one previously ran eagerly
+  // at render time and crashed the whole page instead of self-healing once the
+  // store's projectId gets corrected a render or two later.
+  let adapterCtx: ReturnType<typeof toPmCtx> | null = null;
+  if (context) {
+    try {
+      adapterCtx = toPmCtx(context);
+    } catch {
+      adapterCtx = null;
+    }
+  }
 
   const { data: pmTasks = [], isLoading, isFetching, isError, refetch } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: () => adapter.getProjectTasks(adapterCtx!),
-    enabled: Boolean(context),
+    enabled: Boolean(context) && Boolean(adapterCtx),
     staleTime: 60_000,
   });
 

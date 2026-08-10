@@ -206,6 +206,25 @@ export function useApiContext() {
   if (projectInstanceUrl !== taigaApiUrl) {
     return null;
   }
+  // Plane: a persisted projectId is a minted int from THIS TAB's id-shim
+  // table (plane-id-shim.ts), a module singleton that resets on every
+  // reload. Right after a reload, the persisted int matches nothing until
+  // useRestoreProjectConfig (sidebar.tsx) re-mints it from the persisted
+  // real UUID (planeProjectId) and corrects the store a moment later — a
+  // brief window where every project-scoped query would otherwise fire with
+  // an unresolvable id and fail loudly (found live, 2026-08-10: a toast
+  // storm on load with any persisted Plane session, see
+  // plane_integration_plan memory). Treating "not yet resolved" the same as
+  // "no project selected" here means every consumer's existing
+  // `enabled: Boolean(context)` gate already covers this for free, instead
+  // of each one needing its own resolveId try/catch.
+  if (pmTool === "plane") {
+    try {
+      resolveId(projectId);
+    } catch {
+      return null;
+    }
+  }
 
   return { taigaToken, taigaApiUrl, projectId, pmTool, pmProjectId: pmProjectSlug || undefined, workspaceSlug: workspaceSlug || undefined };
 }

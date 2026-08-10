@@ -248,6 +248,26 @@ class TestPerProjectGithub:
         ctx.set_active_project(1)
         assert ctx.get_project_github_repo() == ""
 
+    def test_migration_never_crashes_on_a_plane_uuid_project_id(self, ctx, monkeypatch):
+        # Found live (2026-08-10, see plane_integration_plan memory): this
+        # migration predates Plane entirely — last_active (config.json's
+        # legacy "last active project") is always a Taiga int or None, so it
+        # can never legitimately equal a Plane project's UUID. The original
+        # code did int(last_active) == int(pid) unconditionally, which 500'd
+        # on the very first GitHub-scoped call (get_config, agent-files,
+        # save_config) for ANY brand-new Plane project. A UUID pid must just
+        # never match — not raise.
+        monkeypatch.setattr("src.context_manager.load_config", lambda: {"project_id": 1})
+        ctx.set_active_instance("api_plane_so")
+        ctx.save_instance_github_repo("legacy/repo")
+        uuid_project_id = "79e6be58-3fa3-4601-8750-3de21fec14a8"
+        ctx.set_active_project(uuid_project_id)
+        # No crash, and — same as any other never-the-last-active project —
+        # no guess made, starts disconnected.
+        assert ctx.get_project_github_repo() == ""
+        assert ctx.get_project_github_pat() == ""
+        assert ctx.has_project_github_pat() is False
+
 
 class TestProjectGithubPackConfig:
     """pack_detail_mode/pack_max_tokens/pack_extra_ignore (Settings → GitHub →
