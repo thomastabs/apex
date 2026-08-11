@@ -41,10 +41,26 @@ Scale: `1 = Strongly disagree` ... `5 = Strongly agree`
 
 ## Instruções apresentadas ao participante (PT)
 
-> **AVISO IMPORTANTE:** esta é uma tradução de trabalho, **não** é a versão
-> validada em português europeu da SUS. Se for necessária uma versão validada,
-> usar a redacção publicada tal como está e citá-la; não usar esta e apresentá-la
-> como validada. Decisão pendente, ver `EVALUATION-PLAN.md` secção 6.
+> ## ACTION REQUIRED - DO NOT ADMINISTER THIS TEXT
+>
+> **Decision taken 2026-08-11: the study uses the validated European Portuguese
+> SUS.** The ten items below are a provisional working translation and are
+> **not** that instrument. They are here only so the form can be laid out before
+> the paper is obtained.
+>
+> **Before building form F2, replace all ten items with the published wording,
+> verbatim, from:**
+>
+> Martins, A. I., Rosa, A. F., Queirós, A., Silva, A., and Rocha, N. P. (2015).
+> *European Portuguese Validation of the System Usability Scale (SUS).*
+> Procedia Computer Science, 67, 293-300.
+> `https://www.sciencedirect.com/science/article/pii/S1877050915031191`
+> (Procedia is open access; the item table is the one pairing each English item
+> with its Portuguese translation.)
+>
+> Then delete this warning block. Administering the text below and citing
+> Martins et al. would be a misrepresentation: the validation applies to their
+> wording, not to a translation that merely resembles it.
 
 > Responda a cada afirmação sobre o **Apex**, a ferramenta que acabou de
 > utilizar, marcando uma opção. Não há respostas certas. Registe a sua reacção
@@ -65,6 +81,12 @@ Escala: `1 = Discordo totalmente` ... `5 = Concordo totalmente`
 | 8 | Achei o Apex muito complicado de utilizar. | | | | | |
 | 9 | Senti-me muito confiante a utilizar o Apex. | | | | | |
 | 10 | Precisei de aprender muitas coisas antes de conseguir começar a usar o Apex. | | | | | |
+
+**Adapting the published items.** Martins et al. validated the items with the
+generic word "sistema". Substituting "o Apex" for "o sistema" is the same
+adaptation already made in the English version and is standard practice; note it
+in one sentence in Chapter 9. Change nothing else - not the order, not the
+polarity, not a single other word.
 
 ---
 
