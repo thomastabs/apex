@@ -538,6 +538,13 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
   const activeModel = aiConfig.data?.available_models.find((m) => m.id === aiConfig.data?.model);
   const activeModelLabel = activeModel?.label ?? aiConfig.data?.model ?? t("context.currentModelFallback");
   const activeModelContextWindow = activeModel?.context_window_tokens ?? 0;
+  // Plane's Pages API has no update endpoint (confirmed against Plane's own
+  // API reference — see plane_wiki_service.py's module docstring), so
+  // publish/pull wording and outcome handling differ slightly from Taiga's;
+  // the underlying hooks/state below are already PM-agnostic (the backend
+  // route dispatches on pm_tool), only the copy and the publish-result
+  // toast need to branch.
+  const isPlaneWiki = context?.pmTool === "plane";
   const wikiPages = useMemo(() => wikiStatus.data?.pages ?? [], [wikiStatus.data?.pages]);
   const managedWikiPages = useMemo(() => wikiPages.filter((page) => !page.is_custom), [wikiPages]);
   const customWikiPages = useMemo(() => wikiPages.filter((page) => page.is_custom), [wikiPages]);
@@ -659,17 +666,17 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
               ))}
             </div>
             <div className="space-y-2">
-              {context?.pmTool === "taiga" ? (
+              {context?.pmTool === "taiga" || isPlaneWiki ? (
                 <div className={cn("rounded border px-3 py-2", dark ? "border-neutral-700 bg-neutral-950/40" : "border-slate-200 bg-slate-50")}>
                   <div className={cn("mb-2 flex items-center justify-between text-xs", dark ? "text-neutral-500" : "text-slate-500")}>
-                    <span>{t("context.taigaWikiStatus")}</span>
+                    <span>{isPlaneWiki ? t("context.planeWikiStatus") : t("context.taigaWikiStatus")}</span>
                     <span className="flex items-center gap-2">
                       <span className={cn("font-semibold", dark ? "text-neutral-300" : "text-slate-700")}>
-                        {wikiStatus.isFetching ? t("common.loading") : t("context.taigaWikiCount", { existing: wikiPageCount, total: wikiTotalCount })}
+                        {wikiStatus.isFetching ? t("common.loading") : t(isPlaneWiki ? "context.planeWikiCount" : "context.taigaWikiCount", { existing: wikiPageCount, total: wikiTotalCount })}
                       </span>
                       <button
                         type="button"
-                        title={t("context.taigaWikiRefresh")}
+                        title={isPlaneWiki ? t("context.planeWikiRefresh") : t("context.taigaWikiRefresh")}
                         disabled={wikiStatus.isFetching}
                         onClick={() => wikiStatus.refetch()}
                         className={cn(
@@ -683,7 +690,7 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                   </div>
                   {wikiStatus.isError ? (
                     <Callout variant="danger">
-                      {t("context.taigaWikiError")}
+                      {isPlaneWiki ? t("context.planeWikiError") : t("context.taigaWikiError")}
                     </Callout>
                   ) : null}
                   {managedWikiPages.length ? (
@@ -721,16 +728,16 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                         className={cn("flex w-full items-center justify-between text-xs font-semibold", dark ? "text-amber-300" : "text-amber-800")}
                         onClick={() => setCustomWikiOpen((open) => !open)}
                       >
-                        <span>{t("context.taigaWikiCustomTitle", { n: customWikiCount })}</span>
+                        <span>{t(isPlaneWiki ? "context.planeWikiCustomTitle" : "context.taigaWikiCustomTitle", { n: customWikiCount })}</span>
                         <span className="flex items-center gap-1">
                           {nonEmptyCustomWikiPages.length ? (
-                            <span>{t("context.taigaWikiNonEmptyCount", { n: nonEmptyCustomWikiPages.length })}</span>
+                            <span>{t(isPlaneWiki ? "context.planeWikiNonEmptyCount" : "context.taigaWikiNonEmptyCount", { n: nonEmptyCustomWikiPages.length })}</span>
                           ) : null}
                           <ChevronRight className={cn("size-3 transition-transform", customWikiOpen && "rotate-90")} />
                         </span>
                       </button>
                       <div className={cn("mt-1 text-xs leading-5", dark ? "text-amber-200/75" : "text-amber-900/75")}>
-                        {t("context.taigaWikiCustomWarning")}
+                        {isPlaneWiki ? t("context.planeWikiCustomWarning") : t("context.taigaWikiCustomWarning")}
                       </div>
                       {customWikiOpen ? (
                         <div className="mt-2">
@@ -757,7 +764,7 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                                       <span className="ml-2 font-mono opacity-70">{page.filename}</span>
                                     </span>
                                     <span className={cn("rounded border px-1 py-0.5", dark ? "border-cyan-500/30 text-cyan-300" : "border-cyan-200 text-cyan-700")}>
-                                      {t("context.taigaWikiCustom")}
+                                      {isPlaneWiki ? t("context.planeWikiCustom") : t("context.taigaWikiCustom")}
                                     </span>
                                     <span className="shrink-0 opacity-70">{page.chars} ch</span>
                                   </button>
@@ -766,14 +773,17 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                             </div>
                           ) : (
                             <div className={cn("rounded border px-2 py-1.5 text-xs", dark ? "border-neutral-800 text-neutral-500" : "border-amber-200 text-amber-900/70")}>
-                              {t("context.taigaWikiNoNonEmptyCustom")}
+                              {isPlaneWiki ? t("context.planeWikiNoNonEmptyCustom") : t("context.taigaWikiNoNonEmptyCustom")}
                             </div>
                           )}
                           {emptyCustomWikiCount > 0 ? (
                             <div className={cn("mt-1 text-xs", dark ? "text-amber-200/60" : "text-amber-900/60")}>
-                              {t("context.taigaWikiEmptyHidden", { n: emptyCustomWikiCount })}
+                              {t(isPlaneWiki ? "context.planeWikiEmptyHidden" : "context.taigaWikiEmptyHidden", { n: emptyCustomWikiCount })}
                             </div>
                           ) : null}
+                          {/* Bookmark-only pending pages are a Taiga WikiLink concept —
+                              plane_wiki_service never emits an exists:false custom entry,
+                              so this list is naturally always empty for Plane. */}
                           {pendingCustomWikiPages.length ? (
                             <div className={cn("mt-2 rounded border border-dashed", dark ? "border-neutral-700" : "border-amber-300")}>
                               {pendingCustomWikiPages.map((page) => (
@@ -804,13 +814,19 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                       )}
                       disabled={publishWiki.isPending || !contextFiles.data?.files.length}
                       onClick={() => publishWiki.mutate(wikiPublishSelection, {
-                        onSuccess: () => {
+                        onSuccess: (data) => {
                           setSelectedWikiFiles([]);
-                          toast.success(t("context.taigaWikiPublished"));
+                          const unsupported = data.results.filter((r) => r.action === "unsupported_update").length;
+                          if (isPlaneWiki && unsupported > 0) {
+                            const created = data.results.filter((r) => r.action === "created").length;
+                            toast.info(t("context.planeWikiPublishedPartial", { created, unsupported }));
+                          } else {
+                            toast.success(isPlaneWiki ? t("context.planeWikiPublished") : t("context.taigaWikiPublished"));
+                          }
                         },
                       })}
                     >
-                      <Upload className="size-3" /> {publishWiki.isPending ? t("common.saving") : t("context.publishToTaigaWiki")}
+                      <Upload className="size-3" /> {publishWiki.isPending ? t("common.saving") : (isPlaneWiki ? t("context.publishToPlanePages") : t("context.publishToTaigaWiki"))}
                     </button>
                     <button
                       className={cn(
@@ -818,14 +834,14 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                         dark ? "bg-neutral-800 text-neutral-200 hover:bg-neutral-700" : "bg-white text-slate-700 hover:bg-slate-100",
                       )}
                       disabled={pullWiki.isPending}
-                      onClick={() => confirm(t("context.taigaWikiPullConfirm"), () => pullWiki.mutate(wikiPullSelection, {
+                      onClick={() => confirm(isPlaneWiki ? t("context.planeWikiPullConfirm") : t("context.taigaWikiPullConfirm"), () => pullWiki.mutate(wikiPullSelection, {
                         onSuccess: () => {
                           setSelectedWikiFiles([]);
-                          toast.success(t("context.taigaWikiPulled"));
+                          toast.success(isPlaneWiki ? t("context.planeWikiPulled") : t("context.taigaWikiPulled"));
                         },
                       }))}
                     >
-                      <Download className="size-3" /> {pullWiki.isPending ? t("common.loading") : t("context.pullFromTaigaWiki")}
+                      <Download className="size-3" /> {pullWiki.isPending ? t("common.loading") : (isPlaneWiki ? t("context.pullFromPlanePages") : t("context.pullFromTaigaWiki"))}
                     </button>
                   </div>
                 </div>

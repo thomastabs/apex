@@ -234,7 +234,7 @@ export function useContextWikiStatus() {
   return useQuery({
     queryKey: ["workspace", "context-wiki-status", context?.projectId],
     queryFn: () => getContextWikiStatus(context!),
-    enabled: Boolean(context) && context?.pmTool === "taiga",
+    enabled: Boolean(context) && (context?.pmTool === "taiga" || context?.pmTool === "plane"),
     staleTime: 30 * 1000,
   });
 }

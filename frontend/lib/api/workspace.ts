@@ -233,7 +233,7 @@ export type ContextWikiPage = {
   wiki_id?: number | string | null;
   chars: number;
   last_modified?: string | null;
-  source?: "apex" | "taiga";
+  source?: "apex" | "taiga" | "plane";
   is_custom?: boolean;
 };
 

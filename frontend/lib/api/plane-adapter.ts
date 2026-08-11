@@ -122,7 +122,7 @@ const planeAdapter: ProjectManagementAdapter = {
     return { memberships: result.memberships, roles: result.roles.map((r) => ({ id: String(r.id), name: r.name })) };
   },
 
-  inviteUser: (ctx: PmRequestContext, usernameOrEmail: string, roleId: string) =>
+  inviteUser: (ctx: PmRequestContext, usernameOrEmail: string, roleId: string): Promise<{ scope: "project" | "workspace" }> =>
     planeInviteUser(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, usernameOrEmail, Number(roleId), ctx.baseUrl),
 
   removeMember: (ctx: PmRequestContext, membershipId: string) =>

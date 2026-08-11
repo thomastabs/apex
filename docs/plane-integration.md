@@ -161,11 +161,24 @@ Plane's numeric role encoding is fixed and undiscoverable via any "list roles"
 endpoint, so it's hardcoded: Guest=5, Member=15, Admin=20. Owner and Admin both
 report `role: 20` on the wire — only `role_slug` distinguishes them, and Owner
 is deliberately excluded from the assignable-role list (nothing in Plane's API
-lets this role-change endpoint promote to Owner). Inviting a user resolves an
-email/display-name against the workspace's *existing* members — Plane has no
-project-level "invite by email" the way Taiga does; inviting a stranger into
-the workspace itself is a manual, one-time step in Plane's own UI, outside
-Apex's scope.
+lets this role-change endpoint promote to Owner).
+
+Inviting a user first resolves the given email/display-name against the
+workspace's *existing* members and, on a match, adds them to the project
+directly — same as before, and the common case once an org's team is already
+in the workspace. When there's no match and the input looks like an email,
+`inviteUser` now falls back to Plane's Workspace Invitations API
+(`POST workspaces/{slug}/invitations/`, confirmed against
+`developers.plane.so`) to invite that address into the *workspace*. This is
+NOT the same outcome as Taiga's single invite call: Plane's project
+membership and workspace membership are two separate resources with no API
+that bridges them atomically, so the invitee is not yet a project member —
+someone (or Apex, via a second `inviteUser` call once they show up in
+workspace members) still has to add them to the project after they accept.
+The adapter surfaces this via a `{scope: "project" | "workspace"}` return
+value so the UI can show the right message rather than implying one-step
+parity that doesn't exist. A non-email input with no workspace-member match
+still fails loudly (nothing to invite by).
 
 ## Project CRUD
 
@@ -186,20 +199,56 @@ partial `{name?, description?}`; delete returns `204 No Content`. All three
 route through the generic `/api/pm/plane/{path}` proxy like every other Plane
 write — no backend changes were needed for this feature.
 
+## Pages sync (Taiga Wiki equivalent)
+
+`backend/app/services/plane_wiki_service.py` mirrors `taiga_wiki_service.py`'s
+outward shape (`status`/`publish`/`pull`, same result-dict keys) through the
+same `/context-files/wiki-status`, `/context-files/wiki/publish`,
+`/context-files/wiki/pull` routes — `workspace.py` now dispatches on the
+configured `pm_tool` rather than hardcoding Taiga, so no new frontend
+endpoints were needed (`frontend/lib/api/client.ts`'s `contextHeaders()`
+already attached `X-Plane-Url`/`X-Plane-Workspace` for every Plane request).
+The two platforms are genuinely not symmetrical, though, and this is built to
+be honest about that rather than fake parity:
+
+- **No slug field.** Plane pages only have a free-text `name` (title) — Apex-
+  managed pages are matched by an exact match against `wiki_title_for(label)`
+  (the same `"Apex: <label>"` convention Taiga uses, reused directly from
+  `taiga_wiki_service` since it's a pure string helper, not Taiga-specific).
+  Anything else is a "custom" page, same bucket concept as Taiga's.
+- **No update or delete endpoint.** Confirmed against `developers.plane.so`
+  2026-08-11: the Page/Wiki reference nav lists only List/Add/Get for both
+  workspace- and project-scoped pages, the official `plane-python-sdk`
+  exposes only list/retrieve, and `makeplane/plane#7319` is an open feature
+  request literally titled "Add API Endpoints for Creating and Editing
+  Pages". So `publish()` can create a page once, but republishing an
+  already-published file reports `action: "unsupported_update"` rather than
+  silently no-op'ing or guessing at an undocumented PATCH — the UI surfaces
+  this as an info toast naming the pages that need a manual delete-in-Plane
+  first. This is a real Plane API gap, not a build gap.
+- **Content is HTML, not Markdown.** Plane pages store `description_html`
+  (rich text), not Markdown. Apex-authored pages round-trip losslessly by
+  wrapping the Markdown source in an HTML-escaped `<pre>` block on publish
+  and reversing that exact wrap on pull. A genuinely custom Plane page (real
+  rich-text HTML a person wrote in Plane's own editor) has its tags crudely
+  stripped for pull instead — good enough for AI grounding, not a real
+  HTML-to-Markdown conversion (no such dependency in this codebase).
+- **Project-scoped, not workspace-scoped.** Uses
+  `workspaces/{slug}/projects/{project_id}/pages/`, matching Taiga's own
+  per-project wiki scope — using Plane's workspace-pages API instead would
+  leak one project's managed pages into every other project in the same
+  workspace, the exact class of multi-tenant leak this codebase treats as a
+  recurring bug class worth checking for deliberately on every new PM-facing
+  code path.
+
 ## Known, deliberate limitations
 
 These are gaps not yet closed, not abandoned — the working assumption is full
 Taiga parity (see "Why a second PM tool" above); anything here is either not
 yet built or a genuine Plane API limitation, called out separately.
 
-- **Workspace invites** (not yet built) — Apex has no "invite a new person
-  into a Plane workspace" flow; `inviteUser` only attaches an *existing*
-  workspace member to a project. Plane's API does have a Workspace
-  Invitations resource (confirmed via its own API reference) — this is
-  buildable, just not done yet.
-- **Taiga Wiki sync equivalent** (not yet built) — Plane has its own Pages
-  API (confirmed present); no Plane-side equivalent of
-  `taiga_wiki_service.py`'s publish/pull flow exists yet.
+- **Plane page update/delete** (real API limitation, not a build gap) — see
+  "Pages sync" above; Plane's public API has no endpoint for either.
 - **Phase 6 maintenance triage: PM-issue import** (not yet built) —
   `maintenance-triage.tsx` still gates its "import from PM" action on
   `pmTool === "taiga"` only; a Plane equivalent (importing Plane work items
@@ -226,3 +275,5 @@ yet built or a genuine Plane API limitation, called out separately.
 | `frontend/lib/api/plane-id-shim.ts` | Session-local UUID↔int id mapping for shared board types |
 | `frontend/lib/api/plane-web-url.ts` | Web deep-link URL construction (Cloud API↔web swap + browse-route scheme) |
 | `frontend/components/sidebar/project-section.tsx` | Sign-in UI, PM-tool selector, Project CRUD dialogs (identifier field for Plane's create flow) |
+| `backend/app/services/plane_wiki_service.py` | Pages sync (`status`/`publish`/`pull`) — the Plane equivalent of `taiga_wiki_service.py` |
+| `frontend/components/sidebar/users-section.tsx` | Invite flow UI — surfaces `{scope: "project"\|"workspace"}` as a distinct toast |

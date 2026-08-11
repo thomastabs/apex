@@ -116,7 +116,7 @@ const taigaAdapter: ProjectManagementAdapter = {
     };
   },
 
-  inviteUser: (ctx: PmRequestContext, usernameOrEmail: string, roleId: string): Promise<void> =>
+  inviteUser: (ctx: PmRequestContext, usernameOrEmail: string, roleId: string): Promise<{ scope: "project" | "workspace" }> =>
     taigaInviteUser(ctx.token, n(ctx.projectId), usernameOrEmail, n(roleId), ctx.baseUrl),
 
   removeMember: (ctx: PmRequestContext, membershipId: string): Promise<void> =>

@@ -73,7 +73,7 @@ export type ContextFile = {
   chars: number;
   last_modified?: string | null;
   version?: string;
-  source?: "apex" | "taiga";
+  source?: "apex" | "taiga" | "plane";
   is_custom?: boolean;
 };
 

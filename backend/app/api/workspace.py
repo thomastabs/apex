@@ -539,8 +539,16 @@ def github_sync_status(ctx: RequestContext = Depends(get_request_context)):
 @router.get("/context-files", response_model=ContextFilesResponse)
 def get_context_files(ctx: RequestContext = Depends(get_request_context)):
     import datetime
+    from src import context_manager
+
     context = ContextService()
     context.set_active(ctx)
+    # Custom "wiki-*.md" files can now come from either PM tool's wiki-sync
+    # pull (same filename convention on purpose — see plane_wiki_service);
+    # there's no per-file origin metadata, so this reports whichever PM tool
+    # is CURRENTLY configured, same "active config is ground truth" posture
+    # the rest of this module already takes rather than tracking history.
+    custom_source = context_manager.load_config().get("pm_tool", "taiga")
     files = []
     for filename, label in _local_context_file_labels(context):
         content = context.read_context_file(filename)
@@ -559,7 +567,7 @@ def get_context_files(ctx: RequestContext = Depends(get_request_context)):
             "chars": len(content),
             "last_modified": last_modified,
             "version": context.spec_version(filename),
-            "source": "taiga" if _is_custom_context_filename(filename) else "apex",
+            "source": custom_source if _is_custom_context_filename(filename) else "apex",
             "is_custom": _is_custom_context_filename(filename),
         })
     return {"files": files, "total_chars": sum(file["chars"] for file in files)}
@@ -577,48 +585,68 @@ def _selected_context_file_labels(context: ContextService, filenames: list[str] 
     return [(filename, label) for filename, label in available if filename in selected]
 
 
-def _selected_wiki_file_labels(pages: list[dict], filenames: list[str] | None = None) -> list[tuple[str, str, str]]:
+def _selected_wiki_file_labels(pages: list[dict], filenames: list[str] | None = None, *, id_key: str = "slug") -> list[tuple[str, str, str]]:
+    """id_key selects which page field becomes the 3rd tuple element consumed
+    by publish()/pull(): Taiga's own computable "slug", or Plane's resolved
+    "wiki_id" (a Plane page has no client-computable id before it exists —
+    see plane_wiki_service's module docstring)."""
     selected = set(filenames or [])
     by_filename = {str(page["filename"]): page for page in pages}
     if not selected:
         # No explicit selection must stay scoped to the managed apex-* pages —
-        # Taiga-only custom pages require explicit opt-in before being pulled
-        # in as AI grounding (see CLAUDE.md's Taiga Wiki section).
+        # PM-only custom pages require explicit opt-in before being pulled in
+        # as AI grounding (see CLAUDE.md's Taiga/Plane Wiki sections).
         selected = {fn for fn, page in by_filename.items() if not page.get("is_custom")}
     unknown = selected - set(by_filename)
     if unknown:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Unknown Taiga Wiki file: {sorted(unknown)[0]}")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Unknown Wiki file: {sorted(unknown)[0]}")
     return [
-        (str(page["filename"]), str(page["label"]), str(page["slug"]))
+        (str(page["filename"]), str(page["label"]), str(page.get(id_key) or ""))
         for page in pages
         if str(page["filename"]) in selected
     ]
 
 
-def _require_taiga_workspace(x_taiga_url: str) -> str:
+def _require_wiki_pm(x_taiga_url: str, x_plane_url: str, x_plane_workspace: str) -> tuple[str, str, str]:
+    """Return (pm_tool, base_url, workspace_slug) for a wiki-sync route.
+    workspace_slug is "" for Taiga (Plane-only concept)."""
     from src import context_manager
 
     pm_tool = context_manager.load_config().get("pm_tool", "taiga")
-    if pm_tool != "taiga":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Taiga Wiki sync is only available for Taiga projects.")
-    return resolve_taiga_base(x_taiga_url)
+    if pm_tool == "taiga":
+        return "taiga", resolve_taiga_base(x_taiga_url), ""
+    if pm_tool == "plane":
+        x_plane_workspace = x_plane_workspace.strip()
+        if not x_plane_workspace:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="X-Plane-Workspace header is required.")
+        # SECURITY: validate before interpolating into any Plane URL — mirrors
+        # get_status_mapping's own explicit check (deps.py's module-level
+        # security note, phase 4a).
+        deps._validate_plane_workspace_slug(x_plane_workspace)
+        return "plane", resolve_plane_base(x_plane_url), x_plane_workspace
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Wiki sync is not available for this PM tool.")
 
 
 @router.get("/context-files/wiki-status", response_model=ContextWikiStatusResponse)
 def get_context_wiki_status(
     ctx: RequestContext = Depends(get_request_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+    x_plane_url: str = Header(default="", alias="X-Plane-Url"),
+    x_plane_workspace: str = Header(default="", alias="X-Plane-Workspace"),
 ):
-    from backend.app.services import taiga_wiki_service
-
-    taiga_base = _require_taiga_workspace(x_taiga_url)
+    pm_tool, base, workspace_slug = _require_wiki_pm(x_taiga_url, x_plane_url, x_plane_workspace)
     context = ContextService()
     context.set_active(ctx)
     try:
-        pages = taiga_wiki_service.status(taiga_base, ctx.pm_token, ctx.project_id, _CONTEXT_FILES)
+        if pm_tool == "taiga":
+            from backend.app.services import taiga_wiki_service
+            pages = taiga_wiki_service.status(base, ctx.pm_token, ctx.project_id, _CONTEXT_FILES)
+        else:
+            from backend.app.services import plane_wiki_service
+            pages = plane_wiki_service.status(base, ctx.pm_token, workspace_slug, str(ctx.project_id), _CONTEXT_FILES)
     except Exception as exc:
         _logger.error("context wiki-status failed: %s", exc)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Failed to read Taiga Wiki: {exc}") from exc
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Failed to read PM Wiki: {exc}") from exc
     return {"pages": pages}
 
 
@@ -627,21 +655,26 @@ def publish_context_to_wiki(
     payload: ContextWikiSyncRequest | None = None,
     ctx: RequestContext = Depends(get_request_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+    x_plane_url: str = Header(default="", alias="X-Plane-Url"),
+    x_plane_workspace: str = Header(default="", alias="X-Plane-Workspace"),
 ):
-    from backend.app.services import taiga_wiki_service
-
-    taiga_base = _require_taiga_workspace(x_taiga_url)
+    pm_tool, base, workspace_slug = _require_wiki_pm(x_taiga_url, x_plane_url, x_plane_workspace)
     context = ContextService()
     context.set_active(ctx)
     selected = _selected_context_file_labels(context, payload.filenames if payload else [])
     context_files = [(filename, label, context.read_context_file(filename)) for filename, label in selected]
     try:
-        results = taiga_wiki_service.publish(taiga_base, ctx.pm_token, ctx.project_id, context_files)
+        if pm_tool == "taiga":
+            from backend.app.services import taiga_wiki_service
+            results = taiga_wiki_service.publish(base, ctx.pm_token, ctx.project_id, context_files)
+        else:
+            from backend.app.services import plane_wiki_service
+            results = plane_wiki_service.publish(base, ctx.pm_token, workspace_slug, str(ctx.project_id), context_files)
     except HTTPException:
         raise
     except Exception as exc:
         _logger.error("context wiki publish failed: %s", exc)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Failed to publish Taiga Wiki pages: {exc}") from exc
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Failed to publish PM Wiki pages: {exc}") from exc
     refreshed = get_context_files(ctx)
     return {"ok": all(result.get("ok") for result in results), "results": results, **refreshed}
 
@@ -651,24 +684,31 @@ def pull_context_from_wiki(
     payload: ContextWikiSyncRequest | None = None,
     ctx: RequestContext = Depends(get_request_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
+    x_plane_url: str = Header(default="", alias="X-Plane-Url"),
+    x_plane_workspace: str = Header(default="", alias="X-Plane-Workspace"),
 ):
-    from backend.app.services import taiga_wiki_service
-
-    taiga_base = _require_taiga_workspace(x_taiga_url)
+    pm_tool, base, workspace_slug = _require_wiki_pm(x_taiga_url, x_plane_url, x_plane_workspace)
     context = ContextService()
     context.set_active(ctx)
     try:
-        pages = taiga_wiki_service.status(taiga_base, ctx.pm_token, ctx.project_id, _CONTEXT_FILES)
-        selected = _selected_wiki_file_labels(pages, payload.filenames if payload else [])
-        results, contents = taiga_wiki_service.pull(taiga_base, ctx.pm_token, ctx.project_id, selected)
+        if pm_tool == "taiga":
+            from backend.app.services import taiga_wiki_service
+            pages = taiga_wiki_service.status(base, ctx.pm_token, ctx.project_id, _CONTEXT_FILES)
+            selected = _selected_wiki_file_labels(pages, payload.filenames if payload else [], id_key="slug")
+            results, contents = taiga_wiki_service.pull(base, ctx.pm_token, ctx.project_id, selected)
+        else:
+            from backend.app.services import plane_wiki_service
+            pages = plane_wiki_service.status(base, ctx.pm_token, workspace_slug, str(ctx.project_id), _CONTEXT_FILES)
+            selected = _selected_wiki_file_labels(pages, payload.filenames if payload else [], id_key="wiki_id")
+            results, contents = plane_wiki_service.pull(base, ctx.pm_token, workspace_slug, str(ctx.project_id), selected)
     except HTTPException:
         raise
     except Exception as exc:
         _logger.error("context wiki pull failed: %s", exc)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Failed to pull Taiga Wiki pages: {exc}") from exc
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Failed to pull PM Wiki pages: {exc}") from exc
     for filename, content in contents.items():
         context.write_context_file(filename, content)
-        context.amend_locked_spec(filename, "Pulled from Taiga Wiki")
+        context.amend_locked_spec(filename, "Pulled from Plane Pages" if pm_tool == "plane" else "Pulled from Taiga Wiki")
     refreshed = get_context_files(ctx)
     return {"ok": all(result.get("ok") for result in results), "results": results, **refreshed}
 

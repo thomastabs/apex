@@ -75,7 +75,15 @@ export interface ProjectManagementAdapter {
   listStoryStatuses(ctx: PmRequestContext): Promise<PmStoryStatus[]>;
 
   getUsers(ctx: PmRequestContext): Promise<{ memberships: Membership[]; roles: Array<{ id: string; name: string }> }>;
-  inviteUser(ctx: PmRequestContext, usernameOrEmail: string, roleId: string): Promise<void>;
+  // scope: "project" — added directly as a project member, effective immediately
+  // (Taiga always; Plane when usernameOrEmail matched an existing workspace
+  // member). scope: "workspace" — Plane-only: no existing workspace member
+  // matched, so this fell back to Plane's Workspace Invitations API instead —
+  // the person is invited to the WORKSPACE, not yet a project member, and
+  // needs a second inviteUser call (which will then hit the "project" path)
+  // once they accept. Plane has no single call that does both — see
+  // plane_integration_plan memory / docs/plane-integration.md.
+  inviteUser(ctx: PmRequestContext, usernameOrEmail: string, roleId: string): Promise<{ scope: "project" | "workspace" }>;
   removeMember(ctx: PmRequestContext, membershipId: string): Promise<void>;
   updateMemberRole(ctx: PmRequestContext, membershipId: string, roleId: string): Promise<void>;
 

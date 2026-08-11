@@ -470,8 +470,9 @@ describe("plane direct API", () => {
       }))
       .mockResolvedValueOnce(makeResponse(201, {}));
 
-    await planeInviteUser("key", "my-team", "proj-uuid", "ana@x.test", 15, "https://api.plane.so");
+    const result = await planeInviteUser("key", "my-team", "proj-uuid", "ana@x.test", 15, "https://api.plane.so");
 
+    expect(result).toEqual({ scope: "project" });
     expect(mockFetch.mock.calls[0][0]).toContain("/workspaces/my-team/members/");
     const [addUrl, addInit] = mockFetch.mock.calls[1];
     expect(addUrl).toContain("/projects/proj-uuid/project-members/");
@@ -486,12 +487,26 @@ describe("plane direct API", () => {
     expect(JSON.parse(mockFetch.mock.calls[1][1].body)).toEqual({ member: "wm2", role: 5 });
   });
 
-  it("inviteUser throws a clear error when no matching workspace member exists — Plane can't invite strangers", async () => {
+  it("inviteUser falls back to a workspace invitation when the email matches no existing workspace member", async () => {
+    mockFetch
+      .mockResolvedValueOnce(makeResponse(200, { results: [], next_cursor: null }))
+      .mockResolvedValueOnce(makeResponse(201, { id: "inv1", email: "nobody@x.test" }));
+
+    const result = await planeInviteUser("key", "my-team", "proj-uuid", "nobody@x.test", 15, "https://api.plane.so");
+
+    expect(result).toEqual({ scope: "workspace" });
+    const [inviteUrl, inviteInit] = mockFetch.mock.calls[1];
+    expect(inviteUrl).toContain("/workspaces/my-team/invitations/");
+    expect(inviteInit.method).toBe("POST");
+    expect(JSON.parse(inviteInit.body)).toEqual({ email: "nobody@x.test", role: 15 });
+  });
+
+  it("inviteUser throws a clear error for a non-email value that matches no workspace member — can't invite a bare username to the workspace", async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(200, { results: [], next_cursor: null }));
     await expect(
-      planeInviteUser("key", "my-team", "proj-uuid", "nobody@x.test", 15, "https://api.plane.so"),
-    ).rejects.toThrow(/must already be a member/);
-    expect(mockFetch).toHaveBeenCalledTimes(1); // never attempted the add call
+      planeInviteUser("key", "my-team", "proj-uuid", "nobody", 15, "https://api.plane.so"),
+    ).rejects.toThrow(/isn't an existing member/);
+    expect(mockFetch).toHaveBeenCalledTimes(1); // never attempted the invitation call
   });
 
   it("removeMember DELETEs the project-member", async () => {

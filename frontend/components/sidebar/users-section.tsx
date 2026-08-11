@@ -148,7 +148,14 @@ export function UsersSection({ dark, projectId: _projectId, confirm, shellClass,
                 onClick={() => invite.mutate(
                   { usernameOrEmail: inviteValue, roleId: defaultRoleId },
                   {
-                    onSuccess: () => { toast.success(t("users.inviteSent", { value: inviteValue })); setInviteValue(""); },
+                    onSuccess: (result) => {
+                      toast.success(
+                        result.scope === "workspace"
+                          ? t("users.inviteSentWorkspace", { value: inviteValue })
+                          : t("users.inviteSent", { value: inviteValue }),
+                      );
+                      setInviteValue("");
+                    },
                   },
                 )}
               >

@@ -725,33 +725,51 @@ export async function planeGetUsers(
   return { memberships, roles: _PLANE_ASSIGNABLE_ROLES };
 }
 
-/** Plane has no direct "invite by email" at the project level — adding
- *  someone to a project needs their existing WORKSPACE member id (joining a
- *  workspace at all is a separate Workspace Invitations flow Apex doesn't
- *  build — see plane_integration_plan memory). This resolves the given
- *  email/display-name against the workspace's existing members instead,
- *  covering the common real case (the org's team is already in the
- *  workspace) without full invite-a-stranger parity with Taiga. */
+/** Adding someone to a Plane PROJECT requires their existing WORKSPACE member
+ *  id — Plane has no project-level "invite by email" the way Taiga does. This
+ *  resolves the given email/display-name against the workspace's existing
+ *  members first (the common case: the org's team is already in the
+ *  workspace) and adds them to the project directly, resolving `{scope:
+ *  "project"}` immediately.
+ *
+ *  When no existing workspace member matches, falls back to Plane's Workspace
+ *  Invitations API (`POST workspaces/{slug}/invitations/`, confirmed via its
+ *  own API reference) to invite the email into the WORKSPACE, resolving
+ *  `{scope: "workspace"}` — genuinely not the same outcome as Taiga's single
+ *  invite-to-project call: the invitee still isn't a project member until
+ *  they accept and someone (or Apex, on a follow-up inviteUser call once they
+ *  show up in workspace members) adds them to this project. Plane's public
+ *  API has no endpoint that does both steps atomically or notifies on
+ *  acceptance, so this two-step reality is surfaced to the caller via `scope`
+ *  rather than silently thrown as "not supported" (the pre-parity behavior). */
 export async function planeInviteUser(
   apiKey: string, workspaceSlug: string, projectUuid: string,
   usernameOrEmail: string, roleId: number, apiBaseUrl?: string,
-): Promise<void> {
+): Promise<{ scope: "project" | "workspace" }> {
   const base = `workspaces/${encodeURIComponent(workspaceSlug)}`;
   const workspaceMembers = await planeFetchAllPages<Record<string, unknown>>(`${base}/members/`, apiKey, apiBaseUrl);
   const key = usernameOrEmail.trim().toLowerCase();
   const match = workspaceMembers.find((m) =>
     String(m.email ?? "").toLowerCase() === key || String(m.display_name ?? "").toLowerCase() === key,
   );
-  if (!match) {
+  if (match) {
+    await planeFetch<unknown>(`${base}/projects/${projectUuid}/project-members/`, apiKey, apiBaseUrl, {
+      method: "POST",
+      body: { member: match.id, role: roleId },
+    });
+    return { scope: "project" };
+  }
+  if (!usernameOrEmail.includes("@")) {
     throw new ApiError(
       404,
-      `${usernameOrEmail} must already be a member of this Plane workspace — Apex can't invite new people to a Plane workspace yet.`,
+      `${usernameOrEmail} isn't an existing member of this Plane workspace. Invite by email address to add someone new.`,
     );
   }
-  await planeFetch<unknown>(`${base}/projects/${projectUuid}/project-members/`, apiKey, apiBaseUrl, {
+  await planeFetch<unknown>(`${base}/invitations/`, apiKey, apiBaseUrl, {
     method: "POST",
-    body: { member: match.id, role: roleId },
+    body: { email: usernameOrEmail.trim(), role: roleId },
   });
+  return { scope: "workspace" };
 }
 
 export async function planeRemoveMember(

@@ -574,11 +574,12 @@ export async function taigaInviteUser(
   usernameOrEmail: string,
   roleId: number,
   apiBaseUrl?: string,
-): Promise<void> {
+): Promise<{ scope: "project" }> {
   await taigaFetch<unknown>("/memberships", token, apiBaseUrl, {
     method: "POST",
     body: { project: projectId, role: roleId, username: usernameOrEmail },
   });
+  return { scope: "project" };
 }
 
 export async function taigaRemoveMember(token: string, membershipId: number, apiBaseUrl?: string): Promise<void> {
