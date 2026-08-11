@@ -241,6 +241,43 @@ be honest about that rather than fake parity:
   recurring bug class worth checking for deliberately on every new PM-facing
   code path.
 
+## Self-hosted testing
+
+Self-hosted Taiga has a dedicated tested workflow (`scripts/private-taiga-cloud.sh`,
+see the root [`README.md`](../README.md#testing-against-a-private-taiga-instance)) —
+Plane did not have an equivalent until 2026-08-11, and every Plane claim in this
+document up to that point had only ever been verified against Plane **Cloud**
+(`api.plane.so`). Self-hosted parity is an explicit goal, not an afterthought, so
+this gap was closed the same day it was raised:
+
+- **Infra-level compatibility: confirmed.** Stood up Plane's official
+  `makeplane/plane-aio-community` (all-in-one) Docker image locally — Postgres,
+  Redis, RabbitMQ, MinIO (S3-compatible storage), fronted by the bundled Caddy
+  proxy — exposed via a `cloudflared` quick tunnel, exactly mirroring the Taiga
+  script's own approach (self-hosted Plane requires `https://`, same as
+  self-hosted Taiga; a tunnel is the zero-infra way to get that locally).
+  Verified: Apex's SSRF guard (`is_blocked_host`/`egress_host_allowed`) accepts
+  the tunnel host cleanly (no code change needed — self-hosted was already a
+  first-class case in `plane_proxy.py`'s design, just never dialed), and the
+  instance's own `/api/v1/users/me/` answers `401
+  {"detail":"Authentication credentials were not provided."}` — the correct
+  DRF auth-required shape `plane_proxy._upstream_detail` already expects.
+  README documents the manual steps under "Testing Against a Private Plane
+  Instance" (no automated script yet, unlike Taiga's — see below).
+- **Feature-level compatibility: pending a real write-path smoke test.**
+  Confirming the instance is reachable and correctly rejects unauthenticated
+  calls is not the same as confirming every Plane feature Apex builds against
+  (Project CRUD, epics/stories, members, invites, Pages sync) behaves
+  identically on self-hosted Community Edition as it does on Cloud — that
+  needs a signed-in pass through the real UI, same as every other live-testing
+  round this session, and per this codebase's standing credential rule the
+  assistant does not sign up, generate a PAT, or sign in itself even on a
+  disposable local instance it stood up. Not yet run as of this note.
+- **No automated setup script yet** (unlike Taiga's
+  `scripts/private-taiga-cloud.sh`) — the manual docker-compose + tunnel steps
+  work and are documented in the README, but weren't wrapped into a reusable
+  script this pass. A real, if smaller, gap versus Taiga's tooling.
+
 ## Known, deliberate limitations
 
 These are gaps not yet closed, not abandoned — the working assumption is full
@@ -253,10 +290,17 @@ yet built or a genuine Plane API limitation, called out separately.
   `maintenance-triage.tsx` still gates its "import from PM" action on
   `pmTool === "taiga"` only; a Plane equivalent (importing Plane work items
   as maintenance items) isn't built.
-- **Self-hosted Epics-gate status code** (real API-testing gap, not a build
-  gap) — confirmed `402` on Cloud; untested on self-hosted Community Edition.
-  Code defensively treats 402/403/404 alike either way, so this doesn't block
-  anything — just unconfirmed for that deployment shape.
+- **No automated self-hosted test script** (not yet built) — see "Self-hosted
+  testing" above; Taiga has `scripts/private-taiga-cloud.sh`, Plane doesn't.
+- **Self-hosted feature-level parity** (real API-testing gap, not a build
+  gap) — a self-hosted instance is now confirmed reachable and correctly
+  auth-gated (see "Self-hosted testing" above), but no Plane feature (Project
+  CRUD, epics/stories, members/invites, Pages sync, the Epics-gate's `402`
+  status code) has actually been exercised against it yet through a signed-in
+  session. Code defensively treats an unconfirmed Epics-gate status
+  (402/403/404) the same way either way, so nothing is expected to break —
+  just unconfirmed for that deployment shape until someone actually clicks
+  through it.
 - **Labels list has no server-side name filter** (real Plane API limitation,
   not something Apex can build around) — the current paginate-and-match-
   client-side approach is correct and live-tested; only a potential

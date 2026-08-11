@@ -1,6 +1,6 @@
 # Apex
 
-Apex is an academic AI-guided SDLC tool that combines a **Spec-Anchored workflow**, **AI**, **Taiga or Plane.so** as project management backend, and optional **GitHub** repository context and **Figma** design context. The app helps a team move from product requirements into design artefacts while keeping the important project context in persistent, human-readable files. The sections below describe Apex's workflow primarily in Taiga terms (the original, more fully-featured backend); see [`docs/plane-integration.md`](docs/plane-integration.md) for what differs on Plane — auth model, adapter parity, and a few deliberately deferred capabilities (Project CRUD, workspace invites).
+Apex is an academic AI-guided SDLC tool that combines a **Spec-Anchored workflow**, **AI**, **Taiga or Plane.so** as project management backend, and optional **GitHub** repository context and **Figma** design context. The app helps a team move from product requirements into design artefacts while keeping the important project context in persistent, human-readable files. The sections below describe Apex's workflow primarily in Taiga terms (the original, more fully-featured backend); see [`docs/plane-integration.md`](docs/plane-integration.md) for what differs on Plane — auth model and adapter parity. The working goal is full Taiga parity on Plane; the few remaining gaps (Phase 6 maintenance-triage PM-issue import, an automated self-hosted test script) are called out there, not silently dropped.
 
 The current migrated version is a split full-stack web app:
 
@@ -976,6 +976,111 @@ Sign in — all Taiga API calls will route through the Apex backend proxy to the
 cd ~/taiga-docker && docker compose down
 # Ctrl+C the cloudflared process
 ```
+
+---
+
+### Testing Against a Private Plane Instance
+
+Use this to verify Apex works correctly against a self-hosted Plane deployment before going to production — the same rationale as the Taiga workflow above. Plane's self-hosted deploy path is different from Taiga's (an all-in-one Docker image rather than a multi-service compose stack you clone), and there's no wrapper script yet (unlike `scripts/private-taiga-cloud.sh`) — these are the manual steps.
+
+#### 1. Install cloudflared (one-time)
+
+Same as the Taiga section above — skip if already installed.
+
+#### 2. Run a local self-hosted Plane instance via Docker
+
+Plane's official all-in-one image (`makeplane/plane-aio-community`) needs Postgres, Redis, RabbitMQ, and an S3-compatible store (MinIO works) alongside it. Example compose file:
+
+```yaml
+services:
+  plane-db:
+    image: postgres:15.7-alpine
+    environment: { POSTGRES_USER: plane, POSTGRES_PASSWORD: plane, POSTGRES_DB: plane }
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U plane"], interval: 5s, retries: 10 }
+
+  plane-redis:
+    image: valkey/valkey:7.2.11-alpine
+    volumes: [redisdata:/data]
+
+  plane-mq:
+    image: rabbitmq:3.13.6-management-alpine
+    environment: { RABBITMQ_DEFAULT_USER: plane, RABBITMQ_DEFAULT_PASS: plane, RABBITMQ_DEFAULT_VHOST: plane }
+    volumes: [rabbitmq_data:/var/lib/rabbitmq]
+
+  plane-minio:
+    image: minio/minio
+    command: server /export --console-address ":9090"
+    environment: { MINIO_ROOT_USER: planeaccess, MINIO_ROOT_PASSWORD: planesecretkey }
+    volumes: [uploads:/export]
+
+  plane-minio-init:
+    image: minio/mc
+    depends_on: [plane-minio]
+    entrypoint: >
+      /bin/sh -c "until (mc alias set local http://plane-minio:9000 planeaccess planesecretkey) do sleep 1; done;
+      mc mb --ignore-existing local/uploads; mc anonymous set download local/uploads; exit 0;"
+
+  plane-aio:
+    image: makeplane/plane-aio-community:stable   # no `latest` tag published — pin a real one
+    depends_on:
+      plane-db: { condition: service_healthy }
+      plane-minio-init: { condition: service_completed_successfully }
+    ports: ["8090:80"]
+    environment:
+      DOMAIN_NAME: ${DOMAIN_NAME}   # set to the cloudflared tunnel host once step 3 gives you one
+      DATABASE_URL: postgresql://plane:plane@plane-db:5432/plane
+      REDIS_URL: redis://plane-redis:6379
+      AMQP_URL: amqp://plane:plane@plane-mq:5672/plane
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: planeaccess
+      AWS_SECRET_ACCESS_KEY: planesecretkey
+      AWS_S3_BUCKET_NAME: uploads
+      AWS_S3_ENDPOINT_URL: http://plane-minio:9000
+
+volumes: { pgdata: {}, redisdata: {}, rabbitmq_data: {}, uploads: {} }
+```
+
+```bash
+DOMAIN_NAME=localhost docker compose up -d
+```
+
+First boot runs Django's full migration set (~120 migrations) before the API responds — this takes a few minutes, not a hang. Watch it with:
+
+```bash
+docker logs -f plane-aio   # or: docker exec plane-aio tail -f /app/logs/access/migrator.log
+```
+
+Plane is now accessible at `http://localhost:8090`.
+
+#### 3. Start the Cloudflare tunnel
+
+```bash
+cloudflared tunnel --url http://localhost:8090
+```
+
+Prints a URL like `https://xxxx-xxxx.trycloudflare.com`. Update `DOMAIN_NAME` to that host and recreate the container so Plane trusts it for CSRF/CORS:
+
+```bash
+DOMAIN_NAME=xxxx-xxxx.trycloudflare.com docker compose up -d --force-recreate plane-aio
+```
+
+#### 4. Configure Apex
+
+No `PLANE_URL`-equivalent env var to set on the backend — Plane's identity anchor is per-request (`X-Plane-Url`), unlike Taiga's optional `TAIGA_API_URL` pin (see `docs/plane-integration.md`'s "Auth and multi-tenancy model"). Just start the backend/frontend normally, then in the Apex sidebar:
+
+- PM tool: **Plane**
+- Self-hosted instance URL: `https://xxxx-xxxx.trycloudflare.com`
+- Sign up on the Plane instance itself first (first account becomes instance admin), create a workspace, generate a Personal Access Token from your Plane profile settings, then paste that PAT into Apex's sign-in.
+
+#### Stop
+
+```bash
+docker compose -f <your-compose-file> down
+# Ctrl+C the cloudflared process
+```
+
+**Status as of 2026-08-11**: this workflow is confirmed to stand up a real, reachable, correctly-auth-gated self-hosted Plane instance (Apex's SSRF guard accepts the tunnel host with no code changes, and the instance's own API answers Django REST Framework's standard `401` shape). A full authenticated write-path smoke test (Project CRUD, invites, Pages sync, epics/stories) against it hasn't been run yet — see `docs/plane-integration.md`'s "Self-hosted testing" section for the exact state.
 
 ---
 
