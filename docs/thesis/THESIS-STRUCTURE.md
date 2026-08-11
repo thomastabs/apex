@@ -156,13 +156,23 @@ Without the first, `babel` fails on the `portuguese` option; without the second,
 
 - [x] `Front_Cover.tex` - title, author and supervisors filled in from the PIC
       report; decorative cover image removed (IST logo kept, it is required).
-- [ ] `Front_Cover.tex` - the Examination Committee block is suppressed
-      (`\finalthesis{false}`), which is correct while the committee is
-      unassigned. Once it is assigned, fill `\chairperson` and `\vogalone`
-      (they still hold template placeholder names) and flip to
-      `\finalthesis{true}`. Confirm whether Hugo de Sousa carries an academic
-      title on the cover (currently printed with no prefix, unlike `Prof.
-      Miguel Mira da Silva`).
+- [ ] `Front_Cover.tex` - Examination Committee. **Asked the supervisor
+      2026-08-11**, bundled with the ethics question. Three things are needed
+      before this can close:
+      1. Whether the committee has been assigned, and the members' names and
+         titles as they should appear.
+      2. Whether the chairperson is named by the school rather than chosen, in
+         which case that name arrives separately and later.
+      3. Whether Hugo de Sousa carries an academic title on the cover. He is
+         currently printed with no prefix, unlike `Prof. Miguel Mira da Silva`,
+         and the cover renders `Supervisors: Prof. Miguel Mira da Silva /
+         Hugo de Sousa`, which looks inconsistent if a title is in fact due.
+
+      Until then `\finalthesis{false}` stays, which correctly suppresses the
+      block. `\chairperson` and `\vogalone` still hold the template's literal
+      placeholder names (`Prof. Name of the Chairperson`), so flipping the flag
+      before the names are real would print those placeholders on the cover.
+      Fill both, then set `\finalthesis{true}`, then rebuild and check page 1.
 - [x] `Copyright.tex` - declaration extended with the acknowledgement of AI
       tool use. The Portuguese variant is translated and kept commented out
       alongside the English one, so switching language does not lose it.
@@ -172,7 +182,12 @@ Without the first, `babel` fails on the `portuguese` option; without the second,
       README §1). The 51 `\todo` prompts in Chapters 6-10 (12/11/9/15/4) are writing
       instructions, not content, and must all be gone by then - disabling the package
       hides them but does not mean the chapters are written.
-- [ ] Decide EN vs PT as main language in `Preamble_commands.tex`.
+- [x] EN vs PT main language: **English**, decided 2026-08-11. Already in
+      effect (`Preamble_commands.tex`, `\usepackage[main=english,portuguese]{babel}`)
+      and verified in the rendered PDF: cover, Acknowledgments heading, Contents,
+      Acronyms and the degree line all render in English, while `PT-Resumo.tex`
+      and `PT-PalavrasChave.tex` still typeset correctly in Portuguese via
+      `\selectlanguage`. Nothing further to change.
 - [ ] Re-check the recent/preprint citations flagged in the framework document's
       Honest Limitations before final submission - several are 2025-2026 preprints
       or vendor-reported figures and must be cited as such.
