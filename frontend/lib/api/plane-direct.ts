@@ -640,6 +640,31 @@ export async function planeGetProjectTasks(
   return raw.filter((t) => typeof t.parent === "string" && t.parent).map(normalizePlaneTask);
 }
 
+/** Phase 6 maintenance triage's "import from PM" source, mirroring
+ *  taigaListIssues's shape exactly. Plane has no separate Issue-tracker
+ *  object the way Taiga does — every Plane "work item" IS what Taiga calls
+ *  an issue AND what Apex elsewhere calls a story, same underlying resource
+ *  (confirmed: `.../work-items/{id}/` backs both planeGetStory and this).
+ *  Scoped to top-level work items only (no `parent`) — a sub-issue is
+ *  already tracked as an Apex Task under its parent story, and importing it
+ *  standalone as a maintenance item would strip that context for no benefit.
+ *  Unlike Taiga's issue tracker, this has no separate open/closed distinction
+ *  worth filtering on here — every work item in the project is listed, same
+ *  as `taigaListIssues` does for Taiga's issue list. */
+export async function planeListIssues(
+  apiKey: string, workspaceSlug: string, projectUuid: string, apiBaseUrl?: string,
+): Promise<Array<{ ext_ref: string; subject: string; description: string }>> {
+  const base = `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}`;
+  const raw = await planeFetchAllPages<Record<string, unknown>>(`${base}/work-items/`, apiKey, apiBaseUrl);
+  return raw
+    .filter((item) => !(typeof item.parent === "string" && item.parent))
+    .map((item) => ({
+      ext_ref: `PLN#${item.sequence_id ?? item.id}`,
+      subject: String(item.name ?? ""),
+      description: planeDescription(item),
+    }));
+}
+
 export async function planeGetTask(
   apiKey: string, workspaceSlug: string, projectUuid: string, mintedTaskId: string, apiBaseUrl?: string,
 ): Promise<PlaneTask> {

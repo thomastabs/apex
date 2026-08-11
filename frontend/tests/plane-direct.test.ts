@@ -15,6 +15,7 @@ import {
   planeGetStory,
   planeGetUsers,
   planeInviteUser,
+  planeListIssues,
   planeListProjects,
   planeListStoryStatuses,
   planeRemoveMember,
@@ -524,5 +525,91 @@ describe("plane direct API", () => {
     expect(url).toContain("/project-members/m1/");
     expect(init.method).toBe("PATCH");
     expect(JSON.parse(init.body)).toEqual({ role: 20 });
+  });
+
+  // -------------------------------------------------------------------------
+  // listIssues (Phase 6 maintenance triage's "import from PM" source).
+  // -------------------------------------------------------------------------
+
+  it("listIssues returns only top-level work items, excluding any with a truthy parent (sub-issues)", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(200, {
+      results: [
+        { id: "wi-top-1", name: "Top level one", sequence_id: 1, parent: null },
+        { id: "wi-sub-1", name: "Sub issue one", sequence_id: 2, parent: "wi-top-1" },
+        { id: "wi-top-2", name: "Top level two", sequence_id: 3, parent: "" },
+      ],
+      next_cursor: null,
+    }));
+
+    const issues = await planeListIssues("key", "my-team", "proj-uuid", "https://api.plane.so");
+
+    expect(issues.map((i) => i.subject)).toEqual(["Top level one", "Top level two"]);
+  });
+
+  it("listIssues uses PLN#<sequence_id> for ext_ref when sequence_id is present", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(200, {
+      results: [{ id: "wi-1", name: "Issue one", sequence_id: 42, parent: null }],
+      next_cursor: null,
+    }));
+
+    const [issue] = await planeListIssues("key", "my-team", "proj-uuid", "https://api.plane.so");
+
+    expect(issue.ext_ref).toBe("PLN#42");
+  });
+
+  it("listIssues falls back to the raw id for ext_ref when sequence_id is missing/null", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(200, {
+      results: [{ id: "wi-no-seq", name: "No sequence", sequence_id: null, parent: null }],
+      next_cursor: null,
+    }));
+
+    const [issue] = await planeListIssues("key", "my-team", "proj-uuid", "https://api.plane.so");
+
+    expect(issue.ext_ref).toBe("PLN#wi-no-seq");
+  });
+
+  it("listIssues resolves description via the same precedence as planeDescription (description_stripped > description > html-stripped)", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(200, {
+      results: [{
+        id: "wi-desc", name: "Has description", sequence_id: 9, parent: null,
+        description_stripped: "Stripped text wins.",
+        description: "Should not be used.",
+        description_html: "<p>Should NOT be used either.</p>",
+      }],
+      next_cursor: null,
+    }));
+
+    const [issue] = await planeListIssues("key", "my-team", "proj-uuid", "https://api.plane.so");
+
+    expect(issue.description).toBe("Stripped text wins.");
+  });
+
+  it("listIssues returns an empty array for an empty work-items list", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(200, { results: [], next_cursor: null }));
+
+    const issues = await planeListIssues("key", "my-team", "proj-uuid", "https://api.plane.so");
+
+    expect(issues).toEqual([]);
+  });
+
+  it("listIssues paginates using next_page_results, following planeFetchAllPages's convention", async () => {
+    mockFetch
+      .mockResolvedValueOnce(makeResponse(200, {
+        results: [{ id: "wi-p1", name: "Page one item", sequence_id: 1, parent: null }],
+        next_cursor: "cur2",
+        next_page_results: true,
+      }))
+      .mockResolvedValueOnce(makeResponse(200, {
+        results: [{ id: "wi-p2", name: "Page two item", sequence_id: 2, parent: null }],
+        next_cursor: "cur2-still-non-null",
+        next_page_results: false,
+      }));
+
+    const issues = await planeListIssues("key", "my-team", "proj-uuid", "https://api.plane.so");
+
+    expect(issues.map((i) => i.subject)).toEqual(["Page one item", "Page two item"]);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch.mock.calls[0][0]).toContain("/workspaces/my-team/projects/proj-uuid/work-items/");
+    expect(mockFetch.mock.calls[1][0]).toContain("cursor=cur2");
   });
 });

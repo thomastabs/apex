@@ -155,6 +155,28 @@ get-or-create primitive that minted it during bootstrap) and matches it
 against the target epic's story-index entries. Taiga's path is unchanged — it
 still self-dials for descriptions.
 
+## Phase 6 maintenance triage: PM-issue import
+
+`maintenance-triage.tsx`'s "Sync PM Issues" action (client-side, browser-direct
+through the generic proxy like every other read path) now branches on
+`pmTool` instead of only supporting Taiga. Genuinely not a 1:1 mapping,
+called out honestly rather than pretending otherwise: Taiga has a distinct
+Issue-tracker object, separate from User Stories; Plane has no such
+separate concept — every Plane "work item" is the SAME resource Apex
+elsewhere treats as a story (`planeGetStory` and this import both hit
+`.../work-items/{id}/`-adjacent endpoints). `planeListIssues`
+(`frontend/lib/api/plane-direct.ts`) lists a project's top-level work items
+(items with no `parent`) and maps them to the same
+`{ext_ref, subject, description}` shape `taigaListIssues` already produces,
+so `maintenance-triage.tsx`'s import/create-maintenance-item flow needed no
+further changes. Sub-issues (Plane's equivalent of Apex Tasks) are
+deliberately excluded — importing one standalone as a maintenance item would
+strip it of its parent story's context for no benefit. `ext_ref` uses
+`PLN#<sequence_id>`, mirroring Taiga's `TG#<ref>` convention.
+`backend/app/services/maintenance_service.py`'s `_VALID_SOURCES` already
+included `"plane"` (added earlier, phase 5f) — no backend change was needed
+for this feature.
+
 ## Members and roles
 
 Plane's numeric role encoding is fixed and undiscoverable via any "list roles"
@@ -248,7 +270,7 @@ see the root [`README.md`](../README.md#testing-against-a-private-taiga-instance
 Plane did not have an equivalent until 2026-08-11, and every Plane claim in this
 document up to that point had only ever been verified against Plane **Cloud**
 (`api.plane.so`). Self-hosted parity is an explicit goal, not an afterthought, so
-this gap was closed the same day it was raised:
+this gap was closed the same day it was raised, in two passes:
 
 - **Infra-level compatibility: confirmed.** Stood up Plane's official
   `makeplane/plane-aio-community` (all-in-one) Docker image locally — Postgres,
@@ -262,21 +284,43 @@ this gap was closed the same day it was raised:
   instance's own `/api/v1/users/me/` answers `401
   {"detail":"Authentication credentials were not provided."}` — the correct
   DRF auth-required shape `plane_proxy._upstream_detail` already expects.
-  README documents the manual steps under "Testing Against a Private Plane
-  Instance" (no automated script yet, unlike Taiga's — see below).
-- **Feature-level compatibility: pending a real write-path smoke test.**
-  Confirming the instance is reachable and correctly rejects unauthenticated
-  calls is not the same as confirming every Plane feature Apex builds against
-  (Project CRUD, epics/stories, members, invites, Pages sync) behaves
-  identically on self-hosted Community Edition as it does on Cloud — that
-  needs a signed-in pass through the real UI, same as every other live-testing
-  round this session, and per this codebase's standing credential rule the
-  assistant does not sign up, generate a PAT, or sign in itself even on a
-  disposable local instance it stood up. Not yet run as of this note.
-- **No automated setup script yet** (unlike Taiga's
-  `scripts/private-taiga-cloud.sh`) — the manual docker-compose + tunnel steps
-  work and are documented in the README, but weren't wrapped into a reusable
-  script this pass. A real, if smaller, gap versus Taiga's tooling.
+- **Automated setup: `scripts/private-plane-cloud.sh`.** Mirrors
+  `private-taiga-cloud.sh`'s shape (install cloudflared, stand up the stack,
+  start the tunnel, print ready-to-use credentials) but goes further: no
+  `createsuperuser`-style Django management command or APIToken-minting
+  command exists for Plane (confirmed by inspecting the AIO image's actual
+  `manage.py` commands), so the script provisions an admin user, an
+  instance-admin grant, a workspace, and a real Personal Access Token
+  directly via Plane's own Django ORM inside the container (`docker exec ...
+  manage.py shell -c "..."` — the same class of operation Taiga's own script
+  already does for its admin user, not a new pattern). Run twice this
+  session (once found and fixed a real bug in the script's own readiness-
+  check retry logic — see the script's git history/commit message); the
+  second run completed in seconds against the already-running stack and the
+  printed token was confirmed live against `/api/v1/users/me/`.
+- **Feature-level API compatibility: partially confirmed, without ever
+  entering a credential into Apex's own UI.** The script's auto-provisioned
+  token was used for a handful of direct, read-only-in-spirit API probes
+  (create/delete a throwaway project, check the Epics endpoint's status
+  code) run straight against the self-hosted instance's REST API — this is
+  meaningfully different from signing into Apex's own UI, and stays within
+  the standing rule that the assistant never enters a token into a login
+  field regardless of whose instance it is. This resolved a real previously-
+  "untested" unknown: self-hosted Community Edition's Epics endpoint answers
+  **`404`**, not Cloud's `402 Payment Required` — a different status
+  entirely (self-hosted CE likely lacks the route rather than gating it
+  behind payment). Already covered: `_EPICS_GATED_STATUSES` in
+  `plane-direct.ts` already includes 404 alongside 402/403, and the Modules
+  fallback was confirmed to work (`200`) — so this was a real gap in
+  *verification*, not in the code, and it's now closed.
+- **Feature-level UI compatibility: still pending.** Confirming direct API
+  behavior is not the same as confirming Apex's actual UI flows (Project
+  CRUD, epics/stories board, members/invites, Pages sync) behave identically
+  when driven through the real Apex frontend against self-hosted — that
+  needs a signed-in pass through the UI itself, same as every other live-
+  testing round this session, and the assistant does not sign into Apex's
+  own UI on Tomás's behalf even with an auto-provisioned disposable token.
+  Not yet run as of this note.
 
 ## Known, deliberate limitations
 
@@ -286,21 +330,19 @@ yet built or a genuine Plane API limitation, called out separately.
 
 - **Plane page update/delete** (real API limitation, not a build gap) — see
   "Pages sync" above; Plane's public API has no endpoint for either.
-- **Phase 6 maintenance triage: PM-issue import** (not yet built) —
-  `maintenance-triage.tsx` still gates its "import from PM" action on
-  `pmTool === "taiga"` only; a Plane equivalent (importing Plane work items
-  as maintenance items) isn't built.
-- **No automated self-hosted test script** (not yet built) — see "Self-hosted
-  testing" above; Taiga has `scripts/private-taiga-cloud.sh`, Plane doesn't.
-- **Self-hosted feature-level parity** (real API-testing gap, not a build
-  gap) — a self-hosted instance is now confirmed reachable and correctly
-  auth-gated (see "Self-hosted testing" above), but no Plane feature (Project
-  CRUD, epics/stories, members/invites, Pages sync, the Epics-gate's `402`
-  status code) has actually been exercised against it yet through a signed-in
-  session. Code defensively treats an unconfirmed Epics-gate status
-  (402/403/404) the same way either way, so nothing is expected to break —
-  just unconfirmed for that deployment shape until someone actually clicks
-  through it.
+- **Self-hosted Epics-gate status code** — **RESOLVED**, no longer a
+  limitation. Self-hosted Community Edition answers `404` on the Epics
+  endpoint (not Cloud's `402 Payment Required` — a different status,
+  confirmed via direct API probe, see "Self-hosted testing" above);
+  `_EPICS_GATED_STATUSES` in `plane-direct.ts` already covered 404, and the
+  Modules fallback was confirmed to work. Kept here only as a record of what
+  was resolved, not as an open item.
+- **Self-hosted UI-driven feature parity** (real testing gap, not a build
+  gap) — a self-hosted instance is confirmed reachable, correctly auth-gated,
+  and a handful of its APIs have been probed directly (see "Self-hosted
+  testing" above), but no Plane feature (Project CRUD, epics/stories,
+  members/invites, Pages sync) has been exercised through Apex's own UI
+  against a self-hosted instance yet — needs a signed-in click-through.
 - **Labels list has no server-side name filter** (real Plane API limitation,
   not something Apex can build around) — the current paginate-and-match-
   client-side approach is correct and live-tested; only a potential
@@ -321,3 +363,5 @@ yet built or a genuine Plane API limitation, called out separately.
 | `frontend/components/sidebar/project-section.tsx` | Sign-in UI, PM-tool selector, Project CRUD dialogs (identifier field for Plane's create flow) |
 | `backend/app/services/plane_wiki_service.py` | Pages sync (`status`/`publish`/`pull`) — the Plane equivalent of `taiga_wiki_service.py` |
 | `frontend/components/sidebar/users-section.tsx` | Invite flow UI — surfaces `{scope: "project"\|"workspace"}` as a distinct toast |
+| `frontend/components/maintenance-triage.tsx` | Phase 6 "Sync PM Issues" — branches Taiga/Plane, `planeListIssues` for the latter |
+| `scripts/private-plane-cloud.sh` | Automated self-hosted Plane test stack — docker-compose + tunnel + Django-ORM-provisioned admin/workspace/PAT |

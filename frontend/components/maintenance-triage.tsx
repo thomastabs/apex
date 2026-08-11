@@ -80,7 +80,7 @@ export function MaintenanceTriage() {
   const availableGroundingFiles = useGroundingFiles();
 
   // issue import
-  const [issues, setIssues] = useState<{ source: "github" | "taiga" | "figma"; list: ExternalIssue[] } | null>(null);
+  const [issues, setIssues] = useState<{ source: "github" | "taiga" | "plane" | "figma"; list: ExternalIssue[] } | null>(null);
   const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
@@ -123,6 +123,16 @@ export function MaintenanceTriage() {
     } catch (e) { toast.error(errMsg(e)); } finally { setSyncing(false); }
   }
 
+  async function syncPlane() {
+    if (context!.pmTool !== "plane" || !context!.projectId || !context!.workspaceSlug) { toast.error("Plane project required."); return; }
+    setSyncing(true);
+    try {
+      const { planeListIssues, resolveId } = await import("@/lib/api/plane-direct");
+      const projectUuid = resolveId(context!.projectId);
+      setIssues({ source: "plane", list: await planeListIssues(context!.taigaToken, context!.workspaceSlug, projectUuid, context!.taigaApiUrl) });
+    } catch (e) { toast.error(errMsg(e)); } finally { setSyncing(false); }
+  }
+
   function deleteItem(it: MaintenanceItem) {
     if (!window.confirm(`Delete maintenance item #${it.id} "${it.subject}"? This cannot be undone.`)) return;
     del.mutate(it.id, {
@@ -142,7 +152,7 @@ export function MaintenanceTriage() {
     } catch (e) { toast.error(errMsg(e)); } finally { setSyncing(false); }
   }
 
-  function importIssue(src: "github" | "taiga" | "figma", iss: ExternalIssue) {
+  function importIssue(src: "github" | "taiga" | "plane" | "figma", iss: ExternalIssue) {
     create.mutate(
       { subject: iss.subject, description: iss.description, source: src, ext_ref: iss.ext_ref },
       { onSuccess: (it) => { toast.success(`Imported ${iss.ext_ref}`); setSelectedId(it.id); } },
@@ -183,9 +193,15 @@ export function MaintenanceTriage() {
         <Button variant="secondary" onClick={syncFigma} disabled={syncing || !figma}>
           <Figma className="h-4 w-4" /> Sync Figma Comments
         </Button>
-        <Button variant="secondary" onClick={syncTaiga} disabled={syncing}>
-          <GitBranch className="h-4 w-4" /> Sync Taiga Issues
-        </Button>
+        {context.pmTool === "plane" ? (
+          <Button variant="secondary" onClick={syncPlane} disabled={syncing}>
+            <GitBranch className="h-4 w-4" /> Sync Plane Issues
+          </Button>
+        ) : (
+          <Button variant="secondary" onClick={syncTaiga} disabled={syncing}>
+            <GitBranch className="h-4 w-4" /> Sync Taiga Issues
+          </Button>
+        )}
       </div>
 
       {showForm ? (

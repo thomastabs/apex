@@ -1,6 +1,6 @@
 # Apex
 
-Apex is an academic AI-guided SDLC tool that combines a **Spec-Anchored workflow**, **AI**, **Taiga or Plane.so** as project management backend, and optional **GitHub** repository context and **Figma** design context. The app helps a team move from product requirements into design artefacts while keeping the important project context in persistent, human-readable files. The sections below describe Apex's workflow primarily in Taiga terms (the original, more fully-featured backend); see [`docs/plane-integration.md`](docs/plane-integration.md) for what differs on Plane — auth model and adapter parity. The working goal is full Taiga parity on Plane; the few remaining gaps (Phase 6 maintenance-triage PM-issue import, an automated self-hosted test script) are called out there, not silently dropped.
+Apex is an academic AI-guided SDLC tool that combines a **Spec-Anchored workflow**, **AI**, **Taiga or Plane.so** as project management backend, and optional **GitHub** repository context and **Figma** design context. The app helps a team move from product requirements into design artefacts while keeping the important project context in persistent, human-readable files. The sections below describe Apex's workflow primarily in Taiga terms (the original, more fully-featured backend); see [`docs/plane-integration.md`](docs/plane-integration.md) for what differs on Plane — auth model and adapter parity. The working goal is full Taiga parity on Plane; genuine remaining gaps (real Plane API limitations, not build gaps) are called out there, not silently dropped.
 
 The current migrated version is a split full-stack web app:
 
@@ -981,13 +981,75 @@ cd ~/taiga-docker && docker compose down
 
 ### Testing Against a Private Plane Instance
 
-Use this to verify Apex works correctly against a self-hosted Plane deployment before going to production — the same rationale as the Taiga workflow above. Plane's self-hosted deploy path is different from Taiga's (an all-in-one Docker image rather than a multi-service compose stack you clone), and there's no wrapper script yet (unlike `scripts/private-taiga-cloud.sh`) — these are the manual steps.
+Use this to verify Apex works correctly against a self-hosted Plane deployment before going to production — the same rationale as the Taiga workflow above.
 
-#### 1. Install cloudflared (one-time)
+#### Automated setup
+
+From the repository root:
+
+```bash
+scripts/private-plane-cloud.sh --install-cloudflared --with-frontend
+```
+
+The script:
+
+- installs `cloudflared` into `~/.local/bin` if missing
+- generates a docker-compose file into `~/plane-selfhost` (Plane's official
+  `makeplane/plane-aio-community` all-in-one image + Postgres/Redis/RabbitMQ/MinIO —
+  no upstream repo to clone, unlike Taiga's `taiga-docker`) if missing, and starts it
+- starts a temporary `trycloudflare.com` HTTPS tunnel and prints its URL
+- recreates the Plane container once with the real tunnel hostname (Plane bakes
+  `DOMAIN_NAME` into its CSRF/CORS trust at container start, and the tunnel host is
+  only known after it's already listening)
+- provisions an admin user, an instance-admin grant, a workspace, and a ready-to-use
+  Personal Access Token directly via Plane's own Django ORM (`docker exec` into the
+  container) — no browser signup step needed, unlike the manual path below
+- starts the Apex backend (no `PLANE_API_URL`-equivalent pin exists or is needed —
+  Plane's identity anchor is always per-request)
+- optionally starts the frontend on `http://localhost:3000`
+
+Paste the printed tunnel URL and API token into the sidebar to sign in against it — no
+username/password needed, the token is ready to use immediately.
+
+Defaults:
+
+```text
+Plane checkout:    ~/plane-selfhost
+Plane admin email: admin@localhost.com
+Plane password:    yourpassword
+Plane workspace:   apex-selfhost-test
+Backend:           http://localhost:8000
+Frontend:          http://localhost:3000 when --with-frontend is used
+```
+
+Customize with flags or environment variables, same shape as `private-taiga-cloud.sh`:
+
+```bash
+scripts/private-plane-cloud.sh --email admin@localhost.com --password change-me --workspace-slug my-test --with-frontend
+```
+
+When the script prints `Private Plane test stack is running`, configure Apex:
+
+- PM tool: **Plane**
+- Self-hosted instance URL: the printed `https://...trycloudflare.com` URL
+- API token: the printed token, pasted directly
+
+Press `Ctrl+C` in the script terminal to stop the tunnel and Apex processes. Plane's
+Docker services keep running; stop them with:
+
+```bash
+cd ~/plane-selfhost && docker compose down
+```
+
+#### Manual setup
+
+Use these commands if you need to debug or run each step yourself.
+
+##### 1. Install cloudflared (one-time)
 
 Same as the Taiga section above — skip if already installed.
 
-#### 2. Run a local self-hosted Plane instance via Docker
+##### 2. Run a local self-hosted Plane instance via Docker
 
 Plane's official all-in-one image (`makeplane/plane-aio-community`) needs Postgres, Redis, RabbitMQ, and an S3-compatible store (MinIO works) alongside it. Example compose file:
 
@@ -1053,7 +1115,7 @@ docker logs -f plane-aio   # or: docker exec plane-aio tail -f /app/logs/access/
 
 Plane is now accessible at `http://localhost:8090`.
 
-#### 3. Start the Cloudflare tunnel
+##### 3. Start the Cloudflare tunnel
 
 ```bash
 cloudflared tunnel --url http://localhost:8090
@@ -1065,7 +1127,7 @@ Prints a URL like `https://xxxx-xxxx.trycloudflare.com`. Update `DOMAIN_NAME` to
 DOMAIN_NAME=xxxx-xxxx.trycloudflare.com docker compose up -d --force-recreate plane-aio
 ```
 
-#### 4. Configure Apex
+##### 4. Configure Apex
 
 No `PLANE_URL`-equivalent env var to set on the backend — Plane's identity anchor is per-request (`X-Plane-Url`), unlike Taiga's optional `TAIGA_API_URL` pin (see `docs/plane-integration.md`'s "Auth and multi-tenancy model"). Just start the backend/frontend normally, then in the Apex sidebar:
 
@@ -1080,7 +1142,7 @@ docker compose -f <your-compose-file> down
 # Ctrl+C the cloudflared process
 ```
 
-**Status as of 2026-08-11**: this workflow is confirmed to stand up a real, reachable, correctly-auth-gated self-hosted Plane instance (Apex's SSRF guard accepts the tunnel host with no code changes, and the instance's own API answers Django REST Framework's standard `401` shape). A full authenticated write-path smoke test (Project CRUD, invites, Pages sync, epics/stories) against it hasn't been run yet — see `docs/plane-integration.md`'s "Self-hosted testing" section for the exact state.
+**Status as of 2026-08-11**: `scripts/private-plane-cloud.sh` is confirmed working end-to-end (run twice, including a real bug found and fixed in its readiness-check retry logic) — real, reachable, correctly-auth-gated self-hosted Plane instance, admin user + workspace + a ready-to-use API token provisioned automatically, `X-Api-Key: <token>` confirmed authenticating against the tunnel's `/api/v1/users/me/`. A full feature-level smoke test through the Apex UI itself (Project CRUD, invites, Pages sync, epics/stories) against a self-hosted instance still hasn't been run — see `docs/plane-integration.md`'s "Self-hosted testing" section for the exact state.
 
 ---
 
