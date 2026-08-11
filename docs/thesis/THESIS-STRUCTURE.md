@@ -73,6 +73,13 @@ assigns each instrument to the artefact it actually evaluates:
   analytical assessment against pre-stated criteria
 - **Both** → the demonstration
 
+The study that produces this evidence is designed in `evaluation/`:
+`EVALUATION-PLAN.md` (design, session timetable, analysis, missing bibliography
+entries), `task-set.md`, `instrument-sus.md`, `instrument-nasa-tlx.md`,
+`instrument-apex-ux.md`, `interview-guides.md`, `observer-sheet.md`,
+`consent-and-briefing.md`. Those files are the source for Appendix B, which is
+still four `\todo` prompts. Nothing has been administered yet.
+
 Practical notes for when you run these:
 - SUS is generally considered stable from ~12 respondents. Report the distribution,
   not just the mean, and interpret via the adjective/percentile bands rather than
