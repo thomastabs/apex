@@ -24,6 +24,14 @@ As a result and as AI-assisted development becomes more prevalent, modern develo
     \item they assume all contributors are humans, whereas AI models introduce a new category of collaborator.
 \end{itemize}
 
+Two independently reported sets of figures make this concrete, and they point in the same direction: the limiting factor is the process surrounding the tool rather than the capability of the model itself.
+
+The first concerns correctness against security. Veracode's 2025 assessment of over one hundred large language models across Java, Python, C\# and JavaScript found that 45\% of generated code samples introduced an OWASP Top 10 vulnerability, rising to 72\% for Java, and that models failed to defend against cross-site scripting in 86\% of the relevant samples. The report's central observation is not the failure rate itself but its independence from model capability: newer and larger models produced functionally and syntactically correct code more often, while security performance remained flat~\cite{Veracode:2025gen}. Capability alone therefore does not converge on secure output, which is what makes explicit validation a structural requirement rather than a matter of discipline.
+
+The second concerns where the work accumulates. Faros AI's 2025 analysis of engineering telemetry from more than ten thousand developers across 1,255 teams found that high AI adoption coincided with 21\% more tasks completed and 98\% more pull requests merged, but also with a 91\% increase in pull request review time, a 154\% increase in average pull request size, and a 9\% increase in defects per developer, with no significant correlation between AI adoption and improvement at the organizational level~\cite{Faros:2025par}. Acceleration at the point of authorship does not disappear; it relocates to human review, and it does not by itself reach delivery outcomes.
+
+Both sources are industry-reported rather than peer-reviewed, and are cited here as such. Their value lies in agreeing on the mechanism, not in the precision of any single figure: neither security nor delivery improves as a by-product of faster generation, and both depend on where validation and review are positioned in the process.
+
 \textbf{Therefore, the core research problem addressed in this work is the lack of patterned guidance, strict methodologies and standardized evaluation metrics that can be defined through a structured, process-oriented framework that supports the systematic integration and management of AI and LLM-based tools across the Software Development Lifecycle, while preserving human oversight, software quality and security, and organizational accountability. This gap limits organizations' ability to fully and sustainably realize the potential benefits of AI-assisted software development.}
 
 The objectives that a solution to this problem must satisfy, and the design that answers them, are presented in \Cref{chap:proposal}.
