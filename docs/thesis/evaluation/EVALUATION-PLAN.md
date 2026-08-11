@@ -302,10 +302,12 @@ and the likely participants are Portuguese speakers.
 
 ## 6. What still has to be decided
 
-1. **RQ naming.** `\Cref{tab:eval_instruments}` maps instruments to RQ-A..RQ-D,
-   which are still the unresolved assistant-written set colliding with the SLR's
-   RQ1-RQ5. Every instrument mapping in this plan inherits that. Resolve the
-   naming before Appendix B is typeset.
+1. ~~RQ naming.~~ **CLOSED 2026-08-11.** The dissertation's own research
+   questions were renamed `RQ-A`..`RQ-D` to **`DRQ1`..`DRQ4`** (Dissertation
+   Research Question) across Chapters 1, 6, 7 and 9, so they no longer collide
+   with the systematic review's `RQ1`-`RQ5`. `\Cref{tab:eval_instruments}` now
+   maps instruments to DRQ1..DRQ4. Chapter 1 states the distinction explicitly
+   and `DRQ` is in the acronym list.
 2. ~~Validated PT SUS or own translation.~~ **CLOSED 2026-08-11: validated
    European Portuguese version (Martins et al., 2015), obtained and
    transcribed.** Nothing outstanding.
@@ -330,10 +332,21 @@ and the likely participants are Portuguese speakers.
    study these are load-bearing, not decoration: without them a participant can
    spend ten minutes doing the wrong thing with nobody there to notice.
 
-## 7. Missing bibliography entries
+## 7. Bibliography entries - ADDED 2026-08-11
 
-None of these exist in `Bibliography.bib` yet. All are required before Chapter 9
-can cite the instruments.
+All seven are now in `Bibliography.bib` and cited from Chapter 9, and the build
+was reverified afterwards (87 pages, 0 errors, 0 undefined references or
+citations). Kept here as the record of what was added and where each is used.
+
+| Key | Used for |
+|---|---|
+| `Brooke:1996SUS` | the SUS instrument itself |
+| `Martins:2015SUS` | the validated European Portuguese version |
+| `Bangor:2009SUS` | adjective rating bands |
+| `Sauro:2016QUANT` | curved grading scale, small-sample reporting |
+| `Lewis:2009SUS` | Usability and Learnability sub-scales |
+| `Hart:1988TLX` | the NASA-TLX instrument itself |
+| `Hart:2006TLX` | the Raw TLX variant |
 
 ```bibtex
 @incollection{Brooke:1996SUS,
@@ -413,11 +426,12 @@ Note the article title capitalises "validation" lowercase in the original.
 
 ## 8. Pre-flight checklist
 
-- [ ] RQ naming resolved, `tab:eval_instruments` updated
+- [x] RQ naming resolved: `DRQ1`..`DRQ4`, `tab:eval_instruments` updated
 - [x] PT SUS decided: validated European Portuguese version, Martins et al. 2015
 - [x] Martins et al. obtained; the ten PT items transcribed verbatim into
       `instrument-sus.md` and the provisional translation deleted
-- [ ] Bibliography entries above added and the build reverified
+- [x] Bibliography entries added and the build reverified (87 pages, 0 errors,
+      0 undefined references or citations)
 - [ ] Supervisor sign-off on the task set and the session length
 - [ ] Ethics/consent route confirmed with the supervisor
 - [ ] Arm split confirmed, or the moderated arm dropped

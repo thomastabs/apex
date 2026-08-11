@@ -21,17 +21,17 @@ Two artefacts were produced in \Cref{chap:proposal,chap:apex}: a framework and i
 \toprule
 \textbf{Instrument} & \textbf{Artefact evaluated} & \textbf{RQ} & \textbf{What it establishes} \\
 \midrule
-Demonstration in a real project & Framework and instantiation & RQ-C, RQ-D & That the artefact is applicable and produces the intended artefacts and decisions \\
+Demonstration in a real project & Framework and instantiation & DRQ3, DRQ4 & That the artefact is applicable and produces the intended artefacts and decisions \\
 \addlinespace
-\ac{SUS} & Instantiation (Apex) & RQ-D & Perceived usability of the supporting tool \\
+\ac{SUS} & Instantiation (Apex) & DRQ4 & Perceived usability of the supporting tool \\
 \addlinespace
-\ac{NASA-TLX} & Instantiation (Apex) & RQ-D & Perceived cognitive workload imposed on the practitioner \\
+\ac{NASA-TLX} & Instantiation (Apex) & DRQ4 & Perceived cognitive workload imposed on the practitioner \\
 \addlinespace
-Practitioner interviews & Framework & RQ-A, RQ-B & Practicality, feasibility, and perceived value in real workflows \\
+Practitioner interviews & Framework & DRQ1, DRQ2 & Practicality, feasibility, and perceived value in real workflows \\
 \addlinespace
-Agile and Scrum expert interviews & Framework & RQ-A, RQ-B & Alignment with, and departure from, established delivery methodology \\
+Agile and Scrum expert interviews & Framework & DRQ1, DRQ2 & Alignment with, and departure from, established delivery methodology \\
 \addlinespace
-Analytical assessment against criteria & Framework & RQ-A, RQ-B & Degree to which stated design criteria are satisfied \\
+Analytical assessment against criteria & Framework & DRQ1, DRQ2 & Degree to which stated design criteria are satisfied \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -56,11 +56,17 @@ Analytical assessment against criteria & Framework & RQ-A, RQ-B & Degree to whic
 
 \subsection{System Usability Scale}
 \label{sec:sus}
-\todo[inline]{Standard ten-item instrument on a five-point scale, administered after the participant has completed a defined set of tasks in the tool. Report the scoring procedure and state the interpretation scale used, including the adjective ratings and the percentile banding, so that a single number is not left to speak for itself.}
+
+The \ac{SUS}~\cite{Brooke:1996SUS} is a ten-item instrument scored on a five-point scale of strength of agreement, administered after the participant has completed a defined set of tasks. Participants responding in Portuguese are given the validated European Portuguese version~\cite{Martins:2015SUS}, with the only adaptation being the substitution of the system name for the generic referent used in the published items; participants responding in English are given the original wording. The two language versions are reported separately rather than pooled.
+
+\todo[inline]{Report the scoring procedure and state the interpretation scale used, including the adjective ratings of Bangor et al.~\cite{Bangor:2009SUS} and the curved grading scale of Sauro and Lewis~\cite{Sauro:2016QUANT}, so that a single number is not left to speak for itself. Report the Usability and Learnability sub-scales separately~\cite{Lewis:2009SUS}. State plainly that the score is not a percentage. State also the limits the Portuguese validation itself reports: construct validity was established, but inter-rater reliability was weak (ICC = 0.36) and agreement was 76.67 per cent, and the validation sample was drawn from the general community rather than from software practitioners.}
 
 \subsection{NASA Task Load Index}
 \label{sec:tlx}
-\todo[inline]{Six subscales: mental demand, physical demand, temporal demand, performance, effort and frustration. State whether the weighted procedure with pairwise comparisons or the unweighted Raw TLX is used, and justify the choice. Raw TLX is defensible and common in software-tool evaluation; the justification matters more than the choice itself.}
+
+The \ac{NASA-TLX}~\cite{Hart:1988TLX} measures perceived workload across six subscales: mental demand, physical demand, temporal demand, performance, effort and frustration. This evaluation uses the unweighted Raw \ac{NASA-TLX} variant~\cite{Hart:2006TLX}, omitting the fifteen pairwise weighting comparisons. The instrument is administered once after each of the marked tasks rather than once at the end of the session, which is the instrument's intended per-task use and yields a workload profile per lifecycle phase rather than a single aggregate.
+
+\todo[inline]{Justify the Raw variant explicitly: under per-task administration the weighting procedure would require fifteen comparisons for each of six tasks, which is not feasible within the session, and there is no second condition against which weights would earn their cost. Report the response scale actually used, and if it departs from the original twenty-interval line, state the departure and that the resulting values are not directly comparable to studies using the original scale. Note the trade-off that repeated administration invites anchoring and end-of-session fatigue.}
 
 \todo[inline]{Define the task set both instruments are administered against, and keep it identical across participants. Place the full instruments in an appendix and reference them here.}
 
@@ -99,4 +105,4 @@ Analytical assessment against criteria & Framework & RQ-A, RQ-B & Degree to whic
 \subsection{Answering the Research Questions}
 \label{sec:eval_rq_answers}
 
-\todo[inline]{Answer RQ-A, RQ-B, RQ-C and RQ-D from \Cref{sec:intro_objectives} in turn, each grounded explicitly in the evidence reported above (results, demonstration, interviews) rather than merely asserted. RQ-A and RQ-B concern the framework and are answered primarily from the practitioner and Agile-expert interviews and the analytical assessment; RQ-C is answered by the existence and operation of Apex itself, cross-referenced to \Cref{sec:apex_framework_mapping}; RQ-D is answered from \ac{SUS}, \ac{NASA-TLX}, and the demonstration. This closes the loop the introduction opened: each research question is answered here with evidence, not merely restated in the conclusion.}
+\todo[inline]{Answer DRQ1, DRQ2, DRQ3 and DRQ4 from \Cref{sec:intro_objectives} in turn, each grounded explicitly in the evidence reported above (results, demonstration, interviews) rather than merely asserted. DRQ1 and DRQ2 concern the framework and are answered primarily from the practitioner and Agile-expert interviews and the analytical assessment; DRQ3 is answered by the existence and operation of Apex itself, cross-referenced to \Cref{sec:apex_framework_mapping}; DRQ4 is answered from \ac{SUS}, \ac{NASA-TLX}, and the demonstration. This closes the loop the introduction opened: each research question is answered here with evidence, not merely restated in the conclusion.}

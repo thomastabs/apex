@@ -49,7 +49,7 @@ NASA-TLX, and the interview guides genuinely need to be reproduced.
 The framework (a *method*) and Apex (an *instantiation*) are both legitimate DSRM
 artefacts, and both are produced by the Design & Development activity. Splitting
 them into Chapters 6 and 7 is what lets the thesis claim *"the framework is
-implementable"* (RQ-C) as a result rather than as an assumption. Merging them would
+implementable"* (DRQ3) as a result rather than as an assumption. Merging them would
 make the framework look like documentation for a tool, which inverts the contribution.
 
 ### The interview history is evaluation, not a changelog
