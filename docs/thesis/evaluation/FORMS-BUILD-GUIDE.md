@@ -23,10 +23,9 @@ before the script is opened.
    committee submission, and is there a standard IST consent template to use
    instead of the one in `consent-and-briefing.md`. This gates the first
    session and nothing else unblocks it.
-2. ~~Decide the PT SUS question.~~ **Decided: validated European Portuguese
-   version.** Action instead: obtain Martins et al. (2015), Procedia Computer
-   Science 67, 293-300, and paste the ten Portuguese items verbatim into
-   `instrument-sus.md`. Form F2 cannot be built correctly until this is done.
+2. ~~Decide the PT SUS question.~~ **CLOSED.** Validated European Portuguese
+   version, Martins et al. (2015). Paper obtained, ten items transcribed
+   verbatim into `instrument-sus.md`. F2-PT is ready to build.
 3. **Decide the TLX response scale.** 0-10 rescaled to 0-100, or a form tool
    with a real slider. Cannot change mid-study.
 4. **Decide the arm split.** Unmoderated only, or unmoderated plus 3-4
@@ -156,11 +155,15 @@ scoring formula already handles the polarity reversal.
 
 Form description: the participant instructions block from `instrument-sus.md`.
 
-**Two separate forms, one per language.** F2-EN uses the English items above.
-F2-PT uses the validated European Portuguese items from Martins et al. (2015),
-pasted verbatim. Do not mix languages within one form, and do not build F2-PT
-from the provisional translation currently in `instrument-sus.md` - it is a
-placeholder and is marked as such.
+**Two separate forms, one per language.** F2-EN uses the English items. F2-PT
+uses the validated European Portuguese items from Martins et al. (2015), which
+are now transcribed verbatim in `instrument-sus.md` under "As administered".
+Copy that table, not the "Published items, verbatim" one above it - the
+administered version is the same wording with `este produto` replaced by
+`o Apex`, which is the only permitted change.
+
+Do not mix languages within one form. PT anchors: `Discordo totalmente` and
+`Concordo totalmente`.
 
 ---
 

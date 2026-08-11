@@ -39,54 +39,101 @@ Scale: `1 = Strongly disagree` ... `5 = Strongly agree`
 
 ---
 
-## Instruções apresentadas ao participante (PT)
+## Versão portuguesa validada (PT)
 
-> ## ACTION REQUIRED - DO NOT ADMINISTER THIS TEXT
->
-> **Decision taken 2026-08-11: the study uses the validated European Portuguese
-> SUS.** The ten items below are a provisional working translation and are
-> **not** that instrument. They are here only so the form can be laid out before
-> the paper is obtained.
->
-> **Before building form F2, replace all ten items with the published wording,
-> verbatim, from:**
->
-> Martins, A. I., Rosa, A. F., Queirós, A., Silva, A., and Rocha, N. P. (2015).
-> *European Portuguese Validation of the System Usability Scale (SUS).*
-> Procedia Computer Science, 67, 293-300.
-> `https://www.sciencedirect.com/science/article/pii/S1877050915031191`
-> (Procedia is open access; the item table is the one pairing each English item
-> with its Portuguese translation.)
->
-> Then delete this warning block. Administering the text below and citing
-> Martins et al. would be a misrepresentation: the validation applies to their
-> wording, not to a translation that merely resembles it.
+**Source of record:** Martins, A. I., Rosa, A. F., Queirós, A., Silva, A., and
+Rocha, N. P. (2015). *European Portuguese validation of the System Usability
+Scale (SUS).* Procedia Computer Science, 67, 293-300.
+DOI `10.1016/j.procs.2015.09.273`. Open access, CC BY-NC-ND.
 
-> Responda a cada afirmação sobre o **Apex**, a ferramenta que acabou de
-> utilizar, marcando uma opção. Não há respostas certas. Registe a sua reacção
-> imediata em vez de pensar muito tempo em cada uma. Se sentir que não consegue
-> responder, marque o ponto central.
+Presented at DSAI 2015. The ten items below are their Table 1, transcribed
+verbatim. This is the instrument; the provisional translation that previously
+sat here has been discarded.
+
+Note their generic referent is **"produto"**, not "sistema".
+
+### Published items, verbatim
+
+| # | Original item | Item correspondente em português |
+|---|---|---|
+| 1 | I think that I would like to use this system frequently. | Acho que gostaria de utilizar este produto com frequência. |
+| 2 | I found the system unnecessarily complex. | Considerei o produto mais complexo do que necessário. |
+| 3 | I thought the system was easy to use. | Achei o produto fácil de utilizar. |
+| 4 | I think that I would need the support of a technical person to be able to use this system. | Acho que necessitaria de ajuda de um técnico para conseguir utilizar este produto. |
+| 5 | I found the various functions in this system were well integrated. | Considerei que as várias funcionalidades deste produto estavam bem integradas. |
+| 6 | I thought there was too much inconsistency in this system. | Achei que este produto tinha muitas inconsistências. |
+| 7 | I would imagine that most people would learn to use this system very quickly. | Suponho que a maioria das pessoas aprenderia a utilizar rapidamente este produto. |
+| 8 | I found the system very cumbersome to use. | Considerei o produto muito complicado de utilizar. |
+| 9 | I felt very confident using the system. | Senti-me muito confiante a utilizar este produto. |
+| 10 | I needed to learn a lot of things before I could get going with this system. | Tive que aprender muito antes de conseguir lidar com este produto. |
+
+### As administered - substituting the system name
+
+The only change is the referent: `este produto` / `o produto` becomes `o Apex`.
+Nothing else moves. Same order, same polarity, same words. Declare the
+substitution in one sentence in Chapter 9.
 
 Escala: `1 = Discordo totalmente` ... `5 = Concordo totalmente`
 
 | # | Afirmação | 1 | 2 | 3 | 4 | 5 |
 |---|---|---|---|---|---|---|
-| 1 | Penso que gostaria de utilizar o Apex com frequência. | | | | | |
-| 2 | Considerei o Apex desnecessariamente complexo. | | | | | |
+| 1 | Acho que gostaria de utilizar o Apex com frequência. | | | | | |
+| 2 | Considerei o Apex mais complexo do que necessário. | | | | | |
 | 3 | Achei o Apex fácil de utilizar. | | | | | |
-| 4 | Penso que precisaria do apoio de um técnico para conseguir utilizar o Apex. | | | | | |
+| 4 | Acho que necessitaria de ajuda de um técnico para conseguir utilizar o Apex. | | | | | |
 | 5 | Considerei que as várias funcionalidades do Apex estavam bem integradas. | | | | | |
-| 6 | Achei que havia demasiada inconsistência no Apex. | | | | | |
-| 7 | Imagino que a maioria das pessoas aprenderia a utilizar o Apex muito rapidamente. | | | | | |
-| 8 | Achei o Apex muito complicado de utilizar. | | | | | |
+| 6 | Achei que o Apex tinha muitas inconsistências. | | | | | |
+| 7 | Suponho que a maioria das pessoas aprenderia a utilizar rapidamente o Apex. | | | | | |
+| 8 | Considerei o Apex muito complicado de utilizar. | | | | | |
 | 9 | Senti-me muito confiante a utilizar o Apex. | | | | | |
-| 10 | Precisei de aprender muitas coisas antes de conseguir começar a usar o Apex. | | | | | |
+| 10 | Tive que aprender muito antes de conseguir lidar com o Apex. | | | | | |
 
-**Adapting the published items.** Martins et al. validated the items with the
-generic word "sistema". Substituting "o Apex" for "o sistema" is the same
-adaptation already made in the English version and is standard practice; note it
-in one sentence in Chapter 9. Change nothing else - not the order, not the
-polarity, not a single other word.
+**Response anchors.** The paper does not print Portuguese anchor labels, only
+that SUS is a five-point Likert scale of strength of agreement. `Discordo
+totalmente` and `Concordo totalmente` are the conventional wording and are what
+this study uses; say so rather than implying the anchors came from Martins et
+al.
+
+### What the validation actually established, and what it did not
+
+State this in Chapter 9 **before** an examiner raises it. Citing a validated
+instrument without knowing its reported limits is worse than using a translation
+openly.
+
+| Property | Reported |
+|---|---|
+| Semantic and content equivalence | established, pilot with 4 participants |
+| Construct validity vs PSSUQ | r = 0.70, significant |
+| Construct validity vs a general usability question | r = 0.48, p < 0.05 |
+| Inter-rater reliability, ICC | **0.36, which the authors classify as weak** (CI 95%: 0.01 to 0.63) |
+| Percentage of agreement | 76.67%, below the 80% they state as acceptable |
+
+The authors' own conclusion, paraphrased: the Portuguese version can be used to
+distinguish usable from non-usable applications, but the low ICC means they
+intend to validate the all-positive variant of SUS and repeat the study with a
+larger sample. They attribute the weak reliability to the alternating
+positive/negative item polarity causing filling errors, and cite Sauro and Lewis
+on the same problem.
+
+Two consequences for this thesis:
+
+1. **Do not overclaim.** Write "the European Portuguese version validated by
+   Martins et al. (2015), whose authors report construct validity but weak
+   inter-rater reliability (ICC = 0.36)". That sentence costs nothing and closes
+   the line of attack completely.
+2. **Their sample was drawn from the general community**, not software
+   practitioners. The linguistic validation carries over; the reliability
+   estimate was obtained in a different population from this study's. Worth one
+   sentence in `\Cref{sec:threats}`.
+
+Do **not** switch to the all-positive variant. It is not validated in European
+Portuguese, and adopting an unvalidated variant to dodge a caveat about a
+validated one is the wrong trade.
+
+> **Instruções ao participante:** Responda a cada afirmação sobre o **Apex**, a
+> ferramenta que acabou de utilizar, marcando uma opção. Não há respostas
+> certas. Registe a sua reacção imediata em vez de pensar muito tempo em cada
+> uma. Se sentir que não consegue responder, marque o ponto central.
 
 ---
 

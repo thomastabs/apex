@@ -232,9 +232,8 @@ and the likely participants are Portuguese speakers.
 **PT SUS: decided 2026-08-11 - use the validated European Portuguese version**
 (Martins et al., 2015). Consequences:
 
-- The ten Portuguese items currently in `instrument-sus.md` are a provisional
-  translation and **must be replaced with the published wording verbatim**
-  before form F2 is built. That file carries an action block saying so.
+- **Done 2026-08-11: the paper was obtained and the ten items are transcribed
+  verbatim in `instrument-sus.md`.** F2-PT can be built.
 - Chapter 9 states that the validated European Portuguese SUS was used, and
   cites Martins et al. alongside Brooke.
 - Only the system name is substituted ("o Apex" for "o sistema"). Nothing else
@@ -242,6 +241,14 @@ and the likely participants are Portuguese speakers.
 - The English SUS stays available for participants who choose EN. Report which
   language each participant used; do not pool EN and PT into one mean without
   saying so, since they are strictly two instruments.
+- **State the instrument's reported limits in Chapter 9 pre-emptively.** Martins
+  et al. report construct validity (r = 0.70 vs PSSUQ) but **weak inter-rater
+  reliability, ICC = 0.36**, and 76.67% agreement against their own 80%
+  threshold. They attribute it to the alternating item polarity. Their sample
+  was also drawn from the general community, not software practitioners. All of
+  this is in `instrument-sus.md`; one sentence in the text closes the line of
+  attack that citing a validated instrument without knowing its limits would
+  otherwise open.
 
 ---
 
@@ -299,9 +306,9 @@ and the likely participants are Portuguese speakers.
    which are still the unresolved assistant-written set colliding with the SLR's
    RQ1-RQ5. Every instrument mapping in this plan inherits that. Resolve the
    naming before Appendix B is typeset.
-2. ~~Validated PT SUS or own translation.~~ **DECIDED 2026-08-11: validated
-   European Portuguese version (Martins et al., 2015).** Remaining action, not a
-   decision: obtain the paper and paste the ten items verbatim.
+2. ~~Validated PT SUS or own translation.~~ **CLOSED 2026-08-11: validated
+   European Portuguese version (Martins et al., 2015), obtained and
+   transcribed.** Nothing outstanding.
 3. **N and recruitment.** Whether the partner organisation can supply 12, or
    whether the sample gets topped up with MEIC students, which changes the
    external-validity claim.
@@ -394,21 +401,22 @@ Required by the PT SUS decision:
     Journal = {Procedia Computer Science},
     Pages = {293--300},
     Title = {{European Portuguese Validation of the System Usability Scale (SUS)}},
-    Url = {https://www.sciencedirect.com/science/article/pii/S1877050915031191},
+    Doi = {10.1016/j.procs.2015.09.273},
+    Url = {https://doi.org/10.1016/j.procs.2015.09.273},
     Volume = {67},
     Year = {2015}
 }
 ```
 
-Volume, pages and year confirmed against the publisher listing. Verify the DOI
-and add it when the paper is obtained.
+Authors, volume, pages, year and DOI all verified against the published PDF.
+Note the article title capitalises "validation" lowercase in the original.
 
 ## 8. Pre-flight checklist
 
 - [ ] RQ naming resolved, `tab:eval_instruments` updated
 - [x] PT SUS decided: validated European Portuguese version, Martins et al. 2015
-- [ ] Martins et al. obtained and the ten PT items pasted verbatim into
-      `instrument-sus.md`, replacing the provisional translation
+- [x] Martins et al. obtained; the ten PT items transcribed verbatim into
+      `instrument-sus.md` and the provisional translation deleted
 - [ ] Bibliography entries above added and the build reverified
 - [ ] Supervisor sign-off on the task set and the session length
 - [ ] Ethics/consent route confirmed with the supervisor
