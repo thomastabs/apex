@@ -319,14 +319,37 @@ and the likely participants are Portuguese speakers.
 5. **Arm split.** The 10-12 unmoderated plus 3-4 moderated split above is a
    proposal. Confirm the moderated arm is worth the scheduling cost, or drop it
    and accept losing the observational findings.
-6. **TLX response scale.** Google Forms cannot render the 20-interval line. The
-   recommendation is a 0-10 scale rescaled to 0-100, documented as a deviation.
-   Alternative: use a form tool with a real slider. Decide before the pilot, and
-   never change it mid-study.
-7. **Form platform.** Google Forms is assumed. Anything with a 0-100 slider and
-   CSV export is better. Whatever is chosen must let a participant submit the
-   TLX form six times without re-entering their code by hand each time, or use a
-   prefilled link per task.
+6. ~~TLX response scale.~~ **CLOSED 2026-08-12: linear scale 0 to 10, multiplied
+   by 10 at analysis time**, in place of the published 20-interval line, which
+   Google Forms cannot render. This is a real deviation from the instrument and
+   is disclosed in Chapter 9 in the wording drafted below. Frozen - it cannot
+   change once the first participant has run, and a mid-study change would make
+   the earlier and later responses two different instruments.
+7. ~~Form platform.~~ **CLOSED 2026-08-12: Google Forms**, which follows from
+   decision 6. Six submissions per participant are handled by one prefilled link
+   per task, so the participant never retypes the task name or their code by
+   hand. Build details in `FORMS-BUILD-SHEET.md`.
+
+### Drafted disclosure wording for Chapter 9
+
+Two deviations from the published instrument, disclosed together in
+`\Cref{sec:tlx}` rather than one being mentioned and the other not:
+
+> Workload was collected on a linear scale from 0 to 10 rather than on the
+> original twenty-interval line, and the responses were rescaled to the
+> instrument's 0-100 range by multiplying by ten. The subscales were also
+> presented in the order mental, physical and temporal demand, effort,
+> frustration and performance, placing the reversed performance scale last
+> rather than fourth. Neither change affects the unweighted Raw TLX
+> computation, but the first reduces the resolution of the instrument, and the
+> resulting values are therefore not directly comparable to studies using the
+> original response scale.
+
+The reason for each, for the surrounding prose: the response scale because no
+form tool available for an unmoderated study reproduces a twenty-interval line,
+and the item order because a reversed scale met in the middle of five forward
+ones, with no facilitator present to explain it, is the most likely way a
+participant inverts a sixth of the data set.
 8. **Reference screenshots.** `task-script.md` has nine `[SCREENSHOT: ...]`
    slots that must be captured from a real seeded project. In an unmoderated
    study these are load-bearing, not decoration: without them a participant can
@@ -440,7 +463,9 @@ Note the article title capitalises "validation" lowercase in the original.
 - [ ] Supervisor sign-off on the task set and the session length
 - [ ] Ethics/consent route confirmed with the supervisor
 - [ ] Arm split confirmed, or the moderated arm dropped
-- [ ] TLX response scale decided and the deviation wording drafted
+- [x] TLX response scale decided 2026-08-12 - linear 0 to 10, rescaled by ten -
+      and the disclosure wording drafted in section 6 above, covering both the
+      scale and the reordered Performance subscale
 - [ ] Eight forms built - consent/demographics, TLX, SUS and UX, each in EN and
       PT. Every string is paste-ready in `FORMS-BUILD-SHEET.md`; the acceptance
       check at the end of that file is the test-submit procedure, and it must be

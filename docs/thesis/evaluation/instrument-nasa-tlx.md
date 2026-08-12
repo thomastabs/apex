@@ -167,7 +167,7 @@ The published NASA-TLX scale is a line divided into **20 intervals**, scored
 0-100 in steps of 5.
 
 **Google Forms cannot reproduce this.** Its linear scale tops out at 10 points
-and it has no slider. The options, in order of preference:
+and it has no slider. The options considered:
 
 | Option | Fidelity | Verdict |
 |---|---|---|
@@ -176,14 +176,25 @@ and it has no slider. The options, in order of preference:
 | Google Forms short answer, number 0-100 validated as a multiple of 5 | faithful values | high error rate, participants type freely |
 | Google Forms grid with 21 columns | faithful | unusable on a phone, do not |
 
-**Recommendation: 0-10 linear scale, multiplied by 10 at analysis time.** Then
-write in Chapter 9, in plain words: *"a 0-10 response scale was used in place of
-the original 20-interval line, and scores were rescaled to 0-100; this reduces
-the resolution of the instrument and the resulting values are not directly
-comparable to studies using the original scale."*
+**DECIDED 2026-08-12: linear scale 0 to 10, multiplied by ten at analysis time.**
+Google Forms is the platform that follows from it. **Frozen** - the scale cannot
+change once the first participant has run, because a mid-study change would make
+the earlier and later responses two different instruments.
+
+The disclosure sentence for Chapter 9 is drafted in `EVALUATION-PLAN.md`
+section 6 and covers this together with the item reordering below. In short: a
+0-10 scale was used in place of the 20-interval line and rescaled to 0-100; this
+reduces the resolution of the instrument and the values are not directly
+comparable to studies using the original scale.
 
 Do not silently rescale and report it as NASA-TLX. That is the sort of quiet
 deviation that, once noticed in a viva, casts doubt on everything else.
+
+**Consequence for analysis:** every response is a multiple of ten, so the
+subscale means are coarser than the instrument's own granularity. Report medians
+and ranges alongside means, and do not read a difference of a few points between
+two cells of the matrix as meaningful when the smallest step a participant could
+express was ten.
 
 ### 3. Item order as administered
 

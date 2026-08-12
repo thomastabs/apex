@@ -33,8 +33,10 @@ before the script is opened.
 2. ~~Decide the PT SUS question.~~ **CLOSED.** Validated European Portuguese
    version, Martins et al. (2015). Paper obtained, ten items transcribed
    verbatim into `instrument-sus.md`. F2-PT is ready to build.
-3. **Decide the TLX response scale.** 0-10 rescaled to 0-100, or a form tool
-   with a real slider. Cannot change mid-study.
+3. ~~Decide the TLX response scale.~~ **CLOSED 2026-08-12: linear 0 to 10,
+   multiplied by ten at analysis time.** Google Forms is therefore the platform.
+   Frozen - it cannot change mid-study. Disclosure wording for Chapter 9 is
+   drafted in `EVALUATION-PLAN.md` section 6.
 4. **Decide the arm split.** Unmoderated only, or unmoderated plus 3-4
    moderated sessions.
 

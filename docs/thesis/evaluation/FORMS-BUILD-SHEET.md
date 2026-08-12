@@ -30,18 +30,20 @@ come from.
 
 ---
 
-## Two decisions that must be made before you build
+## Decisions affecting the build
 
-1. **TLX response scale.** Recommendation, and what this sheet assumes:
-   **linear scale 0 to 10, multiplied by 10 at analysis time.** Google Forms has
-   no slider and its linear scale stops at 10, so the original 20-interval line
-   cannot be reproduced. This is a real deviation and Chapter 9 must state it in
-   the words given in `instrument-nasa-tlx.md`. If you would rather stay faithful
-   to the instrument, use a form tool with a genuine 0-100 slider instead, and
-   rebuild F1 there. **Cannot be changed once the first participant has run.**
-2. **Arm split.** If the moderated arm runs, F0 keeps the screen-recording
-   consent item. If only the unmoderated arm runs, delete that item from F0
-   rather than leaving an unused checkbox on the consent form.
+1. **TLX response scale: DECIDED 2026-08-12.** Linear scale **0 to 10**,
+   multiplied by ten at analysis time, on **Google Forms**. The original
+   20-interval line cannot be reproduced there - no slider, and the linear scale
+   stops at 10. This is a real deviation from the instrument; the disclosure
+   wording for Chapter 9 is drafted in `EVALUATION-PLAN.md` section 6. **Frozen:
+   it cannot change once the first participant has run.** Build F1 exactly as
+   specified below.
+2. **Arm split: still open.** If the moderated arm runs, F0 keeps the
+   screen-recording consent item. If only the unmoderated arm runs, delete that
+   item from F0 rather than leaving an unused checkbox on the consent form. This
+   is the only thing on this sheet still waiting on a decision, and it affects
+   one question on one form.
 
 ---
 
