@@ -37,6 +37,25 @@ export function isPlane401(err: unknown): boolean {
   return err instanceof ApiError && err.status === 401;
 }
 
+/** Soft, app-level optimistic-concurrency signal. Plane's write endpoints
+ *  never reject a stale write server-side — there is no version/If-Match
+ *  field on work items, epics, or modules (confirmed against
+ *  developers.plane.so; see plane_integration_plan memory). This is thrown
+ *  client-side instead, from an extra pre-write GET that compares the
+ *  record's current `updated_at` against what the caller last read — advisory
+ *  only, not a real lock (a write that lands between that GET and the PATCH
+ *  still wins silently), but it catches the common two-tabs-open race that
+ *  isPmVersionConflict() previously always reported as impossible. Recognized
+ *  by planeAdapter.isPmVersionConflict() so it plugs straight into the same
+ *  retry-once-then-refetch flow Taiga's real 409 already drives
+ *  (use-phase3.ts / tasks-section.tsx) — no UI changes needed. */
+export class PlaneVersionConflictError extends Error {
+  constructor(message = "This item changed since it was loaded.") {
+    super(message);
+    this.name = "PlaneVersionConflictError";
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Fetch helpers
 // ---------------------------------------------------------------------------
@@ -159,6 +178,32 @@ function toDescriptionHtml(text: string): string {
   return `<p>${escaped.replace(/\n/g, "<br>")}</p>`;
 }
 
+/** `updated_at` (ISO 8601 string) is present on work items, epics, AND
+ *  modules — confirmed on work items/epics against developers.plane.so's own
+ *  response schemas; standard DRF audit-trail field, so assumed (not yet
+ *  independently confirmed) present on modules too. Used as the soft
+ *  optimistic-concurrency signal in the `version` field below — falls back to
+ *  "" (no check performed) if genuinely absent, same degrade-gracefully shape
+ *  as the old permanent-null. */
+function updatedAtOf(raw: Record<string, unknown>): string {
+  return typeof raw.updated_at === "string" ? raw.updated_at : "";
+}
+
+/** Pre-write staleness check for the soft optimistic-concurrency scheme (see
+ *  PlaneVersionConflictError's docstring). No-op when expectedVersion is
+ *  empty — callers that never read a version first (e.g. a fresh create)
+ *  don't pay for this GET. */
+async function assertNotStale(
+  path: string, apiKey: string, apiBaseUrl: string | undefined, expectedVersion: string | undefined,
+): Promise<void> {
+  if (!expectedVersion) return;
+  const current = await planeFetch<Record<string, unknown>>(path, apiKey, apiBaseUrl);
+  const currentVersion = updatedAtOf(current);
+  if (currentVersion && currentVersion !== expectedVersion) {
+    throw new PlaneVersionConflictError();
+  }
+}
+
 function planeDescription(raw: Record<string, unknown>): string {
   // description_stripped exists on work items but NOT on Projects/Modules
   // (confirmed live against a real workspace — those instead carry a plain
@@ -181,7 +226,7 @@ function normalizePlaneEpic(raw: Record<string, unknown>): Epic {
     ref: (raw.sequence_id as number) ?? mintId(uuid),
     subject: (raw.name as string) || "",
     description: planeDescription(raw),
-    version: null, // no optimistic-concurrency field on Plane — documented gap
+    version: updatedAtOf(raw), // soft optimistic-concurrency signal — see PlaneVersionConflictError
     tags: [], // Epic.tags[] maps to work-item Labels in Plane, not modeled on the epic itself
     pm_epic_id: uuid,
   };
@@ -198,7 +243,7 @@ function normalizePlaneModuleAsEpic(raw: Record<string, unknown>): Epic {
     ref: minted,
     subject: (raw.name as string) || "",
     description: planeDescription(raw),
-    version: null,
+    version: updatedAtOf(raw), // assumed present (standard DRF audit field) — not independently confirmed on Modules specifically, see updatedAtOf's docstring
     tags: [],
     pm_epic_id: uuid,
   };
@@ -211,7 +256,7 @@ function normalizePlaneWorkItem(raw: Record<string, unknown>, epic: { id: number
     ref: (raw.sequence_id as number) ?? mintId(uuid),
     subject: (raw.name as string) || "",
     description: planeDescription(raw),
-    version: null,
+    version: updatedAtOf(raw), // soft optimistic-concurrency signal — see PlaneVersionConflictError
     status: (raw.state as string) ?? null, // Plane state UUID — resolved against listStoryStatuses separately
     // GET responses embed full label objects (name included) — no separate
     // resolve-by-id call needed after all, unlike what was assumed before a
@@ -424,18 +469,34 @@ export async function planeGetStory(
 //     read-side asymmetry.
 // ---------------------------------------------------------------------------
 
+/** No documented server-side label name filter on Plane (see
+ *  plane_integration_plan §3), so resolving tags means listing every label in
+ *  the project and matching client-side. Caching that full list ACROSS calls
+ *  (not just across tags within one call, as before) is the addressable part
+ *  of that gap: without it, every single story/epic/task save that carries
+ *  tags re-pages the entire label list, even when nothing about it changed
+ *  since the last save seconds earlier. Keyed by project UUID (globally
+ *  unique — safe even if two workspaces reuse a slug) with a short TTL, so a
+ *  label added via Plane's own UI is still picked up within a couple of
+ *  minutes without a hard reload. */
+const _labelCache = new Map<string, { byName: Map<string, string>; fetchedAt: number }>();
+const _LABEL_CACHE_TTL_MS = 2 * 60_000;
+
 /** Get-or-create a Label per tag, resolving to Plane's work-item Label ids
  *  (`.../labels/`, NOT `.../project-labels/` — see plane_integration_plan §3's
- *  two-kinds-of-Label trap). No documented server-side name filter, so this
- *  pages the full label list once per call and matches client-side, caching
- *  across every tag in *tags* rather than re-listing per tag. */
+ *  two-kinds-of-Label trap). */
 async function planeResolveLabelIds(
   apiKey: string, workspaceSlug: string, projectUuid: string, tags: string[], apiBaseUrl?: string,
 ): Promise<string[]> {
   if (!tags.length) return [];
   const base = `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}`;
-  const existing = await planeFetchAllPages<Record<string, unknown>>(`${base}/labels/`, apiKey, apiBaseUrl);
-  const byName = new Map(existing.map((l) => [String(l.name ?? "").toLowerCase(), String(l.id)]));
+  let cached = _labelCache.get(projectUuid);
+  if (!cached || Date.now() - cached.fetchedAt > _LABEL_CACHE_TTL_MS) {
+    const existing = await planeFetchAllPages<Record<string, unknown>>(`${base}/labels/`, apiKey, apiBaseUrl);
+    cached = { byName: new Map(existing.map((l) => [String(l.name ?? "").toLowerCase(), String(l.id)])), fetchedAt: Date.now() };
+    _labelCache.set(projectUuid, cached);
+  }
+  const { byName } = cached;
   const ids: string[] = [];
   for (const tag of tags) {
     const key = tag.trim().toLowerCase();
@@ -447,7 +508,7 @@ async function planeResolveLabelIds(
         body: { name: tag.trim() },
       });
       id = String(created.id);
-      byName.set(key, id);
+      byName.set(key, id); // updates the cached Map in place — visible to the next call too, not just this one
     }
     ids.push(id);
   }
@@ -484,11 +545,13 @@ export async function planeCreateEpic(
 export async function planeUpdateEpic(
   apiKey: string, workspaceSlug: string, projectUuid: string, mintedEpicId: string,
   fields: { subject?: string; description?: string; tags?: string[] }, apiBaseUrl?: string,
+  expectedVersion?: string,
 ): Promise<Epic> {
   const uuid = resolveId(mintedEpicId);
   const base = `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}`;
   return tryEpicsThenModules(
     async () => {
+      await assertNotStale(`${base}/epics/${uuid}/`, apiKey, apiBaseUrl, expectedVersion);
       const body: Record<string, unknown> = {};
       if (fields.subject !== undefined) body.name = fields.subject;
       if (fields.description !== undefined) body.description_html = toDescriptionHtml(fields.description);
@@ -498,6 +561,7 @@ export async function planeUpdateEpic(
       return normalizePlaneEpic(raw);
     },
     async () => {
+      await assertNotStale(`${base}/modules/${uuid}/`, apiKey, apiBaseUrl, expectedVersion);
       const body: Record<string, unknown> = {};
       if (fields.subject !== undefined) body.name = fields.subject;
       if (fields.description !== undefined) body.description = fields.description;
@@ -577,9 +641,11 @@ export async function planeCreateStory(
 export async function planeUpdateStory(
   apiKey: string, workspaceSlug: string, projectUuid: string, mintedStoryId: string,
   fields: { subject?: string; description?: string; tags?: string[]; status?: string }, apiBaseUrl?: string,
+  expectedVersion?: string,
 ): Promise<Story> {
   const uuid = resolveId(mintedStoryId);
   const base = `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}`;
+  await assertNotStale(`${base}/work-items/${uuid}/`, apiKey, apiBaseUrl, expectedVersion);
   const body: Record<string, unknown> = {};
   if (fields.subject !== undefined) body.name = fields.subject;
   if (fields.description !== undefined) body.description_html = toDescriptionHtml(fields.description);
@@ -621,7 +687,7 @@ function normalizePlaneTask(raw: Record<string, unknown>): PlaneTask {
     ref: (raw.sequence_id as number) ?? minted,
     subject: (raw.name as string) || "",
     description: planeDescription(raw),
-    version: "", // no optimistic-concurrency field on Plane — documented gap, same as Epic/Story
+    version: updatedAtOf(raw), // soft optimistic-concurrency signal — see PlaneVersionConflictError
     user_story: parentMinted,
     user_story_ref: parentMinted,
     user_story_subject: "", // not cheaply known here; same limitation as getStory's epic_subject
@@ -691,14 +757,15 @@ export async function planeCreateTask(
 export async function planeUpdateTask(
   apiKey: string, workspaceSlug: string, projectUuid: string, mintedTaskId: string,
   updates: { subject?: string; description?: string }, apiBaseUrl?: string,
+  expectedVersion?: string,
 ): Promise<void> {
   const uuid = resolveId(mintedTaskId);
+  const path = `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}/work-items/${uuid}/`;
+  await assertNotStale(path, apiKey, apiBaseUrl, expectedVersion);
   const body: Record<string, unknown> = {};
   if (updates.subject !== undefined) body.name = updates.subject;
   if (updates.description !== undefined) body.description_html = toDescriptionHtml(updates.description);
-  await planeFetch<unknown>(
-    `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}/work-items/${uuid}/`, apiKey, apiBaseUrl, { method: "PATCH", body },
-  );
+  await planeFetch<unknown>(path, apiKey, apiBaseUrl, { method: "PATCH", body });
 }
 
 export async function planeDeleteTask(

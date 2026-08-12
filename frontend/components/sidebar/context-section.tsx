@@ -715,6 +715,14 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                               <span className="font-medium">{page.label}</span>
                               <span className="ml-2 font-mono opacity-70">{page.filename}</span>
                             </span>
+                            {page.stale_versions ? (
+                              <span
+                                title={t("context.planeWikiStaleVersionsHint", { n: page.stale_versions })}
+                                className={cn("shrink-0 rounded border px-1 py-0.5", dark ? "border-amber-500/30 text-amber-400" : "border-amber-300 text-amber-700")}
+                              >
+                                {t("context.planeWikiStaleVersions", { n: page.stale_versions })}
+                              </span>
+                            ) : null}
                             <span className="shrink-0 opacity-70">{page.chars} ch</span>
                           </button>
                         );
@@ -816,10 +824,10 @@ export function ContextSection({ dark, projectId: _projectId, confirm, shellClas
                       onClick={() => publishWiki.mutate(wikiPublishSelection, {
                         onSuccess: (data) => {
                           setSelectedWikiFiles([]);
-                          const unsupported = data.results.filter((r) => r.action === "unsupported_update").length;
-                          if (isPlaneWiki && unsupported > 0) {
+                          const versioned = data.results.filter((r) => r.action === "created_new_version").length;
+                          if (isPlaneWiki && versioned > 0) {
                             const created = data.results.filter((r) => r.action === "created").length;
-                            toast.info(t("context.planeWikiPublishedPartial", { created, unsupported }));
+                            toast.info(t("context.planeWikiPublishedPartial", { created, versioned }));
                           } else {
                             toast.success(isPlaneWiki ? t("context.planeWikiPublished") : t("context.taigaWikiPublished"));
                           }

@@ -405,6 +405,96 @@ describe("plane direct API", () => {
     expect(JSON.parse(mockFetch.mock.calls[2][1].body)).toEqual({ labels: ["lbl-bug", "lbl-feature"] });
   });
 
+  // -------------------------------------------------------------------------
+  // Label list caching across calls (planeResolveLabelIds's module-level
+  // _labelCache, keyed per-project-UUID with a 2-minute TTL). Each test below
+  // uses a project UUID unique to it (not reused from other tests in this
+  // file) so the module-level cache from one test can't leak into another.
+  // -------------------------------------------------------------------------
+
+  it("resolves the same project's labels twice within the TTL window without re-listing — only one GET on /labels/", async () => {
+    const storyId1 = String(mintId("story-labelcache-a1"));
+    const storyId2 = String(mintId("story-labelcache-a2"));
+    mockFetch
+      // call 1: list, PATCH, refetch
+      .mockResolvedValueOnce(makeResponse(200, { results: [{ id: "lbl-bug", name: "bug" }], next_cursor: null }))
+      .mockResolvedValueOnce(makeResponse(200, {}))
+      .mockResolvedValueOnce(makeResponse(200, {
+        id: "story-labelcache-a1", name: "S1", sequence_id: 1, labels: [{ id: "lbl-bug", name: "bug" }], state: null, parent: null,
+      }))
+      // call 2: no list this time — PATCH, refetch only
+      .mockResolvedValueOnce(makeResponse(200, {}))
+      .mockResolvedValueOnce(makeResponse(200, {
+        id: "story-labelcache-a2", name: "S2", sequence_id: 2, labels: [{ id: "lbl-bug", name: "bug" }], state: null, parent: null,
+      }));
+
+    await planeUpdateStory("key", "my-team", "proj-labelcache-a", storyId1, { tags: ["bug"] }, "https://api.plane.so");
+    await planeUpdateStory("key", "my-team", "proj-labelcache-a", storyId2, { tags: ["bug"] }, "https://api.plane.so");
+
+    expect(mockFetch).toHaveBeenCalledTimes(5);
+    const labelListCalls = mockFetch.mock.calls.filter(
+      ([url, init]) => String(url).includes("/labels/") && (!init?.method || init.method === "GET"),
+    );
+    expect(labelListCalls).toHaveLength(1);
+  });
+
+  it("a newly-created label is picked up by a subsequent call without re-listing or re-creating", async () => {
+    const storyId1 = String(mintId("story-labelcache-b1"));
+    const storyId2 = String(mintId("story-labelcache-b2"));
+    mockFetch
+      // call 1: empty list -> "newlabel" not found -> create -> PATCH -> refetch
+      .mockResolvedValueOnce(makeResponse(200, { results: [], next_cursor: null }))
+      .mockResolvedValueOnce(makeResponse(201, { id: "lbl-new", name: "newlabel" }))
+      .mockResolvedValueOnce(makeResponse(200, {}))
+      .mockResolvedValueOnce(makeResponse(200, {
+        id: "story-labelcache-b1", name: "S1", sequence_id: 1, labels: [{ id: "lbl-new", name: "newlabel" }], state: null, parent: null,
+      }))
+      // call 2: same tag, same project — no list, no create, just PATCH + refetch
+      .mockResolvedValueOnce(makeResponse(200, {}))
+      .mockResolvedValueOnce(makeResponse(200, {
+        id: "story-labelcache-b2", name: "S2", sequence_id: 2, labels: [{ id: "lbl-new", name: "newlabel" }], state: null, parent: null,
+      }));
+
+    await planeUpdateStory("key", "my-team", "proj-labelcache-b", storyId1, { tags: ["newlabel"] }, "https://api.plane.so");
+    await planeUpdateStory("key", "my-team", "proj-labelcache-b", storyId2, { tags: ["newlabel"] }, "https://api.plane.so");
+
+    expect(mockFetch).toHaveBeenCalledTimes(6);
+    const labelListCalls = mockFetch.mock.calls.filter(
+      ([url, init]) => String(url).includes("/labels/") && (!init?.method || init.method === "GET"),
+    );
+    const labelCreateCalls = mockFetch.mock.calls.filter(
+      ([url, init]) => String(url).includes("/labels/") && init?.method === "POST",
+    );
+    expect(labelListCalls).toHaveLength(1);
+    expect(labelCreateCalls).toHaveLength(1);
+  });
+
+  it("caches per project UUID — two different projects each trigger their own /labels/ list GET", async () => {
+    const storyId1 = String(mintId("story-labelcache-c1"));
+    const storyId2 = String(mintId("story-labelcache-c2"));
+    mockFetch
+      .mockResolvedValueOnce(makeResponse(200, { results: [{ id: "lbl-bug", name: "bug" }], next_cursor: null }))
+      .mockResolvedValueOnce(makeResponse(200, {}))
+      .mockResolvedValueOnce(makeResponse(200, {
+        id: "story-labelcache-c1", name: "S1", sequence_id: 1, labels: [{ id: "lbl-bug", name: "bug" }], state: null, parent: null,
+      }))
+      .mockResolvedValueOnce(makeResponse(200, { results: [{ id: "lbl-bug2", name: "bug" }], next_cursor: null }))
+      .mockResolvedValueOnce(makeResponse(200, {}))
+      .mockResolvedValueOnce(makeResponse(200, {
+        id: "story-labelcache-c2", name: "S2", sequence_id: 2, labels: [{ id: "lbl-bug2", name: "bug" }], state: null, parent: null,
+      }));
+
+    await planeUpdateStory("key", "my-team", "proj-labelcache-c1", storyId1, { tags: ["bug"] }, "https://api.plane.so");
+    await planeUpdateStory("key", "my-team", "proj-labelcache-c2", storyId2, { tags: ["bug"] }, "https://api.plane.so");
+
+    const labelListCalls = mockFetch.mock.calls.filter(
+      ([url, init]) => String(url).includes("/labels/") && (!init?.method || init.method === "GET"),
+    );
+    expect(labelListCalls).toHaveLength(2);
+    expect(labelListCalls[0][0]).toContain("proj-labelcache-c1");
+    expect(labelListCalls[1][0]).toContain("proj-labelcache-c2");
+  });
+
   it("getProjectTasks filters work items to those with a parent set (Plane has no separate Task resource)", async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(200, {
       results: [

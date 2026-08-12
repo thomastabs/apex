@@ -235,6 +235,9 @@ export type ContextWikiPage = {
   last_modified?: string | null;
   source?: "apex" | "taiga" | "plane";
   is_custom?: boolean;
+  // Plane only: orphaned earlier versions left behind by the no-page-update
+  // workaround (see plane_wiki_service.py). Always 0/absent for Taiga.
+  stale_versions?: number;
 };
 
 export type ContextWikiStatusResponse = {

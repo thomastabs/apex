@@ -8,6 +8,7 @@
 import {
   isPlane401,
   isPlaneStateClosed,
+  PlaneVersionConflictError,
   planeCreateEpic,
   planeCreateProject,
   planeCreateStory,
@@ -55,9 +56,13 @@ const planeAdapter: ProjectManagementAdapter = {
     if (err instanceof Error) return `${action} failed: ${err.message}`;
     return `${action} failed.`;
   },
-  // Plane exposes no optimistic-concurrency field on work items (confirmed —
-  // see plane_integration_plan memory), so there is no 409 to detect.
-  isPmVersionConflict: () => false,
+  // Plane has no server-side optimistic-concurrency field (confirmed — see
+  // plane_integration_plan memory), so this isn't a real 409 the way Taiga's
+  // is — it's PlaneVersionConflictError, thrown client-side by an extra
+  // pre-write GET (see its docstring in plane-direct.ts). Recognizing it here
+  // is what plugs that soft check into the existing retry-once-then-refetch
+  // flow (use-phase3.ts / tasks-section.tsx) with zero UI changes.
+  isPmVersionConflict: (err) => err instanceof PlaneVersionConflictError,
   // CONFIRMED CORRECT against Plane's actual frontend source and docs
   // (phase 5d, see plane_integration_plan memory) — no longer an unverified
   // guess as earlier phases had flagged it. See plane-web-url.ts for the
@@ -92,10 +97,11 @@ const planeAdapter: ProjectManagementAdapter = {
   createEpic: (ctx: PmRequestContext, subject: string, description: string, tags: string[]) =>
     planeCreateEpic(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, subject, description, tags, ctx.baseUrl),
 
-  // version is a documented no-op for Plane — no optimistic-concurrency field
-  // exists on work items/epics/modules (confirmed, see plane_integration_plan).
-  updateEpic: (ctx: PmRequestContext, epicId: string, _version: string | number, fields) =>
-    planeUpdateEpic(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, epicId, fields, ctx.baseUrl),
+  // version now carries Plane's updated_at (soft check — see
+  // PlaneVersionConflictError's docstring in plane-direct.ts), not a real
+  // server-enforced field the way Taiga's numeric version is.
+  updateEpic: (ctx: PmRequestContext, epicId: string, version: string | number, fields) =>
+    planeUpdateEpic(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, epicId, fields, ctx.baseUrl, version ? String(version) : undefined),
 
   deleteEpic: (ctx: PmRequestContext, epicId: string) =>
     planeDeleteEpic(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, epicId, ctx.baseUrl),
@@ -106,8 +112,8 @@ const planeAdapter: ProjectManagementAdapter = {
   createStory: (ctx: PmRequestContext, epicId: string, subject: string, description: string, tags: string[], statusId?: string) =>
     planeCreateStory(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, epicId, subject, description, tags, statusId, ctx.baseUrl),
 
-  updateStory: (ctx: PmRequestContext, storyId: string, _version: string | number, fields) =>
-    planeUpdateStory(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, storyId, fields, ctx.baseUrl),
+  updateStory: (ctx: PmRequestContext, storyId: string, version: string | number, fields) =>
+    planeUpdateStory(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, storyId, fields, ctx.baseUrl, version ? String(version) : undefined),
 
   deleteStory: (ctx: PmRequestContext, storyId: string) =>
     planeDeleteStory(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, storyId, ctx.baseUrl),
@@ -140,8 +146,8 @@ const planeAdapter: ProjectManagementAdapter = {
   createTask: (ctx: PmRequestContext, storyId: string, subject: string, description: string, points?: number) =>
     planeCreateTask(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, storyId, subject, description, ctx.baseUrl, points),
 
-  updateTask: (ctx: PmRequestContext, taskId: string, _version: string | number, updates: { subject?: string; description?: string }) =>
-    planeUpdateTask(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, taskId, updates, ctx.baseUrl),
+  updateTask: (ctx: PmRequestContext, taskId: string, version: string | number, updates: { subject?: string; description?: string }) =>
+    planeUpdateTask(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, taskId, updates, ctx.baseUrl, version ? String(version) : undefined),
 
   deleteTask: (ctx: PmRequestContext, taskId: string) =>
     planeDeleteTask(ctx.token, requireWorkspaceSlug(ctx), ctx.projectId, taskId, ctx.baseUrl),

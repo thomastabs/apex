@@ -42,7 +42,7 @@ import type { TranslationKey } from "@/lib/i18n/translations";
  *  descriptions (Taiga's light serializer). Edit dialogs must hydrate from
  *  the detail endpoint — otherwise the textarea starts empty and saving
  *  silently wipes the real description. */
-function useDetailHydration<T extends { description?: string; version?: number | null }>(
+function useDetailHydration<T extends { description?: string; version?: number | string | null }>(
   kind: "epic" | "story",
   id: number,
   fetchDetail: () => Promise<T>,

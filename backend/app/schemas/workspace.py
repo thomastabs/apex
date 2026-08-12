@@ -114,6 +114,10 @@ class ContextWikiPageSchema(BaseModel):
     last_modified: str | None = None
     source: Literal["apex", "taiga", "plane"] = "apex"
     is_custom: bool = False
+    # Plane only: count of orphaned earlier versions left behind by the
+    # no-page-update-endpoint versioned-republish workaround (see
+    # plane_wiki_service module docstring). Always 0 for Taiga.
+    stale_versions: int = 0
 
 
 class ContextWikiStatusResponse(BaseModel):

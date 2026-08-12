@@ -648,7 +648,7 @@ export function useUpdateEpic() {
       fields,
     }: {
       epicId: number;
-      version: number;
+      version: number | string; // string for Plane (updated_at) — see Epic.version's comment in types.ts
       fields: { subject?: string; description?: string; tags?: string[]; status?: number };
     }) => updateEpic(context!, epicId, version, fields),
     onSuccess: () => {
@@ -671,7 +671,7 @@ export function useUpdateStory() {
       fields,
     }: {
       storyId: number;
-      version: number;
+      version: number | string; // string for Plane (updated_at) — see Epic.version's comment in types.ts
       fields: { subject?: string; description?: string; tags?: string[]; status?: string };
     }) => updateStory(context!, storyId, version, fields),
     onSuccess: () => {

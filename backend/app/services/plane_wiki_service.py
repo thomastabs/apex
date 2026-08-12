@@ -16,11 +16,16 @@ about the real gap rather than faking parity:
   project-scoped pages, the official Python SDK exposes only list/retrieve,
   and makeplane/plane#7319 is an open feature request literally titled "Add
   API Endpoints for Creating and Editing Pages") has NO update or delete
-  endpoint for pages. So `publish()` can create a new page once, but cannot
-  refresh an already-published one — republishing after an edit reports
-  `action: "unsupported_update"` rather than silently no-op'ing or guessing
-  at an undocumented PATCH that may not exist. This is a genuine Plane API
-  limitation, not a build gap — see docs/plane-integration.md.
+  endpoint for pages — that part is a permanent Plane API limitation, not
+  fixable here. What IS addressable: `publish()` no longer just refuses a
+  republish. It creates a new page titled `"<title> (vN)"` (N = one past the
+  highest existing version for that label) and reports
+  `action: "created_new_version"` — the file's Apex-tracked page moves
+  forward to the new one, the previous version is left in Plane, orphaned but
+  not silently lost (`status()`/`pull()` always resolve to whichever version
+  is newest). Genuinely NOT the same as a real update — old versions
+  accumulate in Plane and are only removable by hand — but real content still
+  reaches Plane on every publish instead of the caller being blocked outright.
 - Plane's page content field is `description_html` (rich-text HTML), not
   markdown. Apex-authored pages are round-tripped losslessly by wrapping the
   markdown source in an HTML-escaped `<pre>` block on publish and reversing
@@ -138,6 +143,37 @@ def _page_id(page: dict) -> str | None:
     return str(value) if isinstance(value, (str, int)) else None
 
 
+_VERSION_SUFFIX_RE = re.compile(r"^(?P<base>.+) \(v(?P<n>\d+)\)$")
+
+
+def _version_of(title: str, base: str) -> int | None:
+    """1 for an exact base-title match (the original, un-suffixed publish),
+    N for "<base> (vN)", or None if *title* doesn't belong to this base at
+    all. Powers the versioned-republish scheme (see module docstring) — every
+    page belonging to one Apex-managed label is found this way, not just an
+    exact-title match, so status()/pull() always resolve to the newest one
+    and old versions never leak into the "custom page" bucket."""
+    if title == base:
+        return 1
+    m = _VERSION_SUFFIX_RE.match(title)
+    if m and m.group("base") == base:
+        return int(m.group("n"))
+    return None
+
+
+def _managed_versions(pages: list[dict], label: str) -> list[tuple[int, dict]]:
+    """Every page (any version) belonging to *label*, newest first."""
+    base = wiki_title_for(label)
+    found: list[tuple[int, dict]] = []
+    for page in pages:
+        name = str(page.get("name", "")).strip()
+        v = _version_of(name, base)
+        if v is not None:
+            found.append((v, page))
+    found.sort(key=lambda pair: pair[0], reverse=True)
+    return found
+
+
 def _page_modified(page: dict) -> str | None:
     for key in ("updated_at", "created_at"):
         value = page.get(key)
@@ -173,21 +209,18 @@ def status(
 ) -> list[dict]:
     pages = _list_pages(plane_base, api_key, workspace_slug, project_id)
     context_files = list(context_files)
-    expected_titles = {wiki_title_for(label): (filename, label) for filename, label in context_files}
     matched_ids: set[str] = set()
-    by_title: dict[str, dict] = {}
-    for page in pages:
-        name = str(page.get("name", "")).strip()
-        if name in expected_titles and name not in by_title:
-            by_title[name] = page
 
     out: list[dict] = []
     for filename, label in context_files:
         title = wiki_title_for(label)
-        page = by_title.get(title)
-        page_id = _page_id(page) if page else None
-        if page_id:
-            matched_ids.add(page_id)
+        versions = _managed_versions(pages, label)
+        for _v, p in versions:
+            pid = _page_id(p)
+            if pid:
+                matched_ids.add(pid)
+        latest = versions[0][1] if versions else None
+        page_id = _page_id(latest) if latest else None
         # List responses never include content (confirmed against Plane's own
         # API reference) — a real per-page fetch is required for char counts.
         # Bounded: context_files is a small, fixed set (~10-15 files).
@@ -197,12 +230,16 @@ def status(
             "label": label,
             "slug": wiki_slug_for(filename),
             "title": title,
-            "exists": page is not None,
+            "exists": latest is not None,
             "wiki_id": page_id,
             "chars": len(content),
-            "last_modified": _page_modified(page) if page else None,
+            "last_modified": _page_modified(latest) if latest else None,
             "source": "apex",
             "is_custom": False,
+            # Orphaned earlier versions left behind by the no-update-endpoint
+            # workaround (see module docstring) — surfaced so the UI can hint
+            # at manual cleanup, never auto-deleted.
+            "stale_versions": max(len(versions) - 1, 0),
         })
     # Custom (non-Apex) pages — surfaced but NOT individually fetched for
     # content (unbounded set, unlike the managed list above); chars stays 0
@@ -234,25 +271,29 @@ def publish(
 ) -> list[dict]:
     """context_files: iterable of (filename, label, content)."""
     pages = _list_pages(plane_base, api_key, workspace_slug, project_id)
-    by_title = {str(p.get("name", "")).strip(): p for p in pages}
     results: list[dict] = []
     for filename, label, content in context_files:
-        title = wiki_title_for(label)
+        base_title = wiki_title_for(label)
         if not content.strip():
             results.append({"filename": filename, "slug": wiki_slug_for(filename), "action": "skipped", "ok": True, "detail": "empty context file"})
             continue
-        existing = by_title.get(title)
-        if existing:
-            # Confirmed real Plane API limitation (see module docstring) — no
-            # update endpoint exists to publish over it.
-            results.append({
-                "filename": filename,
-                "slug": wiki_slug_for(filename),
-                "action": "unsupported_update",
-                "ok": False,
-                "detail": "Already published to Plane and Plane's API has no page-update endpoint — delete the page in Plane to republish.",
-            })
-            continue
+        existing_versions = _managed_versions(pages, label)
+        if existing_versions:
+            # No update endpoint exists (see module docstring) — publish as a
+            # new, higher-numbered version instead of refusing outright. The
+            # prior version is left in Plane, orphaned but not lost.
+            next_n = existing_versions[0][0] + 1
+            title = f"{base_title} (v{next_n})"
+            action_on_success = "created_new_version"
+            detail_on_success = (
+                f"Plane has no page-update endpoint, so this published as version {next_n} "
+                f"instead of overwriting. {len(existing_versions)} earlier version(s) still exist "
+                f"in Plane — delete them there manually if you don't need them."
+            )
+        else:
+            title = base_title
+            action_on_success = "created"
+            detail_on_success = ""
         created = _request(
             "POST", f"{_pages_url(plane_base, workspace_slug, project_id)}/", api_key,
             json={"name": title, "description_html": _wrap_markdown(content)},
@@ -261,9 +302,9 @@ def publish(
         results.append({
             "filename": filename,
             "slug": wiki_slug_for(filename),
-            "action": "created" if page_id else "skipped",
+            "action": action_on_success if page_id else "skipped",
             "ok": page_id is not None,
-            "detail": "" if page_id else "Plane did not return a page id for the created page",
+            "detail": detail_on_success if page_id else "Plane did not return a page id for the created page",
         })
     return results
 

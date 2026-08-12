@@ -328,8 +328,18 @@ These are gaps not yet closed, not abandoned — the working assumption is full
 Taiga parity (see "Why a second PM tool" above); anything here is either not
 yet built or a genuine Plane API limitation, called out separately.
 
-- **Plane page update/delete** (real API limitation, not a build gap) — see
-  "Pages sync" above; Plane's public API has no endpoint for either.
+- **Plane page update/delete** (real API limitation — the endpoint genuinely
+  doesn't exist, confirmed against developers.plane.so; not a build gap).
+  **Mitigated 2026-08-12**: `publish()` no longer refuses a republish. It
+  creates a new page titled `"<title> (vN)"` (`action: "created_new_version"`)
+  and `status()`/`pull()` always resolve to whichever version is newest — the
+  file's Apex-tracked page moves forward automatically. The old version is
+  left orphaned in Plane (not deleted, not lost) and surfaced via a
+  `stale_versions` count in the status response / a small badge in the
+  sidebar, so the accumulation is visible rather than silent. Still genuinely
+  NOT a real update — old versions pile up and can only be removed by hand in
+  Plane — but content now actually reaches Plane on every publish instead of
+  the caller being blocked. See `plane_wiki_service.py`'s module docstring.
 - **Self-hosted Epics-gate status code** — **RESOLVED**, no longer a
   limitation. Self-hosted Community Edition answers `404` on the Epics
   endpoint (not Cloud's `402 Payment Required` — a different status,
@@ -343,10 +353,25 @@ yet built or a genuine Plane API limitation, called out separately.
   testing" above), but no Plane feature (Project CRUD, epics/stories,
   members/invites, Pages sync) has been exercised through Apex's own UI
   against a self-hosted instance yet — needs a signed-in click-through.
+- **No task-level server-side optimistic concurrency** (real Plane API
+  limitation — no version/If-Match field on work items, epics, or modules,
+  confirmed against developers.plane.so; Taiga's numeric `version` field has
+  no Plane equivalent). **Mitigated 2026-08-12**: a soft, client-side check
+  (`PlaneVersionConflictError` in `plane-direct.ts`) compares a record's
+  `updated_at` at write time against what the caller last read, via an extra
+  pre-write GET, and throws if it changed — recognized by
+  `planeAdapter.isPmVersionConflict()`, which plugs it into the exact same
+  retry-once-then-refetch flow Taiga's real 409 already drives. Advisory
+  only, not a real lock — a write landing between that GET and the PATCH
+  still wins silently — but it catches the common two-tabs-open race that was
+  previously undetectable at all.
 - **Labels list has no server-side name filter** (real Plane API limitation,
-  not something Apex can build around) — the current paginate-and-match-
-  client-side approach is correct and live-tested; only a potential
-  optimization for unusually large label sets.
+  not something Apex can build around) — the paginate-and-match-client-side
+  approach is correct and live-tested. **Mitigated 2026-08-12**: the full
+  label list is now cached per-project (2-minute TTL, updated in place on
+  every get-or-create) instead of being re-fetched on every single
+  story/epic/task write that carries tags — cuts the redundant full-list GET
+  on repeated saves, though the underlying "no filter" gap is unchanged.
 
 ## Key files
 

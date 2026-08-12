@@ -179,14 +179,16 @@ def test_publish_creates_new_page_with_wrapped_escaped_content(monkeypatch):
     assert svc._unwrap_markdown(post_call[2]["description_html"]) == content
 
 
-def test_publish_reports_unsupported_update_for_existing_page_no_write_call(monkeypatch):
+def test_publish_creates_versioned_page_for_already_published_file(monkeypatch):
     calls = []
 
     def fake_request(method, url, api_key, *, json=None, ignore_status=frozenset()):
-        calls.append((method, url))
+        calls.append((method, url, json))
         if method == "GET" and url == _list_url():
             return {"results": [{"id": "11", "name": "Apex: Project Concept"}]}
-        raise AssertionError(f"unexpected write call {method} {url}")
+        if method == "POST" and url == _create_url():
+            return {"id": "77"}
+        raise AssertionError(f"unexpected call {method} {url}")
 
     monkeypatch.setattr(svc, "_request", fake_request)
 
@@ -199,15 +201,40 @@ def test_publish_reports_unsupported_update_for_existing_page_no_write_call(monk
         {
             "filename": "project-concept.md",
             "slug": svc.wiki_slug_for("project-concept.md"),
-            "action": "unsupported_update",
-            "ok": False,
+            "action": "created_new_version",
+            "ok": True,
             "detail": results[0]["detail"],
         },
     ]
     assert "no page-update endpoint" in results[0]["detail"]
-    # Only the read (list) call happened — no PATCH/PUT/POST attempted.
-    assert calls == [("GET", _list_url())]
-    assert all(method == "GET" for method, _url in calls)
+    assert "version 2" in results[0]["detail"]
+    post_call = next(c for c in calls if c[0] == "POST")
+    # No collision with the existing "Apex: Project Concept" page — the old
+    # one is left untouched, orphaned but not overwritten or deleted.
+    assert post_call[2]["name"] == "Apex: Project Concept (v2)"
+
+
+def test_publish_versions_increment_past_the_highest_existing_version(monkeypatch):
+    def fake_request(method, url, api_key, *, json=None, ignore_status=frozenset()):
+        if method == "GET" and url == _list_url():
+            return {"results": [
+                {"id": "11", "name": "Apex: Project Concept"},
+                {"id": "12", "name": "Apex: Project Concept (v2)"},
+                {"id": "13", "name": "Apex: Project Concept (v4)"},  # a gap — still respected as the max
+            ]}
+        if method == "POST" and url == _create_url():
+            return {"id": "99"}
+        raise AssertionError(f"unexpected call {method} {url}")
+
+    monkeypatch.setattr(svc, "_request", fake_request)
+
+    results = svc.publish(
+        _BASE, "key", _WORKSPACE, _PROJECT,
+        [("project-concept.md", "Project Concept", "new content")],
+    )
+
+    assert results[0]["action"] == "created_new_version"
+    assert "3 earlier version(s)" in results[0]["detail"]
 
 
 def test_publish_skips_empty_context_file_without_api_call(monkeypatch):

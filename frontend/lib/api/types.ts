@@ -39,7 +39,12 @@ export type Epic = {
   ref: number;
   subject: string;
   description: string;
-  version?: number | null;
+  // number for Taiga (real optimistic-concurrency field); string for Plane
+  // (updated_at ISO timestamp, a soft/advisory check only — see
+  // PlaneVersionConflictError in plane-direct.ts). Opaque to every caller:
+  // round-tripped straight back into updateEpic's version param, never
+  // compared or arithmetic'd on here.
+  version?: number | string | null;
   tags: string[];
   // Plane's real epic (or Module, on the Epics-unavailable fallback) id — a
   // UUID, so `id` above is a synthetic int minted by plane-adapter.ts for
@@ -53,7 +58,8 @@ export type Story = {
   ref: number;
   subject: string;
   description: string;
-  version?: number | null;
+  // See Epic.version's comment — same number(Taiga)/string(Plane) split.
+  version?: number | string | null;
   status?: number | string | null;
   tags: string[];
   epic_id?: number | null;
