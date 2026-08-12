@@ -13,7 +13,15 @@ marked task.
 every export path and screen reader, and cannot be mistaken for a rating.
 
 **Before handing this out:**
-- Replace `<TOOL LINK>`, `<TLX FORM LINK>`, `<SUS FORM LINK>`, `<UX FORM LINK>`.
+- Replace all nine placeholders per language: `<TOOL LINK>`, the six per-task
+  links `<TLX LINK T3>`, `<TLX LINK T4>`, `<TLX LINK T6>`, `<TLX LINK T7>`,
+  `<TLX LINK T8>`, `<TLX LINK T9>`, then `<SUS FORM LINK>` and
+  `<UX FORM LINK>`. Eighteen substitutions across both languages.
+- **The six TLX links are prefilled links, not one link repeated.** Each has its
+  task already selected, generated per `FORMS-BUILD-SHEET.md`. Pasting the same
+  bare form link into all six slots re-creates exactly the failure the prefilled
+  links exist to prevent: a participant selecting the wrong task, or none, and
+  six rows that cannot be reassembled into the workload matrix.
 - Capture the reference screenshots (slots marked below). They are not optional:
   in an unmoderated study they are the only thing preventing a participant from
   silently doing the wrong thing for ten minutes.
@@ -51,9 +59,17 @@ The session takes about 60 minutes in total.
 
 ### Your form links - keep this document open throughout
 
+**Each `[TLX]` task has its own link.** Use the one printed in that task, not
+the one above or below it - each link already knows which task it belongs to.
+
 | Form | Link |
 |---|---|
-| **NASA-TLX form** (after every `[TLX]` task) | `<TLX FORM LINK>` |
+| **Workload form, Task 3** | `<TLX LINK T3>` |
+| **Workload form, Task 4** | `<TLX LINK T4>` |
+| **Workload form, Task 6** | `<TLX LINK T6>` |
+| **Workload form, Task 7** | `<TLX LINK T7>` |
+| **Workload form, Task 8** | `<TLX LINK T8>` |
+| **Workload form, Task 9** | `<TLX LINK T9>` |
 | **SUS form** (end of session) | `<SUS FORM LINK>` |
 | **Apex UX form** (end of session) | `<UX FORM LINK>` |
 
@@ -97,8 +113,7 @@ the tool asks you, produce the Gherkin scenarios, and lock them.
 *Reference screenshot:* `[SCREENSHOT: Phase 1 with generated Gherkin and the
 assumptions panel visible]`
 
-`->` **Stop here. Open the NASA-TLX form and fill it in for Task 3 before
-continuing.**
+`->` **Stop here. Open the workload form for Task 3 - `<TLX LINK T3>` - and fill it in before continuing.**
 
 ---
 
@@ -111,8 +126,7 @@ you disagree with, and lock the design.
 *Reference screenshot:* `[SCREENSHOT: Phase 2 showing Technical Design and the
 collapsed Visual Design group]`
 
-`->` **Stop here. Open the NASA-TLX form and fill it in for Task 4 before
-continuing.**
+`->` **Stop here. Open the workload form for Task 4 - `<TLX LINK T4>` - and fill it in before continuing.**
 
 ---
 
@@ -139,8 +153,7 @@ when you open it.
 *Reference screenshot:* `[SCREENSHOT: Phase 3 packs with the task dependency
 graph]`
 
-`->` **Stop here. Open the NASA-TLX form and fill it in for Task 6 before
-continuing.**
+`->` **Stop here. Open the workload form for Task 6 - `<TLX LINK T6>` - and fill it in before continuing.**
 
 ---
 
@@ -152,8 +165,7 @@ QA has passed.
 *Reference screenshot:* `[SCREENSHOT: Phase 4 test plan with the QA sign-off
 control]`
 
-`->` **Stop here. Open the NASA-TLX form and fill it in for Task 7 before
-continuing.**
+`->` **Stop here. Open the workload form for Task 7 - `<TLX LINK T7>` - and fill it in before continuing.**
 
 ---
 
@@ -165,8 +177,7 @@ Tell the form what happened, in your own words.
 
 *Reference screenshot:* `[SCREENSHOT: Phase 5 deployment gate]`
 
-`->` **Stop here. Open the NASA-TLX form and fill it in for Task 8 before
-continuing.**
+`->` **Stop here. Open the workload form for Task 8 - `<TLX LINK T8>` - and fill it in before continuing.**
 
 ---
 
@@ -177,8 +188,7 @@ Download them and confirm that the files opened correctly.
 
 *Reference screenshot:* `[SCREENSHOT: export or download-all control]`
 
-`->` **Stop here. Open the NASA-TLX form and fill it in for Task 9 before
-continuing.**
+`->` **Stop here. Open the workload form for Task 9 - `<TLX LINK T9>` - and fill it in before continuing.**
 
 ---
 
@@ -237,9 +247,18 @@ A sessão demora cerca de 60 minutos no total.
 
 ### As suas ligações - mantenha este documento aberto
 
+**Cada tarefa `[TLX]` tem a sua própria ligação.** Utilize a que está indicada
+nessa tarefa, e não a de cima ou a de baixo - cada ligação já sabe a que tarefa
+pertence.
+
 | Formulário | Ligação |
 |---|---|
-| **Formulário NASA-TLX** (após cada tarefa `[TLX]`) | `<TLX FORM LINK>` |
+| **Formulário de carga de trabalho, Tarefa 3** | `<TLX LINK T3>` |
+| **Formulário de carga de trabalho, Tarefa 4** | `<TLX LINK T4>` |
+| **Formulário de carga de trabalho, Tarefa 6** | `<TLX LINK T6>` |
+| **Formulário de carga de trabalho, Tarefa 7** | `<TLX LINK T7>` |
+| **Formulário de carga de trabalho, Tarefa 8** | `<TLX LINK T8>` |
+| **Formulário de carga de trabalho, Tarefa 9** | `<TLX LINK T9>` |
 | **Formulário SUS** (fim da sessão) | `<SUS FORM LINK>` |
 | **Formulário UX do Apex** (fim da sessão) | `<UX FORM LINK>` |
 
@@ -277,8 +296,7 @@ recuperar uma palavra-passe esquecida por email.**
 Usando a Fase 1, escreva esse requisito por palavras suas, responda às perguntas
 que a ferramenta lhe fizer, produza os cenários Gherkin e bloqueie-os.
 
-`->` **Pare aqui. Abra o formulário NASA-TLX e preencha-o para a Tarefa 3 antes
-de continuar.**
+`->` **Pare aqui. Abra o formulário de carga de trabalho da Tarefa 3 - `<TLX LINK T3>` - e preencha-o antes de continuar.**
 
 ---
 
@@ -288,8 +306,7 @@ Continue com a mesma funcionalidade para a Fase 2. Gere o design técnico e o
 design visual, reveja o que a ferramenta assumiu por si, altere aquilo de que
 discordar e bloqueie o design.
 
-`->` **Pare aqui. Abra o formulário NASA-TLX e preencha-o para a Tarefa 4 antes
-de continuar.**
+`->` **Pare aqui. Abra o formulário de carga de trabalho da Tarefa 4 - `<TLX LINK T4>` - e preencha-o antes de continuar.**
 
 ---
 
@@ -312,8 +329,7 @@ feita em primeiro lugar.
 Escreva o nome dessa tarefa, e uma frase a explicar porquê, no formulário
 NASA-TLX quando o abrir.
 
-`->` **Pare aqui. Abra o formulário NASA-TLX e preencha-o para a Tarefa 6 antes
-de continuar.**
+`->` **Pare aqui. Abra o formulário de carga de trabalho da Tarefa 6 - `<TLX LINK T6>` - e preencha-o antes de continuar.**
 
 ---
 
@@ -322,8 +338,7 @@ de continuar.**
 Gere um plano de testes para a funcionalidade, reveja-o e registe que o QA foi
 aprovado.
 
-`->` **Pare aqui. Abra o formulário NASA-TLX e preencha-o para a Tarefa 7 antes
-de continuar.**
+`->` **Pare aqui. Abra o formulário de carga de trabalho da Tarefa 7 - `<TLX LINK T7>` - e preencha-o antes de continuar.**
 
 ---
 
@@ -334,8 +349,7 @@ Agora tente colocar em produção uma funcionalidade **diferente**, a que se cha
 
 Diga no formulário o que aconteceu, por palavras suas.
 
-`->` **Pare aqui. Abra o formulário NASA-TLX e preencha-o para a Tarefa 8 antes
-de continuar.**
+`->` **Pare aqui. Abra o formulário de carga de trabalho da Tarefa 8 - `<TLX LINK T8>` - e preencha-o antes de continuar.**
 
 ---
 
@@ -345,8 +359,7 @@ Exporte os artefactos que a ferramenta produziu para a funcionalidade de
 recuperação de palavra-passe. Descarregue-os e confirme que os ficheiros abriram
 correctamente.
 
-`->` **Pare aqui. Abra o formulário NASA-TLX e preencha-o para a Tarefa 9 antes
-de continuar.**
+`->` **Pare aqui. Abra o formulário de carga de trabalho da Tarefa 9 - `<TLX LINK T9>` - e preencha-o antes de continuar.**
 
 ---
 

@@ -10,13 +10,15 @@ and the study is ready to pilot.
 > while clicking. This file stays the plan and the master TODO; that one is the
 > build sheet.
 
-Four forms. The task script links to three of them; the fourth is completed
-before the script is opened.
+Four instruments, built as **eight forms** - each one in EN and PT, since the
+two languages are strictly two instruments and must not be pooled. The task
+script links to three of them; the fourth is completed before the script is
+opened.
 
 | # | Form | When | Times submitted |
 |---|---|---|---|
 | F0 | Consent and demographics | before anything | once |
-| F1 | Raw NASA-TLX | after tasks 3, 4, 6, 7, 8, 9 | **six times** |
+| F1 | Raw NASA-TLX | after tasks 3, 4, 6, 7, 8, 9 | **six times**, one prefilled link per task |
 | F2 | SUS | after task 9 | once |
 | F3 | Apex UX | after SUS | once |
 
@@ -45,14 +47,18 @@ before the script is opened.
 5. Build F0, F1, F2, F3 as specified below.
 6. Test-submit every form once yourself. Open the response spreadsheet and
    check the column headers are usable. Delete the test rows.
-7. Generate six prefilled F1 links, one per task, so the participant does not
-   retype the task name. Google Forms: three-dot menu, "Get pre-filled link",
-   set the task field, copy the URL. Paste each into the matching task in the
-   script.
+7. Generate six prefilled F1 links per language, twelve in total, one per task,
+   so the participant does not retype the task name. Google Forms: three-dot
+   menu, "Get pre-filled link", set the task field, copy the URL. Paste each
+   into the matching `<TLX LINK T3>`..`<TLX LINK T9>` slot in the script. Do not
+   edit F1 after generating them; editing can invalidate the entry IDs baked
+   into the URLs.
 8. Seed the demo project. Confirm `Export board to CSV` exists and has **never**
    passed QA. Task 8 does nothing without it.
 9. Capture the nine reference screenshots from the seeded project.
-10. Fill the four placeholder links into `task-script.md` and export it to PDF.
+10. Fill all eighteen placeholder links into `task-script.md` - nine per
+    language: the tool link, the six per-task TLX links, the SUS link and the UX
+    link - then export it to PDF.
 11. Print participant code cards: code, sign-in credentials, GitHub repo URL,
     PAT.
 

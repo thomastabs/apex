@@ -198,18 +198,35 @@ that path with a real user, which no automated test does.
 **Decision: use Raw TLX (unweighted).** Justification for the chapter:
 
 - The weighted procedure adds 15 pairwise comparisons. Under per-task
-  administration that is 15 comparisons **times six tasks**, which is not
-  survivable in a 60-minute unmoderated session.
-- Raw TLX correlates highly with weighted TLX and is the dominant form in
-  software-tool evaluation.
+  administration that is 15 comparisons **times six tasks**, or ninety per
+  participant, which is not survivable in a 60-minute unmoderated session.
 - The weights would have to be either collected once and applied to all six
   tasks, which assumes the participant's priorities do not change between
   phases, or collected six times, which nobody will complete. Neither is
   attractive; Raw TLX avoids the choice.
+- Weights earn their cost when workload is compared **across conditions**, since
+  their purpose is to make aggregates commensurable between raters. This
+  evaluation has a single condition, so there is nothing for them to
+  discriminate between. They would also put each participant's aggregate on a
+  slightly different scale, which adds variance to an N of about twelve in
+  exchange for nothing.
+- **The literature does not favour weighting.** Reviewing 550 studies twenty
+  years after the instrument's publication, Hart records that dropping the
+  weighting is the most common modification made to the NASA-TLX, and that
+  across the 29 studies directly comparing the two versions the Raw variant was
+  found more sensitive, less sensitive, or equally sensitive depending on the
+  study - no consistent advantage either way (Hart, 2006; `Hart:2006TLX`). This is the
+  strongest of the four arguments, because it turns the decision from "the
+  weighted version was impractical for us" into "the weighted version buys
+  nothing reliable".
+- What is given up: Raw aggregates are not directly comparable to weighted
+  aggregates published elsewhere. This costs almost nothing here, since the
+  six-subscale profile is the primary result and the subscale scores are
+  identical under both versions - weighting affects only how they are combined.
 
-Chapter 9's `\todo` at `sec:tlx` says the justification matters more than the
-choice. This is the justification. Report it as "Raw TLX" explicitly, never as
-"NASA-TLX" unqualified.
+**Written into Chapter 9 `sec:tlx` 2026-08-12**, replacing the writing prompt
+that used to sit there. Report it as "Raw TLX" explicitly, never as "NASA-TLX"
+unqualified.
 
 ### The custom questionnaire is not a validated instrument
 
@@ -358,8 +375,10 @@ participant inverts a sixth of the data set.
 ## 7. Bibliography entries - ADDED 2026-08-11
 
 All seven are now in `Bibliography.bib` and cited from Chapter 9, and the build
-was reverified afterwards (87 pages, 0 errors, 0 undefined references or
-citations). Kept here as the record of what was added and where each is used.
+was reverified afterwards. Kept here as the record of what was added and where
+each is used. Page counts move with every chapter written, so they are recorded
+in the commit messages rather than here; the current build is verified at each
+change with 0 errors and 0 undefined references or citations.
 
 | Key | Used for |
 |---|---|
@@ -369,7 +388,7 @@ citations). Kept here as the record of what was added and where each is used.
 | `Sauro:2016QUANT` | curved grading scale, small-sample reporting |
 | `Lewis:2009SUS` | Usability and Learnability sub-scales |
 | `Hart:1988TLX` | the NASA-TLX instrument itself |
-| `Hart:2006TLX` | the Raw TLX variant |
+| `Hart:2006TLX` | the Raw TLX variant, and the twenty-year review finding that it has no consistent sensitivity disadvantage against the weighted version |
 
 ```bibtex
 @incollection{Brooke:1996SUS,
@@ -453,8 +472,11 @@ Note the article title capitalises "validation" lowercase in the original.
 - [x] PT SUS decided: validated European Portuguese version, Martins et al. 2015
 - [x] Martins et al. obtained; the ten PT items transcribed verbatim into
       `instrument-sus.md` and the provisional translation deleted
-- [x] Bibliography entries added and the build reverified (87 pages, 0 errors,
-      0 undefined references or citations)
+- [x] Bibliography entries added and the build reverified (0 errors, 0 undefined
+      references or citations)
+- [x] `sec:tlx` written 2026-08-12: Raw-variant justification including Hart's
+      review finding, both instrument deviations disclosed together, anchoring
+      and fatigue carried into `sec:threats`
 - [x] Sauro and Lewis curved grading scale boundaries verified 2026-08-12
       against two independent reproductions, one of them by a co-author of the
       scale. Every band confirmed; percentile ranges added. See
@@ -471,8 +493,9 @@ Note the article title capitalises "validation" lowercase in the original.
       check at the end of that file is the test-submit procedure, and it must be
       run in full before the pilot
 - [ ] All nine reference screenshots captured from a seeded project
-- [ ] `task-script.md` exported to the participant-facing format with the four
-      placeholder links filled in
+- [ ] `task-script.md` exported to the participant-facing format with all
+      eighteen placeholder links filled in - nine per language: the tool link,
+      six per-task prefilled TLX links, the SUS link and the UX link
 - [ ] Participant code cards printed
 - [ ] Pilot run with **one** participant, not counted in results, to time the
       script and catch broken instructions. Six TLX submissions must come back

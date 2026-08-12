@@ -37,9 +37,11 @@ Universidade de Lisboa.
 **Contact:** tomassantostaborda@tecnico.ulisboa.pt
 
 **What this involves.** You will use a software tool for about 60 minutes to
-complete a set of predefined tasks, thinking aloud as you go. Afterwards you
-will fill in three short questionnaires, taking about 20 minutes. You may
-optionally be invited to a separate interview of 30 to 45 minutes.
+complete nine predefined tasks, thinking aloud as you go. After six of those
+tasks you will fill in a short workload questionnaire, which takes about a
+minute each time. At the end of the session you will fill in two further short
+questionnaires, taking about 20 minutes in total. You may optionally be invited
+to a separate interview of 30 to 45 minutes.
 
 **What is being tested.** The tool and the process behind it are being tested,
 not you. There is no way for you to perform badly. Difficulties you have are
@@ -91,9 +93,11 @@ Universidade de Lisboa.
 **Contacto:** tomassantostaborda@tecnico.ulisboa.pt
 
 **Em que consiste.** Vai utilizar uma ferramenta de software durante cerca de 60
-minutos para realizar um conjunto de tarefas predefinidas, verbalizando o seu
-raciocínio. Depois preencherá três questionários curtos, cerca de 20 minutos.
-Poderá ainda ser convidado para uma entrevista separada de 30 a 45 minutos.
+minutos para realizar nove tarefas predefinidas, verbalizando o seu raciocínio.
+Depois de seis dessas tarefas preencherá um questionário curto sobre a carga de
+trabalho, que demora cerca de um minuto de cada vez. No fim da sessão
+preencherá mais dois questionários curtos, cerca de 20 minutos no total. Poderá
+ainda ser convidado para uma entrevista separada de 30 a 45 minutos.
 
 **O que está a ser testado.** Está a ser testada a ferramenta e o processo
 subjacente, não o participante. Não é possível ter um mau desempenho. As
@@ -177,10 +181,11 @@ facilitator accidentally teaches the participant the interface.
 
 > Thank you for taking part. This will take about 80 minutes.
 >
-> I am going to ask you to complete six tasks in a tool called Apex. I want to
-> be clear that we are testing the tool, not you. If something is confusing or
-> you cannot find something, that is exactly what I need to know. There is no
-> way for you to get this wrong.
+> I am going to ask you to complete nine tasks in a tool called Apex, and after
+> six of them a short workload questionnaire. I want to be clear that we are
+> testing the tool, not you. If something is confusing or you cannot find
+> something, that is exactly what I need to know. There is no way for you to get
+> this wrong.
 >
 > Please think aloud as you work. Say what you are looking at, what you expect
 > to happen, and what you are trying to do. If you go quiet I will ask you what

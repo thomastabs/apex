@@ -4,9 +4,29 @@ Source instrument: Hart and Staveland (1988); Raw TLX variant discussed in Hart
 (2006). Six subscales.
 
 **Variant used: Raw TLX (unweighted).** The 15 pairwise weighting comparisons
-are **not** administered. Justification is in `EVALUATION-PLAN.md` section 4 and
-must appear in Chapter 9 - reporting an unweighted score as plain "NASA-TLX" is
-the error to avoid. Always write "Raw TLX".
+are **not** administered. Full justification is in `EVALUATION-PLAN.md`
+section 4, and it is written into Chapter 9 `sec:tlx` as of 2026-08-12.
+Reporting an unweighted score as plain "NASA-TLX" is the error to avoid. Always
+write "Raw TLX".
+
+The short form of the argument, in the order the arguments actually carry
+weight:
+
+1. **The literature does not favour weighting.** Hart's twenty-year review of
+   550 studies records that dropping the weighting is the most common
+   modification made to the instrument, and that across the 29 studies directly
+   comparing the two versions the Raw variant was found more sensitive, less
+   sensitive, or equally sensitive depending on the study - no consistent
+   advantage either way (Hart, 2006).
+2. **Weights only earn their cost across conditions.** Their purpose is to make
+   aggregates commensurable between raters when conditions are compared. This
+   evaluation has one condition.
+3. **Ninety comparisons per participant.** Fifteen pairwise comparisons times
+   six tasks, on top of 36 ratings, inside a 60-minute unmoderated session.
+4. **The subscale scores are identical either way.** Weighting affects only how
+   they are combined into an aggregate, and the six-subscale profile is this
+   evaluation's primary result. What is given up is comparability of the
+   *aggregate* to weighted aggregates published elsewhere.
 
 ## Administration: per task, not per session
 

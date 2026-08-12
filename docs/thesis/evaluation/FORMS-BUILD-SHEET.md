@@ -282,12 +282,20 @@ invalidate the entry IDs baked into the URLs.
    other field empty.
 3. **Get link**, then **Copy link**.
 4. Repeat for tasks 4, 6, 7, 8 and 9.
-5. Paste each into the matching task block in `task-script.md`, replacing the
-   `<TLX FORM LINK>` placeholder in that task.
-6. Repeat all six for F1-PT.
+5. Paste each into the matching slot in `task-script.md`: `<TLX LINK T3>`,
+   `<TLX LINK T4>`, `<TLX LINK T6>`, `<TLX LINK T7>`, `<TLX LINK T8>`,
+   `<TLX LINK T9>`. Each appears **twice** per language - once in the form-links
+   table under "Before You Begin" and once in the stop instruction at the end of
+   that task - so both copies must be replaced.
+6. Repeat all six for F1-PT, against the PT half of the script.
 
-Twelve links in total. Open each one and confirm the task field arrives
-pre-selected before you export the script to PDF.
+Twelve links in total, twenty-four substitutions. Open each one and confirm the
+task field arrives pre-selected before you export the script to PDF.
+
+**Do not paste the same bare form link into all six slots.** That re-creates the
+exact failure the prefilled links exist to prevent: the participant picks the
+wrong task, or none, and their six rows cannot be reassembled into the workload
+matrix.
 
 ---
 
