@@ -24,6 +24,7 @@ HERE = Path(__file__).resolve().parent
 # Order matters: the TODO comes first so the reader lands on what to do next.
 PACKAGE = [
     ("FORMS-BUILD-GUIDE.md", "Forms build guide and master TODO"),
+    ("FORMS-BUILD-SHEET.md", "Google Forms build sheet"),
     ("EVALUATION-PLAN.md", "Evaluation plan"),
     ("task-set.md", "Task set, internal notes"),
     ("task-script.md", "Task script"),

@@ -185,7 +185,25 @@ comparable to studies using the original scale."*
 Do not silently rescale and report it as NASA-TLX. That is the sort of quiet
 deviation that, once noticed in a viva, casts doubt on everything else.
 
-### 3. Anchors on every item
+### 3. Item order as administered
+
+**Decision: Performance is administered last, not fourth.** The published order
+is Mental, Physical, Temporal, Performance, Effort, Frustration; the forms built
+from `FORMS-BUILD-SHEET.md` use Mental, Physical, Temporal, Effort, Frustration,
+Performance.
+
+The reason is the reversed anchors. Meeting a backwards scale in the middle of
+five forward ones, with nobody present to explain it, is the most likely way an
+unmoderated participant inverts a sixth of the data set. Placing it last means
+the reversal is encountered once, at the end, immediately after its own warning.
+
+Scoring is unaffected - Raw TLX is an unweighted mean, so order does not enter
+the arithmetic. It is still a departure from the instrument as published, so
+**state it in Chapter 9 in the same sentence as the response-scale deviation.**
+Reordering is a much smaller deviation than rescaling, but the two should be
+disclosed together rather than one being mentioned and the other not.
+
+### 4. Anchors on every item
 
 Repeat the subscale description and both anchor words on every question. In an
 unmoderated study nobody is present to explain that Performance runs backwards,

@@ -432,12 +432,19 @@ Note the article title capitalises "validation" lowercase in the original.
       `instrument-sus.md` and the provisional translation deleted
 - [x] Bibliography entries added and the build reverified (87 pages, 0 errors,
       0 undefined references or citations)
+- [x] Sauro and Lewis curved grading scale boundaries verified 2026-08-12
+      against two independent reproductions, one of them by a co-author of the
+      scale. Every band confirmed; percentile ranges added. See
+      `instrument-sus.md`, "Verification status of these boundaries". The book's
+      page locator is still unverified, so cite the book without one
 - [ ] Supervisor sign-off on the task set and the session length
 - [ ] Ethics/consent route confirmed with the supervisor
 - [ ] Arm split confirmed, or the moderated arm dropped
 - [ ] TLX response scale decided and the deviation wording drafted
-- [ ] Three forms built: TLX (with the task selector and participant code first),
-      SUS, UX. Test-submit each one and check the CSV export column names
+- [ ] Eight forms built - consent/demographics, TLX, SUS and UX, each in EN and
+      PT. Every string is paste-ready in `FORMS-BUILD-SHEET.md`; the acceptance
+      check at the end of that file is the test-submit procedure, and it must be
+      run in full before the pilot
 - [ ] All nine reference screenshots captured from a seeded project
 - [ ] `task-script.md` exported to the participant-facing format with the four
       placeholder links filled in

@@ -3,6 +3,13 @@
 What to build, in what order, question by question. Follow this top to bottom
 and the study is ready to pilot.
 
+> **Building the forms right now?** Use **`FORMS-BUILD-SHEET.md`** instead. It
+> holds every literal string for all eight forms - four instruments in EN and PT
+> - along with the global Google Forms settings, the prefilled-link procedure and
+> an acceptance checklist, so you never have to cross-reference another file
+> while clicking. This file stays the plan and the master TODO; that one is the
+> build sheet.
+
 Four forms. The task script links to three of them; the fourth is completed
 before the script is opened.
 

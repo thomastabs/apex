@@ -175,28 +175,55 @@ Report against two published scales rather than a bare number.
 Note that "OK" sits near 51, not near 68. A score in the fifties is not
 acceptable-but-fine; it is mediocre.
 
-**Sauro and Lewis curved grading scale** - roughly:
+**Sauro and Lewis curved grading scale (CGS)** - derived from 241 studies and
+surveys, published in Sauro and Lewis (2016), *Quantifying the User Experience*,
+2nd ed., Morgan Kaufmann.
 
-| Grade | SUS range |
-|---|---|
-| A+ | 84.1 and above |
-| A | 80.8 - 84.0 |
-| A- | 78.9 - 80.7 |
-| B+ | 77.2 - 78.8 |
-| B | 74.1 - 77.1 |
-| B- | 72.6 - 74.0 |
-| C+ | 71.1 - 72.5 |
-| C | 65.0 - 71.0 |
-| C- | 62.7 - 64.9 |
-| D | 51.7 - 62.6 |
-| F | below 51.7 |
+| Grade | SUS range | Percentile range |
+|---|---|---|
+| A+ | 84.1 - 100 | 96 - 100 |
+| A | 80.8 - 84.0 | 90 - 95 |
+| A- | 78.9 - 80.7 | 85 - 89 |
+| B+ | 77.2 - 78.8 | 80 - 84 |
+| B | 74.1 - 77.1 | 70 - 79 |
+| B- | 72.6 - 74.0 | 65 - 69 |
+| C+ | 71.1 - 72.5 | 60 - 64 |
+| C | 65.0 - 71.0 | 41 - 59 |
+| C- | 62.7 - 64.9 | 35 - 40 |
+| D | 51.7 - 62.6 | 15 - 34 |
+| F | 0 - 51.6 | 0 - 14 |
 
 The mean SUS across the published corpus is approximately 68, which is why 68
-sits at grade C.
+sits inside grade C, at the 50th percentile. The scale is a curve fitted to that
+corpus, not a linear mapping: 80.8 is grade A because it is in the top 10 per
+cent of scores, not because 80 is "80 per cent".
 
-**Verify the exact band boundaries against the printed source before they go
-into the thesis.** They are reproduced here from a secondary reading and are
-close enough to plan with, not to publish unchecked.
+### Verification status of these boundaries
+
+**Checked 2026-08-12. Every boundary above is confirmed.** Two independent
+reproductions of the table were compared against each other and against the
+values previously recorded here; all three agree to the decimal:
+
+1. Sauro, J., *5 Ways to Interpret a SUS Score*, MeasuringU. Sauro is a
+   co-author of the scale, so this is the closest thing to the source that is
+   openly available.
+2. *How to use the System Usability Scale (SUS) in 2021*, Chuniversiteit, which
+   reproduces the table and attributes it to the 2016 book.
+
+Two details worth carrying into the thesis:
+
+- **The percentile column is the honest way to report a grade.** "B (70th to
+  79th percentile of 241 published studies)" is defensible in a way that a bare
+  letter is not.
+- MeasuringU splits F into `25.1 - 51.6` (percentile 2 - 14) and `0 - 25`
+  (percentile 0 - 1.9). The split changes nothing for interpretation; the single
+  F row above is the form the table is usually reproduced in.
+
+**Still unverified: the page number inside the book.** Secondary sources point
+at around p. 204 of the 2nd edition but this was not confirmed against the
+printed text, so cite the book without a page locator, or check a physical or
+library copy before adding one. The band values themselves need no further
+checking.
 
 ### Sub-scales
 
