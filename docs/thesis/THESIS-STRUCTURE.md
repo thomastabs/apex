@@ -157,14 +157,14 @@ Without the first, `babel` fails on the `portuguese` option; without the second,
 
 - [x] `Front_Cover.tex` - title, author and supervisors filled in from the PIC
       report; decorative cover image removed (IST logo kept, it is required).
-- [ ] `Front_Cover.tex` - Examination Committee. **Asked the supervisor
-      2026-08-11**, bundled with the ethics question. Three things are needed
-      before this can close:
-      1. Whether the committee has been assigned, and the members' names and
-         titles as they should appear.
-      2. Whether the chairperson is named by the school rather than chosen, in
+- [ ] `Front_Cover.tex` - Examination Committee. Asked the supervisor
+      2026-08-11; **answered 2026-08-15: the committee has NOT been assigned
+      yet.** So there are no names to fill in, and this cannot close on our
+      side - it has to be asked again once the school assigns the jury. Two
+      sub-questions were not answered and should be re-asked at the same time:
+      1. Whether the chairperson is named by the school rather than chosen, in
          which case that name arrives separately and later.
-      3. Whether Hugo de Sousa carries an academic title on the cover. He is
+      2. Whether Hugo de Sousa carries an academic title on the cover. He is
          currently printed with no prefix, unlike `Prof. Miguel Mira da Silva`,
          and the cover renders `Supervisors: Prof. Miguel Mira da Silva /
          Hugo de Sousa`, which looks inconsistent if a title is in fact due.
@@ -174,6 +174,7 @@ Without the first, `babel` fails on the `portuguese` option; without the second,
       placeholder names (`Prof. Name of the Chairperson`), so flipping the flag
       before the names are real would print those placeholders on the cover.
       Fill both, then set `\finalthesis{true}`, then rebuild and check page 1.
+      This is now a waiting item, not a work item.
 - [x] `Copyright.tex` - declaration extended with the acknowledgement of AI
       tool use. The Portuguese variant is translated and kept commented out
       alongside the English one, so switching language does not lose it.

@@ -330,9 +330,16 @@ and the likely participants are Portuguese speakers.
    transcribed.** Nothing outstanding.
 3. **N and recruitment.** Whether the partner organisation can supply 12, or
    whether the sample gets topped up with MEIC students, which changes the
-   external-validity claim.
-4. **Ethics approval.** Whether IST requires a formal submission for this study
-   or whether informed consent plus anonymisation suffices. Ask the supervisor.
+   external-validity claim. The LinkedIn free-tier limit of five noted
+   connection requests per month was raised with the supervisor 2026-08-12; he
+   deferred it to a meeting on **Monday 2026-08-17**. Still open - this is the
+   only remaining blocker on running sessions.
+4. ~~Ethics approval.~~ **CLOSED 2026-08-15.** The supervisor confirmed that
+   **informed consent is sufficient** - no submission to an ethics committee is
+   required - and that **no standard IST consent template exists**, so the form
+   in `consent-and-briefing.md` is the one that will be used. Written up in
+   `\Cref{sec:eval_participants}` of Chapter 9, which now states the route, the
+   four-item consent structure, the coding scheme and the retention rule.
 5. **Arm split.** The 10-12 unmoderated plus 3-4 moderated split above is a
    proposal. Confirm the moderated arm is worth the scheduling cost, or drop it
    and accept losing the observational findings.
@@ -482,8 +489,12 @@ Note the article title capitalises "validation" lowercase in the original.
       scale. Every band confirmed; percentile ranges added. See
       `instrument-sus.md`, "Verification status of these boundaries". The book's
       page locator is still unverified, so cite the book without one
-- [ ] Supervisor sign-off on the task set and the session length
-- [ ] Ethics/consent route confirmed with the supervisor
+- [ ] Supervisor sign-off on the task set and the session length. Raise it at
+      the recruitment meeting on Monday 2026-08-17, which is already scheduled -
+      it costs nothing extra and both items gate the same first session
+- [x] Ethics/consent route confirmed with the supervisor 2026-08-15: informed
+      consent is sufficient, no committee submission, no IST template. The form
+      in `consent-and-briefing.md` is final and is reproduced in Appendix B
 - [ ] Arm split confirmed, or the moderated arm dropped
 - [x] TLX response scale decided 2026-08-12 - linear 0 to 10, rescaled by ten -
       and the disclosure wording drafted in section 6 above, covering both the

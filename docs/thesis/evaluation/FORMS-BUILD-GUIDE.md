@@ -28,10 +28,11 @@ opened.
 
 ### Before building anything
 
-1. **Email the supervisor.** Two questions: does this study need an ethics
-   committee submission, and is there a standard IST consent template to use
-   instead of the one in `consent-and-briefing.md`. This gates the first
-   session and nothing else unblocks it.
+1. ~~Ask the supervisor about ethics approval and an IST consent template.~~
+   **CLOSED 2026-08-15. Informed consent is sufficient, no ethics committee
+   submission, and no IST template exists** - build F0 from the form in
+   `consent-and-briefing.md` as written. Nothing gates the first session on
+   ethics any more.
 2. ~~Decide the PT SUS question.~~ **CLOSED.** Validated European Portuguese
    version, Martins et al. (2015). Paper obtained, ten items transcribed
    verbatim into `instrument-sus.md`. F2-PT is ready to build.

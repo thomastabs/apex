@@ -1,9 +1,14 @@
 # Informed consent, briefing script and demographics
 
-**Check with the supervisor whether IST requires formal ethics approval for this
-study before running the first session.** The consent form below is written to
-be sufficient on its own, but it is not a substitute for an institutional
-requirement if one exists. This is on the pre-flight checklist.
+**Ethics route CLOSED 2026-08-15.** The supervisor confirmed that no submission
+to an ethics committee is required for this study - informed consent with
+anonymisation and a stated retention period is sufficient - and that **no
+standard IST consent template exists**. The form below is therefore the form
+that will be used, not a placeholder for an institutional one. It is written to
+be sufficient on its own, and nothing further gates the first session on this
+point. Reproduced verbatim in Appendix B of the dissertation
+(`\label{chapter:appendixB}`), so any edit here must be carried into the
+appendix.
 
 ## Which parts apply to which arm
 
