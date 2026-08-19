@@ -58,13 +58,13 @@ cd "/home/thomastabs/Desktop/MEIC-T/Second Year/HumanAICollab/apex"
       not a bug). If you seeded a second admin user via the script's admin
       account, try adding an *existing* member to the project instead — that
       path should complete in one step.
-- [ ] **Pages sync** — from the Active Context sidebar, publish a context
-      file to Plane Pages, confirm it appears in Plane's own Pages UI at the
-      tunnel URL. Edit it in Plane's UI, pull it back into Apex, confirm the
-      content round-trips. Publish the same file again without changing it
-      Plane-side — confirm Apex reports `action: "created_new_version"`
-      (Plane has no page-update endpoint, this is the known/mitigated
-      limitation, not a bug).
+- [ ] **Pages sync** — self-hosted Community Edition has no Pages REST
+      endpoint at all (found 2026-08-19 — `pages/` 404s while every other
+      project endpoint works fine). The sidebar's Pages panel should show
+      "0/0 pages" cleanly, not an error toast. Publish will still fail
+      loudly if you click it (nothing to fall back to) — that's expected on
+      CE, not a new bug. Only test the actual publish/edit/pull round-trip
+      against Plane Cloud, not self-hosted.
 - [ ] **Maintenance triage (Phase 6)** — "Sync PM Issues" against the
       self-hosted instance, confirm it lists Plane issues without erroring.
 

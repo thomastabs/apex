@@ -339,6 +339,18 @@ this list stays an accurate backlog, not a growing history.
   testing" above), but no Plane feature (Project CRUD, epics/stories,
   members/invites, Pages sync) has been exercised through Apex's own UI
   against a self-hosted instance yet — needs a signed-in click-through.
+- **Self-hosted Community Edition has no Pages REST endpoint at all**
+  (confirmed live, 2026-08-19 — `GET .../projects/{id}/pages/` 404s while
+  `modules/`, `issues/`, and the project-detail endpoint on the same project
+  all return 200, so it's not a wrong id/URL). Unlike Epics, which self-
+  hosted CE still exposes but gates to 404 (see "Self-hosted testing"
+  above), Pages appears entirely absent from CE's API surface. `status()`
+  now treats that 404 as "no pages" (empty list, same shape as a fresh
+  project) instead of surfacing a 502 — the sidebar no longer errors out on
+  every load — but `publish()` will still fail loudly if someone explicitly
+  tries to publish against a CE instance; no workaround exists since there's
+  no page-create endpoint to fall back to. Permanent Plane limitation, not
+  fixable here.
 
 ## Resolved / mitigated (kept as record, not open backlog)
 

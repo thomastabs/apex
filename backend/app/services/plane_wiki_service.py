@@ -112,7 +112,14 @@ def _list_pages(plane_base: str, api_key: str, workspace_slug: str, project_id: 
         url = f"{_pages_url(plane_base, workspace_slug, project_id)}/?per_page={_PAGE_SIZE}"
         if cursor:
             url += f"&cursor={cursor}"
-        data = _request("GET", url, api_key)
+        # 404 here means self-hosted Plane Community Edition, which has no
+        # Pages REST endpoint at all (confirmed live, 2026-08-19: modules/
+        # issues/project-detail all 200 on the same project, only pages/
+        # 404s — not a missing/wrong project id). Same shape as the
+        # Epics-gating fallback elsewhere in the Plane integration: treat as
+        # "no pages" rather than a hard error, so status()/publish() degrade
+        # to an empty list instead of a 502 toast on every project load.
+        data = _request("GET", url, api_key, ignore_status=frozenset({404}))
         if not isinstance(data, dict):
             break
         page_results = data.get("results")

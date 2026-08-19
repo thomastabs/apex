@@ -36,6 +36,7 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
   const projectName = useSessionStore((s) => s.projectName);
   const pmTool = useSessionStore((s) => s.pmTool);
   const setProject = useSessionStore((s) => s.setProject);
+  const clearProject = useSessionStore((s) => s.clearProject);
   const clearPhase2Draft = usePhase2Store((s) => s.clearPhase2Draft);
   const clearPhase3Draft = usePhase3Store((s) => s.clearPhase3Draft);
   const clearPhase4Draft = usePhase4Store((s) => s.clearPhase4Draft);
@@ -165,7 +166,10 @@ export function ProjectSection({ dark, confirm, shellClass, dragHandlers, onDrag
                 )}
                 disabled={deleteProject.isPending}
                 onClick={() => confirm(t("project.deleteConfirm"), () => deleteProject.mutate(projectId, {
-                  onSuccess: () => toast.success(t("project.toast.projectDeleted")),
+                  onSuccess: () => {
+                    clearProject();
+                    toast.success(t("project.toast.projectDeleted"));
+                  },
                 }))}
               >
                 <Trash2 className="size-3" />

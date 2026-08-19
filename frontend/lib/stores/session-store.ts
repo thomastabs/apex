@@ -48,6 +48,7 @@ type SessionState = {
   setSession: (session: { taigaToken: string; taigaApiUrl?: string; projectId?: number; projectName?: string; pmTool?: PmTool; workspaceSlug?: string }) => void;
   setAuth: (auth: { taigaToken: string; taigaApiUrl?: string; pmTool?: PmTool; workspaceSlug?: string }) => void;
   setProject: (project: { projectId: number; projectName?: string; pmProjectSlug?: string }) => void;
+  clearProject: () => void;
   setGithub: (opts: { pat?: string; repo?: string }) => void;
   setFigma: (opts: { token?: string; fileKey?: string; fileName?: string }) => void;
   clearSession: () => void;
@@ -112,6 +113,19 @@ export const useSessionStore = create<SessionState>()(
           planeProjectId: s.pmTool === "plane" ? (() => { try { return resolveId(projectId); } catch { return ""; } })() : "",
           githubPat: "", githubRepo: "",
         })),
+      // Clears just the active-project selection (kept separate from
+      // clearSession, which also signs the user out). Deleting the
+      // currently-active project must call this — otherwise every
+      // project-scoped query (useApiContext) keeps firing against an id
+      // that no longer exists server-side, and the workspace sidebar spins
+      // forever / throws "not found"/"access denied" toasts even though the
+      // project picker itself correctly shows nothing selected (found live,
+      // 2026-08-19: useDeleteProject's onSuccess only invalidated the
+      // project list, never touched this store).
+      clearProject: () => set({
+        projectId: null, planeProjectId: "", projectName: "", pmProjectSlug: "",
+        projectInstanceUrl: "", githubPat: "", githubRepo: "",
+      }),
       setGithub: ({ pat, repo }) => set({
         ...(pat !== undefined ? { githubPat: pat } : {}),
         ...(repo !== undefined ? { githubRepo: repo } : {}),
