@@ -60,9 +60,11 @@ Apex is the reference implementation of a broader process framework for governed
 > architecture a component diagram in
 > [`docs/diagrams/architecture.puml`](docs/diagrams/architecture.puml).
 > Rendered PNG + SVG live in [`docs/diagrams/Images/`](docs/diagrams/Images).
-> Re-render with `java -jar plantuml.jar -tsvg docs/diagrams/*.puml` (the
-> component diagram is laid out with Graphviz for orthogonal routing —
-> `sudo apt install graphviz`).
+> Re-render with `scripts/render-diagrams.sh` — it uses an installed
+> `plantuml` command if present, otherwise fetches `plantuml.jar` to a
+> scratch dir (not committed — 30MB+ binary with its own license). Needs
+> Graphviz for the component diagram's orthogonal routing —
+> `sudo apt install graphviz`.
 
 ```mermaid
 flowchart TD
