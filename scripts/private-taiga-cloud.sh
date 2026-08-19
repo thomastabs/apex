@@ -239,7 +239,15 @@ start_backend() {
   # backend anchors validation on the per-request X-Taiga-Url the frontend sends
   # — paste the tunnel URL below into the sidebar. This keeps the backend
   # multi-instance (you can also sign into Taiga Cloud in the same session).
-  python3 -m uvicorn backend.app.main:app --reload --port "$APEX_BACKEND_PORT" &
+  # --reload-dir scopes the watch to actual backend code. Bare --reload
+  # watches the whole cwd (the repo root) — with --with-frontend also
+  # running `next dev` in the same tree, its frontend/.next webpack cache
+  # writes constantly and throws uvicorn into a permanent restart storm
+  # (found live-testing the Plane equivalent of this script: 40+ "changes
+  # detected" every ~350ms, backend never finishes booting).
+  python3 -m uvicorn backend.app.main:app --reload \
+    --reload-dir "$ROOT_DIR/backend" --reload-dir "$ROOT_DIR/src" \
+    --port "$APEX_BACKEND_PORT" &
   PIDS+=("$!")
 }
 

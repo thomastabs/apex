@@ -382,7 +382,17 @@ start_backend() {
   # optional TAIGA_API_URL, Plane's identity anchor is always per-request
   # (X-Plane-Url), so the backend stays multi-instance automatically. Paste
   # the tunnel URL into the sidebar as usual.
-  python3 -m uvicorn backend.app.main:app --reload --port "$APEX_BACKEND_PORT" &
+  #
+  # --reload-dir scopes the watch to actual backend code. Bare --reload
+  # watches the whole cwd (the repo root) — with --with-frontend also
+  # running `next dev` in the same tree, its frontend/.next webpack cache
+  # writes constantly and throws uvicorn into a permanent restart storm
+  # (found live-testing: 40+ "changes detected" every ~350ms, backend never
+  # finishes booting, and mid-flight requests get dropped when it *does*
+  # start — the likely cause of a 403 burst seen earlier the same session).
+  python3 -m uvicorn backend.app.main:app --reload \
+    --reload-dir "$ROOT_DIR/backend" --reload-dir "$ROOT_DIR/src" \
+    --port "$APEX_BACKEND_PORT" &
   PIDS+=("$!")
 }
 
