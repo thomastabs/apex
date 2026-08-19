@@ -71,10 +71,18 @@ def _request(
     if json is not None:
         headers["Content-Type"] = "application/json"
     url, headers, ext = _pin(url, headers)
-    resp = httpx.request(
-        method, url, headers=headers, json=json, timeout=_TIMEOUT,
-        **({"extensions": ext} if ext else {}),
-    )
+    # The module-level httpx.request() shortcut does NOT accept `extensions`
+    # (only Client.request()/.send() do) — passing it raised a bare
+    # TypeError ("request() got an unexpected keyword argument 'extensions'")
+    # on every Plane Pages call, surfaced to the UI as "Failed to read PM
+    # Wiki" / "Couldn't load Pages status from Plane" (found live-testing
+    # self-hosted Plane, 2026-08-19). A short-lived Client is used instead so
+    # the SSRF DNS-rebinding pin (`ext["sni_hostname"]`) still applies.
+    with httpx.Client(timeout=_TIMEOUT) as client:
+        resp = client.request(
+            method, url, headers=headers, json=json,
+            **({"extensions": ext} if ext else {}),
+        )
     if resp.status_code in ignore_status:
         return None
     if resp.status_code in (401, 403):
