@@ -39,11 +39,11 @@ come from.
    wording for Chapter 9 is drafted in `EVALUATION-PLAN.md` section 6. **Frozen:
    it cannot change once the first participant has run.** Build F1 exactly as
    specified below.
-2. **Arm split: still open.** If the moderated arm runs, F0 keeps the
-   screen-recording consent item. If only the unmoderated arm runs, delete that
-   item from F0 rather than leaving an unused checkbox on the consent form. This
-   is the only thing on this sheet still waiting on a decision, and it affects
-   one question on one form.
+2. ~~Arm split.~~ **CLOSED 2026-08-17: unmoderated only, and nothing is
+   recorded.** The screen-and-audio recording consent item is **deleted from F0
+   in both languages** - it is gone from the tables below, not left as an
+   optional extra. Do not add it back. Nothing on this sheet is waiting on a
+   decision any more; every string here is final and buildable.
 
 ---
 
@@ -92,7 +92,10 @@ below.
 | 2 | Checkboxes, one option | yes | `I have read and understood the information above, and I agree to take part.` - single option: `I consent to participate` |
 | 3 | Checkboxes, one option | no | `Optional permissions` - option: `I consent to anonymised quotations being used in the dissertation` |
 | 4 | Checkboxes, one option | no | option: `I agree to be contacted about a follow-up interview` |
-| 5 | Checkboxes, one option | no | option: `I consent to the session being screen and audio recorded` - **moderated arm only, delete otherwise** |
+
+Four questions, not five. There is **no** screen-or-audio recording item: the
+study is unmoderated and nothing is recorded, so a recording checkbox on the
+consent form would be asking permission for something that never happens.
 
 Q3 and Q4 can share one checkboxes question with two options if you prefer fewer
 clicks. Q2 must stay separate and required.
@@ -125,7 +128,9 @@ participant group in aggregate.`
 | 2 | Checkboxes | yes | `Li e compreendi a informação acima e aceito participar.` - option: `Consinto em participar` |
 | 3 | Checkboxes | no | `Autorizações opcionais` - option: `Consinto na utilização de citações anonimizadas na dissertação` |
 | 4 | Checkboxes | no | option: `Aceito ser contactado para uma entrevista de seguimento` |
-| 5 | Checkboxes | no | option: `Consinto na gravação de ecrã e áudio da sessão` - **apenas braço moderado** |
+
+Quatro perguntas, não cinco - o item de gravação de ecrã e áudio foi eliminado:
+nada é gravado.
 
 Section 2 title: `Sobre si`
 

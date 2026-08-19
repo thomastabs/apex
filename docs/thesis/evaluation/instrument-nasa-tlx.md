@@ -319,8 +319,10 @@ reported as a finding rather than rationalised afterwards.
 
 ## Practical note
 
-If the study is run moderated and in person, print the original 20-interval
-line and use it - it is the instrument, and it costs nothing. The online-form
-compromise above exists only because the unmoderated arm cannot use paper. Where
-both arms run, note in Chapter 9 that the two arms used different response
-scales, and do not pool them into a single mean without saying so.
+The original 20-interval line would have been usable on paper in a moderated,
+in-person session. That option is gone: the moderated arm was dropped 2026-08-17
+and the study runs unmoderated only, so every administration is an online form
+and the 0-10 compromise above applies to every participant without exception.
+One arm, one scale, nothing to pool - which at least removes the risk of two
+incompatible response scales in one data set. The deviation is still disclosed
+in Chapter 9.

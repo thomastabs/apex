@@ -40,11 +40,12 @@ opened.
    multiplied by ten at analysis time.** Google Forms is therefore the platform.
    Frozen - it cannot change mid-study. Disclosure wording for Chapter 9 is
    drafted in `EVALUATION-PLAN.md` section 6.
-4. **Decide the arm split.** Unmoderated only, or unmoderated plus 3-4
-   moderated sessions. **This is now the only open decision in this list**, and
-   the only thing it changes in the build is F0 question 5, the screen-and-audio
-   recording consent item: keep it if the moderated arm runs, delete it if not.
-   Everything else can be built before it is settled.
+4. ~~Decide the arm split.~~ **CLOSED 2026-08-17: unmoderated only, and nothing
+   is recorded** - not the sessions, not the interviews. F0 therefore has four
+   questions in section 1, not five: the screen-and-audio recording consent item
+   is deleted in both languages. `observer-sheet.md` is unused. **Nothing in
+   this list is waiting on a decision any more** - the forms are fully
+   buildable.
 
 ### Build
 
@@ -111,7 +112,9 @@ description. Then:
 | 2 | Checkboxes | yes | `I confirm I have read and understood the above and I agree to take part` |
 | 3 | Checkboxes | no | `I consent to anonymised quotations being used in the dissertation` |
 | 4 | Checkboxes | no | `I agree to be contacted about a follow-up interview` |
-| 5 | Checkboxes | no | `I consent to the session being screen and audio recorded` - **moderated arm only**, delete this question for the unmoderated form |
+
+Four questions only. No recording-consent item exists, in either language,
+because nothing is recorded.
 
 **Section 2: About you** - G1 to G6 exactly as listed in
 `consent-and-briefing.md`. All multiple choice, all required except G2's "other".

@@ -45,34 +45,59 @@ nothing during the session and blunts that threat instead of merely admitting it
 - **Setting:** the partner organisation already using Apex (the same one driving
   the Plane.so migration), plus, if the sample is short, MEIC students or
   practitioners with a development background.
-- **Session length:** about 60 minutes unmoderated, about 80 minutes moderated.
+- **Session length:** about 60 minutes, self-paced.
 - **No control condition.** There is no baseline "same task without Apex" arm,
   because the task set is defined in terms of Apex's own artefacts. This is a
   real limitation and belongs in `\Cref{sec:threats}`, not hidden.
 
-### Two arms: unmoderated primary, moderated secondary
+### One arm: unmoderated, self-administered
 
-The study runs in two arms. This is a deliberate split, not indecision, and it
-must be described as such in Chapter 9.
+**Decided 2026-08-17. The study runs unmoderated only.** A second, moderated
+arm of 3-4 observed sessions was designed and is now dropped. Every participant
+receives the same self-administered task script and the same four online forms;
+there is no facilitator, no observation, and nothing is screen or audio
+recorded.
 
-| | **Arm 1 - unmoderated** | **Arm 2 - moderated** |
-|---|---|---|
-| Target N | 10-12 | 3-4 |
-| Format | Self-administered task script, remote, participant's own time | In person or screen-shared, facilitator present |
-| Materials | `task-script.md` plus three online forms | Same script, plus `observer-sheet.md` |
-| Yields | SUS, per-task Raw TLX, UX questionnaire, self-reported outcomes | All of the above **plus** think-aloud, assist counts, time on task, the Task 8 comprehension score |
-| Does not yield | anything observational | N, realistically |
-| Facilitator bias | none | present, mitigated only |
+| | **As run** |
+|---|---|
+| Target N | 12, see Participants below |
+| Format | Self-administered task script, remote, participant's own time |
+| Materials | `task-script.md` plus four online forms |
+| Yields | SUS, per-task Raw TLX, UX questionnaire, self-reported completion, form timestamps |
+| Does not yield | think-aloud, assist counts, measured time on task, error counts, an observer-scored Task 8 comprehension score |
+| Facilitator bias | none, removed structurally |
 
-**Why both.** Arm 1 is the only realistic route to a usable SUS N, and it
-removes the facilitator-bias problem entirely, which matters unusually much here
-because the author designed both artefacts. Arm 2 supplies the observational
-findings that a questionnaire cannot reach: where people actually got stuck,
-what they said while stuck, and whether they understood the Task 8 refusal.
-Neither arm alone produces a defensible chapter.
+**Why the moderated arm was dropped.** Three reasons, in order of weight.
 
-**Report the arms separately** wherever the instrument differs between them (see
-the TLX response-scale note below). Pooling arms silently is the error to avoid.
+1. **Nothing is being recorded.** Screen and audio recording was ruled out for
+   the whole study. A moderated session without a recording yields notes
+   handwritten by a facilitator who is simultaneously facilitating, which is the
+   weakest possible form of the one thing the arm existed to provide. The full
+   scheduling cost buys a degraded instrument.
+2. **The author designed both artefacts.** Running the sessions himself
+   reintroduces exactly the conflict the unmoderated design removes, and the
+   mitigations available (fixed script, logged assists, self-administered
+   questionnaires) reduce it without removing it. See "Researcher role" below.
+3. **The arms were additive, not overlapping.** Nobody can complete the same
+   nine tasks twice, so 12 unmoderated plus 3-4 moderated meant recruiting
+   15-16 people. Recruitment runs through the supervisor's professional
+   connections rather than a funnel this project controls, and a stable SUS
+   mean is the higher-value use of every participant.
+
+**What this costs, and where it must be admitted.** The chapter can make no
+observational claim. Specifically it loses measured completion rates, median
+time on task, assist counts, error counts, and the observer-scored 2/1/0 Task 8
+comprehension judgement. Time on task degrades to a form-timestamp proxy that is
+indicative only, since an unmoderated participant can walk away mid-task. State
+all of this in `\Cref{sec:threats}` as a design consequence, not as an
+oversight, and do not let any sentence in the results imply someone watched.
+
+**Partial recovery.** The qualitative channel is not lost with the arm: the
+interviews are a separate session and are the instrument assigned to the
+*framework* rather than to the tool. Move the observational probes into the
+practitioner interview guide as retrospective questions - where the participant
+got stuck, and what they believed happened at task 8. This is recall rather than
+observation, and must be reported as such.
 
 ### Per-task NASA-TLX
 
@@ -86,7 +111,7 @@ much of it there is.
 
 ### Session timetable
 
-Arm 1, self-paced, roughly 60 minutes:
+Self-paced, roughly 60 minutes:
 
 | Approx. min | Activity |
 |---|---|
@@ -96,11 +121,8 @@ Arm 1, self-paced, roughly 60 minutes:
 | 55-58 | SUS form |
 | 58-63 | Apex UX form and the three open questions |
 
-Arm 2 adds a 5-minute scripted orientation before the tasks and runs about 80
-minutes, because think-aloud slows everything down.
-
-Interviews are a **separate** session for both arms, 30-45 minutes. Running one
-straight after an hour of task work produces fatigue answers.
+Interviews are a **separate** session, 30-45 minutes. Running one straight after
+an hour of task work produces fatigue answers.
 
 Order matters at the end: SUS **before** the UX questionnaire. SUS is the
 standardised, comparable instrument and should not be answered after 18 bespoke
@@ -124,23 +146,25 @@ items have primed the participant about specific features.
 The author designed both artefacts. This is a conflict and must be named in
 `\Cref{sec:demo_design}` and again in `\Cref{sec:threats}`.
 
-**Arm 1 removes it structurally.** No facilitator is present, the script is
-fixed text, and the forms are submitted without the author watching. This is the
-strongest single argument for making the unmoderated arm the primary one, and it
-should be stated in the chapter as a design choice rather than a convenience.
+**The unmoderated design removes it structurally.** No facilitator is present,
+the script is fixed text, and the forms are submitted without the author
+watching. Nothing the author does during a session can steer it, because he is
+not in it. This is the strongest single argument for the design and it should be
+stated in the chapter as a deliberate choice rather than as a convenience - it
+is also the second reason the moderated arm was dropped rather than merely
+descoped.
 
-Arm 2 reintroduces the conflict, and there only mitigations are available:
+The conflict is not eliminated everywhere, and the residue must still be named:
+the author wrote the task set, the wording of the script and the 18 bespoke UX
+items, and conducts the interviews himself. Mitigations that do apply:
 
-1. The facilitator reads from a fixed script (in `consent-and-briefing.md`) and
-   does not demonstrate, hint or defend the tool during tasks.
-2. Assists are logged rather than silently given (observer sheet).
-3. Questionnaires are self-administered, on the same forms as arm 1, without the
-   facilitator watching.
-4. Participants are told explicitly that the tool is being tested, not them, and
+1. Fixed script text, identical for every participant, with no live commentary.
+2. The standardised instruments (SUS, Raw TLX) are unmodified and comparable
+   against published data, so they are not the author's own yardstick.
+3. Participants are told explicitly that the tool is being tested, not them, and
    that negative answers are the useful ones.
-
-None of this removes the bias in arm 2. Say so, and report which findings come
-from which arm.
+4. Interviews follow a written guide, and disconfirming evidence is reported
+   with the same prominence as confirming evidence.
 
 ---
 
@@ -170,9 +194,10 @@ explorer, Autopilot.
 **Task 8 is designed to be refused.** The gate blocks a story that is not
 `qa_passed`. Whether the participant understands *why* is the single most
 informative observation available, and it is the one place the UI has to explain
-a refusal rather than celebrate a success. In arm 1 it is captured by the open
-text on the TLX form and by UX item A4; in arm 2 it is additionally scored 2/1/0
-on the observer sheet.
+a refusal rather than celebrate a success. It is captured by the open text on the
+TLX form and by UX item A4. There is no observer-scored 2/1/0 judgement, because
+there is no observer; the open text is the whole of the evidence and is analysed
+as such.
 
 **Task 5 is a real regression test, not filler.** Session state lives in
 `sessionStorage` and the active-project-survives-a-fresh-session bug was fixed
@@ -190,8 +215,8 @@ that path with a real user, which no automated test does.
 | `instrument-nasa-tlx.md` | Raw NASA-TLX, 6 subscales, EN + PT, subscale definitions as shown to participants |
 | `instrument-apex-ux.md` | Custom 18-item Apex UX questionnaire + 3 open questions, EN + PT |
 | `interview-guides.md` | Practitioner guide and Agile/Scrum expert guide |
-| `observer-sheet.md` | Per-task completion, time, assists, errors, critical incidents |
-| `consent-and-briefing.md` | Informed consent, facilitator script, demographics form |
+| `observer-sheet.md` | **Unused.** Per-task completion, time, assists, errors, critical incidents. Written for the moderated arm, which was dropped 2026-08-17. Kept for the record, not built or administered |
+| `consent-and-briefing.md` | Informed consent and demographics form. Its facilitator briefing script and do-not-do list are unused for the same reason |
 
 ### Raw TLX, not weighted TLX
 
@@ -290,23 +315,36 @@ and the likely participants are Portuguese speakers.
   including the specific prediction that task 8, the deployment gate, carries the
   highest Frustration and lowest Performance. A mismatch is then a finding rather
   than something rationalised afterwards.
-- If the two arms used different response scales, report them separately and do
-  not pool them into one mean without saying so.
+- One arm, one response scale, so there is nothing to pool or separate. The
+  scale actually used is disclosed regardless.
 
 **Apex UX questionnaire**
 - Per-item stacked/diverging bars. No composite.
 
 **Task performance**
-- Arm 1: self-reported completion, plus form timestamps as a rough proxy for
-  time per task. Treat the timestamps as indicative only; an unmoderated
-  participant can walk away mid-task.
-- Arm 2: completion rate, median time on task, assist count, error count, and
-  the task 8 comprehension score from the observer sheet.
-- Any task under 100% completion gets a written explanation, not just a number.
+- Self-reported completion, plus form timestamps as a rough proxy for time per
+  task. Treat the timestamps as indicative only; an unmoderated participant can
+  walk away mid-task, and no one is watching to tell the difference between a
+  hard task and a coffee break.
+- No measured completion rate, assist count or error count. These were the
+  moderated arm's contribution and the arm was dropped; do not report a
+  self-reported completion figure using language that implies it was observed.
+- Any task under 100% self-reported completion gets a written explanation, not
+  just a number.
 
 **Interviews**
-- Thematic analysis, codebook developed from the first two transcripts then
+- **Note-based, not recorded.** No interview is audio recorded, so there are no
+  verbatim transcripts. The record is contemporaneous written notes, expanded
+  into a full write-up immediately after each interview and before the next one
+  - notes left overnight are reconstruction, not record.
+- Thematic analysis, codebook developed from the first two write-ups then
   applied to the rest.
+- Quotations may only be used where the exact words were written down at the
+  time and marked as verbatim in the notes. Everything else is paraphrase and is
+  presented as paraphrase.
+- This is a real methodological cost and belongs in `\Cref{sec:threats}`:
+  note-taking is selective in a way a transcript is not, and the person
+  selecting is the person who designed the artefact.
 - Report disconfirming evidence explicitly and with the same prominence.
 
 **Triangulation**
@@ -349,9 +387,13 @@ and the likely participants are Portuguese speakers.
    in `consent-and-briefing.md` is the one that will be used. Written up in
    `\Cref{sec:eval_participants}` of Chapter 9, which now states the route, the
    four-item consent structure, the coding scheme and the retention rule.
-5. **Arm split.** The 10-12 unmoderated plus 3-4 moderated split above is a
-   proposal. Confirm the moderated arm is worth the scheduling cost, or drop it
-   and accept losing the observational findings.
+5. ~~Arm split.~~ **CLOSED 2026-08-17: unmoderated only.** The moderated arm is
+   dropped. Nothing is screen or audio recorded, including the interviews, which
+   are analysed from contemporaneous notes instead of transcripts. The
+   observational metrics are given up deliberately and are declared in
+   `\Cref{sec:threats}`. Consequences are written through this document, the
+   consent form, the forms build sheet and `observer-sheet.md`, which is now
+   marked unused.
 6. ~~TLX response scale.~~ **CLOSED 2026-08-12: linear scale 0 to 10, multiplied
    by 10 at analysis time**, in place of the published 20-interval line, which
    Google Forms cannot render. This is a real deviation from the instrument and
@@ -509,7 +551,9 @@ Note the article title capitalises "validation" lowercase in the original.
 - [x] Ethics/consent route confirmed with the supervisor 2026-08-15: informed
       consent is sufficient, no committee submission, no IST template. The form
       in `consent-and-briefing.md` is final and is reproduced in Appendix B
-- [ ] Arm split confirmed, or the moderated arm dropped
+- [x] Arm split closed 2026-08-17: unmoderated only, moderated arm dropped,
+      nothing recorded, interviews analysed from notes. F0 loses its
+      screen-recording consent item and `observer-sheet.md` is unused
 - [x] TLX response scale decided 2026-08-12 - linear 0 to 10, rescaled by ten -
       and the disclosure wording drafted in section 6 above, covering both the
       scale and the reordered Performance subscale

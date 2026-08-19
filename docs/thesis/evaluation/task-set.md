@@ -132,9 +132,11 @@ of the framework and has never been usability-tested.
 
 ---
 
-## Facilitator rules, arm 2 only
+## Facilitator rules - UNUSED
 
-Arm 1 has no facilitator. In the moderated arm:
+**Not applied.** The moderated arm was dropped 2026-08-17; the study is
+unmoderated, so there is no facilitator and no live session to run. Retained for
+the record only. The rules below would have applied in the moderated arm:
 
 - Read each task aloud from `task-script.md`, verbatim. Do not paraphrase.
 - Do not point, hover, or say "it's over there". Silence is data.

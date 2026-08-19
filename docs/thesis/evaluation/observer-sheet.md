@@ -1,10 +1,17 @@
-# Observer sheet - moderated arm only
+# Observer sheet - UNUSED, retained for the record
 
-Print one per participant. **Arm 2 only** - the unmoderated arm has no observer,
-which is exactly why arm 2 exists. This sheet produces the observational
-evidence a questionnaire cannot reach, and partly answers Chapter 9's own
-admitted threat that "the instruments measure perception rather than delivered
-software quality".
+**This sheet is not administered.** The moderated arm it belonged to was dropped
+2026-08-17: the study runs unmoderated only and nothing is recorded, so there is
+no observer and no observational data. Nothing below is printed, filled in, or
+analysed, and no result in Chapter 9 may be sourced from it.
+
+It is kept in the repository so the record shows what was designed and
+deliberately given up. The consequence - that the study cannot report measured
+completion rates, time on task, assist counts, error counts, or an
+observer-scored Task 8 comprehension judgement, and that Chapter 9's own admitted
+threat about measuring perception rather than delivered software quality is
+therefore left standing rather than partly answered - is declared in
+`EVALUATION-PLAN.md` and belongs in `\Cref{sec:threats}`.
 
 Task numbering matches `task-script.md`.
 

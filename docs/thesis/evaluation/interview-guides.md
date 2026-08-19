@@ -9,9 +9,12 @@ instantiation.
 Scheduled as a separate session, 30-45 minutes, not immediately after the
 hour-long task session.
 
-Recorded with explicit consent, transcribed, analysed thematically. Codebook
-developed from the first two transcripts, then applied to the rest, with codes
-added as they emerge.
+**Not recorded** (decided 2026-08-17, consistent with the rest of the study).
+The record is contemporaneous written notes, expanded into a full write-up
+immediately after the interview and before the next one. Analysed thematically:
+codebook developed from the first two write-ups, then applied to the rest, with
+codes added as they emerge. Only words written down at the time and marked
+verbatim may be quoted; everything else is presented as paraphrase.
 
 **Semi-structured means the questions below are prompts, not a script.** Follow
 what the participant raises. The one hard rule: do not defend the framework. If
@@ -107,8 +110,8 @@ clarity, and it belongs in the analytical assessment criterion "clarity".
 
 Questions 4 and 5 must be asked as bluntly as they are written. "Too linear,
 this is Waterfall" is already the known criticism from earlier feedback; putting
-it in front of an expert and recording the answer is far stronger evidence than
-the author arguing against it.
+it in front of an expert and writing the answer down is far stronger evidence
+than the author arguing against it.
 
 ### Roles and artefacts (10 min)
 
@@ -133,8 +136,13 @@ the author arguing against it.
 
 ## Analysis
 
-- Transcribe fully. Do not analyse from notes.
-- Codebook from the first two transcripts of each group, then applied across.
+- Write the notes up in full the same day. Nothing is recorded, so the write-up
+  is the only record there will ever be, and a day's delay turns it from record
+  into reconstruction. Mark verbatim wording as verbatim while writing.
+- Codebook from the first two write-ups of each group, then applied across.
+- Note-based analysis is a real limitation next to full transcription: note-taking
+  is selective, and the person selecting designed the artefact. Say so in
+  `\Cref{sec:threats}` rather than letting it pass as equivalent to a transcript.
 - Report themes with representative anonymised quotations, identified as
   practitioner or expert.
 - **Report disconfirming evidence with the same prominence as supporting

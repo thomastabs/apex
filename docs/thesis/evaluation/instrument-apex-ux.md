@@ -192,9 +192,11 @@ With N around 12 and an unvalidated instrument, the analysis is:
 - median per item
 - items where the spread is bimodal are more interesting than items where it is
   high or low; a split answer usually means the interface works for one mental
-  model and not another, and the interview transcripts will say which
-- cross-read A4 against the Task 8 comprehension score from the observer sheet
-  (moderated arm) and against the Task 8 TLX Frustration score (both arms). If
-  participants say they understood the refusal but scored 0 or 1 on explaining
-  it, that gap is a real and reportable finding about confidence exceeding
-  comprehension
+  model and not another, and the interview notes will say which
+- cross-read A4 against the Task 8 TLX Frustration score and against the free
+  text on the Task 8 TLX form, in which the participant describes in their own
+  words what happened when they tried to deploy. There is no observer-scored
+  comprehension judgement - the moderated arm was dropped 2026-08-17 - so that
+  free text is the whole of the comprehension evidence. If participants say they
+  understood the refusal but cannot describe it, that gap is a real and
+  reportable finding about confidence exceeding comprehension
