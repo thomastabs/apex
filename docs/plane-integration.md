@@ -321,7 +321,9 @@ this gap was closed the same day it was raised, in two passes:
   command exists for Plane (confirmed by inspecting the AIO image's actual
   `manage.py` commands), so the script provisions an admin user, an
   instance-admin grant, a workspace, and a real Personal Access Token
-  directly via Plane's own Django ORM inside the container (`docker exec ...
+  directly via Plane's own Django ORM inside the container, marks
+  `Instance.is_setup_done`, then restarts `plane-aio` once so Plane's own
+  frontend/API reload that setup-complete state (`docker exec ...
   manage.py shell -c "..."` — the same class of operation Taiga's own script
   already does for its admin user, not a new pattern). Run twice this
   session (once found and fixed a real bug in the script's own readiness-

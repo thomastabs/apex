@@ -363,6 +363,9 @@ user.save()
 instance = Instance.objects.first()
 if instance is not None:
     InstanceAdmin.objects.get_or_create(user=user, instance=instance, defaults={'role': 20})
+    instance.is_setup_done = True
+    instance.instance_name = '${PLANE_WORKSPACE_NAME}'
+    instance.save()
 
 ws, _ = Workspace.objects.get_or_create(slug='${PLANE_WORKSPACE_SLUG}', defaults={'name': '${PLANE_WORKSPACE_NAME}', 'owner': user})
 WorkspaceMember.objects.get_or_create(workspace=ws, member=user, defaults={'role': 20})
@@ -371,6 +374,15 @@ tok, _ = APIToken.objects.get_or_create(user=user, workspace=ws, label='apex-sel
 print('APEX_PLANE_TOKEN=' + tok.token)
 ")"
   echo "$out" | grep '^APEX_PLANE_TOKEN=' | tail -n 1 | cut -d= -f2-
+}
+
+reload_plane_after_provision() {
+  cd "$PLANE_DIR"
+  log "Restarting plane-aio once so Plane's frontend/API reload the setup-complete state"
+  docker compose restart plane-aio
+
+  retry 60 3 bash -c "curl -sS -o /dev/null -w '%{http_code}' 'https://${1#https://}/api/instances/' --max-time 8 2>/dev/null | grep -q '^200$'" \
+    || die "Plane did not come back up after provisioning restart. Check: docker logs plane-aio"
 }
 
 start_backend() {
@@ -425,6 +437,7 @@ main() {
   local token
   token="$(provision_admin)"
   [[ -n "$token" ]] || die "Failed to provision a Plane API token — check: docker logs plane-aio"
+  reload_plane_after_provision "$tunnel_url"
 
   start_backend
   start_frontend

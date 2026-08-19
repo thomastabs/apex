@@ -29,6 +29,9 @@ cd "/home/thomastabs/Desktop/MEIC-T/Second Year/HumanAICollab/apex"
 - On success it prints: the tunnel URL, the admin email/password, and a
   ready-to-paste Personal Access Token. Backend on `:8000`, frontend on
   `:3000` (since `--with-frontend` is passed).
+- The normal Plane app is at the printed tunnel URL root (`/`). The admin
+  console is at `/god-mode/` with the trailing slash; Plane's own router can
+  hang on the spinner at `/god-mode` without it.
 - The script starts Apex with `APEX_STORAGE_BACKEND=local` by default so a
   developer `.env` with Azure File Share settings cannot make Active Context
   crawl through remote storage and appear stuck at `0 chars`.
