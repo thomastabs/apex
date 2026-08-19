@@ -81,6 +81,77 @@ Appendices belong in the annex either way, but note the guide's phrasing: annexe
 are attached *to* the dissertation so that the whole stays under 100. Moving them
 out of the 80 is legitimate; it does not make them free.
 
+## 1a. The benchmark: what actually passed, from the same supervisor
+
+`~/Downloads/110851_leonardo_cruz_dissertacao.pdf` - Leonardo Cruz, *Using
+Artificial Intelligence for Evaluating Student Answers*, MEIC, October 2025,
+supervised by Prof. Miguel Mira da Silva. Same degree, same supervisor, same
+template, and it was accepted. It is already the reference for this thesis's
+chapter structure; it is now also the reference for its length.
+
+| | Cruz | Ours | Delta |
+|---|---|---|---|
+| 1 Introduction | 2 | 6 | +4 |
+| 2 Research Methodology | 3 | 4 | +1 |
+| 3 Research Background | 4 | 4 | = |
+| 4 Systematic Literature Review | **10** | **24** | **+14** |
+| 5 Research Problem | 2 | 4 | +2 |
+| 6 Research Proposal | **11** | **28** | **+17** |
+| 7 Apex (ours only) | - | 4 | skeleton |
+| 8 Demonstration | **23** | 2 | skeleton |
+| 9 Evaluation | 8 | 8 | = |
+| 10 Conclusion | 4 | 1 | skeleton |
+| **Main text** | **67** | **85** | **+18** |
+| Front matter | 19 | 22 | +3 |
+| Bibliography | 6 | 7 | +1 |
+| Appendices | 5 | 3 | -2 |
+| **Total PDF** | **98** | **117** | **+19** |
+
+Two things this settles.
+
+**The proportions are wrong, not just the total.** Cruz spent 21 of 67 main-text
+pages, under a third, on the review and the proposal. We have spent 52 of 85,
+over three fifths, on the same two chapters. He spent his budget where the marks
+are: 23 pages on Demonstration, which is his results chapter. Assessment
+criterion A rewards "análise crítica das soluções propostas e dos resultados
+obtidos", and that is the part we have not written yet and are running out of
+room for.
+
+**The real ceiling is not 80.** The 100-page whole-document cap binds harder than
+the 80-page main-text cap, because front matter, bibliography and annexes eat
+into it:
+
+```
+front matter 22 + bibliography 7 + appendices 5 = 34 non-main pages
+100 - 34 = 66 pages of main text, not 80
+```
+
+Cruz landed at 67 main text and 98 total. That is not a coincidence; it is what
+fitting the rule looks like. **Plan against 66, not 80.**
+
+### Proposed page budget
+
+Derived from Cruz's proportions, adjusted for this thesis having a seventh
+chapter he does not (Apex) and a heavier evaluation instrument set.
+
+| Chapter | Now | Budget | Action |
+|---|---|---|---|
+| 1 Introduction | 6 | 4 | cut 2 |
+| 2 Research Methodology | 4 | 3 | cut 1 |
+| 3 Research Background | 4 | 4 | keep |
+| 4 Systematic Literature Review | 24 | 10 | **cut 14** |
+| 5 Research Problem | 4 | 2 | cut 2 |
+| 6 Research Proposal | 28 | 13 | **cut 15** |
+| 7 Apex | 4 | 8 | write to 8 |
+| 8 Demonstration | 2 | 9 | write to 9 |
+| 9 Evaluation | 8 | 10 | write to 10 |
+| 10 Conclusion | 1 | 3 | write to 3 |
+| **Main text** | **85** | **66** | **cut 34 from written** |
+
+Roughly 34 pages have to come out of Chapters 1 to 6. Chapters 4 and 6 are 29 of
+those 34. Every unwritten chapter is written to its budget, not to length, and
+checked against it before moving on.
+
 ## 1b. Front matter limits - four violations, all trivially fixable
 
 The guide caps two things the project has never checked:
@@ -109,12 +180,25 @@ ten carry the work.
 A second document, not an abstract inside the thesis: a paper of up to 10 A4
 pages, in English. Both the thesis and this article are uploaded through Fénix.
 
-**The template question is answered by the guide**: "Este resumo deverá ser
-elaborado de acordo com um modelo a definir para cada curso. Na ausência de
-definição deverá ser adoptado o modelo seguido para a dissertação." If MEIC-T
-defines no model, the dissertation template is used. So this is unblocked and can
-be started whenever the content exists; only a course-specific model, if one
-exists, would change it.
+**Template - CLOSED 2026-08-19.** The guide provides the fallback: "Este resumo
+deverá ser elaborado de acordo com um modelo a definir para cada curso. Na
+ausência de definição deverá ser adoptado **o modelo seguido para a
+dissertação**." Decided: use the dissertation model, which for this degree is the
+IST template already in `IST_UL___MEIC_Thesis___Dissertação_final/`, the same one
+Leonardo Cruz's accepted MEIC dissertation uses. No separate template is being
+sought and the supervisor does not need to be asked.
+
+Note precisely what the Cruz file does and does not give us. It is a full
+98-page dissertation, not an extended abstract, so it is **not** an example of
+what a ten-page article looks like. What it settles is the format question, and
+what it supplies is the page benchmark in §1a. If an example of the article form
+is wanted later, it has to come from somewhere else.
+
+The article is a compression problem, not a writing-from-scratch problem: ten
+pages covering problem, method, artefact, demonstration, evaluation and
+conclusion. It cannot be started until there are results to report, but its
+structure can be planned as soon as the page budget above is settled, since both
+are the same exercise of deciding what the contribution actually is.
 
 It carries **20 per cent of the final mark**, the same weight as the entire
 public discussion and twice the weight of the presentation. Nothing in
@@ -267,6 +351,9 @@ only to the jury.
 7. **Confidentiality is closed** (§5): not a business-entity collaboration, so
    no agreement, no jury-only annex, nothing to communicate to the coordinator.
    Chapter 8 still anonymises the setting, because the consent form promised it.
-8. **One question left for the supervisor**: whether MEIC-T defines its own
-   extended-abstract model. If not, the dissertation template is used and the
-   article can be started as soon as there are results to report.
+8. **The extended-abstract template is closed**: the guide's fallback applies and
+   the dissertation model is used. Nothing left to ask the supervisor on the
+   regulations; every question raised by these two documents is now answered.
+9. **Plan against 66 pages of main text, not 80** (§1a). The whole-document cap
+   is the binding one, and the accepted benchmark from the same supervisor landed
+   at 67 main text and 98 total.

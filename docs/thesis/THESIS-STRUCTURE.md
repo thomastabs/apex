@@ -53,6 +53,16 @@ appendix, since its single evaluation instrument was live grading data rather
 than standardised questionnaires; this thesis keeps Appendix B because SUS,
 NASA-TLX, and the interview guides genuinely need to be reproduced.
 
+### Length is a design constraint
+
+The reference dissertation is also the length benchmark. Cruz spent under a third
+of his main text on the review and the proposal and 23 pages on the demonstration,
+which is his results chapter; this thesis has so far spent over three fifths on
+the review and the proposal and has not written its results at all. Assessment
+criterion A rewards critical analysis of the proposed solutions and of the
+results obtained, so the pages belong in Chapters 7 to 9. See `REGULATIONS.md`
+§1a for the measured comparison and the per-chapter budget.
+
 ### Two artefacts, not one
 
 The framework (a *method*) and Apex (an *instantiation*) are both legitimate DSRM
@@ -196,10 +206,17 @@ Without the first, `babel` fails on the `portuguese` option; without the second,
       instructions, not content, and must all be gone by then - disabling the package
       hides them but does not mean the chapters are written. Chapter 6 is written and
       carries none.
-- [ ] **Bring the page count within the 80-page limit** (`REGULATIONS.md` §1). The
-      body is at 85 pages with Chapters 7, 8 and 10 still skeletons and Chapter 9
-      missing its results. Move Appendices A and B into the independent annex, and
-      write every remaining chapter to a page budget rather than to length.
+- [ ] **Bring the page count within budget** (`REGULATIONS.md` §1 and §1a). The
+      binding ceiling is not the 80-page main-text cap but the 100-page
+      whole-document cap, which after front matter, bibliography and annexes leaves
+      about **66 pages of main text**. The main text is at 85 with Chapters 7, 8
+      and 10 still skeletons, so roughly **34 pages have to come out of Chapters 1
+      to 6**, 29 of them from Chapter 4 (24 pages) and Chapter 6 (28). The
+      benchmark is Leonardo Cruz's accepted MEIC dissertation under the same
+      supervisor: 67 pages of main text, 98 total, with only 21 pages spent on the
+      review and the proposal combined and 23 on the demonstration.
+- [ ] **Write every remaining chapter to its page budget**, checked before moving
+      on rather than trimmed afterwards. Budget in `REGULATIONS.md` §1a.
 - [ ] **Write the extended abstract** (`REGULATIONS.md` §2): a scientific article of
       up to 10 A4 pages, in English, to the template in the Guia de Preparação de
       Dissertação, submitted through Fénix alongside the thesis. Worth 20 per cent of
@@ -220,8 +237,9 @@ Without the first, `babel` fails on the `portuguese` option; without the second,
       Preparação da Dissertação. It grants IST a perpetual non-exclusive licence to
       publish the thesis and the extended abstract. Separate from the Declaration
       already inside the thesis, and it lives outside this repository.
-- [ ] **Ask the supervisor** the one remaining question: whether MEIC-T defines its
-      own extended-abstract model. If it does not, the dissertation template is used.
+- [x] Extended-abstract template - **closed 2026-08-19**. The guide falls back to
+      "o modelo seguido para a dissertação" where a course defines none, so the
+      article uses this same IST template. Nothing left to ask on the regulations.
 - [x] EN vs PT main language: **English**, decided 2026-08-11. Already in
       effect (`Preamble_commands.tex`, `\usepackage[main=english,portuguese]{babel}`)
       and verified in the rendered PDF: cover, Acknowledgments heading, Contents,
