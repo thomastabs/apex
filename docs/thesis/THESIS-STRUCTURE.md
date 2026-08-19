@@ -4,6 +4,15 @@ Working document for the MEIC-T dissertation. The LaTeX source lives in
 `IST_UL___MEIC_Thesis___Dissertação_final/`; the PIC report it draws on lives in
 `PIC_103641_Tomás_Taborda/` and is now a **source**, not a target - edit the thesis.
 
+> **Read `REGULATIONS.md` first.** It records the binding constraints from the
+> IST Regulamento das Dissertações de Mestrado, which this file does not
+> override. Three of them are not reflected in the plan below and change it:
+> the dissertation is capped at **80 A4 pages** (the body is already 85, with
+> three chapters still skeletons), a separate **10-page extended abstract in
+> English** is a required deliverable worth **20 per cent of the final mark**,
+> and appendices belong in an **independent annex** rather than inside the page
+> limit.
+
 ## Why this structure
 
 DSRM prescribes six *activities*, not six chapters. The organisation below keeps a
@@ -160,11 +169,13 @@ Without the first, `babel` fails on the `portuguese` option; without the second,
 - [ ] `Front_Cover.tex` - Examination Committee. Asked the supervisor
       2026-08-11; **answered 2026-08-15: the committee has NOT been assigned
       yet.** So there are no names to fill in, and this cannot close on our
-      side - it has to be asked again once the school assigns the jury. Two
-      sub-questions were not answered and should be re-asked at the same time:
-      1. Whether the chairperson is named by the school rather than chosen, in
-         which case that name arrives separately and later.
-      2. Whether Hugo de Sousa carries an academic title on the cover. He is
+      side - it has to be asked again once the school assigns the jury. The
+      regulation (`REGULATIONS.md` §4) settles the composition: 3 to 5 members,
+      designated by the course coordinator on the supervisor's proposal, and the
+      supervisor may never preside. One sub-question is therefore answered
+      already - the chairperson is named by the school, not chosen by us. One
+      remains to be re-asked:
+      1. Whether Hugo de Sousa carries an academic title on the cover. He is
          currently printed with no prefix, unlike `Prof. Miguel Mira da Silva`,
          and the cover renders `Supervisors: Prof. Miguel Mira da Silva /
          Hugo de Sousa`, which looks inconsistent if a title is in fact due.
@@ -181,9 +192,36 @@ Without the first, `babel` fails on the `portuguese` option; without the second,
 - [ ] `Acknowledgments.tex` - still template text.
 - [ ] `Glossary.tex` - still template entries (LaTeX/maths examples).
 - [ ] Disable `todonotes` and `changes` markup for the delivered PDF (see template
-      README §1). The 51 `\todo` prompts in Chapters 6-10 (12/11/9/15/4) are writing
+      README §1). The `\todo` prompts in Chapters 7-10 and the appendices are writing
       instructions, not content, and must all be gone by then - disabling the package
-      hides them but does not mean the chapters are written.
+      hides them but does not mean the chapters are written. Chapter 6 is written and
+      carries none.
+- [ ] **Bring the page count within the 80-page limit** (`REGULATIONS.md` §1). The
+      body is at 85 pages with Chapters 7, 8 and 10 still skeletons and Chapter 9
+      missing its results. Move Appendices A and B into the independent annex, and
+      write every remaining chapter to a page budget rather than to length.
+- [ ] **Write the extended abstract** (`REGULATIONS.md` §2): a scientific article of
+      up to 10 A4 pages, in English, to the template in the Guia de Preparação de
+      Dissertação, submitted through Fénix alongside the thesis. Worth 20 per cent of
+      the final mark, and not previously planned anywhere.
+- [x] What the 80 pages counts - **answered by the Guia de Preparação da
+      Dissertação, read 2026-08-19: it is the main text only.** Cover, abstracts,
+      contents, lists, bibliography and annexes sit outside it. A second ceiling of
+      100 pages applies to the whole assembled document.
+- [x] Confidentiality - **closed 2026-08-19: this is not a collaboration with a
+      business entity**, so no agreement is required and nothing goes to the course
+      coordinator on that front. Chapter 8 still describes the demonstration setting
+      generically, because the consent form promised participants their employer
+      would not appear in the results.
+- [ ] **Fix four front-matter violations** (`REGULATIONS.md` §1b): the English
+      abstract is 301 words and the Portuguese resumo 360 against a 250-word cap,
+      and both keyword lists carry ten entries against a limit of four to six.
+- [ ] **Print and sign the divulgation declaration**, the last page of the Guia de
+      Preparação da Dissertação. It grants IST a perpetual non-exclusive licence to
+      publish the thesis and the extended abstract. Separate from the Declaration
+      already inside the thesis, and it lives outside this repository.
+- [ ] **Ask the supervisor** the one remaining question: whether MEIC-T defines its
+      own extended-abstract model. If it does not, the dissertation template is used.
 - [x] EN vs PT main language: **English**, decided 2026-08-11. Already in
       effect (`Preamble_commands.tex`, `\usepackage[main=english,portuguese]{babel}`)
       and verified in the rendered PDF: cover, Acknowledgments heading, Contents,
