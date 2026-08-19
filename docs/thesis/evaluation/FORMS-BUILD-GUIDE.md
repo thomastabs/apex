@@ -41,7 +41,10 @@ opened.
    Frozen - it cannot change mid-study. Disclosure wording for Chapter 9 is
    drafted in `EVALUATION-PLAN.md` section 6.
 4. **Decide the arm split.** Unmoderated only, or unmoderated plus 3-4
-   moderated sessions.
+   moderated sessions. **This is now the only open decision in this list**, and
+   the only thing it changes in the build is F0 question 5, the screen-and-audio
+   recording consent item: keep it if the moderated arm runs, delete it if not.
+   Everything else can be built before it is settled.
 
 ### Build
 
@@ -75,8 +78,11 @@ opened.
 
 ### Run
 
-16. Recruit and run. Reset the demo project between participants and verify the
-    reset.
+16. Recruit and run. Recruitment runs through the supervisor's professional
+    connections (settled 2026-08-17), so the job here is scheduling, not
+    sourcing. Record which channel each participant came from - it is what
+    `\Cref{sec:eval_participants}` has to report. Reset the demo project
+    between participants and verify the reset.
 17. Log any technical failure against the specific task it happened in.
 
 ### After

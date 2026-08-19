@@ -328,12 +328,21 @@ and the likely participants are Portuguese speakers.
 2. ~~Validated PT SUS or own translation.~~ **CLOSED 2026-08-11: validated
    European Portuguese version (Martins et al., 2015), obtained and
    transcribed.** Nothing outstanding.
-3. **N and recruitment.** Whether the partner organisation can supply 12, or
-   whether the sample gets topped up with MEIC students, which changes the
-   external-validity claim. The LinkedIn free-tier limit of five noted
-   connection requests per month was raised with the supervisor 2026-08-12; he
-   deferred it to a meeting on **Monday 2026-08-17**. Still open - this is the
-   only remaining blocker on running sessions.
+3. ~~N and recruitment.~~ **Resolved 2026-08-17: the supervisor is recruiting
+   through his own professional connections.** The LinkedIn free-tier limit of
+   five noted connection requests per month, raised 2026-08-12, is therefore
+   moot - that channel is not the one being used. This is no longer a blocker
+   on our side and no longer a work item; it is a waiting item.
+
+   What it does **not** resolve, and what still has to be recorded once the
+   participants are known: the achieved N, and the composition of the sample.
+   A sample drawn entirely from one supervisor's network is a convenience
+   sample, and if it turns out to be academic rather than industrial, or
+   concentrated in one organisation, that bounds the external-validity claim.
+   State the channel and the composition plainly in
+   `\Cref{sec:eval_participants}` and carry the limit into
+   `\Cref{sec:threats}`; do not let it read as a random sample of
+   practitioners.
 4. ~~Ethics approval.~~ **CLOSED 2026-08-15.** The supervisor confirmed that
    **informed consent is sufficient** - no submission to an ethics committee is
    required - and that **no standard IST consent template exists**, so the form
@@ -489,9 +498,14 @@ Note the article title capitalises "validation" lowercase in the original.
       scale. Every band confirmed; percentile ranges added. See
       `instrument-sus.md`, "Verification status of these boundaries". The book's
       page locator is still unverified, so cite the book without one
-- [ ] Supervisor sign-off on the task set and the session length. Raise it at
-      the recruitment meeting on Monday 2026-08-17, which is already scheduled -
-      it costs nothing extra and both items gate the same first session
+- [x] Supervisor sign-off on the task set and the session length - **dropped
+      2026-08-17 by decision.** The task set and the 60-minute budget are the
+      researcher's own call and are not being put to the supervisor. The pilot
+      run (step 12 of the forms build guide) is what validates the session
+      length, and it now carries that job alone
+- [x] Recruitment channel settled 2026-08-17: the supervisor recruits through
+      his professional connections. Achieved N and sample composition are still
+      unknown and must be reported honestly when they are
 - [x] Ethics/consent route confirmed with the supervisor 2026-08-15: informed
       consent is sufficient, no committee submission, no IST template. The form
       in `consent-and-briefing.md` is final and is reproduced in Appendix B
