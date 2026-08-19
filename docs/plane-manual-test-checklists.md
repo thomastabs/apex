@@ -158,6 +158,32 @@ locally).
    second real or disposable email into — Users & Roles panel writes real
    invites against Plane Cloud, not a sandbox.
 
+### Semi-automated runner
+
+Use this when you want the cleanest repeatable smoke. It creates a temporary
+Plane Cloud project, drives the member APIs through Apex's backend Plane
+proxy, pauses for you to accept the real email invite, then continues the
+project add/role/remove checks. The temporary project is deleted at the end
+unless `PLANE_KEEP_SMOKE_PROJECT=1` is set.
+
+```bash
+cd "/home/thomastabs/Desktop/MEIC-T/Second Year/HumanAICollab/apex"
+PLANE_PAT="..." \
+PLANE_WORKSPACE_SLUG="your-plane-cloud-workspace" \
+PLANE_INVITE_EMAIL="tomassantostaborda@gmail.com" \
+PLANE_EXISTING_MEMBER_EMAIL="someone-already-in-the-workspace@example.com" \
+python3 scripts/plane-cloud-members-smoke.py
+```
+
+`PLANE_EXISTING_MEMBER_EMAIL` is optional. `PLANE_INVITE_EMAIL` must be an
+address that is not already in the workspace if you want to exercise the
+`scope: "workspace"` invite path; if the address is already a workspace
+member, the script skips that assertion and tests the second-step project add
+path directly.
+
+The backend must be running on `http://localhost:8000` by default. Override
+with `APEX_URL=...` if needed. The script defaults to `PLANE_URL=https://api.plane.so`.
+
 ### Checklist
 
 - [ ] **Invite an existing workspace member to the project** — pick an email
