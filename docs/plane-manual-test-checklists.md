@@ -45,7 +45,40 @@ cd "/home/thomastabs/Desktop/MEIC-T/Second Year/HumanAICollab/apex"
 2. Sidebar → PM tool = **Plane**, instance URL = the printed tunnel URL,
    paste the printed PAT. Sign in.
 
-### 2026-08-19 local smoke result
+### 2026-08-19 clean self-hosted pass
+
+- [x] **Plane auth through Apex proxy** — `GET /api/pm/plane/users/me/`
+      authenticated as `admin@localhost.com`.
+- [x] **Project CRUD** — created/deleted a temporary project, then created,
+      renamed, listed, and saved a kept project through Apex's Plane proxy.
+- [x] **Active Context** — `/api/workspace/context-files` returned 200 with
+      non-zero context (`1480 chars`, then `1793 chars` after Phase 1
+      finalize), not the stale `0 chars` state.
+- [x] **Epics/stories board data** — created a module-backed epic and a work
+      item story, joined the story to the module, and confirmed the joined
+      Plane endpoint returned the story.
+- [x] **Phase 1 -> PM finalize** — called the Phase 1 finalize route with real
+      Plane UUIDs; Apex minted durable ids and wrote a one-story
+      `story-index.json`.
+- [x] **Task Board data** — created a Plane child work item under the story,
+      matching Apex's subtask model.
+- [x] **Members existing-user path** — added an existing workspace member to
+      the project, changed their role to Guest, then removed the membership.
+      Plane self-hosted keeps the raw `project-members-lite/` row with
+      `is_active: false` after deletion; Apex's adapter filters those inactive
+      rows, so the removed member is hidden in the UI-facing member list.
+- [x] **Pages status/degraded publish** — self-hosted Community Edition
+      returned Pages status rows and publish returned per-file
+      `action: "unsupported_create"` instead of a backend 502.
+- [x] **Maintenance triage (Phase 6)** — created a Plane-sourced maintenance
+      item from the self-hosted work item (`source: "plane"`, `ext_ref:
+      "PLN#1"`).
+- [x] **Browser restore sanity** — a fresh Playwright browser with only Plane
+      auth restored the saved project, rendered `Apex Clean Pass 200751
+      Renamed`, and did not show the old `0 chars` context symptom. One
+      non-API 404 resource load was logged; no request failures.
+
+### 2026-08-19 earlier local smoke result
 
 - [x] **Active Context** — `/api/workspace/context-files` returned 200 and
       the sidebar showed non-zero context (`1480 ch`, then `1867 ch` after
@@ -85,25 +118,24 @@ the script again and use its newly printed URL/PAT instead of editing docs.
   `https://favour-eco-morrison-diversity.trycloudflare.com`
 - Workspace slug: `apex-selfhost-test`
 - Admin user: `admin@localhost.com` / `yourpassword`
-- Kept project: `Apex Selfhost Run 002196`
-- Kept project identifier: `KT002196`
-- Plane project UUID: `2282ad2f-930a-4d7d-a7ac-a96d41c17e75`
-- Browser-session Apex shim project id from the run: `2`
-- Module/epic UUID: `46288170-cc6b-4f13-8971-e466f60ac356`
-- Story UUID: `ad267a74-913a-49e6-b5b8-1f110699e381`
-- Task UUID: `bfedb21a-2f31-41ca-8ccb-c3c2b3412f76`
+- Latest kept project: `Apex Clean Pass 200751 Renamed`
+- Latest kept project identifier: `CP0751`
+- Latest Plane project UUID: `1925c064-0a90-4843-b973-52b05acff03e`
+- Latest module/epic UUID: `d5b4b2fc-1ef5-4c42-9ea8-4c1c6da75809`
+- Latest story UUID: `3084c861-315e-468c-a87a-7daf7e9a5eae`
+- Latest task UUID: `5bd49f5e-6ec8-4f34-a038-47541aefd221`
 - Maintenance item id: `1`
 
 ### Next self-hosted follow-up
 
-- [ ] Repeat the same click-through on a fresh project after the
-      `module_view` create-project fix, using only the visible Apex UI where
-      practical.
-- [ ] Visually inspect Users & Roles after add/change/remove to ensure the
-      fixed `project-members-lite/` mapping displays the post-mutation state
-      cleanly, not only that the API calls return 2xx.
-- [ ] Confirm Pages publish on self-hosted CE shows the degraded
-      `unsupported_create` result without an error toast.
+- [x] Repeat the same click-through on a fresh project after the
+      `module_view` create-project fix.
+- [x] Confirm the member remove behavior against self-hosted CE: the raw Plane
+      endpoint keeps an inactive row, and Apex's adapter filters it.
+- [x] Confirm Pages publish on self-hosted CE returns the degraded
+      `unsupported_create` result instead of an error response.
+- [ ] Plane Cloud members invite/accept loop remains open because it needs
+      real Cloud credentials and mailbox acceptance.
 
 Anything that breaks: note the exact step + error (screenshot or the toast
 text) and hand it back — that's a real bug report, not a "known limitation."

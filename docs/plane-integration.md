@@ -214,9 +214,13 @@ can return a bare array instead of a paginated object, and
 Apex lists project users through `project-members-lite/`, filters inactive
 rows, and keeps the project-member id returned by the add call so an
 immediate role change or remove can target the correct membership even when
-the list endpoint only exposes the user's id. The self-hosted existing-member
-add -> role change -> remove path is smoke-tested; the real Plane Cloud
-invite-email -> accept -> re-add loop remains a separate manual smoke.
+the list endpoint only exposes the user's id. A clean self-hosted pass on
+2026-08-19 confirmed that DELETE returns 204 while the raw
+`project-members-lite/` response still includes the removed user with
+`is_active: false`; that row must stay hidden by Apex's filter. The
+self-hosted existing-member add -> role change -> remove path is
+smoke-tested; the real Plane Cloud invite-email -> accept -> re-add loop
+remains a separate manual smoke.
 
 ## Project CRUD
 
