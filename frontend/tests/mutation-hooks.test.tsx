@@ -9,6 +9,7 @@ vi.mock("@/lib/stores/session-store", () => ({
   useApiContext: () => ({
     projectId: PROJECT_ID,
     pmTool: "taiga",
+    taigaApiUrl: "https://api.taiga.io",
     pmToken: "tok",
     pmProjectId: "proj-slug",
   }),
@@ -171,7 +172,7 @@ describe("phase5 + workspace mutation hooks scope invalidations (M6)", () => {
       { scope: "Phase 3 dev pack · task #5", summary: "Discarded regen", reason: "kept previous" },
     );
     const keys = spy.mock.calls.map((c) => c[0]?.queryKey);
-    expect(keys).toContainEqual(["workspace", "context-files", PROJECT_ID]);
+    expect(keys).toContainEqual(["workspace", "context-files", "taiga", "https://api.taiga.io", undefined, PROJECT_ID]);
   });
 });
 

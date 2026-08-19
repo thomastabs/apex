@@ -85,6 +85,36 @@ def test_status_reports_not_exists_for_unmatched_context_file(monkeypatch):
     assert entry["chars"] == 0
 
 
+def test_publish_reports_unsupported_when_self_hosted_pages_create_404s(monkeypatch):
+    calls = []
+
+    def fake_request(method, url, api_key, *, json=None, ignore_status=frozenset()):
+        calls.append((method, url, ignore_status))
+        if method == "GET" and url == _list_url():
+            return {"results": []}
+        if method == "POST" and url == _create_url():
+            assert 404 in ignore_status
+            return None
+        raise AssertionError(f"unexpected call {method} {url}")
+
+    monkeypatch.setattr(svc, "_request", fake_request)
+
+    results = svc.publish(
+        _BASE, "key", _WORKSPACE, _PROJECT,
+        [("project-concept.md", "Project Concept", "# Project Concept")],
+    )
+
+    assert results == [{
+        "filename": "project-concept.md",
+        "slug": "apex-project-concept",
+        "action": "unsupported_create",
+        "ok": False,
+        "detail": "Plane returned 404 for the Pages create endpoint; this self-hosted Plane build does not expose project Pages writes through the public API.",
+    }]
+    assert calls[0] == ("GET", _list_url(), frozenset({404}))
+    assert calls[1] == ("POST", _create_url(), frozenset({404}))
+
+
 def test_status_surfaces_unmatched_plane_page_as_custom_without_extra_fetch(monkeypatch):
     calls = []
 

@@ -612,6 +612,18 @@ def _require_wiki_pm(x_taiga_url: str, x_plane_url: str, x_plane_workspace: str)
     workspace_slug is "" for Taiga (Plane-only concept)."""
     from src import context_manager
 
+    # The request context/auth is anchored by the per-request PM headers. When
+    # local storage is reset or a browser restores a Plane session before
+    # /workspace/config has been saved in that storage backend, the persisted
+    # pm_tool can still say "taiga"; using it first sends a valid Plane request
+    # down the Taiga wiki client and breaks Pages status.
+    if x_plane_url.strip():
+        x_plane_workspace = x_plane_workspace.strip()
+        if not x_plane_workspace:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="X-Plane-Workspace header is required.")
+        deps._validate_plane_workspace_slug(x_plane_workspace)
+        return "plane", resolve_plane_base(x_plane_url), x_plane_workspace
+
     pm_tool = context_manager.load_config().get("pm_tool", "taiga")
     if pm_tool == "taiga":
         return "taiga", resolve_taiga_base(x_taiga_url), ""

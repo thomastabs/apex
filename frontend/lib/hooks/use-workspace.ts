@@ -74,6 +74,30 @@ import { getPmAdapter } from "@/lib/api/pm-factory";
 import { getUsageSummary } from "@/lib/api/usage";
 import { useApiContext, useAuthContext, useGithubContext, useFigmaContext } from "@/lib/stores/session-store";
 
+type ApiContext = ReturnType<typeof useApiContext>;
+
+function contextFilesQueryKey(context: ApiContext) {
+  return [
+    "workspace",
+    "context-files",
+    context?.pmTool,
+    context?.taigaApiUrl,
+    context?.workspaceSlug,
+    context?.projectId,
+  ] as const;
+}
+
+function contextWikiStatusQueryKey(context: ApiContext) {
+  return [
+    "workspace",
+    "context-wiki-status",
+    context?.pmTool,
+    context?.taigaApiUrl,
+    context?.workspaceSlug,
+    context?.projectId,
+  ] as const;
+}
+
 export function useMe() {
   const auth = useAuthContext();
   return useQuery({
@@ -165,7 +189,7 @@ export function useDeleteProject() {
 export function useContextFiles() {
   const context = useApiContext();
   return useQuery({
-    queryKey: ["workspace", "context-files", context?.projectId],
+    queryKey: contextFilesQueryKey(context),
     queryFn: () => getContextFiles(context!),
     enabled: Boolean(context),
     staleTime: 30 * 1000,
@@ -232,7 +256,7 @@ export function useUpdateContextFile() {
 export function useContextWikiStatus() {
   const context = useApiContext();
   return useQuery({
-    queryKey: ["workspace", "context-wiki-status", context?.projectId],
+    queryKey: contextWikiStatusQueryKey(context),
     queryFn: () => getContextWikiStatus(context!),
     enabled: Boolean(context) && (context?.pmTool === "taiga" || context?.pmTool === "plane"),
     staleTime: 30 * 1000,
@@ -246,8 +270,8 @@ export function usePublishContextToWiki() {
     meta: { errorLabel: "op.publishWiki" },
     mutationFn: (filenames: string[] = []) => publishContextToWiki(context!, filenames),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["workspace", "context-wiki-status", context?.projectId] });
-      void queryClient.invalidateQueries({ queryKey: ["workspace", "context-files", context?.projectId] });
+      void queryClient.invalidateQueries({ queryKey: contextWikiStatusQueryKey(context) });
+      void queryClient.invalidateQueries({ queryKey: contextFilesQueryKey(context) });
     },
   });
 }
@@ -259,8 +283,8 @@ export function usePullContextFromWiki() {
     meta: { errorLabel: "op.pullWiki" },
     mutationFn: (filenames: string[] = []) => pullContextFromWiki(context!, filenames),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["workspace", "context-wiki-status", context?.projectId] });
-      void queryClient.invalidateQueries({ queryKey: ["workspace", "context-files", context?.projectId] });
+      void queryClient.invalidateQueries({ queryKey: contextWikiStatusQueryKey(context) });
+      void queryClient.invalidateQueries({ queryKey: contextFilesQueryKey(context) });
     },
   });
 }
@@ -330,7 +354,7 @@ export function useLogDecision() {
     mutationFn: (body: { scope: string; summary: string; reason?: string }) => logDecision(context!, body),
     onSuccess: () => {
       // Refresh the Active Context sidebar so the new decisions.md entry shows.
-      void queryClient.invalidateQueries({ queryKey: ["workspace", "context-files", context?.projectId] });
+      void queryClient.invalidateQueries({ queryKey: contextFilesQueryKey(context) });
     },
   });
 }

@@ -312,8 +312,18 @@ def publish(
         created = _request(
             "POST", f"{_pages_url(plane_base, workspace_slug, project_id)}/", api_key,
             json={"name": title, "description_html": _wrap_markdown(content)},
+            ignore_status=frozenset({404}),
         )
         page_id = _page_id(created) if isinstance(created, dict) else None
+        if created is None:
+            results.append({
+                "filename": filename,
+                "slug": wiki_slug_for(filename),
+                "action": "unsupported_create",
+                "ok": False,
+                "detail": "Plane returned 404 for the Pages create endpoint; this self-hosted Plane build does not expose project Pages writes through the public API.",
+            })
+            continue
         results.append({
             "filename": filename,
             "slug": wiki_slug_for(filename),

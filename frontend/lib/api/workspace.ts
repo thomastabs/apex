@@ -45,6 +45,9 @@ export type ServerConfig = {
   // number for Taiga, string (UUID) for Plane.
   project_id: number | string | null;
   taiga_web_url: string;
+  taiga_api_url?: string;
+  plane_url?: string;
+  plane_workspace_slug?: string;
   pm_tool: string;
   pm_web_url: string;
   github_repo: string;

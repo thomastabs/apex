@@ -99,6 +99,15 @@ describe("plane direct API", () => {
     expect(mockFetch.mock.calls[1][0]).toContain("cursor=cur2");
   });
 
+  it("listProjects also accepts self-hosted Plane endpoints that return a bare array", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(200, [{ id: "p1", name: "One", identifier: "ONE" }]));
+
+    const projects = await planeListProjects("key", "my-team", "https://api.plane.so");
+
+    expect(projects.map((p) => p.name)).toEqual(["One"]);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
   it("uses the plain description field on Projects/Modules — they have no description_stripped at all (live-confirmed)", async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(200, {
       results: [{
@@ -119,7 +128,7 @@ describe("plane direct API", () => {
   // real API-shape bugs found historically in this module).
   // -------------------------------------------------------------------------
 
-  it("planeCreateProject POSTs {name, identifier, description} to the workspace projects endpoint and normalizes the response", async () => {
+  it("planeCreateProject POSTs project defaults that keep Apex's Module/Page fallbacks usable", async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(201, {
       id: "proj-new-uuid", name: "New Project", identifier: "NEWP", description: "a new project",
     }));
@@ -129,7 +138,14 @@ describe("plane direct API", () => {
     const [url, init] = mockFetch.mock.calls[0];
     expect(url).toContain("/workspaces/my-team/projects/");
     expect(init.method).toBe("POST");
-    expect(JSON.parse(init.body)).toEqual({ name: "New Project", identifier: "NEWP", description: "a new project" });
+    expect(JSON.parse(init.body)).toEqual({
+      name: "New Project",
+      identifier: "NEWP",
+      description: "a new project",
+      module_view: true,
+      page_view: true,
+      issue_views_view: true,
+    });
     expect(project.name).toBe("New Project");
     expect(project.slug).toBe("NEWP");
     expect(project.description).toBe("a new project");
@@ -528,16 +544,16 @@ describe("plane direct API", () => {
   });
 
   // -------------------------------------------------------------------------
-  // Members/roles (phase 4d). Field shapes live-confirmed against a real
-  // workspace: project-members DOES carry a role field (the documented
-  // example omitting it was stale/wrong) — role:20 is shared by both Owner
-  // and Admin, role_slug is the only field that actually distinguishes them.
+  // Members/roles (phase 4d). Field shapes live-confirmed against real Plane
+  // builds: project-members-lite carries role/is_active, while create/PATCH
+  // responses carry the membership id needed for immediate role/remove actions.
   // -------------------------------------------------------------------------
 
   it("getUsers maps project-members, prefers role_slug for role_name, and hardcodes the assignable-roles list", async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(200, {
       results: [
-        { id: "m1", first_name: "Tom", last_name: "T", display_name: "tomtom", email: "tom@x.test", role: 20, role_slug: "owner" },
+        { id: "m1", first_name: "Tom", last_name: "T", display_name: "tomtom", email: "tom@x.test", role: 20, role_slug: "owner", is_active: true },
+        { id: "inactive", first_name: "Old", last_name: "", display_name: "old", email: "old@x.test", role: 5, is_active: false },
         { id: "m2", first_name: "Ana", last_name: "", display_name: "ana", email: "ana@x.test", role: 15, role_slug: "member" },
       ],
       next_cursor: null,
@@ -550,7 +566,7 @@ describe("plane direct API", () => {
     expect(memberships[1]).toMatchObject({ id: "m2", role_name: "Member", is_owner: false });
     // No "list roles" endpoint exists on Plane — this is hardcoded, not fetched.
     expect(roles).toEqual([{ id: 5, name: "Guest" }, { id: 15, name: "Member" }, { id: 20, name: "Admin" }]);
-    expect(mockFetch.mock.calls[0][0]).toContain("/project-members/");
+    expect(mockFetch.mock.calls[0][0]).toContain("/project-members-lite/");
   });
 
   it("inviteUser resolves an existing workspace member by email, then adds them to the project", async () => {
@@ -559,11 +575,17 @@ describe("plane direct API", () => {
         results: [{ id: "wm1", email: "ana@x.test", display_name: "ana" }],
         next_cursor: null,
       }))
-      .mockResolvedValueOnce(makeResponse(201, {}));
+      .mockResolvedValueOnce(makeResponse(201, { id: "pm1", member: "wm1", role: 15 }))
+      .mockResolvedValueOnce(makeResponse(200, {
+        results: [{ id: "wm1", email: "ana@x.test", display_name: "ana", role: 15, is_active: true }],
+        next_cursor: null,
+      }));
 
     const result = await planeInviteUser("key", "my-team", "proj-uuid", "ana@x.test", 15, "https://api.plane.so");
+    const { memberships } = await planeGetUsers("key", "my-team", "proj-uuid", "https://api.plane.so");
 
     expect(result).toEqual({ scope: "project" });
+    expect(memberships[0].id).toBe("pm1");
     expect(mockFetch.mock.calls[0][0]).toContain("/workspaces/my-team/members/");
     const [addUrl, addInit] = mockFetch.mock.calls[1];
     expect(addUrl).toContain("/projects/proj-uuid/project-members/");

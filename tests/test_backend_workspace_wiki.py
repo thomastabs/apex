@@ -52,6 +52,24 @@ def test_wiki_status_plane_mode_calls_plane_service_not_taiga(plane_ctx):
     assert call_args[3] == UUID
 
 
+def test_wiki_status_plane_header_overrides_stale_saved_taiga_config(plane_ctx):
+    fake_pages = [
+        {"filename": "project-concept.md", "label": "Project Concept", "slug": "apex-project-concept",
+         "title": "Apex: Project Concept", "exists": False, "wiki_id": None, "chars": 0,
+         "last_modified": None, "source": "apex", "is_custom": False},
+    ]
+    with patch("src.context_manager.load_config", return_value={"pm_tool": "taiga"}), \
+         patch("backend.app.api.workspace.resolve_plane_base", return_value="https://plane.local/api/v1"), \
+         patch("backend.app.services.plane_wiki_service.status", return_value=fake_pages) as plane_status, \
+         patch("backend.app.services.taiga_wiki_service.status", side_effect=AssertionError("stale saved config must not choose Taiga")):
+        result = workspace.get_context_wiki_status(
+            plane_ctx, x_plane_url="https://plane.local", x_plane_workspace="myteam",
+        )
+
+    assert result["pages"] == fake_pages
+    plane_status.assert_called_once()
+
+
 def test_wiki_status_plane_mode_requires_workspace_header(plane_ctx):
     with patch("src.context_manager.load_config", return_value={"pm_tool": "plane"}):
         with pytest.raises(Exception) as exc:

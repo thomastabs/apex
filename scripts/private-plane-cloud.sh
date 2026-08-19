@@ -390,6 +390,7 @@ start_backend() {
   # (found live-testing: 40+ "changes detected" every ~350ms, backend never
   # finishes booting, and mid-flight requests get dropped when it *does*
   # start — the likely cause of a 403 burst seen earlier the same session).
+  APEX_STORAGE_BACKEND="${APEX_STORAGE_BACKEND:-local}" \
   python3 -m uvicorn backend.app.main:app --reload \
     --reload-dir "$ROOT_DIR/backend" --reload-dir "$ROOT_DIR/src" \
     --port "$APEX_BACKEND_PORT" &

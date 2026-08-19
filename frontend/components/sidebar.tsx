@@ -323,6 +323,7 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [tokenInput, setTokenInput] = useState(taigaToken);
+  const serverConfig = useServerConfig();
   const [taigaInstanceUrl, setTaigaInstanceUrl] = useState("");
   const [planeApiKey, setPlaneApiKey] = useState("");
   const [planeBaseUrlInput, setPlaneBaseUrlInput] = useState("");
@@ -338,14 +339,47 @@ function LoginSection({ pmWebUrl }: { pmWebUrl: string }) {
   // plane_integration_plan memory §4), so this is the one field the proxy needs.
   const effectivePlaneApiUrl = planeBaseUrlInput.trim().replace(/\/+$/, "") || "https://api.plane.so";
 
-  function handlePlaneSignIn() {
+  useEffect(() => {
+    if (taigaToken) return;
+    if (storedPmTool === "plane") {
+      setPmToolChoice("plane");
+    }
+    if (!planeBaseUrlInput && storedTaigaApiUrl) {
+      setPlaneBaseUrlInput(storedTaigaApiUrl);
+    } else if (!planeBaseUrlInput && serverConfig.data?.plane_url) {
+      setPlaneBaseUrlInput(serverConfig.data.plane_url);
+    }
+    if (!planeWorkspaceSlugInput && storedWorkspaceSlug) {
+      setPlaneWorkspaceSlugInput(storedWorkspaceSlug);
+    } else if (!planeWorkspaceSlugInput && serverConfig.data?.plane_workspace_slug) {
+      setPlaneWorkspaceSlugInput(serverConfig.data.plane_workspace_slug);
+    }
+  }, [
+    planeBaseUrlInput,
+    planeWorkspaceSlugInput,
+    serverConfig.data?.plane_url,
+    serverConfig.data?.plane_workspace_slug,
+    storedPmTool,
+    storedTaigaApiUrl,
+    storedWorkspaceSlug,
+    taigaToken,
+  ]);
+
+  async function handlePlaneSignIn() {
     const key = planeApiKey.trim();
     const slug = planeWorkspaceSlugInput.trim();
     if (!key || !slug) return;
+    setIsPending(true); setLoginError("");
     const authCtx = { taigaToken: key, taigaApiUrl: effectivePlaneApiUrl, pmTool: "plane" as const, workspaceSlug: slug };
-    void savePmConfig(authCtx, { pmTool: "plane", planeUrl: effectivePlaneApiUrl, planeWorkspaceSlug: slug }).catch(() => undefined);
-    setPlaneApiKey("");
-    setAuth(authCtx);
+    try {
+      await savePmConfig(authCtx, { pmTool: "plane", planeUrl: effectivePlaneApiUrl, planeWorkspaceSlug: slug });
+      setPlaneApiKey("");
+      setAuth(authCtx);
+    } catch (err) {
+      setLoginError(err instanceof Error ? err.message : t("login.cannotReachBackend"));
+    } finally {
+      setIsPending(false);
+    }
   }
 
   async function handlePasswordLogin() {

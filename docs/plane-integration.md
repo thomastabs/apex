@@ -90,9 +90,11 @@ real path-traversal vector once):
 `frontend/lib/api/plane-adapter.ts` implements the same
 `ProjectManagementAdapter` interface Taiga's adapter does (`pm-types.ts`),
 dispatched via `getPmAdapter(pmTool)`. Read/update/delete paths for
-epics/stories/tasks/members/projects are all implemented; epics/stories/
-tasks/members are live-tested against a real Plane Cloud workspace, Project
-CRUD is code-complete but not yet live-tested (see Known limitations below).
+epics/stories/tasks/members/projects are all implemented. Project CRUD,
+module-backed epics/stories, task data, member add/role/remove API flow, and
+Phase 6 issue import were smoke-tested against self-hosted Plane on
+2026-08-19; the full Plane Cloud invite/accept loop remains a separate manual
+smoke because it needs real Cloud credentials and mail acceptance.
 
 Low-level REST calls live in `frontend/lib/api/plane-direct.ts` — pagination,
 field normalization, and two Plane-specific traps worth knowing if you touch
@@ -103,6 +105,9 @@ this code:
   epic-shaped operation (list/create/update/delete) tries Epics first and
   falls back to **Modules** — the documented free-tier substitute, not a
   workaround — via `tryEpicsThenModules`. A project is never a mix of both.
+  Apex-created Plane projects explicitly enable `module_view` so the fallback
+  can write modules; self-hosted projects created before 2026-08-19 may need
+  that flag enabled once via project PATCH or Plane's own UI.
 - **Inconsistent field names across write endpoints:** work items take
   `labels` (label UUIDs) but Epics take `label_ids`; work items/Epics take
   `description_html` (no plain `description` field) but Modules take a plain
@@ -202,6 +207,17 @@ value so the UI can show the right message rather than implying one-step
 parity that doesn't exist. A non-email input with no workspace-member match
 still fails loudly (nothing to invite by).
 
+Self-hosted Plane's member APIs have a few shape differences from Cloud and
+from the public docs, confirmed on 2026-08-19. `workspaces/{slug}/members/`
+can return a bare array instead of a paginated object, and
+`project-members/` returns user profiles without role/membership metadata.
+Apex lists project users through `project-members-lite/`, filters inactive
+rows, and keeps the project-member id returned by the add call so an
+immediate role change or remove can target the correct membership even when
+the list endpoint only exposes the user's id. The self-hosted existing-member
+add -> role change -> remove path is smoke-tested; the real Plane Cloud
+invite-email -> accept -> re-add loop remains a separate manual smoke.
+
 ## Project CRUD
 
 Create/update/delete for Plane projects, matching Taiga's own project
@@ -226,10 +242,13 @@ write — no backend changes were needed for this feature.
 `backend/app/services/plane_wiki_service.py` mirrors `taiga_wiki_service.py`'s
 outward shape (`status`/`publish`/`pull`, same result-dict keys) through the
 same `/context-files/wiki-status`, `/context-files/wiki/publish`,
-`/context-files/wiki/pull` routes — `workspace.py` now dispatches on the
-configured `pm_tool` rather than hardcoding Taiga, so no new frontend
-endpoints were needed (`frontend/lib/api/client.ts`'s `contextHeaders()`
-already attached `X-Plane-Url`/`X-Plane-Workspace` for every Plane request).
+`/context-files/wiki/pull` routes — `workspace.py` dispatches on live Plane
+headers first (`X-Plane-Url`/`X-Plane-Workspace`) and falls back to saved
+project config only when those headers are absent, so a restored Plane tab
+does not accidentally call the Taiga wiki client because of stale config. No
+new frontend endpoints were needed (`frontend/lib/api/client.ts`'s
+`contextHeaders()` already attached the Plane headers for every Plane
+request).
 The two platforms are genuinely not symmetrical, though, and this is built to
 be honest about that rather than fake parity:
 
@@ -266,6 +285,13 @@ be honest about that rather than fake parity:
   workspace, the exact class of multi-tenant leak this codebase treats as a
   recurring bug class worth checking for deliberately on every new PM-facing
   code path.
+- **Self-hosted Community Edition has no project Pages endpoint.** Confirmed
+  live on 2026-08-19: `GET` and `POST` on project `pages/` return 404 while
+  modules, work items, and project detail on the same project return 200.
+  `status()` treats that as an empty Pages set so the sidebar stays quiet;
+  `publish()` returns a per-file `action: "unsupported_create"` result
+  instead of surfacing a backend 502. Plane Cloud remains the target for a
+  real publish/edit/pull round-trip.
 
 ## Self-hosted testing
 
@@ -302,29 +328,19 @@ this gap was closed the same day it was raised, in two passes:
   check retry logic — see the script's git history/commit message); the
   second run completed in seconds against the already-running stack and the
   printed token was confirmed live against `/api/v1/users/me/`.
-- **Feature-level API compatibility: partially confirmed, without ever
-  entering a credential into Apex's own UI.** The script's auto-provisioned
-  token was used for a handful of direct, read-only-in-spirit API probes
-  (create/delete a throwaway project, check the Epics endpoint's status
-  code) run straight against the self-hosted instance's REST API — this is
-  meaningfully different from signing into Apex's own UI, and stays within
-  the standing rule that the assistant never enters a token into a login
-  field regardless of whose instance it is. This resolved a real previously-
-  "untested" unknown: self-hosted Community Edition's Epics endpoint answers
-  **`404`**, not Cloud's `402 Payment Required` — a different status
-  entirely (self-hosted CE likely lacks the route rather than gating it
-  behind payment). Already covered: `_EPICS_GATED_STATUSES` in
-  `plane-direct.ts` already includes 404 alongside 402/403, and the Modules
-  fallback was confirmed to work (`200`) — so this was a real gap in
-  *verification*, not in the code, and it's now closed.
-- **Feature-level UI compatibility: still pending.** Confirming direct API
-  behavior is not the same as confirming Apex's actual UI flows (Project
-  CRUD, epics/stories board, members/invites, Pages sync) behave identically
-  when driven through the real Apex frontend against self-hosted — that
-  needs a signed-in pass through the UI itself, same as every other live-
-  testing round this session, and the assistant does not sign into Apex's
-  own UI on Tomás's behalf even with an auto-provisioned disposable token.
-  Not yet run as of this note.
+- **Feature-level compatibility: smoke-tested through Apex on 2026-08-19.**
+  The initial direct API probes resolved one previously untested unknown:
+  self-hosted Community Edition's Epics endpoint answers **`404`**, not
+  Cloud's `402 Payment Required`, and the existing Modules fallback handles
+  it. The later Apex click-through used the script's disposable local PAT
+  against the real frontend/backend and covered Active Context loading,
+  Project CRUD, module-backed epic/story/task data, Phase 1 PM finalize,
+  existing workspace-member add -> role -> remove, Pages status/degraded
+  publish, and Phase 6 Plane-sourced maintenance import. The main bug found
+  was local storage selection: a checked-in Azure File Share connection made
+  `/api/workspace/context-files` slow enough for the browser to abort, leaving
+  the sidebar on stale `0 chars`; `APEX_STORAGE_BACKEND=local` now forces
+  the local backend for self-hosted runs.
 
 ## Known, deliberate limitations (current backlog)
 
@@ -333,12 +349,6 @@ parity (see "Why a second PM tool" above). Only genuinely open items belong
 here; anything resolved or mitigated moves to the record section below so
 this list stays an accurate backlog, not a growing history.
 
-- **Self-hosted UI-driven feature parity** (real testing gap, not a build
-  gap) — a self-hosted instance is confirmed reachable, correctly auth-gated,
-  and a handful of its APIs have been probed directly (see "Self-hosted
-  testing" above), but no Plane feature (Project CRUD, epics/stories,
-  members/invites, Pages sync) has been exercised through Apex's own UI
-  against a self-hosted instance yet — needs a signed-in click-through.
 - **Self-hosted Community Edition has no Pages REST endpoint at all**
   (confirmed live, 2026-08-19 — `GET .../projects/{id}/pages/` 404s while
   `modules/`, `issues/`, and the project-detail endpoint on the same project
@@ -346,11 +356,14 @@ this list stays an accurate backlog, not a growing history.
   hosted CE still exposes but gates to 404 (see "Self-hosted testing"
   above), Pages appears entirely absent from CE's API surface. `status()`
   now treats that 404 as "no pages" (empty list, same shape as a fresh
-  project) instead of surfacing a 502 — the sidebar no longer errors out on
-  every load — but `publish()` will still fail loudly if someone explicitly
-  tries to publish against a CE instance; no workaround exists since there's
-  no page-create endpoint to fall back to. Permanent Plane limitation, not
-  fixable here.
+  project) instead of surfacing a 502, and `publish()` returns
+  `action: "unsupported_create"` for each attempted create instead of
+  failing the whole request. Permanent Plane limitation, not fixable here.
+- **Plane Cloud invite/accept member loop** — self-hosted existing-member add,
+  role change, and remove are smoke-tested, but the Cloud-only flow of
+  inviting a brand-new email, accepting the invite, and then re-adding that
+  now-workspace member to a project still needs a real Cloud PAT plus a real
+  mailbox/account loop.
 
 ## Resolved / mitigated (kept as record, not open backlog)
 

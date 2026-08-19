@@ -139,7 +139,11 @@ async function planeFetchAllPages<T>(
   const out: T[] = [];
   for (let page = 0; page < MAX_PAGES; page++) {
     const pageUrl = cursor ? `${path}${sep}per_page=100&cursor=${encodeURIComponent(cursor)}` : `${path}${sep}per_page=100`;
-    const resp = await planeFetch<PlaneListResponse<T>>(pageUrl, apiKey, apiBaseUrl);
+    const resp = await planeFetch<PlaneListResponse<T> | T[]>(pageUrl, apiKey, apiBaseUrl);
+    if (Array.isArray(resp)) {
+      out.push(...resp);
+      break;
+    }
     out.push(...(resp.results ?? []));
     if (!resp.next_page_results || !resp.next_cursor) break;
     cursor = resp.next_cursor;
@@ -315,7 +319,7 @@ export async function planeCreateProject(
 ): Promise<Project> {
   const created = await planeFetch<Record<string, unknown>>(
     `workspaces/${encodeURIComponent(workspaceSlug)}/projects/`, apiKey, apiBaseUrl,
-    { method: "POST", body: { name, identifier, description } },
+    { method: "POST", body: { name, identifier, description, module_view: true, page_view: true, issue_views_view: true } },
   );
   return normalizePlaneProject(created);
 }
@@ -790,6 +794,7 @@ export async function planeDeleteTask(
 // memory §2/§4d), so this is hardcoded rather than fetched. Owner excluded
 // deliberately — not something this role-change endpoint can assign to.
 const _PLANE_ASSIGNABLE_ROLES = [{ id: 5, name: "Guest" }, { id: 15, name: "Member" }, { id: 20, name: "Admin" }];
+const _projectMemberIdByUserId = new Map<string, string>();
 
 function planeRoleName(raw: Record<string, unknown>): string {
   const slug = raw.role_slug;
@@ -802,18 +807,21 @@ export async function planeGetUsers(
   apiKey: string, workspaceSlug: string, projectUuid: string, apiBaseUrl?: string,
 ): Promise<{ memberships: Membership[]; roles: Array<{ id: number; name: string }> }> {
   const raw = await planeFetchAllPages<Record<string, unknown>>(
-    `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}/project-members/`, apiKey, apiBaseUrl,
+    `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}/project-members-lite/`, apiKey, apiBaseUrl,
   );
-  const memberships: Membership[] = raw.map((m) => ({
-    id: String(m.id),
-    user: null,
-    username: (m.display_name as string) || "",
-    full_name: [m.first_name, m.last_name].filter(Boolean).join(" ") || (m.display_name as string) || "",
-    email: (m.email as string) || "",
-    role: (m.role as number) ?? null,
-    role_name: planeRoleName(m),
-    is_owner: m.role_slug === "owner",
-  }));
+  const memberships: Membership[] = raw.filter((m) => m.is_active !== false).map((m) => {
+    const userId = String(m.id);
+    return {
+      id: _projectMemberIdByUserId.get(userId) ?? userId,
+      user: null,
+      username: (m.display_name as string) || "",
+      full_name: [m.first_name, m.last_name].filter(Boolean).join(" ") || (m.display_name as string) || "",
+      email: (m.email as string) || "",
+      role: (m.role as number) ?? null,
+      role_name: planeRoleName(m),
+      is_owner: m.role_slug === "owner",
+    };
+  });
   return { memberships, roles: _PLANE_ASSIGNABLE_ROLES };
 }
 
@@ -845,10 +853,11 @@ export async function planeInviteUser(
     String(m.email ?? "").toLowerCase() === key || String(m.display_name ?? "").toLowerCase() === key,
   );
   if (match) {
-    await planeFetch<unknown>(`${base}/projects/${projectUuid}/project-members/`, apiKey, apiBaseUrl, {
+    const created = await planeFetch<Record<string, unknown>>(`${base}/projects/${projectUuid}/project-members/`, apiKey, apiBaseUrl, {
       method: "POST",
       body: { member: match.id, role: roleId },
     });
+    if (created.id) _projectMemberIdByUserId.set(String(match.id), String(created.id));
     return { scope: "project" };
   }
   if (!usernameOrEmail.includes("@")) {

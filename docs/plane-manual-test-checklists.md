@@ -1,19 +1,18 @@
-# Plane manual test checklists
+# Plane manual test checklists and smoke record
 
-Two open live-testing items from the Plane backlog (see
-`docs/plane-integration.md`'s "Known, deliberate limitations" section) that
-need a human signed in with real credentials — Claude does not enter
-credentials into any sign-in flow, disposable or not, even on direct request.
-This file is the runnable script for both; check items off as you go.
+This file records the latest self-hosted Plane smoke run and keeps the
+remaining Plane Cloud checklist runnable. Disposable self-hosted credentials
+are acceptable for local agent/human testing; real Plane Cloud credentials and
+mailbox acceptance are still human-only and should not be committed here.
 
 ---
 
 ## 1. Self-hosted UI click-through
 
-Exercises Apex's own UI against a self-hosted Plane instance. No Plane
-feature (Project CRUD, epics/stories, members/invites, Pages sync) has been
-driven through Apex's UI against self-hosted Plane yet — only direct API
-probes and infra reachability.
+Exercises Apex against a self-hosted Plane instance. The first full local
+smoke pass was completed on 2026-08-19 against
+`scripts/private-plane-cloud.sh`; rerun this checklist whenever Plane
+integration code changes.
 
 ### Bring the stack up
 
@@ -30,6 +29,9 @@ cd "/home/thomastabs/Desktop/MEIC-T/Second Year/HumanAICollab/apex"
 - On success it prints: the tunnel URL, the admin email/password, and a
   ready-to-paste Personal Access Token. Backend on `:8000`, frontend on
   `:3000` (since `--with-frontend` is passed).
+- The script starts Apex with `APEX_STORAGE_BACKEND=local` by default so a
+  developer `.env` with Azure File Share settings cannot make Active Context
+  crawl through remote storage and appear stuck at `0 chars`.
 - Ctrl-C stops the tunnel + Apex processes; Plane's Docker services (in
   `~/plane-selfhost` by default) keep running — safe to re-run the script
   later, data persists in named volumes.
@@ -40,33 +42,65 @@ cd "/home/thomastabs/Desktop/MEIC-T/Second Year/HumanAICollab/apex"
 2. Sidebar → PM tool = **Plane**, instance URL = the printed tunnel URL,
    paste the printed PAT. Sign in.
 
-### Click-through checklist
+### 2026-08-19 local smoke result
 
-- [ ] **Project CRUD** — create a project (note the required `identifier`
-      field, e.g. `TEST` — Plane has no auto-derived slug like Taiga). Edit
-      its name/description. Delete it. Create a second one to keep testing.
-- [ ] **Epics/stories board** — create an epic, add a couple of stories under
-      it, confirm they show up in the board view, filter by text.
-- [ ] **Phase 1 → PM push** — run Phase 1 on a story, push it to the PM tool,
-      confirm it lands in Plane's own UI (open the self-hosted instance
-      directly at the tunnel URL to check).
-- [ ] **Task Board (Phase 3)** — push tasks as subtasks, confirm they appear
-      grouped by story, edit one inline.
-- [ ] **Members/invites** — invite a workspace member by email (self-hosted
-      has no real mail relay by default, so expect the `{scope: "workspace"}`
-      toast rather than a delivered email — that's the documented behavior,
-      not a bug). If you seeded a second admin user via the script's admin
-      account, try adding an *existing* member to the project instead — that
-      path should complete in one step.
-- [ ] **Pages sync** — self-hosted Community Edition has no Pages REST
-      endpoint at all (found 2026-08-19 — `pages/` 404s while every other
-      project endpoint works fine). The sidebar's Pages panel should show
-      "0/0 pages" cleanly, not an error toast. Publish will still fail
-      loudly if you click it (nothing to fall back to) — that's expected on
-      CE, not a new bug. Only test the actual publish/edit/pull round-trip
-      against Plane Cloud, not self-hosted.
-- [ ] **Maintenance triage (Phase 6)** — "Sync PM Issues" against the
-      self-hosted instance, confirm it lists Plane issues without erroring.
+- [x] **Active Context** — `/api/workspace/context-files` returned 200 and
+      the sidebar showed non-zero context (`1480 ch`, then `1867 ch` after
+      Phase 1 finalize) instead of stale `0 chars`.
+- [x] **Project CRUD** — created and deleted a temporary project, then
+      created a kept project for the rest of the run. Apex-created Plane
+      projects now enable `module_view`, `page_view`, and `issue_views_view`
+      on create so free-tier module fallback is writable.
+- [x] **Epics/stories board data** — created a module-backed epic and a work
+      item story, joined the story to the module, and confirmed the relevant
+      Plane endpoints returned 200.
+- [x] **Phase 1 → PM finalize** — called the Phase 1 finalize route with
+      real Plane UUIDs; it minted durable Apex ids and wrote a one-story
+      `story-index.json`.
+- [x] **Task Board data** — created a Plane child work item under the story,
+      matching Apex's subtask model.
+- [x] **Members existing-user path** — added an existing workspace member to
+      the project, changed their role to Guest, then removed the membership.
+      Plane self-hosted list endpoints require `project-members-lite/` plus
+      the create-returned membership id for immediate role/remove actions.
+- [x] **Pages status/degraded publish** — self-hosted Community Edition
+      returns 404 for project Pages. Status now stays quiet as an empty set;
+      publish returns per-file `action: "unsupported_create"` instead of a
+      backend 502. Full publish/edit/pull remains a Plane Cloud test.
+- [x] **Maintenance triage (Phase 6)** — created a Plane-sourced maintenance
+      item from the self-hosted work item (`source: "plane"`, `ext_ref:
+      "PLN#1"`).
+
+### Current reusable local environment from the 2026-08-19 run
+
+These values are for the disposable local stack only. If the tunnel dies, run
+the script again and use its newly printed URL/PAT instead of editing docs.
+
+- Frontend: `http://localhost:3000`
+- Backend: `http://localhost:8000`
+- Self-hosted Plane tunnel used in the run:
+  `https://favour-eco-morrison-diversity.trycloudflare.com`
+- Workspace slug: `apex-selfhost-test`
+- Admin user: `admin@localhost.com` / `yourpassword`
+- Kept project: `Apex Selfhost Run 002196`
+- Kept project identifier: `KT002196`
+- Plane project UUID: `2282ad2f-930a-4d7d-a7ac-a96d41c17e75`
+- Browser-session Apex shim project id from the run: `2`
+- Module/epic UUID: `46288170-cc6b-4f13-8971-e466f60ac356`
+- Story UUID: `ad267a74-913a-49e6-b5b8-1f110699e381`
+- Task UUID: `bfedb21a-2f31-41ca-8ccb-c3c2b3412f76`
+- Maintenance item id: `1`
+
+### Next self-hosted follow-up
+
+- [ ] Repeat the same click-through on a fresh project after the
+      `module_view` create-project fix, using only the visible Apex UI where
+      practical.
+- [ ] Visually inspect Users & Roles after add/change/remove to ensure the
+      fixed `project-members-lite/` mapping displays the post-mutation state
+      cleanly, not only that the API calls return 2xx.
+- [ ] Confirm Pages publish on self-hosted CE shows the degraded
+      `unsupported_create` result without an error toast.
 
 Anything that breaks: note the exact step + error (screenshot or the toast
 text) and hand it back — that's a real bug report, not a "known limitation."

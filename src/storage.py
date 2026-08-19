@@ -35,7 +35,12 @@ try:
 except ImportError:  # pragma: no cover — dotenv is always in requirements
     pass
 
-_CONN_STR = os.getenv("AZURE_STORAGE_CONNECTION_STRING", "")
+_STORAGE_BACKEND = os.getenv("APEX_STORAGE_BACKEND", "").strip().lower()
+_FORCE_LOCAL = (
+    _STORAGE_BACKEND in {"local", "disk", "filesystem"}
+    or os.getenv("APEX_FORCE_LOCAL_STORAGE", "").strip().lower() in {"1", "true", "yes", "on"}
+)
+_CONN_STR = "" if _FORCE_LOCAL else os.getenv("AZURE_STORAGE_CONNECTION_STRING", "")
 _SHARE = os.getenv("AZURE_FILE_SHARE_NAME", "contextspec")
 _LOCAL_PREFIX = "contextspec"  # local base dir that maps to the share root
 _USE_AZURE = bool(_CONN_STR)
