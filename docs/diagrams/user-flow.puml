@@ -20,7 +20,8 @@ actor User
 participant "Frontend\n(Next.js)" as FE
 participant "FastAPI\nBackend" as BE
 participant "AI Engine\n(Claude)" as AI
-participant "PM Tool\n(Taiga)" as PM
+participant "PM Tool\n(Taiga / Plane)" as PM
+
 participant "GitHub\n(Actions / webhook)" as GH
 database "Spec Store\n(contextspec)" as ST
 

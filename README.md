@@ -36,7 +36,7 @@ Apex is the reference implementation of a broader process framework for governed
 | `docs/framework/Apex-Framework-v2.docx` | The current framework specification — purpose & scope, design principles, the SDLC × AI interaction mapping, phase descriptions, roles (framed as hats, not fixed people), governance mechanisms & quality gates, work logistics, and the six operational playbooks. Grounded inline in cited industry/academic precedent (AWS AI-DLC, the Spotify Model, Team Topologies, DORA, Thoughtworks) and cross-referenced against Apex's actual shipped mechanisms throughout. Includes the big-picture diagram (below) as Figure 1. |
 | `docs/framework/Apex-Framework-Grounding.docx` | The companion evidence trail: full literature grounding for each framework construct, an explicit not-1:1 mapping table (framework phase → closest precedent → Apex implementation → where it diverges), and the "scientific why" — the framework compared against four named alternatives (no framework, AI-DLC unmodified, Scrum/SAFe with AI bolted on, metrics-only governance), each with cited evidence of a specific failure mode. |
 | `docs/framework/Draft-and-Ideas-v1.docx` | The original working draft, kept for the historical record — the framework's first conceptual scaffold before the v2 rewrite (role model reframed as hats not people, the DevOps Alliance role dropped, Bolt terminology confirmed as a direct AWS AI-DLC borrowing). |
-| `docs/framework/Apex-Implementation-Report.docx` | Internal + external engineering documentation for the thesis writeup, distinct from the framework specification above — how Apex itself was built, tested, and deployed: architecture diagrams, the spec-anchored storage model, the single-writer concurrency model and its Redis multi-replica escape hatch (live in production), the layered test strategy (1,380+ backend tests, 180 frontend unit tests, 17 E2E specs) and CI gating, the Docker/Azure Container Apps deployment pipeline, and a dated incident log of real production bugs found and fixed over the project's history. |
+| `docs/framework/Apex-Implementation-Report.docx` | Internal + external engineering documentation for the thesis writeup, distinct from the framework specification above — how Apex itself was built, tested, and deployed: architecture diagrams, the spec-anchored storage model, the single-writer concurrency model and its Redis multi-replica escape hatch (live in production), the layered test strategy (1,591 backend tests, 304 frontend unit tests, 17 E2E specs) and CI gating, the Docker/Azure Container Apps deployment pipeline, and a dated incident log of real production bugs found and fixed over the project's history. |
 | `docs/diagrams/big-picture.puml` / `docs/diagrams/big-picture.bpmn` | The big-picture diagram in two notations — a PlantUML flow and a standards-compliant BPMN 2.0 process (openable in Camunda Modeler, bpmn.io, or any BPMN tool). Both show all seven phases end to end with each phase's input, output, and literature citation, plus the governed Maintenance loop-back (Change Request → Discovery; Secure Lane → Testing) — the framework's explicit answer to being read as linear/Waterfall. Rendered PNG/SVG in `docs/diagrams/Images/`. |
 
 <img width="1908" height="991" alt="image" src="https://github.com/user-attachments/assets/818d2d66-add0-40c4-883f-c558a8445183" />
@@ -66,7 +66,7 @@ Apex is the reference implementation of a broader process framework for governed
 
 ```mermaid
 flowchart TD
-    A([PM Epic — Taiga]):::ext
+    A([PM Epic — Taiga / Plane]):::ext
 
     %% ---- The shared, versioned spec store every phase reads from / writes to ----
     G[("contextspec/<br/>&lt;instance&gt;/&lt;project&gt;")]:::store
@@ -540,7 +540,7 @@ Implemented:
 | `frontend/components/bolts-dashboard.tsx` + `frontend/app/bolts/page.tsx` | Dedicated Bolts page (left sidebar) — explainer, epic-filterable board, per-task Mark Bolt Done, Customize (labels + cycle-time threshold) |
 | `frontend/lib/api/taiga-direct.ts` | Taiga REST client — all CRUD, auth, and story transitions; sends requests to the FastAPI Taiga proxy with `X-Taiga-Url` header |
 | `frontend/lib/api/pm-types.ts` | `ProjectManagementAdapter` interface and shared PM types |
-| `frontend/lib/api/pm-factory.ts` | `getPmAdapter(pmTool)` dispatcher — returns the Taiga adapter |
+| `frontend/lib/api/pm-factory.ts` | `getPmAdapter(pmTool)` dispatcher — returns the Taiga or Plane adapter |
 | `frontend/lib/api/taiga-adapter.ts` | Taiga adapter wrapping `taiga-direct.ts` |
 | `frontend/lib/api/github-browser.ts` | Browser-side GitHub REST client — repo metadata/verification, issues, recent commits, on-demand file fetch (`github-context.md` sync itself is server-side, see `backend/app/services/github_fetch.py`) |
 | `frontend/lib/api/figma.ts` | Figma REST client (via the backend proxy) — file/frames/thumbnails/comments, URL parsing, frame derivation, and story↔frame matching (figma-context.md is assembled server-side, not here) |
