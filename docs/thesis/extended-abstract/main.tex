@@ -1,0 +1,171 @@
+% #############################################################################
+% Extended Abstract (resumo alargado) - IST/MEIC-T submission requirement
+% Format: ACM acmart, two-column ("sigconf" layout), following the observed
+% precedent of Leonardo Cruz's accepted MEIC extended abstract (October 2025,
+% same supervisor). See docs/thesis/REGULATIONS.md Section 2 for why this
+% format was chosen over the IST dissertation template, and README.md in this
+% directory for the page budget and build instructions.
+%
+% Build: pdflatex main.tex && bibtex main && pdflatex main.tex && pdflatex main.tex
+% #############################################################################
+\documentclass[sigconf,review=false,nonacm=true]{acmart}
+
+% ---------------------------------------------------------------------------
+% Suppress the ACM copyright block, DOI, ISBN and conference footer. This is
+% an academic thesis deliverable, not an ACM-published proceedings paper;
+% Cruz's accepted extended abstract carries no such block either (verified
+% against the rendered PDF: no "Permission to make..." text, no DOI, no ISBN).
+% ---------------------------------------------------------------------------
+\settopmatter{printacmref=false}
+\renewcommand\footnotetextcopyrightpermission[1]{}
+\setcopyright{none}
+\acmConference[MSc Thesis Extended Abstract]{}{}{}
+\acmYear{2026}
+\copyrightyear{2026}
+\acmPrice{}
+\acmDOI{}
+\acmISBN{}
+
+\usepackage{booktabs}
+\usepackage{cleveref}
+\usepackage{float}
+\usepackage{xcolor}
+
+% A dependency-free results-pending placeholder, used instead of todonotes:
+% todonotes' inline boxes were found to conflict with acmart's end-of-document
+% \balance call in this two-column layout (reproducibly raises a fatal
+% "Float(s) lost" error with no PDF produced). This plain command avoids the
+% marginpar/insert machinery entirely.
+\newcommand{\placeholder}[1]{%
+  \par\medskip\noindent\textcolor{red!60!black}{\bfseries [PLACEHOLDER - WAITING ON DATA:]}~#1\par\medskip
+}
+
+% Never use en/em dashes anywhere in this source (see docs/thesis/REGULATIONS.md
+% "No En Dashes" constraint): only a plain hyphen "-", never "--" or "---".
+
+\begin{document}
+
+\title{Governed Human-AI Collaboration Across the Software Development Lifecycle: A Process Framework and Its Reference Implementation}
+
+\author{Tomás dos Santos Taborda}
+\affiliation{%
+  \institution{Instituto Superior Técnico, Universidade de Lisboa}
+  \city{Lisbon}
+  \country{Portugal}
+}
+\email{tomassantostaborda@tecnico.ulisboa.pt}
+
+\renewcommand{\shortauthors}{Taborda}
+
+\begin{abstract}
+Generative Artificial Intelligence and Large Language Models have moved from autocomplete assistants to active contributors across the Software Development Life Cycle, yet adoption has outpaced method: a majority of functionally correct AI-generated code has been reported to carry security defects, and measured delivery bottlenecks shift toward review rather than disappearing. A Systematic Literature Review conducted for this work, following Kitchenham's guidelines over 646 retrieved articles, confirms this pattern and identifies the absence of structured, repeatable guidance for integrating AI tools into professional software workflows as the field's central unresolved problem. This dissertation addresses that gap through the Design Science Research Methodology. It proposes a process-oriented framework for governed Human-AI collaboration that treats AI systems as first-class collaborators whose contributions must be explicitly bounded, validated and traced: six lifecycle phases with phase-specific quality gates, responsibilities expressed as functions rather than job titles, three governance metrics, and a persistent, versioned specification that anchors every generated artefact to its originating requirement. The framework is instantiated as Apex, a working web application that operationalises each phase, gate and artefact against a real project management backend. Evaluation combines application of the artefact in a real-world project, standardised instruments assessing perceived usability and cognitive workload, semi-structured interviews with practitioners and Agile experts, and an analytical assessment against defined success criteria. \placeholder{This abstract is a scaffold written before the usability study has been run. The evaluation and results sentences above describe the planned instruments, not obtained findings; a one-sentence headline result belongs here once the study is complete, per the note at \S6-\S8 below.}
+\end{abstract}
+
+\keywords{Artificial Intelligence, Large Language Models, Software Development Life Cycle, Design Science Research, Human-AI Collaboration, Software Process, Governance}
+
+\maketitle
+
+% #############################################################################
+\section{Motivation and Problem Statement}
+\label{sec:motivation}
+
+Adoption of AI coding assistance is close to universal while trust in it is not, and the two are moving in opposite directions. The 2025 Stack Overflow Developer Survey reports 84\% of developers using or planning to use AI tools, up from 76\% the previous year, while the share trusting the accuracy of that output fell from 40\% to 29\%, with more respondents actively distrusting AI output (46\%) than trusting it (33\%)~\cite{StackOverflow:2025dev}; industry telemetry places daily use higher still, at around 90\% of developers~\cite{DORA:2025ai}. That distrust is empirically warranted: benchmarking a leading coding agent on real-world tasks, Zhao et al. found 61\% of solutions functionally correct but only 10.5\% secure~\cite{Zhao:2025vibe}, and an assessment across more than one hundred models found 45\% of generated samples introduced an OWASP Top 10 vulnerability, rising to 72\% for Java, with newer and larger models improving on functional correctness while security performance stayed flat~\cite{Veracode:2025gen}. Productivity gains are similarly conditional rather than automatic: an early controlled experiment reported a 55.8\% speed-up, though it remains unpublished~\cite{Peng:2023cop}, while a randomised controlled trial of sixteen experienced developers on their own mature repositories found they took 19\% \emph{longer} with AI assistance while estimating afterwards that it had made them 20\% faster~\cite{Becker:2025rct}; at organisational scale, telemetry from 1,255 teams associates high AI adoption with 98\% more pull requests merged but 91\% longer review times and no significant correlation with delivery outcomes~\cite{Faros:2025par}.
+
+\begin{quote}
+\emph{The value of AI assistance in software engineering is conditional on the process that surrounds it, rather than being a property of the model alone. Capability without governance redistributes effort rather than reducing it, and can degrade quality attributes that are expensive to recover later.}
+\end{quote}
+
+A Systematic Literature Review conducted for this work (\Cref{sec:methods}) confirms this reading directly: while the corpus consistently reports meaningful benefits from AI and LLM use, it equally consistently reports that organisations lack established, clear methodologies to shape the responsible use of these tools within professional software development~\cite{Banh:2025cf, Farhanna:2025eu, Hemmat:2025rd, Gao:2025cc}. Existing methodologies do not close this gap: Waterfall, Scrum, Kanban and the Agile Manifesto were designed for development environments in which every contributor is human, and lack explicit structures for governing AI participation, bounding the context a model may act upon, or allocating responsibility over generated artefacts~\cite{Zhang:2025ea}.
+
+\noindent\textbf{The research problem addressed in this work is the absence of structured, repeatable guidance and standardised evaluation practices for integrating AI and LLM-based tools across the SDLC while preserving human oversight, software quality and security, and organisational accountability.}
+
+This dissertation decomposes the objective of designing, instantiating, demonstrating and evaluating a framework that addresses this problem into four Dissertation Research Questions (DRQ1-4): how AI-supported activity can be explicitly mapped to SDLC phases (DRQ1); which governance mechanisms keep contributions traceable, validated and accountable (DRQ2); to what extent the resulting constructs can be operationalised in a working system (DRQ3); and whether applying the framework provides practitioners with usable, cognitively sustainable support in a real setting (DRQ4).
+
+% #############################################################################
+\section{Research Methodology}
+\label{sec:methods}
+
+Two complementary methodologies structure this work. A Systematic Literature Review, following Kitchenham's three-phase protocol (planning, conducting, reporting), retrieved 646 articles and synthesised the corpus around five research questions covering benefits, consequences, integration methodologies, stakeholder perspectives, and adopting industry sectors (RQ1-RQ5, reported in full in the dissertation's Systematic Literature Review chapter). The Design Science Research Methodology proposed by Peffers et al. structures the design, construction, demonstration and evaluation of the artefact across its six activities: problem identification, definition of objectives, design and development, demonstration, evaluation, and communication. The two methodologies are sequential rather than parallel: the review's findings are the evidence base the problem statement and the framework's design principles are grounded against, and DSRM's iteration loop is not strictly linear, since feedback gathered while constructing the reference implementation fed back into the design of the framework itself.
+
+% #############################################################################
+\section{Related Work: Findings of the Literature Review}
+\label{sec:related}
+
+The review's findings on methodology (RQ3) are the most direct grounding for this dissertation's proposal. Current industry practice is not built around full automation but around control: the most prevalent documented methods, In-Context Learning, Prompt Engineering and Chain-of-Thought Prompting, all aim to shape and constrain AI behaviour before code is generated, and the Human-In-The-Loop paradigm keeps developers directly responsible for reviewing, validating and approving all outputs. Multiple emerging frameworks, including Agile-based human-AI collaboration models, indicate the field is actively searching for structured and repeatable integration patterns, but no universally accepted approach has yet emerged~\cite{Ahmed:2025ai}. Findings on benefits (RQ1) and consequences (RQ2) sharpen the tension the framework must resolve: reported benefits extend across the entire SDLC rather than code generation alone, but they are inseparable from risks that directly undermine the same benefit, chiefly reduced code quality, security exposure, and eroded traceability. Findings on stakeholder opinion (RQ4) converge across developers and organisations on the same trade-off: enthusiasm for productivity gains alongside concern about reliability and hallucination, and a shared insistence that AI augment expertise under a controlled level of trust rather than substitute for it.
+
+The closest published methodological precedent is Amazon Web Services' AI-Driven Development Lifecycle, which organises work into Inception, Construction and Operations, replaces sprints with short cycles called Bolts, and replaces epics with Units of Work~\cite{AWS:2025aidlc}; its vendor-reported productivity outcomes are unverified and carry no evidential weight here, but its process vocabulary is adopted directly. The closest engineering practice is spec-driven development, in which a persistent, versioned specification rather than the source code itself is the artefact both developers and AI agents work against, tracked by Thoughtworks' Technology Radar as an emerging technique~\cite{Thoughtworks:2025SD} and recently framed in a not-yet-peer-reviewed preprint as a response to a productivity-reliability paradox in AI-augmented development~\cite{Farrag:2026sd}.
+
+% #############################################################################
+\section{Proposed Framework}
+\label{sec:framework}
+
+The framework is a method in the Design Science Research sense: a set of phases, hats, artefacts and decision rules prescribing how a team organises AI participation across the SDLC, stated at the level of process rather than tooling so it can be assessed and adopted independently of any single tool stack. It deliberately excludes model training or fine-tuning, model architecture, and infrastructure-level MLOps, since these govern the lifecycle of a model as a deployed asset, whereas this framework governs the lifecycle of software a model helped write.
+
+\subsection{Design Principles}
+Eight principles, each grounded in the evidence of \Cref{sec:motivation,sec:related} rather than asserted as preference, govern every design decision: Human-in-the-Loop by Design; AI as Augmentation, Not Substitution; Process-Level Governance of AI Usage; SDLC-Wide and Phase-Aware Integration; Hats, Not People; Explicit Responsibility and Accountability; Risk-Proportional Validation and Control; and Spec-Anchored Continuity. The last of these instantiates spec-driven development (\Cref{sec:related}) rather than inventing it, and is the mechanism argued in \Cref{sec:governance}.
+
+\subsection{Lifecycle Phases}
+The framework organises work into six phases, preceded by a Strategic Alignment stage that decides whether a Unit of Work should exist at all. \Cref{tab:phases} summarises, for each, the permitted role of AI, the accountable hat, and the control that must pass before exit; each phase consumes the output of the one before it. The model departs from AI-DLC's three-phase Inception/Construction/Operations split at two points, both argued from the evidence in \Cref{sec:motivation} rather than announced: a decoupled Testing phase, because tests derived by the same model from the same specification in the same working context confirm internal consistency rather than external correctness, and a distinct Maintenance phase with a diagnostic firewall, because a post-deployment signal may be a genuine defect, an unspecified request, or evidence the specification itself was wrong, and treating all three as defects is what erodes a specification over time. Maintenance's exit is always a governed loop back into a named earlier phase rather than a patch applied in place, which is the structural difference from a Waterfall lifecycle with a maintenance tail appended to it.
+
+\begin{table}[H]
+\centering
+\caption{The six lifecycle phases: condensed from the full phase-mapping table of the framework chapter.}
+\label{tab:phases}
+\small
+\begin{tabular}{@{}p{1.7cm}p{2.9cm}p{2.9cm}@{}}
+\toprule
+\textbf{Phase} & \textbf{Role of AI} & \textbf{Exit control} \\
+\midrule
+Discovery \& Requirements & Drafts stories, compiles approved scenarios into Gherkin & Discovery Gate (the Trio) \\
+Design, Prototyping \& Architecture & Proposes UI structure and a technical specification & Design Gate (Design Lead, Tech Lead) \\
+Implementation & Generates and refactors code inside a Bolt & Implementation Gate (Developer) \\
+Testing & Drafts end-to-end BDD scripts from locked Gherkin & Testing Gate (QA) \\
+Deployment & Generates infrastructure delta only when required & Deployment Gate (deploying hat) \\
+Maintenance & Reconstructs a narrow context to diagnose one signal & Diagnostic firewall, governed loop-back \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Roles as Hats}
+Every role named is a hat, a function the framework requires to be performed rather than a person who must be hired; one individual may wear several, and on a small team an unfilled hat's responsibility falls to whoever performs the adjacent work. The Trio (Product Owner, Tech Lead and Design Lead hats) is inspired by the Squad concept popularised in the Spotify Model~\cite{Kniberg:2012sp}, cited alongside its own documented limits: it was a description of one company at one point in time rather than a blueprint~\cite{LeadingComplexity:2023sp}, and a first-hand account names matrix ambiguity and autonomy without accountability as failure modes it never fully resolved even internally~\cite{Lee:2020sq}. The framework answers both directly, the first through the Tech Lead hat's pre-Bolt architectural lock, the second by separating logistics authority (Bolt Master hat) from technical authority (Tech Lead hat) and attaching every gate to a named function; the treatment of team cognitive load as an explicit design constraint~\cite{Skelton:2019tt} is the more rigorous vocabulary for the same argument, and the Project Manager hat sits outside the Squad closer to the single-threaded-leader pattern Amazon adopted once its earlier structure did not survive scale~\cite{Bryar:2021wb}.
+
+\subsection{Governance Mechanisms and Quality Gates}
+\label{sec:governance}
+A Bolt is the smallest execution iteration the framework recognises, the implementation of one task inside one User Story, measured in hours; the term is adopted from AI-DLC~\cite{AWS:2025aidlc}, and what the framework adds is the obligation sequence around it, since a short cycle without a fixed reference is simply a fast way to accumulate divergence. Spec-Anchored Continuity requires every AI-generated artefact to carry forward the context of previously validated phases through a persistent, versioned specification split into a global layer (architecture, technology-stack decisions, security policy) and a local layer (a story's locked Gherkin and technical specification); the distinction argued for this mechanism is that narrowing a model's working context is a control rather than a convenience, since an unbounded context is the specific condition under which a model produces a confident and substantively wrong change~\cite{Zhao:2025vibe}. Five quality gates, each with a named owning hat, a specific body of required evidence, and a defined consequence on failure, govern Discovery, Design, Implementation, Testing and Deployment; failure never discards work, it returns it to a named earlier activity with the evidence attached. Three governance metrics, Bolt Cycle Time, Context Traceability Rate, and AI Defect Escape Rate, are expressed in vocabulary continuous with the NIST AI Risk Management Framework's Govern-Map-Measure-Manage loop~\cite{NIST:2023rmf} and ISO/IEC 42001's plan-do-check-act vocabulary~\cite{ISO/IEC:2023ai}, a claim about shared language only; no conformity assessment against either standard has been performed. Grouping acceptance criteria at the Unit of Work level rather than requirement by requirement is independently supported: across 107 requirements, an epic-organised generation pipeline outperformed a requirement-aligned baseline on expert-rated correctness (4.61 against 4.14 of 5) and completeness (4.31 against 3.50)~\cite{Siddeeq:2026gh}.
+
+\subsection{Replacing Sprint Cadence, and Positioning Against Alternatives}
+The framework replaces epics, sprints and sprint backlogs with continuous flow, on the ground that a fixed-length iteration is a mechanism for a world in which implementation is the binding constraint, and the evidence in \Cref{sec:motivation} shows that premise no longer holds where AI assistance is heavily used: the constraint moves to review rather than disappearing~\cite{Becker:2025rct, Faros:2025par}. Four alternatives are engaged directly rather than by omission: no framework at all, correct for a short-lived prototype but contradicted by the flat security-versus-capability trend already cited; AI-DLC adopted unmodified, whose two gaps in build/test coupling and post-deployment classification motivate the divergence rather than a rejection of it; unmodified Scrum or SAFe cadence, undermined specifically by developers misjudging their own speed under assistance~\cite{Becker:2025rct}; and metrics-only governance, the strongest of the four, answered by the distinction that metrics measure whether governance is working while containing no mechanism themselves for what a model may act upon or where a post-deployment signal is routed~\cite{Forsgren:2021sp}.
+
+% #############################################################################
+\section{Reference Implementation: Apex}
+\label{sec:apex}
+
+\placeholder{Waiting on Chapter 7 of the dissertation (currently a skeleton with structural placeholder markers, not on study results). Draft once written: (1) Apex's positioning against a bare coding agent, namely that it governs whether generated code still answers its originating requirement rather than accelerating the writing of code; (2) a condensed version of the framework-construct-to-mechanism mapping table (phases, gates, Spec-Anchored Continuity as versioned specification files, Bolt tracking and its cycle-time metric) that answers DRQ3; (3) one or two sentences on the split-stack architecture (Next.js frontend, Python/FastAPI backend) and the single-writer concurrency model; (4) a one-paragraph summary of the practitioner-feedback-driven design history (Chapter 7's Design History section), since it is evidence that evaluation fed back into design, not merely a changelog.}
+
+% #############################################################################
+\section{Demonstration, Evaluation Design, and Results}
+\label{sec:evaluation}
+
+The evaluation strategy is fixed independently of its outcome: a demonstration in a real project together with the System Usability Scale~\cite{Brooke:1996SUS} and the Raw NASA Task Load Index~\cite{Hart:1988TLX, Hart:2006TLX} evaluate the instantiation (Apex, DRQ4), while semi-structured interviews with practitioners and with Agile and Scrum experts, together with an analytical assessment against stated success criteria, evaluate the framework itself (DRQ1, DRQ2). A favourable usability score for the tool is deliberately not treated as evidence that the framework is sound; the two artefacts are evaluated by different means for that reason.
+
+\placeholder{This entire section is waiting on data that does not exist yet: the usability study (unmoderated SUS and per-task Raw NASA-TLX administration, per the dissertation's Chapter 9 instruments) has not been run, so there are no participant counts, no SUS or NASA-TLX scores, no interview themes, and no demonstration narrative to report. Do not draft prose here beyond the fixed design above until the study is complete. When it is, this section needs: participant counts and roles (the dissertation's Evaluation chapter already fixes the ethics/consent process, reproduce only the results-facing parts); SUS scores (distribution, not mean alone, given the expected small sample) with the Bangor et al.\ adjective scale~\cite{Bangor:2009SUS} and Sauro and Lewis's curved grading~\cite{Sauro:2016QUANT}; NASA-TLX per-subscale profile, not the aggregate alone; interview themes with anonymised representative material and disconfirming evidence given equal prominence; and the analytical assessment table (criteria, three-level rating, justification).}
+
+% #############################################################################
+\section{Discussion and Threats to Validity}
+\label{sec:discussion}
+
+\placeholder{Waiting on the results in \S\ref{sec:evaluation}. Once available: synthesise across instruments, treating disagreement (for instance a favourable usability score alongside interview scepticism about process overhead) as a finding rather than smoothing it over; answer DRQ1-DRQ4 explicitly, each grounded in the specific evidence that answers it (DRQ1/DRQ2 from interviews and the analytical assessment, DRQ3 from the Apex construct-mechanism mapping read against its implementation limitations, DRQ4 from SUS, NASA-TLX and the demonstration); and state the threats already identifiable in advance of any result, since they follow from the evaluation's design rather than its outcome: the author's dual role as designer of both artefacts and their evaluator; a small, non-random, single-organisation convenience sample; an unmoderated protocol that removes facilitator influence during sessions but not from the task script, questionnaire wording, or interview conduct, all authored by the same person; and instruments that measure perception rather than delivered software quality, with no completion-rate, time-on-task, or error-count data collected to partly answer that gap, a deliberate consequence of recording nothing during sessions rather than an oversight.}
+
+% #############################################################################
+\section{Conclusion}
+\label{sec:conclusion}
+
+This dissertation contributes a systematic synthesis of 646 articles on AI and LLM use in software development; a process framework for governed Human-AI collaboration that treats AI as a first-class, explicitly bounded collaborator across six lifecycle phases; Apex, a working reference implementation demonstrating the framework's governance constructs are implementable rather than merely describable; and an empirical evaluation combining real-world application, standardised usability and workload measurement, practitioner and expert interviews, and an analytical assessment.
+
+\placeholder{Waiting on the results in \S\ref{sec:evaluation}-\S\ref{sec:discussion}. Once available, replace this paragraph with a genuine synthesis: a one-paragraph headline answer to the overall research problem (grounded, not asserted); the honest limitations already known in advance (single organisational setting, short observation window precluding any claim about long-term maintainability, perception-based instruments) stated plainly rather than conceded under questioning; and, per the dissertation's Chapter 2 Communication activity, a note on dissemination (the SLR article and this extended abstract) alongside the defence itself.}
+
+% #############################################################################
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{references}
+
+\end{document}

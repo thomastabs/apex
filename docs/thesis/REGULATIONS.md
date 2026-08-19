@@ -180,19 +180,71 @@ ten carry the work.
 A second document, not an abstract inside the thesis: a paper of up to 10 A4
 pages, in English. Both the thesis and this article are uploaded through Fénix.
 
-**Template - CLOSED 2026-08-19.** The guide provides the fallback: "Este resumo
-deverá ser elaborado de acordo com um modelo a definir para cada curso. Na
-ausência de definição deverá ser adoptado **o modelo seguido para a
-dissertação**." Decided: use the dissertation model, which for this degree is the
-IST template already in `IST_UL___MEIC_Thesis___Dissertação_final/`, the same one
-Leonardo Cruz's accepted MEIC dissertation uses. No separate template is being
-sought and the supervisor does not need to be asked.
+**Template - CORRECTED 2026-08-19.** An earlier version of this section closed
+the template question as "use the dissertation model" and is wrong. It is
+recorded below, struck through rather than deleted, because the point of a
+regulations file is to be trusted, and a silent rewrite would hide that a
+wrong conclusion was ever reached here.
 
-Note precisely what the Cruz file does and does not give us. It is a full
-98-page dissertation, not an extended abstract, so it is **not** an example of
-what a ten-page article looks like. What it settles is the format question, and
-what it supplies is the page benchmark in §1a. If an example of the article form
-is wanted later, it has to come from somewhere else.
+> ~~Decided: use the dissertation model, which for this degree is the IST
+> template already in `IST_UL___MEIC_Thesis___Dissertação_final/`, the same
+> one Leonardo Cruz's accepted MEIC dissertation uses. No separate template is
+> being sought and the supervisor does not need to be asked.~~
+
+The regulation's own text is the guide's fallback clause, and it is not in
+dispute:
+
+> "Este resumo deverá ser elaborado de acordo com um modelo a definir para
+> cada curso. Na ausência de definição deverá ser adoptado **o modelo seguido
+> para a dissertação**."
+
+What was missing earlier was a second document: not Cruz's 98-page
+dissertation, but his actual **extended abstract**,
+`~/Downloads/110851_leonardo_cruz_resumo.pdf`, the accompanying article he
+submitted alongside that dissertation, same degree (MEIC), same supervisor
+(Prof. Miguel Mira da Silva), October 2025, accepted. Read against
+`~/Downloads/extended_abstract_template.pdf` (the ACM `acmart` sample
+article, confirming the class), the evidence is unambiguous: Cruz's extended
+abstract is not written in the IST dissertation template. It is a five-page
+**ACM `acmart` two-column** article, with an ACM abstract/CCS-concepts/
+keywords block, an "ACM Reference Format" line, and ACM-Reference-Format-
+style numbered citations, no thesis-template front matter and no
+thesis-template chapter or heading style at all.
+
+**Corrected decision: for this degree, under this supervisor, "the model
+followed for the dissertation" does not mean the IST dissertation `.cls` file
+applied a second time to a shorter document. It means whatever the
+demonstrated, accepted practice for this degree and supervisor actually is,
+and that practice is the ACM `acmart` template.** The guide's fallback clause
+is satisfied by ACM `acmart`, not contradicted by it; the earlier reading
+conflated "the model followed for the dissertation" with "the dissertation's
+own template file," which is exactly the reading the Cruz evidence rules out.
+
+**One deviation to note, with precedent.** Both the regulation and the guide
+say the extended abstract is up to ten pages **A4**. The ACM `acmart` class
+typesets US Letter (612 by 792 points) and offers no supported A4 option, so
+the scaffold in `extended-abstract/` renders on Letter. Cruz's accepted
+extended abstract is Letter for the same reason, while his dissertation is
+A4. The precedent therefore says this is tolerated in practice, but it is a
+literal departure from the stated rule and is recorded here rather than left
+to be discovered. If it ever has to be corrected, the fix is a page-geometry
+override rather than a change of template, and the page budget must be
+re-measured afterwards, since A4 is taller and narrower than Letter.
+A scaffold built on this corrected decision lives in
+`docs/thesis/extended-abstract/` (`main.tex`, `acmart`, `sigconf`), with the
+evidence and the build verification recorded in that directory's `README.md`.
+
+Note precisely what each Cruz file does and does not give us. The
+dissertation (`~/Downloads/110851_leonardo_cruz_dissertacao.pdf`) is a full
+98-page document, not an extended abstract, so it is **not** an example of
+what a ten-page article looks like, and it remains the correct source for the
+page benchmark in §1a and for the dissertation's own template, which the
+guide's fallback clause does still govern. The extended abstract
+(`110851_leonardo_cruz_resumo.pdf`) is the one that settles the template
+question for *this* deliverable, and it is a different template from the one
+the dissertation uses. If a second precedent is wanted before treating this as
+fully settled, it has to come from another accepted MEIC extended abstract
+under the same supervisor; none has been sought yet.
 
 The article is a compression problem, not a writing-from-scratch problem: ten
 pages covering problem, method, artefact, demonstration, evaluation and
@@ -351,9 +403,12 @@ only to the jury.
 7. **Confidentiality is closed** (§5): not a business-entity collaboration, so
    no agreement, no jury-only annex, nothing to communicate to the coordinator.
    Chapter 8 still anonymises the setting, because the consent form promised it.
-8. **The extended-abstract template is closed**: the guide's fallback applies and
-   the dissertation model is used. Nothing left to ask the supervisor on the
-   regulations; every question raised by these two documents is now answered.
+8. **The extended-abstract template is closed, and corrected 2026-08-19**: the
+   guide's fallback applies, but "the model followed for the dissertation"
+   means the demonstrated accepted practice for this degree and supervisor,
+   which is **ACM `acmart`**, not a second application of the IST dissertation
+   `.cls`. Evidence and scaffold are in `docs/thesis/extended-abstract/`; see
+   §2 above for the correction and what was wrong in the earlier reading.
 9. **Plan against 66 pages of main text, not 80** (§1a). The whole-document cap
    is the binding one, and the accepted benchmark from the same supervisor landed
    at 67 main text and 98 total.
