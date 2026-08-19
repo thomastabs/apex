@@ -12,6 +12,11 @@ APEX_BACKEND_PORT="${APEX_BACKEND_PORT:-8000}"
 CLOUDFLARED_BIN="${CLOUDFLARED_BIN:-cloudflared}"
 INSTALL_CLOUDFLARED="${INSTALL_CLOUDFLARED:-0}"
 WITH_FRONTEND="${WITH_FRONTEND:-0}"
+# cloudflared defaults to QUIC/UDP, which some sandboxed/restricted networks
+# block outright (confirmed in a prior dev-machine run — the tunnel process
+# starts but never prints a trycloudflare.com URL). --tunnel-protocol http2
+# forces TCP and fixes it there; leave unset for normal networks.
+TUNNEL_PROTOCOL="${TUNNEL_PROTOCOL:-}"
 
 PLANE_LOCAL_URL="http://localhost:${PLANE_LOCAL_PORT}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -37,12 +42,16 @@ Options:
   --workspace-slug SLUG   Workspace slug to create (default: apex-selfhost-test)
   --backend-port PORT     Apex backend port (default: 8000)
   --plane-port PORT       Local port Plane's proxy listens on (default: 8090)
+  --tunnel-protocol PROTO cloudflared --protocol value (e.g. http2). Use this
+                          if the tunnel starts but never prints a
+                          trycloudflare.com URL (QUIC/UDP blocked on your
+                          network) — http2 forces TCP.
   -h, --help              Show this help
 
 Equivalent environment variables:
   PLANE_DIR, PLANE_ADMIN_EMAIL, PLANE_ADMIN_PASSWORD, PLANE_WORKSPACE_SLUG,
   PLANE_WORKSPACE_NAME, PLANE_AIO_IMAGE, PLANE_LOCAL_PORT, APEX_BACKEND_PORT,
-  CLOUDFLARED_BIN, INSTALL_CLOUDFLARED, WITH_FRONTEND
+  CLOUDFLARED_BIN, INSTALL_CLOUDFLARED, WITH_FRONTEND, TUNNEL_PROTOCOL
 
 Note: unlike scripts/private-taiga-cloud.sh, this does NOT auto-install
 Docker itself (Docker Desktop or the daemon must already be running) — Plane's
@@ -105,6 +114,10 @@ while [[ $# -gt 0 ]]; do
     --plane-port)
       PLANE_LOCAL_PORT="${2:?Missing value for --plane-port}"
       PLANE_LOCAL_URL="http://localhost:${PLANE_LOCAL_PORT}"
+      shift 2
+      ;;
+    --tunnel-protocol)
+      TUNNEL_PROTOCOL="${2:?Missing value for --tunnel-protocol}"
       shift 2
       ;;
     -h|--help)
@@ -284,7 +297,11 @@ start_plane() {
 
 start_tunnel() {
   log "Starting Cloudflare tunnel for $PLANE_LOCAL_URL"
-  "$CLOUDFLARED_BIN" tunnel --url "$PLANE_LOCAL_URL" >"$TUNNEL_LOG" 2>&1 &
+  local proto_args=()
+  if [[ -n "$TUNNEL_PROTOCOL" ]]; then
+    proto_args=(--protocol "$TUNNEL_PROTOCOL")
+  fi
+  "$CLOUDFLARED_BIN" tunnel --url "$PLANE_LOCAL_URL" "${proto_args[@]}" >"$TUNNEL_LOG" 2>&1 &
   PIDS+=("$!")
 
   local tunnel_url=""
