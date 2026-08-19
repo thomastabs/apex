@@ -81,6 +81,64 @@ Appendices belong in the annex either way, but note the guide's phrasing: annexe
 are attached *to* the dissertation so that the whole stays under 100. Moving them
 out of the 80 is legitimate; it does not make them free.
 
+## 1a-bis. The operative targets, revised 2026-08-19
+
+Three ceilings apply at once, and they are not the same number. Planning against
+only one of them is how the earlier budgets in this file went wrong.
+
+| # | Ceiling | Source | Applies to | State on 2026-08-19 |
+|---|---|---|---|---|
+| 1 | **80 pages** | Guide §1, "texto principal" | main text alone, Chapters 1 to 10 | 71, compliant |
+| 2 | **80 pages** | Tomas's target, matching Cruz | main text **plus bibliography** | 78, compliant but with four chapters unwritten |
+| 3 | **100 pages** | Guide §1, "o conjunto" | the whole assembled PDF | 99, compliant |
+
+Ceiling 2 is the working target because it is the strictest of the three in
+practice: Cruz landed at 67 main text plus a 6-page bibliography, 73 together,
+and that is the shape being matched.
+
+**Front matter is now 18 pages, not 22.** The template printed a List of
+Algorithms and a Listings index, both of which were empty: no algorithm
+environment survives in the document and there are no code listings anywhere.
+The template's own comment at those lines reads "If not used, comments the
+lines!", so commenting them out is the prescribed behaviour rather than a
+formatting change, and it removed four pages. The lists of figures, tables and
+abbreviations that the guide actually requires are untouched.
+
+That fixes the fixed costs and leaves this arithmetic:
+
+```
+front matter 18 + bibliography 7 = 25 pages that are not main text or annex
+ceiling 3 (100 total)  ->  main text + appendices <= 75
+ceiling 2 (80 main+bib) ->  main text <= 73
+```
+
+The two interact, and this is the constraint that matters most: **appendices are
+not free.** Appendix B still has to reproduce four instruments, both interview
+guides, the consent form and the anonymised raw scores, which is realistically
+six to eight pages. Every page moved out of a chapter and into an annex still
+counts against ceiling 3.
+
+**Working budget: main text 68, bibliography 7, appendices 7, front matter 18,
+total 100.** Main text plus bibliography is then 75, against Cruz's 73.
+
+| Chapter | Now | Budget |
+|---|---|---|
+| 1 Introduction | 2 | 2 |
+| 2 Research Methodology | 4 | 3 |
+| 3 Research Background | 4 | 4 |
+| 4 Systematic Literature Review | 24 | **10** |
+| 5 Research Problem | 4 | 2 |
+| 6 Research Proposal | 18 | 13 |
+| 7 Apex | 4 | 11 |
+| 8 Demonstration | 2 | 9 |
+| 9 Evaluation | 8 | 11 |
+| 10 Conclusion | 1 | 3 |
+| **Main text** | **71** | **68** |
+
+Twenty-two pages come out of Chapters 2, 4, 5 and 6; twenty-four go into
+Chapters 7 to 10, which is where the marks are. Chapter 4 alone owes fourteen of
+the twenty-two.
+
 ## 1a. The benchmark: what actually passed, from the same supervisor
 
 `~/Downloads/110851_leonardo_cruz_dissertacao.pdf` - Leonardo Cruz, *Using

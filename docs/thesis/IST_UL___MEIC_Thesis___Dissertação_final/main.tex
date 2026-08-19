@@ -129,8 +129,11 @@
 % List of Algorithms
 % If not used, comments the lines!
 % Requires packages algorithmic, algorithm
-\pdfbookmark[1]{List of Algorithms}{loa}
-\listofalgorithms
+% Commented out 2026-08-19: no algorithm environments remain in the document,
+% so this printed an empty list over two pages. The template's own instruction
+% above is to comment these lines when the list is not used.
+%\pdfbookmark[1]{List of Algorithms}{loa}
+%\listofalgorithms
 % If Printing on DOUBLE SIDED pages, the second page should be white.
 \endgroup
 % Otherwise, comment the following command:
@@ -139,8 +142,10 @@
 % Listings
 % If not used, comments the lines!
 % Requires packages listings
-\pdfbookmark[1]{Listings}{lol}
-\lstlistoflistings
+% Commented out 2026-08-19: the document contains no code listings, so this
+% printed an empty list over two pages. Same template instruction as above.
+%\pdfbookmark[1]{Listings}{lol}
+%\lstlistoflistings
 %\cleardoublepage
 % -----------------------------------------------------------------------------
 % % List of acronyms
