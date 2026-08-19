@@ -49,7 +49,14 @@ describe("planeAdapter — Project CRUD wiring", () => {
       const [url, init] = mockFetch.mock.calls[0];
       expect(url).toContain("/workspaces/my-team/projects/");
       expect(init.method).toBe("POST");
-      expect(JSON.parse(init.body)).toEqual({ name: "New Project", identifier: "NEWP", description: "desc" });
+      expect(JSON.parse(init.body)).toEqual({
+        name: "New Project",
+        identifier: "NEWP",
+        description: "desc",
+        module_view: true,
+        page_view: true,
+        issue_views_view: true,
+      });
       expect(project.name).toBe("New Project");
       expect(project.slug).toBe("NEWP");
     });
