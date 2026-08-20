@@ -55,9 +55,13 @@
 % -----------------------------------------------------------------------------
 % PAGE NUMBERING FOR INDEXING MATTER in ROMAN
 \setcounter{page}{1} \pagenumbering{roman}
-\baselineskip 18pt % line spacing: -12pt for single spacing
-                   %               -18pt for 1 1/2 spacing
-                   %               -24pt for double spacing
+% Line spacing. Was a bare "\baselineskip 18pt" assignment in vertical mode,
+% which LaTeX recomputes per paragraph from \baselinestretch, leaving stale
+% glue between paragraphs; the visible symptom was an inflated gap between the
+% two abstract paragraphs. \onehalfspacing comes from setspace, already loaded
+% in Preamble_commands.tex, and is exactly the "espaçamento a 1,5 linhas" the
+% Guia de Preparação da Dissertação requires.
+\onehalfspacing
 % -----------------------------------------------------------------------------
 % THE ACKNOWLEGMENTS
 \pdfbookmark[0]{Acknowledgments}{acknowledgments}
@@ -100,14 +104,14 @@
 \dominilot
 % -----------------------------------------------------------------------------
 % Lists of Contents
-\renewcommand{\baselinestretch}{1}
+\singlespacing
 \pdfbookmark[0]{Contents}{toc}
 \tableofcontents
 % If Printing on DOUBLE SIDED pages, the second page should be white.
 % Otherwise, comment the following command:
 \cleardoublepage
 % reposition baseline
-\renewcommand{\baselinestretch}{1.5}
+\onehalfspacing
 % -----------------------------------------------------------------------------
 % List of Figures
 \pdfbookmark[1]{List of Figures}{lof}
@@ -165,7 +169,7 @@
 % PAGE NUMBERING FOR DOCUMENT MATTER in ARABIC
 % Pages number is starting with arabic style. Until here were on roman mode
 \setcounter{page}{1} \pagenumbering{arabic}
-\baselineskip 18pt
+\onehalfspacing % see the note at the roman-numbering block above
 % -----------------------------------------------------------------------------
 % The chapters of this dissertation, ordered to follow the DSRM activities.
 % The mapping between DSRM activity and chapter is stated explicitly in
