@@ -2,8 +2,213 @@
 % This is Appendix A
 % !TEX root = ../main.tex
 % #############################################################################
-\chapter{Systematic Literature Review Corpus}
+\chapter{Extended Results for the Systematic Literature Review}
 \label{chapter:appendixA}
+
+This appendix holds the evidence tables underlying the review reported in
+\Cref{chap:slr}. They are reproduced here rather than in the chapter itself so
+that the chapter can state what the review found without the reader having to
+read four tabulations to reach it, while the tabulations remain available in
+full for anyone auditing the synthesis. Kitchenham's guidelines require the
+review to be reconstructible from the protocol together with this material.
+
+\section{Distribution of the retained corpus by venue}
+\label{sec:appA_journals}
+
+{\small
+\begin{longtable}{p{12cm} c}
+\caption{Journals and Publication Counts}
+\label{tab:journals} \\
+\toprule
+\textbf{Journals} & \textbf{Nr. Publications} \\
+\midrule
+\endfirsthead
+
+\toprule
+\textbf{Journals} & \textbf{Nr. Publications} \\
+\midrule
+\endhead
+
+\midrule
+\multicolumn{2}{r}{\textit{Continued on next page}} \\
+\midrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+
+\small
+ACM Transactions on Software Engineering \& Methodology & 10 \\
+Information and Software Technology & 3 \\
+Advanced Science & 1 \\
+Applied Computer Systems & 1 \\
+ARO-The Scientific Journal of Koya University & 1 \\
+Array & 1 \\
+BenchCouncil Transactions on Benchmarks, Standards \& Evaluations & 1 \\
+BioData Mining & 1 \\
+E3S Web of Conferences & 1 \\
+Engineering Applications of Artificial Intelligence & 1 \\
+Expert Systems With Applications & 1 \\
+Frontiers in Computer Science & 1 \\
+IEEE Access & 1 \\
+Informatica Economica & 1 \\
+Information Systems \& e-Business Management & 1 \\
+Journal of Computer Information Systems & 1 \\
+Journal of Software: Evolution \& Process & 1 \\
+Neurocomputing & 1 \\
+Technology Audit \& Production Reserves & 1 \\
+Tehnički Glasnik & 1 \\
+\end{longtable}}
+
+
+
+\section{Stakeholder opinions reported in the literature}
+\label{sec:appA_opinions}
+
+The fourth research question is answered in \Cref{chap:slr} from the three
+tables below, which separate the perspectives by the group holding them:
+the public and researchers, developers and practitioners, and organisations
+and management. The separation is retained because the three groups disagree,
+and the disagreement is itself a finding.
+
+{\small
+\begin{longtable}{>{\raggedright\arraybackslash}p{3cm} p{9cm}  p{0.2cm} p{1.8cm}}
+\caption{Public / Researchers Opinions on AI and LLMs in Software Development}
+\label{tab:stakeholder_opinions_public} \\
+
+\toprule
+\textbf{Opinion Category} & \textbf{Description} & \textbf{\#} & \textbf{References} \\
+\midrule
+\endfirsthead
+
+\midrule
+\multicolumn{4}{r}{\textit{Continued on next page}}\\
+\bottomrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+
+General Trust / Perception & People’s perception of systems powered by artificial intelligence as a mixture of “software and sorcery.” \cite{Ahmed:2025ai} & 6 & \cite{Bai:2025ci, Ahmed:2025ai, Basha:2025tt, Pendyala:2025pi, Zamfiroiu:2025ec, Ramos:2025aa} \\ \addlinespace
+Misinformation Risk & "Users highlight its potential to misguide or hallucinate to students." \cite{Basha:2025tt} & 4 & \cite{Jabrw:2025ss, Durrani:2024ad, Basha:2025tt, Banh:2025cf} \\ \addlinespace
+Bias and Impartiality Concerns & Users express dissatisfaction over perceived "leftist bias and propaganda in ChatGPT." \cite{Basha:2025tt} & 3 & \cite{Ramos:2025aa, Basha:2025tt, Ahmed:2025ai} \\ \addlinespace
+Output Diversity / Similarity & "57\% similarity overall with 43\% variability, presenting that each model has its unique characteristics." \cite{Kim:2025ao} & 2 & \cite{Zhang:2025ea, Kim:2025ao} \\ \addlinespace
+Legal, Copyright, and Licensing Issues & "Questions also surround the copyrightability/ownership of generated code [...]" \cite{Ahmed:2025ai} & 2 & \cite{Ahmed:2025ai, Basha:2025tt} \\ \addlinespace
+Evaluation Urgency & Urgent need to "establish an effective, objective, and complete evaluation system" for code-generation LLMs. \cite{Ahmed:2025ai} & 2 & \cite{Ahmed:2025ai, Pendyala:2025pi} \\ \addlinespace
+Job Automation & "Many users fear that AI will eventually replace human developers [...]" \cite{Basha:2025tt} & 1 & \cite{Basha:2025tt} \\
+
+\end{longtable}
+}
+
+
+
+{\small
+\begin{longtable}{>{\raggedright\arraybackslash}p{3.2cm} p{8.8cm}  p{0.2cm} p{1.8cm}}
+\caption{Developers / Practitioners Opinions on AI and LLMs in Software Development}
+\label{tab:stakeholder_opinions_devs} \\
+
+\toprule
+\textbf{Opinion Category} & \textbf{Description} & \textbf{\#} & \textbf{References} \\
+\midrule
+\endfirsthead
+
+\midrule
+\multicolumn{4}{r}{\textit{Continued on next page}}\\
+\bottomrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+
+Productivity and Efficiency Gains & 
+"The knowledge and reasoning capabilities of LLMs have the potential to result in significant efficiency gains." \cite{Banh:2025cf} & 6 & \cite{Banh:2025cf, Basha:2025tt, Terragni:2025fa, Haque:2025la, Zamfiroiu:2025ec, Han:2025mg} \\ \addlinespace
+Reliability Issues / Hallucinations & "LLMs sometimes produce highly convincing content that is factually wrong [...] the 'hallucination phenomenon'." \cite{Bai:2025ci} & 6 & \cite{Bai:2025ci, Jabrw:2025ss, Durrani:2024ad, Basha:2025tt, Banh:2025cf, Pendyala:2025pi} \\ \addlinespace
+Output Variability and Trust Decline & "I get a different code each time [...] I lose a bit of confidence in the work." \cite{Banh:2025cf} & 5 & \cite{Banh:2025cf, Basha:2025tt, Pendyala:2025pi, Ramos:2025aa, Terragni:2025fa} \\ \addlinespace
+Quality of Generated Code & "Several quality issues: undefined variables, insecure comments, and code requiring significant revision." \cite{Jabrw:2025ss} & 4 & \cite{Terragni:2025fa, Jabrw:2025ss, Jensen:2025me, Zhang:2025ea} \\ \addlinespace
+Augmentation of Human Capabilities & "LLMs are not merely a product of overhyped marketing; they represent a profound shift in how software is engineered. They should be seen as powerful tools that augment human capabilities rather than replace them." \cite{Haque:2025la} & 3 & \cite{Haque:2025la, Basha:2025tt, Terragni:2025fa} \\ \addlinespace
+Learning and Skill Improvement & LLMs "[...] directly support learning processes through interaction and conceptual clarification." \cite{Zamfiroiu:2025ec} & 3 & \cite{Gao:2025cc, Zamfiroiu:2025ec, Haque:2025la} \\ \addlinespace
+Knowledge Acquisition / Search Replacement & "LLMs present data in a concise and contextually relevant manner." \cite{Banh:2025cf} & 2 & \cite{Banh:2025cf, Zamfiroiu:2025ec} \\ \addlinespace
+Controllability & Participants praised its "controllability [...] allowing modification and feature adjustment after generation." \cite{Zhang:2025ea} & 2 & \cite{Basha:2025tt, Zhang:2025ea} \\ \addlinespace
+Risk of Over-reliance and Cognitive Decline & "There is almost the danger that you stop thinking for yourself [...] people will tend to become lazy." \cite{Banh:2025cf} & 2 & \cite{Banh:2025cf, Basha:2025tt} \\ \addlinespace
+Investment of time with prompts & "You spend ages trying to cut the prompt so that it comes out right [...]" \cite{Banh:2025cf} & 2 & \cite{Banh:2025cf, Basha:2025tt} \\
+
+\end{longtable}
+}
+
+
+
+{\small
+\begin{longtable}{>{\raggedright\arraybackslash}p{3.3cm} p{8.8cm}  p{0.2cm} p{1.8cm}}
+\caption{Organizations / Management Opinions on AI and LLMs in Software Development}
+\label{tab:stakeholder_opinions_orgs} \\
+
+\toprule
+\textbf{Opinion Category} & \textbf{Description} & \textbf{\#} & \textbf{References} \\
+\midrule
+\endfirsthead
+
+\midrule
+\multicolumn{4}{r}{\textit{Continued on next page}}\\
+\bottomrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+
+Need for Human Oversight & LLM outputs "still necessitate extensive human review before implementation." \cite{Kim:2025ao} & 7 & \cite{Qiu:2025ft, Kim:2025ao, Zhang:2025ea, Basha:2025tt, Terragni:2025fa, Kim:2025is, AlHashimi:2025er} \\ \addlinespace
+Data Security, Privacy, and Corporate Bans & "Due to concerns regarding data privacy, when considering real-world practice, most software organizations tend to avoid using commercial LLMs and would prefer to adopt open source ones with training or fine-tuning using organization-specific data." \cite{Wang:2025rs} & 6 & \cite{Banh:2025cf, Wang:2025rs, Terragni:2025fa, Yoo:2025sa, Hemmat:2025rd, Basha:2025tt} \\ \addlinespace
+Operational Costs and Resource Constraints & Organizations must "consider the current limitations in terms of computational power or pay close attention to energy consumption," leading them to "tend to fine-tune medium-sized models".\cite{Wang:2025rs} & 3 & \cite{Banh:2025cf, Wang:2025rs, Hemmat:2025rd} \\ \addlinespace
+Strategic Goal for Developer Satisfaction & "We have to be able to compete on efficiency and job satisfaction [...] It is difficult to find software developers." \cite{Jensen:2025me} & 2 & \cite{Haque:2025la, Jensen:2025me} \\ \addlinespace
+Expectation Management Requirement & "SDOs must carefully manage their expectations towards AI tools." \cite{Jensen:2025me} & 2 & \cite{Jensen:2025me, Basha:2025tt} \\ \addlinespace
+Strategic Competitiveness & The "early adoption of LLMs in software engineering is crucial to stay competitive in this rapidly evolving landscape." \cite{Haque:2025la} & 1 & \cite{Haque:2025la} \\
+
+\end{longtable}
+}
+
+\section{Industry sectors adopting AI and LLMs}
+\label{sec:appA_sectors}
+
+The evidence behind the fifth research question, answered in \Cref{chap:slr}.
+
+{\small
+\begin{longtable}{>{\raggedright\arraybackslash} p{3cm} p{9.5cm} p{0.2cm} p{1.5cm}}
+\caption{Industry sectors adopting AI and LLMs}
+\label{tab:sectors} \\
+
+\toprule
+\textbf{Industry Sector} & \textbf{Description} & \textbf{\#} & \textbf{References}\\
+\midrule
+\endfirsthead
+
+\toprule
+\textbf{Industry Sector} & \textbf{Description} & \textbf{\#} & \textbf{References}\\
+\midrule
+\endhead
+
+\midrule
+\multicolumn{4}{r}{\textit{Continued on next page}}\\
+\bottomrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+
+Software Engineering, Software Development \& Consulting Services & Software Development and Consulting is mentioned a lot, since they are the main sectors where AI and LLMs are being utilized in many different ways, such as AIOps, Cloud Management, Requirements Engineering, Software Testing, Quality Assurance, Code Generation and Development, Cybersecurity, Vulnerability Management, Refactoring, Code Optimization, Specialized Hardware, Scientific Computing and Emerging Technologies (like Blockchain/Crypto). & 25 & \cite{Jensen:2025me, Basha:2025tt, Banh:2025cf, Ahmed:2025ai, Gao:2025cc, Terragni:2025fa, Durrani:2024ad, Hemmat:2025rd, Wang:2025rs, Chen:2025es, Yoo:2025sa, AlHashimi:2025er, Tkachuk:2025dc, Jabrw:2025ss, Bai:2025ci, Kim:2025ao, Pendyala:2025pi, Han:2025mg, Haque:2025la, KarlovsKarlovskis:2024ga, Qiu:2025ft, Farhanna:2025eu, Weyssow:2025ep, Zamfiroiu:2025ec, Zhang:2025ea} \\ \addlinespace
+
+Finance, Banking, and Regulated Industries (Including Insurance) & Specialized LLMs can understand the "regulatory requirements, security needs, and performance constraints" especially in blockchain, cryptocurrency, smart contracts, and regulated environments. \cite{Haque:2025la, Kim:2025ao, Jensen:2025me } & 8 &  \cite{Basha:2025tt, Haque:2025la, Kim:2025ao, Jensen:2025me, AlHashimi:2025er, Zhang:2025ea, Banh:2025cf, Ramos:2025aa} \\ \addlinespace
+
+Transportation and Safety-Critical Domains & The lack of transparency of LLMs is problematic, particularly in "safety-critical applications like healthcare, finance, or aerospace, where understanding the reasoning behind code is essential for ensuring security and correctness".\cite{Ahmed:2025ai} & 7 & \cite{Ahmed:2025ai, Haque:2025la, Basha:2025tt, Hemmat:2025rd, Wang:2025rs, Yoo:2025sa, Ramos:2025aa} \\ \addlinespace
+
+Healthcare, Medical, and Biomedical Research & AI "accelerates the coding process by converting natural language or abstract research intent (a vibe) into functioning software modules, dramatically shortening development cycles in biomedical research and clinical application." \cite{Moore:2025vc}. & 5 & \cite{Moore:2025vc, Basha:2025tt, Hou:2025cl, Zhang:2025ea, Bai:2025ci} \\ \addlinespace
+
+Education and Training & LLMs "directly support learning processes through interaction and conceptual clarification". Students should be taught "how to specify AI, including functional, non- functional, and 'happy and unhappy path scenarios'" and learn "prompt engineering workarounds" and to "research and fact- check AI responses". \cite{Ramos:2025aa} & 5 & \cite{Ramos:2025aa, Hemmat:2025rd, Zamfiroiu:2025ec, Zhang:2025ea, Hou:2025cl} \\ \addlinespace
+
+Legal Reasoning and Regulatory Compliance & LLMs demonstrate success across multiple fields, such as education, healthcare, and legal reasoning. Specifically, prompt engineering is used to "tailor LLMs for the US legal system, enabling the model to identify relevant cases and predict judicial outcomes with greater precision". \cite{Jabrw:2025ss} & 4 &  \cite{Jabrw:2025ss, Bai:2025ci, Ramos:2025aa, AlHashimi:2025er} \\ \addlinespace
+
+Digital Ecosystems (E-Commerce and Services) & Case studies involve the development of systems such as a food order and delivery system (FODS) and a smart wallet system (SWS). LLMs are applied in contexts like Online Retailers and the service industry. \cite{Kim:2025ao, Zhang:2025ea} & 3 & \cite{AlHashimi:2025er, Kim:2025ao, Zhang:2025ea} \\ \addlinespace
+
+\end{longtable}
+}
 
 \todo[inline]{List the final set of studies retained by the review: identifier, full reference, venue, year, and which research questions each study contributes to. This is the auditability requirement of Kitchenham's guidelines - a reader must be able to reconstruct the review from this appendix together with the protocol reported in \Cref{chap:slr}.}
 

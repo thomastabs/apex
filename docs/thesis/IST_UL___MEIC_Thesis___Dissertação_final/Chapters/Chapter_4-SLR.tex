@@ -187,52 +187,9 @@ identifying the conferences and journals used and the year it was published. Cur
 
 \section{Reporting the Review}
 
-This section covers the third and last phase of the SLR methodology. The results from the analysis of each selected article and the collected information relevant to the review are presented here, which will make possible to answer the Research Questions defined earlier. The information is then summarized according to each of the determined research questions.
+This section covers the third and last phase of the \ac{SLR} methodology, reporting what the analysis of the retained articles established and answering each research question in turn. The distribution of the retained corpus by publication venue is given in \Cref{sec:appA_journals}; it is concentrated rather than diffuse, with ACM Transactions on Software Engineering and Methodology contributing ten of the retained articles and Information and Software Technology three, while the remaining venues contribute one each, which is consistent with a topic that is being actively published across the field rather than owned by any single outlet.
 
-{\small
-\begin{longtable}{p{12cm} c}
-\caption{Journals and Publication Counts}
-\label{tab:journals} \\
-\toprule
-\textbf{Journals} & \textbf{Nr. Publications} \\
-\midrule
-\endfirsthead
 
-\toprule
-\textbf{Journals} & \textbf{Nr. Publications} \\
-\midrule
-\endhead
-
-\midrule
-\multicolumn{2}{r}{\textit{Continued on next page}} \\
-\midrule
-\endfoot
-
-\bottomrule
-\endlastfoot
-
-\small
-ACM Transactions on Software Engineering \& Methodology & 10 \\
-Information and Software Technology & 3 \\
-Advanced Science & 1 \\
-Applied Computer Systems & 1 \\
-ARO-The Scientific Journal of Koya University & 1 \\
-Array & 1 \\
-BenchCouncil Transactions on Benchmarks, Standards \& Evaluations & 1 \\
-BioData Mining & 1 \\
-E3S Web of Conferences & 1 \\
-Engineering Applications of Artificial Intelligence & 1 \\
-Expert Systems With Applications & 1 \\
-Frontiers in Computer Science & 1 \\
-IEEE Access & 1 \\
-Informatica Economica & 1 \\
-Information Systems \& e-Business Management & 1 \\
-Journal of Computer Information Systems & 1 \\
-Journal of Software: Evolution \& Process & 1 \\
-Neurocomputing & 1 \\
-Technology Audit \& Production Reserves & 1 \\
-Tehnički Glasnik & 1 \\
-\end{longtable}}
 
 
 \subsection{Benefits of AI and LLMs usage in Software Development}
@@ -417,158 +374,27 @@ Given the inherent limitations of LLMs, including their overall output reliabili
 Finally, "Vibe Coding" which is mentioned only once in the literature, and ties directly with the use and adoption of AI in the development process of software. This paradigm represents a conceptual leap in prompt application, accelerating the development process, particularly for domain-specific tasks like biomedical software and other sectors in the industry, by translating abstract intent and natural language directly into functional code and applications. Although Vibe Coding is relatively recent and is not mentioned a lot in the literature, its becoming the new "trend" and its the evolution of prompt based development, however its important to say that "Vibe Coding" has issues and a lot of problems, translating these "vibes" reliably requires strict use of methodologies and methods like the ones that were collected in this review to ensure better results \cite{Moore:2025vc}. 
 
 
-\subsection{Developers’ and other stakeholders’ opinions regarding the use of AI and LLMs in Software Development}
+\subsection{Developers' and other stakeholders' opinions regarding the use of AI and LLMs in Software Development}
 
-Following the analysis of the technical benefits, consequences, and integration methodologies, it is equally crucial to understand the human perspective. This section will address the fourth research question, analyzing the literature to explore the opinions and sentiments of developers and other stakeholders regarding the broader use of AI and LLMs in software development. Understanding the reception and concerns of the people actively using these tools is essential for a complete picture of their impact, and the findings of the revision of the literature will be covered in \Cref{tab:stakeholder_opinions_public,tab:stakeholder_opinions_devs,tab:stakeholder_opinions_orgs}.
+The fourth research question concerns the human perspective, and the reception of these tools proved to differ enough between groups that the extracted opinions are tabulated separately by group, in \Cref{sec:appA_opinions}: the public and researchers, developers and practitioners, and organisations and management. The separation is itself a finding, because the three groups do not agree.
 
-{\small
-\begin{longtable}{>{\raggedright\arraybackslash}p{3cm} p{9cm}  p{0.2cm} p{1.8cm}}
-\caption{Public / Researchers Opinions on AI and LLMs in Software Development}
-\label{tab:stakeholder_opinions_public} \\
+Among the public and researchers, the dominant position is scepticism grounded in fallibility rather than in capability. General perception, cited in six articles, treats these systems as a mixture of software and sorcery, and the primary technical barrier reported is misinformation risk: generated code may execute without error while failing to meet the intended requirement. That risk is amplified by variability, since the same prompt repeated yields different code each time. This is what makes the single most prevalent opinion across all three groups, the need for human oversight with seven articles, follow from the evidence rather than from caution: errors such as inconsistencies in design diagrams or incomplete implementations propagate into project integrity.
 
-\toprule
-\textbf{Opinion Category} & \textbf{Description} & \textbf{\#} & \textbf{References} \\
-\midrule
-\endfirsthead
+Developers and practitioners report the opposite emphasis. Productivity and efficiency gains are the most-cited positive opinion for this group, in six articles, and \acp{LLM} are valued for knowledge acquisition because they allow a developer to bypass extended search or dependence on colleagues~\cite{Banh:2025cf}. Two countervailing findings appear alongside it. The convenience carries a documented risk of over-reliance and erosion of technical competence, and effectiveness is not seamless: prompt design is reported as a significant time investment requiring considerable skill, which reduces the efficiency it promises~\cite{Banh:2025cf}.
 
-\midrule
-\multicolumn{4}{r}{\textit{Continued on next page}}\\
-\bottomrule
-\endfoot
+Organisations and management treat adoption as a risk-management exercise. The strategic case is tied to job satisfaction, talent retention and competitiveness, since automating routine work retains valuable staff~\cite{Jensen:2025me}, but it is constrained by the group's most-cited concern, data security and privacy, in six articles. The consensus strategy is to avoid commercial \acp{LLM} in favour of open models fine-tuned on organisation-specific data, which in turn raises operational cost and pushes teams towards medium-sized models to manage computational limits. Expectation management appears less often but matters for the same reason: organisations report needing to discount the hype surrounding these tools when planning their integration.
 
-\bottomrule
-\endlastfoot
-
-General Trust / Perception & People’s perception of systems powered by artificial intelligence as a mixture of “software and sorcery.” \cite{Ahmed:2025ai} & 6 & \cite{Bai:2025ci, Ahmed:2025ai, Basha:2025tt, Pendyala:2025pi, Zamfiroiu:2025ec, Ramos:2025aa} \\ \addlinespace
-Misinformation Risk & "Users highlight its potential to misguide or hallucinate to students." \cite{Basha:2025tt} & 4 & \cite{Jabrw:2025ss, Durrani:2024ad, Basha:2025tt, Banh:2025cf} \\ \addlinespace
-Bias and Impartiality Concerns & Users express dissatisfaction over perceived "leftist bias and propaganda in ChatGPT." \cite{Basha:2025tt} & 3 & \cite{Ramos:2025aa, Basha:2025tt, Ahmed:2025ai} \\ \addlinespace
-Output Diversity / Similarity & "57\% similarity overall with 43\% variability, presenting that each model has its unique characteristics." \cite{Kim:2025ao} & 2 & \cite{Zhang:2025ea, Kim:2025ao} \\ \addlinespace
-Legal, Copyright, and Licensing Issues & "Questions also surround the copyrightability/ownership of generated code [...]" \cite{Ahmed:2025ai} & 2 & \cite{Ahmed:2025ai, Basha:2025tt} \\ \addlinespace
-Evaluation Urgency & Urgent need to "establish an effective, objective, and complete evaluation system" for code-generation LLMs. \cite{Ahmed:2025ai} & 2 & \cite{Ahmed:2025ai, Pendyala:2025pi} \\ \addlinespace
-Job Automation & "Many users fear that AI will eventually replace human developers [...]" \cite{Basha:2025tt} & 1 & \cite{Basha:2025tt} \\
-
-\end{longtable}
-}
-
-{\small
-\begin{longtable}{>{\raggedright\arraybackslash}p{3.2cm} p{8.8cm}  p{0.2cm} p{1.8cm}}
-\caption{Developers / Practitioners Opinions on AI and LLMs in Software Development}
-\label{tab:stakeholder_opinions_devs} \\
-
-\toprule
-\textbf{Opinion Category} & \textbf{Description} & \textbf{\#} & \textbf{References} \\
-\midrule
-\endfirsthead
-
-\midrule
-\multicolumn{4}{r}{\textit{Continued on next page}}\\
-\bottomrule
-\endfoot
-
-\bottomrule
-\endlastfoot
-
-Productivity and Efficiency Gains & 
-"The knowledge and reasoning capabilities of LLMs have the potential to result in significant efficiency gains." \cite{Banh:2025cf} & 6 & \cite{Banh:2025cf, Basha:2025tt, Terragni:2025fa, Haque:2025la, Zamfiroiu:2025ec, Han:2025mg} \\ \addlinespace
-Reliability Issues / Hallucinations & "LLMs sometimes produce highly convincing content that is factually wrong [...] the 'hallucination phenomenon'." \cite{Bai:2025ci} & 6 & \cite{Bai:2025ci, Jabrw:2025ss, Durrani:2024ad, Basha:2025tt, Banh:2025cf, Pendyala:2025pi} \\ \addlinespace
-Output Variability and Trust Decline & "I get a different code each time [...] I lose a bit of confidence in the work." \cite{Banh:2025cf} & 5 & \cite{Banh:2025cf, Basha:2025tt, Pendyala:2025pi, Ramos:2025aa, Terragni:2025fa} \\ \addlinespace
-Quality of Generated Code & "Several quality issues: undefined variables, insecure comments, and code requiring significant revision." \cite{Jabrw:2025ss} & 4 & \cite{Terragni:2025fa, Jabrw:2025ss, Jensen:2025me, Zhang:2025ea} \\ \addlinespace
-Augmentation of Human Capabilities & "LLMs are not merely a product of overhyped marketing; they represent a profound shift in how software is engineered. They should be seen as powerful tools that augment human capabilities rather than replace them." \cite{Haque:2025la} & 3 & \cite{Haque:2025la, Basha:2025tt, Terragni:2025fa} \\ \addlinespace
-Learning and Skill Improvement & LLMs "[...] directly support learning processes through interaction and conceptual clarification." \cite{Zamfiroiu:2025ec} & 3 & \cite{Gao:2025cc, Zamfiroiu:2025ec, Haque:2025la} \\ \addlinespace
-Knowledge Acquisition / Search Replacement & "LLMs present data in a concise and contextually relevant manner." \cite{Banh:2025cf} & 2 & \cite{Banh:2025cf, Zamfiroiu:2025ec} \\ \addlinespace
-Controllability & Participants praised its "controllability [...] allowing modification and feature adjustment after generation." \cite{Zhang:2025ea} & 2 & \cite{Basha:2025tt, Zhang:2025ea} \\ \addlinespace
-Risk of Over-reliance and Cognitive Decline & "There is almost the danger that you stop thinking for yourself [...] people will tend to become lazy." \cite{Banh:2025cf} & 2 & \cite{Banh:2025cf, Basha:2025tt} \\ \addlinespace
-Investment of time with prompts & "You spend ages trying to cut the prompt so that it comes out right [...]" \cite{Banh:2025cf} & 2 & \cite{Banh:2025cf, Basha:2025tt} \\
-
-\end{longtable}
-}
-
-{\small
-\begin{longtable}{>{\raggedright\arraybackslash}p{3.3cm} p{8.8cm}  p{0.2cm} p{1.8cm}}
-\caption{Organizations / Management Opinions on AI and LLMs in Software Development}
-\label{tab:stakeholder_opinions_orgs} \\
-
-\toprule
-\textbf{Opinion Category} & \textbf{Description} & \textbf{\#} & \textbf{References} \\
-\midrule
-\endfirsthead
-
-\midrule
-\multicolumn{4}{r}{\textit{Continued on next page}}\\
-\bottomrule
-\endfoot
-
-\bottomrule
-\endlastfoot
-
-Need for Human Oversight & LLM outputs "still necessitate extensive human review before implementation." \cite{Kim:2025ao} & 7 & \cite{Qiu:2025ft, Kim:2025ao, Zhang:2025ea, Basha:2025tt, Terragni:2025fa, Kim:2025is, AlHashimi:2025er} \\ \addlinespace
-Data Security, Privacy, and Corporate Bans & "Due to concerns regarding data privacy, when considering real-world practice, most software organizations tend to avoid using commercial LLMs and would prefer to adopt open source ones with training or fine-tuning using organization-specific data." \cite{Wang:2025rs} & 6 & \cite{Banh:2025cf, Wang:2025rs, Terragni:2025fa, Yoo:2025sa, Hemmat:2025rd, Basha:2025tt} \\ \addlinespace
-Operational Costs and Resource Constraints & Organizations must "consider the current limitations in terms of computational power or pay close attention to energy consumption," leading them to "tend to fine-tune medium-sized models".\cite{Wang:2025rs} & 3 & \cite{Banh:2025cf, Wang:2025rs, Hemmat:2025rd} \\ \addlinespace
-Strategic Goal for Developer Satisfaction & "We have to be able to compete on efficiency and job satisfaction [...] It is difficult to find software developers." \cite{Jensen:2025me} & 2 & \cite{Haque:2025la, Jensen:2025me} \\ \addlinespace
-Expectation Management Requirement & "SDOs must carefully manage their expectations towards AI tools." \cite{Jensen:2025me} & 2 & \cite{Jensen:2025me, Basha:2025tt} \\ \addlinespace
-Strategic Competitiveness & The "early adoption of LLMs in software engineering is crucial to stay competitive in this rapidly evolving landscape." \cite{Haque:2025la} & 1 & \cite{Haque:2025la} \\
-
-\end{longtable}
-}
-
-The analysis of stakeholder opinions regarding the use of AI in Software Engineering, as synthesized in \Cref{tab:stakeholder_opinions_public,tab:stakeholder_opinions_devs,tab:stakeholder_opinions_orgs}, delineates a big picture of the impact that AI and LLMs, specially with the uprising in its usage, has and had on Developers and other stakeholders inside the Software Development Lifecycle and Engineering landscape. When collecting the opinions of stakeholders, it became clear that the different opinions should be separated by by the Stakeholder group and organized in different tables. 
-
-Starting from the first table, a fundamental tension exists between the immense capabilities of LLMs and their inherent fallibility, leading to skepticism among researchers and the public. This lack of certainty is reflected in the "Public/Researchers" group, where the General Trust/Perception, referenced in 6 articles, is that AI is a mixture of "software and sorcery" tying directly with the  primary technical barrier is the Misinformation Risk, coming right after the previous opinion, meaning the generated code may execute without error, but fail to meet the intended task requirements. This risk is amplified because LLMs frequently exhibit high variability, where sending the same prompt multiple times yields different code each time. This unreliability directly mandates the single most prevalent opinion across all stakeholder groups (with 7 referenced articles): the Need for Human Oversight within the Organizations/Management opinions. This requirement is crucial because errors in LLM output, such as inconsistencies in design diagrams or incomplete implementations, can severely impact project integrity. Beyond technical quality, ethical concerns already exist and also arise, exemplified by the findings in the table.
-
-In "Developers/Practitioners", while developers are eager to leverage LLMs for productivity and efficiency gains, which is the most-cited positive opinion for this group with 6 articles, there are significant challenges related to the practical integration of AI tools and the preservation of core technical competence. LLMs are also valued for knowledge acquisition, stated in 2 articles, as they allow developers to quickly bypass extensive search activities or dependence on colleagues \cite{Banh:2025cf}. However, this convenience introduces a documented danger of over-reliance and cognitive decline. Furthermore, maximizing the effectiveness of LLMs is not a seamless process but introduces a significant investment of time with prompts, referenced twice in the literature\cite{Banh:2025cf}. This necessity for highly specific prompt design means that using the tool effectively requires considerable skill and can reduce the efficiency gains it promises. 
-
-The "Organizations/Management" stakeholder group, the last group covered within the articles view LLM adoption as both a strategic necessity and a major risk management exercise focused heavily on controlling proprietary data and talent retention. The strategic decision to integrate LLMs is often tied to Improving Job Satisfaction and organizational competitiveness \cite{Jensen:2025me}. By automating mundane tasks, AI helps retain valuable talent. However, this is heavily constrained by the group's most-cited concern: Data Security and Privacy, mentioned in 6 articles. The consensus strategy is to avoid using commercial LLMs and adopt open source ones with training or fine-tuning using organization-specific data to protect confidential and sensitive information. This ties into Operational Costs, where organizations when incorporating AI and LLMs in the workplace tend to fine-tune medium-sized models to manage computational limits. The novelty of the technology also requires a focus on the not so talked about expectation management, which is mentioned less but is equally as important, since Software Development Organizations have to be aware of the hype behind these tools and carefully manage their expectations when integrating AI tools in the Software Development Lifecycle landscape.
+Read together, the three groups converge despite their different emphases. Enthusiasm about productivity is never reported without an accompanying concern about reliability, and every group independently arrives at human oversight as the necessary control. That convergence, from stakeholders with different incentives, is what makes oversight a requirement to be designed for rather than a preference to be accommodated.
 
 \subsection{Industry sectors adopting AI and LLMs for Software Applications Development}
 
-This section will aim to answer the fifth research question by identifying which industry sectors are actively adopting AI for application development. It will further analyze the specific, sector-level benefits they report from this integration, grounding the research in real-world application.
+The fifth research question asks which industry sectors are actively adopting \ac{AI} for application development and what sector-level benefits they report. The extracted evidence is tabulated in \Cref{sec:appA_sectors}; what follows is what it establishes.
 
+Adoption concentrates overwhelmingly in Software Engineering, Software Development and IT Consulting, which is unsurprising since these domains are both the origin and the primary proving ground for \ac{LLM}-based tools. The reported use cases centre on code generation, completion, explanation and refactoring, and several sources describe a gradual shift in the developer role from writing code manually to orchestrating AI-enabled workflows in which the human directs, validates and refines automated output~\cite{Jensen:2025me, Zhang:2025ea, Kim:2025ao}. In consulting specifically, \acp{LLM} are valued for accelerating onboarding and transferring client-specific business knowledge between projects. Adoption also appears in specialised technical domains involving infrastructure-level or mathematically intensive systems, where models must be adapted or augmented with structured knowledge to produce reliable output~\cite{Wang:2025rs, Hou:2025cl, Ahmed:2025ai, AlHashimi:2025er}.
 
-{\small
-\begin{longtable}{>{\raggedright\arraybackslash} p{3cm} p{9.5cm} p{0.2cm} p{1.5cm}}
-\caption{Industry sectors adopting AI and LLMs}
-\label{tab:sectors} \\
+Beyond the core \ac{IT} sector, adoption clusters in high-stakes regulated environments: Finance, Banking and Regulated Industries in eight articles, Transportation and other safety-critical domains in seven, Healthcare and Biomedical Research in five, and Legal Reasoning in four. In these domains \acp{LLM} are introduced cautiously, with emphasis on reliability, auditability and regulatory compliance, and the literature is consistent that extensive human review and verification remain mandatory wherever incorrect or unverifiable output could produce safety risks, compliance failures or legal liability~\cite{Moore:2025vc, Ahmed:2025ai, Jabrw:2025ss, Qiu:2025ft}. Education and Training, in five articles, is an emerging area in which \acp{LLM} act as adaptive learning companions rather than replacements for educators, supporting exercise generation, personalised feedback and formative assessment~\cite{Ramos:2025aa, Hemmat:2025rd, Zamfiroiu:2025ec}.
 
-\toprule
-\textbf{Industry Sector} & \textbf{Description} & \textbf{\#} & \textbf{References}\\
-\midrule
-\endfirsthead
-
-\toprule
-\textbf{Industry Sector} & \textbf{Description} & \textbf{\#} & \textbf{References}\\
-\midrule
-\endhead
-
-\midrule
-\multicolumn{4}{r}{\textit{Continued on next page}}\\
-\bottomrule
-\endfoot
-
-\bottomrule
-\endlastfoot
-
-Software Engineering, Software Development \& Consulting Services & Software Development and Consulting is mentioned a lot, since they are the main sectors where AI and LLMs are being utilized in many different ways, such as AIOps, Cloud Management, Requirements Engineering, Software Testing, Quality Assurance, Code Generation and Development, Cybersecurity, Vulnerability Management, Refactoring, Code Optimization, Specialized Hardware, Scientific Computing and Emerging Technologies (like Blockchain/Crypto). & 25 & \cite{Jensen:2025me, Basha:2025tt, Banh:2025cf, Ahmed:2025ai, Gao:2025cc, Terragni:2025fa, Durrani:2024ad, Hemmat:2025rd, Wang:2025rs, Chen:2025es, Yoo:2025sa, AlHashimi:2025er, Tkachuk:2025dc, Jabrw:2025ss, Bai:2025ci, Kim:2025ao, Pendyala:2025pi, Han:2025mg, Haque:2025la, KarlovsKarlovskis:2024ga, Qiu:2025ft, Farhanna:2025eu, Weyssow:2025ep, Zamfiroiu:2025ec, Zhang:2025ea} \\ \addlinespace
-
-Finance, Banking, and Regulated Industries (Including Insurance) & Specialized LLMs can understand the "regulatory requirements, security needs, and performance constraints" especially in blockchain, cryptocurrency, smart contracts, and regulated environments. \cite{Haque:2025la, Kim:2025ao, Jensen:2025me } & 8 &  \cite{Basha:2025tt, Haque:2025la, Kim:2025ao, Jensen:2025me, AlHashimi:2025er, Zhang:2025ea, Banh:2025cf, Ramos:2025aa} \\ \addlinespace
-
-Transportation and Safety-Critical Domains & The lack of transparency of LLMs is problematic, particularly in "safety-critical applications like healthcare, finance, or aerospace, where understanding the reasoning behind code is essential for ensuring security and correctness".\cite{Ahmed:2025ai} & 7 & \cite{Ahmed:2025ai, Haque:2025la, Basha:2025tt, Hemmat:2025rd, Wang:2025rs, Yoo:2025sa, Ramos:2025aa} \\ \addlinespace
-
-Healthcare, Medical, and Biomedical Research & AI "accelerates the coding process by converting natural language or abstract research intent (a vibe) into functioning software modules, dramatically shortening development cycles in biomedical research and clinical application." \cite{Moore:2025vc}. & 5 & \cite{Moore:2025vc, Basha:2025tt, Hou:2025cl, Zhang:2025ea, Bai:2025ci} \\ \addlinespace
-
-Education and Training & LLMs "directly support learning processes through interaction and conceptual clarification". Students should be taught "how to specify AI, including functional, non- functional, and 'happy and unhappy path scenarios'" and learn "prompt engineering workarounds" and to "research and fact- check AI responses". \cite{Ramos:2025aa} & 5 & \cite{Ramos:2025aa, Hemmat:2025rd, Zamfiroiu:2025ec, Zhang:2025ea, Hou:2025cl} \\ \addlinespace
-
-Legal Reasoning and Regulatory Compliance & LLMs demonstrate success across multiple fields, such as education, healthcare, and legal reasoning. Specifically, prompt engineering is used to "tailor LLMs for the US legal system, enabling the model to identify relevant cases and predict judicial outcomes with greater precision". \cite{Jabrw:2025ss} & 4 &  \cite{Jabrw:2025ss, Bai:2025ci, Ramos:2025aa, AlHashimi:2025er} \\ \addlinespace
-
-Digital Ecosystems (E-Commerce and Services) & Case studies involve the development of systems such as a food order and delivery system (FODS) and a smart wallet system (SWS). LLMs are applied in contexts like Online Retailers and the service industry. \cite{Kim:2025ao, Zhang:2025ea} & 3 & \cite{AlHashimi:2025er, Kim:2025ao, Zhang:2025ea} \\ \addlinespace
-
-\end{longtable}
-}
-
-The analysis of industry sectors adopting AI and LLMs, detailed in \Cref{tab:sectors}, reveals a predictable but overwhelming concentration of AI adoption within the Software Engineering, Software Development, and IT Consulting industries. Given that these domains represent both the origin and primary proving ground for LLM-based tools, the literature emphasizes that the core use cases revolve around assisting with the actual coding process, particularly through code generation, completion, explanation, and refactoring. These capabilities are increasingly being integrated across the entire SDLC landscape. As a result, several sources highlight a gradual shift in the developer role, from writing code manually to orchestrating AI-enabled development workflows, where the human directs, validates, and refines the output of automated tools instead of performing every step manually. In consulting settings specifically, LLMs are described as valuable for helping teams rapidly familiarize themselves with client-specific business knowledge, accelerating onboarding and context transfer across projects. \cite{Jensen:2025me, Zhang:2025ea, Kim:2025ao} Adoption of AI and LLMs also appears in specialized technical domains, which often involve complex, infrastructure-level, or mathematically intensive systems in which the LLMs must be adapted or augmented with structured knowledge to produce reliable outputs. \cite{Wang:2025rs, Hou:2025cl, Ahmed:2025ai, Kim:2025ao, AlHashimi:2025er}
-
-Beyond the core IT sector, significant adoption is noted in high-stakes, regulated environments where risks are severe. This group includes Finance, Banking, and Regulated Industries, referenced in 8 articles of the literature, and Transportation and other Safety-Critical Domains, referenced in 7 articles, Healthcare and Biomedical Research, mentioned in 5 articles and last but not least Legal Reasoning with 4 articles. In these domains, LLMs are introduced more cautiously, with emphasis on reliability, auditability, and compliance with regulatory standards.  However, the literature consistently stresses and makes an effort to make a non-negotiable that in all such high-stakes environments, extensive human review and verification remain mandatory, particularly where incorrect or unverifiable outputs may result in safety risks, compliance failures, or legal liability \cite{Moore:2025vc, Ahmed:2025ai, Jabrw:2025ss, Kim:2025ao, Qiu:2025ft}. 
-
-The Education and Training sector, referenced in 5 articles, is emerging as a notable area of adoption, particularly in contexts related to software engineering education and professional skill development. Studies highlight that LLMs increasingly function as instructional support tools, helping learners understand programming concepts, debug code, and explore alternative solution strategies through interactive dialogue-based guidance. Rather than replacing educators, LLMs act as adaptive learning companions, offering step-wise reasoning and tailored explanations that align with the learner’s current level of mastery. The literature further reports their use in automated teaching pipelines, supporting tasks such as generation of programming exercises, personalized feedback, and formative assessment. This integration also aligns with a broader pedagogical shift: as routine coding tasks become more easily automated, software engineering curricula increasingly emphasize conceptual understanding, architectural decision-making, and critical evaluation, while LLMs provide practice-oriented support for iterative learning \cite{Ramos:2025aa, Zhang:2025ea, Hemmat:2025rd, Hou:2025cl, Zamfiroiu:2025ec}.
+The pattern across sectors is the same one the earlier questions produced from a different direction. Where the cost of an incorrect output is low, adoption is broad and the reported benefit is speed; where that cost is high, adoption is conditioned on verification. No sector reports adopting these tools without a human check, and the sectors with the most to lose report the most explicit checks. That is a finding about process rather than about capability, and it is the point at which this review begins to constrain the design of a framework rather than merely describing practice.
 
 \section{Discussion}
 
