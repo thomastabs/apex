@@ -2,17 +2,15 @@
 % This is Chapter 7 - Apex: The Reference Implementation
 % !TEX root = ../main.tex
 % #############################################################################
-% SOURCES: docs/framework/Apex-Implementation-Report.docx (architecture,
-% testing, deployment, incident log) and docs/framework/Apex-Framework-v2.docx
-% §2. Diagrams: docs/diagrams/architecture.puml and user-flow.puml render to
-% Figures 2 and 3 referenced by the framework document.
+% SOURCE: docs/framework/Apex-Implementation-Report.docx is the authoritative
+% grounding for this chapter (architecture, testing, deployment, incident log).
+% Figures come from docs/diagrams/architecture.puml and user-flow.puml.
+% Suite sizes are a snapshot and are stated as such in the text.
 % #############################################################################
 \fancychapter{Apex: The Reference Implementation}
 \label{chap:apex}
 
-The framework presented in \Cref{chap:proposal} describes a methodology. This chapter presents Apex, the working software system that instantiates it, and which serves both as evidence that the framework's governance constructs are implementable and as the vehicle through which the framework is demonstrated and evaluated in \Cref{chap:demonstration,chap:evaluation}. In \ac{DSRM} terms, the framework and Apex are two artefacts produced by the same Design and Development activity: a method and its instantiation.
-
-This chapter also documents the design iterations that shaped both artefacts. Practitioner feedback gathered during construction did not merely refine the tool; it changed the framework itself. Recording that path is what makes the \ac{DSRM} iteration explicit rather than implied.
+The framework presented in \Cref{chap:proposal} describes a methodology. This chapter presents Apex, the working software system that instantiates it, which serves both as evidence that the framework's governance constructs are implementable and as the vehicle through which the framework is demonstrated and evaluated in \Cref{chap:demonstration,chap:evaluation}. In \ac{DSRM} terms the two are distinct artefacts produced by the same Design and Development activity: a method and its instantiation. This chapter answers \ac{DRQ}3, and answering it honestly means reporting which constructs resisted implementation as well as which did not.
 
 % #############################################################################
 \section{Purpose and Positioning}
@@ -21,59 +19,130 @@ This chapter also documents the design iterations that shaped both artefacts. Pr
 % The distinction below is the one that most needs stating early and plainly:
 % Apex is not competing with coding agents on convenience.
 
-\todo[inline]{State the positioning directly: a coding agent accelerates the writing of code, whereas Apex governs whether that code still answers the originating question. Every artefact carries a stable specification identifier back to its requirement, so drift is surfaced rather than silent. Note also what Apex deliberately does not do: no model training or fine-tuning, no infrastructure provisioning beyond generating scripts for human or CI execution, and no replacement of the project management tool it sits above.}
+Apex is not a coding agent and is not positioned against one. A coding agent accelerates the writing of code; Apex governs whether the code that results still answers the question that prompted it. The two are complementary, and the distinction is the whole reason the system exists: acceleration without anchoring is precisely the condition \Cref{chap:intro} shows moves the bottleneck to review rather than removing it. Every artefact Apex produces carries a stable specification identifier back to the requirement it derives from, so divergence between what was agreed and what was built becomes a detectable event rather than a gradual drift that nobody is positioned to notice.
+
+What Apex deliberately does not do is as much part of its definition. It does not train or fine-tune models, and treats the model as a third-party capability that may change beneath it. It does not provision infrastructure: where a release needs configuration or migration scripts it generates them for a human or a \ac{CI} pipeline to execute, and never applies them itself. And it does not replace the project management tool a team already uses. It sits above that tool, reads and writes through it, and expects the team's existing board to remain the system of record for work items, which is why the framework's board guidance in \Cref{sec:work_organisation} asks only that a team's own columns map onto framework phases rather than that they be renamed.
 
 % #############################################################################
 \section{Architecture}
 \label{sec:apex_architecture}
 
-% Render docs/diagrams/architecture.puml into ./Images/ and reference it here.
+Apex is a split full-stack application. The frontend is Next.js 15 with the App Router in TypeScript; the backend is Python 3.12 with FastAPI; the two communicate over a typed REST API. Server state on the frontend is owned by React Query and client state by Zustand, with credentials persisted only to session storage so that they clear when the tab closes. Backend routers are kept deliberately thin, with workflow logic held in a service layer and a schema for every request and response boundary. That separation is an engineering choice rather than an accident of growth: it keeps route handlers testable as thin adapters and workflow logic testable in isolation from \ac{HTTP} concerns, which is what made the test strategy in \Cref{sec:apex_qa} possible at the sizes it reaches. \Cref{fig:apex_architecture} shows the arrangement.
 
-\todo[inline]{Split-stack overview: Next.js frontend, Python/FastAPI backend, and the separation between them. Spec-anchored storage, and how project isolation is enforced. The concurrency model and why it is a deliberate single-writer design. The proxy-first approach to external integrations and the security rationale behind it. The provider abstraction that keeps the system independent of any single model vendor.}
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\linewidth]{./Images/architecture.png}
+    \caption{Apex's system architecture. The point of the figure is the position of the two boundaries rather than the inventory of components: every outbound call to a user-configurable host passes through a server-side guarded proxy, and all workflow state is written to a per-tenant, per-project specification store rather than to an application database.}
+    \label{fig:apex_architecture}
+\end{figure}
 
-\todo[inline]{Include the architecture figure here, with a caption that explains what the reader should take from it rather than restating the components.}
+Four properties of that architecture carry framework constructs rather than merely supporting them, and each is described in turn.
+
+\noindent\textbf{Spec-anchored storage.} All workflow state lives in Markdown context files together with a machine-readable story index, held under a path keyed first by instance and then by project. The instance key isolates tenants, so a hosted project management account and a privately deployed instance of the same tool are fully separate tenants even for the same human user; the project key isolates individual projects within a tenant. Storage is an abstraction over either local disk or cloud file storage, and the same code path runs in both, which the test suite verifies by pinning the abstraction to local disk rather than replacing it with a stand-in. This is Spec-Anchored Continuity made concrete: the specification is a set of files that outlive any session and that every generation step is constrained by. Access to those files is required to pass through a single service, never a direct import from a route, because that service is the one place where per-request project isolation is enforced. That convention is treated as an architectural invariant rather than a style preference, for reasons \Cref{sec:apex_qa} makes concrete.
+
+\noindent\textbf{A deliberate single-writer concurrency model.} The backend was originally pinned to one replica and one worker. The story index and workspace configuration live on shared file storage guarded only by a process-local lock, so a second replica would not crash but would silently race on writes, which is worse, because a lost update looks like success. Threads still interleave within the one process, so an in-process lock remains necessary and is used consistently. This was a documented constraint rather than an oversight, and it came with a stated precondition for lifting it. That precondition was subsequently built and enabled: an optional coordination layer promotes the locks to cross-replica equivalents when a coordination service is configured, and falls back to byte-identical single-replica behaviour when it is not. It has been running in production with three replicas since June 2026, verified by inspecting live client connections rather than by reading a startup log line.
+
+\noindent\textbf{Proxy-first external integration.} Every outbound call to a host the user can configure is proxied server-side rather than issued from the browser, specifically to close server-side request forgery: the proxy validates that the target uses \ac{HTTPS} and resolves to a non-private address before forwarding, and caps the size of any body it relays. The identity anchor a request is validated against is derived from the same validated host, which is what makes the storage isolation above trustworthy rather than merely tidy. One integration is a deliberate exception, since the provider permits direct browser access and the credential never reaches the backend for those calls; two operations within it are not exceptions, because they need a server-side filesystem and a server-held credential respectively.
+
+\noindent\textbf{Provider abstraction.} The model provider is detected from the model identifier and routed accordingly, so no other part of the codebase branches on which vendor is in use, and provider errors are mapped to typed exceptions at a single boundary so that every route inherits consistent semantics without repeating the mapping. This is what allows the framework's claim in \Cref{sec:framework_scope}, that it names the property a mechanism must have rather than the product providing it, to hold in the instantiation as well as in the method.
 
 % #############################################################################
 \section{Operationalising the Framework}
 \label{sec:apex_framework_mapping}
 
-% This is the most important section of the chapter for the committee: it is
-% the evidence for DRQ3, which asks how far the constructs operationalise and
-% which resist it, so the negative rows carry as much weight as the positive
-% ones. A table mapping each framework construct to the
-% concrete mechanism that implements it is far more convincing than prose.
+% This is the DRQ3 evidence. The negative rows carry as much weight as the
+% positive ones and must not be softened.
 
-\todo[inline]{Build a mapping table: framework construct (left) against the implemented mechanism (right), covering each lifecycle phase, each quality gate, Spec-Anchored Continuity as versioned specification files, stable specification identifiers, the phase-status flow, Bolt tracking and its cycle-time metric, spec-drift detection and feedback routing, and the traceability graph. Every row must point at something that exists, not something planned.}
+This section answers \ac{DRQ}3, which asks how far the framework's governance constructs can be operationalised in a working system and which of them resist it. \Cref{tab:apex_mapping} states the mapping construct by construct, and every row points at something that exists in the codebase rather than something planned. Three outcomes are distinguished and the distinction is the substance of the answer: a construct realised as specified, a construct realised as a proxy that measures something adjacent to what the framework defines, and a construct that resisted implementation and is not present. \Cref{fig:apex_userflow} shows how a practitioner actually walks the phases those constructs govern.
 
-\todo[inline]{Include the user-flow figure here, showing how a practitioner actually walks the phases.}
+{\footnotesize
+\begin{longtable}{>{\raggedright\arraybackslash}p{3.6cm}
+                  >{\raggedright\arraybackslash}p{8.4cm}
+                  >{\raggedright\arraybackslash}p{2.6cm}}
+\caption{Framework constructs against the mechanisms implementing them in Apex, and the outcome of each}
+\label{tab:apex_mapping} \\
+\toprule
+\textbf{Construct} & \textbf{Implemented mechanism} & \textbf{Outcome} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Construct} & \textbf{Implemented mechanism} & \textbf{Outcome} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+
+The six lifecycle phases & One workflow surface per phase, each gated on the preceding phase's exit condition rather than freely navigable. & Realised \\
+Quality gates & A per-story phase-status flow advancing through gherkin\_locked, design\_locked, implementation, qa, qa\_passed and deployed; middleware refuses phase access when the status does not permit it. & Realised \\
+Spec-Anchored Continuity & Versioned Markdown context files plus a story index under a per-tenant, per-project path, split into project-wide files and per-story specifications. & Realised \\
+Stable specification identifiers & Epic, entity, screen and scenario identifiers minted at generation time and recorded in a specification index, so every later artefact resolves back to a requirement. & Realised \\
+The Interactive Bridge & Phase 1 drafts scenarios in natural language for confirm, add, delete or modify instructions, and compiles to Gherkin only after approval. & Realised \\
+The Consistency Factor & A generated test set produced before implementation and carried into the developer pack for each task. & Realised \\
+Bolts and the Fix-Bolt & A per-task micro-cycle recording pack\_ready, pushed and done transitions with timestamps, independent of the story's own phase status. & Realised \\
+Bolt Cycle Time & Elapsed time from pack\_ready to done per task, aggregated as median and 90th percentile. Initially computed from story-level gate transitions and presented under the same name, which measured queueing and review rather than execution; corrected to the task-level definition the framework specifies. & Realised, after a proxy was found and replaced \\
+Context Traceability Rate & Not implemented. The traceability graph exists and a chain can be inspected per story, but no aggregate proportion of deployed work with a complete chain is computed. & Resisted \\
+AI Defect Escape Rate & Not implemented. It requires production defect attribution to generated logic, which the system has no mechanism to observe. & Resisted \\
+Spec-drift detection & Built and then removed. Because the technical specification was a single shared file per project, an edit could not be attributed to the stories it actually affected, so any change flagged every story at or past design lock; one real edit flagged 44 stories at once. The amendment and versioning audit trail was kept. & Resisted at the granularity the framework assumes \\
+Server-side reconciliation of generated output & Coverage claims and task dependency identifiers are re-checked against the parsed specification rather than trusted as reported, with unmatched claims dropped. & Realised, and added because it was needed \\
+
+\end{longtable}
+}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.48\linewidth]{./Images/user-flow.png}
+    \caption{A representative walk through Apex phase by phase. What the figure is meant to show is that every phase terminates in a write to the specification store and a human acceptance, so no phase can be exited by generation alone.}
+    \label{fig:apex_userflow}
+\end{figure}
+
+Three of those rows deserve emphasis because they are the ones that answer \ac{DRQ}3 rather than merely illustrating it.
+
+The \textbf{Bolt Cycle Time} row is the clearest instance of a proxy being mistaken for the construct. The framework defines the metric at task level precisely because a story-level measurement conflates execution with the queueing, review and gate transitions surrounding it. The first implementation measured story-level gate transitions and displayed the result under the framework's own name for the task-level quantity, which is exactly the substitution the framework warns against elsewhere. It was corrected, but the fact that it happened at all is evidence for a general point: a construct can be implemented, displayed and believed while measuring something else, and only comparing the implementation against the written definition catches it.
+
+The two \textbf{unimplemented metrics} are reported as unimplemented rather than described as future work. Context Traceability Rate is computable in principle, since the chain it would measure is present per story, and its absence is a gap in the instantiation rather than in the method. AI Defect Escape Rate is different in kind: it requires attributing a production defect to generated logic, and nothing in the system observes production defects at all. That is a limitation of what a tool sitting above a project management board can see, and it is the strongest single piece of evidence that not every construct in \Cref{sec:metrics} is instantiable by this class of system.
+
+\textbf{Spec-drift detection} is the construct that resisted implementation most instructively. The framework assumes the specification is scoped per story, which is what makes an amendment attributable. The implementation held the technical specification as one file per project, so an edit could not be attributed, and the flagging mechanism degraded into a cascade that flagged everything downstream on any change. Removing it was the right call, but the finding is not that the feature was hard: it is that a framework construct silently depends on a granularity assumption the framework never states explicitly, and the instantiation is what exposed the omission. That is formative evaluation feeding back into the method, and it is recorded in \Cref{sec:apex_history} as such.
 
 % #############################################################################
 \section{Design History and Practitioner Feedback}
 \label{sec:apex_history}
 
-% This section is a genuine methodological asset and should not be written as a
-% changelog. Each iteration is formative evaluation feeding back into design,
-% which is exactly what DSRM's iteration arrows describe. Frame it that way.
+% Formative evaluation feeding back into design, not a changelog. Each entry is
+% observation, change, rationale, and the framework-level changes are marked.
 
-\todo[inline]{Present the evolution as a sequence of design decisions, each with: the feedback or observation that prompted it, the change made to the framework and/or the tool, and the rationale. Report changes that were considered and rejected, and changes that were made and later reverted, with the reason. Negative results here strengthen the evaluation rather than weakening it.}
+Feedback gathered while building Apex changed the framework, not only the tool. Recording that path is what makes the \ac{DSRM} iteration explicit rather than implied, and it is reported here as observation, change and rationale rather than as a list of releases. Changes that were made and later reverted are included, because a reverted change is evidence about the design rather than an embarrassment to be omitted.
 
-\todo[inline]{Record explicitly which framework-level changes originated in this feedback rather than in the tool alone - for example the removal of a role from the framework, and the demotion of a mandatory artefact to optional. These are the clearest evidence that evaluation fed back into design.}
+Two changes were framework-level and are the clearest evidence that evaluation fed back into the method. The first was the \textbf{removal of a role}. An earlier version of the framework named a DevOps Alliance, an external group holding deployment approval and the security review of generated infrastructure code. Feedback observed that the framework was intended for anyone with a development background, working alone or in a small team, and that a role defined only by what it supervises can be assumed by the process and never staffed by the organisation. The role was removed and its two responsibilities reassigned to whoever performs the deployment, self-checked where the team is one person. The rationale is argued in \Cref{sec:roles}; what matters here is that the change originated in observation of use rather than in analysis.
 
-\todo[inline]{Include a table summarising the interview rounds: date, participant profile (role, seniority, sector), format, and the design changes attributable to each round. Anonymise participants; the interview instrument itself belongs in an appendix.}
+The second was the \textbf{demotion of a mandatory step}. Phase 2 originally required a separate sign-off from named design and technical leads before design could be locked. The same observation applied: role-gating a gate presumes a staffed organisation, and on a solo project it either blocks the work or is satisfied by the same person twice, which teaches the practitioner that gates are ceremonial. The step was removed and the gate redefined against recorded evidence rather than against a second signature, which is the form it takes in \Cref{tab:gates}. The framework's position that a gate's value lies primarily in forcing an explicit act of validation, and only secondarily in who performs it, is a direct consequence of this iteration.
+
+Three tool-level changes are worth recording for the same reason. A \textbf{design-conflict detector} was built, then found to flag conflicts that were not conflicts, since two stories in the same epic legitimately share files; it was narrowed to cross-epic file overlap and endpoint collision, and later removed entirely. \textbf{Spec-drift flagging} was built, cascaded as described in \Cref{sec:apex_framework_mapping}, and was removed while its underlying audit trail was kept. An \textbf{authentication flow} for one design integration was implemented and then deliberately reverted, because it required an operator to register an application and hold a client secret in backend configuration, which is incompatible with the zero-configuration setup the tool otherwise offers; the simpler token-based path was restored as the final decision rather than left as an unfinished half-feature.
+
+\todo[inline]{Add the interview-rounds table once the rounds are documented: date, participant profile (role, seniority, sector), format, and the design changes attributable to each round. Anonymise participants and place the interview instrument in \Cref{chapter:appendixB}. This table cannot be written from the implementation record alone, since that record captures the changes but not the sessions that prompted them.}
 
 % #############################################################################
 \section{Quality Assurance of the Implementation}
 \label{sec:apex_qa}
 
-% Keep this section proportionate. It establishes that the demonstration
-% platform is sound; it is not the contribution itself.
+% Proportionate. This establishes the demonstration platform is sound; it is
+% not the contribution.
 
-\todo[inline]{Summarise the testing strategy across backend, frontend unit, and end-to-end layers, the CI gating structure, and the deployment pipeline. Report current suite sizes and what each layer is responsible for catching.}
+Testing is layered by what each layer can actually catch. At the time of writing the backend carries roughly 1,591 tests, the frontend roughly 304 unit tests, and there are 17 end-to-end specifications; these counts are a snapshot of a codebase that continues to change and are reported as such rather than as a property of the system. The backend suite covers workflow logic, security boundaries and state machines, and depends on a set of automatically applied fixtures that remove categories of flaky-test risk by construction: coordination is forced off so no test depends on network reachability, project-management authentication is bypassed so route tests exercise business logic rather than third-party authentication, storage is pinned to local disk so no test can reach cloud storage, and the two context variables carrying per-request project isolation are reset between tests using the same mechanism production relies on. Frontend end-to-end specifications intercept at the browser network layer rather than by substituting modules in a test runner, because the requests being intercepted are the ones a real browser issues during real navigation.
 
-\todo[inline]{Include a short, honest account of defects found and fixed during construction, particularly those with methodological significance - for example failures of project isolation, or cases where generated output required server-side reconciliation before it could be trusted. These are evidence for the framework's own premise that AI output requires validation.}
+Five independent jobs must pass in \ac{CI} before any container image is built, and the deployment job captures the currently live image tags before changing anything, so that an automatic rollback target always exists. One of the five is a real-stack smoke test that boots the actual processes and asserts on live behaviour rather than on mocks, and it is deliberately narrow: it checks that an invalid token is rejected both with and without the header that selects a project management instance, because a prior regression allowed an invalid token to reach workspace data when validation anchored on the wrong value.
+
+The defects worth reporting here are the ones with methodological significance rather than the ones that were merely difficult. Three concern the framework's own premise that generated output requires validation. A coverage badge reported the model's own claim about which scenarios it had covered, at face value; it is now reconciled server-side against the parsed specification, and a claimed scenario that does not match a real one is dropped rather than displayed. A section-parsing routine anchored on the writer's own headings, which the model also emits, and truncated a live project's technical specification part-way through, silently shortening the contract every later phase reads. And an automation step generated a test plan and then marked the story's quality gate as passed without any verification behind it, writing a fabricated result into the story index; fixing it exposed a second defect immediately downstream, where the deployment step assumed every story reaching it had genuinely passed.
+
+Two others concern isolation, and they matter because isolation is what makes the specification store trustworthy. The identity anchor determining which tenant a request belongs to had to be corrected twice, once because a per-request value was allowed to override a validated one and once because a user-writable stored value was allowed into the chain at all. Separately, a listing endpoint belonging to an integrated tool was found to return pages from projects other than the one requested, because that tool's own filtering does not strictly scope the result set; the fix re-filters every returned row rather than trusting the upstream response. The general lesson is the one the framework states in \Cref{sec:spec_anchored}: a control is a measure whose absence makes an incorrect outcome undetectable, and each of these was detected only because something was checked against a reference rather than accepted as reported.
 
 % #############################################################################
 \section{Limitations of the Implementation}
 \label{sec:apex_limitations}
 
-\todo[inline]{Separate clearly the limitations of Apex as a system from the limitations of the framework as a methodology. Where a metric is implemented as a proxy rather than the real measurement, say so explicitly and name the substitution.}
+The limitations of Apex as a system must be separated from the limitations of the framework as a methodology, because conflating them would let a defect in one be read as a refutation of the other.
+
+Three are limitations of the system. The original single-writer constraint was a real ceiling rather than a theoretical one, and although the coordination layer described in \Cref{sec:apex_architecture} has lifted it in production, the fallback path remains the one most deployments would run. The end-to-end test fixtures are not statically checked against the real response contracts, so a new required field can be added to a response with the type checker and the unit suite both staying green; this was not hypothetical, and it is an open gap rather than a solved one. And Apex observes only what passes through it, which is why it can see a story's specification chain but not a defect in production.
+
+Two are limitations that belong to the framework and were exposed by trying to build it. \textbf{AI Defect Escape Rate is not instantiable by this class of system}, since it presumes an observation point the framework never says who owns. \textbf{Spec-drift detection presumes a granularity the framework does not state}, namely that the technical specification is scoped per story rather than per project; the instantiation revealed the omission by failing on it. Both are reported in \Cref{tab:apex_mapping} and both are carried into \Cref{chap:evaluation} as findings rather than as defects to be excused.
+
+Where a metric was implemented as a proxy rather than as the definition, the substitution is named: Bolt Cycle Time was computed from story-level gate transitions before it was computed from task-level pack-to-done elapsed time, and for the period in which it was, the figure shown under that name measured queueing and review rather than execution.
