@@ -1,0 +1,114 @@
+@startuml
+title Apex - User Flow, Phases 4 to 6
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #9E9E9E
+  LifeLineBackgroundColor #FAFAFA
+  ParticipantBorderColor #666666
+  ParticipantBackgroundColor #F5F5F5
+  ActorBorderColor #666666
+  ActorBackgroundColor #F5F5F5
+  GroupBorderColor #B0B0B0
+  DividerBackgroundColor #ECECEC
+  DividerBorderColor #B0B0B0
+}
+
+actor User
+participant "Frontend\n(Next.js)" as FE
+participant "FastAPI\nBackend" as BE
+participant "AI Engine\n(Claude)" as AI
+participant "PM Tool\n(Taiga / Plane)" as PM
+
+participant "GitHub\n(Actions / webhook)" as GH
+database "Spec Store\n(contextspec)" as ST
+
+== Phase 4 · Testing ==
+User -> FE : select story to test
+FE -> BE : POST /phase4/plan
+activate BE
+BE -> AI : generate test plan
+activate AI
+AI --> BE : scenarios
+deactivate AI
+BE --> FE : test plan
+deactivate BE
+User -> FE : execute scenarios (pass/fail)
+alt all scenarios pass
+  FE -> BE : lock qa_passed
+  BE -> ST : qa_passed
+else failure
+  FE -> BE : Bug Isolation Wizard
+  activate BE
+  BE -> AI : Fix-Bolt vaccine + bug report
+  activate AI
+  AI --> BE : vaccine
+  deactivate AI
+  BE -> ST : vaccines.md  (re-enters Phase 4)
+  deactivate BE
+end
+
+== Phase 5 · Deployment ==
+User -> FE : select QA-passed story
+FE -> BE : POST /phase5/preflight
+activate BE
+BE -> AI : infra delta + traceability matrix
+activate AI
+AI --> BE : deploy pack (if infra changed)
+deactivate AI
+BE --> FE : pre-flight + Deployment Gate
+deactivate BE
+FE --> User : Deployment Gate (Tech Lead + Security Reviewer sign-off)
+User -> FE : approve
+alt manual deployment
+  FE -> BE : record manual deployment
+  activate BE
+  BE -> ST : deployment-log.md  (deployed)
+  deactivate BE
+else GitHub Actions dispatch
+  FE -> BE : dispatch workflow (confirmed)
+  activate BE
+  BE -> GH : trigger existing workflow
+  deactivate BE
+  GH -> BE : workflow_run completed (webhook)
+  activate BE
+  BE -> ST : deployment-log.md  (deployed only if conclusion: success)
+  deactivate BE
+end
+
+== Phase 6 · Maintenance (Spec Drift + Feedback Routing) ==
+group Feedback Routing
+  User -> FE : maintenance event (manual · GitHub Issues · Taiga Issues)
+  FE -> BE : POST /phase6/triage
+  activate BE
+  BE -> AI : classify + narrow-context diagnosis
+  activate AI
+  AI --> BE : change-request | bug + severity
+  deactivate AI
+  alt change request (business deviation)
+    BE -> ST : route to Phase 1 discovery - never patched directly
+  else bug (technical deviation) - severity routing
+    BE -> ST : Fast Lane → deploy  /  Secure Lane → Phase 4 (Regression Bypass)
+  end
+  deactivate BE
+end
+
+group Spec Drift (spec↔code conformance)
+  User -> FE : verify story / scan for regressions
+  FE -> BE : POST /phase6/conformance
+  activate BE
+  BE -> ST : deterministic Layer A (endpoints · scenarios · constraints · runtime)
+  BE -> AI : Layer B confirms/corrects, optional adversarial panel
+  activate AI
+  AI --> BE : per-row verdicts + citations
+  deactivate AI
+  BE -> ST : conformance report + score (code-computed, never AI)
+  alt regression detected
+    BE -> ST : flag conformance_regressed / trace_flag → suggest re-open source phase
+  end
+  deactivate BE
+end
+
+@enduml

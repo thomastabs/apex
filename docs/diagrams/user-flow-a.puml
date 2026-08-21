@@ -1,0 +1,98 @@
+@startuml
+title Apex - User Flow, Phases 1 to 3
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam sequence {
+  ArrowColor #333333
+  LifeLineBorderColor #9E9E9E
+  LifeLineBackgroundColor #FAFAFA
+  ParticipantBorderColor #666666
+  ParticipantBackgroundColor #F5F5F5
+  ActorBorderColor #666666
+  ActorBackgroundColor #F5F5F5
+  GroupBorderColor #B0B0B0
+  DividerBackgroundColor #ECECEC
+  DividerBorderColor #B0B0B0
+}
+
+actor User
+participant "Frontend\n(Next.js)" as FE
+participant "FastAPI\nBackend" as BE
+participant "AI Engine\n(Claude)" as AI
+participant "PM Tool\n(Taiga / Plane)" as PM
+
+participant "GitHub\n(Actions / webhook)" as GH
+database "Spec Store\n(contextspec)" as ST
+
+== Phase 1 · Requirements ==
+User -> FE : select epic / project concept
+FE -> BE : POST /phase1/generate
+activate BE
+BE -> AI : generate NL stories
+activate AI
+AI --> BE : story drafts
+deactivate AI
+BE --> FE : drafts
+deactivate BE
+FE --> User : review & edit (human gate)
+User -> FE : approve → compile
+FE -> BE : POST /phase1/compile
+activate BE
+BE -> AI : compile Gherkin + EARS constraints
+activate AI
+AI --> BE : Gherkin + constraints
+deactivate AI
+BE -> PM : push approved stories
+BE -> ST : lock functional-spec  (gherkin_locked)
+deactivate BE
+
+== Phase 2 · Design ==
+User -> FE : lock tech stack (Gate 0)
+FE -> BE : POST /phase2/design
+activate BE
+BE -> ST : read locked stories
+BE -> AI : generate design bundle
+activate AI
+AI --> BE : screens · flows · specs
+deactivate AI
+BE --> FE : design draft
+deactivate BE
+FE --> User : review & edit (no role-gated sign-off - anyone locks it themselves)
+User -> FE : Save & Lock Design
+FE -> BE : lock design
+activate BE
+BE -> ST : lock design artefacts  (design_locked)
+deactivate BE
+
+== Phase 3 · Implementation Assist ==
+User -> FE : select story
+FE -> BE : POST /phase3/tasks
+activate BE
+BE -> AI : break into tasks + developer packs
+activate AI
+AI --> BE : tasks + packs
+deactivate AI
+BE --> FE : task breakdown
+deactivate BE
+FE --> User : review & edit tasks
+User -> FE : generate + save developer pack
+FE -> BE : save pack
+activate BE
+BE -> ST : record Bolt status  (pack_ready)
+deactivate BE
+User -> FE : push tasks
+FE -> BE : push tasks (via Taiga proxy)
+BE -> PM : create subtasks
+BE -> ST : record Bolt status  (pushed)
+User -> FE : Mark Bolt Done (Phase 3 or the Bolts page)
+FE -> BE : record Bolt status  (done)
+activate BE
+BE -> ST : Bolt Cycle Time sample  (pack_ready → done)
+deactivate BE
+FE -> BE : lock story
+activate BE
+BE -> ST : lock story  (implementation)
+deactivate BE
+
+@enduml

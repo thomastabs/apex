@@ -57,7 +57,7 @@ Adding a second and third tool is the closest thing this work has to a test of t
 % This is the DRQ3 evidence. The negative rows carry as much weight as the
 % positive ones and must not be softened.
 
-This section answers \ac{DRQ}3, which asks how far the framework's governance constructs can be operationalised in a working system and which of them resist it. \Cref{tab:apex_mapping} states the mapping construct by construct, and every row points at something that exists in the codebase rather than something planned. Three outcomes are distinguished and the distinction is the substance of the answer: a construct realised as specified, a construct realised as a proxy that measures something adjacent to what the framework defines, and a construct that resisted implementation and is not present. \Cref{fig:apex_userflow} shows how a practitioner actually walks the phases those constructs govern.
+This section answers \ac{DRQ}3, which asks how far the framework's governance constructs can be operationalised in a working system and which of them resist it. \Cref{tab:apex_mapping} states the mapping construct by construct, and every row points at something that exists in the codebase rather than something planned. Three outcomes are distinguished and the distinction is the substance of the answer: a construct realised as specified, a construct realised as a proxy that measures something adjacent to what the framework defines, and a construct that resisted implementation and is not present. \Cref{fig:apex_userflow,fig:apex_userflow_b} show how a practitioner actually walks the phases those constructs govern.
 
 {\footnotesize
 \begin{longtable}{>{\raggedright\arraybackslash}p{3.6cm}
@@ -92,11 +92,18 @@ Server-side reconciliation of generated output & Coverage claims and task depend
 \end{longtable}
 }
 
-\begin{figure}[htbp]
+\begin{figure}[p]
     \centering
-    \includegraphics[width=0.48\linewidth]{./Images/user-flow.png}
-    \caption{A representative walk through Apex phase by phase. What the figure is meant to show is that every phase terminates in a write to the specification store and a human acceptance, so no phase can be exited by generation alone.}
+    \includegraphics[width=0.98\linewidth]{./Images/user-flow-a.png}
+    \caption{A representative walk through Apex, Phases 1 to 3. The figure is split across two pages for legibility; what it is meant to show is that every phase terminates in a write to the specification store and a human acceptance, so no phase can be exited by generation alone.}
     \label{fig:apex_userflow}
+\end{figure}
+
+\begin{figure}[p]
+    \centering
+    \includegraphics[width=0.98\linewidth]{./Images/user-flow-b.png}
+    \caption{The same walk, Phases 4 to 6, continuing \Cref{fig:apex_userflow}. Note the loop-backs out of Testing and out of Maintenance: neither returns to an undefined state, and each re-enters a named phase whose gate then applies in full.}
+    \label{fig:apex_userflow_b}
 \end{figure}
 
 Three of those rows deserve emphasis because they are the ones that answer \ac{DRQ}3 rather than merely illustrating it.

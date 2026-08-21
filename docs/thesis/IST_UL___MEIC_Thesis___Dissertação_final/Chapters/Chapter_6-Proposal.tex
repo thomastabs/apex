@@ -150,7 +150,8 @@ The framework's most direct precedent is the \ac{AI-DLC} published by Amazon Web
 
 The phases are listed in an order, and it would be a misreading to take that order as the shape of the process; a reviewer of an earlier version raised precisely this objection, and the answer is structural. Maintenance neither terminates the lifecycle nor patches in place. Its exit is always an entry into a named earlier phase, whose gate then applies in full: a business deviation routes to the \ac{PM} hat for a value decision and, if approved, re-opens Discovery and Requirements; a specification gap re-opens Design, Prototyping and Architecture, and the technical specification is amended and re-versioned; a production defect re-enters Implementation as a Fix-Bolt and returns through Testing. The distinction from a Waterfall lifecycle with a maintenance tail is not one of degree. In Waterfall, post-release feedback is measured against a specification treated as frozen, and the specification is the one thing the feedback cannot change; here the specification is exactly what is re-opened, re-approved and re-versioned, and code is regenerated from it rather than diverging from an unchanged one. What the framework refuses is the unnamed loop, the change applied to production code without a corresponding change to the specification it is supposed to satisfy, because that is how traceability is lost in practice.
 
-{\footnotesize
+\newpage
+{\scriptsize
 \begin{longtable}{>{\raggedright\arraybackslash}p{2.1cm}
                   >{\raggedright\arraybackslash}p{3.4cm}
                   >{\raggedright\arraybackslash}p{3.0cm}
