@@ -5,10 +5,302 @@
 \chapter{Evaluation Instruments}
 \label{chapter:appendixB}
 
-\todo[inline]{Reproduce the \ac{SUS} questionnaire exactly as administered, including the response scale and any wording adapted to name the system under evaluation.}
+This appendix reproduces every instrument administered during the evaluation
+described in \Cref{chap:evaluation}, in the order a participant encountered
+them: the consent and demographics form, the workload questionnaire, the
+usability questionnaire, the author-designed \ac{UX} questionnaire, and the
+two interview guides used in the follow-up sessions. Participants chose
+English or Portuguese for the session (item G6 on the demographics form);
+every instrument was offered in both languages, and each is reproduced here
+in English, the language of this dissertation, with the source of the
+Portuguese wording stated alongside it. Scoring procedures, interpretation
+scales and results are reported in \Cref{chap:evaluation}, not repeated
+here; this appendix is the instrument as administered, not its analysis.
 
-\todo[inline]{Reproduce the \ac{NASA-TLX} instrument as administered, including the subscale definitions shown to participants and the response scale actually used. The unweighted Raw variant was administered, so there is no pairwise comparison sheet to reproduce.}
+% #############################################################################
+\section{Informed consent and demographics}
+\label{sec:appB_consent}
 
-\todo[inline]{Include the semi-structured interview guides for both participant groups (practitioners, and Agile and Scrum experts), and the informed consent form.}
+Completed first, before any task or questionnaire. No institutional ethics
+submission was required for this study; the form below, together with
+anonymisation and a stated retention period, was confirmed by the supervisor
+to be sufficient. There is no recording-consent item, because no session and
+no interview was recorded.
 
-\todo[inline]{Include the per-participant raw scores in anonymised form, so the aggregate figures reported in \Cref{sec:eval_results} can be independently recomputed.}
+{\small
+\textbf{Study:} Evaluation of Apex, a tool supporting a process framework for
+human-AI collaboration in software development.
+\textbf{Researcher:} Tomás dos Santos Taborda, MEIC-T, Instituto Superior
+Técnico, Universidade de Lisboa.
+\textbf{Supervisors:} Prof. Miguel Mira da Silva, Hugo de Sousa.
+
+\textbf{What this involves.} You will use a software tool for about 60
+minutes to complete nine predefined tasks, working on your own and at your
+own pace. After six of those tasks you will fill in a short workload
+questionnaire, which takes about a minute each time. At the end of the
+session you will fill in two further short questionnaires, taking about 20
+minutes in total. You may optionally be invited to a separate interview of
+30 to 45 minutes.
+
+\textbf{What is being tested.} The tool and the process behind it are being
+tested, not you. There is no way for you to perform badly. Difficulties you
+have are findings about the tool and are the most useful thing you can give
+us.
+
+\textbf{What is recorded.} Only your answers to the questionnaires, and the
+times at which you submit each form. Nobody watches the session. Your screen
+is not recorded, your audio is not recorded, and no video is taken at any
+point. If you take part in the follow-up interview, that is not recorded
+either; the researcher takes written notes.
+
+\textbf{Anonymity.} You are identified only by a code such as P3. Your name,
+your employer and any project details you mention are not recorded in the
+results. Quotations used in the dissertation are anonymised, and any detail
+that could identify you or your organisation is removed or generalised.
+
+\textbf{Data handling.} There are no recordings to store or delete, because
+none are made. Anonymised questionnaire responses and anonymised interview
+notes are stored, accessible only to the researcher, and are kept so that
+reported results can be independently recomputed. They may be reproduced in
+an appendix of the dissertation in anonymised form.
+
+\textbf{Voluntary participation.} Participation is voluntary. You may take a
+break at any time, skip any task or question, or stop and withdraw entirely
+without giving a reason and without any consequence. If you withdraw, tell
+the researcher whether your data so far should be deleted or kept.
+
+\textbf{Risks.} There are no anticipated risks beyond mild frustration with
+software.
+
+\smallskip
+I have read and understood the above, and I agree to take part.
+
+\begin{itemize}
+    \setlength\itemsep{0pt}
+    \item[$\square$] I confirm I have read and agree to the above. \emph{(required)}
+    \item[$\square$] I consent to anonymised quotations being used in the dissertation.
+    \item[$\square$] I agree to be contacted about a follow-up interview.
+\end{itemize}
+
+Participant code (from your card): \underline{\hspace{2.5cm}}
+}
+
+\subsection*{Demographics}
+
+Filled in immediately after consent, on the same form, in the language the
+participant chose. The participant code is the join key back to the
+workload, usability and \ac{UX} forms.
+
+\begin{center}
+\small
+\begin{tabular}{p{1.0cm} p{4.4cm} p{7.9cm}}
+\toprule
+\textbf{Item} & \textbf{Question} & \textbf{Options} \\
+\midrule
+G1 & Years of professional software development experience & under 1 / 1-3 / 4-7 / 8-15 / over 15 / student \\
+G2 & Current role & developer / tester or QA / product owner / designer / engineering manager / student / other \\
+G3 & Frequency of use of AI coding assistants & never / tried once or twice / monthly / weekly / daily \\
+G4 & Familiarity with Gherkin or BDD & none / have seen it / use it regularly \\
+G5 & Familiarity with the project management tool used in the session & none / some / use it regularly \\
+G6 & Preferred language for the session & English / Português \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+G3 is expected to be the strongest confound in the results and is reported
+alongside them rather than left implicit.
+
+% #############################################################################
+\section{Raw NASA Task Load Index}
+\label{sec:appB_tlx}
+
+The Raw \ac{NASA-TLX}~\cite{Hart:1988TLX,Hart:2006TLX} was administered once
+after each of the six marked tasks (script tasks 3, 4, 6, 7, 8 and 9),
+identified by a required first question naming the task and a second
+question for the participant code. Workload was collected on a linear scale
+from 0 to 10 and rescaled by multiplying by ten, and the subscales were
+presented in the order below, placing the reversed Performance scale last
+rather than fourth; both departures, and the reason for each, are stated in
+\Cref{sec:eval_instruments_procedure}.
+
+\begin{center}
+\small
+\begin{tabular}{p{2.4cm} p{9.4cm} p{1.6cm}}
+\toprule
+\textbf{Subscale} & \textbf{Description} & \textbf{Scale} \\
+\midrule
+Mental Demand & How much mental and perceptual activity was required? Was it easy or demanding, simple or complex, forgiving or exacting? & Very Low - Very High \\
+Physical Demand & How much physical activity was required? Was the task easy or demanding, slow or brisk, restful or laborious? & Very Low - Very High \\
+Temporal Demand & How much time pressure did you feel due to the pace of the task? Slow and leisurely or rapid and frantic? & Very Low - Very High \\
+Effort & How hard did you have to work, mentally and physically, to accomplish your level of performance? & Very Low - Very High \\
+Frustration Level & How insecure, discouraged, irritated, stressed and annoyed, versus secure, gratified, content and relaxed, did you feel? & Very Low - Very High \\
+Performance \emph{(reversed anchors)} & How successful were you in accomplishing this task's goals? & \textbf{Perfect - Failure} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Administered in Portuguese to participants selecting that language on G6,
+using the direct translations in \texttt{docs/thesis/evaluation/instrument-nasa-tlx.md}: same six subscales, same order, same reversed Performance
+anchors, differing only in wording.
+
+% #############################################################################
+\section{System Usability Scale}
+\label{sec:appB_sus}
+
+The \ac{SUS}~\cite{Brooke:1996SUS} was administered after Raw \ac{NASA-TLX},
+self-completed and unwatched, scale \texttt{1 = Strongly disagree} \ldots{}
+\texttt{5 = Strongly agree}. The only adaptation from the standard wording is
+substituting \emph{Apex} for \emph{the system}. Participants responding in
+Portuguese were given the European Portuguese version validated by Martins
+et al.~\cite{Martins:2015SUS}, whose only change from the published items is
+the same substitution of the system name for the generic referent
+\emph{produto}.
+
+\begin{center}
+\small
+\begin{tabular}{c p{12.6cm}}
+\toprule
+\textbf{\#} & \textbf{Item} \\
+\midrule
+1 & I think that I would like to use Apex frequently. \\
+2 & I found Apex unnecessarily complex. \\
+3 & I thought Apex was easy to use. \\
+4 & I think that I would need the support of a technical person to be able to use Apex. \\
+5 & I found the various functions in Apex were well integrated. \\
+6 & I thought there was too much inconsistency in Apex. \\
+7 & I would imagine that most people would learn to use Apex very quickly. \\
+8 & I found Apex very cumbersome to use. \\
+9 & I felt very confident using Apex. \\
+10 & I needed to learn a lot of things before I could get going with Apex. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Administered in Portuguese to participants selecting that language on G6,
+using Martins et al.'s published items~\cite{Martins:2015SUS} verbatim, with
+the same system-name substitution. That validation reports established
+construct validity against the PSSUQ ($r = 0.70$) but weak inter-rater
+reliability (ICC $= 0.36$, agreement $76.67\%$), obtained on a
+general-community sample rather than a software-practitioner one; both
+points are carried into the reporting in \Cref{chap:evaluation} rather than
+left implicit here.
+
+% #############################################################################
+\section{Apex UX Questionnaire}
+\label{sec:appB_ux}
+
+Not a validated instrument. Written for this evaluation to reach what
+\ac{SUS} and Raw \ac{NASA-TLX} do not structurally cover: whether the
+practitioner trusted the AI output, whether the phase gates read as
+guardrails or as obstruction, and whether reviewing generated work felt
+cheaper than writing it. Administered last, scale \texttt{1 = Strongly
+disagree} \ldots{} \texttt{5 = Strongly agree} plus an explicit \emph{N/A -
+did not use this}, reported item by item with no composite score. Items E2
+and E3 evaluate the framework rather than the instantiation and are analysed
+under the framework's evidence in \Cref{chap:evaluation}, consistent with
+\Cref{tab:eval_instruments}.
+
+\begin{center}
+\small
+\begin{tabular}{c p{12.6cm}}
+\toprule
+\multicolumn{2}{l}{\textbf{A. Understanding where you are}} \\
+\midrule
+A1 & At any moment, I knew which phase of the process I was in. \\
+A2 & I understood what the tool expected me to do next. \\
+A3 & I could tell the difference between work the tool had finished and work it had not. \\
+A4 & When the tool refused to let me continue, I understood why. \\
+\midrule
+\multicolumn{2}{l}{\textbf{B. Working with AI-generated content}} \\
+\midrule
+B1 & I could tell which parts of the content were generated by AI and which were mine. \\
+B2 & Reviewing the AI's output took less effort than writing it myself would have. \\
+B3 & I felt able to reject or change the AI's output when I disagreed with it. \\
+B4 & I trusted the generated content enough to use it in a real project. \\
+B5 & I could see what information the AI had been given as a basis for its output. \\
+\midrule
+\multicolumn{2}{l}{\textbf{C. Control and reversibility}} \\
+\midrule
+C1 & I felt in control of what the tool did on my behalf. \\
+C2 & I was confident I could undo or redo a step if I made a mistake. \\
+C3 & I understood the consequences of locking a phase before I did it. \\
+C4 & Waiting for the AI to finish was acceptable. \\
+\midrule
+\multicolumn{2}{l}{\textbf{D. Feedback and errors}} \\
+\midrule
+D1 & When something went wrong, the tool told me clearly what had happened. \\
+D2 & The messages the tool showed me told me what to do next, not only what failed. \\
+\midrule
+\multicolumn{2}{l}{\textbf{E. Fit to real work}} \\
+\midrule
+E1 & The artefacts the tool produced are ones my team would actually use. \\
+E2 & The process the tool imposes fits the way my team works. \\
+E3 & The effort of following the process is worth what it produces. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection*{Open questions}
+\begin{enumerate}
+    \setlength\itemsep{0pt}
+    \item What was the single most confusing thing about using Apex?
+    \item Was there a point where you did not trust what the tool had produced? What made you doubt it?
+    \item If you could change one thing about the interface, what would it be?
+\end{enumerate}
+
+Administered in Portuguese to participants selecting that language on G6,
+using the direct translations in \texttt{docs/thesis/evaluation/instrument-apex-ux.md}: same eighteen items, same five constructs, same three open
+questions, differing only in wording.
+
+% #############################################################################
+\section{Interview guides}
+\label{sec:appB_interviews}
+
+Two guides, two populations, both evaluating the framework rather than the
+tool, since \ac{SUS}, Raw \ac{NASA-TLX} and the \ac{UX} questionnaire already
+cover the tool. Scheduled as a separate 30-45 minute session, not immediately
+after the task session, and not recorded; the questions below are prompts for
+a semi-structured conversation, not a script to be read verbatim, and the
+order and depth of follow-up varied per participant.
+
+\subsection*{Guide 1 - Practitioners}
+
+\begin{enumerate}
+    \setlength\itemsep{1pt}
+    \item Describe how your team currently goes from an idea to code in production, where AI already appears in that (if at all, and who decided that), and what goes wrong most often.
+    \item The framework splits the lifecycle into six phases with a human decision at the end of each. Which of those decisions would genuinely be made in your team, which rubber-stamped, and which phase would your team resist most?
+    \item The framework requires a specification to exist before code is generated. What does your team do today instead, what would change, and where would the framework slow you down for no benefit?
+    \item What would have to be true for your team to adopt this for one project, and what would make you abandon it after two sprints?
+    \item Who in your team would have to own this for it to survive, and does that person exist?
+    \item If the tool disappeared tomorrow but you kept the framework, would you still use it? Which parts?
+    \item When AI writes code that ships and later fails, who is accountable in your organisation today, and does the framework change that?
+    \item Does the framework's record of what was decided, and by whom, have value to anyone outside the team?
+    \item What is missing from the framework entirely, and is there anything you expected me to ask and I did not?
+\end{enumerate}
+
+\subsection*{Guide 2 - Agile and Scrum experts}
+
+Target participants with recognised depth in Agile delivery methodology, not
+necessarily users of Apex. Given the framework document in advance; this
+interview concerns the method on paper, not the tool.
+
+\begin{enumerate}
+    \setlength\itemsep{1pt}
+    \item How would you describe what this framework is, in your own words?
+    \item Where does this align with Scrum and Agile principles, and where does it depart from them? Is the departure justified by what AI changes, or is it a reversion to stage-gated delivery?
+    \item The framework has explicit gates between phases. Is that a guardrail or a phase gate in the Waterfall sense, and does the framework avoid the mistake heavyweight processes made in the 2000s?
+    \item The framework treats roles as hats rather than as people. Does that work in a real team, or does it collapse into one person wearing all of them?
+    \item Which of the required artefacts would you drop or add, and is the amount of documentation proportionate to what it buys?
+    \item What kind of team is this framework wrong for, and what would a coach have to teach for a team to run it correctly?
+    \item Would you recommend this to a client? Under what conditions would you refuse?
+    \item If you had to defend this framework to a sceptical engineering manager, what would your strongest argument be, and your weakest point?
+\end{enumerate}
+
+% #############################################################################
+\section{Per-participant raw scores}
+\label{sec:appB_raw_scores}
+
+\todo[inline]{Include the per-participant raw scores in anonymised form -
+\ac{SUS}, Raw \ac{NASA-TLX} by subscale and task, and the \ac{UX}
+questionnaire closed items - so the aggregate figures reported in
+\Cref{sec:eval_results} can be independently recomputed.}

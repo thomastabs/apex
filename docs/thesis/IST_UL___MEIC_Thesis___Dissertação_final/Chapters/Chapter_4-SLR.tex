@@ -23,12 +23,14 @@ the research questions addressed in the search, and lastly the search method emp
 
 The integration of AI, particularly LLMs and GenAI, represents a significant transformation in Software Engineering. These technologies are increasingly adopted across the SDLC to support activities such as code generation and completion, documentation, requirements engineering, automated bug fixing, and developer learning. Their use has been associated with notable productivity gains, improved efficiency, and enhanced support for complex development tasks by augmenting traditional development tools and information retrieval practices \cite{Ahmed:2025ai, Zhang:2025ea, Durrani:2024ad, Jabrw:2025ss, Banh:2025cf, Farhanna:2025eu, KarlovsKarlovskis:2024ga, Terragni:2025fa}.
 
-Despite these benefits, the rapid adoption of AI and LLMs in software development has introduced unresolved challenges that motivate systematic investigation. The literature highlights persistent concerns related to the quality, reliability, and trustworthiness of AI-generated artifacts, as well as technical and methodological barriers such as limited explainability and the black-box nature of advanced models. In addition, effective utilization of LLMs remains highly dependent on prompt formulation, while existing research often focuses on isolated tasks, leaving several SDLC phase,-particularly requirements engineering and design, with limited practical guidance.
+Despite these benefits, the rapid adoption of AI and LLMs in software development has introduced unresolved challenges that motivate systematic investigation. The literature highlights persistent concerns related to the quality, reliability, and trustworthiness of AI-generated artifacts, as well as technical and methodological barriers such as limited explainability and the black-box nature of advanced models. In addition, effective utilization of LLMs remains highly dependent on prompt formulation, while existing research often focuses on isolated tasks, leaving several SDLC phases, particularly requirements engineering and design, with limited practical guidance.
 
 Therefore, the motivation for this Systematic Literature Review is to comprehensively map and synthesize existing research on the use of AI and LLMs in Software Development. By organizing current evidence on benefits, limitations, methodologies, stakeholder perspectives, and application domains, this review aims to identify research gaps and inform both researchers and practitioners on how to better leverage AI technologies across the SDLC.
 
 \subsection{Research Questions}
-At the start of the Planning the Review section of this SLR, there were a lot of research questions that could have been written about this overly general topic of AI adoption in the development process of applications. After making a throughput selection of the Research Questions that were more relevant and specific about the theme the Chosen RQs pool became a lot more concise for this Systematic Literature Review. As such, this systematic review plans to answer the following RQs:
+This overly general topic admits many possible research questions; the five
+below are the ones judged specific and relevant enough to answer with a
+systematic review:
 
 {\small
 \begin{longtable}{p{0.7cm} p{7.5cm} p{6.5cm}}
@@ -245,11 +247,14 @@ Democratization and Accessibility & AI integration aims to "shift the programmin
 }
 
 
-The integration of AI and LLMs into software development yields profound benefits, foremost among which is the dual improvement of productivity and code quality, which appear to be mutually reinforcing and more abundant within the articles. This acceleration does not come at the cost of quality; on the contrary, the literature indicates that AI helps in generating code that adheres to high standards, which directly increases the quality, accuracy, and particularly the traceability of the final product. \cite{Kim:2025is}. This synergy is further supported by the automation of traditionally time-consuming quality assurance tasks like testing, debugging, and repair, where AI's ability to refine implementations and correct errors significantly reduces manual intervention and boosts the code's overall robustness; specifically, LLMs leverage explicit feedback, such as compiler error messages, in follow-up prompts to iteratively fix their own coding errors within the same conversation context. 
+The integration of AI and LLMs into software development yields profound benefits, foremost among which is the dual improvement of productivity and code quality, which appear to be mutually reinforcing and more abundant within the articles. This acceleration does not come at the cost of quality; on the contrary, the literature indicates that AI helps in generating code that adheres to high standards, which directly increases the quality, accuracy, and particularly the traceability of the final product \cite{Kim:2025is}. This synergy is further supported by the automation of traditionally time-consuming quality assurance tasks like testing, debugging, and repair, where AI's ability to refine implementations and correct errors significantly reduces manual intervention; specifically, LLMs leverage explicit feedback, such as compiler error messages, in follow-up prompts to iteratively fix their own coding errors within the same conversation context.
 
-Beyond the direct impact on the codebase, the integration of AI yields substantial benefits for the developers themselves by improving job satisfaction and democratizing programming knowledge. Although being the benefit that is mentioned less in the reports, its equally important to the art. By automating monotonous and menial tasks, AI tools allow developers to prioritize more engaging and intellectually stimulating work that requires professional judgment, which in turn enhances their well-being and satisfaction. Concurrently, AI acts as a catalyst for knowledge acquisition and collaboration. It lowers technical barriers and helps transform the programming process into a more conversational and accessible activity, making it easier for developers to understand complex codebases. This evolution fosters a more inclusive environment, shifting programming from a purely code-centric discipline to an interactive one between the programmer and an intelligent agent, thus making it more accessible to a broader audience.
+Beyond the direct impact on the codebase, AI also improves developer job satisfaction and democratises programming knowledge, by automating monotonous tasks so developers can prioritise more engaging work, and by lowering technical barriers so that programming becomes a more conversational, accessible activity for a broader audience.
 
-The advantages of incorporating AI and LLMs are not confined to a single phase but extend across the entire SDLC. In the crucial early stages (Requirements Analysis and Design Modeling), these technologies enhance stakeholder communication and aid in the elicitation and documentation of requirements and design specifications, for example, by transforming user stories into formal models like UML diagrams \cite{Hemmat:2025rd}. The benefits continue into the implementation and maintenance phases, with AI tools specifically designed to optimize the computational performance of generated code, improving its runtime and memory usage, often exceeding typical human performance. Furthermore, AI provides critical support for non-functional requirements, most notably through enhanced security and vulnerability management via support for threat modeling and secure coding practices. Finally, the persistent challenge of documentation is addressed by LLMs that can act as summarizers to automatically generate multi-intent comments and other documentation artifacts, ensuring the long-term maintainability of the software.
+These advantages are not confined to a single phase but extend across the
+entire \ac{SDLC}, from requirements elicitation through implementation,
+security, and documentation; \Cref{tab:ai_sdlc_mapping} maps the specific
+contribution reported at each phase.
 
 \subsection{Consequences of AI and LLMs usage in Software Development}
 
@@ -299,13 +304,33 @@ Ineffectiveness of Existing Security Tools & Existing tools detect only "46.7\% 
 }
 
 
-The integration of GenAI and LLMs into software development introduces significant technical, ethical, and operational consequences that demand careful mitigation and human oversight with operational and technical risks being the most frequently cited in the literature, as detailed in \Cref{tab:consequences}. Operational efficiency is threatened by increased costs and resource constraints. The computational and financial costs for training, fine-tuning, and deploying these large-scale models can be substantially higher than traditional methods, potentially offsetting the anticipated productivity gains. 
+The integration of GenAI and LLMs into software development introduces
+significant technical, ethical, and operational consequences that demand
+careful mitigation and human oversight, with operational and technical
+risks the most frequently cited, as detailed in \Cref{tab:consequences}.
+Operational efficiency is threatened first by cost: training, fine-tuning,
+and deploying large-scale models can be substantially more expensive than
+traditional methods, offsetting the productivity gains they are meant to
+buy. The second most-cited risk is reliability: LLMs are fallible and
+frequently produce plausible but fabricated output, "hallucinations", most
+problematically in complex or niche scenarios, and current security tools
+only detect about 46.7\% of vulnerabilities in AI-generated code against
+66.4\% in human-written code, a mismatch between existing frameworks and
+the new failure modes AI introduces \cite{Yoo:2025sa}.
 
-Another major technical concern revolves around the inherent limitations of these models concerning reliability, accuracy, and security which was the second most referenced consequence in the literature. LLMs are fallible and frequently produce erroneous outputs, commonly referred to as "hallucinations", which involve the generation of plausible but incorrect or fabricated information. This is particularly problematic when tackling complex, niche or specialized programming scenarios. Furthermore, current security analysis tools struggle to detect these unique AI-generated vulnerabilities effectively, only identifying about 46.7\% of issues in AI code compared to 66.4\% in human-written code, suggesting a fundamental mismatch between existing frameworks and the new types of flaws introduced by AI \cite{Yoo:2025sa}. The resultant volume of potentially low-quality or insecure AI-generated code necessitates implementing scalable and specialized testing and quality assurance processes to maintain the integrity of software systems. Although being mentioned less in the articles, this consequence is equally important as the other consequences mentioned in the literature and ties directly with the the prevalence of the Reliability, Accuracy, and Hallucination Risks with AI and LLMs . 
+Beyond the technical domain, adoption carries risks to human factors,
+ethics, and economic viability. Over-reliance risks eroding developers'
+independence and problem-solving skills as instant assistance becomes the
+default. Bias embedded in training data risks being perpetuated and
+magnified in generated code, particularly in sensitive industries
+\cite{Haque:2025la}, and code ownership and licensing remain unresolved
+where models train on open-source code \cite{Terragni:2025fa}.
 
-Beyond the technical domain, the rapid adoption of AI introduces profound risks related to human factors, ethics, and economic viability. A primary worry is the heightened risk of over-reliance on AI, which may lead to a reduction in developers' critical thinking skills, independence, and overall software engineering expertise. Developers, accustomed to instant assistance, may become reluctant to engage in complex coding or troubleshooting, resulting in a gradual loss of core development skills. Ethical challenges include the potential for biases embedded within training data to be perpetuated and magnified in generated code, particularly critical in sensitive industries \cite{Haque:2025la}. Furthermore, legal and intellectual property issues pose major obstacles, as it remains unclear who owns the code generated by AI models and how to ensure compliance with licensing requirements, especially when models utilize open-source code for training \cite{Terragni:2025fa}. 
-
-These challenges highlight the essential and continuing role of human developers, especially in performing rigorous verification and maintaining quality throughout the SDLC. The inherent non-deterministic nature of LLMs, where the same prompt can yield different outputs, coupled with high output variability, mandates extensive human oversight and review before integrating AI-generated artifacts into production. Developers must account for the time spent correcting inaccuracies or mitigating unexpected vulnerabilities, which can counteract the intended efficiency gains. The process of prompting and refining AI outputs may require more time than anticipated. Moreover, the lack of standardized benchmarks and evaluation metrics makes it challenging to objectively assess the genuine contribution of AI tools to quality assurance and security within the SDLC, hindering accurate comparison and validation of their effectiveness. Therefore, successful integration requires not only highly effective prompting strategies but also specialized tools and methodologies designed to manage the complexity and risks associated with auto-generated code and support within a SDLC professional environment.
+Together these risks point to the same conclusion: LLMs' non-deterministic
+output and the absence of standardised evaluation benchmarks make extensive
+human review non-optional before AI-generated artefacts reach production,
+and the time that review costs is itself part of the true cost of adoption,
+not a footnote to it.
 
 \subsection{Methodologies and management methods used to integrate AI and LLMs in Software Development}
 
@@ -363,15 +388,37 @@ Integration of LLMs with Traditional Testing & "the integration of LLMs with tra
 \end{longtable}
 }
 
-The integration of LLMs and GenAI into software engineering has necessitated the creation of structured methodologies and management paradigms focused on optimizing model performance, defining human-AI collaboration, and formalizing the Software Development Lifecycle itself. This analysis section details the core integration methods, ranging from subtle parameter tuning to large-scale, process-oriented frameworks.
+The integration of LLMs and GenAI into software engineering has
+necessitated structured methodologies and management paradigms for
+optimising model performance, defining human-AI collaboration, and
+formalising the \ac{SDLC} itself, ranging from prompt-level tuning to
+large-scale process frameworks.
 
-The fundamental layer of integration, and a clear focus of the literature, relies on methods to improve model interaction by prompts. This is led by In-Context Learning (ICL), which, with 9 articles, is the most frequently discussed technique, seeking to improve LLM abilities by integrating context-specific information during inference. 
+The fundamental layer relies on methods to improve model interaction
+through prompts, led by In-Context Learning (9 articles, the most
+frequently discussed technique) and Prompt Engineering, whose quality
+critically determines LLM effectiveness. This principle motivates
+Chain-of-Thought prompting, where the model generates intermediate
+reasoning steps toward its answer, and Structured Chain-of-Thought, which
+explicitly introduces programming structures such as sequential, branch and
+loop constructs into those steps \cite{Li:2025sc}.
 
-Closely related is Prompt Engineering (PE), recognized as the practice of designing inputs to elicit reasoning and knowledge from LLMs for specific tasks. The effectiveness of LLMs is critically determined by the quality of these prompts. This principle led to the adoption of advanced reasoning techniques like Chain-of-Thought (CoT) prompting, where the model generates intermediate natural language steps leading to the final answer and building significantly upon CoT is Structured Chain-of-Thought (SCoT), another prompting technique that explicitly introduces programming structures (such as sequential, branch, and loop structures) into the reasoning steps. \cite{Li:2025sc}
+Given LLMs' variable reliability, the Human-In-The-Loop paradigm is
+considered mandatory for maintaining software quality \cite{Kim:2025ao}:
+developers retain critical oversight, reviewing and verifying AI output
+before it is implemented. This is formalised in frameworks such as
+AI-Augmented Agile Development (AgileGen), which structures collaboration
+into lightweight iterations and reserves human decision-making for the
+start (scenario definition) and end (acceptance) of each cycle
+\cite{Zhang:2025ea}, preventing the error accumulation that unsupervised
+multi-agent systems risk.
 
-Given the inherent limitations of LLMs, including their overall output reliability and high variability, the Human-In-The-Loop (HITL) paradigm is considered mandatory for maintaining software quality \cite{Kim:2025ao}. HITL ensures human developers maintain critical oversight by reviewing and verifying AI-generated outputs before they are implemented, recognizing the continued necessity of human contribution in resolving problems. This human-AI teamwork approach is formalized in frameworks such as AI-Augmented Agile Development (AgileGen) which is mentioned once \cite{Zhang:2025ea}, which structures collaboration into lightweight iterations and reserves key human decision-making at the beginning (scenario definition) and end (acceptance and recommendation) of each cycle. This management strategy prevents the accumulation and propagation of errors that can occur in fully automated multi-agent systems. The one thing that is prevalent and that should always be a non-negotiable, is the presence of a developer that is always verifying AI-generated outputs before they are implemented to always ensure good and secure quality code and development throughout the whole Software Development Lifecycle.
-
-Finally, "Vibe Coding" which is mentioned only once in the literature, and ties directly with the use and adoption of AI in the development process of software. This paradigm represents a conceptual leap in prompt application, accelerating the development process, particularly for domain-specific tasks like biomedical software and other sectors in the industry, by translating abstract intent and natural language directly into functional code and applications. Although Vibe Coding is relatively recent and is not mentioned a lot in the literature, its becoming the new "trend" and its the evolution of prompt based development, however its important to say that "Vibe Coding" has issues and a lot of problems, translating these "vibes" reliably requires strict use of methodologies and methods like the ones that were collected in this review to ensure better results \cite{Moore:2025vc}. 
+"Vibe Coding", mentioned once in the corpus, represents a conceptual leap
+in prompt application: translating abstract intent directly into
+functional code, particularly for domain-specific tasks such as biomedical
+software \cite{Moore:2025vc}. It is recent and not yet widely studied, but
+reliably translating a "vibe" into working software is exactly what the
+methodologies above exist to constrain.
 
 
 \subsection{Developers' and other stakeholders' opinions regarding the use of AI and LLMs in Software Development}
@@ -398,19 +445,32 @@ The pattern across sectors is the same one the earlier questions produced from a
 
 \section{Discussion}
 
-This section discusses the relevant information extracted from the articles selected for the SLR, synthesizing the findings from the five research questions to construct an integrated and broad view of the current landscape of AI and LLM adoption in software development. The results confirm the innovative and transformative potential of these technologies, but also highlight significant risks without any solid and clear use of strict methodologies, that shape their use across industry and professional practice.
+Read across the five research questions rather than one at a time, the review
+converges on a single pattern rather than five separate ones. Every benefit
+reported under RQ1 has a corresponding risk reported under RQ2 that
+threatens the same property it claims: speed and code quality (RQ1) sit
+against hallucination, security vulnerabilities and homogenisation (RQ2);
+democratised access sits against over-reliance and skill erosion. RQ3 shows
+the field's answer to that tension is not automation but control, since
+every prevalent method, In-Context Learning, Prompt Engineering,
+Chain-of-Thought and above all Human-In-The-Loop, exists to shape or
+supervise AI output before it is trusted, and no method proposes removing
+the human. RQ4 shows the same tension held by the people who do the work:
+every stakeholder group pairs enthusiasm with a caveat, and human oversight
+is the one point of consensus that survives across public, practitioner and
+organisational perspectives despite their differing incentives. RQ5 shows
+it is also the organising variable for adoption itself: where an incorrect
+output is cheap, adoption is broad and unconditional; where it is
+expensive, as in finance, transportation or healthcare, adoption is
+conditioned explicitly on verification. The absence of a standardised,
+secure integration methodology, not a shortfall in model capability, is
+therefore what the literature identifies as the actual barrier to broader
+adoption, and it is the gap this dissertation's proposal is built to close.
 
-The findings for the first research question show that AI and LLMs offer relevant benefits and enhancements to software development overall. The two most widely reported benefits in \Cref{tab:benefits} indicate that AI tools can meaningfully accelerate development workflows and elevate output standards. Importantly, these advantages extend across the entire SDLC appearing not only in coding, but also in requirements and early design phases of the development overall, as well as in automated testing, debugging, and repair. This demonstrates that AI is not merely a code-generation tool, but a broad co-creative and analytical partner within software engineering practice. 
-
-With regard to the consequences of AI and LLMs usage in Software Development, the results of the second research question reveals that these benefits that were previously discovered are also inseparable from substantial and important risks. The three most frequently identified drawbacks within the articles in \Cref{tab:consequences} directly undermine the foundational benefit of improved code quality. This introduces a central tension in current software engineering practice with AI and its mission, it promises acceleration and enhancement, but its integration and further use can generate new points of failure that are costly, unpredictable, and often difficult to detect. Legal, ethical, and intellectual property uncertainties are also connected to the previous risks since they further complicate adoption and incorporation. Moreover, the lack of standardized benchmarks and evaluation metrics makes it challenging to objectively assess the genuine contribution of AI tools to quality assurance and security within the SDLC, hindering accurate comparison and validation of their effectiveness. 
-
-The findings for the next research question which covers the Methodologies and Management Methods found within the literature show that current industry practice is not built around full automation at all, but around control. The most prevalent methods documented in \Cref{tab:methodologies} like In-Context Learning, Prompt Engineering and Chain-of-Thought Prompting all aim to shape and constrain AI behavior before code is generated. Meanwhile, the Human-In-The-Loop paradigm makes sure that developers remain directly responsible for reviewing, validating, and approving all outputs maintaining the human presence throughout the whole development process, ensuring a quality experience. Rather than replacing developers, AI currently functions as a tool that must be guided and supervised. The presence of multiple emerging frameworks, including Agile-based human-AI collaboration models mentioned in the articles, indicates that the field is actively searching for structured and repeatable integration patterns and methodologies, but no universally accepted approach has yet emerged.
-
-This tension is reflected clearly in the fourth research question, which results are documented in \Cref{tab:stakeholder_opinions_public,tab:stakeholder_opinions_devs,tab:stakeholder_opinions_orgs}. Developers and practitioners express enthusiasm about productivity and efficiency gains, but are equally vocal in concerns regarding reliability issues, hallucinations and output variability with AI usage and outputs. Organizations and management echo this trade-off because while aiming to improve developer satisfaction and competitiveness, they prioritize human oversight during AI-assisted development, data security and privacy protection, often restricting or prohibiting the use of commercial LLMs for confidentiality reasons. Both groups converge on the consensus that clear expectations must be established and that AI systems should augment developer expertise while maintaining a controlled level of trust regarding its capabilities.
-
-Finally, the last research question results reveal that adoption is not uniform. The sectors most actively integrating AI is Software Engineering, Software Development and Consulting, where experimentation and rapid iteration are strategically valuable and lower-risk and LLMs are used both as operational tools and as accelerators of knowledge transfer. In contrast, sectors characterized by regulatory sensitivity or safety-critical operations such as Finance, Banking, Transportation, Aerospace, and Healthcare, all documented in \Cref{tab:sectors}, exhibit cautious and controlled adoption, often requiring stronger guarantees of interpretability, security, and auditability before deployment. This reinforces the conclusion that the maturity of LLM integration is influenced not only by technological capability, but also by the risk tolerance and domain-specific requirements of the adopting organization.
-
-To address the need for a clearer mapping between AI capabilities and the Software Development Lifecycle, \Cref{tab:ai_sdlc_mapping} synthesizes the findings of the SLR by outlining the primary impacts, benefits, and challenges of AI and LLM usage across individual SDLC phases.
+\Cref{tab:ai_sdlc_mapping} restates this pattern at the granularity a
+framework needs: the specific contribution and the specific challenge AI
+introduces at each phase of the \ac{SDLC}, from requirements through
+maintenance.
 
 {\small
 \begin{longtable}{p{2.3cm} p{5.8cm} p{6.5cm}}
@@ -469,5 +529,9 @@ Potential over-reliance on AI explanations; challenges in maintaining long-term 
 }
 
 
-Overall, the SLR provides a comprehensive understanding of the current state of AI-driven software development. The findings demonstrate that while AI and LLMs offer meaningful benefits, the absence of a robust, standardized, and secure framework and/or methodologies for integrating these tools into the Software Development Lifecycle remains the largest barrier to widespread adoption. The promise and current new "Vibe Coding" paradigm is clear, trying to make software development as high-level conceptual expressions rather than manual syntax construction, but realizing this vision requires overcoming significant challenges in reliability, safety, organizational governance and much more. Thus, the future of AI in software development depends not on improving the raw capability of models alone, but on creating methodologically sound, transparent, and trust-centered processes and workflows for using them effectively.
+The future of AI in software development therefore depends less on the raw
+capability of the models than on the process wrapped around them: a
+methodologically sound, transparent, trust-centred way of using them that
+the literature surveyed here does not yet supply, and that the rest of this
+dissertation sets out to build.
 

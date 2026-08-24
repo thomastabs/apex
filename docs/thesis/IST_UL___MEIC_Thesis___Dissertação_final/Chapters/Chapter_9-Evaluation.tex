@@ -27,6 +27,8 @@ Demonstration in a real project & Framework and instantiation & DRQ3, DRQ4 & Tha
 \addlinespace
 \ac{NASA-TLX} & Instantiation (Apex) & DRQ4 & Perceived cognitive workload imposed on the practitioner \\
 \addlinespace
+Apex \ac{UX} questionnaire (author-designed) & Instantiation (Apex), with two items scoped to the framework & DRQ4 & Trust in AI-generated content, legibility of phase gates, and error surfacing, which \ac{SUS} and \ac{NASA-TLX} are not designed to reach \\
+\addlinespace
 Practitioner interviews & Framework & DRQ1, DRQ2 & Practicality, feasibility, and perceived value in real workflows \\
 \addlinespace
 Agile and Scrum expert interviews & Framework & DRQ1, DRQ2 & Alignment with, and departure from, established delivery methodology \\
@@ -128,6 +130,33 @@ Repeated administration carries its own cost, and it is a genuine trade rather t
 
 \todo[inline]{Define the task set both instruments are administered against, and keep it identical across participants. Place the full instruments in an appendix and reference them here.}
 
+\subsection{Apex UX Questionnaire}
+\label{sec:apex_ux}
+
+\ac{SUS} and Raw \ac{NASA-TLX} are validated instruments, but neither is
+designed to say whether a participant trusted AI-generated content, whether a
+phase gate read as a guardrail or as obstruction, or whether reviewing
+generated work felt cheaper than writing it, and those are exactly the
+questions this evaluation needs answered. An eighteen-item questionnaire was
+written for this evaluation to reach them, grouped into five constructs:
+understanding where you are in the process, working with AI-generated
+content, control and reversibility, feedback and errors, and fit to real
+work. It is not a validated instrument and is not treated as one: it is
+reported item by item, with no composite score and no subscale means,
+since collapsing an unvalidated eighteen-item scale into a single figure is
+exactly the kind of claim an examiner would take apart. Administered last,
+after \ac{SUS}, and reproduced in full in \Cref{chapter:appendixB}.
+
+Two items in the fifth construct, on whether the artefacts and the process
+fit real work, ask about the framework rather than the instantiation, and
+are analysed under the framework's evidence rather than Apex's, consistent
+with the separation stated in \Cref{tab:eval_instruments}. Keeping them on
+the same sheet is convenient for the participant; splitting them out in
+analysis is necessary so that the instrument does not quietly undermine the
+artefact separation this chapter otherwise argues for.
+
+\todo[inline]{State which item pair is expected to be the most diagnostic and why: the trust items (whether the participant trusted generated content enough to use it in a real project, against whether reviewing it took less effort than writing it) as a trust-calibration pair, and the item on understanding a deployment-gate refusal, cross-read against the corresponding \ac{NASA-TLX} Frustration score for that task and its free-text response, since there is no observer-scored comprehension check in an unmoderated design.}
+
 \subsection{Semi-Structured Interviews}
 \label{sec:interviews}
 Interviews were conducted as a session separate from the task work, so that
@@ -152,6 +181,8 @@ they emerged. The interview guides are reproduced in \Cref{chapter:appendixB}.
 
 \todo[inline]{Report \ac{NASA-TLX} results per subscale, not only the aggregate. The subscale profile is the informative part: a tool that raises mental demand while lowering frustration and effort tells a specific and reportable story about where the framework moves the practitioner's burden.}
 
+\todo[inline]{Report the Apex \ac{UX} questionnaire results item by item as diverging bar charts, with the median per item, no composite score. Report the two framework-scoped items (process fit and effort-versus-value) separately from the sixteen instantiation-scoped items, and cross-read the deployment-gate comprehension item against the corresponding \ac{NASA-TLX} Frustration score and free text.}
+
 \todo[inline]{Report the interview findings as themes, with representative anonymised quotations. Report disconfirming evidence explicitly.}
 
 \todo[inline]{Report the analytical assessment as a table of criteria, ratings, and justifications.}
@@ -173,4 +204,4 @@ they emerged. The interview guides are reproduced in \Cref{chapter:appendixB}.
 \subsection{Answering the Research Questions}
 \label{sec:eval_rq_answers}
 
-\todo[inline]{Answer DRQ1, DRQ2, DRQ3 and DRQ4 from \Cref{sec:intro_objectives} in turn, each grounded explicitly in the evidence reported above (results, demonstration, interviews) rather than merely asserted. DRQ1 and DRQ2 concern the framework and are answered primarily from the practitioner and Agile-expert interviews and the analytical assessment; DRQ3 is answered from the construct-to-mechanism mapping in \Cref{sec:apex_framework_mapping} read together with the implementation limitations, reporting which constructs were realised in full, which were realised as proxies, and which resisted implementation, since the existence of Apex alone establishes only that something was built; DRQ4 is answered from \ac{SUS}, \ac{NASA-TLX}, and the demonstration. This closes the loop the introduction opened: each research question is answered here with evidence, not merely restated in the conclusion.}
+\todo[inline]{Answer DRQ1, DRQ2, DRQ3 and DRQ4 from \Cref{sec:intro_objectives} in turn, each grounded explicitly in the evidence reported above (results, demonstration, interviews) rather than merely asserted. DRQ1 and DRQ2 concern the framework and are answered primarily from the practitioner and Agile-expert interviews and the analytical assessment; DRQ3 is answered from the construct-to-mechanism mapping in \Cref{sec:apex_framework_mapping} read together with the implementation limitations, reporting which constructs were realised in full, which were realised as proxies, and which resisted implementation, since the existence of Apex alone establishes only that something was built; DRQ4 is answered from \ac{SUS}, \ac{NASA-TLX}, the Apex \ac{UX} questionnaire, and the demonstration. This closes the loop the introduction opened: each research question is answered here with evidence, not merely restated in the conclusion.}
