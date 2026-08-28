@@ -93,13 +93,19 @@ as authoritative over the sheet for these two questions.
    `task-script.md` (both language blocks), each verified by loading it and
    confirming the correct task radio is pre-selected.
 8. Seed the demo project. Confirm `Export board to CSV` exists and has **never**
-   passed QA. Task 8 does nothing without it. **Taiga side done 2026-08-28**
-   (Tomás ran `scripts/seed-demo-project.py`): Demo Project id 1804164, 3
-   epics, 6 filler stories, `Export board to CSV` (id 9505520) at status
-   `New`. **Still open:** confirm the Apex-side import maps that to
-   `phase_status: new`, and `thomastabs/dummyREPO` (the chosen GitHub repo)
-   is still empty and needs a real codebase pushed before this step is
-   genuinely complete. Detail: `demo-environment.local.md` (gitignored).
+   passed QA. Task 8 does nothing without it. **Done 2026-08-28.** Demo
+   Project (id 1804164) seeded via `scripts/seed-demo-project.py`, imported
+   into Apex ("7 stories imported, 0 skipped"), all at `phase_status:
+   gherkin_locked` (the real reachable baseline - `new` turned out not to be
+   an actual state the app ever assigns, see `demo-environment.local.md`).
+   `Export board to CSV` attached to an epic so it's actually visible in the
+   Apex board UI (a real bug: orphan stories were being silently dropped from
+   the board view). `thomastabs/dummyREPO` now holds a real codebase (a copy
+   of Outfolio, incl. context files). Two real Apex bugs found+fixed along
+   the way, both pushed to `main`: the Taiga status-fetch endpoint was wrong
+   (`userstories/statuses` vs the real `userstory-statuses`, 404'd always)
+   and the board fetch dropped epic-less stories. Detail:
+   `demo-environment.local.md` (gitignored).
 9. Capture the nine reference screenshots from the seeded project.
 10. Fill all eighteen placeholder links into `task-script.md` - nine per
     language: the tool link, the six per-task TLX links, the SUS link and the UX
