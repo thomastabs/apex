@@ -16,7 +16,9 @@ every export path and screen reader, and cannot be mistaken for a rating.
 - Replace all nine placeholders per language: `<TOOL LINK>`, the six per-task
   links `<TLX LINK T3>`, `<TLX LINK T4>`, `<TLX LINK T6>`, `<TLX LINK T7>`,
   `<TLX LINK T8>`, `<TLX LINK T9>`, then `<SUS FORM LINK>` and
-  `<UX FORM LINK>`. Eighteen substitutions across both languages.
+  `<UX FORM LINK>`. Eighteen substitutions across both languages. **The six TLX
+  links are now filled in below** (built 2026-08-28, see `FORMS-BUILD-GUIDE.md`
+  step 7); `<TOOL LINK>`, `<SUS FORM LINK>` and `<UX FORM LINK>` are still open.
 - **The six TLX links are prefilled links, not one link repeated.** Each has its
   task already selected, generated per `FORMS-BUILD-SHEET.md`. Pasting the same
   bare form link into all six slots re-creates exactly the failure the prefilled
@@ -64,12 +66,12 @@ the one above or below it - each link already knows which task it belongs to.
 
 | Form | Link |
 |---|---|
-| **Workload form, Task 3** | `<TLX LINK T3>` |
-| **Workload form, Task 4** | `<TLX LINK T4>` |
-| **Workload form, Task 6** | `<TLX LINK T6>` |
-| **Workload form, Task 7** | `<TLX LINK T7>` |
-| **Workload form, Task 8** | `<TLX LINK T8>` |
-| **Workload form, Task 9** | `<TLX LINK T9>` |
+| **Workload form, Task 3** | `https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform?usp=pp_url&entry.1881857837=Task+3+-+Turn+a+requirement+into+locked+scenarios` |
+| **Workload form, Task 4** | `https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform?usp=pp_url&entry.1881857837=Task+4+-+Produce+and+lock+the+design` |
+| **Workload form, Task 6** | `https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform?usp=pp_url&entry.1881857837=Task+6+-+Break+the+work+into+implementation+tasks` |
+| **Workload form, Task 7** | `https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform?usp=pp_url&entry.1881857837=Task+7+-+Test+plan+and+QA+sign-off` |
+| **Workload form, Task 8** | `https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform?usp=pp_url&entry.1881857837=Task+8+-+Deploy+a+different+feature` |
+| **Workload form, Task 9** | `https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform?usp=pp_url&entry.1881857837=Task+9+-+Export+what+the+tool+produced` |
 | **SUS form** (end of session) | `<SUS FORM LINK>` |
 | **Apex UX form** (end of session) | `<UX FORM LINK>` |
 
@@ -113,7 +115,7 @@ the tool asks you, produce the Gherkin scenarios, and lock them.
 *Reference screenshot:* `[SCREENSHOT: Phase 1 with generated Gherkin and the
 assumptions panel visible]`
 
-`->` **Stop here. Open the workload form for Task 3 - `<TLX LINK T3>` - and fill it in before continuing.**
+`->` **Stop here. Open the workload form for Task 3 - `https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform?usp=pp_url&entry.1881857837=Task+3+-+Turn+a+requirement+into+locked+scenarios` - and fill it in before continuing.**
 
 ---
 
@@ -126,7 +128,7 @@ you disagree with, and lock the design.
 *Reference screenshot:* `[SCREENSHOT: Phase 2 showing Technical Design and the
 collapsed Visual Design group]`
 
-`->` **Stop here. Open the workload form for Task 4 - `<TLX LINK T4>` - and fill it in before continuing.**
+`->` **Stop here. Open the workload form for Task 4 - `https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform?usp=pp_url&entry.1881857837=Task+4+-+Produce+and+lock+the+design` - and fill it in before continuing.**
 
 ---
 
@@ -153,7 +155,7 @@ when you open it.
 *Reference screenshot:* `[SCREENSHOT: Phase 3 packs with the task dependency
 graph]`
 
-`->` **Stop here. Open the workload form for Task 6 - `<TLX LINK T6>` - and fill it in before continuing.**
+`->` **Stop here. Open the workload form for Task 6 - `https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform?usp=pp_url&entry.1881857837=Task+6+-+Break+the+work+into+implementation+tasks` - and fill it in before continuing.**
 
 ---
 
@@ -165,7 +167,7 @@ QA has passed.
 *Reference screenshot:* `[SCREENSHOT: Phase 4 test plan with the QA sign-off
 control]`
 
-`->` **Stop here. Open the workload form for Task 7 - `<TLX LINK T7>` - and fill it in before continuing.**
+`->` **Stop here. Open the workload form for Task 7 - `https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform?usp=pp_url&entry.1881857837=Task+7+-+Test+plan+and+QA+sign-off` - and fill it in before continuing.**
 
 ---
 
@@ -177,7 +179,7 @@ Tell the form what happened, in your own words.
 
 *Reference screenshot:* `[SCREENSHOT: Phase 5 deployment gate]`
 
-`->` **Stop here. Open the workload form for Task 8 - `<TLX LINK T8>` - and fill it in before continuing.**
+`->` **Stop here. Open the workload form for Task 8 - `https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform?usp=pp_url&entry.1881857837=Task+8+-+Deploy+a+different+feature` - and fill it in before continuing.**
 
 ---
 
@@ -188,7 +190,7 @@ Download them and confirm that the files opened correctly.
 
 *Reference screenshot:* `[SCREENSHOT: export or download-all control]`
 
-`->` **Stop here. Open the workload form for Task 9 - `<TLX LINK T9>` - and fill it in before continuing.**
+`->` **Stop here. Open the workload form for Task 9 - `https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform?usp=pp_url&entry.1881857837=Task+9+-+Export+what+the+tool+produced` - and fill it in before continuing.**
 
 ---
 
@@ -253,12 +255,12 @@ pertence.
 
 | Formulário | Ligação |
 |---|---|
-| **Formulário de carga de trabalho, Tarefa 3** | `<TLX LINK T3>` |
-| **Formulário de carga de trabalho, Tarefa 4** | `<TLX LINK T4>` |
-| **Formulário de carga de trabalho, Tarefa 6** | `<TLX LINK T6>` |
-| **Formulário de carga de trabalho, Tarefa 7** | `<TLX LINK T7>` |
-| **Formulário de carga de trabalho, Tarefa 8** | `<TLX LINK T8>` |
-| **Formulário de carga de trabalho, Tarefa 9** | `<TLX LINK T9>` |
+| **Formulário de carga de trabalho, Tarefa 3** | `https://docs.google.com/forms/d/e/1FAIpQLSdXAbp9UWHtLBkjJUQhylS6Xc-dRveePiRPS1ZGReq2uwEipw/viewform?usp=pp_url&entry.1881857837=Tarefa+3+-+Transformar+um+requisito+em+cen%C3%A1rios+bloqueados` |
+| **Formulário de carga de trabalho, Tarefa 4** | `https://docs.google.com/forms/d/e/1FAIpQLSdXAbp9UWHtLBkjJUQhylS6Xc-dRveePiRPS1ZGReq2uwEipw/viewform?usp=pp_url&entry.1881857837=Tarefa+4+-+Produzir+e+bloquear+o+design` |
+| **Formulário de carga de trabalho, Tarefa 6** | `https://docs.google.com/forms/d/e/1FAIpQLSdXAbp9UWHtLBkjJUQhylS6Xc-dRveePiRPS1ZGReq2uwEipw/viewform?usp=pp_url&entry.1881857837=Tarefa+6+-+Dividir+o+trabalho+em+tarefas+de+implementa%C3%A7%C3%A3o` |
+| **Formulário de carga de trabalho, Tarefa 7** | `https://docs.google.com/forms/d/e/1FAIpQLSdXAbp9UWHtLBkjJUQhylS6Xc-dRveePiRPS1ZGReq2uwEipw/viewform?usp=pp_url&entry.1881857837=Tarefa+7+-+Plano+de+testes+e+aprova%C3%A7%C3%A3o+de+QA` |
+| **Formulário de carga de trabalho, Tarefa 8** | `https://docs.google.com/forms/d/e/1FAIpQLSdXAbp9UWHtLBkjJUQhylS6Xc-dRveePiRPS1ZGReq2uwEipw/viewform?usp=pp_url&entry.1881857837=Tarefa+8+-+Colocar+em+produ%C3%A7%C3%A3o+uma+funcionalidade+diferente` |
+| **Formulário de carga de trabalho, Tarefa 9** | `https://docs.google.com/forms/d/e/1FAIpQLSdXAbp9UWHtLBkjJUQhylS6Xc-dRveePiRPS1ZGReq2uwEipw/viewform?usp=pp_url&entry.1881857837=Tarefa+9+-+Exportar+o+que+a+ferramenta+produziu` |
 | **Formulário SUS** (fim da sessão) | `<SUS FORM LINK>` |
 | **Formulário UX do Apex** (fim da sessão) | `<UX FORM LINK>` |
 
@@ -296,7 +298,7 @@ recuperar uma palavra-passe esquecida por email.**
 Usando a Fase 1, escreva esse requisito por palavras suas, responda às perguntas
 que a ferramenta lhe fizer, produza os cenários Gherkin e bloqueie-os.
 
-`->` **Pare aqui. Abra o formulário de carga de trabalho da Tarefa 3 - `<TLX LINK T3>` - e preencha-o antes de continuar.**
+`->` **Pare aqui. Abra o formulário de carga de trabalho da Tarefa 3 - `https://docs.google.com/forms/d/e/1FAIpQLSdXAbp9UWHtLBkjJUQhylS6Xc-dRveePiRPS1ZGReq2uwEipw/viewform?usp=pp_url&entry.1881857837=Tarefa+3+-+Transformar+um+requisito+em+cen%C3%A1rios+bloqueados` - e preencha-o antes de continuar.**
 
 ---
 
@@ -306,7 +308,7 @@ Continue com a mesma funcionalidade para a Fase 2. Gere o design técnico e o
 design visual, reveja o que a ferramenta assumiu por si, altere aquilo de que
 discordar e bloqueie o design.
 
-`->` **Pare aqui. Abra o formulário de carga de trabalho da Tarefa 4 - `<TLX LINK T4>` - e preencha-o antes de continuar.**
+`->` **Pare aqui. Abra o formulário de carga de trabalho da Tarefa 4 - `https://docs.google.com/forms/d/e/1FAIpQLSdXAbp9UWHtLBkjJUQhylS6Xc-dRveePiRPS1ZGReq2uwEipw/viewform?usp=pp_url&entry.1881857837=Tarefa+4+-+Produzir+e+bloquear+o+design` - e preencha-o antes de continuar.**
 
 ---
 
@@ -329,7 +331,7 @@ feita em primeiro lugar.
 Escreva o nome dessa tarefa, e uma frase a explicar porquê, no formulário
 NASA-TLX quando o abrir.
 
-`->` **Pare aqui. Abra o formulário de carga de trabalho da Tarefa 6 - `<TLX LINK T6>` - e preencha-o antes de continuar.**
+`->` **Pare aqui. Abra o formulário de carga de trabalho da Tarefa 6 - `https://docs.google.com/forms/d/e/1FAIpQLSdXAbp9UWHtLBkjJUQhylS6Xc-dRveePiRPS1ZGReq2uwEipw/viewform?usp=pp_url&entry.1881857837=Tarefa+6+-+Dividir+o+trabalho+em+tarefas+de+implementa%C3%A7%C3%A3o` - e preencha-o antes de continuar.**
 
 ---
 
@@ -338,7 +340,7 @@ NASA-TLX quando o abrir.
 Gere um plano de testes para a funcionalidade, reveja-o e registe que o QA foi
 aprovado.
 
-`->` **Pare aqui. Abra o formulário de carga de trabalho da Tarefa 7 - `<TLX LINK T7>` - e preencha-o antes de continuar.**
+`->` **Pare aqui. Abra o formulário de carga de trabalho da Tarefa 7 - `https://docs.google.com/forms/d/e/1FAIpQLSdXAbp9UWHtLBkjJUQhylS6Xc-dRveePiRPS1ZGReq2uwEipw/viewform?usp=pp_url&entry.1881857837=Tarefa+7+-+Plano+de+testes+e+aprova%C3%A7%C3%A3o+de+QA` - e preencha-o antes de continuar.**
 
 ---
 
@@ -349,7 +351,7 @@ Agora tente colocar em produção uma funcionalidade **diferente**, a que se cha
 
 Diga no formulário o que aconteceu, por palavras suas.
 
-`->` **Pare aqui. Abra o formulário de carga de trabalho da Tarefa 8 - `<TLX LINK T8>` - e preencha-o antes de continuar.**
+`->` **Pare aqui. Abra o formulário de carga de trabalho da Tarefa 8 - `https://docs.google.com/forms/d/e/1FAIpQLSdXAbp9UWHtLBkjJUQhylS6Xc-dRveePiRPS1ZGReq2uwEipw/viewform?usp=pp_url&entry.1881857837=Tarefa+8+-+Colocar+em+produ%C3%A7%C3%A3o+uma+funcionalidade+diferente` - e preencha-o antes de continuar.**
 
 ---
 
@@ -359,7 +361,7 @@ Exporte os artefactos que a ferramenta produziu para a funcionalidade de
 recuperação de palavra-passe. Descarregue-os e confirme que os ficheiros abriram
 correctamente.
 
-`->` **Pare aqui. Abra o formulário de carga de trabalho da Tarefa 9 - `<TLX LINK T9>` - e preencha-o antes de continuar.**
+`->` **Pare aqui. Abra o formulário de carga de trabalho da Tarefa 9 - `https://docs.google.com/forms/d/e/1FAIpQLSdXAbp9UWHtLBkjJUQhylS6Xc-dRveePiRPS1ZGReq2uwEipw/viewform?usp=pp_url&entry.1881857837=Tarefa+9+-+Exportar+o+que+a+ferramenta+produziu` - e preencha-o antes de continuar.**
 
 ---
 

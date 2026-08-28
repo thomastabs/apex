@@ -24,6 +24,34 @@ opened.
 
 ---
 
+## Build progress log
+
+Live status of the eight forms. Update this table as each one is finished and
+verified, rather than relying on memory of what got built.
+
+| Form | Status | Link | Built by | Date |
+|---|---|---|---|---|
+| F0-EN | **done** | https://docs.google.com/forms/d/e/1FAIpQLSezG6QwXDkCgLDEk0ebbsmTCs9EeIRoHNNGYavyeeWiOR1hrg/viewform | Tomás | 2026-08-27 |
+| F0-PT | **done** | https://docs.google.com/forms/d/e/1FAIpQLSerEC9KkxLQj-nzo7qZsTkwpp9M4h0JHwk_atswO3adfm44kA/viewform | Claude (claude-in-chrome), duplicated from F0-EN and translated per the F0-PT block in `FORMS-BUILD-SHEET.md` | 2026-08-27 |
+| F1-EN | **done** | https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform | Claude (claude-in-chrome) | 2026-08-27 |
+| F1-PT | **done** | https://docs.google.com/forms/d/e/1FAIpQLSdXAbp9UWHtLBkjJUQhylS6Xc-dRveePiRPS1ZGReq2uwEipw/viewform | Claude (claude-in-chrome), duplicated from F1-EN and translated per the F1-PT block in `FORMS-BUILD-SHEET.md` | 2026-08-27 |
+| F2-EN | **done** | https://docs.google.com/forms/d/e/1FAIpQLSc3Tr2pVcRaNEc4MHrThurZSwbg1dXIyeHOyDbL-3_sufSlOg/viewform | Claude (claude-in-chrome), built from scratch per the F2-EN block in `FORMS-BUILD-SHEET.md` | 2026-08-27 |
+| F2-PT | **done** | https://docs.google.com/forms/d/e/1FAIpQLSe0R3huJ3HOclxn8rRqVqcpinYwava5Ywla5FuUigfc4x2k7g/viewform | Claude (claude-in-chrome), duplicated from F2-EN and translated per the F2-PT block in `FORMS-BUILD-SHEET.md` (validated European Portuguese SUS, Martins et al. 2015) | 2026-08-27 |
+| F3-EN | **done** | https://docs.google.com/forms/d/e/1FAIpQLSfNdyEC5U0eTVWO5aGChNckjW09Oe0R9h1Z9sSHbcQ--oGkrQ/viewform | Claude (claude-in-chrome), built from scratch per the F3-EN block in `FORMS-BUILD-SHEET.md` | 2026-08-27 |
+| F3-PT | **done** | https://docs.google.com/forms/d/e/1FAIpQLSfWmMYRncpvhvmqmncy7fW6_xjqZsuRUUDs1aiDocVnOCIXJA/viewform | Claude (claude-in-chrome), duplicated from F3-EN and translated per the F3-PT block in `FORMS-BUILD-SHEET.md` | 2026-08-27 |
+
+F0-EN and F0-PT both exist now - not yet run through the acceptance checklist
+(bottom of `FORMS-BUILD-SHEET.md`). One deviation from the build sheet worth
+noting when that check happens: G1 and G4's question text were extended by
+Tomás beyond the sheet's original wording ("...or software engineering
+experience", "...Gherkin Language for Requirements or Behavior Driven
+Development") - F0-PT was translated to match F0-EN's actual final wording, not
+the sheet's shorter original, so both languages stay mirrors of each other.
+`FORMS-BUILD-SHEET.md` itself was not edited to match; treat F0-EN's live text
+as authoritative over the sheet for these two questions.
+
+---
+
 ## Master TODO, in order
 
 ### Before building anything
@@ -49,17 +77,29 @@ opened.
 
 ### Build
 
-5. Build F0, F1, F2, F3 as specified below.
+5. Build F0, F1, F2, F3 as specified below. **Done** 2026-08-27.
 6. Test-submit every form once yourself. Open the response spreadsheet and
-   check the column headers are usable. Delete the test rows.
+   check the column headers are usable. Delete the test rows. **Done**
+   2026-08-27/28 - all 8 forms (F0/F1/F2/F3 x EN/PT), headers usable on every
+   sheet, no test data left behind. Found+fixed along the way: F0-EN/F0-PT had
+   no progress bar and the default Google confirmation message instead of the
+   study's close-tab text; both now corrected and verified live.
 7. Generate six prefilled F1 links per language, twelve in total, one per task,
    so the participant does not retype the task name. Google Forms: three-dot
    menu, "Get pre-filled link", set the task field, copy the URL. Paste each
    into the matching `<TLX LINK T3>`..`<TLX LINK T9>` slot in the script. Do not
    edit F1 after generating them; editing can invalidate the entry IDs baked
-   into the URLs.
+   into the URLs. **Done** 2026-08-28 - all 12 links generated and pasted into
+   `task-script.md` (both language blocks), each verified by loading it and
+   confirming the correct task radio is pre-selected.
 8. Seed the demo project. Confirm `Export board to CSV` exists and has **never**
-   passed QA. Task 8 does nothing without it.
+   passed QA. Task 8 does nothing without it. **Taiga side done 2026-08-28**
+   (Tomás ran `scripts/seed-demo-project.py`): Demo Project id 1804164, 3
+   epics, 6 filler stories, `Export board to CSV` (id 9505520) at status
+   `New`. **Still open:** confirm the Apex-side import maps that to
+   `phase_status: new`, and `thomastabs/dummyREPO` (the chosen GitHub repo)
+   is still empty and needs a real codebase pushed before this step is
+   genuinely complete. Detail: `demo-environment.local.md` (gitignored).
 9. Capture the nine reference screenshots from the seeded project.
 10. Fill all eighteen placeholder links into `task-script.md` - nine per
     language: the tool link, the six per-task TLX links, the SUS link and the UX

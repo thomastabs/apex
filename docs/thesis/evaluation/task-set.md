@@ -13,10 +13,15 @@ Nine tasks, roughly 45 minutes of tool time. Six carry a Raw TLX form.
 - A dedicated **Demo Project** on the PM instance, seeded with 3 epics and 6
   stories at `phase_status: new`, plus one story named **Export board to CSV**
   that must stay un-QA'd. Task 8 depends entirely on that story existing and
-  never having passed QA.
+  never having passed QA. Seeded via `scripts/seed-demo-project.py` (run
+  manually - it needs the Taiga password typed interactively, never scripted
+  further than that). Account and setup detail: `demo-environment.local.md`
+  (gitignored, not in this repo's history).
 - A GitHub repo with a **real codebase** in it, not an empty repo. Phase 3 and
   Phase 4 grounding read `github-context.md`; an empty repo produces vacuous
-  output and the participant is then evaluating nothing.
+  output and the participant is then evaluating nothing. **Open as of
+  2026-08-28:** `github.com/thomastabs/dummyREPO` is chosen but still empty -
+  see `demo-environment.local.md`.
 - A PAT and repo URL printed on the participant card, along with sign-in
   credentials and the participant code.
 - AI provider key configured server-side so nobody is blocked on it.
@@ -24,8 +29,13 @@ Nine tasks, roughly 45 minutes of tool time. Six carry a Raw TLX form.
 
 **Reset procedure:** delete
 `contextspec/<instance_id>/<project_id>/` for the demo project and re-seed the
-PM board. Verify the reset by loading the project and confirming every story is
-back at `new` and `Export board to CSV` has no QA record.
+PM board. Then, in Apex: Settings -> Status Mapping, map Taiga's "New" status
+to Apex `new` (its default heuristic maps "New" to `gherkin_locked`, found
+2026-08-28 - see `demo-environment.local.md`), and only then click "Import
+from Taiga" on the Overview page - **not** "Rebuild", which only rescans
+Apex-generated files and will never see Taiga-native stories. Verify the reset
+by loading the project and confirming every story is back at `new` and
+`Export board to CSV` has no QA record.
 
 Test the reset before the pilot. A half-reset project is the most likely way to
 silently ruin a participant's data, because task 8 will not refuse if the story
