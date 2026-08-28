@@ -117,7 +117,11 @@ as authoritative over the sheet for these two questions.
    procedure) before the pilot or any real participant.**
 10. Fill all eighteen placeholder links into `task-script.md` - nine per
     language: the tool link, the six per-task TLX links, the SUS link and the UX
-    link - then export it to PDF.
+    link - then export it to PDF. **Done 2026-08-28.** Tool/SUS/UX links wired
+    in both languages; the 9 reference screenshots (annotated with red
+    arrows/circles by Tomás) swapped in for every `[SCREENSHOT: ...]` marker;
+    exported to `task-script.pdf` (12 pages, self-contained, verified page by
+    page).
 11. Print participant code cards: code, sign-in credentials, GitHub repo URL,
     PAT.
 
