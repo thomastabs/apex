@@ -207,7 +207,7 @@ def bootstrap(taiga_base: str, token: str, project_id: int, context: "ContextSer
       imported, skipped, epics, status_mapping
     """
     # 1. Fetch board statuses → build id→phase_status map + human-readable mapping
-    statuses_raw = _taiga_get(f"{taiga_base}/userstories/statuses", token, {"project": project_id})
+    statuses_raw = _taiga_get(f"{taiga_base}/userstory-statuses", token, {"project": project_id})
     if not isinstance(statuses_raw, list):
         statuses_raw = statuses_raw.get("objects", []) if isinstance(statuses_raw, dict) else []
     configured_status_mapping = context.status_mapping()

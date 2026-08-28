@@ -210,7 +210,7 @@ def test_plane_paginate_honours_max_pages_cap(monkeypatch):
 def _wire_taiga(monkeypatch, *, statuses, epics, stories):
     """Patch the two network helpers to serve canned Taiga responses by URL."""
     def fake_get(url, token, params=None):
-        if url.endswith("/userstories/statuses"):
+        if url.endswith("/userstory-statuses"):
             return statuses
         return []
 

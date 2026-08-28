@@ -743,7 +743,7 @@ def get_status_mapping(
     if pm_tool == "taiga":
         taiga_base = resolve_taiga_base(x_taiga_url)
         try:
-            statuses_raw = import_service._taiga_get(f"{taiga_base}/userstories/statuses", ctx.pm_token, {"project": ctx.project_id})
+            statuses_raw = import_service._taiga_get(f"{taiga_base}/userstory-statuses", ctx.pm_token, {"project": ctx.project_id})
         except Exception as exc:
             _logger.error("status mapping fetch failed: %s", exc)
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Failed to fetch Taiga statuses: {exc}") from exc
