@@ -123,7 +123,25 @@ as authoritative over the sheet for these two questions.
     exported to `task-script.pdf` (12 pages, self-contained, verified page by
     page).
 11. Print participant code cards: code, sign-in credentials, GitHub repo URL,
-    PAT.
+    PAT. **Open, Tomás's own step:** the credentials/repo/PAT are his to
+    provide (his own GitHub repo + PAT, used for real) - not something to be
+    generated. Card content is otherwise standard.
+11.5. **Tomás reviews everything before the pilot.** Not a build step - a
+    full read-through of what's been produced so far:
+    - `task-script.pdf` (this repo, `docs/thesis/evaluation/`) - the
+      participant-facing document, EN + PT, 9 annotated screenshots, all 18
+      links wired.
+    - `main.pdf` (`docs/thesis/IST_UL___MEIC_Thesis___Dissertação_final/`) -
+      the full dissertation. Rebuilt 2026-08-28, current with the latest
+      `.tex` (105 pages).
+    - `main.pdf` (`docs/thesis/extended-abstract/`) - the 10-page English
+      extended abstract, current.
+    - **Stale, do not review:** `Apex-Evaluation-Package.pdf` and
+      `Apex-Task-Script.pdf` in `docs/thesis/evaluation/` are both dated
+      2026-08-19 - a bundled export from before the arm-split closure, before
+      any form was built, before task-script.pdf was wired. Superseded by
+      `task-script.pdf` above; not regenerated since. Consider deleting once
+      confirmed unneeded, so they stop looking current.
 
 ### Pilot
 
