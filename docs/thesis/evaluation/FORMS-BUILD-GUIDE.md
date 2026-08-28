@@ -106,7 +106,15 @@ as authoritative over the sheet for these two questions.
    (`userstories/statuses` vs the real `userstory-statuses`, 404'd always)
    and the board fetch dropped epic-less stories. Detail:
    `demo-environment.local.md` (gitignored).
-9. Capture the nine reference screenshots from the seeded project.
+9. Capture the nine reference screenshots from the seeded project. **Done
+   2026-08-28** - `docs/thesis/evaluation/screenshots/01-09-*.jpg`, one per
+   task, matching every `[SCREENSHOT: ...]` placeholder in `task-script.md`.
+   Real walkthrough of a "Forgot password reset" epic through Phases 1-5
+   (Gherkin, design, task DAG, QA sign-off, deployment gate) plus sign-in,
+   GitHub-connected, and resume-session states. **This used the real Demo
+   Project and left it with real progress (12 stories, one epic taken through
+   deployment) - it is no longer pristine and must be reset (task-set.md
+   procedure) before the pilot or any real participant.**
 10. Fill all eighteen placeholder links into `task-script.md` - nine per
     language: the tool link, the six per-task TLX links, the SUS link and the UX
     link - then export it to PDF.
