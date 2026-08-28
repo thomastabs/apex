@@ -36,7 +36,7 @@ every export path and screen reader, and cannot be mistaken for a rating.
 
 # Task Script
 
-**Tool link:** `<TOOL LINK>`
+**Tool link:** `https://apex-bolt.com`
 
 ---
 
@@ -72,8 +72,8 @@ the one above or below it - each link already knows which task it belongs to.
 | **Workload form, Task 7** | `https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform?usp=pp_url&entry.1881857837=Task+7+-+Test+plan+and+QA+sign-off` |
 | **Workload form, Task 8** | `https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform?usp=pp_url&entry.1881857837=Task+8+-+Deploy+a+different+feature` |
 | **Workload form, Task 9** | `https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform?usp=pp_url&entry.1881857837=Task+9+-+Export+what+the+tool+produced` |
-| **SUS form** (end of session) | `<SUS FORM LINK>` |
-| **Apex UX form** (end of session) | `<UX FORM LINK>` |
+| **SUS form** (end of session) | `https://docs.google.com/forms/d/e/1FAIpQLSc3Tr2pVcRaNEc4MHrThurZSwbg1dXIyeHOyDbL-3_sufSlOg/viewform` |
+| **Apex UX form** (end of session) | `https://docs.google.com/forms/d/e/1FAIpQLSfNdyEC5U0eTVWO5aGChNckjW09Oe0R9h1Z9sSHbcQ--oGkrQ/viewform` |
 
 Your participant code is on the card you were given. Enter it at the top of
 every form so the answers can be linked together. Your name is never recorded.
@@ -87,7 +87,9 @@ every form so the answers can be linked together. Your name is never recorded.
 Sign in to Apex with the credentials on your card, and open the project called
 **Demo Project**.
 
-*Reference screenshot:* `[SCREENSHOT: sign-in form with the PM tool selector]`
+*Reference screenshot:*
+
+![Sign-in form with the PM tool selector](screenshots/01-signin-pm-tool-selector-edited.png)
 
 `->` Continue to the next task without filling in any form.
 
@@ -98,7 +100,9 @@ Sign in to Apex with the credentials on your card, and open the project called
 Connect the project to the GitHub repository listed on your card, using the
 access token on the same card.
 
-*Reference screenshot:* `[SCREENSHOT: sidebar GitHub section, connected state]`
+*Reference screenshot:*
+
+![Sidebar GitHub section, connected state](screenshots/02-github-connected-edited.png)
 
 `->` Continue to the next task without filling in any form.
 
@@ -112,8 +116,9 @@ by email.**
 Using Phase 1, write that requirement in your own words, answer any questions
 the tool asks you, produce the Gherkin scenarios, and lock them.
 
-*Reference screenshot:* `[SCREENSHOT: Phase 1 with generated Gherkin and the
-assumptions panel visible]`
+*Reference screenshot:*
+
+![Phase 1 with generated Gherkin and the assumptions panel visible](screenshots/03-phase1-gherkin-assumptions-edited.png)
 
 `->` **Stop here. Open the workload form for Task 3 - `https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform?usp=pp_url&entry.1881857837=Task+3+-+Turn+a+requirement+into+locked+scenarios` - and fill it in before continuing.**
 
@@ -125,8 +130,9 @@ Continue with the same feature into Phase 2. Generate the technical design and
 the visual design, review what the tool assumed on your behalf, change anything
 you disagree with, and lock the design.
 
-*Reference screenshot:* `[SCREENSHOT: Phase 2 showing Technical Design and the
-collapsed Visual Design group]`
+*Reference screenshot:*
+
+![Phase 2 showing Technical Design and the collapsed Visual Design group](screenshots/04-phase2-technical-design-edited.png)
 
 `->` **Stop here. Open the workload form for Task 4 - `https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform?usp=pp_url&entry.1881857837=Task+4+-+Produce+and+lock+the+design` - and fill it in before continuing.**
 
@@ -137,8 +143,9 @@ collapsed Visual Design group]`
 Close the browser tab completely, open the tool link again, sign back in, and
 return to the work you were doing instead of starting something new.
 
-*Reference screenshot:* `[SCREENSHOT: returning to the same active project after
-a fresh sign-in]`
+*Reference screenshot:*
+
+![Returning to the same active project after a fresh sign-in](screenshots/05-resume-session-edited.png)
 
 `->` Continue to the next task without filling in any form.
 
@@ -152,8 +159,9 @@ the task breakdown and decide which task would have to be done first.
 Write the name of that task, and one sentence saying why, in the NASA-TLX form
 when you open it.
 
-*Reference screenshot:* `[SCREENSHOT: Phase 3 packs with the task dependency
-graph]`
+*Reference screenshot:*
+
+![Phase 3 packs with the task dependency graph](screenshots/06-phase3-task-dag-edited.png)
 
 `->` **Stop here. Open the workload form for Task 6 - `https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform?usp=pp_url&entry.1881857837=Task+6+-+Break+the+work+into+implementation+tasks` - and fill it in before continuing.**
 
@@ -164,8 +172,9 @@ graph]`
 Generate a test plan for the password reset feature, review it, and record that
 QA has passed.
 
-*Reference screenshot:* `[SCREENSHOT: Phase 4 test plan with the QA sign-off
-control]`
+*Reference screenshot:*
+
+![Phase 4 test plan with the QA sign-off control](screenshots/07-phase4-qa-signoff-edited.png)
 
 `->` **Stop here. Open the workload form for Task 7 - `https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform?usp=pp_url&entry.1881857837=Task+7+-+Test+plan+and+QA+sign-off` - and fill it in before continuing.**
 
@@ -177,7 +186,9 @@ Now try to deploy a **different** story, the one called **Export board to CSV**.
 
 Tell the form what happened, in your own words.
 
-*Reference screenshot:* `[SCREENSHOT: Phase 5 deployment gate]`
+*Reference screenshot:*
+
+![Phase 5 deployment gate](screenshots/08-phase5-deployment-gate-edited.png)
 
 `->` **Stop here. Open the workload form for Task 8 - `https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform?usp=pp_url&entry.1881857837=Task+8+-+Deploy+a+different+feature` - and fill it in before continuing.**
 
@@ -188,7 +199,9 @@ Tell the form what happened, in your own words.
 Export the artefacts the tool has produced for the password reset feature.
 Download them and confirm that the files opened correctly.
 
-*Reference screenshot:* `[SCREENSHOT: export or download-all control]`
+*Reference screenshot:*
+
+![Export or download-all control](screenshots/09-export-download-all-edited.png)
 
 `->` **Stop here. Open the workload form for Task 9 - `https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform?usp=pp_url&entry.1881857837=Task+9+-+Export+what+the+tool+produced` - and fill it in before continuing.**
 
@@ -208,10 +221,10 @@ Not required, and not part of the study measures. Nothing to fill in.
 
 ## You have completed all tasks
 
-Please now open the **SUS form** (`<SUS FORM LINK>`) and fill it in. This takes
+Please now open the **SUS form** (`https://docs.google.com/forms/d/e/1FAIpQLSc3Tr2pVcRaNEc4MHrThurZSwbg1dXIyeHOyDbL-3_sufSlOg/viewform`) and fill it in. This takes
 about three minutes.
 
-Then open the **Apex UX form** (`<UX FORM LINK>`), which takes about five
+Then open the **Apex UX form** (`https://docs.google.com/forms/d/e/1FAIpQLSfNdyEC5U0eTVWO5aGChNckjW09Oe0R9h1Z9sSHbcQ--oGkrQ/viewform`), which takes about five
 minutes and includes three open questions.
 
 Thank you for your time and feedback.
@@ -223,7 +236,7 @@ Thank you for your time and feedback.
 
 # Guião de Tarefas
 
-**Ligação para a ferramenta:** `<TOOL LINK>`
+**Ligação para a ferramenta:** `https://apex-bolt.com`
 
 ---
 
@@ -261,8 +274,8 @@ pertence.
 | **Formulário de carga de trabalho, Tarefa 7** | `https://docs.google.com/forms/d/e/1FAIpQLSdXAbp9UWHtLBkjJUQhylS6Xc-dRveePiRPS1ZGReq2uwEipw/viewform?usp=pp_url&entry.1881857837=Tarefa+7+-+Plano+de+testes+e+aprova%C3%A7%C3%A3o+de+QA` |
 | **Formulário de carga de trabalho, Tarefa 8** | `https://docs.google.com/forms/d/e/1FAIpQLSdXAbp9UWHtLBkjJUQhylS6Xc-dRveePiRPS1ZGReq2uwEipw/viewform?usp=pp_url&entry.1881857837=Tarefa+8+-+Colocar+em+produ%C3%A7%C3%A3o+uma+funcionalidade+diferente` |
 | **Formulário de carga de trabalho, Tarefa 9** | `https://docs.google.com/forms/d/e/1FAIpQLSdXAbp9UWHtLBkjJUQhylS6Xc-dRveePiRPS1ZGReq2uwEipw/viewform?usp=pp_url&entry.1881857837=Tarefa+9+-+Exportar+o+que+a+ferramenta+produziu` |
-| **Formulário SUS** (fim da sessão) | `<SUS FORM LINK>` |
-| **Formulário UX do Apex** (fim da sessão) | `<UX FORM LINK>` |
+| **Formulário SUS** (fim da sessão) | `https://docs.google.com/forms/d/e/1FAIpQLSe0R3huJ3HOclxn8rRqVqcpinYwava5Ywla5FuUigfc4x2k7g/viewform` |
+| **Formulário UX do Apex** (fim da sessão) | `https://docs.google.com/forms/d/e/1FAIpQLSfWmMYRncpvhvmqmncy7fW6_xjqZsuRUUDs1aiDocVnOCIXJA/viewform` |
 
 O seu código de participante está no cartão que recebeu. Introduza-o no início
 de cada formulário para que as respostas possam ser ligadas entre si. O seu nome
@@ -379,10 +392,10 @@ Não é obrigatório e não faz parte das medidas do estudo. Nada a preencher.
 
 ## Concluiu todas as tarefas
 
-Abra agora o **formulário SUS** (`<SUS FORM LINK>`) e preencha-o. Demora cerca
+Abra agora o **formulário SUS** (`https://docs.google.com/forms/d/e/1FAIpQLSe0R3huJ3HOclxn8rRqVqcpinYwava5Ywla5FuUigfc4x2k7g/viewform`) e preencha-o. Demora cerca
 de três minutos.
 
-Depois abra o **formulário UX do Apex** (`<UX FORM LINK>`), que demora cerca de
+Depois abra o **formulário UX do Apex** (`https://docs.google.com/forms/d/e/1FAIpQLSfWmMYRncpvhvmqmncy7fW6_xjqZsuRUUDs1aiDocVnOCIXJA/viewform`), que demora cerca de
 cinco minutos e inclui três perguntas abertas.
 
 Obrigado pelo seu tempo e pelo seu contributo.
