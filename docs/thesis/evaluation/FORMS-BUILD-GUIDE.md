@@ -136,12 +136,13 @@ as authoritative over the sheet for these two questions.
       `.tex` (105 pages).
     - `main.pdf` (`docs/thesis/extended-abstract/`) - the 10-page English
       extended abstract, current.
-    - **Stale, do not review:** `Apex-Evaluation-Package.pdf` and
-      `Apex-Task-Script.pdf` in `docs/thesis/evaluation/` are both dated
-      2026-08-19 - a bundled export from before the arm-split closure, before
-      any form was built, before task-script.pdf was wired. Superseded by
-      `task-script.pdf` above; not regenerated since. Consider deleting once
-      confirmed unneeded, so they stop looking current.
+    - **Removed 2026-08-28:** `Apex-Evaluation-Package.{docx,pdf}` and
+      `Apex-Task-Script.{docx,pdf}` - a bundled export dated 2026-08-19, from
+      before the arm-split closure, before any form was built, before
+      task-script.pdf was wired. Superseded by `task-script.pdf` above and
+      confirmed no longer needed; deleted rather than left to be mistaken for
+      current. `build-docs.py` (the generator, still valid) is kept - rerun
+      it if a fresh researcher-facing bundle of the whole package is wanted.
 
 ### Pilot
 
