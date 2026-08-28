@@ -132,9 +132,20 @@ def main() -> int:
             {"epic": epic_ids[epic_idx], "user_story": story["id"]})
         print(f"  story: {subject} (id={story['id']}, status={story.get('status_extra_info', {}).get('name')})")
 
+    # Attach to an epic (the last one, arbitrarily) rather than leaving it
+    # orphaned: Apex's board fetch (frontend/lib/api/taiga-direct.ts
+    # taigaGetBoard) buckets stories by epic and only emits epics.map(...) -
+    # a story with no epic_id gets bucketed but the bucket is never returned,
+    # so it silently never appears in the Epics & Stories sidebar or the
+    # normal board view at all. Found live 2026-08-28 seeding this project;
+    # the orphan story was still findable via the Overview page's
+    # reconstruct-panel and story-index stats, just not where a participant
+    # would actually look. Giving it a real epic sidesteps the bug entirely.
     qa_trap = api(base_url, "POST", "/userstories", token, {"project": project_id, "subject": QA_TRAP_STORY})
-    print(f"  story: {QA_TRAP_STORY} (id={qa_trap['id']}, status={qa_trap.get('status_extra_info', {}).get('name')})"
-          " -- do not touch this story's status, ever.")
+    api(base_url, "POST", f"/epics/{epic_ids[-1]}/related_userstories", token,
+        {"epic": epic_ids[-1], "user_story": qa_trap["id"]})
+    print(f"  story: {QA_TRAP_STORY} (id={qa_trap['id']}, status={qa_trap.get('status_extra_info', {}).get('name')}, "
+          f"epic={EPICS[-1]}) -- do not touch this story's status, ever.")
 
     print()
     print(f"Done. Project URL: {args.taiga_url.replace('api.', '')}/project/{proj['slug']}/")

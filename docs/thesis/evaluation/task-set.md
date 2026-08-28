@@ -11,12 +11,23 @@ Nine tasks, roughly 45 minutes of tool time. Six carry a Raw TLX form.
 ## Environment, reset before every participant
 
 - A dedicated **Demo Project** on the PM instance, seeded with 3 epics and 6
-  stories at `phase_status: new`, plus one story named **Export board to CSV**
-  that must stay un-QA'd. Task 8 depends entirely on that story existing and
-  never having passed QA. Seeded via `scripts/seed-demo-project.py` (run
-  manually - it needs the Taiga password typed interactively, never scripted
-  further than that). Account and setup detail: `demo-environment.local.md`
+  stories at `phase_status: gherkin_locked` (see note below - `new` is not a
+  real reachable state), plus one story named **Export board to CSV** that
+  must stay un-QA'd. Task 8 depends entirely on that story existing and never
+  having passed QA. Seeded via `scripts/seed-demo-project.py` (run manually -
+  it needs the Taiga password typed interactively, never scripted further
+  than that). Account and setup detail: `demo-environment.local.md`
   (gitignored, not in this repo's history).
+  **Correction 2026-08-28:** `phase_status: "new"` is not actually reachable
+  anywhere in the app - it is never assigned by any backend code path
+  (verified: only appears once, as a fallback default for a story-index
+  entry with a missing field), and the Status Mapping UI explicitly excludes
+  it from the selectable target list (`Exclude<ApexPhaseStatus, "new">`,
+  frontend/components/sidebar/status-mapping-section.tsx). The real baseline
+  "nothing done yet" state for an imported Taiga story is `gherkin_locked`,
+  which is also the import heuristic's actual default. This still satisfies
+  Task 8 (`gherkin_locked` is not `qa_passed`) - no code or mapping change
+  needed, just use the default mapping as-is.
 - A GitHub repo with a **real codebase** in it, not an empty repo. Phase 3 and
   Phase 4 grounding read `github-context.md`; an empty repo produces vacuous
   output and the participant is then evaluating nothing. **Open as of
@@ -29,11 +40,13 @@ Nine tasks, roughly 45 minutes of tool time. Six carry a Raw TLX form.
 
 **Reset procedure:** delete
 `contextspec/<instance_id>/<project_id>/` for the demo project and re-seed the
-PM board. Then, in Apex: Settings -> Status Mapping, map Taiga's "New" status
-to Apex `new` (its default heuristic maps "New" to `gherkin_locked`, found
-2026-08-28 - see `demo-environment.local.md`), and only then click "Import
-from Taiga" on the Overview page - **not** "Rebuild", which only rescans
-Apex-generated files and will never see Taiga-native stories. Verify the reset
+PM board via `scripts/seed-demo-project.py`. Then, in Apex, click "Import from
+Taiga" on the Overview page directly - the default Status Mapping (Taiga "New"
+-> Apex "Gherkin Locked") is already correct, no change needed there. **Never
+click "Rebuild"** on this project - it only rescans Apex-generated
+`functional-spec.md` and fully replaces the story index from it, so it will
+silently wipe a Taiga-native import back to empty rather than "sync" it (found
+2026-08-28 - see `demo-environment.local.md`). Verify the reset
 by loading the project and confirming every story is back at `new` and
 `Export board to CSV` has no QA record.
 
