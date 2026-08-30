@@ -11,6 +11,13 @@ Sign-in credentials are the single shared dummyApex Taiga account - decided
 
 Usage:  python3 build-cards.py
 Needs:  google-chrome (headless print-to-pdf)
+
+The GitHub PAT is read from a local, gitignored secrets file next to this
+script (.cards-secrets.local: one line, GITHUB_PAT=<token>) rather than
+hardcoded here - this repo (thomastabs/apex) is public, and a token baked
+into tracked source would leak into git history the moment it's committed.
+Create that file yourself; it is never read by anything else and never
+committed (see .gitignore).
 """
 
 import html
@@ -19,12 +26,23 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+SECRETS_FILE = HERE / ".cards-secrets.local"
 
 TOOL_LINK = "https://apex-bolt.com"
 TAIGA_USERNAME = "dummyApex"
 TAIGA_PASSWORD = "dummytest123!"
 GITHUB_REPO = "https://github.com/thomastabs/dummyREPO"
-GITHUB_PAT = "<GITHUB PAT — REPLACE BEFORE PRINTING>"  # nosec: placeholder, not a real secret
+
+
+def load_github_pat() -> str:
+    if SECRETS_FILE.exists():
+        for line in SECRETS_FILE.read_text(encoding="utf-8").splitlines():
+            if line.startswith("GITHUB_PAT="):
+                return line.split("=", 1)[1].strip()
+    return "<GITHUB PAT — put GITHUB_PAT=... in .cards-secrets.local>"
+
+
+GITHUB_PAT = load_github_pat()
 
 CODES = ["P0 (pilot)"] + [f"P{i}" for i in range(1, 13)]
 

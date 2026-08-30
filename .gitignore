@@ -62,3 +62,10 @@ docs/thesis/**/main.pdf
 # and demo the study environment). Never track this - it holds a real
 # password even though the account itself is disposable.
 docs/thesis/evaluation/demo-environment.local.md
+
+# Participant code cards embed a real GitHub PAT (repo url + token printed
+# for participants to connect the demo project). The rendered PDF and the
+# local-only secrets file it reads from must never be tracked - this repo
+# (thomastabs/apex) is public.
+docs/thesis/evaluation/participant-cards.pdf
+docs/thesis/evaluation/.cards-secrets.local
