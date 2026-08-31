@@ -57,6 +57,8 @@ AGENTS.md
 # Compiled thesis output. Remove this line if you want the draft PDF tracked;
 # it is ~500KB and rewritten on every build, so it is ignored by default.
 docs/thesis/**/main.pdf
+# ...except the extended abstract - tracked on purpose (submitted deliverable).
+!docs/thesis/extended-abstract/main.pdf
 
 # Evaluation-study account credentials (dummy Taiga/Gmail account used to seed
 # and demo the study environment). Never track this - it holds a real
