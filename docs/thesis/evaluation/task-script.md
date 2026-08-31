@@ -84,8 +84,9 @@ every form so the answers can be linked together. Your name is never recorded.
 
 ### Task 1 - Sign in and open the project
 
-Sign in to Apex with the credentials on your card, and open the project called
-**Demo Project**.
+Sign in to Apex with the credentials on your card. Once signed in, select
+**Demo Project** from the project dropdown in the **Workspace panel on the
+right**.
 
 *Reference screenshot:*
 
@@ -97,8 +98,9 @@ Sign in to Apex with the credentials on your card, and open the project called
 
 ### Task 2 - Connect the project to GitHub
 
-Connect the project to the GitHub repository listed on your card, using the
-access token on the same card.
+In the **left sidebar**, open **Settings** (bottom of the list) and find the
+**GitHub** section. Connect the project to the GitHub repository listed on
+your card, using the access token on the same card.
 
 *Reference screenshot:*
 
@@ -287,8 +289,8 @@ nunca é registado.
 
 ### Tarefa 1 - Entrar e abrir o projecto
 
-Entre no Apex com as credenciais do seu cartão e abra o projecto chamado
-**Demo Project**.
+Entre no Apex com as credenciais do seu cartão. Depois de entrar, seleccione
+**Demo Project** no menu de projectos do **painel Workspace, à direita**.
 
 `->` Passe à tarefa seguinte sem preencher qualquer formulário.
 
@@ -296,8 +298,9 @@ Entre no Apex com as credenciais do seu cartão e abra o projecto chamado
 
 ### Tarefa 2 - Ligar o projecto ao GitHub
 
-Ligue o projecto ao repositório GitHub indicado no seu cartão, usando o token de
-acesso do mesmo cartão.
+Na **barra lateral esquerda**, abra **Settings** (fundo da lista) e encontre a
+secção **GitHub**. Ligue o projecto ao repositório GitHub indicado no seu
+cartão, usando o token de acesso do mesmo cartão.
 
 `->` Passe à tarefa seguinte sem preencher qualquer formulário.
 
