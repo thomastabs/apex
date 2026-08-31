@@ -40,7 +40,7 @@ consequences, all favourable:
 
 1. **Workload profile per phase.** The primary result becomes a matrix of six
    subscales by six tasks, not one flat score. "Phase 2 design carries the
-   highest mental demand while Phase 5 carries the highest frustration" is a
+   highest mental demand while Phase 3 carries the lowest" is a
    claim about *where in the framework* the burden sits, which is what this
    thesis is actually arguing about. A single aggregate cannot say that.
 2. **No recall decay.** Each rating is taken within a minute of the work it
@@ -306,13 +306,17 @@ the instrument.
 | 4, Phase 2 design | high Mental Demand, high Effort - most content to review, most decisions to accept or reject |
 | 6, Phase 3 packs | moderate throughout - largely a review task |
 | 7, Phase 4 QA | low across the board |
-| 8, Phase 5 gate | **highest Frustration, lowest Performance** - this task is designed to be refused |
+| 8, Phase 5 gate | moderate throughout - a successful deployment of the participant's own story, not the refusal test it was originally designed as (changed 2026-08-30, see `task-set.md`) |
 | 9, Export | lowest overall |
 
-Task 8's Frustration score is the number to watch. A refusal that the interface
-explains well should raise Frustration only modestly; a refusal that reads as a
-bug will spike it. Cross-read that score against UX item A4 and the open
-question about the same task.
+Task 8's prediction was originally "highest Frustration, lowest Performance" -
+that held only for the refusal-test design. With Task 8 redesigned as a
+successful completion of the same feature carried since Task 3, there is no
+longer a specific reason to expect it to stand out from Tasks 6-7 on any
+subscale; report whatever the data shows as a finding either way. Cross-read
+its Frustration score against the open question on the same task, and note
+in Chapter 9 that UX item A4 (originally cross-read here) no longer has a
+guaranteed trigger - see `instrument-apex-ux.md`.
 
 Writing these predictions down before the study is what allows a mismatch to be
 reported as a finding rather than rationalised afterwards.

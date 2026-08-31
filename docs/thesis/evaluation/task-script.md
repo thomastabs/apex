@@ -115,8 +115,10 @@ your card, using the access token on the same card.
 The team needs a new feature: **users must be able to reset a forgotten password
 by email.**
 
-Using Phase 1, write that requirement in your own words, answer any questions
-the tool asks you, produce the Gherkin scenarios, and lock them.
+In Phase 1, use **Create New** to define an epic for this feature and let the
+tool generate the stories under it. Write the requirement in your own words,
+answer any questions the tool asks you, produce the Gherkin scenarios, and
+lock them.
 
 *Reference screenshot:*
 
@@ -182,9 +184,10 @@ QA has passed.
 
 ---
 
-### Task 8 `[TLX]` - Deploy a different feature
+### Task 8 `[TLX]` - Deploy the feature you built
 
-Now try to deploy a **different** story, the one called **Export board to CSV**.
+Take the password reset feature you have been building since Task 3 through
+Phase 5, and deploy it.
 
 Tell the form what happened, in your own words.
 
@@ -311,8 +314,10 @@ cartão, usando o token de acesso do mesmo cartão.
 A equipa precisa de uma nova funcionalidade: **os utilizadores devem poder
 recuperar uma palavra-passe esquecida por email.**
 
-Usando a Fase 1, escreva esse requisito por palavras suas, responda às perguntas
-que a ferramenta lhe fizer, produza os cenários Gherkin e bloqueie-os.
+Na Fase 1, use **Create New** para definir um épico para esta funcionalidade
+e deixe a ferramenta gerar as histórias sob esse épico. Escreva o requisito
+por palavras suas, responda às perguntas que a ferramenta lhe fizer, produza
+os cenários Gherkin e bloqueie-os.
 
 `->` **Pare aqui. Abra o formulário de carga de trabalho da Tarefa 3 - `https://docs.google.com/forms/d/e/1FAIpQLSdXAbp9UWHtLBkjJUQhylS6Xc-dRveePiRPS1ZGReq2uwEipw/viewform?usp=pp_url&entry.1881857837=Tarefa+3+-+Transformar+um+requisito+em+cen%C3%A1rios+bloqueados` - e preencha-o antes de continuar.**
 
@@ -360,10 +365,10 @@ aprovado.
 
 ---
 
-### Tarefa 8 `[TLX]` - Colocar em produção uma funcionalidade diferente
+### Tarefa 8 `[TLX]` - Colocar em produção a funcionalidade que construiu
 
-Agora tente colocar em produção uma funcionalidade **diferente**, a que se chama
-**Export board to CSV**.
+Leve a funcionalidade de recuperação de palavra-passe que tem vindo a
+construir desde a Tarefa 3 até à Fase 5, e coloque-a em produção.
 
 Diga no formulário o que aconteceu, por palavras suas.
 

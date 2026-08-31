@@ -429,8 +429,14 @@ Q1: Short answer, required, `Your participant code`.
 A1  At any moment, I knew which phase of the process I was in.
 A2  I understood what the tool expected me to do next.
 A3  I could tell the difference between work the tool had finished and work it had not.
-A4  When the tool refused to let me continue, I understood why.
 ```
+
+A4 ("When the tool refused to let me continue, I understood why.") was built
+here originally, then **deleted from the live F3-EN form 2026-08-30** - it
+was the Task 8 refusal item, and Task 8 was redesigned to deploy the
+participant's own built story instead of a deliberately-un-QA'd different
+one, so nothing reliably refuses anyone anymore. See `instrument-apex-ux.md`
+and `task-set.md`.
 
 **Section B - Working with AI-generated content**
 
@@ -497,8 +503,10 @@ Q1: `O seu código de participante`.
 A1  Em qualquer momento, soube em que fase do processo estava.
 A2  Percebi o que a ferramenta esperava que eu fizesse a seguir.
 A3  Consegui distinguir o trabalho que a ferramenta tinha concluído daquele que não tinha.
-A4  Quando a ferramenta me impediu de continuar, percebi porquê.
 ```
+
+A4 removido do formulário F3-PT em 2026-08-30 - ver a nota equivalente na
+secção A (EN) acima.
 
 **Secção B - Trabalhar com conteúdo gerado por IA**
 

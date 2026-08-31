@@ -12,12 +12,15 @@ Nine tasks, roughly 45 minutes of tool time. Six carry a Raw TLX form.
 
 - A dedicated **Demo Project** on the PM instance, seeded with 3 epics and 6
   stories at `phase_status: gherkin_locked` (see note below - `new` is not a
-  real reachable state), plus one story named **Export board to CSV** that
-  must stay un-QA'd. Task 8 depends entirely on that story existing and never
-  having passed QA. Seeded via `scripts/seed-demo-project.py` (run manually -
-  it needs the Taiga password typed interactively, never scripted further
-  than that). Account and setup detail: `demo-environment.local.md`
-  (gitignored, not in this repo's history).
+  real reachable state), plus one story named **Export board to CSV**.
+  **No longer load-bearing as of 2026-08-30** - Task 8 was redesigned to
+  deploy the participant's own password-reset story instead (see Task 8
+  below), so `Export board to CSV`'s QA status no longer matters for any
+  task; it just sits in the seeded board like any other filler story. Seeded
+  via `scripts/seed-demo-project.py` (run manually - it needs the Taiga
+  password typed interactively, never scripted further than that). Account
+  and setup detail: `demo-environment.local.md` (gitignored, not in this
+  repo's history).
   **Correction 2026-08-28:** `phase_status: "new"` is not actually reachable
   anywhere in the app - it is never assigned by any backend code path
   (verified: only appears once, as a fallback default for a story-index
@@ -25,14 +28,22 @@ Nine tasks, roughly 45 minutes of tool time. Six carry a Raw TLX form.
   it from the selectable target list (`Exclude<ApexPhaseStatus, "new">`,
   frontend/components/sidebar/status-mapping-section.tsx). The real baseline
   "nothing done yet" state for an imported Taiga story is `gherkin_locked`,
-  which is also the import heuristic's actual default. This still satisfies
-  Task 8 (`gherkin_locked` is not `qa_passed`) - no code or mapping change
-  needed, just use the default mapping as-is.
+  which is also the import heuristic's actual default - no code or mapping
+  change needed, just use the default mapping as-is.
 - A GitHub repo with a **real codebase** in it, not an empty repo. Phase 3 and
   Phase 4 grounding read `github-context.md`; an empty repo produces vacuous
-  output and the participant is then evaluating nothing. **Open as of
-  2026-08-28:** `github.com/thomastabs/dummyREPO` is chosen but still empty -
-  see `demo-environment.local.md`.
+  output and the participant is then evaluating nothing. **Done:**
+  `github.com/thomastabs/dummyREPO` holds a copy of Outfolio (incl. context
+  files) as of 2026-08-28 - see `demo-environment.local.md`.
+- **No leftover password-reset epic.** Tasks 3-9 now build one continuous
+  story (epic created by the participant themselves in Task 3, carried
+  through to deployment in Task 8 and export in Task 9). The reset must
+  guarantee no epic resembling "password reset" / "forgot password" already
+  exists before a participant starts - if one does, Task 3 stops being "write
+  the requirement yourself" and Task 8 stops being a fresh QA-gated deploy.
+  `scripts/seed-demo-project.py` never creates one, but a prior participant's
+  (or a test walkthrough's) leftover epic would - check for and delete any
+  such epic as part of every reset, not just before the first participant.
 - A PAT and repo URL printed on the participant card, along with sign-in
   credentials and the participant code.
 - AI provider key configured server-side so nobody is blocked on it.
@@ -46,13 +57,15 @@ Taiga" on the Overview page directly - the default Status Mapping (Taiga "New"
 click "Rebuild"** on this project - it only rescans Apex-generated
 `functional-spec.md` and fully replaces the story index from it, so it will
 silently wipe a Taiga-native import back to empty rather than "sync" it (found
-2026-08-28 - see `demo-environment.local.md`). Verify the reset
-by loading the project and confirming every story is back at `new` and
-`Export board to CSV` has no QA record.
+2026-08-28 - see `demo-environment.local.md`). Verify the reset by loading
+the project, confirming every seeded story is back at `phase_status:
+gherkin_locked`, and confirming there is no password-reset epic left over
+from a previous participant or test run (see the point above).
 
-Test the reset before the pilot. A half-reset project is the most likely way to
-silently ruin a participant's data, because task 8 will not refuse if the story
-already passed QA in a previous session.
+Test the reset before the pilot. A half-reset project is the most likely way
+to silently ruin a participant's data: a leftover password-reset epic means
+Task 3 is no longer "write the requirement yourself" and Task 8 is no longer
+a fresh QA-gated deploy for that participant.
 
 ---
 
@@ -122,21 +135,29 @@ decision the tool deliberately will not make for them.
 **Predicted TLX:** lowest demands of the marked tasks.
 **Expected:** 6 min.
 
-### Task 8 `[TLX]` - The deployment gate
-**Surface:** Phase 5 gate, phase-status progression, refusal messaging.
-**Designed to be refused.** `Export board to CSV` is not `qa_passed`, so the
-gate blocks it.
-**The measure is comprehension, not completion.** Score the written explanation:
-
-- **2** - names the missing QA step and the required order
-- **1** - knows a process rule blocked them, cannot say which
-- **0** - concludes the tool is broken or the story is corrupt
-
-**Watch for:** whether they hunt for an override; whether they find the phase
-status; the exact words they use for the refusal.
-**Predicted TLX:** highest Frustration, lowest Performance. If Frustration is
-only moderate, the refusal messaging is doing its job, and that is a reportable
-result about error surfacing.
+### Task 8 `[TLX]` - Deploy the feature you built
+**Surface:** Phase 5 (pre-flight delta check, deploy pack, Deployment Gate),
+phase-status progression.
+**Changed 2026-08-30:** this task was originally designed as a refusal test
+(deploy the deliberately-never-QA'd `Export board to CSV` story and be
+blocked at the gate). Redesigned so Tasks 3-9 form one continuous
+requirement-to-deployment flow through the password-reset feature, instead
+of switching to an unrelated story for the deployment step alone. The
+refusal/comprehension measure is dropped entirely, not moved elsewhere - see
+`EVALUATION-PLAN.md`'s deviation log. `Export board to CSV` stays seeded (it
+is still a normal, harmless story in the board) but is no longer load-bearing
+for any task; Tomás confirmed dropping the measure rather than relocating it
+to an optional task or adding a 10th task.
+**Success:** the password-reset story clears the pre-flight check, gets a
+deploy pack, passes the Deployment Gate, and is recorded as deployed - since
+it already passed QA in Task 7, this should succeed rather than be refused.
+**Watch for:** whether the participant understands what pre-flight/deploy
+pack/Deployment Gate each do, distinct from just clicking through them;
+whether they notice the gate is now passing *because* of the QA sign-off
+they gave in Task 7 - that link (QA in Task 7 -> deploy allowed in Task 8) is
+the actual construct now under test, replacing the old refusal test.
+**Predicted TLX:** moderate - no longer expected to be the highest-Frustration
+task now that it is a successful completion rather than a designed block.
 **Expected:** 6 min.
 
 ### Task 9 `[TLX]` - Export

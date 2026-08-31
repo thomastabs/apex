@@ -185,19 +185,22 @@ Six of them carry a Raw TLX form.
 | 5 | Resume a previous session | | Session store, active-project persistence |
 | 6 | Break the work into implementation tasks | yes | Phase 3, packs, task DAG |
 | 7 | Test plan and QA sign-off | yes | Phase 4 |
-| 8 | Deploy a **different**, un-QA'd feature | yes | Phase 5 deployment gate |
+| 8 | Deploy the feature you built | yes | Phase 5 (pre-flight, deploy pack, gate) |
 | 9 | Export what the tool produced | yes | Export and download paths |
 
 Optional and excluded from all measures: Phase 6 drift check, traceability
 explorer, Autopilot.
 
-**Task 8 is designed to be refused.** The gate blocks a story that is not
-`qa_passed`. Whether the participant understands *why* is the single most
-informative observation available, and it is the one place the UI has to explain
-a refusal rather than celebrate a success. It is captured by the open text on the
-TLX form and by UX item A4. There is no observer-scored 2/1/0 judgement, because
-there is no observer; the open text is the whole of the evidence and is analysed
-as such.
+**Changed 2026-08-30, deviation from the original design.** Task 8 was
+originally a refusal test: deploy a different, deliberately-never-QA'd story
+and be blocked at the gate, with the write-up on comprehension of the
+refusal. Redesigned so Tasks 3-9 form one continuous requirement-to-deployment
+flow through a single feature the participant builds themselves, rather than
+switching to an unrelated story at the deployment step. The refusal test is
+dropped, not relocated; `task-set.md` records the full rationale. This also
+means **UX item A4** ("When the tool refused to let me continue, I understood
+why") no longer has a guaranteed trigger in the numbered task flow - it was
+built as the Task 8 item. See `instrument-apex-ux.md` for how that is handled.
 
 **Task 5 is a real regression test, not filler.** Session state lives in
 `sessionStorage` and the active-project-survives-a-fresh-session bug was fixed
@@ -311,10 +314,12 @@ and the likely participants are Portuguese speakers.
 - Then per-task aggregate, so the phases can be ranked by total workload.
 - Then the subscale profile collapsed across tasks, for the overall claim.
 - The single grand aggregate last, if at all.
-- Per-task predictions are written down in `instrument-nasa-tlx.md` in advance,
-  including the specific prediction that task 8, the deployment gate, carries the
-  highest Frustration and lowest Performance. A mismatch is then a finding rather
-  than something rationalised afterwards.
+- Per-task predictions are written down in `instrument-nasa-tlx.md` in advance.
+  **Updated 2026-08-30:** the prediction that task 8 carries the highest
+  Frustration and lowest Performance no longer holds - that prediction was
+  written for the original refusal-test design, and task 8 now redesigned as
+  a successful deployment. A mismatch against whatever is predicted now is
+  still a finding rather than something rationalised afterwards.
 - One arm, one response scale, so there is nothing to pool or separate. The
   scale actually used is disclosed regardless.
 
@@ -569,6 +574,8 @@ Note the article title capitalises "validation" lowercase in the original.
 - [ ] Pilot run with **one** participant, not counted in results, to time the
       script and catch broken instructions. Six TLX submissions must come back
       correctly labelled - if they do not, fix the form before anyone else runs
-- [ ] A clean demo project seeded, including the un-QA'd `Export board to CSV`
-      story that task 8 depends on, and a reset procedure that actually works
+- [x] A clean demo project seeded, and a reset procedure that actually works
+      (verified 2026-08-30). `Export board to CSV` no longer load-bearing -
+      task 8 was redesigned to deploy the participant's own built story;
+      see `task-set.md`
 - [ ] Chapter 8 `sec:demo_design` written before the first real session

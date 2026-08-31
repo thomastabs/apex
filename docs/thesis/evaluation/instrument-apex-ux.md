@@ -34,10 +34,17 @@ a centre-point answer would manufacture data.
 | A1 | At any moment, I knew which phase of the process I was in. |
 | A2 | I understood what the tool expected me to do next. |
 | A3 | I could tell the difference between work the tool had finished and work it had not. |
-| A4 | When the tool refused to let me continue, I understood why. |
 
-A4 is the Task 8 item, the deployment gate that is designed to refuse. It is
-the highest-value question on this sheet.
+**Removed 2026-08-30.** A4 ("When the tool refused to let me continue, I
+understood why") was written specifically as the Task 8 item, for a
+deployment-gate refusal that task was originally designed to trigger. Task 8
+was redesigned to deploy the participant's own built story instead (see
+`task-set.md`), so nothing in the numbered task flow reliably refuses anyone
+anymore, and A4 lost its guaranteed trigger. Deleted from both live forms
+(F3-EN, F3-PT) the same day - not left in as a question most participants
+would answer N/A, since the two remaining options were either that (a
+question that measures little) or reword it into something without a
+guaranteed referent either. Section A is now A1-A3 only.
 
 ### B. Working with AI-generated content
 
@@ -105,7 +112,9 @@ Escala: `1 = Discordo totalmente` ... `5 = Concordo totalmente`, mais
 | A1 | Em qualquer momento, soube em que fase do processo estava. |
 | A2 | Percebi o que a ferramenta esperava que eu fizesse a seguir. |
 | A3 | Consegui distinguir o trabalho que a ferramenta tinha concluído daquele que não tinha. |
-| A4 | Quando a ferramenta me impediu de continuar, percebi porquê. |
+
+**Removido 2026-08-30** - ver a nota em inglês acima; A4 já não existe em
+nenhum dos dois formulários (F3-EN, F3-PT).
 
 ### B. Trabalhar com conteúdo gerado por IA
 
@@ -193,10 +202,9 @@ With N around 12 and an unvalidated instrument, the analysis is:
 - items where the spread is bimodal are more interesting than items where it is
   high or low; a split answer usually means the interface works for one mental
   model and not another, and the interview notes will say which
-- cross-read A4 against the Task 8 TLX Frustration score and against the free
-  text on the Task 8 TLX form, in which the participant describes in their own
-  words what happened when they tried to deploy. There is no observer-scored
-  comprehension judgement - the moderated arm was dropped 2026-08-17 - so that
-  free text is the whole of the comprehension evidence. If participants say they
-  understood the refusal but cannot describe it, that gap is a real and
-  reportable finding about confidence exceeding comprehension
+- **Removed 2026-08-30:** this bullet used to cross-read A4 against the Task 8
+  TLX Frustration score and the Task 8 free text, as the deployment-gate
+  refusal-comprehension check. A4 is deleted (Task 8 no longer refuses
+  anyone - see `task-set.md`), so that cross-read no longer applies. The
+  Task 8 free text still exists and is still worth reading (it now describes
+  a successful deploy in the participant's own words), just not against A4
