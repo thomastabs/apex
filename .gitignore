@@ -60,6 +60,12 @@ AGENTS.md
 # password even though the account itself is disposable.
 docs/thesis/evaluation/demo-environment.local.md
 
+# Interview participant code mapping (T1-T5/E1 -> real names). The thesis
+# text is anonymised on purpose; this is the retained, researcher-only
+# record that makes the reported aggregate/quoted material traceable back
+# to a real person, per the retention commitment in Chapter 9's own text.
+docs/thesis/evaluation/interview-code-mapping.local.md
+
 # Participant code cards embed a real GitHub PAT (repo url + token printed
 # for participants to connect the demo project). The rendered PDF and the
 # local-only secrets file it reads from must never be tracked - this repo
