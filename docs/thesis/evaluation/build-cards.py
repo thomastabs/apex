@@ -62,8 +62,11 @@ def card_html(code: str) -> str:
     <tr><td>Sign-in password</td><td class="mono">{TAIGA_PASSWORD}</td></tr>
     <tr><td>Project</td><td>Demo Project</td></tr>
     <tr><td>GitHub repo</td><td class="mono">{GITHUB_REPO}</td></tr>
-    <tr><td>GitHub PAT</td><td class="mono">{html.escape(GITHUB_PAT)}</td></tr>
   </table>
+  <div class="pat-row">
+    <div class="pat-label">GitHub PAT</div>
+    <div class="pat-value">{html.escape(GITHUB_PAT)}</div>
+  </div>
 </div>
 """
 
@@ -76,22 +79,31 @@ def build() -> str:
 <style>
   @page {{ size: A4; margin: 10mm; }}
   body {{ font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; margin: 0; }}
-  .grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }}
+  /* Single column, full page width: the PAT below needs enough horizontal
+     room to render as one unbroken line. A wrapped mono string still LOOKS
+     copyable in a PDF viewer, but Chrome's text layer inserts a real break
+     at the wrap point, so pasting it elsewhere corrupts the token (e.g.
+     GitHub then rejects it as a malformed credential). Never let it wrap. */
+  .grid {{ display: grid; grid-template-columns: 1fr; gap: 4mm; }}
   .card {{
     border: 1px dashed #999;
     border-radius: 6px;
-    padding: 10px 14px;
+    padding: 8px 14px;
     page-break-inside: avoid;
   }}
   .code-row {{ display: flex; justify-content: space-between; align-items: baseline;
-               border-bottom: 2px solid #333; padding-bottom: 4px; margin-bottom: 8px; }}
-  .code {{ font-size: 22pt; font-weight: bold; }}
+               border-bottom: 2px solid #333; padding-bottom: 4px; margin-bottom: 6px; }}
+  .code {{ font-size: 20pt; font-weight: bold; }}
   .label {{ font-size: 9pt; color: #555; text-transform: uppercase; letter-spacing: 0.05em; }}
   table {{ width: 100%; border-collapse: collapse; font-size: 9.5pt; }}
-  td {{ padding: 3px 0; vertical-align: top; }}
-  td:first-child {{ width: 34%; color: #555; white-space: nowrap; }}
+  td {{ padding: 2px 0; vertical-align: top; }}
+  td:first-child {{ width: 20%; color: #555; white-space: nowrap; }}
   .mono {{ font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-           font-size: 9pt; word-break: break-all; }}
+           font-size: 9pt; white-space: nowrap; }}
+  .pat-row {{ display: flex; align-items: baseline; gap: 8px; margin-top: 2px; }}
+  .pat-label {{ font-size: 9.5pt; color: #555; white-space: nowrap; }}
+  .pat-value {{ font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+                font-size: 8pt; white-space: nowrap; }}
 </style>
 </head><body>
 <div class="grid">
