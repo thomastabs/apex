@@ -15,6 +15,11 @@ wins.
 
 ---
 
+> **The table in this section is the original 2026-08-19 measurement, kept for
+> the record. It is superseded by §1a-bis's revised targets, which are in turn
+> superseded by the 2026-09-01 numbers now in that section** - read §1a-bis for
+> the current state, not the table immediately below.
+
 ## 1. The page limit - currently violated
 
 The guide settles what the 80 pages counts, which the regulation alone left
@@ -81,63 +86,66 @@ Appendices belong in the annex either way, but note the guide's phrasing: annexe
 are attached *to* the dissertation so that the whole stays under 100. Moving them
 out of the 80 is legitimate; it does not make them free.
 
-## 1a-bis. The operative targets, revised 2026-08-19
+## 1a-bis. The operative targets, revised 2026-09-01
 
 Three ceilings apply at once, and they are not the same number. Planning against
 only one of them is how the earlier budgets in this file went wrong.
 
-| # | Ceiling | Source | Applies to | State on 2026-08-19 |
+**Measured 2026-09-01, from the rendered PDF (`pdftotext`, chapter boundaries
+found by first-line heading match per page, not estimated):**
+
+| # | Ceiling | Source | Applies to | State on 2026-09-01 |
 |---|---|---|---|---|
-| 1 | **80 pages** | Guide §1, "texto principal" | main text alone, Chapters 1 to 10 | 71, compliant |
-| 2 | **80 pages** | Tomas's target, matching Cruz | main text **plus bibliography** | 78, compliant but with four chapters unwritten |
-| 3 | **100 pages** | Guide §1, "o conjunto" | the whole assembled PDF | 99, compliant |
+| 1 | **80 pages** | Guide §1, "texto principal" | main text alone, Chapters 1 to 10 | 70, compliant |
+| 2 | **80 pages** | Tomas's target, matching Cruz | main text **plus bibliography** | 76, compliant |
+| 3 | **100 pages** | Guide §1, "o conjunto" | the whole assembled PDF | 107, **over by 7** |
 
-Ceiling 2 is the working target because it is the strictest of the three in
-practice: Cruz landed at 67 main text plus a 6-page bibliography, 73 together,
-and that is the shape being matched.
+Ceiling 3 is now the one that binds, not ceiling 2: main text and main-plus-
+bibliography both sit inside their targets already. What pushed the whole
+document over is the appendices, now real content rather than `\todo` stubs (13
+pages, against the 6-to-8 estimated in the paragraph below when this section
+was first written) - and Chapters 9 and 10 both still carry unwritten `\todo`
+sections (`sec:analytical`, `sec:eval_results`, `sec:threats`,
+`sec:eval_discussion` in Ch9; the future-work list in Ch10) that will add pages
+once filled, not subtract them. The 7-page overage today is the floor, not the
+ceiling, of what has to come out.
 
-**Front matter is now 18 pages, not 22.** The template printed a List of
-Algorithms and a Listings index, both of which were empty: no algorithm
-environment survives in the document and there are no code listings anywhere.
-The template's own comment at those lines reads "If not used, comments the
-lines!", so commenting them out is the prescribed behaviour rather than a
-formatting change, and it removed four pages. The lists of figures, tables and
-abbreviations that the guide actually requires are untouched.
-
-That fixes the fixed costs and leaves this arithmetic:
+Front matter: 18 pages. Bibliography: 6 pages (not 7). Appendices: 13 pages (A:
+6, B: 7).
 
 ```
-front matter 18 + bibliography 7 = 25 pages that are not main text or annex
-ceiling 3 (100 total)  ->  main text + appendices <= 75
-ceiling 2 (80 main+bib) ->  main text <= 73
+front matter 18 + bibliography 6 = 24 pages that are not main text or annex
+ceiling 3 (100 total)  ->  main text + appendices <= 76
+current: main text 70 + appendices 13 = 83, over by 7
 ```
 
-The two interact, and this is the constraint that matters most: **appendices are
-not free.** Appendix B still has to reproduce four instruments, both interview
-guides, the consent form and the anonymised raw scores, which is realistically
-six to eight pages. Every page moved out of a chapter and into an annex still
-counts against ceiling 3.
+Appendices are still not free, and are already past the old six-to-eight-page
+estimate for Appendix B alone (it is 7 on its own; Appendix A adds another 6).
+Every page moved out of a chapter and into an annex still counts against
+ceiling 3.
 
-**Working budget: main text 68, bibliography 7, appendices 7, front matter 18,
-total 100.** Main text plus bibliography is then 75, against Cruz's 73.
+| Chapter | Now (2026-09-01) | Budget (2026-08-19) | Delta |
+|---|---|---|---|
+| 1 Introduction | 2 | 2 | on target |
+| 2 Research Methodology | 4 | 3 | +1 |
+| 3 Research Background | 4 | 4 | on target |
+| 4 Systematic Literature Review | 14 | 10 | +4 |
+| 5 Research Problem | 2 | 2 | on target |
+| 6 Research Proposal | 14 | 13 | +1 |
+| 7 Apex | 12 | 11 | +1 |
+| 8 Demonstration | 6 | 9 | -3, room to grow |
+| 9 Evaluation | 10 | 11 | -1, but `\todo` sections still unwritten |
+| 10 Conclusion | 2 | 3 | -1, but future-work `\todo` still unwritten |
+| **Main text** | **70** | **68** | **+2** |
 
-| Chapter | Now | Budget |
-|---|---|---|
-| 1 Introduction | 2 | 2 |
-| 2 Research Methodology | 4 | 3 |
-| 3 Research Background | 4 | 4 |
-| 4 Systematic Literature Review | 24 | **10** |
-| 5 Research Problem | 4 | 2 |
-| 6 Research Proposal | 18 | 13 |
-| 7 Apex | 4 | 11 |
-| 8 Demonstration | 2 | 9 |
-| 9 Evaluation | 8 | 11 |
-| 10 Conclusion | 1 | 3 |
-| **Main text** | **71** | **68** |
-
-Twenty-two pages come out of Chapters 2, 4, 5 and 6; twenty-four go into
-Chapters 7 to 10, which is where the marks are. Chapter 4 alone owes fourteen of
-the twenty-two.
+Chapters 4 and 6 were the ones flagged for the largest cuts on 2026-08-19 (24
+and 28 pages respectively at the time) and have already come down to 14 each -
+most of the earlier 22-page overage is already gone. What is left is smaller
+and more evenly spread: about 7 pages need to come out of the document as it
+stands, purely to reach ceiling 3 today, before Chapters 9 and 10 finish
+growing into their still-open `\todo` sections and push the total back up.
+Cutting redundancy and restated claims throughout, rather than any single
+chapter, is the realistic source for that margin now.
 
 ## 1a. The benchmark: what actually passed, from the same supervisor
 
