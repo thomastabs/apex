@@ -719,8 +719,12 @@ def pull_context_from_wiki(
         _logger.error("context wiki pull failed: %s", exc)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Failed to pull PM Wiki pages: {exc}") from exc
     for filename, content in contents.items():
+        old_content = context.read_context_file(filename)
         context.write_context_file(filename, content)
-        context.amend_locked_spec(filename, "Pulled from Plane Pages" if pm_tool == "plane" else "Pulled from Taiga Wiki")
+        context.amend_locked_spec(
+            filename, "Pulled from Plane Pages" if pm_tool == "plane" else "Pulled from Taiga Wiki",
+            old_content=old_content,
+        )
     refreshed = get_context_files(ctx)
     return {"ok": all(result.get("ok") for result in results), "results": results, **refreshed}
 
@@ -1522,11 +1526,16 @@ def update_context_file(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown context file.")
     context = ContextService()
     context.set_active(ctx)
+    # Captured BEFORE the write so amend_locked_spec can diff old vs new —
+    # for functional-spec.md this is what lets it narrow affected_story_ids
+    # to the stories whose own @SC-n scenario actually changed, instead of
+    # every story past gherkin_locked. See amend_locked_spec's docstring.
+    old_content = context.read_context_file(filename)
     context.write_context_file(filename, payload.content)
     # Specs stay live and editable at any time. A post-lock edit is still
     # logged as an amendment (audit trail + version bump) — never silent —
     # but it's informational only, not a required per-story review.
-    context.amend_locked_spec(filename, payload.note)
+    context.amend_locked_spec(filename, payload.note, old_content=old_content)
     return get_context_files(ctx)
 
 

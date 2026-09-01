@@ -3522,16 +3522,64 @@ def record_amendment(filename: str, note: str, story_ids: list[int]) -> None:
     am.write_text(header.rstrip() + "\n" + block, encoding="utf-8")
 
 
-def amend_locked_spec(filename: str, note: str = "") -> dict:
+def _functional_spec_changed_story_ids(old_content: str, new_content: str) -> set[int] | None:
+    """Story ids whose own @SC-n scenario bullets actually changed between
+    old and new functional-spec.md content (added, removed, or re-titled).
+
+    Returns None when nothing changed inside a tagged scenario bullet even
+    though the file's content did change (a heading, a story description, or
+    anything the parser doesn't recognise) — the caller must treat None as
+    "could not narrow", not "no one affected", to avoid under-reporting.
+    """
+    from src import ai_engine  # lazy: ai_engine imports context_manager lazily too
+
+    old_ids = {(sid, scid): title for sid, scid, title in ai_engine.parse_gherkin_scenario_ids(old_content)}
+    new_ids = {(sid, scid): title for sid, scid, title in ai_engine.parse_gherkin_scenario_ids(new_content)}
+    changed_keys = {k for k in (set(old_ids) | set(new_ids)) if old_ids.get(k) != new_ids.get(k)}
+    if old_content.strip() != new_content.strip() and not changed_keys:
+        return None
+    return {sid for sid, _scid in changed_keys}
+
+
+def amend_locked_spec(filename: str, note: str = "", old_content: str | None = None) -> dict:
     """Record a post-lock edit to a spec file. Returns the amendment outcome.
 
     `amended` is False (no log entry) when the file is not a lockable spec
-    artifact or no story has passed its lock yet (a normal pre-lock edit)."""
+    artifact or no story has passed its lock yet (a normal pre-lock edit).
+
+    `affected_story_ids` is scoped to the stories actually touched ONLY when
+    the caller supplies `old_content` for functional-spec.md: each @SC-n
+    scenario id already carries an exact owning story_id in spec-index.json
+    (`rebuild_spec_index`'s scenario entries) — unlike technical-spec.md's
+    endpoint/entity ids or design-bundle.md's screen ids, which have no
+    per-story ownership anywhere in the system. That gap is exactly what
+    made the original spec-drift flag (see Chapter_7-Apex.tex) cascade: the
+    technical spec is one project-wide file, so an edit could not be
+    attributed and flagged every story past design_locked at once (44 at a
+    time, in the incident that led to it being reverted). This does NOT fix
+    that case — endpoint/entity story-ownership still doesn't exist anywhere
+    in the system, and fabricating it here would repeat the same mistake in
+    reverse (false precision instead of false breadth). It narrows exactly
+    the one dimension spec-index already tracks precisely. Every other spec
+    file, and any functional-spec.md edit without old_content or where the
+    diff falls outside tagged scenario bullets, keeps the original honest
+    fallback: every story at or past this file's lock phase.
+    """
     story_ids = affected_stories_for_spec(filename)
     if not story_ids:
         return {"amended": False, "filename": filename, "affected_story_ids": [], "note": note}
-    record_amendment(filename, note, story_ids)
-    return {"amended": True, "filename": filename, "affected_story_ids": story_ids, "note": note}
+    scoped = story_ids
+    if filename == "functional-spec.md" and old_content is not None:
+        changed = _functional_spec_changed_story_ids(old_content, read_context_file(filename))
+        if changed is not None:
+            scoped = sorted(s for s in story_ids if s in changed)
+            if not scoped:
+                # Nothing changed for any lock-eligible story (e.g. only a
+                # not-yet-locked story's scenario changed) -- not an
+                # amendment against anyone currently locked.
+                return {"amended": False, "filename": filename, "affected_story_ids": [], "note": note}
+    record_amendment(filename, note, scoped)
+    return {"amended": True, "filename": filename, "affected_story_ids": scoped, "note": note}
 
 
 def get_amendments() -> str:

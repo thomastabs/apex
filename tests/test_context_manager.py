@@ -1538,6 +1538,84 @@ class TestSpecCoEvolution:
         assert "raise rate limit" in log
         assert "#1" in log
 
+    # -- functional-spec.md scoping: the spec-drift revival ------------------
+
+    FS_TWO_STORIES_OLD = (
+        "## Story 1: Login\n\n"
+        "@SC-1\n"
+        "Scenario: happy path\n"
+        "  Given a\n  When b\n  Then c\n\n"
+        "## Story 2: Logout\n\n"
+        "@SC-1\n"
+        "Scenario: logout works\n"
+        "  Given a\n  When b\n  Then c\n"
+    )
+    FS_STORY1_SCENARIO_RETITLED = FS_TWO_STORIES_OLD.replace(
+        "Scenario: happy path\n", "Scenario: happy path (2FA)\n",
+    )
+
+    def test_scenario_edit_narrows_to_the_owning_story_only(self, ctx):
+        """The exact case the reverted feature got wrong: an edit to ONE
+        story's scenario must not flag every other story past lock."""
+        ctx.init_context()
+        ctx.write_context_file("functional-spec.md", self.FS_TWO_STORIES_OLD)
+        ctx.upsert_story_index(1, phase_status="implementation")
+        ctx.upsert_story_index(2, phase_status="implementation")
+        ctx.write_context_file("functional-spec.md", self.FS_STORY1_SCENARIO_RETITLED)
+        result = ctx.amend_locked_spec(
+            "functional-spec.md", old_content=self.FS_TWO_STORIES_OLD,
+        )
+        assert result == {
+            "amended": True, "filename": "functional-spec.md",
+            "affected_story_ids": [1], "note": "",
+        }
+
+    def test_edit_outside_any_scenario_tag_falls_back_to_full_set(self, ctx):
+        """A change the parser can't attribute to a specific scenario (here:
+        a story's own heading/title) must not under-report — same honest
+        fallback as before this change, not silently zero."""
+        ctx.init_context()
+        ctx.write_context_file("functional-spec.md", self.FS_TWO_STORIES_OLD)
+        ctx.upsert_story_index(1, phase_status="implementation")
+        ctx.upsert_story_index(2, phase_status="implementation")
+        new_content = self.FS_TWO_STORIES_OLD.replace("Story 1: Login", "Story 1: Sign in")
+        ctx.write_context_file("functional-spec.md", new_content)
+        result = ctx.amend_locked_spec("functional-spec.md", old_content=self.FS_TWO_STORIES_OLD)
+        assert sorted(result["affected_story_ids"]) == [1, 2]
+
+    def test_without_old_content_keeps_the_original_unscoped_behavior(self, ctx):
+        """Callers that don't pass old_content (still valid) get exactly the
+        pre-existing behavior -- no silent narrowing they didn't ask for."""
+        ctx.init_context()
+        ctx.upsert_story_index(1, phase_status="implementation")
+        ctx.upsert_story_index(2, phase_status="implementation")
+        result = ctx.amend_locked_spec("functional-spec.md", note="no diff supplied")
+        assert sorted(result["affected_story_ids"]) == [1, 2]
+
+    def test_scenario_edit_for_a_not_yet_locked_story_is_not_an_amendment(self, ctx):
+        ctx.init_context()
+        ctx.write_context_file("functional-spec.md", self.FS_TWO_STORIES_OLD)
+        # Story 1 is deliberately absent from the index -- a story only gets
+        # an entry once it reaches gherkin_locked, so "not yet lock-eligible"
+        # means "not indexed at all", not a phase_status value to set.
+        ctx.upsert_story_index(2, phase_status="implementation")
+        # Only story 1's scenario changes -- story 1 isn't lock-eligible yet.
+        ctx.write_context_file("functional-spec.md", self.FS_STORY1_SCENARIO_RETITLED)
+        result = ctx.amend_locked_spec("functional-spec.md", old_content=self.FS_TWO_STORIES_OLD)
+        assert result == {"amended": False, "filename": "functional-spec.md", "affected_story_ids": [], "note": ""}
+
+    def test_technical_spec_edits_stay_project_wide(self, ctx):
+        """No per-story ownership exists for endpoint/entity ids anywhere in
+        the system (unlike scenarios) -- narrowing here would be fabricated
+        precision, so this file's behavior is deliberately unchanged."""
+        ctx.init_context()
+        ctx.upsert_story_index(1, phase_status="implementation")
+        ctx.upsert_story_index(2, phase_status="implementation")
+        result = ctx.amend_locked_spec(
+            "technical-spec.md", old_content="# old\n\n- {EP-1}: `GET /x`\n",
+        )
+        assert sorted(result["affected_story_ids"]) == [1, 2]
+
 
 # ---------------------------------------------------------------------------
 # Phase 6 Maintenance — feedback triage store (F1/F2)

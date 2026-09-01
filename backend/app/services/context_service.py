@@ -135,8 +135,8 @@ class ContextService:
     def reset_context_file(self, filename: str) -> None:
         context_manager.reset_context_file(filename)
 
-    def amend_locked_spec(self, filename: str, note: str = "") -> dict:
-        return context_manager.amend_locked_spec(filename, note)
+    def amend_locked_spec(self, filename: str, note: str = "", old_content: str | None = None) -> dict:
+        return context_manager.amend_locked_spec(filename, note, old_content=old_content)
 
     def set_conformance_regressed(self, story_id: int, reason: str = "") -> None:
         context_manager.set_conformance_regressed(story_id, reason)
