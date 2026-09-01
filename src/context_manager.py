@@ -3727,6 +3727,7 @@ def create_maintenance_item(
     ext_ref: str = "",
     linked_story_id: int | None = None,
     detected_at: str = "",
+    severity: str = "",
 ) -> dict:
     """Create a new maintenance item with a sequential id. Returns the item.
 
@@ -3738,6 +3739,13 @@ def create_maintenance_item(
     so every item always has a usable detection timestamp. This is the anchor
     AnalyticsService uses to tell a pre-deploy Fix-Bolt apart from a genuine
     post-deploy escape: see `AnalyticsService._escape`.
+
+    `severity` is the PM tool's own ground-truth label (Taiga's project-
+    configurable severity name, or Plane's priority) when the item came from
+    a PM-issue import — empty for manual entries and sources with no such
+    concept (GitHub, Figma). Purely informational: a human deciding
+    Fast/Secure Lane sees it alongside the AI's own severity_hint, but
+    nothing in routing reads it automatically.
     """
     with _index_lock():
         # Read raw (unsorted) to compute the next id safely.
@@ -3768,6 +3776,7 @@ def create_maintenance_item(
             "created_at": now,
             "updated_at": now,
             "detected_at": detected_at or now,
+            "severity": severity,
         }
         items.append(item)
         _write_maintenance_items(items)

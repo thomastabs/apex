@@ -1563,6 +1563,13 @@ class TestMaintenanceItems:
         assert item["detected_at"] == "2026-06-01T00:00:00+00:00"
         assert item["detected_at"] != item["created_at"]
 
+    def test_severity_defaults_empty_and_round_trips_when_supplied(self, ctx):
+        ctx.init_context()
+        manual = ctx.create_maintenance_item(subject="manual report")
+        assert manual["severity"] == ""
+        imported = ctx.create_maintenance_item(subject="TG#12", source="taiga", severity="Critical")
+        assert imported["severity"] == "Critical"
+
     def test_load_returns_newest_first(self, ctx):
         ctx.init_context()
         ctx.create_maintenance_item(subject="one")

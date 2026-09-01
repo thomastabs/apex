@@ -135,7 +135,11 @@ export async function fetchGithubFile(ctx: GithubSyncContext, path: string): Pro
 // comments have no equivalent). When present it becomes a maintenance item's
 // `detected_at` on import, so AnalyticsService's escape-rate calc measures
 // from the real report time instead of Apex's own (later) import time.
-export type ExternalIssue = { ext_ref: string; subject: string; description: string; created_at?: string };
+// severity is the PM tool's own ground-truth label (Taiga's project-configurable
+// severity name, or Plane's priority) — optional since GitHub/Figma have no
+// equivalent concept. Persisted on import so a human deciding Fast/Secure
+// Lane sees it, distinct from (and a check on) the AI's own severity_hint.
+export type ExternalIssue = { ext_ref: string; subject: string; description: string; created_at?: string; severity?: string };
 
 /** List open GitHub Issues (excluding PRs) as maintenance-intake candidates. */
 export async function fetchGithubIssues(ctx: GithubSyncContext): Promise<ExternalIssue[]> {

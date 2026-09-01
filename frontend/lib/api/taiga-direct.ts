@@ -303,15 +303,37 @@ export async function taigaGetStory(token: string, storyId: number, apiBaseUrl?:
   return normalizeStory(raw);
 }
 
+/** Project-configurable severity levels (Critical/High/.../Wishlist by
+ *  default, but Taiga lets each project rename/reorder them) — same
+ *  list-lookup shape as taigaListStoryStatuses, just for `/severities`
+ *  instead of `/userstory-statuses`. Issues only carry a numeric `severity`
+ *  id; this is what resolves it to a name worth showing a human. */
+export async function taigaListIssueSeverities(
+  token: string,
+  projectId: number,
+  apiBaseUrl?: string,
+): Promise<Array<{ id: number; name: string; color: string }>> {
+  const raw = await taigaFetch<Record<string, unknown>[]>(
+    `/severities?project=${projectId}`, token, apiBaseUrl,
+  );
+  return (raw ?? []).map((s) => ({
+    id: s.id as number,
+    name: (s.name as string) || "",
+    color: (s.color as string) || "",
+  }));
+}
+
 /** List open Taiga issues (project bug/issue tracker) as maintenance-intake candidates. */
 export async function taigaListIssues(
   token: string,
   projectId: number,
   apiBaseUrl?: string,
-): Promise<Array<{ ext_ref: string; subject: string; description: string; created_at?: string }>> {
-  const raw = await taigaFetch<Record<string, unknown>[]>(
-    `/issues?project=${projectId}`, token, apiBaseUrl,
-  );
+): Promise<Array<{ ext_ref: string; subject: string; description: string; created_at?: string; severity?: string }>> {
+  const [raw, severities] = await Promise.all([
+    taigaFetch<Record<string, unknown>[]>(`/issues?project=${projectId}`, token, apiBaseUrl),
+    taigaListIssueSeverities(token, projectId, apiBaseUrl).catch(() => []), // never block import on this
+  ]);
+  const severityName = new Map(severities.map((s) => [s.id, s.name]));
   return (raw ?? []).map((i) => ({
     ext_ref: `TG#${i.ref ?? i.id}`,
     subject: String(i.subject ?? ""),
@@ -319,6 +341,7 @@ export async function taigaListIssues(
     // Taiga's own field name is `created_date`, not `created_at` — the real
     // report time, used as a maintenance item's detected_at on import.
     created_at: typeof i.created_date === "string" ? i.created_date : undefined,
+    severity: typeof i.severity === "number" ? severityName.get(i.severity) : undefined,
   }));
 }
 

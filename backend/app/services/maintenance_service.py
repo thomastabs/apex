@@ -38,7 +38,8 @@ class MaintenanceService:
 
     def create_item(self, ctx: RequestContext, *, subject: str, description: str = "",
                     evidence: str = "", source: str = "manual", ext_ref: str = "",
-                    linked_story_id: int | None = None, detected_at: str = "") -> dict:
+                    linked_story_id: int | None = None, detected_at: str = "",
+                    severity: str = "") -> dict:
         self.configure_request(ctx)
         if not subject.strip():
             raise MaintenanceValidationError("A maintenance item needs a subject.")
@@ -49,7 +50,7 @@ class MaintenanceService:
         item = self.context.create_maintenance_item(
             subject=subject.strip(), description=description, evidence=evidence,
             source=source, ext_ref=ext_ref, linked_story_id=linked_story_id,
-            detected_at=detected_at,
+            detected_at=detected_at, severity=severity,
         )
         self.context.append_maintenance_log(item["id"], subject, f"created ({source})")
         return item

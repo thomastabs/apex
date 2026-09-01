@@ -721,9 +721,16 @@ export async function planeGetProjectTasks(
  *  Unlike Taiga's issue tracker, this has no separate open/closed distinction
  *  worth filtering on here — every work item in the project is listed, same
  *  as `taigaListIssues` does for Taiga's issue list. */
+// Plane's own enum, confirmed against developers.plane.so's work-item schema
+// (a plain string field directly on the item — unlike Taiga's numeric
+// severity id, no companion lookup call needed here).
+const _PLANE_PRIORITY_LABEL: Record<string, string> = {
+  urgent: "Urgent", high: "High", medium: "Medium", low: "Low", none: "None",
+};
+
 export async function planeListIssues(
   apiKey: string, workspaceSlug: string, projectUuid: string, apiBaseUrl?: string,
-): Promise<Array<{ ext_ref: string; subject: string; description: string; created_at?: string }>> {
+): Promise<Array<{ ext_ref: string; subject: string; description: string; created_at?: string; severity?: string }>> {
   const base = `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}`;
   const raw = await planeFetchAllPages<Record<string, unknown>>(`${base}/work-items/`, apiKey, apiBaseUrl);
   return raw
@@ -735,6 +742,10 @@ export async function planeListIssues(
       // Standard DRF audit field (same caveat as updatedAtOf: confirmed on
       // work items, assumed elsewhere) — the work item's real creation time.
       created_at: typeof item.created_at === "string" ? item.created_at : undefined,
+      // Plane calls this "priority" not "severity" — surfaced under the same
+      // ExternalIssue.severity key as Taiga's so maintenance-triage.tsx and
+      // AnalyticsService stay source-agnostic (see plane-integration.md).
+      severity: typeof item.priority === "string" ? _PLANE_PRIORITY_LABEL[item.priority] : undefined,
     }));
 }
 

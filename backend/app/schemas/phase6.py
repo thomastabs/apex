@@ -132,6 +132,7 @@ class MaintenanceItem(BaseModel):
     created_at: str = ""
     updated_at: str = ""
     detected_at: str = ""
+    severity: str = ""
 
 
 class MaintenanceItemsResponse(BaseModel):
@@ -149,6 +150,9 @@ class CreateMaintenanceItemRequest(BaseModel):
     # (e.g. a Taiga issue's created_date) — distinct from created_at (when
     # this Apex record was made). See create_maintenance_item's docstring.
     detected_at: str = Field("", max_length=40)
+    # PM tool's own ground-truth severity/priority label (Taiga severity
+    # name, or Plane priority) — empty for manual/GitHub/Figma sources.
+    severity: str = Field("", max_length=60)
 
 
 class DiagnoseRequest(ExtraContextMixin):

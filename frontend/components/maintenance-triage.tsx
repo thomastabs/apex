@@ -194,6 +194,7 @@ export function MaintenanceTriage() {
         subject: iss.subject, description: iss.description, source: src, ext_ref: iss.ext_ref,
         linked_story_id: linked === "" ? null : linked,
         detected_at: iss.created_at ?? "",
+        severity: iss.severity ?? "",
       },
       { onSuccess: (it) => { toast.success(`Imported ${iss.ext_ref}`); setSelectedId(it.id); } },
     );
@@ -260,7 +261,10 @@ export function MaintenanceTriage() {
           {issues.list.length === 0 ? <p className={cn("text-xs", muted)}>No open issues.</p> : null}
           {issues.list.map((iss) => (
             <div key={iss.ext_ref} className="flex items-center gap-2 text-sm">
-              <span className="min-w-0 flex-1 truncate">{iss.ext_ref} — {iss.subject}</span>
+              <span className="min-w-0 flex-1 truncate">
+                {iss.ext_ref} — {iss.subject}
+                {iss.severity ? <span className={cn("ml-1.5 rounded px-1 py-0.5 text-[10px] font-semibold", dark ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-500")}>{iss.severity}</span> : null}
+              </span>
               <select
                 className={cn("shrink-0 rounded border bg-transparent px-1 py-0.5 text-xs", cardBorder)}
                 value={linkedStoryFor(iss)}
@@ -420,6 +424,9 @@ export function MaintenanceTriage() {
               {selected.status === "fix_ready" || selected.lane ? (
                 <div className={cn("space-y-2 rounded-lg border p-3", cardBorder)}>
                   <p className="text-sm font-semibold">Severity routing</p>
+                  {selected.severity ? (
+                    <p className={cn("text-xs", muted)}>PM-reported severity: <b>{selected.severity}</b> — ground truth, not the AI&apos;s guess below.</p>
+                  ) : null}
                   {!laneHint ? (
                     <>
                       <button className="text-xs font-semibold text-violet-500 hover:underline"

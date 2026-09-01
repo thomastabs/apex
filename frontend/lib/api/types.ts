@@ -868,6 +868,9 @@ export type MaintenanceItem = {
   // own created-date) — distinct from created_at, which is import time.
   // Falls back to created_at server-side when a source has no such field.
   detected_at: string;
+  // PM tool's own ground-truth severity/priority label (Taiga severity name,
+  // or Plane priority) — empty for manual/GitHub/Figma sources.
+  severity: string;
 };
 
 export type MaintenanceItemsResponse = { items: MaintenanceItem[] };

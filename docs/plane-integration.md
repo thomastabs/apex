@@ -199,6 +199,17 @@ tool-agnostic in code (`AnalyticsService._escape`) — it isn't a Plane
 special-case, just the one PM tool where skipping it would have been wrong
 most often.
 
+**Severity enrichment.** Plane work items carry `priority` (`urgent | high |
+medium | low | none`, confirmed against developers.plane.so's work-item
+schema) directly on the item — no companion lookup call needed, unlike
+Taiga's numeric `severity` id (resolved via a new `taigaListIssueSeverities`,
+`/severities?project=<id>`, same shape as the existing
+`taigaListStoryStatuses`). Both surface under the same `ExternalIssue.severity`
+key so `maintenance-triage.tsx` stays source-agnostic. Purely informational —
+shown next to the AI's own `severity_hint` in Severity Routing as an
+independent ground-truth check; nothing in Fast/Secure Lane routing reads it
+automatically.
+
 ## Members and roles
 
 Plane's numeric role encoding is fixed and undiscoverable via any "list roles"
