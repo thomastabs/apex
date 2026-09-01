@@ -131,6 +131,7 @@ class MaintenanceItem(BaseModel):
     ai_rationale: dict = Field(default_factory=dict)
     created_at: str = ""
     updated_at: str = ""
+    detected_at: str = ""
 
 
 class MaintenanceItemsResponse(BaseModel):
@@ -144,6 +145,10 @@ class CreateMaintenanceItemRequest(BaseModel):
     source: Literal["manual", "github", "taiga", "plane", "figma"] = "manual"
     ext_ref: str = Field("", max_length=200)
     linked_story_id: Optional[int] = None
+    # ISO 8601 timestamp of when the underlying issue was reported upstream
+    # (e.g. a Taiga issue's created_date) — distinct from created_at (when
+    # this Apex record was made). See create_maintenance_item's docstring.
+    detected_at: str = Field("", max_length=40)
 
 
 class DiagnoseRequest(ExtraContextMixin):

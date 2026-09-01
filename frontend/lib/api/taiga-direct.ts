@@ -308,7 +308,7 @@ export async function taigaListIssues(
   token: string,
   projectId: number,
   apiBaseUrl?: string,
-): Promise<Array<{ ext_ref: string; subject: string; description: string }>> {
+): Promise<Array<{ ext_ref: string; subject: string; description: string; created_at?: string }>> {
   const raw = await taigaFetch<Record<string, unknown>[]>(
     `/issues?project=${projectId}`, token, apiBaseUrl,
   );
@@ -316,6 +316,9 @@ export async function taigaListIssues(
     ext_ref: `TG#${i.ref ?? i.id}`,
     subject: String(i.subject ?? ""),
     description: descriptionText(i),
+    // Taiga's own field name is `created_date`, not `created_at` — the real
+    // report time, used as a maintenance item's detected_at on import.
+    created_at: typeof i.created_date === "string" ? i.created_date : undefined,
   }));
 }
 

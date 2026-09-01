@@ -38,6 +38,7 @@ export type AnalyticsSummary = {
   traceability: { deployed: number; complete: number; rate: number };
   conformance: { eligible: number; checked: number; avg_score: number };
   defects: { total_fix_bolts: number; stories_affected: number; avg_per_story: number };
+  escape: { deployed_with_data: number; escaped: number; rate: number };
   stories: StoryAnalyticsRow[];
 };
 

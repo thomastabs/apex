@@ -89,6 +89,10 @@ function toMarkdown(data: AnalyticsSummary): string {
     "",
     `Total Fix-Bolts: ${data.defects.total_fix_bolts} · stories affected: ${data.defects.stories_affected} · avg/story: ${data.defects.avg_per_story}`,
     "",
+    "## AI Defect Escape Rate",
+    "",
+    `${data.escape.escaped}/${data.escape.deployed_with_data} deployed stories with a defect reported after ship (${Math.round(data.escape.rate * 100)}%). Proxy: a linked PM-issue/maintenance item detected after the story's deployed timestamp — not production telemetry.`,
+    "",
     "## Stories",
     "",
     "| Story | Risk | Status | Fix-Bolts | Cycle (h) | Artifacts complete |",
@@ -141,7 +145,7 @@ export function AnalyticsDashboard() {
       {data && (
         <div className="space-y-8">
           {/* Metric cards */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
             <MetricCard
               dark={dark}
               label={t("analytics.boltCycleTime")}
@@ -165,6 +169,12 @@ export function AnalyticsDashboard() {
               label={t("analytics.fixBoltsDefectProxy")}
               value={String(data.defects.total_fix_bolts)}
               hint={t("analytics.fixBoltsHint", { affected: data.defects.stories_affected, avg: data.defects.avg_per_story })}
+            />
+            <MetricCard
+              dark={dark}
+              label={t("analytics.aiDefectEscapeRate")}
+              value={data.escape.deployed_with_data > 0 ? `${Math.round(data.escape.rate * 100)}%` : "—"}
+              hint={t("analytics.escapeHint", { escaped: data.escape.escaped, deployed: data.escape.deployed_with_data })}
             />
             <MetricCard
               dark={dark}

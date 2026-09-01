@@ -3726,8 +3726,19 @@ def create_maintenance_item(
     source: str = "manual",
     ext_ref: str = "",
     linked_story_id: int | None = None,
+    detected_at: str = "",
 ) -> dict:
-    """Create a new maintenance item with a sequential id. Returns the item."""
+    """Create a new maintenance item with a sequential id. Returns the item.
+
+    `detected_at` is when the underlying defect was actually reported upstream
+    (e.g. a Taiga/Plane issue's own created-date), distinct from `created_at`
+    (when Apex's own record was made — which lags the real report by however
+    long it sat unimported). Falls back to `created_at` when the source has no
+    such timestamp (manual entries, or an import path that didn't supply one)
+    so every item always has a usable detection timestamp. This is the anchor
+    AnalyticsService uses to tell a pre-deploy Fix-Bolt apart from a genuine
+    post-deploy escape: see `AnalyticsService._escape`.
+    """
     with _index_lock():
         # Read raw (unsorted) to compute the next id safely.
         p = _path(_MAINTENANCE_FILE)
@@ -3756,6 +3767,7 @@ def create_maintenance_item(
             "ai_rationale": {},
             "created_at": now,
             "updated_at": now,
+            "detected_at": detected_at or now,
         }
         items.append(item)
         _write_maintenance_items(items)

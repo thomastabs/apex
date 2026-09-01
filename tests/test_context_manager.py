@@ -1552,6 +1552,17 @@ class TestMaintenanceItems:
         assert a["status"] == "new" and a["classification"] == "unclassified"
         assert b["source"] == "github" and b["ext_ref"] == "GH#43"
 
+    def test_detected_at_defaults_to_created_at(self, ctx):
+        ctx.init_context()
+        item = ctx.create_maintenance_item(subject="no upstream timestamp")
+        assert item["detected_at"] == item["created_at"]
+
+    def test_detected_at_uses_supplied_upstream_timestamp(self, ctx):
+        ctx.init_context()
+        item = ctx.create_maintenance_item(subject="TG#12", detected_at="2026-06-01T00:00:00+00:00")
+        assert item["detected_at"] == "2026-06-01T00:00:00+00:00"
+        assert item["detected_at"] != item["created_at"]
+
     def test_load_returns_newest_first(self, ctx):
         ctx.init_context()
         ctx.create_maintenance_item(subject="one")

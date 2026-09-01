@@ -864,6 +864,10 @@ export type MaintenanceItem = {
   ai_rationale: { classify?: string; severity_hint?: string; risk?: string };
   created_at: string;
   updated_at: string;
+  // When the underlying defect was reported upstream (a Taiga/Plane issue's
+  // own created-date) — distinct from created_at, which is import time.
+  // Falls back to created_at server-side when a source has no such field.
+  detected_at: string;
 };
 
 export type MaintenanceItemsResponse = { items: MaintenanceItem[] };

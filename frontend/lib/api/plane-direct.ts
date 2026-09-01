@@ -723,7 +723,7 @@ export async function planeGetProjectTasks(
  *  as `taigaListIssues` does for Taiga's issue list. */
 export async function planeListIssues(
   apiKey: string, workspaceSlug: string, projectUuid: string, apiBaseUrl?: string,
-): Promise<Array<{ ext_ref: string; subject: string; description: string }>> {
+): Promise<Array<{ ext_ref: string; subject: string; description: string; created_at?: string }>> {
   const base = `workspaces/${encodeURIComponent(workspaceSlug)}/projects/${projectUuid}`;
   const raw = await planeFetchAllPages<Record<string, unknown>>(`${base}/work-items/`, apiKey, apiBaseUrl);
   return raw
@@ -732,6 +732,9 @@ export async function planeListIssues(
       ext_ref: `PLN#${item.sequence_id ?? item.id}`,
       subject: String(item.name ?? ""),
       description: planeDescription(item),
+      // Standard DRF audit field (same caveat as updatedAtOf: confirmed on
+      // work items, assumed elsewhere) — the work item's real creation time.
+      created_at: typeof item.created_at === "string" ? item.created_at : undefined,
     }));
 }
 

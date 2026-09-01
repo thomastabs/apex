@@ -182,6 +182,23 @@ strip it of its parent story's context for no benefit. `ext_ref` uses
 included `"plane"` (added earlier, phase 5f) — no backend change was needed
 for this feature.
 
+**AI Defect Escape Rate on Plane.** `planeListIssues` now also returns
+`created_at` (standard DRF audit field, same confirmed-on-work-items caveat
+as `updatedAtOf`), carried through import as a maintenance item's
+`detected_at` — the real report time, not Apex's later import time. The
+"Sync PM Issues" panel also offers a deployed-story link picker (word-overlap
+suggestion, human-reviewable before Import) so a Plane import can feed
+`AnalyticsService`'s escape-rate calc the same way a Taiga one does. Because
+Plane's work items have no dedicated issue-tracker type (see the gap
+described above — a synced-in top-level work item could be a bug OR a
+perfectly ordinary new feature request), the escape-rate calc only counts
+items with a confirmed `classification == "bug"` (Phase 6 AI Triage F1, or
+set by hand): an unclassified or `change_request` import simply doesn't
+count yet, rather than inflating the rate with non-defects. This gate is
+tool-agnostic in code (`AnalyticsService._escape`) — it isn't a Plane
+special-case, just the one PM tool where skipping it would have been wrong
+most often.
+
 ## Members and roles
 
 Plane's numeric role encoding is fixed and undiscoverable via any "list roles"

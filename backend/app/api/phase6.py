@@ -148,7 +148,7 @@ def create_maintenance_item(
         return service.create_item(
             ctx, subject=payload.subject, description=payload.description,
             evidence=payload.evidence, source=payload.source, ext_ref=payload.ext_ref,
-            linked_story_id=payload.linked_story_id,
+            linked_story_id=payload.linked_story_id, detected_at=payload.detected_at,
         )
     except Exception as exc:
         _handle_error(exc)

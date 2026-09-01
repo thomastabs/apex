@@ -15,11 +15,13 @@ def _ctx() -> RequestContext:
 
 
 class FakeContextService:
-    def __init__(self, index=None, deployment_log="", verifications=None, conformances=None):
+    def __init__(self, index=None, deployment_log="", verifications=None, conformances=None,
+                 maintenance_items=None):
         self.index = index or {}
         self.deployment_log = deployment_log
         self.verifications = verifications or {}
         self.conformances = conformances or {}
+        self.maintenance_items = maintenance_items or []
         self.verification_reads: list[int] = []
 
     def set_active(self, ctx):
@@ -41,6 +43,9 @@ class FakeContextService:
 
     def load_conformance(self, story_id: int):
         return self.conformances.get(story_id)
+
+    def load_maintenance_items(self):
+        return self.maintenance_items
 
 
 def _entry(story_id, status, history=None, **extra):
@@ -204,6 +209,56 @@ def test_defect_proxy_stats():
     }
     summary = AnalyticsService(context=FakeContextService(index=index)).summary(_ctx())
     assert summary["defects"] == {"total_fix_bolts": 3, "stories_affected": 2, "avg_per_story": 1.0}
+
+
+def test_escape_rate_counts_only_post_deploy_defects():
+    """A maintenance item linked to a story counts toward escape only if its
+    detected_at is after the story's own 'deployed' status timestamp — a
+    pre-deploy Fix-Bolt-triggering report must not inflate this metric."""
+    index = {
+        # Story 1: deployed 06-05, defect reported 06-10 -> escaped.
+        "1": _entry(1, "deployed", {"deployed": ["2026-06-05T00:00:00+00:00"]}),
+        # Story 2: deployed 06-05, only a pre-deploy report (06-01) -> not escaped.
+        "2": _entry(2, "deployed", {"deployed": ["2026-06-05T00:00:00+00:00"]}),
+        # Story 3: deployed, no maintenance items at all -> not escaped.
+        "3": _entry(3, "deployed", {"deployed": ["2026-06-05T00:00:00+00:00"]}),
+        # Story 4: not deployed -> excluded from the denominator entirely.
+        "4": _entry(4, "qa_passed"),
+    }
+    items = [
+        {"linked_story_id": 1, "classification": "bug", "detected_at": "2026-06-10T00:00:00+00:00", "created_at": "2026-06-10T00:00:00+00:00"},
+        {"linked_story_id": 2, "classification": "bug", "detected_at": "2026-06-01T00:00:00+00:00", "created_at": "2026-06-01T00:00:00+00:00"},
+        {"linked_story_id": None, "classification": "bug", "detected_at": "2026-06-11T00:00:00+00:00", "created_at": "2026-06-11T00:00:00+00:00"},
+    ]
+    summary = AnalyticsService(context=FakeContextService(index=index, maintenance_items=items)).summary(_ctx())
+    assert summary["escape"] == {"deployed_with_data": 3, "escaped": 1, "rate": round(1 / 3, 3)}
+
+
+def test_escape_rate_falls_back_to_created_at_without_detected_at():
+    index = {"1": _entry(1, "deployed", {"deployed": ["2026-06-05T00:00:00+00:00"]})}
+    items = [{"linked_story_id": 1, "classification": "bug", "created_at": "2026-06-06T00:00:00+00:00"}]
+    summary = AnalyticsService(context=FakeContextService(index=index, maintenance_items=items)).summary(_ctx())
+    assert summary["escape"] == {"deployed_with_data": 1, "escaped": 1, "rate": 1.0}
+
+
+def test_escape_rate_excludes_unclassified_and_change_request_items():
+    """Plane has no dedicated issue-tracker resource — every work item can be
+    imported as a maintenance item — so only a confirmed `bug` classification
+    should count toward the escape rate, not a same-shaped feature request or
+    an item nobody has triaged yet."""
+    index = {"1": _entry(1, "deployed", {"deployed": ["2026-06-05T00:00:00+00:00"]})}
+    items = [
+        {"linked_story_id": 1, "classification": "unclassified", "created_at": "2026-06-10T00:00:00+00:00"},
+        {"linked_story_id": 1, "classification": "change_request", "created_at": "2026-06-11T00:00:00+00:00"},
+    ]
+    summary = AnalyticsService(context=FakeContextService(index=index, maintenance_items=items)).summary(_ctx())
+    assert summary["escape"] == {"deployed_with_data": 1, "escaped": 0, "rate": 0.0}
+
+
+def test_escape_rate_zero_when_no_deployed_stories_have_a_timestamp():
+    index = {"1": _entry(1, "deployed")}  # no status_history at all
+    summary = AnalyticsService(context=FakeContextService(index=index)).summary(_ctx())
+    assert summary["escape"] == {"deployed_with_data": 0, "escaped": 0, "rate": 0.0}
 
 
 def test_story_rows_total_cycle_hours():

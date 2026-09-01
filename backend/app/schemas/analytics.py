@@ -34,6 +34,12 @@ class DefectStats(BaseModel):
     avg_per_story: float = 0.0
 
 
+class EscapeStats(BaseModel):
+    deployed_with_data: int = 0
+    escaped: int = 0
+    rate: float = 0.0
+
+
 class StoryRisk(BaseModel):
     level: str = "none"  # none | low | medium | high
     score: int = 0
@@ -58,4 +64,5 @@ class AnalyticsSummaryResponse(BaseModel):
     traceability: TraceabilityStats = Field(default_factory=TraceabilityStats)
     conformance: ConformanceStats = Field(default_factory=ConformanceStats)
     defects: DefectStats = Field(default_factory=DefectStats)
+    escape: EscapeStats = Field(default_factory=EscapeStats)
     stories: list[StoryAnalyticsRow] = Field(default_factory=list)

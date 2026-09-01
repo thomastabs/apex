@@ -4,9 +4,10 @@ Implements the framework's Core Governance Metrics on the data Apex already
 records: Cycle time per story-level gate transition (gherkin_locked through
 deployed) plus the real per-task Bolt Cycle Time (pack_ready -> done, tracked
 independently in each story's `bolts` map), Context Traceability Rate from
-artifact completeness of deployed stories, and the AI-defect proxy from
-Fix-Bolt counts (Apex has no production telemetry, so QA-caught defects are
-the honest measurable stand-in for the Defect Escape Rate).
+artifact completeness of deployed stories, the Fix-Bolt proxy (QA-caught,
+pre-deploy defects — `defects` below), and a real AI Defect Escape Rate
+(`escape` below) from PM-issue-tracker items linked to a story after it
+deployed — see `_escape`'s docstring for what "real" means here and its limits.
 
 Computed on demand — project scale is tens of stories, no caching needed.
 """
@@ -93,6 +94,8 @@ class AnalyticsService:
             "avg_per_story": round(sum(fix_bolts) / len(entries), 2) if entries else 0.0,
         }
 
+        escape = self._escape(deployed)
+
         # Cohort p90 of total cycle time — a story slower than this is flagged.
         # Needs a handful of completed samples to be a meaningful threshold.
         cohort_hours = [h for e in entries if (h := self._total_cycle_hours(e)) is not None]
@@ -109,6 +112,7 @@ class AnalyticsService:
             "traceability": traceability,
             "conformance": conformance,
             "defects": defects,
+            "escape": escape,
             "stories": stories,
         }
 
@@ -137,6 +141,67 @@ class AnalyticsService:
             "eligible": len(eligible),
             "checked": len(scores),
             "avg_score": round(sum(scores) / len(scores), 1) if scores else 0.0,
+        }
+
+    def _escape(self, deployed: list[dict]) -> dict:
+        """AI Defect Escape Rate: proportion of deployed stories with at least
+        one maintenance item (PM-issue-tracker import or manual report) linked
+        to it whose `detected_at` is after the story's own `deployed` status
+        timestamp — i.e. a defect actually reported after the story shipped,
+        as opposed to a Fix-Bolt caught by QA before it ever deployed (that
+        stays the `defects` block above, which is a *different* metric: a
+        pre-deploy QA-catch rate, not this one).
+
+        This is still a proxy, not true production telemetry: "escaped" means
+        "a human filed a PM issue/maintenance item against it after deploy",
+        not "we instrumented production and observed a fault". A defect that
+        is never reported anywhere (or reported without linking the story)
+        is invisible here, same as everywhere else in the system — see
+        Chapter_7-Apex.tex's discussion of why this construct resists a
+        stronger observation point than a tool sitting above a PM board has
+        access to. What's new relative to the old `defects` block is that
+        this one only counts items whose timestamp falls *after* deployment,
+        so it no longer conflates "caught in QA" with "escaped to users".
+
+        Only `classification == "bug"` items count. This matters most for
+        Plane: unlike Taiga's dedicated Issues resource, Plane has no
+        separate issue-tracker object at all — every work item IS simultaneously
+        what Apex elsewhere calls a story/task/issue (same underlying
+        resource, see `planeListIssues`'s docstring), so an unfiltered import
+        would count ordinary new work items as "defects". Requiring a
+        confirmed bug classification (AI Triage F1, or set manually) is what
+        keeps the rate meaningful regardless of which PM tool sourced the
+        item — an unclassified or change_request item simply doesn't count
+        yet, rather than false-counting.
+        """
+        by_story: dict[int, list[dict]] = {}
+        for item in self.context.load_maintenance_items():
+            sid = item.get("linked_story_id")
+            if sid is not None and item.get("classification") == "bug":
+                by_story.setdefault(int(sid), []).append(item)
+
+        deployed_with_ts = 0
+        escaped = 0
+        for e in deployed:
+            sid = e.get("story_id")
+            if sid is None:
+                continue
+            deploy_ts = _earliest(e.get("status_history") or {}, "deployed")
+            if deploy_ts is None:
+                continue
+            deployed_with_ts += 1
+            items = by_story.get(int(sid), [])
+            if any(
+                (ts := _parse_ts(item.get("detected_at") or item.get("created_at") or "")) is not None
+                and ts > deploy_ts
+                for item in items
+            ):
+                escaped += 1
+
+        return {
+            "deployed_with_data": deployed_with_ts,
+            "escaped": escaped,
+            "rate": round(escaped / deployed_with_ts, 3) if deployed_with_ts else 0.0,
         }
 
     def _cycle_times(self, entries: list[dict]) -> list[dict]:

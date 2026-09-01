@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -19,6 +20,7 @@ import {
   useRouteItem,
 } from "@/lib/hooks/use-phase6";
 import { suggestLane } from "@/lib/api/phase6";
+import { getAnalyticsSummary } from "@/lib/api/analytics";
 import { useApiContext, useFigmaContext, useGithubContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { useT } from "@/lib/i18n/use-translation";
@@ -82,6 +84,21 @@ export function MaintenanceTriage() {
   // issue import
   const [issues, setIssues] = useState<{ source: "github" | "taiga" | "plane" | "figma"; list: ExternalIssue[] } | null>(null);
   const [syncing, setSyncing] = useState(false);
+  // Manual override per issue (ext_ref -> story id, "" = explicitly unlinked).
+  // Unset entries fall back to suggestStory's word-overlap guess at render time.
+  const [issueLinks, setIssueLinks] = useState<Record<string, number | "">>({});
+
+  // Deployed stories, for the "link to story" picker next to each importable
+  // issue — this is what lets an import feed AnalyticsService's escape-rate
+  // calc instead of sitting unlinked. staleTime matches analytics-dashboard.
+  const deployedStoriesQuery = useQuery({
+    queryKey: ["analytics", "summary", "deployed-stories", context?.projectId],
+    queryFn: () => getAnalyticsSummary(context!),
+    enabled: Boolean(context),
+    staleTime: 30 * 1000,
+    select: (d) => d.stories.filter((s) => s.phase_status === "deployed"),
+  });
+  const deployedStories = deployedStoriesQuery.data ?? [];
 
   useEffect(() => {
     if (selectedId === null && items.length > 0) setSelectedId(items[0].id);
@@ -152,9 +169,32 @@ export function MaintenanceTriage() {
     } catch (e) { toast.error(errMsg(e)); } finally { setSyncing(false); }
   }
 
+  /** Naive word-overlap guess so the picker isn't empty by default — always
+   *  human-reviewable before Import, never auto-applied silently. */
+  function suggestStory(subject: string): number | "" {
+    const words = new Set(subject.toLowerCase().split(/\W+/).filter((w) => w.length > 3));
+    if (words.size === 0) return "";
+    let best: { id: number; score: number } | null = null;
+    for (const s of deployedStories) {
+      const titleWords = s.title.toLowerCase().split(/\W+/).filter((w) => w.length > 3);
+      const score = titleWords.filter((w) => words.has(w)).length;
+      if (score > 0 && (!best || score > best.score)) best = { id: s.story_id, score };
+    }
+    return best?.id ?? "";
+  }
+
+  function linkedStoryFor(iss: ExternalIssue): number | "" {
+    return issueLinks[iss.ext_ref] ?? suggestStory(iss.subject);
+  }
+
   function importIssue(src: "github" | "taiga" | "plane" | "figma", iss: ExternalIssue) {
+    const linked = linkedStoryFor(iss);
     create.mutate(
-      { subject: iss.subject, description: iss.description, source: src, ext_ref: iss.ext_ref },
+      {
+        subject: iss.subject, description: iss.description, source: src, ext_ref: iss.ext_ref,
+        linked_story_id: linked === "" ? null : linked,
+        detected_at: iss.created_at ?? "",
+      },
       { onSuccess: (it) => { toast.success(`Imported ${iss.ext_ref}`); setSelectedId(it.id); } },
     );
   }
@@ -221,7 +261,18 @@ export function MaintenanceTriage() {
           {issues.list.map((iss) => (
             <div key={iss.ext_ref} className="flex items-center gap-2 text-sm">
               <span className="min-w-0 flex-1 truncate">{iss.ext_ref} — {iss.subject}</span>
-              <button className="text-xs font-semibold text-violet-500 hover:underline" onClick={() => importIssue(issues.source, iss)}>Import</button>
+              <select
+                className={cn("shrink-0 rounded border bg-transparent px-1 py-0.5 text-xs", cardBorder)}
+                value={linkedStoryFor(iss)}
+                onChange={(e) => setIssueLinks((m) => ({ ...m, [iss.ext_ref]: e.target.value ? Number(e.target.value) : "" }))}
+                title="Link this issue to the deployed story it's a defect against — feeds the AI Defect Escape Rate."
+              >
+                <option value="">No linked story</option>
+                {deployedStories.map((s) => (
+                  <option key={s.story_id} value={s.story_id}>#{s.story_id} {s.title}</option>
+                ))}
+              </select>
+              <button className="shrink-0 text-xs font-semibold text-violet-500 hover:underline" onClick={() => importIssue(issues.source, iss)}>Import</button>
             </div>
           ))}
         </div>

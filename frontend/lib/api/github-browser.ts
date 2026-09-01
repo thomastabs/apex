@@ -130,17 +130,22 @@ export async function fetchGithubFile(ctx: GithubSyncContext, path: string): Pro
   return "";
 }
 
-export type ExternalIssue = { ext_ref: string; subject: string; description: string };
+// created_at (ISO 8601, when the upstream issue was actually reported) is
+// optional: GitHub/Taiga/Plane all carry it, but not every source can (Figma
+// comments have no equivalent). When present it becomes a maintenance item's
+// `detected_at` on import, so AnalyticsService's escape-rate calc measures
+// from the real report time instead of Apex's own (later) import time.
+export type ExternalIssue = { ext_ref: string; subject: string; description: string; created_at?: string };
 
 /** List open GitHub Issues (excluding PRs) as maintenance-intake candidates. */
 export async function fetchGithubIssues(ctx: GithubSyncContext): Promise<ExternalIssue[]> {
-  const raw = await ghFetch<Array<{ number: number; title: string; body: string | null; pull_request?: unknown }>>(
+  const raw = await ghFetch<Array<{ number: number; title: string; body: string | null; pull_request?: unknown; created_at?: string }>>(
     `/repos/${ctx.owner}/${ctx.repo}/issues?state=open&per_page=50`,
     ctx.pat,
   );
   return (raw ?? [])
     .filter((i) => !i.pull_request) // the issues endpoint also returns PRs
-    .map((i) => ({ ext_ref: `GH#${i.number}`, subject: i.title, description: i.body ?? "" }));
+    .map((i) => ({ ext_ref: `GH#${i.number}`, subject: i.title, description: i.body ?? "", created_at: i.created_at }));
 }
 
 /** Create a GitHub Issue and return its URL and number. Requires PAT with repo scope. */
