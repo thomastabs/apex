@@ -49,6 +49,11 @@ confusing or does not work as you expected, that is exactly the feedback I need.
 
 The session takes about 60 minutes in total.
 
+**Before you do anything else:** fill in the consent and background form -
+`https://docs.google.com/forms/d/e/1FAIpQLSezG6QwXDkCgLDEk0ebbsmTCs9EeIRoHNNGYavyeeWiOR1hrg/viewform`
+- using the participant code on your card. Do not open the tool or start
+Task 1 until that form is submitted.
+
 ### Please read carefully before starting
 
 - Complete all tasks in the order listed. Do not skip tasks.
@@ -66,6 +71,7 @@ the one above or below it - each link already knows which task it belongs to.
 
 | Form | Link |
 |---|---|
+| **Consent and background** (before Task 1) | `https://docs.google.com/forms/d/e/1FAIpQLSezG6QwXDkCgLDEk0ebbsmTCs9EeIRoHNNGYavyeeWiOR1hrg/viewform` |
 | **Workload form, Task 3** | `https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform?usp=pp_url&entry.1881857837=Task+3+-+Turn+a+requirement+into+locked+scenarios` |
 | **Workload form, Task 4** | `https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform?usp=pp_url&entry.1881857837=Task+4+-+Produce+and+lock+the+design` |
 | **Workload form, Task 6** | `https://docs.google.com/forms/d/e/1FAIpQLSed3z8FdBJDgQuLcYEX746HHGpxP80799H3TDrG8dfn9CzTYg/viewform?usp=pp_url&entry.1881857837=Task+6+-+Break+the+work+into+implementation+tasks` |
@@ -255,6 +261,12 @@ o contributo de que preciso.
 
 A sessão demora cerca de 60 minutos no total.
 
+**Antes de fazer qualquer outra coisa:** preencha o formulário de
+consentimento e dados de background -
+`https://docs.google.com/forms/d/e/1FAIpQLSerEC9KkxLQj-nzo7qZsTkwpp9M4h0JHwk_atswO3adfm44kA/viewform`
+- usando o código de participante do seu cartão. Não abra a ferramenta nem
+comece a Tarefa 1 antes de submeter esse formulário.
+
 ### Leia com atenção antes de começar
 
 - Realize todas as tarefas pela ordem indicada. Não salte tarefas.
@@ -273,6 +285,7 @@ pertence.
 
 | Formulário | Ligação |
 |---|---|
+| **Consentimento e dados de background** (antes da Tarefa 1) | `https://docs.google.com/forms/d/e/1FAIpQLSerEC9KkxLQj-nzo7qZsTkwpp9M4h0JHwk_atswO3adfm44kA/viewform` |
 | **Formulário de carga de trabalho, Tarefa 3** | `https://docs.google.com/forms/d/e/1FAIpQLSdXAbp9UWHtLBkjJUQhylS6Xc-dRveePiRPS1ZGReq2uwEipw/viewform?usp=pp_url&entry.1881857837=Tarefa+3+-+Transformar+um+requisito+em+cen%C3%A1rios+bloqueados` |
 | **Formulário de carga de trabalho, Tarefa 4** | `https://docs.google.com/forms/d/e/1FAIpQLSdXAbp9UWHtLBkjJUQhylS6Xc-dRveePiRPS1ZGReq2uwEipw/viewform?usp=pp_url&entry.1881857837=Tarefa+4+-+Produzir+e+bloquear+o+design` |
 | **Formulário de carga de trabalho, Tarefa 6** | `https://docs.google.com/forms/d/e/1FAIpQLSdXAbp9UWHtLBkjJUQhylS6Xc-dRveePiRPS1ZGReq2uwEipw/viewform?usp=pp_url&entry.1881857837=Tarefa+6+-+Dividir+o+trabalho+em+tarefas+de+implementa%C3%A7%C3%A3o` |
