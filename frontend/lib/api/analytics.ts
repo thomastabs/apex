@@ -27,7 +27,9 @@ export type StoryAnalyticsRow = {
   phase_status: string;
   fix_bolt_count: number;
   total_cycle_hours: number | null;
-  artifact_complete: boolean;
+  // Not just "artifacts present" -- "the chain currently resolves" (also
+  // false when trace_flag or conformance_regressed is set).
+  chain_resolved: boolean;
   risk: StoryRisk;
 };
 

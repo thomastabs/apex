@@ -52,12 +52,12 @@ function blobDownload(content: string, filename: string, type = "text/plain") {
 }
 
 function toCsv(data: AnalyticsSummary): string {
-  const lines = ["story_id,title,epic,phase_status,fix_bolt_count,total_cycle_hours,artifact_complete,risk_level,risk_score"];
+  const lines = ["story_id,title,epic,phase_status,fix_bolt_count,total_cycle_hours,chain_resolved,risk_level,risk_score"];
   for (const s of data.stories) {
     const title = `"${s.title.replaceAll('"', '""')}"`;
     const epic = `"${s.epic_title.replaceAll('"', '""')}"`;
     lines.push(
-      `${s.story_id},${title},${epic},${s.phase_status},${s.fix_bolt_count},${s.total_cycle_hours ?? ""},${s.artifact_complete},${s.risk.level},${s.risk.score}`,
+      `${s.story_id},${title},${epic},${s.phase_status},${s.fix_bolt_count},${s.total_cycle_hours ?? ""},${s.chain_resolved},${s.risk.level},${s.risk.score}`,
     );
   }
   return lines.join("\n");
@@ -100,7 +100,7 @@ function toMarkdown(data: AnalyticsSummary): string {
     ...[...data.stories]
       .sort((a, b) => b.risk.score - a.risk.score || a.story_id - b.story_id)
       .map((s) =>
-        `| US#${s.story_id} ${s.title} | ${s.risk.level}${s.risk.reasons.length ? ` (${s.risk.reasons.join("; ")})` : ""} | ${s.phase_status} | ${s.fix_bolt_count} | ${s.total_cycle_hours ?? "—"} | ${s.artifact_complete ? "yes" : "no"} |`,
+        `| US#${s.story_id} ${s.title} | ${s.risk.level}${s.risk.reasons.length ? ` (${s.risk.reasons.join("; ")})` : ""} | ${s.phase_status} | ${s.fix_bolt_count} | ${s.total_cycle_hours ?? "—"} | ${s.chain_resolved ? "yes" : "no"} |`,
       ),
     "",
   ];
@@ -301,11 +301,11 @@ export function AnalyticsDashboard() {
                         {s.phase_status === "deployed" ? (
                           <span className={cn(
                             "rounded px-1.5 py-0.5 text-xs font-semibold",
-                            s.artifact_complete
+                            s.chain_resolved
                               ? dark ? "bg-emerald-900/40 text-emerald-400" : "bg-emerald-100 text-emerald-700"
                               : dark ? "bg-amber-900/40 text-amber-400" : "bg-amber-100 text-amber-700",
                           )}>
-                            {s.artifact_complete ? t("analytics.complete") : t("analytics.incomplete")}
+                            {s.chain_resolved ? t("analytics.complete") : t("analytics.incomplete")}
                           </span>
                         ) : (
                           <span className={mutedClass}>—</span>

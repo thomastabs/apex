@@ -3,11 +3,12 @@
 Implements the framework's Core Governance Metrics on the data Apex already
 records: Cycle time per story-level gate transition (gherkin_locked through
 deployed) plus the real per-task Bolt Cycle Time (pack_ready -> done, tracked
-independently in each story's `bolts` map), Context Traceability Rate from
-artifact completeness of deployed stories, the Fix-Bolt proxy (QA-caught,
-pre-deploy defects — `defects` below), and a real AI Defect Escape Rate
-(`escape` below) from PM-issue-tracker items linked to a story after it
-deployed — see `_escape`'s docstring for what "real" means here and its limits.
+independently in each story's `bolts` map), a Context Traceability Rate that
+requires the chain to actually RESOLVE, not just exist (see
+`_chain_resolved`'s docstring), the Fix-Bolt proxy (QA-caught, pre-deploy
+defects — `defects` below), and a real AI Defect Escape Rate (`escape` below)
+from PM-issue-tracker items linked to a story after it deployed — see
+`_escape`'s docstring for what "real" means here and its limits.
 
 Computed on demand — project scale is tens of stories, no caching needed.
 """
@@ -75,7 +76,7 @@ class AnalyticsService:
         # Azure mode).
         deployed = [e for e in entries if e.get("phase_status") == "deployed"]
         complete_by_id = {
-            e.get("story_id"): self._artifact_complete(e, deployed_ids) for e in deployed
+            e.get("story_id"): self._chain_resolved(e, deployed_ids) for e in deployed
         }
         complete = sum(1 for done in complete_by_id.values() if done)
         traceability = {
@@ -251,11 +252,46 @@ class AnalyticsService:
         log = self.context.read_context_file("deployment-log.md")
         return {int(m.group(1)) for m in re.finditer(r"^## Deployment — Story (\d+) —", log, re.MULTILINE)}
 
-    def _artifact_complete(self, entry: dict, deployed_ids: set[int]) -> bool:
+    def _chain_resolved(self, entry: dict, deployed_ids: set[int]) -> bool:
+        """Context Traceability Rate's per-story predicate: does this deployed
+        story's context chain actually RESOLVE right now, not just exist.
+
+        The proposal defines this as "the deployed artefact resolves back to
+        a locked technical specification, to the functional specification it
+        derived from, and to the Unit of Work that motivated it." Three legs:
+
+        1. Deployed artefact -> Unit of Work (the PM story): resolved by
+           construction — every story-index entry IS keyed by the PM tool's
+           own story id, so this leg needs no check.
+        2. Functional spec -> Unit of Work: `has_gherkin` (its scenarios are
+           written directly under this story's own `## Story N:` heading —
+           exact per-story attribution, see `parse_gherkin_scenario_ids`).
+        3. Deployed artefact -> locked technical spec: this is the leg that
+           can silently break AFTER artifacts first existed — a story can
+           have every file present and still be running against a spec that
+           no longer describes it. Two things the system already detects
+           for exactly this: `trace_flag` (a downstream failure pointed back
+           at an earlier phase and hasn't been resolved) and
+           `conformance_regressed` (a later code change broke what used to
+           match the locked spec, unacknowledged). Either one means the
+           chain does NOT currently resolve, whatever the presence booleans
+           below say — so both gate this predicate to False, distinct from
+           (and stricter than) mere artifact presence.
+
+        What this deliberately does NOT attempt: per-endpoint/entity
+        attribution from a deployed story back to specific technical-spec.md
+        bullets. That ownership doesn't exist anywhere in the system (see
+        amend_locked_spec's docstring / the spec-drift revival) — claiming to
+        resolve it here would be the same fabricated precision, just spent on
+        a different metric. `has_tech_spec` + the two break-detectors above
+        are what's honestly provable without it.
+        """
         story_id = entry.get("story_id")
         if not (entry.get("has_gherkin") and entry.get("has_bdd") and entry.get("has_infra_delta")):
             return False
         if story_id not in deployed_ids:
+            return False
+        if entry.get("trace_flag") or entry.get("conformance_regressed"):
             return False
         # Fast path: completeness mirrored into the index at save time (no file read).
         if "verification_complete" in entry:
@@ -328,6 +364,6 @@ class AnalyticsService:
             "phase_status": entry.get("phase_status", ""),
             "fix_bolt_count": int(entry.get("fix_bolt_count", 0)),
             "total_cycle_hours": total_hours,
-            "artifact_complete": complete_by_id.get(entry.get("story_id"), False),
+            "chain_resolved": complete_by_id.get(entry.get("story_id"), False),
             "risk": self._story_risk(entry, total_hours, cycle_threshold),
         }

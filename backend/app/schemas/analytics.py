@@ -53,7 +53,10 @@ class StoryAnalyticsRow(BaseModel):
     phase_status: str
     fix_bolt_count: int = 0
     total_cycle_hours: float | None = None
-    artifact_complete: bool = False
+    # Context Traceability Rate's per-story predicate: not just "artifacts
+    # present" but "the chain currently resolves" -- see
+    # AnalyticsService._chain_resolved's docstring for the definition.
+    chain_resolved: bool = False
     risk: StoryRisk = Field(default_factory=StoryRisk)
 
 

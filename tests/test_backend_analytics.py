@@ -201,6 +201,33 @@ def test_traceability_requires_log_entry():
     assert svc.summary(_ctx())["traceability"]["complete"] == 0
 
 
+def test_traceability_requires_chain_not_flagged_broken():
+    """Every artifact-presence boolean can be True while the chain has a
+    KNOWN break: an unresolved backward-trace flag, or an unacknowledged
+    post-deploy conformance regression. Either must fail the chain -- a
+    story index that looks complete on paper but is flagged broken must not
+    count, or the metric would contradict its own risk-score column."""
+    log = (
+        "# Deployment Log\n\n"
+        "## Deployment — Story 1 — 2026-06-10T00:00:00+00:00\n\n- ok\n"
+        "## Deployment — Story 2 — 2026-06-11T00:00:00+00:00\n\n- ok\n"
+        "## Deployment — Story 3 — 2026-06-12T00:00:00+00:00\n\n- ok\n"
+    )
+    index = {
+        "1": _entry(1, "deployed", has_bdd=True, has_infra_delta=True, trace_flag=True),
+        "2": _entry(2, "deployed", has_bdd=True, has_infra_delta=True, conformance_regressed=True),
+        "3": _entry(3, "deployed", has_bdd=True, has_infra_delta=True),
+    }
+    verifications = {1: {"complete": True}, 2: {"complete": True}, 3: {"complete": True}}
+    svc = AnalyticsService(context=FakeContextService(
+        index=index, deployment_log=log, verifications=verifications,
+    ))
+    summary = svc.summary(_ctx())
+    assert summary["traceability"] == {"deployed": 3, "complete": 1, "rate": round(1 / 3, 3)}
+    resolved_by_id = {r["story_id"]: r["chain_resolved"] for r in summary["stories"]}
+    assert resolved_by_id == {1: False, 2: False, 3: True}
+
+
 def test_defect_proxy_stats():
     index = {
         "1": _entry(1, "deployed", fix_bolt_count=2),
@@ -302,7 +329,7 @@ def test_verification_read_once_per_deployed_story():
     summary = AnalyticsService(context=fake).summary(_ctx())
     assert sorted(fake.verification_reads) == [1, 2]
     assert summary["traceability"]["complete"] == 2
-    assert [r["artifact_complete"] for r in summary["stories"]] == [True, True, False]
+    assert [r["chain_resolved"] for r in summary["stories"]] == [True, True, False]
 
 
 # ---------------------------------------------------------------------------
