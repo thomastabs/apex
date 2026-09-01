@@ -180,6 +180,12 @@ export const FAKE_ANALYTICS_SUMMARY = {
   traceability: { deployed: 2, complete: 1, rate: 0.5 },
   conformance: { eligible: 2, checked: 1, avg_score: 75.0 },
   defects: { total_fix_bolts: 3, stories_affected: 2, avg_per_story: 0.75 },
+  // Added with the AI Defect Escape Rate feature (2dc1de8) — the frontend
+  // reads data.escape.* unconditionally, so an e2e fixture without this key
+  // crashes the whole /analytics page render (see analytics-dashboard.tsx).
+  // 25%, not 50%: traceability.rate above already renders "50%", and
+  // getByText('50%') must resolve to exactly one element.
+  escape: { deployed_with_data: 4, escaped: 1, rate: 0.25 },
   stories: [
     {
       story_id: 10,
