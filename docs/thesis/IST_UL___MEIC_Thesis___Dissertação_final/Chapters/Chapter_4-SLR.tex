@@ -11,21 +11,19 @@
 \fancychapter{Systematic Literature Review}
 \label{chap:slr}
 
-In this section, the execution process of the systematic literature review is described. The description follows
-the SLR stages, which are as follows: Planning, Conducting, and Reporting the results.
+This chapter describes the execution of the systematic literature review, following the three SLR stages: Planning, Conducting, and Reporting the results.
 
 \section{Planning the Review}
 
-This section details the planning stage of the SLR methodology. The motivation for the review is presented, then
-the research questions addressed in the search, and lastly the search method employed.
+The planning stage establishes the motivation for the review, the research questions the search addresses, and the search method employed.
 
 \subsection{Motivation}
 
-The integration of AI, particularly LLMs and GenAI, represents a significant transformation in Software Engineering. These technologies are increasingly adopted across the SDLC to support activities such as code generation and completion, documentation, requirements engineering, automated bug fixing, and developer learning. Their use has been associated with notable productivity gains, improved efficiency, and enhanced support for complex development tasks by augmenting traditional development tools and information retrieval practices \cite{Ahmed:2025ai, Zhang:2025ea, Durrani:2024ad, Jabrw:2025ss, Banh:2025cf, Farhanna:2025eu, KarlovsKarlovskis:2024ga, Terragni:2025fa}.
+The integration of AI, particularly LLMs and GenAI, represents a significant transformation in Software Engineering. These technologies are increasingly adopted across the SDLC to support code generation and completion, documentation, requirements engineering, automated bug fixing, and developer learning, and their use has been associated with productivity gains, improved efficiency, and support for complex development tasks \cite{Ahmed:2025ai, Zhang:2025ea, Durrani:2024ad, Jabrw:2025ss, Banh:2025cf, Farhanna:2025eu, KarlovsKarlovskis:2024ga, Terragni:2025fa}.
 
-Despite these benefits, the rapid adoption of AI and LLMs in software development has introduced unresolved challenges that motivate systematic investigation. The literature highlights persistent concerns related to the quality, reliability, and trustworthiness of AI-generated artifacts, as well as technical and methodological barriers such as limited explainability and the black-box nature of advanced models. In addition, effective utilization of LLMs remains highly dependent on prompt formulation, while existing research often focuses on isolated tasks, leaving several SDLC phases, particularly requirements engineering and design, with limited practical guidance.
+Adoption has nevertheless outpaced the resolution of the challenges it raises, which is what motivates systematic investigation. The literature reports persistent concerns over the quality, reliability, and trustworthiness of AI-generated artifacts, and methodological barriers such as limited explainability and the black-box nature of advanced models. Effective use of LLMs also remains highly dependent on prompt formulation, while existing research concentrates on isolated tasks, leaving several SDLC phases, particularly requirements engineering and design, with limited practical guidance.
 
-Therefore, the motivation for this Systematic Literature Review is to comprehensively map and synthesize existing research on the use of AI and LLMs in Software Development. By organizing current evidence on benefits, limitations, methodologies, stakeholder perspectives, and application domains, this review aims to identify research gaps and inform both researchers and practitioners on how to better leverage AI technologies across the SDLC.
+This review therefore maps and synthesises existing research on AI and LLM use in software development, organising the evidence on benefits, limitations, methodologies, stakeholder perspectives, and application domains so that research gaps become identifiable.
 
 \subsection{Research Questions}
 This overly general topic admits many possible research questions; the five
@@ -62,7 +60,7 @@ systematic review:
 \end{longtable}}
 
 \subsection{Review Protocol}
-The systematic literature review starts with a literature search. A search string is defined to then be used in the data source of choice. The search criteria used for this review resulted in 646 articles to review.
+The review begins with a literature search: a search string is defined and executed against the chosen data source. The criteria used here, stated in \Cref{tab:review_protocol}, returned 646 articles.
 
 {\small
 \centering
@@ -103,20 +101,19 @@ Results & 646 \\
 }
 
 
-The aim of this review was to research the use of AI/LLMs in developing applications; but that specific topic can be written in many different ways. When talking about this theme, a very recent term used in the world of Software Development came to mind: "Vibe Coding". For such a new topic and specific term regarding the use and adoption of AI in the development process of software, there were used a lot of keywords in the search string that have the same significance and could replace it since the topic was recent but its methodology wasn't, it was still used but with different expressions and the term "Vibe Coding" itself didn't provide a lot of relevant articles covering the theme. Keywords such as "code generation" and "application development" used in conjunction with "generative AI" and "AI models" provided a search string that could get the desired world of use and adoption of AI and LLMs in the software development process as a whole.
+The subject of this review, the use of AI and LLMs to develop applications, can be expressed in many different ways, and the string had to absorb that variation. "Vibe Coding" is the most recent term for the practice, but the practice predates the term: querying it alone returned few relevant articles, because the same work is published under different expressions. Synonymous keywords were therefore added, and it is the combination of "code generation" and "application development" with "generative AI" and "AI models" that retrieves the intended body of work rather than any single term.
 
-The defined search string was then used to query the EBSCO Online Digital Library. For this review, the
-“Advanced Search” option was used and the query was executed in the AB abstract field and title of the papers. To limit the number of articles found, the search was limited to articles in academic journals or conference materials that had the full text available and were in English.
+The string was executed against the EBSCO Online Digital Library through its Advanced Search option, over the AB abstract field and the title, restricted to full-text-available results.
 
 \section{Conducting the Review}
 
-This section covers the second stage of the SLR. To conduct the review, the 646 articles extracted in the previous stage were analyzed according to the criteria used for the filtering process. The criteria used are detailed and a representation of the results found along the process is provided.
+The second stage applies the filtering criteria to the 646 articles retrieved in the first. The criteria are stated below and the attrition at each step is shown in \Cref{fig:article_filtering}.
 
 \subsection{Filtering Process}
 
-The filtering process starts with the 646 articles that resulted from the search string query and \Cref{fig:article_filtering} shows that exact process. Extracting and downloading those 646 articles was impossible due to EBSCO's web page loading capacity which only allowed the download of 50 articles at a time; after reloading and extending the page to its maximum, the website could only download and display, by relevancy order, 467 out of the 646 articles obtained from the search string.
+Extracting all 646 articles was not possible: EBSCO's page allows the download of 50 articles at a time, and after reloading and extending the page to its maximum the site could display, in relevance order, only 467 of the 646.
 
-To organize the articles and to help the filtering process, the AI-Powered Systematic Review Management Platform "Rayyan" was used. From the 467 extracted, 227 duplicates were identified and removed, resulting in 350 articles left for Abstract Reading. The abstract of the resulting articles was read to ascertain the topic covered and 286 articles were rejected due to the reason of covering another topic other the overall theme of "Developing applications using AI" leaving exactly 64 articles.
+The AI-powered systematic review management platform "Rayyan" was used to organise the articles. Of the 467 extracted, 227 duplicates were identified and removed, leaving 350 for abstract reading; reading those abstracts to establish the topic covered rejected 286 as belonging to a theme other than developing applications using AI, leaving 64 articles.
 
 \begin{figure}[htbp]
      \centering
@@ -125,11 +122,9 @@ To organize the articles and to help the filtering process, the AI-Powered Syste
      \label{fig:article_filtering}
 \end{figure}
 
-After making sure that all the relevant papers concerning the theme were still being considered, it was time to properly read the content of these papers, and during this section these 64 articles were separated into 4 categories: Included, Maybe, Excluded and Skipped. 
+The content of those 64 articles was then read and each was placed in one of four categories: Included, Maybe, Excluded and Skipped. Articles were "Skipped" when reading the introduction and conclusion showed them to be off-theme, insufficiently recent, which matters given how fast the field moves, or silent on all five research questions; 20 were skipped and excluded on those grounds. "Maybe" was used while it was unclear whether an article's content bore on the theme; most were ultimately excluded in favour of more recent studies reflecting the current state of the art, and those that did fit the topic were included.
 
-The "Skipped" articles, although they passed through the abstract reading phase, after reading the introduction and conclusion of those papers and evaluating them on regards if they are relevant to the theme, if they are relatively recent (which is important due to the highly dynamic and fast-evolving nature of the field) and if any of the five research questions were answered, there were 20 skipped papers and properly excluded. The number of "Maybe" articles was always changing during the article reading section, but the files that were classified as "Maybe" was due to not knowing if its content would be relevant to the theme in question. Most of them were properly excluded due to prioritizing more recent studies to reflect the current state of the art and the papers that fit into the topic were included.
-
-If the reviewed sections of an article provided a clear and explicit answer to any of the five research questions, the article was included in the study. However, when the information presented was unclear, insufficient, or lacked the necessary detail to confirm whether an answer was provided, the predefined inclusion and exclusion criteria were applied to determine eligibility. These criteria are summarized in \Cref{tab:inclusion_exclusion}. From the initial set of 64 articles, after excluding and deciding which "Maybe" articles were relevant, 31 met the criteria and were retained for analysis.
+An article that answered any of the five research questions clearly and explicitly was included. Where the information was unclear, insufficient, or too thin to confirm that an answer was given, the predefined inclusion and exclusion criteria in \Cref{tab:inclusion_exclusion} decided eligibility. Of the 64 articles, 31 met the criteria and were retained for analysis.
 
 {\small
 \renewcommand{\arraystretch}{1.25}
@@ -175,8 +170,7 @@ If the reviewed sections of an article provided a clear and explicit answer to a
 
 \subsection{Data Extraction Analysis}
 
-Having selected the articles, these can now be analyzed, subdivided according to the venue in which they were published, journal or conference material, as well as
-identifying the conferences and journals used and the year it was published. Curiously enough, none of the selected papers were categorized as Conference Materials, only Peer Reviewed Academic Journals categorized as such by EBSCO were selected and extracted as shown in \Cref{fig:monthly_publications}. 
+The retained articles were then subdivided by the venue and year in which they were published. None of them is categorised as conference material: every retained article is a peer-reviewed academic journal article as classified by EBSCO, distributed over time as shown in \Cref{fig:monthly_publications}.
 
 \begin{figure}[htbp]
     \centering
@@ -189,14 +183,14 @@ identifying the conferences and journals used and the year it was published. Cur
 
 \section{Reporting the Review}
 
-This section covers the third and last phase of the \ac{SLR} methodology, reporting what the analysis of the retained articles established and answering each research question in turn. The distribution of the retained corpus by publication venue is given in \Cref{sec:appA_journals}; it is concentrated rather than diffuse, with ACM Transactions on Software Engineering and Methodology contributing ten of the retained articles and Information and Software Technology three, while the remaining venues contribute one each, which is consistent with a topic that is being actively published across the field rather than owned by any single outlet.
+The third and last stage reports what the analysis of the retained articles established, answering each research question in turn. The distribution of the retained corpus by publication venue is given in \Cref{sec:appA_journals}; it is concentrated rather than diffuse, with ACM Transactions on Software Engineering and Methodology contributing ten of the retained articles and Information and Software Technology three, while the remaining venues contribute one each, which is consistent with a topic that is being actively published across the field rather than owned by any single outlet.
 
 
 
 
 \subsection{Benefits of AI and LLMs usage in Software Development}
 
-The first research question looks into the benefits of using and incorporating AI and Large Language Models in software development to developers, companies and other stakeholders. The benefits found in the literature have been collected in \Cref{tab:benefits}. To answer this question, this section will analyze the benefits found.
+The first research question concerns the benefits of AI and \ac{LLM} adoption for developers, companies and other stakeholders. \Cref{tab:benefits} collects the benefits reported in the literature; what follows analyses them.
 
 {\small
 \begin{longtable}{>{\raggedright\arraybackslash} p{3cm} p{9.3cm} p{0.2cm} p{1.8cm}}
@@ -247,18 +241,13 @@ Democratization and Accessibility & AI integration aims to "shift the programmin
 }
 
 
-The integration of AI and LLMs into software development yields profound benefits, foremost among which is the dual improvement of productivity and code quality, which appear to be mutually reinforcing and more abundant within the articles. This acceleration does not come at the cost of quality; on the contrary, the literature indicates that AI helps in generating code that adheres to high standards, which directly increases the quality, accuracy, and particularly the traceability of the final product \cite{Kim:2025is}. This synergy is further supported by the automation of traditionally time-consuming quality assurance tasks like testing, debugging, and repair, where AI's ability to refine implementations and correct errors significantly reduces manual intervention; specifically, LLMs leverage explicit feedback, such as compiler error messages, in follow-up prompts to iteratively fix their own coding errors within the same conversation context.
+The two most frequently reported benefits, productivity and code quality, are also mutually reinforcing: acceleration does not come at the cost of quality, since AI helps generate code adhering to high standards and thereby raises the accuracy and particularly the traceability of the final product \cite{Kim:2025is}. Automating the time-consuming quality-assurance tasks, testing, debugging and repair, supports the same synergy, and the mechanism is specific: LLMs leverage explicit feedback such as compiler error messages in follow-up prompts, iteratively fixing their own coding errors within a single conversation context.
 
 Beyond the direct impact on the codebase, AI also improves developer job satisfaction and democratises programming knowledge, by automating monotonous tasks so developers can prioritise more engaging work, and by lowering technical barriers so that programming becomes a more conversational, accessible activity for a broader audience.
 
-These advantages are not confined to a single phase but extend across the
-entire \ac{SDLC}, from requirements elicitation through implementation,
-security, and documentation; \Cref{tab:ai_sdlc_mapping} maps the specific
-contribution reported at each phase.
-
 \subsection{Consequences of AI and LLMs usage in Software Development}
 
-This second section will analyze, cover and show more about the consequences that may arise while using and incorporating AI and Large Language Models in Software Development both in code generation and other sections of the art. The consequences found in the many articles have been collected in \Cref{tab:consequences}.
+The second research question concerns the consequences that may arise from incorporating AI and \acp{LLM} into software development, in code generation and elsewhere. Those reported across the corpus are collected in \Cref{tab:consequences}.
 {\small
 \begin{longtable}{>{\raggedright\arraybackslash} p{3cm} p{9.3cm} p{0.2cm} p{1.8cm}}
 \caption{Consequences of using AI and LLMs in Software Development}
@@ -304,19 +293,16 @@ Ineffectiveness of Existing Security Tools & Existing tools detect only "46.7\% 
 }
 
 
-The integration of GenAI and LLMs into software development introduces
-significant technical, ethical, and operational consequences that demand
-careful mitigation and human oversight, with operational and technical
-risks the most frequently cited, as detailed in \Cref{tab:consequences}.
-Operational efficiency is threatened first by cost: training, fine-tuning,
-and deploying large-scale models can be substantially more expensive than
-traditional methods, offsetting the productivity gains they are meant to
-buy. The second most-cited risk is reliability: LLMs are fallible and
+The consequences tabulated above are technical, ethical and operational, and
+the operational and technical ones are cited most often. Cost comes first:
+training, fine-tuning and deploying large-scale models can be substantially
+more expensive than traditional methods, offsetting the productivity gains
+they are meant to buy. Reliability comes second: LLMs are fallible and
 frequently produce plausible but fabricated output, "hallucinations", most
-problematically in complex or niche scenarios, and current security tools
-only detect about 46.7\% of vulnerabilities in AI-generated code against
-66.4\% in human-written code, a mismatch between existing frameworks and
-the new failure modes AI introduces \cite{Yoo:2025sa}.
+problematically in complex or niche scenarios. The detection gap the table
+records between AI-generated and human-written code is the same problem seen
+from the tooling side, existing instruments being matched to failure modes
+AI-generated code does not share \cite{Yoo:2025sa}.
 
 Beyond the technical domain, adoption carries risks to human factors,
 ethics, and economic viability. Over-reliance risks eroding developers'
@@ -334,7 +320,7 @@ not a footnote to it.
 
 \subsection{Methodologies and management methods used to integrate AI and LLMs in Software Development}
 
-This section will aim to answer to the third research question and analyze the literature in order to list all the methodologies and management methods used to integrate AI and LLMs in Software Development.
+The third research question asks which methodologies and management methods are used to integrate AI and \acp{LLM} into software development. \Cref{tab:methodologies} lists those the corpus reports.
 
 {\small
 \begin{longtable}{>{\raggedright\arraybackslash} p{3cm} p{9.3cm} p{0.2cm} p{1.8cm}}
@@ -388,20 +374,15 @@ Integration of LLMs with Traditional Testing & "the integration of LLMs with tra
 \end{longtable}
 }
 
-The integration of LLMs and GenAI into software engineering has
-necessitated structured methodologies and management paradigms for
-optimising model performance, defining human-AI collaboration, and
-formalising the \ac{SDLC} itself, ranging from prompt-level tuning to
-large-scale process frameworks.
-
-The fundamental layer relies on methods to improve model interaction
-through prompts, led by In-Context Learning (9 articles, the most
-frequently discussed technique) and Prompt Engineering, whose quality
-critically determines LLM effectiveness. This principle motivates
-Chain-of-Thought prompting, where the model generates intermediate
-reasoning steps toward its answer, and Structured Chain-of-Thought, which
-explicitly introduces programming structures such as sequential, branch and
-loop constructs into those steps \cite{Li:2025sc}.
+The methods reported range from prompt-level tuning to large-scale process
+frameworks, and they stratify. The fundamental layer improves model
+interaction through prompts, led by In-Context Learning (9 articles, the
+most frequently discussed technique) and Prompt Engineering, whose quality
+critically determines LLM effectiveness; the same principle motivates
+Chain-of-Thought prompting, in which the model generates intermediate
+reasoning steps toward its answer, and its Structured variant, which
+introduces programming constructs such as sequence, branch and loop into
+those steps \cite{Li:2025sc}.
 
 Given LLMs' variable reliability, the Human-In-The-Loop paradigm is
 considered mandatory for maintaining software quality \cite{Kim:2025ao}:
@@ -431,8 +412,6 @@ Developers and practitioners report the opposite emphasis. Productivity and effi
 
 Organisations and management treat adoption as a risk-management exercise. The strategic case is tied to job satisfaction, talent retention and competitiveness, since automating routine work retains valuable staff~\cite{Jensen:2025me}, but it is constrained by the group's most-cited concern, data security and privacy, in six articles. The consensus strategy is to avoid commercial \acp{LLM} in favour of open models fine-tuned on organisation-specific data, which in turn raises operational cost and pushes teams towards medium-sized models to manage computational limits. Expectation management appears less often but matters for the same reason: organisations report needing to discount the hype surrounding these tools when planning their integration.
 
-Read together, the three groups converge despite their different emphases. Enthusiasm about productivity is never reported without an accompanying concern about reliability, and every group independently arrives at human oversight as the necessary control. That convergence, from stakeholders with different incentives, is what makes oversight a requirement to be designed for rather than a preference to be accommodated.
-
 \subsection{Industry sectors adopting AI and LLMs for Software Applications Development}
 
 The fifth research question asks which industry sectors are actively adopting \ac{AI} for application development and what sector-level benefits they report. The extracted evidence is tabulated in \Cref{sec:appA_sectors}; what follows is what it establishes.
@@ -441,7 +420,7 @@ Adoption concentrates overwhelmingly in Software Engineering, Software Developme
 
 Beyond the core \ac{IT} sector, adoption clusters in high-stakes regulated environments: Finance, Banking and Regulated Industries in eight articles, Transportation and other safety-critical domains in seven, Healthcare and Biomedical Research in five, and Legal Reasoning in four. In these domains \acp{LLM} are introduced cautiously, with emphasis on reliability, auditability and regulatory compliance, and the literature is consistent that extensive human review and verification remain mandatory wherever incorrect or unverifiable output could produce safety risks, compliance failures or legal liability~\cite{Moore:2025vc, Ahmed:2025ai, Jabrw:2025ss, Qiu:2025ft}. Education and Training, in five articles, is an emerging area in which \acp{LLM} act as adaptive learning companions rather than replacements for educators, supporting exercise generation, personalised feedback and formative assessment~\cite{Ramos:2025aa, Hemmat:2025rd, Zamfiroiu:2025ec}.
 
-The pattern across sectors is the same one the earlier questions produced from a different direction. Where the cost of an incorrect output is low, adoption is broad and the reported benefit is speed; where that cost is high, adoption is conditioned on verification. No sector reports adopting these tools without a human check, and the sectors with the most to lose report the most explicit checks. That is a finding about process rather than about capability, and it is the point at which this review begins to constrain the design of a framework rather than merely describing practice.
+No sector reports adopting these tools without a human check, and the sectors with the most to lose report the most explicit checks. That is a finding about process rather than about capability, and it is the point at which this review begins to constrain the design of a framework rather than merely describing practice.
 
 \section{Discussion}
 
@@ -528,10 +507,8 @@ Potential over-reliance on AI explanations; challenges in maintaining long-term 
 \end{longtable}
 }
 
+Read down its challenge column, the same requirement recurs at every phase: a
+human check of the model's output against something written before that output
+existed.
 
-The future of AI in software development therefore depends less on the raw
-capability of the models than on the process wrapped around them: a
-methodologically sound, transparent, trust-centred way of using them that
-the literature surveyed here does not yet supply, and that the rest of this
-dissertation sets out to build.
 
