@@ -149,8 +149,11 @@ as authoritative over the sheet for these two questions.
 12. Run **one** pilot participant. Not counted, ever.
 13. Check the pilot returned six correctly labelled F1 rows. If not, fix F1
     before anyone else runs.
-14. Time the pilot. If the tasks overrun 60 minutes, cut an optional task, not a
-    marked one.
+14. Time the pilot. **The optional tasks (O1-O3) were cut entirely 2026-09-01**
+    (see `task-script.md`), so there is nothing left to trim if the session
+    overruns 60 minutes - report the overrun honestly as a pilot finding
+    instead of improvising a cut into the nine marked/numbered tasks, which
+    would lose TLX-per-task coverage.
 15. Fix whatever the pilot broke, then freeze everything. No wording changes
     after this point.
 

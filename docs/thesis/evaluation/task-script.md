@@ -218,18 +218,6 @@ Download them and confirm that the files opened correctly.
 
 ---
 
-### Optional - only if you have time and interest
-
-Not required, and not part of the study measures. Nothing to fill in.
-
-- **O1** - Open Phase 6 and find out whether any feature has drifted from what
-  was specified.
-- **O2** - Find every artefact that traces back to the password reset
-  requirement.
-- **O3** - Run Autopilot on one epic and stop it before it finishes.
-
----
-
 ## You have completed all tasks
 
 Please now open the **SUS form** (`https://docs.google.com/forms/d/e/1FAIpQLSc3Tr2pVcRaNEc4MHrThurZSwbg1dXIyeHOyDbL-3_sufSlOg/viewform`) and fill it in. This takes
@@ -396,18 +384,6 @@ recuperação de palavra-passe. Descarregue-os e confirme que os ficheiros abrir
 correctamente.
 
 `->` **Pare aqui. Abra o formulário de carga de trabalho da Tarefa 9 - `https://docs.google.com/forms/d/e/1FAIpQLSdXAbp9UWHtLBkjJUQhylS6Xc-dRveePiRPS1ZGReq2uwEipw/viewform?usp=pp_url&entry.1881857837=Tarefa+9+-+Exportar+o+que+a+ferramenta+produziu` - e preencha-o antes de continuar.**
-
----
-
-### Opcional - só se tiver tempo e interesse
-
-Não é obrigatório e não faz parte das medidas do estudo. Nada a preencher.
-
-- **O1** - Abra a Fase 6 e descubra se alguma funcionalidade se desviou daquilo
-  que foi especificado.
-- **O2** - Encontre todos os artefactos que remetem para o requisito de
-  recuperação de palavra-passe.
-- **O3** - Execute o Autopilot num épico e pare-o antes de terminar.
 
 ---
 

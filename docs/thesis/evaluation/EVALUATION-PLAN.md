@@ -188,8 +188,13 @@ Six of them carry a Raw TLX form.
 | 8 | Deploy the feature you built | yes | Phase 5 (pre-flight, deploy pack, gate) |
 | 9 | Export what the tool produced | yes | Export and download paths |
 
-Optional and excluded from all measures: Phase 6 drift check, traceability
-explorer, Autopilot.
+Three further optional tasks (Phase 6 drift check, traceability explorer,
+Autopilot) were designed and then cut entirely from `task-script.md`
+2026-09-01, ahead of the pilot rather than reactively during it, to protect
+session time. They were never scored, so no measure loses coverage; the
+one real cost is that the traceability explorer, a distinctive claim of the
+framework, stays untested by this study - noted as a scope limitation in
+\Cref{sec:threats} rather than left implicit.
 
 **Changed 2026-08-30, deviation from the original design.** Task 8 was
 originally a refusal test: deploy a different, deliberately-never-QA'd story

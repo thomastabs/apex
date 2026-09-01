@@ -168,11 +168,17 @@ downloads empty or corrupt.
 **Predicted TLX:** lowest overall.
 **Expected:** 5 min.
 
-### Optional, excluded from all measures
-- **O1** Phase 6 drift check. **O2** traceability explorer. **O3** Autopilot.
+### Optional tasks - cut entirely, 2026-09-01
 
-O2 is worth pushing for where time allows: traceability is a distinctive claim
-of the framework and has never been usability-tested.
+The three optional tasks (Phase 6 drift check, traceability explorer,
+Autopilot) were dropped from `task-script.md` outright rather than left as
+"only if there's time" - Tomás's call, made ahead of the pilot to protect
+session time rather than reactively during it. They were never part of any
+measure, so nothing scored is lost. The traceability-explorer item was
+flagged as worth pushing for because it is a distinctive, never-tested
+claim of the framework; that gap is now simply unexercised by this study
+rather than optionally covered, and should be named as a limitation in
+`\Cref{sec:threats}` if it isn't already.
 
 ---
 
