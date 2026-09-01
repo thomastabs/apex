@@ -7,6 +7,7 @@ import { Command, FileText, Layers3, ListChecks, Moon, RefreshCw, Sun } from "lu
 import { toast } from "sonner";
 import { useBoard, useContextFiles, useProjectTasks, useRebuildStoryIndex } from "@/lib/hooks/use-workspace";
 import { useUiStore } from "@/lib/stores/ui-store";
+import { ORPHAN_EPIC_ID } from "@/lib/api/types";
 import { useT } from "@/lib/i18n/use-translation";
 import type { TranslationKey } from "@/lib/i18n/translations";
 import { cn } from "@/lib/utils";
@@ -75,6 +76,7 @@ function useCommands() {
 // (board-section.tsx, context-section.tsx, tasks-section.tsx) consumes to
 // expand itself and open the matching dialog — see ui-store.ts.
 function useSearchResults(query: string): CmdItem[] {
+  const t = useT();
   const setSearchFocus = useUiStore((s) => s.setSearchFocus);
   const setRightSidebarCollapsed = useUiStore((s) => s.setRightSidebarCollapsed);
   const board = useBoard();
@@ -93,7 +95,12 @@ function useSearchResults(query: string): CmdItem[] {
     const epicItems: CmdItem[] = [];
     const storyItems: CmdItem[] = [];
     for (const epic of board.data ?? []) {
-      if (epic.subject.toLowerCase().includes(q) || epic.description?.toLowerCase().includes(q) || `#${epic.ref}`.includes(q)) {
+      // The no-epic/deleted-epic bucket is a client-side grouping (id -1,
+      // no real Taiga counterpart) — never surface it as an epic result,
+      // reveal() has nothing to open. Its stories are still searched below.
+      const isOrphanBucket = epic.id === ORPHAN_EPIC_ID;
+      const epicLabel = isOrphanBucket ? t("board.noEpicLabel") : epic.subject;
+      if (!isOrphanBucket && (epic.subject.toLowerCase().includes(q) || epic.description?.toLowerCase().includes(q) || `#${epic.ref}`.includes(q))) {
         epicItems.push({
           id: `epic-${epic.id}`, label: epic.subject, sublabel: `#${epic.ref}`,
           keywords: epic.subject.toLowerCase(), icon: <Layers3 className="size-3.5" />, group: "epics",
@@ -103,7 +110,7 @@ function useSearchResults(query: string): CmdItem[] {
       for (const story of epic.stories) {
         if (story.subject.toLowerCase().includes(q) || story.description?.toLowerCase().includes(q) || `#${story.ref}`.includes(q)) {
           storyItems.push({
-            id: `story-${story.id}`, label: story.subject, sublabel: `#${story.ref} · ${epic.subject}`,
+            id: `story-${story.id}`, label: story.subject, sublabel: `#${story.ref} · ${epicLabel}`,
             keywords: story.subject.toLowerCase(), icon: <Layers3 className="size-3.5" />, group: "stories",
             action: () => reveal({ kind: "story", id: story.id }),
           });
@@ -134,7 +141,7 @@ function useSearchResults(query: string): CmdItem[] {
       ...fileItems.slice(0, MAX_RESULTS_PER_GROUP),
     ];
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, board.data, tasks.data, files.data]);
+  }, [query, board.data, tasks.data, files.data, t]);
 }
 
 export function CommandPalette() {

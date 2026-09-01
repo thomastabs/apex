@@ -79,6 +79,36 @@ describe("taiga direct API", () => {
     expect(board[0].stories[0].description).toBe("");
   });
 
+  it("surfaces stories with no epic, or a deleted epic, as a pseudo-epic instead of dropping them", async () => {
+    mockFetch
+      .mockResolvedValueOnce(makeResponse(200, [{ id: 5, ref: 1, subject: "Epic", description: "d" }]))
+      .mockResolvedValueOnce(makeResponse(200, [
+        { id: 10, ref: 2, subject: "In epic", epic: 5 },
+        { id: 11, ref: 3, subject: "No epic at all", epic: null },
+        { id: 12, ref: 4, subject: "Epic was deleted", epic: 999 },
+      ]));
+
+    const board = await taigaGetBoard("tok", 2, "https://api.taiga.test/api/v1");
+
+    expect(board).toHaveLength(2);
+    expect(board[0].id).toBe(5);
+    expect(board[0].stories.map((s) => s.id)).toEqual([10]);
+    const orphanBucket = board[1];
+    expect(orphanBucket.id).toBe(-1);
+    expect(orphanBucket.stories.map((s) => s.id).sort()).toEqual([11, 12]);
+  });
+
+  it("returns only real epics when every story has a live owning epic", async () => {
+    mockFetch
+      .mockResolvedValueOnce(makeResponse(200, [{ id: 5, ref: 1, subject: "Epic", description: "d" }]))
+      .mockResolvedValueOnce(makeResponse(200, [{ id: 10, ref: 2, subject: "Story", epic: 5 }]));
+
+    const board = await taigaGetBoard("tok", 2, "https://api.taiga.test/api/v1");
+
+    expect(board).toHaveLength(1);
+    expect(board.some((e) => e.id === -1)).toBe(false);
+  });
+
   it("deletes stories before deleting an epic", async () => {
     mockFetch
       .mockResolvedValueOnce(makeResponse(200, [{ id: 10 }, { id: 11 }]))

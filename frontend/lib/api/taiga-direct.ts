@@ -7,6 +7,7 @@
 import { ApiError, ApiNetworkError, getApiBaseUrl } from "./client";
 import { translate } from "@/lib/i18n/translate";
 import type { Epic, EpicWithStories, Me, Membership, Project, Story } from "./types";
+import { ORPHAN_EPIC_ID } from "./types";
 
 const DEFAULT_TAIGA_API = "https://api.taiga.io/api/v1";
 
@@ -277,20 +278,37 @@ export async function taigaGetBoard(token: string, projectId: number, apiBaseUrl
   // Only hydrate epic descriptions — story descriptions are not shown in the board list view
   // and each individual fetch triggers a CORS preflight, causing a storm of OPTIONS requests.
   const epics = await hydrateMissingDescriptions("epics", rawEpics ?? [], token, apiBaseUrl);
+  const epicIds = new Set(epics.map((rawEpic) => rawEpic.id as number));
   const stories = rawStories ?? [];
   const storiesByEpic = new Map<number, Story[]>();
+  // Stories with no epic_id, or one that doesn't match any epic we actually
+  // fetched (the epic was deleted but the story wasn't reassigned — Taiga
+  // allows this), used to be dropped entirely: bucketed by epic_id, then only
+  // epics.map(...) ever iterated, so a story landing in neither category was
+  // never returned to any caller (board render, search, import). See
+  // ORPHAN_EPIC_ID's comment.
+  const orphanStories: Story[] = [];
   for (const rawStory of stories) {
     const story = normalizeStory(rawStory);
-    if (story.epic_id != null) {
+    if (story.epic_id != null && epicIds.has(story.epic_id)) {
       const arr = storiesByEpic.get(story.epic_id) ?? [];
       arr.push(story);
       storiesByEpic.set(story.epic_id, arr);
+    } else {
+      orphanStories.push(story);
     }
   }
-  return epics.map((rawEpic) => {
+  const board = epics.map((rawEpic) => {
     const epic = normalizeEpic(rawEpic);
     return { ...epic, stories: storiesByEpic.get(epic.id) ?? [] };
   });
+  if (orphanStories.length > 0) {
+    board.push({
+      id: ORPHAN_EPIC_ID, ref: 0, subject: "", description: "", version: null, tags: [],
+      stories: orphanStories,
+    });
+  }
+  return board;
 }
 
 export async function taigaGetEpic(token: string, epicId: number, apiBaseUrl?: string): Promise<Epic> {

@@ -31,7 +31,7 @@ import { useApiContext, useFigmaContext } from "@/lib/stores/session-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/primitives";
-import type { Epic, Story } from "@/lib/api/types";
+import { ORPHAN_EPIC_ID, type Epic, type Story } from "@/lib/api/types";
 import { PanelHeader, type DragSectionProps } from "./shared";
 import { useT } from "@/lib/i18n/use-translation";
 import type { TranslationKey } from "@/lib/i18n/translations";
@@ -957,39 +957,54 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
             {!board.isLoading && !board.isError && q && filteredBoard.length === 0 && (
               <div className={subduedTextClass}>{t("board.noMatches")}</div>
             )}
-            {!board.isLoading && !board.isError && filteredBoard.map((epic) => (
+            {!board.isLoading && !board.isError && filteredBoard.map((epic) => {
+              const isOrphanBucket = epic.id === ORPHAN_EPIC_ID;
+              return (
               <div key={epic.id}>
                 <div className="flex w-full items-center gap-1">
                   <button
                     className={cn("flex flex-1 items-center gap-1 text-left font-semibold transition-colors hover:text-violet-300", strongTextClass)}
                     onClick={() => setExpandedEpic(expandedEpic === epic.id ? null : epic.id)}
+                    title={isOrphanBucket ? t("board.noEpicHint") : undefined}
                   >
                     {expandedEpic === epic.id ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
-                    <span className="font-mono">#{epic.ref}</span> {epic.subject}
+                    {isOrphanBucket ? (
+                      <span className={cn("italic", subduedTextClass)}>{t("board.noEpicLabel")}</span>
+                    ) : (
+                      <><span className="font-mono">#{epic.ref}</span> {epic.subject}</>
+                    )}
                   </button>
-                  <button
-                    className="grid size-6 place-items-center rounded text-violet-400 transition-colors hover:bg-violet-500/20 hover:text-violet-300"
-                    onClick={() => setDialogEpic(epic)}
-                    title={t("board.editEpic")}
-                  >
-                    <Info className="size-3" />
-                  </button>
-                  <button
-                    className="grid size-6 place-items-center rounded text-red-400 transition-colors hover:bg-red-500/20"
-                    onClick={() => confirm(t("board.deleteEpicConfirm", { subject: epic.subject }), () => deleteEpic.mutate(epic.id))}
-                    title={t("board.deleteEpic")}
-                  >
-                    <Trash2 className="size-3" />
-                  </button>
+                  {/* No epic/deleted-epic bucket is a client-side grouping, not a
+                      real Taiga epic — edit/delete would hit id -1 on the wire. */}
+                  {isOrphanBucket ? null : (
+                    <>
+                      <button
+                        className="grid size-6 place-items-center rounded text-violet-400 transition-colors hover:bg-violet-500/20 hover:text-violet-300"
+                        onClick={() => setDialogEpic(epic)}
+                        title={t("board.editEpic")}
+                      >
+                        <Info className="size-3" />
+                      </button>
+                      <button
+                        className="grid size-6 place-items-center rounded text-red-400 transition-colors hover:bg-red-500/20"
+                        onClick={() => confirm(t("board.deleteEpicConfirm", { subject: epic.subject }), () => deleteEpic.mutate(epic.id))}
+                        title={t("board.deleteEpic")}
+                      >
+                        <Trash2 className="size-3" />
+                      </button>
+                    </>
+                  )}
                 </div>
                 {expandedEpic === epic.id ? (
                   <div className={cn("mt-2 space-y-2 pl-4", bodyTextClass)}>
-                    <button
-                      className="flex items-center gap-1 rounded border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-xs font-semibold text-violet-400 transition-colors hover:bg-violet-500/20"
-                      onClick={() => setCreateStoryEpicId(epic.id)}
-                    >
-                      <Plus className="size-3" /> {t("board.storyButton")}
-                    </button>
+                    {isOrphanBucket ? null : (
+                      <button
+                        className="flex items-center gap-1 rounded border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-xs font-semibold text-violet-400 transition-colors hover:bg-violet-500/20"
+                        onClick={() => setCreateStoryEpicId(epic.id)}
+                      >
+                        <Plus className="size-3" /> {t("board.storyButton")}
+                      </button>
+                    )}
                     {epic.stories.map((story) => (
                       <div key={story.id}>
                         <div className="flex items-center gap-1">
@@ -1045,7 +1060,8 @@ export function BoardSection({ dark, projectId, confirm, shellClass, dragHandler
                   </div>
                 ) : null}
               </div>
-            ))}
+              );
+            })}
             {!board.isLoading && !board.isError && !board.data?.length ? <div className={subduedTextClass}>{t("board.noEpicsYet")}</div> : null}
 
           </div>

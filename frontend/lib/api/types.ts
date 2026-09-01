@@ -53,6 +53,15 @@ export type Epic = {
   pm_epic_id?: string;
 };
 
+// Sentinel `Epic.id` for the pseudo-epic getBoard() adapters use to surface
+// stories that have no real owning epic (Taiga: `epic_id` null, or pointing
+// at an epic that no longer exists) instead of silently dropping them —
+// board rendering/search must never treat this as a real, editable epic.
+// Negative and never minted: Taiga's real epic ids are always positive, and
+// plane-id-shim's mintId() counter starts at 1 and only increments, so -1
+// can never collide with a real id from either PM tool.
+export const ORPHAN_EPIC_ID = -1;
+
 export type Story = {
   id: number;
   ref: number;
