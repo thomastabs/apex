@@ -6,7 +6,9 @@ the task set, the measures and the analysis is what separates a demonstration
 from an anecdote, and it is the single cheapest defence against "the
 observations were selected after the fact to suit the artefact".
 
-Status: **draft, not yet executed.** Nothing here has been administered.
+Status: **running.** P0 completed the full session 2026-09-02 (all four forms
+submitted, verified clean - see the Participants note below) and is counted in
+results rather than discarded as an uncounted pilot. P1-P12 not yet run.
 
 ---
 
@@ -130,6 +132,19 @@ items have primed the participant about specific features.
 
 ### Participants
 
+- **Changed 2026-09-02.** P0 was originally slated as an uncounted pilot run
+  (see the Build checklist below), the way this section's own N=12 planning
+  assumed. It produced real, clean, correctly-labelled data - all four forms
+  submitted once each, six of six TLX submissions distinctly and correctly
+  labelled by task, nothing missing or duplicated - and Tomás decided there is
+  no principled reason to discard usable data collected under the same
+  informed-consent form, task script and instruments every other participant
+  gets. P0 is therefore counted in results as a full participant, not folded
+  into the P1-P12 numbering (the cards are already fixed) and not treated as a
+  discardable pilot. The target below is unchanged from its original
+  pre-registration; achieved N can now reach 13 (P0 plus however many of
+  P1-P12 complete) rather than 12, and is reported at whatever it actually
+  ends up being, same as everywhere else in this plan.
 - **Target N = 12** for SUS. Twelve is the point where SUS is generally treated
   as yielding a stable mean; below that, report the distribution and individual
   scores and make no inferential claim.
@@ -576,9 +591,12 @@ Note the article title capitalises "validation" lowercase in the original.
       eighteen placeholder links filled in - nine per language: the tool link,
       six per-task prefilled TLX links, the SUS link and the UX link
 - [ ] Participant code cards printed
-- [ ] Pilot run with **one** participant, not counted in results, to time the
-      script and catch broken instructions. Six TLX submissions must come back
-      correctly labelled - if they do not, fix the form before anyone else runs
+- [x] Pilot run with **one** participant (P0), completed 2026-09-02. Verified
+      clean: F0 consent (1 response, both optional permissions granted), F1
+      TLX (6 responses, one per marked task, all six correctly and distinctly
+      labelled), F2 SUS (1 response) and F3 UX (1 response), all coded P0, no
+      missing or duplicate submissions. **Changed 2026-09-02:** counted in
+      results rather than discarded - see the Participants note above
 - [x] A clean demo project seeded, and a reset procedure that actually works
       (verified 2026-08-30). `Export board to CSV` no longer load-bearing -
       task 8 was redesigned to deploy the participant's own built story;

@@ -5,7 +5,9 @@ One card per participant: code, tool link, shared Taiga sign-in credentials,
 GitHub repo URL and PAT. Cards are laid out on A4 pages, several per page,
 with dashed cut lines - print, cut, hand one per participant.
 
-Codes: P0 (pilot, uncounted) + P1..P12 (Target N=12, EVALUATION-PLAN.md).
+Codes: P0 (pilot, counted as a full participant since 2026-09-02, see
+EVALUATION-PLAN.md's Participants section) + P1..P12 (pre-registered Target
+N=12, unchanged; achieved N can now reach 13 with P0 included).
 Sign-in credentials are the single shared dummyApex Taiga account - decided
 2026-08-30 (sequential/unmoderated study, no real session-overlap risk).
 
