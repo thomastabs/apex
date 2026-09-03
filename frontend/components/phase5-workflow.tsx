@@ -398,12 +398,18 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
 
   const infraDelta = usePhase5Store((s) => s.infraDelta);
   const aiRecommendation = usePhase5Store((s) => s.aiRecommendation);
+  const deltaCleared = usePhase5Store((s) => s.deltaCleared);
   const setInfraDelta = usePhase5Store((s) => s.setInfraDelta);
   const clearInfraDelta = usePhase5Store((s) => s.clearInfraDelta);
   const setCurrentStoryMeta = usePhase5Store((s) => s.setCurrentStoryMeta);
 
-  // Refresh-resume: pull a previously saved delta when the draft store is empty.
-  useLoadInfraDelta(storyId, infraDelta === null);
+  // Refresh-resume: pull a previously saved delta when the draft store is
+  // empty because nothing has loaded yet. infraDelta === null alone isn't
+  // enough to gate this — Clear also sets infraDelta to null, which would
+  // otherwise immediately re-enable this exact query and silently reload the
+  // still-saved server-side delta Clear just discarded. deltaCleared is what
+  // tells the two apart; see its definition in phase5-store.ts.
+  useLoadInfraDelta(storyId, infraDelta === null && !deltaCleared);
 
   const generateMut = useGenerateInfraDelta();
   const saveMut = useSaveInfraDelta();

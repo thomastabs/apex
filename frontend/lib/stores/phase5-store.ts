@@ -12,6 +12,16 @@ type Phase5State = {
   // delta items for a Routine save) never loses the AI-generated draft.
   aiRecommendation: InfraDelta | null;
   deltaSaved: boolean;
+  // True only between a user-initiated Clear and the next setInfraDelta (a
+  // fresh generate, or — after another mount — a real resume load). Exists so
+  // useLoadInfraDelta's "resume a previous session" query can be gated on
+  // more than infraDelta === null: that condition alone reopens the instant
+  // Clear sets infraDelta to null, so the resume-query re-fires, re-fetches
+  // the story's still-saved server-side delta (Clear never deletes it), and
+  // silently restores the exact thing Clear just discarded. See its own
+  // "Discard ... and re-run from scratch" copy — a stale reload is the one
+  // thing it must never do.
+  deltaCleared: boolean;
   deployPackMd: string | null;
   packSaved: boolean;
   techLeadApproved: boolean;
@@ -36,6 +46,7 @@ const EMPTY_DRAFT = {
   infraDelta: null as InfraDelta | null,
   aiRecommendation: null as InfraDelta | null,
   deltaSaved: false,
+  deltaCleared: false,
   deployPackMd: null as string | null,
   packSaved: false,
   techLeadApproved: false,
@@ -59,11 +70,11 @@ export const usePhase5Store = create<Phase5State>()(
 
       setInfraDelta: (infraDelta, saved = false, asRecommendation = false) =>
         set(asRecommendation
-          ? { infraDelta, deltaSaved: saved, aiRecommendation: infraDelta }
-          : { infraDelta, deltaSaved: saved }),
+          ? { infraDelta, deltaSaved: saved, aiRecommendation: infraDelta, deltaCleared: false }
+          : { infraDelta, deltaSaved: saved, deltaCleared: false }),
 
       clearInfraDelta: () =>
-        set({ infraDelta: null, aiRecommendation: null, deltaSaved: false }),
+        set({ infraDelta: null, aiRecommendation: null, deltaSaved: false, deltaCleared: true }),
 
       setDeltaSaved: (deltaSaved) => set({ deltaSaved }),
 
@@ -87,6 +98,7 @@ export const usePhase5Store = create<Phase5State>()(
         infraDelta: state.infraDelta,
         aiRecommendation: state.aiRecommendation,
         deltaSaved: state.deltaSaved,
+        deltaCleared: state.deltaCleared,
         deployPackMd: state.deployPackMd,
         packSaved: state.packSaved,
         techLeadApproved: state.techLeadApproved,
