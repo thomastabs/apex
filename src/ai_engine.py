@@ -415,15 +415,19 @@ def get_model() -> str:
 
 
 def get_ai_language() -> str:
-    """"en" (default) or "pt" — output language for AI-generated content."""
+    """"en" (default) or "pt" - output language for AI-generated content.
+
+    Project-scoped (get_project_ai_language resolves the currently active
+    project via context_manager's own per-request ContextVar) since
+    2026-09-04 - it used to read the shared, instance-wide config, which let
+    one participant's language setting leak into the next project's session.
+    Every real call site here runs inside a route that already called
+    ContextService.set_active(ctx), so no project_id needs passing explicitly."""
     try:
-        from src.context_manager import load_config  # lazy to avoid circular at module level
-        cfg = load_config()
-        if cfg.get("ai_language") in ("en", "pt"):
-            return cfg["ai_language"]
+        from src.context_manager import get_project_ai_language  # lazy to avoid circular at module level
+        return get_project_ai_language()
     except Exception:
-        pass
-    return "en"
+        return "en"
 
 
 # Cheapest model per provider — used for small classification-shaped calls

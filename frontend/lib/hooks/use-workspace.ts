@@ -773,9 +773,12 @@ export function useResetAllContextFiles() {
 
 export function useAiConfig() {
   const auth = useAuthContext();
+  const context = useApiContext();
   return useQuery({
-    queryKey: ["workspace", "ai-config"],
-    queryFn: () => getAiConfig(auth!),
+    // projectId in the key: switching projects must refetch, not show the
+    // previous project's language under the new one's name.
+    queryKey: ["workspace", "ai-config", context?.projectId],
+    queryFn: () => getAiConfig(auth!, context?.projectId),
     enabled: Boolean(auth),
     staleTime: 30 * 1000,
   });
@@ -783,10 +786,11 @@ export function useAiConfig() {
 
 export function useSaveAiConfig() {
   const auth = useAuthContext();
+  const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
     meta: { errorLabel: "op.saveAiConfig" },
-    mutationFn: ({ model }: { model: string }) => saveAiConfig(auth!, model),
+    mutationFn: ({ model }: { model: string }) => saveAiConfig(auth!, model, context?.projectId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "ai-config"] });
     },
@@ -795,10 +799,11 @@ export function useSaveAiConfig() {
 
 export function useSaveAiLanguage() {
   const auth = useAuthContext();
+  const context = useApiContext();
   const queryClient = useQueryClient();
   return useMutation({
     meta: { errorLabel: "op.saveAiLanguage" },
-    mutationFn: (language: string) => saveAiLanguage(auth!, language),
+    mutationFn: (language: string) => saveAiLanguage(auth!, language, context?.projectId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workspace", "ai-config"] });
     },

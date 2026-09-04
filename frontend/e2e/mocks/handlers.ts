@@ -285,7 +285,10 @@ export async function applyMocks(page: Page) {
     }),
   );
 
-  await page.route(`${api}/api/workspace/ai-config`, (route) =>
+  // ai-config now carries an optional ?project_id=... query string (language
+  // is per-project since 2026-09-04) - ** so this still matches once one's
+  // appended, same convention as context-files**/agent-files** below.
+  await page.route(`${api}/api/workspace/ai-config**`, (route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",

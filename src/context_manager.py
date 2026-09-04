@@ -633,6 +633,16 @@ def get_or_create_instance_github_webhook_secret() -> str:
 # webhook). Figma's token also stays instance-scoped — out of scope here.
 _PROJECT_GITHUB_CONFIG_FILE = ".project-github-config.json"
 _PROJECT_STATUS_MAPPING_FILE = ".project-status-mapping.json"
+# ai_language was instance-scoped (in the shared .apex-config.json, alongside
+# ai_model) until 2026-09-04 - same class of leak as GitHub's pre-migration
+# bug above, found live during the eval study: a Portuguese participant's
+# session left the setting on "pt", and the next, English-language
+# participant on a *different* project under the same instance got
+# AI-generated content back in Portuguese with no way to have known why.
+# ai_model deliberately stays instance-scoped here - a provider API key is
+# tied to the account, not to any one project, so there's no equivalent leak
+# to fix, and moving it wasn't reported as broken.
+_PROJECT_LANGUAGE_CONFIG_FILE = ".project-language-config.json"
 _PROJECT_DEPLOYMENT_CONFIG_FILE = ".project-deployment-config.json"
 _PROJECT_BOLT_CONFIG_FILE = ".bolt-config.json"
 
@@ -868,6 +878,40 @@ def save_project_status_mapping(mapping: dict[str, str], project_id: int | None 
     p = _project_status_mapping_path(project_id)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps({"mapping": clean}, indent=2), encoding="utf-8")
+
+
+def _project_language_config_path(project_id: int | str | None = None) -> Path:
+    return _context_dir(project_id) / _PROJECT_LANGUAGE_CONFIG_FILE
+
+
+def get_project_ai_language(project_id: int | str | None = None) -> str:
+    """"en" (default) or "pt" - AI output language for this project specifically.
+
+    project_id=None resolves the currently active project via the same
+    per-request ContextVar every other project-scoped read in this module
+    uses (_context_dir's own default) - callers inside a route that already
+    called ContextService.set_active(ctx) never need to pass it explicitly.
+    """
+    p = _project_language_config_path(project_id)
+    if not p.exists():
+        return "en"
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return "en"
+    language = data.get("ai_language") if isinstance(data, dict) else None
+    return language if language in ("en", "pt") else "en"
+
+
+def save_project_ai_language(language: str, project_id: int | str | None = None) -> None:
+    """Persist this project's AI output language. Invalid values are ignored
+    (kept permissive rather than raising, matching save_project_status_mapping's
+    silent-drop-of-invalid-entries style) - callers validate before calling this."""
+    if language not in ("en", "pt"):
+        return
+    p = _project_language_config_path(project_id)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps({"ai_language": language}, indent=2), encoding="utf-8")
 
 
 def _migrate_instance_github_config_once(project_id: int | str | None = None) -> dict:

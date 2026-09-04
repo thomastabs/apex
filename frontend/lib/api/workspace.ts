@@ -135,12 +135,17 @@ export type AiConfigResponse = {
   personal_providers: string[];
 };
 
-export function getAiConfig(context: AuthContext) {
-  return apiRequest<AiConfigResponse>("/api/workspace/ai-config", { context });
+// ai_language is per-project (2026-09-04 - see the backend route's own
+// comment); model stays account-wide. projectId is what lets the backend
+// resolve the right one - omit it only where no project is selected yet.
+export function getAiConfig(context: AuthContext, projectId?: number | null) {
+  const qs = projectId != null ? `?project_id=${resolvePmProjectId(context.pmTool, projectId)}` : "";
+  return apiRequest<AiConfigResponse>(`/api/workspace/ai-config${qs}`, { context });
 }
 
-export function saveAiConfig(context: AuthContext, model: string) {
-  return apiRequest<AiConfigResponse>("/api/workspace/ai-config", {
+export function saveAiConfig(context: AuthContext, model: string, projectId?: number | null) {
+  const qs = projectId != null ? `?project_id=${resolvePmProjectId(context.pmTool, projectId)}` : "";
+  return apiRequest<AiConfigResponse>(`/api/workspace/ai-config${qs}`, {
     method: "POST",
     context,
     body: { model },
@@ -148,8 +153,9 @@ export function saveAiConfig(context: AuthContext, model: string) {
 }
 
 // Backend keeps the current model when `model` is omitted from the payload.
-export function saveAiLanguage(context: AuthContext, language: string) {
-  return apiRequest<AiConfigResponse>("/api/workspace/ai-config", {
+export function saveAiLanguage(context: AuthContext, language: string, projectId?: number | null) {
+  const qs = projectId != null ? `?project_id=${resolvePmProjectId(context.pmTool, projectId)}` : "";
+  return apiRequest<AiConfigResponse>(`/api/workspace/ai-config${qs}`, {
     method: "POST",
     context,
     body: { language },

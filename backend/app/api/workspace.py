@@ -292,13 +292,36 @@ def _ai_key_status(auth: AuthContext, x_taiga_url: str, x_plane_url: str = "") -
     }
 
 
+def _set_active_project_for_language(
+    auth: AuthContext, project_id: int | str | None,
+    x_taiga_url: str, x_plane_url: str, x_plane_workspace: str,
+) -> None:
+    """Establish the per-request project ContextVars so get/save
+    project-scoped ai_language resolve against the right project - only
+    when a project_id was actually supplied. Callers with no project_id
+    (nothing selected yet, or an old client) fall through to whatever the
+    ContextVar's own default resolves to, same as before this was scoped."""
+    from src import context_manager
+    if project_id is None:
+        return
+    parsed = deps._parse_project_id(project_id)
+    if parsed is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid project_id.")
+    deps._verify_project_access(auth.pm_token, parsed, x_taiga_url, x_plane_url, x_plane_workspace)
+    context_manager.set_active_instance(anchor_instance_id(x_taiga_url, x_plane_url))
+    context_manager.set_active_project(parsed)
+
+
 @router.get("/ai-config", response_model=AiConfigResponse)
 def get_ai_config(
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
     x_plane_url: str = Header(default="", alias="X-Plane-Url"),
+    x_plane_workspace: str = Header(default="", alias="X-Plane-Workspace"),
+    project_id: int | str | None = None,
 ):
     from src.ai_engine import AVAILABLE_MODELS, get_ai_language, get_model
+    _set_active_project_for_language(auth, project_id, x_taiga_url, x_plane_url, x_plane_workspace)
     return {
         "model": get_model(),
         "language": get_ai_language(),
@@ -313,9 +336,12 @@ def save_ai_config_endpoint(
     auth: AuthContext = Depends(get_auth_context),
     x_taiga_url: str = Header(default="", alias="X-Taiga-Url"),
     x_plane_url: str = Header(default="", alias="X-Plane-Url"),
+    x_plane_workspace: str = Header(default="", alias="X-Plane-Workspace"),
+    project_id: int | str | None = None,
 ):
     from src import ai_engine, context_manager
     from src.ai_engine import AVAILABLE_MODELS, get_ai_language, get_model
+    _set_active_project_for_language(auth, project_id, x_taiga_url, x_plane_url, x_plane_workspace)
     valid_ids = {m["id"] for m in AVAILABLE_MODELS}
     model = payload.model or get_model()
     if model not in valid_ids:
@@ -326,7 +352,7 @@ def save_ai_config_endpoint(
     if payload.language is not None:
         if payload.language not in ("en", "pt"):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid language.")
-        context_manager.save_ai_language(payload.language)
+        context_manager.save_project_ai_language(payload.language)
         language = payload.language
     return {
         "model": model,

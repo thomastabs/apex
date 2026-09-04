@@ -1120,6 +1120,43 @@ class TestProjectIsolation:
         finally:
             cm._active_project_id.reset(token)
 
+    def test_ai_language_isolated_between_projects(self, tmp_path, monkeypatch):
+        """Real bug, found live during the eval study 2026-09-04: ai_language
+        used to live in the shared instance-wide config, so a Portuguese
+        participant's session leaked its setting into the next, English-
+        language participant's project. get_project_ai_language must resolve
+        per-project the same way get_story_gherkin etc. already do above."""
+        cm = self._setup(tmp_path, monkeypatch)
+        token = cm._active_project_id.set(1)
+        try:
+            cm.init_context()
+            # Unset default is "en" for a project that never saved anything.
+            assert cm.get_project_ai_language() == "en"
+
+            cm.save_project_ai_language("pt")
+            assert cm.get_project_ai_language() == "pt"
+
+            cm.set_active_project(2)
+            cm.init_context()
+            # A different project must not inherit project 1's "pt".
+            assert cm.get_project_ai_language() == "en"
+
+            cm.set_active_project(1)
+            assert cm.get_project_ai_language() == "pt"
+        finally:
+            cm._active_project_id.reset(token)
+
+    def test_ai_language_invalid_value_ignored(self, tmp_path, monkeypatch):
+        cm = self._setup(tmp_path, monkeypatch)
+        token = cm._active_project_id.set(1)
+        try:
+            cm.init_context()
+            cm.save_project_ai_language("pt")
+            cm.save_project_ai_language("fr")  # not "en"/"pt" — silently dropped
+            assert cm.get_project_ai_language() == "pt"
+        finally:
+            cm._active_project_id.reset(token)
+
 
 # ---------------------------------------------------------------------------
 # is_project_selected

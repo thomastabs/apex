@@ -295,7 +295,12 @@ def test_save_ai_config_persists_valid_language(monkeypatch):
         [{"id": "claude-fable-5", "label": "Fable 5"}],
     )
     monkeypatch.setattr("src.context_manager.save_ai_config", lambda model: None)
-    monkeypatch.setattr("src.context_manager.save_ai_language", lambda lang: saved_language.append(lang))
+    # ai_language is project-scoped since 2026-09-04 - save_ai_config_endpoint
+    # calls save_project_ai_language now, not the old global save_ai_language.
+    monkeypatch.setattr(
+        "src.context_manager.save_project_ai_language",
+        lambda lang, project_id=None: saved_language.append(lang),
+    )
     monkeypatch.setattr("src.ai_engine._llm_cache", {})
 
     response = save_ai_config_endpoint(SaveAiConfigRequest(model="claude-fable-5", language="pt"), _AUTH)
@@ -316,6 +321,50 @@ def test_save_ai_config_rejects_unknown_language(monkeypatch):
         save_ai_config_endpoint(SaveAiConfigRequest(model="claude-fable-5", language="fr"), _AUTH)
 
     assert exc_info.value.status_code == 400
+
+
+def test_save_ai_config_with_project_id_verifies_access_and_sets_active_project(ctx, monkeypatch):
+    """The real fix: language is per-project now, so saving it must resolve
+    against the project the caller actually asked for, not whatever the
+    ContextVar happened to default to - same verify-then-activate sequence
+    get_github_pat already uses for its own per-project data."""
+    verify_calls: list[tuple] = []
+    monkeypatch.setattr(
+        deps, "_verify_project_access",
+        lambda token, pid, taiga_url_override="", plane_url_override="", plane_workspace_override="":
+            verify_calls.append((pid, taiga_url_override, plane_url_override, plane_workspace_override)),
+    )
+    instance_calls: list[str] = []
+    project_calls: list[int | str] = []
+    monkeypatch.setattr("src.context_manager.set_active_instance", lambda iid: instance_calls.append(iid))
+    monkeypatch.setattr("src.context_manager.set_active_project", lambda pid: project_calls.append(pid))
+    monkeypatch.setattr(
+        "src.ai_engine.AVAILABLE_MODELS",
+        [{"id": "claude-fable-5", "label": "Fable 5"}],
+    )
+    monkeypatch.setattr("src.context_manager.save_ai_config", lambda model: None)
+    monkeypatch.setattr("src.context_manager.save_project_ai_language", lambda lang, project_id=None: None)
+    monkeypatch.setattr("src.ai_engine._llm_cache", {})
+
+    save_ai_config_endpoint(
+        SaveAiConfigRequest(model="claude-fable-5", language="pt"), _AUTH,
+        x_taiga_url="https://api.taiga.io", x_plane_url="", x_plane_workspace="", project_id=77,
+    )
+
+    assert verify_calls == [(77, "https://api.taiga.io", "", "")]
+    assert project_calls == [77]
+
+
+def test_get_ai_config_no_project_id_skips_project_verification(ctx, monkeypatch):
+    """No project selected yet is a real, valid state (nothing to restore) -
+    must not fail just because language is now project-scoped."""
+    verify_calls: list[tuple] = []
+    monkeypatch.setattr(deps, "_verify_project_access", lambda *a, **k: verify_calls.append(a))
+
+    response = get_ai_config(_AUTH, x_taiga_url="", x_plane_url="", x_plane_workspace="")
+
+    assert verify_calls == []
+    assert response["language"] == "en"
 
 
 # ── ai-config / ai-keys (bring-your-own AI provider key, per PM account) ──────
