@@ -1000,16 +1000,19 @@ function StageB({ storyId, onBack, onContinue }: { storyId: number; onBack: () =
             <TaskDagPanel taskList={taskList} packDrafts={packDrafts} dark={dark} />
           )}
 
-          {/* Stage B.5 — Push to Taiga */}
+          {/* Stage B.5 — Push to Taiga. Primary (violet) and full-height, not
+              secondary: tasks stay purely local until this fires, so moving
+              on to Phase 4 without pushing silently strands them out of the
+              PM tool — this is the one action on the page that must not
+              read as optional. */}
           {!tasksPushed && (
             <Button
-              className="w-full justify-center"
+              className="w-full justify-center py-3 text-base font-semibold"
               onClick={() => {
                 if (!window.confirm(t("phase3.pushTasksConfirm", { n: taskList.length }))) return;
                 pushToTaiga.mutate(storyId);
               }}
               disabled={pushToTaiga.isPending || taskList.length === 0}
-              variant="secondary"
             >
               {pushToTaiga.isPending
                 ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("phase3.pushing")}</>
