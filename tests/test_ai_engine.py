@@ -557,11 +557,27 @@ class TestPromptFencing:
         msgs = ai_engine._make_messages("You are a tester.", "hello", model="gpt-4.1")
         assert "European Portuguese" in msgs[0].content
 
-    def test_no_language_directive_when_english_default(self, monkeypatch):
+    def test_english_directive_appended_when_english_default(self, monkeypatch):
+        """English used to get NO directive at all (`.get(lang, "")`), which
+        left the model free to mirror whatever language dominated the fenced
+        <user_content> below (a PT project concept, an older PT spec file) —
+        the bug this test now guards against. English must be just as
+        explicit an override as Portuguese, not a silent absence."""
         from src import ai_engine
         monkeypatch.setattr(ai_engine, "get_ai_language", lambda: "en")
         msgs = ai_engine._make_messages("You are a tester.", "hello", model="gpt-4.1")
+        assert "write ALL natural-language prose" in msgs[0].content
+        assert "in English" in msgs[0].content
         assert "European Portuguese" not in msgs[0].content
+
+    def test_english_directive_used_for_unrecognized_language_code(self, monkeypatch):
+        """Any language code without its own directive must still fall back
+        to the explicit English override, not silence."""
+        from src import ai_engine
+        monkeypatch.setattr(ai_engine, "get_ai_language", lambda: "fr")
+        msgs = ai_engine._make_messages("You are a tester.", "hello", model="gpt-4.1")
+        assert "write ALL natural-language prose" in msgs[0].content
+        assert "in English" in msgs[0].content
 
     def test_pm_sourced_fields_are_fenced_in_prompts(self, monkeypatch):
         from src import ai_engine

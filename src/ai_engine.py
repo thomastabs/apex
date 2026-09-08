@@ -553,13 +553,33 @@ def _record_usage(call_name: str, model: str, usage_by_model: dict, duration_s: 
 
 
 _LANGUAGE_DIRECTIVES = {
+    # "en" used to be absent from this dict entirely, so `.get(lang, "")`
+    # injected NO language directive at all for the (default) English case —
+    # every non-English directive was an explicit override, but English had
+    # nothing overriding the model's own tendency to mirror whatever
+    # language dominates the fenced <user_content> below (a project concept,
+    # PM description, or older spec file written in Portuguese). Both
+    # branches now state explicitly that the target language wins over the
+    # input's language, not just what it is.
+    "en": """
+
+---
+Language: write ALL natural-language prose (titles, descriptions, Gherkin step
+text, UX copy, review notes, comments) in English, regardless of what
+language the source material below is written in — translate foreign-language
+input content into English rather than echoing it back or drifting into it.
+Keep code, identifiers, file paths, JSON/schema field names, and endpoint
+paths in English as usual.""",
     "pt": """
 
 ---
-Language: write all natural-language prose (titles, descriptions, Gherkin step
-text, UX copy, review notes, comments) in European Portuguese (pt-PT). Keep
-code, identifiers, file paths, JSON/schema field names, and endpoint paths in
-English as usual — only human-readable prose content is translated.""",
+Language: write ALL natural-language prose (titles, descriptions, Gherkin step
+text, UX copy, review notes, comments) in European Portuguese (pt-PT),
+regardless of what language the source material below is written in —
+translate foreign-language input content into Portuguese rather than echoing
+it back or drifting into it. Keep code, identifiers, file paths, JSON/schema
+field names, and endpoint paths in English as usual — only human-readable
+prose content is translated.""",
 }
 
 _FENCE_TAG = "user_content"
@@ -624,7 +644,7 @@ def _make_messages(system: str, human: str, *, model: str = "", images: list[dic
     image content blocks on the human turn (U1). Otherwise the human turn stays a
     plain string — byte-for-byte the previous behaviour.
     """
-    system = system + _LANGUAGE_DIRECTIVES.get(get_ai_language(), "") + _FENCE_SYSTEM_RULE
+    system = system + _LANGUAGE_DIRECTIVES.get(get_ai_language(), _LANGUAGE_DIRECTIVES["en"]) + _FENCE_SYSTEM_RULE
     img_blocks = _image_content_blocks(images) if (images and _provider_supports_vision(model)) else []
     human_content = [{"type": "text", "text": human}, *img_blocks] if img_blocks else human
     if _get_provider(model) == "anthropic":
