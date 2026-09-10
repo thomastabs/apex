@@ -17,8 +17,9 @@ wins.
 
 > **The table in this section is the original 2026-08-19 measurement, kept for
 > the record. It is superseded by §1a-bis's revised targets, which are in turn
-> superseded by the 2026-09-01 numbers now in that section** - read §1a-bis for
-> the current state, not the table immediately below.
+> superseded by the 2026-09-01 numbers in that section, which are themselves
+> superseded by §1a-ter's 2026-09-10 numbers** - read §1a-ter for the current
+> state, not the table immediately below.
 
 ## 1. The page limit - currently violated
 
@@ -146,6 +147,60 @@ stands, purely to reach ceiling 3 today, before Chapters 9 and 10 finish
 growing into their still-open `\todo` sections and push the total back up.
 Cutting redundancy and restated claims throughout, rather than any single
 chapter, is the realistic source for that margin now.
+
+## 1a-ter. All three ceilings now compliant, 2026-09-10
+
+`main.tex` was forcing every main-body chapter onto a fresh odd page: the
+documentclass `openright` option (each `\chapter` starts right-hand) plus an
+explicit `\cleardoublepage` after every `\input{Chapter_N}`, which forced the
+odd-page landing a second time regardless of the class option. Fixed both -
+`openright` -> `openany` on the documentclass line (a supported pass-through
+option `istulthesis.cls` already declares, not a template edit), and the 9
+post-chapter `\cleardoublepage` calls -> `\clearpage`. Front/back-matter
+separator blanks (title page verso, abstract verso, before the appendices)
+are untouched on purpose - those are deliberate double-sided-print blanks,
+not the bug. Commit `bf9a49b`.
+
+**Measured 2026-09-10, from the rendered PDF, same method as §1a-bis:**
+
+| # | Ceiling | Applies to | State on 2026-09-10 |
+|---|---|---|---|
+| 1 | **80 pages** | main text alone, Chapters 1 to 10 | 65, compliant |
+| 2 | **80 pages** | main text **plus bibliography** | 70, compliant |
+| 3 | **100 pages** | the whole assembled PDF | 98, **compliant, 2 pages of margin** |
+
+All three ceilings now hold. Front matter: 16 pages. Bibliography: 5 pages.
+Appendices: 12 pages (A: 6, B: 6).
+
+| Chapter | Now (2026-09-10) | Now (2026-09-01) | Delta |
+|---|---|---|---|
+| 1 Introduction | 2 | 2 | on target |
+| 2 Research Methodology | 3 | 4 | -1 |
+| 3 Research Background | 4 | 4 | on target |
+| 4 Systematic Literature Review | 13 | 14 | -1 |
+| 5 Research Problem | 2 | 2 | on target |
+| 6 Research Proposal | 13 | 14 | -1 |
+| 7 Apex | 12 | 12 | on target |
+| 8 Demonstration | 5 | 6 | -1 |
+| 9 Evaluation | 9 | 10 | -1 |
+| 10 Conclusion | 2 | 2 | on target |
+| **Main text** | **65** | **70** | **-5** |
+
+The 5-page main-text drop is entirely the removed forced blanks between
+chapters (one per Ch1-9 boundary that landed mid-chapter rather than exactly
+on a page break); no prose was cut for this fix. The whole-document drop is
+larger (107 -> 98, 9 pages): the extra 4 pages are front matter 18 -> 16 (-2),
+bibliography 6 -> 5 (-1), appendices 13 -> 12 (-1) - the same fix removed a
+forced blank before the appendices too, and pdftotext's page-boundary count
+for front matter/bibliography also shifted now that fewer blanks separate
+sections. No content was cut in any of those sections.
+
+Ceiling 3 no longer binds tighter than the others - all three now have
+margin. Chapters 9 and 10 still carry unwritten `\todo` sections
+(`sec:analytical`, `sec:eval_results`, `sec:threats`, `sec:eval_discussion` in
+Ch9; the future-work list in Ch10) that will add pages once filled; the
+2-page margin on ceiling 3 is what has to absorb that, not a cushion to spend
+elsewhere.
 
 ## 1a. The benchmark: what actually passed, from the same supervisor
 
