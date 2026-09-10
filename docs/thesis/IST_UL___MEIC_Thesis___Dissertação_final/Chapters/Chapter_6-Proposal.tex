@@ -152,6 +152,7 @@ The phases are listed in an order, but that order is not the shape of the proces
 
 
 {\scriptsize
+\renewcommand{\arraystretch}{1.3}
 \begin{longtable}{>{\raggedright\arraybackslash}p{2.1cm}
                   >{\raggedright\arraybackslash}p{3.4cm}
                   >{\raggedright\arraybackslash}p{3.0cm}
@@ -182,36 +183,42 @@ Assists market analysis; drafts candidate objectives and indicators &
 A Unit of Work carrying a stated business justification, \acp{OKR} and \acp{KPI} &
 \ac{PM} hat aligns the product vision with stakeholders and owns the justification &
 Stakeholder alignment and \ac{OKR} sign-off before the Unit of Work reaches the Squad \\
+\midrule
 
 Discovery \& Requirements &
 Drafts fractional User Stories in natural language; compiles approved scenarios into formal Gherkin &
 Approved User Stories sized XS or S, with Gherkin acceptance criteria and stable scenario identifiers &
 The Trio validates correctness, completeness and business value through the Interactive Bridge &
 Mob Elaboration and the Discovery Gate \\
+\midrule
 
 Design, Prototyping \& Architecture &
 Proposes architectural options; generates \ac{UI} structure and a formal technical specification &
 Approved prototype and an anchored technical specification (interface contract, data model, runtime contract) &
 Design Lead hat validates usability; Tech Lead hat validates feasibility, scalability and integration risk &
 Design Gate; no task enters the Bolt Backlog until both validations pass \\
+\midrule
 
 Implementation &
 Generates and refactors code constrained by the Consistency Factor test set &
 Task-level code passing the pipeline and the Consistency Factor &
 Developer hat validates output, owns correctness and security, and must be able to explain the logic &
 Pre-Bolt architectural lock, the Bolt micro-cycle, and the Implementation Gate at story level \\
+\midrule
 
 Testing &
 Drafts end-to-end \ac{BDD} scripts derived from the approved Gherkin &
 A story-level verdict and, on failure, the exact failing evidence &
 \ac{QA} hat verifies and refines generated scripts before execution and probes edge cases manually &
 The \ac{QA} Validation Playbook and the Testing Gate, in a separate environment decoupled from the Bolt \\
+\midrule
 
 Deployment &
 Answers the infrastructure delta question; generates configuration, \ac{IaC} or migrations only when required &
 A released increment and a persistent context updated to the live state &
 Whoever performs the deployment approves it and reviews its security implications &
 Deployment Gate, performed by the deploying hat; no separate gatekeeping team is assumed \\
+\midrule
 
 Maintenance &
 Reconstructs a deliberately narrow context to explain one specific failure and proposes a bounded fix &
