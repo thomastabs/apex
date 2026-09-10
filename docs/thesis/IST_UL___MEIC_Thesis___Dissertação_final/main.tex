@@ -87,9 +87,11 @@
 \end{keywords}
 \clearpage
 \thispagestyle{empty}
-%% If Printing on DOUBLE SIDED pages, the second page should be white.
-%% Otherwise, comment the following command:
-\cleardoublepage
+% cleardoublepage -> clearpage, 2026-09-10 (Tomás asked to remove front-matter
+% blank separators too - see the main-body chapter note further down for the
+% same reasoning): this was inserting a blank verso between the abstract and
+% the resumo.
+\clearpage
 %
 % -----------------------------------------------------------------------------
 % O RESUMO
@@ -101,9 +103,9 @@
 \end{palavraschave}
 \clearpage
 \thispagestyle{empty}
-%% If Printing on DOUBLE SIDED pages, the second page should be white.
-%% Otherwise, comment the following command:
-\cleardoublepage
+% cleardoublepage -> clearpage, 2026-09-10: blank verso between the resumo
+% and the table of contents, same fix as above.
+\clearpage
 %
 % -----------------------------------------------------------------------------
 % This is required for the Fancy Chapters with minitoc
@@ -115,9 +117,9 @@
 \singlespacing
 \pdfbookmark[0]{Contents}{toc}
 \tableofcontents
-% If Printing on DOUBLE SIDED pages, the second page should be white.
-% Otherwise, comment the following command:
-\cleardoublepage
+% cleardoublepage -> clearpage, 2026-09-10: blank verso between the table of
+% contents and the list of figures, same fix as above.
+\clearpage
 % reposition baseline
 \onehalfspacing
 % -----------------------------------------------------------------------------
@@ -168,11 +170,15 @@
 \clearpage
 % -----------------------------------------------------------------------------
 % Glossary
-% Comment if not used
-\pdfbookmark[1]{Glossary}{glo}
-\printglossary[]
-% Otherwise, comment the following command:
-\cleardoublepage
+% Commented out 2026-09-10: Chapters/Glossary.tex only ever held the
+% template's own placeholder entries (mathematics/LaTeX/formula) and nothing
+% in the thesis body calls \gls on them, so \printglossary rendered a blank
+% page (no main.gls was even generated) - same class of issue as the
+% algorithms/listings lists commented out on 2026-08-19 above. Was also
+% forcing a blank verso between the acronyms list and Chapter 1.
+%\pdfbookmark[1]{Glossary}{glo}
+%\printglossary[]
+%\clearpage
 % -----------------------------------------------------------------------------
 % PAGE NUMBERING FOR DOCUMENT MATTER in ARABIC
 % Pages number is starting with arabic style. Until here were on roman mode
