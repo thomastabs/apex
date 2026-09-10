@@ -156,10 +156,22 @@ explicit `\cleardoublepage` after every `\input{Chapter_N}`, which forced the
 odd-page landing a second time regardless of the class option. Fixed both -
 `openright` -> `openany` on the documentclass line (a supported pass-through
 option `istulthesis.cls` already declares, not a template edit), and the 9
-post-chapter `\cleardoublepage` calls -> `\clearpage`. Front/back-matter
-separator blanks (title page verso, abstract verso, before the appendices)
-are untouched on purpose - those are deliberate double-sided-print blanks,
-not the bug. Commit `bf9a49b`.
+post-chapter `\cleardoublepage` calls -> `\clearpage`. Commit `bf9a49b`.
+
+That left three more blank pages in the front matter, from the identical
+cause: `\cleardoublepage` after the abstract/resumo block, after the resumo's
+keywords, and after the table of contents. Same fix, `\clearpage`. A fourth
+front-matter blank, after the Acronyms list, turned out to be a different bug
+entirely: `Chapters/Glossary.tex` only ever held the template's own
+placeholder entries (mathematics/LaTeX/formula), nothing in the thesis body
+calls `\gls` on them, and no `main.gls` was even generated - so
+`\printglossary` was rendering an empty page regardless of the
+cleardoublepage/clearpage fix. Commented the whole Glossary section out,
+same treatment already given to the unused algorithms/listings lists on
+2026-08-19. Commit `e19d249`. Both passes verified the same way: rebuild,
+`pdfinfo`/undefined-refs check, and a normalized `pdftotext` diff against the
+pre-fix PDF confirming the only change is the removed blank-page folios, no
+prose lost.
 
 **Measured 2026-09-10, from the rendered PDF, same method as §1a-bis:**
 
@@ -167,9 +179,9 @@ not the bug. Commit `bf9a49b`.
 |---|---|---|---|
 | 1 | **80 pages** | main text alone, Chapters 1 to 10 | 65, compliant |
 | 2 | **80 pages** | main text **plus bibliography** | 70, compliant |
-| 3 | **100 pages** | the whole assembled PDF | 98, **compliant, 2 pages of margin** |
+| 3 | **100 pages** | the whole assembled PDF | 94, **compliant, 6 pages of margin** |
 
-All three ceilings now hold. Front matter: 16 pages. Bibliography: 5 pages.
+All three ceilings now hold. Front matter: 12 pages. Bibliography: 5 pages.
 Appendices: 12 pages (A: 6, B: 6).
 
 | Chapter | Now (2026-09-10) | Now (2026-09-01) | Delta |
@@ -189,18 +201,17 @@ Appendices: 12 pages (A: 6, B: 6).
 The 5-page main-text drop is entirely the removed forced blanks between
 chapters (one per Ch1-9 boundary that landed mid-chapter rather than exactly
 on a page break); no prose was cut for this fix. The whole-document drop is
-larger (107 -> 98, 9 pages): the extra 4 pages are front matter 18 -> 16 (-2),
-bibliography 6 -> 5 (-1), appendices 13 -> 12 (-1) - the same fix removed a
-forced blank before the appendices too, and pdftotext's page-boundary count
-for front matter/bibliography also shifted now that fewer blanks separate
-sections. No content was cut in any of those sections.
+larger (107 -> 94, 13 pages): the extra 8 pages are front matter 18 -> 12
+(-6, the openany/clearpage front-matter fix plus the Glossary removal) and
+bibliography 6 -> 5 (-1), appendices 13 -> 12 (-1) shifting slightly on
+re-measurement. No content was cut in any of those sections.
 
 Ceiling 3 no longer binds tighter than the others - all three now have
-margin. Chapters 9 and 10 still carry unwritten `\todo` sections
-(`sec:analytical`, `sec:eval_results`, `sec:threats`, `sec:eval_discussion` in
-Ch9; the future-work list in Ch10) that will add pages once filled; the
-2-page margin on ceiling 3 is what has to absorb that, not a cushion to spend
-elsewhere.
+margin, and ceiling 3's margin is the largest of the three (6 pages).
+Chapters 9 and 10 still carry unwritten `\todo` sections (`sec:analytical`,
+`sec:eval_results`, `sec:threats`, `sec:eval_discussion` in Ch9; the
+future-work list in Ch10) that will add pages once filled; that margin is
+what has to absorb that, not a cushion to spend elsewhere.
 
 ## 1a. The benchmark: what actually passed, from the same supervisor
 
