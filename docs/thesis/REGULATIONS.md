@@ -213,31 +213,32 @@ Chapters 9 and 10 still carry unwritten `\todo` sections (`sec:analytical`,
 future-work list in Ch10) that will add pages once filled; that margin is
 what has to absorb that, not a cushion to spend elsewhere.
 
-## 1a-quater. Supervisor feedback batch, 2026-09-14: whole-doc ceiling back to zero margin
+## 1a-quater. Supervisor feedback batch, 2026-09-14
 
-Supervisor review of the compiled PDF produced a batch of fixes, most
-cosmetic, one with a real page-budget cost: switching the bibliography from
-numbered (IEEEtran) to author-year (apalike), because numbered citations
-aren't conventional for a thesis. Author-year citation lists are much longer
-than numeric ones inline, and Chapters 3 and 4 carry sentences citing
-20-30 sources at once - that alone added roughly 6 pages, on top of the
-figure-7.1 split (+1) partially offset by the tocdepth cut (paragraph-level
-TOC entries removed).
+Supervisor review of the compiled PDF produced a batch of fixes. One had a
+real page-budget cost and was subsequently reverted: switching the
+bibliography from numbered (IEEEtran) to author-year (apalike) added ~6
+pages (author-year citation lists are much longer inline than numeric ones,
+and Chapters 3-4 carry sentences citing 20-30 sources at once), pushing the
+whole document to exactly 100/100. Tomás reverted that one specific change
+2026-09-14, keeping numbered citations to match Leonardo Cruz's accepted
+dissertation (same supervisor, already this thesis's benchmark for
+structure and length - see 1a below). Everything else in the batch stayed:
+tocdepth 3, the emph-underline root-cause fix, Figure 7.1 split into two,
+and the Declaration's own page.
 
-**Measured 2026-09-14:**
+**Measured 2026-09-14, after the citation revert:**
 
 | # | Ceiling | Applies to | State |
 |---|---|---|---|
-| 1 | **80 pages** | main text alone, Chapters 1 to 10 | 69, compliant |
-| 2 | **80 pages** | main text **plus bibliography** | 75, compliant |
-| 3 | **100 pages** | the whole assembled PDF | **100, exactly at the ceiling, zero margin** |
+| 1 | **80 pages** | main text alone, Chapters 1 to 10 | 65, compliant |
+| 2 | **80 pages** | main text **plus bibliography** | 70, compliant |
+| 3 | **100 pages** | the whole assembled PDF | **96, compliant, 4 pages of margin** |
 
-Ceiling 3's 6-page margin from [[thesis_blank_page_fix_2026_09_10]] is gone.
-Chapters 9 and 10 still carry unwritten `\todo` sections that will add pages
-once filled - there is currently nothing left to absorb that. The citation
-style change was a direct instruction, not a choice available to reverse for
-budget reasons; the next page this document needs to come from is prose
-elsewhere, not from re-litigating already-settled feedback.
+Down from the 6-page margin [[thesis_blank_page_fix_2026_09_10]] opened up:
+the figure split and the forced Declaration page break together cost 2
+pages, both worth keeping. Chapters 9 and 10 still carry unwritten `\todo`
+sections that will eat into this margin once filled.
 
 ## 1a. The benchmark: what actually passed, from the same supervisor
 
