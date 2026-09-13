@@ -213,6 +213,32 @@ Chapters 9 and 10 still carry unwritten `\todo` sections (`sec:analytical`,
 future-work list in Ch10) that will add pages once filled; that margin is
 what has to absorb that, not a cushion to spend elsewhere.
 
+## 1a-quater. Supervisor feedback batch, 2026-09-14: whole-doc ceiling back to zero margin
+
+Supervisor review of the compiled PDF produced a batch of fixes, most
+cosmetic, one with a real page-budget cost: switching the bibliography from
+numbered (IEEEtran) to author-year (apalike), because numbered citations
+aren't conventional for a thesis. Author-year citation lists are much longer
+than numeric ones inline, and Chapters 3 and 4 carry sentences citing
+20-30 sources at once - that alone added roughly 6 pages, on top of the
+figure-7.1 split (+1) partially offset by the tocdepth cut (paragraph-level
+TOC entries removed).
+
+**Measured 2026-09-14:**
+
+| # | Ceiling | Applies to | State |
+|---|---|---|---|
+| 1 | **80 pages** | main text alone, Chapters 1 to 10 | 69, compliant |
+| 2 | **80 pages** | main text **plus bibliography** | 75, compliant |
+| 3 | **100 pages** | the whole assembled PDF | **100, exactly at the ceiling, zero margin** |
+
+Ceiling 3's 6-page margin from [[thesis_blank_page_fix_2026_09_10]] is gone.
+Chapters 9 and 10 still carry unwritten `\todo` sections that will add pages
+once filled - there is currently nothing left to absorb that. The citation
+style change was a direct instruction, not a choice available to reverse for
+budget reasons; the next page this document needs to come from is prose
+elsewhere, not from re-litigating already-settled feedback.
+
 ## 1a. The benchmark: what actually passed, from the same supervisor
 
 `~/Downloads/110851_leonardo_cruz_dissertacao.pdf` - Leonardo Cruz, *Using
