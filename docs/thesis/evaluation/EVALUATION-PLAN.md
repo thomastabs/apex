@@ -6,9 +6,16 @@ the task set, the measures and the analysis is what separates a demonstration
 from an anecdote, and it is the single cheapest defence against "the
 observations were selected after the fact to suit the artefact".
 
-Status: **running.** P0 completed the full session 2026-09-02 (all four forms
-submitted, verified clean - see the Participants note below) and is counted in
-results rather than discarded as an uncounted pilot. P1-P12 not yet run.
+Status: **data collection complete, 2026-09-13.** P0 through P12 (13
+participants: P0 was originally an uncounted pilot, upgraded to a full
+counted participant 2026-09-02 - see the Participants note below) have all
+submitted all four forms (consent, workload x6 tasks, SUS, UX). Achieved
+N = 13 against the pre-registered target of 12. Verified via a full
+data-quality pass 2026-09-13: response counts, value ranges, and completeness
+per participant/instrument checked directly in the linked Sheets (not just
+the summary charts) - see `demo-environment.local.md` for the detailed log.
+Next: write Chapter 9's `sec:analytical`, `sec:eval_results`, `sec:threats`
+and `sec:eval_discussion` from this data.
 
 ---
 
