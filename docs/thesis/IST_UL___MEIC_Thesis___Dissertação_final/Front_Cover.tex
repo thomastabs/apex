@@ -17,10 +17,14 @@
 % You can change the image for your thesis, replacing the image name.
 % If no image is desired, just comment the command
 % Cover figure added 2026-09-14 (supervisor feedback): the framework's own
-% lifecycle diagram (also Figure 6.1 in Chapter 6), placed above the title.
-% Images/lifecycle-diagram.png is pre-sized to 14cm wide via its embedded
-% DPI tag (no width option available on \thesislogo itself).
-\thesislogo{35mm}{70mm}{./Images/lifecycle-diagram.png}
+% lifecycle diagram, placed above the title. Cover-only variant (six phases,
+% no Maintenance loop-backs) - the full version with loop-backs is Figure 6.1
+% in Chapter 6; at cover size the loop-back curves and labels were illegible
+% clutter. x=2.5cm matches the title textblock's own left origin in
+% cover-titlepage.sty, so \centering (already set there) centers this image
+% on the exact same span as the title beneath it. Pre-sized to 14cm wide via
+% its embedded DPI tag (no width option available on \thesislogo itself).
+\thesislogo{2.5cm}{70mm}{./Images/lifecycle-diagram-cover.png}
 %
 % -----------------------------------------------------------------------------
 % REQUIRED: Thesis TITLE
