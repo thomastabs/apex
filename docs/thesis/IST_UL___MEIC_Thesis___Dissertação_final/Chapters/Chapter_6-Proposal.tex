@@ -48,12 +48,12 @@ The systematic literature review in \Cref{chap:slr} established the current stat
 RQ1 &
 Usage is unevenly distributed across \ac{SDLC} phases and lacks structured integration. &
 No structured guidance on where and how \ac{AI} should be applied across the \ac{SDLC}. &
-Define a process framework mapping AI-supported activities to specific phases. \\
+Define a process framework mapping AI-supported activities to specific phases. \\ \addlinespace
 
 RQ2 &
 Recurring risks in reliability, validation, security and insufficient human oversight. &
 Insufficient methodological support for risk, quality and accountability. &
-Integrate governance mechanisms, human-in-the-loop practice and quality gates. \\
+Integrate governance mechanisms, human-in-the-loop practice and quality gates. \\ \addlinespace
 
 RQ3 &
 Significant variation among approaches and no consensus on managing adoption. &
@@ -110,25 +110,25 @@ Eight principles govern every subsequent design decision. Each is stated in \Cre
 \endlastfoot
 
 Human-in-the-Loop by Design &
-Every AI-generated artefact is subject to explicit human review and acceptance before entering the product. Adoption and trust diverge, at around 90\% daily use against roughly 30\% reporting low or no trust~\cite{DORA:2025ai}, and benchmarking shows the distrust warranted: the best agent and model combination was functionally correct 61\% of the time but secure only 10.5\%~\cite{Zhao:2025vibe}, and 45\% of samples across more than a hundred models introduced an OWASP Top 10 vulnerability, with security flat as correctness improved~\cite{Veracode:2025gen}. \\
+Every AI-generated artefact is subject to explicit human review and acceptance before entering the product. Adoption and trust diverge, at around 90\% daily use against roughly 30\% reporting low or no trust~\cite{DORA:2025ai}, and benchmarking shows the distrust warranted: the best agent and model combination was functionally correct 61\% of the time but secure only 10.5\%~\cite{Zhao:2025vibe}, and 45\% of samples across more than a hundred models introduced an OWASP Top 10 vulnerability, with security flat as correctness improved~\cite{Veracode:2025gen}. \\ \addlinespace
 
 \ac{AI} as Augmentation, Not Substitution &
-Humans retain responsibility for technical, architectural and quality decisions. In a randomised controlled trial developers took 19\% longer with assistance while estimating they had been 20\% faster~\cite{Becker:2025rct}; substituting judgement removes the only faculty able to notice such a discrepancy, and the \ac{SLR} reports reduced code understanding as a recurring consequence of unsupervised delegation~\cite{Ahmed:2025ai, Zhang:2025ea}. \\
+Humans retain responsibility for technical, architectural and quality decisions. In a randomised controlled trial developers took 19\% longer with assistance while estimating they had been 20\% faster~\cite{Becker:2025rct}; substituting judgement removes the only faculty able to notice such a discrepancy, and the \ac{SLR} reports reduced code understanding as a recurring consequence of unsupervised delegation~\cite{Ahmed:2025ai, Zhang:2025ea}. \\ \addlinespace
 
 Process-Level Governance of \ac{AI} Usage &
-AI participation is governed through repeatable mechanisms making contributions visible, traceable and attributable. \ac{AI} amplifies: capable teams become measurably more capable, dysfunctional teams measurably less so~\cite{DORA:2025ai}. If the surrounding process sets the sign of the effect, governance must live in the process rather than in prompt discipline. \\
+AI participation is governed through repeatable mechanisms making contributions visible, traceable and attributable. \ac{AI} amplifies: capable teams become measurably more capable, dysfunctional teams measurably less so~\cite{DORA:2025ai}. If the surrounding process sets the sign of the effect, governance must live in the process rather than in prompt discipline. \\ \addlinespace
 
 \ac{SDLC}-Wide and Phase-Aware Integration &
-Participation is defined per phase, with hats and controls adapted to that phase's risks. Usage is unevenly distributed and concentrated on code generation, leaving requirements, design and maintenance with little guidance~\cite{Ahmed:2025ai, Hou:2025cl, Zhang:2025ea}; governing only the well-served phases would reproduce the gap the framework exists to close. \\
+Participation is defined per phase, with hats and controls adapted to that phase's risks. Usage is unevenly distributed and concentrated on code generation, leaving requirements, design and maintenance with little guidance~\cite{Ahmed:2025ai, Hou:2025cl, Zhang:2025ea}; governing only the well-served phases would reproduce the gap the framework exists to close. \\ \addlinespace
 
 Hats, Not People &
-Every role named is a function that must be performed, not a person who must exist. A design commitment rather than an empirical claim, argued in \Cref{sec:roles}; its visible consequence is that no role is named whose only content is oversight. \\
+Every role named is a function that must be performed, not a person who must exist. A design commitment rather than an empirical claim, argued in \Cref{sec:roles}; its visible consequence is that no role is named whose only content is oversight. \\ \addlinespace
 
 Explicit Responsibility and Accountability &
-For each AI-assisted activity a named hat is accountable for initiation, validation and acceptance. When an artefact has no identifiable author no party is answerable for its defects, and ownership is among the concerns most frequently raised by practitioners and organisations~\cite{Ahmed:2025ai, Banh:2025cf}. Accountability attaches to a function so that it survives the absence of any individual. \\
+For each AI-assisted activity a named hat is accountable for initiation, validation and acceptance. When an artefact has no identifiable author no party is answerable for its defects, and ownership is among the concerns most frequently raised by practitioners and organisations~\cite{Ahmed:2025ai, Banh:2025cf}. Accountability attaches to a function so that it survives the absence of any individual. \\ \addlinespace
 
 Risk-Proportional Validation and Control &
-Validation rigour is proportional to potential technical, organisational and ethical risk. The defect profile is not uniform: vulnerability rates reach 72\% for Java against 45\% overall and cluster in specific weakness categories~\cite{Veracode:2025gen, Zhao:2025vibe}. A uniform control is either too costly for the routine case or too weak for the dangerous one, which is why remediation separates a Fast Lane from a Secure Lane. \\
+Validation rigour is proportional to potential technical, organisational and ethical risk. The defect profile is not uniform: vulnerability rates reach 72\% for Java against 45\% overall and cluster in specific weakness categories~\cite{Veracode:2025gen, Zhao:2025vibe}. A uniform control is either too costly for the routine case or too weak for the dangerous one, which is why remediation separates a Fast Lane from a Secure Lane. \\ \addlinespace
 
 Spec-Anchored Continuity &
 A persistent versioned specification is maintained alongside the codebase and is what every AI-assisted activity is constrained by and validated against. As established in \Cref{sec:background_sdd} this instantiates spec-driven development rather than inventing it~\cite{Thoughtworks:2025SD, Farrag:2026sd}. The limitation belongs with the claim: its own principal source describes the practice as emerging and its scaling behaviour as an open risk~\cite{Thoughtworks:2025SD}, which \Cref{chap:evaluation} treats as something to test rather than assume. \\
@@ -282,13 +282,13 @@ The gates do not relax as the team shrinks. On a solo project each gate is self-
 \bottomrule
 \endlastfoot
 
-\ac{PM} & Stakeholder alignment, \acp{OKR} and \acp{KPI}, and the business justification of a Unit of Work before it reaches the Squad; receives classified business deviations from Maintenance. & Strategic alignment sign-off \\
-\ac{PO} (Trio) & Business value and prioritisation of User Stories; leads the critique of AI-drafted scenarios during Mob Elaboration. & Discovery, with the Trio \\
-Tech Lead (Trio) & Technical specification, architectural feasibility and integration risk; decomposes stories into tasks and flags high-risk ones before any Bolt begins. & Design (technical) and the pre-Bolt architectural lock \\
-Design Lead (Trio) & Prototype or visual element for every feature, and its validation through usability testing. & Design (usability) \\
-Bolt Master & Continuous flow: prioritises the Bolt Backlog, manages dependencies, assigns by capacity once the Tech Lead hat has approved. & None; holds logistics authority deliberately separated from technical authority \\
-Developer & Executes tasks with the model, generates and validates the Consistency Factor, and remains answerable for correctness, security and being able to explain the logic. & Implementation \\
-\ac{QA} & Validates the assembled story against the approved Gherkin in a separate environment, verifying generated \ac{BDD} scripts before execution and probing edge cases manually. & Testing \\
+\ac{PM} & Stakeholder alignment, \acp{OKR} and \acp{KPI}, and the business justification of a Unit of Work before it reaches the Squad; receives classified business deviations from Maintenance. & Strategic alignment sign-off \\ \addlinespace
+\ac{PO} (Trio) & Business value and prioritisation of User Stories; leads the critique of AI-drafted scenarios during Mob Elaboration. & Discovery, with the Trio \\ \addlinespace
+Tech Lead (Trio) & Technical specification, architectural feasibility and integration risk; decomposes stories into tasks and flags high-risk ones before any Bolt begins. & Design (technical) and the pre-Bolt architectural lock \\ \addlinespace
+Design Lead (Trio) & Prototype or visual element for every feature, and its validation through usability testing. & Design (usability) \\ \addlinespace
+Bolt Master & Continuous flow: prioritises the Bolt Backlog, manages dependencies, assigns by capacity once the Tech Lead hat has approved. & None; holds logistics authority deliberately separated from technical authority \\ \addlinespace
+Developer & Executes tasks with the model, generates and validates the Consistency Factor, and remains answerable for correctness, security and being able to explain the logic. & Implementation \\ \addlinespace
+\ac{QA} & Validates the assembled story against the approved Gherkin in a separate environment, verifying generated \ac{BDD} scripts before execution and probing edge cases manually. & Testing \\ \addlinespace
 Deploying hat & Not a distinct role: whoever performs a release approves it and reviews the security of any generated \ac{IaC} or configuration. & Deployment \\
 
 \end{longtable}
@@ -342,10 +342,10 @@ A quality gate has three named components: an owning hat, a specific body of evi
 \bottomrule
 \endlastfoot
 
-Discovery & The Trio & Testable Gherkin acceptance criteria approved through the Interactive Bridge; every story sized XS or S; the functional specification locked and versioned. & Scenarios return to Mob Elaboration; oversized stories are decomposed before re-submission. \\
-Design & Design Lead and Tech Lead hats & An approved prototype validated by usability testing; a technical specification covering interface contract, data model and runtime contract, anchored into the persistent context. & Feedback returns to prototype generation or architectural specification; no task may enter the Bolt Backlog. \\
-Implementation & Developer hat & Every task complete, passing the pipeline and the Consistency Factor, with the developer able to explain the generated logic. & The story does not enter staging; incomplete or unexplained tasks return to the Bolt Backlog. \\
-Testing & \ac{QA} hat & The assembled story validated in staging against the locked Gherkin through verified \ac{BDD} scripts, with edge cases probed manually. & A Fix-Bolt is triggered with the exact failing evidence attached; the story re-enters staging afterwards. \\
+Discovery & The Trio & Testable Gherkin acceptance criteria approved through the Interactive Bridge; every story sized XS or S; the functional specification locked and versioned. & Scenarios return to Mob Elaboration; oversized stories are decomposed before re-submission. \\ \addlinespace
+Design & Design Lead and Tech Lead hats & An approved prototype validated by usability testing; a technical specification covering interface contract, data model and runtime contract, anchored into the persistent context. & Feedback returns to prototype generation or architectural specification; no task may enter the Bolt Backlog. \\ \addlinespace
+Implementation & Developer hat & Every task complete, passing the pipeline and the Consistency Factor, with the developer able to explain the generated logic. & The story does not enter staging; incomplete or unexplained tasks return to the Bolt Backlog. \\ \addlinespace
+Testing & \ac{QA} hat & The assembled story validated in staging against the locked Gherkin through verified \ac{BDD} scripts, with edge cases probed manually. & A Fix-Bolt is triggered with the exact failing evidence attached; the story re-enters staging afterwards. \\ \addlinespace
 Deployment & Whoever performs the deployment & Explicit approval of the release and a security review of any generated \ac{IaC}, configuration or migration; the persistent context updated to the live state. & The specific objection is fed back for a compliant regeneration; the release does not proceed. \\
 
 \end{longtable}
@@ -403,15 +403,15 @@ Two of the steps are substantive design choices rather than sequencing. In Maint
 \bottomrule
 \endlastfoot
 
-Mob Elaboration & A Unit of Work brought to the Squad & The Trio supplies intent, personas and domain constraints; the agent drafts fractional stories in natural language; the Trio cross-examines for value, feasibility and coherence, issuing confirm, add, delete or modify instructions until satisfied; the agent then compiles the approved scenarios into Gherkin and anchors the result. & The Discovery Gate passes and the functional specification is locked \\
+Mob Elaboration & A Unit of Work brought to the Squad & The Trio supplies intent, personas and domain constraints; the agent drafts fractional stories in natural language; the Trio cross-examines for value, feasibility and coherence, issuing confirm, add, delete or modify instructions until satisfied; the agent then compiles the approved scenarios into Gherkin and anchors the result. & The Discovery Gate passes and the functional specification is locked \\ \addlinespace
 
-Design and Prototyping & Locked Gherkin acceptance criteria & The Design Lead hat prompts for screens and flows; the Tech Lead hat prompts for interface contract, data model and runtime contract and anchors them; usability testing and architectural review run in parallel. & Both validations pass and tasks enter the Bolt Backlog \\
+Design and Prototyping & Locked Gherkin acceptance criteria & The Design Lead hat prompts for screens and flows; the Tech Lead hat prompts for interface contract, data model and runtime contract and anchors them; usability testing and architectural review run in parallel. & Both validations pass and tasks enter the Bolt Backlog \\ \addlinespace
 
-Maintenance and Evolution & A post-deployment signal & Classify before any code is opened: a business deviation or specification gap routes to the \ac{PM} hat for a value decision and re-opens the owning phase; a technical defect routes to a Developer hat, who narrows the context to the report, the test evidence and the isolated fragment, asks only why that logic failed, and verifies the diagnosis manually. & The signal is classified and routed, with a verified diagnosis where applicable \\
+Maintenance and Evolution & A post-deployment signal & Classify before any code is opened: a business deviation or specification gap routes to the \ac{PM} hat for a value decision and re-opens the owning phase; a technical defect routes to a Developer hat, who narrows the context to the report, the test evidence and the isolated fragment, asks only why that logic failed, and verifies the diagnosis manually. & The signal is classified and routed, with a verified diagnosis where applicable \\ \addlinespace
 
-Fix-Bolt & A failed Testing Gate or a verified defect & Pulled immediately with task breakdown skipped; the agent resolves only the specific defect while adhering to the anchored specification; the developer reviews for newly introduced vulnerabilities, not only symptom resolution; existing and new unit tests must pass. & Low risk takes the Fast Lane to the pipeline; higher risk takes the Secure Lane through a Regression Bypass in staging \\
+Fix-Bolt & A failed Testing Gate or a verified defect & Pulled immediately with task breakdown skipped; the agent resolves only the specific defect while adhering to the anchored specification; the developer reviews for newly introduced vulnerabilities, not only symptom resolution; existing and new unit tests must pass. & Low risk takes the Fast Lane to the pipeline; higher risk takes the Secure Lane through a Regression Bypass in staging \\ \addlinespace
 
-\ac{QA} Validation & A story that has passed the Implementation Gate & The \ac{QA} hat opens the locked functional specification rather than the implementation, prompts for end-to-end \ac{BDD} scripts and verifies them manually \emph{before} execution, since an unverified script can report a passing scenario it never exercised, then probes edge cases exploratively. & The Testing Gate passes, or a Fix-Bolt is triggered with the failing evidence \\
+\ac{QA} Validation & A story that has passed the Implementation Gate & The \ac{QA} hat opens the locked functional specification rather than the implementation, prompts for end-to-end \ac{BDD} scripts and verifies them manually \emph{before} execution, since an unverified script can report a passing scenario it never exercised, then probes edge cases exploratively. & The Testing Gate passes, or a Fix-Bolt is triggered with the failing evidence \\ \addlinespace
 
 Deployment and Release & A story that has passed the Testing Gate & The agent answers one bounded question, whether the release requires new infrastructure, configuration or migrations, and generates artefacts only when it does; whoever deploys reviews any generated artefact for vulnerabilities and policy violations. & The Deployment Gate passes and the persistent context is updated to the live state \\
 
