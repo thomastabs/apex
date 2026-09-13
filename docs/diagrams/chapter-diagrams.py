@@ -209,7 +209,12 @@ def dsrm():
     LH = 40
     HEAD_PAD = 14      # vertical padding around the header text
     RAIL_H = 74        # space above the cards for the "Iterative Process" rail
-    LOOP_H = 132       # space below the cards for the feedback connectors
+    # Per-box feedback connectors below the row (one lane per phase after the
+    # first, stepping down like a staircase) removed 2026-09-14 (Tomás: they
+    # read as confusing) - the "Iterative Process" rail above the cards
+    # already states the loop; five extra dashed lanes crossing under the row
+    # were redundant with it, not a second independent claim.
+    LOOP_H = 0
 
     W = M * 2 + 6 * BW + 5 * GAP
 
@@ -275,17 +280,6 @@ def dsrm():
             if ln:
                 out.append(text(x + BW / 2, by + k * LH, ln, BS, anchor="middle"))
 
-    # ---- feedback connectors below the row, each fully closed inside the canvas
-    bot = top + CARD_H
-    for i in range(5):
-        lane = bot + 28 + (4 - i) * 18
-        out.append(f'<path d="M {cx(i + 1):.1f} {bot:.1f} V {lane:.1f} '
-                   f'H {cx(i):.1f} V {bot + 16:.1f}" fill="none" stroke="{LOOP}" '
-                   f'stroke-width="2.4" stroke-dasharray="8 7" '
-                   f'stroke-linecap="round" stroke-linejoin="round"/>')
-        out.append(f'<polygon points="{cx(i):.1f},{bot + 2:.1f} '
-                   f'{cx(i) - 7.5:.1f},{bot + 18:.1f} '
-                   f'{cx(i) + 7.5:.1f},{bot + 18:.1f}" fill="{LOOP}"/>')
     return svg(W, H, out)
 
 

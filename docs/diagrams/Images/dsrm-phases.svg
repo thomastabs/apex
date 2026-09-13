@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2388 768" width="2388" height="768">
-<rect x="0" y="0" width="2388" height="768" fill="#FFFFFF"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2388 636" width="2388" height="636">
+<rect x="0" y="0" width="2388" height="636" fill="#FFFFFF"/>
 <path d="M 2184.0 92.0 V 44.0 H 600.0 V 72.0" fill="none" stroke="#666666" stroke-width="2.6" stroke-dasharray="9 8" stroke-linecap="round" stroke-linejoin="round"/>
 <polygon points="600.0,90.0 591.0,70.0 609.0,70.0" fill="#666666"/>
 <circle cx="2184.0" cy="92.0" r="5.5" fill="#666666"/>
@@ -76,14 +76,4 @@
 <text x="2184.0" y="154.2" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="32" font-weight="bold" fill="#000000" text-anchor="middle">Communication</text>
 <text x="2184.0" y="377.2" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="33" fill="#000000" text-anchor="middle">Dissertation</text>
 <text x="2184.0" y="457.2" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="33" fill="#000000" text-anchor="middle">Papers</text>
-<path d="M 600.0 618.0 V 718.0 H 204.0 V 634.0" fill="none" stroke="#666666" stroke-width="2.4" stroke-dasharray="8 7" stroke-linecap="round" stroke-linejoin="round"/>
-<polygon points="204.0,620.0 196.5,636.0 211.5,636.0" fill="#666666"/>
-<path d="M 996.0 618.0 V 700.0 H 600.0 V 634.0" fill="none" stroke="#666666" stroke-width="2.4" stroke-dasharray="8 7" stroke-linecap="round" stroke-linejoin="round"/>
-<polygon points="600.0,620.0 592.5,636.0 607.5,636.0" fill="#666666"/>
-<path d="M 1392.0 618.0 V 682.0 H 996.0 V 634.0" fill="none" stroke="#666666" stroke-width="2.4" stroke-dasharray="8 7" stroke-linecap="round" stroke-linejoin="round"/>
-<polygon points="996.0,620.0 988.5,636.0 1003.5,636.0" fill="#666666"/>
-<path d="M 1788.0 618.0 V 664.0 H 1392.0 V 634.0" fill="none" stroke="#666666" stroke-width="2.4" stroke-dasharray="8 7" stroke-linecap="round" stroke-linejoin="round"/>
-<polygon points="1392.0,620.0 1384.5,636.0 1399.5,636.0" fill="#666666"/>
-<path d="M 2184.0 618.0 V 646.0 H 1788.0 V 634.0" fill="none" stroke="#666666" stroke-width="2.4" stroke-dasharray="8 7" stroke-linecap="round" stroke-linejoin="round"/>
-<polygon points="1788.0,620.0 1780.5,636.0 1795.5,636.0" fill="#666666"/>
 </svg>
