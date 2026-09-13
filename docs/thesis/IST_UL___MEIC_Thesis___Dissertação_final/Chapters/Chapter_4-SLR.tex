@@ -39,6 +39,16 @@ systematic review:
 \midrule
 \endfirsthead
 
+\toprule
+\textbf{RQ} & \textbf{Research Question} & \textbf{Focus} \\
+\midrule
+\endhead
+
+\midrule
+\multicolumn{3}{r}{\textit{Continued on next page}}\\
+\bottomrule
+\endfoot
+
 \bottomrule
 \endlastfoot
 
@@ -80,7 +90,7 @@ The review begins with a literature search: a search string is defined and execu
 
 \midrule
 \multicolumn{2}{r}{\textit{Continued on next page}} \\
-\midrule
+\bottomrule
 \endfoot
 
 \bottomrule
@@ -88,13 +98,12 @@ The review begins with a literature search: a search string is defined and execu
 
 Source & EBSCO \\
 
+\addlinespace
 Final Search String &
-(``Vibe Cod*'' OR ``AI models'' OR ``AI agen*'' OR ``large language model*'' OR ``generative AI'' \\
- & OR openai OR ``chatgpt'' OR LLM* OR ``claude'' OR ``gemini'' OR copilot OR co-pilot) AND (``software development'' OR ``application development'' OR ``code generation'') \\
-
-Search Method & Search string found in the abstract of articles in English academic journals or conference materials, \\
- & with no date range limit \\
-
+(``Vibe Cod*'' OR ``AI models'' OR ``AI agen*'' OR ``large language model*'' OR ``generative AI'' OR openai OR ``chatgpt'' OR LLM* OR ``claude'' OR ``gemini'' OR copilot OR co-pilot) AND (``software development'' OR ``application development'' OR ``code generation'') \\
+\addlinespace
+Search Method & Search string found in the abstract of articles in English academic journals or conference materials, with no date range limit \\
+\addlinespace
 Results & 646 \\
 
 \end{longtable}
@@ -129,7 +138,7 @@ An article that answered any of the five research questions clearly and explicit
 {\small
 \renewcommand{\arraystretch}{1.25}
 
-\begin{longtable}{>{\centering\arraybackslash}p{10.5cm} | >{\centering\arraybackslash}p{4.5cm}}
+\begin{longtable}{>{\centering\arraybackslash}p{10.2cm} >{\centering\arraybackslash}p{4.5cm}}
 \caption{Inclusion and Exclusion Criteria}
 \label{tab:inclusion_exclusion} \\
 \toprule
@@ -144,7 +153,7 @@ An article that answered any of the five research questions clearly and explicit
 
 \midrule
 \multicolumn{2}{r}{\textit{Continued on next page}} \\
-\midrule
+\bottomrule
 \endfoot
 
 \bottomrule
@@ -193,7 +202,7 @@ The third and last stage reports what the analysis of the retained articles esta
 The first research question concerns the benefits of AI and \ac{LLM} adoption for developers, companies and other stakeholders. \Cref{tab:benefits} collects the benefits reported in the literature; what follows analyses them.
 
 {\small
-\begin{longtable}{>{\raggedright\arraybackslash} p{3cm} p{9.3cm} p{0.2cm} p{1.8cm}}
+\begin{longtable}{>{\raggedright\arraybackslash} p{3cm} p{9.3cm} p{0.2cm} >{\raggedright\arraybackslash}p{1.8cm}}
 \caption{Benefits of using AI and LLMs in Software Development}
 \label{tab:benefits} \\
 
@@ -249,7 +258,7 @@ Beyond the direct impact on the codebase, AI also improves developer job satisfa
 
 The second research question concerns the consequences that may arise from incorporating AI and \acp{LLM} into software development, in code generation and elsewhere. Those reported across the corpus are collected in \Cref{tab:consequences}.
 {\small
-\begin{longtable}{>{\raggedright\arraybackslash} p{3cm} p{9.3cm} p{0.2cm} p{1.8cm}}
+\begin{longtable}{>{\raggedright\arraybackslash} p{3cm} p{9.3cm} p{0.2cm} >{\raggedright\arraybackslash}p{1.8cm}}
 \caption{Consequences of using AI and LLMs in Software Development}
 \label{tab:consequences} \\
 
@@ -323,7 +332,7 @@ not a footnote to it.
 The third research question asks which methodologies and management methods are used to integrate AI and \acp{LLM} into software development. \Cref{tab:methodologies} lists those the corpus reports.
 
 {\small
-\begin{longtable}{>{\raggedright\arraybackslash} p{3cm} p{9.3cm} p{0.2cm} p{1.8cm}}
+\begin{longtable}{>{\raggedright\arraybackslash} p{3cm} p{9.3cm} p{0.2cm} >{\raggedright\arraybackslash}p{1.8cm}}
 \caption{Methodologies and Management Methods used to integrate AI and LLMs in Software Development}
 \label{tab:methodologies} \\
 
@@ -461,8 +470,8 @@ maintenance.
 \midrule
 \endfirsthead
 
-\midrule
-\textbf{Main Phase} & \textbf{Main AI Contributions} & \textbf{Key Challenges} \\
+\toprule
+\textbf{SDLC Phase} & \textbf{Main AI Contributions} & \textbf{Main Challenges} \\
 \midrule
 \endhead
 
