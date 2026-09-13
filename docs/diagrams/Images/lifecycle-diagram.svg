@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1734 524" width="1734" height="524">
+<rect x="0" y="0" width="1734" height="524" fill="#FFFFFF"/>
+<g fill="none" stroke="#64748B" stroke-width="3.2" stroke-dasharray="9 8" stroke-linecap="round">
+  <path d="M 1512 152 V 250 Q 1512 268 1494 268 H 742.0 Q 724.0 268 724.0 250 V 171"/>
+  <path d="M 1582 152 V 344 Q 1582 362 1564 362 H 456.0 Q 438.0 362 438.0 344 V 171"/>
+  <path d="M 1652 152 V 438 Q 1652 456 1634 456 H 170.0 Q 152.0 456 152.0 438 V 171"/>
+</g>
+<circle cx="1512" cy="152" r="6" fill="#64748B"/>
+<circle cx="1582" cy="152" r="6" fill="#64748B"/>
+<circle cx="1652" cy="152" r="6" fill="#64748B"/>
+<polygon points="724.0,153 714.5,174 733.5,174" fill="#64748B"/>
+<polygon points="438.0,153 428.5,174 447.5,174" fill="#64748B"/>
+<polygon points="152.0,153 142.5,174 161.5,174" fill="#64748B"/>
+<rect x="768.0" y="250" width="344.1" height="36" rx="6" fill="#FFFFFF"/>
+<text x="778.0" y="277" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="27" font-style="italic" fill="#475569">production defect (Fix-Bolt)</text>
+<rect x="482.0" y="344" width="221.1" height="36" rx="6" fill="#FFFFFF"/>
+<text x="492.0" y="371" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="27" font-style="italic" fill="#475569">specification gap</text>
+<rect x="196.0" y="438" width="242.1" height="36" rx="6" fill="#FFFFFF"/>
+<text x="206.0" y="465" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="27" font-style="italic" fill="#475569">business deviation</text>
+<line x1="281" y1="96.0" x2="295" y2="96.0" stroke="#5B21B6" stroke-width="3.5" stroke-linecap="round"/>
+<polygon points="312,96.0 293,86.5 293,105.5" fill="#5B21B6"/>
+<line x1="567" y1="96.0" x2="581" y2="96.0" stroke="#5B21B6" stroke-width="3.5" stroke-linecap="round"/>
+<polygon points="598,96.0 579,86.5 579,105.5" fill="#5B21B6"/>
+<line x1="853" y1="96.0" x2="867" y2="96.0" stroke="#5B21B6" stroke-width="3.5" stroke-linecap="round"/>
+<polygon points="884,96.0 865,86.5 865,105.5" fill="#5B21B6"/>
+<line x1="1139" y1="96.0" x2="1153" y2="96.0" stroke="#5B21B6" stroke-width="3.5" stroke-linecap="round"/>
+<polygon points="1170,96.0 1151,86.5 1151,105.5" fill="#5B21B6"/>
+<line x1="1425" y1="96.0" x2="1439" y2="96.0" stroke="#5B21B6" stroke-width="3.5" stroke-linecap="round"/>
+<polygon points="1456,96.0 1437,86.5 1437,105.5" fill="#5B21B6"/>
+<rect x="30" y="40" width="244" height="112" rx="14" fill="#F5F3FF" stroke="#5B21B6" stroke-width="3"/>
+<text x="152.0" y="90.0" text-anchor="middle" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" font-weight="bold" fill="#2E1065">Discovery &amp;</text>
+<text x="152.0" y="120.0" text-anchor="middle" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" font-weight="bold" fill="#2E1065">Requirements</text>
+<rect x="316" y="40" width="244" height="112" rx="14" fill="#F5F3FF" stroke="#5B21B6" stroke-width="3"/>
+<text x="438.0" y="75.0" text-anchor="middle" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" font-weight="bold" fill="#2E1065">Design,</text>
+<text x="438.0" y="105.0" text-anchor="middle" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" font-weight="bold" fill="#2E1065">Prototyping &amp;</text>
+<text x="438.0" y="135.0" text-anchor="middle" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" font-weight="bold" fill="#2E1065">Architecture</text>
+<rect x="602" y="40" width="244" height="112" rx="14" fill="#F5F3FF" stroke="#5B21B6" stroke-width="3"/>
+<text x="724.0" y="105.0" text-anchor="middle" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" font-weight="bold" fill="#2E1065">Implementation</text>
+<rect x="888" y="40" width="244" height="112" rx="14" fill="#F5F3FF" stroke="#5B21B6" stroke-width="3"/>
+<text x="1010.0" y="105.0" text-anchor="middle" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" font-weight="bold" fill="#2E1065">Testing</text>
+<rect x="1174" y="40" width="244" height="112" rx="14" fill="#F5F3FF" stroke="#5B21B6" stroke-width="3"/>
+<text x="1296.0" y="105.0" text-anchor="middle" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" font-weight="bold" fill="#2E1065">Deployment</text>
+<rect x="1460" y="40" width="244" height="112" rx="14" fill="#EDE9FE" stroke="#5B21B6" stroke-width="3"/>
+<text x="1582.0" y="105.0" text-anchor="middle" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" font-weight="bold" fill="#2E1065">Maintenance</text>
+</svg>
