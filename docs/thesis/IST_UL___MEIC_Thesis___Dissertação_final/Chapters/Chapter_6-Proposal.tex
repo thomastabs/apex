@@ -166,11 +166,12 @@ The phases are listed in an order, but that order is not the shape of the proces
 
 {\scriptsize
 \renewcommand{\arraystretch}{1.3}
-\begin{longtable}{>{\raggedright\arraybackslash}p{2.1cm}
-                  >{\raggedright\arraybackslash}p{3.4cm}
-                  >{\raggedright\arraybackslash}p{3.0cm}
-                  >{\raggedright\arraybackslash}p{3.4cm}
-                  >{\raggedright\arraybackslash}p{3.4cm}}
+\setlength{\tabcolsep}{4pt}
+\begin{longtable}{>{\raggedright\arraybackslash}p{1.95cm}
+                  >{\raggedright\arraybackslash}p{3.25cm}
+                  >{\raggedright\arraybackslash}p{2.85cm}
+                  >{\raggedright\arraybackslash}p{3.25cm}
+                  >{\raggedright\arraybackslash}p{3.2cm}}
 \caption[The six lifecycle phases and the preceding Strategic Alignment stage]{The six lifecycle phases and the preceding Strategic Alignment stage: permitted AI contribution, output, accountable hat, and the control that must be satisfied before each is exited. Each phase takes as input the output of the one above it.}
 \label{tab:phase_mapping} \\
 
@@ -319,10 +320,10 @@ The central argument is that narrowing the model's working context is a control 
 A quality gate has three named components: an owning hat, a specific body of evidence that must exist and be examined, and a defined consequence when it is absent or inadequate. A checkpoint missing any of the three is a ceremony rather than a control, since it can be passed without anything being established. \Cref{tab:gates} specifies the five gates on those terms. One property of the set is worth stating separately from any individual gate: failure never discards work and never silently degrades it, but returns the work to a named earlier activity with the evidence attached, which is the same routing discipline Maintenance applies to post-deployment signals.
 
 {\footnotesize
-\begin{longtable}{>{\raggedright\arraybackslash}p{2.0cm}
-                  >{\raggedright\arraybackslash}p{2.2cm}
-                  >{\raggedright\arraybackslash}p{5.3cm}
-                  >{\raggedright\arraybackslash}p{5.1cm}}
+\begin{longtable}{>{\raggedright\arraybackslash}p{1.9cm}
+                  >{\raggedright\arraybackslash}p{2.1cm}
+                  >{\raggedright\arraybackslash}p{5.2cm}
+                  >{\raggedright\arraybackslash}p{5.0cm}}
 \caption{The five quality gates: owner, required evidence, and the consequence of failure}
 \label{tab:gates} \\
 \toprule
@@ -380,10 +381,10 @@ The phases, gates and hats state what must hold; the six playbooks in \Cref{tab:
 Two of the steps are substantive design choices rather than sequencing. In Maintenance, the prohibition on whole-project context is the single most restrictive rule in the framework, for the reason given in \Cref{sec:phases}. In the Fix-Bolt, the Regression Bypass re-runs the existing \ac{BDD} suite rather than regenerating it, because a regenerated suite is a different measurement instrument, and comparing a patched system against it cannot distinguish a fixed defect from a changed test.
 
 {\footnotesize
-\begin{longtable}{>{\raggedright\arraybackslash}p{2.2cm}
-                  >{\raggedright\arraybackslash}p{2.9cm}
-                  >{\raggedright\arraybackslash}p{6.4cm}
-                  >{\raggedright\arraybackslash}p{3.1cm}}
+\begin{longtable}{>{\raggedright\arraybackslash}p{2.1cm}
+                  >{\raggedright\arraybackslash}p{2.8cm}
+                  >{\raggedright\arraybackslash}p{6.3cm}
+                  >{\raggedright\arraybackslash}p{3.0cm}}
 \caption{The six operational playbooks: trigger, procedure, and termination}
 \label{tab:playbooks} \\
 \toprule

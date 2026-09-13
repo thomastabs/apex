@@ -73,9 +73,18 @@
 % -----------------------------------------------------------------------------
 % THE ACKNOWLEGMENTS
 \pdfbookmark[0]{Acknowledgments}{acknowledgments}
+% The acknowledgments environment closes with a \cleardoublepage inside
+% istulthesis.cls, which was inserting a blank verso (folio ii) between the
+% acknowledgments and the abstract - the last survivor of the front-matter
+% blanks removed on 2026-09-10, invisible to that pass because it lives in the
+% class rather than in this file. Neutralised locally, in a group, rather than
+% by editing the IST template.
+\begingroup
+\let\cleardoublepage\clearpage
 \begin{acknowledgments}
 	\input{./Chapters/Acknowledgments.tex}
 \end{acknowledgments}
+\endgroup
 %
 % -----------------------------------------------------------------------------
 % THE ABSTRACT
@@ -273,8 +282,13 @@
 % Name of your BiBTeX file
 \bibliography{./Bibliography} % Put here your own filename
 %
-% The following command modifies the 'emphasis' style for bibliography entries
-\ULforem
+% \ULforem -> \normalem, 2026-09-13: this sits AFTER \bibliography, so it never
+% styled a bibliography entry - it switched underlined emphasis back on for
+% Appendices A and B, which is why every \emph{} there (Apex, the system,
+% produto, (reversed anchors)) rendered underlined while the same \emph{} in
+% Chapters 1-10 rendered italic. Keep normal emphasis to the end of the
+% document.
+\normalem
 % If Printing on DOUBLE SIDED pages, the second page should be white.
 % Otherwise, comment the following command:
 %\cleardoublepage
@@ -291,9 +305,13 @@
 %% First Appendix
 %\pdfbookmark[1]{Appendix A}{appendix}
 \input{./Chapters/AppendixA.tex}
-%% If Printing on DOUBLE SIDED pages, the second page should be white.
-%% Otherwise, comment the following command:
-\cleardoublepage
+%% cleardoublepage -> clearpage, 2026-09-13: this was the one inter-chapter
+%% separator the 2026-09-10 openany/clearpage pass missed. Appendix A ended on
+%% an odd page, so cleardoublepage inserted a blank verso before Appendix B -
+%% the same defect, and the same fix, as the nine main-body boundaries above.
+%% The deliberate double-sided blanks (after the title page, and the commented
+%% separators around the bibliography) are untouched.
+\clearpage
 %% Second Appendix
 %\pdfbookmark[1]{Appendix B}{appendix}
 \input{./Chapters/AppendixB.tex}
