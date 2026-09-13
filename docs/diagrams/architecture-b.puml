@@ -1,0 +1,94 @@
+@startuml
+' Part 2 of 2. Expands the "Guarded egress layer" component of architecture-a.puml
+' and shows every external service it reaches. Every arrow that leaves part 1
+' terminates on a dashed violet stub here, so no connector dangles across the two
+' figures.
+title Apex - System Architecture (2 of 2): The Guarded Egress Boundary
+
+left to right direction
+hide stereotype
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam componentStyle uml2
+skinparam nodesep 45
+skinparam ranksep 65
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 19
+skinparam titleFontSize 21
+skinparam component {
+  BorderColor #666666
+  BackgroundColor #F5F5F5
+}
+skinparam package {
+  BorderColor #888888
+  BackgroundColor #FFFFFF
+}
+skinparam ArrowColor #333333
+skinparam ArrowFontSize 17
+
+skinparam rectangle<<cont>> {
+  BorderColor #5B21B6
+  BorderStyle dashed
+  BackgroundColor #F5F3FF
+  FontColor #2E1065
+  FontStyle bold
+}
+
+rectangle "Phase routers ·\nPM Adapter\nfrom Figure 7.1" <<cont>> as FROMA
+rectangle "github-browser.ts\nfrom Figure 7.1" <<cont>> as FROMGHB
+
+package "Backend egress layer (FastAPI)" as BEG {
+  [taiga proxy\nSSRF · _egress] as PROX
+  [plane proxy\nSSRF-guarded] as PLPROX
+  [ai_engine\nprovider routing] as AIE
+  [figma_proxy / figma_fetch\nSSRF-pinned] as FIG
+  [github_fetch\nclone + repomix] as GHF
+  [github_actions\nworkflow dispatch] as GHA
+  [github_webhook\nHMAC push handler] as GHW
+}
+
+package "PM Tools" as PMP {
+  [Cloudflare relay\nnon-Azure IP] as RLY
+  [Taiga\napi.taiga.io / private] as TG
+  [Plane\napi.plane.so / self-hosted] as PLN
+}
+
+package "AI Providers" as AIP {
+  [Anthropic Claude] as CL
+  [OpenAI] as OAI
+  [Google Gemini] as GEM
+}
+
+package "Design Tools" as DTP {
+  [Figma REST API\napi.figma.com] as FGA
+}
+
+package "VCS" as VCSP {
+  [GitHub REST API] as GH
+}
+
+' ---- everything in-app enters the egress layer here ----
+FROMA --> PROX : /api/pm/taiga/*
+FROMA --> PLPROX : /api/pm/plane/*
+FROMA --> AIE
+FROMA --> FIG
+FROMA --> GHF
+FROMA --> GHA
+
+' ---- guarded outbound calls ----
+PROX --> RLY : Azure egress
+RLY --> TG
+PLPROX --> PLN
+AIE --> CL
+AIE --> OAI
+AIE --> GEM
+FIG --> FGA
+GHF --> GH : shallow clone + repomix
+GHA --> GH : dispatch workflow
+
+' ---- inbound, and the one credential-free browser-direct path ----
+GH --> GHW : push webhook (HMAC)
+FROMGHB --> GH : browser-direct
+
+@enduml

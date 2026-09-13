@@ -4,7 +4,11 @@
 % #############################################################################
 % SOURCE: docs/framework/Apex-Implementation-Report.docx is the authoritative
 % grounding for this chapter (architecture, testing, deployment, incident log).
-% Figures come from docs/diagrams/architecture.puml and user-flow.puml.
+% Figures come from docs/diagrams/architecture-a.puml, architecture-b.puml and
+% user-flow-a.puml / user-flow-b.puml. The architecture figure is authored as two
+% separate sources (a decomposition, not a crop of one wide rendering): part one
+% collapses the guarded egress layer to a single component, part two expands it.
+% Dashed violet stubs carry every connector that crosses between the two halves.
 % Suite sizes are a snapshot and are stated as such in the text.
 % #############################################################################
 % Title changed 2026-09-14 (supervisor feedback + Tomás): plainer, paired
@@ -34,14 +38,14 @@ Apex is a split full-stack application. The frontend is Next.js 15 with the App 
 \begin{figure}[p]
     \centering
     \includegraphics[width=\linewidth]{./Images/architecture-a.png}
-    \caption{Apex's system architecture: the frontend, the backend and the specification store. The figure is split across two pages for legibility; the point of it is the position of the two boundaries rather than the inventory of components, and this half shows the first, where all workflow state is written to a per-tenant, per-project specification store rather than to an application database. Continued in \Cref{fig:apex_architecture_b}.}
+    \caption{Apex's system architecture, part one of two: the frontend, the backend and the specification store. The figure is split across two pages for legibility; the point of it is the position of two boundaries rather than the inventory of components, and this half shows the first, where all workflow state is written to a per-tenant, per-project specification store rather than to an application database. The backend's guarded egress layer is drawn collapsed to a single component here and expanded in \Cref{fig:apex_architecture_b}; the dashed connector on the right marks where the two halves join.}
     \label{fig:apex_architecture}
 \end{figure}
 
 \begin{figure}[p]
     \centering
     \includegraphics[width=\linewidth]{./Images/architecture-b.png}
-    \caption{The same architecture, continuing \Cref{fig:apex_architecture}: the external services Apex integrates with. This half shows the second boundary the figure exists to make, that every outbound call to a user-configurable host passes through a server-side guarded proxy.}
+    \caption{Apex's system architecture, part two of two, expanding the guarded egress layer of \Cref{fig:apex_architecture} and the external services it reaches. This half shows the second boundary the figure exists to make, that every outbound call to a user-configurable host passes through a server-side guarded proxy. The dashed connectors carry over the callers from \Cref{fig:apex_architecture}; the browser-direct path to the version control host is the single documented exception, and the credential for it never reaches the backend.}
     \label{fig:apex_architecture_b}
 \end{figure}
 

@@ -1,0 +1,86 @@
+@startuml
+' Part 1 of 2. Split from architecture.puml: the single full-width rendering was
+' illegible at thesis print width. This half is the INTERNAL request path and the
+' specification-store boundary; the guarded egress layer is collapsed to one
+' component here and expanded in architecture-b.puml.
+title Apex - System Architecture (1 of 2): Internal Request Path and the Specification Store
+
+hide stereotype
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam componentStyle uml2
+skinparam nodesep 45
+skinparam ranksep 65
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 19
+skinparam titleFontSize 21
+skinparam component {
+  BorderColor #666666
+  BackgroundColor #F5F5F5
+}
+skinparam package {
+  BorderColor #888888
+  BackgroundColor #FFFFFF
+}
+skinparam ArrowColor #333333
+skinparam ArrowFontSize 17
+skinparam databaseBackgroundColor #E8F5E9
+skinparam databaseBorderColor #66A36B
+
+' Continuation stubs use the thesis violet so the convention is unmistakable.
+skinparam rectangle<<cont>> {
+  BorderColor #5B21B6
+  BorderStyle dashed
+  BackgroundColor #F5F3FF
+  FontColor #2E1065
+  FontStyle bold
+}
+
+package "Frontend (Next.js 15)" as FEP {
+  [Web UI / Phase 1-6\nworkflow + sidebar] as UI
+  [React Query 5\n(server state)] as RQ
+  [Zustand stores\n(session · drafts)] as ZS
+  [PM Adapter\n(Taiga / Plane)] as PMA
+  [github-browser.ts] as GHB
+}
+
+package "Backend (FastAPI · single writer)" as BEP {
+  [FastAPI Server\nCORS · body-limit] as API
+  [Phase routers\nphase1-6 · workspace] as RT
+  [ContextService\nisolation seam] as CS
+  [storage.py\nStoragePath] as STG
+  [Guarded egress layer\nproxies · ai_engine · fetchers] as EGR
+}
+
+package "Spec Store" as SSP {
+  database "contextspec\nMarkdown + story-index.json" as STORE
+  [local disk /\nAzure File Share] as FSS
+}
+
+rectangle "External services\ncontinues in Figure 7.2" <<cont>> as CONT
+
+' ---- frontend internal ----
+UI --> RQ
+UI --> ZS
+RQ --> PMA
+
+' ---- frontend -> backend ----
+UI --> API : REST /api/*
+PMA --> EGR : /api/pm/taiga/*\n/api/pm/plane/*
+
+' ---- backend internal ----
+API --> RT
+RT --> CS
+RT --> EGR : dispatch
+CS --> STG
+
+' ---- boundary 1: all workflow state is written here ----
+STG -left-> STORE
+STORE --> FSS
+
+' ---- boundary 2: the only way out (detailed in part 2) ----
+EGR --> CONT : guarded outbound calls\n+ inbound push webhook
+GHB --> CONT : browser-direct\n(documented exception)
+
+@enduml
