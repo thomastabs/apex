@@ -202,7 +202,7 @@ def dsrm():
 
     M = 18
     BW = 372
-    GAP = 24
+    GAP = 40
     PAD = 12
     TS = 32
     BS = 33
@@ -237,17 +237,26 @@ def dsrm():
     def cx(i):
         return M + i * (BW + GAP) + BW / 2
 
-    # ---- iterative-process rail above the row, one drop per phase after the
-    # first, so the feedback path is drawn entirely inside the canvas.
+    # ---- iterative-process rail above the row. Originates at Communication
+    # (index 5, the circle marks the loop's source) and drops back into three
+    # earlier phases genuinely re-entered by iteration - Definition of the
+    # Goal, Design and Development, and Evaluation (2026-09-14, Tomás: the
+    # rail should connect to those steps too, not only the first) - each drop
+    # arrowed the same way so all three read as equally real entry points.
     rail_y = M + 26
     out.append(f'<path d="M {cx(5):.1f} {top:.1f} V {rail_y:.1f} '
-               f'H {cx(1):.1f} V {top - 20:.1f}" fill="none" stroke="{LOOP}" '
+               f'H {cx(1):.1f}" fill="none" stroke="{LOOP}" '
                f'stroke-width="2.6" stroke-dasharray="9 8" '
                f'stroke-linecap="round" stroke-linejoin="round"/>')
-    out.append(f'<polygon points="{cx(1):.1f},{top - 2:.1f} '
-               f'{cx(1) - 9:.1f},{top - 22:.1f} {cx(1) + 9:.1f},{top - 22:.1f}" '
-               f'fill="{LOOP}"/>')
     out.append(f'<circle cx="{cx(5):.1f}" cy="{top:.1f}" r="5.5" fill="{LOOP}"/>')
+    for i in (1, 2, 4):
+        out.append(f'<line x1="{cx(i):.1f}" y1="{rail_y:.1f}" '
+                   f'x2="{cx(i):.1f}" y2="{top - 20:.1f}" stroke="{LOOP}" '
+                   f'stroke-width="2.6" stroke-dasharray="9 8" '
+                   f'stroke-linecap="round"/>')
+        out.append(f'<polygon points="{cx(i):.1f},{top - 2:.1f} '
+                   f'{cx(i) - 9:.1f},{top - 22:.1f} {cx(i) + 9:.1f},{top - 22:.1f}" '
+                   f'fill="{LOOP}"/>')
     lbl = "Iterative Process"
     lw = width(lbl, 25, bold=False)
     lx = (cx(1) + cx(5)) / 2
@@ -256,10 +265,14 @@ def dsrm():
     out.append(text(lx, rail_y + 9, lbl, 25, fill=LOOP_TEXT, anchor="middle",
                     italic=True))
 
-    # ---- forward arrows between the cards
+    # ---- forward arrows between the cards. Thickened and given a real
+    # visible shaft (2026-09-14, Tomás: hard to spot) - the previous GAP (24)
+    # left only about a pixel of line showing past the arrowhead; GAP is now
+    # 40 and the arrow is drawn with more headroom on each side so the shaft
+    # itself is unmistakable, not just a wedge touching both boxes.
     for i in range(5):
-        x1 = M + (i + 1) * BW + i * GAP + 4
-        out += arrow_right(x1, x1 + GAP - 8, top + head_h / 2, sw=3.0, head=15)
+        x1 = M + (i + 1) * BW + i * GAP + 3
+        out += arrow_right(x1, x1 + GAP - 6, top + head_h / 2, sw=4.5, head=18)
 
     # ---- the cards
     for i, ((tl, bl), _) in enumerate(zip(laid, PHASES)):
