@@ -250,15 +250,16 @@
 % IEEEtran: Used in general (recommended for IST Thesis)
 %           Entries are labelled and sorted by appearance in the document
 %           Labels are Numeric inside square brackets
-%\bibliographystyle{IEEEtran}
+% Switched to apalike 2026-09-13 (supervisor feedback: numbered citations
+% aren't conventional for a thesis), then reverted 2026-09-14 (Tomás: keep
+% numbered, matching Leonardo Cruz's accepted dissertation - same
+% supervisor, same benchmark this thesis already follows for structure and
+% length elsewhere - see REGULATIONS.md 1a). Kept IEEEtran.
+\bibliographystyle{IEEEtran}
 %
 % Apalike:  Entries formatted alphabetically, last name first, with identation
 %           Labels with Autor's Name and Year inside square brackets
-% Switched to this 2026-09-13 (supervisor feedback: numbered citations aren't
-% conventional for a thesis). Every citation in the document is a plain
-% \cite{key,...} - no natbib-specific \citet/\citep - so this is a drop-in
-% style change, no call-site edits needed.
-\bibliographystyle{apalike}
+%\bibliographystyle{apalike}
 %
 % Alpha:    Entries formatted with Autor's Name and Year, hanging identation
 %           Labels with Autor's abbr. Names and Year inside square brackets

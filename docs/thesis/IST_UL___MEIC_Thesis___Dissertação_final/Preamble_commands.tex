@@ -194,10 +194,10 @@
 % The 'cite' package will result in citation numbers being automatically
 % sorted and properly "ranged". i.e.,
 % [1], [2], [5]--[7], [9]
-% Commented out 2026-09-13: only useful with a numeric bibliography style;
-% main.tex now uses apalike (author-year), which this package doesn't apply
-% to and would do nothing for.
-%\usepackage{cite}
+% Commented out 2026-09-13 when main.tex briefly switched to apalike, then
+% restored 2026-09-14 when the bibliography style reverted to IEEEtran
+% (numeric) - see main.tex's bibliographystyle comment.
+\usepackage{cite}
 %
 % -----------------------------------------------------------------------------
 % PACKAGE acronym:
