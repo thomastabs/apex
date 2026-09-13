@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1642 607" width="1642" height="607">
+<rect x="0" y="0" width="1642" height="607" fill="#FFFFFF"/>
+<line x1="500.0" y1="57.0" x2="561.0" y2="57.0" stroke="#5B21B6" stroke-width="3.5" stroke-linecap="round"/>
+<polygon points="580.0,57.0 561.0,47.5 561.0,66.5" fill="#5B21B6"/>
+<line x1="1062.0" y1="57.0" x2="1123.0" y2="57.0" stroke="#5B21B6" stroke-width="3.5" stroke-linecap="round"/>
+<polygon points="1142.0,57.0 1123.0,47.5 1123.0,66.5" fill="#5B21B6"/>
+<rect x="26" y="26" width="466" height="555" rx="14" fill="#F5F3FF" stroke="#5B21B6" stroke-width="3"/>
+<path d="M 26 88 V 40 a 14 14 0 0 1 14 -14 H 478 a 14 14 0 0 1 14 14 V 88 Z" fill="#EDE9FE"/>
+<line x1="26" y1="88" x2="492" y2="88" stroke="#5B21B6" stroke-width="3"/>
+<text x="259.0" y="67.2" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="29" font-weight="bold" fill="#2E1065" text-anchor="middle">Planning the Review</text>
+<text x="46.0" y="123.5" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" fill="#3F3D56" text-anchor="start">Identifying the problem and motivation</text>
+<text x="46.0" y="154.5" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" fill="#3F3D56" text-anchor="start">within the realm of the use of AI and</text>
+<text x="46.0" y="185.5" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" fill="#3F3D56" text-anchor="start">LLMs in Software Development</text>
+<line x1="46" y1="211" x2="472" y2="211" stroke="#C4B5FD" stroke-width="1.6"/>
+<text x="46.0" y="246.5" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" fill="#3F3D56" text-anchor="start">Specify the Research Questions, by</text>
+<text x="46.0" y="277.5" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" fill="#3F3D56" text-anchor="start">identifying the benefits,</text>
+<text x="46.0" y="308.5" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" fill="#3F3D56" text-anchor="start">consequences, methodologies,</text>
+<text x="46.0" y="339.5" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" fill="#3F3D56" text-anchor="start">people's opinions and industry sectors</text>
+<text x="46.0" y="370.5" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" fill="#3F3D56" text-anchor="start">about the use of AI and LLMs in</text>
+<text x="46.0" y="401.5" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" fill="#3F3D56" text-anchor="start">Software Development</text>
+<line x1="46" y1="427" x2="472" y2="427" stroke="#C4B5FD" stroke-width="1.6"/>
+<text x="46.0" y="462.5" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" fill="#3F3D56" text-anchor="start">Design a Review Protocol by creating</text>
+<text x="46.0" y="493.5" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" fill="#3F3D56" text-anchor="start">the search string, identifying the</text>
+<text x="46.0" y="524.5" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" fill="#3F3D56" text-anchor="start">literature database, inclusion and</text>
+<text x="46.0" y="555.5" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" fill="#3F3D56" text-anchor="start">exclusion criteria</text>
+<rect x="588" y="26" width="466" height="277" rx="14" fill="#F5F3FF" stroke="#5B21B6" stroke-width="3"/>
+<path d="M 588 88 V 40 a 14 14 0 0 1 14 -14 H 1040 a 14 14 0 0 1 14 14 V 88 Z" fill="#EDE9FE"/>
+<line x1="588" y1="88" x2="1054" y2="88" stroke="#5B21B6" stroke-width="3"/>
+<text x="821.0" y="67.2" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="29" font-weight="bold" fill="#2E1065" text-anchor="middle">Conducting the Review</text>
+<text x="608.0" y="123.5" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" fill="#3F3D56" text-anchor="start">Obtain the set of selected papers by</text>
+<text x="608.0" y="154.5" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" fill="#3F3D56" text-anchor="start">filtering and article reading processes,</text>
+<text x="608.0" y="185.5" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" fill="#3F3D56" text-anchor="start">coming down to 31 papers</text>
+<line x1="608" y1="211" x2="1034" y2="211" stroke="#C4B5FD" stroke-width="1.6"/>
+<text x="608.0" y="246.5" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" fill="#3F3D56" text-anchor="start">Perform Data Extraction and Analysis</text>
+<text x="608.0" y="277.5" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" fill="#3F3D56" text-anchor="start">on the literature</text>
+<rect x="1150" y="26" width="466" height="277" rx="14" fill="#F5F3FF" stroke="#5B21B6" stroke-width="3"/>
+<path d="M 1150 88 V 40 a 14 14 0 0 1 14 -14 H 1602 a 14 14 0 0 1 14 14 V 88 Z" fill="#EDE9FE"/>
+<line x1="1150" y1="88" x2="1616" y2="88" stroke="#5B21B6" stroke-width="3"/>
+<text x="1383.0" y="67.2" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="29" font-weight="bold" fill="#2E1065" text-anchor="middle">Reporting the Review</text>
+<text x="1170.0" y="123.5" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" fill="#3F3D56" text-anchor="start">Summarize the Extracted Data into</text>
+<text x="1170.0" y="154.5" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" fill="#3F3D56" text-anchor="start">sections, each covering one research</text>
+<text x="1170.0" y="185.5" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" fill="#3F3D56" text-anchor="start">question findings</text>
+<line x1="1170" y1="211" x2="1596" y2="211" stroke="#C4B5FD" stroke-width="1.6"/>
+<text x="1170.0" y="246.5" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" fill="#3F3D56" text-anchor="start">Report the findings by answering the</text>
+<text x="1170.0" y="277.5" font-family="Helvetica, Arial, 'Liberation Sans', sans-serif" font-size="25" fill="#3F3D56" text-anchor="start">proposed research questions</text>
+</svg>
