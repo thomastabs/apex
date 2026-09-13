@@ -22,13 +22,18 @@
 % in Chapter 6; at cover size the loop-back curves and labels were illegible
 % clutter. Redrawn as a circular cycle (Tomás: "make it a circle, signifying
 % a cycle") rather than a row, so all six boxes are the same size and the
-% shape itself carries the cyclic meaning without extra arrows. x=2.5cm
+% shape itself carries the cyclic meaning without extra arrows. Drawn on a
+% wide ellipse rather than a true circle: the free band between the IST logo
+% (ends ~3.9cm) and the title block (starts 11.0cm) is short and full-width,
+% so an ellipse buys much larger boxes and type for the same vertical budget
+% - at 6cm square the labels printed at ~3pt and were unreadable. x=2.5cm
 % matches the title textblock's own left origin in cover-titlepage.sty, so
 % \centering (already set there) centers this image on the exact same span
-% as the title beneath it. Pre-sized to 6cm square via its embedded DPI tag
-% (no width option available on \thesislogo itself) to fit the gap between
-% the university logo and the title block.
-\thesislogo{2.5cm}{45mm}{./Images/lifecycle-diagram-cover.png}
+% as the title beneath it. Pre-sized to 12.6cm x 6.6cm via its embedded DPI
+% tag (no width option available on \thesislogo itself); y=40mm centres it in
+% the gap between the university logo and the title block, leaving a ~5mm
+% clear margin on both sides.
+\thesislogo{2.5cm}{40mm}{./Images/lifecycle-diagram-cover.png}
 %
 % -----------------------------------------------------------------------------
 % REQUIRED: Thesis TITLE
